@@ -1,0 +1,374 @@
+"use client"
+
+import { useState } from "react"
+import { MOCK_JOURNALS, MOCK_TANKS, MOCK_WATER_QUALITY } from "@/lib/mock-data"
+import { JournalEntry } from "@/types"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import {
+  BookOpen, Plus, Thermometer, Droplets, Wind, Waves, Fish, UtensilsCrossed,
+  RefreshCw, FlaskConical, Skull, CheckCircle2, Calendar, User, StickyNote
+} from "lucide-react"
+import { formatDate, formatDateTime } from "@/lib/utils"
+
+const FEED_TYPES = ["입식기 사료 (No.0)", "초기 사료 (No.1)", "성장기 사료 (No.2)", "성장기 사료 (No.3)", "마무리 사료 (No.4)", "기타"]
+const MICROBIAL_TYPES = ["EM균", "바실러스균", "광합성균", "복합 미생물제", "기타"]
+
+const defaultFormValues = {
+  tank_id: "",
+  date: new Date().toISOString().split("T")[0],
+  // Water quality
+  temperature: "",
+  ph: "",
+  do_level: "",
+  salinity: "",
+  ammonia: "",
+  nitrite: "",
+  nitrate: "",
+  alkalinity: "",
+  turbidity: "",
+  // Feeding
+  feeding_amount: "",
+  feed_type: "성장기 사료 (No.3)",
+  feeding_times: "4",
+  // Mortality
+  mortality_count: "",
+  // Water management
+  water_exchange_rate: "",
+  disinfection: false,
+  disinfection_type: "",
+  // Microbial
+  microbial_input: false,
+  microbial_type: "EM균",
+  microbial_amount: "",
+  // Checklist
+  check_aeration: false,
+  check_filtration: false,
+  check_circulation: false,
+  check_feeding_check: false,
+  // Notes
+  notes: "",
+}
+
+function JournalCard({ entry }: { entry: JournalEntry }) {
+  return (
+    <Card className="bg-slate-800/50 border-white/5 hover:border-white/10 transition-all">
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-white font-semibold">{entry.tank_name}</span>
+              <Badge variant="ocean" className="text-xs">{formatDate(entry.date)}</Badge>
+            </div>
+            <div className="flex items-center gap-1 text-xs text-slate-500">
+              <User className="w-3 h-3" />
+              <span>{entry.created_by}</span>
+              <span>·</span>
+              <span>{formatDateTime(entry.created_at)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+          <div className="bg-slate-700/50 rounded-lg p-3 text-center">
+            <div className="flex items-center justify-center gap-1 text-ocean-400 mb-1">
+              <UtensilsCrossed className="w-3.5 h-3.5" />
+            </div>
+            <p className="text-lg font-bold text-white">{entry.feeding_amount}<span className="text-xs text-slate-400">kg</span></p>
+            <p className="text-xs text-slate-400">급이량</p>
+          </div>
+          <div className="bg-slate-700/50 rounded-lg p-3 text-center">
+            <div className="flex items-center justify-center gap-1 text-amber-400 mb-1">
+              <Skull className="w-3.5 h-3.5" />
+            </div>
+            <p className="text-lg font-bold text-white">{entry.mortality_count.toLocaleString()}<span className="text-xs text-slate-400">마리</span></p>
+            <p className="text-xs text-slate-400">폐사</p>
+          </div>
+          <div className="bg-slate-700/50 rounded-lg p-3 text-center">
+            <div className="flex items-center justify-center gap-1 text-teal-400 mb-1">
+              <RefreshCw className="w-3.5 h-3.5" />
+            </div>
+            <p className="text-lg font-bold text-white">{entry.water_exchange_rate}<span className="text-xs text-slate-400">%</span></p>
+            <p className="text-xs text-slate-400">환수율</p>
+          </div>
+          <div className="bg-slate-700/50 rounded-lg p-3 text-center">
+            <div className="flex items-center justify-center gap-1 text-purple-400 mb-1">
+              <FlaskConical className="w-3.5 h-3.5" />
+            </div>
+            <p className="text-sm font-bold text-white">{entry.microbial_input ? entry.microbial_type || "투입" : "미투입"}</p>
+            <p className="text-xs text-slate-400">미생물</p>
+          </div>
+        </div>
+
+        <div className="text-xs text-slate-300 bg-slate-700/30 rounded-lg px-3 py-2 flex items-start gap-2">
+          <p className="text-xs text-slate-400 font-medium shrink-0">사료:</p>
+          <p>{entry.feed_type} · 일 {entry.feeding_times}회</p>
+        </div>
+
+        {entry.notes && (
+          <div className="mt-2 text-xs text-slate-300 bg-slate-700/30 rounded-lg px-3 py-2 flex items-start gap-2">
+            <StickyNote className="w-3 h-3 text-slate-400 mt-0.5 shrink-0" />
+            <p>{entry.notes}</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+export default function JournalPage() {
+  const [journals, setJournals] = useState<JournalEntry[]>(MOCK_JOURNALS)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [form, setForm] = useState(defaultFormValues)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  const update = (field: string, value: string | boolean) =>
+    setForm(prev => ({ ...prev, [field]: value }))
+
+  const handleSave = async () => {
+    setSaving(true)
+    await new Promise(r => setTimeout(r, 800))
+    const selectedTank = MOCK_TANKS.find(t => t.id === form.tank_id)
+    const newEntry: JournalEntry = {
+      id: "journal-" + Date.now(),
+      tank_id: form.tank_id,
+      tank_name: selectedTank?.name || "미선택",
+      date: form.date,
+      feeding_amount: parseFloat(form.feeding_amount) || 0,
+      feed_type: form.feed_type,
+      feeding_times: parseInt(form.feeding_times) || 0,
+      mortality_count: parseInt(form.mortality_count) || 0,
+      water_exchange_rate: parseInt(form.water_exchange_rate) || 0,
+      microbial_input: form.microbial_input,
+      microbial_type: form.microbial_input ? form.microbial_type : undefined,
+      notes: form.notes,
+      created_by: "김양식",
+      created_at: new Date().toISOString(),
+    }
+    setJournals(prev => [newEntry, ...prev])
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => { setSaved(false); setDialogOpen(false); setForm(defaultFormValues) }, 1200)
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-white">양식 일지</h2>
+          <p className="text-sm text-slate-400 mt-0.5">수질 측정, 급이, 폐사, 작업 내역을 기록합니다</p>
+        </div>
+        <Button onClick={() => setDialogOpen(true)} className="bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white">
+          <Plus className="w-4 h-4" />일지 작성
+        </Button>
+      </div>
+
+      {/* Recent entries */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {journals.map(entry => <JournalCard key={entry.id} entry={entry} />)}
+      </div>
+
+      {/* New Journal Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="bg-slate-900 border-white/10 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-ocean-400" />양식 일지 작성
+            </DialogTitle>
+          </DialogHeader>
+
+          <Tabs defaultValue="basic" className="mt-2">
+            <TabsList className="bg-slate-800 border-white/5 w-full">
+              <TabsTrigger value="basic" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-300">기본 정보</TabsTrigger>
+              <TabsTrigger value="water" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-300">수질 측정</TabsTrigger>
+              <TabsTrigger value="ops" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-300">운영 작업</TabsTrigger>
+              <TabsTrigger value="checklist" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-300">체크리스트</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="basic" className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-slate-300">수조 선택 *</Label>
+                  <Select value={form.tank_id} onValueChange={v => update("tank_id", v)}>
+                    <SelectTrigger className="bg-slate-800 border-white/10 text-white">
+                      <SelectValue placeholder="수조를 선택하세요" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-white/10">
+                      {MOCK_TANKS.map(t => (
+                        <SelectItem key={t.id} value={t.id} className="text-white hover:bg-white/5">{t.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-slate-300">날짜 *</Label>
+                  <Input type="date" value={form.date} onChange={e => update("date", e.target.value)} className="bg-slate-800 border-white/10 text-white" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-slate-300 flex items-center gap-1"><UtensilsCrossed className="w-3.5 h-3.5 text-ocean-400" />급이량 (kg)</Label>
+                  <Input type="number" step="0.1" placeholder="0.0" value={form.feeding_amount} onChange={e => update("feeding_amount", e.target.value)} className="bg-slate-800 border-white/10 text-white" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-slate-300">사료 종류</Label>
+                  <Select value={form.feed_type} onValueChange={v => update("feed_type", v)}>
+                    <SelectTrigger className="bg-slate-800 border-white/10 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-white/10">
+                      {FEED_TYPES.map(f => <SelectItem key={f} value={f} className="text-white hover:bg-white/5">{f}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-slate-300">급이 횟수 (회/일)</Label>
+                  <Input type="number" placeholder="4" value={form.feeding_times} onChange={e => update("feeding_times", e.target.value)} className="bg-slate-800 border-white/10 text-white" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-slate-300 flex items-center gap-1"><Skull className="w-3.5 h-3.5 text-amber-400" />폐사 개수 (마리)</Label>
+                  <Input type="number" placeholder="0" value={form.mortality_count} onChange={e => update("mortality_count", e.target.value)} className="bg-slate-800 border-white/10 text-white" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-slate-300 flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5 text-teal-400" />환수율 (%)</Label>
+                  <Input type="number" placeholder="0" value={form.water_exchange_rate} onChange={e => update("water_exchange_rate", e.target.value)} className="bg-slate-800 border-white/10 text-white" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-slate-300 flex items-center gap-1"><StickyNote className="w-3.5 h-3.5 text-yellow-400" />메모 / 특이사항</Label>
+                <Textarea placeholder="오늘 특이사항을 기록하세요..." value={form.notes} onChange={e => update("notes", e.target.value)} className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500 resize-none" rows={3} />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="water" className="space-y-4 mt-4">
+              <p className="text-xs text-slate-400 bg-ocean-500/10 border border-ocean-500/20 rounded-lg px-3 py-2">
+                수질 측정값을 직접 입력하세요. 센서 연동 시 자동으로 불러옵니다.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {[
+                  { key: "temperature", label: "수온 (°C)", icon: <Thermometer className="w-3.5 h-3.5 text-red-400" />, placeholder: "28.0" },
+                  { key: "ph", label: "pH", icon: <Droplets className="w-3.5 h-3.5 text-blue-400" />, placeholder: "7.8" },
+                  { key: "do_level", label: "DO (mg/L)", icon: <Wind className="w-3.5 h-3.5 text-teal-400" />, placeholder: "6.5" },
+                  { key: "salinity", label: "염분 (ppt)", icon: <Waves className="w-3.5 h-3.5 text-ocean-400" />, placeholder: "20" },
+                  { key: "ammonia", label: "암모니아 (mg/L)", icon: <FlaskConical className="w-3.5 h-3.5 text-amber-400" />, placeholder: "0.1" },
+                  { key: "nitrite", label: "아질산염 (mg/L)", icon: <FlaskConical className="w-3.5 h-3.5 text-orange-400" />, placeholder: "0.05" },
+                  { key: "nitrate", label: "질산염 (mg/L)", icon: <FlaskConical className="w-3.5 h-3.5 text-yellow-400" />, placeholder: "5.0" },
+                  { key: "alkalinity", label: "알칼리도 (mg/L)", icon: <FlaskConical className="w-3.5 h-3.5 text-purple-400" />, placeholder: "120" },
+                  { key: "turbidity", label: "탁도 (NTU)", icon: <Droplets className="w-3.5 h-3.5 text-gray-400" />, placeholder: "5" },
+                ].map(f => (
+                  <div key={f.key} className="space-y-2">
+                    <Label className="text-slate-300 flex items-center gap-1">{f.icon}{f.label}</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder={f.placeholder}
+                      value={form[f.key as keyof typeof form] as string}
+                      onChange={e => update(f.key, e.target.value)}
+                      className="bg-slate-800 border-white/10 text-white"
+                    />
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="ops" className="space-y-4 mt-4">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-slate-800/60 rounded-xl border border-white/5">
+                  <div>
+                    <p className="text-sm text-white font-medium">소독 실시</p>
+                    <p className="text-xs text-slate-400">수조 소독 여부</p>
+                  </div>
+                  <Switch checked={form.disinfection} onCheckedChange={v => update("disinfection", v)} />
+                </div>
+                {form.disinfection && (
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">소독 방법/약품</Label>
+                    <Input placeholder="소독 방법을 입력하세요" value={form.disinfection_type} onChange={e => update("disinfection_type", e.target.value)} className="bg-slate-800 border-white/10 text-white" />
+                  </div>
+                )}
+                <div className="flex items-center justify-between p-4 bg-slate-800/60 rounded-xl border border-white/5">
+                  <div>
+                    <p className="text-sm text-white font-medium">미생물제 투입</p>
+                    <p className="text-xs text-slate-400">유익균 투입 여부</p>
+                  </div>
+                  <Switch checked={form.microbial_input} onCheckedChange={v => update("microbial_input", v)} />
+                </div>
+                {form.microbial_input && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-slate-300">미생물 종류</Label>
+                      <Select value={form.microbial_type} onValueChange={v => update("microbial_type", v)}>
+                        <SelectTrigger className="bg-slate-800 border-white/10 text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-white/10">
+                          {MICROBIAL_TYPES.map(m => <SelectItem key={m} value={m} className="text-white hover:bg-white/5">{m}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-slate-300">투입량 (mL/ton)</Label>
+                      <Input type="number" placeholder="500" value={form.microbial_amount} onChange={e => update("microbial_amount", e.target.value)} className="bg-slate-800 border-white/10 text-white" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="checklist" className="space-y-3 mt-4">
+              <p className="text-xs text-slate-400">일일 점검 항목을 확인하세요</p>
+              {[
+                { key: "check_aeration", label: "폭기 시스템 점검", desc: "에어레이터 가동 상태 확인" },
+                { key: "check_filtration", label: "여과 시스템 점검", desc: "필터 청결 및 가동 상태 확인" },
+                { key: "check_circulation", label: "순환 펌프 점검", desc: "순환 펌프 가동 상태 및 유량 확인" },
+                { key: "check_feeding_check", label: "섭이 반응 확인", desc: "새우 섭이 반응 및 활동성 확인" },
+              ].map(item => (
+                <div key={item.key} className="flex items-center justify-between p-4 bg-slate-800/60 rounded-xl border border-white/5">
+                  <div>
+                    <p className="text-sm text-white font-medium">{item.label}</p>
+                    <p className="text-xs text-slate-400">{item.desc}</p>
+                  </div>
+                  <Switch
+                    checked={form[item.key as keyof typeof form] as boolean}
+                    onCheckedChange={v => update(item.key, v)}
+                  />
+                </div>
+              ))}
+            </TabsContent>
+          </Tabs>
+
+          <DialogFooter className="mt-4">
+            <Button variant="ghost" onClick={() => setDialogOpen(false)} className="text-slate-400 hover:text-white">
+              취소
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving || saved || !form.tank_id}
+              className="bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white min-w-[100px]"
+            >
+              {saved ? (
+                <span className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" />저장완료</span>
+              ) : saving ? (
+                <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />저장중...</span>
+              ) : "일지 저장"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
