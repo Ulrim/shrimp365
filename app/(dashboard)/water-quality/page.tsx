@@ -289,24 +289,16 @@ export default function WaterQualityPage() {
     if (selectedTankId) loadTankData(selectedTankId)
   }, [selectedTankId, loadTankData])
 
-  // Compute summary counts whenever tanks list is set
+  // Compute summary counts from tank.status (auto-updated by insertWaterQuality)
   useEffect(() => {
-    const mock = isTestAccount(user?.email)
     const counts = { 정상: 0, 주의: 0, 위험: 0 }
     tanks.forEach(tank => {
-      const tankReadings = mock ? (MOCK_WATER_QUALITY[tank.id] ?? []) : []
-      if (!tankReadings.length) return
-      const last = tankReadings[tankReadings.length - 1]
-      const worst = STD_KEYS.reduce<StatusLevel>((acc, k) => {
-        const s = getStatus(last[k] as number, k)
-        if (s === "위험") return "위험"
-        if (s === "주의" && acc !== "위험") return "주의"
-        return acc
-      }, "정상")
-      counts[worst]++
+      if (tank.status === "active")  counts.정상++
+      else if (tank.status === "warning") counts.주의++
+      else if (tank.status === "danger")  counts.위험++
     })
     setSummaryStatusCounts(counts)
-  }, [tanks, user?.email])
+  }, [tanks])
 
   const chartData = useMemo(() => buildChartData(readings, true), [readings])
 
@@ -435,8 +427,9 @@ export default function WaterQualityPage() {
                       >
                         <div className="flex items-center gap-2">
                           <span className={`w-1.5 h-1.5 rounded-full ${
-                            tank.status === "active" ? "bg-emerald-400" :
-                            tank.status === "warning" ? "bg-amber-400" : "bg-red-400"
+                            tank.status === "active"   ? "bg-emerald-400" :
+                            tank.status === "warning"  ? "bg-amber-400" :
+                            tank.status === "danger"   ? "bg-red-400" : "bg-slate-400"
                           }`} />
                           {tank.name}
                         </div>
