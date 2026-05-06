@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { SettingsPanel } from "@/components/layout/settings-panel"
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "대시보드", badge: null },
@@ -33,6 +34,7 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
   const { user, logout } = useAuth()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const handleLogout = async () => {
     await logout()
@@ -95,6 +97,7 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
       {/* Bottom */}
       <div className="px-3 pb-4 space-y-1 border-t border-white/10 pt-3">
         <button
+          onClick={() => setSettingsOpen(true)}
           className={cn(
             "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-all",
             collapsed && "justify-center"
@@ -141,6 +144,8 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>
       </aside>
+
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       {/* Mobile Sidebar */}
       <div className="lg:hidden">

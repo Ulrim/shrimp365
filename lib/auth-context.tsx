@@ -18,6 +18,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
   signup: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>
+  updateProfile: (name: string) => Promise<void>
+  updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -106,8 +108,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: true }
   }
 
+  const updateProfile = async (name: string) => {
+    if (!user) return
+    await supabase.from("profiles").update({ name }).eq("id", user.id)
+    setUser(prev => prev ? { ...prev, name } : null)
+  }
+
+  const updatePassword = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) return { success: false, error: "비밀번호 변경에 실패했습니다." }
+    return { success: true }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, login, logout, signup }}>
+    <AuthContext.Provider value={{ user, session, loading, login, logout, signup, updateProfile, updatePassword }}>
       {children}
     </AuthContext.Provider>
   )
