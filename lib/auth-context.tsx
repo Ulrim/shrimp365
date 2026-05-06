@@ -48,15 +48,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session)
-      if (session?.user) {
-        const profile = await fetchProfile(session.user.id)
-        setUser(toAppUser(session.user, profile))
-      }
-      setLoading(false)
-    })
-
+    // onAuthStateChange fires immediately with the current session on subscribe,
+    // so we don't need a separate getSession() call — which avoids the navigator.locks
+    // race condition triggered by React Strict Mode double-invoking effects.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         setSession(session)
