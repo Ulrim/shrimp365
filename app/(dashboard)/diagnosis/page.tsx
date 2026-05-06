@@ -297,7 +297,10 @@ export default function DiagnosisPage() {
           <p className="text-sm text-slate-400 mt-1">수조별 병원체 검사 결과 및 위험도 관리</p>
         </div>
 
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => {
+          setDialogOpen(open)
+          if (open) { setForm(EMPTY_FORM); setSubmitError(null) }
+        }}>
           <DialogTrigger asChild>
             <Button className="gap-2 bg-purple-600 hover:bg-purple-500 text-white border-0">
               <Plus className="w-4 h-4" />
@@ -500,40 +503,41 @@ export default function DiagnosisPage() {
         </Card>
       )}
 
-      {/* Summary Cards */}
-      {!isLoading && <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          icon={<FlaskConical className="w-5 h-5 text-purple-400" />}
-          label="총 검사 건수"
-          value={totalTests}
-          sub="누적 진단 기록"
-          color="text-purple-400"
-        />
-        <StatCard
-          icon={<XCircle className="w-5 h-5 text-red-400" />}
-          label="양성 건수"
-          value={positiveCount}
-          sub={`전체의 ${totalTests ? Math.round((positiveCount / totalTests) * 100) : 0}%`}
-          color="text-red-400"
-        />
-        <StatCard
-          icon={<AlertTriangle className="w-5 h-5 text-amber-400" />}
-          label="고위험 수조"
-          value={highRiskTanks}
-          sub="높음 이상 위험 단계"
-          color="text-amber-400"
-        />
-        <StatCard
-          icon={<Clock className="w-5 h-5 text-ocean-400" />}
-          label="최근 7일"
-          value={recentCount}
-          sub="최근 진단 건수"
-          color="text-ocean-400"
-        />
-      </div>
+      {/* Summary Cards + Risk Indicator (hidden while loading) */}
+      {!isLoading && <>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            icon={<FlaskConical className="w-5 h-5 text-purple-400" />}
+            label="총 검사 건수"
+            value={totalTests}
+            sub="누적 진단 기록"
+            color="text-purple-400"
+          />
+          <StatCard
+            icon={<XCircle className="w-5 h-5 text-red-400" />}
+            label="양성 건수"
+            value={positiveCount}
+            sub={`전체의 ${totalTests ? Math.round((positiveCount / totalTests) * 100) : 0}%`}
+            color="text-red-400"
+          />
+          <StatCard
+            icon={<AlertTriangle className="w-5 h-5 text-amber-400" />}
+            label="고위험 수조"
+            value={highRiskTanks}
+            sub="높음 이상 위험 단계"
+            color="text-amber-400"
+          />
+          <StatCard
+            icon={<Clock className="w-5 h-5 text-ocean-400" />}
+            label="최근 7일"
+            value={recentCount}
+            sub="최근 진단 건수"
+            color="text-ocean-400"
+          />
+        </div>
 
-      {/* Risk Indicator */}
-      <RiskScaleIndicator worstRisk={worstRisk} />
+        {/* Risk Indicator */}
+        <RiskScaleIndicator worstRisk={worstRisk} />
 
       {/* Diagnosis History */}
       <Card className="bg-slate-800/50 border-white/5">
@@ -671,6 +675,7 @@ export default function DiagnosisPage() {
           )}
         </CardContent>
       </Card>
+      </>}
     </div>
   )
 }
