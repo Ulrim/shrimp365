@@ -289,16 +289,57 @@ export default function WaterQualityPage() {
     if (selectedTankId) loadTankData(selectedTankId)
   }, [selectedTankId, loadTankData])
 
-  // Compute summary counts from tank.status (auto-updated by insertWaterQuality)
-  useEffect(() => {
+  // Derive a single tank's status from a water quality reading
+  function deriveStatus(reading: WaterQualityReading): StatusLevel {
+    return STD_KEYS.reduce<StatusLevel>((acc, k) => {
+      const val = reading[k] as number
+      if (!val || val === 0) return acc          // skip DB-default zeros
+      const s = getStatus(val, k)
+      if (s === "위험") return "위험"
+      if (s === "주의" && acc !== "위험") return "주의"
+      return acc
+    }, "정상")
+  }
+
+  // Load the latest reading for every tank and recompute summary counts.
+  // Called on initial tank load and after any tank's data is refreshed.
+  const computeSummary = useCallback(async (tankList: Tank[]) => {
+    if (!tankList.length) return
+    const mock = isTestAccount(user?.email)
     const counts = { 정상: 0, 주의: 0, 위험: 0 }
-    tanks.forEach(tank => {
-      if (tank.status === "active")  counts.정상++
-      else if (tank.status === "warning") counts.주의++
-      else if (tank.status === "danger")  counts.위험++
-    })
+
+    await Promise.all(tankList.map(async (tank) => {
+      try {
+        let latestReading: WaterQualityReading | null = null
+
+        if (mock) {
+          const mockReadings = MOCK_WATER_QUALITY[tank.id] ?? []
+          latestReading = mockReadings.length > 0
+            ? mockReadings[mockReadings.length - 1]
+            : null
+        } else {
+          latestReading = await getLatestWaterQuality(tank.id)
+        }
+
+        if (!latestReading) {
+          if (tank.status !== "inactive") counts.정상++
+          return
+        }
+
+        counts[deriveStatus(latestReading)]++
+      } catch {
+        if (tank.status === "active")  counts.정상++
+        else if (tank.status === "warning") counts.주의++
+        else if (tank.status === "danger")  counts.위험++
+      }
+    }))
+
     setSummaryStatusCounts(counts)
-  }, [tanks])
+  }, [user?.email]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    computeSummary(tanks)
+  }, [tanks, computeSummary])
 
   const chartData = useMemo(() => buildChartData(readings, true), [readings])
 
@@ -306,7 +347,7 @@ export default function WaterQualityPage() {
 
   function handleRefresh() {
     setIsRefreshing(true)
-    loadTankData(selectedTankId).finally(() => setIsRefreshing(false))
+    loadTankData(selectedTankId).then(() => computeSummary(tanks)).finally(() => setIsRefreshing(false))
   }
 
   function handleExportCsv() {
