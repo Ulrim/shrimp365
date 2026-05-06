@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
@@ -13,15 +13,17 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { SettingsPanel } from "@/components/layout/settings-panel"
+import { getDiagnosisCount } from "@/lib/db"
+import { isTestAccount, MOCK_DIAGNOSES } from "@/lib/mock-data"
 
-const navItems = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "대시보드", badge: null },
-  { href: "/water-quality", icon: Droplets, label: "수질 모니터링", badge: null },
-  { href: "/journal", icon: BookOpen, label: "양식 일지", badge: null },
-  { href: "/farms", icon: Building2, label: "양식장·수조 관리", badge: null },
-  { href: "/diagnosis", icon: FlaskConical, label: "질병 진단", badge: "1" },
-  { href: "/ai-advisor", icon: BrainCircuit, label: "AI 어드바이저", badge: null },
-  { href: "/reports", icon: BarChart3, label: "리포트", badge: null },
+const BASE_NAV = [
+  { href: "/dashboard",    icon: LayoutDashboard, label: "대시보드" },
+  { href: "/water-quality", icon: Droplets,       label: "수질 모니터링" },
+  { href: "/journal",      icon: BookOpen,        label: "양식 일지" },
+  { href: "/farms",        icon: Building2,       label: "양식장·수조 관리" },
+  { href: "/diagnosis",    icon: FlaskConical,    label: "질병 진단" },
+  { href: "/ai-advisor",   icon: BrainCircuit,    label: "AI 어드바이저" },
+  { href: "/reports",      icon: BarChart3,       label: "리포트" },
 ]
 
 interface SidebarProps {
@@ -35,6 +37,25 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [diagBadge, setDiagBadge] = useState<number>(0)
+
+  useEffect(() => {
+    async function loadDiagCount() {
+      try {
+        const count = await getDiagnosisCount()
+        if (count > 0) { setDiagBadge(count); return }
+        if (isTestAccount(user?.email)) {
+          const mock = MOCK_DIAGNOSES.filter(d => d.risk_level === "high" || d.risk_level === "critical").length
+          setDiagBadge(mock)
+        }
+      } catch {
+        if (isTestAccount(user?.email)) {
+          setDiagBadge(MOCK_DIAGNOSES.filter(d => d.risk_level === "high" || d.risk_level === "critical").length)
+        }
+      }
+    }
+    loadDiagCount()
+  }, [user?.email])
 
   const handleLogout = async () => {
     await logout()
@@ -58,8 +79,9 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
+        {BASE_NAV.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+          const badge = item.href === "/diagnosis" ? (diagBadge > 0 ? String(diagBadge) : null) : null
           return (
             <Link
               key={item.href}
@@ -77,15 +99,15 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
               {!collapsed && (
                 <>
                   <span className="flex-1">{item.label}</span>
-                  {item.badge && (
-                    <Badge variant="danger" className="h-5 text-xs px-1.5">{item.badge}</Badge>
+                  {badge && (
+                    <Badge variant="danger" className="h-5 text-xs px-1.5">{badge}</Badge>
                   )}
                   {item.href === "/water-quality" && alertCount > 0 && (
                     <Badge variant="warning" className="h-5 text-xs px-1.5">{alertCount}</Badge>
                   )}
                 </>
               )}
-              {collapsed && item.badge && (
+              {collapsed && badge && (
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
               )}
               {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-ocean-400 rounded-r-full" />}

@@ -1,5 +1,6 @@
 import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbDiagnosis, DbAlert } from "@/lib/supabase"
 import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert } from "@/types"
+import { checkThresholds } from "@/lib/thresholds"
 
 // ─────────────────────────────────────────────
 // 타입 변환 헬퍼
@@ -175,6 +176,31 @@ export async function insertWaterQuality(
     .single()
 
   if (error) throw error
+
+  // Auto-generate alerts for threshold violations
+  const thresholdAlerts = checkThresholds({
+    temperature: values.temperature,
+    ph: values.ph,
+    do_level: values.do_level,
+    salinity: values.salinity,
+    ammonia: values.ammonia,
+    nitrite: values.nitrite,
+    turbidity: values.turbidity,
+  })
+  for (const alert of thresholdAlerts) {
+    try {
+      await supabase.from("alerts").insert({
+        tank_id: tankId,
+        type: alert.type,
+        parameter: alert.parameter,
+        value: alert.value,
+        threshold: alert.threshold,
+        message: alert.message,
+        resolved: false,
+      })
+    } catch { /* alert insert failure is non-fatal */ }
+  }
+
   return toWaterQuality(data)
 }
 
@@ -210,6 +236,41 @@ export async function getJournalEntries(tankId?: string, limit = 50): Promise<Jo
     created_by: e.created_by ?? "",
     created_at: e.created_at,
   }))
+}
+
+export async function updateJournalEntry(
+  id: string,
+  values: Partial<Omit<DbJournalEntry, "id" | "created_at" | "created_by">>
+): Promise<JournalEntry> {
+  const { data, error } = await supabase
+    .from("journal_entries")
+    .update(values)
+    .eq("id", id)
+    .select("*, tanks(name)")
+    .single()
+
+  if (error) throw error
+  return {
+    id: data.id,
+    tank_id: data.tank_id,
+    tank_name: (data.tanks as { name: string } | null)?.name ?? "",
+    date: data.date,
+    feeding_amount: data.feeding_amount ?? 0,
+    feed_type: data.feed_type ?? "",
+    feeding_times: data.feeding_times ?? 0,
+    mortality_count: data.mortality_count ?? 0,
+    water_exchange_rate: data.water_exchange_rate ?? 0,
+    microbial_input: data.microbial_input ?? false,
+    microbial_type: data.microbial_type ?? undefined,
+    notes: data.notes ?? undefined,
+    created_by: data.created_by ?? "",
+    created_at: data.created_at,
+  } as JournalEntry
+}
+
+export async function deleteJournalEntry(id: string) {
+  const { error } = await supabase.from("journal_entries").delete().eq("id", id)
+  if (error) throw error
 }
 
 export async function createJournalEntry(values: Omit<DbJournalEntry, "id" | "created_at">) {
@@ -268,6 +329,57 @@ export async function getDiagnoses(tankId?: string): Promise<DiagnosisResult[]> 
     action_taken: d.action_taken ?? undefined,
     notes: d.notes ?? undefined,
   }))
+}
+
+export async function updateDiagnosis(
+  id: string,
+  values: Partial<{
+    tank_id: string
+    test_type: string
+    result: string
+    vibrio_count: number
+    pathogenic_ratio: number
+    risk_level: string
+    action_taken: string | null
+    notes: string | null
+  }>
+): Promise<DiagnosisResult> {
+  const { data, error } = await supabase
+    .from("diagnosis_results")
+    .update(values)
+    .eq("id", id)
+    .select("*, tanks(name)")
+    .single()
+
+  if (error) throw error
+  return {
+    id: data.id,
+    tank_id: data.tank_id,
+    tank_name: (data.tanks as { name: string } | null)?.name ?? "",
+    test_type: data.test_type as DiagnosisResult["test_type"],
+    result: data.result as DiagnosisResult["result"],
+    vibrio_count: data.vibrio_count ?? 0,
+    pathogenic_ratio: data.pathogenic_ratio ?? 0,
+    risk_level: data.risk_level as DiagnosisResult["risk_level"],
+    tested_at: data.tested_at,
+    tested_by: data.tested_by ?? "",
+    action_taken: data.action_taken ?? undefined,
+    notes: data.notes ?? undefined,
+  } as DiagnosisResult
+}
+
+export async function deleteDiagnosis(id: string) {
+  const { error } = await supabase.from("diagnosis_results").delete().eq("id", id)
+  if (error) throw error
+}
+
+export async function getDiagnosisCount(): Promise<number> {
+  const { count, error } = await supabase
+    .from("diagnosis_results")
+    .select("*", { count: "exact", head: true })
+    .in("risk_level", ["high", "critical"])
+  if (error) return 0
+  return count ?? 0
 }
 
 export async function createDiagnosis(values: {

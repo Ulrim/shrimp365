@@ -19,8 +19,9 @@ import {
 } from "@/components/ui/tabs"
 import {
   Thermometer, Droplets, Wind, Waves, AlertTriangle,
-  CheckCircle2, XCircle, AlertCircle, RefreshCw, Plus,
+  CheckCircle2, XCircle, AlertCircle, RefreshCw, Plus, Download,
 } from "lucide-react"
+import { exportToCsv } from "@/lib/export"
 import { formatDateTime } from "@/lib/utils"
 import type { Tank, WaterQualityReading, Alert } from "@/types"
 
@@ -294,6 +295,24 @@ export default function WaterQualityPage() {
     loadTankData(selectedTankId).finally(() => setIsRefreshing(false))
   }
 
+  function handleExportCsv() {
+    if (!readings.length || !selectedTank) return
+    const rows = readings.map(r => ({
+      "측정일시": r.recorded_at,
+      "수조": selectedTank.name,
+      "수온(°C)": r.temperature,
+      "pH": r.ph,
+      "DO(mg/L)": r.do_level,
+      "염분(ppt)": r.salinity,
+      "암모니아(mg/L)": r.ammonia,
+      "아질산염(mg/L)": r.nitrite,
+      "질산염(mg/L)": r.nitrate,
+      "알칼리도(mg/L)": r.alkalinity,
+      "탁도(NTU)": r.turbidity,
+    }))
+    exportToCsv(rows, `수질데이터_${selectedTank.name}_${new Date().toISOString().split("T")[0]}`)
+  }
+
   if (!isLoading && tanks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-96 space-y-4 animate-fade-in">
@@ -337,6 +356,18 @@ export default function WaterQualityPage() {
               <XCircle className="w-3.5 h-3.5" />위험 {summaryStatusCounts.위험}
             </span>
           </div>
+
+          <Button
+            onClick={handleExportCsv}
+            disabled={!readings.length}
+            variant="outline"
+            size="sm"
+            className="border-white/10 text-slate-300 hover:bg-white/5 gap-2"
+            title="CSV 다운로드"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">CSV</span>
+          </Button>
 
           <a href="/journal">
             <Button

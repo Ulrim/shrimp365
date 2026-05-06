@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { MOCK_DIAGNOSES, MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
-import { getDiagnoses, createDiagnosis, getAllTanks } from "@/lib/db"
+import { getDiagnoses, createDiagnosis, updateDiagnosis, deleteDiagnosis, getAllTanks } from "@/lib/db"
 import { DiagnosisResult, Tank } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -39,6 +39,8 @@ import {
   FileText,
   Activity,
   RefreshCw,
+  Pencil,
+  Trash2,
 } from "lucide-react"
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -205,6 +207,12 @@ export default function DiagnosisPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [editTarget, setEditTarget] = useState<DiagnosisResult | null>(null)
+  const [editForm, setEditForm] = useState<FormState>(EMPTY_FORM)
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<DiagnosisResult | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const loadData = useCallback(async () => {
     const mock = isTestAccount(user?.email)
@@ -280,6 +288,60 @@ export default function DiagnosisPage() {
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm(prev => ({ ...prev, [key]: value }))
+  }
+
+  function openEdit(d: DiagnosisResult) {
+    setEditTarget(d)
+    setEditError(null)
+    setEditForm({
+      tank_id: d.tank_id,
+      test_type: d.test_type,
+      result: d.result as ResultType,
+      vibrio_count: d.vibrio_count > 0 ? String(d.vibrio_count) : "",
+      pathogenic_ratio: d.pathogenic_ratio > 0 ? String(d.pathogenic_ratio) : "",
+      risk_level: d.risk_level as RiskLevel,
+      tested_by: d.tested_by,
+      action_taken: d.action_taken || "",
+      notes: d.notes || "",
+    })
+  }
+
+  async function handleEditSave(e: React.FormEvent) {
+    e.preventDefault()
+    setEditError(null)
+    if (!editTarget) return
+    setEditSaving(true)
+    try {
+      const updated = await updateDiagnosis(editTarget.id, {
+        tank_id: editForm.tank_id,
+        test_type: editForm.test_type || undefined,
+        result: editForm.result || undefined,
+        vibrio_count: editForm.vibrio_count ? Number(editForm.vibrio_count) : 0,
+        pathogenic_ratio: editForm.pathogenic_ratio ? Number(editForm.pathogenic_ratio) : 0,
+        risk_level: editForm.risk_level || undefined,
+        action_taken: editForm.action_taken || null,
+        notes: editForm.notes || null,
+      })
+      setDiagnoses(prev => prev.map(d => d.id === editTarget.id ? updated : d))
+      setEditTarget(null)
+      showToast("진단 결과가 수정되었습니다.")
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "수정에 실패했습니다.")
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteDiagnosis(deleteTarget.id)
+    } catch { /* remove locally */ }
+    setDiagnoses(prev => prev.filter(d => d.id !== deleteTarget.id))
+    setDeleteTarget(null)
+    setDeleting(false)
+    showToast("진단 결과가 삭제되었습니다.")
   }
 
   return (
@@ -576,6 +638,7 @@ export default function DiagnosisPage() {
                       <th className="text-right pb-3 font-medium">위험도</th>
                       <th className="text-right pb-3 font-medium">검사일시</th>
                       <th className="text-left pb-3 font-medium pl-4">조치사항</th>
+                      <th className="pb-3 w-16" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
@@ -611,6 +674,16 @@ export default function DiagnosisPage() {
                           </td>
                           <td className="py-4 pl-4 text-slate-400 text-xs max-w-[200px] truncate">
                             {d.action_taken ?? "—"}
+                          </td>
+                          <td className="py-4">
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+                              <button onClick={() => openEdit(d)} className="p-1.5 rounded-lg text-slate-500 hover:text-ocean-400 hover:bg-white/5 transition-colors" aria-label="편집">
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={() => setDeleteTarget(d)} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-white/5 transition-colors" aria-label="삭제">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       )
@@ -672,6 +745,15 @@ export default function DiagnosisPage() {
                           <p className="text-slate-300">{d.action_taken}</p>
                         </div>
                       )}
+
+                      <div className="flex items-center justify-end gap-1 pt-1">
+                        <button onClick={() => openEdit(d)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-slate-400 hover:text-ocean-400 hover:bg-white/5 transition-colors">
+                          <Pencil className="w-3 h-3" />편집
+                        </button>
+                        <button onClick={() => setDeleteTarget(d)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-slate-400 hover:text-red-400 hover:bg-white/5 transition-colors">
+                          <Trash2 className="w-3 h-3" />삭제
+                        </button>
+                      </div>
                     </div>
                   )
                 })}
@@ -681,6 +763,100 @@ export default function DiagnosisPage() {
         </CardContent>
       </Card>
       </>}
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editTarget} onOpenChange={open => !open && setEditTarget(null)}>
+        <DialogContent className="bg-slate-900 border-white/10 text-white max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Pencil className="w-4 h-4 text-purple-400" />진단 결과 편집
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSave} className="space-y-4 mt-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-slate-300 text-sm">검사 항목</Label>
+                <Select value={editForm.test_type} onValueChange={v => setEditForm(p => ({ ...p, test_type: v as TestType }))}>
+                  <SelectTrigger className="bg-slate-800 border-white/10 text-white"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-white/10">
+                    {(["AHPND", "총비브리오", "EHP", "WSSV", "기타"] as TestType[]).map(t => (
+                      <SelectItem key={t} value={t} className="text-white focus:bg-slate-700">{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-slate-300 text-sm">결과</Label>
+                <Select value={editForm.result} onValueChange={v => setEditForm(p => ({ ...p, result: v as ResultType }))}>
+                  <SelectTrigger className="bg-slate-800 border-white/10 text-white"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-white/10">
+                    <SelectItem value="양성" className="text-red-300 focus:bg-slate-700">양성</SelectItem>
+                    <SelectItem value="의심" className="text-amber-300 focus:bg-slate-700">의심</SelectItem>
+                    <SelectItem value="음성" className="text-emerald-300 focus:bg-slate-700">음성</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-slate-300 text-sm">총 비브리오 균수 (CFU/mL)</Label>
+                <Input type="number" min={0} placeholder="예: 8500" value={editForm.vibrio_count} onChange={e => setEditForm(p => ({ ...p, vibrio_count: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-slate-300 text-sm">병원성 비율 (%)</Label>
+                <Input type="number" min={0} max={100} placeholder="예: 35" value={editForm.pathogenic_ratio} onChange={e => setEditForm(p => ({ ...p, pathogenic_ratio: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-sm">위험 단계</Label>
+              <Select value={editForm.risk_level} onValueChange={v => setEditForm(p => ({ ...p, risk_level: v as RiskLevel }))}>
+                <SelectTrigger className="bg-slate-800 border-white/10 text-white"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-slate-800 border-white/10">
+                  <SelectItem value="low" className="text-emerald-300 focus:bg-slate-700">낮음</SelectItem>
+                  <SelectItem value="medium" className="text-amber-300 focus:bg-slate-700">보통</SelectItem>
+                  <SelectItem value="high" className="text-red-300 focus:bg-slate-700">높음</SelectItem>
+                  <SelectItem value="critical" className="text-purple-300 focus:bg-slate-700">긴급</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-sm flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" />조치사항</Label>
+              <Textarea placeholder="조치사항을 입력하세요" value={editForm.action_taken} onChange={e => setEditForm(p => ({ ...p, action_taken: e.target.value }))} rows={3} className="bg-slate-800 border-white/10 text-white resize-none" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-sm">비고</Label>
+              <Textarea placeholder="추가 메모" value={editForm.notes} onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))} rows={2} className="bg-slate-800 border-white/10 text-white resize-none" />
+            </div>
+            {editError && <p className="text-sm text-red-400 flex items-center gap-1.5"><XCircle className="w-4 h-4 shrink-0" />{editError}</p>}
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setEditTarget(null)} className="border-white/10 text-slate-300 hover:bg-slate-700" disabled={editSaving}>취소</Button>
+              <Button type="submit" className="bg-purple-600 hover:bg-purple-500 text-white border-0" disabled={editSaving}>
+                {editSaving ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Pencil className="w-4 h-4 mr-1.5" />}저장
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirm Dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
+        <DialogContent className="bg-slate-900 border-white/10 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-400" />진단 결과 삭제
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-slate-300 text-sm mt-2">
+            <span className="font-semibold text-white">{deleteTarget?.tank_name}</span> — {deleteTarget?.test_type} ({deleteTarget?.result}) 결과를 삭제합니다. 이 작업은 되돌릴 수 없습니다.
+          </p>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} className="border-white/10 text-slate-300 hover:bg-slate-700" disabled={deleting}>취소</Button>
+            <Button onClick={handleDelete} disabled={deleting} className="bg-red-500 hover:bg-red-600 text-white border-0">
+              {deleting ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Trash2 className="w-4 h-4 mr-1.5" />}삭제
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

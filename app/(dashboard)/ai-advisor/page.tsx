@@ -248,17 +248,53 @@ export default function AIAdvisorPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
+  const buildContext = () => {
+    const lines: string[] = []
+    lines.push(`운영 수조: ${tanks.length}개`)
+    if (tanks.length > 0) {
+      const statusSummary = tanks.reduce<Record<string, number>>((acc, t) => {
+        acc[t.status] = (acc[t.status] ?? 0) + 1
+        return acc
+      }, {})
+      lines.push(`수조 상태: 정상 ${statusSummary.active ?? 0}개, 주의 ${statusSummary.warning ?? 0}개, 위험 ${statusSummary.danger ?? 0}개`)
+    }
+    if (alerts.length > 0) {
+      lines.push(`활성 알림 ${alerts.length}건:`)
+      alerts.slice(0, 3).forEach(a => lines.push(`  - [${a.type}] ${a.tank_name}: ${a.message}`))
+    }
+    if (diagnoses.length > 0) {
+      const positive = diagnoses.filter(d => d.result === "양성")
+      if (positive.length > 0) {
+        lines.push(`양성 진단 ${positive.length}건:`)
+        positive.slice(0, 2).forEach(d => lines.push(`  - ${d.tank_name}: ${d.test_type} ${d.result} (위험도: ${d.risk_level})`))
+      }
+    }
+    return lines.join("\n")
+  }
+
   const sendMessage = async (question: string) => {
     if (!question.trim()) return
     const userMsg: Message = { id: Date.now().toString(), role: "user", content: question, timestamp: new Date() }
     setMessages(prev => [...prev, userMsg])
     setInput("")
     setLoading(true)
-    await new Promise(r => setTimeout(r, 1200))
-    const response = AI_RESPONSES[question] || generateDefaultResponse(question, tanks.length, alerts.length)
-    const aiMsg: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: response, timestamp: new Date() }
-    setMessages(prev => [...prev, aiMsg])
-    setLoading(false)
+    try {
+      const res = await fetch("/api/ai-advisor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, context: buildContext() }),
+      })
+      const json = await res.json()
+      const response = json.answer || json.error || generateDefaultResponse(question, tanks.length, alerts.length)
+      const aiMsg: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: response, timestamp: new Date() }
+      setMessages(prev => [...prev, aiMsg])
+    } catch {
+      const fallback = AI_RESPONSES[question] || generateDefaultResponse(question, tanks.length, alerts.length)
+      const aiMsg: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: fallback, timestamp: new Date() }
+      setMessages(prev => [...prev, aiMsg])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const renderMarkdown = (text: string) => {

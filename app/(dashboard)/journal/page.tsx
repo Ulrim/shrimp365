@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { MOCK_JOURNALS, MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
-import { getJournalEntries, createJournalEntry, getAllTanks, insertWaterQuality } from "@/lib/db"
+import { getJournalEntries, createJournalEntry, updateJournalEntry, deleteJournalEntry, getAllTanks, insertWaterQuality } from "@/lib/db"
 import { JournalEntry, Tank } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -17,7 +17,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import {
   BookOpen, Plus, Thermometer, Droplets, Wind, Waves, Fish, UtensilsCrossed,
-  RefreshCw, FlaskConical, Skull, CheckCircle2, Calendar, User, StickyNote
+  RefreshCw, FlaskConical, Skull, CheckCircle2, Calendar, User, StickyNote,
+  Pencil, Trash2, AlertTriangle
 } from "lucide-react"
 import { formatDate, formatDateTime } from "@/lib/utils"
 
@@ -60,9 +61,9 @@ const defaultFormValues = {
   notes: "",
 }
 
-function JournalCard({ entry }: { entry: JournalEntry }) {
+function JournalCard({ entry, onEdit, onDelete }: { entry: JournalEntry; onEdit: (e: JournalEntry) => void; onDelete: (e: JournalEntry) => void }) {
   return (
-    <Card className="bg-slate-800/50 border-white/5 hover:border-white/10 transition-all">
+    <Card className="bg-slate-800/50 border-white/5 hover:border-white/10 transition-all group">
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-4">
           <div>
@@ -76,6 +77,22 @@ function JournalCard({ entry }: { entry: JournalEntry }) {
               <span>·</span>
               <span>{formatDateTime(entry.created_at)}</span>
             </div>
+          </div>
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={() => onEdit(entry)}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-ocean-400 hover:bg-white/5 transition-colors"
+              aria-label="일지 편집"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => onDelete(entry)}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-white/5 transition-colors"
+              aria-label="일지 삭제"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
@@ -135,6 +152,11 @@ export default function JournalPage() {
   const [form, setForm] = useState(defaultFormValues)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [editTarget, setEditTarget] = useState<JournalEntry | null>(null)
+  const [editForm, setEditForm] = useState<Partial<typeof defaultFormValues>>({})
+  const [editSaving, setEditSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<JournalEntry | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -230,6 +252,56 @@ export default function JournalPage() {
     }
   }
 
+  const handleEdit = (entry: JournalEntry) => {
+    setEditTarget(entry)
+    setEditForm({
+      feeding_amount: String(entry.feeding_amount),
+      feed_type: entry.feed_type,
+      feeding_times: String(entry.feeding_times),
+      mortality_count: String(entry.mortality_count),
+      water_exchange_rate: String(entry.water_exchange_rate),
+      notes: entry.notes || "",
+    })
+  }
+
+  const handleEditSave = async () => {
+    if (!editTarget) return
+    setEditSaving(true)
+    try {
+      const updated = await updateJournalEntry(editTarget.id, {
+        feeding_amount: parseFloat(editForm.feeding_amount || "0") || 0,
+        feed_type: editForm.feed_type || editTarget.feed_type,
+        feeding_times: parseInt(editForm.feeding_times || "0") || 0,
+        mortality_count: parseInt(editForm.mortality_count || "0") || 0,
+        water_exchange_rate: parseInt(editForm.water_exchange_rate || "0") || 0,
+        notes: editForm.notes || null,
+      })
+      setJournals(prev => prev.map(j => j.id === editTarget.id ? updated : j))
+      setEditTarget(null)
+    } catch {
+      setJournals(prev => prev.map(j => j.id === editTarget.id ? {
+        ...j,
+        feeding_amount: parseFloat(editForm.feeding_amount || "0") || 0,
+        mortality_count: parseInt(editForm.mortality_count || "0") || 0,
+        notes: editForm.notes || undefined,
+      } : j))
+      setEditTarget(null)
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteJournalEntry(deleteTarget.id)
+    } catch { /* remove locally even on error */ }
+    setJournals(prev => prev.filter(j => j.id !== deleteTarget.id))
+    setDeleteTarget(null)
+    setDeleting(false)
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -251,9 +323,83 @@ export default function JournalPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {journals.length === 0 ? (
             <p className="text-slate-400 text-sm col-span-2 text-center py-12">일지가 없습니다. 첫 일지를 작성해보세요.</p>
-          ) : journals.map(entry => <JournalCard key={entry.id} entry={entry} />)}
+          ) : journals.map(entry => (
+            <JournalCard key={entry.id} entry={entry} onEdit={handleEdit} onDelete={setDeleteTarget} />
+          ))}
         </div>
       )}
+
+      {/* Edit Journal Dialog */}
+      <Dialog open={!!editTarget} onOpenChange={open => !open && setEditTarget(null)}>
+        <DialogContent className="bg-slate-900 border-white/10 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Pencil className="w-4 h-4 text-ocean-400" />일지 편집
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-slate-300 flex items-center gap-1"><UtensilsCrossed className="w-3.5 h-3.5 text-ocean-400" />급이량 (kg)</Label>
+                <Input type="number" step="0.1" value={editForm.feeding_amount || ""} onChange={e => setEditForm(p => ({ ...p, feeding_amount: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-slate-300">사료 종류</Label>
+                <Select value={editForm.feed_type || ""} onValueChange={v => setEditForm(p => ({ ...p, feed_type: v }))}>
+                  <SelectTrigger className="bg-slate-800 border-white/10 text-white"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-white/10">
+                    {FEED_TYPES.map(f => <SelectItem key={f} value={f} className="text-white hover:bg-white/5">{f}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label className="text-slate-300">급이 횟수</Label>
+                <Input type="number" value={editForm.feeding_times || ""} onChange={e => setEditForm(p => ({ ...p, feeding_times: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-slate-300 flex items-center gap-1"><Skull className="w-3.5 h-3.5 text-amber-400" />폐사 (마리)</Label>
+                <Input type="number" value={editForm.mortality_count || ""} onChange={e => setEditForm(p => ({ ...p, mortality_count: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-slate-300 flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5 text-teal-400" />환수율 (%)</Label>
+                <Input type="number" value={editForm.water_exchange_rate || ""} onChange={e => setEditForm(p => ({ ...p, water_exchange_rate: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-slate-300">메모</Label>
+              <Textarea value={editForm.notes || ""} onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))} className="bg-slate-800 border-white/10 text-white resize-none" rows={3} />
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="ghost" onClick={() => setEditTarget(null)} className="text-slate-400 hover:text-white">취소</Button>
+            <Button onClick={handleEditSave} disabled={editSaving} className="bg-gradient-to-r from-ocean-500 to-teal-500 text-white min-w-[80px]">
+              {editSaving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "저장"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirm Dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
+        <DialogContent className="bg-slate-900 border-white/10 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-400" />일지 삭제
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-slate-300 text-sm mt-2">
+            <span className="font-semibold text-white">{deleteTarget?.tank_name}</span> ({deleteTarget && formatDate(deleteTarget.date)}) 일지를 삭제합니다. 이 작업은 되돌릴 수 없습니다.
+          </p>
+          <DialogFooter className="mt-4">
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)} className="text-slate-400 hover:text-white">취소</Button>
+            <Button onClick={handleDelete} disabled={deleting} className="bg-red-500 hover:bg-red-600 text-white">
+              {deleting ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "삭제"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* New Journal Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
