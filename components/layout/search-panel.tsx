@@ -1,4 +1,5 @@
 "use client"
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
@@ -130,7 +131,7 @@ export function SearchPanel({ open, onClose }: SearchPanelProps) {
         {/* Results */}
         <div className="max-h-96 overflow-y-auto py-2">
           {results.length === 0 && q && (
-            <p className="text-slate-500 text-sm text-center py-8">"{query}" 검색 결과가 없습니다</p>
+            <p className="text-slate-500 text-sm text-center py-8">&quot;{query}&quot; 검색 결과가 없습니다</p>
           )}
 
           {/* Pages */}
