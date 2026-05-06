@@ -49,7 +49,7 @@ const PARAM_META: ParamMeta[] = [
   { key: "temperature", label: "수온",    unit: "°C",   icon: <Thermometer className="w-5 h-5" />, chartColor: "#0ea5e9" },
   { key: "ph",          label: "pH",      unit: "",     icon: <Droplets className="w-5 h-5" />,    chartColor: "#a78bfa" },
   { key: "do_level",    label: "DO",      unit: "mg/L", icon: <Wind className="w-5 h-5" />,        chartColor: "#14b8a6" },
-  { key: "salinity",    label: "염분",    unit: "ppt",  icon: <Waves className="w-5 h-5" />,       chartColor: "#f59e0b" },
+  { key: "salinity",    label: "염도",    unit: "ppt",  icon: <Waves className="w-5 h-5" />,       chartColor: "#f59e0b" },
   { key: "ammonia",     label: "암모니아", unit: "mg/L", icon: <AlertTriangle className="w-5 h-5" />, chartColor: "#f97316" },
   { key: "nitrite",     label: "아질산염", unit: "mg/L", icon: <AlertTriangle className="w-5 h-5" />, chartColor: "#ec4899" },
   { key: "nitrate",     label: "질산염",  unit: "mg/L", icon: <AlertTriangle className="w-5 h-5" />, chartColor: "#84cc16" },
@@ -80,7 +80,7 @@ function buildChartData(readings: WaterQualityReading[], last24h = true) {
     수온:    Number(r.temperature.toFixed(1)),
     pH:     Number(r.ph.toFixed(2)),
     DO:     Number(r.do_level.toFixed(1)),
-    염분:    Number(r.salinity.toFixed(1)),
+    염도:    Number(r.salinity.toFixed(1)),
     암모니아: Number(r.ammonia.toFixed(3)),
     아질산염: Number(r.nitrite.toFixed(3)),
     질산염:  Number(r.nitrate.toFixed(1)),
@@ -156,6 +156,28 @@ function SingleParamChart({ chartData, stdKey, chartLabel, chartColor, unit }: C
         <ReferenceLine y={std.warning_max} stroke="#fbbf24" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: "경고↑", fill: "#fbbf24", fontSize: 10, position: "insideTopRight" }} />
         <ReferenceLine y={std.warning_min} stroke="#fbbf24" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: "경고↓", fill: "#fbbf24", fontSize: 10, position: "insideBottomRight" }} />
         <Line type="monotone" dataKey={chartLabel} stroke={chartColor} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+      </LineChart>
+    </ResponsiveContainer>
+  )
+}
+
+function NitrogenChart({ chartData }: { chartData: ReturnType<typeof buildChartData> }) {
+  return (
+    <ResponsiveContainer width="100%" height={260}>
+      <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
+        <XAxis dataKey="time" tick={{ fill: "#64748b", fontSize: 11 }} tickLine={false} axisLine={false} interval={4} />
+        <YAxis tick={{ fill: "#64748b", fontSize: 11 }} tickLine={false} axisLine={false} width={48} tickFormatter={v => `${v}`} />
+        <Tooltip
+          contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: "12px" }}
+          labelStyle={{ color: "#94a3b8" }}
+          itemStyle={{ color: "#e2e8f0" }}
+          formatter={(v, name) => [`${v} mg/L`, name]}
+        />
+        <Legend wrapperStyle={{ fontSize: "12px", color: "#94a3b8" }} />
+        <Line type="monotone" dataKey="암모니아" stroke="#f97316" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+        <Line type="monotone" dataKey="아질산염" stroke="#ec4899" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+        <Line type="monotone" dataKey="질산염"  stroke="#84cc16" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
       </LineChart>
     </ResponsiveContainer>
   )
@@ -303,7 +325,7 @@ export default function WaterQualityPage() {
       "수온(°C)": r.temperature,
       "pH": r.ph,
       "DO(mg/L)": r.do_level,
-      "염분(ppt)": r.salinity,
+      "염도(ppt)": r.salinity,
       "암모니아(mg/L)": r.ammonia,
       "아질산염(mg/L)": r.nitrite,
       "질산염(mg/L)": r.nitrate,
@@ -515,13 +537,17 @@ export default function WaterQualityPage() {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="overview">
-                <TabsList className="bg-slate-900/60 border border-white/5 h-9 mb-4">
+                <TabsList className="bg-slate-900/60 border border-white/5 h-9 mb-4 flex-wrap gap-y-1">
                   <TabsTrigger value="overview"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">수온·DO·pH</TabsTrigger>
+                  <TabsTrigger value="nitrogen"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">질소 복합</TabsTrigger>
                   <TabsTrigger value="temperature" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">수온</TabsTrigger>
                   <TabsTrigger value="ph"         className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">pH</TabsTrigger>
                   <TabsTrigger value="do_level"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">DO</TabsTrigger>
-                  <TabsTrigger value="salinity"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">염분</TabsTrigger>
+                  <TabsTrigger value="salinity"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">염도</TabsTrigger>
                   <TabsTrigger value="ammonia"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">암모니아</TabsTrigger>
+                  <TabsTrigger value="nitrite"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">아질산염</TabsTrigger>
+                  <TabsTrigger value="nitrate"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">질산염</TabsTrigger>
+                  <TabsTrigger value="alkalinity" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">알칼리도</TabsTrigger>
                   <TabsTrigger value="turbidity"  className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">탁도</TabsTrigger>
                 </TabsList>
 
@@ -530,13 +556,21 @@ export default function WaterQualityPage() {
                   <p className="text-xs text-slate-500 mt-2 text-center">수온(°C) · DO(mg/L) · pH — 기준선 미표시 (복합 Y축)</p>
                 </TabsContent>
 
+                <TabsContent value="nitrogen">
+                  <NitrogenChart chartData={chartData} />
+                  <p className="text-xs text-slate-500 mt-2 text-center">암모니아 · 아질산염 · 질산염 (단위: mg/L) — 기준선 미표시 (복합 Y축)</p>
+                </TabsContent>
+
                 {(
                   [
                     { tabValue: "temperature", chartLabel: "수온",    stdKey: "temperature", chartColor: "#0ea5e9", unit: "°C" },
                     { tabValue: "ph",          chartLabel: "pH",      stdKey: "ph",          chartColor: "#a78bfa", unit: "" },
                     { tabValue: "do_level",    chartLabel: "DO",      stdKey: "do_level",    chartColor: "#14b8a6", unit: "mg/L" },
-                    { tabValue: "salinity",    chartLabel: "염분",    stdKey: "salinity",    chartColor: "#f59e0b", unit: "ppt" },
+                    { tabValue: "salinity",    chartLabel: "염도",    stdKey: "salinity",    chartColor: "#f59e0b", unit: "ppt" },
                     { tabValue: "ammonia",     chartLabel: "암모니아", stdKey: "ammonia",     chartColor: "#f97316", unit: "mg/L" },
+                    { tabValue: "nitrite",     chartLabel: "아질산염", stdKey: "nitrite",     chartColor: "#ec4899", unit: "mg/L" },
+                    { tabValue: "nitrate",     chartLabel: "질산염",  stdKey: "nitrate",     chartColor: "#84cc16", unit: "mg/L" },
+                    { tabValue: "alkalinity",  chartLabel: "알칼리도", stdKey: "alkalinity",  chartColor: "#06b6d4", unit: "mg/L" },
                     { tabValue: "turbidity",   chartLabel: "탁도",    stdKey: "turbidity",   chartColor: "#8b5cf6", unit: "NTU" },
                   ] as Array<{ tabValue: string; chartLabel: string; stdKey: typeof STD_KEYS[number]; chartColor: string; unit: string }>
                 ).map(({ tabValue, chartLabel, stdKey, chartColor, unit }) => (

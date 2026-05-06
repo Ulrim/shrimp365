@@ -90,7 +90,7 @@ export const WATER_QUALITY_STANDARDS = {
   temperature: { min: 25, max: 32, warning_min: 23, warning_max: 34, unit: "°C", label: "수온" },
   ph: { min: 7.5, max: 8.5, warning_min: 7.0, warning_max: 9.0, unit: "", label: "pH" },
   do_level: { min: 5.0, max: 9.0, warning_min: 4.0, warning_max: 10.0, unit: "mg/L", label: "용존산소(DO)" },
-  salinity: { min: 15, max: 25, warning_min: 12, warning_max: 28, unit: "ppt", label: "염분" },
+  salinity: { min: 15, max: 25, warning_min: 12, warning_max: 28, unit: "ppt", label: "염도" },
   ammonia: { min: 0, max: 0.5, warning_min: 0, warning_max: 1.0, unit: "mg/L", label: "암모니아" },
   nitrite: { min: 0, max: 0.1, warning_min: 0, warning_max: 0.5, unit: "mg/L", label: "아질산염" },
   nitrate: { min: 0, max: 20, warning_min: 0, warning_max: 40, unit: "mg/L", label: "질산염" },
