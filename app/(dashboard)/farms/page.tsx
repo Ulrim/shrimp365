@@ -31,8 +31,16 @@ import {
   AlertCircle,
   XCircle,
   TrendingUp,
+  Calendar,
+  ShoppingCart,
 } from "lucide-react"
 import { formatDate } from "@/lib/utils"
+
+function computeCycleDay(stockingDate: string | null | undefined): number {
+  if (!stockingDate) return 0
+  const ms = Date.now() - new Date(stockingDate).getTime()
+  return Math.max(1, Math.floor(ms / 86_400_000) + 1)
+}
 import type { Farm, Tank } from "@/types"
 
 // ─── Status meta ────────────────────────────────────────────────────────────
@@ -222,7 +230,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [form, setForm] = useState({ name: "", volume: "", density: "" })
+  const [form, setForm] = useState({ name: "", volume: "", density: "", stocking_date: "", harvest_date: "" })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -231,12 +239,16 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
     try {
       const volume = parseFloat(form.volume)
       const density = parseFloat(form.density)
+      const cycleDay = form.stocking_date ? computeCycleDay(form.stocking_date) : 0
       await createTank({
         farm_id: farm.id,
         name: form.name,
         volume,
         stocking_density: density,
         shrimp_count: Math.round(volume * density),
+        cycle_day: cycleDay,
+        stocking_date: form.stocking_date || null,
+        harvest_date: form.harvest_date || null,
       })
       setSubmitted(true)
       onSuccess()
@@ -252,7 +264,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
     if (!v) {
       setSubmitted(false)
       setError(null)
-      setForm({ name: "", volume: "", density: "" })
+      setForm({ name: "", volume: "", density: "", stocking_date: "", harvest_date: "" })
     }
   }
 
@@ -324,6 +336,28 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
                 onChange={e => setForm(f => ({ ...f, density: e.target.value }))}
                 required
               />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="tank-stocking" className="text-slate-300 text-sm">입식일</Label>
+                <Input
+                  id="tank-stocking"
+                  type="date"
+                  className="bg-slate-800 border-white/10 text-white focus-visible:ring-ocean-500/50"
+                  value={form.stocking_date}
+                  onChange={e => setForm(f => ({ ...f, stocking_date: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="tank-harvest" className="text-slate-300 text-sm">예정 출하일</Label>
+                <Input
+                  id="tank-harvest"
+                  type="date"
+                  className="bg-slate-800 border-white/10 text-white focus-visible:ring-ocean-500/50"
+                  value={form.harvest_date}
+                  onChange={e => setForm(f => ({ ...f, harvest_date: e.target.value }))}
+                />
+              </div>
             </div>
             <DialogFooter className="pt-2">
               <Button
@@ -482,10 +516,24 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [form, setForm] = useState({ name: tank.name, volume: String(tank.volume), density: String(tank.stocking_density) })
+  const [form, setForm] = useState({
+    name: tank.name,
+    volume: String(tank.volume),
+    density: String(tank.stocking_density),
+    stocking_date: tank.stocking_date ?? "",
+    harvest_date: tank.harvest_date ?? "",
+    status: tank.status,
+  })
 
   useEffect(() => {
-    if (open) setForm({ name: tank.name, volume: String(tank.volume), density: String(tank.stocking_density) })
+    if (open) setForm({
+      name: tank.name,
+      volume: String(tank.volume),
+      density: String(tank.stocking_density),
+      stocking_date: tank.stocking_date ?? "",
+      harvest_date: tank.harvest_date ?? "",
+      status: tank.status,
+    })
   }, [open, tank])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -495,7 +543,17 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
     try {
       const volume = parseFloat(form.volume) || 0
       const density = parseFloat(form.density) || 0
-      await updateTank(tank.id, { name: form.name, volume, stocking_density: density, shrimp_count: Math.round(volume * density) })
+      const cycleDay = form.stocking_date ? computeCycleDay(form.stocking_date) : tank.cycle_day
+      await updateTank(tank.id, {
+        name: form.name,
+        volume,
+        stocking_density: density,
+        shrimp_count: Math.round(volume * density),
+        cycle_day: cycleDay,
+        stocking_date: form.stocking_date || null,
+        harvest_date: form.harvest_date || null,
+        status: form.status as Tank["status"],
+      })
       setOpen(false)
       onSuccess()
     } catch (err) {
@@ -504,6 +562,13 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
       setSaving(false)
     }
   }
+
+  const STATUS_OPTIONS: { value: Tank["status"]; label: string; color: string }[] = [
+    { value: "active",   label: "정상",  color: "text-emerald-400" },
+    { value: "warning",  label: "주의",  color: "text-amber-400" },
+    { value: "danger",   label: "위험",  color: "text-red-400" },
+    { value: "inactive", label: "비가동", color: "text-slate-400" },
+  ]
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -532,6 +597,36 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
               <Label className="text-slate-300">재식 밀도 (마리/m³)</Label>
               <Input type="number" value={form.density} onChange={e => setForm(p => ({ ...p, density: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-slate-300">입식일</Label>
+              <Input type="date" value={form.stocking_date} onChange={e => setForm(p => ({ ...p, stocking_date: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-slate-300">예정 출하일</Label>
+              <Input type="date" value={form.harvest_date} onChange={e => setForm(p => ({ ...p, harvest_date: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-slate-300">상태 (수동 설정)</Label>
+            <div className="flex gap-2">
+              {STATUS_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setForm(p => ({ ...p, status: opt.value }))}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    form.status === opt.value
+                      ? `${opt.color} border-current bg-current/10`
+                      : "text-slate-500 border-white/10 hover:border-white/20"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-slate-600">수질 데이터 저장 시 자동 갱신됩니다</p>
           </div>
           {error && <p className="text-sm text-red-400">{error}</p>}
           <DialogFooter>
@@ -618,7 +713,7 @@ function TankCard({ tank, onRefresh }: { tank: Tank; onRefresh: () => void }) {
         {/* Cycle day */}
         <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg ${meta.bg} ${meta.text} w-fit`}>
           <TrendingUp className="w-3.5 h-3.5" />
-          입식 {tank.cycle_day}일차
+          {tank.stocking_date ? `입식 ${computeCycleDay(tank.stocking_date)}일차` : `${tank.cycle_day}일차`}
         </div>
 
         {/* Stats grid */}
@@ -641,6 +736,24 @@ function TankCard({ tank, onRefresh }: { tank: Tank; onRefresh: () => void }) {
             </p>
             <p className="text-white font-bold text-sm">{tank.shrimp_count.toLocaleString()} 마리</p>
           </div>
+          {tank.stocking_date && (
+            <div className="bg-slate-900/60 rounded-lg p-2.5">
+              <p className="text-slate-500 text-xs mb-0.5 flex items-center gap-1">
+                <Calendar className="w-3 h-3" /> 입식일
+              </p>
+              <p className="text-white font-bold text-sm">{formatDate(tank.stocking_date)}</p>
+            </div>
+          )}
+          {tank.harvest_date && (
+            <div className="bg-slate-900/60 rounded-lg p-2.5">
+              <p className="text-slate-500 text-xs mb-0.5 flex items-center gap-1">
+                <ShoppingCart className="w-3 h-3" /> 예정 출하
+              </p>
+              <p className={`font-bold text-sm ${new Date(tank.harvest_date) <= new Date() ? "text-red-400" : "text-white"}`}>
+                {formatDate(tank.harvest_date)}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Action row */}

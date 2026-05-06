@@ -10,7 +10,11 @@ function toFarm(f: DbFarm, tankCount = 0): Farm {
 }
 
 function toTank(t: DbTank): Tank {
-  return { ...t }
+  return {
+    ...t,
+    stocking_date: t.stocking_date ?? null,
+    harvest_date: t.harvest_date ?? null,
+  }
 }
 
 function toWaterQuality(w: DbWaterQuality): WaterQualityReading {
@@ -107,6 +111,9 @@ export async function createTank(values: {
   volume: number
   stocking_density: number
   shrimp_count: number
+  cycle_day?: number
+  stocking_date?: string | null
+  harvest_date?: string | null
 }) {
   const { data, error } = await supabase
     .from("tanks")
@@ -177,7 +184,7 @@ export async function insertWaterQuality(
 
   if (error) throw error
 
-  // Auto-generate alerts for threshold violations
+  // Auto-generate alerts and update tank status based on threshold violations
   const thresholdAlerts = checkThresholds({
     temperature: values.temperature,
     ph: values.ph,
@@ -200,6 +207,14 @@ export async function insertWaterQuality(
       })
     } catch { /* alert insert failure is non-fatal */ }
   }
+
+  // Sync tank status with the worst threshold level from this reading
+  const newStatus = thresholdAlerts.some(a => a.type === "danger") ? "danger"
+    : thresholdAlerts.some(a => a.type === "warning") ? "warning"
+    : "active"
+  try {
+    await supabase.from("tanks").update({ status: newStatus }).eq("id", tankId)
+  } catch { /* non-fatal */ }
 
   return toWaterQuality(data)
 }

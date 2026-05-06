@@ -12,7 +12,7 @@ const PARAM_LABELS: Record<string, string> = {
   temperature: "수온",
   ph:          "pH",
   do_level:    "DO",
-  salinity:    "염분",
+  salinity:    "염도",
   ammonia:     "암모니아",
   nitrite:     "아질산염",
   turbidity:   "탁도",

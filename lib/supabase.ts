@@ -31,6 +31,8 @@ export type DbTank = {
   stocking_density: number
   shrimp_count: number
   cycle_day: number
+  stocking_date: string | null
+  harvest_date: string | null
   created_at: string
 }
 
