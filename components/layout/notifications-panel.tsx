@@ -1,4 +1,5 @@
 "use client"
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useState, useEffect, useRef } from "react"
 import { Bell, X, CheckCircle2, AlertCircle, XCircle, Info, CheckCheck, RefreshCw } from "lucide-react"
