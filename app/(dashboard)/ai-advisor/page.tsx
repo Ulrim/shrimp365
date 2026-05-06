@@ -278,6 +278,8 @@ export default function AIAdvisorPage() {
     setMessages(prev => [...prev, userMsg])
     setInput("")
     setLoading(true)
+
+    // Use local API route (no external SDK required)
     try {
       const res = await fetch("/api/ai-advisor", {
         method: "POST",
@@ -285,13 +287,12 @@ export default function AIAdvisorPage() {
         body: JSON.stringify({ question, context: buildContext() }),
       })
       const json = await res.json()
-      const response = json.answer || json.error || generateDefaultResponse(question, tanks.length, alerts.length)
-      const aiMsg: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: response, timestamp: new Date() }
-      setMessages(prev => [...prev, aiMsg])
+      const response = json.answer || generateDefaultResponse(question, tanks.length, alerts.length)
+      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: response, timestamp: new Date() }])
     } catch {
+      // Network error fallback
       const fallback = AI_RESPONSES[question] || generateDefaultResponse(question, tanks.length, alerts.length)
-      const aiMsg: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: fallback, timestamp: new Date() }
-      setMessages(prev => [...prev, aiMsg])
+      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: fallback, timestamp: new Date() }])
     } finally {
       setLoading(false)
     }
