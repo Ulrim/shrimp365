@@ -7,7 +7,7 @@ import {
 } from "recharts"
 import { MOCK_TANKS, MOCK_WATER_QUALITY, WATER_QUALITY_STANDARDS, MOCK_ALERTS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
-import { getAllTanks, getWaterQuality, getLatestWaterQuality, insertWaterQuality } from "@/lib/db"
+import { getAllTanks, getWaterQuality, getLatestWaterQuality } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,15 +17,6 @@ import {
 import {
   Tabs, TabsList, TabsTrigger, TabsContent,
 } from "@/components/ui/tabs"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
   Thermometer, Droplets, Wind, Waves, AlertTriangle,
   CheckCircle2, XCircle, AlertCircle, RefreshCw, Plus,
@@ -70,33 +61,7 @@ const STD_KEYS = [
   "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity",
 ] as const
 
-// ─── Input form state ─────────────────────────────────────────────────────────
 
-interface WaterQualityFormState {
-  temperature: string
-  ph: string
-  do_level: string
-  salinity: string
-  ammonia: string
-  nitrite: string
-  nitrate: string
-  alkalinity: string
-  turbidity: string
-  recorded_at: string
-}
-
-const EMPTY_WQ_FORM: WaterQualityFormState = {
-  temperature: "",
-  ph: "",
-  do_level: "",
-  salinity: "",
-  ammonia: "",
-  nitrite: "",
-  nitrate: "",
-  alkalinity: "",
-  turbidity: "",
-  recorded_at: "",
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -228,13 +193,6 @@ export default function WaterQualityPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  // Input dialog state
-  const [inputDialogOpen, setInputDialogOpen] = useState(false)
-  const [wqForm, setWqForm] = useState<WaterQualityFormState>(EMPTY_WQ_FORM)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [submitSuccess, setSubmitSuccess] = useState(false)
-
   // Summary counts
   const [summaryStatusCounts, setSummaryStatusCounts] = useState({ 정상: 0, 주의: 0, 위험: 0 })
 
@@ -336,52 +294,6 @@ export default function WaterQualityPage() {
     loadTankData(selectedTankId).finally(() => setIsRefreshing(false))
   }
 
-  function setWqField<K extends keyof WaterQualityFormState>(key: K, value: string) {
-    setWqForm(prev => ({ ...prev, [key]: value }))
-  }
-
-  async function handleWaterQualitySubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setSubmitError(null)
-
-    const required: (keyof WaterQualityFormState)[] = [
-      "temperature", "ph", "do_level", "salinity",
-      "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity",
-    ]
-    for (const field of required) {
-      if (!wqForm[field]) {
-        setSubmitError("모든 수질 항목을 입력해주세요.")
-        return
-      }
-    }
-
-    setIsSubmitting(true)
-    try {
-      await insertWaterQuality(selectedTankId, {
-        temperature: Number(wqForm.temperature),
-        ph: Number(wqForm.ph),
-        do_level: Number(wqForm.do_level),
-        salinity: Number(wqForm.salinity),
-        ammonia: Number(wqForm.ammonia),
-        nitrite: Number(wqForm.nitrite),
-        nitrate: Number(wqForm.nitrate),
-        alkalinity: Number(wqForm.alkalinity),
-        turbidity: Number(wqForm.turbidity),
-        recorded_at: wqForm.recorded_at || new Date().toISOString(),
-      })
-      setSubmitSuccess(true)
-      setWqForm(EMPTY_WQ_FORM)
-      setInputDialogOpen(false)
-      // Refresh data for the current tank
-      await loadTankData(selectedTankId)
-      setTimeout(() => setSubmitSuccess(false), 3500)
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "수질 데이터 저장에 실패했습니다.")
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
   if (!isLoading && tanks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-96 space-y-4 animate-fade-in">
@@ -405,14 +317,6 @@ export default function WaterQualityPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Success toast */}
-      {submitSuccess && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] bg-slate-800 border border-white/10 text-white text-sm px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 animate-fade-in">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          수질 데이터가 성공적으로 저장되었습니다.
-        </div>
-      )}
-
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -434,21 +338,16 @@ export default function WaterQualityPage() {
             </span>
           </div>
 
-          {/* 수질 입력 button */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-ocean-500/40 text-ocean-300 hover:bg-ocean-500/10 gap-2"
-            onClick={() => {
-              setWqForm(EMPTY_WQ_FORM)
-              setSubmitError(null)
-              setInputDialogOpen(true)
-            }}
-            disabled={!selectedTankId}
-          >
-            <Plus className="w-4 h-4" />
-            수질 입력
-          </Button>
+          <a href="/journal">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-ocean-500/40 text-ocean-300 hover:bg-ocean-500/10 gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              수질 입력 (양식일지)
+            </Button>
+          </a>
 
           <Button
             variant="outline"
@@ -462,93 +361,6 @@ export default function WaterQualityPage() {
           </Button>
         </div>
       </div>
-
-      {/* ── Water Quality Input Dialog ──────────────────────────────────────── */}
-      <Dialog open={inputDialogOpen} onOpenChange={setInputDialogOpen}>
-        <DialogContent className="bg-slate-900 border-white/10 text-white max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-white flex items-center gap-2">
-              <Droplets className="w-5 h-5 text-ocean-400" />
-              수질 데이터 입력
-              {selectedTank && (
-                <span className="text-sm font-normal text-slate-400 ml-1">— {selectedTank.name}</span>
-              )}
-            </DialogTitle>
-          </DialogHeader>
-
-          <form onSubmit={handleWaterQualitySubmit} className="space-y-4 mt-2">
-            <div className="grid grid-cols-2 gap-4">
-              {(
-                [
-                  { field: "temperature" as const, label: "수온 (°C)", placeholder: "예: 28.5" },
-                  { field: "ph" as const, label: "pH", placeholder: "예: 7.8" },
-                  { field: "do_level" as const, label: "DO (mg/L)", placeholder: "예: 6.5" },
-                  { field: "salinity" as const, label: "염분 (ppt)", placeholder: "예: 15.0" },
-                  { field: "ammonia" as const, label: "암모니아 (mg/L)", placeholder: "예: 0.05" },
-                  { field: "nitrite" as const, label: "아질산염 (mg/L)", placeholder: "예: 0.02" },
-                  { field: "nitrate" as const, label: "질산염 (mg/L)", placeholder: "예: 5.0" },
-                  { field: "alkalinity" as const, label: "알칼리도 (mg/L)", placeholder: "예: 120" },
-                  { field: "turbidity" as const, label: "탁도 (NTU)", placeholder: "예: 3.0" },
-                ] as Array<{ field: keyof WaterQualityFormState; label: string; placeholder: string }>
-              ).map(({ field, label, placeholder }) => (
-                <div key={field} className="space-y-1.5">
-                  <Label className="text-slate-300 text-sm">
-                    {label} <span className="text-red-400">*</span>
-                  </Label>
-                  <Input
-                    type="number"
-                    step="any"
-                    placeholder={placeholder}
-                    value={wqForm[field]}
-                    onChange={e => setWqField(field, e.target.value)}
-                    className="bg-slate-800 border-white/10 text-white placeholder:text-slate-600"
-                  />
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-slate-300 text-sm">측정 일시 (비워두면 현재 시각)</Label>
-              <Input
-                type="datetime-local"
-                value={wqForm.recorded_at}
-                onChange={e => setWqField("recorded_at", e.target.value ? new Date(e.target.value).toISOString() : "")}
-                className="bg-slate-800 border-white/10 text-white"
-              />
-            </div>
-
-            {submitError && (
-              <p className="text-sm text-red-400 flex items-center gap-1.5">
-                <XCircle className="w-4 h-4 shrink-0" /> {submitError}
-              </p>
-            )}
-
-            <DialogFooter className="pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setInputDialogOpen(false)}
-                className="border-white/10 text-slate-300 hover:bg-slate-700"
-                disabled={isSubmitting}
-              >
-                취소
-              </Button>
-              <Button
-                type="submit"
-                className="bg-ocean-600 hover:bg-ocean-500 text-white border-0"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
-                ) : (
-                  <Plus className="w-4 h-4 mr-1.5" />
-                )}
-                저장
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {/* ── Tank Selector ──────────────────────────────────────────────────── */}
       <Card className="bg-slate-800/50 border-white/5">

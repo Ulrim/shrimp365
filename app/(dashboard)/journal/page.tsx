@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { MOCK_JOURNALS, MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
-import { getJournalEntries, createJournalEntry, getAllTanks } from "@/lib/db"
+import { getJournalEntries, createJournalEntry, getAllTanks, insertWaterQuality } from "@/lib/db"
 import { JournalEntry, Tank } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -182,6 +182,28 @@ export default function JournalPage() {
         created_by: null,
       })
       setJournals(prev => [entry, ...prev])
+
+      // 수질 데이터가 입력된 경우 water_quality_readings에도 저장
+      const hasWq = form.temperature || form.ph || form.do_level || form.salinity ||
+        form.ammonia || form.nitrite || form.nitrate || form.alkalinity || form.turbidity
+      if (hasWq) {
+        try {
+          await insertWaterQuality(form.tank_id, {
+            temperature: parseFloat(form.temperature) || 0,
+            ph: parseFloat(form.ph) || 0,
+            do_level: parseFloat(form.do_level) || 0,
+            salinity: parseFloat(form.salinity) || 0,
+            ammonia: parseFloat(form.ammonia) || 0,
+            nitrite: parseFloat(form.nitrite) || 0,
+            nitrate: parseFloat(form.nitrate) || 0,
+            alkalinity: parseFloat(form.alkalinity) || 0,
+            turbidity: parseFloat(form.turbidity) || 0,
+            recorded_at: new Date(`${form.date}T12:00:00`).toISOString(),
+          })
+        } catch {
+          // 수질 저장 실패해도 일지는 저장됨
+        }
+      }
     } catch {
       // fallback: 로컬 상태에만 추가
       const selectedTank = tanks.find(t => t.id === form.tank_id)

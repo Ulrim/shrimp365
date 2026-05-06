@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { MOCK_FARMS, MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
-import { getFarms, getTanksByFarm, createFarm, createTank } from "@/lib/db"
+import { getFarms, getTanksByFarm, createFarm, createTank, updateFarm, deleteFarm, updateTank, deleteTank } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -361,9 +361,243 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
   )
 }
 
+// ─── Edit Farm Dialog ────────────────────────────────────────────────────────
+
+function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [form, setForm] = useState({ name: farm.name, location: farm.location, area: String(farm.area) })
+
+  useEffect(() => {
+    if (open) setForm({ name: farm.name, location: farm.location, area: String(farm.area) })
+  }, [open, farm])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    setError(null)
+    try {
+      await updateFarm(farm.id, { name: form.name, location: form.location, area: parseFloat(form.area) || 0 })
+      setOpen(false)
+      onSuccess()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "수정에 실패했습니다.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button className="p-1.5 rounded-lg hover:bg-white/8 text-slate-400 hover:text-white transition-colors" title="편집">
+          <Edit2 className="w-3.5 h-3.5" />
+        </button>
+      </DialogTrigger>
+      <DialogContent className="bg-slate-900 border-white/10 text-white max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-white flex items-center gap-2">
+            <Edit2 className="w-4 h-4 text-ocean-400" /> 양식장 편집
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+          <div className="space-y-2">
+            <Label className="text-slate-300">양식장 이름 *</Label>
+            <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required className="bg-slate-800 border-white/10 text-white" />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-slate-300">위치</Label>
+            <Input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-slate-300">면적 (m²)</Label>
+            <Input type="number" value={form.area} onChange={e => setForm(p => ({ ...p, area: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+          </div>
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="border-white/10 text-slate-300">취소</Button>
+            <Button type="submit" disabled={saving} className="bg-ocean-500 hover:bg-ocean-600 text-white">
+              {saving ? "저장중..." : "저장"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── Delete Farm Dialog ───────────────────────────────────────────────────────
+
+function DeleteFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleDelete() {
+    setDeleting(true)
+    setError(null)
+    try {
+      await deleteFarm(farm.id)
+      setOpen(false)
+      onSuccess()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "삭제에 실패했습니다.")
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button className="p-1.5 rounded-lg hover:bg-red-500/15 text-slate-400 hover:text-red-400 transition-colors" title="삭제">
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </DialogTrigger>
+      <DialogContent className="bg-slate-900 border-white/10 text-white max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-white flex items-center gap-2">
+            <Trash2 className="w-4 h-4 text-red-400" /> 양식장 삭제
+          </DialogTitle>
+          <DialogDescription className="text-slate-400">
+            <strong className="text-white">{farm.name}</strong>을 삭제하면 해당 양식장의 모든 수조 데이터도 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+          </DialogDescription>
+        </DialogHeader>
+        {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
+        <DialogFooter className="mt-4">
+          <Button variant="outline" onClick={() => setOpen(false)} className="border-white/10 text-slate-300">취소</Button>
+          <Button onClick={handleDelete} disabled={deleting} className="bg-red-600 hover:bg-red-700 text-white">
+            {deleting ? "삭제중..." : "삭제"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── Edit Tank Dialog ─────────────────────────────────────────────────────────
+
+function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [form, setForm] = useState({ name: tank.name, volume: String(tank.volume), density: String(tank.stocking_density) })
+
+  useEffect(() => {
+    if (open) setForm({ name: tank.name, volume: String(tank.volume), density: String(tank.stocking_density) })
+  }, [open, tank])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    setError(null)
+    try {
+      const volume = parseFloat(form.volume) || 0
+      const density = parseFloat(form.density) || 0
+      await updateTank(tank.id, { name: form.name, volume, stocking_density: density, shrimp_count: Math.round(volume * density) })
+      setOpen(false)
+      onSuccess()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "수정에 실패했습니다.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button className="p-1.5 rounded-lg hover:bg-white/8 text-slate-400 hover:text-white transition-colors" title="편집">
+          <Edit2 className="w-3.5 h-3.5" />
+        </button>
+      </DialogTrigger>
+      <DialogContent className="bg-slate-900 border-white/10 text-white max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-white flex items-center gap-2">
+            <Edit2 className="w-4 h-4 text-teal-400" /> 수조 편집
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+          <div className="space-y-2">
+            <Label className="text-slate-300">수조 이름 *</Label>
+            <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required className="bg-slate-800 border-white/10 text-white" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-slate-300">용량 (m³)</Label>
+              <Input type="number" value={form.volume} onChange={e => setForm(p => ({ ...p, volume: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-slate-300">재식 밀도 (마리/m³)</Label>
+              <Input type="number" value={form.density} onChange={e => setForm(p => ({ ...p, density: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+            </div>
+          </div>
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="border-white/10 text-slate-300">취소</Button>
+            <Button type="submit" disabled={saving} className="bg-teal-600 hover:bg-teal-700 text-white">
+              {saving ? "저장중..." : "저장"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── Delete Tank Dialog ───────────────────────────────────────────────────────
+
+function DeleteTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleDelete() {
+    setDeleting(true)
+    setError(null)
+    try {
+      await deleteTank(tank.id)
+      setOpen(false)
+      onSuccess()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "삭제에 실패했습니다.")
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button className="p-1.5 rounded-lg hover:bg-red-500/15 text-slate-400 hover:text-red-400 transition-colors" title="삭제">
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </DialogTrigger>
+      <DialogContent className="bg-slate-900 border-white/10 text-white max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-white flex items-center gap-2">
+            <Trash2 className="w-4 h-4 text-red-400" /> 수조 삭제
+          </DialogTitle>
+          <DialogDescription className="text-slate-400">
+            <strong className="text-white">{tank.name}</strong>을 삭제하면 해당 수조의 모든 데이터(수질, 일지, 진단)도 함께 삭제됩니다.
+          </DialogDescription>
+        </DialogHeader>
+        {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
+        <DialogFooter className="mt-4">
+          <Button variant="outline" onClick={() => setOpen(false)} className="border-white/10 text-slate-300">취소</Button>
+          <Button onClick={handleDelete} disabled={deleting} className="bg-red-600 hover:bg-red-700 text-white">
+            {deleting ? "삭제중..." : "삭제"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ─── Tank Card ───────────────────────────────────────────────────────────────
 
-function TankCard({ tank }: { tank: Tank }) {
+function TankCard({ tank, onRefresh }: { tank: Tank; onRefresh: () => void }) {
   const meta = STATUS_META[tank.status]
   const isPulsing = tank.status === "warning" || tank.status === "danger"
 
@@ -413,12 +647,8 @@ function TankCard({ tank }: { tank: Tank }) {
         <div className="flex items-center justify-between pt-1 border-t border-white/5">
           <p className="text-slate-600 text-xs">등록 {formatDate(tank.created_at)}</p>
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button className="p-1.5 rounded-lg hover:bg-white/8 text-slate-400 hover:text-white transition-colors">
-              <Edit2 className="w-3.5 h-3.5" />
-            </button>
-            <button className="p-1.5 rounded-lg hover:bg-red-500/15 text-slate-400 hover:text-red-400 transition-colors">
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            <EditTankDialog tank={tank} onSuccess={onRefresh} />
+            <DeleteTankDialog tank={tank} onSuccess={onRefresh} />
           </div>
         </div>
       </CardContent>
@@ -660,7 +890,13 @@ export default function FarmsPage() {
           {selectedFarm && (
             <Card className="bg-slate-800/30 border-white/5 mt-2">
               <CardContent className="p-4 space-y-2.5">
-                <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">양식장 정보</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">양식장 정보</p>
+                  <div className="flex items-center gap-0.5">
+                    <EditFarmDialog farm={selectedFarm} onSuccess={handleFarmAdded} />
+                    <DeleteFarmDialog farm={selectedFarm} onSuccess={() => { setSelectedFarmId(""); handleFarmAdded() }} />
+                  </div>
+                </div>
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between">
                     <span className="text-slate-500">이름</span>
@@ -719,7 +955,7 @@ export default function FarmsPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {selectedTanks.map(tank => (
-                <TankCard key={tank.id} tank={tank} />
+                <TankCard key={tank.id} tank={tank} onRefresh={handleTankAdded} />
               ))}
             </div>
           )}
