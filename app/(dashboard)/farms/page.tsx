@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { MOCK_FARMS, MOCK_TANKS } from "@/lib/mock-data"
+import { getFarms, getTanksByFarm, createFarm, createTank } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -75,20 +76,37 @@ const STATUS_META: Record<
 
 // ─── Add Farm Dialog ─────────────────────────────────────────────────────────
 
-function AddFarmDialog() {
+function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
   const [open, setOpen] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({ name: "", location: "", area: "" })
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setSubmitted(true)
+    setSaving(true)
+    setError(null)
+    try {
+      await createFarm({
+        name: form.name,
+        location: form.location,
+        area: parseFloat(form.area),
+      })
+      setSubmitted(true)
+      onSuccess()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "저장에 실패했습니다.")
+    } finally {
+      setSaving(false)
+    }
   }
 
   function handleOpenChange(v: boolean) {
     setOpen(v)
     if (!v) {
       setSubmitted(false)
+      setError(null)
       setForm({ name: "", location: "", area: "" })
     }
   }
@@ -122,6 +140,9 @@ function AddFarmDialog() {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 py-2">
+            {error && (
+              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="farm-name" className="text-slate-300 text-sm">양식장 이름 *</Label>
               <Input
@@ -166,8 +187,13 @@ function AddFarmDialog() {
               >
                 취소
               </Button>
-              <Button type="submit" className="bg-ocean-500 hover:bg-ocean-600 text-white">
-                등록하기
+              <Button type="submit" disabled={saving} className="bg-ocean-500 hover:bg-ocean-600 text-white">
+                {saving ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    등록중...
+                  </span>
+                ) : "등록하기"}
               </Button>
             </DialogFooter>
           </form>
@@ -190,20 +216,41 @@ function AddFarmDialog() {
 
 // ─── Add Tank Dialog ─────────────────────────────────────────────────────────
 
-function AddTankDialog({ farmName }: { farmName: string }) {
+function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void }) {
   const [open, setOpen] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({ name: "", volume: "", density: "" })
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setSubmitted(true)
+    setSaving(true)
+    setError(null)
+    try {
+      const volume = parseFloat(form.volume)
+      const density = parseFloat(form.density)
+      await createTank({
+        farm_id: farm.id,
+        name: form.name,
+        volume,
+        stocking_density: density,
+        shrimp_count: Math.round(volume * density),
+      })
+      setSubmitted(true)
+      onSuccess()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "저장에 실패했습니다.")
+    } finally {
+      setSaving(false)
+    }
   }
 
   function handleOpenChange(v: boolean) {
     setOpen(v)
     if (!v) {
       setSubmitted(false)
+      setError(null)
       setForm({ name: "", volume: "", density: "" })
     }
   }
@@ -221,7 +268,7 @@ function AddTankDialog({ farmName }: { farmName: string }) {
             <Droplets className="w-5 h-5 text-teal-400" /> 수조 추가
           </DialogTitle>
           <DialogDescription className="text-slate-400">
-            {farmName}에 새 수조를 추가합니다.
+            {farm.name}에 새 수조를 추가합니다.
           </DialogDescription>
         </DialogHeader>
 
@@ -237,6 +284,9 @@ function AddTankDialog({ farmName }: { farmName: string }) {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 py-2">
+            {error && (
+              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="tank-name" className="text-slate-300 text-sm">수조 이름 *</Label>
               <Input
@@ -283,8 +333,13 @@ function AddTankDialog({ farmName }: { farmName: string }) {
               >
                 취소
               </Button>
-              <Button type="submit" className="bg-teal-600 hover:bg-teal-700 text-white">
-                등록하기
+              <Button type="submit" disabled={saving} className="bg-teal-600 hover:bg-teal-700 text-white">
+                {saving ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    등록중...
+                  </span>
+                ) : "등록하기"}
               </Button>
             </DialogFooter>
           </form>
@@ -486,11 +541,81 @@ function StatusSummary({ tanks }: { tanks: Tank[] }) {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function FarmsPage() {
-  const [selectedFarmId, setSelectedFarmId] = useState<string>(MOCK_FARMS[0]?.id ?? "")
+  const [farms, setFarms] = useState<Farm[]>([])
+  const [tanksMap, setTanksMap] = useState<Record<string, Tank[]>>({})
+  const [selectedFarmId, setSelectedFarmId] = useState<string>("")
+  const [loadingFarms, setLoadingFarms] = useState(true)
+  const [loadingTanks, setLoadingTanks] = useState(false)
 
-  const selectedFarm = MOCK_FARMS.find(f => f.id === selectedFarmId) ?? MOCK_FARMS[0]
-  const allTanksForFarm = (farmId: string) => MOCK_TANKS.filter(t => t.farm_id === farmId)
-  const selectedTanks = MOCK_TANKS.filter(t => t.farm_id === selectedFarmId)
+  const loadFarms = useCallback(async () => {
+    setLoadingFarms(true)
+    try {
+      const data = await getFarms()
+      const result = data.length > 0 ? data : MOCK_FARMS
+      setFarms(result)
+      if (!selectedFarmId && result.length > 0) {
+        setSelectedFarmId(result[0].id)
+      }
+    } catch {
+      setFarms(MOCK_FARMS)
+      if (!selectedFarmId && MOCK_FARMS.length > 0) {
+        setSelectedFarmId(MOCK_FARMS[0].id)
+      }
+    } finally {
+      setLoadingFarms(false)
+    }
+  }, [selectedFarmId])
+
+  const loadTanksForFarm = useCallback(async (farmId: string) => {
+    if (!farmId) return
+    setLoadingTanks(true)
+    try {
+      const data = await getTanksByFarm(farmId)
+      const result = data.length > 0 ? data : MOCK_TANKS.filter(t => t.farm_id === farmId)
+      setTanksMap(prev => ({ ...prev, [farmId]: result }))
+    } catch {
+      setTanksMap(prev => ({
+        ...prev,
+        [farmId]: MOCK_TANKS.filter(t => t.farm_id === farmId),
+      }))
+    } finally {
+      setLoadingTanks(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadFarms()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (selectedFarmId) {
+      loadTanksForFarm(selectedFarmId)
+    }
+  }, [selectedFarmId, loadTanksForFarm])
+
+  const selectedFarm = farms.find(f => f.id === selectedFarmId) ?? farms[0]
+  const selectedTanks = tanksMap[selectedFarmId] ?? []
+
+  const handleFarmAdded = () => {
+    loadFarms()
+  }
+
+  const handleTankAdded = () => {
+    if (selectedFarmId) {
+      loadTanksForFarm(selectedFarmId)
+    }
+  }
+
+  if (loadingFarms) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-ocean-500/30 border-t-ocean-500 rounded-full animate-spin" />
+          <p className="text-slate-400 text-sm">양식장 데이터를 불러오는 중...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -505,7 +630,7 @@ export default function FarmsPage() {
             양식장과 수조 현황을 한눈에 확인하고 관리하세요.
           </p>
         </div>
-        <AddFarmDialog />
+        <AddFarmDialog onSuccess={handleFarmAdded} />
       </div>
 
       {/* Main layout: left list + right tank grid */}
@@ -513,15 +638,15 @@ export default function FarmsPage() {
         {/* ── Left: Farm List ── */}
         <div className="w-72 shrink-0 space-y-3">
           <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider px-1">
-            양식장 ({MOCK_FARMS.length})
+            양식장 ({farms.length})
           </p>
-          {MOCK_FARMS.map(farm => (
+          {farms.map(farm => (
             <FarmCard
               key={farm.id}
               farm={farm}
               selected={selectedFarmId === farm.id}
               onClick={() => setSelectedFarmId(farm.id)}
-              tanks={allTanksForFarm(farm.id)}
+              tanks={tanksMap[farm.id] ?? []}
             />
           ))}
 
@@ -564,11 +689,18 @@ export default function FarmsPage() {
               </h2>
               {selectedTanks.length > 0 && <StatusSummary tanks={selectedTanks} />}
             </div>
-            {selectedFarm && <AddTankDialog farmName={selectedFarm.name} />}
+            {selectedFarm && <AddTankDialog farm={selectedFarm} onSuccess={handleTankAdded} />}
           </div>
 
           {/* Tanks */}
-          {selectedTanks.length === 0 ? (
+          {loadingTanks ? (
+            <div className="flex items-center justify-center h-40">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-6 h-6 border-2 border-teal-500/30 border-t-teal-500 rounded-full animate-spin" />
+                <p className="text-slate-400 text-sm">수조 데이터를 불러오는 중...</p>
+              </div>
+            </div>
+          ) : selectedTanks.length === 0 ? (
             <Card className="bg-slate-800/30 border-white/5 border-dashed">
               <CardContent className="py-16 flex flex-col items-center gap-3 text-center">
                 <div className="w-14 h-14 rounded-2xl bg-slate-700/60 flex items-center justify-center">

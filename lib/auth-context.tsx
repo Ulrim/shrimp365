@@ -1,71 +1,113 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react"
-import { User } from "@/types"
-import { TEST_ACCOUNTS, MOCK_USER } from "@/lib/mock-data"
+import { User as SupabaseUser, Session } from "@supabase/supabase-js"
+import { supabase } from "@/lib/supabase"
+
+interface AppUser {
+  id: string
+  email: string
+  name: string
+  role: string
+}
 
 interface AuthContextType {
-  user: User | null
+  user: AppUser | null
+  session: Session | null
   loading: boolean
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
-  logout: () => void
+  logout: () => Promise<void>
   signup: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
+async function fetchProfile(userId: string): Promise<{ name: string; role: string }> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("name, role")
+    .eq("id", userId)
+    .single()
+  return { name: data?.name || "", role: data?.role || "operator" }
+}
+
+function toAppUser(sbUser: SupabaseUser, profile: { name: string; role: string }): AppUser {
+  return {
+    id: sbUser.id,
+    email: sbUser.email || "",
+    name: profile.name || sbUser.email?.split("@")[0] || "",
+    role: profile.role,
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<AppUser | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const stored = localStorage.getItem("shrimp365_user")
-    if (stored) {
-      setUser(JSON.parse(stored))
-    }
-    setLoading(false)
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setSession(session)
+      if (session?.user) {
+        const profile = await fetchProfile(session.user.id)
+        setUser(toAppUser(session.user, profile))
+      }
+      setLoading(false)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        setSession(session)
+        if (session?.user) {
+          const profile = await fetchProfile(session.user.id)
+          setUser(toAppUser(session.user, profile))
+        } else {
+          setUser(null)
+        }
+        setLoading(false)
+      }
+    )
+
+    return () => subscription.unsubscribe()
   }, [])
 
   const login = async (email: string, password: string) => {
-    const account = TEST_ACCOUNTS.find(a => a.email === email && a.password === password)
-    if (account) {
-      const userData: User = {
-        id: "mock-user-1",
-        email: account.email,
-        name: account.name.split(" ")[0],
-        role: email.includes("admin") ? "admin" : "operator",
-        farm_count: 2,
-      }
-      setUser(userData)
-      localStorage.setItem("shrimp365_user", JSON.stringify(userData))
-      return { success: true }
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      const msg =
+        error.message.includes("Invalid login") || error.message.includes("invalid_credentials")
+          ? "이메일 또는 비밀번호가 올바르지 않습니다."
+          : error.message.includes("Email not confirmed")
+          ? "이메일 인증이 필요합니다. 메일함을 확인해주세요."
+          : "로그인에 실패했습니다."
+      return { success: false, error: msg }
     }
-    return { success: false, error: "이메일 또는 비밀번호가 올바르지 않습니다." }
+    return { success: true }
   }
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut()
     setUser(null)
-    localStorage.removeItem("shrimp365_user")
+    setSession(null)
   }
 
   const signup = async (email: string, password: string, name: string) => {
-    if (TEST_ACCOUNTS.find(a => a.email === email)) {
-      return { success: false, error: "이미 사용 중인 이메일입니다." }
-    }
-    const userData: User = {
-      id: "new-user-" + Date.now(),
+    const { error } = await supabase.auth.signUp({
       email,
-      name,
-      role: "operator",
-      farm_count: 0,
+      password,
+      options: { data: { name } },
+    })
+    if (error) {
+      const msg = error.message.includes("already registered")
+        ? "이미 사용 중인 이메일입니다."
+        : error.message
+      return { success: false, error: msg }
     }
-    setUser(userData)
-    localStorage.setItem("shrimp365_user", JSON.stringify(userData))
     return { success: true }
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, signup }}>
+    <AuthContext.Provider value={{ user, session, loading, login, logout, signup }}>
       {children}
     </AuthContext.Provider>
   )

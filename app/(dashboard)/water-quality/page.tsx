@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine, Legend,
 } from "recharts"
 import { MOCK_TANKS, MOCK_WATER_QUALITY, WATER_QUALITY_STANDARDS, MOCK_ALERTS } from "@/lib/mock-data"
+import { getAllTanks, getWaterQuality, getLatestWaterQuality, insertWaterQuality } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -16,11 +17,20 @@ import {
   Tabs, TabsList, TabsTrigger, TabsContent,
 } from "@/components/ui/tabs"
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
   Thermometer, Droplets, Wind, Waves, AlertTriangle,
-  CheckCircle2, XCircle, AlertCircle, RefreshCw,
+  CheckCircle2, XCircle, AlertCircle, RefreshCw, Plus,
 } from "lucide-react"
 import { formatDateTime } from "@/lib/utils"
-import type { Tank, WaterQualityReading } from "@/types"
+import type { Tank, WaterQualityReading, Alert } from "@/types"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,6 +68,34 @@ const STD_KEYS = [
   "temperature", "ph", "do_level", "salinity",
   "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity",
 ] as const
+
+// ─── Input form state ─────────────────────────────────────────────────────────
+
+interface WaterQualityFormState {
+  temperature: string
+  ph: string
+  do_level: string
+  salinity: string
+  ammonia: string
+  nitrite: string
+  nitrate: string
+  alkalinity: string
+  turbidity: string
+  recorded_at: string
+}
+
+const EMPTY_WQ_FORM: WaterQualityFormState = {
+  temperature: "",
+  ph: "",
+  do_level: "",
+  salinity: "",
+  ammonia: "",
+  nitrite: "",
+  nitrate: "",
+  alkalinity: "",
+  turbidity: "",
+  recorded_at: "",
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -180,26 +218,87 @@ function OverviewChart({ chartData }: { chartData: ReturnType<typeof buildChartD
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function WaterQualityPage() {
-  const [selectedTankId, setSelectedTankId] = useState<string>(MOCK_TANKS[0].id)
+  const [tanks, setTanks] = useState<Tank[]>([])
+  const [selectedTankId, setSelectedTankId] = useState<string>("")
+  const [readings, setReadings] = useState<WaterQualityReading[]>([])
+  const [latest, setLatest] = useState<WaterQualityReading | null>(null)
+  const [tankAlerts, setTankAlerts] = useState<Alert[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const selectedTank = MOCK_TANKS.find(t => t.id === selectedTankId) as Tank
-  const readings = MOCK_WATER_QUALITY[selectedTankId] ?? []
-  const latest = readings[readings.length - 1] as WaterQualityReading | undefined
+  // Input dialog state
+  const [inputDialogOpen, setInputDialogOpen] = useState(false)
+  const [wqForm, setWqForm] = useState<WaterQualityFormState>(EMPTY_WQ_FORM)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitSuccess, setSubmitSuccess] = useState(false)
 
-  const chartData = useMemo(() => buildChartData(readings, true), [readings])
+  // Summary counts
+  const [summaryStatusCounts, setSummaryStatusCounts] = useState({ 정상: 0, 주의: 0, 위험: 0 })
 
-  const tankAlerts = MOCK_ALERTS.filter(a => a.tank_id === selectedTankId && !a.resolved)
+  // Load tanks on mount
+  useEffect(() => {
+    async function loadTanks() {
+      try {
+        const dbTanks = await getAllTanks()
+        if (dbTanks.length > 0) {
+          setTanks(dbTanks)
+          setSelectedTankId(dbTanks[0].id)
+        } else {
+          setTanks(MOCK_TANKS)
+          setSelectedTankId(MOCK_TANKS[0].id)
+        }
+      } catch {
+        setTanks(MOCK_TANKS)
+        setSelectedTankId(MOCK_TANKS[0].id)
+      }
+    }
+    loadTanks()
+  }, [])
 
-  function handleRefresh() {
-    setIsRefreshing(true)
-    setTimeout(() => setIsRefreshing(false), 1200)
-  }
+  // Load water quality when selected tank changes
+  const loadTankData = useCallback(async (tankId: string) => {
+    if (!tankId) return
+    setIsLoading(true)
+    try {
+      const [dbReadings, dbLatest] = await Promise.all([
+        getWaterQuality(tankId, 168),
+        getLatestWaterQuality(tankId),
+      ])
 
-  // Summary counts across all tanks
-  const summaryStatusCounts = useMemo(() => {
+      if (dbReadings.length > 0) {
+        setReadings(dbReadings)
+      } else {
+        setReadings(MOCK_WATER_QUALITY[tankId] ?? [])
+      }
+
+      if (dbLatest) {
+        setLatest(dbLatest)
+      } else {
+        const mockReadings = MOCK_WATER_QUALITY[tankId] ?? []
+        setLatest(mockReadings.length > 0 ? mockReadings[mockReadings.length - 1] : null)
+      }
+
+      // Alerts: use mock alerts as fallback (getAlerts can be wired later)
+      setTankAlerts(MOCK_ALERTS.filter(a => a.tank_id === tankId && !a.resolved))
+    } catch {
+      const mockReadings = MOCK_WATER_QUALITY[tankId] ?? []
+      setReadings(mockReadings)
+      setLatest(mockReadings.length > 0 ? mockReadings[mockReadings.length - 1] : null)
+      setTankAlerts(MOCK_ALERTS.filter(a => a.tank_id === tankId && !a.resolved))
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (selectedTankId) loadTankData(selectedTankId)
+  }, [selectedTankId, loadTankData])
+
+  // Compute summary counts whenever tanks list is set
+  useEffect(() => {
     const counts = { 정상: 0, 주의: 0, 위험: 0 }
-    MOCK_TANKS.forEach(tank => {
+    tanks.forEach(tank => {
       const tankReadings = MOCK_WATER_QUALITY[tank.id] ?? []
       if (!tankReadings.length) return
       const last = tankReadings[tankReadings.length - 1]
@@ -211,11 +310,74 @@ export default function WaterQualityPage() {
       }, "정상")
       counts[worst]++
     })
-    return counts
-  }, [])
+    setSummaryStatusCounts(counts)
+  }, [tanks])
+
+  const chartData = useMemo(() => buildChartData(readings, true), [readings])
+
+  const selectedTank = tanks.find(t => t.id === selectedTankId)
+
+  function handleRefresh() {
+    setIsRefreshing(true)
+    loadTankData(selectedTankId).finally(() => setIsRefreshing(false))
+  }
+
+  function setWqField<K extends keyof WaterQualityFormState>(key: K, value: string) {
+    setWqForm(prev => ({ ...prev, [key]: value }))
+  }
+
+  async function handleWaterQualitySubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setSubmitError(null)
+
+    const required: (keyof WaterQualityFormState)[] = [
+      "temperature", "ph", "do_level", "salinity",
+      "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity",
+    ]
+    for (const field of required) {
+      if (!wqForm[field]) {
+        setSubmitError("모든 수질 항목을 입력해주세요.")
+        return
+      }
+    }
+
+    setIsSubmitting(true)
+    try {
+      await insertWaterQuality(selectedTankId, {
+        temperature: Number(wqForm.temperature),
+        ph: Number(wqForm.ph),
+        do_level: Number(wqForm.do_level),
+        salinity: Number(wqForm.salinity),
+        ammonia: Number(wqForm.ammonia),
+        nitrite: Number(wqForm.nitrite),
+        nitrate: Number(wqForm.nitrate),
+        alkalinity: Number(wqForm.alkalinity),
+        turbidity: Number(wqForm.turbidity),
+        recorded_at: wqForm.recorded_at || new Date().toISOString(),
+      })
+      setSubmitSuccess(true)
+      setWqForm(EMPTY_WQ_FORM)
+      setInputDialogOpen(false)
+      // Refresh data for the current tank
+      await loadTankData(selectedTankId)
+      setTimeout(() => setSubmitSuccess(false), 3500)
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "수질 데이터 저장에 실패했습니다.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Success toast */}
+      {submitSuccess && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] bg-slate-800 border border-white/10 text-white text-sm px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 animate-fade-in">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          수질 데이터가 성공적으로 저장되었습니다.
+        </div>
+      )}
+
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -237,17 +399,121 @@ export default function WaterQualityPage() {
             </span>
           </div>
 
+          {/* 수질 입력 button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-ocean-500/40 text-ocean-300 hover:bg-ocean-500/10 gap-2"
+            onClick={() => {
+              setWqForm(EMPTY_WQ_FORM)
+              setSubmitError(null)
+              setInputDialogOpen(true)
+            }}
+            disabled={!selectedTankId}
+          >
+            <Plus className="w-4 h-4" />
+            수질 입력
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
             className="border-white/10 text-slate-300 hover:bg-white/5 gap-2"
             onClick={handleRefresh}
+            disabled={isRefreshing}
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
             새로고침
           </Button>
         </div>
       </div>
+
+      {/* ── Water Quality Input Dialog ──────────────────────────────────────── */}
+      <Dialog open={inputDialogOpen} onOpenChange={setInputDialogOpen}>
+        <DialogContent className="bg-slate-900 border-white/10 text-white max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Droplets className="w-5 h-5 text-ocean-400" />
+              수질 데이터 입력
+              {selectedTank && (
+                <span className="text-sm font-normal text-slate-400 ml-1">— {selectedTank.name}</span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleWaterQualitySubmit} className="space-y-4 mt-2">
+            <div className="grid grid-cols-2 gap-4">
+              {(
+                [
+                  { field: "temperature" as const, label: "수온 (°C)", placeholder: "예: 28.5" },
+                  { field: "ph" as const, label: "pH", placeholder: "예: 7.8" },
+                  { field: "do_level" as const, label: "DO (mg/L)", placeholder: "예: 6.5" },
+                  { field: "salinity" as const, label: "염분 (ppt)", placeholder: "예: 15.0" },
+                  { field: "ammonia" as const, label: "암모니아 (mg/L)", placeholder: "예: 0.05" },
+                  { field: "nitrite" as const, label: "아질산염 (mg/L)", placeholder: "예: 0.02" },
+                  { field: "nitrate" as const, label: "질산염 (mg/L)", placeholder: "예: 5.0" },
+                  { field: "alkalinity" as const, label: "알칼리도 (mg/L)", placeholder: "예: 120" },
+                  { field: "turbidity" as const, label: "탁도 (NTU)", placeholder: "예: 3.0" },
+                ] as Array<{ field: keyof WaterQualityFormState; label: string; placeholder: string }>
+              ).map(({ field, label, placeholder }) => (
+                <div key={field} className="space-y-1.5">
+                  <Label className="text-slate-300 text-sm">
+                    {label} <span className="text-red-400">*</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    placeholder={placeholder}
+                    value={wqForm[field]}
+                    onChange={e => setWqField(field, e.target.value)}
+                    className="bg-slate-800 border-white/10 text-white placeholder:text-slate-600"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-sm">측정 일시 (비워두면 현재 시각)</Label>
+              <Input
+                type="datetime-local"
+                value={wqForm.recorded_at}
+                onChange={e => setWqField("recorded_at", e.target.value ? new Date(e.target.value).toISOString() : "")}
+                className="bg-slate-800 border-white/10 text-white"
+              />
+            </div>
+
+            {submitError && (
+              <p className="text-sm text-red-400 flex items-center gap-1.5">
+                <XCircle className="w-4 h-4 shrink-0" /> {submitError}
+              </p>
+            )}
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setInputDialogOpen(false)}
+                className="border-white/10 text-slate-300 hover:bg-slate-700"
+                disabled={isSubmitting}
+              >
+                취소
+              </Button>
+              <Button
+                type="submit"
+                className="bg-ocean-600 hover:bg-ocean-500 text-white border-0"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-1.5" />
+                )}
+                저장
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Tank Selector ──────────────────────────────────────────────────── */}
       <Card className="bg-slate-800/50 border-white/5">
@@ -261,7 +527,7 @@ export default function WaterQualityPage() {
                     <SelectValue placeholder="수조를 선택하세요" />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-800 border-white/10">
-                    {MOCK_TANKS.map(tank => (
+                    {tanks.map(tank => (
                       <SelectItem
                         key={tank.id}
                         value={tank.id}
@@ -311,153 +577,165 @@ export default function WaterQualityPage() {
         </CardContent>
       </Card>
 
-      {/* ── Alert Banner ────────────────────────────────────────────────────── */}
-      {tankAlerts.length > 0 && (
-        <div className="space-y-2">
-          {tankAlerts.map(alert => (
-            <div
-              key={alert.id}
-              className={`flex items-start gap-3 p-4 rounded-xl border ${
-                alert.type === "danger"
-                  ? "bg-red-500/10 border-red-500/30"
-                  : "bg-amber-500/10 border-amber-500/30"
-              }`}
-            >
-              {alert.type === "danger"
-                ? <XCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                : <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />}
-              <div className="flex-1">
-                <p className={`text-sm font-medium ${alert.type === "danger" ? "text-red-300" : "text-amber-300"}`}>
-                  {alert.message}
-                </p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  측정값: {alert.value} / 임계치: {alert.threshold} · {formatDateTime(alert.created_at)}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── Current Readings Grid ───────────────────────────────────────────── */}
-      {latest ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
-          {PARAM_META.map(meta => (
-            <ReadingCard key={meta.key} meta={meta} reading={latest} />
-          ))}
-        </div>
-      ) : (
+      {/* ── Loading State ───────────────────────────────────────────────────── */}
+      {isLoading ? (
         <Card className="bg-slate-800/50 border-white/5">
           <CardContent className="p-8 text-center text-slate-400">
-            선택한 수조의 수질 데이터가 없습니다.
+            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3 text-ocean-400" />
+            수질 데이터를 불러오는 중...
           </CardContent>
         </Card>
-      )}
-
-      {/* ── Charts ─────────────────────────────────────────────────────────── */}
-      <Card className="bg-slate-800/50 border-white/5">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-white text-base">24시간 수질 추이</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="overview">
-            <TabsList className="bg-slate-900/60 border border-white/5 h-9 mb-4">
-              <TabsTrigger value="overview"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">수온·DO·pH</TabsTrigger>
-              <TabsTrigger value="temperature" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">수온</TabsTrigger>
-              <TabsTrigger value="ph"         className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">pH</TabsTrigger>
-              <TabsTrigger value="do_level"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">DO</TabsTrigger>
-              <TabsTrigger value="salinity"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">염분</TabsTrigger>
-              <TabsTrigger value="ammonia"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">암모니아</TabsTrigger>
-              <TabsTrigger value="turbidity"  className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">탁도</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="overview">
-              <OverviewChart chartData={chartData} />
-              <p className="text-xs text-slate-500 mt-2 text-center">수온(°C) · DO(mg/L) · pH — 기준선 미표시 (복합 Y축)</p>
-            </TabsContent>
-
-            {(
-              [
-                { tabValue: "temperature", chartLabel: "수온",    stdKey: "temperature", chartColor: "#0ea5e9", unit: "°C" },
-                { tabValue: "ph",          chartLabel: "pH",      stdKey: "ph",          chartColor: "#a78bfa", unit: "" },
-                { tabValue: "do_level",    chartLabel: "DO",      stdKey: "do_level",    chartColor: "#14b8a6", unit: "mg/L" },
-                { tabValue: "salinity",    chartLabel: "염분",    stdKey: "salinity",    chartColor: "#f59e0b", unit: "ppt" },
-                { tabValue: "ammonia",     chartLabel: "암모니아", stdKey: "ammonia",     chartColor: "#f97316", unit: "mg/L" },
-                { tabValue: "turbidity",   chartLabel: "탁도",    stdKey: "turbidity",   chartColor: "#8b5cf6", unit: "NTU" },
-              ] as Array<{ tabValue: string; chartLabel: string; stdKey: typeof STD_KEYS[number]; chartColor: string; unit: string }>
-            ).map(({ tabValue, chartLabel, stdKey, chartColor, unit }) => (
-              <TabsContent key={tabValue} value={tabValue}>
-                <SingleParamChart
-                  chartData={chartData}
-                  stdKey={stdKey}
-                  chartLabel={chartLabel}
-                  chartColor={chartColor}
-                  unit={unit}
-                />
-                <div className="flex items-center justify-center gap-4 mt-2 text-xs text-slate-500">
-                  <span className="flex items-center gap-1">
-                    <span className="w-4 border-t border-dashed border-emerald-400/60" />정상범위
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-4 border-t border-dashed border-amber-400/60" />경고범위
-                  </span>
-                </div>
-              </TabsContent>
-            ))}
-          </Tabs>
-        </CardContent>
-      </Card>
-
-      {/* ── Alert List ──────────────────────────────────────────────────────── */}
-      <Card className="bg-slate-800/50 border-white/5">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-white text-base flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-400" />
-            {selectedTank?.name} 알림 내역
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {tankAlerts.length === 0 ? (
-            <div className="flex items-center gap-3 py-6 justify-center">
-              <CheckCircle2 className="w-6 h-6 text-emerald-400" />
-              <p className="text-slate-400 text-sm">미처리 알림이 없습니다 — 수질이 정상 범위에 있습니다.</p>
-            </div>
-          ) : (
+      ) : (
+        <>
+          {/* ── Alert Banner ──────────────────────────────────────────────────── */}
+          {tankAlerts.length > 0 && (
             <div className="space-y-2">
-              {tankAlerts.map(alert => {
-                const paramLabel = WATER_QUALITY_STANDARDS[alert.parameter as typeof STD_KEYS[number]]?.label ?? alert.parameter
-                const isDanger = alert.type === "danger"
-                return (
-                  <div
-                    key={alert.id}
-                    className={`flex items-start gap-3 p-4 rounded-xl border ${
-                      isDanger ? "bg-red-500/5 border-red-500/20" : "bg-amber-500/5 border-amber-500/20"
-                    }`}
-                  >
-                    {isDanger
-                      ? <XCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                      : <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className={`text-sm font-semibold ${isDanger ? "text-red-300" : "text-amber-300"}`}>
-                          {alert.message}
-                        </p>
-                        <Badge variant={isDanger ? "danger" : "warning"}>
-                          {isDanger ? "위험" : "주의"}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-slate-400 mt-1">
-                        항목: {paramLabel} · 측정값 {alert.value} → 임계치 {alert.threshold}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-0.5">{formatDateTime(alert.created_at)}</p>
-                    </div>
+              {tankAlerts.map(alert => (
+                <div
+                  key={alert.id}
+                  className={`flex items-start gap-3 p-4 rounded-xl border ${
+                    alert.type === "danger"
+                      ? "bg-red-500/10 border-red-500/30"
+                      : "bg-amber-500/10 border-amber-500/30"
+                  }`}
+                >
+                  {alert.type === "danger"
+                    ? <XCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                    : <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />}
+                  <div className="flex-1">
+                    <p className={`text-sm font-medium ${alert.type === "danger" ? "text-red-300" : "text-amber-300"}`}>
+                      {alert.message}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      측정값: {alert.value} / 임계치: {alert.threshold} · {formatDateTime(alert.created_at)}
+                    </p>
                   </div>
-                )
-              })}
+                </div>
+              ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+
+          {/* ── Current Readings Grid ────────────────────────────────────────── */}
+          {latest ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
+              {PARAM_META.map(meta => (
+                <ReadingCard key={meta.key} meta={meta} reading={latest} />
+              ))}
+            </div>
+          ) : (
+            <Card className="bg-slate-800/50 border-white/5">
+              <CardContent className="p-8 text-center text-slate-400">
+                선택한 수조의 수질 데이터가 없습니다.
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── Charts ───────────────────────────────────────────────────────── */}
+          <Card className="bg-slate-800/50 border-white/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-white text-base">24시간 수질 추이</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="overview">
+                <TabsList className="bg-slate-900/60 border border-white/5 h-9 mb-4">
+                  <TabsTrigger value="overview"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">수온·DO·pH</TabsTrigger>
+                  <TabsTrigger value="temperature" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">수온</TabsTrigger>
+                  <TabsTrigger value="ph"         className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">pH</TabsTrigger>
+                  <TabsTrigger value="do_level"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">DO</TabsTrigger>
+                  <TabsTrigger value="salinity"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">염분</TabsTrigger>
+                  <TabsTrigger value="ammonia"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">암모니아</TabsTrigger>
+                  <TabsTrigger value="turbidity"  className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">탁도</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="overview">
+                  <OverviewChart chartData={chartData} />
+                  <p className="text-xs text-slate-500 mt-2 text-center">수온(°C) · DO(mg/L) · pH — 기준선 미표시 (복합 Y축)</p>
+                </TabsContent>
+
+                {(
+                  [
+                    { tabValue: "temperature", chartLabel: "수온",    stdKey: "temperature", chartColor: "#0ea5e9", unit: "°C" },
+                    { tabValue: "ph",          chartLabel: "pH",      stdKey: "ph",          chartColor: "#a78bfa", unit: "" },
+                    { tabValue: "do_level",    chartLabel: "DO",      stdKey: "do_level",    chartColor: "#14b8a6", unit: "mg/L" },
+                    { tabValue: "salinity",    chartLabel: "염분",    stdKey: "salinity",    chartColor: "#f59e0b", unit: "ppt" },
+                    { tabValue: "ammonia",     chartLabel: "암모니아", stdKey: "ammonia",     chartColor: "#f97316", unit: "mg/L" },
+                    { tabValue: "turbidity",   chartLabel: "탁도",    stdKey: "turbidity",   chartColor: "#8b5cf6", unit: "NTU" },
+                  ] as Array<{ tabValue: string; chartLabel: string; stdKey: typeof STD_KEYS[number]; chartColor: string; unit: string }>
+                ).map(({ tabValue, chartLabel, stdKey, chartColor, unit }) => (
+                  <TabsContent key={tabValue} value={tabValue}>
+                    <SingleParamChart
+                      chartData={chartData}
+                      stdKey={stdKey}
+                      chartLabel={chartLabel}
+                      chartColor={chartColor}
+                      unit={unit}
+                    />
+                    <div className="flex items-center justify-center gap-4 mt-2 text-xs text-slate-500">
+                      <span className="flex items-center gap-1">
+                        <span className="w-4 border-t border-dashed border-emerald-400/60" />정상범위
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-4 border-t border-dashed border-amber-400/60" />경고범위
+                      </span>
+                    </div>
+                  </TabsContent>
+                ))}
+              </Tabs>
+            </CardContent>
+          </Card>
+
+          {/* ── Alert List ───────────────────────────────────────────────────── */}
+          <Card className="bg-slate-800/50 border-white/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-white text-base flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                {selectedTank?.name} 알림 내역
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {tankAlerts.length === 0 ? (
+                <div className="flex items-center gap-3 py-6 justify-center">
+                  <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+                  <p className="text-slate-400 text-sm">미처리 알림이 없습니다 — 수질이 정상 범위에 있습니다.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {tankAlerts.map(alert => {
+                    const paramLabel = WATER_QUALITY_STANDARDS[alert.parameter as typeof STD_KEYS[number]]?.label ?? alert.parameter
+                    const isDanger = alert.type === "danger"
+                    return (
+                      <div
+                        key={alert.id}
+                        className={`flex items-start gap-3 p-4 rounded-xl border ${
+                          isDanger ? "bg-red-500/5 border-red-500/20" : "bg-amber-500/5 border-amber-500/20"
+                        }`}
+                      >
+                        {isDanger
+                          ? <XCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                          : <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className={`text-sm font-semibold ${isDanger ? "text-red-300" : "text-amber-300"}`}>
+                              {alert.message}
+                            </p>
+                            <Badge variant={isDanger ? "danger" : "warning"}>
+                              {isDanger ? "위험" : "주의"}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-slate-400 mt-1">
+                            항목: {paramLabel} · 측정값 {alert.value} → 임계치 {alert.threshold}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5">{formatDateTime(alert.created_at)}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   )
 }

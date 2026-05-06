@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
-import { MOCK_JOURNALS, MOCK_TANKS, MOCK_WATER_QUALITY } from "@/lib/mock-data"
-import { JournalEntry } from "@/types"
+import { useState, useEffect } from "react"
+import { MOCK_JOURNALS, MOCK_TANKS } from "@/lib/mock-data"
+import { getJournalEntries, createJournalEntry, getAllTanks } from "@/lib/db"
+import { JournalEntry, Tank } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -125,39 +126,81 @@ function JournalCard({ entry }: { entry: JournalEntry }) {
 }
 
 export default function JournalPage() {
-  const [journals, setJournals] = useState<JournalEntry[]>(MOCK_JOURNALS)
+  const [journals, setJournals] = useState<JournalEntry[]>([])
+  const [tanks, setTanks] = useState<Tank[]>([])
+  const [loadingData, setLoadingData] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState(defaultFormValues)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [j, t] = await Promise.all([getJournalEntries(), getAllTanks()])
+        setJournals(j.length ? j : MOCK_JOURNALS)
+        setTanks(t.length ? t : MOCK_TANKS)
+      } catch {
+        setJournals(MOCK_JOURNALS)
+        setTanks(MOCK_TANKS)
+      } finally {
+        setLoadingData(false)
+      }
+    }
+    load()
+  }, [])
 
   const update = (field: string, value: string | boolean) =>
     setForm(prev => ({ ...prev, [field]: value }))
 
   const handleSave = async () => {
     setSaving(true)
-    await new Promise(r => setTimeout(r, 800))
-    const selectedTank = MOCK_TANKS.find(t => t.id === form.tank_id)
-    const newEntry: JournalEntry = {
-      id: "journal-" + Date.now(),
-      tank_id: form.tank_id,
-      tank_name: selectedTank?.name || "미선택",
-      date: form.date,
-      feeding_amount: parseFloat(form.feeding_amount) || 0,
-      feed_type: form.feed_type,
-      feeding_times: parseInt(form.feeding_times) || 0,
-      mortality_count: parseInt(form.mortality_count) || 0,
-      water_exchange_rate: parseInt(form.water_exchange_rate) || 0,
-      microbial_input: form.microbial_input,
-      microbial_type: form.microbial_input ? form.microbial_type : undefined,
-      notes: form.notes,
-      created_by: "김양식",
-      created_at: new Date().toISOString(),
+    try {
+      const entry = await createJournalEntry({
+        tank_id: form.tank_id,
+        date: form.date,
+        feeding_amount: parseFloat(form.feeding_amount) || 0,
+        feed_type: form.feed_type,
+        feeding_times: parseInt(form.feeding_times) || 0,
+        mortality_count: parseInt(form.mortality_count) || 0,
+        water_exchange_rate: parseInt(form.water_exchange_rate) || 0,
+        microbial_input: form.microbial_input,
+        microbial_type: form.microbial_input ? form.microbial_type : null,
+        microbial_amount: form.microbial_input ? parseFloat(form.microbial_amount) || null : null,
+        disinfection: form.disinfection,
+        disinfection_type: form.disinfection ? form.disinfection_type : null,
+        check_aeration: form.check_aeration,
+        check_filtration: form.check_filtration,
+        check_circulation: form.check_circulation,
+        check_feeding_check: form.check_feeding_check,
+        notes: form.notes || null,
+        created_by: null,
+      })
+      setJournals(prev => [entry, ...prev])
+    } catch {
+      // fallback: 로컬 상태에만 추가
+      const selectedTank = tanks.find(t => t.id === form.tank_id)
+      setJournals(prev => [{
+        id: "local-" + Date.now(),
+        tank_id: form.tank_id,
+        tank_name: selectedTank?.name || "미선택",
+        date: form.date,
+        feeding_amount: parseFloat(form.feeding_amount) || 0,
+        feed_type: form.feed_type,
+        feeding_times: parseInt(form.feeding_times) || 0,
+        mortality_count: parseInt(form.mortality_count) || 0,
+        water_exchange_rate: parseInt(form.water_exchange_rate) || 0,
+        microbial_input: form.microbial_input,
+        microbial_type: form.microbial_input ? form.microbial_type : undefined,
+        notes: form.notes,
+        created_by: "",
+        created_at: new Date().toISOString(),
+      }, ...prev])
+    } finally {
+      setSaving(false)
+      setSaved(true)
+      setTimeout(() => { setSaved(false); setDialogOpen(false); setForm(defaultFormValues) }, 1200)
     }
-    setJournals(prev => [newEntry, ...prev])
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => { setSaved(false); setDialogOpen(false); setForm(defaultFormValues) }, 1200)
   }
 
   return (
@@ -173,9 +216,17 @@ export default function JournalPage() {
       </div>
 
       {/* Recent entries */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {journals.map(entry => <JournalCard key={entry.id} entry={entry} />)}
-      </div>
+      {loadingData ? (
+        <div className="flex items-center justify-center h-40">
+          <div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {journals.length === 0 ? (
+            <p className="text-slate-400 text-sm col-span-2 text-center py-12">일지가 없습니다. 첫 일지를 작성해보세요.</p>
+          ) : journals.map(entry => <JournalCard key={entry.id} entry={entry} />)}
+        </div>
+      )}
 
       {/* New Journal Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -203,7 +254,7 @@ export default function JournalPage() {
                       <SelectValue placeholder="수조를 선택하세요" />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-800 border-white/10">
-                      {MOCK_TANKS.map(t => (
+                      {tanks.map(t => (
                         <SelectItem key={t.id} value={t.id} className="text-white hover:bg-white/5">{t.name}</SelectItem>
                       ))}
                     </SelectContent>

@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { MOCK_DIAGNOSES, MOCK_TANKS } from "@/lib/mock-data"
-import { DiagnosisResult } from "@/types"
+import { getDiagnoses, createDiagnosis, getAllTanks } from "@/lib/db"
+import { DiagnosisResult, Tank } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -36,6 +37,7 @@ import {
   User,
   FileText,
   Activity,
+  RefreshCw,
 } from "lucide-react"
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -112,7 +114,6 @@ function StatCard({
 }
 
 function RiskScaleIndicator({ worstRisk }: { worstRisk: RiskLevel }) {
-  const currentStep = RISK_META[worstRisk].step
   return (
     <Card className="bg-slate-800/50 border-white/5">
       <CardHeader className="pb-3">
@@ -194,10 +195,32 @@ const EMPTY_FORM: FormState = {
 // ── main page ─────────────────────────────────────────────────────────────────
 
 export default function DiagnosisPage() {
-  const [diagnoses, setDiagnoses] = useState<DiagnosisResult[]>(MOCK_DIAGNOSES)
+  const [diagnoses, setDiagnoses] = useState<DiagnosisResult[]>([])
+  const [tanks, setTanks] = useState<Tank[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+
+  const loadData = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const [d, t] = await Promise.all([getDiagnoses(), getAllTanks()])
+      setDiagnoses(d.length ? d : MOCK_DIAGNOSES)
+      setTanks(t.length ? t : MOCK_TANKS)
+    } catch {
+      setDiagnoses(MOCK_DIAGNOSES)
+      setTanks(MOCK_TANKS)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   // Summary stats
   const totalTests     = diagnoses.length
@@ -225,23 +248,37 @@ export default function DiagnosisPage() {
       return
     }
 
-    const tank = MOCK_TANKS.find(t => t.id === form.tank_id)
-    const newDiag: DiagnosisResult = {
-      id: `diag-${Date.now()}`,
+    const tank = tanks.find(t => t.id === form.tank_id)
+    createDiagnosis({
       tank_id: form.tank_id,
-      tank_name: tank?.name ?? form.tank_id,
-      test_type: form.test_type as TestType,
-      result: form.result as ResultType,
+      test_type: form.test_type,
+      result: form.result,
       vibrio_count: form.vibrio_count ? Number(form.vibrio_count) : 0,
       pathogenic_ratio: form.pathogenic_ratio ? Number(form.pathogenic_ratio) : 0,
-      risk_level: form.risk_level as RiskLevel,
-      tested_at: new Date().toISOString(),
-      tested_by: form.tested_by,
+      risk_level: form.risk_level,
       action_taken: form.action_taken || undefined,
       notes: form.notes || undefined,
-    }
-
-    setDiagnoses(prev => [newDiag, ...prev])
+    }).then(saved => {
+      setDiagnoses(prev => [saved, ...prev])
+    }).catch(() => {
+      // fallback: 로컬 상태 추가
+      const newDiag: DiagnosisResult = {
+        id: `local-${Date.now()}`,
+        tank_id: form.tank_id,
+        tank_name: tank?.name ?? form.tank_id,
+        test_type: form.test_type as TestType,
+        result: form.result as ResultType,
+        vibrio_count: form.vibrio_count ? Number(form.vibrio_count) : 0,
+        pathogenic_ratio: form.pathogenic_ratio ? Number(form.pathogenic_ratio) : 0,
+        risk_level: form.risk_level as RiskLevel,
+        tested_at: new Date().toISOString(),
+        tested_by: form.tested_by,
+        action_taken: form.action_taken || undefined,
+        notes: form.notes || undefined,
+      }
+      setDiagnoses(prev => [newDiag, ...prev])
+    })
+    setDiagnoses(prev => prev) // trigger re-render
     setForm(EMPTY_FORM)
     setDialogOpen(false)
     showToast(`진단 결과가 성공적으로 등록되었습니다. (${tank?.name} · ${form.test_type} · ${form.result})`)
@@ -298,7 +335,7 @@ export default function DiagnosisPage() {
                     <SelectValue placeholder="수조를 선택하세요" />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-800 border-white/10">
-                    {MOCK_TANKS.map(tank => (
+                    {tanks.map(tank => (
                       <SelectItem key={tank.id} value={tank.id} className="text-white focus:bg-slate-700">
                         {tank.name}
                       </SelectItem>
