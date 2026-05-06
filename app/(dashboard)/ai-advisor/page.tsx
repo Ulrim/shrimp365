@@ -1,7 +1,10 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { MOCK_TANKS, MOCK_WATER_QUALITY, MOCK_ALERTS, MOCK_DIAGNOSES, WATER_QUALITY_STANDARDS } from "@/lib/mock-data"
+import { MOCK_TANKS, MOCK_WATER_QUALITY, MOCK_ALERTS, MOCK_DIAGNOSES, WATER_QUALITY_STANDARDS, isTestAccount } from "@/lib/mock-data"
+import { getAllTanks, getAlerts, getDiagnoses } from "@/lib/db"
+import { useAuth } from "@/lib/auth-context"
+import type { Tank, Alert, DiagnosisResult } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -181,15 +184,14 @@ const AI_RESPONSES: Record<string, string> = {
 3. 폭기 시스템 점검 및 에어스톤 교체`,
 }
 
-function generateDefaultResponse(question: string): string {
+function generateDefaultResponse(question: string, tankCount: number, alertCount: number): string {
   return `**"${question}"에 대한 답변**
 
 현재 AI 분석 시스템이 해당 질문을 처리하고 있습니다.
 
 📊 **현재 모니터링 데이터 기반 분석**
-- 운영 중인 수조: 8개 (정상 5, 주의 1, 위험 2)
-- 활성 알림: 3건
-- 수질 이상 파라미터: 탁도(C-2조), DO(B-2조), 암모니아(B-1조)
+- 운영 중인 수조: ${tankCount}개
+- 활성 알림: ${alertCount}건
 
 💡 **일반 권고사항**
 1. 이상 수조 우선 점검 및 환수 실시
@@ -201,21 +203,46 @@ function generateDefaultResponse(question: string): string {
 }
 
 export default function AIAdvisorPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "welcome",
-      role: "assistant",
-      content: `안녕하세요! 저는 Shrimp365 AI 어드바이저입니다. 🦐
-
-현재 **${MOCK_TANKS.length}개 수조** 운영 현황을 실시간으로 분석하고 있습니다.
-
-**활성 알림 ${MOCK_ALERTS.filter(a => !a.resolved).length}건**이 감지되었습니다. 아래 빠른 질문 버튼을 눌러 시작하거나, 직접 질문을 입력하세요.`,
-      timestamp: new Date(),
-    }
-  ])
+  const { user } = useAuth()
+  const [tanks, setTanks] = useState<Tank[]>([])
+  const [alerts, setAlerts] = useState<Alert[]>([])
+  const [diagnoses, setDiagnoses] = useState<DiagnosisResult[]>([])
+  const [dataLoaded, setDataLoaded] = useState(false)
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    async function loadData() {
+      const mock = isTestAccount(user?.email)
+      try {
+        const [t, a, d] = await Promise.all([getAllTanks(), getAlerts(true), getDiagnoses()])
+        const finalTanks = t.length ? t : (mock ? MOCK_TANKS : [])
+        const finalAlerts = a.length ? a : (mock ? MOCK_ALERTS.filter(x => !x.resolved) : [])
+        const finalDiagnoses = d.length ? d : (mock ? MOCK_DIAGNOSES : [])
+        setTanks(finalTanks)
+        setAlerts(finalAlerts)
+        setDiagnoses(finalDiagnoses)
+        setMessages([{
+          id: "welcome",
+          role: "assistant",
+          content: `안녕하세요! 저는 Shrimp365 AI 어드바이저입니다.\n\n현재 **${finalTanks.length}개 수조** 운영 현황을 실시간으로 분석하고 있습니다.\n\n${finalAlerts.length > 0 ? `**활성 알림 ${finalAlerts.length}건**이 감지되었습니다.` : "현재 활성 알림이 없습니다."} 아래 빠른 질문 버튼을 눌러 시작하거나, 직접 질문을 입력하세요.`,
+          timestamp: new Date(),
+        }])
+      } catch {
+        setMessages([{
+          id: "welcome",
+          role: "assistant",
+          content: "안녕하세요! 저는 Shrimp365 AI 어드바이저입니다. 질문을 입력하세요.",
+          timestamp: new Date(),
+        }])
+      } finally {
+        setDataLoaded(true)
+      }
+    }
+    loadData()
+  }, [user])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -228,7 +255,7 @@ export default function AIAdvisorPage() {
     setInput("")
     setLoading(true)
     await new Promise(r => setTimeout(r, 1200))
-    const response = AI_RESPONSES[question] || generateDefaultResponse(question)
+    const response = AI_RESPONSES[question] || generateDefaultResponse(question, tanks.length, alerts.length)
     const aiMsg: Message = { id: (Date.now() + 1).toString(), role: "assistant", content: response, timestamp: new Date() }
     setMessages(prev => [...prev, aiMsg])
     setLoading(false)
@@ -258,6 +285,14 @@ export default function AIAdvisorPage() {
         if (!line) return <br key={i} />
         return <p key={i} className="text-slate-200 leading-relaxed">{line}</p>
       })
+  }
+
+  if (!dataLoaded) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
   }
 
   return (
@@ -370,16 +405,16 @@ export default function AIAdvisorPage() {
             </CardHeader>
             <CardContent className="space-y-2 text-xs">
               <div className="flex justify-between text-slate-400">
-                <span>운영 수조</span><span className="text-white font-medium">{MOCK_TANKS.length}개</span>
+                <span>운영 수조</span><span className="text-white font-medium">{tanks.length}개</span>
               </div>
               <div className="flex justify-between text-slate-400">
-                <span>활성 알림</span><span className="text-amber-400 font-medium">{MOCK_ALERTS.filter(a => !a.resolved).length}건</span>
+                <span>활성 알림</span><span className="text-amber-400 font-medium">{alerts.length}건</span>
               </div>
               <div className="flex justify-between text-slate-400">
-                <span>AHPND 양성</span><span className="text-red-400 font-medium">1건</span>
+                <span>양성 진단</span><span className="text-red-400 font-medium">{diagnoses.filter(d => d.result === "양성").length}건</span>
               </div>
               <div className="flex justify-between text-slate-400">
-                <span>위험 수조</span><span className="text-red-400 font-medium">{MOCK_TANKS.filter(t => t.status === "danger").length}개</span>
+                <span>위험 수조</span><span className="text-red-400 font-medium">{tanks.filter(t => t.status === "danger").length}개</span>
               </div>
             </CardContent>
           </Card>

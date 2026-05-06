@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { MOCK_JOURNALS, MOCK_TANKS } from "@/lib/mock-data"
+import { MOCK_JOURNALS, MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
+import { useAuth } from "@/lib/auth-context"
 import { getJournalEntries, createJournalEntry, getAllTanks } from "@/lib/db"
 import { JournalEntry, Tank } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -126,6 +127,7 @@ function JournalCard({ entry }: { entry: JournalEntry }) {
 }
 
 export default function JournalPage() {
+  const { user } = useAuth()
   const [journals, setJournals] = useState<JournalEntry[]>([])
   const [tanks, setTanks] = useState<Tank[]>([])
   const [loadingData, setLoadingData] = useState(true)
@@ -136,19 +138,22 @@ export default function JournalPage() {
 
   useEffect(() => {
     async function load() {
+      const mock = isTestAccount(user?.email)
       try {
         const [j, t] = await Promise.all([getJournalEntries(), getAllTanks()])
-        setJournals(j.length ? j : MOCK_JOURNALS)
-        setTanks(t.length ? t : MOCK_TANKS)
+        setJournals(j.length ? j : (mock ? MOCK_JOURNALS : []))
+        setTanks(t.length ? t : (mock ? MOCK_TANKS : []))
       } catch {
-        setJournals(MOCK_JOURNALS)
-        setTanks(MOCK_TANKS)
+        if (mock) {
+          setJournals(MOCK_JOURNALS)
+          setTanks(MOCK_TANKS)
+        }
       } finally {
         setLoadingData(false)
       }
     }
     load()
-  }, [])
+  }, [user])
 
   const update = (field: string, value: string | boolean) =>
     setForm(prev => ({ ...prev, [field]: value }))

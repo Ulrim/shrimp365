@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { MOCK_DIAGNOSES, MOCK_TANKS } from "@/lib/mock-data"
+import { MOCK_DIAGNOSES, MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
+import { useAuth } from "@/lib/auth-context"
 import { getDiagnoses, createDiagnosis, getAllTanks } from "@/lib/db"
 import { DiagnosisResult, Tank } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -195,6 +196,7 @@ const EMPTY_FORM: FormState = {
 // ── main page ─────────────────────────────────────────────────────────────────
 
 export default function DiagnosisPage() {
+  const { user } = useAuth()
   const [diagnoses, setDiagnoses] = useState<DiagnosisResult[]>([])
   const [tanks, setTanks] = useState<Tank[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -205,18 +207,21 @@ export default function DiagnosisPage() {
   const [toast, setToast] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
+    const mock = isTestAccount(user?.email)
     setIsLoading(true)
     try {
       const [d, t] = await Promise.all([getDiagnoses(), getAllTanks()])
-      setDiagnoses(d.length ? d : MOCK_DIAGNOSES)
-      setTanks(t.length ? t : MOCK_TANKS)
+      setDiagnoses(d.length ? d : (mock ? MOCK_DIAGNOSES : []))
+      setTanks(t.length ? t : (mock ? MOCK_TANKS : []))
     } catch {
-      setDiagnoses(MOCK_DIAGNOSES)
-      setTanks(MOCK_TANKS)
+      if (mock) {
+        setDiagnoses(MOCK_DIAGNOSES)
+        setTanks(MOCK_TANKS)
+      }
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [user?.email])
 
   useEffect(() => {
     loadData()

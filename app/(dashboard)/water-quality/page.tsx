@@ -5,7 +5,8 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine, Legend,
 } from "recharts"
-import { MOCK_TANKS, MOCK_WATER_QUALITY, WATER_QUALITY_STANDARDS, MOCK_ALERTS } from "@/lib/mock-data"
+import { MOCK_TANKS, MOCK_WATER_QUALITY, WATER_QUALITY_STANDARDS, MOCK_ALERTS, isTestAccount } from "@/lib/mock-data"
+import { useAuth } from "@/lib/auth-context"
 import { getAllTanks, getWaterQuality, getLatestWaterQuality, insertWaterQuality } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -218,6 +219,7 @@ function OverviewChart({ chartData }: { chartData: ReturnType<typeof buildChartD
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function WaterQualityPage() {
+  const { user } = useAuth()
   const [tanks, setTanks] = useState<Tank[]>([])
   const [selectedTankId, setSelectedTankId] = useState<string>("")
   const [readings, setReadings] = useState<WaterQualityReading[]>([])
@@ -239,26 +241,34 @@ export default function WaterQualityPage() {
   // Load tanks on mount
   useEffect(() => {
     async function loadTanks() {
+      const mock = isTestAccount(user?.email)
       try {
         const dbTanks = await getAllTanks()
         if (dbTanks.length > 0) {
           setTanks(dbTanks)
           setSelectedTankId(dbTanks[0].id)
-        } else {
+        } else if (mock) {
           setTanks(MOCK_TANKS)
           setSelectedTankId(MOCK_TANKS[0].id)
+        } else {
+          setIsLoading(false)
         }
       } catch {
-        setTanks(MOCK_TANKS)
-        setSelectedTankId(MOCK_TANKS[0].id)
+        if (mock) {
+          setTanks(MOCK_TANKS)
+          setSelectedTankId(MOCK_TANKS[0].id)
+        } else {
+          setIsLoading(false)
+        }
       }
     }
     loadTanks()
-  }, [])
+  }, [user])
 
   // Load water quality when selected tank changes
   const loadTankData = useCallback(async (tankId: string) => {
     if (!tankId) return
+    const mock = isTestAccount(user?.email)
     setIsLoading(true)
     try {
       const [dbReadings, dbLatest] = await Promise.all([
@@ -269,27 +279,30 @@ export default function WaterQualityPage() {
       if (dbReadings.length > 0) {
         setReadings(dbReadings)
       } else {
-        setReadings(MOCK_WATER_QUALITY[tankId] ?? [])
+        setReadings(mock ? (MOCK_WATER_QUALITY[tankId] ?? []) : [])
       }
 
       if (dbLatest) {
         setLatest(dbLatest)
-      } else {
+      } else if (mock) {
         const mockReadings = MOCK_WATER_QUALITY[tankId] ?? []
         setLatest(mockReadings.length > 0 ? mockReadings[mockReadings.length - 1] : null)
+      } else {
+        setLatest(null)
       }
 
-      // Alerts: use mock alerts as fallback (getAlerts can be wired later)
-      setTankAlerts(MOCK_ALERTS.filter(a => a.tank_id === tankId && !a.resolved))
+      setTankAlerts(mock ? MOCK_ALERTS.filter(a => a.tank_id === tankId && !a.resolved) : [])
     } catch {
-      const mockReadings = MOCK_WATER_QUALITY[tankId] ?? []
-      setReadings(mockReadings)
-      setLatest(mockReadings.length > 0 ? mockReadings[mockReadings.length - 1] : null)
-      setTankAlerts(MOCK_ALERTS.filter(a => a.tank_id === tankId && !a.resolved))
+      if (mock) {
+        const mockReadings = MOCK_WATER_QUALITY[tankId] ?? []
+        setReadings(mockReadings)
+        setLatest(mockReadings.length > 0 ? mockReadings[mockReadings.length - 1] : null)
+        setTankAlerts(MOCK_ALERTS.filter(a => a.tank_id === tankId && !a.resolved))
+      }
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [user?.email])
 
   useEffect(() => {
     if (selectedTankId) loadTankData(selectedTankId)
@@ -297,9 +310,10 @@ export default function WaterQualityPage() {
 
   // Compute summary counts whenever tanks list is set
   useEffect(() => {
+    const mock = isTestAccount(user?.email)
     const counts = { 정상: 0, 주의: 0, 위험: 0 }
     tanks.forEach(tank => {
-      const tankReadings = MOCK_WATER_QUALITY[tank.id] ?? []
+      const tankReadings = mock ? (MOCK_WATER_QUALITY[tank.id] ?? []) : []
       if (!tankReadings.length) return
       const last = tankReadings[tankReadings.length - 1]
       const worst = STD_KEYS.reduce<StatusLevel>((acc, k) => {
@@ -311,7 +325,7 @@ export default function WaterQualityPage() {
       counts[worst]++
     })
     setSummaryStatusCounts(counts)
-  }, [tanks])
+  }, [tanks, user?.email])
 
   const chartData = useMemo(() => buildChartData(readings, true), [readings])
 
@@ -366,6 +380,27 @@ export default function WaterQualityPage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (!isLoading && tanks.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 space-y-4 animate-fade-in">
+        <div className="w-16 h-16 rounded-2xl bg-ocean-500/20 flex items-center justify-center">
+          <Droplets className="w-8 h-8 text-ocean-400" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-white mb-2">수조가 없습니다</h2>
+          <p className="text-slate-400 text-sm max-w-sm">
+            양식장과 수조를 먼저 등록해야 수질 데이터를 입력하고 모니터링할 수 있습니다.
+          </p>
+        </div>
+        <a href="/farms">
+          <Button className="bg-ocean-500 hover:bg-ocean-600 text-white gap-2">
+            <Plus className="w-4 h-4" /> 양식장 등록하기
+          </Button>
+        </a>
+      </div>
+    )
   }
 
   return (

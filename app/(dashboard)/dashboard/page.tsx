@@ -4,7 +4,8 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { getFarms, getAllTanks, getAlerts, getDiagnoses, getWaterQuality } from "@/lib/db"
-import { MOCK_FARMS, MOCK_TANKS, MOCK_ALERTS, MOCK_DIAGNOSES, MOCK_WATER_QUALITY } from "@/lib/mock-data"
+import { MOCK_FARMS, MOCK_TANKS, MOCK_ALERTS, MOCK_DIAGNOSES, MOCK_WATER_QUALITY, isTestAccount } from "@/lib/mock-data"
+import { useAuth } from "@/lib/auth-context"
 import { Farm, Tank, Alert, DiagnosisResult, WaterQualityReading } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -49,6 +50,7 @@ function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; l
 }
 
 export default function DashboardPage() {
+  const { user } = useAuth()
   const [farms, setFarms]       = useState<Farm[]>([])
   const [tanks, setTanks]       = useState<Tank[]>([])
   const [alerts, setAlerts]     = useState<Alert[]>([])
@@ -58,33 +60,35 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
+      const mock = isTestAccount(user?.email)
       try {
         const [f, t, a, d] = await Promise.all([
           getFarms(), getAllTanks(), getAlerts(true), getDiagnoses()
         ])
-        setFarms(f.length ? f : MOCK_FARMS)
-        setTanks(t.length ? t : MOCK_TANKS)
-        setAlerts(a.length ? a : MOCK_ALERTS.filter(x => !x.resolved))
-        setDiagnoses(d.length ? d : MOCK_DIAGNOSES)
+        setFarms(f.length ? f : (mock ? MOCK_FARMS : []))
+        setTanks(t.length ? t : (mock ? MOCK_TANKS : []))
+        setAlerts(a.length ? a : (mock ? MOCK_ALERTS.filter(x => !x.resolved) : []))
+        setDiagnoses(d.length ? d : (mock ? MOCK_DIAGNOSES : []))
 
-        // 첫 수조의 수질 데이터 로드
-        const firstTank = (t.length ? t : MOCK_TANKS)[0]
+        const firstTank = t.length ? t[0] : (mock ? MOCK_TANKS[0] : null)
         if (firstTank) {
           const wq = await getWaterQuality(firstTank.id, 24)
-          setWqData(wq.length ? wq : (MOCK_WATER_QUALITY[firstTank.id] || []))
+          setWqData(wq.length ? wq : (mock ? (MOCK_WATER_QUALITY[firstTank.id] || []) : []))
         }
       } catch {
-        setFarms(MOCK_FARMS)
-        setTanks(MOCK_TANKS)
-        setAlerts(MOCK_ALERTS.filter(x => !x.resolved))
-        setDiagnoses(MOCK_DIAGNOSES)
-        setWqData(MOCK_WATER_QUALITY["tank-1"] || [])
+        if (mock) {
+          setFarms(MOCK_FARMS)
+          setTanks(MOCK_TANKS)
+          setAlerts(MOCK_ALERTS.filter(x => !x.resolved))
+          setDiagnoses(MOCK_DIAGNOSES)
+          setWqData(MOCK_WATER_QUALITY["tank-1"] || [])
+        }
       } finally {
         setLoading(false)
       }
     }
     load()
-  }, [])
+  }, [user])
 
   const statusCounts = {
     active:  tanks.filter(t => t.status === "active").length,
@@ -108,6 +112,27 @@ export default function DashboardPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (farms.length === 0 && !isTestAccount(user?.email)) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 space-y-4 animate-fade-in">
+        <div className="w-16 h-16 rounded-2xl bg-ocean-500/20 flex items-center justify-center">
+          <Building2 className="w-8 h-8 text-ocean-400" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-white mb-2">양식장을 등록해주세요</h2>
+          <p className="text-slate-400 text-sm max-w-sm">
+            양식장과 수조를 등록하면 수질 모니터링, 일지 관리, 질병 진단 등 모든 기능을 사용할 수 있습니다.
+          </p>
+        </div>
+        <Link href="/farms">
+          <Button className="bg-ocean-500 hover:bg-ocean-600 text-white gap-2">
+            <Building2 className="w-4 h-4" /> 양식장 등록하기
+          </Button>
+        </Link>
       </div>
     )
   }

@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { MOCK_FARMS, MOCK_TANKS } from "@/lib/mock-data"
+import { MOCK_FARMS, MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
+import { useAuth } from "@/lib/auth-context"
 import { getFarms, getTanksByFarm, createFarm, createTank } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -541,6 +542,7 @@ function StatusSummary({ tanks }: { tanks: Tank[] }) {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function FarmsPage() {
+  const { user } = useAuth()
   const [farms, setFarms] = useState<Farm[]>([])
   const [tanksMap, setTanksMap] = useState<Record<string, Tank[]>>({})
   const [selectedFarmId, setSelectedFarmId] = useState<string>("")
@@ -548,40 +550,44 @@ export default function FarmsPage() {
   const [loadingTanks, setLoadingTanks] = useState(false)
 
   const loadFarms = useCallback(async () => {
+    const mock = isTestAccount(user?.email)
     setLoadingFarms(true)
     try {
       const data = await getFarms()
-      const result = data.length > 0 ? data : MOCK_FARMS
+      const result = data.length > 0 ? data : (mock ? MOCK_FARMS : [])
       setFarms(result)
       if (!selectedFarmId && result.length > 0) {
         setSelectedFarmId(result[0].id)
       }
     } catch {
-      setFarms(MOCK_FARMS)
-      if (!selectedFarmId && MOCK_FARMS.length > 0) {
-        setSelectedFarmId(MOCK_FARMS[0].id)
+      if (mock) {
+        setFarms(MOCK_FARMS)
+        if (!selectedFarmId && MOCK_FARMS.length > 0) {
+          setSelectedFarmId(MOCK_FARMS[0].id)
+        }
       }
     } finally {
       setLoadingFarms(false)
     }
-  }, [selectedFarmId])
+  }, [selectedFarmId, user?.email])
 
   const loadTanksForFarm = useCallback(async (farmId: string) => {
     if (!farmId) return
+    const mock = isTestAccount(user?.email)
     setLoadingTanks(true)
     try {
       const data = await getTanksByFarm(farmId)
-      const result = data.length > 0 ? data : MOCK_TANKS.filter(t => t.farm_id === farmId)
+      const result = data.length > 0 ? data : (mock ? MOCK_TANKS.filter(t => t.farm_id === farmId) : [])
       setTanksMap(prev => ({ ...prev, [farmId]: result }))
     } catch {
       setTanksMap(prev => ({
         ...prev,
-        [farmId]: MOCK_TANKS.filter(t => t.farm_id === farmId),
+        [farmId]: mock ? MOCK_TANKS.filter(t => t.farm_id === farmId) : [],
       }))
     } finally {
       setLoadingTanks(false)
     }
-  }, [])
+  }, [user?.email])
 
   useEffect(() => {
     loadFarms()

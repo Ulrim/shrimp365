@@ -13,6 +13,12 @@ export const TEST_ACCOUNTS = [
   { email: "operator@shrimp365.com", password: "test1234", name: "이운영 (운영자)" },
 ]
 
+export const TEST_EMAILS = ["admin@shrimp365.com", "operator@shrimp365.com"]
+
+export function isTestAccount(email?: string | null): boolean {
+  return TEST_EMAILS.includes(email ?? "")
+}
+
 export const MOCK_FARMS: Farm[] = [
   {
     id: "farm-1",
