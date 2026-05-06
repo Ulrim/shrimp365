@@ -240,48 +240,37 @@ export default function DiagnosisPage() {
     setTimeout(() => setToast(null), 3500)
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setSubmitError(null)
 
     if (!form.tank_id || !form.test_type || !form.result || !form.risk_level || !form.tested_by) {
-      showToast("필수 항목을 모두 입력해주세요.")
+      setSubmitError("필수 항목을 모두 입력해주세요.")
       return
     }
 
     const tank = tanks.find(t => t.id === form.tank_id)
-    createDiagnosis({
-      tank_id: form.tank_id,
-      test_type: form.test_type,
-      result: form.result,
-      vibrio_count: form.vibrio_count ? Number(form.vibrio_count) : 0,
-      pathogenic_ratio: form.pathogenic_ratio ? Number(form.pathogenic_ratio) : 0,
-      risk_level: form.risk_level,
-      action_taken: form.action_taken || undefined,
-      notes: form.notes || undefined,
-    }).then(saved => {
-      setDiagnoses(prev => [saved, ...prev])
-    }).catch(() => {
-      // fallback: 로컬 상태 추가
-      const newDiag: DiagnosisResult = {
-        id: `local-${Date.now()}`,
+    setIsSubmitting(true)
+    try {
+      await createDiagnosis({
         tank_id: form.tank_id,
-        tank_name: tank?.name ?? form.tank_id,
-        test_type: form.test_type as TestType,
-        result: form.result as ResultType,
+        test_type: form.test_type,
+        result: form.result,
         vibrio_count: form.vibrio_count ? Number(form.vibrio_count) : 0,
         pathogenic_ratio: form.pathogenic_ratio ? Number(form.pathogenic_ratio) : 0,
-        risk_level: form.risk_level as RiskLevel,
-        tested_at: new Date().toISOString(),
-        tested_by: form.tested_by,
+        risk_level: form.risk_level,
         action_taken: form.action_taken || undefined,
         notes: form.notes || undefined,
-      }
-      setDiagnoses(prev => [newDiag, ...prev])
-    })
-    setDiagnoses(prev => prev) // trigger re-render
-    setForm(EMPTY_FORM)
-    setDialogOpen(false)
-    showToast(`진단 결과가 성공적으로 등록되었습니다. (${tank?.name} · ${form.test_type} · ${form.result})`)
+      })
+      setForm(EMPTY_FORM)
+      setDialogOpen(false)
+      showToast(`진단 결과가 성공적으로 등록되었습니다. (${tank?.name} · ${form.test_type} · ${form.result})`)
+      await loadData()
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "진단 결과 저장에 실패했습니다.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -467,20 +456,32 @@ export default function DiagnosisPage() {
                 />
               </div>
 
+              {submitError && (
+                <p className="text-sm text-red-400 flex items-center gap-1.5">
+                  <XCircle className="w-4 h-4 shrink-0" /> {submitError}
+                </p>
+              )}
+
               <DialogFooter className="pt-2">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setDialogOpen(false)}
                   className="border-white/10 text-slate-300 hover:bg-slate-700"
+                  disabled={isSubmitting}
                 >
                   취소
                 </Button>
                 <Button
                   type="submit"
                   className="bg-purple-600 hover:bg-purple-500 text-white border-0"
+                  disabled={isSubmitting}
                 >
-                  <FlaskConical className="w-4 h-4 mr-1.5" />
+                  {isSubmitting ? (
+                    <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <FlaskConical className="w-4 h-4 mr-1.5" />
+                  )}
                   등록
                 </Button>
               </DialogFooter>
@@ -489,8 +490,18 @@ export default function DiagnosisPage() {
         </Dialog>
       </div>
 
+      {/* Loading State */}
+      {isLoading && (
+        <Card className="bg-slate-800/50 border-white/5">
+          <CardContent className="p-8 text-center text-slate-400">
+            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3 text-purple-400" />
+            진단 데이터를 불러오는 중...
+          </CardContent>
+        </Card>
+      )}
+
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {!isLoading && <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={<FlaskConical className="w-5 h-5 text-purple-400" />}
           label="총 검사 건수"
