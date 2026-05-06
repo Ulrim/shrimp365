@@ -58,6 +58,13 @@ export interface JournalEntry {
   water_exchange_rate: number
   microbial_input: boolean
   microbial_type?: string
+  microbial_amount?: number | null
+  disinfection: boolean
+  disinfection_type?: string | null
+  check_aeration: boolean
+  check_filtration: boolean
+  check_circulation: boolean
+  check_feeding_check: boolean
   notes?: string
   created_by: string
   created_at: string

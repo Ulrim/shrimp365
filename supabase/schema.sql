@@ -56,6 +56,8 @@ CREATE TABLE IF NOT EXISTS public.tanks (
   stocking_density NUMERIC DEFAULT 0,
   shrimp_count     INTEGER DEFAULT 0,
   cycle_day        INTEGER DEFAULT 0,
+  stocking_date    DATE,
+  harvest_date     DATE,
   created_at       TIMESTAMPTZ DEFAULT NOW()
 );
 
