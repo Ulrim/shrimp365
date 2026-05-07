@@ -18,9 +18,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import {
   BookOpen, Plus, Thermometer, Droplets, Wind, Waves, Fish, UtensilsCrossed,
   RefreshCw, FlaskConical, Skull, CheckCircle2, Calendar, User, StickyNote,
-  Pencil, Trash2, AlertTriangle
+  Pencil, Trash2, AlertTriangle, Download, ChevronDown
 } from "lucide-react"
 import { formatDate, formatDateTime } from "@/lib/utils"
+import { exportToCsv } from "@/lib/export"
 
 const FEED_TYPES = ["입식기 사료 (No.0)", "초기 사료 (No.1)", "성장기 사료 (No.2)", "성장기 사료 (No.3)", "마무리 사료 (No.4)", "기타"]
 const MICROBIAL_TYPES = ["EM균", "바실러스균", "광합성균", "복합 미생물제", "기타"]
@@ -143,11 +144,18 @@ function JournalCard({ entry, onEdit, onDelete }: { entry: JournalEntry; onEdit:
   )
 }
 
+const PAGE_SIZE = 20
+
 export default function JournalPage() {
   const { user } = useAuth()
   const [journals, setJournals] = useState<JournalEntry[]>([])
   const [tanks, setTanks] = useState<Tank[]>([])
   const [loadingData, setLoadingData] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
+  const [offset, setOffset] = useState(0)
+  const [filterFrom, setFilterFrom] = useState("")
+  const [filterTo, setFilterTo] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState(defaultFormValues)
   const [saving, setSaving] = useState(false)
@@ -158,12 +166,28 @@ export default function JournalPage() {
   const [deleteTarget, setDeleteTarget] = useState<JournalEntry | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  const mock = isTestAccount(user?.email)
+
+  async function loadJournals(from: string, to: string, newOffset: number, replace: boolean) {
+    try {
+      const j = await getJournalEntries(undefined, PAGE_SIZE, from || undefined, to || undefined, newOffset)
+      setHasMore(j.length === PAGE_SIZE)
+      if (replace) {
+        setJournals(j.length ? j : (newOffset === 0 && mock ? MOCK_JOURNALS : []))
+      } else {
+        setJournals(prev => [...prev, ...j])
+      }
+    } catch {
+      if (newOffset === 0 && mock) setJournals(MOCK_JOURNALS)
+    }
+  }
+
   useEffect(() => {
     async function load() {
+      setLoadingData(true)
       const mock = isTestAccount(user?.email)
       try {
-        const [j, t] = await Promise.all([getJournalEntries(), getAllTanks()])
-        setJournals(j.length ? j : (mock ? MOCK_JOURNALS : []))
+        const [, t] = await Promise.all([loadJournals("", "", 0, true), getAllTanks()])
         setTanks(t.length ? t : (mock ? MOCK_TANKS : []))
       } catch {
         if (mock) {
@@ -176,6 +200,39 @@ export default function JournalPage() {
     }
     load()
   }, [user])
+
+  const handleFilter = async () => {
+    setLoadingData(true)
+    setOffset(0)
+    await loadJournals(filterFrom, filterTo, 0, true)
+    setLoadingData(false)
+  }
+
+  const handleLoadMore = async () => {
+    const newOffset = offset + PAGE_SIZE
+    setLoadingMore(true)
+    await loadJournals(filterFrom, filterTo, newOffset, false)
+    setOffset(newOffset)
+    setLoadingMore(false)
+  }
+
+  const handleCsvExport = () => {
+    exportToCsv(journals.map(j => ({
+      날짜: j.date,
+      수조: j.tank_name,
+      급이량_kg: j.feeding_amount,
+      사료종류: j.feed_type,
+      급이횟수: j.feeding_times,
+      폐사수: j.mortality_count,
+      환수율: j.water_exchange_rate,
+      미생물투입: j.microbial_input ? "예" : "아니오",
+      미생물종류: j.microbial_type || "",
+      소독: j.disinfection ? "예" : "아니오",
+      메모: j.notes || "",
+      작성자: j.created_by,
+      작성일: j.created_at,
+    })), `양식일지_${new Date().toISOString().split("T")[0]}`)
+  }
 
   const update = (field: string, value: string | boolean) =>
     setForm(prev => ({ ...prev, [field]: value }))
@@ -334,24 +391,80 @@ export default function JournalPage() {
           <h2 className="text-xl font-bold text-white">양식 일지</h2>
           <p className="text-sm text-slate-400 mt-0.5">수질 측정, 급이, 폐사, 작업 내역을 기록합니다</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)} className="bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white">
-          <Plus className="w-4 h-4" />일지 작성
-        </Button>
+        <div className="flex items-center gap-2">
+          {journals.length > 0 && (
+            <Button variant="outline" onClick={handleCsvExport} className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5">
+              <Download className="w-4 h-4 mr-1" />CSV
+            </Button>
+          )}
+          <Button onClick={() => setDialogOpen(true)} className="bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white">
+            <Plus className="w-4 h-4" />일지 작성
+          </Button>
+        </div>
       </div>
 
-      {/* Recent entries */}
+      {/* Date filter */}
+      <div className="flex flex-wrap items-center gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+        <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={filterFrom}
+            onChange={e => setFilterFrom(e.target.value)}
+            className="bg-slate-700 border border-white/10 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-ocean-400"
+          />
+          <span className="text-slate-500 text-sm">~</span>
+          <input
+            type="date"
+            value={filterTo}
+            onChange={e => setFilterTo(e.target.value)}
+            className="bg-slate-700 border border-white/10 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-ocean-400"
+          />
+        </div>
+        <Button size="sm" onClick={handleFilter} className="bg-ocean-500/20 hover:bg-ocean-500/30 text-ocean-300 border border-ocean-500/30">
+          조회
+        </Button>
+        {(filterFrom || filterTo) && (
+          <button
+            onClick={() => { setFilterFrom(""); setFilterTo(""); setOffset(0); loadJournals("", "", 0, true) }}
+            className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            초기화
+          </button>
+        )}
+      </div>
+
+      {/* Entries */}
       {loadingData ? (
         <div className="flex items-center justify-center h-40">
           <div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {journals.length === 0 ? (
-            <p className="text-slate-400 text-sm col-span-2 text-center py-12">일지가 없습니다. 첫 일지를 작성해보세요.</p>
-          ) : journals.map(entry => (
-            <JournalCard key={entry.id} entry={entry} onEdit={handleEdit} onDelete={setDeleteTarget} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {journals.length === 0 ? (
+              <p className="text-slate-400 text-sm col-span-2 text-center py-12">일지가 없습니다. 첫 일지를 작성해보세요.</p>
+            ) : journals.map(entry => (
+              <JournalCard key={entry.id} entry={entry} onEdit={handleEdit} onDelete={setDeleteTarget} />
+            ))}
+          </div>
+          {hasMore && (
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
+              >
+                {loadingMore ? (
+                  <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />불러오는 중...</span>
+                ) : (
+                  <span className="flex items-center gap-2"><ChevronDown className="w-4 h-4" />더 보기</span>
+                )}
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Edit Journal Dialog */}

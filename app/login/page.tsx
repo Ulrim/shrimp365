@@ -191,12 +191,19 @@ export default function LoginPage() {
                 <p className="text-center text-xs text-ocean-500 mt-2">비밀번호: test1234</p>
               </div>
 
-              <p className="text-center text-sm text-ocean-400 mt-4">
-                계정이 없으신가요?{" "}
-                <Link href="/signup" className="text-ocean-300 hover:text-white font-medium transition-colors">
-                  회원가입
-                </Link>
-              </p>
+              <div className="text-center mt-4 space-y-2">
+                <p className="text-sm text-ocean-400">
+                  계정이 없으신가요?{" "}
+                  <Link href="/signup" className="text-ocean-300 hover:text-white font-medium transition-colors">
+                    회원가입
+                  </Link>
+                </p>
+                <p className="text-sm text-ocean-400">
+                  <Link href="/forgot-password" className="text-ocean-300 hover:text-white font-medium transition-colors">
+                    비밀번호를 잊으셨나요?
+                  </Link>
+                </p>
+              </div>
             </CardContent>
           </Card>
         </div>

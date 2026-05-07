@@ -11,7 +11,7 @@ import { getFarms, getAllTanks, getJournalEntries } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Download, TrendingUp, TrendingDown, Minus, BarChart3, Fish, Droplets, AlertTriangle, BookOpen, ChevronDown, ChevronUp } from "lucide-react"
+import { Download, TrendingUp, TrendingDown, Minus, BarChart3, Fish, Droplets, AlertTriangle, BookOpen, ChevronDown, ChevronUp, Calendar } from "lucide-react"
 import type { Farm, Tank, JournalEntry } from "@/types"
 
 const WEEK_LABELS = ["5/28", "5/29", "5/30", "5/31", "6/1", "6/2", "6/3"]
@@ -233,9 +233,9 @@ function ExampleReport() {
 
 // ─── Real Report ──────────────────────────────────────────────────────────────
 
-function RealReport({ farms, tanks, journals }: { farms: Farm[]; tanks: Tank[]; journals: JournalEntry[] }) {
-  const weekAgo = new Date(Date.now() - 7 * 86400000)
-  const weekJournals = journals.filter(j => new Date(j.date) >= weekAgo)
+function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tanks: Tank[]; journals: JournalEntry[]; periodDays: number }) {
+  const periodStart = new Date(Date.now() - periodDays * 86400000)
+  const weekJournals = journals.filter(j => new Date(j.date) >= periodStart)
 
   const totalMortality = weekJournals.reduce((s, j) => s + j.mortality_count, 0)
   const totalFeeding = weekJournals.reduce((s, j) => s + j.feeding_amount, 0)
@@ -252,8 +252,9 @@ function RealReport({ farms, tanks, journals }: { farms: Farm[]; tanks: Tank[]; 
     { name: "위험", value: statusCounts.danger, color: "#ef4444" },
   ].filter(d => d.value > 0)
 
-  const dailyMortality = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(Date.now() - (6 - i) * 86400000)
+  const chartDays = Math.min(periodDays, 30)
+  const dailyMortality = Array.from({ length: chartDays }, (_, i) => {
+    const d = new Date(Date.now() - (chartDays - 1 - i) * 86400000)
     const label = `${d.getMonth() + 1}/${d.getDate()}`
     const dateStr = d.toISOString().split("T")[0]
     const dayJournals = journals.filter(j => j.date === dateStr)
@@ -427,6 +428,12 @@ function RealReport({ farms, tanks, journals }: { farms: Farm[]; tanks: Tank[]; 
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const PERIOD_OPTIONS = [
+  { label: "이번 주 (7일)", days: 7 },
+  { label: "이번 달 (30일)", days: 30 },
+  { label: "최근 3개월 (90일)", days: 90 },
+]
+
 export default function ReportsPage() {
   const { user } = useAuth()
   const [farms, setFarms] = useState<Farm[]>([])
@@ -434,31 +441,40 @@ export default function ReportsPage() {
   const [journals, setJournals] = useState<JournalEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [showExample, setShowExample] = useState(false)
+  const [periodDays, setPeriodDays] = useState(7)
 
   const isMock = isTestAccount(user?.email)
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const [f, t, j] = await Promise.all([getFarms(), getAllTanks(), getJournalEntries(undefined, 100)])
-        setFarms(f.length ? f : (isMock ? MOCK_FARMS : []))
-        setTanks(t.length ? t : (isMock ? MOCK_TANKS : []))
-        setJournals(j)
-      } catch {
-        if (isMock) {
-          setFarms(MOCK_FARMS)
-          setTanks(MOCK_TANKS)
-        }
-      } finally {
-        setLoading(false)
+  async function loadData(days: number) {
+    setLoading(true)
+    try {
+      const from = new Date(Date.now() - days * 86400000).toISOString().split("T")[0]
+      const [f, t, j] = await Promise.all([getFarms(), getAllTanks(), getJournalEntries(undefined, 500, from)])
+      setFarms(f.length ? f : (isMock ? MOCK_FARMS : []))
+      setTanks(t.length ? t : (isMock ? MOCK_TANKS : []))
+      setJournals(j)
+    } catch {
+      if (isMock) {
+        setFarms(MOCK_FARMS)
+        setTanks(MOCK_TANKS)
       }
+    } finally {
+      setLoading(false)
     }
-    load()
+  }
+
+  useEffect(() => {
+    loadData(7)
   }, [user])
 
+  const handlePeriodChange = (days: number) => {
+    setPeriodDays(days)
+    loadData(days)
+  }
+
   const now = new Date()
-  const weekStart = new Date(now.getTime() - 6 * 86400000)
-  const dateRange = `${weekStart.getFullYear()}년 ${weekStart.getMonth() + 1}월 ${weekStart.getDate()}일 ~ ${now.getMonth() + 1}월 ${now.getDate()}일`
+  const periodStart = new Date(now.getTime() - periodDays * 86400000)
+  const dateRange = `${periodStart.getFullYear()}년 ${periodStart.getMonth() + 1}월 ${periodStart.getDate()}일 ~ ${now.getMonth() + 1}월 ${now.getDate()}일`
 
   function handlePdf() {
     window.print()
@@ -477,20 +493,38 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-bold text-white">주간 리포트</h2>
+          <h2 className="text-xl font-bold text-white">운영 리포트</h2>
           <p className="text-sm text-slate-400 mt-0.5">{dateRange}</p>
         </div>
-        {(hasData || showExample) && (
-          <Button
-            variant="outline"
-            className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
-            onClick={handlePdf}
-          >
-            <Download className="w-4 h-4 mr-2" />PDF 저장
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-slate-800/60 border border-white/5 rounded-xl p-1">
+            <Calendar className="w-4 h-4 text-slate-400 mx-2" />
+            {PERIOD_OPTIONS.map(opt => (
+              <button
+                key={opt.days}
+                onClick={() => handlePeriodChange(opt.days)}
+                className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
+                  periodDays === opt.days
+                    ? "bg-ocean-500/30 text-ocean-300 font-medium"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          {(hasData || showExample) && (
+            <Button
+              variant="outline"
+              className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
+              onClick={handlePdf}
+            >
+              <Download className="w-4 h-4 mr-2" />PDF 저장
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Real user with no data: show empty state + example toggle */}
@@ -550,7 +584,7 @@ export default function ReportsPage() {
         <ExampleReport />
       ) : (
         /* Real users with data: show real report */
-        <RealReport farms={farms} tanks={tanks} journals={journals} />
+        <RealReport farms={farms} tanks={tanks} journals={journals} periodDays={periodDays} />
       )}
     </div>
   )

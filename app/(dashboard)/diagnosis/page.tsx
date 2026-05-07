@@ -41,7 +41,11 @@ import {
   RefreshCw,
   Pencil,
   Trash2,
+  Download,
+  ChevronDown,
+  Calendar,
 } from "lucide-react"
+import { exportToCsv } from "@/lib/export"
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -195,6 +199,8 @@ const EMPTY_FORM: FormState = {
   notes: "",
 }
 
+const PAGE_SIZE = 20
+
 // ── main page ─────────────────────────────────────────────────────────────────
 
 export default function DiagnosisPage() {
@@ -202,6 +208,11 @@ export default function DiagnosisPage() {
   const [diagnoses, setDiagnoses] = useState<DiagnosisResult[]>([])
   const [tanks, setTanks] = useState<Tank[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
+  const [offset, setOffset] = useState(0)
+  const [filterFrom, setFilterFrom] = useState("")
+  const [filterTo, setFilterTo] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -214,12 +225,28 @@ export default function DiagnosisPage() {
   const [deleteTarget, setDeleteTarget] = useState<DiagnosisResult | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  const mock = isTestAccount(user?.email)
+
+  async function loadDiagnoses(from: string, to: string, newOffset: number, replace: boolean) {
+    const mock = isTestAccount(user?.email)
+    try {
+      const d = await getDiagnoses(undefined, from || undefined, to || undefined, newOffset, PAGE_SIZE)
+      setHasMore(d.length === PAGE_SIZE)
+      if (replace) {
+        setDiagnoses(d.length ? d : (newOffset === 0 && mock ? MOCK_DIAGNOSES : []))
+      } else {
+        setDiagnoses(prev => [...prev, ...d])
+      }
+    } catch {
+      if (newOffset === 0 && mock) setDiagnoses(MOCK_DIAGNOSES)
+    }
+  }
+
   const loadData = useCallback(async () => {
     const mock = isTestAccount(user?.email)
     setIsLoading(true)
     try {
-      const [d, t] = await Promise.all([getDiagnoses(), getAllTanks()])
-      setDiagnoses(d.length ? d : (mock ? MOCK_DIAGNOSES : []))
+      const [, t] = await Promise.all([loadDiagnoses("", "", 0, true), getAllTanks()])
       setTanks(t.length ? t : (mock ? MOCK_TANKS : []))
     } catch {
       if (mock) {
@@ -234,6 +261,36 @@ export default function DiagnosisPage() {
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  const handleFilter = async () => {
+    setIsLoading(true)
+    setOffset(0)
+    await loadDiagnoses(filterFrom, filterTo, 0, true)
+    setIsLoading(false)
+  }
+
+  const handleLoadMore = async () => {
+    const newOffset = offset + PAGE_SIZE
+    setLoadingMore(true)
+    await loadDiagnoses(filterFrom, filterTo, newOffset, false)
+    setOffset(newOffset)
+    setLoadingMore(false)
+  }
+
+  const handleCsvExport = () => {
+    exportToCsv(diagnoses.map(d => ({
+      수조: d.tank_name,
+      검사항목: d.test_type,
+      결과: d.result,
+      비브리오수_CFU_mL: d.vibrio_count,
+      병원성비율_pct: d.pathogenic_ratio,
+      위험도: d.risk_level,
+      검사자: d.tested_by,
+      조치사항: d.action_taken || "",
+      비고: d.notes || "",
+      검사일시: d.tested_at,
+    })), `질병진단_${new Date().toISOString().split("T")[0]}`)
+  }
 
   // Summary stats
   const totalTests     = diagnoses.length
@@ -364,16 +421,22 @@ export default function DiagnosisPage() {
           <p className="text-sm text-slate-400 mt-1">수조별 병원체 검사 결과 및 위험도 관리</p>
         </div>
 
-        <Dialog open={dialogOpen} onOpenChange={(open) => {
-          setDialogOpen(open)
-          if (open) { setForm(EMPTY_FORM); setSubmitError(null) }
-        }}>
-          <DialogTrigger asChild>
-            <Button className="gap-2 bg-purple-600 hover:bg-purple-500 text-white border-0">
-              <Plus className="w-4 h-4" />
-              진단 추가
+        <div className="flex items-center gap-2">
+          {diagnoses.length > 0 && (
+            <Button variant="outline" onClick={handleCsvExport} className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5">
+              <Download className="w-4 h-4 mr-1" />CSV
             </Button>
-          </DialogTrigger>
+          )}
+          <Dialog open={dialogOpen} onOpenChange={(open) => {
+            setDialogOpen(open)
+            if (open) { setForm(EMPTY_FORM); setSubmitError(null) }
+          }}>
+            <DialogTrigger asChild>
+              <Button className="gap-2 bg-purple-600 hover:bg-purple-500 text-white border-0">
+                <Plus className="w-4 h-4" />
+                진단 추가
+              </Button>
+            </DialogTrigger>
 
           <DialogContent className="bg-slate-900 border-white/10 text-white max-w-xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
@@ -557,7 +620,39 @@ export default function DiagnosisPage() {
               </DialogFooter>
             </form>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Date filter */}
+      <div className="flex flex-wrap items-center gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
+        <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={filterFrom}
+            onChange={e => setFilterFrom(e.target.value)}
+            className="bg-slate-700 border border-white/10 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400"
+          />
+          <span className="text-slate-500 text-sm">~</span>
+          <input
+            type="date"
+            value={filterTo}
+            onChange={e => setFilterTo(e.target.value)}
+            className="bg-slate-700 border border-white/10 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400"
+          />
+        </div>
+        <Button size="sm" onClick={handleFilter} className="bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30">
+          조회
+        </Button>
+        {(filterFrom || filterTo) && (
+          <button
+            onClick={() => { setFilterFrom(""); setFilterTo(""); setOffset(0); loadDiagnoses("", "", 0, true) }}
+            className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            초기화
+          </button>
+        )}
       </div>
 
       {/* Loading State */}
@@ -762,6 +857,23 @@ export default function DiagnosisPage() {
           )}
         </CardContent>
       </Card>
+
+      {hasMore && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
+          >
+            {loadingMore ? (
+              <span className="flex items-center gap-2"><RefreshCw className="w-4 h-4 animate-spin" />불러오는 중...</span>
+            ) : (
+              <span className="flex items-center gap-2"><ChevronDown className="w-4 h-4" />더 보기</span>
+            )}
+          </Button>
+        </div>
+      )}
       </>}
 
       {/* Edit Dialog */}

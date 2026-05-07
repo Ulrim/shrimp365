@@ -7,7 +7,7 @@ import {
 } from "recharts"
 import { MOCK_TANKS, MOCK_WATER_QUALITY, WATER_QUALITY_STANDARDS, MOCK_ALERTS, MOCK_SENSOR_DEVICES, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
-import { getAllTanks, getWaterQuality, getLatestWaterQuality, getSensorDevices } from "@/lib/db"
+import { getAllTanks, getWaterQuality, getLatestWaterQuality, getSensorDevices, resolveAlert } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -568,6 +568,17 @@ export default function WaterQualityPage() {
                       측정값: {alert.value} / 임계치: {alert.threshold} · {formatDateTime(alert.created_at)}
                     </p>
                   </div>
+                  <button
+                    onClick={async () => {
+                      try { await resolveAlert(alert.id) } catch { /* non-fatal */ }
+                      setTankAlerts(prev => prev.filter(a => a.id !== alert.id))
+                    }}
+                    className="shrink-0 p-1.5 rounded-lg text-slate-500 hover:text-emerald-400 hover:bg-white/5 transition-colors"
+                    aria-label="알림 해제"
+                    title="해결됨으로 표시"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                  </button>
                 </div>
               ))}
             </div>

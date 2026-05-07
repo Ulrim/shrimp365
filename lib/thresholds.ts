@@ -5,6 +5,8 @@ export const WQ_THRESHOLDS = {
   salinity:    { warning: { min: 15, max: 25 }, danger: { min: 10, max: 30 } },
   ammonia:     { warning: { min: null, max: 0.5 }, danger: { min: null, max: 1.0 } },
   nitrite:     { warning: { min: null, max: 0.2 }, danger: { min: null, max: 0.5 } },
+  nitrate:     { warning: { min: null, max: 20 }, danger: { min: null, max: 40 } },
+  alkalinity:  { warning: { min: 80, max: 180 }, danger: { min: 60, max: 200 } },
   turbidity:   { warning: { min: null, max: 20 }, danger: { min: null, max: 30 } },
 } as const
 
@@ -15,6 +17,8 @@ const PARAM_LABELS: Record<string, string> = {
   salinity:    "염도",
   ammonia:     "암모니아",
   nitrite:     "아질산염",
+  nitrate:     "질산염",
+  alkalinity:  "알칼리도",
   turbidity:   "탁도",
 }
 

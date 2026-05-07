@@ -192,6 +192,8 @@ export async function insertWaterQuality(
     salinity: values.salinity,
     ammonia: values.ammonia,
     nitrite: values.nitrite,
+    nitrate: values.nitrate,
+    alkalinity: values.alkalinity,
     turbidity: values.turbidity,
   })
   for (const alert of thresholdAlerts) {
@@ -222,15 +224,23 @@ export async function insertWaterQuality(
 // ─────────────────────────────────────────────
 // JOURNAL ENTRIES
 // ─────────────────────────────────────────────
-export async function getJournalEntries(tankId?: string, limit = 50): Promise<JournalEntry[]> {
+export async function getJournalEntries(
+  tankId?: string,
+  limit = 50,
+  from?: string,
+  to?: string,
+  offset = 0
+): Promise<JournalEntry[]> {
   let query = supabase
     .from("journal_entries")
     .select("*, tanks(name)")
     .order("date", { ascending: false })
     .order("created_at", { ascending: false })
-    .limit(limit)
+    .range(offset, offset + limit - 1)
 
   if (tankId) query = query.eq("tank_id", tankId)
+  if (from) query = query.gte("date", from)
+  if (to) query = query.lte("date", to)
 
   const { data, error } = await query
   if (error) throw error
@@ -340,13 +350,22 @@ export async function createJournalEntry(values: Omit<DbJournalEntry, "id" | "cr
 // ─────────────────────────────────────────────
 // DIAGNOSIS RESULTS
 // ─────────────────────────────────────────────
-export async function getDiagnoses(tankId?: string): Promise<DiagnosisResult[]> {
+export async function getDiagnoses(
+  tankId?: string,
+  from?: string,
+  to?: string,
+  offset = 0,
+  limit = 50
+): Promise<DiagnosisResult[]> {
   let query = supabase
     .from("diagnosis_results")
     .select("*, tanks(name)")
     .order("tested_at", { ascending: false })
+    .range(offset, offset + limit - 1)
 
   if (tankId) query = query.eq("tank_id", tankId)
+  if (from) query = query.gte("tested_at", from)
+  if (to) query = query.lte("tested_at", to + "T23:59:59")
 
   const { data, error } = await query
   if (error) throw error
