@@ -1,21 +1,44 @@
 import { NextRequest, NextResponse } from "next/server"
 import Anthropic from "@anthropic-ai/sdk"
+import { createServerClient } from "@supabase/ssr"
 
 const anthropicKey = process.env.ANTHROPIC_API_KEY
 
+const MAX_QUESTION_LENGTH = 500
+const MAX_CONTEXT_LENGTH = 2000
+
 export async function POST(req: NextRequest) {
+  // Verify session — mirrors the middleware check
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => req.cookies.getAll(),
+        setAll: () => {},
+      },
+    }
+  )
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 })
+  }
+
   try {
-    const { question, context } = await req.json()
-    if (!question?.trim()) {
+    const body = await req.json()
+    const question = typeof body.question === "string" ? body.question.trim().slice(0, MAX_QUESTION_LENGTH) : ""
+    const context = typeof body.context === "string" ? body.context.slice(0, MAX_CONTEXT_LENGTH) : ""
+
+    if (!question) {
       return NextResponse.json({ error: "질문이 없습니다." }, { status: 400 })
     }
 
     if (anthropicKey) {
-      const answer = await callClaude(question as string, context as string)
+      const answer = await callClaude(question, context)
       return NextResponse.json({ answer })
     }
 
-    const answer = buildAnswer(question as string, context as string)
+    const answer = buildAnswer(question, context)
     return NextResponse.json({ answer })
   } catch {
     return NextResponse.json({ error: "응답 생성에 실패했습니다." }, { status: 500 })

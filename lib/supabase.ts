@@ -1,13 +1,13 @@
 import { createBrowserClient } from "@supabase/ssr"
 
-// 환경변수 없을 때 기본값 사용 (publishable key는 공개 안전)
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  "https://okecfkqpoigxvlsomqjc.supabase.co"
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-const supabaseKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  "sb_publishable_Apo03iZBcxLWn-XsCCCHMw_H0iQW8_x"
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error(
+    "NEXT_PUBLIC_SUPABASE_URL 및 NEXT_PUBLIC_SUPABASE_ANON_KEY 환경변수를 설정해주세요."
+  )
+}
 
 // 싱글톤 클라이언트
 export const supabase = createBrowserClient(supabaseUrl, supabaseKey)

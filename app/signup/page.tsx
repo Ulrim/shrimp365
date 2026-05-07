@@ -24,7 +24,7 @@ export default function SignupPage() {
   const passwordStrength = () => {
     if (!password) return 0
     let score = 0
-    if (password.length >= 8) score++
+    if (password.length >= 10) score++
     if (/[0-9]/.test(password)) score++
     if (/[a-zA-Z]/.test(password)) score++
     if (/[^a-zA-Z0-9]/.test(password)) score++
@@ -41,7 +41,7 @@ export default function SignupPage() {
 
     if (!name.trim()) { setError("이름을 입력해주세요."); return }
     if (password !== confirmPassword) { setError("비밀번호가 일치하지 않습니다."); return }
-    if (password.length < 6) { setError("비밀번호는 최소 6자 이상이어야 합니다."); return }
+    if (password.length < 8) { setError("비밀번호는 최소 8자 이상이어야 합니다."); return }
 
     setLoading(true)
     const result = await signup(email, password, name)

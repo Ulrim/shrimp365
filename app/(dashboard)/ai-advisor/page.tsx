@@ -273,7 +273,8 @@ export default function AIAdvisorPage() {
   }
 
   const sendMessage = async (question: string) => {
-    if (!question.trim()) return
+    question = question.trim().slice(0, 500)
+    if (!question) return
     const userMsg: Message = { id: Date.now().toString(), role: "user", content: question, timestamp: new Date() }
     setMessages(prev => [...prev, userMsg])
     setInput("")
@@ -394,9 +395,10 @@ export default function AIAdvisorPage() {
             <div className="flex gap-2">
               <Input
                 value={input}
-                onChange={e => setInput(e.target.value)}
+                onChange={e => setInput(e.target.value.slice(0, 500))}
                 onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage(input)}
-                placeholder="질문을 입력하세요..."
+                placeholder="질문을 입력하세요... (최대 500자)"
+                maxLength={500}
                 className="bg-slate-700/50 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-ocean-400"
                 disabled={loading}
               />

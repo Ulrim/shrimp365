@@ -165,31 +165,33 @@ export default function LoginPage() {
                 </Button>
               </form>
 
-              <div className="mt-4 pt-4 border-t border-white/10">
-                <p className="text-center text-xs text-ocean-400 mb-3 flex items-center gap-2 justify-center">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  테스트 계정으로 빠르게 체험하세요
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fillTestAccount("admin")}
-                    className="text-xs bg-ocean-500/20 hover:bg-ocean-500/30 text-ocean-300 border border-ocean-500/30 rounded-lg px-3 py-2 transition-colors text-left"
-                  >
-                    <div className="font-medium">관리자 계정</div>
-                    <div className="text-ocean-400 mt-0.5">admin@shrimp365.com</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fillTestAccount("operator")}
-                    className="text-xs bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/30 rounded-lg px-3 py-2 transition-colors text-left"
-                  >
-                    <div className="font-medium">운영자 계정</div>
-                    <div className="text-teal-400 mt-0.5">operator@shrimp365.com</div>
-                  </button>
+              {process.env.NEXT_PUBLIC_SHOW_TEST_ACCOUNTS === "true" && (
+                <div className="mt-4 pt-4 border-t border-white/10">
+                  <p className="text-center text-xs text-ocean-400 mb-3 flex items-center gap-2 justify-center">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    테스트 계정으로 빠르게 체험하세요
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fillTestAccount("admin")}
+                      className="text-xs bg-ocean-500/20 hover:bg-ocean-500/30 text-ocean-300 border border-ocean-500/30 rounded-lg px-3 py-2 transition-colors text-left"
+                    >
+                      <div className="font-medium">관리자 계정</div>
+                      <div className="text-ocean-400 mt-0.5">admin@shrimp365.com</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fillTestAccount("operator")}
+                      className="text-xs bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/30 rounded-lg px-3 py-2 transition-colors text-left"
+                    >
+                      <div className="font-medium">운영자 계정</div>
+                      <div className="text-teal-400 mt-0.5">operator@shrimp365.com</div>
+                    </button>
+                  </div>
+                  <p className="text-center text-xs text-ocean-500 mt-2">비밀번호: test1234</p>
                 </div>
-                <p className="text-center text-xs text-ocean-500 mt-2">비밀번호: test1234</p>
-              </div>
+              )}
 
               <div className="text-center mt-4 space-y-2">
                 <p className="text-sm text-ocean-400">

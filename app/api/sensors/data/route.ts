@@ -39,16 +39,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "비활성화된 기기입니다." }, { status: 401 })
   }
 
-  // 2. 측정값 파싱
+  // 2. 측정값 파싱 + 유효 범위 검증 (DB 오염·오버플로 방지)
   const FIELDS = ["temperature", "ph", "do_level", "salinity", "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity"] as const
   type FieldKey = typeof FIELDS[number]
+
+  const VALID_RANGE: Record<FieldKey, [number, number]> = {
+    temperature: [-5,   60],
+    ph:          [ 0,   14],
+    do_level:    [ 0,   30],
+    salinity:    [ 0,   50],
+    ammonia:     [ 0,  100],
+    nitrite:     [ 0,  100],
+    nitrate:     [ 0,  500],
+    alkalinity:  [ 0, 1000],
+    turbidity:   [ 0, 1000],
+  }
 
   const values: Partial<Record<FieldKey, number>> = {}
   for (const field of FIELDS) {
     const raw = body[field]
     if (raw !== undefined && raw !== null) {
       const n = Number(raw)
-      if (!Number.isNaN(n)) values[field] = n
+      const [min, max] = VALID_RANGE[field]
+      if (!Number.isNaN(n) && Number.isFinite(n) && n >= min && n <= max) {
+        values[field] = n
+      }
     }
   }
 
@@ -56,9 +71,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "측정값이 하나도 없습니다." }, { status: 422 })
   }
 
-  const recordedAt = typeof body.recorded_at === "string"
-    ? body.recorded_at
-    : new Date().toISOString()
+  // recorded_at: ISO8601 형식만 허용, 미래 시각 차단
+  let recordedAt = new Date().toISOString()
+  if (typeof body.recorded_at === "string") {
+    const parsed = new Date(body.recorded_at)
+    if (!isNaN(parsed.getTime()) && parsed.getTime() <= Date.now()) {
+      recordedAt = parsed.toISOString()
+    }
+  }
 
   // 3. water_quality_readings 삽입
   const { data: reading, error: insertError } = await supabaseAdmin
