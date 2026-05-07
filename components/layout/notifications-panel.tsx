@@ -76,21 +76,11 @@ export function NotificationsPanel({ open, onClose, onCountChange }: Notificatio
     setResolvingId(id)
     try {
       await resolveAlert(id)
-      setAlerts(prev => {
-        const updated = prev.filter(a => a.id !== id)
-        onCountChange?.(updated.length)
-        return updated
-      })
-    } catch {
-      // for mock alerts just remove locally
-      setAlerts(prev => {
-        const updated = prev.filter(a => a.id !== id)
-        onCountChange?.(updated.length)
-        return updated
-      })
-    } finally {
-      setResolvingId(null)
-    }
+    } catch { /* for mock alerts, just remove locally */ }
+    const updated = alerts.filter(a => a.id !== id)
+    setAlerts(updated)
+    onCountChange?.(updated.length)
+    setResolvingId(null)
   }
 
   async function handleResolveAll() {
