@@ -98,6 +98,17 @@ export interface Alert {
   resolved: boolean
 }
 
+export interface SensorDevice {
+  id: string
+  tank_id: string
+  name: string
+  device_type: "multi" | "temperature" | "ph" | "do"
+  api_key: string
+  active: boolean
+  last_seen_at: string | null
+  created_at: string
+}
+
 export interface WaterQualityStandard {
   min: number
   max: number

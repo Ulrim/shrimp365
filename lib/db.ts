@@ -1,5 +1,5 @@
-import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbDiagnosis, DbAlert } from "@/lib/supabase"
-import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert } from "@/types"
+import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbDiagnosis, DbAlert, DbSensorDevice } from "@/lib/supabase"
+import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice } from "@/types"
 import { checkThresholds } from "@/lib/thresholds"
 
 // ─────────────────────────────────────────────
@@ -505,4 +505,64 @@ export async function createAlert(values: {
     .single()
   if (error) throw error
   return data
+}
+
+// ─────────────────────────────────────────────
+// SENSOR DEVICES
+// ─────────────────────────────────────────────
+
+function toSensorDevice(d: DbSensorDevice): SensorDevice {
+  return {
+    id: d.id,
+    tank_id: d.tank_id,
+    name: d.name,
+    device_type: d.device_type,
+    api_key: d.api_key,
+    active: d.active,
+    last_seen_at: d.last_seen_at,
+    created_at: d.created_at,
+  }
+}
+
+export async function getSensorDevices(tankId: string): Promise<SensorDevice[]> {
+  const { data, error } = await supabase
+    .from("sensor_devices")
+    .select("*")
+    .eq("tank_id", tankId)
+    .order("created_at", { ascending: true })
+
+  if (error) throw error
+  return (data || []).map(toSensorDevice)
+}
+
+export async function createSensorDevice(values: {
+  tank_id: string
+  name: string
+  device_type: SensorDevice["device_type"]
+}): Promise<SensorDevice> {
+  const { data, error } = await supabase
+    .from("sensor_devices")
+    .insert(values)
+    .select()
+    .single()
+
+  if (error) throw error
+  return toSensorDevice(data)
+}
+
+export async function deleteSensorDevice(id: string): Promise<void> {
+  const { error } = await supabase.from("sensor_devices").delete().eq("id", id)
+  if (error) throw error
+}
+
+export async function toggleSensorDevice(id: string, active: boolean): Promise<SensorDevice> {
+  const { data, error } = await supabase
+    .from("sensor_devices")
+    .update({ active })
+    .eq("id", id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return toSensorDevice(data)
 }

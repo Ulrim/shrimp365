@@ -203,6 +203,33 @@ CREATE POLICY "alerts_all_own" ON public.alerts FOR ALL
   ));
 
 -- ───────────────────────────────────────────────
+-- 8-extra. sensor_devices (IoT 기기 연동)
+-- ───────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.sensor_devices (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tank_id      UUID NOT NULL REFERENCES public.tanks(id) ON DELETE CASCADE,
+  name         TEXT NOT NULL,
+  device_type  TEXT NOT NULL DEFAULT 'multi'
+                 CHECK (device_type IN ('multi','temperature','ph','do')),
+  api_key      TEXT UNIQUE NOT NULL DEFAULT encode(gen_random_bytes(24), 'hex'),
+  active       BOOLEAN DEFAULT TRUE,
+  last_seen_at TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sensor_devices_tank
+  ON public.sensor_devices(tank_id);
+
+ALTER TABLE public.sensor_devices ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "devices_all_own" ON public.sensor_devices FOR ALL
+  USING (tank_id IN (
+    SELECT t.id FROM public.tanks t
+    JOIN public.farms f ON f.id = t.farm_id
+    WHERE f.user_id = auth.uid()
+  ));
+
+-- ───────────────────────────────────────────────
 -- 완료 메시지
 -- ───────────────────────────────────────────────
 DO $$ BEGIN

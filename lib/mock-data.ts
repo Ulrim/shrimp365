@@ -1,4 +1,4 @@
-import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert } from "@/types"
+import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice } from "@/types"
 
 export const MOCK_USER = {
   id: "mock-user-1",
@@ -181,5 +181,28 @@ export const MOCK_DIAGNOSES: DiagnosisResult[] = [
     tested_by: "이운영",
     action_taken: "정기 예방 투여 유지",
     notes: "정상 범위",
+  },
+]
+
+export const MOCK_SENSOR_DEVICES: SensorDevice[] = [
+  {
+    id: "dev-1",
+    tank_id: "tank-1",
+    name: "A-1조 멀티센서",
+    device_type: "multi",
+    api_key: "mock-api-key-hidden",
+    active: true,
+    last_seen_at: new Date(Date.now() - 5 * 60000).toISOString(),
+    created_at: "2024-04-01T00:00:00Z",
+  },
+  {
+    id: "dev-2",
+    tank_id: "tank-3",
+    name: "B-1조 수온·DO 센서",
+    device_type: "multi",
+    api_key: "mock-api-key-hidden-2",
+    active: true,
+    last_seen_at: new Date(Date.now() - 12 * 60000).toISOString(),
+    created_at: "2024-04-05T00:00:00Z",
   },
 ]

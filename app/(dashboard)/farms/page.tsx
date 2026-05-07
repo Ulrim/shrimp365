@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { MOCK_FARMS, MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
+import { MOCK_FARMS, MOCK_TANKS, MOCK_SENSOR_DEVICES, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
-import { getFarms, getTanksByFarm, createFarm, createTank, updateFarm, deleteFarm, updateTank, deleteTank } from "@/lib/db"
+import { getFarms, getTanksByFarm, createFarm, createTank, updateFarm, deleteFarm, updateTank, deleteTank, getSensorDevices, createSensorDevice, deleteSensorDevice, toggleSensorDevice } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -33,8 +33,16 @@ import {
   TrendingUp,
   Calendar,
   ShoppingCart,
+  Wifi,
+  WifiOff,
+  Cpu,
+  Copy,
+  Check,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react"
 import { formatDate } from "@/lib/utils"
+import type { SensorDevice } from "@/types"
 
 function computeCycleDay(stockingDate: string | null | undefined): number {
   if (!stockingDate) return 0
@@ -690,6 +698,331 @@ function DeleteTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => vo
   )
 }
 
+// ─── Register Device Dialog ──────────────────────────────────────────────────
+
+const DEVICE_TYPE_LABELS: Record<SensorDevice["device_type"], string> = {
+  multi:       "다항목 센서 (수온·pH·DO·염도·암모니아 등)",
+  temperature: "수온 전용",
+  ph:          "pH 전용",
+  do:          "용존산소(DO) 전용",
+}
+
+function RegisterDeviceDialog({ tank, onSuccess }: { tank: import("@/types").Tank; onSuccess: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [step, setStep] = useState<"form" | "done">("form")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState<"key" | "url" | null>(null)
+  const [createdDevice, setCreatedDevice] = useState<SensorDevice | null>(null)
+  const [form, setForm] = useState({ name: "", device_type: "multi" as SensorDevice["device_type"] })
+
+  const endpointUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/api/sensors/data`
+    : "/api/sensors/data"
+
+  async function handleCopy(text: string, type: "key" | "url") {
+    await navigator.clipboard.writeText(text).catch(() => {})
+    setCopied(type)
+    setTimeout(() => setCopied(null), 2000)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.name.trim()) return
+    setSaving(true)
+    setError(null)
+    try {
+      const device = await createSensorDevice({
+        tank_id: tank.id,
+        name: form.name,
+        device_type: form.device_type,
+      })
+      setCreatedDevice(device)
+      setStep("done")
+      onSuccess()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "등록에 실패했습니다.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleClose() {
+    setOpen(false)
+    setTimeout(() => {
+      setStep("form")
+      setError(null)
+      setCreatedDevice(null)
+      setForm({ name: "", device_type: "multi" })
+    }, 200)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) handleClose(); else setOpen(true) }}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="h-7 text-xs border-ocean-500/30 text-ocean-300 hover:bg-ocean-500/10 gap-1.5">
+          <Plus className="w-3 h-3" /> 기기 등록
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="bg-slate-900 border-white/10 text-white max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-white flex items-center gap-2">
+            <Cpu className="w-5 h-5 text-ocean-400" /> 센서 기기 등록
+          </DialogTitle>
+          <DialogDescription className="text-slate-400">
+            {tank.name}에 연동할 수질 측정 기기를 등록합니다.
+          </DialogDescription>
+        </DialogHeader>
+
+        {step === "form" ? (
+          <form onSubmit={handleSubmit} className="space-y-4 py-2">
+            {error && (
+              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
+            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="dev-name" className="text-slate-300 text-sm">기기 이름 *</Label>
+              <Input
+                id="dev-name"
+                placeholder="예: A-1조 멀티센서"
+                className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-ocean-500/50"
+                value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-sm">기기 유형 *</Label>
+              <div className="grid grid-cols-1 gap-2">
+                {(Object.entries(DEVICE_TYPE_LABELS) as [SensorDevice["device_type"], string][]).map(([type, label]) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, device_type: type }))}
+                    className={`text-left px-3 py-2.5 rounded-lg border text-sm transition-all ${
+                      form.device_type === type
+                        ? "border-ocean-500/50 bg-ocean-500/10 text-white"
+                        : "border-white/10 bg-slate-800/50 text-slate-300 hover:border-white/20"
+                    }`}
+                  >
+                    <span className="font-medium">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={handleClose} className="border-white/10 text-slate-300">취소</Button>
+              <Button type="submit" disabled={saving || !form.name.trim()} className="bg-ocean-500 hover:bg-ocean-600 text-white">
+                {saving ? "등록중..." : "등록하기"}
+              </Button>
+            </DialogFooter>
+          </form>
+        ) : (
+          <div className="space-y-4 py-2">
+            <div className="flex flex-col items-center gap-2 py-3 text-center">
+              <div className="w-12 h-12 rounded-full bg-emerald-500/15 flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-emerald-400" />
+              </div>
+              <p className="text-white font-semibold">기기 등록 완료</p>
+              <p className="text-slate-400 text-xs">아래 정보를 기기에 설정하세요. API 키는 다시 확인할 수 없습니다.</p>
+            </div>
+
+            {/* Endpoint URL */}
+            <div className="space-y-1.5">
+              <p className="text-xs text-slate-400 font-medium">API 엔드포인트</p>
+              <div className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-2.5 border border-white/10">
+                <code className="text-xs text-ocean-300 flex-1 break-all">{endpointUrl}</code>
+                <button onClick={() => handleCopy(endpointUrl, "url")} className="text-slate-500 hover:text-white shrink-0">
+                  {copied === "url" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+
+            {/* API Key */}
+            <div className="space-y-1.5">
+              <p className="text-xs text-slate-400 font-medium">X-Device-Key <span className="text-amber-400">(1회만 표시)</span></p>
+              <div className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-2.5 border border-amber-500/30">
+                <code className="text-xs text-amber-300 flex-1 break-all">{createdDevice?.api_key ?? ""}</code>
+                <button onClick={() => handleCopy(createdDevice?.api_key ?? "", "key")} className="text-slate-500 hover:text-white shrink-0">
+                  {copied === "key" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+
+            {/* ESP32 snippet */}
+            <details className="group">
+              <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300 list-none flex items-center gap-1">
+                <ChevronDown className="w-3.5 h-3.5 group-open:hidden" />
+                <ChevronUp className="w-3.5 h-3.5 hidden group-open:block" />
+                ESP32 예제 코드 보기
+              </summary>
+              <pre className="mt-2 text-[10px] text-slate-300 bg-slate-950 rounded-lg p-3 overflow-x-auto leading-relaxed border border-white/5">{`#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+
+const char* ENDPOINT = "${endpointUrl}";
+const char* DEVICE_KEY = "${createdDevice?.api_key ?? "<YOUR_KEY>"}";
+
+void sendReading(float temp, float ph, float doLevel) {
+  HTTPClient http;
+  http.begin(ENDPOINT);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("X-Device-Key", DEVICE_KEY);
+
+  StaticJsonDocument<256> doc;
+  doc["temperature"] = temp;
+  doc["ph"] = ph;
+  doc["do_level"] = doLevel;
+
+  String body;
+  serializeJson(doc, body);
+  http.POST(body);
+  http.end();
+}`}</pre>
+            </details>
+
+            <DialogFooter>
+              <Button onClick={handleClose} className="bg-ocean-500 hover:bg-ocean-600 text-white w-full">닫기</Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── Device Section ───────────────────────────────────────────────────────────
+
+function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
+  const { user } = useAuth()
+  const [devices, setDevices] = useState<SensorDevice[]>([])
+  const [expanded, setExpanded] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  function timeSince(iso: string | null) {
+    if (!iso) return "미연결"
+    const diff = Date.now() - new Date(iso).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return "방금 전"
+    if (mins < 60) return `${mins}분 전`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs}시간 전`
+    return `${Math.floor(hrs / 24)}일 전`
+  }
+
+  async function loadDevices() {
+    setLoading(true)
+    try {
+      const mock = isTestAccount(user?.email)
+      const data = await getSensorDevices(tank.id)
+      if (data.length > 0) {
+        setDevices(data)
+      } else if (mock) {
+        setDevices(MOCK_SENSOR_DEVICES.filter(d => d.tank_id === tank.id))
+      } else {
+        setDevices([])
+      }
+    } catch {
+      if (isTestAccount(user?.email)) {
+        setDevices(MOCK_SENSOR_DEVICES.filter(d => d.tank_id === tank.id))
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadDevices()
+  }, [tank.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleDelete(id: string) {
+    setDeletingId(id)
+    try {
+      await deleteSensorDevice(id)
+      setDevices(prev => prev.filter(d => d.id !== id))
+    } catch { /* ignore */ }
+    setDeletingId(null)
+  }
+
+  async function handleToggle(device: SensorDevice) {
+    try {
+      const updated = await toggleSensorDevice(device.id, !device.active)
+      setDevices(prev => prev.map(d => d.id === updated.id ? updated : d))
+    } catch { /* ignore */ }
+  }
+
+  const activeCount = devices.filter(d => d.active).length
+
+  return (
+    <div className="border-t border-white/5 pt-3 mt-1">
+      <button
+        onClick={() => setExpanded(v => !v)}
+        className="w-full flex items-center justify-between text-xs text-slate-400 hover:text-slate-300 transition-colors"
+      >
+        <span className="flex items-center gap-1.5">
+          <Cpu className="w-3.5 h-3.5" />
+          기기 연동
+          {activeCount > 0 && (
+            <span className="flex items-center gap-1 text-emerald-400">
+              <Wifi className="w-3 h-3" /> {activeCount}대 연결 중
+            </span>
+          )}
+          {devices.length > 0 && activeCount === 0 && (
+            <span className="flex items-center gap-1 text-slate-500">
+              <WifiOff className="w-3 h-3" /> 미연결
+            </span>
+          )}
+        </span>
+        {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+      </button>
+
+      {expanded && (
+        <div className="mt-3 space-y-2">
+          {loading ? (
+            <p className="text-xs text-slate-500 text-center py-2">불러오는 중...</p>
+          ) : devices.length === 0 ? (
+            <p className="text-xs text-slate-500 text-center py-2">연결된 기기가 없습니다.</p>
+          ) : (
+            devices.map(device => (
+              <div key={device.id} className="flex items-center justify-between bg-slate-900/60 rounded-lg px-3 py-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${device.active ? "bg-emerald-400 animate-pulse" : "bg-slate-500"}`} />
+                  <div className="min-w-0">
+                    <p className="text-xs text-white font-medium truncate">{device.name}</p>
+                    <p className="text-[10px] text-slate-500">{timeSince(device.last_seen_at)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => handleToggle(device)}
+                    className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+                      device.active
+                        ? "border-emerald-500/30 text-emerald-400 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30"
+                        : "border-slate-600 text-slate-500 hover:text-emerald-400 hover:border-emerald-500/30"
+                    }`}
+                    title={device.active ? "비활성화" : "활성화"}
+                  >
+                    {device.active ? "활성" : "비활성"}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(device.id)}
+                    disabled={deletingId === device.id}
+                    className="p-1 rounded hover:bg-red-500/15 text-slate-500 hover:text-red-400 transition-colors"
+                    title="삭제"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+          <RegisterDeviceDialog tank={tank} onSuccess={loadDevices} />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Tank Card ───────────────────────────────────────────────────────────────
 
 function TankCard({ tank, onRefresh }: { tank: Tank; onRefresh: () => void }) {
@@ -764,6 +1097,9 @@ function TankCard({ tank, onRefresh }: { tank: Tank; onRefresh: () => void }) {
             <DeleteTankDialog tank={tank} onSuccess={onRefresh} />
           </div>
         </div>
+
+        {/* Device Section */}
+        <DeviceSection tank={tank} />
       </CardContent>
     </Card>
   )

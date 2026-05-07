@@ -5,9 +5,9 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine, Legend,
 } from "recharts"
-import { MOCK_TANKS, MOCK_WATER_QUALITY, WATER_QUALITY_STANDARDS, MOCK_ALERTS, isTestAccount } from "@/lib/mock-data"
+import { MOCK_TANKS, MOCK_WATER_QUALITY, WATER_QUALITY_STANDARDS, MOCK_ALERTS, MOCK_SENSOR_DEVICES, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
-import { getAllTanks, getWaterQuality, getLatestWaterQuality } from "@/lib/db"
+import { getAllTanks, getWaterQuality, getLatestWaterQuality, getSensorDevices } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -19,11 +19,11 @@ import {
 } from "@/components/ui/tabs"
 import {
   Thermometer, Droplets, Wind, Waves, AlertTriangle,
-  CheckCircle2, XCircle, AlertCircle, RefreshCw, Plus, Download,
+  CheckCircle2, XCircle, AlertCircle, RefreshCw, Plus, Download, Wifi,
 } from "lucide-react"
 import { exportToCsv } from "@/lib/export"
 import { formatDateTime } from "@/lib/utils"
-import type { Tank, WaterQualityReading, Alert } from "@/types"
+import type { Tank, WaterQualityReading, Alert, SensorDevice } from "@/types"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -219,6 +219,9 @@ export default function WaterQualityPage() {
   // Summary counts
   const [summaryStatusCounts, setSummaryStatusCounts] = useState({ 정상: 0, 주의: 0, 위험: 0 })
 
+  // Sensor devices for selected tank
+  const [tankDevices, setTankDevices] = useState<SensorDevice[]>([])
+
   // Load tanks on mount
   useEffect(() => {
     async function loadTanks() {
@@ -273,12 +276,27 @@ export default function WaterQualityPage() {
       }
 
       setTankAlerts(mock ? MOCK_ALERTS.filter(a => a.tank_id === tankId && !a.resolved) : [])
+
+      // Load sensor devices for this tank
+      try {
+        const devices = await getSensorDevices(tankId)
+        if (devices.length > 0) {
+          setTankDevices(devices)
+        } else if (mock) {
+          setTankDevices(MOCK_SENSOR_DEVICES.filter(d => d.tank_id === tankId))
+        } else {
+          setTankDevices([])
+        }
+      } catch {
+        setTankDevices(mock ? MOCK_SENSOR_DEVICES.filter(d => d.tank_id === tankId) : [])
+      }
     } catch {
       if (mock) {
         const mockReadings = MOCK_WATER_QUALITY[tankId] ?? []
         setReadings(mockReadings)
         setLatest(mockReadings.length > 0 ? mockReadings[mockReadings.length - 1] : null)
         setTankAlerts(MOCK_ALERTS.filter(a => a.tank_id === tankId && !a.resolved))
+        setTankDevices(MOCK_SENSOR_DEVICES.filter(d => d.tank_id === tankId))
       }
     } finally {
       setIsLoading(false)
@@ -500,11 +518,19 @@ export default function WaterQualityPage() {
               )}
             </div>
 
-            {latest && (
-              <div className="text-xs text-slate-500">
-                최근 측정: {formatDateTime(latest.recorded_at)}
-              </div>
-            )}
+            <div className="flex flex-col items-end gap-1">
+              {tankDevices.filter(d => d.active).length > 0 && (
+                <span className="flex items-center gap-1 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-2.5 py-0.5">
+                  <Wifi className="w-3 h-3" />
+                  센서 자동 수집 중 ({tankDevices.filter(d => d.active).length}대)
+                </span>
+              )}
+              {latest && (
+                <span className="text-xs text-slate-500">
+                  최근 측정: {formatDateTime(latest.recorded_at)}
+                </span>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

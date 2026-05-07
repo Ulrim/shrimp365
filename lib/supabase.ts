@@ -90,6 +90,17 @@ export type DbDiagnosis = {
   created_at: string
 }
 
+export type DbSensorDevice = {
+  id: string
+  tank_id: string
+  name: string
+  device_type: "multi" | "temperature" | "ph" | "do"
+  api_key: string
+  active: boolean
+  last_seen_at: string | null
+  created_at: string
+}
+
 export type DbAlert = {
   id: string
   tank_id: string
