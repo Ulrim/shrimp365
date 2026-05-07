@@ -310,15 +310,13 @@ export default function WaterQualityPage() {
 
     await Promise.all(tankList.map(async (tank) => {
       try {
-        let latestReading: WaterQualityReading | null = null
-
-        if (mock) {
+        // Always try DB first; fall back to mock data only when DB has nothing
+        let latestReading: WaterQualityReading | null = await getLatestWaterQuality(tank.id)
+        if (!latestReading && mock) {
           const mockReadings = MOCK_WATER_QUALITY[tank.id] ?? []
           latestReading = mockReadings.length > 0
             ? mockReadings[mockReadings.length - 1]
             : null
-        } else {
-          latestReading = await getLatestWaterQuality(tank.id)
         }
 
         if (!latestReading) {
