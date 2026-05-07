@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { getFarms, getAllTanks, getAlerts, getDiagnoses, getWaterQuality } from "@/lib/db"
@@ -51,6 +52,7 @@ function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; l
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const router = useRouter()
   const [farms, setFarms]       = useState<Farm[]>([])
   const [tanks, setTanks]       = useState<Tank[]>([])
   const [alerts, setAlerts]     = useState<Alert[]>([])
@@ -116,25 +118,9 @@ export default function DashboardPage() {
     )
   }
 
-  if (farms.length === 0 && !isTestAccount(user?.email)) {
-    return (
-      <div className="flex flex-col items-center justify-center h-96 space-y-4 animate-fade-in">
-        <div className="w-16 h-16 rounded-2xl bg-ocean-500/20 flex items-center justify-center">
-          <Building2 className="w-8 h-8 text-ocean-400" />
-        </div>
-        <div className="text-center">
-          <h2 className="text-xl font-bold text-white mb-2">양식장을 등록해주세요</h2>
-          <p className="text-slate-400 text-sm max-w-sm">
-            양식장과 수조를 등록하면 수질 모니터링, 일지 관리, 질병 진단 등 모든 기능을 사용할 수 있습니다.
-          </p>
-        </div>
-        <Link href="/farms">
-          <Button className="bg-ocean-500 hover:bg-ocean-600 text-white gap-2">
-            <Building2 className="w-4 h-4" /> 양식장 등록하기
-          </Button>
-        </Link>
-      </div>
-    )
+  if (!loading && farms.length === 0 && !isTestAccount(user?.email)) {
+    router.replace("/onboarding")
+    return null
   }
 
   return (

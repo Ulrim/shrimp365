@@ -41,14 +41,14 @@ export const MOCK_FARMS: Farm[] = [
 ]
 
 export const MOCK_TANKS: Tank[] = [
-  { id: "tank-1", farm_id: "farm-1", name: "A-1조", volume: 500, status: "active", stocking_density: 120, shrimp_count: 60000, cycle_day: 45, created_at: "2024-03-01" },
-  { id: "tank-2", farm_id: "farm-1", name: "A-2조", volume: 500, status: "active", stocking_density: 115, shrimp_count: 57500, cycle_day: 45, created_at: "2024-03-01" },
-  { id: "tank-3", farm_id: "farm-1", name: "B-1조", volume: 500, status: "active", stocking_density: 130, shrimp_count: 65000, cycle_day: 60, created_at: "2024-02-15" },
-  { id: "tank-4", farm_id: "farm-1", name: "B-2조", volume: 500, status: "warning", stocking_density: 110, shrimp_count: 55000, cycle_day: 60, created_at: "2024-02-15" },
-  { id: "tank-5", farm_id: "farm-1", name: "C-1조", volume: 500, status: "active", stocking_density: 100, shrimp_count: 50000, cycle_day: 30, created_at: "2024-04-01" },
-  { id: "tank-6", farm_id: "farm-1", name: "C-2조", volume: 500, status: "danger", stocking_density: 95, shrimp_count: 47500, cycle_day: 30, created_at: "2024-04-01" },
-  { id: "tank-7", farm_id: "farm-1", name: "D-1조", volume: 500, status: "active", stocking_density: 125, shrimp_count: 62500, cycle_day: 75, created_at: "2024-01-20" },
-  { id: "tank-8", farm_id: "farm-1", name: "D-2조", volume: 500, status: "active", stocking_density: 118, shrimp_count: 59000, cycle_day: 75, created_at: "2024-01-20" },
+  { id: "tank-1", farm_id: "farm-1", name: "A-1조", volume: 500, status: "active", stocking_density: 120, shrimp_count: 60000, cycle_day: 45, tank_type: "실내", created_at: "2024-03-01" },
+  { id: "tank-2", farm_id: "farm-1", name: "A-2조", volume: 500, status: "active", stocking_density: 115, shrimp_count: 57500, cycle_day: 45, tank_type: "실내", created_at: "2024-03-01" },
+  { id: "tank-3", farm_id: "farm-1", name: "B-1조", volume: 500, status: "active", stocking_density: 130, shrimp_count: 65000, cycle_day: 60, tank_type: "노지", created_at: "2024-02-15" },
+  { id: "tank-4", farm_id: "farm-1", name: "B-2조", volume: 500, status: "warning", stocking_density: 110, shrimp_count: 55000, cycle_day: 60, tank_type: "노지", created_at: "2024-02-15" },
+  { id: "tank-5", farm_id: "farm-1", name: "C-1조", volume: 500, status: "active", stocking_density: 100, shrimp_count: 50000, cycle_day: 30, tank_type: "반실내", created_at: "2024-04-01" },
+  { id: "tank-6", farm_id: "farm-1", name: "C-2조", volume: 500, status: "danger", stocking_density: 95, shrimp_count: 47500, cycle_day: 30, tank_type: "반실내", created_at: "2024-04-01" },
+  { id: "tank-7", farm_id: "farm-1", name: "D-1조", volume: 500, status: "active", stocking_density: 125, shrimp_count: 62500, cycle_day: 75, tank_type: "실내", created_at: "2024-01-20" },
+  { id: "tank-8", farm_id: "farm-1", name: "D-2조", volume: 500, status: "active", stocking_density: 118, shrimp_count: 59000, cycle_day: 75, tank_type: "실내", created_at: "2024-01-20" },
 ]
 
 function generateTimeSeriesData(tankId: string, days: number = 7) {

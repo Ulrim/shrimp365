@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS public.farms (
   user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name       TEXT NOT NULL,
   location   TEXT DEFAULT '',
+  owner_name TEXT DEFAULT '',
   area       NUMERIC DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -58,6 +59,7 @@ CREATE TABLE IF NOT EXISTS public.tanks (
   cycle_day        INTEGER DEFAULT 0,
   stocking_date    DATE,
   harvest_date     DATE,
+  tank_type        TEXT DEFAULT '노지' CHECK (tank_type IN ('노지', '실내', '반실내')),
   created_at       TIMESTAMPTZ DEFAULT NOW()
 );
 

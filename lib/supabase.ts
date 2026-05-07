@@ -18,6 +18,7 @@ export type DbFarm = {
   user_id: string
   name: string
   location: string
+  owner_name: string
   area: number
   created_at: string
 }
@@ -33,6 +34,7 @@ export type DbTank = {
   cycle_day: number
   stocking_date: string | null
   harvest_date: string | null
+  tank_type: "노지" | "실내" | "반실내"
   created_at: string
 }
 

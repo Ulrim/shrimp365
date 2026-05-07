@@ -9,6 +9,7 @@ const PROTECTED_PATHS = [
   "/diagnosis",
   "/ai-advisor",
   "/reports",
+  "/onboarding",
 ]
 
 export async function middleware(request: NextRequest) {

@@ -6,7 +6,7 @@ import { checkThresholds } from "@/lib/thresholds"
 // 타입 변환 헬퍼
 // ─────────────────────────────────────────────
 function toFarm(f: DbFarm, tankCount = 0): Farm {
-  return { ...f, tank_count: tankCount }
+  return { ...f, owner_name: f.owner_name ?? "", tank_count: tankCount }
 }
 
 function toTank(t: DbTank): Tank {
@@ -14,6 +14,7 @@ function toTank(t: DbTank): Tank {
     ...t,
     stocking_date: t.stocking_date ?? null,
     harvest_date: t.harvest_date ?? null,
+    tank_type: t.tank_type ?? "노지",
   }
 }
 
@@ -50,7 +51,7 @@ export async function getFarms(): Promise<Farm[]> {
   )
 }
 
-export async function createFarm(values: { name: string; location: string; area: number }) {
+export async function createFarm(values: { name: string; location?: string; area?: number; owner_name?: string }) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("로그인이 필요합니다.")
 
@@ -64,7 +65,7 @@ export async function createFarm(values: { name: string; location: string; area:
   return toFarm(data)
 }
 
-export async function updateFarm(id: string, values: Partial<{ name: string; location: string; area: number }>) {
+export async function updateFarm(id: string, values: Partial<{ name: string; location: string; owner_name: string; area: number }>) {
   const { data, error } = await supabase
     .from("farms")
     .update(values)
@@ -114,6 +115,7 @@ export async function createTank(values: {
   cycle_day?: number
   stocking_date?: string | null
   harvest_date?: string | null
+  tank_type?: "노지" | "실내" | "반실내"
 }) {
   const { data, error } = await supabase
     .from("tanks")
