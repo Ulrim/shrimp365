@@ -537,8 +537,9 @@ export default function ReportsPage() {
                 variant="outline"
                 className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
                 onClick={handlePdf}
+                title="브라우저 인쇄 → PDF로 저장을 선택하세요"
               >
-                <Download className="w-4 h-4 mr-2" />PDF 저장
+                <Download className="w-4 h-4 mr-2" />인쇄/저장
               </Button>
             ) : (
               <Link href="/pricing">
@@ -547,7 +548,7 @@ export default function ReportsPage() {
                   className="border-white/10 text-slate-500 hover:text-white hover:bg-white/5"
                   title="Pro 플랜 전용"
                 >
-                  <Lock className="w-4 h-4 mr-2" />PDF 저장
+                  <Lock className="w-4 h-4 mr-2" />인쇄/저장
                 </Button>
               </Link>
             )

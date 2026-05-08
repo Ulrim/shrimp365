@@ -47,9 +47,8 @@ export default function SignupPage() {
     const result = await signup(email, password, name)
     setLoading(false)
     if (result.success) {
-      // Supabase 이메일 인증 사용 시 인증 메일 발송됨
-      // 인증 없이 바로 로그인 되면 대시보드로 이동
-      router.replace("/dashboard")
+      sessionStorage.setItem("pendingVerifyEmail", email)
+      router.replace("/verify-email")
     } else {
       setError(result.error || "회원가입에 실패했습니다.")
     }

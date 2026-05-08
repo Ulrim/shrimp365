@@ -33,13 +33,8 @@ export default function LoginPage() {
   }
 
   const fillTestAccount = (type: "admin" | "operator") => {
-    if (type === "admin") {
-      setEmail("admin@shrimp365.com")
-      setPassword("test1234")
-    } else {
-      setEmail("operator@shrimp365.com")
-      setPassword("test1234")
-    }
+    setEmail(type === "admin" ? "admin@shrimp365.com" : "operator@shrimp365.com")
+    setPassword("")
   }
 
   return (
@@ -189,7 +184,7 @@ export default function LoginPage() {
                       <div className="text-teal-400 mt-0.5">operator@shrimp365.com</div>
                     </button>
                   </div>
-                  <p className="text-center text-xs text-ocean-500 mt-2">비밀번호: test1234</p>
+                  <p className="text-center text-xs text-ocean-500 mt-2">이메일을 선택하고 비밀번호를 직접 입력하세요</p>
                 </div>
               )}
 

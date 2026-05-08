@@ -214,6 +214,7 @@ export default function AIAdvisorPage() {
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [upgradeOpen, setUpgradeOpen] = useState(false)
+  const [aiRemaining, setAiRemaining] = useState<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -297,6 +298,7 @@ export default function AIAdvisorPage() {
       }
 
       const json = await res.json()
+      if (json.remaining !== undefined && json.remaining !== null) setAiRemaining(json.remaining)
       const response = json.answer || generateDefaultResponse(question, tanks.length, alerts.length)
       setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: response, timestamp: new Date() }])
     } catch {
@@ -359,7 +361,18 @@ export default function AIAdvisorPage() {
           <h2 className="text-xl font-bold text-white">AI 어드바이저</h2>
           <p className="text-sm text-slate-400">수질·생육·진단 데이터 기반 운영 권고</p>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-3">
+          {aiRemaining !== null && (
+            <span className={`text-xs px-2 py-1 rounded-lg border ${
+              aiRemaining <= 2
+                ? "bg-red-500/10 border-red-500/30 text-red-400"
+                : aiRemaining <= 5
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                : "bg-slate-800/60 border-white/10 text-slate-400"
+            }`}>
+              오늘 {aiRemaining}회 남음
+            </span>
+          )}
           <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
           <span className="text-xs text-emerald-400">온라인</span>
         </div>

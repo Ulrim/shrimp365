@@ -9,8 +9,8 @@ export const MOCK_USER = {
 }
 
 export const TEST_ACCOUNTS = [
-  { email: "admin@shrimp365.com", password: "test1234", name: "김양식 (관리자)" },
-  { email: "operator@shrimp365.com", password: "test1234", name: "이운영 (운영자)" },
+  { email: "admin@shrimp365.com", name: "김양식 (관리자)" },
+  { email: "operator@shrimp365.com", name: "이운영 (운영자)" },
 ]
 
 export const TEST_EMAILS = ["admin@shrimp365.com", "operator@shrimp365.com"]

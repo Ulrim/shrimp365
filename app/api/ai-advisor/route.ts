@@ -74,13 +74,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "질문이 없습니다." }, { status: 400 })
     }
 
+    const remaining = getRemainingAi(user.id, plan)
+    const remainingPayload = remaining === Infinity ? null : remaining
+
     if (anthropicKey) {
       const answer = await callClaude(question, context)
-      return NextResponse.json({ answer })
+      return NextResponse.json({ answer, remaining: remainingPayload })
     }
 
     const answer = buildAnswer(question, context)
-    return NextResponse.json({ answer })
+    return NextResponse.json({ answer, remaining: remainingPayload })
   } catch {
     return NextResponse.json({ error: "응답 생성에 실패했습니다." }, { status: 500 })
   }

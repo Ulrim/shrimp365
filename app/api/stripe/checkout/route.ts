@@ -38,7 +38,10 @@ export async function POST(req: NextRequest) {
   }
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-  const origin = req.headers.get("origin") || "http://localhost:3000"
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+  const allowedOrigins = [siteUrl, "http://localhost:3000"].filter(Boolean)
+  const requestOrigin = req.headers.get("origin") ?? ""
+  const origin = allowedOrigins.includes(requestOrigin) ? requestOrigin : siteUrl
 
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: "subscription",
