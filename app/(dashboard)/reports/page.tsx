@@ -601,7 +601,7 @@ export default function ReportsPage() {
                   className="border-white/10 text-slate-300 hover:bg-white/5"
                   onClick={handlePdf}
                 >
-                  <Download className="w-3.5 h-3.5 mr-1.5" />PDF 저장
+                  <Download className="w-3.5 h-3.5 mr-1.5" />인쇄/저장
                 </Button>
               </div>
               <ExampleReport />

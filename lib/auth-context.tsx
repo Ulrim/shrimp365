@@ -28,7 +28,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
-async function fetchProfile(userId: string): Promise<{ name: string; role: string; plan: "free" | "pro" | "enterprise" }> {
+async function fetchProfile(userId: string): Promise<{ name: string; role: string; plan: "free" | "basic" | "pro" | "enterprise" }> {
   const { data } = await supabase
     .from("profiles")
     .select("name, role, plan")
@@ -37,11 +37,11 @@ async function fetchProfile(userId: string): Promise<{ name: string; role: strin
   return {
     name: data?.name || "",
     role: data?.role || "operator",
-    plan: (data?.plan as "free" | "pro" | "enterprise") || "free",
+    plan: (data?.plan as "free" | "basic" | "pro" | "enterprise") || "free",
   }
 }
 
-function toAppUser(sbUser: SupabaseUser, profile: { name: string; role: string; plan: "free" | "pro" | "enterprise" }): AppUser {
+function toAppUser(sbUser: SupabaseUser, profile: { name: string; role: string; plan: "free" | "basic" | "pro" | "enterprise" }): AppUser {
   return {
     id: sbUser.id,
     email: sbUser.email || "",
