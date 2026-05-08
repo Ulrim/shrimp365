@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { MOCK_JOURNALS, MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
 import { getJournalEntries, createJournalEntry, updateJournalEntry, deleteJournalEntry, getAllTanks, insertWaterQuality } from "@/lib/db"
+import { WQ_BOUNDS, WqField } from "@/lib/utils"
 import { JournalEntry, Tank } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -160,6 +161,7 @@ export default function JournalPage() {
   const [form, setForm] = useState(defaultFormValues)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [editTarget, setEditTarget] = useState<JournalEntry | null>(null)
   const [editForm, setEditForm] = useState<Partial<typeof defaultFormValues>>({})
   const [editSaving, setEditSaving] = useState(false)
@@ -238,6 +240,24 @@ export default function JournalPage() {
     setForm(prev => ({ ...prev, [field]: value }))
 
   const handleSave = async () => {
+    setSaveError(null)
+
+    // Validate WQ fields if any are filled in
+    const wqFields: WqField[] = ["temperature", "ph", "do_level", "salinity", "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity"]
+    for (const field of wqFields) {
+      const raw = form[field as keyof typeof form] as string
+      if (raw === "" || raw === undefined) continue
+      const val = parseFloat(raw)
+      if (!Number.isFinite(val)) {
+        setSaveError(`${WQ_BOUNDS[field].label}: 유효한 숫자를 입력해주세요.`)
+        return
+      }
+      if (val < WQ_BOUNDS[field].min || val > WQ_BOUNDS[field].max) {
+        setSaveError(`${WQ_BOUNDS[field].label}: ${WQ_BOUNDS[field].min}~${WQ_BOUNDS[field].max}${WQ_BOUNDS[field].unit} 범위를 벗어났습니다.`)
+        return
+      }
+    }
+
     setSaving(true)
     try {
       const entry = await createJournalEntry({
@@ -312,7 +332,7 @@ export default function JournalPage() {
     } finally {
       setSaving(false)
       setSaved(true)
-      setTimeout(() => { setSaved(false); setDialogOpen(false); setForm(defaultFormValues) }, 1200)
+      setTimeout(() => { setSaved(false); setDialogOpen(false); setForm(defaultFormValues); setSaveError(null) }, 1200)
     }
   }
 
@@ -713,6 +733,9 @@ export default function JournalPage() {
             </TabsContent>
           </Tabs>
 
+          {saveError && (
+            <p className="text-sm text-red-400 mt-2 px-1">{saveError}</p>
+          )}
           <DialogFooter className="mt-4">
             <Button variant="ghost" onClick={() => setDialogOpen(false)} className="text-slate-400 hover:text-white">
               취소

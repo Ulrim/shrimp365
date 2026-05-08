@@ -307,6 +307,13 @@ export default function WaterQualityPage() {
     if (selectedTankId) loadTankData(selectedTankId)
   }, [selectedTankId, loadTankData])
 
+  // Auto-refresh every 60 seconds
+  useEffect(() => {
+    if (!selectedTankId) return
+    const id = setInterval(() => loadTankData(selectedTankId), 60_000)
+    return () => clearInterval(id)
+  }, [selectedTankId, loadTankData])
+
   // Derive a single tank's status from a water quality reading
   function deriveStatus(reading: WaterQualityReading): StatusLevel {
     return STD_KEYS.reduce<StatusLevel>((acc, k) => {

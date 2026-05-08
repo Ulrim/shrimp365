@@ -85,6 +85,24 @@ CREATE TABLE IF NOT EXISTS public.water_quality_readings (
 CREATE INDEX IF NOT EXISTS idx_wqr_tank_recorded
   ON public.water_quality_readings(tank_id, recorded_at DESC);
 
+CREATE INDEX IF NOT EXISTS idx_farms_user_id
+  ON public.farms(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_tanks_farm_id
+  ON public.tanks(farm_id);
+
+CREATE INDEX IF NOT EXISTS idx_diagnosis_tank_date
+  ON public.diagnosis_results(tank_id, tested_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_je_tank_date
+  ON public.journal_entries(tank_id, date DESC);
+
+CREATE INDEX IF NOT EXISTS idx_alerts_tank_resolved
+  ON public.alerts(tank_id, resolved, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_sensor_devices_api_key
+  ON public.sensor_devices(api_key);
+
 -- ───────────────────────────────────────────────
 -- 5. journal_entries (양식 일지)
 -- ───────────────────────────────────────────────

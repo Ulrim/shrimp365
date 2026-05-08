@@ -319,6 +319,17 @@ export default function DiagnosisPage() {
       return
     }
 
+    const vibrioNum = form.vibrio_count ? Number(form.vibrio_count) : 0
+    const ratioNum  = form.pathogenic_ratio ? Number(form.pathogenic_ratio) : 0
+    if (!Number.isFinite(vibrioNum) || vibrioNum < 0 || vibrioNum > 10_000_000) {
+      setSubmitError("비브리오 수치는 0~10,000,000 CFU/mL 범위로 입력해주세요.")
+      return
+    }
+    if (!Number.isFinite(ratioNum) || ratioNum < 0 || ratioNum > 100) {
+      setSubmitError("병원성 비율은 0~100% 범위로 입력해주세요.")
+      return
+    }
+
     const tank = tanks.find(t => t.id === form.tank_id)
     setIsSubmitting(true)
     try {
@@ -326,8 +337,8 @@ export default function DiagnosisPage() {
         tank_id: form.tank_id,
         test_type: form.test_type,
         result: form.result,
-        vibrio_count: form.vibrio_count ? Number(form.vibrio_count) : 0,
-        pathogenic_ratio: form.pathogenic_ratio ? Number(form.pathogenic_ratio) : 0,
+        vibrio_count: vibrioNum,
+        pathogenic_ratio: ratioNum,
         risk_level: form.risk_level,
         action_taken: form.action_taken || undefined,
         notes: form.notes || undefined,
@@ -367,14 +378,26 @@ export default function DiagnosisPage() {
     e.preventDefault()
     setEditError(null)
     if (!editTarget) return
+
+    const editVibrioNum = editForm.vibrio_count ? Number(editForm.vibrio_count) : 0
+    const editRatioNum  = editForm.pathogenic_ratio ? Number(editForm.pathogenic_ratio) : 0
+    if (!Number.isFinite(editVibrioNum) || editVibrioNum < 0 || editVibrioNum > 10_000_000) {
+      setEditError("비브리오 수치는 0~10,000,000 CFU/mL 범위로 입력해주세요.")
+      return
+    }
+    if (!Number.isFinite(editRatioNum) || editRatioNum < 0 || editRatioNum > 100) {
+      setEditError("병원성 비율은 0~100% 범위로 입력해주세요.")
+      return
+    }
+
     setEditSaving(true)
     try {
       const updated = await updateDiagnosis(editTarget.id, {
         tank_id: editForm.tank_id,
         test_type: editForm.test_type || undefined,
         result: editForm.result || undefined,
-        vibrio_count: editForm.vibrio_count ? Number(editForm.vibrio_count) : 0,
-        pathogenic_ratio: editForm.pathogenic_ratio ? Number(editForm.pathogenic_ratio) : 0,
+        vibrio_count: editVibrioNum,
+        pathogenic_ratio: editRatioNum,
         risk_level: editForm.risk_level || undefined,
         action_taken: editForm.action_taken || null,
         notes: editForm.notes || null,

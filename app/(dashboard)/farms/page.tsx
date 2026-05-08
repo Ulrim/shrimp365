@@ -253,15 +253,18 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const volume = parseFloat(form.volume) || 0
+    const density = parseFloat(form.density) || 0
+    if (!form.name.trim()) { setError("수조 이름을 입력해주세요."); return }
+    if (volume <= 0 || volume > 100000) { setError("용량은 0 초과 100,000 m³ 이하여야 합니다."); return }
+    if (density < 0 || density > 10000) { setError("입식 밀도는 0~10,000 마리/m³ 범위여야 합니다."); return }
     setSaving(true)
     setError(null)
     try {
-      const volume = parseFloat(form.volume)
-      const density = parseFloat(form.density)
       const cycleDay = form.stocking_date ? computeCycleDay(form.stocking_date) : 0
       await createTank({
         farm_id: farm.id,
-        name: form.name,
+        name: form.name.trim(),
         tank_type: form.tank_type,
         volume,
         stocking_density: density,
@@ -464,7 +467,7 @@ function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-1.5 rounded-lg hover:bg-white/8 text-slate-400 hover:text-white transition-colors" title="편집">
+        <button className="p-1.5 rounded-lg hover:bg-white/8 text-slate-400 hover:text-white transition-colors" title="편집" aria-label="양식장 편집">
           <Edit2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
@@ -528,7 +531,7 @@ function DeleteFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => vo
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-1.5 rounded-lg hover:bg-red-500/15 text-slate-400 hover:text-red-400 transition-colors" title="삭제">
+        <button className="p-1.5 rounded-lg hover:bg-red-500/15 text-slate-400 hover:text-red-400 transition-colors" title="삭제" aria-label="양식장 삭제">
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
@@ -619,7 +622,7 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-1.5 rounded-lg hover:bg-white/8 text-slate-400 hover:text-white transition-colors" title="편집">
+        <button className="p-1.5 rounded-lg hover:bg-white/8 text-slate-400 hover:text-white transition-colors" title="편집" aria-label="수조 편집">
           <Edit2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
@@ -730,7 +733,7 @@ function DeleteTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => vo
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-1.5 rounded-lg hover:bg-red-500/15 text-slate-400 hover:text-red-400 transition-colors" title="삭제">
+        <button className="p-1.5 rounded-lg hover:bg-red-500/15 text-slate-400 hover:text-red-400 transition-colors" title="삭제" aria-label="수조 삭제">
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
@@ -888,7 +891,7 @@ function RegisterDeviceDialog({ tank, onSuccess }: { tank: import("@/types").Tan
               <p className="text-xs text-slate-400 font-medium">API 엔드포인트</p>
               <div className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-2.5 border border-white/10">
                 <code className="text-xs text-ocean-300 flex-1 break-all">{endpointUrl}</code>
-                <button onClick={() => handleCopy(endpointUrl, "url")} className="text-slate-500 hover:text-white shrink-0">
+                <button onClick={() => handleCopy(endpointUrl, "url")} className="text-slate-500 hover:text-white shrink-0" aria-label="엔드포인트 URL 복사">
                   {copied === "url" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               </div>
@@ -899,7 +902,7 @@ function RegisterDeviceDialog({ tank, onSuccess }: { tank: import("@/types").Tan
               <p className="text-xs text-slate-400 font-medium">X-Device-Key <span className="text-amber-400">(1회만 표시)</span></p>
               <div className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-2.5 border border-amber-500/30">
                 <code className="text-xs text-amber-300 flex-1 break-all">{createdDevice?.api_key ?? ""}</code>
-                <button onClick={() => handleCopy(createdDevice?.api_key ?? "", "key")} className="text-slate-500 hover:text-white shrink-0">
+                <button onClick={() => handleCopy(createdDevice?.api_key ?? "", "key")} className="text-slate-500 hover:text-white shrink-0" aria-label="API 키 복사">
                   {copied === "key" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               </div>
@@ -1066,6 +1069,7 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
                     disabled={deletingId === device.id}
                     className="p-1 rounded hover:bg-red-500/15 text-slate-500 hover:text-red-400 transition-colors"
                     title="삭제"
+                    aria-label="기기 삭제"
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>

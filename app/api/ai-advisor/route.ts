@@ -7,6 +7,23 @@ const anthropicKey = process.env.ANTHROPIC_API_KEY
 const MAX_QUESTION_LENGTH = 500
 const MAX_CONTEXT_LENGTH = 2000
 
+// Per-user hourly rate limit
+const AI_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000 // 1 hour
+const AI_RATE_LIMIT_MAX = 20
+const aiRateLimitMap = new Map<string, { count: number; windowStart: number }>()
+
+function checkAiRateLimit(userId: string): boolean {
+  const now = Date.now()
+  const entry = aiRateLimitMap.get(userId)
+  if (!entry || now - entry.windowStart > AI_RATE_LIMIT_WINDOW_MS) {
+    aiRateLimitMap.set(userId, { count: 1, windowStart: now })
+    return true
+  }
+  if (entry.count >= AI_RATE_LIMIT_MAX) return false
+  entry.count++
+  return true
+}
+
 export async function POST(req: NextRequest) {
   // Verify session — mirrors the middleware check
   const supabase = createServerClient(
@@ -22,6 +39,10 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 })
+  }
+
+  if (!checkAiRateLimit(user.id)) {
+    return NextResponse.json({ error: "시간당 질문 한도(20회)를 초과했습니다. 잠시 후 다시 시도해주세요." }, { status: 429 })
   }
 
   try {

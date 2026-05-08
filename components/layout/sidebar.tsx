@@ -142,7 +142,7 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
             </div>
           )}
           {!collapsed && (
-            <button onClick={handleLogout} className="text-slate-500 hover:text-red-400 transition-colors">
+            <button onClick={handleLogout} className="text-slate-500 hover:text-red-400 transition-colors" aria-label="로그아웃">
               <LogOut className="w-4 h-4" />
             </button>
           )}
@@ -162,6 +162,7 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="absolute -right-3 top-20 w-6 h-6 bg-slate-800 border border-white/20 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors z-10"
+          aria-label={collapsed ? "사이드바 펼치기" : "사이드바 접기"}
         >
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>
@@ -174,6 +175,7 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
         <button
           onClick={() => setMobileOpen(true)}
           className="fixed top-4 left-4 z-50 w-10 h-10 bg-slate-900/90 border border-white/10 rounded-xl flex items-center justify-center text-white backdrop-blur-sm"
+          aria-label="메뉴 열기"
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -183,7 +185,7 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
             <div className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
             <aside className="fixed left-0 top-0 bottom-0 w-64 bg-slate-900 border-r border-white/10 z-50 flex flex-col">
               <div className="absolute top-4 right-4">
-                <button onClick={() => setMobileOpen(false)} className="text-slate-400 hover:text-white">
+                <button onClick={() => setMobileOpen(false)} className="text-slate-400 hover:text-white" aria-label="메뉴 닫기">
                   <X className="w-5 h-5" />
                 </button>
               </div>

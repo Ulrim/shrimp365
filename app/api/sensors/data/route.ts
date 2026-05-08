@@ -2,6 +2,23 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase-server"
 import { checkThresholds } from "@/lib/thresholds"
 
+// In-memory rate limit: max 60 requests per device per minute
+const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_MAX = 60
+const rateLimitMap = new Map<string, { count: number; windowStart: number }>()
+
+function checkRateLimit(key: string): boolean {
+  const now = Date.now()
+  const entry = rateLimitMap.get(key)
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    rateLimitMap.set(key, { count: 1, windowStart: now })
+    return true
+  }
+  if (entry.count >= RATE_LIMIT_MAX) return false
+  entry.count++
+  return true
+}
+
 // POST /api/sensors/data
 // 기기 인증: X-Device-Key 헤더
 // RLS 없이 service-role 클라이언트 사용
@@ -37,6 +54,11 @@ export async function POST(req: NextRequest) {
   }
   if (!device.active) {
     return NextResponse.json({ error: "비활성화된 기기입니다." }, { status: 401 })
+  }
+
+  // Rate limit per device key
+  if (!checkRateLimit(apiKey)) {
+    return NextResponse.json({ error: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." }, { status: 429 })
   }
 
   // 2. 측정값 파싱 + 유효 범위 검증 (DB 오염·오버플로 방지)

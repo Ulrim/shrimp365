@@ -53,13 +53,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // so we don't need a separate getSession() call — which avoids the navigator.locks
     // race condition triggered by React Strict Mode double-invoking effects.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         setSession(session)
         if (session?.user) {
           const profile = await fetchProfile(session.user.id)
           setUser(toAppUser(session.user, profile))
         } else {
           setUser(null)
+          // Redirect to login on token expiry or explicit sign-out
+          if (event === "TOKEN_REFRESHED" && !session) {
+            window.location.replace("/login")
+          } else if (event === "SIGNED_OUT") {
+            window.location.replace("/login")
+          }
         }
         setLoading(false)
       }
