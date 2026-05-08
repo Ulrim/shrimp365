@@ -463,15 +463,16 @@ export default function WaterQualityPage() {
           </div>
 
           <Button
-            onClick={handleExportCsv}
-            disabled={!readings.length || !hasExport(plan)}
+            onClick={hasExport(plan) ? handleExportCsv : () => window.location.href = "/pricing"}
+            disabled={hasExport(plan) && !readings.length}
             variant="outline"
             size="sm"
-            className="border-white/10 text-slate-300 hover:bg-white/5 gap-2 disabled:opacity-40"
-            title={hasExport(plan) ? "CSV 다운로드" : "Pro 플랜 이상에서 CSV 내보내기를 사용할 수 있습니다"}
+            className="border-white/10 text-slate-300 hover:bg-white/5 gap-2"
+            title={hasExport(plan) ? "CSV 다운로드" : "Pro 플랜으로 업그레이드하면 CSV 내보내기를 사용할 수 있습니다"}
           >
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">CSV</span>
+            {!hasExport(plan) && <span className="text-xs text-amber-400">Pro</span>}
           </Button>
 
           <a href="/journal">

@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react"
 import { MOCK_DIAGNOSES, MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
+import { PLAN_LIMITS, type Plan, hasExport } from "@/lib/plans"
+import { UpgradeModal } from "@/components/ui/upgrade-modal"
 import { getDiagnoses, createDiagnosis, updateDiagnosis, deleteDiagnosis, getAllTanks } from "@/lib/db"
 import { DiagnosisResult, Tank } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -203,6 +205,8 @@ const PAGE_SIZE = 20
 
 export default function DiagnosisPage() {
   const { user } = useAuth()
+  const plan = (user?.plan ?? "free") as Plan
+  const diagLimit = PLAN_LIMITS[plan].diagPerMonth
   const [diagnoses, setDiagnoses] = useState<DiagnosisResult[]>([])
   const [tanks, setTanks] = useState<Tank[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -222,8 +226,16 @@ export default function DiagnosisPage() {
   const [editError, setEditError] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<DiagnosisResult | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
 
   const mock = isTestAccount(user?.email)
+
+  // Count this month's diagnoses for limit display
+  const now = new Date()
+  const thisMonthCount = diagnoses.filter(d => {
+    const dt = new Date(d.tested_at)
+    return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth()
+  }).length
 
   async function loadDiagnoses(from: string, to: string, newOffset: number, replace: boolean) {
     const mock = isTestAccount(user?.email)
@@ -311,6 +323,12 @@ export default function DiagnosisPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSubmitError(null)
+
+    if (diagLimit !== Infinity && thisMonthCount >= diagLimit) {
+      setDialogOpen(false)
+      setUpgradeOpen(true)
+      return
+    }
 
     if (!form.tank_id || !form.test_type || !form.result || !form.risk_level) {
       setSubmitError("필수 항목을 모두 입력해주세요.")
@@ -443,11 +461,33 @@ export default function DiagnosisPage() {
 
         <div className="flex items-center gap-2">
           {diagnoses.length > 0 && (
-            <Button variant="outline" onClick={handleCsvExport} className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5">
+            <Button
+              variant="outline"
+              onClick={hasExport(plan) ? handleCsvExport : () => window.location.href = "/pricing"}
+              className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
+              title={hasExport(plan) ? "CSV 다운로드" : "Pro 플랜 이상에서 사용 가능합니다"}
+            >
               <Download className="w-4 h-4 mr-1" />CSV
+              {!hasExport(plan) && <span className="ml-1 text-xs text-amber-400">Pro</span>}
             </Button>
           )}
+          {/* Monthly limit badge */}
+          {diagLimit !== Infinity && (
+            <span className={`text-xs px-2 py-1 rounded-lg border ${
+              thisMonthCount >= diagLimit
+                ? "bg-red-500/10 border-red-500/30 text-red-400"
+                : thisMonthCount >= diagLimit * 0.7
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                : "bg-slate-800/60 border-white/10 text-slate-400"
+            }`}>
+              이번 달 {thisMonthCount}/{diagLimit}회
+            </span>
+          )}
           <Dialog open={dialogOpen} onOpenChange={(open) => {
+            if (open && diagLimit !== Infinity && thisMonthCount >= diagLimit) {
+              setUpgradeOpen(true)
+              return
+            }
             setDialogOpen(open)
             if (open) { setForm(EMPTY_FORM); setSubmitError(null) }
           }}>
@@ -953,6 +993,14 @@ export default function DiagnosisPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Upgrade Modal — monthly diag limit */}
+      <UpgradeModal
+        open={upgradeOpen}
+        onClose={() => setUpgradeOpen(false)}
+        currentPlan={plan}
+        limitType="diag"
+      />
 
       {/* Delete Confirm Dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
