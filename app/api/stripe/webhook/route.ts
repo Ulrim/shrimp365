@@ -10,10 +10,13 @@ export async function POST(req: NextRequest) {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
   const body = await req.text()
   const sig = req.headers.get("stripe-signature")
+  if (!sig) {
+    return NextResponse.json({ error: "Webhook 서명 검증 실패" }, { status: 400 })
+  }
 
   let event: Stripe.Event
   try {
-    event = stripe.webhooks.constructEvent(body, sig!, process.env.STRIPE_WEBHOOK_SECRET)
+    event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET)
   } catch {
     return NextResponse.json({ error: "Webhook 서명 검증 실패" }, { status: 400 })
   }
@@ -40,12 +43,16 @@ export async function POST(req: NextRequest) {
           targetPlan = "basic"
         }
       }
-      await supabaseAdmin.from("profiles").update({
+      const { error: upsertError } = await supabaseAdmin.from("profiles").update({
         plan: targetPlan,
         stripe_customer_id: session.customer as string,
         stripe_subscription_id: session.subscription as string,
         subscription_status: "active",
       }).eq("id", userId)
+      if (upsertError) {
+        console.error("[stripe/webhook] checkout.session.completed DB error:", upsertError)
+        return NextResponse.json({ error: "DB 업데이트 실패" }, { status: 500 })
+      }
       break
     }
     case "customer.subscription.updated": {
@@ -58,32 +65,44 @@ export async function POST(req: NextRequest) {
         const priceId = sub.items.data[0]?.price?.id
         if (priceId === process.env.STRIPE_BASIC_PRICE_ID) activePlan = "basic"
       }
-      await supabaseAdmin.from("profiles").update({
+      const { error: updateError } = await supabaseAdmin.from("profiles").update({
         subscription_status: status,
         plan: status === "active" ? activePlan : "free",
-        plan_expires_at: status !== "active"
-          ? new Date((sub.items.data[0]?.current_period_end ?? 0) * 1000).toISOString()
+        plan_expires_at: status !== "active" && sub.cancel_at
+          ? new Date(sub.cancel_at * 1000).toISOString()
           : null,
       }).eq("stripe_customer_id", customerId)
+      if (updateError) {
+        console.error("[stripe/webhook] subscription.updated DB error:", updateError)
+        return NextResponse.json({ error: "DB 업데이트 실패" }, { status: 500 })
+      }
       break
     }
     case "customer.subscription.deleted": {
       const sub = event.data.object as Stripe.Subscription
       const customerId = sub.customer as string
-      await supabaseAdmin.from("profiles").update({
+      const { error: deleteError } = await supabaseAdmin.from("profiles").update({
         plan: "free",
         subscription_status: "canceled",
         stripe_subscription_id: null,
         plan_expires_at: null,
       }).eq("stripe_customer_id", customerId)
+      if (deleteError) {
+        console.error("[stripe/webhook] subscription.deleted DB error:", deleteError)
+        return NextResponse.json({ error: "DB 업데이트 실패" }, { status: 500 })
+      }
       break
     }
     case "invoice.payment_failed": {
       const invoice = event.data.object as Stripe.Invoice
       const customerId = invoice.customer as string
-      await supabaseAdmin.from("profiles").update({
+      const { error: pastDueError } = await supabaseAdmin.from("profiles").update({
         subscription_status: "past_due",
       }).eq("stripe_customer_id", customerId)
+      if (pastDueError) {
+        console.error("[stripe/webhook] invoice.payment_failed DB error:", pastDueError)
+        return NextResponse.json({ error: "DB 업데이트 실패" }, { status: 500 })
+      }
       break
     }
   }

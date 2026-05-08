@@ -19,7 +19,7 @@ export async function DELETE(req: NextRequest) {
     if (error) throw error
     return NextResponse.json({ success: true })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "계정 삭제에 실패했습니다."
-    return NextResponse.json({ error: msg }, { status: 500 })
+    console.error("[account/delete] Error:", err)
+    return NextResponse.json({ error: "계정 삭제에 실패했습니다." }, { status: 500 })
   }
 }
