@@ -7,6 +7,7 @@ import {
 } from "recharts"
 import { MOCK_TANKS, MOCK_WATER_QUALITY, WATER_QUALITY_STANDARDS, MOCK_ALERTS, MOCK_SENSOR_DEVICES, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
+import { PLAN_LIMITS, type Plan, hasExport } from "@/lib/plans"
 import { getAllTanks, getWaterQuality, getLatestWaterQuality, getSensorDevices, resolveAlert } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -19,7 +20,7 @@ import {
 } from "@/components/ui/tabs"
 import {
   Thermometer, Droplets, Wind, Waves, AlertTriangle,
-  CheckCircle2, XCircle, AlertCircle, RefreshCw, Plus, Download, Wifi,
+  CheckCircle2, XCircle, AlertCircle, RefreshCw, Plus, Download, Wifi, Clock,
 } from "lucide-react"
 import { exportToCsv } from "@/lib/export"
 import { formatDateTime } from "@/lib/utils"
@@ -60,6 +61,12 @@ const PARAM_META: ParamMeta[] = [
 const STD_KEYS = [
   "temperature", "ph", "do_level", "salinity",
   "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity",
+] as const
+
+const TIME_RANGES = [
+  { label: "24시간", hours: 24 },
+  { label: "3일",   hours: 72 },
+  { label: "7일",   hours: 168 },
 ] as const
 
 
@@ -208,6 +215,7 @@ function OverviewChart({ chartData }: { chartData: ReturnType<typeof buildChartD
 
 export default function WaterQualityPage() {
   const { user } = useAuth()
+  const plan = (user?.plan ?? "free") as Plan
   const [tanks, setTanks] = useState<Tank[]>([])
   const [selectedTankId, setSelectedTankId] = useState<string>("")
   const [readings, setReadings] = useState<WaterQualityReading[]>([])
@@ -215,6 +223,7 @@ export default function WaterQualityPage() {
   const [tankAlerts, setTankAlerts] = useState<Alert[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [hours, setHours] = useState<24 | 72 | 168>(168)
 
   // Summary counts
   const [summaryStatusCounts, setSummaryStatusCounts] = useState({ 정상: 0, 주의: 0, 위험: 0 })
@@ -256,7 +265,7 @@ export default function WaterQualityPage() {
     setIsLoading(true)
     try {
       const [dbReadings, dbLatest] = await Promise.all([
-        getWaterQuality(tankId, 168),
+        getWaterQuality(tankId, hours),
         getLatestWaterQuality(tankId),
       ])
 
@@ -301,18 +310,19 @@ export default function WaterQualityPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [user?.email])
+  }, [user?.email, hours])
 
   useEffect(() => {
     if (selectedTankId) loadTankData(selectedTankId)
   }, [selectedTankId, loadTankData])
 
-  // Auto-refresh every 60 seconds
+  // Auto-refresh — interval depends on plan (null = Free, no auto-refresh)
+  const refreshSec = PLAN_LIMITS[plan].autoRefreshSec
   useEffect(() => {
-    if (!selectedTankId) return
-    const id = setInterval(() => loadTankData(selectedTankId), 60_000)
+    if (!selectedTankId || !refreshSec) return
+    const id = setInterval(() => loadTankData(selectedTankId), refreshSec * 1000)
     return () => clearInterval(id)
-  }, [selectedTankId, loadTankData])
+  }, [selectedTankId, loadTankData, refreshSec])
 
   // Derive a single tank's status from a water quality reading
   function deriveStatus(reading: WaterQualityReading): StatusLevel {
@@ -364,7 +374,7 @@ export default function WaterQualityPage() {
     computeSummary(tanks)
   }, [tanks, computeSummary])
 
-  const chartData = useMemo(() => buildChartData(readings, true), [readings])
+  const chartData = useMemo(() => buildChartData(readings, false), [readings])
 
   const selectedTank = tanks.find(t => t.id === selectedTankId)
 
@@ -435,13 +445,30 @@ export default function WaterQualityPage() {
             </span>
           </div>
 
+          {/* Time range selector */}
+          <div className="flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-slate-500 hidden sm:block" />
+            <Select value={String(hours)} onValueChange={v => setHours(Number(v) as 24 | 72 | 168)}>
+              <SelectTrigger className="w-24 h-8 bg-slate-900/60 border-white/10 text-slate-300 text-xs focus:ring-ocean-500/30">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-800 border-white/10">
+                {TIME_RANGES.map(r => (
+                  <SelectItem key={r.hours} value={String(r.hours)} className="text-slate-200 text-xs focus:bg-white/10 focus:text-white">
+                    {r.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <Button
             onClick={handleExportCsv}
-            disabled={!readings.length}
+            disabled={!readings.length || !hasExport(plan)}
             variant="outline"
             size="sm"
-            className="border-white/10 text-slate-300 hover:bg-white/5 gap-2"
-            title="CSV 다운로드"
+            className="border-white/10 text-slate-300 hover:bg-white/5 gap-2 disabled:opacity-40"
+            title={hasExport(plan) ? "CSV 다운로드" : "Pro 플랜 이상에서 CSV 내보내기를 사용할 수 있습니다"}
           >
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">CSV</span>
@@ -609,7 +636,17 @@ export default function WaterQualityPage() {
           {/* ── Charts ───────────────────────────────────────────────────────── */}
           <Card className="bg-slate-800/50 border-white/5">
             <CardHeader className="pb-2">
-              <CardTitle className="text-white text-base">24시간 수질 추이</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-white text-base">
+                  {TIME_RANGES.find(r => r.hours === hours)?.label ?? "7일"} 수질 추이
+                </CardTitle>
+                {refreshSec && (
+                  <span className="flex items-center gap-1 text-xs text-slate-500">
+                    <RefreshCw className="w-3 h-3" />
+                    {refreshSec >= 60 ? `${refreshSec / 60}분` : `${refreshSec}초`}마다 자동갱신
+                  </span>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="overview">
