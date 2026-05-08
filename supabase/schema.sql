@@ -7,10 +7,15 @@
 -- 1. profiles (auth.users 확장)
 -- ───────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.profiles (
-  id         UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  name       TEXT NOT NULL DEFAULT '',
-  role       TEXT NOT NULL DEFAULT 'operator' CHECK (role IN ('admin','operator','viewer')),
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  id                     UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  name                   TEXT NOT NULL DEFAULT '',
+  role                   TEXT NOT NULL DEFAULT 'operator' CHECK (role IN ('admin','operator','viewer')),
+  plan                   TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'pro', 'enterprise')),
+  stripe_customer_id     TEXT,
+  stripe_subscription_id TEXT,
+  subscription_status    TEXT DEFAULT 'inactive',
+  plan_expires_at        TIMESTAMPTZ,
+  created_at             TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 회원가입 시 profiles 자동 생성

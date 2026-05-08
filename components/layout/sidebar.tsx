@@ -8,13 +8,14 @@ import { cn } from "@/lib/utils"
 import {
   Waves, LayoutDashboard, Droplets, BookOpen, Building2,
   FlaskConical, BrainCircuit, BarChart3, Settings, LogOut,
-  ChevronLeft, ChevronRight, Bell, Menu, X
+  ChevronLeft, ChevronRight, Bell, Menu, X, Zap
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { SettingsPanel } from "@/components/layout/settings-panel"
 import { getDiagnosisCount } from "@/lib/db"
 import { isTestAccount, MOCK_DIAGNOSES } from "@/lib/mock-data"
+import { PLAN_LABELS, PLAN_COLORS, isPro } from "@/lib/plans"
 
 const BASE_NAV = [
   { href: "/dashboard",    icon: LayoutDashboard, label: "대시보드" },
@@ -128,6 +129,22 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
           <Settings className="w-5 h-5 shrink-0" />
           {!collapsed && <span>설정</span>}
         </button>
+
+        {/* Plan badge + upgrade CTA */}
+        {!collapsed && (
+          <div className="px-3 py-2">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", PLAN_COLORS[user?.plan ?? "free"])}>
+                {PLAN_LABELS[user?.plan ?? "free"]}
+              </span>
+              {!isPro(user?.plan ?? "free") && (
+                <Link href="/pricing" className="flex items-center gap-1 text-xs text-ocean-400 hover:text-ocean-300 transition-colors">
+                  <Zap className="w-3 h-3" />업그레이드
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className={cn("flex items-center gap-3 px-3 py-2.5", collapsed && "justify-center")}>
           <Avatar className="w-8 h-8 shrink-0">

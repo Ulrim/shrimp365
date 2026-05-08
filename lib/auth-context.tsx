@@ -9,6 +9,7 @@ interface AppUser {
   email: string
   name: string
   role: string
+  plan: "free" | "pro" | "enterprise"
 }
 
 interface AuthContextType {
@@ -21,25 +22,31 @@ interface AuthContextType {
   updateProfile: (name: string) => Promise<void>
   updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>
   sendPasswordReset: (email: string) => Promise<{ success: boolean; error?: string }>
+  refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
-async function fetchProfile(userId: string): Promise<{ name: string; role: string }> {
+async function fetchProfile(userId: string): Promise<{ name: string; role: string; plan: "free" | "pro" | "enterprise" }> {
   const { data } = await supabase
     .from("profiles")
-    .select("name, role")
+    .select("name, role, plan")
     .eq("id", userId)
     .single()
-  return { name: data?.name || "", role: data?.role || "operator" }
+  return {
+    name: data?.name || "",
+    role: data?.role || "operator",
+    plan: (data?.plan as "free" | "pro" | "enterprise") || "free",
+  }
 }
 
-function toAppUser(sbUser: SupabaseUser, profile: { name: string; role: string }): AppUser {
+function toAppUser(sbUser: SupabaseUser, profile: { name: string; role: string; plan: "free" | "pro" | "enterprise" }): AppUser {
   return {
     id: sbUser.id,
     email: sbUser.email || "",
     name: profile.name || sbUser.email?.split("@")[0] || "",
     role: profile.role,
+    plan: profile.plan,
   }
 }
 
@@ -129,8 +136,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: true }
   }
 
+  const refreshProfile = async () => {
+    const { data: { user: sbUser } } = await supabase.auth.getUser()
+    if (!sbUser) return
+    const profile = await fetchProfile(sbUser.id)
+    setUser(toAppUser(sbUser, profile))
+  }
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, login, logout, signup, updateProfile, updatePassword, sendPasswordReset }}>
+    <AuthContext.Provider value={{ user, session, loading, login, logout, signup, updateProfile, updatePassword, sendPasswordReset, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   )

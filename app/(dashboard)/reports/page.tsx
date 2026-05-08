@@ -11,8 +11,10 @@ import { getFarms, getAllTanks, getJournalEntries } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Download, TrendingUp, TrendingDown, Minus, BarChart3, Fish, Droplets, AlertTriangle, BookOpen, ChevronDown, ChevronUp, Calendar } from "lucide-react"
+import { Download, TrendingUp, TrendingDown, Minus, BarChart3, Fish, Droplets, AlertTriangle, BookOpen, ChevronDown, ChevronUp, Calendar, Lock } from "lucide-react"
 import type { Farm, Tank, JournalEntry } from "@/types"
+import { isPro } from "@/lib/plans"
+import Link from "next/link"
 
 const WEEK_LABELS = ["5/28", "5/29", "5/30", "5/31", "6/1", "6/2", "6/3"]
 
@@ -506,28 +508,47 @@ export default function ReportsPage() {
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 bg-slate-800/60 border border-white/5 rounded-xl p-1">
             <Calendar className="w-4 h-4 text-slate-400 mx-2" />
-            {PERIOD_OPTIONS.map(opt => (
-              <button
-                key={opt.days}
-                onClick={() => handlePeriodChange(opt.days)}
-                className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
-                  periodDays === opt.days
-                    ? "bg-ocean-500/30 text-ocean-300 font-medium"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+            {PERIOD_OPTIONS.map(opt => {
+              const needsPro = opt.days > 7 && !isPro(user?.plan ?? "free")
+              return (
+                <button
+                  key={opt.days}
+                  onClick={() => needsPro ? null : handlePeriodChange(opt.days)}
+                  title={needsPro ? "Pro 플랜 전용" : undefined}
+                  className={`text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 ${
+                    needsPro
+                      ? "text-slate-600 cursor-not-allowed"
+                      : periodDays === opt.days
+                      ? "bg-ocean-500/30 text-ocean-300 font-medium"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  {needsPro && <Lock className="w-3 h-3" />}
+                  {opt.label}
+                </button>
+              )
+            })}
           </div>
           {(hasData || showExample) && (
-            <Button
-              variant="outline"
-              className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
-              onClick={handlePdf}
-            >
-              <Download className="w-4 h-4 mr-2" />PDF 저장
-            </Button>
+            isPro(user?.plan ?? "free") ? (
+              <Button
+                variant="outline"
+                className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
+                onClick={handlePdf}
+              >
+                <Download className="w-4 h-4 mr-2" />PDF 저장
+              </Button>
+            ) : (
+              <Link href="/pricing">
+                <Button
+                  variant="outline"
+                  className="border-white/10 text-slate-500 hover:text-white hover:bg-white/5"
+                  title="Pro 플랜 전용"
+                >
+                  <Lock className="w-4 h-4 mr-2" />PDF 저장
+                </Button>
+              </Link>
+            )
           )}
         </div>
       </div>

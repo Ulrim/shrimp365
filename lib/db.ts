@@ -1,6 +1,7 @@
 import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbDiagnosis, DbAlert, DbSensorDevice } from "@/lib/supabase"
 import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice } from "@/types"
 import { checkThresholds } from "@/lib/thresholds"
+import { PLAN_LIMITS, type Plan } from "@/lib/plans"
 
 // ─────────────────────────────────────────────
 // 타입 변환 헬퍼
@@ -54,6 +55,15 @@ export async function getFarms(): Promise<Farm[]> {
 export async function createFarm(values: { name: string; location?: string; area?: number; owner_name?: string }) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("로그인이 필요합니다.")
+
+  const { data: profile } = await supabase.from("profiles").select("plan").eq("id", user.id).single()
+  const plan = ((profile?.plan as Plan) || "free")
+  const limit = PLAN_LIMITS[plan].farms
+
+  const { count } = await supabase.from("farms").select("*", { count: "exact", head: true }).eq("user_id", user.id)
+  if (limit !== Infinity && (count ?? 0) >= limit) {
+    throw new Error(`현재 플랜(${plan.toUpperCase()})에서는 양식장을 최대 ${limit}개까지 등록할 수 있습니다. 업그레이드하려면 /pricing 페이지를 방문하세요.`)
+  }
 
   const { data, error } = await supabase
     .from("farms")
@@ -117,6 +127,20 @@ export async function createTank(values: {
   harvest_date?: string | null
   tank_type?: "노지" | "실내" | "반실내"
 }) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("로그인이 필요합니다.")
+
+  const { data: profile } = await supabase.from("profiles").select("plan").eq("id", user.id).single()
+  const plan = ((profile?.plan as Plan) || "free")
+  const limit = PLAN_LIMITS[plan].tanksPerFarm
+
+  if (limit !== Infinity) {
+    const { count } = await supabase.from("tanks").select("*", { count: "exact", head: true }).eq("farm_id", values.farm_id)
+    if ((count ?? 0) >= limit) {
+      throw new Error(`현재 플랜(${plan.toUpperCase()})에서는 양식장당 수조를 최대 ${limit}개까지 등록할 수 있습니다. 업그레이드하려면 /pricing 페이지를 방문하세요.`)
+    }
+  }
+
   const { data, error } = await supabase
     .from("tanks")
     .insert(values)

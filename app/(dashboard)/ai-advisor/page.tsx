@@ -290,8 +290,9 @@ export default function AIAdvisorPage() {
 
       if (res.status === 429) {
         const json = await res.json().catch(() => ({}))
-        const errMsg = json.error || "시간당 질문 한도(20회)를 초과했습니다. 잠시 후 다시 시도해주세요."
-        setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: `⚠️ ${errMsg}`, timestamp: new Date() }])
+        const errMsg = json.error || "일일 AI 질문 한도를 초과했습니다."
+        const upgradeHint = json.upgrade ? "\n\n➡️ **[Pro 플랜으로 업그레이드](/pricing)**하면 하루 30회까지 이용할 수 있습니다." : ""
+        setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: `⚠️ ${errMsg}${upgradeHint}`, timestamp: new Date() }])
         return
       }
 

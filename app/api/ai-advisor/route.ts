@@ -1,31 +1,40 @@
 import { NextRequest, NextResponse } from "next/server"
 import Anthropic from "@anthropic-ai/sdk"
 import { createServerClient } from "@supabase/ssr"
+import { PLAN_LIMITS, type Plan } from "@/lib/plans"
 
 const anthropicKey = process.env.ANTHROPIC_API_KEY
 
 const MAX_QUESTION_LENGTH = 500
 const MAX_CONTEXT_LENGTH = 2000
 
-// Per-user hourly rate limit
-const AI_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000 // 1 hour
-const AI_RATE_LIMIT_MAX = 20
-const aiRateLimitMap = new Map<string, { count: number; windowStart: number }>()
+// Per-user daily rate limit (keyed by userId:YYYY-MM-DD)
+const aiRateLimitMap = new Map<string, number>()
 
-function checkAiRateLimit(userId: string): boolean {
-  const now = Date.now()
-  const entry = aiRateLimitMap.get(userId)
-  if (!entry || now - entry.windowStart > AI_RATE_LIMIT_WINDOW_MS) {
-    aiRateLimitMap.set(userId, { count: 1, windowStart: now })
-    return true
-  }
-  if (entry.count >= AI_RATE_LIMIT_MAX) return false
-  entry.count++
+function getTodayKey(userId: string): string {
+  const today = new Date().toISOString().split("T")[0]
+  return `${userId}:${today}`
+}
+
+function checkAiRateLimit(userId: string, plan: Plan): boolean {
+  const max = PLAN_LIMITS[plan].aiPerDay
+  if (max === Infinity) return true
+  const key = getTodayKey(userId)
+  const count = aiRateLimitMap.get(key) ?? 0
+  if (count >= max) return false
+  aiRateLimitMap.set(key, count + 1)
   return true
 }
 
+function getRemainingAi(userId: string, plan: Plan): number {
+  const max = PLAN_LIMITS[plan].aiPerDay
+  if (max === Infinity) return Infinity
+  const key = getTodayKey(userId)
+  const count = aiRateLimitMap.get(key) ?? 0
+  return Math.max(0, max - count)
+}
+
 export async function POST(req: NextRequest) {
-  // Verify session — mirrors the middleware check
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -41,8 +50,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 })
   }
 
-  if (!checkAiRateLimit(user.id)) {
-    return NextResponse.json({ error: "시간당 질문 한도(20회)를 초과했습니다. 잠시 후 다시 시도해주세요." }, { status: 429 })
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("plan")
+    .eq("id", user.id)
+    .single()
+  const plan = ((profile?.plan as Plan) || "free")
+
+  if (!checkAiRateLimit(user.id, plan)) {
+    const max = PLAN_LIMITS[plan].aiPerDay
+    return NextResponse.json({
+      error: `일일 AI 질문 한도(${max}회)를 초과했습니다. Pro 플랜으로 업그레이드하면 하루 30회까지 이용할 수 있습니다.`,
+      upgrade: plan === "free",
+    }, { status: 429 })
   }
 
   try {
