@@ -98,7 +98,7 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [form, setForm] = useState({ name: "", location: "", area: "" })
+  const [form, setForm] = useState({ name: "", location: "", owner_name: "", area: "" })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -108,6 +108,7 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
       await createFarm({
         name: form.name,
         location: form.location,
+        owner_name: form.owner_name,
         area: parseFloat(form.area),
       })
       setSubmitted(true)
@@ -124,7 +125,7 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
     if (!v) {
       setSubmitted(false)
       setError(null)
-      setForm({ name: "", location: "", area: "" })
+      setForm({ name: "", location: "", owner_name: "", area: "" })
     }
   }
 
@@ -183,7 +184,17 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="farm-area" className="text-slate-300 text-sm">면적 (m²) *</Label>
+              <Label htmlFor="farm-owner" className="text-slate-300 text-sm">대표자 이름</Label>
+              <Input
+                id="farm-owner"
+                placeholder="예: 홍길동"
+                className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-ocean-500/50"
+                value={form.owner_name}
+                onChange={e => setForm(f => ({ ...f, owner_name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="farm-area" className="text-slate-300 text-sm">면적 (m²)</Label>
               <Input
                 id="farm-area"
                 type="number"
@@ -238,7 +249,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [form, setForm] = useState({ name: "", volume: "", density: "", stocking_date: "", harvest_date: "" })
+  const [form, setForm] = useState({ name: "", volume: "", density: "", stocking_date: "", harvest_date: "", tank_type: "노지" as "노지" | "실내" | "반실내" })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -251,6 +262,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
       await createTank({
         farm_id: farm.id,
         name: form.name,
+        tank_type: form.tank_type,
         volume,
         stocking_density: density,
         shrimp_count: Math.round(volume * density),
@@ -272,7 +284,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
     if (!v) {
       setSubmitted(false)
       setError(null)
-      setForm({ name: "", volume: "", density: "", stocking_date: "", harvest_date: "" })
+      setForm({ name: "", volume: "", density: "", stocking_date: "", harvest_date: "", tank_type: "노지" })
     }
   }
 
@@ -318,6 +330,25 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                 required
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-sm">수조 유형</Label>
+              <div className="flex gap-2">
+                {(["노지", "실내", "반실내"] as const).map(type => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, tank_type: type }))}
+                    className={`flex-1 h-9 rounded-lg text-xs font-medium border transition-all
+                      ${form.tank_type === type
+                        ? "bg-ocean-500 border-ocean-400 text-white"
+                        : "bg-slate-800 border-white/10 text-slate-400 hover:bg-slate-700"
+                      }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="tank-volume" className="text-slate-300 text-sm">용량 (m³) *</Label>
@@ -409,10 +440,10 @@ function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [form, setForm] = useState({ name: farm.name, location: farm.location, area: String(farm.area) })
+  const [form, setForm] = useState({ name: farm.name, location: farm.location, owner_name: farm.owner_name ?? "", area: String(farm.area) })
 
   useEffect(() => {
-    if (open) setForm({ name: farm.name, location: farm.location, area: String(farm.area) })
+    if (open) setForm({ name: farm.name, location: farm.location, owner_name: farm.owner_name ?? "", area: String(farm.area) })
   }, [open, farm])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -420,7 +451,7 @@ function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void
     setSaving(true)
     setError(null)
     try {
-      await updateFarm(farm.id, { name: form.name, location: form.location, area: parseFloat(form.area) || 0 })
+      await updateFarm(farm.id, { name: form.name, location: form.location, owner_name: form.owner_name, area: parseFloat(form.area) || 0 })
       setOpen(false)
       onSuccess()
     } catch (err) {
@@ -451,6 +482,10 @@ function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void
           <div className="space-y-2">
             <Label className="text-slate-300">위치</Label>
             <Input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-slate-300">대표자 이름</Label>
+            <Input value={form.owner_name} onChange={e => setForm(p => ({ ...p, owner_name: e.target.value }))} placeholder="예: 홍길동" className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500" />
           </div>
           <div className="space-y-2">
             <Label className="text-slate-300">면적 (m²)</Label>
@@ -531,6 +566,7 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
     stocking_date: tank.stocking_date ?? "",
     harvest_date: tank.harvest_date ?? "",
     status: tank.status,
+    tank_type: (tank.tank_type ?? "노지") as "노지" | "실내" | "반실내",
   })
 
   useEffect(() => {
@@ -541,6 +577,7 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
       stocking_date: tank.stocking_date ?? "",
       harvest_date: tank.harvest_date ?? "",
       status: tank.status,
+      tank_type: (tank.tank_type ?? "노지") as "노지" | "실내" | "반실내",
     })
   }, [open, tank])
 
@@ -554,6 +591,7 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
       const cycleDay = form.stocking_date ? computeCycleDay(form.stocking_date) : tank.cycle_day
       await updateTank(tank.id, {
         name: form.name,
+        tank_type: form.tank_type,
         volume,
         stocking_density: density,
         shrimp_count: Math.round(volume * density),
@@ -595,6 +633,25 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
           <div className="space-y-2">
             <Label className="text-slate-300">수조 이름 *</Label>
             <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required className="bg-slate-800 border-white/10 text-white" />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-slate-300">수조 유형</Label>
+            <div className="flex gap-2">
+              {(["노지", "실내", "반실내"] as const).map(type => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setForm(p => ({ ...p, tank_type: type }))}
+                  className={`flex-1 h-9 rounded-lg text-xs font-medium border transition-all
+                    ${form.tank_type === type
+                      ? "bg-ocean-500 border-ocean-400 text-white"
+                      : "bg-slate-800 border-white/10 text-slate-400 hover:bg-slate-700"
+                    }`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
