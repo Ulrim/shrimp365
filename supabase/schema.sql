@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id                     UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   name                   TEXT NOT NULL DEFAULT '',
   role                   TEXT NOT NULL DEFAULT 'operator' CHECK (role IN ('admin','operator','viewer')),
-  plan                   TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'pro', 'enterprise')),
+  plan                   TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'basic', 'pro', 'enterprise')),
   stripe_customer_id     TEXT,
   stripe_subscription_id TEXT,
   subscription_status    TEXT DEFAULT 'inactive',

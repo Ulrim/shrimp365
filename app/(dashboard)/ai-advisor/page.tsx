@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { BrainCircuit, Send, AlertTriangle, Lightbulb, TrendingUp, Activity, Sparkles, User, Bot, ChevronRight } from "lucide-react"
 import { formatDateTime } from "@/lib/utils"
+import { UpgradeModal } from "@/components/ui/upgrade-modal"
+import type { Plan } from "@/lib/plans"
 
 interface Message {
   id: string
@@ -211,6 +213,7 @@ export default function AIAdvisorPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -289,10 +292,7 @@ export default function AIAdvisorPage() {
       })
 
       if (res.status === 429) {
-        const json = await res.json().catch(() => ({}))
-        const errMsg = json.error || "일일 AI 질문 한도를 초과했습니다."
-        const upgradeHint = json.upgrade ? "\n\n➡️ **[Pro 플랜으로 업그레이드](/pricing)**하면 하루 30회까지 이용할 수 있습니다." : ""
-        setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: `⚠️ ${errMsg}${upgradeHint}`, timestamp: new Date() }])
+        setUpgradeOpen(true)
         return
       }
 
@@ -343,6 +343,13 @@ export default function AIAdvisorPage() {
   }
 
   return (
+    <>
+    <UpgradeModal
+      open={upgradeOpen}
+      onClose={() => setUpgradeOpen(false)}
+      currentPlan={(user?.plan ?? "free") as Plan}
+      limitType="ai"
+    />
     <div className="h-[calc(100vh-8rem)] flex flex-col gap-4 animate-fade-in">
       <div className="flex items-center gap-3 shrink-0">
         <div className="w-10 h-10 bg-gradient-to-br from-ocean-500 to-teal-500 rounded-xl flex items-center justify-center">
@@ -469,5 +476,6 @@ export default function AIAdvisorPage() {
         </div>
       </div>
     </div>
+    </>
   )
 }

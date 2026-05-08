@@ -9,7 +9,7 @@ interface AppUser {
   email: string
   name: string
   role: string
-  plan: "free" | "pro" | "enterprise"
+  plan: "free" | "basic" | "pro" | "enterprise"
 }
 
 interface AuthContextType {

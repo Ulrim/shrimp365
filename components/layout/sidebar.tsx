@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { SettingsPanel } from "@/components/layout/settings-panel"
 import { getDiagnosisCount } from "@/lib/db"
 import { isTestAccount, MOCK_DIAGNOSES } from "@/lib/mock-data"
-import { PLAN_LABELS, PLAN_COLORS, isPro } from "@/lib/plans"
+import { PLAN_LABELS, PLAN_COLORS, isPaidPlan } from "@/lib/plans"
 
 const BASE_NAV = [
   { href: "/dashboard",    icon: LayoutDashboard, label: "대시보드" },
@@ -137,7 +137,7 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
               <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", PLAN_COLORS[user?.plan ?? "free"])}>
                 {PLAN_LABELS[user?.plan ?? "free"]}
               </span>
-              {!isPro(user?.plan ?? "free") && (
+              {!isPaidPlan(user?.plan ?? "free") && (
                 <Link href="/pricing" className="flex items-center gap-1 text-xs text-ocean-400 hover:text-ocean-300 transition-colors">
                   <Zap className="w-3 h-3" />업그레이드
                 </Link>

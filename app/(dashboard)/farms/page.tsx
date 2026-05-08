@@ -42,6 +42,8 @@ import {
   ChevronUp,
 } from "lucide-react"
 import { formatDate } from "@/lib/utils"
+import { UpgradeModal, type LimitType } from "@/components/ui/upgrade-modal"
+import type { Plan } from "@/lib/plans"
 import type { SensorDevice } from "@/types"
 
 function computeCycleDay(stockingDate: string | null | undefined): number {
@@ -94,10 +96,12 @@ const STATUS_META: Record<
 // ─── Add Farm Dialog ─────────────────────────────────────────────────────────
 
 function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [form, setForm] = useState({ name: "", location: "", owner_name: "", area: "" })
 
   async function handleSubmit(e: React.FormEvent) {
@@ -114,7 +118,13 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
       setSubmitted(true)
       onSuccess()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "저장에 실패했습니다.")
+      const msg = err instanceof Error ? err.message : "저장에 실패했습니다."
+      if (msg.includes("최대")) {
+        setOpen(false)
+        setUpgradeOpen(true)
+      } else {
+        setError(msg)
+      }
     } finally {
       setSaving(false)
     }
@@ -130,6 +140,13 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
   }
 
   return (
+    <>
+    <UpgradeModal
+      open={upgradeOpen}
+      onClose={() => setUpgradeOpen(false)}
+      currentPlan={(user?.plan ?? "free") as Plan}
+      limitType="farm"
+    />
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm" className="bg-ocean-500 hover:bg-ocean-600 text-white gap-1.5">
@@ -239,16 +256,19 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
         )}
       </DialogContent>
     </Dialog>
+    </>
   )
 }
 
 // ─── Add Tank Dialog ─────────────────────────────────────────────────────────
 
 function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void }) {
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [form, setForm] = useState({ name: "", volume: "", density: "", stocking_date: "", harvest_date: "", tank_type: "노지" as "노지" | "실내" | "반실내" })
 
   async function handleSubmit(e: React.FormEvent) {
@@ -276,7 +296,13 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
       setSubmitted(true)
       onSuccess()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "저장에 실패했습니다.")
+      const msg = err instanceof Error ? err.message : "저장에 실패했습니다."
+      if (msg.includes("최대")) {
+        setOpen(false)
+        setUpgradeOpen(true)
+      } else {
+        setError(msg)
+      }
     } finally {
       setSaving(false)
     }
@@ -292,6 +318,13 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
   }
 
   return (
+    <>
+    <UpgradeModal
+      open={upgradeOpen}
+      onClose={() => setUpgradeOpen(false)}
+      currentPlan={(user?.plan ?? "free") as Plan}
+      limitType="tank"
+    />
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" className="border-white/10 text-slate-300 hover:bg-white/5 gap-1.5">
@@ -434,6 +467,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
         )}
       </DialogContent>
     </Dialog>
+    </>
   )
 }
 

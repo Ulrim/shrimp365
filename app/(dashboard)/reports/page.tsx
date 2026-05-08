@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Download, TrendingUp, TrendingDown, Minus, BarChart3, Fish, Droplets, AlertTriangle, BookOpen, ChevronDown, ChevronUp, Calendar, Lock } from "lucide-react"
 import type { Farm, Tank, JournalEntry } from "@/types"
-import { isPro } from "@/lib/plans"
+import { PLAN_LIMITS, hasExport, type Plan } from "@/lib/plans"
 import Link from "next/link"
 
 const WEEK_LABELS = ["5/28", "5/29", "5/30", "5/31", "6/1", "6/2", "6/3"]
@@ -509,28 +509,30 @@ export default function ReportsPage() {
           <div className="flex items-center gap-1 bg-slate-800/60 border border-white/5 rounded-xl p-1">
             <Calendar className="w-4 h-4 text-slate-400 mx-2" />
             {PERIOD_OPTIONS.map(opt => {
-              const needsPro = opt.days > 7 && !isPro(user?.plan ?? "free")
+              const currentPlan = (user?.plan ?? "free") as Plan
+              const allowedPeriods = PLAN_LIMITS[currentPlan].reportPeriods as number[]
+              const locked = !allowedPeriods.includes(opt.days)
               return (
                 <button
                   key={opt.days}
-                  onClick={() => needsPro ? null : handlePeriodChange(opt.days)}
-                  title={needsPro ? "Pro 플랜 전용" : undefined}
+                  onClick={() => locked ? null : handlePeriodChange(opt.days)}
+                  title={locked ? "상위 플랜 전용" : undefined}
                   className={`text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 ${
-                    needsPro
+                    locked
                       ? "text-slate-600 cursor-not-allowed"
                       : periodDays === opt.days
                       ? "bg-ocean-500/30 text-ocean-300 font-medium"
                       : "text-slate-400 hover:text-white"
                   }`}
                 >
-                  {needsPro && <Lock className="w-3 h-3" />}
+                  {locked && <Lock className="w-3 h-3" />}
                   {opt.label}
                 </button>
               )
             })}
           </div>
           {(hasData || showExample) && (
-            isPro(user?.plan ?? "free") ? (
+            hasExport((user?.plan ?? "free") as Plan) ? (
               <Button
                 variant="outline"
                 className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5"

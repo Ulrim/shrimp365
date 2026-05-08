@@ -30,8 +30,18 @@ export async function POST(req: NextRequest) {
       const session = event.data.object as Stripe.Checkout.Session
       const userId = session.metadata?.user_id
       if (!userId) break
+      // Determine plan from metadata (set at checkout creation) or price ID
+      let targetPlan: "basic" | "pro" = "pro"
+      if (session.metadata?.target_plan === "basic") {
+        targetPlan = "basic"
+      } else if (process.env.STRIPE_BASIC_PRICE_ID) {
+        const lineItems = await stripe.checkout.sessions.listLineItems(session.id)
+        if (lineItems.data[0]?.price?.id === process.env.STRIPE_BASIC_PRICE_ID) {
+          targetPlan = "basic"
+        }
+      }
       await supabaseAdmin.from("profiles").update({
-        plan: "pro",
+        plan: targetPlan,
         stripe_customer_id: session.customer as string,
         stripe_subscription_id: session.subscription as string,
         subscription_status: "active",
@@ -42,9 +52,15 @@ export async function POST(req: NextRequest) {
       const sub = event.data.object as Stripe.Subscription
       const customerId = sub.customer as string
       const status = sub.status
+      // Determine which paid plan this subscription is for
+      let activePlan: "basic" | "pro" = "pro"
+      if (process.env.STRIPE_BASIC_PRICE_ID) {
+        const priceId = sub.items.data[0]?.price?.id
+        if (priceId === process.env.STRIPE_BASIC_PRICE_ID) activePlan = "basic"
+      }
       await supabaseAdmin.from("profiles").update({
         subscription_status: status,
-        plan: status === "active" ? "pro" : "free",
+        plan: status === "active" ? activePlan : "free",
         plan_expires_at: status !== "active"
           ? new Date((sub.items.data[0]?.current_period_end ?? 0) * 1000).toISOString()
           : null,

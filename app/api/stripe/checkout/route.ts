@@ -11,35 +11,45 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 })
 
-  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_PRO_PRICE_ID) {
+  if (!process.env.STRIPE_SECRET_KEY) {
     return NextResponse.json({ error: "결제 서비스가 설정되지 않았습니다." }, { status: 503 })
   }
 
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-  const origin = req.headers.get("origin") || "http://localhost:3000"
+  const body = await req.json().catch(() => ({}))
+  const targetPlan: "basic" | "pro" = body.plan === "basic" ? "basic" : "pro"
 
-  // 기존 stripe_customer_id 조회
+  const priceId = targetPlan === "basic"
+    ? process.env.STRIPE_BASIC_PRICE_ID
+    : process.env.STRIPE_PRO_PRICE_ID
+
+  if (!priceId) {
+    return NextResponse.json({ error: "결제 서비스가 설정되지 않았습니다." }, { status: 503 })
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("stripe_customer_id, plan")
     .eq("id", user.id)
     .single()
 
-  if (profile?.plan === "pro" || profile?.plan === "enterprise") {
-    return NextResponse.json({ error: "이미 유료 플랜을 구독 중입니다." }, { status: 400 })
+  const planRank: Record<string, number> = { free: 0, basic: 1, pro: 2, enterprise: 3 }
+  if ((planRank[profile?.plan ?? "free"] ?? 0) >= planRank[targetPlan]) {
+    return NextResponse.json({ error: "이미 해당 플랜 이상을 구독 중입니다." }, { status: 400 })
   }
+
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+  const origin = req.headers.get("origin") || "http://localhost:3000"
 
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: "subscription",
-    line_items: [{ price: process.env.STRIPE_PRO_PRICE_ID, quantity: 1 }],
+    line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${origin}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/pricing`,
     locale: "ko",
-    metadata: { user_id: user.id },
-    subscription_data: { metadata: { user_id: user.id } },
+    metadata: { user_id: user.id, target_plan: targetPlan },
+    subscription_data: { metadata: { user_id: user.id, target_plan: targetPlan } },
   }
 
-  // 기존 customer가 있으면 연결
   if (profile?.stripe_customer_id) {
     sessionParams.customer = profile.stripe_customer_id
   } else {

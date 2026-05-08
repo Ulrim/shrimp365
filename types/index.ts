@@ -3,7 +3,7 @@ export interface User {
   email: string
   name: string
   role: "admin" | "operator" | "viewer"
-  plan?: "free" | "pro" | "enterprise"
+  plan?: "free" | "basic" | "pro" | "enterprise"
   farm_count?: number
 }
 

@@ -13,7 +13,7 @@ interface PlanGateProps {
 }
 
 export function PlanGate({ requiredPlan, currentPlan, children, featureLabel }: PlanGateProps) {
-  const planRank: Record<Plan, number> = { free: 0, pro: 1, enterprise: 2 }
+  const planRank: Record<Plan, number> = { free: 0, basic: 1, pro: 2, enterprise: 3 }
   const required = planRank[requiredPlan]
   const current = planRank[currentPlan ?? "free"]
 
