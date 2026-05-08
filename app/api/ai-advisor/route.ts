@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import Anthropic from "@anthropic-ai/sdk"
 import { createServerClient } from "@supabase/ssr"
-import { PLAN_LIMITS, type Plan } from "@/lib/plans"
+import { PLAN_LIMITS, PLAN_LABELS, nextPlan, type Plan } from "@/lib/plans"
 
 const anthropicKey = process.env.ANTHROPIC_API_KEY
 
@@ -59,9 +59,13 @@ export async function POST(req: NextRequest) {
 
   if (!checkAiRateLimit(user.id, plan)) {
     const max = PLAN_LIMITS[plan].aiPerDay
+    const next = nextPlan(plan)
+    const upgradeMsg = next
+      ? `${PLAN_LABELS[next]} 플랜으로 업그레이드하면 하루 ${PLAN_LIMITS[next].aiPerDay === Infinity ? "무제한" : `${PLAN_LIMITS[next].aiPerDay}회`}까지 이용할 수 있습니다.`
+      : "현재 최고 플랜(Enterprise)을 사용 중입니다."
     return NextResponse.json({
-      error: `일일 AI 질문 한도(${max}회)를 초과했습니다. Pro 플랜으로 업그레이드하면 하루 30회까지 이용할 수 있습니다.`,
-      upgrade: plan === "free",
+      error: `일일 AI 질문 한도(${max}회)를 초과했습니다. ${upgradeMsg}`,
+      upgrade: !!next,
     }, { status: 429 })
   }
 

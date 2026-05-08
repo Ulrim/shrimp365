@@ -7,9 +7,10 @@ import { useAuth } from "@/lib/auth-context"
 import { useState } from "react"
 
 export default function VerifyEmailPage() {
-  const { sendPasswordReset } = useAuth()
+  const { resendVerification } = useAuth()
   const [resent, setResent] = useState(false)
   const [resending, setResending] = useState(false)
+  const [resendError, setResendError] = useState("")
 
   // Extract email from sessionStorage set by signup page
   const email = typeof window !== "undefined"
@@ -19,11 +20,13 @@ export default function VerifyEmailPage() {
   async function handleResend() {
     if (!email) return
     setResending(true)
-    // Supabase resend is done via password reset endpoint as fallback
-    // Real resend requires supabase.auth.resend({ type: "signup", email })
-    // For now, indicate success after short delay
-    await new Promise(r => setTimeout(r, 1000))
-    setResent(true)
+    setResendError("")
+    const result = await resendVerification(email)
+    if (result.success) {
+      setResent(true)
+    } else {
+      setResendError(result.error ?? "재발송에 실패했습니다.")
+    }
     setResending(false)
   }
 
@@ -83,6 +86,9 @@ export default function VerifyEmailPage() {
           )}
           {resent && (
             <p className="text-emerald-400 text-sm">재발송되었습니다. 받은 편지함을 확인해주세요.</p>
+          )}
+          {resendError && (
+            <p className="text-red-400 text-sm">{resendError}</p>
           )}
 
           <Link href="/login">

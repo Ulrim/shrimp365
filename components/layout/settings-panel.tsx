@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { PLAN_LABELS, PLAN_COLORS, PLAN_PRICES, isPaidPlan } from "@/lib/plans"
+import { PLAN_LABELS, PLAN_COLORS, PLAN_PRICES, PLAN_LIMITS, isPaidPlan } from "@/lib/plans"
 import type { Plan } from "@/lib/plans"
 
 type Tab = "account" | "subscription" | "notifications" | "info"
@@ -442,10 +442,10 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               <div className="space-y-2 text-sm">
                 <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">현재 플랜 한도</p>
                 {[
-                  { label: "양식장", value: plan === "enterprise" ? "무제한" : `${["free","basic","pro"].indexOf(plan) < 0 ? "?" : [1,2,5][["free","basic","pro"].indexOf(plan)]}개` },
-                  { label: "AI 어드바이저", value: plan === "enterprise" ? "무제한" : `${[5,15,30][["free","basic","pro"].indexOf(plan)] ?? "?"}회/일` },
-                  { label: "질병 진단", value: plan === "pro" || plan === "enterprise" ? "무제한" : plan === "basic" ? "10회/월" : "3회/월" },
-                  { label: "CSV 내보내기", value: plan === "pro" || plan === "enterprise" ? "✓" : "✗" },
+                  { label: "양식장", value: PLAN_LIMITS[plan].farms === Infinity ? "무제한" : `${PLAN_LIMITS[plan].farms}개` },
+                  { label: "AI 어드바이저", value: PLAN_LIMITS[plan].aiPerDay === Infinity ? "무제한" : `${PLAN_LIMITS[plan].aiPerDay}회/일` },
+                  { label: "질병 진단", value: PLAN_LIMITS[plan].diagPerMonth === Infinity ? "무제한" : `${PLAN_LIMITS[plan].diagPerMonth}회/월` },
+                  { label: "CSV 내보내기", value: PLAN_LIMITS[plan].csvExport ? "✓" : "✗" },
                 ].map(row => (
                   <div key={row.label} className="flex justify-between py-1.5 border-b border-white/5">
                     <span className="text-slate-500">{row.label}</span>

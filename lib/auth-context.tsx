@@ -23,6 +23,7 @@ interface AuthContextType {
   updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>
   updateEmail: (newEmail: string) => Promise<{ success: boolean; error?: string }>
   sendPasswordReset: (email: string) => Promise<{ success: boolean; error?: string }>
+  resendVerification: (email: string) => Promise<{ success: boolean; error?: string }>
   refreshProfile: () => Promise<void>
 }
 
@@ -135,6 +136,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: true }
   }
 
+  const resendVerification = async (email: string) => {
+    const { error } = await supabase.auth.resend({ type: "signup", email })
+    if (error) return { success: false, error: "재발송에 실패했습니다." }
+    return { success: true }
+  }
+
   const sendPasswordReset = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
@@ -151,7 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, login, logout, signup, updateProfile, updatePassword, updateEmail, sendPasswordReset, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, loading, login, logout, signup, updateProfile, updatePassword, updateEmail, sendPasswordReset, resendVerification, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   )
