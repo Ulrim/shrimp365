@@ -287,6 +287,14 @@ export default function AIAdvisorPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question, context: buildContext() }),
       })
+
+      if (res.status === 429) {
+        const json = await res.json().catch(() => ({}))
+        const errMsg = json.error || "시간당 질문 한도(20회)를 초과했습니다. 잠시 후 다시 시도해주세요."
+        setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: `⚠️ ${errMsg}`, timestamp: new Date() }])
+        return
+      }
+
       const json = await res.json()
       const response = json.answer || generateDefaultResponse(question, tanks.length, alerts.length)
       setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: response, timestamp: new Date() }])

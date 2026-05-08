@@ -314,7 +314,7 @@ export async function deleteJournalEntry(id: string) {
   if (error) throw error
 }
 
-export async function createJournalEntry(values: Omit<DbJournalEntry, "id" | "created_at">) {
+export async function createJournalEntry(values: Omit<DbJournalEntry, "id" | "created_at" | "created_by">) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const { data, error } = await supabase

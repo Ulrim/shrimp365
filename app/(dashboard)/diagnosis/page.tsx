@@ -182,7 +182,6 @@ interface FormState {
   vibrio_count: string
   pathogenic_ratio: string
   risk_level: RiskLevel | ""
-  tested_by: string
   action_taken: string
   notes: string
 }
@@ -194,7 +193,6 @@ const EMPTY_FORM: FormState = {
   vibrio_count: "",
   pathogenic_ratio: "",
   risk_level: "",
-  tested_by: "",
   action_taken: "",
   notes: "",
 }
@@ -314,7 +312,7 @@ export default function DiagnosisPage() {
     e.preventDefault()
     setSubmitError(null)
 
-    if (!form.tank_id || !form.test_type || !form.result || !form.risk_level || !form.tested_by) {
+    if (!form.tank_id || !form.test_type || !form.result || !form.risk_level) {
       setSubmitError("필수 항목을 모두 입력해주세요.")
       return
     }
@@ -368,7 +366,6 @@ export default function DiagnosisPage() {
       vibrio_count: d.vibrio_count > 0 ? String(d.vibrio_count) : "",
       pathogenic_ratio: d.pathogenic_ratio > 0 ? String(d.pathogenic_ratio) : "",
       risk_level: d.risk_level as RiskLevel,
-      tested_by: d.tested_by,
       action_taken: d.action_taken || "",
       notes: d.notes || "",
     })
@@ -568,22 +565,6 @@ export default function DiagnosisPage() {
                     <SelectItem value="critical" className="text-purple-300  focus:bg-slate-700">긴급</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-
-              {/* 검사자 */}
-              <div className="space-y-1.5">
-                <Label className="text-slate-300 text-sm">
-                  검사자 <span className="text-red-400">*</span>
-                </Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                  <Input
-                    placeholder="검사자 이름"
-                    value={form.tested_by}
-                    onChange={e => setField("tested_by", e.target.value)}
-                    className="bg-slate-800 border-white/10 text-white placeholder:text-slate-600 pl-9"
-                  />
-                </div>
               </div>
 
               {/* 조치사항 */}

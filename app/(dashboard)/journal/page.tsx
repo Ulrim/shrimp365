@@ -278,7 +278,6 @@ export default function JournalPage() {
         check_circulation: form.check_circulation,
         check_feeding_check: form.check_feeding_check,
         notes: form.notes || null,
-        created_by: null,
       })
       setJournals(prev => [entry, ...prev])
 

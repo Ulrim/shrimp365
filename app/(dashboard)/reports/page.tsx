@@ -406,7 +406,7 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {weekJournals.slice(0, 5).map(j => (
+            {weekJournals.slice(0, 10).map(j => (
               <div key={j.id} className="flex items-center justify-between p-3 bg-slate-700/30 rounded-xl text-sm">
                 <div className="flex items-center gap-3">
                   <span className="text-slate-500 text-xs w-16 shrink-0">{j.date}</span>
@@ -419,6 +419,11 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
                 </div>
               </div>
             ))}
+            {weekJournals.length > 10 && (
+              <a href="/journal" className="block text-center text-xs text-ocean-400 hover:text-ocean-300 transition-colors pt-1">
+                전체 일지 보기 ({weekJournals.length}건) →
+              </a>
+            )}
           </CardContent>
         </Card>
       )}
