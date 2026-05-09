@@ -9,7 +9,7 @@ CREATE INDEX IF NOT EXISTS idx_wqr_tank_recorded_at
 
 -- Index for journal entries date filtering
 CREATE INDEX IF NOT EXISTS idx_journal_tank_date
-  ON public.journal_entries(tank_id, entry_date DESC);
+  ON public.journal_entries(tank_id, date DESC);
 
 -- Index for diagnosis results date filtering
 CREATE INDEX IF NOT EXISTS idx_diagnosis_tank_tested_at

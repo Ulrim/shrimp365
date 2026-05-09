@@ -483,7 +483,7 @@ export default function WaterQualityPage() {
           >
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">CSV</span>
-            {!hasExport(plan) && <span className="text-xs text-amber-400">Pro</span>}
+            {!hasExport(plan) && <span className="text-xs text-amber-400">Basic+</span>}
           </Button>
 
           <a href="/journal">

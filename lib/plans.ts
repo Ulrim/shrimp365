@@ -15,7 +15,7 @@ export const PLAN_LIMITS = {
     aiPerDay: 15,
     sensors: 1,
     autoRefreshSec: 300 as number | null,
-    csvExport: false,
+    csvExport: true,
     diagPerMonth: 10,
     reportPeriods: [7, 30] as number[],
   },

@@ -8,15 +8,13 @@ import { useT } from "@/lib/i18n-context"
 import { cn } from "@/lib/utils"
 import {
   Waves, LayoutDashboard, Droplets, BookOpen, Building2,
-  FlaskConical, BrainCircuit, BarChart3, Settings, LogOut,
+  BrainCircuit, BarChart3, Settings, LogOut,
   ChevronLeft, ChevronRight, Menu, X, Zap
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { SettingsPanel } from "@/components/layout/settings-panel"
 import { LanguageSwitcher } from "@/components/ui/language-switcher"
-import { getDiagnosisCount } from "@/lib/db"
-import { isTestAccount, MOCK_DIAGNOSES } from "@/lib/mock-data"
 import { PLAN_LABELS, PLAN_COLORS, isPaidPlan } from "@/lib/plans"
 
 interface SidebarProps {
@@ -31,35 +29,14 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [diagBadge, setDiagBadge] = useState<number>(0)
-
   const NAV = [
     { href: "/dashboard",    icon: LayoutDashboard, label: t.nav.dashboard },
     { href: "/water-quality", icon: Droplets,       label: t.nav.waterQuality },
     { href: "/journal",      icon: BookOpen,        label: t.nav.journal },
     { href: "/farms",        icon: Building2,       label: t.nav.farms },
-    { href: "/diagnosis",    icon: FlaskConical,    label: t.nav.diagnosis },
     { href: "/ai-advisor",   icon: BrainCircuit,    label: t.nav.aiAdvisor },
     { href: "/reports",      icon: BarChart3,       label: t.nav.reports },
   ]
-
-  useEffect(() => {
-    async function loadDiagCount() {
-      try {
-        const count = await getDiagnosisCount()
-        if (count > 0) { setDiagBadge(count); return }
-        if (isTestAccount(user?.email)) {
-          const mock = MOCK_DIAGNOSES.filter(d => d.risk_level === "high" || d.risk_level === "critical").length
-          setDiagBadge(mock)
-        }
-      } catch {
-        if (isTestAccount(user?.email)) {
-          setDiagBadge(MOCK_DIAGNOSES.filter(d => d.risk_level === "high" || d.risk_level === "critical").length)
-        }
-      }
-    }
-    loadDiagCount()
-  }, [user?.email])
 
   const handleLogout = async () => {
     await logout()
@@ -85,7 +62,6 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {NAV.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
-          const badge = item.href === "/diagnosis" ? (diagBadge > 0 ? String(diagBadge) : null) : null
           return (
             <Link
               key={item.href}
@@ -103,16 +79,10 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
               {!collapsed && (
                 <>
                   <span className="flex-1">{item.label}</span>
-                  {badge && (
-                    <Badge variant="danger" className="h-5 text-xs px-1.5">{badge}</Badge>
-                  )}
                   {item.href === "/water-quality" && alertCount > 0 && (
                     <Badge variant="warning" className="h-5 text-xs px-1.5">{alertCount}</Badge>
                   )}
                 </>
-              )}
-              {collapsed && badge && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
               )}
               {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-ocean-400 rounded-r-full" />}
             </Link>
@@ -178,7 +148,7 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
     <>
       {/* Desktop Sidebar */}
       <aside className={cn(
-        "hidden lg:flex flex-col bg-slate-900/80 border-r border-white/10 backdrop-blur-xl transition-all duration-300 relative",
+        "hidden lg:flex flex-col bg-slate-900/80 border-r border-white/10 backdrop-blur-xl transition-all duration-300 relative h-screen sticky top-0 shrink-0",
         collapsed ? "w-16" : "w-60"
       )}>
         <SidebarContent />
