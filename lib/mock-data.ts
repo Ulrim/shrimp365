@@ -1,4 +1,4 @@
-import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice } from "@/types"
+import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest } from "@/types"
 
 export const MOCK_USER = {
   id: "mock-user-1",
@@ -206,3 +206,140 @@ export const MOCK_SENSOR_DEVICES: SensorDevice[] = [
     created_at: "2024-04-05T00:00:00Z",
   },
 ]
+
+// ─────────────────────────────────────────────
+// 생산 관리 목 데이터
+// ─────────────────────────────────────────────
+const TODAY = new Date()
+const daysAgo = (n: number) => new Date(TODAY.getTime() - n * 86400000).toISOString().split("T")[0]
+
+export const MOCK_PRODUCTION_CYCLES: ProductionCycle[] = [
+  {
+    id: "cycle-1",
+    tank_id: "tank-1",
+    tank_name: "A-1조",
+    farm_name: "데모 양식장",
+    user_id: "mock-user",
+    name: "2026-1차",
+    status: "active",
+    stocking_date: daysAgo(55),
+    stocking_count: 50000,
+    pl_source: "대성종묘",
+    pl_stage: "PL12",
+    target_weight_g: 20,
+    target_harvest_date: daysAgo(-25),
+    actual_harvest_date: null,
+    actual_harvest_weight_kg: null,
+    actual_harvest_count: null,
+    notes: null,
+    created_at: daysAgo(55) + "T00:00:00Z",
+    updated_at: daysAgo(55) + "T00:00:00Z",
+    doc: 55,
+    latest_abw_g: 12.4,
+    latest_biomass_kg: 521,
+    survival_rate: 84,
+    total_feed_kg: 312,
+    fcr: undefined,
+    total_cost: 4850000,
+    total_revenue: 0,
+    profit: -4850000,
+  },
+  {
+    id: "cycle-2",
+    tank_id: "tank-2",
+    tank_name: "A-2조",
+    farm_name: "데모 양식장",
+    user_id: "mock-user",
+    name: "2026-1차",
+    status: "active",
+    stocking_date: daysAgo(38),
+    stocking_count: 45000,
+    pl_source: "대성종묘",
+    pl_stage: "PL10",
+    target_weight_g: 18,
+    target_harvest_date: daysAgo(-40),
+    actual_harvest_date: null,
+    actual_harvest_weight_kg: null,
+    actual_harvest_count: null,
+    notes: null,
+    created_at: daysAgo(38) + "T00:00:00Z",
+    updated_at: daysAgo(38) + "T00:00:00Z",
+    doc: 38,
+    latest_abw_g: 7.8,
+    latest_biomass_kg: 320,
+    survival_rate: 91,
+    total_feed_kg: 188,
+    fcr: undefined,
+    total_cost: 3920000,
+    total_revenue: 0,
+    profit: -3920000,
+  },
+  {
+    id: "cycle-3",
+    tank_id: "tank-3",
+    tank_name: "B-1조",
+    farm_name: "데모 양식장",
+    user_id: "mock-user",
+    name: "2025-3차",
+    status: "completed",
+    stocking_date: daysAgo(130),
+    stocking_count: 48000,
+    pl_source: "한국수산종묘",
+    pl_stage: "PL12",
+    target_weight_g: 20,
+    target_harvest_date: daysAgo(15),
+    actual_harvest_date: daysAgo(18),
+    actual_harvest_weight_kg: 720,
+    actual_harvest_count: 38400,
+    notes: "최종 FCR 1.42, 생존율 80%",
+    created_at: daysAgo(130) + "T00:00:00Z",
+    updated_at: daysAgo(18) + "T00:00:00Z",
+    doc: undefined,
+    latest_abw_g: 18.75,
+    latest_biomass_kg: 720,
+    survival_rate: 80,
+    total_feed_kg: 1022,
+    fcr: 1.42,
+    total_cost: 8640000,
+    total_revenue: 11520000,
+    profit: 2880000,
+  },
+]
+
+export const MOCK_GROWTH_SAMPLES: Record<string, GrowthSample[]> = {
+  "cycle-1": [
+    { id: "s1-1", cycle_id: "cycle-1", tank_id: "tank-1", sampled_at: daysAgo(45), sample_count: 30, total_weight_g: 45, abw_g: 1.5, survival_rate: 95, estimated_population: 47500, estimated_biomass_kg: 71.25, notes: null, created_at: daysAgo(45) + "T08:00:00Z" },
+    { id: "s1-2", cycle_id: "cycle-1", tank_id: "tank-1", sampled_at: daysAgo(35), sample_count: 30, total_weight_g: 114, abw_g: 3.8, survival_rate: 92, estimated_population: 46000, estimated_biomass_kg: 174.8, notes: null, created_at: daysAgo(35) + "T08:00:00Z" },
+    { id: "s1-3", cycle_id: "cycle-1", tank_id: "tank-1", sampled_at: daysAgo(25), sample_count: 30, total_weight_g: 228, abw_g: 7.6, survival_rate: 88, estimated_population: 44000, estimated_biomass_kg: 334.4, notes: null, created_at: daysAgo(25) + "T08:00:00Z" },
+    { id: "s1-4", cycle_id: "cycle-1", tank_id: "tank-1", sampled_at: daysAgo(10), sample_count: 30, total_weight_g: 372, abw_g: 12.4, survival_rate: 84, estimated_population: 42000, estimated_biomass_kg: 520.8, notes: "성장 양호", created_at: daysAgo(10) + "T08:00:00Z" },
+  ],
+  "cycle-2": [
+    { id: "s2-1", cycle_id: "cycle-2", tank_id: "tank-2", sampled_at: daysAgo(28), sample_count: 30, total_weight_g: 36, abw_g: 1.2, survival_rate: 96, estimated_population: 43200, estimated_biomass_kg: 51.8, notes: null, created_at: daysAgo(28) + "T08:00:00Z" },
+    { id: "s2-2", cycle_id: "cycle-2", tank_id: "tank-2", sampled_at: daysAgo(18), sample_count: 30, total_weight_g: 117, abw_g: 3.9, survival_rate: 93, estimated_population: 41850, estimated_biomass_kg: 163.2, notes: null, created_at: daysAgo(18) + "T08:00:00Z" },
+    { id: "s2-3", cycle_id: "cycle-2", tank_id: "tank-2", sampled_at: daysAgo(7), sample_count: 30, total_weight_g: 234, abw_g: 7.8, survival_rate: 91, estimated_population: 40950, estimated_biomass_kg: 319.4, notes: null, created_at: daysAgo(7) + "T08:00:00Z" },
+  ],
+}
+
+export const MOCK_CYCLE_COSTS: Record<string, CycleCost[]> = {
+  "cycle-1": [
+    { id: "c1-1", cycle_id: "cycle-1", category: "pl", label: "치어(PL12) 구매", amount: 750000, recorded_at: daysAgo(55), notes: "대성종묘 50,000마리", created_at: daysAgo(55) + "T00:00:00Z" },
+    { id: "c1-2", cycle_id: "cycle-1", category: "feed", label: "배합사료 1차", amount: 1200000, recorded_at: daysAgo(40), notes: null, created_at: daysAgo(40) + "T00:00:00Z" },
+    { id: "c1-3", cycle_id: "cycle-1", category: "feed", label: "배합사료 2차", amount: 1100000, recorded_at: daysAgo(20), notes: null, created_at: daysAgo(20) + "T00:00:00Z" },
+    { id: "c1-4", cycle_id: "cycle-1", category: "electricity", label: "전기료 (5월)", amount: 980000, recorded_at: daysAgo(10), notes: null, created_at: daysAgo(10) + "T00:00:00Z" },
+    { id: "c1-5", cycle_id: "cycle-1", category: "chemicals", label: "바실러스균 프로바이오틱스", amount: 320000, recorded_at: daysAgo(30), notes: null, created_at: daysAgo(30) + "T00:00:00Z" },
+    { id: "c1-6", cycle_id: "cycle-1", category: "labor", label: "인건비 (4~5월)", amount: 500000, recorded_at: daysAgo(5), notes: null, created_at: daysAgo(5) + "T00:00:00Z" },
+  ],
+  "cycle-3": [
+    { id: "c3-1", cycle_id: "cycle-3", category: "pl", label: "치어 구매", amount: 720000, recorded_at: daysAgo(130), notes: null, created_at: daysAgo(130) + "T00:00:00Z" },
+    { id: "c3-2", cycle_id: "cycle-3", category: "feed", label: "배합사료 전체", amount: 4200000, recorded_at: daysAgo(80), notes: null, created_at: daysAgo(80) + "T00:00:00Z" },
+    { id: "c3-3", cycle_id: "cycle-3", category: "electricity", label: "전기료 합계", amount: 2100000, recorded_at: daysAgo(20), notes: null, created_at: daysAgo(20) + "T00:00:00Z" },
+    { id: "c3-4", cycle_id: "cycle-3", category: "labor", label: "인건비", amount: 1200000, recorded_at: daysAgo(20), notes: null, created_at: daysAgo(20) + "T00:00:00Z" },
+    { id: "c3-5", cycle_id: "cycle-3", category: "chemicals", label: "약품·소독제", amount: 420000, recorded_at: daysAgo(50), notes: null, created_at: daysAgo(50) + "T00:00:00Z" },
+  ],
+}
+
+export const MOCK_CYCLE_HARVESTS: Record<string, CycleHarvest[]> = {
+  "cycle-3": [
+    { id: "h3-1", cycle_id: "cycle-3", harvested_at: daysAgo(18), weight_kg: 720, count: 38400, price_per_kg: 16000, revenue: 11520000, notes: "전량 수확", created_at: daysAgo(18) + "T00:00:00Z" },
+  ],
+}

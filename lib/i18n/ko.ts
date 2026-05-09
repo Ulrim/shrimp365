@@ -76,6 +76,7 @@ export const ko: Dict = {
     waterQuality: "수질 모니터링",
     journal: "양식 일지",
     diagnosis: "질병 진단",
+    production: "생산 관리",
     aiAdvisor: "AI 어드바이저",
     reports: "리포트",
     settings: "설정",

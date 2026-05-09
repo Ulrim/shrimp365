@@ -120,3 +120,73 @@ export interface WaterQualityStandard {
   unit: string
   label: string
 }
+
+// ── 생산 관리 ────────────────────────────────────
+export interface ProductionCycle {
+  id: string
+  tank_id: string
+  tank_name?: string
+  farm_name?: string
+  user_id: string
+  name: string
+  status: "active" | "completed" | "cancelled"
+  stocking_date: string
+  stocking_count: number
+  pl_source: string | null
+  pl_stage: string | null
+  target_weight_g: number | null
+  target_harvest_date: string | null
+  actual_harvest_date: string | null
+  actual_harvest_weight_kg: number | null
+  actual_harvest_count: number | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+  doc?: number
+  latest_abw_g?: number
+  latest_biomass_kg?: number
+  survival_rate?: number
+  total_feed_kg?: number
+  fcr?: number
+  total_cost?: number
+  total_revenue?: number
+  profit?: number
+}
+
+export interface GrowthSample {
+  id: string
+  cycle_id: string
+  tank_id: string
+  sampled_at: string
+  sample_count: number
+  total_weight_g: number
+  abw_g: number
+  survival_rate: number | null
+  estimated_population: number | null
+  estimated_biomass_kg: number | null
+  notes: string | null
+  created_at: string
+}
+
+export interface CycleCost {
+  id: string
+  cycle_id: string
+  category: "pl" | "feed" | "electricity" | "labor" | "chemicals" | "other"
+  label: string
+  amount: number
+  recorded_at: string
+  notes: string | null
+  created_at: string
+}
+
+export interface CycleHarvest {
+  id: string
+  cycle_id: string
+  harvested_at: string
+  weight_kg: number
+  count: number | null
+  price_per_kg: number
+  revenue: number
+  notes: string | null
+  created_at: string
+}

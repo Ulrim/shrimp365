@@ -76,6 +76,7 @@ export const vi: Dict = {
     waterQuality: "Chất lượng nước",
     journal: "Nhật ký trại",
     diagnosis: "Chẩn đoán bệnh",
+    production: "Quản lý sản xuất",
     aiAdvisor: "Tư vấn AI",
     reports: "Báo cáo",
     settings: "Cài đặt",

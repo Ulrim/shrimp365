@@ -1,5 +1,5 @@
-import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbDiagnosis, DbAlert, DbSensorDevice } from "@/lib/supabase"
-import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice } from "@/types"
+import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbDiagnosis, DbAlert, DbSensorDevice, DbProductionCycle, DbGrowthSample, DbCycleCost, DbCycleHarvest } from "@/lib/supabase"
+import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest } from "@/types"
 import { checkThresholds } from "@/lib/thresholds"
 import { PLAN_LIMITS, type Plan } from "@/lib/plans"
 
@@ -610,4 +610,167 @@ export async function toggleSensorDevice(id: string, active: boolean): Promise<S
 
   if (error) throw error
   return toSensorDevice(data)
+}
+
+// ─────────────────────────────────────────────
+// 생산 관리 — 타입 변환 헬퍼
+// ─────────────────────────────────────────────
+function toCycle(c: DbProductionCycle & { tanks?: { name: string; farms?: { name: string }[] }[] }): ProductionCycle {
+  const doc = Math.floor((Date.now() - new Date(c.stocking_date).getTime()) / 86400000)
+  return {
+    id: c.id, tank_id: c.tank_id, user_id: c.user_id, name: c.name,
+    status: c.status, stocking_date: c.stocking_date, stocking_count: c.stocking_count,
+    pl_source: c.pl_source, pl_stage: c.pl_stage,
+    target_weight_g: c.target_weight_g, target_harvest_date: c.target_harvest_date,
+    actual_harvest_date: c.actual_harvest_date,
+    actual_harvest_weight_kg: c.actual_harvest_weight_kg,
+    actual_harvest_count: c.actual_harvest_count,
+    notes: c.notes, created_at: c.created_at, updated_at: c.updated_at,
+    tank_name: c.tanks?.[0]?.name,
+    farm_name: c.tanks?.[0]?.farms?.[0]?.name,
+    doc: c.status === "active" ? Math.max(0, doc) : undefined,
+  }
+}
+
+function toSample(s: DbGrowthSample): GrowthSample { return { ...s } }
+function toCost(c: DbCycleCost): CycleCost { return { ...c } }
+function toHarvest(h: DbCycleHarvest): CycleHarvest { return { ...h } }
+
+// ─────────────────────────────────────────────
+// 생산 사이클 CRUD
+// ─────────────────────────────────────────────
+export async function getProductionCycles(tankId?: string): Promise<ProductionCycle[]> {
+  let q = supabase
+    .from("production_cycles")
+    .select("*, tanks(name, farms(name))")
+    .order("stocking_date", { ascending: false })
+  if (tankId) q = q.eq("tank_id", tankId)
+  const { data, error } = await q
+  if (error) throw error
+  return (data || []).map((c) => toCycle(c as DbProductionCycle & { tanks: { name: string; farms: { name: string }[] }[] }))
+}
+
+export async function createProductionCycle(values: {
+  tank_id: string; name: string; stocking_date: string; stocking_count: number
+  pl_source?: string; pl_stage?: string; target_weight_g?: number; target_harvest_date?: string; notes?: string
+}): Promise<ProductionCycle> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("로그인이 필요합니다.")
+  const { data, error } = await supabase
+    .from("production_cycles")
+    .insert({ ...values, user_id: user.id, status: "active" })
+    .select("*, tanks(name, farms(name))")
+    .single()
+  if (error) throw error
+  return toCycle(data as DbProductionCycle & { tanks: { name: string; farms: { name: string }[] }[] })
+}
+
+export async function updateProductionCycle(id: string, values: Partial<{
+  name: string; status: "active" | "completed" | "cancelled"
+  target_weight_g: number; target_harvest_date: string
+  actual_harvest_date: string; actual_harvest_weight_kg: number; actual_harvest_count: number; notes: string
+}>): Promise<void> {
+  const { error } = await supabase.from("production_cycles").update({ ...values, updated_at: new Date().toISOString() }).eq("id", id)
+  if (error) throw error
+}
+
+export async function deleteProductionCycle(id: string): Promise<void> {
+  const { error } = await supabase.from("production_cycles").delete().eq("id", id)
+  if (error) throw error
+}
+
+// ─────────────────────────────────────────────
+// 성장 샘플링 CRUD
+// ─────────────────────────────────────────────
+export async function getGrowthSamples(cycleId: string): Promise<GrowthSample[]> {
+  const { data, error } = await supabase
+    .from("growth_samples")
+    .select("*")
+    .eq("cycle_id", cycleId)
+    .order("sampled_at", { ascending: true })
+  if (error) throw error
+  return (data || []).map(toSample)
+}
+
+export async function createGrowthSample(values: {
+  cycle_id: string; tank_id: string; sampled_at: string
+  sample_count: number; total_weight_g: number
+  survival_rate?: number; notes?: string
+}): Promise<GrowthSample> {
+  const abw_g = values.total_weight_g / values.sample_count
+  const { data: cycleData } = await supabase.from("production_cycles").select("stocking_count").eq("id", values.cycle_id).single()
+  const stocking = cycleData?.stocking_count ?? 0
+  const survRate = values.survival_rate ?? null
+  const est_pop = survRate !== null && stocking > 0 ? Math.round(stocking * survRate / 100) : null
+  const est_biomass = est_pop !== null ? Math.round(est_pop * abw_g) / 1000 : null
+
+  const { data, error } = await supabase
+    .from("growth_samples")
+    .insert({ ...values, abw_g, estimated_population: est_pop, estimated_biomass_kg: est_biomass })
+    .select()
+    .single()
+  if (error) throw error
+  return toSample(data)
+}
+
+export async function deleteGrowthSample(id: string): Promise<void> {
+  const { error } = await supabase.from("growth_samples").delete().eq("id", id)
+  if (error) throw error
+}
+
+// ─────────────────────────────────────────────
+// 비용 CRUD
+// ─────────────────────────────────────────────
+export async function getCycleCosts(cycleId: string): Promise<CycleCost[]> {
+  const { data, error } = await supabase
+    .from("cycle_costs")
+    .select("*")
+    .eq("cycle_id", cycleId)
+    .order("recorded_at", { ascending: true })
+  if (error) throw error
+  return (data || []).map(toCost)
+}
+
+export async function createCycleCost(values: {
+  cycle_id: string; category: CycleCost["category"]; label: string; amount: number; recorded_at: string; notes?: string
+}): Promise<CycleCost> {
+  const { data, error } = await supabase.from("cycle_costs").insert(values).select().single()
+  if (error) throw error
+  return toCost(data)
+}
+
+export async function deleteCycleCost(id: string): Promise<void> {
+  const { error } = await supabase.from("cycle_costs").delete().eq("id", id)
+  if (error) throw error
+}
+
+// ─────────────────────────────────────────────
+// 수확 CRUD
+// ─────────────────────────────────────────────
+export async function getCycleHarvests(cycleId: string): Promise<CycleHarvest[]> {
+  const { data, error } = await supabase
+    .from("cycle_harvests")
+    .select("*")
+    .eq("cycle_id", cycleId)
+    .order("harvested_at", { ascending: true })
+  if (error) throw error
+  return (data || []).map(toHarvest)
+}
+
+export async function createCycleHarvest(values: {
+  cycle_id: string; harvested_at: string; weight_kg: number; price_per_kg: number; count?: number; notes?: string
+}): Promise<CycleHarvest> {
+  const revenue = values.weight_kg * values.price_per_kg
+  const { data, error } = await supabase
+    .from("cycle_harvests")
+    .insert({ ...values, revenue })
+    .select()
+    .single()
+  if (error) throw error
+  return toHarvest(data)
+}
+
+export async function deleteCycleHarvest(id: string): Promise<void> {
+  const { error } = await supabase.from("cycle_harvests").delete().eq("id", id)
+  if (error) throw error
 }

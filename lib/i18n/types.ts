@@ -74,6 +74,7 @@ export interface Dict {
     waterQuality: string
     journal: string
     diagnosis: string
+    production: string
     aiAdvisor: string
     reports: string
     settings: string
