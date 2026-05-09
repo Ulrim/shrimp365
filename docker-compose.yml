@@ -13,13 +13,19 @@ services:
       NEXT_PUBLIC_SUPABASE_ANON_KEY:   ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
       SUPABASE_SERVICE_ROLE_KEY:       ${SUPABASE_SERVICE_ROLE_KEY}
 
-      # ── AI / Stripe ─────────────────────────────────────────────────────────
+      # ── AI ──────────────────────────────────────────────────────────────────
       ANTHROPIC_API_KEY:               ${ANTHROPIC_API_KEY}
-      STRIPE_SECRET_KEY:               ${STRIPE_SECRET_KEY}
-      STRIPE_WEBHOOK_SECRET:           ${STRIPE_WEBHOOK_SECRET}
-      STRIPE_BASIC_PRICE_ID:           ${STRIPE_BASIC_PRICE_ID}
-      STRIPE_PRO_PRICE_ID:             ${STRIPE_PRO_PRICE_ID}
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+
+      # ── Paddle Billing ───────────────────────────────────────────────────────
+      PADDLE_ENV:                         ${PADDLE_ENV}
+      PADDLE_API_KEY:                     ${PADDLE_API_KEY}
+      PADDLE_WEBHOOK_SECRET:              ${PADDLE_WEBHOOK_SECRET}
+      PADDLE_BASIC_PRICE_ID:              ${PADDLE_BASIC_PRICE_ID}
+      PADDLE_PRO_PRICE_ID:                ${PADDLE_PRO_PRICE_ID}
+      NEXT_PUBLIC_PADDLE_CLIENT_TOKEN:    ${NEXT_PUBLIC_PADDLE_CLIENT_TOKEN}
+      NEXT_PUBLIC_PADDLE_ENV:             ${NEXT_PUBLIC_PADDLE_ENV}
+      NEXT_PUBLIC_PADDLE_BASIC_PRICE_ID:  ${NEXT_PUBLIC_PADDLE_BASIC_PRICE_ID}
+      NEXT_PUBLIC_PADDLE_PRO_PRICE_ID:    ${NEXT_PUBLIC_PADDLE_PRO_PRICE_ID}
 
       # ── 사이트 URL (NAS의 실제 접속 주소로 변경) ──────────────────────────
       NEXT_PUBLIC_SITE_URL:            ${NEXT_PUBLIC_SITE_URL}

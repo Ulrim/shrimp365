@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import Stripe from "stripe"
+import { Paddle, Environment } from "@paddle/paddle-node-sdk"
 import { createServerClient } from "@supabase/ssr"
+
+const PADDLE_ENV = process.env.PADDLE_ENV === "production"
+  ? Environment.production
+  : Environment.sandbox
 
 export async function POST(req: NextRequest) {
   const supabase = createServerClient(
@@ -11,33 +15,22 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 })
 
-  if (!process.env.STRIPE_SECRET_KEY) {
+  if (!process.env.PADDLE_API_KEY) {
     return NextResponse.json({ error: "결제 서비스가 설정되지 않았습니다." }, { status: 503 })
   }
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("stripe_customer_id")
+    .select("paddle_customer_id")
     .eq("id", user.id)
     .single()
 
-  if (!profile?.stripe_customer_id) {
+  if (!profile?.paddle_customer_id) {
     return NextResponse.json({ error: "구독 정보가 없습니다." }, { status: 400 })
   }
 
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
-  const allowedOrigins = [
-    siteUrl,
-    ...(process.env.NODE_ENV === "development" ? ["http://localhost:3000"] : []),
-  ].filter(Boolean)
-  const requestOrigin = req.headers.get("origin") ?? ""
-  const origin = allowedOrigins.includes(requestOrigin) ? requestOrigin : siteUrl
+  const paddle = new Paddle(process.env.PADDLE_API_KEY, { environment: PADDLE_ENV })
+  const session = await paddle.customerPortalSessions.create(profile.paddle_customer_id, [])
 
-  const portalSession = await stripe.billingPortal.sessions.create({
-    customer: profile.stripe_customer_id,
-    return_url: `${origin}/dashboard`,
-  })
-
-  return NextResponse.json({ url: portalSession.url })
+  return NextResponse.json({ url: session.urls.general.overview })
 }

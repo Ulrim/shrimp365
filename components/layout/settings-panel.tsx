@@ -197,7 +197,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   async function handleOpenPortal() {
     setPortalLoading(true)
     try {
-      const res = await fetch("/api/stripe/portal", { method: "POST" })
+      const res = await fetch("/api/paddle/portal", { method: "POST" })
       const json = await res.json()
       if (json.url) window.open(json.url, "_blank")
       else setPortalLoading(false)
