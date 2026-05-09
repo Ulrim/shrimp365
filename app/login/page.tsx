@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
+import { useT } from "@/lib/i18n-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,6 +14,7 @@ import { Eye, EyeOff, Waves, AlertCircle, ShieldCheck } from "lucide-react"
 export default function LoginPage() {
   const router = useRouter()
   const { login } = useAuth()
+  const { t } = useT()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -28,7 +30,7 @@ export default function LoginPage() {
     if (result.success) {
       router.replace("/dashboard")
     } else {
-      setError(result.error || "로그인에 실패했습니다.")
+      setError(result.error || t.auth.loginFailed)
     }
   }
 
@@ -98,15 +100,15 @@ export default function LoginPage() {
 
           <Card className="bg-white/5 border-white/10 backdrop-blur-md shadow-2xl">
             <CardHeader className="space-y-1 pb-4">
-              <CardTitle className="text-2xl font-bold text-white">로그인</CardTitle>
+              <CardTitle className="text-2xl font-bold text-white">{t.auth.loginTitle}</CardTitle>
               <CardDescription className="text-ocean-300">
-                계정에 로그인하여 양식장을 관리하세요
+                {t.auth.loginSubtitle}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-ocean-100">이메일</Label>
+                  <Label htmlFor="email" className="text-ocean-100">{t.auth.emailLabel}</Label>
                   <Input
                     id="email"
                     type="email"
@@ -118,12 +120,12 @@ export default function LoginPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="text-ocean-100">비밀번호</Label>
+                  <Label htmlFor="password" className="text-ocean-100">{t.auth.passwordLabel}</Label>
                   <div className="relative">
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
-                      placeholder="비밀번호를 입력하세요"
+                      placeholder={t.auth.passwordPlaceholder}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus-visible:ring-ocean-400 pr-10"
@@ -154,9 +156,9 @@ export default function LoginPage() {
                   {loading ? (
                     <span className="flex items-center gap-2">
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      로그인 중...
+                      {t.auth.loginLoading}
                     </span>
-                  ) : "로그인"}
+                  ) : t.auth.loginButton}
                 </Button>
               </form>
 
@@ -164,7 +166,7 @@ export default function LoginPage() {
                 <div className="mt-4 pt-4 border-t border-white/10">
                   <p className="text-center text-xs text-ocean-400 mb-3 flex items-center gap-2 justify-center">
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    테스트 계정으로 빠르게 체험하세요
+                    {t.auth.testAccounts}
                   </p>
                   <div className="grid grid-cols-2 gap-2">
                     <button
@@ -184,20 +186,20 @@ export default function LoginPage() {
                       <div className="text-teal-400 mt-0.5">operator@shrimp365.com</div>
                     </button>
                   </div>
-                  <p className="text-center text-xs text-ocean-500 mt-2">이메일을 선택하고 비밀번호를 직접 입력하세요</p>
+                  <p className="text-center text-xs text-ocean-500 mt-2">{t.auth.testAccountHint}</p>
                 </div>
               )}
 
               <div className="text-center mt-4 space-y-2">
                 <p className="text-sm text-ocean-400">
-                  계정이 없으신가요?{" "}
+                  {t.auth.noAccount}{" "}
                   <Link href="/signup" className="text-ocean-300 hover:text-white font-medium transition-colors">
-                    회원가입
+                    {t.auth.goSignup}
                   </Link>
                 </p>
                 <p className="text-sm text-ocean-400">
                   <Link href="/forgot-password" className="text-ocean-300 hover:text-white font-medium transition-colors">
-                    비밀번호를 잊으셨나요?
+                    {t.auth.forgotPassword}
                   </Link>
                 </p>
               </div>

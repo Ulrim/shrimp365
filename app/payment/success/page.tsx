@@ -7,41 +7,18 @@ import { CheckCircle2, Waves, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { PLAN_LABELS, PLAN_LIMITS } from "@/lib/plans"
-
-const PLAN_FEATURES: Record<"basic" | "pro", string[]> = {
-  basic: [
-    "양식장 최대 2개",
-    "수조 15개/양식장",
-    "AI 어드바이저 15회/일",
-    "IoT 센서 기기 1개",
-    "수질 자동 새로고침 (5분)",
-    "질병 진단 10회/월",
-    "7일·30일 리포트",
-    "이메일 지원",
-  ],
-  pro: [
-    "양식장 최대 5개",
-    "수조 50개/양식장",
-    "AI 어드바이저 30회/일",
-    "IoT 센서 기기 5개",
-    "수질 자동 새로고침 (60초)",
-    "CSV/PDF 내보내기",
-    "질병 진단 무제한",
-    "7일·30일·90일 리포트",
-    "이메일 우선 지원",
-  ],
-}
+import { useT } from "@/lib/i18n-context"
 
 export default function PaymentSuccessPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { refreshProfile } = useAuth()
+  const { t } = useT()
   const [countdown, setCountdown] = useState(5)
 
   const rawPlan = searchParams.get("plan")
   const activatedPlan: "basic" | "pro" = rawPlan === "basic" ? "basic" : "pro"
   const planLabel = PLAN_LABELS[activatedPlan]
-  const features = PLAN_FEATURES[activatedPlan]
 
   useEffect(() => {
     refreshProfile?.()
@@ -77,16 +54,35 @@ export default function PaymentSuccessPage() {
 
         {/* Message */}
         <div>
-          <h1 className="text-3xl font-bold text-white mb-3">결제 완료!</h1>
+          <h1 className="text-3xl font-bold text-white mb-3">{t.payment.successTitle}</h1>
           <p className="text-slate-400 text-lg">
-            {planLabel} 플랜이 활성화되었습니다.
+            {planLabel} {t.payment.activated}
           </p>
         </div>
 
         {/* Features unlocked */}
         <div className="bg-slate-800/40 border border-ocean-500/20 rounded-2xl p-6 text-left space-y-3">
-          <p className="text-ocean-300 text-sm font-semibold mb-3">잠금 해제된 기능</p>
-          {features.map((feature, i) => (
+          <p className="text-ocean-300 text-sm font-semibold mb-3">{t.payment.features}</p>
+          {(activatedPlan === "basic" ? [
+            `${t.pricing.features.farms} 2`,
+            `${t.pricing.features.tanksPerFarm} 15`,
+            `${t.pricing.features.aiPerDay} 15${t.common.unit.timesPerDay}`,
+            `${t.pricing.features.sensors} 1`,
+            `${t.pricing.features.autoRefresh} (5${t.common.unit.minutes})`,
+            `${t.pricing.features.diagPerMonth} 10${t.common.unit.timesPerMonth}`,
+            `${t.pricing.features.reportPeriods} 7/30`,
+            `${t.pricing.features.support}: ${t.pricing.features.supportEmail}`,
+          ] : [
+            `${t.pricing.features.farms} 5`,
+            `${t.pricing.features.tanksPerFarm} 50`,
+            `${t.pricing.features.aiPerDay} 30${t.common.unit.timesPerDay}`,
+            `${t.pricing.features.sensors} 5`,
+            `${t.pricing.features.autoRefresh} (1${t.common.unit.minutes})`,
+            `${t.pricing.features.csvExport}`,
+            `${t.pricing.features.diagPerMonth} ${t.common.unit.unlimited}`,
+            `${t.pricing.features.reportPeriods} 7/30/90`,
+            `${t.pricing.features.support}: ${t.pricing.features.supportPriority}`,
+          ]).map((feature, i) => (
             <div key={i} className="flex items-center gap-2 text-sm text-slate-200">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
               {feature}
@@ -98,7 +94,7 @@ export default function PaymentSuccessPage() {
         <div className="space-y-3">
           <Link href="/dashboard">
             <Button className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-medium">
-              대시보드로 이동
+              {t.payment.goDashboard}
             </Button>
           </Link>
           <p className="text-slate-500 text-xs">

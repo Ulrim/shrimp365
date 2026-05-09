@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
+import { useT } from "@/lib/i18n-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,6 +14,7 @@ import { Eye, EyeOff, Waves, AlertCircle, CheckCircle2 } from "lucide-react"
 export default function SignupPage() {
   const router = useRouter()
   const { signup } = useAuth()
+  const { t } = useT()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -40,7 +42,7 @@ export default function SignupPage() {
     setError("")
 
     if (!name.trim()) { setError("이름을 입력해주세요."); return }
-    if (password !== confirmPassword) { setError("비밀번호가 일치하지 않습니다."); return }
+    if (password !== confirmPassword) { setError(t.auth.resetPasswordMismatch); return }
     if (password.length < 8) { setError("비밀번호는 최소 8자 이상이어야 합니다."); return }
 
     setLoading(true)
@@ -50,7 +52,7 @@ export default function SignupPage() {
       sessionStorage.setItem("pendingVerifyEmail", email)
       router.replace("/verify-email")
     } else {
-      setError(result.error || "회원가입에 실패했습니다.")
+      setError(result.error || t.auth.loginFailed)
     }
   }
 
@@ -66,19 +68,19 @@ export default function SignupPage() {
 
         <Card className="bg-white/5 border-white/10 backdrop-blur-md shadow-2xl">
           <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-2xl font-bold text-white">회원가입</CardTitle>
+            <CardTitle className="text-2xl font-bold text-white">{t.auth.signupTitle}</CardTitle>
             <CardDescription className="text-ocean-300">
-              새 계정을 만들어 스마트 양식 관리를 시작하세요
+              {t.auth.signupSubtitle}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-ocean-100">이름</Label>
+                <Label htmlFor="name" className="text-ocean-100">{t.auth.nameLabel}</Label>
                 <Input
                   id="name"
                   type="text"
-                  placeholder="홍길동"
+                  placeholder={t.auth.namePlaceholder}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus-visible:ring-ocean-400"
@@ -86,7 +88,7 @@ export default function SignupPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-ocean-100">이메일</Label>
+                <Label htmlFor="email" className="text-ocean-100">{t.auth.emailLabel}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -98,12 +100,12 @@ export default function SignupPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-ocean-100">비밀번호</Label>
+                <Label htmlFor="password" className="text-ocean-100">{t.auth.passwordLabel}</Label>
                 <div className="relative">
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="6자 이상 입력하세요"
+                    placeholder={t.auth.resetNewPasswordPlaceholder}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus-visible:ring-ocean-400 pr-10"
@@ -134,12 +136,12 @@ export default function SignupPage() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-ocean-100">비밀번호 확인</Label>
+                <Label htmlFor="confirmPassword" className="text-ocean-100">{t.auth.resetConfirmPassword}</Label>
                 <div className="relative">
                   <Input
                     id="confirmPassword"
                     type="password"
-                    placeholder="비밀번호를 다시 입력하세요"
+                    placeholder={t.auth.resetConfirmPasswordPlaceholder}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus-visible:ring-ocean-400 pr-10"
@@ -171,16 +173,16 @@ export default function SignupPage() {
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    계정 생성 중...
+                    {t.auth.signupLoading}
                   </span>
-                ) : "회원가입"}
+                ) : t.auth.signupButton}
               </Button>
             </form>
 
             <p className="text-center text-sm text-ocean-400 mt-4">
-              이미 계정이 있으신가요?{" "}
+              {t.auth.hasAccount}{" "}
               <Link href="/login" className="text-ocean-300 hover:text-white font-medium transition-colors">
-                로그인
+                {t.auth.goLogin}
               </Link>
             </p>
           </CardContent>

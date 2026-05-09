@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { AlertCircle, RefreshCw } from "lucide-react"
+import { useT } from "@/lib/i18n-context"
 
 export default function GlobalError({
   error,
@@ -10,6 +11,8 @@ export default function GlobalError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const { t } = useT()
+
   useEffect(() => {
     console.error(error)
   }, [error])
@@ -22,15 +25,15 @@ export default function GlobalError({
             <AlertCircle className="w-7 h-7 text-red-400" />
           </div>
           <div>
-            <p className="text-white font-semibold text-lg">서비스 오류</p>
-            <p className="text-slate-400 text-sm mt-1">잠시 후 다시 시도해주세요.</p>
+            <p className="text-white font-semibold text-lg">{t.error.serverError}</p>
+            <p className="text-slate-400 text-sm mt-1">{t.error.serverErrorMsg}</p>
           </div>
           <button
             onClick={reset}
             className="flex items-center gap-2 px-4 py-2 bg-ocean-500 hover:bg-ocean-600 text-white rounded-xl text-sm font-medium transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
-            다시 시도
+            {t.common.reset}
           </button>
         </div>
       </body>
