@@ -79,6 +79,11 @@ export default function DashboardPage() {
           const wq = await getWaterQuality(firstTank.id, 24)
           setWqData(wq.length ? wq : (mock ? (MOCK_WATER_QUALITY[firstTank.id] || []) : []))
         }
+
+        // Redirect new users with no farms to onboarding (must be inside effect, not render)
+        if (!f.length && !mock) {
+          router.replace("/onboarding")
+        }
       } catch {
         if (mock) {
           setFarms(MOCK_FARMS)
@@ -92,7 +97,7 @@ export default function DashboardPage() {
       }
     }
     load()
-  }, [user])
+  }, [user, router])
 
   const statusCounts = {
     active:  tanks.filter(tk => tk.status === "active").length,
@@ -120,11 +125,6 @@ export default function DashboardPage() {
         <div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" />
       </div>
     )
-  }
-
-  if (!loading && farms.length === 0 && !isTestAccount(user?.email)) {
-    router.replace("/onboarding")
-    return null
   }
 
   return (
