@@ -264,7 +264,7 @@ export default function PricingPage() {
           {currentPlan === "enterprise" ? (
             <Button disabled className="w-full bg-purple-800 text-white">{t.pricing.currentPlan}</Button>
           ) : (
-            <a href="mailto:contact@shrimp365.com">
+            <a href="mailto:contact@culiver.ai">
               <Button variant="outline" className="w-full border-purple-500/30 text-purple-300 hover:bg-purple-500/10">
                 <Building2 className="w-4 h-4 mr-2" />{t.pricing.contactUs}
               </Button>

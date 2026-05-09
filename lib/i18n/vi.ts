@@ -432,7 +432,7 @@ export const vi: Dict = {
     notifSound: "Thông báo âm thanh",
     appVersion: "Phiên bản ứng dụng",
     support: "Hỗ trợ khách hàng",
-    supportContact: "support@shrimp365.com",
+    supportContact: "contact@culiver.ai",
     legalPrivacy: "Chính sách bảo mật",
     legalTerms: "Điều khoản dịch vụ",
     saving: "Đang lưu...",

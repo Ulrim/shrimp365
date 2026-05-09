@@ -495,7 +495,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               <div className="border-t border-white/10" />
               <div className="space-y-2 text-sm">
                 {[
-                  { label: t.settings.support, value: "Shrimp365 팀" },
+                  { label: t.settings.support, value: "CULIVER INC" },
                   { label: "Supabase", value: "Supabase" },
                   { label: "Next.js", value: "Next.js 16" },
                   { label: t.common.date, value: new Date().toLocaleDateString("ko-KR") },

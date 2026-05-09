@@ -197,7 +197,7 @@ export default function OnboardingPage() {
           </div>
         </div>
 
-        <div className="relative z-10 text-ocean-400 text-sm">© 2025 Shrimp365</div>
+        <div className="relative z-10 text-ocean-400 text-sm">© 2026 CULIVER INC. All rights reserved.</div>
       </div>
 
       {/* Right form */}

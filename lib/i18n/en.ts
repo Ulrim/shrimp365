@@ -432,7 +432,7 @@ export const en: Dict = {
     notifSound: "Sound Alerts",
     appVersion: "App Version",
     support: "Customer Support",
-    supportContact: "support@shrimp365.com",
+    supportContact: "contact@culiver.ai",
     legalPrivacy: "Privacy Policy",
     legalTerms: "Terms of Service",
     saving: "Saving...",

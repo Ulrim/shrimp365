@@ -81,9 +81,7 @@ export default function LoginPage() {
         </div>
 
         <div className="relative z-10 flex items-center gap-6 text-ocean-400 text-sm">
-          <span>© 2025 Shrimp365</span>
-          <span>·</span>
-          <span>All rights reserved</span>
+          <span>© 2026 CULIVER INC. All rights reserved.</span>
         </div>
       </div>
 

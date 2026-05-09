@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name } },
+      options: { data: { name }, emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/login` },
     })
     if (error) {
       const msg = error.message.includes("already registered")
@@ -137,14 +137,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const resendVerification = async (email: string) => {
-    const { error } = await supabase.auth.resend({ type: "signup", email })
+    const { error } = await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/login` } })
     if (error) return { success: false, error: "재발송에 실패했습니다." }
     return { success: true }
   }
 
   const sendPasswordReset = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password`,
     })
     if (error) return { success: false, error: "재설정 메일 발송에 실패했습니다." }
     return { success: true }

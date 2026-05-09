@@ -432,7 +432,7 @@ export const ko: Dict = {
     notifSound: "소리 알림",
     appVersion: "앱 버전",
     support: "고객 지원",
-    supportContact: "support@shrimp365.com",
+    supportContact: "contact@culiver.ai",
     legalPrivacy: "개인정보처리방침",
     legalTerms: "이용약관",
     saving: "저장 중...",
