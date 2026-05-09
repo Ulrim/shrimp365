@@ -4,28 +4,20 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { useT } from "@/lib/i18n-context"
 import { cn } from "@/lib/utils"
 import {
   Waves, LayoutDashboard, Droplets, BookOpen, Building2,
   FlaskConical, BrainCircuit, BarChart3, Settings, LogOut,
-  ChevronLeft, ChevronRight, Bell, Menu, X, Zap
+  ChevronLeft, ChevronRight, Menu, X, Zap
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { SettingsPanel } from "@/components/layout/settings-panel"
+import { LanguageSwitcher } from "@/components/ui/language-switcher"
 import { getDiagnosisCount } from "@/lib/db"
 import { isTestAccount, MOCK_DIAGNOSES } from "@/lib/mock-data"
 import { PLAN_LABELS, PLAN_COLORS, isPaidPlan } from "@/lib/plans"
-
-const BASE_NAV = [
-  { href: "/dashboard",    icon: LayoutDashboard, label: "대시보드" },
-  { href: "/water-quality", icon: Droplets,       label: "수질 모니터링" },
-  { href: "/journal",      icon: BookOpen,        label: "양식 일지" },
-  { href: "/farms",        icon: Building2,       label: "양식장·수조 관리" },
-  { href: "/diagnosis",    icon: FlaskConical,    label: "질병 진단" },
-  { href: "/ai-advisor",   icon: BrainCircuit,    label: "AI 어드바이저" },
-  { href: "/reports",      icon: BarChart3,       label: "리포트" },
-]
 
 interface SidebarProps {
   alertCount?: number
@@ -35,10 +27,21 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuth()
+  const { t } = useT()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [diagBadge, setDiagBadge] = useState<number>(0)
+
+  const NAV = [
+    { href: "/dashboard",    icon: LayoutDashboard, label: t.nav.dashboard },
+    { href: "/water-quality", icon: Droplets,       label: t.nav.waterQuality },
+    { href: "/journal",      icon: BookOpen,        label: t.nav.journal },
+    { href: "/farms",        icon: Building2,       label: t.nav.farms },
+    { href: "/diagnosis",    icon: FlaskConical,    label: t.nav.diagnosis },
+    { href: "/ai-advisor",   icon: BrainCircuit,    label: t.nav.aiAdvisor },
+    { href: "/reports",      icon: BarChart3,       label: t.nav.reports },
+  ]
 
   useEffect(() => {
     async function loadDiagCount() {
@@ -73,14 +76,14 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
         {!collapsed && (
           <div>
             <span className="text-white font-bold text-lg">Shrimp365</span>
-            <p className="text-ocean-400 text-xs">스마트 양식 플랫폼</p>
+            <p className="text-ocean-400 text-xs">Smart Aquaculture</p>
           </div>
         )}
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {BASE_NAV.map((item) => {
+        {NAV.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
           const badge = item.href === "/diagnosis" ? (diagBadge > 0 ? String(diagBadge) : null) : null
           return (
@@ -119,6 +122,9 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
 
       {/* Bottom */}
       <div className="px-3 pb-4 space-y-1 border-t border-white/10 pt-3">
+        {/* Language Switcher */}
+        <LanguageSwitcher collapsed={collapsed} />
+
         <button
           onClick={() => setSettingsOpen(true)}
           className={cn(
@@ -127,7 +133,7 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
           )}
         >
           <Settings className="w-5 h-5 shrink-0" />
-          {!collapsed && <span>설정</span>}
+          {!collapsed && <span>{t.nav.settings}</span>}
         </button>
 
         {/* Plan badge + upgrade CTA */}
@@ -139,7 +145,7 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
               </span>
               {!isPaidPlan(user?.plan ?? "free") && (
                 <Link href="/pricing" className="flex items-center gap-1 text-xs text-ocean-400 hover:text-ocean-300 transition-colors">
-                  <Zap className="w-3 h-3" />업그레이드
+                  <Zap className="w-3 h-3" />{t.nav.upgrade}
                 </Link>
               )}
             </div>
@@ -159,7 +165,7 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
             </div>
           )}
           {!collapsed && (
-            <button onClick={handleLogout} className="text-slate-500 hover:text-red-400 transition-colors" aria-label="로그아웃">
+            <button onClick={handleLogout} className="text-slate-500 hover:text-red-400 transition-colors" aria-label={t.auth.logoutButton}>
               <LogOut className="w-4 h-4" />
             </button>
           )}
@@ -179,7 +185,7 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="absolute -right-3 top-20 w-6 h-6 bg-slate-800 border border-white/20 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors z-10"
-          aria-label={collapsed ? "사이드바 펼치기" : "사이드바 접기"}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>
@@ -192,7 +198,7 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
         <button
           onClick={() => setMobileOpen(true)}
           className="fixed top-4 left-4 z-50 w-10 h-10 bg-slate-900/90 border border-white/10 rounded-xl flex items-center justify-center text-white backdrop-blur-sm"
-          aria-label="메뉴 열기"
+          aria-label="Open menu"
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -202,7 +208,7 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
             <div className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
             <aside className="fixed left-0 top-0 bottom-0 w-64 bg-slate-900 border-r border-white/10 z-50 flex flex-col">
               <div className="absolute top-4 right-4">
-                <button onClick={() => setMobileOpen(false)} className="text-slate-400 hover:text-white" aria-label="메뉴 닫기">
+                <button onClick={() => setMobileOpen(false)} className="text-slate-400 hover:text-white" aria-label="Close menu">
                   <X className="w-5 h-5" />
                 </button>
               </div>

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
+import { countryToLocale, headerToLocale, type Locale, LOCALES } from "@/lib/i18n"
+
+const LANG_COOKIE = "shrimp365_lang"
 
 const PROTECTED_PATHS = [
   "/dashboard",
@@ -12,6 +15,19 @@ const PROTECTED_PATHS = [
   "/onboarding",
 ]
 
+function detectLocale(request: NextRequest): Locale | null {
+  // 1. Respect existing user preference cookie
+  const existing = request.cookies.get(LANG_COOKIE)?.value
+  if (existing && LOCALES.includes(existing as Locale)) return existing as Locale
+
+  // 2. Vercel geo (edge network) → country code
+  const country = (request as unknown as { geo?: { country?: string } }).geo?.country
+  if (country) return countryToLocale(country)
+
+  // 3. Accept-Language header fallback
+  return headerToLocale(request.headers.get("accept-language"))
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -21,6 +37,16 @@ export async function middleware(request: NextRequest) {
   if (!isProtected && !isAuthPage) return NextResponse.next()
 
   let response = NextResponse.next({ request })
+
+  // Set language cookie if not already set (IP-based default)
+  const locale = detectLocale(request)
+  if (locale && !request.cookies.get(LANG_COOKIE)?.value) {
+    response.cookies.set(LANG_COOKIE, locale, {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+    })
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -32,6 +58,13 @@ export async function middleware(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           response = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
+          if (locale && !request.cookies.get(LANG_COOKIE)?.value) {
+            response.cookies.set(LANG_COOKIE, locale, {
+              path: "/",
+              maxAge: 60 * 60 * 24 * 365,
+              sameSite: "lax",
+            })
+          }
         },
       },
     }
@@ -59,3 +92,4 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|api/).*)",
   ],
 }
+

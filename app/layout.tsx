@@ -1,17 +1,27 @@
 import type { Metadata } from "next"
+import { cookies } from "next/headers"
 import "./globals.css"
 import { AuthProvider } from "@/lib/auth-context"
+import { I18nProvider } from "@/lib/i18n-context"
+import { headerToLocale, type Locale, LOCALES } from "@/lib/i18n"
 
 export const metadata: Metadata = {
-  title: "Shrimp365 — 흰다리새우 스마트 양식 플랫폼",
-  description: "AI 기반 흰다리새우 양식 운영·수질관리 통합 플랫폼",
+  title: "Shrimp365 — Smart Shrimp Aquaculture Platform",
+  description: "AI-powered shrimp aquaculture management platform",
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = await cookies()
+  const stored = cookieStore.get("shrimp365_lang")?.value
+  const defaultLocale: Locale =
+    stored && LOCALES.includes(stored as Locale) ? (stored as Locale) : "ko"
+
   return (
-    <html lang="ko" suppressHydrationWarning>
+    <html lang={defaultLocale} suppressHydrationWarning>
       <body className="antialiased">
-        <AuthProvider>{children}</AuthProvider>
+        <I18nProvider defaultLocale={defaultLocale}>
+          <AuthProvider>{children}</AuthProvider>
+        </I18nProvider>
       </body>
     </html>
   )

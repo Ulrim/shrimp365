@@ -8,20 +8,23 @@ import { NotificationsPanel } from "@/components/layout/notifications-panel"
 import { getAlerts } from "@/lib/db"
 import { MOCK_ALERTS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
-
-const pageLabels: Record<string, string> = {
-  "/dashboard":     "대시보드",
-  "/water-quality": "수질 모니터링",
-  "/journal":       "양식 일지",
-  "/farms":         "양식장·수조 관리",
-  "/diagnosis":     "질병 진단",
-  "/ai-advisor":    "AI 어드바이저",
-  "/reports":       "리포트",
-}
+import { useT } from "@/lib/i18n-context"
 
 export function Header() {
   const pathname = usePathname()
   const { user } = useAuth()
+  const { t } = useT()
+
+  const pageLabels: Record<string, string> = {
+    "/dashboard":     t.nav.dashboard,
+    "/water-quality": t.nav.waterQuality,
+    "/journal":       t.nav.journal,
+    "/farms":         t.nav.farms,
+    "/diagnosis":     t.nav.diagnosis,
+    "/ai-advisor":    t.nav.aiAdvisor,
+    "/reports":       t.nav.reports,
+  }
+
   const title = pageLabels[pathname] || "Shrimp365"
 
   const [searchOpen, setSearchOpen] = useState(false)
@@ -81,6 +84,7 @@ export function Header() {
               검색
               <kbd className="bg-slate-800 border border-white/10 rounded px-1 py-0.5 text-slate-600 text-[10px]">⌘K</kbd>
             </span>
+            <span className="sm:hidden text-xs">{t.common.search}</span>
           </button>
 
           {/* Notifications */}
