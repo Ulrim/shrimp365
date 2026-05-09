@@ -45,6 +45,7 @@ import { formatDate } from "@/lib/utils"
 import { UpgradeModal, type LimitType } from "@/components/ui/upgrade-modal"
 import type { Plan } from "@/lib/plans"
 import type { SensorDevice } from "@/types"
+import { useT } from "@/lib/i18n-context"
 
 function computeCycleDay(stockingDate: string | null | undefined): number {
   if (!stockingDate) return 0
@@ -55,48 +56,53 @@ import type { Farm, Tank } from "@/types"
 
 // ─── Status meta ────────────────────────────────────────────────────────────
 
-const STATUS_META: Record<
-  Tank["status"],
-  { label: string; dot: string; text: string; bg: string; border: string; icon: React.ReactNode }
-> = {
-  active: {
-    label: "정상",
-    dot: "bg-emerald-400",
-    text: "text-emerald-400",
-    bg: "bg-emerald-500/10",
-    border: "border-emerald-500/20",
-    icon: <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />,
-  },
-  warning: {
-    label: "주의",
-    dot: "bg-amber-400",
-    text: "text-amber-400",
-    bg: "bg-amber-500/10",
-    border: "border-amber-500/20",
-    icon: <AlertCircle className="w-3.5 h-3.5 text-amber-400" />,
-  },
-  danger: {
-    label: "위험",
-    dot: "bg-red-400",
-    text: "text-red-400",
-    bg: "bg-red-500/10",
-    border: "border-red-500/20",
-    icon: <XCircle className="w-3.5 h-3.5 text-red-400" />,
-  },
-  inactive: {
-    label: "비가동",
-    dot: "bg-slate-400",
-    text: "text-slate-400",
-    bg: "bg-slate-500/10",
-    border: "border-slate-500/20",
-    icon: <CheckCircle className="w-3.5 h-3.5 text-slate-400" />,
-  },
+function useStatusMeta() {
+  const { t } = useT()
+  const STATUS_META: Record<
+    Tank["status"],
+    { label: string; dot: string; text: string; bg: string; border: string; icon: React.ReactNode }
+  > = {
+    active: {
+      label: t.dashboard.normal,
+      dot: "bg-emerald-400",
+      text: "text-emerald-400",
+      bg: "bg-emerald-500/10",
+      border: "border-emerald-500/20",
+      icon: <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />,
+    },
+    warning: {
+      label: t.dashboard.warning,
+      dot: "bg-amber-400",
+      text: "text-amber-400",
+      bg: "bg-amber-500/10",
+      border: "border-amber-500/20",
+      icon: <AlertCircle className="w-3.5 h-3.5 text-amber-400" />,
+    },
+    danger: {
+      label: t.dashboard.danger,
+      dot: "bg-red-400",
+      text: "text-red-400",
+      bg: "bg-red-500/10",
+      border: "border-red-500/20",
+      icon: <XCircle className="w-3.5 h-3.5 text-red-400" />,
+    },
+    inactive: {
+      label: t.farms.tankStatusInactive,
+      dot: "bg-slate-400",
+      text: "text-slate-400",
+      bg: "bg-slate-500/10",
+      border: "border-slate-500/20",
+      icon: <CheckCircle className="w-3.5 h-3.5 text-slate-400" />,
+    },
+  }
+  return STATUS_META
 }
 
 // ─── Add Farm Dialog ─────────────────────────────────────────────────────────
 
 function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
   const { user } = useAuth()
+  const { t } = useT()
   const [open, setOpen] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -150,16 +156,16 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm" className="bg-ocean-500 hover:bg-ocean-600 text-white gap-1.5">
-          <Plus className="w-4 h-4" /> 양식장 추가
+          <Plus className="w-4 h-4" /> {t.farms.addFarm}
         </Button>
       </DialogTrigger>
       <DialogContent className="bg-slate-900 border-white/10 text-white max-w-md">
         <DialogHeader>
           <DialogTitle className="text-white flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-ocean-400" /> 양식장 추가
+            <Building2 className="w-5 h-5 text-ocean-400" /> {t.farms.addFarm}
           </DialogTitle>
           <DialogDescription className="text-slate-400">
-            새로운 양식장 정보를 입력하세요.
+            {t.farms.subtitle}
           </DialogDescription>
         </DialogHeader>
 
@@ -168,9 +174,9 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
             <div className="w-14 h-14 rounded-full bg-emerald-500/15 flex items-center justify-center">
               <CheckCircle className="w-7 h-7 text-emerald-400" />
             </div>
-            <p className="text-white font-semibold text-lg">양식장이 추가되었습니다</p>
+            <p className="text-white font-semibold text-lg">{t.farms.farmCreated}</p>
             <p className="text-slate-400 text-sm">
-              <span className="text-white font-medium">{form.name || "새 양식장"}</span>이(가) 성공적으로 등록되었습니다.
+              <span className="text-white font-medium">{form.name || t.farms.addFarm}</span>
             </p>
           </div>
         ) : (
@@ -179,10 +185,10 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
               <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="farm-name" className="text-slate-300 text-sm">양식장 이름 *</Label>
+              <Label htmlFor="farm-name" className="text-slate-300 text-sm">{t.farms.farmName} *</Label>
               <Input
                 id="farm-name"
-                placeholder="예: 제3양식장"
+                placeholder={t.farms.farmNamePlaceholder}
                 className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-ocean-500/50"
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
@@ -190,10 +196,10 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="farm-location" className="text-slate-300 text-sm">위치 *</Label>
+              <Label htmlFor="farm-location" className="text-slate-300 text-sm">{t.farms.location} *</Label>
               <Input
                 id="farm-location"
-                placeholder="예: 전남 완도군 완도읍"
+                placeholder={t.farms.locationPlaceholder}
                 className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-ocean-500/50"
                 value={form.location}
                 onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
@@ -201,17 +207,17 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="farm-owner" className="text-slate-300 text-sm">대표자 이름</Label>
+              <Label htmlFor="farm-owner" className="text-slate-300 text-sm">{t.farms.ownerName}</Label>
               <Input
                 id="farm-owner"
-                placeholder="예: 홍길동"
+                placeholder={t.farms.ownerNamePlaceholder}
                 className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-ocean-500/50"
                 value={form.owner_name}
                 onChange={e => setForm(f => ({ ...f, owner_name: e.target.value }))}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="farm-area" className="text-slate-300 text-sm">면적 (m²)</Label>
+              <Label htmlFor="farm-area" className="text-slate-300 text-sm">{t.farms.area} ({t.farms.areaUnit})</Label>
               <Input
                 id="farm-area"
                 type="number"
@@ -230,15 +236,15 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
                 className="border-white/10 text-slate-300 hover:bg-white/5"
                 onClick={() => handleOpenChange(false)}
               >
-                취소
+                {t.common.cancel}
               </Button>
               <Button type="submit" disabled={saving} className="bg-ocean-500 hover:bg-ocean-600 text-white">
                 {saving ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    등록중...
+                    {t.farms.saving}
                   </span>
-                ) : "등록하기"}
+                ) : t.common.add}
               </Button>
             </DialogFooter>
           </form>
@@ -250,7 +256,7 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
               className="bg-ocean-500 hover:bg-ocean-600 text-white w-full"
               onClick={() => handleOpenChange(false)}
             >
-              닫기
+              {t.common.close}
             </Button>
           </DialogFooter>
         )}
@@ -264,6 +270,7 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
 
 function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void }) {
   const { user } = useAuth()
+  const { t } = useT()
   const [open, setOpen] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -328,16 +335,16 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" className="border-white/10 text-slate-300 hover:bg-white/5 gap-1.5">
-          <Plus className="w-4 h-4" /> 수조 추가
+          <Plus className="w-4 h-4" /> {t.farms.addTank}
         </Button>
       </DialogTrigger>
       <DialogContent className="bg-slate-900 border-white/10 text-white max-w-md">
         <DialogHeader>
           <DialogTitle className="text-white flex items-center gap-2">
-            <Droplets className="w-5 h-5 text-teal-400" /> 수조 추가
+            <Droplets className="w-5 h-5 text-teal-400" /> {t.farms.addTank}
           </DialogTitle>
           <DialogDescription className="text-slate-400">
-            {farm.name}에 새 수조를 추가합니다.
+            {farm.name}
           </DialogDescription>
         </DialogHeader>
 
@@ -346,9 +353,9 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
             <div className="w-14 h-14 rounded-full bg-emerald-500/15 flex items-center justify-center">
               <CheckCircle className="w-7 h-7 text-emerald-400" />
             </div>
-            <p className="text-white font-semibold text-lg">수조가 추가되었습니다</p>
+            <p className="text-white font-semibold text-lg">{t.farms.tankCreated}</p>
             <p className="text-slate-400 text-sm">
-              <span className="text-white font-medium">{form.name || "새 수조"}</span>이(가) 성공적으로 등록되었습니다.
+              <span className="text-white font-medium">{form.name || t.farms.addTank}</span>
             </p>
           </div>
         ) : (
@@ -357,10 +364,10 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
               <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="tank-name" className="text-slate-300 text-sm">수조 이름 *</Label>
+              <Label htmlFor="tank-name" className="text-slate-300 text-sm">{t.farms.tankName} *</Label>
               <Input
                 id="tank-name"
-                placeholder="예: E-1조"
+                placeholder={t.farms.tankNamePlaceholder}
                 className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-ocean-500/50"
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
@@ -368,7 +375,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-slate-300 text-sm">수조 유형</Label>
+              <Label className="text-slate-300 text-sm">{t.common.type}</Label>
               <div className="flex gap-2">
                 {(["노지", "실내", "반실내"] as const).map(type => (
                   <button
@@ -387,7 +394,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="tank-volume" className="text-slate-300 text-sm">용량 (m³) *</Label>
+              <Label htmlFor="tank-volume" className="text-slate-300 text-sm">{t.farms.tankVolume} ({t.farms.tankVolumeUnit}) *</Label>
               <Input
                 id="tank-volume"
                 type="number"
@@ -400,7 +407,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="tank-density" className="text-slate-300 text-sm">입식 밀도 (마리/m³) *</Label>
+              <Label htmlFor="tank-density" className="text-slate-300 text-sm">{t.farms.tankDensity} ({t.farms.tankDensityUnit}) *</Label>
               <Input
                 id="tank-density"
                 type="number"
@@ -441,15 +448,15 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
                 className="border-white/10 text-slate-300 hover:bg-white/5"
                 onClick={() => handleOpenChange(false)}
               >
-                취소
+                {t.common.cancel}
               </Button>
               <Button type="submit" disabled={saving} className="bg-teal-600 hover:bg-teal-700 text-white">
                 {saving ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    등록중...
+                    {t.farms.saving}
                   </span>
-                ) : "등록하기"}
+                ) : t.common.add}
               </Button>
             </DialogFooter>
           </form>
@@ -461,7 +468,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
               className="bg-teal-600 hover:bg-teal-700 text-white w-full"
               onClick={() => handleOpenChange(false)}
             >
-              닫기
+              {t.common.close}
             </Button>
           </DialogFooter>
         )}
@@ -474,6 +481,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
 // ─── Edit Farm Dialog ────────────────────────────────────────────────────────
 
 function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void }) {
+  const { t } = useT()
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -501,38 +509,38 @@ function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-1.5 rounded-lg hover:bg-white/8 text-slate-400 hover:text-white transition-colors" title="편집" aria-label="양식장 편집">
+        <button className="p-1.5 rounded-lg hover:bg-white/8 text-slate-400 hover:text-white transition-colors" title={t.farms.editFarm} aria-label={t.farms.editFarm}>
           <Edit2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
       <DialogContent className="bg-slate-900 border-white/10 text-white max-w-md">
         <DialogHeader>
           <DialogTitle className="text-white flex items-center gap-2">
-            <Edit2 className="w-4 h-4 text-ocean-400" /> 양식장 편집
+            <Edit2 className="w-4 h-4 text-ocean-400" /> {t.farms.editFarm}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="space-y-2">
-            <Label className="text-slate-300">양식장 이름 *</Label>
+            <Label className="text-slate-300">{t.farms.farmName} *</Label>
             <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required className="bg-slate-800 border-white/10 text-white" />
           </div>
           <div className="space-y-2">
-            <Label className="text-slate-300">위치</Label>
+            <Label className="text-slate-300">{t.farms.location}</Label>
             <Input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
           </div>
           <div className="space-y-2">
-            <Label className="text-slate-300">대표자 이름</Label>
-            <Input value={form.owner_name} onChange={e => setForm(p => ({ ...p, owner_name: e.target.value }))} placeholder="예: 홍길동" className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500" />
+            <Label className="text-slate-300">{t.farms.ownerName}</Label>
+            <Input value={form.owner_name} onChange={e => setForm(p => ({ ...p, owner_name: e.target.value }))} placeholder={t.farms.ownerNamePlaceholder} className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500" />
           </div>
           <div className="space-y-2">
-            <Label className="text-slate-300">면적 (m²)</Label>
+            <Label className="text-slate-300">{t.farms.area} ({t.farms.areaUnit})</Label>
             <Input type="number" value={form.area} onChange={e => setForm(p => ({ ...p, area: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
           </div>
           {error && <p className="text-sm text-red-400">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="border-white/10 text-slate-300">취소</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="border-white/10 text-slate-300">{t.common.cancel}</Button>
             <Button type="submit" disabled={saving} className="bg-ocean-500 hover:bg-ocean-600 text-white">
-              {saving ? "저장중..." : "저장"}
+              {saving ? t.farms.saving : t.common.save}
             </Button>
           </DialogFooter>
         </form>
@@ -544,6 +552,7 @@ function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void
 // ─── Delete Farm Dialog ───────────────────────────────────────────────────────
 
 function DeleteFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void }) {
+  const { t } = useT()
   const [open, setOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -565,24 +574,24 @@ function DeleteFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => vo
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-1.5 rounded-lg hover:bg-red-500/15 text-slate-400 hover:text-red-400 transition-colors" title="삭제" aria-label="양식장 삭제">
+        <button className="p-1.5 rounded-lg hover:bg-red-500/15 text-slate-400 hover:text-red-400 transition-colors" title={t.farms.deleteFarm} aria-label={t.farms.deleteFarm}>
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
       <DialogContent className="bg-slate-900 border-white/10 text-white max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-white flex items-center gap-2">
-            <Trash2 className="w-4 h-4 text-red-400" /> 양식장 삭제
+            <Trash2 className="w-4 h-4 text-red-400" /> {t.farms.deleteFarm}
           </DialogTitle>
           <DialogDescription className="text-slate-400">
-            <strong className="text-white">{farm.name}</strong>을 삭제하면 해당 양식장의 모든 수조 데이터도 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+            <strong className="text-white">{farm.name}</strong> — {t.farms.deleteFarmConfirm}
           </DialogDescription>
         </DialogHeader>
         {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
         <DialogFooter className="mt-4">
-          <Button variant="outline" onClick={() => setOpen(false)} className="border-white/10 text-slate-300">취소</Button>
+          <Button variant="outline" onClick={() => setOpen(false)} className="border-white/10 text-slate-300">{t.common.cancel}</Button>
           <Button onClick={handleDelete} disabled={deleting} className="bg-red-600 hover:bg-red-700 text-white">
-            {deleting ? "삭제중..." : "삭제"}
+            {deleting ? t.farms.saving : t.common.delete}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -593,6 +602,7 @@ function DeleteFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => vo
 // ─── Edit Tank Dialog ─────────────────────────────────────────────────────────
 
 function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void }) {
+  const { t } = useT()
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -647,32 +657,32 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
   }
 
   const STATUS_OPTIONS: { value: Tank["status"]; label: string; color: string }[] = [
-    { value: "active",   label: "정상",  color: "text-emerald-400" },
-    { value: "warning",  label: "주의",  color: "text-amber-400" },
-    { value: "danger",   label: "위험",  color: "text-red-400" },
-    { value: "inactive", label: "비가동", color: "text-slate-400" },
+    { value: "active",   label: t.dashboard.normal,        color: "text-emerald-400" },
+    { value: "warning",  label: t.dashboard.warning,       color: "text-amber-400" },
+    { value: "danger",   label: t.dashboard.danger,        color: "text-red-400" },
+    { value: "inactive", label: t.farms.tankStatusInactive, color: "text-slate-400" },
   ]
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-1.5 rounded-lg hover:bg-white/8 text-slate-400 hover:text-white transition-colors" title="편집" aria-label="수조 편집">
+        <button className="p-1.5 rounded-lg hover:bg-white/8 text-slate-400 hover:text-white transition-colors" title={t.farms.editTank} aria-label={t.farms.editTank}>
           <Edit2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
       <DialogContent className="bg-slate-900 border-white/10 text-white max-w-md">
         <DialogHeader>
           <DialogTitle className="text-white flex items-center gap-2">
-            <Edit2 className="w-4 h-4 text-teal-400" /> 수조 편집
+            <Edit2 className="w-4 h-4 text-teal-400" /> {t.farms.editTank}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="space-y-2">
-            <Label className="text-slate-300">수조 이름 *</Label>
+            <Label className="text-slate-300">{t.farms.tankName} *</Label>
             <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required className="bg-slate-800 border-white/10 text-white" />
           </div>
           <div className="space-y-2">
-            <Label className="text-slate-300">수조 유형</Label>
+            <Label className="text-slate-300">{t.common.type}</Label>
             <div className="flex gap-2">
               {(["노지", "실내", "반실내"] as const).map(type => (
                 <button
@@ -692,11 +702,11 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-slate-300">용량 (m³)</Label>
+              <Label className="text-slate-300">{t.farms.tankVolume} ({t.farms.tankVolumeUnit})</Label>
               <Input type="number" value={form.volume} onChange={e => setForm(p => ({ ...p, volume: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
             </div>
             <div className="space-y-2">
-              <Label className="text-slate-300">재식 밀도 (마리/m³)</Label>
+              <Label className="text-slate-300">{t.farms.tankDensity} ({t.farms.tankDensityUnit})</Label>
               <Input type="number" value={form.density} onChange={e => setForm(p => ({ ...p, density: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
             </div>
           </div>
@@ -711,7 +721,7 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
             </div>
           </div>
           <div className="space-y-2">
-            <Label className="text-slate-300">상태 (수동 설정)</Label>
+            <Label className="text-slate-300">{t.common.status}</Label>
             <div className="flex gap-2">
               {STATUS_OPTIONS.map(opt => (
                 <button
@@ -732,9 +742,9 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
           </div>
           {error && <p className="text-sm text-red-400">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="border-white/10 text-slate-300">취소</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="border-white/10 text-slate-300">{t.common.cancel}</Button>
             <Button type="submit" disabled={saving} className="bg-teal-600 hover:bg-teal-700 text-white">
-              {saving ? "저장중..." : "저장"}
+              {saving ? t.farms.saving : t.common.save}
             </Button>
           </DialogFooter>
         </form>
@@ -746,6 +756,7 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
 // ─── Delete Tank Dialog ───────────────────────────────────────────────────────
 
 function DeleteTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void }) {
+  const { t } = useT()
   const [open, setOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -767,24 +778,24 @@ function DeleteTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => vo
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-1.5 rounded-lg hover:bg-red-500/15 text-slate-400 hover:text-red-400 transition-colors" title="삭제" aria-label="수조 삭제">
+        <button className="p-1.5 rounded-lg hover:bg-red-500/15 text-slate-400 hover:text-red-400 transition-colors" title={t.farms.deleteTank} aria-label={t.farms.deleteTank}>
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
       <DialogContent className="bg-slate-900 border-white/10 text-white max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-white flex items-center gap-2">
-            <Trash2 className="w-4 h-4 text-red-400" /> 수조 삭제
+            <Trash2 className="w-4 h-4 text-red-400" /> {t.farms.deleteTank}
           </DialogTitle>
           <DialogDescription className="text-slate-400">
-            <strong className="text-white">{tank.name}</strong>을 삭제하면 해당 수조의 모든 데이터(수질, 일지, 진단)도 함께 삭제됩니다.
+            <strong className="text-white">{tank.name}</strong> — {t.farms.deleteTankConfirm}
           </DialogDescription>
         </DialogHeader>
         {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
         <DialogFooter className="mt-4">
-          <Button variant="outline" onClick={() => setOpen(false)} className="border-white/10 text-slate-300">취소</Button>
+          <Button variant="outline" onClick={() => setOpen(false)} className="border-white/10 text-slate-300">{t.common.cancel}</Button>
           <Button onClick={handleDelete} disabled={deleting} className="bg-red-600 hover:bg-red-700 text-white">
-            {deleting ? "삭제중..." : "삭제"}
+            {deleting ? t.farms.saving : t.common.delete}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -802,6 +813,7 @@ const DEVICE_TYPE_LABELS: Record<SensorDevice["device_type"], string> = {
 }
 
 function RegisterDeviceDialog({ tank, onSuccess }: { tank: import("@/types").Tank; onSuccess: () => void }) {
+  const { t } = useT()
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState<"form" | "done">("form")
   const [saving, setSaving] = useState(false)
@@ -864,7 +876,7 @@ function RegisterDeviceDialog({ tank, onSuccess }: { tank: import("@/types").Tan
             <Cpu className="w-5 h-5 text-ocean-400" /> 센서 기기 등록
           </DialogTitle>
           <DialogDescription className="text-slate-400">
-            {tank.name}에 연동할 수질 측정 기기를 등록합니다.
+            {tank.name}
           </DialogDescription>
         </DialogHeader>
 
@@ -904,9 +916,9 @@ function RegisterDeviceDialog({ tank, onSuccess }: { tank: import("@/types").Tan
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClose} className="border-white/10 text-slate-300">취소</Button>
+              <Button type="button" variant="outline" onClick={handleClose} className="border-white/10 text-slate-300">{t.common.cancel}</Button>
               <Button type="submit" disabled={saving || !form.name.trim()} className="bg-ocean-500 hover:bg-ocean-600 text-white">
-                {saving ? "등록중..." : "등록하기"}
+                {saving ? t.farms.saving : t.common.add}
               </Button>
             </DialogFooter>
           </form>
@@ -975,7 +987,7 @@ void sendReading(float temp, float ph, float doLevel) {
             </details>
 
             <DialogFooter>
-              <Button onClick={handleClose} className="bg-ocean-500 hover:bg-ocean-600 text-white w-full">닫기</Button>
+              <Button onClick={handleClose} className="bg-ocean-500 hover:bg-ocean-600 text-white w-full">{t.common.close}</Button>
             </DialogFooter>
           </div>
         )}
@@ -1121,6 +1133,7 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
 // ─── Tank Card ───────────────────────────────────────────────────────────────
 
 function TankCard({ tank, onRefresh }: { tank: Tank; onRefresh: () => void }) {
+  const STATUS_META = useStatusMeta()
   const meta = STATUS_META[tank.status]
   const isPulsing = tank.status === "warning" || tank.status === "danger"
 
@@ -1213,6 +1226,7 @@ function FarmCard({
   onClick: () => void
   tanks: Tank[]
 }) {
+  const { t } = useT()
   const active = tanks.filter(t => t.status === "active").length
   const warning = tanks.filter(t => t.status === "warning").length
   const danger = tanks.filter(t => t.status === "danger").length
@@ -1247,12 +1261,12 @@ function FarmCard({
 
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div className="bg-slate-900/40 rounded-lg px-2.5 py-1.5">
-          <p className="text-slate-500 mb-0.5">면적</p>
-          <p className="text-slate-200 font-medium">{farm.area.toLocaleString()} m²</p>
+          <p className="text-slate-500 mb-0.5">{t.farms.area}</p>
+          <p className="text-slate-200 font-medium">{farm.area.toLocaleString()} {t.farms.areaUnit}</p>
         </div>
         <div className="bg-slate-900/40 rounded-lg px-2.5 py-1.5">
           <p className="text-slate-500 mb-0.5">수조</p>
-          <p className="text-slate-200 font-medium">{tanks.length}개</p>
+          <p className="text-slate-200 font-medium">{tanks.length}{t.farms.tankCount}</p>
         </div>
       </div>
 
@@ -1285,6 +1299,7 @@ function FarmCard({
 // ─── Status Summary Bar ──────────────────────────────────────────────────────
 
 function StatusSummary({ tanks }: { tanks: Tank[] }) {
+  const { t } = useT()
   const counts = {
     active: tanks.filter(t => t.status === "active").length,
     warning: tanks.filter(t => t.status === "warning").length,
@@ -1294,14 +1309,14 @@ function StatusSummary({ tanks }: { tanks: Tank[] }) {
   const total = tanks.length
 
   const items = [
-    { key: "active" as const, label: "정상", color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400", Icon: CheckCircle },
-    { key: "warning" as const, label: "주의", color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20", dot: "bg-amber-400", Icon: AlertCircle },
-    { key: "danger" as const, label: "위험", color: "text-red-400", bg: "bg-red-500/10 border-red-500/20", dot: "bg-red-400", Icon: XCircle },
+    { key: "active" as const, label: t.dashboard.normal, color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400", Icon: CheckCircle },
+    { key: "warning" as const, label: t.dashboard.warning, color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20", dot: "bg-amber-400", Icon: AlertCircle },
+    { key: "danger" as const, label: t.dashboard.danger, color: "text-red-400", bg: "bg-red-500/10 border-red-500/20", dot: "bg-red-400", Icon: XCircle },
   ]
 
   return (
     <div className="flex items-center gap-3 flex-wrap">
-      <span className="text-slate-500 text-xs font-medium">전체 {total}개</span>
+      <span className="text-slate-500 text-xs font-medium">{t.common.all} {total}{t.farms.tankCount}</span>
       <div className="w-px h-4 bg-white/8" />
       {items.map(({ key, label, color, bg, dot, Icon }) => (
         <div key={key} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${bg} ${color}`}>
@@ -1317,6 +1332,7 @@ function StatusSummary({ tanks }: { tanks: Tank[] }) {
 
 export default function FarmsPage() {
   const { user } = useAuth()
+  const { t } = useT()
   const [farms, setFarms] = useState<Farm[]>([])
   const [tanksMap, setTanksMap] = useState<Record<string, Tank[]>>({})
   const [selectedFarmId, setSelectedFarmId] = useState<string>("")
@@ -1391,7 +1407,7 @@ export default function FarmsPage() {
       <div className="flex items-center justify-center h-64">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-ocean-500/30 border-t-ocean-500 rounded-full animate-spin" />
-          <p className="text-slate-400 text-sm">양식장 데이터를 불러오는 중...</p>
+          <p className="text-slate-400 text-sm">{t.common.loading}</p>
         </div>
       </div>
     )
@@ -1404,10 +1420,10 @@ export default function FarmsPage() {
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
             <Building2 className="w-5 h-5 text-ocean-400" />
-            양식장 · 수조 관리
+            {t.farms.title}
           </h1>
           <p className="text-slate-400 text-sm mt-0.5">
-            양식장과 수조 현황을 한눈에 확인하고 관리하세요.
+            {t.farms.subtitle}
           </p>
         </div>
         <AddFarmDialog onSuccess={handleFarmAdded} />
@@ -1418,7 +1434,7 @@ export default function FarmsPage() {
         {/* ── Left: Farm List ── */}
         <div className="w-72 shrink-0 space-y-3">
           <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider px-1">
-            양식장 ({farms.length})
+            {t.nav.farms} ({farms.length})
           </p>
           {farms.map(farm => (
             <FarmCard
@@ -1435,7 +1451,7 @@ export default function FarmsPage() {
             <Card className="bg-slate-800/30 border-white/5 mt-2">
               <CardContent className="p-4 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">양식장 정보</p>
+                  <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">{t.farms.title}</p>
                   <div className="flex items-center gap-0.5">
                     <EditFarmDialog farm={selectedFarm} onSuccess={handleFarmAdded} />
                     <DeleteFarmDialog farm={selectedFarm} onSuccess={() => { setSelectedFarmId(""); handleFarmAdded() }} />
@@ -1443,16 +1459,16 @@ export default function FarmsPage() {
                 </div>
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-slate-500">이름</span>
+                    <span className="text-slate-500">{t.farms.farmName}</span>
                     <span className="text-slate-200 font-medium">{selectedFarm.name}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">위치</span>
+                    <span className="text-slate-500">{t.farms.location}</span>
                     <span className="text-slate-200 font-medium text-right max-w-[140px]">{selectedFarm.location}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">면적</span>
-                    <span className="text-slate-200 font-medium">{selectedFarm.area.toLocaleString()} m²</span>
+                    <span className="text-slate-500">{t.farms.area}</span>
+                    <span className="text-slate-200 font-medium">{selectedFarm.area.toLocaleString()} {t.farms.areaUnit}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">등록일</span>
@@ -1483,7 +1499,7 @@ export default function FarmsPage() {
             <div className="flex items-center justify-center h-40">
               <div className="flex flex-col items-center gap-3">
                 <div className="w-6 h-6 border-2 border-teal-500/30 border-t-teal-500 rounded-full animate-spin" />
-                <p className="text-slate-400 text-sm">수조 데이터를 불러오는 중...</p>
+                <p className="text-slate-400 text-sm">{t.common.loading}</p>
               </div>
             </div>
           ) : selectedTanks.length === 0 ? (
@@ -1492,8 +1508,8 @@ export default function FarmsPage() {
                 <div className="w-14 h-14 rounded-2xl bg-slate-700/60 flex items-center justify-center">
                   <Layers className="w-7 h-7 text-slate-500" />
                 </div>
-                <p className="text-slate-400 font-medium">등록된 수조가 없습니다</p>
-                <p className="text-slate-600 text-sm">위의 수조 추가 버튼으로 첫 번째 수조를 등록하세요.</p>
+                <p className="text-slate-400 font-medium">{t.farms.noTanks}</p>
+                <p className="text-slate-600 text-sm">{t.farms.noTanksMsg}</p>
               </CardContent>
             </Card>
           ) : (

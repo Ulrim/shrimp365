@@ -98,7 +98,7 @@ export default function PaymentSuccessPage() {
             </Button>
           </Link>
           <p className="text-slate-500 text-xs">
-            {countdown > 0 ? `${countdown}초 후 자동으로 이동합니다` : "이동 중..."}
+            {countdown > 0 ? `${countdown}s` : t.common.loading}
           </p>
         </div>
 

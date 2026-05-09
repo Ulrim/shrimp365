@@ -17,19 +17,7 @@ import {
   CheckCircle2, AlertCircle, XCircle, Activity
 } from "lucide-react"
 import { formatDateTime } from "@/lib/utils"
-
-const TANK_STATUS_META = {
-  active:   { label: "정상", color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400" },
-  warning:  { label: "주의", color: "text-amber-400",   bg: "bg-amber-500/10 border-amber-500/20",   dot: "bg-amber-400" },
-  danger:   { label: "위험", color: "text-red-400",     bg: "bg-red-500/10 border-red-500/20",       dot: "bg-red-400" },
-  inactive: { label: "비가동", color: "text-slate-400", bg: "bg-slate-500/10 border-slate-500/20",   dot: "bg-slate-400" },
-}
-
-const ALERT_ICONS = {
-  danger:  <XCircle className="w-4 h-4 text-red-400" />,
-  warning: <AlertCircle className="w-4 h-4 text-amber-400" />,
-  info:    <CheckCircle2 className="w-4 h-4 text-ocean-400" />,
-}
+import { useT } from "@/lib/i18n-context"
 
 function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string }) {
   return (
@@ -53,6 +41,7 @@ function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; l
 export default function DashboardPage() {
   const { user } = useAuth()
   const router = useRouter()
+  const { t, locale } = useT()
   const [farms, setFarms]       = useState<Farm[]>([])
   const [tanks, setTanks]       = useState<Tank[]>([])
   const [alerts, setAlerts]     = useState<Alert[]>([])
@@ -60,19 +49,32 @@ export default function DashboardPage() {
   const [wqData, setWqData]     = useState<WaterQualityReading[]>([])
   const [loading, setLoading]   = useState(true)
 
+  const TANK_STATUS_META = {
+    active:   { label: t.dashboard.normal,  color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400" },
+    warning:  { label: t.dashboard.warning, color: "text-amber-400",   bg: "bg-amber-500/10 border-amber-500/20",   dot: "bg-amber-400" },
+    danger:   { label: t.dashboard.danger,  color: "text-red-400",     bg: "bg-red-500/10 border-red-500/20",       dot: "bg-red-400" },
+    inactive: { label: t.dashboard.normal,  color: "text-slate-400",   bg: "bg-slate-500/10 border-slate-500/20",   dot: "bg-slate-400" },
+  }
+
+  const ALERT_ICONS = {
+    danger:  <XCircle className="w-4 h-4 text-red-400" />,
+    warning: <AlertCircle className="w-4 h-4 text-amber-400" />,
+    info:    <CheckCircle2 className="w-4 h-4 text-ocean-400" />,
+  }
+
   useEffect(() => {
     async function load() {
       const mock = isTestAccount(user?.email)
       try {
-        const [f, t, a, d] = await Promise.all([
+        const [f, tk, a, d] = await Promise.all([
           getFarms(), getAllTanks(), getAlerts(true), getDiagnoses()
         ])
         setFarms(f.length ? f : (mock ? MOCK_FARMS : []))
-        setTanks(t.length ? t : (mock ? MOCK_TANKS : []))
+        setTanks(tk.length ? tk : (mock ? MOCK_TANKS : []))
         setAlerts(a.length ? a : (mock ? MOCK_ALERTS.filter(x => !x.resolved) : []))
         setDiagnoses(d.length ? d : (mock ? MOCK_DIAGNOSES : []))
 
-        const firstTank = t.length ? t[0] : (mock ? MOCK_TANKS[0] : null)
+        const firstTank = tk.length ? tk[0] : (mock ? MOCK_TANKS[0] : null)
         if (firstTank) {
           const wq = await getWaterQuality(firstTank.id, 24)
           setWqData(wq.length ? wq : (mock ? (MOCK_WATER_QUALITY[firstTank.id] || []) : []))
@@ -93,17 +95,19 @@ export default function DashboardPage() {
   }, [user])
 
   const statusCounts = {
-    active:  tanks.filter(t => t.status === "active").length,
-    warning: tanks.filter(t => t.status === "warning").length,
-    danger:  tanks.filter(t => t.status === "danger").length,
+    active:  tanks.filter(tk => tk.status === "active").length,
+    warning: tanks.filter(tk => tk.status === "warning").length,
+    danger:  tanks.filter(tk => tk.status === "danger").length,
   }
+
+  const localeStr = locale === "ko" ? "ko-KR" : locale === "vi" ? "vi-VN" : "en-US"
 
   const chartData = wqData
     .filter((_, i) => i % 4 === 0)
     .slice(-24)
     .map(r => ({
-      time: new Date(r.recorded_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }),
-      수온: +r.temperature.toFixed(1),
+      time: new Date(r.recorded_at).toLocaleTimeString(localeStr, { hour: "2-digit", minute: "2-digit" }),
+      [t.waterQuality.temperature]: +r.temperature.toFixed(1),
       DO:   +r.do_level.toFixed(1),
       pH:   +r.ph.toFixed(2),
     }))
@@ -130,14 +134,14 @@ export default function DashboardPage() {
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-red-300">{alerts.length}건의 미처리 알림</p>
+            <p className="text-sm font-medium text-red-300">{alerts.length} {t.dashboard.alertsToday}</p>
             <p className="text-xs text-red-400/70 mt-0.5">
-              {alerts.map(a => a.tank_name).join(", ")} — 즉시 확인이 필요합니다
+              {alerts.map(a => a.tank_name).join(", ")} — {t.dashboard.alertsNone}
             </p>
           </div>
           <Link href="/water-quality">
             <Button size="sm" variant="outline" className="border-red-500/40 text-red-300 hover:bg-red-500/20 text-xs h-8">
-              확인하기
+              {t.dashboard.viewAllAlerts}
             </Button>
           </Link>
         </div>
@@ -145,10 +149,10 @@ export default function DashboardPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={<Building2 className="w-5 h-5 text-ocean-400" />} label="운영 양식장" value={farms.length} sub={`총 ${tanks.length}개 수조`} color="text-ocean-400" />
-        <StatCard icon={<Layers className="w-5 h-5 text-teal-400" />} label="가동 수조" value={statusCounts.active} sub={`주의 ${statusCounts.warning} / 위험 ${statusCounts.danger}`} color="text-teal-400" />
-        <StatCard icon={<AlertTriangle className="w-5 h-5 text-amber-400" />} label="활성 알림" value={alerts.length} sub="즉시 대응 필요" color="text-amber-400" />
-        <StatCard icon={<FlaskConical className="w-5 h-5 text-purple-400" />} label="최근 진단" value={diagnoses[0]?.test_type || "—"} sub={diagnoses[0] ? `${diagnoses[0].tank_name} · ${diagnoses[0].result}` : "진단 없음"} color="text-purple-400" />
+        <StatCard icon={<Building2 className="w-5 h-5 text-ocean-400" />} label={t.dashboard.activeFarms} value={farms.length} sub={`${t.common.total} ${tanks.length}`} color="text-ocean-400" />
+        <StatCard icon={<Layers className="w-5 h-5 text-teal-400" />} label={t.dashboard.activeTanks} value={statusCounts.active} sub={`${t.dashboard.warning} ${statusCounts.warning} / ${t.dashboard.danger} ${statusCounts.danger}`} color="text-teal-400" />
+        <StatCard icon={<AlertTriangle className="w-5 h-5 text-amber-400" />} label={t.dashboard.alertsToday} value={alerts.length} sub={t.dashboard.alertsNone} color="text-amber-400" />
+        <StatCard icon={<FlaskConical className="w-5 h-5 text-purple-400" />} label={t.dashboard.positiveTests} value={diagnoses[0]?.test_type || "—"} sub={diagnoses[0] ? `${diagnoses[0].tank_name} · ${diagnoses[0].result}` : t.dashboard.noJournal} color="text-purple-400" />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -157,9 +161,9 @@ export default function DashboardPage() {
           <Card className="bg-slate-800/50 border-white/5 h-full">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-white text-base">{tanks[0]?.name ?? "수조"} 수질 추이 (24시간)</CardTitle>
+                <CardTitle className="text-white text-base">{tanks[0]?.name ?? t.dashboard.activeTanks} ({t.waterQuality?.period24h ?? "24h"})</CardTitle>
                 <Link href="/water-quality" className="text-xs text-ocean-400 hover:text-ocean-300 flex items-center gap-1">
-                  전체 보기 <ArrowRight className="w-3 h-3" />
+                  {t.dashboard.viewAll} <ArrowRight className="w-3 h-3" />
                 </Link>
               </div>
             </CardHeader>
@@ -172,23 +176,23 @@ export default function DashboardPage() {
                     <YAxis tick={{ fill: "#64748b", fontSize: 11 }} tickLine={false} axisLine={false} width={35} />
                     <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: "12px" }} labelStyle={{ color: "#94a3b8" }} />
                     <Legend wrapperStyle={{ fontSize: "12px", color: "#64748b" }} />
-                    <Line type="monotone" dataKey="수온" stroke="#0ea5e9" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey={t.waterQuality.temperature} stroke="#0ea5e9" strokeWidth={2} dot={false} />
                     <Line type="monotone" dataKey="DO"   stroke="#14b8a6" strokeWidth={2} dot={false} />
                     <Line type="monotone" dataKey="pH"   stroke="#a78bfa" strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="h-[220px] flex items-center justify-center text-slate-500 text-sm">
-                  수질 데이터가 없습니다. 수질 모니터링 페이지에서 데이터를 입력하세요.
+                  {t.dashboard.noFarmsMsg}
                 </div>
               )}
 
               {latestWq && (
                 <div className="grid grid-cols-3 gap-3 mt-4">
                   {[
-                    { label: "수온", value: latestWq.temperature.toFixed(1), unit: "°C", icon: <ThermometerSun className="w-4 h-4" />, ok: latestWq.temperature >= 25 && latestWq.temperature <= 32 },
-                    { label: "DO",   value: latestWq.do_level.toFixed(1),    unit: "mg/L", icon: <Wind className="w-4 h-4" />,           ok: latestWq.do_level >= 5 },
-                    { label: "pH",   value: latestWq.ph.toFixed(2),          unit: "",     icon: <Droplets className="w-4 h-4" />,         ok: latestWq.ph >= 7.5 && latestWq.ph <= 8.5 },
+                    { label: t.waterQuality.temperature, value: latestWq.temperature.toFixed(1), unit: "°C", icon: <ThermometerSun className="w-4 h-4" />, ok: latestWq.temperature >= 25 && latestWq.temperature <= 32 },
+                    { label: t.waterQuality.do_,         value: latestWq.do_level.toFixed(1),    unit: "mg/L", icon: <Wind className="w-4 h-4" />,           ok: latestWq.do_level >= 5 },
+                    { label: t.waterQuality.ph,          value: latestWq.ph.toFixed(2),          unit: "",     icon: <Droplets className="w-4 h-4" />,         ok: latestWq.ph >= 7.5 && latestWq.ph <= 8.5 },
                   ].map(item => (
                     <div key={item.label} className={`flex items-center gap-2 p-3 rounded-xl border ${item.ok ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20"}`}>
                       <span className={item.ok ? "text-emerald-400" : "text-red-400"}>{item.icon}</span>
@@ -209,13 +213,13 @@ export default function DashboardPage() {
           <Card className="bg-slate-800/50 border-white/5">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-white text-base">수조 현황</CardTitle>
-                <Link href="/farms" className="text-xs text-ocean-400 hover:text-ocean-300 flex items-center gap-1">전체 <ArrowRight className="w-3 h-3" /></Link>
+                <CardTitle className="text-white text-base">{t.dashboard.activeTanks}</CardTitle>
+                <Link href="/farms" className="text-xs text-ocean-400 hover:text-ocean-300 flex items-center gap-1">{t.dashboard.viewAll} <ArrowRight className="w-3 h-3" /></Link>
               </div>
             </CardHeader>
             <CardContent className="space-y-2">
               {tanks.length === 0 ? (
-                <p className="text-xs text-slate-500 text-center py-4">등록된 수조가 없습니다</p>
+                <p className="text-xs text-slate-500 text-center py-4">{t.dashboard.noFarmsTitle}</p>
               ) : tanks.slice(0, 6).map(tank => {
                 const meta = TANK_STATUS_META[tank.status] || TANK_STATUS_META.inactive
                 return (
@@ -224,7 +228,7 @@ export default function DashboardPage() {
                       <span className={`w-2 h-2 rounded-full ${meta.dot} ${tank.status !== "active" ? "animate-pulse" : ""}`} />
                       <div>
                         <p className="text-sm font-medium text-white">{tank.name}</p>
-                        <p className="text-xs text-slate-500">{tank.cycle_day}일차</p>
+                        <p className="text-xs text-slate-500">{tank.cycle_day}</p>
                       </div>
                     </div>
                     <span className={`text-xs font-medium ${meta.color}`}>{meta.label}</span>
@@ -237,12 +241,12 @@ export default function DashboardPage() {
           <Card className="bg-slate-800/50 border-white/5">
             <CardHeader className="pb-2">
               <CardTitle className="text-white text-base flex items-center gap-2">
-                <Activity className="w-4 h-4 text-amber-400" /> 최근 알림
+                <Activity className="w-4 h-4 text-amber-400" /> {t.dashboard.recentAlerts}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {alerts.length === 0 ? (
-                <p className="text-xs text-slate-500 text-center py-4">활성 알림 없음</p>
+                <p className="text-xs text-slate-500 text-center py-4">{t.dashboard.noAlerts}</p>
               ) : alerts.slice(0, 3).map(alert => (
                 <div key={alert.id} className={`flex items-start gap-2.5 p-3 rounded-xl border ${
                   alert.type === "danger" ? "bg-red-500/5 border-red-500/20" : "bg-amber-500/5 border-amber-500/20"
@@ -264,24 +268,24 @@ export default function DashboardPage() {
       <Card className="bg-slate-800/50 border-white/5">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-white text-base">최근 진단 결과</CardTitle>
-            <Link href="/diagnosis" className="text-xs text-ocean-400 hover:text-ocean-300 flex items-center gap-1">전체 <ArrowRight className="w-3 h-3" /></Link>
+            <CardTitle className="text-white text-base">{t.dashboard.recentJournal}</CardTitle>
+            <Link href="/diagnosis" className="text-xs text-ocean-400 hover:text-ocean-300 flex items-center gap-1">{t.dashboard.viewAll} <ArrowRight className="w-3 h-3" /></Link>
           </div>
         </CardHeader>
         <CardContent>
           {diagnoses.length === 0 ? (
-            <p className="text-sm text-slate-500 text-center py-6">진단 결과가 없습니다</p>
+            <p className="text-sm text-slate-500 text-center py-6">{t.dashboard.noJournal}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-slate-500 text-xs border-b border-white/5">
-                    <th className="text-left pb-2 font-medium">수조</th>
-                    <th className="text-left pb-2 font-medium">검사 항목</th>
-                    <th className="text-left pb-2 font-medium">결과</th>
-                    <th className="text-right pb-2 font-medium">비브리오</th>
-                    <th className="text-right pb-2 font-medium">위험도</th>
-                    <th className="text-right pb-2 font-medium">검사일시</th>
+                    <th className="text-left pb-2 font-medium">{t.diagnosis.tank}</th>
+                    <th className="text-left pb-2 font-medium">{t.diagnosis.testType}</th>
+                    <th className="text-left pb-2 font-medium">{t.diagnosis.result}</th>
+                    <th className="text-right pb-2 font-medium">{t.diagnosis.resultPositive}</th>
+                    <th className="text-right pb-2 font-medium">{t.common.status}</th>
+                    <th className="text-right pb-2 font-medium">{t.diagnosis.testedAt}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -289,11 +293,11 @@ export default function DashboardPage() {
                     <tr key={d.id} className="hover:bg-white/2">
                       <td className="py-3 text-white font-medium">{d.tank_name}</td>
                       <td className="py-3 text-slate-300">{d.test_type}</td>
-                      <td className="py-3"><Badge variant={d.result === "양성" ? "danger" : d.result === "의심" ? "warning" : "success"}>{d.result}</Badge></td>
+                      <td className="py-3"><Badge variant={d.result === t.diagnosis.resultPositive ? "danger" : d.result === t.diagnosis.resultSuspected ? "warning" : "success"}>{d.result}</Badge></td>
                       <td className="py-3 text-right text-slate-300">{d.vibrio_count.toLocaleString()} CFU/mL</td>
                       <td className="py-3 text-right">
                         <Badge variant={d.risk_level === "high" || d.risk_level === "critical" ? "danger" : d.risk_level === "medium" ? "warning" : "success"}>
-                          {d.risk_level === "low" ? "낮음" : d.risk_level === "medium" ? "보통" : d.risk_level === "high" ? "높음" : "긴급"}
+                          {d.risk_level === "low" ? t.reports.normalDays : d.risk_level === "medium" ? t.reports.warningDays : d.risk_level === "high" ? t.reports.dangerDays : t.diagnosis.urgentAction}
                         </Badge>
                       </td>
                       <td className="py-3 text-right text-slate-500 text-xs">{formatDateTime(d.tested_at)}</td>
