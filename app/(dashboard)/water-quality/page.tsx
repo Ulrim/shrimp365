@@ -630,6 +630,35 @@ export default function WaterQualityPage() {
             </div>
           )}
 
+          {/* ── Per-Parameter Status Strip ──────────────────────────────────── */}
+          {latest && (
+            <Card className="bg-slate-800/50 border-white/5">
+              <CardContent className="p-4">
+                <p className="text-xs text-slate-400 mb-3 font-medium">항목별 현재 수질 상태</p>
+                <div className="flex flex-wrap gap-2">
+                  {PARAM_META.map(meta => {
+                    const stdKey = meta.key as typeof STD_KEYS[number]
+                    const value = latest[meta.key] as number
+                    const status = getStatus(value, stdKey)
+                    const styles = STATUS_STYLES[status]
+                    const statusLabel = status === "정상" ? t.dashboard.normal : status === "주의" ? t.dashboard.warning : t.dashboard.danger
+                    return (
+                      <div
+                        key={meta.key}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium ${styles.bg} ${styles.text}`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${styles.dot} ${status !== "정상" ? "animate-pulse" : ""}`} />
+                        <span>{meta.label}</span>
+                        <span className="opacity-50">·</span>
+                        <span>{statusLabel}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* ── Current Readings Grid ────────────────────────────────────────── */}
           {latest ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
