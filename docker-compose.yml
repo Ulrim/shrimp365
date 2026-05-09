@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+  shrimp365:
+    image: shrimp365:latest          # 로컬에서 빌드한 이미지 이름
+    container_name: shrimp365
+    restart: unless-stopped
+    ports:
+      - "3000:3000"                  # NAS포트:컨테이너포트 (필요시 왼쪽 변경)
+    environment:
+      # ── Supabase ────────────────────────────────────────────────────────────
+      NEXT_PUBLIC_SUPABASE_URL:        ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY:   ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY:       ${SUPABASE_SERVICE_ROLE_KEY}
+
+      # ── AI / Stripe ─────────────────────────────────────────────────────────
+      ANTHROPIC_API_KEY:               ${ANTHROPIC_API_KEY}
+      STRIPE_SECRET_KEY:               ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET:           ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_BASIC_PRICE_ID:           ${STRIPE_BASIC_PRICE_ID}
+      STRIPE_PRO_PRICE_ID:             ${STRIPE_PRO_PRICE_ID}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+
+      # ── 사이트 URL (NAS의 실제 접속 주소로 변경) ──────────────────────────
+      NEXT_PUBLIC_SITE_URL:            ${NEXT_PUBLIC_SITE_URL}
+
+      NODE_ENV: production
