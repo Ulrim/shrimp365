@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
+import { useT } from "@/lib/i18n-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,6 +13,7 @@ import { Waves, AlertCircle, CheckCircle2, Eye, EyeOff } from "lucide-react"
 
 export default function ResetPasswordPage() {
   const router = useRouter()
+  const { t } = useT()
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -35,18 +37,18 @@ export default function ResetPasswordPage() {
     e.preventDefault()
     setError("")
     if (password.length < 6) {
-      setError("비밀번호는 6자 이상이어야 합니다.")
+      setError(t.auth.resetPasswordShort)
       return
     }
     if (password !== confirm) {
-      setError("비밀번호가 일치하지 않습니다.")
+      setError(t.auth.resetPasswordMismatch)
       return
     }
     setLoading(true)
     const { error } = await supabase.auth.updateUser({ password })
     setLoading(false)
     if (error) {
-      setError("비밀번호 변경에 실패했습니다. 링크가 만료되었을 수 있습니다.")
+      setError(t.auth.resetExpiredLink)
     } else {
       setDone(true)
       setTimeout(() => router.replace("/login"), 3000)
@@ -65,9 +67,9 @@ export default function ResetPasswordPage() {
 
         <Card className="bg-white/5 border-white/10 backdrop-blur-md shadow-2xl">
           <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-2xl font-bold text-white">새 비밀번호 설정</CardTitle>
+            <CardTitle className="text-2xl font-bold text-white">{t.auth.resetTitle}</CardTitle>
             <CardDescription className="text-ocean-300">
-              {done ? "비밀번호가 변경되었습니다" : "새로운 비밀번호를 입력하세요"}
+              {done ? t.auth.resetSuccess : t.auth.resetSubtitle}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -76,13 +78,13 @@ export default function ResetPasswordPage() {
                 <div className="flex items-start gap-3 text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-4 py-3">
                   <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium text-sm">비밀번호가 변경되었습니다</p>
-                    <p className="text-xs text-emerald-400/80 mt-1">잠시 후 로그인 페이지로 이동합니다.</p>
+                    <p className="font-medium text-sm">{t.auth.resetSuccess}</p>
+                    <p className="text-xs text-emerald-400/80 mt-1">{t.auth.resetSuccessMsg}</p>
                   </div>
                 </div>
                 <Link href="/login">
                   <Button className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 text-white">
-                    로그인하기
+                    {t.auth.resetGoLogin}
                   </Button>
                 </Link>
               </div>
@@ -95,12 +97,12 @@ export default function ResetPasswordPage() {
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="text-ocean-100">새 비밀번호</Label>
+                  <Label htmlFor="password" className="text-ocean-100">{t.auth.resetNewPassword}</Label>
                   <div className="relative">
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
-                      placeholder="6자 이상 입력"
+                      placeholder={t.auth.resetNewPasswordPlaceholder}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus-visible:ring-ocean-400 pr-10"
@@ -116,11 +118,11 @@ export default function ResetPasswordPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="confirm" className="text-ocean-100">비밀번호 확인</Label>
+                  <Label htmlFor="confirm" className="text-ocean-100">{t.auth.resetConfirmPassword}</Label>
                   <Input
                     id="confirm"
                     type="password"
-                    placeholder="비밀번호를 다시 입력"
+                    placeholder={t.auth.resetConfirmPasswordPlaceholder}
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
                     className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus-visible:ring-ocean-400"
@@ -143,9 +145,9 @@ export default function ResetPasswordPage() {
                   {loading ? (
                     <span className="flex items-center gap-2">
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      변경 중...
+                      {t.auth.resetLoading}
                     </span>
-                  ) : "비밀번호 변경"}
+                  ) : t.auth.resetButton}
                 </Button>
               </form>
             )}
