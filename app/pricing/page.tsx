@@ -7,69 +7,69 @@ import { CheckCircle2, X, Waves, Zap, Building2, ArrowLeft, Star } from "lucide-
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/lib/auth-context"
-
-const FEATURES = {
-  free: [
-    { ok: true,  label: "양식장 1개" },
-    { ok: true,  label: "수조 5개/양식장" },
-    { ok: true,  label: "수질 수동 입력" },
-    { ok: true,  label: "AI 어드바이저 5회/일" },
-    { ok: true,  label: "질병 진단 3회/월" },
-    { ok: true,  label: "양식 일지" },
-    { ok: false, label: "IoT 센서 기기 연동" },
-    { ok: false, label: "수질 자동 새로고침" },
-    { ok: false, label: "CSV/PDF 내보내기" },
-    { ok: false, label: "30일·90일 리포트" },
-    { ok: false, label: "이메일 지원" },
-  ],
-  basic: [
-    { ok: true,  label: "양식장 2개" },
-    { ok: true,  label: "수조 15개/양식장" },
-    { ok: true,  label: "AI 어드바이저 15회/일" },
-    { ok: true,  label: "질병 진단 10회/월" },
-    { ok: true,  label: "양식 일지" },
-    { ok: true,  label: "IoT 센서 기기 1개" },
-    { ok: true,  label: "수질 자동 새로고침 (5분)" },
-    { ok: true,  label: "30일 리포트" },
-    { ok: true,  label: "이메일 지원" },
-    { ok: false, label: "CSV/PDF 내보내기" },
-    { ok: false, label: "90일 리포트" },
-  ],
-  pro: [
-    { ok: true, label: "양식장 5개" },
-    { ok: true, label: "수조 50개/양식장" },
-    { ok: true, label: "수질 자동 새로고침 (1분)" },
-    { ok: true, label: "AI 어드바이저 30회/일" },
-    { ok: true, label: "질병 진단 무제한" },
-    { ok: true, label: "양식 일지 무제한" },
-    { ok: true, label: "IoT 센서 기기 5개" },
-    { ok: true, label: "CSV/PDF 내보내기" },
-    { ok: true, label: "7일·30일·90일 리포트" },
-    { ok: true, label: "이메일 우선 지원" },
-    { ok: false, label: "전담 매니저" },
-  ],
-  enterprise: [
-    { ok: true, label: "양식장 무제한" },
-    { ok: true, label: "수조 무제한" },
-    { ok: true, label: "수질 자동 새로고침 (1분)" },
-    { ok: true, label: "AI 어드바이저 무제한" },
-    { ok: true, label: "질병 진단 무제한" },
-    { ok: true, label: "양식 일지 무제한" },
-    { ok: true, label: "IoT 센서 기기 무제한" },
-    { ok: true, label: "CSV/PDF 내보내기" },
-    { ok: true, label: "커스텀 기간 리포트" },
-    { ok: true, label: "이메일 지원" },
-    { ok: true, label: "전담 매니저" },
-  ],
-}
+import { useT } from "@/lib/i18n-context"
 
 const PLAN_RANK: Record<string, number> = { free: 0, basic: 1, pro: 2, enterprise: 3 }
 
 export default function PricingPage() {
   const { user } = useAuth()
   const router = useRouter()
+  const { t } = useT()
   const [loading, setLoading] = useState<"basic" | "pro" | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const u = t.common.unit
+  const f = t.pricing.features
+
+  const FEATURES = {
+    free: [
+      { ok: true,  label: `${f.farms} 1` },
+      { ok: true,  label: `${f.tanksPerFarm} 5` },
+      { ok: true,  label: `${f.aiPerDay} 5${u.timesPerDay}` },
+      { ok: true,  label: `${f.diagPerMonth} 3${u.timesPerMonth}` },
+      { ok: false, label: f.sensors },
+      { ok: false, label: f.autoRefresh },
+      { ok: false, label: f.csvExport },
+      { ok: false, label: `${f.reportPeriods} 30/90` },
+      { ok: false, label: `${f.support}: ${f.supportEmail}` },
+    ],
+    basic: [
+      { ok: true,  label: `${f.farms} 2` },
+      { ok: true,  label: `${f.tanksPerFarm} 15` },
+      { ok: true,  label: `${f.aiPerDay} 15${u.timesPerDay}` },
+      { ok: true,  label: `${f.diagPerMonth} 10${u.timesPerMonth}` },
+      { ok: true,  label: `${f.sensors} 1` },
+      { ok: true,  label: `${f.autoRefresh} (5${u.minutes})` },
+      { ok: true,  label: `${f.reportPeriods} 30` },
+      { ok: true,  label: `${f.support}: ${f.supportEmail}` },
+      { ok: false, label: f.csvExport },
+      { ok: false, label: `${f.reportPeriods} 90` },
+    ],
+    pro: [
+      { ok: true, label: `${f.farms} 5` },
+      { ok: true, label: `${f.tanksPerFarm} 50` },
+      { ok: true, label: `${f.autoRefresh} (1${u.minutes})` },
+      { ok: true, label: `${f.aiPerDay} 30${u.timesPerDay}` },
+      { ok: true, label: `${f.diagPerMonth} ${u.unlimited}` },
+      { ok: true, label: `${f.sensors} 5` },
+      { ok: true, label: f.csvExport },
+      { ok: true, label: `${f.reportPeriods} 7/30/90` },
+      { ok: true, label: `${f.support}: ${f.supportPriority}` },
+      { ok: false, label: `${f.support}: ${f.supportDedicated}` },
+    ],
+    enterprise: [
+      { ok: true, label: `${f.farms} ${u.unlimited}` },
+      { ok: true, label: `${f.tanksPerFarm} ${u.unlimited}` },
+      { ok: true, label: `${f.autoRefresh} (1${u.minutes})` },
+      { ok: true, label: `${f.aiPerDay} ${u.unlimited}` },
+      { ok: true, label: `${f.diagPerMonth} ${u.unlimited}` },
+      { ok: true, label: `${f.sensors} ${u.unlimited}` },
+      { ok: true, label: f.csvExport },
+      { ok: true, label: f.reportPeriods },
+      { ok: true, label: `${f.support}: ${f.supportEmail}` },
+      { ok: true, label: `${f.support}: ${f.supportDedicated}` },
+    ],
+  }
 
   async function handleUpgrade(plan: "basic" | "pro") {
     if (!user) {
@@ -85,10 +85,10 @@ export default function PricingPage() {
         body: JSON.stringify({ plan }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || "결제 세션 생성에 실패했습니다.")
+      if (!res.ok) throw new Error(json.error || t.pricing.checkoutLoading)
       window.location.href = json.url
     } catch (e) {
-      setError(e instanceof Error ? e.message : "오류가 발생했습니다.")
+      setError(e instanceof Error ? e.message : t.common.error)
       setLoading(null)
     }
   }
@@ -102,7 +102,7 @@ export default function PricingPage() {
       <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
         <Link href={user ? "/dashboard" : "/"} className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
           <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm">{user ? "대시보드로" : "홈으로"}</span>
+          <span className="text-sm">{t.common.back}</span>
         </Link>
         <div className="flex items-center gap-2">
           <Waves className="w-5 h-5 text-ocean-400" />
@@ -110,20 +110,17 @@ export default function PricingPage() {
         </div>
         {!user && (
           <Link href="/login">
-            <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white">로그인</Button>
+            <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white">{t.common.login}</Button>
           </Link>
         )}
       </div>
 
       {/* Hero */}
       <div className="text-center py-12 px-4">
-        <Badge className="mb-4 bg-ocean-500/20 text-ocean-300 border-ocean-500/30">요금제</Badge>
+        <Badge className="mb-4 bg-ocean-500/20 text-ocean-300 border-ocean-500/30">{t.pricing.title}</Badge>
         <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
-          당신의 양식장에 맞는 플랜
+          {t.pricing.subtitle}
         </h1>
-        <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-          무료로 시작하고, 비즈니스 성장에 맞춰 업그레이드하세요.
-        </p>
       </div>
 
       {error && (
@@ -141,9 +138,9 @@ export default function PricingPage() {
             <p className="text-slate-400 text-sm font-medium mb-1">Free</p>
             <div className="flex items-end gap-1">
               <span className="text-4xl font-bold text-white">₩0</span>
-              <span className="text-slate-400 text-sm mb-1">/월</span>
+              <span className="text-slate-400 text-sm mb-1">{t.pricing.perMonth}</span>
             </div>
-            <p className="text-slate-500 text-sm mt-2">소규모 양식 입문자</p>
+            <p className="text-slate-500 text-sm mt-2">{t.pricing.starter}</p>
           </div>
           <ul className="space-y-2.5 flex-1 mb-7">
             {FEATURES.free.map((f, i) => (
@@ -154,10 +151,10 @@ export default function PricingPage() {
             ))}
           </ul>
           {currentPlan === "free" ? (
-            <Button disabled className="w-full bg-slate-700 text-slate-400">현재 플랜</Button>
+            <Button disabled className="w-full bg-slate-700 text-slate-400">{t.pricing.currentPlan}</Button>
           ) : (
             <Link href="/dashboard">
-              <Button variant="outline" className="w-full border-white/10 text-slate-300 hover:bg-white/5">시작하기</Button>
+              <Button variant="outline" className="w-full border-white/10 text-slate-300 hover:bg-white/5">{t.pricing.selectPlan}</Button>
             </Link>
           )}
         </div>
@@ -170,9 +167,8 @@ export default function PricingPage() {
             </p>
             <div className="flex items-end gap-1">
               <span className="text-4xl font-bold text-white">₩9,900</span>
-              <span className="text-slate-400 text-sm mb-1">/월</span>
+              <span className="text-slate-400 text-sm mb-1">{t.pricing.perMonth}</span>
             </div>
-            <p className="text-slate-400 text-sm mt-2">소규모 상업 양식장</p>
           </div>
           <ul className="space-y-2.5 flex-1 mb-7">
             {FEATURES.basic.map((f, i) => (
@@ -183,16 +179,16 @@ export default function PricingPage() {
             ))}
           </ul>
           {currentPlan === "basic" ? (
-            <Button disabled className="w-full bg-sky-800 text-white">현재 플랜</Button>
+            <Button disabled className="w-full bg-sky-800 text-white">{t.pricing.currentPlan}</Button>
           ) : currentRank > PLAN_RANK["basic"] ? (
-            <Button disabled className="w-full bg-slate-700 text-slate-500">현재 플랜보다 낮음</Button>
+            <Button disabled className="w-full bg-slate-700 text-slate-500">{t.pricing.downgrade}</Button>
           ) : (
             <Button
               onClick={() => handleUpgrade("basic")}
               disabled={loading !== null}
               className="w-full bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white font-medium"
             >
-              {loading === "basic" ? "처리 중..." : "Basic 시작하기"}
+              {loading === "basic" ? t.pricing.checkoutLoading : `Basic ${t.pricing.selectPlan}`}
             </Button>
           )}
         </div>
@@ -201,16 +197,15 @@ export default function PricingPage() {
         <div className="relative bg-gradient-to-b from-ocean-900/40 to-slate-800/50 border border-ocean-500/40 rounded-2xl p-7 flex flex-col shadow-xl shadow-ocean-900/20">
           <div className="absolute -top-3 left-1/2 -translate-x-1/2">
             <Badge className="bg-gradient-to-r from-ocean-500 to-teal-500 text-white border-0 px-4 py-1">
-              <Zap className="w-3 h-3 mr-1" />인기
+              <Zap className="w-3 h-3 mr-1" />{t.pricing.popular}
             </Badge>
           </div>
           <div className="mb-6">
             <p className="text-ocean-300 text-sm font-medium mb-1">Pro</p>
             <div className="flex items-end gap-1">
               <span className="text-4xl font-bold text-white">₩19,900</span>
-              <span className="text-slate-400 text-sm mb-1">/월</span>
+              <span className="text-slate-400 text-sm mb-1">{t.pricing.perMonth}</span>
             </div>
-            <p className="text-slate-400 text-sm mt-2">중소형 전문 양식장</p>
           </div>
           <ul className="space-y-2.5 flex-1 mb-7">
             {FEATURES.pro.map((f, i) => (
@@ -221,16 +216,16 @@ export default function PricingPage() {
             ))}
           </ul>
           {currentPlan === "pro" ? (
-            <Button disabled className="w-full bg-ocean-700 text-white">현재 플랜</Button>
+            <Button disabled className="w-full bg-ocean-700 text-white">{t.pricing.currentPlan}</Button>
           ) : currentPlan === "enterprise" ? (
-            <Button disabled className="w-full bg-slate-700 text-slate-500">현재 플랜보다 낮음</Button>
+            <Button disabled className="w-full bg-slate-700 text-slate-500">{t.pricing.downgrade}</Button>
           ) : (
             <Button
               onClick={() => handleUpgrade("pro")}
               disabled={loading !== null}
               className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-medium"
             >
-              {loading === "pro" ? "처리 중..." : "Pro 시작하기"}
+              {loading === "pro" ? t.pricing.checkoutLoading : `Pro ${t.pricing.selectPlan}`}
             </Button>
           )}
         </div>
@@ -240,9 +235,8 @@ export default function PricingPage() {
           <div className="mb-6">
             <p className="text-purple-300 text-sm font-medium mb-1">Enterprise</p>
             <div className="flex items-end gap-1">
-              <span className="text-2xl font-bold text-white">별도 문의</span>
+              <span className="text-2xl font-bold text-white">{t.pricing.contactUs}</span>
             </div>
-            <p className="text-slate-500 text-sm mt-2">대형 양식 법인·연구기관</p>
           </div>
           <ul className="space-y-2.5 flex-1 mb-7">
             {FEATURES.enterprise.map((f, i) => (
@@ -253,33 +247,14 @@ export default function PricingPage() {
             ))}
           </ul>
           {currentPlan === "enterprise" ? (
-            <Button disabled className="w-full bg-purple-800 text-white">현재 플랜</Button>
+            <Button disabled className="w-full bg-purple-800 text-white">{t.pricing.currentPlan}</Button>
           ) : (
             <a href="mailto:contact@shrimp365.com">
               <Button variant="outline" className="w-full border-purple-500/30 text-purple-300 hover:bg-purple-500/10">
-                <Building2 className="w-4 h-4 mr-2" />문의하기
+                <Building2 className="w-4 h-4 mr-2" />{t.pricing.contactUs}
               </Button>
             </a>
           )}
-        </div>
-      </div>
-
-      {/* FAQ */}
-      <div className="max-w-2xl mx-auto px-4 pb-20">
-        <h2 className="text-xl font-bold text-white text-center mb-8">자주 묻는 질문</h2>
-        <div className="space-y-4">
-          {[
-            { q: "언제든지 취소할 수 있나요?", a: "네, 언제든지 취소 가능합니다. 취소 후에도 결제 기간 만료일까지 유료 기능을 사용할 수 있습니다." },
-            { q: "Basic에서 Pro로 업그레이드하면 차액만 청구되나요?", a: "네, Stripe가 잔여 기간을 일할 계산하여 차액만 청구합니다." },
-            { q: "결제는 어떻게 이루어지나요?", a: "Stripe를 통해 안전하게 처리됩니다. 신용카드·체크카드 등 주요 카드를 지원합니다." },
-            { q: "업그레이드해도 기존 데이터가 유지되나요?", a: "모든 기존 데이터(수조, 일지, 수질 기록)는 그대로 유지됩니다." },
-            { q: "Free 플랜 한도 초과 시 어떻게 되나요?", a: "한도 초과 시 안내 팝업이 표시되며, 기존 데이터는 읽기 전용으로 유지됩니다. 추가 생성만 제한됩니다." },
-          ].map((faq, i) => (
-            <div key={i} className="bg-slate-800/50 border border-white/5 rounded-xl p-5">
-              <p className="text-white font-medium mb-2">{faq.q}</p>
-              <p className="text-slate-400 text-sm">{faq.a}</p>
-            </div>
-          ))}
         </div>
       </div>
     </div>

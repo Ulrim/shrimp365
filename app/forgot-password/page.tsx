@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
+import { useT } from "@/lib/i18n-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,6 +12,7 @@ import { Waves, AlertCircle, CheckCircle2, ArrowLeft } from "lucide-react"
 
 export default function ForgotPasswordPage() {
   const { sendPasswordReset } = useAuth()
+  const { t } = useT()
   const [email, setEmail] = useState("")
   const [error, setError] = useState("")
   const [sent, setSent] = useState(false)
@@ -41,9 +43,9 @@ export default function ForgotPasswordPage() {
 
         <Card className="bg-white/5 border-white/10 backdrop-blur-md shadow-2xl">
           <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-2xl font-bold text-white">비밀번호 재설정</CardTitle>
+            <CardTitle className="text-2xl font-bold text-white">{t.auth.forgotTitle}</CardTitle>
             <CardDescription className="text-ocean-300">
-              가입한 이메일로 재설정 링크를 보내드립니다
+              {t.auth.forgotSubtitle}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -52,23 +54,23 @@ export default function ForgotPasswordPage() {
                 <div className="flex items-start gap-3 text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-4 py-3">
                   <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium text-sm">메일을 발송했습니다</p>
+                    <p className="font-medium text-sm">{t.auth.forgotSuccess}</p>
                     <p className="text-xs text-emerald-400/80 mt-1">
-                      <span className="font-semibold">{email}</span>로 재설정 링크를 보냈습니다. 메일함을 확인해주세요.
+                      <span className="font-semibold">{email}</span>{t.auth.forgotSuccessMsg}
                     </p>
                   </div>
                 </div>
                 <Link href="/login">
                   <Button variant="outline" className="w-full border-white/10 text-slate-300 hover:text-white hover:bg-white/5">
                     <ArrowLeft className="w-4 h-4 mr-2" />
-                    로그인으로 돌아가기
+                    {t.auth.goLogin}
                   </Button>
                 </Link>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-ocean-100">이메일</Label>
+                  <Label htmlFor="email" className="text-ocean-100">{t.auth.emailLabel}</Label>
                   <Input
                     id="email"
                     type="email"
@@ -95,15 +97,15 @@ export default function ForgotPasswordPage() {
                   {loading ? (
                     <span className="flex items-center gap-2">
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      발송 중...
+                      {t.auth.verifyResending}
                     </span>
-                  ) : "재설정 메일 발송"}
+                  ) : t.auth.forgotButton}
                 </Button>
 
                 <Link href="/login">
                   <Button variant="ghost" className="w-full text-ocean-400 hover:text-white">
                     <ArrowLeft className="w-4 h-4 mr-2" />
-                    로그인으로 돌아가기
+                    {t.auth.goLogin}
                   </Button>
                 </Link>
               </form>
