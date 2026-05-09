@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { CheckCircle2, X, Waves, Zap, Building2, ArrowLeft, Star } from "lucide-react"
@@ -9,15 +8,17 @@ import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
 
+const CHECKOUT_URLS: Record<"basic" | "pro", string> = {
+  basic: "https://checkout.dodopayments.com/buy/pdt_0NeSxAfIU3XSj9De2jD17?quantity=1&redirect_url=https://www.shrimp365.kr%2Fdashboard",
+  pro:   "https://checkout.dodopayments.com/buy/pdt_0NeSxKEAfcZCqonCVq1Qc?quantity=1&redirect_url=https://www.shrimp365.kr%2Fdashboard",
+}
+
 const PLAN_RANK: Record<string, number> = { free: 0, basic: 1, pro: 2, enterprise: 3 }
 
 export default function PricingPage() {
   const { user } = useAuth()
   const router = useRouter()
   const { t } = useT()
-  const [loading, setLoading] = useState<"basic" | "pro" | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
   const u = t.common.unit
   const f = t.pricing.features
 
@@ -71,30 +72,12 @@ export default function PricingPage() {
     ],
   }
 
-  async function handleUpgrade(plan: "basic" | "pro") {
+  function handleUpgrade(plan: "basic" | "pro") {
     if (!user) {
       router.push("/login?redirect=/pricing")
       return
     }
-    setLoading(plan)
-    setError(null)
-    try {
-      const res = await fetch("/api/dodo/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan }),
-      })
-      const json = await res.json()
-      if (!res.ok || !json.url) {
-        setError(json.error ?? "결제 서비스 오류가 발생했습니다.")
-        return
-      }
-      window.location.href = json.url
-    } catch {
-      setError("결제 서비스에 연결할 수 없습니다.")
-    } finally {
-      setLoading(null)
-    }
+    window.location.href = CHECKOUT_URLS[plan]
   }
 
   const currentPlan = user?.plan ?? "free"
@@ -126,12 +109,6 @@ export default function PricingPage() {
           {t.pricing.subtitle}
         </h1>
       </div>
-
-      {error && (
-        <div className="max-w-sm mx-auto mb-6 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-center text-sm text-red-400">
-          {error}
-        </div>
-      )}
 
       {/* Pricing Cards */}
       <div className="max-w-7xl mx-auto px-4 pb-20 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -170,7 +147,7 @@ export default function PricingPage() {
               <Star className="w-3.5 h-3.5" />Basic
             </p>
             <div className="flex items-end gap-1">
-              <span className="text-4xl font-bold text-white">₩9,900</span>
+              <span className="text-4xl font-bold text-white">$7.99</span>
               <span className="text-slate-400 text-sm mb-1">{t.pricing.perMonth}</span>
             </div>
           </div>
@@ -189,10 +166,9 @@ export default function PricingPage() {
           ) : (
             <Button
               onClick={() => handleUpgrade("basic")}
-              disabled={loading !== null}
               className="w-full bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white font-medium"
             >
-              {loading === "basic" ? t.pricing.checkoutLoading : `Basic ${t.pricing.selectPlan}`}
+              {`Basic ${t.pricing.selectPlan}`}
             </Button>
           )}
         </div>
@@ -207,7 +183,7 @@ export default function PricingPage() {
           <div className="mb-6">
             <p className="text-ocean-300 text-sm font-medium mb-1">Pro</p>
             <div className="flex items-end gap-1">
-              <span className="text-4xl font-bold text-white">₩19,900</span>
+              <span className="text-4xl font-bold text-white">$12.99</span>
               <span className="text-slate-400 text-sm mb-1">{t.pricing.perMonth}</span>
             </div>
           </div>
@@ -226,10 +202,9 @@ export default function PricingPage() {
           ) : (
             <Button
               onClick={() => handleUpgrade("pro")}
-              disabled={loading !== null}
               className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-medium"
             >
-              {loading === "pro" ? t.pricing.checkoutLoading : `Pro ${t.pricing.selectPlan}`}
+              {`Pro ${t.pricing.selectPlan}`}
             </Button>
           )}
         </div>

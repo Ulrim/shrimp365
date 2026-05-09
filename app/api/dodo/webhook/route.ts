@@ -4,6 +4,31 @@ import { createAdminClient } from "@/lib/supabase-server"
 
 const DODO_ENV = process.env.DODO_PAYMENTS_ENVIRONMENT === "live_mode" ? "live_mode" : "test_mode"
 
+// Product IDs from DODO Payments dashboard
+const PRODUCT_BASIC = "pdt_0NeSxAfIU3XSj9De2jD17"
+const PRODUCT_PRO   = "pdt_0NeSxKEAfcZCqonCVq1Qc"
+
+function resolvePlan(productId: string): "basic" | "pro" | null {
+  if (productId === PRODUCT_BASIC) return "basic"
+  if (productId === PRODUCT_PRO)   return "pro"
+  return null
+}
+
+async function findUserIdByEmail(email: string): Promise<string | null> {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`,
+    {
+      headers: {
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
+      },
+    }
+  )
+  if (!res.ok) return null
+  const body = await res.json()
+  return body?.users?.[0]?.id ?? null
+}
+
 export async function POST(req: NextRequest) {
   if (!process.env.DODO_PAYMENTS_API_KEY || !process.env.DODO_WEBHOOK_SECRET) {
     return NextResponse.json({ error: "DODO 설정이 누락되었습니다." }, { status: 503 })
@@ -16,7 +41,7 @@ export async function POST(req: NextRequest) {
   try {
     event = client.webhooks.unwrap(rawBody, {
       headers: {
-        "webhook-id": req.headers.get("webhook-id") ?? "",
+        "webhook-id":        req.headers.get("webhook-id") ?? "",
         "webhook-timestamp": req.headers.get("webhook-timestamp") ?? "",
         "webhook-signature": req.headers.get("webhook-signature") ?? "",
       },
@@ -37,87 +62,72 @@ export async function POST(req: NextRequest) {
   const data = event.data as any
 
   switch (event.type) {
-    // ── 구독 활성화 (첫 결제 완료) ───────────────────────────────────────
+    // ── 구독 활성화 ───────────────────────────────────────────────────────────
     case "subscription.active": {
-      const userId = (data.metadata as Record<string, string> | null)?.user_id
+      const email      = data.customer?.email as string | undefined
+      const customerId = data.customer?.customer_id as string
+      const subId      = data.subscription_id as string
+      const plan       = resolvePlan(data.product_id as string)
+
+      if (!plan) break
+
+      // metadata에 user_id가 있으면 우선 사용 (동적 체크아웃 경로)
+      let userId: string | null = (data.metadata as Record<string, string> | null)?.user_id ?? null
+
+      // 없으면 이메일로 조회 (정적 링크 경로)
+      if (!userId && email) userId = await findUserIdByEmail(email)
       if (!userId) break
 
-      const productId = data.product_id as string
-      const targetPlan: "basic" | "pro" =
-        productId === process.env.DODO_BASIC_PRODUCT_ID ? "basic" : "pro"
-
-      const { error } = await supabaseAdmin.from("profiles").update({
-        plan: targetPlan,
-        billing_customer_id: data.customer?.customer_id as string,
-        billing_subscription_id: data.subscription_id as string,
-        subscription_status: "active",
-        plan_expires_at: null,
+      await supabaseAdmin.from("profiles").update({
+        plan,
+        billing_customer_id:     customerId,
+        billing_subscription_id: subId,
+        subscription_status:     "active",
+        plan_expires_at:         null,
       }).eq("id", userId)
-
-      if (error) console.error("[dodo/webhook] subscription.active DB error:", error)
       break
     }
 
-    // ── 구독 갱신 ──────────────────────────────────────────────────────────
+    // ── 구독 갱신 ────────────────────────────────────────────────────────────
     case "subscription.renewed": {
-      const subscriptionId = data.subscription_id as string
-
-      const { error } = await supabaseAdmin.from("profiles").update({
+      await supabaseAdmin.from("profiles").update({
         subscription_status: "active",
-        plan_expires_at: null,
-      }).eq("billing_subscription_id", subscriptionId)
-
-      if (error) console.error("[dodo/webhook] subscription.renewed DB error:", error)
+        plan_expires_at:     null,
+      }).eq("billing_subscription_id", data.subscription_id as string)
       break
     }
 
-    // ── 플랜 변경 ──────────────────────────────────────────────────────────
+    // ── 플랜 변경 ────────────────────────────────────────────────────────────
     case "subscription.plan_changed":
     case "subscription.updated": {
-      const subscriptionId = data.subscription_id as string
       const status = data.status as string
-      const productId = data.product_id as string
-
-      const activePlan: "basic" | "pro" =
-        productId === process.env.DODO_BASIC_PRODUCT_ID ? "basic" : "pro"
-
-      const { error } = await supabaseAdmin.from("profiles").update({
+      const plan   = resolvePlan(data.product_id as string)
+      await supabaseAdmin.from("profiles").update({
         subscription_status: status,
-        plan: status === "active" ? activePlan : "free",
-        plan_expires_at: null,
-      }).eq("billing_subscription_id", subscriptionId)
-
-      if (error) console.error("[dodo/webhook] subscription.updated DB error:", error)
+        plan:                status === "active" && plan ? plan : "free",
+        plan_expires_at:     null,
+      }).eq("billing_subscription_id", data.subscription_id as string)
       break
     }
 
-    // ── 구독 취소 ──────────────────────────────────────────────────────────
+    // ── 구독 취소·만료 ───────────────────────────────────────────────────────
     case "subscription.cancelled":
     case "subscription.expired": {
-      const subscriptionId = data.subscription_id as string
-      const nextBillingDate = data.next_billing_date as string | null
-
-      const { error } = await supabaseAdmin.from("profiles").update({
-        plan: "free",
-        subscription_status: "canceled",
+      await supabaseAdmin.from("profiles").update({
+        plan:                    "free",
+        subscription_status:     "canceled",
         billing_subscription_id: null,
-        plan_expires_at: nextBillingDate ?? null,
-      }).eq("billing_subscription_id", subscriptionId)
-
-      if (error) console.error("[dodo/webhook] subscription.cancelled DB error:", error)
+        plan_expires_at:         (data.next_billing_date as string | null) ?? null,
+      }).eq("billing_subscription_id", data.subscription_id as string)
       break
     }
 
-    // ── 결제 보류·실패 ────────────────────────────────────────────────────
+    // ── 결제 보류·실패 ───────────────────────────────────────────────────────
     case "subscription.on_hold":
     case "subscription.failed": {
-      const subscriptionId = data.subscription_id as string
-
-      const { error } = await supabaseAdmin.from("profiles").update({
+      await supabaseAdmin.from("profiles").update({
         subscription_status: "past_due",
-      }).eq("billing_subscription_id", subscriptionId)
-
-      if (error) console.error("[dodo/webhook] subscription.on_hold DB error:", error)
+      }).eq("billing_subscription_id", data.subscription_id as string)
       break
     }
   }
