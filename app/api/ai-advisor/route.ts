@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
-import Anthropic from "@anthropic-ai/sdk"
+import OpenAI from "openai"
 import { createServerClient } from "@supabase/ssr"
 import { PLAN_LIMITS, PLAN_LABELS, nextPlan, type Plan } from "@/lib/plans"
 
-const anthropicKey = process.env.ANTHROPIC_API_KEY
+const openaiKey = process.env.OPENAI_API_KEY
 
 const MAX_QUESTION_LENGTH = 500
 const MAX_CONTEXT_LENGTH = 2000
@@ -81,8 +81,8 @@ export async function POST(req: NextRequest) {
     const remaining = getRemainingAi(user.id, plan)
     const remainingPayload = remaining === Infinity ? null : remaining
 
-    if (anthropicKey) {
-      const answer = await callClaude(question, context)
+    if (openaiKey) {
+      const answer = await callGPT(question, context)
       return NextResponse.json({ answer, remaining: remainingPayload })
     }
 
@@ -93,8 +93,8 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function callClaude(question: string, context: string): Promise<string> {
-  const client = new Anthropic({ apiKey: anthropicKey })
+async function callGPT(question: string, context: string): Promise<string> {
+  const client = new OpenAI({ apiKey: openaiKey })
 
   const systemPrompt = `당신은 흰다리새우(Litopenaeus vannamei) 양식 전문가 AI 어시스턴트입니다.
 수질 관리, 질병 예방, 급이 전략, 환수, 폭기 등 양식장 운영에 대한 전문적이고 실용적인 조언을 제공합니다.
@@ -115,15 +115,17 @@ async function callClaude(question: string, context: string): Promise<string> {
     ? `[현재 양식장 데이터]\n${context}\n\n[질문]\n${question}`
     : question
 
-  const message = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
+  const message = await client.chat.completions.create({
+    model: "gpt-4o-mini",
     max_tokens: 800,
-    system: systemPrompt,
-    messages: [{ role: "user", content: userMessage }],
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userMessage },
+    ],
   })
 
-  const content = message.content[0]
-  if (content.type === "text") return content.text
+  const content = message.choices[0].message.content
+  if (content) return content
   return buildAnswer(question, context)
 }
 
