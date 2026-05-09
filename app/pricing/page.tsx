@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { CheckCircle2, X, Waves, Zap, Building2, ArrowLeft, Star } from "lucide-react"
@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
-import { initializePaddle, type Paddle as PaddleType } from "@paddle/paddle-js"
 
 const PLAN_RANK: Record<string, number> = { free: 0, basic: 1, pro: 2, enterprise: 3 }
 
@@ -18,14 +17,6 @@ export default function PricingPage() {
   const { t } = useT()
   const [loading, setLoading] = useState<"basic" | "pro" | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [paddle, setPaddle] = useState<PaddleType | undefined>()
-
-  useEffect(() => {
-    initializePaddle({
-      environment: (process.env.NEXT_PUBLIC_PADDLE_ENV as "production" | "sandbox") ?? "sandbox",
-      token: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN ?? "",
-    }).then(p => setPaddle(p))
-  }, [])
 
   const u = t.common.unit
   const f = t.pricing.features
@@ -80,32 +71,30 @@ export default function PricingPage() {
     ],
   }
 
-  function handleUpgrade(plan: "basic" | "pro") {
+  async function handleUpgrade(plan: "basic" | "pro") {
     if (!user) {
       router.push("/login?redirect=/pricing")
       return
     }
-    if (!paddle) {
-      setError("결제 모듈을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.")
-      return
-    }
-    const priceId = plan === "basic"
-      ? process.env.NEXT_PUBLIC_PADDLE_BASIC_PRICE_ID
-      : process.env.NEXT_PUBLIC_PADDLE_PRO_PRICE_ID
-    if (!priceId) {
-      setError("결제 서비스가 설정되지 않았습니다.")
-      return
-    }
     setLoading(plan)
     setError(null)
-    paddle.Checkout.open({
-      items: [{ priceId, quantity: 1 }],
-      customData: { user_id: user.id, target_plan: plan },
-      settings: {
-        successUrl: `${window.location.origin}/payment/success?plan=${plan}`,
-      },
-    })
-    setLoading(null)
+    try {
+      const res = await fetch("/api/dodo/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.url) {
+        setError(json.error ?? "결제 서비스 오류가 발생했습니다.")
+        return
+      }
+      window.location.href = json.url
+    } catch {
+      setError("결제 서비스에 연결할 수 없습니다.")
+    } finally {
+      setLoading(null)
+    }
   }
 
   const currentPlan = user?.plan ?? "free"

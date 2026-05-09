@@ -38,7 +38,7 @@ export default function PrivacyPage() {
                 <ul className="space-y-2 list-disc list-inside">
                   <li><strong className="text-white">필수 항목:</strong> 이메일 주소, 이름(닉네임)</li>
                   <li><strong className="text-white">서비스 이용 중 생성 정보:</strong> 양식장·수조 정보, 수질 측정 데이터, 양식 일지, 질병 진단 기록</li>
-                  <li><strong className="text-white">결제 정보:</strong> 결제는 Paddle을 통해 처리되며, 카드 정보는 회사가 직접 저장하지 않습니다.</li>
+                  <li><strong className="text-white">결제 정보:</strong> 결제는 DODO Payments를 통해 처리되며, 카드 정보는 회사가 직접 저장하지 않습니다.</li>
                   <li><strong className="text-white">자동 수집 정보:</strong> 접속 IP, 브라우저 정보, 서비스 이용 기록</li>
                 </ul>
               </section>
@@ -65,7 +65,7 @@ export default function PrivacyPage() {
                 <p className="mb-3">회사는 원칙적으로 이용자의 개인정보를 외부에 제공하지 않습니다. 단, 아래의 경우는 예외입니다.</p>
                 <ul className="space-y-2 list-disc list-inside">
                   <li><strong className="text-white">Supabase:</strong> 데이터베이스 및 인증 서비스 (서버 소재지: 미국)</li>
-                  <li><strong className="text-white">Paddle:</strong> 결제 처리 (서버 소재지: 영국)</li>
+                  <li><strong className="text-white">DODO Payments:</strong> 결제 처리 (서버 소재지: 미국)</li>
                   <li><strong className="text-white">Anthropic:</strong> AI 어드바이저 기능 (서버 소재지: 미국)</li>
                   <li>법령에 의거하거나 수사기관의 요청이 있는 경우</li>
                 </ul>
@@ -102,7 +102,7 @@ export default function PrivacyPage() {
                 <ul className="space-y-2 list-disc list-inside">
                   <li><strong className="text-white">Required:</strong> Email address, name (or nickname)</li>
                   <li><strong className="text-white">Generated during use:</strong> Farm and tank information, water quality measurement data, farming journals, disease diagnosis records</li>
-                  <li><strong className="text-white">Payment information:</strong> Payments are processed via Paddle; the Company does not store card details directly.</li>
+                  <li><strong className="text-white">Payment information:</strong> Payments are processed via DODO Payments; the Company does not store card details directly.</li>
                   <li><strong className="text-white">Automatically collected:</strong> IP address, browser information, service usage logs</li>
                 </ul>
               </section>
@@ -129,7 +129,7 @@ export default function PrivacyPage() {
                 <p className="mb-3">The Company does not share personal data with third parties in principle, with the following exceptions:</p>
                 <ul className="space-y-2 list-disc list-inside">
                   <li><strong className="text-white">Supabase:</strong> Database and authentication services (servers located in the US)</li>
-                  <li><strong className="text-white">Paddle:</strong> Payment processing (servers located in the UK)</li>
+                  <li><strong className="text-white">DODO Payments:</strong> Payment processing (servers located in the US)</li>
                   <li><strong className="text-white">Anthropic:</strong> AI advisor feature (servers located in the US)</li>
                   <li>When required by law or a lawful request from authorities</li>
                 </ul>

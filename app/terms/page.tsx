@@ -69,7 +69,7 @@ export default function TermsPage() {
                 <h2 className="text-xl font-semibold text-white mb-3">제6조 (구독 및 결제)</h2>
                 <ul className="space-y-2 list-disc list-inside">
                   <li>유료 플랜은 월 단위로 자동 갱신됩니다.</li>
-                  <li>결제는 Paddle을 통해 처리되며, 신용카드 등 Paddle이 지원하는 결제 수단을 이용할 수 있습니다.</li>
+                  <li>결제는 DODO Payments를 통해 처리되며, 신용카드 등 DODO Payments가 지원하는 결제 수단을 이용할 수 있습니다.</li>
                   <li>구독 취소는 다음 결제일 이전에 설정 페이지에서 언제든지 가능합니다.</li>
                   <li>환불 정책은 별도의 환불 정책 페이지를 따릅니다.</li>
                 </ul>
@@ -127,7 +127,7 @@ export default function TermsPage() {
                 <h2 className="text-xl font-semibold text-white mb-3">Article 6 (Subscription &amp; Payment)</h2>
                 <ul className="space-y-2 list-disc list-inside">
                   <li>Paid plans auto-renew monthly.</li>
-                  <li>Payments are processed via Paddle using credit cards or other supported payment methods.</li>
+                  <li>Payments are processed via DODO Payments using credit cards or other supported payment methods.</li>
                   <li>Subscriptions may be cancelled at any time from the settings page before the next billing date.</li>
                   <li>Refunds are governed by the separate Refund Policy.</li>
                 </ul>

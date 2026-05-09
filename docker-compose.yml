@@ -16,16 +16,12 @@ services:
       # ── AI ──────────────────────────────────────────────────────────────────
       ANTHROPIC_API_KEY:               ${ANTHROPIC_API_KEY}
 
-      # ── Paddle Billing ───────────────────────────────────────────────────────
-      PADDLE_ENV:                         ${PADDLE_ENV}
-      PADDLE_API_KEY:                     ${PADDLE_API_KEY}
-      PADDLE_WEBHOOK_SECRET:              ${PADDLE_WEBHOOK_SECRET}
-      PADDLE_BASIC_PRICE_ID:              ${PADDLE_BASIC_PRICE_ID}
-      PADDLE_PRO_PRICE_ID:                ${PADDLE_PRO_PRICE_ID}
-      NEXT_PUBLIC_PADDLE_CLIENT_TOKEN:    ${NEXT_PUBLIC_PADDLE_CLIENT_TOKEN}
-      NEXT_PUBLIC_PADDLE_ENV:             ${NEXT_PUBLIC_PADDLE_ENV}
-      NEXT_PUBLIC_PADDLE_BASIC_PRICE_ID:  ${NEXT_PUBLIC_PADDLE_BASIC_PRICE_ID}
-      NEXT_PUBLIC_PADDLE_PRO_PRICE_ID:    ${NEXT_PUBLIC_PADDLE_PRO_PRICE_ID}
+      # ── DODO Payments Billing ─────────────────────────────────────────────
+      DODO_PAYMENTS_ENVIRONMENT:  ${DODO_PAYMENTS_ENVIRONMENT}
+      DODO_PAYMENTS_API_KEY:      ${DODO_PAYMENTS_API_KEY}
+      DODO_WEBHOOK_SECRET:        ${DODO_WEBHOOK_SECRET}
+      DODO_BASIC_PRODUCT_ID:      ${DODO_BASIC_PRODUCT_ID}
+      DODO_PRO_PRODUCT_ID:        ${DODO_PRO_PRODUCT_ID}
 
       # ── 사이트 URL (NAS의 실제 접속 주소로 변경) ──────────────────────────
       NEXT_PUBLIC_SITE_URL:            ${NEXT_PUBLIC_SITE_URL}
