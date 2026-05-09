@@ -12,16 +12,11 @@ import {
   ChevronLeft, ChevronRight, Menu, X, Zap
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { SettingsPanel } from "@/components/layout/settings-panel"
 import { LanguageSwitcher } from "@/components/ui/language-switcher"
 import { PLAN_LABELS, PLAN_COLORS, isPaidPlan } from "@/lib/plans"
 
-interface SidebarProps {
-  alertCount?: number
-}
-
-export function Sidebar({ alertCount = 3 }: SidebarProps) {
+export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuth()
@@ -76,14 +71,7 @@ export function Sidebar({ alertCount = 3 }: SidebarProps) {
               )}
             >
               <item.icon className={cn("w-5 h-5 shrink-0", isActive ? "text-ocean-400" : "text-slate-500 group-hover:text-slate-300")} />
-              {!collapsed && (
-                <>
-                  <span className="flex-1">{item.label}</span>
-                  {item.href === "/water-quality" && alertCount > 0 && (
-                    <Badge variant="warning" className="h-5 text-xs px-1.5">{alertCount}</Badge>
-                  )}
-                </>
-              )}
+              {!collapsed && <span className="flex-1">{item.label}</span>}
               {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-ocean-400 rounded-r-full" />}
             </Link>
           )
