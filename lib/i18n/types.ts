@@ -353,6 +353,38 @@ export interface Dict {
     normalDays: string
     warningDays: string
     dangerDays: string
+    totalMortality: string
+    alertsCount: string
+    normalTanks: string
+    prevWeek: string
+    doWeeklyTrend: string
+    baseline: string
+    tankStatusDist: string
+    mortalityComparison: string
+    issueHistory: string
+    farmSummaryExample: string
+    shrimpCount: string
+    weeklyMortality: string
+    riskLevel: string
+    riskMedium: string
+    riskLow: string
+    activeFarms: string
+    totalTanks: string
+    periodMortality: string
+    periodFeeding: string
+    dailyMortality: string
+    noMortalityRecord: string
+    noTanks: string
+    farmSummary: string
+    noFarms: string
+    journalSummary: string
+    feeding: string
+    mortality: string
+    waterExchange: string
+    viewAllJournals: string
+    printSaveHint: string
+    viewExample: string
+    exampleNote: string
   }
   settings: {
     title: string

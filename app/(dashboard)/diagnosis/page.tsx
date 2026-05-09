@@ -48,6 +48,7 @@ import {
   Calendar,
 } from "lucide-react"
 import { exportToCsv } from "@/lib/export"
+import { useT } from "@/lib/i18n-context"
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -123,6 +124,7 @@ function StatCard({
 }
 
 function RiskScaleIndicator({ worstRisk }: { worstRisk: RiskLevel }) {
+  const { t } = useT()
   return (
     <Card className="bg-slate-800/50 border-white/5">
       <CardHeader className="pb-3">
@@ -165,8 +167,8 @@ function RiskScaleIndicator({ worstRisk }: { worstRisk: RiskLevel }) {
             <p className="text-xs text-slate-400 mt-0.5">
               {worstRisk === "low" && "현재 모든 수조가 정상 범위입니다."}
               {worstRisk === "medium" && "일부 수조에서 주의가 필요합니다. 모니터링을 강화하세요."}
-              {worstRisk === "high" && "높은 위험 수조가 감지됩니다. 즉시 조치가 필요합니다."}
-              {worstRisk === "critical" && "긴급 상황입니다! 즉각적인 격리 및 전문가 자문이 필요합니다."}
+              {worstRisk === "high" && `${t.diagnosis.urgentAction}. ${t.diagnosis.biosecurity}`}
+              {worstRisk === "critical" && `긴급 상황! ${t.diagnosis.ahpndProtocol}`}
             </p>
           </div>
         </div>
@@ -205,6 +207,7 @@ const PAGE_SIZE = 20
 
 export default function DiagnosisPage() {
   const { user } = useAuth()
+  const { t } = useT()
   const plan = (user?.plan ?? "free") as Plan
   const diagLimit = PLAN_LIMITS[plan].diagPerMonth
   const [diagnoses, setDiagnoses] = useState<DiagnosisResult[]>([])
@@ -454,9 +457,9 @@ export default function DiagnosisPage() {
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2.5">
             <FlaskConical className="w-6 h-6 text-purple-400" />
-            질병 진단
+            {t.diagnosis.title}
           </h1>
-          <p className="text-sm text-slate-400 mt-1">수조별 병원체 검사 결과 및 위험도 관리</p>
+          <p className="text-sm text-slate-400 mt-1">{t.diagnosis.subtitle}</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -465,7 +468,7 @@ export default function DiagnosisPage() {
               variant="outline"
               onClick={hasExport(plan) ? handleCsvExport : () => window.location.href = "/pricing"}
               className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
-              title={hasExport(plan) ? "CSV 다운로드" : "Pro 플랜 이상에서 사용 가능합니다"}
+              title={hasExport(plan) ? t.diagnosis.csvExport : t.diagnosis.csvProOnly}
             >
               <Download className="w-4 h-4 mr-1" />CSV
               {!hasExport(plan) && <span className="ml-1 text-xs text-amber-400">Pro</span>}
@@ -480,7 +483,7 @@ export default function DiagnosisPage() {
                 ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
                 : "bg-slate-800/60 border-white/10 text-slate-400"
             }`}>
-              이번 달 {thisMonthCount}/{diagLimit}회
+              {t.diagnosis.thisMonth} {thisMonthCount}/{diagLimit}회
             </span>
           )}
           <Dialog open={dialogOpen} onOpenChange={(open) => {
@@ -494,7 +497,7 @@ export default function DiagnosisPage() {
             <DialogTrigger asChild>
               <Button className="gap-2 bg-purple-600 hover:bg-purple-500 text-white border-0">
                 <Plus className="w-4 h-4" />
-                진단 추가
+                {t.diagnosis.newTest}
               </Button>
             </DialogTrigger>
 
@@ -502,7 +505,7 @@ export default function DiagnosisPage() {
             <DialogHeader>
               <DialogTitle className="text-white flex items-center gap-2">
                 <FlaskConical className="w-5 h-5 text-purple-400" />
-                새 진단 결과 등록
+                {t.diagnosis.newTest}
               </DialogTitle>
             </DialogHeader>
 
@@ -510,11 +513,11 @@ export default function DiagnosisPage() {
               {/* 수조 선택 */}
               <div className="space-y-1.5">
                 <Label className="text-slate-300 text-sm">
-                  수조 선택 <span className="text-red-400">*</span>
+                  {t.diagnosis.tank} <span className="text-red-400">*</span>
                 </Label>
                 <Select value={form.tank_id} onValueChange={v => setField("tank_id", v)}>
                   <SelectTrigger className="bg-slate-800 border-white/10 text-white">
-                    <SelectValue placeholder="수조를 선택하세요" />
+                    <SelectValue placeholder={t.diagnosis.selectTank} />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-800 border-white/10">
                     {tanks.map(tank => (
@@ -529,7 +532,7 @@ export default function DiagnosisPage() {
               {/* 검사 항목 */}
               <div className="space-y-1.5">
                 <Label className="text-slate-300 text-sm">
-                  검사 항목 <span className="text-red-400">*</span>
+                  {t.diagnosis.testType} <span className="text-red-400">*</span>
                 </Label>
                 <Select value={form.test_type} onValueChange={v => setField("test_type", v as TestType)}>
                   <SelectTrigger className="bg-slate-800 border-white/10 text-white">
@@ -548,16 +551,16 @@ export default function DiagnosisPage() {
               {/* 결과 */}
               <div className="space-y-1.5">
                 <Label className="text-slate-300 text-sm">
-                  결과 <span className="text-red-400">*</span>
+                  {t.diagnosis.result} <span className="text-red-400">*</span>
                 </Label>
                 <Select value={form.result} onValueChange={v => setField("result", v as ResultType)}>
                   <SelectTrigger className="bg-slate-800 border-white/10 text-white">
                     <SelectValue placeholder="결과를 선택하세요" />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-800 border-white/10">
-                    <SelectItem value="양성" className="text-red-300 focus:bg-slate-700">양성</SelectItem>
-                    <SelectItem value="의심" className="text-amber-300 focus:bg-slate-700">의심</SelectItem>
-                    <SelectItem value="음성" className="text-emerald-300 focus:bg-slate-700">음성</SelectItem>
+                    <SelectItem value="양성" className="text-red-300 focus:bg-slate-700">{t.diagnosis.resultPositive}</SelectItem>
+                    <SelectItem value="의심" className="text-amber-300 focus:bg-slate-700">{t.diagnosis.resultSuspected}</SelectItem>
+                    <SelectItem value="음성" className="text-emerald-300 focus:bg-slate-700">{t.diagnosis.resultNegative}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -623,9 +626,9 @@ export default function DiagnosisPage() {
 
               {/* 비고 */}
               <div className="space-y-1.5">
-                <Label className="text-slate-300 text-sm">비고</Label>
+                <Label className="text-slate-300 text-sm">{t.diagnosis.notes}</Label>
                 <Textarea
-                  placeholder="추가 메모 사항"
+                  placeholder={t.diagnosis.notesPlaceholder}
                   value={form.notes}
                   onChange={e => setField("notes", e.target.value)}
                   rows={2}
@@ -647,7 +650,7 @@ export default function DiagnosisPage() {
                   className="border-white/10 text-slate-300 hover:bg-slate-700"
                   disabled={isSubmitting}
                 >
-                  취소
+                  {t.common.cancel}
                 </Button>
                 <Button
                   type="submit"
@@ -659,7 +662,7 @@ export default function DiagnosisPage() {
                   ) : (
                     <FlaskConical className="w-4 h-4 mr-1.5" />
                   )}
-                  등록
+                  {t.common.submit}
                 </Button>
               </DialogFooter>
             </form>
@@ -687,14 +690,14 @@ export default function DiagnosisPage() {
           />
         </div>
         <Button size="sm" onClick={handleFilter} className="bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30">
-          조회
+          {t.common.filter}
         </Button>
         {(filterFrom || filterTo) && (
           <button
             onClick={() => { setFilterFrom(""); setFilterTo(""); setOffset(0); loadDiagnoses("", "", 0, true) }}
             className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
           >
-            초기화
+            {t.common.reset}
           </button>
         )}
       </div>
@@ -704,7 +707,7 @@ export default function DiagnosisPage() {
         <Card className="bg-slate-800/50 border-white/5">
           <CardContent className="p-8 text-center text-slate-400">
             <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3 text-purple-400" />
-            진단 데이터를 불러오는 중...
+            {t.common.loading}
           </CardContent>
         </Card>
       )}
@@ -721,7 +724,7 @@ export default function DiagnosisPage() {
           />
           <StatCard
             icon={<XCircle className="w-5 h-5 text-red-400" />}
-            label="양성 건수"
+            label={t.diagnosis.resultPositive}
             value={positiveCount}
             sub={`전체의 ${totalTests ? Math.round((positiveCount / totalTests) * 100) : 0}%`}
             color="text-red-400"
@@ -759,8 +762,8 @@ export default function DiagnosisPage() {
           {diagnoses.length === 0 ? (
             <div className="text-center py-14 text-slate-500">
               <FlaskConical className="w-10 h-10 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">등록된 진단 결과가 없습니다.</p>
-              <p className="text-xs mt-1">진단 추가 버튼으로 첫 결과를 입력하세요.</p>
+              <p className="text-sm">{t.diagnosis.noTests}</p>
+              <p className="text-xs mt-1">{t.diagnosis.noTestsMsg}</p>
             </div>
           ) : (
             <>
@@ -769,13 +772,13 @@ export default function DiagnosisPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-slate-500 text-xs border-b border-white/5">
-                      <th className="text-left pb-3 font-medium">수조</th>
-                      <th className="text-left pb-3 font-medium">검사 항목</th>
-                      <th className="text-left pb-3 font-medium">결과</th>
+                      <th className="text-left pb-3 font-medium">{t.diagnosis.tank}</th>
+                      <th className="text-left pb-3 font-medium">{t.diagnosis.testType}</th>
+                      <th className="text-left pb-3 font-medium">{t.diagnosis.result}</th>
                       <th className="text-right pb-3 font-medium">비브리오수</th>
                       <th className="text-right pb-3 font-medium">병원성 비율</th>
                       <th className="text-right pb-3 font-medium">위험도</th>
-                      <th className="text-right pb-3 font-medium">검사일시</th>
+                      <th className="text-right pb-3 font-medium">{t.diagnosis.testedAt}</th>
                       <th className="text-left pb-3 font-medium pl-4">조치사항</th>
                       <th className="pb-3 w-16" />
                     </tr>
@@ -816,10 +819,10 @@ export default function DiagnosisPage() {
                           </td>
                           <td className="py-4">
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
-                              <button onClick={() => openEdit(d)} className="p-1.5 rounded-lg text-slate-500 hover:text-ocean-400 hover:bg-white/5 transition-colors" aria-label="편집">
+                              <button onClick={() => openEdit(d)} className="p-1.5 rounded-lg text-slate-500 hover:text-ocean-400 hover:bg-white/5 transition-colors" aria-label={t.common.edit}>
                                 <Pencil className="w-3.5 h-3.5" />
                               </button>
-                              <button onClick={() => setDeleteTarget(d)} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-white/5 transition-colors" aria-label="삭제">
+                              <button onClick={() => setDeleteTarget(d)} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-white/5 transition-colors" aria-label={t.common.delete}>
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
@@ -887,10 +890,10 @@ export default function DiagnosisPage() {
 
                       <div className="flex items-center justify-end gap-1 pt-1">
                         <button onClick={() => openEdit(d)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-slate-400 hover:text-ocean-400 hover:bg-white/5 transition-colors">
-                          <Pencil className="w-3 h-3" />편집
+                          <Pencil className="w-3 h-3" />{t.common.edit}
                         </button>
                         <button onClick={() => setDeleteTarget(d)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-slate-400 hover:text-red-400 hover:bg-white/5 transition-colors">
-                          <Trash2 className="w-3 h-3" />삭제
+                          <Trash2 className="w-3 h-3" />{t.common.delete}
                         </button>
                       </div>
                     </div>
@@ -911,7 +914,7 @@ export default function DiagnosisPage() {
             className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
           >
             {loadingMore ? (
-              <span className="flex items-center gap-2"><RefreshCw className="w-4 h-4 animate-spin" />불러오는 중...</span>
+              <span className="flex items-center gap-2"><RefreshCw className="w-4 h-4 animate-spin" />{t.common.loading}</span>
             ) : (
               <span className="flex items-center gap-2"><ChevronDown className="w-4 h-4" />더 보기</span>
             )}
@@ -931,7 +934,7 @@ export default function DiagnosisPage() {
           <form onSubmit={handleEditSave} className="space-y-4 mt-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-slate-300 text-sm">검사 항목</Label>
+                <Label className="text-slate-300 text-sm">{t.diagnosis.testType}</Label>
                 <Select value={editForm.test_type} onValueChange={v => setEditForm(p => ({ ...p, test_type: v as TestType }))}>
                   <SelectTrigger className="bg-slate-800 border-white/10 text-white"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-slate-800 border-white/10">
@@ -942,13 +945,13 @@ export default function DiagnosisPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-slate-300 text-sm">결과</Label>
+                <Label className="text-slate-300 text-sm">{t.diagnosis.result}</Label>
                 <Select value={editForm.result} onValueChange={v => setEditForm(p => ({ ...p, result: v as ResultType }))}>
                   <SelectTrigger className="bg-slate-800 border-white/10 text-white"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-slate-800 border-white/10">
-                    <SelectItem value="양성" className="text-red-300 focus:bg-slate-700">양성</SelectItem>
-                    <SelectItem value="의심" className="text-amber-300 focus:bg-slate-700">의심</SelectItem>
-                    <SelectItem value="음성" className="text-emerald-300 focus:bg-slate-700">음성</SelectItem>
+                    <SelectItem value="양성" className="text-red-300 focus:bg-slate-700">{t.diagnosis.resultPositive}</SelectItem>
+                    <SelectItem value="의심" className="text-amber-300 focus:bg-slate-700">{t.diagnosis.resultSuspected}</SelectItem>
+                    <SelectItem value="음성" className="text-emerald-300 focus:bg-slate-700">{t.diagnosis.resultNegative}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -980,14 +983,14 @@ export default function DiagnosisPage() {
               <Textarea placeholder="조치사항을 입력하세요" value={editForm.action_taken} onChange={e => setEditForm(p => ({ ...p, action_taken: e.target.value }))} rows={3} className="bg-slate-800 border-white/10 text-white resize-none" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-slate-300 text-sm">비고</Label>
-              <Textarea placeholder="추가 메모" value={editForm.notes} onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))} rows={2} className="bg-slate-800 border-white/10 text-white resize-none" />
+              <Label className="text-slate-300 text-sm">{t.diagnosis.notes}</Label>
+              <Textarea placeholder={t.diagnosis.notesPlaceholder} value={editForm.notes} onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))} rows={2} className="bg-slate-800 border-white/10 text-white resize-none" />
             </div>
             {editError && <p className="text-sm text-red-400 flex items-center gap-1.5"><XCircle className="w-4 h-4 shrink-0" />{editError}</p>}
             <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setEditTarget(null)} className="border-white/10 text-slate-300 hover:bg-slate-700" disabled={editSaving}>취소</Button>
+              <Button type="button" variant="outline" onClick={() => setEditTarget(null)} className="border-white/10 text-slate-300 hover:bg-slate-700" disabled={editSaving}>{t.common.cancel}</Button>
               <Button type="submit" className="bg-purple-600 hover:bg-purple-500 text-white border-0" disabled={editSaving}>
-                {editSaving ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Pencil className="w-4 h-4 mr-1.5" />}저장
+                {editSaving ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Pencil className="w-4 h-4 mr-1.5" />}{t.common.save}
               </Button>
             </DialogFooter>
           </form>
@@ -1007,16 +1010,16 @@ export default function DiagnosisPage() {
         <DialogContent className="bg-slate-900 border-white/10 text-white max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-red-400" />진단 결과 삭제
+              <AlertTriangle className="w-4 h-4 text-red-400" />{t.common.delete}
             </DialogTitle>
           </DialogHeader>
           <p className="text-slate-300 text-sm mt-2">
-            <span className="font-semibold text-white">{deleteTarget?.tank_name}</span> — {deleteTarget?.test_type} ({deleteTarget?.result}) 결과를 삭제합니다. 이 작업은 되돌릴 수 없습니다.
+            <span className="font-semibold text-white">{deleteTarget?.tank_name}</span> — {deleteTarget?.test_type} ({deleteTarget?.result}) {t.diagnosis.deleteConfirm}
           </p>
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} className="border-white/10 text-slate-300 hover:bg-slate-700" disabled={deleting}>취소</Button>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} className="border-white/10 text-slate-300 hover:bg-slate-700" disabled={deleting}>{t.common.cancel}</Button>
             <Button onClick={handleDelete} disabled={deleting} className="bg-red-500 hover:bg-red-600 text-white border-0">
-              {deleting ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Trash2 className="w-4 h-4 mr-1.5" />}삭제
+              {deleting ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Trash2 className="w-4 h-4 mr-1.5" />}{t.common.delete}
             </Button>
           </DialogFooter>
         </DialogContent>

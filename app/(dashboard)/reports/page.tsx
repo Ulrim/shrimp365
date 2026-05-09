@@ -15,6 +15,7 @@ import { Download, TrendingUp, TrendingDown, Minus, BarChart3, Fish, Droplets, A
 import type { Farm, Tank, JournalEntry } from "@/types"
 import { PLAN_LIMITS, hasExport, type Plan } from "@/lib/plans"
 import Link from "next/link"
+import { useT } from "@/lib/i18n-context"
 
 const WEEK_LABELS = ["5/28", "5/29", "5/30", "5/31", "6/1", "6/2", "6/3"]
 
@@ -32,20 +33,6 @@ const weeklyMortality = WEEK_LABELS.map((day, i) => ({
   이전주: Math.round(120 + i * 20 + Math.random() * 40),
 }))
 
-const exampleTankStatusData = [
-  { name: "정상", value: 5, color: "#10b981" },
-  { name: "주의", value: 1, color: "#f59e0b" },
-  { name: "위험", value: 2, color: "#ef4444" },
-]
-
-const exampleKpis = [
-  { label: "평균 수온", value: "28.5°C", prev: "28.1°C", trend: "up", bad: true },
-  { label: "평균 DO", value: "6.2 mg/L", prev: "6.5 mg/L", trend: "down", bad: true },
-  { label: "총 폐사량", value: "1,250마리", prev: "980마리", trend: "up", bad: true },
-  { label: "평균 탁도", value: "9.8 NTU", prev: "7.2 NTU", trend: "up", bad: true },
-  { label: "알림 발생", value: "7건", prev: "3건", trend: "up", bad: true },
-  { label: "정상 수조", value: "5개", prev: "6개", trend: "down", bad: true },
-]
 
 function TrendIcon({ trend, bad }: { trend: string; bad: boolean }) {
   const isGood = (trend === "up" && !bad) || (trend === "down" && bad)
@@ -57,6 +44,23 @@ function TrendIcon({ trend, bad }: { trend: string; bad: boolean }) {
 // ─── Example Report (mock) ────────────────────────────────────────────────────
 
 function ExampleReport() {
+  const { t } = useT()
+
+  const exampleTankStatusData = [
+    { name: t.reports.normalDays, value: 5, color: "#10b981" },
+    { name: t.reports.warningDays, value: 1, color: "#f59e0b" },
+    { name: t.reports.dangerDays, value: 2, color: "#ef4444" },
+  ]
+
+  const exampleKpis = [
+    { label: t.reports.avgTemperature, value: "28.5°C", prev: "28.1°C", trend: "up", bad: true },
+    { label: t.reports.avgDo, value: "6.2 mg/L", prev: "6.5 mg/L", trend: "down", bad: true },
+    { label: t.reports.totalMortality, value: "1,250마리", prev: "980마리", trend: "up", bad: true },
+    { label: t.reports.avgTurbidity, value: "9.8 NTU", prev: "7.2 NTU", trend: "up", bad: true },
+    { label: t.reports.alertsCount, value: "7건", prev: "3건", trend: "up", bad: true },
+    { label: t.reports.normalTanks, value: "5개", prev: "6개", trend: "down", bad: true },
+  ]
+
   return (
     <div id="print-report" className="space-y-6">
       {/* KPI Summary */}
@@ -68,7 +72,7 @@ function ExampleReport() {
               <p className="text-xl font-bold text-white mb-1">{kpi.value}</p>
               <div className="flex items-center gap-1">
                 <TrendIcon trend={kpi.trend} bad={kpi.bad} />
-                <span className="text-xs text-slate-500">지난주 {kpi.prev}</span>
+                <span className="text-xs text-slate-500">{t.reports.prevWeek} {kpi.prev}</span>
               </div>
             </CardContent>
           </Card>
@@ -80,7 +84,7 @@ function ExampleReport() {
           <Card className="bg-slate-800/50 border-white/5">
             <CardHeader className="pb-2">
               <CardTitle className="text-base text-white flex items-center gap-2">
-                <Droplets className="w-4 h-4 text-teal-400" />수조별 DO 주간 추이
+                <Droplets className="w-4 h-4 text-teal-400" />{t.reports.doWeeklyTrend}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -91,7 +95,7 @@ function ExampleReport() {
                   <YAxis tick={{ fill: "#64748b", fontSize: 11 }} tickLine={false} axisLine={false} domain={[3.5, 8]} width={35} />
                   <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: "12px" }} labelStyle={{ color: "#94a3b8" }} />
                   <Legend wrapperStyle={{ fontSize: "12px", color: "#64748b" }} />
-                  <ReferenceLine y={5} stroke="#ef4444" strokeDasharray="4 4" label={{ value: "기준", fill: "#ef4444", fontSize: 10, position: "right" }} />
+                  <ReferenceLine y={5} stroke="#ef4444" strokeDasharray="4 4" label={{ value: t.reports.baseline, fill: "#ef4444", fontSize: 10, position: "right" }} />
                   <Line type="monotone" dataKey="A-1조" stroke="#0ea5e9" strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="B-2조" stroke="#f59e0b" strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="C-2조" stroke="#a78bfa" strokeWidth={2} dot={false} />
@@ -104,7 +108,7 @@ function ExampleReport() {
         <Card className="bg-slate-800/50 border-white/5">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-white flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-ocean-400" />수조 상태 분포
+              <BarChart3 className="w-4 h-4 text-ocean-400" />{t.reports.tankStatusDist}
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center">
@@ -132,7 +136,7 @@ function ExampleReport() {
         <Card className="bg-slate-800/50 border-white/5">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-white flex items-center gap-2">
-              <Fish className="w-4 h-4 text-amber-400" />일별 폐사량 비교
+              <Fish className="w-4 h-4 text-amber-400" />{t.reports.mortalityComparison}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -143,8 +147,8 @@ function ExampleReport() {
                 <YAxis tick={{ fill: "#64748b", fontSize: 11 }} tickLine={false} axisLine={false} width={40} />
                 <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: "12px" }} />
                 <Legend wrapperStyle={{ fontSize: "12px", color: "#64748b" }} />
-                <Bar dataKey="폐사량" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="이전주" fill="#334155" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="폐사량" name={t.reports.mortality} fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="이전주" name={t.reports.prevWeek} fill="#334155" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -153,7 +157,7 @@ function ExampleReport() {
         <Card className="bg-slate-800/50 border-white/5">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-white flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-red-400" />주요 이슈 및 조치 이력
+              <AlertTriangle className="w-4 h-4 text-red-400" />{t.reports.issueHistory}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -170,7 +174,7 @@ function ExampleReport() {
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="text-sm text-white font-medium">{item.tank}</span>
                     <Badge variant={item.badge} className="text-xs h-4 px-1.5">
-                      {item.badge === "danger" ? "위험" : item.badge === "warning" ? "주의" : "정상"}
+                      {item.badge === "danger" ? t.dashboard.danger : item.badge === "warning" ? t.dashboard.warning : t.dashboard.normal}
                     </Badge>
                   </div>
                   <p className="text-xs text-slate-400">{item.issue}</p>
@@ -184,19 +188,19 @@ function ExampleReport() {
 
       <Card className="bg-slate-800/50 border-white/5">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base text-white">양식장별 운영 현황 (예시)</CardTitle>
+          <CardTitle className="text-base text-white">{t.reports.farmSummaryExample}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-slate-500 text-xs border-b border-white/5">
-                  <th className="text-left pb-3 font-medium">양식장</th>
-                  <th className="text-center pb-3 font-medium">수조</th>
-                  <th className="text-center pb-3 font-medium">입식 마리수</th>
-                  <th className="text-center pb-3 font-medium">정상/주의/위험</th>
-                  <th className="text-center pb-3 font-medium">이번 주 폐사</th>
-                  <th className="text-right pb-3 font-medium">위험도</th>
+                  <th className="text-left pb-3 font-medium">{t.reports.farm}</th>
+                  <th className="text-center pb-3 font-medium">{t.reports.tank}</th>
+                  <th className="text-center pb-3 font-medium">{t.reports.shrimpCount}</th>
+                  <th className="text-center pb-3 font-medium">{t.reports.normalDays}/{t.reports.warningDays}/{t.reports.dangerDays}</th>
+                  <th className="text-center pb-3 font-medium">{t.reports.weeklyMortality}</th>
+                  <th className="text-right pb-3 font-medium">{t.reports.riskLevel}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -210,7 +214,7 @@ function ExampleReport() {
                     <span className="text-red-400">2</span>
                   </td>
                   <td className="py-3 text-center text-amber-400">1,250마리</td>
-                  <td className="py-3 text-right"><Badge variant="warning">보통</Badge></td>
+                  <td className="py-3 text-right"><Badge variant="warning">{t.reports.riskMedium}</Badge></td>
                 </tr>
                 <tr className="hover:bg-white/2">
                   <td className="py-3 text-white font-medium">제2양식장</td>
@@ -222,7 +226,7 @@ function ExampleReport() {
                     <span className="text-red-400">0</span>
                   </td>
                   <td className="py-3 text-center text-slate-300">230마리</td>
-                  <td className="py-3 text-right"><Badge variant="success">낮음</Badge></td>
+                  <td className="py-3 text-right"><Badge variant="success">{t.reports.riskLow}</Badge></td>
                 </tr>
               </tbody>
             </table>
@@ -236,6 +240,7 @@ function ExampleReport() {
 // ─── Real Report ──────────────────────────────────────────────────────────────
 
 function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tanks: Tank[]; journals: JournalEntry[]; periodDays: number }) {
+  const { t } = useT()
   const periodStart = new Date(Date.now() - periodDays * 86400000)
   const weekJournals = journals.filter(j => new Date(j.date) >= periodStart)
 
@@ -249,9 +254,9 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
   }
 
   const tankStatusData = [
-    { name: "정상", value: statusCounts.active, color: "#10b981" },
-    { name: "주의", value: statusCounts.warning, color: "#f59e0b" },
-    { name: "위험", value: statusCounts.danger, color: "#ef4444" },
+    { name: t.reports.normalDays, value: statusCounts.active, color: "#10b981" },
+    { name: t.reports.warningDays, value: statusCounts.warning, color: "#f59e0b" },
+    { name: t.reports.dangerDays, value: statusCounts.danger, color: "#ef4444" },
   ].filter(d => d.value > 0)
 
   const chartDays = Math.min(periodDays, 30)
@@ -262,7 +267,7 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
     const dayJournals = journals.filter(j => j.date === dateStr)
     return {
       day: label,
-      폐사량: dayJournals.reduce((s, j) => s + j.mortality_count, 0),
+      [t.reports.mortality]: dayJournals.reduce((s, j) => s + j.mortality_count, 0),
     }
   })
 
@@ -271,10 +276,10 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
       {/* KPI Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "운영 양식장", value: `${farms.length}개` },
-          { label: "총 수조", value: `${tanks.length}개` },
-          { label: "이번 주 폐사", value: `${totalMortality.toLocaleString()}마리` },
-          { label: "이번 주 급이", value: `${totalFeeding.toFixed(1)}kg` },
+          { label: t.reports.activeFarms, value: `${farms.length}개` },
+          { label: t.reports.totalTanks, value: `${tanks.length}개` },
+          { label: t.reports.periodMortality, value: `${totalMortality.toLocaleString()}마리` },
+          { label: t.reports.periodFeeding, value: `${totalFeeding.toFixed(1)}kg` },
         ].map(kpi => (
           <Card key={kpi.label} className="bg-slate-800/50 border-white/5">
             <CardContent className="p-4">
@@ -291,23 +296,23 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
           <Card className="bg-slate-800/50 border-white/5">
             <CardHeader className="pb-2">
               <CardTitle className="text-base text-white flex items-center gap-2">
-                <Fish className="w-4 h-4 text-amber-400" />일별 폐사량 (최근 7일)
+                <Fish className="w-4 h-4 text-amber-400" />{t.reports.dailyMortality}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {dailyMortality.some(d => d.폐사량 > 0) ? (
+              {dailyMortality.some(d => (d[t.reports.mortality] as number) > 0) ? (
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={dailyMortality} barSize={20}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
                     <XAxis dataKey="day" tick={{ fill: "#64748b", fontSize: 11 }} tickLine={false} axisLine={false} />
                     <YAxis tick={{ fill: "#64748b", fontSize: 11 }} tickLine={false} axisLine={false} width={40} />
                     <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: "12px" }} />
-                    <Bar dataKey="폐사량" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey={t.reports.mortality} fill="#f59e0b" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="h-[220px] flex items-center justify-center text-slate-500 text-sm">
-                  이번 주 폐사 기록이 없습니다
+                  {t.reports.noMortalityRecord}
                 </div>
               )}
             </CardContent>
@@ -342,7 +347,7 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
                 </div>
               </>
             ) : (
-              <div className="h-[180px] flex items-center justify-center text-slate-500 text-sm">수조 없음</div>
+              <div className="h-[180px] flex items-center justify-center text-slate-500 text-sm">{t.reports.noTanks}</div>
             )}
           </CardContent>
         </Card>
@@ -351,21 +356,21 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
       {/* Farm summary table */}
       <Card className="bg-slate-800/50 border-white/5">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base text-white">양식장별 운영 현황</CardTitle>
+          <CardTitle className="text-base text-white">{t.reports.farmSummary}</CardTitle>
         </CardHeader>
         <CardContent>
           {farms.length === 0 ? (
-            <p className="text-slate-500 text-sm text-center py-6">등록된 양식장이 없습니다</p>
+            <p className="text-slate-500 text-sm text-center py-6">{t.reports.noFarms}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-slate-500 text-xs border-b border-white/5">
-                    <th className="text-left pb-3 font-medium">양식장</th>
-                    <th className="text-center pb-3 font-medium">수조</th>
-                    <th className="text-center pb-3 font-medium">입식 마리수</th>
-                    <th className="text-center pb-3 font-medium">정상/주의/위험</th>
-                    <th className="text-center pb-3 font-medium">이번 주 폐사</th>
+                    <th className="text-left pb-3 font-medium">{t.reports.farm}</th>
+                    <th className="text-center pb-3 font-medium">{t.reports.tank}</th>
+                    <th className="text-center pb-3 font-medium">{t.reports.shrimpCount}</th>
+                    <th className="text-center pb-3 font-medium">{t.reports.normalDays}/{t.reports.warningDays}/{t.reports.dangerDays}</th>
+                    <th className="text-center pb-3 font-medium">{t.reports.weeklyMortality}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -404,7 +409,7 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
         <Card className="bg-slate-800/50 border-white/5">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-white flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-ocean-400" />이번 주 일지 요약
+              <BookOpen className="w-4 h-4 text-ocean-400" />{t.reports.journalSummary}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -415,15 +420,15 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
                   <span className="text-white font-medium">{j.tank_name}</span>
                 </div>
                 <div className="flex items-center gap-4 text-xs text-slate-400">
-                  <span>급이 {j.feeding_amount}kg</span>
-                  <span className={j.mortality_count > 0 ? "text-amber-400" : "text-slate-500"}>폐사 {j.mortality_count}마리</span>
-                  <span>환수 {j.water_exchange_rate}%</span>
+                  <span>{t.reports.feeding} {j.feeding_amount}kg</span>
+                  <span className={j.mortality_count > 0 ? "text-amber-400" : "text-slate-500"}>{t.reports.mortality} {j.mortality_count}마리</span>
+                  <span>{t.reports.waterExchange} {j.water_exchange_rate}%</span>
                 </div>
               </div>
             ))}
             {weekJournals.length > 10 && (
               <a href="/journal" className="block text-center text-xs text-ocean-400 hover:text-ocean-300 transition-colors pt-1">
-                전체 일지 보기 ({weekJournals.length}건) →
+                {t.reports.viewAllJournals} ({weekJournals.length}건) →
               </a>
             )}
           </CardContent>
@@ -435,14 +440,15 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-const PERIOD_OPTIONS = [
-  { label: "이번 주 (7일)", days: 7 },
-  { label: "이번 달 (30일)", days: 30 },
-  { label: "최근 3개월 (90일)", days: 90 },
-]
-
 export default function ReportsPage() {
   const { user } = useAuth()
+  const { t } = useT()
+
+  const PERIOD_OPTIONS = [
+    { labelKey: "period7d" as const, days: 7 },
+    { labelKey: "period30d" as const, days: 30 },
+    { labelKey: "period90d" as const, days: 90 },
+  ]
   const [farms, setFarms] = useState<Farm[]>([])
   const [tanks, setTanks] = useState<Tank[]>([])
   const [journals, setJournals] = useState<JournalEntry[]>([])
@@ -502,7 +508,7 @@ export default function ReportsPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-bold text-white">운영 리포트</h2>
+          <h2 className="text-xl font-bold text-white">{t.reports.title}</h2>
           <p className="text-sm text-slate-400 mt-0.5">{dateRange}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -516,7 +522,7 @@ export default function ReportsPage() {
                 <button
                   key={opt.days}
                   onClick={() => locked ? null : handlePeriodChange(opt.days)}
-                  title={locked ? "상위 플랜 전용" : undefined}
+                  title={locked ? t.reports.periodLocked : undefined}
                   className={`text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 ${
                     locked
                       ? "text-slate-600 cursor-not-allowed"
@@ -526,7 +532,7 @@ export default function ReportsPage() {
                   }`}
                 >
                   {locked && <Lock className="w-3 h-3" />}
-                  {opt.label}
+                  {t.reports[opt.labelKey]}
                 </button>
               )
             })}
@@ -537,18 +543,18 @@ export default function ReportsPage() {
                 variant="outline"
                 className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
                 onClick={handlePdf}
-                title="브라우저 인쇄 → PDF로 저장을 선택하세요"
+                title={t.reports.printSaveHint}
               >
-                <Download className="w-4 h-4 mr-2" />인쇄/저장
+                <Download className="w-4 h-4 mr-2" />{t.reports.printSave}
               </Button>
             ) : (
               <Link href="/pricing">
                 <Button
                   variant="outline"
                   className="border-white/10 text-slate-500 hover:text-white hover:bg-white/5"
-                  title="Pro 플랜 전용"
+                  title={t.reports.csvProOnly}
                 >
-                  <Lock className="w-4 h-4 mr-2" />인쇄/저장
+                  <Lock className="w-4 h-4 mr-2" />{t.reports.printSave}
                 </Button>
               </Link>
             )
@@ -565,15 +571,15 @@ export default function ReportsPage() {
                 <BarChart3 className="w-8 h-8 text-slate-500" />
               </div>
               <div>
-                <p className="text-white font-semibold text-lg mb-1">아직 데이터가 없습니다</p>
+                <p className="text-white font-semibold text-lg mb-1">{t.reports.noData}</p>
                 <p className="text-slate-400 text-sm max-w-sm">
-                  양식장·수조를 등록하고 양식일지를 기록하면 자동으로 주간 리포트가 생성됩니다.
+                  {t.reports.noDataMsg}
                 </p>
               </div>
               <div className="flex gap-3">
                 <a href="/farms">
                   <Button className="bg-ocean-500 hover:bg-ocean-600 text-white gap-2">
-                    양식장 등록하기
+                    {t.dashboard.goToFarms}
                   </Button>
                 </a>
                 <Button
@@ -582,7 +588,7 @@ export default function ReportsPage() {
                   onClick={() => setShowExample(v => !v)}
                 >
                   <BookOpen className="w-4 h-4" />
-                  예시 보고서 보기
+                  {t.reports.viewExample}
                   {showExample ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </Button>
               </div>
@@ -593,7 +599,7 @@ export default function ReportsPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-ocean-400 flex items-center gap-2">
-                  <BookOpen className="w-4 h-4" /> 예시 보고서 — 실제 데이터 입력 후 이런 형태로 자동 생성됩니다
+                  <BookOpen className="w-4 h-4" /> {t.reports.exampleNote}
                 </p>
                 <Button
                   variant="outline"
@@ -601,7 +607,7 @@ export default function ReportsPage() {
                   className="border-white/10 text-slate-300 hover:bg-white/5"
                   onClick={handlePdf}
                 >
-                  <Download className="w-3.5 h-3.5 mr-1.5" />인쇄/저장
+                  <Download className="w-3.5 h-3.5 mr-1.5" />{t.reports.printSave}
                 </Button>
               </div>
               <ExampleReport />

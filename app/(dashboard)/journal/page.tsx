@@ -23,6 +23,7 @@ import {
 } from "lucide-react"
 import { formatDate, formatDateTime } from "@/lib/utils"
 import { exportToCsv } from "@/lib/export"
+import { useT } from "@/lib/i18n-context"
 
 const FEED_TYPES = ["입식기 사료 (No.0)", "초기 사료 (No.1)", "성장기 사료 (No.2)", "성장기 사료 (No.3)", "마무리 사료 (No.4)", "기타"]
 const MICROBIAL_TYPES = ["EM균", "바실러스균", "광합성균", "복합 미생물제", "기타"]
@@ -64,6 +65,7 @@ const defaultFormValues = {
 }
 
 function JournalCard({ entry, onEdit, onDelete }: { entry: JournalEntry; onEdit: (e: JournalEntry) => void; onDelete: (e: JournalEntry) => void }) {
+  const { t } = useT()
   return (
     <Card className="bg-slate-800/50 border-white/5 hover:border-white/10 transition-all group">
       <CardContent className="p-5">
@@ -84,14 +86,14 @@ function JournalCard({ entry, onEdit, onDelete }: { entry: JournalEntry; onEdit:
             <button
               onClick={() => onEdit(entry)}
               className="p-1.5 rounded-lg text-slate-500 hover:text-ocean-400 hover:bg-white/5 transition-colors"
-              aria-label="일지 편집"
+              aria-label={t.journal.editEntry}
             >
               <Pencil className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => onDelete(entry)}
               className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-white/5 transition-colors"
-              aria-label="일지 삭제"
+              aria-label={t.common.delete}
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -104,7 +106,7 @@ function JournalCard({ entry, onEdit, onDelete }: { entry: JournalEntry; onEdit:
               <UtensilsCrossed className="w-3.5 h-3.5" />
             </div>
             <p className="text-lg font-bold text-white">{entry.feeding_amount}<span className="text-xs text-slate-400">kg</span></p>
-            <p className="text-xs text-slate-400">급이량</p>
+            <p className="text-xs text-slate-400">{t.journal.catFeeding}</p>
           </div>
           <div className="bg-slate-700/50 rounded-lg p-3 text-center">
             <div className="flex items-center justify-center gap-1 text-amber-400 mb-1">
@@ -118,7 +120,7 @@ function JournalCard({ entry, onEdit, onDelete }: { entry: JournalEntry; onEdit:
               <RefreshCw className="w-3.5 h-3.5" />
             </div>
             <p className="text-lg font-bold text-white">{entry.water_exchange_rate}<span className="text-xs text-slate-400">%</span></p>
-            <p className="text-xs text-slate-400">환수율</p>
+            <p className="text-xs text-slate-400">{t.journal.catWaterChange}</p>
           </div>
           <div className="bg-slate-700/50 rounded-lg p-3 text-center">
             <div className="flex items-center justify-center gap-1 text-purple-400 mb-1">
@@ -149,6 +151,7 @@ const PAGE_SIZE = 20
 
 export default function JournalPage() {
   const { user } = useAuth()
+  const { t } = useT()
   const [journals, setJournals] = useState<JournalEntry[]>([])
   const [tanks, setTanks] = useState<Tank[]>([])
   const [loadingData, setLoadingData] = useState(true)
@@ -407,8 +410,8 @@ export default function JournalPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-white">양식 일지</h2>
-          <p className="text-sm text-slate-400 mt-0.5">수질 측정, 급이, 폐사, 작업 내역을 기록합니다</p>
+          <h2 className="text-xl font-bold text-white">{t.journal.title}</h2>
+          <p className="text-sm text-slate-400 mt-0.5">{t.journal.subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           {journals.length > 0 && (
@@ -417,7 +420,7 @@ export default function JournalPage() {
             </Button>
           )}
           <Button onClick={() => setDialogOpen(true)} className="bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white">
-            <Plus className="w-4 h-4" />일지 작성
+            <Plus className="w-4 h-4" />{t.journal.addEntry}
           </Button>
         </div>
       </div>
@@ -441,14 +444,14 @@ export default function JournalPage() {
           />
         </div>
         <Button size="sm" onClick={handleFilter} className="bg-ocean-500/20 hover:bg-ocean-500/30 text-ocean-300 border border-ocean-500/30">
-          조회
+          {t.common.filter}
         </Button>
         {(filterFrom || filterTo) && (
           <button
             onClick={() => { setFilterFrom(""); setFilterTo(""); setOffset(0); loadJournals("", "", 0, true) }}
             className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
           >
-            초기화
+            {t.common.reset}
           </button>
         )}
       </div>
@@ -462,7 +465,7 @@ export default function JournalPage() {
         <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {journals.length === 0 ? (
-              <p className="text-slate-400 text-sm col-span-2 text-center py-12">일지가 없습니다. 첫 일지를 작성해보세요.</p>
+              <p className="text-slate-400 text-sm col-span-2 text-center py-12">{t.journal.noEntries}. {t.journal.noEntriesMsg}</p>
             ) : journals.map(entry => (
               <JournalCard key={entry.id} entry={entry} onEdit={handleEdit} onDelete={setDeleteTarget} />
             ))}
@@ -476,7 +479,7 @@ export default function JournalPage() {
                 className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
               >
                 {loadingMore ? (
-                  <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />불러오는 중...</span>
+                  <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />{t.common.loading}</span>
                 ) : (
                   <span className="flex items-center gap-2"><ChevronDown className="w-4 h-4" />더 보기</span>
                 )}
@@ -491,13 +494,13 @@ export default function JournalPage() {
         <DialogContent className="bg-slate-900 border-white/10 text-white max-w-md">
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2">
-              <Pencil className="w-4 h-4 text-ocean-400" />일지 편집
+              <Pencil className="w-4 h-4 text-ocean-400" />{t.journal.editEntry}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-slate-300 flex items-center gap-1"><UtensilsCrossed className="w-3.5 h-3.5 text-ocean-400" />급이량 (kg)</Label>
+                <Label className="text-slate-300 flex items-center gap-1"><UtensilsCrossed className="w-3.5 h-3.5 text-ocean-400" />{t.journal.catFeeding} (kg)</Label>
                 <Input type="number" step="0.1" value={editForm.feeding_amount || ""} onChange={e => setEditForm(p => ({ ...p, feeding_amount: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
               </div>
               <div className="space-y-2">
@@ -525,14 +528,14 @@ export default function JournalPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-slate-300">메모</Label>
+              <Label className="text-slate-300">{t.journal.notes}</Label>
               <Textarea value={editForm.notes || ""} onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))} className="bg-slate-800 border-white/10 text-white resize-none" rows={3} />
             </div>
           </div>
           <DialogFooter className="mt-4">
-            <Button variant="ghost" onClick={() => setEditTarget(null)} className="text-slate-400 hover:text-white">취소</Button>
+            <Button variant="ghost" onClick={() => setEditTarget(null)} className="text-slate-400 hover:text-white">{t.common.cancel}</Button>
             <Button onClick={handleEditSave} disabled={editSaving} className="bg-gradient-to-r from-ocean-500 to-teal-500 text-white min-w-[80px]">
-              {editSaving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "저장"}
+              {editSaving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : t.common.save}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -543,16 +546,16 @@ export default function JournalPage() {
         <DialogContent className="bg-slate-900 border-white/10 text-white max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-red-400" />일지 삭제
+              <AlertTriangle className="w-4 h-4 text-red-400" />{t.common.delete}
             </DialogTitle>
           </DialogHeader>
           <p className="text-slate-300 text-sm mt-2">
-            <span className="font-semibold text-white">{deleteTarget?.tank_name}</span> ({deleteTarget && formatDate(deleteTarget.date)}) 일지를 삭제합니다. 이 작업은 되돌릴 수 없습니다.
+            <span className="font-semibold text-white">{deleteTarget?.tank_name}</span> ({deleteTarget && formatDate(deleteTarget.date)}) {t.journal.deleteConfirm}
           </p>
           <DialogFooter className="mt-4">
-            <Button variant="ghost" onClick={() => setDeleteTarget(null)} className="text-slate-400 hover:text-white">취소</Button>
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)} className="text-slate-400 hover:text-white">{t.common.cancel}</Button>
             <Button onClick={handleDelete} disabled={deleting} className="bg-red-500 hover:bg-red-600 text-white">
-              {deleting ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "삭제"}
+              {deleting ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : t.common.delete}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -563,7 +566,7 @@ export default function JournalPage() {
         <DialogContent className="bg-slate-900 border-white/10 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-ocean-400" />양식 일지 작성
+              <BookOpen className="w-5 h-5 text-ocean-400" />{t.journal.addEntry}
             </DialogTitle>
           </DialogHeader>
 
@@ -578,10 +581,10 @@ export default function JournalPage() {
             <TabsContent value="basic" className="space-y-4 mt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-slate-300">수조 선택 *</Label>
+                  <Label className="text-slate-300">{t.journal.tank} *</Label>
                   <Select value={form.tank_id} onValueChange={v => update("tank_id", v)}>
                     <SelectTrigger className="bg-slate-800 border-white/10 text-white">
-                      <SelectValue placeholder="수조를 선택하세요" />
+                      <SelectValue placeholder={t.journal.selectTank} />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-800 border-white/10">
                       {tanks.map(t => (
@@ -591,14 +594,14 @@ export default function JournalPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-300">날짜 *</Label>
+                  <Label className="text-slate-300">{t.journal.date} *</Label>
                   <Input type="date" value={form.date} onChange={e => update("date", e.target.value)} className="bg-slate-800 border-white/10 text-white" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-slate-300 flex items-center gap-1"><UtensilsCrossed className="w-3.5 h-3.5 text-ocean-400" />급이량 (kg)</Label>
+                  <Label className="text-slate-300 flex items-center gap-1"><UtensilsCrossed className="w-3.5 h-3.5 text-ocean-400" />{t.journal.catFeeding} (kg)</Label>
                   <Input type="number" step="0.1" placeholder="0.0" value={form.feeding_amount} onChange={e => update("feeding_amount", e.target.value)} className="bg-slate-800 border-white/10 text-white" />
                 </div>
                 <div className="space-y-2">
@@ -630,8 +633,8 @@ export default function JournalPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-slate-300 flex items-center gap-1"><StickyNote className="w-3.5 h-3.5 text-yellow-400" />메모 / 특이사항</Label>
-                <Textarea placeholder="오늘 특이사항을 기록하세요..." value={form.notes} onChange={e => update("notes", e.target.value)} className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500 resize-none" rows={3} />
+                <Label className="text-slate-300 flex items-center gap-1"><StickyNote className="w-3.5 h-3.5 text-yellow-400" />{t.journal.notes}</Label>
+                <Textarea placeholder={t.journal.notesPlaceholder} value={form.notes} onChange={e => update("notes", e.target.value)} className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500 resize-none" rows={3} />
               </div>
             </TabsContent>
 
@@ -737,7 +740,7 @@ export default function JournalPage() {
           )}
           <DialogFooter className="mt-4">
             <Button variant="ghost" onClick={() => setDialogOpen(false)} className="text-slate-400 hover:text-white">
-              취소
+              {t.common.cancel}
             </Button>
             <Button
               onClick={handleSave}
@@ -745,10 +748,10 @@ export default function JournalPage() {
               className="bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white min-w-[100px]"
             >
               {saved ? (
-                <span className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" />저장완료</span>
+                <span className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" />{t.journal.saved}</span>
               ) : saving ? (
-                <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />저장중...</span>
-              ) : "일지 저장"}
+                <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />{t.journal.saving}</span>
+              ) : t.common.save}
             </Button>
           </DialogFooter>
         </DialogContent>

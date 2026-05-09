@@ -13,6 +13,7 @@ import { BrainCircuit, Send, AlertTriangle, Lightbulb, TrendingUp, Activity, Spa
 import { formatDateTime } from "@/lib/utils"
 import { UpgradeModal } from "@/components/ui/upgrade-modal"
 import type { Plan } from "@/lib/plans"
+import { useT } from "@/lib/i18n-context"
 
 interface Message {
   id: string
@@ -206,6 +207,7 @@ function generateDefaultResponse(question: string, tankCount: number, alertCount
 
 export default function AIAdvisorPage() {
   const { user } = useAuth()
+  const { t } = useT()
   const [tanks, setTanks] = useState<Tank[]>([])
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [diagnoses, setDiagnoses] = useState<DiagnosisResult[]>([])
@@ -221,8 +223,8 @@ export default function AIAdvisorPage() {
     async function loadData() {
       const mock = isTestAccount(user?.email)
       try {
-        const [t, a, d] = await Promise.all([getAllTanks(), getAlerts(true), getDiagnoses()])
-        const finalTanks = t.length ? t : (mock ? MOCK_TANKS : [])
+        const [tankData, a, d] = await Promise.all([getAllTanks(), getAlerts(true), getDiagnoses()])
+        const finalTanks = tankData.length ? tankData : (mock ? MOCK_TANKS : [])
         const finalAlerts = a.length ? a : (mock ? MOCK_ALERTS.filter(x => !x.resolved) : [])
         const finalDiagnoses = d.length ? d : (mock ? MOCK_DIAGNOSES : [])
         setTanks(finalTanks)
@@ -231,14 +233,14 @@ export default function AIAdvisorPage() {
         setMessages([{
           id: "welcome",
           role: "assistant",
-          content: `안녕하세요! 저는 Shrimp365 AI 어드바이저입니다.\n\n현재 **${finalTanks.length}개 수조** 운영 현황을 실시간으로 분석하고 있습니다.\n\n${finalAlerts.length > 0 ? `**활성 알림 ${finalAlerts.length}건**이 감지되었습니다.` : "현재 활성 알림이 없습니다."} 아래 빠른 질문 버튼을 눌러 시작하거나, 직접 질문을 입력하세요.`,
+          content: `${t.aiAdvisor.welcomeTitle}\n\n${t.aiAdvisor.welcomeMsg}\n\n현재 **${finalTanks.length}개 수조** 운영 현황을 실시간으로 분석하고 있습니다.\n\n${finalAlerts.length > 0 ? `**활성 알림 ${finalAlerts.length}건**이 감지되었습니다.` : "현재 활성 알림이 없습니다."} 아래 빠른 질문 버튼을 눌러 시작하거나, 직접 질문을 입력하세요.`,
           timestamp: new Date(),
         }])
       } catch {
         setMessages([{
           id: "welcome",
           role: "assistant",
-          content: "안녕하세요! 저는 Shrimp365 AI 어드바이저입니다. 질문을 입력하세요.",
+          content: `${t.aiAdvisor.welcomeTitle} ${t.aiAdvisor.welcomeMsg}`,
           timestamp: new Date(),
         }])
       } finally {
@@ -254,7 +256,7 @@ export default function AIAdvisorPage() {
 
   const buildContext = () => {
     const lines: string[] = []
-    lines.push(`운영 수조: ${tanks.length}개`)
+    lines.push(`${t.aiAdvisor.contextTank}: ${tanks.length}개`)
     if (tanks.length > 0) {
       const statusSummary = tanks.reduce<Record<string, number>>((acc, t) => {
         acc[t.status] = (acc[t.status] ?? 0) + 1
@@ -263,13 +265,13 @@ export default function AIAdvisorPage() {
       lines.push(`수조 상태: 정상 ${statusSummary.active ?? 0}개, 주의 ${statusSummary.warning ?? 0}개, 위험 ${statusSummary.danger ?? 0}개`)
     }
     if (alerts.length > 0) {
-      lines.push(`활성 알림 ${alerts.length}건:`)
+      lines.push(`${t.aiAdvisor.contextAlert} ${alerts.length}건:`)
       alerts.slice(0, 3).forEach(a => lines.push(`  - [${a.type}] ${a.tank_name}: ${a.message}`))
     }
     if (diagnoses.length > 0) {
       const positive = diagnoses.filter(d => d.result === "양성")
       if (positive.length > 0) {
-        lines.push(`양성 진단 ${positive.length}건:`)
+        lines.push(`${t.aiAdvisor.contextDiagnosis} ${positive.length}건:`)
         positive.slice(0, 2).forEach(d => lines.push(`  - ${d.tank_name}: ${d.test_type} ${d.result} (위험도: ${d.risk_level})`))
       }
     }
@@ -358,8 +360,8 @@ export default function AIAdvisorPage() {
           <BrainCircuit className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-white">AI 어드바이저</h2>
-          <p className="text-sm text-slate-400">수질·생육·진단 데이터 기반 운영 권고</p>
+          <h2 className="text-xl font-bold text-white">{t.aiAdvisor.title}</h2>
+          <p className="text-sm text-slate-400">{t.aiAdvisor.subtitle}</p>
         </div>
         <div className="ml-auto flex items-center gap-3">
           {aiRemaining !== null && (
@@ -370,11 +372,11 @@ export default function AIAdvisorPage() {
                 ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
                 : "bg-slate-800/60 border-white/10 text-slate-400"
             }`}>
-              오늘 {aiRemaining}회 남음
+              {t.aiAdvisor.remaining} {aiRemaining}{t.aiAdvisor.remainingUnit}
             </span>
           )}
           <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-          <span className="text-xs text-emerald-400">온라인</span>
+          <span className="text-xs text-emerald-400">{t.aiAdvisor.online}</span>
         </div>
       </div>
 
@@ -426,7 +428,7 @@ export default function AIAdvisorPage() {
                 value={input}
                 onChange={e => setInput(e.target.value.slice(0, 500))}
                 onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage(input)}
-                placeholder="질문을 입력하세요... (최대 500자)"
+                placeholder={t.aiAdvisor.inputPlaceholder}
                 maxLength={500}
                 className="bg-slate-700/50 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-ocean-400"
                 disabled={loading}
@@ -447,7 +449,7 @@ export default function AIAdvisorPage() {
           <Card className="bg-slate-800/50 border-white/5">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-white flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-ocean-400" />빠른 질문
+                <Sparkles className="w-4 h-4 text-ocean-400" />{t.aiAdvisor.suggestQ1.split(" ")[0]}…
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -468,18 +470,18 @@ export default function AIAdvisorPage() {
           <Card className="bg-slate-800/50 border-white/5">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-white flex items-center gap-2">
-                <Activity className="w-4 h-4 text-amber-400" />현황 요약
+                <Activity className="w-4 h-4 text-amber-400" />{t.aiAdvisor.contextTitle}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-xs">
               <div className="flex justify-between text-slate-400">
-                <span>운영 수조</span><span className="text-white font-medium">{tanks.length}개</span>
+                <span>{t.aiAdvisor.contextTank}</span><span className="text-white font-medium">{tanks.length}개</span>
               </div>
               <div className="flex justify-between text-slate-400">
-                <span>활성 알림</span><span className="text-amber-400 font-medium">{alerts.length}건</span>
+                <span>{t.aiAdvisor.contextAlert}</span><span className="text-amber-400 font-medium">{alerts.length}건</span>
               </div>
               <div className="flex justify-between text-slate-400">
-                <span>양성 진단</span><span className="text-red-400 font-medium">{diagnoses.filter(d => d.result === "양성").length}건</span>
+                <span>{t.aiAdvisor.contextDiagnosis}</span><span className="text-red-400 font-medium">{diagnoses.filter(d => d.result === "양성").length}건</span>
               </div>
               <div className="flex justify-between text-slate-400">
                 <span>위험 수조</span><span className="text-red-400 font-medium">{tanks.filter(t => t.status === "danger").length}개</span>

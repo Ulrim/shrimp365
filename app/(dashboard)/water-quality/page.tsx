@@ -25,6 +25,7 @@ import {
 import { exportToCsv } from "@/lib/export"
 import { formatDateTime } from "@/lib/utils"
 import type { Tank, WaterQualityReading, Alert, SensorDevice } from "@/types"
+import { useT } from "@/lib/i18n-context"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -64,9 +65,9 @@ const STD_KEYS = [
 ] as const
 
 const TIME_RANGES = [
-  { label: "24시간", hours: 24 },
-  { label: "3일",   hours: 72 },
-  { label: "7일",   hours: 168 },
+  { labelKey: "period24h" as const, hours: 24 },
+  { labelKey: "period3d" as const,  hours: 72 },
+  { labelKey: "period7d" as const,  hours: 168 },
 ] as const
 
 
@@ -99,11 +100,14 @@ function buildChartData(readings: WaterQualityReading[], last24h = true) {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ReadingCard({ meta, reading }: { meta: ParamMeta; reading: WaterQualityReading }) {
+  const { t } = useT()
   const stdKey = meta.key as typeof STD_KEYS[number]
   const value = reading[meta.key] as number
   const status = getStatus(value, stdKey)
   const styles = STATUS_STYLES[status]
   const std = WATER_QUALITY_STANDARDS[stdKey]
+
+  const statusLabel = status === "정상" ? t.dashboard.normal : status === "주의" ? t.dashboard.warning : t.dashboard.danger
 
   return (
     <Card className={`border ${styles.bg} transition-all hover:brightness-110`}>
@@ -114,7 +118,7 @@ function ReadingCard({ meta, reading }: { meta: ParamMeta; reading: WaterQuality
           </div>
           <div className="flex items-center gap-1.5">
             <span className={`w-2 h-2 rounded-full ${styles.dot} ${status !== "정상" ? "animate-pulse" : ""}`} />
-            <Badge variant={styles.badge as "success" | "warning" | "danger"}>{status}</Badge>
+            <Badge variant={styles.badge as "success" | "warning" | "danger"}>{statusLabel}</Badge>
           </div>
         </div>
 
@@ -125,7 +129,7 @@ function ReadingCard({ meta, reading }: { meta: ParamMeta; reading: WaterQuality
         </p>
 
         <div className="mt-2 text-xs text-slate-500">
-          정상: {std.min} – {std.max}{meta.unit}
+          {t.waterQuality.normalRange}: {std.min} – {std.max}{meta.unit}
         </div>
       </CardContent>
     </Card>
@@ -215,6 +219,7 @@ function OverviewChart({ chartData }: { chartData: ReturnType<typeof buildChartD
 
 export default function WaterQualityPage() {
   const { user } = useAuth()
+  const { t } = useT()
   const plan = (user?.plan ?? "free") as Plan
   const [tanks, setTanks] = useState<Tank[]>([])
   const [selectedTankId, setSelectedTankId] = useState<string>("")
@@ -401,6 +406,12 @@ export default function WaterQualityPage() {
     exportToCsv(rows, `수질데이터_${selectedTank.name}_${new Date().toISOString().split("T")[0]}`)
   }
 
+  const timeRangeLabel = (hours: 24 | 72 | 168) => {
+    if (hours === 24) return t.waterQuality.period24h
+    if (hours === 72) return t.waterQuality.period3d
+    return t.waterQuality.period7d
+  }
+
   if (!isLoading && tanks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-96 space-y-4 animate-fade-in">
@@ -408,14 +419,14 @@ export default function WaterQualityPage() {
           <Droplets className="w-8 h-8 text-ocean-400" />
         </div>
         <div className="text-center">
-          <h2 className="text-xl font-bold text-white mb-2">수조가 없습니다</h2>
+          <h2 className="text-xl font-bold text-white mb-2">{t.waterQuality.noTanks}</h2>
           <p className="text-slate-400 text-sm max-w-sm">
-            양식장과 수조를 먼저 등록해야 수질 데이터를 입력하고 모니터링할 수 있습니다.
+            {t.waterQuality.noTanksMsg}
           </p>
         </div>
         <a href="/farms">
           <Button className="bg-ocean-500 hover:bg-ocean-600 text-white gap-2">
-            <Plus className="w-4 h-4" /> 양식장 등록하기
+            <Plus className="w-4 h-4" /> {t.dashboard.goToFarms}
           </Button>
         </a>
       </div>
@@ -427,21 +438,21 @@ export default function WaterQualityPage() {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">수질 모니터링</h1>
-          <p className="text-sm text-slate-400 mt-0.5">실시간 수질 데이터 및 이력 분석</p>
+          <h1 className="text-2xl font-bold text-white">{t.waterQuality.title}</h1>
+          <p className="text-sm text-slate-400 mt-0.5">{t.waterQuality.subtitle}</p>
         </div>
 
         <div className="flex items-center gap-3">
           {/* Summary badges */}
           <div className="hidden sm:flex items-center gap-2">
             <span className="flex items-center gap-1.5 text-xs text-emerald-400">
-              <CheckCircle2 className="w-3.5 h-3.5" />정상 {summaryStatusCounts.정상}
+              <CheckCircle2 className="w-3.5 h-3.5" />{t.dashboard.normal} {summaryStatusCounts.정상}
             </span>
             <span className="flex items-center gap-1.5 text-xs text-amber-400">
-              <AlertCircle className="w-3.5 h-3.5" />주의 {summaryStatusCounts.주의}
+              <AlertCircle className="w-3.5 h-3.5" />{t.dashboard.warning} {summaryStatusCounts.주의}
             </span>
             <span className="flex items-center gap-1.5 text-xs text-red-400">
-              <XCircle className="w-3.5 h-3.5" />위험 {summaryStatusCounts.위험}
+              <XCircle className="w-3.5 h-3.5" />{t.dashboard.danger} {summaryStatusCounts.위험}
             </span>
           </div>
 
@@ -455,7 +466,7 @@ export default function WaterQualityPage() {
               <SelectContent className="bg-slate-800 border-white/10">
                 {TIME_RANGES.map(r => (
                   <SelectItem key={r.hours} value={String(r.hours)} className="text-slate-200 text-xs focus:bg-white/10 focus:text-white">
-                    {r.label}
+                    {t.waterQuality[r.labelKey]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -468,7 +479,7 @@ export default function WaterQualityPage() {
             variant="outline"
             size="sm"
             className="border-white/10 text-slate-300 hover:bg-white/5 gap-2"
-            title={hasExport(plan) ? "CSV 다운로드" : "Pro 플랜으로 업그레이드하면 CSV 내보내기를 사용할 수 있습니다"}
+            title={hasExport(plan) ? t.waterQuality.csvExport : t.waterQuality.csvProOnly}
           >
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">CSV</span>
@@ -482,7 +493,7 @@ export default function WaterQualityPage() {
               className="border-ocean-500/40 text-ocean-300 hover:bg-ocean-500/10 gap-2"
             >
               <Plus className="w-4 h-4" />
-              수질 입력 (양식일지)
+              {t.waterQuality.addRecord}
             </Button>
           </a>
 
@@ -505,10 +516,10 @@ export default function WaterQualityPage() {
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex items-center gap-3 flex-1">
               <div>
-                <p className="text-xs text-slate-400 mb-1.5">수조 선택</p>
+                <p className="text-xs text-slate-400 mb-1.5">{t.waterQuality.tank}</p>
                 <Select value={selectedTankId} onValueChange={setSelectedTankId}>
                   <SelectTrigger className="w-48 bg-slate-900/60 border-white/10 text-white focus:ring-ocean-500/30">
-                    <SelectValue placeholder="수조를 선택하세요" />
+                    <SelectValue placeholder={t.waterQuality.selectTank} />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-800 border-white/10">
                     {tanks.map(tank => (
@@ -575,7 +586,7 @@ export default function WaterQualityPage() {
         <Card className="bg-slate-800/50 border-white/5">
           <CardContent className="p-8 text-center text-slate-400">
             <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3 text-ocean-400" />
-            수질 데이터를 불러오는 중...
+            {t.waterQuality.loading}
           </CardContent>
         </Card>
       ) : (
@@ -629,7 +640,7 @@ export default function WaterQualityPage() {
           ) : (
             <Card className="bg-slate-800/50 border-white/5">
               <CardContent className="p-8 text-center text-slate-400">
-                선택한 수조의 수질 데이터가 없습니다.
+                {t.waterQuality.noData}
               </CardContent>
             </Card>
           )}
@@ -639,12 +650,12 @@ export default function WaterQualityPage() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-white text-base">
-                  {TIME_RANGES.find(r => r.hours === hours)?.label ?? "7일"} 수질 추이
+                  {timeRangeLabel(hours)} {t.waterQuality.trend}
                 </CardTitle>
                 {refreshSec && (
                   <span className="flex items-center gap-1 text-xs text-slate-500">
                     <RefreshCw className="w-3 h-3" />
-                    {refreshSec >= 60 ? `${refreshSec / 60}분` : `${refreshSec}초`}마다 자동갱신
+                    {refreshSec >= 60 ? `${refreshSec / 60}${t.waterQuality.autoRefreshMin}` : `${refreshSec}초마다 자동갱신`}
                   </span>
                 )}
               </div>
@@ -654,15 +665,15 @@ export default function WaterQualityPage() {
                 <TabsList className="bg-slate-900/60 border border-white/5 h-9 mb-4 flex-wrap gap-y-1">
                   <TabsTrigger value="overview"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">수온·DO·pH</TabsTrigger>
                   <TabsTrigger value="nitrogen"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">질소 복합</TabsTrigger>
-                  <TabsTrigger value="temperature" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">수온</TabsTrigger>
-                  <TabsTrigger value="ph"         className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">pH</TabsTrigger>
+                  <TabsTrigger value="temperature" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.temperature}</TabsTrigger>
+                  <TabsTrigger value="ph"         className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.ph}</TabsTrigger>
                   <TabsTrigger value="do_level"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">DO</TabsTrigger>
-                  <TabsTrigger value="salinity"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">염도</TabsTrigger>
-                  <TabsTrigger value="ammonia"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">암모니아</TabsTrigger>
-                  <TabsTrigger value="nitrite"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">아질산염</TabsTrigger>
-                  <TabsTrigger value="nitrate"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">질산염</TabsTrigger>
-                  <TabsTrigger value="alkalinity" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">알칼리도</TabsTrigger>
-                  <TabsTrigger value="turbidity"  className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">탁도</TabsTrigger>
+                  <TabsTrigger value="salinity"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.salinity}</TabsTrigger>
+                  <TabsTrigger value="ammonia"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.ammonia}</TabsTrigger>
+                  <TabsTrigger value="nitrite"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.nitrite}</TabsTrigger>
+                  <TabsTrigger value="nitrate"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.nitrate}</TabsTrigger>
+                  <TabsTrigger value="alkalinity" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.alkalinity}</TabsTrigger>
+                  <TabsTrigger value="turbidity"  className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.turbidity}</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview">
@@ -672,7 +683,7 @@ export default function WaterQualityPage() {
 
                 <TabsContent value="nitrogen">
                   <NitrogenChart chartData={chartData} />
-                  <p className="text-xs text-slate-500 mt-2 text-center">암모니아 · 아질산염 · 질산염 (단위: mg/L) — 기준선 미표시 (복합 Y축)</p>
+                  <p className="text-xs text-slate-500 mt-2 text-center">{t.waterQuality.ammonia} · {t.waterQuality.nitrite} · {t.waterQuality.nitrate} (단위: mg/L) — 기준선 미표시 (복합 Y축)</p>
                 </TabsContent>
 
                 {(
@@ -698,7 +709,7 @@ export default function WaterQualityPage() {
                     />
                     <div className="flex items-center justify-center gap-4 mt-2 text-xs text-slate-500">
                       <span className="flex items-center gap-1">
-                        <span className="w-4 border-t border-dashed border-emerald-400/60" />정상범위
+                        <span className="w-4 border-t border-dashed border-emerald-400/60" />{t.waterQuality.normalRange}
                       </span>
                       <span className="flex items-center gap-1">
                         <span className="w-4 border-t border-dashed border-amber-400/60" />경고범위
@@ -722,7 +733,7 @@ export default function WaterQualityPage() {
               {tankAlerts.length === 0 ? (
                 <div className="flex items-center gap-3 py-6 justify-center">
                   <CheckCircle2 className="w-6 h-6 text-emerald-400" />
-                  <p className="text-slate-400 text-sm">미처리 알림이 없습니다 — 수질이 정상 범위에 있습니다.</p>
+                  <p className="text-slate-400 text-sm">미처리 알림이 없습니다 — 수질이 {t.dashboard.normal} 범위에 있습니다.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -745,7 +756,7 @@ export default function WaterQualityPage() {
                               {alert.message}
                             </p>
                             <Badge variant={isDanger ? "danger" : "warning"}>
-                              {isDanger ? "위험" : "주의"}
+                              {isDanger ? t.dashboard.danger : t.dashboard.warning}
                             </Badge>
                           </div>
                           <p className="text-xs text-slate-400 mt-1">
