@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
         message: alert.message,
         resolved: false,
       })
-    } catch { /* non-fatal */ }
+    } catch (e) { console.warn("[sensors/data] non-fatal:", e instanceof Error ? e.message : e) }
   }
 
   const newStatus = thresholdAlerts.some(a => a.type === "danger") ? "danger"
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
       .from("tanks")
       .update({ status: newStatus })
       .eq("id", device.tank_id)
-  } catch { /* non-fatal */ }
+  } catch (e) { console.warn("[sensors/data] non-fatal:", e instanceof Error ? e.message : e) }
 
   // 5. last_seen_at 갱신
   try {
@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
       .from("sensor_devices")
       .update({ last_seen_at: new Date().toISOString() })
       .eq("id", device.id)
-  } catch { /* non-fatal */ }
+  } catch (e) { console.warn("[sensors/data] non-fatal:", e instanceof Error ? e.message : e) }
 
   return NextResponse.json({
     success: true,

@@ -36,18 +36,26 @@ export async function POST(req: NextRequest) {
 
   const client = new DodoPayments({ bearerToken: process.env.DODO_PAYMENTS_API_KEY, environment: DODO_ENV })
 
+  const webhookId        = req.headers.get("webhook-id")
+  const webhookTimestamp = req.headers.get("webhook-timestamp")
+  const webhookSignature = req.headers.get("webhook-signature")
+  if (!webhookId || !webhookTimestamp || !webhookSignature) {
+    return NextResponse.json({ error: "Webhook 헤더 누락" }, { status: 400 })
+  }
+
   const rawBody = await req.text()
   let event
   try {
     event = client.webhooks.unwrap(rawBody, {
       headers: {
-        "webhook-id":        req.headers.get("webhook-id") ?? "",
-        "webhook-timestamp": req.headers.get("webhook-timestamp") ?? "",
-        "webhook-signature": req.headers.get("webhook-signature") ?? "",
+        "webhook-id":        webhookId,
+        "webhook-timestamp": webhookTimestamp,
+        "webhook-signature": webhookSignature,
       },
       key: process.env.DODO_WEBHOOK_SECRET,
     })
-  } catch {
+  } catch (e) {
+    console.warn("[dodo webhook] signature verification failed:", e instanceof Error ? e.message : e)
     return NextResponse.json({ error: "Webhook 서명 검증 실패" }, { status: 400 })
   }
 
@@ -65,18 +73,25 @@ export async function POST(req: NextRequest) {
     // ── 구독 활성화 ───────────────────────────────────────────────────────────
     case "subscription.active": {
       const email      = data.customer?.email as string | undefined
-      const customerId = data.customer?.customer_id as string
-      const subId      = data.subscription_id as string
+      const customerId = data.customer?.customer_id as string | undefined
+      const subId      = data.subscription_id as string | undefined
       const plan       = resolvePlan(data.product_id as string)
 
-      if (!plan) break
+      if (!plan || !customerId || !subId) {
+        console.warn("[dodo webhook] subscription.active missing required fields", { plan, customerId, subId })
+        break
+      }
 
       // metadata에 user_id가 있으면 우선 사용 (동적 체크아웃 경로)
-      let userId: string | null = (data.metadata as Record<string, string> | null)?.user_id ?? null
+      const metaUserId = (data.metadata as Record<string, unknown> | null)?.user_id
+      let userId: string | null = typeof metaUserId === "string" ? metaUserId : null
 
       // 없으면 이메일로 조회 (정적 링크 경로)
       if (!userId && email) userId = await findUserIdByEmail(email)
-      if (!userId) break
+      if (!userId) {
+        console.warn("[dodo webhook] could not resolve user for subscription", { email, subId })
+        break
+      }
 
       await supabaseAdmin.from("profiles").update({
         plan,

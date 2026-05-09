@@ -30,11 +30,14 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null)
 
 async function fetchProfile(userId: string): Promise<{ name: string; role: string; plan: "free" | "basic" | "pro" | "enterprise" }> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .select("name, role, plan")
     .eq("id", userId)
     .single()
+  if (error && error.code !== "PGRST116") {
+    console.warn("[auth] fetchProfile failed:", error.message)
+  }
   return {
     name: data?.name || "",
     role: data?.role || "operator",
@@ -65,14 +68,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (event, session) => {
         setSession(session)
         if (session?.user) {
-          const profile = await fetchProfile(session.user.id)
-          setUser(toAppUser(session.user, profile))
+          try {
+            const profile = await fetchProfile(session.user.id)
+            setUser(toAppUser(session.user, profile))
+          } catch (e) {
+            console.warn("[auth] profile load failed:", e)
+            setUser(toAppUser(session.user, { name: "", role: "operator", plan: "free" }))
+          }
         } else {
           setUser(null)
-          // Redirect to login on token expiry or explicit sign-out
-          if (event === "TOKEN_REFRESHED" && !session) {
-            window.location.replace("/login")
-          } else if (event === "SIGNED_OUT") {
+          if (event === "SIGNED_OUT") {
             window.location.replace("/login")
           }
         }
@@ -98,7 +103,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = async () => {
-    await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut()
+    if (error) console.warn("[auth] signOut failed:", error.message)
     setUser(null)
     setSession(null)
   }

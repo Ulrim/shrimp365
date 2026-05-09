@@ -3,7 +3,8 @@ import { cookies } from "next/headers"
 import "./globals.css"
 import { AuthProvider } from "@/lib/auth-context"
 import { I18nProvider } from "@/lib/i18n-context"
-import { headerToLocale, type Locale, LOCALES } from "@/lib/i18n"
+import { type Locale, LOCALES } from "@/lib/i18n"
+import { VersionWatcher } from "@/components/version-watcher"
 
 export const metadata: Metadata = {
   title: "Shrimp365 — Smart Shrimp Aquaculture Platform",
@@ -21,6 +22,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="antialiased">
         <I18nProvider defaultLocale={defaultLocale}>
           <AuthProvider>{children}</AuthProvider>
+          <VersionWatcher />
         </I18nProvider>
       </body>
     </html>
