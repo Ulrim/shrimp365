@@ -6,6 +6,7 @@ import { I18nProvider } from "@/lib/i18n-context"
 import { type Locale, LOCALES } from "@/lib/i18n"
 import { VersionWatcher } from "@/components/version-watcher"
 import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.shrimp365.kr"),
@@ -56,6 +57,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <VersionWatcher />
         </I18nProvider>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )
