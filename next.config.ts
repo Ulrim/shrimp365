@@ -26,7 +26,8 @@ const securityHeaders = [
 ]
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // standalone은 Docker(NAS) 전용 — Vercel 환경에서는 자동 비활성화
+  output: process.env.VERCEL ? undefined : "standalone",
   async headers() {
     return [
       {
