@@ -91,8 +91,8 @@ const EMPTY_DIAG_FORM: DiagFormState = {
 
 // ── Journal constants ─────────────────────────────────────────────────────────
 
-const FEED_TYPES = ["입식기 사료 (No.0)", "초기 사료 (No.1)", "성장기 사료 (No.2)", "성장기 사료 (No.3)", "마무리 사료 (No.4)", "기타"]
-const MICROBIAL_TYPES = ["EM균", "바실러스균", "광합성균", "복합 미생물제", "기타"]
+const FEED_TYPES = ["PHOCA 9071(39%)", "PHOCA 9072(39%)", "PHOCA 9073S(39%)", "PHOCA 9073P(39%)", "PHOCA 9074S(39%)", "PHOCA 9074", "PHOCA 9075(39%)", "기타"]
+const MICROBIAL_TYPES = ["컬리버 1호", "컬리버 2호", "컬리버 3호", "기타"]
 
 const defaultJournalForm = {
   tank_id: "",
@@ -100,14 +100,14 @@ const defaultJournalForm = {
   temperature: "", ph: "", do_level: "", salinity: "",
   ammonia: "", nitrite: "", nitrate: "", alkalinity: "", turbidity: "",
   feeding_amount: "",
-  feed_type: "성장기 사료 (No.3)",
+  feed_type: "PHOCA 9073S(39%)",
   feeding_times: "4",
   mortality_count: "",
   water_exchange_rate: "",
   disinfection: false,
   disinfection_type: "",
   microbial_input: false,
-  microbial_type: "EM균",
+  microbial_type: "컬리버 1호",
   microbial_amount: "",
   feedItemId: "",
   microbialItemId: "",
@@ -488,7 +488,7 @@ export default function JournalPage() {
       feeding_times: String(entry.feeding_times), mortality_count: String(entry.mortality_count),
       water_exchange_rate: String(entry.water_exchange_rate), disinfection: entry.disinfection,
       disinfection_type: entry.disinfection_type || "", microbial_input: entry.microbial_input,
-      microbial_type: entry.microbial_type || "EM균",
+      microbial_type: entry.microbial_type || "컬리버 1호",
       microbial_amount: entry.microbial_amount != null ? String(entry.microbial_amount) : "",
       check_aeration: entry.check_aeration, check_filtration: entry.check_filtration,
       check_circulation: entry.check_circulation, check_feeding_check: entry.check_feeding_check,

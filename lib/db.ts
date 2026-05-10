@@ -620,7 +620,7 @@ function toCycle(c: DbProductionCycle & { tanks?: { name: string; farms?: { name
   return {
     id: c.id, tank_id: c.tank_id, user_id: c.user_id, name: c.name,
     status: c.status, stocking_date: c.stocking_date, stocking_count: c.stocking_count,
-    pl_source: c.pl_source, pl_stage: c.pl_stage,
+    pl_source: c.pl_source, pl_stage: c.pl_stage, pl_species: c.pl_species ?? null,
     target_weight_g: c.target_weight_g, target_harvest_date: c.target_harvest_date,
     actual_harvest_date: c.actual_harvest_date,
     actual_harvest_weight_kg: c.actual_harvest_weight_kg,
@@ -652,7 +652,7 @@ export async function getProductionCycles(tankId?: string): Promise<ProductionCy
 
 export async function createProductionCycle(values: {
   tank_id: string; name: string; stocking_date: string; stocking_count: number
-  pl_source?: string; pl_stage?: string; target_weight_g?: number; target_harvest_date?: string; notes?: string
+  pl_source?: string; pl_stage?: string; pl_species?: string; target_weight_g?: number; target_harvest_date?: string; notes?: string
 }): Promise<ProductionCycle> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("로그인이 필요합니다.")

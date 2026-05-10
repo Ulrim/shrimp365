@@ -54,12 +54,14 @@ function StatusBadge({ status }: { status: ProductionCycle["status"] }) {
   return <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/30">취소</Badge>
 }
 
+const SHRIMP_SPECIES = ["사이아쿠아", "SIS 1번", "SIS 2번", "SIS 3번", "SIS 4번", "기타"]
+
 // ─── 사이클 생성 모달 ───────────────────────────────────────────────────────
 function NewCycleDialog({ tanks, open, onClose, onCreated }: {
   tanks: Tank[]; open: boolean; onClose: () => void
   onCreated: (c: ProductionCycle) => void
 }) {
-  const [form, setForm] = useState({ tank_id: "", name: "", stocking_date: "", stocking_count: "", pl_source: "", pl_stage: "", target_weight_g: "", target_harvest_date: "", notes: "" })
+  const [form, setForm] = useState({ tank_id: "", name: "", stocking_date: "", stocking_count: "", pl_source: "", pl_stage: "", pl_species: "", target_weight_g: "", target_harvest_date: "", notes: "" })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
@@ -72,11 +74,12 @@ function NewCycleDialog({ tanks, open, onClose, onCreated }: {
         tank_id: form.tank_id, name: form.name, stocking_date: form.stocking_date,
         stocking_count: parseInt(form.stocking_count),
         pl_source: form.pl_source || undefined, pl_stage: form.pl_stage || undefined,
+        pl_species: form.pl_species || undefined,
         target_weight_g: form.target_weight_g ? parseFloat(form.target_weight_g) : undefined,
         target_harvest_date: form.target_harvest_date || undefined, notes: form.notes || undefined,
       })
       onCreated(c); onClose()
-      setForm({ tank_id: "", name: "", stocking_date: "", stocking_count: "", pl_source: "", pl_stage: "", target_weight_g: "", target_harvest_date: "", notes: "" })
+      setForm({ tank_id: "", name: "", stocking_date: "", stocking_count: "", pl_source: "", pl_stage: "", pl_species: "", target_weight_g: "", target_harvest_date: "", notes: "" })
     } catch (e) { setError(e instanceof Error ? e.message : "오류가 발생했습니다.") }
     finally { setLoading(false) }
   }
@@ -117,6 +120,17 @@ function NewCycleDialog({ tanks, open, onClose, onCreated }: {
             <div>
               <Label className="text-slate-300">종묘 공급처</Label>
               <Input value={form.pl_source} onChange={set("pl_source")} placeholder="대성종묘" className="mt-1 bg-slate-800 border-white/10 text-white" />
+            </div>
+            <div className="col-span-2">
+              <Label className="text-slate-300">흰다리새우 종류</Label>
+              <select
+                value={form.pl_species}
+                onChange={e => setForm(p => ({ ...p, pl_species: e.target.value }))}
+                className="mt-1 w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-ocean-500"
+              >
+                <option value="">선택 안 함</option>
+                {SHRIMP_SPECIES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
             <div>
               <Label className="text-slate-300">목표 체중(g)</Label>
