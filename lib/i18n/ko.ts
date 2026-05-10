@@ -541,7 +541,7 @@ export const ko: Dict = {
     itemNamePlaceholder: "예) 새우 전용 사료 A",
     category: "분류",
     catFeed: "사료",
-    catProbiotic: "프로바이오틱스",
+    catProbiotic: "유용미생물",
     catChemical: "약품·소독제",
     catOther: "기타 자재",
     unit: "단위",

@@ -541,7 +541,7 @@ export const vi: Dict = {
     itemNamePlaceholder: "VD: Thức ăn tôm A",
     category: "Loại",
     catFeed: "Thức ăn",
-    catProbiotic: "Probiotic",
+    catProbiotic: "Vi sinh vật có lợi",
     catChemical: "Hóa chất / Khử trùng",
     catOther: "Vật tư khác",
     unit: "Đơn vị",

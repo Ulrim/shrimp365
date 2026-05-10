@@ -541,7 +541,7 @@ export const en: Dict = {
     itemNamePlaceholder: "e.g. Shrimp Feed A",
     category: "Category",
     catFeed: "Feed",
-    catProbiotic: "Probiotic",
+    catProbiotic: "Beneficial Microorganism",
     catChemical: "Chemical / Disinfectant",
     catOther: "Other Supplies",
     unit: "Unit",

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { MOCK_JOURNALS, MOCK_DIAGNOSES, MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
+import { MOCK_JOURNALS, MOCK_DIAGNOSES, MOCK_TANKS, MOCK_INVENTORY_ITEMS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
 import { PLAN_LIMITS, type Plan, hasExport } from "@/lib/plans"
 import { UpgradeModal } from "@/components/ui/upgrade-modal"
@@ -9,9 +9,10 @@ import {
   getJournalEntries, createJournalEntry, updateJournalEntry, deleteJournalEntry,
   getAllTanks, insertWaterQuality,
   getDiagnoses, createDiagnosis, updateDiagnosis, deleteDiagnosis,
+  getInventoryItems, createInventoryTransaction,
 } from "@/lib/db"
 import { WQ_BOUNDS, WqField } from "@/lib/utils"
-import { JournalEntry, Tank, DiagnosisResult } from "@/types"
+import { JournalEntry, Tank, DiagnosisResult, InventoryItem } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -108,6 +109,10 @@ const defaultJournalForm = {
   microbial_input: false,
   microbial_type: "EM균",
   microbial_amount: "",
+  feedItemId: "",
+  microbialItemId: "",
+  chemicalItemId: "",
+  chemicalQty: "",
   check_aeration: false,
   check_filtration: false,
   check_circulation: false,
@@ -278,6 +283,7 @@ export default function JournalPage() {
   const [jEditSaving, setJEditSaving] = useState(false)
   const [jDeleteTarget, setJDeleteTarget] = useState<JournalEntry | null>(null)
   const [jDeleting, setJDeleting] = useState(false)
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
 
   // ── Diagnosis state ──
   const [diagnoses, setDiagnoses] = useState<DiagnosisResult[]>([])
@@ -343,11 +349,12 @@ export default function JournalPage() {
     setJLoading(true)
     setDLoading(true)
     try {
-      const [, tanksData] = await Promise.all([loadJournals("", "", 0, true), getAllTanks()])
+      const [, tanksData, invData] = await Promise.all([loadJournals("", "", 0, true), getAllTanks(), getInventoryItems()])
       setTanks(tanksData.length ? tanksData : (mock ? MOCK_TANKS : []))
+      setInventoryItems(invData.length ? invData : (mock ? MOCK_INVENTORY_ITEMS : []))
       await loadDiagnoses("", "", 0, true)
     } catch {
-      if (mock) { setJournals(MOCK_JOURNALS); setDiagnoses(MOCK_DIAGNOSES); setTanks(MOCK_TANKS) }
+      if (mock) { setJournals(MOCK_JOURNALS); setDiagnoses(MOCK_DIAGNOSES); setTanks(MOCK_TANKS); setInventoryItems(MOCK_INVENTORY_ITEMS) }
     } finally {
       setJLoading(false)
       setDLoading(false)
@@ -418,6 +425,25 @@ export default function JournalPage() {
         notes: jForm.notes || null,
       })
       setJournals(prev => [entry, ...prev])
+
+      // 재고 자동 차감
+      try {
+        const deductions: { itemId: string; qty: number; note: string }[] = []
+        if (jForm.feedItemId && parseFloat(jForm.feeding_amount) > 0)
+          deductions.push({ itemId: jForm.feedItemId, qty: parseFloat(jForm.feeding_amount), note: `일지 자동차감 - ${jForm.feed_type}` })
+        if (jForm.microbial_input && jForm.microbialItemId && parseFloat(jForm.microbial_amount) > 0)
+          deductions.push({ itemId: jForm.microbialItemId, qty: parseFloat(jForm.microbial_amount), note: `일지 자동차감 - ${jForm.microbial_type}` })
+        if (jForm.disinfection && jForm.chemicalItemId && parseFloat(jForm.chemicalQty) > 0)
+          deductions.push({ itemId: jForm.chemicalItemId, qty: parseFloat(jForm.chemicalQty), note: `일지 자동차감 - ${jForm.disinfection_type || "소독"}` })
+
+        for (const d of deductions) {
+          if (!mock) {
+            await createInventoryTransaction({ item_id: d.itemId, type: "out", quantity: d.qty, tank_id: jForm.tank_id, recorded_at: jForm.date, notes: d.note })
+          }
+          setInventoryItems(prev => prev.map(i => i.id === d.itemId ? { ...i, current_stock: Math.max(0, i.current_stock - d.qty), updated_at: new Date().toISOString() } : i))
+        }
+      } catch { /* 재고 차감 실패 시 일지 저장은 유지 */ }
+
       const hasWq = jForm.temperature || jForm.ph || jForm.do_level || jForm.salinity ||
         jForm.ammonia || jForm.nitrite || jForm.nitrate || jForm.alkalinity || jForm.turbidity
       if (hasWq) {
@@ -1113,6 +1139,15 @@ export default function JournalPage() {
                 <div className="space-y-2">
                   <Label className="text-slate-300 flex items-center gap-1"><UtensilsCrossed className="w-3.5 h-3.5 text-ocean-400" />{t.journal.catFeeding} (kg)</Label>
                   <Input type="number" step="0.1" placeholder="0.0" value={jForm.feeding_amount} onChange={e => jUpdate("feeding_amount", e.target.value)} className="bg-slate-800 border-white/10 text-white" />
+                  {inventoryItems.filter(i => i.category === "feed").length > 0 && (
+                    <select value={jForm.feedItemId} onChange={e => jUpdate("feedItemId", e.target.value)}
+                      className="w-full bg-slate-700 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-ocean-500">
+                      <option value="">재고 차감 안 함</option>
+                      {inventoryItems.filter(i => i.category === "feed").map(i =>
+                        <option key={i.id} value={i.id}>{i.name} (재고: {i.current_stock}{i.unit})</option>
+                      )}
+                    </select>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-slate-300">사료 종류</Label>
@@ -1176,6 +1211,18 @@ export default function JournalPage() {
                   <div className="space-y-2">
                     <Label className="text-slate-300">소독 방법/약품</Label>
                     <Input placeholder="소독 방법을 입력하세요" value={jForm.disinfection_type} onChange={e => jUpdate("disinfection_type", e.target.value)} className="bg-slate-800 border-white/10 text-white" />
+                    {inventoryItems.filter(i => i.category === "chemical").length > 0 && (
+                      <select value={jForm.chemicalItemId} onChange={e => jUpdate("chemicalItemId", e.target.value)}
+                        className="w-full bg-slate-700 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-ocean-500">
+                        <option value="">재고 차감 안 함</option>
+                        {inventoryItems.filter(i => i.category === "chemical").map(i =>
+                          <option key={i.id} value={i.id}>{i.name} (재고: {i.current_stock}{i.unit})</option>
+                        )}
+                      </select>
+                    )}
+                    {jForm.chemicalItemId && (
+                      <Input type="number" step="0.01" placeholder="사용량 입력" value={jForm.chemicalQty} onChange={e => jUpdate("chemicalQty", e.target.value)} className="bg-slate-800 border-white/10 text-white text-sm" />
+                    )}
                   </div>
                 )}
                 <div className="flex items-center justify-between p-4 bg-slate-800/60 rounded-xl border border-white/5">
@@ -1196,6 +1243,15 @@ export default function JournalPage() {
                     <div className="space-y-2">
                       <Label className="text-slate-300">투입량 (mL/ton)</Label>
                       <Input type="number" placeholder="500" value={jForm.microbial_amount} onChange={e => jUpdate("microbial_amount", e.target.value)} className="bg-slate-800 border-white/10 text-white" />
+                      {inventoryItems.filter(i => i.category === "probiotic").length > 0 && (
+                        <select value={jForm.microbialItemId} onChange={e => jUpdate("microbialItemId", e.target.value)}
+                          className="w-full bg-slate-700 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-ocean-500">
+                          <option value="">재고 차감 안 함</option>
+                          {inventoryItems.filter(i => i.category === "probiotic").map(i =>
+                            <option key={i.id} value={i.id}>{i.name} (재고: {i.current_stock}{i.unit})</option>
+                          )}
+                        </select>
+                      )}
                     </div>
                   </div>
                 )}

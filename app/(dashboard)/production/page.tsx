@@ -89,12 +89,14 @@ function NewCycleDialog({ tanks, open, onClose, onCreated }: {
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
               <Label className="text-slate-300">수조 *</Label>
-              <Select value={form.tank_id} onValueChange={v => setForm(p => ({ ...p, tank_id: v }))}>
-                <SelectTrigger className="mt-1 bg-slate-800 border-white/10 text-white"><SelectValue placeholder="수조 선택" /></SelectTrigger>
-                <SelectContent className="bg-slate-800 border-white/10 text-white">
-                  {tanks.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <select
+                value={form.tank_id}
+                onChange={e => setForm(p => ({ ...p, tank_id: e.target.value }))}
+                className="mt-1 w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-ocean-500"
+              >
+                <option value="">수조 선택</option>
+                {tanks.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
             </div>
             <div>
               <Label className="text-slate-300">사이클명 *</Label>
