@@ -23,13 +23,13 @@ export const metadata: Metadata = {
     siteName: "Shrimp365",
     title: "Shrimp365 — AI 새우 양식 관리 플랫폼",
     description: "수질 모니터링, 생산 사이클, 질병 진단, AI 어드바이저까지 — 스마트 새우 양식 관리의 모든 것.",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Shrimp365" }],
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "Shrimp365" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Shrimp365 — AI 새우 양식 관리 플랫폼",
     description: "수질 모니터링, 생산 사이클, 질병 진단, AI 어드바이저까지 — 스마트 새우 양식 관리의 모든 것.",
-    images: ["/og-image.png"],
+    images: ["/opengraph-image"],
   },
   alternates: {
     canonical: "https://www.shrimp365.kr",
