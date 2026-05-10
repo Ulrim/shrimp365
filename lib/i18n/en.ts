@@ -2,7 +2,7 @@ import type { Dict } from "./types"
 
 export const en: Dict = {
   lang: {
-    ko: "한국어",
+    ko: "Korean",
     en: "English",
     vi: "Tiếng Việt",
     select: "Language",
