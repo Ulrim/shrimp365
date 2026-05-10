@@ -5,6 +5,7 @@ import { AuthProvider } from "@/lib/auth-context"
 import { I18nProvider } from "@/lib/i18n-context"
 import { type Locale, LOCALES } from "@/lib/i18n"
 import { VersionWatcher } from "@/components/version-watcher"
+import { Analytics } from "@vercel/analytics/next"
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.shrimp365.kr"),
@@ -54,6 +55,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <AuthProvider>{children}</AuthProvider>
           <VersionWatcher />
         </I18nProvider>
+        <Analytics />
       </body>
     </html>
   )
