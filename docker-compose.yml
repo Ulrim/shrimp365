@@ -6,10 +6,10 @@ services:
     build:
       context: .
       args:
-        # NEXT_PUBLIC_* must be available at BUILD time (baked into client bundle)
-        NEXT_PUBLIC_SUPABASE_URL:      ${NEXT_PUBLIC_SUPABASE_URL}
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-        NEXT_PUBLIC_SITE_URL:          ${NEXT_PUBLIC_SITE_URL}
+        # NEXT_PUBLIC_* are baked into the client bundle at build time
+        NEXT_PUBLIC_SUPABASE_URL:      https://okecfkqpoigxvlsomqjc.supabase.co
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZWNma3Fwb2lneHZsc29tcWpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4ODE2MzMsImV4cCI6MjA5MzQ1NzYzM30._2R8h2okwLc7DlXPm6XED9i2CDmJlOFhuyIlgfNA0Zs
+        NEXT_PUBLIC_SITE_URL:          https://www.shrimp365.kr
     container_name: shrimp365
     restart: unless-stopped
     env_file:
