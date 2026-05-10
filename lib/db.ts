@@ -2,6 +2,7 @@ import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbDiagnosis, 
 import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction } from "@/types"
 import { checkThresholds } from "@/lib/thresholds"
 import { PLAN_LIMITS, type Plan } from "@/lib/plans"
+import { isTestAccount } from "@/lib/mock-data"
 
 // ─────────────────────────────────────────────
 // 타입 변환 헬퍼
@@ -57,7 +58,7 @@ export async function createFarm(values: { name: string; location?: string; area
   if (!user) throw new Error("로그인이 필요합니다.")
 
   const { data: profile } = await supabase.from("profiles").select("plan").eq("id", user.id).single()
-  const plan = ((profile?.plan as Plan) || "free")
+  const plan: Plan = isTestAccount(user.email) ? "pro" : ((profile?.plan as Plan) || "free")
   const limit = PLAN_LIMITS[plan].farms
 
   const { count } = await supabase.from("farms").select("*", { count: "exact", head: true }).eq("user_id", user.id)
@@ -131,7 +132,7 @@ export async function createTank(values: {
   if (!user) throw new Error("로그인이 필요합니다.")
 
   const { data: profile } = await supabase.from("profiles").select("plan").eq("id", user.id).single()
-  const plan = ((profile?.plan as Plan) || "free")
+  const plan: Plan = isTestAccount(user.email) ? "pro" : ((profile?.plan as Plan) || "free")
   const limit = PLAN_LIMITS[plan].tanksPerFarm
 
   if (limit !== Infinity) {

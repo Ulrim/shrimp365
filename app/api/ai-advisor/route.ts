@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 import { createServerClient } from "@supabase/ssr"
 import { PLAN_LIMITS, PLAN_LABELS, nextPlan, type Plan } from "@/lib/plans"
+import { isTestAccount } from "@/lib/mock-data"
 
 const openaiKey = process.env.OPENAI_API_KEY
 
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
     .select("plan")
     .eq("id", user.id)
     .single()
-  const plan = ((profile?.plan as Plan) || "free")
+  const plan: Plan = isTestAccount(user.email) ? "pro" : ((profile?.plan as Plan) || "free")
 
   if (!checkAiRateLimit(user.id, plan)) {
     const max = PLAN_LIMITS[plan].aiPerDay

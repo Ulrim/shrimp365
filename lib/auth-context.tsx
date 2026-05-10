@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react"
 import { User as SupabaseUser, Session } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
+import { isTestAccount } from "@/lib/mock-data"
 
 interface AppUser {
   id: string
@@ -46,12 +47,13 @@ async function fetchProfile(userId: string): Promise<{ name: string; role: strin
 }
 
 function toAppUser(sbUser: SupabaseUser, profile: { name: string; role: string; plan: "free" | "basic" | "pro" | "enterprise" }): AppUser {
+  const email = sbUser.email || ""
   return {
     id: sbUser.id,
-    email: sbUser.email || "",
-    name: profile.name || sbUser.email?.split("@")[0] || "",
+    email,
+    name: profile.name || email.split("@")[0] || "",
     role: profile.role,
-    plan: profile.plan,
+    plan: isTestAccount(email) ? "pro" : profile.plan,
   }
 }
 
