@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
 import {
   Waves, LayoutDashboard, Droplets, BookOpen, Building2,
   BrainCircuit, BarChart3, Settings, LogOut,
-  ChevronLeft, ChevronRight, Menu, X, Zap, FlaskConical
+  ChevronLeft, ChevronRight, Menu, X, Zap, FlaskConical, Package
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
@@ -30,6 +30,7 @@ export function Sidebar() {
     { href: "/journal",      icon: BookOpen,        label: t.nav.journal },
     { href: "/farms",        icon: Building2,       label: t.nav.farms },
     { href: "/production",   icon: FlaskConical,    label: t.nav.production },
+    { href: "/inventory",    icon: Package,         label: t.nav.inventory },
     { href: "/ai-advisor",   icon: BrainCircuit,    label: t.nav.aiAdvisor },
     { href: "/reports",      icon: BarChart3,       label: t.nav.reports },
   ]

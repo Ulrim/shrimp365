@@ -1,4 +1,4 @@
-import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest } from "@/types"
+import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction } from "@/types"
 
 export const MOCK_USER = {
   id: "mock-user-1",
@@ -343,3 +343,23 @@ export const MOCK_CYCLE_HARVESTS: Record<string, CycleHarvest[]> = {
     { id: "h3-1", cycle_id: "cycle-3", harvested_at: daysAgo(18), weight_kg: 720, count: 38400, price_per_kg: 16000, revenue: 11520000, notes: "전량 수확", created_at: daysAgo(18) + "T00:00:00Z" },
   ],
 }
+
+export const MOCK_INVENTORY_ITEMS: InventoryItem[] = [
+  { id: "inv-1", user_id: "mock-user-1", category: "feed", name: "새우 전용 사료 (0.3mm)", unit: "kg", current_stock: 180, reorder_level: 50, notes: "치어기 전용", created_at: daysAgo(60) + "T00:00:00Z", updated_at: daysAgo(2) + "T00:00:00Z" },
+  { id: "inv-2", user_id: "mock-user-1", category: "feed", name: "성장기 배합사료 (1.5mm)", unit: "kg", current_stock: 420, reorder_level: 100, notes: null, created_at: daysAgo(60) + "T00:00:00Z", updated_at: daysAgo(1) + "T00:00:00Z" },
+  { id: "inv-3", user_id: "mock-user-1", category: "probiotic", name: "바실러스균 프로바이오틱스", unit: "L", current_stock: 12, reorder_level: 5, notes: null, created_at: daysAgo(45) + "T00:00:00Z", updated_at: daysAgo(5) + "T00:00:00Z" },
+  { id: "inv-4", user_id: "mock-user-1", category: "chemical", name: "과산화수소 소독제", unit: "L", current_stock: 8, reorder_level: 10, notes: "재고 부족 주의", created_at: daysAgo(45) + "T00:00:00Z", updated_at: daysAgo(3) + "T00:00:00Z" },
+  { id: "inv-5", user_id: "mock-user-1", category: "chemical", name: "석회석 (제오라이트)", unit: "kg", current_stock: 250, reorder_level: 80, notes: null, created_at: daysAgo(30) + "T00:00:00Z", updated_at: daysAgo(7) + "T00:00:00Z" },
+  { id: "inv-6", user_id: "mock-user-1", category: "other", name: "에어스톤 (교체용)", unit: "개", current_stock: 3, reorder_level: 5, notes: null, created_at: daysAgo(20) + "T00:00:00Z", updated_at: daysAgo(10) + "T00:00:00Z" },
+]
+
+export const MOCK_INVENTORY_TRANSACTIONS: InventoryTransaction[] = [
+  { id: "tx-1", item_id: "inv-1", item_name: "새우 전용 사료 (0.3mm)", item_unit: "kg", user_id: "mock-user-1", type: "in", quantity: 200, unit_price: 2800, tank_id: null, tank_name: null, supplier: "대성사료", recorded_at: daysAgo(30), notes: "1차 구매", created_at: daysAgo(30) + "T09:00:00Z" },
+  { id: "tx-2", item_id: "inv-1", item_name: "새우 전용 사료 (0.3mm)", item_unit: "kg", user_id: "mock-user-1", type: "out", quantity: 20, unit_price: null, tank_id: "tank-1", tank_name: "A-1호 수조", supplier: null, recorded_at: daysAgo(25), notes: null, created_at: daysAgo(25) + "T08:00:00Z" },
+  { id: "tx-3", item_id: "inv-2", item_name: "성장기 배합사료 (1.5mm)", item_unit: "kg", user_id: "mock-user-1", type: "in", quantity: 500, unit_price: 3200, tank_id: null, tank_name: null, supplier: "대성사료", recorded_at: daysAgo(20), notes: "2차 구매", created_at: daysAgo(20) + "T09:00:00Z" },
+  { id: "tx-4", item_id: "inv-2", item_name: "성장기 배합사료 (1.5mm)", item_unit: "kg", user_id: "mock-user-1", type: "out", quantity: 80, unit_price: null, tank_id: "tank-1", tank_name: "A-1호 수조", supplier: null, recorded_at: daysAgo(10), notes: null, created_at: daysAgo(10) + "T08:00:00Z" },
+  { id: "tx-5", item_id: "inv-3", item_name: "바실러스균 프로바이오틱스", item_unit: "L", user_id: "mock-user-1", type: "in", quantity: 20, unit_price: 45000, tank_id: null, tank_name: null, supplier: "바이오테크", recorded_at: daysAgo(45), notes: null, created_at: daysAgo(45) + "T10:00:00Z" },
+  { id: "tx-6", item_id: "inv-3", item_name: "바실러스균 프로바이오틱스", item_unit: "L", user_id: "mock-user-1", type: "out", quantity: 8, unit_price: null, tank_id: "tank-2", tank_name: "A-2호 수조", supplier: null, recorded_at: daysAgo(5), notes: "수질 개선 처리", created_at: daysAgo(5) + "T08:00:00Z" },
+  { id: "tx-7", item_id: "inv-4", item_name: "과산화수소 소독제", item_unit: "L", user_id: "mock-user-1", type: "in", quantity: 20, unit_price: 12000, tank_id: null, tank_name: null, supplier: "하나케미칼", recorded_at: daysAgo(45), notes: null, created_at: daysAgo(45) + "T10:00:00Z" },
+  { id: "tx-8", item_id: "inv-4", item_name: "과산화수소 소독제", item_unit: "L", user_id: "mock-user-1", type: "out", quantity: 12, unit_price: null, tank_id: null, tank_name: null, supplier: null, recorded_at: daysAgo(3), notes: "시설 소독", created_at: daysAgo(3) + "T08:00:00Z" },
+]

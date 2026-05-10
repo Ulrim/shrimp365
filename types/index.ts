@@ -190,3 +190,34 @@ export interface CycleHarvest {
   notes: string | null
   created_at: string
 }
+
+// ── 재고 관리 ────────────────────────────────────
+export interface InventoryItem {
+  id: string
+  user_id: string
+  category: "feed" | "probiotic" | "chemical" | "other"
+  name: string
+  unit: string
+  current_stock: number
+  reorder_level: number
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface InventoryTransaction {
+  id: string
+  item_id: string
+  item_name?: string
+  item_unit?: string
+  user_id: string
+  type: "in" | "out"
+  quantity: number
+  unit_price: number | null
+  tank_id: string | null
+  tank_name?: string | null
+  supplier: string | null
+  recorded_at: string
+  notes: string | null
+  created_at: string
+}

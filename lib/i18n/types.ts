@@ -75,10 +75,53 @@ export interface Dict {
     journal: string
     diagnosis: string
     production: string
+    inventory: string
     aiAdvisor: string
     reports: string
     settings: string
     upgrade: string
+  }
+  inventory: {
+    title: string
+    subtitle: string
+    addItem: string
+    editItem: string
+    deleteItem: string
+    itemName: string
+    itemNamePlaceholder: string
+    category: string
+    catFeed: string
+    catProbiotic: string
+    catChemical: string
+    catOther: string
+    unit: string
+    unitPlaceholder: string
+    currentStock: string
+    reorderLevel: string
+    lowStock: string
+    addTx: string
+    txIn: string
+    txOut: string
+    quantity: string
+    unitPrice: string
+    supplier: string
+    supplierPlaceholder: string
+    tank: string
+    selectTank: string
+    noItems: string
+    noItemsMsg: string
+    noTransactions: string
+    deleteItemConfirm: string
+    deleteTxConfirm: string
+    saving: string
+    saved: string
+    totalItems: string
+    lowStockItems: string
+    recentActivity: string
+    stockStatus: string
+    sufficient: string
+    warning: string
+    critical: string
   }
   auth: {
     loginTitle: string

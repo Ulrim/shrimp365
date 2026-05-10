@@ -12,6 +12,7 @@ const PROTECTED_PATHS = [
   "/diagnosis",
   "/ai-advisor",
   "/production",
+  "/inventory",
   "/reports",
   "/onboarding",
 ]

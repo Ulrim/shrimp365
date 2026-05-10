@@ -173,3 +173,31 @@ export type DbCycleHarvest = {
   notes: string | null
   created_at: string
 }
+
+// ── 재고 관리 ────────────────────────────────────────
+export type DbInventoryItem = {
+  id: string
+  user_id: string
+  category: "feed" | "probiotic" | "chemical" | "other"
+  name: string
+  unit: string
+  current_stock: number
+  reorder_level: number
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type DbInventoryTransaction = {
+  id: string
+  item_id: string
+  user_id: string
+  type: "in" | "out"
+  quantity: number
+  unit_price: number | null
+  tank_id: string | null
+  supplier: string | null
+  recorded_at: string
+  notes: string | null
+  created_at: string
+}

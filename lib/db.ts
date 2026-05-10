@@ -1,5 +1,5 @@
-import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbDiagnosis, DbAlert, DbSensorDevice, DbProductionCycle, DbGrowthSample, DbCycleCost, DbCycleHarvest } from "@/lib/supabase"
-import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest } from "@/types"
+import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbDiagnosis, DbAlert, DbSensorDevice, DbProductionCycle, DbGrowthSample, DbCycleCost, DbCycleHarvest, DbInventoryItem, DbInventoryTransaction } from "@/lib/supabase"
+import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction } from "@/types"
 import { checkThresholds } from "@/lib/thresholds"
 import { PLAN_LIMITS, type Plan } from "@/lib/plans"
 
@@ -773,4 +773,106 @@ export async function createCycleHarvest(values: {
 export async function deleteCycleHarvest(id: string): Promise<void> {
   const { error } = await supabase.from("cycle_harvests").delete().eq("id", id)
   if (error) throw error
+}
+
+// ─────────────────────────────────────────────
+// 재고 관리
+// ─────────────────────────────────────────────
+function toInventoryItem(r: DbInventoryItem): InventoryItem { return { ...r } }
+
+function toInventoryTransaction(r: DbInventoryTransaction & { inventory_items?: { name: string; unit: string } | null; tanks?: { name: string } | null }): InventoryTransaction {
+  return {
+    ...r,
+    item_name: r.inventory_items?.name,
+    item_unit: r.inventory_items?.unit,
+    tank_name: r.tanks?.name ?? null,
+  }
+}
+
+export async function getInventoryItems(): Promise<InventoryItem[]> {
+  const { data, error } = await supabase
+    .from("inventory_items")
+    .select("*")
+    .order("category", { ascending: true })
+  if (error) throw error
+  return (data || []).map(toInventoryItem)
+}
+
+export async function createInventoryItem(values: {
+  category: InventoryItem["category"]; name: string; unit: string
+  current_stock?: number; reorder_level?: number; notes?: string
+}): Promise<InventoryItem> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("로그인이 필요합니다.")
+  const { data, error } = await supabase
+    .from("inventory_items")
+    .insert({ ...values, user_id: user.id, current_stock: values.current_stock ?? 0, reorder_level: values.reorder_level ?? 0 })
+    .select()
+    .single()
+  if (error) throw error
+  return toInventoryItem(data)
+}
+
+export async function updateInventoryItem(id: string, values: Partial<{
+  name: string; category: InventoryItem["category"]; unit: string
+  current_stock: number; reorder_level: number; notes: string | null
+}>): Promise<void> {
+  const { error } = await supabase
+    .from("inventory_items")
+    .update({ ...values, updated_at: new Date().toISOString() })
+    .eq("id", id)
+  if (error) throw error
+}
+
+export async function deleteInventoryItem(id: string): Promise<void> {
+  const { error } = await supabase.from("inventory_items").delete().eq("id", id)
+  if (error) throw error
+}
+
+export async function getInventoryTransactions(itemId?: string): Promise<InventoryTransaction[]> {
+  let q = supabase
+    .from("inventory_transactions")
+    .select("*, inventory_items(name, unit), tanks(name)")
+    .order("recorded_at", { ascending: false })
+    .limit(200)
+  if (itemId) q = q.eq("item_id", itemId)
+  const { data, error } = await q
+  if (error) throw error
+  return (data || []).map((r) => toInventoryTransaction(r as DbInventoryTransaction & { inventory_items: { name: string; unit: string } | null; tanks: { name: string } | null }))
+}
+
+export async function createInventoryTransaction(values: {
+  item_id: string; type: "in" | "out"; quantity: number
+  unit_price?: number; tank_id?: string; supplier?: string
+  recorded_at: string; notes?: string
+}): Promise<InventoryTransaction> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("로그인이 필요합니다.")
+
+  const { data, error } = await supabase
+    .from("inventory_transactions")
+    .insert({ ...values, user_id: user.id })
+    .select("*, inventory_items(name, unit), tanks(name)")
+    .single()
+  if (error) throw error
+
+  // Update current_stock
+  const { data: item } = await supabase.from("inventory_items").select("current_stock").eq("id", values.item_id).single()
+  if (item) {
+    const delta = values.type === "in" ? values.quantity : -values.quantity
+    await supabase.from("inventory_items").update({ current_stock: Math.max(0, item.current_stock + delta), updated_at: new Date().toISOString() }).eq("id", values.item_id)
+  }
+
+  return toInventoryTransaction(data as DbInventoryTransaction & { inventory_items: { name: string; unit: string } | null; tanks: { name: string } | null })
+}
+
+export async function deleteInventoryTransaction(id: string, itemId: string, type: "in" | "out", quantity: number): Promise<void> {
+  const { error } = await supabase.from("inventory_transactions").delete().eq("id", id)
+  if (error) throw error
+
+  const { data: item } = await supabase.from("inventory_items").select("current_stock").eq("id", itemId).single()
+  if (item) {
+    const delta = type === "in" ? -quantity : quantity
+    await supabase.from("inventory_items").update({ current_stock: Math.max(0, item.current_stock + delta), updated_at: new Date().toISOString() }).eq("id", itemId)
+  }
 }
