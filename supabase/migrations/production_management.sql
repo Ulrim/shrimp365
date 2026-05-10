@@ -72,6 +72,10 @@ ALTER TABLE cycle_costs        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cycle_harvests     ENABLE ROW LEVEL SECURITY;
 
 -- ─── RLS 정책: 본인 데이터만 CRUD ─────────────────────────────────────────
+DROP POLICY IF EXISTS "own_cycles"   ON production_cycles;
+DROP POLICY IF EXISTS "own_samples"  ON growth_samples;
+DROP POLICY IF EXISTS "own_costs"    ON cycle_costs;
+DROP POLICY IF EXISTS "own_harvests" ON cycle_harvests;
 CREATE POLICY "own_cycles"   ON production_cycles  FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY "own_samples"  ON growth_samples     FOR ALL USING (auth.uid() = (SELECT user_id FROM production_cycles WHERE id = cycle_id));
 CREATE POLICY "own_costs"    ON cycle_costs        FOR ALL USING (auth.uid() = (SELECT user_id FROM production_cycles WHERE id = cycle_id));

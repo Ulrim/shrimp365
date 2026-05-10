@@ -37,9 +37,11 @@ ALTER TABLE inventory_items        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_transactions ENABLE ROW LEVEL SECURITY;
 
 -- ─── RLS 정책: 본인 데이터만 CRUD ─────────────────────────────────────────
+DROP POLICY IF EXISTS "own_inventory_items" ON inventory_items;
 CREATE POLICY "own_inventory_items" ON inventory_items
   FOR ALL USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "own_inventory_transactions" ON inventory_transactions;
 CREATE POLICY "own_inventory_transactions" ON inventory_transactions
   FOR ALL USING (auth.uid() = user_id);
 
