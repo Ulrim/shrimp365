@@ -4,17 +4,18 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
-import { getFarms, getAllTanks, getAlerts, getDiagnoses, getWaterQuality } from "@/lib/db"
-import { MOCK_FARMS, MOCK_TANKS, MOCK_ALERTS, MOCK_DIAGNOSES, MOCK_WATER_QUALITY, isTestAccount } from "@/lib/mock-data"
+import { getFarms, getAllTanks, getAlerts, getDiagnoses, getWaterQuality, getInventoryItems } from "@/lib/db"
+import { MOCK_FARMS, MOCK_TANKS, MOCK_ALERTS, MOCK_DIAGNOSES, MOCK_WATER_QUALITY, MOCK_INVENTORY_ITEMS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
-import { Farm, Tank, Alert, DiagnosisResult, WaterQualityReading } from "@/types"
+import { Farm, Tank, Alert, DiagnosisResult, WaterQualityReading, InventoryItem } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Building2, Layers, AlertTriangle, ThermometerSun,
   Droplets, Wind, FlaskConical, ArrowRight,
-  CheckCircle2, AlertCircle, XCircle, Activity
+  CheckCircle2, AlertCircle, XCircle, Activity,
+  BookOpen, Bot, Package
 } from "lucide-react"
 import { formatDateTime } from "@/lib/utils"
 import { useT } from "@/lib/i18n-context"
@@ -46,8 +47,10 @@ export default function DashboardPage() {
   const [tanks, setTanks]       = useState<Tank[]>([])
   const [alerts, setAlerts]     = useState<Alert[]>([])
   const [diagnoses, setDiagnoses] = useState<DiagnosisResult[]>([])
-  const [wqData, setWqData]     = useState<WaterQualityReading[]>([])
-  const [loading, setLoading]   = useState(true)
+  const [wqData, setWqData]         = useState<WaterQualityReading[]>([])
+  const [selectedTankId, setSelectedTankId] = useState<string>("")
+  const [lowStockItems, setLowStockItems]   = useState<InventoryItem[]>([])
+  const [loading, setLoading]       = useState(true)
 
   const TANK_STATUS_META = {
     active:   { label: t.dashboard.normal,  color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400" },
@@ -66,16 +69,20 @@ export default function DashboardPage() {
     async function load() {
       const mock = isTestAccount(user?.email)
       try {
-        const [f, tk, a, d] = await Promise.all([
-          getFarms(), getAllTanks(), getAlerts(true), getDiagnoses()
+        const [f, tk, a, d, inv] = await Promise.all([
+          getFarms(), getAllTanks(), getAlerts(true), getDiagnoses(), getInventoryItems()
         ])
         setFarms(f.length ? f : (mock ? MOCK_FARMS : []))
         setTanks(tk.length ? tk : (mock ? MOCK_TANKS : []))
         setAlerts(a.length ? a : (mock ? MOCK_ALERTS.filter(x => !x.resolved) : []))
         setDiagnoses(d.length ? d : (mock ? MOCK_DIAGNOSES : []))
 
+        const invData = inv.length ? inv : (mock ? MOCK_INVENTORY_ITEMS : [])
+        setLowStockItems(invData.filter(i => i.reorder_level > 0 && i.current_stock <= i.reorder_level))
+
         const firstTank = tk.length ? tk[0] : (mock ? MOCK_TANKS[0] : null)
         if (firstTank) {
+          setSelectedTankId(firstTank.id)
           const wq = await getWaterQuality(firstTank.id, 24)
           setWqData(wq.length ? wq : (mock ? (MOCK_WATER_QUALITY[firstTank.id] || []) : []))
         }
@@ -91,6 +98,8 @@ export default function DashboardPage() {
           setAlerts(MOCK_ALERTS.filter(x => !x.resolved))
           setDiagnoses(MOCK_DIAGNOSES)
           setWqData(MOCK_WATER_QUALITY["tank-1"] || [])
+          setSelectedTankId("tank-1")
+          setLowStockItems(MOCK_INVENTORY_ITEMS.filter(i => i.reorder_level > 0 && i.current_stock <= i.reorder_level))
         }
       } finally {
         setLoading(false)
@@ -98,6 +107,20 @@ export default function DashboardPage() {
     }
     load()
   }, [user, router])
+
+  useEffect(() => {
+    if (!selectedTankId || loading) return
+    const mock = isTestAccount(user?.email)
+    async function reloadWq() {
+      try {
+        const wq = await getWaterQuality(selectedTankId, 24)
+        setWqData(wq.length ? wq : (mock ? (MOCK_WATER_QUALITY[selectedTankId] || []) : []))
+      } catch {
+        if (mock) setWqData(MOCK_WATER_QUALITY[selectedTankId] || [])
+      }
+    }
+    reloadWq()
+  }, [selectedTankId])
 
   const statusCounts = {
     active:  tanks.filter(tk => tk.status === "active").length,
@@ -147,6 +170,47 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Low Stock Warning */}
+      {lowStockItems.length > 0 && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3">
+          <Package className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-300">재고 부족 품목 {lowStockItems.length}개</p>
+            <p className="text-xs text-amber-400/70 mt-0.5">
+              {lowStockItems.slice(0, 3).map(i => i.name).join(", ")}
+              {lowStockItems.length > 3 ? ` 외 ${lowStockItems.length - 3}건` : ""}
+            </p>
+          </div>
+          <Link href="/inventory">
+            <Button size="sm" variant="outline" className="border-amber-500/40 text-amber-300 hover:bg-amber-500/20 text-xs h-8">
+              재고 확인
+            </Button>
+          </Link>
+        </div>
+      )}
+
+      {/* Quick Actions */}
+      <div>
+        <p className="text-xs text-slate-500 mb-3 font-medium">{t.dashboard.quickActions}</p>
+        <div className="overflow-x-auto -mx-1 px-1">
+          <div className="flex gap-3 pb-1 min-w-max sm:min-w-0 sm:grid sm:grid-cols-4">
+            {[
+              { href: "/water-quality", icon: <Droplets className="w-5 h-5 text-ocean-400" />, bg: "bg-ocean-500/20", label: "수질 기록 추가" },
+              { href: "/journal",       icon: <BookOpen  className="w-5 h-5 text-teal-400"  />, bg: "bg-teal-500/20",  label: t.nav.journal },
+              { href: "/ai-advisor",    icon: <Bot       className="w-5 h-5 text-purple-400"/>, bg: "bg-purple-500/20",label: t.nav.aiAdvisor },
+              { href: "/inventory",     icon: <Package   className="w-5 h-5 text-amber-400" />, bg: "bg-amber-500/20", label: t.nav.inventory },
+            ].map(item => (
+              <Link key={item.href} href={item.href}>
+                <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-slate-800/50 border border-white/5 hover:border-ocean-500/30 hover:bg-ocean-500/5 transition-all cursor-pointer w-32 sm:w-auto">
+                  <div className={`w-10 h-10 rounded-xl ${item.bg} flex items-center justify-center`}>{item.icon}</div>
+                  <span className="text-xs text-slate-300 text-center font-medium">{item.label}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={<Building2 className="w-5 h-5 text-ocean-400" />} label={t.dashboard.activeFarms} value={farms.length} sub={`${t.common.total} ${tanks.length}`} color="text-ocean-400" />
@@ -161,7 +225,16 @@ export default function DashboardPage() {
           <Card className="bg-slate-800/50 border-white/5 h-full">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-white text-base">{tanks[0]?.name ?? t.dashboard.activeTanks} ({t.waterQuality?.period24h ?? "24h"})</CardTitle>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <select
+                    value={selectedTankId}
+                    onChange={e => setSelectedTankId(e.target.value)}
+                    className="bg-slate-700 border border-white/10 rounded-lg px-2 py-1 text-white text-sm focus:outline-none focus:border-ocean-500"
+                  >
+                    {tanks.map(tk => <option key={tk.id} value={tk.id}>{tk.name}</option>)}
+                  </select>
+                  <span className="text-slate-400 text-xs">({t.waterQuality?.period24h ?? "24h"})</span>
+                </div>
                 <Link href="/water-quality" className="text-xs text-ocean-400 hover:text-ocean-300 flex items-center gap-1">
                   {t.dashboard.viewAll} <ArrowRight className="w-3 h-3" />
                 </Link>

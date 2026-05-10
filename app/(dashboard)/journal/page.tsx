@@ -120,6 +120,48 @@ const defaultJournalForm = {
   notes: "",
 }
 
+// ── Journal form localStorage helpers ────────────────────────────────────────
+
+type JournalPersistedDefaults = {
+  feed_type?: string
+  feeding_times?: string
+  microbial_type?: string
+  microbial_input?: boolean
+  disinfection?: boolean
+  disinfection_type?: string
+  check_aeration?: boolean
+  check_filtration?: boolean
+  check_circulation?: boolean
+  check_feeding_check?: boolean
+}
+
+const JOURNAL_DEFAULTS_KEY = "journal_form_defaults"
+
+function loadJournalDefaults(): JournalPersistedDefaults {
+  try {
+    const raw = localStorage.getItem(JOURNAL_DEFAULTS_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch { return {} }
+}
+
+function saveJournalDefaults(form: typeof defaultJournalForm) {
+  try {
+    const toSave: JournalPersistedDefaults = {
+      feed_type:           form.feed_type,
+      feeding_times:       form.feeding_times,
+      microbial_type:      form.microbial_type,
+      microbial_input:     form.microbial_input,
+      disinfection:        form.disinfection,
+      disinfection_type:   form.disinfection_type,
+      check_aeration:      form.check_aeration,
+      check_filtration:    form.check_filtration,
+      check_circulation:   form.check_circulation,
+      check_feeding_check: form.check_feeding_check,
+    }
+    localStorage.setItem(JOURNAL_DEFAULTS_KEY, JSON.stringify(toSave))
+  } catch { /* ignore storage errors */ }
+}
+
 // ── JournalCard ───────────────────────────────────────────────────────────────
 
 function JournalCard({ entry, onEdit, onDelete }: { entry: JournalEntry; onEdit: (e: JournalEntry) => void; onDelete: (e: JournalEntry) => void }) {
@@ -275,6 +317,12 @@ export default function JournalPage() {
   const [jFilterTo, setJFilterTo] = useState("")
   const [jDialogOpen, setJDialogOpen] = useState(false)
   const [jForm, setJForm] = useState(defaultJournalForm)
+
+  function openJournalDialog() {
+    const saved = loadJournalDefaults()
+    setJForm({ ...defaultJournalForm, date: new Date().toISOString().split("T")[0], ...saved })
+    setJDialogOpen(true)
+  }
   const [jSaving, setJSaving] = useState(false)
   const [jSaved, setJSaved] = useState(false)
   const [jSaveError, setJSaveError] = useState<string | null>(null)
@@ -477,6 +525,7 @@ export default function JournalPage() {
       }, ...prev])
     } finally {
       setJSaving(false); setJSaved(true)
+      saveJournalDefaults(jForm)
       setTimeout(() => { setJSaved(false); setJDialogOpen(false); setJForm(defaultJournalForm); setJSaveError(null) }, 1200)
     }
   }
@@ -712,7 +761,7 @@ export default function JournalPage() {
                 </Button>
               )}
               <Button
-                onClick={() => setJDialogOpen(true)}
+                onClick={openJournalDialog}
                 className="bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white"
               >
                 <Plus className="w-4 h-4" />{t.journal.addEntry}
@@ -1106,7 +1155,7 @@ export default function JournalPage() {
       </Dialog>
 
       {/* New Journal */}
-      <Dialog open={jDialogOpen} onOpenChange={setJDialogOpen}>
+      <Dialog open={jDialogOpen} onOpenChange={open => open ? openJournalDialog() : setJDialogOpen(false)}>
         <DialogContent className="bg-slate-900 border-white/10 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2"><BookOpen className="w-5 h-5 text-ocean-400" />{t.journal.addEntry}</DialogTitle>

@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Bell, X, CheckCircle2, AlertCircle, XCircle, Info, CheckCheck, RefreshCw } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Bell, X, CheckCircle2, AlertCircle, XCircle, Info, CheckCheck, RefreshCw, ArrowRight } from "lucide-react"
 import { getAlerts, resolveAlert } from "@/lib/db"
 import { MOCK_ALERTS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
@@ -28,6 +29,7 @@ const TYPE_BG: Record<Alert["type"], string> = {
 
 export function NotificationsPanel({ open, onClose, onCountChange }: NotificationsPanelProps) {
   const { user } = useAuth()
+  const router = useRouter()
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [loading, setLoading] = useState(false)
   const [resolvingId, setResolvingId] = useState<string | null>(null)
@@ -163,17 +165,26 @@ export function NotificationsPanel({ open, onClose, onCountChange }: Notificatio
                   )}
                   <p className="text-xs text-slate-600 mt-1">{formatDateTime(alert.created_at)}</p>
                 </div>
-                <button
-                  onClick={() => handleResolve(alert.id)}
-                  disabled={resolvingId === alert.id}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-1.5 rounded-lg hover:bg-white/10 text-slate-500 hover:text-emerald-400"
-                  title="해결됨으로 표시"
-                >
-                  {resolvingId === alert.id
-                    ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    : <CheckCircle2 className="w-3.5 h-3.5" />
-                  }
-                </button>
+                <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <button
+                    onClick={() => { router.push(`/water-quality?tank=${alert.tank_id}`); onClose() }}
+                    className="p-1.5 rounded-lg hover:bg-white/10 text-slate-500 hover:text-ocean-400 transition-colors"
+                    title="수조 바로가기"
+                  >
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleResolve(alert.id)}
+                    disabled={resolvingId === alert.id}
+                    className="p-1.5 rounded-lg hover:bg-white/10 text-slate-500 hover:text-emerald-400 transition-colors"
+                    title="해결됨으로 표시"
+                  >
+                    {resolvingId === alert.id
+                      ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      : <CheckCircle2 className="w-3.5 h-3.5" />
+                    }
+                  </button>
+                </div>
               </div>
             ))}
           </div>

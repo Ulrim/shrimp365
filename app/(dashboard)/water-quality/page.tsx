@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect, useCallback } from "react"
+import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine, Legend,
@@ -223,6 +223,11 @@ export default function WaterQualityPage() {
   const plan = (user?.plan ?? "free") as Plan
   const [tanks, setTanks] = useState<Tank[]>([])
   const [selectedTankId, setSelectedTankId] = useState<string>("")
+  const initialTankIdFromUrl = useRef<string | null>(null)
+
+  useEffect(() => {
+    initialTankIdFromUrl.current = new URLSearchParams(window.location.search).get("tank")
+  }, [])
   const [readings, setReadings] = useState<WaterQualityReading[]>([])
   const [latest, setLatest] = useState<WaterQualityReading | null>(null)
   const [tankAlerts, setTankAlerts] = useState<Alert[]>([])
@@ -244,10 +249,14 @@ export default function WaterQualityPage() {
         const dbTanks = await getAllTanks()
         if (dbTanks.length > 0) {
           setTanks(dbTanks)
-          setSelectedTankId(dbTanks[0].id)
+          const paramId = initialTankIdFromUrl.current
+          const target = paramId ? (dbTanks.find(t => t.id === paramId) ?? dbTanks[0]) : dbTanks[0]
+          setSelectedTankId(target.id)
         } else if (mock) {
           setTanks(MOCK_TANKS)
-          setSelectedTankId(MOCK_TANKS[0].id)
+          const paramId = initialTankIdFromUrl.current
+          const target = paramId ? (MOCK_TANKS.find(t => t.id === paramId) ?? MOCK_TANKS[0]) : MOCK_TANKS[0]
+          setSelectedTankId(target.id)
         } else {
           setIsLoading(false)
         }
