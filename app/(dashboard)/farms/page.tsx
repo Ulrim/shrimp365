@@ -1342,21 +1342,17 @@ export default function FarmsPage() {
   const loadFarms = useCallback(async () => {
     const mock = isTestAccount(user?.email)
     setLoadingFarms(true)
+    if (mock) {
+      setFarms(MOCK_FARMS)
+      if (!selectedFarmId && MOCK_FARMS.length > 0) setSelectedFarmId(MOCK_FARMS[0].id)
+      setLoadingFarms(false)
+      return
+    }
     try {
       const data = await getFarms()
-      const result = data.length > 0 ? data : (mock ? MOCK_FARMS : [])
-      setFarms(result)
-      if (!selectedFarmId && result.length > 0) {
-        setSelectedFarmId(result[0].id)
-      }
-    } catch {
-      if (mock) {
-        setFarms(MOCK_FARMS)
-        if (!selectedFarmId && MOCK_FARMS.length > 0) {
-          setSelectedFarmId(MOCK_FARMS[0].id)
-        }
-      }
-    } finally {
+      setFarms(data)
+      if (!selectedFarmId && data.length > 0) setSelectedFarmId(data[0].id)
+    } catch { } finally {
       setLoadingFarms(false)
     }
   }, [selectedFarmId, user?.email])
@@ -1365,16 +1361,15 @@ export default function FarmsPage() {
     if (!farmId) return
     const mock = isTestAccount(user?.email)
     setLoadingTanks(true)
+    if (mock) {
+      setTanksMap(prev => ({ ...prev, [farmId]: MOCK_TANKS.filter(t => t.farm_id === farmId) }))
+      setLoadingTanks(false)
+      return
+    }
     try {
       const data = await getTanksByFarm(farmId)
-      const result = data.length > 0 ? data : (mock ? MOCK_TANKS.filter(t => t.farm_id === farmId) : [])
-      setTanksMap(prev => ({ ...prev, [farmId]: result }))
-    } catch {
-      setTanksMap(prev => ({
-        ...prev,
-        [farmId]: mock ? MOCK_TANKS.filter(t => t.farm_id === farmId) : [],
-      }))
-    } finally {
+      setTanksMap(prev => ({ ...prev, [farmId]: data }))
+    } catch { } finally {
       setLoadingTanks(false)
     }
   }, [user?.email])

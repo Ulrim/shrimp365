@@ -396,14 +396,21 @@ export default function JournalPage() {
   const loadAll = useCallback(async () => {
     setJLoading(true)
     setDLoading(true)
+    if (mock) {
+      setJournals(MOCK_JOURNALS)
+      setDiagnoses(MOCK_DIAGNOSES)
+      setTanks(MOCK_TANKS)
+      setInventoryItems(MOCK_INVENTORY_ITEMS)
+      setJLoading(false)
+      setDLoading(false)
+      return
+    }
     try {
       const [, tanksData, invData] = await Promise.all([loadJournals("", "", 0, true), getAllTanks(), getInventoryItems()])
-      setTanks(tanksData.length ? tanksData : (mock ? MOCK_TANKS : []))
-      setInventoryItems(invData.length ? invData : (mock ? MOCK_INVENTORY_ITEMS : []))
+      setTanks(tanksData)
+      setInventoryItems(invData)
       await loadDiagnoses("", "", 0, true)
-    } catch {
-      if (mock) { setJournals(MOCK_JOURNALS); setDiagnoses(MOCK_DIAGNOSES); setTanks(MOCK_TANKS); setInventoryItems(MOCK_INVENTORY_ITEMS) }
-    } finally {
+    } catch { } finally {
       setJLoading(false)
       setDLoading(false)
     }

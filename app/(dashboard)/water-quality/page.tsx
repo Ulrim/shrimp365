@@ -245,6 +245,13 @@ export default function WaterQualityPage() {
   useEffect(() => {
     async function loadTanks() {
       const mock = isTestAccount(user?.email)
+      if (mock) {
+        setTanks(MOCK_TANKS)
+        const paramId = initialTankIdFromUrl.current
+        const target = paramId ? (MOCK_TANKS.find(t => t.id === paramId) ?? MOCK_TANKS[0]) : MOCK_TANKS[0]
+        setSelectedTankId(target.id)
+        return
+      }
       try {
         const dbTanks = await getAllTanks()
         if (dbTanks.length > 0) {
@@ -252,21 +259,11 @@ export default function WaterQualityPage() {
           const paramId = initialTankIdFromUrl.current
           const target = paramId ? (dbTanks.find(t => t.id === paramId) ?? dbTanks[0]) : dbTanks[0]
           setSelectedTankId(target.id)
-        } else if (mock) {
-          setTanks(MOCK_TANKS)
-          const paramId = initialTankIdFromUrl.current
-          const target = paramId ? (MOCK_TANKS.find(t => t.id === paramId) ?? MOCK_TANKS[0]) : MOCK_TANKS[0]
-          setSelectedTankId(target.id)
         } else {
           setIsLoading(false)
         }
       } catch {
-        if (mock) {
-          setTanks(MOCK_TANKS)
-          setSelectedTankId(MOCK_TANKS[0].id)
-        } else {
-          setIsLoading(false)
-        }
+        setIsLoading(false)
       }
     }
     loadTanks()

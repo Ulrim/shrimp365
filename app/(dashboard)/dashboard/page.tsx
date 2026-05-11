@@ -68,40 +68,36 @@ export default function DashboardPage() {
   useEffect(() => {
     async function load() {
       const mock = isTestAccount(user?.email)
+      if (mock) {
+        setFarms(MOCK_FARMS)
+        setTanks(MOCK_TANKS)
+        setAlerts(MOCK_ALERTS.filter(x => !x.resolved))
+        setDiagnoses(MOCK_DIAGNOSES)
+        setLowStockItems(MOCK_INVENTORY_ITEMS.filter(i => i.reorder_level > 0 && i.current_stock <= i.reorder_level))
+        setSelectedTankId("tank-1")
+        setWqData(MOCK_WATER_QUALITY["tank-1"] || [])
+        setLoading(false)
+        return
+      }
       try {
         const [f, tk, a, d, inv] = await Promise.all([
           getFarms(), getAllTanks(), getAlerts(true), getDiagnoses(), getInventoryItems()
         ])
-        setFarms(f.length ? f : (mock ? MOCK_FARMS : []))
-        setTanks(tk.length ? tk : (mock ? MOCK_TANKS : []))
-        setAlerts(a.length ? a : (mock ? MOCK_ALERTS.filter(x => !x.resolved) : []))
-        setDiagnoses(d.length ? d : (mock ? MOCK_DIAGNOSES : []))
+        setFarms(f)
+        setTanks(tk)
+        setAlerts(a.filter(x => !x.resolved))
+        setDiagnoses(d)
+        setLowStockItems(inv.filter(i => i.reorder_level > 0 && i.current_stock <= i.reorder_level))
 
-        const invData = inv.length ? inv : (mock ? MOCK_INVENTORY_ITEMS : [])
-        setLowStockItems(invData.filter(i => i.reorder_level > 0 && i.current_stock <= i.reorder_level))
-
-        const firstTank = tk.length ? tk[0] : (mock ? MOCK_TANKS[0] : null)
+        const firstTank = tk[0] ?? null
         if (firstTank) {
           setSelectedTankId(firstTank.id)
           const wq = await getWaterQuality(firstTank.id, 24)
-          setWqData(wq.length ? wq : (mock ? (MOCK_WATER_QUALITY[firstTank.id] || []) : []))
+          setWqData(wq)
         }
 
-        // Redirect new users with no farms to onboarding (must be inside effect, not render)
-        if (!f.length && !mock) {
-          router.replace("/onboarding")
-        }
-      } catch {
-        if (mock) {
-          setFarms(MOCK_FARMS)
-          setTanks(MOCK_TANKS)
-          setAlerts(MOCK_ALERTS.filter(x => !x.resolved))
-          setDiagnoses(MOCK_DIAGNOSES)
-          setWqData(MOCK_WATER_QUALITY["tank-1"] || [])
-          setSelectedTankId("tank-1")
-          setLowStockItems(MOCK_INVENTORY_ITEMS.filter(i => i.reorder_level > 0 && i.current_stock <= i.reorder_level))
-        }
-      } finally {
+        if (!f.length) router.replace("/onboarding")
+      } catch { } finally {
         setLoading(false)
       }
     }
@@ -111,13 +107,15 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!selectedTankId || loading) return
     const mock = isTestAccount(user?.email)
+    if (mock) {
+      setWqData(MOCK_WATER_QUALITY[selectedTankId] || [])
+      return
+    }
     async function reloadWq() {
       try {
         const wq = await getWaterQuality(selectedTankId, 24)
-        setWqData(wq.length ? wq : (mock ? (MOCK_WATER_QUALITY[selectedTankId] || []) : []))
-      } catch {
-        if (mock) setWqData(MOCK_WATER_QUALITY[selectedTankId] || [])
-      }
+        setWqData(wq)
+      } catch { }
     }
     reloadWq()
   }, [selectedTankId])
