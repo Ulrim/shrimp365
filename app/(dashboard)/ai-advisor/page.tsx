@@ -215,30 +215,27 @@ export default function AIAdvisorPage() {
   useEffect(() => {
     async function loadData() {
       const mock = isTestAccount(user?.email)
-      try {
-        const [tankData, a, d] = await Promise.all([getAllTanks(), getAlerts(true), getDiagnoses()])
-        const finalTanks = tankData.length ? tankData : (mock ? MOCK_TANKS : [])
-        const finalAlerts = a.length ? a : (mock ? MOCK_ALERTS.filter(x => !x.resolved) : [])
-        const finalDiagnoses = d.length ? d : (mock ? MOCK_DIAGNOSES : [])
-        setTanks(finalTanks)
-        setAlerts(finalAlerts)
-        setDiagnoses(finalDiagnoses)
-        setMessages([{
-          id: "welcome",
-          role: "assistant",
-          content: `${t.aiAdvisor.welcomeTitle}\n\n${t.aiAdvisor.welcomeMsg}\n\n현재 **${finalTanks.length}개 수조** 운영 현황을 실시간으로 분석하고 있습니다.\n\n${finalAlerts.length > 0 ? `**활성 알림 ${finalAlerts.length}건**이 감지되었습니다.` : "현재 활성 알림이 없습니다."} 아래 빠른 질문 버튼을 눌러 시작하거나, 직접 질문을 입력하세요.`,
-          timestamp: new Date(),
-        }])
-      } catch {
-        setMessages([{
-          id: "welcome",
-          role: "assistant",
-          content: `${t.aiAdvisor.welcomeTitle} ${t.aiAdvisor.welcomeMsg}`,
-          timestamp: new Date(),
-        }])
-      } finally {
-        setDataLoaded(true)
+      let finalTanks = MOCK_TANKS
+      let finalAlerts = MOCK_ALERTS.filter(x => !x.resolved)
+      let finalDiagnoses = MOCK_DIAGNOSES
+      if (!mock) {
+        try {
+          const [tankData, a, d] = await Promise.all([getAllTanks(), getAlerts(true), getDiagnoses()])
+          finalTanks = tankData
+          finalAlerts = a.filter(x => !x.resolved)
+          finalDiagnoses = d
+        } catch { }
       }
+      setTanks(finalTanks)
+      setAlerts(finalAlerts)
+      setDiagnoses(finalDiagnoses)
+      setMessages([{
+        id: "welcome",
+        role: "assistant",
+        content: `${t.aiAdvisor.welcomeTitle}\n\n${t.aiAdvisor.welcomeMsg}\n\n현재 **${finalTanks.length}개 수조** 운영 현황을 실시간으로 분석하고 있습니다.\n\n${finalAlerts.length > 0 ? `**활성 알림 ${finalAlerts.length}건**이 감지되었습니다.` : "현재 활성 알림이 없습니다."} 아래 빠른 질문 버튼을 눌러 시작하거나, 직접 질문을 입력하세요.`,
+        timestamp: new Date(),
+      }])
+      setDataLoaded(true)
     }
     loadData()
   }, [user])

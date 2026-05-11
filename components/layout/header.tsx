@@ -83,7 +83,6 @@ export function Header() {
             <span className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500">
               <kbd className="bg-slate-800 border border-white/10 rounded px-1 py-0.5 text-slate-600 text-[10px]">⌘K</kbd>
             </span>
-            <span className="sm:hidden text-xs">{t.common.search}</span>
           </button>
 
           {/* Notifications */}

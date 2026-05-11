@@ -173,15 +173,15 @@ export default function DashboardPage() {
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3">
           <Package className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-amber-300">재고 부족 품목 {lowStockItems.length}개</p>
+            <p className="text-sm font-medium text-amber-300">{t.inventory.lowStockItems} {lowStockItems.length}{locale === "ko" ? "개" : ""}</p>
             <p className="text-xs text-amber-400/70 mt-0.5">
               {lowStockItems.slice(0, 3).map(i => i.name).join(", ")}
-              {lowStockItems.length > 3 ? ` 외 ${lowStockItems.length - 3}건` : ""}
+              {lowStockItems.length > 3 ? ` +${lowStockItems.length - 3}` : ""}
             </p>
           </div>
           <Link href="/inventory">
             <Button size="sm" variant="outline" className="border-amber-500/40 text-amber-300 hover:bg-amber-500/20 text-xs h-8">
-              재고 확인
+              {t.nav.inventory}
             </Button>
           </Link>
         </div>
@@ -193,7 +193,7 @@ export default function DashboardPage() {
         <div className="overflow-x-auto -mx-1 px-1">
           <div className="flex gap-3 pb-1 min-w-max sm:min-w-0 sm:grid sm:grid-cols-4">
             {[
-              { href: "/water-quality", icon: <Droplets className="w-5 h-5 text-ocean-400" />, bg: "bg-ocean-500/20", label: "수질 기록 추가" },
+              { href: "/water-quality", icon: <Droplets className="w-5 h-5 text-ocean-400" />, bg: "bg-ocean-500/20", label: t.dashboard.addWaterQuality },
               { href: "/journal",       icon: <BookOpen  className="w-5 h-5 text-teal-400"  />, bg: "bg-teal-500/20",  label: t.nav.journal },
               { href: "/ai-advisor",    icon: <Bot       className="w-5 h-5 text-purple-400"/>, bg: "bg-purple-500/20",label: t.nav.aiAdvisor },
               { href: "/inventory",     icon: <Package   className="w-5 h-5 text-amber-400" />, bg: "bg-amber-500/20", label: t.nav.inventory },

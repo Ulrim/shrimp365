@@ -274,51 +274,30 @@ export default function WaterQualityPage() {
     if (!tankId) return
     const mock = isTestAccount(user?.email)
     setIsLoading(true)
+    if (mock) {
+      const mockReadings = MOCK_WATER_QUALITY[tankId] ?? []
+      setReadings(mockReadings)
+      setLatest(mockReadings.length > 0 ? mockReadings[mockReadings.length - 1] : null)
+      setTankAlerts(MOCK_ALERTS.filter(a => a.tank_id === tankId && !a.resolved))
+      setTankDevices(MOCK_SENSOR_DEVICES.filter(d => d.tank_id === tankId))
+      setIsLoading(false)
+      return
+    }
     try {
       const [dbReadings, dbLatest] = await Promise.all([
         getWaterQuality(tankId, hours),
         getLatestWaterQuality(tankId),
       ])
+      setReadings(dbReadings)
+      setLatest(dbLatest)
+      setTankAlerts([])
 
-      if (dbReadings.length > 0) {
-        setReadings(dbReadings)
-      } else {
-        setReadings(mock ? (MOCK_WATER_QUALITY[tankId] ?? []) : [])
-      }
-
-      if (dbLatest) {
-        setLatest(dbLatest)
-      } else if (mock) {
-        const mockReadings = MOCK_WATER_QUALITY[tankId] ?? []
-        setLatest(mockReadings.length > 0 ? mockReadings[mockReadings.length - 1] : null)
-      } else {
-        setLatest(null)
-      }
-
-      setTankAlerts(mock ? MOCK_ALERTS.filter(a => a.tank_id === tankId && !a.resolved) : [])
-
-      // Load sensor devices for this tank
       try {
-        const devices = await getSensorDevices(tankId)
-        if (devices.length > 0) {
-          setTankDevices(devices)
-        } else if (mock) {
-          setTankDevices(MOCK_SENSOR_DEVICES.filter(d => d.tank_id === tankId))
-        } else {
-          setTankDevices([])
-        }
+        setTankDevices(await getSensorDevices(tankId))
       } catch {
-        setTankDevices(mock ? MOCK_SENSOR_DEVICES.filter(d => d.tank_id === tankId) : [])
+        setTankDevices([])
       }
-    } catch {
-      if (mock) {
-        const mockReadings = MOCK_WATER_QUALITY[tankId] ?? []
-        setReadings(mockReadings)
-        setLatest(mockReadings.length > 0 ? mockReadings[mockReadings.length - 1] : null)
-        setTankAlerts(MOCK_ALERTS.filter(a => a.tank_id === tankId && !a.resolved))
-        setTankDevices(MOCK_SENSOR_DEVICES.filter(d => d.tank_id === tankId))
-      }
-    } finally {
+    } catch { } finally {
       setIsLoading(false)
     }
   }, [user?.email, hours])
@@ -354,22 +333,21 @@ export default function WaterQualityPage() {
     const mock = isTestAccount(user?.email)
     const counts = { 정상: 0, 주의: 0, 위험: 0 }
 
+    if (mock) {
+      tankList.forEach(tank => {
+        const mockReadings = MOCK_WATER_QUALITY[tank.id] ?? []
+        const latestReading = mockReadings.length > 0 ? mockReadings[mockReadings.length - 1] : null
+        if (!latestReading) { if (tank.status !== "inactive") counts.정상++; return }
+        counts[deriveStatus(latestReading)]++
+      })
+      setSummaryStatusCounts(counts)
+      return
+    }
+
     await Promise.all(tankList.map(async (tank) => {
       try {
-        // Always try DB first; fall back to mock data only when DB has nothing
-        let latestReading: WaterQualityReading | null = await getLatestWaterQuality(tank.id)
-        if (!latestReading && mock) {
-          const mockReadings = MOCK_WATER_QUALITY[tank.id] ?? []
-          latestReading = mockReadings.length > 0
-            ? mockReadings[mockReadings.length - 1]
-            : null
-        }
-
-        if (!latestReading) {
-          if (tank.status !== "inactive") counts.정상++
-          return
-        }
-
+        const latestReading = await getLatestWaterQuality(tank.id)
+        if (!latestReading) { if (tank.status !== "inactive") counts.정상++; return }
         counts[deriveStatus(latestReading)]++
       } catch {
         if (tank.status === "active")  counts.정상++

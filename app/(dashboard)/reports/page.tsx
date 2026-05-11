@@ -460,18 +460,19 @@ export default function ReportsPage() {
 
   async function loadData(days: number) {
     setLoading(true)
+    if (isMock) {
+      setFarms(MOCK_FARMS)
+      setTanks(MOCK_TANKS)
+      setLoading(false)
+      return
+    }
     try {
       const from = new Date(Date.now() - days * 86400000).toISOString().split("T")[0]
       const [f, t, j] = await Promise.all([getFarms(), getAllTanks(), getJournalEntries(undefined, 500, from)])
-      setFarms(f.length ? f : (isMock ? MOCK_FARMS : []))
-      setTanks(t.length ? t : (isMock ? MOCK_TANKS : []))
+      setFarms(f)
+      setTanks(t)
       setJournals(j)
-    } catch {
-      if (isMock) {
-        setFarms(MOCK_FARMS)
-        setTanks(MOCK_TANKS)
-      }
-    } finally {
+    } catch { } finally {
       setLoading(false)
     }
   }
