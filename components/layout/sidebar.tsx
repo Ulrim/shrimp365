@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
@@ -44,7 +44,7 @@ export function Sidebar() {
     router.replace("/login")
   }
 
-  const SidebarContent = () => (
+  const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className={cn("flex items-center gap-3 px-4 py-5 border-b border-white/10", collapsed && "justify-center px-2")}>
@@ -145,7 +145,7 @@ export function Sidebar() {
         "hidden lg:flex flex-col bg-slate-900/80 border-r border-white/10 backdrop-blur-xl transition-all duration-300 relative h-screen sticky top-0 shrink-0",
         collapsed ? "w-16" : "w-60"
       )}>
-        <SidebarContent />
+        {sidebarContent}
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="absolute -right-3 top-20 w-6 h-6 bg-slate-800 border border-white/20 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors z-10"
@@ -176,7 +176,7 @@ export function Sidebar() {
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <SidebarContent />
+              {sidebarContent}
             </aside>
           </>
         )}

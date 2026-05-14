@@ -8,12 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
-  Users, Building2, Layers, AlertTriangle, ShieldCheck,
+  Users, Building2, AlertTriangle, ShieldCheck,
   RefreshCw, XCircle, AlertCircle, Info, TrendingUp,
   Crown, CheckCircle2, Activity, Fish,
 } from "lucide-react"
 import { formatDateTime } from "@/lib/utils"
-import { PLAN_LABELS, PLAN_COLORS } from "@/lib/plans"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

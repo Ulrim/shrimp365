@@ -425,7 +425,7 @@ export default function LandingPage() {
                     <Star key={j} className="w-4 h-4 text-amber-400 fill-amber-400" />
                   ))}
                 </div>
-                <p className="text-slate-300 text-sm leading-relaxed mb-5">"{t.text}"</p>
+                <p className="text-slate-300 text-sm leading-relaxed mb-5">&ldquo;{t.text}&rdquo;</p>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-white text-sm font-medium">{t.name}</p>

@@ -1,4 +1,4 @@
-import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbDiagnosis, DbAlert, DbSensorDevice, DbProductionCycle, DbGrowthSample, DbCycleCost, DbCycleHarvest, DbInventoryItem, DbInventoryTransaction } from "@/lib/supabase"
+import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbSensorDevice, DbProductionCycle, DbGrowthSample, DbCycleCost, DbCycleHarvest, DbInventoryItem, DbInventoryTransaction } from "@/lib/supabase"
 import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction } from "@/types"
 import { checkThresholds } from "@/lib/thresholds"
 import { PLAN_LIMITS, type Plan } from "@/lib/plans"
