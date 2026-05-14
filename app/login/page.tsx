@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Eye, EyeOff, Waves, AlertCircle, ShieldCheck } from "lucide-react"
+import { Eye, EyeOff, AlertCircle, ShieldCheck } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -50,8 +50,8 @@ export default function LoginPage() {
         <div className="absolute -top-16 -right-16 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl" />
 
         <div className="relative z-10 flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-xl flex items-center justify-center">
-            <Waves className="w-6 h-6 text-white" />
+          <div className="w-10 h-10 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-xl flex items-center justify-center text-xl leading-none">
+            🦐
           </div>
           <span className="text-white text-xl font-bold">Shrimp365</span>
         </div>
@@ -92,8 +92,8 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="flex lg:hidden items-center justify-center gap-3 mb-8">
-            <div className="w-10 h-10 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-xl flex items-center justify-center">
-              <Waves className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-xl flex items-center justify-center text-xl leading-none">
+              🦐
             </div>
             <span className="text-white text-xl font-bold">Shrimp365</span>
           </div>

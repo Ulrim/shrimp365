@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import {
-  Waves, Droplets, BrainCircuit, BookOpen, Package, FlaskConical,
+  Droplets, BrainCircuit, BookOpen, Package, FlaskConical,
   BarChart3, Building2, CheckCircle2, ArrowRight, ChevronDown,
   Smartphone, Shield, Zap, Star, Play, Bell, Fish,
   ThermometerSun, Wind, AlertTriangle, TrendingUp, Clock, Menu, X
@@ -123,8 +123,8 @@ function NavBar({ onDemoClick }: { onDemoClick: () => void }) {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-950/80 backdrop-blur-md border-b border-white/5">
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-lg flex items-center justify-center">
-            <Waves className="w-4 h-4 text-white" />
+          <div className="w-8 h-8 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-lg flex items-center justify-center text-base leading-none">
+            🦐
           </div>
           <span className="text-white font-bold text-lg">Shrimp365</span>
         </Link>
@@ -187,7 +187,7 @@ function WaterQualityCard() {
           { label: "DO", value: "7.2", unit: "mg/L", ok: true, icon: <Wind className="w-3.5 h-3.5" /> },
           { label: "pH", value: "8.1", unit: "", ok: true, icon: <Droplets className="w-3.5 h-3.5" /> },
           { label: "암모니아", value: "0.08", unit: "mg/L", ok: true, icon: <AlertTriangle className="w-3.5 h-3.5" /> },
-          { label: "탁도", value: "5.2", unit: "NTU", ok: true, icon: <Waves className="w-3.5 h-3.5" /> },
+          { label: "탁도", value: "5.2", unit: "NTU", ok: true, icon: <Droplets className="w-3.5 h-3.5" /> },
           { label: "염도", value: "21.0", unit: "ppt", ok: true, icon: <Fish className="w-3.5 h-3.5" /> },
         ].map(item => (
           <div key={item.label} className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-2">
@@ -545,8 +545,8 @@ export default function LandingPage() {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-ocean-500/10 rounded-full blur-3xl" />
         </div>
         <div className="relative max-w-3xl mx-auto px-4 text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <Waves className="w-8 h-8 text-white" />
+          <div className="w-16 h-16 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-6 text-4xl leading-none">
+            🦐
           </div>
           <h2 className="text-3xl sm:text-5xl font-bold mb-5">
             오늘부터 시작하세요
@@ -581,8 +581,8 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 py-10">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-lg flex items-center justify-center">
-                <Waves className="w-4 h-4 text-white" />
+              <div className="w-7 h-7 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-lg flex items-center justify-center text-sm leading-none">
+                🦐
               </div>
               <span className="text-white font-bold">Shrimp365</span>
             </div>

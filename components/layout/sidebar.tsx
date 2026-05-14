@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
 import { cn } from "@/lib/utils"
 import {
-  Waves, LayoutDashboard, Droplets, BookOpen, Building2,
+  LayoutDashboard, Droplets, BookOpen, Building2,
   BrainCircuit, BarChart3, Settings, LogOut,
   ChevronLeft, ChevronRight, Menu, X, Zap, FlaskConical, Package, ShieldCheck
 } from "lucide-react"
@@ -48,8 +48,8 @@ export function Sidebar() {
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className={cn("flex items-center gap-3 px-4 py-5 border-b border-white/10", collapsed && "justify-center px-2")}>
-        <div className="w-9 h-9 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-xl flex items-center justify-center shrink-0">
-          <Waves className="w-5 h-5 text-white" />
+        <div className="w-9 h-9 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-xl flex items-center justify-center shrink-0 text-lg leading-none">
+          🦐
         </div>
         {!collapsed && (
           <div>
