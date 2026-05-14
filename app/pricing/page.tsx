@@ -17,6 +17,9 @@ declare global {
   }
 }
 
+// ─── 프로모션 플래그 — true이면 결제 비활성화, 신규 가입 Pro 3개월 무료 ──────
+const PROMO_ACTIVE = true
+
 // ─── 가격 설정 ────────────────────────────────────────────────────────────────
 const TOSS_PRICES: Record<"basic" | "pro", number> = {
   basic: 19900,
@@ -186,7 +189,12 @@ export default function PricingPage() {
         <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
           {t.pricing.subtitle}
         </h1>
-        {korean && (
+        {PROMO_ACTIVE && (
+          <div className="inline-flex items-center gap-2 mt-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm px-5 py-2.5 rounded-full">
+            🎉 지금 가입하면 <strong>Pro 플랜 3개월 무료</strong> — 결제 없이 바로 시작!
+          </div>
+        )}
+        {!PROMO_ACTIVE && korean && (
           <p className="text-slate-500 text-sm mt-2">
             한국 사용자는 <span className="text-[#0064FF] font-semibold">토스페이</span>로 간편하게 결제할 수 있습니다.
           </p>
@@ -255,6 +263,15 @@ export default function PricingPage() {
             <Button disabled className="w-full bg-sky-800 text-white">{t.pricing.currentPlan}</Button>
           ) : currentRank > PLAN_RANK["basic"] ? (
             <Button disabled className="w-full bg-slate-700 text-slate-500">{t.pricing.downgrade}</Button>
+          ) : PROMO_ACTIVE ? (
+            <div className="space-y-2">
+              <Link href="/signup">
+                <Button className="w-full bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white font-medium">
+                  무료로 시작하기
+                </Button>
+              </Link>
+              <p className="text-center text-xs text-emerald-500">Pro 3개월 무료 포함</p>
+            </div>
           ) : (
             <div className="space-y-2">
               <Button
@@ -313,6 +330,15 @@ export default function PricingPage() {
             <Button disabled className="w-full bg-ocean-700 text-white">{t.pricing.currentPlan}</Button>
           ) : currentPlan === "enterprise" ? (
             <Button disabled className="w-full bg-slate-700 text-slate-500">{t.pricing.downgrade}</Button>
+          ) : PROMO_ACTIVE ? (
+            <div className="space-y-2">
+              <Link href="/signup">
+                <Button className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-medium">
+                  무료로 시작하기
+                </Button>
+              </Link>
+              <p className="text-center text-xs text-emerald-500">Pro 3개월 무료 포함</p>
+            </div>
           ) : (
             <div className="space-y-2">
               <Button

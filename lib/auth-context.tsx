@@ -33,16 +33,21 @@ const AuthContext = createContext<AuthContextType | null>(null)
 async function fetchProfile(userId: string): Promise<{ name: string; role: string; plan: "free" | "basic" | "pro" | "enterprise" }> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("name, role, plan")
+    .select("name, role, plan, plan_expires_at")
     .eq("id", userId)
     .single()
   if (error && error.code !== "PGRST116") {
     console.warn("[auth] fetchProfile failed:", error.message)
   }
+  // plan_expires_at가 있고 만료됐으면 free로 다운그레이드
+  let plan = (data?.plan as "free" | "basic" | "pro" | "enterprise") || "free"
+  if (data?.plan_expires_at && new Date(data.plan_expires_at) < new Date()) {
+    plan = "free"
+  }
   return {
     name: data?.name || "",
     role: data?.role || "operator",
-    plan: (data?.plan as "free" | "basic" | "pro" | "enterprise") || "free",
+    plan,
   }
 }
 
