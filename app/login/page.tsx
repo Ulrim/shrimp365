@@ -210,6 +210,12 @@ export default function LoginPage() {
                     {t.auth.forgotPassword}
                   </Link>
                 </p>
+                <p className="text-sm text-ocean-500">
+                  처음 사용하시나요?{" "}
+                  <Link href="/guide" className="text-ocean-400 hover:text-ocean-300 font-medium transition-colors">
+                    📖 사용 가이드 보기
+                  </Link>
+                </p>
               </div>
             </CardContent>
           </Card>
