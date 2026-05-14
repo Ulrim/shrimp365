@@ -80,6 +80,7 @@ export interface Dict {
     reports: string
     settings: string
     upgrade: string
+    admin: string
   }
   inventory: {
     title: string

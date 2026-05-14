@@ -9,12 +9,13 @@ import { cn } from "@/lib/utils"
 import {
   Waves, LayoutDashboard, Droplets, BookOpen, Building2,
   BrainCircuit, BarChart3, Settings, LogOut,
-  ChevronLeft, ChevronRight, Menu, X, Zap, FlaskConical, Package
+  ChevronLeft, ChevronRight, Menu, X, Zap, FlaskConical, Package, ShieldCheck
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
 import { LanguageSwitcher } from "@/components/ui/language-switcher"
 import { PLAN_LABELS, PLAN_COLORS, isPaidPlan } from "@/lib/plans"
+import { isMonitorAccount } from "@/lib/mock-data"
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -24,6 +25,8 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const isAdmin = user?.role === "admin" || isMonitorAccount(user?.email)
+
   const NAV = [
     { href: "/dashboard",    icon: LayoutDashboard, label: t.nav.dashboard },
     { href: "/water-quality", icon: Droplets,       label: t.nav.waterQuality },
@@ -33,6 +36,7 @@ export function Sidebar() {
     { href: "/inventory",    icon: Package,         label: t.nav.inventory },
     { href: "/ai-advisor",   icon: BrainCircuit,    label: t.nav.aiAdvisor },
     { href: "/reports",      icon: BarChart3,       label: t.nav.reports },
+    ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
   ]
 
   const handleLogout = async () => {

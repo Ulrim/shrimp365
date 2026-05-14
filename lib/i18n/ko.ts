@@ -82,6 +82,7 @@ export const ko: Dict = {
     reports: "리포트",
     settings: "설정",
     upgrade: "업그레이드",
+    admin: "시스템 모니터링",
   },
   auth: {
     loginTitle: "로그인",

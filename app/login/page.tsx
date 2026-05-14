@@ -34,8 +34,10 @@ export default function LoginPage() {
     }
   }
 
-  const fillTestAccount = (type: "admin" | "operator") => {
-    setEmail(type === "admin" ? "admin@shrimp365.com" : "operator@shrimp365.com")
+  const fillTestAccount = (type: "admin" | "operator" | "monitor") => {
+    if (type === "admin") setEmail("admin@shrimp365.com")
+    else if (type === "operator") setEmail("operator@shrimp365.com")
+    else setEmail("monitor@shrimp365.com")
     setPassword("")
   }
 
@@ -166,22 +168,30 @@ export default function LoginPage() {
                     <ShieldCheck className="w-3.5 h-3.5" />
                     {t.auth.testAccounts}
                   </p>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
                       onClick={() => fillTestAccount("admin")}
                       className="text-xs bg-ocean-500/20 hover:bg-ocean-500/30 text-ocean-300 border border-ocean-500/30 rounded-lg px-3 py-2 transition-colors text-left"
                     >
-                      <div className="font-medium">관리자 계정</div>
-                      <div className="text-ocean-400 mt-0.5">admin@shrimp365.com</div>
+                      <div className="font-medium">관리자</div>
+                      <div className="text-ocean-400 mt-0.5 truncate">admin@</div>
                     </button>
                     <button
                       type="button"
                       onClick={() => fillTestAccount("operator")}
                       className="text-xs bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/30 rounded-lg px-3 py-2 transition-colors text-left"
                     >
-                      <div className="font-medium">운영자 계정</div>
-                      <div className="text-teal-400 mt-0.5">operator@shrimp365.com</div>
+                      <div className="font-medium">운영자</div>
+                      <div className="text-teal-400 mt-0.5 truncate">operator@</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fillTestAccount("monitor")}
+                      className="text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 rounded-lg px-3 py-2 transition-colors text-left"
+                    >
+                      <div className="font-medium">모니터링</div>
+                      <div className="text-purple-400 mt-0.5 truncate">monitor@</div>
                     </button>
                   </div>
                   <p className="text-center text-xs text-ocean-500 mt-2">{t.auth.testAccountHint}</p>

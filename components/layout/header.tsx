@@ -23,6 +23,7 @@ export function Header() {
     "/diagnosis":     t.nav.diagnosis,
     "/ai-advisor":    t.nav.aiAdvisor,
     "/reports":       t.nav.reports,
+    "/admin":         t.nav.admin,
   }
 
   const title = pageLabels[pathname] || "Shrimp365"

@@ -82,6 +82,7 @@ export const en: Dict = {
     reports: "Reports",
     settings: "Settings",
     upgrade: "Upgrade",
+    admin: "System Monitor",
   },
   auth: {
     loginTitle: "Sign In",

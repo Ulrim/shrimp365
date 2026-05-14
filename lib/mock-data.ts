@@ -10,14 +10,51 @@ export const MOCK_USER = {
 }
 
 export const TEST_ACCOUNTS = [
-  { email: "admin@shrimp365.com", name: "김양식 (관리자)" },
+  { email: "admin@shrimp365.com",    name: "김양식 (관리자)" },
   { email: "operator@shrimp365.com", name: "이운영 (운영자)" },
+  { email: "monitor@shrimp365.com",  name: "모니터 (시스템 관리자)" },
 ]
 
-export const TEST_EMAILS = ["admin@shrimp365.com", "operator@shrimp365.com"]
+export const TEST_EMAILS = ["admin@shrimp365.com", "operator@shrimp365.com", "monitor@shrimp365.com"]
 
 export function isTestAccount(email?: string | null): boolean {
   return TEST_EMAILS.includes(email ?? "")
+}
+
+export function isMonitorAccount(email?: string | null): boolean {
+  return email === "monitor@shrimp365.com"
+}
+
+// ─────────────────────────────────────────────
+// 관리자 모니터링용 통계 데이터
+// ─────────────────────────────────────────────
+export interface AdminUserRow {
+  id: string
+  email: string
+  name: string
+  role: string
+  plan: string
+  farm_count: number
+  tank_count: number
+  active_tanks: number
+  alert_count: number
+  joined_at: string
+}
+
+export const MOCK_ADMIN_STATS = {
+  users: [
+    { id: "mock-user-1", email: "admin@shrimp365.com",    name: "김양식",   role: "admin",    plan: "pro",    farm_count: 2, tank_count: 12, active_tanks: 8,  alert_count: 4, joined_at: "2024-01-15T00:00:00Z" },
+    { id: "mock-user-2", email: "operator@shrimp365.com", name: "이운영",   role: "operator", plan: "basic",  farm_count: 1, tank_count: 5,  active_tanks: 4,  alert_count: 1, joined_at: "2024-03-10T00:00:00Z" },
+    { id: "mock-user-3", email: "park@aqua.kr",           name: "박수산",   role: "operator", plan: "free",   farm_count: 1, tank_count: 3,  active_tanks: 3,  alert_count: 0, joined_at: "2024-05-20T00:00:00Z" },
+    { id: "mock-user-4", email: "choi@sea.kr",            name: "최새우",   role: "operator", plan: "basic",  farm_count: 1, tank_count: 8,  active_tanks: 6,  alert_count: 2, joined_at: "2024-02-28T00:00:00Z" },
+    { id: "mock-user-5", email: "jung@shrimp.com",        name: "정양식",   role: "operator", plan: "pro",    farm_count: 3, tank_count: 20, active_tanks: 18, alert_count: 0, joined_at: "2024-04-01T00:00:00Z" },
+    { id: "mock-user-6", email: "newuser@test.com",       name: "신규가입자", role: "operator", plan: "free",   farm_count: 0, tank_count: 0,  active_tanks: 0,  alert_count: 0, joined_at: "2026-05-12T00:00:00Z" },
+  ] as AdminUserRow[],
+  total_farms: 8,
+  total_tanks: 48,
+  total_active_alerts: 7,
+  tanks_by_status: { active: 39, warning: 4, danger: 3, inactive: 2 },
+  plan_distribution: { free: 2, basic: 2, pro: 2, enterprise: 0 },
 }
 
 // ─────────────────────────────────────────────

@@ -82,6 +82,7 @@ export const vi: Dict = {
     reports: "Báo cáo",
     settings: "Cài đặt",
     upgrade: "Nâng cấp",
+    admin: "Giám sát hệ thống",
   },
   auth: {
     loginTitle: "Đăng nhập",
