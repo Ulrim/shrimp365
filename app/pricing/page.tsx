@@ -19,8 +19,8 @@ declare global {
 
 // ─── 가격 설정 ────────────────────────────────────────────────────────────────
 const TOSS_PRICES: Record<"basic" | "pro", number> = {
-  basic: 29000,
-  pro:   79000,
+  basic: 19900,
+  pro:   39900,
 }
 const DODO_URLS: Record<"basic" | "pro", string> = {
   basic: "https://checkout.dodopayments.com/buy/pdt_0NeSxAfIU3XSj9De2jD17?quantity=1&redirect_url=https://www.shrimp365.kr%2Fpayment%2Fsuccess%3Fplan%3Dbasic",
@@ -232,7 +232,7 @@ export default function PricingPage() {
             <div className="flex items-end gap-1">
               {korean ? (
                 <>
-                  <span className="text-4xl font-bold text-white">₩29,000</span>
+                  <span className="text-4xl font-bold text-white">₩19,900</span>
                   <span className="text-slate-400 text-sm mb-1">{t.pricing.perMonth}</span>
                 </>
               ) : (
@@ -290,7 +290,7 @@ export default function PricingPage() {
             <div className="flex items-end gap-1">
               {korean ? (
                 <>
-                  <span className="text-4xl font-bold text-white">₩79,000</span>
+                  <span className="text-4xl font-bold text-white">₩39,900</span>
                   <span className="text-slate-400 text-sm mb-1">{t.pricing.perMonth}</span>
                 </>
               ) : (

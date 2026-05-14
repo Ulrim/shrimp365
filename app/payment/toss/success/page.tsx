@@ -130,7 +130,7 @@ export default function TossSuccessPage() {
           <div className="flex justify-between">
             <span className="text-slate-500">금액</span>
             <span className="font-medium text-white">
-              {plan === "basic" ? "₩29,000" : "₩79,000"}/월
+              {plan === "basic" ? "₩19,900" : "₩39,900"}/월
             </span>
           </div>
         </div>
