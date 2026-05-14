@@ -219,7 +219,7 @@ export default function LandingPage() {
   }, [user, loading, router])
 
   function handleDemo() {
-    router.push("/login?demo=1")
+    window.location.href = "/api/demo"
   }
 
   if (loading) {
