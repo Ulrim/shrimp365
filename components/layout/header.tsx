@@ -65,12 +65,18 @@ export function Header() {
 
   return (
     <>
-      <header className="h-16 border-b border-white/10 bg-slate-900/50 backdrop-blur-sm flex items-center justify-between px-4 lg:px-6 shrink-0">
-        <div>
-          <h1 className="text-lg font-semibold text-white">{title}</h1>
-          <p className="text-xs text-slate-500 hidden sm:block">
-            {new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" })}
-          </p>
+      <header className="h-14 lg:h-16 border-b border-white/10 bg-slate-900/70 backdrop-blur-md flex items-center justify-between px-4 lg:px-6 shrink-0">
+        {/* Mobile: logo + page title stacked; Desktop: just page title */}
+        <div className="flex items-center gap-3">
+          <div className="lg:hidden w-8 h-8 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-xl flex items-center justify-center text-base leading-none shrink-0">
+            🦐
+          </div>
+          <div>
+            <h1 className="text-[15px] lg:text-lg font-semibold text-white leading-tight">{title}</h1>
+            <p className="text-xs text-slate-500 hidden sm:block">
+              {new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" })}
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-1">
