@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { ArrowRight, ChevronDown, ChevronUp } from "lucide-react"
+import { ArrowRight, ChevronDown, ChevronUp, Download } from "lucide-react"
 
 // ─── Section data ─────────────────────────────────────────────────────────────
 
@@ -331,12 +331,13 @@ export default function GuidePage() {
             >
               무료로 시작하기 <ArrowRight className="w-4 h-4" />
             </Link>
-            <Link
-              href="/login"
+            <a
+              href="/api/catalog"
+              download="Shrimp365_catalog.pdf"
               className="inline-flex items-center justify-center gap-2 border border-white/20 hover:bg-white/5 text-white px-8 py-3 rounded-xl transition-all"
             >
-              로그인
-            </Link>
+              <Download className="w-4 h-4" /> 카탈로그 다운로드 (PDF)
+            </a>
           </div>
         </div>
 
