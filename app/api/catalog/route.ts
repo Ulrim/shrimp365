@@ -5,7 +5,7 @@ import { CatalogDocument } from "@/components/catalog/catalog-document"
 export async function GET() {
   try {
     const buffer = await renderToBuffer(CatalogDocument())
-    return new NextResponse(buffer as unknown as BodyInit, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": 'attachment; filename="Shrimp365_catalog.pdf"',

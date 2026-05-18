@@ -1,5 +1,5 @@
 import {
-  Document, Page, View, Text, StyleSheet, Line, Svg, Rect, Circle, Path,
+  Document, Page, View, Text, StyleSheet, Svg, Rect, Circle,
 } from "@react-pdf/renderer"
 import React from "react"
 
@@ -89,16 +89,7 @@ const s = StyleSheet.create({
   footerTL:       { fontSize: 8, color: C.slate3 },
 })
 
-// ─── 간단 일러스트 아이콘 (SVG) ──────────────────────────────────────────────
-function WaveIcon({ size = 28 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 28 28">
-      <Rect width="28" height="28" rx="8" fill={C.ocean} />
-      <Text style={{ fontSize: 16, color: C.white, textAlign: "center" }}>🦐</Text>
-    </Svg>
-  )
-}
-
+// ─── 헬퍼 컴포넌트 ───────────────────────────────────────────────────────────
 function StepCircle({ n, color }: { n: number; color: string }) {
   return (
     <View style={[s.stepNum, { backgroundColor: color }]}>
