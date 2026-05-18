@@ -42,7 +42,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# playwright
+# playwright / screenshots / generated artifacts
 .playwright-mcp/
+.shots/
 *.png
 *.jpeg
+*.jpg
