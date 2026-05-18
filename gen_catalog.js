@@ -1,9 +1,15 @@
 // Usage: node --max-old-space-size=4096 gen_catalog.js
-// Generates Shrimp365_guide.pdf in .shots/
+// Generates Shrimp365_guide.pdf and Shrimp365_guide.docx in .shots/
 
 const { Document, Page, View, Text, Image, StyleSheet, Font, renderToFile } = require('@react-pdf/renderer')
+const {
+  Document: DocxDocument, Packer, Paragraph, TextRun, HeadingLevel,
+  AlignmentType, BorderStyle, Table, TableRow, TableCell, WidthType,
+  ShadingType, ImageRun, PageOrientation,
+} = require('docx')
 const { createElement: h } = require('react')
 const sharp = require('sharp')
+const fs = require('fs')
 const path = require('path')
 
 const FONT = '/tmp/NanumGothic.ttf'
@@ -13,7 +19,8 @@ Font.registerHyphenationCallback(w => [w])
 
 const SHOTS = path.resolve(__dirname, '.shots')
 const SHOT = f => path.join(SHOTS, `opt-${f}.jpg`)
-const OUT = path.join(SHOTS, 'Shrimp365_guide.pdf')
+const OUT_PDF = path.join(SHOTS, 'Shrimp365_guide.pdf')
+const OUT_DOCX = path.join(SHOTS, 'Shrimp365_guide.docx')
 
 // A4 points
 const PW = 595.28, PH = 841.89
@@ -22,21 +29,18 @@ const MARGIN = 32
 
 // Light theme colors
 const C = {
-  bg:        '#ffffff',
-  bgAlt:     '#f8fafc',
-  bgShot:    '#f1f5f9',
-  accent:    '#0284c7',
-  accentDim: '#e0f2fe',
-  text:      '#0f172a',
-  textSub:   '#475569',
-  textMuted: '#94a3b8',
-  border:    '#e2e8f0',
-  stepBg:    '#0284c7',
-  tipBg:     '#f0fdf4',
-  tipBorder: '#86efac',
-  tipLabel:  '#16a34a',
-  tipText:   '#15803d',
-  coverBar:  '#0284c7',
+  bg:       '#ffffff',
+  bgShot:   '#f1f5f9',
+  accent:   '#0284c7',
+  text:     '#0f172a',
+  textSub:  '#475569',
+  textMuted:'#94a3b8',
+  border:   '#e2e8f0',
+  stepBg:   '#0284c7',
+  tipBg:    '#f0fdf4',
+  tipBorder:'#86efac',
+  tipLabel: '#16a34a',
+  tipText:  '#15803d',
 }
 
 const s = StyleSheet.create({
@@ -44,7 +48,6 @@ const s = StyleSheet.create({
   pageLand:    { width: LW, height: LH, backgroundColor: C.bg, padding: MARGIN, fontFamily: 'Nanum' },
   shotPage:    { width: PW, height: PH, backgroundColor: C.bgShot, padding: 0, fontFamily: 'Nanum' },
   shotPageLand:{ width: LW, height: LH, backgroundColor: C.bgShot, padding: 0, fontFamily: 'Nanum' },
-  bar:         { position: 'absolute', top: 0, left: 0, width: 5, height: PH, backgroundColor: C.coverBar },
   heading:     { fontSize: 22, fontWeight: 'bold', color: C.text, marginBottom: 5 },
   subhead:     { fontSize: 13, color: C.accent, marginBottom: 16 },
   bodyText:    { fontSize: 10.5, lineHeight: 1.75, color: C.textSub },
@@ -64,7 +67,6 @@ const s = StyleSheet.create({
   tocTitle:    { flex: 1, fontSize: 10.5, color: C.text, fontFamily: 'Nanum' },
   tocSub:      { fontSize: 9, color: C.textMuted, fontFamily: 'Nanum' },
   tocPage:     { fontSize: 10, color: C.textMuted, fontFamily: 'Nanum', paddingTop: 1 },
-  divider:     { height: 1, backgroundColor: C.border, marginVertical: 16 },
   footer:      { position: 'absolute', bottom: 20, left: MARGIN + 5, right: MARGIN, flexDirection: 'row' },
   footerLeft:  { fontSize: 8, color: C.textMuted, fontFamily: 'Nanum' },
   footerRight: { fontSize: 8, color: C.textMuted, marginLeft: 'auto', fontFamily: 'Nanum' },
@@ -72,45 +74,36 @@ const s = StyleSheet.create({
 
 let PAGENO = 1
 
+function topBar(color = C.accent) {
+  return [
+    h(View, { key: 'tb', style: { position: 'absolute', top: 0, left: 0, right: 0, height: 5, backgroundColor: color } }),
+    h(View, { key: 'bb', style: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 4, backgroundColor: color } }),
+  ]
+}
+
 function CoverPage() {
   PAGENO++
   return h(Page, { style: s.page },
-    h(View, { style: s.bar }),
-    // Top accent band
-    h(View, { style: { position: 'absolute', top: 0, left: 0, right: 0, height: 5, backgroundColor: C.coverBar } }),
-    h(View, { style: { flex: 1, justifyContent: 'center', paddingLeft: 24 } },
-      h(View, { style: { marginBottom: 36 } },
-        h(Text, { style: { fontSize: 10, color: C.accent, fontFamily: 'Nanum', fontWeight: 'bold', letterSpacing: 2, marginBottom: 20 } }, 'USER GUIDE'),
-        h(Text, { style: s.coverTitle }, 'Shrimp365'),
-        h(Text, { style: s.coverSub }, '흰다리새우 스마트 양식 관리 플랫폼'),
-        h(View, { style: { width: 50, height: 3, backgroundColor: C.accent, marginBottom: 28 } }),
-        h(Text, { style: { fontSize: 11, color: C.textSub, lineHeight: 1.9, fontFamily: 'Nanum' } },
-          '이 가이드는 Shrimp365의 모든 기능을\n단계별 실제 화면과 함께 소개합니다.'),
-      ),
-      h(View, { style: { flexDirection: 'row', gap: 12 } },
-        ...[
-          { label: '수질 모니터링', color: '#0284c7' },
-          { label: 'AI 진단', color: '#7c3aed' },
-          { label: '생산 관리', color: '#059669' },
-          { label: '보고서', color: '#d97706' },
-        ].map(tag =>
-          h(View, { key: tag.label, style: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, backgroundColor: tag.color + '18', borderWidth: 1, borderColor: tag.color + '40' } },
-            h(Text, { style: { fontSize: 9, color: tag.color, fontFamily: 'Nanum', fontWeight: 'bold' } }, tag.label),
-          )
-        ),
-      ),
+    ...topBar(),
+    h(View, { style: { flex: 1, justifyContent: 'center', paddingLeft: 16 } },
+      h(Text, { style: { fontSize: 10, color: C.accent, fontFamily: 'Nanum', fontWeight: 'bold', letterSpacing: 2, marginBottom: 20 } }, 'USER GUIDE'),
+      h(Text, { style: s.coverTitle }, 'Shrimp365'),
+      h(Text, { style: s.coverSub }, '흰다리새우 스마트 양식 관리 플랫폼'),
+      h(View, { style: { width: 50, height: 3, backgroundColor: C.accent, marginBottom: 28 } }),
+      h(Text, { style: { fontSize: 11, color: C.textSub, lineHeight: 1.9, fontFamily: 'Nanum' } },
+        '이 가이드는 Shrimp365의 모든 기능을\n단계별 실제 화면과 함께 소개합니다.'),
     ),
     h(View, { style: s.footer },
       h(Text, { style: s.footerLeft }, '© 2025 Shrimp365'),
       h(Text, { style: s.footerRight }, 'v1.0'),
     ),
-    // Bottom accent band
-    h(View, { style: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 4, backgroundColor: C.coverBar } }),
   )
 }
 
 const TOC_FEATURES = [
-  { title: '홈페이지', sub: '서비스 소개 및 특징' },
+  { title: '홈페이지 (1/3)', sub: '히어로 · 통계' },
+  { title: '홈페이지 (2/3)', sub: '기능 · 사용법' },
+  { title: '홈페이지 (3/3)', sub: '요금제 · FAQ · CTA' },
   { title: '로그인', sub: '계정 인증' },
   { title: '회원가입', sub: '신규 계정 생성' },
   { title: '요금제', sub: '플랜 선택 및 구독' },
@@ -132,10 +125,10 @@ const TOC_FEATURES = [
 function TocPage() {
   PAGENO++
   return h(Page, { style: s.page },
-    h(View, { style: { position: 'absolute', top: 0, left: 0, right: 0, height: 5, backgroundColor: C.coverBar } }),
+    ...topBar(),
     h(View, { style: { paddingLeft: 8 } },
       h(Text, { style: { ...s.heading, marginBottom: 4 } }, '목차'),
-      h(View, { style: { width: 36, height: 2.5, backgroundColor: C.accent, marginBottom: 20 } }),
+      h(View, { style: { width: 36, height: 2.5, backgroundColor: C.accent, marginBottom: 18 } }),
       ...TOC_FEATURES.map((f, i) =>
         h(View, { key: i, style: s.tocEntry },
           h(Text, { style: s.tocNum }, String(i + 1).padStart(2, '0')),
@@ -151,17 +144,18 @@ function TocPage() {
       h(Text, { style: s.footerLeft }, 'Shrimp365 User Guide'),
       h(Text, { style: s.footerRight }, '2'),
     ),
-    h(View, { style: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 4, backgroundColor: C.coverBar } }),
   )
 }
 
-function ExplainPage({ title, sub, body, steps, tip }) {
+function ExplainPage({ title, sub, body, steps, tip, index }) {
   PAGENO++
   const pg = PAGENO
+  const total = TOC_FEATURES.length * 2
   return h(Page, { style: s.page },
-    h(View, { style: { position: 'absolute', top: 0, left: 0, right: 0, height: 5, backgroundColor: C.accent } }),
+    ...topBar(),
     h(View, { style: { flex: 1, paddingLeft: 8 } },
-      h(Text, { style: { fontSize: 8.5, color: C.textMuted, marginBottom: 14, fontFamily: 'Nanum' } }, `${(pg - 2)} / ${TOC_FEATURES.length * 2}`),
+      h(Text, { style: { fontSize: 8.5, color: C.textMuted, marginBottom: 14, fontFamily: 'Nanum' } },
+        `${index * 2 + 1} / ${total}`),
       h(Text, { style: s.heading }, title),
       h(Text, { style: s.subhead }, sub),
       h(View, { style: { width: 36, height: 2.5, backgroundColor: C.accent, marginBottom: 18 } }),
@@ -184,49 +178,37 @@ function ExplainPage({ title, sub, body, steps, tip }) {
       h(Text, { style: s.footerLeft }, 'Shrimp365 User Guide'),
       h(Text, { style: s.footerRight }, String(pg)),
     ),
-    h(View, { style: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 4, backgroundColor: C.accent } }),
   )
 }
 
-// forceLandscape: true only for 04-pricing
-function ShotPage({ title, shotFile, forceLandscape }) {
+function ShotPage({ title, shotFile, forceLandscape, index }) {
   const meta = META[shotFile]
   const isLand = forceLandscape === true
   const pw = isLand ? LW : PW
   const ph = isLand ? LH : PH
   const ps = isLand ? s.shotPageLand : s.shotPage
   const headerH = 28
-  const padding = 16   // padding around screenshot so it doesn't bleed to edge
-  const availW = pw - padding * 2
-  const availH = ph - headerH - padding * 2
-  // Scale image to fit while preserving aspect ratio
-  const imgW = meta.w, imgH = meta.h
-  const scaleW = availW / imgW
-  const scaleH = availH / imgH
-  const scale = Math.min(scaleW, scaleH)
-  const dw = imgW * scale
-  const dh = imgH * scale
-  // Center within available area
-  const ox = padding + (availW - dw) / 2
-  const oy = headerH + padding + (availH - dh) / 2
+  const pad = 14
+  const availW = pw - pad * 2
+  const availH = ph - headerH - pad * 2
+  const scale = Math.min(availW / meta.w, availH / meta.h)
+  const dw = meta.w * scale
+  const dh = meta.h * scale
+  const ox = pad + (availW - dw) / 2
+  const oy = headerH + pad + (availH - dh) / 2
+  const total = TOC_FEATURES.length * 2
 
   PAGENO++
   const pg = PAGENO
   return h(Page, { style: ps },
-    // Header bar
     h(View, { style: { ...s.shotHeader, width: pw } },
       h(Text, { style: s.shotHeaderTitle }, `Shrimp365  ·  ${title}`),
-      h(Text, { style: s.shotHeaderRight }, String(pg)),
+      h(Text, { style: s.shotHeaderRight }, `${index * 2 + 2} / ${total}  ·  p.${pg}`),
     ),
-    // Shadow/border rect behind screenshot
     h(View, { style: {
-      position: 'absolute',
-      top: oy - 2,
-      left: ox - 2,
-      width: dw + 4,
-      height: dh + 4,
-      borderRadius: 4,
-      backgroundColor: C.border,
+      position: 'absolute', top: oy - 2, left: ox - 2,
+      width: dw + 4, height: dh + 4,
+      borderRadius: 4, backgroundColor: C.border,
     }}),
     h(Image, {
       src: SHOT(shotFile),
@@ -238,7 +220,7 @@ function ShotPage({ title, shotFile, forceLandscape }) {
 let META = {}
 
 async function computeMeta() {
-  const files = ['01-home','02-login','03-signup','04-pricing','05-guide','06-terms','07-privacy','08-refund','09-dashboard','10-water-quality','11-ai-advisor','12-journal','13-farms','14-inventory','15-production','16-reports','17-admin']
+  const files = FEATURES.flatMap(f => [f.shotFile, ...(f.extraShots || [])])
   for (const f of files) {
     const m = await sharp(SHOT(f)).metadata()
     META[f] = { w: m.width, h: m.height }
@@ -246,18 +228,24 @@ async function computeMeta() {
 }
 
 const FEATURES = [
+  // Homepage split into 3 shot pages, single explain page
   {
-    shotFile: '01-home',
+    shotFile: '01-home-p1',
     title: '홈페이지',
-    sub: '서비스 소개 및 핵심 특징 확인',
-    body: 'Shrimp365 홈페이지는 서비스의 핵심 가치와 기능을 한눈에 파악할 수 있도록 구성되어 있습니다. 흰다리새우 양식의 스마트화를 지원하는 다양한 기능들이 시각적으로 소개됩니다.',
+    sub: '서비스 소개 및 핵심 특징',
+    body: 'Shrimp365 홈페이지는 히어로 섹션부터 FAQ까지 8개 섹션으로 구성됩니다. 각 섹션을 순서대로 살펴보면 서비스의 전체 가치와 기능을 파악할 수 있습니다.',
     steps: [
-      '히어로 섹션에서 서비스 핵심 메시지와 주요 지표(생존율 개선, 비용 절감 등)를 확인합니다.',
-      '특징(Features) 섹션에서 실시간 모니터링, AI 진단, 데이터 분석 기능을 살펴봅니다.',
-      '요금제(Pricing) 섹션에서 무료~엔터프라이즈 플랜을 비교합니다.',
-      '"무료로 시작하기" 또는 "로그인" 버튼으로 서비스를 시작합니다.',
+      '① 히어로: 핵심 메시지와 생존율 개선·비용 절감 등 주요 성과 지표',
+      '② 통계 배너: 누적 사용자, 관리 수조 수, 질병 조기 감지율',
+      '③ 기능(Features): 실시간 모니터링·AI 진단·데이터 분석 카드',
+      '④ 사용 방법(How it works): 3단계 온보딩 흐름',
+      '⑤ 데모 미리보기: 실제 대시보드 UI 스크린샷',
+      '⑥ 요금제(Pricing): 무료~엔터프라이즈 4개 플랜 비교',
+      '⑦ FAQ: 자주 묻는 질문 6개',
+      '⑧ CTA: 무료 시작하기 및 데모 버튼',
     ],
-    tip: '홈페이지 상단 네비게이션에서 가이드, 요금제 등 주요 페이지로 바로 이동할 수 있습니다.',
+    tip: '페이지 우측 상단 "무료 데모" 버튼으로 로그인 없이 전체 기능을 체험할 수 있습니다.',
+    extraShots: ['01-home-p2', '01-home-p3'],
   },
   {
     shotFile: '02-login',
@@ -465,29 +453,149 @@ const FEATURES = [
   },
 ]
 
-async function buildDoc() {
-  await computeMeta()
+// ─── PDF BUILD ───────────────────────────────────────────────────────────────
 
-  const pages = [
-    CoverPage(),
-    TocPage(),
-    ...FEATURES.flatMap(f => [
-      ExplainPage(f),
-      ShotPage({ title: f.title, shotFile: f.shotFile, forceLandscape: f.shotFile === '04-pricing' }),
-    ]),
-  ]
+async function buildPdf() {
+  let pages = [CoverPage(), TocPage()]
 
-  return h(Document, { title: 'Shrimp365 User Guide', author: 'Shrimp365', creator: 'Shrimp365' },
-    ...pages,
-  )
+  FEATURES.forEach((f, i) => {
+    pages.push(ExplainPage({ ...f, index: i }))
+    pages.push(ShotPage({ title: f.title, shotFile: f.shotFile, forceLandscape: f.shotFile === '04-pricing', index: i }))
+    // Extra shot pages (homepage p2, p3)
+    if (f.extraShots) {
+      f.extraShots.forEach(shotFile => {
+        pages.push(ShotPage({ title: f.title, shotFile, forceLandscape: false, index: i }))
+      })
+    }
+  })
+
+  return h(Document, { title: 'Shrimp365 User Guide', author: 'Shrimp365', creator: 'Shrimp365' }, ...pages)
 }
+
+// ─── DOCX BUILD ──────────────────────────────────────────────────────────────
+
+function para(text, opts = {}) {
+  return new Paragraph({
+    children: [new TextRun({ text, font: 'Malgun Gothic', size: opts.size || 22, bold: opts.bold || false, color: opts.color || '000000' })],
+    heading: opts.heading || undefined,
+    spacing: { after: opts.after !== undefined ? opts.after : 120 },
+    alignment: opts.align || AlignmentType.LEFT,
+  })
+}
+
+function hRule() {
+  return new Paragraph({
+    border: { bottom: { color: 'C8D9E8', space: 1, style: BorderStyle.SINGLE, size: 6 } },
+    spacing: { after: 160 },
+    children: [],
+  })
+}
+
+async function buildDocx() {
+  const sections = []
+
+  // Cover
+  sections.push(
+    para('Shrimp365 사용자 가이드', { bold: true, size: 48, after: 200, color: '0284C7' }),
+    para('흰다리새우 스마트 양식 관리 플랫폼', { size: 28, after: 400, color: '475569' }),
+    para('© 2025 Shrimp365  ·  v1.0', { size: 18, after: 0, color: '94A3B8' }),
+    hRule(),
+  )
+
+  // TOC
+  sections.push(
+    para('목차', { bold: true, size: 32, after: 200, color: '0F172A' }),
+  )
+  FEATURES.forEach((f, i) => {
+    sections.push(para(`${String(i + 1).padStart(2, '0')}.  ${f.title}  —  ${f.sub}`, { size: 20, color: '334155', after: 80 }))
+  })
+  sections.push(hRule())
+
+  // Feature sections
+  for (const [i, f] of FEATURES.entries()) {
+    sections.push(
+      para(`${String(i + 1).padStart(2, '0')}.  ${f.title}`, { bold: true, size: 32, after: 100, color: '0F172A' }),
+      para(f.sub, { size: 22, after: 160, color: '0284C7' }),
+    )
+    if (f.body) sections.push(para(f.body, { size: 21, after: 200, color: '475569' }))
+    if (f.steps && f.steps.length) {
+      sections.push(para('주요 기능', { bold: true, size: 22, after: 100, color: '0F172A' }))
+      f.steps.forEach((st, si) => {
+        sections.push(para(`${si + 1}.  ${st}`, { size: 20, after: 80, color: '334155' }))
+      })
+    }
+    if (f.tip) {
+      sections.push(
+        para('', { after: 60 }),
+        para(`💡 TIP  ${f.tip}`, { size: 19, after: 200, color: '15803D' }),
+      )
+    }
+    // Embed first screenshot
+    const shotPath = SHOT(f.shotFile)
+    try {
+      const imgBuf = fs.readFileSync(shotPath)
+      const meta = META[f.shotFile]
+      const maxW = 8500  // ~15cm in EMU-ish units (twips*20)
+      const scale = Math.min(1, maxW / meta.w)
+      sections.push(
+        new Paragraph({
+          children: [new ImageRun({
+            data: imgBuf,
+            transformation: { width: Math.round(meta.w * scale * 0.12), height: Math.round(meta.h * scale * 0.12) },
+            type: 'jpg',
+          })],
+          spacing: { after: 80 },
+        })
+      )
+      // Extra shots
+      if (f.extraShots) {
+        for (const esf of f.extraShots) {
+          const esBuf = fs.readFileSync(SHOT(esf))
+          const esMeta = META[esf]
+          sections.push(
+            new Paragraph({
+              children: [new ImageRun({
+                data: esBuf,
+                transformation: { width: Math.round(esMeta.w * scale * 0.12), height: Math.round(esMeta.h * scale * 0.12) },
+                type: 'jpg',
+              })],
+              spacing: { after: 80 },
+            })
+          )
+        }
+      }
+    } catch(e) { /* skip if image missing */ }
+    sections.push(hRule())
+  }
+
+  const doc = new DocxDocument({
+    sections: [{ properties: {}, children: sections }],
+    styles: {
+      default: {
+        document: {
+          run: { font: 'Malgun Gothic', size: 22 },
+        },
+      },
+    },
+  })
+  const buf = await Packer.toBuffer(doc)
+  fs.writeFileSync(OUT_DOCX, buf)
+  console.log('DOCX done:', OUT_DOCX)
+}
+
+// ─── MAIN ─────────────────────────────────────────────────────────────────────
 
 async function main() {
   console.log('Computing metadata...')
-  const doc = await buildDoc()
-  console.log('Rendering PDF...')
-  await renderToFile(doc, OUT)
-  console.log('Done:', OUT)
+  await computeMeta()
+
+  console.log('Building PDF...')
+  const doc = await buildPdf()
+  await renderToFile(doc, OUT_PDF)
+  console.log('PDF done:', OUT_PDF)
+
+  console.log('Building DOCX...')
+  await buildDocx()
 }
 
 main().catch(e => { console.error(e); process.exit(1) })
