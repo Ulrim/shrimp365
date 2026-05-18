@@ -12,7 +12,7 @@ Font.register({ family: 'Nanum', fonts: [{ src: FONT }, { src: FONT_BOLD, fontWe
 Font.registerHyphenationCallback(w => [w])
 
 const SHOTS = path.resolve(__dirname, '.shots')
-const SHOT = f => path.join(SHOTS, `full-${f}.jpg`)
+const SHOT = f => path.join(SHOTS, `opt-${f}.jpg`)
 const OUT = path.join(SHOTS, 'Shrimp365_guide.pdf')
 
 // A4 points
