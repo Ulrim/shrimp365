@@ -1,4 +1,4 @@
-// Usage: node gen_catalog.js
+// Usage: node --max-old-space-size=4096 gen_catalog.js
 // Generates Shrimp365_guide.pdf in .shots/
 
 const { Document, Page, View, Text, Image, StyleSheet, Font, renderToFile } = require('@react-pdf/renderer')
@@ -18,33 +18,56 @@ const OUT = path.join(SHOTS, 'Shrimp365_guide.pdf')
 // A4 points
 const PW = 595.28, PH = 841.89
 const LW = 841.89, LH = 595.28
-const MARGIN = 28
+const MARGIN = 32
+
+// Light theme colors
+const C = {
+  bg:        '#ffffff',
+  bgAlt:     '#f8fafc',
+  bgShot:    '#f1f5f9',
+  accent:    '#0284c7',
+  accentDim: '#e0f2fe',
+  text:      '#0f172a',
+  textSub:   '#475569',
+  textMuted: '#94a3b8',
+  border:    '#e2e8f0',
+  stepBg:    '#0284c7',
+  tipBg:     '#f0fdf4',
+  tipBorder: '#86efac',
+  tipLabel:  '#16a34a',
+  tipText:   '#15803d',
+  coverBar:  '#0284c7',
+}
 
 const s = StyleSheet.create({
-  body: { fontFamily: 'Nanum', fontSize: 10, color: '#e2e8f0' },
-  page: { width: PW, height: PH, backgroundColor: '#0f172a', padding: MARGIN, fontFamily: 'Nanum' },
-  pageLand: { width: LW, height: LH, backgroundColor: '#0f172a', padding: MARGIN, fontFamily: 'Nanum' },
-  shotPage: { width: PW, height: PH, backgroundColor: '#0f172a', padding: 0, fontFamily: 'Nanum' },
-  shotPageLand: { width: LW, height: LH, backgroundColor: '#0f172a', padding: 0, fontFamily: 'Nanum' },
-  bar: { position: 'absolute', top: 0, left: 0, width: 6, height: PH, backgroundColor: '#06b6d4' },
-  heading: { fontSize: 22, fontWeight: 'bold', color: '#ffffff', marginBottom: 6 },
-  subhead: { fontSize: 13, color: '#67e8f9', marginBottom: 18 },
-  body14: { fontSize: 11, lineHeight: 1.7, color: '#cbd5e1' },
-  stepRow: { flexDirection: 'row', marginBottom: 8, alignItems: 'flex-start' },
-  stepNum: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#0e7490', color: '#ffffff', fontSize: 10, fontWeight: 'bold', textAlign: 'center', lineHeight: 2.2, marginRight: 8, flexShrink: 0 },
-  stepText: { flex: 1, fontSize: 10.5, lineHeight: 1.65, color: '#e2e8f0' },
-  tipBox: { backgroundColor: '#134e4a', borderRadius: 6, padding: 10, marginTop: 14 },
-  tipLabel: { fontSize: 9, fontWeight: 'bold', color: '#2dd4bf', marginBottom: 4 },
-  tipText: { fontSize: 10, lineHeight: 1.6, color: '#99f6e4' },
-  header: { height: 30, backgroundColor: '#0f172a', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#1e3a5f' },
-  headerTitle: { fontSize: 9, color: '#94a3b8', fontFamily: 'Nanum' },
-  headerRight: { marginLeft: 'auto', fontSize: 9, color: '#475569', fontFamily: 'Nanum' },
-  coverTitle: { fontSize: 36, fontWeight: 'bold', color: '#ffffff', marginBottom: 8 },
-  coverSub: { fontSize: 16, color: '#67e8f9', marginBottom: 40 },
-  tocEntry: { flexDirection: 'row', marginBottom: 6, alignItems: 'center' },
-  tocNum: { width: 24, fontSize: 10, color: '#06b6d4', fontWeight: 'bold', fontFamily: 'Nanum' },
-  tocTitle: { flex: 1, fontSize: 10.5, color: '#e2e8f0', fontFamily: 'Nanum' },
-  tocPage: { fontSize: 10, color: '#64748b', fontFamily: 'Nanum' },
+  page:        { width: PW, height: PH, backgroundColor: C.bg, padding: MARGIN, fontFamily: 'Nanum' },
+  pageLand:    { width: LW, height: LH, backgroundColor: C.bg, padding: MARGIN, fontFamily: 'Nanum' },
+  shotPage:    { width: PW, height: PH, backgroundColor: C.bgShot, padding: 0, fontFamily: 'Nanum' },
+  shotPageLand:{ width: LW, height: LH, backgroundColor: C.bgShot, padding: 0, fontFamily: 'Nanum' },
+  bar:         { position: 'absolute', top: 0, left: 0, width: 5, height: PH, backgroundColor: C.coverBar },
+  heading:     { fontSize: 22, fontWeight: 'bold', color: C.text, marginBottom: 5 },
+  subhead:     { fontSize: 13, color: C.accent, marginBottom: 16 },
+  bodyText:    { fontSize: 10.5, lineHeight: 1.75, color: C.textSub },
+  stepRow:     { flexDirection: 'row', marginBottom: 9, alignItems: 'flex-start' },
+  stepNum:     { width: 21, height: 21, borderRadius: 11, backgroundColor: C.stepBg, color: '#ffffff', fontSize: 10, fontWeight: 'bold', textAlign: 'center', lineHeight: 2.1, marginRight: 8, flexShrink: 0 },
+  stepText:    { flex: 1, fontSize: 10.5, lineHeight: 1.65, color: C.textSub },
+  tipBox:      { backgroundColor: C.tipBg, borderRadius: 6, borderWidth: 1, borderColor: C.tipBorder, padding: 10, marginTop: 14 },
+  tipLabel:    { fontSize: 9, fontWeight: 'bold', color: C.tipLabel, marginBottom: 3 },
+  tipText:     { fontSize: 10, lineHeight: 1.6, color: C.tipText },
+  shotHeader:  { height: 28, backgroundColor: C.accent, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14 },
+  shotHeaderTitle: { fontSize: 9, color: '#ffffff', fontFamily: 'Nanum', fontWeight: 'bold' },
+  shotHeaderRight: { marginLeft: 'auto', fontSize: 9, color: 'rgba(255,255,255,0.7)', fontFamily: 'Nanum' },
+  coverTitle:  { fontSize: 34, fontWeight: 'bold', color: C.text, marginBottom: 8 },
+  coverSub:    { fontSize: 15, color: C.accent, marginBottom: 36 },
+  tocEntry:    { flexDirection: 'row', marginBottom: 7, alignItems: 'flex-start' },
+  tocNum:      { width: 26, fontSize: 10, color: C.accent, fontWeight: 'bold', fontFamily: 'Nanum', paddingTop: 1 },
+  tocTitle:    { flex: 1, fontSize: 10.5, color: C.text, fontFamily: 'Nanum' },
+  tocSub:      { fontSize: 9, color: C.textMuted, fontFamily: 'Nanum' },
+  tocPage:     { fontSize: 10, color: C.textMuted, fontFamily: 'Nanum', paddingTop: 1 },
+  divider:     { height: 1, backgroundColor: C.border, marginVertical: 16 },
+  footer:      { position: 'absolute', bottom: 20, left: MARGIN + 5, right: MARGIN, flexDirection: 'row' },
+  footerLeft:  { fontSize: 8, color: C.textMuted, fontFamily: 'Nanum' },
+  footerRight: { fontSize: 8, color: C.textMuted, marginLeft: 'auto', fontFamily: 'Nanum' },
 })
 
 let PAGENO = 1
@@ -53,17 +76,36 @@ function CoverPage() {
   PAGENO++
   return h(Page, { style: s.page },
     h(View, { style: s.bar }),
+    // Top accent band
+    h(View, { style: { position: 'absolute', top: 0, left: 0, right: 0, height: 5, backgroundColor: C.coverBar } }),
     h(View, { style: { flex: 1, justifyContent: 'center', paddingLeft: 24 } },
-      h(Text, { style: { fontSize: 11, color: '#06b6d4', marginBottom: 20, fontFamily: 'Nanum', fontWeight: 'bold', letterSpacing: 3 } }, 'USER GUIDE'),
-      h(Text, { style: s.coverTitle }, 'Shrimp365'),
-      h(Text, { style: s.coverSub }, '흰다리새우 스마트 양식 관리 플랫폼'),
-      h(View, { style: { width: 60, height: 3, backgroundColor: '#06b6d4', marginBottom: 32 } }),
-      h(Text, { style: { fontSize: 11, color: '#94a3b8', lineHeight: 1.8, fontFamily: 'Nanum' } },
-        '이 가이드는 Shrimp365의 모든 기능을\n단계별로 소개합니다.\n실제 화면 캡처와 함께 사용법을 익혀보세요.'),
+      h(View, { style: { marginBottom: 36 } },
+        h(Text, { style: { fontSize: 10, color: C.accent, fontFamily: 'Nanum', fontWeight: 'bold', letterSpacing: 2, marginBottom: 20 } }, 'USER GUIDE'),
+        h(Text, { style: s.coverTitle }, 'Shrimp365'),
+        h(Text, { style: s.coverSub }, '흰다리새우 스마트 양식 관리 플랫폼'),
+        h(View, { style: { width: 50, height: 3, backgroundColor: C.accent, marginBottom: 28 } }),
+        h(Text, { style: { fontSize: 11, color: C.textSub, lineHeight: 1.9, fontFamily: 'Nanum' } },
+          '이 가이드는 Shrimp365의 모든 기능을\n단계별 실제 화면과 함께 소개합니다.'),
+      ),
+      h(View, { style: { flexDirection: 'row', gap: 12 } },
+        ...[
+          { label: '수질 모니터링', color: '#0284c7' },
+          { label: 'AI 진단', color: '#7c3aed' },
+          { label: '생산 관리', color: '#059669' },
+          { label: '보고서', color: '#d97706' },
+        ].map(tag =>
+          h(View, { key: tag.label, style: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, backgroundColor: tag.color + '18', borderWidth: 1, borderColor: tag.color + '40' } },
+            h(Text, { style: { fontSize: 9, color: tag.color, fontFamily: 'Nanum', fontWeight: 'bold' } }, tag.label),
+          )
+        ),
+      ),
     ),
-    h(View, { style: { position: 'absolute', bottom: MARGIN, left: MARGIN + 24, right: MARGIN } },
-      h(Text, { style: { fontSize: 9, color: '#475569', fontFamily: 'Nanum' } }, `© 2025 Shrimp365  ·  v1.0`),
+    h(View, { style: s.footer },
+      h(Text, { style: s.footerLeft }, '© 2025 Shrimp365'),
+      h(Text, { style: s.footerRight }, 'v1.0'),
     ),
+    // Bottom accent band
+    h(View, { style: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 4, backgroundColor: C.coverBar } }),
   )
 }
 
@@ -90,21 +132,26 @@ const TOC_FEATURES = [
 function TocPage() {
   PAGENO++
   return h(Page, { style: s.page },
-    h(View, { style: s.bar }),
-    h(View, { style: { paddingLeft: 24 } },
+    h(View, { style: { position: 'absolute', top: 0, left: 0, right: 0, height: 5, backgroundColor: C.coverBar } }),
+    h(View, { style: { paddingLeft: 8 } },
       h(Text, { style: { ...s.heading, marginBottom: 4 } }, '목차'),
-      h(View, { style: { width: 40, height: 2, backgroundColor: '#06b6d4', marginBottom: 24 } }),
+      h(View, { style: { width: 36, height: 2.5, backgroundColor: C.accent, marginBottom: 20 } }),
       ...TOC_FEATURES.map((f, i) =>
         h(View, { key: i, style: s.tocEntry },
           h(Text, { style: s.tocNum }, String(i + 1).padStart(2, '0')),
           h(View, { style: { flex: 1 } },
             h(Text, { style: s.tocTitle }, f.title),
-            h(Text, { style: { fontSize: 9, color: '#64748b', fontFamily: 'Nanum' } }, f.sub),
+            h(Text, { style: s.tocSub }, f.sub),
           ),
           h(Text, { style: s.tocPage }, String(i * 2 + 3)),
         )
       ),
     ),
+    h(View, { style: s.footer },
+      h(Text, { style: s.footerLeft }, 'Shrimp365 User Guide'),
+      h(Text, { style: s.footerRight }, '2'),
+    ),
+    h(View, { style: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 4, backgroundColor: C.coverBar } }),
   )
 }
 
@@ -112,15 +159,15 @@ function ExplainPage({ title, sub, body, steps, tip }) {
   PAGENO++
   const pg = PAGENO
   return h(Page, { style: s.page },
-    h(View, { style: s.bar }),
-    h(View, { style: { flex: 1, paddingLeft: 24 } },
-      h(Text, { style: { fontSize: 9, color: '#475569', marginBottom: 16, fontFamily: 'Nanum' } }, `${pg - 2} / ${TOC_FEATURES.length * 2}`),
+    h(View, { style: { position: 'absolute', top: 0, left: 0, right: 0, height: 5, backgroundColor: C.accent } }),
+    h(View, { style: { flex: 1, paddingLeft: 8 } },
+      h(Text, { style: { fontSize: 8.5, color: C.textMuted, marginBottom: 14, fontFamily: 'Nanum' } }, `${(pg - 2)} / ${TOC_FEATURES.length * 2}`),
       h(Text, { style: s.heading }, title),
       h(Text, { style: s.subhead }, sub),
-      h(View, { style: { width: 40, height: 2, backgroundColor: '#06b6d4', marginBottom: 20 } }),
-      body && h(Text, { style: s.body14 }, body),
-      steps && steps.length > 0 && h(View, { style: { marginTop: 16 } },
-        h(Text, { style: { fontSize: 10, fontWeight: 'bold', color: '#94a3b8', marginBottom: 10, fontFamily: 'Nanum' } }, '주요 기능'),
+      h(View, { style: { width: 36, height: 2.5, backgroundColor: C.accent, marginBottom: 18 } }),
+      body && h(Text, { style: s.bodyText }, body),
+      steps && steps.length > 0 && h(View, { style: { marginTop: 18 } },
+        h(Text, { style: { fontSize: 9.5, fontWeight: 'bold', color: C.text, marginBottom: 10, fontFamily: 'Nanum' } }, '주요 기능'),
         ...steps.map((st, i) =>
           h(View, { key: i, style: s.stepRow },
             h(Text, { style: s.stepNum }, String(i + 1)),
@@ -133,14 +180,14 @@ function ExplainPage({ title, sub, body, steps, tip }) {
         h(Text, { style: s.tipText }, tip),
       ),
     ),
-    h(View, { style: { position: 'absolute', bottom: MARGIN, left: MARGIN + 24, right: MARGIN, flexDirection: 'row' } },
-      h(Text, { style: { fontSize: 9, color: '#334155', fontFamily: 'Nanum' } }, 'Shrimp365 User Guide'),
-      h(Text, { style: { fontSize: 9, color: '#334155', marginLeft: 'auto', fontFamily: 'Nanum' } }, String(pg)),
+    h(View, { style: s.footer },
+      h(Text, { style: s.footerLeft }, 'Shrimp365 User Guide'),
+      h(Text, { style: s.footerRight }, String(pg)),
     ),
+    h(View, { style: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 4, backgroundColor: C.accent } }),
   )
 }
 
-// shotFile: e.g. '02-login'
 // forceLandscape: true only for 04-pricing
 function ShotPage({ title, shotFile, forceLandscape }) {
   const meta = META[shotFile]
@@ -148,42 +195,50 @@ function ShotPage({ title, shotFile, forceLandscape }) {
   const pw = isLand ? LW : PW
   const ph = isLand ? LH : PH
   const ps = isLand ? s.shotPageLand : s.shotPage
-  const headerH = 30
-  const availW = pw
-  const availH = ph - headerH
-  // Scale image to fit
+  const headerH = 28
+  const padding = 16   // padding around screenshot so it doesn't bleed to edge
+  const availW = pw - padding * 2
+  const availH = ph - headerH - padding * 2
+  // Scale image to fit while preserving aspect ratio
   const imgW = meta.w, imgH = meta.h
   const scaleW = availW / imgW
   const scaleH = availH / imgH
   const scale = Math.min(scaleW, scaleH)
   const dw = imgW * scale
   const dh = imgH * scale
-  const ox = (availW - dw) / 2
-  const oy = headerH + (availH - dh) / 2
+  // Center within available area
+  const ox = padding + (availW - dw) / 2
+  const oy = headerH + padding + (availH - dh) / 2
 
   PAGENO++
   const pg = PAGENO
   return h(Page, { style: ps },
-    h(View, { style: { ...s.header, width: pw } },
-      h(Text, { style: s.headerTitle }, `Shrimp365  ·  ${title}`),
-      h(Text, { style: s.headerRight }, String(pg)),
+    // Header bar
+    h(View, { style: { ...s.shotHeader, width: pw } },
+      h(Text, { style: s.shotHeaderTitle }, `Shrimp365  ·  ${title}`),
+      h(Text, { style: s.shotHeaderRight }, String(pg)),
     ),
+    // Shadow/border rect behind screenshot
+    h(View, { style: {
+      position: 'absolute',
+      top: oy - 2,
+      left: ox - 2,
+      width: dw + 4,
+      height: dh + 4,
+      borderRadius: 4,
+      backgroundColor: C.border,
+    }}),
     h(Image, {
       src: SHOT(shotFile),
-      style: { position: 'absolute', top: oy, left: ox, width: dw, height: dh },
+      style: { position: 'absolute', top: oy, left: ox, width: dw, height: dh, borderRadius: 3 },
     }),
   )
 }
 
-// Pre-computed metadata
 let META = {}
 
 async function computeMeta() {
-  const files = TOC_FEATURES.map((_, i) => {
-    const n = String(i + 1).padStart(2, '0')
-    const names = ['01-home','02-login','03-signup','04-pricing','05-guide','06-terms','07-privacy','08-refund','09-dashboard','10-water-quality','11-ai-advisor','12-journal','13-farms','14-inventory','15-production','16-reports','17-admin']
-    return names[i]
-  })
+  const files = ['01-home','02-login','03-signup','04-pricing','05-guide','06-terms','07-privacy','08-refund','09-dashboard','10-water-quality','11-ai-advisor','12-journal','13-farms','14-inventory','15-production','16-reports','17-admin']
   for (const f of files) {
     const m = await sharp(SHOT(f)).metadata()
     META[f] = { w: m.width, h: m.height }
@@ -416,13 +471,10 @@ async function buildDoc() {
   const pages = [
     CoverPage(),
     TocPage(),
-    ...FEATURES.flatMap(f => {
-      const forceLandscape = f.shotFile === '04-pricing'
-      return [
-        ExplainPage(f),
-        ShotPage({ title: f.title, shotFile: f.shotFile, forceLandscape }),
-      ]
-    }),
+    ...FEATURES.flatMap(f => [
+      ExplainPage(f),
+      ShotPage({ title: f.title, shotFile: f.shotFile, forceLandscape: f.shotFile === '04-pricing' }),
+    ]),
   ]
 
   return h(Document, { title: 'Shrimp365 User Guide', author: 'Shrimp365', creator: 'Shrimp365' },
