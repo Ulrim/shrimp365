@@ -2,20 +2,23 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Search, X, Building2, Droplets, BookOpen, FlaskConical, BarChart3, BrainCircuit, LayoutDashboard, ArrowRight } from "lucide-react"
+import { Search, X, Building2, Droplets, BookOpen, FlaskConical, BarChart3, BrainCircuit, LayoutDashboard, ArrowRight, HelpCircle, ClipboardList } from "lucide-react"
 import { getFarms, getAllTanks } from "@/lib/db"
 import { MOCK_FARMS, MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
 import type { Farm, Tank } from "@/types"
 
 const NAV_PAGES = [
-  { href: "/dashboard",     label: "대시보드",         icon: LayoutDashboard, desc: "운영 현황 한눈에 보기" },
-  { href: "/water-quality", label: "수질 모니터링",     icon: Droplets,        desc: "수질 데이터 및 이력 분석" },
-  { href: "/journal",       label: "양식 일지",         icon: BookOpen,        desc: "급이·폐사·작업 기록" },
-  { href: "/farms",         label: "양식장·수조 관리",   icon: Building2,       desc: "양식장 및 수조 등록·관리" },
-  { href: "/diagnosis",     label: "질병 진단",         icon: FlaskConical,    desc: "비브리오·AHPND 진단 기록" },
-  { href: "/ai-advisor",    label: "AI 어드바이저",     icon: BrainCircuit,    desc: "AI 기반 운영 권고" },
-  { href: "/reports",       label: "리포트",            icon: BarChart3,       desc: "주간 운영 보고서" },
+  { href: "/dashboard",          label: "대시보드",        icon: LayoutDashboard, desc: "운영 현황 한눈에 보기" },
+  { href: "/water-quality",      label: "수질 모니터링",    icon: Droplets,        desc: "수질 데이터 및 이력 분석" },
+  { href: "/record/water-quality", label: "수질 기록",      icon: Droplets,        desc: "수질 단계별 입력" },
+  { href: "/record/journal",     label: "양식 일지 기록",   icon: ClipboardList,   desc: "급이·폐사·작업 단계별 입력" },
+  { href: "/journal",            label: "양식 일지",        icon: BookOpen,        desc: "급이·폐사·작업 이력" },
+  { href: "/farms",              label: "양식장·수조 관리", icon: Building2,       desc: "양식장 및 수조 등록·관리" },
+  { href: "/diagnosis",          label: "질병 진단",        icon: FlaskConical,    desc: "비브리오·AHPND 진단 기록" },
+  { href: "/ai-advisor",         label: "AI 어드바이저",    icon: BrainCircuit,    desc: "AI 기반 운영 권고" },
+  { href: "/reports",            label: "리포트",           icon: BarChart3,       desc: "주간 운영 보고서" },
+  { href: "/help",               label: "도움말·사용 가이드", icon: HelpCircle,     desc: "기능 사용 방법 안내" },
 ]
 
 interface SearchPanelProps {

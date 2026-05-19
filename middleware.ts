@@ -17,6 +17,7 @@ const PROTECTED_PATHS = [
   "/inventory",
   "/reports",
   "/onboarding",
+  "/help",
 ]
 
 function detectLocale(request: NextRequest): Locale | null {

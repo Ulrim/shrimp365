@@ -10,7 +10,7 @@ import {
   Home, LayoutDashboard, Droplets, BookOpen, Building2,
   BrainCircuit, BarChart3, Settings, LogOut,
   ChevronLeft, ChevronRight, Zap, FlaskConical, Package, ShieldCheck,
-  ClipboardList,
+  ClipboardList, HelpCircle,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
@@ -108,6 +108,18 @@ export function Sidebar() {
       {/* Bottom */}
       <div className="px-3 pb-4 space-y-1 border-t border-border pt-3">
         <LanguageSwitcher collapsed={collapsed} />
+
+        <Link
+          href="/help"
+          className={cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all",
+            pathname === "/help" && "bg-ocean-50 text-ocean-700 border border-ocean-200",
+            collapsed && "justify-center"
+          )}
+        >
+          <HelpCircle className="w-5 h-5 shrink-0" />
+          {!collapsed && <span>도움말</span>}
+        </Link>
 
         <button
           onClick={() => setSettingsOpen(true)}

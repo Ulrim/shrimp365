@@ -28,6 +28,7 @@ export function Header() {
     "/ai-advisor":              t.nav.aiAdvisor,
     "/reports":                 t.nav.reports,
     "/admin":                   t.nav.admin,
+    "/help":                    "도움말",
   }
 
   const title = pageLabels[pathname] || "Shrimp365"
