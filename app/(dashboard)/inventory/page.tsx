@@ -81,51 +81,51 @@ function ItemDialog({ open, item, onClose, onSave, t }: ItemDialogProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
-        <div className="p-6 border-b border-white/10">
-          <h2 className="text-lg font-bold text-white">{item ? t.inventory.editItem : t.inventory.addItem}</h2>
+      <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl">
+        <div className="p-6 border-b border-border">
+          <h2 className="text-lg font-bold text-foreground">{item ? t.inventory.editItem : t.inventory.addItem}</h2>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-sm text-slate-400 mb-1">{t.inventory.category}</label>
+            <label className="block text-sm text-muted-foreground mb-1">{t.inventory.category}</label>
             <div className="grid grid-cols-2 gap-2">
               {categories.map(c => (
                 <button key={c.value} type="button" onClick={() => setCategory(c.value)}
-                  className={cn("px-3 py-2 rounded-xl text-sm font-medium border transition-colors", category === c.value ? CAT_COLORS[c.value] : "border-white/10 text-slate-400 hover:border-white/20")}>
+                  className={cn("px-3 py-2 rounded-xl text-sm font-medium border transition-colors", category === c.value ? CAT_COLORS[c.value] : "border-border text-muted-foreground hover:border-border/60")}>
                   {c.label}
                 </button>
               ))}
             </div>
           </div>
           <div>
-            <label className="block text-sm text-slate-400 mb-1">{t.inventory.itemName}</label>
+            <label className="block text-sm text-muted-foreground mb-1">{t.inventory.itemName}</label>
             <input required value={name} onChange={e => setName(e.target.value)} placeholder={t.inventory.itemNamePlaceholder}
-              className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-ocean-500" />
+              className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm placeholder-slate-500 focus:outline-none focus:border-ocean-500" />
           </div>
           <div>
-            <label className="block text-sm text-slate-400 mb-1">{t.inventory.unit}</label>
+            <label className="block text-sm text-muted-foreground mb-1">{t.inventory.unit}</label>
             <input required value={unit} onChange={e => setUnit(e.target.value)} placeholder={t.inventory.unitPlaceholder}
-              className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-ocean-500" />
+              className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm placeholder-slate-500 focus:outline-none focus:border-ocean-500" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm text-slate-400 mb-1">{t.inventory.currentStock}</label>
+              <label className="block text-sm text-muted-foreground mb-1">{t.inventory.currentStock}</label>
               <input type="number" min="0" step="any" value={currentStock} onChange={e => setCurrentStock(e.target.value)}
-                className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-ocean-500" />
+                className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm focus:outline-none focus:border-ocean-500" />
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1">{t.inventory.reorderLevel}</label>
+              <label className="block text-sm text-muted-foreground mb-1">{t.inventory.reorderLevel}</label>
               <input type="number" min="0" step="any" value={reorderLevel} onChange={e => setReorderLevel(e.target.value)}
-                className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-ocean-500" />
+                className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm focus:outline-none focus:border-ocean-500" />
             </div>
           </div>
           <div>
-            <label className="block text-sm text-slate-400 mb-1">{t.common.note}</label>
+            <label className="block text-sm text-muted-foreground mb-1">{t.common.note}</label>
             <input value={notes} onChange={e => setNotes(e.target.value)}
-              className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-ocean-500" />
+              className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm placeholder-slate-500 focus:outline-none focus:border-ocean-500" />
           </div>
           <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" className="flex-1 border-white/10" onClick={onClose}>{t.common.cancel}</Button>
+            <Button type="button" variant="outline" className="flex-1 border-border" onClick={onClose}>{t.common.cancel}</Button>
             <Button type="submit" disabled={saving} className="flex-1 bg-ocean-600 hover:bg-ocean-500">
               {saving ? t.inventory.saving : t.common.save}
             </Button>
@@ -182,62 +182,62 @@ function TxDialog({ open, item, tanks, onClose, onSave, t }: TxDialogProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
-        <div className="p-6 border-b border-white/10">
-          <h2 className="text-lg font-bold text-white">{t.inventory.addTx} — {item.name}</h2>
+      <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl">
+        <div className="p-6 border-b border-border">
+          <h2 className="text-lg font-bold text-foreground">{t.inventory.addTx} — {item.name}</h2>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-2">
             <button type="button" onClick={() => setTxType("in")}
-              className={cn("flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border transition-colors", txType === "in" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "border-white/10 text-slate-400 hover:border-white/20")}>
+              className={cn("flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border transition-colors", txType === "in" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "border-border text-muted-foreground hover:border-border/60")}>
               <ArrowDownToLine className="w-4 h-4" />{t.inventory.txIn}
             </button>
             <button type="button" onClick={() => setTxType("out")}
-              className={cn("flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border transition-colors", txType === "out" ? "bg-red-500/20 text-red-400 border-red-500/30" : "border-white/10 text-slate-400 hover:border-white/20")}>
+              className={cn("flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border transition-colors", txType === "out" ? "bg-red-500/20 text-red-400 border-red-500/30" : "border-border text-muted-foreground hover:border-border/60")}>
               <ArrowUpFromLine className="w-4 h-4" />{t.inventory.txOut}
             </button>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm text-slate-400 mb-1">{t.inventory.quantity} ({item.unit})</label>
+              <label className="block text-sm text-muted-foreground mb-1">{t.inventory.quantity} ({item.unit})</label>
               <input required type="number" min="0.01" step="any" value={quantity} onChange={e => setQuantity(e.target.value)}
-                className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-ocean-500" />
+                className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm focus:outline-none focus:border-ocean-500" />
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1">{t.inventory.unitPrice}</label>
+              <label className="block text-sm text-muted-foreground mb-1">{t.inventory.unitPrice}</label>
               <input type="number" min="0" step="any" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} placeholder="0"
-                className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-ocean-500" />
+                className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm placeholder-slate-500 focus:outline-none focus:border-ocean-500" />
             </div>
           </div>
           <div>
-            <label className="block text-sm text-slate-400 mb-1">{t.common.date}</label>
+            <label className="block text-sm text-muted-foreground mb-1">{t.common.date}</label>
             <input required type="date" value={recordedAt} onChange={e => setRecordedAt(e.target.value)}
-              className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-ocean-500" />
+              className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm focus:outline-none focus:border-ocean-500" />
           </div>
           {txType === "in" && (
             <div>
-              <label className="block text-sm text-slate-400 mb-1">{t.inventory.supplier}</label>
+              <label className="block text-sm text-muted-foreground mb-1">{t.inventory.supplier}</label>
               <input value={supplier} onChange={e => setSupplier(e.target.value)} placeholder={t.inventory.supplierPlaceholder}
-                className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-ocean-500" />
+                className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm placeholder-slate-500 focus:outline-none focus:border-ocean-500" />
             </div>
           )}
           {txType === "out" && tanks.length > 0 && (
             <div>
-              <label className="block text-sm text-slate-400 mb-1">{t.inventory.tank}</label>
+              <label className="block text-sm text-muted-foreground mb-1">{t.inventory.tank}</label>
               <select value={tankId} onChange={e => setTankId(e.target.value)}
-                className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-ocean-500">
+                className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm focus:outline-none focus:border-ocean-500">
                 <option value="">{t.inventory.selectTank}</option>
                 {tanks.map(tk => <option key={tk.id} value={tk.id}>{tk.name}</option>)}
               </select>
             </div>
           )}
           <div>
-            <label className="block text-sm text-slate-400 mb-1">{t.common.note}</label>
+            <label className="block text-sm text-muted-foreground mb-1">{t.common.note}</label>
             <input value={notes} onChange={e => setNotes(e.target.value)}
-              className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-ocean-500" />
+              className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm placeholder-slate-500 focus:outline-none focus:border-ocean-500" />
           </div>
           <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" className="flex-1 border-white/10" onClick={onClose}>{t.common.cancel}</Button>
+            <Button type="button" variant="outline" className="flex-1 border-border" onClick={onClose}>{t.common.cancel}</Button>
             <Button type="submit" disabled={saving} className={cn("flex-1", txType === "in" ? "bg-emerald-600 hover:bg-emerald-500" : "bg-red-600 hover:bg-red-500")}>
               {saving ? t.inventory.saving : (txType === "in" ? t.inventory.txIn : t.inventory.txOut)}
             </Button>
@@ -377,7 +377,7 @@ export default function InventoryPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-slate-400">{t.common.loading}</div>
+        <div className="text-muted-foreground">{t.common.loading}</div>
       </div>
     )
   }
@@ -387,10 +387,10 @@ export default function InventoryPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Package className="w-6 h-6 text-ocean-400" />{t.inventory.title}
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <Package className="w-6 h-6 text-ocean-500" />{t.inventory.title}
           </h1>
-          <p className="text-slate-400 text-sm mt-1">{t.inventory.subtitle}</p>
+          <p className="text-muted-foreground text-sm mt-1">{t.inventory.subtitle}</p>
         </div>
         <Button onClick={() => { setEditingItem(undefined); setShowItemDialog(true) }}
           className="bg-ocean-600 hover:bg-ocean-500 gap-2">
@@ -400,24 +400,24 @@ export default function InventoryPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        <div className="bg-slate-800/50 border border-white/10 rounded-2xl p-4">
-          <div className="text-slate-400 text-xs mb-1">{t.inventory.totalItems}</div>
-          <div className="text-2xl font-bold text-white">{items.length}</div>
+        <div className="bg-muted border border-border rounded-2xl p-4">
+          <div className="text-muted-foreground text-xs mb-1">{t.inventory.totalItems}</div>
+          <div className="text-2xl font-bold text-foreground">{items.length}</div>
         </div>
-        <div className={cn("border rounded-2xl p-4", lowStockCount > 0 ? "bg-amber-500/10 border-amber-500/30" : "bg-slate-800/50 border-white/10")}>
-          <div className="text-slate-400 text-xs mb-1 flex items-center gap-1">
-            {lowStockCount > 0 && <AlertTriangle className="w-3 h-3 text-amber-400" />}
+        <div className={cn("border rounded-2xl p-4", lowStockCount > 0 ? "bg-amber-500/10 border-amber-500/30" : "bg-muted border-border")}>
+          <div className="text-muted-foreground text-xs mb-1 flex items-center gap-1">
+            {lowStockCount > 0 && <AlertTriangle className="w-3 h-3 text-amber-500" />}
             {t.inventory.lowStockItems}
           </div>
-          <div className={cn("text-2xl font-bold", lowStockCount > 0 ? "text-amber-400" : "text-white")}>{lowStockCount}</div>
+          <div className={cn("text-2xl font-bold", lowStockCount > 0 ? "text-amber-500" : "text-foreground")}>{lowStockCount}</div>
         </div>
-        <div className="bg-slate-800/50 border border-white/10 rounded-2xl p-4 col-span-2 sm:col-span-1">
-          <div className="text-slate-400 text-xs mb-1">{t.inventory.recentActivity}</div>
-          <div className="text-2xl font-bold text-white">{transactions.filter(tx => {
+        <div className="bg-muted border border-border rounded-2xl p-4 col-span-2 sm:col-span-1">
+          <div className="text-muted-foreground text-xs mb-1">{t.inventory.recentActivity}</div>
+          <div className="text-2xl font-bold text-foreground">{transactions.filter(tx => {
             const d = new Date(tx.recorded_at)
             const now = new Date()
             return (now.getTime() - d.getTime()) < 7 * 86400000
-          }).length}<span className="text-sm font-normal text-slate-400 ml-1">건/7일</span></div>
+          }).length}<span className="text-sm font-normal text-muted-foreground ml-1">건/7일</span></div>
         </div>
       </div>
 
@@ -429,17 +429,17 @@ export default function InventoryPage() {
             {categories.map(c => (
               <button key={c.value} onClick={() => setCatFilter(c.value)}
                 className={cn("px-3 py-1 rounded-full text-xs font-medium transition-colors border",
-                  catFilter === c.value ? "bg-ocean-600 text-white border-ocean-600" : "border-white/10 text-slate-400 hover:border-white/20 hover:text-slate-300")}>
+                  catFilter === c.value ? "bg-ocean-600 text-white border-ocean-600" : "border-border text-muted-foreground hover:border-border/60 hover:text-foreground/80")}>
                 {c.label}
               </button>
             ))}
           </div>
 
           {filteredItems.length === 0 ? (
-            <div className="bg-slate-800/50 border border-white/10 rounded-2xl p-8 text-center">
-              <Package className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-400 font-medium">{t.inventory.noItems}</p>
-              <p className="text-slate-500 text-sm mt-1">{t.inventory.noItemsMsg}</p>
+            <div className="bg-muted border border-border rounded-2xl p-8 text-center">
+              <Package className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground font-medium">{t.inventory.noItems}</p>
+              <p className="text-muted-foreground text-sm mt-1">{t.inventory.noItemsMsg}</p>
             </div>
           ) : (
             filteredItems.map(item => {
@@ -447,8 +447,8 @@ export default function InventoryPage() {
               const isSelected = selectedItem?.id === item.id
               return (
                 <div key={item.id} onClick={() => setSelectedItem(item)}
-                  className={cn("bg-slate-800/50 border rounded-2xl p-4 cursor-pointer transition-all",
-                    isSelected ? "border-ocean-500/50 bg-ocean-500/5" : "border-white/10 hover:border-white/20")}>
+                  className={cn("bg-muted border rounded-2xl p-4 cursor-pointer transition-all",
+                    isSelected ? "border-ocean-500/50 bg-ocean-500/5" : "border-border hover:border-border/60")}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -457,19 +457,19 @@ export default function InventoryPage() {
                         </span>
                         <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full border", badge.cls)}>{badge.label}</span>
                       </div>
-                      <p className="text-white font-medium mt-1.5 truncate">{item.name}</p>
-                      <p className="text-slate-400 text-sm mt-0.5">
-                        <span className="text-white font-semibold">{item.current_stock.toLocaleString()}</span> {item.unit}
-                        {item.reorder_level > 0 && <span className="text-slate-500 ml-2">/ 기준 {item.reorder_level.toLocaleString()}</span>}
+                      <p className="text-foreground font-medium mt-1.5 truncate">{item.name}</p>
+                      <p className="text-muted-foreground text-sm mt-0.5">
+                        <span className="text-foreground font-semibold">{item.current_stock.toLocaleString()}</span> {item.unit}
+                        {item.reorder_level > 0 && <span className="text-muted-foreground ml-2">/ 기준 {item.reorder_level.toLocaleString()}</span>}
                       </p>
                     </div>
                     <div className="flex gap-1 shrink-0">
                       <button onClick={e => { e.stopPropagation(); setEditingItem(item); setShowItemDialog(true) }}
-                        className="p-1.5 text-slate-500 hover:text-ocean-400 transition-colors rounded-lg hover:bg-ocean-500/10">
+                        className="p-1.5 text-muted-foreground hover:text-ocean-500 transition-colors rounded-lg hover:bg-ocean-500/10">
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button onClick={e => { e.stopPropagation(); handleDeleteItem(item) }}
-                        className="p-1.5 text-slate-500 hover:text-red-400 transition-colors rounded-lg hover:bg-red-500/10">
+                        className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors rounded-lg hover:bg-red-500/10">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -483,12 +483,12 @@ export default function InventoryPage() {
         {/* Right — Transaction Detail */}
         <div className="lg:col-span-3">
           {selectedItem ? (
-            <div className="bg-slate-800/50 border border-white/10 rounded-2xl overflow-hidden">
-              <div className="p-4 border-b border-white/10 flex items-center justify-between gap-4">
+            <div className="bg-muted border border-border rounded-2xl overflow-hidden">
+              <div className="p-4 border-b border-border flex items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-white font-bold">{selectedItem.name}</h2>
-                  <p className="text-slate-400 text-xs mt-0.5">
-                    {t.inventory.currentStock}: <span className="text-white font-semibold">{selectedItem.current_stock.toLocaleString()} {selectedItem.unit}</span>
+                  <h2 className="text-foreground font-bold">{selectedItem.name}</h2>
+                  <p className="text-muted-foreground text-xs mt-0.5">
+                    {t.inventory.currentStock}: <span className="text-foreground font-semibold">{selectedItem.current_stock.toLocaleString()} {selectedItem.unit}</span>
                   </p>
                 </div>
                 <Button size="sm" onClick={() => { setTxItem(selectedItem); setShowTxDialog(true) }}
@@ -499,35 +499,35 @@ export default function InventoryPage() {
 
               {selectedTxs.length === 0 ? (
                 <div className="p-8 text-center">
-                  <p className="text-slate-400">{t.inventory.noTransactions}</p>
+                  <p className="text-muted-foreground">{t.inventory.noTransactions}</p>
                 </div>
               ) : (
-                <div className="divide-y divide-white/5">
+                <div className="divide-y divide-border">
                   {selectedTxs.map(tx => (
-                    <div key={tx.id} className="flex items-center gap-3 px-4 py-3 hover:bg-white/2 group transition-colors">
+                    <div key={tx.id} className="flex items-center gap-3 px-4 py-3 hover:bg-accent group transition-colors">
                       <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center shrink-0",
                         tx.type === "in" ? "bg-emerald-500/20" : "bg-red-500/20")}>
                         {tx.type === "in"
-                          ? <TrendingUp className="w-4 h-4 text-emerald-400" />
-                          : <TrendingDown className="w-4 h-4 text-red-400" />
+                          ? <TrendingUp className="w-4 h-4 text-emerald-500" />
+                          : <TrendingDown className="w-4 h-4 text-red-500" />
                         }
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className={cn("text-sm font-semibold", tx.type === "in" ? "text-emerald-400" : "text-red-400")}>
+                          <span className={cn("text-sm font-semibold", tx.type === "in" ? "text-emerald-500" : "text-red-500")}>
                             {tx.type === "in" ? "+" : "-"}{tx.quantity.toLocaleString()} {tx.item_unit ?? selectedItem.unit}
                           </span>
-                          {tx.supplier && <span className="text-slate-500 text-xs">({tx.supplier})</span>}
-                          {tx.tank_name && <span className="text-slate-500 text-xs">→ {tx.tank_name}</span>}
+                          {tx.supplier && <span className="text-muted-foreground text-xs">({tx.supplier})</span>}
+                          {tx.tank_name && <span className="text-muted-foreground text-xs">→ {tx.tank_name}</span>}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-slate-500 text-xs">{tx.recorded_at}</span>
-                          {tx.unit_price && <span className="text-slate-500 text-xs">· @{tx.unit_price.toLocaleString()}원/{tx.item_unit}</span>}
-                          {tx.notes && <span className="text-slate-500 text-xs truncate">· {tx.notes}</span>}
+                          <span className="text-muted-foreground text-xs">{tx.recorded_at}</span>
+                          {tx.unit_price && <span className="text-muted-foreground text-xs">· @{tx.unit_price.toLocaleString()}원/{tx.item_unit}</span>}
+                          {tx.notes && <span className="text-muted-foreground text-xs truncate">· {tx.notes}</span>}
                         </div>
                       </div>
                       <button onClick={() => handleDeleteTx(tx)}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-500 hover:text-red-400 transition-all rounded-lg hover:bg-red-500/10">
+                        className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-red-500 transition-all rounded-lg hover:bg-red-500/10">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -536,9 +536,9 @@ export default function InventoryPage() {
               )}
             </div>
           ) : (
-            <div className="bg-slate-800/50 border border-white/10 rounded-2xl p-8 text-center">
-              <Package className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-400">{t.inventory.noItems}</p>
+            <div className="bg-muted border border-border rounded-2xl p-8 text-center">
+              <Package className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground">{t.inventory.noItems}</p>
             </div>
           )}
         </div>
