@@ -22,13 +22,13 @@ import { useT } from "@/lib/i18n-context"
 
 function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string }) {
   return (
-    <Card className="bg-slate-800/50 border-white/5">
+    <Card className="bg-muted border-border">
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-sm text-slate-400 mb-1">{label}</p>
+            <p className="text-sm text-muted-foreground mb-1">{label}</p>
             <p className={`text-3xl font-bold ${color}`}>{value}</p>
-            {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
+            {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
           </div>
           <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${color.replace("text-", "bg-").replace("400", "500/20")}`}>
             {icon}
@@ -53,16 +53,16 @@ export default function DashboardPage() {
   const [loading, setLoading]       = useState(true)
 
   const TANK_STATUS_META = {
-    active:   { label: t.dashboard.normal,  color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400" },
-    warning:  { label: t.dashboard.warning, color: "text-amber-400",   bg: "bg-amber-500/10 border-amber-500/20",   dot: "bg-amber-400" },
-    danger:   { label: t.dashboard.danger,  color: "text-red-400",     bg: "bg-red-500/10 border-red-500/20",       dot: "bg-red-400" },
-    inactive: { label: t.dashboard.normal,  color: "text-slate-400",   bg: "bg-slate-500/10 border-slate-500/20",   dot: "bg-slate-400" },
+    active:   { label: t.dashboard.normal,  color: "text-emerald-500", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400" },
+    warning:  { label: t.dashboard.warning, color: "text-amber-500",   bg: "bg-amber-500/10 border-amber-500/20",   dot: "bg-amber-400" },
+    danger:   { label: t.dashboard.danger,  color: "text-red-500",     bg: "bg-red-500/10 border-red-500/20",       dot: "bg-red-400" },
+    inactive: { label: t.dashboard.normal,  color: "text-muted-foreground",   bg: "bg-slate-500/10 border-slate-500/20",   dot: "bg-slate-400" },
   }
 
   const ALERT_ICONS = {
-    danger:  <XCircle className="w-4 h-4 text-red-400" />,
-    warning: <AlertCircle className="w-4 h-4 text-amber-400" />,
-    info:    <CheckCircle2 className="w-4 h-4 text-ocean-400" />,
+    danger:  <XCircle className="w-4 h-4 text-red-500" />,
+    warning: <AlertCircle className="w-4 h-4 text-amber-500" />,
+    info:    <CheckCircle2 className="w-4 h-4 text-ocean-500" />,
   }
 
   useEffect(() => {
@@ -143,7 +143,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-ocean-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -189,19 +189,19 @@ export default function DashboardPage() {
 
       {/* Quick Actions */}
       <div>
-        <p className="text-xs text-slate-500 mb-3 font-medium">{t.dashboard.quickActions}</p>
+        <p className="text-xs text-muted-foreground mb-3 font-medium">{t.dashboard.quickActions}</p>
         <div className="overflow-x-auto -mx-1 px-1">
           <div className="flex gap-3 pb-1 min-w-max sm:min-w-0 sm:grid sm:grid-cols-4">
             {[
-              { href: "/water-quality", icon: <Droplets className="w-5 h-5 text-ocean-400" />, bg: "bg-ocean-500/20", label: t.dashboard.addWaterQuality },
-              { href: "/journal",       icon: <BookOpen  className="w-5 h-5 text-teal-400"  />, bg: "bg-teal-500/20",  label: t.nav.journal },
+              { href: "/water-quality", icon: <Droplets className="w-5 h-5 text-ocean-500" />, bg: "bg-ocean-500/20", label: t.dashboard.addWaterQuality },
+              { href: "/journal",       icon: <BookOpen  className="w-5 h-5 text-teal-500"  />, bg: "bg-teal-500/20",  label: t.nav.journal },
               { href: "/ai-advisor",    icon: <Bot       className="w-5 h-5 text-purple-400"/>, bg: "bg-purple-500/20",label: t.nav.aiAdvisor },
-              { href: "/inventory",     icon: <Package   className="w-5 h-5 text-amber-400" />, bg: "bg-amber-500/20", label: t.nav.inventory },
+              { href: "/inventory",     icon: <Package   className="w-5 h-5 text-amber-500" />, bg: "bg-amber-500/20", label: t.nav.inventory },
             ].map(item => (
               <Link key={item.href} href={item.href}>
-                <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-slate-800/50 border border-white/5 hover:border-ocean-500/30 hover:bg-ocean-500/5 transition-all cursor-pointer w-32 sm:w-auto">
+                <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-muted border border-border hover:border-ocean-500/30 hover:bg-ocean-500/5 transition-all cursor-pointer w-32 sm:w-auto">
                   <div className={`w-10 h-10 rounded-xl ${item.bg} flex items-center justify-center`}>{item.icon}</div>
-                  <span className="text-xs text-slate-300 text-center font-medium">{item.label}</span>
+                  <span className="text-xs text-foreground/80 text-center font-medium">{item.label}</span>
                 </div>
               </Link>
             ))}
@@ -211,29 +211,29 @@ export default function DashboardPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={<Building2 className="w-5 h-5 text-ocean-400" />} label={t.dashboard.activeFarms} value={farms.length} sub={`${t.common.total} ${tanks.length}`} color="text-ocean-400" />
-        <StatCard icon={<Layers className="w-5 h-5 text-teal-400" />} label={t.dashboard.activeTanks} value={statusCounts.active} sub={`${t.dashboard.warning} ${statusCounts.warning} / ${t.dashboard.danger} ${statusCounts.danger}`} color="text-teal-400" />
-        <StatCard icon={<AlertTriangle className="w-5 h-5 text-amber-400" />} label={t.dashboard.alertsToday} value={alerts.length} sub={t.dashboard.alertsNone} color="text-amber-400" />
+        <StatCard icon={<Building2 className="w-5 h-5 text-ocean-500" />} label={t.dashboard.activeFarms} value={farms.length} sub={`${t.common.total} ${tanks.length}`} color="text-ocean-500" />
+        <StatCard icon={<Layers className="w-5 h-5 text-teal-500" />} label={t.dashboard.activeTanks} value={statusCounts.active} sub={`${t.dashboard.warning} ${statusCounts.warning} / ${t.dashboard.danger} ${statusCounts.danger}`} color="text-teal-500" />
+        <StatCard icon={<AlertTriangle className="w-5 h-5 text-amber-500" />} label={t.dashboard.alertsToday} value={alerts.length} sub={t.dashboard.alertsNone} color="text-amber-500" />
         <StatCard icon={<FlaskConical className="w-5 h-5 text-purple-400" />} label={t.dashboard.positiveTests} value={diagnoses[0]?.test_type || "—"} sub={diagnoses[0] ? `${diagnoses[0].tank_name} · ${diagnoses[0].result}` : t.dashboard.noJournal} color="text-purple-400" />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Main Chart */}
         <div className="xl:col-span-2">
-          <Card className="bg-slate-800/50 border-white/5 h-full">
+          <Card className="bg-card border-border h-full">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 flex-wrap">
                   <select
                     value={selectedTankId}
                     onChange={e => setSelectedTankId(e.target.value)}
-                    className="bg-slate-700 border border-white/10 rounded-lg px-2 py-1 text-white text-sm focus:outline-none focus:border-ocean-500"
+                    className="bg-muted border border-border rounded-lg px-2 py-1 text-foreground text-sm focus:outline-none focus:border-ocean-500"
                   >
                     {tanks.map(tk => <option key={tk.id} value={tk.id}>{tk.name}</option>)}
                   </select>
-                  <span className="text-slate-400 text-xs">({t.waterQuality?.period24h ?? "24h"})</span>
+                  <span className="text-muted-foreground text-xs">({t.waterQuality?.period24h ?? "24h"})</span>
                 </div>
-                <Link href="/water-quality" className="text-xs text-ocean-400 hover:text-ocean-300 flex items-center gap-1">
+                <Link href="/water-quality" className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center gap-1">
                   {t.dashboard.viewAll} <ArrowRight className="w-3 h-3" />
                 </Link>
               </div>
@@ -242,18 +242,18 @@ export default function DashboardPage() {
               {chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
-                    <XAxis dataKey="time" tick={{ fill: "#64748b", fontSize: 11 }} tickLine={false} axisLine={false} interval={5} />
-                    <YAxis tick={{ fill: "#64748b", fontSize: 11 }} tickLine={false} axisLine={false} width={35} />
-                    <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: "12px" }} labelStyle={{ color: "#94a3b8" }} />
-                    <Legend wrapperStyle={{ fontSize: "12px", color: "#64748b" }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval={5} />
+                    <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={35} />
+                    <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }} labelStyle={{ color: "hsl(var(--muted-foreground))" }} />
+                    <Legend wrapperStyle={{ fontSize: "12px", color: "hsl(var(--muted-foreground))" }} />
                     <Line type="monotone" dataKey={t.waterQuality.temperature} stroke="#0ea5e9" strokeWidth={2} dot={false} />
                     <Line type="monotone" dataKey="DO"   stroke="#14b8a6" strokeWidth={2} dot={false} />
                     <Line type="monotone" dataKey="pH"   stroke="#a78bfa" strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-[220px] flex items-center justify-center text-slate-500 text-sm">
+                <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">
                   {t.dashboard.noFarmsMsg}
                 </div>
               )}
@@ -266,10 +266,10 @@ export default function DashboardPage() {
                     { label: t.waterQuality.ph,          value: latestWq.ph.toFixed(2),          unit: "",     icon: <Droplets className="w-4 h-4" />,         ok: latestWq.ph >= 7.5 && latestWq.ph <= 8.5 },
                   ].map(item => (
                     <div key={item.label} className={`flex items-center gap-2 p-3 rounded-xl border ${item.ok ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20"}`}>
-                      <span className={item.ok ? "text-emerald-400" : "text-red-400"}>{item.icon}</span>
+                      <span className={item.ok ? "text-emerald-500" : "text-red-500"}>{item.icon}</span>
                       <div>
-                        <p className="text-xs text-slate-400">{item.label}</p>
-                        <p className={`text-sm font-bold ${item.ok ? "text-emerald-300" : "text-red-300"}`}>{item.value}{item.unit}</p>
+                        <p className="text-xs text-muted-foreground">{item.label}</p>
+                        <p className={`text-sm font-bold ${item.ok ? "text-emerald-500" : "text-red-500"}`}>{item.value}{item.unit}</p>
                       </div>
                     </div>
                   ))}
@@ -281,16 +281,16 @@ export default function DashboardPage() {
 
         {/* Right panel */}
         <div className="space-y-4">
-          <Card className="bg-slate-800/50 border-white/5">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-white text-base">{t.dashboard.activeTanks}</CardTitle>
-                <Link href="/farms" className="text-xs text-ocean-400 hover:text-ocean-300 flex items-center gap-1">{t.dashboard.viewAll} <ArrowRight className="w-3 h-3" /></Link>
+                <CardTitle className="text-foreground text-base">{t.dashboard.activeTanks}</CardTitle>
+                <Link href="/farms" className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center gap-1">{t.dashboard.viewAll} <ArrowRight className="w-3 h-3" /></Link>
               </div>
             </CardHeader>
             <CardContent className="space-y-2">
               {tanks.length === 0 ? (
-                <p className="text-xs text-slate-500 text-center py-4">{t.dashboard.noFarmsTitle}</p>
+                <p className="text-xs text-muted-foreground text-center py-4">{t.dashboard.noFarmsTitle}</p>
               ) : tanks.slice(0, 6).map(tank => {
                 const meta = TANK_STATUS_META[tank.status] || TANK_STATUS_META.inactive
                 return (
@@ -298,8 +298,8 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full ${meta.dot} ${tank.status !== "active" ? "animate-pulse" : ""}`} />
                       <div>
-                        <p className="text-sm font-medium text-white">{tank.name}</p>
-                        <p className="text-xs text-slate-500">{tank.cycle_day}</p>
+                        <p className="text-sm font-medium text-foreground">{tank.name}</p>
+                        <p className="text-xs text-muted-foreground">{tank.cycle_day}</p>
                       </div>
                     </div>
                     <span className={`text-xs font-medium ${meta.color}`}>{meta.label}</span>
@@ -309,24 +309,24 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-slate-800/50 border-white/5">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-2">
-              <CardTitle className="text-white text-base flex items-center gap-2">
-                <Activity className="w-4 h-4 text-amber-400" /> {t.dashboard.recentAlerts}
+              <CardTitle className="text-foreground text-base flex items-center gap-2">
+                <Activity className="w-4 h-4 text-amber-500" /> {t.dashboard.recentAlerts}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {alerts.length === 0 ? (
-                <p className="text-xs text-slate-500 text-center py-4">{t.dashboard.noAlerts}</p>
+                <p className="text-xs text-muted-foreground text-center py-4">{t.dashboard.noAlerts}</p>
               ) : alerts.slice(0, 3).map(alert => (
                 <div key={alert.id} className={`flex items-start gap-2.5 p-3 rounded-xl border ${
                   alert.type === "danger" ? "bg-red-500/5 border-red-500/20" : "bg-amber-500/5 border-amber-500/20"
                 }`}>
                   {ALERT_ICONS[alert.type]}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white font-medium truncate">{alert.tank_name}</p>
-                    <p className="text-xs text-slate-400 truncate">{alert.message}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{formatDateTime(alert.created_at)}</p>
+                    <p className="text-sm text-foreground font-medium truncate">{alert.tank_name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{alert.message}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{formatDateTime(alert.created_at)}</p>
                   </div>
                 </div>
               ))}
@@ -336,21 +336,21 @@ export default function DashboardPage() {
       </div>
 
       {/* Diagnoses table */}
-      <Card className="bg-slate-800/50 border-white/5">
+      <Card className="bg-card border-border">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-white text-base">{t.dashboard.recentJournal}</CardTitle>
-            <Link href="/diagnosis" className="text-xs text-ocean-400 hover:text-ocean-300 flex items-center gap-1">{t.dashboard.viewAll} <ArrowRight className="w-3 h-3" /></Link>
+            <CardTitle className="text-foreground text-base">{t.dashboard.recentJournal}</CardTitle>
+            <Link href="/diagnosis" className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center gap-1">{t.dashboard.viewAll} <ArrowRight className="w-3 h-3" /></Link>
           </div>
         </CardHeader>
         <CardContent>
           {diagnoses.length === 0 ? (
-            <p className="text-sm text-slate-500 text-center py-6">{t.dashboard.noJournal}</p>
+            <p className="text-sm text-muted-foreground text-center py-6">{t.dashboard.noJournal}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-slate-500 text-xs border-b border-white/5">
+                  <tr className="text-muted-foreground text-xs border-b border-border">
                     <th className="text-left pb-2 font-medium">{t.diagnosis.tank}</th>
                     <th className="text-left pb-2 font-medium">{t.diagnosis.testType}</th>
                     <th className="text-left pb-2 font-medium">{t.diagnosis.result}</th>
@@ -359,19 +359,19 @@ export default function DashboardPage() {
                     <th className="text-right pb-2 font-medium">{t.diagnosis.testedAt}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody className="divide-y divide-border">
                   {diagnoses.slice(0, 5).map(d => (
-                    <tr key={d.id} className="hover:bg-white/2">
-                      <td className="py-3 text-white font-medium">{d.tank_name}</td>
-                      <td className="py-3 text-slate-300">{d.test_type}</td>
+                    <tr key={d.id} className="hover:bg-accent">
+                      <td className="py-3 text-foreground font-medium">{d.tank_name}</td>
+                      <td className="py-3 text-foreground/80">{d.test_type}</td>
                       <td className="py-3"><Badge variant={d.result === t.diagnosis.resultPositive ? "danger" : d.result === t.diagnosis.resultSuspected ? "warning" : "success"}>{d.result}</Badge></td>
-                      <td className="py-3 text-right text-slate-300">{d.vibrio_count.toLocaleString()} CFU/mL</td>
+                      <td className="py-3 text-right text-foreground/80">{d.vibrio_count.toLocaleString()} CFU/mL</td>
                       <td className="py-3 text-right">
                         <Badge variant={d.risk_level === "high" || d.risk_level === "critical" ? "danger" : d.risk_level === "medium" ? "warning" : "success"}>
                           {d.risk_level === "low" ? t.reports.normalDays : d.risk_level === "medium" ? t.reports.warningDays : d.risk_level === "high" ? t.reports.dangerDays : t.diagnosis.urgentAction}
                         </Badge>
                       </td>
-                      <td className="py-3 text-right text-slate-500 text-xs">{formatDateTime(d.tested_at)}</td>
+                      <td className="py-3 text-right text-muted-foreground text-xs">{formatDateTime(d.tested_at)}</td>
                     </tr>
                   ))}
                 </tbody>

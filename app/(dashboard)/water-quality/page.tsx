@@ -42,9 +42,9 @@ interface ParamMeta {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<StatusLevel, { badge: string; dot: string; text: string; bg: string }> = {
-  정상: { badge: "success", dot: "bg-emerald-400", text: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20" },
-  주의: { badge: "warning", dot: "bg-amber-400", text: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20" },
-  위험: { badge: "danger", dot: "bg-red-400", text: "text-red-400", bg: "bg-red-500/10 border-red-500/20" },
+  정상: { badge: "success", dot: "bg-emerald-400", text: "text-emerald-500", bg: "bg-emerald-500/10 border-emerald-500/20" },
+  주의: { badge: "warning", dot: "bg-amber-400", text: "text-amber-500", bg: "bg-amber-500/10 border-amber-500/20" },
+  위험: { badge: "danger", dot: "bg-red-400", text: "text-red-500", bg: "bg-red-500/10 border-red-500/20" },
 } as const
 
 const PARAM_META: ParamMeta[] = [
@@ -122,13 +122,13 @@ function ReadingCard({ meta, reading }: { meta: ParamMeta; reading: WaterQuality
           </div>
         </div>
 
-        <p className="text-xs text-slate-400 mb-0.5">{meta.label}</p>
+        <p className="text-xs text-muted-foreground mb-0.5">{meta.label}</p>
         <p className={`text-2xl font-bold ${styles.text}`}>
           {value.toFixed(meta.key === "ph" || meta.key === "ammonia" || meta.key === "nitrite" ? 2 : 1)}
-          {meta.unit && <span className="text-sm font-normal text-slate-400 ml-1">{meta.unit}</span>}
+          {meta.unit && <span className="text-sm font-normal text-muted-foreground ml-1">{meta.unit}</span>}
         </p>
 
-        <div className="mt-2 text-xs text-slate-500">
+        <div className="mt-2 text-xs text-muted-foreground">
           {t.waterQuality.normalRange}: {std.min} – {std.max}{meta.unit}
         </div>
       </CardContent>
@@ -154,13 +154,13 @@ function SingleParamChart({ chartData, stdKey, chartLabel, chartColor, unit }: C
   return (
     <ResponsiveContainer width="100%" height={260}>
       <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
-        <XAxis dataKey="time" tick={{ fill: "#64748b", fontSize: 11 }} tickLine={false} axisLine={false} interval={4} />
-        <YAxis domain={[yMin, yMax]} tick={{ fill: "#64748b", fontSize: 11 }} tickLine={false} axisLine={false} width={42} tickFormatter={v => `${v}${unit}`} />
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval={4} />
+        <YAxis domain={[yMin, yMax]} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={42} tickFormatter={v => `${v}${unit}`} />
         <Tooltip
-          contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: "12px" }}
-          labelStyle={{ color: "#94a3b8" }}
-          itemStyle={{ color: "#e2e8f0" }}
+          contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }}
+          labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+          itemStyle={{ color: "hsl(var(--foreground))" }}
         />
         <ReferenceLine y={std.max} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: "최대", fill: "#34d399", fontSize: 10, position: "insideTopRight" }} />
         <ReferenceLine y={std.min} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: "최소", fill: "#34d399", fontSize: 10, position: "insideBottomRight" }} />
@@ -176,16 +176,16 @@ function NitrogenChart({ chartData }: { chartData: ReturnType<typeof buildChartD
   return (
     <ResponsiveContainer width="100%" height={260}>
       <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
-        <XAxis dataKey="time" tick={{ fill: "#64748b", fontSize: 11 }} tickLine={false} axisLine={false} interval={4} />
-        <YAxis tick={{ fill: "#64748b", fontSize: 11 }} tickLine={false} axisLine={false} width={48} tickFormatter={v => `${v}`} />
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval={4} />
+        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={48} tickFormatter={v => `${v}`} />
         <Tooltip
-          contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: "12px" }}
-          labelStyle={{ color: "#94a3b8" }}
-          itemStyle={{ color: "#e2e8f0" }}
+          contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }}
+          labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+          itemStyle={{ color: "hsl(var(--foreground))" }}
           formatter={(v, name) => [`${v} mg/L`, name]}
         />
-        <Legend wrapperStyle={{ fontSize: "12px", color: "#94a3b8" }} />
+        <Legend wrapperStyle={{ fontSize: "12px", color: "hsl(var(--muted-foreground))" }} />
         <Line type="monotone" dataKey="암모니아" stroke="#f97316" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
         <Line type="monotone" dataKey="아질산염" stroke="#ec4899" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
         <Line type="monotone" dataKey="질산염"  stroke="#84cc16" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
@@ -198,15 +198,15 @@ function OverviewChart({ chartData }: { chartData: ReturnType<typeof buildChartD
   return (
     <ResponsiveContainer width="100%" height={260}>
       <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
-        <XAxis dataKey="time" tick={{ fill: "#64748b", fontSize: 11 }} tickLine={false} axisLine={false} interval={4} />
-        <YAxis tick={{ fill: "#64748b", fontSize: 11 }} tickLine={false} axisLine={false} width={42} />
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval={4} />
+        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={42} />
         <Tooltip
-          contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: "12px" }}
-          labelStyle={{ color: "#94a3b8" }}
-          itemStyle={{ color: "#e2e8f0" }}
+          contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }}
+          labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+          itemStyle={{ color: "hsl(var(--foreground))" }}
         />
-        <Legend wrapperStyle={{ fontSize: "12px", color: "#94a3b8" }} />
+        <Legend wrapperStyle={{ fontSize: "12px", color: "hsl(var(--muted-foreground))" }} />
         <Line type="monotone" dataKey="수온"  stroke="#0ea5e9" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
         <Line type="monotone" dataKey="DO"    stroke="#14b8a6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
         <Line type="monotone" dataKey="pH"    stroke="#a78bfa" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
@@ -400,11 +400,11 @@ export default function WaterQualityPage() {
     return (
       <div className="flex flex-col items-center justify-center h-96 space-y-4 animate-fade-in">
         <div className="w-16 h-16 rounded-2xl bg-ocean-500/20 flex items-center justify-center">
-          <Droplets className="w-8 h-8 text-ocean-400" />
+          <Droplets className="w-8 h-8 text-ocean-500" />
         </div>
         <div className="text-center">
-          <h2 className="text-xl font-bold text-white mb-2">{t.waterQuality.noTanks}</h2>
-          <p className="text-slate-400 text-sm max-w-sm">
+          <h2 className="text-xl font-bold text-foreground mb-2">{t.waterQuality.noTanks}</h2>
+          <p className="text-muted-foreground text-sm max-w-sm">
             {t.waterQuality.noTanksMsg}
           </p>
         </div>
@@ -422,34 +422,34 @@ export default function WaterQualityPage() {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">{t.waterQuality.title}</h1>
-          <p className="text-sm text-slate-400 mt-0.5">{t.waterQuality.subtitle}</p>
+          <h1 className="text-2xl font-bold text-foreground">{t.waterQuality.title}</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{t.waterQuality.subtitle}</p>
         </div>
 
         <div className="flex items-center gap-3">
           {/* Summary badges */}
           <div className="hidden sm:flex items-center gap-2">
-            <span className="flex items-center gap-1.5 text-xs text-emerald-400">
+            <span className="flex items-center gap-1.5 text-xs text-emerald-500">
               <CheckCircle2 className="w-3.5 h-3.5" />{t.dashboard.normal} {summaryStatusCounts.정상}
             </span>
-            <span className="flex items-center gap-1.5 text-xs text-amber-400">
+            <span className="flex items-center gap-1.5 text-xs text-amber-500">
               <AlertCircle className="w-3.5 h-3.5" />{t.dashboard.warning} {summaryStatusCounts.주의}
             </span>
-            <span className="flex items-center gap-1.5 text-xs text-red-400">
+            <span className="flex items-center gap-1.5 text-xs text-red-500">
               <XCircle className="w-3.5 h-3.5" />{t.dashboard.danger} {summaryStatusCounts.위험}
             </span>
           </div>
 
           {/* Time range selector */}
           <div className="flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-slate-500 hidden sm:block" />
+            <Clock className="w-3.5 h-3.5 text-muted-foreground hidden sm:block" />
             <Select value={String(hours)} onValueChange={v => setHours(Number(v) as 24 | 72 | 168)}>
-              <SelectTrigger className="w-24 h-8 bg-slate-900/60 border-white/10 text-slate-300 text-xs focus:ring-ocean-500/30">
+              <SelectTrigger className="w-24 h-8 bg-muted border-border text-muted-foreground text-xs focus:ring-ocean-500/30">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-white/10">
+              <SelectContent className="bg-card border-border">
                 {TIME_RANGES.map(r => (
-                  <SelectItem key={r.hours} value={String(r.hours)} className="text-slate-200 text-xs focus:bg-white/10 focus:text-white">
+                  <SelectItem key={r.hours} value={String(r.hours)} className="text-foreground text-xs focus:bg-accent focus:text-foreground">
                     {t.waterQuality[r.labelKey]}
                   </SelectItem>
                 ))}
@@ -462,19 +462,19 @@ export default function WaterQualityPage() {
             disabled={hasExport(plan) && !readings.length}
             variant="outline"
             size="sm"
-            className="border-white/10 text-slate-300 hover:bg-white/5 gap-2"
+            className="border-border text-muted-foreground hover:bg-accent gap-2"
             title={hasExport(plan) ? t.waterQuality.csvExport : t.waterQuality.csvProOnly}
           >
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">CSV</span>
-            {!hasExport(plan) && <span className="text-xs text-amber-400">Basic+</span>}
+            {!hasExport(plan) && <span className="text-xs text-amber-500">Basic+</span>}
           </Button>
 
           <a href="/journal">
             <Button
               variant="outline"
               size="sm"
-              className="border-ocean-500/40 text-ocean-300 hover:bg-ocean-500/10 gap-2"
+              className="border-ocean-500/40 text-ocean-500 hover:bg-ocean-500/10 gap-2"
             >
               <Plus className="w-4 h-4" />
               {t.waterQuality.addRecord}
@@ -484,7 +484,7 @@ export default function WaterQualityPage() {
           <Button
             variant="outline"
             size="sm"
-            className="border-white/10 text-slate-300 hover:bg-white/5 gap-2"
+            className="border-border text-muted-foreground hover:bg-accent gap-2"
             onClick={handleRefresh}
             disabled={isRefreshing}
           >
@@ -495,22 +495,22 @@ export default function WaterQualityPage() {
       </div>
 
       {/* ── Tank Selector ──────────────────────────────────────────────────── */}
-      <Card className="bg-slate-800/50 border-white/5">
+      <Card className="bg-card border-border">
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex items-center gap-3 flex-1">
               <div>
-                <p className="text-xs text-slate-400 mb-1.5">{t.waterQuality.tank}</p>
+                <p className="text-xs text-muted-foreground mb-1.5">{t.waterQuality.tank}</p>
                 <Select value={selectedTankId} onValueChange={setSelectedTankId}>
-                  <SelectTrigger className="w-48 bg-slate-900/60 border-white/10 text-white focus:ring-ocean-500/30">
+                  <SelectTrigger className="w-48 bg-muted border-border text-foreground focus:ring-ocean-500/30">
                     <SelectValue placeholder={t.waterQuality.selectTank} />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-white/10">
+                  <SelectContent className="bg-card border-border">
                     {tanks.map(tank => (
                       <SelectItem
                         key={tank.id}
                         value={tank.id}
-                        className="text-slate-200 focus:bg-white/10 focus:text-white"
+                        className="text-foreground focus:bg-accent focus:text-foreground"
                       >
                         <div className="flex items-center gap-2">
                           <span className={`w-1.5 h-1.5 rounded-full ${
@@ -529,20 +529,20 @@ export default function WaterQualityPage() {
               {selectedTank && (
                 <div className="flex items-center gap-6 text-sm">
                   <div>
-                    <p className="text-xs text-slate-500">사육일수</p>
-                    <p className="font-semibold text-white">{selectedTank.cycle_day}일차</p>
+                    <p className="text-xs text-muted-foreground">사육일수</p>
+                    <p className="font-semibold text-foreground">{selectedTank.cycle_day}일차</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">수용량</p>
-                    <p className="font-semibold text-white">{selectedTank.volume.toLocaleString()}㎥</p>
+                    <p className="text-xs text-muted-foreground">수용량</p>
+                    <p className="font-semibold text-foreground">{selectedTank.volume.toLocaleString()}㎥</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">입식수</p>
-                    <p className="font-semibold text-white">{selectedTank.shrimp_count.toLocaleString()}마리</p>
+                    <p className="text-xs text-muted-foreground">입식수</p>
+                    <p className="font-semibold text-foreground">{selectedTank.shrimp_count.toLocaleString()}마리</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">밀도</p>
-                    <p className="font-semibold text-white">{selectedTank.stocking_density}마리/㎥</p>
+                    <p className="text-xs text-muted-foreground">밀도</p>
+                    <p className="font-semibold text-foreground">{selectedTank.stocking_density}마리/㎥</p>
                   </div>
                 </div>
               )}
@@ -550,13 +550,13 @@ export default function WaterQualityPage() {
 
             <div className="flex flex-col items-end gap-1">
               {tankDevices.filter(d => d.active).length > 0 && (
-                <span className="flex items-center gap-1 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-2.5 py-0.5">
+                <span className="flex items-center gap-1 text-xs text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-2.5 py-0.5">
                   <Wifi className="w-3 h-3" />
                   센서 자동 수집 중 ({tankDevices.filter(d => d.active).length}대)
                 </span>
               )}
               {latest && (
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-muted-foreground">
                   최근 측정: {formatDateTime(latest.recorded_at)}
                 </span>
               )}
@@ -567,9 +567,9 @@ export default function WaterQualityPage() {
 
       {/* ── Loading State ───────────────────────────────────────────────────── */}
       {isLoading ? (
-        <Card className="bg-slate-800/50 border-white/5">
-          <CardContent className="p-8 text-center text-slate-400">
-            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3 text-ocean-400" />
+        <Card className="bg-card border-border">
+          <CardContent className="p-8 text-center text-muted-foreground">
+            <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3 text-ocean-500" />
             {t.waterQuality.loading}
           </CardContent>
         </Card>
@@ -594,7 +594,7 @@ export default function WaterQualityPage() {
                     <p className={`text-sm font-medium ${alert.type === "danger" ? "text-red-300" : "text-amber-300"}`}>
                       {alert.message}
                     </p>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       측정값: {alert.value} / 임계치: {alert.threshold} · {formatDateTime(alert.created_at)}
                     </p>
                   </div>
@@ -603,7 +603,7 @@ export default function WaterQualityPage() {
                       try { await resolveAlert(alert.id) } catch { /* non-fatal */ }
                       setTankAlerts(prev => prev.filter(a => a.id !== alert.id))
                     }}
-                    className="shrink-0 p-1.5 rounded-lg text-slate-500 hover:text-emerald-400 hover:bg-white/5 transition-colors"
+                    className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-emerald-500 hover:bg-accent transition-colors"
                     aria-label="알림 해제"
                     title="해결됨으로 표시"
                   >
@@ -616,9 +616,9 @@ export default function WaterQualityPage() {
 
           {/* ── Per-Parameter Status Strip ──────────────────────────────────── */}
           {latest && (
-            <Card className="bg-slate-800/50 border-white/5">
+            <Card className="bg-card border-border">
               <CardContent className="p-4">
-                <p className="text-xs text-slate-400 mb-3 font-medium">항목별 현재 수질 상태</p>
+                <p className="text-xs text-muted-foreground mb-3 font-medium">항목별 현재 수질 상태</p>
                 <div className="flex flex-wrap gap-2">
                   {PARAM_META.map(meta => {
                     const stdKey = meta.key as typeof STD_KEYS[number]
@@ -651,22 +651,22 @@ export default function WaterQualityPage() {
               ))}
             </div>
           ) : (
-            <Card className="bg-slate-800/50 border-white/5">
-              <CardContent className="p-8 text-center text-slate-400">
+            <Card className="bg-card border-border">
+              <CardContent className="p-8 text-center text-muted-foreground">
                 {t.waterQuality.noData}
               </CardContent>
             </Card>
           )}
 
           {/* ── Charts ───────────────────────────────────────────────────────── */}
-          <Card className="bg-slate-800/50 border-white/5">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-white text-base">
+                <CardTitle className="text-foreground text-base">
                   {timeRangeLabel(hours)} {t.waterQuality.trend}
                 </CardTitle>
                 {refreshSec && (
-                  <span className="flex items-center gap-1 text-xs text-slate-500">
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
                     <RefreshCw className="w-3 h-3" />
                     {refreshSec >= 60 ? `${refreshSec / 60}${t.waterQuality.autoRefreshMin}` : `${refreshSec}초마다 자동갱신`}
                   </span>
@@ -675,7 +675,7 @@ export default function WaterQualityPage() {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="overview">
-                <TabsList className="bg-slate-900/60 border border-white/5 h-9 mb-4 flex-wrap gap-y-1">
+                <TabsList className="bg-muted border border-border h-9 mb-4 flex-wrap gap-y-1">
                   <TabsTrigger value="overview"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">수온·DO·pH</TabsTrigger>
                   <TabsTrigger value="nitrogen"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">질소 복합</TabsTrigger>
                   <TabsTrigger value="temperature" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.temperature}</TabsTrigger>
@@ -691,12 +691,12 @@ export default function WaterQualityPage() {
 
                 <TabsContent value="overview">
                   <OverviewChart chartData={chartData} />
-                  <p className="text-xs text-slate-500 mt-2 text-center">수온(°C) · DO(mg/L) · pH — 기준선 미표시 (복합 Y축)</p>
+                  <p className="text-xs text-muted-foreground mt-2 text-center">수온(°C) · DO(mg/L) · pH — 기준선 미표시 (복합 Y축)</p>
                 </TabsContent>
 
                 <TabsContent value="nitrogen">
                   <NitrogenChart chartData={chartData} />
-                  <p className="text-xs text-slate-500 mt-2 text-center">{t.waterQuality.ammonia} · {t.waterQuality.nitrite} · {t.waterQuality.nitrate} (단위: mg/L) — 기준선 미표시 (복합 Y축)</p>
+                  <p className="text-xs text-muted-foreground mt-2 text-center">{t.waterQuality.ammonia} · {t.waterQuality.nitrite} · {t.waterQuality.nitrate} (단위: mg/L) — 기준선 미표시 (복합 Y축)</p>
                 </TabsContent>
 
                 {(
@@ -720,7 +720,7 @@ export default function WaterQualityPage() {
                       chartColor={chartColor}
                       unit={unit}
                     />
-                    <div className="flex items-center justify-center gap-4 mt-2 text-xs text-slate-500">
+                    <div className="flex items-center justify-center gap-4 mt-2 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <span className="w-4 border-t border-dashed border-emerald-400/60" />{t.waterQuality.normalRange}
                       </span>
@@ -735,18 +735,18 @@ export default function WaterQualityPage() {
           </Card>
 
           {/* ── Alert List ───────────────────────────────────────────────────── */}
-          <Card className="bg-slate-800/50 border-white/5">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-2">
-              <CardTitle className="text-white text-base flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-400" />
+              <CardTitle className="text-foreground text-base flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-500" />
                 {selectedTank?.name} 알림 내역
               </CardTitle>
             </CardHeader>
             <CardContent>
               {tankAlerts.length === 0 ? (
                 <div className="flex items-center gap-3 py-6 justify-center">
-                  <CheckCircle2 className="w-6 h-6 text-emerald-400" />
-                  <p className="text-slate-400 text-sm">미처리 알림이 없습니다 — 수질이 {t.dashboard.normal} 범위에 있습니다.</p>
+                  <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+                  <p className="text-muted-foreground text-sm">미처리 알림이 없습니다 — 수질이 {t.dashboard.normal} 범위에 있습니다.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -772,10 +772,10 @@ export default function WaterQualityPage() {
                               {isDanger ? t.dashboard.danger : t.dashboard.warning}
                             </Badge>
                           </div>
-                          <p className="text-xs text-slate-400 mt-1">
+                          <p className="text-xs text-muted-foreground mt-1">
                             항목: {paramLabel} · 측정값 {alert.value} → 임계치 {alert.threshold}
                           </p>
-                          <p className="text-xs text-slate-500 mt-0.5">{formatDateTime(alert.created_at)}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{formatDateTime(alert.created_at)}</p>
                         </div>
                       </div>
                     )

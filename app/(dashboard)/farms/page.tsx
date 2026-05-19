@@ -65,34 +65,34 @@ function useStatusMeta() {
     active: {
       label: t.dashboard.normal,
       dot: "bg-emerald-400",
-      text: "text-emerald-400",
+      text: "text-emerald-500",
       bg: "bg-emerald-500/10",
       border: "border-emerald-500/20",
-      icon: <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />,
+      icon: <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />,
     },
     warning: {
       label: t.dashboard.warning,
       dot: "bg-amber-400",
-      text: "text-amber-400",
+      text: "text-amber-500",
       bg: "bg-amber-500/10",
       border: "border-amber-500/20",
-      icon: <AlertCircle className="w-3.5 h-3.5 text-amber-400" />,
+      icon: <AlertCircle className="w-3.5 h-3.5 text-amber-500" />,
     },
     danger: {
       label: t.dashboard.danger,
       dot: "bg-red-400",
-      text: "text-red-400",
+      text: "text-red-500",
       bg: "bg-red-500/10",
       border: "border-red-500/20",
-      icon: <XCircle className="w-3.5 h-3.5 text-red-400" />,
+      icon: <XCircle className="w-3.5 h-3.5 text-red-500" />,
     },
     inactive: {
       label: t.farms.tankStatusInactive,
       dot: "bg-slate-400",
-      text: "text-slate-400",
+      text: "text-muted-foreground",
       bg: "bg-slate-500/10",
       border: "border-slate-500/20",
-      icon: <CheckCircle className="w-3.5 h-3.5 text-slate-400" />,
+      icon: <CheckCircle className="w-3.5 h-3.5 text-muted-foreground" />,
     },
   }
   return STATUS_META
@@ -159,12 +159,12 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
           <Plus className="w-4 h-4" /> {t.farms.addFarm}
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-slate-900 border-white/10 text-white max-w-md">
+      <DialogContent className="bg-card border-border text-foreground max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-white flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-ocean-400" /> {t.farms.addFarm}
+          <DialogTitle className="text-foreground flex items-center gap-2">
+            <Building2 className="w-5 h-5 text-ocean-500" /> {t.farms.addFarm}
           </DialogTitle>
-          <DialogDescription className="text-slate-400">
+          <DialogDescription className="text-muted-foreground">
             {t.farms.subtitle}
           </DialogDescription>
         </DialogHeader>
@@ -172,58 +172,58 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
         {submitted ? (
           <div className="py-8 flex flex-col items-center gap-3 text-center">
             <div className="w-14 h-14 rounded-full bg-emerald-500/15 flex items-center justify-center">
-              <CheckCircle className="w-7 h-7 text-emerald-400" />
+              <CheckCircle className="w-7 h-7 text-emerald-500" />
             </div>
-            <p className="text-white font-semibold text-lg">{t.farms.farmCreated}</p>
-            <p className="text-slate-400 text-sm">
-              <span className="text-white font-medium">{form.name || t.farms.addFarm}</span>
+            <p className="text-foreground font-semibold text-lg">{t.farms.farmCreated}</p>
+            <p className="text-muted-foreground text-sm">
+              <span className="text-foreground font-medium">{form.name || t.farms.addFarm}</span>
             </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 py-2">
             {error && (
-              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
+              <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="farm-name" className="text-slate-300 text-sm">{t.farms.farmName} *</Label>
+              <Label htmlFor="farm-name" className="text-muted-foreground text-sm">{t.farms.farmName} *</Label>
               <Input
                 id="farm-name"
                 placeholder={t.farms.farmNamePlaceholder}
-                className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-ocean-500/50"
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                 required
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="farm-location" className="text-slate-300 text-sm">{t.farms.location} *</Label>
+              <Label htmlFor="farm-location" className="text-muted-foreground text-sm">{t.farms.location} *</Label>
               <Input
                 id="farm-location"
                 placeholder={t.farms.locationPlaceholder}
-                className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-ocean-500/50"
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
                 value={form.location}
                 onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
                 required
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="farm-owner" className="text-slate-300 text-sm">{t.farms.ownerName}</Label>
+              <Label htmlFor="farm-owner" className="text-muted-foreground text-sm">{t.farms.ownerName}</Label>
               <Input
                 id="farm-owner"
                 placeholder={t.farms.ownerNamePlaceholder}
-                className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-ocean-500/50"
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
                 value={form.owner_name}
                 onChange={e => setForm(f => ({ ...f, owner_name: e.target.value }))}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="farm-area" className="text-slate-300 text-sm">{t.farms.area} ({t.farms.areaUnit})</Label>
+              <Label htmlFor="farm-area" className="text-muted-foreground text-sm">{t.farms.area} ({t.farms.areaUnit})</Label>
               <Input
                 id="farm-area"
                 type="number"
                 placeholder="예: 4000"
                 min={1}
-                className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-ocean-500/50"
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
                 value={form.area}
                 onChange={e => setForm(f => ({ ...f, area: e.target.value }))}
                 required
@@ -233,7 +233,7 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
               <Button
                 type="button"
                 variant="outline"
-                className="border-white/10 text-slate-300 hover:bg-white/5"
+                className="border-border text-muted-foreground hover:bg-accent"
                 onClick={() => handleOpenChange(false)}
               >
                 {t.common.cancel}
@@ -334,16 +334,16 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
     />
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="border-white/10 text-slate-300 hover:bg-white/5 gap-1.5">
+        <Button size="sm" variant="outline" className="border-border text-muted-foreground hover:bg-accent gap-1.5">
           <Plus className="w-4 h-4" /> {t.farms.addTank}
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-slate-900 border-white/10 text-white max-w-md">
+      <DialogContent className="bg-card border-border text-foreground max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-white flex items-center gap-2">
-            <Droplets className="w-5 h-5 text-teal-400" /> {t.farms.addTank}
+          <DialogTitle className="text-foreground flex items-center gap-2">
+            <Droplets className="w-5 h-5 text-teal-500" /> {t.farms.addTank}
           </DialogTitle>
-          <DialogDescription className="text-slate-400">
+          <DialogDescription className="text-muted-foreground">
             {farm.name}
           </DialogDescription>
         </DialogHeader>
@@ -351,31 +351,31 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
         {submitted ? (
           <div className="py-8 flex flex-col items-center gap-3 text-center">
             <div className="w-14 h-14 rounded-full bg-emerald-500/15 flex items-center justify-center">
-              <CheckCircle className="w-7 h-7 text-emerald-400" />
+              <CheckCircle className="w-7 h-7 text-emerald-500" />
             </div>
-            <p className="text-white font-semibold text-lg">{t.farms.tankCreated}</p>
-            <p className="text-slate-400 text-sm">
-              <span className="text-white font-medium">{form.name || t.farms.addTank}</span>
+            <p className="text-foreground font-semibold text-lg">{t.farms.tankCreated}</p>
+            <p className="text-muted-foreground text-sm">
+              <span className="text-foreground font-medium">{form.name || t.farms.addTank}</span>
             </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 py-2">
             {error && (
-              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
+              <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="tank-name" className="text-slate-300 text-sm">{t.farms.tankName} *</Label>
+              <Label htmlFor="tank-name" className="text-muted-foreground text-sm">{t.farms.tankName} *</Label>
               <Input
                 id="tank-name"
                 placeholder={t.farms.tankNamePlaceholder}
-                className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-ocean-500/50"
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                 required
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-slate-300 text-sm">{t.common.type}</Label>
+              <Label className="text-muted-foreground text-sm">{t.common.type}</Label>
               <div className="flex gap-2">
                 {(["노지", "실내", "반실내"] as const).map(type => (
                   <button
@@ -385,7 +385,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
                     className={`flex-1 h-9 rounded-lg text-xs font-medium border transition-all
                       ${form.tank_type === type
                         ? "bg-ocean-500 border-ocean-400 text-white"
-                        : "bg-slate-800 border-white/10 text-slate-400 hover:bg-slate-700"
+                        : "bg-muted border-border text-muted-foreground hover:bg-accent"
                       }`}
                   >
                     {type}
@@ -394,26 +394,26 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="tank-volume" className="text-slate-300 text-sm">{t.farms.tankVolume} ({t.farms.tankVolumeUnit}) *</Label>
+              <Label htmlFor="tank-volume" className="text-muted-foreground text-sm">{t.farms.tankVolume} ({t.farms.tankVolumeUnit}) *</Label>
               <Input
                 id="tank-volume"
                 type="number"
                 placeholder="예: 500"
                 min={1}
-                className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-ocean-500/50"
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
                 value={form.volume}
                 onChange={e => setForm(f => ({ ...f, volume: e.target.value }))}
                 required
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="tank-density" className="text-slate-300 text-sm">{t.farms.tankDensity} ({t.farms.tankDensityUnit}) *</Label>
+              <Label htmlFor="tank-density" className="text-muted-foreground text-sm">{t.farms.tankDensity} ({t.farms.tankDensityUnit}) *</Label>
               <Input
                 id="tank-density"
                 type="number"
                 placeholder="예: 120"
                 min={1}
-                className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-ocean-500/50"
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
                 value={form.density}
                 onChange={e => setForm(f => ({ ...f, density: e.target.value }))}
                 required
@@ -421,21 +421,21 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="tank-stocking" className="text-slate-300 text-sm">입식일</Label>
+                <Label htmlFor="tank-stocking" className="text-muted-foreground text-sm">입식일</Label>
                 <Input
                   id="tank-stocking"
                   type="date"
-                  className="bg-slate-800 border-white/10 text-white focus-visible:ring-ocean-500/50"
+                  className="bg-muted border-border text-foreground focus-visible:ring-ocean-500/50"
                   value={form.stocking_date}
                   onChange={e => setForm(f => ({ ...f, stocking_date: e.target.value }))}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="tank-harvest" className="text-slate-300 text-sm">예정 출하일</Label>
+                <Label htmlFor="tank-harvest" className="text-muted-foreground text-sm">예정 출하일</Label>
                 <Input
                   id="tank-harvest"
                   type="date"
-                  className="bg-slate-800 border-white/10 text-white focus-visible:ring-ocean-500/50"
+                  className="bg-muted border-border text-foreground focus-visible:ring-ocean-500/50"
                   value={form.harvest_date}
                   onChange={e => setForm(f => ({ ...f, harvest_date: e.target.value }))}
                 />
@@ -445,7 +445,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
               <Button
                 type="button"
                 variant="outline"
-                className="border-white/10 text-slate-300 hover:bg-white/5"
+                className="border-border text-muted-foreground hover:bg-accent"
                 onClick={() => handleOpenChange(false)}
               >
                 {t.common.cancel}
@@ -509,36 +509,36 @@ function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-1.5 rounded-lg hover:bg-white/8 text-slate-400 hover:text-white transition-colors" title={t.farms.editFarm} aria-label={t.farms.editFarm}>
+        <button className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" title={t.farms.editFarm} aria-label={t.farms.editFarm}>
           <Edit2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
-      <DialogContent className="bg-slate-900 border-white/10 text-white max-w-md">
+      <DialogContent className="bg-card border-border text-foreground max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-white flex items-center gap-2">
-            <Edit2 className="w-4 h-4 text-ocean-400" /> {t.farms.editFarm}
+          <DialogTitle className="text-foreground flex items-center gap-2">
+            <Edit2 className="w-4 h-4 text-ocean-500" /> {t.farms.editFarm}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="space-y-2">
-            <Label className="text-slate-300">{t.farms.farmName} *</Label>
-            <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required className="bg-slate-800 border-white/10 text-white" />
+            <Label className="text-muted-foreground">{t.farms.farmName} *</Label>
+            <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required className="bg-muted border-border text-foreground" />
           </div>
           <div className="space-y-2">
-            <Label className="text-slate-300">{t.farms.location}</Label>
-            <Input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+            <Label className="text-muted-foreground">{t.farms.location}</Label>
+            <Input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} className="bg-muted border-border text-foreground" />
           </div>
           <div className="space-y-2">
-            <Label className="text-slate-300">{t.farms.ownerName}</Label>
-            <Input value={form.owner_name} onChange={e => setForm(p => ({ ...p, owner_name: e.target.value }))} placeholder={t.farms.ownerNamePlaceholder} className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500" />
+            <Label className="text-muted-foreground">{t.farms.ownerName}</Label>
+            <Input value={form.owner_name} onChange={e => setForm(p => ({ ...p, owner_name: e.target.value }))} placeholder={t.farms.ownerNamePlaceholder} className="bg-muted border-border text-foreground placeholder:text-muted-foreground" />
           </div>
           <div className="space-y-2">
-            <Label className="text-slate-300">{t.farms.area} ({t.farms.areaUnit})</Label>
-            <Input type="number" value={form.area} onChange={e => setForm(p => ({ ...p, area: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+            <Label className="text-muted-foreground">{t.farms.area} ({t.farms.areaUnit})</Label>
+            <Input type="number" value={form.area} onChange={e => setForm(p => ({ ...p, area: e.target.value }))} className="bg-muted border-border text-foreground" />
           </div>
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-red-500">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="border-white/10 text-slate-300">{t.common.cancel}</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="border-border text-muted-foreground">{t.common.cancel}</Button>
             <Button type="submit" disabled={saving} className="bg-ocean-500 hover:bg-ocean-600 text-white">
               {saving ? t.farms.saving : t.common.save}
             </Button>
@@ -574,22 +574,22 @@ function DeleteFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => vo
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-1.5 rounded-lg hover:bg-red-500/15 text-slate-400 hover:text-red-400 transition-colors" title={t.farms.deleteFarm} aria-label={t.farms.deleteFarm}>
+        <button className="p-1.5 rounded-lg hover:bg-red-500/15 text-muted-foreground hover:text-red-500 transition-colors" title={t.farms.deleteFarm} aria-label={t.farms.deleteFarm}>
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
-      <DialogContent className="bg-slate-900 border-white/10 text-white max-w-sm">
+      <DialogContent className="bg-card border-border text-foreground max-w-sm">
         <DialogHeader>
-          <DialogTitle className="text-white flex items-center gap-2">
-            <Trash2 className="w-4 h-4 text-red-400" /> {t.farms.deleteFarm}
+          <DialogTitle className="text-foreground flex items-center gap-2">
+            <Trash2 className="w-4 h-4 text-red-500" /> {t.farms.deleteFarm}
           </DialogTitle>
-          <DialogDescription className="text-slate-400">
-            <strong className="text-white">{farm.name}</strong> — {t.farms.deleteFarmConfirm}
+          <DialogDescription className="text-muted-foreground">
+            <strong className="text-foreground">{farm.name}</strong> — {t.farms.deleteFarmConfirm}
           </DialogDescription>
         </DialogHeader>
-        {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
+        {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
         <DialogFooter className="mt-4">
-          <Button variant="outline" onClick={() => setOpen(false)} className="border-white/10 text-slate-300">{t.common.cancel}</Button>
+          <Button variant="outline" onClick={() => setOpen(false)} className="border-border text-muted-foreground">{t.common.cancel}</Button>
           <Button onClick={handleDelete} disabled={deleting} className="bg-red-600 hover:bg-red-700 text-white">
             {deleting ? t.farms.saving : t.common.delete}
           </Button>
@@ -657,32 +657,32 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
   }
 
   const STATUS_OPTIONS: { value: Tank["status"]; label: string; color: string }[] = [
-    { value: "active",   label: t.dashboard.normal,        color: "text-emerald-400" },
-    { value: "warning",  label: t.dashboard.warning,       color: "text-amber-400" },
-    { value: "danger",   label: t.dashboard.danger,        color: "text-red-400" },
-    { value: "inactive", label: t.farms.tankStatusInactive, color: "text-slate-400" },
+    { value: "active",   label: t.dashboard.normal,        color: "text-emerald-500" },
+    { value: "warning",  label: t.dashboard.warning,       color: "text-amber-500" },
+    { value: "danger",   label: t.dashboard.danger,        color: "text-red-500" },
+    { value: "inactive", label: t.farms.tankStatusInactive, color: "text-muted-foreground" },
   ]
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-1.5 rounded-lg hover:bg-white/8 text-slate-400 hover:text-white transition-colors" title={t.farms.editTank} aria-label={t.farms.editTank}>
+        <button className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" title={t.farms.editTank} aria-label={t.farms.editTank}>
           <Edit2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
-      <DialogContent className="bg-slate-900 border-white/10 text-white max-w-md">
+      <DialogContent className="bg-card border-border text-foreground max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-white flex items-center gap-2">
-            <Edit2 className="w-4 h-4 text-teal-400" /> {t.farms.editTank}
+          <DialogTitle className="text-foreground flex items-center gap-2">
+            <Edit2 className="w-4 h-4 text-teal-500" /> {t.farms.editTank}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="space-y-2">
-            <Label className="text-slate-300">{t.farms.tankName} *</Label>
-            <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required className="bg-slate-800 border-white/10 text-white" />
+            <Label className="text-muted-foreground">{t.farms.tankName} *</Label>
+            <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required className="bg-muted border-border text-foreground" />
           </div>
           <div className="space-y-2">
-            <Label className="text-slate-300">{t.common.type}</Label>
+            <Label className="text-muted-foreground">{t.common.type}</Label>
             <div className="flex gap-2">
               {(["노지", "실내", "반실내"] as const).map(type => (
                 <button
@@ -692,7 +692,7 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
                   className={`flex-1 h-9 rounded-lg text-xs font-medium border transition-all
                     ${form.tank_type === type
                       ? "bg-ocean-500 border-ocean-400 text-white"
-                      : "bg-slate-800 border-white/10 text-slate-400 hover:bg-slate-700"
+                      : "bg-muted border-border text-muted-foreground hover:bg-accent"
                     }`}
                 >
                   {type}
@@ -702,26 +702,26 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-slate-300">{t.farms.tankVolume} ({t.farms.tankVolumeUnit})</Label>
-              <Input type="number" value={form.volume} onChange={e => setForm(p => ({ ...p, volume: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+              <Label className="text-muted-foreground">{t.farms.tankVolume} ({t.farms.tankVolumeUnit})</Label>
+              <Input type="number" value={form.volume} onChange={e => setForm(p => ({ ...p, volume: e.target.value }))} className="bg-muted border-border text-foreground" />
             </div>
             <div className="space-y-2">
-              <Label className="text-slate-300">{t.farms.tankDensity} ({t.farms.tankDensityUnit})</Label>
-              <Input type="number" value={form.density} onChange={e => setForm(p => ({ ...p, density: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+              <Label className="text-muted-foreground">{t.farms.tankDensity} ({t.farms.tankDensityUnit})</Label>
+              <Input type="number" value={form.density} onChange={e => setForm(p => ({ ...p, density: e.target.value }))} className="bg-muted border-border text-foreground" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-slate-300">입식일</Label>
-              <Input type="date" value={form.stocking_date} onChange={e => setForm(p => ({ ...p, stocking_date: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+              <Label className="text-muted-foreground">입식일</Label>
+              <Input type="date" value={form.stocking_date} onChange={e => setForm(p => ({ ...p, stocking_date: e.target.value }))} className="bg-muted border-border text-foreground" />
             </div>
             <div className="space-y-2">
-              <Label className="text-slate-300">예정 출하일</Label>
-              <Input type="date" value={form.harvest_date} onChange={e => setForm(p => ({ ...p, harvest_date: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+              <Label className="text-muted-foreground">예정 출하일</Label>
+              <Input type="date" value={form.harvest_date} onChange={e => setForm(p => ({ ...p, harvest_date: e.target.value }))} className="bg-muted border-border text-foreground" />
             </div>
           </div>
           <div className="space-y-2">
-            <Label className="text-slate-300">{t.common.status}</Label>
+            <Label className="text-muted-foreground">{t.common.status}</Label>
             <div className="flex gap-2">
               {STATUS_OPTIONS.map(opt => (
                 <button
@@ -731,18 +731,18 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
                   className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                     form.status === opt.value
                       ? `${opt.color} border-current bg-current/10`
-                      : "text-slate-500 border-white/10 hover:border-white/20"
+                      : "text-muted-foreground border-border hover:border-border/60"
                   }`}
                 >
                   {opt.label}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-slate-600">수질 데이터 저장 시 자동 갱신됩니다</p>
+            <p className="text-xs text-muted-foreground">수질 데이터 저장 시 자동 갱신됩니다</p>
           </div>
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-red-500">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="border-white/10 text-slate-300">{t.common.cancel}</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="border-border text-muted-foreground">{t.common.cancel}</Button>
             <Button type="submit" disabled={saving} className="bg-teal-600 hover:bg-teal-700 text-white">
               {saving ? t.farms.saving : t.common.save}
             </Button>
@@ -778,22 +778,22 @@ function DeleteTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => vo
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-1.5 rounded-lg hover:bg-red-500/15 text-slate-400 hover:text-red-400 transition-colors" title={t.farms.deleteTank} aria-label={t.farms.deleteTank}>
+        <button className="p-1.5 rounded-lg hover:bg-red-500/15 text-muted-foreground hover:text-red-500 transition-colors" title={t.farms.deleteTank} aria-label={t.farms.deleteTank}>
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
-      <DialogContent className="bg-slate-900 border-white/10 text-white max-w-sm">
+      <DialogContent className="bg-card border-border text-foreground max-w-sm">
         <DialogHeader>
-          <DialogTitle className="text-white flex items-center gap-2">
-            <Trash2 className="w-4 h-4 text-red-400" /> {t.farms.deleteTank}
+          <DialogTitle className="text-foreground flex items-center gap-2">
+            <Trash2 className="w-4 h-4 text-red-500" /> {t.farms.deleteTank}
           </DialogTitle>
-          <DialogDescription className="text-slate-400">
-            <strong className="text-white">{tank.name}</strong> — {t.farms.deleteTankConfirm}
+          <DialogDescription className="text-muted-foreground">
+            <strong className="text-foreground">{tank.name}</strong> — {t.farms.deleteTankConfirm}
           </DialogDescription>
         </DialogHeader>
-        {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
+        {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
         <DialogFooter className="mt-4">
-          <Button variant="outline" onClick={() => setOpen(false)} className="border-white/10 text-slate-300">{t.common.cancel}</Button>
+          <Button variant="outline" onClick={() => setOpen(false)} className="border-border text-muted-foreground">{t.common.cancel}</Button>
           <Button onClick={handleDelete} disabled={deleting} className="bg-red-600 hover:bg-red-700 text-white">
             {deleting ? t.farms.saving : t.common.delete}
           </Button>
@@ -866,16 +866,16 @@ function RegisterDeviceDialog({ tank, onSuccess }: { tank: import("@/types").Tan
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) handleClose(); else setOpen(true) }}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="h-7 text-xs border-ocean-500/30 text-ocean-300 hover:bg-ocean-500/10 gap-1.5">
+        <Button size="sm" variant="outline" className="h-7 text-xs border-ocean-500/30 text-ocean-500 hover:bg-ocean-500/10 gap-1.5">
           <Plus className="w-3 h-3" /> 기기 등록
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-slate-900 border-white/10 text-white max-w-lg">
+      <DialogContent className="bg-card border-border text-foreground max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-white flex items-center gap-2">
-            <Cpu className="w-5 h-5 text-ocean-400" /> 센서 기기 등록
+          <DialogTitle className="text-foreground flex items-center gap-2">
+            <Cpu className="w-5 h-5 text-ocean-500" /> 센서 기기 등록
           </DialogTitle>
-          <DialogDescription className="text-slate-400">
+          <DialogDescription className="text-muted-foreground">
             {tank.name}
           </DialogDescription>
         </DialogHeader>
@@ -883,21 +883,21 @@ function RegisterDeviceDialog({ tank, onSuccess }: { tank: import("@/types").Tan
         {step === "form" ? (
           <form onSubmit={handleSubmit} className="space-y-4 py-2">
             {error && (
-              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
+              <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="dev-name" className="text-slate-300 text-sm">기기 이름 *</Label>
+              <Label htmlFor="dev-name" className="text-muted-foreground text-sm">기기 이름 *</Label>
               <Input
                 id="dev-name"
                 placeholder="예: A-1조 멀티센서"
-                className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-ocean-500/50"
+                className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                 required
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-slate-300 text-sm">기기 유형 *</Label>
+              <Label className="text-muted-foreground text-sm">기기 유형 *</Label>
               <div className="grid grid-cols-1 gap-2">
                 {(Object.entries(DEVICE_TYPE_LABELS) as [SensorDevice["device_type"], string][]).map(([type, label]) => (
                   <button
@@ -906,8 +906,8 @@ function RegisterDeviceDialog({ tank, onSuccess }: { tank: import("@/types").Tan
                     onClick={() => setForm(f => ({ ...f, device_type: type }))}
                     className={`text-left px-3 py-2.5 rounded-lg border text-sm transition-all ${
                       form.device_type === type
-                        ? "border-ocean-500/50 bg-ocean-500/10 text-white"
-                        : "border-white/10 bg-slate-800/50 text-slate-300 hover:border-white/20"
+                        ? "border-ocean-500/50 bg-ocean-500/10 text-foreground"
+                        : "border-border bg-muted text-muted-foreground hover:border-border/60"
                     }`}
                   >
                     <span className="font-medium">{label}</span>
@@ -916,7 +916,7 @@ function RegisterDeviceDialog({ tank, onSuccess }: { tank: import("@/types").Tan
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClose} className="border-white/10 text-slate-300">{t.common.cancel}</Button>
+              <Button type="button" variant="outline" onClick={handleClose} className="border-border text-muted-foreground">{t.common.cancel}</Button>
               <Button type="submit" disabled={saving || !form.name.trim()} className="bg-ocean-500 hover:bg-ocean-600 text-white">
                 {saving ? t.farms.saving : t.common.add}
               </Button>
@@ -926,42 +926,42 @@ function RegisterDeviceDialog({ tank, onSuccess }: { tank: import("@/types").Tan
           <div className="space-y-4 py-2">
             <div className="flex flex-col items-center gap-2 py-3 text-center">
               <div className="w-12 h-12 rounded-full bg-emerald-500/15 flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-emerald-400" />
+                <CheckCircle className="w-6 h-6 text-emerald-500" />
               </div>
-              <p className="text-white font-semibold">기기 등록 완료</p>
-              <p className="text-slate-400 text-xs">아래 정보를 기기에 설정하세요. API 키는 다시 확인할 수 없습니다.</p>
+              <p className="text-foreground font-semibold">기기 등록 완료</p>
+              <p className="text-muted-foreground text-xs">아래 정보를 기기에 설정하세요. API 키는 다시 확인할 수 없습니다.</p>
             </div>
 
             {/* Endpoint URL */}
             <div className="space-y-1.5">
-              <p className="text-xs text-slate-400 font-medium">API 엔드포인트</p>
-              <div className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-2.5 border border-white/10">
-                <code className="text-xs text-ocean-300 flex-1 break-all">{endpointUrl}</code>
-                <button onClick={() => handleCopy(endpointUrl, "url")} className="text-slate-500 hover:text-white shrink-0" aria-label="엔드포인트 URL 복사">
-                  {copied === "url" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              <p className="text-xs text-muted-foreground font-medium">API 엔드포인트</p>
+              <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2.5 border border-border">
+                <code className="text-xs text-ocean-500 flex-1 break-all">{endpointUrl}</code>
+                <button onClick={() => handleCopy(endpointUrl, "url")} className="text-muted-foreground hover:text-foreground shrink-0" aria-label="엔드포인트 URL 복사">
+                  {copied === "url" ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
 
             {/* API Key */}
             <div className="space-y-1.5">
-              <p className="text-xs text-slate-400 font-medium">X-Device-Key <span className="text-amber-400">(1회만 표시)</span></p>
-              <div className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-2.5 border border-amber-500/30">
-                <code className="text-xs text-amber-300 flex-1 break-all">{createdDevice?.api_key ?? ""}</code>
-                <button onClick={() => handleCopy(createdDevice?.api_key ?? "", "key")} className="text-slate-500 hover:text-white shrink-0" aria-label="API 키 복사">
-                  {copied === "key" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              <p className="text-xs text-muted-foreground font-medium">X-Device-Key <span className="text-amber-500">(1회만 표시)</span></p>
+              <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2.5 border border-amber-500/30">
+                <code className="text-xs text-amber-500 flex-1 break-all">{createdDevice?.api_key ?? ""}</code>
+                <button onClick={() => handleCopy(createdDevice?.api_key ?? "", "key")} className="text-muted-foreground hover:text-foreground shrink-0" aria-label="API 키 복사">
+                  {copied === "key" ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
 
             {/* ESP32 snippet */}
             <details className="group">
-              <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-300 list-none flex items-center gap-1">
+              <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground list-none flex items-center gap-1">
                 <ChevronDown className="w-3.5 h-3.5 group-open:hidden" />
                 <ChevronUp className="w-3.5 h-3.5 hidden group-open:block" />
                 ESP32 예제 코드 보기
               </summary>
-              <pre className="mt-2 text-[10px] text-slate-300 bg-slate-950 rounded-lg p-3 overflow-x-auto leading-relaxed border border-white/5">{`#include <WiFi.h>
+              <pre className="mt-2 text-[10px] text-muted-foreground bg-muted rounded-lg p-3 overflow-x-auto leading-relaxed border border-border">{`#include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
@@ -1060,21 +1060,21 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
   const activeCount = devices.filter(d => d.active).length
 
   return (
-    <div className="border-t border-white/5 pt-3 mt-1">
+    <div className="border-t border-border pt-3 mt-1">
       <button
         onClick={() => setExpanded(v => !v)}
-        className="w-full flex items-center justify-between text-xs text-slate-400 hover:text-slate-300 transition-colors"
+        className="w-full flex items-center justify-between text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
         <span className="flex items-center gap-1.5">
           <Cpu className="w-3.5 h-3.5" />
           기기 연동
           {activeCount > 0 && (
-            <span className="flex items-center gap-1 text-emerald-400">
+            <span className="flex items-center gap-1 text-emerald-500">
               <Wifi className="w-3 h-3" /> {activeCount}대 연결 중
             </span>
           )}
           {devices.length > 0 && activeCount === 0 && (
-            <span className="flex items-center gap-1 text-slate-500">
+            <span className="flex items-center gap-1 text-muted-foreground">
               <WifiOff className="w-3 h-3" /> 미연결
             </span>
           )}
@@ -1085,17 +1085,17 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
       {expanded && (
         <div className="mt-3 space-y-2">
           {loading ? (
-            <p className="text-xs text-slate-500 text-center py-2">불러오는 중...</p>
+            <p className="text-xs text-muted-foreground text-center py-2">불러오는 중...</p>
           ) : devices.length === 0 ? (
-            <p className="text-xs text-slate-500 text-center py-2">연결된 기기가 없습니다.</p>
+            <p className="text-xs text-muted-foreground text-center py-2">연결된 기기가 없습니다.</p>
           ) : (
             devices.map(device => (
-              <div key={device.id} className="flex items-center justify-between bg-slate-900/60 rounded-lg px-3 py-2">
+              <div key={device.id} className="flex items-center justify-between bg-muted rounded-lg px-3 py-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${device.active ? "bg-emerald-400 animate-pulse" : "bg-slate-500"}`} />
                   <div className="min-w-0">
-                    <p className="text-xs text-white font-medium truncate">{device.name}</p>
-                    <p className="text-[10px] text-slate-500">{timeSince(device.last_seen_at)}</p>
+                    <p className="text-xs text-foreground font-medium truncate">{device.name}</p>
+                    <p className="text-[10px] text-muted-foreground">{timeSince(device.last_seen_at)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -1103,8 +1103,8 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
                     onClick={() => handleToggle(device)}
                     className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
                       device.active
-                        ? "border-emerald-500/30 text-emerald-400 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30"
-                        : "border-slate-600 text-slate-500 hover:text-emerald-400 hover:border-emerald-500/30"
+                        ? "border-emerald-500/30 text-emerald-500 hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/30"
+                        : "border-border text-muted-foreground hover:text-emerald-500 hover:border-emerald-500/30"
                     }`}
                     title={device.active ? "비활성화" : "활성화"}
                   >
@@ -1113,7 +1113,7 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
                   <button
                     onClick={() => handleDelete(device.id)}
                     disabled={deletingId === device.id}
-                    className="p-1 rounded hover:bg-red-500/15 text-slate-500 hover:text-red-400 transition-colors"
+                    className="p-1 rounded hover:bg-red-500/15 text-muted-foreground hover:text-red-500 transition-colors"
                     title="삭제"
                     aria-label="기기 삭제"
                   >
@@ -1138,13 +1138,13 @@ function TankCard({ tank, onRefresh }: { tank: Tank; onRefresh: () => void }) {
   const isPulsing = tank.status === "warning" || tank.status === "danger"
 
   return (
-    <Card className={`bg-slate-800/50 border transition-all hover:border-white/15 hover:bg-slate-800/70 group ${meta.border}`}>
+    <Card className={`bg-card border transition-all hover:border-border hover:bg-card group ${meta.border}`}>
       <CardContent className="p-4 space-y-3">
         {/* Header row */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
             <span className={`w-2.5 h-2.5 rounded-full ${meta.dot} ${isPulsing ? "animate-pulse" : ""} shrink-0 mt-0.5`} />
-            <h3 className="text-white font-semibold text-base leading-tight">{tank.name}</h3>
+            <h3 className="text-foreground font-semibold text-base leading-tight">{tank.name}</h3>
           </div>
           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${meta.bg} ${meta.border} ${meta.text}`}>
             {meta.label}
@@ -1159,38 +1159,38 @@ function TankCard({ tank, onRefresh }: { tank: Tank; onRefresh: () => void }) {
 
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-2">
-          <div className="bg-slate-900/60 rounded-lg p-2.5">
-            <p className="text-slate-500 text-xs mb-0.5 flex items-center gap-1">
+          <div className="bg-muted rounded-lg p-2.5">
+            <p className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
               <Droplets className="w-3 h-3" /> 용량
             </p>
-            <p className="text-white font-bold text-sm">{tank.volume.toLocaleString()} m³</p>
+            <p className="text-foreground font-bold text-sm">{tank.volume.toLocaleString()} m³</p>
           </div>
-          <div className="bg-slate-900/60 rounded-lg p-2.5">
-            <p className="text-slate-500 text-xs mb-0.5 flex items-center gap-1">
+          <div className="bg-muted rounded-lg p-2.5">
+            <p className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
               <Layers className="w-3 h-3" /> 밀도
             </p>
-            <p className="text-white font-bold text-sm">{tank.stocking_density} 마리/m³</p>
+            <p className="text-foreground font-bold text-sm">{tank.stocking_density} 마리/m³</p>
           </div>
-          <div className="col-span-2 bg-slate-900/60 rounded-lg p-2.5">
-            <p className="text-slate-500 text-xs mb-0.5 flex items-center gap-1">
+          <div className="col-span-2 bg-muted rounded-lg p-2.5">
+            <p className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
               <Fish className="w-3 h-3" /> 새우 수
             </p>
-            <p className="text-white font-bold text-sm">{tank.shrimp_count.toLocaleString()} 마리</p>
+            <p className="text-foreground font-bold text-sm">{tank.shrimp_count.toLocaleString()} 마리</p>
           </div>
           {tank.stocking_date && (
-            <div className="bg-slate-900/60 rounded-lg p-2.5">
-              <p className="text-slate-500 text-xs mb-0.5 flex items-center gap-1">
+            <div className="bg-muted rounded-lg p-2.5">
+              <p className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
                 <Calendar className="w-3 h-3" /> 입식일
               </p>
-              <p className="text-white font-bold text-sm">{formatDate(tank.stocking_date)}</p>
+              <p className="text-foreground font-bold text-sm">{formatDate(tank.stocking_date)}</p>
             </div>
           )}
           {tank.harvest_date && (
-            <div className="bg-slate-900/60 rounded-lg p-2.5">
-              <p className="text-slate-500 text-xs mb-0.5 flex items-center gap-1">
+            <div className="bg-muted rounded-lg p-2.5">
+              <p className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
                 <ShoppingCart className="w-3 h-3" /> 예정 출하
               </p>
-              <p className={`font-bold text-sm ${new Date(tank.harvest_date) <= new Date() ? "text-red-400" : "text-white"}`}>
+              <p className={`font-bold text-sm ${new Date(tank.harvest_date) <= new Date() ? "text-red-500" : "text-foreground"}`}>
                 {formatDate(tank.harvest_date)}
               </p>
             </div>
@@ -1198,8 +1198,8 @@ function TankCard({ tank, onRefresh }: { tank: Tank; onRefresh: () => void }) {
         </div>
 
         {/* Action row */}
-        <div className="flex items-center justify-between pt-1 border-t border-white/5">
-          <p className="text-slate-600 text-xs">등록 {formatDate(tank.created_at)}</p>
+        <div className="flex items-center justify-between pt-1 border-t border-border">
+          <p className="text-muted-foreground text-xs">등록 {formatDate(tank.created_at)}</p>
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <EditTankDialog tank={tank} onSuccess={onRefresh} />
             <DeleteTankDialog tank={tank} onSuccess={onRefresh} />
@@ -1238,17 +1238,17 @@ function FarmCard({
       className={`w-full text-left rounded-xl border p-4 transition-all hover:border-ocean-500/50 hover:bg-ocean-500/5 ${
         selected
           ? "bg-ocean-500/10 border-ocean-500/40 ring-1 ring-ocean-500/20"
-          : "bg-slate-800/40 border-white/8 hover:bg-slate-800/60"
+          : "bg-muted border-border hover:bg-accent"
       }`}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2.5">
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${selected ? "bg-ocean-500/20" : "bg-slate-700/60"}`}>
-            <Building2 className={`w-4.5 h-4.5 ${selected ? "text-ocean-400" : "text-slate-400"}`} />
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${selected ? "bg-ocean-500/20" : "bg-muted"}`}>
+            <Building2 className={`w-4.5 h-4.5 ${selected ? "text-ocean-500" : "text-muted-foreground"}`} />
           </div>
           <div>
-            <p className={`font-semibold text-sm leading-tight ${selected ? "text-white" : "text-slate-200"}`}>{farm.name}</p>
-            <p className="text-slate-500 text-xs mt-0.5 flex items-center gap-1">
+            <p className={`font-semibold text-sm leading-tight ${selected ? "text-foreground" : "text-foreground/80"}`}>{farm.name}</p>
+            <p className="text-muted-foreground text-xs mt-0.5 flex items-center gap-1">
               <MapPin className="w-3 h-3 shrink-0" />
               <span className="truncate max-w-[140px]">{farm.location}</span>
             </p>
@@ -1260,32 +1260,32 @@ function FarmCard({
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className="bg-slate-900/40 rounded-lg px-2.5 py-1.5">
-          <p className="text-slate-500 mb-0.5">{t.farms.area}</p>
-          <p className="text-slate-200 font-medium">{farm.area.toLocaleString()} {t.farms.areaUnit}</p>
+        <div className="bg-background rounded-lg px-2.5 py-1.5">
+          <p className="text-muted-foreground mb-0.5">{t.farms.area}</p>
+          <p className="text-foreground font-medium">{farm.area.toLocaleString()} {t.farms.areaUnit}</p>
         </div>
-        <div className="bg-slate-900/40 rounded-lg px-2.5 py-1.5">
-          <p className="text-slate-500 mb-0.5">수조</p>
-          <p className="text-slate-200 font-medium">{tanks.length}{t.farms.tankCount}</p>
+        <div className="bg-background rounded-lg px-2.5 py-1.5">
+          <p className="text-muted-foreground mb-0.5">수조</p>
+          <p className="text-foreground font-medium">{tanks.length}{t.farms.tankCount}</p>
         </div>
       </div>
 
       {tanks.length > 0 && (
         <div className="flex items-center gap-2 mt-2.5">
           {active > 0 && (
-            <span className="flex items-center gap-1 text-xs text-emerald-400">
+            <span className="flex items-center gap-1 text-xs text-emerald-500">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               {active}
             </span>
           )}
           {warning > 0 && (
-            <span className="flex items-center gap-1 text-xs text-amber-400">
+            <span className="flex items-center gap-1 text-xs text-amber-500">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
               {warning}
             </span>
           )}
           {danger > 0 && (
-            <span className="flex items-center gap-1 text-xs text-red-400">
+            <span className="flex items-center gap-1 text-xs text-red-500">
               <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
               {danger}
             </span>
@@ -1309,15 +1309,15 @@ function StatusSummary({ tanks }: { tanks: Tank[] }) {
   const total = tanks.length
 
   const items = [
-    { key: "active" as const, label: t.dashboard.normal, color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400", Icon: CheckCircle },
-    { key: "warning" as const, label: t.dashboard.warning, color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20", dot: "bg-amber-400", Icon: AlertCircle },
-    { key: "danger" as const, label: t.dashboard.danger, color: "text-red-400", bg: "bg-red-500/10 border-red-500/20", dot: "bg-red-400", Icon: XCircle },
+    { key: "active" as const, label: t.dashboard.normal, color: "text-emerald-500", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400", Icon: CheckCircle },
+    { key: "warning" as const, label: t.dashboard.warning, color: "text-amber-500", bg: "bg-amber-500/10 border-amber-500/20", dot: "bg-amber-400", Icon: AlertCircle },
+    { key: "danger" as const, label: t.dashboard.danger, color: "text-red-500", bg: "bg-red-500/10 border-red-500/20", dot: "bg-red-400", Icon: XCircle },
   ]
 
   return (
     <div className="flex items-center gap-3 flex-wrap">
-      <span className="text-slate-500 text-xs font-medium">{t.common.all} {total}{t.farms.tankCount}</span>
-      <div className="w-px h-4 bg-white/8" />
+      <span className="text-muted-foreground text-xs font-medium">{t.common.all} {total}{t.farms.tankCount}</span>
+      <div className="w-px h-4 bg-border" />
       {items.map(({ key, label, color, bg, dot, Icon }) => (
         <div key={key} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${bg} ${color}`}>
           <span className={`w-1.5 h-1.5 rounded-full ${dot} ${key !== "active" ? "animate-pulse" : ""}`} />
@@ -1402,7 +1402,7 @@ export default function FarmsPage() {
       <div className="flex items-center justify-center h-64">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-ocean-500/30 border-t-ocean-500 rounded-full animate-spin" />
-          <p className="text-slate-400 text-sm">{t.common.loading}</p>
+          <p className="text-muted-foreground text-sm">{t.common.loading}</p>
         </div>
       </div>
     )
@@ -1413,11 +1413,11 @@ export default function FarmsPage() {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-ocean-400" />
+          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+            <Building2 className="w-5 h-5 text-ocean-500" />
             {t.farms.title}
           </h1>
-          <p className="text-slate-400 text-sm mt-0.5">
+          <p className="text-muted-foreground text-sm mt-0.5">
             {t.farms.subtitle}
           </p>
         </div>
@@ -1428,7 +1428,7 @@ export default function FarmsPage() {
       <div className="flex gap-5 items-start">
         {/* ── Left: Farm List ── */}
         <div className="w-72 shrink-0 space-y-3">
-          <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider px-1">
+          <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wider px-1">
             {t.nav.farms} ({farms.length})
           </p>
           {farms.map(farm => (
@@ -1443,10 +1443,10 @@ export default function FarmsPage() {
 
           {/* Farm info card */}
           {selectedFarm && (
-            <Card className="bg-slate-800/30 border-white/5 mt-2">
+            <Card className="bg-card border-border mt-2">
               <CardContent className="p-4 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">{t.farms.title}</p>
+                  <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">{t.farms.title}</p>
                   <div className="flex items-center gap-0.5">
                     <EditFarmDialog farm={selectedFarm} onSuccess={handleFarmAdded} />
                     <DeleteFarmDialog farm={selectedFarm} onSuccess={() => { setSelectedFarmId(""); handleFarmAdded() }} />
@@ -1454,20 +1454,20 @@ export default function FarmsPage() {
                 </div>
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-slate-500">{t.farms.farmName}</span>
-                    <span className="text-slate-200 font-medium">{selectedFarm.name}</span>
+                    <span className="text-muted-foreground">{t.farms.farmName}</span>
+                    <span className="text-foreground font-medium">{selectedFarm.name}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">{t.farms.location}</span>
-                    <span className="text-slate-200 font-medium text-right max-w-[140px]">{selectedFarm.location}</span>
+                    <span className="text-muted-foreground">{t.farms.location}</span>
+                    <span className="text-foreground font-medium text-right max-w-[140px]">{selectedFarm.location}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">{t.farms.area}</span>
-                    <span className="text-slate-200 font-medium">{selectedFarm.area.toLocaleString()} {t.farms.areaUnit}</span>
+                    <span className="text-muted-foreground">{t.farms.area}</span>
+                    <span className="text-foreground font-medium">{selectedFarm.area.toLocaleString()} {t.farms.areaUnit}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">등록일</span>
-                    <span className="text-slate-200 font-medium">{formatDate(selectedFarm.created_at)}</span>
+                    <span className="text-muted-foreground">등록일</span>
+                    <span className="text-foreground font-medium">{formatDate(selectedFarm.created_at)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -1480,8 +1480,8 @@ export default function FarmsPage() {
           {/* Tank section header */}
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="text-white font-semibold flex items-center gap-1.5">
-                <Layers className="w-4 h-4 text-teal-400" />
+              <h2 className="text-foreground font-semibold flex items-center gap-1.5">
+                <Layers className="w-4 h-4 text-teal-500" />
                 {selectedFarm?.name} 수조
               </h2>
               {selectedTanks.length > 0 && <StatusSummary tanks={selectedTanks} />}
@@ -1494,17 +1494,17 @@ export default function FarmsPage() {
             <div className="flex items-center justify-center h-40">
               <div className="flex flex-col items-center gap-3">
                 <div className="w-6 h-6 border-2 border-teal-500/30 border-t-teal-500 rounded-full animate-spin" />
-                <p className="text-slate-400 text-sm">{t.common.loading}</p>
+                <p className="text-muted-foreground text-sm">{t.common.loading}</p>
               </div>
             </div>
           ) : selectedTanks.length === 0 ? (
-            <Card className="bg-slate-800/30 border-white/5 border-dashed">
+            <Card className="bg-card border-border border-dashed">
               <CardContent className="py-16 flex flex-col items-center gap-3 text-center">
-                <div className="w-14 h-14 rounded-2xl bg-slate-700/60 flex items-center justify-center">
-                  <Layers className="w-7 h-7 text-slate-500" />
+                <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center">
+                  <Layers className="w-7 h-7 text-muted-foreground" />
                 </div>
-                <p className="text-slate-400 font-medium">{t.farms.noTanks}</p>
-                <p className="text-slate-600 text-sm">{t.farms.noTanksMsg}</p>
+                <p className="text-muted-foreground font-medium">{t.farms.noTanks}</p>
+                <p className="text-muted-foreground text-sm">{t.farms.noTanksMsg}</p>
               </CardContent>
             </Card>
           ) : (
