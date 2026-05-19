@@ -155,7 +155,7 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
     />
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button size="sm" className="bg-ocean-500 hover:bg-ocean-600 text-white gap-1.5">
+        <Button size="sm" className="bg-ocean-500 hover:bg-ocean-600 text-white gap-1.5 min-h-[40px]">
           <Plus className="w-4 h-4" /> {t.farms.addFarm}
         </Button>
       </DialogTrigger>
@@ -334,7 +334,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
     />
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="border-border text-muted-foreground hover:bg-accent gap-1.5">
+        <Button size="sm" variant="outline" className="border-border text-muted-foreground hover:bg-accent gap-1.5 min-h-[40px]">
           <Plus className="w-4 h-4" /> {t.farms.addTank}
         </Button>
       </DialogTrigger>
@@ -1315,11 +1315,11 @@ function StatusSummary({ tanks }: { tanks: Tank[] }) {
   ]
 
   return (
-    <div className="flex items-center gap-3 flex-wrap">
+    <div className="flex items-center gap-2 flex-wrap">
       <span className="text-muted-foreground text-xs font-medium">{t.common.all} {total}{t.farms.tankCount}</span>
-      <div className="w-px h-4 bg-border" />
+      <div className="hidden sm:block w-px h-4 bg-border" />
       {items.map(({ key, label, color, bg, dot, Icon }) => (
-        <div key={key} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${bg} ${color}`}>
+        <div key={key} className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-xs font-medium ${bg} ${color}`}>
           <span className={`w-1.5 h-1.5 rounded-full ${dot} ${key !== "active" ? "animate-pulse" : ""}`} />
           {label} {counts[key]}
         </div>
@@ -1453,20 +1453,20 @@ export default function FarmsPage() {
                   </div>
                 </div>
                 <div className="space-y-2 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t.farms.farmName}</span>
-                    <span className="text-foreground font-medium">{selectedFarm.name}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground shrink-0">{t.farms.farmName}</span>
+                    <span className="text-foreground font-medium text-right truncate max-w-[10rem]">{selectedFarm.name}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t.farms.location}</span>
-                    <span className="text-foreground font-medium text-right max-w-[12rem] truncate">{selectedFarm.location}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground shrink-0">{t.farms.location}</span>
+                    <span className="text-foreground font-medium text-right truncate max-w-[10rem]">{selectedFarm.location}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t.farms.area}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground shrink-0">{t.farms.area}</span>
                     <span className="text-foreground font-medium">{selectedFarm.area.toLocaleString()} {t.farms.areaUnit}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">등록일</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground shrink-0">등록일</span>
                     <span className="text-foreground font-medium">{formatDate(selectedFarm.created_at)}</span>
                   </div>
                 </div>
