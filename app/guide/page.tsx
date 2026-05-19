@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { ArrowRight, ChevronDown, ChevronUp } from "lucide-react"
+import { ArrowRight, ChevronDown, ChevronUp, Download } from "lucide-react"
 
 const STEPS = [
   {
@@ -213,12 +213,21 @@ export default function GuidePage() {
             </div>
             Shrimp365
           </Link>
-          <Link
-            href="/login"
-            className="text-sm bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold px-4 py-1.5 rounded-lg transition-all"
-          >
-            로그인
-          </Link>
+          <div className="flex items-center gap-2">
+            <a
+              href="/api/guide"
+              download="Shrimp365_사용설명서.pdf"
+              className="hidden sm:flex items-center gap-1.5 text-sm border border-border hover:bg-muted text-foreground px-3 py-1.5 rounded-lg transition-all"
+            >
+              <Download className="w-3.5 h-3.5" /> PDF
+            </a>
+            <Link
+              href="/login"
+              className="text-sm bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold px-4 py-1.5 rounded-lg transition-all"
+            >
+              로그인
+            </Link>
+          </div>
         </div>
       </nav>
 
@@ -388,12 +397,13 @@ export default function GuidePage() {
             >
               무료로 시작하기 <ArrowRight className="w-4 h-4" />
             </Link>
-            <Link
-              href="/login"
+            <a
+              href="/api/guide"
+              download="Shrimp365_사용설명서.pdf"
               className="inline-flex items-center justify-center gap-2 border border-border hover:bg-muted text-foreground px-8 py-3 rounded-xl transition-all text-sm font-medium"
             >
-              로그인하기
-            </Link>
+              <Download className="w-4 h-4" /> 사용설명서 PDF 다운로드
+            </a>
           </div>
         </div>
 

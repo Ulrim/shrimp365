@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowRight, ChevronDown, ChevronUp, ExternalLink } from "lucide-react"
+import { ArrowRight, ChevronDown, ChevronUp, ExternalLink, Download } from "lucide-react"
 
 const SECTIONS = [
   {
@@ -187,19 +187,32 @@ export default function InAppGuidePage() {
         </div>
       </div>
 
-      {/* Link to full guide */}
-      <a
-        href="/guide"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center justify-between gap-3 bg-gradient-to-r from-ocean-50 to-teal-50 border border-ocean-200 rounded-2xl p-4 hover:from-ocean-100 hover:to-teal-100 transition-all group"
-      >
-        <div>
-          <p className="font-semibold text-ocean-700 text-sm">전체 사용 가이드 보기</p>
-          <p className="text-xs text-ocean-600 mt-0.5">시작부터 고급 활용법까지 상세 설명서를 확인하세요.</p>
-        </div>
-        <ExternalLink className="w-4 h-4 text-ocean-500 shrink-0 group-hover:translate-x-0.5 transition-transform" />
-      </a>
+      {/* Links */}
+      <div className="space-y-3">
+        <a
+          href="/guide"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between gap-3 bg-gradient-to-r from-ocean-50 to-teal-50 border border-ocean-200 rounded-2xl p-4 hover:from-ocean-100 hover:to-teal-100 transition-all group"
+        >
+          <div>
+            <p className="font-semibold text-ocean-700 text-sm">전체 사용 가이드 보기</p>
+            <p className="text-xs text-ocean-600 mt-0.5">시작부터 고급 활용법까지 상세 설명서를 확인하세요.</p>
+          </div>
+          <ExternalLink className="w-4 h-4 text-ocean-500 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+        </a>
+        <a
+          href="/api/guide"
+          download="Shrimp365_사용설명서.pdf"
+          className="flex items-center justify-between gap-3 bg-card border border-border rounded-2xl p-4 hover:bg-muted transition-all group"
+        >
+          <div>
+            <p className="font-semibold text-foreground text-sm">사용설명서 PDF 다운로드</p>
+            <p className="text-xs text-muted-foreground mt-0.5">오프라인에서도 볼 수 있도록 PDF로 저장하세요. (7페이지)</p>
+          </div>
+          <Download className="w-4 h-4 text-muted-foreground shrink-0" />
+        </a>
+      </div>
     </div>
   )
 }
