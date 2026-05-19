@@ -69,6 +69,7 @@ export interface Dict {
     }
   }
   nav: {
+    home: string
     dashboard: string
     farms: string
     waterQuality: string
@@ -81,6 +82,29 @@ export interface Dict {
     settings: string
     upgrade: string
     admin: string
+    sectionRecord: string
+    sectionMonitor: string
+  }
+  hub: {
+    greeting: string
+    recordButton: string
+    monitorButton: string
+  }
+  record: {
+    chooseTitle: string
+    waterQuality: string
+    journal: string
+  }
+  wizard: {
+    back: string
+    next: string
+    skip: string
+    save: string
+    saved: string
+    step: string
+    selectTank: string
+    date: string
+    confirmTitle: string
   }
   inventory: {
     title: string

@@ -71,6 +71,7 @@ export const ko: Dict = {
     },
   },
   nav: {
+    home: "홈",
     dashboard: "대시보드",
     farms: "양식장·수조",
     waterQuality: "수질 모니터링",
@@ -83,6 +84,29 @@ export const ko: Dict = {
     settings: "설정",
     upgrade: "업그레이드",
     admin: "시스템 모니터링",
+    sectionRecord: "기록",
+    sectionMonitor: "모니터링",
+  },
+  hub: {
+    greeting: "안녕하세요, {{name}}님!",
+    recordButton: "오늘 기록하기",
+    monitorButton: "현황 보기",
+  },
+  record: {
+    chooseTitle: "무엇을 기록할까요?",
+    waterQuality: "수질 기록",
+    journal: "양식 일지",
+  },
+  wizard: {
+    back: "이전",
+    next: "다음",
+    skip: "건너뛰기",
+    save: "저장",
+    saved: "저장됨",
+    step: "단계",
+    selectTank: "수조를 선택하세요",
+    date: "날짜",
+    confirmTitle: "입력 내용 확인",
   },
   auth: {
     loginTitle: "로그인",

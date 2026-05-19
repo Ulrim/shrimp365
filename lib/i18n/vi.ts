@@ -71,6 +71,7 @@ export const vi: Dict = {
     },
   },
   nav: {
+    home: "Trang chủ",
     dashboard: "Bảng điều khiển",
     farms: "Trại & Bể",
     waterQuality: "Chất lượng nước",
@@ -83,6 +84,29 @@ export const vi: Dict = {
     settings: "Cài đặt",
     upgrade: "Nâng cấp",
     admin: "Giám sát hệ thống",
+    sectionRecord: "Ghi chép",
+    sectionMonitor: "Theo dõi",
+  },
+  hub: {
+    greeting: "Xin chào, {{name}}!",
+    recordButton: "Ghi chép hôm nay",
+    monitorButton: "Xem tình trạng",
+  },
+  record: {
+    chooseTitle: "Bạn muốn ghi chép gì?",
+    waterQuality: "Chất lượng nước",
+    journal: "Nhật ký trại",
+  },
+  wizard: {
+    back: "Quay lại",
+    next: "Tiếp theo",
+    skip: "Bỏ qua",
+    save: "Lưu",
+    saved: "Đã lưu",
+    step: "Bước",
+    selectTank: "Chọn bể",
+    date: "Ngày",
+    confirmTitle: "Xem lại thông tin",
   },
   auth: {
     loginTitle: "Đăng nhập",

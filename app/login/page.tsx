@@ -28,7 +28,7 @@ export default function LoginPage() {
     const result = await login(email, password)
     setLoading(false)
     if (result.success) {
-      router.replace("/dashboard")
+      router.replace("/home")
     } else {
       setError(result.error || t.auth.loginFailed)
     }

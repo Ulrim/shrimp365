@@ -215,7 +215,7 @@ export default function LandingPage() {
   const [faqOpen, setFaqOpen] = useState<number | null>(null)
 
   useEffect(() => {
-    if (!loading && user) router.replace("/dashboard")
+    if (!loading && user) router.replace("/home")
   }, [user, loading, router])
 
   function handleDemo() {

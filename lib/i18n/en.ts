@@ -71,6 +71,7 @@ export const en: Dict = {
     },
   },
   nav: {
+    home: "Home",
     dashboard: "Dashboard",
     farms: "Farms & Tanks",
     waterQuality: "Water Quality",
@@ -83,6 +84,29 @@ export const en: Dict = {
     settings: "Settings",
     upgrade: "Upgrade",
     admin: "System Monitor",
+    sectionRecord: "Record",
+    sectionMonitor: "Monitor",
+  },
+  hub: {
+    greeting: "Hello, {{name}}!",
+    recordButton: "Record Today",
+    monitorButton: "View Status",
+  },
+  record: {
+    chooseTitle: "What would you like to record?",
+    waterQuality: "Water Quality",
+    journal: "Farm Journal",
+  },
+  wizard: {
+    back: "Back",
+    next: "Next",
+    skip: "Skip",
+    save: "Save",
+    saved: "Saved",
+    step: "Step",
+    selectTank: "Select a tank",
+    date: "Date",
+    confirmTitle: "Review Your Input",
   },
   auth: {
     loginTitle: "Sign In",

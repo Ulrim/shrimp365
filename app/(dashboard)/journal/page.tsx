@@ -167,15 +167,15 @@ function saveJournalDefaults(form: typeof defaultJournalForm) {
 function JournalCard({ entry, onEdit, onDelete }: { entry: JournalEntry; onEdit: (e: JournalEntry) => void; onDelete: (e: JournalEntry) => void }) {
   const { t } = useT()
   return (
-    <Card className="bg-slate-800/50 border-white/5 hover:border-white/10 transition-all group">
+    <Card className="bg-card border-border hover:border-border/80 transition-all group">
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-white font-semibold">{entry.tank_name}</span>
+              <span className="text-foreground font-semibold">{entry.tank_name}</span>
               <Badge variant="ocean" className="text-xs">{formatDate(entry.date)}</Badge>
             </div>
-            <div className="flex items-center gap-1 text-xs text-slate-500">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <User className="w-3 h-3" />
               <span>{entry.created_by}</span>
               <span>·</span>
@@ -183,45 +183,45 @@ function JournalCard({ entry, onEdit, onDelete }: { entry: JournalEntry; onEdit:
             </div>
           </div>
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onClick={() => onEdit(entry)} className="p-1.5 rounded-lg text-slate-500 hover:text-ocean-400 hover:bg-white/5 transition-colors" aria-label={t.journal.editEntry}>
+            <button onClick={() => onEdit(entry)} className="p-1.5 rounded-lg text-muted-foreground hover:text-ocean-500 hover:bg-accent transition-colors" aria-label={t.journal.editEntry}>
               <Pencil className="w-3.5 h-3.5" />
             </button>
-            <button onClick={() => onDelete(entry)} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-white/5 transition-colors" aria-label={t.common.delete}>
+            <button onClick={() => onDelete(entry)} className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-accent transition-colors" aria-label={t.common.delete}>
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-          <div className="bg-slate-700/50 rounded-lg p-3 text-center">
-            <div className="flex items-center justify-center gap-1 text-ocean-400 mb-1"><UtensilsCrossed className="w-3.5 h-3.5" /></div>
-            <p className="text-lg font-bold text-white">{entry.feeding_amount}<span className="text-xs text-slate-400">kg</span></p>
-            <p className="text-xs text-slate-400">{t.journal.catFeeding}</p>
+          <div className="bg-muted rounded-lg p-3 text-center">
+            <div className="flex items-center justify-center gap-1 text-ocean-500 mb-1"><UtensilsCrossed className="w-3.5 h-3.5" /></div>
+            <p className="text-lg font-bold text-foreground">{entry.feeding_amount}<span className="text-xs text-muted-foreground">kg</span></p>
+            <p className="text-xs text-muted-foreground">{t.journal.catFeeding}</p>
           </div>
-          <div className="bg-slate-700/50 rounded-lg p-3 text-center">
-            <div className="flex items-center justify-center gap-1 text-amber-400 mb-1"><Skull className="w-3.5 h-3.5" /></div>
-            <p className="text-lg font-bold text-white">{entry.mortality_count.toLocaleString()}<span className="text-xs text-slate-400">마리</span></p>
-            <p className="text-xs text-slate-400">폐사</p>
+          <div className="bg-muted rounded-lg p-3 text-center">
+            <div className="flex items-center justify-center gap-1 text-amber-500 mb-1"><Skull className="w-3.5 h-3.5" /></div>
+            <p className="text-lg font-bold text-foreground">{entry.mortality_count.toLocaleString()}<span className="text-xs text-muted-foreground">마리</span></p>
+            <p className="text-xs text-muted-foreground">폐사</p>
           </div>
-          <div className="bg-slate-700/50 rounded-lg p-3 text-center">
-            <div className="flex items-center justify-center gap-1 text-teal-400 mb-1"><RefreshCw className="w-3.5 h-3.5" /></div>
-            <p className="text-lg font-bold text-white">{entry.water_exchange_rate}<span className="text-xs text-slate-400">%</span></p>
-            <p className="text-xs text-slate-400">{t.journal.catWaterChange}</p>
+          <div className="bg-muted rounded-lg p-3 text-center">
+            <div className="flex items-center justify-center gap-1 text-teal-500 mb-1"><RefreshCw className="w-3.5 h-3.5" /></div>
+            <p className="text-lg font-bold text-foreground">{entry.water_exchange_rate}<span className="text-xs text-muted-foreground">%</span></p>
+            <p className="text-xs text-muted-foreground">{t.journal.catWaterChange}</p>
           </div>
-          <div className="bg-slate-700/50 rounded-lg p-3 text-center">
-            <div className="flex items-center justify-center gap-1 text-purple-400 mb-1"><FlaskConical className="w-3.5 h-3.5" /></div>
-            <p className="text-sm font-bold text-white">{entry.microbial_input ? entry.microbial_type || "투입" : "미투입"}</p>
-            <p className="text-xs text-slate-400">미생물</p>
+          <div className="bg-muted rounded-lg p-3 text-center">
+            <div className="flex items-center justify-center gap-1 text-purple-500 mb-1"><FlaskConical className="w-3.5 h-3.5" /></div>
+            <p className="text-sm font-bold text-foreground">{entry.microbial_input ? entry.microbial_type || "투입" : "미투입"}</p>
+            <p className="text-xs text-muted-foreground">미생물</p>
           </div>
         </div>
 
-        <div className="text-xs text-slate-300 bg-slate-700/30 rounded-lg px-3 py-2 flex items-start gap-2">
-          <p className="text-xs text-slate-400 font-medium shrink-0">사료:</p>
+        <div className="text-xs text-foreground/80 bg-muted rounded-lg px-3 py-2 flex items-start gap-2">
+          <p className="text-xs text-muted-foreground font-medium shrink-0">사료:</p>
           <p>{entry.feed_type} · 일 {entry.feeding_times}회</p>
         </div>
         {entry.notes && (
-          <div className="mt-2 text-xs text-slate-300 bg-slate-700/30 rounded-lg px-3 py-2 flex items-start gap-2">
-            <StickyNote className="w-3 h-3 text-slate-400 mt-0.5 shrink-0" />
+          <div className="mt-2 text-xs text-foreground/80 bg-muted rounded-lg px-3 py-2 flex items-start gap-2">
+            <StickyNote className="w-3 h-3 text-muted-foreground mt-0.5 shrink-0" />
             <p>{entry.notes}</p>
           </div>
         )}
@@ -234,15 +234,15 @@ function JournalCard({ entry, onEdit, onDelete }: { entry: JournalEntry; onEdit:
 
 function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string }) {
   return (
-    <Card className="bg-slate-800/50 border-white/5 hover:border-white/10 transition-all">
+    <Card className="bg-card border-border hover:border-border/80 transition-all">
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-sm text-slate-400 mb-1">{label}</p>
+            <p className="text-sm text-muted-foreground mb-1">{label}</p>
             <p className={`text-3xl font-bold ${color}`}>{value}</p>
-            {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
+            {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
           </div>
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-white/5">{icon}</div>
+          <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-muted">{icon}</div>
         </div>
       </CardContent>
     </Card>
@@ -252,10 +252,10 @@ function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; l
 function RiskScaleIndicator({ worstRisk }: { worstRisk: RiskLevel }) {
   const { t } = useT()
   return (
-    <Card className="bg-slate-800/50 border-white/5">
+    <Card className="bg-card border-border">
       <CardHeader className="pb-3">
-        <CardTitle className="text-white text-base flex items-center gap-2">
-          <Activity className="w-4 h-4 text-purple-400" />현재 위험 단계
+        <CardTitle className="text-foreground text-base flex items-center gap-2">
+          <Activity className="w-4 h-4 text-purple-500" />현재 위험 단계
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -266,8 +266,8 @@ function RiskScaleIndicator({ worstRisk }: { worstRisk: RiskLevel }) {
             const isPast = idx < RISK_STEPS.findIndex(s => s.key === worstRisk)
             return (
               <div key={step.key} className="flex-1 flex flex-col items-center gap-2">
-                <div className={`h-2.5 w-full rounded-full transition-all ${isActive || isPast ? meta.bar : "bg-slate-700"} ${isActive ? "ring-2 ring-offset-2 ring-offset-slate-800 ring-white/30" : ""}`} />
-                <span className={`text-xs font-medium ${isActive ? meta.color : isPast ? "text-slate-400" : "text-slate-600"}`}>{step.label}</span>
+                <div className={`h-2.5 w-full rounded-full transition-all ${isActive || isPast ? meta.bar : "bg-muted"} ${isActive ? "ring-2 ring-offset-2 ring-offset-background ring-border" : ""}`} />
+                <span className={`text-xs font-medium ${isActive ? meta.color : isPast ? "text-muted-foreground" : "text-muted-foreground/50"}`}>{step.label}</span>
               </div>
             )
           })}
@@ -276,7 +276,7 @@ function RiskScaleIndicator({ worstRisk }: { worstRisk: RiskLevel }) {
           <AlertTriangle className={`w-5 h-5 shrink-0 ${RISK_META[worstRisk].color}`} />
           <div>
             <p className={`text-sm font-semibold ${RISK_META[worstRisk].color}`}>{RISK_META[worstRisk].label} 위험 단계</p>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               {worstRisk === "low" && "현재 모든 수조가 정상 범위입니다."}
               {worstRisk === "medium" && "일부 수조에서 주의가 필요합니다. 모니터링을 강화하세요."}
               {worstRisk === "high" && `${t.diagnosis.urgentAction}. ${t.diagnosis.biosecurity}`}
@@ -713,31 +713,31 @@ export default function JournalPage() {
 
       {/* Diagnosis Toast */}
       {dToast && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] bg-slate-800 border border-white/10 text-white text-sm px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 animate-fade-in">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />{dToast}
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] bg-card border border-border text-foreground text-sm px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 animate-fade-in">
+          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />{dToast}
         </div>
       )}
 
       {/* Page Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-xl font-bold text-white">
+          <h2 className="text-xl font-bold text-foreground">
             {pageTab === "journal" ? t.journal.title : t.diagnosis.title}
           </h2>
-          <p className="text-sm text-slate-400 mt-0.5">
+          <p className="text-sm text-muted-foreground mt-0.5">
             {pageTab === "journal" ? t.journal.subtitle : t.diagnosis.subtitle}
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* Tab switcher */}
-          <div className="flex bg-slate-800 border border-white/10 rounded-xl p-1">
+          <div className="flex bg-muted border border-border rounded-xl p-1">
             <button
               onClick={() => setPageTab("journal")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 pageTab === "journal"
-                  ? "bg-ocean-500/20 text-ocean-300 border border-ocean-500/30"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-ocean-50 text-ocean-600 border border-ocean-200"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <BookOpen className="w-3.5 h-3.5" />{t.journal.title}
@@ -746,8 +746,8 @@ export default function JournalPage() {
               onClick={() => setPageTab("diagnosis")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 pageTab === "diagnosis"
-                  ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-purple-50 text-purple-600 border border-purple-200"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <FlaskConical className="w-3.5 h-3.5" />{t.diagnosis.title}
@@ -761,7 +761,7 @@ export default function JournalPage() {
                 <Button
                   variant="outline"
                   onClick={handleJCsvExport}
-                  className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
+                  className="border-border text-muted-foreground hover:text-foreground hover:bg-accent"
                 >
                   <Download className="w-4 h-4 mr-1" />CSV
                   {!hasExport(plan) && <span className="ml-1 text-xs text-amber-400">Basic+</span>}
@@ -783,7 +783,7 @@ export default function JournalPage() {
                 <Button
                   variant="outline"
                   onClick={handleDCsvExport}
-                  className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
+                  className="border-border text-muted-foreground hover:text-foreground hover:bg-accent"
                   title={hasExport(plan) ? t.diagnosis.csvExport : t.diagnosis.csvProOnly}
                 >
                   <Download className="w-4 h-4 mr-1" />CSV
@@ -796,7 +796,7 @@ export default function JournalPage() {
                     ? "bg-red-500/10 border-red-500/30 text-red-400"
                     : thisMonthCount >= diagLimit * 0.7
                     ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                    : "bg-slate-800/60 border-white/10 text-slate-400"
+                    : "bg-muted border-border text-muted-foreground"
                 }`}>
                   {t.diagnosis.thisMonth} {thisMonthCount}/{diagLimit}회
                 </span>
@@ -898,16 +898,16 @@ export default function JournalPage() {
       {/* ── Journal Tab ── */}
       {pageTab === "journal" && (
         <>
-          <div className="flex flex-wrap items-center gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
-            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+          <div className="flex flex-wrap items-center gap-3 bg-muted border border-border rounded-xl px-4 py-3">
+            <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
             <div className="flex items-center gap-2">
-              <input type="date" value={jFilterFrom} onChange={e => setJFilterFrom(e.target.value)} className="bg-slate-700 border border-white/10 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-ocean-400" />
-              <span className="text-slate-500 text-sm">~</span>
-              <input type="date" value={jFilterTo} onChange={e => setJFilterTo(e.target.value)} className="bg-slate-700 border border-white/10 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-ocean-400" />
+              <input type="date" value={jFilterFrom} onChange={e => setJFilterFrom(e.target.value)} className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-ocean-500" />
+              <span className="text-muted-foreground text-sm">~</span>
+              <input type="date" value={jFilterTo} onChange={e => setJFilterTo(e.target.value)} className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-ocean-500" />
             </div>
-            <Button size="sm" onClick={handleJFilter} className="bg-ocean-500/20 hover:bg-ocean-500/30 text-ocean-300 border border-ocean-500/30">{t.common.filter}</Button>
+            <Button size="sm" onClick={handleJFilter} className="bg-ocean-50 hover:bg-ocean-100 text-ocean-600 border border-ocean-200">{t.common.filter}</Button>
             {(jFilterFrom || jFilterTo) && (
-              <button onClick={() => { setJFilterFrom(""); setJFilterTo(""); setJOffset(0); loadJournals("", "", 0, true) }} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">{t.common.reset}</button>
+              <button onClick={() => { setJFilterFrom(""); setJFilterTo(""); setJOffset(0); loadJournals("", "", 0, true) }} className="text-xs text-muted-foreground hover:text-foreground/80 transition-colors">{t.common.reset}</button>
             )}
           </div>
 
@@ -917,14 +917,14 @@ export default function JournalPage() {
             <>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {journals.length === 0 ? (
-                  <p className="text-slate-400 text-sm col-span-2 text-center py-12">{t.journal.noEntries}. {t.journal.noEntriesMsg}</p>
+                  <p className="text-muted-foreground text-sm col-span-2 text-center py-12">{t.journal.noEntries}. {t.journal.noEntriesMsg}</p>
                 ) : journals.map(entry => (
                   <JournalCard key={entry.id} entry={entry} onEdit={handleJEdit} onDelete={setJDeleteTarget} />
                 ))}
               </div>
               {jHasMore && (
                 <div className="flex justify-center">
-                  <Button variant="outline" onClick={handleJLoadMore} disabled={jLoadingMore} className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5">
+                  <Button variant="outline" onClick={handleJLoadMore} disabled={jLoadingMore} className="border-border text-muted-foreground hover:text-foreground hover:bg-accent">
                     {jLoadingMore
                       ? <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />{t.common.loading}</span>
                       : <span className="flex items-center gap-2"><ChevronDown className="w-4 h-4" />더 보기</span>}
@@ -939,22 +939,22 @@ export default function JournalPage() {
       {/* ── Diagnosis Tab ── */}
       {pageTab === "diagnosis" && (
         <>
-          <div className="flex flex-wrap items-center gap-3 bg-slate-800/40 border border-white/5 rounded-xl px-4 py-3">
-            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+          <div className="flex flex-wrap items-center gap-3 bg-muted border border-border rounded-xl px-4 py-3">
+            <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
             <div className="flex items-center gap-2">
-              <input type="date" value={dFilterFrom} onChange={e => setDFilterFrom(e.target.value)} className="bg-slate-700 border border-white/10 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400" />
-              <span className="text-slate-500 text-sm">~</span>
-              <input type="date" value={dFilterTo} onChange={e => setDFilterTo(e.target.value)} className="bg-slate-700 border border-white/10 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400" />
+              <input type="date" value={dFilterFrom} onChange={e => setDFilterFrom(e.target.value)} className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-500" />
+              <span className="text-muted-foreground text-sm">~</span>
+              <input type="date" value={dFilterTo} onChange={e => setDFilterTo(e.target.value)} className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-500" />
             </div>
-            <Button size="sm" onClick={handleDFilter} className="bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30">{t.common.filter}</Button>
+            <Button size="sm" onClick={handleDFilter} className="bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-200">{t.common.filter}</Button>
             {(dFilterFrom || dFilterTo) && (
-              <button onClick={() => { setDFilterFrom(""); setDFilterTo(""); setDOffset(0); loadDiagnoses("", "", 0, true) }} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">{t.common.reset}</button>
+              <button onClick={() => { setDFilterFrom(""); setDFilterTo(""); setDOffset(0); loadDiagnoses("", "", 0, true) }} className="text-xs text-muted-foreground hover:text-foreground/80 transition-colors">{t.common.reset}</button>
             )}
           </div>
 
           {dLoading ? (
-            <Card className="bg-slate-800/50 border-white/5">
-              <CardContent className="p-8 text-center text-slate-400">
+            <Card className="bg-card border-border">
+              <CardContent className="p-8 text-center text-muted-foreground">
                 <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3 text-purple-400" />{t.common.loading}
               </CardContent>
             </Card>
@@ -969,15 +969,15 @@ export default function JournalPage() {
 
               <RiskScaleIndicator worstRisk={dWorstRisk} />
 
-              <Card className="bg-slate-800/50 border-white/5">
+              <Card className="bg-card border-border">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-white text-base flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-purple-400" />진단 이력 ({diagnoses.length}건)
+                  <CardTitle className="text-foreground text-base flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-purple-500" />진단 이력 ({diagnoses.length}건)
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {diagnoses.length === 0 ? (
-                    <div className="text-center py-14 text-slate-500">
+                    <div className="text-center py-14 text-muted-foreground">
                       <FlaskConical className="w-10 h-10 mx-auto mb-3 opacity-30" />
                       <p className="text-sm">{t.diagnosis.noTests}</p>
                       <p className="text-xs mt-1">{t.diagnosis.noTestsMsg}</p>
@@ -988,7 +988,7 @@ export default function JournalPage() {
                       <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="text-slate-500 text-xs border-b border-white/5">
+                            <tr className="text-muted-foreground text-xs border-b border-border">
                               <th className="text-left pb-3 font-medium">{t.diagnosis.tank}</th>
                               <th className="text-left pb-3 font-medium">{t.diagnosis.testType}</th>
                               <th className="text-left pb-3 font-medium">{t.diagnosis.result}</th>
@@ -1000,24 +1000,24 @@ export default function JournalPage() {
                               <th className="pb-3 w-16" />
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-white/5">
+                          <tbody className="divide-y divide-border">
                             {diagnoses.map(d => {
                               const rm = RESULT_META[d.result as ResultType]
                               const rk = RISK_META[d.risk_level as RiskLevel]
                               return (
-                                <tr key={d.id} className="hover:bg-white/[0.02] transition-colors group">
-                                  <td className="py-4 text-white font-medium">{d.tank_name}</td>
-                                  <td className="py-4 text-slate-300">{d.test_type}</td>
+                                <tr key={d.id} className="hover:bg-accent transition-colors group">
+                                  <td className="py-4 text-foreground font-medium">{d.tank_name}</td>
+                                  <td className="py-4 text-foreground/80">{d.test_type}</td>
                                   <td className="py-4"><Badge variant={rm.badgeVariant} className="flex items-center gap-1 w-fit">{rm.icon}{d.result}</Badge></td>
-                                  <td className="py-4 text-right text-slate-300 tabular-nums">{d.vibrio_count > 0 ? `${d.vibrio_count.toLocaleString()} CFU/mL` : "—"}</td>
-                                  <td className="py-4 text-right text-slate-300 tabular-nums">{d.pathogenic_ratio > 0 ? `${d.pathogenic_ratio}%` : "—"}</td>
+                                  <td className="py-4 text-right text-foreground/80 tabular-nums">{d.vibrio_count > 0 ? `${d.vibrio_count.toLocaleString()} CFU/mL` : "—"}</td>
+                                  <td className="py-4 text-right text-foreground/80 tabular-nums">{d.pathogenic_ratio > 0 ? `${d.pathogenic_ratio}%` : "—"}</td>
                                   <td className="py-4 text-right"><Badge variant={rk.badgeVariant} className="w-fit ml-auto">{rk.label}</Badge></td>
-                                  <td className="py-4 text-right text-slate-500 text-xs whitespace-nowrap">{formatDateTime(d.tested_at)}</td>
-                                  <td className="py-4 pl-4 text-slate-400 text-xs max-w-[200px] truncate">{d.action_taken ?? "—"}</td>
+                                  <td className="py-4 text-right text-muted-foreground text-xs whitespace-nowrap">{formatDateTime(d.tested_at)}</td>
+                                  <td className="py-4 pl-4 text-muted-foreground text-xs max-w-[200px] truncate">{d.action_taken ?? "—"}</td>
                                   <td className="py-4">
                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
-                                      <button onClick={() => openDEdit(d)} className="p-1.5 rounded-lg text-slate-500 hover:text-ocean-400 hover:bg-white/5 transition-colors" aria-label={t.common.edit}><Pencil className="w-3.5 h-3.5" /></button>
-                                      <button onClick={() => setDDeleteTarget(d)} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-white/5 transition-colors" aria-label={t.common.delete}><Trash2 className="w-3.5 h-3.5" /></button>
+                                      <button onClick={() => openDEdit(d)} className="p-1.5 rounded-lg text-muted-foreground hover:text-ocean-500 hover:bg-accent transition-colors" aria-label={t.common.edit}><Pencil className="w-3.5 h-3.5" /></button>
+                                      <button onClick={() => setDDeleteTarget(d)} className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-accent transition-colors" aria-label={t.common.delete}><Trash2 className="w-3.5 h-3.5" /></button>
                                     </div>
                                   </td>
                                 </tr>
@@ -1036,8 +1036,8 @@ export default function JournalPage() {
                             <div key={d.id} className={`p-4 rounded-xl border ${rk.bg} space-y-3`}>
                               <div className="flex items-center justify-between">
                                 <div>
-                                  <p className="text-white font-semibold">{d.tank_name}</p>
-                                  <p className="text-xs text-slate-400 mt-0.5">{d.test_type}</p>
+                                  <p className="text-foreground font-semibold">{d.tank_name}</p>
+                                  <p className="text-xs text-muted-foreground mt-0.5">{d.test_type}</p>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Badge variant={rm.badgeVariant} className="flex items-center gap-1">{rm.icon}{d.result}</Badge>
@@ -1045,28 +1045,28 @@ export default function JournalPage() {
                                 </div>
                               </div>
                               <div className="grid grid-cols-2 gap-2 text-xs">
-                                <div className="bg-slate-800/60 rounded-lg p-2">
-                                  <p className="text-slate-500">비브리오수</p>
-                                  <p className="text-slate-200 font-medium mt-0.5">{d.vibrio_count > 0 ? `${d.vibrio_count.toLocaleString()} CFU/mL` : "—"}</p>
+                                <div className="bg-muted rounded-lg p-2">
+                                  <p className="text-muted-foreground">비브리오수</p>
+                                  <p className="text-foreground/80 font-medium mt-0.5">{d.vibrio_count > 0 ? `${d.vibrio_count.toLocaleString()} CFU/mL` : "—"}</p>
                                 </div>
-                                <div className="bg-slate-800/60 rounded-lg p-2">
-                                  <p className="text-slate-500">병원성 비율</p>
-                                  <p className="text-slate-200 font-medium mt-0.5">{d.pathogenic_ratio > 0 ? `${d.pathogenic_ratio}%` : "—"}</p>
+                                <div className="bg-muted rounded-lg p-2">
+                                  <p className="text-muted-foreground">병원성 비율</p>
+                                  <p className="text-foreground/80 font-medium mt-0.5">{d.pathogenic_ratio > 0 ? `${d.pathogenic_ratio}%` : "—"}</p>
                                 </div>
                               </div>
-                              <div className="flex items-center justify-between text-xs text-slate-500">
+                              <div className="flex items-center justify-between text-xs text-muted-foreground">
                                 <span className="flex items-center gap-1"><User className="w-3 h-3" />{d.tested_by}</span>
                                 <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatDateTime(d.tested_at)}</span>
                               </div>
                               {d.action_taken && (
-                                <div className="bg-slate-800/60 rounded-lg p-2 text-xs">
-                                  <p className="text-slate-500 mb-0.5">조치사항</p>
-                                  <p className="text-slate-300">{d.action_taken}</p>
+                                <div className="bg-muted rounded-lg p-2 text-xs">
+                                  <p className="text-muted-foreground mb-0.5">조치사항</p>
+                                  <p className="text-foreground/80">{d.action_taken}</p>
                                 </div>
                               )}
                               <div className="flex items-center justify-end gap-1 pt-1">
-                                <button onClick={() => openDEdit(d)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-slate-400 hover:text-ocean-400 hover:bg-white/5 transition-colors"><Pencil className="w-3 h-3" />{t.common.edit}</button>
-                                <button onClick={() => setDDeleteTarget(d)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-slate-400 hover:text-red-400 hover:bg-white/5 transition-colors"><Trash2 className="w-3 h-3" />{t.common.delete}</button>
+                                <button onClick={() => openDEdit(d)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-muted-foreground hover:text-ocean-500 hover:bg-accent transition-colors"><Pencil className="w-3 h-3" />{t.common.edit}</button>
+                                <button onClick={() => setDDeleteTarget(d)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-muted-foreground hover:text-red-500 hover:bg-accent transition-colors"><Trash2 className="w-3 h-3" />{t.common.delete}</button>
                               </div>
                             </div>
                           )
@@ -1079,7 +1079,7 @@ export default function JournalPage() {
 
               {dHasMore && (
                 <div className="flex justify-center">
-                  <Button variant="outline" onClick={handleDLoadMore} disabled={dLoadingMore} className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5">
+                  <Button variant="outline" onClick={handleDLoadMore} disabled={dLoadingMore} className="border-border text-muted-foreground hover:text-foreground hover:bg-accent">
                     {dLoadingMore
                       ? <span className="flex items-center gap-2"><RefreshCw className="w-4 h-4 animate-spin" />{t.common.loading}</span>
                       : <span className="flex items-center gap-2"><ChevronDown className="w-4 h-4" />더 보기</span>}

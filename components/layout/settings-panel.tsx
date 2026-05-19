@@ -223,28 +223,28 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       {/* Panel */}
-      <div ref={panelRef} className="relative w-full max-w-lg mx-4 bg-slate-900 border border-white/15 rounded-2xl shadow-2xl overflow-hidden">
+      <div ref={panelRef} className="relative w-full max-w-lg mx-4 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2">
-            <Settings className="w-4 h-4 text-ocean-400" />
-            <span className="text-white font-semibold">{t.settings.title}</span>
+            <Settings className="w-4 h-4 text-ocean-500" />
+            <span className="text-foreground font-semibold">{t.settings.title}</span>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-white/10">
+        <div className="flex border-b border-border">
           {TABS.map(tab_ => (
             <button
               key={tab_.id}
               onClick={() => setTab(tab_.id)}
               className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium transition-colors ${
                 tab === tab_.id
-                  ? "text-ocean-400 border-b-2 border-ocean-400 bg-ocean-500/5"
-                  : "text-slate-400 hover:text-white hover:bg-white/3"
+                  ? "text-ocean-600 border-b-2 border-ocean-500 bg-ocean-50"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
               }`}
             >
               {tab_.icon}
@@ -262,14 +262,14 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               {/* Name */}
               <form onSubmit={handleSaveName} className="space-y-3">
                 <div className="flex items-center gap-2 mb-1">
-                  <User className="w-4 h-4 text-slate-400" />
-                  <span className="text-sm font-medium text-white">{t.settings.displayName}</span>
+                  <User className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium text-foreground">{t.settings.displayName}</span>
                 </div>
                 <div className="flex gap-2">
                   <Input
                     value={name}
                     onChange={e => setName(e.target.value)}
-                    className="bg-slate-800 border-white/10 text-white flex-1"
+                    className="bg-background border-border text-foreground flex-1"
                     placeholder={t.settings.displayNamePlaceholder}
                   />
                   <Button type="submit" disabled={nameSaving || !name.trim()} size="sm" className="bg-ocean-500 hover:bg-ocean-600 text-white shrink-0">
@@ -277,58 +277,58 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   </Button>
                 </div>
                 {nameMsg && (
-                  <p className={`text-xs flex items-center gap-1.5 ${nameMsg.ok ? "text-emerald-400" : "text-red-400"}`}>
+                  <p className={`text-xs flex items-center gap-1.5 ${nameMsg.ok ? "text-emerald-500" : "text-red-500"}`}>
                     {nameMsg.ok ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
                     {nameMsg.text}
                   </p>
                 )}
               </form>
 
-              <div className="border-t border-white/10" />
+              <div className="border-t border-border" />
 
               {/* Email change */}
               <form onSubmit={handleChangeEmail} className="space-y-3">
                 <div className="flex items-center gap-2 mb-1">
-                  <Mail className="w-4 h-4 text-slate-400" />
-                  <span className="text-sm font-medium text-white">{t.settings.emailSection}</span>
+                  <Mail className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium text-foreground">{t.settings.emailSection}</span>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-slate-400 text-xs">{t.common.email}</Label>
-                  <Input value={user?.email || ""} disabled className="bg-slate-800/50 border-white/5 text-slate-500 cursor-not-allowed" />
+                  <Label className="text-muted-foreground text-xs">{t.common.email}</Label>
+                  <Input value={user?.email || ""} disabled className="bg-muted border-border text-muted-foreground cursor-not-allowed" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-slate-400 text-xs">{t.settings.newEmail}</Label>
+                  <Label className="text-muted-foreground text-xs">{t.settings.newEmail}</Label>
                   <div className="flex gap-2">
                     <Input
                       type="email"
                       value={newEmail}
                       onChange={e => setNewEmail(e.target.value)}
                       placeholder={t.settings.newEmailPlaceholder}
-                      className="bg-slate-800 border-white/10 text-white flex-1"
+                      className="bg-background border-border text-foreground flex-1"
                     />
-                    <Button type="submit" disabled={emailSaving || !newEmail.trim()} size="sm" className="bg-slate-700 hover:bg-slate-600 text-white shrink-0">
+                    <Button type="submit" disabled={emailSaving || !newEmail.trim()} size="sm" className="bg-muted hover:bg-accent text-foreground shrink-0">
                       {emailSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : t.settings.changeEmail}
                     </Button>
                   </div>
                 </div>
                 {emailMsg && (
-                  <p className={`text-xs flex items-center gap-1.5 ${emailMsg.ok ? "text-emerald-400" : "text-red-400"}`}>
+                  <p className={`text-xs flex items-center gap-1.5 ${emailMsg.ok ? "text-emerald-500" : "text-red-500"}`}>
                     {emailMsg.ok ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
                     {emailMsg.text}
                   </p>
                 )}
               </form>
 
-              <div className="border-t border-white/10" />
+              <div className="border-t border-border" />
 
               {/* Password */}
               <form onSubmit={handleChangePassword} className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Lock className="w-4 h-4 text-slate-400" />
-                    <span className="text-sm font-medium text-white">{t.settings.passwordSection}</span>
+                    <Lock className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-medium text-foreground">{t.settings.passwordSection}</span>
                   </div>
-                  <button type="button" onClick={() => setShowPw(v => !v)} className="text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1">
+                  <button type="button" onClick={() => setShowPw(v => !v)} className="text-xs text-muted-foreground hover:text-foreground/80 flex items-center gap-1">
                     {showPw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     {showPw ? t.common.none : t.common.view}
                   </button>
@@ -339,29 +339,29 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                     { key: "confirm" as const, label: t.settings.confirmPassword, placeholder: t.settings.confirmPasswordPlaceholder },
                   ].map(f => (
                     <div key={f.key} className="space-y-1">
-                      <Label className="text-slate-400 text-xs">{f.label}</Label>
+                      <Label className="text-muted-foreground text-xs">{f.label}</Label>
                       <Input
                         type={showPw ? "text" : "password"}
                         value={pw[f.key]}
                         onChange={e => setPw(p => ({ ...p, [f.key]: e.target.value }))}
                         placeholder={f.placeholder}
-                        className="bg-slate-800 border-white/10 text-white"
+                        className="bg-background border-border text-foreground"
                       />
                     </div>
                   ))}
                 </div>
                 {pwMsg && (
-                  <p className={`text-xs flex items-center gap-1.5 ${pwMsg.ok ? "text-emerald-400" : "text-red-400"}`}>
+                  <p className={`text-xs flex items-center gap-1.5 ${pwMsg.ok ? "text-emerald-500" : "text-red-500"}`}>
                     {pwMsg.ok ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
                     {pwMsg.text}
                   </p>
                 )}
-                <Button type="submit" disabled={pwSaving || !pw.next || !pw.confirm} className="w-full bg-slate-700 hover:bg-slate-600 text-white">
+                <Button type="submit" disabled={pwSaving || !pw.next || !pw.confirm} className="w-full bg-muted hover:bg-accent text-foreground">
                   {pwSaving ? t.settings.saving : t.settings.changePassword}
                 </Button>
               </form>
 
-              <div className="border-t border-white/10" />
+              <div className="border-t border-border" />
 
               {/* Danger zone: account deletion */}
               <div className="space-y-3">
@@ -369,16 +369,16 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   <Trash2 className="w-4 h-4 text-red-400" />
                   <span className="text-sm font-medium text-red-400">{t.settings.deleteAccount}</span>
                 </div>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   {t.settings.deleteAccountDesc}
                 </p>
                 <div className="space-y-2">
-                  <Label className="text-slate-400 text-xs">{t.settings.deleteAccountConfirmLabel}</Label>
+                  <Label className="text-muted-foreground text-xs">{t.settings.deleteAccountConfirmLabel}</Label>
                   <Input
                     value={deleteConfirm}
                     onChange={e => setDeleteConfirm(e.target.value)}
                     placeholder={t.settings.deleteAccountConfirmPlaceholder}
-                    className="bg-slate-800 border-red-500/20 text-white"
+                    className="bg-background border-red-500/20 text-foreground"
                   />
                 </div>
                 {deleteMsg && (
@@ -403,18 +403,18 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
           {tab === "subscription" && (
             <div className="space-y-5">
               {/* Current plan */}
-              <div className="p-4 bg-slate-800/60 border border-white/10 rounded-xl space-y-3">
+              <div className="p-4 bg-muted border border-border rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-400">{t.settings.currentPlan}</span>
+                  <span className="text-sm text-muted-foreground">{t.settings.currentPlan}</span>
                   <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${PLAN_COLORS[plan]}`}>
                     {PLAN_LABELS[plan]}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-400">{t.pricing.perMonth}</span>
-                  <span className="text-white font-semibold">{PLAN_PRICES[plan]}</span>
+                  <span className="text-sm text-muted-foreground">{t.pricing.perMonth}</span>
+                  <span className="text-foreground font-semibold">{PLAN_PRICES[plan]}</span>
                 </div>
-                <div className="text-xs text-slate-600">
+                <div className="text-xs text-muted-foreground">
                   {t.settings.subscriptionSection}
                 </div>
               </div>
@@ -424,7 +424,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                 <Button
                   onClick={handleOpenPortal}
                   disabled={portalLoading}
-                  className="w-full bg-ocean-500/10 hover:bg-ocean-500/20 text-ocean-300 border border-ocean-500/30"
+                  className="w-full bg-ocean-500/10 hover:bg-ocean-500/20 text-ocean-600 border border-ocean-500/30"
                   variant="outline"
                 >
                   {portalLoading
@@ -442,16 +442,16 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
 
               {/* Plan features summary */}
               <div className="space-y-2 text-sm">
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">{t.settings.planLimits}</p>
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{t.settings.planLimits}</p>
                 {[
                   { label: t.settings.limitFarms, value: PLAN_LIMITS[plan].farms === Infinity ? t.common.unit.unlimited : `${PLAN_LIMITS[plan].farms}${t.common.unit.pcs}` },
                   { label: t.settings.limitAi, value: PLAN_LIMITS[plan].aiPerDay === Infinity ? t.common.unit.unlimited : `${PLAN_LIMITS[plan].aiPerDay}${t.common.unit.timesPerDay}` },
                   { label: t.settings.limitDiag, value: PLAN_LIMITS[plan].diagPerMonth === Infinity ? t.common.unit.unlimited : `${PLAN_LIMITS[plan].diagPerMonth}${t.common.unit.timesPerMonth}` },
                   { label: t.settings.limitCsv, value: PLAN_LIMITS[plan].csvExport ? "✓" : "✗" },
                 ].map(row => (
-                  <div key={row.label} className="flex justify-between py-1.5 border-b border-white/5">
-                    <span className="text-slate-500">{row.label}</span>
-                    <span className="text-slate-300 font-medium">{row.value}</span>
+                  <div key={row.label} className="flex justify-between py-1.5 border-b border-border">
+                    <span className="text-muted-foreground">{row.label}</span>
+                    <span className="text-foreground/80 font-medium">{row.value}</span>
                   </div>
                 ))}
               </div>
@@ -461,17 +461,17 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
           {/* ── Notifications tab ── */}
           {tab === "notifications" && (
             <div className="space-y-3">
-              <p className="text-xs text-slate-500 mb-4">{t.settings.tabNotifications}</p>
+              <p className="text-xs text-muted-foreground mb-4">{t.settings.tabNotifications}</p>
               {[
-                { key: "alertDanger" as const, label: t.settings.notifDanger,   desc: t.dashboard.danger,   color: "text-red-400" },
-                { key: "alertWarning" as const, label: t.settings.notifWarning, desc: t.dashboard.warning,  color: "text-amber-400" },
-                { key: "alertInfo" as const,   label: t.settings.notifInfo,     desc: t.settings.tabInfo,   color: "text-ocean-400" },
-                { key: "soundEnabled" as const, label: t.settings.notifSound,   desc: t.settings.notifSound, color: "text-purple-400" },
+                { key: "alertDanger" as const, label: t.settings.notifDanger,   desc: t.dashboard.danger,   color: "text-red-500" },
+                { key: "alertWarning" as const, label: t.settings.notifWarning, desc: t.dashboard.warning,  color: "text-amber-500" },
+                { key: "alertInfo" as const,   label: t.settings.notifInfo,     desc: t.settings.tabInfo,   color: "text-ocean-500" },
+                { key: "soundEnabled" as const, label: t.settings.notifSound,   desc: t.settings.notifSound, color: "text-purple-500" },
               ].map(item => (
-                <div key={item.key} className="flex items-center justify-between p-4 bg-slate-800/60 rounded-xl border border-white/5">
+                <div key={item.key} className="flex items-center justify-between p-4 bg-muted rounded-xl border border-border">
                   <div>
                     <p className={`text-sm font-medium ${item.color}`}>{item.label}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{item.desc}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
                   </div>
                   <Switch checked={prefs[item.key]} onCheckedChange={() => togglePref(item.key)} />
                 </div>
@@ -487,12 +487,12 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   <span className="text-white text-2xl font-bold">🦐</span>
                 </div>
                 <div>
-                  <p className="text-white font-bold text-lg">Shrimp365</p>
-                  <p className="text-slate-400 text-sm">{t.dashboard.subtitle}</p>
-                  <p className="text-slate-600 text-xs mt-1">v1.0.0</p>
+                  <p className="text-foreground font-bold text-lg">Shrimp365</p>
+                  <p className="text-muted-foreground text-sm">{t.dashboard.subtitle}</p>
+                  <p className="text-muted-foreground text-xs mt-1">v1.0.0</p>
                 </div>
               </div>
-              <div className="border-t border-white/10" />
+              <div className="border-t border-border" />
               <div className="space-y-2 text-sm">
                 {[
                   { label: t.settings.support, value: "CULIVER INC" },
@@ -500,15 +500,15 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   { label: "Next.js", value: "Next.js 16" },
                   { label: t.common.date, value: new Date().toLocaleDateString("ko-KR") },
                 ].map(row => (
-                  <div key={row.label} className="flex justify-between py-2 border-b border-white/5">
-                    <span className="text-slate-500">{row.label}</span>
-                    <span className="text-slate-300 font-medium">{row.value}</span>
+                  <div key={row.label} className="flex justify-between py-2 border-b border-border">
+                    <span className="text-muted-foreground">{row.label}</span>
+                    <span className="text-foreground/80 font-medium">{row.value}</span>
                   </div>
                 ))}
               </div>
               {/* Support contact */}
               <div className="space-y-2">
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">{t.settings.support}</p>
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{t.settings.support}</p>
                 <a
                   href={`mailto:${t.settings.supportContact}`}
                   className="flex items-center gap-2 p-3 bg-ocean-500/10 border border-ocean-500/20 rounded-xl text-sm text-ocean-300 hover:bg-ocean-500/20 transition-colors"

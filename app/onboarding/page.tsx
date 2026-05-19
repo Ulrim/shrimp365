@@ -59,11 +59,11 @@ export default function OnboardingPage() {
   useEffect(() => {
     if (!user) return
     if (isTestAccount(user.email)) {
-      router.replace("/dashboard")
+      router.replace("/home")
       return
     }
     getFarms().then(farms => {
-      if (farms.length > 0) router.replace("/dashboard")
+      if (farms.length > 0) router.replace("/home")
       else setChecking(false)
     }).catch(() => setChecking(false))
   }, [user, router])

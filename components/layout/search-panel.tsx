@@ -108,35 +108,35 @@ export function SearchPanel({ open, onClose }: SearchPanelProps) {
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
 
       {/* Panel */}
-      <div className="relative w-full max-w-xl mx-4 bg-slate-900 border border-white/15 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-xl mx-4 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
         {/* Input */}
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-white/10">
-          <Search className="w-4 h-4 text-slate-400 shrink-0" />
+        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border">
+          <Search className="w-4 h-4 text-muted-foreground shrink-0" />
           <input
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="페이지, 양식장, 수조 검색..."
-            className="flex-1 bg-transparent text-white placeholder:text-slate-500 text-sm outline-none"
+            className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground text-sm outline-none"
           />
           {query && (
-            <button onClick={() => setQuery("")} className="text-slate-500 hover:text-slate-300">
+            <button onClick={() => setQuery("")} className="text-muted-foreground hover:text-foreground">
               <X className="w-4 h-4" />
             </button>
           )}
-          <kbd className="hidden sm:block text-xs text-slate-600 bg-slate-800 px-1.5 py-0.5 rounded border border-white/10">ESC</kbd>
+          <kbd className="hidden sm:block text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border">ESC</kbd>
         </div>
 
         {/* Results */}
         <div className="max-h-96 overflow-y-auto py-2">
           {results.length === 0 && q && (
-            <p className="text-slate-500 text-sm text-center py-8">"{query}" 검색 결과가 없습니다</p>
+            <p className="text-muted-foreground text-sm text-center py-8">"{query}" 검색 결과가 없습니다</p>
           )}
 
           {/* Pages */}
           {matchedPages.length > 0 && (
             <div>
-              {q && <p className="text-xs text-slate-600 font-semibold uppercase tracking-wider px-4 py-1.5">페이지</p>}
+              {q && <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider px-4 py-1.5">페이지</p>}
               {matchedPages.map((item, i) => {
                 const absIdx = i
                 const Icon = item.icon
@@ -144,16 +144,16 @@ export function SearchPanel({ open, onClose }: SearchPanelProps) {
                   <button
                     key={item.href}
                     onClick={() => navigate({ kind: "page", ...item })}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${selectedIdx === absIdx ? "bg-ocean-500/15" : "hover:bg-white/5"}`}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${selectedIdx === absIdx ? "bg-ocean-50" : "hover:bg-accent"}`}
                   >
-                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
-                      <Icon className="w-4 h-4 text-ocean-400" />
+                    <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      <Icon className="w-4 h-4 text-ocean-500" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white font-medium">{item.label}</p>
-                      <p className="text-xs text-slate-500 truncate">{item.desc}</p>
+                      <p className="text-sm text-foreground font-medium">{item.label}</p>
+                      <p className="text-xs text-muted-foreground truncate">{item.desc}</p>
                     </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-slate-600" />
+                    <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
                   </button>
                 )
               })}
@@ -163,23 +163,23 @@ export function SearchPanel({ open, onClose }: SearchPanelProps) {
           {/* Farms */}
           {matchedFarms.length > 0 && (
             <div>
-              <p className="text-xs text-slate-600 font-semibold uppercase tracking-wider px-4 py-1.5 mt-1">양식장</p>
+              <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider px-4 py-1.5 mt-1">양식장</p>
               {matchedFarms.map((farm, i) => {
                 const absIdx = matchedPages.length + i
                 return (
                   <button
                     key={farm.id}
                     onClick={() => navigate({ kind: "farm", id: farm.id, name: farm.name, location: farm.location })}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${selectedIdx === absIdx ? "bg-ocean-500/15" : "hover:bg-white/5"}`}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${selectedIdx === absIdx ? "bg-ocean-50" : "hover:bg-accent"}`}
                   >
-                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
-                      <Building2 className="w-4 h-4 text-teal-400" />
+                    <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      <Building2 className="w-4 h-4 text-teal-500" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white font-medium">{farm.name}</p>
-                      <p className="text-xs text-slate-500">{farm.location}</p>
+                      <p className="text-sm text-foreground font-medium">{farm.name}</p>
+                      <p className="text-xs text-muted-foreground">{farm.location}</p>
                     </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-slate-600" />
+                    <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
                   </button>
                 )
               })}
@@ -189,23 +189,23 @@ export function SearchPanel({ open, onClose }: SearchPanelProps) {
           {/* Tanks */}
           {matchedTanks.length > 0 && (
             <div>
-              <p className="text-xs text-slate-600 font-semibold uppercase tracking-wider px-4 py-1.5 mt-1">수조</p>
+              <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider px-4 py-1.5 mt-1">수조</p>
               {matchedTanks.map((tank, i) => {
                 const absIdx = matchedPages.length + matchedFarms.length + i
                 return (
                   <button
                     key={tank.id}
                     onClick={() => navigate({ kind: "tank", id: tank.id, name: tank.name, status: tank.status })}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${selectedIdx === absIdx ? "bg-ocean-500/15" : "hover:bg-white/5"}`}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${selectedIdx === absIdx ? "bg-ocean-50" : "hover:bg-accent"}`}
                   >
-                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
-                      <Droplets className="w-4 h-4 text-ocean-400" />
+                    <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      <Droplets className="w-4 h-4 text-ocean-500" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white font-medium">{tank.name}</p>
+                      <p className="text-sm text-foreground font-medium">{tank.name}</p>
                       <p className={`text-xs font-medium ${STATUS_COLOR[tank.status]}`}>{STATUS_LABEL[tank.status]}</p>
                     </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-slate-600" />
+                    <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
                   </button>
                 )
               })}
@@ -214,10 +214,10 @@ export function SearchPanel({ open, onClose }: SearchPanelProps) {
         </div>
 
         {/* Footer hint */}
-        <div className="border-t border-white/10 px-4 py-2 flex items-center gap-4 text-xs text-slate-600">
-          <span><kbd className="bg-slate-800 border border-white/10 rounded px-1">↑↓</kbd> 이동</span>
-          <span><kbd className="bg-slate-800 border border-white/10 rounded px-1">Enter</kbd> 선택</span>
-          <span><kbd className="bg-slate-800 border border-white/10 rounded px-1">ESC</kbd> 닫기</span>
+        <div className="border-t border-border px-4 py-2 flex items-center gap-4 text-xs text-muted-foreground">
+          <span><kbd className="bg-muted border border-border rounded px-1">↑↓</kbd> 이동</span>
+          <span><kbd className="bg-muted border border-border rounded px-1">Enter</kbd> 선택</span>
+          <span><kbd className="bg-muted border border-border rounded px-1">ESC</kbd> 닫기</span>
         </div>
       </div>
     </div>

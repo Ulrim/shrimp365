@@ -58,7 +58,7 @@ export default function TossSuccessPage() {
     if (status !== "ok") return
     const iv = setInterval(() => {
       setCountdown((v) => {
-        if (v <= 1) { clearInterval(iv); router.replace("/dashboard"); return 0 }
+        if (v <= 1) { clearInterval(iv); router.replace("/home"); return 0 }
         return v - 1
       })
     }, 1000)

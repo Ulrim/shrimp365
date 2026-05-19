@@ -27,7 +27,7 @@ export default function PaymentSuccessPage() {
       setCountdown(prev => {
         if (prev <= 1) {
           clearInterval(interval)
-          router.replace("/dashboard")
+          router.replace("/home")
           return 0
         }
         return prev - 1

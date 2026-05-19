@@ -7,9 +7,9 @@ import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
 import { cn } from "@/lib/utils"
 import {
-  LayoutDashboard, Droplets, BookOpen, BrainCircuit,
+  Home, LayoutDashboard, Droplets, ClipboardList,
   MoreHorizontal, Building2, FlaskConical, Package,
-  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight,
+  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight, BookOpen, BrainCircuit,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
@@ -26,17 +26,20 @@ export function BottomNav() {
   const isAdmin = user?.role === "admin" || isMonitorAccount(user?.email)
 
   const PRIMARY = [
-    { href: "/dashboard",    icon: LayoutDashboard, label: t.nav.dashboard },
-    { href: "/water-quality", icon: Droplets,       label: t.nav.waterQuality },
-    { href: "/journal",      icon: BookOpen,        label: t.nav.journal },
-    { href: "/ai-advisor",   icon: BrainCircuit,    label: t.nav.aiAdvisor },
+    { href: "/home",               icon: Home,          label: t.nav.home },
+    { href: "/record/water-quality", icon: Droplets,    label: t.record.waterQuality },
+    { href: "/record/journal",     icon: ClipboardList, label: t.record.journal },
+    { href: "/dashboard",          icon: LayoutDashboard, label: t.nav.dashboard },
   ]
 
   const MORE = [
-    { href: "/farms",      icon: Building2,  label: t.nav.farms },
-    { href: "/production", icon: FlaskConical, label: t.nav.production },
-    { href: "/inventory",  icon: Package,    label: t.nav.inventory },
-    { href: "/reports",    icon: BarChart3,  label: t.nav.reports },
+    { href: "/water-quality", icon: Droplets,      label: t.nav.waterQuality },
+    { href: "/journal",       icon: BookOpen,      label: t.nav.journal },
+    { href: "/farms",         icon: Building2,     label: t.nav.farms },
+    { href: "/production",    icon: FlaskConical,  label: t.nav.production },
+    { href: "/inventory",     icon: Package,       label: t.nav.inventory },
+    { href: "/ai-advisor",    icon: BrainCircuit,  label: t.nav.aiAdvisor },
+    { href: "/reports",       icon: BarChart3,     label: t.nav.reports },
     ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
   ]
 
@@ -53,7 +56,7 @@ export function BottomNav() {
   return (
     <>
       {/* ── Bottom Tab Bar ───────────────────────────────────── */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-xl border-t border-white/10">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-xl border-t border-border">
         <div className="flex items-stretch h-16 pb-safe">
           {PRIMARY.map((item) => {
             const active = pathname === item.href || pathname.startsWith(item.href + "/")
@@ -64,10 +67,10 @@ export function BottomNav() {
                 className="relative flex-1 flex flex-col items-center justify-center gap-1 transition-colors"
               >
                 {active && (
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-ocean-400 rounded-b-full" />
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-ocean-500 rounded-b-full" />
                 )}
-                <item.icon className={cn("w-5 h-5 transition-transform", active ? "text-ocean-400 scale-110" : "text-slate-500")} />
-                <span className={cn("text-[10px] font-medium leading-none", active ? "text-ocean-400" : "text-slate-600")}>
+                <item.icon className={cn("w-5 h-5 transition-transform", active ? "text-ocean-500 scale-110" : "text-muted-foreground")} />
+                <span className={cn("text-[10px] font-medium leading-none", active ? "text-ocean-500" : "text-muted-foreground")}>
                   {item.label}
                 </span>
               </Link>
@@ -80,10 +83,10 @@ export function BottomNav() {
             className="relative flex-1 flex flex-col items-center justify-center gap-1"
           >
             {isMoreActive && (
-              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-ocean-400 rounded-b-full" />
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-ocean-500 rounded-b-full" />
             )}
-            <MoreHorizontal className={cn("w-5 h-5", isMoreActive ? "text-ocean-400" : "text-slate-500")} />
-            <span className={cn("text-[10px] font-medium leading-none", isMoreActive ? "text-ocean-400" : "text-slate-600")}>
+            <MoreHorizontal className={cn("w-5 h-5", isMoreActive ? "text-ocean-500" : "text-muted-foreground")} />
+            <span className={cn("text-[10px] font-medium leading-none", isMoreActive ? "text-ocean-500" : "text-muted-foreground")}>
               더보기
             </span>
           </button>
@@ -94,13 +97,13 @@ export function BottomNav() {
       {moreOpen && (
         <>
           <div
-            className="lg:hidden fixed inset-0 bg-black/60 z-50 backdrop-blur-sm"
+            className="lg:hidden fixed inset-0 bg-black/40 z-50 backdrop-blur-sm"
             onClick={() => setMoreOpen(false)}
           />
-          <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-900 rounded-t-3xl border-t border-white/10 animate-in slide-in-from-bottom duration-300">
+          <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card rounded-t-3xl border-t border-border animate-in slide-in-from-bottom duration-300">
             {/* Handle bar */}
             <div className="flex justify-center pt-3 pb-2">
-              <div className="w-10 h-1 bg-white/20 rounded-full" />
+              <div className="w-10 h-1 bg-border rounded-full" />
             </div>
 
             {/* Profile row */}
@@ -111,8 +114,8 @@ export function BottomNav() {
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-white font-semibold truncate">{user?.name}</p>
-                <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+                <p className="text-sm text-foreground font-semibold truncate">{user?.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
               </div>
               <span className={cn("text-xs font-semibold px-2.5 py-1 rounded-full shrink-0", PLAN_COLORS[user?.plan ?? "free"])}>
                 {PLAN_LABELS[user?.plan ?? "free"]}
@@ -131,31 +134,31 @@ export function BottomNav() {
                     className={cn(
                       "flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all",
                       active
-                        ? "bg-ocean-500/20 text-white border border-ocean-500/30"
-                        : "text-slate-300 active:bg-white/5"
+                        ? "bg-ocean-50 text-ocean-700 border border-ocean-200"
+                        : "text-foreground active:bg-accent"
                     )}
                   >
-                    <item.icon className={cn("w-5 h-5", active ? "text-ocean-400" : "text-slate-500")} />
+                    <item.icon className={cn("w-5 h-5", active ? "text-ocean-500" : "text-muted-foreground")} />
                     <span className="flex-1 font-medium text-[15px]">{item.label}</span>
-                    <ChevronRight className="w-4 h-4 text-slate-600" />
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </Link>
                 )
               })}
             </div>
 
             {/* Bottom actions */}
-            <div className="px-4 pt-2 pb-6 mt-2 border-t border-white/5 space-y-1">
+            <div className="px-4 pt-2 pb-6 mt-2 border-t border-border space-y-1">
               <button
                 onClick={() => { setMoreOpen(false); setSettingsOpen(true) }}
-                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-slate-300 active:bg-white/5 transition-all"
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-foreground active:bg-accent transition-all"
               >
-                <Settings className="w-5 h-5 text-slate-500" />
+                <Settings className="w-5 h-5 text-muted-foreground" />
                 <span className="flex-1 font-medium text-[15px] text-left">{t.nav.settings}</span>
-                <ChevronRight className="w-4 h-4 text-slate-600" />
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
               </button>
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-red-400 active:bg-red-500/10 transition-all"
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-destructive active:bg-destructive/10 transition-all"
               >
                 <LogOut className="w-5 h-5" />
                 <span className="flex-1 font-medium text-[15px] text-left">{t.auth.logoutButton}</span>

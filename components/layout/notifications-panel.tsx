@@ -97,12 +97,12 @@ export function NotificationsPanel({ open, onClose, onCountChange }: Notificatio
   if (!open) return null
 
   return (
-    <div ref={panelRef} className="absolute right-0 top-12 w-80 sm:w-96 bg-slate-900 border border-white/15 rounded-2xl shadow-2xl overflow-hidden z-[150]">
+    <div ref={panelRef} className="absolute right-0 top-12 w-80 sm:w-96 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden z-[150]">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2">
-          <Bell className="w-4 h-4 text-ocean-400" />
-          <span className="text-sm font-semibold text-white">알림</span>
+          <Bell className="w-4 h-4 text-ocean-500" />
+          <span className="text-sm font-semibold text-foreground">알림</span>
           {alerts.length > 0 && (
             <span className="w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
               {alerts.length > 9 ? "9+" : alerts.length}
@@ -113,16 +113,16 @@ export function NotificationsPanel({ open, onClose, onCountChange }: Notificatio
           {alerts.length > 0 && (
             <button
               onClick={handleResolveAll}
-              className="text-xs text-slate-400 hover:text-ocean-400 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white/5 transition-colors"
+              className="text-xs text-muted-foreground hover:text-ocean-500 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-accent transition-colors"
             >
               <CheckCheck className="w-3.5 h-3.5" />
               모두 해결
             </button>
           )}
-          <button onClick={loadAlerts} className="text-slate-500 hover:text-slate-300 p-1 rounded-lg hover:bg-white/5 transition-colors">
+          <button onClick={loadAlerts} className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent transition-colors">
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           </button>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-300 p-1 rounded-lg hover:bg-white/5 transition-colors">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -132,15 +132,15 @@ export function NotificationsPanel({ open, onClose, onCountChange }: Notificatio
       <div className="max-h-[420px] overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-10">
-            <div className="w-6 h-6 border-2 border-ocean-400 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-ocean-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : alerts.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-12 text-center">
             <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
-              <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+              <CheckCircle2 className="w-6 h-6 text-emerald-500" />
             </div>
-            <p className="text-sm text-white font-medium">모든 알림이 해결되었습니다</p>
-            <p className="text-xs text-slate-500">새 이상 항목이 감지되면 알림이 표시됩니다</p>
+            <p className="text-sm text-foreground font-medium">모든 알림이 해결되었습니다</p>
+            <p className="text-xs text-muted-foreground">새 이상 항목이 감지되면 알림이 표시됩니다</p>
           </div>
         ) : (
           <div className="p-2 space-y-1.5">
@@ -152,23 +152,23 @@ export function NotificationsPanel({ open, onClose, onCountChange }: Notificatio
                 <div className="mt-0.5">{TYPE_ICON[alert.type]}</div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="text-sm text-white font-medium truncate">{alert.tank_name}</span>
+                    <span className="text-sm text-foreground font-medium truncate">{alert.tank_name}</span>
                     {alert.parameter && (
-                      <span className="text-xs text-slate-500 shrink-0">{alert.parameter}</span>
+                      <span className="text-xs text-muted-foreground shrink-0">{alert.parameter}</span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">{alert.message}</p>
+                  <p className="text-xs text-foreground/80 leading-relaxed">{alert.message}</p>
                   {alert.value != null && alert.threshold != null && (
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      측정값: <span className="text-white">{alert.value}</span> / 기준: {alert.threshold}
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      측정값: <span className="text-foreground">{alert.value}</span> / 기준: {alert.threshold}
                     </p>
                   )}
-                  <p className="text-xs text-slate-600 mt-1">{formatDateTime(alert.created_at)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{formatDateTime(alert.created_at)}</p>
                 </div>
                 <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                   <button
                     onClick={() => { router.push(`/water-quality?tank=${alert.tank_id}`); onClose() }}
-                    className="p-1.5 rounded-lg hover:bg-white/10 text-slate-500 hover:text-ocean-400 transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-ocean-500 transition-colors"
                     title="수조 바로가기"
                   >
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -176,7 +176,7 @@ export function NotificationsPanel({ open, onClose, onCountChange }: Notificatio
                   <button
                     onClick={() => handleResolve(alert.id)}
                     disabled={resolvingId === alert.id}
-                    className="p-1.5 rounded-lg hover:bg-white/10 text-slate-500 hover:text-emerald-400 transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-emerald-500 transition-colors"
                     title="해결됨으로 표시"
                   >
                     {resolvingId === alert.id
@@ -192,8 +192,8 @@ export function NotificationsPanel({ open, onClose, onCountChange }: Notificatio
       </div>
 
       {/* Footer */}
-      <div className="border-t border-white/10 px-4 py-2">
-        <a href="/water-quality" onClick={onClose} className="text-xs text-ocean-400 hover:text-ocean-300 flex items-center justify-center gap-1">
+      <div className="border-t border-border px-4 py-2">
+        <a href="/water-quality" onClick={onClose} className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center justify-center gap-1">
           수질 모니터링 페이지에서 자세히 보기 →
         </a>
       </div>

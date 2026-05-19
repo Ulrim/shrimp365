@@ -5,6 +5,8 @@ import { countryToLocale, headerToLocale, type Locale, LOCALES } from "@/lib/i18
 const LANG_COOKIE = "shrimp365_lang"
 
 const PROTECTED_PATHS = [
+  "/home",
+  "/record",
   "/dashboard",
   "/water-quality",
   "/journal",
@@ -82,7 +84,7 @@ export async function middleware(request: NextRequest) {
 
   if (isAuthPage && user) {
     const url = request.nextUrl.clone()
-    url.pathname = "/dashboard"
+    url.pathname = "/home"
     return NextResponse.redirect(url)
   }
 
