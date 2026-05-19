@@ -509,7 +509,7 @@ function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" title={t.farms.editFarm} aria-label={t.farms.editFarm}>
+        <button className="p-2 min-h-[36px] min-w-[36px] rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center" title={t.farms.editFarm} aria-label={t.farms.editFarm}>
           <Edit2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
@@ -574,7 +574,7 @@ function DeleteFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => vo
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-1.5 rounded-lg hover:bg-red-500/15 text-muted-foreground hover:text-red-500 transition-colors" title={t.farms.deleteFarm} aria-label={t.farms.deleteFarm}>
+        <button className="p-2 min-h-[36px] min-w-[36px] rounded-lg hover:bg-red-500/15 text-muted-foreground hover:text-red-500 transition-colors flex items-center justify-center" title={t.farms.deleteFarm} aria-label={t.farms.deleteFarm}>
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
@@ -1478,11 +1478,11 @@ export default function FarmsPage() {
         {/* ── Right: Tank Grid ── */}
         <div className="flex-1 min-w-0 space-y-4">
           {/* Tank section header */}
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="text-foreground font-semibold flex items-center gap-1.5">
-                <Layers className="w-4 h-4 text-teal-500" />
-                {selectedFarm?.name} 수조
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-2 min-w-0 flex-1">
+              <h2 className="text-foreground font-semibold flex items-center gap-1.5 min-w-0">
+                <Layers className="w-4 h-4 text-teal-500 shrink-0" />
+                <span className="truncate">{selectedFarm?.name} 수조</span>
               </h2>
               {selectedTanks.length > 0 && <StatusSummary tanks={selectedTanks} />}
             </div>

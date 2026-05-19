@@ -417,14 +417,14 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
             {samples.length === 0 ? <p className="text-muted-foreground text-sm text-center py-4">기록 없음</p> : (
               <div className="space-y-2">
                 {[...samples].reverse().map(s => (
-                  <div key={s.id} className="flex items-center justify-between bg-muted rounded-lg px-3 py-2.5">
-                    <div className="flex items-center gap-3">
-                      <span className="text-muted-foreground text-sm w-16">{format(new Date(s.sampled_at), "MM/dd")}</span>
+                  <div key={s.id} className="flex items-center justify-between gap-2 bg-muted rounded-lg px-3 py-2.5">
+                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                      <span className="text-muted-foreground text-sm w-12 shrink-0">{format(new Date(s.sampled_at), "MM/dd")}</span>
                       <span className="text-foreground font-medium">{s.abw_g.toFixed(2)}g</span>
                       {s.estimated_biomass_kg && <span className="text-ocean-500 text-sm">{fmt(s.estimated_biomass_kg)}kg</span>}
                       {s.survival_rate != null && <span className="text-emerald-500 text-sm">생존율 {s.survival_rate}%</span>}
                     </div>
-                    {!isMock && <button onClick={() => deleteGrowthSample(s.id).then(() => setSamples(p => p.filter(x => x.id !== s.id)))} className="text-muted-foreground hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>}
+                    {!isMock && <button onClick={() => deleteGrowthSample(s.id).then(() => setSamples(p => p.filter(x => x.id !== s.id)))} className="text-muted-foreground hover:text-red-500 transition-colors shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>}
                   </div>
                 ))}
               </div>
@@ -459,15 +459,15 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
               [...costs].reverse().map(c => {
                 const cat = COST_CATEGORIES.find(x => x.value === c.category)
                 return (
-                  <div key={c.id} className="flex items-center justify-between bg-muted rounded-lg px-3 py-2.5">
-                    <div className="flex items-center gap-3">
+                  <div key={c.id} className="flex items-center justify-between gap-2 bg-muted rounded-lg px-3 py-2.5">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div className={`w-2 h-2 rounded-full ${cat?.color ?? "bg-slate-500"} shrink-0`} />
-                      <div>
-                        <p className="text-foreground text-sm">{c.label}</p>
+                      <div className="min-w-0">
+                        <p className="text-foreground text-sm truncate">{c.label}</p>
                         <p className="text-muted-foreground text-xs">{c.recorded_at}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <span className="text-red-500 font-medium text-sm">{c.amount.toLocaleString("ko-KR")}원</span>
                       {!isMock && <button onClick={() => deleteCycleCost(c.id).then(() => setCosts(p => p.filter(x => x.id !== c.id)))} className="text-muted-foreground hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>}
                     </div>
@@ -515,12 +515,12 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
             {harvests.length === 0 ? <p className="text-muted-foreground text-sm text-center py-4">수확 기록 없음</p> : (
               <div className="space-y-2">
                 {harvests.map(h => (
-                  <div key={h.id} className="flex items-center justify-between bg-muted rounded-lg px-3 py-2.5">
-                    <div>
-                      <p className="text-foreground text-sm">{h.harvested_at} · {fmt(h.weight_kg, 1)}kg{h.count ? ` · ${fmt(h.count)}마리` : ""}</p>
+                  <div key={h.id} className="flex items-center justify-between gap-2 bg-muted rounded-lg px-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="text-foreground text-sm truncate">{h.harvested_at} · {fmt(h.weight_kg, 1)}kg{h.count ? ` · ${fmt(h.count)}마리` : ""}</p>
                       <p className="text-muted-foreground text-xs">{h.price_per_kg.toLocaleString("ko-KR")}원/kg</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <span className="text-teal-500 font-medium text-sm">{fmtKRW(h.revenue)}</span>
                       {!isMock && <button onClick={() => deleteCycleHarvest(h.id).then(() => setHarvests(p => p.filter(x => x.id !== h.id)))} className="text-muted-foreground hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>}
                     </div>
