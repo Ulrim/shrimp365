@@ -383,7 +383,7 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -527,7 +527,7 @@ export default function InventoryPage() {
                         </div>
                       </div>
                       <button onClick={() => handleDeleteTx(tx)}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-red-500 transition-all rounded-lg hover:bg-red-500/10">
+                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-red-500 transition-all rounded-lg hover:bg-red-500/10">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>

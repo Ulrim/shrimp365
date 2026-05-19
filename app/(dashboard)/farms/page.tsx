@@ -233,12 +233,12 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
               <Button
                 type="button"
                 variant="outline"
-                className="border-border text-muted-foreground hover:bg-accent"
+                className="border-border text-muted-foreground hover:bg-accent w-full sm:w-auto"
                 onClick={() => handleOpenChange(false)}
               >
                 {t.common.cancel}
               </Button>
-              <Button type="submit" disabled={saving} className="bg-ocean-500 hover:bg-ocean-600 text-white">
+              <Button type="submit" disabled={saving} className="bg-ocean-500 hover:bg-ocean-600 text-white w-full sm:w-auto">
                 {saving ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -445,12 +445,12 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
               <Button
                 type="button"
                 variant="outline"
-                className="border-border text-muted-foreground hover:bg-accent"
+                className="border-border text-muted-foreground hover:bg-accent w-full sm:w-auto"
                 onClick={() => handleOpenChange(false)}
               >
                 {t.common.cancel}
               </Button>
-              <Button type="submit" disabled={saving} className="bg-teal-600 hover:bg-teal-700 text-white">
+              <Button type="submit" disabled={saving} className="bg-teal-600 hover:bg-teal-700 text-white w-full sm:w-auto">
                 {saving ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -538,8 +538,8 @@ function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void
           </div>
           {error && <p className="text-sm text-red-500">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="border-border text-muted-foreground">{t.common.cancel}</Button>
-            <Button type="submit" disabled={saving} className="bg-ocean-500 hover:bg-ocean-600 text-white">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="border-border text-muted-foreground w-full sm:w-auto">{t.common.cancel}</Button>
+            <Button type="submit" disabled={saving} className="bg-ocean-500 hover:bg-ocean-600 text-white w-full sm:w-auto">
               {saving ? t.farms.saving : t.common.save}
             </Button>
           </DialogFooter>
@@ -589,8 +589,8 @@ function DeleteFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => vo
         </DialogHeader>
         {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
         <DialogFooter className="mt-4">
-          <Button variant="outline" onClick={() => setOpen(false)} className="border-border text-muted-foreground">{t.common.cancel}</Button>
-          <Button onClick={handleDelete} disabled={deleting} className="bg-red-600 hover:bg-red-700 text-white">
+          <Button variant="outline" onClick={() => setOpen(false)} className="border-border text-muted-foreground w-full sm:w-auto">{t.common.cancel}</Button>
+          <Button onClick={handleDelete} disabled={deleting} className="bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto">
             {deleting ? t.farms.saving : t.common.delete}
           </Button>
         </DialogFooter>
@@ -742,8 +742,8 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
           </div>
           {error && <p className="text-sm text-red-500">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="border-border text-muted-foreground">{t.common.cancel}</Button>
-            <Button type="submit" disabled={saving} className="bg-teal-600 hover:bg-teal-700 text-white">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} className="border-border text-muted-foreground w-full sm:w-auto">{t.common.cancel}</Button>
+            <Button type="submit" disabled={saving} className="bg-teal-600 hover:bg-teal-700 text-white w-full sm:w-auto">
               {saving ? t.farms.saving : t.common.save}
             </Button>
           </DialogFooter>
@@ -793,8 +793,8 @@ function DeleteTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => vo
         </DialogHeader>
         {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
         <DialogFooter className="mt-4">
-          <Button variant="outline" onClick={() => setOpen(false)} className="border-border text-muted-foreground">{t.common.cancel}</Button>
-          <Button onClick={handleDelete} disabled={deleting} className="bg-red-600 hover:bg-red-700 text-white">
+          <Button variant="outline" onClick={() => setOpen(false)} className="border-border text-muted-foreground w-full sm:w-auto">{t.common.cancel}</Button>
+          <Button onClick={handleDelete} disabled={deleting} className="bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto">
             {deleting ? t.farms.saving : t.common.delete}
           </Button>
         </DialogFooter>
@@ -916,8 +916,8 @@ function RegisterDeviceDialog({ tank, onSuccess }: { tank: import("@/types").Tan
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClose} className="border-border text-muted-foreground">{t.common.cancel}</Button>
-              <Button type="submit" disabled={saving || !form.name.trim()} className="bg-ocean-500 hover:bg-ocean-600 text-white">
+              <Button type="button" variant="outline" onClick={handleClose} className="border-border text-muted-foreground w-full sm:w-auto">{t.common.cancel}</Button>
+              <Button type="submit" disabled={saving || !form.name.trim()} className="bg-ocean-500 hover:bg-ocean-600 text-white w-full sm:w-auto">
                 {saving ? t.farms.saving : t.common.add}
               </Button>
             </DialogFooter>
@@ -1101,7 +1101,7 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => handleToggle(device)}
-                    className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+                    className={`text-[10px] px-2 py-1 min-h-[32px] rounded border transition-colors ${
                       device.active
                         ? "border-emerald-500/30 text-emerald-500 hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/30"
                         : "border-border text-muted-foreground hover:text-emerald-500 hover:border-emerald-500/30"
@@ -1113,7 +1113,7 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
                   <button
                     onClick={() => handleDelete(device.id)}
                     disabled={deletingId === device.id}
-                    className="p-1 rounded hover:bg-red-500/15 text-muted-foreground hover:text-red-500 transition-colors"
+                    className="p-1.5 min-h-[32px] min-w-[32px] rounded hover:bg-red-500/15 text-muted-foreground hover:text-red-500 transition-colors flex items-center justify-center"
                     title="삭제"
                     aria-label="기기 삭제"
                   >
