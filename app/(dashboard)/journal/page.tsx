@@ -811,77 +811,77 @@ export default function JournalPage() {
                     <Plus className="w-4 h-4" />{t.diagnosis.newTest}
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="bg-slate-900 border-white/10 text-white max-w-xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="bg-card border-border text-foreground max-w-xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle className="text-white flex items-center gap-2">
-                      <FlaskConical className="w-5 h-5 text-purple-400" />{t.diagnosis.newTest}
+                    <DialogTitle className="text-foreground flex items-center gap-2">
+                      <FlaskConical className="w-5 h-5 text-purple-500" />{t.diagnosis.newTest}
                     </DialogTitle>
                   </DialogHeader>
                   <form onSubmit={handleDSubmit} className="space-y-4 mt-2">
                     <div className="space-y-1.5">
-                      <Label className="text-slate-300 text-sm">{t.diagnosis.tank} <span className="text-red-400">*</span></Label>
+                      <Label className="text-foreground/80 text-sm">{t.diagnosis.tank} <span className="text-red-400">*</span></Label>
                       <Select value={dForm.tank_id} onValueChange={v => setDField("tank_id", v)}>
-                        <SelectTrigger className="bg-slate-800 border-white/10 text-white"><SelectValue placeholder={t.diagnosis.selectTank} /></SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-white/10">
-                          {tanks.map(tank => <SelectItem key={tank.id} value={tank.id} className="text-white focus:bg-slate-700">{tank.name}</SelectItem>)}
+                        <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder={t.diagnosis.selectTank} /></SelectTrigger>
+                        <SelectContent className="bg-card border-border">
+                          {tanks.map(tank => <SelectItem key={tank.id} value={tank.id} className="text-foreground focus:bg-accent">{tank.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-slate-300 text-sm">{t.diagnosis.testType} <span className="text-red-400">*</span></Label>
+                      <Label className="text-foreground/80 text-sm">{t.diagnosis.testType} <span className="text-red-400">*</span></Label>
                       <Select value={dForm.test_type} onValueChange={v => setDField("test_type", v as TestType)}>
-                        <SelectTrigger className="bg-slate-800 border-white/10 text-white"><SelectValue placeholder="검사 항목을 선택하세요" /></SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-white/10">
+                        <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="검사 항목을 선택하세요" /></SelectTrigger>
+                        <SelectContent className="bg-card border-border">
                           {(["AHPND", "총비브리오", "EHP", "WSSV", "기타"] as TestType[]).map(tt => (
-                            <SelectItem key={tt} value={tt} className="text-white focus:bg-slate-700">{tt}</SelectItem>
+                            <SelectItem key={tt} value={tt} className="text-foreground focus:bg-accent">{tt}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-slate-300 text-sm">{t.diagnosis.result} <span className="text-red-400">*</span></Label>
+                      <Label className="text-foreground/80 text-sm">{t.diagnosis.result} <span className="text-red-400">*</span></Label>
                       <Select value={dForm.result} onValueChange={v => setDField("result", v as ResultType)}>
-                        <SelectTrigger className="bg-slate-800 border-white/10 text-white"><SelectValue placeholder="결과를 선택하세요" /></SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-white/10">
-                          <SelectItem value="양성" className="text-red-300 focus:bg-slate-700">{t.diagnosis.resultPositive}</SelectItem>
-                          <SelectItem value="의심" className="text-amber-300 focus:bg-slate-700">{t.diagnosis.resultSuspected}</SelectItem>
-                          <SelectItem value="음성" className="text-emerald-300 focus:bg-slate-700">{t.diagnosis.resultNegative}</SelectItem>
+                        <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="결과를 선택하세요" /></SelectTrigger>
+                        <SelectContent className="bg-card border-border">
+                          <SelectItem value="양성" className="text-red-500 focus:bg-accent">{t.diagnosis.resultPositive}</SelectItem>
+                          <SelectItem value="의심" className="text-amber-500 focus:bg-accent">{t.diagnosis.resultSuspected}</SelectItem>
+                          <SelectItem value="음성" className="text-emerald-500 focus:bg-accent">{t.diagnosis.resultNegative}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <Label className="text-slate-300 text-sm">총 비브리오 균수 (CFU/mL)</Label>
-                        <Input type="number" min={0} placeholder="예: 8500" value={dForm.vibrio_count} onChange={e => setDField("vibrio_count", e.target.value)} className="bg-slate-800 border-white/10 text-white placeholder:text-slate-600" />
+                        <Label className="text-foreground/80 text-sm">총 비브리오 균수 (CFU/mL)</Label>
+                        <Input type="number" min={0} placeholder="예: 8500" value={dForm.vibrio_count} onChange={e => setDField("vibrio_count", e.target.value)} className="bg-background border-border text-foreground placeholder:text-muted-foreground" />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-slate-300 text-sm">병원성 비율 (%)</Label>
-                        <Input type="number" min={0} max={100} placeholder="예: 35" value={dForm.pathogenic_ratio} onChange={e => setDField("pathogenic_ratio", e.target.value)} className="bg-slate-800 border-white/10 text-white placeholder:text-slate-600" />
+                        <Label className="text-foreground/80 text-sm">병원성 비율 (%)</Label>
+                        <Input type="number" min={0} max={100} placeholder="예: 35" value={dForm.pathogenic_ratio} onChange={e => setDField("pathogenic_ratio", e.target.value)} className="bg-background border-border text-foreground placeholder:text-muted-foreground" />
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-slate-300 text-sm">위험 단계 <span className="text-red-400">*</span></Label>
+                      <Label className="text-foreground/80 text-sm">위험 단계 <span className="text-red-400">*</span></Label>
                       <Select value={dForm.risk_level} onValueChange={v => setDField("risk_level", v as RiskLevel)}>
-                        <SelectTrigger className="bg-slate-800 border-white/10 text-white"><SelectValue placeholder="위험 단계를 선택하세요" /></SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-white/10">
-                          <SelectItem value="low" className="text-emerald-300 focus:bg-slate-700">낮음</SelectItem>
-                          <SelectItem value="medium" className="text-amber-300 focus:bg-slate-700">보통</SelectItem>
-                          <SelectItem value="high" className="text-red-300 focus:bg-slate-700">높음</SelectItem>
-                          <SelectItem value="critical" className="text-purple-300 focus:bg-slate-700">긴급</SelectItem>
+                        <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="위험 단계를 선택하세요" /></SelectTrigger>
+                        <SelectContent className="bg-card border-border">
+                          <SelectItem value="low" className="text-emerald-500 focus:bg-accent">낮음</SelectItem>
+                          <SelectItem value="medium" className="text-amber-500 focus:bg-accent">보통</SelectItem>
+                          <SelectItem value="high" className="text-red-500 focus:bg-accent">높음</SelectItem>
+                          <SelectItem value="critical" className="text-purple-500 focus:bg-accent">긴급</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-slate-300 text-sm flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" />조치사항</Label>
-                      <Textarea placeholder="시행한 또는 예정된 조치사항을 입력하세요" value={dForm.action_taken} onChange={e => setDField("action_taken", e.target.value)} rows={3} className="bg-slate-800 border-white/10 text-white placeholder:text-slate-600 resize-none" />
+                      <Label className="text-foreground/80 text-sm flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" />조치사항</Label>
+                      <Textarea placeholder="시행한 또는 예정된 조치사항을 입력하세요" value={dForm.action_taken} onChange={e => setDField("action_taken", e.target.value)} rows={3} className="bg-background border-border text-foreground placeholder:text-muted-foreground resize-none" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-slate-300 text-sm">{t.diagnosis.notes}</Label>
-                      <Textarea placeholder={t.diagnosis.notesPlaceholder} value={dForm.notes} onChange={e => setDField("notes", e.target.value)} rows={2} className="bg-slate-800 border-white/10 text-white placeholder:text-slate-600 resize-none" />
+                      <Label className="text-foreground/80 text-sm">{t.diagnosis.notes}</Label>
+                      <Textarea placeholder={t.diagnosis.notesPlaceholder} value={dForm.notes} onChange={e => setDField("notes", e.target.value)} rows={2} className="bg-background border-border text-foreground placeholder:text-muted-foreground resize-none" />
                     </div>
                     {dSubmitError && <p className="text-sm text-red-400 flex items-center gap-1.5"><XCircle className="w-4 h-4 shrink-0" />{dSubmitError}</p>}
                     <DialogFooter className="pt-2">
-                      <Button type="button" variant="outline" onClick={() => setDDialogOpen(false)} className="border-white/10 text-slate-300 hover:bg-slate-700" disabled={dSubmitting}>{t.common.cancel}</Button>
+                      <Button type="button" variant="outline" onClick={() => setDDialogOpen(false)} className="border-border text-foreground/80 hover:bg-accent" disabled={dSubmitting}>{t.common.cancel}</Button>
                       <Button type="submit" className="bg-purple-600 hover:bg-purple-500 text-white border-0" disabled={dSubmitting}>
                         {dSubmitting ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <FlaskConical className="w-4 h-4 mr-1.5" />}
                         {t.common.submit}
@@ -926,7 +926,7 @@ export default function JournalPage() {
                 <div className="flex justify-center">
                   <Button variant="outline" onClick={handleJLoadMore} disabled={jLoadingMore} className="border-border text-muted-foreground hover:text-foreground hover:bg-accent">
                     {jLoadingMore
-                      ? <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />{t.common.loading}</span>
+                      ? <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-border border-t-foreground rounded-full animate-spin" />{t.common.loading}</span>
                       : <span className="flex items-center gap-2"><ChevronDown className="w-4 h-4" />더 보기</span>}
                   </Button>
                 </div>
@@ -1095,49 +1095,49 @@ export default function JournalPage() {
 
       {/* Edit Journal */}
       <Dialog open={!!jEditTarget} onOpenChange={open => !open && setJEditTarget(null)}>
-        <DialogContent className="bg-slate-900 border-white/10 text-white max-w-md">
+        <DialogContent className="bg-card border-border text-foreground max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-white flex items-center gap-2"><Pencil className="w-4 h-4 text-ocean-400" />{t.journal.editEntry}</DialogTitle>
+            <DialogTitle className="text-foreground flex items-center gap-2"><Pencil className="w-4 h-4 text-ocean-500" />{t.journal.editEntry}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-slate-300 flex items-center gap-1"><UtensilsCrossed className="w-3.5 h-3.5 text-ocean-400" />{t.journal.catFeeding} (kg)</Label>
-                <Input type="number" step="0.1" value={jEditForm.feeding_amount || ""} onChange={e => setJEditForm(p => ({ ...p, feeding_amount: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+                <Label className="text-foreground/80 flex items-center gap-1"><UtensilsCrossed className="w-3.5 h-3.5 text-ocean-500" />{t.journal.catFeeding} (kg)</Label>
+                <Input type="number" step="0.1" value={jEditForm.feeding_amount || ""} onChange={e => setJEditForm(p => ({ ...p, feeding_amount: e.target.value }))} className="bg-background border-border text-foreground" />
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-300">사료 종류</Label>
+                <Label className="text-foreground/80">사료 종류</Label>
                 <Select value={jEditForm.feed_type || ""} onValueChange={v => setJEditForm(p => ({ ...p, feed_type: v }))}>
-                  <SelectTrigger className="bg-slate-800 border-white/10 text-white"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-white/10">
-                    {FEED_TYPES.map(f => <SelectItem key={f} value={f} className="text-white hover:bg-white/5">{f}</SelectItem>)}
+                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    {FEED_TYPES.map(f => <SelectItem key={f} value={f} className="text-foreground hover:bg-accent">{f}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label className="text-slate-300">급이 횟수</Label>
-                <Input type="number" value={jEditForm.feeding_times || ""} onChange={e => setJEditForm(p => ({ ...p, feeding_times: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+                <Label className="text-foreground/80">급이 횟수</Label>
+                <Input type="number" value={jEditForm.feeding_times || ""} onChange={e => setJEditForm(p => ({ ...p, feeding_times: e.target.value }))} className="bg-background border-border text-foreground" />
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-300 flex items-center gap-1"><Skull className="w-3.5 h-3.5 text-amber-400" />폐사 (마리)</Label>
-                <Input type="number" value={jEditForm.mortality_count || ""} onChange={e => setJEditForm(p => ({ ...p, mortality_count: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+                <Label className="text-foreground/80 flex items-center gap-1"><Skull className="w-3.5 h-3.5 text-amber-500" />폐사 (마리)</Label>
+                <Input type="number" value={jEditForm.mortality_count || ""} onChange={e => setJEditForm(p => ({ ...p, mortality_count: e.target.value }))} className="bg-background border-border text-foreground" />
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-300 flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5 text-teal-400" />환수율 (%)</Label>
-                <Input type="number" value={jEditForm.water_exchange_rate || ""} onChange={e => setJEditForm(p => ({ ...p, water_exchange_rate: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+                <Label className="text-foreground/80 flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5 text-teal-500" />환수율 (%)</Label>
+                <Input type="number" value={jEditForm.water_exchange_rate || ""} onChange={e => setJEditForm(p => ({ ...p, water_exchange_rate: e.target.value }))} className="bg-background border-border text-foreground" />
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-slate-300">{t.journal.notes}</Label>
-              <Textarea value={jEditForm.notes || ""} onChange={e => setJEditForm(p => ({ ...p, notes: e.target.value }))} className="bg-slate-800 border-white/10 text-white resize-none" rows={3} />
+              <Label className="text-foreground/80">{t.journal.notes}</Label>
+              <Textarea value={jEditForm.notes || ""} onChange={e => setJEditForm(p => ({ ...p, notes: e.target.value }))} className="bg-background border-border text-foreground resize-none" rows={3} />
             </div>
           </div>
           <DialogFooter className="mt-4">
-            <Button variant="ghost" onClick={() => setJEditTarget(null)} className="text-slate-400 hover:text-white">{t.common.cancel}</Button>
+            <Button variant="ghost" onClick={() => setJEditTarget(null)} className="text-muted-foreground hover:text-foreground">{t.common.cancel}</Button>
             <Button onClick={handleJEditSave} disabled={jEditSaving} className="bg-gradient-to-r from-ocean-500 to-teal-500 text-white min-w-[80px]">
-              {jEditSaving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : t.common.save}
+              {jEditSaving ? <span className="w-4 h-4 border-2 border-white/30 border-t-foreground rounded-full animate-spin" /> : t.common.save}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1145,17 +1145,17 @@ export default function JournalPage() {
 
       {/* Delete Journal */}
       <Dialog open={!!jDeleteTarget} onOpenChange={open => !open && setJDeleteTarget(null)}>
-        <DialogContent className="bg-slate-900 border-white/10 text-white max-w-sm">
+        <DialogContent className="bg-card border-border text-foreground max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-white flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-red-400" />{t.common.delete}</DialogTitle>
+            <DialogTitle className="text-foreground flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-red-400" />{t.common.delete}</DialogTitle>
           </DialogHeader>
-          <p className="text-slate-300 text-sm mt-2">
-            <span className="font-semibold text-white">{jDeleteTarget?.tank_name}</span> ({jDeleteTarget && formatDate(jDeleteTarget.date)}) {t.journal.deleteConfirm}
+          <p className="text-foreground/80 text-sm mt-2">
+            <span className="font-semibold text-foreground">{jDeleteTarget?.tank_name}</span> ({jDeleteTarget && formatDate(jDeleteTarget.date)}) {t.journal.deleteConfirm}
           </p>
           <DialogFooter className="mt-4">
-            <Button variant="ghost" onClick={() => setJDeleteTarget(null)} className="text-slate-400 hover:text-white">{t.common.cancel}</Button>
+            <Button variant="ghost" onClick={() => setJDeleteTarget(null)} className="text-muted-foreground hover:text-foreground">{t.common.cancel}</Button>
             <Button onClick={handleJDelete} disabled={jDeleting} className="bg-red-500 hover:bg-red-600 text-white">
-              {jDeleting ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : t.common.delete}
+              {jDeleting ? <span className="w-4 h-4 border-2 border-white/30 border-t-foreground rounded-full animate-spin" /> : t.common.delete}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1163,41 +1163,41 @@ export default function JournalPage() {
 
       {/* New Journal */}
       <Dialog open={jDialogOpen} onOpenChange={open => open ? openJournalDialog() : setJDialogOpen(false)}>
-        <DialogContent className="bg-slate-900 border-white/10 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-card border-border text-foreground max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-white flex items-center gap-2"><BookOpen className="w-5 h-5 text-ocean-400" />{t.journal.addEntry}</DialogTitle>
+            <DialogTitle className="text-foreground flex items-center gap-2"><BookOpen className="w-5 h-5 text-ocean-500" />{t.journal.addEntry}</DialogTitle>
           </DialogHeader>
           <Tabs defaultValue="basic" className="mt-2">
-            <TabsList className="bg-slate-800 border-white/5 w-full">
-              <TabsTrigger value="basic" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-300">기본 정보</TabsTrigger>
-              <TabsTrigger value="water" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-300">수질 측정</TabsTrigger>
-              <TabsTrigger value="ops" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-300">운영 작업</TabsTrigger>
-              <TabsTrigger value="checklist" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-300">체크리스트</TabsTrigger>
+            <TabsList className="bg-muted border-border w-full">
+              <TabsTrigger value="basic" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-500">기본 정보</TabsTrigger>
+              <TabsTrigger value="water" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-500">수질 측정</TabsTrigger>
+              <TabsTrigger value="ops" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-500">운영 작업</TabsTrigger>
+              <TabsTrigger value="checklist" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-500">체크리스트</TabsTrigger>
             </TabsList>
 
             <TabsContent value="basic" className="space-y-4 mt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-slate-300">{t.journal.tank} *</Label>
+                  <Label className="text-foreground/80">{t.journal.tank} *</Label>
                   <Select value={jForm.tank_id} onValueChange={v => jUpdate("tank_id", v)}>
-                    <SelectTrigger className="bg-slate-800 border-white/10 text-white"><SelectValue placeholder={t.journal.selectTank} /></SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-white/10">
-                      {tanks.map(tk => <SelectItem key={tk.id} value={tk.id} className="text-white hover:bg-white/5">{tk.name}</SelectItem>)}
+                    <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder={t.journal.selectTank} /></SelectTrigger>
+                    <SelectContent className="bg-card border-border">
+                      {tanks.map(tk => <SelectItem key={tk.id} value={tk.id} className="text-foreground hover:bg-accent">{tk.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-300">{t.journal.date} *</Label>
-                  <Input type="date" value={jForm.date} onChange={e => jUpdate("date", e.target.value)} className="bg-slate-800 border-white/10 text-white" />
+                  <Label className="text-foreground/80">{t.journal.date} *</Label>
+                  <Input type="date" value={jForm.date} onChange={e => jUpdate("date", e.target.value)} className="bg-background border-border text-foreground" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-slate-300 flex items-center gap-1"><UtensilsCrossed className="w-3.5 h-3.5 text-ocean-400" />{t.journal.catFeeding} (kg)</Label>
-                  <Input type="number" step="0.1" placeholder="0.0" value={jForm.feeding_amount} onChange={e => jUpdate("feeding_amount", e.target.value)} className="bg-slate-800 border-white/10 text-white" />
+                  <Label className="text-foreground/80 flex items-center gap-1"><UtensilsCrossed className="w-3.5 h-3.5 text-ocean-500" />{t.journal.catFeeding} (kg)</Label>
+                  <Input type="number" step="0.1" placeholder="0.0" value={jForm.feeding_amount} onChange={e => jUpdate("feeding_amount", e.target.value)} className="bg-background border-border text-foreground" />
                   {inventoryItems.filter(i => i.category === "feed").length > 0 && (
                     <select value={jForm.feedItemId} onChange={e => jUpdate("feedItemId", e.target.value)}
-                      className="w-full bg-slate-700 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-ocean-500">
+                      className="w-full bg-muted border border-border rounded-lg px-2 py-1.5 text-xs text-foreground/80 focus:outline-none focus:border-ocean-500">
                       <option value="">재고 차감 안 함</option>
                       {inventoryItems.filter(i => i.category === "feed").map(i =>
                         <option key={i.id} value={i.id}>{i.name} (재고: {i.current_stock}{i.unit})</option>
@@ -1206,52 +1206,52 @@ export default function JournalPage() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-300">사료 종류</Label>
+                  <Label className="text-foreground/80">사료 종류</Label>
                   <Select value={jForm.feed_type} onValueChange={v => jUpdate("feed_type", v)}>
-                    <SelectTrigger className="bg-slate-800 border-white/10 text-white"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-white/10">
-                      {FEED_TYPES.map(f => <SelectItem key={f} value={f} className="text-white hover:bg-white/5">{f}</SelectItem>)}
+                    <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+                    <SelectContent className="bg-card border-border">
+                      {FEED_TYPES.map(f => <SelectItem key={f} value={f} className="text-foreground hover:bg-accent">{f}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-slate-300">급이 횟수 (회/일)</Label>
-                  <Input type="number" placeholder="4" value={jForm.feeding_times} onChange={e => jUpdate("feeding_times", e.target.value)} className="bg-slate-800 border-white/10 text-white" />
+                  <Label className="text-foreground/80">급이 횟수 (회/일)</Label>
+                  <Input type="number" placeholder="4" value={jForm.feeding_times} onChange={e => jUpdate("feeding_times", e.target.value)} className="bg-background border-border text-foreground" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-300 flex items-center gap-1"><Skull className="w-3.5 h-3.5 text-amber-400" />폐사 개수 (마리)</Label>
-                  <Input type="number" placeholder="0" value={jForm.mortality_count} onChange={e => jUpdate("mortality_count", e.target.value)} className="bg-slate-800 border-white/10 text-white" />
+                  <Label className="text-foreground/80 flex items-center gap-1"><Skull className="w-3.5 h-3.5 text-amber-500" />폐사 개수 (마리)</Label>
+                  <Input type="number" placeholder="0" value={jForm.mortality_count} onChange={e => jUpdate("mortality_count", e.target.value)} className="bg-background border-border text-foreground" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-300 flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5 text-teal-400" />환수율 (%)</Label>
-                  <Input type="number" placeholder="0" value={jForm.water_exchange_rate} onChange={e => jUpdate("water_exchange_rate", e.target.value)} className="bg-slate-800 border-white/10 text-white" />
+                  <Label className="text-foreground/80 flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5 text-teal-500" />환수율 (%)</Label>
+                  <Input type="number" placeholder="0" value={jForm.water_exchange_rate} onChange={e => jUpdate("water_exchange_rate", e.target.value)} className="bg-background border-border text-foreground" />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-300 flex items-center gap-1"><StickyNote className="w-3.5 h-3.5 text-yellow-400" />{t.journal.notes}</Label>
-                <Textarea placeholder={t.journal.notesPlaceholder} value={jForm.notes} onChange={e => jUpdate("notes", e.target.value)} className="bg-slate-800 border-white/10 text-white placeholder:text-slate-500 resize-none" rows={3} />
+                <Label className="text-foreground/80 flex items-center gap-1"><StickyNote className="w-3.5 h-3.5 text-yellow-500" />{t.journal.notes}</Label>
+                <Textarea placeholder={t.journal.notesPlaceholder} value={jForm.notes} onChange={e => jUpdate("notes", e.target.value)} className="bg-background border-border text-foreground placeholder:text-muted-foreground resize-none" rows={3} />
               </div>
             </TabsContent>
 
             <TabsContent value="water" className="space-y-4 mt-4">
-              <p className="text-xs text-slate-400 bg-ocean-500/10 border border-ocean-500/20 rounded-lg px-3 py-2">수질 측정값을 직접 입력하세요. 센서 연동 시 자동으로 불러옵니다.</p>
+              <p className="text-xs text-muted-foreground bg-ocean-500/10 border border-ocean-500/20 rounded-lg px-3 py-2">수질 측정값을 직접 입력하세요. 센서 연동 시 자동으로 불러옵니다.</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {[
-                  { key: "temperature", label: "수온 (°C)",        icon: <Thermometer className="w-3.5 h-3.5 text-red-400" />,    placeholder: "28.0" },
-                  { key: "ph",          label: "pH",               icon: <Droplets    className="w-3.5 h-3.5 text-blue-400" />,   placeholder: "7.8" },
-                  { key: "do_level",    label: "DO (mg/L)",        icon: <Wind        className="w-3.5 h-3.5 text-teal-400" />,   placeholder: "6.5" },
-                  { key: "salinity",    label: "염분 (ppt)",        icon: <Waves       className="w-3.5 h-3.5 text-ocean-400" />,  placeholder: "20" },
-                  { key: "ammonia",     label: "암모니아 (mg/L)",   icon: <FlaskConical className="w-3.5 h-3.5 text-amber-400" />, placeholder: "0.1" },
-                  { key: "nitrite",     label: "아질산염 (mg/L)",   icon: <FlaskConical className="w-3.5 h-3.5 text-orange-400" />,placeholder: "0.05" },
-                  { key: "nitrate",     label: "질산염 (mg/L)",    icon: <FlaskConical className="w-3.5 h-3.5 text-yellow-400" />,placeholder: "5.0" },
-                  { key: "alkalinity",  label: "알칼리도 (mg/L)",  icon: <FlaskConical className="w-3.5 h-3.5 text-purple-400" />,placeholder: "120" },
-                  { key: "turbidity",   label: "탁도 (NTU)",       icon: <Droplets    className="w-3.5 h-3.5 text-gray-400" />,   placeholder: "5" },
+                  { key: "temperature", label: "수온 (°C)",        icon: <Thermometer className="w-3.5 h-3.5 text-red-500" />,    placeholder: "28.0" },
+                  { key: "ph",          label: "pH",               icon: <Droplets    className="w-3.5 h-3.5 text-blue-500" />,   placeholder: "7.8" },
+                  { key: "do_level",    label: "DO (mg/L)",        icon: <Wind        className="w-3.5 h-3.5 text-teal-500" />,   placeholder: "6.5" },
+                  { key: "salinity",    label: "염분 (ppt)",        icon: <Waves       className="w-3.5 h-3.5 text-ocean-500" />,  placeholder: "20" },
+                  { key: "ammonia",     label: "암모니아 (mg/L)",   icon: <FlaskConical className="w-3.5 h-3.5 text-amber-500" />, placeholder: "0.1" },
+                  { key: "nitrite",     label: "아질산염 (mg/L)",   icon: <FlaskConical className="w-3.5 h-3.5 text-orange-500" />,placeholder: "0.05" },
+                  { key: "nitrate",     label: "질산염 (mg/L)",    icon: <FlaskConical className="w-3.5 h-3.5 text-yellow-500" />,placeholder: "5.0" },
+                  { key: "alkalinity",  label: "알칼리도 (mg/L)",  icon: <FlaskConical className="w-3.5 h-3.5 text-purple-500" />,placeholder: "120" },
+                  { key: "turbidity",   label: "탁도 (NTU)",       icon: <Droplets    className="w-3.5 h-3.5 text-gray-500" />,   placeholder: "5" },
                 ].map(f => (
                   <div key={f.key} className="space-y-2">
-                    <Label className="text-slate-300 flex items-center gap-1">{f.icon}{f.label}</Label>
-                    <Input type="number" step="0.01" placeholder={f.placeholder} value={jForm[f.key as keyof typeof jForm] as string} onChange={e => jUpdate(f.key, e.target.value)} className="bg-slate-800 border-white/10 text-white" />
+                    <Label className="text-foreground/80 flex items-center gap-1">{f.icon}{f.label}</Label>
+                    <Input type="number" step="0.01" placeholder={f.placeholder} value={jForm[f.key as keyof typeof jForm] as string} onChange={e => jUpdate(f.key, e.target.value)} className="bg-background border-border text-foreground" />
                   </div>
                 ))}
               </div>
@@ -1259,17 +1259,17 @@ export default function JournalPage() {
 
             <TabsContent value="ops" className="space-y-4 mt-4">
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-slate-800/60 rounded-xl border border-white/5">
-                  <div><p className="text-sm text-white font-medium">소독 실시</p><p className="text-xs text-slate-400">수조 소독 여부</p></div>
+                <div className="flex items-center justify-between p-4 bg-muted rounded-xl border border-border">
+                  <div><p className="text-sm text-foreground font-medium">소독 실시</p><p className="text-xs text-muted-foreground">수조 소독 여부</p></div>
                   <Switch checked={jForm.disinfection} onCheckedChange={v => jUpdate("disinfection", v)} />
                 </div>
                 {jForm.disinfection && (
                   <div className="space-y-2">
-                    <Label className="text-slate-300">소독 방법/약품</Label>
-                    <Input placeholder="소독 방법을 입력하세요" value={jForm.disinfection_type} onChange={e => jUpdate("disinfection_type", e.target.value)} className="bg-slate-800 border-white/10 text-white" />
+                    <Label className="text-foreground/80">소독 방법/약품</Label>
+                    <Input placeholder="소독 방법을 입력하세요" value={jForm.disinfection_type} onChange={e => jUpdate("disinfection_type", e.target.value)} className="bg-background border-border text-foreground" />
                     {inventoryItems.filter(i => i.category === "chemical").length > 0 && (
                       <select value={jForm.chemicalItemId} onChange={e => jUpdate("chemicalItemId", e.target.value)}
-                        className="w-full bg-slate-700 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-ocean-500">
+                        className="w-full bg-muted border border-border rounded-lg px-2 py-1.5 text-xs text-foreground/80 focus:outline-none focus:border-ocean-500">
                         <option value="">재고 차감 안 함</option>
                         {inventoryItems.filter(i => i.category === "chemical").map(i =>
                           <option key={i.id} value={i.id}>{i.name} (재고: {i.current_stock}{i.unit})</option>
@@ -1277,31 +1277,31 @@ export default function JournalPage() {
                       </select>
                     )}
                     {jForm.chemicalItemId && (
-                      <Input type="number" step="0.01" placeholder="사용량 입력" value={jForm.chemicalQty} onChange={e => jUpdate("chemicalQty", e.target.value)} className="bg-slate-800 border-white/10 text-white text-sm" />
+                      <Input type="number" step="0.01" placeholder="사용량 입력" value={jForm.chemicalQty} onChange={e => jUpdate("chemicalQty", e.target.value)} className="bg-background border-border text-foreground text-sm" />
                     )}
                   </div>
                 )}
-                <div className="flex items-center justify-between p-4 bg-slate-800/60 rounded-xl border border-white/5">
-                  <div><p className="text-sm text-white font-medium">미생물제 투입</p><p className="text-xs text-slate-400">유익균 투입 여부</p></div>
+                <div className="flex items-center justify-between p-4 bg-muted rounded-xl border border-border">
+                  <div><p className="text-sm text-foreground font-medium">미생물제 투입</p><p className="text-xs text-muted-foreground">유익균 투입 여부</p></div>
                   <Switch checked={jForm.microbial_input} onCheckedChange={v => jUpdate("microbial_input", v)} />
                 </div>
                 {jForm.microbial_input && (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-slate-300">미생물 종류</Label>
+                      <Label className="text-foreground/80">미생물 종류</Label>
                       <Select value={jForm.microbial_type} onValueChange={v => jUpdate("microbial_type", v)}>
-                        <SelectTrigger className="bg-slate-800 border-white/10 text-white"><SelectValue /></SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-white/10">
-                          {MICROBIAL_TYPES.map(m => <SelectItem key={m} value={m} className="text-white hover:bg-white/5">{m}</SelectItem>)}
+                        <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+                        <SelectContent className="bg-card border-border">
+                          {MICROBIAL_TYPES.map(m => <SelectItem key={m} value={m} className="text-foreground hover:bg-accent">{m}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-slate-300">투입량 (mL/ton)</Label>
-                      <Input type="number" placeholder="500" value={jForm.microbial_amount} onChange={e => jUpdate("microbial_amount", e.target.value)} className="bg-slate-800 border-white/10 text-white" />
+                      <Label className="text-foreground/80">투입량 (mL/ton)</Label>
+                      <Input type="number" placeholder="500" value={jForm.microbial_amount} onChange={e => jUpdate("microbial_amount", e.target.value)} className="bg-background border-border text-foreground" />
                       {inventoryItems.filter(i => i.category === "probiotic").length > 0 && (
                         <select value={jForm.microbialItemId} onChange={e => jUpdate("microbialItemId", e.target.value)}
-                          className="w-full bg-slate-700 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-ocean-500">
+                          className="w-full bg-muted border border-border rounded-lg px-2 py-1.5 text-xs text-foreground/80 focus:outline-none focus:border-ocean-500">
                           <option value="">재고 차감 안 함</option>
                           {inventoryItems.filter(i => i.category === "probiotic").map(i =>
                             <option key={i.id} value={i.id}>{i.name} (재고: {i.current_stock}{i.unit})</option>
@@ -1315,15 +1315,15 @@ export default function JournalPage() {
             </TabsContent>
 
             <TabsContent value="checklist" className="space-y-3 mt-4">
-              <p className="text-xs text-slate-400">일일 점검 항목을 확인하세요</p>
+              <p className="text-xs text-muted-foreground">일일 점검 항목을 확인하세요</p>
               {[
                 { key: "check_aeration",     label: "폭기 시스템 점검",  desc: "에어레이터 가동 상태 확인" },
                 { key: "check_filtration",   label: "여과 시스템 점검",  desc: "필터 청결 및 가동 상태 확인" },
                 { key: "check_circulation",  label: "순환 펌프 점검",    desc: "순환 펌프 가동 상태 및 유량 확인" },
                 { key: "check_feeding_check",label: "섭이 반응 확인",    desc: "새우 섭이 반응 및 활동성 확인" },
               ].map(item => (
-                <div key={item.key} className="flex items-center justify-between p-4 bg-slate-800/60 rounded-xl border border-white/5">
-                  <div><p className="text-sm text-white font-medium">{item.label}</p><p className="text-xs text-slate-400">{item.desc}</p></div>
+                <div key={item.key} className="flex items-center justify-between p-4 bg-muted rounded-xl border border-border">
+                  <div><p className="text-sm text-foreground font-medium">{item.label}</p><p className="text-xs text-muted-foreground">{item.desc}</p></div>
                   <Switch checked={jForm[item.key as keyof typeof jForm] as boolean} onCheckedChange={v => jUpdate(item.key, v)} />
                 </div>
               ))}
@@ -1331,12 +1331,12 @@ export default function JournalPage() {
           </Tabs>
           {jSaveError && <p className="text-sm text-red-400 mt-2 px-1">{jSaveError}</p>}
           <DialogFooter className="mt-4">
-            <Button variant="ghost" onClick={() => setJDialogOpen(false)} className="text-slate-400 hover:text-white">{t.common.cancel}</Button>
+            <Button variant="ghost" onClick={() => setJDialogOpen(false)} className="text-muted-foreground hover:text-foreground">{t.common.cancel}</Button>
             <Button onClick={handleJSave} disabled={jSaving || jSaved || !jForm.tank_id} className="bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white min-w-[100px]">
               {jSaved
                 ? <span className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" />{t.journal.saved}</span>
                 : jSaving
-                ? <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />{t.journal.saving}</span>
+                ? <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-foreground rounded-full animate-spin" />{t.journal.saving}</span>
                 : t.common.save}
             </Button>
           </DialogFooter>
@@ -1347,66 +1347,66 @@ export default function JournalPage() {
 
       {/* Edit Diagnosis */}
       <Dialog open={!!dEditTarget} onOpenChange={open => !open && setDEditTarget(null)}>
-        <DialogContent className="bg-slate-900 border-white/10 text-white max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-card border-border text-foreground max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-white flex items-center gap-2"><Pencil className="w-4 h-4 text-purple-400" />진단 결과 편집</DialogTitle>
+            <DialogTitle className="text-foreground flex items-center gap-2"><Pencil className="w-4 h-4 text-purple-500" />진단 결과 편집</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleDEditSave} className="space-y-4 mt-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-slate-300 text-sm">{t.diagnosis.testType}</Label>
+                <Label className="text-foreground/80 text-sm">{t.diagnosis.testType}</Label>
                 <Select value={dEditForm.test_type} onValueChange={v => setDEditForm(p => ({ ...p, test_type: v as TestType }))}>
-                  <SelectTrigger className="bg-slate-800 border-white/10 text-white"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-white/10">
-                    {(["AHPND", "총비브리오", "EHP", "WSSV", "기타"] as TestType[]).map(tt => <SelectItem key={tt} value={tt} className="text-white focus:bg-slate-700">{tt}</SelectItem>)}
+                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    {(["AHPND", "총비브리오", "EHP", "WSSV", "기타"] as TestType[]).map(tt => <SelectItem key={tt} value={tt} className="text-foreground focus:bg-accent">{tt}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-slate-300 text-sm">{t.diagnosis.result}</Label>
+                <Label className="text-foreground/80 text-sm">{t.diagnosis.result}</Label>
                 <Select value={dEditForm.result} onValueChange={v => setDEditForm(p => ({ ...p, result: v as ResultType }))}>
-                  <SelectTrigger className="bg-slate-800 border-white/10 text-white"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-white/10">
-                    <SelectItem value="양성" className="text-red-300 focus:bg-slate-700">{t.diagnosis.resultPositive}</SelectItem>
-                    <SelectItem value="의심" className="text-amber-300 focus:bg-slate-700">{t.diagnosis.resultSuspected}</SelectItem>
-                    <SelectItem value="음성" className="text-emerald-300 focus:bg-slate-700">{t.diagnosis.resultNegative}</SelectItem>
+                  <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    <SelectItem value="양성" className="text-red-500 focus:bg-accent">{t.diagnosis.resultPositive}</SelectItem>
+                    <SelectItem value="의심" className="text-amber-500 focus:bg-accent">{t.diagnosis.resultSuspected}</SelectItem>
+                    <SelectItem value="음성" className="text-emerald-500 focus:bg-accent">{t.diagnosis.resultNegative}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-slate-300 text-sm">총 비브리오 균수 (CFU/mL)</Label>
-                <Input type="number" min={0} placeholder="예: 8500" value={dEditForm.vibrio_count} onChange={e => setDEditForm(p => ({ ...p, vibrio_count: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+                <Label className="text-foreground/80 text-sm">총 비브리오 균수 (CFU/mL)</Label>
+                <Input type="number" min={0} placeholder="예: 8500" value={dEditForm.vibrio_count} onChange={e => setDEditForm(p => ({ ...p, vibrio_count: e.target.value }))} className="bg-background border-border text-foreground" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-slate-300 text-sm">병원성 비율 (%)</Label>
-                <Input type="number" min={0} max={100} placeholder="예: 35" value={dEditForm.pathogenic_ratio} onChange={e => setDEditForm(p => ({ ...p, pathogenic_ratio: e.target.value }))} className="bg-slate-800 border-white/10 text-white" />
+                <Label className="text-foreground/80 text-sm">병원성 비율 (%)</Label>
+                <Input type="number" min={0} max={100} placeholder="예: 35" value={dEditForm.pathogenic_ratio} onChange={e => setDEditForm(p => ({ ...p, pathogenic_ratio: e.target.value }))} className="bg-background border-border text-foreground" />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-slate-300 text-sm">위험 단계</Label>
+              <Label className="text-foreground/80 text-sm">위험 단계</Label>
               <Select value={dEditForm.risk_level} onValueChange={v => setDEditForm(p => ({ ...p, risk_level: v as RiskLevel }))}>
-                <SelectTrigger className="bg-slate-800 border-white/10 text-white"><SelectValue /></SelectTrigger>
-                <SelectContent className="bg-slate-800 border-white/10">
-                  <SelectItem value="low" className="text-emerald-300 focus:bg-slate-700">낮음</SelectItem>
-                  <SelectItem value="medium" className="text-amber-300 focus:bg-slate-700">보통</SelectItem>
-                  <SelectItem value="high" className="text-red-300 focus:bg-slate-700">높음</SelectItem>
-                  <SelectItem value="critical" className="text-purple-300 focus:bg-slate-700">긴급</SelectItem>
+                <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-card border-border">
+                  <SelectItem value="low" className="text-emerald-500 focus:bg-accent">낮음</SelectItem>
+                  <SelectItem value="medium" className="text-amber-500 focus:bg-accent">보통</SelectItem>
+                  <SelectItem value="high" className="text-red-500 focus:bg-accent">높음</SelectItem>
+                  <SelectItem value="critical" className="text-purple-500 focus:bg-accent">긴급</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-slate-300 text-sm flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" />조치사항</Label>
-              <Textarea placeholder="조치사항을 입력하세요" value={dEditForm.action_taken} onChange={e => setDEditForm(p => ({ ...p, action_taken: e.target.value }))} rows={3} className="bg-slate-800 border-white/10 text-white resize-none" />
+              <Label className="text-foreground/80 text-sm flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" />조치사항</Label>
+              <Textarea placeholder="조치사항을 입력하세요" value={dEditForm.action_taken} onChange={e => setDEditForm(p => ({ ...p, action_taken: e.target.value }))} rows={3} className="bg-background border-border text-foreground resize-none" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-slate-300 text-sm">{t.diagnosis.notes}</Label>
-              <Textarea placeholder={t.diagnosis.notesPlaceholder} value={dEditForm.notes} onChange={e => setDEditForm(p => ({ ...p, notes: e.target.value }))} rows={2} className="bg-slate-800 border-white/10 text-white resize-none" />
+              <Label className="text-foreground/80 text-sm">{t.diagnosis.notes}</Label>
+              <Textarea placeholder={t.diagnosis.notesPlaceholder} value={dEditForm.notes} onChange={e => setDEditForm(p => ({ ...p, notes: e.target.value }))} rows={2} className="bg-background border-border text-foreground resize-none" />
             </div>
             {dEditError && <p className="text-sm text-red-400 flex items-center gap-1.5"><XCircle className="w-4 h-4 shrink-0" />{dEditError}</p>}
             <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setDEditTarget(null)} className="border-white/10 text-slate-300 hover:bg-slate-700" disabled={dEditSaving}>{t.common.cancel}</Button>
+              <Button type="button" variant="outline" onClick={() => setDEditTarget(null)} className="border-border text-foreground/80 hover:bg-accent" disabled={dEditSaving}>{t.common.cancel}</Button>
               <Button type="submit" className="bg-purple-600 hover:bg-purple-500 text-white border-0" disabled={dEditSaving}>
                 {dEditSaving ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Pencil className="w-4 h-4 mr-1.5" />}{t.common.save}
               </Button>
@@ -1417,15 +1417,15 @@ export default function JournalPage() {
 
       {/* Delete Diagnosis */}
       <Dialog open={!!dDeleteTarget} onOpenChange={open => !open && setDDeleteTarget(null)}>
-        <DialogContent className="bg-slate-900 border-white/10 text-white max-w-sm">
+        <DialogContent className="bg-card border-border text-foreground max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-white flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-red-400" />{t.common.delete}</DialogTitle>
+            <DialogTitle className="text-foreground flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-red-400" />{t.common.delete}</DialogTitle>
           </DialogHeader>
-          <p className="text-slate-300 text-sm mt-2">
-            <span className="font-semibold text-white">{dDeleteTarget?.tank_name}</span> — {dDeleteTarget?.test_type} ({dDeleteTarget?.result}) {t.diagnosis.deleteConfirm}
+          <p className="text-foreground/80 text-sm mt-2">
+            <span className="font-semibold text-foreground">{dDeleteTarget?.tank_name}</span> — {dDeleteTarget?.test_type} ({dDeleteTarget?.result}) {t.diagnosis.deleteConfirm}
           </p>
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setDDeleteTarget(null)} className="border-white/10 text-slate-300 hover:bg-slate-700" disabled={dDeleting}>{t.common.cancel}</Button>
+            <Button variant="outline" onClick={() => setDDeleteTarget(null)} className="border-border text-foreground/80 hover:bg-accent" disabled={dDeleting}>{t.common.cancel}</Button>
             <Button onClick={handleDDelete} disabled={dDeleting} className="bg-red-500 hover:bg-red-600 text-white border-0">
               {dDeleting ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Trash2 className="w-4 h-4 mr-1.5" />}{t.common.delete}
             </Button>

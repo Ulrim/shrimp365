@@ -514,9 +514,9 @@ export default function WaterQualityPage() {
                       >
                         <div className="flex items-center gap-2">
                           <span className={`w-1.5 h-1.5 rounded-full ${
-                            tank.status === "active"   ? "bg-emerald-400" :
-                            tank.status === "warning"  ? "bg-amber-400" :
-                            tank.status === "danger"   ? "bg-red-400" : "bg-slate-400"
+                            tank.status === "active"   ? "bg-emerald-500" :
+                            tank.status === "warning"  ? "bg-amber-500" :
+                            tank.status === "danger"   ? "bg-red-500" : "bg-slate-500"
                           }`} />
                           {tank.name}
                         </div>

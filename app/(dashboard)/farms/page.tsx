@@ -64,7 +64,7 @@ function useStatusMeta() {
   > = {
     active: {
       label: t.dashboard.normal,
-      dot: "bg-emerald-400",
+      dot: "bg-emerald-500",
       text: "text-emerald-500",
       bg: "bg-emerald-500/10",
       border: "border-emerald-500/20",
@@ -72,7 +72,7 @@ function useStatusMeta() {
     },
     warning: {
       label: t.dashboard.warning,
-      dot: "bg-amber-400",
+      dot: "bg-amber-500",
       text: "text-amber-500",
       bg: "bg-amber-500/10",
       border: "border-amber-500/20",
@@ -80,7 +80,7 @@ function useStatusMeta() {
     },
     danger: {
       label: t.dashboard.danger,
-      dot: "bg-red-400",
+      dot: "bg-red-500",
       text: "text-red-500",
       bg: "bg-red-500/10",
       border: "border-red-500/20",
@@ -88,7 +88,7 @@ function useStatusMeta() {
     },
     inactive: {
       label: t.farms.tankStatusInactive,
-      dot: "bg-slate-400",
+      dot: "bg-slate-500",
       text: "text-muted-foreground",
       bg: "bg-slate-500/10",
       border: "border-slate-500/20",
@@ -384,7 +384,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
                     onClick={() => setForm(f => ({ ...f, tank_type: type }))}
                     className={`flex-1 h-9 rounded-lg text-xs font-medium border transition-all
                       ${form.tank_type === type
-                        ? "bg-ocean-500 border-ocean-400 text-white"
+                        ? "bg-ocean-500 border-ocean-500 text-white"
                         : "bg-muted border-border text-muted-foreground hover:bg-accent"
                       }`}
                   >
@@ -691,7 +691,7 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
                   onClick={() => setForm(p => ({ ...p, tank_type: type }))}
                   className={`flex-1 h-9 rounded-lg text-xs font-medium border transition-all
                     ${form.tank_type === type
-                      ? "bg-ocean-500 border-ocean-400 text-white"
+                      ? "bg-ocean-500 border-ocean-500 text-white"
                       : "bg-muted border-border text-muted-foreground hover:bg-accent"
                     }`}
                 >
@@ -1092,7 +1092,7 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
             devices.map(device => (
               <div key={device.id} className="flex items-center justify-between bg-muted rounded-lg px-3 py-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${device.active ? "bg-emerald-400 animate-pulse" : "bg-slate-500"}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${device.active ? "bg-emerald-500 animate-pulse" : "bg-slate-500"}`} />
                   <div className="min-w-0">
                     <p className="text-xs text-foreground font-medium truncate">{device.name}</p>
                     <p className="text-[10px] text-muted-foreground">{timeSince(device.last_seen_at)}</p>
