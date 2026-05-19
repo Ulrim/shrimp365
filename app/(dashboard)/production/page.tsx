@@ -86,7 +86,7 @@ function NewCycleDialog({ tanks, open, onClose, onCreated }: {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-card border-border text-foreground max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-card border-border text-foreground max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>새 생산 사이클 등록</DialogTitle></DialogHeader>
         <div className="space-y-4 mt-2">
           <div className="grid grid-cols-2 gap-3">
@@ -184,7 +184,7 @@ function NewSampleDialog({ cycle, open, onClose, onCreated }: { cycle: Productio
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-card border-border text-foreground max-w-md">
+      <DialogContent className="bg-card border-border text-foreground max-w-[95vw] sm:max-w-md">
         <DialogHeader><DialogTitle>성장 샘플링 입력</DialogTitle></DialogHeader>
         <div className="space-y-3 mt-2">
           <div className="grid grid-cols-2 gap-3">
@@ -230,7 +230,7 @@ function NewCostDialog({ cycleId, open, onClose, onCreated }: { cycleId: string;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-card border-border text-foreground max-w-md">
+      <DialogContent className="bg-card border-border text-foreground max-w-[95vw] sm:max-w-md">
         <DialogHeader><DialogTitle>비용 입력</DialogTitle></DialogHeader>
         <div className="space-y-3 mt-2">
           <div>
@@ -280,7 +280,7 @@ function NewHarvestDialog({ cycleId, open, onClose, onCreated }: { cycleId: stri
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-card border-border text-foreground max-w-md">
+      <DialogContent className="bg-card border-border text-foreground max-w-[95vw] sm:max-w-md">
         <DialogHeader><DialogTitle>수확 기록</DialogTitle></DialogHeader>
         <div className="space-y-3 mt-2">
           <div className="grid grid-cols-2 gap-3">

@@ -110,7 +110,7 @@ function ReadingCard({ meta, reading }: { meta: ParamMeta; reading: WaterQuality
   const statusLabel = status === "정상" ? t.dashboard.normal : status === "주의" ? t.dashboard.warning : t.dashboard.danger
 
   return (
-    <Card className={`border ${styles.bg} transition-all hover:brightness-110`}>
+    <Card className={`border min-w-0 overflow-hidden ${styles.bg} transition-all hover:brightness-110`}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-3">
           <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${styles.bg} ${styles.text}`}>
@@ -426,7 +426,7 @@ export default function WaterQualityPage() {
           <p className="text-sm text-muted-foreground mt-0.5">{t.waterQuality.subtitle}</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {/* Summary badges */}
           <div className="hidden sm:flex items-center gap-2">
             <span className="flex items-center gap-1.5 text-xs text-emerald-500">
@@ -444,7 +444,7 @@ export default function WaterQualityPage() {
           <div className="flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-muted-foreground hidden sm:block" />
             <Select value={String(hours)} onValueChange={v => setHours(Number(v) as 24 | 72 | 168)}>
-              <SelectTrigger className="w-24 h-8 bg-muted border-border text-muted-foreground text-xs focus:ring-ocean-500/30">
+              <SelectTrigger className="w-full sm:w-24 h-8 bg-muted border-border text-muted-foreground text-xs focus:ring-ocean-500/30">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-card border-border">
@@ -462,7 +462,7 @@ export default function WaterQualityPage() {
             disabled={hasExport(plan) && !readings.length}
             variant="outline"
             size="sm"
-            className="border-border text-muted-foreground hover:bg-accent gap-2"
+            className="border-border text-muted-foreground hover:bg-accent gap-2 shrink-0"
             title={hasExport(plan) ? t.waterQuality.csvExport : t.waterQuality.csvProOnly}
           >
             <Download className="w-4 h-4" />
@@ -470,26 +470,27 @@ export default function WaterQualityPage() {
             {!hasExport(plan) && <span className="text-xs text-amber-500">Basic+</span>}
           </Button>
 
-          <a href="/journal">
+          <a href="/journal" className="shrink-0">
             <Button
               variant="outline"
               size="sm"
               className="border-ocean-500/40 text-ocean-500 hover:bg-ocean-500/10 gap-2"
             >
               <Plus className="w-4 h-4" />
-              {t.waterQuality.addRecord}
+              <span className="hidden sm:inline">{t.waterQuality.addRecord}</span>
+              <span className="sm:hidden">{t.waterQuality.addRecord}</span>
             </Button>
           </a>
 
           <Button
             variant="outline"
             size="sm"
-            className="border-border text-muted-foreground hover:bg-accent gap-2"
+            className="border-border text-muted-foreground hover:bg-accent gap-2 shrink-0"
             onClick={handleRefresh}
             disabled={isRefreshing}
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
-            새로고침
+            <span className="hidden sm:inline">새로고침</span>
           </Button>
         </div>
       </div>
@@ -502,7 +503,7 @@ export default function WaterQualityPage() {
               <div>
                 <p className="text-xs text-muted-foreground mb-1.5">{t.waterQuality.tank}</p>
                 <Select value={selectedTankId} onValueChange={setSelectedTankId}>
-                  <SelectTrigger className="w-48 bg-muted border-border text-foreground focus:ring-ocean-500/30">
+                  <SelectTrigger className="w-full sm:w-48 bg-muted border-border text-foreground focus:ring-ocean-500/30">
                     <SelectValue placeholder={t.waterQuality.selectTank} />
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border">
@@ -527,7 +528,7 @@ export default function WaterQualityPage() {
               </div>
 
               {selectedTank && (
-                <div className="flex items-center gap-6 text-sm">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:gap-x-6 text-sm">
                   <div>
                     <p className="text-xs text-muted-foreground">사육일수</p>
                     <p className="font-semibold text-foreground">{selectedTank.cycle_day}일차</p>
@@ -675,7 +676,7 @@ export default function WaterQualityPage() {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="overview">
-                <TabsList className="bg-muted border border-border h-9 mb-4 flex-wrap gap-y-1">
+                <TabsList className="bg-muted border border-border mb-4 flex-wrap gap-y-1 h-auto min-h-9">
                   <TabsTrigger value="overview"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">수온·DO·pH</TabsTrigger>
                   <TabsTrigger value="nitrogen"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">질소 복합</TabsTrigger>
                   <TabsTrigger value="temperature" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.temperature}</TabsTrigger>

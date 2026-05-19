@@ -66,7 +66,7 @@ function ExampleReport() {
       {/* KPI Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
         {exampleKpis.map(kpi => (
-          <Card key={kpi.label} className="bg-card border-border">
+          <Card key={kpi.label} className="bg-card border-border min-w-0 overflow-hidden">
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground mb-2">{kpi.label}</p>
               <p className="text-xl font-bold text-foreground mb-1">{kpi.value}</p>
@@ -192,7 +192,7 @@ function ExampleReport() {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="text-muted-foreground text-xs border-b border-border">
                   <th className="text-left pb-3 font-medium">{t.reports.farm}</th>
@@ -281,7 +281,7 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
           { label: t.reports.periodMortality, value: `${totalMortality.toLocaleString()}마리` },
           { label: t.reports.periodFeeding, value: `${totalFeeding.toFixed(1)}kg` },
         ].map(kpi => (
-          <Card key={kpi.label} className="bg-card border-border">
+          <Card key={kpi.label} className="bg-card border-border min-w-0 overflow-hidden">
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground mb-2">{kpi.label}</p>
               <p className="text-xl font-bold text-foreground">{kpi.value}</p>
@@ -363,7 +363,7 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
             <p className="text-muted-foreground text-sm text-center py-6">{t.reports.noFarms}</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[500px] text-sm">
                 <thead>
                   <tr className="text-muted-foreground text-xs border-b border-border">
                     <th className="text-left pb-3 font-medium">{t.reports.farm}</th>
@@ -414,12 +414,12 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
           </CardHeader>
           <CardContent className="space-y-2">
             {weekJournals.slice(0, 10).map(j => (
-              <div key={j.id} className="flex items-center justify-between p-3 bg-muted rounded-xl text-sm">
-                <div className="flex items-center gap-3">
+              <div key={j.id} className="flex flex-wrap items-center justify-between gap-2 p-3 bg-muted rounded-xl text-sm">
+                <div className="flex items-center gap-3 min-w-0">
                   <span className="text-muted-foreground text-xs w-16 shrink-0">{j.date}</span>
-                  <span className="text-foreground font-medium">{j.tank_name}</span>
+                  <span className="text-foreground font-medium truncate">{j.tank_name}</span>
                 </div>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs text-muted-foreground">
                   <span>{t.reports.feeding} {j.feeding_amount}kg</span>
                   <span className={j.mortality_count > 0 ? "text-amber-500" : "text-muted-foreground"}>{t.reports.mortality} {j.mortality_count}마리</span>
                   <span>{t.reports.waterExchange} {j.water_exchange_rate}%</span>
@@ -512,9 +512,9 @@ export default function ReportsPage() {
           <h2 className="text-xl font-bold text-foreground">{t.reports.title}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">{dateRange}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-muted border border-border rounded-xl p-1">
-            <Calendar className="w-4 h-4 text-muted-foreground mx-2" />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1 bg-muted border border-border rounded-xl p-1">
+            <Calendar className="w-4 h-4 text-muted-foreground mx-2 shrink-0" />
             {PERIOD_OPTIONS.map(opt => {
               const currentPlan = (user?.plan ?? "free") as Plan
               const allowedPeriods = PLAN_LIMITS[currentPlan].reportPeriods as number[]

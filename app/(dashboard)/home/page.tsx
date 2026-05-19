@@ -16,8 +16,8 @@ export default function HomePage() {
       <div className="w-full max-w-lg space-y-8">
         {/* Greeting */}
         <div className="text-center space-y-1">
-          <h1 className="text-3xl font-bold text-foreground">{greeting}</h1>
-          <p className="text-muted-foreground text-base">오늘도 건강한 양식장을 위해 시작해볼까요?</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{greeting}</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">오늘도 건강한 양식장을 위해 시작해볼까요?</p>
         </div>
 
         {/* Two big action cards */}
@@ -30,8 +30,8 @@ export default function HomePage() {
               <ClipboardList className="w-8 h-8" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-ocean-700">📝 {t.hub.recordButton}</p>
-              <p className="text-sm text-ocean-500 mt-1">수질·양식 일지 입력</p>
+              <p className="text-lg sm:text-2xl font-bold text-ocean-700">📝 {t.hub.recordButton}</p>
+              <p className="text-xs sm:text-sm text-ocean-500 mt-1">수질·양식 일지 입력</p>
             </div>
           </Link>
 
@@ -43,8 +43,8 @@ export default function HomePage() {
               <BarChart3 className="w-8 h-8" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-teal-700">📊 {t.hub.monitorButton}</p>
-              <p className="text-sm text-teal-500 mt-1">수질·알림·통계 확인</p>
+              <p className="text-lg sm:text-2xl font-bold text-teal-700">📊 {t.hub.monitorButton}</p>
+              <p className="text-xs sm:text-sm text-teal-500 mt-1">수질·알림·통계 확인</p>
             </div>
           </Link>
         </div>

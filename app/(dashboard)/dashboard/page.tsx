@@ -22,15 +22,15 @@ import { useT } from "@/lib/i18n-context"
 
 function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string }) {
   return (
-    <Card className="bg-muted border-border">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground mb-1">{label}</p>
-            <p className={`text-3xl font-bold ${color}`}>{value}</p>
-            {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
+    <Card className="bg-muted border-border min-w-0 overflow-hidden">
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm text-muted-foreground mb-1 truncate">{label}</p>
+            <p className={`text-2xl sm:text-3xl font-bold ${color}`}>{value}</p>
+            {sub && <p className="text-xs text-muted-foreground mt-1 truncate">{sub}</p>}
           </div>
-          <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${color.replace("text-", "bg-").replace("400", "500/20")}`}>
+          <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center shrink-0 ${color.replace("text-", "bg-").replace("400", "500/20")}`}>
             {icon}
           </div>
         </div>
@@ -160,7 +160,7 @@ export default function DashboardPage() {
               {alerts.map(a => a.tank_name).join(", ")} — {t.dashboard.alertsNone}
             </p>
           </div>
-          <Link href="/water-quality">
+          <Link href="/water-quality" className="shrink-0">
             <Button size="sm" variant="outline" className="border-red-500/40 text-red-300 hover:bg-red-500/20 text-xs h-8">
               {t.dashboard.viewAllAlerts}
             </Button>
@@ -179,7 +179,7 @@ export default function DashboardPage() {
               {lowStockItems.length > 3 ? ` +${lowStockItems.length - 3}` : ""}
             </p>
           </div>
-          <Link href="/inventory">
+          <Link href="/inventory" className="shrink-0">
             <Button size="sm" variant="outline" className="border-amber-500/40 text-amber-300 hover:bg-amber-500/20 text-xs h-8">
               {t.nav.inventory}
             </Button>
@@ -210,7 +210,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <StatCard icon={<Building2 className="w-5 h-5 text-ocean-500" />} label={t.dashboard.activeFarms} value={farms.length} sub={`${t.common.total} ${tanks.length}`} color="text-ocean-500" />
         <StatCard icon={<Layers className="w-5 h-5 text-teal-500" />} label={t.dashboard.activeTanks} value={statusCounts.active} sub={`${t.dashboard.warning} ${statusCounts.warning} / ${t.dashboard.danger} ${statusCounts.danger}`} color="text-teal-500" />
         <StatCard icon={<AlertTriangle className="w-5 h-5 text-amber-500" />} label={t.dashboard.alertsToday} value={alerts.length} sub={t.dashboard.alertsNone} color="text-amber-500" />
@@ -222,12 +222,12 @@ export default function DashboardPage() {
         <div className="xl:col-span-2">
           <Card className="bg-card border-border h-full">
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <select
                     value={selectedTankId}
                     onChange={e => setSelectedTankId(e.target.value)}
-                    className="bg-muted border border-border rounded-lg px-2 py-1 text-foreground text-sm focus:outline-none focus:border-ocean-500"
+                    className="bg-muted border border-border rounded-lg px-2 py-1 text-foreground text-sm focus:outline-none focus:border-ocean-500 max-w-[180px] sm:max-w-none"
                   >
                     {tanks.map(tk => <option key={tk.id} value={tk.id}>{tk.name}</option>)}
                   </select>
@@ -348,7 +348,7 @@ export default function DashboardPage() {
             <p className="text-sm text-muted-foreground text-center py-6">{t.dashboard.noJournal}</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[600px] text-sm">
                 <thead>
                   <tr className="text-muted-foreground text-xs border-b border-border">
                     <th className="text-left pb-2 font-medium">{t.diagnosis.tank}</th>

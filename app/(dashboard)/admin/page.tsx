@@ -261,7 +261,7 @@ export default function AdminPage() {
       </Card>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-muted border border-border rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-muted border border-border rounded-xl p-1 w-full overflow-x-auto sm:w-fit">
         {([
           { key: "users",    label: `사용자 (${totalUsers})` },
           { key: "alerts",   label: `활성 알림 (${stats.recent_alerts.length})` },
@@ -289,7 +289,7 @@ export default function AdminPage() {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[600px] text-sm">
                 <thead>
                   <tr className="text-muted-foreground text-xs border-b border-border">
                     <th className="text-left pb-3 font-medium">이름 / 이메일</th>
@@ -402,7 +402,7 @@ export default function AdminPage() {
               <p className="text-sm text-muted-foreground text-center py-8">진단 기록이 없습니다</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[500px] text-sm">
                   <thead>
                     <tr className="text-muted-foreground text-xs border-b border-border">
                       <th className="text-left pb-3 font-medium">수조 / 양식장</th>

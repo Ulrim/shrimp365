@@ -182,7 +182,7 @@ function JournalCard({ entry, onEdit, onDelete }: { entry: JournalEntry; onEdit:
               <span>{formatDateTime(entry.created_at)}</span>
             </div>
           </div>
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
             <button onClick={() => onEdit(entry)} className="p-1.5 rounded-lg text-muted-foreground hover:text-ocean-500 hover:bg-accent transition-colors" aria-label={t.journal.editEntry}>
               <Pencil className="w-3.5 h-3.5" />
             </button>
@@ -811,7 +811,7 @@ export default function JournalPage() {
                     <Plus className="w-4 h-4" />{t.diagnosis.newTest}
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="bg-card border-border text-foreground max-w-xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="bg-card border-border text-foreground max-w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle className="text-foreground flex items-center gap-2">
                       <FlaskConical className="w-5 h-5 text-purple-500" />{t.diagnosis.newTest}
@@ -986,7 +986,7 @@ export default function JournalPage() {
                     <>
                       {/* Desktop Table */}
                       <div className="hidden md:block overflow-x-auto">
-                        <table className="w-full text-sm">
+                        <table className="w-full min-w-[700px] text-sm">
                           <thead>
                             <tr className="text-muted-foreground text-xs border-b border-border">
                               <th className="text-left pb-3 font-medium">{t.diagnosis.tank}</th>
@@ -1095,7 +1095,7 @@ export default function JournalPage() {
 
       {/* Edit Journal */}
       <Dialog open={!!jEditTarget} onOpenChange={open => !open && setJEditTarget(null)}>
-        <DialogContent className="bg-card border-border text-foreground max-w-md">
+        <DialogContent className="bg-card border-border text-foreground max-w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-foreground flex items-center gap-2"><Pencil className="w-4 h-4 text-ocean-500" />{t.journal.editEntry}</DialogTitle>
           </DialogHeader>
@@ -1145,7 +1145,7 @@ export default function JournalPage() {
 
       {/* Delete Journal */}
       <Dialog open={!!jDeleteTarget} onOpenChange={open => !open && setJDeleteTarget(null)}>
-        <DialogContent className="bg-card border-border text-foreground max-w-sm">
+        <DialogContent className="bg-card border-border text-foreground max-w-[95vw] sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-foreground flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-red-400" />{t.common.delete}</DialogTitle>
           </DialogHeader>
@@ -1163,7 +1163,7 @@ export default function JournalPage() {
 
       {/* New Journal */}
       <Dialog open={jDialogOpen} onOpenChange={open => open ? openJournalDialog() : setJDialogOpen(false)}>
-        <DialogContent className="bg-card border-border text-foreground max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-card border-border text-foreground max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-foreground flex items-center gap-2"><BookOpen className="w-5 h-5 text-ocean-500" />{t.journal.addEntry}</DialogTitle>
           </DialogHeader>
@@ -1215,7 +1215,7 @@ export default function JournalPage() {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label className="text-foreground/80">급이 횟수 (회/일)</Label>
                   <Input type="number" placeholder="4" value={jForm.feeding_times} onChange={e => jUpdate("feeding_times", e.target.value)} className="bg-background border-border text-foreground" />
@@ -1224,7 +1224,7 @@ export default function JournalPage() {
                   <Label className="text-foreground/80 flex items-center gap-1"><Skull className="w-3.5 h-3.5 text-amber-500" />폐사 개수 (마리)</Label>
                   <Input type="number" placeholder="0" value={jForm.mortality_count} onChange={e => jUpdate("mortality_count", e.target.value)} className="bg-background border-border text-foreground" />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 col-span-2 sm:col-span-1">
                   <Label className="text-foreground/80 flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5 text-teal-500" />환수율 (%)</Label>
                   <Input type="number" placeholder="0" value={jForm.water_exchange_rate} onChange={e => jUpdate("water_exchange_rate", e.target.value)} className="bg-background border-border text-foreground" />
                 </div>

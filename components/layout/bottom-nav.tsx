@@ -64,13 +64,13 @@ export function BottomNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="relative flex-1 flex flex-col items-center justify-center gap-1 transition-colors"
+                className="relative flex-1 flex flex-col items-center justify-center gap-1 min-h-[44px] transition-colors px-1"
               >
                 {active && (
                   <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-ocean-500 rounded-b-full" />
                 )}
-                <item.icon className={cn("w-5 h-5 transition-transform", active ? "text-ocean-500 scale-110" : "text-muted-foreground")} />
-                <span className={cn("text-[10px] font-medium leading-none", active ? "text-ocean-500" : "text-muted-foreground")}>
+                <item.icon className={cn("w-5 h-5 shrink-0 transition-transform", active ? "text-ocean-500 scale-110" : "text-muted-foreground")} />
+                <span className={cn("text-[10px] font-medium leading-none truncate w-full text-center", active ? "text-ocean-500" : "text-muted-foreground")}>
                   {item.label}
                 </span>
               </Link>
@@ -80,13 +80,13 @@ export function BottomNav() {
           {/* More */}
           <button
             onClick={() => setMoreOpen(true)}
-            className="relative flex-1 flex flex-col items-center justify-center gap-1"
+            className="relative flex-1 flex flex-col items-center justify-center gap-1 min-h-[44px] px-1"
           >
             {isMoreActive && (
               <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-ocean-500 rounded-b-full" />
             )}
-            <MoreHorizontal className={cn("w-5 h-5", isMoreActive ? "text-ocean-500" : "text-muted-foreground")} />
-            <span className={cn("text-[10px] font-medium leading-none", isMoreActive ? "text-ocean-500" : "text-muted-foreground")}>
+            <MoreHorizontal className={cn("w-5 h-5 shrink-0", isMoreActive ? "text-ocean-500" : "text-muted-foreground")} />
+            <span className={cn("text-[10px] font-medium leading-none truncate w-full text-center", isMoreActive ? "text-ocean-500" : "text-muted-foreground")}>
               더보기
             </span>
           </button>

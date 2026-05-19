@@ -71,19 +71,19 @@ export function Header() {
     <>
       <header className="h-14 lg:h-16 border-b border-border bg-card/80 backdrop-blur-md flex items-center justify-between px-4 lg:px-6 shrink-0">
         {/* Mobile: logo + page title stacked; Desktop: just page title */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
           <div className="lg:hidden w-8 h-8 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-xl flex items-center justify-center text-base leading-none shrink-0">
             🦐
           </div>
-          <div>
-            <h1 className="text-[15px] lg:text-lg font-semibold text-foreground leading-tight">{title}</h1>
+          <div className="min-w-0">
+            <h1 className="text-[15px] lg:text-lg font-semibold text-foreground leading-tight truncate">{title}</h1>
             <p className="text-xs text-muted-foreground hidden sm:block">
               {new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" })}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           {/* Search */}
           <button
             onClick={() => { setNotiOpen(false); setSearchOpen(v => !v) }}

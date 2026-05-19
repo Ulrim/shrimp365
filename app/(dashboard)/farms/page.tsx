@@ -159,7 +159,7 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
           <Plus className="w-4 h-4" /> {t.farms.addFarm}
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-card border-border text-foreground max-w-md">
+      <DialogContent className="bg-card border-border text-foreground max-w-[95vw] sm:max-w-md w-full">
         <DialogHeader>
           <DialogTitle className="text-foreground flex items-center gap-2">
             <Building2 className="w-5 h-5 text-ocean-500" /> {t.farms.addFarm}
@@ -338,7 +338,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
           <Plus className="w-4 h-4" /> {t.farms.addTank}
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-card border-border text-foreground max-w-md">
+      <DialogContent className="bg-card border-border text-foreground max-w-[95vw] sm:max-w-md w-full">
         <DialogHeader>
           <DialogTitle className="text-foreground flex items-center gap-2">
             <Droplets className="w-5 h-5 text-teal-500" /> {t.farms.addTank}
@@ -419,7 +419,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
                 required
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="tank-stocking" className="text-muted-foreground text-sm">입식일</Label>
                 <Input
@@ -513,7 +513,7 @@ function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void
           <Edit2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
-      <DialogContent className="bg-card border-border text-foreground max-w-md">
+      <DialogContent className="bg-card border-border text-foreground max-w-[95vw] sm:max-w-md w-full">
         <DialogHeader>
           <DialogTitle className="text-foreground flex items-center gap-2">
             <Edit2 className="w-4 h-4 text-ocean-500" /> {t.farms.editFarm}
@@ -578,7 +578,7 @@ function DeleteFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => vo
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
-      <DialogContent className="bg-card border-border text-foreground max-w-sm">
+      <DialogContent className="bg-card border-border text-foreground max-w-[95vw] sm:max-w-sm w-full">
         <DialogHeader>
           <DialogTitle className="text-foreground flex items-center gap-2">
             <Trash2 className="w-4 h-4 text-red-500" /> {t.farms.deleteFarm}
@@ -666,11 +666,11 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" title={t.farms.editTank} aria-label={t.farms.editTank}>
+        <button className="p-2 min-h-[36px] min-w-[36px] rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center" title={t.farms.editTank} aria-label={t.farms.editTank}>
           <Edit2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
-      <DialogContent className="bg-card border-border text-foreground max-w-md">
+      <DialogContent className="bg-card border-border text-foreground max-w-[95vw] sm:max-w-md w-full">
         <DialogHeader>
           <DialogTitle className="text-foreground flex items-center gap-2">
             <Edit2 className="w-4 h-4 text-teal-500" /> {t.farms.editTank}
@@ -700,7 +700,7 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
               ))}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-muted-foreground">{t.farms.tankVolume} ({t.farms.tankVolumeUnit})</Label>
               <Input type="number" value={form.volume} onChange={e => setForm(p => ({ ...p, volume: e.target.value }))} className="bg-muted border-border text-foreground" />
@@ -710,7 +710,7 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
               <Input type="number" value={form.density} onChange={e => setForm(p => ({ ...p, density: e.target.value }))} className="bg-muted border-border text-foreground" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-muted-foreground">입식일</Label>
               <Input type="date" value={form.stocking_date} onChange={e => setForm(p => ({ ...p, stocking_date: e.target.value }))} className="bg-muted border-border text-foreground" />
@@ -722,13 +722,13 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
           </div>
           <div className="space-y-2">
             <Label className="text-muted-foreground">{t.common.status}</Label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {STATUS_OPTIONS.map(opt => (
                 <button
                   key={opt.value}
                   type="button"
                   onClick={() => setForm(p => ({ ...p, status: opt.value }))}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  className={`py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                     form.status === opt.value
                       ? `${opt.color} border-current bg-current/10`
                       : "text-muted-foreground border-border hover:border-border/60"
@@ -778,11 +778,11 @@ function DeleteTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => vo
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-1.5 rounded-lg hover:bg-red-500/15 text-muted-foreground hover:text-red-500 transition-colors" title={t.farms.deleteTank} aria-label={t.farms.deleteTank}>
+        <button className="p-2 min-h-[36px] min-w-[36px] rounded-lg hover:bg-red-500/15 text-muted-foreground hover:text-red-500 transition-colors flex items-center justify-center" title={t.farms.deleteTank} aria-label={t.farms.deleteTank}>
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
-      <DialogContent className="bg-card border-border text-foreground max-w-sm">
+      <DialogContent className="bg-card border-border text-foreground max-w-[95vw] sm:max-w-sm w-full">
         <DialogHeader>
           <DialogTitle className="text-foreground flex items-center gap-2">
             <Trash2 className="w-4 h-4 text-red-500" /> {t.farms.deleteTank}
@@ -870,7 +870,7 @@ function RegisterDeviceDialog({ tank, onSuccess }: { tank: import("@/types").Tan
           <Plus className="w-3 h-3" /> 기기 등록
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-card border-border text-foreground max-w-lg">
+      <DialogContent className="bg-card border-border text-foreground max-w-[95vw] sm:max-w-lg w-full">
         <DialogHeader>
           <DialogTitle className="text-foreground flex items-center gap-2">
             <Cpu className="w-5 h-5 text-ocean-500" /> 센서 기기 등록
@@ -1141,12 +1141,12 @@ function TankCard({ tank, onRefresh }: { tank: Tank; onRefresh: () => void }) {
     <Card className={`bg-card border transition-all hover:border-border hover:bg-card group ${meta.border}`}>
       <CardContent className="p-4 space-y-3">
         {/* Header row */}
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <span className={`w-2.5 h-2.5 rounded-full ${meta.dot} ${isPulsing ? "animate-pulse" : ""} shrink-0 mt-0.5`} />
-            <h3 className="text-foreground font-semibold text-base leading-tight">{tank.name}</h3>
+            <h3 className="text-foreground font-semibold text-base leading-tight truncate">{tank.name}</h3>
           </div>
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${meta.bg} ${meta.border} ${meta.text}`}>
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${meta.bg} ${meta.border} ${meta.text}`}>
             {meta.label}
           </span>
         </div>
@@ -1200,7 +1200,7 @@ function TankCard({ tank, onRefresh }: { tank: Tank; onRefresh: () => void }) {
         {/* Action row */}
         <div className="flex items-center justify-between pt-1 border-t border-border">
           <p className="text-muted-foreground text-xs">등록 {formatDate(tank.created_at)}</p>
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
             <EditTankDialog tank={tank} onSuccess={onRefresh} />
             <DeleteTankDialog tank={tank} onSuccess={onRefresh} />
           </div>
@@ -1241,16 +1241,16 @@ function FarmCard({
           : "bg-muted border-border hover:bg-accent"
       }`}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2.5">
+      <div className="flex items-start justify-between mb-3 gap-2">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${selected ? "bg-ocean-500/20" : "bg-muted"}`}>
             <Building2 className={`w-4.5 h-4.5 ${selected ? "text-ocean-500" : "text-muted-foreground"}`} />
           </div>
-          <div>
-            <p className={`font-semibold text-sm leading-tight ${selected ? "text-foreground" : "text-foreground/80"}`}>{farm.name}</p>
+          <div className="min-w-0 flex-1">
+            <p className={`font-semibold text-sm leading-tight truncate ${selected ? "text-foreground" : "text-foreground/80"}`}>{farm.name}</p>
             <p className="text-muted-foreground text-xs mt-0.5 flex items-center gap-1">
               <MapPin className="w-3 h-3 shrink-0" />
-              <span className="truncate max-w-[140px]">{farm.location}</span>
+              <span className="truncate">{farm.location}</span>
             </p>
           </div>
         </div>
@@ -1411,11 +1411,11 @@ export default function FarmsPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-ocean-500" />
-            {t.farms.title}
+            <Building2 className="w-5 h-5 text-ocean-500 shrink-0" />
+            <span className="truncate">{t.farms.title}</span>
           </h1>
           <p className="text-muted-foreground text-sm mt-0.5">
             {t.farms.subtitle}
@@ -1425,9 +1425,9 @@ export default function FarmsPage() {
       </div>
 
       {/* Main layout: left list + right tank grid */}
-      <div className="flex gap-5 items-start">
+      <div className="flex flex-col lg:flex-row gap-5 items-start">
         {/* ── Left: Farm List ── */}
-        <div className="w-72 shrink-0 space-y-3">
+        <div className="w-full lg:w-72 lg:shrink-0 space-y-3">
           <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wider px-1">
             {t.nav.farms} ({farms.length})
           </p>
@@ -1459,7 +1459,7 @@ export default function FarmsPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">{t.farms.location}</span>
-                    <span className="text-foreground font-medium text-right max-w-[140px]">{selectedFarm.location}</span>
+                    <span className="text-foreground font-medium text-right max-w-[12rem] truncate">{selectedFarm.location}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">{t.farms.area}</span>

@@ -81,7 +81,7 @@ function ItemDialog({ open, item, onClose, onSave, t }: ItemDialogProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl">
+      <div className="bg-card border border-border rounded-2xl w-full max-w-[95vw] sm:max-w-md shadow-2xl">
         <div className="p-6 border-b border-border">
           <h2 className="text-lg font-bold text-foreground">{item ? t.inventory.editItem : t.inventory.addItem}</h2>
         </div>
@@ -182,7 +182,7 @@ function TxDialog({ open, item, tanks, onClose, onSave, t }: TxDialogProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl">
+      <div className="bg-card border border-border rounded-2xl w-full max-w-[95vw] sm:max-w-md shadow-2xl">
         <div className="p-6 border-b border-border">
           <h2 className="text-lg font-bold text-foreground">{t.inventory.addTx} — {item.name}</h2>
         </div>

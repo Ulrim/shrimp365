@@ -370,7 +370,7 @@ export default function AIAdvisorPage() {
         </div>
       </div>
 
-      <div className="flex gap-4 flex-1 min-h-0">
+      <div className="flex flex-col xl:flex-row gap-4 flex-1 min-h-0">
         {/* Chat area */}
         <div className="flex-1 flex flex-col bg-card border border-border rounded-2xl overflow-hidden">
           {/* Messages */}
@@ -384,7 +384,7 @@ export default function AIAdvisorPage() {
                 }`}>
                   {msg.role === "assistant" ? <Bot className="w-4 h-4 text-white" /> : <User className="w-4 h-4 text-white" />}
                 </div>
-                <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                <div className={`max-w-[85%] sm:max-w-[80%] rounded-2xl px-4 py-3 ${
                   msg.role === "user"
                     ? "bg-ocean-500/20 border border-ocean-500/30 text-foreground"
                     : "bg-muted border border-border"
@@ -412,7 +412,7 @@ export default function AIAdvisorPage() {
           </div>
 
           {/* Input */}
-          <div className="p-4 border-t border-border">
+          <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] border-t border-border">
             <div className="flex gap-2">
               <Input
                 value={input}
@@ -435,7 +435,7 @@ export default function AIAdvisorPage() {
         </div>
 
         {/* Quick questions panel */}
-        <div className="w-64 shrink-0 space-y-3 hidden xl:block">
+        <div className="w-full xl:w-64 shrink-0 space-y-3">
           <Card className="bg-card border-border">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-foreground flex items-center gap-2">
