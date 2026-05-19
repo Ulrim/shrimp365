@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { BrainCircuit, Send, AlertTriangle, Lightbulb, TrendingUp, Activity, Sparkles, User, Bot, ChevronRight } from "lucide-react"
+import { BrainCircuit, Send, AlertTriangle, Lightbulb, TrendingUp, Activity, Sparkles, User, Bot, ChevronRight, Download } from "lucide-react"
 import { formatDateTime } from "@/lib/utils"
 import { UpgradeModal } from "@/components/ui/upgrade-modal"
 import type { Plan } from "@/lib/plans"
@@ -268,6 +268,73 @@ export default function AIAdvisorPage() {
     return lines.join("\n")
   }
 
+  const downloadChatAsPDF = () => {
+    if (messages.length === 0) return
+    const printWindow = window.open("", "_blank")
+    if (!printWindow) return
+
+    const dateStr = new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" })
+    const timeStr = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+
+    const rows = messages.map(msg => {
+      const isAI = msg.role === "assistant"
+      const ts = msg.timestamp.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+      const escaped = msg.content
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\n/g, "<br>")
+      return `
+        <div class="msg ${isAI ? "ai" : "user"}">
+          <div class="avatar">${isAI ? "🤖" : "👤"}</div>
+          <div class="bubble">
+            <div class="name">${isAI ? "AI 어드바이저" : "나"}</div>
+            <div class="text">${escaped}</div>
+            <div class="time">${ts}</div>
+          </div>
+        </div>`
+    }).join("")
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>AI 어드바이저 대화 — ${dateStr}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; background: #fff; color: #0f172a; padding: 32px; max-width: 800px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .meta { font-size: 12px; color: #64748b; margin-bottom: 24px; border-bottom: 2px solid #0ea5e9; padding-bottom: 12px; }
+  .messages { display: flex; flex-direction: column; gap: 16px; }
+  .msg { display: flex; gap: 12px; align-items: flex-start; }
+  .msg.user { flex-direction: row-reverse; }
+  .avatar { width: 32px; height: 32px; font-size: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .bubble { max-width: 75%; background: #f1f5f9; border-radius: 12px; padding: 12px 14px; border: 1px solid #e2e8f0; }
+  .msg.user .bubble { background: #e0f2fe; border-color: #bae6fd; }
+  .name { font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 4px; }
+  .text { font-size: 13px; line-height: 1.7; color: #1e293b; }
+  .text strong { font-weight: 700; color: #0f172a; }
+  .time { font-size: 10px; color: #94a3b8; margin-top: 6px; text-align: right; }
+  .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center; }
+  @media print {
+    body { padding: 16px; }
+    @page { margin: 16mm; size: A4; }
+  }
+</style>
+</head>
+<body>
+<h1>🦐 AI 어드바이저 대화 기록</h1>
+<div class="meta">${dateStr} ${timeStr} 기준 저장 · 수조 ${tanks.length}개 운영 중 · 활성 알림 ${alerts.length}건</div>
+<div class="messages">${rows}</div>
+<div class="footer">© 2026 CULIVER INC. · Shrimp365 AI 어드바이저 · 본 내용은 참고용이며 전문가 의견을 대체하지 않습니다.</div>
+</body>
+</html>`)
+    printWindow.document.close()
+    printWindow.addEventListener("load", () => {
+      printWindow.focus()
+      printWindow.print()
+    })
+  }
+
   const sendMessage = async (question: string) => {
     question = question.trim().slice(0, 500)
     if (!question) return
@@ -353,7 +420,7 @@ export default function AIAdvisorPage() {
           <h2 className="text-xl font-bold text-foreground">{t.aiAdvisor.title}</h2>
           <p className="text-sm text-muted-foreground">{t.aiAdvisor.subtitle}</p>
         </div>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-2">
           {aiRemaining !== null && (
             <span className={`text-xs px-2 py-1 rounded-lg border ${
               aiRemaining <= 2
@@ -365,6 +432,15 @@ export default function AIAdvisorPage() {
               {t.aiAdvisor.remaining} {aiRemaining}{t.aiAdvisor.remainingUnit}
             </span>
           )}
+          <button
+            onClick={downloadChatAsPDF}
+            disabled={messages.length === 0}
+            title="대화 내용 PDF로 저장"
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border hover:bg-accent rounded-lg px-2.5 py-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">PDF 저장</span>
+          </button>
           <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
           <span className="text-xs text-emerald-500">{t.aiAdvisor.online}</span>
         </div>
