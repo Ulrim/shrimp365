@@ -12,7 +12,7 @@ export default function HomePage() {
   const greeting = t.hub.greeting.replace("{{name}}", user?.name?.split(" ")[0] || "")
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] px-4">
+    <div className="flex flex-col items-center justify-center min-h-[60vh] py-10 px-4">
       <div className="w-full max-w-lg space-y-8">
         {/* Greeting */}
         <div className="text-center space-y-1">

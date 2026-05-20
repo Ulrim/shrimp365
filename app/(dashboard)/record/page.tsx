@@ -8,7 +8,7 @@ export default function RecordPage() {
   const { t } = useT()
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] px-4">
+    <div className="flex flex-col items-center justify-center min-h-[60vh] py-10 px-4">
       <div className="w-full max-w-lg space-y-8">
         <div className="flex items-center gap-3">
           <Link href="/home" className="text-muted-foreground hover:text-foreground transition-colors">
