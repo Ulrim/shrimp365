@@ -370,29 +370,121 @@ export default function AIAdvisorPage() {
   }
 
   const renderMarkdown = (text: string) => {
-    return text
-      .split("\n")
-      .map((line, i) => {
-        if (line.startsWith("**") && line.endsWith("**")) {
-          return <p key={i} className="font-bold text-foreground mt-2 mb-1">{line.replace(/\*\*/g, "")}</p>
+    const lines = text.split("\n")
+    const elements: React.ReactNode[] = []
+    let i = 0
+
+    while (i < lines.length) {
+      const line = lines[i]
+
+      // Table block: collect consecutive | lines
+      if (line.includes("|") && !line.match(/^[-|:\s]+$/)) {
+        const tableLines: string[] = []
+        while (i < lines.length && (lines[i].includes("|") || lines[i].match(/^[-|:\s]+$/))) {
+          if (!lines[i].match(/^[-|:\s]+$/)) tableLines.push(lines[i])
+          i++
         }
-        if (line.includes("**")) {
-          const parts = line.split(/\*\*(.*?)\*\*/g)
-          return <p key={i} className="text-foreground/80 leading-relaxed">{parts.map((p, j) => j % 2 === 1 ? <strong key={j} className="text-foreground">{p}</strong> : p)}</p>
+        if (tableLines.length > 0) {
+          const [headerRow, ...bodyRows] = tableLines
+          const headers = headerRow.split("|").map(c => c.trim()).filter(Boolean)
+          elements.push(
+            <div key={`table-${i}`} className="overflow-x-auto my-2 rounded-lg border border-border">
+              <table className="w-full text-xs">
+                <thead className="bg-muted">
+                  <tr>{headers.map((h, hi) => <th key={hi} className="px-3 py-2 text-left text-foreground font-semibold whitespace-nowrap">{h}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {bodyRows.map((row, ri) => {
+                    const cells = row.split("|").map(c => c.trim()).filter(Boolean)
+                    return (
+                      <tr key={ri} className={ri % 2 === 0 ? "bg-background" : "bg-muted/40"}>
+                        {cells.map((cell, ci) => <td key={ci} className="px-3 py-2 text-foreground/80 whitespace-nowrap">{cell}</td>)}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )
         }
-        if (line.startsWith("• ") || line.startsWith("- ")) {
-          return <p key={i} className="text-foreground/80 leading-relaxed pl-2">{line}</p>
+        continue
+      }
+
+      // Section heading (full-line bold)
+      if (line.startsWith("**") && line.endsWith("**") && line.length > 4) {
+        elements.push(<p key={i} className="font-bold text-foreground text-sm mt-3 mb-1">{line.replace(/\*\*/g, "")}</p>)
+        i++; continue
+      }
+
+      // Numbered list
+      if (/^\d+\.\s/.test(line)) {
+        const listItems: string[] = []
+        while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
+          listItems.push(lines[i].replace(/^\d+\.\s/, ""))
+          i++
         }
-        if (line.startsWith("#")) {
-          return <p key={i} className="font-semibold text-ocean-500 mt-3">{line.replace(/^#+\s/, "")}</p>
+        elements.push(
+          <ol key={`ol-${i}`} className="space-y-1 my-1 pl-1">
+            {listItems.map((item, li) => {
+              const parts = item.split(/\*\*(.*?)\*\*/g)
+              return (
+                <li key={li} className="flex gap-2 text-sm text-foreground/80 leading-relaxed">
+                  <span className="w-5 h-5 rounded-full bg-ocean-100 text-ocean-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{li + 1}</span>
+                  <span>{parts.map((p, pi) => pi % 2 === 1 ? <strong key={pi} className="text-foreground">{p}</strong> : p)}</span>
+                </li>
+              )
+            })}
+          </ol>
+        )
+        continue
+      }
+
+      // Bullet list
+      if (line.startsWith("- ") || line.startsWith("• ")) {
+        const listItems: string[] = []
+        while (i < lines.length && (lines[i].startsWith("- ") || lines[i].startsWith("• "))) {
+          listItems.push(lines[i].replace(/^[-•]\s/, ""))
+          i++
         }
-        if (line.includes("|") && line.includes("-")) return null
-        if (line.includes("|")) {
-          return <p key={i} className="text-xs text-foreground/80 font-mono">{line}</p>
-        }
-        if (!line) return <br key={i} />
-        return <p key={i} className="text-foreground/80 leading-relaxed">{line}</p>
-      })
+        elements.push(
+          <ul key={`ul-${i}`} className="space-y-1 my-1 pl-1">
+            {listItems.map((item, li) => {
+              const parts = item.split(/\*\*(.*?)\*\*/g)
+              return (
+                <li key={li} className="flex gap-2 text-sm text-foreground/80 leading-relaxed">
+                  <span className="text-ocean-500 shrink-0 mt-1">•</span>
+                  <span>{parts.map((p, pi) => pi % 2 === 1 ? <strong key={pi} className="text-foreground">{p}</strong> : p)}</span>
+                </li>
+              )
+            })}
+          </ul>
+        )
+        continue
+      }
+
+      // Heading (#)
+      if (line.startsWith("#")) {
+        elements.push(<p key={i} className="font-semibold text-ocean-600 mt-3 text-sm">{line.replace(/^#+\s/, "")}</p>)
+        i++; continue
+      }
+
+      // Empty line
+      if (!line.trim()) {
+        elements.push(<div key={i} className="h-1" />)
+        i++; continue
+      }
+
+      // Normal line with optional inline bold
+      const parts = line.split(/\*\*(.*?)\*\*/g)
+      elements.push(
+        <p key={i} className="text-sm text-foreground/80 leading-relaxed">
+          {parts.map((p, pi) => pi % 2 === 1 ? <strong key={pi} className="text-foreground">{p}</strong> : p)}
+        </p>
+      )
+      i++
+    }
+
+    return elements
   }
 
   if (!dataLoaded) {
@@ -411,62 +503,85 @@ export default function AIAdvisorPage() {
       currentPlan={(user?.plan ?? "free") as Plan}
       limitType="ai"
     />
-    <div className="h-[calc(100vh-8rem)] flex flex-col gap-4 animate-fade-in">
+    <div className="flex flex-col gap-3 animate-fade-in lg:h-[calc(100vh-8rem)]">
+
+      {/* ── Header ── */}
       <div className="flex items-center gap-3 shrink-0">
-        <div className="w-10 h-10 bg-gradient-to-br from-ocean-500 to-teal-500 rounded-xl flex items-center justify-center">
-          <BrainCircuit className="w-6 h-6 text-white" />
+        <div className="w-9 h-9 bg-gradient-to-br from-ocean-500 to-teal-500 rounded-xl flex items-center justify-center shrink-0">
+          <BrainCircuit className="w-5 h-5 text-white" />
         </div>
-        <div>
-          <h2 className="text-xl font-bold text-foreground">{t.aiAdvisor.title}</h2>
-          <p className="text-sm text-muted-foreground">{t.aiAdvisor.subtitle}</p>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-base sm:text-lg font-bold text-foreground leading-tight truncate">{t.aiAdvisor.title}</h2>
+          <p className="text-xs text-muted-foreground truncate">{t.aiAdvisor.subtitle}</p>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {aiRemaining !== null && (
-            <span className={`text-xs px-2 py-1 rounded-lg border ${
+            <span className={`hidden sm:block text-xs px-2 py-1 rounded-lg border ${
               aiRemaining <= 2
-                ? "bg-red-500/10 border-red-500/30 text-red-500"
+                ? "bg-red-50 border-red-200 text-red-600"
                 : aiRemaining <= 5
-                ? "bg-amber-500/10 border-amber-500/30 text-amber-500"
+                ? "bg-amber-50 border-amber-200 text-amber-600"
                 : "bg-muted border-border text-muted-foreground"
             }`}>
-              {t.aiAdvisor.remaining} {aiRemaining}{t.aiAdvisor.remainingUnit}
+              남은 횟수 {aiRemaining}회
             </span>
           )}
           <button
             onClick={downloadChatAsPDF}
-            disabled={messages.length === 0}
+            disabled={messages.length <= 1}
             title="대화 내용 PDF로 저장"
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-border hover:bg-accent rounded-lg px-2.5 py-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">PDF 저장</span>
+            <span className="hidden sm:inline">PDF</span>
           </button>
-          <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-          <span className="text-xs text-emerald-500">{t.aiAdvisor.online}</span>
+          <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1">
+            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+            <span className="text-[11px] text-emerald-700 font-medium">온라인</span>
+          </div>
         </div>
       </div>
 
-      <div className="flex flex-col xl:flex-row gap-4 flex-1 min-h-0">
-        {/* Chat area */}
-        <div className="flex-1 flex flex-col bg-card border border-border rounded-2xl overflow-hidden">
+      {/* ── Mobile quick questions (horizontal scroll) ── */}
+      <div className="xl:hidden shrink-0">
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {QUICK_QUESTIONS.map(q => (
+            <button
+              key={q}
+              onClick={() => sendMessage(q)}
+              disabled={loading}
+              className="flex-none text-xs bg-ocean-50 hover:bg-ocean-100 text-ocean-700 border border-ocean-200 rounded-full px-3 py-1.5 transition-all whitespace-nowrap disabled:opacity-50"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Main area ── */}
+      <div className="flex flex-col xl:flex-row gap-3 flex-1 min-h-0">
+
+        {/* Chat */}
+        <div className="flex-1 flex flex-col bg-card border border-border rounded-2xl overflow-hidden min-h-[420px] lg:min-h-0">
+
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.map(msg => (
               <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white ${
                   msg.role === "assistant"
                     ? "bg-gradient-to-br from-ocean-500 to-teal-500"
-                    : "bg-muted"
+                    : "bg-gradient-to-br from-ocean-400 to-blue-500"
                 }`}>
-                  {msg.role === "assistant" ? <Bot className="w-4 h-4 text-white" /> : <User className="w-4 h-4 text-white" />}
+                  {msg.role === "assistant" ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
                 </div>
-                <div className={`max-w-[85%] sm:max-w-[80%] rounded-2xl px-4 py-3 ${
+                <div className={`max-w-[85%] sm:max-w-[78%] rounded-2xl px-4 py-3 ${
                   msg.role === "user"
-                    ? "bg-ocean-500/20 border border-ocean-500/30 text-foreground"
+                    ? "bg-ocean-50 border border-ocean-200"
                     : "bg-muted border border-border"
                 }`}>
-                  <div className="text-sm space-y-0.5">{renderMarkdown(msg.content)}</div>
-                  <p className="text-xs text-muted-foreground mt-2">{msg.timestamp.toLocaleTimeString("ko-KR")}</p>
+                  <div className="space-y-0.5">{renderMarkdown(msg.content)}</div>
+                  <p className="text-[11px] text-muted-foreground mt-2 text-right">{msg.timestamp.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}</p>
                 </div>
               </div>
             ))}
@@ -476,10 +591,10 @@ export default function AIAdvisorPage() {
                   <Bot className="w-4 h-4 text-white" />
                 </div>
                 <div className="bg-muted border border-border rounded-2xl px-4 py-3">
-                  <div className="flex gap-1 items-center h-5">
-                    <span className="w-2 h-2 bg-ocean-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-2 h-2 bg-ocean-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-2 h-2 bg-ocean-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  <div className="flex gap-1.5 items-center h-5">
+                    <span className="w-2 h-2 bg-ocean-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 bg-ocean-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 bg-ocean-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                   </div>
                 </div>
               </div>
@@ -488,43 +603,54 @@ export default function AIAdvisorPage() {
           </div>
 
           {/* Input */}
-          <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] border-t border-border">
-            <div className="flex gap-2">
-              <Input
-                value={input}
-                onChange={e => setInput(e.target.value.slice(0, 500))}
-                onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage(input)}
-                placeholder={t.aiAdvisor.inputPlaceholder}
-                maxLength={500}
-                className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500"
-                disabled={loading}
-              />
+          <div className="p-3 sm:p-4 border-t border-border bg-card">
+            <div className="flex gap-2 items-end">
+              <div className="flex-1 relative">
+                <Input
+                  value={input}
+                  onChange={e => setInput(e.target.value.slice(0, 500))}
+                  onKeyDown={e => e.key === "Enter" && !e.shiftKey && !loading && sendMessage(input)}
+                  placeholder={t.aiAdvisor.inputPlaceholder}
+                  maxLength={500}
+                  className="bg-background border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500 pr-12"
+                  disabled={loading}
+                />
+                {input.length > 400 && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+                    {input.length}/500
+                  </span>
+                )}
+              </div>
               <Button
                 onClick={() => sendMessage(input)}
                 disabled={loading || !input.trim()}
-                className="bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white"
+                className="bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white px-4 shrink-0 gap-2"
               >
                 <Send className="w-4 h-4" />
+                <span className="hidden sm:inline text-sm">전송</span>
               </Button>
             </div>
+            <p className="text-[11px] text-muted-foreground mt-1.5 px-1">Enter 키로 전송 · AI 답변은 참고용입니다</p>
           </div>
         </div>
 
-        {/* Quick questions panel */}
-        <div className="w-full xl:w-64 shrink-0 space-y-3">
-          <Card className="bg-card border-border">
-            <CardHeader className="pb-2">
+        {/* Desktop side panel */}
+        <div className="hidden xl:flex w-60 shrink-0 flex-col gap-3">
+
+          {/* Quick questions */}
+          <Card className="bg-card border-border flex-1 overflow-hidden flex flex-col">
+            <CardHeader className="pb-2 shrink-0">
               <CardTitle className="text-sm text-foreground flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-ocean-500" />{t.aiAdvisor.suggestQ1.split(" ")[0]}…
+                <Sparkles className="w-4 h-4 text-ocean-500" />빠른 질문
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="space-y-1.5 overflow-y-auto">
               {QUICK_QUESTIONS.map(q => (
                 <button
                   key={q}
                   onClick={() => sendMessage(q)}
                   disabled={loading}
-                  className="w-full text-left text-xs text-foreground/80 hover:text-foreground hover:bg-accent transition-all p-2.5 rounded-lg border border-border hover:border-border/60 flex items-start gap-2"
+                  className="w-full text-left text-xs text-foreground/80 hover:text-foreground hover:bg-accent transition-all p-2.5 rounded-lg border border-border flex items-start gap-2 disabled:opacity-50"
                 >
                   <ChevronRight className="w-3 h-3 text-ocean-500 shrink-0 mt-0.5" />
                   {q}
@@ -533,28 +659,29 @@ export default function AIAdvisorPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-card border-border">
+          {/* Context */}
+          <Card className="bg-card border-border shrink-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-foreground flex items-center gap-2">
                 <Activity className="w-4 h-4 text-amber-500" />{t.aiAdvisor.contextTitle}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-xs">
-              <div className="flex justify-between text-muted-foreground">
-                <span>{t.aiAdvisor.contextTank}</span><span className="text-foreground font-medium">{tanks.length}개</span>
-              </div>
-              <div className="flex justify-between text-muted-foreground">
-                <span>{t.aiAdvisor.contextAlert}</span><span className="text-amber-500 font-medium">{alerts.length}건</span>
-              </div>
-              <div className="flex justify-between text-muted-foreground">
-                <span>{t.aiAdvisor.contextDiagnosis}</span><span className="text-red-500 font-medium">{diagnoses.filter(d => d.result === "양성").length}건</span>
-              </div>
-              <div className="flex justify-between text-muted-foreground">
-                <span>위험 수조</span><span className="text-red-500 font-medium">{tanks.filter(t => t.status === "danger").length}개</span>
-              </div>
+              {[
+                { label: t.aiAdvisor.contextTank, value: `${tanks.length}개`, color: "text-foreground" },
+                { label: "활성 알림", value: `${alerts.length}건`, color: alerts.length > 0 ? "text-amber-500" : "text-foreground" },
+                { label: "양성 진단", value: `${diagnoses.filter(d => d.result === "양성").length}건`, color: diagnoses.filter(d => d.result === "양성").length > 0 ? "text-red-500" : "text-foreground" },
+                { label: "위험 수조", value: `${tanks.filter(t => t.status === "danger").length}개`, color: tanks.filter(t => t.status === "danger").length > 0 ? "text-red-500" : "text-foreground" },
+              ].map(row => (
+                <div key={row.label} className="flex justify-between items-center">
+                  <span className="text-muted-foreground">{row.label}</span>
+                  <span className={`font-semibold ${row.color}`}>{row.value}</span>
+                </div>
+              ))}
             </CardContent>
           </Card>
         </div>
+
       </div>
     </div>
     </>
