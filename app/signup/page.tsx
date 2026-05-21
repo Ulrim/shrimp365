@@ -8,8 +8,7 @@ import { useT } from "@/lib/i18n-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Eye, EyeOff, Waves, AlertCircle, CheckCircle2 } from "lucide-react"
+import { Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -57,136 +56,136 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-ocean-950 via-slate-900 to-teal-950 p-6">
-      <div className="w-full max-w-md">
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-xl flex items-center justify-center">
-            <Waves className="w-6 h-6 text-white" />
-          </div>
-          <span className="text-white text-xl font-bold">Shrimp365</span>
+    <div className="bg-background min-h-screen flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Glow decoration */}
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-ocean-100 rounded-full blur-3xl opacity-60 pointer-events-none" />
+
+      <div className="max-w-md w-full space-y-8 relative z-10">
+        {/* Header / Logo */}
+        <div className="flex flex-col items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="text-2xl">🦐</span>
+            <span className="text-foreground text-xl font-bold">Shrimp365</span>
+          </Link>
+          <h1 className="text-2xl font-bold text-foreground mt-2">회원가입</h1>
         </div>
 
-        <Card className="bg-white/5 border-white/10 backdrop-blur-md shadow-2xl">
-          <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-2xl font-bold text-white">{t.auth.signupTitle}</CardTitle>
-            <CardDescription className="text-ocean-300">
-              {t.auth.signupSubtitle}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-ocean-100">{t.auth.nameLabel}</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder={t.auth.namePlaceholder}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus-visible:ring-ocean-400"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-ocean-100">{t.auth.emailLabel}</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="email@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus-visible:ring-ocean-400"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-ocean-100">{t.auth.passwordLabel}</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder={t.auth.resetNewPasswordPlaceholder}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus-visible:ring-ocean-400 pr-10"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                {password && (
-                  <div className="space-y-1">
-                    <div className="flex gap-1">
-                      {[1, 2, 3, 4].map((i) => (
-                        <div
-                          key={i}
-                          className={`h-1 flex-1 rounded-full transition-all ${i <= strength ? strengthColor[strength] : "bg-white/10"}`}
-                        />
-                      ))}
-                    </div>
-                    <p className={`text-xs ${strength <= 1 ? "text-red-400" : strength === 2 ? "text-amber-400" : "text-emerald-400"}`}>
-                      {strengthLabel[strength]}
-                    </p>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-ocean-100">{t.auth.resetConfirmPassword}</Label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    placeholder={t.auth.resetConfirmPasswordPlaceholder}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus-visible:ring-ocean-400 pr-10"
-                    required
-                  />
-                  {confirmPassword && (
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2">
-                      {password === confirmPassword
-                        ? <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                        : <AlertCircle className="w-4 h-4 text-red-400" />
-                      }
-                    </span>
-                  )}
-                </div>
-              </div>
+        {/* Card */}
+        <div className="bg-card border border-border rounded-2xl shadow-sm p-8">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-foreground text-sm font-medium">{t.auth.nameLabel}</Label>
+              <Input
+                id="name"
+                type="text"
+                placeholder={t.auth.namePlaceholder}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
 
-              {error && (
-                <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  {error}
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-foreground text-sm font-medium">{t.auth.emailLabel}</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="email@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-foreground text-sm font-medium">{t.auth.passwordLabel}</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder={t.auth.resetNewPasswordPlaceholder}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pr-10"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {password && (
+                <div className="space-y-1">
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div
+                        key={i}
+                        className={`h-1 flex-1 rounded-full transition-all ${i <= strength ? strengthColor[strength] : "bg-muted"}`}
+                      />
+                    ))}
+                  </div>
+                  <p className={`text-xs ${strength <= 1 ? "text-red-500" : strength === 2 ? "text-amber-500" : "text-emerald-600"}`}>
+                    {strengthLabel[strength]}
+                  </p>
                 </div>
               )}
+            </div>
 
-              <Button
-                type="submit"
-                className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold h-11"
-                disabled={loading}
-              >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    {t.auth.signupLoading}
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword" className="text-foreground text-sm font-medium">{t.auth.resetConfirmPassword}</Label>
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder={t.auth.resetConfirmPasswordPlaceholder}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="pr-10"
+                  required
+                />
+                {confirmPassword && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {password === confirmPassword
+                      ? <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      : <AlertCircle className="w-4 h-4 text-red-500" />
+                    }
                   </span>
-                ) : t.auth.signupButton}
-              </Button>
-            </form>
+                )}
+              </div>
+            </div>
 
-            <p className="text-center text-sm text-ocean-400 mt-4">
-              {t.auth.hasAccount}{" "}
-              <Link href="/login" className="text-ocean-300 hover:text-white font-medium transition-colors">
-                {t.auth.goLogin}
-              </Link>
-            </p>
-          </CardContent>
-        </Card>
+            {error && (
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-lg px-3 py-2 text-sm">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {error}
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold h-11"
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  {t.auth.signupLoading}
+                </span>
+              ) : t.auth.signupButton}
+            </Button>
+          </form>
+        </div>
+
+        {/* Login link */}
+        <p className="text-center text-sm text-muted-foreground">
+          {t.auth.hasAccount}{" "}
+          <Link href="/login" className="text-ocean-600 hover:text-ocean-700 font-medium transition-colors">
+            {t.auth.goLogin}
+          </Link>
+        </p>
       </div>
     </div>
   )

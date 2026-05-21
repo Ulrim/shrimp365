@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Waves, Building2, Layers, CheckCircle2, Plus, Trash2, ChevronRight, ChevronLeft, AlertCircle } from "lucide-react"
+import { Building2, Layers, CheckCircle2, Plus, Trash2, ChevronRight, ChevronLeft, AlertCircle } from "lucide-react"
 import { useT } from "@/lib/i18n-context"
 
 type TankType = "노지" | "실내" | "반실내"
@@ -70,7 +70,7 @@ export default function OnboardingPage() {
 
   if (checking) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-ocean-950 via-slate-900 to-teal-950 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" />
       </div>
     )
@@ -156,25 +156,22 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-ocean-950 via-slate-900 to-teal-950">
+    <div className="min-h-screen flex bg-background">
       {/* Left brand panel */}
-      <div className="hidden lg:flex lg:w-2/5 flex-col justify-between p-12 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-ocean-600/20 to-teal-600/20" />
-        <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-ocean-500/10 rounded-full blur-3xl" />
-        <div className="absolute -top-16 -right-16 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl" />
+      <div className="hidden lg:flex lg:w-2/5 flex-col justify-between p-12 bg-gradient-to-br from-ocean-50 via-teal-50 to-background border-r border-border relative overflow-hidden">
+        <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-ocean-100 rounded-full blur-3xl" />
+        <div className="absolute -top-16 -right-16 w-64 h-64 bg-teal-100 rounded-full blur-3xl" />
 
         <div className="relative z-10 flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-xl flex items-center justify-center">
-            <Waves className="w-6 h-6 text-white" />
-          </div>
-          <span className="text-white text-xl font-bold">Shrimp365</span>
+          <span className="text-2xl">🦐</span>
+          <span className="text-foreground text-xl font-bold">Shrimp365</span>
         </div>
 
         <div className="relative z-10">
-          <h1 className="text-4xl font-bold text-white leading-tight mb-4">
+          <h1 className="text-4xl font-bold text-foreground leading-tight mb-4">
             {t.onboarding.title}
           </h1>
-          <p className="text-ocean-200 text-base leading-relaxed mb-8">
+          <p className="text-muted-foreground text-base leading-relaxed mb-8">
             {t.onboarding.subtitle}
           </p>
 
@@ -185,30 +182,28 @@ export default function OnboardingPage() {
               const isActive = step === s
               const isDone = step > s
               return (
-                <div key={s} className={`flex items-center gap-3 transition-all ${isActive ? "opacity-100" : isDone ? "opacity-60" : "opacity-30"}`}>
+                <div key={s} className={`flex items-center gap-3 transition-all ${isActive ? "opacity-100" : isDone ? "opacity-70" : "opacity-40"}`}>
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all
-                    ${isDone ? "bg-emerald-500 text-white" : isActive ? "bg-ocean-500 text-white" : "bg-white/10 text-white/60"}`}>
+                    ${isDone ? "bg-emerald-500 text-white" : isActive ? "bg-ocean-500 text-white" : "bg-muted text-muted-foreground"}`}>
                     {isDone ? <CheckCircle2 className="w-4 h-4" /> : s}
                   </div>
-                  <span className={`text-sm font-medium ${isActive ? "text-white" : "text-ocean-300"}`}>{label}</span>
+                  <span className={`text-sm font-medium ${isActive ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
                 </div>
               )
             })}
           </div>
         </div>
 
-        <div className="relative z-10 text-ocean-400 text-sm">© 2026 CULIVER INC. All rights reserved.</div>
+        <div className="relative z-10 text-muted-foreground text-sm">© 2026 CULIVER INC. All rights reserved.</div>
       </div>
 
       {/* Right form */}
       <div className="flex-1 flex flex-col items-center justify-center p-6 lg:p-12 overflow-y-auto">
         <div className="w-full max-w-xl">
           {/* Mobile logo */}
-          <div className="flex lg:hidden items-center justify-center gap-3 mb-6">
-            <div className="w-9 h-9 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-xl flex items-center justify-center">
-              <Waves className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-white text-lg font-bold">Shrimp365</span>
+          <div className="flex lg:hidden items-center justify-center gap-2 mb-6">
+            <span className="text-2xl">🦐</span>
+            <span className="text-foreground text-lg font-bold">Shrimp365</span>
           </div>
 
           {/* Mobile step indicator */}
@@ -218,11 +213,11 @@ export default function OnboardingPage() {
               return (
                 <div key={s} className="flex items-center gap-1">
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
-                    ${step > s ? "bg-emerald-500 text-white" : step === s ? "bg-ocean-500 text-white" : "bg-white/10 text-white/40"}`}>
+                    ${step > s ? "bg-emerald-500 text-white" : step === s ? "bg-ocean-500 text-white" : "bg-muted text-muted-foreground"}`}>
                     {step > s ? "✓" : s}
                   </div>
                   {i < STEP_LABELS.length - 1 && (
-                    <div className={`w-8 h-0.5 ${step > s ? "bg-emerald-500/60" : "bg-white/10"}`} />
+                    <div className={`w-8 h-0.5 ${step > s ? "bg-emerald-500/60" : "bg-border"}`} />
                   )}
                 </div>
               )
@@ -231,63 +226,59 @@ export default function OnboardingPage() {
 
           {/* ── Step 1: Farm info ── */}
           {step === 1 && (
-            <Card className="bg-white/5 border-white/10 backdrop-blur-md shadow-2xl">
+            <Card className="bg-card border border-border rounded-2xl shadow-sm">
               <CardHeader>
                 <div className="flex items-center gap-3 mb-1">
-                  <div className="w-9 h-9 rounded-xl bg-ocean-500/20 flex items-center justify-center">
-                    <Building2 className="w-5 h-5 text-ocean-400" />
+                  <div className="w-9 h-9 rounded-xl bg-ocean-100 flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-ocean-600" />
                   </div>
                   <div>
-                    <CardTitle className="text-white text-lg">{t.onboarding.step1Title}</CardTitle>
-                    <CardDescription className="text-ocean-400 text-xs">{t.onboarding.step1Subtitle}</CardDescription>
+                    <CardTitle className="text-foreground text-lg">{t.onboarding.step1Title}</CardTitle>
+                    <CardDescription className="text-muted-foreground text-xs">{t.onboarding.step1Subtitle}</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label className="text-ocean-200 text-sm">{t.onboarding.farmName} <span className="text-red-400">*</span></Label>
+                  <Label className="text-foreground text-sm font-medium">{t.onboarding.farmName} <span className="text-red-500">*</span></Label>
                   <Input
                     value={farmName}
                     onChange={e => setFarmName(e.target.value)}
                     placeholder={t.onboarding.farmNamePlaceholder}
-                    className="bg-white/10 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-ocean-400"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-ocean-200 text-sm">{t.onboarding.location} <span className="text-red-400">*</span></Label>
+                  <Label className="text-foreground text-sm font-medium">{t.onboarding.location} <span className="text-red-500">*</span></Label>
                   <Input
                     value={farmLocation}
                     onChange={e => setFarmLocation(e.target.value)}
                     placeholder={t.onboarding.locationPlaceholder}
-                    className="bg-white/10 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-ocean-400"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-ocean-200 text-sm">{t.onboarding.ownerName} <span className="text-red-400">*</span></Label>
+                  <Label className="text-foreground text-sm font-medium">{t.onboarding.ownerName} <span className="text-red-500">*</span></Label>
                   <Input
                     value={ownerName}
                     onChange={e => setOwnerName(e.target.value)}
                     placeholder={t.onboarding.ownerNamePlaceholder}
-                    className="bg-white/10 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-ocean-400"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-ocean-200 text-sm">{t.onboarding.area}</Label>
+                  <Label className="text-foreground text-sm font-medium">{t.onboarding.area}</Label>
                   <Input
                     type="number"
                     min="0"
                     value={farmArea}
                     onChange={e => setFarmArea(e.target.value)}
                     placeholder="5000"
-                    className="bg-white/10 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-ocean-400"
                   />
                 </div>
 
                 {error && (
-                  <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-lg px-3 py-2 text-sm">
                     <AlertCircle className="w-4 h-4 shrink-0" />
                     {error}
                   </div>
@@ -306,27 +297,27 @@ export default function OnboardingPage() {
           {/* ── Step 2: Tank registration ── */}
           {step === 2 && (
             <div className="space-y-4">
-              <Card className="bg-white/5 border-white/10 backdrop-blur-md shadow-2xl">
+              <Card className="bg-card border border-border rounded-2xl shadow-sm">
                 <CardHeader>
                   <div className="flex items-center gap-3 mb-1">
-                    <div className="w-9 h-9 rounded-xl bg-teal-500/20 flex items-center justify-center">
-                      <Layers className="w-5 h-5 text-teal-400" />
+                    <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
+                      <Layers className="w-5 h-5 text-emerald-600" />
                     </div>
                     <div>
-                      <CardTitle className="text-white text-lg">{t.onboarding.step2Title}</CardTitle>
-                      <CardDescription className="text-ocean-400 text-xs">{t.onboarding.step2Subtitle}</CardDescription>
+                      <CardTitle className="text-foreground text-lg">{t.onboarding.step2Title}</CardTitle>
+                      <CardDescription className="text-muted-foreground text-xs">{t.onboarding.step2Subtitle}</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {tanks.map((tank, idx) => (
-                    <div key={tank.id} className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3">
+                    <div key={tank.id} className="bg-muted/50 border border-border rounded-xl p-4 space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-ocean-300 text-sm font-medium">{t.onboarding.tankName} {idx + 1}</span>
+                        <span className="text-foreground text-sm font-medium">{t.onboarding.tankName} {idx + 1}</span>
                         {tanks.length > 1 && (
                           <button
                             onClick={() => removeTank(tank.id)}
-                            className="text-red-400/70 hover:text-red-400 transition-colors"
+                            className="text-red-400 hover:text-red-600 transition-colors"
                             aria-label={t.onboarding.removeTank}
                           >
                             <Trash2 className="w-4 h-4" />
@@ -335,17 +326,17 @@ export default function OnboardingPage() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <Label className="text-ocean-200 text-xs">{t.onboarding.tankName} <span className="text-red-400">*</span></Label>
+                        <Label className="text-foreground text-xs font-medium">{t.onboarding.tankName} <span className="text-red-500">*</span></Label>
                         <Input
                           value={tank.name}
                           onChange={e => updateTank(tank.id, "name", e.target.value)}
                           placeholder={t.onboarding.tankNamePlaceholder}
-                          className="bg-white/10 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-ocean-400 h-9 text-sm"
+                          className="h-9 text-sm"
                         />
                       </div>
 
                       <div className="space-y-1.5">
-                        <Label className="text-ocean-200 text-xs">{t.onboarding.species} <span className="text-red-400">*</span></Label>
+                        <Label className="text-foreground text-xs font-medium">{t.onboarding.species} <span className="text-red-500">*</span></Label>
                         <div className="flex gap-2">
                           {(["노지", "실내", "반실내"] as TankType[]).map(type => (
                             <button
@@ -353,8 +344,8 @@ export default function OnboardingPage() {
                               onClick={() => updateTank(tank.id, "tank_type", type)}
                               className={`flex-1 h-9 rounded-lg text-xs font-medium border transition-all
                                 ${tank.tank_type === type
-                                  ? "bg-ocean-500 border-ocean-400 text-white"
-                                  : "bg-white/5 border-white/10 text-ocean-300 hover:bg-white/10"
+                                  ? "bg-ocean-500 text-white border-ocean-500"
+                                  : "bg-muted text-muted-foreground border-border hover:border-ocean-300 hover:text-ocean-600"
                                 }`}
                             >
                               {type}
@@ -365,37 +356,37 @@ export default function OnboardingPage() {
 
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
-                          <Label className="text-ocean-200 text-xs">{t.onboarding.volume}</Label>
+                          <Label className="text-foreground text-xs font-medium">{t.onboarding.volume}</Label>
                           <Input
                             type="number"
                             min="0"
                             value={tank.volume}
                             onChange={e => updateTank(tank.id, "volume", e.target.value)}
                             placeholder="500"
-                            className="bg-white/10 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-ocean-400 h-9 text-sm"
+                            className="h-9 text-sm"
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-ocean-200 text-xs">{t.onboarding.density}</Label>
+                          <Label className="text-foreground text-xs font-medium">{t.onboarding.density}</Label>
                           <Input
                             type="number"
                             min="0"
                             value={tank.stocking_density}
                             onChange={e => updateTank(tank.id, "stocking_density", e.target.value)}
                             placeholder="100"
-                            className="bg-white/10 border-white/20 text-white placeholder:text-white/30 focus-visible:ring-ocean-400 h-9 text-sm"
+                            className="h-9 text-sm"
                           />
                         </div>
                       </div>
 
                       <div className="space-y-1.5">
-                        <Label className="text-ocean-200 text-xs">{t.onboarding.speciesDefault}</Label>
+                        <Label className="text-foreground text-xs font-medium">{t.onboarding.speciesDefault}</Label>
                         <Input
                           type="date"
                           value={tank.stocking_date}
                           onChange={e => updateTank(tank.id, "stocking_date", e.target.value)}
                           max={new Date().toISOString().split("T")[0]}
-                          className="bg-white/10 border-white/20 text-white focus-visible:ring-ocean-400 h-9 text-sm [color-scheme:dark]"
+                          className="h-9 text-sm"
                         />
                       </div>
                     </div>
@@ -404,14 +395,14 @@ export default function OnboardingPage() {
                   {tanks.length < 20 && (
                     <button
                       onClick={addTank}
-                      className="w-full h-10 border border-dashed border-white/20 rounded-xl text-ocean-400 hover:text-ocean-300 hover:border-white/30 text-sm flex items-center justify-center gap-2 transition-all"
+                      className="w-full h-10 border-dashed border-2 border-border rounded-xl text-muted-foreground hover:border-ocean-300 hover:text-ocean-600 text-sm flex items-center justify-center gap-2 transition-all"
                     >
                       <Plus className="w-4 h-4" /> {t.onboarding.addMoreTank}
                     </button>
                   )}
 
                   {error && (
-                    <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-lg px-3 py-2 text-sm">
                       <AlertCircle className="w-4 h-4 shrink-0" />
                       {error}
                     </div>
@@ -420,7 +411,7 @@ export default function OnboardingPage() {
                   <div className="flex gap-3 pt-1">
                     <Button
                       variant="outline"
-                      className="flex-1 border-white/20 text-ocean-300 bg-transparent hover:bg-white/10 gap-2 h-11"
+                      className="flex-1 gap-2 h-11"
                       onClick={() => { setError(""); setStep(1) }}
                     >
                       <ChevronLeft className="w-4 h-4" /> {t.onboarding.prev}
@@ -447,19 +438,19 @@ export default function OnboardingPage() {
 
           {/* ── Step 3: Complete ── */}
           {step === 3 && (
-            <Card className="bg-white/5 border-white/10 backdrop-blur-md shadow-2xl text-center">
+            <Card className="bg-card border border-border rounded-2xl shadow-sm text-center">
               <CardContent className="pt-10 pb-8 px-8 space-y-6">
                 <div className="flex justify-center">
-                  <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                    <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+                  <div className="w-20 h-20 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center">
+                    <CheckCircle2 className="w-10 h-10 text-emerald-600" />
                   </div>
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-white mb-2">{t.onboarding.step3Title}</h2>
-                  <p className="text-ocean-300 text-sm">
-                    <span className="text-white font-semibold">&ldquo;{createdFarmName}&rdquo;</span>{" "}
+                  <h2 className="text-2xl font-bold text-foreground mb-2">{t.onboarding.step3Title}</h2>
+                  <p className="text-muted-foreground text-sm">
+                    <span className="text-foreground font-semibold">&ldquo;{createdFarmName}&rdquo;</span>{" "}
                     {t.onboarding.step3Subtitle}
-                    {" "}<span className="text-white font-semibold">{createdTankCount}</span>
+                    {" "}<span className="text-foreground font-semibold">{createdTankCount}</span>
                   </p>
                 </div>
                 <Button
