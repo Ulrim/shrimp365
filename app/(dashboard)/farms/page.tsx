@@ -46,6 +46,7 @@ import { UpgradeModal, type LimitType } from "@/components/ui/upgrade-modal"
 import type { Plan } from "@/lib/plans"
 import type { SensorDevice } from "@/types"
 import { useT } from "@/lib/i18n-context"
+import { AddressSearch } from "@/components/ui/address-search"
 
 function computeCycleDay(stockingDate: string | null | undefined): number {
   if (!stockingDate) return 0
@@ -197,12 +198,11 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="farm-location" className="text-muted-foreground text-sm">{t.farms.location} *</Label>
-              <Input
+              <AddressSearch
                 id="farm-location"
-                placeholder={t.farms.locationPlaceholder}
-                className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
                 value={form.location}
-                onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
+                onChange={addr => setForm(f => ({ ...f, location: addr }))}
+                placeholder={t.farms.locationPlaceholder}
                 required
               />
             </div>
@@ -526,7 +526,11 @@ function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void
           </div>
           <div className="space-y-2">
             <Label className="text-muted-foreground">{t.farms.location}</Label>
-            <Input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} className="bg-muted border-border text-foreground" />
+            <AddressSearch
+              value={form.location}
+              onChange={addr => setForm(p => ({ ...p, location: addr }))}
+              placeholder={t.farms.locationPlaceholder}
+            />
           </div>
           <div className="space-y-2">
             <Label className="text-muted-foreground">{t.farms.ownerName}</Label>

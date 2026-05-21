@@ -7,6 +7,7 @@ import { getFarms, createFarm, createTank } from "@/lib/db"
 import { isTestAccount } from "@/lib/mock-data"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { AddressSearch } from "@/components/ui/address-search"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Building2, Layers, CheckCircle2, Plus, Trash2, ChevronRight, ChevronLeft, AlertCircle } from "lucide-react"
@@ -250,10 +251,11 @@ export default function OnboardingPage() {
 
                 <div className="space-y-1.5">
                   <Label className="text-foreground text-sm font-medium">{t.onboarding.location} <span className="text-red-500">*</span></Label>
-                  <Input
+                  <AddressSearch
                     value={farmLocation}
-                    onChange={e => setFarmLocation(e.target.value)}
+                    onChange={setFarmLocation}
                     placeholder={t.onboarding.locationPlaceholder}
+                    required
                   />
                 </div>
 
