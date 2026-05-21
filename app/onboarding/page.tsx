@@ -464,7 +464,7 @@ export default function OnboardingPage() {
                 </div>
                 <Button
                   className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold h-12 text-base gap-2"
-                  onClick={() => router.push("/dashboard")}
+                  onClick={() => router.replace("/home")}
                 >
                   {t.onboarding.complete} <ChevronRight className="w-5 h-5" />
                 </Button>

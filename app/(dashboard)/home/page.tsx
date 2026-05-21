@@ -1,13 +1,38 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
+import { getFarms } from "@/lib/db"
+import { isTestAccount } from "@/lib/mock-data"
 import { ClipboardList, BarChart3 } from "lucide-react"
 
 export default function HomePage() {
   const { user } = useAuth()
   const { t } = useT()
+  const router = useRouter()
+  const [checking, setChecking] = useState(true)
+
+  useEffect(() => {
+    if (!user) return
+    if (isTestAccount(user.email)) { setChecking(false); return }
+    getFarms()
+      .then(farms => {
+        if (farms.length === 0) router.replace("/onboarding")
+        else setChecking(false)
+      })
+      .catch(() => setChecking(false))
+  }, [user, router])
+
+  if (checking) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   const greeting = t.hub.greeting.replace("{{name}}", user?.name?.split(" ")[0] || "")
 

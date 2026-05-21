@@ -9,6 +9,8 @@ import { MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
 import { WQ_BOUNDS, WqField } from "@/lib/utils"
 import { Tank } from "@/types"
 import { StepWizard, WizardStep } from "@/components/wizard/step-wizard"
+import { Building2 } from "lucide-react"
+import Link from "next/link"
 
 const TODAY = new Date().toISOString().split("T")[0]
 
@@ -36,9 +38,13 @@ export default function RecordWaterQualityPage() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [loadingTanks, setLoadingTanks] = useState(!mock)
+
   useEffect(() => {
     if (mock) { setTanks(MOCK_TANKS); return }
-    getAllTanks().then(setTanks).catch(() => setTanks([]))
+    getAllTanks()
+      .then(result => { setTanks(result); setLoadingTanks(false) })
+      .catch(() => { setTanks([]); setLoadingTanks(false) })
   }, [mock])
 
   const handleChange = (key: string, value: unknown) => {
@@ -120,6 +126,35 @@ export default function RecordWaterQualityPage() {
       title: t.wizard.confirmTitle,
     },
   ]
+
+  if (loadingTanks) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (!mock && tanks.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center gap-6">
+        <div className="w-16 h-16 rounded-2xl bg-ocean-100 flex items-center justify-center">
+          <Building2 className="w-8 h-8 text-ocean-500" />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-foreground mb-2">등록된 수조가 없습니다</h2>
+          <p className="text-muted-foreground text-sm">수질 기록을 시작하려면 먼저 양식장과 수조를 등록해 주세요.</p>
+        </div>
+        <Link
+          href="/onboarding"
+          className="inline-flex items-center gap-2 bg-ocean-500 hover:bg-ocean-600 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+        >
+          <Building2 className="w-4 h-4" />
+          양식장 등록하기
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <StepWizard
