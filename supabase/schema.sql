@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   created_at             TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 회원가입 시 profiles 자동 생성 (Pro 3개월 무료 체험 포함)
+-- 회원가입 시 profiles 자동 생성 (영구 Pro)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
@@ -28,7 +28,7 @@ BEGIN
     COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
     'operator',
     'pro',
-    NOW() + INTERVAL '3 months'
+    NULL
   );
   RETURN NEW;
 END;
