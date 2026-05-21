@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Mail, Waves, RefreshCw, ArrowLeft } from "lucide-react"
+import { Mail, RefreshCw, ArrowLeft, AlertCircle, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
@@ -14,7 +14,6 @@ export default function VerifyEmailPage() {
   const [resending, setResending] = useState(false)
   const [resendError, setResendError] = useState("")
 
-  // Extract email from sessionStorage set by signup page
   const email = typeof window !== "undefined"
     ? sessionStorage.getItem("pendingVerifyEmail") ?? ""
     : ""
@@ -24,87 +23,94 @@ export default function VerifyEmailPage() {
     setResending(true)
     setResendError("")
     const result = await resendVerification(email)
-    if (result.success) {
-      setResent(true)
-    } else {
-      setResendError(result.error ?? "재발송에 실패했습니다.")
-    }
+    if (result.success) setResent(true)
+    else setResendError(result.error ?? "재발송에 실패했습니다.")
     setResending(false)
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-ocean-950 via-slate-900 to-teal-950 flex items-center justify-center px-4">
-      <div className="max-w-md w-full text-center space-y-8">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4 relative overflow-hidden">
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-ocean-100 rounded-full blur-3xl opacity-50 pointer-events-none" />
+
+      <div className="max-w-md w-full text-center space-y-8 relative z-10">
+        {/* Logo */}
+        <Link href="/" className="inline-flex items-center gap-2">
+          <span className="text-2xl">🦐</span>
+          <span className="text-foreground text-xl font-bold">Shrimp365</span>
+        </Link>
+
         {/* Icon */}
         <div className="flex justify-center">
-          <div className="w-20 h-20 rounded-full bg-ocean-500/10 border border-ocean-500/30 flex items-center justify-center">
-            <Mail className="w-10 h-10 text-ocean-400" />
+          <div className="w-20 h-20 rounded-full bg-ocean-50 border-2 border-ocean-200 flex items-center justify-center">
+            <Mail className="w-10 h-10 text-ocean-500" />
           </div>
         </div>
 
-        {/* Message */}
-        <div>
-          <h1 className="text-2xl font-bold text-white mb-3">{t.auth.verifyTitle}</h1>
-          <p className="text-slate-400">
-            {email
-              ? <><span className="text-white font-medium">{email}</span>으로</>
-              : "입력하신 이메일 주소로"}
-            {" "}{t.auth.verifyMsg}
-          </p>
-          <p className="text-slate-500 text-sm mt-2">
-            링크를 클릭하면 계정 활성화가 완료됩니다.
-          </p>
+        {/* Card */}
+        <div className="bg-card border border-border rounded-2xl shadow-sm p-8 text-left space-y-6">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-foreground mb-2">{t.auth.verifyTitle}</h1>
+            <p className="text-muted-foreground text-sm">
+              {email
+                ? <><span className="text-foreground font-medium">{email}</span>으로</>
+                : "입력하신 이메일 주소로"}
+              {" "}{t.auth.verifyMsg}
+            </p>
+          </div>
+
+          {/* Steps */}
+          <div className="bg-ocean-50 border border-ocean-100 rounded-xl p-4 space-y-3">
+            {[
+              { n: "1", text: t.auth.verifyStepCheck },
+              { n: "2", text: t.auth.verifyStepSpam },
+              { n: "3", text: t.auth.verifyStepClick },
+              { n: "4", text: "인증 후 로그인 페이지에서 로그인해 주세요." },
+            ].map(step => (
+              <div key={step.n} className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-ocean-500 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                  {step.n}
+                </span>
+                <p className="text-sm text-foreground">{step.text}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Actions */}
+          <div className="space-y-3">
+            {email && !resent && (
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={handleResend}
+                disabled={resending}
+              >
+                {resending
+                  ? <><RefreshCw className="w-4 h-4 animate-spin" />{t.auth.verifyResending}</>
+                  : <><RefreshCw className="w-4 h-4" />{t.auth.verifyResend}</>}
+              </Button>
+            )}
+            {resent && (
+              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg px-3 py-2 text-sm">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                {t.auth.verifyResent}
+              </div>
+            )}
+            {resendError && (
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-lg px-3 py-2 text-sm">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {resendError}
+              </div>
+            )}
+
+            <Link href="/login">
+              <Button variant="ghost" className="w-full gap-2 text-muted-foreground hover:text-foreground">
+                <ArrowLeft className="w-4 h-4" />{t.auth.goLogin}
+              </Button>
+            </Link>
+          </div>
         </div>
 
-        {/* Steps */}
-        <div className="bg-slate-800/40 border border-white/10 rounded-2xl p-6 text-left space-y-4">
-          {[
-            { n: "1", text: t.auth.verifyStepCheck },
-            { n: "2", text: t.auth.verifyStepSpam },
-            { n: "3", text: t.auth.verifyStepClick },
-          ].map(step => (
-            <div key={step.n} className="flex items-start gap-3">
-              <span className="w-6 h-6 rounded-full bg-ocean-500/20 border border-ocean-500/30 text-ocean-400 text-xs font-bold flex items-center justify-center shrink-0">
-                {step.n}
-              </span>
-              <p className="text-sm text-slate-300">{step.text}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Actions */}
-        <div className="space-y-3">
-          {email && !resent && (
-            <Button
-              variant="outline"
-              className="w-full border-white/10 text-slate-300 hover:bg-white/5 gap-2"
-              onClick={handleResend}
-              disabled={resending}
-            >
-              {resending
-                ? <><RefreshCw className="w-4 h-4 animate-spin" />{t.auth.verifyResending}</>
-                : <><RefreshCw className="w-4 h-4" />{t.auth.verifyResend}</>}
-            </Button>
-          )}
-          {resent && (
-            <p className="text-emerald-400 text-sm">{t.auth.verifyResent}</p>
-          )}
-          {resendError && (
-            <p className="text-red-400 text-sm">{resendError}</p>
-          )}
-
-          <Link href="/login">
-            <Button variant="outline" className="w-full border-white/10 text-slate-400 hover:bg-white/5 gap-2">
-              <ArrowLeft className="w-4 h-4" />{t.auth.goLogin}
-            </Button>
-          </Link>
-        </div>
-
-        {/* Branding */}
-        <div className="flex items-center justify-center gap-2 text-slate-600">
-          <Waves className="w-4 h-4" />
-          <span className="text-sm">Shrimp365</span>
-        </div>
+        <p className="text-xs text-muted-foreground">© 2026 CULIVER INC. All rights reserved.</p>
       </div>
     </div>
   )

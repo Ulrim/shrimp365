@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
@@ -9,12 +9,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Eye, EyeOff, AlertCircle, ShieldCheck } from "lucide-react"
+import { Eye, EyeOff, AlertCircle, ShieldCheck, CheckCircle2 } from "lucide-react"
+import { useSearchParams } from "next/navigation"
 
-export default function LoginPage() {
+function LoginPageInner() {
   const router = useRouter()
   const { login } = useAuth()
   const { t } = useT()
+  const searchParams = useSearchParams()
+  const verified = searchParams.get("verified") === "1"
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -99,6 +102,12 @@ export default function LoginPage() {
           </div>
 
           <Card className="bg-card border border-border shadow-sm">
+            {verified && (
+              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-t-2xl px-4 py-3 text-sm">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                이메일 인증이 완료되었습니다. 로그인해 주세요.
+              </div>
+            )}
             <CardHeader className="space-y-1 pb-4">
               <CardTitle className="text-2xl font-bold text-foreground">{t.auth.loginTitle}</CardTitle>
               <CardDescription className="text-muted-foreground">
@@ -222,5 +231,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center"><div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" /></div>}>
+      <LoginPageInner />
+    </Suspense>
   )
 }

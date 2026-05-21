@@ -7,8 +7,7 @@ import { useT } from "@/lib/i18n-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Waves, AlertCircle, CheckCircle2, ArrowLeft } from "lucide-react"
+import { AlertCircle, CheckCircle2, ArrowLeft, Mail } from "lucide-react"
 
 export default function ForgotPasswordPage() {
   const { sendPasswordReset } = useAuth()
@@ -24,94 +23,92 @@ export default function ForgotPasswordPage() {
     setLoading(true)
     const result = await sendPasswordReset(email)
     setLoading(false)
-    if (result.success) {
-      setSent(true)
-    } else {
-      setError(result.error || "오류가 발생했습니다.")
-    }
+    if (result.success) setSent(true)
+    else setError(result.error || "오류가 발생했습니다.")
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-ocean-950 via-slate-900 to-teal-950 p-6">
-      <div className="w-full max-w-md">
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-xl flex items-center justify-center">
-            <Waves className="w-6 h-6 text-white" />
-          </div>
-          <span className="text-white text-xl font-bold">Shrimp365</span>
+    <div className="min-h-screen bg-background flex items-center justify-center p-6 relative overflow-hidden">
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-ocean-100 rounded-full blur-3xl opacity-50 pointer-events-none" />
+
+      <div className="max-w-md w-full space-y-8 relative z-10">
+        {/* Logo */}
+        <div className="flex flex-col items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="text-2xl">🦐</span>
+            <span className="text-foreground text-xl font-bold">Shrimp365</span>
+          </Link>
+          <h1 className="text-2xl font-bold text-foreground mt-2">{t.auth.forgotTitle}</h1>
+          <p className="text-muted-foreground text-sm text-center">{t.auth.forgotSubtitle}</p>
         </div>
 
-        <Card className="bg-white/5 border-white/10 backdrop-blur-md shadow-2xl">
-          <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-2xl font-bold text-white">{t.auth.forgotTitle}</CardTitle>
-            <CardDescription className="text-ocean-300">
-              {t.auth.forgotSubtitle}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {sent ? (
-              <div className="space-y-4">
-                <div className="flex items-start gap-3 text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-4 py-3">
-                  <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-sm">{t.auth.forgotSuccess}</p>
-                    <p className="text-xs text-emerald-400/80 mt-1">
-                      <span className="font-semibold">{email}</span>{t.auth.forgotSuccessMsg}
-                    </p>
-                  </div>
+        <div className="bg-card border border-border rounded-2xl shadow-sm p-8">
+          {sent ? (
+            <div className="space-y-4">
+              <div className="flex justify-center">
+                <div className="w-16 h-16 rounded-full bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center">
+                  <Mail className="w-8 h-8 text-emerald-600" />
                 </div>
-                <Link href="/login">
-                  <Button variant="outline" className="w-full border-white/10 text-slate-300 hover:text-white hover:bg-white/5">
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    {t.auth.goLogin}
-                  </Button>
-                </Link>
               </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-ocean-100">{t.auth.emailLabel}</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="email@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus-visible:ring-ocean-400"
-                    required
-                  />
+              <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg px-4 py-3">
+                <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-sm">{t.auth.forgotSuccess}</p>
+                  <p className="text-xs text-emerald-600 mt-1">
+                    <span className="font-semibold">{email}</span>{t.auth.forgotSuccessMsg}
+                  </p>
                 </div>
-
-                {error && (
-                  <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    {error}
-                  </div>
-                )}
-
-                <Button
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold h-11"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <span className="flex items-center gap-2">
-                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      {t.auth.verifyResending}
-                    </span>
-                  ) : t.auth.forgotButton}
+              </div>
+              <Link href="/login">
+                <Button variant="outline" className="w-full gap-2">
+                  <ArrowLeft className="w-4 h-4" />
+                  {t.auth.goLogin}
                 </Button>
+              </Link>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-foreground font-medium">{t.auth.emailLabel}</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="email@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
 
-                <Link href="/login">
-                  <Button variant="ghost" className="w-full text-ocean-400 hover:text-white">
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    {t.auth.goLogin}
-                  </Button>
-                </Link>
-              </form>
-            )}
-          </CardContent>
-        </Card>
+              {error && (
+                <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-lg px-3 py-2 text-sm">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {error}
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold h-11"
+                disabled={loading}
+              >
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    {t.auth.verifyResending}
+                  </span>
+                ) : t.auth.forgotButton}
+              </Button>
+
+              <Link href="/login">
+                <Button variant="ghost" className="w-full gap-2 text-muted-foreground hover:text-foreground">
+                  <ArrowLeft className="w-4 h-4" />
+                  {t.auth.goLogin}
+                </Button>
+              </Link>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   )

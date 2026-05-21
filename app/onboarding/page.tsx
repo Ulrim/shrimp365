@@ -267,13 +267,15 @@ export default function OnboardingPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-foreground text-sm font-medium">{t.onboarding.area}</Label>
+                  <Label className="text-foreground text-sm font-medium">
+                    {t.onboarding.area} <span className="text-muted-foreground font-normal text-xs">(㎡, 선택)</span>
+                  </Label>
                   <Input
                     type="number"
                     min="0"
                     value={farmArea}
                     onChange={e => setFarmArea(e.target.value)}
-                    placeholder="5000"
+                    placeholder="예: 5000"
                   />
                 </div>
 
@@ -336,7 +338,7 @@ export default function OnboardingPage() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <Label className="text-foreground text-xs font-medium">{t.onboarding.species} <span className="text-red-500">*</span></Label>
+                        <Label className="text-foreground text-xs font-medium">수조 유형 <span className="text-red-500">*</span></Label>
                         <div className="flex gap-2">
                           {(["노지", "실내", "반실내"] as TankType[]).map(type => (
                             <button
@@ -356,31 +358,31 @@ export default function OnboardingPage() {
 
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
-                          <Label className="text-foreground text-xs font-medium">{t.onboarding.volume}</Label>
+                          <Label className="text-foreground text-xs font-medium">{t.onboarding.volume} <span className="text-muted-foreground font-normal">(㎥)</span></Label>
                           <Input
                             type="number"
                             min="0"
                             value={tank.volume}
                             onChange={e => updateTank(tank.id, "volume", e.target.value)}
-                            placeholder="500"
+                            placeholder="예: 500"
                             className="h-9 text-sm"
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-foreground text-xs font-medium">{t.onboarding.density}</Label>
+                          <Label className="text-foreground text-xs font-medium">{t.onboarding.density} <span className="text-muted-foreground font-normal">(마리/㎥)</span></Label>
                           <Input
                             type="number"
                             min="0"
                             value={tank.stocking_density}
                             onChange={e => updateTank(tank.id, "stocking_density", e.target.value)}
-                            placeholder="100"
+                            placeholder="예: 100"
                             className="h-9 text-sm"
                           />
                         </div>
                       </div>
 
                       <div className="space-y-1.5">
-                        <Label className="text-foreground text-xs font-medium">{t.onboarding.speciesDefault}</Label>
+                        <Label className="text-foreground text-xs font-medium">입식일 <span className="text-muted-foreground font-normal">(선택)</span></Label>
                         <Input
                           type="date"
                           value={tank.stocking_date}
