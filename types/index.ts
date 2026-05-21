@@ -134,6 +134,7 @@ export interface ProductionCycle {
   stocking_count: number
   pl_source: string | null
   pl_stage: string | null
+  initial_weight_g: number | null
   pl_species: string | null
   target_weight_g: number | null
   target_harvest_date: string | null

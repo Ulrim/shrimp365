@@ -61,7 +61,7 @@ function NewCycleDialog({ tanks, open, onClose, onCreated }: {
   tanks: Tank[]; open: boolean; onClose: () => void
   onCreated: (c: ProductionCycle) => void
 }) {
-  const [form, setForm] = useState({ tank_id: "", name: "", stocking_date: "", stocking_count: "", pl_source: "", pl_stage: "", pl_species: "", target_weight_g: "", target_harvest_date: "", notes: "" })
+  const [form, setForm] = useState({ tank_id: "", name: "", stocking_date: "", stocking_count: "", pl_source: "", pl_stage: "", pl_species: "", initial_weight_g: "", target_weight_g: "", target_harvest_date: "", notes: "" })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
@@ -74,12 +74,13 @@ function NewCycleDialog({ tanks, open, onClose, onCreated }: {
         tank_id: form.tank_id, name: form.name, stocking_date: form.stocking_date,
         stocking_count: parseInt(form.stocking_count),
         pl_source: form.pl_source || undefined, pl_stage: form.pl_stage || undefined,
+        initial_weight_g: form.initial_weight_g ? parseFloat(form.initial_weight_g) : undefined,
         pl_species: form.pl_species || undefined,
         target_weight_g: form.target_weight_g ? parseFloat(form.target_weight_g) : undefined,
         target_harvest_date: form.target_harvest_date || undefined, notes: form.notes || undefined,
       })
       onCreated(c); onClose()
-      setForm({ tank_id: "", name: "", stocking_date: "", stocking_count: "", pl_source: "", pl_stage: "", pl_species: "", target_weight_g: "", target_harvest_date: "", notes: "" })
+      setForm({ tank_id: "", name: "", stocking_date: "", stocking_count: "", pl_source: "", pl_stage: "", pl_species: "", initial_weight_g: "", target_weight_g: "", target_harvest_date: "", notes: "" })
     } catch (e) { setError(e instanceof Error ? e.message : "오류가 발생했습니다.") }
     finally { setLoading(false) }
   }
@@ -114,8 +115,8 @@ function NewCycleDialog({ tanks, open, onClose, onCreated }: {
               <Input type="number" value={form.stocking_count} onChange={set("stocking_count")} placeholder="50000" className="mt-1 bg-muted border-border text-foreground" />
             </div>
             <div>
-              <Label className="text-foreground/80">PL 단계</Label>
-              <Input value={form.pl_stage} onChange={set("pl_stage")} placeholder="PL12" className="mt-1 bg-muted border-border text-foreground" />
+              <Label className="text-foreground/80">시작 중량 (g)</Label>
+              <Input type="number" min="0" step="0.01" value={form.initial_weight_g} onChange={set("initial_weight_g")} placeholder="예: 0.001" className="mt-1 bg-muted border-border text-foreground" />
             </div>
             <div>
               <Label className="text-foreground/80">종묘 공급처</Label>
@@ -359,7 +360,10 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
             <h2 className="text-foreground font-bold text-lg">{cycle.tank_name} — {cycle.name}</h2>
             <StatusBadge status={cycle.status} />
           </div>
-          <p className="text-muted-foreground text-sm">입식일: {cycle.stocking_date} · {fmt(cycle.stocking_count)}마리</p>
+          <p className="text-muted-foreground text-sm">
+            입식일: {cycle.stocking_date} · {fmt(cycle.stocking_count)}마리
+            {cycle.initial_weight_g != null && ` · 시작 중량: ${cycle.initial_weight_g}g`}
+          </p>
         </div>
       </div>
 
@@ -652,7 +656,10 @@ export default function ProductionPage() {
                       <span className="text-muted-foreground text-sm">{c.name}</span>
                       <StatusBadge status={c.status} />
                     </div>
-                    <p className="text-muted-foreground text-xs mt-1">{c.farm_name && `${c.farm_name} · `}입식일 {c.stocking_date} · {fmt(c.stocking_count)}마리</p>
+                    <p className="text-muted-foreground text-xs mt-1">
+                      {c.farm_name && `${c.farm_name} · `}입식일 {c.stocking_date} · {fmt(c.stocking_count)}마리
+                      {c.initial_weight_g != null && ` · 시작 ${c.initial_weight_g}g`}
+                    </p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-ocean-500 transition-colors shrink-0 ml-2 mt-1" />
                 </div>
