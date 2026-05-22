@@ -24,17 +24,32 @@ export const metadata: Metadata = {
 export default function GuideLayout({ children }: { children: React.ReactNode }) {
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "HowTo",
-    "name": "Shrimp365로 흰다리새우 양식장 관리 시작하기",
-    "description": "Shrimp365를 사용해 수질 모니터링, 양식 일지, AI 어드바이저, 재고 관리를 설정하는 방법",
-    "step": [
-      { "@type": "HowToStep", "position": 1, "name": "가입 & 로그인", "text": "shrimp365.kr에서 이메일로 가입 후 인증 메일을 클릭합니다." },
-      { "@type": "HowToStep", "position": 2, "name": "양식장 & 수조 등록", "text": "양식장 이름·지역을 입력하고 수조를 추가합니다." },
-      { "@type": "HowToStep", "position": 3, "name": "수질 기록", "text": "매일 수온·pH·DO 등을 단계별 입력 화면에서 기록합니다." },
-      { "@type": "HowToStep", "position": 4, "name": "양식 일지 작성", "text": "급이량·폐사 수·환수율을 단계별로 입력합니다." },
-      { "@type": "HowToStep", "position": 5, "name": "AI 어드바이저 활용", "text": "수질 이상 시 AI에게 한국어로 상황을 설명하면 대처 방법을 안내받습니다." },
+    "@graph": [
+      {
+        "@type": "HowTo",
+        "name": "Shrimp365로 흰다리새우 양식장 관리 시작하기",
+        "description": "Shrimp365를 사용해 수질 모니터링, 양식 일지, AI 어드바이저, 재고 관리를 설정하는 방법",
+        "step": [
+          { "@type": "HowToStep", "position": 1, "name": "가입 & 로그인", "text": "shrimp365.kr에서 이메일로 가입 후 인증 메일을 클릭합니다." },
+          { "@type": "HowToStep", "position": 2, "name": "양식장 & 수조 등록", "text": "양식장 이름·지역을 입력하고 수조를 추가합니다." },
+          { "@type": "HowToStep", "position": 3, "name": "수질 기록", "text": "매일 수온·pH·DO 등을 단계별 입력 화면에서 기록합니다." },
+          { "@type": "HowToStep", "position": 4, "name": "양식 일지 작성", "text": "급이량·폐사 수·환수율을 단계별로 입력합니다." },
+          { "@type": "HowToStep", "position": 5, "name": "AI 어드바이저 활용", "text": "수질 이상 시 AI에게 한국어로 상황을 설명하면 대처 방법을 안내받습니다." },
+        ],
+        "totalTime": "PT5M",
+      },
+      {
+        "@type": "Article",
+        "headline": "Shrimp365 사용 가이드 — 새우 양식장 스마트 관리",
+        "description": "Shrimp365로 새우 양식장을 스마트하게 관리하는 방법을 단계별로 안내합니다.",
+        "author": { "@type": "Organization", "name": "CULIVER INC." },
+        "publisher": { "@type": "Organization", "name": "CULIVER INC.", "logo": { "@type": "ImageObject", "url": "https://www.shrimp365.kr/opengraph-image" } },
+        "datePublished": "2025-01-01",
+        "dateModified": "2026-05-22",
+        "mainEntityOfPage": { "@type": "WebPage", "@id": "https://www.shrimp365.kr/guide" },
+        "inLanguage": ["ko", "en", "vi"],
+      },
     ],
-    "totalTime": "PT5M",
   }
 
   return (
