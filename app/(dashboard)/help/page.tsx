@@ -119,7 +119,8 @@ export default function InAppGuidePage() {
             <button
               key={item.step}
               onClick={() => item.href && router.push(item.href)}
-              className={`bg-white rounded-xl border border-border p-4 text-left shadow-sm ${item.href ? "hover:border-ocean-300 hover:shadow-md transition-all cursor-pointer" : "cursor-default"}`}
+              aria-label={item.href ? `${item.title}으로 이동: ${item.desc}` : item.title}
+              className={`bg-card rounded-xl border border-border p-4 text-left shadow-sm min-h-[44px] ${item.href ? "hover:border-ocean-300 hover:shadow-md transition-all cursor-pointer" : "cursor-default"}`}
             >
               <div className="text-2xl mb-1">{item.icon}</div>
               <div className="text-xs text-ocean-600 font-semibold">{item.step}</div>
@@ -137,8 +138,10 @@ export default function InAppGuidePage() {
           return (
             <div key={s.id} className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
               <button
-                className="w-full flex items-center gap-3 p-4 text-left hover:bg-muted/40 transition-colors"
+                className="w-full flex items-center gap-3 p-4 text-left hover:bg-muted/40 transition-colors min-h-[44px]"
                 onClick={() => setActiveSection(isOpen ? "" : s.id)}
+                aria-expanded={isOpen}
+                aria-controls={`section-content-${s.id}`}
               >
                 <span className="text-2xl shrink-0">{s.icon}</span>
                 <div className="flex-1 min-w-0">

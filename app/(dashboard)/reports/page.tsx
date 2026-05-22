@@ -89,11 +89,11 @@ function ExampleReport() {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={weeklyDo}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
+                <LineChart data={weeklyDo} aria-label="수조별 DO 주간 추이 차트" role="img">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" strokeOpacity={0.15} />
                   <XAxis dataKey="day" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} />
                   <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} domain={[3.5, 8]} width={35} />
-                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }} labelStyle={{ color: "hsl(var(--muted-foreground))" }} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }} labelStyle={{ color: "hsl(var(--muted-foreground))" }} />
                   <Legend wrapperStyle={{ fontSize: "12px", color: "hsl(var(--muted-foreground))" }} />
                   <ReferenceLine y={5} stroke="#ef4444" strokeDasharray="4 4" label={{ value: t.reports.baseline, fill: "#ef4444", fontSize: 10, position: "right" }} />
                   <Line type="monotone" dataKey="A-1조" stroke="#0ea5e9" strokeWidth={2} dot={false} />
@@ -113,11 +113,11 @@ function ExampleReport() {
           </CardHeader>
           <CardContent className="flex flex-col items-center">
             <ResponsiveContainer width="100%" height={180}>
-              <PieChart>
+              <PieChart aria-label="수조 상태 분포 차트" role="img">
                 <Pie data={exampleTankStatusData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
                   {exampleTankStatusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                 </Pie>
-                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }} />
+                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }} />
               </PieChart>
             </ResponsiveContainer>
             <div className="flex gap-4 mt-2">
@@ -141,14 +141,14 @@ function ExampleReport() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={weeklyMortality} barSize={14}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
+              <BarChart data={weeklyMortality} barSize={14} aria-label="이번 주 vs 이전 주 폐사량 비교 차트" role="img">
+                <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" strokeOpacity={0.15} />
                 <XAxis dataKey="day" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={40} />
-                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }} />
+                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }} />
                 <Legend wrapperStyle={{ fontSize: "12px", color: "hsl(var(--muted-foreground))" }} />
                 <Bar dataKey="폐사량" name={t.reports.mortality} fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="이전주" name={t.reports.prevWeek} fill="hsl(var(--card))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="이전주" name={t.reports.prevWeek} fill="hsl(var(--muted))" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -302,17 +302,18 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
             <CardContent>
               {dailyMortality.some(d => (d[t.reports.mortality] as number) > 0) ? (
                 <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={dailyMortality} barSize={20}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
+                  <BarChart data={dailyMortality} barSize={20} aria-label="일별 폐사량 차트" role="img">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" strokeOpacity={0.15} />
                     <XAxis dataKey="day" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} />
                     <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={40} />
-                    <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }} />
+                    <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }} />
                     <Bar dataKey={t.reports.mortality} fill="#f59e0b" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">
-                  {t.reports.noMortalityRecord}
+                <div className="h-[220px] flex flex-col items-center justify-center gap-3 text-muted-foreground">
+                  <Fish className="w-10 h-10 opacity-30" aria-hidden="true" />
+                  <p className="text-sm">{t.reports.noMortalityRecord}</p>
                 </div>
               )}
             </CardContent>
@@ -330,11 +331,11 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
             {tankStatusData.length > 0 ? (
               <>
                 <ResponsiveContainer width="100%" height={180}>
-                  <PieChart>
+                  <PieChart aria-label="수조 상태 분포 차트" role="img">
                     <Pie data={tankStatusData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
                       {tankStatusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                     </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }} />
+                    <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="flex gap-4 mt-2">
@@ -524,7 +525,9 @@ export default function ReportsPage() {
                   key={opt.days}
                   onClick={() => locked ? null : handlePeriodChange(opt.days)}
                   title={locked ? t.reports.periodLocked : undefined}
-                  className={`text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 ${
+                  aria-label={locked ? `${t.reports[opt.labelKey]} (잠김)` : `${t.reports[opt.labelKey]} 기간 선택`}
+                  aria-pressed={!locked && periodDays === opt.days}
+                  className={`text-xs px-3 min-h-[44px] rounded-lg transition-colors flex items-center gap-1 ${
                     locked
                       ? "text-muted-foreground/40 cursor-not-allowed"
                       : periodDays === opt.days
@@ -532,7 +535,7 @@ export default function ReportsPage() {
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {locked && <Lock className="w-3 h-3" />}
+                  {locked && <Lock className="w-3 h-3" aria-hidden="true" />}
                   {t.reports[opt.labelKey]}
                 </button>
               )
@@ -542,20 +545,22 @@ export default function ReportsPage() {
             hasExport((user?.plan ?? "free") as Plan) ? (
               <Button
                 variant="outline"
-                className="border-border text-foreground/80 hover:text-foreground hover:bg-accent"
+                className="border-border text-foreground/80 hover:text-foreground hover:bg-accent min-h-[44px]"
                 onClick={handlePdf}
                 title={t.reports.printSaveHint}
+                aria-label={t.reports.printSave}
               >
-                <Download className="w-4 h-4 mr-2" />{t.reports.printSave}
+                <Download className="w-4 h-4 mr-2" aria-hidden="true" />{t.reports.printSave}
               </Button>
             ) : (
               <Link href="/pricing">
                 <Button
                   variant="outline"
-                  className="border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+                  className="border-border text-muted-foreground hover:text-foreground hover:bg-accent min-h-[44px]"
                   title={t.reports.csvProOnly}
+                  aria-label={`${t.reports.printSave} (Pro 전용)`}
                 >
-                  <Lock className="w-4 h-4 mr-2" />{t.reports.printSave}
+                  <Lock className="w-4 h-4 mr-2" aria-hidden="true" />{t.reports.printSave}
                 </Button>
               </Link>
             )
