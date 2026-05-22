@@ -106,7 +106,7 @@ export default function InAppGuidePage() {
       </div>
 
       {/* Daily routine summary */}
-      <div className="bg-gradient-to-br from-ocean-50 to-teal-50 border border-ocean-200 rounded-2xl p-5 mb-6">
+      <div className="bg-gradient-to-br from-ocean-50 to-teal-50 dark:from-ocean-950/30 dark:to-teal-950/30 border border-ocean-200 dark:border-ocean-800 rounded-2xl p-5 mb-6">
         <h2 className="font-semibold text-foreground mb-3 flex items-center gap-2">
           <span>🗓️</span> 매일 이렇게 사용하세요
         </h2>
@@ -152,7 +152,7 @@ export default function InAppGuidePage() {
               </button>
 
               {isOpen && (
-                <div className="border-t border-border px-4 pb-4 pt-3">
+                <div id={`section-content-${s.id}`} className="border-t border-border px-4 pb-4 pt-3">
                   <div className="space-y-3 mb-4">
                     {s.content.map((item, i) => (
                       <div key={i} className="flex gap-3">
@@ -164,9 +164,9 @@ export default function InAppGuidePage() {
                       </div>
                     ))}
                   </div>
-                  <div className="bg-ocean-50 border border-ocean-200 rounded-xl p-3 flex gap-2">
-                    <span className="text-base shrink-0">💡</span>
-                    <p className="text-xs text-ocean-700 leading-relaxed">{s.tip}</p>
+                  <div className="bg-ocean-50 dark:bg-ocean-950/30 border border-ocean-200 dark:border-ocean-800 rounded-xl p-3 flex gap-2">
+                    <span className="text-base shrink-0" aria-hidden="true">💡</span>
+                    <p className="text-xs text-ocean-700 dark:text-ocean-300 leading-relaxed">{s.tip}</p>
                   </div>
                 </div>
               )}
@@ -196,7 +196,8 @@ export default function InAppGuidePage() {
           href="/guide"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-between gap-3 bg-gradient-to-r from-ocean-50 to-teal-50 border border-ocean-200 rounded-2xl p-4 hover:from-ocean-100 hover:to-teal-100 transition-all group"
+          aria-label="전체 사용 가이드 보기 (새 탭에서 열림)"
+          className="flex items-center justify-between gap-3 bg-gradient-to-r from-ocean-50 to-teal-50 dark:from-ocean-950/30 dark:to-teal-950/30 border border-ocean-200 dark:border-ocean-800 rounded-2xl p-4 min-h-[44px] hover:from-ocean-100 hover:to-teal-100 transition-all group"
         >
           <div>
             <p className="font-semibold text-ocean-700 text-sm">전체 사용 가이드 보기</p>
@@ -207,7 +208,8 @@ export default function InAppGuidePage() {
         <a
           href="/api/guide"
           download="Shrimp365_사용설명서.pdf"
-          className="flex items-center justify-between gap-3 bg-card border border-border rounded-2xl p-4 hover:bg-muted transition-all group"
+          aria-label="사용설명서 PDF 다운로드 (7페이지)"
+          className="flex items-center justify-between gap-3 bg-card border border-border rounded-2xl p-4 min-h-[44px] hover:bg-muted transition-all group"
         >
           <div>
             <p className="font-semibold text-foreground text-sm">사용설명서 PDF 다운로드</p>

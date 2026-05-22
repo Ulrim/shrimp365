@@ -195,9 +195,10 @@ export default function AdminPage() {
           variant="outline"
           size="sm"
           onClick={handleRefresh}
-          className="border-border text-muted-foreground hover:text-foreground gap-2"
+          aria-label="통계 새로고침"
+          className="border-border text-muted-foreground hover:text-foreground gap-2 min-h-[44px]"
         >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+          <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} aria-hidden="true" />
           새로고침
         </Button>
       </div>
@@ -270,7 +271,8 @@ export default function AdminPage() {
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            aria-pressed={tab === t.key}
+            className={`px-4 min-h-[44px] rounded-lg text-sm font-medium transition-all ${
               tab === t.key ? "bg-ocean-500/20 text-ocean-500 border border-ocean-500/30" : "text-muted-foreground hover:text-foreground"
             }`}
           >
