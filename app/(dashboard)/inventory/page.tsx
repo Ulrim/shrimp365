@@ -19,16 +19,16 @@ import type { InventoryItem, InventoryTransaction, Tank } from "@/types"
 type Category = InventoryItem["category"]
 
 const CAT_COLORS: Record<Category, string> = {
-  feed:      "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-  probiotic: "bg-purple-500/20 text-purple-400 border-purple-500/30",
-  chemical:  "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  other:     "bg-slate-500/20 text-slate-400 border-slate-500/30",
+  feed:      "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
+  probiotic: "bg-purple-500/20 text-purple-700 dark:text-purple-400 border-purple-500/30",
+  chemical:  "bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30",
+  other:     "bg-muted-foreground/10 text-muted-foreground border-border",
 }
 
 function stockBadge(item: InventoryItem, t: ReturnType<typeof useT>["t"]) {
-  if (item.reorder_level > 0 && item.current_stock <= 0) return { label: t.inventory.critical, cls: "bg-red-500/20 text-red-400 border-red-500/30" }
-  if (item.reorder_level > 0 && item.current_stock <= item.reorder_level) return { label: t.inventory.warning, cls: "bg-amber-500/20 text-amber-400 border-amber-500/30" }
-  return { label: t.inventory.sufficient, cls: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" }
+  if (item.reorder_level > 0 && item.current_stock <= 0) return { label: t.inventory.critical, cls: "bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30", ariaLabel: "재고 없음 — 즉시 보충 필요" }
+  if (item.reorder_level > 0 && item.current_stock <= item.reorder_level) return { label: t.inventory.warning, cls: "bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30", ariaLabel: "재고 부족 경고 — 재주문 기준 이하" }
+  return { label: t.inventory.sufficient, cls: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30", ariaLabel: "재고 충분" }
 }
 
 // ─── Item Form Dialog ───────────────────────────────────────────────────────

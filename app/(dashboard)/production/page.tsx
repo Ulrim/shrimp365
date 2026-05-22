@@ -49,9 +49,9 @@ function fmtKRW(n: number | null | undefined): string {
 }
 
 function StatusBadge({ status }: { status: ProductionCycle["status"] }) {
-  if (status === "active")    return <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30">진행중</Badge>
-  if (status === "completed") return <Badge className="bg-ocean-500/20 text-ocean-300 border-ocean-500/30">완료</Badge>
-  return <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/30">취소</Badge>
+  if (status === "active")    return <Badge aria-label="진행중 상태" className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-emerald-500/30">진행중</Badge>
+  if (status === "completed") return <Badge aria-label="완료 상태" className="bg-ocean-500/20 text-ocean-600 dark:text-ocean-300 border-ocean-500/30">완료</Badge>
+  return <Badge aria-label="취소 상태" className="bg-muted-foreground/20 text-muted-foreground border-border">취소</Badge>
 }
 
 const SHRIMP_SPECIES = ["사이아쿠아", "SIS 1번", "SIS 2번", "SIS 3번", "SIS 4번", "기타"]
@@ -371,19 +371,19 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 border-b border-border">
         <div className="bg-muted rounded-xl p-3">
           <p className="text-muted-foreground text-xs">사육 일수(DOC)</p>
-          <p className="text-foreground font-bold text-xl">{cycle.doc ?? differenceInDays(new Date(), new Date(cycle.stocking_date))}일</p>
+          <p className="text-foreground font-bold text-2xl leading-tight mt-1">{cycle.doc ?? differenceInDays(new Date(), new Date(cycle.stocking_date))}<span className="text-sm font-normal text-muted-foreground ml-0.5">일</span></p>
         </div>
         <div className="bg-muted rounded-xl p-3">
           <p className="text-muted-foreground text-xs">최신 ABW</p>
-          <p className="text-teal-500 font-bold text-xl">{latestSample ? `${latestSample.abw_g.toFixed(1)}g` : "-"}</p>
+          <p className="text-teal-600 dark:text-teal-400 font-bold text-2xl leading-tight mt-1">{latestSample ? latestSample.abw_g.toFixed(1) : "—"}<span className="text-sm font-normal text-muted-foreground ml-0.5">g</span></p>
         </div>
         <div className="bg-muted rounded-xl p-3">
           <p className="text-muted-foreground text-xs">추정 바이오매스</p>
-          <p className="text-ocean-500 font-bold text-xl">{latestSample?.estimated_biomass_kg ? `${fmt(latestSample.estimated_biomass_kg)}kg` : "-"}</p>
+          <p className="text-ocean-600 dark:text-ocean-400 font-bold text-2xl leading-tight mt-1">{latestSample?.estimated_biomass_kg ? fmt(latestSample.estimated_biomass_kg) : "—"}<span className="text-sm font-normal text-muted-foreground ml-0.5">kg</span></p>
         </div>
         <div className="bg-muted rounded-xl p-3">
           <p className="text-muted-foreground text-xs">생존율</p>
-          <p className="text-emerald-500 font-bold text-xl">{latestSample?.survival_rate != null ? `${latestSample.survival_rate}%` : "-"}</p>
+          <p className="text-emerald-600 dark:text-emerald-400 font-bold text-2xl leading-tight mt-1">{latestSample?.survival_rate != null ? latestSample.survival_rate : "—"}<span className="text-sm font-normal text-muted-foreground ml-0.5">{latestSample?.survival_rate != null ? "%" : ""}</span></p>
         </div>
       </div>
 
@@ -399,22 +399,28 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
         <TabsContent value="growth" className="flex-1 overflow-auto p-4 space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-foreground font-medium">ABW 성장 곡선</h3>
-            {!isMock && <Button size="sm" onClick={() => setSampleDlg(true)} className="bg-teal-500 hover:bg-teal-600 text-white text-xs"><Plus className="w-3 h-3 mr-1" />샘플링 입력</Button>}
+            {!isMock && <Button size="sm" onClick={() => setSampleDlg(true)} aria-label="성장 샘플링 입력" className="bg-teal-500 hover:bg-teal-600 text-white text-xs min-h-[44px]"><Plus className="w-3 h-3 mr-1" />샘플링 입력</Button>}
           </div>
           {growthChartData.length > 0 ? (
-            <div className="bg-muted rounded-xl p-3">
+            <div className="bg-muted rounded-xl p-3" role="img" aria-label="ABW 성장 곡선 차트">
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={growthChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
                   <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
-                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--foreground))" }} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--foreground))" }} />
                   <Legend wrapperStyle={{ color: "hsl(var(--muted-foreground))", fontSize: 12 }} />
                   <Line type="monotone" dataKey="ABW(g)" stroke="#14b8a6" strokeWidth={2} dot={{ fill: "#14b8a6", r: 4 }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
-          ) : <div className="text-center text-muted-foreground py-8">샘플링 데이터가 없습니다.</div>}
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
+              <Fish className="w-10 h-10 opacity-30" />
+              <p className="text-sm">샘플링 데이터가 없습니다.</p>
+              {!isMock && <Button size="sm" onClick={() => setSampleDlg(true)} className="mt-1 bg-teal-500 hover:bg-teal-600 text-white text-xs" aria-label="첫 샘플링 입력"><Plus className="w-3 h-3 mr-1" />첫 샘플링 입력</Button>}
+            </div>
+          )}
 
           <div className="space-y-2">
             <h4 className="text-foreground/80 text-sm font-medium">샘플링 기록</h4>
@@ -443,7 +449,7 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
               <h3 className="text-foreground font-medium">총 투입 비용</h3>
               <p className="text-2xl font-bold text-red-500">{fmtKRW(totalCost)}</p>
             </div>
-            {!isMock && <Button size="sm" onClick={() => setCostDlg(true)} className="bg-ocean-500 hover:bg-ocean-600 text-white text-xs"><Plus className="w-3 h-3 mr-1" />비용 추가</Button>}
+            {!isMock && <Button size="sm" onClick={() => setCostDlg(true)} aria-label="비용 추가" className="bg-ocean-500 hover:bg-ocean-600 text-white text-xs min-h-[44px]"><Plus className="w-3 h-3 mr-1" />비용 추가</Button>}
           </div>
 
           {costByCategory.length > 0 && (
@@ -503,18 +509,18 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
             </div>
             <div className="bg-muted rounded-xl p-3">
               <p className="text-muted-foreground text-xs">FCR</p>
-              <p className="text-ocean-500 font-bold text-xl">{fcr ?? (cycle.fcr?.toFixed(2) ?? "-")}</p>
+              <p className="text-ocean-600 dark:text-ocean-400 font-bold text-2xl leading-tight mt-1">{fcr ?? (cycle.fcr?.toFixed(2) ?? "—")}<span className="text-xs font-normal text-muted-foreground ml-1">{(fcr || cycle.fcr) ? "사료/증육" : ""}</span></p>
             </div>
             <div className="bg-muted rounded-xl p-3">
               <p className="text-muted-foreground text-xs">kg당 원가</p>
-              <p className="text-foreground/80 font-bold text-xl">{costPerKg ? `${parseInt(costPerKg).toLocaleString("ko-KR")}원` : "-"}</p>
+              <p className="text-foreground font-bold text-2xl leading-tight mt-1">{costPerKg ? parseInt(costPerKg).toLocaleString("ko-KR") : "—"}<span className="text-sm font-normal text-muted-foreground ml-0.5">{costPerKg ? "원" : ""}</span></p>
             </div>
           </div>
 
           <div>
             <div className="flex justify-between items-center mb-2">
               <h4 className="text-foreground/80 text-sm font-medium">수확 기록</h4>
-              {cycle.status === "active" && !isMock && <Button size="sm" onClick={() => setHarvestDlg(true)} className="bg-teal-500 hover:bg-teal-600 text-white text-xs"><Plus className="w-3 h-3 mr-1" />수확 기록</Button>}
+              {cycle.status === "active" && !isMock && <Button size="sm" onClick={() => setHarvestDlg(true)} aria-label="수확 기록 추가" className="bg-teal-500 hover:bg-teal-600 text-white text-xs min-h-[44px]"><Plus className="w-3 h-3 mr-1" />수확 기록</Button>}
             </div>
             {harvests.length === 0 ? <p className="text-muted-foreground text-sm text-center py-4">수확 기록 없음</p> : (
               <div className="space-y-2">
@@ -626,13 +632,13 @@ export default function ProductionPage() {
         <div className="flex items-center justify-between mb-3 gap-3">
           <div className="flex gap-1.5">
             {(["all", "active", "completed"] as const).map(s => (
-              <button key={s} onClick={() => setStatusFilter(s)} className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${statusFilter === s ? "bg-ocean-500 text-white" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}>
+              <button key={s} onClick={() => setStatusFilter(s)} aria-label={`${s === "all" ? "전체" : s === "active" ? "진행중" : "완료"} 필터`} aria-pressed={statusFilter === s} className={`px-3 py-1.5 min-h-[44px] rounded-lg text-sm transition-colors ${statusFilter === s ? "bg-ocean-500 text-white" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}>
                 {s === "all" ? "전체" : s === "active" ? "진행중" : "완료"}
               </button>
             ))}
           </div>
           {!mock && (
-            <Button onClick={() => setNewCycleDlg(true)} size="sm" className="bg-ocean-500 hover:bg-ocean-600 text-white">
+            <Button onClick={() => setNewCycleDlg(true)} size="sm" aria-label="새 생산 사이클 등록" className="bg-ocean-500 hover:bg-ocean-600 text-white min-h-[44px]">
               <Plus className="w-4 h-4 mr-1" />새 사이클
             </Button>
           )}
@@ -640,10 +646,11 @@ export default function ProductionPage() {
 
         {/* 사이클 카드 목록 */}
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <FlaskConical className="w-12 h-12 mb-3 opacity-30" />
-            <p>등록된 사이클이 없습니다.</p>
-            {!mock && <Button onClick={() => setNewCycleDlg(true)} size="sm" className="mt-3 bg-ocean-500 hover:bg-ocean-600 text-white">첫 사이클 등록하기</Button>}
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+            <FlaskConical className="w-12 h-12 mb-1 opacity-30" />
+            <p className="font-medium text-foreground/60">등록된 사이클이 없습니다.</p>
+            <p className="text-sm text-center max-w-xs">새 사이클을 등록하면 성장·비용·수익을 한 곳에서 관리할 수 있습니다.</p>
+            {!mock && <Button onClick={() => setNewCycleDlg(true)} size="sm" aria-label="첫 생산 사이클 등록" className="mt-2 bg-ocean-500 hover:bg-ocean-600 text-white min-h-[44px]">첫 사이클 등록하기</Button>}
           </div>
         ) : (
           <div className="space-y-3 overflow-auto">
@@ -664,22 +671,22 @@ export default function ProductionPage() {
                   <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-ocean-500 transition-colors shrink-0 ml-2 mt-1" />
                 </div>
                 <div className="grid grid-cols-4 gap-2 mt-3">
-                  <div className="text-center">
+                  <div className="text-center bg-muted/60 rounded-lg py-2 px-1">
                     <p className="text-muted-foreground text-xs">DOC</p>
-                    <p className="text-foreground/80 text-sm font-medium">{c.doc != null ? `${c.doc}일` : "-"}</p>
+                    <p className="text-foreground font-semibold text-sm mt-0.5">{c.doc != null ? `${c.doc}일` : "—"}</p>
                   </div>
-                  <div className="text-center">
+                  <div className="text-center bg-muted/60 rounded-lg py-2 px-1">
                     <p className="text-muted-foreground text-xs">ABW</p>
-                    <p className="text-teal-500 text-sm font-medium">{c.latest_abw_g != null ? `${c.latest_abw_g}g` : "-"}</p>
+                    <p className="text-teal-600 dark:text-teal-400 font-semibold text-sm mt-0.5">{c.latest_abw_g != null ? `${c.latest_abw_g}g` : "—"}</p>
                   </div>
-                  <div className="text-center">
+                  <div className="text-center bg-muted/60 rounded-lg py-2 px-1">
                     <p className="text-muted-foreground text-xs">바이오매스</p>
-                    <p className="text-ocean-500 text-sm font-medium">{c.latest_biomass_kg != null ? `${fmt(c.latest_biomass_kg)}kg` : "-"}</p>
+                    <p className="text-ocean-600 dark:text-ocean-400 font-semibold text-sm mt-0.5">{c.latest_biomass_kg != null ? `${fmt(c.latest_biomass_kg)}kg` : "—"}</p>
                   </div>
-                  <div className="text-center">
+                  <div className="text-center bg-muted/60 rounded-lg py-2 px-1">
                     <p className="text-muted-foreground text-xs">{c.status === "completed" ? "FCR" : "생존율"}</p>
-                    <p className="text-emerald-500 text-sm font-medium">
-                      {c.status === "completed" ? (c.fcr ? c.fcr.toFixed(2) : "-") : (c.survival_rate != null ? `${c.survival_rate}%` : "-")}
+                    <p className="text-emerald-600 dark:text-emerald-400 font-semibold text-sm mt-0.5">
+                      {c.status === "completed" ? (c.fcr ? c.fcr.toFixed(2) : "—") : (c.survival_rate != null ? `${c.survival_rate}%` : "—")}
                     </p>
                   </div>
                 </div>
