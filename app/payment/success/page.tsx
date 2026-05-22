@@ -38,30 +38,30 @@ export default function PaymentSuccessPage() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="max-w-md w-full text-center space-y-8">
         {/* Icon */}
         <div className="flex justify-center">
           <div className="relative">
             <div className="w-24 h-24 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
-              <CheckCircle2 className="w-12 h-12 text-emerald-400" />
+              <CheckCircle2 aria-hidden="true" className="w-12 h-12 text-emerald-400" />
             </div>
             <div className="absolute -top-1 -right-1 w-8 h-8 rounded-full bg-gradient-to-r from-ocean-500 to-teal-500 flex items-center justify-center">
-              <Zap className="w-4 h-4 text-white" />
+              <Zap aria-hidden="true" className="w-4 h-4 text-white" />
             </div>
           </div>
         </div>
 
         {/* Message */}
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-3">{t.payment.successTitle}</h1>
-          <p className="text-slate-400 text-lg">
+        <div role="status">
+          <h1 className="text-3xl font-bold text-foreground mb-3">{t.payment.successTitle}</h1>
+          <p className="text-muted-foreground text-lg">
             {planLabel} {t.payment.activated}
           </p>
         </div>
 
         {/* Features unlocked */}
-        <div className="bg-slate-800/40 border border-ocean-500/20 rounded-2xl p-6 text-left space-y-3">
+        <div className="bg-card border border-ocean-500/20 rounded-2xl p-6 text-left space-y-3">
           <p className="text-ocean-300 text-sm font-semibold mb-3">{t.payment.features}</p>
           {(activatedPlan === "basic" ? [
             `${t.pricing.features.farms} 2`,
@@ -83,8 +83,8 @@ export default function PaymentSuccessPage() {
             `${t.pricing.features.reportPeriods} 7/30/90`,
             `${t.pricing.features.support}: ${t.pricing.features.supportPriority}`,
           ]).map((feature, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm text-slate-200">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <div key={i} className="flex items-center gap-2 text-sm text-foreground">
+              <CheckCircle2 aria-hidden="true" className="w-4 h-4 text-emerald-400 shrink-0" />
               {feature}
             </div>
           ))}
@@ -92,19 +92,19 @@ export default function PaymentSuccessPage() {
 
         {/* CTA */}
         <div className="space-y-3">
-          <Link href="/dashboard">
-            <Button className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-medium">
+          <Link href="/home">
+            <Button className="w-full min-h-[44px] bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-medium">
               {t.payment.goDashboard}
             </Button>
           </Link>
-          <p className="text-slate-500 text-xs">
+          <p className="text-muted-foreground text-xs">
             {countdown > 0 ? `${countdown}s` : t.common.loading}
           </p>
         </div>
 
         {/* Branding */}
-        <div className="flex items-center justify-center gap-2 text-slate-600">
-          <Waves className="w-4 h-4" />
+        <div className="flex items-center justify-center gap-2 text-muted-foreground">
+          <Waves aria-hidden="true" className="w-4 h-4" />
           <span className="text-sm">Shrimp365</span>
         </div>
       </div>
