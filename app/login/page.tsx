@@ -124,7 +124,8 @@ function LoginPageInner() {
                     placeholder="email@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="bg-background border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-400"
+                    className="bg-background border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-400 min-h-[44px]"
+                    autoComplete="email"
                     required
                   />
                 </div>
@@ -137,12 +138,14 @@ function LoginPageInner() {
                       placeholder={t.auth.passwordPlaceholder}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="bg-background border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-400 pr-10"
+                      className="bg-background border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-400 pr-10 min-h-[44px]"
+                      autoComplete="current-password"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 표시"}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
