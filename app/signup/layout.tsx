@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://www.shrimp365.kr/signup" },
   openGraph: {
     url: "https://www.shrimp365.kr/signup",
-    title: "회원가입 | Shrimp365",
+    title: "회원가입",
     description: "Shrimp365에 가입하고 AI 기반 새우 양식 관리를 시작하세요.",
   },
 }

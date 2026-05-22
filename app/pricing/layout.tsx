@@ -1,7 +1,7 @@
 import { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "요금제 | Shrimp365",
+  title: "요금제",
   description: "새우 양식장 관리 플랫폼 Shrimp365 요금제. Free·Basic(₩19,900/월)·Pro(₩39,900/월)·Enterprise. 지금 가입하면 Pro 3개월 무료.",
   alternates: { canonical: "https://www.shrimp365.kr/pricing" },
   openGraph: {
