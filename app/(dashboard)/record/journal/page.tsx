@@ -84,55 +84,47 @@ export default function RecordJournalPage() {
 
   const steps: WizardStep[] = [
     {
-      fields: [{ key: "tank_id", label: "수조 선택", type: "tank" }],
-    },
-    {
-      fields: [{ key: "date", label: t.wizard.date, type: "date" }],
-    },
-    {
+      // Step 1: 수조 + 날짜
       fields: [
-        { key: "feed_type", label: "사료 종류", type: "select", options: FEED_TYPES },
+        { key: "tank_id", label: "수조 선택", type: "tank" },
+        { key: "date", label: t.wizard.date, type: "date" },
       ],
     },
     {
+      // Step 2: 사료
       fields: [
+        { key: "feed_type", label: "사료 종류", type: "select", options: FEED_TYPES },
         { key: "feeding_amount", label: "급이량", type: "number", placeholder: "예: 3.5", unit: "kg" },
         { key: "feeding_times", label: "급이 횟수", type: "number", placeholder: "예: 4", unit: "회/일" },
       ],
     },
     {
-      fields: [{ key: "mortality_count", label: "폐사 수", type: "number", placeholder: "예: 0", unit: "마리", optional: true }],
-    },
-    {
-      fields: [{ key: "water_exchange_rate", label: "일일 환수율", type: "number", placeholder: "예: 20", unit: "%/일", optional: true, hint: "하루 교환하는 물의 비율 (10~30% 권장)" }],
-    },
-    {
+      // Step 3: 건강 관리
       fields: [
-        { key: "disinfection", label: "소독 여부", type: "switch" },
-        { key: "disinfection_type", label: "소독 종류", type: "text", placeholder: "소독제 이름", optional: true, dependsOn: { key: "disinfection", value: true } },
+        { key: "mortality_count", label: "폐사 수", type: "number", placeholder: "예: 0", unit: "마리", optional: true },
+        { key: "water_exchange_rate", label: "일일 환수율", type: "number", placeholder: "예: 20", unit: "%/일", optional: true, hint: "하루 교환하는 물의 비율 (10~30% 권장)" },
       ],
     },
     {
+      // Step 4: 소독 + 미생물
       fields: [
+        { key: "disinfection", label: "소독 여부", type: "switch" },
+        { key: "disinfection_type", label: "소독 종류", type: "text", placeholder: "소독제 이름", optional: true, dependsOn: { key: "disinfection", value: true } },
         { key: "microbial_input", label: "미생물 투여", type: "switch" },
         { key: "microbial_type", label: "미생물 종류", type: "select", options: MICROBIAL_TYPES, dependsOn: { key: "microbial_input", value: true }, optional: true },
         { key: "microbial_amount", label: "미생물 투여량", type: "number", placeholder: "예: 0.5", unit: "kg", dependsOn: { key: "microbial_input", value: true }, optional: true },
       ],
     },
     {
-      title: "설비 점검",
+      // Step 5: 설비 점검 + 메모
+      title: t.wizard.confirmTitle,
       fields: [
         { key: "check_aeration", label: "폭기 장치", type: "switch" },
         { key: "check_filtration", label: "여과 장치", type: "switch" },
         { key: "check_circulation", label: "순환 장치", type: "switch" },
         { key: "check_feeding_check", label: "급이 장치", type: "switch" },
-      ],
-    },
-    {
-      fields: [
         { key: "notes", label: "메모", type: "textarea", placeholder: "특이사항을 입력하세요", optional: true },
       ],
-      title: t.wizard.confirmTitle,
     },
   ]
 
