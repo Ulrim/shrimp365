@@ -35,7 +35,7 @@ const COST_CATEGORIES: { value: CycleCost["category"]; label: string; color: str
   { value: "electricity", label: "전기료",     color: "bg-yellow-500" },
   { value: "labor",       label: "인건비",     color: "bg-purple-500" },
   { value: "chemicals",   label: "약품",       color: "bg-orange-500" },
-  { value: "other",       label: "기타",       color: "bg-slate-500" },
+  { value: "other",       label: "기타",       color: "bg-muted-foreground" },
 ]
 
 function fmt(n: number | null | undefined, digits = 0): string {
@@ -148,8 +148,8 @@ function NewCycleDialog({ tanks, open, onClose, onCreated }: {
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <div className="flex gap-2 justify-end">
-            <Button variant="ghost" onClick={onClose} className="text-muted-foreground">취소</Button>
-            <Button onClick={handleSubmit} disabled={loading} className="bg-ocean-500 hover:bg-ocean-600 text-white">
+            <Button variant="ghost" onClick={onClose} aria-label="사이클 등록 취소" className="text-muted-foreground min-h-[44px]">취소</Button>
+            <Button onClick={handleSubmit} disabled={loading} aria-label="새 생산 사이클 저장" className="bg-ocean-500 hover:bg-ocean-600 text-white min-h-[44px]">
               {loading ? "저장 중..." : "등록"}
             </Button>
           </div>
@@ -202,8 +202,8 @@ function NewSampleDialog({ cycle, open, onClose, onCreated }: { cycle: Productio
           <div><Label className="text-foreground/80">메모</Label><Input value={form.notes} onChange={set("notes")} className="mt-1 bg-muted border-border text-foreground" /></div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <div className="flex gap-2 justify-end">
-            <Button variant="ghost" onClick={onClose} className="text-muted-foreground">취소</Button>
-            <Button onClick={handleSubmit} disabled={loading} className="bg-teal-500 hover:bg-teal-600 text-white">{loading ? "저장 중..." : "저장"}</Button>
+            <Button variant="ghost" onClick={onClose} aria-label="샘플링 입력 취소" className="text-muted-foreground min-h-[44px]">취소</Button>
+            <Button onClick={handleSubmit} disabled={loading} aria-label="샘플링 데이터 저장" className="bg-teal-500 hover:bg-teal-600 text-white min-h-[44px]">{loading ? "저장 중..." : "저장"}</Button>
           </div>
         </div>
       </DialogContent>
@@ -251,8 +251,8 @@ function NewCostDialog({ cycleId, open, onClose, onCreated }: { cycleId: string;
           <div><Label className="text-foreground/80">메모</Label><Input value={form.notes} onChange={(e) => setForm(p => ({ ...p, notes: e.target.value }))} className="mt-1 bg-muted border-border text-foreground" /></div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <div className="flex gap-2 justify-end">
-            <Button variant="ghost" onClick={onClose} className="text-muted-foreground">취소</Button>
-            <Button onClick={handleSubmit} disabled={loading} className="bg-ocean-500 hover:bg-ocean-600 text-white">{loading ? "저장 중..." : "저장"}</Button>
+            <Button variant="ghost" onClick={onClose} aria-label="비용 입력 취소" className="text-muted-foreground min-h-[44px]">취소</Button>
+            <Button onClick={handleSubmit} disabled={loading} aria-label="비용 데이터 저장" className="bg-ocean-500 hover:bg-ocean-600 text-white min-h-[44px]">{loading ? "저장 중..." : "저장"}</Button>
           </div>
         </div>
       </DialogContent>
@@ -294,8 +294,8 @@ function NewHarvestDialog({ cycleId, open, onClose, onCreated }: { cycleId: stri
           <div><Label className="text-foreground/80">메모</Label><Input value={form.notes} onChange={(e) => setForm(p => ({ ...p, notes: e.target.value }))} className="mt-1 bg-muted border-border text-foreground" /></div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <div className="flex gap-2 justify-end">
-            <Button variant="ghost" onClick={onClose} className="text-muted-foreground">취소</Button>
-            <Button onClick={handleSubmit} disabled={loading} className="bg-teal-500 hover:bg-teal-600 text-white">{loading ? "저장 중..." : "저장"}</Button>
+            <Button variant="ghost" onClick={onClose} aria-label="수확 기록 취소" className="text-muted-foreground min-h-[44px]">취소</Button>
+            <Button onClick={handleSubmit} disabled={loading} aria-label="수확 기록 저장" className="bg-teal-500 hover:bg-teal-600 text-white min-h-[44px]">{loading ? "저장 중..." : "저장"}</Button>
           </div>
         </div>
       </DialogContent>
@@ -352,7 +352,7 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
     <div className="flex flex-col h-full">
       {/* 헤더 */}
       <div className="flex items-center gap-3 p-4 border-b border-border">
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+        <button onClick={onClose} aria-label="사이클 상세 닫기" className="text-muted-foreground hover:text-foreground transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center">
           <ChevronRight className="w-5 h-5 rotate-180" />
         </button>
         <div>
@@ -369,21 +369,23 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
 
       {/* KPI 카드 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 border-b border-border">
-        <div className="bg-muted rounded-xl p-3">
+        <div className="bg-muted rounded-xl p-3" aria-label={`사육 일수 ${cycle.doc ?? differenceInDays(new Date(), new Date(cycle.stocking_date))}일`}>
           <p className="text-muted-foreground text-xs">사육 일수(DOC)</p>
           <p className="text-foreground font-bold text-2xl leading-tight mt-1">{cycle.doc ?? differenceInDays(new Date(), new Date(cycle.stocking_date))}<span className="text-sm font-normal text-muted-foreground ml-0.5">일</span></p>
         </div>
-        <div className="bg-muted rounded-xl p-3">
-          <p className="text-muted-foreground text-xs">최신 ABW</p>
+        <div className="bg-muted rounded-xl p-3" aria-label={`평균 체중 ${latestSample ? latestSample.abw_g.toFixed(1) + "g" : "없음"}`}>
+          <p className="text-muted-foreground text-xs">최신 ABW <span className="text-muted-foreground/60 font-normal">(평균 체중)</span></p>
           <p className="text-teal-600 dark:text-teal-400 font-bold text-2xl leading-tight mt-1">{latestSample ? latestSample.abw_g.toFixed(1) : "—"}<span className="text-sm font-normal text-muted-foreground ml-0.5">g</span></p>
         </div>
-        <div className="bg-muted rounded-xl p-3">
+        <div className="bg-muted rounded-xl p-3" aria-label={`추정 바이오매스 ${latestSample?.estimated_biomass_kg ? fmt(latestSample.estimated_biomass_kg) + "kg" : "없음"}`}>
           <p className="text-muted-foreground text-xs">추정 바이오매스</p>
           <p className="text-ocean-600 dark:text-ocean-400 font-bold text-2xl leading-tight mt-1">{latestSample?.estimated_biomass_kg ? fmt(latestSample.estimated_biomass_kg) : "—"}<span className="text-sm font-normal text-muted-foreground ml-0.5">kg</span></p>
         </div>
-        <div className="bg-muted rounded-xl p-3">
+        <div className="bg-muted rounded-xl p-3" aria-label={`생존율 ${latestSample?.survival_rate != null ? latestSample.survival_rate + "%" : "없음"}`}>
           <p className="text-muted-foreground text-xs">생존율</p>
-          <p className="text-emerald-600 dark:text-emerald-400 font-bold text-2xl leading-tight mt-1">{latestSample?.survival_rate != null ? latestSample.survival_rate : "—"}<span className="text-sm font-normal text-muted-foreground ml-0.5">{latestSample?.survival_rate != null ? "%" : ""}</span></p>
+          <p className={`font-bold text-2xl leading-tight mt-1 ${latestSample?.survival_rate != null ? (latestSample.survival_rate >= 80 ? "text-emerald-600 dark:text-emerald-400" : latestSample.survival_rate >= 60 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400") : "text-muted-foreground"}`}>
+            {latestSample?.survival_rate != null ? latestSample.survival_rate : "—"}<span className="text-sm font-normal text-muted-foreground ml-0.5">{latestSample?.survival_rate != null ? "%" : ""}</span>
+          </p>
         </div>
       </div>
 
@@ -434,7 +436,7 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
                       {s.estimated_biomass_kg && <span className="text-ocean-500 text-sm">{fmt(s.estimated_biomass_kg)}kg</span>}
                       {s.survival_rate != null && <span className="text-emerald-500 text-sm">생존율 {s.survival_rate}%</span>}
                     </div>
-                    {!isMock && <button onClick={() => deleteGrowthSample(s.id).then(() => setSamples(p => p.filter(x => x.id !== s.id)))} className="text-muted-foreground hover:text-red-500 transition-colors shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>}
+                    {!isMock && <button onClick={() => deleteGrowthSample(s.id).then(() => setSamples(p => p.filter(x => x.id !== s.id)))} aria-label={`${format(new Date(s.sampled_at), "MM/dd")} 샘플 삭제`} className="text-muted-foreground hover:text-red-500 transition-colors shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center"><Trash2 className="w-3.5 h-3.5" /></button>}
                   </div>
                 ))}
               </div>
@@ -471,7 +473,7 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
                 return (
                   <div key={c.id} className="flex items-center justify-between gap-2 bg-muted rounded-lg px-3 py-2.5">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-2 h-2 rounded-full ${cat?.color ?? "bg-slate-500"} shrink-0`} />
+                      <div className={`w-2 h-2 rounded-full ${cat?.color ?? "bg-muted-foreground"} shrink-0`} />
                       <div className="min-w-0">
                         <p className="text-foreground text-sm truncate">{c.label}</p>
                         <p className="text-muted-foreground text-xs">{c.recorded_at}</p>
@@ -479,7 +481,7 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-red-500 font-medium text-sm">{c.amount.toLocaleString("ko-KR")}원</span>
-                      {!isMock && <button onClick={() => deleteCycleCost(c.id).then(() => setCosts(p => p.filter(x => x.id !== c.id)))} className="text-muted-foreground hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>}
+                      {!isMock && <button onClick={() => deleteCycleCost(c.id).then(() => setCosts(p => p.filter(x => x.id !== c.id)))} aria-label={`${c.label} 비용 삭제`} className="text-muted-foreground hover:text-red-500 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"><Trash2 className="w-3.5 h-3.5" /></button>}
                     </div>
                   </div>
                 )
@@ -507,9 +509,11 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
               <p className="text-muted-foreground text-xs">ROI</p>
               <p className={`font-bold text-xl ${(parseFloat(roi ?? "0")) >= 0 ? "text-emerald-500" : "text-red-500"}`}>{roi ? `${roi}%` : (cycle.status === "active" ? "진행중" : "-")}</p>
             </div>
-            <div className="bg-muted rounded-xl p-3">
-              <p className="text-muted-foreground text-xs">FCR</p>
-              <p className="text-ocean-600 dark:text-ocean-400 font-bold text-2xl leading-tight mt-1">{fcr ?? (cycle.fcr?.toFixed(2) ?? "—")}<span className="text-xs font-normal text-muted-foreground ml-1">{(fcr || cycle.fcr) ? "사료/증육" : ""}</span></p>
+            <div className="bg-muted rounded-xl p-3" aria-label={`사료효율계수 FCR ${fcr ?? cycle.fcr?.toFixed(2) ?? "없음"}`}>
+              <p className="text-muted-foreground text-xs">FCR <span className="text-muted-foreground/60 font-normal">(사료효율)</span></p>
+              <p className={`font-bold text-2xl leading-tight mt-1 ${(fcr || cycle.fcr) ? (parseFloat(fcr ?? cycle.fcr?.toFixed(2) ?? "99") <= 1.5 ? "text-emerald-600 dark:text-emerald-400" : parseFloat(fcr ?? cycle.fcr?.toFixed(2) ?? "99") <= 2.0 ? "text-ocean-600 dark:text-ocean-400" : "text-amber-600 dark:text-amber-400") : "text-muted-foreground"}`}>
+                {fcr ?? (cycle.fcr?.toFixed(2) ?? "—")}<span className="text-xs font-normal text-muted-foreground ml-1">{(fcr || cycle.fcr) ? "사료/증육" : ""}</span>
+              </p>
             </div>
             <div className="bg-muted rounded-xl p-3">
               <p className="text-muted-foreground text-xs">kg당 원가</p>
@@ -532,7 +536,7 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-teal-500 font-medium text-sm">{fmtKRW(h.revenue)}</span>
-                      {!isMock && <button onClick={() => deleteCycleHarvest(h.id).then(() => setHarvests(p => p.filter(x => x.id !== h.id)))} className="text-muted-foreground hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>}
+                      {!isMock && <button onClick={() => deleteCycleHarvest(h.id).then(() => setHarvests(p => p.filter(x => x.id !== h.id)))} aria-label={`${h.harvested_at} 수확 기록 삭제`} className="text-muted-foreground hover:text-red-500 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"><Trash2 className="w-3.5 h-3.5" /></button>}
                     </div>
                   </div>
                 ))}

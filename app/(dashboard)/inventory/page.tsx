@@ -100,12 +100,12 @@ function ItemDialog({ open, item, onClose, onSave, t }: ItemDialogProps) {
           <div>
             <label className="block text-sm text-muted-foreground mb-1">{t.inventory.itemName}</label>
             <input required value={name} onChange={e => setName(e.target.value)} placeholder={t.inventory.itemNamePlaceholder}
-              className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm placeholder-slate-500 focus:outline-none focus:border-ocean-500" />
+              className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:border-ocean-500" />
           </div>
           <div>
             <label className="block text-sm text-muted-foreground mb-1">{t.inventory.unit}</label>
             <input required value={unit} onChange={e => setUnit(e.target.value)} placeholder={t.inventory.unitPlaceholder}
-              className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm placeholder-slate-500 focus:outline-none focus:border-ocean-500" />
+              className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:border-ocean-500" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -122,11 +122,11 @@ function ItemDialog({ open, item, onClose, onSave, t }: ItemDialogProps) {
           <div>
             <label className="block text-sm text-muted-foreground mb-1">{t.common.note}</label>
             <input value={notes} onChange={e => setNotes(e.target.value)}
-              className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm placeholder-slate-500 focus:outline-none focus:border-ocean-500" />
+              className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:border-ocean-500" />
           </div>
           <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" className="flex-1 border-border" onClick={onClose}>{t.common.cancel}</Button>
-            <Button type="submit" disabled={saving} className="flex-1 bg-ocean-600 hover:bg-ocean-500">
+            <Button type="button" variant="outline" className="flex-1 border-border min-h-[44px]" onClick={onClose}>{t.common.cancel}</Button>
+            <Button type="submit" disabled={saving} className="flex-1 bg-ocean-600 hover:bg-ocean-500 min-h-[44px]">
               {saving ? t.inventory.saving : t.common.save}
             </Button>
           </div>
@@ -206,7 +206,7 @@ function TxDialog({ open, item, tanks, onClose, onSave, t }: TxDialogProps) {
             <div>
               <label className="block text-sm text-muted-foreground mb-1">{t.inventory.unitPrice}</label>
               <input type="number" min="0" step="any" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} placeholder="0"
-                className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm placeholder-slate-500 focus:outline-none focus:border-ocean-500" />
+                className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:border-ocean-500" />
             </div>
           </div>
           <div>
@@ -218,7 +218,7 @@ function TxDialog({ open, item, tanks, onClose, onSave, t }: TxDialogProps) {
             <div>
               <label className="block text-sm text-muted-foreground mb-1">{t.inventory.supplier}</label>
               <input value={supplier} onChange={e => setSupplier(e.target.value)} placeholder={t.inventory.supplierPlaceholder}
-                className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm placeholder-slate-500 focus:outline-none focus:border-ocean-500" />
+                className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:border-ocean-500" />
             </div>
           )}
           {txType === "out" && tanks.length > 0 && (
@@ -234,11 +234,11 @@ function TxDialog({ open, item, tanks, onClose, onSave, t }: TxDialogProps) {
           <div>
             <label className="block text-sm text-muted-foreground mb-1">{t.common.note}</label>
             <input value={notes} onChange={e => setNotes(e.target.value)}
-              className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm placeholder-slate-500 focus:outline-none focus:border-ocean-500" />
+              className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:border-ocean-500" />
           </div>
           <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" className="flex-1 border-border" onClick={onClose}>{t.common.cancel}</Button>
-            <Button type="submit" disabled={saving} className={cn("flex-1", txType === "in" ? "bg-emerald-600 hover:bg-emerald-500" : "bg-red-600 hover:bg-red-500")}>
+            <Button type="button" variant="outline" className="flex-1 border-border min-h-[44px]" onClick={onClose}>{t.common.cancel}</Button>
+            <Button type="submit" disabled={saving} className={cn("flex-1 min-h-[44px]", txType === "in" ? "bg-emerald-600 hover:bg-emerald-500" : "bg-red-600 hover:bg-red-500")}>
               {saving ? t.inventory.saving : (txType === "in" ? t.inventory.txIn : t.inventory.txOut)}
             </Button>
           </div>
@@ -393,7 +393,8 @@ export default function InventoryPage() {
           <p className="text-muted-foreground text-sm mt-1">{t.inventory.subtitle}</p>
         </div>
         <Button onClick={() => { setEditingItem(undefined); setShowItemDialog(true) }}
-          className="bg-ocean-600 hover:bg-ocean-500 gap-2">
+          aria-label={t.inventory.addItem}
+          className="bg-ocean-600 hover:bg-ocean-500 gap-2 min-h-[44px]">
           <Plus className="w-4 h-4" />{t.inventory.addItem}
         </Button>
       </div>
@@ -428,7 +429,9 @@ export default function InventoryPage() {
           <div className="flex gap-1 flex-wrap">
             {categories.map(c => (
               <button key={c.value} onClick={() => setCatFilter(c.value)}
-                className={cn("px-3 py-1 rounded-full text-xs font-medium transition-colors border",
+                aria-label={`${c.label} 카테고리 필터`}
+                aria-pressed={catFilter === c.value}
+                className={cn("px-3 py-1 min-h-[44px] rounded-full text-xs font-medium transition-colors border",
                   catFilter === c.value ? "bg-ocean-600 text-white border-ocean-600" : "border-border text-muted-foreground hover:border-border/60 hover:text-foreground/80")}>
                 {c.label}
               </button>
@@ -448,28 +451,37 @@ export default function InventoryPage() {
               return (
                 <div key={item.id} onClick={() => setSelectedItem(item)}
                   className={cn("bg-muted border rounded-2xl p-4 cursor-pointer transition-all",
-                    isSelected ? "border-ocean-500/50 bg-ocean-500/5" : "border-border hover:border-border/60")}>
+                    isSelected ? "border-ocean-500/50 bg-ocean-500/5" :
+                    item.reorder_level > 0 && item.current_stock <= 0 ? "border-red-500/40 hover:border-red-500/60" :
+                    item.reorder_level > 0 && item.current_stock <= item.reorder_level ? "border-amber-500/40 hover:border-amber-500/60" :
+                    "border-border hover:border-border/60")}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full border", CAT_COLORS[item.category])}>
                           {t.inventory[`cat${item.category.charAt(0).toUpperCase() + item.category.slice(1)}` as keyof typeof t.inventory]}
                         </span>
-                        <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full border", badge.cls)}>{badge.label}</span>
+                        <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full border", badge.cls)} aria-label={badge.ariaLabel}>{badge.label}</span>
                       </div>
                       <p className="text-foreground font-medium mt-1.5 truncate">{item.name}</p>
                       <p className="text-muted-foreground text-sm mt-0.5">
-                        <span className="text-foreground font-semibold">{item.current_stock.toLocaleString()}</span> {item.unit}
+                        <span className={cn("font-semibold",
+                          item.reorder_level > 0 && item.current_stock <= 0 ? "text-red-600 dark:text-red-400" :
+                          item.reorder_level > 0 && item.current_stock <= item.reorder_level ? "text-amber-600 dark:text-amber-400" :
+                          "text-foreground"
+                        )}>{item.current_stock.toLocaleString()}</span> {item.unit}
                         {item.reorder_level > 0 && <span className="text-muted-foreground ml-2">/ 기준 {item.reorder_level.toLocaleString()}</span>}
                       </p>
                     </div>
                     <div className="flex gap-1 shrink-0">
                       <button onClick={e => { e.stopPropagation(); setEditingItem(item); setShowItemDialog(true) }}
-                        className="p-1.5 text-muted-foreground hover:text-ocean-500 transition-colors rounded-lg hover:bg-ocean-500/10">
+                        aria-label={`${item.name} 수정`}
+                        className="p-1.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-ocean-500 transition-colors rounded-lg hover:bg-ocean-500/10">
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button onClick={e => { e.stopPropagation(); handleDeleteItem(item) }}
-                        className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors rounded-lg hover:bg-red-500/10">
+                        aria-label={`${item.name} 삭제`}
+                        className="p-1.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-red-500 transition-colors rounded-lg hover:bg-red-500/10">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -492,7 +504,8 @@ export default function InventoryPage() {
                   </p>
                 </div>
                 <Button size="sm" onClick={() => { setTxItem(selectedItem); setShowTxDialog(true) }}
-                  className="bg-ocean-600 hover:bg-ocean-500 gap-1.5 shrink-0">
+                  aria-label={`${selectedItem.name} 입출고 기록 추가`}
+                  className="bg-ocean-600 hover:bg-ocean-500 gap-1.5 shrink-0 min-h-[44px]">
                   <Plus className="w-3.5 h-3.5" />{t.inventory.addTx}
                 </Button>
               </div>
@@ -527,7 +540,8 @@ export default function InventoryPage() {
                         </div>
                       </div>
                       <button onClick={() => handleDeleteTx(tx)}
-                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-red-500 transition-all rounded-lg hover:bg-red-500/10">
+                        aria-label={`${tx.recorded_at} ${tx.type === "in" ? "입고" : "출고"} 기록 삭제`}
+                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-red-500 transition-all rounded-lg hover:bg-red-500/10">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
