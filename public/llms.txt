@@ -4,6 +4,8 @@
 
 Shrimp365 (shrimp365.kr) is a comprehensive SaaS platform designed for shrimp aquaculture farms. It provides real-time water quality monitoring, AI-driven advisory, disease diagnosis, production cycle management, and farm operations management — all in one place.
 
+Last updated: 2026-05-22
+
 ## Key Features
 
 - **Real-time Water Quality Monitoring**: Track temperature, pH, DO, salinity, ammonia, nitrite, nitrate, alkalinity, and turbidity across multiple tanks simultaneously.
@@ -21,6 +23,7 @@ Shrimp365 (shrimp365.kr) is a comprehensive SaaS platform designed for shrimp aq
 - White shrimp (Litopenaeus vannamei) aquaculture farmers in Korea, Vietnam, Thailand, Japan, USA, and Europe
 - Aquaculture farm operators and managers
 - Shrimp farm consultants and advisors
+- Fisheries extension officers and researchers
 
 ## Pricing
 
@@ -68,3 +71,20 @@ The platform monitors and alerts based on these optimal ranges for Litopenaeus v
 - Nitrate (NO₃): <20 mg/L
 - Alkalinity: 100–150 mg/L CaCO₃
 - Turbidity: <10 NTU
+
+## Research & Standards Compliance
+
+Shrimp365 water quality thresholds are based on peer-reviewed aquaculture research and industry standards including:
+- FAO Fisheries & Aquaculture guidelines for Litopenaeus vannamei culture
+- Network of Aquaculture Centres in Asia-Pacific (NACA) best practices
+- Korea Fisheries Resources Agency (한국수산자원공단) guidelines
+- Academic literature on vannamei shrimp physiology and disease epidemiology
+
+## Competitive Differentiation
+
+Unlike general farm management software, Shrimp365 is purpose-built for shrimp aquaculture:
+- Species-specific water quality thresholds for Litopenaeus vannamei (not generic fish or livestock)
+- Integrated AHPND/EHP/WSSV disease tracking with pathogenic ratio monitoring
+- AI advisor trained on shrimp-specific disease, nutrition, and water chemistry knowledge
+- Mobile-first design optimized for farm workers using smartphones in the field
+- Multi-language support targeting Southeast Asian and Korean shrimp-producing regions

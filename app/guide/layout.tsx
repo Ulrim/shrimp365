@@ -22,6 +22,15 @@ export const metadata: Metadata = {
 }
 
 export default function GuideLayout({ children }: { children: React.ReactNode }) {
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "홈", "item": "https://www.shrimp365.kr" },
+      { "@type": "ListItem", "position": 2, "name": "사용 가이드", "item": "https://www.shrimp365.kr/guide" },
+    ],
+  }
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -54,6 +63,7 @@ export default function GuideLayout({ children }: { children: React.ReactNode })
 
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

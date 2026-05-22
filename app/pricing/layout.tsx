@@ -11,6 +11,15 @@ export const metadata: Metadata = {
   },
 }
 
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "홈", "item": "https://www.shrimp365.kr" },
+    { "@type": "ListItem", "position": 2, "name": "요금제", "item": "https://www.shrimp365.kr/pricing" },
+  ],
+}
+
 const pricingSchema = {
   "@context": "https://schema.org",
   "@type": "ItemList",
@@ -50,6 +59,7 @@ const pricingSchema = {
 export default function PricingLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingSchema) }} />
       {children}
     </>

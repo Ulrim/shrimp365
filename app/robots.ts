@@ -30,6 +30,8 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: "cohere-ai", allow: PUBLIC_PATHS, disallow: ["/api/", "/_next/"] },
       { userAgent: "YouBot", allow: PUBLIC_PATHS, disallow: ["/api/", "/_next/"] },
       { userAgent: "Applebot", allow: PUBLIC_PATHS, disallow: ["/api/", "/_next/"] },
+      { userAgent: "Google-Extended", allow: PUBLIC_PATHS, disallow: ["/api/", "/_next/"] },
+      { userAgent: "Gemini", allow: PUBLIC_PATHS, disallow: ["/api/", "/_next/"] },
     ],
     sitemap: "https://www.shrimp365.kr/sitemap.xml",
     host: "https://www.shrimp365.kr",
