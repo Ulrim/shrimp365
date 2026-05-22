@@ -523,7 +523,7 @@ export default function AIAdvisorPage() {
                 ? "bg-amber-50 border-amber-200 text-amber-600"
                 : "bg-muted border-border text-muted-foreground"
             }`}>
-              남은 횟수 {aiRemaining}회
+              이번 시간 {aiRemaining}회 남음
             </span>
           )}
           <button
@@ -550,7 +550,7 @@ export default function AIAdvisorPage() {
               key={q}
               onClick={() => sendMessage(q)}
               disabled={loading}
-              className="flex-none text-xs bg-ocean-50 hover:bg-ocean-100 text-ocean-700 border border-ocean-200 rounded-full px-3 py-1.5 transition-all whitespace-nowrap disabled:opacity-50"
+              className="flex-none text-xs bg-ocean-500 hover:bg-ocean-600 text-white rounded-full px-3 py-2 transition-all whitespace-nowrap disabled:opacity-50 shadow-sm"
             >
               {q}
             </button>
@@ -577,11 +577,11 @@ export default function AIAdvisorPage() {
                 </div>
                 <div className={`max-w-[85%] sm:max-w-[78%] rounded-2xl px-4 py-3 ${
                   msg.role === "user"
-                    ? "bg-ocean-50 border border-ocean-200"
+                    ? "bg-ocean-500 text-white"
                     : "bg-muted border border-border"
                 }`}>
                   <div className="space-y-0.5">{renderMarkdown(msg.content)}</div>
-                  <p className="text-[11px] text-muted-foreground mt-2 text-right">{msg.timestamp.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}</p>
+                  <p className={`text-xs mt-2 text-right ${msg.role === "user" ? "text-ocean-100" : "text-muted-foreground"}`}>{msg.timestamp.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}</p>
                 </div>
               </div>
             ))}

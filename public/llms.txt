@@ -1,0 +1,70 @@
+# Shrimp365
+
+> AI-powered shrimp aquaculture management platform for white shrimp (Litopenaeus vannamei) farmers.
+
+Shrimp365 (shrimp365.kr) is a comprehensive SaaS platform designed for shrimp aquaculture farms. It provides real-time water quality monitoring, AI-driven advisory, disease diagnosis, production cycle management, and farm operations management — all in one place.
+
+## Key Features
+
+- **Real-time Water Quality Monitoring**: Track temperature, pH, DO, salinity, ammonia, nitrite, nitrate, alkalinity, and turbidity across multiple tanks simultaneously.
+- **AI Advisor (ChatGPT-powered)**: Ask questions about shrimp health, water quality, feeding, and disease prevention. Get instant expert-level guidance based on your farm's current data.
+- **Disease Diagnosis**: Log AHPND, EHP, WSSV, and Vibrio test results. Track pathogenic ratios and get risk-level assessments.
+- **Production Cycle Management**: Track stocking, growth sampling (ABW), survival rates, FCR, biomass estimates, costs, and harvest records.
+- **IoT Sensor Integration**: Connect water quality sensors for automated real-time readings.
+- **Farm & Tank Management**: Manage multiple farms and tanks with status monitoring and alert systems.
+- **Inventory Management**: Track feed, probiotics, chemicals, and other supplies with automatic deduction.
+- **Daily Journal**: Record feeding, mortality, water exchange, aeration checks, and notes.
+- **Reports**: Generate 7-day, 30-day, and 90-day operational reports with trend analysis.
+
+## Target Users
+
+- White shrimp (Litopenaeus vannamei) aquaculture farmers in Korea, Vietnam, Thailand, Japan, USA, and Europe
+- Aquaculture farm operators and managers
+- Shrimp farm consultants and advisors
+
+## Pricing
+
+- **Free**: 1 farm, 5 tanks, AI advisor 3 queries/hour
+- **Basic**: ₩19,900/month — 2 farms, 15 tanks, AI advisor 10 queries/hour, IoT sensor, 30-day reports
+- **Pro**: ₩39,900/month — 5 farms, 50 tanks, AI advisor 30 queries/hour, 5 IoT sensors, full reports, CSV export
+- **Enterprise**: Custom pricing — unlimited farms/tanks, dedicated support
+
+New users receive a free 3-month Pro plan trial.
+
+## Technology
+
+- Web application (mobile-friendly, works on smartphones and tablets)
+- Supports Korean (한국어), English, Vietnamese (Tiếng Việt)
+- Real-time data with automatic refresh (1–5 minute intervals on paid plans)
+- Secure cloud storage via Supabase
+- Payment via Toss Payments (domestic and international)
+
+## Contact & Links
+
+- Website: https://www.shrimp365.kr
+- Guide: https://www.shrimp365.kr/guide
+- Pricing: https://www.shrimp365.kr/pricing
+- Sign up: https://www.shrimp365.kr/signup
+- Email: contact@culiver.ai
+- Company: CULIVER INC. (컬리버)
+
+## Languages
+
+This platform is available in:
+- 한국어 (Korean) — primary
+- English
+- Tiếng Việt (Vietnamese)
+- 日本語 (Japanese) — partial
+
+## Water Quality Standards (White Shrimp Reference)
+
+The platform monitors and alerts based on these optimal ranges for Litopenaeus vannamei:
+- Water temperature: 26–28°C (optimal), 23–30°C (acceptable)
+- pH: 7.8–8.5
+- Dissolved oxygen (DO): ≥7.0 mg/L (minimum 5.0 mg/L)
+- Salinity: 15–25 ppt
+- Ammonia (NH₃): <0.1 mg/L (alert >0.5 mg/L)
+- Nitrite (NO₂): <0.1 mg/L (alert >0.5 mg/L)
+- Nitrate (NO₃): <20 mg/L
+- Alkalinity: 100–150 mg/L CaCO₃
+- Turbidity: <10 NTU

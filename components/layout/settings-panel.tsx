@@ -445,7 +445,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{t.settings.planLimits}</p>
                 {[
                   { label: t.settings.limitFarms, value: PLAN_LIMITS[plan].farms === Infinity ? t.common.unit.unlimited : `${PLAN_LIMITS[plan].farms}${t.common.unit.pcs}` },
-                  { label: t.settings.limitAi, value: PLAN_LIMITS[plan].aiPerDay === Infinity ? t.common.unit.unlimited : `${PLAN_LIMITS[plan].aiPerDay}${t.common.unit.timesPerDay}` },
+                  { label: t.settings.limitAi, value: PLAN_LIMITS[plan].aiPerHour === Infinity ? t.common.unit.unlimited : `${PLAN_LIMITS[plan].aiPerHour}${t.common.unit.timesPerHour}` },
                   { label: t.settings.limitDiag, value: PLAN_LIMITS[plan].diagPerMonth === Infinity ? t.common.unit.unlimited : `${PLAN_LIMITS[plan].diagPerMonth}${t.common.unit.timesPerMonth}` },
                   { label: t.settings.limitCsv, value: PLAN_LIMITS[plan].csvExport ? "✓" : "✗" },
                 ].map(row => (

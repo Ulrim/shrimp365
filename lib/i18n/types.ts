@@ -55,6 +55,7 @@ export interface Dict {
       pcs: string
       times: string
       timesPerDay: string
+      timesPerHour: string
       timesPerMonth: string
       perDay: string
       perMonth: string

@@ -57,6 +57,7 @@ export const en: Dict = {
       pcs: "pcs",
       times: "times",
       timesPerDay: "times/day",
+      timesPerHour: "times/hr",
       timesPerMonth: "times/month",
       perDay: "/day",
       perMonth: "/month",

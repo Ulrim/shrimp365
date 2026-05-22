@@ -95,34 +95,30 @@ export default function RecordWaterQualityPage() {
       fields: [{ key: "tank_id", label: "수조 선택", type: "tank" }],
     },
     {
-      fields: [{ key: "date", label: t.wizard.date, type: "date" }],
+      fields: [
+        { key: "date", label: t.wizard.date, type: "date" },
+        { key: "temperature", label: t.waterQuality.temperature, type: "number", placeholder: "예: 28.5", unit: "°C", optional: true, hint: "최적 범위: 26~28°C" },
+        { key: "salinity", label: t.waterQuality.salinity, type: "number", placeholder: "예: 15", unit: "ppt", optional: true, hint: "최적 범위: 15~25 ppt" },
+      ],
     },
     {
-      fields: [{ key: "temperature", label: t.waterQuality.temperature, type: "number", placeholder: "예: 28.5", unit: "°C", optional: true }],
+      fields: [
+        { key: "ph", label: t.waterQuality.ph, type: "number", placeholder: "예: 7.8", optional: true, hint: "최적 범위: 7.8~8.5" },
+        { key: "do_level", label: "용존산소 (DO)", type: "number", placeholder: "예: 6.5", unit: "mg/L", optional: true, hint: "최적: 7.0 mg/L 이상 (5.0 미만 위험)" },
+      ],
     },
     {
-      fields: [{ key: "ph", label: t.waterQuality.ph, type: "number", placeholder: "예: 7.8", optional: true }],
+      fields: [
+        { key: "ammonia", label: t.waterQuality.ammonia, type: "number", placeholder: "예: 0.1", unit: "mg/L", optional: true, hint: "0.5 mg/L 이상 시 위험" },
+        { key: "nitrite", label: t.waterQuality.nitrite, type: "number", placeholder: "예: 0.05", unit: "mg/L", optional: true, hint: "0.1 mg/L 이상 시 주의" },
+        { key: "nitrate", label: t.waterQuality.nitrate, type: "number", placeholder: "예: 5", unit: "mg/L", optional: true, hint: "20 mg/L 이하 권장" },
+      ],
     },
     {
-      fields: [{ key: "do_level", label: t.waterQuality.do_, type: "number", placeholder: "예: 6.5", unit: "mg/L", optional: true }],
-    },
-    {
-      fields: [{ key: "salinity", label: t.waterQuality.salinity, type: "number", placeholder: "예: 15", unit: "ppt", optional: true }],
-    },
-    {
-      fields: [{ key: "ammonia", label: t.waterQuality.ammonia, type: "number", placeholder: "예: 0.1", unit: "mg/L", optional: true }],
-    },
-    {
-      fields: [{ key: "nitrite", label: t.waterQuality.nitrite, type: "number", placeholder: "예: 0.05", unit: "mg/L", optional: true }],
-    },
-    {
-      fields: [{ key: "nitrate", label: t.waterQuality.nitrate, type: "number", placeholder: "예: 5", unit: "mg/L", optional: true }],
-    },
-    {
-      fields: [{ key: "alkalinity", label: t.waterQuality.alkalinity, type: "number", placeholder: "예: 150", unit: "mg/L", optional: true }],
-    },
-    {
-      fields: [{ key: "turbidity", label: t.waterQuality.turbidity, type: "number", placeholder: "예: 10", unit: "NTU", optional: true }],
+      fields: [
+        { key: "alkalinity", label: t.waterQuality.alkalinity, type: "number", placeholder: "예: 150", unit: "mg/L", optional: true, hint: "최적 범위: 100~150 mg/L" },
+        { key: "turbidity", label: t.waterQuality.turbidity, type: "number", placeholder: "예: 10", unit: "NTU", optional: true, hint: "10 NTU 이하 권장" },
+      ],
       title: t.wizard.confirmTitle,
     },
   ]

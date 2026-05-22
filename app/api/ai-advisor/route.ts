@@ -9,18 +9,20 @@ const openaiKey = process.env.OPENAI_API_KEY
 const MAX_QUESTION_LENGTH = 500
 const MAX_CONTEXT_LENGTH = 2000
 
-// Per-user daily rate limit (keyed by userId:YYYY-MM-DD)
+// Per-user hourly rate limit (keyed by userId:YYYY-MM-DD-HH)
 const aiRateLimitMap = new Map<string, number>()
 
-function getTodayKey(userId: string): string {
-  const today = new Date().toISOString().split("T")[0]
-  return `${userId}:${today}`
+function getHourKey(userId: string): string {
+  const now = new Date()
+  const date = now.toISOString().split("T")[0]
+  const hour = now.getUTCHours().toString().padStart(2, "0")
+  return `${userId}:${date}:${hour}`
 }
 
 function checkAiRateLimit(userId: string, plan: Plan): boolean {
-  const max = PLAN_LIMITS[plan].aiPerDay
+  const max = PLAN_LIMITS[plan].aiPerHour
   if (max === Infinity) return true
-  const key = getTodayKey(userId)
+  const key = getHourKey(userId)
   const count = aiRateLimitMap.get(key) ?? 0
   if (count >= max) return false
   aiRateLimitMap.set(key, count + 1)
@@ -28,9 +30,9 @@ function checkAiRateLimit(userId: string, plan: Plan): boolean {
 }
 
 function getRemainingAi(userId: string, plan: Plan): number {
-  const max = PLAN_LIMITS[plan].aiPerDay
+  const max = PLAN_LIMITS[plan].aiPerHour
   if (max === Infinity) return Infinity
-  const key = getTodayKey(userId)
+  const key = getHourKey(userId)
   const count = aiRateLimitMap.get(key) ?? 0
   return Math.max(0, max - count)
 }
@@ -59,13 +61,13 @@ export async function POST(req: NextRequest) {
   const plan: Plan = isTestAccount(user.email) ? "pro" : ((profile?.plan as Plan) || "free")
 
   if (!checkAiRateLimit(user.id, plan)) {
-    const max = PLAN_LIMITS[plan].aiPerDay
+    const max = PLAN_LIMITS[plan].aiPerHour
     const next = nextPlan(plan)
     const upgradeMsg = next
-      ? `${PLAN_LABELS[next]} 플랜으로 업그레이드하면 하루 ${PLAN_LIMITS[next].aiPerDay === Infinity ? "무제한" : `${PLAN_LIMITS[next].aiPerDay}회`}까지 이용할 수 있습니다.`
+      ? `${PLAN_LABELS[next]} 플랜으로 업그레이드하면 시간당 ${PLAN_LIMITS[next].aiPerHour === Infinity ? "무제한" : `${PLAN_LIMITS[next].aiPerHour}회`}까지 이용할 수 있습니다.`
       : "현재 최고 플랜(Enterprise)을 사용 중입니다."
     return NextResponse.json({
-      error: `일일 AI 질문 한도(${max}회)를 초과했습니다. ${upgradeMsg}`,
+      error: `시간당 AI 질문 한도(${max}회)를 초과했습니다. ${upgradeMsg}`,
       upgrade: !!next,
     }, { status: 429 })
   }

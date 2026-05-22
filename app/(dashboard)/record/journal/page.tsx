@@ -104,7 +104,7 @@ export default function RecordJournalPage() {
       fields: [{ key: "mortality_count", label: "폐사 수", type: "number", placeholder: "예: 0", unit: "마리", optional: true }],
     },
     {
-      fields: [{ key: "water_exchange_rate", label: "환수율", type: "number", placeholder: "예: 20", unit: "%", optional: true }],
+      fields: [{ key: "water_exchange_rate", label: "일일 환수율", type: "number", placeholder: "예: 20", unit: "%/일", optional: true, hint: "하루 교환하는 물의 비율 (10~30% 권장)" }],
     },
     {
       fields: [

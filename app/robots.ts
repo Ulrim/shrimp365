@@ -14,29 +14,22 @@ export default function robots(): MetadataRoute.Robots {
         crawlDelay: 1,
       },
       // Naver (Korea)
-      {
-        userAgent: "Yeti",
-        allow: PUBLIC_PATHS,
-        disallow: ["/api/", "/_next/"],
-      },
-      // Baidu (China — potential gateway to Vietnamese/Thai users via Chinese diaspora)
-      {
-        userAgent: "Baiduspider",
-        allow: PUBLIC_PATHS,
-        disallow: ["/api/", "/_next/"],
-      },
-      // Bing (USA / Europe / Japan)
-      {
-        userAgent: "bingbot",
-        allow: PUBLIC_PATHS,
-        disallow: ["/api/", "/_next/"],
-      },
+      { userAgent: "Yeti", allow: PUBLIC_PATHS, disallow: ["/api/", "/_next/"] },
+      // Baidu
+      { userAgent: "Baiduspider", allow: PUBLIC_PATHS, disallow: ["/api/", "/_next/"] },
+      // Bing
+      { userAgent: "bingbot", allow: PUBLIC_PATHS, disallow: ["/api/", "/_next/"] },
       // Yahoo Japan
-      {
-        userAgent: "Slurp",
-        allow: PUBLIC_PATHS,
-        disallow: ["/api/", "/_next/"],
-      },
+      { userAgent: "Slurp", allow: PUBLIC_PATHS, disallow: ["/api/", "/_next/"] },
+      // AI search crawlers
+      { userAgent: "GPTBot", allow: PUBLIC_PATHS, disallow: ["/api/", "/_next/"] },
+      { userAgent: "ChatGPT-User", allow: PUBLIC_PATHS, disallow: ["/api/", "/_next/"] },
+      { userAgent: "PerplexityBot", allow: PUBLIC_PATHS, disallow: ["/api/", "/_next/"] },
+      { userAgent: "ClaudeBot", allow: PUBLIC_PATHS, disallow: ["/api/", "/_next/"] },
+      { userAgent: "anthropic-ai", allow: PUBLIC_PATHS, disallow: ["/api/", "/_next/"] },
+      { userAgent: "cohere-ai", allow: PUBLIC_PATHS, disallow: ["/api/", "/_next/"] },
+      { userAgent: "YouBot", allow: PUBLIC_PATHS, disallow: ["/api/", "/_next/"] },
+      { userAgent: "Applebot", allow: PUBLIC_PATHS, disallow: ["/api/", "/_next/"] },
     ],
     sitemap: "https://www.shrimp365.kr/sitemap.xml",
     host: "https://www.shrimp365.kr",

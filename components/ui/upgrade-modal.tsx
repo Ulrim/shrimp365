@@ -28,7 +28,7 @@ export function UpgradeModal({ open, onClose, currentPlan, limitType }: UpgradeM
   const LIMIT_META: Record<LimitType, { icon: React.ElementType; title: string; currentKey: keyof typeof PLAN_LIMITS.free; unit: string }> = {
     farm:   { icon: Building2,    title: t.upgrade.farm,   currentKey: "farms",        unit: t.common.unit.pcs },
     tank:   { icon: Droplets,     title: t.upgrade.tank,   currentKey: "tanksPerFarm", unit: t.common.unit.pcs },
-    ai:     { icon: BrainCircuit, title: t.upgrade.ai,     currentKey: "aiPerDay",     unit: t.common.unit.timesPerDay },
+    ai:     { icon: BrainCircuit, title: t.upgrade.ai,     currentKey: "aiPerHour",    unit: t.common.unit.timesPerHour },
     sensor: { icon: Wifi,         title: t.upgrade.sensor, currentKey: "sensors",      unit: t.common.unit.pcs },
     diag:   { icon: TrendingUp,   title: t.upgrade.diag,   currentKey: "diagPerMonth", unit: t.common.unit.timesPerMonth },
   }

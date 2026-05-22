@@ -2,7 +2,7 @@ export const PLAN_LIMITS = {
   free: {
     farms: 1,
     tanksPerFarm: 5,
-    aiPerDay: 5,
+    aiPerHour: 3,
     sensors: 0,
     autoRefreshSec: null as number | null,
     csvExport: false,
@@ -12,7 +12,7 @@ export const PLAN_LIMITS = {
   basic: {
     farms: 2,
     tanksPerFarm: 15,
-    aiPerDay: 15,
+    aiPerHour: 10,
     sensors: 1,
     autoRefreshSec: 300 as number | null,
     csvExport: true,
@@ -22,7 +22,7 @@ export const PLAN_LIMITS = {
   pro: {
     farms: 5,
     tanksPerFarm: 50,
-    aiPerDay: 30,
+    aiPerHour: 30,
     sensors: 5,
     autoRefreshSec: 60 as number | null,
     csvExport: true,
@@ -32,7 +32,7 @@ export const PLAN_LIMITS = {
   enterprise: {
     farms: Infinity,
     tanksPerFarm: Infinity,
-    aiPerDay: Infinity,
+    aiPerHour: Infinity,
     sensors: Infinity,
     autoRefreshSec: 60 as number | null,
     csvExport: true,
@@ -53,8 +53,8 @@ export function canAddTank(plan: Plan, currentCount: number): boolean {
   return currentCount < PLAN_LIMITS[plan].tanksPerFarm
 }
 
-export function canUseAI(plan: Plan, todayCount: number): boolean {
-  return todayCount < PLAN_LIMITS[plan].aiPerDay
+export function canUseAI(plan: Plan, hourCount: number): boolean {
+  return hourCount < PLAN_LIMITS[plan].aiPerHour
 }
 
 export function canAddSensor(plan: Plan, currentCount: number): boolean {

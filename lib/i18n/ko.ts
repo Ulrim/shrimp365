@@ -57,6 +57,7 @@ export const ko: Dict = {
       pcs: "개",
       times: "회",
       timesPerDay: "회/일",
+      timesPerHour: "회/시간",
       timesPerMonth: "회/월",
       perDay: "/일",
       perMonth: "/월",

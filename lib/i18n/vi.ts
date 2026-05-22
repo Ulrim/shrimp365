@@ -57,6 +57,7 @@ export const vi: Dict = {
       pcs: "cái",
       times: "lần",
       timesPerDay: "lần/ngày",
+      timesPerHour: "lần/giờ",
       timesPerMonth: "lần/tháng",
       perDay: "/ngày",
       perMonth: "/tháng",
