@@ -72,7 +72,7 @@ export default function OnboardingPage() {
   if (checking) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" aria-label="로딩 중" />
       </div>
     )
   }
@@ -86,7 +86,7 @@ export default function OnboardingPage() {
 
   const removeTank = (id: number) => {
     if (tanks.length <= 1) return
-    setTanks(prev => prev.filter(t => t.id !== id))
+    setTanks(prev => prev.filter(tk => tk.id !== id))
   }
 
   const updateTank = (id: number, field: keyof TankForm, value: string) => {
@@ -177,22 +177,27 @@ export default function OnboardingPage() {
           </p>
 
           {/* Step list */}
-          <div className="space-y-4">
-            {STEP_LABELS.map((label, i) => {
-              const s = (i + 1) as 1 | 2 | 3
-              const isActive = step === s
-              const isDone = step > s
-              return (
-                <div key={s} className={`flex items-center gap-3 transition-all ${isActive ? "opacity-100" : isDone ? "opacity-70" : "opacity-40"}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all
-                    ${isDone ? "bg-emerald-500 text-white" : isActive ? "bg-ocean-500 text-white" : "bg-muted text-muted-foreground"}`}>
-                    {isDone ? <CheckCircle2 className="w-4 h-4" /> : s}
-                  </div>
-                  <span className={`text-sm font-medium ${isActive ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
-                </div>
-              )
-            })}
-          </div>
+          <nav aria-label="온보딩 단계">
+            <ol className="space-y-4">
+              {STEP_LABELS.map((label, i) => {
+                const s = (i + 1) as 1 | 2 | 3
+                const isActive = step === s
+                const isDone = step > s
+                return (
+                  <li key={s} className={`flex items-center gap-3 transition-all ${isActive ? "opacity-100" : isDone ? "opacity-70" : "opacity-40"}`}>
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all
+                        ${isDone ? "bg-emerald-500 text-primary-foreground" : isActive ? "bg-ocean-500 text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+                      aria-current={isActive ? "step" : undefined}
+                    >
+                      {isDone ? <CheckCircle2 className="w-4 h-4" aria-hidden="true" /> : s}
+                    </div>
+                    <span className={`text-sm font-medium ${isActive ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
+                  </li>
+                )
+              })}
+            </ol>
+          </nav>
         </div>
 
         <div className="relative z-10 text-muted-foreground text-sm">© 2026 CULIVER INC. All rights reserved.</div>
@@ -208,22 +213,28 @@ export default function OnboardingPage() {
           </div>
 
           {/* Mobile step indicator */}
-          <div className="flex lg:hidden items-center justify-center gap-2 mb-6">
-            {STEP_LABELS.map((label, i) => {
-              const s = i + 1
-              return (
-                <div key={s} className="flex items-center gap-1">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
-                    ${step > s ? "bg-emerald-500 text-white" : step === s ? "bg-ocean-500 text-white" : "bg-muted text-muted-foreground"}`}>
-                    {step > s ? "✓" : s}
-                  </div>
-                  {i < STEP_LABELS.length - 1 && (
-                    <div className={`w-8 h-0.5 ${step > s ? "bg-emerald-500/60" : "bg-border"}`} />
-                  )}
-                </div>
-              )
-            })}
-          </div>
+          <nav aria-label="온보딩 단계" className="flex lg:hidden items-center justify-center gap-2 mb-6">
+            <ol className="flex items-center gap-2">
+              {STEP_LABELS.map((label, i) => {
+                const s = i + 1
+                return (
+                  <li key={s} className="flex items-center gap-1">
+                    <div
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
+                        ${step > s ? "bg-emerald-500 text-primary-foreground" : step === s ? "bg-ocean-500 text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+                      aria-current={step === s ? "step" : undefined}
+                      aria-label={`${label} ${step > s ? "(완료)" : step === s ? "(현재)" : ""}`}
+                    >
+                      {step > s ? "✓" : s}
+                    </div>
+                    {i < STEP_LABELS.length - 1 && (
+                      <div className={`w-8 h-0.5 ${step > s ? "bg-emerald-500/60" : "bg-border"}`} />
+                    )}
+                  </li>
+                )
+              })}
+            </ol>
+          </nav>
 
           {/* ── Step 1: Farm info ── */}
           {step === 1 && (
@@ -231,7 +242,7 @@ export default function OnboardingPage() {
               <CardHeader>
                 <div className="flex items-center gap-3 mb-1">
                   <div className="w-9 h-9 rounded-xl bg-ocean-100 flex items-center justify-center">
-                    <Building2 className="w-5 h-5 text-ocean-600" />
+                    <Building2 className="w-5 h-5 text-ocean-600" aria-hidden="true" />
                   </div>
                   <div>
                     <CardTitle className="text-foreground text-lg">{t.onboarding.step1Title}</CardTitle>
@@ -241,16 +252,23 @@ export default function OnboardingPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label className="text-foreground text-sm font-medium">{t.onboarding.farmName} <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="farm-name" className="text-foreground text-sm font-medium">
+                    {t.onboarding.farmName} <span className="text-destructive" aria-hidden="true">*</span>
+                  </Label>
                   <Input
+                    id="farm-name"
                     value={farmName}
                     onChange={e => setFarmName(e.target.value)}
                     placeholder={t.onboarding.farmNamePlaceholder}
+                    className="min-h-[44px]"
+                    aria-required="true"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-foreground text-sm font-medium">{t.onboarding.location} <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="farm-location" className="text-foreground text-sm font-medium">
+                    {t.onboarding.location} <span className="text-destructive" aria-hidden="true">*</span>
+                  </Label>
                   <AddressSearch
                     value={farmLocation}
                     onChange={setFarmLocation}
@@ -260,39 +278,49 @@ export default function OnboardingPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-foreground text-sm font-medium">{t.onboarding.ownerName} <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="owner-name" className="text-foreground text-sm font-medium">
+                    {t.onboarding.ownerName} <span className="text-destructive" aria-hidden="true">*</span>
+                  </Label>
                   <Input
+                    id="owner-name"
                     value={ownerName}
                     onChange={e => setOwnerName(e.target.value)}
                     placeholder={t.onboarding.ownerNamePlaceholder}
+                    className="min-h-[44px]"
+                    aria-required="true"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-foreground text-sm font-medium">
+                  <Label htmlFor="farm-area" className="text-foreground text-sm font-medium">
                     {t.onboarding.area} <span className="text-muted-foreground font-normal text-xs">(㎡, 선택)</span>
                   </Label>
                   <Input
+                    id="farm-area"
                     type="number"
                     min="0"
                     value={farmArea}
                     onChange={e => setFarmArea(e.target.value)}
                     placeholder="예: 5000"
+                    className="min-h-[44px]"
                   />
                 </div>
 
                 {error && (
-                  <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-lg px-3 py-2 text-sm">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
+                  <div
+                    role="alert"
+                    className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg px-3 py-2 text-sm"
+                  >
+                    <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
                     {error}
                   </div>
                 )}
 
                 <Button
-                  className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold h-11 gap-2"
+                  className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold min-h-[44px] gap-2"
                   onClick={handleNext}
                 >
-                  {t.onboarding.next} <ChevronRight className="w-4 h-4" />
+                  {t.onboarding.next} <ChevronRight className="w-4 h-4" aria-hidden="true" />
                 </Button>
               </CardContent>
             </Card>
@@ -305,7 +333,7 @@ export default function OnboardingPage() {
                 <CardHeader>
                   <div className="flex items-center gap-3 mb-1">
                     <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
-                      <Layers className="w-5 h-5 text-emerald-600" />
+                      <Layers className="w-5 h-5 text-emerald-600" aria-hidden="true" />
                     </div>
                     <div>
                       <CardTitle className="text-foreground text-lg">{t.onboarding.step2Title}</CardTitle>
@@ -321,36 +349,43 @@ export default function OnboardingPage() {
                         {tanks.length > 1 && (
                           <button
                             onClick={() => removeTank(tank.id)}
-                            className="text-red-400 hover:text-red-600 transition-colors"
-                            aria-label={t.onboarding.removeTank}
+                            className="text-destructive/60 hover:text-destructive transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                            aria-label={`${t.onboarding.tankName} ${idx + 1} ${t.onboarding.removeTank}`}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4" aria-hidden="true" />
                           </button>
                         )}
                       </div>
 
                       <div className="space-y-1.5">
-                        <Label className="text-foreground text-xs font-medium">{t.onboarding.tankName} <span className="text-red-500">*</span></Label>
+                        <Label htmlFor={`tank-name-${tank.id}`} className="text-foreground text-xs font-medium">
+                          {t.onboarding.tankName} <span className="text-destructive" aria-hidden="true">*</span>
+                        </Label>
                         <Input
+                          id={`tank-name-${tank.id}`}
                           value={tank.name}
                           onChange={e => updateTank(tank.id, "name", e.target.value)}
                           placeholder={t.onboarding.tankNamePlaceholder}
-                          className="h-9 text-sm"
+                          className="min-h-[44px] text-sm"
+                          aria-required="true"
                         />
                       </div>
 
                       <div className="space-y-1.5">
-                        <Label className="text-foreground text-xs font-medium">수조 유형 <span className="text-red-500">*</span></Label>
-                        <div className="flex gap-2">
+                        <Label className="text-foreground text-xs font-medium">
+                          수조 유형 <span className="text-destructive" aria-hidden="true">*</span>
+                        </Label>
+                        <div className="flex gap-2" role="group" aria-label="수조 유형 선택">
                           {(["노지", "실내", "반실내"] as TankType[]).map(type => (
                             <button
                               key={type}
                               onClick={() => updateTank(tank.id, "tank_type", type)}
-                              className={`flex-1 h-9 rounded-lg text-xs font-medium border transition-all
+                              className={`flex-1 min-h-[44px] rounded-lg text-xs font-medium border transition-all
                                 ${tank.tank_type === type
                                   ? "bg-ocean-500 text-white border-ocean-500"
                                   : "bg-muted text-muted-foreground border-border hover:border-ocean-300 hover:text-ocean-600"
                                 }`}
+                              aria-pressed={tank.tank_type === type}
                             >
                               {type}
                             </button>
@@ -360,37 +395,46 @@ export default function OnboardingPage() {
 
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1.5">
-                          <Label className="text-foreground text-xs font-medium">{t.onboarding.volume} <span className="text-muted-foreground font-normal">(㎥)</span></Label>
+                          <Label htmlFor={`tank-volume-${tank.id}`} className="text-foreground text-xs font-medium">
+                            {t.onboarding.volume} <span className="text-muted-foreground font-normal">(㎥)</span>
+                          </Label>
                           <Input
+                            id={`tank-volume-${tank.id}`}
                             type="number"
                             min="0"
                             value={tank.volume}
                             onChange={e => updateTank(tank.id, "volume", e.target.value)}
                             placeholder="예: 500"
-                            className="h-9 text-sm"
+                            className="min-h-[44px] text-sm"
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-foreground text-xs font-medium">{t.onboarding.density} <span className="text-muted-foreground font-normal">(마리/㎥)</span></Label>
+                          <Label htmlFor={`tank-density-${tank.id}`} className="text-foreground text-xs font-medium">
+                            {t.onboarding.density} <span className="text-muted-foreground font-normal">(마리/㎥)</span>
+                          </Label>
                           <Input
+                            id={`tank-density-${tank.id}`}
                             type="number"
                             min="0"
                             value={tank.stocking_density}
                             onChange={e => updateTank(tank.id, "stocking_density", e.target.value)}
                             placeholder="예: 100"
-                            className="h-9 text-sm"
+                            className="min-h-[44px] text-sm"
                           />
                         </div>
                       </div>
 
                       <div className="space-y-1.5">
-                        <Label className="text-foreground text-xs font-medium">입식일 <span className="text-muted-foreground font-normal">(선택)</span></Label>
+                        <Label htmlFor={`tank-date-${tank.id}`} className="text-foreground text-xs font-medium">
+                          입식일 <span className="text-muted-foreground font-normal">(선택)</span>
+                        </Label>
                         <Input
+                          id={`tank-date-${tank.id}`}
                           type="date"
                           value={tank.stocking_date}
                           onChange={e => updateTank(tank.id, "stocking_date", e.target.value)}
                           max={new Date().toISOString().split("T")[0]}
-                          className="h-9 text-sm"
+                          className="min-h-[44px] text-sm"
                         />
                       </div>
                     </div>
@@ -399,15 +443,19 @@ export default function OnboardingPage() {
                   {tanks.length < 20 && (
                     <button
                       onClick={addTank}
-                      className="w-full h-10 border-dashed border-2 border-border rounded-xl text-muted-foreground hover:border-ocean-300 hover:text-ocean-600 text-sm flex items-center justify-center gap-2 transition-all"
+                      className="w-full min-h-[44px] border-dashed border-2 border-border rounded-xl text-muted-foreground hover:border-ocean-300 hover:text-ocean-600 text-sm flex items-center justify-center gap-2 transition-all"
+                      aria-label={t.onboarding.addMoreTank}
                     >
-                      <Plus className="w-4 h-4" /> {t.onboarding.addMoreTank}
+                      <Plus className="w-4 h-4" aria-hidden="true" /> {t.onboarding.addMoreTank}
                     </button>
                   )}
 
                   {error && (
-                    <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-lg px-3 py-2 text-sm">
-                      <AlertCircle className="w-4 h-4 shrink-0" />
+                    <div
+                      role="alert"
+                      className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg px-3 py-2 text-sm"
+                    >
+                      <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
                       {error}
                     </div>
                   )}
@@ -415,23 +463,23 @@ export default function OnboardingPage() {
                   <div className="flex gap-3 pt-1">
                     <Button
                       variant="outline"
-                      className="flex-1 gap-2 h-11"
+                      className="flex-1 gap-2 min-h-[44px]"
                       onClick={() => { setError(""); setStep(1) }}
                     >
-                      <ChevronLeft className="w-4 h-4" /> {t.onboarding.prev}
+                      <ChevronLeft className="w-4 h-4" aria-hidden="true" /> {t.onboarding.prev}
                     </Button>
                     <Button
-                      className="flex-1 bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold h-11 gap-2"
+                      className="flex-1 bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold min-h-[44px] gap-2"
                       onClick={handleSubmit}
                       disabled={saving}
                     >
                       {saving ? (
                         <>
-                          <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" aria-hidden="true" />
                           {t.onboarding.completing}
                         </>
                       ) : (
-                        <>{t.onboarding.finish} <CheckCircle2 className="w-4 h-4" /></>
+                        <>{t.onboarding.finish} <CheckCircle2 className="w-4 h-4" aria-hidden="true" /></>
                       )}
                     </Button>
                   </div>
@@ -446,7 +494,7 @@ export default function OnboardingPage() {
               <CardContent className="pt-10 pb-8 px-8 space-y-6">
                 <div className="flex justify-center">
                   <div className="w-20 h-20 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center">
-                    <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+                    <CheckCircle2 className="w-10 h-10 text-emerald-600" aria-hidden="true" />
                   </div>
                 </div>
                 <div>
@@ -458,10 +506,10 @@ export default function OnboardingPage() {
                   </p>
                 </div>
                 <Button
-                  className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold h-12 text-base gap-2"
+                  className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold min-h-[44px] text-base gap-2"
                   onClick={() => router.replace("/home")}
                 >
-                  {t.onboarding.complete} <ChevronRight className="w-5 h-5" />
+                  {t.onboarding.complete} <ChevronRight className="w-5 h-5" aria-hidden="true" />
                 </Button>
               </CardContent>
             </Card>
