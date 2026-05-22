@@ -87,14 +87,14 @@ export default function HomePage() {
           <div className="bg-card border border-border rounded-2xl p-4 shadow-sm" role="region" aria-label="오늘 수조 현황">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">오늘 수조 현황</p>
             <div className="grid grid-cols-3 gap-2">
-              <div className={`flex flex-col items-center gap-1 rounded-xl p-3 ${dangerTanks > 0 ? "bg-red-50 border border-red-200" : "bg-muted/50"}`}>
+              <div className={`flex flex-col items-center gap-1 rounded-xl p-3 ${dangerTanks > 0 ? "bg-red-500/10 border border-red-500/20" : "bg-muted/50"}`}>
                 <AlertTriangle className={`w-5 h-5 ${dangerTanks > 0 ? "text-red-500" : "text-muted-foreground/40"}`} aria-hidden="true" />
-                <span className={`text-xl font-bold ${dangerTanks > 0 ? "text-red-600" : "text-muted-foreground"}`}>{dangerTanks}</span>
+                <span className={`text-xl font-bold ${dangerTanks > 0 ? "text-red-500" : "text-muted-foreground"}`}>{dangerTanks}</span>
                 <span className="text-[11px] text-muted-foreground">위험</span>
               </div>
-              <div className={`flex flex-col items-center gap-1 rounded-xl p-3 ${warningTanks > 0 ? "bg-amber-50 border border-amber-200" : "bg-muted/50"}`}>
+              <div className={`flex flex-col items-center gap-1 rounded-xl p-3 ${warningTanks > 0 ? "bg-amber-500/10 border border-amber-500/20" : "bg-muted/50"}`}>
                 <Activity className={`w-5 h-5 ${warningTanks > 0 ? "text-amber-500" : "text-muted-foreground/40"}`} aria-hidden="true" />
-                <span className={`text-xl font-bold ${warningTanks > 0 ? "text-amber-600" : "text-muted-foreground"}`}>{warningTanks}</span>
+                <span className={`text-xl font-bold ${warningTanks > 0 ? "text-amber-500" : "text-muted-foreground"}`}>{warningTanks}</span>
                 <span className="text-[11px] text-muted-foreground">주의</span>
               </div>
               <div className="flex flex-col items-center gap-1 rounded-xl p-3 bg-muted/50">

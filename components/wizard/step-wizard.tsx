@@ -80,7 +80,14 @@ export function StepWizard({ title, steps, tanks, values, onChange, onComplete, 
       </div>
 
       {/* Progress bar */}
-      <div className="w-full h-2 bg-muted rounded-full mb-5 overflow-hidden">
+      <div
+        className="w-full h-2 bg-muted rounded-full mb-5 overflow-hidden"
+        role="progressbar"
+        aria-valuenow={step + 1}
+        aria-valuemin={1}
+        aria-valuemax={total}
+        aria-label={`${step + 1}단계 / ${total}단계`}
+      >
         <div
           className="h-full bg-ocean-500 rounded-full transition-all duration-300"
           style={{ width: `${((step + 1) / total) * 100}%` }}
@@ -111,7 +118,11 @@ export function StepWizard({ title, steps, tanks, values, onChange, onComplete, 
 
               {field.type === "tank" && (
                 <Select value={value as string} onValueChange={v => onChange(field.key, v)}>
-                  <SelectTrigger className="w-full h-14 text-base">
+                  <SelectTrigger
+                    className="w-full h-14 text-base min-h-[44px]"
+                    aria-label={field.label}
+                    aria-describedby={field.hint ? `hint-${field.key}` : undefined}
+                  >
                     <SelectValue placeholder={t.wizard.selectTank} />
                   </SelectTrigger>
                   <SelectContent>
@@ -126,9 +137,10 @@ export function StepWizard({ title, steps, tanks, values, onChange, onComplete, 
                 <Input
                   id={field.key}
                   type="date"
-                  className="h-14 text-base"
+                  className="h-14 text-base min-h-[44px]"
                   value={value as string}
                   onChange={e => onChange(field.key, e.target.value)}
+                  aria-describedby={field.hint ? `hint-${field.key}` : undefined}
                 />
               )}
 
@@ -137,10 +149,11 @@ export function StepWizard({ title, steps, tanks, values, onChange, onComplete, 
                   id={field.key}
                   type="number"
                   inputMode="decimal"
-                  className="h-14 text-base"
+                  className="h-14 text-base min-h-[44px]"
                   placeholder={field.placeholder}
                   value={value as string}
                   onChange={e => onChange(field.key, e.target.value)}
+                  aria-describedby={field.hint ? `hint-${field.key}` : undefined}
                 />
               )}
 
@@ -149,10 +162,11 @@ export function StepWizard({ title, steps, tanks, values, onChange, onComplete, 
                   id={field.key}
                   type="text"
                   inputMode="text"
-                  className="h-14 text-base"
+                  className="h-14 text-base min-h-[44px]"
                   placeholder={field.placeholder}
                   value={value as string}
                   onChange={e => onChange(field.key, e.target.value)}
+                  aria-describedby={field.hint ? `hint-${field.key}` : undefined}
                 />
               )}
 
@@ -168,7 +182,11 @@ export function StepWizard({ title, steps, tanks, values, onChange, onComplete, 
 
               {field.type === "select" && field.options && (
                 <Select value={value as string} onValueChange={v => onChange(field.key, v)}>
-                  <SelectTrigger className="w-full h-14 text-base">
+                  <SelectTrigger
+                    className="w-full h-14 text-base min-h-[44px]"
+                    aria-label={field.label}
+                    aria-describedby={field.hint ? `hint-${field.key}` : undefined}
+                  >
                     <SelectValue placeholder={field.placeholder} />
                   </SelectTrigger>
                   <SelectContent>
@@ -191,7 +209,7 @@ export function StepWizard({ title, steps, tanks, values, onChange, onComplete, 
               )}
 
               {field.hint && (
-                <p className="text-xs text-muted-foreground">{field.hint}</p>
+                <p id={`hint-${field.key}`} className="text-xs text-muted-foreground leading-relaxed bg-muted/50 rounded-lg px-3 py-2 border border-border">{field.hint}</p>
               )}
             </div>
           )

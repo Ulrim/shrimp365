@@ -110,15 +110,21 @@ function ReadingCard({ meta, reading }: { meta: ParamMeta; reading: WaterQuality
   const statusLabel = status === "정상" ? t.dashboard.normal : status === "주의" ? t.dashboard.warning : t.dashboard.danger
 
   return (
-    <Card className={`border min-w-0 overflow-hidden ${styles.bg} transition-all hover:brightness-110`}>
+    <Card
+      className={`border min-w-0 overflow-hidden ${styles.bg} transition-all hover:brightness-110`}
+      aria-label={`${meta.label}: ${value.toFixed(meta.key === "ph" || meta.key === "ammonia" || meta.key === "nitrite" ? 2 : 1)}${meta.unit} — 상태: ${statusLabel}`}
+    >
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-3">
-          <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${styles.bg} ${styles.text}`}>
+          <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${styles.bg} ${styles.text}`} aria-hidden="true">
             {meta.icon}
           </div>
           <div className="flex items-center gap-1.5">
-            <span className={`w-2 h-2 rounded-full ${styles.dot} ${status !== "정상" ? "animate-pulse" : ""}`} />
-            <Badge variant={styles.badge as "success" | "warning" | "danger"}>{statusLabel}</Badge>
+            <span className={`w-2 h-2 rounded-full ${styles.dot} ${status !== "정상" ? "animate-pulse" : ""}`} aria-hidden="true" />
+            <Badge
+              variant={styles.badge as "success" | "warning" | "danger"}
+              aria-label={`${meta.label} 상태: ${statusLabel}`}
+            >{statusLabel}</Badge>
           </div>
         </div>
 
@@ -409,7 +415,7 @@ export default function WaterQualityPage() {
           </p>
         </div>
         <a href="/farms">
-          <Button className="bg-ocean-500 hover:bg-ocean-600 text-white gap-2">
+          <Button className="bg-ocean-500 hover:bg-ocean-600 text-white gap-2 min-h-[44px]">
             <Plus className="w-4 h-4" /> {t.dashboard.goToFarms}
           </Button>
         </a>
@@ -442,9 +448,12 @@ export default function WaterQualityPage() {
 
           {/* Time range selector */}
           <div className="flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-muted-foreground hidden sm:block" />
+            <Clock className="w-3.5 h-3.5 text-muted-foreground hidden sm:block" aria-hidden="true" />
             <Select value={String(hours)} onValueChange={v => setHours(Number(v) as 24 | 72 | 168)}>
-              <SelectTrigger className="w-full sm:w-24 h-8 bg-muted border-border text-muted-foreground text-xs focus:ring-ocean-500/30">
+              <SelectTrigger
+                className="w-full sm:w-24 min-h-[44px] h-auto bg-muted border-border text-muted-foreground text-xs focus:ring-ocean-500/30"
+                aria-label="조회 기간 선택"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-card border-border">
@@ -462,8 +471,9 @@ export default function WaterQualityPage() {
             disabled={hasExport(plan) && !readings.length}
             variant="outline"
             size="sm"
-            className="border-border text-muted-foreground hover:bg-accent gap-2 shrink-0"
+            className="border-border text-muted-foreground hover:bg-accent gap-2 shrink-0 min-h-[44px]"
             title={hasExport(plan) ? t.waterQuality.csvExport : t.waterQuality.csvProOnly}
+            aria-label={hasExport(plan) ? t.waterQuality.csvExport : t.waterQuality.csvProOnly}
           >
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">CSV</span>
@@ -474,7 +484,7 @@ export default function WaterQualityPage() {
             <Button
               variant="outline"
               size="sm"
-              className="border-ocean-500/40 text-ocean-500 hover:bg-ocean-500/10 gap-2"
+              className="border-ocean-500/40 text-ocean-500 hover:bg-ocean-500/10 gap-2 min-h-[44px]"
             >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">{t.waterQuality.addRecord}</span>
@@ -485,9 +495,10 @@ export default function WaterQualityPage() {
           <Button
             variant="outline"
             size="sm"
-            className="border-border text-muted-foreground hover:bg-accent gap-2 shrink-0"
+            className="border-border text-muted-foreground hover:bg-accent gap-2 shrink-0 min-h-[44px]"
             onClick={handleRefresh}
             disabled={isRefreshing}
+            aria-label="데이터 새로고침"
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
             <span className="hidden sm:inline">새로고침</span>
@@ -503,7 +514,10 @@ export default function WaterQualityPage() {
               <div>
                 <p className="text-xs text-muted-foreground mb-1.5">{t.waterQuality.tank}</p>
                 <Select value={selectedTankId} onValueChange={setSelectedTankId}>
-                  <SelectTrigger className="w-full sm:w-48 bg-muted border-border text-foreground focus:ring-ocean-500/30">
+                  <SelectTrigger
+                    className="w-full sm:w-48 min-h-[44px] bg-muted border-border text-foreground focus:ring-ocean-500/30"
+                    aria-label="수조 선택"
+                  >
                     <SelectValue placeholder={t.waterQuality.selectTank} />
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border">
@@ -517,7 +531,7 @@ export default function WaterQualityPage() {
                           <span className={`w-1.5 h-1.5 rounded-full ${
                             tank.status === "active"   ? "bg-emerald-500" :
                             tank.status === "warning"  ? "bg-amber-500" :
-                            tank.status === "danger"   ? "bg-red-500" : "bg-slate-500"
+                            tank.status === "danger"   ? "bg-red-500" : "bg-muted-foreground"
                           }`} />
                           {tank.name}
                         </div>
@@ -592,7 +606,7 @@ export default function WaterQualityPage() {
                     ? <XCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
                     : <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />}
                   <div className="flex-1">
-                    <p className={`text-sm font-medium ${alert.type === "danger" ? "text-red-300" : "text-amber-300"}`}>
+                    <p className={`text-sm font-medium ${alert.type === "danger" ? "text-red-500" : "text-amber-500"}`}>
                       {alert.message}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
@@ -628,13 +642,15 @@ export default function WaterQualityPage() {
                     const styles = STATUS_STYLES[status]
                     const statusLabel = status === "정상" ? t.dashboard.normal : status === "주의" ? t.dashboard.warning : t.dashboard.danger
                     return (
-                      <div
+                                  <div
                         key={meta.key}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium ${styles.bg} ${styles.text}`}
+                        aria-label={`${meta.label} 상태: ${statusLabel}`}
+                        role="status"
                       >
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${styles.dot} ${status !== "정상" ? "animate-pulse" : ""}`} />
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${styles.dot} ${status !== "정상" ? "animate-pulse" : ""}`} aria-hidden="true" />
                         <span>{meta.label}</span>
-                        <span className="opacity-50">·</span>
+                        <span className="opacity-50" aria-hidden="true">·</span>
                         <span>{statusLabel}</span>
                       </div>
                     )
@@ -653,8 +669,12 @@ export default function WaterQualityPage() {
             </div>
           ) : (
             <Card className="bg-card border-border">
-              <CardContent className="p-8 text-center text-muted-foreground">
-                {t.waterQuality.noData}
+              <CardContent className="p-8 text-center">
+                <div className="flex flex-col items-center gap-3">
+                  <Droplets className="w-10 h-10 text-muted-foreground/40" aria-hidden="true" />
+                  <p className="text-muted-foreground text-sm font-medium">{t.waterQuality.noData}</p>
+                  <p className="text-muted-foreground/60 text-xs">수질 데이터를 입력하거나 센서를 연결해 주세요.</p>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -691,12 +711,30 @@ export default function WaterQualityPage() {
                 </TabsList>
 
                 <TabsContent value="overview">
-                  <OverviewChart chartData={chartData} />
+                  {chartData.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground/60">
+                      <Waves className="w-10 h-10" aria-hidden="true" />
+                      <p className="text-sm">표시할 데이터가 없습니다.</p>
+                    </div>
+                  ) : (
+                    <div aria-label="수온·DO·pH 복합 추이 차트" role="img">
+                      <OverviewChart chartData={chartData} />
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground mt-2 text-center">수온(°C) · DO(mg/L) · pH — 기준선 미표시 (복합 Y축)</p>
                 </TabsContent>
 
                 <TabsContent value="nitrogen">
-                  <NitrogenChart chartData={chartData} />
+                  {chartData.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground/60">
+                      <Waves className="w-10 h-10" aria-hidden="true" />
+                      <p className="text-sm">표시할 데이터가 없습니다.</p>
+                    </div>
+                  ) : (
+                    <div aria-label="질소 복합 (암모니아·아질산염·질산염) 추이 차트" role="img">
+                      <NitrogenChart chartData={chartData} />
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground mt-2 text-center">{t.waterQuality.ammonia} · {t.waterQuality.nitrite} · {t.waterQuality.nitrate} (단위: mg/L) — 기준선 미표시 (복합 Y축)</p>
                 </TabsContent>
 
@@ -714,13 +752,22 @@ export default function WaterQualityPage() {
                   ] as Array<{ tabValue: string; chartLabel: string; stdKey: typeof STD_KEYS[number]; chartColor: string; unit: string }>
                 ).map(({ tabValue, chartLabel, stdKey, chartColor, unit }) => (
                   <TabsContent key={tabValue} value={tabValue}>
-                    <SingleParamChart
-                      chartData={chartData}
-                      stdKey={stdKey}
-                      chartLabel={chartLabel}
-                      chartColor={chartColor}
-                      unit={unit}
-                    />
+                    {chartData.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground/60">
+                        <Waves className="w-10 h-10" aria-hidden="true" />
+                        <p className="text-sm">표시할 데이터가 없습니다.</p>
+                      </div>
+                    ) : (
+                      <div aria-label={`${chartLabel} 추이 차트`} role="img">
+                        <SingleParamChart
+                          chartData={chartData}
+                          stdKey={stdKey}
+                          chartLabel={chartLabel}
+                          chartColor={chartColor}
+                          unit={unit}
+                        />
+                      </div>
+                    )}
                     <div className="flex items-center justify-center gap-4 mt-2 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <span className="w-4 border-t border-dashed border-emerald-400/60" />{t.waterQuality.normalRange}
@@ -766,7 +813,7 @@ export default function WaterQualityPage() {
                           : <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <p className={`text-sm font-semibold ${isDanger ? "text-red-300" : "text-amber-300"}`}>
+                            <p className={`text-sm font-semibold ${isDanger ? "text-red-500" : "text-amber-500"}`}>
                               {alert.message}
                             </p>
                             <Badge variant={isDanger ? "danger" : "warning"}>

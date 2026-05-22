@@ -134,7 +134,7 @@ export default function RecordWaterQualityPage() {
   if (!mock && tanks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center gap-6">
-        <div className="w-16 h-16 rounded-2xl bg-ocean-100 flex items-center justify-center">
+        <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
           <Building2 className="w-8 h-8 text-ocean-500" />
         </div>
         <div>
@@ -143,9 +143,9 @@ export default function RecordWaterQualityPage() {
         </div>
         <Link
           href="/onboarding"
-          className="inline-flex items-center gap-2 bg-ocean-500 hover:bg-ocean-600 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+          className="inline-flex items-center gap-2 bg-ocean-500 hover:bg-ocean-600 text-white font-semibold px-6 min-h-[44px] py-3 rounded-xl transition-colors"
         >
-          <Building2 className="w-4 h-4" />
+          <Building2 className="w-4 h-4" aria-hidden="true" />
           양식장 등록하기
         </Link>
       </div>

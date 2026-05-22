@@ -343,7 +343,7 @@ export default function DashboardPage() {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-foreground text-base">{t.dashboard.recentJournal}</CardTitle>
-            <Link href="/diagnosis" className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center gap-1">{t.dashboard.viewAll} <ArrowRight className="w-3 h-3" /></Link>
+            <Link href="/diagnosis" aria-label="진단 기록 전체 보기" className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center gap-1">{t.dashboard.viewAll} <ArrowRight className="w-3 h-3" aria-hidden="true" /></Link>
           </div>
         </CardHeader>
         <CardContent>
