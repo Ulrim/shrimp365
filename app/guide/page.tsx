@@ -322,8 +322,8 @@ export default function GuidePage() {
                       ))}
                     </ol>
 
-                    <div className={`rounded-xl p-3 flex gap-3 border ${ac.tip}`}>
-                      <span className="text-lg shrink-0">💡</span>
+                    <div className={`rounded-xl p-3 flex gap-3 border ${ac.tip}`} role="note">
+                      <span className="text-lg shrink-0" aria-hidden="true">💡</span>
                       <p className="text-sm leading-relaxed">{s.tip}</p>
                     </div>
 
