@@ -132,7 +132,7 @@ export default function PricingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
-      <div className="border-b border-border bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+      <div className="border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link
             href={user ? "/home" : "/"}
@@ -153,7 +153,7 @@ export default function PricingPage() {
             </div>
           ) : (
             <Link href="/login">
-              <Button variant="outline" size="sm">{t.common.login}</Button>
+              <Button variant="outline" size="sm" className="min-h-[44px]">{t.common.login}</Button>
             </Link>
           )}
         </div>
@@ -192,9 +192,12 @@ export default function PricingPage() {
         {(() => {
           const state = planState("free")
           return (
-            <div className={`bg-card border rounded-2xl p-7 flex flex-col transition-shadow hover:shadow-md ${
-              state === "current" ? "border-emerald-300 ring-2 ring-emerald-100" : "border-border"
-            }`}>
+            <div
+              className={`bg-card border rounded-2xl p-7 flex flex-col transition-shadow hover:shadow-md ${
+                state === "current" ? "border-emerald-300 ring-2 ring-emerald-100" : "border-border"
+              }`}
+              aria-label={`Free 플랜${state === "current" ? " (현재 구독 중)" : ""}`}
+            >
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-muted-foreground text-sm font-medium">Free</p>
@@ -221,12 +224,12 @@ export default function PricingPage() {
                 ))}
               </ul>
               {state === "current" ? (
-                <Button disabled className="w-full bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-not-allowed hover:bg-emerald-50">
+                <Button disabled className="w-full min-h-[44px] bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-not-allowed hover:bg-emerald-50" aria-disabled="true">
                   <CheckCircle2 className="w-4 h-4 mr-2" /> 현재 구독 중
                 </Button>
               ) : (
                 <Link href="/dashboard">
-                  <Button variant="outline" className="w-full">{t.pricing.selectPlan}</Button>
+                  <Button variant="outline" className="w-full min-h-[44px]" aria-label="Free 플랜 선택하기">{t.pricing.selectPlan}</Button>
                 </Link>
               )}
             </div>
@@ -237,9 +240,12 @@ export default function PricingPage() {
         {(() => {
           const state = planState("basic")
           return (
-            <div className={`bg-card border rounded-2xl p-7 flex flex-col transition-shadow hover:shadow-md ${
-              state === "current" ? "border-sky-300 ring-2 ring-sky-100" : "border-sky-200"
-            }`}>
+            <div
+              className={`bg-card border rounded-2xl p-7 flex flex-col transition-shadow hover:shadow-md ${
+                state === "current" ? "border-sky-300 ring-2 ring-sky-100" : "border-sky-200"
+              }`}
+              aria-label={`Basic 플랜 — ₩19,900/월${state === "current" ? " (현재 구독 중)" : ""}`}
+            >
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-sky-600 text-sm font-medium flex items-center gap-1.5">
@@ -267,24 +273,24 @@ export default function PricingPage() {
                 ))}
               </ul>
               {state === "current" ? (
-                <Button disabled className="w-full bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-not-allowed hover:bg-emerald-50">
+                <Button disabled className="w-full min-h-[44px] bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-not-allowed hover:bg-emerald-50" aria-disabled="true">
                   <CheckCircle2 className="w-4 h-4 mr-2" /> 현재 구독 중
                 </Button>
               ) : state === "downgrade" ? (
-                <Button disabled className="w-full bg-muted text-muted-foreground cursor-not-allowed">
+                <Button disabled className="w-full min-h-[44px] bg-muted text-muted-foreground cursor-not-allowed" aria-disabled="true">
                   현재 플랜보다 낮음
                 </Button>
               ) : PROMO_ACTIVE && !user ? (
                 <div className="space-y-2">
                   <Link href="/signup">
-                    <Button className="w-full bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-medium">
+                    <Button className="w-full min-h-[44px] bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-medium" aria-label="Basic 플랜 — 무료로 시작하기 (Pro 3개월 무료 포함)">
                       무료로 시작하기
                     </Button>
                   </Link>
                   <p className="text-center text-xs text-emerald-600 font-medium">Pro 3개월 무료 포함</p>
                 </div>
               ) : PROMO_ACTIVE && user ? (
-                <Button disabled className="w-full bg-muted text-muted-foreground cursor-not-allowed">
+                <Button disabled className="w-full min-h-[44px] bg-muted text-muted-foreground cursor-not-allowed" aria-disabled="true">
                   프로모션 기간 중 비활성
                 </Button>
               ) : (
@@ -292,11 +298,12 @@ export default function PricingPage() {
                   <Button
                     onClick={() => handleUpgrade("basic")}
                     disabled={!!paying}
-                    className="w-full bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-medium"
+                    className="w-full min-h-[44px] bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-medium"
+                    aria-label="Basic 플랜 구독하기 — ₩19,900/월"
                   >
                     {paying === "basic" ? (
                       <span className="flex items-center gap-2">
-                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" aria-hidden="true" />
                         처리 중…
                       </span>
                     ) : `Basic ${t.pricing.selectPlan}`}
@@ -314,11 +321,14 @@ export default function PricingPage() {
         {(() => {
           const state = planState("pro")
           return (
-            <div className={`relative bg-card border rounded-2xl p-7 flex flex-col transition-shadow hover:shadow-lg ${
-              state === "current"
-                ? "border-ocean-300 ring-2 ring-ocean-100"
-                : "border-ocean-300 shadow-md shadow-ocean-100"
-            }`}>
+            <div
+              className={`relative bg-card border rounded-2xl p-7 flex flex-col transition-shadow hover:shadow-lg ${
+                state === "current"
+                  ? "border-ocean-300 ring-2 ring-ocean-100"
+                  : "border-ocean-300 shadow-md shadow-ocean-100"
+              }`}
+              aria-label={`Pro 플랜 — ₩39,900/월${state === "current" ? " (현재 구독 중)" : " (인기 플랜)"}`}
+            >
               {state !== "current" && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <Badge className="bg-gradient-to-r from-ocean-500 to-teal-500 text-white border-0 px-4 py-1">
@@ -353,24 +363,24 @@ export default function PricingPage() {
                 ))}
               </ul>
               {state === "current" ? (
-                <Button disabled className="w-full bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-not-allowed hover:bg-emerald-50">
+                <Button disabled className="w-full min-h-[44px] bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-not-allowed hover:bg-emerald-50" aria-disabled="true">
                   <CheckCircle2 className="w-4 h-4 mr-2" /> 현재 구독 중
                 </Button>
               ) : state === "downgrade" ? (
-                <Button disabled className="w-full bg-muted text-muted-foreground cursor-not-allowed">
+                <Button disabled className="w-full min-h-[44px] bg-muted text-muted-foreground cursor-not-allowed" aria-disabled="true">
                   현재 플랜보다 낮음
                 </Button>
               ) : PROMO_ACTIVE && !user ? (
                 <div className="space-y-2">
                   <Link href="/signup">
-                    <Button className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold">
+                    <Button className="w-full min-h-[44px] bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold" aria-label="Pro 플랜 — 무료로 시작하기 (Pro 3개월 무료 포함)">
                       무료로 시작하기
                     </Button>
                   </Link>
                   <p className="text-center text-xs text-emerald-600 font-medium">Pro 3개월 무료 포함</p>
                 </div>
               ) : PROMO_ACTIVE && user ? (
-                <Button disabled className="w-full bg-muted text-muted-foreground cursor-not-allowed">
+                <Button disabled className="w-full min-h-[44px] bg-muted text-muted-foreground cursor-not-allowed" aria-disabled="true">
                   프로모션 기간 중 비활성
                 </Button>
               ) : (
@@ -378,11 +388,12 @@ export default function PricingPage() {
                   <Button
                     onClick={() => handleUpgrade("pro")}
                     disabled={!!paying}
-                    className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold"
+                    className="w-full min-h-[44px] bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold"
+                    aria-label="Pro 플랜 구독하기 — ₩39,900/월"
                   >
                     {paying === "pro" ? (
                       <span className="flex items-center gap-2">
-                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" aria-hidden="true" />
                         처리 중…
                       </span>
                     ) : `Pro ${t.pricing.selectPlan}`}
@@ -400,9 +411,12 @@ export default function PricingPage() {
         {(() => {
           const state = planState("enterprise")
           return (
-            <div className={`bg-card border rounded-2xl p-7 flex flex-col transition-shadow hover:shadow-md ${
-              state === "current" ? "border-purple-300 ring-2 ring-purple-100" : "border-purple-200"
-            }`}>
+            <div
+              className={`bg-card border rounded-2xl p-7 flex flex-col transition-shadow hover:shadow-md ${
+                state === "current" ? "border-purple-300 ring-2 ring-purple-100" : "border-purple-200"
+              }`}
+              aria-label={`Enterprise 플랜${state === "current" ? " (현재 구독 중)" : " — 문의 요청"}`}
+            >
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-purple-600 text-sm font-medium">Enterprise</p>
@@ -425,12 +439,12 @@ export default function PricingPage() {
                 ))}
               </ul>
               {state === "current" ? (
-                <Button disabled className="w-full bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-not-allowed hover:bg-emerald-50">
+                <Button disabled className="w-full min-h-[44px] bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-not-allowed hover:bg-emerald-50" aria-disabled="true">
                   <CheckCircle2 className="w-4 h-4 mr-2" /> 현재 구독 중
                 </Button>
               ) : (
-                <a href="mailto:contact@culiver.ai">
-                  <Button variant="outline" className="w-full border-purple-300 text-purple-600 hover:bg-purple-50">
+                <a href="mailto:contact@culiver.ai" aria-label="Enterprise 플랜 문의 이메일 보내기">
+                  <Button variant="outline" className="w-full min-h-[44px] border-purple-300 text-purple-600 hover:bg-purple-50">
                     <Building2 className="w-4 h-4 mr-2" />{t.pricing.contactUs}
                   </Button>
                 </a>
@@ -457,7 +471,7 @@ export default function PricingPage() {
             { q: "플랜을 업그레이드하면 바로 적용되나요?", a: "결제 완료 즉시 플랜이 업그레이드되어 추가 기능을 사용할 수 있습니다." },
             { q: "환불 정책은 어떻게 되나요?", a: "결제일로부터 7일 이내 미사용 시 전액 환불이 가능합니다. 자세한 내용은 환불 정책을 확인해 주세요." },
           ].map((item, i) => (
-            <div key={i} className="border-t border-border pt-4 first:border-0 first:pt-0">
+            <div key={i} className="border-t border-border pt-4 first:border-0 first:pt-0" role="region" aria-label={item.q}>
               <p className="text-sm font-medium text-foreground mb-1">{item.q}</p>
               <p className="text-sm text-muted-foreground">{item.a}</p>
             </div>

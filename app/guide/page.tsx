@@ -203,9 +203,9 @@ export default function GuidePage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null)
 
   return (
-    <div className="min-h-screen bg-white text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Nav */}
-      <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-border">
+      <nav className="sticky top-0 z-50 bg-background/90 backdrop-blur-md border-b border-border">
         <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 font-bold text-foreground">
             <div className="w-7 h-7 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-lg flex items-center justify-center text-sm leading-none">
@@ -217,13 +217,15 @@ export default function GuidePage() {
             <a
               href="/api/guide"
               download="Shrimp365_사용설명서.pdf"
-              className="hidden sm:flex items-center gap-1.5 text-sm border border-border hover:bg-muted text-foreground px-3 py-1.5 rounded-lg transition-all"
+              className="hidden sm:flex items-center gap-1.5 text-sm border border-border hover:bg-muted text-foreground px-3 py-1.5 rounded-lg transition-all min-h-[44px]"
+              aria-label="사용설명서 PDF 다운로드"
             >
-              <Download className="w-3.5 h-3.5" /> PDF
+              <Download className="w-3.5 h-3.5" aria-hidden="true" /> PDF
             </a>
             <Link
               href="/login"
-              className="text-sm bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold px-4 py-1.5 rounded-lg transition-all"
+              className="text-sm bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold px-4 py-1.5 rounded-lg transition-all inline-flex items-center min-h-[44px]"
+              aria-label="로그인 페이지로 이동"
             >
               로그인
             </Link>
@@ -257,9 +259,10 @@ export default function GuidePage() {
                 key={s.id}
                 href={`#${s.id}`}
                 onClick={() => setActiveStep(s.id)}
-                className={`flex items-center gap-1.5 text-xs border rounded-full px-3 py-1.5 transition-all ${ac.pill}`}
+                className={`flex items-center gap-1.5 text-xs border rounded-full px-3 py-1.5 transition-all min-h-[44px] ${ac.pill}`}
+                aria-label={`단계 ${s.step}: ${s.title}로 이동`}
               >
-                <span>{s.icon}</span>
+                <span aria-hidden="true">{s.icon}</span>
                 <span className="hidden sm:inline">{s.title}</span>
                 <span className="sm:hidden font-semibold">{s.step}</span>
               </a>
@@ -280,10 +283,12 @@ export default function GuidePage() {
               >
                 {/* Header */}
                 <button
-                  className="w-full flex items-center gap-4 p-4 sm:p-5 text-left hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center gap-4 p-4 sm:p-5 text-left hover:bg-muted/40 transition-colors min-h-[44px]"
                   onClick={() => setActiveStep(isOpen ? "" : s.id)}
+                  aria-expanded={isOpen}
+                  aria-controls={`step-body-${s.id}`}
                 >
-                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0 ${ac.icon}`}>
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0 ${ac.icon}`} aria-hidden="true">
                     {s.icon}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -293,14 +298,14 @@ export default function GuidePage() {
                     <h2 className="text-base font-bold text-foreground truncate">{s.title}</h2>
                     <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{s.desc}</p>
                   </div>
-                  <div className="shrink-0 text-muted-foreground">
+                  <div className="shrink-0 text-muted-foreground" aria-hidden="true">
                     {isOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                   </div>
                 </button>
 
                 {/* Body */}
                 {isOpen && (
-                  <div className="px-4 sm:px-5 pb-5 border-t border-border pt-4">
+                  <div id={`step-body-${s.id}`} className="px-4 sm:px-5 pb-5 border-t border-border pt-4">
                     <p className="text-muted-foreground text-sm mb-4">{s.desc}</p>
 
                     <ol className="space-y-3 mb-5">
@@ -310,7 +315,7 @@ export default function GuidePage() {
                             {i + 1}
                           </span>
                           <span className="text-sm text-foreground leading-relaxed">
-                            <span className="mr-1.5">{item.icon}</span>
+                            <span className="mr-1.5" aria-hidden="true">{item.icon}</span>
                             {item.text}
                           </span>
                         </li>
@@ -325,10 +330,11 @@ export default function GuidePage() {
                     {idx < STEPS.length - 1 && (
                       <button
                         onClick={() => setActiveStep(STEPS[idx + 1].id)}
-                        className="mt-4 flex items-center gap-1.5 text-sm text-ocean-600 hover:text-ocean-700 font-medium transition-colors"
+                        className="mt-4 flex items-center gap-1.5 text-sm text-ocean-600 hover:text-ocean-700 font-medium transition-colors min-h-[44px]"
+                        aria-label={`다음 단계로 이동: ${STEPS[idx + 1].title}`}
                       >
                         다음 단계: {STEPS[idx + 1].title}
-                        <ArrowRight className="w-4 h-4" />
+                        <ArrowRight className="w-4 h-4" aria-hidden="true" />
                       </button>
                     )}
                   </div>
@@ -348,8 +354,8 @@ export default function GuidePage() {
               { step: "② 확인", icon: "🔔", title: "알림 확인", desc: "우측 상단 종 아이콘\n이상 수치 즉시 파악" },
               { step: "③ 분석", icon: "📊", title: "현황 보기", desc: "대시보드·수질 모니터링\n이상 징후 조기 발견" },
             ].map((item) => (
-              <div key={item.step} className="bg-white rounded-xl border border-border p-4 text-center shadow-sm">
-                <div className="text-3xl mb-2">{item.icon}</div>
+              <div key={item.step} className="bg-card rounded-xl border border-border p-4 text-center shadow-sm">
+                <div className="text-3xl mb-2" aria-hidden="true">{item.icon}</div>
                 <div className="text-xs text-ocean-600 font-semibold mb-1">{item.step}</div>
                 <div className="font-bold text-foreground text-sm mb-1">{item.title}</div>
                 <div className="text-xs text-muted-foreground whitespace-pre-line">{item.desc}</div>
@@ -365,16 +371,18 @@ export default function GuidePage() {
             {FAQS.map((faq, i) => (
               <div key={i} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                 <button
-                  className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-muted/40 transition-colors min-h-[44px]"
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  aria-expanded={openFaq === i}
+                  aria-controls={`faq-answer-${i}`}
                 >
                   <span className="font-medium text-foreground text-sm leading-snug">{faq.q}</span>
                   {openFaq === i
-                    ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
-                    : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
+                    ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />
+                    : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />}
                 </button>
                 {openFaq === i && (
-                  <div className="px-5 pb-4 text-sm text-muted-foreground border-t border-border pt-3 leading-relaxed">
+                  <div id={`faq-answer-${i}`} className="px-5 pb-4 text-sm text-muted-foreground border-t border-border pt-3 leading-relaxed" role="region" aria-label={faq.q}>
                     {faq.a}
                   </div>
                 )}
@@ -385,7 +393,7 @@ export default function GuidePage() {
 
         {/* CTA */}
         <div className="text-center bg-gradient-to-br from-ocean-50 to-teal-50 border border-ocean-200 rounded-2xl p-8 sm:p-12">
-          <div className="text-5xl mb-4">🦐</div>
+          <div className="text-5xl mb-4" aria-hidden="true">🦐</div>
           <h2 className="text-2xl font-bold mb-3 text-foreground">준비 되셨나요?</h2>
           <p className="text-muted-foreground mb-6">
             무료로 시작하고, 언제든지 업그레이드할 수 있습니다.
@@ -393,16 +401,18 @@ export default function GuidePage() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               href="/signup"
-              className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold px-8 py-3 rounded-xl transition-all"
+              className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold px-8 py-3 rounded-xl transition-all min-h-[44px]"
+              aria-label="무료로 시작하기 — 회원가입 페이지로 이동"
             >
-              무료로 시작하기 <ArrowRight className="w-4 h-4" />
+              무료로 시작하기 <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </Link>
             <a
               href="/api/guide"
               download="Shrimp365_사용설명서.pdf"
-              className="inline-flex items-center justify-center gap-2 border border-border hover:bg-muted text-foreground px-8 py-3 rounded-xl transition-all text-sm font-medium"
+              className="inline-flex items-center justify-center gap-2 border border-border hover:bg-muted text-foreground px-8 py-3 rounded-xl transition-all text-sm font-medium min-h-[44px]"
+              aria-label="사용설명서 PDF 다운로드"
             >
-              <Download className="w-4 h-4" /> 사용설명서 PDF 다운로드
+              <Download className="w-4 h-4" aria-hidden="true" /> 사용설명서 PDF 다운로드
             </a>
           </div>
         </div>
