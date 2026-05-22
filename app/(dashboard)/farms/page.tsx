@@ -89,10 +89,10 @@ function useStatusMeta() {
     },
     inactive: {
       label: t.farms.tankStatusInactive,
-      dot: "bg-slate-500",
+      dot: "bg-muted-foreground",
       text: "text-muted-foreground",
-      bg: "bg-slate-500/10",
-      border: "border-slate-500/20",
+      bg: "bg-muted",
+      border: "border-border",
       icon: <CheckCircle className="w-3.5 h-3.5 text-muted-foreground" />,
     },
   }
@@ -156,7 +156,7 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
     />
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button size="sm" className="bg-ocean-500 hover:bg-ocean-600 text-white gap-1.5 min-h-[40px]">
+        <Button size="sm" className="bg-ocean-500 hover:bg-ocean-600 text-white gap-1.5 min-h-[44px]">
           <Plus className="w-4 h-4" /> {t.farms.addFarm}
         </Button>
       </DialogTrigger>
@@ -334,7 +334,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
     />
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="border-border text-muted-foreground hover:bg-accent gap-1.5 min-h-[40px]">
+        <Button size="sm" variant="outline" className="border-border text-muted-foreground hover:bg-accent gap-1.5 min-h-[44px]">
           <Plus className="w-4 h-4" /> {t.farms.addTank}
         </Button>
       </DialogTrigger>
@@ -509,7 +509,7 @@ function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-2 min-h-[36px] min-w-[36px] rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center" title={t.farms.editFarm} aria-label={t.farms.editFarm}>
+        <button className="p-2 min-h-[44px] min-w-[44px] rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center" title={t.farms.editFarm} aria-label={t.farms.editFarm}>
           <Edit2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
@@ -578,7 +578,7 @@ function DeleteFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => vo
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-2 min-h-[36px] min-w-[36px] rounded-lg hover:bg-red-500/15 text-muted-foreground hover:text-red-500 transition-colors flex items-center justify-center" title={t.farms.deleteFarm} aria-label={t.farms.deleteFarm}>
+        <button className="p-2 min-h-[44px] min-w-[44px] rounded-lg hover:bg-red-500/15 text-muted-foreground hover:text-red-500 transition-colors flex items-center justify-center" title={t.farms.deleteFarm} aria-label={t.farms.deleteFarm}>
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
@@ -670,7 +670,7 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-2 min-h-[36px] min-w-[36px] rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center" title={t.farms.editTank} aria-label={t.farms.editTank}>
+        <button className="p-2 min-h-[44px] min-w-[44px] rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center" title={t.farms.editTank} aria-label={t.farms.editTank}>
           <Edit2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
@@ -782,7 +782,7 @@ function DeleteTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => vo
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-2 min-h-[36px] min-w-[36px] rounded-lg hover:bg-red-500/15 text-muted-foreground hover:text-red-500 transition-colors flex items-center justify-center" title={t.farms.deleteTank} aria-label={t.farms.deleteTank}>
+        <button className="p-2 min-h-[44px] min-w-[44px] rounded-lg hover:bg-red-500/15 text-muted-foreground hover:text-red-500 transition-colors flex items-center justify-center" title={t.farms.deleteTank} aria-label={t.farms.deleteTank}>
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </DialogTrigger>
@@ -1150,7 +1150,10 @@ function TankCard({ tank, onRefresh }: { tank: Tank; onRefresh: () => void }) {
             <span className={`w-2.5 h-2.5 rounded-full ${meta.dot} ${isPulsing ? "animate-pulse" : ""} shrink-0 mt-0.5`} />
             <h3 className="text-foreground font-semibold text-base leading-tight truncate">{tank.name}</h3>
           </div>
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${meta.bg} ${meta.border} ${meta.text}`}>
+          <span
+            className={`text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${meta.bg} ${meta.border} ${meta.text}`}
+            aria-label={`수조 상태: ${meta.label}`}
+          >
             {meta.label}
           </span>
         </div>

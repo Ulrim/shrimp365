@@ -183,10 +183,10 @@ function JournalCard({ entry, onEdit, onDelete }: { entry: JournalEntry; onEdit:
             </div>
           </div>
           <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-            <button onClick={() => onEdit(entry)} className="p-1.5 rounded-lg text-muted-foreground hover:text-ocean-500 hover:bg-accent transition-colors" aria-label={t.journal.editEntry}>
+            <button onClick={() => onEdit(entry)} className="p-2 min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:text-ocean-500 hover:bg-accent transition-colors flex items-center justify-center" aria-label={`${formatDate(entry.date)} 일지 수정`}>
               <Pencil className="w-3.5 h-3.5" />
             </button>
-            <button onClick={() => onDelete(entry)} className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-accent transition-colors" aria-label={t.common.delete}>
+            <button onClick={() => onDelete(entry)} className="p-2 min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:text-red-500 hover:bg-accent transition-colors flex items-center justify-center" aria-label={`${formatDate(entry.date)} 일지 삭제`}>
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -901,13 +901,13 @@ export default function JournalPage() {
           <div className="flex flex-wrap items-center gap-3 bg-muted border border-border rounded-xl px-4 py-3">
             <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
             <div className="flex items-center gap-2">
-              <input type="date" value={jFilterFrom} onChange={e => setJFilterFrom(e.target.value)} className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-ocean-500" />
+              <input type="date" value={jFilterFrom} onChange={e => setJFilterFrom(e.target.value)} aria-label="시작 날짜" className="bg-background border border-border text-foreground text-sm rounded-lg px-3 min-h-[44px] focus:outline-none focus:ring-1 focus:ring-ocean-500" />
               <span className="text-muted-foreground text-sm">~</span>
-              <input type="date" value={jFilterTo} onChange={e => setJFilterTo(e.target.value)} className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-ocean-500" />
+              <input type="date" value={jFilterTo} onChange={e => setJFilterTo(e.target.value)} aria-label="종료 날짜" className="bg-background border border-border text-foreground text-sm rounded-lg px-3 min-h-[44px] focus:outline-none focus:ring-1 focus:ring-ocean-500" />
             </div>
-            <Button size="sm" onClick={handleJFilter} className="bg-ocean-50 hover:bg-ocean-100 text-ocean-600 border border-ocean-200">{t.common.filter}</Button>
+            <Button size="sm" onClick={handleJFilter} className="bg-ocean-50 hover:bg-ocean-100 text-ocean-600 border border-ocean-200 min-h-[44px]">{t.common.filter}</Button>
             {(jFilterFrom || jFilterTo) && (
-              <button onClick={() => { setJFilterFrom(""); setJFilterTo(""); setJOffset(0); loadJournals("", "", 0, true) }} className="text-xs text-muted-foreground hover:text-foreground/80 transition-colors">{t.common.reset}</button>
+              <button onClick={() => { setJFilterFrom(""); setJFilterTo(""); setJOffset(0); loadJournals("", "", 0, true) }} className="text-xs text-muted-foreground hover:text-foreground/80 transition-colors min-h-[44px] px-2">{t.common.reset}</button>
             )}
           </div>
 
@@ -915,13 +915,26 @@ export default function JournalPage() {
             <div className="flex items-center justify-center h-40"><div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" /></div>
           ) : (
             <>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {journals.length === 0 ? (
-                  <p className="text-muted-foreground text-sm col-span-2 text-center py-12">{t.journal.noEntries}. {t.journal.noEntriesMsg}</p>
-                ) : journals.map(entry => (
-                  <JournalCard key={entry.id} entry={entry} onEdit={handleJEdit} onDelete={setJDeleteTarget} />
-                ))}
-              </div>
+              {journals.length === 0 ? (
+                <div className="col-span-2 flex flex-col items-center justify-center py-16 gap-4 text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
+                    <BookOpen className="w-8 h-8 text-muted-foreground opacity-50" />
+                  </div>
+                  <div>
+                    <p className="text-foreground font-medium mb-1">{t.journal.noEntries}</p>
+                    <p className="text-muted-foreground text-sm">{t.journal.noEntriesMsg}</p>
+                  </div>
+                  <Button onClick={openJournalDialog} className="bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white">
+                    <Plus className="w-4 h-4" />{t.journal.addEntry}
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {journals.map(entry => (
+                    <JournalCard key={entry.id} entry={entry} onEdit={handleJEdit} onDelete={setJDeleteTarget} />
+                  ))}
+                </div>
+              )}
               {jHasMore && (
                 <div className="flex justify-center">
                   <Button variant="outline" onClick={handleJLoadMore} disabled={jLoadingMore} className="border-border text-muted-foreground hover:text-foreground hover:bg-accent">
@@ -942,13 +955,13 @@ export default function JournalPage() {
           <div className="flex flex-wrap items-center gap-3 bg-muted border border-border rounded-xl px-4 py-3">
             <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
             <div className="flex items-center gap-2">
-              <input type="date" value={dFilterFrom} onChange={e => setDFilterFrom(e.target.value)} className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-500" />
+              <input type="date" value={dFilterFrom} onChange={e => setDFilterFrom(e.target.value)} aria-label="시작 날짜" className="bg-background border border-border text-foreground text-sm rounded-lg px-3 min-h-[44px] focus:outline-none focus:ring-1 focus:ring-purple-500" />
               <span className="text-muted-foreground text-sm">~</span>
-              <input type="date" value={dFilterTo} onChange={e => setDFilterTo(e.target.value)} className="bg-background border border-border text-foreground text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-500" />
+              <input type="date" value={dFilterTo} onChange={e => setDFilterTo(e.target.value)} aria-label="종료 날짜" className="bg-background border border-border text-foreground text-sm rounded-lg px-3 min-h-[44px] focus:outline-none focus:ring-1 focus:ring-purple-500" />
             </div>
-            <Button size="sm" onClick={handleDFilter} className="bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-200">{t.common.filter}</Button>
+            <Button size="sm" onClick={handleDFilter} className="bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-200 min-h-[44px]">{t.common.filter}</Button>
             {(dFilterFrom || dFilterTo) && (
-              <button onClick={() => { setDFilterFrom(""); setDFilterTo(""); setDOffset(0); loadDiagnoses("", "", 0, true) }} className="text-xs text-muted-foreground hover:text-foreground/80 transition-colors">{t.common.reset}</button>
+              <button onClick={() => { setDFilterFrom(""); setDFilterTo(""); setDOffset(0); loadDiagnoses("", "", 0, true) }} className="text-xs text-muted-foreground hover:text-foreground/80 transition-colors min-h-[44px] px-2">{t.common.reset}</button>
             )}
           </div>
 
@@ -1016,8 +1029,8 @@ export default function JournalPage() {
                                   <td className="py-4 pl-4 text-muted-foreground text-xs max-w-[200px] truncate">{d.action_taken ?? "—"}</td>
                                   <td className="py-4">
                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
-                                      <button onClick={() => openDEdit(d)} className="p-1.5 rounded-lg text-muted-foreground hover:text-ocean-500 hover:bg-accent transition-colors" aria-label={t.common.edit}><Pencil className="w-3.5 h-3.5" /></button>
-                                      <button onClick={() => setDDeleteTarget(d)} className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-accent transition-colors" aria-label={t.common.delete}><Trash2 className="w-3.5 h-3.5" /></button>
+                                      <button onClick={() => openDEdit(d)} className="p-2 min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:text-ocean-500 hover:bg-accent transition-colors flex items-center justify-center" aria-label={`${d.tank_name} ${d.test_type} 진단 수정`}><Pencil className="w-3.5 h-3.5" /></button>
+                                      <button onClick={() => setDDeleteTarget(d)} className="p-2 min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:text-red-500 hover:bg-accent transition-colors flex items-center justify-center" aria-label={`${d.tank_name} ${d.test_type} 진단 삭제`}><Trash2 className="w-3.5 h-3.5" /></button>
                                     </div>
                                   </td>
                                 </tr>
@@ -1065,8 +1078,8 @@ export default function JournalPage() {
                                 </div>
                               )}
                               <div className="flex items-center justify-end gap-1 pt-1">
-                                <button onClick={() => openDEdit(d)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-muted-foreground hover:text-ocean-500 hover:bg-accent transition-colors"><Pencil className="w-3 h-3" />{t.common.edit}</button>
-                                <button onClick={() => setDDeleteTarget(d)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-muted-foreground hover:text-red-500 hover:bg-accent transition-colors"><Trash2 className="w-3 h-3" />{t.common.delete}</button>
+                                <button onClick={() => openDEdit(d)} className="flex items-center gap-1 px-3 min-h-[44px] rounded-lg text-xs text-muted-foreground hover:text-ocean-500 hover:bg-accent transition-colors" aria-label={`${d.tank_name} ${d.test_type} 진단 수정`}><Pencil className="w-3 h-3" />{t.common.edit}</button>
+                                <button onClick={() => setDDeleteTarget(d)} className="flex items-center gap-1 px-3 min-h-[44px] rounded-lg text-xs text-muted-foreground hover:text-red-500 hover:bg-accent transition-colors" aria-label={`${d.tank_name} ${d.test_type} 진단 삭제`}><Trash2 className="w-3 h-3" />{t.common.delete}</button>
                               </div>
                             </div>
                           )
