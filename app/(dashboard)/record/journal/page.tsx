@@ -147,8 +147,8 @@ export default function RecordJournalPage() {
   if (!mock && tanks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center gap-6">
-        <div className="w-16 h-16 rounded-2xl bg-emerald-100 flex items-center justify-center">
-          <Building2 className="w-8 h-8 text-emerald-600" />
+        <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 flex items-center justify-center">
+          <Building2 className="w-8 h-8 text-emerald-500" />
         </div>
         <div>
           <h2 className="text-xl font-bold text-foreground mb-2">등록된 수조가 없습니다</h2>

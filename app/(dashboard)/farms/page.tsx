@@ -732,7 +732,9 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
                   key={opt.value}
                   type="button"
                   onClick={() => setForm(p => ({ ...p, status: opt.value }))}
-                  className={`py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  aria-label={`수조 상태: ${opt.label}`}
+                  aria-pressed={form.status === opt.value}
+                  className={`py-1.5 min-h-[44px] rounded-lg text-xs font-medium border transition-colors ${
                     form.status === opt.value
                       ? `${opt.color} border-current bg-current/10`
                       : "text-muted-foreground border-border hover:border-border/60"
@@ -1096,7 +1098,7 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
             devices.map(device => (
               <div key={device.id} className="flex items-center justify-between bg-muted rounded-lg px-3 py-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${device.active ? "bg-emerald-500 animate-pulse" : "bg-slate-500"}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${device.active ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"}`} />
                   <div className="min-w-0">
                     <p className="text-xs text-foreground font-medium truncate">{device.name}</p>
                     <p className="text-[10px] text-muted-foreground">{timeSince(device.last_seen_at)}</p>
