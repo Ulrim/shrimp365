@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
@@ -12,8 +12,15 @@ import { Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react"
 
 export default function SignupPage() {
   const router = useRouter()
-  const { signup } = useAuth()
+  const { signup, user } = useAuth()
   const { t } = useT()
+
+  // 이미 로그인된 사용자는 홈으로 리다이렉트
+  useEffect(() => {
+    if (user) {
+      router.replace("/")
+    }
+  }, [user, router])
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -81,6 +88,8 @@ export default function SignupPage() {
                 placeholder={t.auth.namePlaceholder}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                autoComplete="name"
+                className="min-h-[44px]"
                 required
               />
             </div>
@@ -93,6 +102,8 @@ export default function SignupPage() {
                 placeholder="email@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                className="min-h-[44px]"
                 required
               />
             </div>
@@ -106,12 +117,14 @@ export default function SignupPage() {
                   placeholder={t.auth.resetNewPasswordPlaceholder}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pr-10"
+                  autoComplete="new-password"
+                  className="pr-10 min-h-[44px]"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -143,7 +156,8 @@ export default function SignupPage() {
                   placeholder={t.auth.resetConfirmPasswordPlaceholder}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="pr-10"
+                  autoComplete="new-password"
+                  className="pr-10 min-h-[44px]"
                   required
                 />
                 {confirmPassword && (
