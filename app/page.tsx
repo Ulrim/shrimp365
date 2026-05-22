@@ -120,7 +120,7 @@ const FAQS = [
 function NavBar({ onDemoClick }: { onDemoClick: () => void }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-border">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-md border-b border-border">
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5">
           <div className="w-8 h-8 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-lg flex items-center justify-center text-base leading-none">
@@ -150,17 +150,17 @@ function NavBar({ onDemoClick }: { onDemoClick: () => void }) {
         </div>
 
         {/* Mobile hamburger */}
-        <button className="md:hidden text-muted-foreground" onClick={() => setMobileOpen(v => !v)}>
+        <button className="md:hidden text-muted-foreground p-2 -mr-2 min-h-[44px] min-w-[44px] flex items-center justify-center" onClick={() => setMobileOpen(v => !v)}>
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="md:hidden bg-white border-t border-border px-4 py-4 space-y-3">
+        <div className="md:hidden bg-background border-t border-border px-4 py-4 space-y-3">
           {["#features:기능 소개", "#how-it-works:사용 방법", "#pricing:요금제", "#faq:자주 묻는 질문"].map(item => {
             const [href, label] = item.split(":")
-            return <a key={href} href={href} onClick={() => setMobileOpen(false)} className="block text-foreground hover:text-foreground py-1.5">{label}</a>
+            return <a key={href} href={href} onClick={() => setMobileOpen(false)} className="block text-foreground hover:text-foreground py-2.5 min-h-[44px] flex items-center">{label}</a>
           })}
           <div className="flex gap-3 pt-2">
             <Link href="/login" className="flex-1 text-center text-sm text-foreground px-4 py-2 rounded-lg border border-border">로그인</Link>
@@ -174,7 +174,7 @@ function NavBar({ onDemoClick }: { onDemoClick: () => void }) {
 
 function WaterQualityCard() {
   return (
-    <div className="bg-white backdrop-blur border border-border rounded-2xl p-4 shadow-2xl w-72">
+    <div className="bg-card backdrop-blur border border-border rounded-2xl p-4 shadow-2xl w-72">
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-semibold text-foreground">A-1조 수질 현황</span>
         <span className="flex items-center gap-1 text-xs text-emerald-600">
