@@ -164,8 +164,9 @@ function saveJournalDefaults(form: typeof defaultJournalForm) {
 
 // ── JournalCard ───────────────────────────────────────────────────────────────
 
-function JournalCard({ entry, onEdit, onDelete }: { entry: JournalEntry; onEdit: (e: JournalEntry) => void; onDelete: (e: JournalEntry) => void }) {
+function JournalCard({ entry, currentUserId, currentUserName, onEdit, onDelete }: { entry: JournalEntry; currentUserId?: string; currentUserName?: string; onEdit: (e: JournalEntry) => void; onDelete: (e: JournalEntry) => void }) {
   const { t } = useT()
+  const authorName = entry.created_by === currentUserId ? (currentUserName || "나") : (entry.created_by ? entry.created_by.slice(0, 8) + "…" : "")
   return (
     <Card className="bg-card border-border hover:border-border/80 transition-all group">
       <CardContent className="p-5">
@@ -177,7 +178,7 @@ function JournalCard({ entry, onEdit, onDelete }: { entry: JournalEntry; onEdit:
             </div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <User className="w-3 h-3" />
-              <span>{entry.created_by}</span>
+              <span>{authorName}</span>
               <span>·</span>
               <span>{formatDateTime(entry.created_at)}</span>
             </div>
@@ -931,7 +932,7 @@ export default function JournalPage() {
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {journals.map(entry => (
-                    <JournalCard key={entry.id} entry={entry} onEdit={handleJEdit} onDelete={setJDeleteTarget} />
+                    <JournalCard key={entry.id} entry={entry} currentUserId={user?.id} currentUserName={user?.name} onEdit={handleJEdit} onDelete={setJDeleteTarget} />
                   ))}
                 </div>
               )}

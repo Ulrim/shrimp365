@@ -86,7 +86,7 @@ export default function PricingPage() {
   const handleUpgrade = useCallback(async (plan: "basic" | "pro") => {
     if (!user) { router.push("/login?redirect=/pricing"); return }
     const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY
-    if (!clientKey) { alert("결제 서비스가 준비 중입니다."); return }
+    if (!clientKey) { alert("결제 설정이 필요합니다.\n관리자에게 문의하거나 .env.local에 NEXT_PUBLIC_TOSS_CLIENT_KEY를 설정해 주세요."); return }
     setPaying(plan)
     try {
       if (!window.TossPayments) {
