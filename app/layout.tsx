@@ -11,10 +11,10 @@ import { SpeedInsights } from "@vercel/speed-insights/next"
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.shrimp365.kr"),
   title: {
-    default: "Shrimp365 — 흰다리새우 양식 관리 플랫폼 | 수질모니터링·AI어드바이저",
+    default: "Shrimp365 | 새우 양식 AI 관리 플랫폼",
     template: "%s | Shrimp365",
   },
-  description: "흰다리새우(바나메이) 양식 어가를 위한 AI 기반 수질 모니터링·생산 관리·질병 진단 통합 플랫폼. 수온·pH·DO 실시간 알림, AI 어드바이저, 양식 일지를 스마트폰에서 간편하게 관리하세요.",
+  description: "흰다리새우 AI 수질 모니터링·양식 일지·질병 진단 통합 플랫폼. 수온·pH·DO 알림, 재고 관리까지 스마트폰 하나로.",
   keywords: [
     // 한국어
     "새우 양식", "흰다리새우", "바나메이 새우", "새우 농장 관리",
@@ -49,14 +49,14 @@ export const metadata: Metadata = {
     alternateLocale: ["en_US", "en_GB", "vi_VN", "th_TH", "ja_JP"],
     url: "https://www.shrimp365.kr",
     siteName: "Shrimp365",
-    title: "Shrimp365 — 흰다리새우 양식 관리 플랫폼",
-    description: "수질 모니터링·AI 어드바이저·질병 진단·재고 관리를 하나의 앱에서. 흰다리새우 양식의 수익성과 안정성을 동시에 높이세요.",
-    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "Shrimp365 — AI 새우 양식 관리 플랫폼" }],
+    title: "Shrimp365 | AI Shrimp Farm Management Platform",
+    description: "AI-powered water quality monitoring, production management & disease diagnosis for vannamei shrimp farms. Real-time pH·DO·temperature alerts on your smartphone.",
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "Shrimp365 — AI Shrimp Farm Management Platform" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Shrimp365 — 흰다리새우 양식 관리 플랫폼",
-    description: "수질 모니터링·AI 어드바이저·양식 일지를 스마트폰 하나로. 흰다리새우 양식 어가를 위한 통합 관리 플랫폼.",
+    title: "Shrimp365 | AI Shrimp Farm Management Platform",
+    description: "AI-powered water quality monitoring & disease diagnosis for vannamei shrimp farms. Manage feeding, inventory & health from your phone.",
     images: ["/opengraph-image"],
   },
   alternates: {
