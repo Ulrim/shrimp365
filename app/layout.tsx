@@ -1,6 +1,17 @@
 import type { Metadata } from "next"
 import { cookies } from "next/headers"
+import localFont from "next/font/local"
 import "./globals.css"
+
+const pretendard = localFont({
+  src: "../public/fonts/PretendardVariable.woff2",
+  variable: "--font-pretendard",
+  weight: "100 900",
+  display: "swap",
+  preload: true,
+  fallback: ["-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
+  adjustFontFallback: "Arial",
+})
 import { AuthProvider } from "@/lib/auth-context"
 import { I18nProvider } from "@/lib/i18n-context"
 import { type Locale, LOCALES } from "@/lib/i18n"
@@ -278,7 +289,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <html lang={defaultLocale} suppressHydrationWarning>
+    <html lang={defaultLocale} suppressHydrationWarning className={pretendard.variable}>
       <head>
         <script
           type="application/ld+json"

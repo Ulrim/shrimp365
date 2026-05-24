@@ -76,7 +76,7 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family: var(--font-pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif);
   }
 }
 

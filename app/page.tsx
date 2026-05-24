@@ -210,26 +210,17 @@ function WaterQualityCard() {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
-  const { user, loading } = useAuth()
+  const { user } = useAuth()
   const router = useRouter()
   const [faqOpen, setFaqOpen] = useState<number | null>(null)
 
   useEffect(() => {
-    if (!loading && user) router.replace("/home")
-  }, [user, loading, router])
+    if (user) router.replace("/home")
+  }, [user, router])
 
   function handleDemo() {
     window.location.href = "/api/demo"
   }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-10 h-10 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
-  if (user) return null
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
@@ -239,8 +230,8 @@ export default function LandingPage() {
       <section className="relative min-h-screen flex items-center pt-16 overflow-hidden">
         {/* Background glows */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/4 -left-32 w-96 h-96 bg-ocean-100 rounded-full blur-3xl" />
-          <div className="absolute top-1/3 -right-32 w-80 h-80 bg-teal-100 rounded-full blur-3xl" />
+          <div className="absolute top-1/4 -left-32 w-96 h-96 bg-ocean-100 rounded-full md:blur-2xl" />
+          <div className="absolute top-1/3 -right-32 w-80 h-80 bg-teal-100 rounded-full md:blur-2xl" />
           <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-px bg-gradient-to-r from-transparent via-ocean-200 to-transparent" />
         </div>
 
@@ -542,7 +533,7 @@ export default function LandingPage() {
       <section className="py-24 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute inset-0 bg-gradient-to-br from-ocean-500 via-ocean-600 to-teal-600" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-white/10 rounded-full blur-3xl" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-white/10 rounded-full md:blur-2xl" />
         </div>
         <div className="relative max-w-3xl mx-auto px-4 text-center">
           <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-6 text-4xl leading-none">
