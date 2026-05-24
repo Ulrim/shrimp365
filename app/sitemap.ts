@@ -1,6 +1,6 @@
 import { MetadataRoute } from "next"
 
-const BASE = "https://www.shrimp365.kr"
+const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.shrimp365.kr"
 
 const LANG_ALTERNATES = {
   "x-default": BASE,

@@ -33,7 +33,7 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: "Google-Extended", allow: PUBLIC_PATHS, disallow: ["/api/", "/_next/"] },
       { userAgent: "Gemini", allow: PUBLIC_PATHS, disallow: ["/api/", "/_next/"] },
     ],
-    sitemap: "https://www.shrimp365.kr/sitemap.xml",
-    host: "https://www.shrimp365.kr",
+    sitemap: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.shrimp365.kr"}/sitemap.xml`,
+    host: process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.shrimp365.kr",
   }
 }
