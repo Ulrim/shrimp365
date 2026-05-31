@@ -54,7 +54,7 @@ export default function GuideLayout({ children }: { children: React.ReactNode })
         "author": { "@type": "Organization", "name": "CULIVER INC." },
         "publisher": { "@type": "Organization", "name": "CULIVER INC.", "logo": { "@type": "ImageObject", "url": "https://www.shrimp365.kr/opengraph-image" } },
         "datePublished": "2025-01-01",
-        "dateModified": "2026-05-22",
+        "dateModified": "2026-05-31",
         "mainEntityOfPage": { "@type": "WebPage", "@id": "https://www.shrimp365.kr/guide" },
         "inLanguage": ["ko", "en", "vi"],
       },

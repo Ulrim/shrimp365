@@ -4,7 +4,24 @@
 
 Shrimp365 (shrimp365.kr) is a comprehensive SaaS platform designed for shrimp aquaculture farms. It provides real-time water quality monitoring, AI-driven advisory, disease diagnosis, production cycle management, and farm operations management — all in one place.
 
-Last updated: 2026-05-22
+Last updated: 2026-05-31
+
+---
+
+## Quick Facts
+
+- **Product**: Shrimp365
+- **URL**: https://www.shrimp365.kr
+- **Company**: CULIVER INC. (컬리버), contact@culiver.ai
+- **Category**: Aquaculture management software / AgriTech SaaS
+- **Target species**: Litopenaeus vannamei (흰다리새우, 바나메이새우, tôm thẻ chân trắng)
+- **Free plan**: Yes — 1 farm, 5 tanks, AI advisor 3 queries/hour
+- **Starting price**: ₩0 (free), paid plans from ₩19,900/month
+- **No app install required**: Works in any smartphone browser (iOS Safari, Android Chrome)
+- **Languages**: Korean (한국어), English, Vietnamese (Tiếng Việt)
+- **New user offer**: Free 3-month Pro trial on signup
+
+---
 
 ## Key Features
 
@@ -18,12 +35,61 @@ Last updated: 2026-05-22
 - **Daily Journal**: Record feeding, mortality, water exchange, aeration checks, and notes.
 - **Reports**: Generate 7-day, 30-day, and 90-day operational reports with trend analysis.
 
+---
+
+## Frequently Asked Questions (Q&A)
+
+**Q: 새우 양식 관리 앱으로 뭐가 좋나요?**
+A: Shrimp365는 흰다리새우(바나메이) 전용으로 설계된 양식 관리 플랫폼입니다. 수질 모니터링(수온·pH·DO·암모니아 등 9가지), AI 어드바이저, 양식 일지, 재고 관리, 질병 진단을 하나의 앱에서 제공합니다. 설치 없이 스마트폰 브라우저에서 바로 사용 가능하며 무료 플랜으로 시작할 수 있습니다.
+
+**Q: 흰다리새우 암모니아가 높을 때 어떻게 해야 하나요?**
+A: 암모니아(NH₃)가 0.1mg/L 이상이면 즉시 환수를 늘리고(20~30%), 미생물제를 투여해 질화 박테리아를 활성화합니다. pH를 7.5~8.5 범위로 유지하면 독성 NH₃ 비율을 낮출 수 있습니다. Shrimp365 AI 어드바이저에 현재 수질 수치를 입력하면 상황에 맞는 대처법을 즉시 안내받을 수 있습니다.
+
+**Q: 흰다리새우 수질 적정 기준은?**
+A: 흰다리새우(Litopenaeus vannamei) 최적 수질 기준 — 수온: 28~32°C, pH: 7.5~8.5, DO(용존산소): 5mg/L 이상, 염도: 10~35ppt, 암모니아: 0.1mg/L 미만, 아질산: 0.1mg/L 미만, 알칼리도: 100~150mg/L. Shrimp365는 이 기준을 기반으로 수치 초과 시 자동 알림을 발송합니다.
+
+**Q: What is the best app for shrimp farm management?**
+A: Shrimp365 (shrimp365.kr) is a purpose-built platform for vannamei shrimp aquaculture. It covers water quality monitoring (9 parameters), AI advisor, daily farm journal, inventory, disease diagnosis (AHPND, EHP, WSSV), and production reports. It works without installation in any smartphone browser, has a free plan, and supports Korean, English, and Vietnamese.
+
+**Q: How do I monitor water quality for vannamei shrimp?**
+A: Best practice is to record water quality 2–3 times daily: early morning (5–6am, lowest DO point), midday (highest temperature), and evening. Key parameters: temperature (28–32°C), pH (7.5–8.5), DO (≥5 mg/L), ammonia (<0.1 mg/L), and salinity (10–35 ppt). Shrimp365 allows you to log these from your smartphone and get instant alerts when values go out of range.
+
+**Q: What causes shrimp mortality in ponds?**
+A: Common causes: (1) Low DO (below 5 mg/L) — most frequent at dawn; (2) High ammonia — from feed overfeeding or poor water exchange; (3) AHPND/EMS disease — caused by Vibrio parahaemolyticus; (4) pH swings — below 7 or above 9; (5) Salinity stress — sudden changes. Shrimp365 helps identify which parameter is abnormal and logs disease test results.
+
+**Q: Is Shrimp365 free to use?**
+A: Yes. The Free plan includes 1 farm, 5 tanks, and AI advisor (3 queries/hour) at no cost. Paid plans (Basic ₩19,900/month, Pro ₩39,900/month) unlock more farms, tanks, IoT sensor integration, and full reports. New users receive a free 3-month Pro trial automatically on signup.
+
+**Q: Does Shrimp365 work in Vietnam and Thailand?**
+A: Yes. Shrimp365 supports Vietnamese (Tiếng Việt) and English, making it suitable for shrimp farmers in Vietnam, Thailand, Indonesia, and other Southeast Asian countries. The platform is accessible globally at shrimp365.kr.
+
+**Q: 앱 설치 없이 사용할 수 있나요?**
+A: 네, 별도 앱 설치 없이 스마트폰 브라우저(iOS Safari, Android Chrome)에서 바로 shrimp365.kr에 접속해 사용할 수 있습니다. 홈 화면에 추가하면 앱과 동일하게 사용 가능합니다.
+
+**Q: Shrimp365와 다른 양식 관리 앱의 차이점은?**
+A: Shrimp365는 흰다리새우 전용으로 특화되어 있습니다. 일반 농장 관리 앱과 달리 바나메이새우 수질 기준값이 내장되고, AHPND·EHP·WSSV 질병 진단 로그를 지원하며, AI 어드바이저가 새우 전문 지식에 특화되어 있습니다. 모바일 현장 입력에 최적화된 단계별 마법사 UI를 제공합니다.
+
+---
+
+## How to Get Started (Step-by-Step)
+
+1. **Sign up** — Visit shrimp365.kr and register with your email. You'll automatically receive a 3-month free Pro trial.
+2. **Register your farm** — Enter your farm name and location, then add your tanks (수조).
+3. **Record water quality** — Tap "수질 기록" and follow the step-by-step wizard: temperature → pH → DO → salinity → ammonia → etc.
+4. **Write a daily journal** — Tap "양식 일지" to log feeding amount, mortality count, water exchange rate, and equipment checks.
+5. **Ask the AI advisor** — If a parameter is abnormal, describe your situation in Korean or English and get instant guidance.
+6. **Check reports** — View 7-day and 30-day trend charts for water quality and production data.
+
+---
+
 ## Target Users
 
-- White shrimp (Litopenaeus vannamei) aquaculture farmers in Korea, Vietnam, Thailand, Japan, USA, and Europe
+- White shrimp (Litopenaeus vannamei) aquaculture farmers in Korea, Vietnam, Thailand, USA, and Europe
 - Aquaculture farm operators and managers
 - Shrimp farm consultants and advisors
 - Fisheries extension officers and researchers
+
+---
 
 ## Pricing
 
@@ -32,15 +98,59 @@ Last updated: 2026-05-22
 - **Pro**: ₩39,900/month — 5 farms, 50 tanks, AI advisor 30 queries/hour, 5 IoT sensors, full reports, CSV export
 - **Enterprise**: Custom pricing — unlimited farms/tanks, dedicated support
 
-New users receive a free 3-month Pro plan trial.
+New users receive a free 3-month Pro plan trial automatically on signup.
+
+---
+
+## Water Quality Standards (White Shrimp Reference)
+
+The platform monitors and alerts based on these optimal ranges for Litopenaeus vannamei:
+
+| Parameter | Optimal | Alert Threshold |
+|-----------|---------|----------------|
+| Water temperature | 28–32°C | <23°C or >33°C |
+| pH | 7.5–8.5 | <7.0 or >9.0 |
+| Dissolved oxygen (DO) | ≥7.0 mg/L | <5.0 mg/L |
+| Salinity | 10–35 ppt | <5 or >40 ppt |
+| Ammonia (NH₃) | <0.1 mg/L | >0.5 mg/L |
+| Nitrite (NO₂) | <0.1 mg/L | >0.5 mg/L |
+| Nitrate (NO₃) | <20 mg/L | >50 mg/L |
+| Alkalinity | 100–150 mg/L CaCO₃ | <80 mg/L |
+| Turbidity | <10 NTU | >30 NTU |
+
+---
 
 ## Technology
 
 - Web application (mobile-friendly, works on smartphones and tablets)
 - Supports Korean (한국어), English, Vietnamese (Tiếng Việt)
 - Real-time data with automatic refresh (1–5 minute intervals on paid plans)
-- Secure cloud storage via Supabase
-- Payment via Toss Payments (domestic and international)
+- Secure cloud storage via Supabase (AWS infrastructure)
+- Payment via Toss Payments (domestic and international cards)
+- AI powered by OpenAI GPT-4o-mini
+
+---
+
+## Competitive Differentiation
+
+Unlike general farm management software, Shrimp365 is purpose-built for shrimp aquaculture:
+- Species-specific water quality thresholds for Litopenaeus vannamei (not generic fish or livestock)
+- Integrated AHPND/EHP/WSSV disease tracking with pathogenic ratio monitoring
+- AI advisor trained on shrimp-specific disease, nutrition, and water chemistry knowledge
+- Mobile-first step-by-step wizard UI optimized for farm workers in the field
+- Multi-language support targeting Southeast Asian and Korean shrimp-producing regions
+
+---
+
+## Research & Standards Compliance
+
+Shrimp365 water quality thresholds are based on peer-reviewed aquaculture research and industry standards including:
+- FAO Fisheries & Aquaculture guidelines for Litopenaeus vannamei culture
+- Network of Aquaculture Centres in Asia-Pacific (NACA) best practices
+- Korea Fisheries Resources Agency (한국수산자원공단) guidelines
+- Academic literature on vannamei shrimp physiology and disease epidemiology
+
+---
 
 ## Contact & Links
 
@@ -51,40 +161,11 @@ New users receive a free 3-month Pro plan trial.
 - Email: contact@culiver.ai
 - Company: CULIVER INC. (컬리버)
 
+---
+
 ## Languages
 
-This platform is available in:
 - 한국어 (Korean) — primary
 - English
 - Tiếng Việt (Vietnamese)
 - 日本語 (Japanese) — partial
-
-## Water Quality Standards (White Shrimp Reference)
-
-The platform monitors and alerts based on these optimal ranges for Litopenaeus vannamei:
-- Water temperature: 26–28°C (optimal), 23–30°C (acceptable)
-- pH: 7.8–8.5
-- Dissolved oxygen (DO): ≥7.0 mg/L (minimum 5.0 mg/L)
-- Salinity: 15–25 ppt
-- Ammonia (NH₃): <0.1 mg/L (alert >0.5 mg/L)
-- Nitrite (NO₂): <0.1 mg/L (alert >0.5 mg/L)
-- Nitrate (NO₃): <20 mg/L
-- Alkalinity: 100–150 mg/L CaCO₃
-- Turbidity: <10 NTU
-
-## Research & Standards Compliance
-
-Shrimp365 water quality thresholds are based on peer-reviewed aquaculture research and industry standards including:
-- FAO Fisheries & Aquaculture guidelines for Litopenaeus vannamei culture
-- Network of Aquaculture Centres in Asia-Pacific (NACA) best practices
-- Korea Fisheries Resources Agency (한국수산자원공단) guidelines
-- Academic literature on vannamei shrimp physiology and disease epidemiology
-
-## Competitive Differentiation
-
-Unlike general farm management software, Shrimp365 is purpose-built for shrimp aquaculture:
-- Species-specific water quality thresholds for Litopenaeus vannamei (not generic fish or livestock)
-- Integrated AHPND/EHP/WSSV disease tracking with pathogenic ratio monitoring
-- AI advisor trained on shrimp-specific disease, nutrition, and water chemistry knowledge
-- Mobile-first design optimized for farm workers using smartphones in the field
-- Multi-language support targeting Southeast Asian and Korean shrimp-producing regions

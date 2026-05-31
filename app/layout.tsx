@@ -283,6 +283,54 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               "text": "Có, Shrimp365 hỗ trợ đầy đủ tiếng Việt. Nền tảng giúp người nuôi tôm thẻ chân trắng tại Việt Nam theo dõi chất lượng nước, ghi nhật ký ao, quản lý kho và nhận tư vấn từ AI bằng tiếng Việt.",
             },
           },
+          {
+            "@type": "Question",
+            "name": "새우 양식 관리 앱 추천해줘",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Shrimp365(shrimp365.kr)는 흰다리새우(바나메이) 전용 양식 관리 플랫폼으로, 수질 모니터링·AI 어드바이저·양식 일지·질병 진단·재고 관리를 하나의 앱에서 제공합니다. 앱 설치 없이 스마트폰 브라우저에서 바로 사용 가능하고, 무료 플랜과 신규 가입자 3개월 Pro 무료 체험을 제공합니다.",
+            },
+          },
+          {
+            "@type": "Question",
+            "name": "흰다리새우 암모니아 높을 때 대처법",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "암모니아가 0.1mg/L 이상이면 즉시 환수를 20~30%로 늘리고, 미생물제(질화 박테리아)를 투여해 암모니아를 분해합니다. pH를 7.5~8.5로 유지하면 독성 NH₃ 비율을 낮출 수 있습니다. 급이량을 10~20% 줄이고, 사료 잔량 확인도 필요합니다. Shrimp365 AI 어드바이저에 수치를 입력하면 상황별 맞춤 대처법을 안내받을 수 있습니다.",
+            },
+          },
+          {
+            "@type": "Question",
+            "name": "새우 양식 DO(용존산소) 낮을 때 어떻게 하나요?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "DO가 5mg/L 이하로 떨어지면 폭기 장치를 즉시 최대로 가동하고, 밀도가 높은 경우 일부 환수를 실시합니다. 새벽 4~6시에 DO가 가장 낮으므로 이 시간대 모니터링이 중요합니다. 사료 투여를 중단하고 상황이 개선될 때까지 관찰합니다. Shrimp365는 DO 기준 초과 시 즉시 알림을 발송합니다.",
+            },
+          },
+          {
+            "@type": "Question",
+            "name": "How does the Shrimp365 AI advisor work?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Shrimp365 AI Advisor is powered by OpenAI GPT-4o-mini and is trained on shrimp-specific aquaculture knowledge. You describe your situation in Korean, English, or Vietnamese — for example, 'ammonia is 0.3 mg/L, what should I do?' — and the AI provides specific corrective actions based on water quality standards for Litopenaeus vannamei. The Free plan allows 3 queries/hour; Pro allows 30 queries/hour.",
+            },
+          },
+          {
+            "@type": "Question",
+            "name": "What diseases does Shrimp365 help diagnose?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Shrimp365 supports logging and tracking of major shrimp diseases: AHPND (Acute Hepatopancreatic Necrosis Disease / EMS), EHP (Enterocytozoon hepatopenaei), WSSV (White Spot Syndrome Virus), and Vibrio infections. You can record lab test results, track pathogenic ratios over time, and receive risk-level assessments. The AI advisor can also suggest preventive measures based on your disease history.",
+            },
+          },
+          {
+            "@type": "Question",
+            "name": "새우 폐사 원인 진단 방법",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "새우 폐사의 주요 원인: (1) DO 부족 — 새벽 5mg/L 이하; (2) 암모니아 과다 — 과급이·환수 부족; (3) AHPND(EMS) — Vibrio parahaemolyticus; (4) pH 급변 — 7 이하 또는 9 이상; (5) 염도 급변. Shrimp365에서 수질 기록을 확인하면 폐사 전후 수질 변화를 추적해 원인을 파악할 수 있습니다.",
+            },
+          },
         ],
       },
     ],
