@@ -53,12 +53,13 @@ export default function RecordJournalPage() {
   })
 
   const [loadingTanks, setLoadingTanks] = useState(!mock)
+  const [tankLoadError, setTankLoadError] = useState(false)
 
   useEffect(() => {
     if (mock) { setTanks(MOCK_TANKS); return }
     getAllTanks()
       .then(result => { setTanks(result); setLoadingTanks(false) })
-      .catch(() => { setTanks([]); setLoadingTanks(false) })
+      .catch(() => { setTankLoadError(true); setLoadingTanks(false) })
   }, [mock])
 
   const handleChange = (key: string, value: unknown) => {
@@ -132,6 +133,20 @@ export default function RecordJournalPage() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (tankLoadError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center gap-4">
+        <p className="text-destructive font-medium">수조 목록을 불러오지 못했습니다.</p>
+        <button
+          onClick={() => { setTankLoadError(false); setLoadingTanks(true); getAllTanks().then(r => { setTanks(r); setLoadingTanks(false) }).catch(() => { setTankLoadError(true); setLoadingTanks(false) }) }}
+          className="text-sm text-emerald-600 underline"
+        >
+          다시 시도
+        </button>
       </div>
     )
   }

@@ -119,5 +119,8 @@ export async function submitJournal(
         })
       }
     }
-  } catch { /* inventory deduction failure does not block journal */ }
+  } catch (err) {
+    console.error("[record-actions] inventory deduction failed:", err)
+    /* inventory deduction failure does not block journal */
+  }
 }
