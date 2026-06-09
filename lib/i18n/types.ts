@@ -3,6 +3,7 @@ export interface Dict {
     ko: string
     en: string
     vi: string
+    id: string
     select: string
   }
   common: {

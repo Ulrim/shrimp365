@@ -1,12 +1,12 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react"
-import { ko, en, vi, type Dict, type Locale, LOCALES } from "@/lib/i18n"
+import { ko, en, vi, id, type Dict, type Locale, LOCALES } from "@/lib/i18n"
 
 const COOKIE_NAME = "shrimp365_lang"
 const STORAGE_KEY = "shrimp365_lang"
 
-const DICTS: Record<Locale, Dict> = { ko, en, vi }
+const DICTS: Record<Locale, Dict> = { ko, en, vi, id }
 
 interface I18nContextType {
   locale: Locale

@@ -5,6 +5,7 @@ export const en: Dict = {
     ko: "Korean",
     en: "English",
     vi: "Tiếng Việt",
+    id: "Indonesian",
     select: "Language",
   },
   common: {

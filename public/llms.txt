@@ -15,11 +15,10 @@ Last updated: 2026-05-31
 - **Company**: CULIVER INC. (컬리버), contact@culiver.ai
 - **Category**: Aquaculture management software / AgriTech SaaS
 - **Target species**: Litopenaeus vannamei (흰다리새우, 바나메이새우, tôm thẻ chân trắng)
-- **Free plan**: Yes — 1 farm, 5 tanks, AI advisor 3 queries/hour
-- **Starting price**: ₩0 (free), paid plans from ₩19,900/month
+- **Pricing**: Completely free — all features, no limits, no paid plans
+- **Revenue model**: Ad-supported (in-app advertising)
 - **No app install required**: Works in any smartphone browser (iOS Safari, Android Chrome)
-- **Languages**: Korean (한국어), English, Vietnamese (Tiếng Việt)
-- **New user offer**: Free 3-month Pro trial on signup
+- **Languages**: Korean (한국어), English, Vietnamese (Tiếng Việt), Indonesian (Bahasa Indonesia)
 
 ---
 
@@ -58,10 +57,13 @@ A: Best practice is to record water quality 2–3 times daily: early morning (5�
 A: Common causes: (1) Low DO (below 5 mg/L) — most frequent at dawn; (2) High ammonia — from feed overfeeding or poor water exchange; (3) AHPND/EMS disease — caused by Vibrio parahaemolyticus; (4) pH swings — below 7 or above 9; (5) Salinity stress — sudden changes. Shrimp365 helps identify which parameter is abnormal and logs disease test results.
 
 **Q: Is Shrimp365 free to use?**
-A: Yes. The Free plan includes 1 farm, 5 tanks, and AI advisor (3 queries/hour) at no cost. Paid plans (Basic ₩19,900/month, Pro ₩39,900/month) unlock more farms, tanks, IoT sensor integration, and full reports. New users receive a free 3-month Pro trial automatically on signup.
+A: Yes, completely free. Shrimp365 is ad-supported and offers all features — unlimited farms, tanks, AI advisor, disease diagnosis, inventory management, and full reports — at no cost. There are no paid plans or hidden fees.
 
-**Q: Does Shrimp365 work in Vietnam and Thailand?**
-A: Yes. Shrimp365 supports Vietnamese (Tiếng Việt) and English, making it suitable for shrimp farmers in Vietnam, Thailand, Indonesia, and other Southeast Asian countries. The platform is accessible globally at shrimp365.kr.
+**Q: Does Shrimp365 work in Vietnam, Indonesia, and Thailand?**
+A: Yes. Shrimp365 supports Vietnamese (Tiếng Việt), Indonesian (Bahasa Indonesia), and English, making it ideal for shrimp farmers across Southeast Asia — Vietnam, Indonesia, Thailand, and beyond. The platform is accessible globally at shrimp365.kr.
+
+**Q: Apakah Shrimp365 tersedia dalam Bahasa Indonesia?**
+A: Ya, Shrimp365 mendukung penuh Bahasa Indonesia. Platform ini dirancang untuk petambak udang vaname (Litopenaeus vannamei) di Indonesia — negara penghasil udang terbesar di dunia. Semua fitur tersedia gratis tanpa batas.
 
 **Q: 앱 설치 없이 사용할 수 있나요?**
 A: 네, 별도 앱 설치 없이 스마트폰 브라우저(iOS Safari, Android Chrome)에서 바로 shrimp365.kr에 접속해 사용할 수 있습니다. 홈 화면에 추가하면 앱과 동일하게 사용 가능합니다.
@@ -73,7 +75,7 @@ A: Shrimp365는 흰다리새우 전용으로 특화되어 있습니다. 일반 �
 
 ## How to Get Started (Step-by-Step)
 
-1. **Sign up** — Visit shrimp365.kr and register with your email. You'll automatically receive a 3-month free Pro trial.
+1. **Sign up** — Visit shrimp365.kr and register with your email. All features are available immediately at no cost.
 2. **Register your farm** — Enter your farm name and location, then add your tanks (수조).
 3. **Record water quality** — Tap "수질 기록" and follow the step-by-step wizard: temperature → pH → DO → salinity → ammonia → etc.
 4. **Write a daily journal** — Tap "양식 일지" to log feeding amount, mortality count, water exchange rate, and equipment checks.
@@ -84,7 +86,7 @@ A: Shrimp365는 흰다리새우 전용으로 특화되어 있습니다. 일반 �
 
 ## Target Users
 
-- White shrimp (Litopenaeus vannamei) aquaculture farmers in Korea, Vietnam, Thailand, USA, and Europe
+- White shrimp (Litopenaeus vannamei) aquaculture farmers in Korea, Vietnam, Indonesia, Thailand, USA, and Europe
 - Aquaculture farm operators and managers
 - Shrimp farm consultants and advisors
 - Fisheries extension officers and researchers
@@ -93,12 +95,9 @@ A: Shrimp365는 흰다리새우 전용으로 특화되어 있습니다. 일반 �
 
 ## Pricing
 
-- **Free**: 1 farm, 5 tanks, AI advisor 3 queries/hour
-- **Basic**: ₩19,900/month — 2 farms, 15 tanks, AI advisor 10 queries/hour, IoT sensor, 30-day reports
-- **Pro**: ₩39,900/month — 5 farms, 50 tanks, AI advisor 30 queries/hour, 5 IoT sensors, full reports, CSV export
-- **Enterprise**: Custom pricing — unlimited farms/tanks, dedicated support
-
-New users receive a free 3-month Pro plan trial automatically on signup.
+- **Free (forever)**: All features included — unlimited farms, tanks, AI advisor, disease diagnosis, inventory, CSV export, full reports
+- **Revenue model**: In-app advertising (banner ads, interstitials)
+- **No paid plans, no subscriptions, no credit card required**
 
 ---
 
@@ -123,10 +122,9 @@ The platform monitors and alerts based on these optimal ranges for Litopenaeus v
 ## Technology
 
 - Web application (mobile-friendly, works on smartphones and tablets)
-- Supports Korean (한국어), English, Vietnamese (Tiếng Việt)
-- Real-time data with automatic refresh (1–5 minute intervals on paid plans)
+- Supports Korean (한국어), English, Vietnamese (Tiếng Việt), Indonesian (Bahasa Indonesia)
+- Real-time data with automatic 1-minute refresh
 - Secure cloud storage via Supabase (AWS infrastructure)
-- Payment via Toss Payments (domestic and international cards)
 - AI powered by OpenAI GPT-4o-mini
 
 ---
@@ -168,4 +166,5 @@ Shrimp365 water quality thresholds are based on peer-reviewed aquaculture resear
 - 한국어 (Korean) — primary
 - English
 - Tiếng Việt (Vietnamese)
+- Bahasa Indonesia (Indonesian)
 - 日本語 (Japanese) — partial

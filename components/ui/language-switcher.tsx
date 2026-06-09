@@ -8,6 +8,7 @@ const LOCALE_FLAGS: Record<Locale, string> = {
   ko: "🇰🇷",
   en: "🇺🇸",
   vi: "🇻🇳",
+  id: "🇮🇩",
 }
 
 interface LanguageSwitcherProps {

@@ -44,6 +44,10 @@ export const metadata: Metadata = {
     // Tiếng Việt (Vietnam)
     "nuôi tôm thẻ chân trắng", "quản lý trang trại tôm", "giám sát chất lượng nước",
     "phần mềm nuôi tôm", "tôm vannamei", "tư vấn AI nuôi tôm",
+    // Bahasa Indonesia (Indonesia — world's largest shrimp producer)
+    "budidaya udang vaname", "aplikasi tambak udang", "monitoring kualitas air tambak",
+    "manajemen tambak udang", "udang vannamei indonesia", "konsultan AI budidaya udang",
+    "software tambak udang", "kualitas air kolam udang", "penyakit udang AHPND",
     // ภาษาไทย (Thailand)
     "การเลี้ยงกุ้งขาว", "ระบบตรวจสอบคุณภาพน้ำ", "ฟาร์มกุ้ง",
     // 日本語 (Japan)
@@ -57,7 +61,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "ko_KR",
-    alternateLocale: ["en_US", "en_GB", "vi_VN", "th_TH", "ja_JP"],
+    alternateLocale: ["en_US", "en_GB", "vi_VN", "id_ID", "th_TH", "ja_JP"],
     url: "https://www.shrimp365.kr",
     siteName: "Shrimp365",
     title: "Shrimp365 | AI Shrimp Farm Management Platform",
@@ -78,6 +82,7 @@ export const metadata: Metadata = {
       "en-US": "https://www.shrimp365.kr",
       "en-GB": "https://www.shrimp365.kr",
       "vi-VN": "https://www.shrimp365.kr",
+      "id-ID": "https://www.shrimp365.kr",
       "th-TH": "https://www.shrimp365.kr",
       "ja-JP": "https://www.shrimp365.kr",
     },
@@ -126,11 +131,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           "@type": "ContactPoint",
           "email": "contact@culiver.ai",
           "contactType": "customer service",
-          "availableLanguage": ["Korean", "English", "Vietnamese"],
+          "availableLanguage": ["Korean", "English", "Vietnamese", "Indonesian"],
         },
         "areaServed": [
           { "@type": "Country", "name": "South Korea" },
           { "@type": "Country", "name": "Vietnam" },
+          { "@type": "Country", "name": "Indonesia" },
           { "@type": "Country", "name": "Thailand" },
           { "@type": "Country", "name": "United States" },
           { "@type": "Country", "name": "Japan" },
@@ -147,7 +153,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         "name": "Shrimp365",
         "description": "흰다리새우 양식 어가를 위한 AI 기반 수질 모니터링·생산 관리·질병 진단 통합 플랫폼",
         "publisher": { "@id": "https://www.shrimp365.kr/#organization" },
-        "inLanguage": ["ko-KR", "en-US", "vi-VN"],
+        "inLanguage": ["ko-KR", "en-US", "vi-VN", "id-ID"],
         "potentialAction": {
           "@type": "SearchAction",
           "target": { "@type": "EntryPoint", "urlTemplate": "https://www.shrimp365.kr/?q={search_term_string}" },
@@ -175,24 +181,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           "Supports Korean, English, Vietnamese (다국어 지원)",
         ],
         "offers": {
-          "@type": "AggregateOffer",
-          "lowPrice": "0",
-          "highPrice": "39900",
-          "priceCurrency": "KRW",
-          "offerCount": 4,
-          "offers": [
-            { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "KRW", "description": "1 farm, 5 tanks, AI advisor 3 queries/hour" },
-            { "@type": "Offer", "name": "Basic", "price": "19900", "priceCurrency": "KRW", "description": "2 farms, 15 tanks, AI advisor 10 queries/hour" },
-            { "@type": "Offer", "name": "Pro", "price": "39900", "priceCurrency": "KRW", "description": "5 farms, 50 tanks, AI advisor 30 queries/hour" },
-            { "@type": "Offer", "name": "Enterprise", "price": "0", "priceCurrency": "KRW", "description": "Unlimited farms/tanks, custom pricing" },
-          ],
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD",
+          "description": "Free forever — unlimited farms, tanks, AI advisor, disease diagnosis, reports. Ad-supported.",
         },
         "author": { "@id": "https://www.shrimp365.kr/#organization" },
-        "inLanguage": ["ko-KR", "en-US", "vi-VN"],
+        "inLanguage": ["ko-KR", "en-US", "vi-VN", "id-ID"],
         "availableLanguage": [
           { "@type": "Language", "name": "Korean", "alternateName": "ko" },
           { "@type": "Language", "name": "English", "alternateName": "en" },
           { "@type": "Language", "name": "Vietnamese", "alternateName": "vi" },
+          { "@type": "Language", "name": "Indonesian", "alternateName": "id" },
         ],
         "audience": {
           "@type": "Audience",
@@ -200,6 +200,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           "geographicArea": [
             { "@type": "Country", "name": "South Korea" },
             { "@type": "Country", "name": "Vietnam" },
+            { "@type": "Country", "name": "Indonesia" },
             { "@type": "Country", "name": "Thailand" },
             { "@type": "Country", "name": "United States" },
             { "@type": "Country", "name": "Japan" },
@@ -240,7 +241,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             "name": "무료로 사용할 수 있나요?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "네, 무료 플랜에서 양식장 1개·수조 최대 3개를 등록하고 수질 기록·양식 일지·AI 어드바이저 기본 기능을 모두 사용할 수 있습니다.",
+              "text": "네, 완전히 무료입니다. Shrimp365는 광고 기반으로 운영되어 양식장·수조 수 제한 없이 수질 기록·양식 일지·AI 어드바이저·질병 진단·리포트 등 모든 기능을 무료로 사용할 수 있습니다.",
             },
           },
           {
@@ -312,7 +313,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             "name": "How does the Shrimp365 AI advisor work?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Shrimp365 AI Advisor is powered by OpenAI GPT-4o-mini and is trained on shrimp-specific aquaculture knowledge. You describe your situation in Korean, English, or Vietnamese — for example, 'ammonia is 0.3 mg/L, what should I do?' — and the AI provides specific corrective actions based on water quality standards for Litopenaeus vannamei. The Free plan allows 3 queries/hour; Pro allows 30 queries/hour.",
+              "text": "Shrimp365 AI Advisor is powered by OpenAI GPT-4o-mini and is trained on shrimp-specific aquaculture knowledge. You describe your situation in Korean, English, Vietnamese, or Indonesian — for example, 'ammonia is 0.3 mg/L, what should I do?' — and the AI provides specific corrective actions based on water quality standards for Litopenaeus vannamei. Completely free with no query limits.",
             },
           },
           {
@@ -329,6 +330,30 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             "acceptedAnswer": {
               "@type": "Answer",
               "text": "새우 폐사의 주요 원인: (1) DO 부족 — 새벽 5mg/L 이하; (2) 암모니아 과다 — 과급이·환수 부족; (3) AHPND(EMS) — Vibrio parahaemolyticus; (4) pH 급변 — 7 이하 또는 9 이상; (5) 염도 급변. Shrimp365에서 수질 기록을 확인하면 폐사 전후 수질 변화를 추적해 원인을 파악할 수 있습니다.",
+            },
+          },
+          {
+            "@type": "Question",
+            "name": "Apakah Shrimp365 tersedia dalam Bahasa Indonesia?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Ya, Shrimp365 mendukung penuh Bahasa Indonesia. Platform ini dirancang khusus untuk petambak udang vaname (Litopenaeus vannamei) di Indonesia, negara penghasil udang terbesar di dunia. Fitur lengkap: monitoring kualitas air, jurnal tambak, diagnosis penyakit AHPND/EHP/WSSV, manajemen inventaris, dan laporan — semuanya gratis.",
+            },
+          },
+          {
+            "@type": "Question",
+            "name": "Bagaimana cara memantau kualitas air tambak udang vaname?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Standar kualitas air optimal untuk udang vaname (Litopenaeus vannamei): suhu 28–32°C, pH 7,5–8,5, DO (oksigen terlarut) ≥5 mg/L, salinitas 10–35 ppt, amonia <0,1 mg/L. Shrimp365 memungkinkan Anda mencatat parameter ini dari smartphone dan memberikan notifikasi otomatis saat nilai keluar dari batas normal.",
+            },
+          },
+          {
+            "@type": "Question",
+            "name": "Is Shrimp365 free to use?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes, Shrimp365 is completely free. All features — unlimited farms, tanks, AI advisor, disease diagnosis, inventory management, and reports — are available at no cost. The platform is supported by advertising revenue.",
             },
           },
         ],
