@@ -7,7 +7,6 @@ import {
 } from "recharts"
 import { MOCK_TANKS, MOCK_WATER_QUALITY, WATER_QUALITY_STANDARDS, MOCK_ALERTS, MOCK_SENSOR_DEVICES, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
-import { PLAN_LIMITS, type Plan, hasExport } from "@/lib/plans"
 import { getAllTanks, getWaterQuality, getLatestWaterQuality, getSensorDevices, resolveAlert } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -226,7 +225,6 @@ function OverviewChart({ chartData }: { chartData: ReturnType<typeof buildChartD
 export default function WaterQualityPage() {
   const { user } = useAuth()
   const { t } = useT()
-  const plan = (user?.plan ?? "free") as Plan
   const [tanks, setTanks] = useState<Tank[]>([])
   const [selectedTankId, setSelectedTankId] = useState<string>("")
   const initialTankIdFromUrl = useRef<string | null>(null)
@@ -312,13 +310,13 @@ export default function WaterQualityPage() {
     if (selectedTankId) loadTankData(selectedTankId)
   }, [selectedTankId, loadTankData])
 
-  // Auto-refresh — interval depends on plan (null = Free, no auto-refresh)
-  const refreshSec = PLAN_LIMITS[plan].autoRefreshSec
+  // Auto-refresh every 60 seconds
+  const refreshSec = 60
   useEffect(() => {
-    if (!selectedTankId || !refreshSec) return
+    if (!selectedTankId) return
     const id = setInterval(() => loadTankData(selectedTankId), refreshSec * 1000)
     return () => clearInterval(id)
-  }, [selectedTankId, loadTankData, refreshSec])
+  }, [selectedTankId, loadTankData])
 
   // Derive a single tank's status from a water quality reading
   function deriveStatus(reading: WaterQualityReading): StatusLevel {
@@ -467,17 +465,16 @@ export default function WaterQualityPage() {
           </div>
 
           <Button
-            onClick={hasExport(plan) ? handleExportCsv : () => window.location.href = "/pricing"}
-            disabled={hasExport(plan) && !readings.length}
+            onClick={handleExportCsv}
+            disabled={!readings.length}
             variant="outline"
             size="sm"
             className="border-border text-muted-foreground hover:bg-accent gap-2 shrink-0 min-h-[44px]"
-            title={hasExport(plan) ? t.waterQuality.csvExport : t.waterQuality.csvProOnly}
-            aria-label={hasExport(plan) ? t.waterQuality.csvExport : t.waterQuality.csvProOnly}
+            title={t.waterQuality.csvExport}
+            aria-label={t.waterQuality.csvExport}
           >
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">CSV</span>
-            {!hasExport(plan) && <span className="text-xs text-amber-500">Basic+</span>}
           </Button>
 
           <a href="/journal" className="shrink-0">

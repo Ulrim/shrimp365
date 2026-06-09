@@ -11,10 +11,8 @@ import { getFarms, getAllTanks, getJournalEntries } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Download, TrendingUp, TrendingDown, Minus, BarChart3, Fish, Droplets, AlertTriangle, BookOpen, ChevronDown, ChevronUp, Calendar, Lock } from "lucide-react"
+import { Download, TrendingUp, TrendingDown, Minus, BarChart3, Fish, Droplets, AlertTriangle, BookOpen, ChevronDown, ChevronUp, Calendar } from "lucide-react"
 import type { Farm, Tank, JournalEntry } from "@/types"
-import { PLAN_LIMITS, hasExport, type Plan } from "@/lib/plans"
-import Link from "next/link"
 import { useT } from "@/lib/i18n-context"
 
 const WEEK_LABELS = ["5/28", "5/29", "5/30", "5/31", "6/1", "6/2", "6/3"]
@@ -516,54 +514,32 @@ export default function ReportsPage() {
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex flex-wrap items-center gap-1 bg-muted border border-border rounded-xl p-1">
             <Calendar className="w-4 h-4 text-muted-foreground mx-2 shrink-0" />
-            {PERIOD_OPTIONS.map(opt => {
-              const currentPlan = (user?.plan ?? "free") as Plan
-              const allowedPeriods = PLAN_LIMITS[currentPlan].reportPeriods as number[]
-              const locked = !allowedPeriods.includes(opt.days)
-              return (
-                <button
-                  key={opt.days}
-                  onClick={() => locked ? null : handlePeriodChange(opt.days)}
-                  title={locked ? t.reports.periodLocked : undefined}
-                  aria-label={locked ? `${t.reports[opt.labelKey]} (잠김)` : `${t.reports[opt.labelKey]} 기간 선택`}
-                  aria-pressed={!locked && periodDays === opt.days}
-                  className={`text-xs px-3 min-h-[44px] rounded-lg transition-colors flex items-center gap-1 ${
-                    locked
-                      ? "text-muted-foreground/40 cursor-not-allowed"
-                      : periodDays === opt.days
-                      ? "bg-ocean-500/30 text-ocean-500 font-medium"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {locked && <Lock className="w-3 h-3" aria-hidden="true" />}
-                  {t.reports[opt.labelKey]}
-                </button>
-              )
-            })}
+            {PERIOD_OPTIONS.map(opt => (
+              <button
+                key={opt.days}
+                onClick={() => handlePeriodChange(opt.days)}
+                aria-label={`${t.reports[opt.labelKey]} 기간 선택`}
+                aria-pressed={periodDays === opt.days}
+                className={`text-xs px-3 min-h-[44px] rounded-lg transition-colors flex items-center gap-1 ${
+                  periodDays === opt.days
+                    ? "bg-ocean-500/30 text-ocean-500 font-medium"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t.reports[opt.labelKey]}
+              </button>
+            ))}
           </div>
           {(hasData || showExample) && (
-            hasExport((user?.plan ?? "free") as Plan) ? (
-              <Button
-                variant="outline"
-                className="border-border text-foreground/80 hover:text-foreground hover:bg-accent min-h-[44px]"
-                onClick={handlePdf}
-                title={t.reports.printSaveHint}
-                aria-label={t.reports.printSave}
-              >
-                <Download className="w-4 h-4 mr-2" aria-hidden="true" />{t.reports.printSave}
-              </Button>
-            ) : (
-              <Link href="/pricing">
-                <Button
-                  variant="outline"
-                  className="border-border text-muted-foreground hover:text-foreground hover:bg-accent min-h-[44px]"
-                  title={t.reports.csvProOnly}
-                  aria-label={`${t.reports.printSave} (Pro 전용)`}
-                >
-                  <Lock className="w-4 h-4 mr-2" aria-hidden="true" />{t.reports.printSave}
-                </Button>
-              </Link>
-            )
+            <Button
+              variant="outline"
+              className="border-border text-foreground/80 hover:text-foreground hover:bg-accent min-h-[44px]"
+              onClick={handlePdf}
+              title={t.reports.printSaveHint}
+              aria-label={t.reports.printSave}
+            >
+              <Download className="w-4 h-4 mr-2" aria-hidden="true" />{t.reports.printSave}
+            </Button>
           )}
         </div>
       </div>

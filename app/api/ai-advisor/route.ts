@@ -1,41 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 import { createServerClient } from "@supabase/ssr"
-import { PLAN_LIMITS, PLAN_LABELS, nextPlan, type Plan } from "@/lib/plans"
-import { isTestAccount } from "@/lib/mock-data"
-
 const openaiKey = process.env.OPENAI_API_KEY
 
 const MAX_QUESTION_LENGTH = 500
 const MAX_CONTEXT_LENGTH = 2000
-
-// Per-user hourly rate limit (keyed by userId:YYYY-MM-DD-HH)
-const aiRateLimitMap = new Map<string, number>()
-
-function getHourKey(userId: string): string {
-  const now = new Date()
-  const date = now.toISOString().split("T")[0]
-  const hour = now.getUTCHours().toString().padStart(2, "0")
-  return `${userId}:${date}:${hour}`
-}
-
-function checkAiRateLimit(userId: string, plan: Plan): boolean {
-  const max = PLAN_LIMITS[plan].aiPerHour
-  if (max === Infinity) return true
-  const key = getHourKey(userId)
-  const count = aiRateLimitMap.get(key) ?? 0
-  if (count >= max) return false
-  aiRateLimitMap.set(key, count + 1)
-  return true
-}
-
-function getRemainingAi(userId: string, plan: Plan): number {
-  const max = PLAN_LIMITS[plan].aiPerHour
-  if (max === Infinity) return Infinity
-  const key = getHourKey(userId)
-  const count = aiRateLimitMap.get(key) ?? 0
-  return Math.max(0, max - count)
-}
 
 export async function POST(req: NextRequest) {
   const supabase = createServerClient(
@@ -53,25 +22,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 })
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("plan")
-    .eq("id", user.id)
-    .single()
-  const plan: Plan = isTestAccount(user.email) ? "pro" : ((profile?.plan as Plan) || "free")
-
-  if (!checkAiRateLimit(user.id, plan)) {
-    const max = PLAN_LIMITS[plan].aiPerHour
-    const next = nextPlan(plan)
-    const upgradeMsg = next
-      ? `${PLAN_LABELS[next]} 플랜으로 업그레이드하면 시간당 ${PLAN_LIMITS[next].aiPerHour === Infinity ? "무제한" : `${PLAN_LIMITS[next].aiPerHour}회`}까지 이용할 수 있습니다.`
-      : "현재 최고 플랜(Enterprise)을 사용 중입니다."
-    return NextResponse.json({
-      error: `시간당 AI 질문 한도(${max}회)를 초과했습니다. ${upgradeMsg}`,
-      upgrade: !!next,
-    }, { status: 429 })
-  }
-
   try {
     const body = await req.json()
     const question = typeof body.question === "string" ? body.question.trim().slice(0, MAX_QUESTION_LENGTH) : ""
@@ -81,16 +31,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "질문이 없습니다." }, { status: 400 })
     }
 
-    const remaining = getRemainingAi(user.id, plan)
-    const remainingPayload = remaining === Infinity ? null : remaining
-
     if (openaiKey) {
       const answer = await callGPT(question, context)
-      return NextResponse.json({ answer, remaining: remainingPayload })
+      return NextResponse.json({ answer, remaining: null })
     }
 
     const answer = buildAnswer(question, context)
-    return NextResponse.json({ answer, remaining: remainingPayload })
+    return NextResponse.json({ answer, remaining: null })
   } catch {
     return NextResponse.json({ error: "응답 생성에 실패했습니다." }, { status: 500 })
   }

@@ -11,8 +11,6 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { BrainCircuit, Send, AlertTriangle, Lightbulb, TrendingUp, Activity, Sparkles, User, Bot, ChevronRight, Download } from "lucide-react"
 import { formatDateTime } from "@/lib/utils"
-import { UpgradeModal } from "@/components/ui/upgrade-modal"
-import type { Plan } from "@/lib/plans"
 import { useT } from "@/lib/i18n-context"
 
 interface Message {
@@ -208,8 +206,6 @@ export default function AIAdvisorPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
-  const [upgradeOpen, setUpgradeOpen] = useState(false)
-  const [aiRemaining, setAiRemaining] = useState<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -351,13 +347,7 @@ export default function AIAdvisorPage() {
         body: JSON.stringify({ question, context: buildContext() }),
       })
 
-      if (res.status === 429) {
-        setUpgradeOpen(true)
-        return
-      }
-
       const json = await res.json()
-      if (json.remaining !== undefined && json.remaining !== null) setAiRemaining(json.remaining)
       const response = json.answer || generateDefaultResponse(question, tanks.length, alerts.length)
       setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: "assistant", content: response, timestamp: new Date() }])
     } catch {
@@ -497,12 +487,6 @@ export default function AIAdvisorPage() {
 
   return (
     <>
-    <UpgradeModal
-      open={upgradeOpen}
-      onClose={() => setUpgradeOpen(false)}
-      currentPlan={(user?.plan ?? "free") as Plan}
-      limitType="ai"
-    />
     <div className="flex flex-col gap-3 animate-fade-in lg:h-[calc(100vh-8rem)]">
 
       {/* ── Header ── */}
@@ -515,17 +499,6 @@ export default function AIAdvisorPage() {
           <p className="text-xs text-muted-foreground truncate">{t.aiAdvisor.subtitle}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {aiRemaining !== null && (
-            <span className={`hidden sm:block text-xs px-2 py-1 rounded-lg border ${
-              aiRemaining <= 2
-                ? "bg-red-50 border-red-200 text-red-600"
-                : aiRemaining <= 5
-                ? "bg-amber-50 border-amber-200 text-amber-600"
-                : "bg-muted border-border text-muted-foreground"
-            }`}>
-              이번 시간 {aiRemaining}회 남음
-            </span>
-          )}
           <button
             onClick={downloadChatAsPDF}
             disabled={messages.length <= 1}

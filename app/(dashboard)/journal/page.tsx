@@ -3,8 +3,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { MOCK_JOURNALS, MOCK_DIAGNOSES, MOCK_TANKS, MOCK_INVENTORY_ITEMS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
-import { PLAN_LIMITS, type Plan, hasExport } from "@/lib/plans"
-import { UpgradeModal } from "@/components/ui/upgrade-modal"
 import {
   getJournalEntries, createJournalEntry, updateJournalEntry, deleteJournalEntry,
   getAllTanks, insertWaterQuality,
@@ -300,7 +298,6 @@ const D_PAGE = 20
 export default function JournalPage() {
   const { user } = useAuth()
   const { t } = useT()
-  const plan = (user?.plan ?? "free") as Plan
   const mock = isTestAccount(user?.email)
 
   const [pageTab, setPageTab] = useState<"journal" | "diagnosis">("journal")
@@ -353,14 +350,6 @@ export default function JournalPage() {
   const [dEditError, setDEditError] = useState<string | null>(null)
   const [dDeleteTarget, setDDeleteTarget] = useState<DiagnosisResult | null>(null)
   const [dDeleting, setDDeleting] = useState(false)
-  const [dUpgradeOpen, setDUpgradeOpen] = useState(false)
-
-  const diagLimit = PLAN_LIMITS[plan].diagPerMonth
-  const now = new Date()
-  const thisMonthCount = diagnoses.filter(d => {
-    const dt = new Date(d.tested_at)
-    return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth()
-  }).length
 
   // ── Journal loaders ──
 
@@ -435,7 +424,6 @@ export default function JournalPage() {
   }
 
   const handleJCsvExport = () => {
-    if (!hasExport(plan)) { window.location.href = "/pricing"; return }
     exportToCsv(journals.map(j => ({
       날짜: j.date, 수조: j.tank_name,
       급이량_kg: j.feeding_amount, 사료종류: j.feed_type, 급이횟수: j.feeding_times,
@@ -610,7 +598,6 @@ export default function JournalPage() {
   }
 
   const handleDCsvExport = () => {
-    if (!hasExport(plan)) { window.location.href = "/pricing"; return }
     exportToCsv(diagnoses.map(d => ({
       수조: d.tank_name, 검사항목: d.test_type, 결과: d.result,
       비브리오수_CFU_mL: d.vibrio_count, 병원성비율_pct: d.pathogenic_ratio,
@@ -629,9 +616,6 @@ export default function JournalPage() {
 
   async function handleDSubmit(e: React.FormEvent) {
     e.preventDefault(); setDSubmitError(null)
-    if (diagLimit !== Infinity && thisMonthCount >= diagLimit) {
-      setDDialogOpen(false); setDUpgradeOpen(true); return
-    }
     if (!dForm.tank_id || !dForm.test_type || !dForm.result || !dForm.risk_level) {
       setDSubmitError("필수 항목을 모두 입력해주세요."); return
     }
@@ -765,7 +749,6 @@ export default function JournalPage() {
                   className="border-border text-muted-foreground hover:text-foreground hover:bg-accent"
                 >
                   <Download className="w-4 h-4 mr-1" />CSV
-                  {!hasExport(plan) && <span className="ml-1 text-xs text-amber-400">Basic+</span>}
                 </Button>
               )}
               <Button
@@ -785,25 +768,12 @@ export default function JournalPage() {
                   variant="outline"
                   onClick={handleDCsvExport}
                   className="border-border text-muted-foreground hover:text-foreground hover:bg-accent"
-                  title={hasExport(plan) ? t.diagnosis.csvExport : t.diagnosis.csvProOnly}
+                  title={t.diagnosis.csvExport}
                 >
                   <Download className="w-4 h-4 mr-1" />CSV
-                  {!hasExport(plan) && <span className="ml-1 text-xs text-amber-400">Basic+</span>}
                 </Button>
               )}
-              {diagLimit !== Infinity && (
-                <span className={`text-xs px-2 py-1 rounded-lg border ${
-                  thisMonthCount >= diagLimit
-                    ? "bg-red-500/10 border-red-500/30 text-red-400"
-                    : thisMonthCount >= diagLimit * 0.7
-                    ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                    : "bg-muted border-border text-muted-foreground"
-                }`}>
-                  {t.diagnosis.thisMonth} {thisMonthCount}/{diagLimit}회
-                </span>
-              )}
               <Dialog open={dDialogOpen} onOpenChange={(open) => {
-                if (open && diagLimit !== Infinity && thisMonthCount >= diagLimit) { setDUpgradeOpen(true); return }
                 setDDialogOpen(open)
                 if (open) { setDForm(EMPTY_DIAG_FORM); setDSubmitError(null) }
               }}>
@@ -1447,8 +1417,6 @@ export default function JournalPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Upgrade Modal */}
-      <UpgradeModal open={dUpgradeOpen} onClose={() => setDUpgradeOpen(false)} currentPlan={plan} limitType="diag" />
     </div>
   )
 }

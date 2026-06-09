@@ -15,7 +15,6 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
 import { LanguageSwitcher } from "@/components/ui/language-switcher"
-import { PLAN_LABELS, PLAN_COLORS, isPaidPlan } from "@/lib/plans"
 import { isMonitorAccount } from "@/lib/mock-data"
 
 export function Sidebar() {
@@ -132,19 +131,12 @@ export function Sidebar() {
           {!collapsed && <span>{t.nav.settings}</span>}
         </button>
 
-        {/* Plan badge + upgrade CTA */}
+        {/* Free badge */}
         {!collapsed && (
           <div className="px-3 py-2">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", PLAN_COLORS[user?.plan ?? "free"])}>
-                {PLAN_LABELS[user?.plan ?? "free"]}
-              </span>
-              {!isPaidPlan(user?.plan ?? "free") && (
-                <Link href="/pricing" className="flex items-center gap-1 text-xs text-ocean-500 hover:text-ocean-600 transition-colors">
-                  <Zap className="w-3 h-3" />{t.nav.upgrade}
-                </Link>
-              )}
-            </div>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gradient-to-r from-ocean-500 to-teal-500 text-white">
+              Free
+            </span>
           </div>
         )}
 

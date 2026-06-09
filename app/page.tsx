@@ -110,7 +110,7 @@ const TESTIMONIALS = [
 const FAQS = [
   { q: "스마트폰에서도 사용할 수 있나요?", a: "네, 모바일 최적화 웹앱입니다. 스마트폰 브라우저에서 바로 접속해 사용하실 수 있고, 홈 화면에 추가하면 앱처럼 쓸 수 있습니다." },
   { q: "수질 측정 장비가 없어도 되나요?", a: "네! 직접 측정한 값을 손으로 입력해도 모든 기능을 사용할 수 있습니다. IoT 센서 연동은 선택 사항입니다." },
-  { q: "무료 플랜으로 어디까지 쓸 수 있나요?", a: "양식장 1개, 수조 5개까지 무료로 이용하실 수 있습니다. AI 어드바이저도 하루 5회 무료로 사용 가능합니다." },
+  { q: "정말 무료인가요? 숨겨진 비용은 없나요?", a: "네, 완전히 무료입니다. Shrimp365는 광고 수익으로 운영되므로 구독료·결제 정보가 전혀 필요 없습니다. 모든 기능을 제한 없이 이용하실 수 있습니다." },
   { q: "데이터 보안은 안전한가요?", a: "Supabase(AWS 기반) 서버에 암호화하여 저장됩니다. 내 데이터는 나만 볼 수 있고, 어디에도 공유되지 않습니다." },
   { q: "기존 데이터를 가져올 수 있나요?", a: "현재는 직접 입력 방식만 지원합니다. 이전 엑셀·노트 데이터는 순차적으로 입력하시거나, 오늘부터 새로 시작하셔도 됩니다." },
 ]
@@ -430,73 +430,41 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Pricing preview ────────────────────────────────────────────────── */}
+      {/* ─── Free & Ad-based section ────────────────────────────────────────── */}
       <section id="pricing" className="py-24 bg-muted">
-        <div className="max-w-5xl mx-auto px-4">
-          <div className="text-center mb-14">
-            <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-full px-4 py-1.5 mb-4">
-              <Zap className="w-3.5 h-3.5 text-emerald-600" />
-              <span className="text-sm text-emerald-700">요금제</span>
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-bold mb-3">규모에 맞는 플랜 선택</h2>
-            <p className="text-muted-foreground">무료로 시작하고 필요할 때 업그레이드하세요</p>
+        <div className="max-w-3xl mx-auto px-4 text-center">
+          <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-full px-4 py-1.5 mb-6">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span className="text-sm text-emerald-700">완전 무료 · 광고 기반</span>
           </div>
-
-          <div className="grid sm:grid-cols-3 gap-5">
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4">모든 기능, 영원히 무료</h2>
+          <p className="text-muted-foreground mb-10">
+            구독료·결제 정보 없이 전체 기능을 사용하세요.<br />
+            Shrimp365는 광고 수익으로 운영됩니다.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-4 text-left mb-10">
             {[
-              {
-                name: "Free", price: "₩0", sub: "영구 무료", highlight: false,
-                features: ["양식장 1개", "수조 5개", "AI 어드바이저 하루 5회", "질병 진단 월 3회", "기본 수질 모니터링"],
-              },
-              {
-                name: "Basic", price: "₩9,900", sub: "월 / 1인", highlight: true,
-                features: ["양식장 2개", "수조 15개", "AI 어드바이저 하루 15회", "질병 진단 월 10회", "IoT 센서 1개", "자동 새로고침 (5분)", "CSV 내보내기"],
-              },
-              {
-                name: "Pro", price: "₩19,900", sub: "월 / 1인", highlight: false,
-                features: ["양식장 5개", "수조 50개", "AI 어드바이저 하루 30회", "질병 진단 무제한", "IoT 센서 5개", "자동 새로고침 (1분)", "90일 리포트"],
-              },
-            ].map(plan => (
-              <div key={plan.name} className={`relative rounded-2xl p-6 flex flex-col ${
-                plan.highlight
-                  ? "bg-gradient-to-b from-ocean-500 to-teal-600 border-2 border-ocean-400 shadow-xl shadow-ocean-500/20"
-                  : "bg-card border border-border shadow-sm"
-              }`}>
-                {plan.highlight && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-ocean-500 to-teal-500 text-white text-xs font-bold px-4 py-1 rounded-full">
-                    가장 인기
-                  </div>
-                )}
-                <div className="mb-5">
-                  <p className={`text-base font-semibold mb-2 ${plan.highlight ? "text-white" : "text-foreground"}`}>{plan.name}</p>
-                  <p className={`text-3xl font-black ${plan.highlight ? "text-white" : "text-foreground"}`}>{plan.price}</p>
-                  <p className={`text-xs mt-1 ${plan.highlight ? "text-white/80" : "text-muted-foreground"}`}>{plan.sub}</p>
-                </div>
-                <ul className="space-y-2.5 flex-1 mb-6">
-                  {plan.features.map(f => (
-                    <li key={f} className={`flex items-center gap-2 text-sm ${plan.highlight ? "text-white/90" : "text-muted-foreground"}`}>
-                      <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${plan.highlight ? "text-white" : "text-emerald-500"}`} />{f}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  href="/signup"
-                  className={`block text-center py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                    plan.highlight
-                      ? "bg-white text-ocean-600 hover:bg-ocean-50 shadow-md"
-                      : "border border-border hover:bg-muted text-foreground"
-                  }`}
-                >
-                  {plan.price === "₩0" ? "무료로 시작" : "지금 시작하기"}
-                </Link>
+              "수질 모니터링 · 이상 알림",
+              "AI 어드바이저 무제한",
+              "양식 일지 · 생산 관리",
+              "질병 진단 (AHPND·EHP·WSSV)",
+              "재고 관리 · 자동 알림",
+              "7일·30일·90일 리포트 · CSV",
+              "복수 양식장·수조 무제한",
+              "IoT 센서 연동",
+            ].map(f => (
+              <div key={f} className="flex items-center gap-3 bg-card border border-border rounded-xl px-4 py-3">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span className="text-sm font-medium text-foreground">{f}</span>
               </div>
             ))}
           </div>
-
-          <p className="text-center text-muted-foreground text-sm mt-6">
-            더 많은 수조가 필요하신가요?{" "}
-            <Link href="/pricing" className="text-ocean-600 hover:text-ocean-700 underline">전체 요금제 보기 →</Link>
-          </p>
+          <Link
+            href="/signup"
+            className="inline-flex items-center gap-2 bg-ocean-600 hover:bg-ocean-700 text-white font-semibold px-8 py-3.5 rounded-xl transition-colors text-lg"
+          >
+            무료로 시작하기 <ArrowRight className="w-5 h-5" />
+          </Link>
         </div>
       </section>
 
