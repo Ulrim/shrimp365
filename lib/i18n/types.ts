@@ -598,4 +598,51 @@ export interface Dict {
     serverErrorMsg: string
     goHome: string
   }
+  landing: {
+    navFeatures: string
+    navHowItWorks: string
+    navPricing: string
+    navFaq: string
+    navDemo: string
+    navStart: string
+    heroBadge: string
+    heroH1: string
+    heroH1Highlight: string
+    heroSubtitle: string
+    heroCta: string
+    heroDemo: string
+    heroBenefit1: string
+    heroBenefit2: string
+    heroBenefit3: string
+    heroAiDone: string
+    heroAlertBadge: string
+    scrollHint: string
+    stats: { value: string; label: string }[]
+    featBadge: string
+    featH2: string
+    featSubtitle: string
+    features: { title: string; desc: string; tags: string[] }[]
+    howBadge: string
+    howH2: string
+    howSubtitle: string
+    steps: { title: string; desc: string; tip: string }[]
+    testimonialH2: string
+    testimonialSubtitle: string
+    testimonialPlanSuffix: string
+    freeBadge: string
+    freeH2: string
+    freeSubtitle: string
+    freeItems: string[]
+    freeCta: string
+    faqH2: string
+    faqSubtitle: string
+    faqs: { q: string; a: string }[]
+    ctaH2: string
+    ctaSubtitle: string
+    ctaStart: string
+    ctaDemo: string
+    ctaMobileHint: string
+    ctaSecureHint: string
+    footerDesc: string
+  }
 }
