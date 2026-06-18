@@ -146,7 +146,7 @@ export default function LandingPage() {
   }, [user, router])
 
   function handleDemo() {
-    window.location.href = "/api/demo"
+    window.location.href = "/demo"
   }
 
   return (
