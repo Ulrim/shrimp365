@@ -1,6 +1,6 @@
 import { MetadataRoute } from "next"
 
-const PUBLIC_PATHS = ["/", "/guide", "/login", "/signup", "/pricing", "/privacy", "/terms", "/refund", "/opengraph-image", "/sitemap.xml"]
+const PUBLIC_PATHS = ["/", "/en", "/vi", "/id", "/demo", "/guide", "/login", "/signup", "/pricing", "/privacy", "/terms", "/refund", "/opengraph-image", "/sitemap.xml"]
 const PRIVATE_PATHS = ["/home", "/dashboard", "/water-quality", "/journal", "/farms", "/diagnosis", "/production", "/inventory", "/ai-advisor", "/reports", "/admin", "/help", "/record", "/onboarding", "/api/", "/_next/"]
 
 export default function robots(): MetadataRoute.Robots {

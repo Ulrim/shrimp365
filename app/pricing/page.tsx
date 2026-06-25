@@ -8,7 +8,7 @@ import {
 
 const FEATURES = [
   { icon: Droplets, label: "수질 모니터링", desc: "수온·pH·DO·암모니아 등 9가지 항목, 기준 초과 즉시 알림" },
-  { icon: BrainCircuit, label: "AI 어드바이저", desc: "수질 이상 원인 분석·대처법을 한국어/영어/베트남어로 안내" },
+  { icon: BrainCircuit, label: "AI 어드바이저", desc: "수질 이상 원인 분석·대처법을 한국어/영어/베트남어/인도네시아어로 안내" },
   { icon: BookOpen, label: "양식 일지", desc: "급이·폐사·환수·소독·미생물 기록을 단계별로 간편 입력" },
   { icon: FlaskConical, label: "질병 진단", desc: "AHPND·EHP·WSSV·Vibrio 검사 결과 기록 및 추이 분석" },
   { icon: Package, label: "재고 관리", desc: "사료·미생물제·소독제 재고 추적, 소진 전 자동 알림" },

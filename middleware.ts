@@ -33,8 +33,21 @@ function detectLocale(request: NextRequest): Locale | null {
   return headerToLocale(request.headers.get("accept-language"))
 }
 
+// Public marketing routes served per-language under a URL prefix (Korean = root).
+const MARKETING_LOCALE_PREFIXES = ["en", "vi", "id"]
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  // Localized marketing URLs (/en, /vi, /id …) — expose the locale to the root
+  // layout via the x-locale request header so it can server-render the correct
+  // <html lang> and content. These pages are public, so no auth check needed.
+  const seg = pathname.split("/")[1]
+  if (MARKETING_LOCALE_PREFIXES.includes(seg)) {
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set("x-locale", seg)
+    return NextResponse.next({ request: { headers: requestHeaders } })
+  }
 
   const isProtected = PROTECTED_PATHS.some(p => pathname === p || pathname.startsWith(p + "/"))
   const isAuthPage = pathname === "/login" || pathname === "/signup" || pathname === "/verify-email" || pathname === "/forgot-password" || pathname === "/reset-password"

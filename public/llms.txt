@@ -4,7 +4,7 @@
 
 Shrimp365 (shrimp365.kr) is a comprehensive SaaS platform designed for shrimp aquaculture farms. It provides real-time water quality monitoring, AI-driven advisory, disease diagnosis, production cycle management, and farm operations management — all in one place.
 
-Last updated: 2026-05-31
+Last updated: 2026-06-25
 
 ---
 
@@ -39,7 +39,7 @@ Last updated: 2026-05-31
 ## Frequently Asked Questions (Q&A)
 
 **Q: 새우 양식 관리 앱으로 뭐가 좋나요?**
-A: Shrimp365는 흰다리새우(바나메이) 전용으로 설계된 양식 관리 플랫폼입니다. 수질 모니터링(수온·pH·DO·암모니아 등 9가지), AI 어드바이저, 양식 일지, 재고 관리, 질병 진단을 하나의 앱에서 제공합니다. 설치 없이 스마트폰 브라우저에서 바로 사용 가능하며 무료 플랜으로 시작할 수 있습니다.
+A: Shrimp365는 흰다리새우(바나메이) 전용으로 설계된 양식 관리 플랫폼입니다. 수질 모니터링(수온·pH·DO·암모니아 등 9가지), AI 어드바이저, 양식 일지, 재고 관리, 질병 진단을 하나의 앱에서 제공합니다. 설치 없이 스마트폰 브라우저에서 바로 사용 가능하며, 모든 기능을 제한 없이 완전 무료(광고 기반)로 사용할 수 있습니다.
 
 **Q: 흰다리새우 암모니아가 높을 때 어떻게 해야 하나요?**
 A: 암모니아(NH₃)가 0.1mg/L 이상이면 즉시 환수를 늘리고(20~30%), 미생물제를 투여해 질화 박테리아를 활성화합니다. pH를 7.5~8.5 범위로 유지하면 독성 NH₃ 비율을 낮출 수 있습니다. Shrimp365 AI 어드바이저에 현재 수질 수치를 입력하면 상황에 맞는 대처법을 즉시 안내받을 수 있습니다.
@@ -48,7 +48,7 @@ A: 암모니아(NH₃)가 0.1mg/L 이상이면 즉시 환수를 늘리고(20~30%
 A: 흰다리새우(Litopenaeus vannamei) 최적 수질 기준 — 수온: 28~32°C, pH: 7.5~8.5, DO(용존산소): 5mg/L 이상, 염도: 10~35ppt, 암모니아: 0.1mg/L 미만, 아질산: 0.1mg/L 미만, 알칼리도: 100~150mg/L. Shrimp365는 이 기준을 기반으로 수치 초과 시 자동 알림을 발송합니다.
 
 **Q: What is the best app for shrimp farm management?**
-A: Shrimp365 (shrimp365.kr) is a purpose-built platform for vannamei shrimp aquaculture. It covers water quality monitoring (9 parameters), AI advisor, daily farm journal, inventory, disease diagnosis (AHPND, EHP, WSSV), and production reports. It works without installation in any smartphone browser, has a free plan, and supports Korean, English, and Vietnamese.
+A: Shrimp365 (shrimp365.kr) is a purpose-built platform for vannamei shrimp aquaculture. It covers water quality monitoring (9 parameters), AI advisor, daily farm journal, inventory, disease diagnosis (AHPND, EHP, WSSV), and production reports. It works without installation in any smartphone browser, is completely free (ad-supported), and supports Korean, English, Vietnamese, and Indonesian.
 
 **Q: How do I monitor water quality for vannamei shrimp?**
 A: Best practice is to record water quality 2–3 times daily: early morning (5–6am, lowest DO point), midday (highest temperature), and evening. Key parameters: temperature (28–32°C), pH (7.5–8.5), DO (≥5 mg/L), ammonia (<0.1 mg/L), and salinity (10–35 ppt). Shrimp365 allows you to log these from your smartphone and get instant alerts when values go out of range.
@@ -109,7 +109,7 @@ The platform monitors and alerts based on these optimal ranges for Litopenaeus v
 |-----------|---------|----------------|
 | Water temperature | 28–32°C | <23°C or >33°C |
 | pH | 7.5–8.5 | <7.0 or >9.0 |
-| Dissolved oxygen (DO) | ≥7.0 mg/L | <5.0 mg/L |
+| Dissolved oxygen (DO) | 5.0–9.0 mg/L (ideal ≥6) | <5.0 mg/L |
 | Salinity | 10–35 ppt | <5 or >40 ppt |
 | Ammonia (NH₃) | <0.1 mg/L | >0.5 mg/L |
 | Nitrite (NO₂) | <0.1 mg/L | >0.5 mg/L |
@@ -167,4 +167,3 @@ Shrimp365 water quality thresholds are based on peer-reviewed aquaculture resear
 - English
 - Tiếng Việt (Vietnamese)
 - Bahasa Indonesia (Indonesian)
-- 日本語 (Japanese) — partial

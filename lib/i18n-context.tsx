@@ -39,12 +39,20 @@ function writeCookie(locale: Locale) {
 export function I18nProvider({
   children,
   defaultLocale,
+  urlLocale = null,
 }: {
   children: ReactNode
   defaultLocale: Locale
+  /**
+   * When set (localized marketing URLs like /en, /id), the URL locale is
+   * authoritative: it overrides any stored preference so server and client
+   * render the same language and crawlers see consistent content.
+   */
+  urlLocale?: Locale | null
 }) {
-  // Priority: localStorage > cookie (server-set from IP) > prop default
+  // Priority: URL locale (locked) > localStorage > cookie (server-set from IP) > prop default
   const [locale, setLocaleState] = useState<Locale>(() => {
+    if (urlLocale) return urlLocale
     return readStoredLocale() ?? readCookieLocale() ?? defaultLocale
   })
 
@@ -59,6 +67,15 @@ export function I18nProvider({
   useEffect(() => {
     document.documentElement.lang = locale
   }, [locale])
+
+  // On a locale-locked URL, persist the choice so the rest of the app (and
+  // future root visits) follow the language the visitor explicitly landed on.
+  useEffect(() => {
+    if (!urlLocale) return
+    setLocaleState(urlLocale)
+    writeCookie(urlLocale)
+    try { localStorage.setItem(STORAGE_KEY, urlLocale) } catch {}
+  }, [urlLocale])
 
   return (
     <I18nContext.Provider value={{ locale, t: DICTS[locale], setLocale }}>

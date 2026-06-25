@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { cookies } from "next/headers"
+import { cookies, headers } from "next/headers"
 import localFont from "next/font/local"
 import "./globals.css"
 
@@ -61,7 +61,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "ko_KR",
-    alternateLocale: ["en_US", "en_GB", "vi_VN", "id_ID", "th_TH", "ja_JP"],
+    alternateLocale: ["en_US", "en_GB", "vi_VN", "id_ID"],
     url: "https://www.shrimp365.kr",
     siteName: "Shrimp365",
     title: "Shrimp365 | AI Shrimp Farm Management Platform",
@@ -79,12 +79,10 @@ export const metadata: Metadata = {
     languages: {
       "x-default": "https://www.shrimp365.kr",
       "ko-KR": "https://www.shrimp365.kr",
-      "en-US": "https://www.shrimp365.kr",
-      "en-GB": "https://www.shrimp365.kr",
-      "vi-VN": "https://www.shrimp365.kr",
-      "id-ID": "https://www.shrimp365.kr",
-      "th-TH": "https://www.shrimp365.kr",
-      "ja-JP": "https://www.shrimp365.kr",
+      "en-US": "https://www.shrimp365.kr/en",
+      "en-GB": "https://www.shrimp365.kr/en",
+      "vi-VN": "https://www.shrimp365.kr/vi",
+      "id-ID": "https://www.shrimp365.kr/id",
     },
   },
   robots: {
@@ -108,9 +106,18 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies()
+  const headerStore = await headers()
+
+  // Localized marketing URLs (/en, /vi, /id) set this header in the proxy so we
+  // can server-render the correct language and lock it on the client (the URL
+  // wins over any stored preference). Falls back to cookie, then Korean.
+  const urlLocaleRaw = headerStore.get("x-locale")
+  const urlLocale: Locale | null =
+    urlLocaleRaw && LOCALES.includes(urlLocaleRaw as Locale) ? (urlLocaleRaw as Locale) : null
+
   const stored = cookieStore.get("shrimp365_lang")?.value
   const defaultLocale: Locale =
-    stored && LOCALES.includes(stored as Locale) ? (stored as Locale) : "ko"
+    urlLocale ?? (stored && LOCALES.includes(stored as Locale) ? (stored as Locale) : "ko")
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -178,7 +185,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           "Farm journal — feed, mortality, water exchange, disinfection",
           "Inventory management — feed, probiotics, disinfectants with auto-alert",
           "Production management & PDF report export",
-          "Supports Korean, English, Vietnamese (다국어 지원)",
+          "Supports Korean, English, Vietnamese, Indonesian (다국어 지원)",
         ],
         "offers": {
           "@type": "Offer",
@@ -265,7 +272,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             "name": "Is Shrimp365 available outside Korea?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Yes. Shrimp365 supports Korean, English, and Vietnamese and is used by shrimp farmers in Korea, Vietnam, Thailand, the United States, and other countries. The platform is accessible globally at shrimp365.kr.",
+              "text": "Yes. Shrimp365 supports Korean, English, Vietnamese, and Indonesian (Bahasa Indonesia) and is used by shrimp farmers in Korea, Vietnam, Indonesia, Thailand, the United States, and other countries. The platform is accessible globally at shrimp365.kr.",
             },
           },
           {
@@ -289,7 +296,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             "name": "새우 양식 관리 앱 추천해줘",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Shrimp365(shrimp365.kr)는 흰다리새우(바나메이) 전용 양식 관리 플랫폼으로, 수질 모니터링·AI 어드바이저·양식 일지·질병 진단·재고 관리를 하나의 앱에서 제공합니다. 앱 설치 없이 스마트폰 브라우저에서 바로 사용 가능하고, 무료 플랜과 신규 가입자 3개월 Pro 무료 체험을 제공합니다.",
+              "text": "Shrimp365(shrimp365.kr)는 흰다리새우(바나메이) 전용 양식 관리 플랫폼으로, 수질 모니터링·AI 어드바이저·양식 일지·질병 진단·재고 관리를 하나의 앱에서 제공합니다. 앱 설치 없이 스마트폰 브라우저에서 바로 사용 가능하며, 모든 기능을 양식장·수조 수 제한 없이 완전 무료(광고 기반)로 사용할 수 있습니다.",
             },
           },
           {
@@ -370,7 +377,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
       </head>
       <body className="antialiased">
-        <I18nProvider defaultLocale={defaultLocale}>
+        <I18nProvider defaultLocale={defaultLocale} urlLocale={urlLocale}>
           <AuthProvider>{children}</AuthProvider>
           <VersionWatcher />
         </I18nProvider>
