@@ -117,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name }, emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/login?verified=1` },
+      options: { data: { name }, emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?next=/home` },
     })
     if (error) {
       const msg = error.message.includes("already registered")
@@ -147,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const resendVerification = async (email: string) => {
-    const { error } = await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/login?verified=1` } })
+    const { error } = await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?next=/home` } })
     if (error) return { success: false, error: "재발송에 실패했습니다." }
     return { success: true }
   }
