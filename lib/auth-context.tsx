@@ -5,6 +5,16 @@ import { User as SupabaseUser, Session } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
 import { isTestAccount } from "@/lib/mock-data"
 
+// Base URL for auth email links. Falls back to the current origin so signup /
+// verification / password-reset links never become "undefined/..." if the env
+// var is missing on the deploy target.
+function siteUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (typeof window !== "undefined" ? window.location.origin : "https://www.shrimp365.kr")
+  )
+}
+
 interface AppUser {
   id: string
   email: string
@@ -117,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name }, emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?next=/home` },
+      options: { data: { name }, emailRedirectTo: `${siteUrl()}/auth/callback?next=/home` },
     })
     if (error) {
       const msg = error.message.includes("already registered")
@@ -147,14 +157,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const resendVerification = async (email: string) => {
-    const { error } = await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?next=/home` } })
+    const { error } = await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: `${siteUrl()}/auth/callback?next=/home` } })
     if (error) return { success: false, error: "재발송에 실패했습니다." }
     return { success: true }
   }
 
   const sendPasswordReset = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password`,
+      redirectTo: `${siteUrl()}/reset-password`,
     })
     if (error) return { success: false, error: "재설정 메일 발송에 실패했습니다." }
     return { success: true }

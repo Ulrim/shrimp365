@@ -1,5 +1,20 @@
 import type { NextConfig } from "next";
 
+// Google ad/analytics domains — only widened in CSP when AdSense is enabled.
+const adsEnabled = !!process.env.NEXT_PUBLIC_ADSENSE_CLIENT
+const adScript = adsEnabled
+  ? " https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.googleadservices.com https://partner.googleadservices.com https://*.google.com"
+  : ""
+const adFrame = adsEnabled
+  ? " https://googleads.g.doubleclick.net https://*.doubleclick.net https://*.google.com"
+  : ""
+const adImg = adsEnabled
+  ? " https://*.googlesyndication.com https://*.g.doubleclick.net https://*.google.com"
+  : ""
+const adConnect = adsEnabled
+  ? " https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.g.doubleclick.net https://*.google.com"
+  : ""
+
 const securityHeaders = [
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -14,12 +29,12 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      `script-src 'self' 'unsafe-inline' 'unsafe-eval'${adScript}`,
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
+      `img-src 'self' data: blob:${adImg}`,
       "font-src 'self'",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.dodopayments.com https://checkout.dodopayments.com",
-      "frame-src 'self' https://*.dodopayments.com https://checkout.dodopayments.com",
+      `connect-src 'self' https://*.supabase.co wss://*.supabase.co${adConnect}`,
+      `frame-src 'self'${adFrame}`,
       "frame-ancestors 'none'",
     ].join("; "),
   },
@@ -28,6 +43,7 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // standalone은 Docker(NAS) 전용 — Vercel 환경에서는 자동 비활성화
   output: process.env.VERCEL ? undefined : "standalone",
+  poweredByHeader: false,
   async headers() {
     return [
       {

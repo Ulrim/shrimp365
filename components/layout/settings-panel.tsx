@@ -80,7 +80,6 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const [deleteMsg, setDeleteMsg] = useState<string | null>(null)
 
   // Subscription portal
-  const [portalLoading, setPortalLoading] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -191,18 +190,6 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       setDeleteMsg(err instanceof Error ? err.message : t.settings.deleteAccount)
     } finally {
       setDeleting(false)
-    }
-  }
-
-  async function handleOpenPortal() {
-    setPortalLoading(true)
-    try {
-      const res = await fetch("/api/dodo/portal", { method: "POST" })
-      const json = await res.json()
-      if (json.url) window.open(json.url, "_blank")
-      else setPortalLoading(false)
-    } catch {
-      setPortalLoading(false)
     }
   }
 

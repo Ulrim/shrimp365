@@ -1,0 +1,5 @@
+# Google AdSense — authorized digital sellers
+# Replace pub-0000000000000000 with your real AdSense publisher ID
+# (Account → Settings → Account information), then redeploy.
+# Until then ads are disabled and this line has no effect.
+google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0

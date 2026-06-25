@@ -61,7 +61,7 @@ export default function TermsPage() {
                 <li><a href="#ko-terms-3" className="hover:text-ocean-400 transition-colors">제3조 (약관의 효력 및 변경)</a></li>
                 <li><a href="#ko-terms-4" className="hover:text-ocean-400 transition-colors">제4조 (서비스 이용)</a></li>
                 <li><a href="#ko-terms-5" className="hover:text-ocean-400 transition-colors">제5조 (이용자의 의무)</a></li>
-                <li><a href="#ko-terms-6" className="hover:text-ocean-400 transition-colors">제6조 (구독 및 결제)</a></li>
+                <li><a href="#ko-terms-6" className="hover:text-ocean-400 transition-colors">제6조 (요금 및 광고)</a></li>
                 <li><a href="#ko-terms-7" className="hover:text-ocean-400 transition-colors">제7조 (책임의 한계)</a></li>
                 <li><a href="#ko-terms-8" className="hover:text-ocean-400 transition-colors">제8조 (문의)</a></li>
               </ol>
@@ -88,7 +88,7 @@ export default function TermsPage() {
                 <h2 className="text-xl font-semibold text-foreground mb-3">제4조 (서비스 이용)</h2>
                 <ul className="space-y-2 list-disc list-inside">
                   <li>서비스는 가입 후 즉시 이용 가능합니다.</li>
-                  <li>Free 플랜은 무료로 제공되며, 유료 플랜(Basic, Pro)은 월정액 구독 방식으로 제공됩니다.</li>
+                  <li>모든 기능은 양식장·수조 수 제한 없이 완전 무료로 제공됩니다.</li>
                   <li>회사는 서비스 품질 향상을 위해 사전 공지 후 서비스 내용을 변경할 수 있습니다.</li>
                   <li>천재지변, 시스템 점검 등 불가피한 사유로 서비스가 일시 중단될 수 있습니다.</li>
                 </ul>
@@ -101,13 +101,12 @@ export default function TermsPage() {
                   <li>계정 및 비밀번호의 관리 책임은 이용자에게 있습니다.</li>
                 </ul>
               </section>
-              <section id="ko-terms-6" aria-label="구독 및 결제">
-                <h2 className="text-xl font-semibold text-foreground mb-3">제6조 (구독 및 결제)</h2>
+              <section id="ko-terms-6" aria-label="요금 및 광고">
+                <h2 className="text-xl font-semibold text-foreground mb-3">제6조 (요금 및 광고)</h2>
                 <ul className="space-y-2 list-disc list-inside">
-                  <li>유료 플랜은 월 단위로 자동 갱신됩니다.</li>
-                  <li>결제는 DODO Payments를 통해 처리되며, 신용카드 등 DODO Payments가 지원하는 결제 수단을 이용할 수 있습니다.</li>
-                  <li>구독 취소는 다음 결제일 이전에 설정 페이지에서 언제든지 가능합니다.</li>
-                  <li>환불 정책은 별도의 환불 정책 페이지를 따릅니다.</li>
+                  <li>서비스는 별도의 요금이나 구독 없이 완전 무료로 제공됩니다.</li>
+                  <li>회사는 서비스 운영 비용 충당을 위해 서비스 내에 광고를 게재할 수 있습니다.</li>
+                  <li>유료 결제가 없으므로 환불이 발생하지 않습니다.</li>
                 </ul>
               </section>
               <section id="ko-terms-7" aria-label="책임의 한계">
@@ -135,7 +134,7 @@ export default function TermsPage() {
                 <li><a href="#en-terms-3" className="hover:text-ocean-400 transition-colors">Article 3 (Effectiveness &amp; Amendments)</a></li>
                 <li><a href="#en-terms-4" className="hover:text-ocean-400 transition-colors">Article 4 (Use of Service)</a></li>
                 <li><a href="#en-terms-5" className="hover:text-ocean-400 transition-colors">Article 5 (User Obligations)</a></li>
-                <li><a href="#en-terms-6" className="hover:text-ocean-400 transition-colors">Article 6 (Subscription &amp; Payment)</a></li>
+                <li><a href="#en-terms-6" className="hover:text-ocean-400 transition-colors">Article 6 (Fees &amp; Advertising)</a></li>
                 <li><a href="#en-terms-7" className="hover:text-ocean-400 transition-colors">Article 7 (Limitation of Liability)</a></li>
                 <li><a href="#en-terms-8" className="hover:text-ocean-400 transition-colors">Article 8 (Contact)</a></li>
               </ol>
@@ -162,7 +161,7 @@ export default function TermsPage() {
                 <h2 className="text-xl font-semibold text-foreground mb-3">Article 4 (Use of Service)</h2>
                 <ul className="space-y-2 list-disc list-inside">
                   <li>The Service is available immediately upon registration.</li>
-                  <li>The Free plan is provided at no cost; paid plans (Basic, Pro) are offered on a monthly subscription basis.</li>
+                  <li>All features are provided completely free of charge, with no limit on the number of farms or tanks.</li>
                   <li>The Company may modify Service content with prior notice to improve quality.</li>
                   <li>The Service may be temporarily suspended due to force majeure or scheduled maintenance.</li>
                 </ul>
@@ -175,13 +174,12 @@ export default function TermsPage() {
                   <li>Users are responsible for managing their account credentials.</li>
                 </ul>
               </section>
-              <section id="en-terms-6" aria-label="Subscription and Payment">
-                <h2 className="text-xl font-semibold text-foreground mb-3">Article 6 (Subscription &amp; Payment)</h2>
+              <section id="en-terms-6" aria-label="Fees and Advertising">
+                <h2 className="text-xl font-semibold text-foreground mb-3">Article 6 (Fees &amp; Advertising)</h2>
                 <ul className="space-y-2 list-disc list-inside">
-                  <li>Paid plans auto-renew monthly.</li>
-                  <li>Payments are processed via DODO Payments using credit cards or other supported payment methods.</li>
-                  <li>Subscriptions may be cancelled at any time from the settings page before the next billing date.</li>
-                  <li>Refunds are governed by the separate Refund Policy.</li>
+                  <li>The Service is provided completely free of charge, with no fees or subscriptions.</li>
+                  <li>The Company may display advertising within the Service to cover operating costs.</li>
+                  <li>As there are no paid charges, no refunds apply.</li>
                 </ul>
               </section>
               <section id="en-terms-7" aria-label="Limitation of Liability">

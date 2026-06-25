@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { cookies, headers } from "next/headers"
 import localFont from "next/font/local"
 import "./globals.css"
@@ -18,6 +18,7 @@ import { type Locale, LOCALES } from "@/lib/i18n"
 import { VersionWatcher } from "@/components/version-watcher"
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
+import { AdSenseScript } from "@/components/ads/adsense-script"
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.shrimp365.kr"),
@@ -102,6 +103,13 @@ export const metadata: Metadata = {
       "naver-site-verification": "e17088aeef9f7e6ce4357be73f5a7d2591018cbd",
     },
   },
+}
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#0ea5e9",
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -383,6 +391,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </I18nProvider>
         <Analytics />
         <SpeedInsights />
+        <AdSenseScript />
       </body>
     </html>
   )

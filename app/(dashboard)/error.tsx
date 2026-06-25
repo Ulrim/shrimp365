@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import { AlertCircle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useT } from "@/lib/i18n-context"
 
 export default function DashboardError({
   error,
@@ -11,8 +12,10 @@ export default function DashboardError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const { t } = useT()
+
   useEffect(() => {
-    console.error(error)
+    console.error(error.message)
   }, [error])
 
   return (
@@ -21,9 +24,9 @@ export default function DashboardError({
         <AlertCircle className="w-7 h-7 text-red-400" />
       </div>
       <div>
-        <p className="text-white font-semibold text-lg">페이지 로드 중 오류가 발생했습니다</p>
-        <p className="text-slate-400 text-sm mt-1 max-w-sm">
-          일시적인 오류입니다. 잠시 후 다시 시도해주세요.
+        <p className="text-foreground font-semibold text-lg">{t.error.serverError}</p>
+        <p className="text-muted-foreground text-sm mt-1 max-w-sm">
+          {t.error.serverErrorMsg}
         </p>
       </div>
       <Button
@@ -31,7 +34,7 @@ export default function DashboardError({
         className="bg-ocean-500 hover:bg-ocean-600 text-white gap-2"
       >
         <RefreshCw className="w-4 h-4" />
-        다시 시도
+        {t.common.reset}
       </Button>
     </div>
   )

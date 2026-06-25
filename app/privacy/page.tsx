@@ -73,17 +73,16 @@ export default function PrivacyPage() {
                 <ul className="space-y-2 list-disc list-inside">
                   <li><strong className="text-foreground">필수 항목:</strong> 이메일 주소, 이름(닉네임)</li>
                   <li><strong className="text-foreground">서비스 이용 중 생성 정보:</strong> 양식장·수조 정보, 수질 측정 데이터, 양식 일지, 질병 진단 기록</li>
-                  <li><strong className="text-foreground">결제 정보:</strong> 결제는 DODO Payments를 통해 처리되며, 카드 정보는 회사가 직접 저장하지 않습니다.</li>
-                  <li><strong className="text-foreground">자동 수집 정보:</strong> 접속 IP, 브라우저 정보, 서비스 이용 기록</li>
+                  <li><strong className="text-foreground">자동 수집 정보:</strong> 접속 IP, 브라우저 정보, 서비스 이용 기록, 광고·분석 쿠키 식별자</li>
                 </ul>
               </section>
               <section id="ko-section-2" aria-label="개인정보 수집 및 이용 목적">
                 <h2 className="text-xl font-semibold text-foreground mb-3">제2조 (개인정보 수집 및 이용 목적)</h2>
                 <ul className="space-y-2 list-disc list-inside">
                   <li>서비스 제공 및 계정 관리</li>
-                  <li>구독 결제 처리 및 환불 처리</li>
                   <li>AI 어드바이저 기능 제공</li>
                   <li>서비스 품질 개선 및 통계 분석</li>
+                  <li>광고 게재 및 서비스 운영(본 서비스는 광고 수익으로 무료 제공됩니다)</li>
                   <li>고객 문의 응대 및 공지사항 전달</li>
                 </ul>
               </section>
@@ -100,8 +99,9 @@ export default function PrivacyPage() {
                 <p className="mb-3">회사는 원칙적으로 이용자의 개인정보를 외부에 제공하지 않습니다. 단, 아래의 경우는 예외입니다.</p>
                 <ul className="space-y-2 list-disc list-inside">
                   <li><strong className="text-foreground">Supabase:</strong> 데이터베이스 및 인증 서비스 (서버 소재지: 미국)</li>
-                  <li><strong className="text-foreground">DODO Payments:</strong> 결제 처리 (서버 소재지: 미국)</li>
-                  <li><strong className="text-foreground">Anthropic:</strong> AI 어드바이저 기능 (서버 소재지: 미국)</li>
+                  <li><strong className="text-foreground">OpenAI:</strong> AI 어드바이저 기능 (서버 소재지: 미국)</li>
+                  <li><strong className="text-foreground">Vercel:</strong> 서비스 호스팅 및 이용 통계 분석(Analytics) (서버 소재지: 미국)</li>
+                  <li><strong className="text-foreground">Google AdSense:</strong> 광고 게재 및 광고 성과 측정 (서버 소재지: 미국)</li>
                   <li>법령에 의거하거나 수사기관의 요청이 있는 경우</li>
                 </ul>
               </section>
@@ -121,8 +121,9 @@ export default function PrivacyPage() {
                 </div>
               </section>
               <section id="ko-section-7" aria-label="쿠키 사용">
-                <h2 className="text-xl font-semibold text-foreground mb-3">제7조 (쿠키 사용)</h2>
-                <p>회사는 서비스 제공을 위해 쿠키를 사용합니다. 이용자는 브라우저 설정을 통해 쿠키 저장을 거부할 수 있으나, 이 경우 서비스 일부 기능이 제한될 수 있습니다.</p>
+                <h2 className="text-xl font-semibold text-foreground mb-3">제7조 (쿠키 및 광고)</h2>
+                <p className="mb-3">회사는 서비스 제공을 위해 필수 쿠키를 사용하며, 이용 통계 분석 및 광고 게재를 위해 분석·광고 쿠키를 사용할 수 있습니다. 이용자는 브라우저 설정을 통해 쿠키 저장을 거부할 수 있으나, 이 경우 서비스 일부 기능이 제한될 수 있습니다.</p>
+                <p>본 서비스는 Google AdSense 등 제3자 광고 네트워크를 통해 광고를 게재할 수 있으며, 해당 광고 사업자는 쿠키를 사용해 이용자의 관심사 기반 맞춤형 광고를 제공할 수 있습니다. 이용자는 <a href="https://www.google.com/settings/ads" className="text-ocean-400 hover:underline" target="_blank" rel="noopener noreferrer">Google 광고 설정</a>에서 맞춤형 광고를 거부할 수 있습니다.</p>
               </section>
             </div>
           </article>
@@ -152,17 +153,16 @@ export default function PrivacyPage() {
                 <ul className="space-y-2 list-disc list-inside">
                   <li><strong className="text-foreground">Required:</strong> Email address, name (or nickname)</li>
                   <li><strong className="text-foreground">Generated during use:</strong> Farm and tank information, water quality measurement data, farming journals, disease diagnosis records</li>
-                  <li><strong className="text-foreground">Payment information:</strong> Payments are processed via DODO Payments; the Company does not store card details directly.</li>
-                  <li><strong className="text-foreground">Automatically collected:</strong> IP address, browser information, service usage logs</li>
+                  <li><strong className="text-foreground">Automatically collected:</strong> IP address, browser information, service usage logs, advertising and analytics cookie identifiers</li>
                 </ul>
               </section>
               <section id="en-section-2" aria-label="Purpose of Collection">
                 <h2 className="text-xl font-semibold text-foreground mb-3">Article 2 (Purpose of Collection)</h2>
                 <ul className="space-y-2 list-disc list-inside">
                   <li>Service provision and account management</li>
-                  <li>Subscription billing and refund processing</li>
                   <li>AI advisor feature operation</li>
                   <li>Service quality improvement and statistical analysis</li>
+                  <li>Serving advertising and operating the service (this service is provided free of charge, funded by advertising revenue)</li>
                   <li>Customer support and announcements</li>
                 </ul>
               </section>
@@ -179,8 +179,9 @@ export default function PrivacyPage() {
                 <p className="mb-3">The Company does not share personal data with third parties in principle, with the following exceptions:</p>
                 <ul className="space-y-2 list-disc list-inside">
                   <li><strong className="text-foreground">Supabase:</strong> Database and authentication services (servers located in the US)</li>
-                  <li><strong className="text-foreground">DODO Payments:</strong> Payment processing (servers located in the US)</li>
-                  <li><strong className="text-foreground">Anthropic:</strong> AI advisor feature (servers located in the US)</li>
+                  <li><strong className="text-foreground">OpenAI:</strong> AI advisor feature (servers located in the US)</li>
+                  <li><strong className="text-foreground">Vercel:</strong> Service hosting and usage analytics (servers located in the US)</li>
+                  <li><strong className="text-foreground">Google AdSense:</strong> Advertising delivery and ad performance measurement (servers located in the US)</li>
                   <li>When required by law or a lawful request from authorities</li>
                 </ul>
               </section>
@@ -200,8 +201,9 @@ export default function PrivacyPage() {
                 </div>
               </section>
               <section id="en-section-7" aria-label="Cookie Policy">
-                <h2 className="text-xl font-semibold text-foreground mb-3">Article 7 (Cookie Policy)</h2>
-                <p>The Company uses cookies to provide the Service. Users may disable cookies in their browser settings, though some features may become unavailable as a result.</p>
+                <h2 className="text-xl font-semibold text-foreground mb-3">Article 7 (Cookies &amp; Advertising)</h2>
+                <p className="mb-3">The Company uses essential cookies to provide the Service, and may use analytics and advertising cookies for usage measurement and ad delivery. Users may disable cookies in their browser settings, though some features may become unavailable as a result.</p>
+                <p>This service may display ads through third-party ad networks such as Google AdSense, which may use cookies to serve interest-based personalized advertising. Users can opt out of personalized advertising at <a href="https://www.google.com/settings/ads" className="text-ocean-400 hover:underline" target="_blank" rel="noopener noreferrer">Google Ad Settings</a>.</p>
               </section>
             </div>
           </article>
