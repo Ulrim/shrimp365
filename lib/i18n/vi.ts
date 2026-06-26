@@ -648,6 +648,11 @@ export const vi: Dict = {
     testimonialH2: "Được tin dùng bởi nông dân nuôi tôm thực sự",
     testimonialSubtitle: "Nghe từ những nông dân sử dụng Shrimp365 mỗi ngày",
     testimonialPlanSuffix: "Gói",
+    testimonials: [
+      { name: "Nguyễn T.H.", location: "Đồng bằng sông Cửu Long", text: "Tôi từng ghi chép số liệu nước vào sổ mỗi ngày. Shrimp365 cảnh báo ngay khi có bất thường — tôi đã giảm được rất nhiều thiệt hại từ khi sử dụng.", plan: "Free" },
+      { name: "Trần V.M.", location: "Cà Mau", text: "Tư vấn AI rất hữu ích. Khi amoni tăng cao, nó cho tôi biết chính xác cần làm gì. Ngay cả người mới cũng có thể làm theo hướng dẫn từng bước.", plan: "Free" },
+      { name: "Lê T.H.", location: "Bạc Liêu", text: "Quản lý kho tiết kiệm cho tôi nhiều thời gian nhất. Tôi được thông báo trước khi thức ăn hết, không còn gặp vấn đề về nguồn cung nữa.", plan: "Free" },
+    ],
     freeBadge: "Hoàn toàn miễn phí · Hỗ trợ bởi quảng cáo",
     freeH2: "Tất cả tính năng, Miễn phí mãi mãi",
     freeSubtitle: "Sử dụng mọi tính năng mà không cần đăng ký hoặc thông tin thanh toán.\nShrimp365 được hỗ trợ bởi doanh thu quảng cáo.",

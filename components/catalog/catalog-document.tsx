@@ -147,9 +147,9 @@ export function CatalogDocument() {
           </Text>
 
           <View style={s.coverBadge}>
-            <Text style={s.coverBadgeT}>🎉 지금 가입 시 Pro 3개월 무료</Text>
+            <Text style={s.coverBadgeT}>🎉 모든 기능 완전 무료</Text>
           </View>
-          <Text style={{ fontSize: 9, color: C.muted }}>신용카드 불필요 · 언제든 취소 가능</Text>
+          <Text style={{ fontSize: 9, color: C.muted }}>신용카드 불필요 · 광고 기반 무료 서비스</Text>
 
           <Text style={s.coverUrl}>www.shrimp365.kr</Text>
         </View>
@@ -233,7 +233,7 @@ export function CatalogDocument() {
             {
               n: 1, color: C.ocean,
               title: "회원가입 & 로그인",
-              desc: "www.shrimp365.kr 접속 후 이메일로 가입. 인증 메일 클릭 한 번으로 완료. 현재 가입하면 Pro 3개월 무료!",
+              desc: "www.shrimp365.kr 접속 후 이메일로 가입. 인증 메일 클릭 한 번으로 완료. 모든 기능이 완전 무료로 제공됩니다.",
               tip: "로그인 화면의 '데모 체험' 버튼을 누르면 가입 없이 모든 기능을 미리 볼 수 있습니다.",
             },
             {
@@ -282,46 +282,28 @@ export function CatalogDocument() {
         <View style={[s.sectionHeader, { backgroundColor: C.white, borderBottomColor: C.ocean }]}>
           <Text style={s.sectionNum}>03  PRICING & CONTACT</Text>
           <Text style={[s.sectionTitle, { color: C.dark }]}>요금제 & 연락처</Text>
-          <Text style={[s.sectionSub, { color: C.slate3 }]}>지금 가입하면 Pro 3개월 무료 — 결제 없이 바로 시작</Text>
+          <Text style={[s.sectionSub, { color: C.slate3 }]}>모든 기능 완전 무료 — 광고 기반 서비스, 결제 없이 바로 시작</Text>
         </View>
 
         <View style={s.bodyLight}>
-          {/* 요금제 */}
-          <View style={s.pricingRow}>
-            {/* Free */}
-            <View style={[s.pricingCard, { backgroundColor: C.light2 }]}>
-              <Text style={[s.pricingPlan, { color: C.slate3 }]}>Free</Text>
-              <Text style={[s.pricingPrice, { color: C.dark }]}>₩0</Text>
-              <Text style={[s.pricingPer, { color: C.muted }]}>/월</Text>
-              <View style={[s.pricingDivider, { backgroundColor: C.light }]} />
-              {["양식장 1개", "수조 5개", "AI 하루 5회", "기본 기록"].map(f => (
-                <Text key={f} style={[s.pricingItem, { color: C.slate3 }]}>✓  {f}</Text>
-              ))}
+          {/* 요금제 — 완전 무료 */}
+          <View style={[s.pricingCard, { backgroundColor: C.ocean, marginTop: 16 }]}>
+            <View style={{ backgroundColor: C.teal, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3, marginBottom: 8 }}>
+              <Text style={{ fontSize: 9, color: C.white, fontFamily: "Helvetica-Bold" }}>🎉 광고 기반 · 완전 무료</Text>
             </View>
-            {/* Basic */}
-            <View style={[s.pricingCard, { backgroundColor: "#eff6ff" }]}>
-              <Text style={[s.pricingPlan, { color: C.ocean }]}>Basic</Text>
-              <Text style={[s.pricingPrice, { color: C.dark }]}>₩19,900</Text>
-              <Text style={[s.pricingPer, { color: C.muted }]}>/월</Text>
-              <View style={[s.pricingDivider, { backgroundColor: C.light2 }]} />
-              {["양식장 2개", "수조 15개", "AI 하루 15회", "센서 연동 1대", "30일 리포트"].map(f => (
-                <Text key={f} style={[s.pricingItem, { color: C.slate2 }]}>✓  {f}</Text>
+            <Text style={[s.pricingPlan, { color: C.white, fontSize: 16 }]}>모든 기능 · 영구 무료</Text>
+            <Text style={[s.pricingPrice, { color: C.white, fontSize: 32 }]}>₩0</Text>
+            <Text style={[s.pricingPer, { color: "#bae6fd", marginBottom: 16 }]}>구독료 없음 · 결제 정보 불필요</Text>
+            <View style={[s.pricingDivider, { backgroundColor: "#0284c7" }]} />
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4 }}>
+              {[
+                "수질 모니터링 · 이상 알림", "AI 어드바이저 무제한",
+                "양식 일지 · 생산 관리", "질병 진단 (AHPND·EHP·WSSV)",
+                "재고 관리 · 자동 알림", "7/30/90일 리포트 · CSV",
+                "양식장 · 수조 무제한", "IoT 센서 연동",
+              ].map(f => (
+                <Text key={f} style={[s.pricingItem, { color: C.white, width: "48%" }]}>✓  {f}</Text>
               ))}
-              <Text style={s.pricingPromo}>🎉 3개월 무료 체험 가능</Text>
-            </View>
-            {/* Pro */}
-            <View style={[s.pricingCard, { backgroundColor: C.ocean }]}>
-              <View style={{ backgroundColor: C.teal, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, marginBottom: 6 }}>
-                <Text style={{ fontSize: 8, color: C.white, fontFamily: "Helvetica-Bold" }}>⚡ 인기</Text>
-              </View>
-              <Text style={[s.pricingPlan, { color: C.white }]}>Pro</Text>
-              <Text style={[s.pricingPrice, { color: C.white }]}>₩39,900</Text>
-              <Text style={[s.pricingPer, { color: "#bae6fd" }]}>/월</Text>
-              <View style={[s.pricingDivider, { backgroundColor: "#0284c7" }]} />
-              {["양식장 5개", "수조 50개", "AI 하루 30회", "센서 연동 5대", "CSV 내보내기", "7/30/90일 리포트"].map(f => (
-                <Text key={f} style={[s.pricingItem, { color: C.white }]}>✓  {f}</Text>
-              ))}
-              <Text style={[s.pricingPromo, { color: C.white }]}>🎉 3개월 무료 체험 가능</Text>
             </View>
           </View>
 
@@ -375,7 +357,7 @@ export function CatalogDocument() {
                 지금 무료로 시작하세요
               </Text>
               <Text style={{ fontSize: 9, color: "#bae6fd" }}>
-                3개월 Pro 무료 · 카드 등록 불필요 · 언제든 취소
+                완전 무료 · 카드 등록 불필요 · 광고 기반 서비스
               </Text>
             </View>
             <View style={{ backgroundColor: C.white, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 }}>

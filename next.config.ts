@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 // Google ad/analytics domains — only widened in CSP when AdSense is enabled.
 const adsEnabled = !!process.env.NEXT_PUBLIC_ADSENSE_CLIENT
@@ -54,4 +55,12 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  // Only upload source maps if SENTRY_AUTH_TOKEN is available (CI/CD env).
+  silent: true,
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+  automaticVercelMonitors: !!process.env.VERCEL,
+});

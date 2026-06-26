@@ -4,41 +4,39 @@ import Link from "next/link"
 import { useState } from "react"
 import { Waves, ArrowLeft } from "lucide-react"
 
+type Lang = "ko" | "en" | "vi" | "id"
+
 export default function TermsPage() {
-  const [lang, setLang] = useState<"ko" | "en">("ko")
+  const [lang, setLang] = useState<Lang>("ko")
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-3xl mx-auto px-4 py-12">
         {/* 상단 네비게이션 */}
-        <nav aria-label={lang === "ko" ? "페이지 네비게이션" : "Page navigation"} className="flex items-center justify-between mb-10">
+        <nav aria-label="Page navigation" className="flex items-center justify-between mb-10">
           <Link
             href="/"
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors min-h-[44px]"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm">{lang === "ko" ? "홈으로" : "Home"}</span>
+            <span className="text-sm">{lang === "ko" ? "홈으로" : lang === "vi" ? "Trang chủ" : lang === "id" ? "Beranda" : "Home"}</span>
           </Link>
           <div className="flex items-center gap-3">
             <div
               className="flex rounded-lg overflow-hidden border border-border text-sm"
               role="group"
-              aria-label={lang === "ko" ? "언어 선택" : "Language selection"}
+              aria-label="Language selection"
             >
-              <button
-                onClick={() => setLang("ko")}
-                className={`px-3 min-h-[44px] transition-colors ${lang === "ko" ? "bg-ocean-500 text-white" : "text-muted-foreground hover:text-foreground"}`}
-                aria-pressed={lang === "ko"}
-              >
-                KO
-              </button>
-              <button
-                onClick={() => setLang("en")}
-                className={`px-3 min-h-[44px] transition-colors ${lang === "en" ? "bg-ocean-500 text-white" : "text-muted-foreground hover:text-foreground"}`}
-                aria-pressed={lang === "en"}
-              >
-                EN
-              </button>
+              {(["ko", "en", "vi", "id"] as Lang[]).map(l => (
+                <button
+                  key={l}
+                  onClick={() => setLang(l)}
+                  className={`px-3 min-h-[44px] transition-colors uppercase ${lang === l ? "bg-ocean-500 text-white" : "text-muted-foreground hover:text-foreground"}`}
+                  aria-pressed={lang === l}
+                >
+                  {l}
+                </button>
+              ))}
             </div>
             <div className="flex items-center gap-2">
               <Waves className="w-5 h-5 text-ocean-400" />
@@ -47,7 +45,63 @@ export default function TermsPage() {
           </div>
         </nav>
 
-        {lang === "ko" ? (
+        {lang === "vi" ? (
+          <article aria-label="Điều khoản Dịch vụ">
+            <h1 className="text-3xl font-bold mb-2">Điều khoản Dịch vụ</h1>
+            <p className="text-muted-foreground text-sm mb-10">Cập nhật lần cuối: 9 tháng 5, 2026</p>
+            <nav aria-label="Mục lục" className="mb-10 p-4 bg-card border border-border rounded-xl">
+              <p className="text-sm font-semibold mb-2 text-foreground">Mục lục</p>
+              <ol className="text-sm space-y-1 text-muted-foreground list-decimal list-inside">
+                <li><a href="#vi-terms-1" className="hover:text-ocean-400 transition-colors">Điều 1 (Mục đích)</a></li>
+                <li><a href="#vi-terms-2" className="hover:text-ocean-400 transition-colors">Điều 2 (Định nghĩa)</a></li>
+                <li><a href="#vi-terms-3" className="hover:text-ocean-400 transition-colors">Điều 3 (Hiệu lực &amp; Sửa đổi)</a></li>
+                <li><a href="#vi-terms-4" className="hover:text-ocean-400 transition-colors">Điều 4 (Sử dụng Dịch vụ)</a></li>
+                <li><a href="#vi-terms-5" className="hover:text-ocean-400 transition-colors">Điều 5 (Nghĩa vụ Người dùng)</a></li>
+                <li><a href="#vi-terms-6" className="hover:text-ocean-400 transition-colors">Điều 6 (Phí &amp; Quảng cáo)</a></li>
+                <li><a href="#vi-terms-7" className="hover:text-ocean-400 transition-colors">Điều 7 (Giới hạn Trách nhiệm)</a></li>
+                <li><a href="#vi-terms-8" className="hover:text-ocean-400 transition-colors">Điều 8 (Liên hệ)</a></li>
+              </ol>
+            </nav>
+            <div className="space-y-8 text-foreground/80 leading-relaxed">
+              <section id="vi-terms-1"><h2 className="text-xl font-semibold text-foreground mb-3">Điều 1 (Mục đích)</h2><p>Các Điều khoản Dịch vụ này điều chỉnh quyền, nghĩa vụ và trách nhiệm giữa CULIVER INC ("Công ty") và người dùng dịch vụ quản lý nuôi tôm thông minh Shrimp365 ("Dịch vụ").</p></section>
+              <section id="vi-terms-2"><h2 className="text-xl font-semibold text-foreground mb-3">Điều 2 (Định nghĩa)</h2><ul className="space-y-2 list-disc list-inside"><li>"Dịch vụ" bao gồm tất cả các tính năng do Công ty cung cấp, bao gồm giám sát chất lượng nước, nhật ký nuôi trồng, chẩn đoán bệnh và tư vấn AI.</li><li>"Người dùng" là bất kỳ cá nhân hoặc pháp nhân nào đồng ý với các Điều khoản này và sử dụng Dịch vụ.</li><li>"Tài khoản" là sự kết hợp địa chỉ email và mật khẩu do Người dùng thiết lập để truy cập Dịch vụ.</li></ul></section>
+              <section id="vi-terms-3"><h2 className="text-xl font-semibold text-foreground mb-3">Điều 3 (Hiệu lực &amp; Sửa đổi)</h2><p>Các Điều khoản này có hiệu lực khi được đăng trên Dịch vụ hoặc thông báo cho Người dùng. Công ty có thể sửa đổi các Điều khoản khi cần thiết; các Điều khoản sửa đổi có hiệu lực sau 7 ngày thông báo.</p></section>
+              <section id="vi-terms-4"><h2 className="text-xl font-semibold text-foreground mb-3">Điều 4 (Sử dụng Dịch vụ)</h2><ul className="space-y-2 list-disc list-inside"><li>Dịch vụ có thể sử dụng ngay sau khi đăng ký.</li><li>Tất cả các tính năng được cung cấp hoàn toàn miễn phí, không giới hạn số trang trại hoặc ao.</li><li>Công ty có thể sửa đổi nội dung Dịch vụ với thông báo trước để cải thiện chất lượng.</li><li>Dịch vụ có thể tạm thời bị gián đoạn do bất khả kháng hoặc bảo trì theo lịch.</li></ul></section>
+              <section id="vi-terms-5"><h2 className="text-xl font-semibold text-foreground mb-3">Điều 5 (Nghĩa vụ Người dùng)</h2><ul className="space-y-2 list-disc list-inside"><li>Người dùng không được mạo danh người khác hoặc đăng ký thông tin sai.</li><li>Người dùng không được sử dụng Dịch vụ vi phạm pháp luật hoặc trật tự công cộng.</li><li>Người dùng chịu trách nhiệm quản lý thông tin xác thực tài khoản của mình.</li></ul></section>
+              <section id="vi-terms-6"><h2 className="text-xl font-semibold text-foreground mb-3">Điều 6 (Phí &amp; Quảng cáo)</h2><ul className="space-y-2 list-disc list-inside"><li>Dịch vụ được cung cấp hoàn toàn miễn phí, không có phí hoặc đăng ký nào.</li><li>Công ty có thể hiển thị quảng cáo trong Dịch vụ để trang trải chi phí vận hành.</li><li>Vì không có phí thanh toán nên không áp dụng hoàn tiền.</li></ul></section>
+              <section id="vi-terms-7"><h2 className="text-xl font-semibold text-foreground mb-3">Điều 7 (Giới hạn Trách nhiệm)</h2><p>Công ty làm rõ rằng kết quả tư vấn AI và chẩn đoán chất lượng nước trong Dịch vụ chỉ mang tính tham khảo. Người dùng chịu trách nhiệm cuối cùng về các quyết định nuôi trồng dựa trên thông tin đó. Công ty không chịu trách nhiệm về thiệt hại gián tiếp phát sinh từ việc sử dụng Dịch vụ.</p></section>
+              <section id="vi-terms-8"><h2 className="text-xl font-semibold text-foreground mb-3">Điều 8 (Liên hệ)</h2><p>Để được hỗ trợ, vui lòng liên hệ:</p><p className="mt-2">Email: <a href="mailto:contact@culiver.ai" className="text-ocean-400 hover:underline">contact@culiver.ai</a></p></section>
+            </div>
+          </article>
+        ) : lang === "id" ? (
+          <article aria-label="Syarat Layanan">
+            <h1 className="text-3xl font-bold mb-2">Syarat Layanan</h1>
+            <p className="text-muted-foreground text-sm mb-10">Terakhir diperbarui: 9 Mei 2026</p>
+            <nav aria-label="Daftar isi" className="mb-10 p-4 bg-card border border-border rounded-xl">
+              <p className="text-sm font-semibold mb-2 text-foreground">Daftar Isi</p>
+              <ol className="text-sm space-y-1 text-muted-foreground list-decimal list-inside">
+                <li><a href="#id-terms-1" className="hover:text-ocean-400 transition-colors">Pasal 1 (Tujuan)</a></li>
+                <li><a href="#id-terms-2" className="hover:text-ocean-400 transition-colors">Pasal 2 (Definisi)</a></li>
+                <li><a href="#id-terms-3" className="hover:text-ocean-400 transition-colors">Pasal 3 (Berlaku &amp; Amandemen)</a></li>
+                <li><a href="#id-terms-4" className="hover:text-ocean-400 transition-colors">Pasal 4 (Penggunaan Layanan)</a></li>
+                <li><a href="#id-terms-5" className="hover:text-ocean-400 transition-colors">Pasal 5 (Kewajiban Pengguna)</a></li>
+                <li><a href="#id-terms-6" className="hover:text-ocean-400 transition-colors">Pasal 6 (Biaya &amp; Iklan)</a></li>
+                <li><a href="#id-terms-7" className="hover:text-ocean-400 transition-colors">Pasal 7 (Batasan Tanggung Jawab)</a></li>
+                <li><a href="#id-terms-8" className="hover:text-ocean-400 transition-colors">Pasal 8 (Kontak)</a></li>
+              </ol>
+            </nav>
+            <div className="space-y-8 text-foreground/80 leading-relaxed">
+              <section id="id-terms-1"><h2 className="text-xl font-semibold text-foreground mb-3">Pasal 1 (Tujuan)</h2><p>Syarat Layanan ini mengatur hak, kewajiban, dan tanggung jawab antara CULIVER INC ("Perusahaan") dan pengguna layanan manajemen budidaya udang pintar Shrimp365 ("Layanan").</p></section>
+              <section id="id-terms-2"><h2 className="text-xl font-semibold text-foreground mb-3">Pasal 2 (Definisi)</h2><ul className="space-y-2 list-disc list-inside"><li>"Layanan" berarti semua fitur yang disediakan oleh Perusahaan, termasuk pemantauan kualitas air, jurnal budidaya, diagnosis penyakit, dan konsultan AI.</li><li>"Pengguna" adalah individu atau badan hukum yang menyetujui Syarat ini dan menggunakan Layanan.</li><li>"Akun" adalah kombinasi alamat email dan kata sandi yang ditetapkan Pengguna untuk mengakses Layanan.</li></ul></section>
+              <section id="id-terms-3"><h2 className="text-xl font-semibold text-foreground mb-3">Pasal 3 (Berlaku &amp; Amandemen)</h2><p>Syarat ini berlaku ketika diposting di Layanan atau diberitahukan kepada Pengguna. Perusahaan dapat mengubah Syarat ini sesuai kebutuhan; Syarat yang diubah berlaku 7 hari setelah pemberitahuan.</p></section>
+              <section id="id-terms-4"><h2 className="text-xl font-semibold text-foreground mb-3">Pasal 4 (Penggunaan Layanan)</h2><ul className="space-y-2 list-disc list-inside"><li>Layanan tersedia segera setelah pendaftaran.</li><li>Semua fitur disediakan sepenuhnya gratis, tanpa batas jumlah tambak atau kolam.</li><li>Perusahaan dapat memodifikasi konten Layanan dengan pemberitahuan sebelumnya untuk meningkatkan kualitas.</li><li>Layanan mungkin terganggu sementara karena force majeure atau pemeliharaan terjadwal.</li></ul></section>
+              <section id="id-terms-5"><h2 className="text-xl font-semibold text-foreground mb-3">Pasal 5 (Kewajiban Pengguna)</h2><ul className="space-y-2 list-disc list-inside"><li>Pengguna tidak boleh menyamar sebagai orang lain atau mendaftarkan informasi palsu.</li><li>Pengguna tidak boleh menggunakan Layanan dengan melanggar hukum atau ketertiban umum.</li><li>Pengguna bertanggung jawab atas pengelolaan kredensial akun mereka.</li></ul></section>
+              <section id="id-terms-6"><h2 className="text-xl font-semibold text-foreground mb-3">Pasal 6 (Biaya &amp; Iklan)</h2><ul className="space-y-2 list-disc list-inside"><li>Layanan disediakan sepenuhnya gratis, tanpa biaya atau langganan.</li><li>Perusahaan dapat menampilkan iklan dalam Layanan untuk menutupi biaya operasional.</li><li>Karena tidak ada biaya berbayar, tidak ada pengembalian dana yang berlaku.</li></ul></section>
+              <section id="id-terms-7"><h2 className="text-xl font-semibold text-foreground mb-3">Pasal 7 (Batasan Tanggung Jawab)</h2><p>Perusahaan menjelaskan bahwa output konsultan AI dan diagnostik kualitas air dalam Layanan hanya untuk referensi. Pengguna menanggung tanggung jawab akhir atas keputusan budidaya berdasarkan informasi tersebut. Perusahaan tidak bertanggung jawab atas kerugian tidak langsung yang timbul dari penggunaan Layanan.</p></section>
+              <section id="id-terms-8"><h2 className="text-xl font-semibold text-foreground mb-3">Pasal 8 (Kontak)</h2><p>Untuk pertanyaan mengenai Layanan, hubungi kami di:</p><p className="mt-2">Email: <a href="mailto:contact@culiver.ai" className="text-ocean-400 hover:underline">contact@culiver.ai</a></p></section>
+            </div>
+          </article>
+        ) : lang === "ko" ? (
           <article aria-label="서비스 이용약관">
             <h1 className="text-3xl font-bold mb-2">서비스 이용약관</h1>
             <p className="text-muted-foreground text-sm mb-10">최종 수정일: 2026년 5월 9일</p>

@@ -53,12 +53,6 @@ const STEP_ICONS = [
   <TrendingUp key="trend" className="w-8 h-8 text-emerald-600" />,
 ]
 
-const TESTIMONIALS = [
-  { name: "김○○ 어가주", location: "전남 여수", text: "수질 측정값을 일일이 노트에 쓰다가 이걸 쓰기 시작했는데, 이상 알림이 오니까 폐사를 많이 줄였어요.", plan: "Free" },
-  { name: "이○○ 어가주", location: "경남 통영", text: "AI가 암모니아 높을 때 뭘 해야 하는지 바로 알려줘서 좋아요. 경험 없는 사람도 따라 할 수 있게 설명해줘요.", plan: "Free" },
-  { name: "박○○ 어가주", location: "충남 태안", text: "재고 관리가 특히 편해요. 사료가 떨어지기 전에 알림이 와서 수급 문제가 없어졌어요.", plan: "Free" },
-]
-
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function NavBar({ onDemoClick }: { onDemoClick: () => void }) {
@@ -347,7 +341,7 @@ export default function LandingPage() {
           </div>
 
           <div className="grid sm:grid-cols-3 gap-5">
-            {TESTIMONIALS.map((tm, i) => (
+            {l.testimonials.map((tm, i) => (
               <div key={i} className="bg-card border border-border rounded-2xl p-6 shadow-sm">
                 <div className="flex gap-1 mb-4">
                   {Array.from({ length: 5 }).map((_, j) => (
