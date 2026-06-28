@@ -42,6 +42,7 @@ export default function OnboardingPage() {
   // Step 1 — farm info
   const [farmName, setFarmName] = useState("")
   const [farmLocation, setFarmLocation] = useState("")
+  const [farmAddressDetail, setFarmAddressDetail] = useState("")
   const [ownerName, setOwnerName] = useState("")
   const [farmArea, setFarmArea] = useState("")
 
@@ -124,9 +125,10 @@ export default function OnboardingPage() {
 
     setSaving(true)
     try {
+      const fullLocation = [farmLocation.trim(), farmAddressDetail.trim()].filter(Boolean).join(" ")
       const farm = await createFarm({
         name: farmName.trim(),
-        location: farmLocation.trim(),
+        location: fullLocation,
         owner_name: ownerName.trim(),
         area: farmArea ? parseFloat(farmArea) : 0,
       })
@@ -274,6 +276,14 @@ export default function OnboardingPage() {
                     onChange={setFarmLocation}
                     placeholder={t.onboarding.locationPlaceholder}
                     required
+                  />
+                  <Input
+                    id="farm-location-detail"
+                    value={farmAddressDetail}
+                    onChange={e => setFarmAddressDetail(e.target.value)}
+                    placeholder={t.onboarding.locationDetailPlaceholder}
+                    aria-label={t.onboarding.locationDetail}
+                    className="min-h-[44px] mt-2"
                   />
                 </div>
 
