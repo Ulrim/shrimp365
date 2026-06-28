@@ -16,6 +16,12 @@ const adConnect = adsEnabled
   ? " https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.g.doubleclick.net https://*.google.com"
   : ""
 
+// Daum(카카오) 우편번호 서비스 — 주소 검색 위젯에 필요한 도메인.
+const daumScript = " https://t1.daumcdn.net https://*.daumcdn.net"
+const daumFrame = " https://postcode.map.daum.net https://*.daum.net"
+const daumImg = " https://*.daumcdn.net https://*.daum.net"
+const daumConnect = " https://*.daumcdn.net https://*.daum.net"
+
 const securityHeaders = [
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -30,12 +36,12 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      `script-src 'self' 'unsafe-inline' 'unsafe-eval'${adScript}`,
+      `script-src 'self' 'unsafe-inline' 'unsafe-eval'${adScript}${daumScript}`,
       "style-src 'self' 'unsafe-inline'",
-      `img-src 'self' data: blob:${adImg}`,
+      `img-src 'self' data: blob:${adImg}${daumImg}`,
       "font-src 'self'",
-      `connect-src 'self' https://*.supabase.co wss://*.supabase.co${adConnect}`,
-      `frame-src 'self'${adFrame}`,
+      `connect-src 'self' https://*.supabase.co wss://*.supabase.co${adConnect}${daumConnect}`,
+      `frame-src 'self'${adFrame}${daumFrame}`,
       "frame-ancestors 'none'",
     ].join("; "),
   },
