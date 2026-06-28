@@ -556,6 +556,8 @@ export interface Dict {
     farmNamePlaceholder: string
     location: string
     locationPlaceholder: string
+    locationDetail: string
+    locationDetailPlaceholder: string
     ownerName: string
     ownerNamePlaceholder: string
     area: string

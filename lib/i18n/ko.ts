@@ -516,6 +516,8 @@ export const ko: Dict = {
     farmNamePlaceholder: "예: 제1양식장",
     location: "주소",
     locationPlaceholder: "예: 전남 여수시 돌산읍",
+    locationDetail: "상세주소",
+    locationDetailPlaceholder: "예: 양식장 동/호수, 건물명 등",
     ownerName: "대표자 이름",
     ownerNamePlaceholder: "예: 홍길동",
     area: "전체 면적 (m²)",
