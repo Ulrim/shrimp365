@@ -54,6 +54,8 @@ export const en: Dict = {
     detail: "Detail",
     total: "Total",
     count: "Count",
+    comingSoon: "Coming soon",
+    comingSoonMsg: "We're preparing the AI Advisor to deliver more accurate and reliable answers. It will be available soon.",
     unit: {
       pcs: "pcs",
       times: "times",

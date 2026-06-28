@@ -38,7 +38,7 @@ export function BottomNav() {
     { href: "/farms",         icon: Building2,     label: t.nav.farms },
     { href: "/production",    icon: FlaskConical,  label: t.nav.production },
     { href: "/inventory",     icon: Package,       label: t.nav.inventory },
-    { href: "/ai-advisor",    icon: BrainCircuit,  label: t.nav.aiAdvisor },
+    { href: "/ai-advisor",    icon: BrainCircuit,  label: t.nav.aiAdvisor, badge: t.common.comingSoon },
     { href: "/reports",       icon: BarChart3,     label: t.nav.reports },
     ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
   ]
@@ -140,6 +140,11 @@ export function BottomNav() {
                   >
                     <item.icon className={cn("w-5 h-5", active ? "text-ocean-500" : "text-muted-foreground")} />
                     <span className="flex-1 font-medium text-[15px]">{item.label}</span>
+                    {"badge" in item && item.badge && (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                        {item.badge}
+                      </span>
+                    )}
                     <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </Link>
                 )

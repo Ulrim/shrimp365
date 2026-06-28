@@ -54,6 +54,8 @@ export const id: Dict = {
     detail: "Detail",
     total: "Total",
     count: "Jumlah",
+    comingSoon: "Segera hadir",
+    comingSoonMsg: "Kami sedang menyiapkan Konsultan AI untuk memberikan jawaban yang lebih akurat dan andal. Akan segera tersedia.",
     unit: {
       pcs: "pcs",
       times: "kali",

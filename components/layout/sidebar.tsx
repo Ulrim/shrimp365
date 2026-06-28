@@ -37,7 +37,7 @@ export function Sidebar() {
     { href: "/farms",        icon: Building2,       label: t.nav.farms },
     { href: "/production",   icon: FlaskConical,    label: t.nav.production },
     { href: "/inventory",    icon: Package,         label: t.nav.inventory },
-    { href: "/ai-advisor",   icon: BrainCircuit,    label: t.nav.aiAdvisor },
+    { href: "/ai-advisor",   icon: BrainCircuit,    label: t.nav.aiAdvisor, badge: t.common.comingSoon },
     { href: "/reports",      icon: BarChart3,       label: t.nav.reports },
     ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
   ]
@@ -47,7 +47,7 @@ export function Sidebar() {
     router.replace("/login")
   }
 
-  const NavItem = ({ href, icon: Icon, label }: { href: string; icon: React.ElementType; label: string }) => {
+  const NavItem = ({ href, icon: Icon, label, badge }: { href: string; icon: React.ElementType; label: string; badge?: string }) => {
     const isActive = pathname === href || pathname.startsWith(href + "/")
     return (
       <Link
@@ -62,6 +62,11 @@ export function Sidebar() {
       >
         <Icon className={cn("w-5 h-5 shrink-0", isActive ? "text-ocean-500" : "text-muted-foreground group-hover:text-foreground")} />
         {!collapsed && <span className="flex-1">{label}</span>}
+        {!collapsed && badge && (
+          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 shrink-0">
+            {badge}
+          </span>
+        )}
         {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-ocean-500 rounded-r-full" />}
       </Link>
     )
