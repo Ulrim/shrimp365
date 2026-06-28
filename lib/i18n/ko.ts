@@ -648,6 +648,11 @@ export const ko: Dict = {
     testimonialH2: "어가에서 직접 써봤습니다",
     testimonialSubtitle: "실제 양식 어가의 경험을 들어보세요",
     testimonialPlanSuffix: "플랜",
+    testimonials: [
+      { name: "김○○ 어가주", location: "전남 여수", text: "수질 측정값을 일일이 노트에 쓰다가 이걸 쓰기 시작했는데, 이상 알림이 오니까 폐사를 많이 줄였어요.", plan: "Free" },
+      { name: "이○○ 어가주", location: "경남 통영", text: "AI가 암모니아 높을 때 뭘 해야 하는지 바로 알려줘서 좋아요. 경험 없는 사람도 따라 할 수 있게 설명해줘요.", plan: "Free" },
+      { name: "박○○ 어가주", location: "충남 태안", text: "재고 관리가 특히 편해요. 사료가 떨어지기 전에 알림이 와서 수급 문제가 없어졌어요.", plan: "Free" },
+    ],
     freeBadge: "완전 무료 · 광고 기반",
     freeH2: "모든 기능, 영원히 무료",
     freeSubtitle: "구독료·결제 정보 없이 전체 기능을 사용하세요.\nShrimp365는 광고 수익으로 운영됩니다.",

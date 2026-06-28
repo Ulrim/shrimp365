@@ -648,6 +648,11 @@ export const id: Dict = {
     testimonialH2: "Dipercaya oleh Petambak Udang Nyata",
     testimonialSubtitle: "Dengar dari petambak yang menggunakan Shrimp365 setiap hari",
     testimonialPlanSuffix: "Paket",
+    testimonials: [
+      { name: "Budi Santoso", location: "Lampung", text: "Dulu saya mencatat nilai air di buku setiap hari. Shrimp365 memberi peringatan segera saat ada masalah — kerugian saya jauh berkurang sejak menggunakannya.", plan: "Free" },
+      { name: "Ahmad Fauzi", location: "Sulawesi Selatan", text: "Konsultan AI sangat membantu. Saat amonia melonjak, ia memberi tahu persis apa yang harus dilakukan. Bahkan pemula pun bisa mengikuti panduan langkah demi langkah.", plan: "Free" },
+      { name: "Siti Rahayu", location: "Jawa Timur", text: "Manajemen inventaris yang paling menghemat waktu. Saya mendapat notifikasi sebelum pakan habis sehingga tidak pernah mengalami masalah pasokan.", plan: "Free" },
+    ],
     freeBadge: "Sepenuhnya Gratis · Didukung Iklan",
     freeH2: "Semua Fitur, Gratis Selamanya",
     freeSubtitle: "Gunakan semua fitur tanpa langganan atau informasi pembayaran.\nShrimp365 didukung oleh pendapatan iklan.",

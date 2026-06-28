@@ -4,41 +4,39 @@ import Link from "next/link"
 import { useState } from "react"
 import { Waves, ArrowLeft } from "lucide-react"
 
+type Lang = "ko" | "en" | "vi" | "id"
+
 export default function PrivacyPage() {
-  const [lang, setLang] = useState<"ko" | "en">("ko")
+  const [lang, setLang] = useState<Lang>("ko")
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-3xl mx-auto px-4 py-12">
         {/* 상단 네비게이션 */}
-        <nav aria-label={lang === "ko" ? "페이지 네비게이션" : "Page navigation"} className="flex items-center justify-between mb-10">
+        <nav aria-label="Page navigation" className="flex items-center justify-between mb-10">
           <Link
             href="/"
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors min-h-[44px]"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm">{lang === "ko" ? "홈으로" : "Home"}</span>
+            <span className="text-sm">{lang === "ko" ? "홈으로" : lang === "vi" ? "Trang chủ" : lang === "id" ? "Beranda" : "Home"}</span>
           </Link>
           <div className="flex items-center gap-3">
             <div
               className="flex rounded-lg overflow-hidden border border-border text-sm"
               role="group"
-              aria-label={lang === "ko" ? "언어 선택" : "Language selection"}
+              aria-label="Language selection"
             >
-              <button
-                onClick={() => setLang("ko")}
-                className={`px-3 min-h-[44px] transition-colors ${lang === "ko" ? "bg-ocean-500 text-white" : "text-muted-foreground hover:text-foreground"}`}
-                aria-pressed={lang === "ko"}
-              >
-                KO
-              </button>
-              <button
-                onClick={() => setLang("en")}
-                className={`px-3 min-h-[44px] transition-colors ${lang === "en" ? "bg-ocean-500 text-white" : "text-muted-foreground hover:text-foreground"}`}
-                aria-pressed={lang === "en"}
-              >
-                EN
-              </button>
+              {(["ko", "en", "vi", "id"] as Lang[]).map(l => (
+                <button
+                  key={l}
+                  onClick={() => setLang(l)}
+                  className={`px-3 min-h-[44px] transition-colors uppercase ${lang === l ? "bg-ocean-500 text-white" : "text-muted-foreground hover:text-foreground"}`}
+                  aria-pressed={lang === l}
+                >
+                  {l}
+                </button>
+              ))}
             </div>
             <div className="flex items-center gap-2">
               <Waves className="w-5 h-5 text-ocean-400" />
@@ -47,7 +45,59 @@ export default function PrivacyPage() {
           </div>
         </nav>
 
-        {lang === "ko" ? (
+        {lang === "vi" ? (
+          <article aria-label="Chính sách Bảo mật">
+            <h1 className="text-3xl font-bold mb-2">Chính sách Bảo mật</h1>
+            <p className="text-muted-foreground text-sm mb-10">Cập nhật lần cuối: 9 tháng 5, 2026</p>
+            <nav aria-label="Mục lục" className="mb-10 p-4 bg-card border border-border rounded-xl">
+              <p className="text-sm font-semibold mb-2 text-foreground">Mục lục</p>
+              <ol className="text-sm space-y-1 text-muted-foreground list-decimal list-inside">
+                <li><a href="#vi-priv-1" className="hover:text-ocean-400 transition-colors">Điều 1 (Dữ liệu chúng tôi thu thập)</a></li>
+                <li><a href="#vi-priv-2" className="hover:text-ocean-400 transition-colors">Điều 2 (Mục đích thu thập)</a></li>
+                <li><a href="#vi-priv-3" className="hover:text-ocean-400 transition-colors">Điều 3 (Thời gian lưu trữ)</a></li>
+                <li><a href="#vi-priv-4" className="hover:text-ocean-400 transition-colors">Điều 4 (Bên thứ ba)</a></li>
+                <li><a href="#vi-priv-5" className="hover:text-ocean-400 transition-colors">Điều 5 (Quyền người dùng)</a></li>
+                <li><a href="#vi-priv-6" className="hover:text-ocean-400 transition-colors">Điều 6 (Người phụ trách bảo mật)</a></li>
+                <li><a href="#vi-priv-7" className="hover:text-ocean-400 transition-colors">Điều 7 (Cookie &amp; Quảng cáo)</a></li>
+              </ol>
+            </nav>
+            <div className="space-y-8 text-foreground/80 leading-relaxed">
+              <section id="vi-priv-1"><h2 className="text-xl font-semibold text-foreground mb-3">Điều 1 (Dữ liệu chúng tôi thu thập)</h2><p className="mb-3">CULIVER INC ("Công ty") thu thập thông tin cá nhân sau đây để cung cấp Dịch vụ.</p><ul className="space-y-2 list-disc list-inside"><li><strong className="text-foreground">Bắt buộc:</strong> Địa chỉ email, tên (hoặc biệt danh)</li><li><strong className="text-foreground">Tạo ra trong quá trình sử dụng:</strong> Thông tin trang trại và ao, dữ liệu đo chất lượng nước, nhật ký nuôi trồng, hồ sơ chẩn đoán bệnh</li><li><strong className="text-foreground">Thu thập tự động:</strong> Địa chỉ IP, thông tin trình duyệt, nhật ký sử dụng dịch vụ, định danh cookie quảng cáo và phân tích</li></ul></section>
+              <section id="vi-priv-2"><h2 className="text-xl font-semibold text-foreground mb-3">Điều 2 (Mục đích thu thập)</h2><ul className="space-y-2 list-disc list-inside"><li>Cung cấp dịch vụ và quản lý tài khoản</li><li>Vận hành tính năng tư vấn AI</li><li>Cải thiện chất lượng dịch vụ và phân tích thống kê</li><li>Phục vụ quảng cáo và vận hành dịch vụ (dịch vụ này được cung cấp miễn phí, được tài trợ bởi doanh thu quảng cáo)</li><li>Hỗ trợ khách hàng và thông báo</li></ul></section>
+              <section id="vi-priv-3"><h2 className="text-xl font-semibold text-foreground mb-3">Điều 3 (Thời gian lưu trữ)</h2><ul className="space-y-2 list-disc list-inside"><li>Dữ liệu cá nhân được xóa ngay khi xóa tài khoản.</li><li>Ngoại lệ áp dụng khi pháp luật yêu cầu lưu giữ.</li><li>Hồ sơ giao dịch thương mại điện tử: lưu giữ 5 năm</li></ul></section>
+              <section id="vi-priv-4"><h2 className="text-xl font-semibold text-foreground mb-3">Điều 4 (Bên thứ ba)</h2><p className="mb-3">Công ty không chia sẻ dữ liệu cá nhân với bên thứ ba, ngoại trừ các trường hợp sau:</p><ul className="space-y-2 list-disc list-inside"><li><strong className="text-foreground">Supabase:</strong> Dịch vụ cơ sở dữ liệu và xác thực (máy chủ tại Hoa Kỳ)</li><li><strong className="text-foreground">OpenAI:</strong> Tính năng tư vấn AI (máy chủ tại Hoa Kỳ)</li><li><strong className="text-foreground">Vercel:</strong> Lưu trữ dịch vụ và phân tích sử dụng (máy chủ tại Hoa Kỳ)</li><li><strong className="text-foreground">Google AdSense:</strong> Phân phối quảng cáo và đo lường hiệu suất (máy chủ tại Hoa Kỳ)</li><li>Khi pháp luật yêu cầu hoặc theo yêu cầu hợp pháp của cơ quan chức năng</li></ul></section>
+              <section id="vi-priv-5"><h2 className="text-xl font-semibold text-foreground mb-3">Điều 5 (Quyền người dùng)</h2><ul className="space-y-2 list-disc list-inside"><li>Người dùng có thể xem và cập nhật thông tin cá nhân của mình bất cứ lúc nào.</li><li>Người dùng có thể yêu cầu xóa dữ liệu cá nhân bằng cách xóa tài khoản.</li><li>Để hỏi về quyền riêng tư, vui lòng liên hệ theo thông tin bên dưới.</li></ul></section>
+              <section id="vi-priv-6"><h2 className="text-xl font-semibold text-foreground mb-3">Điều 6 (Người phụ trách bảo mật)</h2><div className="bg-card border border-border rounded-xl p-4 space-y-1"><p><span className="text-muted-foreground">Liên hệ:</span> Người phụ trách bảo vệ dữ liệu CULIVER INC</p><p><span className="text-muted-foreground">Email:</span> <a href="mailto:contact@culiver.ai" className="text-ocean-400 hover:underline">contact@culiver.ai</a></p></div></section>
+              <section id="vi-priv-7"><h2 className="text-xl font-semibold text-foreground mb-3">Điều 7 (Cookie &amp; Quảng cáo)</h2><p className="mb-3">Công ty sử dụng cookie thiết yếu để cung cấp Dịch vụ và có thể sử dụng cookie phân tích và quảng cáo để đo lường sử dụng và phân phối quảng cáo. Người dùng có thể tắt cookie trong cài đặt trình duyệt, mặc dù một số tính năng có thể không khả dụng.</p><p>Dịch vụ này có thể hiển thị quảng cáo qua mạng quảng cáo bên thứ ba như Google AdSense, có thể sử dụng cookie để phục vụ quảng cáo dựa trên sở thích. Người dùng có thể từ chối quảng cáo cá nhân hóa tại <a href="https://www.google.com/settings/ads" className="text-ocean-400 hover:underline" target="_blank" rel="noopener noreferrer">Cài đặt quảng cáo Google</a>.</p></section>
+            </div>
+          </article>
+        ) : lang === "id" ? (
+          <article aria-label="Kebijakan Privasi">
+            <h1 className="text-3xl font-bold mb-2">Kebijakan Privasi</h1>
+            <p className="text-muted-foreground text-sm mb-10">Terakhir diperbarui: 9 Mei 2026</p>
+            <nav aria-label="Daftar isi" className="mb-10 p-4 bg-card border border-border rounded-xl">
+              <p className="text-sm font-semibold mb-2 text-foreground">Daftar Isi</p>
+              <ol className="text-sm space-y-1 text-muted-foreground list-decimal list-inside">
+                <li><a href="#id-priv-1" className="hover:text-ocean-400 transition-colors">Pasal 1 (Data yang kami kumpulkan)</a></li>
+                <li><a href="#id-priv-2" className="hover:text-ocean-400 transition-colors">Pasal 2 (Tujuan pengumpulan)</a></li>
+                <li><a href="#id-priv-3" className="hover:text-ocean-400 transition-colors">Pasal 3 (Periode penyimpanan)</a></li>
+                <li><a href="#id-priv-4" className="hover:text-ocean-400 transition-colors">Pasal 4 (Pihak ketiga)</a></li>
+                <li><a href="#id-priv-5" className="hover:text-ocean-400 transition-colors">Pasal 5 (Hak pengguna)</a></li>
+                <li><a href="#id-priv-6" className="hover:text-ocean-400 transition-colors">Pasal 6 (Penanggung jawab perlindungan data)</a></li>
+                <li><a href="#id-priv-7" className="hover:text-ocean-400 transition-colors">Pasal 7 (Cookie &amp; Iklan)</a></li>
+              </ol>
+            </nav>
+            <div className="space-y-8 text-foreground/80 leading-relaxed">
+              <section id="id-priv-1"><h2 className="text-xl font-semibold text-foreground mb-3">Pasal 1 (Data yang kami kumpulkan)</h2><p className="mb-3">CULIVER INC ("Perusahaan") mengumpulkan informasi pribadi berikut untuk menyediakan Layanan.</p><ul className="space-y-2 list-disc list-inside"><li><strong className="text-foreground">Wajib:</strong> Alamat email, nama (atau nama panggilan)</li><li><strong className="text-foreground">Dihasilkan selama penggunaan:</strong> Informasi tambak dan kolam, data pengukuran kualitas air, jurnal budidaya, catatan diagnosis penyakit</li><li><strong className="text-foreground">Dikumpulkan otomatis:</strong> Alamat IP, informasi browser, log penggunaan layanan, pengidentifikasi cookie iklan dan analitik</li></ul></section>
+              <section id="id-priv-2"><h2 className="text-xl font-semibold text-foreground mb-3">Pasal 2 (Tujuan pengumpulan)</h2><ul className="space-y-2 list-disc list-inside"><li>Penyediaan layanan dan manajemen akun</li><li>Operasi fitur konsultan AI</li><li>Peningkatan kualitas layanan dan analisis statistik</li><li>Penyajian iklan dan pengoperasian layanan (layanan ini disediakan gratis, didukung oleh pendapatan iklan)</li><li>Dukungan pelanggan dan pengumuman</li></ul></section>
+              <section id="id-priv-3"><h2 className="text-xl font-semibold text-foreground mb-3">Pasal 3 (Periode penyimpanan)</h2><ul className="space-y-2 list-disc list-inside"><li>Data pribadi dihapus segera saat penghapusan akun.</li><li>Pengecualian berlaku jika penyimpanan diwajibkan oleh hukum yang berlaku.</li><li>Catatan transaksi e-commerce: disimpan selama 5 tahun</li></ul></section>
+              <section id="id-priv-4"><h2 className="text-xl font-semibold text-foreground mb-3">Pasal 4 (Pihak ketiga)</h2><p className="mb-3">Perusahaan tidak membagikan data pribadi kepada pihak ketiga, dengan pengecualian berikut:</p><ul className="space-y-2 list-disc list-inside"><li><strong className="text-foreground">Supabase:</strong> Layanan database dan autentikasi (server di AS)</li><li><strong className="text-foreground">OpenAI:</strong> Fitur konsultan AI (server di AS)</li><li><strong className="text-foreground">Vercel:</strong> Hosting layanan dan analitik penggunaan (server di AS)</li><li><strong className="text-foreground">Google AdSense:</strong> Pengiriman iklan dan pengukuran kinerja iklan (server di AS)</li><li>Jika diwajibkan oleh hukum atau permintaan sah dari pihak berwenang</li></ul></section>
+              <section id="id-priv-5"><h2 className="text-xl font-semibold text-foreground mb-3">Pasal 5 (Hak pengguna)</h2><ul className="space-y-2 list-disc list-inside"><li>Pengguna dapat melihat dan memperbarui informasi pribadi mereka kapan saja.</li><li>Pengguna dapat meminta penghapusan data pribadi dengan menghapus akun mereka.</li><li>Untuk pertanyaan privasi, hubungi kami menggunakan detail di bawah.</li></ul></section>
+              <section id="id-priv-6"><h2 className="text-xl font-semibold text-foreground mb-3">Pasal 6 (Penanggung jawab perlindungan data)</h2><div className="bg-card border border-border rounded-xl p-4 space-y-1"><p><span className="text-muted-foreground">Kontak:</span> Penanggung Jawab Perlindungan Data CULIVER INC</p><p><span className="text-muted-foreground">Email:</span> <a href="mailto:contact@culiver.ai" className="text-ocean-400 hover:underline">contact@culiver.ai</a></p></div></section>
+              <section id="id-priv-7"><h2 className="text-xl font-semibold text-foreground mb-3">Pasal 7 (Cookie &amp; Iklan)</h2><p className="mb-3">Perusahaan menggunakan cookie esensial untuk menyediakan Layanan dan dapat menggunakan cookie analitik dan iklan untuk pengukuran penggunaan dan pengiriman iklan. Pengguna dapat menonaktifkan cookie di pengaturan browser, meskipun beberapa fitur mungkin tidak tersedia.</p><p>Layanan ini dapat menampilkan iklan melalui jaringan iklan pihak ketiga seperti Google AdSense, yang dapat menggunakan cookie untuk menyajikan iklan berbasis minat. Pengguna dapat menolak iklan yang dipersonalisasi di <a href="https://www.google.com/settings/ads" className="text-ocean-400 hover:underline" target="_blank" rel="noopener noreferrer">Setelan Iklan Google</a>.</p></section>
+            </div>
+          </article>
+        ) : lang === "ko" ? (
           <article aria-label="개인정보 보호정책">
             <h1 className="text-3xl font-bold mb-2">개인정보 보호정책</h1>
             <p className="text-muted-foreground text-sm mb-10">최종 수정일: 2026년 5월 9일</p>

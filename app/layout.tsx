@@ -19,6 +19,7 @@ import { VersionWatcher } from "@/components/version-watcher"
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { AdSenseScript } from "@/components/ads/adsense-script"
+import { CookieConsent } from "@/components/cookie-consent"
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.shrimp365.kr"),
@@ -389,6 +390,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <AuthProvider>{children}</AuthProvider>
           <VersionWatcher />
         </I18nProvider>
+        <CookieConsent />
         <Analytics />
         <SpeedInsights />
         <AdSenseScript />

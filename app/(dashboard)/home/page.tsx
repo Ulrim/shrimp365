@@ -8,6 +8,7 @@ import { useT } from "@/lib/i18n-context"
 import { getFarms, getAllTanks, getAlerts } from "@/lib/db"
 import { isTestAccount, MOCK_TANKS, MOCK_ALERTS } from "@/lib/mock-data"
 import { ClipboardList, BarChart3, AlertTriangle, CheckCircle2, Activity } from "lucide-react"
+import { AdSlot } from "@/components/ads/ad-slot"
 import { Tank, Alert } from "@/types"
 
 export default function HomePage() {
@@ -157,6 +158,9 @@ export default function HomePage() {
             </div>
           </Link>
         </div>
+
+        {/* Ad slot — only renders when NEXT_PUBLIC_ADSENSE_CLIENT is configured */}
+        <AdSlot slot="YOUR_SLOT_ID_HOME" className="mt-4 w-full" />
       </div>
     </div>
   )

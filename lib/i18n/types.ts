@@ -629,6 +629,7 @@ export interface Dict {
     testimonialH2: string
     testimonialSubtitle: string
     testimonialPlanSuffix: string
+    testimonials: { name: string; location: string; text: string; plan: string }[]
     freeBadge: string
     freeH2: string
     freeSubtitle: string

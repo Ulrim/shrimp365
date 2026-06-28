@@ -648,6 +648,11 @@ export const en: Dict = {
     testimonialH2: "Trusted by Real Shrimp Farmers",
     testimonialSubtitle: "Hear from farmers who use Shrimp365 every day",
     testimonialPlanSuffix: "Plan",
+    testimonials: [
+      { name: "Nguyen T.H.", location: "Mekong Delta, Vietnam", text: "I used to write water readings in a notebook every day. Shrimp365 alerts me immediately when something is off — my losses have dropped significantly.", plan: "Free" },
+      { name: "Budi S.", location: "Lampung, Indonesia", text: "The AI Advisor is incredibly helpful. When ammonia spiked, it told me exactly what to do. Even a beginner can follow the step-by-step guidance.", plan: "Free" },
+      { name: "Tran V.M.", location: "Ca Mau, Vietnam", text: "Inventory management saves me the most time. I get notified before feed runs out so I never face supply problems anymore.", plan: "Free" },
+    ],
     freeBadge: "Completely Free · Ad-Supported",
     freeH2: "All Features, Forever Free",
     freeSubtitle: "Use every feature without subscriptions or payment information.\nShrimp365 is supported by advertising revenue.",
