@@ -17,10 +17,11 @@ const adConnect = adsEnabled
   : ""
 
 // Daum(카카오) 우편번호 서비스 — 주소 검색 위젯에 필요한 도메인.
-const daumScript = " https://t1.daumcdn.net https://*.daumcdn.net"
-const daumFrame = " https://postcode.map.daum.net https://*.daum.net"
-const daumImg = " https://*.daumcdn.net https://*.daum.net"
-const daumConnect = " https://*.daumcdn.net https://*.daum.net"
+// 카카오 통합으로 daum + kakao CDN 도메인을 모두 허용해야 한다.
+const daumScript = " https://t1.daumcdn.net https://*.daumcdn.net https://*.kakaocdn.net"
+const daumFrame = " https://postcode.map.daum.net https://*.daum.net https://*.kakao.com"
+const daumImg = " https://*.daumcdn.net https://*.daum.net https://*.kakaocdn.net https://*.kakao.com"
+const daumConnect = " https://*.daumcdn.net https://*.daum.net https://*.kakaocdn.net https://dapi.kakao.com"
 
 const securityHeaders = [
   { key: "X-Frame-Options", value: "SAMEORIGIN" },

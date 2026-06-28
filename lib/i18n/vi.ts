@@ -54,6 +54,8 @@ export const vi: Dict = {
     detail: "Chi tiết",
     total: "Tổng",
     count: "Số lượng",
+    comingSoon: "Sắp ra mắt",
+    comingSoonMsg: "Chúng tôi đang chuẩn bị Tư vấn AI để mang đến câu trả lời chính xác và đáng tin cậy hơn. Sẽ sớm ra mắt.",
     unit: {
       pcs: "cái",
       times: "lần",

@@ -52,6 +52,8 @@ export interface Dict {
     detail: string
     total: string
     count: string
+    comingSoon: string
+    comingSoonMsg: string
     unit: {
       pcs: string
       times: string

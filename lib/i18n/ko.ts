@@ -54,6 +54,8 @@ export const ko: Dict = {
     detail: "상세",
     total: "합계",
     count: "개수",
+    comingSoon: "준비중",
+    comingSoonMsg: "더 정확하고 신뢰할 수 있는 답변을 위해 AI 어드바이저를 준비하고 있습니다. 곧 만나보실 수 있습니다.",
     unit: {
       pcs: "개",
       times: "회",
