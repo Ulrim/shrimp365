@@ -168,6 +168,10 @@ export const en: Dict = {
     emailNotConfirmed: "Email verification required. Please check your inbox.",
     loginFailed: "Login failed.",
     emailInUse: "Email is already in use.",
+    socialOr: "or",
+    socialGoogle: "Continue with Google",
+    socialKakao: "Continue with Kakao",
+    socialNaver: "Continue with Naver",
   },
   dashboard: {
     title: "Dashboard",

@@ -168,6 +168,10 @@ export const vi: Dict = {
     emailNotConfirmed: "Cần xác minh email. Vui lòng kiểm tra hộp thư.",
     loginFailed: "Đăng nhập thất bại.",
     emailInUse: "Email đã được sử dụng.",
+    socialOr: "hoặc",
+    socialGoogle: "Tiếp tục với Google",
+    socialKakao: "Tiếp tục với Kakao",
+    socialNaver: "Tiếp tục với Naver",
   },
   dashboard: {
     title: "Bảng điều khiển",

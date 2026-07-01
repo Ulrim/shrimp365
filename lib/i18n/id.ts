@@ -168,6 +168,10 @@ export const id: Dict = {
     emailNotConfirmed: "Verifikasi email diperlukan. Silakan periksa kotak masuk.",
     loginFailed: "Gagal masuk.",
     emailInUse: "Email sudah digunakan.",
+    socialOr: "atau",
+    socialGoogle: "Lanjutkan dengan Google",
+    socialKakao: "Lanjutkan dengan Kakao",
+    socialNaver: "Lanjutkan dengan Naver",
   },
   dashboard: {
     title: "Dashboard",

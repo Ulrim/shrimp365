@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Eye, EyeOff, AlertCircle, ShieldCheck, CheckCircle2 } from "lucide-react"
 import { useSearchParams } from "next/navigation"
+import { SocialLogin } from "@/components/auth/social-login"
 
 function LoginPageInner() {
   const router = useRouter()
@@ -173,6 +174,10 @@ function LoginPageInner() {
                   ) : t.auth.loginButton}
                 </Button>
               </form>
+
+              <div className="mt-4">
+                <SocialLogin />
+              </div>
 
               {process.env.NEXT_PUBLIC_SHOW_TEST_ACCOUNTS === "true" && (
                 <div className="mt-4 pt-4 border-t border-border">
