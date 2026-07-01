@@ -168,6 +168,10 @@ export const ko: Dict = {
     emailNotConfirmed: "이메일 인증이 필요합니다. 메일함을 확인해주세요.",
     loginFailed: "로그인에 실패했습니다.",
     emailInUse: "이미 사용 중인 이메일입니다.",
+    socialOr: "또는",
+    socialGoogle: "Google로 계속하기",
+    socialKakao: "카카오로 계속하기",
+    socialNaver: "네이버로 계속하기",
   },
   dashboard: {
     title: "대시보드",

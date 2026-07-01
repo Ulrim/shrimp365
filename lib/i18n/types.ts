@@ -208,6 +208,10 @@ export interface Dict {
     emailNotConfirmed: string
     loginFailed: string
     emailInUse: string
+    socialOr: string
+    socialGoogle: string
+    socialKakao: string
+    socialNaver: string
   }
   dashboard: {
     title: string

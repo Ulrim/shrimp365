@@ -28,6 +28,7 @@ interface AuthContextType {
   session: Session | null
   loading: boolean
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
+  signInWithProvider: (provider: "google" | "kakao") => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
   signup: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>
   updateProfile: (name: string) => Promise<void>
@@ -116,6 +117,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: true }
   }
 
+  // Google / Kakao — Supabase 기본 OAuth. 성공 시 브라우저가 provider로 리다이렉트된다.
+  const signInWithProvider = async (provider: "google" | "kakao") => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `${siteUrl()}/auth/callback?next=/home` },
+    })
+    if (error) {
+      console.warn("[auth] OAuth failed:", error.message)
+      return { success: false, error: "소셜 로그인에 실패했습니다. 잠시 후 다시 시도해주세요." }
+    }
+    return { success: true }
+  }
+
   const logout = async () => {
     const { error } = await supabase.auth.signOut()
     if (error) console.warn("[auth] signOut failed:", error.message)
@@ -178,7 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, login, logout, signup, updateProfile, updatePassword, updateEmail, sendPasswordReset, resendVerification, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, loading, login, signInWithProvider, logout, signup, updateProfile, updatePassword, updateEmail, sendPasswordReset, resendVerification, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   )
