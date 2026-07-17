@@ -20,6 +20,7 @@ import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { AdSenseScript } from "@/components/ads/adsense-script"
 import { CookieConsent } from "@/components/cookie-consent"
+import { GoogleAnalytics } from "@/components/analytics/google-analytics"
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.shrimp365.kr"),
@@ -394,6 +395,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Analytics />
         <SpeedInsights />
         <AdSenseScript />
+        <GoogleAnalytics />
       </body>
     </html>
   )
