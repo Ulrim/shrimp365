@@ -23,6 +23,11 @@ const daumFrame = " https://postcode.map.daum.net https://*.daum.net https://*.k
 const daumImg = " https://*.daumcdn.net https://*.daum.net https://*.kakaocdn.net https://*.kakao.com"
 const daumConnect = " https://*.daumcdn.net https://*.daum.net https://*.kakaocdn.net https://dapi.kakao.com"
 
+// Google Analytics (gtag.js) — 항상 허용.
+const gaScript = " https://www.googletagmanager.com"
+const gaImg = " https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com"
+const gaConnect = " https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com"
+
 const securityHeaders = [
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -37,11 +42,11 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      `script-src 'self' 'unsafe-inline' 'unsafe-eval'${adScript}${daumScript}`,
+      `script-src 'self' 'unsafe-inline' 'unsafe-eval'${adScript}${daumScript}${gaScript}`,
       "style-src 'self' 'unsafe-inline'",
-      `img-src 'self' data: blob:${adImg}${daumImg}`,
+      `img-src 'self' data: blob:${adImg}${daumImg}${gaImg}`,
       "font-src 'self'",
-      `connect-src 'self' https://*.supabase.co wss://*.supabase.co${adConnect}${daumConnect}`,
+      `connect-src 'self' https://*.supabase.co wss://*.supabase.co${adConnect}${daumConnect}${gaConnect}`,
       `frame-src 'self'${adFrame}${daumFrame}`,
       "frame-ancestors 'none'",
     ].join("; "),
