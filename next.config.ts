@@ -44,7 +44,7 @@ const securityHeaders = [
       "default-src 'self'",
       `script-src 'self' 'unsafe-inline' 'unsafe-eval'${adScript}${daumScript}${gaScript}`,
       "style-src 'self' 'unsafe-inline'",
-      `img-src 'self' data: blob:${adImg}${daumImg}${gaImg}`,
+      `img-src 'self' data: blob: https://*.supabase.co${adImg}${daumImg}${gaImg}`,
       "font-src 'self'",
       `connect-src 'self' https://*.supabase.co wss://*.supabase.co${adConnect}${daumConnect}${gaConnect}`,
       `frame-src 'self'${adFrame}${daumFrame}`,
