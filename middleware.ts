@@ -16,6 +16,7 @@ const PROTECTED_PATHS = [
   "/production",
   "/inventory",
   "/reports",
+  "/board",
   "/onboarding",
   "/help",
 ]

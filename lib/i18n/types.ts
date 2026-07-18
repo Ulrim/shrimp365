@@ -654,4 +654,35 @@ export interface Dict {
     ctaSecureHint: string
     footerDesc: string
   }
+  board: {
+    title: string
+    subtitle: string
+    newPost: string
+    empty: string
+    emptyMsg: string
+    formNewTitle: string
+    formEditTitle: string
+    fieldTitle: string
+    fieldTitlePlaceholder: string
+    fieldContent: string
+    fieldContentPlaceholder: string
+    fieldImage: string
+    imageAdd: string
+    imageRemove: string
+    imageUploading: string
+    submit: string
+    submitting: string
+    back: string
+    edit: string
+    delete: string
+    deleteConfirm: string
+    views: string
+    comments: string
+    commentPlaceholder: string
+    commentSubmit: string
+    commentEmpty: string
+    deleteCommentConfirm: string
+    loginRequired: string
+    loadError: string
+  }
 }
