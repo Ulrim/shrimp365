@@ -44,8 +44,9 @@ export function Sidebar() {
   ]
 
   const handleLogout = async () => {
+    // logout()이 홈("/")으로 하드 리다이렉트하므로 아래는 fallback.
     await logout()
-    router.replace("/login")
+    router.replace("/")
   }
 
   const NavItem = ({ href, icon: Icon, label, badge }: { href: string; icon: React.ElementType; label: string; badge?: string }) => {
