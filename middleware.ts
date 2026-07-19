@@ -97,7 +97,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (isAuthPage && user) {
+  // 로그인 상태면 인증 페이지는 홈으로 보낸다.
+  // 단 /reset-password 는 예외 — 세션이 있는 상태(복구 링크 재방문 등)에서도
+  // 비밀번호 변경 폼에 접근할 수 있어야 하므로 튕기지 않는다.
+  if (isAuthPage && user && pathname !== "/reset-password") {
     const url = request.nextUrl.clone()
     url.pathname = "/home"
     return NextResponse.redirect(url)
