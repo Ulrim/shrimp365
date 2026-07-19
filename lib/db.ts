@@ -616,7 +616,7 @@ export async function toggleSensorDevice(id: string, active: boolean): Promise<S
 // ─────────────────────────────────────────────
 // 생산 관리 — 타입 변환 헬퍼
 // ─────────────────────────────────────────────
-function toCycle(c: DbProductionCycle & { tanks?: { name: string; farms?: { name: string }[] }[] }): ProductionCycle {
+function toCycle(c: DbProductionCycle & { tanks?: { name?: string; farms?: { name?: string } | null } | null }): ProductionCycle {
   const doc = Math.floor((Date.now() - new Date(c.stocking_date).getTime()) / 86400000)
   return {
     id: c.id, tank_id: c.tank_id, user_id: c.user_id, name: c.name,
@@ -628,8 +628,8 @@ function toCycle(c: DbProductionCycle & { tanks?: { name: string; farms?: { name
     actual_harvest_weight_kg: c.actual_harvest_weight_kg,
     actual_harvest_count: c.actual_harvest_count,
     notes: c.notes, created_at: c.created_at, updated_at: c.updated_at,
-    tank_name: c.tanks?.[0]?.name,
-    farm_name: c.tanks?.[0]?.farms?.[0]?.name,
+    tank_name: c.tanks?.name,
+    farm_name: c.tanks?.farms?.name,
     doc: c.status === "active" ? Math.max(0, doc) : undefined,
   }
 }
@@ -649,7 +649,7 @@ export async function getProductionCycles(tankId?: string): Promise<ProductionCy
   if (tankId) q = q.eq("tank_id", tankId)
   const { data, error } = await q
   if (error) throw error
-  return (data || []).map((c) => toCycle(c as DbProductionCycle & { tanks: { name: string; farms: { name: string }[] }[] }))
+  return (data || []).map((c) => toCycle(c as DbProductionCycle & { tanks?: { name?: string; farms?: { name?: string } | null } | null }))
 }
 
 export async function createProductionCycle(values: {
@@ -664,7 +664,7 @@ export async function createProductionCycle(values: {
     .select("*, tanks(name, farms(name))")
     .single()
   if (error) throw error
-  return toCycle(data as DbProductionCycle & { tanks: { name: string; farms: { name: string }[] }[] })
+  return toCycle(data as DbProductionCycle & { tanks?: { name?: string; farms?: { name?: string } | null } | null })
 }
 
 export async function updateProductionCycle(id: string, values: Partial<{
@@ -699,6 +699,9 @@ export async function createGrowthSample(values: {
   sample_count: number; total_weight_g: number
   survival_rate?: number; notes?: string
 }): Promise<GrowthSample> {
+  if (!values.sample_count || values.sample_count <= 0) {
+    throw new Error("표본 수는 1 이상이어야 합니다.")
+  }
   const abw_g = values.total_weight_g / values.sample_count
   const { data: cycleData } = await supabase.from("production_cycles").select("stocking_count").eq("id", values.cycle_id).single()
   const stocking = cycleData?.stocking_count ?? 0

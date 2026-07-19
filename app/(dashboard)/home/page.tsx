@@ -17,6 +17,7 @@ export default function HomePage() {
   const router = useRouter()
   const [checking, setChecking] = useState(true)
   const [loadError, setLoadError] = useState(false)
+  const [retry, setRetry] = useState(0)
   const [tanks, setTanks] = useState<Tank[]>([])
   const [alerts, setAlerts] = useState<Alert[]>([])
 
@@ -42,7 +43,7 @@ export default function HomePage() {
         setChecking(false)
       })
       .catch(() => { setLoadError(true); setChecking(false) })
-  }, [user, router])
+  }, [user, router, retry])
 
   if (checking) {
     return (
@@ -59,7 +60,7 @@ export default function HomePage() {
         <p className="text-foreground font-semibold text-lg">데이터를 불러오지 못했습니다</p>
         <p className="text-muted-foreground text-sm text-center">네트워크 연결을 확인하고 다시 시도해 주세요.</p>
         <button
-          onClick={() => { setLoadError(false); setChecking(true) }}
+          onClick={() => { setLoadError(false); setChecking(true); setRetry(n => n + 1) }}
           className="min-h-[44px] px-6 py-2 rounded-xl bg-ocean-500 text-white font-medium hover:bg-ocean-600 transition-colors"
           aria-label="데이터 다시 불러오기"
         >
