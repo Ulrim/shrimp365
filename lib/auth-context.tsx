@@ -131,10 +131,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = async () => {
-    const { error } = await supabase.auth.signOut()
-    if (error) console.warn("[auth] signOut failed:", error.message)
+    // scope: "local" — 서버 revoke 네트워크 호출에 의존하지 않고 로컬 세션/쿠키를
+    // 확실히 지운다. (global 스코프는 revoke 실패 시 쿠키가 남아 로그아웃 후에도
+    // 미들웨어가 로그인 상태로 인식해 되돌리는 문제가 있었음)
+    try {
+      await supabase.auth.signOut({ scope: "local" })
+    } catch (e) {
+      console.warn("[auth] signOut failed:", e)
+    }
     setUser(null)
     setSession(null)
+    // 전체 새로고침으로 남은 상태/캐시까지 깨끗이 초기화
+    if (typeof window !== "undefined") window.location.replace("/login")
   }
 
   const signup = async (email: string, password: string, name: string) => {
