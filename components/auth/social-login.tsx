@@ -24,18 +24,9 @@ function KakaoIcon() {
   )
 }
 
-function NaverIcon() {
-  return (
-    <svg className="w-4 h-4" viewBox="0 0 20 20" aria-hidden="true">
-      <path fill="#ffffff" d="M13.56 10.7 6.14 0H0v20h6.44V9.3L13.86 20H20V0h-6.44v10.7z" />
-    </svg>
-  )
-}
-
 /**
- * 소셜 로그인 버튼 묶음 (Google / Kakao / Naver).
+ * 소셜 로그인 버튼 묶음 (Google / Kakao).
  * - Google, Kakao: Supabase 기본 OAuth (signInWithProvider)
- * - Naver: Supabase 미지원 → 커스텀 서버 라우트(/auth/naver)로 리다이렉트
  */
 export function SocialLogin() {
   const { signInWithProvider } = useAuth()
@@ -47,11 +38,6 @@ export function SocialLogin() {
     const res = await signInWithProvider(provider)
     // 성공 시 브라우저가 provider로 리다이렉트되므로 아래는 실패 시에만 실행됨
     if (!res.success) setPending(null)
-  }
-
-  const handleNaver = () => {
-    setPending("naver")
-    window.location.href = "/auth/naver"
   }
 
   return (
@@ -81,16 +67,6 @@ export function SocialLogin() {
         >
           <KakaoIcon />
           {t.auth.socialKakao}
-        </button>
-
-        <button
-          type="button"
-          onClick={handleNaver}
-          disabled={!!pending}
-          className="w-full flex items-center justify-center gap-3 min-h-[44px] rounded-lg bg-[#03C75A] text-white font-medium text-sm hover:brightness-95 transition-all disabled:opacity-60"
-        >
-          <NaverIcon />
-          {t.auth.socialNaver}
         </button>
       </div>
     </div>
