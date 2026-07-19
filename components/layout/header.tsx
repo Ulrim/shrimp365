@@ -13,7 +13,7 @@ import { useT } from "@/lib/i18n-context"
 export function Header() {
   const pathname = usePathname()
   const { user } = useAuth()
-  const { t } = useT()
+  const { t, locale } = useT()
 
   const pageLabels: Record<string, string> = {
     "/home":                    t.nav.home,
@@ -28,8 +28,13 @@ export function Header() {
     "/ai-advisor":              t.nav.aiAdvisor,
     "/reports":                 t.nav.reports,
     "/admin":                   t.nav.admin,
-    "/help":                    "도움말",
+    "/help":                    t.headerX.help,
   }
+
+  const dateLocale =
+    locale === "ko" ? "ko-KR" :
+    locale === "vi" ? "vi-VN" :
+    locale === "id" ? "id-ID" : "en-US"
 
   const title = pageLabels[pathname] || "Shrimp365"
 
@@ -79,7 +84,7 @@ export function Header() {
           <div className="min-w-0">
             <h1 className="text-[15px] lg:text-lg font-semibold text-foreground leading-tight truncate">{title}</h1>
             <p className="text-xs text-muted-foreground hidden sm:block">
-              {new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" })}
+              {new Date().toLocaleDateString(dateLocale, { year: "numeric", month: "long", day: "numeric", weekday: "short" })}
             </p>
           </div>
         </div>
@@ -89,7 +94,7 @@ export function Header() {
           <button
             onClick={() => { setNotiOpen(false); setSearchOpen(v => !v) }}
             className="flex items-center gap-2 w-9 h-9 sm:w-auto sm:px-3 justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            title="검색 (Ctrl+K)"
+            title={t.headerX.searchTitle}
           >
             <Search className="w-4 h-4 shrink-0" />
             <span className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -102,7 +107,7 @@ export function Header() {
             <button
               onClick={() => { setSearchOpen(false); setNotiOpen(v => !v) }}
               className="relative w-9 h-9 flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              title="알림"
+              title={t.headerX.notifications}
             >
               <Bell className="w-4 h-4" />
               {alertCount > 0 && (

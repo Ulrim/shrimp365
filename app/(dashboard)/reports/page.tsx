@@ -53,10 +53,10 @@ function ExampleReport() {
   const exampleKpis = [
     { label: t.reports.avgTemperature, value: "28.5°C", prev: "28.1°C", trend: "up", bad: true },
     { label: t.reports.avgDo, value: "6.2 mg/L", prev: "6.5 mg/L", trend: "down", bad: true },
-    { label: t.reports.totalMortality, value: "1,250마리", prev: "980마리", trend: "up", bad: true },
+    { label: t.reports.totalMortality, value: `1,250${t.reportsX.unitShrimp}`, prev: `980${t.reportsX.unitShrimp}`, trend: "up", bad: true },
     { label: t.reports.avgTurbidity, value: "9.8 NTU", prev: "7.2 NTU", trend: "up", bad: true },
-    { label: t.reports.alertsCount, value: "7건", prev: "3건", trend: "up", bad: true },
-    { label: t.reports.normalTanks, value: "5개", prev: "6개", trend: "down", bad: true },
+    { label: t.reports.alertsCount, value: `7${t.reportsX.unitCases}`, prev: `3${t.reportsX.unitCases}`, trend: "up", bad: true },
+    { label: t.reports.normalTanks, value: `5${t.common.unit.pcs}`, prev: `6${t.common.unit.pcs}`, trend: "down", bad: true },
   ]
 
   return (
@@ -87,16 +87,16 @@ function ExampleReport() {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={weeklyDo} aria-label="수조별 DO 주간 추이 차트" role="img">
+                <LineChart data={weeklyDo} aria-label={t.reportsX.doTrendChartAria} role="img">
                   <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" strokeOpacity={0.15} />
                   <XAxis dataKey="day" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} />
                   <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} domain={[3.5, 8]} width={35} />
                   <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }} labelStyle={{ color: "hsl(var(--muted-foreground))" }} />
                   <Legend wrapperStyle={{ fontSize: "12px", color: "hsl(var(--muted-foreground))" }} />
                   <ReferenceLine y={5} stroke="#ef4444" strokeDasharray="4 4" label={{ value: t.reports.baseline, fill: "#ef4444", fontSize: 10, position: "right" }} />
-                  <Line type="monotone" dataKey="A-1조" stroke="#0ea5e9" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="B-2조" stroke="#f59e0b" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="C-2조" stroke="#a78bfa" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="A-1조" name={t.reportsX.tankA1} stroke="#0ea5e9" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="B-2조" name={t.reportsX.tankB2} stroke="#f59e0b" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="C-2조" name={t.reportsX.tankC2} stroke="#a78bfa" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
@@ -111,7 +111,7 @@ function ExampleReport() {
           </CardHeader>
           <CardContent className="flex flex-col items-center">
             <ResponsiveContainer width="100%" height={180}>
-              <PieChart aria-label="수조 상태 분포 차트" role="img">
+              <PieChart aria-label={t.reportsX.tankStatusChartAria} role="img">
                 <Pie data={exampleTankStatusData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
                   {exampleTankStatusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                 </Pie>
@@ -139,7 +139,7 @@ function ExampleReport() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={weeklyMortality} barSize={14} aria-label="이번 주 vs 이전 주 폐사량 비교 차트" role="img">
+              <BarChart data={weeklyMortality} barSize={14} aria-label={t.reportsX.mortalityCompareChartAria} role="img">
                 <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" strokeOpacity={0.15} />
                 <XAxis dataKey="day" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={40} />
@@ -160,26 +160,29 @@ function ExampleReport() {
           </CardHeader>
           <CardContent className="space-y-3">
             {[
-              { date: "06/03", tank: "C-2조", issue: "탁도 32.5 NTU 위험", action: "30% 환수, 여과 점검", badge: "danger" as const },
-              { date: "06/02", tank: "B-2조", issue: "AHPND 양성 진단", action: "격리·투약 조치 시작", badge: "danger" as const },
-              { date: "06/01", tank: "B-2조", issue: "DO 4.2 mg/L 저하", action: "폭기 증가, 급이 감소", badge: "warning" as const },
-              { date: "05/31", tank: "B-1조", issue: "암모니아 0.62 mg/L", action: "바실러스균 투입", badge: "warning" as const },
-              { date: "05/29", tank: "전체", issue: "정기 수질 점검", action: "이상 없음 확인", badge: "success" as const },
-            ].map((item, i) => (
+              { date: "06/03", badge: "danger" as const },
+              { date: "06/02", badge: "danger" as const },
+              { date: "06/01", badge: "warning" as const },
+              { date: "05/31", badge: "warning" as const },
+              { date: "05/29", badge: "success" as const },
+            ].map((item, i) => {
+              const info = t.reportsX.issueHistoryItems[i]
+              return (
               <div key={i} className="flex items-start gap-3 p-3 bg-muted rounded-xl border border-border">
                 <div className="text-xs text-muted-foreground w-10 shrink-0 pt-0.5">{item.date}</div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-sm text-foreground font-medium">{item.tank}</span>
+                    <span className="text-sm text-foreground font-medium">{info.tank}</span>
                     <Badge variant={item.badge} className="text-xs h-4 px-1.5">
                       {item.badge === "danger" ? t.dashboard.danger : item.badge === "warning" ? t.dashboard.warning : t.dashboard.normal}
                     </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">{item.issue}</p>
-                  <p className="text-xs text-ocean-500 mt-0.5">→ {item.action}</p>
+                  <p className="text-xs text-muted-foreground">{info.issue}</p>
+                  <p className="text-xs text-ocean-500 mt-0.5">→ {info.action}</p>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </CardContent>
         </Card>
       </div>
@@ -203,27 +206,27 @@ function ExampleReport() {
               </thead>
               <tbody className="divide-y divide-border">
                 <tr className="hover:bg-accent">
-                  <td className="py-3 text-foreground font-medium">제1양식장</td>
-                  <td className="py-3 text-center text-foreground/80">8개</td>
-                  <td className="py-3 text-center text-foreground/80">476,500마리</td>
+                  <td className="py-3 text-foreground font-medium">{t.reportsX.exampleFarm1}</td>
+                  <td className="py-3 text-center text-foreground/80">8{t.common.unit.pcs}</td>
+                  <td className="py-3 text-center text-foreground/80">476,500{t.reportsX.unitShrimp}</td>
                   <td className="py-3 text-center">
                     <span className="text-emerald-500">5</span><span className="text-muted-foreground"> / </span>
                     <span className="text-amber-500">1</span><span className="text-muted-foreground"> / </span>
                     <span className="text-red-500">2</span>
                   </td>
-                  <td className="py-3 text-center text-amber-500">1,250마리</td>
+                  <td className="py-3 text-center text-amber-500">1,250{t.reportsX.unitShrimp}</td>
                   <td className="py-3 text-right"><Badge variant="warning">{t.reports.riskMedium}</Badge></td>
                 </tr>
                 <tr className="hover:bg-accent">
-                  <td className="py-3 text-foreground font-medium">제2양식장</td>
-                  <td className="py-3 text-center text-foreground/80">5개</td>
-                  <td className="py-3 text-center text-foreground/80">312,000마리</td>
+                  <td className="py-3 text-foreground font-medium">{t.reportsX.exampleFarm2}</td>
+                  <td className="py-3 text-center text-foreground/80">5{t.common.unit.pcs}</td>
+                  <td className="py-3 text-center text-foreground/80">312,000{t.reportsX.unitShrimp}</td>
                   <td className="py-3 text-center">
                     <span className="text-emerald-500">5</span><span className="text-muted-foreground"> / </span>
                     <span className="text-amber-500">0</span><span className="text-muted-foreground"> / </span>
                     <span className="text-red-500">0</span>
                   </td>
-                  <td className="py-3 text-center text-foreground/80">230마리</td>
+                  <td className="py-3 text-center text-foreground/80">230{t.reportsX.unitShrimp}</td>
                   <td className="py-3 text-right"><Badge variant="success">{t.reports.riskLow}</Badge></td>
                 </tr>
               </tbody>
@@ -274,9 +277,9 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
       {/* KPI Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: t.reports.activeFarms, value: `${farms.length}개` },
-          { label: t.reports.totalTanks, value: `${tanks.length}개` },
-          { label: t.reports.periodMortality, value: `${totalMortality.toLocaleString()}마리` },
+          { label: t.reports.activeFarms, value: `${farms.length}${t.common.unit.pcs}` },
+          { label: t.reports.totalTanks, value: `${tanks.length}${t.common.unit.pcs}` },
+          { label: t.reports.periodMortality, value: `${totalMortality.toLocaleString()}${t.reportsX.unitShrimp}` },
           { label: t.reports.periodFeeding, value: `${totalFeeding.toFixed(1)}kg` },
         ].map(kpi => (
           <Card key={kpi.label} className="bg-card border-border min-w-0 overflow-hidden">
@@ -300,7 +303,7 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
             <CardContent>
               {dailyMortality.some(d => (d[t.reports.mortality] as number) > 0) ? (
                 <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={dailyMortality} barSize={20} aria-label="일별 폐사량 차트" role="img">
+                  <BarChart data={dailyMortality} barSize={20} aria-label={t.reportsX.dailyMortalityChartAria} role="img">
                     <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" strokeOpacity={0.15} />
                     <XAxis dataKey="day" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} />
                     <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={40} />
@@ -322,14 +325,14 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-foreground flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-ocean-500" />수조 상태 분포
+              <BarChart3 className="w-4 h-4 text-ocean-500" />{t.reports.tankStatusDist}
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center">
             {tankStatusData.length > 0 ? (
               <>
                 <ResponsiveContainer width="100%" height={180}>
-                  <PieChart aria-label="수조 상태 분포 차트" role="img">
+                  <PieChart aria-label={t.reportsX.tankStatusChartAria} role="img">
                     <Pie data={tankStatusData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
                       {tankStatusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                     </Pie>
@@ -383,8 +386,8 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
                     return (
                       <tr key={farm.id} className="hover:bg-accent">
                         <td className="py-3 text-foreground font-medium">{farm.name}</td>
-                        <td className="py-3 text-center text-foreground/80">{farmTanks.length}개</td>
-                        <td className="py-3 text-center text-foreground/80">{farmTanks.reduce((s, t) => s + t.shrimp_count, 0).toLocaleString()}마리</td>
+                        <td className="py-3 text-center text-foreground/80">{farmTanks.length}{t.common.unit.pcs}</td>
+                        <td className="py-3 text-center text-foreground/80">{farmTanks.reduce((s, t) => s + t.shrimp_count, 0).toLocaleString()}{t.reportsX.unitShrimp}</td>
                         <td className="py-3 text-center">
                           <span className="text-emerald-500">{active}</span>
                           <span className="text-muted-foreground"> / </span>
@@ -392,7 +395,7 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
                           <span className="text-muted-foreground"> / </span>
                           <span className="text-red-500">{danger}</span>
                         </td>
-                        <td className="py-3 text-center text-foreground/80">{farmMortality.toLocaleString()}마리</td>
+                        <td className="py-3 text-center text-foreground/80">{farmMortality.toLocaleString()}{t.reportsX.unitShrimp}</td>
                       </tr>
                     )
                   })}
@@ -420,14 +423,14 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
                 </div>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs text-muted-foreground">
                   <span>{t.reports.feeding} {j.feeding_amount}kg</span>
-                  <span className={j.mortality_count > 0 ? "text-amber-500" : "text-muted-foreground"}>{t.reports.mortality} {j.mortality_count}마리</span>
+                  <span className={j.mortality_count > 0 ? "text-amber-500" : "text-muted-foreground"}>{t.reports.mortality} {j.mortality_count}{t.reportsX.unitShrimp}</span>
                   <span>{t.reports.waterExchange} {j.water_exchange_rate}%</span>
                 </div>
               </div>
             ))}
             {weekJournals.length > 10 && (
               <a href="/journal" className="block text-center text-xs text-ocean-500 hover:text-ocean-400 transition-colors pt-1">
-                {t.reports.viewAllJournals} ({weekJournals.length}건) →
+                {t.reports.viewAllJournals} ({weekJournals.length}{t.reportsX.unitCases}) →
               </a>
             )}
           </CardContent>
@@ -441,7 +444,7 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
 
 export default function ReportsPage() {
   const { user } = useAuth()
-  const { t } = useT()
+  const { t, locale } = useT()
 
   const PERIOD_OPTIONS = [
     { labelKey: "period7d" as const, days: 7 },
@@ -487,7 +490,9 @@ export default function ReportsPage() {
 
   const now = new Date()
   const periodStart = new Date(now.getTime() - periodDays * 86400000)
-  const dateRange = `${periodStart.getFullYear()}년 ${periodStart.getMonth() + 1}월 ${periodStart.getDate()}일 ~ ${now.getMonth() + 1}월 ${now.getDate()}일`
+  const dateLocale = locale === "ko" ? "ko-KR" : locale === "vi" ? "vi-VN" : locale === "id" ? "id-ID" : "en-US"
+  const fmtDate = (d: Date) => d.toLocaleDateString(dateLocale, { year: "numeric", month: "long", day: "numeric" })
+  const dateRange = `${fmtDate(periodStart)} ~ ${fmtDate(now)}`
 
   function handlePdf() {
     window.print()
@@ -518,7 +523,7 @@ export default function ReportsPage() {
               <button
                 key={opt.days}
                 onClick={() => handlePeriodChange(opt.days)}
-                aria-label={`${t.reports[opt.labelKey]} 기간 선택`}
+                aria-label={t.reportsX.selectPeriodAria.replace("{{period}}", t.reports[opt.labelKey])}
                 aria-pressed={periodDays === opt.days}
                 className={`text-xs px-3 min-h-[44px] rounded-lg transition-colors flex items-center gap-1 ${
                   periodDays === opt.days

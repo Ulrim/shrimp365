@@ -126,7 +126,7 @@ export default function DashboardPage() {
     danger:  tanks.filter(tk => tk.status === "danger").length,
   }
 
-  const localeStr = locale === "ko" ? "ko-KR" : locale === "vi" ? "vi-VN" : "en-US"
+  const localeStr = locale === "ko" ? "ko-KR" : locale === "vi" ? "vi-VN" : locale === "id" ? "id-ID" : "en-US"
 
   const chartData = wqData
     .filter((_, i) => i % 4 === 0)
@@ -142,7 +142,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64" role="status" aria-label="데이터 불러오는 중">
+      <div className="flex items-center justify-center h-64" role="status" aria-label={t.common.loading}>
         <div className="w-8 h-8 border-4 border-ocean-500 border-t-transparent rounded-full animate-spin" aria-hidden="true" />
       </div>
     )
@@ -152,7 +152,7 @@ export default function DashboardPage() {
     <div className="space-y-6 animate-fade-in">
       {/* Alert Banner */}
       {alerts.length > 0 && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3" role="alert" aria-label={`미해결 알림 ${alerts.length}건`}>
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3" role="alert" aria-label={`${t.a11y.unresolvedAlerts} ${alerts.length}${t.a11y.unitCase}`}>
           <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" aria-hidden="true" />
           <div className="flex-1">
             <p className="text-sm font-medium text-red-700">{alerts.length} {t.dashboard.alertsToday}</p>
@@ -161,7 +161,7 @@ export default function DashboardPage() {
             </p>
           </div>
           <Link href="/water-quality" className="shrink-0">
-            <Button size="sm" variant="outline" aria-label="알림 전체 보기" className="border-red-500/40 text-red-700 hover:bg-red-500/20 text-xs h-8 min-h-[44px]">
+            <Button size="sm" variant="outline" aria-label={t.dashboard.viewAllAlerts} className="border-red-500/40 text-red-700 hover:bg-red-500/20 text-xs h-8 min-h-[44px]">
               {t.dashboard.viewAllAlerts}
             </Button>
           </Link>
@@ -170,17 +170,17 @@ export default function DashboardPage() {
 
       {/* Low Stock Warning */}
       {lowStockItems.length > 0 && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3" role="alert" aria-label={`재고 부족 ${lowStockItems.length}개`}>
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3" role="alert" aria-label={`${t.inventory.lowStockItems} ${lowStockItems.length}${t.common.unit.pcs}`}>
           <Package className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-amber-700">{t.inventory.lowStockItems} {lowStockItems.length}{locale === "ko" ? "개" : ""}</p>
+            <p className="text-sm font-medium text-amber-700">{t.inventory.lowStockItems} {lowStockItems.length}{t.common.unit.pcs}</p>
             <p className="text-xs text-amber-600/80 mt-0.5">
               {lowStockItems.slice(0, 3).map(i => i.name).join(", ")}
               {lowStockItems.length > 3 ? ` +${lowStockItems.length - 3}` : ""}
             </p>
           </div>
           <Link href="/inventory" className="shrink-0">
-            <Button size="sm" variant="outline" aria-label="재고 관리 페이지로 이동" className="border-amber-500/40 text-amber-700 hover:bg-amber-500/20 text-xs h-8 min-h-[44px]">
+            <Button size="sm" variant="outline" aria-label={t.a11y.goToInventory} className="border-amber-500/40 text-amber-700 hover:bg-amber-500/20 text-xs h-8 min-h-[44px]">
               {t.nav.inventory}
             </Button>
           </Link>
@@ -233,14 +233,14 @@ export default function DashboardPage() {
                   </select>
                   <span className="text-muted-foreground text-xs">({t.waterQuality?.period24h ?? "24h"})</span>
                 </div>
-                <Link href="/water-quality" aria-label="수질 기록 전체 보기" className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center gap-1">
+                <Link href="/water-quality" aria-label={t.a11y.viewAllWaterQuality} className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center gap-1">
                   {t.dashboard.viewAll} <ArrowRight className="w-3 h-3" aria-hidden="true" />
                 </Link>
               </div>
             </CardHeader>
             <CardContent>
               {chartData.length > 0 ? (
-                <div role="img" aria-label="수질 데이터 추이 차트 (온도, DO, pH)">
+                <div role="img" aria-label={t.a11y.wqChart}>
                 <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -255,7 +255,7 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="h-[220px] flex flex-col items-center justify-center gap-2 text-muted-foreground text-sm" role="status" aria-label="수질 데이터 없음">
+                <div className="h-[220px] flex flex-col items-center justify-center gap-2 text-muted-foreground text-sm" role="status" aria-label={t.waterQuality.noData}>
                   <Droplets className="w-8 h-8 text-muted-foreground/30" aria-hidden="true" />
                   {t.dashboard.noFarmsMsg}
                 </div>
@@ -288,7 +288,7 @@ export default function DashboardPage() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-foreground text-base">{t.dashboard.activeTanks}</CardTitle>
-                <Link href="/farms" aria-label="수조 전체 보기" className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center gap-1">{t.dashboard.viewAll} <ArrowRight className="w-3 h-3" aria-hidden="true" /></Link>
+                <Link href="/farms" aria-label={t.a11y.viewAllTanks} className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center gap-1">{t.dashboard.viewAll} <ArrowRight className="w-3 h-3" aria-hidden="true" /></Link>
               </div>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -343,7 +343,7 @@ export default function DashboardPage() {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-foreground text-base">{t.dashboard.recentJournal}</CardTitle>
-            <Link href="/diagnosis" aria-label="진단 기록 전체 보기" className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center gap-1">{t.dashboard.viewAll} <ArrowRight className="w-3 h-3" aria-hidden="true" /></Link>
+            <Link href="/diagnosis" aria-label={t.a11y.viewAllDiagnoses} className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center gap-1">{t.dashboard.viewAll} <ArrowRight className="w-3 h-3" aria-hidden="true" /></Link>
           </div>
         </CardHeader>
         <CardContent>

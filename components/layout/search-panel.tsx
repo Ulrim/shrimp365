@@ -6,20 +6,8 @@ import { Search, X, Building2, Droplets, BookOpen, FlaskConical, BarChart3, Brai
 import { getFarms, getAllTanks } from "@/lib/db"
 import { MOCK_FARMS, MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
+import { useT } from "@/lib/i18n-context"
 import type { Farm, Tank } from "@/types"
-
-const NAV_PAGES = [
-  { href: "/dashboard",          label: "대시보드",        icon: LayoutDashboard, desc: "운영 현황 한눈에 보기" },
-  { href: "/water-quality",      label: "수질 모니터링",    icon: Droplets,        desc: "수질 데이터 및 이력 분석" },
-  { href: "/record/water-quality", label: "수질 기록",      icon: Droplets,        desc: "수질 단계별 입력" },
-  { href: "/record/journal",     label: "양식 일지 기록",   icon: ClipboardList,   desc: "급이·폐사·작업 단계별 입력" },
-  { href: "/journal",            label: "양식 일지",        icon: BookOpen,        desc: "급이·폐사·작업 이력" },
-  { href: "/farms",              label: "양식장·수조 관리", icon: Building2,       desc: "양식장 및 수조 등록·관리" },
-  { href: "/diagnosis",          label: "질병 진단",        icon: FlaskConical,    desc: "비브리오·AHPND 진단 기록" },
-  { href: "/ai-advisor",         label: "AI 어드바이저",    icon: BrainCircuit,    desc: "AI 기반 운영 권고" },
-  { href: "/reports",            label: "리포트",           icon: BarChart3,       desc: "주간 운영 보고서" },
-  { href: "/help",               label: "도움말·사용 가이드", icon: HelpCircle,     desc: "기능 사용 방법 안내" },
-]
 
 interface SearchPanelProps {
   open: boolean
@@ -28,12 +16,26 @@ interface SearchPanelProps {
 
 export function SearchPanel({ open, onClose }: SearchPanelProps) {
   const { user } = useAuth()
+  const { t } = useT()
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState("")
   const [farms, setFarms] = useState<Farm[]>([])
   const [tanks, setTanks] = useState<Tank[]>([])
   const [selectedIdx, setSelectedIdx] = useState(0)
+
+  const navPages: { href: string; label: string; desc: string; icon: React.ElementType }[] = [
+    { href: "/dashboard",            label: t.nav.dashboard,            icon: LayoutDashboard, desc: t.search.descDashboard },
+    { href: "/water-quality",        label: t.nav.waterQuality,         icon: Droplets,        desc: t.search.descWaterQuality },
+    { href: "/record/water-quality", label: t.record.waterQuality,      icon: Droplets,        desc: t.search.descRecordWater },
+    { href: "/record/journal",       label: t.search.pageRecordJournal, icon: ClipboardList,   desc: t.search.descRecordJournal },
+    { href: "/journal",              label: t.nav.journal,              icon: BookOpen,        desc: t.search.descJournal },
+    { href: "/farms",                label: t.farms.title,              icon: Building2,       desc: t.search.descFarms },
+    { href: "/diagnosis",            label: t.nav.diagnosis,            icon: FlaskConical,    desc: t.search.descDiagnosis },
+    { href: "/ai-advisor",           label: t.nav.aiAdvisor,            icon: BrainCircuit,    desc: t.search.descAiAdvisor },
+    { href: "/reports",              label: t.nav.reports,              icon: BarChart3,       desc: t.search.descReports },
+    { href: "/help",                 label: t.search.pageHelp,          icon: HelpCircle,      desc: t.search.descHelp },
+  ]
 
   useEffect(() => {
     if (!open) return
@@ -52,8 +54,8 @@ export function SearchPanel({ open, onClose }: SearchPanelProps) {
 
   const q = query.trim().toLowerCase()
 
-  const matchedPages = NAV_PAGES.filter(p =>
-    !q || p.label.includes(q) || p.desc.includes(q)
+  const matchedPages = navPages.filter(p =>
+    !q || p.label.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q)
   )
   const matchedFarms = farms.filter(f =>
     q && (f.name.toLowerCase().includes(q) || f.location.toLowerCase().includes(q))
@@ -99,7 +101,7 @@ export function SearchPanel({ open, onClose }: SearchPanelProps) {
   if (!open) return null
 
   const STATUS_LABEL: Record<Tank["status"], string> = {
-    active: "정상", warning: "주의", danger: "위험", inactive: "비가동"
+    active: t.dashboard.normal, warning: t.dashboard.warning, danger: t.dashboard.danger, inactive: t.farms.tankStatusInactive
   }
   const STATUS_COLOR: Record<Tank["status"], string> = {
     active: "text-emerald-400", warning: "text-amber-400", danger: "text-red-400", inactive: "text-slate-400"
@@ -119,7 +121,7 @@ export function SearchPanel({ open, onClose }: SearchPanelProps) {
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="페이지, 양식장, 수조 검색..."
+            placeholder={t.search.placeholder}
             className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground text-sm outline-none"
           />
           {query && (
@@ -133,13 +135,13 @@ export function SearchPanel({ open, onClose }: SearchPanelProps) {
         {/* Results */}
         <div className="max-h-96 overflow-y-auto py-2">
           {results.length === 0 && q && (
-            <p className="text-muted-foreground text-sm text-center py-8">"{query}" 검색 결과가 없습니다</p>
+            <p className="text-muted-foreground text-sm text-center py-8">{t.search.noResults.replace("{{query}}", query)}</p>
           )}
 
           {/* Pages */}
           {matchedPages.length > 0 && (
             <div>
-              {q && <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider px-4 py-1.5">페이지</p>}
+              {q && <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider px-4 py-1.5">{t.search.sectionPages}</p>}
               {matchedPages.map((item, i) => {
                 const absIdx = i
                 const Icon = item.icon
@@ -166,7 +168,7 @@ export function SearchPanel({ open, onClose }: SearchPanelProps) {
           {/* Farms */}
           {matchedFarms.length > 0 && (
             <div>
-              <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider px-4 py-1.5 mt-1">양식장</p>
+              <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider px-4 py-1.5 mt-1">{t.search.sectionFarms}</p>
               {matchedFarms.map((farm, i) => {
                 const absIdx = matchedPages.length + i
                 return (
@@ -192,7 +194,7 @@ export function SearchPanel({ open, onClose }: SearchPanelProps) {
           {/* Tanks */}
           {matchedTanks.length > 0 && (
             <div>
-              <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider px-4 py-1.5 mt-1">수조</p>
+              <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider px-4 py-1.5 mt-1">{t.search.sectionTanks}</p>
               {matchedTanks.map((tank, i) => {
                 const absIdx = matchedPages.length + matchedFarms.length + i
                 return (
@@ -218,9 +220,9 @@ export function SearchPanel({ open, onClose }: SearchPanelProps) {
 
         {/* Footer hint */}
         <div className="border-t border-border px-4 py-2 flex items-center gap-4 text-xs text-muted-foreground">
-          <span><kbd className="bg-muted border border-border rounded px-1">↑↓</kbd> 이동</span>
-          <span><kbd className="bg-muted border border-border rounded px-1">Enter</kbd> 선택</span>
-          <span><kbd className="bg-muted border border-border rounded px-1">ESC</kbd> 닫기</span>
+          <span><kbd className="bg-muted border border-border rounded px-1">↑↓</kbd> {t.search.hintNavigate}</span>
+          <span><kbd className="bg-muted border border-border rounded px-1">Enter</kbd> {t.search.hintSelect}</span>
+          <span><kbd className="bg-muted border border-border rounded px-1">ESC</kbd> {t.common.close}</span>
         </div>
       </div>
     </div>

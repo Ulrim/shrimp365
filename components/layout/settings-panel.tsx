@@ -50,7 +50,7 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const { user, updateProfile, updatePassword, updateEmail, logout } = useAuth()
-  const { t } = useT()
+  const { t, locale } = useT()
   const router = useRouter()
   const panelRef = useRef<HTMLDivElement>(null)
   const [tab, setTab] = useState<Tab>("account")
@@ -397,23 +397,16 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">요금</span>
-                  <span className="text-foreground font-semibold">무료 (광고 기반)</span>
+                  <span className="text-sm text-muted-foreground">{t.subs.price}</span>
+                  <span className="text-foreground font-semibold">{t.subs.priceFree}</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  모든 기능을 제한 없이 무료로 사용할 수 있습니다.
+                  {t.subs.allFree}
                 </p>
               </div>
               <div className="space-y-2 text-sm">
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">포함된 기능</p>
-                {[
-                  "수질 모니터링 · 이상 알림",
-                  "AI 어드바이저 무제한",
-                  "양식장·수조 무제한",
-                  "질병 진단 (AHPND·EHP·WSSV)",
-                  "재고 관리 · CSV 내보내기",
-                  "7일·30일·90일 리포트",
-                ].map(f => (
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{t.subs.included}</p>
+                {t.subs.features.map(f => (
                   <div key={f} className="flex items-center gap-2 py-1.5 border-b border-border">
                     <span className="text-emerald-500">✓</span>
                     <span className="text-foreground/80">{f}</span>
@@ -463,7 +456,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   { label: t.settings.support, value: "CULIVER INC" },
                   { label: "Supabase", value: "Supabase" },
                   { label: "Next.js", value: "Next.js 16" },
-                  { label: t.common.date, value: new Date().toLocaleDateString("ko-KR") },
+                  { label: t.common.date, value: new Date().toLocaleDateString(locale === "ko" ? "ko-KR" : locale === "vi" ? "vi-VN" : locale === "id" ? "id-ID" : "en-US") },
                 ].map(row => (
                   <div key={row.label} className="flex justify-between py-2 border-b border-border">
                     <span className="text-muted-foreground">{row.label}</span>

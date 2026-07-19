@@ -62,22 +62,16 @@ function LoginPageInner() {
 
         <div className="relative z-10">
           <h1 className="text-5xl font-bold text-foreground leading-tight mb-6">
-            스마트 양식 관리의<br />
+            {t.loginX.heroTitle}<br />
             <span className="bg-gradient-to-r from-ocean-500 to-teal-500 bg-clip-text text-transparent">
-              새로운 기준
+              {t.loginX.heroTitleHighlight}
             </span>
           </h1>
           <p className="text-ocean-700 text-lg leading-relaxed mb-8">
-            AI 기반 수질 모니터링, 생육 관리, 질병 진단을 하나의 플랫폼에서.
-            흰다리새우 양식의 수익성과 안정성을 동시에 높이세요.
+            {t.loginX.heroSubtitle}
           </p>
           <div className="grid grid-cols-2 gap-4">
-            {[
-              { icon: "📡", label: "실시간 수질 모니터링" },
-              { icon: "🤖", label: "AI 운영 권고" },
-              { icon: "🦠", label: "질병 진단 연계" },
-              { icon: "📊", label: "자동 리포트 생성" },
-            ].map((item) => (
+            {t.loginX.features.map((item) => (
               <div key={item.label} className="flex items-center gap-3 bg-ocean-50 rounded-xl p-3 border border-ocean-100">
                 <span className="text-2xl">{item.icon}</span>
                 <span className="text-sm text-ocean-700">{item.label}</span>
@@ -106,7 +100,7 @@ function LoginPageInner() {
             {verified && (
               <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-t-2xl px-4 py-3 text-sm">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
-                이메일 인증이 완료되었습니다. 로그인해 주세요.
+                {t.loginX.verifiedBanner}
               </div>
             )}
             <CardHeader className="space-y-1 pb-4">
@@ -146,7 +140,7 @@ function LoginPageInner() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 표시"}
+                      aria-label={showPassword ? t.loginX.hidePassword : t.loginX.showPassword}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -228,9 +222,9 @@ function LoginPageInner() {
                   </Link>
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  처음 사용하시나요?{" "}
+                  {t.loginX.guidePrompt}{" "}
                   <Link href="/guide" className="text-ocean-600 hover:text-ocean-700 font-medium transition-colors">
-                    📖 사용 가이드 보기
+                    📖 {t.loginX.guideLink}
                   </Link>
                 </p>
               </div>

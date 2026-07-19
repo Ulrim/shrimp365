@@ -36,10 +36,10 @@ import { useT } from "@/lib/i18n-context"
 // ── Diagnosis helpers ─────────────────────────────────────────────────────────
 
 const RISK_META = {
-  low:      { label: "낮음", badgeVariant: "success"  as const, color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", bar: "bg-emerald-500", step: 1 },
-  medium:   { label: "보통", badgeVariant: "warning"  as const, color: "text-amber-400",   bg: "bg-amber-500/10 border-amber-500/20",   bar: "bg-amber-500",   step: 2 },
-  high:     { label: "높음", badgeVariant: "danger"   as const, color: "text-red-400",     bg: "bg-red-500/10 border-red-500/20",       bar: "bg-red-500",     step: 3 },
-  critical: { label: "긴급", badgeVariant: "danger"   as const, color: "text-purple-400",  bg: "bg-purple-500/10 border-purple-500/20", bar: "bg-purple-500",  step: 4 },
+  low:      { badgeVariant: "success"  as const, color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", bar: "bg-emerald-500", step: 1 },
+  medium:   { badgeVariant: "warning"  as const, color: "text-amber-400",   bg: "bg-amber-500/10 border-amber-500/20",   bar: "bg-amber-500",   step: 2 },
+  high:     { badgeVariant: "danger"   as const, color: "text-red-400",     bg: "bg-red-500/10 border-red-500/20",       bar: "bg-red-500",     step: 3 },
+  critical: { badgeVariant: "danger"   as const, color: "text-purple-400",  bg: "bg-purple-500/10 border-purple-500/20", bar: "bg-purple-500",  step: 4 },
 }
 
 const RESULT_META = {
@@ -52,12 +52,7 @@ type RiskLevel  = keyof typeof RISK_META
 type ResultType = keyof typeof RESULT_META
 type TestType   = DiagnosisResult["test_type"]
 
-const RISK_STEPS: { key: RiskLevel; label: string }[] = [
-  { key: "low",      label: "낮음" },
-  { key: "medium",   label: "보통" },
-  { key: "high",     label: "높음" },
-  { key: "critical", label: "긴급" },
-]
+const RISK_STEPS: RiskLevel[] = ["low", "medium", "high", "critical"]
 
 const riskOrder: Record<RiskLevel, number> = { low: 0, medium: 1, high: 2, critical: 3 }
 
@@ -164,7 +159,7 @@ function saveJournalDefaults(form: typeof defaultJournalForm) {
 
 function JournalCard({ entry, currentUserId, currentUserName, onEdit, onDelete }: { entry: JournalEntry; currentUserId?: string; currentUserName?: string; onEdit: (e: JournalEntry) => void; onDelete: (e: JournalEntry) => void }) {
   const { t } = useT()
-  const authorName = entry.created_by === currentUserId ? (currentUserName || "나") : (entry.created_by ? entry.created_by.slice(0, 8) + "…" : "")
+  const authorName = entry.created_by === currentUserId ? (currentUserName || t.journalX.me) : (entry.created_by ? entry.created_by.slice(0, 8) + "…" : "")
   return (
     <Card className="bg-card border-border hover:border-border/80 transition-all group">
       <CardContent className="p-5">
@@ -182,10 +177,10 @@ function JournalCard({ entry, currentUserId, currentUserName, onEdit, onDelete }
             </div>
           </div>
           <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-            <button onClick={() => onEdit(entry)} className="p-2 min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:text-ocean-500 hover:bg-accent transition-colors flex items-center justify-center" aria-label={`${formatDate(entry.date)} 일지 수정`}>
+            <button onClick={() => onEdit(entry)} className="p-2 min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:text-ocean-500 hover:bg-accent transition-colors flex items-center justify-center" aria-label={`${formatDate(entry.date)} ${t.journalX.ariaEditEntry}`}>
               <Pencil className="w-3.5 h-3.5" />
             </button>
-            <button onClick={() => onDelete(entry)} className="p-2 min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:text-red-500 hover:bg-accent transition-colors flex items-center justify-center" aria-label={`${formatDate(entry.date)} 일지 삭제`}>
+            <button onClick={() => onDelete(entry)} className="p-2 min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:text-red-500 hover:bg-accent transition-colors flex items-center justify-center" aria-label={`${formatDate(entry.date)} ${t.journalX.ariaDeleteEntry}`}>
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -199,8 +194,8 @@ function JournalCard({ entry, currentUserId, currentUserName, onEdit, onDelete }
           </div>
           <div className="bg-muted rounded-lg p-3 text-center">
             <div className="flex items-center justify-center gap-1 text-amber-500 mb-1"><Skull className="w-3.5 h-3.5" /></div>
-            <p className="text-lg font-bold text-foreground">{entry.mortality_count.toLocaleString()}<span className="text-xs text-muted-foreground">마리</span></p>
-            <p className="text-xs text-muted-foreground">폐사</p>
+            <p className="text-lg font-bold text-foreground">{entry.mortality_count.toLocaleString()}<span className="text-xs text-muted-foreground">{t.journalX.unitFish}</span></p>
+            <p className="text-xs text-muted-foreground">{t.journalX.mortality}</p>
           </div>
           <div className="bg-muted rounded-lg p-3 text-center">
             <div className="flex items-center justify-center gap-1 text-teal-500 mb-1"><RefreshCw className="w-3.5 h-3.5" /></div>
@@ -209,14 +204,14 @@ function JournalCard({ entry, currentUserId, currentUserName, onEdit, onDelete }
           </div>
           <div className="bg-muted rounded-lg p-3 text-center">
             <div className="flex items-center justify-center gap-1 text-purple-500 mb-1"><FlaskConical className="w-3.5 h-3.5" /></div>
-            <p className="text-sm font-bold text-foreground">{entry.microbial_input ? entry.microbial_type || "투입" : "미투입"}</p>
-            <p className="text-xs text-muted-foreground">미생물</p>
+            <p className="text-sm font-bold text-foreground">{entry.microbial_input ? entry.microbial_type || t.journalX.microbialDosed : t.journalX.microbialNone}</p>
+            <p className="text-xs text-muted-foreground">{t.journalX.microbial}</p>
           </div>
         </div>
 
         <div className="text-xs text-foreground/80 bg-muted rounded-lg px-3 py-2 flex items-start gap-2">
-          <p className="text-xs text-muted-foreground font-medium shrink-0">사료:</p>
-          <p>{entry.feed_type} · 일 {entry.feeding_times}회</p>
+          <p className="text-xs text-muted-foreground font-medium shrink-0">{t.journalX.feed}:</p>
+          <p>{entry.feed_type} · {entry.feeding_times}{t.common.unit.timesPerDay}</p>
         </div>
         {entry.notes && (
           <div className="mt-2 text-xs text-foreground/80 bg-muted rounded-lg px-3 py-2 flex items-start gap-2">
@@ -250,23 +245,26 @@ function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; l
 
 function RiskScaleIndicator({ worstRisk }: { worstRisk: RiskLevel }) {
   const { t } = useT()
+  const riskLabels: Record<RiskLevel, string> = {
+    low: t.journalX.riskLow, medium: t.journalX.riskMedium, high: t.journalX.riskHigh, critical: t.journalX.riskCritical,
+  }
   return (
     <Card className="bg-card border-border">
       <CardHeader className="pb-3">
         <CardTitle className="text-foreground text-base flex items-center gap-2">
-          <Activity className="w-4 h-4 text-purple-500" />현재 위험 단계
+          <Activity className="w-4 h-4 text-purple-500" />{t.journalX.currentRiskLevel}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-3">
-          {RISK_STEPS.map((step, idx) => {
-            const meta = RISK_META[step.key]
-            const isActive = step.key === worstRisk
-            const isPast = idx < RISK_STEPS.findIndex(s => s.key === worstRisk)
+          {RISK_STEPS.map((key, idx) => {
+            const meta = RISK_META[key]
+            const isActive = key === worstRisk
+            const isPast = idx < RISK_STEPS.indexOf(worstRisk)
             return (
-              <div key={step.key} className="flex-1 flex flex-col items-center gap-2">
+              <div key={key} className="flex-1 flex flex-col items-center gap-2">
                 <div className={`h-2.5 w-full rounded-full transition-all ${isActive || isPast ? meta.bar : "bg-muted"} ${isActive ? "ring-2 ring-offset-2 ring-offset-background ring-border" : ""}`} />
-                <span className={`text-xs font-medium ${isActive ? meta.color : isPast ? "text-muted-foreground" : "text-muted-foreground/50"}`}>{step.label}</span>
+                <span className={`text-xs font-medium ${isActive ? meta.color : isPast ? "text-muted-foreground" : "text-muted-foreground/50"}`}>{riskLabels[key]}</span>
               </div>
             )
           })}
@@ -274,12 +272,12 @@ function RiskScaleIndicator({ worstRisk }: { worstRisk: RiskLevel }) {
         <div className={`mt-4 flex items-center gap-3 p-3 rounded-xl border ${RISK_META[worstRisk].bg}`}>
           <AlertTriangle className={`w-5 h-5 shrink-0 ${RISK_META[worstRisk].color}`} />
           <div>
-            <p className={`text-sm font-semibold ${RISK_META[worstRisk].color}`}>{RISK_META[worstRisk].label} 위험 단계</p>
+            <p className={`text-sm font-semibold ${RISK_META[worstRisk].color}`}>{riskLabels[worstRisk]} {t.journalX.riskLevel}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {worstRisk === "low" && "현재 모든 수조가 정상 범위입니다."}
-              {worstRisk === "medium" && "일부 수조에서 주의가 필요합니다. 모니터링을 강화하세요."}
+              {worstRisk === "low" && t.journalX.riskMsgLow}
+              {worstRisk === "medium" && t.journalX.riskMsgMedium}
               {worstRisk === "high" && `${t.diagnosis.urgentAction}. ${t.diagnosis.biosecurity}`}
-              {worstRisk === "critical" && `긴급 상황! ${t.diagnosis.ahpndProtocol}`}
+              {worstRisk === "critical" && `${t.journalX.emergency} ${t.diagnosis.ahpndProtocol}`}
             </p>
           </div>
         </div>
@@ -298,6 +296,9 @@ const D_PAGE = 20
 export default function JournalPage() {
   const { user } = useAuth()
   const { t } = useT()
+  const riskLabels: Record<RiskLevel, string> = {
+    low: t.journalX.riskLow, medium: t.journalX.riskMedium, high: t.journalX.riskHigh, critical: t.journalX.riskCritical,
+  }
   const mock = isTestAccount(user?.email)
 
   const [pageTab, setPageTab] = useState<"journal" | "diagnosis">("journal")
@@ -444,9 +445,9 @@ export default function JournalPage() {
       const raw = jForm[field as keyof typeof jForm] as string
       if (!raw) continue
       const val = parseFloat(raw)
-      if (!Number.isFinite(val)) { setJSaveError(`${WQ_BOUNDS[field].label}: 유효한 숫자를 입력해주세요.`); return }
+      if (!Number.isFinite(val)) { setJSaveError(`${WQ_BOUNDS[field].label}: ${t.journalX.errInvalidNumber}`); return }
       if (val < WQ_BOUNDS[field].min || val > WQ_BOUNDS[field].max) {
-        setJSaveError(`${WQ_BOUNDS[field].label}: ${WQ_BOUNDS[field].min}~${WQ_BOUNDS[field].max}${WQ_BOUNDS[field].unit} 범위를 벗어났습니다.`)
+        setJSaveError(`${WQ_BOUNDS[field].label}: ${WQ_BOUNDS[field].min}~${WQ_BOUNDS[field].max}${WQ_BOUNDS[field].unit} ${t.journalX.errOutOfRange}`)
         return
       }
     }
@@ -617,15 +618,15 @@ export default function JournalPage() {
   async function handleDSubmit(e: React.FormEvent) {
     e.preventDefault(); setDSubmitError(null)
     if (!dForm.tank_id || !dForm.test_type || !dForm.result || !dForm.risk_level) {
-      setDSubmitError("필수 항목을 모두 입력해주세요."); return
+      setDSubmitError(t.journalX.errRequired); return
     }
     const vibrioNum = dForm.vibrio_count ? Number(dForm.vibrio_count) : 0
     const ratioNum  = dForm.pathogenic_ratio ? Number(dForm.pathogenic_ratio) : 0
     if (!Number.isFinite(vibrioNum) || vibrioNum < 0 || vibrioNum > 10_000_000) {
-      setDSubmitError("비브리오 수치는 0~10,000,000 CFU/mL 범위로 입력해주세요."); return
+      setDSubmitError(t.journalX.errVibrioRange); return
     }
     if (!Number.isFinite(ratioNum) || ratioNum < 0 || ratioNum > 100) {
-      setDSubmitError("병원성 비율은 0~100% 범위로 입력해주세요."); return
+      setDSubmitError(t.journalX.errRatioRange); return
     }
     const tank = tanks.find(tk => tk.id === dForm.tank_id)
     setDSubmitting(true)
@@ -636,10 +637,10 @@ export default function JournalPage() {
         action_taken: dForm.action_taken || undefined, notes: dForm.notes || undefined,
       })
       setDForm(EMPTY_DIAG_FORM); setDDialogOpen(false)
-      showDToast(`진단 결과가 등록되었습니다. (${tank?.name} · ${dForm.test_type} · ${dForm.result})`)
+      showDToast(`${t.journalX.diagCreated} (${tank?.name} · ${dForm.test_type} · ${dForm.result})`)
       await loadDiagnoses("", "", 0, true)
     } catch (err) {
-      setDSubmitError(err instanceof Error ? err.message : "진단 결과 저장에 실패했습니다.")
+      setDSubmitError(err instanceof Error ? err.message : t.journalX.diagSaveFailed)
     } finally { setDSubmitting(false) }
   }
 
@@ -659,8 +660,8 @@ export default function JournalPage() {
     if (!dEditTarget) return
     const ev = dEditForm.vibrio_count ? Number(dEditForm.vibrio_count) : 0
     const er = dEditForm.pathogenic_ratio ? Number(dEditForm.pathogenic_ratio) : 0
-    if (!Number.isFinite(ev) || ev < 0 || ev > 10_000_000) { setDEditError("비브리오 수치는 0~10,000,000 CFU/mL 범위로 입력해주세요."); return }
-    if (!Number.isFinite(er) || er < 0 || er > 100) { setDEditError("병원성 비율은 0~100% 범위로 입력해주세요."); return }
+    if (!Number.isFinite(ev) || ev < 0 || ev > 10_000_000) { setDEditError(t.journalX.errVibrioRange); return }
+    if (!Number.isFinite(er) || er < 0 || er > 100) { setDEditError(t.journalX.errRatioRange); return }
     setDEditSaving(true)
     try {
       const updated = await updateDiagnosis(dEditTarget.id, {
@@ -670,9 +671,9 @@ export default function JournalPage() {
         action_taken: dEditForm.action_taken || null, notes: dEditForm.notes || null,
       })
       setDiagnoses(prev => prev.map(d => d.id === dEditTarget.id ? updated : d))
-      setDEditTarget(null); showDToast("진단 결과가 수정되었습니다.")
+      setDEditTarget(null); showDToast(t.journalX.diagUpdated)
     } catch (err) {
-      setDEditError(err instanceof Error ? err.message : "수정에 실패했습니다.")
+      setDEditError(err instanceof Error ? err.message : t.journalX.updateFailed)
     } finally { setDEditSaving(false) }
   }
 
@@ -682,7 +683,7 @@ export default function JournalPage() {
     try { await deleteDiagnosis(dDeleteTarget.id) } catch { /* remove locally */ }
     setDiagnoses(prev => prev.filter(d => d.id !== dDeleteTarget.id))
     setDDeleteTarget(null); setDDeleting(false)
-    showDToast("진단 결과가 삭제되었습니다.")
+    showDToast(t.journalX.diagDeleted)
   }
 
   const dTotalTests    = diagnoses.length
@@ -801,7 +802,7 @@ export default function JournalPage() {
                     <div className="space-y-1.5">
                       <Label className="text-foreground/80 text-sm">{t.diagnosis.testType} <span className="text-red-400">*</span></Label>
                       <Select value={dForm.test_type} onValueChange={v => setDField("test_type", v as TestType)}>
-                        <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="검사 항목을 선택하세요" /></SelectTrigger>
+                        <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder={t.journalX.selectTestType} /></SelectTrigger>
                         <SelectContent className="bg-card border-border">
                           {(["AHPND", "총비브리오", "EHP", "WSSV", "기타"] as TestType[]).map(tt => (
                             <SelectItem key={tt} value={tt} className="text-foreground focus:bg-accent">{tt}</SelectItem>
@@ -812,7 +813,7 @@ export default function JournalPage() {
                     <div className="space-y-1.5">
                       <Label className="text-foreground/80 text-sm">{t.diagnosis.result} <span className="text-red-400">*</span></Label>
                       <Select value={dForm.result} onValueChange={v => setDField("result", v as ResultType)}>
-                        <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="결과를 선택하세요" /></SelectTrigger>
+                        <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder={t.journalX.selectResult} /></SelectTrigger>
                         <SelectContent className="bg-card border-border">
                           <SelectItem value="양성" className="text-red-500 focus:bg-accent">{t.diagnosis.resultPositive}</SelectItem>
                           <SelectItem value="의심" className="text-amber-500 focus:bg-accent">{t.diagnosis.resultSuspected}</SelectItem>
@@ -822,29 +823,29 @@ export default function JournalPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <Label className="text-foreground/80 text-sm">총 비브리오 균수 (CFU/mL)</Label>
-                        <Input type="number" min={0} placeholder="예: 8500" value={dForm.vibrio_count} onChange={e => setDField("vibrio_count", e.target.value)} className="bg-background border-border text-foreground placeholder:text-muted-foreground" />
+                        <Label className="text-foreground/80 text-sm">{t.journalX.vibrioCount}</Label>
+                        <Input type="number" min={0} placeholder={t.journalX.vibrioPlaceholder} value={dForm.vibrio_count} onChange={e => setDField("vibrio_count", e.target.value)} className="bg-background border-border text-foreground placeholder:text-muted-foreground" />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-foreground/80 text-sm">병원성 비율 (%)</Label>
-                        <Input type="number" min={0} max={100} placeholder="예: 35" value={dForm.pathogenic_ratio} onChange={e => setDField("pathogenic_ratio", e.target.value)} className="bg-background border-border text-foreground placeholder:text-muted-foreground" />
+                        <Label className="text-foreground/80 text-sm">{t.journalX.pathogenicRatio} (%)</Label>
+                        <Input type="number" min={0} max={100} placeholder={t.journalX.ratioPlaceholder} value={dForm.pathogenic_ratio} onChange={e => setDField("pathogenic_ratio", e.target.value)} className="bg-background border-border text-foreground placeholder:text-muted-foreground" />
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-foreground/80 text-sm">위험 단계 <span className="text-red-400">*</span></Label>
+                      <Label className="text-foreground/80 text-sm">{t.journalX.riskLevel} <span className="text-red-400">*</span></Label>
                       <Select value={dForm.risk_level} onValueChange={v => setDField("risk_level", v as RiskLevel)}>
-                        <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder="위험 단계를 선택하세요" /></SelectTrigger>
+                        <SelectTrigger className="bg-background border-border text-foreground"><SelectValue placeholder={t.journalX.selectRiskLevel} /></SelectTrigger>
                         <SelectContent className="bg-card border-border">
-                          <SelectItem value="low" className="text-emerald-500 focus:bg-accent">낮음</SelectItem>
-                          <SelectItem value="medium" className="text-amber-500 focus:bg-accent">보통</SelectItem>
-                          <SelectItem value="high" className="text-red-500 focus:bg-accent">높음</SelectItem>
-                          <SelectItem value="critical" className="text-purple-500 focus:bg-accent">긴급</SelectItem>
+                          <SelectItem value="low" className="text-emerald-500 focus:bg-accent">{t.journalX.riskLow}</SelectItem>
+                          <SelectItem value="medium" className="text-amber-500 focus:bg-accent">{t.journalX.riskMedium}</SelectItem>
+                          <SelectItem value="high" className="text-red-500 focus:bg-accent">{t.journalX.riskHigh}</SelectItem>
+                          <SelectItem value="critical" className="text-purple-500 focus:bg-accent">{t.journalX.riskCritical}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-foreground/80 text-sm flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" />조치사항</Label>
-                      <Textarea placeholder="시행한 또는 예정된 조치사항을 입력하세요" value={dForm.action_taken} onChange={e => setDField("action_taken", e.target.value)} rows={3} className="bg-background border-border text-foreground placeholder:text-muted-foreground resize-none" />
+                      <Label className="text-foreground/80 text-sm flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" />{t.journalX.actionTaken}</Label>
+                      <Textarea placeholder={t.journalX.actionTakenPlaceholder} value={dForm.action_taken} onChange={e => setDField("action_taken", e.target.value)} rows={3} className="bg-background border-border text-foreground placeholder:text-muted-foreground resize-none" />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-foreground/80 text-sm">{t.diagnosis.notes}</Label>
@@ -872,9 +873,9 @@ export default function JournalPage() {
           <div className="flex flex-wrap items-center gap-3 bg-muted border border-border rounded-xl px-4 py-3">
             <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
             <div className="flex items-center gap-2">
-              <input type="date" value={jFilterFrom} onChange={e => setJFilterFrom(e.target.value)} aria-label="시작 날짜" className="bg-background border border-border text-foreground text-sm rounded-lg px-3 min-h-[44px] focus:outline-none focus:ring-1 focus:ring-ocean-500" />
+              <input type="date" value={jFilterFrom} onChange={e => setJFilterFrom(e.target.value)} aria-label={t.journalX.startDate} className="bg-background border border-border text-foreground text-sm rounded-lg px-3 min-h-[44px] focus:outline-none focus:ring-1 focus:ring-ocean-500" />
               <span className="text-muted-foreground text-sm">~</span>
-              <input type="date" value={jFilterTo} onChange={e => setJFilterTo(e.target.value)} aria-label="종료 날짜" className="bg-background border border-border text-foreground text-sm rounded-lg px-3 min-h-[44px] focus:outline-none focus:ring-1 focus:ring-ocean-500" />
+              <input type="date" value={jFilterTo} onChange={e => setJFilterTo(e.target.value)} aria-label={t.journalX.endDate} className="bg-background border border-border text-foreground text-sm rounded-lg px-3 min-h-[44px] focus:outline-none focus:ring-1 focus:ring-ocean-500" />
             </div>
             <Button size="sm" onClick={handleJFilter} className="bg-ocean-50 hover:bg-ocean-100 text-ocean-600 border border-ocean-200 min-h-[44px]">{t.common.filter}</Button>
             {(jFilterFrom || jFilterTo) && (
@@ -911,7 +912,7 @@ export default function JournalPage() {
                   <Button variant="outline" onClick={handleJLoadMore} disabled={jLoadingMore} className="border-border text-muted-foreground hover:text-foreground hover:bg-accent">
                     {jLoadingMore
                       ? <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-border border-t-foreground rounded-full animate-spin" />{t.common.loading}</span>
-                      : <span className="flex items-center gap-2"><ChevronDown className="w-4 h-4" />더 보기</span>}
+                      : <span className="flex items-center gap-2"><ChevronDown className="w-4 h-4" />{t.journalX.loadMore}</span>}
                   </Button>
                 </div>
               )}
@@ -926,9 +927,9 @@ export default function JournalPage() {
           <div className="flex flex-wrap items-center gap-3 bg-muted border border-border rounded-xl px-4 py-3">
             <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
             <div className="flex items-center gap-2">
-              <input type="date" value={dFilterFrom} onChange={e => setDFilterFrom(e.target.value)} aria-label="시작 날짜" className="bg-background border border-border text-foreground text-sm rounded-lg px-3 min-h-[44px] focus:outline-none focus:ring-1 focus:ring-purple-500" />
+              <input type="date" value={dFilterFrom} onChange={e => setDFilterFrom(e.target.value)} aria-label={t.journalX.startDate} className="bg-background border border-border text-foreground text-sm rounded-lg px-3 min-h-[44px] focus:outline-none focus:ring-1 focus:ring-purple-500" />
               <span className="text-muted-foreground text-sm">~</span>
-              <input type="date" value={dFilterTo} onChange={e => setDFilterTo(e.target.value)} aria-label="종료 날짜" className="bg-background border border-border text-foreground text-sm rounded-lg px-3 min-h-[44px] focus:outline-none focus:ring-1 focus:ring-purple-500" />
+              <input type="date" value={dFilterTo} onChange={e => setDFilterTo(e.target.value)} aria-label={t.journalX.endDate} className="bg-background border border-border text-foreground text-sm rounded-lg px-3 min-h-[44px] focus:outline-none focus:ring-1 focus:ring-purple-500" />
             </div>
             <Button size="sm" onClick={handleDFilter} className="bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-200 min-h-[44px]">{t.common.filter}</Button>
             {(dFilterFrom || dFilterTo) && (
@@ -945,10 +946,10 @@ export default function JournalPage() {
           ) : (
             <>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard icon={<FlaskConical className="w-5 h-5 text-purple-400" />} label="총 검사 건수" value={dTotalTests} sub="누적 진단 기록" color="text-purple-400" />
-                <StatCard icon={<XCircle className="w-5 h-5 text-red-400" />} label={t.diagnosis.resultPositive} value={dPositiveCount} sub={`전체의 ${dTotalTests ? Math.round((dPositiveCount / dTotalTests) * 100) : 0}%`} color="text-red-400" />
-                <StatCard icon={<AlertTriangle className="w-5 h-5 text-amber-400" />} label="고위험 수조" value={dHighRiskTanks} sub="높음 이상 위험 단계" color="text-amber-400" />
-                <StatCard icon={<Clock className="w-5 h-5 text-ocean-400" />} label="최근 7일" value={dRecentCount} sub="최근 진단 건수" color="text-ocean-400" />
+                <StatCard icon={<FlaskConical className="w-5 h-5 text-purple-400" />} label={t.journalX.totalTests} value={dTotalTests} sub={t.journalX.totalTestsSub} color="text-purple-400" />
+                <StatCard icon={<XCircle className="w-5 h-5 text-red-400" />} label={t.diagnosis.resultPositive} value={dPositiveCount} sub={`${t.journalX.ofTotal} ${dTotalTests ? Math.round((dPositiveCount / dTotalTests) * 100) : 0}%`} color="text-red-400" />
+                <StatCard icon={<AlertTriangle className="w-5 h-5 text-amber-400" />} label={t.journalX.highRiskTanks} value={dHighRiskTanks} sub={t.journalX.highRiskTanksSub} color="text-amber-400" />
+                <StatCard icon={<Clock className="w-5 h-5 text-ocean-400" />} label={t.journalX.recent7d} value={dRecentCount} sub={t.journalX.recent7dSub} color="text-ocean-400" />
               </div>
 
               <RiskScaleIndicator worstRisk={dWorstRisk} />
@@ -956,7 +957,7 @@ export default function JournalPage() {
               <Card className="bg-card border-border">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-foreground text-base flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-purple-500" />진단 이력 ({diagnoses.length}건)
+                    <Activity className="w-4 h-4 text-purple-500" />{t.journalX.diagHistory} ({diagnoses.length}{t.journalX.countSuffix})
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -976,11 +977,11 @@ export default function JournalPage() {
                               <th className="text-left pb-3 font-medium">{t.diagnosis.tank}</th>
                               <th className="text-left pb-3 font-medium">{t.diagnosis.testType}</th>
                               <th className="text-left pb-3 font-medium">{t.diagnosis.result}</th>
-                              <th className="text-right pb-3 font-medium">비브리오수</th>
-                              <th className="text-right pb-3 font-medium">병원성 비율</th>
-                              <th className="text-right pb-3 font-medium">위험도</th>
+                              <th className="text-right pb-3 font-medium">{t.journalX.vibrioShort}</th>
+                              <th className="text-right pb-3 font-medium">{t.journalX.pathogenicRatio}</th>
+                              <th className="text-right pb-3 font-medium">{t.journalX.riskGrade}</th>
                               <th className="text-right pb-3 font-medium">{t.diagnosis.testedAt}</th>
-                              <th className="text-left pb-3 font-medium pl-4">조치사항</th>
+                              <th className="text-left pb-3 font-medium pl-4">{t.journalX.actionTaken}</th>
                               <th className="pb-3 w-16" />
                             </tr>
                           </thead>
@@ -995,13 +996,13 @@ export default function JournalPage() {
                                   <td className="py-4"><Badge variant={rm.badgeVariant} className="flex items-center gap-1 w-fit">{rm.icon}{d.result}</Badge></td>
                                   <td className="py-4 text-right text-foreground/80 tabular-nums">{d.vibrio_count > 0 ? `${d.vibrio_count.toLocaleString()} CFU/mL` : "—"}</td>
                                   <td className="py-4 text-right text-foreground/80 tabular-nums">{d.pathogenic_ratio > 0 ? `${d.pathogenic_ratio}%` : "—"}</td>
-                                  <td className="py-4 text-right"><Badge variant={rk.badgeVariant} className="w-fit ml-auto">{rk.label}</Badge></td>
+                                  <td className="py-4 text-right"><Badge variant={rk.badgeVariant} className="w-fit ml-auto">{riskLabels[d.risk_level as RiskLevel]}</Badge></td>
                                   <td className="py-4 text-right text-muted-foreground text-xs whitespace-nowrap">{formatDateTime(d.tested_at)}</td>
                                   <td className="py-4 pl-4 text-muted-foreground text-xs max-w-[200px] truncate">{d.action_taken ?? "—"}</td>
                                   <td className="py-4">
                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
-                                      <button onClick={() => openDEdit(d)} className="p-2 min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:text-ocean-500 hover:bg-accent transition-colors flex items-center justify-center" aria-label={`${d.tank_name} ${d.test_type} 진단 수정`}><Pencil className="w-3.5 h-3.5" /></button>
-                                      <button onClick={() => setDDeleteTarget(d)} className="p-2 min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:text-red-500 hover:bg-accent transition-colors flex items-center justify-center" aria-label={`${d.tank_name} ${d.test_type} 진단 삭제`}><Trash2 className="w-3.5 h-3.5" /></button>
+                                      <button onClick={() => openDEdit(d)} className="p-2 min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:text-ocean-500 hover:bg-accent transition-colors flex items-center justify-center" aria-label={`${d.tank_name} ${d.test_type} ${t.journalX.ariaEditDiag}`}><Pencil className="w-3.5 h-3.5" /></button>
+                                      <button onClick={() => setDDeleteTarget(d)} className="p-2 min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:text-red-500 hover:bg-accent transition-colors flex items-center justify-center" aria-label={`${d.tank_name} ${d.test_type} ${t.journalX.ariaDeleteDiag}`}><Trash2 className="w-3.5 h-3.5" /></button>
                                     </div>
                                   </td>
                                 </tr>
@@ -1025,16 +1026,16 @@ export default function JournalPage() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Badge variant={rm.badgeVariant} className="flex items-center gap-1">{rm.icon}{d.result}</Badge>
-                                  <Badge variant={rk.badgeVariant}>{rk.label}</Badge>
+                                  <Badge variant={rk.badgeVariant}>{riskLabels[d.risk_level as RiskLevel]}</Badge>
                                 </div>
                               </div>
                               <div className="grid grid-cols-2 gap-2 text-xs">
                                 <div className="bg-muted rounded-lg p-2">
-                                  <p className="text-muted-foreground">비브리오수</p>
+                                  <p className="text-muted-foreground">{t.journalX.vibrioShort}</p>
                                   <p className="text-foreground/80 font-medium mt-0.5">{d.vibrio_count > 0 ? `${d.vibrio_count.toLocaleString()} CFU/mL` : "—"}</p>
                                 </div>
                                 <div className="bg-muted rounded-lg p-2">
-                                  <p className="text-muted-foreground">병원성 비율</p>
+                                  <p className="text-muted-foreground">{t.journalX.pathogenicRatio}</p>
                                   <p className="text-foreground/80 font-medium mt-0.5">{d.pathogenic_ratio > 0 ? `${d.pathogenic_ratio}%` : "—"}</p>
                                 </div>
                               </div>
@@ -1044,13 +1045,13 @@ export default function JournalPage() {
                               </div>
                               {d.action_taken && (
                                 <div className="bg-muted rounded-lg p-2 text-xs">
-                                  <p className="text-muted-foreground mb-0.5">조치사항</p>
+                                  <p className="text-muted-foreground mb-0.5">{t.journalX.actionTaken}</p>
                                   <p className="text-foreground/80">{d.action_taken}</p>
                                 </div>
                               )}
                               <div className="flex items-center justify-end gap-1 pt-1">
-                                <button onClick={() => openDEdit(d)} className="flex items-center gap-1 px-3 min-h-[44px] rounded-lg text-xs text-muted-foreground hover:text-ocean-500 hover:bg-accent transition-colors" aria-label={`${d.tank_name} ${d.test_type} 진단 수정`}><Pencil className="w-3 h-3" />{t.common.edit}</button>
-                                <button onClick={() => setDDeleteTarget(d)} className="flex items-center gap-1 px-3 min-h-[44px] rounded-lg text-xs text-muted-foreground hover:text-red-500 hover:bg-accent transition-colors" aria-label={`${d.tank_name} ${d.test_type} 진단 삭제`}><Trash2 className="w-3 h-3" />{t.common.delete}</button>
+                                <button onClick={() => openDEdit(d)} className="flex items-center gap-1 px-3 min-h-[44px] rounded-lg text-xs text-muted-foreground hover:text-ocean-500 hover:bg-accent transition-colors" aria-label={`${d.tank_name} ${d.test_type} ${t.journalX.ariaEditDiag}`}><Pencil className="w-3 h-3" />{t.common.edit}</button>
+                                <button onClick={() => setDDeleteTarget(d)} className="flex items-center gap-1 px-3 min-h-[44px] rounded-lg text-xs text-muted-foreground hover:text-red-500 hover:bg-accent transition-colors" aria-label={`${d.tank_name} ${d.test_type} ${t.journalX.ariaDeleteDiag}`}><Trash2 className="w-3 h-3" />{t.common.delete}</button>
                               </div>
                             </div>
                           )
@@ -1066,7 +1067,7 @@ export default function JournalPage() {
                   <Button variant="outline" onClick={handleDLoadMore} disabled={dLoadingMore} className="border-border text-muted-foreground hover:text-foreground hover:bg-accent">
                     {dLoadingMore
                       ? <span className="flex items-center gap-2"><RefreshCw className="w-4 h-4 animate-spin" />{t.common.loading}</span>
-                      : <span className="flex items-center gap-2"><ChevronDown className="w-4 h-4" />더 보기</span>}
+                      : <span className="flex items-center gap-2"><ChevronDown className="w-4 h-4" />{t.journalX.loadMore}</span>}
                   </Button>
                 </div>
               )}
@@ -1090,7 +1091,7 @@ export default function JournalPage() {
                 <Input type="number" step="0.1" value={jEditForm.feeding_amount || ""} onChange={e => setJEditForm(p => ({ ...p, feeding_amount: e.target.value }))} className="bg-background border-border text-foreground" />
               </div>
               <div className="space-y-2">
-                <Label className="text-foreground/80">사료 종류</Label>
+                <Label className="text-foreground/80">{t.journalX.feedType}</Label>
                 <Select value={jEditForm.feed_type || ""} onValueChange={v => setJEditForm(p => ({ ...p, feed_type: v }))}>
                   <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-card border-border">
@@ -1101,15 +1102,15 @@ export default function JournalPage() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label className="text-foreground/80">급이 횟수</Label>
+                <Label className="text-foreground/80">{t.journalX.feedingTimes}</Label>
                 <Input type="number" value={jEditForm.feeding_times || ""} onChange={e => setJEditForm(p => ({ ...p, feeding_times: e.target.value }))} className="bg-background border-border text-foreground" />
               </div>
               <div className="space-y-2">
-                <Label className="text-foreground/80 flex items-center gap-1"><Skull className="w-3.5 h-3.5 text-amber-500" />폐사 (마리)</Label>
+                <Label className="text-foreground/80 flex items-center gap-1"><Skull className="w-3.5 h-3.5 text-amber-500" />{t.journalX.mortality} ({t.journalX.unitFish})</Label>
                 <Input type="number" value={jEditForm.mortality_count || ""} onChange={e => setJEditForm(p => ({ ...p, mortality_count: e.target.value }))} className="bg-background border-border text-foreground" />
               </div>
               <div className="space-y-2 col-span-2 sm:col-span-1">
-                <Label className="text-foreground/80 flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5 text-teal-500" />환수율 (%)</Label>
+                <Label className="text-foreground/80 flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5 text-teal-500" />{t.journalX.waterExchangeRate} (%)</Label>
                 <Input type="number" value={jEditForm.water_exchange_rate || ""} onChange={e => setJEditForm(p => ({ ...p, water_exchange_rate: e.target.value }))} className="bg-background border-border text-foreground" />
               </div>
             </div>
@@ -1153,10 +1154,10 @@ export default function JournalPage() {
           </DialogHeader>
           <Tabs defaultValue="basic" className="mt-2">
             <TabsList className="bg-muted border-border w-full">
-              <TabsTrigger value="basic" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-500">기본 정보</TabsTrigger>
-              <TabsTrigger value="water" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-500">수질 측정</TabsTrigger>
-              <TabsTrigger value="ops" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-500">운영 작업</TabsTrigger>
-              <TabsTrigger value="checklist" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-500">체크리스트</TabsTrigger>
+              <TabsTrigger value="basic" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-500">{t.journalX.tabBasic}</TabsTrigger>
+              <TabsTrigger value="water" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-500">{t.journalX.tabWater}</TabsTrigger>
+              <TabsTrigger value="ops" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-500">{t.journalX.tabOps}</TabsTrigger>
+              <TabsTrigger value="checklist" className="flex-1 data-[state=active]:bg-ocean-500/20 data-[state=active]:text-ocean-500">{t.journalX.tabChecklist}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="basic" className="space-y-4 mt-4">
@@ -1182,15 +1183,15 @@ export default function JournalPage() {
                   {inventoryItems.filter(i => i.category === "feed").length > 0 && (
                     <select value={jForm.feedItemId} onChange={e => jUpdate("feedItemId", e.target.value)}
                       className="w-full bg-muted border border-border rounded-lg px-2 py-1.5 text-xs text-foreground/80 focus:outline-none focus:border-ocean-500">
-                      <option value="">재고 차감 안 함</option>
+                      <option value="">{t.journalX.noStockDeduct}</option>
                       {inventoryItems.filter(i => i.category === "feed").map(i =>
-                        <option key={i.id} value={i.id}>{i.name} (재고: {i.current_stock}{i.unit})</option>
+                        <option key={i.id} value={i.id}>{i.name} ({t.journalX.stock}: {i.current_stock}{i.unit})</option>
                       )}
                     </select>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-foreground/80">사료 종류</Label>
+                  <Label className="text-foreground/80">{t.journalX.feedType}</Label>
                   <Select value={jForm.feed_type} onValueChange={v => jUpdate("feed_type", v)}>
                     <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
                     <SelectContent className="bg-card border-border">
@@ -1201,15 +1202,15 @@ export default function JournalPage() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-foreground/80">급이 횟수 (회/일)</Label>
+                  <Label className="text-foreground/80">{t.journalX.feedingTimes} ({t.common.unit.timesPerDay})</Label>
                   <Input type="number" placeholder="4" value={jForm.feeding_times} onChange={e => jUpdate("feeding_times", e.target.value)} className="bg-background border-border text-foreground" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-foreground/80 flex items-center gap-1"><Skull className="w-3.5 h-3.5 text-amber-500" />폐사 개수 (마리)</Label>
+                  <Label className="text-foreground/80 flex items-center gap-1"><Skull className="w-3.5 h-3.5 text-amber-500" />{t.journalX.mortalityCount} ({t.journalX.unitFish})</Label>
                   <Input type="number" placeholder="0" value={jForm.mortality_count} onChange={e => jUpdate("mortality_count", e.target.value)} className="bg-background border-border text-foreground" />
                 </div>
                 <div className="space-y-2 col-span-2 sm:col-span-1">
-                  <Label className="text-foreground/80 flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5 text-teal-500" />환수율 (%)</Label>
+                  <Label className="text-foreground/80 flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5 text-teal-500" />{t.journalX.waterExchangeRate} (%)</Label>
                   <Input type="number" placeholder="0" value={jForm.water_exchange_rate} onChange={e => jUpdate("water_exchange_rate", e.target.value)} className="bg-background border-border text-foreground" />
                 </div>
               </div>
@@ -1220,18 +1221,18 @@ export default function JournalPage() {
             </TabsContent>
 
             <TabsContent value="water" className="space-y-4 mt-4">
-              <p className="text-xs text-muted-foreground bg-ocean-500/10 border border-ocean-500/20 rounded-lg px-3 py-2">수질 측정값을 직접 입력하세요. 센서 연동 시 자동으로 불러옵니다.</p>
+              <p className="text-xs text-muted-foreground bg-ocean-500/10 border border-ocean-500/20 rounded-lg px-3 py-2">{t.journalX.waterQualityHint}</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {[
-                  { key: "temperature", label: "수온 (°C)",        icon: <Thermometer className="w-3.5 h-3.5 text-red-500" />,    placeholder: "28.0" },
-                  { key: "ph",          label: "pH",               icon: <Droplets    className="w-3.5 h-3.5 text-blue-500" />,   placeholder: "7.8" },
-                  { key: "do_level",    label: "DO (mg/L)",        icon: <Wind        className="w-3.5 h-3.5 text-teal-500" />,   placeholder: "6.5" },
-                  { key: "salinity",    label: "염분 (ppt)",        icon: <Waves       className="w-3.5 h-3.5 text-ocean-500" />,  placeholder: "20" },
-                  { key: "ammonia",     label: "암모니아 (mg/L)",   icon: <FlaskConical className="w-3.5 h-3.5 text-amber-500" />, placeholder: "0.1" },
-                  { key: "nitrite",     label: "아질산염 (mg/L)",   icon: <FlaskConical className="w-3.5 h-3.5 text-orange-500" />,placeholder: "0.05" },
-                  { key: "nitrate",     label: "질산염 (mg/L)",    icon: <FlaskConical className="w-3.5 h-3.5 text-yellow-500" />,placeholder: "5.0" },
-                  { key: "alkalinity",  label: "알칼리도 (mg/L)",  icon: <FlaskConical className="w-3.5 h-3.5 text-purple-500" />,placeholder: "120" },
-                  { key: "turbidity",   label: "탁도 (NTU)",       icon: <Droplets    className="w-3.5 h-3.5 text-gray-500" />,   placeholder: "5" },
+                  { key: "temperature", label: `${t.waterQuality.temperature} (°C)`,   icon: <Thermometer className="w-3.5 h-3.5 text-red-500" />,    placeholder: "28.0" },
+                  { key: "ph",          label: "pH",                                   icon: <Droplets    className="w-3.5 h-3.5 text-blue-500" />,   placeholder: "7.8" },
+                  { key: "do_level",    label: "DO (mg/L)",                            icon: <Wind        className="w-3.5 h-3.5 text-teal-500" />,   placeholder: "6.5" },
+                  { key: "salinity",    label: `${t.waterQuality.salinity} (ppt)`,     icon: <Waves       className="w-3.5 h-3.5 text-ocean-500" />,  placeholder: "20" },
+                  { key: "ammonia",     label: `${t.waterQuality.ammonia} (mg/L)`,     icon: <FlaskConical className="w-3.5 h-3.5 text-amber-500" />, placeholder: "0.1" },
+                  { key: "nitrite",     label: `${t.waterQuality.nitrite} (mg/L)`,     icon: <FlaskConical className="w-3.5 h-3.5 text-orange-500" />,placeholder: "0.05" },
+                  { key: "nitrate",     label: `${t.waterQuality.nitrate} (mg/L)`,     icon: <FlaskConical className="w-3.5 h-3.5 text-yellow-500" />,placeholder: "5.0" },
+                  { key: "alkalinity",  label: `${t.waterQuality.alkalinity} (mg/L)`,  icon: <FlaskConical className="w-3.5 h-3.5 text-purple-500" />,placeholder: "120" },
+                  { key: "turbidity",   label: `${t.waterQuality.turbidity} (NTU)`,    icon: <Droplets    className="w-3.5 h-3.5 text-gray-500" />,   placeholder: "5" },
                 ].map(f => (
                   <div key={f.key} className="space-y-2">
                     <Label className="text-foreground/80 flex items-center gap-1">{f.icon}{f.label}</Label>
@@ -1244,35 +1245,35 @@ export default function JournalPage() {
             <TabsContent value="ops" className="space-y-4 mt-4">
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 bg-muted rounded-xl border border-border">
-                  <div><p className="text-sm text-foreground font-medium">소독 실시</p><p className="text-xs text-muted-foreground">수조 소독 여부</p></div>
+                  <div><p className="text-sm text-foreground font-medium">{t.journalX.disinfectionDo}</p><p className="text-xs text-muted-foreground">{t.journalX.disinfectionDesc}</p></div>
                   <Switch checked={jForm.disinfection} onCheckedChange={v => jUpdate("disinfection", v)} />
                 </div>
                 {jForm.disinfection && (
                   <div className="space-y-2">
-                    <Label className="text-foreground/80">소독 방법/약품</Label>
-                    <Input placeholder="소독 방법을 입력하세요" value={jForm.disinfection_type} onChange={e => jUpdate("disinfection_type", e.target.value)} className="bg-background border-border text-foreground" />
+                    <Label className="text-foreground/80">{t.journalX.disinfectionMethod}</Label>
+                    <Input placeholder={t.journalX.disinfectionMethodPlaceholder} value={jForm.disinfection_type} onChange={e => jUpdate("disinfection_type", e.target.value)} className="bg-background border-border text-foreground" />
                     {inventoryItems.filter(i => i.category === "chemical").length > 0 && (
                       <select value={jForm.chemicalItemId} onChange={e => jUpdate("chemicalItemId", e.target.value)}
                         className="w-full bg-muted border border-border rounded-lg px-2 py-1.5 text-xs text-foreground/80 focus:outline-none focus:border-ocean-500">
-                        <option value="">재고 차감 안 함</option>
+                        <option value="">{t.journalX.noStockDeduct}</option>
                         {inventoryItems.filter(i => i.category === "chemical").map(i =>
-                          <option key={i.id} value={i.id}>{i.name} (재고: {i.current_stock}{i.unit})</option>
+                          <option key={i.id} value={i.id}>{i.name} ({t.journalX.stock}: {i.current_stock}{i.unit})</option>
                         )}
                       </select>
                     )}
                     {jForm.chemicalItemId && (
-                      <Input type="number" step="0.01" placeholder="사용량 입력" value={jForm.chemicalQty} onChange={e => jUpdate("chemicalQty", e.target.value)} className="bg-background border-border text-foreground text-sm" />
+                      <Input type="number" step="0.01" placeholder={t.journalX.usageAmount} value={jForm.chemicalQty} onChange={e => jUpdate("chemicalQty", e.target.value)} className="bg-background border-border text-foreground text-sm" />
                     )}
                   </div>
                 )}
                 <div className="flex items-center justify-between p-4 bg-muted rounded-xl border border-border">
-                  <div><p className="text-sm text-foreground font-medium">미생물제 투입</p><p className="text-xs text-muted-foreground">유익균 투입 여부</p></div>
+                  <div><p className="text-sm text-foreground font-medium">{t.journalX.microbialInput}</p><p className="text-xs text-muted-foreground">{t.journalX.microbialInputDesc}</p></div>
                   <Switch checked={jForm.microbial_input} onCheckedChange={v => jUpdate("microbial_input", v)} />
                 </div>
                 {jForm.microbial_input && (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-foreground/80">미생물 종류</Label>
+                      <Label className="text-foreground/80">{t.journalX.microbialType}</Label>
                       <Select value={jForm.microbial_type} onValueChange={v => jUpdate("microbial_type", v)}>
                         <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
                         <SelectContent className="bg-card border-border">
@@ -1281,14 +1282,14 @@ export default function JournalPage() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-foreground/80">투입량 (mL/ton)</Label>
+                      <Label className="text-foreground/80">{t.journalX.dosageAmount} (mL/ton)</Label>
                       <Input type="number" placeholder="500" value={jForm.microbial_amount} onChange={e => jUpdate("microbial_amount", e.target.value)} className="bg-background border-border text-foreground" />
                       {inventoryItems.filter(i => i.category === "probiotic").length > 0 && (
                         <select value={jForm.microbialItemId} onChange={e => jUpdate("microbialItemId", e.target.value)}
                           className="w-full bg-muted border border-border rounded-lg px-2 py-1.5 text-xs text-foreground/80 focus:outline-none focus:border-ocean-500">
-                          <option value="">재고 차감 안 함</option>
+                          <option value="">{t.journalX.noStockDeduct}</option>
                           {inventoryItems.filter(i => i.category === "probiotic").map(i =>
-                            <option key={i.id} value={i.id}>{i.name} (재고: {i.current_stock}{i.unit})</option>
+                            <option key={i.id} value={i.id}>{i.name} ({t.journalX.stock}: {i.current_stock}{i.unit})</option>
                           )}
                         </select>
                       )}
@@ -1299,12 +1300,12 @@ export default function JournalPage() {
             </TabsContent>
 
             <TabsContent value="checklist" className="space-y-3 mt-4">
-              <p className="text-xs text-muted-foreground">일일 점검 항목을 확인하세요</p>
+              <p className="text-xs text-muted-foreground">{t.journalX.checklistHint}</p>
               {[
-                { key: "check_aeration",     label: "폭기 시스템 점검",  desc: "에어레이터 가동 상태 확인" },
-                { key: "check_filtration",   label: "여과 시스템 점검",  desc: "필터 청결 및 가동 상태 확인" },
-                { key: "check_circulation",  label: "순환 펌프 점검",    desc: "순환 펌프 가동 상태 및 유량 확인" },
-                { key: "check_feeding_check",label: "섭이 반응 확인",    desc: "새우 섭이 반응 및 활동성 확인" },
+                { key: "check_aeration",     label: t.journalX.checkAeration,   desc: t.journalX.checkAerationDesc },
+                { key: "check_filtration",   label: t.journalX.checkFiltration, desc: t.journalX.checkFiltrationDesc },
+                { key: "check_circulation",  label: t.journalX.checkCirculation,desc: t.journalX.checkCirculationDesc },
+                { key: "check_feeding_check",label: t.journalX.checkFeeding,    desc: t.journalX.checkFeedingDesc },
               ].map(item => (
                 <div key={item.key} className="flex items-center justify-between p-4 bg-muted rounded-xl border border-border">
                   <div><p className="text-sm text-foreground font-medium">{item.label}</p><p className="text-xs text-muted-foreground">{item.desc}</p></div>
@@ -1333,7 +1334,7 @@ export default function JournalPage() {
       <Dialog open={!!dEditTarget} onOpenChange={open => !open && setDEditTarget(null)}>
         <DialogContent className="bg-card border-border text-foreground max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-foreground flex items-center gap-2"><Pencil className="w-4 h-4 text-purple-500" />진단 결과 편집</DialogTitle>
+            <DialogTitle className="text-foreground flex items-center gap-2"><Pencil className="w-4 h-4 text-purple-500" />{t.journalX.editDiagTitle}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleDEditSave} className="space-y-4 mt-2">
             <div className="grid grid-cols-2 gap-4">
@@ -1360,29 +1361,29 @@ export default function JournalPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-foreground/80 text-sm">총 비브리오 균수 (CFU/mL)</Label>
-                <Input type="number" min={0} placeholder="예: 8500" value={dEditForm.vibrio_count} onChange={e => setDEditForm(p => ({ ...p, vibrio_count: e.target.value }))} className="bg-background border-border text-foreground" />
+                <Label className="text-foreground/80 text-sm">{t.journalX.vibrioCount}</Label>
+                <Input type="number" min={0} placeholder={t.journalX.vibrioPlaceholder} value={dEditForm.vibrio_count} onChange={e => setDEditForm(p => ({ ...p, vibrio_count: e.target.value }))} className="bg-background border-border text-foreground" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-foreground/80 text-sm">병원성 비율 (%)</Label>
-                <Input type="number" min={0} max={100} placeholder="예: 35" value={dEditForm.pathogenic_ratio} onChange={e => setDEditForm(p => ({ ...p, pathogenic_ratio: e.target.value }))} className="bg-background border-border text-foreground" />
+                <Label className="text-foreground/80 text-sm">{t.journalX.pathogenicRatio} (%)</Label>
+                <Input type="number" min={0} max={100} placeholder={t.journalX.ratioPlaceholder} value={dEditForm.pathogenic_ratio} onChange={e => setDEditForm(p => ({ ...p, pathogenic_ratio: e.target.value }))} className="bg-background border-border text-foreground" />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-foreground/80 text-sm">위험 단계</Label>
+              <Label className="text-foreground/80 text-sm">{t.journalX.riskLevel}</Label>
               <Select value={dEditForm.risk_level} onValueChange={v => setDEditForm(p => ({ ...p, risk_level: v as RiskLevel }))}>
                 <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
                 <SelectContent className="bg-card border-border">
-                  <SelectItem value="low" className="text-emerald-500 focus:bg-accent">낮음</SelectItem>
-                  <SelectItem value="medium" className="text-amber-500 focus:bg-accent">보통</SelectItem>
-                  <SelectItem value="high" className="text-red-500 focus:bg-accent">높음</SelectItem>
-                  <SelectItem value="critical" className="text-purple-500 focus:bg-accent">긴급</SelectItem>
+                  <SelectItem value="low" className="text-emerald-500 focus:bg-accent">{t.journalX.riskLow}</SelectItem>
+                  <SelectItem value="medium" className="text-amber-500 focus:bg-accent">{t.journalX.riskMedium}</SelectItem>
+                  <SelectItem value="high" className="text-red-500 focus:bg-accent">{t.journalX.riskHigh}</SelectItem>
+                  <SelectItem value="critical" className="text-purple-500 focus:bg-accent">{t.journalX.riskCritical}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-foreground/80 text-sm flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" />조치사항</Label>
-              <Textarea placeholder="조치사항을 입력하세요" value={dEditForm.action_taken} onChange={e => setDEditForm(p => ({ ...p, action_taken: e.target.value }))} rows={3} className="bg-background border-border text-foreground resize-none" />
+              <Label className="text-foreground/80 text-sm flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" />{t.journalX.actionTaken}</Label>
+              <Textarea placeholder={t.journalX.actionTakenPlaceholder} value={dEditForm.action_taken} onChange={e => setDEditForm(p => ({ ...p, action_taken: e.target.value }))} rows={3} className="bg-background border-border text-foreground resize-none" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-foreground/80 text-sm">{t.diagnosis.notes}</Label>

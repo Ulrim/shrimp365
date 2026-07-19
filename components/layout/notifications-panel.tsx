@@ -6,6 +6,7 @@ import { Bell, X, CheckCircle2, AlertCircle, XCircle, Info, CheckCheck, RefreshC
 import { getAlerts, resolveAlert } from "@/lib/db"
 import { MOCK_ALERTS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
+import { useT } from "@/lib/i18n-context"
 import { formatDateTime } from "@/lib/utils"
 import type { Alert } from "@/types"
 
@@ -29,6 +30,7 @@ const TYPE_BG: Record<Alert["type"], string> = {
 
 export function NotificationsPanel({ open, onClose, onCountChange }: NotificationsPanelProps) {
   const { user } = useAuth()
+  const { t } = useT()
   const router = useRouter()
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [loading, setLoading] = useState(false)
@@ -102,7 +104,7 @@ export function NotificationsPanel({ open, onClose, onCountChange }: Notificatio
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2">
           <Bell className="w-4 h-4 text-ocean-500" />
-          <span className="text-sm font-semibold text-foreground">알림</span>
+          <span className="text-sm font-semibold text-foreground">{t.notif.title}</span>
           {alerts.length > 0 && (
             <span className="w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
               {alerts.length > 9 ? "9+" : alerts.length}
@@ -116,7 +118,7 @@ export function NotificationsPanel({ open, onClose, onCountChange }: Notificatio
               className="text-xs text-muted-foreground hover:text-ocean-500 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-accent transition-colors"
             >
               <CheckCheck className="w-3.5 h-3.5" />
-              모두 해결
+              {t.notif.resolveAll}
             </button>
           )}
           <button onClick={loadAlerts} className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent transition-colors">
@@ -139,8 +141,8 @@ export function NotificationsPanel({ open, onClose, onCountChange }: Notificatio
             <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
               <CheckCircle2 className="w-6 h-6 text-emerald-500" />
             </div>
-            <p className="text-sm text-foreground font-medium">모든 알림이 해결되었습니다</p>
-            <p className="text-xs text-muted-foreground">새 이상 항목이 감지되면 알림이 표시됩니다</p>
+            <p className="text-sm text-foreground font-medium">{t.notif.allResolved}</p>
+            <p className="text-xs text-muted-foreground">{t.notif.allResolvedMsg}</p>
           </div>
         ) : (
           <div className="p-2 space-y-1.5">
@@ -160,7 +162,7 @@ export function NotificationsPanel({ open, onClose, onCountChange }: Notificatio
                   <p className="text-xs text-foreground/80 leading-relaxed">{alert.message}</p>
                   {alert.value != null && alert.threshold != null && (
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      측정값: <span className="text-foreground">{alert.value}</span> / 기준: {alert.threshold}
+                      {t.notif.measured}: <span className="text-foreground">{alert.value}</span> / {t.notif.threshold}: {alert.threshold}
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground mt-1">{formatDateTime(alert.created_at)}</p>
@@ -169,7 +171,7 @@ export function NotificationsPanel({ open, onClose, onCountChange }: Notificatio
                   <button
                     onClick={() => { router.push(`/water-quality?tank=${alert.tank_id}`); onClose() }}
                     className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-ocean-500 transition-colors"
-                    title="수조 바로가기"
+                    title={t.notif.gotoTank}
                   >
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
@@ -177,7 +179,7 @@ export function NotificationsPanel({ open, onClose, onCountChange }: Notificatio
                     onClick={() => handleResolve(alert.id)}
                     disabled={resolvingId === alert.id}
                     className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-emerald-500 transition-colors"
-                    title="해결됨으로 표시"
+                    title={t.notif.markResolved}
                   >
                     {resolvingId === alert.id
                       ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -194,7 +196,7 @@ export function NotificationsPanel({ open, onClose, onCountChange }: Notificatio
       {/* Footer */}
       <div className="border-t border-border px-4 py-2">
         <a href="/water-quality" onClick={onClose} className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center justify-center gap-1">
-          수질 모니터링 페이지에서 자세히 보기 →
+          {t.notif.viewMore} →
         </a>
       </div>
     </div>
