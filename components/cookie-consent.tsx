@@ -2,10 +2,13 @@
 
 import { useState, useEffect } from "react"
 import { X, Cookie } from "lucide-react"
+import { useT } from "@/lib/i18n-context"
 
 const CONSENT_KEY = "shrimp365_cookie_consent"
 
 export function CookieConsent() {
+  const { t } = useT()
+  const c = t.cookie
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
@@ -37,32 +40,32 @@ export function CookieConsent() {
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
             <Cookie className="w-4 h-4 text-ocean-500 shrink-0 mt-0.5" />
-            <p className="text-sm font-semibold text-foreground">쿠키 사용 안내</p>
+            <p className="text-sm font-semibold text-foreground">{c.title}</p>
           </div>
           <button
             onClick={dismiss}
-            aria-label="닫기"
+            aria-label={c.close}
             className="text-muted-foreground hover:text-foreground transition-colors min-w-[32px] min-h-[32px] flex items-center justify-center"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Shrimp365는 서비스 제공 및 광고 게재를 위해 필수·분석·광고 쿠키를 사용합니다.{" "}
-          <a href="/privacy" className="text-ocean-500 hover:underline">개인정보 처리방침</a>을 확인하세요.
+          {c.message}{" "}
+          <a href="/privacy" className="text-ocean-500 hover:underline">{c.privacyLink}</a>
         </p>
         <div className="flex gap-2">
           <button
             onClick={accept}
             className="flex-1 bg-ocean-500 hover:bg-ocean-600 text-white text-xs font-medium py-2 px-3 rounded-lg transition-colors"
           >
-            모두 동의
+            {c.acceptAll}
           </button>
           <button
             onClick={dismiss}
             className="flex-1 border border-border hover:bg-muted text-muted-foreground text-xs py-2 px-3 rounded-lg transition-colors"
           >
-            필수만 허용
+            {c.essentialOnly}
           </button>
         </div>
       </div>

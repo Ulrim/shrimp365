@@ -391,8 +391,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <I18nProvider defaultLocale={defaultLocale} urlLocale={urlLocale}>
           <AuthProvider>{children}</AuthProvider>
           <VersionWatcher />
+          <CookieConsent />
         </I18nProvider>
-        <CookieConsent />
         <Analytics />
         <SpeedInsights />
         <AdSenseScript />
