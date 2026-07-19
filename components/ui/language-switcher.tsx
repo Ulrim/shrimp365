@@ -26,7 +26,7 @@ export function LanguageSwitcher({ collapsed = false }: LanguageSwitcherProps) {
           value={locale}
           onChange={e => setLocale(e.target.value as Locale)}
           title={t.lang.select}
-          className="flex-1 bg-transparent text-xs text-slate-400 hover:text-white cursor-pointer outline-none appearance-none"
+          className="flex-1 bg-transparent text-xs text-muted-foreground hover:text-foreground cursor-pointer outline-none appearance-none"
           style={{ WebkitAppearance: "none" }}
         >
           {LOCALES.map(l => (

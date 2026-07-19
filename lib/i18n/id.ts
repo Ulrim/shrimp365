@@ -714,4 +714,12 @@ export const id: Dict = {
     loginRequired: "Perlu login.",
     loadError: "Gagal memuat postingan.",
   },
+  cookie: {
+    title: "Pemberitahuan Cookie",
+    message: "Shrimp365 menggunakan cookie esensial, analitik, dan iklan untuk menyediakan layanan dan menampilkan iklan.",
+    privacyLink: "Kebijakan Privasi",
+    acceptAll: "Terima semua",
+    essentialOnly: "Hanya esensial",
+    close: "Tutup",
+  },
 }

@@ -714,4 +714,12 @@ export const en: Dict = {
     loginRequired: "Login required.",
     loadError: "Failed to load posts.",
   },
+  cookie: {
+    title: "Cookie Notice",
+    message: "Shrimp365 uses essential, analytics, and advertising cookies to provide the service and show ads.",
+    privacyLink: "Privacy Policy",
+    acceptAll: "Accept all",
+    essentialOnly: "Essential only",
+    close: "Close",
+  },
 }

@@ -714,4 +714,12 @@ export const vi: Dict = {
     loginRequired: "Cần đăng nhập.",
     loadError: "Không thể tải bài viết.",
   },
+  cookie: {
+    title: "Thông báo về Cookie",
+    message: "Shrimp365 sử dụng cookie thiết yếu, phân tích và quảng cáo để cung cấp dịch vụ và hiển thị quảng cáo.",
+    privacyLink: "Chính sách bảo mật",
+    acceptAll: "Chấp nhận tất cả",
+    essentialOnly: "Chỉ thiết yếu",
+    close: "Đóng",
+  },
 }

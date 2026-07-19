@@ -685,4 +685,12 @@ export interface Dict {
     loginRequired: string
     loadError: string
   }
+  cookie: {
+    title: string
+    message: string
+    privacyLink: string
+    acceptAll: string
+    essentialOnly: string
+    close: string
+  }
 }

@@ -714,4 +714,12 @@ export const ko: Dict = {
     loginRequired: "로그인이 필요합니다.",
     loadError: "게시글을 불러오지 못했습니다.",
   },
+  cookie: {
+    title: "쿠키 사용 안내",
+    message: "Shrimp365는 서비스 제공 및 광고 게재를 위해 필수·분석·광고 쿠키를 사용합니다.",
+    privacyLink: "개인정보 처리방침",
+    acceptAll: "모두 동의",
+    essentialOnly: "필수만 허용",
+    close: "닫기",
+  },
 }

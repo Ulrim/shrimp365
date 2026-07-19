@@ -468,7 +468,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="border-t border-border mt-8 pt-6 text-center text-xs text-muted-foreground">
-            © 2025 Shrimp365. {l.footerDesc}
+            © {new Date().getFullYear()} Shrimp365. {l.footerDesc}
           </div>
         </div>
       </footer>
