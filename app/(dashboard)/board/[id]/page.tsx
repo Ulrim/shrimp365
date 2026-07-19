@@ -42,6 +42,7 @@ export default function PostDetailPage() {
   const [eImage, setEImage] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
+  const [editError, setEditError] = useState("")
 
   const isAdmin = user?.role === "admin"
   const isOwner = !!user && !!post && user.id === post.user_id
@@ -74,8 +75,16 @@ export default function PostDetailPage() {
   const handleEditImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.size > 5 * 1024 * 1024) { setEditError("이미지는 5MB 이하만 업로드할 수 있습니다."); return }
+    setEditError("")
     setUploading(true)
-    try { setEImage(await uploadPostImage(file)) } catch {} finally { setUploading(false) }
+    try {
+      setEImage(await uploadPostImage(file))
+    } catch (err) {
+      setEditError(`이미지 업로드 실패: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setUploading(false)
+    }
   }
 
   const saveEdit = async () => {
@@ -153,6 +162,12 @@ export default function PostDetailPage() {
               {uploading ? b.imageUploading : b.imageAdd}
               <input type="file" accept="image/*" onChange={handleEditImage} disabled={uploading} className="hidden" />
             </label>
+          )}
+          {editError && (
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-lg px-3 py-2 text-sm">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              {editError}
+            </div>
           )}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setEditing(false)} className="min-h-[44px]">{t.common.cancel}</Button>
