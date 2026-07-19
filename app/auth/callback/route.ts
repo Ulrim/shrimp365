@@ -21,8 +21,12 @@ export async function GET(req: NextRequest) {
   const tokenHash = searchParams.get("token_hash")
   const type = searchParams.get("type")
   const next = searchParams.get("next") || "/home"
-  // Keep redirects same-origin only
-  const safeNext = next.startsWith("/") ? next : "/home"
+  // Keep redirects same-origin only. Reject protocol-relative ("//evil.com")
+  // and backslash-prefixed ("/\evil.com") URLs which resolve to external hosts.
+  const safeNext =
+    next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\")
+      ? next
+      : "/home"
 
   const redirectTo = new URL(safeNext, siteUrl)
   const response = NextResponse.redirect(redirectTo)
