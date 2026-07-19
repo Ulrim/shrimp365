@@ -31,8 +31,8 @@ export default function NewPostPage() {
     try {
       const url = await uploadPostImage(file)
       setImageUrl(url)
-    } catch {
-      setError("이미지 업로드에 실패했습니다.")
+    } catch (err) {
+      setError(`이미지 업로드 실패: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setUploading(false)
     }
