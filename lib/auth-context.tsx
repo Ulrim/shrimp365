@@ -119,9 +119,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Google / Kakao — Supabase 기본 OAuth. 성공 시 브라우저가 provider로 리다이렉트된다.
   const signInWithProvider = async (provider: "google" | "kakao") => {
+    // 카카오 이메일(account_email)은 비즈앱 심사 전에는 제공되지 않아 요청 시 KOE205가
+    // 발생한다. 비즈앱 승인 전까지는 닉네임만 요청한다.
+    // (승인 후 이메일까지 받으려면 "profile_nickname account_email"로 확장)
+    const kakaoScopes = process.env.NEXT_PUBLIC_KAKAO_SCOPES || "profile_nickname"
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${siteUrl()}/auth/callback?next=/home` },
+      options: {
+        redirectTo: `${siteUrl()}/auth/callback?next=/home`,
+        ...(provider === "kakao" ? { scopes: kakaoScopes } : {}),
+      },
     })
     if (error) {
       console.warn("[auth] OAuth failed:", error.message)
