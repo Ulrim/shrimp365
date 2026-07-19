@@ -50,8 +50,9 @@ export function BottomNav() {
 
   const handleLogout = async () => {
     setMoreOpen(false)
+    // logout()이 홈("/")으로 하드 리다이렉트하므로 아래는 fallback.
     await logout()
-    router.replace("/login")
+    router.replace("/")
   }
 
   return (
