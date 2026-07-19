@@ -15,6 +15,7 @@ export default function NewPostPage() {
   const router = useRouter()
   const { t } = useT()
   const b = t.board
+  const bx = t.boardX
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
   const [imageUrl, setImageUrl] = useState<string | null>(null)
@@ -25,14 +26,14 @@ export default function NewPostPage() {
   const handleImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) { setError("이미지는 5MB 이하만 업로드할 수 있습니다."); return }
+    if (file.size > 5 * 1024 * 1024) { setError(bx.imageTooLarge); return }
     setError("")
     setUploading(true)
     try {
       const url = await uploadPostImage(file)
       setImageUrl(url)
     } catch (err) {
-      setError(`이미지 업로드 실패: ${err instanceof Error ? err.message : String(err)}`)
+      setError(`${bx.imageUploadFailed}: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setUploading(false)
     }
@@ -40,7 +41,7 @@ export default function NewPostPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim()) { setError(b.fieldTitle); return }
+    if (!title.trim()) { setError(bx.titleRequired); return }
     setError("")
     setSaving(true)
     try {

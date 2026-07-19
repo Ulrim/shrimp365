@@ -17,16 +17,18 @@ import {
   ArrowLeft, Eye, MessageSquare, Trash2, Pencil, Send, X, ImagePlus, AlertTriangle,
 } from "lucide-react"
 
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
+function formatDateTime(iso: string, locale: string) {
+  const tag = locale === "ko" ? "ko-KR" : locale === "vi" ? "vi-VN" : locale === "id" ? "id-ID" : "en-US"
+  return new Date(iso).toLocaleString(tag, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
 }
 
 export default function PostDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const { user } = useAuth()
-  const { t } = useT()
+  const { t, locale } = useT()
   const b = t.board
+  const bx = t.boardX
 
   const [post, setPost] = useState<BoardPost | null>(null)
   const [comments, setComments] = useState<BoardComment[]>([])
@@ -76,13 +78,13 @@ export default function PostDetailPage() {
   const handleEditImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) { setEditError("이미지는 5MB 이하만 업로드할 수 있습니다."); return }
+    if (file.size > 5 * 1024 * 1024) { setEditError(bx.imageTooLarge); return }
     setEditError("")
     setUploading(true)
     try {
       setEImage(await uploadPostImage(file))
     } catch (err) {
-      setEditError(`이미지 업로드 실패: ${err instanceof Error ? err.message : String(err)}`)
+      setEditError(`${bx.imageUploadFailed}: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setUploading(false)
     }
@@ -91,7 +93,8 @@ export default function PostDetailPage() {
   const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
   const saveEdit = async () => {
-    if (!post || !eTitle.trim()) return
+    if (!post) return
+    if (!eTitle.trim()) { setEditError(bx.titleRequired); return }
     setEditError("")
     setSavingEdit(true)
     try {
@@ -191,7 +194,7 @@ export default function PostDetailPage() {
           <h1 className="text-2xl font-bold text-foreground break-words">{post.title}</h1>
           <div className="flex items-center gap-3 mt-2 mb-4 text-xs text-muted-foreground border-b border-border pb-4">
             <span className="font-medium text-foreground/70">{post.author_name}</span>
-            <span>{formatDateTime(post.created_at)}</span>
+            <span>{formatDateTime(post.created_at, locale)}</span>
             <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5" />{post.view_count}</span>
             <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{comments.length}</span>
             {(isOwner || isAdmin) && (
@@ -233,7 +236,7 @@ export default function PostDetailPage() {
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-xs font-medium text-foreground/80">{c.author_name}</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">{formatDateTime(c.created_at)}</span>
+                  <span className="text-xs text-muted-foreground">{formatDateTime(c.created_at, locale)}</span>
                   {(user?.id === c.user_id || isAdmin) && (
                     <button onClick={() => handleDeleteComment(c.id)} aria-label={b.delete} className="text-muted-foreground hover:text-red-500">
                       <Trash2 className="w-3.5 h-3.5" />

@@ -40,7 +40,7 @@ export default function SignupPage() {
     return score
   }
 
-  const strengthLabel = ["", "약함", "보통", "강함", "매우 강함"]
+  const strengthLabel = ["", t.signupX.weak, t.signupX.medium, t.signupX.strong, t.signupX.veryStrong]
   const strengthColor = ["", "bg-red-500", "bg-amber-500", "bg-ocean-500", "bg-emerald-500"]
   const strength = passwordStrength()
 
@@ -48,9 +48,9 @@ export default function SignupPage() {
     e.preventDefault()
     setError("")
 
-    if (!name.trim()) { setError("이름을 입력해주세요."); return }
+    if (!name.trim()) { setError(t.signupX.nameRequired); return }
     if (password !== confirmPassword) { setError(t.auth.resetPasswordMismatch); return }
-    if (password.length < 8) { setError("비밀번호는 최소 8자 이상이어야 합니다."); return }
+    if (password.length < 8) { setError(t.signupX.passwordMin8); return }
 
     setLoading(true)
     const result = await signup(email, password, name)
@@ -75,7 +75,7 @@ export default function SignupPage() {
             <span className="text-2xl">🦐</span>
             <span className="text-foreground text-xl font-bold">Shrimp365</span>
           </Link>
-          <h1 className="text-2xl font-bold text-foreground mt-2">회원가입</h1>
+          <h1 className="text-2xl font-bold text-foreground mt-2">{t.auth.signupTitle}</h1>
         </div>
 
         {/* Card */}
@@ -125,7 +125,7 @@ export default function SignupPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
+                  aria-label={showPassword ? t.signupX.hidePassword : t.signupX.showPassword}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}

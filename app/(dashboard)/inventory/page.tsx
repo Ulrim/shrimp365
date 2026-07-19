@@ -26,9 +26,9 @@ const CAT_COLORS: Record<Category, string> = {
 }
 
 function stockBadge(item: InventoryItem, t: ReturnType<typeof useT>["t"]) {
-  if (item.reorder_level > 0 && item.current_stock <= 0) return { label: t.inventory.critical, cls: "bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30", ariaLabel: "재고 없음 — 즉시 보충 필요" }
-  if (item.reorder_level > 0 && item.current_stock <= item.reorder_level) return { label: t.inventory.warning, cls: "bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30", ariaLabel: "재고 부족 경고 — 재주문 기준 이하" }
-  return { label: t.inventory.sufficient, cls: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30", ariaLabel: "재고 충분" }
+  if (item.reorder_level > 0 && item.current_stock <= 0) return { label: t.inventory.critical, cls: "bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/30", ariaLabel: t.a11y.stockOutDesc }
+  if (item.reorder_level > 0 && item.current_stock <= item.reorder_level) return { label: t.inventory.warning, cls: "bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30", ariaLabel: t.a11y.stockLowDesc }
+  return { label: t.inventory.sufficient, cls: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30", ariaLabel: t.a11y.stockOkDesc }
 }
 
 // ─── Item Form Dialog ───────────────────────────────────────────────────────
@@ -418,7 +418,7 @@ export default function InventoryPage() {
             const d = new Date(tx.recorded_at)
             const now = new Date()
             return (now.getTime() - d.getTime()) < 7 * 86400000
-          }).length}<span className="text-sm font-normal text-muted-foreground ml-1">건/7일</span></div>
+          }).length}<span className="text-sm font-normal text-muted-foreground ml-1">{t.a11y.recentActivityUnit}</span></div>
         </div>
       </div>
 
@@ -429,7 +429,7 @@ export default function InventoryPage() {
           <div className="flex gap-1 flex-wrap">
             {categories.map(c => (
               <button key={c.value} onClick={() => setCatFilter(c.value)}
-                aria-label={`${c.label} 카테고리 필터`}
+                aria-label={`${c.label} ${t.a11y.categoryFilter}`}
                 aria-pressed={catFilter === c.value}
                 className={cn("px-3 py-1 min-h-[44px] rounded-full text-xs font-medium transition-colors border",
                   catFilter === c.value ? "bg-ocean-600 text-white border-ocean-600" : "border-border text-muted-foreground hover:border-border/60 hover:text-foreground/80")}>
@@ -470,17 +470,17 @@ export default function InventoryPage() {
                           item.reorder_level > 0 && item.current_stock <= item.reorder_level ? "text-amber-600 dark:text-amber-400" :
                           "text-foreground"
                         )}>{item.current_stock.toLocaleString()}</span> {item.unit}
-                        {item.reorder_level > 0 && <span className="text-muted-foreground ml-2">/ 기준 {item.reorder_level.toLocaleString()}</span>}
+                        {item.reorder_level > 0 && <span className="text-muted-foreground ml-2">/ {t.a11y.reorderShort} {item.reorder_level.toLocaleString()}</span>}
                       </p>
                     </div>
                     <div className="flex gap-1 shrink-0">
                       <button onClick={e => { e.stopPropagation(); setEditingItem(item); setShowItemDialog(true) }}
-                        aria-label={`${item.name} 수정`}
+                        aria-label={`${item.name} ${t.common.edit}`}
                         className="p-1.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-ocean-500 transition-colors rounded-lg hover:bg-ocean-500/10">
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button onClick={e => { e.stopPropagation(); handleDeleteItem(item) }}
-                        aria-label={`${item.name} 삭제`}
+                        aria-label={`${item.name} ${t.common.delete}`}
                         className="p-1.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-red-500 transition-colors rounded-lg hover:bg-red-500/10">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -504,7 +504,7 @@ export default function InventoryPage() {
                   </p>
                 </div>
                 <Button size="sm" onClick={() => { setTxItem(selectedItem); setShowTxDialog(true) }}
-                  aria-label={`${selectedItem.name} 입출고 기록 추가`}
+                  aria-label={`${selectedItem.name} ${t.inventory.addTx}`}
                   className="bg-ocean-600 hover:bg-ocean-500 gap-1.5 shrink-0 min-h-[44px]">
                   <Plus className="w-3.5 h-3.5" />{t.inventory.addTx}
                 </Button>
@@ -535,12 +535,12 @@ export default function InventoryPage() {
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-muted-foreground text-xs">{tx.recorded_at}</span>
-                          {tx.unit_price && <span className="text-muted-foreground text-xs">· @{tx.unit_price.toLocaleString()}원/{tx.item_unit}</span>}
+                          {tx.unit_price && <span className="text-muted-foreground text-xs">· @{tx.unit_price.toLocaleString()}{t.a11y.currency}/{tx.item_unit}</span>}
                           {tx.notes && <span className="text-muted-foreground text-xs truncate">· {tx.notes}</span>}
                         </div>
                       </div>
                       <button onClick={() => handleDeleteTx(tx)}
-                        aria-label={`${tx.recorded_at} ${tx.type === "in" ? "입고" : "출고"} 기록 삭제`}
+                        aria-label={`${tx.recorded_at} ${tx.type === "in" ? t.inventory.txIn : t.inventory.txOut} ${t.a11y.deleteRecord}`}
                         className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-red-500 transition-all rounded-lg hover:bg-red-500/10">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
