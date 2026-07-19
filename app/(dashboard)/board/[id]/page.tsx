@@ -43,6 +43,7 @@ export default function PostDetailPage() {
   const [uploading, setUploading] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState("")
+  const [actionError, setActionError] = useState("")
 
   const isAdmin = user?.role === "admin"
   const isOwner = !!user && !!post && user.id === post.user_id
@@ -87,35 +88,43 @@ export default function PostDetailPage() {
     }
   }
 
+  const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e))
+
   const saveEdit = async () => {
     if (!post || !eTitle.trim()) return
+    setEditError("")
     setSavingEdit(true)
     try {
       await updatePost(post.id, { title: eTitle, content: eContent, image_url: eImage })
       setPost({ ...post, title: eTitle.trim(), content: eContent.trim(), image_url: eImage })
       setEditing(false)
-    } catch {} finally { setSavingEdit(false) }
+    } catch (e) {
+      setEditError(errMsg(e))
+    } finally { setSavingEdit(false) }
   }
 
   const handleDelete = async () => {
     if (!post || !confirm(b.deleteConfirm)) return
-    try { await deletePost(post.id); router.replace("/board") } catch {}
+    try { await deletePost(post.id); router.replace("/board") } catch (e) { setActionError(errMsg(e)) }
   }
 
   const handleComment = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!comment.trim()) return
+    setActionError("")
     setPosting(true)
     try {
       const c = await createComment(id, comment)
       setComments(prev => [...prev, c])
       setComment("")
-    } catch {} finally { setPosting(false) }
+    } catch (err) {
+      setActionError(errMsg(err))
+    } finally { setPosting(false) }
   }
 
   const handleDeleteComment = async (cid: string) => {
     if (!confirm(b.deleteCommentConfirm)) return
-    try { await deleteComment(cid); setComments(prev => prev.filter(c => c.id !== cid)) } catch {}
+    try { await deleteComment(cid); setComments(prev => prev.filter(c => c.id !== cid)) } catch (e) { setActionError(errMsg(e)) }
   }
 
   if (loading) {
@@ -250,6 +259,13 @@ export default function PostDetailPage() {
             <span className="hidden sm:inline">{b.commentSubmit}</span>
           </Button>
         </form>
+
+        {actionError && (
+          <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-lg px-3 py-2 text-sm mt-3">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            {actionError}
+          </div>
+        )}
       </section>
     </div>
   )
