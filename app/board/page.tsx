@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useT } from "@/lib/i18n-context"
+import { useAuth } from "@/lib/auth-context"
 import { getPosts, type BoardPost } from "@/lib/board"
 import { MessageSquare, Eye, PenSquare, ImageIcon, AlertTriangle } from "lucide-react"
 
@@ -14,6 +15,7 @@ function formatDate(iso: string) {
 
 export default function BoardPage() {
   const { t } = useT()
+  const { user } = useAuth()
   const b = t.board
   const [posts, setPosts] = useState<BoardPost[]>([])
   const [loading, setLoading] = useState(true)
@@ -34,7 +36,7 @@ export default function BoardPage() {
           <p className="text-sm text-muted-foreground mt-1">{b.subtitle}</p>
         </div>
         <Link
-          href="/board/new"
+          href={user ? "/board/new" : "/login"}
           className="inline-flex items-center gap-1.5 shrink-0 bg-[#1E40AF] hover:bg-[#3B82F6] text-white text-sm font-semibold rounded-lg px-4 min-h-[44px] transition-colors"
         >
           <PenSquare className="w-4 h-4" />

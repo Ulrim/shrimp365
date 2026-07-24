@@ -16,10 +16,11 @@ const PROTECTED_PATHS = [
   "/production",
   "/inventory",
   "/reports",
-  "/board",
   "/onboarding",
   "/help",
 ]
+// 참고: /board 는 비로그인 열람 허용(공개) — 보호 목록에서 제외.
+//       글쓰기/댓글/수정은 페이지 단에서 로그인으로 유도한다.
 
 function detectLocale(request: NextRequest): Locale | null {
   // 1. Respect existing user preference cookie

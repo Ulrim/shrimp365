@@ -51,6 +51,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.7,
     },
+    // Community board — public read (login only for posting)
+    {
+      url: `${BASE}/board`,
+      lastModified: new Date("2026-07-24"),
+      changeFrequency: "daily",
+      priority: 0.7,
+    },
     // Korean-only content pages (not yet translated → no language alternates)
     {
       url: `${BASE}/guide`,

@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { useT } from "@/lib/i18n-context"
+import { useAuth } from "@/lib/auth-context"
 import { createPost, uploadPostImage } from "@/lib/board"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,8 +15,14 @@ import { ArrowLeft, ImagePlus, X, AlertCircle } from "lucide-react"
 export default function NewPostPage() {
   const router = useRouter()
   const { t } = useT()
+  const { user, loading } = useAuth()
   const b = t.board
   const bx = t.boardX
+
+  // 비로그인 사용자는 글쓰기 불가 → 로그인으로 유도
+  useEffect(() => {
+    if (!loading && !user) router.replace("/login")
+  }, [loading, user, router])
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
   const [imageUrl, setImageUrl] = useState<string | null>(null)

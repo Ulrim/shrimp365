@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
+import Link from "next/link"
 import Image from "next/image"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
@@ -249,19 +250,25 @@ export default function PostDetailPage() {
           ))}
         </ul>
 
-        <form onSubmit={handleComment} className="flex gap-2 items-end">
-          <Textarea
-            value={comment}
-            onChange={e => setComment(e.target.value)}
-            placeholder={b.commentPlaceholder}
-            rows={2}
-            className="resize-none flex-1"
-          />
-          <Button type="submit" disabled={posting || !comment.trim()} className="bg-[#1E40AF] hover:bg-[#3B82F6] text-white shrink-0 min-h-[44px] gap-1.5">
-            <Send className="w-4 h-4" />
-            <span className="hidden sm:inline">{b.commentSubmit}</span>
-          </Button>
-        </form>
+        {user ? (
+          <form onSubmit={handleComment} className="flex gap-2 items-end">
+            <Textarea
+              value={comment}
+              onChange={e => setComment(e.target.value)}
+              placeholder={b.commentPlaceholder}
+              rows={2}
+              className="resize-none flex-1"
+            />
+            <Button type="submit" disabled={posting || !comment.trim()} className="bg-[#1E40AF] hover:bg-[#3B82F6] text-white shrink-0 min-h-[44px] gap-1.5">
+              <Send className="w-4 h-4" />
+              <span className="hidden sm:inline">{b.commentSubmit}</span>
+            </Button>
+          </form>
+        ) : (
+          <Link href="/login" className="flex items-center justify-center gap-2 border border-border rounded-lg py-3 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+            {b.loginRequired} <span className="text-[#1E40AF] font-semibold">{t.auth.loginButton} →</span>
+          </Link>
+        )}
 
         {actionError && (
           <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-lg px-3 py-2 text-sm mt-3">
