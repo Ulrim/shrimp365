@@ -10,6 +10,12 @@ import { MOCK_ALERTS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
 
+const DropMark = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 2.5c4 4.5 6 7.6 6 11a6 6 0 0 1-12 0c0-3.4 2-6.5 6-11Z" />
+  </svg>
+)
+
 export function Header() {
   const pathname = usePathname()
   const { user } = useAuth()
@@ -78,12 +84,12 @@ export function Header() {
       <header className="h-14 lg:h-16 border-b border-border bg-card/80 backdrop-blur-md flex items-center justify-between px-4 lg:px-6 shrink-0">
         {/* Mobile: logo + page title stacked; Desktop: just page title */}
         <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
-          <div className="lg:hidden w-8 h-8 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-xl flex items-center justify-center text-base leading-none shrink-0">
-            🦐
+          <div className="lg:hidden w-8 h-8 border-[1.5px] border-[#1E40AF] text-[#1E40AF] rounded-xl flex items-center justify-center shrink-0">
+            <DropMark />
           </div>
           <div className="min-w-0">
-            <h1 className="text-[15px] lg:text-lg font-semibold text-foreground leading-tight truncate">{title}</h1>
-            <p className="text-xs text-muted-foreground hidden sm:block">
+            <h1 className="text-[15px] lg:text-lg font-semibold text-foreground leading-tight truncate tracking-tight">{title}</h1>
+            <p className="text-[11px] font-mono text-muted-foreground hidden sm:block tracking-tight">
               {new Date().toLocaleDateString(dateLocale, { year: "numeric", month: "long", day: "numeric", weekday: "short" })}
             </p>
           </div>

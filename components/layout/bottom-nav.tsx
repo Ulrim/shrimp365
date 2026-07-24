@@ -69,10 +69,10 @@ export function BottomNav() {
                 className="relative flex-1 flex flex-col items-center justify-center gap-1 min-h-[44px] transition-colors px-1"
               >
                 {active && (
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-ocean-500 rounded-b-full" />
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#1E40AF] rounded-b-full" />
                 )}
-                <item.icon className={cn("w-5 h-5 shrink-0 transition-transform", active ? "text-ocean-500 scale-110" : "text-muted-foreground")} />
-                <span className={cn("text-[10px] font-medium leading-none truncate w-full text-center", active ? "text-ocean-500" : "text-muted-foreground")}>
+                <item.icon className={cn("w-5 h-5 shrink-0 transition-transform", active ? "text-[#1E40AF] scale-110" : "text-muted-foreground")} />
+                <span className={cn("text-[10px] font-medium leading-none truncate w-full text-center", active ? "text-[#1E40AF]" : "text-muted-foreground")}>
                   {item.label}
                 </span>
               </Link>
@@ -85,10 +85,10 @@ export function BottomNav() {
             className="relative flex-1 flex flex-col items-center justify-center gap-1 min-h-[44px] px-1"
           >
             {isMoreActive && (
-              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-ocean-500 rounded-b-full" />
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#1E40AF] rounded-b-full" />
             )}
-            <MoreHorizontal className={cn("w-5 h-5 shrink-0", isMoreActive ? "text-ocean-500" : "text-muted-foreground")} />
-            <span className={cn("text-[10px] font-medium leading-none truncate w-full text-center", isMoreActive ? "text-ocean-500" : "text-muted-foreground")}>
+            <MoreHorizontal className={cn("w-5 h-5 shrink-0", isMoreActive ? "text-[#1E40AF]" : "text-muted-foreground")} />
+            <span className={cn("text-[10px] font-medium leading-none truncate w-full text-center", isMoreActive ? "text-[#1E40AF]" : "text-muted-foreground")}>
               더보기
             </span>
           </button>
@@ -111,7 +111,7 @@ export function BottomNav() {
             {/* Profile row */}
             <div className="flex items-center gap-3 px-5 py-3 mb-1">
               <Avatar className="w-11 h-11 shrink-0">
-                <AvatarFallback className="bg-gradient-to-br from-ocean-500 to-teal-500 text-white">
+                <AvatarFallback className="bg-[#1E40AF] text-white font-semibold">
                   {user?.name?.[0] || "U"}
                 </AvatarFallback>
               </Avatar>
@@ -136,11 +136,11 @@ export function BottomNav() {
                     className={cn(
                       "flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all",
                       active
-                        ? "bg-ocean-50 text-ocean-700 border border-ocean-200"
+                        ? "bg-[#1E40AF]/10 text-[#1E40AF] border border-[#1E40AF]/25"
                         : "text-foreground active:bg-accent"
                     )}
                   >
-                    <item.icon className={cn("w-5 h-5", active ? "text-ocean-500" : "text-muted-foreground")} />
+                    <item.icon className={cn("w-5 h-5", active ? "text-[#1E40AF]" : "text-muted-foreground")} />
                     <span className="flex-1 font-medium text-[15px]">{item.label}</span>
                     {"badge" in item && item.badge && (
                       <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
