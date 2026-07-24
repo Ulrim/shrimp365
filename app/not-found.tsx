@@ -29,7 +29,7 @@ export default function NotFound() {
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
             href="/dashboard"
-            className="flex items-center justify-center gap-2 bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold px-6 py-2.5 rounded-xl transition-all"
+            className="flex items-center justify-center gap-2 bg-ocean-600 hover:bg-ocean-700 text-white font-semibold px-6 py-2.5 rounded-xl transition-all"
           >
             <Home className="w-4 h-4" />
             {t.error.goHome}

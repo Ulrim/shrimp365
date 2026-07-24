@@ -1,5 +1,6 @@
 "use client"
 
+import { BrandMark } from "@/components/ui/brand-mark"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
@@ -166,7 +167,7 @@ export default function OnboardingPage() {
         <div className="absolute -top-16 -right-16 w-64 h-64 bg-teal-100 rounded-full blur-3xl" />
 
         <div className="relative z-10 flex items-center gap-3">
-          <span className="text-2xl">🦐</span>
+          <BrandMark size={32} icon={16} />
           <span className="text-foreground text-xl font-bold">Shrimp365</span>
         </div>
 
@@ -210,7 +211,7 @@ export default function OnboardingPage() {
         <div className="w-full max-w-xl">
           {/* Mobile logo */}
           <div className="flex lg:hidden items-center justify-center gap-2 mb-6">
-            <span className="text-2xl">🦐</span>
+            <BrandMark size={32} icon={16} />
             <span className="text-foreground text-lg font-bold">Shrimp365</span>
           </div>
 
@@ -327,7 +328,7 @@ export default function OnboardingPage() {
                 )}
 
                 <Button
-                  className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold min-h-[44px] gap-2"
+                  className="w-full bg-ocean-600 hover:bg-ocean-700 text-white font-semibold min-h-[44px] gap-2"
                   onClick={handleNext}
                 >
                   {t.onboarding.next} <ChevronRight className="w-4 h-4" aria-hidden="true" />
@@ -479,7 +480,7 @@ export default function OnboardingPage() {
                       <ChevronLeft className="w-4 h-4" aria-hidden="true" /> {t.onboarding.prev}
                     </Button>
                     <Button
-                      className="flex-1 bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold min-h-[44px] gap-2"
+                      className="flex-1 bg-ocean-600 hover:bg-ocean-700 text-white font-semibold min-h-[44px] gap-2"
                       onClick={handleSubmit}
                       disabled={saving}
                     >
@@ -516,7 +517,7 @@ export default function OnboardingPage() {
                   </p>
                 </div>
                 <Button
-                  className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold min-h-[44px] text-base gap-2"
+                  className="w-full bg-ocean-600 hover:bg-ocean-700 text-white font-semibold min-h-[44px] text-base gap-2"
                   onClick={() => router.replace("/home")}
                 >
                   {t.onboarding.complete} <ChevronRight className="w-5 h-5" aria-hidden="true" />

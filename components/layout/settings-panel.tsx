@@ -1,5 +1,6 @@
 "use client"
 
+import { BrandMark } from "@/components/ui/brand-mark"
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
@@ -392,7 +393,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               <div className="p-4 bg-muted border border-border rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">{t.settings.currentPlan}</span>
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gradient-to-r from-ocean-500 to-teal-500 text-white">
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#1E40AF]/10 text-[#1E40AF] border border-[#1E40AF]/25">
                     Free
                   </span>
                 </div>
@@ -441,9 +442,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
           {tab === "info" && (
             <div className="space-y-4">
               <div className="flex flex-col items-center gap-3 py-4 text-center">
-                <div className="w-14 h-14 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-2xl flex items-center justify-center">
-                  <span className="text-white text-2xl font-bold">🦐</span>
-                </div>
+                <BrandMark size={56} icon={28} />
                 <div>
                   <p className="text-foreground font-bold text-lg">Shrimp365</p>
                   <p className="text-muted-foreground text-sm">{t.dashboard.subtitle}</p>

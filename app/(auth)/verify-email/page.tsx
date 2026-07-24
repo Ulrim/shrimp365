@@ -1,5 +1,6 @@
 "use client"
 
+import { BrandMark } from "@/components/ui/brand-mark"
 import Link from "next/link"
 import { Mail, RefreshCw, ArrowLeft, AlertCircle, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -49,7 +50,7 @@ export default function VerifyEmailPage() {
       <div className="max-w-md w-full text-center space-y-8 relative z-10">
         {/* Logo */}
         <Link href="/" className="inline-flex items-center gap-2">
-          <span className="text-2xl">🦐</span>
+          <BrandMark size={32} icon={16} />
           <span className="text-foreground text-xl font-bold">Shrimp365</span>
         </Link>
 
