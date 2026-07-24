@@ -17,6 +17,12 @@ import { SettingsPanel } from "@/components/layout/settings-panel"
 import { LanguageSwitcher } from "@/components/ui/language-switcher"
 import { isMonitorAccount } from "@/lib/mock-data"
 
+const DropMark = ({ size = 17 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 2.5c4 4.5 6 7.6 6 11a6 6 0 0 1-12 0c0-3.4 2-6.5 6-11Z" />
+  </svg>
+)
+
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
@@ -57,26 +63,26 @@ export function Sidebar() {
         className={cn(
           "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative",
           isActive
-            ? "bg-ocean-50 text-ocean-700 border border-ocean-200"
+            ? "bg-[#1E40AF]/10 text-[#1E40AF] border border-[#1E40AF]/25"
             : "text-muted-foreground hover:text-foreground hover:bg-accent",
           collapsed && "justify-center px-2"
         )}
       >
-        <Icon className={cn("w-5 h-5 shrink-0", isActive ? "text-ocean-500" : "text-muted-foreground group-hover:text-foreground")} />
+        <Icon className={cn("w-5 h-5 shrink-0", isActive ? "text-[#1E40AF]" : "text-muted-foreground group-hover:text-foreground")} />
         {!collapsed && <span className="flex-1">{label}</span>}
         {!collapsed && badge && (
-          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 shrink-0">
+          <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-full bg-[#D97706]/12 text-[#B45309] border border-[#D97706]/30 shrink-0">
             {badge}
           </span>
         )}
-        {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-ocean-500 rounded-r-full" />}
+        {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#1E40AF] rounded-r-full" />}
       </Link>
     )
   }
 
   const SectionLabel = ({ label }: { label: string }) => (
     !collapsed ? (
-      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 pt-3 pb-1">{label}</p>
+      <p className="text-[10px] font-mono font-semibold uppercase tracking-[0.15em] text-muted-foreground px-3 pt-3 pb-1">{label}</p>
     ) : <div className="border-t border-border mx-2 my-2" />
   )
 
@@ -85,13 +91,13 @@ export function Sidebar() {
       {/* Logo */}
       <div className={cn("flex items-center gap-3 px-4 py-5 border-b border-border", collapsed && "justify-center px-2")}>
         <Link href="/home" className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-xl flex items-center justify-center shrink-0 text-lg leading-none">
-            🦐
+          <div className="w-9 h-9 border-[1.5px] border-[#1E40AF] text-[#1E40AF] rounded-xl flex items-center justify-center shrink-0">
+            <DropMark />
           </div>
           {!collapsed && (
             <div>
-              <span className="text-foreground font-bold text-lg">Shrimp365</span>
-              <p className="text-ocean-500 text-xs">Smart Aquaculture</p>
+              <span className="text-foreground font-bold text-lg tracking-tight">Shrimp365</span>
+              <p className="text-[#1E40AF] text-[10px] font-mono tracking-[0.15em]">SMART AQUACULTURE</p>
             </div>
           )}
         </Link>
@@ -119,12 +125,12 @@ export function Sidebar() {
           href="/help"
           className={cn(
             "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all",
-            pathname === "/help" && "bg-ocean-50 text-ocean-700 border border-ocean-200",
+            pathname === "/help" && "bg-[#1E40AF]/10 text-[#1E40AF] border border-[#1E40AF]/25",
             collapsed && "justify-center"
           )}
         >
           <HelpCircle className="w-5 h-5 shrink-0" />
-          {!collapsed && <span>도움말</span>}
+          {!collapsed && <span>{t.headerX.help}</span>}
         </Link>
 
         <button
@@ -141,15 +147,15 @@ export function Sidebar() {
         {/* Free badge */}
         {!collapsed && (
           <div className="px-3 py-2">
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gradient-to-r from-ocean-500 to-teal-500 text-white">
-              Free
+            <span className="text-[10px] font-mono font-semibold tracking-wider px-2 py-0.5 rounded-full bg-[#1E40AF]/10 text-[#1E40AF] border border-[#1E40AF]/25">
+              FREE
             </span>
           </div>
         )}
 
         <div className={cn("flex items-center gap-3 px-3 py-2.5", collapsed && "justify-center")}>
           <Avatar className="w-8 h-8 shrink-0">
-            <AvatarFallback className="bg-gradient-to-br from-ocean-500 to-teal-500 text-white text-xs">
+            <AvatarFallback className="bg-[#1E40AF] text-white text-xs font-semibold">
               {user?.name?.[0] || "U"}
             </AvatarFallback>
           </Avatar>
