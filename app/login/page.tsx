@@ -1,17 +1,19 @@
 "use client"
 
 import { useState, Suspense } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Eye, EyeOff, AlertCircle, ShieldCheck, CheckCircle2 } from "lucide-react"
-import { useSearchParams } from "next/navigation"
 import { SocialLogin } from "@/components/auth/social-login"
+import { OPS_CSS } from "@/components/landing/ops-theme"
+
+const DropMark = ({ size = 15 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 2.5c4 4.5 6 7.6 6 11a6 6 0 0 1-12 0c0-3.4 2-6.5 6-11Z" />
+  </svg>
+)
 
 function LoginPageInner() {
   const router = useRouter()
@@ -31,206 +33,104 @@ function LoginPageInner() {
     setLoading(true)
     const result = await login(email, password)
     setLoading(false)
-    if (result.success) {
-      router.replace("/home")
-    } else {
-      setError(result.error || t.auth.loginFailed)
-    }
+    if (result.success) router.replace("/home")
+    else setError(result.error || t.auth.loginFailed)
   }
 
   const fillTestAccount = (type: "admin" | "operator" | "monitor") => {
-    if (type === "admin") setEmail("admin@shrimp365.com")
-    else if (type === "operator") setEmail("operator@shrimp365.com")
-    else setEmail("monitor@shrimp365.com")
+    setEmail(`${type}@shrimp365.com`)
     setPassword("")
   }
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-ocean-50 to-teal-50">
-      {/* Left decorative panel */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 relative overflow-hidden bg-white">
-        <div className="absolute inset-0 bg-gradient-to-br from-ocean-50/80 to-teal-50/80" />
-        <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-ocean-100 rounded-full blur-3xl" />
-        <div className="absolute -top-16 -right-16 w-64 h-64 bg-teal-100 rounded-full blur-3xl" />
-
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-xl flex items-center justify-center text-xl leading-none">
-            🦐
-          </div>
-          <span className="text-foreground text-xl font-bold">Shrimp365</span>
-        </div>
-
-        <div className="relative z-10">
-          <h1 className="text-5xl font-bold text-foreground leading-tight mb-6">
-            {t.loginX.heroTitle}<br />
-            <span className="bg-gradient-to-r from-ocean-500 to-teal-500 bg-clip-text text-transparent">
+    <div className="s365">
+      <style>{OPS_CSS}</style>
+      <div className="s365-auth">
+        {/* Left — ops brand panel */}
+        <aside className="s365-auth-side">
+          <Link href="/" className="s365-brand"><span className="s365-mark"><DropMark /></span> Shrimp365</Link>
+          <div>
+            <span className="s365-eyebrow mono">{t.loginX.heroTitle}</span>
+            <h1 className="s365-h1" style={{ fontSize: "clamp(28px,3vw,40px)", margin: "14px 0 14px" }}>
               {t.loginX.heroTitleHighlight}
-            </span>
-          </h1>
-          <p className="text-ocean-700 text-lg leading-relaxed mb-8">
-            {t.loginX.heroSubtitle}
-          </p>
-          <div className="grid grid-cols-2 gap-4">
-            {t.loginX.features.map((item) => (
-              <div key={item.label} className="flex items-center gap-3 bg-ocean-50 rounded-xl p-3 border border-ocean-100">
-                <span className="text-2xl">{item.icon}</span>
-                <span className="text-sm text-ocean-700">{item.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="relative z-10 flex items-center gap-6 text-ocean-600 text-sm">
-          <span>© 2026 CULIVER INC. All rights reserved.</span>
-        </div>
-      </div>
-
-      {/* Right login panel */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 lg:p-12">
-        <div className="w-full max-w-md">
-          {/* Mobile logo */}
-          <div className="flex lg:hidden items-center justify-center gap-3 mb-8">
-            <div className="w-10 h-10 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-xl flex items-center justify-center text-xl leading-none">
-              🦐
-            </div>
-            <span className="text-foreground text-xl font-bold">Shrimp365</span>
-          </div>
-
-          <Card className="bg-card border border-border shadow-sm">
-            {verified && (
-              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-t-2xl px-4 py-3 text-sm">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                {t.loginX.verifiedBanner}
-              </div>
-            )}
-            <CardHeader className="space-y-1 pb-4">
-              <CardTitle className="text-2xl font-bold text-foreground">{t.auth.loginTitle}</CardTitle>
-              <CardDescription className="text-muted-foreground">
-                {t.auth.loginSubtitle}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-foreground">{t.auth.emailLabel}</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="email@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="bg-background border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-400 min-h-[44px]"
-                    autoComplete="email"
-                    required
-                  />
+            </h1>
+            <p style={{ color: "var(--s-sub)", fontSize: 15.5, maxWidth: "42ch", margin: 0 }}>{t.loginX.heroSubtitle}</p>
+            <div className="s365-sidefeat">
+              {t.loginX.features.map(f => (
+                <div key={f.label} className="it">
+                  <CheckCircle2 className="w-[16px] h-[16px]" /> {f.label}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="text-foreground">{t.auth.passwordLabel}</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder={t.auth.passwordPlaceholder}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="bg-background border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-400 pr-10 min-h-[44px]"
-                      autoComplete="current-password"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      aria-label={showPassword ? t.loginX.hidePassword : t.loginX.showPassword}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    >
+              ))}
+            </div>
+          </div>
+          <div className="mono" style={{ fontSize: 12, color: "var(--s-sub)" }}>© {new Date().getFullYear()} CULIVER INC.</div>
+        </aside>
+
+        {/* Right — form */}
+        <main className="s365-auth-main">
+          <div className="s365-auth-card">
+            <div className="s365-authbox">
+              <div className="top">
+                <span className="s365-mark"><DropMark size={13} /></span>
+                <h1>{t.auth.loginTitle}</h1>
+              </div>
+
+              {verified && (
+                <div className="s365-alert ok"><CheckCircle2 className="w-4 h-4" style={{ flex: "0 0 auto" }} /> {t.loginX.verifiedBanner}</div>
+              )}
+
+              <form onSubmit={handleSubmit}>
+                <div className="s365-fieldrow">
+                  <label htmlFor="email">{t.auth.emailLabel}</label>
+                  <input id="email" type="email" className="s365-input" placeholder="email@example.com"
+                    value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" required />
+                </div>
+                <div className="s365-fieldrow">
+                  <label htmlFor="password">{t.auth.passwordLabel}</label>
+                  <div className="s365-inwrap">
+                    <input id="password" type={showPassword ? "text" : "password"} className="s365-input" style={{ paddingRight: 40 }}
+                      placeholder={t.auth.passwordPlaceholder} value={password} onChange={e => setPassword(e.target.value)}
+                      autoComplete="current-password" required />
+                    <button type="button" className="toggle" onClick={() => setShowPassword(v => !v)}
+                      aria-label={showPassword ? t.loginX.hidePassword : t.loginX.showPassword}>
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
 
                 {error && (
-                  <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    {error}
-                  </div>
+                  <div className="s365-alert err"><AlertCircle className="w-4 h-4" style={{ flex: "0 0 auto" }} /> {error}</div>
                 )}
 
-                <Button
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold h-11"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <span className="flex items-center gap-2">
-                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      {t.auth.loginLoading}
-                    </span>
-                  ) : t.auth.loginButton}
-                </Button>
+                <button type="submit" className="s365-btn primary full lg" disabled={loading}>
+                  {loading ? t.auth.loginLoading : t.auth.loginButton}
+                </button>
               </form>
 
-              <div className="mt-4">
-                <SocialLogin />
-              </div>
+              <SocialLogin />
 
               {process.env.NEXT_PUBLIC_SHOW_TEST_ACCOUNTS === "true" && (
-                <div className="mt-4 pt-4 border-t border-border">
-                  <p className="text-center text-xs text-ocean-600 mb-3 flex items-center gap-2 justify-center">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    {t.auth.testAccounts}
+                <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--s-hair)" }}>
+                  <p className="mono" style={{ fontSize: 11, color: "var(--s-sub)", display: "flex", gap: 6, alignItems: "center", justifyContent: "center", marginBottom: 10 }}>
+                    <ShieldCheck className="w-3.5 h-3.5" /> {t.auth.testAccounts}
                   </p>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => fillTestAccount("admin")}
-                      className="text-xs bg-ocean-50 hover:bg-ocean-100 text-ocean-700 border border-ocean-200 rounded-lg px-3 py-2 transition-colors text-left"
-                    >
-                      <div className="font-medium">관리자</div>
-                      <div className="text-ocean-500 mt-0.5 truncate">admin@</div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => fillTestAccount("operator")}
-                      className="text-xs bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 rounded-lg px-3 py-2 transition-colors text-left"
-                    >
-                      <div className="font-medium">운영자</div>
-                      <div className="text-teal-500 mt-0.5 truncate">operator@</div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => fillTestAccount("monitor")}
-                      className="text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg px-3 py-2 transition-colors text-left"
-                    >
-                      <div className="font-medium">모니터링</div>
-                      <div className="text-purple-500 mt-0.5 truncate">monitor@</div>
-                    </button>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+                    {(["admin", "operator", "monitor"] as const).map(type => (
+                      <button key={type} type="button" onClick={() => fillTestAccount(type)}
+                        className="s365-btn ghost" style={{ height: 34, fontSize: 12 }}>{type}@</button>
+                    ))}
                   </div>
-                  <p className="text-center text-xs text-muted-foreground mt-2">{t.auth.testAccountHint}</p>
+                  <p style={{ textAlign: "center", fontSize: 11, color: "var(--s-sub)", marginTop: 8 }}>{t.auth.testAccountHint}</p>
                 </div>
               )}
 
-              <div className="text-center mt-4 space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  {t.auth.noAccount}{" "}
-                  <Link href="/signup" className="text-ocean-600 hover:text-ocean-700 font-medium transition-colors">
-                    {t.auth.goSignup}
-                  </Link>
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  <Link href="/forgot-password" className="text-ocean-600 hover:text-ocean-700 font-medium transition-colors">
-                    {t.auth.forgotPassword}
-                  </Link>
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {t.loginX.guidePrompt}{" "}
-                  <Link href="/guide" className="text-ocean-600 hover:text-ocean-700 font-medium transition-colors">
-                    📖 {t.loginX.guideLink}
-                  </Link>
-                </p>
+              <div className="s365-authfoot">
+                <span>{t.auth.noAccount} <Link href="/signup">{t.auth.goSignup}</Link></span>
+                <Link href="/forgot-password">{t.auth.forgotPassword}</Link>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </div>
+        </main>
       </div>
     </div>
   )
@@ -238,7 +138,7 @@ function LoginPageInner() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center"><div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" /></div>}>
+    <Suspense fallback={<div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}><div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" /></div>}>
       <LoginPageInner />
     </Suspense>
   )
