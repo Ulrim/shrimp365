@@ -1,5 +1,6 @@
 "use client"
 
+import { BrandMark } from "@/components/ui/brand-mark"
 import Link from "next/link"
 import { useState } from "react"
 import { ArrowRight, ChevronDown, ChevronUp, Download } from "lucide-react"
@@ -208,9 +209,7 @@ export default function GuidePage() {
       <nav className="sticky top-0 z-50 bg-background/90 backdrop-blur-md border-b border-border">
         <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 font-bold text-foreground">
-            <div className="w-7 h-7 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-lg flex items-center justify-center text-sm leading-none">
-              🦐
-            </div>
+            <BrandMark size={28} icon={14} />
             Shrimp365
           </Link>
           <div className="flex items-center gap-2">
@@ -224,7 +223,7 @@ export default function GuidePage() {
             </a>
             <Link
               href="/login"
-              className="text-sm bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold px-4 py-1.5 rounded-lg transition-all inline-flex items-center min-h-[44px]"
+              className="text-sm bg-ocean-600 hover:bg-ocean-700 text-white font-semibold px-4 py-1.5 rounded-lg transition-all inline-flex items-center min-h-[44px]"
               aria-label="로그인 페이지로 이동"
             >
               로그인
@@ -393,7 +392,7 @@ export default function GuidePage() {
 
         {/* CTA */}
         <div className="text-center bg-gradient-to-br from-ocean-50 to-teal-50 border border-ocean-200 rounded-2xl p-8 sm:p-12">
-          <div className="text-5xl mb-4" aria-hidden="true">🦐</div>
+          <div className="flex justify-center mb-4"><BrandMark size={56} icon={28} /></div>
           <h2 className="text-2xl font-bold mb-3 text-foreground">준비 되셨나요?</h2>
           <p className="text-muted-foreground mb-6">
             무료로 시작하고, 언제든지 업그레이드할 수 있습니다.
@@ -401,7 +400,7 @@ export default function GuidePage() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               href="/signup"
-              className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold px-8 py-3 rounded-xl transition-all min-h-[44px]"
+              className="inline-flex items-center justify-center gap-2 bg-ocean-600 hover:bg-ocean-700 text-white font-semibold px-8 py-3 rounded-xl transition-all min-h-[44px]"
               aria-label="무료로 시작하기 — 회원가입 페이지로 이동"
             >
               무료로 시작하기 <ArrowRight className="w-4 h-4" aria-hidden="true" />

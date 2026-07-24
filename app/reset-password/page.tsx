@@ -1,5 +1,6 @@
 "use client"
 
+import { BrandMark } from "@/components/ui/brand-mark"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -49,7 +50,7 @@ export default function ResetPasswordPage() {
         {/* Logo */}
         <div className="flex flex-col items-center gap-2">
           <Link href="/" className="flex items-center gap-2">
-            <span className="text-2xl">🦐</span>
+            <BrandMark size={32} icon={16} />
             <span className="text-foreground text-xl font-bold">Shrimp365</span>
           </Link>
           <h1 className="text-2xl font-bold text-foreground mt-2">{t.auth.resetTitle}</h1>
@@ -72,7 +73,7 @@ export default function ResetPasswordPage() {
               </div>
               <Link href="/login">
                 <Button
-                  className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold min-h-[44px]"
+                  className="w-full bg-ocean-600 hover:bg-ocean-700 text-white font-semibold min-h-[44px]"
                   aria-label={t.auth.resetGoLogin}
                 >
                   {t.auth.resetGoLogin}
@@ -151,7 +152,7 @@ export default function ResetPasswordPage() {
 
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white font-semibold min-h-[44px]"
+                className="w-full bg-ocean-600 hover:bg-ocean-700 text-white font-semibold min-h-[44px]"
                 disabled={loading}
                 aria-busy={loading}
               >

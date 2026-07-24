@@ -124,7 +124,7 @@ export default function DemoPage() {
           </Link>
           <div className="flex items-center gap-3">
             <Link href="/login"  className="text-sm text-muted-foreground hover:text-foreground transition-colors">로그인</Link>
-            <Link href="/signup" className="text-sm bg-gradient-to-r from-ocean-500 to-teal-500 text-white px-4 py-1.5 rounded-lg font-medium hover:opacity-90 transition-opacity">
+            <Link href="/signup" className="text-sm bg-ocean-600 text-white px-4 py-1.5 rounded-lg font-medium hover:opacity-90 transition-opacity">
               무료 시작
             </Link>
           </div>

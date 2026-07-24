@@ -754,7 +754,7 @@ export default function JournalPage() {
               )}
               <Button
                 onClick={openJournalDialog}
-                className="bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white"
+                className="bg-ocean-600 hover:bg-ocean-700 text-white"
               >
                 <Plus className="w-4 h-4" />{t.journal.addEntry}
               </Button>
@@ -896,7 +896,7 @@ export default function JournalPage() {
                     <p className="text-foreground font-medium mb-1">{t.journal.noEntries}</p>
                     <p className="text-muted-foreground text-sm">{t.journal.noEntriesMsg}</p>
                   </div>
-                  <Button onClick={openJournalDialog} className="bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white">
+                  <Button onClick={openJournalDialog} className="bg-ocean-600 hover:bg-ocean-700 text-white">
                     <Plus className="w-4 h-4" />{t.journal.addEntry}
                   </Button>
                 </div>
@@ -1317,7 +1317,7 @@ export default function JournalPage() {
           {jSaveError && <p className="text-sm text-red-400 mt-2 px-1">{jSaveError}</p>}
           <DialogFooter className="mt-4">
             <Button variant="ghost" onClick={() => setJDialogOpen(false)} className="text-muted-foreground hover:text-foreground">{t.common.cancel}</Button>
-            <Button onClick={handleJSave} disabled={jSaving || jSaved || !jForm.tank_id} className="bg-gradient-to-r from-ocean-500 to-teal-500 hover:from-ocean-600 hover:to-teal-600 text-white min-w-[100px]">
+            <Button onClick={handleJSave} disabled={jSaving || jSaved || !jForm.tank_id} className="bg-ocean-600 hover:bg-ocean-700 text-white min-w-[100px]">
               {jSaved
                 ? <span className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4" />{t.journal.saved}</span>
                 : jSaving
