@@ -108,7 +108,7 @@ export default function NewPostPage() {
               </button>
             </div>
           ) : (
-            <label className="inline-flex items-center gap-2 cursor-pointer border border-dashed border-border rounded-lg px-4 py-3 text-sm text-muted-foreground hover:border-ocean-300 hover:text-foreground transition-colors min-h-[44px]">
+            <label className="inline-flex items-center gap-2 cursor-pointer border border-dashed border-border rounded-lg px-4 py-3 text-sm text-muted-foreground hover:border-[#1E40AF]/50 hover:text-foreground transition-colors min-h-[44px]">
               <ImagePlus className="w-4 h-4" />
               {uploading ? b.imageUploading : b.imageAdd}
               <input type="file" accept="image/*" onChange={handleImage} disabled={uploading} className="hidden" />
@@ -127,7 +127,7 @@ export default function NewPostPage() {
           <Button
             type="submit"
             disabled={saving || uploading}
-            className="bg-ocean-500 hover:bg-ocean-600 text-white min-h-[44px] px-6"
+            className="bg-[#1E40AF] hover:bg-[#3B82F6] text-white min-h-[44px] px-6"
           >
             {saving ? b.submitting : b.submit}
           </Button>

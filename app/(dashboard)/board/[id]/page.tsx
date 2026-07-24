@@ -131,7 +131,7 @@ export default function PostDetailPage() {
   }
 
   if (loading) {
-    return <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" /></div>
+    return <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-[#1E40AF] border-t-transparent rounded-full animate-spin" /></div>
   }
 
   if (error || !post) {
@@ -183,7 +183,7 @@ export default function PostDetailPage() {
           )}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setEditing(false)} className="min-h-[44px]">{t.common.cancel}</Button>
-            <Button onClick={saveEdit} disabled={savingEdit || uploading} className="bg-ocean-500 hover:bg-ocean-600 text-white min-h-[44px]">
+            <Button onClick={saveEdit} disabled={savingEdit || uploading} className="bg-[#1E40AF] hover:bg-[#3B82F6] text-white min-h-[44px]">
               {savingEdit ? b.submitting : t.common.save}
             </Button>
           </div>
@@ -224,7 +224,7 @@ export default function PostDetailPage() {
       {/* ── Comments ── */}
       <section className="mt-8">
         <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 text-ocean-500" />
+          <MessageSquare className="w-4 h-4 text-[#1E40AF]" />
           {b.comments} {comments.length}
         </h2>
 
@@ -257,7 +257,7 @@ export default function PostDetailPage() {
             rows={2}
             className="resize-none flex-1"
           />
-          <Button type="submit" disabled={posting || !comment.trim()} className="bg-ocean-500 hover:bg-ocean-600 text-white shrink-0 min-h-[44px] gap-1.5">
+          <Button type="submit" disabled={posting || !comment.trim()} className="bg-[#1E40AF] hover:bg-[#3B82F6] text-white shrink-0 min-h-[44px] gap-1.5">
             <Send className="w-4 h-4" />
             <span className="hidden sm:inline">{b.commentSubmit}</span>
           </Button>

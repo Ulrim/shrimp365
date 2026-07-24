@@ -35,7 +35,7 @@ export default function BoardPage() {
         </div>
         <Link
           href="/board/new"
-          className="inline-flex items-center gap-1.5 shrink-0 bg-ocean-500 hover:bg-ocean-600 text-white text-sm font-medium rounded-xl px-4 min-h-[44px] transition-colors"
+          className="inline-flex items-center gap-1.5 shrink-0 bg-[#1E40AF] hover:bg-[#3B82F6] text-white text-sm font-semibold rounded-lg px-4 min-h-[44px] transition-colors"
         >
           <PenSquare className="w-4 h-4" />
           {b.newPost}
@@ -44,7 +44,7 @@ export default function BoardPage() {
 
       {loading ? (
         <div className="flex justify-center py-20">
-          <div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-[#1E40AF] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : error ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3 text-center" role="alert">
@@ -63,24 +63,24 @@ export default function BoardPage() {
             <li key={post.id}>
               <Link
                 href={`/board/${post.id}`}
-                className="flex gap-4 bg-card border border-border rounded-2xl p-4 hover:border-ocean-300 hover:shadow-sm transition-all"
+                className="flex gap-4 bg-card border border-border rounded-xl p-4 hover:border-[#1E40AF]/40 hover:bg-[#1E40AF]/[0.03] transition-colors"
               >
                 <div className="flex-1 min-w-0">
                   <h2 className="font-semibold text-foreground truncate">{post.title}</h2>
                   <p className="text-sm text-muted-foreground line-clamp-2 mt-1 whitespace-pre-line">{post.content}</p>
-                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground/70">{post.author_name}</span>
+                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground font-mono tabular-nums">
+                    <span className="font-semibold text-foreground/70">{post.author_name}</span>
                     <span>{formatDate(post.created_at)}</span>
                     <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5" />{post.view_count}</span>
                     <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{post.comment_count ?? 0}</span>
                   </div>
                 </div>
                 {post.image_url ? (
-                  <div className="relative w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-muted">
+                  <div className="relative w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-muted border border-border">
                     <Image src={post.image_url} alt="" fill sizes="80px" className="object-cover" unoptimized />
                   </div>
                 ) : (
-                  <div className="w-20 h-20 shrink-0 rounded-lg bg-muted/50 flex items-center justify-center">
+                  <div className="w-20 h-20 shrink-0 rounded-lg bg-muted/50 border border-border flex items-center justify-center">
                     <ImageIcon className="w-6 h-6 text-muted-foreground/30" />
                   </div>
                 )}
