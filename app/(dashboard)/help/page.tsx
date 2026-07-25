@@ -42,7 +42,7 @@ export default function InAppGuidePage() {
       </div>
 
       {/* Daily routine summary */}
-      <div className="bg-gradient-to-br from-ocean-50 to-teal-50 dark:from-ocean-950/30 dark:to-teal-950/30 border border-ocean-200 dark:border-ocean-800 rounded-2xl p-5 mb-6">
+      <div className="bg-ocean-50 dark:bg-ocean-950/30 border border-ocean-200 dark:border-ocean-800 rounded-2xl p-5 mb-6">
         <h2 className="font-semibold text-foreground mb-3 flex items-center gap-2">
           <span>🗓️</span> {t.help.dailyTitle}
         </h2>
@@ -129,7 +129,7 @@ export default function InAppGuidePage() {
           target="_blank"
           rel="noopener noreferrer"
           aria-label={t.help.fullGuideAria}
-          className="flex items-center justify-between gap-3 bg-gradient-to-r from-ocean-50 to-teal-50 dark:from-ocean-950/30 dark:to-teal-950/30 border border-ocean-200 dark:border-ocean-800 rounded-2xl p-4 min-h-[44px] hover:from-ocean-100 hover:to-teal-100 transition-all group"
+          className="flex items-center justify-between gap-3 bg-ocean-50 dark:bg-ocean-950/30 border border-ocean-200 dark:border-ocean-800 rounded-2xl p-4 min-h-[44px] hover:bg-ocean-100 dark:hover:bg-ocean-900/40 transition-all group"
         >
           <div>
             <p className="font-semibold text-ocean-700 text-sm">{t.help.fullGuideTitle}</p>

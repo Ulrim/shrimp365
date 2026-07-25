@@ -162,7 +162,7 @@ export default function OnboardingPage() {
   return (
     <div className="min-h-screen flex bg-background">
       {/* Left brand panel */}
-      <div className="hidden lg:flex lg:w-2/5 flex-col justify-between p-12 bg-gradient-to-br from-ocean-50 via-teal-50 to-background border-r border-border relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-2/5 flex-col justify-between p-12 bg-ocean-50/60 border-r border-border relative overflow-hidden">
         <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-ocean-100 rounded-full blur-3xl" />
         <div className="absolute -top-16 -right-16 w-64 h-64 bg-teal-100 rounded-full blur-3xl" />
 

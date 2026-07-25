@@ -10,7 +10,7 @@ export default function AIAdvisorPage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center animate-fade-in">
       <div className="relative mb-6">
-        <div className="w-20 h-20 bg-gradient-to-br from-ocean-500 to-teal-500 rounded-3xl flex items-center justify-center shadow-lg">
+        <div className="w-20 h-20 bg-[#1E40AF] rounded-2xl flex items-center justify-center">
           <BrainCircuit className="w-10 h-10 text-white" />
         </div>
         <span className="absolute -top-2 -right-2 flex items-center gap-1 bg-amber-100 text-amber-700 border border-amber-200 text-[11px] font-bold px-2 py-0.5 rounded-full">

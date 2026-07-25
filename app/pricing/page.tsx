@@ -27,7 +27,7 @@ export default function PricingPage() {
         </div>
         <h1 className="text-4xl sm:text-5xl font-bold mb-4 leading-tight">
           모든 기능,<br />
-          <span className="bg-gradient-to-r from-ocean-500 to-teal-500 bg-clip-text text-transparent">
+          <span className="text-ocean-600">
             영원히 무료
           </span>
         </h1>

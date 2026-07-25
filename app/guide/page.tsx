@@ -240,7 +240,7 @@ export default function GuidePage() {
           </div>
           <h1 className="text-3xl sm:text-5xl font-bold mb-4 text-foreground leading-tight">
             처음 사용하시나요?<br />
-            <span className="bg-gradient-to-r from-ocean-500 to-teal-500 bg-clip-text text-transparent">
+            <span className="text-ocean-600">
               5분이면 시작할 수 있습니다
             </span>
           </h1>
@@ -344,7 +344,7 @@ export default function GuidePage() {
         </div>
 
         {/* Daily workflow summary */}
-        <div className="mb-16 bg-gradient-to-br from-ocean-50 to-teal-50 border border-ocean-200 rounded-2xl p-6 sm:p-8">
+        <div className="mb-16 bg-ocean-50 border border-ocean-200 rounded-2xl p-6 sm:p-8">
           <h2 className="text-xl font-bold text-foreground mb-2 text-center">매일 이렇게 사용하세요</h2>
           <p className="text-sm text-muted-foreground text-center mb-6">로그인 → 기록 → 확인의 3단계 루틴</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -391,7 +391,7 @@ export default function GuidePage() {
         </div>
 
         {/* CTA */}
-        <div className="text-center bg-gradient-to-br from-ocean-50 to-teal-50 border border-ocean-200 rounded-2xl p-8 sm:p-12">
+        <div className="text-center bg-ocean-50 border border-ocean-200 rounded-2xl p-8 sm:p-12">
           <div className="flex justify-center mb-4"><BrandMark size={56} icon={28} /></div>
           <h2 className="text-2xl font-bold mb-3 text-foreground">준비 되셨나요?</h2>
           <p className="text-muted-foreground mb-6">

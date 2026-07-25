@@ -1,23 +1,22 @@
 "use client"
 
 import Link from "next/link"
-import { Waves, Home, ArrowLeft } from "lucide-react"
+import { Home, ArrowLeft } from "lucide-react"
 import { useT } from "@/lib/i18n-context"
+import { BrandMark } from "@/components/ui/brand-mark"
 
 export default function NotFound() {
   const { t } = useT()
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-ocean-950 via-slate-900 to-teal-950 p-6">
+    <div className="min-h-screen flex items-center justify-center bg-[#0A1220] p-6">
       <div className="text-center max-w-md">
         <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-gradient-to-br from-ocean-400 to-teal-500 rounded-xl flex items-center justify-center">
-            <Waves className="w-6 h-6 text-white" />
-          </div>
+          <BrandMark size={40} icon={20} className="border-white text-white" />
           <span className="text-white text-xl font-bold">Shrimp365</span>
         </div>
 
-        <div className="text-8xl font-bold bg-gradient-to-r from-ocean-300 to-teal-300 bg-clip-text text-transparent mb-4">
+        <div className="text-8xl font-bold font-mono text-[#60A5FA] mb-4">
           404
         </div>
 

@@ -1121,7 +1121,7 @@ export default function JournalPage() {
           </div>
           <DialogFooter className="mt-4">
             <Button variant="ghost" onClick={() => setJEditTarget(null)} className="text-muted-foreground hover:text-foreground">{t.common.cancel}</Button>
-            <Button onClick={handleJEditSave} disabled={jEditSaving} className="bg-gradient-to-r from-ocean-500 to-teal-500 text-white min-w-[80px]">
+            <Button onClick={handleJEditSave} disabled={jEditSaving} className="bg-ocean-600 hover:bg-ocean-700 text-white min-w-[80px]">
               {jEditSaving ? <span className="w-4 h-4 border-2 border-white/30 border-t-foreground rounded-full animate-spin" /> : t.common.save}
             </Button>
           </DialogFooter>
