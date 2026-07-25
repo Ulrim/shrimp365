@@ -28,6 +28,15 @@ const gaScript = " https://www.googletagmanager.com"
 const gaImg = " https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com"
 const gaConnect = " https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com"
 
+// Sentry — DSN이 설정된 경우에만 정확한 ingest 호스트를 connect-src에 허용.
+// (CSP가 없으면 브라우저가 에러 리포트 전송 자체를 차단해 Sentry가 조용히 무동작함)
+const sentryDsn = process.env.NEXT_PUBLIC_SENTRY_DSN
+const sentryIngestHost = (() => {
+  if (!sentryDsn) return null
+  try { return new URL(sentryDsn).host } catch { return null }
+})()
+const sentryConnect = sentryIngestHost ? ` https://${sentryIngestHost}` : ""
+
 const securityHeaders = [
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -46,7 +55,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       `img-src 'self' data: blob: https://*.supabase.co${adImg}${daumImg}${gaImg}`,
       "font-src 'self'",
-      `connect-src 'self' https://*.supabase.co wss://*.supabase.co${adConnect}${daumConnect}${gaConnect}`,
+      `connect-src 'self' https://*.supabase.co wss://*.supabase.co${adConnect}${daumConnect}${gaConnect}${sentryConnect}`,
       `frame-src 'self'${adFrame}${daumFrame}`,
       "frame-ancestors 'none'",
     ].join("; "),

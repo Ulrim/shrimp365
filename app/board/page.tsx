@@ -1,59 +1,32 @@
-"use client"
-
-import { useEffect, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { useT } from "@/lib/i18n-context"
-import { useAuth } from "@/lib/auth-context"
-import { getPosts, type BoardPost } from "@/lib/board"
-import { MessageSquare, Eye, PenSquare, ImageIcon, AlertTriangle } from "lucide-react"
+import { MessageSquare, Eye, ImageIcon } from "lucide-react"
+import { getPostsServer } from "@/lib/board-server"
+import { getServerDict } from "@/lib/i18n-server"
+import { NewPostButton } from "@/components/board/new-post-button"
 
-function formatDate(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit" })
+function formatDate(iso: string, locale: string) {
+  const tag = locale === "ko" ? "ko-KR" : locale === "vi" ? "vi-VN" : locale === "id" ? "id-ID" : "en-US"
+  return new Date(iso).toLocaleDateString(tag, { year: "numeric", month: "2-digit", day: "2-digit" })
 }
 
-export default function BoardPage() {
-  const { t } = useT()
-  const { user } = useAuth()
+// 서버 컴포넌트 — 초기 HTML에 게시글 전체가 포함되어 크롤러(Google/Naver/Bing)가
+// JS 실행 없이도 목록을 그대로 색인할 수 있다.
+export default async function BoardPage() {
+  const [posts, { t, locale }] = await Promise.all([getPostsServer(), getServerDict()])
   const b = t.board
-  const [posts, setPosts] = useState<BoardPost[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
-
-  useEffect(() => {
-    getPosts()
-      .then(p => { setPosts(p); setLoading(false) })
-      .catch(() => { setError(true); setLoading(false) })
-  }, [])
 
   return (
     <div className="max-w-3xl mx-auto w-full animate-fade-in">
-      {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">{b.title}</h1>
           <p className="text-sm text-muted-foreground mt-1">{b.subtitle}</p>
         </div>
-        <Link
-          href={user ? "/board/new" : "/login"}
-          className="inline-flex items-center gap-1.5 shrink-0 bg-[#1E40AF] hover:bg-[#3B82F6] text-white text-sm font-semibold rounded-lg px-4 min-h-[44px] transition-colors"
-        >
-          <PenSquare className="w-4 h-4" />
-          {b.newPost}
-        </Link>
+        <NewPostButton label={b.newPost} />
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-20">
-          <div className="w-8 h-8 border-4 border-[#1E40AF] border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : error ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 text-center" role="alert">
-          <AlertTriangle className="w-10 h-10 text-amber-500" />
-          <p className="text-muted-foreground text-sm">{b.loadError}</p>
-        </div>
-      ) : posts.length === 0 ? (
+      {posts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-2 text-center">
           <MessageSquare className="w-12 h-12 text-muted-foreground/40" />
           <p className="text-foreground font-semibold">{b.empty}</p>
@@ -72,7 +45,7 @@ export default function BoardPage() {
                   <p className="text-sm text-muted-foreground line-clamp-2 mt-1 whitespace-pre-line">{post.content}</p>
                   <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground font-mono tabular-nums">
                     <span className="font-semibold text-foreground/70">{post.author_name}</span>
-                    <span>{formatDate(post.created_at)}</span>
+                    <span>{formatDate(post.created_at, locale)}</span>
                     <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5" />{post.view_count}</span>
                     <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{post.comment_count ?? 0}</span>
                   </div>
