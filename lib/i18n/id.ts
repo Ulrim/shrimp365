@@ -672,7 +672,7 @@ export const id: Dict = {
       { q: "Bisakah saya menggunakannya di smartphone?", a: "Ya, ini adalah aplikasi web yang dioptimalkan untuk mobile. Akses langsung dari browser smartphone dan tambahkan ke layar beranda untuk digunakan seperti aplikasi native." },
       { q: "Apakah saya perlu peralatan pengukur kualitas air?", a: "Tidak! Anda bisa memasukkan nilai yang diukur secara manual dan menggunakan semua fitur. Integrasi sensor IoT bersifat opsional." },
       { q: "Apakah benar-benar gratis? Adakah biaya tersembunyi?", a: "Ya, sepenuhnya gratis. Shrimp365 didukung iklan, jadi tidak perlu berlangganan atau informasi pembayaran. Semua fitur tersedia tanpa batas." },
-      { q: "Apakah data saya aman?", a: "Data Anda dienkripsi dan disimpan di server Supabase (berbasis AWS). Hanya Anda yang dapat melihat data Anda — tidak pernah dibagikan." },
+      { q: "Apakah data saya aman?", a: "Semua data dienkripsi dan disimpan dengan aman. Hanya Anda yang dapat melihat data Anda — tidak pernah dibagikan." },
       { q: "Bisakah saya mengimpor data yang sudah ada?", a: "Saat ini hanya mendukung entri manual. Anda bisa memasukkan data dari spreadsheet atau buku catatan sebelumnya secara bertahap, atau mulai baru dari hari ini." },
     ],
     ctaH2: "Mulai Hari Ini",
