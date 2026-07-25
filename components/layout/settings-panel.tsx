@@ -453,8 +453,6 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               <div className="space-y-2 text-sm">
                 {[
                   { label: t.settings.support, value: "CULIVER INC" },
-                  { label: "Supabase", value: "Supabase" },
-                  { label: "Next.js", value: "Next.js 16" },
                   { label: t.common.date, value: new Date().toLocaleDateString(locale === "ko" ? "ko-KR" : locale === "vi" ? "vi-VN" : locale === "id" ? "id-ID" : "en-US") },
                 ].map(row => (
                   <div key={row.label} className="flex justify-between py-2 border-b border-border">

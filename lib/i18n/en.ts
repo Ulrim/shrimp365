@@ -672,7 +672,7 @@ export const en: Dict = {
       { q: "Can I use it on a smartphone?", a: "Yes, it's a mobile-optimized web app. Access it directly from your smartphone browser and add it to your home screen to use it just like a native app." },
       { q: "Do I need water quality measuring equipment?", a: "No! You can manually enter your measured values and use all features. IoT sensor integration is optional." },
       { q: "Is it really free? Are there hidden fees?", a: "Yes, completely free. Shrimp365 is ad-supported, so no subscription or payment information is required. All features are available without any limits." },
-      { q: "Is my data secure?", a: "Your data is encrypted and stored on Supabase (AWS-based) servers. Only you can see your data — it is never shared." },
+      { q: "Is my data secure?", a: "All data is encrypted and stored securely. Only you can see your data — it is never shared." },
       { q: "Can I import existing data?", a: "Currently only manual entry is supported. You can enter previous spreadsheet or notebook data sequentially, or start fresh from today." },
     ],
     ctaH2: "Start Today",

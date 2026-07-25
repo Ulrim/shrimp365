@@ -672,7 +672,7 @@ export const vi: Dict = {
       { q: "Có thể dùng trên điện thoại thông minh không?", a: "Có, đây là ứng dụng web tối ưu hóa cho di động. Truy cập trực tiếp từ trình duyệt điện thoại và thêm vào màn hình chính để sử dụng như ứng dụng gốc." },
       { q: "Tôi có cần thiết bị đo chất lượng nước không?", a: "Không! Bạn có thể nhập thủ công các giá trị đo được và sử dụng tất cả tính năng. Tích hợp cảm biến IoT là tùy chọn." },
       { q: "Có thực sự miễn phí không? Có phí ẩn không?", a: "Có, hoàn toàn miễn phí. Shrimp365 được hỗ trợ bởi quảng cáo, vì vậy không cần đăng ký hay thông tin thanh toán. Tất cả tính năng đều có sẵn không giới hạn." },
-      { q: "Dữ liệu của tôi có an toàn không?", a: "Dữ liệu của bạn được mã hóa và lưu trữ trên máy chủ Supabase (dựa trên AWS). Chỉ bạn mới có thể xem dữ liệu của mình — không bao giờ được chia sẻ." },
+      { q: "Dữ liệu của tôi có an toàn không?", a: "Mọi dữ liệu đều được mã hóa và lưu trữ an toàn. Chỉ bạn mới có thể xem dữ liệu của mình — không bao giờ được chia sẻ." },
       { q: "Tôi có thể nhập dữ liệu hiện có không?", a: "Hiện tại chỉ hỗ trợ nhập thủ công. Bạn có thể nhập dữ liệu từ bảng tính hoặc sổ ghi chép trước đó, hoặc bắt đầu mới từ hôm nay." },
     ],
     ctaH2: "Bắt đầu hôm nay",
