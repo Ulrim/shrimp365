@@ -92,7 +92,7 @@ export default function DemoPage() {
 
       {/* ── Demo Banner ──────────────────────────────────────────────────── */}
       {bannerVisible && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-ocean-600 to-teal-600 text-white px-4 py-2.5 flex items-center justify-between gap-3 shadow-md">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-[#1E40AF] text-white px-4 py-2.5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm">
             <Fish className="w-4 h-4 shrink-0" />
             <span className="font-medium">데모 모드 — 실제 데이터가 아닙니다</span>
@@ -116,7 +116,7 @@ export default function DemoPage() {
       <header className={`sticky ${bannerVisible ? "top-10" : "top-0"} z-40 bg-background/90 backdrop-blur border-b border-border`}>
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-ocean-500 to-teal-500 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-[#1E40AF] flex items-center justify-center">
               <Fish className="w-4 h-4 text-white" />
             </div>
             <span className="text-sm font-bold text-foreground">Shrimp365</span>
@@ -348,7 +348,7 @@ export default function DemoPage() {
         </Card>
 
         {/* CTA footer */}
-        <div className="rounded-2xl bg-gradient-to-r from-ocean-500 to-teal-500 p-8 text-center text-white space-y-4">
+        <div className="rounded-2xl bg-[#1E40AF] p-8 text-center text-white space-y-4">
           <h2 className="text-2xl font-bold">지금 무료로 시작하세요</h2>
           <p className="text-white/80 text-sm">가입 즉시 모든 기능을 무료로 이용할 수 있습니다.</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
