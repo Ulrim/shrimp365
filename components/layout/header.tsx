@@ -33,6 +33,7 @@ export function Header() {
     "/diagnosis":               t.nav.diagnosis,
     "/ai-advisor":              t.nav.aiAdvisor,
     "/reports":                 t.nav.reports,
+    "/board":                   t.board.title,
     "/admin":                   t.nav.admin,
     "/help":                    t.headerX.help,
   }
