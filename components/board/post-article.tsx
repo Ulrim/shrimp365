@@ -87,7 +87,7 @@ export function PostArticle({ post: initialPost, initialComments }: { post: Boar
     setEditError("")
     setSavingEdit(true)
     try {
-      await updatePost(post.id, { title: eTitle, content: eContent, image_url: eImage })
+      await updatePost(post.id, { title: eTitle, content: eContent, image_url: eImage, locale })
       setPost(prev => ({ ...prev, title: eTitle.trim(), content: eContent.trim(), image_url: eImage }))
       setEditing(false)
     } catch (e) {

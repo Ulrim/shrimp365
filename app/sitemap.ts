@@ -1,6 +1,10 @@
 import { MetadataRoute } from "next"
+import { getAllCardNewsServer } from "@/lib/card-news-server"
 
 const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.shrimp365.kr"
+
+// 카드뉴스가 추가되면 사이트맵도 따라 갱신되어야 하므로 정적 고정하지 않는다.
+export const revalidate = 300
 
 // Distinct, server-rendered URL per language (Korean = root). Only languages
 // that are actually rendered are advertised — no false hreflang signals.
@@ -13,7 +17,16 @@ const LANDING_ALTERNATES = {
   "id-ID": `${BASE}/id`,
 }
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // 게시된 카드뉴스 전체를 개별 URL로 등록 — 색인 대상이 되는 실제 콘텐츠.
+  const cardNews = await getAllCardNewsServer()
+  const cardNewsEntries: MetadataRoute.Sitemap = cardNews.map((p) => ({
+    url: `${BASE}/cardnews/${encodeURIComponent(p.slug)}`,
+    lastModified: new Date(p.updated_at),
+    changeFrequency: "monthly",
+    priority: 0.7,
+  }))
+
   return [
     // Landing — Korean (root) + cross-referenced language versions
     {
@@ -58,6 +71,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "daily",
       priority: 0.7,
     },
+    // Card news archive — public content hub (highest SEO value after landing)
+    {
+      url: `${BASE}/cardnews`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    ...cardNewsEntries,
     // Korean-only content pages (not yet translated → no language alternates)
     {
       url: `${BASE}/guide`,

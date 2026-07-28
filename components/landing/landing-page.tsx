@@ -315,6 +315,9 @@ export default function LandingPage() {
           </div>
           <div className="s365-footlinks">
             <Link href="/pricing">{l.navPricing}</Link>
+            {/* 공개 콘텐츠 허브 — 랜딩에서 크롤 경로를 열어 준다 */}
+            <Link href="/cardnews">{t.cardNews.title}</Link>
+            <Link href="/board">{t.board.title}</Link>
             <Link href="/terms">{t.settings.legalTerms}</Link>
             <Link href="/privacy">{t.settings.legalPrivacy}</Link>
             <Link href="/login">{t.auth.loginButton}</Link>

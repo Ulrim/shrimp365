@@ -683,6 +683,7 @@ export interface Dict {
     commentEmpty: string
     deleteCommentConfirm: string
     loginRequired: string
+    localeNotice: string
     loadError: string
   }
   cookie: {
@@ -1030,5 +1031,52 @@ export interface Dict {
     reorderShort: string
     currency: string
     deleteRecord: string
+  }
+  cardNews: {
+    title: string
+    subtitle: string
+    badge: string
+    empty: string
+    emptyMsg: string
+    back: string
+    backToList: string
+    views: string
+    cardsUnit: string
+    cardIndex: string
+    prev: string
+    next: string
+    related: string
+    tagAll: string
+    saveImage: string
+    ctaTitle: string
+    ctaDesc: string
+    ctaButton: string
+    readMore: string
+    newPost: string
+    formTitle: string
+    fieldTitle: string
+    fieldTitlePlaceholder: string
+    fieldSlug: string
+    fieldSlugHelp: string
+    fieldLocale: string
+    fieldSummary: string
+    fieldSummaryPlaceholder: string
+    fieldBody: string
+    fieldBodyPlaceholder: string
+    fieldImages: string
+    fieldImagesHelp: string
+    fieldTags: string
+    fieldTagsPlaceholder: string
+    imageAdd: string
+    imageUploading: string
+    imageRemove: string
+    moveUp: string
+    moveDown: string
+    published: string
+    draft: string
+    submit: string
+    submitting: string
+    adminOnly: string
+    loadError: string
   }
 }

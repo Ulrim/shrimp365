@@ -10,7 +10,7 @@ import {
   Home, LayoutDashboard, Droplets, BookOpen, Building2,
   BrainCircuit, BarChart3, Settings, LogOut,
   ChevronLeft, ChevronRight, Zap, FlaskConical, Package, ShieldCheck,
-  ClipboardList, HelpCircle, MessageSquare,
+  ClipboardList, HelpCircle, MessageSquare, Layers,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
@@ -46,6 +46,7 @@ export function Sidebar() {
     { href: "/ai-advisor",   icon: BrainCircuit,    label: t.nav.aiAdvisor, badge: t.common.comingSoon },
     { href: "/reports",      icon: BarChart3,       label: t.nav.reports },
     { href: "/board",        icon: MessageSquare,   label: t.board.title },
+    { href: "/cardnews",     icon: Layers,          label: t.cardNews.title },
     ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
   ]
 

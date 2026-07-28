@@ -14,7 +14,7 @@ import { ArrowLeft, ImagePlus, X, AlertCircle } from "lucide-react"
 
 export default function NewPostPage() {
   const router = useRouter()
-  const { t } = useT()
+  const { t, locale } = useT()
   const { user, loading } = useAuth()
   const b = t.board
   const bx = t.boardX
@@ -52,7 +52,7 @@ export default function NewPostPage() {
     setError("")
     setSaving(true)
     try {
-      const post = await createPost({ title, content, image_url: imageUrl })
+      const post = await createPost({ title, content, image_url: imageUrl, locale })
       router.replace(`/board/${post.id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : b.loadError)

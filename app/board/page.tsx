@@ -13,7 +13,8 @@ function formatDate(iso: string, locale: string) {
 // 서버 컴포넌트 — 초기 HTML에 게시글 전체가 포함되어 크롤러(Google/Naver/Bing)가
 // JS 실행 없이도 목록을 그대로 색인할 수 있다.
 export default async function BoardPage() {
-  const [posts, { t, locale }] = await Promise.all([getPostsServer(), getServerDict()])
+  const { t, locale } = await getServerDict()
+  const posts = await getPostsServer(locale)
   const b = t.board
 
   return (
@@ -22,6 +23,8 @@ export default async function BoardPage() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">{b.title}</h1>
           <p className="text-sm text-muted-foreground mt-1">{b.subtitle}</p>
+          {/* 언어별 분리 — 어느 언어의 글을 보고 있는지 명시해 혼란을 막는다. */}
+          <p className="text-xs text-muted-foreground/80 mt-1.5">{b.localeNotice}</p>
         </div>
         <NewPostButton label={b.newPost} />
       </div>

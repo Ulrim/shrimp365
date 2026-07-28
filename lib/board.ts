@@ -1,7 +1,10 @@
 import { supabase } from "@/lib/supabase"
+import { detectLocale } from "@/lib/detect-locale"
+import type { Locale } from "@/lib/i18n"
 
 export interface BoardPost {
   id: string
+  locale: string
   user_id: string
   author_name: string
   title: string
@@ -34,11 +37,10 @@ async function authorName(userId: string, email?: string | null): Promise<string
 }
 
 // ── Posts ────────────────────────────────────────────────────
-export async function getPosts(): Promise<BoardPost[]> {
-  const { data, error } = await supabase
-    .from("board_posts")
-    .select("*, board_comments(count)")
-    .order("created_at", { ascending: false })
+export async function getPosts(locale?: string): Promise<BoardPost[]> {
+  let query = supabase.from("board_posts").select("*, board_comments(count)")
+  if (locale) query = query.eq("locale", locale)
+  const { data, error } = await query.order("created_at", { ascending: false })
   if (error) throw error
   return (data || []).map((p: BoardPost & { board_comments: { count: number }[] }) => ({
     ...p,
@@ -55,16 +57,21 @@ export async function getPost(id: string): Promise<BoardPost | null> {
   return data
 }
 
-export async function createPost(values: { title: string; content: string; image_url?: string | null }) {
+export async function createPost(values: { title: string; content: string; image_url?: string | null; locale: Locale }) {
   const user = await currentUser()
   const name = await authorName(user.id, user.email)
+  const title = values.title.trim()
+  const content = values.content.trim()
   const { data, error } = await supabase
     .from("board_posts")
     .insert({
       user_id: user.id,
       author_name: name,
-      title: values.title.trim(),
-      content: values.content.trim(),
+      title,
+      content,
+      // 작성자가 언어를 고르지 않아도 되도록 본문에서 자동 판별.
+      // 판별이 애매하면 작성 당시 화면 언어를 그대로 쓴다.
+      locale: detectLocale(`${title} ${content}`, values.locale),
       image_url: values.image_url ?? null,
     })
     .select()
@@ -73,12 +80,16 @@ export async function createPost(values: { title: string; content: string; image
   return data as BoardPost
 }
 
-export async function updatePost(id: string, values: { title: string; content: string; image_url?: string | null }) {
+export async function updatePost(id: string, values: { title: string; content: string; image_url?: string | null; locale?: Locale }) {
+  const title = values.title.trim()
+  const content = values.content.trim()
   const { error } = await supabase
     .from("board_posts")
     .update({
-      title: values.title.trim(),
-      content: values.content.trim(),
+      title,
+      content,
+      // 수정으로 언어가 바뀌었을 수 있으므로 다시 판별한다.
+      ...(values.locale ? { locale: detectLocale(`${title} ${content}`, values.locale) } : {}),
       image_url: values.image_url ?? null,
       updated_at: new Date().toISOString(),
     })
