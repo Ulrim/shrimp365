@@ -18,11 +18,18 @@ const LANDING_ALTERNATES = {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // 게시된 카드뉴스 전체를 개별 URL로 등록 — 색인 대상이 되는 실제 콘텐츠.
+  // 게시된 카드뉴스를 개별 URL로 등록 — 색인 대상이 되는 실제 콘텐츠.
+  // 같은 slug의 다국어판은 URL이 하나뿐(방문자 언어에 따라 내용이 달라짐)이므로
+  // slug 기준으로 합쳐 중복 URL이 사이트맵에 들어가지 않게 한다.
   const cardNews = await getAllCardNewsServer()
-  const cardNewsEntries: MetadataRoute.Sitemap = cardNews.map((p) => ({
-    url: `${BASE}/cardnews/${encodeURIComponent(p.slug)}`,
-    lastModified: new Date(p.updated_at),
+  const latestBySlug = new Map<string, string>()
+  for (const p of cardNews) {
+    const prev = latestBySlug.get(p.slug)
+    if (!prev || p.updated_at > prev) latestBySlug.set(p.slug, p.updated_at)
+  }
+  const cardNewsEntries: MetadataRoute.Sitemap = [...latestBySlug].map(([slug, updatedAt]) => ({
+    url: `${BASE}/cardnews/${encodeURIComponent(slug)}`,
+    lastModified: new Date(updatedAt),
     changeFrequency: "monthly",
     priority: 0.7,
   }))

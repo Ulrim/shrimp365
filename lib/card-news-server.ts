@@ -39,16 +39,6 @@ export const getCardNewsServer = cache(async (slug: string, locale: string): Pro
   return ((any.data as CardNews[]) || [])[0] ?? null
 })
 
-/** 같은 슬러그의 다른 언어 버전 — hreflang 생성용. */
-export const getCardNewsAlternatesServer = cache(async (slug: string): Promise<CardNews[]> => {
-  const { data } = await publicClient()
-    .from("card_news")
-    .select("slug, locale, title")
-    .eq("slug", slug)
-    .eq("published", true)
-  return ((data as CardNews[]) || [])
-})
-
 /** sitemap 생성용 — 전 언어 전체 목록. */
 export const getAllCardNewsServer = cache(async (): Promise<Pick<CardNews, "slug" | "locale" | "updated_at">[]> => {
   const { data, error } = await publicClient()

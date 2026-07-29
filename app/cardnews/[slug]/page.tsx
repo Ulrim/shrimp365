@@ -3,7 +3,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { notFound } from "next/navigation"
 import { ArrowLeft, ArrowRight, Eye, Heart } from "lucide-react"
-import { getCardNewsServer, getCardNewsAlternatesServer, getRelatedCardNewsServer } from "@/lib/card-news-server"
+import { getCardNewsServer, getRelatedCardNewsServer } from "@/lib/card-news-server"
 import { getServerDict } from "@/lib/i18n-server"
 import { CardDeck } from "@/components/cardnews/card-deck"
 import { CardNewsViewPing } from "@/components/cardnews/view-ping"
@@ -35,21 +35,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description = post.summary || excerpt(post.body) || "Shrimp365 카드뉴스"
   const cover = post.cover_url || post.images[0]
 
-  // 같은 슬러그의 다른 언어 버전을 hreflang으로 연결 — 실제 존재하는 것만.
-  const alternates = await getCardNewsAlternatesServer(post.slug)
-  const languages: Record<string, string> = {}
-  for (const a of alternates) {
-    languages[LOCALE_TAG[a.locale] ?? a.locale] = url
-  }
+  // hreflang은 넣지 않는다. 카드뉴스는 언어별 URL이 따로 있는 구조가 아니라
+  // 하나의 URL이 방문자 언어에 따라 다른 내용을 내보내는 방식(dynamic serving)이라,
+  // 모든 언어를 같은 주소로 가리키는 hreflang은 검색엔진에 잘못된 신호를 준다.
 
   return {
     title: post.title,
     description,
     keywords: post.tags.length ? post.tags : undefined,
-    alternates: {
-      canonical: url,
-      languages: Object.keys(languages).length > 1 ? languages : undefined,
-    },
+    alternates: { canonical: url },
     openGraph: {
       title: post.title,
       description,
