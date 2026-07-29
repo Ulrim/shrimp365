@@ -9,6 +9,7 @@ export const id: Dict = {
     select: "Bahasa",
   },
   common: {
+    menu: "Menu",
     save: "Simpan",
     cancel: "Batal",
     delete: "Hapus",

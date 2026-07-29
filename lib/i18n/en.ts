@@ -9,6 +9,7 @@ export const en: Dict = {
     select: "Language",
   },
   common: {
+    menu: "Menu",
     save: "Save",
     cancel: "Cancel",
     delete: "Delete",

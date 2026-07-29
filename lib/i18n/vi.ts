@@ -9,6 +9,7 @@ export const vi: Dict = {
     select: "Ngôn ngữ",
   },
   common: {
+    menu: "Menu",
     save: "Lưu",
     cancel: "Hủy",
     delete: "Xóa",

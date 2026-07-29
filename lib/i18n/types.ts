@@ -7,6 +7,7 @@ export interface Dict {
     select: string
   }
   common: {
+    menu: string
     save: string
     cancel: string
     delete: string

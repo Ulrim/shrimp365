@@ -9,6 +9,7 @@ export const ko: Dict = {
     select: "언어 선택",
   },
   common: {
+    menu: "메뉴",
     save: "저장",
     cancel: "취소",
     delete: "삭제",
