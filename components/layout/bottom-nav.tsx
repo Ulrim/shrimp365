@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
 import {
   Home, LayoutDashboard, Droplets, ClipboardList,
   MoreHorizontal, Building2, FlaskConical, Package,
-  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight, BookOpen, BrainCircuit, MessageSquare,
+  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight, BookOpen, BrainCircuit, MessageSquare, Layers,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
@@ -41,6 +41,7 @@ export function BottomNav() {
     { href: "/ai-advisor",    icon: BrainCircuit,  label: t.nav.aiAdvisor, badge: t.common.comingSoon },
     { href: "/reports",       icon: BarChart3,     label: t.nav.reports },
     { href: "/board",         icon: MessageSquare, label: t.board.title },
+    { href: "/cardnews",      icon: Layers,        label: t.cardNews.title },
     ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
   ]
 

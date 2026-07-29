@@ -75,6 +75,7 @@ export interface Dict {
   }
   nav: {
     home: string
+    guide: string
     dashboard: string
     farms: string
     waterQuality: string

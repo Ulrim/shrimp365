@@ -77,6 +77,7 @@ export const en: Dict = {
   },
   nav: {
     home: "Home",
+    guide: "User guide",
     dashboard: "Dashboard",
     farms: "Farms & Tanks",
     waterQuality: "Water Quality",

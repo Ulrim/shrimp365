@@ -77,6 +77,7 @@ export const id: Dict = {
   },
   nav: {
     home: "Beranda",
+    guide: "Panduan pengguna",
     dashboard: "Dashboard",
     farms: "Tambak & Kolam",
     waterQuality: "Kualitas Air",

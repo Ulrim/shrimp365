@@ -77,6 +77,7 @@ export const ko: Dict = {
   },
   nav: {
     home: "홈",
+    guide: "사용 가이드",
     dashboard: "대시보드",
     farms: "양식장·수조",
     waterQuality: "수질 모니터링",

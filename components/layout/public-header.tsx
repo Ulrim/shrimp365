@@ -45,7 +45,7 @@ export function PublicFooter({ maxWidth = "max-w-5xl" }: { maxWidth?: string }) 
     { href: "/", label: t.nav.home },
     { href: "/cardnews", label: t.cardNews.title },
     { href: "/board", label: t.board.title },
-    { href: "/guide", label: t.landing.navHowItWorks },
+    { href: "/guide", label: t.nav.guide },
     { href: "/pricing", label: t.landing.navPricing },
     { href: "/terms", label: t.settings.legalTerms },
     { href: "/privacy", label: t.settings.legalPrivacy },
@@ -86,7 +86,7 @@ export function PublicHeader({ maxWidth = "max-w-5xl" }: { maxWidth?: string }) 
     { href: "/", label: t.nav.home },
     { href: "/cardnews", label: t.cardNews.title },
     { href: "/board", label: t.board.title },
-    { href: "/guide", label: t.landing.navHowItWorks },
+    { href: "/guide", label: t.nav.guide },
     { href: "/pricing", label: t.landing.navPricing },
   ]
 

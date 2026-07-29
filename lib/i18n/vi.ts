@@ -77,6 +77,7 @@ export const vi: Dict = {
   },
   nav: {
     home: "Trang chủ",
+    guide: "Hướng dẫn sử dụng",
     dashboard: "Bảng điều khiển",
     farms: "Trại & Bể",
     waterQuality: "Chất lượng nước",

@@ -1,6 +1,7 @@
 "use client"
 
 import { BrandMark } from "@/components/ui/brand-mark"
+import { PublicHeader, PublicFooter } from "@/components/layout/public-header"
 import Link from "next/link"
 import { useState } from "react"
 import { ArrowRight, ChevronDown, ChevronUp, Download } from "lucide-react"
@@ -205,32 +206,7 @@ export default function GuidePage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Nav */}
-      <nav className="sticky top-0 z-50 bg-background/90 backdrop-blur-md border-b border-border">
-        <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 font-bold text-foreground">
-            <BrandMark size={28} icon={14} />
-            Shrimp365
-          </Link>
-          <div className="flex items-center gap-2">
-            <a
-              href="/api/guide"
-              download="Shrimp365_사용설명서.pdf"
-              className="hidden sm:flex items-center gap-1.5 text-sm border border-border hover:bg-muted text-foreground px-3 py-1.5 rounded-lg transition-all min-h-[44px]"
-              aria-label="사용설명서 PDF 다운로드"
-            >
-              <Download className="w-3.5 h-3.5" aria-hidden="true" /> PDF
-            </a>
-            <Link
-              href="/login"
-              className="text-sm bg-ocean-600 hover:bg-ocean-700 text-white font-semibold px-4 py-1.5 rounded-lg transition-all inline-flex items-center min-h-[44px]"
-              aria-label="로그인 페이지로 이동"
-            >
-              로그인
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <PublicHeader maxWidth="max-w-4xl" />
 
       <div className="max-w-4xl mx-auto px-4 py-10 sm:py-14">
         {/* Header */}
@@ -416,15 +392,9 @@ export default function GuidePage() {
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="text-center mt-10 text-muted-foreground text-sm space-x-3">
-          <Link href="/" className="hover:text-foreground transition-colors">홈으로</Link>
-          <span>·</span>
-          <Link href="/login" className="hover:text-foreground transition-colors">로그인</Link>
-          <span>·</span>
-          <Link href="/signup" className="hover:text-foreground transition-colors">회원가입</Link>
-        </div>
       </div>
+
+      <PublicFooter maxWidth="max-w-4xl" />
     </div>
   )
 }

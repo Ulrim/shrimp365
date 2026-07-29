@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { PublicHeader, PublicFooter } from "@/components/layout/public-header"
 import {
   CheckCircle2, Droplets, BrainCircuit, BookOpen, Package,
   FlaskConical, BarChart3, Building2, Wifi, ArrowRight
@@ -20,6 +21,7 @@ const FEATURES = [
 export default function PricingPage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
+      <PublicHeader maxWidth="max-w-3xl" />
       <section className="max-w-3xl mx-auto px-4 pt-20 pb-12 text-center">
         <div className="inline-flex items-center gap-2 bg-ocean-50 border border-ocean-100 rounded-full px-4 py-1.5 mb-6">
           <CheckCircle2 className="w-4 h-4 text-ocean-600" />
@@ -92,6 +94,8 @@ export default function PricingPage() {
           </Link>
         </div>
       </section>
+
+      <PublicFooter maxWidth="max-w-3xl" />
     </main>
   )
 }

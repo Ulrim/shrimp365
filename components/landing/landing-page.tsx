@@ -100,11 +100,17 @@ function NavBar({ onDemoClick }: { onDemoClick: () => void }) {
   const [open, setOpen] = useState(false)
   const { t, locale } = useT()
   const l = t.landing
+  // 페이지 내 앵커(#)와 실제 페이지(/)를 함께 노출한다. 실제 페이지 링크가
+  // 랜딩에만 없으면 방문자가 카드뉴스·게시판의 존재를 알 방법이 없다.
   const links = [
     { href: "#features", label: l.navFeatures },
     { href: "#how-it-works", label: l.navHowItWorks },
     { href: "#pricing", label: l.navPricing },
     { href: "#faq", label: l.navFaq },
+  ]
+  const pages = [
+    { href: "/cardnews", label: t.cardNews.title },
+    { href: "/board", label: t.board.title },
   ]
   return (
     <header className="s365-header">
@@ -114,6 +120,7 @@ function NavBar({ onDemoClick }: { onDemoClick: () => void }) {
         </Link>
         <nav className="s365-links">
           {links.map(n => <a key={n.href} href={n.href}>{n.label}</a>)}
+          {pages.map(n => <Link key={n.href} href={n.href}>{n.label}</Link>)}
         </nav>
         <div className="s365-navright">
           <LocaleChips current={locale} />
@@ -127,6 +134,8 @@ function NavBar({ onDemoClick }: { onDemoClick: () => void }) {
       {open && (
         <div className="s365-mobile">
           {links.map(n => <a key={n.href} href={n.href} onClick={() => setOpen(false)}>{n.label}</a>)}
+          {pages.map(n => <Link key={n.href} href={n.href} onClick={() => setOpen(false)}>{n.label}</Link>)}
+          <Link href="/guide" onClick={() => setOpen(false)}>{t.nav.guide}</Link>
           <button onClick={() => { setOpen(false); onDemoClick() }} className="s365-mobile-demo">{l.navDemo}</button>
           <div className="s365-mobile-row">
             <Link href="/login" className="s365-btn ghost" style={{ flex: 1, justifyContent: "center" }}>{t.auth.loginButton}</Link>
@@ -318,6 +327,7 @@ export default function LandingPage() {
             {/* 공개 콘텐츠 허브 — 랜딩에서 크롤 경로를 열어 준다 */}
             <Link href="/cardnews">{t.cardNews.title}</Link>
             <Link href="/board">{t.board.title}</Link>
+            <Link href="/guide">{t.nav.guide}</Link>
             <Link href="/terms">{t.settings.legalTerms}</Link>
             <Link href="/privacy">{t.settings.legalPrivacy}</Link>
             <Link href="/login">{t.auth.loginButton}</Link>

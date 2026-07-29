@@ -40,6 +40,7 @@ export function Sidebar() {
   const MONITOR_NAV = [
     { href: "/dashboard",    icon: LayoutDashboard, label: t.nav.dashboard },
     { href: "/water-quality", icon: Droplets,       label: t.nav.waterQuality },
+    { href: "/journal",      icon: BookOpen,        label: t.nav.journal },
     { href: "/farms",        icon: Building2,       label: t.nav.farms },
     { href: "/production",   icon: FlaskConical,    label: t.nav.production },
     { href: "/inventory",    icon: Package,         label: t.nav.inventory },
