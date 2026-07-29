@@ -1,6 +1,6 @@
 import { MetadataRoute } from "next"
 import { getAllCardNewsServer } from "@/lib/card-news-server"
-import { hreflangMap, localePrefix } from "@/lib/marketing-locale"
+import { hreflangMap, localePrefix, MARKETING_LOCALES } from "@/lib/marketing-locale"
 
 const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.shrimp365.kr"
 
@@ -56,6 +56,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     alternates: { languages: hreflangMap("/cardnews", [...cardNewsIndexLocales]) },
   }))
 
+  // 정적 공개 페이지 — 4개 언어 모두 실제 주소가 있으므로 언어별로 등록한다.
+  const ALL_LOCALES = ["ko", ...MARKETING_LOCALES]
+  const localizedPage = (
+    path: string,
+    lastModified: Date,
+    changeFrequency: "daily" | "weekly" | "monthly" | "yearly",
+    priority: number,
+  ): MetadataRoute.Sitemap =>
+    ALL_LOCALES.map((l) => ({
+      url: `${BASE}${localePrefix(l)}${path}`,
+      lastModified,
+      changeFrequency,
+      priority,
+      alternates: { languages: hreflangMap(path, ALL_LOCALES) },
+    }))
+
   return [
     // Landing — Korean (root) + cross-referenced language versions
     {
@@ -94,28 +110,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     },
     // Community board — public read (login only for posting)
-    {
-      url: `${BASE}/board`,
-      lastModified: new Date("2026-07-24"),
-      changeFrequency: "daily",
-      priority: 0.7,
-    },
+    ...localizedPage("/board", new Date("2026-07-24"), "daily", 0.7),
     // Card news — 언어별 목록 + 글 (랜딩 다음으로 SEO 가치가 큰 공개 콘텐츠)
     ...cardNewsIndexEntries,
     ...cardNewsEntries,
-    // Korean-only content pages (not yet translated → no language alternates)
-    {
-      url: `${BASE}/guide`,
-      lastModified: new Date("2026-05-20"),
-      changeFrequency: "monthly",
-      priority: 0.8,
-    },
-    {
-      url: `${BASE}/pricing`,
-      lastModified: new Date("2026-06-25"),
-      changeFrequency: "monthly",
-      priority: 0.6,
-    },
+    // 4개 언어 모두 제공되는 콘텐츠 페이지
+    ...localizedPage("/guide", new Date("2026-07-29"), "monthly", 0.8),
+    ...localizedPage("/pricing", new Date("2026-07-29"), "monthly", 0.6),
     {
       url: `${BASE}/signup`,
       lastModified: new Date("2026-05-01"),
@@ -128,17 +129,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.6,
     },
-    {
-      url: `${BASE}/privacy`,
-      lastModified: new Date("2026-01-01"),
-      changeFrequency: "yearly",
-      priority: 0.3,
-    },
-    {
-      url: `${BASE}/terms`,
-      lastModified: new Date("2026-01-01"),
-      changeFrequency: "yearly",
-      priority: 0.3,
-    },
+    ...localizedPage("/privacy", new Date("2026-01-01"), "yearly", 0.3),
+    ...localizedPage("/terms", new Date("2026-01-01"), "yearly", 0.3),
   ]
 }

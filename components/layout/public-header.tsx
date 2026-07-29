@@ -57,11 +57,11 @@ export function PublicFooter({ maxWidth = "max-w-5xl" }: { maxWidth?: string }) 
   const links = [
     { href: prefix || "/", label: t.nav.home },
     { href: `${prefix}/cardnews`, label: t.cardNews.title },
-    { href: "/board", label: t.board.title },
-    { href: "/guide", label: t.nav.guide },
-    { href: "/pricing", label: t.landing.navPricing },
-    { href: "/terms", label: t.settings.legalTerms },
-    { href: "/privacy", label: t.settings.legalPrivacy },
+    { href: `${prefix}/board`, label: t.board.title },
+    { href: `${prefix}/guide`, label: t.nav.guide },
+    { href: `${prefix}/pricing`, label: t.landing.navPricing },
+    { href: `${prefix}/terms`, label: t.settings.legalTerms },
+    { href: `${prefix}/privacy`, label: t.settings.legalPrivacy },
   ]
   return (
     <footer className="border-t border-border mt-12">
@@ -100,9 +100,9 @@ export function PublicHeader({ maxWidth = "max-w-5xl" }: { maxWidth?: string }) 
   const links = [
     { href: prefix || "/", label: t.nav.home },
     { href: `${prefix}/cardnews`, label: t.cardNews.title },
-    { href: "/board", label: t.board.title },
-    { href: "/guide", label: t.nav.guide },
-    { href: "/pricing", label: t.landing.navPricing },
+    { href: `${prefix}/board`, label: t.board.title },
+    { href: `${prefix}/guide`, label: t.nav.guide },
+    { href: `${prefix}/pricing`, label: t.landing.navPricing },
   ]
 
   const isActive = (href: string) => {
@@ -114,7 +114,7 @@ export function PublicHeader({ maxWidth = "max-w-5xl" }: { maxWidth?: string }) 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-card/85 backdrop-blur-md">
       <div className={`${maxWidth} mx-auto px-4 h-14 flex items-center gap-3`}>
-        <Link href="/" className="flex items-center gap-2 font-bold tracking-tight shrink-0">
+        <Link href={prefix || "/"} className="flex items-center gap-2 font-bold tracking-tight shrink-0">
           <span className="w-7 h-7 border-[1.5px] border-[#1E40AF] text-[#1E40AF] rounded-lg flex items-center justify-center">
             <DropMark />
           </span>

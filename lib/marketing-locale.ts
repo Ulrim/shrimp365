@@ -37,11 +37,13 @@ export function hreflangMap(path: string, locales: string[]): Record<string, str
   return out
 }
 
-/** 카드뉴스처럼 언어별 URL을 제공하는 경로인지. 이런 경로에서만
- *  언어 전환이 주소 이동으로 동작해야 한다. */
+/** 언어별 URL을 제공하는 공개 경로. 이 목록에 있는 경로에서만
+ *  언어 전환이 주소 이동으로 동작한다(없는 주소로 보내면 404가 난다). */
+export const LOCALIZED_PATHS = ["/", "/cardnews", "/board", "/guide", "/pricing", "/terms", "/privacy"]
+
 export function hasLocalizedUrl(pathname: string): boolean {
-  const stripped = stripLocalePrefix(pathname).path
-  return stripped === "/" || stripped === "/cardnews" || stripped.startsWith("/cardnews/")
+  const p = stripLocalePrefix(pathname).path
+  return LOCALIZED_PATHS.some((base) => (base === "/" ? p === "/" : p === base || p.startsWith(base + "/")))
 }
 
 /** 경로에서 언어 접두사를 떼어 낸다. */
