@@ -1,5 +1,6 @@
 import { MetadataRoute } from "next"
 import { getAllCardNewsServer } from "@/lib/card-news-server"
+import { hreflangMap, localePrefix } from "@/lib/marketing-locale"
 
 const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.shrimp365.kr"
 
@@ -18,20 +19,41 @@ const LANDING_ALTERNATES = {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // 게시된 카드뉴스를 개별 URL로 등록 — 색인 대상이 되는 실제 콘텐츠.
-  // 같은 slug의 다국어판은 URL이 하나뿐(방문자 언어에 따라 내용이 달라짐)이므로
-  // slug 기준으로 합쳐 중복 URL이 사이트맵에 들어가지 않게 한다.
+  // 카드뉴스는 언어별로 독립된 URL을 갖는다(한국어는 루트, 나머지는 /en·/vi·/id).
+  // 각 URL을 사이트맵에 올리고, 같은 글의 다른 언어판을 hreflang으로 묶어
+  // 검색엔진이 방문자 언어에 맞는 페이지를 고르게 한다.
   const cardNews = await getAllCardNewsServer()
-  const latestBySlug = new Map<string, string>()
+  const localesBySlug = new Map<string, Set<string>>()
+  const updatedBySlugLocale = new Map<string, string>()
   for (const p of cardNews) {
-    const prev = latestBySlug.get(p.slug)
-    if (!prev || p.updated_at > prev) latestBySlug.set(p.slug, p.updated_at)
+    if (!localesBySlug.has(p.slug)) localesBySlug.set(p.slug, new Set())
+    localesBySlug.get(p.slug)!.add(p.locale)
+    updatedBySlugLocale.set(`${p.slug}|${p.locale}`, p.updated_at)
   }
-  const cardNewsEntries: MetadataRoute.Sitemap = [...latestBySlug].map(([slug, updatedAt]) => ({
-    url: `${BASE}/cardnews/${encodeURIComponent(slug)}`,
-    lastModified: new Date(updatedAt),
-    changeFrequency: "monthly",
-    priority: 0.7,
+
+  const cardNewsEntries: MetadataRoute.Sitemap = []
+  for (const [slug, locales] of localesBySlug) {
+    const path = `/cardnews/${encodeURIComponent(slug)}`
+    const languages = hreflangMap(path, [...locales])
+    for (const locale of locales) {
+      cardNewsEntries.push({
+        url: `${BASE}${localePrefix(locale)}${path}`,
+        lastModified: new Date(updatedBySlugLocale.get(`${slug}|${locale}`) ?? Date.now()),
+        changeFrequency: "monthly",
+        priority: 0.7,
+        alternates: { languages },
+      })
+    }
+  }
+
+  // 언어별 카드뉴스 목록 페이지
+  const cardNewsIndexLocales = new Set(cardNews.map((p) => p.locale))
+  const cardNewsIndexEntries: MetadataRoute.Sitemap = [...cardNewsIndexLocales].map((locale) => ({
+    url: `${BASE}${localePrefix(locale)}/cardnews`,
+    lastModified: new Date(),
+    changeFrequency: "weekly" as const,
+    priority: 0.9,
+    alternates: { languages: hreflangMap("/cardnews", [...cardNewsIndexLocales]) },
   }))
 
   return [
@@ -78,13 +100,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 0.7,
     },
-    // Card news archive — public content hub (highest SEO value after landing)
-    {
-      url: `${BASE}/cardnews`,
-      lastModified: new Date(),
-      changeFrequency: "weekly",
-      priority: 0.9,
-    },
+    // Card news — 언어별 목록 + 글 (랜딩 다음으로 SEO 가치가 큰 공개 콘텐츠)
+    ...cardNewsIndexEntries,
     ...cardNewsEntries,
     // Korean-only content pages (not yet translated → no language alternates)
     {

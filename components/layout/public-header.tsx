@@ -1,11 +1,12 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Globe, Menu, X } from "lucide-react"
 import { useT } from "@/lib/i18n-context"
 import { LOCALES, LOCALE_NAMES, type Locale } from "@/lib/i18n"
+import { hasLocalizedUrl, localizedHref, localePrefix, stripLocalePrefix } from "@/lib/marketing-locale"
 
 const LOCALE_FLAGS: Record<Locale, string> = { ko: "🇰🇷", en: "🇺🇸", vi: "🇻🇳", id: "🇮🇩" }
 
@@ -17,13 +18,24 @@ const DropMark = () => (
 
 function LangSelect({ className = "" }: { className?: string }) {
   const { locale, setLocale, t } = useT()
+  const pathname = usePathname()
+  const router = useRouter()
+
+  // 카드뉴스처럼 언어별 주소가 있는 경로에서는 주소까지 옮긴다.
+  // 그렇지 않으면 /en/cardnews 에서 언어를 바꿔도 주소가 그대로 남아
+  // 검색엔진이 보는 주소와 실제 언어가 어긋난다.
+  function change(next: Locale) {
+    setLocale(next)
+    if (hasLocalizedUrl(pathname)) router.push(localizedHref(pathname, next))
+  }
+
   return (
     <label className={`relative inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground cursor-pointer ${className}`}>
       <Globe className="w-4 h-4 shrink-0" aria-hidden="true" />
       <span className="sr-only">{t.lang.select}</span>
       <select
         value={locale}
-        onChange={(e) => setLocale(e.target.value as Locale)}
+        onChange={(e) => change(e.target.value as Locale)}
         aria-label={t.lang.select}
         className="bg-transparent outline-none cursor-pointer appearance-none pr-1 text-inherit"
       >
@@ -40,10 +52,11 @@ function LangSelect({ className = "" }: { className?: string }) {
 /** 비로그인 방문자용 공개 푸터 — 헤더와 같은 링크를 한 번 더 노출해
  *  스크롤을 끝까지 내린 방문자에게도 이동 경로를 준다. */
 export function PublicFooter({ maxWidth = "max-w-5xl" }: { maxWidth?: string }) {
-  const { t } = useT()
+  const { t, locale } = useT()
+  const prefix = localePrefix(locale)
   const links = [
-    { href: "/", label: t.nav.home },
-    { href: "/cardnews", label: t.cardNews.title },
+    { href: prefix || "/", label: t.nav.home },
+    { href: `${prefix}/cardnews`, label: t.cardNews.title },
     { href: "/board", label: t.board.title },
     { href: "/guide", label: t.nav.guide },
     { href: "/pricing", label: t.landing.navPricing },
@@ -70,7 +83,7 @@ export function PublicFooter({ maxWidth = "max-w-5xl" }: { maxWidth?: string }) 
  * 방문자가 다른 페이지로 갈 방법도, 언어를 바꿀 방법도 없다.
  */
 export function PublicHeader({ maxWidth = "max-w-5xl" }: { maxWidth?: string }) {
-  const { t } = useT()
+  const { t, locale } = useT()
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
 
@@ -82,16 +95,21 @@ export function PublicHeader({ maxWidth = "max-w-5xl" }: { maxWidth?: string }) 
     return () => { document.body.style.overflow = prev }
   }, [open])
 
+  // 언어별 주소가 있는 경로(홈·카드뉴스)는 접두사를 유지해 같은 언어 안에서 이동한다.
+  const prefix = localePrefix(locale)
   const links = [
-    { href: "/", label: t.nav.home },
-    { href: "/cardnews", label: t.cardNews.title },
+    { href: prefix || "/", label: t.nav.home },
+    { href: `${prefix}/cardnews`, label: t.cardNews.title },
     { href: "/board", label: t.board.title },
     { href: "/guide", label: t.nav.guide },
     { href: "/pricing", label: t.landing.navPricing },
   ]
 
-  const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/")
+  const isActive = (href: string) => {
+    const a = stripLocalePrefix(href).path
+    const b = stripLocalePrefix(pathname).path
+    return a === "/" ? b === "/" : b === a || b.startsWith(a + "/")
+  }
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-card/85 backdrop-blur-md">

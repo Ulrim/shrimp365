@@ -39,6 +39,17 @@ export const getCardNewsServer = cache(async (slug: string, locale: string): Pro
   return ((any.data as CardNews[]) || [])[0] ?? null
 })
 
+/** 같은 슬러그가 존재하는 언어 목록 — hreflang 생성용.
+ *  실제로 등록된 언어만 돌려주므로 없는 언어판을 가리키는 일이 없다. */
+export const getCardNewsLocalesServer = cache(async (slug: string): Promise<string[]> => {
+  const { data } = await publicClient()
+    .from("card_news")
+    .select("locale")
+    .eq("slug", slug)
+    .eq("published", true)
+  return [...new Set(((data as { locale: string }[]) || []).map((r) => r.locale))]
+})
+
 /** sitemap 생성용 — 전 언어 전체 목록. */
 export const getAllCardNewsServer = cache(async (): Promise<Pick<CardNews, "slug" | "locale" | "updated_at">[]> => {
   const { data, error } = await publicClient()
