@@ -54,7 +54,9 @@ function isCrawler(request: NextRequest): boolean {
 const MARKETING_LOCALE_PREFIXES = ["en", "vi", "id"]
 
 // 접두사 없는 한국어판 공개 페이지. 각각 /en·/vi·/id 짝이 있다.
-const KOREAN_PUBLIC_PATHS = ["/cardnews", "/board", "/guide", "/pricing", "/terms", "/privacy"]
+// "/" 도 포함한다. 루트는 한국어판 랜딩이고 /en·/vi·/id 짝이 있다.
+// (p === "/" 일 때 startsWith("//") 는 실질적으로 pathname === "/" 만 매칭한다.)
+const KOREAN_PUBLIC_PATHS = ["/", "/cardnews", "/board", "/guide", "/pricing", "/terms", "/privacy"]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -87,6 +89,13 @@ export async function middleware(request: NextRequest) {
       const redirect = NextResponse.redirect(url, 307)
       // 같은 주소라도 국가·언어·봇 여부에 따라 응답이 달라진다는 표시.
       redirect.headers.set("Vary", "Accept-Language, User-Agent")
+      // 자동 이동은 첫 방문 한 번만. 쿠키를 여기서 남겨 두면 이후 사용자가
+      // 한국어를 골라 "/"로 와도 다시 튕기지 않는다.
+      redirect.cookies.set(LANG_COOKIE, target, {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+        sameSite: "lax",
+      })
       return redirect
     }
   }
