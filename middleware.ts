@@ -22,17 +22,32 @@ const PROTECTED_PATHS = [
 // 참고: /board 는 비로그인 열람 허용(공개) — 보호 목록에서 제외.
 //       글쓰기/댓글/수정은 페이지 단에서 로그인으로 유도한다.
 
+/** 접속 국가. Vercel 엣지가 넣어 주는 헤더가 유일하게 신뢰할 수 있는 출처다.
+ *  (NextRequest.geo는 최신 버전에서 제거됐다.) */
+function requestCountry(request: NextRequest): string | null {
+  return request.headers.get("x-vercel-ip-country")
+}
+
 function detectLocale(request: NextRequest): Locale | null {
   // 1. Respect existing user preference cookie
   const existing = request.cookies.get(LANG_COOKIE)?.value
   if (existing && LOCALES.includes(existing as Locale)) return existing as Locale
 
-  // 2. Vercel geo (edge network) → country code
-  const country = (request as unknown as { geo?: { country?: string } }).geo?.country
+  // 2. 접속 국가(IP)
+  const country = requestCountry(request)
   if (country) return countryToLocale(country)
 
   // 3. Accept-Language header fallback
   return headerToLocale(request.headers.get("accept-language"))
+}
+
+// 검색·SNS 크롤러는 국가로 리다이렉트하지 않는다.
+// 구글봇은 대부분 미국 IP에서 오므로 리다이렉트하면 루트(한국어)가 영어로만
+// 수집되어 한국어 색인이 사라진다. SNS 미리보기 봇도 마찬가지다.
+const CRAWLER_UA = /bot|crawler|spider|crawling|yeti|slurp|facebookexternalhit|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkshare|w3c_validator|whatsapp|telegram|discord|preview/i
+
+function isCrawler(request: NextRequest): boolean {
+  return CRAWLER_UA.test(request.headers.get("user-agent") ?? "")
 }
 
 // Public marketing routes served per-language under a URL prefix (Korean = root).
@@ -52,6 +67,28 @@ export async function middleware(request: NextRequest) {
     const requestHeaders = new Headers(request.headers)
     requestHeaders.set("x-locale", seg)
     return NextResponse.next({ request: { headers: requestHeaders } })
+  }
+
+  // 첫 방문자를 접속 국가에 맞는 언어 주소로 보낸다.
+  //   · 루트("/")에서만 동작한다. 다른 주소는 이미 언어가 정해져 있다.
+  //   · 언어를 한 번이라도 고른 적 있으면(쿠키) 그 선택을 존중한다.
+  //     이게 없으면 베트남 사용자가 한국어를 골라도 /로 갈 때마다 /vi로 되돌아간다.
+  //   · 크롤러는 제외한다(위 isCrawler 주석 참고).
+  //   · 임시 이동(307)이라 검색엔진이 주소를 옮겨 기록하지 않는다.
+  if (pathname === "/" && !request.cookies.get(LANG_COOKIE)?.value && !isCrawler(request)) {
+    const country = requestCountry(request)
+    const target = country
+      ? countryToLocale(country)
+      : headerToLocale(request.headers.get("accept-language"))
+
+    if (target !== "ko") {
+      const url = request.nextUrl.clone()
+      url.pathname = `/${target}`
+      const redirect = NextResponse.redirect(url, 307)
+      // 같은 주소라도 국가·언어·봇 여부에 따라 응답이 달라진다는 표시.
+      redirect.headers.set("Vary", "Accept-Language, User-Agent")
+      return redirect
+    }
   }
 
   // 접두사가 없는 공개 콘텐츠 경로는 항상 한국어다.
