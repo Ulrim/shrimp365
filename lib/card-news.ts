@@ -69,45 +69,6 @@ export async function incrementCardNewsView(id: string) {
   }
 }
 
-// ── 좋아요 ────────────────────────────────────────────────────
-
-/** 내가 이 글에 좋아요를 눌렀는지. 비로그인이면 false. */
-export async function hasLikedCardNews(cardNewsId: string): Promise<boolean> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return false
-  const { data } = await supabase
-    .from("card_news_likes")
-    .select("card_news_id")
-    .eq("card_news_id", cardNewsId)
-    .eq("user_id", user.id)
-    .maybeSingle()
-  return !!data
-}
-
-/** 좋아요 토글. 반환값은 토글 후 상태(true = 누른 상태). 비로그인이면 예외. */
-export async function toggleCardNewsLike(cardNewsId: string): Promise<boolean> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error("LOGIN_REQUIRED")
-
-  const liked = await hasLikedCardNews(cardNewsId)
-  if (liked) {
-    const { error } = await supabase
-      .from("card_news_likes")
-      .delete()
-      .eq("card_news_id", cardNewsId)
-      .eq("user_id", user.id)
-    if (error) throw error
-    return false
-  }
-
-  const { error } = await supabase
-    .from("card_news_likes")
-    .insert({ card_news_id: cardNewsId, user_id: user.id })
-  // 동시 클릭 등으로 이미 있으면(23505) 눌린 상태로 취급한다.
-  if (error && error.code !== "23505") throw error
-  return true
-}
-
 async function callAdminApi(method: "POST" | "PATCH" | "DELETE", body: unknown) {
   const res = await fetch("/api/cardnews", {
     method,

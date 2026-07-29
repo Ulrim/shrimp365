@@ -11,6 +11,7 @@ export interface BoardPost {
   content: string
   image_url: string | null
   view_count: number
+  like_count: number
   created_at: string
   updated_at: string
   comment_count?: number
@@ -104,6 +105,12 @@ export async function deletePost(id: string) {
 
 export async function incrementView(id: string) {
   // RPC — 실패해도 조회 흐름을 막지 않는다.
+  // 같은 탭에서 새로고침·뒤로가기로 다시 들어와도 중복 집계되지 않게 세션 단위로 한 번만 보낸다.
+  const key = `bp_viewed_${id}`
+  if (typeof sessionStorage !== "undefined") {
+    if (sessionStorage.getItem(key)) return
+    sessionStorage.setItem(key, "1")
+  }
   await supabase.rpc("increment_post_view", { p_id: id })
 }
 

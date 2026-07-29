@@ -5,15 +5,23 @@ import { useRouter } from "next/navigation"
 import { Heart } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
-import { hasLikedCardNews, toggleCardNewsLike } from "@/lib/card-news"
+import { hasLiked, toggleLike, type LikeKind } from "@/lib/likes"
 
-type Props = { id: string; initialCount: number }
+type Props = {
+  kind: LikeKind
+  id: string
+  initialCount: number
+  /** compact은 목록·헤더용 작은 형태 */
+  variant?: "default" | "compact"
+  className?: string
+}
 
 /**
- * 좋아요 버튼. 서버가 렌더한 초기 카운트에서 출발하고, 로그인 사용자에 한해
- * 내가 눌렀는지를 마운트 후 확인한다. 비로그인은 누르면 로그인으로 보낸다.
+ * 카드뉴스·게시판 공용 좋아요 버튼.
+ * 서버가 렌더한 초기 카운트에서 출발하고, 로그인 사용자에 한해 내가 눌렀는지를
+ * 마운트 후 확인한다. 비로그인이 누르면 로그인으로 보낸다.
  */
-export function CardNewsLikeButton({ id, initialCount }: Props) {
+export function LikeButton({ kind, id, initialCount, variant = "default", className = "" }: Props) {
   const { user } = useAuth()
   const { t } = useT()
   const router = useRouter()
@@ -29,11 +37,11 @@ export function CardNewsLikeButton({ id, initialCount }: Props) {
   useEffect(() => {
     if (!user) return
     let alive = true
-    hasLikedCardNews(id)
+    hasLiked(kind, id)
       .then((v) => { if (alive && v) setLikedBy(user.id) })
       .catch(() => {})
     return () => { alive = false }
-  }, [id, user])
+  }, [kind, id, user])
 
   async function onClick() {
     if (!user) { router.push("/login"); return }
@@ -47,7 +55,7 @@ export function CardNewsLikeButton({ id, initialCount }: Props) {
     setCount(prevCount + (prevLiked ? -1 : 1))
     setBusy(true)
     try {
-      const now = await toggleCardNewsLike(id)
+      const now = await toggleLike(kind, id)
       setLikedBy(now ? user.id : null)
     } catch {
       setLikedBy(prevLikedBy)
@@ -57,21 +65,25 @@ export function CardNewsLikeButton({ id, initialCount }: Props) {
     }
   }
 
+  const base = "inline-flex items-center transition-colors"
+  const style =
+    variant === "compact"
+      ? `${base} gap-1 text-xs min-h-[44px] px-1 ${liked ? "text-[#1E40AF] font-semibold" : "text-muted-foreground hover:text-foreground"}`
+      : `${base} gap-2 min-h-[44px] px-4 rounded-lg border text-sm font-semibold ${
+          liked ? "border-[#1E40AF] bg-[#1E40AF] text-white" : "border-border hover:bg-muted text-foreground"
+        }`
+
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={liked}
       aria-label={liked ? c.unlike : c.like}
-      className={`inline-flex items-center gap-2 min-h-[44px] px-4 rounded-lg border text-sm font-semibold transition-colors ${
-        liked
-          ? "border-[#1E40AF] bg-[#1E40AF] text-white"
-          : "border-border hover:bg-muted text-foreground"
-      }`}
+      className={`${style} ${className}`}
     >
-      <Heart className="w-4 h-4" fill={liked ? "currentColor" : "none"} aria-hidden="true" />
-      <span>{liked ? c.liked : c.like}</span>
-      <span className="tabular-nums opacity-80">{count}</span>
+      <Heart className={variant === "compact" ? "w-3.5 h-3.5" : "w-4 h-4"} fill={liked ? "currentColor" : "none"} aria-hidden="true" />
+      {variant === "default" && <span>{liked ? c.liked : c.like}</span>}
+      <span className="tabular-nums">{count}</span>
     </button>
   )
 }

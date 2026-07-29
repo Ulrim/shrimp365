@@ -1,6 +1,6 @@
 import Link from "next/link"
 import Image from "next/image"
-import { MessageSquare, Eye, ImageIcon } from "lucide-react"
+import { MessageSquare, Eye, Heart, ImageIcon } from "lucide-react"
 import { getPostsServer } from "@/lib/board-server"
 import { getServerDict } from "@/lib/i18n-server"
 import { NewPostButton } from "@/components/board/new-post-button"
@@ -50,6 +50,7 @@ export default async function BoardPage() {
                     <span className="font-semibold text-foreground/70">{post.author_name}</span>
                     <span>{formatDate(post.created_at, locale)}</span>
                     <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5" />{post.view_count}</span>
+                    <span className="flex items-center gap-1"><Heart className="w-3.5 h-3.5" />{post.like_count ?? 0}</span>
                     <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{post.comment_count ?? 0}</span>
                   </div>
                 </div>

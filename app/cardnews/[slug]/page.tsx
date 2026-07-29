@@ -7,7 +7,7 @@ import { getCardNewsServer, getCardNewsAlternatesServer, getRelatedCardNewsServe
 import { getServerDict } from "@/lib/i18n-server"
 import { CardDeck } from "@/components/cardnews/card-deck"
 import { CardNewsViewPing } from "@/components/cardnews/view-ping"
-import { CardNewsLikeButton } from "@/components/cardnews/like-button"
+import { LikeButton } from "@/components/ui/like-button"
 
 const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.shrimp365.kr"
 const LOCALE_TAG: Record<string, string> = { ko: "ko-KR", en: "en-US", vi: "vi-VN", id: "id-ID" }
@@ -171,7 +171,7 @@ export default async function CardNewsDetailPage({ params }: Props) {
         )}
 
         <div className="mt-8 flex justify-center">
-          <CardNewsLikeButton id={post.id} initialCount={post.like_count ?? 0} />
+          <LikeButton kind="cardnews" id={post.id} initialCount={post.like_count ?? 0} />
         </div>
 
         {post.tags.length > 0 && (
