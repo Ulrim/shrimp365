@@ -1048,6 +1048,10 @@ export interface Dict {
     related: string
     tagAll: string
     saveImage: string
+    like: string
+    liked: string
+    unlike: string
+    likes: string
     ctaTitle: string
     ctaDesc: string
     ctaButton: string

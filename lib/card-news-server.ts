@@ -11,7 +11,7 @@ function publicClient() {
   return createClient(supabaseUrl, anonKey, { auth: { persistSession: false } })
 }
 
-const SELECT = "id, slug, locale, title, summary, body, images, cover_url, tags, published, published_at, view_count, created_at, updated_at"
+const SELECT = "id, slug, locale, title, summary, body, images, cover_url, tags, published, published_at, view_count, like_count, created_at, updated_at"
 
 /** 특정 언어의 게시된 카드뉴스 목록(최신순). */
 export const getCardNewsListServer = cache(async (locale: string): Promise<CardNews[]> => {

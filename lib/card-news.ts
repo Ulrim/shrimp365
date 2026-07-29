@@ -13,6 +13,7 @@ export interface CardNews {
   published: boolean
   published_at: string
   view_count: number
+  like_count: number
   created_at: string
   updated_at: string
 }
@@ -53,13 +54,58 @@ export async function uploadCardImage(file: File): Promise<string> {
   return supabase.storage.from("card-news").getPublicUrl(path).data.publicUrl
 }
 
-/** 조회수 +1 — 실패해도 열람 흐름을 막지 않는다. */
+/** 조회수 +1 — 실패해도 열람 흐름을 막지 않는다.
+ *  같은 탭에서 새로고침·뒤로가기로 다시 들어와도 중복 집계되지 않게 세션 단위로 한 번만 보낸다. */
 export async function incrementCardNewsView(id: string) {
   try {
+    const key = `cn_viewed_${id}`
+    if (typeof sessionStorage !== "undefined") {
+      if (sessionStorage.getItem(key)) return
+      sessionStorage.setItem(key, "1")
+    }
     await supabase.rpc("increment_card_news_view", { p_id: id })
   } catch {
     /* noop */
   }
+}
+
+// ── 좋아요 ────────────────────────────────────────────────────
+
+/** 내가 이 글에 좋아요를 눌렀는지. 비로그인이면 false. */
+export async function hasLikedCardNews(cardNewsId: string): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return false
+  const { data } = await supabase
+    .from("card_news_likes")
+    .select("card_news_id")
+    .eq("card_news_id", cardNewsId)
+    .eq("user_id", user.id)
+    .maybeSingle()
+  return !!data
+}
+
+/** 좋아요 토글. 반환값은 토글 후 상태(true = 누른 상태). 비로그인이면 예외. */
+export async function toggleCardNewsLike(cardNewsId: string): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("LOGIN_REQUIRED")
+
+  const liked = await hasLikedCardNews(cardNewsId)
+  if (liked) {
+    const { error } = await supabase
+      .from("card_news_likes")
+      .delete()
+      .eq("card_news_id", cardNewsId)
+      .eq("user_id", user.id)
+    if (error) throw error
+    return false
+  }
+
+  const { error } = await supabase
+    .from("card_news_likes")
+    .insert({ card_news_id: cardNewsId, user_id: user.id })
+  // 동시 클릭 등으로 이미 있으면(23505) 눌린 상태로 취급한다.
+  if (error && error.code !== "23505") throw error
+  return true
 }
 
 async function callAdminApi(method: "POST" | "PATCH" | "DELETE", body: unknown) {

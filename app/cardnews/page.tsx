@@ -1,6 +1,6 @@
 import Link from "next/link"
 import Image from "next/image"
-import { Eye, Layers } from "lucide-react"
+import { Eye, Heart, Layers } from "lucide-react"
 import { getCardNewsListServer } from "@/lib/card-news-server"
 import { getServerDict } from "@/lib/i18n-server"
 import { NewCardNewsButton } from "@/components/cardnews/new-cardnews-button"
@@ -93,6 +93,10 @@ export default async function CardNewsPage() {
                       <span className="flex items-center gap-1">
                         <Eye className="w-3.5 h-3.5" aria-hidden="true" />
                         {p.view_count}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Heart className="w-3.5 h-3.5" aria-hidden="true" />
+                        {p.like_count ?? 0}
                       </span>
                     </div>
                     {p.tags.length > 0 && (

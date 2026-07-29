@@ -2,11 +2,12 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import Image from "next/image"
 import { notFound } from "next/navigation"
-import { ArrowLeft, ArrowRight, Eye } from "lucide-react"
+import { ArrowLeft, ArrowRight, Eye, Heart } from "lucide-react"
 import { getCardNewsServer, getCardNewsAlternatesServer, getRelatedCardNewsServer } from "@/lib/card-news-server"
 import { getServerDict } from "@/lib/i18n-server"
 import { CardDeck } from "@/components/cardnews/card-deck"
 import { CardNewsViewPing } from "@/components/cardnews/view-ping"
+import { CardNewsLikeButton } from "@/components/cardnews/like-button"
 
 const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.shrimp365.kr"
 const LOCALE_TAG: Record<string, string> = { ko: "ko-KR", en: "en-US", vi: "vi-VN", id: "id-ID" }
@@ -92,6 +93,18 @@ export default async function CardNewsDetailPage({ params }: Props) {
       inLanguage: post.locale,
       keywords: post.tags.join(", ") || undefined,
       mainEntityOfPage: { "@type": "WebPage", "@id": url },
+      interactionStatistic: [
+        {
+          "@type": "InteractionCounter",
+          interactionType: "https://schema.org/ViewAction",
+          userInteractionCount: post.view_count,
+        },
+        {
+          "@type": "InteractionCounter",
+          interactionType: "https://schema.org/LikeAction",
+          userInteractionCount: post.like_count ?? 0,
+        },
+      ],
       author: { "@type": "Organization", name: "Shrimp365", url: BASE },
       publisher: {
         "@type": "Organization",
@@ -133,6 +146,10 @@ export default async function CardNewsDetailPage({ params }: Props) {
               <Eye className="w-3.5 h-3.5" aria-hidden="true" />
               {post.view_count}
             </span>
+            <span className="flex items-center gap-1">
+              <Heart className="w-3.5 h-3.5" aria-hidden="true" />
+              {post.like_count ?? 0}
+            </span>
             {post.images.length > 0 && <span>{post.images.length}{c.cardsUnit}</span>}
           </div>
           {post.summary && (
@@ -152,6 +169,10 @@ export default async function CardNewsDetailPage({ params }: Props) {
             {post.body}
           </div>
         )}
+
+        <div className="mt-8 flex justify-center">
+          <CardNewsLikeButton id={post.id} initialCount={post.like_count ?? 0} />
+        </div>
 
         {post.tags.length > 0 && (
           <ul className="flex flex-wrap gap-1.5 mt-8">
