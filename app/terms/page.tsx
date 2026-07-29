@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import { getServerDict } from "@/lib/i18n-server"
 import { PublicHeader, PublicFooter } from "@/components/layout/public-header"
 import { TermsBody } from "@/components/legal/terms-body"
 import { BASE, hreflangMap } from "@/lib/marketing-locale"
@@ -13,11 +12,10 @@ export const metadata: Metadata = {
 
 // 한국어. 다른 언어는 /[lang]/terms 이 담당한다.
 export default async function TermsPage() {
-  const { locale } = await getServerDict()
   return (
     <div className="min-h-screen bg-background text-foreground">
       <PublicHeader maxWidth="max-w-3xl" />
-      <TermsBody lang={locale} />
+      <TermsBody lang="ko" />
       <PublicFooter maxWidth="max-w-3xl" />
     </div>
   )

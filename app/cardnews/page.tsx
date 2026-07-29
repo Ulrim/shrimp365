@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { getServerDict } from "@/lib/i18n-server"
+import { ko } from "@/lib/i18n"
 import { CardNewsListView } from "@/components/cardnews/cardnews-list-view"
 import { BASE, hreflangMap } from "@/lib/marketing-locale"
 
@@ -15,7 +15,8 @@ export const metadata: Metadata = {
 }
 
 // 한국어 목록. 다른 언어는 /[lang]/cardnews 가 담당한다.
+// 언어를 쿠키가 아니라 주소로 고정한다 — 이 페이지는 캐시되고 hreflang에서
+// ko-KR로 광고되므로, 쿠키에 따라 달라지면 영어 캐시가 이 주소로 나갈 수 있다.
 export default async function CardNewsPage() {
-  const { t, locale } = await getServerDict()
-  return <CardNewsListView locale={locale} t={t} />
+  return <CardNewsListView locale="ko" t={ko} />
 }

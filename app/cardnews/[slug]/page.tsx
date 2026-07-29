@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { getCardNewsServer, getCardNewsLocalesServer } from "@/lib/card-news-server"
-import { getServerDict } from "@/lib/i18n-server"
+import { ko } from "@/lib/i18n"
 import { CardNewsDetailView, excerpt } from "@/components/cardnews/cardnews-detail-view"
 import { BASE, hreflangMap } from "@/lib/marketing-locale"
 
@@ -12,10 +12,9 @@ type Props = { params: Promise<{ slug: string }> }
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const decoded = decodeURIComponent(slug)
-  const { locale } = await getServerDict()
-  const post = await getCardNewsServer(decoded, locale)
+  const post = await getCardNewsServer(decoded, "ko")
 
-  if (!post) {
+  if (!post || post.locale !== "ko") {
     return { title: "카드뉴스를 찾을 수 없습니다", robots: { index: false, follow: false } }
   }
 
@@ -55,9 +54,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function CardNewsDetailPage({ params }: Props) {
   const { slug } = await params
   const decoded = decodeURIComponent(slug)
-  const { t, locale } = await getServerDict()
-  const post = await getCardNewsServer(decoded, locale)
-  if (!post) notFound()
+  const post = await getCardNewsServer(decoded, "ko")
+  // 한국어판이 없으면 404 — 다른 언어 내용을 한국어 주소로 내보내지 않는다.
+  if (!post || post.locale !== "ko") notFound()
 
-  return <CardNewsDetailView post={post} locale={locale} t={t} />
+  return <CardNewsDetailView post={post} locale="ko" t={ko} />
 }

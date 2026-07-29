@@ -38,6 +38,9 @@ function detectLocale(request: NextRequest): Locale | null {
 // Public marketing routes served per-language under a URL prefix (Korean = root).
 const MARKETING_LOCALE_PREFIXES = ["en", "vi", "id"]
 
+// 접두사 없는 한국어판 공개 페이지. 각각 /en·/vi·/id 짝이 있다.
+const KOREAN_PUBLIC_PATHS = ["/cardnews", "/board", "/guide", "/pricing", "/terms", "/privacy"]
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -48,6 +51,15 @@ export async function middleware(request: NextRequest) {
   if (MARKETING_LOCALE_PREFIXES.includes(seg)) {
     const requestHeaders = new Headers(request.headers)
     requestHeaders.set("x-locale", seg)
+    return NextResponse.next({ request: { headers: requestHeaders } })
+  }
+
+  // 접두사가 없는 공개 콘텐츠 경로는 항상 한국어다.
+  // 이 주소들은 hreflang에서 ko-KR로 광고되고 서버 캐시가 URL 기준으로 재사용되므로,
+  // 쿠키에 따라 내용이 달라지면 영어 방문자가 만든 캐시가 한국어 주소로 노출된다.
+  if (KOREAN_PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + "/"))) {
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set("x-locale", "ko")
     return NextResponse.next({ request: { headers: requestHeaders } })
   }
 

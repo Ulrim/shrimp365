@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import { getServerDict } from "@/lib/i18n-server"
 import { PublicHeader, PublicFooter } from "@/components/layout/public-header"
 import { GuideBody } from "@/components/guide/guide-body"
 import { GUIDE } from "@/lib/content/guide"
@@ -14,8 +13,7 @@ export const metadata: Metadata = {
 
 // 한국어. 다른 언어는 /[lang]/guide 가 담당한다.
 export default async function GuidePage() {
-  const { locale } = await getServerDict()
-  const g = GUIDE[locale]
+  const g = GUIDE.ko
   return (
     <div className="min-h-screen bg-background text-foreground">
       <PublicHeader maxWidth="max-w-4xl" />

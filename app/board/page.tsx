@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { getServerDict } from "@/lib/i18n-server"
+import { ko } from "@/lib/i18n"
 import { BoardListView } from "@/components/board/board-list-view"
 import { BASE, hreflangMap } from "@/lib/marketing-locale"
 
@@ -10,8 +10,7 @@ export const metadata: Metadata = {
   },
 }
 
-// 한국어 목록. 다른 언어는 /[lang]/board 가 담당한다.
+// 한국어 목록. 다른 언어는 /[lang]/board 가 담당한다(언어는 주소로 고정).
 export default async function BoardPage() {
-  const { t, locale } = await getServerDict()
-  return <BoardListView locale={locale} t={t} />
+  return <BoardListView locale="ko" t={ko} />
 }
