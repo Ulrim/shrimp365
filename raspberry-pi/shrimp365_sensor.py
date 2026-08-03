@@ -38,11 +38,16 @@ try:
 except ImportError:  # pragma: no cover
     sys.exit("pyserial 이 필요합니다.  pip install pyserial")
 
-# LCD 는 선택 사항. 파일이 없어도 수집은 그대로 동작해야 한다.
+# LCD·상태 페이지는 선택 사항. 파일이 없어도 수집은 그대로 동작해야 한다.
 try:
     import display as display_mod
 except ImportError:  # pragma: no cover
     display_mod = None
+
+try:
+    import webui
+except ImportError:  # pragma: no cover
+    webui = None
 
 VERSION = "1.0.0"
 log = logging.getLogger("shrimp365")
@@ -373,6 +378,7 @@ def run_pairing(
     columns: int,
     rows: int,
     should_stop,
+    state=None,
 ) -> str | None:
     """기기 키가 없을 때 코드를 받아 화면에 띄우고, 승인될 때까지 기다린다.
 
@@ -395,6 +401,8 @@ def run_pairing(
 
         code = str(data["code"])
         secret = data["pairing_secret"]
+        if state is not None:
+            state.update(mode="pairing", pair_code=code, pair_url=host, status="연결 대기 중")
         spaced = " ".join(code)  # 화면에서 읽기 쉽게 자리마다 띄운다
         log.info("연결 코드: %s — Shrimp365 에 로그인해 이 코드를 입력하세요", code)
 
@@ -424,6 +432,8 @@ def run_pairing(
                 # 영문 안내를 띄운다(물음표만 늘어놓지 않기 위해).
                 ascii_tank = tank if tank.isascii() else ""
                 _show(screen, ["PAIRED".center(columns), (ascii_tank or "connected").center(columns)], rows)
+                if state is not None:
+                    state.update(mode="running", pair_code=None, tank=tank, status="연결 완료")
                 if key:
                     save_device_key(config_path, key)
                 time.sleep(3)
@@ -498,8 +508,17 @@ def main() -> int:
             rows=lcd_rows,
         )
 
+    # 터치스크린용 상태 페이지 (크로미움 키오스크가 여기에 붙는다)
+    state = None
+    if webui is not None and cfg.has_section("webui") and cfg.getboolean("webui", "enabled", fallback=False):
+        state = webui.State()
+        webui.serve(state, cfg.getint("webui", "port", fallback=8080))
+
     serial_no = board_serial()
     log.info("Shrimp365 센서 수집기 %s 시작 — 보드 %s, 센서 %s", VERSION, serial_no, list(enabled))
+
+    if state is not None:
+        state.update(serial=serial_no, status="센서 확인 중")
 
     if screen is not None:
         screen.show(["Shrimp365".center(lcd_columns), "starting..."[:lcd_columns]])
@@ -523,7 +542,7 @@ def main() -> int:
     if not device_key or device_key.startswith("여기에"):
         log.info("기기 키가 없습니다 — 연결 모드로 들어갑니다.")
         device_key = run_pairing(
-            endpoint, serial_no, args.config, screen, lcd_columns, lcd_rows, _stopped
+            endpoint, serial_no, args.config, screen, lcd_columns, lcd_rows, _stopped, state
         ) or ""
         if not device_key:
             log.error("연결되지 않았습니다. 종료합니다.")
@@ -563,6 +582,15 @@ def main() -> int:
                     # 네트워크가 끊겨도 프로세스는 살아 있어야 한다. 다음 주기에 다시 시도.
                     log.error("전송 실패 — %s", detail)
                     status_line = "SEND FAIL " + time.strftime("%H:%M")
+
+        if state is not None:
+            state.update(
+                mode="running",
+                values=last_values,
+                status=status_line,
+                errors=errors,
+                updated_at=time.strftime("%H:%M:%S"),
+            )
 
         if screen is not None:
             _render(screen, last_values, lcd_columns, lcd_rows, status_line, 0)

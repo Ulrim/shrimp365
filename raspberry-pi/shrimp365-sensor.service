@@ -6,6 +6,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+WorkingDirectory=/opt/shrimp365
 ExecStart=/usr/bin/python3 /opt/shrimp365/shrimp365_sensor.py --config /etc/shrimp365/config.ini
 Restart=always
 RestartSec=15
