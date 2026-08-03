@@ -772,7 +772,9 @@ def main() -> int:
                 errors=errors,
                 linked=bool(auth["key"]),
                 pending=store.pending() if store is not None else 0,
-                updated_at=time.strftime("%H:%M:%S"),
+                # 무인 장비라 며칠씩 아무도 안 볼 수 있다. 시각만 있으면
+                # 화면의 값이 오늘 것인지 지난주 것인지 구분되지 않는다.
+                updated_at=time.strftime("%Y-%m-%d %H:%M:%S"),
             )
 
         if screen is not None:
