@@ -115,6 +115,14 @@ export interface SensorDevice {
   firmware: string | null
   /** 마지막으로 수신한 원본 측정값. 수질 기록에 저장하지 않는 값도 들어 있다. */
   last_payload: Record<string, number | string | boolean> | null
+  /** 장비가 보고한 수집기 버전. 원격 업데이트의 기준이 된다. */
+  agent_version: string | null
+  /** 주인이 승인한 목표 버전. null 이면 업데이트하지 않는다. */
+  update_to: string | null
+  /** 기기가 되보고한 진행 상황. */
+  update_status: "requested" | "downloading" | "applied" | "failed" | "rolled_back" | null
+  update_message: string | null
+  update_status_at: string | null
   created_at: string
 }
 

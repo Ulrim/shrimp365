@@ -1,0 +1,20 @@
+[Unit]
+Description=Shrimp365 sensor agent update check
+Documentation=https://www.shrimp365.kr/guide
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# 수집기와 달리 root 로 돈다. /opt 의 코드를 바꾸고 서비스를 다시 시작해야
+# 하기 때문이다. 그 대신 하루 한 번만 잠깐 돌고 끝난다.
+ExecStart=/usr/bin/python3 /opt/shrimp365/updater.py --config /etc/shrimp365/config.ini
+
+# 되돌리기까지 포함해도 몇 분이면 끝난다. 그보다 오래 걸리면 뭔가 잘못된 것이다.
+TimeoutStartSec=600
+
+Environment=LANG=C.UTF-8
+Environment=PYTHONIOENCODING=utf-8
+
+StandardOutput=journal
+StandardError=journal

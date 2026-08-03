@@ -22,14 +22,16 @@ CONF_DIR=/etc/shrimp365
 CONF="$CONF_DIR/config.ini"
 SERVICE_USER=shrimp365
 
-MODULES=(shrimp365_sensor.py display.py webui.py buffer.py history.py)
+MODULES=(shrimp365_sensor.py display.py webui.py buffer.py history.py updater.py)
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "sudo 로 실행하세요:  sudo ./install.sh" >&2
   exit 1
 fi
 
-for f in "${MODULES[@]}" config.example.ini shrimp365-sensor.service; do
+UNITS=(shrimp365-sensor.service shrimp365-update.service shrimp365-update.timer)
+
+for f in "${MODULES[@]}" config.example.ini "${UNITS[@]}"; do
   if [ ! -f "$SRC/$f" ]; then
     echo "필요한 파일이 없습니다: $f" >&2
     echo "raspberry-pi 폴더 안에서 실행했는지 확인하세요." >&2
@@ -45,12 +47,18 @@ FIRST_INSTALL=yes
 echo "==> pyserial 확인"
 if python3 -c "import serial" 2>/dev/null; then
   echo "    이미 설치되어 있습니다."
+  # 원격 업데이트의 서명 확인에 쓴다. 없으면 업데이트만 건너뛰고 측정은 계속된다.
+  python3 -c "import cryptography" 2>/dev/null \
+    || apt-get install -y python3-cryptography 2>/dev/null \
+    || echo "    (python3-cryptography 설치 실패 — 원격 업데이트는 쓸 수 없습니다)"
 else
   # 저장소 목록 갱신은 실패해도 넘어간다. 만료된 외부 저장소 하나 때문에
   # 설치 전체가 멈추면 안 된다. 정작 필요한 패키지는 그 다음 줄에서 받는다.
   apt-get update -qq || echo "    (저장소 갱신 실패 — 그대로 진행합니다)"
   # Bookworm 이후로는 pip 가 시스템 파이썬을 막으므로 apt 쪽이 정답이다.
   apt-get install -y python3-serial
+  apt-get install -y python3-cryptography 2>/dev/null \
+    || echo "    (python3-cryptography 설치 실패 — 원격 업데이트는 쓸 수 없습니다)"
   python3 -c "import serial" 2>/dev/null || {
     echo "pyserial 설치에 실패했습니다. 인터넷 연결을 확인한 뒤 다시 실행하세요." >&2
     exit 1
@@ -102,9 +110,13 @@ install -d -m 700 -o "$SERVICE_USER" -g "$SERVICE_USER" /var/lib/shrimp365
 # ── 5. 서비스 등록 ───────────────────────────────────────────────────────────
 if [ -d /run/systemd/system ]; then
   echo "==> 서비스 등록"
-  install -m 644 "$SRC/shrimp365-sensor.service" /etc/systemd/system/
+  for u in "${UNITS[@]}"; do
+    install -m 644 "$SRC/$u" /etc/systemd/system/
+  done
   systemctl daemon-reload
   systemctl enable shrimp365-sensor >/dev/null
+  # 하루 한 번 승인된 업데이트가 있는지 확인한다. 승인하지 않으면 아무 일도 없다.
+  systemctl enable --now shrimp365-update.timer >/dev/null 2>&1 || true
   RUNNING=no
   systemctl is-active --quiet shrimp365-sensor && RUNNING=yes
   if [ "$RUNNING" = yes ]; then

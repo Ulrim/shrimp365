@@ -103,6 +103,11 @@ export type DbSensorDevice = {
   serial: string | null
   firmware: string | null
   last_payload: Record<string, number | string | boolean> | null
+  agent_version: string | null
+  update_to: string | null
+  update_status: "requested" | "downloading" | "applied" | "failed" | "rolled_back" | null
+  update_message: string | null
+  update_status_at: string | null
   created_at: string
 }
 
