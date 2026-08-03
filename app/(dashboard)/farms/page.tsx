@@ -43,6 +43,7 @@ import {
 } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import type { SensorDevice } from "@/types"
+import { PairDeviceDialog } from "@/components/sensors/pair-device-dialog"
 import { useT } from "@/lib/i18n-context"
 import { AddressSearch } from "@/components/ui/address-search"
 
@@ -1135,6 +1136,7 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
               </div>
             ))
           )}
+          <PairDeviceDialog tank={tank} onSuccess={loadDevices} />
           <RegisterDeviceDialog tank={tank} onSuccess={loadDevices} />
         </div>
       )}

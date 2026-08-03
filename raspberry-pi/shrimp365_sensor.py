@@ -292,6 +292,159 @@ def load_config(path: Path) -> configparser.ConfigParser:
     return cfg
 
 
+
+# ── 페어링 ────────────────────────────────────────────────────────────────────
+
+def _api_base(endpoint: str) -> str:
+    """측정 전송 주소에서 페어링 주소를 유도한다.
+    설정 파일에 주소를 두 번 적게 하지 않기 위함."""
+    return endpoint.rsplit("/api/", 1)[0] if "/api/" in endpoint else endpoint.rstrip("/")
+
+
+def _get_json(url: str, timeout: float = 10.0) -> tuple[int, dict]:
+    req = urllib.request.Request(url, headers={"User-Agent": f"shrimp365-pi/{VERSION}"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            return res.status, json.loads(res.read().decode() or "{}")
+    except urllib.error.HTTPError as exc:
+        try:
+            return exc.code, json.loads(exc.read().decode() or "{}")
+        except (ValueError, OSError):
+            return exc.code, {}
+    except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+        log.warning("페어링 조회 실패: %s", exc)
+        return 0, {}
+
+
+def _post_json(url: str, payload: dict, timeout: float = 10.0) -> tuple[int, dict]:
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode(),
+        method="POST",
+        headers={"Content-Type": "application/json", "User-Agent": f"shrimp365-pi/{VERSION}"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            return res.status, json.loads(res.read().decode() or "{}")
+    except urllib.error.HTTPError as exc:
+        try:
+            return exc.code, json.loads(exc.read().decode() or "{}")
+        except (ValueError, OSError):
+            return exc.code, {}
+    except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+        log.warning("페어링 요청 실패: %s", exc)
+        return 0, {}
+
+
+def save_device_key(config_path: Path, key: str) -> bool:
+    """받은 기기 키를 설정 파일에 적는다.
+
+    configparser 로 다시 쓰면 주석이 전부 사라지므로, 해당 줄만 바꿔 넣는다.
+    """
+    try:
+        lines = config_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    except OSError as exc:
+        log.error("설정 파일을 읽을 수 없습니다: %s", exc)
+        return False
+
+    replaced = False
+    for i, line in enumerate(lines):
+        if line.strip().lower().startswith("device_key"):
+            lines[i] = f"device_key = {key}\n"
+            replaced = True
+            break
+    if not replaced:
+        lines.append(f"\ndevice_key = {key}\n")
+
+    try:
+        config_path.write_text("".join(lines), encoding="utf-8")
+        os.chmod(config_path, 0o600)  # 키가 들어 있으므로 권한을 좁힌다
+        return True
+    except OSError as exc:
+        log.error("설정 파일을 쓸 수 없습니다: %s (권한을 확인하세요)", exc)
+        return False
+
+
+def run_pairing(
+    endpoint: str,
+    serial_no: str,
+    config_path: Path,
+    screen,
+    columns: int,
+    rows: int,
+    should_stop,
+) -> str | None:
+    """기기 키가 없을 때 코드를 받아 화면에 띄우고, 승인될 때까지 기다린다.
+
+    성공하면 기기 키를 돌려주고 설정 파일에도 저장한다.
+    """
+    base = _api_base(endpoint)
+    pair_url = f"{base}/api/sensors/pair"
+    host = base.replace("https://", "").replace("http://", "")
+
+    while not should_stop():
+        status, data = _post_json(pair_url, {"serial": serial_no, "firmware": f"pi-{VERSION}"})
+        if status != 200 or "code" not in data:
+            log.error("코드를 받지 못했습니다(%s). 30초 후 다시 시도합니다.", status or "연결 실패")
+            _show(screen, ["Shrimp365".center(columns), "NO NETWORK"[:columns]], rows)
+            for _ in range(30):
+                if should_stop():
+                    return None
+                time.sleep(1)
+            continue
+
+        code = str(data["code"])
+        secret = data["pairing_secret"]
+        spaced = " ".join(code)  # 화면에서 읽기 쉽게 자리마다 띄운다
+        log.info("연결 코드: %s — Shrimp365 에 로그인해 이 코드를 입력하세요", code)
+
+        # 코드는 15분간 유효하다. 5초 간격으로 승인 여부를 확인한다.
+        deadline = time.monotonic() + 15 * 60
+        while time.monotonic() < deadline and not should_stop():
+            _show(screen, [
+                "Pair this device".center(columns),
+                spaced.center(columns),
+                host[:columns],
+                "waiting..."[:columns],
+            ], rows)
+
+            for _ in range(5):
+                if should_stop():
+                    return None
+                time.sleep(1)
+
+            status, info = _get_json(f"{pair_url}?secret={secret}")
+            state = info.get("status")
+
+            if state == "linked":
+                key = info.get("device_key")
+                tank = info.get("tank_name") or ""
+                log.info("연결 완료 — 수조: %s", tank or "(이름 없음)")
+                # 문자 LCD 는 한글을 못 내므로 수조 이름에 한글이 섞이면 대신
+                # 영문 안내를 띄운다(물음표만 늘어놓지 않기 위해).
+                ascii_tank = tank if tank.isascii() else ""
+                _show(screen, ["PAIRED".center(columns), (ascii_tank or "connected").center(columns)], rows)
+                if key:
+                    save_device_key(config_path, key)
+                time.sleep(3)
+                return key
+
+            if state in ("expired", "not_found", "revoked"):
+                log.info("코드가 만료되었습니다. 새 코드를 받습니다.")
+                break
+
+    return None
+
+
+def _show(screen, lines: list[str], rows: int) -> None:
+    if screen is None or display_mod is None:
+        return
+    try:
+        screen.show(lines[:rows])
+    except OSError as exc:
+        log.warning("화면 출력 실패: %s", exc)
+
+
 def _render(screen, values: dict[str, float], columns: int, rows: int, status: str, page: int) -> None:
     """화면 갱신. LCD 가 빠져도 수집은 멈추면 안 되므로 실패를 삼킨다."""
     if display_mod is None:
@@ -351,18 +504,36 @@ def main() -> int:
     if screen is not None:
         screen.show(["Shrimp365".center(lcd_columns), "starting..."[:lcd_columns]])
 
-    client = ModbusClient(port, baudrate)
+    # 기기 키가 없으면 페어링부터. 긴 키를 손으로 옮겨 적지 않아도 되도록,
+    # 화면에 6자리 코드를 띄우고 계정 주인이 승인하기를 기다린다.
     stop = False
-    last_values: dict[str, float] = {}
-    status_line = ""
 
     def handle_signal(signum, _frame):
         nonlocal stop
         log.info("종료 신호(%s) 수신 — 정리 중", signum)
         stop = True
 
+    # 연결 대기 중에도 systemd stop / Ctrl+C 가 바로 먹히도록 먼저 등록한다.
     signal.signal(signal.SIGTERM, handle_signal)
     signal.signal(signal.SIGINT, handle_signal)
+
+    def _stopped() -> bool:
+        return stop
+
+    if not device_key or device_key.startswith("여기에"):
+        log.info("기기 키가 없습니다 — 연결 모드로 들어갑니다.")
+        device_key = run_pairing(
+            endpoint, serial_no, args.config, screen, lcd_columns, lcd_rows, _stopped
+        ) or ""
+        if not device_key:
+            log.error("연결되지 않았습니다. 종료합니다.")
+            if screen is not None:
+                screen.close()
+            return 1
+
+    client = ModbusClient(port, baudrate)
+    last_values: dict[str, float] = {}
+    status_line = ""
 
     while not stop:
         started = time.monotonic()
