@@ -11,7 +11,10 @@
  * 네트워크 폰트를 쓰면 오프라인에서 한글이 두부(□)로 나오고 렌더가 비결정적이 된다.
  */
 
-import { chromium } from "playwright"
+// playwright-core를 쓴다. 일반 playwright 패키지는 설치할 때 브라우저(~150MB)를
+// 내려받는 postinstall이 있어서 배포 빌드(Vercel 등)를 깨뜨린다. 이 스크립트는
+// 어차피 이미 설치된 Chromium을 찾아 쓰므로 다운로드가 필요 없다.
+import { chromium } from "playwright-core"
 import { readFile, mkdir, readdir } from "node:fs/promises"
 import { existsSync } from "node:fs"
 import path from "node:path"
@@ -49,13 +52,20 @@ async function findChromium() {
 }
 
 async function launch() {
+  // playwright-core는 브라우저를 들고 있지 않으므로 설치된 것을 먼저 찾는다.
+  const executablePath = await findChromium()
+  if (executablePath) {
+    console.log(`  · Chromium: ${executablePath}`)
+    return await chromium.launch({ executablePath })
+  }
   try {
     return await chromium.launch()
   } catch (err) {
-    const executablePath = await findChromium()
-    if (!executablePath) throw err
-    console.log(`  · 설치된 Chromium 사용: ${executablePath}`)
-    return await chromium.launch({ executablePath })
+    die(
+      `Chromium을 찾지 못했습니다.\n` +
+        `    PLAYWRIGHT_BROWSERS_PATH에 설치된 Chromium이 있어야 합니다.\n` +
+        `    (원문: ${err.message.split("\n")[0]})`
+    )
   }
 }
 
