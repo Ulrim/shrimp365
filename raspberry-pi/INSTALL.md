@@ -104,9 +104,15 @@ sudo reboot
 
 ```bash
 sudo apt install -y git
-git clone https://github.com/Ulrim/shrimp365.git
+git clone -b claude/shrimp-water-quality-monitoring-aZ4EY \
+  https://github.com/Ulrim/shrimp365.git
 cd shrimp365/raspberry-pi
 ```
+
+> **`-b` 브랜치 이름을 빠뜨리지 마세요.** 센서 프로그램은 아직 위 작업 브랜치에만
+> 있습니다. 그냥 `git clone` 하면 기본 브랜치를 받게 되어 `raspberry-pi` 폴더 자체가
+> 없고, 다음 단계에서 `command not found` 가 납니다.
+> 이 작업이 기본 브랜치에 합쳐진 뒤에는 `-b` 없이 받으셔도 됩니다.
 
 비공개 저장소이므로 아이디와 **개인용 액세스 토큰**(비밀번호 자리에 입력)을 묻습니다.
 토큰은 GitHub → Settings → Developer settings → Personal access tokens 에서 만들고,
@@ -117,7 +123,12 @@ cd shrimp365/raspberry-pi
 
 ### 방법 B — USB 메모리로 옮기기 (인터넷이 불안한 현장)
 
-PC에서 `raspberry-pi` 폴더 전체를 USB 메모리에 복사한 뒤, 파이에 꽂고
+PC에서 `raspberry-pi` 폴더 **전체**를 USB 메모리에 복사합니다.
+GitHub 웹에서 ZIP 으로 받으신다면 화면 왼쪽 위에서 브랜치를
+`claude/shrimp-water-quality-monitoring-aZ4EY` 로 바꾼 뒤 받으세요 —
+기본 브랜치에는 이 폴더가 아직 없습니다.
+
+USB를 파이에 꽂고
 
 ```bash
 lsblk                                   # sda1 등 USB 이름 확인
@@ -446,7 +457,56 @@ sudo systemctl restart shrimp365-sensor
 키를 비우면 새 기기가 새 6자리 코드를 띄웁니다. 9번을 다시 하면 됩니다.
 호스트명도 `sudo raspi-config` 에서 구분되게 바꿔 두면 관리가 편합니다.
 
-## C. 제거
+## C. `install.sh` 없이 손으로 설치하기
+
+USB 복사본이 오래되어 `install.sh` 가 들어 있지 않을 때, 다시 복사해 오지 않고
+그대로 진행하는 방법입니다. 스크립트가 하는 일을 그대로 풀어 쓴 것이라 결과는 같습니다.
+
+`raspberry-pi` 폴더 안에서 순서대로 실행하세요.
+
+```bash
+# 1) 필요한 패키지
+sudo apt update && sudo apt install -y python3-serial
+
+# 2) 프로그램 배치
+sudo install -d -m 755 /opt/shrimp365 /etc/shrimp365
+sudo install -m 644 shrimp365_sensor.py display.py webui.py buffer.py history.py \
+  /opt/shrimp365/
+
+# 3) 설정 파일 (권한 600 — 기기 키가 들어갑니다)
+sudo install -m 600 config.example.ini /etc/shrimp365/config.ini
+
+# 4) 전용 계정 — 시리얼 포트 접근만, 로그인 불가
+sudo useradd -r -s /usr/sbin/nologin shrimp365
+sudo usermod -aG dialout shrimp365
+sudo usermod -aG i2c shrimp365 2>/dev/null   # LCD 를 붙일 경우
+
+# 5) 설정 파일은 수집기 소유여야 합니다.
+#    코드로 연결하면 받은 기기 키를 수집기가 직접 이 파일에 적기 때문입니다.
+sudo chown shrimp365:shrimp365 /etc/shrimp365/config.ini
+
+# 6) 오프라인 보관분과 그래프 이력을 둘 곳
+sudo install -d -m 700 -o shrimp365 -g shrimp365 /var/lib/shrimp365
+
+# 7) 서비스 등록 (부팅 시 자동 시작)
+sudo install -m 644 shrimp365-sensor.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable shrimp365-sensor
+```
+
+제대로 됐는지 확인합니다.
+
+```bash
+ls -l /etc/shrimp365/config.ini      # -rw------- shrimp365 shrimp365
+ls /opt/shrimp365/                   # .py 파일 5개
+```
+
+여기까지 됐으면 안내서 **5번(배선)** 으로 돌아가 이어서 진행하세요.
+
+> 다음에 프로그램을 업데이트하실 때는 새 복사본에 `install.sh` 가 들어 있을 것이므로
+> `sudo ./install.sh` 한 줄이면 됩니다.
+
+## D. 제거
 
 ```bash
 sudo systemctl disable --now shrimp365-sensor
@@ -459,11 +519,55 @@ sudo userdel shrimp365
 Shrimp365 웹에서도 해당 기기를 **비활성**으로 바꾸거나 삭제하세요.
 그래야 그 키로는 더 이상 아무것도 올라오지 않습니다.
 
-## D. 자주 막히는 곳
+## E. 자주 막히는 곳
 
 **`sudo: ./install.sh: command not found`**
-`raspberry-pi` 폴더 안이 아닙니다. `cd ~/raspberry-pi` 후 다시 실행하세요.
-USB나 Windows 를 거쳐 복사했다면 실행 권한이 빠졌을 수 있습니다 — `chmod +x install.sh`.
+
+파일이 그 자리에 없다는 뜻입니다. 먼저 지금 어디에 무엇이 있는지 봅니다.
+
+```bash
+pwd && ls
+```
+
+`install.sh` 가 목록에 **없다면** — 원인은 대개 둘 중 하나입니다.
+
+1. **브랜치를 안 지정하고 `git clone` 했다** (가장 흔합니다).
+   기본 브랜치에는 아직 `raspberry-pi` 폴더가 없습니다. 3번 방법 A 의 `-b` 를 붙여
+   다시 받으세요.
+   ```bash
+   cd ~ && rm -rf shrimp365
+   git clone -b claude/shrimp-water-quality-monitoring-aZ4EY \
+     https://github.com/Ulrim/shrimp365.git
+   cd shrimp365/raspberry-pi
+   ```
+   이미 받아 둔 폴더가 있다면 그 안에서 브랜치만 바꿔도 됩니다.
+   ```bash
+   git fetch origin claude/shrimp-water-quality-monitoring-aZ4EY
+   git checkout claude/shrimp-water-quality-monitoring-aZ4EY
+   ```
+2. **폴더를 잘못 들어왔다.** `cd ~/shrimp365/raspberry-pi` 또는 `cd ~/raspberry-pi`.
+3. **USB 복사본이 오래됐다.** `install.sh` 는 나중에 추가된 파일이라, 그 전에 만든
+   USB 에는 들어 있지 않습니다. USB를 다시 만들거나, 다시 만들 여건이 안 되면
+   **[부록 C](#c-installsh-없이-손으로-설치하기)** 의 명령을 순서대로 실행하세요.
+   결과는 스크립트를 돌린 것과 같습니다.
+
+`install.sh` 가 **보이는데도** 같은 메시지가 나온다면 — 파일 자체가 아니라 실행 방법의
+문제이므로 아래 한 줄로 우회할 수 있습니다. Windows 나 USB 를 거치며 실행 권한이나
+줄바꿈 형식이 바뀐 경우입니다.
+
+```bash
+sudo bash install.sh
+```
+
+계속 쓰실 거면 원인을 아예 없애 두세요.
+
+```bash
+chmod +x install.sh                    # 실행 권한 복구
+sed -i 's/\r$//' install.sh            # Windows 줄바꿈(CRLF) 제거
+```
+
+**`sudo: ./install.sh: Permission denied`**
+파일은 있는데 실행 권한이 없습니다. `chmod +x install.sh` 또는 `sudo bash install.sh`.
 
 **`Permission denied: '/dev/ttyUSB0'`**
 계정이 `dialout` 그룹에 없습니다. `sudo ./install.sh` 를 다시 실행하면 넣어 줍니다.
