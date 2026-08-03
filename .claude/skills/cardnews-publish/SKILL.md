@@ -119,9 +119,15 @@ SQL을 커밋한 것은 발행이 아니다. 마지막 보고에 반드시 넣�
 
 **같은 `slug`에 다른 `locale`**로 행을 추가한다. 그래야 `hreflangMap()`이 언어 간 링크를 만든다.
 
-- 이미지도 언어별로 따로 렌더한다 → `public/cardnews/<lang>/<slug>/NN.png`
+```bash
+npm run cardnews scripts/cardnews/data/<slug>.en.json    # → public/cardnews/en/<slug>/
+```
+
+- 카드 JSON에 `"locale": "en"`을 넣으면 렌더러가 경로를 알아서 잡는다
 - 번역이 아니라 현지 독자에게 맞게 다시 쓰되, **수치는 반드시 동일해야 한다**
-- 기존 다국어 시드는 `card_news_seed_multilang.sql` 참고
+- 여러 언어를 한 파일에 넣을 때는 `values (…), (…), (…)`로 묶고 `on conflict`는 마지막에 한 번만 쓴다
+- 기존 다국어 시드는 `card_news_seed_multilang.sql`, `card_news_seed_molting_care_multilang.sql` 참고
+- 한국어 상세는 `/cardnews/<slug>`, 나머지는 `/[lang]/cardnews/<slug>`에서 열린다
 
 ## SNS 업로드
 

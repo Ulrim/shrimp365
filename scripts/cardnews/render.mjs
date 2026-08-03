@@ -20,6 +20,11 @@ import { fileURLToPath } from "node:url"
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, "..", "..")
 const SIZE = 1080
+const LOCALES = ["ko", "en", "vi", "id"]
+
+/** 한국어는 /cardnews/<slug>/, 나머지는 /cardnews/<locale>/<slug>/ — 기존 발행분과 같은 규칙. */
+const publicPath = (locale, slug) =>
+  locale === "ko" ? `/cardnews/${slug}` : `/cardnews/${locale}/${slug}`
 
 function die(msg) {
   console.error(`\n  ✗ ${msg}\n`)
@@ -60,6 +65,9 @@ function validate(data) {
     die(`slug는 영문 소문자 kebab-case여야 합니다: "${data.slug}"`)
   }
   if (data.slug.length > 80) die("slug는 80자를 넘을 수 없습니다. (API normalize 제약)")
+  if (data.locale && !LOCALES.includes(data.locale)) {
+    die(`지원하지 않는 언어입니다: "${data.locale}" (${LOCALES.join(", ")} 중 하나)`)
+  }
   if (!Array.isArray(data.cards) || data.cards.length === 0) die("JSON에 cards 배열이 없습니다.")
   if (data.cards.length > 30) die("카드는 30장을 넘을 수 없습니다. (API normalize 제약)")
 
@@ -88,7 +96,9 @@ async function main() {
     // JSON을 <script> 안에 넣으므로 </script> 조기 종료만 막으면 된다.
     .replace("__CARDS_JSON__", JSON.stringify(data).replace(/<\//g, "<\\/"))
 
-  const outDir = path.join(ROOT, "public", "cardnews", data.slug)
+  const locale = data.locale || "ko"
+  const rel = publicPath(locale, data.slug)
+  const outDir = path.join(ROOT, "public", ...rel.split("/").filter(Boolean))
   await mkdir(outDir, { recursive: true })
 
   const browser = await launch()
@@ -136,10 +146,10 @@ async function main() {
     await browser.close()
   }
 
-  console.log(`\n  카드 ${data.cards.length}장 완료 → public/cardnews/${data.slug}/`)
+  console.log(`\n  카드 ${data.cards.length}장 완료 (${locale}) → public${rel}/`)
 
   // 시드 SQL의 images 배열에 그대로 붙여 넣을 수 있게 출력한다.
-  const images = data.cards.map((_, i) => `/cardnews/${data.slug}/${String(i + 1).padStart(2, "0")}.png`)
+  const images = data.cards.map((_, i) => `${rel}/${String(i + 1).padStart(2, "0")}.png`)
   console.log(`\n  images:\n  array[${images.map((p) => `$cn$${p}$cn$`).join(",")}]::text[]`)
   console.log(`\n  다음: 이미지를 눈으로 확인한 뒤 시드 SQL을 작성하세요. (cardnews-publish 스킬)\n`)
 }

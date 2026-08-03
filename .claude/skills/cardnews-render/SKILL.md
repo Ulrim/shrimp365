@@ -26,6 +26,7 @@ npm run cardnews scripts/cardnews/data/<slug>.json
 ```json
 {
   "slug": "dawn-oxygen-drop",
+  "locale": "ko",
   "cards": [
     { "type": "cover", "label": "…", "title": ["1줄", "2줄"], "subtitle": "…" },
     { "type": "point", "index": "01", "label": "pH", "value": "7.5–8.5", "caption": "…" },
@@ -39,6 +40,8 @@ npm run cardnews scripts/cardnews/data/<slug>.json
 ```
 
 - `slug`는 영문 kebab-case, 80자 이내. 그대로 출력 디렉터리 이름이 된다
+- `locale`은 `ko`(기본) `en` `vi` `id`. **출력 경로가 달라진다** — `ko`는 `public/cardnews/<slug>/`, 나머지는 `public/cardnews/<locale>/<slug>/`. 기존 발행분과 같은 규칙이다
+- 다국어는 **같은 `slug`에 `locale`만 다르게** 만든다. 데이터 파일은 `data/<slug>.json`(ko), `data/<slug>.<locale>.json`
 - **`title`과 `value`는 배열로 줄바꿈을 직접 정한다.** 한글 자동 줄바꿈은 어색한 자리에서 끊긴다. 사람이 정하는 게 항상 낫다
 - `type` 기본값은 `point`
 - `valueStyle: "text"`는 숫자 대신 문장을 크게 쓸 때. 등폭 대신 Pretendard로, 더 작게 렌더된다

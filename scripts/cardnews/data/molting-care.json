@@ -1,5 +1,6 @@
 {
   "slug": "molting-care",
+  "locale": "ko",
   "cards": [
     {
       "type": "cover",
@@ -19,8 +20,8 @@
       "type": "point",
       "index": "02",
       "label": "위험 구간",
-      "value": "직후 24h",
-      "caption": "껍질이 굳기 전까지 이어집니다"
+      "value": "24–72h",
+      "caption": "새 껍질이 굳는 데 걸리는 시간"
     },
     {
       "type": "point",

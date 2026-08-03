@@ -1,0 +1,71 @@
+{
+  "slug": "molting-care",
+  "locale": "id",
+  "cards": [
+    {
+      "type": "cover",
+      "label": "UDANG VANAME · MOLTING",
+      "title": ["Paling rawan", "setelah molting"],
+      "subtitle": "Kulit baru belum mengeras"
+    },
+    {
+      "type": "point",
+      "index": "01",
+      "label": "Molting",
+      "valueStyle": "text",
+      "value": ["Udang ganti", "seluruh kulit"],
+      "caption": "Udang tumbuh hanya saat molting"
+    },
+    {
+      "type": "point",
+      "index": "02",
+      "label": "Masa rawan",
+      "value": "24–72h",
+      "caption": "Waktu kulit baru mengeras"
+    },
+    {
+      "type": "point",
+      "index": "03",
+      "label": "Oksigen",
+      "value": "≥ 5.0",
+      "caption": "Kebutuhan naik tajam saat molting"
+    },
+    {
+      "type": "point",
+      "index": "04",
+      "label": "Alkalinitas",
+      "value": "100–150",
+      "caption": "Terlalu rendah, kulit tak mengeras"
+    },
+    {
+      "type": "point",
+      "index": "05",
+      "label": "Perubahan salinitas",
+      "value": "< 5 ppt",
+      "caption": "Per hari. Lebih dari itu, gagal molting"
+    },
+    {
+      "type": "point",
+      "index": "06",
+      "label": "Pakan",
+      "valueStyle": "text",
+      "value": ["Jangan tambah", "saat tak makan"],
+      "caption": "Nafsu makan turun itu normal"
+    },
+    {
+      "type": "outro",
+      "title": ["Cek ini saat", "udang molting"],
+      "rows": [
+        ["Oksigen terlarut", "≥ 5.0 mg/L"],
+        ["Alkalinitas", "100–150 mg/L"],
+        ["Salinitas / hari", "< 5 ppt"],
+        ["Suhu / hari", "< 3 ℃"],
+        ["Tempat berlindung", "Cukup"],
+        ["Pakan", "Kurangi"]
+      ],
+      "ctaTitle": "Catat harian, siklus molting terlihat",
+      "ctaNote": "Gratis · Tanpa instal aplikasi",
+      "ctaUrl": "shrimp365.kr"
+    }
+  ]
+}
