@@ -55,6 +55,11 @@ try:
 except ImportError:  # pragma: no cover
     buffer_mod = None
 
+try:
+    import history as history_mod
+except ImportError:  # pragma: no cover
+    history_mod = None
+
 VERSION = "1.0.0"
 log = logging.getLogger("shrimp365")
 
@@ -618,6 +623,18 @@ def main() -> int:
     auth = {"key": device_key if device_key and not device_key.startswith("여기에") else ""}
     pairing = {"active": False, "thread": None}
 
+    # 그래프용 이력. 재전송 큐와 달리 올린 뒤에도 남는다.
+    hist = None
+    if history_mod is not None and cfg.getboolean("history", "enabled", fallback=True):
+        hist = history_mod.History(
+            cfg.get("history", "path", fallback="/var/lib/shrimp365/history.db")
+            if cfg.has_section("history") else "/var/lib/shrimp365/history.db",
+            cfg.getint("history", "retention_days", fallback=history_mod.DEFAULT_RETENTION_DAYS)
+            if cfg.has_section("history") else history_mod.DEFAULT_RETENTION_DAYS,
+        )
+        if not hist.available:
+            hist = None
+
     # 터치스크린용 상태 페이지.
     # 연결 화면은 사용자가 버튼을 눌렀을 때만 뜬다 — 연결하지 않은 장비도
     # 계측기로는 멀쩡히 쓸 수 있어야 하기 때문이다.
@@ -661,6 +678,7 @@ def main() -> int:
             cfg.getint("webui", "port", fallback=8080),
             on_pair_start=start_pairing,
             on_pair_cancel=cancel_pairing,
+            history=hist,
         )
         state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중")
 
@@ -711,6 +729,8 @@ def main() -> int:
             log.info("측정 %s%s", stored, f" (참고 {extra})" if extra else "")
 
             last_values = values
+            if hist is not None:
+                hist.record(values)
 
             if args.dry_run:
                 print(json.dumps(values, ensure_ascii=False, indent=2))
@@ -774,6 +794,8 @@ def main() -> int:
     client.close()
     if store is not None:
         store.close()
+    if hist is not None:
+        hist.close()
     if screen is not None:
         screen.close()
     log.info("종료")

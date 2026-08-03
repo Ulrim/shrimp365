@@ -19,6 +19,7 @@ import json
 import logging
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 
 log = logging.getLogger("shrimp365.webui")
 
@@ -107,6 +108,33 @@ PAGE = """<!doctype html>
   .cell.crit{border-color:#DC2626}
   .cell.crit .v{color:#F87171}
   .cell.none .v{color:#475569}
+  .cell{cursor:pointer}
+  .cell:active{background:#16223C}
+  .tap{font-size:11px;color:#475569;font-weight:600}
+
+  /* 그래프 화면 */
+  .chart{
+    position:fixed;inset:0;background:#0B1120;z-index:20;
+    display:flex;flex-direction:column;padding:10px 16px 12px;
+  }
+  .chead{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .ctitle{font-size:18px;font-weight:800}
+  .cnow{font:800 22px/1 ui-monospace,monospace;color:#60A5FA}
+  .cstats{margin-left:auto;display:flex;gap:12px;font-size:12px;color:#94A3B8}
+  .cstats b{color:#E8EDF7;font-weight:700;font-family:ui-monospace,monospace}
+  .ranges{display:flex;gap:6px;margin-bottom:6px}
+  .ranges button{
+    font:700 13px/1 inherit;padding:8px 14px;min-height:36px;border-radius:8px;
+    border:1px solid #22304C;background:transparent;color:#94A3B8;cursor:pointer;
+  }
+  .ranges button[aria-pressed="true"]{background:#1E40AF;border-color:#1E40AF;color:#fff}
+  .ranges .close{margin-left:auto;border-color:#22304C}
+  .plot{flex:1;min-height:0;background:#111A2E;border:1px solid #22304C;border-radius:12px}
+  .plot svg{display:block;width:100%;height:100%}
+  .nodata{
+    flex:1;display:flex;align-items:center;justify-content:center;
+    background:#111A2E;border:1px solid #22304C;border-radius:12px;color:#64748B;font-size:15px;
+  }
 
   footer{
     display:flex;align-items:center;gap:12px;
@@ -167,6 +195,7 @@ PAGE = """<!doctype html>
 </footer>
 
 <div id="overlay"></div>
+<div id="chart"></div>
 
 <script>
 // 흰다리새우 적정 범위. 화면에서 바로 이상을 알아보기 위한 것으로,
@@ -196,7 +225,10 @@ function renderValues(d){
     var has = d.values && typeof d.values[key] === "number";
     var v = has ? d.values[key].toFixed(r.digits) : "--";
     var cls = has ? level(key, d.values[key]) : "none";
-    return '<div class="cell ' + cls + '"><div class="k">' + r.label + '</div>' +
+    // 따옴표 이스케이프를 피하려고 &quot; 를 쓴다. PAGE 가 파이썬 문자열이라
+    // 백슬래시가 한 번 더 벗겨져 JS 가 깨지기 쉽다.
+    return '<div class="cell ' + cls + '" onclick="openChart(&quot;' + key + '&quot;)">' +
+           '<div class="k">' + r.label + ' <span class="tap">그래프 ›</span></div>' +
            '<div class="v">' + v + (r.unit ? '<small>' + r.unit + '</small>' : '') + '</div></div>';
   }).join("");
   return '<div class="grid">' + cells + '</div>';
@@ -245,9 +277,152 @@ function renderOverlay(d){
     '</div>';
 }
 
+
+// ── 그래프 ──────────────────────────────────────────────────────────────────
+// 6시간·12시간·24시간·일주일. 파이가 자체 보관한 이력으로 그리므로
+// 인터넷이 끊겨 있어도 볼 수 있다.
+var RANGE_OPTIONS = [
+  {hours:6,   label:"6시간"},
+  {hours:12,  label:"12시간"},
+  {hours:24,  label:"24시간"},
+  {hours:168, label:"일주일"}
+];
+var chartKey = null;
+var chartHours = 24;
+
+function openChart(key){
+  chartKey = key;
+  chartHours = 24;
+  loadChart();
+}
+function closeChart(){
+  chartKey = null;
+  document.getElementById("chart").innerHTML = "";
+}
+function setRange(h){
+  chartHours = h;
+  loadChart();
+}
+
+function loadChart(){
+  if (!chartKey) return;
+  var key = chartKey, hours = chartHours;
+  fetch("/api/history?key=" + key + "&hours=" + hours, {cache:"no-store"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      // 응답이 늦게 왔는데 그새 닫혔거나 다른 항목을 열었으면 버린다.
+      if (chartKey !== key || chartHours !== hours) return;
+      drawChart(key, hours, d);
+    })
+    .catch(function(){ drawChart(key, hours, {points:[], count:0}); });
+}
+
+function fmtTick(ts, hours){
+  var d = new Date(ts * 1000);
+  var p = function(n){ return (n < 10 ? "0" : "") + n; };
+  // 하루가 넘어가면 시각만으로는 구분이 안 된다.
+  return hours > 24 ? (d.getMonth()+1) + "/" + d.getDate()
+                    : p(d.getHours()) + ":" + p(d.getMinutes());
+}
+
+function drawChart(key, hours, d){
+  var r = RANGES[key];
+  var W = 768, H = 250, padL = 52, padR = 12, padT = 12, padB = 26;
+
+  var buttons = RANGE_OPTIONS.map(function(o){
+    return '<button onclick="setRange(' + o.hours + ')" aria-pressed="' +
+      (o.hours === hours) + '">' + o.label + '</button>';
+  }).join("");
+
+  var head =
+    '<div class="chead">' +
+      '<span class="ctitle">' + r.label + '</span>' +
+      (d.count ? '<span class="cnow">' + d.points[d.points.length-1][1].toFixed(r.digits) +
+                 (r.unit ? '<small style="font-size:13px;color:#94A3B8"> ' + r.unit + '</small>' : '') + '</span>' : '') +
+      (d.count ? '<span class="cstats">' +
+        '<span>최저 <b>' + d.min.toFixed(r.digits) + '</b></span>' +
+        '<span>평균 <b>' + d.avg.toFixed(r.digits) + '</b></span>' +
+        '<span>최고 <b>' + d.max.toFixed(r.digits) + '</b></span>' +
+      '</span>' : '') +
+    '</div>' +
+    '<div class="ranges">' + buttons +
+      '<button class="close" onclick="closeChart()">닫기</button>' +
+    '</div>';
+
+  if (!d.count) {
+    document.getElementById("chart").innerHTML =
+      '<div class="chart">' + head +
+      '<div class="nodata">이 구간에 기록된 값이 없습니다</div></div>';
+    return;
+  }
+
+  // 세로 범위 — 값이 화면을 채우되 적정 범위 경계도 보이게 잡는다.
+  // 적정 범위를 통째로 포함시키면(예: DO 상한 20) 실제 곡선이 아래에
+  // 눌려 붙어 변화를 읽을 수 없다. 그래서 데이터 폭의 25% 안에서만
+  // 경계 쪽으로 넓힌다.
+  var span = Math.max(d.max - d.min, Math.pow(10, -r.digits));
+  var margin = span * 0.25;
+  var lo = Math.min(d.min, Math.max(r.ok[0], d.min - margin));
+  var hi = Math.max(d.max, Math.min(r.ok[1], d.max + margin));
+  var pad = Math.max((hi - lo) * 0.08, Math.pow(10, -r.digits));
+  lo -= pad; hi += pad;
+
+  var t0 = d.points[0][0], t1 = Math.max(d.points[d.points.length-1][0], t0 + 1);
+  var x = function(t){ return padL + (t - t0) / (t1 - t0) * (W - padL - padR); };
+  var y = function(v){ return padT + (hi - v) / (hi - lo) * (H - padT - padB); };
+
+  // 적정 범위 띠
+  var bandTop = y(Math.min(r.ok[1], hi)), bandBottom = y(Math.max(r.ok[0], lo));
+  var band = '<rect x="' + padL + '" y="' + bandTop + '" width="' + (W-padL-padR) +
+             '" height="' + Math.max(0, bandBottom - bandTop) +
+             '" fill="#10B981" opacity="0.10"/>';
+
+  // 최저~최고 범위(칸마다)를 옅게 깔고 그 위에 평균선을 얹는다.
+  var top = d.points.map(function(p){ return x(p[0]) + "," + y(p[3]); });
+  var bot = d.points.map(function(p){ return x(p[0]) + "," + y(p[2]); }).reverse();
+  var spread = '<polygon points="' + top.concat(bot).join(" ") +
+               '" fill="#60A5FA" opacity="0.18"/>';
+
+  var line = '<polyline fill="none" stroke="#60A5FA" stroke-width="2" ' +
+             'stroke-linejoin="round" stroke-linecap="round" points="' +
+             d.points.map(function(p){ return x(p[0]) + "," + y(p[1]); }).join(" ") + '"/>';
+
+  // 가로 눈금 4개
+  var gridY = "", labelsY = "";
+  for (var i = 0; i <= 3; i++) {
+    var v = lo + (hi - lo) * i / 3, gy = y(v);
+    gridY += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (W-padR) + '" y2="' + gy +
+             '" stroke="#22304C" stroke-width="1"/>';
+    labelsY += '<text x="' + (padL-8) + '" y="' + (gy+4) + '" text-anchor="end" ' +
+               'fill="#64748B" font-size="11" font-family="ui-monospace,monospace">' +
+               v.toFixed(r.digits) + '</text>';
+  }
+
+  // 세로 눈금 — 시각
+  var labelsX = "";
+  [0, 0.5, 1].forEach(function(f){
+    var t = t0 + (t1 - t0) * f;
+    labelsX += '<text x="' + x(t) + '" y="' + (H-8) + '" text-anchor="' +
+      (f === 0 ? "start" : f === 1 ? "end" : "middle") +
+      '" fill="#64748B" font-size="11" font-family="ui-monospace,monospace">' +
+      fmtTick(t, hours) + '</text>';
+  });
+
+  var last = d.points[d.points.length-1];
+  var dot = '<circle cx="' + x(last[0]) + '" cy="' + y(last[1]) + '" r="4" fill="#60A5FA"/>';
+
+  document.getElementById("chart").innerHTML =
+    '<div class="chart">' + head +
+    '<div class="plot"><svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
+      gridY + band + spread + line + dot + labelsY + labelsX +
+    '</svg></div></div>';
+}
+
 function render(d){
   document.getElementById("link").innerHTML = renderLink(d);
-  document.getElementById("main").innerHTML = renderValues(d);
+  // 그래프를 보고 있는 중에는 뒤 화면을 다시 그리지 않는다.
+  // 3초마다 갱신하면 조작 중에 깜빡이고 눌림이 씹힌다.
+  if (!chartKey) document.getElementById("main").innerHTML = renderValues(d);
   document.getElementById("overlay").innerHTML = renderOverlay(d);
 
   var st = d.status || "";
@@ -294,6 +469,7 @@ def serve(
     port: int = 8080,
     on_pair_start=None,
     on_pair_cancel=None,
+    history=None,
 ) -> ThreadingHTTPServer | None:
     """상태 페이지를 띄운다. 실패해도 수집은 계속되어야 하므로 None 을 돌려준다."""
 
@@ -313,10 +489,27 @@ def serve(
         def do_GET(self) -> None:
             if self.path.startswith("/api/state"):
                 self._send(200, json.dumps(state.snapshot()).encode(), "application/json")
+            elif self.path.startswith("/api/history"):
+                self._history()
             elif self.path in ("/", "/index.html"):
                 self._send(200, PAGE.encode(), "text/html; charset=utf-8")
             else:
                 self._send(404, b"not found", "text/plain")
+
+        def _history(self) -> None:
+            if history is None:
+                self._send(200, b'{"points":[],"count":0}', "application/json")
+                return
+            query = parse_qs(urlparse(self.path).query)
+            key = (query.get("key") or [""])[0]
+            try:
+                hours = int((query.get("hours") or ["24"])[0])
+            except ValueError:
+                hours = 24
+            # 화면에서 고를 수 있는 구간만 허용한다.
+            if hours not in (6, 12, 24, 168):
+                hours = 24
+            self._send(200, json.dumps(history.series(key, hours)).encode(), "application/json")
 
         def do_POST(self) -> None:
             if self.path == "/api/pair/start" and on_pair_start is not None:
