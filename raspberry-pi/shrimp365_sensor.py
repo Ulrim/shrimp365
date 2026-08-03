@@ -38,6 +38,12 @@ try:
 except ImportError:  # pragma: no cover
     sys.exit("pyserial 이 필요합니다.  pip install pyserial")
 
+# LCD 는 선택 사항. 파일이 없어도 수집은 그대로 동작해야 한다.
+try:
+    import display as display_mod
+except ImportError:  # pragma: no cover
+    display_mod = None
+
 VERSION = "1.0.0"
 log = logging.getLogger("shrimp365")
 
@@ -286,6 +292,16 @@ def load_config(path: Path) -> configparser.ConfigParser:
     return cfg
 
 
+def _render(screen, values: dict[str, float], columns: int, rows: int, status: str, page: int) -> None:
+    """화면 갱신. LCD 가 빠져도 수집은 멈추면 안 되므로 실패를 삼킨다."""
+    if display_mod is None:
+        return
+    try:
+        screen.show(display_mod.compose(values, columns, rows, page, status))
+    except OSError as exc:
+        log.warning("화면 출력 실패: %s", exc)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Shrimp365 수질 센서 수집기")
     parser.add_argument("-c", "--config", default="/etc/shrimp365/config.ini", type=Path)
@@ -315,11 +331,30 @@ def main() -> int:
     if not enabled:
         sys.exit("활성화된 센서가 없습니다. config.ini 의 [sensors] 를 확인하세요.")
 
+    # 화면(LCD) — 없으면 조용히 넘어간다.
+    screen = None
+    page_seconds = cfg.getint("display", "page_seconds", fallback=5) if cfg.has_section("display") else 5
+    lcd_columns = cfg.getint("display", "columns", fallback=16) if cfg.has_section("display") else 16
+    lcd_rows = cfg.getint("display", "rows", fallback=2) if cfg.has_section("display") else 2
+    if display_mod is not None:
+        screen = display_mod.make_display(
+            cfg.get("display", "type", fallback="none") if cfg.has_section("display") else "none",
+            bus=cfg.getint("display", "i2c_bus", fallback=1) if cfg.has_section("display") else 1,
+            address=int(cfg.get("display", "i2c_address", fallback="0x27"), 16) if cfg.has_section("display") else 0x27,
+            columns=lcd_columns,
+            rows=lcd_rows,
+        )
+
     serial_no = board_serial()
     log.info("Shrimp365 센서 수집기 %s 시작 — 보드 %s, 센서 %s", VERSION, serial_no, list(enabled))
 
+    if screen is not None:
+        screen.show(["Shrimp365".center(lcd_columns), "starting..."[:lcd_columns]])
+
     client = ModbusClient(port, baudrate)
     stop = False
+    last_values: dict[str, float] = {}
+    status_line = ""
 
     def handle_signal(signum, _frame):
         nonlocal stop
@@ -336,32 +371,47 @@ def main() -> int:
 
         if not values:
             log.error("읽은 값이 없습니다. 배선·전원·슬레이브 ID를 확인하세요. %s", errors)
+            status_line = "SENSOR ERROR"
         else:
             stored = {k: v for k, v in values.items() if k in STORED_FIELDS}
             extra = {k: v for k, v in values.items() if k not in STORED_FIELDS}
             log.info("측정 %s%s", stored, f" (참고 {extra})" if extra else "")
 
+            last_values = values
+
             if args.dry_run:
                 print(json.dumps(values, ensure_ascii=False, indent=2))
+                status_line = "dry-run " + time.strftime("%H:%M")
             else:
                 payload = {**values, "serial": serial_no, "firmware": f"pi-{VERSION}"}
                 ok, detail = post(endpoint, device_key, payload)
                 if ok:
                     log.info("전송 완료")
+                    status_line = "sent " + time.strftime("%H:%M")
                 else:
                     # 네트워크가 끊겨도 프로세스는 살아 있어야 한다. 다음 주기에 다시 시도.
                     log.error("전송 실패 — %s", detail)
+                    status_line = "SEND FAIL " + time.strftime("%H:%M")
+
+        if screen is not None:
+            _render(screen, last_values, lcd_columns, lcd_rows, status_line, 0)
 
         if args.once:
             break
 
+        # 측정은 interval 마다지만 화면은 그동안에도 페이지를 넘겨야 한다.
         elapsed = time.monotonic() - started
-        for _ in range(int(max(0.0, interval - elapsed))):
+        remaining = int(max(0.0, interval - elapsed))
+        for tick in range(remaining):
             if stop:
                 break
+            if screen is not None and page_seconds > 0 and tick % page_seconds == 0:
+                _render(screen, last_values, lcd_columns, lcd_rows, status_line, tick // page_seconds)
             time.sleep(1)
 
     client.close()
+    if screen is not None:
+        screen.close()
     log.info("종료")
     return 0
 

@@ -47,7 +47,7 @@ sudo apt update
 sudo apt install -y python3-serial
 
 sudo mkdir -p /opt/shrimp365 /etc/shrimp365
-sudo cp shrimp365_sensor.py /opt/shrimp365/
+sudo cp shrimp365_sensor.py display.py /opt/shrimp365/
 sudo cp config.example.ini /etc/shrimp365/config.ini
 sudo chmod 600 /etc/shrimp365/config.ini   # 기기 키가 들어가므로 권한을 좁힙니다
 ```
@@ -134,6 +134,119 @@ journalctl -u shrimp365-sensor -f
 
 ---
 
+## LCD 화면 붙이기 (선택)
+
+라즈베리파이에 **I2C 문자 LCD**(1602 또는 2004)를 달면 현장에서 바로 값을 볼 수 있습니다.
+인터넷이 끊겨도 화면에는 계속 표시됩니다.
+
+### 배선 (I2C 4선)
+
+| LCD 백팩 | 라즈베리파이 |
+|---|---|
+| VCC | 5V (2번 핀) |
+| GND | GND (6번 핀) |
+| SDA | GPIO2 (3번 핀) |
+| SCL | GPIO3 (5번 핀) |
+
+### I2C 켜기
+
+```bash
+sudo raspi-config       # Interface Options → I2C → Yes
+sudo apt install -y i2c-tools
+sudo i2cdetect -y 1     # 27 또는 3f 가 보이면 정상
+```
+
+`27`이 보이면 주소는 `0x27`, `3f`면 `0x3F`입니다.
+
+### 설정
+
+`/etc/shrimp365/config.ini`
+
+```ini
+[display]
+type = i2c_lcd
+columns = 16          ; 1602 이면 16, 2004 이면 20
+rows = 2              ; 1602 이면 2,  2004 이면 4
+i2c_bus = 1
+i2c_address = 0x27
+page_seconds = 5      ; 값이 다 안 들어갈 때 넘기는 간격
+```
+
+`shrimp365` 사용자를 i2c 그룹에 넣어 줍니다.
+
+```bash
+sudo usermod -aG i2c shrimp365
+sudo systemctl restart shrimp365-sensor
+```
+
+### 표시되는 모습
+
+**2004 (20x4)** — 네 값이 한 화면에
+
+```
++--------------------+
+|Temp           28.4C|
+|pH              7.85|
+|DO          6.42mg/L|
+|Sal          21.4ppt|
++--------------------+
+```
+
+**1602 (16x2)** — 두 개씩 5초마다 번갈아
+
+```
++----------------+     +----------------+
+|Temp       28.4C|     |DO      6.42mg/L|
+|pH          7.85|  →  |Sal      21.4ppt|
++----------------+     +----------------+
+```
+
+**문제가 생기면** 값 한 줄을 밀어내고 경고를 띄웁니다.
+현장에서는 "지금 안 올라가고 있다"는 사실이 값 하나보다 중요합니다.
+
+```
++--------------------+
+|Temp           28.4C|
+|pH              7.85|
+|DO          6.42mg/L|
+|SEND FAIL 14:32     |
++--------------------+
+```
+
+| 표시 | 뜻 |
+|---|---|
+| `sent 14:32` | 14시 32분에 서버 전송 성공 |
+| `SEND FAIL 14:32` | 서버 전송 실패 (인터넷·키 확인) |
+| `SENSOR ERROR` | 센서를 하나도 읽지 못함 (배선·전원 확인) |
+| `No sensor data` | 아직 첫 측정 전 |
+
+### 알아 두실 점
+
+**한글은 표시되지 않습니다.** 문자 LCD는 폰트가 칩 안에 고정돼 있어 한글 글꼴이 없습니다.
+그래서 라벨을 `Temp` `pH` `DO` `Sal` 로 씁니다.
+한글을 꼭 쓰셔야 하면 **OLED(SSD1306)** 나 소형 HDMI 화면이 필요합니다 — 말씀 주시면 추가하겠습니다.
+
+**LCD가 고장 나도 수집은 멈추지 않습니다.** 화면 초기화나 출력이 실패하면 로그만 남기고
+측정·전송은 그대로 계속합니다.
+
+### 배선 전에 미리 보기
+
+LCD를 연결하기 전에 무엇이 표시될지 터미널에서 확인할 수 있습니다.
+
+```ini
+[display]
+type = console
+columns = 20
+rows = 4
+```
+
+```bash
+sudo python3 /opt/shrimp365/shrimp365_sensor.py \
+  --config /etc/shrimp365/config.ini --once --dry-run
+```
+
+---
+
 ## 문제 해결
 
 **`응답 없음`**
@@ -152,6 +265,11 @@ ID 변경 명령은 제조사 프로토콜 문서의 `01 06 00 1E 00 04 ...` 형
 
 **`HTTP 429`**
 너무 자주 보내고 있습니다. 서버는 기기당 분당 60회로 제한합니다. `interval_seconds`를 늘리세요.
+
+**LCD에 아무것도 안 나옴**
+`sudo i2cdetect -y 1` 로 주소가 보이는지 확인하세요. 아무것도 없으면 배선(SDA/SCL)이나
+I2C 활성화를 다시 보세요. 주소는 보이는데 화면이 빈칸이면 백팩 뒷면의 가변저항(대비)을
+돌려 주세요. 권한 문제면 `sudo usermod -aG i2c shrimp365` 후 재시작합니다.
 
 **값이 이상함**
 센서 교정이 필요합니다. 교정 절차는 제조사 문서를 따르세요.
