@@ -13,7 +13,9 @@
   }
 
   :root {
-    --navy: #1B3FBF;        /* 브랜드 남색 — 표지·마무리 배경 */
+    --dark: #0B1220;        /* 표지·마무리 배경 — 짙은 남색 */
+    --accent: #E8790C;      /* 강조 주황 — 라벨·좌측 띠·페이지 번호 */
+    --accent-soft: #ED8B16; /* 어두운 배경 위 주황(조금 밝게) */
     --ink: #0F1F45;         /* 밝은 배경 위 큰 글자 */
     --paper: #F2F5FB;       /* 본론 카드 배경 */
     --pad: 88px;            /* 모든 카드 공통 여백 */
@@ -40,7 +42,7 @@
     overflow: hidden;
   }
 
-  .card--dark  { background: var(--navy); color: #fff; }
+  .card--dark  { background: var(--dark); color: #fff; }
   .card--light { background: var(--paper); color: var(--ink); }
 
   /* 본론 카드 왼쪽 세로 띠 */
@@ -49,7 +51,7 @@
     position: absolute;
     left: 0; top: 0; bottom: 0;
     width: 14px;
-    background: var(--navy);
+    background: var(--accent);
   }
 
   /* ── 로고 락업 ───────────────────────────────── */
@@ -71,16 +73,16 @@
     font-size: 23px; font-weight: 700;
     letter-spacing: 2px;
   }
-  .card--dark  .pageno { color: rgba(255,255,255,.45); }
-  .card--light .pageno { color: rgba(15,31,69,.40); }
+  .card--dark  .pageno { color: rgba(255,255,255,.38); }
+  .card--light .pageno { color: rgba(15,31,69,.38); }
 
   /* ── 표지 ────────────────────────────────────── */
   /* 아래쪽 구분선·화살표 영역만큼 빼고 가운데를 잡는다 */
   .cover__body { flex: 1; padding-bottom: 110px; display: flex; flex-direction: column; justify-content: center; }
   .cover__label {
-    font-size: 25px; font-weight: 500;
-    letter-spacing: 5px;
-    color: rgba(255,255,255,.62);
+    font-size: 25px; font-weight: 700;
+    letter-spacing: 4px;
+    color: var(--accent-soft);
     margin-bottom: 26px;
   }
   .cover__title {
@@ -93,20 +95,20 @@
     margin-top: 34px;
     font-size: 32px; font-weight: 400;
     letter-spacing: -0.5px;
-    color: rgba(255,255,255,.72);
+    color: rgba(255,255,255,.58);
     word-break: keep-all;
   }
   .cover__rule {
     position: absolute;
     left: var(--pad); right: var(--pad); bottom: 168px;
     height: 1px;
-    background: rgba(255,255,255,.28);
+    background: rgba(255,255,255,.14);
   }
   .cover__arrow {
     position: absolute;
     left: var(--pad); bottom: 108px;
     font-size: 26px;
-    color: rgba(255,255,255,.62);
+    color: rgba(255,255,255,.42);
   }
 
   /* ── 본론(수치형·서술형 공통) ────────────────── */
@@ -115,13 +117,13 @@
   .point__index {
     font-family: var(--mono);
     font-size: 25px; font-weight: 700;
-    color: var(--navy);
+    color: var(--accent);
     letter-spacing: 1px;
   }
   .point__label {
     font-size: 37px; font-weight: 800;
     letter-spacing: -0.5px;
-    color: var(--navy);
+    color: var(--accent);
   }
   .point__value {
     font-family: var(--mono);
@@ -142,11 +144,11 @@
     white-space: normal;
     word-break: keep-all;
   }
-  .point__rule { height: 1px; background: rgba(15,31,69,.18); margin: 34px 0 30px; }
+  .point__rule { height: 1px; background: rgba(15,31,69,.16); margin: 34px 0 30px; }
   .point__caption {
     font-size: 34px; font-weight: 400;
     letter-spacing: -0.5px;
-    color: rgba(15,31,69,.62);
+    color: rgba(15,31,69,.60);
     word-break: keep-all;
   }
 
@@ -164,16 +166,17 @@
   .outro__row {
     display: flex; justify-content: space-between; align-items: baseline;
     padding: 14px 0;
-    border-bottom: 1px solid rgba(255,255,255,.24);
+    border-bottom: 1px solid rgba(255,255,255,.12);
   }
   .outro__key {
     font-size: 30px; font-weight: 400;
-    color: rgba(255,255,255,.80);
+    color: rgba(255,255,255,.62);
     letter-spacing: -0.5px;
   }
   .outro__val {
     font-family: var(--mono);
     font-size: 32px; font-weight: 700;
+    color: var(--accent-soft);
     letter-spacing: 0.5px;
   }
   .outro__foot { margin-top: auto; padding-top: 40px; }
@@ -181,7 +184,7 @@
   .outro__note {
     margin-top: 10px;
     font-size: 25px;
-    color: rgba(255,255,255,.62);
+    color: rgba(255,255,255,.52);
     letter-spacing: -0.3px;
   }
   .outro__pill {
@@ -192,7 +195,7 @@
     border-radius: 12px;
     font-family: var(--mono);
     font-size: 30px; font-weight: 700;
-    color: var(--navy);
+    color: var(--dark);
     letter-spacing: 0.5px;
   }
 </style>

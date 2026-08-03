@@ -50,13 +50,18 @@ npm run cardnews scripts/cardnews/data/<slug>.json
 ## 디자인 토큰 — 바꾸지 않는다
 
 ```
-남색 배경   #1B3FBF     표지(cover)·마무리(outro)
+다크 배경   #0B1220     표지(cover)·마무리(outro)
+강조 주황   #E8790C     좌측 띠·라벨·수치 (어두운 배경 위는 #ED8B16)
 밝은 배경   #F2F5FB     본론(point)
 짙은 남색   #0F1F45     밝은 배경 위 큰 글자
-좌측 띠     남색 14px   본론 카드 왼쪽 세로 바
+좌측 띠     주황 14px   본론 카드 왼쪽 세로 바
 여백        88px        모든 카드 공통
 캔버스      1080×1080   deviceScaleFactor 1
 ```
+
+**하우스 컬러는 짙은 남색 + 주황이다.** 기존 7편 중 6편이 이 조합을 쓴다.
+`water-quality-guide` 하나만 파란색(#1B3FBF)인데 **이건 예외이지 기준이 아니다.**
+톤을 확인할 때 그 한 편만 보고 판단하지 마라 — `ammonia-response`, `dawn-oxygen-drop`을 함께 열어야 한다.
 
 - 한글: **Pretendard**. `public/fonts/PretendardVariable.woff2`를 렌더 스크립트가 data URI로 심는다
 - 숫자·페이지 번호·수치: 등폭(DejaVu Sans Mono)
@@ -96,7 +101,7 @@ file public/cardnews/<slug>/*.png     # 8장, 전부 1080 x 1080
 - [ ] 글자가 카드 밖으로 잘리지 않았는가
 - [ ] 밝은 배경 위 보조 텍스트가 읽히는가
 - [ ] 페이지 번호가 `01 / 08` ~ `08 / 08`로 순서대로인가
-- [ ] **기존 카드와 나란히 놓았을 때 같은 시리즈로 보이는가** — `public/cardnews/water-quality-guide/01.png`가 기준선이다
+- [ ] **기존 카드와 나란히 놓았을 때 같은 시리즈로 보이는가** — `ammonia-response/01.png`와 `dawn-oxygen-drop/01.png`가 기준선이다. **한 편만 열어보고 판단하지 마라** — 예외가 섞여 있다
 
 마지막 항목이 가장 중요하다. 하나만 튀면 SNS 피드에서 브랜드가 무너진다.
 
