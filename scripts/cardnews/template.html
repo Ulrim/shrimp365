@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  /* 폰트는 렌더 스크립트가 data URI로 주입한다.
+     네트워크 폰트를 쓰면 오프라인에서 한글이 두부(□)로 나오고 렌더가 비결정적이 된다. */
+  @font-face {
+    font-family: "Pretendard";
+    src: url("__FONT_URI__") format("woff2-variations");
+    font-weight: 100 900;
+    font-display: block;
+  }
+
+  :root {
+    --navy: #1B3FBF;        /* 브랜드 남색 — 표지·마무리 배경 */
+    --ink: #0F1F45;         /* 밝은 배경 위 큰 글자 */
+    --paper: #F2F5FB;       /* 본론 카드 배경 */
+    --pad: 88px;            /* 모든 카드 공통 여백 */
+    /* 등폭 폰트에는 한글 글리프가 없다. 값에 한글이 섞였을 때 두부(□)가 되지 않도록
+       Pretendard를 폴백으로 붙여 둔다 — 숫자·기호는 등폭, 한글은 Pretendard로 떨어진다. */
+    --mono: "DejaVu Sans Mono", ui-monospace, SFMono-Regular, Menlo, "Pretendard", monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background: #888;
+  }
+
+  .card {
+    position: relative;
+    width: 1080px;
+    height: 1080px;
+    padding: var(--pad);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .card--dark  { background: var(--navy); color: #fff; }
+  .card--light { background: var(--paper); color: var(--ink); }
+
+  /* 본론 카드 왼쪽 세로 띠 */
+  .card--light::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 14px;
+    background: var(--navy);
+  }
+
+  /* ── 로고 락업 ───────────────────────────────── */
+  .logo { display: flex; align-items: center; gap: 18px; flex: none; }
+  .logo__mark {
+    width: 56px; height: 56px;
+    border-radius: 16px;
+    border: 2.5px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo__mark svg { width: 24px; height: 24px; }
+  .logo__name { font-size: 31px; font-weight: 800; letter-spacing: -0.4px; }
+
+  /* ── 페이지 번호 ─────────────────────────────── */
+  .pageno {
+    position: absolute;
+    right: var(--pad); bottom: var(--pad);
+    font-family: var(--mono);
+    font-size: 23px; font-weight: 700;
+    letter-spacing: 2px;
+  }
+  .card--dark  .pageno { color: rgba(255,255,255,.45); }
+  .card--light .pageno { color: rgba(15,31,69,.40); }
+
+  /* ── 표지 ────────────────────────────────────── */
+  /* 아래쪽 구분선·화살표 영역만큼 빼고 가운데를 잡는다 */
+  .cover__body { flex: 1; padding-bottom: 110px; display: flex; flex-direction: column; justify-content: center; }
+  .cover__label {
+    font-size: 25px; font-weight: 500;
+    letter-spacing: 5px;
+    color: rgba(255,255,255,.62);
+    margin-bottom: 26px;
+  }
+  .cover__title {
+    font-size: 98px; font-weight: 800;
+    line-height: 1.16;
+    letter-spacing: -2px;
+    word-break: keep-all;
+  }
+  .cover__sub {
+    margin-top: 34px;
+    font-size: 32px; font-weight: 400;
+    letter-spacing: -0.5px;
+    color: rgba(255,255,255,.72);
+    word-break: keep-all;
+  }
+  .cover__rule {
+    position: absolute;
+    left: var(--pad); right: var(--pad); bottom: 168px;
+    height: 1px;
+    background: rgba(255,255,255,.28);
+  }
+  .cover__arrow {
+    position: absolute;
+    left: var(--pad); bottom: 108px;
+    font-size: 26px;
+    color: rgba(255,255,255,.62);
+  }
+
+  /* ── 본론(수치형·서술형 공통) ────────────────── */
+  .point__body { flex: 1; padding-bottom: 120px; display: flex; flex-direction: column; justify-content: center; }
+  .point__head { display: flex; align-items: baseline; gap: 50px; margin-bottom: 18px; }
+  .point__index {
+    font-family: var(--mono);
+    font-size: 25px; font-weight: 700;
+    color: var(--navy);
+    letter-spacing: 1px;
+  }
+  .point__label {
+    font-size: 37px; font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--navy);
+  }
+  .point__value {
+    font-family: var(--mono);
+    font-size: 156px; font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -2px;
+    white-space: nowrap;
+  }
+  /* 값이 길면 자동으로 줄인다 — 렌더 스크립트가 글자 수를 보고 붙인다 */
+  .point__value--sm { font-size: 124px; }
+  .point__value--xs { font-size: 96px; }
+  /* 숫자가 아니라 문장을 크게 쓰는 카드 */
+  .point__value--text {
+    font-family: inherit;
+    font-size: 74px; font-weight: 800;
+    line-height: 1.24;
+    letter-spacing: -1.5px;
+    white-space: normal;
+    word-break: keep-all;
+  }
+  .point__rule { height: 1px; background: rgba(15,31,69,.18); margin: 34px 0 30px; }
+  .point__caption {
+    font-size: 34px; font-weight: 400;
+    letter-spacing: -0.5px;
+    color: rgba(15,31,69,.62);
+    word-break: keep-all;
+  }
+
+  /* ── 마무리 ──────────────────────────────────── */
+  /* 마무리 카드는 요소가 많아 세로로 넘치기 쉽다. 아래 값은 표 6행 기준으로
+     1080px 안에 딱 들어가게 맞춰져 있다 — 행을 더 넣으려면 여기를 함께 줄여야 한다. */
+  .outro__title {
+    margin-top: 44px;
+    font-size: 58px; font-weight: 800;
+    line-height: 1.24;
+    letter-spacing: -1.5px;
+    word-break: keep-all;
+  }
+  .outro__table { margin-top: 48px; }
+  .outro__row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(255,255,255,.24);
+  }
+  .outro__key {
+    font-size: 30px; font-weight: 400;
+    color: rgba(255,255,255,.80);
+    letter-spacing: -0.5px;
+  }
+  .outro__val {
+    font-family: var(--mono);
+    font-size: 32px; font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .outro__foot { margin-top: auto; padding-top: 40px; }
+  .outro__cta { font-size: 33px; font-weight: 800; letter-spacing: -0.5px; }
+  .outro__note {
+    margin-top: 10px;
+    font-size: 25px;
+    color: rgba(255,255,255,.62);
+    letter-spacing: -0.3px;
+  }
+  .outro__pill {
+    display: inline-block;
+    margin-top: 24px;
+    padding: 18px 30px;
+    background: #fff;
+    border-radius: 12px;
+    font-family: var(--mono);
+    font-size: 30px; font-weight: 700;
+    color: var(--navy);
+    letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+<div id="cards"></div>
+
+<script>
+const DATA = __CARDS_JSON__;
+
+const DROPLET =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"' +
+  ' stroke-linecap="round" stroke-linejoin="round">' +
+  '<path d="M12 2.7 6.8 9.4a6.6 6.6 0 1 0 10.4 0Z"/></svg>';
+
+const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+const logo = () =>
+  '<div class="logo"><div class="logo__mark">' + DROPLET + '</div>' +
+  '<div class="logo__name">Shrimp365</div></div>';
+
+const pageno = (i, total) =>
+  '<div class="pageno">' + String(i).padStart(2, "0") + ' / ' + String(total).padStart(2, "0") + '</div>';
+
+/** 제목은 배열(줄 단위) 또는 문자열로 받는다. 줄바꿈을 사람이 정한다 — 자동 줄바꿈은 한글에서 잘 깨진다. */
+const lines = (v) => (Array.isArray(v) ? v : String(v ?? "").split("\n")).map(esc).join("<br>");
+
+/** 큰 수치는 글자 수에 따라 단계적으로 줄인다. 넘치면 카드가 깨진다. */
+function valueClass(card) {
+  if (card.valueStyle === "text") return "point__value point__value--text";
+  const n = String(card.value ?? "").length;
+  if (n > 12) return "point__value point__value--xs";
+  if (n > 8) return "point__value point__value--sm";
+  return "point__value";
+}
+
+function render(card, i, total) {
+  const no = pageno(i, total);
+
+  if (card.type === "cover") {
+    return '<section class="card card--dark" data-index="' + i + '">' +
+      logo() +
+      '<div class="cover__body">' +
+        (card.label ? '<div class="cover__label">' + esc(card.label) + '</div>' : "") +
+        '<h1 class="cover__title">' + lines(card.title) + '</h1>' +
+        (card.subtitle ? '<p class="cover__sub">' + esc(card.subtitle) + '</p>' : "") +
+      '</div>' +
+      '<div class="cover__rule"></div><div class="cover__arrow">→</div>' + no +
+    '</section>';
+  }
+
+  if (card.type === "outro") {
+    const rows = (card.rows || []).map((r) =>
+      '<div class="outro__row"><span class="outro__key">' + esc(r[0]) + '</span>' +
+      '<span class="outro__val">' + esc(r[1]) + '</span></div>').join("");
+    return '<section class="card card--dark" data-index="' + i + '">' +
+      logo() +
+      '<h2 class="outro__title">' + lines(card.title) + '</h2>' +
+      (rows ? '<div class="outro__table">' + rows + '</div>' : "") +
+      '<div class="outro__foot">' +
+        (card.ctaTitle ? '<div class="outro__cta">' + esc(card.ctaTitle) + '</div>' : "") +
+        (card.ctaNote ? '<div class="outro__note">' + esc(card.ctaNote) + '</div>' : "") +
+        '<div class="outro__pill">' + esc(card.ctaUrl || "shrimp365.kr") + '</div>' +
+      '</div>' + no +
+    '</section>';
+  }
+
+  // 기본형: 본론 카드
+  return '<section class="card card--light" data-index="' + i + '">' +
+    logo() +
+    '<div class="point__body">' +
+      '<div class="point__head">' +
+        (card.index ? '<span class="point__index">' + esc(card.index) + '</span>' : "") +
+        (card.label ? '<span class="point__label">' + esc(card.label) + '</span>' : "") +
+      '</div>' +
+      '<div class="' + valueClass(card) + '">' + lines(card.value) + '</div>' +
+      '<div class="point__rule"></div>' +
+      (card.caption ? '<p class="point__caption">' + esc(card.caption) + '</p>' : "") +
+    '</div>' + no +
+  '</section>';
+}
+
+const total = DATA.cards.length;
+document.getElementById("cards").innerHTML =
+  DATA.cards.map((c, idx) => render(c, idx + 1, total)).join("");
+</script>
+</body>
+</html>
