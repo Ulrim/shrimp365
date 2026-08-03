@@ -638,8 +638,10 @@ def main() -> int:
     # 터치스크린용 상태 페이지.
     # 연결 화면은 사용자가 버튼을 눌렀을 때만 뜬다 — 연결하지 않은 장비도
     # 계측기로는 멀쩡히 쓸 수 있어야 하기 때문이다.
+    # 기본값은 켬. 127.0.0.1 에만 열리므로 화면이 없는 장비에서도 해가 없고,
+    # 나중에 화면을 붙였을 때 설정을 고칠 필요가 없다. 끄려면 enabled = false.
     state = None
-    if webui is not None and cfg.has_section("webui") and cfg.getboolean("webui", "enabled", fallback=False):
+    if webui is not None and cfg.getboolean("webui", "enabled", fallback=True):
         state = webui.State()
 
         def start_pairing() -> None:

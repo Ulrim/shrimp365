@@ -749,8 +749,8 @@ grep -A2 "\[webui\]" /etc/shrimp365/config.ini | grep enabled
 # 2) 수집기가 도는가
 systemctl status shrimp365-sensor
 
-# 3) 페이지가 응답하는가
-curl -I http://127.0.0.1:8080
+# 3) 페이지가 응답하는가 — 200 이면 정상
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080
 ```
 
 1번이 `false` 였다면 그게 원인입니다. `sudo ./setup-kiosk.sh` 를 다시 실행하면

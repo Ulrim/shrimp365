@@ -196,5 +196,5 @@ echo "==> 완료"
 echo "   재부팅하면 화면에 자동으로 뜹니다:  sudo reboot"
 echo "   바로 확인:  /usr/local/bin/shrimp365-kiosk"
 echo
-echo "   ※ 수집기 설정에서 상태 페이지를 켜야 합니다."
-echo "      /etc/shrimp365/config.ini 의 [webui] 에서 enabled = true"
+echo "   상태 페이지는 이 스크립트가 켜 두었습니다 (포트 $PORT)."
+echo "   화면이 안 뜨면:  systemctl status shrimp365-sensor"
