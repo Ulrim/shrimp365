@@ -109,6 +109,12 @@ export interface SensorDevice {
   api_key: string
   active: boolean
   last_seen_at: string | null
+  /** 라즈베리파이 CPU 시리얼 등 하드웨어 고정값. 기기가 스스로 보고한다. */
+  serial: string | null
+  /** 장비에서 도는 클라이언트 버전. */
+  firmware: string | null
+  /** 마지막으로 수신한 원본 측정값. 수질 기록에 저장하지 않는 값도 들어 있다. */
+  last_payload: Record<string, number | string | boolean> | null
   created_at: string
 }
 

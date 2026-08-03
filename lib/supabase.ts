@@ -100,6 +100,9 @@ export type DbSensorDevice = {
   api_key: string
   active: boolean
   last_seen_at: string | null
+  serial: string | null
+  firmware: string | null
+  last_payload: Record<string, number | string | boolean> | null
   created_at: string
 }
 

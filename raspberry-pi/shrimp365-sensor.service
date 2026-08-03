@@ -1,0 +1,31 @@
+[Unit]
+Description=Shrimp365 water quality sensor collector
+Documentation=https://www.shrimp365.kr/guide
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/shrimp365/shrimp365_sensor.py --config /etc/shrimp365/config.ini
+Restart=always
+RestartSec=15
+User=shrimp365
+Group=dialout
+
+# 센서 선이 빠지거나 인터넷이 끊겨도 프로세스는 계속 살아 있어야 한다.
+# 재시작 폭주를 막기 위한 상한.
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+# 필요한 것 외에는 접근하지 못하게 한다.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/log
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

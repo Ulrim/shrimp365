@@ -932,6 +932,37 @@ function RegisterDeviceDialog({ tank, onSuccess }: { tank: import("@/types").Tan
               </div>
             </div>
 
+            {/* Raspberry Pi 설정 — RS-485 디지털 센서(MODBUS-RTU)용 */}
+            <details className="group">
+              <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground list-none flex items-center gap-1">
+                <ChevronDown className="w-3.5 h-3.5 group-open:hidden" />
+                <ChevronUp className="w-3.5 h-3.5 hidden group-open:block" />
+                라즈베리파이 설정 보기 (수온·pH·DO·염도)
+              </summary>
+              <pre className="mt-2 text-[10px] text-muted-foreground bg-muted rounded-lg p-3 overflow-x-auto leading-relaxed border border-border">{`# 저장소의 raspberry-pi/ 폴더를 라즈베리파이에 복사한 뒤
+
+sudo apt install -y python3-serial
+sudo mkdir -p /opt/shrimp365 /etc/shrimp365
+sudo cp shrimp365_sensor.py /opt/shrimp365/
+sudo cp config.example.ini /etc/shrimp365/config.ini
+sudo chmod 600 /etc/shrimp365/config.ini
+
+# /etc/shrimp365/config.ini 에 아래 두 줄을 채웁니다
+endpoint   = ${endpointUrl}
+device_key = ${createdDevice?.api_key ?? "<발급받은_키>"}
+
+# 배선 확인 후 한 번 측정해 봅니다
+sudo python3 /opt/shrimp365/shrimp365_sensor.py \\
+  --config /etc/shrimp365/config.ini --once -v
+
+# 정상이면 상시 실행으로 등록합니다
+sudo cp shrimp365-sensor.service /etc/systemd/system/
+sudo systemctl enable --now shrimp365-sensor
+
+# 배선: 빨강 9~24V · 검정 0V · 초록 RS485 A(+) · 노랑 RS485 B(-)
+# 슬레이브 ID: pH=1, DO=3, EC/염도=4 (출고 기본값)`}</pre>
+            </details>
+
             {/* ESP32 snippet */}
             <details className="group">
               <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground list-none flex items-center gap-1">
@@ -1068,7 +1099,8 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
             <p className="text-xs text-muted-foreground text-center py-2">연결된 기기가 없습니다.</p>
           ) : (
             devices.map(device => (
-              <div key={device.id} className="flex items-center justify-between bg-muted rounded-lg px-3 py-2">
+              <div key={device.id} className="bg-muted rounded-lg px-3 py-2">
+                <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${device.active ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"}`} />
                   <div className="min-w-0">
@@ -1098,10 +1130,61 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
                     <Trash2 className="w-3 h-3" />
                   </button>
                 </div>
+                </div>
+                <DeviceIdentity device={device} />
               </div>
             ))
           )}
           <RegisterDeviceDialog tank={tank} onSuccess={loadDevices} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Device Identity ─────────────────────────────────────────────────────────
+
+// API 키는 등록 직후 한 번만 보여 주므로, 화면에서 "이 카드가 어느 장비인지"를
+// 알 수 있는 값이 필요하다. 라즈베리파이가 보고한 CPU 시리얼(보드마다 고정)을 쓴다.
+const PAYLOAD_LABELS: Record<string, { label: string; unit: string }> = {
+  temperature:   { label: "수온",   unit: "°C" },
+  ph:            { label: "pH",     unit: "" },
+  do_level:      { label: "DO",     unit: "㎎/L" },
+  salinity:      { label: "염도",   unit: "ppt" },
+  conductivity:  { label: "전도도", unit: "mS" },
+  tds:           { label: "TDS",    unit: "ppt" },
+  do_saturation: { label: "DO 포화", unit: "%" },
+  orp:           { label: "ORP",    unit: "mV" },
+}
+
+function DeviceIdentity({ device }: { device: SensorDevice }) {
+  const payload = device.last_payload ?? {}
+  const measured = Object.entries(payload).filter(
+    ([k, v]) => typeof v === "number" && k in PAYLOAD_LABELS
+  ) as [string, number][]
+
+  if (!device.serial && measured.length === 0) return null
+
+  return (
+    <div className="mt-2 pt-2 border-t border-border/60 space-y-1.5">
+      {device.serial && (
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          <Cpu className="w-3 h-3 shrink-0" aria-hidden="true" />
+          <span className="font-mono truncate" title={device.serial}>{device.serial}</span>
+          {device.firmware && <span className="opacity-70 shrink-0">· {device.firmware}</span>}
+        </div>
+      )}
+      {measured.length > 0 && (
+        <div className="flex flex-wrap gap-x-3 gap-y-1">
+          {measured.map(([key, value]) => {
+            const meta = PAYLOAD_LABELS[key]
+            return (
+              <span key={key} className="text-[10px] text-muted-foreground tabular-nums">
+                {meta.label} <span className="text-foreground font-semibold">{value}</span>
+                {meta.unit && <span className="opacity-70">{meta.unit}</span>}
+              </span>
+            )
+          })}
         </div>
       )}
     </div>

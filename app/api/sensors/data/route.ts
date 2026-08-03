@@ -19,6 +19,29 @@ function checkRateLimit(key: string): boolean {
   return true
 }
 
+/** 기기가 보내는 짧은 식별 문자열만 통과시킨다(로그·화면 오염 방지). */
+function readShortString(v: unknown, max = 64): string | null {
+  if (typeof v !== "string") return null
+  const trimmed = v.trim().slice(0, max)
+  return trimmed || null
+}
+
+/** 기기가 보낸 원본을 그대로 저장하되, 크기와 형태를 제한한다.
+ *  중첩 객체·거대한 배열이 들어와 DB가 커지는 것을 막는다. */
+function sanitizePayload(body: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  let count = 0
+  for (const [k, v] of Object.entries(body)) {
+    if (count >= 32) break
+    if (typeof v === "number" && Number.isFinite(v)) out[k] = v
+    else if (typeof v === "boolean") out[k] = v
+    else if (typeof v === "string") out[k] = v.slice(0, 120)
+    else continue
+    count++
+  }
+  return out
+}
+
 // POST /api/sensors/data
 // 기기 인증: X-Device-Key 헤더
 // RLS 없이 service-role 클라이언트 사용
@@ -146,12 +169,20 @@ export async function POST(req: NextRequest) {
       .eq("id", device.tank_id)
   } catch (e) { console.warn("[sensors/data] non-fatal:", e instanceof Error ? e.message : e) }
 
-  // 5. last_seen_at 갱신
+  // 5. 기기 상태 갱신 — 마지막 수신 시각과 자기소개(시리얼·버전), 원본 측정값.
+  //    원본을 통째로 남겨 두면 수질 기록에 저장하지 않는 값(전도도·TDS 등)도
+  //    화면에서 확인할 수 있어 현장에서 기기 상태를 파악하기 쉽다.
   try {
-    await supabaseAdmin
-      .from("sensor_devices")
-      .update({ last_seen_at: new Date().toISOString() })
-      .eq("id", device.id)
+    const deviceUpdate: Record<string, unknown> = {
+      last_seen_at: new Date().toISOString(),
+      last_payload: sanitizePayload(body),
+    }
+    const serial = readShortString(body.serial)
+    const firmware = readShortString(body.firmware)
+    if (serial) deviceUpdate.serial = serial
+    if (firmware) deviceUpdate.firmware = firmware
+
+    await supabaseAdmin.from("sensor_devices").update(deviceUpdate).eq("id", device.id)
   } catch (e) { console.warn("[sensors/data] non-fatal:", e instanceof Error ? e.message : e) }
 
   return NextResponse.json({

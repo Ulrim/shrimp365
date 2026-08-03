@@ -272,11 +272,11 @@ export const MOCK_DIAGNOSES: DiagnosisResult[] = [
 // IoT 센서
 // ─────────────────────────────────────────────
 export const MOCK_SENSOR_DEVICES: SensorDevice[] = [
-  { id: "dev-1", tank_id: "tank-1", name: "A-1조 멀티센서 (수온·DO·pH·염도)", device_type: "multi", api_key: "sk-demo-a1-xxxxx", active: true, last_seen_at: daysAgoZ(0.003), created_at: "2024-04-01T00:00:00Z" },
-  { id: "dev-2", tank_id: "tank-3", name: "B-1조 멀티센서", device_type: "multi", api_key: "sk-demo-b1-xxxxx", active: true, last_seen_at: daysAgoZ(0.008), created_at: "2024-04-05T00:00:00Z" },
-  { id: "dev-3", tank_id: "tank-5", name: "C-1조 수온·DO 센서", device_type: "do", api_key: "sk-demo-c1-xxxxx", active: true, last_seen_at: daysAgoZ(0.01),  created_at: "2024-04-10T00:00:00Z" },
-  { id: "dev-4", tank_id: "tank-6", name: "C-2조 멀티센서", device_type: "multi", api_key: "sk-demo-c2-xxxxx", active: true, last_seen_at: daysAgoZ(0.006), created_at: "2024-04-10T00:00:00Z" },
-  { id: "dev-5", tank_id: "tank-9", name: "E-1조 수온센서", device_type: "temperature", api_key: "sk-demo-e1-xxxxx", active: true, last_seen_at: daysAgoZ(0.02),  created_at: "2024-04-20T00:00:00Z" },
+  { id: "dev-1", tank_id: "tank-1", name: "A-1조 멀티센서 (수온·DO·pH·염도)", device_type: "multi", api_key: "sk-demo-a1-xxxxx", active: true, last_seen_at: daysAgoZ(0.003), serial: "10000000c0ffee01", firmware: "pi-1.0.0", last_payload: { temperature: 28.4, ph: 7.85, do_level: 6.42, salinity: 21.4, conductivity: 32.1 }, created_at: "2024-04-01T00:00:00Z" },
+  { id: "dev-2", tank_id: "tank-3", name: "B-1조 멀티센서", device_type: "multi", api_key: "sk-demo-b1-xxxxx", active: true, last_seen_at: daysAgoZ(0.008), serial: "10000000c0ffee02", firmware: "pi-1.0.0", last_payload: { temperature: 29.1, ph: 8.02, do_level: 6.9, salinity: 22.0 }, created_at: "2024-04-05T00:00:00Z" },
+  { id: "dev-3", tank_id: "tank-5", name: "C-1조 수온·DO 센서", device_type: "do", api_key: "sk-demo-c1-xxxxx", active: true, last_seen_at: daysAgoZ(0.01), serial: "10000000c0ffee03", firmware: "pi-1.0.0", last_payload: { temperature: 27.8, do_level: 5.8 }, created_at: "2024-04-10T00:00:00Z" },
+  { id: "dev-4", tank_id: "tank-6", name: "C-2조 멀티센서", device_type: "multi", api_key: "sk-demo-c2-xxxxx", active: true, last_seen_at: daysAgoZ(0.006), serial: "10000000c0ffee04", firmware: "pi-1.0.0", last_payload: { temperature: 28.9, ph: 7.7, do_level: 6.1, salinity: 20.6 }, created_at: "2024-04-10T00:00:00Z" },
+  { id: "dev-5", tank_id: "tank-9", name: "E-1조 수온센서", device_type: "temperature", api_key: "sk-demo-e1-xxxxx", active: true, last_seen_at: daysAgoZ(0.02), serial: "10000000c0ffee05", firmware: "pi-1.0.0", last_payload: { temperature: 28.2 }, created_at: "2024-04-20T00:00:00Z" },
 ]
 
 // ─────────────────────────────────────────────

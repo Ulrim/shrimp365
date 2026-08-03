@@ -56,3 +56,7 @@ next-env.d.ts
 # (세션마다 새로 clone되므로 스킬은 커밋 필요)
 .claude/*
 !.claude/skills/
+
+# Python
+__pycache__/
+*.pyc

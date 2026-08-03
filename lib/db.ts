@@ -566,6 +566,9 @@ function toSensorDevice(d: DbSensorDevice): SensorDevice {
     api_key: d.api_key,
     active: d.active,
     last_seen_at: d.last_seen_at,
+    serial: d.serial ?? null,
+    firmware: d.firmware ?? null,
+    last_payload: d.last_payload ?? null,
     created_at: d.created_at,
   }
 }
