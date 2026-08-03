@@ -42,6 +42,66 @@ function sanitizePayload(body: Record<string, unknown>): Record<string, unknown>
   return out
 }
 
+
+/** 계정 이메일을 화면에 띄울 만큼만 가린다.
+ *  장비 화면은 창고·수조 옆에 놓여 아무나 볼 수 있으므로 전체 주소를 그대로
+ *  노출하지 않는다. 본인이 자기 계정임을 알아볼 정도면 충분하다. */
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@")
+  if (!domain) return email
+  const head = local.slice(0, 2)
+  const tail = local.length > 3 ? local.slice(-1) : ""
+  return `${head}${"*".repeat(Math.max(1, local.length - head.length - tail.length))}${tail}@${domain}`
+}
+
+// GET /api/sensors/data
+// 기기가 "나는 지금 어느 계정·수조에 붙어 있나"를 확인하는 경로.
+// 재부팅 후에도 화면에 연결 정보를 띄울 수 있어야 한다.
+export async function GET(req: NextRequest) {
+  const apiKey = req.headers.get("X-Device-Key")?.trim()
+  if (!apiKey) {
+    return NextResponse.json({ error: "X-Device-Key 헤더가 필요합니다." }, { status: 401 })
+  }
+  if (!checkRateLimit(`info:${apiKey}`)) {
+    return NextResponse.json({ error: "요청이 너무 많습니다." }, { status: 429 })
+  }
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return NextResponse.json({ error: "SERVICE_ROLE_KEY_NOT_SET" }, { status: 503 })
+  }
+
+  const admin = createAdminClient()
+  const { data: device } = await admin
+    .from("sensor_devices")
+    .select("name, active, tank_id, tanks!sensor_devices_tank_id_fkey(name, farms!tanks_farm_id_fkey(name, user_id))")
+    .eq("api_key", apiKey)
+    .maybeSingle()
+
+  if (!device) {
+    return NextResponse.json({ error: "유효하지 않은 기기 키입니다." }, { status: 401 })
+  }
+
+  const tank = (Array.isArray(device.tanks) ? device.tanks[0] : device.tanks) as
+    | { name?: string; farms?: { name?: string; user_id?: string } | { name?: string; user_id?: string }[] }
+    | undefined
+  const farm = (Array.isArray(tank?.farms) ? tank?.farms[0] : tank?.farms) as
+    | { name?: string; user_id?: string }
+    | undefined
+
+  let account: string | null = null
+  if (farm?.user_id) {
+    const { data: owner } = await admin.auth.admin.getUserById(farm.user_id)
+    if (owner?.user?.email) account = maskEmail(owner.user.email)
+  }
+
+  return NextResponse.json({
+    device_name: device.name,
+    active: device.active,
+    tank_name: tank?.name ?? null,
+    farm_name: farm?.name ?? null,
+    account,
+  })
+}
+
 // POST /api/sensors/data
 // 기기 인증: X-Device-Key 헤더
 // RLS 없이 service-role 클라이언트 사용

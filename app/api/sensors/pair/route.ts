@@ -136,7 +136,7 @@ export async function GET(req: NextRequest) {
   // 승인됨 — 기기 키를 넘긴다.
   const { data: device } = await admin
     .from("sensor_devices")
-    .select("api_key, name, tank_id, tanks(name)")
+    .select("api_key, name, tank_id, tanks!sensor_devices_tank_id_fkey(name, farms!tanks_farm_id_fkey(user_id))")
     .eq("id", pairing.device_id)
     .maybeSingle()
 
@@ -145,13 +145,36 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ status: "revoked" })
   }
 
-  const tank = device.tanks as unknown as { name?: string } | { name?: string }[] | null
-  const tankName = Array.isArray(tank) ? tank[0]?.name : tank?.name
+  const tank = (Array.isArray(device.tanks) ? device.tanks[0] : device.tanks) as
+    | { name?: string; farms?: { user_id?: string } | { user_id?: string }[] }
+    | undefined
+  const farm = (Array.isArray(tank?.farms) ? tank?.farms[0] : tank?.farms) as
+    | { user_id?: string }
+    | undefined
+
+  // 장비 화면에 "어느 계정에 연결됐는지" 띄우기 위한 값.
+  // 화면이 수조 옆에 놓이므로 이메일은 일부만 보여 준다.
+  let account: string | null = null
+  if (farm?.user_id) {
+    const { data: owner } = await admin.auth.admin.getUserById(farm.user_id)
+    const email = owner?.user?.email
+    if (email) {
+      const [local, domain] = email.split("@")
+      if (domain) {
+        const head = local.slice(0, 2)
+        const tail = local.length > 3 ? local.slice(-1) : ""
+        account = `${head}${"*".repeat(Math.max(1, local.length - head.length - tail.length))}${tail}@${domain}`
+      } else {
+        account = email
+      }
+    }
+  }
 
   return NextResponse.json({
     status: "linked",
     device_key: device.api_key,
     device_name: device.name,
-    tank_name: tankName ?? null,
+    tank_name: tank?.name ?? null,
+    account,
   })
 }

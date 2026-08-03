@@ -27,6 +27,7 @@ import os
 import signal
 import struct
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -48,6 +49,11 @@ try:
     import webui
 except ImportError:  # pragma: no cover
     webui = None
+
+try:
+    import buffer as buffer_mod
+except ImportError:  # pragma: no cover
+    buffer_mod = None
 
 VERSION = "1.0.0"
 log = logging.getLogger("shrimp365")
@@ -370,6 +376,23 @@ def save_device_key(config_path: Path, key: str) -> bool:
         return False
 
 
+
+def fetch_device_info(endpoint: str, device_key: str) -> dict | None:
+    """서버에 "나는 어느 계정·수조에 붙어 있나"를 묻는다.
+    재부팅한 뒤에도 화면에 연결 정보를 띄우기 위한 것."""
+    req = urllib.request.Request(
+        endpoint,
+        headers={"X-Device-Key": device_key, "User-Agent": f"shrimp365-pi/{VERSION}"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as res:
+            return json.loads(res.read().decode() or "{}")
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError) as exc:
+        # 인터넷이 없을 수도 있다. 측정·표시에는 영향을 주지 않는다.
+        log.info("연결 정보를 확인하지 못했습니다: %s", exc)
+        return None
+
+
 def run_pairing(
     endpoint: str,
     serial_no: str,
@@ -379,6 +402,7 @@ def run_pairing(
     rows: int,
     should_stop,
     state=None,
+    on_key=None,
 ) -> str | None:
     """기기 키가 없을 때 코드를 받아 화면에 띄우고, 승인될 때까지 기다린다.
 
@@ -391,18 +415,19 @@ def run_pairing(
     while not should_stop():
         status, data = _post_json(pair_url, {"serial": serial_no, "firmware": f"pi-{VERSION}"})
         if status != 200 or "code" not in data:
-            log.error("코드를 받지 못했습니다(%s). 30초 후 다시 시도합니다.", status or "연결 실패")
+            reason = data.get("error") or ("인터넷 연결을 확인하세요" if not status else f"서버 오류 {status}")
+            log.error("코드를 받지 못했습니다: %s", reason)
             _show(screen, ["Shrimp365".center(columns), "NO NETWORK"[:columns]], rows)
-            for _ in range(30):
-                if should_stop():
-                    return None
-                time.sleep(1)
-            continue
+            if state is not None:
+                state.update(pair_error=reason, pair_code=None)
+            # 화면에 사유를 띄우고 사용자가 다시 시도하게 한다.
+            # 여기서 자동 반복하면 요청 제한에 걸린다.
+            return None
 
         code = str(data["code"])
         secret = data["pairing_secret"]
         if state is not None:
-            state.update(mode="pairing", pair_code=code, pair_url=host, status="연결 대기 중")
+            state.update(pair_code=code, pair_url=host, pair_error=None, status="연결 대기 중")
         spaced = " ".join(code)  # 화면에서 읽기 쉽게 자리마다 띄운다
         log.info("연결 코드: %s — Shrimp365 에 로그인해 이 코드를 입력하세요", code)
 
@@ -422,9 +447,10 @@ def run_pairing(
                 time.sleep(1)
 
             status, info = _get_json(f"{pair_url}?secret={secret}")
-            state = info.get("status")
+            # 지역 변수 이름이 state 파라미터와 겹치지 않게 한다.
+            pair_state = info.get("status")
 
-            if state == "linked":
+            if pair_state == "linked":
                 key = info.get("device_key")
                 tank = info.get("tank_name") or ""
                 log.info("연결 완료 — 수조: %s", tank or "(이름 없음)")
@@ -433,13 +459,22 @@ def run_pairing(
                 ascii_tank = tank if tank.isascii() else ""
                 _show(screen, ["PAIRED".center(columns), (ascii_tank or "connected").center(columns)], rows)
                 if state is not None:
-                    state.update(mode="running", pair_code=None, tank=tank, status="연결 완료")
+                    state.update(
+                        pairing=False, pair_code=None, pair_error=None,
+                        linked=True, tank=tank, account=info.get("account"),
+                        status="연결 완료",
+                    )
                 if key:
                     save_device_key(config_path, key)
+                    # 키를 받은 즉시 알린다. 아래 3초는 화면에 "PAIRED"를
+                    # 보여 주기 위한 것이라, 그 사이 수집 루프가 아직
+                    # 미연결로 판단하면 안 된다.
+                    if on_key is not None:
+                        on_key(key)
                 time.sleep(3)
                 return key
 
-            if state in ("expired", "not_found", "revoked"):
+            if pair_state in ("expired", "not_found", "revoked"):
                 log.info("코드가 만료되었습니다. 새 코드를 받습니다.")
                 break
 
@@ -453,6 +488,47 @@ def _show(screen, lines: list[str], rows: int) -> None:
         screen.show(lines[:rows])
     except OSError as exc:
         log.warning("화면 출력 실패: %s", exc)
+
+
+
+def _with_pending(base: str, store) -> str:
+    """상태 줄에 밀린 건수를 함께 보여 준다. 몇 건이 대기 중인지 알아야
+    '지금 안 올라가고 있다'는 사실이 실감난다."""
+    stamp = time.strftime("%H:%M")
+    if store is not None:
+        n = store.pending()
+        if n:
+            return f"{base} · 보관 {n}건 ({stamp})"
+    return f"{base} ({stamp})"
+
+
+def flush_buffer(store, endpoint: str, device_key: str, batch: int, should_stop) -> int:
+    """끊겼던 동안 모아 둔 값을 오래된 것부터 다시 올린다.
+
+    · 한 주기에 batch 건까지만 보낸다. 서버가 기기당 분당 60회로 제한하므로
+      한꺼번에 쏟아부으면 429 로 막힌다.
+    · 한 건이라도 실패하면 즉시 멈춘다. 회선이 다시 끊긴 것이므로 순서를
+      지키려면 여기서 그만두는 편이 맞다.
+    """
+    if store is None:
+        return 0
+
+    sent = 0
+    for row_id, recorded_at, payload in store.take(batch):
+        if should_stop():
+            break
+        body = dict(payload)
+        if recorded_at:
+            body["recorded_at"] = recorded_at
+        ok, detail = post(endpoint, device_key, body)
+        if not ok:
+            log.info("보관분 재전송 중단(%s) — 다음 기회에 이어서 보냅니다.", detail)
+            break
+        store.drop([row_id])
+        sent += 1
+        # 서버 요청 제한에 걸리지 않도록 간격을 둔다.
+        time.sleep(0.3)
+    return sent
 
 
 def _render(screen, values: dict[str, float], columns: int, rows: int, status: str, page: int) -> None:
@@ -508,23 +584,12 @@ def main() -> int:
             rows=lcd_rows,
         )
 
-    # 터치스크린용 상태 페이지 (크로미움 키오스크가 여기에 붙는다)
-    state = None
-    if webui is not None and cfg.has_section("webui") and cfg.getboolean("webui", "enabled", fallback=False):
-        state = webui.State()
-        webui.serve(state, cfg.getint("webui", "port", fallback=8080))
-
     serial_no = board_serial()
     log.info("Shrimp365 센서 수집기 %s 시작 — 보드 %s, 센서 %s", VERSION, serial_no, list(enabled))
-
-    if state is not None:
-        state.update(serial=serial_no, status="센서 확인 중")
 
     if screen is not None:
         screen.show(["Shrimp365".center(lcd_columns), "starting..."[:lcd_columns]])
 
-    # 기기 키가 없으면 페어링부터. 긴 키를 손으로 옮겨 적지 않아도 되도록,
-    # 화면에 6자리 코드를 띄우고 계정 주인이 승인하기를 기다린다.
     stop = False
 
     def handle_signal(signum, _frame):
@@ -533,22 +598,100 @@ def main() -> int:
         stop = True
 
     # 연결 대기 중에도 systemd stop / Ctrl+C 가 바로 먹히도록 먼저 등록한다.
-    signal.signal(signal.SIGTERM, handle_signal)
-    signal.signal(signal.SIGINT, handle_signal)
+    # 메인 스레드가 아니면(테스트·임베드) 등록이 안 되지만, 그 때문에
+    # 수집이 죽어서는 안 된다.
+    try:
+        signal.signal(signal.SIGTERM, handle_signal)
+        signal.signal(signal.SIGINT, handle_signal)
+    except ValueError:
+        log.debug("메인 스레드가 아니라 종료 신호를 등록하지 않았습니다.")
 
     def _stopped() -> bool:
+        # 페어링 대기용 — 취소 버튼을 누르면 즉시 빠져나온다.
+        return stop or not pairing["active"]
+
+    def _stopped_global() -> bool:
+        # 재전송용 — 종료 신호에만 반응한다.
         return stop
 
-    if not device_key or device_key.startswith("여기에"):
-        log.info("기기 키가 없습니다 — 연결 모드로 들어갑니다.")
-        device_key = run_pairing(
-            endpoint, serial_no, args.config, screen, lcd_columns, lcd_rows, _stopped, state
-        ) or ""
-        if not device_key:
-            log.error("연결되지 않았습니다. 종료합니다.")
-            if screen is not None:
-                screen.close()
-            return 1
+    # 인증 정보는 페어링 스레드가 바꿀 수 있으므로 한 곳에 모아 둔다.
+    auth = {"key": device_key if device_key and not device_key.startswith("여기에") else ""}
+    pairing = {"active": False, "thread": None}
+
+    # 터치스크린용 상태 페이지.
+    # 연결 화면은 사용자가 버튼을 눌렀을 때만 뜬다 — 연결하지 않은 장비도
+    # 계측기로는 멀쩡히 쓸 수 있어야 하기 때문이다.
+    state = None
+    if webui is not None and cfg.has_section("webui") and cfg.getboolean("webui", "enabled", fallback=False):
+        state = webui.State()
+
+        def start_pairing() -> None:
+            if pairing["active"]:
+                return
+            pairing["active"] = True
+            if state is not None:
+                state.update(pairing=True, pair_code=None, pair_error=None)
+
+            def worker() -> None:
+                def apply_key(key: str) -> None:
+                    auth["key"] = key
+
+                try:
+                    key = run_pairing(
+                        endpoint, serial_no, args.config, screen,
+                        lcd_columns, lcd_rows, _stopped, state, apply_key,
+                    )
+                    if key:
+                        auth["key"] = key
+                finally:
+                    pairing["active"] = False
+                    if state is not None and not auth["key"]:
+                        state.update(pairing=False)
+
+            pairing["thread"] = threading.Thread(target=worker, daemon=True)
+            pairing["thread"].start()
+
+        def cancel_pairing() -> None:
+            pairing["active"] = False
+            if state is not None:
+                state.update(pairing=False, pair_code=None, pair_error=None)
+
+        webui.serve(
+            state,
+            cfg.getint("webui", "port", fallback=8080),
+            on_pair_start=start_pairing,
+            on_pair_cancel=cancel_pairing,
+        )
+        state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중")
+
+    # 이미 연결된 기기라면 어느 계정·수조에 붙어 있는지 확인해 화면에 남긴다.
+    if auth["key"] and state is not None:
+        info = fetch_device_info(endpoint, auth["key"])
+        if info and not info.get("error"):
+            state.update(
+                linked=True,
+                account=info.get("account"),
+                tank=info.get("tank_name"),
+                farm=info.get("farm_name"),
+            )
+
+    if not auth["key"]:
+        log.info("기기 키가 없습니다 — 측정은 계속하고, 화면의 '기기 연결' 버튼으로 연결하세요.")
+
+    # 인터넷이 끊긴 동안의 값을 모아 두는 저장소.
+    # 회선이 돌아오면 끊겼던 시점부터 순서대로 다시 올린다.
+    store = None
+    if buffer_mod is not None and cfg.getboolean("buffer", "enabled", fallback=True):
+        store = buffer_mod.Buffer(
+            cfg.get("buffer", "path", fallback="/var/lib/shrimp365/queue.db")
+            if cfg.has_section("buffer") else "/var/lib/shrimp365/queue.db",
+            cfg.getint("buffer", "max_rows", fallback=buffer_mod.DEFAULT_MAX_ROWS)
+            if cfg.has_section("buffer") else buffer_mod.DEFAULT_MAX_ROWS,
+        )
+        if not store.available:
+            store = None
+
+    flush_batch = cfg.getint("buffer", "flush_batch", fallback=20) if cfg.has_section("buffer") else 20
 
     client = ModbusClient(port, baudrate)
     last_values: dict[str, float] = {}
@@ -573,22 +716,40 @@ def main() -> int:
                 print(json.dumps(values, ensure_ascii=False, indent=2))
                 status_line = "dry-run " + time.strftime("%H:%M")
             else:
+                recorded_at = time.strftime("%Y-%m-%dT%H:%M:%S%z") or None
                 payload = {**values, "serial": serial_no, "firmware": f"pi-{VERSION}"}
-                ok, detail = post(endpoint, device_key, payload)
-                if ok:
-                    log.info("전송 완료")
-                    status_line = "sent " + time.strftime("%H:%M")
+
+                if not auth["key"]:
+                    # 연결되지 않은 장비도 계측기로는 그대로 쓸 수 있어야 한다.
+                    # 값은 모아 두었다가 연결되는 순간 한꺼번에 올린다.
+                    if store is not None:
+                        store.append(payload, recorded_at)
+                    status_line = _with_pending("미연결 — 측정만", store)
                 else:
-                    # 네트워크가 끊겨도 프로세스는 살아 있어야 한다. 다음 주기에 다시 시도.
-                    log.error("전송 실패 — %s", detail)
-                    status_line = "SEND FAIL " + time.strftime("%H:%M")
+                    ok, detail = post(endpoint, auth["key"], payload)
+                    if ok:
+                        log.info("전송 완료")
+                        status_line = "sent " + time.strftime("%H:%M")
+                        # 회선이 살아 있는 지금이 밀린 것을 비울 기회다.
+                        sent = flush_buffer(store, endpoint, auth["key"], flush_batch, _stopped_global)
+                        if sent:
+                            log.info("보관해 둔 %d건을 마저 전송했습니다.", sent)
+                            status_line = f"sent +{sent} " + time.strftime("%H:%M")
+                    else:
+                        # 네트워크가 끊겨도 프로세스는 살아 있어야 한다.
+                        # 값은 버리지 않고 저장해 두었다가 다음에 올린다.
+                        log.error("전송 실패 — %s", detail)
+                        if store is not None:
+                            store.append(payload, recorded_at)
+                        status_line = _with_pending("SEND FAIL", store)
 
         if state is not None:
             state.update(
-                mode="running",
                 values=last_values,
                 status=status_line,
                 errors=errors,
+                linked=bool(auth["key"]),
+                pending=store.pending() if store is not None else 0,
                 updated_at=time.strftime("%H:%M:%S"),
             )
 
@@ -606,9 +767,13 @@ def main() -> int:
                 break
             if screen is not None and page_seconds > 0 and tick % page_seconds == 0:
                 _render(screen, last_values, lcd_columns, lcd_rows, status_line, tick // page_seconds)
+            if state is not None and tick % 5 == 0:
+                state.update(linked=bool(auth["key"]))
             time.sleep(1)
 
     client.close()
+    if store is not None:
+        store.close()
     if screen is not None:
         screen.close()
     log.info("종료")

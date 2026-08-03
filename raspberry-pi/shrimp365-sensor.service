@@ -23,7 +23,9 @@ NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=yes
-ReadWritePaths=/var/log
+# 오프라인 보관 DB 를 두는 곳. systemd 가 만들고 권한을 준다.
+StateDirectory=shrimp365
+ReadWritePaths=/var/log /etc/shrimp365
 
 StandardOutput=journal
 StandardError=journal
