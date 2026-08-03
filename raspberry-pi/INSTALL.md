@@ -86,6 +86,31 @@ ssh pi@shrimp-a1.local
 
 `.local` 이름이 안 잡히면 공유기 관리 화면에서 파이의 IP를 찾아 `ssh pi@192.168.0.xx` 로 접속합니다.
 
+### 한글이 깨져 보이면 (Windows 에서 접속한 경우)
+
+이 프로그램은 안내와 오류 메시지를 **한글로** 냅니다. Windows 의 명령 프롬프트(cmd)로
+접속하면 `?????` `ÇÑ±Û` 처럼 깨져서, 정작 문제가 생겼을 때 원인을 읽을 수 없습니다.
+
+**가장 빠른 해결 — Windows Terminal 로 접속하세요.** 별도 설정 없이 한글이 그대로 나옵니다.
+Windows 11 에는 기본으로 있고(시작 → `terminal`), Windows 10 이면 Microsoft Store 에서
+"Windows Terminal" 을 무료로 받으시면 됩니다.
+
+cmd 를 그대로 쓰셔야 한다면 **접속하기 전에** 문자표를 UTF-8 로 바꿉니다.
+
+```cmd
+chcp 65001
+ssh pi@shrimp-a1.local
+```
+
+이것만으로 네모(□□□)가 나온다면 글꼴 문제입니다. cmd 창 제목 표시줄에서
+**마우스 오른쪽 버튼 → 속성 → 글꼴**을 열어 `굴림체` 나 `맑은 고딕` 처럼 한글이 있는
+글꼴로 바꾸세요. `Consolas` 에는 한글이 없습니다.
+
+자세한 내용과 다른 경우(PuTTY, 파이에 모니터를 직접 붙인 경우)는
+**[부록 E](#e-한글이-깨져-보일-때)** 를 보세요.
+
+### OS 최신화
+
 접속되면 먼저 OS를 최신으로 올립니다.
 
 ```bash
@@ -153,15 +178,41 @@ scp -r raspberry-pi pi@shrimp-a1.local:~/
 cd ~/raspberry-pi
 ```
 
-### 받았는지 확인
+### 받았는지 확인 — 파일 구성
 
-어느 방법이든, 지금 위치에 아래 파일들이 있어야 합니다.
+지금 위치에서 `ls` 를 치면 아래 파일들이 보여야 합니다.
+**하나라도 빠지면 설치가 중간에 멈추므로** 먼저 맞춰 보세요.
 
 ```bash
 ls
-# config.example.ini  display.py  history.py  install.sh  README.md
-# buffer.py  shrimp365-sensor.service  shrimp365_sensor.py  webui.py ...
 ```
+
+| 파일 | 무엇인지 | 설치되는 곳 |
+|---|---|---|
+| **`install.sh`** | 설치 스크립트. 아래 것들을 제자리에 놓아 줍니다 | (설치할 때만 씀) |
+| `shrimp365_sensor.py` | **본체.** 센서 읽기·서버 전송·기기 연결을 모두 합니다 | `/opt/shrimp365/` |
+| `buffer.py` | 인터넷이 끊긴 동안 값을 모아 두는 부분 | `/opt/shrimp365/` |
+| `history.py` | 화면 그래프에 쓸 측정 이력 | `/opt/shrimp365/` |
+| `display.py` | 문자 LCD 출력 (LCD 안 달면 안 씁니다) | `/opt/shrimp365/` |
+| `webui.py` | 터치스크린에 띄우는 상태 화면 | `/opt/shrimp365/` |
+| `config.example.ini` | **설정 견본.** 포트·센서·주기를 여기서 정합니다 | `/etc/shrimp365/config.ini` |
+| `shrimp365-sensor.service` | 부팅하면 자동 시작하게 하는 등록 파일 | `/etc/systemd/system/` |
+| `setup-kiosk.sh` | 7인치 터치스크린을 쓸 때만 실행 (10번) | (설정할 때만 씀) |
+| `requirements.txt` | 필요한 파이썬 패키지 목록 (`pyserial` 하나뿐) | (참고용) |
+| `README.md` `INSTALL.md` | 문서 | (참고용) |
+
+한 줄로 확인하려면
+
+```bash
+for f in install.sh shrimp365_sensor.py buffer.py history.py display.py \
+         webui.py config.example.ini shrimp365-sensor.service; do
+  [ -f "$f" ] && echo "  OK   $f" || echo "  없음 $f"
+done
+```
+
+**`install.sh` 만 없다면** 다시 받지 않고도 진행할 수 있습니다 —
+[부록 C](#c-installsh-없이-손으로-설치하기) 의 명령을 순서대로 실행하세요.
+**`.py` 파일이 없다면** 복사가 덜 된 것이니 3번을 다시 하세요.
 
 ---
 
@@ -519,7 +570,114 @@ sudo userdel shrimp365
 Shrimp365 웹에서도 해당 기기를 **비활성**으로 바꾸거나 삭제하세요.
 그래야 그 키로는 더 이상 아무것도 올라오지 않습니다.
 
-## E. 자주 막히는 곳
+## E. 한글이 깨져 보일 때
+
+증상에 따라 원인이 다릅니다. **먼저 어떻게 깨지는지 보세요.**
+
+| 화면에 나오는 모양 | 원인 | 어디를 고치나 |
+|---|---|---|
+| `???` `?????` | 터미널 문자표가 UTF-8 이 아님 | 접속하는 PC |
+| `ÇÑ±Û` `한글` 같은 깨진 글자 | 위와 같음 (다른 문자표로 해석) | 접속하는 PC |
+| `□□□` `▯▯▯` (네모만) | 문자표는 맞는데 **글꼴에 한글이 없음** | 접속하는 PC의 글꼴 |
+| 빈칸으로 아무것도 없음 | 파이에 모니터를 직접 붙인 화면(콘솔) | 아래 4번 참고 |
+
+파이 쪽 프로그램은 언제나 UTF-8 로 내보냅니다. 그래서 **거의 모든 경우 고칠 곳은
+파이가 아니라 접속하는 PC 쪽**입니다.
+
+### 1. Windows 명령 프롬프트(cmd) · PowerShell
+
+한국어 Windows 는 기본 문자표가 `949`(CP949)라 UTF-8 한글이 깨집니다.
+**접속하기 전에** 바꾸세요.
+
+```cmd
+chcp 65001
+ssh pi@shrimp-a1.local
+```
+
+`chcp` 는 그 창에서만 유효해서, 창을 새로 열 때마다 다시 쳐야 합니다.
+매번 치기 번거로우면 아래 명령으로 cmd 가 열릴 때 자동으로 실행되게 해 둘 수 있습니다.
+
+```cmd
+reg add "HKCU\Software\Microsoft\Command Processor" /v Autorun /d "chcp 65001>nul" /f
+```
+
+되돌릴 때는
+
+```cmd
+reg delete "HKCU\Software\Microsoft\Command Processor" /v Autorun /f
+```
+
+### 2. 글꼴에 한글이 없을 때 (네모로 나옴)
+
+문자표는 맞게 잡혔는데 글꼴이 한글을 못 그리는 경우입니다.
+cmd 창 **제목 표시줄에서 마우스 오른쪽 → 속성 → 글꼴** 탭에서
+`굴림체` 또는 `맑은 고딕` 을 고르세요. 기본값인 `Consolas` 에는 한글 글자가 없습니다.
+
+### 3. Windows Terminal (권장)
+
+위 두 가지를 신경 쓸 필요가 없습니다. UTF-8 이 기본이고 한글 글꼴도 알아서 찾습니다.
+
+- Windows 11 — 이미 설치돼 있습니다. 시작 메뉴에서 `terminal`
+- Windows 10 — Microsoft Store 에서 "Windows Terminal" (무료)
+
+여러 대를 관리하실 거면 여기에 접속 정보를 저장해 두는 편이 훨씬 편합니다.
+
+### 4. PuTTY 를 쓰신다면
+
+접속 전 설정 창에서 두 군데를 바꿉니다.
+
+- **Window → Translation → Remote character set** → `UTF-8`
+- **Window → Appearance → Font** → `굴림체` 또는 `맑은 고딕`
+
+바꾼 뒤 Session 화면에서 **Save** 를 눌러야 다음에도 유지됩니다.
+
+### 5. 파이에 모니터를 직접 붙인 경우
+
+여기만은 PC 문제가 아닙니다. **Lite 버전의 검은 콘솔 화면(tty)에서는 한글이
+원리상 표시되지 않습니다.** 이 화면은 글자 모양을 몇백 개만 담을 수 있어서
+한글 글꼴이 아예 들어가지 않습니다. 문자 LCD 에 한글이 안 나오는 것과 같은 이유입니다.
+
+세 가지 중에 고르세요.
+
+1. **다른 PC에서 SSH 로 접속** — 가장 간단하고, 위 방법대로 하면 한글이 그대로 나옵니다.
+2. **데스크톱 버전 OS를 쓰고 그 안의 터미널을 사용** — 한글이 정상 표시됩니다.
+   글꼴이 부실하면 `sudo apt install -y fonts-nanum`
+3. **영어로 보기** — 급할 때 로그만 확인하는 용도입니다.
+   ```bash
+   LANG=C journalctl -u shrimp365-sensor -n 50
+   ```
+   프로그램 메시지 자체는 한글이라 그대로지만, 시스템 메시지는 영어로 나옵니다.
+
+### 6. 터치스크린에 네모(□□□)가 나올 때
+
+7인치 화면의 계기판은 전부 한글입니다. 한글 글꼴이 없으면 네모로 보입니다.
+
+```bash
+sudo apt install -y fonts-nanum
+sudo reboot
+```
+
+`setup-kiosk.sh` 가 이 글꼴을 함께 설치하지만, 그 전에 만든 장비이거나
+설치 중 인터넷이 끊겼다면 위 명령으로 채워 넣으시면 됩니다.
+
+### 7. 파이 쪽 로케일도 맞춰 두기 (선택)
+
+꼭 필요하지는 않지만, 파일 이름이나 다른 프로그램에서 한글을 쓰실 거면 맞춰 두는 편이 좋습니다.
+
+```bash
+sudo raspi-config
+# Localisation Options → Locale
+#   → 목록에서 ko_KR.UTF-8 UTF-8 을 스페이스바로 체크
+#   → 기본 로케일은 en_US.UTF-8 로 두는 것을 권합니다
+```
+
+> 기본 로케일을 `ko_KR.UTF-8` 로 바꾸면 시스템 메시지까지 한글이 됩니다.
+> 모니터를 직접 붙여 쓰는 Lite 장비에서는 그 메시지마저 안 보이게 되어 오히려 불편합니다.
+> **모니터를 붙여 쓰신다면 `en_US.UTF-8` 로 두세요.**
+
+수집기 서비스는 로케일과 무관하게 UTF-8 로 로그를 남기도록 등록 파일에 지정해 두었습니다.
+
+## F. 자주 막히는 곳
 
 **`sudo: ./install.sh: command not found`**
 
