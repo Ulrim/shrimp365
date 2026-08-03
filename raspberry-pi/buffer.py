@@ -22,9 +22,9 @@ from pathlib import Path
 
 log = logging.getLogger("shrimp365.buffer")
 
-# 5분 간격이면 하루 288건. 20,000건이면 약 70일치다.
+# 1분 간격이면 하루 1,440건. 43,200건이면 약 30일치(대략 10MB)다.
 # 그보다 오래 끊겨 있었다면 가장 오래된 것부터 버린다.
-DEFAULT_MAX_ROWS = 20_000
+DEFAULT_MAX_ROWS = 43_200
 
 
 class Buffer:

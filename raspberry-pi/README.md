@@ -3,6 +3,10 @@
 RS-485 디지털 센서(MODBUS-RTU)에서 **수온·pH·DO·염도**를 읽어 Shrimp365 계정으로 올립니다.
 로그인하면 해당 수조의 수질 기록·차트·알림에 자동으로 반영됩니다.
 
+> **처음 설치하신다면 → [INSTALL.md](INSTALL.md)**
+> 빈 SD카드에서 시작해 Shrimp365 화면에 값이 올라오는 것까지 순서대로 적어 두었습니다.
+> 이 문서는 기능과 설정 항목을 다룹니다.
+
 지원 센서 — Nengshi 디지털 센서 프로토콜
 
 | 센서 | 기본 슬레이브 ID | 읽는 값 |
@@ -42,15 +46,17 @@ RS-485 디지털 센서(MODBUS-RTU)에서 **수온·pH·DO·염도**를 읽어 S
 
 ## 3. 설치
 
-```bash
-sudo apt update
-sudo apt install -y python3-serial
+내려받은 `raspberry-pi` 폴더 안에서 한 줄이면 됩니다.
 
-sudo mkdir -p /opt/shrimp365 /etc/shrimp365
-sudo cp shrimp365_sensor.py display.py webui.py buffer.py history.py /opt/shrimp365/
-sudo cp config.example.ini /etc/shrimp365/config.ini
-sudo chmod 600 /etc/shrimp365/config.ini   # 기기 키가 들어가므로 권한을 좁힙니다
+```bash
+sudo ./install.sh
 ```
+
+패키지 설치, 프로그램 배치(`/opt/shrimp365`), 설정 파일 생성(`/etc/shrimp365/config.ini`),
+전용 계정 생성, 서비스 등록까지 한 번에 합니다. 설정을 먼저 채워야 하므로 **시작은 하지 않습니다.**
+
+> 빈 SD카드에서 시작하는 전체 절차는 **[INSTALL.md](INSTALL.md)** 에 따로 정리해 두었습니다.
+> OS 굽기, 프로그램 내려받는 세 가지 방법, 마무리 확인표까지 순서대로 적혀 있습니다.
 
 ## 4. 기기 연결
 
@@ -92,7 +98,7 @@ sudo chmod 600 /etc/shrimp365/config.ini   # 기기 키가 들어가므로 권�
 [server]
 endpoint   = https://www.shrimp365.kr/api/sensors/data
 device_key = 발급받은_키
-interval_seconds = 300      ; 5분마다 측정
+interval_seconds = 60       ; 1분마다 측정
 
 [serial]
 port = /dev/ttyUSB0         ; USB 변환기. GPIO UART면 /dev/serial0
@@ -418,20 +424,21 @@ sudo reboot
 [buffer]
 enabled = true
 path = /var/lib/shrimp365/queue.db
-max_rows = 20000      ; 5분 간격이면 약 70일치
-flush_batch = 20      ; 한 주기에 올릴 밀린 건수
+max_rows = 43200      ; 1분 간격이면 약 30일치
+flush_batch = 40      ; 한 주기에 올릴 밀린 건수
 ```
 
 - 저장은 **SQLite**입니다. 파이썬에 내장이라 따로 설치할 것이 없고, 정전이 나도 파일이 깨지지 않습니다.
 - 상한을 넘으면 **가장 오래된 것부터** 버립니다. 디스크가 가득 차 파이가 멈추는 쪽이 더 나쁩니다.
-- 한 번에 20건씩만 올립니다. 서버가 기기당 분당 60회로 제한하기 때문에 한꺼번에 쏟으면 막힙니다.
+- 한 번에 40건씩만 올립니다. 서버가 기기당 분당 60회로 제한하기 때문에 한꺼번에 쏟으면 막힙니다.
+  실제 시간의 40배 속도라, 하루치가 밀려 있어도 **약 36분**이면 다 따라잡습니다.
 - 재전송 중 다시 끊기면 그 자리에서 멈추고, 다음 기회에 이어서 보냅니다. 순서가 뒤섞이지 않습니다.
 
 ### 확인
 
 ```bash
-# 몇 건이 밀려 있는지
-sqlite3 /var/lib/shrimp365/queue.db "select count(*) from readings;"
+# 몇 건이 밀려 있는지 (sqlite3 명령이 없어도 되도록 파이썬으로)
+sudo -u shrimp365 python3 -c "import sqlite3;print(sqlite3.connect('/var/lib/shrimp365/queue.db').execute('select count(*) from readings').fetchone()[0])"
 ```
 
 화면 오른쪽 위의 **보관 N건** 칩으로도 바로 확인할 수 있습니다.

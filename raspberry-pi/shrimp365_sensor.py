@@ -562,7 +562,7 @@ def main() -> int:
     cfg = load_config(args.config)
     endpoint = cfg.get("server", "endpoint")
     device_key = cfg.get("server", "device_key")
-    interval = cfg.getint("server", "interval_seconds", fallback=300)
+    interval = cfg.getint("server", "interval_seconds", fallback=60)
 
     port = cfg.get("serial", "port", fallback="/dev/ttyUSB0")
     baudrate = cfg.getint("serial", "baudrate", fallback=9600)
@@ -709,7 +709,7 @@ def main() -> int:
         if not store.available:
             store = None
 
-    flush_batch = cfg.getint("buffer", "flush_batch", fallback=20) if cfg.has_section("buffer") else 20
+    flush_batch = cfg.getint("buffer", "flush_batch", fallback=40) if cfg.has_section("buffer") else 40
 
     client = ModbusClient(port, baudrate)
     last_values: dict[str, float] = {}
