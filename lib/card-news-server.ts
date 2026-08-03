@@ -4,10 +4,17 @@ import { cache } from "react"
 import { createClient } from "@supabase/supabase-js"
 import type { CardNews } from "@/lib/card-news"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
+/** 환경변수가 없으면 null. 이 모듈은 sitemap·목록 등 프리렌더 경로에서 불리는데,
+ *  createClient가 그대로 throw하면 빌드 전체가 죽는다("supabaseUrl is required").
+ *  환경변수 없는 환경(프리뷰 배포 등)에서는 카드뉴스만 비우고 빌드는 살린다. */
 function publicClient() {
+  if (!supabaseUrl || !anonKey) {
+    console.error("[card-news] NEXT_PUBLIC_SUPABASE_URL/ANON_KEY 미설정 — 카드뉴스를 비웁니다.")
+    return null
+  }
   return createClient(supabaseUrl, anonKey, { auth: { persistSession: false } })
 }
 
@@ -15,7 +22,9 @@ const SELECT = "id, slug, locale, title, summary, body, images, cover_url, tags,
 
 /** 특정 언어의 게시된 카드뉴스 목록(최신순). */
 export const getCardNewsListServer = cache(async (locale: string): Promise<CardNews[]> => {
-  const { data, error } = await publicClient()
+  const client = publicClient()
+  if (!client) return []
+  const { data, error } = await client
     .from("card_news")
     .select(SELECT)
     .eq("locale", locale)
@@ -32,6 +41,7 @@ export const getCardNewsListServer = cache(async (locale: string): Promise<CardN
  *  (검색결과로 유입된 사용자가 404를 보지 않도록). */
 export const getCardNewsServer = cache(async (slug: string, locale: string): Promise<CardNews | null> => {
   const client = publicClient()
+  if (!client) return null
   const exact = await client.from("card_news").select(SELECT).eq("slug", slug).eq("locale", locale).eq("published", true).maybeSingle()
   if (exact.data) return exact.data as CardNews
 
@@ -42,7 +52,9 @@ export const getCardNewsServer = cache(async (slug: string, locale: string): Pro
 /** 같은 슬러그가 존재하는 언어 목록 — hreflang 생성용.
  *  실제로 등록된 언어만 돌려주므로 없는 언어판을 가리키는 일이 없다. */
 export const getCardNewsLocalesServer = cache(async (slug: string): Promise<string[]> => {
-  const { data } = await publicClient()
+  const client = publicClient()
+  if (!client) return []
+  const { data } = await client
     .from("card_news")
     .select("locale")
     .eq("slug", slug)
@@ -52,7 +64,9 @@ export const getCardNewsLocalesServer = cache(async (slug: string): Promise<stri
 
 /** sitemap 생성용 — 전 언어 전체 목록. */
 export const getAllCardNewsServer = cache(async (): Promise<Pick<CardNews, "slug" | "locale" | "updated_at">[]> => {
-  const { data, error } = await publicClient()
+  const client = publicClient()
+  if (!client) return []
+  const { data, error } = await client
     .from("card_news")
     .select("slug, locale, updated_at")
     .eq("published", true)
@@ -67,6 +81,7 @@ export const getAllCardNewsServer = cache(async (): Promise<Pick<CardNews, "slug
 /** 같은 태그를 공유하는 다른 글 — 내부 링크(크롤 경로) 확보용. */
 export const getRelatedCardNewsServer = cache(async (current: CardNews, limit = 3): Promise<CardNews[]> => {
   const client = publicClient()
+  if (!client) return []
   let rows: CardNews[] = []
 
   if (current.tags?.length) {

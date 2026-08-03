@@ -1,0 +1,71 @@
+{
+  "slug": "molting-care",
+  "locale": "vi",
+  "cards": [
+    {
+      "type": "cover",
+      "label": "TÔM THẺ · LỘT XÁC",
+      "title": ["Nguy hiểm nhất", "là sau lột xác"],
+      "subtitle": "Vỏ mới chưa cứng, tôm không tự vệ"
+    },
+    {
+      "type": "point",
+      "index": "01",
+      "label": "Lột xác",
+      "valueStyle": "text",
+      "value": ["Tôm thay", "toàn bộ vỏ"],
+      "caption": "Tôm chỉ lớn lên khi lột xác"
+    },
+    {
+      "type": "point",
+      "index": "02",
+      "label": "Giai đoạn nguy hiểm",
+      "value": "24–72h",
+      "caption": "Thời gian vỏ mới cứng lại"
+    },
+    {
+      "type": "point",
+      "index": "03",
+      "label": "Oxy hòa tan",
+      "value": "≥ 5.0",
+      "caption": "Nhu cầu tăng mạnh khi lột xác"
+    },
+    {
+      "type": "point",
+      "index": "04",
+      "label": "Độ kiềm",
+      "value": "100–150",
+      "caption": "Thấp quá thì vỏ không cứng được"
+    },
+    {
+      "type": "point",
+      "index": "05",
+      "label": "Độ mặn thay đổi",
+      "value": "< 5 ppt",
+      "caption": "Mỗi ngày. Vượt mức sẽ lột xác lỗi"
+    },
+    {
+      "type": "point",
+      "index": "06",
+      "label": "Cho ăn",
+      "valueStyle": "text",
+      "value": ["Đừng cho ăn thêm", "khi tôm bỏ ăn"],
+      "caption": "Giảm ăn trước khi lột là bình thường"
+    },
+    {
+      "type": "outro",
+      "title": ["Cần kiểm tra", "khi tôm lột xác"],
+      "rows": [
+        ["Oxy hòa tan", "≥ 5.0 mg/L"],
+        ["Độ kiềm", "100–150 mg/L"],
+        ["Độ mặn / ngày", "< 5 ppt"],
+        ["Nhiệt độ / ngày", "< 3 ℃"],
+        ["Nơi trú ẩn", "Đầy đủ"],
+        ["Thức ăn", "Ít hơn thường"]
+      ],
+      "ctaTitle": "Ghi mỗi ngày sẽ thấy chu kỳ lột xác",
+      "ctaNote": "Miễn phí · Không cần cài app",
+      "ctaUrl": "shrimp365.kr"
+    }
+  ]
+}

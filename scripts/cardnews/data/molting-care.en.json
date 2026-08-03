@@ -1,0 +1,71 @@
+{
+  "slug": "molting-care",
+  "locale": "en",
+  "cards": [
+    {
+      "type": "cover",
+      "label": "WHITE SHRIMP · MOLTING",
+      "title": ["After a molt,", "shrimp are prey"],
+      "subtitle": "A soft shell means no defence"
+    },
+    {
+      "type": "point",
+      "index": "01",
+      "label": "Molting",
+      "valueStyle": "text",
+      "value": ["They shed the", "whole shell"],
+      "caption": "Shrimp grow only when they molt"
+    },
+    {
+      "type": "point",
+      "index": "02",
+      "label": "Danger window",
+      "value": "24–72h",
+      "caption": "Time the new shell needs to harden"
+    },
+    {
+      "type": "point",
+      "index": "03",
+      "label": "Oxygen",
+      "value": "≥ 5.0",
+      "caption": "Demand rises sharply while molting"
+    },
+    {
+      "type": "point",
+      "index": "04",
+      "label": "Alkalinity",
+      "value": "100–150",
+      "caption": "Too low and the shell won't harden"
+    },
+    {
+      "type": "point",
+      "index": "05",
+      "label": "Salinity swing",
+      "value": "< 5 ppt",
+      "caption": "Per day. Beyond that, molt failure"
+    },
+    {
+      "type": "point",
+      "index": "06",
+      "label": "Feeding",
+      "valueStyle": "text",
+      "value": ["Don't feed more", "when they stop"],
+      "caption": "Lower intake before a molt is normal"
+    },
+    {
+      "type": "outro",
+      "title": ["Check these", "during molting"],
+      "rows": [
+        ["Dissolved oxygen", "≥ 5.0 mg/L"],
+        ["Alkalinity", "100–150 mg/L"],
+        ["Salinity / day", "< 5 ppt"],
+        ["Temperature / day", "< 3 ℃"],
+        ["Shelter", "Plenty"],
+        ["Feed", "Less than usual"]
+      ],
+      "ctaTitle": "Log it daily and the cycle appears",
+      "ctaNote": "Free · No app install",
+      "ctaUrl": "shrimp365.kr"
+    }
+  ]
+}

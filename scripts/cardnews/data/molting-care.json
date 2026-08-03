@@ -1,0 +1,71 @@
+{
+  "slug": "molting-care",
+  "locale": "ko",
+  "cards": [
+    {
+      "type": "cover",
+      "label": "흰다리새우 탈피 관리",
+      "title": ["탈피 직후가", "가장 위험합니다"],
+      "subtitle": "새 껍질이 굳기 전까지 무방비 상태"
+    },
+    {
+      "type": "point",
+      "index": "01",
+      "label": "탈피란",
+      "valueStyle": "text",
+      "value": ["껍질을 통째로", "갈아입습니다"],
+      "caption": "새우는 탈피할 때만 자랍니다"
+    },
+    {
+      "type": "point",
+      "index": "02",
+      "label": "위험 구간",
+      "value": "24–72h",
+      "caption": "새 껍질이 굳는 데 걸리는 시간"
+    },
+    {
+      "type": "point",
+      "index": "03",
+      "label": "산소",
+      "value": "≥ 5.0",
+      "caption": "탈피기에는 요구량이 더 올라갑니다"
+    },
+    {
+      "type": "point",
+      "index": "04",
+      "label": "알칼리도",
+      "value": "100–150",
+      "caption": "낮으면 껍질이 굳지 못합니다"
+    },
+    {
+      "type": "point",
+      "index": "05",
+      "label": "염도 급변",
+      "value": "< 5 ppt",
+      "caption": "하루 변화 폭. 넘으면 탈피 부전"
+    },
+    {
+      "type": "point",
+      "index": "06",
+      "label": "먹이",
+      "valueStyle": "text",
+      "value": ["안 먹는다고", "더 주지 마세요"],
+      "caption": "탈피기 식욕 저하는 정상입니다"
+    },
+    {
+      "type": "outro",
+      "title": ["탈피기에", "확인할 것"],
+      "rows": [
+        ["용존산소", "≥ 5.0 mg/L"],
+        ["알칼리도", "100–150 mg/L"],
+        ["염도 일변화", "< 5 ppt"],
+        ["수온 일변화", "< 3 ℃"],
+        ["은신처", "충분히"],
+        ["사료", "평소보다 적게"]
+      ],
+      "ctaTitle": "매일 기록하면 탈피 주기가 보입니다",
+      "ctaNote": "완전 무료 · 앱 설치 불필요",
+      "ctaUrl": "shrimp365.kr"
+    }
+  ]
+}
