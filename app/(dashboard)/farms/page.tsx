@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { MOCK_FARMS, MOCK_TANKS, MOCK_SENSOR_DEVICES, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
-import { getFarms, getTanksByFarm, createFarm, createTank, updateFarm, deleteFarm, updateTank, deleteTank, getSensorDevices, createSensorDevice, deleteSensorDevice, toggleSensorDevice } from "@/lib/db"
+import { getFarms, getTanksByFarm, createFarm, createTank, updateFarm, deleteFarm, updateTank, deleteTank, getSensorDevices, createSensorDevice, deleteSensorDevice, toggleSensorDevice, requestDeviceUpdate } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -1014,6 +1014,16 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
   const [expanded, setExpanded] = useState(false)
   const [loading, setLoading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  // 배포된 최신 버전. 정적 파일이라 로그인 없이도 읽힌다.
+  const [latest, setLatest] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!expanded || latest !== null) return
+    fetch("/updates/manifest.json")
+      .then(r => (r.ok ? r.json() : null))
+      .then(m => setLatest(typeof m?.latest === "string" ? m.latest : ""))
+      .catch(() => setLatest(""))
+  }, [expanded, latest])
 
   function timeSince(iso: string | null) {
     if (!iso) return "미연결"
@@ -1133,6 +1143,7 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
                 </div>
                 </div>
                 <DeviceIdentity device={device} />
+                <DeviceUpdate device={device} latest={latest} onChanged={loadDevices} />
               </div>
             ))
           )}
@@ -1189,6 +1200,133 @@ function DeviceIdentity({ device }: { device: SensorDevice }) {
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Device Update ───────────────────────────────────────────────────────────
+
+// 원격 업데이트는 승인제다. 여기서 누른 기기만 다음 확인 때(하루 한 번)
+// 새 버전을 받아 간다. 누르지 않으면 장비는 지금 버전 그대로 돈다.
+//
+// 꾸러미가 진짜인지는 이 화면이 아니라 서명이 보장한다. 장비는 서명을
+// 확인한 뒤에만 적용하고, 적용 후 자리를 잡지 못하면 스스로 되돌린다.
+
+/** "1.2.3" 을 견줄 수 있는 형태로. 형식이 아니면 null. */
+function parseVersion(v: string | null): number[] | null {
+  if (!v || !/^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v)) return null
+  return v.split(".").map(Number)
+}
+
+function isNewer(candidate: string | null, current: string | null): boolean {
+  const a = parseVersion(candidate)
+  const b = parseVersion(current)
+  if (!a) return false
+  if (!b) return true // 버전을 아직 모르는 기기 — 일단 올릴 수 있게 둔다
+  for (let i = 0; i < 3; i++) {
+    if (a[i] !== b[i]) return a[i] > b[i]
+  }
+  return false
+}
+
+const UPDATE_STATUS_LABELS: Record<string, string> = {
+  requested: "업데이트 대기 중",
+  downloading: "내려받는 중",
+  applied: "업데이트 완료",
+  failed: "업데이트 실패",
+  rolled_back: "되돌림 — 이전 버전으로 동작 중",
+}
+
+function DeviceUpdate({
+  device, latest, onChanged,
+}: {
+  device: SensorDevice
+  latest: string | null
+  onChanged: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const current = device.agent_version
+  const pending = device.update_to
+  const canUpdate = !pending && isNewer(latest, current)
+  const failed = device.update_status === "failed" || device.update_status === "rolled_back"
+
+  // 보여줄 것이 아무것도 없으면 자리를 차지하지 않는다.
+  if (!current && !pending && !canUpdate && !failed) return null
+
+  async function handle(version: string | null) {
+    setBusy(true)
+    setError(null)
+    try {
+      await requestDeviceUpdate(device.id, version)
+      onChanged()
+    } catch {
+      setError("변경하지 못했습니다. 잠시 후 다시 시도해 주세요.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mt-2 pt-2 border-t border-border/60 space-y-1.5">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[10px] text-muted-foreground">
+          버전 <span className="text-foreground font-mono">{current ?? "확인 전"}</span>
+        </span>
+
+        {canUpdate && (
+          <>
+            <span className="text-[10px] text-emerald-500 font-medium">
+              새 버전 {latest}
+            </span>
+            <button
+              onClick={() => handle(latest)}
+              disabled={busy}
+              className="text-[10px] px-2 py-1 min-h-[28px] rounded border border-ocean-500/40 text-ocean-500 hover:bg-ocean-500/10 transition-colors disabled:opacity-50"
+            >
+              {busy ? "요청 중…" : "업데이트"}
+            </button>
+          </>
+        )}
+
+        {pending && (
+          <>
+            <span className="text-[10px] text-ocean-500 font-medium">
+              {UPDATE_STATUS_LABELS[device.update_status ?? "requested"] ?? "대기 중"} → {pending}
+            </span>
+            <button
+              onClick={() => handle(null)}
+              disabled={busy}
+              className="text-[10px] px-2 py-1 min-h-[28px] rounded border border-border text-muted-foreground hover:text-red-500 hover:border-red-500/30 transition-colors disabled:opacity-50"
+              title="아직 받아 가지 않았다면 취소됩니다"
+            >
+              취소
+            </button>
+          </>
+        )}
+
+        {!pending && failed && (
+          <span className="text-[10px] text-amber-500 font-medium">
+            {UPDATE_STATUS_LABELS[device.update_status!]}
+          </span>
+        )}
+      </div>
+
+      {pending && (
+        <p className="text-[10px] text-muted-foreground leading-relaxed">
+          장비가 하루에 한 번 확인합니다. 바로 적용하려면 장비에서{" "}
+          <code className="font-mono">sudo systemctl start shrimp365-update</code>
+        </p>
+      )}
+
+      {!pending && failed && device.update_message && (
+        <p className="text-[10px] text-muted-foreground leading-relaxed break-words">
+          {device.update_message}
+        </p>
+      )}
+
+      {error && <p className="text-[10px] text-red-500">{error}</p>}
     </div>
   )
 }

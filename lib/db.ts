@@ -569,8 +569,33 @@ function toSensorDevice(d: DbSensorDevice): SensorDevice {
     serial: d.serial ?? null,
     firmware: d.firmware ?? null,
     last_payload: d.last_payload ?? null,
+    agent_version: d.agent_version ?? null,
+    update_to: d.update_to ?? null,
+    update_status: d.update_status ?? null,
+    update_message: d.update_message ?? null,
+    update_status_at: d.update_status_at ?? null,
     created_at: d.created_at,
   }
+}
+
+/** 이 기기에 특정 버전으로의 업데이트를 승인한다.
+ *  기기는 다음 확인 때(하루 한 번) 이 값을 보고 받아 간다.
+ *  null 을 주면 승인을 거둬들인다 — 아직 안 받아 갔다면 취소된다. */
+export async function requestDeviceUpdate(id: string, version: string | null): Promise<SensorDevice> {
+  const { data, error } = await supabase
+    .from("sensor_devices")
+    .update({
+      update_to: version,
+      update_requested_at: version ? new Date().toISOString() : null,
+      update_status: version ? "requested" : null,
+      update_message: null,
+    })
+    .eq("id", id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return toSensorDevice(data)
 }
 
 export async function getSensorDevices(tankId: string): Promise<SensorDevice[]> {
