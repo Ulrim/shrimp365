@@ -10,17 +10,47 @@
 
 set -euo pipefail
 
-KIOSK_URL="${KIOSK_URL:-http://127.0.0.1:8080}"
+CONF=/etc/shrimp365/config.ini
 TARGET_USER="${SUDO_USER:-$(id -un)}"
 USER_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
-
-echo "==> 대상 사용자: $TARGET_USER ($USER_HOME)"
-echo "==> 키오스크 주소: $KIOSK_URL"
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "sudo 로 실행하세요:  sudo ./setup-kiosk.sh" >&2
   exit 1
 fi
+
+# ── 0. 상태 페이지 켜기 ──────────────────────────────────────────────────────
+# 이걸 안 켜 두면 크로미움이 "This site can't be reached" 만 띄운다.
+# 화면을 붙이려고 이 스크립트를 돌리는 것이므로, 여기서 알아서 켠다.
+PORT=8080
+if [ -f "$CONF" ]; then
+  PORT="$(awk '/^\[webui\]/{s=1;next} /^\[/{s=0} s&&/^[[:space:]]*port[[:space:]]*=/{gsub(/[^0-9]/,"",$0);print;exit}' "$CONF")"
+  [ -n "$PORT" ] || PORT=8080
+
+  if awk '/^\[webui\]/{s=1;next} /^\[/{s=0} s&&/^[[:space:]]*enabled[[:space:]]*=/{print;exit}' "$CONF" \
+     | grep -qi "true"; then
+    echo "==> 상태 페이지가 이미 켜져 있습니다 (포트 $PORT)"
+  else
+    echo "==> 상태 페이지를 켭니다 ([webui] enabled = true)"
+    # [webui] 구간 안의 enabled 만 바꾼다. 다른 구간에도 같은 이름이 있다.
+    awk '/^\[webui\]/{s=1} /^\[/&&!/^\[webui\]/{s=0}
+         s&&/^[[:space:]]*enabled[[:space:]]*=/{print "enabled = true";next}
+         {print}' "$CONF" > "$CONF.tmp"
+    # 권한과 소유자를 원본 그대로 유지한 채 바꿔치기한다.
+    chown --reference="$CONF" "$CONF.tmp"
+    chmod --reference="$CONF" "$CONF.tmp"
+    mv "$CONF.tmp" "$CONF"
+    systemctl restart shrimp365-sensor 2>/dev/null || true
+  fi
+else
+  echo "==> 설정 파일이 없습니다($CONF). 수집기를 먼저 설치하세요 — INSTALL.md 4번" >&2
+  exit 1
+fi
+
+KIOSK_URL="${KIOSK_URL:-http://127.0.0.1:$PORT}"
+
+echo "==> 대상 사용자: $TARGET_USER ($USER_HOME)"
+echo "==> 키오스크 주소: $KIOSK_URL"
 
 # ── 1. 크로미움 설치 ─────────────────────────────────────────────────────────
 echo "==> 크로미움 설치"
@@ -51,10 +81,36 @@ if [ -f "\$PROFILE/Default/Preferences" ]; then
 fi
 
 # 수집기가 상태 페이지를 올릴 때까지 기다린다(최대 60초).
+UP=no
 for _ in \$(seq 1 60); do
-  if curl -sf -o /dev/null --max-time 2 "\$URL"; then break; fi
+  if curl -sf -o /dev/null --max-time 2 "\$URL"; then UP=yes; break; fi
   sleep 1
 done
+
+# 끝내 안 뜨면 크로미움의 "This site can't be reached" 가 나온다.
+# 화면만 있는 장비에서는 그 영어 문구로 무엇을 해야 할지 알 수 없으므로,
+# 무엇이 문제이고 무엇을 하면 되는지 우리말로 띄운다.
+if [ "\$UP" != yes ]; then
+  cat > /tmp/shrimp365-down.html <<'HTML'
+<!doctype html><html lang="ko"><meta charset="utf-8">
+<style>
+ body{background:#0b1220;color:#e6edf7;font-family:sans-serif;margin:0;
+      height:100vh;display:flex;flex-direction:column;justify-content:center;padding:0 48px}
+ h1{font-size:30px;margin:0 0 8px} p{color:#93a4bf;font-size:17px;margin:0 0 22px}
+ li{font-size:16px;line-height:2.1} code{background:#16223a;padding:3px 8px;border-radius:5px}
+</style>
+<h1>측정 화면을 불러오지 못했습니다</h1>
+<p>수집기가 실행 중이 아니거나 상태 페이지가 꺼져 있습니다.</p>
+<ol>
+ <li>수집기가 도는지 — <code>systemctl status shrimp365-sensor</code></li>
+ <li>안 돌면 — <code>sudo systemctl start shrimp365-sensor</code></li>
+ <li>설정의 <code>[webui] enabled = true</code> 확인</li>
+ <li>고친 뒤 — <code>sudo systemctl restart shrimp365-sensor</code></li>
+</ol>
+<p>수집기는 이 화면과 무관하게 계속 측정하고 있습니다.</p>
+HTML
+  URL="file:///tmp/shrimp365-down.html"
+fi
 
 BROWSER=\$(command -v chromium-browser || command -v chromium)
 

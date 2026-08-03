@@ -365,16 +365,6 @@ retention_days = 8      ; 화면에서 최대 일주일까지 보므로 여유�
 최근 일주일까지는 위 그래프로 장비에서 바로 봅니다. 그보다 오래된 이력이나
 여러 수조 비교가 필요하면 같은 화면에서 브라우저 주소만 바꿔 Shrimp365에 접속하면 됩니다.
 
-### 설정
-
-`/etc/shrimp365/config.ini`
-
-```ini
-[webui]
-enabled = true
-port = 8080
-```
-
 ### 키오스크 설치
 
 데스크톱이 있는 Raspberry Pi OS에서 실행합니다(Lite 버전에는 데스크톱이 없습니다).
@@ -386,10 +376,19 @@ sudo reboot
 
 이 스크립트가 하는 일
 
-- 크로미움 설치, 키오스크 실행 스크립트 생성
+- **상태 페이지 켜기** (`[webui] enabled = true`) 후 수집기 재시작
+- 크로미움·한글 글꼴 설치, 키오스크 실행 스크립트 생성
 - 부팅 시 자동 실행 등록 (Wayland·X11 환경 모두 대응)
 - 화면 절전·꺼짐·마우스 커서 비활성화
 - 정전 후 뜨는 "복원하시겠습니까?" 안내 제거
+
+상태 페이지 설정은 `/etc/shrimp365/config.ini` 에서 바꿀 수 있습니다.
+
+```ini
+[webui]
+enabled = true
+port = 8080
+```
 
 재부팅 없이 바로 확인하려면
 
@@ -473,6 +472,11 @@ I2C 활성화를 다시 보세요. 주소는 보이는데 화면이 빈칸이면
 서버로 전송이 안 되고 있습니다. `journalctl -u shrimp365-sensor -f` 로 사유를 보세요.
 `HTTP 401` 이면 기기 키 문제, 연결 실패면 회선 문제입니다. 값은 그동안에도 계속 쌓이므로
 회선이 돌아오면 자동으로 채워집니다.
+
+**터치스크린에 `This site can't be reached`**
+상태 페이지가 꺼져 있습니다. `sudo ./setup-kiosk.sh` 를 다시 실행하면 켜 줍니다.
+직접 고치려면 `[webui] enabled = true` 로 바꾸고 `sudo systemctl restart shrimp365-sensor`.
+수집기는 그동안에도 정상적으로 측정·전송하므로 데이터가 비지는 않습니다.
 
 **터치스크린이 검은 화면**
 `systemctl status shrimp365-sensor` 로 수집기가 도는지, 설정의 `[webui] enabled = true`

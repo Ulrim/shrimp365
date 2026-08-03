@@ -433,18 +433,14 @@ sudo systemctl restart shrimp365-sensor
 
 데스크톱이 있는 Raspberry Pi OS 에서만 됩니다.
 
-```ini
-[webui]
-enabled = true
-port = 8080
-```
-
 ```bash
-sudo systemctl restart shrimp365-sensor
 cd ~/raspberry-pi
 sudo ./setup-kiosk.sh
 sudo reboot
 ```
+
+스크립트가 상태 페이지(`[webui] enabled`)를 알아서 켜고 수집기를 다시 시작합니다.
+크로미움 설치, 부팅 시 자동 실행, 화면 절전 해제, 한글 글꼴까지 함께 처리합니다.
 
 재부팅하면 화면에 계기판이 자동으로 뜹니다. 값 칸을 누르면 **6시간·12시간·24시간·일주일**
 그래프가 열립니다.
@@ -740,6 +736,32 @@ sed -i 's/\r$//' install.sh            # Windows 줄바꿈(CRLF) 제거
 **보관 건수가 계속 늘어남**
 전송이 안 되고 있습니다. `journalctl -u shrimp365-sensor -f` 로 사유를 보세요.
 값은 그동안에도 계속 쌓이므로, 원인을 고치면 끊겼던 시점부터 자동으로 채워집니다.
+
+**터치스크린에 `This site can't be reached` 가 나옴**
+
+크로미움은 떴는데 **상태 페이지가 안 올라와 있는** 것입니다. 수집기는 그동안에도
+정상적으로 측정·전송하고 있으니 데이터가 비지는 않습니다.
+
+```bash
+# 1) 상태 페이지가 켜져 있는가 — enabled = true 여야 합니다
+grep -A2 "\[webui\]" /etc/shrimp365/config.ini | grep enabled
+
+# 2) 수집기가 도는가
+systemctl status shrimp365-sensor
+
+# 3) 페이지가 응답하는가
+curl -I http://127.0.0.1:8080
+```
+
+1번이 `false` 였다면 그게 원인입니다. `sudo ./setup-kiosk.sh` 를 다시 실행하면
+알아서 켜 줍니다(예전 버전 스크립트는 켜 주지 않았습니다). 직접 고치셔도 됩니다.
+
+```bash
+sudo nano /etc/shrimp365/config.ini      # [webui] 아래 enabled = true
+sudo systemctl restart shrimp365-sensor
+```
+
+고친 뒤 화면만 다시 띄우려면 `/usr/local/bin/shrimp365-kiosk` 를 실행하거나 재부팅하세요.
 
 **터치스크린이 검은 화면**
 `curl http://127.0.0.1:8080` 이 파이에서 응답하면 수집기는 정상이고 크로미움 쪽 문제입니다.
