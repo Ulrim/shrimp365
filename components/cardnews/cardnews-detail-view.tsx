@@ -4,7 +4,6 @@ import { ArrowLeft, ArrowRight, Eye, Heart } from "lucide-react"
 import { getRelatedCardNewsServer } from "@/lib/card-news-server"
 import { CardDeck } from "@/components/cardnews/card-deck"
 import { CardNewsViewPing } from "@/components/cardnews/view-ping"
-import { ShareBar } from "@/components/cardnews/share-bar"
 import { LikeButton } from "@/components/ui/like-button"
 import { BASE, localePrefix, HREFLANG_TAG } from "@/lib/marketing-locale"
 import type { CardNews } from "@/lib/card-news"
@@ -110,7 +109,8 @@ export async function CardNewsDetailView({
         <CardDeck
           images={post.images}
           title={post.title}
-          labels={{ prev: c.prev, next: c.next, cardIndex: c.cardIndex, saveImage: c.saveImage }}
+          labels={{ prev: c.prev, next: c.next, cardIndex: c.cardIndex }}
+          share={{ url, text: post.summary || excerpt(post.body) }}
         />
 
         {/* 본문 — 이미지 속 글자는 검색엔진이 읽지 못하므로 텍스트 본문이 실제 SEO 자산이다. */}
@@ -120,9 +120,8 @@ export async function CardNewsDetailView({
           </div>
         )}
 
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+        <div className="mt-8 flex justify-center">
           <LikeButton kind="cardnews" id={post.id} initialCount={post.like_count ?? 0} />
-          <ShareBar url={url} title={post.title} text={post.summary || excerpt(post.body)} />
         </div>
 
         {post.tags.length > 0 && (

@@ -2,19 +2,22 @@
 
 import Image from "next/image"
 import { useEffect, useState } from "react"
-import { ChevronLeft, ChevronRight, Download } from "lucide-react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ShareBar } from "@/components/cardnews/share-bar"
 
 type Props = {
   images: string[]
   title: string
-  labels: { prev: string; next: string; cardIndex: string; saveImage: string }
+  labels: { prev: string; next: string; cardIndex: string }
+  /** 카드 아래 공유 버튼에 넘길 값 — 상세 화면의 canonical 주소와 요약. */
+  share: { url: string; text?: string }
 }
 
 /**
  * 카드 뷰어. 이미지 자체는 서버 렌더된 <noscript> 폴백과 별개로
  * 여기서 한 장씩 넘겨 본다. 크롤러용 전체 이미지는 아래 목록에 그대로 남긴다.
  */
-export function CardDeck({ images, title, labels }: Props) {
+export function CardDeck({ images, title, labels, share }: Props) {
   const [idx, setIdx] = useState(0)
   const total = images.length
 
@@ -101,16 +104,7 @@ export function CardDeck({ images, title, labels }: Props) {
           <span />
         )}
 
-        <a
-          href={images[idx]}
-          target="_blank"
-          rel="noopener noreferrer"
-          download
-          className="shrink-0 inline-flex items-center gap-1.5 text-sm border border-border rounded-lg px-3 min-h-[44px] hover:bg-muted transition-colors"
-        >
-          <Download className="w-4 h-4" aria-hidden="true" />
-          {labels.saveImage}
-        </a>
+        <ShareBar url={share.url} title={title} text={share.text} />
       </div>
     </div>
   )
