@@ -1,0 +1,72 @@
+{
+  "slug": "high-temperature",
+  "locale": "ko",
+  "cards": [
+    {
+      "type": "cover",
+      "label": "흰다리새우 고수온기",
+      "title": ["34℃ 넘으면", "물이 달라집니다"],
+      "subtitle": "여름 폐사는 산소에서 시작합니다"
+    },
+    {
+      "type": "point",
+      "index": "01",
+      "label": "위험 수온",
+      "value": "34 ℃",
+      "caption": "넘으면 성장보다 생존이 먼저입니다"
+    },
+    {
+      "type": "point",
+      "index": "02",
+      "label": "여름의 구조",
+      "valueStyle": "text",
+      "value": ["산소는 덜 녹고", "더 필요합니다"],
+      "caption": "수온이 오를수록 양쪽이 벌어집니다"
+    },
+    {
+      "type": "point",
+      "index": "03",
+      "label": "간췌장",
+      "value": "33 ℃",
+      "caption": "이 온도가 이어지면 간이 상합니다"
+    },
+    {
+      "type": "point",
+      "index": "04",
+      "label": "수심",
+      "value": "≥ 1.2 m",
+      "caption": "깊을수록 천천히 더워집니다"
+    },
+    {
+      "type": "point",
+      "index": "05",
+      "label": "수차",
+      "valueStyle": "text",
+      "value": ["한낮에도", "돌리세요"],
+      "caption": "성층을 깨고 바닥 물을 섞습니다"
+    },
+    {
+      "type": "point",
+      "index": "06",
+      "label": "사료",
+      "valueStyle": "text",
+      "value": ["남기면", "독이 됩니다"],
+      "caption": "안 먹은 사료가 산소를 씁니다"
+    },
+    {
+      "type": "outro",
+      "title": ["여름에는", "이렇게 봅니다"],
+      "rows": [
+        ["위험 수온", "≥ 34 ℃"],
+        ["용존산소", "≥ 5.0 mg/L"],
+        ["수심", "≥ 1.2 m"],
+        ["수온 일변화", "< 3 ℃"],
+        ["수차", "한낮에도"],
+        ["사료", "줄이기"]
+      ],
+      "ctaTitle": "수온이 기준을 넘으면 알림",
+      "ctaNote": "완전 무료 · 앱 설치 불필요",
+      "ctaUrl": "shrimp365.kr"
+    }
+  ]
+}

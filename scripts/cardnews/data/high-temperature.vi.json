@@ -1,0 +1,72 @@
+{
+  "slug": "high-temperature",
+  "locale": "vi",
+  "cards": [
+    {
+      "type": "cover",
+      "label": "TÔM THẺ · NẮNG NÓNG",
+      "title": ["Trên 34 ℃", "ao khác hẳn"],
+      "subtitle": "Hao hụt mùa nóng bắt đầu từ oxy"
+    },
+    {
+      "type": "point",
+      "index": "01",
+      "label": "Ngưỡng nguy hiểm",
+      "value": "34 ℃",
+      "caption": "Vượt mức này, sống sót quan trọng hơn lớn"
+    },
+    {
+      "type": "point",
+      "index": "02",
+      "label": "Vì sao mùa nóng",
+      "valueStyle": "text",
+      "value": ["Oxy tan ít đi,", "nhu cầu lại tăng"],
+      "caption": "Nước càng nóng, khoảng cách càng xa"
+    },
+    {
+      "type": "point",
+      "index": "03",
+      "label": "Gan tụy",
+      "value": "33 ℃",
+      "caption": "Kéo dài ở mức này, gan tụy tổn thương"
+    },
+    {
+      "type": "point",
+      "index": "04",
+      "label": "Mực nước",
+      "value": "≥ 1.2 m",
+      "caption": "Nước sâu thì nóng lên chậm hơn"
+    },
+    {
+      "type": "point",
+      "index": "05",
+      "label": "Quạt nước",
+      "valueStyle": "text",
+      "value": ["Giữa trưa", "cũng phải chạy"],
+      "caption": "Phá phân tầng, trộn nước tầng đáy"
+    },
+    {
+      "type": "point",
+      "index": "06",
+      "label": "Thức ăn",
+      "valueStyle": "text",
+      "value": ["Dư thừa", "thành chất độc"],
+      "caption": "Thức ăn thừa tiêu hao oxy của ao"
+    },
+    {
+      "type": "outro",
+      "title": ["Mùa nóng", "cần theo dõi"],
+      "rows": [
+        ["Ngưỡng nguy hiểm", "≥ 34 ℃"],
+        ["Oxy hòa tan", "≥ 5.0 mg/L"],
+        ["Mực nước", "≥ 1.2 m"],
+        ["Nhiệt độ / ngày", "< 3 ℃"],
+        ["Quạt nước", "Cả giữa trưa"],
+        ["Thức ăn", "Giảm bớt"]
+      ],
+      "ctaTitle": "Báo ngay khi nhiệt độ vượt ngưỡng",
+      "ctaNote": "Miễn phí · Không cần cài app",
+      "ctaUrl": "shrimp365.kr"
+    }
+  ]
+}
