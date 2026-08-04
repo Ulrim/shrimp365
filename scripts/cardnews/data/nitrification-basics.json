@@ -1,0 +1,72 @@
+{
+  "slug": "nitrification-basics",
+  "locale": "ko",
+  "cards": [
+    {
+      "type": "cover",
+      "label": "질산화와 미생물제",
+      "title": ["미생물제는", "약이 아닙니다"],
+      "subtitle": "자리 잡는 데 몇 주 걸립니다"
+    },
+    {
+      "type": "point",
+      "index": "01",
+      "label": "질산화",
+      "valueStyle": "text",
+      "value": ["암모니아 →", "아질산 → 질산"],
+      "caption": "두 단계로 나뉘어 진행됩니다"
+    },
+    {
+      "type": "point",
+      "index": "02",
+      "label": "담당 균",
+      "valueStyle": "text",
+      "value": ["단계마다", "다른 균입니다"],
+      "caption": "그래서 아질산 구간이 생깁니다"
+    },
+    {
+      "type": "point",
+      "index": "03",
+      "label": "자리 잡는 데",
+      "value": "2–4주",
+      "caption": "오늘 넣어 오늘 내려가지 않습니다"
+    },
+    {
+      "type": "point",
+      "index": "04",
+      "label": "넣는 시점",
+      "valueStyle": "text",
+      "value": ["시작할 때와", "소독 직후"],
+      "caption": "사고 난 뒤가 아니라 평소에"
+    },
+    {
+      "type": "point",
+      "index": "05",
+      "label": "알칼리도",
+      "value": "7.14 g",
+      "caption": "암모니아 1 g 처리에 쓰입니다"
+    },
+    {
+      "type": "point",
+      "index": "06",
+      "label": "산소",
+      "value": "≥ 5 mg/L",
+      "caption": "질산화균도 산소를 씁니다"
+    },
+    {
+      "type": "outro",
+      "title": ["미생물제는", "이렇게 씁니다"],
+      "rows": [
+        ["질산화", "2단계"],
+        ["정착 기간", "2–4주"],
+        ["넣는 시점", "시작 · 소독 후"],
+        ["알칼리도", "100–150 mg/L"],
+        ["용존산소", "≥ 5.0 mg/L"],
+        ["수치가 올랐을 때", "급이 감축 먼저"]
+      ],
+      "ctaTitle": "알칼리도와 질소를 함께 기록",
+      "ctaNote": "완전 무료 · 앱 설치 불필요",
+      "ctaUrl": "shrimp365.kr"
+    }
+  ]
+}
