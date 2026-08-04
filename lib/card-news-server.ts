@@ -20,6 +20,18 @@ function publicClient() {
 
 const SELECT = "id, slug, locale, title, summary, body, images, cover_url, tags, published, published_at, view_count, like_count, created_at, updated_at"
 
+/** 예약 발행 기준 시각. published_at 이 이 시각을 지나야 공개한다.
+ *
+ *  published=true 로 미리 넣어 두고 published_at 을 미래 날짜로 잡으면
+ *  그날이 되기 전까지 목록·본문·사이트맵 어디에도 나오지 않는다.
+ *  페이지는 revalidate=300 이므로 날짜가 지나고 최대 5분 안에 노출된다.
+ *
+ *  RLS 정책은 published=true 만 보므로 이 필터는 서버 조회 계층에 둔다.
+ *  service_role 로 도는 관리자 API는 영향을 받지 않는다. */
+function publishedBy() {
+  return new Date().toISOString()
+}
+
 /** 특정 언어의 게시된 카드뉴스 목록(최신순). */
 export const getCardNewsListServer = cache(async (locale: string): Promise<CardNews[]> => {
   const client = publicClient()
@@ -29,6 +41,7 @@ export const getCardNewsListServer = cache(async (locale: string): Promise<CardN
     .select(SELECT)
     .eq("locale", locale)
     .eq("published", true)
+    .lte("published_at", publishedBy())
     .order("published_at", { ascending: false })
   if (error) {
     console.error("[card-news] list", error.message)
@@ -42,10 +55,12 @@ export const getCardNewsListServer = cache(async (locale: string): Promise<CardN
 export const getCardNewsServer = cache(async (slug: string, locale: string): Promise<CardNews | null> => {
   const client = publicClient()
   if (!client) return null
-  const exact = await client.from("card_news").select(SELECT).eq("slug", slug).eq("locale", locale).eq("published", true).maybeSingle()
+  const exact = await client.from("card_news").select(SELECT).eq("slug", slug).eq("locale", locale)
+    .eq("published", true).lte("published_at", publishedBy()).maybeSingle()
   if (exact.data) return exact.data as CardNews
 
-  const any = await client.from("card_news").select(SELECT).eq("slug", slug).eq("published", true).limit(1)
+  const any = await client.from("card_news").select(SELECT).eq("slug", slug)
+    .eq("published", true).lte("published_at", publishedBy()).limit(1)
   return ((any.data as CardNews[]) || [])[0] ?? null
 })
 
@@ -59,6 +74,7 @@ export const getCardNewsLocalesServer = cache(async (slug: string): Promise<stri
     .select("locale")
     .eq("slug", slug)
     .eq("published", true)
+    .lte("published_at", publishedBy())
   return [...new Set(((data as { locale: string }[]) || []).map((r) => r.locale))]
 })
 
@@ -70,6 +86,7 @@ export const getAllCardNewsServer = cache(async (): Promise<Pick<CardNews, "slug
     .from("card_news")
     .select("slug, locale, updated_at")
     .eq("published", true)
+    .lte("published_at", publishedBy())
     .order("published_at", { ascending: false })
   if (error) {
     console.error("[card-news] sitemap", error.message)
@@ -90,6 +107,7 @@ export const getRelatedCardNewsServer = cache(async (current: CardNews, limit = 
       .select(SELECT)
       .eq("locale", current.locale)
       .eq("published", true)
+      .lte("published_at", publishedBy())
       .neq("id", current.id)
       .overlaps("tags", current.tags)
       .order("published_at", { ascending: false })
@@ -103,6 +121,7 @@ export const getRelatedCardNewsServer = cache(async (current: CardNews, limit = 
       .select(SELECT)
       .eq("locale", current.locale)
       .eq("published", true)
+      .lte("published_at", publishedBy())
       .neq("id", current.id)
       .order("published_at", { ascending: false })
       .limit(limit)
