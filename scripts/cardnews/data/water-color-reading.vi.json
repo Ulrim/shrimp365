@@ -1,0 +1,16 @@
+{
+  "slug": "water-color-reading",
+  "locale": "vi",
+  "cards": [
+    { "type": "cover", "label": "ĐỌC MÀU NƯỚC", "title": ["Nước bỗng", "trong hẳn ra"], "subtitle": "Dấu hiệu đầu của sập tảo" },
+    { "type": "point", "index": "01", "label": "Độ trong", "value": "30–40 cm", "caption": "Đo bằng đĩa Secchi mỗi ngày" },
+    { "type": "point", "index": "02", "label": "Quá dày", "value": "< 25 cm", "caption": "Tảo đã quá nhiều" },
+    { "type": "point", "index": "03", "label": "Dấu hiệu nguy", "valueStyle": "text", "value": ["Trong hẳn", "chỉ sau một ngày"], "caption": "Tảo đang sập" },
+    { "type": "point", "index": "04", "label": "Sau khi sập", "valueStyle": "text", "value": ["Đêm đó", "hết oxy"], "caption": "Quang hợp dừng, chỉ còn phân hủy" },
+    { "type": "point", "index": "05", "label": "Màu tốt", "valueStyle": "text", "value": ["Xanh lá nhạt", "nâu nhạt"], "caption": "Màu sáng và tươi là khỏe" },
+    { "type": "point", "index": "06", "label": "Màu xấu", "valueStyle": "text", "value": ["Xanh lam đậm", "hoặc xám"], "caption": "Tảo lam hoặc tế bào đã chết" },
+    { "type": "outro", "title": ["Màu nước:", "cần theo dõi"],
+      "rows": [["Độ trong", "30–40 cm"], ["Quá dày", "< 25 cm"], ["Dấu hiệu sập", "Trong đột ngột"], ["Màu tốt", "Xanh lá nhạt"], ["Màu xấu", "Xanh lam, xám"], ["Sau khi sập", "Quạt hết công suất"]],
+      "ctaTitle": "Ghi độ trong và oxy cùng lúc", "ctaNote": "Miễn phí · Không cần cài app", "ctaUrl": "shrimp365.kr" }
+  ]
+}

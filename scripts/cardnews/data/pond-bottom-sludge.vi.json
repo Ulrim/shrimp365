@@ -1,0 +1,16 @@
+{
+  "slug": "pond-bottom-sludge",
+  "locale": "vi",
+  "cards": [
+    { "type": "cover", "label": "QUẢN LÝ ĐÁY AO", "title": ["Đáy đã đen", "là đã muộn"], "subtitle": "Có mùi tức là khí H2S" },
+    { "type": "point", "index": "01", "label": "Khí H2S", "value": "< 0.01", "caption": "mg/L. Giữ dưới mức này" },
+    { "type": "point", "index": "02", "label": "Độc cỡ nào", "valueStyle": "text", "value": ["0.002 thôi", "đã nguy rồi"], "caption": "Khác hẳn bậc so với chỉ tiêu khác" },
+    { "type": "point", "index": "03", "label": "Sinh ra ở đâu", "valueStyle": "text", "value": ["Lớp bùn đáy", "không có oxy"], "caption": "Nơi thức ăn và phân tích tụ" },
+    { "type": "point", "index": "04", "label": "pH", "valueStyle": "text", "value": ["pH càng thấp", "càng độc"], "caption": "Ngược hẳn với amoniac" },
+    { "type": "point", "index": "05", "label": "Cách chặn", "value": "≥ 3 mg/L", "caption": "Có oxy ở đáy thì không sinh ra" },
+    { "type": "point", "index": "06", "label": "Kiểm tra", "valueStyle": "text", "value": ["Vớt bùn đáy", "lên ngửi thử"], "caption": "Đen và mùi trứng thối là chắc" },
+    { "type": "outro", "title": ["Đáy ao:", "cần theo dõi"],
+      "rows": [["Khí H2S", "< 0.01 mg/L"], ["Bắt đầu nguy", "0.002 mg/L"], ["Oxy đáy", "≥ 3 mg/L"], ["pH", "Thấp thì độc hơn"], ["Cách xem", "Màu và mùi"], ["Xử lý", "Quạt, vét đáy"]],
+      "ctaTitle": "Ghi oxy và pH theo từng ao", "ctaNote": "Miễn phí · Không cần cài app", "ctaUrl": "shrimp365.kr" }
+  ]
+}

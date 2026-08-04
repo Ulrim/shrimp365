@@ -1,0 +1,16 @@
+{
+  "slug": "water-color-reading",
+  "locale": "id",
+  "cards": [
+    { "type": "cover", "label": "MEMBACA WARNA AIR", "title": ["Air tiba-tiba", "jadi bening"], "subtitle": "Tanda pertama plankton runtuh" },
+    { "type": "point", "index": "01", "label": "Kecerahan", "value": "30–40 cm", "caption": "Ukur dengan Secchi tiap hari" },
+    { "type": "point", "index": "02", "label": "Terlalu pekat", "value": "< 25 cm", "caption": "Plankton sudah kebanyakan" },
+    { "type": "point", "index": "03", "label": "Tanda bahaya", "valueStyle": "text", "value": ["Bening", "dalam sehari"], "caption": "Plankton sedang runtuh" },
+    { "type": "point", "index": "04", "label": "Setelah runtuh", "valueStyle": "text", "value": ["Malam itu", "oksigen habis"], "caption": "Fotosintesis berhenti, sisa penguraian" },
+    { "type": "point", "index": "05", "label": "Warna bagus", "valueStyle": "text", "value": ["Hijau muda", "cokelat muda"], "caption": "Cerah dan segar berarti sehat" },
+    { "type": "point", "index": "06", "label": "Warna buruk", "valueStyle": "text", "value": ["Hijau biru pekat", "atau kelabu"], "caption": "Sianobakteri atau sel mati" },
+    { "type": "outro", "title": ["Warna air:", "yang dipantau"],
+      "rows": [["Kecerahan", "30–40 cm"], ["Terlalu pekat", "< 25 cm"], ["Tanda runtuh", "Mendadak bening"], ["Warna bagus", "Hijau muda"], ["Warna buruk", "Hijau biru, kelabu"], ["Setelah runtuh", "Kincir maksimal"]],
+      "ctaTitle": "Catat kecerahan dan oksigen", "ctaNote": "Gratis · Tanpa instal aplikasi", "ctaUrl": "shrimp365.kr" }
+  ]
+}

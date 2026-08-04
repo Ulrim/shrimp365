@@ -1,0 +1,16 @@
+{
+  "slug": "water-color-reading",
+  "locale": "en",
+  "cards": [
+    { "type": "cover", "label": "READING THE WATER", "title": ["The water just", "cleared up"], "subtitle": "First sign of a bloom crash" },
+    { "type": "point", "index": "01", "label": "Secchi depth", "value": "30–40 cm", "caption": "Measure it every day" },
+    { "type": "point", "index": "02", "label": "Too dense", "value": "< 25 cm", "caption": "Far too much plankton" },
+    { "type": "point", "index": "03", "label": "Danger sign", "valueStyle": "text", "value": ["Cleared up", "overnight"], "caption": "The bloom is collapsing" },
+    { "type": "point", "index": "04", "label": "After a crash", "valueStyle": "text", "value": ["That night,", "no oxygen"], "caption": "Photosynthesis stops, decay stays" },
+    { "type": "point", "index": "05", "label": "Good colour", "valueStyle": "text", "value": ["Light green", "light brown"], "caption": "Bright and lively is healthy" },
+    { "type": "point", "index": "06", "label": "Bad colour", "valueStyle": "text", "value": ["Deep blue-green", "or grey"], "caption": "Cyanobacteria or dead cells" },
+    { "type": "outro", "title": ["Water colour:", "what to watch"],
+      "rows": [["Secchi depth", "30–40 cm"], ["Too dense", "< 25 cm"], ["Crash sign", "Sudden clearing"], ["Good colour", "Light green"], ["Bad colour", "Blue-green, grey"], ["After a crash", "Aerators max"]],
+      "ctaTitle": "Log clarity and oxygen together", "ctaNote": "Free · No app install", "ctaUrl": "shrimp365.kr" }
+  ]
+}

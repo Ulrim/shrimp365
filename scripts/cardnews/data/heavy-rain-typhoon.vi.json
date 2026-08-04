@@ -1,0 +1,16 @@
+{
+  "slug": "heavy-rain-typhoon",
+  "locale": "vi",
+  "cards": [
+    { "type": "cover", "label": "BÃO · MƯA LỚN", "title": ["Hôm sau mưa", "tôm mới chết"], "subtitle": "Nước mưa nổi lên, không trộn vào" },
+    { "type": "point", "index": "01", "label": "Nước mưa", "valueStyle": "text", "value": ["Nổi trên mặt,", "không trộn vào"], "caption": "Ao tách thành hai tầng" },
+    { "type": "point", "index": "02", "label": "Độ mặn đổi", "value": "< 5 ppt", "caption": "Quá mức này trong ngày là nguy" },
+    { "type": "point", "index": "03", "label": "Đang mưa", "valueStyle": "text", "value": ["Đừng tắt", "quạt nước"], "caption": "Trộn trước khi phân tầng" },
+    { "type": "point", "index": "04", "label": "Mưa tạnh rồi", "valueStyle": "text", "value": ["Xả nước", "từ tầng mặt"], "caption": "Nước ngọt đang nằm ở trên" },
+    { "type": "point", "index": "05", "label": "Độ kiềm", "value": "≥ 100", "caption": "mg/L. Giữ pH khỏi tụt" },
+    { "type": "point", "index": "06", "label": "Cho ăn", "valueStyle": "text", "value": ["Giảm lại", "ngày mưa"], "caption": "Thức ăn thừa ăn mất oxy" },
+    { "type": "outro", "title": ["Mưa lớn:", "cần làm gì"],
+      "rows": [["Độ mặn / ngày", "< 5 ppt"], ["Độ kiềm", "≥ 100 mg/L"], ["Đang mưa", "Chạy quạt"], ["Mưa tạnh", "Xả tầng mặt"], ["Cho ăn", "Giảm lại"], ["Oxy", "≥ 5.0 mg/L"]],
+      "ctaTitle": "Báo khi độ mặn hoặc oxy đổi", "ctaNote": "Miễn phí · Không cần cài app", "ctaUrl": "shrimp365.kr" }
+  ]
+}
