@@ -109,7 +109,8 @@ export async function CardNewsDetailView({
         <CardDeck
           images={post.images}
           title={post.title}
-          labels={{ prev: c.prev, next: c.next, cardIndex: c.cardIndex, saveImage: c.saveImage }}
+          labels={{ prev: c.prev, next: c.next, cardIndex: c.cardIndex }}
+          share={{ url, text: post.summary || excerpt(post.body) }}
         />
 
         {/* 본문 — 이미지 속 글자는 검색엔진이 읽지 못하므로 텍스트 본문이 실제 SEO 자산이다. */}

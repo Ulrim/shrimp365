@@ -1050,6 +1050,13 @@ export interface Dict {
     related: string
     tagAll: string
     saveImage: string
+    share: string
+    copyLink: string
+    linkCopied: string
+    shareOther: string
+    shareOnX: string
+    shareOnFacebook: string
+    linkLabel: string
     like: string
     liked: string
     unlike: string
