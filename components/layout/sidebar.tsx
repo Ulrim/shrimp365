@@ -16,6 +16,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
 import { LanguageSwitcher } from "@/components/ui/language-switcher"
 import { isMonitorAccount } from "@/lib/mock-data"
+import { localizedHref, stripLocalePrefix } from "@/lib/marketing-locale"
 
 const DropMark = ({ size = 17 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -27,7 +28,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuth()
-  const { t } = useT()
+  const { t, locale } = useT()
   const [collapsed, setCollapsed] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const isAdmin = user?.role === "admin" || isMonitorAccount(user?.email)
@@ -46,8 +47,10 @@ export function Sidebar() {
     { href: "/inventory",    icon: Package,         label: t.nav.inventory },
     { href: "/ai-advisor",   icon: BrainCircuit,    label: t.nav.aiAdvisor, badge: t.common.comingSoon },
     { href: "/reports",      icon: BarChart3,       label: t.nav.reports },
-    { href: "/board",        icon: MessageSquare,   label: t.board.title },
-    { href: "/cardnews",     icon: Layers,          label: t.cardNews.title },
+    // 공개 콘텐츠는 언어별 주소가 따로 있다. 접두사 없는 주소는 한국어로
+    // 고정되므로, 로그인한 사용자의 언어에 맞는 주소로 보낸다.
+    { href: localizedHref("/board", locale),    icon: MessageSquare, label: t.board.title },
+    { href: localizedHref("/cardnews", locale), icon: Layers,        label: t.cardNews.title },
     ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
   ]
 
@@ -58,7 +61,11 @@ export function Sidebar() {
   }
 
   const NavItem = ({ href, icon: Icon, label, badge }: { href: string; icon: React.ElementType; label: string; badge?: string }) => {
-    const isActive = pathname === href || pathname.startsWith(href + "/")
+    // 언어 접두사를 뗀 뒤 견준다. /en/cardnews 를 보고 있어도 카드뉴스가
+    // 눌린 것으로 표시되어야 한다.
+    const here = stripLocalePrefix(pathname).path
+    const target = stripLocalePrefix(href).path
+    const isActive = here === target || here.startsWith(target + "/")
     return (
       <Link
         href={href}

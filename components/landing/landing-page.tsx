@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
+import { localizedHref } from "@/lib/marketing-locale"
 import { LOCALES, LOCALE_NAMES, type Locale } from "@/lib/i18n"
 import { OPS_CSS } from "./ops-theme"
 import {
@@ -108,9 +109,11 @@ function NavBar({ onDemoClick }: { onDemoClick: () => void }) {
     { href: "#pricing", label: l.navPricing },
     { href: "#faq", label: l.navFaq },
   ]
+  // 랜딩이 /en 이면 카드뉴스·게시판도 /en 으로 보내야 한다.
+  // 접두사 없는 주소는 한국어로 고정되어 있다.
   const pages = [
-    { href: "/cardnews", label: t.cardNews.title },
-    { href: "/board", label: t.board.title },
+    { href: localizedHref("/cardnews", locale), label: t.cardNews.title },
+    { href: localizedHref("/board", locale), label: t.board.title },
   ]
   return (
     <header className="s365-header">
@@ -151,7 +154,7 @@ function NavBar({ onDemoClick }: { onDemoClick: () => void }) {
 export default function LandingPage() {
   const { user } = useAuth()
   const router = useRouter()
-  const { t } = useT()
+  const { t, locale } = useT()
   const l = t.landing
   const [faqOpen, setFaqOpen] = useState<number | null>(null)
 
@@ -323,13 +326,14 @@ export default function LandingPage() {
             <span className="s365-mark"><DropMark size={13} /></span> Shrimp365
           </div>
           <div className="s365-footlinks">
-            <Link href="/pricing">{l.navPricing}</Link>
-            {/* 공개 콘텐츠 허브 — 랜딩에서 크롤 경로를 열어 준다 */}
-            <Link href="/cardnews">{t.cardNews.title}</Link>
-            <Link href="/board">{t.board.title}</Link>
-            <Link href="/guide">{t.nav.guide}</Link>
-            <Link href="/terms">{t.settings.legalTerms}</Link>
-            <Link href="/privacy">{t.settings.legalPrivacy}</Link>
+            {/* 공개 콘텐츠 허브 — 랜딩에서 크롤 경로를 열어 준다.
+                모두 언어별 주소가 있으므로 지금 보고 있는 언어를 그대로 잇는다. */}
+            <Link href={localizedHref("/pricing", locale)}>{l.navPricing}</Link>
+            <Link href={localizedHref("/cardnews", locale)}>{t.cardNews.title}</Link>
+            <Link href={localizedHref("/board", locale)}>{t.board.title}</Link>
+            <Link href={localizedHref("/guide", locale)}>{t.nav.guide}</Link>
+            <Link href={localizedHref("/terms", locale)}>{t.settings.legalTerms}</Link>
+            <Link href={localizedHref("/privacy", locale)}>{t.settings.legalPrivacy}</Link>
             <Link href="/login">{t.auth.loginButton}</Link>
           </div>
           <div className="mono s365-copy">© {new Date().getFullYear()} Shrimp365 · {l.footerDesc}</div>

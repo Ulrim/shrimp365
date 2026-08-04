@@ -15,12 +15,13 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
 import { PLAN_LABELS, PLAN_COLORS } from "@/lib/plans"
 import { isMonitorAccount } from "@/lib/mock-data"
+import { localizedHref, stripLocalePrefix } from "@/lib/marketing-locale"
 
 export function BottomNav() {
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuth()
-  const { t } = useT()
+  const { t, locale } = useT()
   const [moreOpen, setMoreOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const isAdmin = user?.role === "admin" || isMonitorAccount(user?.email)
@@ -40,14 +41,19 @@ export function BottomNav() {
     { href: "/inventory",     icon: Package,       label: t.nav.inventory },
     { href: "/ai-advisor",    icon: BrainCircuit,  label: t.nav.aiAdvisor, badge: t.common.comingSoon },
     { href: "/reports",       icon: BarChart3,     label: t.nav.reports },
-    { href: "/board",         icon: MessageSquare, label: t.board.title },
-    { href: "/cardnews",      icon: Layers,        label: t.cardNews.title },
+    // 공개 콘텐츠는 언어별 주소가 따로 있다. 접두사 없는 주소는 한국어로
+    // 고정되므로, 로그인한 사용자의 언어에 맞는 주소로 보낸다.
+    { href: localizedHref("/board", locale),    icon: MessageSquare, label: t.board.title },
+    { href: localizedHref("/cardnews", locale), icon: Layers,        label: t.cardNews.title },
     ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
   ]
 
-  const isMoreActive = MORE.some(
-    (item) => pathname === item.href || pathname.startsWith(item.href + "/")
-  )
+  // 언어 접두사를 뗀 뒤 견준다. /en/cardnews 도 "더보기" 안의 항목이다.
+  const here = stripLocalePrefix(pathname).path
+  const isMoreActive = MORE.some((item) => {
+    const target = stripLocalePrefix(item.href).path
+    return here === target || here.startsWith(target + "/")
+  })
 
   const handleLogout = async () => {
     setMoreOpen(false)
