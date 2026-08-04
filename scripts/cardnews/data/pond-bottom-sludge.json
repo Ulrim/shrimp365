@@ -1,0 +1,73 @@
+{
+  "slug": "pond-bottom-sludge",
+  "locale": "ko",
+  "cards": [
+    {
+      "type": "cover",
+      "label": "바닥 관리",
+      "title": ["바닥이 검으면", "이미 늦습니다"],
+      "subtitle": "냄새가 나면 황화수소입니다"
+    },
+    {
+      "type": "point",
+      "index": "01",
+      "label": "황화수소",
+      "value": "< 0.01",
+      "caption": "mg/L. 이 아래여야 안전합니다"
+    },
+    {
+      "type": "point",
+      "index": "02",
+      "label": "얼마나 독한가",
+      "valueStyle": "text",
+      "value": ["0.002에서도", "위험합니다"],
+      "caption": "다른 항목과 자릿수가 다릅니다"
+    },
+    {
+      "type": "point",
+      "index": "03",
+      "label": "생기는 곳",
+      "valueStyle": "text",
+      "value": ["산소 없는", "바닥 찌꺼기"],
+      "caption": "사료와 배설물이 쌓인 자리입니다"
+    },
+    {
+      "type": "point",
+      "index": "04",
+      "label": "pH",
+      "valueStyle": "text",
+      "value": ["낮을수록", "더 독합니다"],
+      "caption": "암모니아와 정반대입니다"
+    },
+    {
+      "type": "point",
+      "index": "05",
+      "label": "막는 법",
+      "value": "≥ 3 mg/L",
+      "caption": "바닥에 산소가 있으면 안 생깁니다"
+    },
+    {
+      "type": "point",
+      "index": "06",
+      "label": "확인",
+      "valueStyle": "text",
+      "value": ["바닥 흙을", "떠서 맡으십시오"],
+      "caption": "검고 계란 썩는 냄새면 확실합니다"
+    },
+    {
+      "type": "outro",
+      "title": ["바닥은", "이렇게 봅니다"],
+      "rows": [
+        ["황화수소", "< 0.01 mg/L"],
+        ["위험 시작", "0.002 mg/L"],
+        ["바닥 산소", "≥ 3 mg/L"],
+        ["pH", "낮을수록 위험"],
+        ["확인법", "색 · 냄새"],
+        ["대책", "수차 · 바닥 청소"]
+      ],
+      "ctaTitle": "산소와 pH를 수조별로 기록",
+      "ctaNote": "완전 무료 · 앱 설치 불필요",
+      "ctaUrl": "shrimp365.kr"
+    }
+  ]
+}

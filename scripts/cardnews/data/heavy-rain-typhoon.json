@@ -1,0 +1,73 @@
+{
+  "slug": "heavy-rain-typhoon",
+  "locale": "ko",
+  "cards": [
+    {
+      "type": "cover",
+      "label": "태풍·집중호우",
+      "title": ["비 온 다음 날", "폐사가 옵니다"],
+      "subtitle": "빗물은 섞이지 않고 뜹니다"
+    },
+    {
+      "type": "point",
+      "index": "01",
+      "label": "빗물",
+      "valueStyle": "text",
+      "value": ["섞이지 않고", "위에 뜹니다"],
+      "caption": "위아래가 층으로 갈라집니다"
+    },
+    {
+      "type": "point",
+      "index": "02",
+      "label": "염도 변화",
+      "value": "< 5 ppt",
+      "caption": "하루 이 폭을 넘기면 위험합니다"
+    },
+    {
+      "type": "point",
+      "index": "03",
+      "label": "비 오는 중",
+      "valueStyle": "text",
+      "value": ["수차를", "멈추지 마세요"],
+      "caption": "층이 생기기 전에 섞습니다"
+    },
+    {
+      "type": "point",
+      "index": "04",
+      "label": "비 그친 뒤",
+      "valueStyle": "text",
+      "value": ["표층부터", "빼내십시오"],
+      "caption": "민물이 뜬 윗물을 먼저 버립니다"
+    },
+    {
+      "type": "point",
+      "index": "05",
+      "label": "알칼리도",
+      "value": "≥ 100",
+      "caption": "mg/L. pH 급락을 막아 줍니다"
+    },
+    {
+      "type": "point",
+      "index": "06",
+      "label": "급이",
+      "valueStyle": "text",
+      "value": ["비 오는 날은", "줄이십시오"],
+      "caption": "안 먹은 사료가 산소를 씁니다"
+    },
+    {
+      "type": "outro",
+      "title": ["큰비 오면", "이렇게 합니다"],
+      "rows": [
+        ["염도 일변화", "< 5 ppt"],
+        ["알칼리도", "≥ 100 mg/L"],
+        ["비 오는 중", "수차 계속"],
+        ["비 그친 뒤", "표층 배수"],
+        ["급이", "줄이기"],
+        ["용존산소", "≥ 5.0 mg/L"]
+      ],
+      "ctaTitle": "염도와 산소가 흔들리면 알림",
+      "ctaNote": "완전 무료 · 앱 설치 불필요",
+      "ctaUrl": "shrimp365.kr"
+    }
+  ]
+}
