@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Eye, Heart } from "lucide-react"
 import { getRelatedCardNewsServer } from "@/lib/card-news-server"
 import { CardDeck } from "@/components/cardnews/card-deck"
 import { CardNewsViewPing } from "@/components/cardnews/view-ping"
+import { ShareBar } from "@/components/cardnews/share-bar"
 import { LikeButton } from "@/components/ui/like-button"
 import { BASE, localePrefix, HREFLANG_TAG } from "@/lib/marketing-locale"
 import type { CardNews } from "@/lib/card-news"
@@ -119,8 +120,9 @@ export async function CardNewsDetailView({
           </div>
         )}
 
-        <div className="mt-8 flex justify-center">
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
           <LikeButton kind="cardnews" id={post.id} initialCount={post.like_count ?? 0} />
+          <ShareBar url={url} title={post.title} text={post.summary || excerpt(post.body)} />
         </div>
 
         {post.tags.length > 0 && (
