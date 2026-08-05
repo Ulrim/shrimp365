@@ -1,0 +1,16 @@
+{
+  "slug": "vibrio-monitoring",
+  "locale": "en",
+  "cards": [
+    { "type": "cover", "label": "VIBRIO CONTROL", "title": ["If the water", "glows at night"], "subtitle": "That is luminescent vibrio" },
+    { "type": "point", "index": "01", "label": "Total vibrio", "value": "< 10³", "caption": "CFU/mL. Keep it under this" },
+    { "type": "point", "index": "02", "label": "Warning zone", "value": "10² – 10³", "caption": "Start acting from here" },
+    { "type": "point", "index": "03", "label": "Green colonies", "valueStyle": "text", "value": ["The more", "dangerous kind"], "caption": "Green on TCBS agar" },
+    { "type": "point", "index": "04", "label": "The glow", "valueStyle": "text", "value": ["It means lots", "of organic matter"], "caption": "Check the bottom and the feed" },
+    { "type": "point", "index": "05", "label": "When it spikes", "valueStyle": "text", "value": ["Faster in", "warm water"], "caption": "Summer speeds up their growth" },
+    { "type": "point", "index": "06", "label": "Prevention", "valueStyle": "text", "value": ["Bottom and", "feed control"], "caption": "Environment beats treatment" },
+    { "type": "outro", "title": ["Vibrio:", "what to watch"],
+      "rows": [["Safe", "< 10² CFU/mL"], ["Warning", "10² – 10³"], ["Danger", "> 10³"], ["Worse kind", "Green colonies"], ["Glow", "Organic overload"], ["Fix", "Bottom, feed"]],
+      "ctaTitle": "Log temperature and feed together", "ctaNote": "Free · No app install", "ctaUrl": "shrimp365.kr" }
+  ]
+}

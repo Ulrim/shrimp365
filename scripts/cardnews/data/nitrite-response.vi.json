@@ -1,0 +1,16 @@
+{
+  "slug": "nitrite-response",
+  "locale": "vi",
+  "cards": [
+    { "type": "cover", "label": "XỬ LÝ NITRIT", "title": ["Sau amoniac", "là nitrit"], "subtitle": "Hạ amoniac chưa phải là xong" },
+    { "type": "point", "index": "01", "label": "Ngưỡng", "value": "< 1 mg/L", "caption": "Giữ dưới mức này" },
+    { "type": "point", "index": "02", "label": "Vì sao nguy", "valueStyle": "text", "value": ["Có oxy nhưng", "tôm không thở được"], "caption": "Nitrit chặn oxy trong máu tôm" },
+    { "type": "point", "index": "03", "label": "Khi nào tăng", "valueStyle": "text", "value": ["Trước khi vi khuẩn", "nitrat hóa ổn định"], "caption": "Hay gặp ở ao mới bắt đầu" },
+    { "type": "point", "index": "04", "label": "Độ mặn", "value": "≥ 20 ppt", "caption": "Độ mặn cao thì ít độc hơn" },
+    { "type": "point", "index": "05", "label": "Tỉ lệ clorua", "value": "20 : 1", "caption": "20 clorua cho 1 nitrit" },
+    { "type": "point", "index": "06", "label": "Làm trước", "valueStyle": "text", "value": ["Giảm cho ăn", "trước đã"], "caption": "Ít đạm vào thì mới hạ được" },
+    { "type": "outro", "title": ["Nitrit:", "cần theo dõi"],
+      "rows": [["Ngưỡng", "< 1 mg/L"], ["Tăng sau khi", "Sát trùng ao"], ["Tỉ lệ clorua", "≥ 20 : 1"], ["Độ mặn", "Cao thì an toàn"], ["Cho ăn", "Giảm trước"], ["Kiểm tra", "Mỗi ngày"]],
+      "ctaTitle": "Ghi amoniac và nitrit cùng lúc", "ctaNote": "Miễn phí · Không cần cài app", "ctaUrl": "shrimp365.kr" }
+  ]
+}

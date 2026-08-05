@@ -1,0 +1,16 @@
+{
+  "slug": "vibrio-monitoring",
+  "locale": "vi",
+  "cards": [
+    { "type": "cover", "label": "QUẢN LÝ VIBRIO", "title": ["Nếu nước ao", "phát sáng ban đêm"], "subtitle": "Đó là vibrio phát sáng" },
+    { "type": "point", "index": "01", "label": "Tổng vibrio", "value": "< 10³", "caption": "CFU/mL. Giữ dưới mức này" },
+    { "type": "point", "index": "02", "label": "Vùng cảnh báo", "value": "10² – 10³", "caption": "Từ đây là phải xử lý" },
+    { "type": "point", "index": "03", "label": "Khuẩn lạc xanh", "valueStyle": "text", "value": ["Loại nguy hiểm", "hơn hẳn"], "caption": "Màu xanh trên môi trường TCBS" },
+    { "type": "point", "index": "04", "label": "Phát sáng", "valueStyle": "text", "value": ["Nghĩa là hữu cơ", "đang quá nhiều"], "caption": "Xem lại đáy ao và lượng cho ăn" },
+    { "type": "point", "index": "05", "label": "Khi nào bùng", "valueStyle": "text", "value": ["Nước càng ấm", "càng nhanh"], "caption": "Mùa nóng chúng sinh sôi rất nhanh" },
+    { "type": "point", "index": "06", "label": "Cách chặn", "valueStyle": "text", "value": ["Quản đáy ao", "và cho ăn"], "caption": "Môi trường quan trọng hơn thuốc" },
+    { "type": "outro", "title": ["Vibrio:", "cần theo dõi"],
+      "rows": [["An toàn", "< 10² CFU/mL"], ["Cảnh báo", "10² – 10³"], ["Nguy hiểm", "> 10³"], ["Loại nguy hơn", "Khuẩn lạc xanh"], ["Phát sáng", "Thừa hữu cơ"], ["Xử lý", "Đáy ao, cho ăn"]],
+      "ctaTitle": "Ghi nhiệt độ và lượng cho ăn", "ctaNote": "Miễn phí · Không cần cài app", "ctaUrl": "shrimp365.kr" }
+  ]
+}

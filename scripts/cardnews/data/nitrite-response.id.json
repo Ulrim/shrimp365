@@ -1,0 +1,16 @@
+{
+  "slug": "nitrite-response",
+  "locale": "id",
+  "cards": [
+    { "type": "cover", "label": "PENANGANAN NITRIT", "title": ["Setelah amonia", "giliran nitrit"], "subtitle": "Amonia turun bukan berarti selesai" },
+    { "type": "point", "index": "01", "label": "Batas aman", "value": "< 1 mg/L", "caption": "Jaga di bawah angka ini" },
+    { "type": "point", "index": "02", "label": "Kenapa bahaya", "valueStyle": "text", "value": ["Oksigen ada,", "tapi tak terpakai"], "caption": "Nitrit menghambat oksigen di darah" },
+    { "type": "point", "index": "03", "label": "Kapan naik", "valueStyle": "text", "value": ["Sebelum bakteri", "nitrifikasi mapan"], "caption": "Sering di tambak yang baru mulai" },
+    { "type": "point", "index": "04", "label": "Salinitas", "value": "≥ 20 ppt", "caption": "Makin asin, makin rendah racunnya" },
+    { "type": "point", "index": "05", "label": "Rasio klorida", "value": "20 : 1", "caption": "20 klorida untuk 1 nitrit" },
+    { "type": "point", "index": "06", "label": "Langkah awal", "valueStyle": "text", "value": ["Kurangi pakan", "lebih dulu"], "caption": "Nitrogen berkurang, angka turun" },
+    { "type": "outro", "title": ["Nitrit:", "yang dipantau"],
+      "rows": [["Batas aman", "< 1 mg/L"], ["Naik setelah", "Desinfeksi"], ["Rasio klorida", "≥ 20 : 1"], ["Salinitas", "Tinggi lebih aman"], ["Pakan", "Kurangi dulu"], ["Cek", "Setiap hari"]],
+      "ctaTitle": "Catat amonia dan nitrit bersama", "ctaNote": "Gratis · Tanpa instal aplikasi", "ctaUrl": "shrimp365.kr" }
+  ]
+}

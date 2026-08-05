@@ -1,0 +1,16 @@
+{
+  "slug": "heavy-rain-typhoon",
+  "locale": "en",
+  "cards": [
+    { "type": "cover", "label": "TYPHOON · HEAVY RAIN", "title": ["Losses come", "the day after"], "subtitle": "Rainwater floats, it does not mix" },
+    { "type": "point", "index": "01", "label": "Rainwater", "valueStyle": "text", "value": ["It floats on top,", "it does not mix"], "caption": "The pond splits into layers" },
+    { "type": "point", "index": "02", "label": "Salinity swing", "value": "< 5 ppt", "caption": "Past this in a day is dangerous" },
+    { "type": "point", "index": "03", "label": "While raining", "valueStyle": "text", "value": ["Keep aerators", "running"], "caption": "Mix before the layers set" },
+    { "type": "point", "index": "04", "label": "After the rain", "valueStyle": "text", "value": ["Drain from", "the surface"], "caption": "The fresh water sits on top" },
+    { "type": "point", "index": "05", "label": "Alkalinity", "value": "≥ 100", "caption": "mg/L. It holds pH steady" },
+    { "type": "point", "index": "06", "label": "Feed", "valueStyle": "text", "value": ["Cut back on", "rainy days"], "caption": "Uneaten feed burns your oxygen" },
+    { "type": "outro", "title": ["Heavy rain:", "what to do"],
+      "rows": [["Salinity / day", "< 5 ppt"], ["Alkalinity", "≥ 100 mg/L"], ["While raining", "Aerators on"], ["After the rain", "Surface drain"], ["Feed", "Cut back"], ["Oxygen", "≥ 5.0 mg/L"]],
+      "ctaTitle": "Alerts when salinity or oxygen moves", "ctaNote": "Free · No app install", "ctaUrl": "shrimp365.kr" }
+  ]
+}
