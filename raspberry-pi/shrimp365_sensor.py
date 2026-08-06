@@ -60,7 +60,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.0.3"
+VERSION = "1.0.4"
 log = logging.getLogger("shrimp365")
 
 
@@ -138,6 +138,35 @@ class ModbusClient:
         data = response[3:3 + byte_count]
         return [struct.unpack(">h", data[i:i + 2])[0] for i in range(0, len(data), 2)]
 
+    def write_register(self, slave_id: int, register: int, value: int) -> None:
+        """기능코드 06. 센서 설정을 바꾼다(슬레이브 ID 변경 등).
+
+        응답은 보낸 것을 그대로 되돌려주는 형태다. 그래서 정말 바뀌었는지
+        확인할 수 있다.
+        """
+        if self._ser is None or not self._ser.is_open:
+            self.open()
+        assert self._ser is not None
+
+        request = struct.pack(">BBHH", slave_id, 0x06, register, value)
+        frame = request + crc16(request)
+
+        self._ser.reset_input_buffer()
+        self._ser.write(frame)
+
+        response = self._ser.read(8)
+        if len(response) < 8:
+            raise ModbusError(f"ID {slave_id}: 응답 없음 (배선·전원·슬레이브 ID 확인)")
+        if crc16(response[:-2]) != response[-2:]:
+            raise ModbusError(f"ID {slave_id}: CRC 불일치 (노이즈·종단저항 확인)")
+        if response[1] & 0x80:
+            raise ModbusError(f"ID {slave_id}: 쓰기를 거부했습니다(코드 {response[2]})")
+
+        echoed_reg, echoed_val = struct.unpack(">HH", response[2:6])
+        if echoed_reg != register or echoed_val != value:
+            raise ModbusError(
+                f"되돌아온 값이 다릅니다 (레지스터 {echoed_reg:#06x}, 값 {echoed_val})")
+
 
 # ── 값 해석 ───────────────────────────────────────────────────────────────────
 
@@ -205,6 +234,11 @@ UNIT_TO_SENSOR = {
     "uS": "EC 센서", "mS": "EC 센서", "S": "EC 센서",
     "ppm": "EC 센서(TDS)", "ppt": "EC 센서(염도)",
 }
+
+
+# 슬레이브 ID 가 들어 있는 설정 레지스터. 제조사 프로토콜 문서 기준.
+#   예) 01 06 00 1E 00 04  →  1번 기기를 4번으로 바꾼다
+SLAVE_ID_REGISTER = 0x001E
 
 
 def scan_bus(client: ModbusClient, first: int, last: int) -> list[tuple[int, str, str]]:
@@ -589,6 +623,8 @@ def main() -> int:
                         help="선에 물려 있는 슬레이브 ID 를 훑어봄(센서가 안 읽힐 때)")
     parser.add_argument("--scan-range", default="1-32", metavar="처음-끝",
                         help="훑을 ID 범위 (기본 1-32)")
+    parser.add_argument("--set-id", nargs=2, type=int, metavar=("지금ID", "바꿀ID"),
+                        help="센서의 슬레이브 ID 변경 — 센서를 한 대만 연결하고 실행하세요")
     parser.add_argument("--once", action="store_true", help="한 번만 측정하고 종료(설치 점검용)")
     parser.add_argument("--dry-run", action="store_true", help="서버로 보내지 않고 값만 출력")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -606,6 +642,47 @@ def main() -> int:
 
     port = cfg.get("serial", "port", fallback="/dev/ttyUSB0")
     baudrate = cfg.getint("serial", "baudrate", fallback=9600)
+
+    # 슬레이브 ID 변경. 같은 ID 를 쓰는 센서가 둘일 때 쓴다.
+    if args.set_id:
+        old_id, new_id = args.set_id
+        for label, value in (("지금 ID", old_id), ("바꿀 ID", new_id)):
+            if not 1 <= value <= 247:
+                sys.exit(f"{label} 는 1~247 사이여야 합니다: {value}")
+        if old_id == new_id:
+            sys.exit("같은 번호로는 바꿀 수 없습니다.")
+
+        client = ModbusClient(port, baudrate, timeout=1.0)
+        try:
+            client.open()
+        except serial.SerialException as exc:
+            sys.exit(f"시리얼 포트를 열 수 없습니다: {port}\n  {exc}")
+
+        try:
+            # 바꾸려는 번호를 이미 누가 쓰고 있으면 그대로 충돌이 난다.
+            # 바꾸고 나서 아는 것보다 여기서 막는 편이 낫다.
+            try:
+                client.read_input_registers(new_id, 0x0000, 2)
+                sys.exit(f"ID {new_id} 는 이미 다른 센서가 쓰고 있습니다. "
+                         f"비어 있는 번호를 고르세요.\n"
+                         f"  --scan 으로 사용 중인 번호를 볼 수 있습니다.")
+            except ModbusError:
+                pass  # 응답이 없다 = 비어 있다. 우리가 원하는 상태다.
+
+            print(f"ID {old_id} → {new_id} 로 바꿉니다.")
+            print("센서를 여러 대 연결한 채로 하면 엉뚱한 센서가 바뀔 수 있습니다.\n")
+            client.write_register(old_id, SLAVE_ID_REGISTER, new_id)
+        except ModbusError as exc:
+            sys.exit(f"바꾸지 못했습니다: {exc}")
+        finally:
+            client.close()
+
+        print(f"바꿨습니다. 설정 파일의 슬레이브 ID 도 {new_id} 로 고치세요.")
+        print(f"  sudo nano {args.config}")
+        print()
+        print("전원을 껐다 켜야 적용되는 제품도 있습니다. 확인:")
+        print(f"  ... --scan")
+        return 0
 
     # 센서가 안 읽힐 때 쓰는 진단. 설정과 무관하게 선을 직접 훑으므로
     # [sensors] 가 어떻게 되어 있든 먼저 처리한다.

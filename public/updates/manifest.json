@@ -1,13 +1,13 @@
 {
-  "latest": "1.0.3",
+  "latest": "1.0.4",
   "releases": {
-    "1.0.3": {
-      "notes": "센서 진단 --scan, 키오스크 설치 시 수집 자동 시작",
+    "1.0.4": {
+      "notes": "슬레이브 ID 변경 --set-id 추가",
       "released_at": "2026-08-06",
       "setup": {
-        "file": "shrimp365-setup-1.0.3.tar.gz",
-        "sha256": "62e86e6446a98aa7cf49d4551db5af509b2948b1f3935fc3532ef26a19233855",
-        "size": 58258
+        "file": "shrimp365-setup-1.0.4.tar.gz",
+        "sha256": "28a4427a6a5a750fd6fba85ce4909d4adca0e2f89eec0356df7da50cbdbf049e",
+        "size": 59494
       }
     }
   }
