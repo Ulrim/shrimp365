@@ -1,13 +1,13 @@
 {
-  "latest": "1.0.0",
+  "latest": "1.0.1",
   "releases": {
-    "1.0.0": {
-      "notes": "첫 배포 — 수온·pH·용존산소·염도 측정, 화면 그래프, 오프라인 보관",
+    "1.0.1": {
+      "notes": "화면 없는 설치용 --pair 추가",
       "released_at": "2026-08-06",
       "setup": {
-        "file": "shrimp365-setup-1.0.0.tar.gz",
-        "sha256": "0a9e8bad37abe7980a17a9c589a988384b15a3e00e8dc659467c73e9b4b05395",
-        "size": 55587
+        "file": "shrimp365-setup-1.0.1.tar.gz",
+        "sha256": "2c61e512042591a491a0d8248eab918fb3cef83bd78b972d278106a672796961",
+        "size": 56029
       }
     }
   }

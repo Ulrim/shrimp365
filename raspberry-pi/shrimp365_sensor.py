@@ -60,7 +60,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 log = logging.getLogger("shrimp365")
 
 
@@ -549,6 +549,8 @@ def _render(screen, values: dict[str, float], columns: int, rows: int, status: s
 def main() -> int:
     parser = argparse.ArgumentParser(description="Shrimp365 수질 센서 수집기")
     parser.add_argument("-c", "--config", default="/etc/shrimp365/config.ini", type=Path)
+    parser.add_argument("--pair", action="store_true",
+                        help="연결 코드를 띄우고 계정에 연결될 때까지 기다림(화면 없는 설치용)")
     parser.add_argument("--once", action="store_true", help="한 번만 측정하고 종료(설치 점검용)")
     parser.add_argument("--dry-run", action="store_true", help="서버로 보내지 않고 값만 출력")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -610,6 +612,24 @@ def main() -> int:
         signal.signal(signal.SIGINT, handle_signal)
     except ValueError:
         log.debug("메인 스레드가 아니라 종료 신호를 등록하지 않았습니다.")
+
+    # 화면 없이 설치한 경우. 터치스크린이 있으면 화면의 "기기 연결" 버튼을
+    # 누르면 되지만, 화면이 없으면 코드를 띄울 방법이 없어 연결할 수가 없다.
+    # 그래서 SSH 에서 한 줄로 연결할 수 있는 길을 따로 둔다.
+    if args.pair:
+        if device_key:
+            log.info("이미 계정에 연결되어 있습니다. "
+                     "다시 연결하려면 설정의 device_key 를 비우고 실행하세요.")
+            return 0
+        key = run_pairing(
+            endpoint, serial_no, args.config, screen, lcd_columns, lcd_rows,
+            should_stop=lambda: stop,
+        )
+        if not key:
+            log.error("연결하지 못했습니다.")
+            return 1
+        log.info("연결되었습니다. 이제 시작하세요:  sudo systemctl restart shrimp365-sensor")
+        return 0
 
     def _stopped() -> bool:
         # 페어링 대기용 — 취소 버튼을 누르면 즉시 빠져나온다.

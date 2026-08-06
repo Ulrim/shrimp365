@@ -146,9 +146,15 @@ if [ "$FIRST_INSTALL" = yes ]; then
        sudo systemctl start shrimp365-sensor
        journalctl -u shrimp365-sensor -f
 
-  4) 화면(또는 로그)에 뜨는 6자리 코드를 Shrimp365 에 입력해 계정과 연결
-       www.shrimp365.kr → 로그인 → 양식장·수조 관리
-       → 수조의 "센서 기기" → "코드로 기기 연결"
+  4) 계정과 연결 — 6자리 코드를 받아 Shrimp365 에 입력합니다
+       터치스크린이 있으면: 화면 오른쪽 아래 [기기 연결] 버튼
+       화면이 없으면:
+         sudo -u $SERVICE_USER python3 $APP_DIR/shrimp365_sensor.py \\
+           --config $CONF --pair
+
+       뜨는 코드를 www.shrimp365.kr 에 입력하세요.
+       로그인 → 양식장·수조 관리 → 수조의 "센서 기기" → "코드로 기기 연결"
+       연결되면:  sudo systemctl restart shrimp365-sensor
 EOF
 elif [ "$RUNNING" = yes ]; then
   echo "   프로그램을 새 것으로 바꾸고 다시 시작했습니다."
