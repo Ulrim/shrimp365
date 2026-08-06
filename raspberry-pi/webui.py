@@ -553,6 +553,7 @@ function drawSettings(){
           '</div></div>' +
       '</div>' +
       '<div class="ranges sfoot">' +
+        '<button onclick="autoAssign()">자동 배치</button>' +
         '<button onclick="scanBus()">선 훑기</button>' +
         '<button onclick="saveSettings()" aria-pressed="true">저장</button>' +
       '</div>' +
@@ -601,6 +602,54 @@ function scanBus(){
     })
     .catch(function(){
       setupMsg = {kind:"err", text:"훑지 못했습니다."};
+      drawSettings();
+    });
+}
+
+// 꽂아 둔 센서를 훑어 "값이 나오는 자리" 를 그대로 배치한다.
+// 바로 저장하지 않고 화면의 숫자만 채운다 — 확인하고 저장은 사람이 누른다.
+function autoAssign(){
+  setupMsg = {kind:"ok", text:"센서를 찾는 중… 최대 30초 걸립니다."};
+  drawSettings();
+  fetch("/api/sensors/auto", {method:"POST"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.error) { setupMsg = {kind:"err", text:d.error}; drawSettings(); return; }
+
+      var names = {ph:"pH / ORP", do:"용존산소", ec:"전도도 / 염도"};
+      var conflictKeys = Object.keys(d.conflicts || {});
+      if (conflictKeys.length) {
+        var c = conflictKeys.map(function(k){
+          return names[k] + " 가 " + d.conflicts[k].join(", ") + " 번에서 응답";
+        }).join(" / ");
+        setupMsg = {kind:"err", text: c + " — 어느 쪽을 쓸지 직접 골라 주세요."};
+        drawSettings();
+        return;
+      }
+
+      var done = [], missing = [];
+      setupData.sensors.forEach(function(sn){
+        if (d.assign && d.assign[sn.key] !== undefined) {
+          sn.slave_id = d.assign[sn.key];
+          sn.enabled = true;
+          done.push(names[sn.key] + " → " + sn.slave_id);
+        } else {
+          sn.enabled = false;
+          missing.push(names[sn.key]);
+        }
+      });
+
+      if (!done.length) {
+        setupMsg = {kind:"err", text:"응답하는 센서가 없습니다. 전원과 A/B 배선을 확인하세요."};
+      } else {
+        setupMsg = {kind:"ok", text: done.join(", ")
+          + (missing.length ? " · 못 찾음: " + missing.join(", ") : "")
+          + " — 확인하고 [저장] 을 누르세요."};
+      }
+      drawSettings();
+    })
+    .catch(function(){
+      setupMsg = {kind:"err", text:"찾지 못했습니다."};
       drawSettings();
     });
 }
@@ -658,6 +707,7 @@ def serve(
     on_scan=None,
     on_save_sensors=None,
     on_set_id=None,
+    on_auto=None,
     get_sensors=None,
 ) -> ThreadingHTTPServer | None:
     """상태 페이지를 띄운다. 실패해도 수집은 계속되어야 하므로 None 을 돌려준다."""
@@ -713,6 +763,9 @@ def serve(
             if self.path == "/api/sensors/scan" and on_scan is not None:
                 # 선을 훑는 동안 측정 차례가 오면 기다린다. 몇 초 걸릴 수 있다.
                 self._send(200, json.dumps({"found": on_scan()}).encode(), "application/json")
+                return
+            if self.path == "/api/sensors/auto" and on_auto is not None:
+                self._send(200, json.dumps(on_auto()).encode(), "application/json")
                 return
             if self.path == "/api/sensors/save" and on_save_sensors is not None:
                 self._send(200, json.dumps(on_save_sensors(self._body())).encode(),

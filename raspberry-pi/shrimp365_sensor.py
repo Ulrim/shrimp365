@@ -60,7 +60,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 log = logging.getLogger("shrimp365")
 
 
@@ -242,6 +242,67 @@ UNIT_TO_SENSOR = {
 # 슬레이브 ID 가 들어 있는 설정 레지스터. 제조사 프로토콜 문서 기준.
 #   예) 01 06 00 1E 00 04  →  1번 기기를 4번으로 바꾼다
 SLAVE_ID_REGISTER = 0x001E
+
+
+# 첫 레지스터의 단위로 어느 변환기인지 가른다.
+# pH 변환기는 pH, DO 변환기는 mg/L, EC 변환기는 전도도 단위를 첫 값으로 낸다.
+UNIT_TO_KEY = {
+    "pH": "ph",
+    "mg/L": "do", "ug/L": "do",
+    "uS": "ec", "mS": "ec", "S": "ec",
+}
+
+
+def _pad(text: str, width: int) -> str:
+    """한글은 터미널에서 두 칸을 차지한다. 그대로 ljust 하면 표가 어긋난다."""
+    shown = sum(2 if ord(ch) > 0x2000 else 1 for ch in text)
+    return text + " " * max(0, width - shown)
+
+
+def classify(regs: list[int]) -> str | None:
+    """읽어 온 레지스터를 보고 어느 변환기인지 가려낸다. 모르면 None."""
+    decoded = decode(regs, 0x0000)
+    if decoded is None:
+        return None
+    return UNIT_TO_KEY.get(decoded[1])
+
+
+def auto_assign(client: ModbusClient, first: int = 1, last: int = 32) -> dict:
+    """선을 훑어 어느 번호에 어떤 센서가 있는지 알아내고 배치를 제안한다.
+
+    설정 파일에 적힌 번호가 실제와 다를 때, 사람이 하나씩 맞춰 보는 대신
+    "값이 나오는 자리"를 그대로 쓰면 된다. 센서에 쓰기를 하지 않으므로
+    잘못돼도 되돌릴 것이 없다 — 우리 쪽 설정만 고친다.
+    """
+    assign: dict[str, int] = {}
+    conflicts: dict[str, list[int]] = {}
+    others: list[dict] = []
+
+    for slave_id in range(first, last + 1):
+        try:
+            regs = client.read_input_registers(slave_id, 0x0000, 16)
+        except (ModbusError, serial.SerialException):
+            continue
+
+        key = classify(regs)
+        decoded = decode(regs, 0x0000)
+        note = f"{decoded[0]} {decoded[1]}".strip() if decoded else "값 해석 실패"
+
+        if key is None:
+            others.append({"id": slave_id, "note": note})
+            continue
+        if key in assign:
+            # 같은 종류가 둘이면 어느 쪽을 쓸지 사람이 정해야 한다.
+            conflicts.setdefault(key, [assign[key]]).append(slave_id)
+            continue
+        assign[key] = slave_id
+
+    return {
+        "assign": assign,
+        "conflicts": conflicts,
+        "others": others,
+        "missing": [k for k in SENSOR_SPECS if k not in assign],
+    }
 
 
 def scan_bus(client: ModbusClient, first: int, last: int) -> list[tuple[int, str, str]]:
@@ -703,6 +764,8 @@ def main() -> int:
                         help="훑을 ID 범위 (기본 1-32)")
     parser.add_argument("--set-id", nargs=2, type=int, metavar=("지금ID", "바꿀ID"),
                         help="센서의 슬레이브 ID 변경 — 센서를 한 대만 연결하고 실행하세요")
+    parser.add_argument("--auto", action="store_true",
+                        help="센서를 꽂아 둔 채로 훑어 슬레이브 ID 를 자동 배치")
     parser.add_argument("--once", action="store_true", help="한 번만 측정하고 종료(설치 점검용)")
     parser.add_argument("--dry-run", action="store_true", help="서버로 보내지 않고 값만 출력")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -760,6 +823,61 @@ def main() -> int:
         print()
         print("전원을 껐다 켜야 적용되는 제품도 있습니다. 확인:")
         print(f"  ... --scan")
+        return 0
+
+    # 꽂아 둔 센서를 훑어 설정을 자동으로 맞춘다.
+    if args.auto:
+        client = ModbusClient(port, baudrate, timeout=0.4)
+        try:
+            client.open()
+        except serial.SerialException as exc:
+            sys.exit(f"시리얼 포트를 열 수 없습니다: {port}\n  {exc}")
+
+        print(f"{port} 를 훑는 중입니다. 잠시 기다리세요…\n")
+        try:
+            result = auto_assign(client)
+        finally:
+            client.close()
+
+        assign, conflicts = result["assign"], result["conflicts"]
+        if not assign and not conflicts:
+            print("응답하는 센서가 없습니다.")
+            print("  · 센서 전원(DC 9~24V)이 들어와 있는지")
+            print("  · A/B 두 선이 바뀌지 않았는지 (가장 흔한 원인입니다)")
+            return 1
+
+        for key, slave_id in assign.items():
+            print(f"  {_pad(SENSOR_LABELS[key], 16)} → ID {slave_id}")
+        for item in result["others"]:
+            print(f"  {_pad('(알 수 없는 기기)', 16)} → ID {item['id']}  {item['note']}")
+        for key in result["missing"]:
+            print(f"  {_pad(SENSOR_LABELS[key], 16)} → 찾지 못함")
+        print()
+
+        if conflicts:
+            for key, ids in conflicts.items():
+                print(f"{SENSOR_LABELS[key]} 가 {ids} 두 자리에서 응답합니다.")
+            print("같은 종류가 둘이면 어느 쪽을 쓸지 사람이 정해야 합니다. "
+                  "설정을 바꾸지 않았습니다.")
+            return 1
+
+        settings = {
+            key: {"enabled": key in assign,
+                  "slave_id": assign.get(key, SENSOR_SPECS[key].slave_id)}
+            for key in SENSOR_SPECS
+        }
+        if save_sensor_config(args.config, settings):
+            print(f"설정에 반영했습니다: {args.config}")
+            print("  sudo systemctl restart shrimp365-sensor")
+        else:
+            print("설정 파일에 쓰지 못했습니다. 권한을 확인하세요.")
+            return 1
+
+        if result["missing"]:
+            print()
+            print("찾지 못한 센서는 꺼 두었습니다. 달아 두셨는데 안 잡혔다면")
+            print("전원과 A/B 배선을 확인하거나, 같은 번호를 쓰는 센서가 없는지 보세요")
+            print("(같은 번호가 둘이면 하나가 다른 하나를 가립니다).")
         return 0
 
     # 센서가 안 읽힐 때 쓰는 진단. 설정과 무관하게 선을 직접 훑으므로
@@ -1020,6 +1138,14 @@ def main() -> int:
             log.info("화면에서 슬레이브 ID 를 바꿨습니다: %d → %d", old_id, new_id)
             return {"ok": True}
 
+        def ui_auto() -> dict:
+            """꽂아 둔 센서를 훑어 배치를 제안한다. 저장은 사람이 누른다."""
+            with serial_lock:
+                try:
+                    return auto_assign(client_holder["client"])
+                except serial.SerialException as exc:
+                    return {"error": str(exc)}
+
         def ui_sensors() -> dict:
             return {
                 "interval": interval_holder["seconds"],
@@ -1044,6 +1170,7 @@ def main() -> int:
             on_scan=ui_scan,
             on_save_sensors=ui_save_sensors,
             on_set_id=ui_set_id,
+            on_auto=ui_auto,
             get_sensors=ui_sensors,
         )
         state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중")
