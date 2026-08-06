@@ -47,6 +47,19 @@ else
   exit 1
 fi
 
+# ── 0-2. 수집을 켠다 ─────────────────────────────────────────────────────────
+# 설치 스크립트는 설정을 먼저 채우도록 일부러 시작하지 않는다. 하지만 화면을
+# 다는 시점이면 설정은 끝났다는 뜻이고, 화면에 값이 나오려면 수집이 돌아야 한다.
+# enable 은 "전원을 넣으면 자동으로 뜨게" 하는 것이고, --now 는 지금 켜는 것이다.
+if [ -d /run/systemd/system ]; then
+  echo "==> 수집을 켭니다 (전원을 넣으면 자동으로 시작)"
+  systemctl enable --now shrimp365-sensor 2>/dev/null || true
+  if ! systemctl is-active --quiet shrimp365-sensor; then
+    echo "    ! 수집기가 뜨지 않았습니다. 설치는 계속합니다."
+    echo "      나중에 확인하세요:  journalctl -u shrimp365-sensor -n 30"
+  fi
+fi
+
 KIOSK_URL="${KIOSK_URL:-http://127.0.0.1:$PORT}"
 
 echo "==> 대상 사용자: $TARGET_USER ($USER_HOME)"

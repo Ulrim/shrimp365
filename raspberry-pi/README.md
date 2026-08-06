@@ -529,7 +529,15 @@ sudo -u shrimp365 python3 -c "import sqlite3;print(sqlite3.connect('/var/lib/shr
 ## 문제 해결
 
 **`응답 없음`**
-전원(9~24V)이 들어오는지, A/B 선이 바뀌지 않았는지, 슬레이브 ID가 설정과 맞는지 확인하세요.
+먼저 선에 무엇이 붙어 있는지 훑어보세요 — 한두 개만 안 읽힐 때는 대개 슬레이브 ID 문제입니다.
+
+```bash
+sudo -u shrimp365 python3 /opt/shrimp365/shrimp365_sensor.py \
+  --config /etc/shrimp365/config.ini --scan
+```
+
+응답하는 ID 와 각 자리에 붙은 센서 종류를 보여 주고, 설정과 어긋난 곳을 짚어 줍니다.
+아무것도 안 나오면 전원(9~24V)이나 배선 문제입니다 —
 A와 B를 서로 바꿔 꽂는 실수가 가장 흔합니다.
 
 **`CRC 불일치`**

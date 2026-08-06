@@ -60,7 +60,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.0.1"
+VERSION = "1.0.3"
 log = logging.getLogger("shrimp365")
 
 
@@ -195,6 +195,40 @@ TEMPERATURE_PRIORITY = ("ph", "ec", "do")
 # 서버가 수질 기록으로 저장하는 항목. 나머지는 참고용으로 함께 보내되
 # 기기 카드의 "마지막 수신값"에만 남는다.
 STORED_FIELDS = {"temperature", "ph", "do_level", "salinity"}
+
+
+# 첫 레지스터의 단위 코드로 어떤 센서인지 짐작한다.
+# 값을 읽는 데 쓰는 것이 아니라 "ID 3 에 뭐가 붙어 있나" 를 알려 주기 위함이다.
+UNIT_TO_SENSOR = {
+    "pH": "pH 센서", "mV": "ORP 센서",
+    "mg/L": "DO 센서", "ug/L": "DO 센서",
+    "uS": "EC 센서", "mS": "EC 센서", "S": "EC 센서",
+    "ppm": "EC 센서(TDS)", "ppt": "EC 센서(염도)",
+}
+
+
+def scan_bus(client: ModbusClient, first: int, last: int) -> list[tuple[int, str, str]]:
+    """선에 물려 있는 슬레이브 ID 를 훑는다.
+
+    센서 하나만 안 읽힐 때 원인은 대개 슬레이브 ID 다. 출고 기본값과 다르게
+    설정되어 나오는 경우가 있고, 같은 ID 가 둘이면 서로를 가린다.
+    설정을 고치기 전에 "지금 선에 무엇이 붙어 있는지" 부터 보는 편이 빠르다.
+    """
+    found: list[tuple[int, str, str]] = []
+    for slave_id in range(first, last + 1):
+        try:
+            regs = client.read_input_registers(slave_id, 0x0000, 16)
+        except (ModbusError, serial.SerialException):
+            continue  # 응답 없음 — 그 자리에 아무것도 없다는 뜻
+
+        decoded = decode(regs, 0x0000)
+        if decoded is None:
+            found.append((slave_id, "?", "응답함(값 해석 실패)"))
+            continue
+        value, unit = decoded
+        kind = UNIT_TO_SENSOR.get(unit, "알 수 없음")
+        found.append((slave_id, kind, f"첫 값 {value} {unit}".strip()))
+    return found
 
 
 def normalize(name: str, value: float, unit: str) -> float | None:
@@ -551,6 +585,10 @@ def main() -> int:
     parser.add_argument("-c", "--config", default="/etc/shrimp365/config.ini", type=Path)
     parser.add_argument("--pair", action="store_true",
                         help="연결 코드를 띄우고 계정에 연결될 때까지 기다림(화면 없는 설치용)")
+    parser.add_argument("--scan", action="store_true",
+                        help="선에 물려 있는 슬레이브 ID 를 훑어봄(센서가 안 읽힐 때)")
+    parser.add_argument("--scan-range", default="1-32", metavar="처음-끝",
+                        help="훑을 ID 범위 (기본 1-32)")
     parser.add_argument("--once", action="store_true", help="한 번만 측정하고 종료(설치 점검용)")
     parser.add_argument("--dry-run", action="store_true", help="서버로 보내지 않고 값만 출력")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -568,6 +606,58 @@ def main() -> int:
 
     port = cfg.get("serial", "port", fallback="/dev/ttyUSB0")
     baudrate = cfg.getint("serial", "baudrate", fallback=9600)
+
+    # 센서가 안 읽힐 때 쓰는 진단. 설정과 무관하게 선을 직접 훑으므로
+    # [sensors] 가 어떻게 되어 있든 먼저 처리한다.
+    if args.scan:
+        try:
+            first, _, last = args.scan_range.partition("-")
+            first, last = int(first), int(last or first)
+        except ValueError:
+            sys.exit(f"범위 형식이 잘못됐습니다: {args.scan_range!r} (예: 1-32)")
+        if not (1 <= first <= last <= 247):
+            sys.exit("ID 는 1~247 사이여야 합니다.")
+
+        # 없는 ID 마다 기본 1초를 기다리면 훑는 데만 몇 분이 걸린다.
+        client = ModbusClient(port, baudrate, timeout=0.4)
+        # 포트를 먼저 열어 본다. 훑는 중에 나는 오류는 "그 ID 에 아무것도 없다"
+        # 는 뜻이라 조용히 넘기는데, 포트 자체가 없는 것은 전혀 다른 문제다.
+        # 구분하지 않으면 변환기를 안 꽂았는데 "센서가 없다" 고 나온다.
+        try:
+            client.open()
+        except serial.SerialException as exc:
+            sys.exit(f"시리얼 포트를 열 수 없습니다: {port}\n"
+                     f"  {exc}\n"
+                     f"  · USB-RS485 변환기가 꽂혀 있는지 확인하세요.\n"
+                     f"  · 포트 이름 확인:  ls -l /dev/serial/by-id/\n"
+                     f"  · 이름이 다르면 config.ini 의 [serial] port 를 고치세요.")
+
+        print(f"{port} 에서 ID {first}~{last} 를 훑습니다. 잠시 기다리세요…\n")
+        try:
+            found = scan_bus(client, first, last)
+        finally:
+            client.close()
+
+        if not found:
+            print("응답하는 센서가 없습니다.")
+            print("  · 센서 전원(DC 9~24V)이 들어와 있는지")
+            print("  · A/B 두 선이 바뀌지 않았는지 (가장 흔한 원인입니다)")
+            print("  · 센서 0V 와 파이 GND 가 공통으로 묶여 있는지")
+            return 1
+
+        print("  ID   추정             비고")
+        print("  ---  ---------------  ------------------------")
+        for slave_id, kind, note in found:
+            print(f"  {slave_id:<3}  {kind:<15}  {note}")
+        print()
+        print("설정의 슬레이브 ID 와 견줘 보세요 — /etc/shrimp365/config.ini 의 [sensors]")
+        for key, spec in SENSOR_SPECS.items():
+            configured = cfg.getint("sensors", f"{key}_slave_id", fallback=spec.slave_id)
+            on = cfg.getboolean("sensors", f"{key}_enabled", fallback=True)
+            mark = "" if any(f[0] == configured for f in found) else "   ← 응답 없음"
+            print(f"  {key}_slave_id = {configured}"
+                  f"{'' if on else '  (꺼져 있음)'}{mark}")
+        return 0
 
     enabled: dict[str, int] = {}
     for key, spec in SENSOR_SPECS.items():
