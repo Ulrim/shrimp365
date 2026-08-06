@@ -146,14 +146,27 @@ def bump_source_version(version: str) -> None:
     sys.exit("shrimp365_sensor.py 에서 VERSION 을 찾지 못했습니다.")
 
 
-def cmd_build(args) -> int:
-    version = args.version
+def check_version(version: str) -> None:
     if not all(p.isdigit() and len(p) <= 3 for p in version.split(".")) \
             or version.count(".") != 2:
         sys.exit(f"버전은 1.2.3 형태여야 합니다: {version!r}")
 
-    private = load_private()
-    check_pubkey_matches(private)
+
+def cmd_build(args) -> int:
+    """설치 꾸러미와 업데이트 꾸러미를 함께 만든다.
+
+    setup_only 면 서명 열쇠 없이 설치 꾸러미만 만든다. 원격 업데이트를
+    아직 안 쓰더라도 현장 설치는 바로 할 수 있어야 하기 때문이다.
+    설치 꾸러미의 무결성은 HTTPS 와 SHA256SUMS 로 확인한다.
+    """
+    version = args.version
+    check_version(version)
+    setup_only = getattr(args, "setup_only", False)
+
+    private = None
+    if not setup_only:
+        private = load_private()
+        check_pubkey_matches(private)
     bump_source_version(version)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -185,9 +198,11 @@ def cmd_build(args) -> int:
         return base64.b64encode(private.sign(payload.encode("utf-8"))).decode()
 
     # ── 업데이트 꾸러미 — 이미 설치된 장비가 받아 가는 것 ────────────────────
-    agent_name = f"shrimp365-agent-{version}.tar.gz"
-    agent_blob = pack(OUT_DIR / agent_name, PAYLOAD)
-    agent_digest = hashlib.sha256(agent_blob).hexdigest()
+    agent_name = agent_digest = None
+    if private is not None:
+        agent_name = f"shrimp365-agent-{version}.tar.gz"
+        agent_blob = pack(OUT_DIR / agent_name, PAYLOAD)
+        agent_digest = hashlib.sha256(agent_blob).hexdigest()
 
     # ── 설치 꾸러미 — 빈 파이에 처음 설치할 때 받는 것 ───────────────────────
     setup_name = f"shrimp365-setup-{version}.tar.gz"
@@ -202,34 +217,42 @@ def cmd_build(args) -> int:
     if manifest_path.exists():
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
-    manifest["releases"][version] = {
-        "file": agent_name,
-        "sha256": agent_digest,
-        "size": len(agent_blob),
-        "signature": sign("agent", agent_digest),
-        "notes": args.notes or "",
+    entry = manifest["releases"].get(version, {})
+    entry.update({
+        "notes": args.notes or entry.get("notes", ""),
         "released_at": time.strftime("%Y-%m-%d"),
         # 설치 꾸러미는 updater 가 쓰지 않는다. 사람이 받아 확인할 때 쓴다.
         "setup": {
             "file": setup_name,
             "sha256": setup_digest,
             "size": len(setup_blob),
-            "signature": sign("setup", setup_digest),
+            **({"signature": sign("setup", setup_digest)} if private else {}),
         },
-    }
+    })
+    if private is not None:
+        entry.update({
+            "file": agent_name,
+            "sha256": agent_digest,
+            "size": len(agent_blob),
+            "signature": sign("agent", agent_digest),
+        })
+    manifest["releases"][version] = entry
     manifest["latest"] = version
     manifest_path.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     # 현장에서 sha256sum -c 로 바로 확인할 수 있게 해 둔다.
-    (OUT_DIR / "SHA256SUMS").write_text(
-        f"{agent_digest}  {agent_name}\n"
-        f"{setup_digest}  {setup_name}\n"
-        f"{setup_digest}  shrimp365-setup-latest.tar.gz\n", encoding="utf-8")
+    sums = ""
+    if agent_digest:
+        sums += f"{agent_digest}  {agent_name}\n"
+    sums += (f"{setup_digest}  {setup_name}\n"
+             f"{setup_digest}  shrimp365-setup-latest.tar.gz\n")
+    (OUT_DIR / "SHA256SUMS").write_text(sums, encoding="utf-8")
 
-    print(f"업데이트 꾸러미: public/updates/{agent_name}  ({len(agent_blob):,} 바이트)")
+    if agent_digest:
+        print(f"업데이트 꾸러미: public/updates/{agent_name}  ({len(agent_blob):,} 바이트)")
     print(f"설치   꾸러미: public/updates/{setup_name}  ({len(setup_blob):,} 바이트)")
-    print(f"                 + shrimp365-setup-latest.tar.gz (같은 내용, 고정 이름)")
+    print("                 + shrimp365-setup-latest.tar.gz (같은 내용, 고정 이름)")
     print()
     print("이제 저장소에 올리면 배포됩니다.")
     print("  git add public/updates raspberry-pi/shrimp365_sensor.py")
@@ -241,7 +264,11 @@ def cmd_build(args) -> int:
     print("  tar xzf shrimp365-setup-latest.tar.gz")
     print(f"  cd {SETUP_DIR_NAME} && sudo ./install.sh")
     print()
-    print("이미 설치된 장비는 웹의 기기 카드에서 [업데이트] 를 누르면 받아 갑니다.")
+    if private is None:
+        print("※ 서명 열쇠가 없어 설치 꾸러미만 만들었습니다.")
+        print("  원격 업데이트까지 쓰시려면:  python3 release.py init")
+    else:
+        print("이미 설치된 장비는 웹의 기기 카드에서 [업데이트] 를 누르면 받아 갑니다.")
     return 0
 
 
@@ -253,9 +280,11 @@ def main() -> int:
     p_init.add_argument("--force", action="store_true", help="기존 열쇠를 덮어씀")
     p_init.set_defaults(func=cmd_init)
 
-    p_build = sub.add_parser("build", help="꾸러미를 만들고 서명")
+    p_build = sub.add_parser("build", help="설치·업데이트 꾸러미를 만들고 서명")
     p_build.add_argument("version", help="예: 1.1.0")
     p_build.add_argument("--notes", default="", help="변경 내용 한 줄")
+    p_build.add_argument("--setup-only", action="store_true",
+                         help="서명 열쇠 없이 설치 꾸러미만 만듦")
     p_build.set_defaults(func=cmd_build)
 
     args = parser.parse_args()

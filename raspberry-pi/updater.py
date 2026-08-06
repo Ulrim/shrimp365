@@ -166,6 +166,9 @@ def verify_package(blob: bytes, version: str, entry: dict, verifier) -> None:
         raise ValueError(f"해시 불일치 (받은 것 {digest[:12]}…, 기대 {expected[:12]}…)")
 
     import base64
+    if not entry.get("signature"):
+        # 설치 꾸러미만 낸 버전이면 서명이 없다. 이런 것은 받지 않는다.
+        raise ValueError("이 버전에는 서명이 없어 받을 수 없습니다")
     signature = base64.b64decode(str(entry.get("signature", "")))
     # 서명 대상에 버전을 함께 넣는다. 이렇게 해야 예전 꾸러미의 서명을
     # 새 버전인 것처럼 갖다 붙일 수 없다.
