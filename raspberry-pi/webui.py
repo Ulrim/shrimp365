@@ -112,6 +112,49 @@ PAGE = """<!doctype html>
   .cell:active{background:#16223C}
   .tap{font-size:11px;color:#475569;font-weight:600}
 
+  /* 설정 화면 */
+  .setup{
+    position:fixed;inset:0;background:#0B1120;z-index:30;
+    display:flex;flex-direction:column;padding:10px 16px 12px;
+  }
+  /* 목록만 스크롤한다. 저장 버튼이 화면 밖으로 밀리면 안 된다. */
+  .sbody{flex:1;overflow-y:auto;min-height:0;-webkit-overflow-scrolling:touch}
+  .sfoot{flex:0 0 auto;padding-top:8px}
+  .srow{
+    display:flex;align-items:center;gap:10px;
+    padding:7px 12px;margin-bottom:6px;
+    background:#111A2E;border:1px solid #22304C;border-radius:11px;
+  }
+  .sname{font-size:15px;font-weight:700;flex:1;min-width:0}
+  .sub{font-size:11px;color:#64748B;font-weight:500}
+  .toggle{
+    font:700 12px/1 inherit;padding:9px 13px;min-height:38px;border-radius:8px;
+    border:1px solid #22304C;background:transparent;color:#64748B;cursor:pointer;
+  }
+  .toggle.on{border-color:#10B981;color:#10B981;background:#10B98115}
+  .step{display:flex;align-items:center;gap:0}
+  .step button{
+    width:40px;height:38px;font:800 18px/1 inherit;
+    background:#16223C;color:#93A4BF;border:1px solid #22304C;cursor:pointer;
+  }
+  .step button:first-child{border-radius:8px 0 0 8px}
+  .step button:last-child{border-radius:0 8px 8px 0}
+  .step button:active{background:#1E40AF;color:#fff}
+  .step .num{
+    width:46px;height:38px;display:flex;align-items:center;justify-content:center;
+    background:#0B1120;border-top:1px solid #22304C;border-bottom:1px solid #22304C;
+    font:800 16px/1 ui-monospace,monospace;
+  }
+  .found{
+    font-size:12px;color:#94A3B8;line-height:1.75;max-height:118px;overflow-y:auto;
+    background:#111A2E;border:1px solid #22304C;border-radius:11px;
+    padding:9px 12px;margin-bottom:7px;
+  }
+  .found b{color:#60A5FA;font-family:ui-monospace,monospace}
+  .msg{font-size:12px;padding:8px 12px;border-radius:9px;margin-bottom:7px}
+  .msg.ok{background:#10B98118;color:#34D399}
+  .msg.err{background:#DC262618;color:#F87171}
+
   /* 그래프 화면 */
   .chart{
     position:fixed;inset:0;background:#0B1120;z-index:20;
@@ -191,11 +234,13 @@ PAGE = """<!doctype html>
   <span class="dot" id="dot"></span>
   <span class="status" id="status">시작하는 중…</span>
   <span class="time" id="time"></span>
+  <button class="act ghost" id="settings" type="button" onclick="openSettings()">설정</button>
   <button class="act" id="action" type="button"></button>
 </footer>
 
 <div id="overlay"></div>
 <div id="chart"></div>
+<div id="setup"></div>
 
 <script>
 // 흰다리새우 적정 범위. 화면에서 바로 이상을 알아보기 위한 것으로,
@@ -447,7 +492,147 @@ function showInfo(){
 function startPair(){ fetch("/api/pair/start", {method:"POST"}).then(tick); }
 function cancelPair(){ fetch("/api/pair/cancel", {method:"POST"}).then(tick); }
 
+
+// ── 설정 화면 ───────────────────────────────────────────────────────────────
+// SSH 로 설정 파일을 고치던 것들을 화면에서 하게 한다. 현장에서는 수조 옆에
+// 선 채로 고쳐야지, 노트북을 들고 와 접속할 일이 아니다.
+var setupData = null, setupMsg = null;
+
+function openSettings(){
+  fetch("/api/sensors", {cache:"no-store"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ setupData = d; setupMsg = null; drawSettings(); })
+    .catch(function(){ alert("설정을 불러오지 못했습니다."); });
+}
+
+function closeSettings(){
+  setupData = null;
+  document.getElementById("setup").innerHTML = "";
+  tick();
+}
+
+function drawSettings(){
+  if (!setupData) return;
+  var d = setupData;
+
+  var rows = d.sensors.map(function(sn, i){
+    return '<div class="srow">' +
+      '<div class="sname">' + sn.label +
+        '<div class="sub">' + (sn.enabled ? "사용 중" : "사용 안 함") + '</div></div>' +
+      '<button class="toggle' + (sn.enabled ? " on" : "") + '" ' +
+        'onclick="toggleSensor(' + i + ')">' + (sn.enabled ? "켬" : "끔") + '</button>' +
+      '<div class="step">' +
+        '<button onclick="bumpId(' + i + ',-1)">−</button>' +
+        '<div class="num">' + sn.slave_id + '</div>' +
+        '<button onclick="bumpId(' + i + ',1)">+</button>' +
+      '</div></div>';
+  }).join("");
+
+  var msg = setupMsg
+    ? '<div class="msg ' + setupMsg.kind + '">' + setupMsg.text + '</div>' : "";
+
+  var found = d.found ? renderFound(d.found) : "";
+
+  document.getElementById("setup").innerHTML =
+    '<div class="setup">' +
+      '<div class="chead">' +
+        '<span class="ctitle">센서 설정</span>' +
+        '<span class="cstats"><span>' + (d.port || "") + '</span></span>' +
+        '<button onclick="closeSettings()">닫기</button>' +
+      '</div>' +
+      '<div class="sbody">' +
+        msg + found +
+        '<div class="sub" style="margin:2px 0 6px">센서마다 슬레이브 ID 가 달라야 합니다</div>' +
+        rows +
+        '<div class="srow">' +
+          '<div class="sname">측정 주기<div class="sub">초 · 60보다 짧게는 권하지 않습니다</div></div>' +
+          '<div class="step">' +
+            '<button onclick="bumpInterval(-60)">−</button>' +
+            '<div class="num">' + d.interval + '</div>' +
+            '<button onclick="bumpInterval(60)">+</button>' +
+          '</div></div>' +
+      '</div>' +
+      '<div class="ranges sfoot">' +
+        '<button onclick="scanBus()">선 훑기</button>' +
+        '<button onclick="saveSettings()" aria-pressed="true">저장</button>' +
+      '</div>' +
+    '</div>';
+}
+
+function renderFound(found){
+  if (!found.length) return '<div class="msg err">응답하는 센서가 없습니다. 전원과 A/B 배선을 확인하세요.</div>';
+  if (found[0].error) return '<div class="msg err">' + found[0].error + '</div>';
+  var list = found.map(function(f){
+    return 'ID <b>' + f.id + '</b> — ' + f.kind + ' (' + f.note + ')';
+  }).join("<br>");
+  return '<div class="found">선에서 찾은 센서<br>' + list + '</div>';
+}
+
+function toggleSensor(i){
+  setupData.sensors[i].enabled = !setupData.sensors[i].enabled;
+  drawSettings();
+}
+
+function bumpId(i, delta){
+  var v = setupData.sensors[i].slave_id + delta;
+  if (v < 1) v = 1;
+  if (v > 247) v = 247;
+  setupData.sensors[i].slave_id = v;
+  drawSettings();
+}
+
+function bumpInterval(delta){
+  var v = setupData.interval + delta;
+  if (v < 60) v = 60;
+  if (v > 3600) v = 3600;
+  setupData.interval = v;
+  drawSettings();
+}
+
+function scanBus(){
+  setupMsg = {kind:"ok", text:"훑는 중… 최대 30초 걸립니다."};
+  drawSettings();
+  fetch("/api/sensors/scan", {method:"POST"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      setupData.found = d.found || [];
+      setupMsg = null;
+      drawSettings();
+    })
+    .catch(function(){
+      setupMsg = {kind:"err", text:"훑지 못했습니다."};
+      drawSettings();
+    });
+}
+
+function saveSettings(){
+  var payload = {interval: setupData.interval};
+  setupData.sensors.forEach(function(sn){
+    payload[sn.key] = {enabled: sn.enabled, slave_id: sn.slave_id};
+  });
+  fetch("/api/sensors/save", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify(payload)
+  })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.ok) {
+        setupMsg = {kind:"ok", text: d.saved
+          ? "저장했습니다. 다음 측정부터 적용됩니다."
+          : "적용했지만 파일에 저장하지 못했습니다(재부팅하면 되돌아갑니다)."};
+      } else {
+        setupMsg = {kind:"err", text: d.error || "저장하지 못했습니다."};
+      }
+      drawSettings();
+    })
+    .catch(function(){
+      setupMsg = {kind:"err", text:"저장하지 못했습니다."};
+      drawSettings();
+    });
+}
+
 function tick(){
+  if (setupData) return;   // 설정 중에는 뒤 화면을 다시 그리지 않는다
   fetch("/api/state", {cache:"no-store"})
     .then(function(r){ return r.json(); })
     .then(render)
@@ -470,6 +655,10 @@ def serve(
     on_pair_start=None,
     on_pair_cancel=None,
     history=None,
+    on_scan=None,
+    on_save_sensors=None,
+    on_set_id=None,
+    get_sensors=None,
 ) -> ThreadingHTTPServer | None:
     """상태 페이지를 띄운다. 실패해도 수집은 계속되어야 하므로 None 을 돌려준다."""
 
@@ -491,6 +680,8 @@ def serve(
                 self._send(200, json.dumps(state.snapshot()).encode(), "application/json")
             elif self.path.startswith("/api/history"):
                 self._history()
+            elif self.path == "/api/sensors" and get_sensors is not None:
+                self._send(200, json.dumps(get_sensors()).encode(), "application/json")
             elif self.path in ("/", "/index.html"):
                 self._send(200, PAGE.encode(), "text/html; charset=utf-8")
             else:
@@ -511,7 +702,32 @@ def serve(
                 hours = 24
             self._send(200, json.dumps(history.series(key, hours)).encode(), "application/json")
 
+        def _body(self) -> dict:
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                return json.loads(self.rfile.read(length) or b"{}")
+            except (ValueError, TypeError):
+                return {}
+
         def do_POST(self) -> None:
+            if self.path == "/api/sensors/scan" and on_scan is not None:
+                # 선을 훑는 동안 측정 차례가 오면 기다린다. 몇 초 걸릴 수 있다.
+                self._send(200, json.dumps({"found": on_scan()}).encode(), "application/json")
+                return
+            if self.path == "/api/sensors/save" and on_save_sensors is not None:
+                self._send(200, json.dumps(on_save_sensors(self._body())).encode(),
+                           "application/json")
+                return
+            if self.path == "/api/sensors/set-id" and on_set_id is not None:
+                body = self._body()
+                try:
+                    old_id, new_id = int(body.get("from")), int(body.get("to"))
+                except (TypeError, ValueError):
+                    self._send(200, json.dumps({"ok": False, "error": "번호가 숫자가 아닙니다"}).encode(),
+                               "application/json")
+                    return
+                self._send(200, json.dumps(on_set_id(old_id, new_id)).encode(), "application/json")
+                return
             if self.path == "/api/pair/start" and on_pair_start is not None:
                 on_pair_start()
                 self._send(200, b'{"ok":true}', "application/json")

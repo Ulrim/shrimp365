@@ -60,7 +60,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.0.4"
+VERSION = "1.1.0"
 log = logging.getLogger("shrimp365")
 
 
@@ -217,6 +217,9 @@ SENSOR_SPECS: dict[str, SensorSpec] = {
     "do": SensorSpec("do", 3, {"do_level": 0x0000, "do_saturation": 0x0002, "temperature": 0x0008}),
     "ec": SensorSpec("ec", 4, {"conductivity": 0x0000, "tds": 0x0002, "salinity": 0x0006, "temperature": 0x0008}),
 }
+
+# 화면에 띄울 이름. 코드 안의 key 를 그대로 보여 주면 알아보기 어렵다.
+SENSOR_LABELS = {"ph": "pH / ORP", "do": "용존산소", "ec": "전도도 / 염도"}
 
 # 수온을 어느 센서 것으로 쓸지. 앞에 있는 것부터 우선.
 TEMPERATURE_PRIORITY = ("ph", "ec", "do")
@@ -418,6 +421,81 @@ def _post_json(url: str, payload: dict, timeout: float = 10.0) -> tuple[int, dic
     except (urllib.error.URLError, TimeoutError, ValueError) as exc:
         log.warning("페어링 요청 실패: %s", exc)
         return 0, {}
+
+
+def save_sensor_config(config_path: Path, settings: dict[str, dict]) -> bool:
+    """[sensors] 구간의 사용 여부와 슬레이브 ID 를 설정 파일에 적는다.
+
+    화면에서 고친 값이 재부팅 후에도 남아야 하므로 파일에 쓴다.
+    configparser 로 다시 쓰면 주석이 전부 사라지므로 해당 줄만 바꿔 넣는다.
+    """
+    try:
+        lines = config_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    except OSError as exc:
+        log.error("설정 파일을 읽을 수 없습니다: %s", exc)
+        return False
+
+    wanted: dict[str, str] = {}
+    for key, cfg in settings.items():
+        wanted[f"{key}_enabled"] = "true" if cfg["enabled"] else "false"
+        wanted[f"{key}_slave_id"] = str(cfg["slave_id"])
+
+    in_sensors = False
+    seen: set[str] = set()
+    out: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("["):
+            # [sensors] 를 막 벗어나는 참이면, 없던 항목을 여기서 채워 넣는다.
+            if in_sensors:
+                for name, value in wanted.items():
+                    if name not in seen:
+                        out.append(f"{name} = {value}\n")
+                out.append("\n")
+            in_sensors = stripped.lower() == "[sensors]"
+            out.append(line)
+            continue
+
+        if in_sensors and "=" in stripped and not stripped.startswith((";", "#")):
+            name = stripped.split("=", 1)[0].strip().lower()
+            if name in wanted:
+                seen.add(name)
+                out.append(f"{name} = {wanted[name]}\n")
+                continue
+        out.append(line)
+
+    if in_sensors:  # 파일이 [sensors] 로 끝난 경우
+        for name, value in wanted.items():
+            if name not in seen:
+                out.append(f"{name} = {value}\n")
+
+    try:
+        config_path.write_text("".join(out), encoding="utf-8")
+        os.chmod(config_path, 0o600)
+        return True
+    except OSError as exc:
+        log.error("설정 파일을 쓸 수 없습니다: %s (권한을 확인하세요)", exc)
+        return False
+
+
+def save_interval(config_path: Path, seconds: int) -> bool:
+    """측정 주기를 설정 파일에 적는다. 화면에서 고친 값이 재부팅 후에도 남아야 한다."""
+    try:
+        lines = config_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    except OSError:
+        return False
+    for i, line in enumerate(lines):
+        if line.strip().lower().startswith("interval_seconds"):
+            lines[i] = f"interval_seconds = {seconds}\n"
+            break
+    else:
+        return False
+    try:
+        config_path.write_text("".join(lines), encoding="utf-8")
+        os.chmod(config_path, 0o600)
+        return True
+    except OSError:
+        return False
 
 
 def save_device_key(config_path: Path, key: str) -> bool:
@@ -766,6 +844,13 @@ def main() -> int:
 
     stop = False
 
+    # 측정 루프와 화면이 같은 시리얼 선을 쓴다. 훑는 중에 측정이 끼어들면
+    # 둘 다 엉뚱한 응답을 받으므로 자물쇠로 한 번에 하나만 쓰게 한다.
+    serial_lock = threading.Lock()
+    client_holder: dict[str, ModbusClient] = {}
+    # 화면에서 고칠 수 있으므로 값 하나를 여러 곳에서 함께 본다.
+    interval_holder = {"seconds": interval}
+
     def handle_signal(signum, _frame):
         nonlocal stop
         log.info("종료 신호(%s) 수신 — 정리 중", signum)
@@ -862,12 +947,104 @@ def main() -> int:
             if state is not None:
                 state.update(pairing=False, pair_code=None, pair_error=None)
 
+        # ── 화면에서 센서 설정 고치기 ────────────────────────────────────────
+        # 지금까지는 SSH 로 들어가 설정 파일을 고쳐야 했다. 현장에서는 수조
+        # 옆에 선 채로 화면만 보고 고칠 수 있어야 한다.
+        #
+        # 선(시리얼 포트)은 측정 루프가 쓰고 있으므로 자물쇠로 겹침을 막는다.
+        # 훑는 중에 측정이 끼어들면 둘 다 엉뚱한 응답을 받는다.
+
+        def ui_scan() -> list[dict]:
+            with serial_lock:
+                try:
+                    found = scan_bus(client_holder["client"], 1, 32)
+                except serial.SerialException as exc:
+                    return [{"error": str(exc)}]
+            return [{"id": i, "kind": k, "note": n} for i, k, n in found]
+
+        def ui_save_sensors(payload: dict) -> dict:
+            """화면에서 고친 센서 설정을 적용하고 파일에도 남긴다."""
+            settings: dict[str, dict] = {}
+            for key in SENSOR_SPECS:
+                item = payload.get(key) or {}
+                try:
+                    slave_id = int(item.get("slave_id", SENSOR_SPECS[key].slave_id))
+                except (TypeError, ValueError):
+                    return {"ok": False, "error": f"{key}: 슬레이브 ID 가 숫자가 아닙니다"}
+                if not 1 <= slave_id <= 247:
+                    return {"ok": False, "error": f"{key}: 슬레이브 ID 는 1~247"}
+                settings[key] = {"enabled": bool(item.get("enabled")), "slave_id": slave_id}
+
+            on = {k: v["slave_id"] for k, v in settings.items() if v["enabled"]}
+            if not on:
+                return {"ok": False, "error": "센서를 하나 이상 켜 주세요."}
+            dupes = [i for i in on.values() if list(on.values()).count(i) > 1]
+            if dupes:
+                return {"ok": False, "error": f"슬레이브 ID {dupes[0]} 가 중복입니다."}
+
+            try:
+                new_interval = int(payload.get("interval", interval_holder["seconds"]))
+            except (TypeError, ValueError):
+                return {"ok": False, "error": "측정 주기가 숫자가 아닙니다"}
+            if not 60 <= new_interval <= 3600:
+                return {"ok": False, "error": "측정 주기는 60~3600초"}
+
+            # 파일 저장이 실패해도 지금 화면에서는 동작해야 하므로 먼저 적용한다.
+            enabled.clear()
+            enabled.update(on)
+            interval_holder["seconds"] = new_interval
+            saved = save_sensor_config(args.config, settings)
+            if saved:
+                save_interval(args.config, new_interval)
+            log.info("화면에서 센서 설정을 바꿨습니다: %s, 주기 %d초", on, new_interval)
+            return {"ok": True, "saved": saved}
+
+        def ui_set_id(old_id: int, new_id: int) -> dict:
+            if not (1 <= old_id <= 247 and 1 <= new_id <= 247):
+                return {"ok": False, "error": "ID 는 1~247 사이여야 합니다"}
+            if old_id == new_id:
+                return {"ok": False, "error": "같은 번호로는 바꿀 수 없습니다"}
+            with serial_lock:
+                client = client_holder["client"]
+                try:
+                    client.read_input_registers(new_id, 0x0000, 2)
+                    return {"ok": False, "error": f"ID {new_id} 는 이미 쓰이고 있습니다"}
+                except ModbusError:
+                    pass  # 비어 있다 — 우리가 원하는 상태
+                except serial.SerialException as exc:
+                    return {"ok": False, "error": str(exc)}
+                try:
+                    client.write_register(old_id, SLAVE_ID_REGISTER, new_id)
+                except (ModbusError, serial.SerialException) as exc:
+                    return {"ok": False, "error": str(exc)}
+            log.info("화면에서 슬레이브 ID 를 바꿨습니다: %d → %d", old_id, new_id)
+            return {"ok": True}
+
+        def ui_sensors() -> dict:
+            return {
+                "interval": interval_holder["seconds"],
+                "port": port,
+                "sensors": [
+                    {
+                        "key": key,
+                        "label": SENSOR_LABELS[key],
+                        "enabled": key in enabled,
+                        "slave_id": enabled.get(key, SENSOR_SPECS[key].slave_id),
+                    }
+                    for key in SENSOR_SPECS
+                ],
+            }
+
         webui.serve(
             state,
             cfg.getint("webui", "port", fallback=8080),
             on_pair_start=start_pairing,
             on_pair_cancel=cancel_pairing,
             history=hist,
+            on_scan=ui_scan,
+            on_save_sensors=ui_save_sensors,
+            on_set_id=ui_set_id,
+            get_sensors=ui_sensors,
         )
         state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중")
 
@@ -901,13 +1078,15 @@ def main() -> int:
     flush_batch = cfg.getint("buffer", "flush_batch", fallback=40) if cfg.has_section("buffer") else 40
 
     client = ModbusClient(port, baudrate)
+    client_holder["client"] = client
     last_values: dict[str, float] = {}
     status_line = ""
 
     while not stop:
         started = time.monotonic()
 
-        values, errors = read_all(client, enabled)
+        with serial_lock:
+            values, errors = read_all(client, dict(enabled))
 
         if not values:
             log.error("읽은 값이 없습니다. 배선·전원·슬레이브 ID를 확인하세요. %s", errors)
@@ -972,7 +1151,7 @@ def main() -> int:
 
         # 측정은 interval 마다지만 화면은 그동안에도 페이지를 넘겨야 한다.
         elapsed = time.monotonic() - started
-        remaining = int(max(0.0, interval - elapsed))
+        remaining = int(max(0.0, interval_holder["seconds"] - elapsed))
         for tick in range(remaining):
             if stop:
                 break

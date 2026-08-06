@@ -1,13 +1,13 @@
 {
-  "latest": "1.0.4",
+  "latest": "1.1.0",
   "releases": {
-    "1.0.4": {
-      "notes": "슬레이브 ID 변경 --set-id 추가",
+    "1.1.0": {
+      "notes": "화면에서 센서 설정 — 선 훑기, 슬레이브 ID·측정 주기 변경",
       "released_at": "2026-08-06",
       "setup": {
-        "file": "shrimp365-setup-1.0.4.tar.gz",
-        "sha256": "28a4427a6a5a750fd6fba85ce4909d4adca0e2f89eec0356df7da50cbdbf049e",
-        "size": 59494
+        "file": "shrimp365-setup-1.1.0.tar.gz",
+        "sha256": "9ce07989e8e84971de48c13083a640dcef5c65e00c2e4aada8d6d6466415ad55",
+        "size": 63969
       }
     }
   }
