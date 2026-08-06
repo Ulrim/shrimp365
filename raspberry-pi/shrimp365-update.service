@@ -6,7 +6,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-# 수집기와 달리 root 로 돈다. /opt 의 코드를 바꾸고 서비스를 다시 시작해야
+# 모니터링 프로그램과 달리 root 로 돈다. /opt 의 코드를 바꾸고 서비스를 다시 시작해야
 # 하기 때문이다. 그 대신 하루 한 번만 잠깐 돌고 끝난다.
 ExecStart=/usr/bin/python3 /opt/shrimp365/updater.py --config /etc/shrimp365/config.ini
 

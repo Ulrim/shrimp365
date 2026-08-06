@@ -1,5 +1,5 @@
 [Unit]
-Description=Shrimp365 water quality sensor collector
+Description=Shrimp365 water quality monitor
 Documentation=https://www.shrimp365.kr/guide
 After=network-online.target
 Wants=network-online.target

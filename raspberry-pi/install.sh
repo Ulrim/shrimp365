@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shrimp365 수질 센서 수집기 설치.
+# Shrimp365 수질 모니터링 프로그램 설치.
 #
 # 내려받은 raspberry-pi 폴더 안에서 실행하세요.
 #   sudo ./install.sh
@@ -97,8 +97,8 @@ usermod -aG dialout "$SERVICE_USER"
 # LCD 를 붙일 수 있으므로 i2c 그룹이 있으면 미리 넣어 둔다.
 getent group i2c >/dev/null && usermod -aG i2c "$SERVICE_USER"
 
-# 설정 파일은 수집기 소유여야 한다. 코드로 연결하면 받은 기기 키를
-# 수집기가 직접 이 파일에 적기 때문이다. 다른 사용자는 읽지 못한다.
+# 설정 파일은 프로그램 소유여야 한다. 코드로 연결하면 받은 기기 키를
+# 프로그램이 직접 이 파일에 적기 때문이다. 다른 사용자는 읽지 못한다.
 chown "$SERVICE_USER":"$SERVICE_USER" "$CONF"
 chmod 600 "$CONF"
 
