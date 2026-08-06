@@ -130,10 +130,34 @@ sudo reboot
 
 ## 3. 프로그램 내려받기
 
-세 가지 방법이 있습니다. **파이가 인터넷에 연결돼 있고 GitHub 접근 권한이 있으면 방법 A**,
-현장 파이에 저장소 접근을 주고 싶지 않으면 **방법 B 또는 C** 를 쓰세요.
+**방법 A(웹사이트에서 받기)를 권합니다.** 계정도 토큰도 git 도 필요 없습니다.
+나머지는 인터넷이 없거나 저장소에서 직접 받아야 할 때 씁니다.
 
-### 방법 A — 저장소에서 바로 받기
+### 방법 A — 웹사이트에서 바로 받기 (권장)
+
+```bash
+curl -fsSLO https://www.shrimp365.kr/updates/shrimp365-setup-latest.tar.gz
+tar xzf shrimp365-setup-latest.tar.gz
+cd shrimp365-setup
+```
+
+이게 전부입니다. 설치에 필요한 파일이 모두 들어 있고 실행 권한도 그대로 살아 있습니다.
+
+받은 파일이 진짜인지 확인하시려면(권장):
+
+```bash
+curl -fsSLO https://www.shrimp365.kr/updates/SHA256SUMS
+sha256sum -c --ignore-missing SHA256SUMS
+# shrimp365-setup-latest.tar.gz: OK
+```
+
+`OK` 가 아니면 받다가 깨졌거나 중간에 바뀐 것입니다. 다시 받으세요.
+
+> 특정 버전을 받으시려면 파일 이름에 번호를 넣으면 됩니다 —
+> `shrimp365-setup-1.1.0.tar.gz`. 어떤 버전이 있는지는
+> https://www.shrimp365.kr/updates/manifest.json 에서 볼 수 있습니다.
+
+### 방법 B — 저장소에서 받기
 
 ```bash
 sudo apt install -y git
@@ -152,9 +176,9 @@ cd shrimp365/raspberry-pi
 권한은 `repo` **읽기**만 주면 됩니다.
 
 > 현장 장비에 토큰을 남기지 마세요. 받은 뒤 `git credential-cache exit` 로 지우거나,
-> 애초에 방법 B·C 를 쓰는 편이 안전합니다.
+> 애초에 방법 A·C·D 를 쓰는 편이 안전합니다.
 
-### 방법 B — USB 메모리로 옮기기 (인터넷이 불안한 현장)
+### 방법 C — USB 메모리로 옮기기 (인터넷이 불안한 현장)
 
 PC에서 `raspberry-pi` 폴더 **전체**를 USB 메모리에 복사합니다.
 GitHub 웹에서 ZIP 으로 받으신다면 화면 왼쪽 위에서 브랜치를
@@ -172,7 +196,7 @@ sudo umount /mnt/usb
 cd ~/raspberry-pi
 ```
 
-### 방법 C — PC에서 바로 밀어 넣기 (같은 네트워크)
+### 방법 D — PC에서 바로 밀어 넣기 (같은 네트워크)
 
 PC의 `raspberry-pi` 폴더가 있는 위치에서
 
@@ -203,8 +227,10 @@ ls
 | `history.py` | 화면 그래프에 쓸 측정 이력 | `/opt/shrimp365/` |
 | `display.py` | 문자 LCD 출력 (LCD 안 달면 안 씁니다) | `/opt/shrimp365/` |
 | `webui.py` | 터치스크린에 띄우는 상태 화면 | `/opt/shrimp365/` |
+| `updater.py` | 원격 업데이트를 받아 서명을 확인하고 적용 | `/opt/shrimp365/` |
 | `config.example.ini` | **설정 견본.** 포트·센서·주기를 여기서 정합니다 | `/etc/shrimp365/config.ini` |
 | `shrimp365-sensor.service` | 부팅하면 자동 시작하게 하는 등록 파일 | `/etc/systemd/system/` |
+| `shrimp365-update.service` `.timer` | 하루 한 번 업데이트 확인 | `/etc/systemd/system/` |
 | `setup-kiosk.sh` | 7인치 터치스크린을 쓸 때만 실행 (10번) | (설정할 때만 씀) |
 | `requirements.txt` | 필요한 파이썬 패키지 목록 (`pyserial` 하나뿐) | (참고용) |
 | `README.md` `INSTALL.md` | 문서 | (참고용) |
@@ -213,7 +239,8 @@ ls
 
 ```bash
 for f in install.sh shrimp365_sensor.py buffer.py history.py display.py \
-         webui.py config.example.ini shrimp365-sensor.service; do
+         webui.py updater.py config.example.ini shrimp365-sensor.service \
+         shrimp365-update.service shrimp365-update.timer; do
   [ -f "$f" ] && echo "  OK   $f" || echo "  없음 $f"
 done
 ```
@@ -701,8 +728,8 @@ pwd && ls
 `install.sh` 가 목록에 **없다면** — 원인은 대개 둘 중 하나입니다.
 
 1. **브랜치를 안 지정하고 `git clone` 했다** (가장 흔합니다).
-   기본 브랜치에는 아직 `raspberry-pi` 폴더가 없습니다. 3번 방법 A 의 `-b` 를 붙여
-   다시 받으세요.
+   기본 브랜치에는 아직 `raspberry-pi` 폴더가 없습니다. 3번 **방법 A**(웹사이트에서
+   받기)로 바꾸시면 이 문제가 아예 없습니다. 굳이 저장소에서 받으시려면 `-b` 를 붙이세요.
    ```bash
    cd ~ && rm -rf shrimp365
    git clone -b claude/shrimp-water-quality-monitoring-aZ4EY \

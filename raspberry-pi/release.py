@@ -38,11 +38,27 @@ REPO = HERE.parent
 OUT_DIR = REPO / "public" / "updates"
 KEY_PATH = Path.home() / ".shrimp365" / "release-key.pem"
 
-# 꾸러미에 담을 파일. updater.py 의 허용 목록과 같아야 한다.
+# 업데이트 꾸러미에 담을 파일. updater.py 의 허용 목록과 같아야 한다.
+# 이미 설치된 장비의 코드만 바꾸는 것이므로 프로그램 파일만 들어간다.
 PAYLOAD = [
     "shrimp365_sensor.py", "display.py", "webui.py",
     "buffer.py", "history.py", "updater.py",
 ]
+
+# 설치 꾸러미에 담을 파일. 빈 라즈베리파이에 처음 설치할 때 필요한 전부다.
+# 저장소를 받지 않고도(토큰·브랜치 지정 없이) 설치할 수 있게 하려는 것이다.
+SETUP_PAYLOAD = PAYLOAD + [
+    "install.sh", "setup-kiosk.sh", "config.example.ini",
+    "shrimp365-sensor.service", "shrimp365-update.service", "shrimp365-update.timer",
+    "requirements.txt", "README.md", "INSTALL.md",
+]
+
+# 풀었을 때 이 폴더가 생긴다. 홈 디렉터리에 파일이 흩어지지 않게 한다.
+SETUP_DIR_NAME = "shrimp365-setup"
+
+# 실행 권한이 필요한 파일. USB·Windows 를 거치면 권한이 날아가는데,
+# tar 안에 넣어 두면 풀자마자 바로 실행할 수 있다.
+EXECUTABLE = {"install.sh", "setup-kiosk.sh"}
 
 
 def cmd_init(args) -> int:
@@ -141,8 +157,6 @@ def cmd_build(args) -> int:
     bump_source_version(version)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    name = f"shrimp365-agent-{version}.tar.gz"
-    out = OUT_DIR / name
 
     # 같은 입력이면 같은 파일이 나오도록 시각과 소유자를 고정한다.
     # 그래야 "내가 만든 그 꾸러미가 맞나" 를 나중에 다시 확인할 수 있다.
@@ -150,23 +164,38 @@ def cmd_build(args) -> int:
         info.uid = info.gid = 0
         info.uname = info.gname = "root"
         info.mtime = 0
-        info.mode = 0o644
+        base = info.name.rsplit("/", 1)[-1]
+        info.mode = 0o755 if base in EXECUTABLE else 0o644
         return info
 
-    with tarfile.open(out, "w:gz", compresslevel=9) as tar:
-        for fname in PAYLOAD:
-            src = HERE / fname
-            if not src.exists():
-                sys.exit(f"파일이 없습니다: {src}")
-            tar.add(src, arcname=fname, filter=reset)
+    def pack(out: Path, files: list[str], prefix: str = "") -> bytes:
+        with tarfile.open(out, "w:gz", compresslevel=9) as tar:
+            for fname in files:
+                src = HERE / fname
+                if not src.exists():
+                    sys.exit(f"파일이 없습니다: {src}")
+                arc = f"{prefix}/{fname}" if prefix else fname
+                tar.add(src, arcname=arc, filter=reset)
+        return out.read_bytes()
 
-    blob = out.read_bytes()
-    digest = hashlib.sha256(blob).hexdigest()
-    # 서명 대상에 버전을 함께 넣는다. 예전 꾸러미의 서명을 새 버전인 것처럼
-    # 갖다 붙이지 못하게 하기 위함이다.
-    signature = base64.b64encode(
-        private.sign(f"{version}\n{digest}\n".encode("utf-8"))
-    ).decode()
+    def sign(kind: str, digest: str) -> str:
+        # 서명 대상에 종류와 버전을 함께 넣는다. 예전 꾸러미의 서명을 새 버전인
+        # 것처럼, 또는 설치 꾸러미의 서명을 업데이트용으로 갖다 붙이지 못하게 한다.
+        payload = f"{version}\n{digest}\n" if kind == "agent" else f"{kind} {version}\n{digest}\n"
+        return base64.b64encode(private.sign(payload.encode("utf-8"))).decode()
+
+    # ── 업데이트 꾸러미 — 이미 설치된 장비가 받아 가는 것 ────────────────────
+    agent_name = f"shrimp365-agent-{version}.tar.gz"
+    agent_blob = pack(OUT_DIR / agent_name, PAYLOAD)
+    agent_digest = hashlib.sha256(agent_blob).hexdigest()
+
+    # ── 설치 꾸러미 — 빈 파이에 처음 설치할 때 받는 것 ───────────────────────
+    setup_name = f"shrimp365-setup-{version}.tar.gz"
+    setup_blob = pack(OUT_DIR / setup_name, SETUP_PAYLOAD, prefix=SETUP_DIR_NAME)
+    setup_digest = hashlib.sha256(setup_blob).hexdigest()
+    # 버전을 몰라도 받을 수 있도록 고정 이름으로도 둔다. 현장에서 안내문을
+    # 그대로 따라 칠 수 있어야 한다.
+    (OUT_DIR / "shrimp365-setup-latest.tar.gz").write_bytes(setup_blob)
 
     manifest_path = OUT_DIR / "manifest.json"
     manifest = {"latest": None, "releases": {}}
@@ -174,27 +203,45 @@ def cmd_build(args) -> int:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
     manifest["releases"][version] = {
-        "file": name,
-        "sha256": digest,
-        "size": len(blob),
-        "signature": signature,
+        "file": agent_name,
+        "sha256": agent_digest,
+        "size": len(agent_blob),
+        "signature": sign("agent", agent_digest),
         "notes": args.notes or "",
         "released_at": time.strftime("%Y-%m-%d"),
+        # 설치 꾸러미는 updater 가 쓰지 않는다. 사람이 받아 확인할 때 쓴다.
+        "setup": {
+            "file": setup_name,
+            "sha256": setup_digest,
+            "size": len(setup_blob),
+            "signature": sign("setup", setup_digest),
+        },
     }
     manifest["latest"] = version
     manifest_path.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-    print(f"꾸러미: public/updates/{name}  ({len(blob):,} 바이트)")
-    print(f"해시:   {digest}")
-    print(f"서명:   {signature[:32]}…")
+    # 현장에서 sha256sum -c 로 바로 확인할 수 있게 해 둔다.
+    (OUT_DIR / "SHA256SUMS").write_text(
+        f"{agent_digest}  {agent_name}\n"
+        f"{setup_digest}  {setup_name}\n"
+        f"{setup_digest}  shrimp365-setup-latest.tar.gz\n", encoding="utf-8")
+
+    print(f"업데이트 꾸러미: public/updates/{agent_name}  ({len(agent_blob):,} 바이트)")
+    print(f"설치   꾸러미: public/updates/{setup_name}  ({len(setup_blob):,} 바이트)")
+    print(f"                 + shrimp365-setup-latest.tar.gz (같은 내용, 고정 이름)")
     print()
     print("이제 저장소에 올리면 배포됩니다.")
     print("  git add public/updates raspberry-pi/shrimp365_sensor.py")
     print(f"  git commit -m '장비 {version} 배포'")
     print("  git push")
     print()
-    print("웹의 기기 카드에서 [업데이트] 를 누른 기기만 받아 갑니다.")
+    print("현장 설치 (토큰·git 불필요):")
+    print("  curl -fsSLO https://www.shrimp365.kr/updates/shrimp365-setup-latest.tar.gz")
+    print("  tar xzf shrimp365-setup-latest.tar.gz")
+    print(f"  cd {SETUP_DIR_NAME} && sudo ./install.sh")
+    print()
+    print("이미 설치된 장비는 웹의 기기 카드에서 [업데이트] 를 누르면 받아 갑니다.")
     return 0
 
 

@@ -50,17 +50,19 @@ RS-485 디지털 센서(MODBUS-RTU)에서 **수온·pH·DO·염도**를 읽어 S
 
 ## 3. 설치
 
-내려받은 `raspberry-pi` 폴더 안에서 한 줄이면 됩니다.
+파이에서 세 줄이면 됩니다. 계정도 토큰도 git 도 필요 없습니다.
 
 ```bash
-sudo ./install.sh
+curl -fsSLO https://www.shrimp365.kr/updates/shrimp365-setup-latest.tar.gz
+tar xzf shrimp365-setup-latest.tar.gz
+cd shrimp365-setup && sudo ./install.sh
 ```
 
 패키지 설치, 프로그램 배치(`/opt/shrimp365`), 설정 파일 생성(`/etc/shrimp365/config.ini`),
 전용 계정 생성, 서비스 등록까지 한 번에 합니다. 설정을 먼저 채워야 하므로 **시작은 하지 않습니다.**
 
 > 빈 SD카드에서 시작하는 전체 절차는 **[INSTALL.md](INSTALL.md)** 에 따로 정리해 두었습니다.
-> OS 굽기, 프로그램 내려받는 세 가지 방법, 마무리 확인표까지 순서대로 적혀 있습니다.
+> OS 굽기, 인터넷이 없을 때 받는 방법, 마무리 확인표까지 순서대로 적혀 있습니다.
 
 ## 4. 기기 연결
 
