@@ -2,7 +2,12 @@ export const WQ_THRESHOLDS = {
   temperature: { warning: { min: 25, max: 32 }, danger: { min: 22, max: 35 } },
   ph:          { warning: { min: 7.5, max: 8.5 }, danger: { min: 7.0, max: 9.0 } },
   do_level:    { warning: { min: 5.0, max: null }, danger: { min: 4.0, max: null } },
-  salinity:    { warning: { min: 15, max: 25 }, danger: { min: 10, max: 30 } },
+  // 염도(ppm)는 자동 알림을 걸지 않는다.
+  // 적정 범위가 양식 방식에 따라 완전히 다르다 — 민물은 수백 ppm, 기수는
+  // 15,000~25,000 ppm 이다. 하나의 값으로 잡으면 한쪽은 무조건 위험으로 떠서
+  // 알림이 하루 수백 건씩 쌓이고, 정작 봐야 할 알림이 묻힌다.
+  // 농장별 범위 설정이 생기면 그때 켠다.
+  salinity:    { warning: { min: null, max: null }, danger: { min: null, max: null } },
   ammonia:     { warning: { min: null, max: 0.5 }, danger: { min: null, max: 1.0 } },
   nitrite:     { warning: { min: null, max: 0.2 }, danger: { min: null, max: 0.5 } },
   nitrate:     { warning: { min: null, max: 20 }, danger: { min: null, max: 40 } },

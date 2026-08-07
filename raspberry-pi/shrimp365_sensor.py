@@ -60,7 +60,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.2.2"
+VERSION = "1.3.0"
 log = logging.getLogger("shrimp365")
 
 
@@ -242,7 +242,9 @@ class SensorSpec:
 SENSOR_SPECS: dict[str, SensorSpec] = {
     "ph": SensorSpec("ph", 1, {"ph": 0x0000, "orp": 0x0004, "temperature": 0x0008}),
     "do": SensorSpec("do", 3, {"do_level": 0x0000, "do_saturation": 0x0002, "temperature": 0x0008}),
-    "ec": SensorSpec("ec", 4, {"conductivity": 0x0000, "tds": 0x0002, "salinity": 0x0006, "temperature": 0x0008}),
+    # 염도(0x0006)는 읽지 않는다. 민물에서 132 ppt 처럼 말이 안 되는 값이 나와
+    # 믿을 수 없다. 대신 전도도에서 직접 환산한다(아래 salinity_from_ec).
+    "ec": SensorSpec("ec", 4, {"conductivity": 0x0000, "tds": 0x0002, "temperature": 0x0008}),
 }
 
 # 화면에 띄울 이름. 코드 안의 key 를 그대로 보여 주면 알아보기 어렵다.
@@ -382,6 +384,33 @@ def scan_bus(client: ModbusClient, first: int, last: int) -> list[tuple[int, str
     return found
 
 
+# 전도도에서 염도를 환산할 때 쓰는 계수.
+# 물에 녹은 소금이 많을수록 전기가 잘 통한다는 성질을 쓰는 것으로, TDS 계측기가
+# 흔히 쓰는 NaCl 기준값이다. 물의 조성에 따라 0.5~0.7 사이에서 달라지므로
+# 설정에서 바꿀 수 있게 해 둔다(정밀 측정이 필요하면 굴절계로 대조).
+DEFAULT_EC_TO_PPM = 0.5
+
+
+def salinity_from_ec(conductivity: float, unit: str, factor: float) -> float | None:
+    """전도도를 염도(ppm)로 환산한다.
+
+    센서가 내는 염도 레지스터를 믿지 않고 여기서 직접 계산한다. 같은 변환기라도
+    염도 자리가 엉뚱한 값을 내는 경우가 있는데, 전도도는 실제로 재는 값이라
+    그쪽이 신뢰할 만하다.
+
+    ppm = uS/cm x 계수. 단위가 mS/cm 로 오면 1000배 해서 uS/cm 로 맞춘다.
+    """
+    if unit == "uS":
+        micro_siemens = conductivity
+    elif unit == "mS":
+        micro_siemens = conductivity * 1000.0
+    elif unit == "S":
+        micro_siemens = conductivity * 1_000_000.0
+    else:
+        return None
+    return round(micro_siemens * factor, 1)
+
+
 # 물리적으로 있을 수 없는 값은 버린다.
 # 센서 해석이 어긋나거나(레지스터 위치·단위) 전극이 물 밖에 있으면 터무니없는
 # 숫자가 나오는데, 그대로 두면 화면에 뜨고 그래프를 망가뜨린다. 서버도 범위 밖
@@ -391,9 +420,9 @@ PLAUSIBLE = {
     "temperature":   (-5.0, 60.0),     # 서버와 같은 범위
     "ph":            (0.0, 14.0),
     "do_level":      (0.0, 30.0),
-    "salinity":      (0.0, 50.0),      # 바닷물이 약 35 ppt
-    "conductivity":  (0.0, 200.0),
-    "tds":           (0.0, 100.0),
+    "salinity":      (0.0, 50000.0),   # ppm. 바닷물이 약 35,000 ppm
+    "conductivity":  (0.0, 200000.0),  # uS/cm. 바닷물이 약 50,000
+    "tds":           (0.0, 100000.0),  # ppm
     "do_saturation": (0.0, 200.0),
     "orp":           (-2000.0, 2000.0),
 }
@@ -412,16 +441,24 @@ def normalize(name: str, value: float, unit: str) -> float | None:
         return round(value, 2)
 
     if name == "salinity":
-        # 서버는 ppt 기준. g/L 은 실무상 ppt 와 같게 다룬다.
-        if unit in ("ppt", "g/L", ""):
-            return round(value, 2)
+        # 서버는 ppm 기준.
         if unit == "ppm":
-            return round(value / 1000, 3)
-        if unit == "%":
-            return round(value * 10, 2)
-        return round(value, 2)
+            return round(value, 1)
+        if unit in ("ppt", "g/L"):
+            return round(value * 1000, 1)
+        return round(value, 1)
 
-    if name == "do_level":
+    if name == "conductivity":
+        # uS/cm 로 통일한다. 민물은 수백~수천, 바닷물은 오만 단위라
+        # mS 로 두면 민물이 소수점 아래로 뭉개진다.
+        if unit == "mS":
+            return round(value * 1000.0, 1)
+        if unit == "S":
+            return round(value * 1_000_000.0, 1)
+        return round(value, 1)
+
+    if name in ("do_level", "tds"):
+        # ppm 으로 통일한다. 물에서 mg/L 과 ppm 은 수치가 같으므로 환산이 없다.
         if unit == "ug/L":
             return round(value / 1000, 3)
         return round(value, 2)
@@ -431,11 +468,13 @@ def normalize(name: str, value: float, unit: str) -> float | None:
 
 # ── 수집 ──────────────────────────────────────────────────────────────────────
 
-def read_all(client: ModbusClient, enabled: dict[str, int]) -> tuple[dict[str, float], dict[str, str]]:
+def read_all(client: ModbusClient, enabled: dict[str, int],
+             ec_to_ppm: float = DEFAULT_EC_TO_PPM) -> tuple[dict[str, float], dict[str, str]]:
     """켜져 있는 센서를 모두 읽어 (측정값, 오류) 를 돌려준다."""
     values: dict[str, float] = {}
     temps: dict[str, float] = {}
     errors: dict[str, str] = {}
+    raw_conductivity: tuple[float, str] | None = None
 
     for key, slave_id in enabled.items():
         spec = SENSOR_SPECS[key]
@@ -480,6 +519,17 @@ def read_all(client: ModbusClient, enabled: dict[str, int]) -> tuple[dict[str, f
                 temps[key] = value
             else:
                 values[name] = value
+                if name == "conductivity":
+                    # 염도를 계산하려면 단위까지 알아야 한다(uS 냐 mS 냐).
+                    raw_conductivity = (raw_value, unit)
+
+    # 염도는 전도도에서 환산한다. 센서의 염도 레지스터는 믿지 않는다.
+    if raw_conductivity is not None:
+        salinity = salinity_from_ec(raw_conductivity[0], raw_conductivity[1], ec_to_ppm)
+        if salinity is not None and plausible("salinity", salinity):
+            values["salinity"] = salinity
+        elif salinity is not None:
+            log.warning("환산한 염도가 범위를 벗어났습니다: %s ppm — 버립니다.", salinity)
 
     # 수온은 한 값만 보낸다 — 센서마다 미세하게 다른 값을 겹쳐 보내면 혼란스럽다.
     for key in TEMPERATURE_PRIORITY:
@@ -881,6 +931,7 @@ def main() -> int:
 
     port = cfg.get("serial", "port", fallback="/dev/ttyUSB0")
     baudrate = cfg.getint("serial", "baudrate", fallback=9600)
+    ec_to_ppm = cfg.getfloat("sensors", "ec_to_ppm", fallback=DEFAULT_EC_TO_PPM)
 
     # 슬레이브 ID 변경. 같은 ID 를 쓰는 센서가 둘일 때 쓴다.
     if args.set_id:
@@ -1342,7 +1393,7 @@ def main() -> int:
         started = time.monotonic()
 
         with serial_lock:
-            values, errors = read_all(client, dict(enabled))
+            values, errors = read_all(client, dict(enabled), ec_to_ppm)
 
         if not values:
             log.error("읽은 값이 없습니다. 배선·전원·슬레이브 ID를 확인하세요. %s", errors)

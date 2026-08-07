@@ -99,7 +99,7 @@ export default function RecordWaterQualityPage() {
       fields: [
         { key: "date", label: t.wizard.date, type: "date" },
         { key: "temperature", label: t.waterQuality.temperature, type: "number", placeholder: "예: 28.5", unit: "°C", optional: true, hint: "최적 범위: 26~28°C" },
-        { key: "salinity", label: t.waterQuality.salinity, type: "number", placeholder: "예: 15", unit: "ppt", optional: true, hint: "최적 범위: 15~25 ppt" },
+        { key: "salinity", label: t.waterQuality.salinity, type: "number", placeholder: "예: 660", unit: "ppm", optional: true, hint: "민물 300~1500 · 기수 15000~25000" },
       ],
     },
     {

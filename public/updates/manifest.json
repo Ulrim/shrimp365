@@ -1,13 +1,13 @@
 {
-  "latest": "1.2.2",
+  "latest": "1.3.0",
   "releases": {
-    "1.2.2": {
-      "notes": "레지스터 진단 --dump, 비정상 값 걸러내기",
+    "1.3.0": {
+      "notes": "단위 정리 — 염도·DO·TDS ppm, 전도도 uS/cm, 염도는 전도도에서 환산",
       "released_at": "2026-08-07",
       "setup": {
-        "file": "shrimp365-setup-1.2.2.tar.gz",
-        "sha256": "ac69a89301cc9fb2a24147f071b9550ff08a7d8eba2d42d7aea9d47b40c4db6c",
-        "size": 68632
+        "file": "shrimp365-setup-1.3.0.tar.gz",
+        "sha256": "d54dc41e733957fb6a35dbb9c641cbd50a38aba85e1f4f7558cbde31b1edec9f",
+        "size": 69698
       }
     }
   }

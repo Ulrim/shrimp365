@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
     temperature: [-5,   60],
     ph:          [ 0,   14],
     do_level:    [ 0,   30],
-    salinity:    [ 0,   50],
+    salinity:    [ 0, 50000],   // ppm — 바닷물이 약 35,000
     ammonia:     [ 0,  100],
     nitrite:     [ 0,  100],
     nitrate:     [ 0,  500],
@@ -204,17 +204,54 @@ export async function POST(req: NextRequest) {
   // 4. 임계값 체크 → 알림 생성 + 수조 상태 갱신
   const thresholdAlerts = checkThresholds(values as Parameters<typeof checkThresholds>[0])
 
+  // 같은 항목이 계속 범위 밖이면 알림을 새로 만들지 않는다.
+  //
+  // 1분마다 측정하므로, 밤새 산소가 낮으면 알림이 480건 쌓인다. 그러면 정작
+  // 봐야 할 다른 알림이 묻히고, 농가는 알림 자체를 무시하게 된다. 아직 해결되지
+  // 않은 같은 알림이 있으면 그 값만 갱신하고 새 줄은 만들지 않는다.
   for (const alert of thresholdAlerts) {
     try {
-      await supabaseAdmin.from("alerts").insert({
-        tank_id: device.tank_id,
-        type: alert.type,
-        parameter: alert.parameter,
-        value: alert.value,
-        threshold: alert.threshold,
-        message: alert.message,
-        resolved: false,
-      })
+      const { data: open } = await supabaseAdmin
+        .from("alerts")
+        .select("id")
+        .eq("tank_id", device.tank_id)
+        .eq("parameter", alert.parameter)
+        .eq("resolved", false)
+        .limit(1)
+        .maybeSingle()
+
+      if (open) {
+        // 이미 알린 상태다. 최신 값과 심각도만 반영한다.
+        await supabaseAdmin
+          .from("alerts")
+          .update({ type: alert.type, value: alert.value, message: alert.message })
+          .eq("id", open.id)
+      } else {
+        await supabaseAdmin.from("alerts").insert({
+          tank_id: device.tank_id,
+          type: alert.type,
+          parameter: alert.parameter,
+          value: alert.value,
+          threshold: alert.threshold,
+          message: alert.message,
+          resolved: false,
+        })
+      }
+    } catch (e) { console.warn("[sensors/data] non-fatal:", e instanceof Error ? e.message : e) }
+  }
+
+  // 범위 안으로 돌아온 항목은 알림을 닫는다. 안 닫으면 위 중복 방지 때문에
+  // 다음에 정말 문제가 생겨도 옛 알림만 갱신되고 새로 알리지 않는다.
+  const stillBad = new Set(thresholdAlerts.map(a => a.parameter))
+  const recovered = Object.keys(values).filter(p => !stillBad.has(p))
+  if (recovered.length > 0) {
+    try {
+      await supabaseAdmin
+        .from("alerts")
+        .update({ resolved: true })
+        .eq("tank_id", device.tank_id)
+        .eq("resolved", false)
+        .in("parameter", recovered)
     } catch (e) { console.warn("[sensors/data] non-fatal:", e instanceof Error ? e.message : e) }
   }
 
