@@ -60,7 +60,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.2.1"
+VERSION = "1.2.2"
 log = logging.getLogger("shrimp365")
 
 
@@ -337,6 +337,27 @@ def auto_assign(client: ModbusClient, first: int = 1, last: int = 32) -> dict:
     }
 
 
+def dump_registers(client: ModbusClient, slave_id: int) -> list[str]:
+    """레지스터 16개를 있는 그대로 보여 준다.
+
+    값이 이상할 때(민물인데 염도가 132 ppt 라든지) 우리 해석이 틀린 것인지
+    센서가 이상한 것인지 가리려면 원본을 봐야 한다. 레지스터는 값과
+    "소수점+단위" 가 짝이므로 짝수 자리마다 해석을 함께 붙인다.
+    """
+    regs = client.read_input_registers(slave_id, 0x0000, 16)
+    lines = []
+    for i in range(0, len(regs), 2):
+        raw, meta = regs[i], regs[i + 1] & 0xFFFF
+        decimals, unit_code = (meta >> 8) & 0xFF, meta & 0xFF
+        unit = UNITS.get(unit_code, f"?({unit_code:#04x})")
+        decoded = decode(regs, i)
+        shown = f"{decoded[0]:g} {decoded[1]}".strip() if decoded else "해석 불가"
+        lines.append(
+            f"  0x{i:04X}  원시 {raw:>7}   소수 {decimals}자리  단위 {unit:<6}  →  {shown}"
+        )
+    return lines
+
+
 def scan_bus(client: ModbusClient, first: int, last: int) -> list[tuple[int, str, str]]:
     """선에 물려 있는 슬레이브 ID 를 훑는다.
 
@@ -359,6 +380,28 @@ def scan_bus(client: ModbusClient, first: int, last: int) -> list[tuple[int, str
         kind = UNIT_TO_SENSOR.get(unit, "알 수 없음")
         found.append((slave_id, kind, f"첫 값 {value} {unit}".strip()))
     return found
+
+
+# 물리적으로 있을 수 없는 값은 버린다.
+# 센서 해석이 어긋나거나(레지스터 위치·단위) 전극이 물 밖에 있으면 터무니없는
+# 숫자가 나오는데, 그대로 두면 화면에 뜨고 그래프를 망가뜨린다. 서버도 범위 밖
+# 값을 조용히 버리므로, 화면에는 보이는데 기록에는 없는 상태가 되어 더 헷갈린다.
+# 실제 양식 현장에서 나올 수 있는 폭보다 넉넉히 잡되, 명백한 오류는 거른다.
+PLAUSIBLE = {
+    "temperature":   (-5.0, 60.0),     # 서버와 같은 범위
+    "ph":            (0.0, 14.0),
+    "do_level":      (0.0, 30.0),
+    "salinity":      (0.0, 50.0),      # 바닷물이 약 35 ppt
+    "conductivity":  (0.0, 200.0),
+    "tds":           (0.0, 100.0),
+    "do_saturation": (0.0, 200.0),
+    "orp":           (-2000.0, 2000.0),
+}
+
+
+def plausible(name: str, value: float) -> bool:
+    span = PLAUSIBLE.get(name)
+    return span is None or span[0] <= value <= span[1]
 
 
 def normalize(name: str, value: float, unit: str) -> float | None:
@@ -421,6 +464,16 @@ def read_all(client: ModbusClient, enabled: dict[str, int]) -> tuple[dict[str, f
             raw_value, unit = decoded
             value = normalize(name, raw_value, unit)
             if value is None:
+                continue
+            if not plausible(name, value):
+                # 있을 수 없는 값이다. 담아 두면 화면·그래프가 망가지고,
+                # 서버는 어차피 버리므로 여기서 이유를 남기고 끊는다.
+                log.warning(
+                    "%s 값이 범위를 벗어났습니다: %s = %s (원시 %s %s) — 버립니다. "
+                    "--dump 으로 레지스터를 확인해 보세요.",
+                    key, name, value, raw_value, unit or "단위없음",
+                )
+                errors.setdefault(key, f"{name} 값 이상({value})")
                 continue
 
             if name == "temperature":
@@ -809,6 +862,8 @@ def main() -> int:
                         help="센서의 슬레이브 ID 변경 — 센서를 한 대만 연결하고 실행하세요")
     parser.add_argument("--auto", action="store_true",
                         help="센서를 꽂아 둔 채로 훑어 슬레이브 ID 를 자동 배치")
+    parser.add_argument("--dump", nargs="?", const=-1, type=int, metavar="ID",
+                        help="레지스터를 있는 그대로 출력(값이 이상할 때). ID 생략 시 켜진 센서 전부")
     parser.add_argument("--once", action="store_true", help="한 번만 측정하고 종료(설치 점검용)")
     parser.add_argument("--dry-run", action="store_true", help="서버로 보내지 않고 값만 출력")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -866,6 +921,37 @@ def main() -> int:
         print()
         print("전원을 껐다 켜야 적용되는 제품도 있습니다. 확인:")
         print(f"  ... --scan")
+        return 0
+
+    # 값이 이상할 때 원본 레지스터를 본다.
+    if args.dump is not None:
+        client = ModbusClient(port, baudrate)
+        try:
+            client.open()
+        except serial.SerialException as exc:
+            sys.exit(f"시리얼 포트를 열 수 없습니다: {port}\n  {exc}")
+
+        if args.dump > 0:
+            targets = [(f"ID {args.dump}", args.dump)]
+        else:
+            targets = [
+                (f"{SENSOR_LABELS[k]} (ID {cfg.getint('sensors', f'{k}_slave_id', fallback=v.slave_id)})",
+                 cfg.getint("sensors", f"{k}_slave_id", fallback=v.slave_id))
+                for k, v in SENSOR_SPECS.items()
+                if cfg.getboolean("sensors", f"{k}_enabled", fallback=True)
+            ]
+
+        try:
+            for label, slave_id in targets:
+                print(f"\n=== {label} ===")
+                try:
+                    for line in dump_registers(client, slave_id):
+                        print(line)
+                except (ModbusError, serial.SerialException) as exc:
+                    print(f"  읽지 못했습니다: {exc}")
+        finally:
+            client.close()
+        print()
         return 0
 
     # 꽂아 둔 센서를 훑어 설정을 자동으로 맞춘다.
