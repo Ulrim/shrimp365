@@ -25,6 +25,7 @@ import { exportToCsv } from "@/lib/export"
 import { formatDateTime } from "@/lib/utils"
 import type { Tank, WaterQualityReading, Alert, SensorDevice } from "@/types"
 import { useT } from "@/lib/i18n-context"
+import { useAutoRefresh, sinceLabel } from "@/lib/use-auto-refresh"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -310,13 +311,15 @@ export default function WaterQualityPage() {
     if (selectedTankId) loadTankData(selectedTankId)
   }, [selectedTankId, loadTankData])
 
-  // Auto-refresh every 60 seconds
+  // 센서가 1분마다 값을 올리므로 화면도 그 주기로 따라간다.
+  // 공통 훅을 쓰면 탭을 다른 곳에 두었다 돌아왔을 때도 곧바로 최신값을 가져온다
+  // (브라우저가 안 보이는 탭의 타이머를 크게 늦추기 때문에 그것만으로는 부족하다).
   const refreshSec = 60
-  useEffect(() => {
-    if (!selectedTankId) return
-    const id = setInterval(() => loadTankData(selectedTankId), refreshSec * 1000)
-    return () => clearInterval(id)
+  const refreshTank = useCallback(async () => {
+    if (selectedTankId) await loadTankData(selectedTankId)
   }, [selectedTankId, loadTankData])
+
+  const { lastRefreshed } = useAutoRefresh(refreshTank, refreshSec, !!selectedTankId)
 
   // Derive a single tank's status from a water quality reading
   function deriveStatus(reading: WaterQualityReading): StatusLevel {
@@ -683,12 +686,11 @@ export default function WaterQualityPage() {
                 <CardTitle className="text-foreground text-base">
                   {timeRangeLabel(hours)} {t.waterQuality.trend}
                 </CardTitle>
-                {refreshSec && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <RefreshCw className="w-3 h-3" />
-                    {refreshSec >= 60 ? `${refreshSec / 60}${t.waterQuality.autoRefreshMin}` : `${refreshSec}초마다 자동갱신`}
-                  </span>
-                )}
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <RefreshCw className="w-3 h-3" />
+                  {refreshSec >= 60 ? `${refreshSec / 60}${t.waterQuality.autoRefreshMin}` : `${refreshSec}초마다 자동갱신`}
+                  {lastRefreshed && <span className="opacity-70">· {sinceLabel(lastRefreshed)}</span>}
+                </span>
               </div>
             </CardHeader>
             <CardContent>

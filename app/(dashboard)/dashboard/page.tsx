@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import { formatDateTime } from "@/lib/utils"
 import { useT } from "@/lib/i18n-context"
+import { useAutoRefresh, sinceLabel } from "@/lib/use-auto-refresh"
 
 function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string }) {
   return (
@@ -64,6 +65,23 @@ export default function DashboardPage() {
     warning: <AlertCircle className="w-4 h-4 text-amber-500" />,
     info:    <CheckCircle2 className="w-4 h-4 text-ocean-500" />,
   }
+
+  // 센서가 1분마다 값을 올리므로 화면도 그 주기로 다시 불러온다.
+  // 첫 로딩과 같은 일을 하되, 이미 뜬 화면을 비우지 않도록 loading 은 건드리지 않는다.
+  const reload = useCallback(async () => {
+    if (isTestAccount(user?.email)) return   // 데모 계정은 고정 데이터
+    const [f, tk, a, d, inv] = await Promise.all([
+      getFarms(), getAllTanks(), getAlerts(true), getDiagnoses(), getInventoryItems()
+    ])
+    setFarms(f)
+    setTanks(tk)
+    setAlerts(a.filter(x => !x.resolved))
+    setDiagnoses(d)
+    setLowStockItems(inv.filter(i => i.reorder_level > 0 && i.current_stock <= i.reorder_level))
+    if (selectedTankId) setWqData(await getWaterQuality(selectedTankId, 24))
+  }, [user?.email, selectedTankId])
+
+  const { lastRefreshed } = useAutoRefresh(reload, 60, !loading)
 
   useEffect(() => {
     async function load() {
@@ -208,6 +226,14 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* 자동갱신 표시 — 돌고 있는지 사람이 알 수 있어야 믿고 볼 수 있다 */}
+      {lastRefreshed && (
+        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          1분마다 자동갱신 · 마지막 {sinceLabel(lastRefreshed)}
+        </p>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">

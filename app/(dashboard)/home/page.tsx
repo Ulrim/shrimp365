@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
 import { getFarms, getAllTanks, getAlerts } from "@/lib/db"
 import { isTestAccount, MOCK_TANKS, MOCK_ALERTS } from "@/lib/mock-data"
+import { useAutoRefresh } from "@/lib/use-auto-refresh"
 import { ClipboardList, BarChart3, AlertTriangle, CheckCircle2, Activity } from "lucide-react"
 import { AdSlot } from "@/components/ads/ad-slot"
 import { Tank, Alert } from "@/types"
@@ -44,6 +45,17 @@ export default function HomePage() {
       })
       .catch(() => { setLoadError(true); setChecking(false) })
   }, [user, router, retry])
+
+  // 수조 상태와 알림은 1분마다 다시 불러온다. 첫 화면에서 위험 수조를 보고
+  // 움직이는 경우가 많은데, 열어 둔 채 두면 옛 상태가 그대로 남는다.
+  const reload = useCallback(async () => {
+    if (!user || isTestAccount(user.email)) return
+    const [tankList, alertList] = await Promise.all([getAllTanks(), getAlerts(true)])
+    setTanks(tankList)
+    setAlerts(alertList.filter((a: Alert) => !a.resolved))
+  }, [user])
+
+  useAutoRefresh(reload, 60, !checking && !loadError)
 
   if (checking) {
     return (
