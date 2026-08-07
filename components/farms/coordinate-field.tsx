@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { MapPin, LocateFixed, Loader2 } from "lucide-react"
+import { MapPin, LocateFixed, Loader2, ExternalLink, AlertTriangle } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 
@@ -62,6 +62,12 @@ export function CoordinateField({
     return Number.isFinite(n) ? n : null
   }
 
+  // 지도에서 좌표를 옮겨 적을 때 위도·경도를 바꿔 넣는 실수가 흔하다.
+  // 위도는 -90~90 이므로 그 밖의 값이 들어오면 뒤바뀐 것이 거의 확실하다.
+  const swapped = latitude !== null && Math.abs(latitude) > 90
+  const outOfRange = longitude !== null && Math.abs(longitude) > 180
+  const ready = latitude !== null && longitude !== null && !swapped && !outOfRange
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -99,11 +105,45 @@ export function CoordinateField({
         />
       </div>
 
-      {error
-        ? <p className="text-xs text-red-500">{error}</p>
-        : <p className="text-xs text-muted-foreground">
-            지도 표시와 폭우·태풍 경보에 씁니다. <b>양식장에 서서</b> 휴대폰으로 누르면 가장 정확합니다.
-          </p>}
+      {swapped && (
+        <p className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
+          <span>
+            위도는 −90~90 사이입니다. <b>위도와 경도가 바뀐 것 같습니다</b> — 지도에서
+            복사하면 <b>위도 먼저</b> 나옵니다(우리나라는 위도 33~38, 경도 125~130).
+            <button
+              type="button"
+              onClick={() => onChange(longitude, latitude)}
+              className="ml-1 underline font-semibold"
+            >서로 바꾸기</button>
+          </span>
+        </p>
+      )}
+      {outOfRange && !swapped && (
+        <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+          <AlertTriangle className="w-3.5 h-3.5" /> 경도는 −180~180 사이입니다.
+        </p>
+      )}
+
+      {error && <p className="text-xs text-red-500">{error}</p>}
+
+      {!error && !swapped && !outOfRange && (
+        <p className="text-xs text-muted-foreground">
+          지도 표시와 폭우·태풍 경보에 씁니다. <b>양식장에 서서</b> 휴대폰으로 누르면 가장 정확합니다.
+        </p>
+      )}
+
+      {/* 저장하기 전에 엉뚱한 곳을 찍지 않았는지 눈으로 확인할 수 있게 한다. */}
+      {ready && (
+        <a
+          href={`https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=15/${latitude}/${longitude}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-xs text-ocean-500 hover:underline"
+        >
+          <ExternalLink className="w-3 h-3" /> 지도에서 이 위치 확인
+        </a>
+      )}
     </div>
   )
 }
