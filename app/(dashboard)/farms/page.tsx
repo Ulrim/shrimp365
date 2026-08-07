@@ -44,6 +44,8 @@ import {
 import { formatDate } from "@/lib/utils"
 import type { SensorDevice } from "@/types"
 import { PairDeviceDialog } from "@/components/sensors/pair-device-dialog"
+import { CoordinateField } from "@/components/farms/coordinate-field"
+import { FarmMap } from "@/components/farms/farm-map"
 import { useT } from "@/lib/i18n-context"
 import { AddressSearch } from "@/components/ui/address-search"
 
@@ -107,6 +109,7 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({ name: "", location: "", owner_name: "", area: "" })
+  const [coords, setCoords] = useState<{ lat: number | null; lon: number | null }>({ lat: null, lon: null })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -118,6 +121,8 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
         location: form.location,
         owner_name: form.owner_name,
         area: parseFloat(form.area),
+        latitude: coords.lat,
+        longitude: coords.lon,
       })
       setSubmitted(true)
       onSuccess()
@@ -215,6 +220,11 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
                 required
               />
             </div>
+            <CoordinateField
+              latitude={coords.lat}
+              longitude={coords.lon}
+              onChange={(lat, lon) => setCoords({ lat, lon })}
+            />
             <DialogFooter className="pt-2">
               <Button
                 type="button"
@@ -459,9 +469,13 @@ function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({ name: farm.name, location: farm.location, owner_name: farm.owner_name ?? "", area: String(farm.area) })
+  const [coords, setCoords] = useState<{ lat: number | null; lon: number | null }>({ lat: farm.latitude, lon: farm.longitude })
 
   useEffect(() => {
-    if (open) setForm({ name: farm.name, location: farm.location, owner_name: farm.owner_name ?? "", area: String(farm.area) })
+    if (open) {
+      setForm({ name: farm.name, location: farm.location, owner_name: farm.owner_name ?? "", area: String(farm.area) })
+      setCoords({ lat: farm.latitude, lon: farm.longitude })
+    }
   }, [open, farm])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -469,7 +483,7 @@ function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void
     setSaving(true)
     setError(null)
     try {
-      await updateFarm(farm.id, { name: form.name, location: form.location, owner_name: form.owner_name, area: parseFloat(form.area) || 0 })
+      await updateFarm(farm.id, { name: form.name, location: form.location, owner_name: form.owner_name, area: parseFloat(form.area) || 0, latitude: coords.lat, longitude: coords.lon })
       setOpen(false)
       onSuccess()
     } catch (err) {
@@ -513,6 +527,11 @@ function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void
             <Label className="text-muted-foreground">{t.farms.area} ({t.farms.areaUnit})</Label>
             <Input type="number" value={form.area} onChange={e => setForm(p => ({ ...p, area: e.target.value }))} className="bg-muted border-border text-foreground" />
           </div>
+          <CoordinateField
+            latitude={coords.lat}
+            longitude={coords.lon}
+            onChange={(lat, lon) => setCoords({ lat, lon })}
+          />
           {error && <p className="text-sm text-red-500">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)} className="border-border text-muted-foreground w-full sm:w-auto">{t.common.cancel}</Button>
@@ -1627,6 +1646,11 @@ export default function FarmsPage() {
         </div>
         <AddFarmDialog onSuccess={handleFarmAdded} />
       </div>
+
+      {/* 양식장 위치 — 여러 곳을 운영할 때 급한 곳이 어디인지 한눈에 */}
+      {farms.length > 0 && (
+        <FarmMap farms={farms} tanks={Object.values(tanksMap).flat()} />
+      )}
 
       {/* Main layout: left list + right tank grid */}
       <div className="flex flex-col lg:flex-row gap-5 items-start">

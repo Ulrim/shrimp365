@@ -20,6 +20,7 @@ import {
 import { formatDateTime } from "@/lib/utils"
 import { useT } from "@/lib/i18n-context"
 import { useAutoRefresh, sinceLabel } from "@/lib/use-auto-refresh"
+import { WeatherCard } from "@/components/weather/weather-card"
 
 function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string }) {
   return (
@@ -337,6 +338,12 @@ export default function DashboardPage() {
               })}
             </CardContent>
           </Card>
+
+          <WeatherCard
+            latitude={farms[0]?.latitude ?? null}
+            longitude={farms[0]?.longitude ?? null}
+            farmName={farms[0]?.name}
+          />
 
           <Card className="bg-card border-border">
             <CardHeader className="pb-2">

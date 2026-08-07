@@ -18,6 +18,8 @@ export type DbFarm = {
   user_id: string
   name: string
   location: string
+  latitude: number | null
+  longitude: number | null
   owner_name: string
   area: number
   created_at: string

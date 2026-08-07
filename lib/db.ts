@@ -8,7 +8,14 @@ import { isTestAccount } from "@/lib/mock-data"
 // 타입 변환 헬퍼
 // ─────────────────────────────────────────────
 function toFarm(f: DbFarm, tankCount = 0): Farm {
-  return { ...f, owner_name: f.owner_name ?? "", tank_count: tankCount }
+  return {
+    ...f,
+    owner_name: f.owner_name ?? "",
+    // 마이그레이션 전이면 컬럼이 없어 undefined 로 온다. null 로 맞춰 둔다.
+    latitude: f.latitude ?? null,
+    longitude: f.longitude ?? null,
+    tank_count: tankCount,
+  }
 }
 
 function toTank(t: DbTank): Tank {
@@ -53,7 +60,7 @@ export async function getFarms(): Promise<Farm[]> {
   )
 }
 
-export async function createFarm(values: { name: string; location?: string; area?: number; owner_name?: string }) {
+export async function createFarm(values: { name: string; location?: string; area?: number; owner_name?: string; latitude?: number | null; longitude?: number | null }) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("로그인이 필요합니다.")
 
@@ -76,7 +83,7 @@ export async function createFarm(values: { name: string; location?: string; area
   return toFarm(data)
 }
 
-export async function updateFarm(id: string, values: Partial<{ name: string; location: string; owner_name: string; area: number }>) {
+export async function updateFarm(id: string, values: Partial<{ name: string; location: string; owner_name: string; area: number; latitude: number | null; longitude: number | null }>) {
   const { data, error } = await supabase
     .from("farms")
     .update(values)

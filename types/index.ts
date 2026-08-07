@@ -12,6 +12,9 @@ export interface Farm {
   user_id: string
   name: string
   location: string
+  /** 지도 표시와 기상 연동에 쓰는 좌표. 아직 안 정했으면 null. */
+  latitude: number | null
+  longitude: number | null
   owner_name?: string
   area: number
   tank_count: number
