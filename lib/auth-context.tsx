@@ -79,28 +79,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // onAuthStateChange fires immediately with the current session on subscribe,
     // so we don't need a separate getSession() call — which avoids the navigator.locks
     // race condition triggered by React Strict Mode double-invoking effects.
+    //
+    // 이 콜백 안에서 다른 supabase 호출을 기다리면 안 된다.
+    // 콜백이 도는 동안 auth 라이브러리가 토큰 잠금(navigator.locks)을 쥐고 있는데,
+    // profiles 조회도 세션이 필요해 같은 잠금을 기다린다 — 서로 물려 멈춘다.
+    // 그러면 setLoading(false) 까지 못 가서 대시보드·수질기록이 영영 로딩만 돈다.
+    // 콘솔에 "Lock ... was released because another request stole it" 이 찍히는 것이
+    // 이 상태의 신호다.
+    //
+    // 그래서 세션은 즉시 반영하고, 프로필 조회는 잠금을 놓은 뒤에 따로 돌린다.
+    let alive = true
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         setSession(session)
-        if (session?.user) {
-          try {
-            const profile = await fetchProfile(session.user.id)
-            setUser(toAppUser(session.user, profile))
-          } catch (e) {
-            console.warn("[auth] profile load failed:", e)
-            setUser(toAppUser(session.user, { name: "", role: "operator", plan: "free" }))
-          }
-        } else {
+
+        if (!session?.user) {
           setUser(null)
-          if (event === "SIGNED_OUT") {
-            window.location.replace("/")
-          }
+          setLoading(false)
+          if (event === "SIGNED_OUT") window.location.replace("/")
+          return
         }
+
+        // 프로필이 오기 전에도 화면은 떠야 한다. 이메일만으로 먼저 채운다.
+        setUser(toAppUser(session.user, { name: "", role: "operator", plan: "free" }))
         setLoading(false)
+
+        // 잠금 밖에서 조회한다. setTimeout 0 이면 콜백이 끝난 뒤에 실행된다.
+        const userId = session.user.id
+        const sbUser = session.user
+        setTimeout(async () => {
+          try {
+            const profile = await fetchProfile(userId)
+            if (alive) setUser(toAppUser(sbUser, profile))
+          } catch (e) {
+            // 프로필을 못 읽어도 로그인 상태는 유지한다. 위에서 채워 둔 값으로 쓴다.
+            console.warn("[auth] profile load failed:", e)
+          }
+        }, 0)
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      alive = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const login = async (email: string, password: string) => {
