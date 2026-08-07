@@ -1,13 +1,13 @@
 {
-  "latest": "1.3.0",
+  "latest": "1.3.1",
   "releases": {
-    "1.3.0": {
-      "notes": "단위 정리 — 염도·DO·TDS ppm, 전도도 uS/cm, 염도는 전도도에서 환산",
+    "1.3.1": {
+      "notes": "화면 단위 ppm 반영",
       "released_at": "2026-08-07",
       "setup": {
-        "file": "shrimp365-setup-1.3.0.tar.gz",
-        "sha256": "d54dc41e733957fb6a35dbb9c641cbd50a38aba85e1f4f7558cbde31b1edec9f",
-        "size": 69698
+        "file": "shrimp365-setup-1.3.1.tar.gz",
+        "sha256": "2ea44e8495301c8fe8570256386136c8bcf261829789e9c6e11b0553699de2ea",
+        "size": 69883
       }
     }
   }

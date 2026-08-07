@@ -248,13 +248,15 @@ PAGE = """<!doctype html>
 var RANGES = {
   temperature: {label:"수온", unit:"\\u00B0C", digits:1, ok:[28,32],  warn:[26,34]},
   ph:          {label:"pH",   unit:"",         digits:2, ok:[7.5,8.5], warn:[7,9]},
-  do_level:    {label:"용존산소", unit:"mg/L", digits:2, ok:[5,20],   warn:[4,20]},
-  salinity:    {label:"염도", unit:"ppt",      digits:1, ok:[5,35],   warn:[3,40]}
+  do_level:    {label:"용존산소", unit:"ppm",  digits:2, ok:[5,20],   warn:[4,20]},
+  // 염도는 적정 범위를 정해 두지 않는다. 민물은 수백 ppm, 기수는 15,000~25,000
+  // ppm 이라 하나로 잡으면 한쪽이 늘 빨갛게 뜬다. 색 없이 값만 보여 준다.
+  salinity:    {label:"염도", unit:"ppm",      digits:0, ok:null,     warn:null}
 };
 var ORDER = ["temperature","ph","do_level","salinity"];
 
 function level(key, v){
-  var r = RANGES[key]; if(!r) return "";
+  var r = RANGES[key]; if(!r || !r.ok) return "";
   if(v >= r.ok[0] && v <= r.ok[1]) return "";
   if(v >= r.warn[0] && v <= r.warn[1]) return "warn";
   return "crit";
@@ -407,8 +409,9 @@ function drawChart(key, hours, d){
   // 경계 쪽으로 넓힌다.
   var span = Math.max(d.max - d.min, Math.pow(10, -r.digits));
   var margin = span * 0.25;
-  var lo = Math.min(d.min, Math.max(r.ok[0], d.min - margin));
-  var hi = Math.max(d.max, Math.min(r.ok[1], d.max + margin));
+  // 적정 범위가 없는 항목(염도)은 데이터 폭만 보고 잡는다.
+  var lo = r.ok ? Math.min(d.min, Math.max(r.ok[0], d.min - margin)) : d.min - margin;
+  var hi = r.ok ? Math.max(d.max, Math.min(r.ok[1], d.max + margin)) : d.max + margin;
   var pad = Math.max((hi - lo) * 0.08, Math.pow(10, -r.digits));
   lo -= pad; hi += pad;
 
@@ -416,11 +419,14 @@ function drawChart(key, hours, d){
   var x = function(t){ return padL + (t - t0) / (t1 - t0) * (W - padL - padR); };
   var y = function(v){ return padT + (hi - v) / (hi - lo) * (H - padT - padB); };
 
-  // 적정 범위 띠
-  var bandTop = y(Math.min(r.ok[1], hi)), bandBottom = y(Math.max(r.ok[0], lo));
-  var band = '<rect x="' + padL + '" y="' + bandTop + '" width="' + (W-padL-padR) +
-             '" height="' + Math.max(0, bandBottom - bandTop) +
-             '" fill="#10B981" opacity="0.10"/>';
+  // 적정 범위 띠 — 범위를 정해 둔 항목에만 깐다.
+  var band = "";
+  if (r.ok) {
+    var bandTop = y(Math.min(r.ok[1], hi)), bandBottom = y(Math.max(r.ok[0], lo));
+    band = '<rect x="' + padL + '" y="' + bandTop + '" width="' + (W-padL-padR) +
+           '" height="' + Math.max(0, bandBottom - bandTop) +
+           '" fill="#10B981" opacity="0.10"/>';
+  }
 
   // 최저~최고 범위(칸마다)를 옅게 깔고 그 위에 평균선을 얹는다.
   var top = d.points.map(function(p){ return x(p[0]) + "," + y(p[3]); });
