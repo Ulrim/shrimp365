@@ -2,7 +2,7 @@ export interface User {
   id: string
   email: string
   name: string
-  role: "admin" | "operator" | "viewer"
+  role: "admin" | "manager" | "operator" | "viewer"
   plan?: "free" | "basic" | "pro" | "enterprise"
   farm_count?: number
 }

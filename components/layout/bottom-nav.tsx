@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
 import {
   Home, LayoutDashboard, Droplets, ClipboardList,
   MoreHorizontal, Building2, FlaskConical, Package,
-  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight, BookOpen, BrainCircuit, MessageSquare, Layers,
+  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight, BookOpen, BrainCircuit, MessageSquare, Layers, Radar,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
@@ -25,6 +25,7 @@ export function BottomNav() {
   const [moreOpen, setMoreOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const isAdmin = user?.role === "admin" || isMonitorAccount(user?.email)
+  const canControl = isAdmin || user?.role === "manager"
 
   const PRIMARY = [
     { href: "/home",               icon: Home,          label: t.nav.home },
@@ -45,6 +46,7 @@ export function BottomNav() {
     // 고정되므로, 로그인한 사용자의 언어에 맞는 주소로 보낸다.
     { href: localizedHref("/board", locale),    icon: MessageSquare, label: t.board.title },
     { href: localizedHref("/cardnews", locale), icon: Layers,        label: t.cardNews.title },
+    ...(canControl ? [{ href: "/control", icon: Radar, label: "관제센터" }] : []),
     ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
   ]
 

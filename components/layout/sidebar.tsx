@@ -10,7 +10,7 @@ import {
   Home, LayoutDashboard, Droplets, BookOpen, Building2,
   BrainCircuit, BarChart3, Settings, LogOut,
   ChevronLeft, ChevronRight, Zap, FlaskConical, Package, ShieldCheck,
-  ClipboardList, HelpCircle, MessageSquare, Layers,
+  ClipboardList, HelpCircle, MessageSquare, Layers, Radar,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
@@ -32,6 +32,8 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const isAdmin = user?.role === "admin" || isMonitorAccount(user?.email)
+  // 관제센터는 관리자·매니저만. 노출은 편의일 뿐이고 실제 차단은 서버 API 가 한다.
+  const canControl = isAdmin || user?.role === "manager"
 
   const RECORD_NAV = [
     { href: "/record/water-quality", icon: Droplets,       label: t.record.waterQuality },
@@ -51,6 +53,7 @@ export function Sidebar() {
     // 고정되므로, 로그인한 사용자의 언어에 맞는 주소로 보낸다.
     { href: localizedHref("/board", locale),    icon: MessageSquare, label: t.board.title },
     { href: localizedHref("/cardnews", locale), icon: Layers,        label: t.cardNews.title },
+    ...(canControl ? [{ href: "/control", icon: Radar, label: "관제센터" }] : []),
     ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
   ]
 
