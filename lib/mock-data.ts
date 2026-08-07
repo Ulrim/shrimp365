@@ -124,7 +124,7 @@ function generateWQ(tankId: string, days = 7, opts: { highTurbidity?: boolean; l
       temperature: 28 + Math.sin(i / 12) * 1.5 + (Math.random() - 0.5) * 0.4,
       ph: 7.9 + Math.sin(i / 8) * 0.25 + (Math.random() - 0.5) * 0.08,
       do_level: opts.lowDo ? 3.8 + (Math.random() - 0.5) * 0.6 : 6.5 + Math.sin(i / 6) * 0.8 + (Math.random() - 0.5) * 0.3,
-      salinity: 20000 + (Math.random() - 0.5) * 500,
+      salinity: 20 + (Math.random() - 0.5) * 0.5,
       ammonia: opts.highAmmonia ? 0.55 + Math.random() * 0.2 : 0.08 + Math.random() * 0.12,
       nitrite: 0.04 + Math.random() * 0.06,
       nitrate: 6 + Math.random() * 4,
@@ -156,7 +156,7 @@ export const WATER_QUALITY_STANDARDS = {
   temperature: { min: 25, max: 32, warning_min: 23, warning_max: 34, unit: "°C",   label: "수온" },
   ph:          { min: 7.5, max: 8.5, warning_min: 7.0, warning_max: 9.0, unit: "", label: "pH" },
   do_level:    { min: 5.0, max: 9.0, warning_min: 4.0, warning_max: 10.0, unit: "mg/L", label: "용존산소(DO)" },
-  salinity:    { min: 15000, max: 25000, warning_min: 12000, warning_max: 28000, unit: "ppm", label: "염도" },
+  salinity:    { min: 15, max: 25, warning_min: 12, warning_max: 28, unit: "‰", label: "염도" },
   ammonia:     { min: 0, max: 0.5, warning_min: 0, warning_max: 1.0, unit: "mg/L", label: "암모니아" },
   nitrite:     { min: 0, max: 0.1, warning_min: 0, warning_max: 0.5, unit: "mg/L", label: "아질산염" },
   nitrate:     { min: 0, max: 20,  warning_min: 0, warning_max: 40,  unit: "mg/L", label: "질산염" },
@@ -272,10 +272,10 @@ export const MOCK_DIAGNOSES: DiagnosisResult[] = [
 // IoT 센서
 // ─────────────────────────────────────────────
 export const MOCK_SENSOR_DEVICES: SensorDevice[] = [
-  { id: "dev-1", tank_id: "tank-1", name: "A-1조 멀티센서 (수온·DO·pH·염도)", device_type: "multi", api_key: "sk-demo-a1-xxxxx", active: true, last_seen_at: daysAgoZ(0.003), serial: "10000000c0ffee01", firmware: "pi-1.0.0", last_payload: { temperature: 28.4, ph: 7.85, do_level: 6.42, salinity: 21400, conductivity: 32100 }, agent_version: "1.1.0", update_to: null, update_status: null, update_message: null, update_status_at: null, created_at: "2024-04-01T00:00:00Z" },
-  { id: "dev-2", tank_id: "tank-3", name: "B-1조 멀티센서", device_type: "multi", api_key: "sk-demo-b1-xxxxx", active: true, last_seen_at: daysAgoZ(0.008), serial: "10000000c0ffee02", firmware: "pi-1.0.0", last_payload: { temperature: 29.1, ph: 8.02, do_level: 6.9, salinity: 22000 }, agent_version: "1.0.0", update_to: null, update_status: null, update_message: null, update_status_at: null, created_at: "2024-04-05T00:00:00Z" },
+  { id: "dev-1", tank_id: "tank-1", name: "A-1조 멀티센서 (수온·DO·pH·염도)", device_type: "multi", api_key: "sk-demo-a1-xxxxx", active: true, last_seen_at: daysAgoZ(0.003), serial: "10000000c0ffee01", firmware: "pi-1.0.0", last_payload: { temperature: 28.4, ph: 7.85, do_level: 6.42, salinity: 21.4, conductivity: 32100 }, agent_version: "1.1.0", update_to: null, update_status: null, update_message: null, update_status_at: null, created_at: "2024-04-01T00:00:00Z" },
+  { id: "dev-2", tank_id: "tank-3", name: "B-1조 멀티센서", device_type: "multi", api_key: "sk-demo-b1-xxxxx", active: true, last_seen_at: daysAgoZ(0.008), serial: "10000000c0ffee02", firmware: "pi-1.0.0", last_payload: { temperature: 29.1, ph: 8.02, do_level: 6.9, salinity: 22.0 }, agent_version: "1.0.0", update_to: null, update_status: null, update_message: null, update_status_at: null, created_at: "2024-04-05T00:00:00Z" },
   { id: "dev-3", tank_id: "tank-5", name: "C-1조 수온·DO 센서", device_type: "do", api_key: "sk-demo-c1-xxxxx", active: true, last_seen_at: daysAgoZ(0.01), serial: "10000000c0ffee03", firmware: "pi-1.0.0", last_payload: { temperature: 27.8, do_level: 5.8 }, agent_version: "1.0.0", update_to: "1.1.0", update_status: "requested", update_message: null, update_status_at: null, created_at: "2024-04-10T00:00:00Z" },
-  { id: "dev-4", tank_id: "tank-6", name: "C-2조 멀티센서", device_type: "multi", api_key: "sk-demo-c2-xxxxx", active: true, last_seen_at: daysAgoZ(0.006), serial: "10000000c0ffee04", firmware: "pi-1.0.0", last_payload: { temperature: 28.9, ph: 7.7, do_level: 6.1, salinity: 20600 }, agent_version: "1.1.0", update_to: null, update_status: null, update_message: null, update_status_at: null, created_at: "2024-04-10T00:00:00Z" },
+  { id: "dev-4", tank_id: "tank-6", name: "C-2조 멀티센서", device_type: "multi", api_key: "sk-demo-c2-xxxxx", active: true, last_seen_at: daysAgoZ(0.006), serial: "10000000c0ffee04", firmware: "pi-1.0.0", last_payload: { temperature: 28.9, ph: 7.7, do_level: 6.1, salinity: 20.6 }, agent_version: "1.1.0", update_to: null, update_status: null, update_message: null, update_status_at: null, created_at: "2024-04-10T00:00:00Z" },
   { id: "dev-5", tank_id: "tank-9", name: "E-1조 수온센서", device_type: "temperature", api_key: "sk-demo-e1-xxxxx", active: true, last_seen_at: daysAgoZ(0.02), serial: "10000000c0ffee05", firmware: "pi-1.0.0", last_payload: { temperature: 28.2 }, agent_version: "1.0.0", update_to: null, update_status: "failed", update_message: null, update_status_at: null, created_at: "2024-04-20T00:00:00Z" },
 ]
 

@@ -54,7 +54,7 @@ async function callGPT(question: string, context: string): Promise<string> {
 - 수온: 23~30°C (최적 26~28°C)
 - pH: 7.8~8.5
 - DO: 5.0 mg/L 이상 (7.0+ 권장)
-- 염도: 15,000~25,000 ppm (=15~25 ppt)
+- 염도: 15~25‰ (ppt 와 같은 값)
 - 암모니아(NH₃): 0.5 mg/L 미만
 - 아질산염: 0.1 mg/L 미만
 - 질산염: 20 mg/L 미만
@@ -315,7 +315,7 @@ function buildWaterChangeResponse(): string {
 
 💡 **환수 시 주의사항**
 1. 투입 해수 수온 차 ±2°C 이내 유지
-2. 염도 차 ±2,000 ppm 이내 유지 (급격한 변화 금지)
+2. 염도 차 ±2‰ 이내 유지 (급격한 변화 금지)
 3. 환수 전 신규 해수 수질 확인 필수
 4. 야간(수온 하강 시) 환수 최소화`
 }
@@ -328,7 +328,7 @@ function buildWaterQualityStandardResponse(): string {
 | 수온 | 26~28°C | <22°C 또는 >32°C |
 | DO | 7.0 mg/L 이상 | 5.0 mg/L 미만 |
 | pH | 7.8~8.5 | <7.5 또는 >8.8 |
-| 염도 | 15,000~25,000 ppm | <10,000 또는 >35,000 ppm |
+| 염도 | 15~25‰ | <10 또는 >35‰ |
 | 암모니아 (NH₃) | 0.1 mg/L 미만 | 0.5 mg/L 초과 |
 | 아질산염 (NO₂) | 0.1 mg/L 미만 | 0.5 mg/L 초과 |
 | 질산염 (NO₃) | 20 mg/L 미만 | 50 mg/L 초과 |

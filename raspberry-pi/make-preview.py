@@ -24,7 +24,7 @@ import webui  # noqa: E402  — 경로를 넣은 뒤에 불러와야 한다
 
 OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE.parent / "kiosk-preview.html"
 
-VALUES = {"temperature": 28.4, "ph": 7.85, "do_level": 6.42, "salinity": 20400}
+VALUES = {"temperature": 28.4, "ph": 7.85, "do_level": 6.42, "salinity": 20.4}
 NOW = 1770000000  # 고정 시각 — 돌릴 때마다 결과가 달라지면 비교가 어렵다
 STAMP = "2026-08-06 14:32:05"
 
@@ -80,7 +80,7 @@ def series(field: str) -> dict:
     random.seed(hash(field) & 0xFFFF)
     base, swing = {
         "temperature": (28.4, 0.6), "ph": (7.85, 0.15),
-        "do_level": (6.4, 2.2), "salinity": (20400, 900),
+        "do_level": (6.4, 2.2), "salinity": (20.4, 0.9),
     }[field]
     out = {}
     for hours in (6, 12, 24, 168):
@@ -89,7 +89,7 @@ def series(field: str) -> dict:
             ts = NOW - hours * 3600 + i * step
             h = (ts % 86400) / 3600
             avg = base + math.sin((h - 6) / 3.8) * swing + random.uniform(-swing, swing) * 0.08
-            digits = 0 if field == "salinity" else 2
+            digits = 2
             points.append([ts, round(avg, digits),
                            round(avg - swing * 0.12, digits), round(avg + swing * 0.12, digits)])
         vals = [p[1] for p in points]
@@ -188,7 +188,7 @@ def main() -> int:
   녹색 띠가 적정 범위입니다(흰다리새우 기준).<br>
   <b>오른쪽 아래 [설정]</b> — 슬레이브 ID·측정 주기를 손가락으로 고칩니다.
   <b>[자동 배치]</b> 는 꽂아 둔 센서를 훑어 값이 나오는 자리를 그대로 배정합니다(이 미리보기에선 용존산소가 3→5로 바뀝니다).<br>
-  단위는 <b>용존산소 ppm · 염도 ppm · 전도도 µS/cm · pH</b> 입니다.
+  단위는 <b>용존산소 ppm · 염도 ‰ · 전도도 µS/cm · pH</b> 입니다.
 </div>
 <script>
 var DEVICE_HTML = {device_js};

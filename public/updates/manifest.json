@@ -1,13 +1,13 @@
 {
-  "latest": "1.4.0",
+  "latest": "1.5.0",
   "releases": {
-    "1.4.0": {
-      "notes": "해수 염분 계산 — 실용염분식(PSS-78)",
+    "1.5.0": {
+      "notes": "염도 단위를 퍼밀(‰)로",
       "released_at": "2026-08-07",
       "setup": {
-        "file": "shrimp365-setup-1.4.0.tar.gz",
-        "sha256": "41653395a6da410449f793845c587bcf544757013eb7861c635f1c3dcf7a5887",
-        "size": 70847
+        "file": "shrimp365-setup-1.5.0.tar.gz",
+        "sha256": "046552f8ff2e6416d8b7a9d60b96ee047986924079253b4bfd8875057fdaf64b",
+        "size": 70919
       }
     }
   }

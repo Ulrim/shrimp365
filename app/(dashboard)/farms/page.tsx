@@ -1163,7 +1163,7 @@ const PAYLOAD_LABELS: Record<string, { label: string; unit: string }> = {
   temperature:   { label: "수온",   unit: "°C" },
   ph:            { label: "pH",     unit: "" },
   do_level:      { label: "DO",     unit: "ppm" },
-  salinity:      { label: "염도",   unit: "ppm" },
+  salinity:      { label: "염도",   unit: "‰" },
   conductivity:  { label: "전도도", unit: "µS/cm" },
   tds:           { label: "TDS",    unit: "ppm" },
   do_saturation: { label: "DO 포화", unit: "%" },

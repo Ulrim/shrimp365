@@ -2,10 +2,10 @@ export const WQ_THRESHOLDS = {
   temperature: { warning: { min: 25, max: 32 }, danger: { min: 22, max: 35 } },
   ph:          { warning: { min: 7.5, max: 8.5 }, danger: { min: 7.0, max: 9.0 } },
   do_level:    { warning: { min: 5.0, max: null }, danger: { min: 4.0, max: null } },
-  // 염도(ppm) — 흰다리새우 해수 양식 기준. 15~25 ppt 를 ppm 으로 옮긴 값이다.
+  // 염도(ppt) — 흰다리새우 해수 양식 기준.
   // 저염도로 키우는 농장이라면 이 범위를 벗어난 채로 정상 운영하게 되므로,
   // 농장별 설정이 생기기 전까지는 그런 농장에서 알림이 계속 뜬다.
-  salinity:    { warning: { min: 15000, max: 25000 }, danger: { min: 10000, max: 30000 } },
+  salinity:    { warning: { min: 15, max: 25 }, danger: { min: 10, max: 30 } },
   ammonia:     { warning: { min: null, max: 0.5 }, danger: { min: null, max: 1.0 } },
   nitrite:     { warning: { min: null, max: 0.2 }, danger: { min: null, max: 0.5 } },
   nitrate:     { warning: { min: null, max: 20 }, danger: { min: null, max: 40 } },

@@ -34,7 +34,7 @@ export const WQ_BOUNDS = {
   temperature:    { min: 0,   max: 45,   label: "수온",      unit: "°C" },
   ph:             { min: 0,   max: 14,   label: "pH",        unit: "" },
   do_level:       { min: 0,   max: 25,   label: "DO",        unit: "ppm" },
-  salinity:       { min: 0,   max: 50000, label: "염도",      unit: "ppm" },
+  salinity:       { min: 0,   max: 45,   label: "염도",      unit: "‰" },
   ammonia:        { min: 0,   max: 50,   label: "암모니아",  unit: "mg/L" },
   nitrite:        { min: 0,   max: 50,   label: "아질산염",  unit: "mg/L" },
   nitrate:        { min: 0,   max: 200,  label: "질산염",    unit: "mg/L" },

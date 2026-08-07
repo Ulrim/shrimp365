@@ -249,8 +249,8 @@ var RANGES = {
   temperature: {label:"수온", unit:"\\u00B0C", digits:1, ok:[28,32],  warn:[26,34]},
   ph:          {label:"pH",   unit:"",         digits:2, ok:[7.5,8.5], warn:[7,9]},
   do_level:    {label:"용존산소", unit:"ppm",  digits:2, ok:[5,20],   warn:[4,20]},
-  // 흰다리새우 해수 양식 기준(15~25 ppt)을 ppm 으로 옮긴 값.
-  salinity:    {label:"염도", unit:"ppm",      digits:0, ok:[15000,25000], warn:[10000,30000]}
+  // 흰다리새우 해수 양식 기준.
+  salinity:    {label:"염도", unit:"\u2030",  digits:1, ok:[15,25],   warn:[10,30]}
 };
 var ORDER = ["temperature","ph","do_level","salinity"];
 

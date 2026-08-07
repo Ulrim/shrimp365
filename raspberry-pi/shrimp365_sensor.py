@@ -60,7 +60,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 log = logging.getLogger("shrimp365")
 
 
@@ -456,9 +456,11 @@ def salinity_from_ec(conductivity: float, unit: str, factor: float,
         ppt = practical_salinity(micro_siemens / 1000.0, celsius)
         # 식이 유효한 구간(2~42 ppt)에서만 쓴다. 민물은 아래 단순 환산으로.
         if ppt is not None and 2.0 <= ppt <= 42.0:
-            return round(ppt * 1000.0, 1)
+            return round(ppt, 2)
 
-    return round(micro_siemens * factor, 1)
+    # 낮은 농도 구간. 계수는 ppm 기준(TDS 계측기 관례)이라 1000 으로 나눠
+    # ppt 로 맞춘다. 민물이면 0.1 ppt 아래라 소수 셋째 자리까지 남긴다.
+    return round(micro_siemens * factor / 1000.0, 3)
 
 
 # 물리적으로 있을 수 없는 값은 버린다.
@@ -470,7 +472,7 @@ PLAUSIBLE = {
     "temperature":   (-5.0, 60.0),     # 서버와 같은 범위
     "ph":            (0.0, 14.0),
     "do_level":      (0.0, 30.0),
-    "salinity":      (0.0, 50000.0),   # ppm. 바닷물이 약 35,000 ppm
+    "salinity":      (0.0, 50.0),      # ppt. 바닷물이 약 35 ppt
     "conductivity":  (0.0, 200000.0),  # uS/cm. 바닷물이 약 50,000
     "tds":           (0.0, 100000.0),  # ppm
     "do_saturation": (0.0, 200.0),
@@ -491,12 +493,12 @@ def normalize(name: str, value: float, unit: str) -> float | None:
         return round(value, 2)
 
     if name == "salinity":
-        # 서버는 ppm 기준.
+        # 서버는 ppt 기준. 새우 양식의 관례 단위다(바닷물이 약 35 ppt).
         if unit == "ppm":
-            return round(value, 1)
+            return round(value / 1000.0, 3)
         if unit in ("ppt", "g/L"):
-            return round(value * 1000, 1)
-        return round(value, 1)
+            return round(value, 2)
+        return round(value, 2)
 
     if name == "conductivity":
         # uS/cm 로 통일한다. 민물은 수백~수천, 바닷물은 오만 단위라

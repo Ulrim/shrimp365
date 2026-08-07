@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
     temperature: [-5,   60],
     ph:          [ 0,   14],
     do_level:    [ 0,   30],
-    salinity:    [ 0, 50000],   // ppm — 바닷물이 약 35,000
+    salinity:    [ 0,   50],   // ppt — 바닷물이 약 35
     ammonia:     [ 0,  100],
     nitrite:     [ 0,  100],
     nitrate:     [ 0,  500],
