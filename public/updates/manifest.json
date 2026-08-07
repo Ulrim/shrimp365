@@ -1,15 +1,6 @@
 {
   "latest": "1.2.1",
   "releases": {
-    "1.2.0": {
-      "notes": "센서 자동 배치 — 꽂아 두면 값이 나오는 자리로 슬레이브 ID 배정",
-      "released_at": "2026-08-06",
-      "setup": {
-        "file": "shrimp365-setup-1.2.0.tar.gz",
-        "sha256": "c9877d05a0decfd32d1aea03a20f9d3f01ae740f5d492743aaba5fc381f79b84",
-        "size": 66225
-      }
-    },
     "1.2.1": {
       "notes": "프레임 간격 결함 수정 — 센서 여러 대를 켜면 하나가 안 읽히던 문제",
       "released_at": "2026-08-07",
