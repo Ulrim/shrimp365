@@ -24,7 +24,7 @@ import webui  # noqa: E402  — 경로를 넣은 뒤에 불러와야 한다
 
 OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE.parent / "kiosk-preview.html"
 
-VALUES = {"temperature": 28.4, "ph": 7.85, "do_level": 6.42, "salinity": 660}
+VALUES = {"temperature": 28.4, "ph": 7.85, "do_level": 6.42, "salinity": 20400}
 NOW = 1770000000  # 고정 시각 — 돌릴 때마다 결과가 달라지면 비교가 어렵다
 STAMP = "2026-08-06 14:32:05"
 
@@ -69,7 +69,7 @@ SENSORS = {
 }
 SCAN = [
     {"id": 1, "kind": "pH 센서", "note": "첫 값 7.85 pH"},
-    {"id": 4, "kind": "EC 센서", "note": "첫 값 1320 uS"},
+    {"id": 4, "kind": "EC 센서", "note": "첫 값 45.2 mS"},
     {"id": 5, "kind": "DO 센서", "note": "첫 값 6.42 mg/L"},
 ]
 AUTO = {"assign": {"ph": 1, "do": 5, "ec": 4}, "conflicts": {}, "others": [], "missing": []}
@@ -80,7 +80,7 @@ def series(field: str) -> dict:
     random.seed(hash(field) & 0xFFFF)
     base, swing = {
         "temperature": (28.4, 0.6), "ph": (7.85, 0.15),
-        "do_level": (6.4, 2.2), "salinity": (660, 40),
+        "do_level": (6.4, 2.2), "salinity": (20400, 900),
     }[field]
     out = {}
     for hours in (6, 12, 24, 168):
@@ -185,7 +185,7 @@ def main() -> int:
 <div class="bezel"><iframe class="screen" id="dev" title="장비 화면"></iframe></div>
 <div class="note">
   <b>값 칸을 눌러 보세요.</b> 6시간·12시간·24시간·일주일 그래프가 열립니다.
-  녹색 띠가 적정 범위입니다. 염도는 민물·기수의 적정 범위가 완전히 달라 띠를 두지 않습니다.<br>
+  녹색 띠가 적정 범위입니다(흰다리새우 기준).<br>
   <b>오른쪽 아래 [설정]</b> — 슬레이브 ID·측정 주기를 손가락으로 고칩니다.
   <b>[자동 배치]</b> 는 꽂아 둔 센서를 훑어 값이 나오는 자리를 그대로 배정합니다(이 미리보기에선 용존산소가 3→5로 바뀝니다).<br>
   단위는 <b>용존산소 ppm · 염도 ppm · 전도도 µS/cm · pH</b> 입니다.

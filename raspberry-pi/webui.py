@@ -249,9 +249,8 @@ var RANGES = {
   temperature: {label:"수온", unit:"\\u00B0C", digits:1, ok:[28,32],  warn:[26,34]},
   ph:          {label:"pH",   unit:"",         digits:2, ok:[7.5,8.5], warn:[7,9]},
   do_level:    {label:"용존산소", unit:"ppm",  digits:2, ok:[5,20],   warn:[4,20]},
-  // 염도는 적정 범위를 정해 두지 않는다. 민물은 수백 ppm, 기수는 15,000~25,000
-  // ppm 이라 하나로 잡으면 한쪽이 늘 빨갛게 뜬다. 색 없이 값만 보여 준다.
-  salinity:    {label:"염도", unit:"ppm",      digits:0, ok:null,     warn:null}
+  // 흰다리새우 해수 양식 기준(15~25 ppt)을 ppm 으로 옮긴 값.
+  salinity:    {label:"염도", unit:"ppm",      digits:0, ok:[15000,25000], warn:[10000,30000]}
 };
 var ORDER = ["temperature","ph","do_level","salinity"];
 

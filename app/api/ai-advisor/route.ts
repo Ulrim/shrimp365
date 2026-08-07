@@ -54,7 +54,7 @@ async function callGPT(question: string, context: string): Promise<string> {
 - 수온: 23~30°C (최적 26~28°C)
 - pH: 7.8~8.5
 - DO: 5.0 mg/L 이상 (7.0+ 권장)
-- 염도: 15,000~25,000 ppm (민물 양식은 300~1,500 ppm)
+- 염도: 15,000~25,000 ppm (=15~25 ppt)
 - 암모니아(NH₃): 0.5 mg/L 미만
 - 아질산염: 0.1 mg/L 미만
 - 질산염: 20 mg/L 미만

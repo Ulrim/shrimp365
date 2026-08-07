@@ -60,7 +60,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.3.1"
+VERSION = "1.4.0"
 log = logging.getLogger("shrimp365")
 
 
@@ -388,17 +388,60 @@ def scan_bus(client: ModbusClient, first: int, last: int) -> list[tuple[int, str
 # 물에 녹은 소금이 많을수록 전기가 잘 통한다는 성질을 쓰는 것으로, TDS 계측기가
 # 흔히 쓰는 NaCl 기준값이다. 물의 조성에 따라 0.5~0.7 사이에서 달라지므로
 # 설정에서 바꿀 수 있게 해 둔다(정밀 측정이 필요하면 굴절계로 대조).
+# 낮은 농도(민물·기수 초입)에서 쓰는 단순 환산 계수.
+# TDS 계측기가 흔히 쓰는 NaCl 기준값이다. 아래 실용염분식이 다루지 못하는
+# 2 ppt 미만 구간에서만 쓴다.
 DEFAULT_EC_TO_PPM = 0.5
 
+# 표준 해수(염분 35)의 15°C 전도도. 실용염분식의 기준값이다.
+SEAWATER_REF_MS = 42.914
 
-def salinity_from_ec(conductivity: float, unit: str, factor: float) -> float | None:
+
+def practical_salinity(ms_per_cm: float, celsius: float) -> float | None:
+    """전도도와 수온으로 실용염분(PSS-78)을 구한다. 단위는 ppt.
+
+    바닷물의 염분은 전도도에 단순 비례하지 않고 수온에 따라서도 크게 달라진다.
+    같은 물이라도 여름과 겨울의 전도도가 다르다. 그래서 계수 하나를 곱하는
+    방식은 해수 구간에서 10% 넘게 어긋난다 — 흰다리새우 적정 범위가
+    15~25 ppt 인 것을 생각하면 무시할 수 없는 차이다.
+
+    PSS-78 은 해양학에서 쓰는 표준식으로, 염분 2~42 ppt 구간에서 유효하다.
+    수심 보정은 생략한다(양식장 수조는 얕아 영향이 없다).
+    """
+    if ms_per_cm <= 0:
+        return None
+
+    ratio = ms_per_cm / SEAWATER_REF_MS
+
+    # 수온 보정 — 기준인 15°C 로 되돌린다.
+    t = celsius
+    rt_denom = (0.6766097 + 2.00564e-2 * t + 1.104259e-4 * t * t
+                - 6.9698e-7 * t ** 3 + 1.0031e-9 * t ** 4)
+    if rt_denom <= 0:
+        return None
+    rt = ratio / rt_denom
+    if rt <= 0:
+        return None
+
+    root = rt ** 0.5
+    salinity = (0.0080 - 0.1692 * root + 25.3851 * rt
+                + 14.0941 * rt ** 1.5 - 7.0261 * rt ** 2 + 2.7081 * rt ** 2.5)
+    # 15°C 에서 벗어난 만큼을 다시 보정한다.
+    salinity += ((t - 15.0) / (1.0 + 0.0162 * (t - 15.0))
+                 * (0.0005 - 0.0056 * root - 0.0066 * rt
+                    - 0.0375 * rt ** 1.5 + 0.0636 * rt ** 2 - 0.0144 * rt ** 2.5))
+    return salinity
+
+
+def salinity_from_ec(conductivity: float, unit: str, factor: float,
+                     celsius: float | None = None) -> float | None:
     """전도도를 염도(ppm)로 환산한다.
 
-    센서가 내는 염도 레지스터를 믿지 않고 여기서 직접 계산한다. 같은 변환기라도
-    염도 자리가 엉뚱한 값을 내는 경우가 있는데, 전도도는 실제로 재는 값이라
-    그쪽이 신뢰할 만하다.
+    센서가 내는 염도 레지스터는 쓰지 않는다. 같은 변환기라도 염도 자리가
+    엉뚱한 값을 내는 경우가 있는데, 전도도는 실제로 재는 값이라 믿을 만하다.
 
-    ppm = uS/cm x 계수. 단위가 mS/cm 로 오면 1000배 해서 uS/cm 로 맞춘다.
+    수온을 알면 실용염분식(PSS-78)을 쓴다. 해수 양식에서는 이쪽이 정확하다.
+    수온을 모르거나 너무 옅어 식이 다루지 못하는 구간이면 계수를 곱한다.
     """
     if unit == "uS":
         micro_siemens = conductivity
@@ -408,6 +451,13 @@ def salinity_from_ec(conductivity: float, unit: str, factor: float) -> float | N
         micro_siemens = conductivity * 1_000_000.0
     else:
         return None
+
+    if celsius is not None:
+        ppt = practical_salinity(micro_siemens / 1000.0, celsius)
+        # 식이 유효한 구간(2~42 ppt)에서만 쓴다. 민물은 아래 단순 환산으로.
+        if ppt is not None and 2.0 <= ppt <= 42.0:
+            return round(ppt * 1000.0, 1)
+
     return round(micro_siemens * factor, 1)
 
 
@@ -523,19 +573,23 @@ def read_all(client: ModbusClient, enabled: dict[str, int],
                     # 염도를 계산하려면 단위까지 알아야 한다(uS 냐 mS 냐).
                     raw_conductivity = (raw_value, unit)
 
-    # 염도는 전도도에서 환산한다. 센서의 염도 레지스터는 믿지 않는다.
-    if raw_conductivity is not None:
-        salinity = salinity_from_ec(raw_conductivity[0], raw_conductivity[1], ec_to_ppm)
-        if salinity is not None and plausible("salinity", salinity):
-            values["salinity"] = salinity
-        elif salinity is not None:
-            log.warning("환산한 염도가 범위를 벗어났습니다: %s ppm — 버립니다.", salinity)
-
     # 수온은 한 값만 보낸다 — 센서마다 미세하게 다른 값을 겹쳐 보내면 혼란스럽다.
     for key in TEMPERATURE_PRIORITY:
         if key in temps:
             values["temperature"] = temps[key]
             break
+
+    # 염도는 전도도에서 환산한다. 센서의 염도 레지스터는 믿지 않는다.
+    # 수온이 있어야 실용염분식을 쓸 수 있으므로 수온을 고른 뒤에 계산한다.
+    if raw_conductivity is not None:
+        salinity = salinity_from_ec(
+            raw_conductivity[0], raw_conductivity[1], ec_to_ppm,
+            values.get("temperature"),
+        )
+        if salinity is not None and plausible("salinity", salinity):
+            values["salinity"] = salinity
+        elif salinity is not None:
+            log.warning("환산한 염도가 범위를 벗어났습니다: %s ppm — 버립니다.", salinity)
 
     return values, errors
 
