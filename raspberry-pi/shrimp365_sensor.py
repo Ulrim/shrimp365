@@ -60,7 +60,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 log = logging.getLogger("shrimp365")
 
 
@@ -91,6 +91,27 @@ class ModbusClient:
         self.baudrate = baudrate
         self.timeout = timeout
         self._ser: serial.Serial | None = None
+        # 마지막으로 선을 쓴 시각. 다음 프레임을 언제 보낼 수 있는지 계산한다.
+        self._last_use = 0.0
+
+    def _frame_gap(self) -> float:
+        """MODBUS-RTU 가 요구하는 프레임 간 침묵(3.5 문자 시간).
+
+        이 간격을 안 두면 앞 기기의 응답 꼬리가 아직 선에 남은 채로 다음
+        질문을 보내게 된다. 그 잔여 바이트가 다음 기기의 응답으로 읽혀
+        "응답 없음" 이나 CRC 오류가 난다. 센서를 여러 대 물렸을 때만
+        나타나므로 배선 문제로 오해하기 쉽다.
+
+        8N1 은 문자당 11비트다. 9600bps 에서 3.5문자 = 약 4ms.
+        너무 짧으면 USB 변환기의 송수신 전환이 못 따라오므로 여유를 둔다.
+        """
+        return max(0.008, 3.5 * 11.0 / self.baudrate)
+
+    def _await_gap(self) -> None:
+        idle = time.monotonic() - self._last_use
+        gap = self._frame_gap()
+        if idle < gap:
+            time.sleep(gap - idle)
 
     def open(self) -> None:
         if self._ser and self._ser.is_open:
@@ -118,12 +139,16 @@ class ModbusClient:
         request = struct.pack(">BBHH", slave_id, 0x04, start, count)
         frame = request + crc16(request)
 
+        # 앞 프레임이 끝난 뒤 충분히 조용해질 때까지 기다렸다가 버퍼를 비운다.
+        # 순서가 중요하다 — 먼저 비우면 그 뒤에 도착하는 꼬리를 못 걸러 낸다.
+        self._await_gap()
         self._ser.reset_input_buffer()
         self._ser.write(frame)
 
         # 응답: ID(1) 기능코드(1) 바이트수(1) 데이터(2*count) CRC(2)
         expected = 5 + count * 2
         response = self._ser.read(expected)
+        self._last_use = time.monotonic()
         if len(response) < 5:
             raise ModbusError(f"ID {slave_id}: 응답 없음 (배선·전원·슬레이브 ID 확인)")
 
@@ -151,10 +176,12 @@ class ModbusClient:
         request = struct.pack(">BBHH", slave_id, 0x06, register, value)
         frame = request + crc16(request)
 
+        self._await_gap()
         self._ser.reset_input_buffer()
         self._ser.write(frame)
 
         response = self._ser.read(8)
+        self._last_use = time.monotonic()
         if len(response) < 8:
             raise ModbusError(f"ID {slave_id}: 응답 없음 (배선·전원·슬레이브 ID 확인)")
         if crc16(response[:-2]) != response[-2:]:
@@ -222,7 +249,12 @@ SENSOR_SPECS: dict[str, SensorSpec] = {
 SENSOR_LABELS = {"ph": "pH / ORP", "do": "용존산소", "ec": "전도도 / 염도"}
 
 # 수온을 어느 센서 것으로 쓸지. 앞에 있는 것부터 우선.
-TEMPERATURE_PRIORITY = ("ph", "ec", "do")
+#
+# DO 를 먼저 본다. 용존산소는 수온에 따라 포화 농도가 크게 달라져서 변환기가
+# 자기 수온으로 보정해 값을 낸다. 그 보정에 쓰인 수온과 화면·기록에 남는 수온이
+# 다르면, 나중에 "이 DO 값이 왜 이런가" 를 따져 볼 때 근거가 어긋난다.
+# DO 센서가 없을 때만 pH → EC 순으로 대신 쓴다.
+TEMPERATURE_PRIORITY = ("do", "ph", "ec")
 
 # 서버가 수질 기록으로 저장하는 항목. 나머지는 참고용으로 함께 보내되
 # 기기 카드의 "마지막 수신값"에만 남는다.
@@ -364,11 +396,22 @@ def read_all(client: ModbusClient, enabled: dict[str, int]) -> tuple[dict[str, f
 
     for key, slave_id in enabled.items():
         spec = SENSOR_SPECS[key]
-        try:
-            regs = client.read_input_registers(slave_id, 0x0000, 16)
-        except (ModbusError, serial.SerialException) as exc:
-            errors[key] = str(exc)
-            log.warning("%s 센서 읽기 실패: %s", key, exc)
+        # 한 번 어긋나면 한 번만 다시 물어본다. 선을 여럿이 나눠 쓰다 보면
+        # 잡음이나 응답 겹침으로 한 프레임이 깨지는 일이 있는데, 그때마다
+        # 한 주기를 통째로 버릴 이유는 없다.
+        regs = None
+        for attempt in (1, 2):
+            try:
+                regs = client.read_input_registers(slave_id, 0x0000, 16)
+                break
+            except (ModbusError, serial.SerialException) as exc:
+                if attempt == 1:
+                    log.debug("%s 센서 읽기 실패(%s) — 다시 시도합니다.", key, exc)
+                    time.sleep(0.05)
+                    continue
+                errors[key] = str(exc)
+                log.warning("%s 센서 읽기 실패: %s", key, exc)
+        if regs is None:
             continue
 
         for name, idx in spec.fields.items():
