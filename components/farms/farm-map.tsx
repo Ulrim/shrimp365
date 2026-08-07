@@ -13,6 +13,36 @@ const STATUS_COLOR: Record<Status, string> = {
   active: "#10B981", warning: "#D97706", danger: "#DC2626", inactive: "#64748B",
 }
 
+/** 팝업을 DOM 으로 조립한다. 사용자 입력(이름·주소)은 textContent 로만 넣는다. */
+function farmPopup(name: string, tanks: number, bad: number, warn: number, location: string): HTMLElement {
+  const root = document.createElement("div")
+  root.style.lineHeight = "1.5"
+
+  const b = document.createElement("b")
+  b.textContent = name
+  root.appendChild(b)
+
+  const line = document.createElement("div")
+  line.append(`수조 ${tanks}개`)
+  if (bad) {
+    const s = document.createElement("span"); s.style.color = "#DC2626"
+    s.textContent = ` · 위험 ${bad}`; line.appendChild(s)
+  }
+  if (warn) {
+    const s = document.createElement("span"); s.style.color = "#D97706"
+    s.textContent = ` · 주의 ${warn}`; line.appendChild(s)
+  }
+  root.appendChild(line)
+
+  if (location) {
+    const loc = document.createElement("div")
+    loc.style.color = "#64748B"
+    loc.textContent = location
+    root.appendChild(loc)
+  }
+  return root
+}
+
 /** 양식장을 지도에 찍는다.
  *
  *  OpenStreetMap 타일을 쓴다 — 키가 필요 없고 무료다. 지도 제공자 계정을
@@ -64,12 +94,10 @@ export function FarmMap({ farms, tanks }: { farms: Farm[]; tanks: Tank[] }) {
           weight: 2,
         })
           .addTo(m)
-          .bindPopup(
-            `<b>${farm.name}</b><br>수조 ${own.length}개` +
-            (bad ? ` · <span style="color:#DC2626">위험 ${bad}</span>` : "") +
-            (warn ? ` · <span style="color:#D97706">주의 ${warn}</span>` : "") +
-            (farm.location ? `<br><span style="color:#64748B">${farm.location}</span>` : "")
-          )
+          // 팝업은 DOM 으로 만든다. 이름·주소를 HTML 문자열로 이어 붙이면
+          // 값에 든 태그가 실행된다. 자기 농장만 보는 화면이라 위험은 낮지만
+          // 습관을 나쁘게 들이지 않는다 — 사용자 값은 textContent 로만.
+          .bindPopup(farmPopup(farm.name, own.length, bad, warn, farm.location))
       }
 
       const bounds = L.latLngBounds(located.map(f => [f.latitude!, f.longitude!] as [number, number]))

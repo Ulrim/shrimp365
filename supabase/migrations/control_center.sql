@@ -28,6 +28,15 @@ DO $$ BEGIN
     CHECK (role IN ('admin', 'manager', 'operator', 'viewer'));
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+-- CHECK 는 role IS NULL 을 통과시킨다. 신규 행이 role 없이 들어오는 것을 막고
+-- 기본값을 operator(최소 권한)로 고정한다.
+ALTER TABLE public.profiles ALTER COLUMN role SET DEFAULT 'operator';
+DO $$ BEGIN
+  ALTER TABLE public.profiles ALTER COLUMN role SET NOT NULL;
+EXCEPTION WHEN others THEN
+  RAISE NOTICE 'role 을 NOT NULL 로 바꾸지 못했습니다(%). 기존 NULL 이 남아 있는지 확인하세요.', SQLERRM;
+END $$;
+
 -- 2) 총 관리자 지정.
 --    이메일로 계정을 찾아 role 을 admin 으로 올린다. 아직 가입 전이면
 --    아무 일도 하지 않으므로, 가입 후 이 파일을 다시 실행하면 된다.

@@ -10,27 +10,50 @@ import { authorizeControl } from "@/lib/control-auth"
 // 측정 주기가 1분이므로, 5분 넘게 소식이 없으면 끊긴 것으로 본다.
 const OFFLINE_AFTER_MS = 5 * 60_000
 
+// Supabase 는 한 번에 최대 1000행만 준다. 플랫폼 전체 관제 화면은 농장·수조·
+// 기기가 그보다 많을 수 있는데, 그냥 조회하면 1000번째 이후가 조용히 잘려
+// 위험 농장이 지도에서 사라진다. 범위를 나눠 끝까지 읽는다.
+async function fetchAll<T>(
+  build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const PAGE = 1000
+  const out: T[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await build(from, from + PAGE - 1)
+    if (error) throw error
+    const rows = data ?? []
+    out.push(...rows)
+    if (rows.length < PAGE) break   // 마지막 페이지
+  }
+  return out
+}
+
 export async function GET(req: NextRequest) {
   const auth = await authorizeControl(req)
   if (!auth.ok) return auth.res
   const { admin } = auth
 
   try {
-    const [farmsRes, tanksRes, devicesRes, alertsRes, profilesRes] = await Promise.all([
-      admin.from("farms").select("id, user_id, name, location, latitude, longitude"),
-      admin.from("tanks").select("id, farm_id, name, status"),
-      admin.from("sensor_devices").select("id, tank_id, name, active, last_seen_at, serial, agent_version, last_payload"),
+    // last_payload 는 여기서 쓰지 않으므로 빼서 전송량을 줄인다(큰 JSON 일 수 있음).
+    type FarmRow = { id: string; user_id: string; name: string; location: string; latitude: number | null; longitude: number | null }
+    type TankRow = { id: string; farm_id: string; name: string; status: string }
+    type DeviceRow = { id: string; tank_id: string; name: string; active: boolean; last_seen_at: string | null; serial: string | null; agent_version: string | null }
+    type ProfileRow = { id: string; name: string | null }
+
+    const [farmRows, tanks, devices, profileRows, alertsRes] = await Promise.all([
+      fetchAll<FarmRow>((f, t) => admin.from("farms").select("id, user_id, name, location, latitude, longitude").range(f, t)),
+      fetchAll<TankRow>((f, t) => admin.from("tanks").select("id, farm_id, name, status").range(f, t)),
+      fetchAll<DeviceRow>((f, t) => admin.from("sensor_devices").select("id, tank_id, name, active, last_seen_at, serial, agent_version").range(f, t)),
+      fetchAll<ProfileRow>((f, t) => admin.from("profiles").select("id, name").range(f, t)),
+      // 알림은 최근 30건만 보여 주므로 페이지네이션이 필요 없다.
       admin.from("alerts")
         .select("id, tank_id, type, parameter, value, message, created_at, tank:tanks!alerts_tank_id_fkey(name, farm:farms!tanks_farm_id_fkey(name))")
         .eq("resolved", false)
         .order("created_at", { ascending: false })
         .limit(30),
-      admin.from("profiles").select("id, name"),
     ])
 
-    const nameOf = new Map((profilesRes.data ?? []).map(p => [p.id as string, (p.name as string) || ""]))
-    const tanks = tanksRes.data ?? []
-    const devices = devicesRes.data ?? []
+    const nameOf = new Map(profileRows.map(p => [p.id, p.name || ""]))
     const now = Date.now()
 
     const tanksByFarm = new Map<string, typeof tanks>()
@@ -46,7 +69,7 @@ export async function GET(req: NextRequest) {
       devicesByTank.set(d.tank_id, list)
     }
 
-    const farms = (farmsRes.data ?? []).map(f => {
+    const farms = farmRows.map(f => {
       const own = tanksByFarm.get(f.id) ?? []
       const ownDevices = own.flatMap(t => devicesByTank.get(t.id) ?? [])
       const offline = ownDevices.filter(d =>

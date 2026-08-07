@@ -18,13 +18,19 @@ export async function GET(req: NextRequest) {
   if (auth.role !== "super_admin") return forbidden()
 
   try {
-    const [usersRes, profilesRes] = await Promise.all([
-      auth.admin.auth.admin.listUsers({ perPage: 500 }),
-      auth.admin.from("profiles").select("id, name, role"),
-    ])
-    const roleOf = new Map((profilesRes.data ?? []).map(p => [p.id as string, p]))
+    // 사용자가 많아지면 한 페이지(1000)로는 부족하다. 끝까지 훑는다.
+    type AuthUser = { id: string; email?: string; created_at?: string }
+    const allUsers: AuthUser[] = []
+    for (let page = 1; ; page++) {
+      const { data, error } = await auth.admin.auth.admin.listUsers({ page, perPage: 1000 })
+      if (error) throw error
+      allUsers.push(...data.users)
+      if (data.users.length < 1000) break
+    }
+    const { data: profileRows } = await auth.admin.from("profiles").select("id, name, role")
+    const roleOf = new Map((profileRows ?? []).map(p => [p.id as string, p]))
 
-    const users = (usersRes.data?.users ?? [])
+    const users = allUsers
       .map(u => {
         const p = roleOf.get(u.id)
         return {
@@ -33,7 +39,7 @@ export async function GET(req: NextRequest) {
           name: (p?.name as string) || "",
           role: (p?.role as string) || "operator",
           is_super_admin: (u.email ?? "").trim().toLowerCase() === SUPER_ADMIN_EMAIL.trim().toLowerCase(),
-          created_at: u.created_at,
+          created_at: u.created_at ?? "",
         }
       })
       .sort((a, b) => {
@@ -81,13 +87,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "관리자 계정의 권한은 여기서 바꿀 수 없습니다." }, { status: 400 })
     }
 
+    // 해임할 때 원 역할로 되돌린다. viewer 였던 사람을 해임했다고 operator 로
+    // 올려 주면 오히려 권한이 늘어난다. manager 였던 것만 operator 로 내린다.
+    const newRole = body.manager
+      ? "manager"
+      : (targetProfile?.role === "manager" ? "operator" : (targetProfile?.role ?? "operator"))
+
     const { error } = await auth.admin
       .from("profiles")
-      .update({ role: body.manager ? "manager" : "operator" })
+      .update({ role: newRole })
       .eq("id", body.user_id)
     if (error) throw error
 
-    return NextResponse.json({ ok: true, role: body.manager ? "manager" : "operator" })
+    return NextResponse.json({ ok: true, role: newRole })
   } catch (e) {
     console.error("[control/managers]", e instanceof Error ? e.message : e)
     return NextResponse.json({ error: "변경하지 못했습니다." }, { status: 500 })

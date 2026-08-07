@@ -17,6 +17,53 @@ export type ControlFarm = {
   offline: number
 }
 
+/** 팝업 내용을 DOM 으로 만든다. 사용자 입력(이름·주소)은 textContent 로만
+ *  넣어 HTML 로 해석되지 않게 한다. 색·숫자는 코드가 만드는 값이라 그대로 쓴다. */
+function buildPopup(f: ControlFarm): HTMLElement {
+  const root = document.createElement("div")
+  root.style.lineHeight = "1.5"
+
+  const head = document.createElement("div")
+  const name = document.createElement("b")
+  name.textContent = f.name            // 사용자 입력 — 이스케이프
+  head.appendChild(name)
+  const owner = document.createElement("span")
+  owner.style.color = "#64748B"
+  owner.textContent = ` · ${f.owner}`  // 사용자 입력 — 이스케이프
+  head.appendChild(owner)
+  root.appendChild(head)
+
+  const line1 = document.createElement("div")
+  line1.append(`수조 ${f.tanks}개`)
+  if (f.danger) {
+    const s = document.createElement("span"); s.style.color = "#DC2626"
+    s.textContent = ` · 위험 ${f.danger}`; line1.appendChild(s)
+  }
+  if (f.warning) {
+    const s = document.createElement("span"); s.style.color = "#D97706"
+    s.textContent = ` · 주의 ${f.warning}`; line1.appendChild(s)
+  }
+  root.appendChild(line1)
+
+  const line2 = document.createElement("div")
+  line2.append(`기기 ${f.devices}대`)
+  if (f.offline) {
+    const s = document.createElement("span"); s.style.color = "#DC2626"
+    s.textContent = ` · 끊김 ${f.offline}`; line2.appendChild(s)
+  } else {
+    line2.append(" · 모두 정상")
+  }
+  root.appendChild(line2)
+
+  if (f.location) {
+    const loc = document.createElement("div")
+    loc.style.color = "#64748B"
+    loc.textContent = f.location        // 사용자 입력 — 이스케이프
+    root.appendChild(loc)
+  }
+  return root
+}
+
 /** 관제센터 지도 — 플랫폼의 모든 농장을 한 판에 찍는다.
  *
  *  양식장 관리의 지도와 목적이 다르다. 저쪽은 "내 농장", 여기는 "전체 중
@@ -60,15 +107,12 @@ export function ControlMap({ farms, height = 420 }: { farms: ControlFarm[]; heig
           dashArray: f.offline > 0 ? "4 4" : undefined,
         })
           .addTo(m)
-          .bindPopup(
-            `<b>${f.name}</b> <span style="color:#64748B">· ${f.owner}</span><br>` +
-            `수조 ${f.tanks}개` +
-            (f.danger ? ` · <span style="color:#DC2626">위험 ${f.danger}</span>` : "") +
-            (f.warning ? ` · <span style="color:#D97706">주의 ${f.warning}</span>` : "") +
-            `<br>기기 ${f.devices}대` +
-            (f.offline ? ` · <span style="color:#DC2626">끊김 ${f.offline}</span>` : " · 모두 정상") +
-            (f.location ? `<br><span style="color:#64748B">${f.location}</span>` : "")
-          )
+          // 팝업은 DOM 노드로 조립한다. 농장명·소유자명·주소는 일반 사용자가
+          // 자유 입력하는 값이라, HTML 문자열로 이어 붙이면 저장형 XSS 가 된다.
+          // 관제센터는 최고 권한 사용자가 여는 화면이므로, 그 세션에서 남의
+          // 스크립트가 도는 순간 권한 탈취로 이어진다. 사용자 값은 textContent
+          // 로만 넣고, 숫자·색은 코드가 만드는 것이라 안전하다.
+          .bindPopup(buildPopup(f))
       }
 
       const bounds = L.latLngBounds(located.map(f => [f.latitude!, f.longitude!] as [number, number]))
