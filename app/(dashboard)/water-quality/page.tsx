@@ -83,8 +83,19 @@ function getStatus(value: number, stdKey: typeof STD_KEYS[number]): StatusLevel 
 
 function buildChartData(readings: WaterQualityReading[], last24h = true) {
   const slice = last24h ? readings.slice(-25) : readings
-  return slice.map(r => ({
-    time: new Date(r.recorded_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }),
+  // 하루가 넘는 구간이면 시각(HH:MM)만으로는 어느 날인지 알 수 없어
+  // 라벨이 뭉개진다. 첫·끝 측정이 다른 날이면 날짜(월/일)로 찍는다.
+  const first = slice.length ? new Date(slice[0].recorded_at) : null
+  const lastPt = slice.length ? new Date(slice[slice.length - 1].recorded_at) : null
+  const multiDay = !!(first && lastPt && (lastPt.getTime() - first.getTime()) > 24 * 3600_000)
+  return slice.map(r => {
+    const d = new Date(r.recorded_at)
+    return {
+    // 여러 날 구간이면 월/일, 하루 안이면 시:분. 눈금은 XAxis 가 픽셀 간격으로
+    // 솎아 내므로(minTickGap) 촘촘한 데이터라도 라벨이 겹치지 않는다.
+    time: multiDay
+      ? `${d.getMonth() + 1}/${d.getDate()}`
+      : d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }),
     수온:    Number(r.temperature.toFixed(1)),
     pH:     Number(r.ph.toFixed(2)),
     DO:     Number(r.do_level.toFixed(1)),
@@ -94,7 +105,7 @@ function buildChartData(readings: WaterQualityReading[], last24h = true) {
     질산염:  Number(r.nitrate.toFixed(1)),
     알칼리도: Number(r.alkalinity.toFixed(1)),
     탁도:    Number(r.turbidity.toFixed(1)),
-  }))
+  }})
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -161,7 +172,7 @@ function SingleParamChart({ chartData, stdKey, chartLabel, chartColor, unit }: C
     <ResponsiveContainer width="100%" height={260}>
       <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval={4} />
+        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={70} />
         <YAxis domain={[yMin, yMax]} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={42} tickFormatter={v => `${v}${unit}`} />
         <Tooltip
           contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }}
@@ -183,7 +194,7 @@ function NitrogenChart({ chartData }: { chartData: ReturnType<typeof buildChartD
     <ResponsiveContainer width="100%" height={260}>
       <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval={4} />
+        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={70} />
         <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={48} tickFormatter={v => `${v}`} />
         <Tooltip
           contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }}
@@ -205,7 +216,7 @@ function OverviewChart({ chartData }: { chartData: ReturnType<typeof buildChartD
     <ResponsiveContainer width="100%" height={260}>
       <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval={4} />
+        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={70} />
         <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={42} />
         <Tooltip
           contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }}
