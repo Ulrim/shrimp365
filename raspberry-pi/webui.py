@@ -249,6 +249,9 @@ PAGE = """<!doctype html>
   }
   button.act.ghost{background:transparent;border:1px solid #22304C;color:#94A3B8}
   button.act:active{opacity:.75}
+  /* 푸터 버튼은 오른쪽에 한 덩어리로 모은다. 첫 버튼만 밀어 두고 나머지는
+     붙여, 설정이 [연결 정보]/[기기 연결] 바로 옆에 오게 한다. */
+  footer #settings, footer #action{margin-left:0}
 
   /* 연결 화면 — 버튼을 눌렀을 때만 덮는다 */
   .overlay{
