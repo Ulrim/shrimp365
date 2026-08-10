@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="594mm" height="420mm" viewBox="0 0 594 420">
+<rect x="0" y="0" width="594.0" height="420.0" fill="#ffffff"/>
+<rect x="10" y="10" width="574.0" height="400.0" fill="none" stroke="#202020" stroke-width="0.7"/>
+<line x1="271.000" y1="270.500" x2="485.000" y2="270.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="490.000" y1="265.500" x2="490.000" y2="134.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="485.000" y1="129.500" x2="271.000" y2="129.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="266.000" y1="134.500" x2="266.000" y2="265.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<path d="M 485.000 270.500 A 5.000 5.000 0 0 0 490.000 265.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<path d="M 490.000 134.500 A 5.000 5.000 0 0 0 485.000 129.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<path d="M 271.000 129.500 A 5.000 5.000 0 0 0 266.000 134.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<path d="M 266.000 265.500 A 5.000 5.000 0 0 0 271.000 270.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="292.000" y1="247.500" x2="464.000" y2="247.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="467.000" y1="244.500" x2="467.000" y2="155.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="464.000" y1="152.500" x2="292.000" y2="152.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="289.000" y1="155.500" x2="289.000" y2="244.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<path d="M 464.000 247.500 A 3.000 3.000 0 0 0 467.000 244.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<path d="M 467.000 155.500 A 3.000 3.000 0 0 0 464.000 152.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<path d="M 292.000 152.500 A 3.000 3.000 0 0 0 289.000 155.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<path d="M 289.000 244.500 A 3.000 3.000 0 0 0 292.000 247.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<circle cx="273.000" cy="263.500" r="1.700" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="268.300" y1="263.500" x2="277.700" y2="263.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="273.000" y1="268.200" x2="273.000" y2="258.800" stroke="#008000" stroke-width="0.35" fill="none"/>
+<circle cx="273.000" cy="136.500" r="1.700" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="268.300" y1="136.500" x2="277.700" y2="136.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="273.000" y1="141.200" x2="273.000" y2="131.800" stroke="#008000" stroke-width="0.35" fill="none"/>
+<circle cx="483.000" cy="263.500" r="1.700" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="478.300" y1="263.500" x2="487.700" y2="263.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="483.000" y1="268.200" x2="483.000" y2="258.800" stroke="#008000" stroke-width="0.35" fill="none"/>
+<circle cx="483.000" cy="136.500" r="1.700" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="478.300" y1="136.500" x2="487.700" y2="136.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="483.000" y1="141.200" x2="483.000" y2="131.800" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="281.000" y1="255.500" x2="475.000" y2="255.500" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<line x1="475.000" y1="255.500" x2="475.000" y2="144.500" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<line x1="475.000" y1="144.500" x2="281.000" y2="144.500" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<line x1="281.000" y1="144.500" x2="281.000" y2="255.500" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<line x1="254.000" y1="200.000" x2="502.000" y2="200.000" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<line x1="378.000" y1="282.500" x2="378.000" y2="117.500" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<line x1="266.000" y1="270.500" x2="266.000" y2="294.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="490.000" y1="270.500" x2="490.000" y2="294.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="266.000" y1="292.500" x2="490.000" y2="292.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="266.000,292.500 268.600,293.400 268.600,291.600" fill="#0070a0"/>
+<polygon points="490.000,292.500 487.400,291.600 487.400,293.400" fill="#0070a0"/>
+<text x="378.000" y="291.100" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">224</text>
+<line x1="490.000" y1="270.500" x2="516.000" y2="270.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="490.000" y1="129.500" x2="516.000" y2="129.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="514.000" y1="270.500" x2="514.000" y2="129.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="514.000,270.500 514.900,267.900 513.100,267.900" fill="#0070a0"/>
+<polygon points="514.000,129.500 513.100,132.100 514.900,132.100" fill="#0070a0"/>
+<text x="512.800" y="200.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 512.800 200.000)">141</text>
+<line x1="289.000" y1="152.500" x2="289.000" y2="140.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="467.000" y1="152.500" x2="467.000" y2="140.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="289.000" y1="142.000" x2="467.000" y2="142.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="289.000,142.000 291.600,142.900 291.600,141.100" fill="#0070a0"/>
+<polygon points="467.000,142.000 464.400,141.100 464.400,142.900" fill="#0070a0"/>
+<text x="378.000" y="140.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">창 178</text>
+<line x1="289.000" y1="247.500" x2="242.000" y2="247.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="289.000" y1="152.500" x2="242.000" y2="152.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="244.000" y1="247.500" x2="244.000" y2="152.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="244.000,247.500 244.900,244.900 243.100,244.900" fill="#0070a0"/>
+<polygon points="244.000,152.500 243.100,155.100 244.900,155.100" fill="#0070a0"/>
+<text x="242.800" y="200.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 242.800 200.000)">95</text>
+<line x1="273.000" y1="263.500" x2="273.000" y2="312.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="483.000" y1="263.500" x2="483.000" y2="312.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="273.000" y1="310.500" x2="483.000" y2="310.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="273.000,310.500 275.600,311.400 275.600,309.600" fill="#0070a0"/>
+<polygon points="483.000,310.500 480.400,309.600 480.400,311.400" fill="#0070a0"/>
+<text x="378.000" y="309.100" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">210</text>
+<line x1="273.000" y1="263.500" x2="224.000" y2="263.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="273.000" y1="136.500" x2="224.000" y2="136.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="226.000" y1="263.500" x2="226.000" y2="136.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="226.000,263.500 226.900,260.900 225.100,260.900" fill="#0070a0"/>
+<polygon points="226.000,136.500 225.100,139.100 226.900,139.100" fill="#0070a0"/>
+<text x="224.800" y="200.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 224.800 200.000)">127</text>
+<line x1="486.000" y1="133.500" x2="516.000" y2="104.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="486.000,133.500 488.485,132.319 487.223,131.035" fill="#0070a0"/>
+<text x="517.500" y="105.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">R5 (4)</text>
+<line x1="464.000" y1="155.500" x2="516.000" y2="128.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="464.000,155.500 466.719,155.080 465.878,153.489" fill="#0070a0"/>
+<text x="517.500" y="129.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">R3 (4)</text>
+<line x1="483.000" y1="136.500" x2="516.000" y2="82.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="483.000,136.500 485.117,134.742 483.577,133.810" fill="#0070a0"/>
+<text x="517.500" y="83.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">Ø3.4 (4)</text>
+<line x1="475.000" y1="220.000" x2="516.000" y2="230.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="475.000,220.000 477.313,221.490 477.739,219.742" fill="#0070a0"/>
+<text x="517.500" y="231.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">디스플레이 외형 194x111 (참고)</text>
+<rect x="394.0" y="364.0" width="190.0" height="46.0" fill="#ffffff" stroke="#202020" stroke-width="0.7"/>
+<line x1="394.0" y1="380.0" x2="584.0" y2="380.0" stroke="#202020" stroke-width="0.4"/>
+<line x1="394.0" y1="395.0" x2="584.0" y2="395.0" stroke="#202020" stroke-width="0.4"/>
+<text x="398.000" y="375.000" font-family="sans-serif" font-size="6.50" text-anchor="start" fill="#202020" font-weight="bold">압착 프레임</text>
+<text x="398.000" y="390.000" font-family="sans-serif" font-size="4.00" text-anchor="start" fill="#202020" font-weight="normal">Shrimp365 수질 모니터링 장비 함체</text>
+<text x="580.000" y="390.000" font-family="sans-serif" font-size="4.00" text-anchor="end" fill="#202020" font-weight="normal">도번 SH-04</text>
+<text x="398.000" y="405.000" font-family="sans-serif" font-size="3.60" text-anchor="start" fill="#202020" font-weight="normal">척도 1:1   투상 제3각   단위 mm</text>
+<text x="580.000" y="405.000" font-family="sans-serif" font-size="3.60" text-anchor="end" fill="#202020" font-weight="normal">A2 / Rev.A</text>
+<text x="16.000" y="26.000" font-family="sans-serif" font-size="4.80" text-anchor="start" fill="#202020" font-weight="bold">주기</text>
+<text x="16.000" y="34.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">1.</text>
+<text x="22.000" y="34.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">재질 알루미늄 3t (또는 SUS304 2t). 수량 1/대. 레이저 절단.</text>
+<text x="16.000" y="39.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">2.</text>
+<text x="22.000" y="39.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">디스플레이 뒷면 가장자리를 폭 8 의 띠로 눌러 도어 개스킷을 균등 압축한다.</text>
+<text x="22.000" y="44.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">가로 접촉대 반폭 89~97, 세로 47.5~55.5. 도어 개스킷 밴드(반폭 88~93 /</text>
+<text x="22.000" y="49.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">47~52)와 겹치므로 압축력이 개스킷 바로 위에 실린다.</text>
+<text x="16.000" y="54.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">3.</text>
+<text x="22.000" y="54.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">접촉면에는 두께 3 실리콘 패드를 같은 폭 8 의 액자 모양으로 붙인다.</text>
+<text x="22.000" y="60.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">디스플레이 뒷면 부품과 직접 닿지 않게 하기 위한 것이다.</text>
+<text x="16.000" y="65.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">4.</text>
+<text x="22.000" y="65.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">M3 스탠드오프 4개소에 SUS316 M3 볼트 + 스프링와셔로 체결한다.</text>
+<text x="22.000" y="70.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">대각선 순서로 조금씩 나눠 조여 개스킷을 고르게 압축한다. 과조임 금지.</text>
+<text x="16.000" y="75.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">5.</text>
+<text x="22.000" y="75.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">창 치수는 디스플레이 뒷면의 부품 배치에 따라 달라질 수 있다.</text>
+<text x="22.000" y="80.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">시제품 실측 후 확정할 것.</text>
+<text x="16.000" y="86.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">6.</text>
+<text x="22.000" y="86.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">절단 후 모든 모서리를 면취하고 버를 제거한다. 리본 케이블이 지나간다.</text>
+<line x1="16.0" y1="398.0" x2="28.0" y2="398.0" stroke="#c00000" stroke-width="0.8"/>
+<text x="30.000" y="399.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">가공 CUT</text>
+<line x1="62.0" y1="398.0" x2="74.0" y2="398.0" stroke="#008000" stroke-width="0.8"/>
+<text x="76.000" y="399.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">마킹 MARK</text>
+<line x1="108.0" y1="398.0" x2="120.0" y2="398.0" stroke="#909090" stroke-width="0.8"/>
+<text x="122.000" y="399.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">참고 REF</text>
+</svg>

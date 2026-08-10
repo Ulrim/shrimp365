@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="594mm" height="420mm" viewBox="0 0 594 420">
+<rect x="0" y="0" width="594.0" height="420.0" fill="#ffffff"/>
+<rect x="10" y="10" width="574.0" height="400.0" fill="none" stroke="#202020" stroke-width="0.7"/>
+<line x1="208.000" y1="330.000" x2="548.000" y2="330.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="548.000" y1="330.000" x2="548.000" y2="60.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="548.000" y1="60.000" x2="208.000" y2="60.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="208.000" y1="60.000" x2="208.000" y2="330.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="208.000" y1="290.000" x2="548.000" y2="290.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="208.000" y1="100.000" x2="548.000" y2="100.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<circle cx="258.000" cy="310.000" r="2.750" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="251.250" y1="310.000" x2="264.750" y2="310.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="258.000" y1="316.750" x2="258.000" y2="303.250" stroke="#008000" stroke-width="0.35" fill="none"/>
+<circle cx="338.000" cy="310.000" r="2.750" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="331.250" y1="310.000" x2="344.750" y2="310.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="338.000" y1="316.750" x2="338.000" y2="303.250" stroke="#008000" stroke-width="0.35" fill="none"/>
+<circle cx="418.000" cy="310.000" r="2.750" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="411.250" y1="310.000" x2="424.750" y2="310.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="418.000" y1="316.750" x2="418.000" y2="303.250" stroke="#008000" stroke-width="0.35" fill="none"/>
+<circle cx="498.000" cy="310.000" r="2.750" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="491.250" y1="310.000" x2="504.750" y2="310.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="498.000" y1="316.750" x2="498.000" y2="303.250" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="208.000" y1="330.000" x2="208.000" y2="352.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="548.000" y1="330.000" x2="548.000" y2="352.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="208.000" y1="350.000" x2="548.000" y2="350.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="208.000,350.000 210.600,350.900 210.600,349.100" fill="#0070a0"/>
+<polygon points="548.000,350.000 545.400,349.100 545.400,350.900" fill="#0070a0"/>
+<text x="378.000" y="348.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">340</text>
+<line x1="548.000" y1="330.000" x2="572.000" y2="330.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="548.000" y1="290.000" x2="572.000" y2="290.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="570.000" y1="330.000" x2="570.000" y2="290.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="570.000,330.000 570.900,327.400 569.100,327.400" fill="#0070a0"/>
+<polygon points="570.000,290.000 569.100,292.600 570.900,292.600" fill="#0070a0"/>
+<text x="568.800" y="310.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 568.800 310.000)">40 후면 플랜지</text>
+<line x1="548.000" y1="290.000" x2="572.000" y2="290.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="548.000" y1="100.000" x2="572.000" y2="100.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="570.000" y1="290.000" x2="570.000" y2="100.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="570.000,290.000 570.900,287.400 569.100,287.400" fill="#0070a0"/>
+<polygon points="570.000,100.000 569.100,102.600 570.900,102.600" fill="#0070a0"/>
+<text x="568.800" y="195.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 568.800 195.000)">190 상판</text>
+<line x1="548.000" y1="100.000" x2="572.000" y2="100.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="548.000" y1="60.000" x2="572.000" y2="60.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="570.000" y1="100.000" x2="570.000" y2="60.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="570.000,100.000 570.900,97.400 569.100,97.400" fill="#0070a0"/>
+<polygon points="570.000,60.000 569.100,62.600 570.900,62.600" fill="#0070a0"/>
+<text x="568.800" y="80.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 568.800 80.000)">40 전면 드롭</text>
+<line x1="258.000" y1="310.000" x2="258.000" y2="272.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="498.000" y1="310.000" x2="498.000" y2="272.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="258.000" y1="274.000" x2="498.000" y2="274.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="258.000,274.000 260.600,274.900 260.600,273.100" fill="#0070a0"/>
+<polygon points="498.000,274.000 495.400,273.100 495.400,274.900" fill="#0070a0"/>
+<text x="378.000" y="272.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">240</text>
+<line x1="258.000" y1="310.000" x2="258.000" y2="258.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="338.000" y1="310.000" x2="338.000" y2="258.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="258.000" y1="260.000" x2="338.000" y2="260.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="258.000,260.000 260.600,260.900 260.600,259.100" fill="#0070a0"/>
+<polygon points="338.000,260.000 335.400,259.100 335.400,260.900" fill="#0070a0"/>
+<text x="298.000" y="258.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">80</text>
+<line x1="498.000" y1="310.000" x2="556.000" y2="360.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="498.000,310.000 499.382,312.379 500.557,311.016" fill="#0070a0"/>
+<text x="557.500" y="361.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">Ø5.5 (4)</text>
+<line x1="378.000" y1="290.000" x2="200.000" y2="268.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="378.000,290.000 375.530,288.788 375.309,290.574" fill="#0070a0"/>
+<text x="198.500" y="269.000" font-family="sans-serif" font-size="3.00" text-anchor="end" fill="#0070a0" font-weight="normal">절곡선 90° 아래로</text>
+<line x1="378.000" y1="100.000" x2="200.000" y2="188.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="378.000,100.000 375.270,100.345 376.068,101.959" fill="#0070a0"/>
+<text x="198.500" y="189.000" font-family="sans-serif" font-size="3.00" text-anchor="end" fill="#0070a0" font-weight="normal">절곡선 90° 아래로</text>
+<rect x="394.0" y="364.0" width="190.0" height="46.0" fill="#ffffff" stroke="#202020" stroke-width="0.7"/>
+<line x1="394.0" y1="380.0" x2="584.0" y2="380.0" stroke="#202020" stroke-width="0.4"/>
+<line x1="394.0" y1="395.0" x2="584.0" y2="395.0" stroke="#202020" stroke-width="0.4"/>
+<text x="398.000" y="375.000" font-family="sans-serif" font-size="6.50" text-anchor="start" fill="#202020" font-weight="bold">차양 전개도</text>
+<text x="398.000" y="390.000" font-family="sans-serif" font-size="4.00" text-anchor="start" fill="#202020" font-weight="normal">Shrimp365 수질 모니터링 장비 함체</text>
+<text x="580.000" y="390.000" font-family="sans-serif" font-size="4.00" text-anchor="end" fill="#202020" font-weight="normal">도번 SH-05</text>
+<text x="398.000" y="405.000" font-family="sans-serif" font-size="3.60" text-anchor="start" fill="#202020" font-weight="normal">척도 1:1   투상 제3각   단위 mm</text>
+<text x="580.000" y="405.000" font-family="sans-serif" font-size="3.60" text-anchor="end" fill="#202020" font-weight="normal">A2 / Rev.A</text>
+<text x="16.000" y="26.000" font-family="sans-serif" font-size="4.80" text-anchor="start" fill="#202020" font-weight="bold">주기</text>
+<text x="16.000" y="34.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">1.</text>
+<text x="22.000" y="34.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">재질 알루미늄 1.5t. 직사광에 노출되는 설치에만 적용한다(선택 부품).</text>
+<text x="16.000" y="39.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">2.</text>
+<text x="22.000" y="39.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">절곡선 2곳 모두 아래로 90°. 내측 반경 R2.</text>
+<text x="16.000" y="44.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">3.</text>
+<text x="22.000" y="44.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">함체 상단에서 20~30 띄워 고정한다. 그 틈으로 공기가 지나가야 효과가 있다.</text>
+<text x="16.000" y="49.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">4.</text>
+<text x="22.000" y="49.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">함체보다 좌우 각 20, 앞으로 40 더 나오게 하여 정오 전후의 그늘을 확보한다.</text>
+<text x="16.000" y="54.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">5.</text>
+<text x="22.000" y="54.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">표면은 밝은 회색 또는 무광 백색으로 마감한다.</text>
+<text x="16.000" y="60.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">6.</text>
+<text x="22.000" y="60.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">고정은 함체 벽부 브래킷을 공용하거나 별도 스페이서 4개를 쓴다.</text>
+<text x="16.000" y="65.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">7.</text>
+<text x="22.000" y="65.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">함체에 새 구멍을 뚫지 말 것 — 방수가 깨진다.</text>
+<line x1="16.0" y1="398.0" x2="28.0" y2="398.0" stroke="#c00000" stroke-width="0.8"/>
+<text x="30.000" y="399.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">가공 CUT</text>
+<line x1="62.0" y1="398.0" x2="74.0" y2="398.0" stroke="#008000" stroke-width="0.8"/>
+<text x="76.000" y="399.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">마킹 MARK</text>
+<line x1="108.0" y1="398.0" x2="120.0" y2="398.0" stroke="#909090" stroke-width="0.8"/>
+<text x="122.000" y="399.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">참고 REF</text>
+</svg>
