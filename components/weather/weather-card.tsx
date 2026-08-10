@@ -4,6 +4,8 @@ import { useEffect, useState } from "react"
 import { CloudRain, Wind, AlertTriangle, MapPin, Sun, Cloud, CloudDrizzle, CloudLightning } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
+import { useT } from "@/lib/i18n-context"
+import type { Dict, Locale } from "@/lib/i18n"
 
 type Day = {
   date: string
@@ -29,13 +31,12 @@ function icon(code: number | null) {
   return <Sun className="w-4 h-4 text-amber-500" />
 }
 
-const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"]
-
-function dayLabel(date: string, index: number): string {
-  if (index === 0) return "오늘"
-  if (index === 1) return "내일"
+function dayLabel(t: Dict, locale: Locale, date: string, index: number): string {
+  if (index === 0) return t.weather.today
+  if (index === 1) return t.weather.tomorrow
   const d = new Date(date + "T00:00:00")
-  return `${d.getMonth() + 1}/${d.getDate()}(${DAY_NAMES[d.getDay()]})`
+  const weekday = new Intl.DateTimeFormat(locale, { weekday: "short" }).format(d)
+  return `${d.getMonth() + 1}/${d.getDate()}(${weekday})`
 }
 
 /** 양식장 좌표로 날씨를 보여 주고, 대비가 필요한 날을 짚는다.
@@ -50,6 +51,7 @@ export function WeatherCard({
   longitude: number | null
   farmName?: string
 }) {
+  const { t, locale } = useT()
   const [data, setData] = useState<Weather | null>(null)
   const [failed, setFailed] = useState(false)
 
@@ -69,19 +71,18 @@ export function WeatherCard({
       <Card className="bg-card border-border">
         <CardHeader className="pb-2">
           <CardTitle className="text-foreground text-base flex items-center gap-2">
-            <CloudRain className="w-4 h-4 text-ocean-500" /> 날씨
+            <CloudRain className="w-4 h-4 text-ocean-500" /> {t.weather.title}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            양식장 좌표를 넣으면 폭우·강풍을 미리 알려 드립니다.
-            폭우는 표층 염도를 떨어뜨리고, 흐린 날이 이어지면 새벽 용존산소가 낮아집니다.
+            {t.weather.noCoordsMsg}
           </p>
           <Link
             href="/farms"
             className="inline-flex items-center gap-1.5 mt-3 text-sm text-ocean-500 hover:underline"
           >
-            <MapPin className="w-3.5 h-3.5" /> 양식장 관리에서 좌표 넣기
+            <MapPin className="w-3.5 h-3.5" /> {t.weather.setCoordsLink}
           </Link>
         </CardContent>
       </Card>
@@ -93,12 +94,12 @@ export function WeatherCard({
       <Card className="bg-card border-border">
         <CardHeader className="pb-2">
           <CardTitle className="text-foreground text-base flex items-center gap-2">
-            <CloudRain className="w-4 h-4 text-ocean-500" /> 날씨
+            <CloudRain className="w-4 h-4 text-ocean-500" /> {t.weather.title}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            {failed ? "날씨를 가져오지 못했습니다. 잠시 후 다시 시도합니다." : "불러오는 중…"}
+            {failed ? t.weather.fetchFailed : t.weather.loading}
           </p>
         </CardContent>
       </Card>
@@ -110,7 +111,7 @@ export function WeatherCard({
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-foreground text-base flex items-center gap-2">
-            <CloudRain className="w-4 h-4 text-ocean-500" /> 날씨
+            <CloudRain className="w-4 h-4 text-ocean-500" /> {t.weather.title}
           </CardTitle>
           {farmName && <span className="text-xs text-muted-foreground truncate">{farmName}</span>}
         </div>
@@ -163,7 +164,7 @@ export function WeatherCard({
                     : "border-border"
               }`}
             >
-              <p className="text-[10px] text-muted-foreground mb-1">{dayLabel(d.date, i)}</p>
+              <p className="text-[10px] text-muted-foreground mb-1">{dayLabel(t, locale, d.date, i)}</p>
               <div className="flex justify-center mb-1">{icon(d.code)}</div>
               <p className="text-[11px] text-foreground tabular-nums">
                 {d.temp_max !== null ? Math.round(d.temp_max) : "—"}°
@@ -179,7 +180,7 @@ export function WeatherCard({
         {data.warnings.length === 0 && (
           <p className="text-xs text-muted-foreground flex items-center gap-1.5">
             <AlertTriangle className="w-3 h-3 opacity-50" />
-            앞으로 나흘간 대비가 필요한 비·바람은 없습니다.
+            {t.weather.noWarnings}
           </p>
         )}
       </CardContent>

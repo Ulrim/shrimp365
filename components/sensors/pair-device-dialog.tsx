@@ -9,6 +9,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog"
 import type { Tank } from "@/types"
+import { useT } from "@/lib/i18n-context"
 
 type Result = { device_name: string; tank_name: string; serial: string | null }
 
@@ -19,6 +20,7 @@ type Result = { device_name: string; tank_name: string; serial: string | null }
  * 승인 전까지 장비는 아무 데이터도 올릴 수 없다.
  */
 export function PairDeviceDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void }) {
+  const { t } = useT()
   const [open, setOpen] = useState(false)
   const [code, setCode] = useState("")
   const [name, setName] = useState("")
@@ -45,7 +47,7 @@ export function PairDeviceDialog({ tank, onSuccess }: { tank: Tank; onSuccess: (
         body: JSON.stringify({ code, tank_id: tank.id, name }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json?.error || `연결 실패 (${res.status})`)
+      if (!res.ok) throw new Error(json?.error || `${t.pairDevice.connectFailed} (${res.status})`)
       setResult({ device_name: json.device_name, tank_name: json.tank_name, serial: json.serial ?? null })
       onSuccess()
     } catch (err) {
@@ -60,14 +62,14 @@ export function PairDeviceDialog({ tank, onSuccess }: { tank: Tank; onSuccess: (
       <DialogTrigger asChild>
         <button className="w-full text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-lg py-2 min-h-[36px] transition-colors flex items-center justify-center gap-1.5">
           <Link2 className="w-3.5 h-3.5" />
-          코드로 기기 연결
+          {t.pairDevice.trigger}
         </button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Link2 className="w-5 h-5 text-ocean-500" /> 코드로 기기 연결
+            <Link2 className="w-5 h-5 text-ocean-500" /> {t.pairDevice.trigger}
           </DialogTitle>
         </DialogHeader>
 
@@ -77,33 +79,31 @@ export function PairDeviceDialog({ tank, onSuccess }: { tank: Tank; onSuccess: (
               <div className="w-12 h-12 rounded-full bg-emerald-500/15 flex items-center justify-center">
                 <CheckCircle className="w-6 h-6 text-emerald-500" />
               </div>
-              <p className="text-foreground font-semibold">연결 완료</p>
+              <p className="text-foreground font-semibold">{t.pairDevice.done}</p>
               <p className="text-muted-foreground text-xs">
-                <span className="text-foreground">{result.device_name}</span> 가
-                <span className="text-foreground"> {result.tank_name}</span> 에 연결되었습니다.
+                {t.pairDevice.doneMsg.replace("{{device}}", result.device_name).replace("{{tank}}", result.tank_name)}
               </p>
               {result.serial && (
                 <p className="text-[10px] text-muted-foreground font-mono">{result.serial}</p>
               )}
               <p className="text-muted-foreground text-xs mt-1">
-                기기 화면이 곧 측정값으로 바뀝니다. 첫 전송까지 몇 분 걸릴 수 있습니다.
+                {t.pairDevice.doneHint}
               </p>
             </div>
             <DialogFooter>
               <Button onClick={close} className="bg-ocean-500 hover:bg-ocean-600 text-white w-full">
-                닫기
+                {t.common.close}
               </Button>
             </DialogFooter>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <p className="text-xs text-muted-foreground leading-relaxed">
-              기기 화면에 표시된 <span className="text-foreground font-semibold">6자리 코드</span>를 입력하세요.
-              코드는 15분간 유효합니다.
+              {t.pairDevice.codeHelpBefore}<span className="text-foreground font-semibold">{t.pairDevice.codeDigits}</span>{t.pairDevice.codeHelpAfter}
             </p>
 
             <div className="space-y-1.5">
-              <Label htmlFor="pair-code">연결 코드</Label>
+              <Label htmlFor="pair-code">{t.pairDevice.codeLabel}</Label>
               <Input
                 id="pair-code"
                 inputMode="numeric"
@@ -118,10 +118,10 @@ export function PairDeviceDialog({ tank, onSuccess }: { tank: Tank; onSuccess: (
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="pair-name">기기 이름 <span className="text-muted-foreground font-normal">(선택)</span></Label>
+              <Label htmlFor="pair-name">{t.pairDevice.nameLabel} <span className="text-muted-foreground font-normal">{t.pairDevice.nameOptional}</span></Label>
               <Input
                 id="pair-name"
-                placeholder={`${tank.name} 센서`}
+                placeholder={t.pairDevice.namePlaceholder.replace("{{tank}}", tank.name)}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 maxLength={80}
@@ -143,7 +143,7 @@ export function PairDeviceDialog({ tank, onSuccess }: { tank: Tank; onSuccess: (
                 className="bg-ocean-500 hover:bg-ocean-600 text-white w-full min-h-[44px]"
               >
                 {saving && <Loader2 className="w-4 h-4 animate-spin mr-1.5" />}
-                {saving ? "연결 중…" : "연결"}
+                {saving ? t.pairDevice.connecting : t.pairDevice.connect}
               </Button>
             </DialogFooter>
           </form>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import Link from "next/link"
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine, Legend,
@@ -24,6 +25,7 @@ import {
 import { exportToCsv } from "@/lib/export"
 import { formatDateTime } from "@/lib/utils"
 import type { Tank, WaterQualityReading, Alert, SensorDevice } from "@/types"
+import type { Dict, Locale } from "@/lib/i18n"
 import { useT } from "@/lib/i18n-context"
 import { useAutoRefresh, sinceLabel } from "@/lib/use-auto-refresh"
 
@@ -47,17 +49,33 @@ const STATUS_STYLES: Record<StatusLevel, { badge: string; dot: string; text: str
   위험: { badge: "danger", dot: "bg-red-400", text: "text-red-500", bg: "bg-red-500/10 border-red-500/20" },
 } as const
 
-const PARAM_META: ParamMeta[] = [
-  { key: "temperature", label: "수온",    unit: "°C",   icon: <Thermometer className="w-5 h-5" />, chartColor: "#0ea5e9" },
-  { key: "ph",          label: "pH",      unit: "",     icon: <Droplets className="w-5 h-5" />,    chartColor: "#a78bfa" },
-  { key: "do_level",    label: "DO",      unit: "mg/L", icon: <Wind className="w-5 h-5" />,        chartColor: "#14b8a6" },
-  { key: "salinity",    label: "염도",    unit: "‰",  icon: <Waves className="w-5 h-5" />,       chartColor: "#f59e0b" },
-  { key: "ammonia",     label: "암모니아", unit: "mg/L", icon: <AlertTriangle className="w-5 h-5" />, chartColor: "#f97316" },
-  { key: "nitrite",     label: "아질산염", unit: "mg/L", icon: <AlertTriangle className="w-5 h-5" />, chartColor: "#ec4899" },
-  { key: "nitrate",     label: "질산염",  unit: "mg/L", icon: <AlertTriangle className="w-5 h-5" />, chartColor: "#84cc16" },
-  { key: "alkalinity",  label: "알칼리도", unit: "mg/L", icon: <Droplets className="w-5 h-5" />,   chartColor: "#06b6d4" },
-  { key: "turbidity",   label: "탁도",    unit: "NTU",  icon: <Waves className="w-5 h-5" />,       chartColor: "#8b5cf6" },
+const PARAM_DEFS: Omit<ParamMeta, "label">[] = [
+  { key: "temperature", unit: "°C",   icon: <Thermometer className="w-5 h-5" />, chartColor: "#0ea5e9" },
+  { key: "ph",          unit: "",     icon: <Droplets className="w-5 h-5" />,    chartColor: "#a78bfa" },
+  { key: "do_level",    unit: "mg/L", icon: <Wind className="w-5 h-5" />,        chartColor: "#14b8a6" },
+  { key: "salinity",    unit: "‰",  icon: <Waves className="w-5 h-5" />,       chartColor: "#f59e0b" },
+  { key: "ammonia",     unit: "mg/L", icon: <AlertTriangle className="w-5 h-5" />, chartColor: "#f97316" },
+  { key: "nitrite",     unit: "mg/L", icon: <AlertTriangle className="w-5 h-5" />, chartColor: "#ec4899" },
+  { key: "nitrate",     unit: "mg/L", icon: <AlertTriangle className="w-5 h-5" />, chartColor: "#84cc16" },
+  { key: "alkalinity",  unit: "mg/L", icon: <Droplets className="w-5 h-5" />,   chartColor: "#06b6d4" },
+  { key: "turbidity",   unit: "NTU",  icon: <Waves className="w-5 h-5" />,       chartColor: "#8b5cf6" },
 ]
+
+/** 수질 항목 이름 — 사전(t)에서 가져온다. pH·DO 는 언어와 무관한 기호라 그대로 둔다. */
+function paramLabel(t: Dict, key: string): string {
+  switch (key) {
+    case "temperature": return t.waterQuality.temperature
+    case "ph":          return "pH"
+    case "do_level":    return "DO"
+    case "salinity":    return t.waterQuality.salinity
+    case "ammonia":     return t.waterQuality.ammonia
+    case "nitrite":     return t.waterQuality.nitrite
+    case "nitrate":     return t.waterQuality.nitrate
+    case "alkalinity":  return t.waterQuality.alkalinity
+    case "turbidity":   return t.waterQuality.turbidity
+    default:            return key
+  }
+}
 
 const STD_KEYS = [
   "temperature", "ph", "do_level", "salinity",
@@ -81,7 +99,7 @@ function getStatus(value: number, stdKey: typeof STD_KEYS[number]): StatusLevel 
   return "위험"
 }
 
-function buildChartData(readings: WaterQualityReading[], last24h = true) {
+function buildChartData(readings: WaterQualityReading[], locale: Locale, last24h = true) {
   const slice = last24h ? readings.slice(-25) : readings
   // 하루가 넘는 구간이면 시각(HH:MM)만으로는 어느 날인지 알 수 없어
   // 라벨이 뭉개진다. 첫·끝 측정이 다른 날이면 날짜(월/일)로 찍는다.
@@ -95,16 +113,16 @@ function buildChartData(readings: WaterQualityReading[], last24h = true) {
     // 간격으로 솎아 내므로(minTickGap) 촘촘한 데이터라도 라벨이 겹치지 않는다.
     time: multiDay
       ? `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
-      : d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }),
-    수온:    Number(r.temperature.toFixed(1)),
-    pH:     Number(r.ph.toFixed(2)),
-    DO:     Number(r.do_level.toFixed(1)),
-    염도:    Number(r.salinity.toFixed(1)),
-    암모니아: Number(r.ammonia.toFixed(3)),
-    아질산염: Number(r.nitrite.toFixed(3)),
-    질산염:  Number(r.nitrate.toFixed(1)),
-    알칼리도: Number(r.alkalinity.toFixed(1)),
-    탁도:    Number(r.turbidity.toFixed(1)),
+      : d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }),
+    temperature: Number(r.temperature.toFixed(1)),
+    ph:          Number(r.ph.toFixed(2)),
+    do_level:    Number(r.do_level.toFixed(1)),
+    salinity:    Number(r.salinity.toFixed(1)),
+    ammonia:     Number(r.ammonia.toFixed(3)),
+    nitrite:     Number(r.nitrite.toFixed(3)),
+    nitrate:     Number(r.nitrate.toFixed(1)),
+    alkalinity:  Number(r.alkalinity.toFixed(1)),
+    turbidity:   Number(r.turbidity.toFixed(1)),
   }})
 }
 
@@ -117,6 +135,7 @@ function buildCompareData(
   devNameById: Map<string, string>,
   metricKey: typeof STD_KEYS[number],
   digits: number,
+  locale: Locale,
 ) {
   const first = readings.length ? new Date(readings[0].recorded_at) : null
   const lastPt = readings.length ? new Date(readings[readings.length - 1].recorded_at) : null
@@ -129,7 +148,7 @@ function buildCompareData(
         t: d.getTime(),
         time: multiDay
           ? `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
-          : d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }),
+          : d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }),
         [devNameById.get(r.device_id!)!]: Number((r[metricKey] as number).toFixed(digits)),
       } as Record<string, number | string>
     })
@@ -155,25 +174,27 @@ function SensorCompareChart({ data, names }: { data: Record<string, number | str
 
 // 한 수조에 센서(기기)가 여러 대일 때, 각 센서가 마지막으로 보낸 값을
 // 센서별로 보여 주기 위한 라벨. (이력·그래프는 아직 수조 단위 합산이다.)
-const DEVICE_PAYLOAD_LABELS: Record<string, { label: string; unit?: string }> = {
-  temperature:   { label: "수온", unit: "°C" },
-  ph:            { label: "pH" },
-  do_level:      { label: "용존산소", unit: "ppm" },
-  salinity:      { label: "염도", unit: "‰" },
-  conductivity:  { label: "전도도", unit: "µS/cm" },
-  tds:           { label: "TDS", unit: "ppm" },
-  do_saturation: { label: "DO 포화", unit: "%" },
-  orp:           { label: "ORP", unit: "mV" },
+function devicePayloadLabels(t: Dict): Record<string, { label: string; unit?: string }> {
+  return {
+    temperature:   { label: t.waterQuality.temperature, unit: "°C" },
+    ph:            { label: "pH" },
+    do_level:      { label: t.waterQualityX.dissolvedOxygen, unit: "ppm" },
+    salinity:      { label: t.waterQuality.salinity, unit: "‰" },
+    conductivity:  { label: t.waterQualityX.conductivity, unit: "µS/cm" },
+    tds:           { label: "TDS", unit: "ppm" },
+    do_saturation: { label: t.waterQualityX.doSaturation, unit: "%" },
+    orp:           { label: "ORP", unit: "mV" },
+  }
 }
 
-function deviceSeen(iso: string | null) {
-  if (!iso) return "수신 기록 없음"
+function deviceSeen(t: Dict, iso: string | null) {
+  if (!iso) return t.waterQualityX.noSignal
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
-  if (mins < 1) return "방금 전"
-  if (mins < 60) return `${mins}분 전`
+  if (mins < 1) return t.time.justNow
+  if (mins < 60) return t.time.minutesAgo.replace("{{n}}", String(mins))
   const h = Math.floor(mins / 60)
-  if (h < 24) return `${h}시간 전`
-  return `${Math.floor(h / 24)}일 전`
+  if (h < 24) return t.time.hoursAgo.replace("{{n}}", String(h))
+  return t.time.daysAgo.replace("{{n}}", String(Math.floor(h / 24)))
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -191,7 +212,7 @@ function ReadingCard({ meta, reading }: { meta: ParamMeta; reading: WaterQuality
   return (
     <Card
       className={`border min-w-0 overflow-hidden ${styles.bg} transition-all hover:brightness-110`}
-      aria-label={`${meta.label}: ${value.toFixed(meta.key === "ph" || meta.key === "ammonia" || meta.key === "nitrite" ? 2 : 1)}${meta.unit} — 상태: ${statusLabel}`}
+      aria-label={`${meta.label}: ${value.toFixed(meta.key === "ph" || meta.key === "ammonia" || meta.key === "nitrite" ? 2 : 1)}${meta.unit} — ${t.waterQualityX.statusLabel}: ${statusLabel}`}
     >
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-3">
@@ -202,7 +223,7 @@ function ReadingCard({ meta, reading }: { meta: ParamMeta; reading: WaterQuality
             <span className={`w-2 h-2 rounded-full ${styles.dot} ${status !== "정상" ? "animate-pulse" : ""}`} aria-hidden="true" />
             <Badge
               variant={styles.badge as "success" | "warning" | "danger"}
-              aria-label={`${meta.label} 상태: ${statusLabel}`}
+              aria-label={`${meta.label} ${t.waterQualityX.statusLabel}: ${statusLabel}`}
             >{statusLabel}</Badge>
           </div>
         </div>
@@ -230,8 +251,9 @@ interface ChartPanelProps {
 }
 
 function SingleParamChart({ chartData, stdKey, chartLabel, chartColor, unit }: ChartPanelProps) {
+  const { t } = useT()
   const std = WATER_QUALITY_STANDARDS[stdKey]
-  const yVals = chartData.map(d => d[chartLabel as keyof typeof d] as number).filter(Boolean)
+  const yVals = chartData.map(d => d[stdKey as keyof typeof d] as number).filter(Boolean)
   const padding = (std.max - std.min) * 0.5
   const yMin = Math.min(std.warning_min - padding * 0.2, ...yVals)
   const yMax = Math.max(std.warning_max + padding * 0.2, ...yVals)
@@ -247,17 +269,18 @@ function SingleParamChart({ chartData, stdKey, chartLabel, chartColor, unit }: C
           labelStyle={{ color: "hsl(var(--muted-foreground))" }}
           itemStyle={{ color: "hsl(var(--foreground))" }}
         />
-        <ReferenceLine y={std.max} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: "최대", fill: "#34d399", fontSize: 10, position: "insideTopRight" }} />
-        <ReferenceLine y={std.min} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: "최소", fill: "#34d399", fontSize: 10, position: "insideBottomRight" }} />
-        <ReferenceLine y={std.warning_max} stroke="#fbbf24" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: "경고↑", fill: "#fbbf24", fontSize: 10, position: "insideTopRight" }} />
-        <ReferenceLine y={std.warning_min} stroke="#fbbf24" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: "경고↓", fill: "#fbbf24", fontSize: 10, position: "insideBottomRight" }} />
-        <Line type="monotone" dataKey={chartLabel} stroke={chartColor} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+        <ReferenceLine y={std.max} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: t.waterQualityX.chartMax, fill: "#34d399", fontSize: 10, position: "insideTopRight" }} />
+        <ReferenceLine y={std.min} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: t.waterQualityX.chartMin, fill: "#34d399", fontSize: 10, position: "insideBottomRight" }} />
+        <ReferenceLine y={std.warning_max} stroke="#fbbf24" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: t.waterQualityX.chartWarnHigh, fill: "#fbbf24", fontSize: 10, position: "insideTopRight" }} />
+        <ReferenceLine y={std.warning_min} stroke="#fbbf24" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: t.waterQualityX.chartWarnLow, fill: "#fbbf24", fontSize: 10, position: "insideBottomRight" }} />
+        <Line type="monotone" dataKey={stdKey} name={chartLabel} stroke={chartColor} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
       </LineChart>
     </ResponsiveContainer>
   )
 }
 
 function NitrogenChart({ chartData }: { chartData: ReturnType<typeof buildChartData> }) {
+  const { t } = useT()
   return (
     <ResponsiveContainer width="100%" height={260}>
       <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
@@ -271,15 +294,16 @@ function NitrogenChart({ chartData }: { chartData: ReturnType<typeof buildChartD
           formatter={(v, name) => [`${v} mg/L`, name]}
         />
         <Legend wrapperStyle={{ fontSize: "12px", color: "hsl(var(--muted-foreground))" }} />
-        <Line type="monotone" dataKey="암모니아" stroke="#f97316" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-        <Line type="monotone" dataKey="아질산염" stroke="#ec4899" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-        <Line type="monotone" dataKey="질산염"  stroke="#84cc16" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+        <Line type="monotone" dataKey="ammonia" name={t.waterQuality.ammonia} stroke="#f97316" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+        <Line type="monotone" dataKey="nitrite" name={t.waterQuality.nitrite} stroke="#ec4899" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+        <Line type="monotone" dataKey="nitrate" name={t.waterQuality.nitrate} stroke="#84cc16" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
       </LineChart>
     </ResponsiveContainer>
   )
 }
 
 function OverviewChart({ chartData }: { chartData: ReturnType<typeof buildChartData> }) {
+  const { t } = useT()
   return (
     <ResponsiveContainer width="100%" height={260}>
       <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
@@ -292,9 +316,9 @@ function OverviewChart({ chartData }: { chartData: ReturnType<typeof buildChartD
           itemStyle={{ color: "hsl(var(--foreground))" }}
         />
         <Legend wrapperStyle={{ fontSize: "12px", color: "hsl(var(--muted-foreground))" }} />
-        <Line type="monotone" dataKey="수온"  stroke="#0ea5e9" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-        <Line type="monotone" dataKey="DO"    stroke="#14b8a6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-        <Line type="monotone" dataKey="pH"    stroke="#a78bfa" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+        <Line type="monotone" dataKey="temperature" name={t.waterQuality.temperature} stroke="#0ea5e9" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+        <Line type="monotone" dataKey="do_level" name="DO" stroke="#14b8a6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+        <Line type="monotone" dataKey="ph" name="pH" stroke="#a78bfa" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
       </LineChart>
     </ResponsiveContainer>
   )
@@ -304,7 +328,11 @@ function OverviewChart({ chartData }: { chartData: ReturnType<typeof buildChartD
 
 export default function WaterQualityPage() {
   const { user } = useAuth()
-  const { t } = useT()
+  const { t, locale } = useT()
+  const PARAM_META: ParamMeta[] = useMemo(
+    () => PARAM_DEFS.map(m => ({ ...m, label: paramLabel(t, m.key as string) })),
+    [t],
+  )
   const [tanks, setTanks] = useState<Tank[]>([])
   const [selectedTankId, setSelectedTankId] = useState<string>("")
   const initialTankIdFromUrl = useRef<string | null>(null)
@@ -458,18 +486,22 @@ export default function WaterQualityPage() {
     [allReadings, selectedDeviceId],
   )
   const latest = useMemo(() => (readings.length ? readings[readings.length - 1] : null), [readings])
-  const chartData = useMemo(() => buildChartData(readings, false), [readings])
+  const chartData = useMemo(() => buildChartData(readings, locale, false), [readings, locale])
 
   // 센서별 비교 그래프 데이터 — 활성 센서가 2대 이상일 때만 만든다.
   const activeDevices = useMemo(() => tankDevices.filter(d => d.active), [tankDevices])
   const compareNames = useMemo(() => activeDevices.map(d => d.name), [activeDevices])
+  // 비교 그래프가 비었을 때 "왜" 비었는지 스스로 진단하기 위한 개수.
+  // 0 이면 기록에 센서 표시 자체가 안 붙는 것(마이그레이션/스키마 캐시),
+  // >0 인데 그래프가 비면 이 수조 센서와 불일치(재연결 직후 등).
+  const taggedCount = useMemo(() => allReadings.filter(r => r.device_id).length, [allReadings])
   const compareData = useMemo(() => {
     if (activeDevices.length < 2) return []
     const nameById = new Map(activeDevices.map(d => [d.id, d.name]))
-    const meta = PARAM_META.find(m => m.key === compareParam)
+    const meta = PARAM_DEFS.find(m => m.key === compareParam)
     const digits = meta?.unit === "" ? 2 : (compareParam === "ammonia" || compareParam === "nitrite" ? 3 : 1)
-    return buildCompareData(allReadings, nameById, compareParam, digits)
-  }, [allReadings, activeDevices, compareParam])
+    return buildCompareData(allReadings, nameById, compareParam, digits, locale)
+  }, [allReadings, activeDevices, compareParam, locale])
 
   const selectedTank = tanks.find(t => t.id === selectedTankId)
 
@@ -481,19 +513,19 @@ export default function WaterQualityPage() {
   function handleExportCsv() {
     if (!readings.length || !selectedTank) return
     const rows = readings.map(r => ({
-      "측정일시": r.recorded_at,
-      "수조": selectedTank.name,
-      "수온(°C)": r.temperature,
+      [t.waterQuality.recordedAt]: r.recorded_at,
+      [t.waterQuality.tank]: selectedTank.name,
+      [`${t.waterQuality.temperature}(°C)`]: r.temperature,
       "pH": r.ph,
       "DO(mg/L)": r.do_level,
-      "염도(ppt)": r.salinity,
-      "암모니아(mg/L)": r.ammonia,
-      "아질산염(mg/L)": r.nitrite,
-      "질산염(mg/L)": r.nitrate,
-      "알칼리도(mg/L)": r.alkalinity,
-      "탁도(NTU)": r.turbidity,
+      [`${t.waterQuality.salinity}(ppt)`]: r.salinity,
+      [`${t.waterQuality.ammonia}(mg/L)`]: r.ammonia,
+      [`${t.waterQuality.nitrite}(mg/L)`]: r.nitrite,
+      [`${t.waterQuality.nitrate}(mg/L)`]: r.nitrate,
+      [`${t.waterQuality.alkalinity}(mg/L)`]: r.alkalinity,
+      [`${t.waterQuality.turbidity}(NTU)`]: r.turbidity,
     }))
-    exportToCsv(rows, `수질데이터_${selectedTank.name}_${new Date().toISOString().split("T")[0]}`)
+    exportToCsv(rows, `${t.waterQualityX.csvFilePrefix}_${selectedTank.name}_${new Date().toISOString().split("T")[0]}`)
   }
 
   const timeRangeLabel = (hours: 24 | 72 | 168) => {
@@ -514,11 +546,11 @@ export default function WaterQualityPage() {
             {t.waterQuality.noTanksMsg}
           </p>
         </div>
-        <a href="/farms">
+        <Link href="/farms">
           <Button className="bg-ocean-500 hover:bg-ocean-600 text-white gap-2 min-h-[44px]">
             <Plus className="w-4 h-4" /> {t.dashboard.goToFarms}
           </Button>
-        </a>
+        </Link>
       </div>
     )
   }
@@ -552,7 +584,7 @@ export default function WaterQualityPage() {
             <Select value={String(hours)} onValueChange={v => setHours(Number(v) as 24 | 72 | 168)}>
               <SelectTrigger
                 className="w-full sm:w-24 min-h-[44px] h-auto bg-muted border-border text-muted-foreground text-xs focus:ring-ocean-500/30"
-                aria-label="조회 기간 선택"
+                aria-label={t.waterQualityX.periodSelectAria}
               >
                 <SelectValue />
               </SelectTrigger>
@@ -579,7 +611,7 @@ export default function WaterQualityPage() {
             <span className="hidden sm:inline">CSV</span>
           </Button>
 
-          <a href="/journal" className="shrink-0">
+          <Link href="/journal" className="shrink-0">
             <Button
               variant="outline"
               size="sm"
@@ -589,7 +621,7 @@ export default function WaterQualityPage() {
               <span className="hidden sm:inline">{t.waterQuality.addRecord}</span>
               <span className="sm:hidden">{t.waterQuality.addRecord}</span>
             </Button>
-          </a>
+          </Link>
 
           <Button
             variant="outline"
@@ -597,10 +629,10 @@ export default function WaterQualityPage() {
             className="border-border text-muted-foreground hover:bg-accent gap-2 shrink-0 min-h-[44px]"
             onClick={handleRefresh}
             disabled={isRefreshing}
-            aria-label="데이터 새로고침"
+            aria-label={t.waterQualityX.refreshDataAria}
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">새로고침</span>
+            <span className="hidden sm:inline">{t.waterQualityX.refresh}</span>
           </Button>
         </div>
       </div>
@@ -615,7 +647,7 @@ export default function WaterQualityPage() {
                 <Select value={selectedTankId} onValueChange={setSelectedTankId}>
                   <SelectTrigger
                     className="w-full sm:w-48 min-h-[44px] bg-muted border-border text-foreground focus:ring-ocean-500/30"
-                    aria-label="수조 선택"
+                    aria-label={t.waterQualityX.tankSelectAria}
                   >
                     <SelectValue placeholder={t.waterQuality.selectTank} />
                   </SelectTrigger>
@@ -643,20 +675,20 @@ export default function WaterQualityPage() {
               {selectedTank && (
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:gap-x-6 text-sm">
                   <div>
-                    <p className="text-xs text-muted-foreground">사육일수</p>
-                    <p className="font-semibold text-foreground">{selectedTank.cycle_day}일차</p>
+                    <p className="text-xs text-muted-foreground">{t.waterQualityX.cycleDays}</p>
+                    <p className="font-semibold text-foreground">{t.waterQualityX.dayN.replace("{{n}}", String(selectedTank.cycle_day))}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">수용량</p>
+                    <p className="text-xs text-muted-foreground">{t.waterQualityX.capacity}</p>
                     <p className="font-semibold text-foreground">{selectedTank.volume.toLocaleString()}㎥</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">입식수</p>
-                    <p className="font-semibold text-foreground">{selectedTank.shrimp_count.toLocaleString()}마리</p>
+                    <p className="text-xs text-muted-foreground">{t.waterQualityX.stockedCount}</p>
+                    <p className="font-semibold text-foreground">{selectedTank.shrimp_count.toLocaleString()} {t.journalX.unitFish}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">밀도</p>
-                    <p className="font-semibold text-foreground">{selectedTank.stocking_density}마리/㎥</p>
+                    <p className="text-xs text-muted-foreground">{t.waterQualityX.density}</p>
+                    <p className="font-semibold text-foreground">{selectedTank.stocking_density} {t.farms.tankDensityUnit}</p>
                   </div>
                 </div>
               )}
@@ -666,12 +698,12 @@ export default function WaterQualityPage() {
               {tankDevices.filter(d => d.active).length > 0 && (
                 <span className="flex items-center gap-1 text-xs text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-2.5 py-0.5">
                   <Wifi className="w-3 h-3" />
-                  센서 자동 수집 중 ({tankDevices.filter(d => d.active).length}대)
+                  {t.waterQualityX.sensorAutoCollect.replace("{{n}}", String(tankDevices.filter(d => d.active).length))}
                 </span>
               )}
               {latest && (
                 <span className="text-xs text-muted-foreground">
-                  최근 측정: {formatDateTime(latest.recorded_at)}
+                  {t.waterQualityX.latestMeasurement}: {formatDateTime(latest.recorded_at)}
                 </span>
               )}
             </div>
@@ -709,7 +741,7 @@ export default function WaterQualityPage() {
                       {alert.message}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      측정값: {alert.value} / 임계치: {alert.threshold} · {formatDateTime(alert.created_at)}
+                      {t.waterQualityX.measured}: {alert.value} / {t.waterQualityX.threshold}: {alert.threshold} · {formatDateTime(alert.created_at)}
                     </p>
                   </div>
                   <button
@@ -718,8 +750,8 @@ export default function WaterQualityPage() {
                       setTankAlerts(prev => prev.filter(a => a.id !== alert.id))
                     }}
                     className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-emerald-500 hover:bg-accent transition-colors"
-                    aria-label="알림 해제"
-                    title="해결됨으로 표시"
+                    aria-label={t.waterQualityX.dismissAlertAria}
+                    title={t.notif.markResolved}
                   >
                     <CheckCircle2 className="w-4 h-4" />
                   </button>
@@ -731,13 +763,13 @@ export default function WaterQualityPage() {
           {/* ── Sensor selector (한 수조에 센서가 2대 이상일 때) ──────────────── */}
           {tankDevices.filter(d => d.active).length > 1 && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-muted-foreground mr-1 shrink-0">센서별 보기</span>
+              <span className="text-xs text-muted-foreground mr-1 shrink-0">{t.waterQualityX.sensorView}</span>
               <button
                 onClick={() => setSelectedDeviceId(null)}
                 className={"px-3 py-1.5 rounded-full border text-xs font-medium transition-colors " +
                   (selectedDeviceId === null ? "bg-ocean-600 text-white border-ocean-600" : "bg-card text-muted-foreground border-border hover:bg-accent")}
               >
-                수조 전체
+                {t.waterQualityX.wholeTank}
               </button>
               {tankDevices.filter(d => d.active).map(dev => (
                 <button
@@ -757,7 +789,7 @@ export default function WaterQualityPage() {
           {latest && (
             <Card className="bg-card border-border">
               <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground mb-3 font-medium">항목별 현재 수질 상태</p>
+                <p className="text-xs text-muted-foreground mb-3 font-medium">{t.waterQualityX.paramStatusTitle}</p>
                 <div className="flex flex-wrap gap-2">
                   {PARAM_META.map(meta => {
                     const stdKey = meta.key as typeof STD_KEYS[number]
@@ -769,7 +801,7 @@ export default function WaterQualityPage() {
                                   <div
                         key={meta.key}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium ${styles.bg} ${styles.text}`}
-                        aria-label={`${meta.label} 상태: ${statusLabel}`}
+                        aria-label={`${meta.label} ${t.waterQualityX.statusLabel}: ${statusLabel}`}
                         role="status"
                       >
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${styles.dot} ${status !== "정상" ? "animate-pulse" : ""}`} aria-hidden="true" />
@@ -797,7 +829,7 @@ export default function WaterQualityPage() {
                 <div className="flex flex-col items-center gap-3">
                   <Droplets className="w-10 h-10 text-muted-foreground/40" aria-hidden="true" />
                   <p className="text-muted-foreground text-sm font-medium">{t.waterQuality.noData}</p>
-                  <p className="text-muted-foreground/60 text-xs">수질 데이터를 입력하거나 센서를 연결해 주세요.</p>
+                  <p className="text-muted-foreground/60 text-xs">{t.waterQualityX.noDataHint}</p>
                 </div>
               </CardContent>
             </Card>
@@ -808,24 +840,25 @@ export default function WaterQualityPage() {
             <Card className="bg-card border-border">
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground mb-3 font-medium">
-                  센서별 현재값 · {tankDevices.filter(d => d.active).length}대
+                  {t.waterQualityX.sensorCurrentN.replace("{{n}}", String(tankDevices.filter(d => d.active).length))}
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {tankDevices.filter(d => d.active).map(dev => {
+                    const payloadLabels = devicePayloadLabels(t)
                     const payload = dev.last_payload ?? {}
                     const measured = Object.entries(payload).filter(
-                      ([k, v]) => typeof v === "number" && k in DEVICE_PAYLOAD_LABELS
+                      ([k, v]) => typeof v === "number" && k in payloadLabels
                     ) as [string, number][]
                     return (
                       <div key={dev.id} className="rounded-lg border border-border bg-background/40 p-3">
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <p className="text-sm font-medium text-foreground truncate" title={dev.name}>{dev.name}</p>
-                          <span className="text-[10px] text-muted-foreground shrink-0">{deviceSeen(dev.last_seen_at)}</span>
+                          <span className="text-[10px] text-muted-foreground shrink-0">{deviceSeen(t, dev.last_seen_at)}</span>
                         </div>
                         {measured.length > 0 ? (
                           <div className="flex flex-wrap gap-x-3 gap-y-1">
                             {measured.map(([k, v]) => {
-                              const m = DEVICE_PAYLOAD_LABELS[k]
+                              const m = payloadLabels[k]
                               return (
                                 <span key={k} className="text-xs text-muted-foreground tabular-nums">
                                   {m.label} <span className="text-foreground font-semibold">{v}</span>
@@ -835,14 +868,14 @@ export default function WaterQualityPage() {
                             })}
                           </div>
                         ) : (
-                          <p className="text-xs text-muted-foreground/60">아직 수신된 값이 없습니다</p>
+                          <p className="text-xs text-muted-foreground/60">{t.waterQualityX.noValuesYet}</p>
                         )}
                       </div>
                     )
                   })}
                 </div>
                 <p className="text-[10px] text-muted-foreground/60 mt-3">
-                  각 센서가 마지막으로 보낸 값입니다. 위 「센서별 보기」에서 센서를 고르면 아래 그래프도 그 센서 기준으로 바뀝니다.
+                  {t.waterQualityX.sensorCaption}
                 </p>
               </CardContent>
             </Card>
@@ -853,7 +886,7 @@ export default function WaterQualityPage() {
             <Card className="bg-card border-border">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
-                  <p className="text-sm font-medium text-foreground">센서별 비교</p>
+                  <p className="text-sm font-medium text-foreground">{t.waterQualityX.sensorCompare}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {PARAM_META.filter(m => ["temperature", "ph", "do_level", "salinity"].includes(m.key)).map(m => (
                       <button
@@ -871,7 +904,11 @@ export default function WaterQualityPage() {
                   <SensorCompareChart data={compareData} names={compareNames} />
                 ) : (
                   <p className="text-xs text-muted-foreground/70 py-8 text-center">
-                    센서별로 구분된 기록이 아직 없습니다. (DB 마이그레이션 실행 후 새로 쌓이는 값부터 센서별로 비교됩니다.)
+                    {allReadings.length === 0
+                      ? t.waterQualityX.noSensorHistory
+                      : taggedCount === 0
+                        ? t.waterQualityX.noSensorTagAll
+                        : t.waterQualityX.sensorTagMismatch}
                   </p>
                 )}
               </CardContent>
@@ -887,7 +924,7 @@ export default function WaterQualityPage() {
                 </CardTitle>
                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
                   <RefreshCw className="w-3 h-3" />
-                  {refreshSec >= 60 ? `${refreshSec / 60}${t.waterQuality.autoRefreshMin}` : `${refreshSec}초마다 자동갱신`}
+                  {refreshSec >= 60 ? `${refreshSec / 60}${t.waterQuality.autoRefreshMin}` : `${refreshSec}${t.waterQualityX.autoRefreshSec}`}
                   {lastRefreshed && <span className="opacity-70">· {sinceLabel(lastRefreshed)}</span>}
                 </span>
               </div>
@@ -895,8 +932,8 @@ export default function WaterQualityPage() {
             <CardContent>
               <Tabs defaultValue="overview">
                 <TabsList className="bg-muted border border-border mb-4 flex-wrap gap-y-1 h-auto min-h-9">
-                  <TabsTrigger value="overview"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">수온·DO·pH</TabsTrigger>
-                  <TabsTrigger value="nitrogen"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">질소 복합</TabsTrigger>
+                  <TabsTrigger value="overview"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.tabOverview}</TabsTrigger>
+                  <TabsTrigger value="nitrogen"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.tabNitrogen}</TabsTrigger>
                   <TabsTrigger value="temperature" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.temperature}</TabsTrigger>
                   <TabsTrigger value="ph"         className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.ph}</TabsTrigger>
                   <TabsTrigger value="do_level"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">DO</TabsTrigger>
@@ -912,51 +949,53 @@ export default function WaterQualityPage() {
                   {chartData.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground/60">
                       <Waves className="w-10 h-10" aria-hidden="true" />
-                      <p className="text-sm">표시할 데이터가 없습니다.</p>
+                      <p className="text-sm">{t.waterQualityX.noChartData}</p>
                     </div>
                   ) : (
-                    <div aria-label="수온·DO·pH 복합 추이 차트" role="img">
+                    <div aria-label={t.waterQualityX.overviewChartAria} role="img">
                       <OverviewChart chartData={chartData} />
                     </div>
                   )}
-                  <p className="text-xs text-muted-foreground mt-2 text-center">수온(°C) · DO(mg/L) · pH — 기준선 미표시 (복합 Y축)</p>
+                  <p className="text-xs text-muted-foreground mt-2 text-center">{t.waterQualityX.overviewCaption}</p>
                 </TabsContent>
 
                 <TabsContent value="nitrogen">
                   {chartData.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground/60">
                       <Waves className="w-10 h-10" aria-hidden="true" />
-                      <p className="text-sm">표시할 데이터가 없습니다.</p>
+                      <p className="text-sm">{t.waterQualityX.noChartData}</p>
                     </div>
                   ) : (
-                    <div aria-label="질소 복합 (암모니아·아질산염·질산염) 추이 차트" role="img">
+                    <div aria-label={t.waterQualityX.nitrogenChartAria} role="img">
                       <NitrogenChart chartData={chartData} />
                     </div>
                   )}
-                  <p className="text-xs text-muted-foreground mt-2 text-center">{t.waterQuality.ammonia} · {t.waterQuality.nitrite} · {t.waterQuality.nitrate} (단위: mg/L) — 기준선 미표시 (복합 Y축)</p>
+                  <p className="text-xs text-muted-foreground mt-2 text-center">{t.waterQualityX.nitrogenCaption}</p>
                 </TabsContent>
 
                 {(
                   [
-                    { tabValue: "temperature", chartLabel: "수온",    stdKey: "temperature", chartColor: "#0ea5e9", unit: "°C" },
-                    { tabValue: "ph",          chartLabel: "pH",      stdKey: "ph",          chartColor: "#a78bfa", unit: "" },
-                    { tabValue: "do_level",    chartLabel: "DO",      stdKey: "do_level",    chartColor: "#14b8a6", unit: "mg/L" },
-                    { tabValue: "salinity",    chartLabel: "염도",    stdKey: "salinity",    chartColor: "#f59e0b", unit: "‰" },
-                    { tabValue: "ammonia",     chartLabel: "암모니아", stdKey: "ammonia",     chartColor: "#f97316", unit: "mg/L" },
-                    { tabValue: "nitrite",     chartLabel: "아질산염", stdKey: "nitrite",     chartColor: "#ec4899", unit: "mg/L" },
-                    { tabValue: "nitrate",     chartLabel: "질산염",  stdKey: "nitrate",     chartColor: "#84cc16", unit: "mg/L" },
-                    { tabValue: "alkalinity",  chartLabel: "알칼리도", stdKey: "alkalinity",  chartColor: "#06b6d4", unit: "mg/L" },
-                    { tabValue: "turbidity",   chartLabel: "탁도",    stdKey: "turbidity",   chartColor: "#8b5cf6", unit: "NTU" },
-                  ] as Array<{ tabValue: string; chartLabel: string; stdKey: typeof STD_KEYS[number]; chartColor: string; unit: string }>
-                ).map(({ tabValue, chartLabel, stdKey, chartColor, unit }) => (
+                    { tabValue: "temperature", stdKey: "temperature", chartColor: "#0ea5e9", unit: "°C" },
+                    { tabValue: "ph",          stdKey: "ph",          chartColor: "#a78bfa", unit: "" },
+                    { tabValue: "do_level",    stdKey: "do_level",    chartColor: "#14b8a6", unit: "mg/L" },
+                    { tabValue: "salinity",    stdKey: "salinity",    chartColor: "#f59e0b", unit: "‰" },
+                    { tabValue: "ammonia",     stdKey: "ammonia",     chartColor: "#f97316", unit: "mg/L" },
+                    { tabValue: "nitrite",     stdKey: "nitrite",     chartColor: "#ec4899", unit: "mg/L" },
+                    { tabValue: "nitrate",     stdKey: "nitrate",     chartColor: "#84cc16", unit: "mg/L" },
+                    { tabValue: "alkalinity",  stdKey: "alkalinity",  chartColor: "#06b6d4", unit: "mg/L" },
+                    { tabValue: "turbidity",   stdKey: "turbidity",   chartColor: "#8b5cf6", unit: "NTU" },
+                  ] as Array<{ tabValue: string; stdKey: typeof STD_KEYS[number]; chartColor: string; unit: string }>
+                ).map(({ tabValue, stdKey, chartColor, unit }) => {
+                  const chartLabel = paramLabel(t, stdKey)
+                  return (
                   <TabsContent key={tabValue} value={tabValue}>
                     {chartData.length === 0 ? (
                       <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground/60">
                         <Waves className="w-10 h-10" aria-hidden="true" />
-                        <p className="text-sm">표시할 데이터가 없습니다.</p>
+                        <p className="text-sm">{t.waterQualityX.noChartData}</p>
                       </div>
                     ) : (
-                      <div aria-label={`${chartLabel} 추이 차트`} role="img">
+                      <div aria-label={t.waterQualityX.trendChartAria.replace("{{label}}", chartLabel)} role="img">
                         <SingleParamChart
                           chartData={chartData}
                           stdKey={stdKey}
@@ -971,11 +1010,12 @@ export default function WaterQualityPage() {
                         <span className="w-4 border-t border-dashed border-emerald-400/60" />{t.waterQuality.normalRange}
                       </span>
                       <span className="flex items-center gap-1">
-                        <span className="w-4 border-t border-dashed border-amber-400/60" />경고범위
+                        <span className="w-4 border-t border-dashed border-amber-400/60" />{t.waterQualityX.warnRange}
                       </span>
                     </div>
                   </TabsContent>
-                ))}
+                  )
+                })}
               </Tabs>
             </CardContent>
           </Card>
@@ -985,19 +1025,21 @@ export default function WaterQualityPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-foreground text-base flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-500" />
-                {selectedTank?.name} 알림 내역
+                {selectedTank?.name} {t.waterQualityX.alertHistory}
               </CardTitle>
             </CardHeader>
             <CardContent>
               {tankAlerts.length === 0 ? (
                 <div className="flex items-center gap-3 py-6 justify-center">
                   <CheckCircle2 className="w-6 h-6 text-emerald-500" />
-                  <p className="text-muted-foreground text-sm">미처리 알림이 없습니다 — 수질이 {t.dashboard.normal} 범위에 있습니다.</p>
+                  <p className="text-muted-foreground text-sm">{t.waterQualityX.noAlertsMsg}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
                   {tankAlerts.map(alert => {
-                    const paramLabel = WATER_QUALITY_STANDARDS[alert.parameter as typeof STD_KEYS[number]]?.label ?? alert.parameter
+                    const alertParamLabel = STD_KEYS.includes(alert.parameter as typeof STD_KEYS[number])
+                      ? paramLabel(t, alert.parameter)
+                      : alert.parameter
                     const isDanger = alert.type === "danger"
                     return (
                       <div
@@ -1019,7 +1061,7 @@ export default function WaterQualityPage() {
                             </Badge>
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
-                            항목: {paramLabel} · 측정값 {alert.value} → 임계치 {alert.threshold}
+                            {t.waterQualityX.item}: {alertParamLabel} · {t.waterQualityX.measured} {alert.value} → {t.waterQualityX.threshold} {alert.threshold}
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">{formatDateTime(alert.created_at)}</p>
                         </div>

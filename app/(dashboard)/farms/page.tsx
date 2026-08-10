@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { MOCK_FARMS, MOCK_TANKS, MOCK_SENSOR_DEVICES, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
-import { getFarms, getTanksByFarm, createFarm, createTank, updateFarm, deleteFarm, updateTank, deleteTank, getSensorDevices, deleteSensorDevice, toggleSensorDevice, requestDeviceUpdate } from "@/lib/db"
+import { getFarms, getTanksByFarm, getAllTanks, createFarm, createTank, updateFarm, deleteFarm, updateTank, deleteTank, getSensorDevices, deleteSensorDevice, toggleSensorDevice, requestDeviceUpdate } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -41,6 +41,7 @@ import {
 } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import type { SensorDevice } from "@/types"
+import type { Dict } from "@/lib/i18n"
 import { PairDeviceDialog } from "@/components/sensors/pair-device-dialog"
 import { CoordinateField } from "@/components/farms/coordinate-field"
 import { FarmMap } from "@/components/farms/farm-map"
@@ -53,6 +54,17 @@ function computeCycleDay(stockingDate: string | null | undefined): number {
   return Math.max(1, Math.floor(ms / 86_400_000) + 1)
 }
 import type { Farm, Tank } from "@/types"
+
+// 수조 형태는 DB 에 한국어 값("노지" 등)으로 저장되므로 값은 그대로 두고
+// 화면 표기만 사전에서 가져온다.
+type TankType = "노지" | "실내" | "반실내"
+function tankTypeLabel(t: Dict, type: TankType): string {
+  switch (type) {
+    case "노지":   return t.farmsX.tankTypeOutdoor
+    case "실내":   return t.farmsX.tankTypeIndoor
+    case "반실내": return t.farmsX.tankTypeSemiIndoor
+  }
+}
 
 // ─── Status meta ────────────────────────────────────────────────────────────
 
@@ -125,7 +137,7 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
       setSubmitted(true)
       onSuccess()
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "저장에 실패했습니다."
+      const msg = err instanceof Error ? err.message : t.farmsX.saveFailed
       setError(msg)
     } finally {
       setSaving(false)
@@ -210,7 +222,7 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
               <Input
                 id="farm-area"
                 type="number"
-                placeholder="예: 4000"
+                placeholder={t.farmsX.areaPlaceholder}
                 min={1}
                 className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
                 value={form.area}
@@ -274,9 +286,9 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
     e.preventDefault()
     const volume = parseFloat(form.volume) || 0
     const density = parseFloat(form.density) || 0
-    if (!form.name.trim()) { setError("수조 이름을 입력해주세요."); return }
-    if (volume <= 0 || volume > 100000) { setError("용량은 0 초과 100,000 m³ 이하여야 합니다."); return }
-    if (density < 0 || density > 10000) { setError("입식 밀도는 0~10,000 마리/m³ 범위여야 합니다."); return }
+    if (!form.name.trim()) { setError(t.farmsX.tankNameRequired); return }
+    if (volume <= 0 || volume > 100000) { setError(t.farmsX.volumeRange); return }
+    if (density < 0 || density > 10000) { setError(t.farmsX.densityRange); return }
     setSaving(true)
     setError(null)
     try {
@@ -295,7 +307,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
       setSubmitted(true)
       onSuccess()
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "저장에 실패했습니다."
+      const msg = err instanceof Error ? err.message : t.farmsX.saveFailed
       setError(msg)
     } finally {
       setSaving(false)
@@ -369,7 +381,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
                         : "bg-muted border-border text-muted-foreground hover:bg-accent"
                       }`}
                   >
-                    {type}
+                    {tankTypeLabel(t, type)}
                   </button>
                 ))}
               </div>
@@ -379,7 +391,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
               <Input
                 id="tank-volume"
                 type="number"
-                placeholder="예: 500"
+                placeholder={t.farmsX.volumePlaceholder}
                 min={1}
                 className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
                 value={form.volume}
@@ -392,7 +404,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
               <Input
                 id="tank-density"
                 type="number"
-                placeholder="예: 120"
+                placeholder={t.farmsX.densityPlaceholder}
                 min={1}
                 className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
                 value={form.density}
@@ -402,7 +414,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="tank-stocking" className="text-muted-foreground text-sm">입식일</Label>
+                <Label htmlFor="tank-stocking" className="text-muted-foreground text-sm">{t.production.stockingDate}</Label>
                 <Input
                   id="tank-stocking"
                   type="date"
@@ -412,7 +424,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="tank-harvest" className="text-muted-foreground text-sm">예정 출하일</Label>
+                <Label htmlFor="tank-harvest" className="text-muted-foreground text-sm">{t.farmsX.plannedHarvestDate}</Label>
                 <Input
                   id="tank-harvest"
                   type="date"
@@ -485,7 +497,7 @@ function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void
       setOpen(false)
       onSuccess()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "수정에 실패했습니다.")
+      setError(err instanceof Error ? err.message : t.journalX.updateFailed)
     } finally {
       setSaving(false)
     }
@@ -559,7 +571,7 @@ function DeleteFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => vo
       setOpen(false)
       onSuccess()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "삭제에 실패했습니다.")
+      setError(err instanceof Error ? err.message : t.farmsX.deleteFailed)
     } finally {
       setDeleting(false)
     }
@@ -644,7 +656,7 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
       setOpen(false)
       onSuccess()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "수정에 실패했습니다.")
+      setError(err instanceof Error ? err.message : t.journalX.updateFailed)
     } finally {
       setSaving(false)
     }
@@ -689,7 +701,7 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
                       : "bg-muted border-border text-muted-foreground hover:bg-accent"
                     }`}
                 >
-                  {type}
+                  {tankTypeLabel(t, type)}
                 </button>
               ))}
             </div>
@@ -706,11 +718,11 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-muted-foreground">입식일</Label>
+              <Label className="text-muted-foreground">{t.production.stockingDate}</Label>
               <Input type="date" value={form.stocking_date} onChange={e => setForm(p => ({ ...p, stocking_date: e.target.value }))} className="bg-muted border-border text-foreground" />
             </div>
             <div className="space-y-2">
-              <Label className="text-muted-foreground">예정 출하일</Label>
+              <Label className="text-muted-foreground">{t.farmsX.plannedHarvestDate}</Label>
               <Input type="date" value={form.harvest_date} onChange={e => setForm(p => ({ ...p, harvest_date: e.target.value }))} className="bg-muted border-border text-foreground" />
             </div>
           </div>
@@ -722,7 +734,7 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
                   key={opt.value}
                   type="button"
                   onClick={() => setForm(p => ({ ...p, status: opt.value }))}
-                  aria-label={`수조 상태: ${opt.label}`}
+                  aria-label={`${t.farmsX.tankStatusAria}: ${opt.label}`}
                   aria-pressed={form.status === opt.value}
                   className={`py-1.5 min-h-[44px] rounded-lg text-xs font-medium border transition-colors ${
                     form.status === opt.value
@@ -734,7 +746,7 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
                 </button>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground">수질 데이터 저장 시 자동 갱신됩니다</p>
+            <p className="text-xs text-muted-foreground">{t.farmsX.statusAutoNote}</p>
           </div>
           {error && <p className="text-sm text-red-500">{error}</p>}
           <DialogFooter>
@@ -765,7 +777,7 @@ function DeleteTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => vo
       setOpen(false)
       onSuccess()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "삭제에 실패했습니다.")
+      setError(err instanceof Error ? err.message : t.farmsX.deleteFailed)
     } finally {
       setDeleting(false)
     }
@@ -803,6 +815,7 @@ function DeleteTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => vo
 
 function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
   const { user } = useAuth()
+  const { t } = useT()
   const [devices, setDevices] = useState<SensorDevice[]>([])
   const [expanded, setExpanded] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -819,14 +832,14 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
   }, [expanded, latest])
 
   function timeSince(iso: string | null) {
-    if (!iso) return "미연결"
+    if (!iso) return t.farmsX.notConnected
     const diff = Date.now() - new Date(iso).getTime()
     const mins = Math.floor(diff / 60000)
-    if (mins < 1) return "방금 전"
-    if (mins < 60) return `${mins}분 전`
+    if (mins < 1) return t.time.justNow
+    if (mins < 60) return t.time.minutesAgo.replace("{{n}}", String(mins))
     const hrs = Math.floor(mins / 60)
-    if (hrs < 24) return `${hrs}시간 전`
-    return `${Math.floor(hrs / 24)}일 전`
+    if (hrs < 24) return t.time.hoursAgo.replace("{{n}}", String(hrs))
+    return t.time.daysAgo.replace("{{n}}", String(Math.floor(hrs / 24)))
   }
 
   async function loadDevices() {
@@ -880,15 +893,15 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
       >
         <span className="flex items-center gap-1.5">
           <Cpu className="w-3.5 h-3.5" />
-          기기 연동
+          {t.farmsX.deviceSection}
           {activeCount > 0 && (
             <span className="flex items-center gap-1 text-emerald-500">
-              <Wifi className="w-3 h-3" /> {activeCount}대 연결 중
+              <Wifi className="w-3 h-3" /> {t.farmsX.connectedN.replace("{{n}}", String(activeCount))}
             </span>
           )}
           {devices.length > 0 && activeCount === 0 && (
             <span className="flex items-center gap-1 text-muted-foreground">
-              <WifiOff className="w-3 h-3" /> 미연결
+              <WifiOff className="w-3 h-3" /> {t.farmsX.notConnected}
             </span>
           )}
         </span>
@@ -898,9 +911,9 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
       {expanded && (
         <div className="mt-3 space-y-2">
           {loading ? (
-            <p className="text-xs text-muted-foreground text-center py-2">불러오는 중...</p>
+            <p className="text-xs text-muted-foreground text-center py-2">{t.farmsX.deviceLoading}</p>
           ) : devices.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-2">연결된 기기가 없습니다.</p>
+            <p className="text-xs text-muted-foreground text-center py-2">{t.farmsX.noDevices}</p>
           ) : (
             devices.map(device => (
               <div key={device.id} className="bg-muted rounded-lg px-3 py-2">
@@ -920,16 +933,16 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
                         ? "border-emerald-500/30 text-emerald-500 hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/30"
                         : "border-border text-muted-foreground hover:text-emerald-500 hover:border-emerald-500/30"
                     }`}
-                    title={device.active ? "비활성화" : "활성화"}
+                    title={device.active ? t.farmsX.deactivateTitle : t.farmsX.activateTitle}
                   >
-                    {device.active ? "활성" : "비활성"}
+                    {device.active ? t.farmsX.deviceActive : t.farmsX.deviceInactive}
                   </button>
                   <button
                     onClick={() => handleDelete(device.id)}
                     disabled={deletingId === device.id}
                     className="p-1.5 min-h-[32px] min-w-[32px] rounded hover:bg-red-500/15 text-muted-foreground hover:text-red-500 transition-colors flex items-center justify-center"
-                    title="삭제"
-                    aria-label="기기 삭제"
+                    title={t.common.delete}
+                    aria-label={t.farmsX.deleteDeviceAria}
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -951,18 +964,22 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
 
 // API 키는 등록 직후 한 번만 보여 주므로, 화면에서 "이 카드가 어느 장비인지"를
 // 알 수 있는 값이 필요하다. 라즈베리파이가 보고한 CPU 시리얼(보드마다 고정)을 쓴다.
-const PAYLOAD_LABELS: Record<string, { label: string; unit: string }> = {
-  temperature:   { label: "수온",   unit: "°C" },
-  ph:            { label: "pH",     unit: "" },
-  do_level:      { label: "DO",     unit: "ppm" },
-  salinity:      { label: "염도",   unit: "‰" },
-  conductivity:  { label: "전도도", unit: "µS/cm" },
-  tds:           { label: "TDS",    unit: "ppm" },
-  do_saturation: { label: "DO 포화", unit: "%" },
-  orp:           { label: "ORP",    unit: "mV" },
+function payloadLabels(t: Dict): Record<string, { label: string; unit: string }> {
+  return {
+    temperature:   { label: t.waterQuality.temperature, unit: "°C" },
+    ph:            { label: "pH",     unit: "" },
+    do_level:      { label: "DO",     unit: "ppm" },
+    salinity:      { label: t.waterQuality.salinity,   unit: "‰" },
+    conductivity:  { label: t.waterQualityX.conductivity, unit: "µS/cm" },
+    tds:           { label: "TDS",    unit: "ppm" },
+    do_saturation: { label: t.waterQualityX.doSaturation, unit: "%" },
+    orp:           { label: "ORP",    unit: "mV" },
+  }
 }
 
 function DeviceIdentity({ device }: { device: SensorDevice }) {
+  const { t } = useT()
+  const PAYLOAD_LABELS = payloadLabels(t)
   const payload = device.last_payload ?? {}
   const measured = Object.entries(payload).filter(
     ([k, v]) => typeof v === "number" && k in PAYLOAD_LABELS
@@ -1021,12 +1038,14 @@ function isNewer(candidate: string | null, current: string | null): boolean {
   return false
 }
 
-const UPDATE_STATUS_LABELS: Record<string, string> = {
-  requested: "업데이트 대기 중",
-  downloading: "내려받는 중",
-  applied: "업데이트 완료",
-  failed: "업데이트 실패",
-  rolled_back: "되돌림 — 이전 버전으로 동작 중",
+function updateStatusLabels(t: Dict): Record<string, string> {
+  return {
+    requested: t.farmsX.updateRequested,
+    downloading: t.farmsX.updateDownloading,
+    applied: t.farmsX.updateApplied,
+    failed: t.farmsX.updateFailedStatus,
+    rolled_back: t.farmsX.updateRolledBack,
+  }
 }
 
 function DeviceUpdate({
@@ -1036,6 +1055,8 @@ function DeviceUpdate({
   latest: string | null
   onChanged: () => void
 }) {
+  const { t } = useT()
+  const UPDATE_STATUS_LABELS = updateStatusLabels(t)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -1056,7 +1077,7 @@ function DeviceUpdate({
       await requestDeviceUpdate(device.id, version)
       onChanged()
     } catch {
-      setError("변경하지 못했습니다. 잠시 후 다시 시도해 주세요.")
+      setError(t.farmsX.updateRequestFailed)
     } finally {
       setBusy(false)
     }
@@ -1066,20 +1087,20 @@ function DeviceUpdate({
     <div className="mt-2 pt-2 border-t border-border/60 space-y-1.5">
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-[10px] text-muted-foreground">
-          버전 <span className="text-foreground font-mono">{current ?? "확인 전"}</span>
+          {t.farmsX.version} <span className="text-foreground font-mono">{current ?? t.farmsX.versionUnknown}</span>
         </span>
 
         {canUpdate && (
           <>
             <span className="text-[10px] text-emerald-500 font-medium">
-              새 버전 {latest}
+              {t.farmsX.newVersion} {latest}
             </span>
             <button
               onClick={() => handle(latest)}
               disabled={busy}
               className="text-[10px] px-2 py-1 min-h-[28px] rounded border border-ocean-500/40 text-ocean-500 hover:bg-ocean-500/10 transition-colors disabled:opacity-50"
             >
-              {busy ? "요청 중…" : "업데이트"}
+              {busy ? t.farmsX.requesting : t.farmsX.updateBtn}
             </button>
           </>
         )}
@@ -1087,22 +1108,22 @@ function DeviceUpdate({
         {pending && (
           <>
             <span className="text-[10px] text-ocean-500 font-medium">
-              {UPDATE_STATUS_LABELS[device.update_status ?? "requested"] ?? "대기 중"} → {pending}
+              {UPDATE_STATUS_LABELS[device.update_status ?? "requested"] ?? t.farmsX.updatePending} → {pending}
             </span>
             <button
               onClick={() => handle(null)}
               disabled={busy}
               className="text-[10px] px-2 py-1 min-h-[28px] rounded border border-border text-muted-foreground hover:text-red-500 hover:border-red-500/30 transition-colors disabled:opacity-50"
-              title="아직 받아 가지 않았다면 취소됩니다"
+              title={t.farmsX.cancelPendingTitle}
             >
-              취소
+              {t.common.cancel}
             </button>
           </>
         )}
 
         {upToDate && (
           <span className="text-[10px] text-emerald-500 font-medium">
-            최신 버전입니다 · v{latest}
+            {t.farmsX.upToDate} · v{latest}
           </span>
         )}
 
@@ -1115,7 +1136,7 @@ function DeviceUpdate({
 
       {pending && (
         <p className="text-[10px] text-muted-foreground leading-relaxed">
-          장비가 5분마다 확인해 자동으로 적용합니다.
+          {t.farmsX.autoApplyNote}
         </p>
       )}
 
@@ -1133,6 +1154,7 @@ function DeviceUpdate({
 // ─── Tank Card ───────────────────────────────────────────────────────────────
 
 function TankCard({ tank, onRefresh }: { tank: Tank; onRefresh: () => void }) {
+  const { t } = useT()
   const STATUS_META = useStatusMeta()
   const meta = STATUS_META[tank.status]
   const isPulsing = tank.status === "warning" || tank.status === "danger"
@@ -1148,7 +1170,7 @@ function TankCard({ tank, onRefresh }: { tank: Tank; onRefresh: () => void }) {
           </div>
           <span
             className={`text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${meta.bg} ${meta.border} ${meta.text}`}
-            aria-label={`수조 상태: ${meta.label}`}
+            aria-label={`${t.farmsX.tankStatusAria}: ${meta.label}`}
           >
             {meta.label}
           </span>
@@ -1157,33 +1179,35 @@ function TankCard({ tank, onRefresh }: { tank: Tank; onRefresh: () => void }) {
         {/* Cycle day */}
         <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg ${meta.bg} ${meta.text} w-fit`}>
           <TrendingUp className="w-3.5 h-3.5" />
-          {tank.stocking_date ? `입식 ${computeCycleDay(tank.stocking_date)}일차` : `${tank.cycle_day}일차`}
+          {tank.stocking_date
+            ? t.farmsX.stockingDayN.replace("{{n}}", String(computeCycleDay(tank.stocking_date)))
+            : t.waterQualityX.dayN.replace("{{n}}", String(tank.cycle_day))}
         </div>
 
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-2">
           <div className="bg-muted rounded-lg p-2.5">
             <p className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
-              <Droplets className="w-3 h-3" /> 용량
+              <Droplets className="w-3 h-3" /> {t.farms.tankVolume}
             </p>
-            <p className="text-foreground font-bold text-sm">{tank.volume.toLocaleString()} m³</p>
+            <p className="text-foreground font-bold text-sm">{tank.volume.toLocaleString()} {t.farms.tankVolumeUnit}</p>
           </div>
           <div className="bg-muted rounded-lg p-2.5">
             <p className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
-              <Layers className="w-3 h-3" /> 밀도
+              <Layers className="w-3 h-3" /> {t.waterQualityX.density}
             </p>
-            <p className="text-foreground font-bold text-sm">{tank.stocking_density} 마리/m³</p>
+            <p className="text-foreground font-bold text-sm">{tank.stocking_density} {t.farms.tankDensityUnit}</p>
           </div>
           <div className="col-span-2 bg-muted rounded-lg p-2.5">
             <p className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
-              <Fish className="w-3 h-3" /> 새우 수
+              <Fish className="w-3 h-3" /> {t.farmsX.shrimpCount}
             </p>
-            <p className="text-foreground font-bold text-sm">{tank.shrimp_count.toLocaleString()} 마리</p>
+            <p className="text-foreground font-bold text-sm">{tank.shrimp_count.toLocaleString()} {t.journalX.unitFish}</p>
           </div>
           {tank.stocking_date && (
             <div className="bg-muted rounded-lg p-2.5">
               <p className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
-                <Calendar className="w-3 h-3" /> 입식일
+                <Calendar className="w-3 h-3" /> {t.production.stockingDate}
               </p>
               <p className="text-foreground font-bold text-sm">{formatDate(tank.stocking_date)}</p>
             </div>
@@ -1191,7 +1215,7 @@ function TankCard({ tank, onRefresh }: { tank: Tank; onRefresh: () => void }) {
           {tank.harvest_date && (
             <div className="bg-muted rounded-lg p-2.5">
               <p className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
-                <ShoppingCart className="w-3 h-3" /> 예정 출하
+                <ShoppingCart className="w-3 h-3" /> {t.farmsX.plannedHarvest}
               </p>
               <p className={`font-bold text-sm ${new Date(tank.harvest_date) <= new Date() ? "text-red-500" : "text-foreground"}`}>
                 {formatDate(tank.harvest_date)}
@@ -1202,7 +1226,7 @@ function TankCard({ tank, onRefresh }: { tank: Tank; onRefresh: () => void }) {
 
         {/* Action row */}
         <div className="flex items-center justify-between pt-1 border-t border-border">
-          <p className="text-muted-foreground text-xs">등록 {formatDate(tank.created_at)}</p>
+          <p className="text-muted-foreground text-xs">{t.farmsX.registered} {formatDate(tank.created_at)}</p>
           <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
             <EditTankDialog tank={tank} onSuccess={onRefresh} />
             <DeleteTankDialog tank={tank} onSuccess={onRefresh} />
@@ -1268,7 +1292,7 @@ function FarmCard({
           <p className="text-foreground font-medium">{farm.area.toLocaleString()} {t.farms.areaUnit}</p>
         </div>
         <div className="bg-background rounded-lg px-2.5 py-1.5">
-          <p className="text-muted-foreground mb-0.5">수조</p>
+          <p className="text-muted-foreground mb-0.5">{t.waterQuality.tank}</p>
           <p className="text-foreground font-medium">{tanks.length}{t.farms.tankCount}</p>
         </div>
       </div>
@@ -1338,6 +1362,8 @@ export default function FarmsPage() {
   const { t } = useT()
   const [farms, setFarms] = useState<Farm[]>([])
   const [tanksMap, setTanksMap] = useState<Record<string, Tank[]>>({})
+  // 지도용 전체 수조 — 펼치지 않은 양식장도 마커 색이 상태를 반영해야 한다.
+  const [allTanks, setAllTanks] = useState<Tank[]>([])
   const [selectedFarmId, setSelectedFarmId] = useState<string>("")
   const [loadingFarms, setLoadingFarms] = useState(true)
   const [loadingTanks, setLoadingTanks] = useState(false)
@@ -1360,6 +1386,16 @@ export default function FarmsPage() {
     }
   }, [selectedFarmId, user?.email])
 
+  const loadAllTanks = useCallback(async () => {
+    if (isTestAccount(user?.email)) {
+      setAllTanks(MOCK_TANKS)
+      return
+    }
+    try {
+      setAllTanks(await getAllTanks())
+    } catch { /* 지도만 영향 — 치명적이지 않다 */ }
+  }, [user?.email])
+
   const loadTanksForFarm = useCallback(async (farmId: string) => {
     if (!farmId) return
     const mock = isTestAccount(user?.email)
@@ -1379,6 +1415,7 @@ export default function FarmsPage() {
 
   useEffect(() => {
     loadFarms()
+    loadAllTanks()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -1392,12 +1429,14 @@ export default function FarmsPage() {
 
   const handleFarmAdded = () => {
     loadFarms()
+    loadAllTanks()
   }
 
   const handleTankAdded = () => {
     if (selectedFarmId) {
       loadTanksForFarm(selectedFarmId)
     }
+    loadAllTanks()
   }
 
   if (loadingFarms) {
@@ -1429,7 +1468,7 @@ export default function FarmsPage() {
 
       {/* 양식장 위치 — 여러 곳을 운영할 때 급한 곳이 어디인지 한눈에 */}
       {farms.length > 0 && (
-        <FarmMap farms={farms} tanks={Object.values(tanksMap).flat()} />
+        <FarmMap farms={farms} tanks={allTanks} />
       )}
 
       {/* Main layout: left list + right tank grid */}
@@ -1474,7 +1513,7 @@ export default function FarmsPage() {
                     <span className="text-foreground font-medium">{selectedFarm.area.toLocaleString()} {t.farms.areaUnit}</span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span className="text-muted-foreground shrink-0">등록일</span>
+                    <span className="text-muted-foreground shrink-0">{t.farmsX.registeredDate}</span>
                     <span className="text-foreground font-medium">{formatDate(selectedFarm.created_at)}</span>
                   </div>
                 </div>
@@ -1490,7 +1529,7 @@ export default function FarmsPage() {
             <div className="flex flex-col gap-2 min-w-0 flex-1">
               <h2 className="text-foreground font-semibold flex items-center gap-1.5 min-w-0">
                 <Layers className="w-4 h-4 text-teal-500 shrink-0" />
-                <span className="truncate">{selectedFarm?.name} 수조</span>
+                <span className="truncate">{t.farmsX.farmTanksHeading.replace("{{name}}", selectedFarm?.name ?? "")}</span>
               </h2>
               {selectedTanks.length > 0 && <StatusSummary tanks={selectedTanks} />}
             </div>
