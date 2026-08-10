@@ -1042,6 +1042,8 @@ function DeviceUpdate({
   const current = device.agent_version
   const pending = device.update_to
   const canUpdate = !pending && isNewer(latest, current)
+  // 이미 최신이면 업데이트를 권하지 않는다(승인제라 자동 적용도 없다).
+  const upToDate = !pending && !!current && !!latest && !isNewer(latest, current)
   const failed = device.update_status === "failed" || device.update_status === "rolled_back"
 
   // 보여줄 것이 아무것도 없으면 자리를 차지하지 않는다.
@@ -1096,6 +1098,12 @@ function DeviceUpdate({
               취소
             </button>
           </>
+        )}
+
+        {upToDate && (
+          <span className="text-[10px] text-emerald-500 font-medium">
+            최신 버전입니다 · v{latest}
+          </span>
         )}
 
         {!pending && failed && (

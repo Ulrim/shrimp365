@@ -1435,7 +1435,8 @@ def main() -> int:
             on_wifi_scan=ui_wifi_scan,
             on_wifi_connect=ui_wifi_connect,
         )
-        state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중")
+        state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중",
+                     version=VERSION)
 
     # 이미 연결된 기기라면 어느 계정·수조에 붙어 있는지 확인해 화면에 남긴다.
     if auth["key"] and state is not None:

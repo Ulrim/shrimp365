@@ -32,6 +32,8 @@ class State:
         self._data: dict = {
             "values": {},          # 측정값 — 연결 여부와 무관하게 항상 갱신
             "status": "",          # 하단에 뜨는 한 줄
+            "version": "",         # 지금 도는 프로그램 버전. 원격 업데이트로 바뀌면
+                                   # 화면이 스스로 새로고침해 새 UI 를 띄운다.
             "updated_at": None,
             "errors": {},
             "serial": "",
@@ -521,7 +523,16 @@ function drawChart(key, hours, d){
     '</svg></div></div>';
 }
 
+// 이 페이지가 처음 붙었을 때의 프로그램 버전. 원격 업데이트로 서비스가
+// 재시작되면 새 버전이 내려오는데, 브라우저는 옛 페이지를 그대로 들고 있다.
+// 버전이 바뀐 것을 감지하면 스스로 새로고침해 새 UI 를 띄운다.
+var bootVersion = null;
+
 function render(d){
+  if (d.version) {
+    if (bootVersion === null) bootVersion = d.version;
+    else if (d.version !== bootVersion) { location.reload(); return; }
+  }
   document.getElementById("link").innerHTML = renderLink(d);
   // 그래프를 보고 있는 중에는 뒤 화면을 다시 그리지 않는다.
   // 3초마다 갱신하면 조작 중에 깜빡이고 눌림이 씹힌다.
