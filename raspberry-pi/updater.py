@@ -116,14 +116,25 @@ def ensure_system_files() -> None:
     """
     changed_unit = False
     for path, text in SYSTEM_FILES.items():
+        if not path.parent.exists():
+            continue  # 그 하위체계를 안 쓰는 기기
+        # 기존 파일을 읽어 이미 같은지 본다. 못 읽으면(권한·깨진 바이트 등)
+        # 정본으로 새로 쓴다. read_text 는 UnicodeDecodeError(=UnicodeError,
+        # OSError 아님)를 낼 수 있으므로 둘 다 잡는다 — 여기서 예외가 새어 나가면
+        # 업데이트 확인 자체가 매번 죽어 기기가 영영 업데이트를 못 받는다.
         try:
-            if not path.parent.exists():
-                continue  # 그 하위체계를 안 쓰는 기기
             current = path.read_text(encoding="utf-8") if path.exists() else None
-            if current == text:
-                continue
-            path.write_text(text, encoding="utf-8")
-            os.chmod(path, 0o644)
+        except (OSError, UnicodeError):
+            current = None
+        if current == text:
+            continue
+        # 원자적으로 바꾼다. 쓰는 도중 정전이 나도 반쪽짜리 유닛이 남지 않게
+        # 임시 파일에 다 쓴 뒤 제자리로 옮긴다(라즈베리파이는 정전이 잦다).
+        try:
+            tmp = path.with_name(path.name + ".tmp")
+            tmp.write_text(text, encoding="utf-8")
+            os.chmod(tmp, 0o644)
+            os.replace(tmp, path)
             log.info("시스템 파일을 갱신했습니다: %s", path)
             if str(path).startswith("/etc/systemd/"):
                 changed_unit = True
