@@ -30,12 +30,16 @@ _QUICK = 12      # 조회·검색용
 _CONNECT = 35    # 접속용 (--wait 30 보다 넉넉하게)
 
 
-def _run(args: list[str], timeout: int) -> tuple[int, str, str]:
-    """nmcli 를 부른다. 없으면(설치 안 됨) 코드 127 로 알린다."""
+def _run(args: list[str], timeout: int, stdin: str | None = None) -> tuple[int, str, str]:
+    """nmcli 를 부른다. 없으면(설치 안 됨) 코드 127 로 알린다.
+
+    stdin 을 주면 그대로 표준입력으로 넣는다. 비밀번호를 argv 대신 stdin 으로
+    넘기는 데 쓴다(아래 connect 주석 참고).
+    """
     try:
         p = subprocess.run(
             ["nmcli", *args],
-            capture_output=True, text=True, timeout=timeout,
+            capture_output=True, text=True, timeout=timeout, input=stdin,
         )
         return p.returncode, p.stdout, p.stderr
     except FileNotFoundError:
@@ -167,6 +171,15 @@ def scan(rescan: bool = True) -> dict:
     return {"available": True, "networks": networks}
 
 
+def _looks_like_missing_secret(err: str) -> bool:
+    """비밀번호(시크릿)를 못 받아 실패한 것으로 보이는가."""
+    lower = (err or "").lower()
+    return any(s in lower for s in (
+        "secrets were required", "802-11-wireless-security",
+        "no key available", "no secrets", "password",
+    ))
+
+
 def connect(ssid: str, password: str = "") -> dict:
     """SSID 에 접속한다. 저장된 접속이 있으면 재사용, 없으면 새로 만든다."""
     ssid = (ssid or "").strip()
@@ -177,11 +190,21 @@ def connect(ssid: str, password: str = "") -> dict:
     if dev is None:
         return {"ok": False, "error": "무선 장치를 찾지 못했습니다."}
 
-    args = ["--wait", "30", "device", "wifi", "connect", ssid, "ifname", dev]
-    if password:
-        args += ["password", password]
+    base = ["--wait", "30", "device", "wifi", "connect", ssid, "ifname", dev]
 
-    code, _, err = _run(args, _CONNECT)
+    if password:
+        # 비밀번호를 argv 에 싣지 않는다. /proc/<pid>/cmdline 은 기본적으로
+        # world-readable 이라, argv 로 넘기면 접속 시도 동안(수십 초) 같은 기기의
+        # 다른 로컬 사용자가 평문 비밀번호를 읽을 수 있다. 대신 --ask 로 켜고
+        # 비밀번호를 stdin 으로 흘려 넣는다(argv 에는 남지 않는다).
+        code, _, err = _run(["--ask", *base], _CONNECT, stdin=password + "\n")
+        # 일부 nmcli 버전은 --ask 에서 stdin 을 못 읽어 비밀번호 단계에서 막힌다.
+        # 그때만 예전 방식(argv)으로 한 번 더 시도한다 — 기능을 먼저 지킨다.
+        if code != 0 and _looks_like_missing_secret(err):
+            code, _, err = _run([*base, "password", password], _CONNECT)
+    else:
+        code, _, err = _run(base, _CONNECT)
+
     if code == 0:
         log.info("Wi‑Fi 접속: %s", ssid)  # 비밀번호는 남기지 않는다.
         return {"ok": True}
@@ -194,8 +217,7 @@ def connect(ssid: str, password: str = "") -> dict:
         friendly = "응답이 없습니다. 신호가 약하거나 공유기가 멀 수 있습니다."
     elif "not authorized" in lower or "권한" in msg or "permission" in lower:
         friendly = "권한이 없어 바꾸지 못했습니다. 설치 시 네트워크 권한 설정을 확인하세요."
-    elif "secrets were required" in lower or "802-11-wireless-security" in lower \
-            or "no key" in lower or "password" in lower:
+    elif _looks_like_missing_secret(msg):
         friendly = "비밀번호가 맞지 않는 것 같습니다."
     elif "no network with ssid" in lower or "no suitable" in lower:
         friendly = "그 네트워크를 찾지 못했습니다. 다시 검색해 주세요."
