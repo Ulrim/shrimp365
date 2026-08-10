@@ -363,6 +363,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_sensor_devices_api_key
 ALTER TABLE public.sensor_devices ENABLE ROW LEVEL SECURITY;
 
 -- 본인 수조의 기기만 조회·수정·삭제 가능
+-- (재실행 안전 — 이미 있으면 지우고 다시 만든다)
+DROP POLICY IF EXISTS "devices_all_own" ON public.sensor_devices;
 CREATE POLICY "devices_all_own" ON public.sensor_devices FOR ALL
   USING (tank_id IN (
     SELECT t.id FROM public.tanks t
