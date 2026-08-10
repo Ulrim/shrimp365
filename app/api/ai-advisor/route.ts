@@ -6,6 +6,23 @@ const openaiKey = process.env.OPENAI_API_KEY
 const MAX_QUESTION_LENGTH = 500
 const MAX_CONTEXT_LENGTH = 2000
 
+// 사용자당 분당 호출 상한. AI 호출은 비용이 들어 무제한이면 한 계정이
+// 스크립트로 요금을 태울 수 있다(가입자는 기본 farmer 라 누구나 호출 가능).
+const AI_RATE_WINDOW_MS = 60_000
+const AI_RATE_MAX = 20
+const aiRateMap = new Map<string, { count: number; windowStart: number }>()
+function aiRateOk(key: string): boolean {
+  const now = Date.now()
+  const e = aiRateMap.get(key)
+  if (!e || now - e.windowStart > AI_RATE_WINDOW_MS) {
+    aiRateMap.set(key, { count: 1, windowStart: now })
+    return true
+  }
+  if (e.count >= AI_RATE_MAX) return false
+  e.count++
+  return true
+}
+
 export async function POST(req: NextRequest) {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,6 +37,9 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 })
+  }
+  if (!aiRateOk(user.id)) {
+    return NextResponse.json({ error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." }, { status: 429 })
   }
 
   try {

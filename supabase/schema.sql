@@ -9,7 +9,7 @@
 CREATE TABLE IF NOT EXISTS public.profiles (
   id                     UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   name                   TEXT NOT NULL DEFAULT '',
-  role                   TEXT NOT NULL DEFAULT 'operator' CHECK (role IN ('admin','operator','viewer')),
+  role                   TEXT NOT NULL DEFAULT 'farmer' CHECK (role IN ('admin','manager','operator','viewer','farmer')),
   plan                   TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'basic', 'pro', 'enterprise')),
   stripe_customer_id     TEXT,
   stripe_subscription_id TEXT,
@@ -26,9 +26,9 @@ BEGIN
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
-    'operator',
-    'pro',
-    NOW() + INTERVAL '3 months'
+    'farmer',
+    'free',
+    NULL
   );
   RETURN NEW;
 END;

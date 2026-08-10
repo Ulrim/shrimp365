@@ -195,7 +195,15 @@ export async function POST(req: NextRequest) {
     .select()
     .single()
 
-  if (insertError && /device_id|column/i.test(insertError.message || "")) {
+  // device_id 컬럼이 아직 없을 때(마이그레이션 전)만 그 컬럼을 빼고 재시도한다.
+  // 'column' 만 보고 판단하면 tank_id NOT NULL 등 엉뚱한 오류까지 삼키므로,
+  // device_id 를 콕 집은 경우 또는 미정의 컬럼 코드(42703/PGRST204)일 때만.
+  const msg = insertError?.message || ""
+  const missingDeviceCol = !!insertError && (
+    insertError.code === "42703" || insertError.code === "PGRST204" ||
+    (/device_id/i.test(msg) && /(column|schema cache|does not exist|not found)/i.test(msg))
+  )
+  if (missingDeviceCol) {
     console.warn("[sensors/data] device_id 컬럼 없음 — 없이 저장(마이그레이션 필요)")
     ;({ data: reading, error: insertError } = await supabaseAdmin
       .from("water_quality_readings")

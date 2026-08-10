@@ -22,7 +22,10 @@ import { useT } from "@/lib/i18n-context"
 import { useAutoRefresh, sinceLabel } from "@/lib/use-auto-refresh"
 import { WeatherCard } from "@/components/weather/weather-card"
 
-function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string }) {
+function StatCard({ icon, label, value, sub, color, iconBg }: { icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string; iconBg: string }) {
+  // iconBg 는 정적 Tailwind 클래스로 받는다. 예전엔 color 문자열을 치환해
+  // 배경을 만들었는데, '-500' 색은 치환이 안 먹어 아이콘이 같은 색 배경에
+  // 묻혀 안 보였다(그리고 런타임 생성 클래스는 JIT 가 못 잡는다).
   return (
     <Card className="bg-muted border-border min-w-0 overflow-hidden">
       <CardContent className="p-4 sm:p-5">
@@ -32,7 +35,7 @@ function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; l
             <p className={`text-2xl sm:text-3xl font-bold ${color}`}>{value}</p>
             {sub && <p className="text-xs text-muted-foreground mt-1 truncate">{sub}</p>}
           </div>
-          <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center shrink-0 ${color.replace("text-", "bg-").replace("400", "500/20")}`}>
+          <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>
             {icon}
           </div>
         </div>
@@ -238,10 +241,10 @@ export default function DashboardPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard icon={<Building2 className="w-5 h-5 text-ocean-500" />} label={t.dashboard.activeFarms} value={farms.length} sub={`${t.common.total} ${tanks.length}`} color="text-ocean-500" />
-        <StatCard icon={<Layers className="w-5 h-5 text-teal-500" />} label={t.dashboard.activeTanks} value={statusCounts.active} sub={`${t.dashboard.warning} ${statusCounts.warning} / ${t.dashboard.danger} ${statusCounts.danger}`} color="text-teal-500" />
-        <StatCard icon={<AlertTriangle className="w-5 h-5 text-amber-500" />} label={t.dashboard.alertsToday} value={alerts.length} sub={t.dashboard.alertsNone} color="text-amber-500" />
-        <StatCard icon={<FlaskConical className="w-5 h-5 text-purple-400" />} label={t.dashboard.positiveTests} value={diagnoses[0]?.test_type || "—"} sub={diagnoses[0] ? `${diagnoses[0].tank_name} · ${diagnoses[0].result}` : t.dashboard.noJournal} color="text-purple-400" />
+        <StatCard icon={<Building2 className="w-5 h-5 text-ocean-500" />} label={t.dashboard.activeFarms} value={farms.length} sub={`${t.common.total} ${tanks.length}`} color="text-ocean-500" iconBg="bg-ocean-500/20" />
+        <StatCard icon={<Layers className="w-5 h-5 text-teal-500" />} label={t.dashboard.activeTanks} value={statusCounts.active} sub={`${t.dashboard.warning} ${statusCounts.warning} / ${t.dashboard.danger} ${statusCounts.danger}`} color="text-teal-500" iconBg="bg-teal-500/20" />
+        <StatCard icon={<AlertTriangle className="w-5 h-5 text-amber-500" />} label={t.dashboard.alertsToday} value={alerts.length} sub={t.dashboard.alertsNone} color="text-amber-500" iconBg="bg-amber-500/20" />
+        <StatCard icon={<FlaskConical className="w-5 h-5 text-purple-400" />} label={t.dashboard.positiveTests} value={diagnoses[0]?.test_type || "—"} sub={diagnoses[0] ? `${diagnoses[0].tank_name} · ${diagnoses[0].result}` : t.dashboard.noJournal} color="text-purple-400" iconBg="bg-purple-500/20" />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
