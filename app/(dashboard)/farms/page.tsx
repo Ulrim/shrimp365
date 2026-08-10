@@ -1225,7 +1225,7 @@ function DeviceIdentity({ device }: { device: SensorDevice }) {
 
 // ─── Device Update ───────────────────────────────────────────────────────────
 
-// 원격 업데이트는 승인제다. 여기서 누른 기기만 다음 확인 때(하루 한 번)
+// 원격 업데이트는 승인제다. 여기서 누른 기기만 다음 확인 때(5분마다)
 // 새 버전을 받아 간다. 누르지 않으면 장비는 지금 버전 그대로 돈다.
 //
 // 꾸러미가 진짜인지는 이 화면이 아니라 서명이 보장한다. 장비는 서명을
@@ -1334,7 +1334,7 @@ function DeviceUpdate({
 
       {pending && (
         <p className="text-[10px] text-muted-foreground leading-relaxed">
-          장비가 하루에 한 번 확인합니다. 바로 적용하려면 장비에서{" "}
+          장비가 5분마다 확인해 자동으로 적용합니다. 더 빨리 하려면 장비에서{" "}
           <code className="font-mono">sudo systemctl start shrimp365-update</code>
         </p>
       )}

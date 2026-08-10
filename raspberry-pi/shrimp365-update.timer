@@ -1,19 +1,16 @@
 [Unit]
-Description=Shrimp365 sensor agent update check (daily)
+Description=Shrimp365 sensor agent update check (5분마다)
 
 [Timer]
-# 하루 한 번이면 충분하다. 급한 수정이 있으면 오너가 SSH 로 바로 실행할 수 있다.
-OnCalendar=daily
+# 웹에서 "업데이트" 를 누른 뒤 오래 기다리지 않도록 5분마다 확인한다.
+# 확인 자체는 아주 가벼운 요청(승인된 게 있나)이고, 없으면 바로 끝난다.
+# 승인된 것이 있을 때만 내려받아 적용한다.
+OnBootSec=2min
+OnUnitActiveSec=5min
 
-# 부팅 직후에는 회선이 아직 안 붙었을 수 있으니 조금 기다린다.
-OnBootSec=15min
-
-# 전 농가가 같은 시각에 몰리면 서버도, 회선도 한꺼번에 부담을 받는다.
-# 기기마다 최대 6시간을 무작위로 늦춘다.
-RandomizedDelaySec=6h
-
-# 정전 등으로 못 돌고 지나간 회차는 다음 부팅 때 한 번 채운다.
-Persistent=true
+# 전 농가가 같은 순간에 몰리지 않도록 기기마다 조금씩(최대 30초) 흩뜨린다.
+# 5분 주기라 이 정도면 서버 쏠림은 막으면서 체감은 "거의 바로" 다.
+RandomizedDelaySec=30s
 
 [Install]
 WantedBy=timers.target

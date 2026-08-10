@@ -129,8 +129,10 @@ if [ -d /run/systemd/system ]; then
   done
   systemctl daemon-reload
   systemctl enable shrimp365-sensor >/dev/null
-  # 하루 한 번 승인된 업데이트가 있는지 확인한다. 승인하지 않으면 아무 일도 없다.
+  # 5분마다 승인된 업데이트가 있는지 확인한다. 승인하지 않으면 아무 일도 없다.
+  # 이미 켜져 있어도 재시작해야 바뀐 주기(예: 일일→5분)를 바로 반영한다.
   systemctl enable --now shrimp365-update.timer >/dev/null 2>&1 || true
+  systemctl restart shrimp365-update.timer >/dev/null 2>&1 || true
   RUNNING=no
   systemctl is-active --quiet shrimp365-sensor && RUNNING=yes
   if [ "$RUNNING" = yes ]; then
