@@ -1,0 +1,174 @@
+newmtl enclosure_base
+Kd 0.820 0.830 0.800
+Ka 0.246 0.249 0.240
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl door
+Kd 0.780 0.790 0.760
+Ka 0.234 0.237 0.228
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl gasket
+Kd 0.250 0.260 0.300
+Ka 0.075 0.078 0.090
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl display_7in
+Kd 0.150 0.150 0.170
+Ka 0.045 0.045 0.051
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl display_active_area
+Kd 0.080 0.080 0.100
+Ka 0.024 0.024 0.030
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl press_frame
+Kd 0.720 0.740 0.770
+Ka 0.216 0.222 0.231
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl door_bolt_TR_SUS316
+Kd 0.680 0.700 0.720
+Ka 0.204 0.210 0.216
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl standoff_M3
+Kd 0.680 0.700 0.720
+Ka 0.204 0.210 0.216
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl backplate
+Kd 0.720 0.740 0.770
+Ka 0.216 0.222 0.231
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl din_rail_35
+Kd 0.620 0.640 0.670
+Ka 0.186 0.192 0.201
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl terminal_blocks_2tier
+Kd 0.550 0.580 0.620
+Ka 0.165 0.174 0.186
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl DDR-30G-5
+Kd 0.860 0.850 0.810
+Ka 0.258 0.255 0.243
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl HDR-60-24
+Kd 0.900 0.890 0.850
+Ka 0.270 0.267 0.255
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl fuse_holder_1
+Kd 0.180 0.180 0.200
+Ka 0.054 0.054 0.060
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl fuse_holder_2
+Kd 0.180 0.180 0.200
+Ka 0.054 0.054 0.060
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl fuse_holder_3
+Kd 0.180 0.180 0.200
+Ka 0.054 0.054 0.060
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl SPD_275V
+Kd 0.200 0.480 0.300
+Ka 0.060 0.144 0.090
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl raspberry_pi_4
+Kd 0.050 0.350 0.220
+Ka 0.015 0.105 0.066
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl pi_heatsink_case
+Kd 0.300 0.320 0.350
+Ka 0.090 0.096 0.105
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl usb_rs485
+Kd 0.120 0.120 0.130
+Ka 0.036 0.036 0.039
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl usb_ssd
+Kd 0.250 0.270 0.300
+Ka 0.075 0.081 0.090
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl rtc_ds3231
+Kd 0.050 0.350 0.220
+Ka 0.015 0.105 0.066
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl vent_gore_M12
+Kd 0.120 0.120 0.130
+Ka 0.036 0.036 0.039
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl M12_A_pH
+Kd 0.680 0.700 0.720
+Ka 0.204 0.210 0.216
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl M12_A_DO
+Kd 0.680 0.700 0.720
+Ka 0.204 0.210 0.216
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl M12_A_EC
+Kd 0.680 0.700 0.720
+Ka 0.204 0.210 0.216
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl M12_A_SPARE
+Kd 0.680 0.700 0.720
+Ka 0.204 0.210 0.216
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl M12_S_AC
+Kd 0.680 0.700 0.720
+Ka 0.204 0.210 0.216
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl sun_shield
+Kd 0.720 0.740 0.770
+Ka 0.216 0.222 0.231
+Ks 0.1 0.1 0.1
+Ns 20
+
