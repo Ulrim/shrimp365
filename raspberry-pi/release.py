@@ -152,6 +152,32 @@ def check_version(version: str) -> None:
         sys.exit(f"버전은 1.2.3 형태여야 합니다: {version!r}")
 
 
+def check_embedded_system_files() -> None:
+    """updater.py 에 내장된 시스템 파일(타이머·polkit) 정본이 원본과 같은지 본다.
+
+    업데이터는 이 내장 정본을 장비의 /etc 와 맞춰 준다(사람이 install.sh 를
+    다시 안 돌려도 되도록). 원본과 어긋난 채 배포하면 오래된 주기·규칙이
+    퍼지므로, 다르면 배포를 멈춘다.
+    """
+    sys.path.insert(0, str(HERE))
+    try:
+        import updater  # 같은 폴더의 모듈
+    finally:
+        if sys.path and sys.path[0] == str(HERE):
+            sys.path.pop(0)
+    pairs = {
+        "shrimp365-update.timer": Path("/etc/systemd/system/shrimp365-update.timer"),
+        "50-shrimp365-nm.rules": Path("/etc/polkit-1/rules.d/50-shrimp365-nm.rules"),
+    }
+    for repo_name, etc_path in pairs.items():
+        repo_text = (HERE / repo_name).read_text(encoding="utf-8")
+        if updater.SYSTEM_FILES.get(etc_path) != repo_text:
+            sys.exit(
+                f"updater.py 의 내장 정본이 {repo_name} 과 다릅니다.\n"
+                f"updater.py 의 _TIMER_TEXT/_POLKIT_TEXT 를 원본과 똑같이 맞춘 뒤 다시 빌드하세요."
+            )
+
+
 def cmd_build(args) -> int:
     """설치 꾸러미와 업데이트 꾸러미를 함께 만든다.
 
@@ -161,6 +187,7 @@ def cmd_build(args) -> int:
     """
     version = args.version
     check_version(version)
+    check_embedded_system_files()
     setup_only = getattr(args, "setup_only", False)
 
     private = None

@@ -52,6 +52,87 @@ ALLOWED = {
 # 꾸러미 크기 상한. 압축 폭탄으로 디스크를 채우는 것을 막는다.
 MAX_PACKAGE_BYTES = 8 * 1024 * 1024
 
+# ── 시스템 파일 자동 동기화 ────────────────────────────────────────────────────
+# 원격 업데이트 꾸러미는 /opt 의 프로그램 파일만 바꾼다. systemd 유닛이나
+# polkit 규칙 같은 /etc 의 시스템 파일은 손대지 않는다(안전상 꾸러미에 넣지
+# 않는다). 그래서 지금까지는 확인 주기나 Wi‑Fi 권한을 바꾸려면 장비에서
+# install.sh 를 다시 돌려야 했다.
+#
+# 여기 정본을 담아 두고, 업데이터가 돌 때마다(루트) /etc 와 맞춘다. 이렇게 하면
+# 소비자가 명령을 입력하지 않아도 주기 변경·polkit 규칙이 자동으로 퍼진다.
+# 내용은 이 파일(updater.py) 안에 있으므로 서명된 꾸러미로 그대로 전달된다.
+# 원본은 raspberry-pi/ 의 실제 파일이고, release.py 가 배포 때 둘이 같은지 본다.
+_TIMER_TEXT = """[Unit]
+Description=Shrimp365 sensor agent update check (5분마다)
+
+[Timer]
+# 웹에서 "업데이트" 를 누른 뒤 오래 기다리지 않도록 5분마다 확인한다.
+# 확인 자체는 아주 가벼운 요청(승인된 게 있나)이고, 없으면 바로 끝난다.
+# 승인된 것이 있을 때만 내려받아 적용한다.
+OnBootSec=2min
+OnUnitActiveSec=5min
+
+# 전 농가가 같은 순간에 몰리지 않도록 기기마다 조금씩(최대 30초) 흩뜨린다.
+# 5분 주기라 이 정도면 서버 쏠림은 막으면서 체감은 "거의 바로" 다.
+RandomizedDelaySec=30s
+
+[Install]
+WantedBy=timers.target
+"""
+
+_POLKIT_TEXT = """// Shrimp365 수집기가 화면에서 Wi‑Fi 를 바꿔 붙일 수 있게 한다.
+//
+// 이 프로그램은 시스템 서비스(shrimp365 사용자)로 돌고 로그인 세션이
+// 없다. polkit 은 기본적으로 "활성 로컬 세션" 에만 NetworkManager 제어를
+// 열어 주므로, 세션 없는 이 사용자에게는 따로 허용해 주어야 한다.
+//
+// 허용 범위는 NetworkManager 로 한정한다. 다른 시스템 권한은 주지 않는다.
+// 설치 위치: /etc/polkit-1/rules.d/50-shrimp365-nm.rules
+//
+// 이 규칙이 없으면 화면의 Wi‑Fi 조회·검색은 대개 되지만 접속 시도에서
+// "권한이 없어 바꾸지 못했습니다" 가 뜬다.
+
+polkit.addRule(function(action, subject) {
+    if (action.id.indexOf("org.freedesktop.NetworkManager.") === 0 &&
+        subject.user === "shrimp365") {
+        return polkit.Result.YES;
+    }
+});
+"""
+
+# 어느 /etc 경로에 어떤 정본을 둘지. polkit 은 그 하위체계를 쓰는 기기에만.
+SYSTEM_FILES = {
+    Path("/etc/systemd/system/shrimp365-update.timer"): _TIMER_TEXT,
+    Path("/etc/polkit-1/rules.d/50-shrimp365-nm.rules"): _POLKIT_TEXT,
+}
+
+
+def ensure_system_files() -> None:
+    """시스템 파일을 내장 정본과 맞춘다(루트 전용). 바뀐 것이 있을 때만 쓴다.
+
+    부모 디렉터리가 없는 기기(예: polkit 미사용)는 조용히 건너뛴다.
+    systemd 유닛이 바뀌면 daemon-reload 후 타이머를 다시 시작해 새 주기를
+    바로 반영한다. 재실행해도 안전(멱등)하다.
+    """
+    changed_unit = False
+    for path, text in SYSTEM_FILES.items():
+        try:
+            if not path.parent.exists():
+                continue  # 그 하위체계를 안 쓰는 기기
+            current = path.read_text(encoding="utf-8") if path.exists() else None
+            if current == text:
+                continue
+            path.write_text(text, encoding="utf-8")
+            os.chmod(path, 0o644)
+            log.info("시스템 파일을 갱신했습니다: %s", path)
+            if str(path).startswith("/etc/systemd/"):
+                changed_unit = True
+        except OSError as exc:
+            log.warning("시스템 파일 갱신 실패(%s): %s", path, exc)
+    if changed_unit:
+        subprocess.run(["systemctl", "daemon-reload"], check=False)
+        subprocess.run(["systemctl", "restart", "shrimp365-update.timer"], check=False)
+
 # ── 서명 공개키 ──────────────────────────────────────────────────────────────
 # release.py --init 로 만든 공개키를 여기에 붙여 넣는다.
 # 개인키는 오너 PC 에만 두고 저장소에 올리지 않는다.
@@ -334,6 +415,12 @@ def read_settings(path: Path) -> dict:
 
 
 def run(config_path: Path, dry_run: bool) -> int:
+    # 시스템 파일(타이머·polkit)을 정본과 맞춘다. 승인된 업데이트가 없어도,
+    # 아직 계정에 연결되지 않았어도 매번 해 둔다 — 소비자가 install.sh 를
+    # 다시 돌리지 않아도 주기·권한 변경이 자동으로 반영되게 하려는 것이다.
+    if not dry_run and os.geteuid() == 0:
+        ensure_system_files()
+
     settings = read_settings(config_path)
     if not settings["enabled"]:
         log.info("원격 업데이트가 꺼져 있습니다.")
