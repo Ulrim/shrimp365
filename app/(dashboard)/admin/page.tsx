@@ -68,8 +68,23 @@ function planBadge(plan: string) {
 
 function roleBadge(role: string) {
   if (role === "admin") return <span className="text-xs text-amber-500 font-semibold flex items-center gap-1"><Crown className="w-3 h-3" />관리자</span>
+  if (role === "manager") return <span className="text-xs text-ocean-500 font-medium">매니저</span>
+  if (role === "farmer") return <span className="text-xs text-emerald-500 font-medium">양식어가</span>
   if (role === "operator") return <span className="text-xs text-muted-foreground">운영자</span>
   return <span className="text-xs text-muted-foreground">뷰어</span>
+}
+
+function formatLastLogin(iso: string | null | undefined) {
+  if (!iso) return "—"
+  const then = new Date(iso).getTime()
+  const mins = Math.floor((Date.now() - then) / 60000)
+  if (mins < 1) return "방금 전"
+  if (mins < 60) return `${mins}분 전`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}시간 전`
+  const days = Math.floor(hrs / 24)
+  if (days < 7) return `${days}일 전`
+  return new Date(iso).toLocaleDateString("ko-KR")
 }
 
 function alertTypeIcon(type: string) {
@@ -300,6 +315,7 @@ export default function AdminPage() {
                     <th className="text-center pb-3 font-medium">양식장</th>
                     <th className="text-center pb-3 font-medium">수조 (가동)</th>
                     <th className="text-center pb-3 font-medium">활성 알림</th>
+                    <th className="text-right pb-3 font-medium">최근 접속</th>
                     <th className="text-right pb-3 font-medium">가입일</th>
                   </tr>
                 </thead>
@@ -322,6 +338,9 @@ export default function AdminPage() {
                           ? <span className="text-red-500 font-semibold">{u.alert_count}</span>
                           : <span className="text-muted-foreground">—</span>
                         }
+                      </td>
+                      <td className="py-3 text-right text-xs text-muted-foreground">
+                        {formatLastLogin(u.last_login)}
                       </td>
                       <td className="py-3 text-right text-xs text-muted-foreground">
                         {new Date(u.joined_at).toLocaleDateString("ko-KR")}

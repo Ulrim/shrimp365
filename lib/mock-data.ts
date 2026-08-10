@@ -39,16 +39,17 @@ export interface AdminUserRow {
   active_tanks: number
   alert_count: number
   joined_at: string
+  last_login?: string | null
 }
 
 export const MOCK_ADMIN_STATS = {
   users: [
-    { id: "mock-user-1", email: "admin@shrimp365.com",    name: "김양식",   role: "admin",    plan: "pro",    farm_count: 2, tank_count: 12, active_tanks: 8,  alert_count: 4, joined_at: "2024-01-15T00:00:00Z" },
-    { id: "mock-user-2", email: "operator@shrimp365.com", name: "이운영",   role: "operator", plan: "basic",  farm_count: 1, tank_count: 5,  active_tanks: 4,  alert_count: 1, joined_at: "2024-03-10T00:00:00Z" },
-    { id: "mock-user-3", email: "park@aqua.kr",           name: "박수산",   role: "operator", plan: "free",   farm_count: 1, tank_count: 3,  active_tanks: 3,  alert_count: 0, joined_at: "2024-05-20T00:00:00Z" },
-    { id: "mock-user-4", email: "choi@sea.kr",            name: "최새우",   role: "operator", plan: "basic",  farm_count: 1, tank_count: 8,  active_tanks: 6,  alert_count: 2, joined_at: "2024-02-28T00:00:00Z" },
-    { id: "mock-user-5", email: "jung@shrimp.com",        name: "정양식",   role: "operator", plan: "pro",    farm_count: 3, tank_count: 20, active_tanks: 18, alert_count: 0, joined_at: "2024-04-01T00:00:00Z" },
-    { id: "mock-user-6", email: "newuser@test.com",       name: "신규가입자", role: "operator", plan: "free",   farm_count: 0, tank_count: 0,  active_tanks: 0,  alert_count: 0, joined_at: "2026-05-12T00:00:00Z" },
+    { id: "mock-user-1", email: "admin@shrimp365.com",    name: "김양식",   role: "admin",    plan: "pro",    farm_count: 2, tank_count: 12, active_tanks: 8,  alert_count: 4, joined_at: "2024-01-15T00:00:00Z", last_login: "2026-08-10T01:20:00Z" },
+    { id: "mock-user-2", email: "operator@shrimp365.com", name: "이운영",   role: "farmer",   plan: "basic",  farm_count: 1, tank_count: 5,  active_tanks: 4,  alert_count: 1, joined_at: "2024-03-10T00:00:00Z", last_login: "2026-08-09T22:05:00Z" },
+    { id: "mock-user-3", email: "park@aqua.kr",           name: "박수산",   role: "farmer",   plan: "free",   farm_count: 1, tank_count: 3,  active_tanks: 3,  alert_count: 0, joined_at: "2024-05-20T00:00:00Z", last_login: "2026-08-08T09:41:00Z" },
+    { id: "mock-user-4", email: "choi@sea.kr",            name: "최새우",   role: "farmer",   plan: "basic",  farm_count: 1, tank_count: 8,  active_tanks: 6,  alert_count: 2, joined_at: "2024-02-28T00:00:00Z", last_login: "2026-07-30T14:12:00Z" },
+    { id: "mock-user-5", email: "jung@shrimp.com",        name: "정양식",   role: "farmer",   plan: "pro",    farm_count: 3, tank_count: 20, active_tanks: 18, alert_count: 0, joined_at: "2024-04-01T00:00:00Z", last_login: "2026-08-10T00:03:00Z" },
+    { id: "mock-user-6", email: "newuser@test.com",       name: "신규가입자", role: "farmer",   plan: "free",   farm_count: 0, tank_count: 0,  active_tanks: 0,  alert_count: 0, joined_at: "2026-05-12T00:00:00Z", last_login: null },
   ] as AdminUserRow[],
   total_farms: 8,
   total_tanks: 48,

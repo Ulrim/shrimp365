@@ -54,7 +54,7 @@ async function fetchProfile(userId: string): Promise<{ name: string; role: strin
   const plan = (data?.plan as "free" | "basic" | "pro" | "enterprise") || "free"
   return {
     name: data?.name || "",
-    role: data?.role || "operator",
+    role: data?.role || "farmer",
     plan,
   }
 }
@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         // 프로필이 오기 전에도 화면은 떠야 한다. 이메일만으로 먼저 채운다.
-        setUser(toAppUser(session.user, { name: "", role: "operator", plan: "free" }))
+        setUser(toAppUser(session.user, { name: "", role: "farmer", plan: "free" }))
         setLoading(false)
 
         // 잠금 밖에서 조회한다. setTimeout 0 이면 콜백이 끝난 뒤에 실행된다.

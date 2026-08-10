@@ -81,13 +81,14 @@ export async function GET(req: NextRequest) {
         id: uid,
         email: u.email ?? "",
         name: (profile?.name as string) || (u.email?.split("@")[0] ?? ""),
-        role: (profile?.role as string) || "operator",
+        role: (profile?.role as string) || "farmer",
         plan: (profile?.plan as string) || "free",
         farm_count: farmsByUser.get(uid) ?? 0,
         tank_count: tanksByUser.get(uid) ?? 0,
         active_tanks: activeTanksByUser.get(uid) ?? 0,
         alert_count: alertsByUser.get(uid) ?? 0,
         joined_at: u.created_at,
+        last_login: u.last_sign_in_at ?? null,
       }
     })
 

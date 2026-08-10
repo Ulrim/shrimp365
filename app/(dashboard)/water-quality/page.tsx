@@ -108,6 +108,29 @@ function buildChartData(readings: WaterQualityReading[], last24h = true) {
   }})
 }
 
+// 한 수조에 센서(기기)가 여러 대일 때, 각 센서가 마지막으로 보낸 값을
+// 센서별로 보여 주기 위한 라벨. (이력·그래프는 아직 수조 단위 합산이다.)
+const DEVICE_PAYLOAD_LABELS: Record<string, { label: string; unit?: string }> = {
+  temperature:   { label: "수온", unit: "°C" },
+  ph:            { label: "pH" },
+  do_level:      { label: "용존산소", unit: "ppm" },
+  salinity:      { label: "염도", unit: "‰" },
+  conductivity:  { label: "전도도", unit: "µS/cm" },
+  tds:           { label: "TDS", unit: "ppm" },
+  do_saturation: { label: "DO 포화", unit: "%" },
+  orp:           { label: "ORP", unit: "mV" },
+}
+
+function deviceSeen(iso: string | null) {
+  if (!iso) return "수신 기록 없음"
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+  if (mins < 1) return "방금 전"
+  if (mins < 60) return `${mins}분 전`
+  const h = Math.floor(mins / 60)
+  if (h < 24) return `${h}시간 전`
+  return `${Math.floor(h / 24)}일 전`
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ReadingCard({ meta, reading }: { meta: ParamMeta; reading: WaterQualityReading }) {
@@ -686,6 +709,51 @@ export default function WaterQualityPage() {
                   <p className="text-muted-foreground text-sm font-medium">{t.waterQuality.noData}</p>
                   <p className="text-muted-foreground/60 text-xs">수질 데이터를 입력하거나 센서를 연결해 주세요.</p>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── Per-Sensor Current Values (한 수조에 센서가 2대 이상일 때) ────── */}
+          {tankDevices.filter(d => d.active).length > 1 && (
+            <Card className="bg-card border-border">
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground mb-3 font-medium">
+                  센서별 현재값 · {tankDevices.filter(d => d.active).length}대
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {tankDevices.filter(d => d.active).map(dev => {
+                    const payload = dev.last_payload ?? {}
+                    const measured = Object.entries(payload).filter(
+                      ([k, v]) => typeof v === "number" && k in DEVICE_PAYLOAD_LABELS
+                    ) as [string, number][]
+                    return (
+                      <div key={dev.id} className="rounded-lg border border-border bg-background/40 p-3">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <p className="text-sm font-medium text-foreground truncate" title={dev.name}>{dev.name}</p>
+                          <span className="text-[10px] text-muted-foreground shrink-0">{deviceSeen(dev.last_seen_at)}</span>
+                        </div>
+                        {measured.length > 0 ? (
+                          <div className="flex flex-wrap gap-x-3 gap-y-1">
+                            {measured.map(([k, v]) => {
+                              const m = DEVICE_PAYLOAD_LABELS[k]
+                              return (
+                                <span key={k} className="text-xs text-muted-foreground tabular-nums">
+                                  {m.label} <span className="text-foreground font-semibold">{v}</span>
+                                  {m.unit && <span className="opacity-70">{m.unit}</span>}
+                                </span>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground/60">아직 수신된 값이 없습니다</p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+                <p className="text-[10px] text-muted-foreground/60 mt-3">
+                  각 센서가 마지막으로 보낸 값입니다. 아래 그래프·이력은 현재 수조 단위로 합산됩니다.
+                </p>
               </CardContent>
             </Card>
           )}

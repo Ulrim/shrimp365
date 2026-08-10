@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
           id: u.id,
           email: u.email ?? "",
           name: (p?.name as string) || "",
-          role: (p?.role as string) || "operator",
+          role: (p?.role as string) || "farmer",
           is_super_admin: (u.email ?? "").trim().toLowerCase() === SUPER_ADMIN_EMAIL.trim().toLowerCase(),
           created_at: u.created_at ?? "",
         }
@@ -87,11 +87,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "관리자 계정의 권한은 여기서 바꿀 수 없습니다." }, { status: 400 })
     }
 
-    // 해임할 때 원 역할로 되돌린다. viewer 였던 사람을 해임했다고 operator 로
-    // 올려 주면 오히려 권한이 늘어난다. manager 였던 것만 operator 로 내린다.
+    // 해임할 때 원 역할로 되돌린다. viewer 였던 사람을 해임했다고 양식어가(farmer)로
+    // 올려 주면 오히려 권한이 늘어난다. manager 였던 것만 farmer 로 내린다.
     const newRole = body.manager
       ? "manager"
-      : (targetProfile?.role === "manager" ? "operator" : (targetProfile?.role ?? "operator"))
+      : (targetProfile?.role === "manager" ? "farmer" : (targetProfile?.role ?? "farmer"))
 
     const { error } = await auth.admin
       .from("profiles")
