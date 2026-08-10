@@ -72,10 +72,18 @@ apt-get update -qq
 apt-get install -y chromium-browser 2>/dev/null || apt-get install -y chromium
 apt-get install -y unclutter 2>/dev/null || true
 
-# 화면이 전부 한글이다. 한글 글꼴이 없으면 네모(□□□)로만 나오므로 같이 깐다.
+# 화면은 4개 언어(한국어·영어·베트남어·인도네시아어)로 뜬다. 글꼴이 없으면
+# 네모(□□□)로만 나오므로, 한국어(CJK)와 라틴·베트남어 글꼴을 함께 깐다.
+#   · fonts-noto-cjk    한국어 등 CJK 문자
+#   · fonts-noto-core   베트남어 성조 부호를 포함한 라틴 확장
+# 어느 하나가 없는 배포판을 대비해 한국어는 nanum, 라틴은 dejavu 로 대체한다.
 # 이미 깔려 있으면 apt 가 알아서 넘어간다.
-echo "==> 한글 글꼴 설치"
-apt-get install -y fonts-nanum 2>/dev/null || apt-get install -y fonts-unfonts-core || true
+echo "==> 다국어 글꼴 설치 (한국어·베트남어 포함)"
+apt-get install -y fonts-noto-cjk 2>/dev/null \
+  || apt-get install -y fonts-nanum 2>/dev/null \
+  || apt-get install -y fonts-unfonts-core 2>/dev/null || true
+apt-get install -y fonts-noto-core 2>/dev/null \
+  || apt-get install -y fonts-dejavu 2>/dev/null || true
 
 # ── 2. 실행 스크립트 ─────────────────────────────────────────────────────────
 # 크로미움은 비정상 종료 후 "복원하시겠습니까?" 풍선을 띄운다.

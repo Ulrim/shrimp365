@@ -1,5 +1,5 @@
 {
-  "latest": "1.6.2",
+  "latest": "1.6.3",
   "releases": {
     "1.5.0": {
       "notes": "염도 단위를 퍼밀(‰)로",
@@ -51,6 +51,20 @@
       "sha256": "289220b1621973f2c30899d966b1a3c627b00a713c05b5fa05c0a9696d6aa8ec",
       "size": 51555,
       "signature": "+8QnReb/DL0BRlWxQ2chDiq+v7NYgnEyeebz4HO0jCvXPtuAzZlAwTbMxSLLr1P134Gv78hNStsMF0t+xNb3Ag=="
+    },
+    "1.6.3": {
+      "notes": "설정 화면(센서·Wi‑Fi·언어), 4개 언어(ko/en/vi/id) 지원, 다국어 글꼴 설치",
+      "released_at": "2026-08-10",
+      "setup": {
+        "file": "shrimp365-setup-1.6.3.tar.gz",
+        "sha256": "042b4e8a390d3a72ba67a4c42bea20fcf4f9ce628d15e7e1a1d5ef24981e53b4",
+        "size": 88802,
+        "signature": "pgkKRl2tuYNARf0hkLwFTjUhIcItQkhd8xR/s2BypUGh8jZhwRx1GLz7L+z0n+VrkIVX9Zab4/fdWTXcIn7gBg=="
+      },
+      "file": "shrimp365-agent-1.6.3.tar.gz",
+      "sha256": "94d29886518637d195a24fb47e10dbc2caca22461db4bc30d8f66e7068a3f03c",
+      "size": 57771,
+      "signature": "Wqv1kfsi9XT0Qk1U1UQG3fFa97TVf7tANfg2WYbo7qI62ZWiJnAd0JVGs9MtqNbqAFdeTCZloSPNV7JfTOftDg=="
     }
   }
 }

@@ -65,7 +65,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.6.2"
+VERSION = "1.6.3"
 log = logging.getLogger("shrimp365")
 
 
@@ -766,6 +766,41 @@ def save_interval(config_path: Path, seconds: int) -> bool:
         return False
 
 
+def save_language(config_path: Path, lang: str) -> bool:
+    """화면 언어를 [webui] 구간에 적는다. 재부팅 후에도 고른 언어가 남아야 한다.
+
+    language 항목이 없으면 [webui] 안에 새로 끼워 넣는다. 주석을 지우지 않으려고
+    configparser 로 통째로 다시 쓰지 않고 줄 단위로 손본다(save_interval 과 같은 방식).
+    """
+    try:
+        lines = config_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    except OSError:
+        return False
+    in_webui = False
+    for i, line in enumerate(lines):
+        s = line.strip().lower()
+        if s == "[webui]":
+            in_webui = True
+            continue
+        if in_webui:
+            if s.startswith("language") and "=" in line:
+                lines[i] = f"language = {lang}\n"   # 기존 값 교체
+                break
+            if s.startswith("[") and s.endswith("]"):
+                lines.insert(i, f"language = {lang}\n")   # 다음 구간 직전에 삽입
+                break
+    else:
+        if not in_webui:
+            return False   # [webui] 구간이 없다
+        lines.append(f"language = {lang}\n")   # [webui] 가 파일 끝까지 이어졌다
+    try:
+        config_path.write_text("".join(lines), encoding="utf-8")
+        os.chmod(config_path, 0o600)
+        return True
+    except OSError:
+        return False
+
+
 def save_device_key(config_path: Path, key: str) -> bool:
     """받은 기기 키를 설정 파일에 적는다.
 
@@ -1209,6 +1244,8 @@ def main() -> int:
     client_holder: dict[str, ModbusClient] = {}
     # 화면에서 고칠 수 있으므로 값 하나를 여러 곳에서 함께 본다.
     interval_holder = {"seconds": interval}
+    # 화면 언어(ko/en/vi/id). 화면에서 고르면 config 에도 남긴다.
+    lang_holder = {"lang": cfg.get("webui", "language", fallback="ko")}
 
     def handle_signal(signum, _frame):
         nonlocal stop
@@ -1434,6 +1471,17 @@ def main() -> int:
                 return {"ok": False, "error": "이 기기에서 Wi‑Fi 설정을 지원하지 않습니다."}
             return wifi_mod.connect(ssid, password)
 
+        def ui_set_lang(lang: str) -> bool:
+            """화면 언어를 바꾼다. 화면은 이미 즉시 반영하므로, 여기선 파일에
+            남겨 재부팅 후에도 유지되게 한다. 파일 저장이 실패해도 이번 세션은
+            반영된 상태이므로 True 를 돌려준다(웹페이지 언어와 같은 4종만 허용)."""
+            if lang not in ("ko", "en", "vi", "id"):
+                return False
+            lang_holder["lang"] = lang
+            saved = save_language(args.config, lang)
+            log.info("화면 언어를 바꿨습니다: %s (파일 저장 %s)", lang, saved)
+            return True
+
         webui.serve(
             state,
             cfg.getint("webui", "port", fallback=8080),
@@ -1449,6 +1497,8 @@ def main() -> int:
             get_wifi=ui_wifi_status,
             on_wifi_scan=ui_wifi_scan,
             on_wifi_connect=ui_wifi_connect,
+            language=lang_holder["lang"],
+            on_set_lang=ui_set_lang,
         )
         state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중",
                      version=VERSION)

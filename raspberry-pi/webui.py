@@ -60,7 +60,7 @@ class State:
 
 
 PAGE = """<!doctype html>
-<html lang="ko">
+<html lang="__LANG__">
 <meta charset="utf-8">
 <meta name="viewport" content="width=800,initial-scale=1">
 <title>Shrimp365</title>
@@ -69,7 +69,7 @@ PAGE = """<!doctype html>
   html,body{height:100%;overflow:hidden}
   body{
     background:#0B1120;color:#E8EDF7;
-    font:500 16px/1.4 system-ui,-apple-system,"Noto Sans KR",sans-serif;
+    font:500 16px/1.4 system-ui,-apple-system,"Noto Sans CJK KR","Noto Sans KR","Nanum Gothic",sans-serif;
     display:flex;flex-direction:column;
     -webkit-user-select:none;user-select:none;
   }
@@ -249,9 +249,9 @@ PAGE = """<!doctype html>
   }
   button.act.ghost{background:transparent;border:1px solid #22304C;color:#94A3B8}
   button.act:active{opacity:.75}
-  /* 푸터 버튼은 오른쪽에 한 덩어리로 모은다. 첫 버튼만 밀어 두고 나머지는
-     붙여, 설정이 [연결 정보]/[기기 연결] 바로 옆에 오게 한다. */
-  footer #settings, footer #action{margin-left:0}
+  /* 푸터 버튼은 오른쪽에 한 덩어리로 모은다. 첫 버튼(설정)만 밀어 두고
+     나머지는 붙여, 설정이 [연결 정보]/[기기 연결] 바로 옆에 오게 한다. */
+  footer #action{margin-left:0}
 
   /* 연결 화면 — 버튼을 눌렀을 때만 덮는다 */
   .overlay{
@@ -290,9 +290,8 @@ PAGE = """<!doctype html>
 
 <footer>
   <span class="dot" id="dot"></span>
-  <span class="status" id="status">시작하는 중…</span>
+  <span class="status" id="status">…</span>
   <span class="time" id="time"></span>
-  <button class="act ghost" id="wifi-btn" type="button" onclick="openWifi()">Wi‑Fi</button>
   <button class="act ghost" id="settings" type="button" onclick="openSettings()">설정</button>
   <button class="act" id="action" type="button"></button>
 </footer>
@@ -325,6 +324,136 @@ function level(key, v){
 function esc(s){ return String(s).replace(/[&<>]/g, function(c){
   return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c]; }); }
 
+// ── 화면 언어 ────────────────────────────────────────────────────────────────
+// 웹페이지와 같은 4종(ko/en/vi/id). 서버가 첫 언어를 __LANG__ 자리에 새겨 준다.
+// [설정] → [언어 설정] 에서 바꾸면 즉시 다시 그리고 서버에도 남긴다.
+var LANG = "__LANG__";
+if (!/^(ko|en|vi|id)$/.test(LANG)) LANG = "ko";
+
+// 언어 이름은 어느 언어에서 보든 그 언어 그대로 적는다(현지 표기).
+var LANG_NAMES = {ko:"한국어", en:"English", vi:"Tiếng Việt", id:"Bahasa Indonesia"};
+var LANG_ORDER = ["ko","en","vi","id"];
+
+var I18N = {
+  // 측정 항목
+  m_temperature:{ko:"수온",en:"Temperature",vi:"Nhiệt độ",id:"Suhu"},
+  m_do:{ko:"용존산소",en:"Dissolved O₂",vi:"Oxy hòa tan",id:"Oksigen"},
+  m_salinity:{ko:"염도",en:"Salinity",vi:"Độ mặn",id:"Salinitas"},
+  graph:{ko:"그래프",en:"Graph",vi:"Biểu đồ",id:"Grafik"},
+  // 공통
+  close:{ko:"닫기",en:"Close",vi:"Đóng",id:"Tutup"},
+  cancel:{ko:"취소",en:"Cancel",vi:"Hủy",id:"Batal"},
+  retry:{ko:"다시 시도",en:"Retry",vi:"Thử lại",id:"Coba lagi"},
+  back_list:{ko:"‹ 목록",en:"‹ List",vi:"‹ Danh sách",id:"‹ Daftar"},
+  back_menu:{ko:"‹ 설정",en:"‹ Settings",vi:"‹ Cài đặt",id:"‹ Pengaturan"},
+  // 푸터 · 연결 상태
+  settings:{ko:"설정",en:"Settings",vi:"Cài đặt",id:"Pengaturan"},
+  info:{ko:"연결 정보",en:"Account",vi:"Thông tin",id:"Info"},
+  link_device:{ko:"기기 연결",en:"Link device",vi:"Kết nối",id:"Hubungkan"},
+  connected:{ko:"연결됨",en:"Connected",vi:"Đã kết nối",id:"Terhubung"},
+  not_connected:{ko:"미연결",en:"Not linked",vi:"Chưa kết nối",id:"Belum"},
+  not_linked_msg:{ko:"이 장비는 계정에 연결되지 않았습니다",en:"This device is not linked to an account",vi:"Thiết bị chưa liên kết với tài khoản",id:"Perangkat belum ditautkan ke akun"},
+  held:{ko:"보관 {n}건",en:"{n} held",vi:"Đã lưu {n}",id:"{n} tersimpan"},
+  starting:{ko:"시작하는 중…",en:"Starting…",vi:"Đang khởi động…",id:"Memulai…"},
+  no_collector:{ko:"수집기 응답 없음",en:"No response from collector",vi:"Bộ thu không phản hồi",id:"Kolektor tak merespons"},
+  // 그래프
+  r_6h:{ko:"6시간",en:"6 h",vi:"6 giờ",id:"6 jam"},
+  r_12h:{ko:"12시간",en:"12 h",vi:"12 giờ",id:"12 jam"},
+  r_24h:{ko:"24시간",en:"24 h",vi:"24 giờ",id:"24 jam"},
+  r_week:{ko:"일주일",en:"1 week",vi:"1 tuần",id:"1 minggu"},
+  stat_min:{ko:"최저",en:"Min",vi:"Thấp",id:"Min"},
+  stat_avg:{ko:"평균",en:"Avg",vi:"TB",id:"Rata"},
+  stat_max:{ko:"최고",en:"Max",vi:"Cao",id:"Maks"},
+  no_data:{ko:"이 구간에 기록된 값이 없습니다",en:"No data recorded for this range",vi:"Không có dữ liệu trong khoảng này",id:"Tidak ada data pada rentang ini"},
+  // 페어링
+  pair_fail_title:{ko:"연결 코드를 받지 못했습니다",en:"Couldn't get a pairing code",vi:"Không lấy được mã kết nối",id:"Gagal mendapatkan kode"},
+  pair_getting:{ko:"연결 코드를 받는 중…",en:"Getting a pairing code…",vi:"Đang lấy mã kết nối…",id:"Mengambil kode…"},
+  pair_title:{ko:"기기를 연결해 주세요",en:"Link this device",vi:"Vui lòng kết nối thiết bị",id:"Hubungkan perangkat ini"},
+  pair_desc:{ko:"Shrimp365에 로그인한 뒤 아래 코드를 입력하세요<br>연결 전 측정값도 저장해 두었다가 함께 올립니다",en:"Log in to Shrimp365 and enter the code below<br>Readings taken before linking are stored and uploaded too",vi:"Đăng nhập Shrimp365 và nhập mã bên dưới<br>Số liệu trước khi kết nối cũng được lưu và tải lên cùng",id:"Masuk ke Shrimp365 lalu masukkan kode di bawah<br>Data sebelum ditautkan disimpan dan diunggah bersama"},
+  pair_step1:{ko:"휴대폰이나 이 화면에서 <b>{url}</b> 접속",en:"Open <b>{url}</b> on your phone or this screen",vi:"Mở <b>{url}</b> trên điện thoại hoặc màn hình này",id:"Buka <b>{url}</b> di ponsel atau layar ini"},
+  pair_step2:{ko:"로그인 → 양식장·수조 관리",en:"Log in → Farm & tank management",vi:"Đăng nhập → Quản lý trại & bể",id:"Masuk → Kelola tambak & kolam"},
+  pair_step3:{ko:"수조의 <b>센서 기기</b> → <b>코드로 기기 연결</b>",en:"Tank's <b>Sensor devices</b> → <b>Link by code</b>",vi:"<b>Thiết bị cảm biến</b> của bể → <b>Kết nối bằng mã</b>",id:"<b>Perangkat sensor</b> kolam → <b>Hubungkan via kode</b>"},
+  pair_step4:{ko:"위 6자리 코드 입력",en:"Enter the 6-digit code above",vi:"Nhập mã 6 số ở trên",id:"Masukkan kode 6 digit di atas"},
+  // 계정
+  acct_title:{ko:"연결된 계정",en:"Linked account",vi:"Tài khoản đã kết nối",id:"Akun tertaut"},
+  acct_change:{ko:"계정 변경",en:"Change account",vi:"Đổi tài khoản",id:"Ganti akun"},
+  acct_confirm:{ko:"지금 계정 연결을 끊고 <b>다른 계정에 새로 연결</b>합니다.<br>측정은 계속되고, 못 올린 값은 보관했다가 새 계정에 함께 올립니다.",en:"This unlinks the current account and <b>links a new one</b>.<br>Measuring continues; pending readings are kept and uploaded to the new account.",vi:"Ngắt tài khoản hiện tại và <b>kết nối tài khoản mới</b>.<br>Việc đo vẫn tiếp tục; số liệu chưa tải được giữ và tải lên tài khoản mới.",id:"Memutus akun saat ini dan <b>menautkan akun baru</b>.<br>Pengukuran berlanjut; data tertunda disimpan dan diunggah ke akun baru."},
+  acct_confirm_yes:{ko:"네, 계정 변경",en:"Yes, change",vi:"Vâng, đổi",id:"Ya, ganti"},
+  // 설정 메뉴
+  menu_sensors:{ko:"센서 설정",en:"Sensor settings",vi:"Cài đặt cảm biến",id:"Pengaturan sensor"},
+  menu_wifi:{ko:"Wi‑Fi 설정",en:"Wi‑Fi settings",vi:"Cài đặt Wi‑Fi",id:"Pengaturan Wi‑Fi"},
+  menu_lang:{ko:"언어 설정",en:"Language",vi:"Ngôn ngữ",id:"Bahasa"},
+  menu_sensors_sub:{ko:"센서 켜기·끄기, 슬레이브 ID, 측정 주기",en:"Sensors on/off, slave IDs, interval",vi:"Bật/tắt cảm biến, ID, chu kỳ đo",id:"Sensor on/off, ID, interval"},
+  menu_wifi_sub:{ko:"공유기에 붙이기",en:"Connect to a router",vi:"Kết nối router",id:"Sambungkan ke router"},
+  menu_lang_sub:{ko:"화면 언어 고르기",en:"Choose display language",vi:"Chọn ngôn ngữ hiển thị",id:"Pilih bahasa tampilan"},
+  // 센서 설정
+  version:{ko:"버전",en:"Version",vi:"Phiên bản",id:"Versi"},
+  checking:{ko:"확인 중",en:"checking",vi:"đang kiểm tra",id:"memeriksa"},
+  in_use:{ko:"사용 중",en:"In use",vi:"Đang dùng",id:"Dipakai"},
+  not_used:{ko:"사용 안 함",en:"Not used",vi:"Không dùng",id:"Tidak dipakai"},
+  on:{ko:"켬",en:"On",vi:"Bật",id:"Nyala"},
+  off:{ko:"끔",en:"Off",vi:"Tắt",id:"Mati"},
+  slave_hint:{ko:"센서마다 슬레이브 ID 가 달라야 합니다",en:"Each sensor needs a unique slave ID",vi:"Mỗi cảm biến cần ID riêng",id:"Setiap sensor perlu ID unik"},
+  interval:{ko:"측정 주기",en:"Interval",vi:"Chu kỳ đo",id:"Interval"},
+  interval_sub:{ko:"초 · 60보다 짧게는 권하지 않습니다",en:"seconds · 60 or more recommended",vi:"giây · nên từ 60 trở lên",id:"detik · disarankan ≥ 60"},
+  auto_assign:{ko:"자동 배치",en:"Auto-assign",vi:"Tự sắp xếp",id:"Atur otomatis"},
+  scan_bus:{ko:"선 훑기",en:"Scan bus",vi:"Quét đường",id:"Pindai bus"},
+  save:{ko:"저장",en:"Save",vi:"Lưu",id:"Simpan"},
+  scanning:{ko:"훑는 중… 최대 30초 걸립니다.",en:"Scanning… up to 30s.",vi:"Đang quét… tối đa 30 giây.",id:"Memindai… hingga 30 dtk."},
+  scan_fail:{ko:"훑지 못했습니다.",en:"Couldn't scan.",vi:"Không quét được.",id:"Gagal memindai."},
+  finding:{ko:"센서를 찾는 중… 최대 30초 걸립니다.",en:"Detecting sensors… up to 30s.",vi:"Đang tìm cảm biến… tối đa 30 giây.",id:"Mendeteksi sensor… hingga 30 dtk."},
+  none_responding:{ko:"응답하는 센서가 없습니다. 전원과 A/B 배선을 확인하세요.",en:"No sensors responding. Check power and A/B wiring.",vi:"Không có cảm biến phản hồi. Kiểm tra nguồn và dây A/B.",id:"Tak ada sensor merespons. Periksa daya dan kabel A/B."},
+  found_on_bus:{ko:"선에서 찾은 센서",en:"Sensors found on the bus",vi:"Cảm biến tìm thấy trên đường",id:"Sensor ditemukan pada bus"},
+  find_fail:{ko:"찾지 못했습니다.",en:"Couldn't detect.",vi:"Không tìm được.",id:"Gagal mendeteksi."},
+  conflict_resp:{ko:"{name} 가 {ids} 번에서 응답",en:"{name} responds at {ids}",vi:"{name} phản hồi tại {ids}",id:"{name} merespons di {ids}"},
+  conflict_pick:{ko:"{list} — 어느 쪽을 쓸지 직접 골라 주세요.",en:"{list} — please choose which to use.",vi:"{list} — vui lòng chọn dùng cái nào.",id:"{list} — silakan pilih yang dipakai."},
+  auto_done:{ko:"{done} — 확인하고 [저장] 을 누르세요.",en:"{done} — review and tap [Save].",vi:"{done} — kiểm tra rồi nhấn [Lưu].",id:"{done} — periksa lalu tekan [Simpan]."},
+  auto_done_missing:{ko:"{done} · 못 찾음: {missing} — 확인하고 [저장] 을 누르세요.",en:"{done} · not found: {missing} — review and tap [Save].",vi:"{done} · không thấy: {missing} — kiểm tra rồi nhấn [Lưu].",id:"{done} · tak ada: {missing} — periksa lalu tekan [Simpan]."},
+  saved_ok:{ko:"저장했습니다. 다음 측정부터 적용됩니다.",en:"Saved. Applies from the next reading.",vi:"Đã lưu. Áp dụng từ lần đo tới.",id:"Tersimpan. Berlaku mulai pengukuran berikutnya."},
+  saved_mem:{ko:"적용했지만 파일에 저장하지 못했습니다(재부팅하면 되돌아갑니다).",en:"Applied but couldn't save to file (reverts on reboot).",vi:"Đã áp dụng nhưng không lưu được (mất khi khởi động lại).",id:"Diterapkan tapi gagal disimpan (kembali saat reboot)."},
+  save_fail:{ko:"저장하지 못했습니다.",en:"Couldn't save.",vi:"Không lưu được.",id:"Gagal menyimpan."},
+  load_fail:{ko:"설정을 불러오지 못했습니다.",en:"Couldn't load settings.",vi:"Không tải được cài đặt.",id:"Gagal memuat pengaturan."},
+  n_do:{ko:"용존산소",en:"Dissolved O₂",vi:"Oxy hòa tan",id:"Oksigen"},
+  n_ec:{ko:"전도도 / 염도",en:"Conductivity / Salinity",vi:"Độ dẫn / Độ mặn",id:"Konduktivitas / Salinitas"},
+  // Wi‑Fi
+  wifi_loading:{ko:"불러오는 중…",en:"Loading…",vi:"Đang tải…",id:"Memuat…"},
+  wifi_now:{ko:"지금 연결됨 · <b>{ssid}</b>{ip}",en:"Connected · <b>{ssid}</b>{ip}",vi:"Đã kết nối · <b>{ssid}</b>{ip}",id:"Terhubung · <b>{ssid}</b>{ip}"},
+  wifi_none_conn:{ko:"연결된 Wi‑Fi 가 없습니다.",en:"Not connected to Wi‑Fi.",vi:"Chưa kết nối Wi‑Fi.",id:"Belum terhubung Wi‑Fi."},
+  wifi_locked:{ko:"잠금",en:"Locked",vi:"Khóa",id:"Terkunci"},
+  wifi_rescan:{ko:"다시 검색",en:"Rescan",vi:"Quét lại",id:"Pindai ulang"},
+  wifi_searching:{ko:"검색 중…",en:"Searching…",vi:"Đang tìm…",id:"Mencari…"},
+  wifi_none_found:{ko:"주변에 잡히는 Wi‑Fi 가 없습니다.",en:"No Wi‑Fi networks nearby.",vi:"Không tìm thấy Wi‑Fi.",id:"Tak ada Wi‑Fi terdekat."},
+  wifi_load_fail:{ko:"Wi‑Fi 정보를 불러오지 못했습니다.",en:"Couldn't load Wi‑Fi info.",vi:"Không tải được thông tin Wi‑Fi.",id:"Gagal memuat info Wi‑Fi."},
+  wifi_pw_ph:{ko:"비밀번호 입력",en:"Enter password",vi:"Nhập mật khẩu",id:"Masukkan kata sandi"},
+  wifi_show:{ko:"표시",en:"Show",vi:"Hiện",id:"Tampil"},
+  wifi_hide:{ko:"숨김",en:"Hide",vi:"Ẩn",id:"Sembunyi"},
+  wifi_space:{ko:"공백",en:"Space",vi:"Cách",id:"Spasi"},
+  wifi_connect:{ko:"연결",en:"Connect",vi:"Kết nối",id:"Sambung"},
+  wifi_connecting:{ko:"연결 중…",en:"Connecting…",vi:"Đang kết nối…",id:"Menyambung…"},
+  wifi_connecting_to:{ko:"{ssid} 에 연결하는 중… 최대 30초",en:"Connecting to {ssid}… up to 30s",vi:"Đang kết nối {ssid}… tối đa 30 giây",id:"Menyambung ke {ssid}… hingga 30 dtk"},
+  wifi_connected:{ko:"연결되었습니다.",en:"Connected.",vi:"Đã kết nối.",id:"Terhubung."},
+  wifi_connect_fail:{ko:"연결하지 못했습니다.",en:"Couldn't connect.",vi:"Không kết nối được.",id:"Gagal menyambung."},
+  // 언어 설정
+  lang_title:{ko:"언어 설정",en:"Language",vi:"Ngôn ngữ",id:"Bahasa"},
+  lang_hint:{ko:"화면 언어를 고르세요",en:"Choose the display language",vi:"Chọn ngôn ngữ hiển thị",id:"Pilih bahasa tampilan"}
+};
+
+function t(key, vars){
+  var e = I18N[key];
+  var s = (e && (e[LANG] || e.ko)) || key;
+  if (vars) for (var k in vars) s = s.split("{" + k + "}").join(vars[k]);
+  return s;
+}
+
+// 측정 항목 이름 — pH 는 어느 언어에서나 그대로.
+function mlabel(key){
+  if (key === "ph") return "pH";
+  if (key === "temperature") return t("m_temperature");
+  if (key === "do_level") return t("m_do");
+  if (key === "salinity") return t("m_salinity");
+  return key;
+}
+
 // 측정값은 언제나 이 화면이다. 연결 여부와 무관하다.
 function renderValues(d){
   var cells = ORDER.map(function(key){
@@ -335,7 +464,7 @@ function renderValues(d){
     // 따옴표 이스케이프를 피하려고 &quot; 를 쓴다. PAGE 가 파이썬 문자열이라
     // 백슬래시가 한 번 더 벗겨져 JS 가 깨지기 쉽다.
     return '<div class="cell ' + cls + '" onclick="openChart(&quot;' + key + '&quot;)">' +
-           '<div class="k">' + r.label + ' <span class="tap">그래프 ›</span></div>' +
+           '<div class="k">' + mlabel(key) + ' <span class="tap">' + t("graph") + ' ›</span></div>' +
            '<div class="v">' + v + (r.unit ? '<small>' + r.unit + '</small>' : '') + '</div></div>';
   }).join("");
   return '<div class="grid">' + cells + '</div>';
@@ -344,43 +473,42 @@ function renderValues(d){
 // 연결 상태 — 어느 계정·수조에 붙어 있는지
 function renderLink(d){
   // 아직 못 올린 값이 있으면 몇 건인지 먼저 알린다.
-  var hold = d.pending ? '<span class="chip hold">보관 ' + d.pending + '건</span>' : "";
+  var hold = d.pending ? '<span class="chip hold">' + t("held", {n:d.pending}) + '</span>' : "";
   if (d.linked) {
     var where = [d.farm, d.tank].filter(Boolean).join(" · ");
     return (d.account ? '<span><b>' + esc(d.account) + '</b></span>' : "") +
            (where ? '<span>' + esc(where) + '</span>' : "") +
-           hold + '<span class="chip on">연결됨</span>';
+           hold + '<span class="chip on">' + t("connected") + '</span>';
   }
-  return '<span>이 장비는 계정에 연결되지 않았습니다</span>' +
-         hold + '<span class="chip off">미연결</span>';
+  return '<span>' + t("not_linked_msg") + '</span>' +
+         hold + '<span class="chip off">' + t("not_connected") + '</span>';
 }
 
 function renderOverlay(d){
   if (!d.pairing) return "";
   if (d.pair_error) {
-    return '<div class="overlay"><h1>연결 코드를 받지 못했습니다</h1>' +
+    return '<div class="overlay"><h1>' + t("pair_fail_title") + '</h1>' +
       '<p>' + esc(d.pair_error) + '</p>' +
       '<div class="ovbtns">' +
-        '<button class="act" onclick="startPair()">다시 시도</button>' +
-        '<button class="act ghost" onclick="cancelPair()">닫기</button>' +
+        '<button class="act" onclick="startPair()">' + t("retry") + '</button>' +
+        '<button class="act ghost" onclick="cancelPair()">' + t("close") + '</button>' +
       '</div></div>';
   }
   if (!d.pair_code) {
-    return '<div class="overlay"><h1>연결 코드를 받는 중…</h1>' +
-      '<div class="ovbtns"><button class="act ghost" onclick="cancelPair()">취소</button></div></div>';
+    return '<div class="overlay"><h1>' + t("pair_getting") + '</h1>' +
+      '<div class="ovbtns"><button class="act ghost" onclick="cancelPair()">' + t("cancel") + '</button></div></div>';
   }
   return '<div class="overlay">' +
-    '<h1>기기를 연결해 주세요</h1>' +
-    '<p>Shrimp365에 로그인한 뒤 아래 코드를 입력하세요<br>' +
-    '연결 전 측정값도 저장해 두었다가 함께 올립니다</p>' +
+    '<h1>' + t("pair_title") + '</h1>' +
+    '<p>' + t("pair_desc") + '</p>' +
     '<div class="code">' + esc(d.pair_code) + '</div>' +
     '<div class="steps"><ol>' +
-      '<li>휴대폰이나 이 화면에서 <b>' + esc(d.pair_url || "www.shrimp365.kr") + '</b> 접속</li>' +
-      '<li>로그인 → 양식장·수조 관리</li>' +
-      '<li>수조의 <b>센서 기기</b> → <b>코드로 기기 연결</b></li>' +
-      '<li>위 6자리 코드 입력</li>' +
+      '<li>' + t("pair_step1", {url: esc(d.pair_url || "www.shrimp365.kr")}) + '</li>' +
+      '<li>' + t("pair_step2") + '</li>' +
+      '<li>' + t("pair_step3") + '</li>' +
+      '<li>' + t("pair_step4") + '</li>' +
     '</ol></div>' +
-    '<div class="ovbtns"><button class="act ghost" onclick="cancelPair()">취소</button></div>' +
+    '<div class="ovbtns"><button class="act ghost" onclick="cancelPair()">' + t("cancel") + '</button></div>' +
     '</div>';
 }
 
@@ -389,10 +517,10 @@ function renderOverlay(d){
 // 6시간·12시간·24시간·일주일. 파이가 자체 보관한 이력으로 그리므로
 // 인터넷이 끊겨 있어도 볼 수 있다.
 var RANGE_OPTIONS = [
-  {hours:6,   label:"6시간"},
-  {hours:12,  label:"12시간"},
-  {hours:24,  label:"24시간"},
-  {hours:168, label:"일주일"}
+  {hours:6,   k:"r_6h"},
+  {hours:12,  k:"r_12h"},
+  {hours:24,  k:"r_24h"},
+  {hours:168, k:"r_week"}
 ];
 var chartKey = null;
 var chartHours = 24;
@@ -438,28 +566,28 @@ function drawChart(key, hours, d){
 
   var buttons = RANGE_OPTIONS.map(function(o){
     return '<button onclick="setRange(' + o.hours + ')" aria-pressed="' +
-      (o.hours === hours) + '">' + o.label + '</button>';
+      (o.hours === hours) + '">' + t(o.k) + '</button>';
   }).join("");
 
   var head =
     '<div class="chead">' +
-      '<span class="ctitle">' + r.label + '</span>' +
+      '<span class="ctitle">' + mlabel(key) + '</span>' +
       (d.count ? '<span class="cnow">' + d.points[d.points.length-1][1].toFixed(r.digits) +
                  (r.unit ? '<small style="font-size:13px;color:#94A3B8"> ' + r.unit + '</small>' : '') + '</span>' : '') +
       (d.count ? '<span class="cstats">' +
-        '<span>최저 <b>' + d.min.toFixed(r.digits) + '</b></span>' +
-        '<span>평균 <b>' + d.avg.toFixed(r.digits) + '</b></span>' +
-        '<span>최고 <b>' + d.max.toFixed(r.digits) + '</b></span>' +
+        '<span>' + t("stat_min") + ' <b>' + d.min.toFixed(r.digits) + '</b></span>' +
+        '<span>' + t("stat_avg") + ' <b>' + d.avg.toFixed(r.digits) + '</b></span>' +
+        '<span>' + t("stat_max") + ' <b>' + d.max.toFixed(r.digits) + '</b></span>' +
       '</span>' : '') +
     '</div>' +
     '<div class="ranges">' + buttons +
-      '<button class="close" onclick="closeChart()">닫기</button>' +
+      '<button class="close" onclick="closeChart()">' + t("close") + '</button>' +
     '</div>';
 
   if (!d.count) {
     document.getElementById("chart").innerHTML =
       '<div class="chart">' + head +
-      '<div class="nodata">이 구간에 기록된 값이 없습니다</div></div>';
+      '<div class="nodata">' + t("no_data") + '</div></div>';
     return;
   }
 
@@ -555,8 +683,9 @@ function render(d){
   document.getElementById("status").textContent = st;
   document.getElementById("time").textContent = d.updated_at || "";
 
+  document.getElementById("settings").textContent = t("settings");
   var btn = document.getElementById("action");
-  btn.textContent = d.linked ? "연결 정보" : "기기 연결";
+  btn.textContent = d.linked ? t("info") : t("link_device");
   btn.className = "act" + (d.linked ? " ghost" : "");
   btn.onclick = d.linked ? showInfo : startPair;
 }
@@ -577,23 +706,22 @@ function drawInfo(){
   var body;
   if (infoConfirm) {
     body =
-      '<p>지금 계정 연결을 끊고 <b>다른 계정에 새로 연결</b>합니다.<br>' +
-      '측정은 계속되고, 못 올린 값은 보관했다가 새 계정에 함께 올립니다.</p>' +
+      '<p>' + t("acct_confirm") + '</p>' +
       '<div class="ovbtns">' +
-        '<button class="act" onclick="doUnlink()">네, 계정 변경</button>' +
-        '<button class="act ghost" onclick="infoBack()">취소</button>' +
+        '<button class="act" onclick="doUnlink()">' + t("acct_confirm_yes") + '</button>' +
+        '<button class="act ghost" onclick="infoBack()">' + t("cancel") + '</button>' +
       '</div>';
   } else {
     body =
       (d.account ? '<p><b>' + esc(d.account) + '</b></p>' : '') +
       (where ? '<p>' + esc(where) + '</p>' : '') +
       '<div class="ovbtns">' +
-        '<button class="act" onclick="askUnlink()">계정 변경</button>' +
-        '<button class="act ghost" onclick="closeInfo()">닫기</button>' +
+        '<button class="act" onclick="askUnlink()">' + t("acct_change") + '</button>' +
+        '<button class="act ghost" onclick="closeInfo()">' + t("close") + '</button>' +
       '</div>';
   }
   document.getElementById("account").innerHTML =
-    '<div class="overlay"><h1>연결된 계정</h1>' + body + '</div>';
+    '<div class="overlay"><h1>' + t("acct_title") + '</h1>' + body + '</div>';
 }
 
 function doUnlink(){
@@ -614,18 +742,83 @@ function cancelPair(){ fetch("/api/pair/cancel", {method:"POST"}).then(tick); }
 // SSH 로 설정 파일을 고치던 것들을 화면에서 하게 한다. 현장에서는 수조 옆에
 // 선 채로 고쳐야지, 노트북을 들고 와 접속할 일이 아니다.
 var setupData = null, setupMsg = null;
+var settingsOpen = false;   // 설정(메뉴·센서·언어) 화면이 떠 있는가
 
-function openSettings(){
+// [설정] 은 이제 메뉴다 — 센서·Wi‑Fi·언어로 들어간다.
+function openSettings(){ settingsOpen = true; drawSettingsMenu(); }
+
+function closeSettings(){
+  settingsOpen = false;
+  setupData = null;
+  document.getElementById("setup").innerHTML = "";
+  document.getElementById("wifi").innerHTML = "";
+  tick();
+}
+
+function drawSettingsMenu(){
+  document.getElementById("wifi").innerHTML = "";
+  var items = [
+    {t:"menu_sensors", sub:"menu_sensors_sub", fn:"openSensors()"},
+    {t:"menu_wifi",    sub:"menu_wifi_sub",    fn:"openWifi()"},
+    {t:"menu_lang",    sub:"menu_lang_sub",    fn:"openLang()"}
+  ];
+  var rows = items.map(function(it){
+    return '<div class="srow" style="cursor:pointer" onclick="' + it.fn + '">' +
+      '<div class="sname">' + t(it.t) +
+        '<div class="sub">' + t(it.sub) + '</div></div>' +
+      '<span style="color:#64748B;font-size:20px;flex:0 0 auto">›</span>' +
+    '</div>';
+  }).join("");
+  document.getElementById("setup").innerHTML =
+    '<div class="setup">' +
+      '<div class="chead">' +
+        '<span class="ctitle">' + t("settings") + '</span>' +
+        '<span class="cstats"><span>' + t("version") + ' ' + (bootVersion || t("checking")) + '</span></span>' +
+        '<button onclick="closeSettings()">' + t("close") + '</button>' +
+      '</div>' +
+      '<div class="sbody">' + rows + '</div>' +
+    '</div>';
+}
+
+function openSensors(){
   fetch("/api/sensors", {cache:"no-store"})
     .then(function(r){ return r.json(); })
     .then(function(d){ setupData = d; setupMsg = null; drawSettings(); })
-    .catch(function(){ alert("설정을 불러오지 못했습니다."); });
+    .catch(function(){ alert(t("load_fail")); });
 }
 
-function closeSettings(){
-  setupData = null;
-  document.getElementById("setup").innerHTML = "";
-  tick();
+// ── 언어 설정 ────────────────────────────────────────────────────────────────
+function openLang(){ drawLang(); }
+
+function drawLang(){
+  document.getElementById("wifi").innerHTML = "";
+  var rows = LANG_ORDER.map(function(l){
+    return '<div class="wrow' + (l === LANG ? " cur" : "") + '" onclick="setLang(&quot;' + l + '&quot;)">' +
+      '<span class="wname">' + LANG_NAMES[l] + '</span>' +
+      (l === LANG ? '<span class="wlock" style="color:#10B981">✓</span>' : '') +
+    '</div>';
+  }).join("");
+  document.getElementById("setup").innerHTML =
+    '<div class="setup">' +
+      '<div class="chead">' +
+        '<span class="ctitle">' + t("lang_title") + '</span>' +
+        '<button style="margin-left:auto" onclick="drawSettingsMenu()">' + t("back_menu") + '</button>' +
+      '</div>' +
+      '<div class="sbody">' +
+        '<div class="sub" style="margin:2px 0 8px">' + t("lang_hint") + '</div>' +
+        rows +
+      '</div>' +
+    '</div>';
+}
+
+function setLang(l){
+  if (!/^(ko|en|vi|id)$/.test(l)) return;
+  LANG = l;
+  try { document.documentElement.lang = l; } catch(e){}
+  fetch("/api/lang", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({lang:l})}).catch(function(){});
+  if (lastState) render(lastState);   // 뒤 화면·푸터도 새 언어로
+  drawLang();                          // 언어 화면을 새 언어로 다시 그린다(선택 표시)
 }
 
 function drawSettings(){
@@ -634,10 +827,10 @@ function drawSettings(){
 
   var rows = d.sensors.map(function(sn, i){
     return '<div class="srow">' +
-      '<div class="sname">' + sn.label +
-        '<div class="sub">' + (sn.enabled ? "사용 중" : "사용 안 함") + '</div></div>' +
+      '<div class="sname">' + senName(sn.key) +
+        '<div class="sub">' + (sn.enabled ? t("in_use") : t("not_used")) + '</div></div>' +
       '<button class="toggle' + (sn.enabled ? " on" : "") + '" ' +
-        'onclick="toggleSensor(' + i + ')">' + (sn.enabled ? "켬" : "끔") + '</button>' +
+        'onclick="toggleSensor(' + i + ')">' + (sn.enabled ? t("on") : t("off")) + '</button>' +
       '<div class="step">' +
         '<button onclick="bumpId(' + i + ',-1)">−</button>' +
         '<div class="num">' + sn.slave_id + '</div>' +
@@ -653,17 +846,16 @@ function drawSettings(){
   document.getElementById("setup").innerHTML =
     '<div class="setup">' +
       '<div class="chead">' +
-        '<span class="ctitle">센서 설정</span>' +
-        '<span class="cstats"><span>' + (d.port || "") + '</span>' +
-          '<span>버전 ' + (bootVersion || "확인 중") + '</span></span>' +
-        '<button onclick="closeSettings()">닫기</button>' +
+        '<span class="ctitle">' + t("menu_sensors") + '</span>' +
+        '<span class="cstats"><span>' + (d.port || "") + '</span></span>' +
+        '<button onclick="drawSettingsMenu()">' + t("back_menu") + '</button>' +
       '</div>' +
       '<div class="sbody">' +
         msg + found +
-        '<div class="sub" style="margin:2px 0 6px">센서마다 슬레이브 ID 가 달라야 합니다</div>' +
+        '<div class="sub" style="margin:2px 0 6px">' + t("slave_hint") + '</div>' +
         rows +
         '<div class="srow">' +
-          '<div class="sname">측정 주기<div class="sub">초 · 60보다 짧게는 권하지 않습니다</div></div>' +
+          '<div class="sname">' + t("interval") + '<div class="sub">' + t("interval_sub") + '</div></div>' +
           '<div class="step">' +
             '<button onclick="bumpInterval(-60)">−</button>' +
             '<div class="num">' + d.interval + '</div>' +
@@ -671,20 +863,28 @@ function drawSettings(){
           '</div></div>' +
       '</div>' +
       '<div class="ranges sfoot">' +
-        '<button onclick="autoAssign()">자동 배치</button>' +
-        '<button onclick="scanBus()">선 훑기</button>' +
-        '<button onclick="saveSettings()" aria-pressed="true">저장</button>' +
+        '<button onclick="autoAssign()">' + t("auto_assign") + '</button>' +
+        '<button onclick="scanBus()">' + t("scan_bus") + '</button>' +
+        '<button onclick="saveSettings()" aria-pressed="true">' + t("save") + '</button>' +
       '</div>' +
     '</div>';
 }
 
+// 센서 이름 — 서버가 준 한국어 이름 대신 화면 언어로 보여 준다.
+function senName(key){
+  if (key === "ph") return "pH / ORP";
+  if (key === "do") return t("n_do");
+  if (key === "ec") return t("n_ec");
+  return key;
+}
+
 function renderFound(found){
-  if (!found.length) return '<div class="msg err">응답하는 센서가 없습니다. 전원과 A/B 배선을 확인하세요.</div>';
+  if (!found.length) return '<div class="msg err">' + t("none_responding") + '</div>';
   if (found[0].error) return '<div class="msg err">' + found[0].error + '</div>';
   var list = found.map(function(f){
     return 'ID <b>' + f.id + '</b> — ' + f.kind + ' (' + f.note + ')';
   }).join("<br>");
-  return '<div class="found">선에서 찾은 센서<br>' + list + '</div>';
+  return '<div class="found">' + t("found_on_bus") + '<br>' + list + '</div>';
 }
 
 function toggleSensor(i){
@@ -709,7 +909,7 @@ function bumpInterval(delta){
 }
 
 function scanBus(){
-  setupMsg = {kind:"ok", text:"훑는 중… 최대 30초 걸립니다."};
+  setupMsg = {kind:"ok", text:t("scanning")};
   drawSettings();
   fetch("/api/sensors/scan", {method:"POST"})
     .then(function(r){ return r.json(); })
@@ -719,7 +919,7 @@ function scanBus(){
       drawSettings();
     })
     .catch(function(){
-      setupMsg = {kind:"err", text:"훑지 못했습니다."};
+      setupMsg = {kind:"err", text:t("scan_fail")};
       drawSettings();
     });
 }
@@ -727,20 +927,20 @@ function scanBus(){
 // 꽂아 둔 센서를 훑어 "값이 나오는 자리" 를 그대로 배치한다.
 // 바로 저장하지 않고 화면의 숫자만 채운다 — 확인하고 저장은 사람이 누른다.
 function autoAssign(){
-  setupMsg = {kind:"ok", text:"센서를 찾는 중… 최대 30초 걸립니다."};
+  setupMsg = {kind:"ok", text:t("finding")};
   drawSettings();
   fetch("/api/sensors/auto", {method:"POST"})
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (d.error) { setupMsg = {kind:"err", text:d.error}; drawSettings(); return; }
 
-      var names = {ph:"pH / ORP", do:"용존산소", ec:"전도도 / 염도"};
+      var names = {ph:"pH / ORP", do:t("n_do"), ec:t("n_ec")};
       var conflictKeys = Object.keys(d.conflicts || {});
       if (conflictKeys.length) {
         var c = conflictKeys.map(function(k){
-          return names[k] + " 가 " + d.conflicts[k].join(", ") + " 번에서 응답";
+          return t("conflict_resp", {name: names[k], ids: d.conflicts[k].join(", ")});
         }).join(" / ");
-        setupMsg = {kind:"err", text: c + " — 어느 쪽을 쓸지 직접 골라 주세요."};
+        setupMsg = {kind:"err", text: t("conflict_pick", {list: c})};
         drawSettings();
         return;
       }
@@ -758,16 +958,16 @@ function autoAssign(){
       });
 
       if (!done.length) {
-        setupMsg = {kind:"err", text:"응답하는 센서가 없습니다. 전원과 A/B 배선을 확인하세요."};
+        setupMsg = {kind:"err", text:t("none_responding")};
       } else {
-        setupMsg = {kind:"ok", text: done.join(", ")
-          + (missing.length ? " · 못 찾음: " + missing.join(", ") : "")
-          + " — 확인하고 [저장] 을 누르세요."};
+        setupMsg = {kind:"ok", text: missing.length
+          ? t("auto_done_missing", {done: done.join(", "), missing: missing.join(", ")})
+          : t("auto_done", {done: done.join(", ")})};
       }
       drawSettings();
     })
     .catch(function(){
-      setupMsg = {kind:"err", text:"찾지 못했습니다."};
+      setupMsg = {kind:"err", text:t("find_fail")};
       drawSettings();
     });
 }
@@ -784,16 +984,14 @@ function saveSettings(){
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (d.ok) {
-        setupMsg = {kind:"ok", text: d.saved
-          ? "저장했습니다. 다음 측정부터 적용됩니다."
-          : "적용했지만 파일에 저장하지 못했습니다(재부팅하면 되돌아갑니다)."};
+        setupMsg = {kind:"ok", text: d.saved ? t("saved_ok") : t("saved_mem")};
       } else {
-        setupMsg = {kind:"err", text: d.error || "저장하지 못했습니다."};
+        setupMsg = {kind:"err", text: d.error || t("save_fail")};
       }
       drawSettings();
     })
     .catch(function(){
-      setupMsg = {kind:"err", text:"저장하지 못했습니다."};
+      setupMsg = {kind:"err", text:t("save_fail")};
       drawSettings();
     });
 }
@@ -806,7 +1004,7 @@ var wifiSel = null, wifiPw = "", wifiShowPw = false, wifiShift = false, wifiLaye
 var wifiBusy = false;
 
 function openWifi(){
-  wifiOpen = true; wifiData = null; wifiMsg = {kind:"ok", text:"불러오는 중…"};
+  wifiOpen = true; wifiData = null; wifiMsg = {kind:"ok", text:t("wifi_loading")};
   wifiSel = null; wifiPw = ""; wifiShowPw = false; wifiShift = false; wifiLayer = "abc";
   drawWifi();
   loadWifi(true);
@@ -815,7 +1013,8 @@ function openWifi(){
 function closeWifi(){
   wifiOpen = false; wifiData = null; wifiSel = null; wifiPw = "";
   document.getElementById("wifi").innerHTML = "";
-  tick();
+  // [설정] 메뉴에서 들어왔으면 메뉴로 돌아가고, 아니면 기본 화면으로.
+  if (settingsOpen) drawSettingsMenu(); else tick();
 }
 
 function loadWifi(rescan){
@@ -838,11 +1037,11 @@ function loadWifi(rescan){
       scanError: sc && sc.error
     };
     wifiMsg = wifiData.networks.length ? null
-      : {kind:"err", text: wifiData.scanError || "주변에 잡히는 Wi‑Fi 가 없습니다."};
+      : {kind:"err", text: wifiData.scanError || t("wifi_none_found")};
     drawWifi();
   }).catch(function(){
     wifiBusy = false;
-    wifiMsg = {kind:"err", text:"Wi‑Fi 정보를 불러오지 못했습니다."};
+    wifiMsg = {kind:"err", text:t("wifi_load_fail")};
     drawWifi();
   });
 }
@@ -870,10 +1069,10 @@ function drawWifi(){
       '<div class="chead">' +
         '<span class="ctitle">' + (wifiSel ? esc(wifiSel.ssid) : "Wi‑Fi") + '</span>' +
         (wifiSel
-          ? '<button style="margin-left:auto" onclick="wifiBack()">‹ 목록</button>'
+          ? '<button style="margin-left:auto" onclick="wifiBack()">' + t("back_list") + '</button>'
           : '<span class="cstats"><span>' +
               (wifiData && wifiData.status && wifiData.status.ip ? esc(wifiData.status.ip) : "") +
-            '</span></span><button onclick="closeWifi()">닫기</button>') +
+            '</span></span><button onclick="closeWifi()">' + t("back_menu") + '</button>') +
       '</div>' +
       '<div class="sbody">' + body + '</div>' +
     '</div>';
@@ -883,10 +1082,10 @@ function drawWifiList(){
   var d = wifiData;
   var cur = "";
   if (d && d.status && d.status.connected){
-    cur = '<div class="wcur">지금 연결됨 · <b>' + esc(d.status.ssid || "") + '</b>' +
-          (d.status.ip ? ' · ' + esc(d.status.ip) : '') + '</div>';
+    var ipx = d.status.ip ? ' · ' + esc(d.status.ip) : '';
+    cur = '<div class="wcur">' + t("wifi_now", {ssid: esc(d.status.ssid || ""), ip: ipx}) + '</div>';
   } else if (d && d.status){
-    cur = '<div class="wcur">연결된 Wi‑Fi 가 없습니다.</div>';
+    cur = '<div class="wcur">' + t("wifi_none_conn") + '</div>';
   }
 
   var msg = wifiMsg ? '<div class="msg ' + wifiMsg.kind + '">' + esc(wifiMsg.text) + '</div>' : "";
@@ -894,14 +1093,14 @@ function drawWifiList(){
   var rows = (d && d.networks ? d.networks : []).map(function(n, i){
     return '<div class="wrow' + (n.in_use ? " cur" : "") + '" onclick="pickNet(' + i + ')">' +
       '<span class="wname">' + esc(n.ssid) + '</span>' +
-      (n.secure ? '<span class="wlock">잠금</span>' : '') +
+      (n.secure ? '<span class="wlock">' + t("wifi_locked") + '</span>' : '') +
       barsHtml(n.bars) +
     '</div>';
   }).join("");
 
   var foot = '<div class="ranges sfoot" style="margin-top:8px">' +
     '<button onclick="loadWifi(true)"' + (wifiBusy ? ' disabled' : '') + '>' +
-      (wifiBusy ? "검색 중…" : "다시 검색") + '</button>' +
+      (wifiBusy ? t("wifi_searching") : t("wifi_rescan")) + '</button>' +
     '</div>';
 
   return cur + msg + rows + foot;
@@ -942,8 +1141,8 @@ function drawWifiPassword(){
     '<div class="pwbox"><div class="pwf">' +
       '<div style="flex:1;min-width:0;font:600 18px/1 ui-monospace,monospace;' +
         'letter-spacing:2px;padding:10px 0;color:' + (wifiPw ? "#E8EDF7" : "#475569") + '">' +
-        (wifiPw ? shown : "비밀번호 입력") + '</div>' +
-      '<button class="eye" onclick="wifiTogglePw()">' + (wifiShowPw ? "숨김" : "표시") + '</button>' +
+        (wifiPw ? shown : t("wifi_pw_ph")) + '</div>' +
+      '<button class="eye" onclick="wifiTogglePw()">' + (wifiShowPw ? t("wifi_hide") : t("wifi_show")) + '</button>' +
     '</div></div>';
 
   var rows = (wifiLayer === "sym" ? K_SYM : K_ABC).map(function(row, ri){
@@ -966,9 +1165,9 @@ function drawWifiPassword(){
   var bottom =
     '<div class="krow">' +
       '<button class="wide" onclick="kLayer()">' + (wifiLayer === "sym" ? "ABC" : "?123") + '</button>' +
-      '<button class="wide" onclick="kSpace()">공백</button>' +
+      '<button class="wide" onclick="kSpace()">' + t("wifi_space") + '</button>' +
       '<button class="go" onclick="doConnect()"' + (wifiBusy ? ' disabled' : '') + '>' +
-        (wifiBusy ? "연결 중…" : "연결") + '</button>' +
+        (wifiBusy ? t("wifi_connecting") : t("wifi_connect")) + '</button>' +
     '</div>';
 
   return msg + field + '<div class="kbd">' + rows + bottom + '</div>';
@@ -990,7 +1189,7 @@ function wifiTogglePw(){ wifiShowPw = !wifiShowPw; drawWifi(); }
 function doConnect(){
   if (!wifiSel) return;
   wifiBusy = true;
-  wifiMsg = {kind:"ok", text: esc(wifiSel.ssid) + " 에 연결하는 중… 최대 30초"};
+  wifiMsg = {kind:"ok", text: t("wifi_connecting_to", {ssid: esc(wifiSel.ssid)})};
   drawWifi();
   fetch("/api/wifi/connect", {
     method:"POST", headers:{"Content-Type":"application/json"},
@@ -1002,28 +1201,28 @@ function doConnect(){
       if (d && d.ok){
         // 연결됐으면 목록으로 돌아가 상태를 새로 읽는다.
         wifiSel = null; wifiPw = "";
-        wifiMsg = {kind:"ok", text:"연결되었습니다."};
+        wifiMsg = {kind:"ok", text:t("wifi_connected")};
         loadWifi(false);
       } else {
-        wifiMsg = {kind:"err", text: (d && d.error) || "연결하지 못했습니다."};
+        wifiMsg = {kind:"err", text: (d && d.error) || t("wifi_connect_fail")};
         drawWifi();
       }
     })
     .catch(function(){
       wifiBusy = false;
-      wifiMsg = {kind:"err", text:"연결하지 못했습니다."};
+      wifiMsg = {kind:"err", text:t("wifi_connect_fail")};
       drawWifi();
     });
 }
 
 function tick(){
-  if (setupData || wifiOpen) return;   // 설정·Wi‑Fi 중에는 뒤 화면을 다시 그리지 않는다
+  if (settingsOpen || wifiOpen) return;   // 설정·Wi‑Fi 중에는 뒤 화면을 다시 그리지 않는다
   fetch("/api/state", {cache:"no-store"})
     .then(function(r){ return r.json(); })
     .then(render)
     .catch(function(){
       // 수집기가 재시작 중일 수 있다. 다음 주기에 다시 시도한다.
-      document.getElementById("status").textContent = "수집기 응답 없음";
+      document.getElementById("status").textContent = t("no_collector");
       document.getElementById("dot").className = "dot bad";
     });
 }
@@ -1049,8 +1248,15 @@ def serve(
     get_wifi=None,
     on_wifi_scan=None,
     on_wifi_connect=None,
+    language="ko",
+    on_set_lang=None,
 ) -> ThreadingHTTPServer | None:
     """상태 페이지를 띄운다. 실패해도 수집은 계속되어야 하므로 None 을 돌려준다."""
+
+    # 첫 화면 언어를 페이지에 새겨 둔다(웹페이지와 같은 4종). 화면에서 바꾸면
+    # JS 가 즉시 다시 그리고 서버에도 남기므로, 다음에 열 때 그 언어로 뜬다.
+    lang = language if language in ("ko", "en", "vi", "id") else "ko"
+    page_bytes = PAGE.replace("__LANG__", lang).encode()
 
     class Handler(BaseHTTPRequestHandler):
         # 기본 로거는 요청마다 stderr 를 채운다. journald 가 지저분해지므로 끈다.
@@ -1075,7 +1281,7 @@ def serve(
             elif self.path == "/api/wifi" and get_wifi is not None:
                 self._send(200, json.dumps(get_wifi()).encode(), "application/json")
             elif self.path in ("/", "/index.html"):
-                self._send(200, PAGE.encode(), "text/html; charset=utf-8")
+                self._send(200, page_bytes, "text/html; charset=utf-8")
             else:
                 self._send(404, b"not found", "text/plain")
 
@@ -1138,6 +1344,12 @@ def serve(
                     return
                 self._send(200, json.dumps(on_wifi_connect(ssid, password)).encode(),
                            "application/json")
+                return
+            if self.path == "/api/lang" and on_set_lang is not None:
+                body = self._body()
+                lang_sel = body.get("lang")
+                ok = on_set_lang(lang_sel) if isinstance(lang_sel, str) else False
+                self._send(200, json.dumps({"ok": bool(ok)}).encode(), "application/json")
                 return
             if self.path == "/api/pair/start" and on_pair_start is not None:
                 on_pair_start()
