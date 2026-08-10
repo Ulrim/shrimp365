@@ -600,6 +600,11 @@ END $$;
 --    CHECK 를 걸기 전에 기존 데이터를 먼저 정리한다. 허용값 밖의 role 이
 --    하나라도 있으면 제약 추가가 통째로 실패하기 때문이다. NULL 이나
 --    예상 밖 값은 기본값인 farmer(양식어가·최소 권한)로 되돌린다.
+-- 예전에 컬럼 인라인으로 붙은 profiles_role_check 가 남아 있으면 farmer 를
+-- 막으므로 함께 지운다(없어도 오류 안 남).
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_valid;
+
 UPDATE public.profiles
 SET role = 'farmer'
 WHERE role IS NULL OR role NOT IN ('admin', 'manager', 'operator', 'viewer', 'farmer');

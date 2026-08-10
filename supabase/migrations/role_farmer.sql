@@ -7,6 +7,11 @@
 -- profiles 에는 이메일이 없으므로 auth.users 와 id 로 이어 판별한다.
 
 -- 1) role 허용값에 'farmer' 를 추가한다. (기존: admin/manager/operator/viewer)
+--    profiles 에는 role 관련 CHECK 가 두 개 있을 수 있다:
+--      · profiles_role_check  — 테이블 만들 때 컬럼에 인라인으로 붙은 원래 제약
+--      · profiles_role_valid  — 이후 마이그레이션에서 따로 추가한 제약
+--    둘 다 지우고 farmer 를 포함한 하나로 다시 만든다(둘 다 없어도 오류 안 남).
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_valid;
 ALTER TABLE public.profiles
   ADD CONSTRAINT profiles_role_valid
