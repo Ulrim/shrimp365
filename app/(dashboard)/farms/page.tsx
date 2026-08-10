@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { MOCK_FARMS, MOCK_TANKS, MOCK_SENSOR_DEVICES, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
-import { getFarms, getTanksByFarm, createFarm, createTank, updateFarm, deleteFarm, updateTank, deleteTank, getSensorDevices, createSensorDevice, deleteSensorDevice, toggleSensorDevice, requestDeviceUpdate } from "@/lib/db"
+import { getFarms, getTanksByFarm, createFarm, createTank, updateFarm, deleteFarm, updateTank, deleteTank, getSensorDevices, deleteSensorDevice, toggleSensorDevice, requestDeviceUpdate } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -36,8 +36,6 @@ import {
   Wifi,
   WifiOff,
   Cpu,
-  Copy,
-  Check,
   ChevronDown,
   ChevronUp,
 } from "lucide-react"
@@ -801,230 +799,6 @@ function DeleteTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => vo
   )
 }
 
-// ─── Register Device Dialog ──────────────────────────────────────────────────
-
-const DEVICE_TYPE_LABELS: Record<SensorDevice["device_type"], string> = {
-  multi:       "다항목 센서 (수온·pH·DO·염도·암모니아 등)",
-  temperature: "수온 전용",
-  ph:          "pH 전용",
-  do:          "용존산소(DO) 전용",
-}
-
-function RegisterDeviceDialog({ tank, onSuccess }: { tank: import("@/types").Tank; onSuccess: () => void }) {
-  const { t } = useT()
-  const [open, setOpen] = useState(false)
-  const [step, setStep] = useState<"form" | "done">("form")
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [copied, setCopied] = useState<"key" | "url" | null>(null)
-  const [createdDevice, setCreatedDevice] = useState<SensorDevice | null>(null)
-  const [form, setForm] = useState({ name: "", device_type: "multi" as SensorDevice["device_type"] })
-
-  const endpointUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/api/sensors/data`
-    : "/api/sensors/data"
-
-  async function handleCopy(text: string, type: "key" | "url") {
-    await navigator.clipboard.writeText(text).catch(() => {})
-    setCopied(type)
-    setTimeout(() => setCopied(null), 2000)
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!form.name.trim()) return
-    setSaving(true)
-    setError(null)
-    try {
-      const device = await createSensorDevice({
-        tank_id: tank.id,
-        name: form.name,
-        device_type: form.device_type,
-      })
-      setCreatedDevice(device)
-      setStep("done")
-      onSuccess()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "등록에 실패했습니다.")
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  function handleClose() {
-    setOpen(false)
-    setTimeout(() => {
-      setStep("form")
-      setError(null)
-      setCreatedDevice(null)
-      setForm({ name: "", device_type: "multi" })
-    }, 200)
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={v => { if (!v) handleClose(); else setOpen(true) }}>
-      <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="h-7 text-xs border-ocean-500/30 text-ocean-500 hover:bg-ocean-500/10 gap-1.5">
-          <Plus className="w-3 h-3" /> 기기 등록
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="bg-card border-border text-foreground max-w-[95vw] sm:max-w-lg w-full">
-        <DialogHeader>
-          <DialogTitle className="text-foreground flex items-center gap-2">
-            <Cpu className="w-5 h-5 text-ocean-500" /> 센서 기기 등록
-          </DialogTitle>
-          <DialogDescription className="text-muted-foreground">
-            {tank.name}
-          </DialogDescription>
-        </DialogHeader>
-
-        {step === "form" ? (
-          <form onSubmit={handleSubmit} className="space-y-4 py-2">
-            {error && (
-              <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
-            )}
-            <div className="space-y-1.5">
-              <Label htmlFor="dev-name" className="text-muted-foreground text-sm">기기 이름 *</Label>
-              <Input
-                id="dev-name"
-                placeholder="예: A-1조 멀티센서"
-                className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
-                value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-muted-foreground text-sm">기기 유형 *</Label>
-              <div className="grid grid-cols-1 gap-2">
-                {(Object.entries(DEVICE_TYPE_LABELS) as [SensorDevice["device_type"], string][]).map(([type, label]) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setForm(f => ({ ...f, device_type: type }))}
-                    className={`text-left px-3 py-2.5 rounded-lg border text-sm transition-all ${
-                      form.device_type === type
-                        ? "border-ocean-500/50 bg-ocean-500/10 text-foreground"
-                        : "border-border bg-muted text-muted-foreground hover:border-border/60"
-                    }`}
-                  >
-                    <span className="font-medium">{label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClose} className="border-border text-muted-foreground w-full sm:w-auto">{t.common.cancel}</Button>
-              <Button type="submit" disabled={saving || !form.name.trim()} className="bg-ocean-500 hover:bg-ocean-600 text-white w-full sm:w-auto">
-                {saving ? t.farms.saving : t.common.add}
-              </Button>
-            </DialogFooter>
-          </form>
-        ) : (
-          <div className="space-y-4 py-2">
-            <div className="flex flex-col items-center gap-2 py-3 text-center">
-              <div className="w-12 h-12 rounded-full bg-emerald-500/15 flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-emerald-500" />
-              </div>
-              <p className="text-foreground font-semibold">기기 등록 완료</p>
-              <p className="text-muted-foreground text-xs">아래 정보를 기기에 설정하세요. API 키는 다시 확인할 수 없습니다.</p>
-            </div>
-
-            {/* Endpoint URL */}
-            <div className="space-y-1.5">
-              <p className="text-xs text-muted-foreground font-medium">API 엔드포인트</p>
-              <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2.5 border border-border">
-                <code className="text-xs text-ocean-500 flex-1 break-all">{endpointUrl}</code>
-                <button onClick={() => handleCopy(endpointUrl, "url")} className="text-muted-foreground hover:text-foreground shrink-0" aria-label="엔드포인트 URL 복사">
-                  {copied === "url" ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-            </div>
-
-            {/* API Key */}
-            <div className="space-y-1.5">
-              <p className="text-xs text-muted-foreground font-medium">X-Device-Key <span className="text-amber-500">(1회만 표시)</span></p>
-              <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2.5 border border-amber-500/30">
-                <code className="text-xs text-amber-500 flex-1 break-all">{createdDevice?.api_key ?? ""}</code>
-                <button onClick={() => handleCopy(createdDevice?.api_key ?? "", "key")} className="text-muted-foreground hover:text-foreground shrink-0" aria-label="API 키 복사">
-                  {copied === "key" ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Raspberry Pi 설정 — RS-485 디지털 센서(MODBUS-RTU)용 */}
-            <details className="group">
-              <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground list-none flex items-center gap-1">
-                <ChevronDown className="w-3.5 h-3.5 group-open:hidden" />
-                <ChevronUp className="w-3.5 h-3.5 hidden group-open:block" />
-                라즈베리파이 설정 보기 (수온·pH·DO·염도)
-              </summary>
-              <pre className="mt-2 text-[10px] text-muted-foreground bg-muted rounded-lg p-3 overflow-x-auto leading-relaxed border border-border">{`# 저장소의 raspberry-pi/ 폴더를 라즈베리파이에 복사한 뒤
-
-sudo apt install -y python3-serial
-sudo mkdir -p /opt/shrimp365 /etc/shrimp365
-sudo cp shrimp365_sensor.py /opt/shrimp365/
-sudo cp config.example.ini /etc/shrimp365/config.ini
-sudo chmod 600 /etc/shrimp365/config.ini
-
-# /etc/shrimp365/config.ini 에 아래 두 줄을 채웁니다
-endpoint   = ${endpointUrl}
-device_key = ${createdDevice?.api_key ?? "<발급받은_키>"}
-
-# 배선 확인 후 한 번 측정해 봅니다
-sudo python3 /opt/shrimp365/shrimp365_sensor.py \\
-  --config /etc/shrimp365/config.ini --once -v
-
-# 정상이면 상시 실행으로 등록합니다
-sudo cp shrimp365-sensor.service /etc/systemd/system/
-sudo systemctl enable --now shrimp365-sensor
-
-# 배선: 빨강 9~24V · 검정 0V · 초록 RS485 A(+) · 노랑 RS485 B(-)
-# 슬레이브 ID: pH=1, DO=3, EC/염도=4 (출고 기본값)`}</pre>
-            </details>
-
-            {/* ESP32 snippet */}
-            <details className="group">
-              <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground list-none flex items-center gap-1">
-                <ChevronDown className="w-3.5 h-3.5 group-open:hidden" />
-                <ChevronUp className="w-3.5 h-3.5 hidden group-open:block" />
-                ESP32 예제 코드 보기
-              </summary>
-              <pre className="mt-2 text-[10px] text-muted-foreground bg-muted rounded-lg p-3 overflow-x-auto leading-relaxed border border-border">{`#include <WiFi.h>
-#include <HTTPClient.h>
-#include <ArduinoJson.h>
-
-const char* ENDPOINT = "${endpointUrl}";
-const char* DEVICE_KEY = "${createdDevice?.api_key ?? "<YOUR_KEY>"}";
-
-void sendReading(float temp, float ph, float doLevel) {
-  HTTPClient http;
-  http.begin(ENDPOINT);
-  http.addHeader("Content-Type", "application/json");
-  http.addHeader("X-Device-Key", DEVICE_KEY);
-
-  StaticJsonDocument<256> doc;
-  doc["temperature"] = temp;
-  doc["ph"] = ph;
-  doc["do_level"] = doLevel;
-
-  String body;
-  serializeJson(doc, body);
-  http.POST(body);
-  http.end();
-}`}</pre>
-            </details>
-
-            <DialogFooter>
-              <Button onClick={handleClose} className="bg-ocean-500 hover:bg-ocean-600 text-white w-full">{t.common.close}</Button>
-            </DialogFooter>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  )
-}
-
 // ─── Device Section ───────────────────────────────────────────────────────────
 
 function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
@@ -1167,7 +941,6 @@ function DeviceSection({ tank }: { tank: import("@/types").Tank }) {
             ))
           )}
           <PairDeviceDialog tank={tank} onSuccess={loadDevices} />
-          <RegisterDeviceDialog tank={tank} onSuccess={loadDevices} />
         </div>
       )}
     </div>
