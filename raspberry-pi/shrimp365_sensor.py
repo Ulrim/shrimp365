@@ -1306,6 +1306,20 @@ def main() -> int:
             if state is not None:
                 state.update(pairing=False, pair_code=None, pair_error=None)
 
+        def unlink_account() -> None:
+            # 계정 연결을 화면에서 끊는다. 지금까지는 SSH 로 설정 파일의
+            # device_key 를 지워야 했는데, 그럴 필요 없이 버튼으로 한다.
+            # 키를 비우고(재부팅해도 유지) 곧바로 새 연결 코드를 띄워, 화면만으로
+            # 다른 계정에 옮겨 붙일 수 있게 한다. 측정은 그대로 계속되고, 못 올린
+            # 값은 보관했다가 새 계정에 연결되면 함께 올라간다.
+            auth["key"] = ""
+            save_device_key(args.config, "")
+            if state is not None:
+                state.update(linked=False, account=None, tank=None, farm=None,
+                             status="계정 연결 해제됨 — 새 코드로 연결하세요")
+            log.info("화면에서 계정 연결을 해제했습니다. 새 연결을 시작합니다.")
+            start_pairing()
+
         # ── 화면에서 센서 설정 고치기 ────────────────────────────────────────
         # 지금까지는 SSH 로 들어가 설정 파일을 고쳐야 했다. 현장에서는 수조
         # 옆에 선 채로 화면만 보고 고칠 수 있어야 한다.
@@ -1425,6 +1439,7 @@ def main() -> int:
             cfg.getint("webui", "port", fallback=8080),
             on_pair_start=start_pairing,
             on_pair_cancel=cancel_pairing,
+            on_unlink=unlink_account,
             history=hist,
             on_scan=ui_scan,
             on_save_sensors=ui_save_sensors,

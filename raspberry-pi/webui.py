@@ -298,6 +298,7 @@ PAGE = """<!doctype html>
 <div id="chart"></div>
 <div id="setup"></div>
 <div id="wifi"></div>
+<div id="account"></div>
 
 <script>
 // 흰다리새우 적정 범위. 화면에서 바로 이상을 알아보기 위한 것으로,
@@ -530,7 +531,10 @@ function drawChart(key, hours, d){
 // 버전이 바뀐 것을 감지하면 스스로 새로고침해 새 UI 를 띄운다.
 var bootVersion = null;
 
+var lastState = null;
+
 function render(d){
+  lastState = d;
   if (d.version) {
     if (bootVersion === null) bootVersion = d.version;
     else if (d.version !== bootVersion) { location.reload(); return; }
@@ -554,11 +558,49 @@ function render(d){
   btn.onclick = d.linked ? showInfo : startPair;
 }
 
-function showInfo(){
-  // 이미 연결된 장비에서 다시 연결하면 기존 기기와 중복된다.
-  // 어디에 붙어 있는지만 알려 주고, 다시 연결은 초기화 절차를 거치게 한다.
-  alert("연결된 계정 정보는 화면 오른쪽 위에 표시됩니다.\\n"
-      + "다른 계정으로 옮기려면 설정 파일의 device_key 를 비우고 재시작하세요.");
+// 연결된 계정을 보여 주고, 화면에서 바로 다른 계정으로 옮길 수 있게 한다.
+// (예전에는 SSH 로 설정 파일을 고쳐야 했다. 소비자는 명령을 쓰지 않는다.)
+var infoOpen = false, infoConfirm = false;
+
+function showInfo(){ infoOpen = true; infoConfirm = false; drawInfo(); }
+function closeInfo(){ infoOpen = false; document.getElementById("account").innerHTML = ""; tick(); }
+function askUnlink(){ infoConfirm = true; drawInfo(); }
+function infoBack(){ infoConfirm = false; drawInfo(); }
+
+function drawInfo(){
+  if (!infoOpen) return;
+  var d = lastState || {};
+  var where = [d.farm, d.tank].filter(Boolean).join(" · ");
+  var body;
+  if (infoConfirm) {
+    body =
+      '<p>지금 계정 연결을 끊고 <b>다른 계정에 새로 연결</b>합니다.<br>' +
+      '측정은 계속되고, 못 올린 값은 보관했다가 새 계정에 함께 올립니다.</p>' +
+      '<div class="ovbtns">' +
+        '<button class="act" onclick="doUnlink()">네, 계정 변경</button>' +
+        '<button class="act ghost" onclick="infoBack()">취소</button>' +
+      '</div>';
+  } else {
+    body =
+      (d.account ? '<p><b>' + esc(d.account) + '</b></p>' : '') +
+      (where ? '<p>' + esc(where) + '</p>' : '') +
+      '<div class="ovbtns">' +
+        '<button class="act" onclick="askUnlink()">계정 변경</button>' +
+        '<button class="act ghost" onclick="closeInfo()">닫기</button>' +
+      '</div>';
+  }
+  document.getElementById("account").innerHTML =
+    '<div class="overlay"><h1>연결된 계정</h1>' + body + '</div>';
+}
+
+function doUnlink(){
+  fetch("/api/unlink", {method:"POST"})
+    .then(function(){
+      infoOpen = false;
+      document.getElementById("account").innerHTML = "";
+      tick();   // 서버가 새 연결 코드를 띄우면 다음 갱신 때 화면에 뜬다
+    })
+    .catch(function(){ infoConfirm = false; drawInfo(); });
 }
 
 function startPair(){ fetch("/api/pair/start", {method:"POST"}).then(tick); }
@@ -994,6 +1036,7 @@ def serve(
     port: int = 8080,
     on_pair_start=None,
     on_pair_cancel=None,
+    on_unlink=None,
     history=None,
     on_scan=None,
     on_save_sensors=None,
@@ -1098,6 +1141,9 @@ def serve(
                 self._send(200, b'{"ok":true}', "application/json")
             elif self.path == "/api/pair/cancel" and on_pair_cancel is not None:
                 on_pair_cancel()
+                self._send(200, b'{"ok":true}', "application/json")
+            elif self.path == "/api/unlink" and on_unlink is not None:
+                on_unlink()
                 self._send(200, b'{"ok":true}', "application/json")
             else:
                 self._send(404, b"not found", "text/plain")
