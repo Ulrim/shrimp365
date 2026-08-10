@@ -61,3 +61,6 @@ next-env.d.ts
 # Python
 __pycache__/
 *.pyc
+
+# 라즈베리파이 터치스크린 미리보기 — make-preview.py 로 생성하는 빌드 산출물
+/kiosk-preview.html
