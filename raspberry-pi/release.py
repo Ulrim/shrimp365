@@ -1,8 +1,9 @@
 """새 장비 버전을 만들고 서명하는 도구. **오너 PC 에서만** 실행한다.
 
-원격 업데이트의 안전은 전적으로 개인키가 오너에게만 있다는 데 달려 있다.
-개인키가 새어 나가면 그 순간부터 누구든 농가 장비에 코드를 심을 수 있다.
-그래서 이 파일은 개인키를 저장소에 쓰지 않고, 홈 디렉터리에 600 으로 둔다.
+원격 업데이트의 안전은 개인키 관리에 달려 있다. 이 프로젝트는 단일 운영자·
+비공개 저장소를 전제로, 개인키를 저장소 안(raspberry-pi/secrets/)에 함께 둔다.
+세션마다 저장소를 새로 clone 하는 자동화 환경에서도 빌드가 되게 하려는 것이다.
+저장소를 공개(public)로 바꾸면 이 키는 반드시 폐기하고 새로 만들어야 한다.
 
     # 처음 한 번 — 열쇠 만들기
     python3 release.py init
@@ -36,7 +37,7 @@ except ImportError:
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 OUT_DIR = REPO / "public" / "updates"
-KEY_PATH = Path.home() / ".shrimp365" / "release-key.pem"
+KEY_PATH = HERE / "secrets" / "release-key.pem"
 
 # 업데이트 꾸러미에 담을 파일. updater.py 의 허용 목록과 같아야 한다.
 # 이미 설치된 장비의 코드만 바꾸는 것이므로 프로그램 파일만 들어간다.
@@ -84,8 +85,8 @@ def cmd_init(args) -> int:
 
     print(f"개인키를 만들었습니다: {KEY_PATH}  (권한 600)")
     print()
-    print("이 PC 밖으로 내보내지 마세요. 저장소에도 올리지 마세요.")
-    print("PC 를 바꾸실 거면 이 파일을 안전하게 옮기시고, 잃어버리면")
+    print("이 키는 비공개 저장소 안(raspberry-pi/secrets/)에 함께 보관됩니다.")
+    print("저장소를 공개로 바꾸면 반드시 새 키로 교체하세요. 키를 잃으면")
     print("현장 장비들은 더 이상 새 업데이트를 받지 못합니다(측정은 계속됩니다).")
     print()
     print("아래 공개키를 raspberry-pi/updater.py 의 RELEASE_PUBLIC_KEY 에 붙여 넣으세요.")

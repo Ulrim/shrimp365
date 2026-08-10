@@ -148,7 +148,7 @@ def ensure_system_files() -> None:
 # release.py --init 로 만든 공개키를 여기에 붙여 넣는다.
 # 개인키는 오너 PC 에만 두고 저장소에 올리지 않는다.
 # 비어 있으면 업데이트를 아예 시도하지 않는다(막힌 채로 두는 편이 안전하다).
-RELEASE_PUBLIC_KEY = ""
+RELEASE_PUBLIC_KEY = "nd//EqamOY3+Kwpite46c1IppbdkOoBw+0z6T3fRpPI="
 
 
 def _load_verifier():

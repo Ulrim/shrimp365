@@ -1,5 +1,5 @@
 {
-  "latest": "1.5.0",
+  "latest": "1.6.0",
   "releases": {
     "1.5.0": {
       "notes": "염도 단위를 퍼밀(‰)로",
@@ -9,6 +9,20 @@
         "sha256": "046552f8ff2e6416d8b7a9d60b96ee047986924079253b4bfd8875057fdaf64b",
         "size": 70919
       }
+    },
+    "1.6.0": {
+      "notes": "Wi‑Fi 설정·버전 표시·계정 변경·원격 업데이트 서명 활성화",
+      "released_at": "2026-08-10",
+      "setup": {
+        "file": "shrimp365-setup-1.6.0.tar.gz",
+        "sha256": "80b7121d8687039d1f0293a80b370677d3b5f461b54f7871ee2621de02f4440c",
+        "size": 82016,
+        "signature": "l7O7EQOEIaqsGlIgudJrgbyd2NHy6do18rNoPqSdMJM204SMuEhmtyIpdE6eQaBwalTRILs0VoYTgpppQqiNCw=="
+      },
+      "file": "shrimp365-agent-1.6.0.tar.gz",
+      "sha256": "ff8db121efecd30ae7e577d3db75366353e6800eac659b3351b12dc73d1f8a42",
+      "size": 51442,
+      "signature": "azMKjSGMNbG0e2wxGhAQBwsOpOsywkgOsX9ThpiHm9Dqq1YI6Hz7jUmefhm86EirPTEsp37iQEpzkAn/oMLTAw=="
     }
   }
 }

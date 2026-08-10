@@ -23,6 +23,9 @@
 # misc
 .DS_Store
 *.pem
+# 업데이트 서명 개인키만 예외로 저장소에 포함한다(단일 운영자·비공개 저장소 전제).
+# 저장소를 공개로 바꾸면 이 키는 폐기하고 새로 만들 것.
+!raspberry-pi/secrets/release-key.pem
 
 # debug
 npm-debug.log*
