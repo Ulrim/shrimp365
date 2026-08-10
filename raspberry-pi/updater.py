@@ -45,7 +45,7 @@ STAGE_DIR = Path("/opt/shrimp365.new")
 
 # 꾸러미에 들어올 수 있는 파일. 이 목록에 없는 것은 풀지 않는다.
 ALLOWED = {
-    "shrimp365_sensor.py", "display.py", "webui.py",
+    "shrimp365_sensor.py", "display.py", "webui.py", "wifi.py",
     "buffer.py", "history.py", "updater.py", "VERSION",
 }
 

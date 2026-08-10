@@ -155,6 +155,57 @@ PAGE = """<!doctype html>
   .msg.ok{background:#10B98118;color:#34D399}
   .msg.err{background:#DC262618;color:#F87171}
 
+  /* Wi‑Fi 화면 — 설정 화면과 같은 틀을 쓴다 */
+  .wrow{
+    display:flex;align-items:center;gap:11px;
+    padding:11px 13px;margin-bottom:6px;cursor:pointer;
+    background:#111A2E;border:1px solid #22304C;border-radius:11px;
+  }
+  .wrow:active{background:#16223C}
+  .wrow.cur{border-color:#10B981;background:#10B98112}
+  .wname{font-size:15px;font-weight:700;flex:1;min-width:0;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wlock{font-size:12px;color:#64748B;flex:0 0 auto}
+  /* 신호 막대 4칸 */
+  .bars{display:flex;align-items:flex-end;gap:2px;height:18px;flex:0 0 auto}
+  .bars i{width:4px;background:#334155;border-radius:1px}
+  .bars i.on{background:#60A5FA}
+  .bars i:nth-child(1){height:6px}
+  .bars i:nth-child(2){height:10px}
+  .bars i:nth-child(3){height:14px}
+  .bars i:nth-child(4){height:18px}
+  .wcur{
+    font-size:13px;color:#94A3B8;line-height:1.6;
+    background:#111A2E;border:1px solid #22304C;border-radius:11px;
+    padding:9px 13px;margin-bottom:8px;
+  }
+  .wcur b{color:#E8EDF7;font-weight:700}
+  /* 비밀번호 입력 + 화면 키보드 */
+  .pwbox{margin-bottom:8px}
+  .pwf{
+    display:flex;align-items:center;gap:8px;
+    background:#0B1120;border:1px solid #2B3A57;border-radius:10px;padding:4px 6px 4px 12px;
+  }
+  .pwf input{
+    flex:1;min-width:0;background:transparent;border:0;outline:0;color:#E8EDF7;
+    font:600 18px/1 ui-monospace,monospace;letter-spacing:2px;padding:10px 0;
+  }
+  .pwf .eye{
+    font:600 12px/1 inherit;padding:9px 11px;border-radius:8px;
+    border:1px solid #22304C;background:transparent;color:#94A3B8;cursor:pointer;flex:0 0 auto;
+  }
+  .kbd{margin-top:8px;display:flex;flex-direction:column;gap:5px}
+  .krow{display:flex;gap:5px;justify-content:center}
+  .kbd button{
+    flex:1 1 0;min-width:0;height:44px;
+    font:700 16px/1 inherit;color:#E8EDF7;
+    background:#16223C;border:1px solid #22304C;border-radius:8px;cursor:pointer;
+  }
+  .kbd button:active{background:#1E40AF}
+  .kbd button.wide{flex:1.6 1 0}
+  .kbd button.go{flex:2 1 0;background:#1E40AF;border-color:#1E40AF;color:#fff}
+  .kbd button.k-shift.on{background:#334155;border-color:#475569}
+
   /* 그래프 화면 */
   .chart{
     position:fixed;inset:0;background:#0B1120;z-index:20;
@@ -234,6 +285,7 @@ PAGE = """<!doctype html>
   <span class="dot" id="dot"></span>
   <span class="status" id="status">시작하는 중…</span>
   <span class="time" id="time"></span>
+  <button class="act ghost" id="wifi-btn" type="button" onclick="openWifi()">Wi‑Fi</button>
   <button class="act ghost" id="settings" type="button" onclick="openSettings()">설정</button>
   <button class="act" id="action" type="button"></button>
 </footer>
@@ -241,6 +293,7 @@ PAGE = """<!doctype html>
 <div id="overlay"></div>
 <div id="chart"></div>
 <div id="setup"></div>
+<div id="wifi"></div>
 
 <script>
 // 흰다리새우 적정 범위. 화면에서 바로 이상을 알아보기 위한 것으로,
@@ -685,8 +738,226 @@ function saveSettings(){
     });
 }
 
+// ── Wi‑Fi ────────────────────────────────────────────────────────────────────
+// 수조 옆에서 화면만 보고 공유기를 바꿔 붙일 수 있게 한다. 키오스크에는
+// 물리 키보드가 없으므로 비밀번호 입력용 화면 키보드를 페이지 안에 둔다.
+var wifiOpen = false, wifiData = null, wifiMsg = null;
+var wifiSel = null, wifiPw = "", wifiShowPw = false, wifiShift = false, wifiLayer = "abc";
+var wifiBusy = false;
+
+function openWifi(){
+  wifiOpen = true; wifiData = null; wifiMsg = {kind:"ok", text:"불러오는 중…"};
+  wifiSel = null; wifiPw = ""; wifiShowPw = false; wifiShift = false; wifiLayer = "abc";
+  drawWifi();
+  loadWifi(true);
+}
+
+function closeWifi(){
+  wifiOpen = false; wifiData = null; wifiSel = null; wifiPw = "";
+  document.getElementById("wifi").innerHTML = "";
+  tick();
+}
+
+function loadWifi(rescan){
+  wifiBusy = true;
+  Promise.all([
+    fetch("/api/wifi", {cache:"no-store"}).then(function(r){ return r.json(); }),
+    fetch("/api/wifi/scan" + (rescan ? "?rescan=1" : ""), {method:"POST"})
+      .then(function(r){ return r.json(); })
+  ]).then(function(res){
+    wifiBusy = false;
+    var st = res[0], sc = res[1];
+    if (st && st.available === false){
+      wifiData = {available:false, reason: st.reason || "Wi‑Fi 를 쓸 수 없습니다."};
+      wifiMsg = null; drawWifi(); return;
+    }
+    wifiData = {
+      available: true,
+      status: st,
+      networks: (sc && sc.networks) || [],
+      scanError: sc && sc.error
+    };
+    wifiMsg = wifiData.networks.length ? null
+      : {kind:"err", text: wifiData.scanError || "주변에 잡히는 Wi‑Fi 가 없습니다."};
+    drawWifi();
+  }).catch(function(){
+    wifiBusy = false;
+    wifiMsg = {kind:"err", text:"Wi‑Fi 정보를 불러오지 못했습니다."};
+    drawWifi();
+  });
+}
+
+function barsHtml(n){
+  var s = "";
+  for (var i = 1; i <= 4; i++) s += '<i class="' + (i <= n ? "on" : "") + '"></i>';
+  return '<span class="bars">' + s + '</span>';
+}
+
+function drawWifi(){
+  if (!wifiOpen) return;
+  var body;
+
+  if (wifiData && wifiData.available === false){
+    body = '<div class="wcur">' + esc(wifiData.reason) + '</div>';
+  } else if (wifiSel){
+    body = drawWifiPassword();
+  } else {
+    body = drawWifiList();
+  }
+
+  document.getElementById("wifi").innerHTML =
+    '<div class="setup">' +
+      '<div class="chead">' +
+        '<span class="ctitle">' + (wifiSel ? esc(wifiSel.ssid) : "Wi‑Fi") + '</span>' +
+        (wifiSel
+          ? '<button style="margin-left:auto" onclick="wifiBack()">‹ 목록</button>'
+          : '<span class="cstats"><span>' +
+              (wifiData && wifiData.status && wifiData.status.ip ? esc(wifiData.status.ip) : "") +
+            '</span></span><button onclick="closeWifi()">닫기</button>') +
+      '</div>' +
+      '<div class="sbody">' + body + '</div>' +
+    '</div>';
+}
+
+function drawWifiList(){
+  var d = wifiData;
+  var cur = "";
+  if (d && d.status && d.status.connected){
+    cur = '<div class="wcur">지금 연결됨 · <b>' + esc(d.status.ssid || "") + '</b>' +
+          (d.status.ip ? ' · ' + esc(d.status.ip) : '') + '</div>';
+  } else if (d && d.status){
+    cur = '<div class="wcur">연결된 Wi‑Fi 가 없습니다.</div>';
+  }
+
+  var msg = wifiMsg ? '<div class="msg ' + wifiMsg.kind + '">' + esc(wifiMsg.text) + '</div>' : "";
+
+  var rows = (d && d.networks ? d.networks : []).map(function(n, i){
+    return '<div class="wrow' + (n.in_use ? " cur" : "") + '" onclick="pickNet(' + i + ')">' +
+      '<span class="wname">' + esc(n.ssid) + '</span>' +
+      (n.secure ? '<span class="wlock">잠금</span>' : '') +
+      barsHtml(n.bars) +
+    '</div>';
+  }).join("");
+
+  var foot = '<div class="ranges sfoot" style="margin-top:8px">' +
+    '<button onclick="loadWifi(true)"' + (wifiBusy ? ' disabled' : '') + '>' +
+      (wifiBusy ? "검색 중…" : "다시 검색") + '</button>' +
+    '</div>';
+
+  return cur + msg + rows + foot;
+}
+
+function pickNet(i){
+  var n = wifiData.networks[i];
+  if (!n) return;
+  if (!n.secure){ wifiSel = n; wifiPw = ""; doConnect(); return; }
+  wifiSel = n; wifiPw = ""; wifiShowPw = false; wifiShift = false; wifiLayer = "abc";
+  wifiMsg = null;
+  drawWifi();
+}
+
+function wifiBack(){
+  wifiSel = null; wifiPw = ""; wifiMsg = null;
+  drawWifi();
+}
+
+var K_ABC = [
+  ["1","2","3","4","5","6","7","8","9","0"],
+  ["q","w","e","r","t","y","u","i","o","p"],
+  ["a","s","d","f","g","h","j","k","l"],
+  ["z","x","c","v","b","n","m"]
+];
+var K_SYM = [
+  ["1","2","3","4","5","6","7","8","9","0"],
+  ["!","@","#","$","%","^","&","*","(",")"],
+  ["-","_","=","+","[","]","{","}",";"],
+  ["~","|",":","'",",",".","?","/","<"]
+];
+
+function drawWifiPassword(){
+  var msg = wifiMsg ? '<div class="msg ' + wifiMsg.kind + '">' + esc(wifiMsg.text) + '</div>' : "";
+
+  var shown = wifiShowPw ? esc(wifiPw) : new Array(wifiPw.length + 1).join("\\u2022");
+  var field =
+    '<div class="pwbox"><div class="pwf">' +
+      '<div style="flex:1;min-width:0;font:600 18px/1 ui-monospace,monospace;' +
+        'letter-spacing:2px;padding:10px 0;color:' + (wifiPw ? "#E8EDF7" : "#475569") + '">' +
+        (wifiPw ? shown : "비밀번호 입력") + '</div>' +
+      '<button class="eye" onclick="wifiTogglePw()">' + (wifiShowPw ? "숨김" : "표시") + '</button>' +
+    '</div></div>';
+
+  var rows = (wifiLayer === "sym" ? K_SYM : K_ABC).map(function(row, ri){
+    var keys = row.map(function(ch, ci){
+      var label = (wifiLayer === "abc" && wifiShift) ? ch.toUpperCase() : ch;
+      // 따옴표·특수문자가 onclick 안에서 깨지지 않게 인덱스로 넘긴다.
+      return '<button onclick="kTap(' + ri + ',' + ci + ')">' + esc(label) + '</button>';
+    }).join("");
+    // 마지막 글자 줄에 Shift(왼쪽)·지움(오른쪽)을 붙인다.
+    if (ri === 3){
+      var shiftBtn = wifiLayer === "abc"
+        ? '<button class="k-shift wide' + (wifiShift ? " on" : "") + '" onclick="kShift()">⇧</button>'
+        : '';
+      return '<div class="krow">' + shiftBtn + keys +
+             '<button class="wide" onclick="kBack()">⌫</button></div>';
+    }
+    return '<div class="krow">' + keys + '</div>';
+  }).join("");
+
+  var bottom =
+    '<div class="krow">' +
+      '<button class="wide" onclick="kLayer()">' + (wifiLayer === "sym" ? "ABC" : "?123") + '</button>' +
+      '<button class="wide" onclick="kSpace()">공백</button>' +
+      '<button class="go" onclick="doConnect()"' + (wifiBusy ? ' disabled' : '') + '>' +
+        (wifiBusy ? "연결 중…" : "연결") + '</button>' +
+    '</div>';
+
+  return msg + field + '<div class="kbd">' + rows + bottom + '</div>';
+}
+
+function kTap(ri, ci){
+  var set = wifiLayer === "sym" ? K_SYM : K_ABC;
+  var ch = set[ri][ci];
+  if (wifiLayer === "abc" && wifiShift) ch = ch.toUpperCase();
+  wifiPw += ch;
+  drawWifi();
+}
+function kBack(){ wifiPw = wifiPw.slice(0, -1); drawWifi(); }
+function kSpace(){ wifiPw += " "; drawWifi(); }
+function kShift(){ wifiShift = !wifiShift; drawWifi(); }
+function kLayer(){ wifiLayer = wifiLayer === "sym" ? "abc" : "sym"; drawWifi(); }
+function wifiTogglePw(){ wifiShowPw = !wifiShowPw; drawWifi(); }
+
+function doConnect(){
+  if (!wifiSel) return;
+  wifiBusy = true;
+  wifiMsg = {kind:"ok", text: esc(wifiSel.ssid) + " 에 연결하는 중… 최대 30초"};
+  drawWifi();
+  fetch("/api/wifi/connect", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ssid: wifiSel.ssid, password: wifiPw})
+  })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      wifiBusy = false;
+      if (d && d.ok){
+        // 연결됐으면 목록으로 돌아가 상태를 새로 읽는다.
+        wifiSel = null; wifiPw = "";
+        wifiMsg = {kind:"ok", text:"연결되었습니다."};
+        loadWifi(false);
+      } else {
+        wifiMsg = {kind:"err", text: (d && d.error) || "연결하지 못했습니다."};
+        drawWifi();
+      }
+    })
+    .catch(function(){
+      wifiBusy = false;
+      wifiMsg = {kind:"err", text:"연결하지 못했습니다."};
+      drawWifi();
+    });
+}
+
 function tick(){
-  if (setupData) return;   // 설정 중에는 뒤 화면을 다시 그리지 않는다
+  if (setupData || wifiOpen) return;   // 설정·Wi‑Fi 중에는 뒤 화면을 다시 그리지 않는다
   fetch("/api/state", {cache:"no-store"})
     .then(function(r){ return r.json(); })
     .then(render)
@@ -714,6 +985,9 @@ def serve(
     on_set_id=None,
     on_auto=None,
     get_sensors=None,
+    get_wifi=None,
+    on_wifi_scan=None,
+    on_wifi_connect=None,
 ) -> ThreadingHTTPServer | None:
     """상태 페이지를 띄운다. 실패해도 수집은 계속되어야 하므로 None 을 돌려준다."""
 
@@ -737,6 +1011,8 @@ def serve(
                 self._history()
             elif self.path == "/api/sensors" and get_sensors is not None:
                 self._send(200, json.dumps(get_sensors()).encode(), "application/json")
+            elif self.path == "/api/wifi" and get_wifi is not None:
+                self._send(200, json.dumps(get_wifi()).encode(), "application/json")
             elif self.path in ("/", "/index.html"):
                 self._send(200, PAGE.encode(), "text/html; charset=utf-8")
             else:
@@ -785,6 +1061,22 @@ def serve(
                                "application/json")
                     return
                 self._send(200, json.dumps(on_set_id(old_id, new_id)).encode(), "application/json")
+                return
+            if self.path.startswith("/api/wifi/scan") and on_wifi_scan is not None:
+                query = parse_qs(urlparse(self.path).query)
+                rescan = (query.get("rescan") or ["0"])[0] not in ("0", "", "false")
+                self._send(200, json.dumps(on_wifi_scan(rescan)).encode(), "application/json")
+                return
+            if self.path == "/api/wifi/connect" and on_wifi_connect is not None:
+                body = self._body()
+                ssid = body.get("ssid")
+                password = body.get("password", "")
+                if not isinstance(ssid, str) or not isinstance(password, str):
+                    self._send(200, json.dumps({"ok": False, "error": "요청이 올바르지 않습니다."}).encode(),
+                               "application/json")
+                    return
+                self._send(200, json.dumps(on_wifi_connect(ssid, password)).encode(),
+                           "application/json")
                 return
             if self.path == "/api/pair/start" and on_pair_start is not None:
                 on_pair_start()

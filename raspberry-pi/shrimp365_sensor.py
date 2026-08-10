@@ -51,6 +51,11 @@ except ImportError:  # pragma: no cover
     webui = None
 
 try:
+    import wifi as wifi_mod
+except ImportError:  # pragma: no cover
+    wifi_mod = None
+
+try:
     import buffer as buffer_mod
 except ImportError:  # pragma: no cover
     buffer_mod = None
@@ -1397,6 +1402,24 @@ def main() -> int:
                 ],
             }
 
+        # ── 화면에서 Wi‑Fi 붙이기 ────────────────────────────────────────────
+        # 무선은 시리얼 선과 무관하므로 자물쇠가 필요 없다. nmcli 가 직접
+        # NetworkManager 와 이야기한다(wifi.py 주석 참고).
+        def ui_wifi_status() -> dict:
+            if wifi_mod is None:
+                return {"available": False, "reason": "이 기기에서 Wi‑Fi 설정을 지원하지 않습니다."}
+            return wifi_mod.status()
+
+        def ui_wifi_scan(rescan: bool = True) -> dict:
+            if wifi_mod is None:
+                return {"available": False, "networks": []}
+            return wifi_mod.scan(rescan)
+
+        def ui_wifi_connect(ssid: str, password: str = "") -> dict:
+            if wifi_mod is None:
+                return {"ok": False, "error": "이 기기에서 Wi‑Fi 설정을 지원하지 않습니다."}
+            return wifi_mod.connect(ssid, password)
+
         webui.serve(
             state,
             cfg.getint("webui", "port", fallback=8080),
@@ -1408,6 +1431,9 @@ def main() -> int:
             on_set_id=ui_set_id,
             on_auto=ui_auto,
             get_sensors=ui_sensors,
+            get_wifi=ui_wifi_status,
+            on_wifi_scan=ui_wifi_scan,
+            on_wifi_connect=ui_wifi_connect,
         )
         state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중")
 

@@ -22,7 +22,10 @@ CONF_DIR=/etc/shrimp365
 CONF="$CONF_DIR/config.ini"
 SERVICE_USER=shrimp365
 
-MODULES=(shrimp365_sensor.py display.py webui.py buffer.py history.py updater.py)
+MODULES=(shrimp365_sensor.py display.py webui.py wifi.py buffer.py history.py updater.py)
+
+# 시스템 파일 — 모듈과 달리 /opt 밖으로 간다. 없으면 설치를 멈춘다.
+POLKIT_RULE=50-shrimp365-nm.rules
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "sudo 로 실행하세요:  sudo ./install.sh" >&2
@@ -31,7 +34,7 @@ fi
 
 UNITS=(shrimp365-sensor.service shrimp365-update.service shrimp365-update.timer)
 
-for f in "${MODULES[@]}" config.example.ini "${UNITS[@]}"; do
+for f in "${MODULES[@]}" config.example.ini "$POLKIT_RULE" "${UNITS[@]}"; do
   if [ ! -f "$SRC/$f" ]; then
     echo "필요한 파일이 없습니다: $f" >&2
     echo "raspberry-pi 폴더 안에서 실행했는지 확인하세요." >&2
@@ -106,6 +109,17 @@ chmod 600 "$CONF"
 # 서비스로 돌 때는 systemd(StateDirectory)가 만들지만, 설치 점검을 위해
 # 손으로 한 번 실행할 때도 필요하므로 여기서 미리 만들어 둔다.
 install -d -m 700 -o "$SERVICE_USER" -g "$SERVICE_USER" /var/lib/shrimp365
+
+# ── 4-b. Wi‑Fi 제어 권한 (polkit) ────────────────────────────────────────────
+# 화면에서 Wi‑Fi 를 바꿔 붙이려면 세션 없는 서비스 사용자에게 NetworkManager
+# 제어를 열어 줘야 한다. NetworkManager 를 쓰는 기기에서만 규칙을 깐다.
+if [ -d /etc/polkit-1/rules.d ]; then
+  echo "==> Wi‑Fi 제어 권한 설정 (polkit)"
+  install -m 644 "$SRC/$POLKIT_RULE" /etc/polkit-1/rules.d/
+else
+  echo "==> polkit 규칙 디렉터리가 없어 Wi‑Fi 권한 설정을 건너뜁니다."
+  echo "    (화면의 Wi‑Fi 조회는 되지만 접속 변경은 안 될 수 있습니다.)"
+fi
 
 # ── 5. 서비스 등록 ───────────────────────────────────────────────────────────
 if [ -d /run/systemd/system ]; then

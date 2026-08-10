@@ -41,14 +41,14 @@ KEY_PATH = Path.home() / ".shrimp365" / "release-key.pem"
 # 업데이트 꾸러미에 담을 파일. updater.py 의 허용 목록과 같아야 한다.
 # 이미 설치된 장비의 코드만 바꾸는 것이므로 프로그램 파일만 들어간다.
 PAYLOAD = [
-    "shrimp365_sensor.py", "display.py", "webui.py",
+    "shrimp365_sensor.py", "display.py", "webui.py", "wifi.py",
     "buffer.py", "history.py", "updater.py",
 ]
 
 # 설치 꾸러미에 담을 파일. 빈 라즈베리파이에 처음 설치할 때 필요한 전부다.
 # 저장소를 받지 않고도(토큰·브랜치 지정 없이) 설치할 수 있게 하려는 것이다.
 SETUP_PAYLOAD = PAYLOAD + [
-    "install.sh", "setup-kiosk.sh", "config.example.ini",
+    "install.sh", "setup-kiosk.sh", "config.example.ini", "50-shrimp365-nm.rules",
     "shrimp365-sensor.service", "shrimp365-update.service", "shrimp365-update.timer",
     "requirements.txt", "README.md", "INSTALL.md",
 ]
