@@ -21,6 +21,7 @@ import {
 import {
   Thermometer, Droplets, Wind, Waves, AlertTriangle,
   CheckCircle2, XCircle, AlertCircle, RefreshCw, Plus, Download, Wifi, Clock,
+  Maximize2, X,
 } from "lucide-react"
 import { exportToCsv } from "@/lib/export"
 import { formatDateTime } from "@/lib/utils"
@@ -155,9 +156,9 @@ function buildCompareData(
     .sort((a, b) => (a.t as number) - (b.t as number))
 }
 
-function SensorCompareChart({ data, names }: { data: Record<string, number | string>[]; names: string[] }) {
+function SensorCompareChart({ data, names, fill = false }: { data: Record<string, number | string>[]; names: string[]; fill?: boolean }) {
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ResponsiveContainer width="100%" height={fill ? "100%" : 260}>
       <LineChart data={data} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={100} />
@@ -248,9 +249,10 @@ interface ChartPanelProps {
   chartLabel: string
   chartColor: string
   unit: string
+  fill?: boolean
 }
 
-function SingleParamChart({ chartData, stdKey, chartLabel, chartColor, unit }: ChartPanelProps) {
+function SingleParamChart({ chartData, stdKey, chartLabel, chartColor, unit, fill = false }: ChartPanelProps) {
   const { t } = useT()
   const std = WATER_QUALITY_STANDARDS[stdKey]
   const yVals = chartData.map(d => d[stdKey as keyof typeof d] as number).filter(Boolean)
@@ -259,7 +261,7 @@ function SingleParamChart({ chartData, stdKey, chartLabel, chartColor, unit }: C
   const yMax = Math.max(std.warning_max + padding * 0.2, ...yVals)
 
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ResponsiveContainer width="100%" height={fill ? "100%" : 260}>
       <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={100} />
@@ -279,10 +281,10 @@ function SingleParamChart({ chartData, stdKey, chartLabel, chartColor, unit }: C
   )
 }
 
-function NitrogenChart({ chartData }: { chartData: ReturnType<typeof buildChartData> }) {
+function NitrogenChart({ chartData, fill = false }: { chartData: ReturnType<typeof buildChartData>; fill?: boolean }) {
   const { t } = useT()
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ResponsiveContainer width="100%" height={fill ? "100%" : 260}>
       <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={100} />
@@ -302,10 +304,10 @@ function NitrogenChart({ chartData }: { chartData: ReturnType<typeof buildChartD
   )
 }
 
-function OverviewChart({ chartData }: { chartData: ReturnType<typeof buildChartData> }) {
+function OverviewChart({ chartData, fill = false }: { chartData: ReturnType<typeof buildChartData>; fill?: boolean }) {
   const { t } = useT()
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ResponsiveContainer width="100%" height={fill ? "100%" : 260}>
       <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={100} />
@@ -355,6 +357,19 @@ export default function WaterQualityPage() {
   const [tankDevices, setTankDevices] = useState<SensorDevice[]>([])
   // 센서별 보기 — null 이면 수조 전체(합산), 값이 있으면 그 센서만.
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
+  // 그래프 전체화면 — 현장에서 벽걸이 모니터나 태블릿으로 크게 볼 때 쓴다.
+  const [fullChart, setFullChart] = useState<null | "main" | "compare">(null)
+
+  useEffect(() => {
+    if (!fullChart) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setFullChart(null) }
+    window.addEventListener("keydown", onKey)
+    document.body.style.overflow = "hidden"   // 뒤 페이지 스크롤 잠금
+    return () => {
+      window.removeEventListener("keydown", onKey)
+      document.body.style.overflow = ""
+    }
+  }, [fullChart])
 
   // Load tanks on mount
   useEffect(() => {
@@ -883,11 +898,13 @@ export default function WaterQualityPage() {
 
           {/* ── Per-Sensor Comparison Chart (센서 2대 이상) ───────────────────── */}
           {activeDevices.length > 1 && (
-            <Card className="bg-card border-border">
-              <CardContent className="p-4">
+            <Card className={fullChart === "compare"
+              ? "fixed inset-0 z-50 bg-card rounded-none border-0 flex flex-col overflow-hidden"
+              : "bg-card border-border"}>
+              <CardContent className={fullChart === "compare" ? "p-4 flex-1 flex flex-col min-h-0" : "p-4"}>
                 <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
                   <p className="text-sm font-medium text-foreground">{t.waterQualityX.sensorCompare}</p>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {PARAM_META.filter(m => ["temperature", "ph", "do_level", "salinity"].includes(m.key)).map(m => (
                       <button
                         key={m.key}
@@ -898,10 +915,20 @@ export default function WaterQualityPage() {
                         {m.label}
                       </button>
                     ))}
+                    <button
+                      onClick={() => setFullChart(fullChart === "compare" ? null : "compare")}
+                      aria-label={fullChart === "compare" ? t.common.close : t.waterQualityX.fullscreen}
+                      title={fullChart === "compare" ? t.common.close : t.waterQualityX.fullscreen}
+                      className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                    >
+                      {fullChart === "compare" ? <X className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
                 {compareData.length > 0 ? (
-                  <SensorCompareChart data={compareData} names={compareNames} />
+                  <div className={fullChart === "compare" ? "flex-1 min-h-0" : ""}>
+                    <SensorCompareChart data={compareData} names={compareNames} fill={fullChart === "compare"} />
+                  </div>
                 ) : (
                   <p className="text-xs text-muted-foreground/70 py-8 text-center">
                     {allReadings.length === 0
@@ -916,20 +943,32 @@ export default function WaterQualityPage() {
           )}
 
           {/* ── Charts ───────────────────────────────────────────────────────── */}
-          <Card className="bg-card border-border">
+          <Card className={fullChart === "main"
+            ? "fixed inset-0 z-50 bg-card rounded-none border-0 flex flex-col overflow-hidden"
+            : "bg-card border-border"}>
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-foreground text-base">
                   {timeRangeLabel(hours)} {t.waterQuality.trend}
                 </CardTitle>
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <RefreshCw className="w-3 h-3" />
-                  {refreshSec >= 60 ? `${refreshSec / 60}${t.waterQuality.autoRefreshMin}` : `${refreshSec}${t.waterQualityX.autoRefreshSec}`}
-                  {lastRefreshed && <span className="opacity-70">· {sinceLabel(lastRefreshed)}</span>}
+                <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <RefreshCw className="w-3 h-3" />
+                    {refreshSec >= 60 ? `${refreshSec / 60}${t.waterQuality.autoRefreshMin}` : `${refreshSec}${t.waterQualityX.autoRefreshSec}`}
+                    {lastRefreshed && <span className="opacity-70">· {sinceLabel(lastRefreshed)}</span>}
+                  </span>
+                  <button
+                    onClick={() => setFullChart(fullChart === "main" ? null : "main")}
+                    aria-label={fullChart === "main" ? t.common.close : t.waterQualityX.fullscreen}
+                    title={fullChart === "main" ? t.common.close : t.waterQualityX.fullscreen}
+                    className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                  >
+                    {fullChart === "main" ? <X className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                  </button>
                 </span>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className={fullChart === "main" ? "flex-1 min-h-0 overflow-auto" : undefined}>
               <Tabs defaultValue="overview">
                 <TabsList className="bg-muted border border-border mb-4 flex-wrap gap-y-1 h-auto min-h-9">
                   <TabsTrigger value="overview"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.tabOverview}</TabsTrigger>
@@ -952,8 +991,9 @@ export default function WaterQualityPage() {
                       <p className="text-sm">{t.waterQualityX.noChartData}</p>
                     </div>
                   ) : (
-                    <div aria-label={t.waterQualityX.overviewChartAria} role="img">
-                      <OverviewChart chartData={chartData} />
+                    <div aria-label={t.waterQualityX.overviewChartAria} role="img"
+                      className={fullChart === "main" ? "h-[calc(100vh-250px)]" : undefined}>
+                      <OverviewChart chartData={chartData} fill={fullChart === "main"} />
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground mt-2 text-center">{t.waterQualityX.overviewCaption}</p>
@@ -966,8 +1006,9 @@ export default function WaterQualityPage() {
                       <p className="text-sm">{t.waterQualityX.noChartData}</p>
                     </div>
                   ) : (
-                    <div aria-label={t.waterQualityX.nitrogenChartAria} role="img">
-                      <NitrogenChart chartData={chartData} />
+                    <div aria-label={t.waterQualityX.nitrogenChartAria} role="img"
+                      className={fullChart === "main" ? "h-[calc(100vh-250px)]" : undefined}>
+                      <NitrogenChart chartData={chartData} fill={fullChart === "main"} />
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground mt-2 text-center">{t.waterQualityX.nitrogenCaption}</p>
@@ -995,13 +1036,15 @@ export default function WaterQualityPage() {
                         <p className="text-sm">{t.waterQualityX.noChartData}</p>
                       </div>
                     ) : (
-                      <div aria-label={t.waterQualityX.trendChartAria.replace("{{label}}", chartLabel)} role="img">
+                      <div aria-label={t.waterQualityX.trendChartAria.replace("{{label}}", chartLabel)} role="img"
+                        className={fullChart === "main" ? "h-[calc(100vh-280px)]" : undefined}>
                         <SingleParamChart
                           chartData={chartData}
                           stdKey={stdKey}
                           chartLabel={chartLabel}
                           chartColor={chartColor}
                           unit={unit}
+                          fill={fullChart === "main"}
                         />
                       </div>
                     )}

@@ -1228,6 +1228,7 @@ export const ko: Dict = {
     noSensorHistory: "센서별로 구분된 기록이 아직 없습니다. (DB 마이그레이션 실행 후 새로 쌓이는 값부터 센서별로 비교됩니다.)",
     noSensorTagAll: "기록은 있는데 센서 표시(device_id)가 붙어 있지 않습니다. DB 마이그레이션 실행 여부와, SQL Editor 에서 NOTIFY pgrst, 'reload schema'; 실행 후 새로고침해 보세요.",
     sensorTagMismatch: "센서 표시가 붙은 기록은 있지만 이 수조의 현재 센서와 일치하지 않습니다. 센서를 다시 연결했다면 새 기록이 쌓일 때까지 잠시 기다려 주세요.",
+    fullscreen: "전체화면",
     noValuesYet: "아직 수신된 값이 없습니다",
     noChartData: "표시할 데이터가 없습니다.",
     noDataHint: "수질 데이터를 입력하거나 센서를 연결해 주세요.",

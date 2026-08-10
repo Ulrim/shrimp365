@@ -1116,6 +1116,7 @@ export interface Dict {
     noSensorHistory: string
     noSensorTagAll: string
     sensorTagMismatch: string
+    fullscreen: string
     noValuesYet: string
     noChartData: string
     noDataHint: string

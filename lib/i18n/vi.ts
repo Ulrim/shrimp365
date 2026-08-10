@@ -1228,6 +1228,7 @@ export const vi: Dict = {
     noSensorHistory: "Chưa có bản ghi theo từng cảm biến. (Sau khi chạy di trú CSDL, các giá trị mới thu thập sẽ so sánh được theo cảm biến.)",
     noSensorTagAll: "Có bản ghi nhưng không gắn nhãn cảm biến (device_id). Hãy kiểm tra di trú CSDL đã chạy chưa, rồi chạy NOTIFY pgrst, 'reload schema'; trong SQL Editor và tải lại trang.",
     sensorTagMismatch: "Có bản ghi gắn nhãn nhưng không khớp với cảm biến hiện tại của bể. Nếu bạn vừa kết nối lại cảm biến, hãy chờ bản ghi mới tích lũy.",
+    fullscreen: "Toàn màn hình",
     noValuesYet: "Chưa nhận được giá trị nào",
     noChartData: "Không có dữ liệu để hiển thị.",
     noDataHint: "Nhập dữ liệu chất lượng nước hoặc kết nối cảm biến.",

@@ -1228,6 +1228,7 @@ export const id: Dict = {
     noSensorHistory: "Belum ada catatan per sensor. (Setelah migrasi DB dijalankan, nilai baru yang terkumpul dapat dibandingkan per sensor.)",
     noSensorTagAll: "Catatan ada tetapi tanpa penanda sensor (device_id). Pastikan migrasi DB sudah dijalankan, lalu jalankan NOTIFY pgrst, 'reload schema'; di SQL Editor dan muat ulang.",
     sensorTagMismatch: "Catatan bertanda ada tetapi tidak cocok dengan sensor kolam ini. Jika sensor baru dipasangkan ulang, tunggu catatan baru terkumpul.",
+    fullscreen: "Layar penuh",
     noValuesYet: "Belum ada nilai yang diterima",
     noChartData: "Tidak ada data untuk ditampilkan.",
     noDataHint: "Masukkan data kualitas air atau hubungkan sensor.",
