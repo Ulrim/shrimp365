@@ -80,6 +80,7 @@ PAGE = """<!doctype html>
   .mark{width:24px;height:24px;border-radius:6px;background:#1E40AF;
     display:flex;align-items:center;justify-content:center;flex:0 0 auto}
   .brand{font-weight:800;letter-spacing:-.02em;font-size:16px}
+  .ver{font-size:11px;color:#64748B;font-weight:600;flex:0 0 auto}
   .link{
     margin-left:auto;display:flex;align-items:center;gap:7px;
     font-size:13px;color:#94A3B8;min-width:0;
@@ -278,6 +279,7 @@ PAGE = """<!doctype html>
     </svg>
   </span>
   <span class="brand">Shrimp365</span>
+  <span class="ver" id="ver"></span>
   <span class="link" id="link"></span>
 </header>
 
@@ -534,6 +536,7 @@ function render(d){
     else if (d.version !== bootVersion) { location.reload(); return; }
   }
   document.getElementById("link").innerHTML = renderLink(d);
+  document.getElementById("ver").textContent = d.version ? "v" + d.version : "";
   // 그래프를 보고 있는 중에는 뒤 화면을 다시 그리지 않는다.
   // 3초마다 갱신하면 조작 중에 깜빡이고 눌림이 씹힌다.
   if (!chartKey) document.getElementById("main").innerHTML = renderValues(d);
@@ -606,7 +609,8 @@ function drawSettings(){
     '<div class="setup">' +
       '<div class="chead">' +
         '<span class="ctitle">센서 설정</span>' +
-        '<span class="cstats"><span>' + (d.port || "") + '</span></span>' +
+        '<span class="cstats"><span>' + (d.port || "") + '</span>' +
+          '<span>버전 ' + (bootVersion || "확인 중") + '</span></span>' +
         '<button onclick="closeSettings()">닫기</button>' +
       '</div>' +
       '<div class="sbody">' +
