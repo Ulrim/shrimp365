@@ -257,6 +257,7 @@ export default function DashboardPage() {
                   <select
                     value={selectedTankId}
                     onChange={e => setSelectedTankId(e.target.value)}
+                    aria-label={t.reports.selectTank}
                     className="bg-muted border border-border rounded-lg px-2 py-1 text-foreground text-sm focus:outline-none focus:border-ocean-500 max-w-[180px] sm:max-w-none"
                   >
                     {tanks.map(tk => <option key={tk.id} value={tk.id}>{tk.name}</option>)}

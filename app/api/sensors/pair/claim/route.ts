@@ -6,12 +6,22 @@ import { createAdminClient } from "@/lib/supabase-server"
 // 이 승인이 있어야만 장비가 기기 키를 받을 수 있다.
 
 // 코드는 6자리(100만 가지)라 무차별 대입을 반드시 막아야 한다.
+// 사용자당 제한만으로는 계정 여러 개로 병렬 추측이 가능하므로,
+// 전역(프로세스 전체) 제한을 한 겹 더 둔다.
 const CLAIM_WINDOW_MS = 10 * 60_000
-const CLAIM_MAX_ATTEMPTS = 10 // 사용자당 10분에 10회
+const CLAIM_MAX_ATTEMPTS = 10   // 사용자당 10분에 10회
+const CLAIM_GLOBAL_MAX = 60     // 전체 합산 10분에 60회 — 정상 사용엔 넉넉, 병렬 대입엔 벽
 const attempts = new Map<string, { count: number; windowStart: number }>()
+let globalWindow = { count: 0, windowStart: 0 }
 
 function tooManyAttempts(userId: string): boolean {
   const now = Date.now()
+  if (now - globalWindow.windowStart > CLAIM_WINDOW_MS) {
+    globalWindow = { count: 0, windowStart: now }
+  }
+  globalWindow.count++
+  if (globalWindow.count > CLAIM_GLOBAL_MAX) return true
+
   const entry = attempts.get(userId)
   if (!entry || now - entry.windowStart > CLAIM_WINDOW_MS) {
     attempts.set(userId, { count: 1, windowStart: now })

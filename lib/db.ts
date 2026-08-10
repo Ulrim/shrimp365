@@ -596,6 +596,21 @@ function toSensorDevice(d: DbSensorDevice): SensorDevice {
  *  기기는 다음 확인 때(하루 한 번) 이 값을 보고 받아 간다.
  *  null 을 주면 승인을 거둬들인다 — 아직 안 받아 갔다면 취소된다. */
 export async function requestDeviceUpdate(id: string, version: string | null): Promise<SensorDevice> {
+  // 다운그레이드 승인 방지 — 장비는 현재보다 높지 않은 버전을 거부하므로
+  // (updater.py), 낮거나 같은 버전을 승인해 두면 장비가 매번 거부하고
+  // 승인이 영영 소비되지 않는 상태로 남는다. 여기서 미리 막는다.
+  if (version) {
+    const { data: dev } = await supabase
+      .from("sensor_devices").select("agent_version").eq("id", id).single()
+    const cur = dev?.agent_version as string | null | undefined
+    const parse = (v: string) => v.split(".").map(Number)
+    if (cur && /^\d+\.\d+\.\d+$/.test(cur) && /^\d+\.\d+\.\d+$/.test(version)) {
+      const [a, b] = [parse(version), parse(cur)]
+      const newer = a[0] !== b[0] ? a[0] > b[0] : a[1] !== b[1] ? a[1] > b[1] : a[2] > b[2]
+      if (!newer) throw new Error(`현재 버전(${cur})보다 높은 버전만 승인할 수 있습니다.`)
+    }
+  }
+
   const { data, error } = await supabase
     .from("sensor_devices")
     .update({

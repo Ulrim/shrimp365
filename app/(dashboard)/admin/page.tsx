@@ -156,8 +156,12 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!user) return
-    // 권한 없는 일반 사용자는 대시보드로
-    if (!isTestAccount(user.email) && user.role !== "admin") {
+    // 권한 없는 일반 사용자는 대시보드로.
+    // 오너는 이메일로도 인정한다 — 서버(admin/stats)와 같은 기준. role 이
+    // 어쩌다 farmer 로 바뀌어도 오너가 이 화면에서 잠기지 않게 한다.
+    const ownerEmail = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || "kjs100184@gmail.com").toLowerCase()
+    const isOwner = (user.email || "").toLowerCase() === ownerEmail
+    if (!isTestAccount(user.email) && user.role !== "admin" && !isOwner) {
       router.replace("/dashboard")
       return
     }
