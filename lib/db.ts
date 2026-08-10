@@ -181,9 +181,42 @@ export async function deleteTank(id: string) {
 // WATER QUALITY
 // ─────────────────────────────────────────────
 // deviceId 를 주면 그 센서(기기)가 잰 값만 돌려준다. 없으면 수조 전체(합산).
-export async function getWaterQuality(tankId: string, hours = 168, deviceId?: string | null): Promise<WaterQualityReading[]> {
-  const since = new Date(Date.now() - hours * 3_600_000).toISOString()
+//
+// Supabase API 는 요청당 최대 1,000행만 준다. 센서 여러 대가 분 단위로 올리면
+// 7일치는 수만 행이라, 예전처럼 "오래된 순 + 상한" 으로 받으면 화면이
+// 가장 오래된 일부만 보게 된다(최신 값·센서 표시가 영영 안 보이는 버그).
+// 그래서 ① DB 함수 wq_series(구간 평균으로 압축, 전 구간 커버)를 먼저 쓰고,
+// ② 함수가 아직 없으면(마이그레이션 전) 최신 순으로 1,000행을 받아 뒤집는다
+//    — 이 경우 구간이 길면 최근 것부터 보이는 게 옳다.
+type WqSeriesRow = {
+  recorded_at: string; device_id: string | null
+  temperature: number | null; ph: number | null; do_level: number | null
+  salinity: number | null; ammonia: number | null; nitrite: number | null
+  nitrate: number | null; alkalinity: number | null; turbidity: number | null
+}
 
+export async function getWaterQuality(tankId: string, hours = 168, deviceId?: string | null): Promise<WaterQualityReading[]> {
+  // ① 구간 평균 시리즈 (전 구간 커버, 행 수 상한 안전)
+  const { data: series, error: rpcError } = await supabase.rpc("wq_series", {
+    p_tank: tankId,
+    p_hours: hours,
+    p_device: deviceId ?? null,
+  })
+  if (!rpcError && Array.isArray(series)) {
+    return (series as WqSeriesRow[]).map(r => toWaterQuality({
+      id: `${r.recorded_at}:${r.device_id ?? "manual"}`,
+      tank_id: tankId,
+      device_id: r.device_id,
+      temperature: r.temperature, ph: r.ph, do_level: r.do_level,
+      salinity: r.salinity, ammonia: r.ammonia, nitrite: r.nitrite,
+      nitrate: r.nitrate, alkalinity: r.alkalinity, turbidity: r.turbidity,
+      recorded_at: r.recorded_at,
+      created_at: r.recorded_at,
+    }))
+  }
+
+  // ② 폴백 — 최신 순 1,000행을 받아 시간순으로 뒤집는다.
+  const since = new Date(Date.now() - hours * 3_600_000).toISOString()
   let query = supabase
     .from("water_quality_readings")
     .select("*")
@@ -191,10 +224,10 @@ export async function getWaterQuality(tankId: string, hours = 168, deviceId?: st
     .gte("recorded_at", since)
   if (deviceId) query = query.eq("device_id", deviceId)
 
-  const { data, error } = await query.order("recorded_at", { ascending: true })
+  const { data, error } = await query.order("recorded_at", { ascending: false }).limit(1000)
 
   if (error) throw error
-  return (data || []).map(toWaterQuality)
+  return (data || []).map(toWaterQuality).reverse()
 }
 
 export async function getLatestWaterQuality(tankId: string, deviceId?: string | null): Promise<WaterQualityReading | null> {
