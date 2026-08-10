@@ -1334,8 +1334,7 @@ function DeviceUpdate({
 
       {pending && (
         <p className="text-[10px] text-muted-foreground leading-relaxed">
-          장비가 5분마다 확인해 자동으로 적용합니다. 더 빨리 하려면 장비에서{" "}
-          <code className="font-mono">sudo systemctl start shrimp365-update</code>
+          장비가 5분마다 확인해 자동으로 적용합니다.
         </p>
       )}
 
