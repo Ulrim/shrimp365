@@ -440,14 +440,19 @@ def run(config_path: Path, dry_run: bool) -> int:
         log.info("아직 계정에 연결되지 않았습니다. 업데이트를 건너뜁니다.")
         return 0
 
-    verifier = _load_verifier()
-    if verifier is None:
-        return 0
-
     here = current_version()
     log.info("현재 버전 %s — 승인된 업데이트를 확인합니다.", here)
 
+    # 버전 보고(ask_server)는 서명 검증보다 먼저 한다. 공개키가 아직 없는
+    # 기기라도 웹에서 현재 버전은 보여야 한다. 예전에는 verifier 가 없으면
+    # 여기서 바로 끝나 버려, 서명 안 된 기기는 버전조차 올리지 못했다.
     target = ask_server(settings["base"], settings["device_key"], here)
+
+    verifier = _load_verifier()
+    if verifier is None:
+        log.warning("서명 공개키가 없어 버전만 보고하고 업데이트는 건너뜁니다.")
+        return 0
+
     if not target:
         log.info("승인된 업데이트가 없습니다.")
         return 0

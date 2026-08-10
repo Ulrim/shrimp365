@@ -1,5 +1,5 @@
 {
-  "latest": "1.6.0",
+  "latest": "1.6.1",
   "releases": {
     "1.5.0": {
       "notes": "염도 단위를 퍼밀(‰)로",
@@ -23,6 +23,20 @@
       "sha256": "ff8db121efecd30ae7e577d3db75366353e6800eac659b3351b12dc73d1f8a42",
       "size": 51442,
       "signature": "azMKjSGMNbG0e2wxGhAQBwsOpOsywkgOsX9ThpiHm9Dqq1YI6Hz7jUmefhm86EirPTEsp37iQEpzkAn/oMLTAw=="
+    },
+    "1.6.1": {
+      "notes": "현장 기기 자동 업데이트 확인용 + 공개키 없이도 버전 보고하도록 수정",
+      "released_at": "2026-08-10",
+      "setup": {
+        "file": "shrimp365-setup-1.6.1.tar.gz",
+        "sha256": "d004fa8747240dfd6d016ea750f5a01d0cbb2659fda3f594dc231ac5a3d0027a",
+        "size": 82119,
+        "signature": "r1fYgYfJtmhQDFfUoPMJBmAGNC6XVix/riEep/iOI3Bjq5Qxa9Xp8voJP49dNjavrl4r4juJR9wa7+z0Lm7zBQ=="
+      },
+      "file": "shrimp365-agent-1.6.1.tar.gz",
+      "sha256": "7e02a2e55f998ac4ca2e13f5c08ba106794ea66f8bac28c6f42fa572d52519eb",
+      "size": 51555,
+      "signature": "qiNRChNWs93LzE/miZ0zxaYJVwvR5k+NcDzUoveboIXdkgG6AnGo6esvIncBxy/dMcf8SuHgwy20/vsdkWmvAA=="
     }
   }
 }

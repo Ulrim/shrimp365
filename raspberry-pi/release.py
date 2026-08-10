@@ -8,7 +8,7 @@
     # 처음 한 번 — 열쇠 만들기
     python3 release.py init
 
-    # 새 버전 낼 때마다
+    # 새 버전 낼 때마다 (버전은 직전 버전에서 +0.0.1 씩 올린다 — 오너 지침)
     python3 release.py build 1.1.0
     git add public/updates && git commit && git push
 
