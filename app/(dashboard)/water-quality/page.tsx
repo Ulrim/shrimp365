@@ -803,8 +803,8 @@ export default function WaterQualityPage() {
             </Card>
           )}
 
-          {/* ── Per-Sensor Current Values (한 수조에 센서가 2대 이상일 때) ────── */}
-          {tankDevices.filter(d => d.active).length > 1 && (
+          {/* ── Per-Sensor Current Values — 센서가 1대여도 어느 센서 값인지 보이게 한다 ── */}
+          {tankDevices.filter(d => d.active).length >= 1 && (
             <Card className="bg-card border-border">
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground mb-3 font-medium">
