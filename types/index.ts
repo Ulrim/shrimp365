@@ -39,6 +39,7 @@ export interface Tank {
 export interface WaterQualityReading {
   id: string
   tank_id: string
+  device_id?: string | null   // 어느 센서(기기)가 잰 값인지. 예전 기록은 null.
   temperature: number
   ph: number
   do_level: number

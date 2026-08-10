@@ -279,6 +279,8 @@ export default function WaterQualityPage() {
 
   // Sensor devices for selected tank
   const [tankDevices, setTankDevices] = useState<SensorDevice[]>([])
+  // 센서별 보기 — null 이면 수조 전체(합산), 값이 있으면 그 센서만.
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
 
   // Load tanks on mount
   useEffect(() => {
@@ -324,8 +326,8 @@ export default function WaterQualityPage() {
     }
     try {
       const [dbReadings, dbLatest] = await Promise.all([
-        getWaterQuality(tankId, hours),
-        getLatestWaterQuality(tankId),
+        getWaterQuality(tankId, hours, selectedDeviceId),
+        getLatestWaterQuality(tankId, selectedDeviceId),
       ])
       setReadings(dbReadings)
       setLatest(dbLatest)
@@ -339,7 +341,10 @@ export default function WaterQualityPage() {
     } catch { } finally {
       setIsLoading(false)
     }
-  }, [user?.email, hours])
+  }, [user?.email, hours, selectedDeviceId])
+
+  // 수조를 바꾸면 센서 필터는 '수조 전체'로 되돌린다.
+  useEffect(() => { setSelectedDeviceId(null) }, [selectedTankId])
 
   useEffect(() => {
     if (selectedTankId) loadTankData(selectedTankId)
@@ -659,6 +664,31 @@ export default function WaterQualityPage() {
                     <CheckCircle2 className="w-4 h-4" />
                   </button>
                 </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Sensor selector (한 수조에 센서가 2대 이상일 때) ──────────────── */}
+          {tankDevices.filter(d => d.active).length > 1 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground mr-1 shrink-0">센서별 보기</span>
+              <button
+                onClick={() => setSelectedDeviceId(null)}
+                className={"px-3 py-1.5 rounded-full border text-xs font-medium transition-colors " +
+                  (selectedDeviceId === null ? "bg-ocean-600 text-white border-ocean-600" : "bg-card text-muted-foreground border-border hover:bg-accent")}
+              >
+                수조 전체
+              </button>
+              {tankDevices.filter(d => d.active).map(dev => (
+                <button
+                  key={dev.id}
+                  onClick={() => setSelectedDeviceId(dev.id)}
+                  className={"px-3 py-1.5 rounded-full border text-xs font-medium transition-colors max-w-[160px] truncate " +
+                    (selectedDeviceId === dev.id ? "bg-ocean-600 text-white border-ocean-600" : "bg-card text-muted-foreground border-border hover:bg-accent")}
+                  title={dev.name}
+                >
+                  {dev.name}
+                </button>
               ))}
             </div>
           )}

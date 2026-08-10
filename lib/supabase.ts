@@ -43,6 +43,7 @@ export type DbTank = {
 export type DbWaterQuality = {
   id: string
   tank_id: string
+  device_id?: string | null
   temperature: number | null
   ph: number | null
   do_level: number | null

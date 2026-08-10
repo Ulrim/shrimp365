@@ -31,6 +31,7 @@ function toWaterQuality(w: DbWaterQuality): WaterQualityReading {
   return {
     id: w.id,
     tank_id: w.tank_id,
+    device_id: w.device_id ?? null,
     temperature: w.temperature ?? 0,
     ph: w.ph ?? 0,
     do_level: w.do_level ?? 0,
@@ -179,25 +180,31 @@ export async function deleteTank(id: string) {
 // ─────────────────────────────────────────────
 // WATER QUALITY
 // ─────────────────────────────────────────────
-export async function getWaterQuality(tankId: string, hours = 168): Promise<WaterQualityReading[]> {
+// deviceId 를 주면 그 센서(기기)가 잰 값만 돌려준다. 없으면 수조 전체(합산).
+export async function getWaterQuality(tankId: string, hours = 168, deviceId?: string | null): Promise<WaterQualityReading[]> {
   const since = new Date(Date.now() - hours * 3_600_000).toISOString()
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("water_quality_readings")
     .select("*")
     .eq("tank_id", tankId)
     .gte("recorded_at", since)
-    .order("recorded_at", { ascending: true })
+  if (deviceId) query = query.eq("device_id", deviceId)
+
+  const { data, error } = await query.order("recorded_at", { ascending: true })
 
   if (error) throw error
   return (data || []).map(toWaterQuality)
 }
 
-export async function getLatestWaterQuality(tankId: string): Promise<WaterQualityReading | null> {
-  const { data, error } = await supabase
+export async function getLatestWaterQuality(tankId: string, deviceId?: string | null): Promise<WaterQualityReading | null> {
+  let query = supabase
     .from("water_quality_readings")
     .select("*")
     .eq("tank_id", tankId)
+  if (deviceId) query = query.eq("device_id", deviceId)
+
+  const { data, error } = await query
     .order("recorded_at", { ascending: false })
     .limit(1)
     .single()

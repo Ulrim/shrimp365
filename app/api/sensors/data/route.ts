@@ -186,15 +186,23 @@ export async function POST(req: NextRequest) {
   }
 
   // 3. water_quality_readings 삽입
-  const { data: reading, error: insertError } = await supabaseAdmin
+  //    device_id 로 "어느 센서가 잰 값인지" 를 남긴다. 마이그레이션 전이라
+  //    컬럼이 없으면 그 컬럼만 빼고 다시 저장한다(측정은 절대 멈추면 안 된다).
+  const baseRow = { tank_id: device.tank_id, ...values, recorded_at: recordedAt }
+  let { data: reading, error: insertError } = await supabaseAdmin
     .from("water_quality_readings")
-    .insert({
-      tank_id: device.tank_id,
-      ...values,
-      recorded_at: recordedAt,
-    })
+    .insert({ ...baseRow, device_id: device.id })
     .select()
     .single()
+
+  if (insertError && /device_id|column/i.test(insertError.message || "")) {
+    console.warn("[sensors/data] device_id 컬럼 없음 — 없이 저장(마이그레이션 필요)")
+    ;({ data: reading, error: insertError } = await supabaseAdmin
+      .from("water_quality_readings")
+      .insert(baseRow)
+      .select()
+      .single())
+  }
 
   if (insertError) {
     console.error("[sensors/data] insert error:", insertError)
