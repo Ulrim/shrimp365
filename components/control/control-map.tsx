@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import type { Map as LeafletMap } from "leaflet"
+import "leaflet/dist/leaflet.css"
 
 export type ControlFarm = {
   id: string
@@ -82,7 +83,6 @@ export function ControlMap({ farms, height = 420 }: { farms: ControlFarm[]; heig
 
     ;(async () => {
       const L = (await import("leaflet")).default
-      await import("leaflet/dist/leaflet.css")
       if (!alive || !holder.current) return
       if (map.current) { map.current.remove(); map.current = null }
 

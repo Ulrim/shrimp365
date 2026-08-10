@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import type { Map as LeafletMap } from "leaflet"
+import "leaflet/dist/leaflet.css"
 import { MapPin } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -63,8 +64,6 @@ export function FarmMap({ farms, tanks }: { farms: Farm[]; tanks: Tank[] }) {
 
     ;(async () => {
       const L = (await import("leaflet")).default
-      // CSS 도 함께 가져온다. 없으면 타일이 어긋나 붙는다.
-      await import("leaflet/dist/leaflet.css")
       if (!alive || !holder.current) return
 
       // Strict Mode 가 effect 를 두 번 부르면 같은 자리에 두 번 만들어 터진다.
