@@ -74,6 +74,16 @@ SCAN = [
 ]
 AUTO = {"assign": {"ph": 1, "do": 5, "ec": 4}, "conflicts": {}, "others": [], "missing": []}
 
+# Wi‑Fi 미리보기 — 실제 장비는 nmcli 로 주변을 훑지만, 여기서는 고정 목록으로
+# 화면 흐름(검색 → 선택 → 화면 키보드 → 연결)을 그대로 눌러 볼 수 있게 한다.
+WIFI_NETWORKS = [
+    {"ssid": "CULIVER-FARM", "signal": 88, "bars": 4, "secure": True, "in_use": True},
+    {"ssid": "iptime5G_2F", "signal": 66, "bars": 3, "secure": True, "in_use": False},
+    {"ssid": "SmartFarm_Guest", "signal": 40, "bars": 2, "secure": False, "in_use": False},
+    {"ssid": "KT_GiGA_A1B2", "signal": 22, "bars": 1, "secure": True, "in_use": False},
+]
+WIFI_START = "CULIVER-FARM"  # 처음 연결돼 있는 곳. [연결] 을 누르면 바뀐다.
+
 
 def series(field: str) -> dict:
     """그래프용 가짜 이력. 하루 주기로 오르내리게 만든다."""
@@ -124,6 +134,7 @@ MOCK = """
 <script>
 var STATES = __STATES__, HIST = __HIST__, SENSORS = __SENSORS__;
 var SCAN = __SCAN__, AUTO = __AUTO__;
+var WIFI_NETWORKS = __WIFI_NETWORKS__, wifiCur = __WIFI_START__;
 var current = 0;
 
 // 장비의 화면 코드는 그대로 두고 fetch 만 가로챈다.
@@ -139,6 +150,20 @@ window.fetch = function(url, opts){
   else if (url.indexOf("/api/sensors/auto") === 0) body = AUTO;
   else if (url.indexOf("/api/sensors/save") === 0) body = {ok:true, saved:true};
   else if (url.indexOf("/api/sensors") === 0) body = JSON.parse(JSON.stringify(SENSORS));
+  // Wi‑Fi — 더 구체적인 경로(scan·connect)를 먼저 본다.
+  else if (url.indexOf("/api/wifi/scan") === 0) {
+    body = {available:true, networks: WIFI_NETWORKS.map(function(n){
+      return {ssid:n.ssid, signal:n.signal, bars:n.bars, secure:n.secure, in_use:(n.ssid === wifiCur)};
+    })};
+  }
+  else if (url.indexOf("/api/wifi/connect") === 0) {
+    try { var b = JSON.parse((opts && opts.body) || "{}"); if (b.ssid) wifiCur = b.ssid; } catch(e){}
+    body = {ok:true};
+  }
+  else if (url.indexOf("/api/wifi") === 0) {
+    body = {available:true, device:"wlan0", radio:true,
+            connected:!!wifiCur, ssid:wifiCur, ip: wifiCur ? "192.168.0.42" : null};
+  }
   else body = {ok:true};
   return Promise.resolve({ ok:true, json: function(){ return Promise.resolve(body); } });
 };
@@ -148,6 +173,7 @@ window.addEventListener("message", function(e){
     current = e.data.state;
     if (typeof closeSettings === "function") closeSettings();
     if (typeof closeChart === "function") closeChart();
+    if (typeof closeWifi === "function") closeWifi();
     tick();
   }
 });
@@ -162,7 +188,9 @@ def main() -> int:
             .replace("__HIST__", json.dumps(HIST))
             .replace("__SENSORS__", json.dumps(SENSORS, ensure_ascii=False))
             .replace("__SCAN__", json.dumps(SCAN, ensure_ascii=False))
-            .replace("__AUTO__", json.dumps(AUTO, ensure_ascii=False)))
+            .replace("__AUTO__", json.dumps(AUTO, ensure_ascii=False))
+            .replace("__WIFI_NETWORKS__", json.dumps(WIFI_NETWORKS, ensure_ascii=False))
+            .replace("__WIFI_START__", json.dumps(WIFI_START, ensure_ascii=False)))
     # 가짜 fetch 를 화면 스크립트보다 먼저 심는다.
     device = page.replace("<script>", mock + "<script>", 1)
 
@@ -188,7 +216,7 @@ def main() -> int:
   녹색 띠가 적정 범위입니다(흰다리새우 기준).<br>
   <b>오른쪽 아래 [설정]</b> — 슬레이브 ID·측정 주기를 손가락으로 고칩니다.
   <b>[자동 배치]</b> 는 꽂아 둔 센서를 훑어 값이 나오는 자리를 그대로 배정합니다(이 미리보기에선 용존산소가 3→5로 바뀝니다).<br>
-  <b>[Wi‑Fi]</b> — 주변 공유기를 검색해 화면 키보드로 비밀번호를 넣고 붙입니다(실제 장비에서만 동작합니다).<br>
+  <b>[Wi‑Fi]</b> — 주변 공유기를 검색해 화면 키보드로 비밀번호를 넣고 붙입니다(이 미리보기에서도 눌러 볼 수 있습니다. 잠긴 공유기를 고르면 화면 키보드가 뜨고, [연결] 하면 위쪽 연결 표시가 그 공유기로 바뀝니다).<br>
   단위는 <b>용존산소 ppm · 염도 ‰ · 전도도 µS/cm · pH</b> 입니다.
 </div>
 <script>
