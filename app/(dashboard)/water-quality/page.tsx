@@ -108,6 +108,51 @@ function buildChartData(readings: WaterQualityReading[], last24h = true) {
   }})
 }
 
+// 센서별 비교용 — 한 항목(metricKey)을 센서마다 한 줄로 만든다.
+// device_id 가 있는 기록만 쓴다(수기·구기록은 센서 구분이 없어 제외).
+const SENSOR_COLORS = ["#0ea5e9", "#f59e0b", "#a78bfa", "#14b8a6", "#ec4899", "#84cc16", "#f97316", "#06b6d4"]
+
+function buildCompareData(
+  readings: WaterQualityReading[],
+  devNameById: Map<string, string>,
+  metricKey: typeof STD_KEYS[number],
+  digits: number,
+) {
+  const first = readings.length ? new Date(readings[0].recorded_at) : null
+  const lastPt = readings.length ? new Date(readings[readings.length - 1].recorded_at) : null
+  const multiDay = !!(first && lastPt && (lastPt.getTime() - first.getTime()) > 24 * 3600_000)
+  return readings
+    .filter(r => r.device_id && devNameById.has(r.device_id))
+    .map(r => {
+      const d = new Date(r.recorded_at)
+      return {
+        t: d.getTime(),
+        time: multiDay
+          ? `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+          : d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }),
+        [devNameById.get(r.device_id!)!]: Number((r[metricKey] as number).toFixed(digits)),
+      } as Record<string, number | string>
+    })
+    .sort((a, b) => (a.t as number) - (b.t as number))
+}
+
+function SensorCompareChart({ data, names }: { data: Record<string, number | string>[]; names: string[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={260}>
+      <LineChart data={data} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={100} />
+        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={44} />
+        <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        {names.map((n, i) => (
+          <Line key={n} type="monotone" dataKey={n} stroke={SENSOR_COLORS[i % SENSOR_COLORS.length]} strokeWidth={2} dot={false} connectNulls activeDot={{ r: 4 }} />
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
+  )
+}
+
 // 한 수조에 센서(기기)가 여러 대일 때, 각 센서가 마지막으로 보낸 값을
 // 센서별로 보여 주기 위한 라벨. (이력·그래프는 아직 수조 단위 합산이다.)
 const DEVICE_PAYLOAD_LABELS: Record<string, { label: string; unit?: string }> = {
@@ -267,8 +312,9 @@ export default function WaterQualityPage() {
   useEffect(() => {
     initialTankIdFromUrl.current = new URLSearchParams(window.location.search).get("tank")
   }, [])
-  const [readings, setReadings] = useState<WaterQualityReading[]>([])
-  const [latest, setLatest] = useState<WaterQualityReading | null>(null)
+  // 수조의 전체 기록(모든 센서 + 수기). 센서별 보기는 여기서 걸러 낸다.
+  const [allReadings, setAllReadings] = useState<WaterQualityReading[]>([])
+  const [compareParam, setCompareParam] = useState<typeof STD_KEYS[number]>("temperature")
   const [tankAlerts, setTankAlerts] = useState<Alert[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -317,20 +363,17 @@ export default function WaterQualityPage() {
     setIsLoading(true)
     if (mock) {
       const mockReadings = MOCK_WATER_QUALITY[tankId] ?? []
-      setReadings(mockReadings)
-      setLatest(mockReadings.length > 0 ? mockReadings[mockReadings.length - 1] : null)
+      setAllReadings(mockReadings)
       setTankAlerts(MOCK_ALERTS.filter(a => a.tank_id === tankId && !a.resolved))
       setTankDevices(MOCK_SENSOR_DEVICES.filter(d => d.tank_id === tankId))
       setIsLoading(false)
       return
     }
     try {
-      const [dbReadings, dbLatest] = await Promise.all([
-        getWaterQuality(tankId, hours, selectedDeviceId),
-        getLatestWaterQuality(tankId, selectedDeviceId),
-      ])
-      setReadings(dbReadings)
-      setLatest(dbLatest)
+      // 수조 전체 기록을 한 번에 가져오고(센서 구분 포함), 센서별 보기는
+      // 클라이언트에서 걸러 낸다. 그래야 센서별 비교 그래프도 같은 데이터로 그린다.
+      const dbReadings = await getWaterQuality(tankId, hours)
+      setAllReadings(dbReadings)
       setTankAlerts([])
 
       try {
@@ -341,7 +384,7 @@ export default function WaterQualityPage() {
     } catch { } finally {
       setIsLoading(false)
     }
-  }, [user?.email, hours, selectedDeviceId])
+  }, [user?.email, hours])
 
   // 수조를 바꾸면 센서 필터는 '수조 전체'로 되돌린다.
   useEffect(() => { setSelectedDeviceId(null) }, [selectedTankId])
@@ -409,7 +452,24 @@ export default function WaterQualityPage() {
     computeSummary(tanks)
   }, [tanks, computeSummary])
 
+  // 센서별 보기 필터 — selectedDeviceId 가 있으면 그 센서 기록만.
+  const readings = useMemo(
+    () => selectedDeviceId ? allReadings.filter(r => (r.device_id ?? null) === selectedDeviceId) : allReadings,
+    [allReadings, selectedDeviceId],
+  )
+  const latest = useMemo(() => (readings.length ? readings[readings.length - 1] : null), [readings])
   const chartData = useMemo(() => buildChartData(readings, false), [readings])
+
+  // 센서별 비교 그래프 데이터 — 활성 센서가 2대 이상일 때만 만든다.
+  const activeDevices = useMemo(() => tankDevices.filter(d => d.active), [tankDevices])
+  const compareNames = useMemo(() => activeDevices.map(d => d.name), [activeDevices])
+  const compareData = useMemo(() => {
+    if (activeDevices.length < 2) return []
+    const nameById = new Map(activeDevices.map(d => [d.id, d.name]))
+    const meta = PARAM_META.find(m => m.key === compareParam)
+    const digits = meta?.unit === "" ? 2 : (compareParam === "ammonia" || compareParam === "nitrite" ? 3 : 1)
+    return buildCompareData(allReadings, nameById, compareParam, digits)
+  }, [allReadings, activeDevices, compareParam])
 
   const selectedTank = tanks.find(t => t.id === selectedTankId)
 
@@ -782,8 +842,38 @@ export default function WaterQualityPage() {
                   })}
                 </div>
                 <p className="text-[10px] text-muted-foreground/60 mt-3">
-                  각 센서가 마지막으로 보낸 값입니다. 아래 그래프·이력은 현재 수조 단위로 합산됩니다.
+                  각 센서가 마지막으로 보낸 값입니다. 위 「센서별 보기」에서 센서를 고르면 아래 그래프도 그 센서 기준으로 바뀝니다.
                 </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── Per-Sensor Comparison Chart (센서 2대 이상) ───────────────────── */}
+          {activeDevices.length > 1 && (
+            <Card className="bg-card border-border">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+                  <p className="text-sm font-medium text-foreground">센서별 비교</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PARAM_META.filter(m => ["temperature", "ph", "do_level", "salinity"].includes(m.key)).map(m => (
+                      <button
+                        key={m.key}
+                        onClick={() => setCompareParam(m.key as typeof STD_KEYS[number])}
+                        className={"px-2.5 py-1 rounded-full border text-xs font-medium transition-colors " +
+                          (compareParam === m.key ? "bg-ocean-600 text-white border-ocean-600" : "bg-card text-muted-foreground border-border hover:bg-accent")}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {compareData.length > 0 ? (
+                  <SensorCompareChart data={compareData} names={compareNames} />
+                ) : (
+                  <p className="text-xs text-muted-foreground/70 py-8 text-center">
+                    센서별로 구분된 기록이 아직 없습니다. (DB 마이그레이션 실행 후 새로 쌓이는 값부터 센서별로 비교됩니다.)
+                  </p>
+                )}
               </CardContent>
             </Card>
           )}
