@@ -25,12 +25,13 @@ import { GoogleAnalytics } from "@/components/analytics/google-analytics"
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.shrimp365.kr"),
   title: {
-    default: "Shrimp365 | 새우 양식 AI 관리 플랫폼",
+    default: "Shrimp365 | 새우양식 관리 AI 솔루션",
     template: "%s | Shrimp365",
   },
-  description: "흰다리새우 AI 수질 모니터링·양식 일지·질병 진단 통합 플랫폼. 수온·pH·DO 알림, 재고 관리까지 스마트폰 하나로.",
+  description: "흰다리새우 어가를 위한 새우양식 관리 솔루션. AI 수질 모니터링·양식 일지·질병 진단 통합, 수온·pH·DO 알림과 재고 관리까지 스마트폰 하나로.",
   keywords: [
     // 한국어
+    "새우양식", "새우양식 관리", "새우양식솔루션",
     "새우 양식", "흰다리새우", "바나메이 새우", "새우 농장 관리",
     "새우양식관리 솔루션", "새우 양식 관리 솔루션", "양식 관리 솔루션", "새우양식 솔루션", "스마트 양식 솔루션",
     "수질 모니터링", "수질 관리 시스템", "양식장 관리",
@@ -68,14 +69,17 @@ export const metadata: Metadata = {
     alternateLocale: ["en_US", "en_GB", "vi_VN", "id_ID"],
     url: "https://www.shrimp365.kr",
     siteName: "Shrimp365",
-    title: "Shrimp365 | AI Shrimp Farm Management Platform",
-    description: "AI-powered water quality monitoring, production management & disease diagnosis for vannamei shrimp farms. Real-time pH·DO·temperature alerts on your smartphone.",
-    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "Shrimp365 — AI Shrimp Farm Management Platform" }],
+    // 루트(/)는 한국어 페이지이므로 OG도 한국어로 맞춘다. 영어·베트남어·인니어
+    // OG는 각 언어 페이지(app/[lang]/page.tsx)에서 덮어쓴다.
+    // 네이버 권장 길이: 제목 40자 이내, 설명 80자 이내.
+    title: "Shrimp365 | 새우양식 관리 AI 솔루션",
+    description: "수질 모니터링·AI 질병 진단·양식 일지까지. 흰다리새우 어가를 위한 무료 새우양식 관리 솔루션.",
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "Shrimp365 — 새우양식 관리 AI 솔루션" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Shrimp365 | AI Shrimp Farm Management Platform",
-    description: "AI-powered water quality monitoring & disease diagnosis for vannamei shrimp farms. Manage feeding, inventory & health from your phone.",
+    title: "Shrimp365 | 새우양식 관리 AI 솔루션",
+    description: "흰다리새우 수질 모니터링·AI 질병 진단·양식 일지. 무료 새우양식 관리 솔루션.",
     images: ["/opengraph-image"],
   },
   alternates: {
@@ -103,7 +107,10 @@ export const metadata: Metadata = {
   verification: {
     google: "mNMCEXdK_oCiqIUM4SgQr6BahBkSMJ-ZZL7B64IAXaY",
     other: {
-      "naver-site-verification": "e17088aeef9f7e6ce4357be73f5a7d2591018cbd",
+      "naver-site-verification": [
+        "e17088aeef9f7e6ce4357be73f5a7d2591018cbd",
+        "40f2127ab44f4b5a851eff0591a11160b15ba8ef",
+      ],
     },
   },
 }
@@ -182,7 +189,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         "@type": "SoftwareApplication",
         "@id": "https://www.shrimp365.kr/#app",
         "name": "Shrimp365",
-        "alternateName": ["쉬림프365", "새우365", "Shrimp 365", "สูตรกุ้ง365", "エビ365"],
+        "alternateName": ["쉬림프365", "새우365", "Shrimp 365", "새우양식 관리 솔루션", "새우양식솔루션", "새우양식 관리 앱", "สูตรกุ้ง365", "エビ365"],
         "applicationCategory": "BusinessApplication",
         "applicationSubCategory": "Aquaculture Management Software",
         "operatingSystem": "Web, iOS, Android",
@@ -268,6 +275,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             "acceptedAnswer": {
               "@type": "Answer",
               "text": "흰다리새우 적정 수질 기준: 수온 28~32℃, pH 7.5~8.5, DO 5mg/L 이상, 염도 10~35ppt, 암모니아 0.1mg/L 미만. Shrimp365는 이 기준값을 기반으로 이상 알림을 자동 발송합니다.",
+            },
+          },
+          {
+            "@type": "Question",
+            "name": "새우양식솔루션을 찾고 있는데, Shrimp365는 어떤 기능을 제공하나요?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Shrimp365는 흰다리새우 어가를 위한 새우양식 관리 솔루션입니다. 수온·pH·DO 등 9가지 수질 모니터링, AI 이상 원인 분석, AHPND·EHP 질병 기록, 양식 일지, 사료 재고 관리, FCR·생존율 리포트를 무료로 제공합니다.",
             },
           },
           {
