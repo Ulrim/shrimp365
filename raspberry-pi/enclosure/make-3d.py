@@ -182,56 +182,47 @@ def build():
     bp = P_("backplate", C["plate"], "interior")
     bx(bp, 0, CY, BP_Z + BP_T / 2, P["bp_w"], P["bp_h"], BP_T)
 
-    # ── DIN 레일 + 레일 부품 (기성품) ──
     z0 = BP_Z + BP_T
-    rail = P_("din_rail_35", C["rail"], "interior")
-    ry = CY + P["din_y"]
-    box(rail, -P["din_len"]/2, ry - 17.5, z0, P["din_len"]/2, ry + 17.5, z0 + 1)
-    box(rail, -P["din_len"]/2, ry - 17.5, z0, P["din_len"]/2, ry - 16.5, z0 + 7.5)
-    box(rail, -P["din_len"]/2, ry + 16.5, z0, P["din_len"]/2, ry + 17.5, z0 + 7.5)
 
-    dev_y0, dev_y1 = ry - 25, ry + 65      # DIN 기기 90 높이
-    x = -120.0
-    for name, wid, dep, col in [
-        ("terminal_blocks_2tier", 31.0, 50.0, C["term"]),
-        ("DDR-30G-5",             35.0, 54.5, C["buck"]),
-        ("HDR-60-24",             52.5, 54.5, C["smps"]),
-        ("fuse_holder_1",         17.5, 45.0, C["fuse"]),
-        ("fuse_holder_2",         17.5, 45.0, C["fuse"]),
-        ("fuse_holder_3",         17.5, 45.0, C["fuse"]),
-        ("SPD_275V",              18.0, 45.0, C["spd"]),
-    ]:
-        p = P_(name, col, "interior")
-        box(p, x + 0.5, dev_y0, z0, x + wid - 0.5, dev_y1, z0 + dep)
-        x += wid
+    # ── SMPS 12V 60W (메탈케이스형) ──
+    sm = P_("SMPS_12V_60W", C["smps"], "interior")
+    bx(sm, P["smps_cx"], CY + P["smps_cy"], z0 + P["smps_d"] / 2,
+       P["smps_w"], P["smps_h"], P["smps_d"])
 
-    # ── 라즈베리파이 4 + 주변 (기성품) ──
-    pi_y = CY + P["pi_cy"]
-    pi_x = P["pi_cx"] + 10          # 나사패턴 중심 → 기판 중심 보정
-    pcb = P_("raspberry_pi_4", C["pcb"], "interior")
-    bx(pcb, pi_x, pi_y, z0 + 6 + 1.5, 85, 56, 3)
-    case = P_("pi_heatsink_case", C["case"], "interior")
-    bx(case, pi_x, pi_y, z0 + 9.5 + 11, 88, 59, 22)
-    rs = P_("usb_rs485", C["black"], "interior")
-    bx(rs, pi_x + 42.5 + 35, pi_y, z0 + 14, 70, 20, 15)
-    ssd = P_("usb_ssd", C["ssd"], "interior")
-    bx(ssd, P["ssd_x"], CY + 65, z0 + 6, 70, 50, 10)
-    rtc = P_("rtc_ds3231", C["pcb"], "interior")
-    bx(rtc, P["rtc_x"] + 3, CY + 72.5, z0 + 8, 30, 22, 12)
+    # ── 콘센트 1구 원형 220V ──
+    ou = P_("outlet_1gang", C["term"], "interior")
+    cyl(ou, P["outlet_cx"], CY + P["outlet_cy"], z0, P["outlet_d"] / 2, 42.0)
+    ad = P_("pi_power_adapter", C["black"], "interior")
+    bx(ad, P["outlet_cx"], CY + P["outlet_cy"], z0 + 42 + 22, 46, 46, 44)
 
-    # ── 하부면 커넥터 (기성품) ──
+    # ── 단자대 8P ──
+    tb = P_("terminal_block_8P", C["term"], "interior")
+    bx(tb, P["tb_cx"], CY + P["tb_cy"], z0 + 11, P["tb_w"], P["tb_h"], 22)
+
+    # ── 도어 뒤: 파이 4 + USB-RS485 (디스플레이 뒷면에 장착) ──
+    z_pi = z_frame - 30
+    pcb = P_("raspberry_pi_4", C["pcb"], "door")
+    bx(pcb, -20, CY - 20, z_pi + 1.5, 85, 56, 3)
+    case = P_("pi_heatsink_case", C["case"], "door")
+    bx(case, -20, CY - 20, z_pi - 10, 88, 59, 20)
+    rs = P_("usb_rs485", C["black"], "door")
+    bx(rs, 62, CY - 20, z_pi - 4, 70, 20, 15)
+    ssd = P_("usb_ssd", C["ssd"], "door")
+    bx(ssd, -20, CY + 32, z_pi - 4, 70, 50, 10)
+
+    # ── 하부면 커넥터 ──
     sp = P["sensor_pitch"]
     conn = [(P["vent_x"], P["vent_hole_d"], "vent_gore_M12"),
             (-1.5 * sp, P["m12_hole_d"], "M12_A_pH"),
             (-0.5 * sp, P["m12_hole_d"], "M12_A_DO"),
             (0.5 * sp, P["m12_hole_d"], "M12_A_EC"),
             (1.5 * sp, P["m12_hole_d"], "M12_A_SPARE"),
-            (P["ac_x"], P["m12_hole_d"], "M12_S_AC")]
-    for cx, dia, name in conn:
+            (P["ac_x"], P["m12_hole_d"], "AC_inlet")]
+    for cx_, dia, name in conn:
         col = C["black"] if "vent" in name else C["metal"]
         p = P_(name, col, "connector")
-        cyl(p, cx, -14.0, P["conn_y"], dia / 2, 40.0, axis="y")
-        cyl(p, cx, -14.0, P["conn_y"], dia / 2 + 3, 8.0, axis="y")   # 커넥터 헤드
+        cyl(p, cx_, -14.0, P["conn_y"], dia / 2, 40.0, axis="y")
+        cyl(p, cx_, -14.0, P["conn_y"], dia / 2 + 3, 8.0, axis="y")
 
     return parts
 

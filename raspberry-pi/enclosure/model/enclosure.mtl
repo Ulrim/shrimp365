@@ -52,51 +52,27 @@ Ka 0.216 0.222 0.231
 Ks 0.1 0.1 0.1
 Ns 20
 
-newmtl din_rail_35
-Kd 0.620 0.640 0.670
-Ka 0.186 0.192 0.201
-Ks 0.1 0.1 0.1
-Ns 20
-
-newmtl terminal_blocks_2tier
-Kd 0.550 0.580 0.620
-Ka 0.165 0.174 0.186
-Ks 0.1 0.1 0.1
-Ns 20
-
-newmtl DDR-30G-5
-Kd 0.860 0.850 0.810
-Ka 0.258 0.255 0.243
-Ks 0.1 0.1 0.1
-Ns 20
-
-newmtl HDR-60-24
+newmtl SMPS_12V_60W
 Kd 0.900 0.890 0.850
 Ka 0.270 0.267 0.255
 Ks 0.1 0.1 0.1
 Ns 20
 
-newmtl fuse_holder_1
-Kd 0.180 0.180 0.200
-Ka 0.054 0.054 0.060
+newmtl outlet_1gang
+Kd 0.550 0.580 0.620
+Ka 0.165 0.174 0.186
 Ks 0.1 0.1 0.1
 Ns 20
 
-newmtl fuse_holder_2
-Kd 0.180 0.180 0.200
-Ka 0.054 0.054 0.060
+newmtl pi_power_adapter
+Kd 0.120 0.120 0.130
+Ka 0.036 0.036 0.039
 Ks 0.1 0.1 0.1
 Ns 20
 
-newmtl fuse_holder_3
-Kd 0.180 0.180 0.200
-Ka 0.054 0.054 0.060
-Ks 0.1 0.1 0.1
-Ns 20
-
-newmtl SPD_275V
-Kd 0.200 0.480 0.300
-Ka 0.060 0.144 0.090
+newmtl terminal_block_8P
+Kd 0.550 0.580 0.620
+Ka 0.165 0.174 0.186
 Ks 0.1 0.1 0.1
 Ns 20
 
@@ -121,12 +97,6 @@ Ns 20
 newmtl usb_ssd
 Kd 0.250 0.270 0.300
 Ka 0.075 0.081 0.090
-Ks 0.1 0.1 0.1
-Ns 20
-
-newmtl rtc_ds3231
-Kd 0.050 0.350 0.220
-Ka 0.015 0.105 0.066
 Ks 0.1 0.1 0.1
 Ns 20
 
@@ -160,7 +130,7 @@ Ka 0.204 0.210 0.216
 Ks 0.1 0.1 0.1
 Ns 20
 
-newmtl M12_S_AC
+newmtl AC_inlet
 Kd 0.680 0.700 0.720
 Ka 0.204 0.210 0.216
 Ks 0.1 0.1 0.1

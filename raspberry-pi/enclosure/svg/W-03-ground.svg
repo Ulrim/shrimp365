@@ -1,59 +1,66 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="420mm" height="297mm" viewBox="0 0 420 297">
 <rect x="0" y="0" width="420" height="297" fill="#ffffff"/>
 <rect x="8" y="8" width="404" height="281" fill="none" stroke="#202020" stroke-width="0.6"/>
-<rect x="24.00" y="96.00" width="46.00" height="20.00" fill="#f0fff2" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="47.00" y="105.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">X1 PE 핀</text>
-<text x="47.00" y="109.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">M12 S-coded</text>
-<rect x="150.00" y="92.00" width="58.00" height="28.00" fill="#f0fff2" stroke="#2f8f3f" stroke-width="1.40" rx="1.5"/>
-<text x="179.00" y="105.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">접지 스터드</text>
-<text x="179.00" y="109.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">M4 + 톱니와셔</text>
-<path d="M 70.00 106.00 L 150.00 106.00" fill="none" stroke="#2f8f3f" stroke-width="1.80" stroke-linejoin="round" stroke-linecap="round"/>
-<polygon points="150.00,106.00 147.40,107.00 147.40,105.00" fill="#2f8f3f"/>
-<rect x="96.40" y="99.40" width="27.20" height="4.6" fill="#ffffff" opacity="0.92"/>
-<text x="110.00" y="103.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#2f8f3f" font-weight="bold">0.75㎟ 이상 녹/황</text>
-<rect x="248.00" y="96.00" width="66.00" height="20.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="281.00" y="105.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">압착 프레임</text>
-<text x="281.00" y="109.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">도어 · 미본딩</text>
-<text x="320.00" y="108.00" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#666" font-weight="normal">도어 스탠드오프로 절연되어 있고 활선부와 닿지</text>
-<text x="320.00" y="113.00" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#666" font-weight="normal">않으므로 본딩하지 않는다.</text>
-<rect x="150.00" y="138.00" width="58.00" height="22.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="179.00" y="148.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">백플레이트</text>
-<text x="179.00" y="152.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">알루미늄</text>
-<path d="M 179.00 120.00 L 179.00 138.00" fill="none" stroke="#2f8f3f" stroke-width="1.60" stroke-linejoin="round" stroke-linecap="round"/>
-<polygon points="179.00,138.00 178.00,135.40 180.00,135.40" fill="#2f8f3f"/>
-<rect x="248.00" y="138.00" width="66.00" height="22.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="281.00" y="148.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">케이블 실드</text>
-<text x="281.00" y="152.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">센서측은 띄움</text>
-<rect x="100.00" y="120.00" width="48.00" height="20.00" fill="#f0fff2" stroke="#2f8f3f" stroke-width="1.20" rx="1.5"/>
-<text x="124.00" y="129.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">LK2</text>
-<text x="124.00" y="133.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">분리 가능</text>
-<path d="M 124.00 120.00 L 124.00 106.00" fill="none" stroke="#2f8f3f" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="124.00" cy="106.00" r="1.30" fill="#2f8f3f"/>
-<rect x="150.00" y="170.00" width="58.00" height="22.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="179.00" y="180.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">0V-P 레일</text>
-<text x="179.00" y="184.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">센서 계</text>
-<path d="M 124.00 140.00 L 124.00 181.00 L 150.00 181.00" fill="none" stroke="#202020" stroke-width="1.40" stroke-linejoin="round" stroke-linecap="round"/>
-<rect x="248.00" y="170.00" width="66.00" height="22.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="281.00" y="182.40" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">센서 0V x4</text>
-<path d="M 208.00 181.00 L 248.00 181.00" fill="none" stroke="#202020" stroke-width="1.40" stroke-linejoin="round" stroke-linecap="round"/>
-<path d="M 228.00 181.00 L 228.00 149.00 L 248.00 149.00" fill="none" stroke="#202020" stroke-width="1.00" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="3,2"/>
-<circle cx="228.00" cy="181.00" r="1.30" fill="#202020"/>
-<rect x="46.00" y="192.00" width="52.00" height="22.00" fill="#fff0f0" stroke="#c00000" stroke-width="1.60" rx="1.5"/>
-<text x="72.00" y="202.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">LK1</text>
-<text x="72.00" y="206.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">필수</text>
-<path d="M 150.00 181.00 L 72.00 181.00 L 72.00 192.00" fill="none" stroke="#202020" stroke-width="1.40" stroke-linejoin="round" stroke-linecap="round"/>
-<path d="M 72.00 214.00 L 72.00 235.00 L 150.00 235.00" fill="none" stroke="#8a8a8a" stroke-width="1.40" stroke-linejoin="round" stroke-linecap="round"/>
-<rect x="150.00" y="224.00" width="58.00" height="22.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="179.00" y="234.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">0V-S 레일</text>
-<text x="179.00" y="238.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">파이 계</text>
-<rect x="248.00" y="206.00" width="66.00" height="18.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="281.00" y="216.40" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">파이 4 GND</text>
-<rect x="248.00" y="232.00" width="66.00" height="18.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="281.00" y="242.40" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">변환기 GND</text>
-<path d="M 208.00 235.00 L 230.00 235.00 L 230.00 215.00 L 248.00 215.00" fill="none" stroke="#8a8a8a" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
-<path d="M 230.00 235.00 L 230.00 241.00 L 248.00 241.00" fill="none" stroke="#8a8a8a" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="230.00" cy="235.00" r="1.30" fill="#8a8a8a"/>
-<text x="24.00" y="268.00" font-family="sans-serif" font-size="4.20" text-anchor="start" fill="#c00000" font-weight="bold">본딩 확인 3항목 — ① X1 PE ↔ 백플레이트 &lt; 0.1Ω   ② 0V-P ↔ 0V-S 도통 (LK1)   ③ 0V-P ↔ PE 도통 (LK2)</text>
+<rect x="20.00" y="96.00" width="50.00" height="22.00" fill="#f0fff2" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="45.00" y="106.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">X1 PE 핀</text>
+<text x="45.00" y="110.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">AC 인입</text>
+<rect x="104.00" y="96.00" width="44.00" height="22.00" fill="#f0fff2" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="126.00" y="106.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">단자대 3극</text>
+<text x="126.00" y="110.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">PE</text>
+<rect x="182.00" y="92.00" width="58.00" height="30.00" fill="#f0fff2" stroke="#2f8f3f" stroke-width="1.40" rx="1.5"/>
+<text x="211.00" y="106.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">접지 스터드</text>
+<text x="211.00" y="110.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">M4 + 톱니와셔</text>
+<path d="M 70.00 107.00 L 104.00 107.00" fill="none" stroke="#2f8f3f" stroke-width="1.60" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="104.00,107.00 101.40,108.00 101.40,106.00" fill="#2f8f3f"/>
+<path d="M 148.00 107.00 L 182.00 107.00" fill="none" stroke="#2f8f3f" stroke-width="1.60" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="182.00,107.00 179.40,108.00 179.40,106.00" fill="#2f8f3f"/>
+<rect x="155.60" y="99.40" width="18.80" height="4.6" fill="#ffffff" opacity="0.92"/>
+<text x="165.00" y="103.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#2f8f3f" font-weight="bold">1.5㎟ 녹/황</text>
+<rect x="276.00" y="82.00" width="70.00" height="22.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="311.00" y="92.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">백플레이트</text>
+<text x="311.00" y="96.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">알루미늄</text>
+<path d="M 240.00 107.00 L 258.00 107.00 L 258.00 93.00 L 276.00 93.00" fill="none" stroke="#2f8f3f" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="276.00" y="110.00" width="70.00" height="22.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="311.00" y="120.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">SMPS FG</text>
+<text x="311.00" y="124.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">단자가 있으면</text>
+<path d="M 240.00 107.00 L 258.00 107.00 L 258.00 121.00 L 276.00 121.00" fill="none" stroke="#2f8f3f" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="276.00" y="138.00" width="70.00" height="22.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="311.00" y="150.40" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">콘센트 접지극</text>
+<path d="M 240.00 107.00 L 258.00 107.00 L 258.00 149.00 L 276.00 149.00" fill="none" stroke="#2f8f3f" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="104.00" y="168.00" width="44.00" height="22.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="126.00" y="178.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">단자대 5극</text>
+<text x="126.00" y="182.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">0V</text>
+<rect x="276.00" y="168.00" width="70.00" height="22.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="311.00" y="180.40" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">센서 0V x3</text>
+<rect x="276.00" y="198.00" width="70.00" height="22.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="311.00" y="208.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">케이블 실드</text>
+<text x="311.00" y="212.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">센서측 띄움</text>
+<path d="M 148.00 179.00 L 276.00 179.00" fill="none" stroke="#202020" stroke-width="1.40" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 212.00 179.00 L 212.00 209.00 L 276.00 209.00" fill="none" stroke="#202020" stroke-width="1.00" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="3,2"/>
+<circle cx="212.00" cy="179.00" r="1.30" fill="#202020"/>
+<rect x="104.00" y="232.00" width="44.00" height="22.00" fill="#fff0f0" stroke="#c00000" stroke-width="1.60" rx="1.5"/>
+<text x="126.00" y="242.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">단자대 8극</text>
+<text x="126.00" y="246.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">본딩</text>
+<path d="M 126.00 190.00 L 126.00 232.00" fill="none" stroke="#202020" stroke-width="1.60" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="118.70" y="210.40" width="14.60" height="4.6" fill="#ffffff" opacity="0.92"/>
+<text x="126.00" y="214.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#202020" font-weight="bold">5–8 점퍼</text>
+<rect x="276.00" y="232.00" width="70.00" height="22.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="311.00" y="244.40" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">USB-RS485 GND</text>
+<rect x="276.00" y="262.00" width="70.00" height="22.00" fill="#f0f4ff" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="311.00" y="272.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">파이 4 GND</text>
+<text x="311.00" y="276.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">어댑터 계통</text>
+<path d="M 148.00 243.00 L 276.00 243.00" fill="none" stroke="#8a8a8a" stroke-width="1.60" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="276.00,243.00 273.40,244.00 273.40,242.00" fill="#8a8a8a"/>
+<path d="M 212.00 243.00 L 212.00 273.00 L 276.00 273.00" fill="none" stroke="#8a8a8a" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="212.00" cy="243.00" r="1.30" fill="#8a8a8a"/>
+<rect x="20.00" y="168.00" width="60.00" height="22.00" fill="#f0fff2" stroke="#2f8f3f" stroke-width="1.20" rx="1.5"/>
+<text x="50.00" y="178.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">LK2</text>
+<text x="50.00" y="182.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">0V ↔ PE 선택</text>
+<path d="M 80.00 179.00 L 104.00 179.00" fill="none" stroke="#202020" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 50.00 168.00 L 50.00 107.00 L 70.00 107.00" fill="none" stroke="#2f8f3f" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="4,2"/>
+<circle cx="70.00" cy="107.00" r="1.30" fill="#2f8f3f"/>
+<text x="20.00" y="62.00" font-family="sans-serif" font-size="4.00" text-anchor="start" fill="#c00000" font-weight="bold">파이 어댑터는 대개 2핀이라 접지가 없다. 파이 계통이 PE 와 만나는 곳은</text>
+<text x="20.00" y="69.00" font-family="sans-serif" font-size="4.00" text-anchor="start" fill="#c00000" font-weight="bold">이 본딩선 하나뿐이다.</text>
 <rect x="244.00" y="259.00" width="168.00" height="30.00" fill="#fff" stroke="#202020" stroke-width="0.6"/>
 <line x1="244.00" y1="274.00" x2="412.00" y2="274.00" stroke="#202020" stroke-width="0.4"/>
 <text x="247.00" y="269.50" font-family="sans-serif" font-size="6.00" text-anchor="start" fill="#202020" font-weight="bold">접지 · 본딩 계통도</text>
@@ -61,23 +68,24 @@
 <text x="409.00" y="283.00" font-family="sans-serif" font-size="3.60" text-anchor="end" fill="#202020" font-weight="normal">도번 W-03   Rev.A</text>
 <text x="14.00" y="22.00" font-family="sans-serif" font-size="4.60" text-anchor="start" fill="#202020" font-weight="bold">주기</text>
 <text x="14.00" y="27.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">1.</text>
-<text x="20.00" y="27.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">PE 는 AC 커넥터에서 받아 백플레이트 접지 스터드 한 점에 모은다.</text>
-<text x="20.00" y="32.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">HDR-60-24 는 클래스 II 라 FG 단자가 없다. PE 는 SMPS 를 거치지 않는다.</text>
-<text x="14.00" y="37.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">2.</text>
-<text x="20.00" y="37.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">백플레이트가 알루미늄이므로 반드시 PE 에 본딩한다. 방열 경로이면서 금속</text>
-<text x="20.00" y="42.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">노출부이기도 하다. 톱니와셔로 도장·산화막을 관통시킬 것.</text>
-<text x="14.00" y="47.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">3.</text>
-<text x="20.00" y="47.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">LK1 (0V-P ↔ 0V-S) 은 필수다. DDR-30G-5 가 절연형이라 이것이 없으면 두 계통의</text>
-<text x="20.00" y="52.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">기준이 떠서 RS485 가 간헐적으로 끊긴다.</text>
-<text x="14.00" y="57.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">4.</text>
-<text x="20.00" y="57.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">LK2 (0V-P ↔ PE) 는 기본 장착이다. SELV 계통에 기준을 주고 서지를 PE 로 뺀다.</text>
-<text x="20.00" y="62.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">접지 루프가 의심되면 분리해 시험할 수 있다.</text>
-<text x="14.00" y="67.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">5.</text>
-<text x="20.00" y="67.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">케이블 실드는 함체측 0V-P 한쪽에만 붙인다. 센서측은 띄운다.</text>
+<text x="20.00" y="27.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">PE 는 AC 인입에서 단자대 3극을 거쳐 접지 스터드 한 점에 모은다.</text>
+<text x="14.00" y="32.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">2.</text>
+<text x="20.00" y="32.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">백플레이트가 알루미늄이면 반드시 PE 에 본딩한다. 톱니와셔로 산화막을 관통시킬 것.</text>
+<text x="14.00" y="37.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">3.</text>
+<text x="20.00" y="37.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">콘센트의 접지극도 PE 에 문다. 어댑터가 3핀이면 이 경로로 파이 섀시가 접지된다.</text>
+<text x="14.00" y="42.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">4.</text>
+<text x="20.00" y="42.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">★ 5–8 점퍼와 변환기 GND 배선이 이 장비의 필수 본딩이다.</text>
+<text x="20.00" y="47.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">파이 어댑터와 SMPS 는 서로 절연된 별개 전원이라 이것 말고는 만나는 곳이 없다.</text>
+<text x="20.00" y="52.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">빠지면 RS485 공통모드가 벗어나 간헐적 CRC 오류가 난다.</text>
+<text x="14.00" y="57.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">5.</text>
+<text x="20.00" y="57.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">LK2 (0V ↔ PE) 는 선택이다. SELV 계통에 기준을 주고 서지를 PE 로 뺀다.</text>
+<text x="20.00" y="62.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">접지 루프가 의심되면 분리해 시험한다.</text>
+<text x="14.00" y="67.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">6.</text>
+<text x="20.00" y="67.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">케이블 실드는 함체측 0V 한쪽에만 붙인다.</text>
 <line x1="14.00" y1="283.00" x2="23.00" y2="283.00" stroke="#2f8f3f" stroke-width="1.4"/>
 <text x="25.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">PE</text>
 <line x1="33.00" y1="283.00" x2="42.00" y2="283.00" stroke="#202020" stroke-width="1.4"/>
-<text x="44.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">0V-P</text>
-<line x1="56.00" y1="283.00" x2="65.00" y2="283.00" stroke="#8a8a8a" stroke-width="1.4"/>
-<text x="67.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">0V-S</text>
+<text x="44.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">0V</text>
+<line x1="52.00" y1="283.00" x2="61.00" y2="283.00" stroke="#8a8a8a" stroke-width="1.4"/>
+<text x="63.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">본딩·파이 GND</text>
 </svg>

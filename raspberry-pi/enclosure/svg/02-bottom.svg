@@ -2,10 +2,10 @@
 <rect x="0" y="0" width="594.0" height="420.0" fill="#ffffff"/>
 <rect x="10" y="10" width="574.0" height="400.0" fill="none" stroke="#202020" stroke-width="0.7"/>
 <line x1="228.000" y1="268.000" x2="528.000" y2="268.000" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
-<line x1="528.000" y1="268.000" x2="528.000" y2="118.000" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
-<line x1="528.000" y1="118.000" x2="228.000" y2="118.000" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
-<line x1="228.000" y1="118.000" x2="228.000" y2="268.000" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
-<line x1="228.000" y1="118.000" x2="528.000" y2="118.000" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<line x1="528.000" y1="268.000" x2="528.000" y2="103.000" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<line x1="528.000" y1="103.000" x2="228.000" y2="103.000" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<line x1="228.000" y1="103.000" x2="228.000" y2="268.000" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<line x1="228.000" y1="103.000" x2="528.000" y2="103.000" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
 <circle cx="273.000" cy="168.000" r="6.250" stroke="#c00000" stroke-width="0.6" fill="none"/>
 <line x1="262.750" y1="168.000" x2="283.250" y2="168.000" stroke="#008000" stroke-width="0.35" fill="none"/>
 <line x1="273.000" y1="178.250" x2="273.000" y2="157.750" stroke="#008000" stroke-width="0.35" fill="none"/>
@@ -30,7 +30,7 @@
 <line x1="470.750" y1="168.000" x2="495.250" y2="168.000" stroke="#008000" stroke-width="0.35" fill="none"/>
 <line x1="483.000" y1="180.250" x2="483.000" y2="155.750" stroke="#008000" stroke-width="0.35" fill="none"/>
 <text x="483.000" y="154.000" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">AC</text>
-<text x="378.000" y="110.000" font-family="sans-serif" font-size="4.20" text-anchor="middle" fill="#202020" font-weight="normal">▲ 함체 전면(도어) 쪽</text>
+<text x="378.000" y="95.000" font-family="sans-serif" font-size="4.20" text-anchor="middle" fill="#202020" font-weight="normal">▲ 함체 전면(도어) 쪽</text>
 <text x="378.000" y="282.000" font-family="sans-serif" font-size="4.20" text-anchor="middle" fill="#202020" font-weight="normal">▼ 함체 후면 쪽</text>
 <line x1="324.000" y1="168.000" x2="324.000" y2="196.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <line x1="360.000" y1="168.000" x2="360.000" y2="196.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
@@ -68,12 +68,12 @@
 <polygon points="202.000,268.000 202.900,265.400 201.100,265.400" fill="#0070a0"/>
 <polygon points="202.000,168.000 201.100,170.600 202.900,170.600" fill="#0070a0"/>
 <text x="200.800" y="218.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 200.800 218.000)">후면에서 100</text>
-<line x1="228.000" y1="118.000" x2="228.000" y2="94.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="528.000" y1="118.000" x2="528.000" y2="94.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="228.000" y1="96.000" x2="528.000" y2="96.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="228.000,96.000 230.600,96.900 230.600,95.100" fill="#0070a0"/>
-<polygon points="528.000,96.000 525.400,95.100 525.400,96.900" fill="#0070a0"/>
-<text x="378.000" y="94.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">300 (참고)</text>
+<line x1="228.000" y1="103.000" x2="228.000" y2="79.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="528.000" y1="103.000" x2="528.000" y2="79.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="228.000" y1="81.000" x2="528.000" y2="81.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="228.000,81.000 230.600,81.900 230.600,80.100" fill="#0070a0"/>
+<polygon points="528.000,81.000 525.400,80.100 525.400,81.900" fill="#0070a0"/>
+<text x="378.000" y="79.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">300 (참고)</text>
 <line x1="491.250" y1="168.000" x2="520.000" y2="128.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <polygon points="491.250,168.000 493.498,166.414 492.037,165.363" fill="#0070a0"/>
 <text x="521.500" y="129.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">AC: Ø16.5  M12 S-coded</text>

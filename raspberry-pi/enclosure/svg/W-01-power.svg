@@ -1,104 +1,119 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="420mm" height="297mm" viewBox="0 0 420 297">
 <rect x="0" y="0" width="420" height="297" fill="#ffffff"/>
 <rect x="8" y="8" width="404" height="281" fill="none" stroke="#202020" stroke-width="0.6"/>
-<rect x="18.00" y="98.00" width="40.00" height="40.00" fill="#f4f4f6" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="38.00" y="115.50" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">X1</text>
-<text x="38.00" y="120.10" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">AC 인입</text>
-<text x="38.00" y="124.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">M12 S-coded</text>
-<path d="M 58.00 108.00 L 150.00 108.00" fill="none" stroke="#8a4b1e" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
-<path d="M 58.00 120.00 L 150.00 120.00" fill="none" stroke="#2a5fa8" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
-<path d="M 58.00 146.00 L 120.00 146.00 L 120.00 238.00" fill="none" stroke="#2f8f3f" stroke-width="1.40" stroke-linejoin="round" stroke-linecap="round"/>
-<rect x="63.95" y="101.90" width="4.10" height="4.6" fill="#ffffff" opacity="0.92"/>
-<text x="66.00" y="105.50" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#8a4b1e" font-weight="bold">L</text>
-<rect x="63.95" y="113.90" width="4.10" height="4.6" fill="#ffffff" opacity="0.92"/>
-<text x="66.00" y="117.50" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#2a5fa8" font-weight="bold">N</text>
-<rect x="62.90" y="139.90" width="6.20" height="4.6" fill="#ffffff" opacity="0.92"/>
-<text x="66.00" y="143.50" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#2f8f3f" font-weight="bold">PE</text>
-<rect x="78.00" y="101.00" width="24.00" height="14.00" fill="#fff8f0" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="90.00" y="107.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">F1</text>
-<text x="90.00" y="111.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">2A T</text>
-<rect x="112.00" y="112.00" width="24.00" height="16.00" fill="#f0fff2" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="124.00" y="119.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">SPD</text>
-<text x="124.00" y="123.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">275V</text>
-<path d="M 124.00 108.00 L 124.00 112.00" fill="none" stroke="#8a4b1e" stroke-width="0.90" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="124.00" cy="108.00" r="1.30" fill="#8a4b1e"/>
-<path d="M 124.00 128.00 L 124.00 146.00" fill="none" stroke="#2f8f3f" stroke-width="0.90" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="124.00" cy="146.00" r="1.30" fill="#2f8f3f"/>
-<rect x="150.00" y="96.00" width="46.00" height="44.00" fill="#f4f8ff" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="173.00" y="115.50" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">HDR-60-24</text>
-<text x="173.00" y="120.10" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">AC → 24V</text>
-<text x="173.00" y="124.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">2.5A  60W</text>
-<path d="M 196.00 106.00 L 206.00 106.00" fill="none" stroke="#c00000" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
-<rect x="206.00" y="99.00" width="22.00" height="14.00" fill="#fff8f0" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="217.00" y="105.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">F2</text>
-<text x="217.00" y="109.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">1A</text>
-<rect x="234.00" y="99.00" width="22.00" height="14.00" fill="#fff8f0" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="245.00" y="105.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">TVS1</text>
-<text x="245.00" y="109.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">33V</text>
-<path d="M 228.00 106.00 L 234.00 106.00" fill="none" stroke="#c00000" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
-<path d="M 256.00 106.00 L 400.00 106.00" fill="none" stroke="#c00000" stroke-width="1.70" stroke-linejoin="round" stroke-linecap="round"/>
-<path d="M 196.00 130.00 L 400.00 130.00" fill="none" stroke="#202020" stroke-width="1.70" stroke-linejoin="round" stroke-linecap="round"/>
-<rect x="331.65" y="99.40" width="16.70" height="4.6" fill="#ffffff" opacity="0.92"/>
-<text x="340.00" y="103.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#c00000" font-weight="bold">+24V 레일</text>
-<rect x="331.65" y="123.40" width="16.70" height="4.6" fill="#ffffff" opacity="0.92"/>
-<text x="340.00" y="127.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#202020" font-weight="bold">0V-P 레일</text>
-<rect x="320.00" y="150.00" width="62.00" height="20.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="351.00" y="159.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">센서 M12 x4</text>
-<text x="351.00" y="163.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">24V+ / 0V</text>
-<path d="M 336.00 106.00 L 336.00 150.00" fill="none" stroke="#c00000" stroke-width="1.00" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="336.00" cy="106.00" r="1.30" fill="#c00000"/>
-<path d="M 364.00 130.00 L 364.00 150.00" fill="none" stroke="#202020" stroke-width="1.00" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="364.00" cy="130.00" r="1.30" fill="#202020"/>
-<path d="M 222.00 106.00 L 222.00 176.00" fill="none" stroke="#c00000" stroke-width="1.00" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="222.00" cy="106.00" r="1.30" fill="#c00000"/>
-<path d="M 250.00 130.00 L 250.00 176.00" fill="none" stroke="#202020" stroke-width="1.00" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="250.00" cy="130.00" r="1.30" fill="#202020"/>
-<rect x="206.00" y="176.00" width="62.00" height="34.00" fill="#f4f8ff" stroke="#c00000" stroke-width="1.20" rx="1.5"/>
-<text x="237.00" y="190.50" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">DDR-30G-5</text>
-<text x="237.00" y="195.10" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">24V → 5.15V  6A</text>
-<text x="237.00" y="199.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">입출력 절연 4000VDC</text>
-<path d="M 268.00 186.00 L 278.00 186.00" fill="none" stroke="#e07a00" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
-<rect x="278.00" y="179.00" width="22.00" height="14.00" fill="#fff8f0" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="289.00" y="185.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">F3</text>
-<text x="289.00" y="189.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">5A</text>
-<path d="M 300.00 186.00 L 400.00 186.00" fill="none" stroke="#e07a00" stroke-width="1.70" stroke-linejoin="round" stroke-linecap="round"/>
-<path d="M 268.00 204.00 L 400.00 204.00" fill="none" stroke="#8a8a8a" stroke-width="1.70" stroke-linejoin="round" stroke-linecap="round"/>
-<rect x="348.70" y="179.40" width="14.60" height="4.6" fill="#ffffff" opacity="0.92"/>
-<text x="356.00" y="183.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#e07a00" font-weight="bold">+5V 레일</text>
-<rect x="347.65" y="197.40" width="16.70" height="4.6" fill="#ffffff" opacity="0.92"/>
-<text x="356.00" y="201.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#8a8a8a" font-weight="bold">0V-S 레일</text>
-<rect x="312.00" y="222.00" width="42.00" height="18.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="333.00" y="230.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">파이 4</text>
-<text x="333.00" y="234.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">USB-C</text>
-<rect x="358.00" y="222.00" width="42.00" height="18.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="379.00" y="230.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">디스플레이</text>
-<text x="379.00" y="234.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">5V/GND</text>
-<path d="M 326.00 186.00 L 326.00 222.00" fill="none" stroke="#e07a00" stroke-width="1.00" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="326.00" cy="186.00" r="1.30" fill="#e07a00"/>
-<path d="M 372.00 186.00 L 372.00 222.00" fill="none" stroke="#e07a00" stroke-width="1.00" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="372.00" cy="186.00" r="1.30" fill="#e07a00"/>
-<path d="M 340.00 204.00 L 340.00 222.00" fill="none" stroke="#8a8a8a" stroke-width="1.00" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="340.00" cy="204.00" r="1.30" fill="#8a8a8a"/>
-<path d="M 386.00 204.00 L 386.00 222.00" fill="none" stroke="#8a8a8a" stroke-width="1.00" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="386.00" cy="204.00" r="1.30" fill="#8a8a8a"/>
-<rect x="282.00" y="152.00" width="34.00" height="16.00" fill="#fff0f0" stroke="#c00000" stroke-width="1.50" rx="1.5"/>
-<text x="299.00" y="159.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">LK1</text>
-<text x="299.00" y="163.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">0V 본딩</text>
-<path d="M 299.00 130.00 L 299.00 152.00" fill="none" stroke="#202020" stroke-width="1.40" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="299.00" cy="130.00" r="1.30" fill="#202020"/>
-<path d="M 299.00 168.00 L 299.00 204.00" fill="none" stroke="#8a8a8a" stroke-width="1.40" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="299.00" cy="204.00" r="1.30" fill="#8a8a8a"/>
-<rect x="96.00" y="238.00" width="48.00" height="16.00" fill="#f0fff2" stroke="#202020" stroke-width="0.70" rx="1.5"/>
-<text x="120.00" y="245.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">접지 스터드</text>
-<text x="120.00" y="249.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">백플레이트</text>
-<rect x="30.00" y="238.00" width="48.00" height="16.00" fill="#f0fff2" stroke="#2f8f3f" stroke-width="1.20" rx="1.5"/>
-<text x="54.00" y="245.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">LK2</text>
-<text x="54.00" y="249.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">0V-P ↔ PE</text>
-<path d="M 78.00 246.00 L 96.00 246.00" fill="none" stroke="#2f8f3f" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
-<path d="M 200.00 130.00 L 200.00 222.00 L 24.00 222.00 L 24.00 246.00 L 30.00 246.00" fill="none" stroke="#202020" stroke-width="1.00" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="4,2"/>
-<circle cx="200.00" cy="130.00" r="1.30" fill="#202020"/>
-<text x="24.00" y="266.00" font-family="sans-serif" font-size="3.60" text-anchor="start" fill="#c00000" font-weight="bold">LK1 이 빠지면 센서계와 파이계의 0V 가 서로 떠서 RS485 공통모드가 벗어난다.</text>
-<text x="24.00" y="272.00" font-family="sans-serif" font-size="3.60" text-anchor="start" fill="#c00000" font-weight="bold">간헐적 CRC 오류로만 나타나 출고 검사에서 잡히지 않는다. 반드시 도통을 확인할 것.</text>
+<rect x="14.00" y="96.00" width="34.00" height="44.00" fill="#f4f4f6" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="31.00" y="115.50" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">X1</text>
+<text x="31.00" y="120.10" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">AC 인입</text>
+<text x="31.00" y="124.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">방수 커넥터</text>
+<rect x="60.00" y="100.00" width="22.00" height="13.00" fill="#fff8f0" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="71.00" y="105.70" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">F1</text>
+<text x="71.00" y="110.30" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">2A T</text>
+<path d="M 48.00 106.00 L 60.00 106.00" fill="none" stroke="#8a4b1e" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 82.00 106.00 L 94.00 106.00 L 94.00 182.00" fill="none" stroke="#8a4b1e" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 48.00 118.00 L 106.00 118.00 L 106.00 182.00" fill="none" stroke="#2a5fa8" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 48.00 132.00 L 118.00 132.00 L 118.00 182.00" fill="none" stroke="#2f8f3f" stroke-width="1.40" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="56.00" y="128.00" width="22.00" height="16.00" fill="#f0fff2" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="67.00" y="135.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">SPD</text>
+<text x="67.00" y="139.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">275V</text>
+<path d="M 67.00 128.00 L 67.00 106.00" fill="none" stroke="#8a4b1e" stroke-width="0.80" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="67.00" cy="106.00" r="1.30" fill="#8a4b1e"/>
+<path d="M 67.00 144.00 L 67.00 152.00 L 118.00 152.00" fill="none" stroke="#2f8f3f" stroke-width="0.80" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="118.00" cy="152.00" r="1.30" fill="#2f8f3f"/>
+<rect x="52.00" y="182.00" width="304.00" height="28.00" fill="#ffffff" stroke="#202020" stroke-width="1.00" rx="1.5"/>
+<text x="204.00" y="197.40" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold"></text>
+<text x="71.00" y="192.00" font-family="sans-serif" font-size="3.40" text-anchor="middle" fill="#888" font-weight="normal">1</text>
+<text x="71.00" y="203.00" font-family="sans-serif" font-size="4.40" text-anchor="middle" fill="#8a4b1e" font-weight="bold">L</text>
+<path d="M 90.00 182.00 L 90.00 210.00" fill="none" stroke="#202020" stroke-width="0.50" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="109.00" y="192.00" font-family="sans-serif" font-size="3.40" text-anchor="middle" fill="#888" font-weight="normal">2</text>
+<text x="109.00" y="203.00" font-family="sans-serif" font-size="4.40" text-anchor="middle" fill="#2a5fa8" font-weight="bold">N</text>
+<path d="M 128.00 182.00 L 128.00 210.00" fill="none" stroke="#202020" stroke-width="0.50" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="147.00" y="192.00" font-family="sans-serif" font-size="3.40" text-anchor="middle" fill="#888" font-weight="normal">3</text>
+<text x="147.00" y="203.00" font-family="sans-serif" font-size="4.40" text-anchor="middle" fill="#2f8f3f" font-weight="bold">PE</text>
+<path d="M 166.00 182.00 L 166.00 210.00" fill="none" stroke="#202020" stroke-width="0.50" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="185.00" y="192.00" font-family="sans-serif" font-size="3.40" text-anchor="middle" fill="#888" font-weight="normal">4</text>
+<text x="185.00" y="203.00" font-family="sans-serif" font-size="4.40" text-anchor="middle" fill="#c00000" font-weight="bold">+12V</text>
+<path d="M 204.00 182.00 L 204.00 210.00" fill="none" stroke="#202020" stroke-width="0.50" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="223.00" y="192.00" font-family="sans-serif" font-size="3.40" text-anchor="middle" fill="#888" font-weight="normal">5</text>
+<text x="223.00" y="203.00" font-family="sans-serif" font-size="4.40" text-anchor="middle" fill="#202020" font-weight="bold">0V</text>
+<path d="M 242.00 182.00 L 242.00 210.00" fill="none" stroke="#202020" stroke-width="0.50" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="261.00" y="192.00" font-family="sans-serif" font-size="3.40" text-anchor="middle" fill="#888" font-weight="normal">6</text>
+<text x="261.00" y="203.00" font-family="sans-serif" font-size="4.40" text-anchor="middle" fill="#0a8a3a" font-weight="bold">A</text>
+<path d="M 280.00 182.00 L 280.00 210.00" fill="none" stroke="#202020" stroke-width="0.50" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="299.00" y="192.00" font-family="sans-serif" font-size="3.40" text-anchor="middle" fill="#888" font-weight="normal">7</text>
+<text x="299.00" y="203.00" font-family="sans-serif" font-size="4.40" text-anchor="middle" fill="#b89000" font-weight="bold">B</text>
+<path d="M 318.00 182.00 L 318.00 210.00" fill="none" stroke="#202020" stroke-width="0.50" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="337.00" y="192.00" font-family="sans-serif" font-size="3.40" text-anchor="middle" fill="#888" font-weight="normal">8</text>
+<text x="337.00" y="203.00" font-family="sans-serif" font-size="4.40" text-anchor="middle" fill="#8a8a8a" font-weight="bold">본딩</text>
+<path d="M 54.00 177.00 L 54.00 174.00 L 164.00 174.00 L 164.00 177.00" fill="none" stroke="#202020" stroke-width="0.80" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="109.00" y="171.50" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#202020" font-weight="bold">220V / 접지  3P</text>
+<path d="M 168.00 177.00 L 168.00 174.00 L 240.00 174.00 L 240.00 177.00" fill="none" stroke="#202020" stroke-width="0.80" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="204.00" y="171.50" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#202020" font-weight="bold">12V  2P</text>
+<path d="M 244.00 177.00 L 244.00 174.00 L 316.00 174.00 L 316.00 177.00" fill="none" stroke="#202020" stroke-width="0.80" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="280.00" y="171.50" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#202020" font-weight="bold">RS485  2P</text>
+<path d="M 320.00 177.00 L 320.00 174.00 L 354.00 174.00 L 354.00 177.00" fill="none" stroke="#202020" stroke-width="0.80" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="337.00" y="171.50" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#202020" font-weight="bold">예비·본딩 1P</text>
+<rect x="150.00" y="96.00" width="78.00" height="46.00" fill="#f4f8ff" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="189.00" y="116.50" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">SMPS</text>
+<text x="189.00" y="121.10" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">220V → 12V</text>
+<text x="189.00" y="125.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">60W  5A</text>
+<rect x="250.00" y="96.00" width="70.00" height="46.00" fill="#f4f4f6" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="285.00" y="118.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">콘센트 1구</text>
+<text x="285.00" y="122.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">220V 원형</text>
+<path d="M 71.00 182.00 L 71.00 160.00 L 168.00 160.00 L 168.00 142.00" fill="none" stroke="#8a4b1e" stroke-width="1.10" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 109.00 182.00 L 109.00 160.00 L 186.00 160.00 L 186.00 142.00" fill="none" stroke="#2a5fa8" stroke-width="1.10" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 71.00 182.00 L 71.00 160.00 L 268.00 160.00 L 268.00 142.00" fill="none" stroke="#8a4b1e" stroke-width="1.10" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 109.00 182.00 L 109.00 160.00 L 286.00 160.00 L 286.00 142.00" fill="none" stroke="#2a5fa8" stroke-width="1.10" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="71.00" cy="182.00" r="1.30" fill="#8a4b1e"/>
+<circle cx="109.00" cy="182.00" r="1.30" fill="#2a5fa8"/>
+<rect x="340.00" y="100.00" width="22.00" height="13.00" fill="#fff8f0" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="351.00" y="105.70" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">F2</text>
+<text x="351.00" y="110.30" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">1A</text>
+<rect x="340.00" y="122.00" width="22.00" height="13.00" fill="#fff8f0" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="351.00" y="127.70" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">TVS</text>
+<text x="351.00" y="132.30" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">16V</text>
+<path d="M 228.00 108.00 L 340.00 108.00" fill="none" stroke="#c00000" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 228.00 128.00 L 340.00 128.00" fill="none" stroke="#202020" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 362.00 108.00 L 392.00 108.00 L 392.00 166.00 L 185.00 166.00 L 185.00 182.00" fill="none" stroke="#c00000" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 362.00 128.00 L 380.00 128.00 L 380.00 172.00 L 223.00 172.00 L 223.00 182.00" fill="none" stroke="#202020" stroke-width="1.20" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="250.00" y="40.00" width="70.00" height="18.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="285.00" y="50.40" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">파이 전원 어댑터</text>
+<rect x="238.00" y="12.00" width="94.00" height="22.00" fill="#f0f4ff" stroke="#0070a0" stroke-width="1.20" rx="1.5"/>
+<text x="285.00" y="22.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">라즈베리파이 4 + 7" LCD</text>
+<text x="285.00" y="26.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">도어 (외부에서 보이는 면)</text>
+<path d="M 285.00 96.00 L 285.00 58.00" fill="none" stroke="#e07a00" stroke-width="1.40" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="285.00,58.00 286.00,60.60 284.00,60.60" fill="#e07a00"/>
+<path d="M 285.00 40.00 L 285.00 34.00" fill="none" stroke="#e07a00" stroke-width="1.40" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="285.00,34.00 286.00,36.60 284.00,36.60" fill="#e07a00"/>
+<text x="326.00" y="52.00" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#666" font-weight="normal">220V 코드</text>
+<rect x="92.00" y="234.00" width="68.00" height="24.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="126.00" y="245.20" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">센서 1  pH</text>
+<text x="126.00" y="249.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">핀  1  3  2  4</text>
+<path d="M 185.00 210.00 L 185.00 214.00 L 100.00 214.00 L 100.00 234.00" fill="none" stroke="#c00000" stroke-width="0.90" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 223.00 210.00 L 223.00 219.00 L 112.00 219.00 L 112.00 234.00" fill="none" stroke="#202020" stroke-width="0.90" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 261.00 210.00 L 261.00 224.00 L 124.00 224.00 L 124.00 234.00" fill="none" stroke="#0a8a3a" stroke-width="0.90" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 299.00 210.00 L 299.00 229.00 L 136.00 229.00 L 136.00 234.00" fill="none" stroke="#b89000" stroke-width="0.90" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="166.00" y="234.00" width="68.00" height="24.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="200.00" y="245.20" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">센서 2  DO</text>
+<text x="200.00" y="249.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">핀  1  3  2  4</text>
+<path d="M 185.00 210.00 L 185.00 214.00 L 174.00 214.00 L 174.00 234.00" fill="none" stroke="#c00000" stroke-width="0.90" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 223.00 210.00 L 223.00 219.00 L 186.00 219.00 L 186.00 234.00" fill="none" stroke="#202020" stroke-width="0.90" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 261.00 210.00 L 261.00 224.00 L 198.00 224.00 L 198.00 234.00" fill="none" stroke="#0a8a3a" stroke-width="0.90" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 299.00 210.00 L 299.00 229.00 L 210.00 229.00 L 210.00 234.00" fill="none" stroke="#b89000" stroke-width="0.90" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="240.00" y="234.00" width="68.00" height="24.00" fill="#f7f7f7" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="274.00" y="245.20" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">센서 3  EC</text>
+<text x="274.00" y="249.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">핀  1  3  2  4</text>
+<path d="M 185.00 210.00 L 185.00 214.00 L 248.00 214.00 L 248.00 234.00" fill="none" stroke="#c00000" stroke-width="0.90" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 223.00 210.00 L 223.00 219.00 L 260.00 219.00 L 260.00 234.00" fill="none" stroke="#202020" stroke-width="0.90" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 261.00 210.00 L 261.00 224.00 L 272.00 224.00 L 272.00 234.00" fill="none" stroke="#0a8a3a" stroke-width="0.90" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 299.00 210.00 L 299.00 229.00 L 284.00 229.00 L 284.00 234.00" fill="none" stroke="#b89000" stroke-width="0.90" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 223.00 210.00 L 223.00 216.00 L 337.00 216.00 L 337.00 210.00" fill="none" stroke="#8a8a8a" stroke-width="1.40" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 337.00 182.00 L 337.00 86.00 L 396.00 86.00 L 396.00 23.00 L 332.00 23.00" fill="none" stroke="#8a8a8a" stroke-width="1.40" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="332.00,23.00 334.60,22.00 334.60,24.00" fill="#8a8a8a"/>
+<text x="300.00" y="82.00" font-family="sans-serif" font-size="3.40" text-anchor="end" fill="#c00000" font-weight="bold">★ 변환기 GND 본딩 (LK1)</text>
+<rect x="14.00" y="234.00" width="66.00" height="24.00" fill="#f0fff2" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="47.00" y="245.20" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">접지 스터드</text>
+<text x="47.00" y="249.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">백플레이트</text>
+<path d="M 147.00 210.00 L 147.00 236.00 L 47.00 236.00 L 47.00 234.00" fill="none" stroke="#2f8f3f" stroke-width="1.40" stroke-linejoin="round" stroke-linecap="round"/>
 <rect x="244.00" y="259.00" width="168.00" height="30.00" fill="#fff" stroke="#202020" stroke-width="0.6"/>
 <line x1="244.00" y1="274.00" x2="412.00" y2="274.00" stroke="#202020" stroke-width="0.4"/>
 <text x="247.00" y="269.50" font-family="sans-serif" font-size="6.00" text-anchor="start" fill="#202020" font-weight="bold">전원 계통도</text>
@@ -106,21 +121,23 @@
 <text x="409.00" y="283.00" font-family="sans-serif" font-size="3.60" text-anchor="end" fill="#202020" font-weight="normal">도번 W-01   Rev.A</text>
 <text x="14.00" y="22.00" font-family="sans-serif" font-size="4.60" text-anchor="start" fill="#202020" font-weight="bold">주기</text>
 <text x="14.00" y="27.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">1.</text>
-<text x="20.00" y="27.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">AC 220V 50/60Hz 단상 입력. 계통 단선도이며 배선 경로가 아니다.</text>
+<text x="20.00" y="27.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">AC 220V 단상. 인입 → 단자대 8P → ① SMPS ② 콘센트 1구 두 갈래로 나뉜다.</text>
 <text x="14.00" y="32.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">2.</text>
-<text x="20.00" y="32.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">F1 2A 슬로우블로우 / F2 24V 1A / F3 5V 5A. SPD 는 온도퓨즈 내장형만 쓴다.</text>
-<text x="14.00" y="37.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">3.</text>
-<text x="20.00" y="37.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">DDR-30G-5 는 입출력이 4000VDC 절연이다. 0V-P 와 0V-S 는 서로 다른 노드이고,</text>
-<text x="20.00" y="42.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">LK1 을 넣지 않으면 두 계통이 떠 있게 된다.</text>
-<text x="14.00" y="47.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">4.</text>
-<text x="20.00" y="47.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">LK2 는 0V-P 를 PE 에 한 점에서 묶는다. 기본 장착이며 접지 루프가 의심되면 분리한다.</text>
-<text x="14.00" y="52.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">5.</text>
-<text x="20.00" y="52.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">벅 출력은 무부하에서 5.15V 로 조정한 뒤 파이를 연결한다.</text>
-<text x="14.00" y="57.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">6.</text>
-<text x="20.00" y="57.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">디스플레이 5V 는 파이 GPIO 가 아니라 5V 레일에서 직접 받는다 — 0.5A 를 파이</text>
-<text x="20.00" y="62.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">기판에 흘리지 않기 위해서다. 양쪽을 동시에 물리지 말 것.</text>
-<text x="14.00" y="67.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">7.</text>
-<text x="20.00" y="67.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">HDR-60-24 는 클래스 II 라 FG 단자가 없다. PE 는 SMPS 를 거치지 않는다.</text>
+<text x="20.00" y="32.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">파이와 LCD 는 콘센트에 꽂은 자체 어댑터(5.1V 3A)로 급전한다.</text>
+<text x="20.00" y="37.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">함체 안에 DC-DC 를 두지 않는다.</text>
+<text x="14.00" y="42.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">3.</text>
+<text x="20.00" y="42.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">SMPS 12V 60W 는 센서 전용이다. 센서 3대 부하는 약 0.1A 로 정격의 2 % 다.</text>
+<text x="20.00" y="47.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">여유가 크므로 센서 증설이나 12V 부속 추가에 대비된다.</text>
+<text x="14.00" y="52.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">4.</text>
+<text x="20.00" y="52.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">F1 2A 슬로우블로우는 AC 전체를 보호한다. SPD 는 온도퓨즈 내장형만 쓴다.</text>
+<text x="14.00" y="57.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">5.</text>
+<text x="20.00" y="57.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">F2 1A 와 TVS 는 센서 라인 전용이다. 수십 미터 케이블이 사실상 안테나다.</text>
+<text x="14.00" y="62.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">6.</text>
+<text x="20.00" y="62.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">★ 본딩 — 파이 어댑터와 SMPS 는 서로 절연된 별개 전원이다. 변환기 GND 를</text>
+<text x="20.00" y="67.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">단자대 8극(본딩)을 거쳐 5극(0V)에 묶지 않으면 RS485 공통모드가 벗어나</text>
+<text x="20.00" y="72.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">간헐적 CRC 오류가 난다. 통전 검사로는 잡히지 않는다.</text>
+<text x="14.00" y="77.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">7.</text>
+<text x="20.00" y="77.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">콘센트에 꽂은 어댑터는 진동으로 빠진다. 케이블 타이나 브래킷으로 고정할 것.</text>
 <line x1="14.00" y1="283.00" x2="23.00" y2="283.00" stroke="#8a4b1e" stroke-width="1.4"/>
 <text x="25.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">AC L</text>
 <line x1="37.00" y1="283.00" x2="46.00" y2="283.00" stroke="#2a5fa8" stroke-width="1.4"/>
@@ -128,11 +145,11 @@
 <line x1="60.00" y1="283.00" x2="69.00" y2="283.00" stroke="#2f8f3f" stroke-width="1.4"/>
 <text x="71.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">PE</text>
 <line x1="79.00" y1="283.00" x2="88.00" y2="283.00" stroke="#c00000" stroke-width="1.4"/>
-<text x="90.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">+24V</text>
+<text x="90.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">+12V</text>
 <line x1="102.00" y1="283.00" x2="111.00" y2="283.00" stroke="#202020" stroke-width="1.4"/>
-<text x="113.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">0V-P</text>
-<line x1="125.00" y1="283.00" x2="134.00" y2="283.00" stroke="#e07a00" stroke-width="1.4"/>
-<text x="136.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">+5V</text>
-<line x1="146.00" y1="283.00" x2="155.00" y2="283.00" stroke="#8a8a8a" stroke-width="1.4"/>
-<text x="157.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">0V-S</text>
+<text x="113.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">0V</text>
+<line x1="121.00" y1="283.00" x2="130.00" y2="283.00" stroke="#e07a00" stroke-width="1.4"/>
+<text x="132.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">어댑터</text>
+<line x1="142.00" y1="283.00" x2="151.00" y2="283.00" stroke="#8a8a8a" stroke-width="1.4"/>
+<text x="153.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">본딩</text>
 </svg>

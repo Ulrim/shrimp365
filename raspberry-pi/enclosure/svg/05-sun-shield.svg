@@ -2,11 +2,11 @@
 <rect x="0" y="0" width="594.0" height="420.0" fill="#ffffff"/>
 <rect x="10" y="10" width="574.0" height="400.0" fill="none" stroke="#202020" stroke-width="0.7"/>
 <line x1="208.000" y1="330.000" x2="548.000" y2="330.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="548.000" y1="330.000" x2="548.000" y2="60.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="548.000" y1="60.000" x2="208.000" y2="60.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="208.000" y1="60.000" x2="208.000" y2="330.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="548.000" y1="330.000" x2="548.000" y2="45.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="548.000" y1="45.000" x2="208.000" y2="45.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="208.000" y1="45.000" x2="208.000" y2="330.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
 <line x1="208.000" y1="290.000" x2="548.000" y2="290.000" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="208.000" y1="100.000" x2="548.000" y2="100.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="208.000" y1="85.000" x2="548.000" y2="85.000" stroke="#008000" stroke-width="0.35" fill="none"/>
 <circle cx="258.000" cy="310.000" r="2.750" stroke="#c00000" stroke-width="0.6" fill="none"/>
 <line x1="251.250" y1="310.000" x2="264.750" y2="310.000" stroke="#008000" stroke-width="0.35" fill="none"/>
 <line x1="258.000" y1="316.750" x2="258.000" y2="303.250" stroke="#008000" stroke-width="0.35" fill="none"/>
@@ -32,17 +32,17 @@
 <polygon points="570.000,290.000 569.100,292.600 570.900,292.600" fill="#0070a0"/>
 <text x="568.800" y="310.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 568.800 310.000)">40 후면 플랜지</text>
 <line x1="548.000" y1="290.000" x2="572.000" y2="290.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="548.000" y1="100.000" x2="572.000" y2="100.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="570.000" y1="290.000" x2="570.000" y2="100.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="548.000" y1="85.000" x2="572.000" y2="85.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="570.000" y1="290.000" x2="570.000" y2="85.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <polygon points="570.000,290.000 570.900,287.400 569.100,287.400" fill="#0070a0"/>
-<polygon points="570.000,100.000 569.100,102.600 570.900,102.600" fill="#0070a0"/>
-<text x="568.800" y="195.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 568.800 195.000)">190 상판</text>
-<line x1="548.000" y1="100.000" x2="572.000" y2="100.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="548.000" y1="60.000" x2="572.000" y2="60.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="570.000" y1="100.000" x2="570.000" y2="60.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="570.000,100.000 570.900,97.400 569.100,97.400" fill="#0070a0"/>
-<polygon points="570.000,60.000 569.100,62.600 570.900,62.600" fill="#0070a0"/>
-<text x="568.800" y="80.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 568.800 80.000)">40 전면 드롭</text>
+<polygon points="570.000,85.000 569.100,87.600 570.900,87.600" fill="#0070a0"/>
+<text x="568.800" y="187.500" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 568.800 187.500)">190 상판</text>
+<line x1="548.000" y1="85.000" x2="572.000" y2="85.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="548.000" y1="45.000" x2="572.000" y2="45.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="570.000" y1="85.000" x2="570.000" y2="45.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="570.000,85.000 570.900,82.400 569.100,82.400" fill="#0070a0"/>
+<polygon points="570.000,45.000 569.100,47.600 570.900,47.600" fill="#0070a0"/>
+<text x="568.800" y="65.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 568.800 65.000)">40 전면 드롭</text>
 <line x1="258.000" y1="310.000" x2="258.000" y2="272.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <line x1="498.000" y1="310.000" x2="498.000" y2="272.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <line x1="258.000" y1="274.000" x2="498.000" y2="274.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
@@ -61,8 +61,8 @@
 <line x1="378.000" y1="290.000" x2="200.000" y2="268.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <polygon points="378.000,290.000 375.530,288.788 375.309,290.574" fill="#0070a0"/>
 <text x="198.500" y="269.000" font-family="sans-serif" font-size="3.00" text-anchor="end" fill="#0070a0" font-weight="normal">절곡선 90° 아래로</text>
-<line x1="378.000" y1="100.000" x2="200.000" y2="188.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="378.000,100.000 375.270,100.345 376.068,101.959" fill="#0070a0"/>
+<line x1="378.000" y1="85.000" x2="200.000" y2="188.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="378.000,85.000 375.299,85.523 376.200,87.081" fill="#0070a0"/>
 <text x="198.500" y="189.000" font-family="sans-serif" font-size="3.00" text-anchor="end" fill="#0070a0" font-weight="normal">절곡선 90° 아래로</text>
 <rect x="394.0" y="364.0" width="190.0" height="46.0" fill="#ffffff" stroke="#202020" stroke-width="0.7"/>
 <line x1="394.0" y1="380.0" x2="584.0" y2="380.0" stroke="#202020" stroke-width="0.4"/>

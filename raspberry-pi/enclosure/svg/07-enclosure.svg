@@ -1,142 +1,142 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="594mm" height="420mm" viewBox="0 0 594 420">
 <rect x="0" y="0" width="594.0" height="420.0" fill="#ffffff"/>
 <rect x="10" y="10" width="574.0" height="400.0" fill="none" stroke="#202020" stroke-width="0.7"/>
-<line x1="195.000" y1="167.500" x2="345.000" y2="167.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="345.000" y1="167.500" x2="345.000" y2="42.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="345.000" y1="42.500" x2="195.000" y2="42.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="195.000" y1="42.500" x2="195.000" y2="167.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="205.000" y1="157.500" x2="335.000" y2="157.500" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
-<line x1="335.000" y1="157.500" x2="335.000" y2="52.500" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
-<line x1="335.000" y1="52.500" x2="205.000" y2="52.500" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
-<line x1="205.000" y1="52.500" x2="205.000" y2="157.500" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
-<line x1="227.500" y1="128.500" x2="312.500" y2="128.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="314.000" y1="127.000" x2="314.000" y2="83.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="312.500" y1="81.500" x2="227.500" y2="81.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="226.000" y1="83.000" x2="226.000" y2="127.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<path d="M 312.500 128.500 A 1.500 1.500 0 0 0 314.000 127.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<path d="M 314.000 83.000 A 1.500 1.500 0 0 0 312.500 81.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<path d="M 227.500 81.500 A 1.500 1.500 0 0 0 226.000 83.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<path d="M 226.000 127.000 A 1.500 1.500 0 0 0 227.500 128.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<circle cx="202.500" cy="157.500" r="1.000" stroke="#008000" stroke-width="0.35" fill="none"/>
-<circle cx="202.500" cy="105.000" r="1.000" stroke="#008000" stroke-width="0.35" fill="none"/>
-<circle cx="202.500" cy="52.500" r="1.000" stroke="#008000" stroke-width="0.35" fill="none"/>
-<circle cx="337.500" cy="157.500" r="1.000" stroke="#008000" stroke-width="0.35" fill="none"/>
-<circle cx="337.500" cy="105.000" r="1.000" stroke="#008000" stroke-width="0.35" fill="none"/>
-<circle cx="337.500" cy="52.500" r="1.000" stroke="#008000" stroke-width="0.35" fill="none"/>
-<text x="270.000" y="30.500" font-family="sans-serif" font-size="7.00" text-anchor="middle" fill="#202020" font-weight="bold">정면도 — 도어 (바깥에서)</text>
-<line x1="195.000" y1="167.500" x2="195.000" y2="184.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="345.000" y1="167.500" x2="345.000" y2="184.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="195.000" y1="182.500" x2="345.000" y2="182.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="195.000,182.500 197.600,183.400 197.600,181.600" fill="#0070a0"/>
-<polygon points="345.000,182.500 342.400,181.600 342.400,183.400" fill="#0070a0"/>
-<text x="270.000" y="181.100" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">300</text>
-<line x1="195.000" y1="167.500" x2="178.000" y2="167.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="195.000" y1="42.500" x2="178.000" y2="42.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="180.000" y1="167.500" x2="180.000" y2="42.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="180.000,167.500 180.900,164.900 179.100,164.900" fill="#0070a0"/>
-<polygon points="180.000,42.500 179.100,45.100 180.900,45.100" fill="#0070a0"/>
-<text x="178.800" y="105.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 178.800 105.000)">250</text>
-<line x1="205.000" y1="157.500" x2="205.000" y2="166.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="335.000" y1="157.500" x2="335.000" y2="166.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="205.000" y1="164.000" x2="335.000" y2="164.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="205.000,164.000 207.600,164.900 207.600,163.100" fill="#0070a0"/>
-<polygon points="335.000,164.000 332.400,163.100 332.400,164.900" fill="#0070a0"/>
-<text x="270.000" y="162.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">도어 평탄부 260</text>
-<line x1="335.000" y1="157.500" x2="362.000" y2="157.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="335.000" y1="52.500" x2="362.000" y2="52.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="360.000" y1="157.500" x2="360.000" y2="52.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="360.000,157.500 360.900,154.900 359.100,154.900" fill="#0070a0"/>
-<polygon points="360.000,52.500 359.100,55.100 360.900,55.100" fill="#0070a0"/>
-<text x="358.800" y="105.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 358.800 105.000)">210</text>
-<line x1="314.000" y1="105.000" x2="366.000" y2="70.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="314.000,105.000 316.659,104.295 315.654,102.802" fill="#0070a0"/>
-<text x="367.500" y="71.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">디스플레이 개구부 176x94 (SH-01)</text>
-<line x1="337.500" y1="157.500" x2="366.000" y2="153.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="337.500,157.500 340.209,157.983 339.928,156.206" fill="#0070a0"/>
-<text x="367.500" y="154.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">탬퍼 볼트 6개소 SUS316 핀-인-톡스</text>
-<line x1="387.500" y1="167.500" x2="462.500" y2="167.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="462.500" y1="167.500" x2="462.500" y2="42.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="462.500" y1="42.500" x2="387.500" y2="42.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="387.500" y1="42.500" x2="387.500" y2="167.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="461.000" y1="167.500" x2="461.000" y2="42.500" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="395.000" y1="167.500" x2="395.000" y2="42.500" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="423.250" y1="152.500" x2="423.250" y2="57.500" stroke="#008000" stroke-width="0.35" fill="none"/>
-<text x="425.000" y="30.500" font-family="sans-serif" font-size="7.00" text-anchor="middle" fill="#202020" font-weight="bold">우측면도</text>
-<line x1="387.500" y1="167.500" x2="387.500" y2="184.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="462.500" y1="167.500" x2="462.500" y2="184.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="387.500" y1="182.500" x2="462.500" y2="182.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="387.500,182.500 390.100,183.400 390.100,181.600" fill="#0070a0"/>
-<polygon points="462.500,182.500 459.900,181.600 459.900,183.400" fill="#0070a0"/>
-<text x="425.000" y="181.100" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">150</text>
-<line x1="395.000" y1="60.000" x2="479.500" y2="46.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="395.000,60.000 397.712,60.463 397.418,58.687" fill="#0070a0"/>
-<text x="481.000" y="47.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">백플레이트 면 (후면 내벽 +12)</text>
-<line x1="423.250" y1="90.000" x2="479.500" y2="74.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="423.250,90.000 425.997,90.154 425.505,88.423" fill="#0070a0"/>
-<text x="481.000" y="75.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">DIN 기기 앞끝 71.5</text>
-<line x1="461.000" y1="125.000" x2="479.500" y2="115.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="461.000,125.000 463.715,124.555 462.859,122.972" fill="#0070a0"/>
-<text x="481.000" y="116.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">도어 3t</text>
-<line x1="448.500" y1="150.000" x2="479.500" y2="142.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="448.500,150.000 451.242,150.222 450.793,148.479" fill="#0070a0"/>
-<text x="481.000" y="143.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">디스플레이 스택 28</text>
-<line x1="195.000" y1="337.500" x2="345.000" y2="337.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="345.000" y1="337.500" x2="345.000" y2="212.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="345.000" y1="212.500" x2="195.000" y2="212.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="195.000" y1="212.500" x2="195.000" y2="337.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="203.500" y1="326.500" x2="216.500" y2="326.500" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="216.500" y1="326.500" x2="216.500" y2="318.500" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="216.500" y1="318.500" x2="203.500" y2="318.500" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="203.500" y1="318.500" x2="203.500" y2="326.500" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="203.500" y1="231.500" x2="216.500" y2="231.500" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="216.500" y1="231.500" x2="216.500" y2="223.500" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="216.500" y1="223.500" x2="203.500" y2="223.500" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="203.500" y1="223.500" x2="203.500" y2="231.500" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="323.500" y1="326.500" x2="336.500" y2="326.500" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="336.500" y1="326.500" x2="336.500" y2="318.500" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="336.500" y1="318.500" x2="323.500" y2="318.500" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="323.500" y1="318.500" x2="323.500" y2="326.500" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="323.500" y1="231.500" x2="336.500" y2="231.500" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="336.500" y1="231.500" x2="336.500" y2="223.500" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="336.500" y1="223.500" x2="323.500" y2="223.500" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="323.500" y1="223.500" x2="323.500" y2="231.500" stroke="#008000" stroke-width="0.35" fill="none"/>
-<text x="270.000" y="200.500" font-family="sans-serif" font-size="7.00" text-anchor="middle" fill="#202020" font-weight="bold">후면도 — 벽부 (뚫지 않는다)</text>
-<line x1="210.000" y1="322.500" x2="210.000" y2="354.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="330.000" y1="322.500" x2="330.000" y2="354.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="210.000" y1="352.500" x2="330.000" y2="352.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="210.000,352.500 212.600,353.400 212.600,351.600" fill="#0070a0"/>
-<polygon points="330.000,352.500 327.400,351.600 327.400,353.400" fill="#0070a0"/>
-<text x="270.000" y="351.100" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">브래킷 피치 240</text>
-<line x1="195.000" y1="322.500" x2="178.000" y2="322.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="195.000" y1="227.500" x2="178.000" y2="227.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="180.000" y1="322.500" x2="180.000" y2="227.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="180.000,322.500 180.900,319.900 179.100,319.900" fill="#0070a0"/>
-<polygon points="180.000,227.500 179.100,230.100 180.900,230.100" fill="#0070a0"/>
-<text x="178.800" y="275.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 178.800 275.000)">190</text>
-<line x1="210.000" y1="227.500" x2="362.000" y2="227.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="210.000,227.500 212.603,228.391 212.597,226.591" fill="#0070a0"/>
-<text x="363.500" y="228.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">제조사 벽부 브래킷 4개소</text>
-<line x1="350.000" y1="312.500" x2="500.000" y2="312.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="500.000" y1="312.500" x2="500.000" y2="237.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="500.000" y1="237.500" x2="350.000" y2="237.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="350.000" y1="237.500" x2="350.000" y2="312.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="350.000" y1="239.000" x2="500.000" y2="239.000" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
-<text x="425.000" y="225.500" font-family="sans-serif" font-size="7.00" text-anchor="middle" fill="#202020" font-weight="bold">평면도</text>
-<line x1="350.000" y1="312.500" x2="333.000" y2="312.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="350.000" y1="237.500" x2="333.000" y2="237.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="335.000" y1="312.500" x2="335.000" y2="237.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="335.000,312.500 335.900,309.900 334.100,309.900" fill="#0070a0"/>
-<polygon points="335.000,237.500 334.100,240.100 335.900,240.100" fill="#0070a0"/>
-<text x="333.800" y="275.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 333.800 275.000)">150</text>
-<line x1="350.000" y1="312.500" x2="350.000" y2="329.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="500.000" y1="312.500" x2="500.000" y2="329.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="350.000" y1="327.500" x2="500.000" y2="327.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="350.000,327.500 352.600,328.400 352.600,326.600" fill="#0070a0"/>
-<polygon points="500.000,327.500 497.400,326.600 497.400,328.400" fill="#0070a0"/>
-<text x="425.000" y="326.100" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">300</text>
-<line x1="425.000" y1="237.500" x2="510.000" y2="245.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="425.000,237.500 427.511,238.625 427.669,236.832" fill="#0070a0"/>
-<text x="511.500" y="246.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">도어 (힌지 좌측)</text>
+<line x1="195.000" y1="175.000" x2="345.000" y2="175.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="345.000" y1="175.000" x2="345.000" y2="25.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="345.000" y1="25.000" x2="195.000" y2="25.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="195.000" y1="25.000" x2="195.000" y2="175.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="203.750" y1="166.250" x2="336.250" y2="166.250" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<line x1="336.250" y1="166.250" x2="336.250" y2="33.750" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<line x1="336.250" y1="33.750" x2="203.750" y2="33.750" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<line x1="203.750" y1="33.750" x2="203.750" y2="166.250" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<line x1="227.500" y1="123.500" x2="312.500" y2="123.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="314.000" y1="122.000" x2="314.000" y2="78.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="312.500" y1="76.500" x2="227.500" y2="76.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="226.000" y1="78.000" x2="226.000" y2="122.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<path d="M 312.500 123.500 A 1.500 1.500 0 0 0 314.000 122.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<path d="M 314.000 78.000 A 1.500 1.500 0 0 0 312.500 76.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<path d="M 227.500 76.500 A 1.500 1.500 0 0 0 226.000 78.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<path d="M 226.000 122.000 A 1.500 1.500 0 0 0 227.500 123.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<circle cx="202.500" cy="165.000" r="1.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<circle cx="202.500" cy="100.000" r="1.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<circle cx="202.500" cy="35.000" r="1.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<circle cx="337.500" cy="165.000" r="1.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<circle cx="337.500" cy="100.000" r="1.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<circle cx="337.500" cy="35.000" r="1.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<text x="270.000" y="13.000" font-family="sans-serif" font-size="7.00" text-anchor="middle" fill="#202020" font-weight="bold">정면도 — 도어 (바깥에서)</text>
+<line x1="195.000" y1="175.000" x2="195.000" y2="192.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="345.000" y1="175.000" x2="345.000" y2="192.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="195.000" y1="190.000" x2="345.000" y2="190.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="195.000,190.000 197.600,190.900 197.600,189.100" fill="#0070a0"/>
+<polygon points="345.000,190.000 342.400,189.100 342.400,190.900" fill="#0070a0"/>
+<text x="270.000" y="188.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">300</text>
+<line x1="195.000" y1="175.000" x2="178.000" y2="175.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="195.000" y1="25.000" x2="178.000" y2="25.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="180.000" y1="175.000" x2="180.000" y2="25.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="180.000,175.000 180.900,172.400 179.100,172.400" fill="#0070a0"/>
+<polygon points="180.000,25.000 179.100,27.600 180.900,27.600" fill="#0070a0"/>
+<text x="178.800" y="100.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 178.800 100.000)">250</text>
+<line x1="203.750" y1="166.250" x2="203.750" y2="174.750" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="336.250" y1="166.250" x2="336.250" y2="174.750" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="203.750" y1="172.750" x2="336.250" y2="172.750" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="203.750,172.750 206.350,173.650 206.350,171.850" fill="#0070a0"/>
+<polygon points="336.250,172.750 333.650,171.850 333.650,173.650" fill="#0070a0"/>
+<text x="270.000" y="171.350" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">도어 평탄부 260</text>
+<line x1="336.250" y1="166.250" x2="362.000" y2="166.250" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="336.250" y1="33.750" x2="362.000" y2="33.750" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="360.000" y1="166.250" x2="360.000" y2="33.750" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="360.000,166.250 360.900,163.650 359.100,163.650" fill="#0070a0"/>
+<polygon points="360.000,33.750 359.100,36.350 360.900,36.350" fill="#0070a0"/>
+<text x="358.800" y="100.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 358.800 100.000)">210</text>
+<line x1="314.000" y1="100.000" x2="366.000" y2="65.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="314.000,100.000 316.659,99.295 315.654,97.802" fill="#0070a0"/>
+<text x="367.500" y="66.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">디스플레이 개구부 176x94 (SH-01)</text>
+<line x1="337.500" y1="165.000" x2="366.000" y2="148.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="337.500,165.000 340.194,164.441 339.272,162.895" fill="#0070a0"/>
+<text x="367.500" y="149.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">탬퍼 볼트 6개소 SUS316 핀-인-톡스</text>
+<line x1="388.750" y1="175.000" x2="471.250" y2="175.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="471.250" y1="175.000" x2="471.250" y2="25.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="471.250" y1="25.000" x2="388.750" y2="25.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="388.750" y1="25.000" x2="388.750" y2="175.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="469.750" y1="175.000" x2="469.750" y2="25.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="396.250" y1="175.000" x2="396.250" y2="25.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="424.500" y1="160.000" x2="424.500" y2="40.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<text x="430.000" y="13.000" font-family="sans-serif" font-size="7.00" text-anchor="middle" fill="#202020" font-weight="bold">우측면도</text>
+<line x1="388.750" y1="175.000" x2="388.750" y2="192.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="471.250" y1="175.000" x2="471.250" y2="192.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="388.750" y1="190.000" x2="471.250" y2="190.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="388.750,190.000 391.350,190.900 391.350,189.100" fill="#0070a0"/>
+<polygon points="471.250,190.000 468.650,189.100 468.650,190.900" fill="#0070a0"/>
+<text x="430.000" y="188.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">150</text>
+<line x1="396.250" y1="55.000" x2="488.250" y2="41.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="396.250,55.000 398.956,55.499 398.685,53.719" fill="#0070a0"/>
+<text x="489.750" y="42.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">백플레이트 면 (후면 내벽 +12)</text>
+<line x1="424.500" y1="85.000" x2="488.250" y2="69.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="424.500,85.000 427.241,85.240 426.803,83.494" fill="#0070a0"/>
+<text x="489.750" y="70.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">DIN 기기 앞끝 71.5</text>
+<line x1="469.750" y1="120.000" x2="488.250" y2="110.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="469.750,120.000 472.465,119.555 471.609,117.972" fill="#0070a0"/>
+<text x="489.750" y="111.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">도어 3t</text>
+<line x1="457.250" y1="145.000" x2="488.250" y2="137.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="457.250,145.000 459.992,145.222 459.543,143.479" fill="#0070a0"/>
+<text x="489.750" y="138.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">디스플레이 스택 28</text>
+<line x1="195.000" y1="360.000" x2="345.000" y2="360.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="345.000" y1="360.000" x2="345.000" y2="210.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="345.000" y1="210.000" x2="195.000" y2="210.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="195.000" y1="210.000" x2="195.000" y2="360.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="203.500" y1="349.000" x2="216.500" y2="349.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="216.500" y1="349.000" x2="216.500" y2="341.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="216.500" y1="341.000" x2="203.500" y2="341.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="203.500" y1="341.000" x2="203.500" y2="349.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="203.500" y1="229.000" x2="216.500" y2="229.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="216.500" y1="229.000" x2="216.500" y2="221.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="216.500" y1="221.000" x2="203.500" y2="221.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="203.500" y1="221.000" x2="203.500" y2="229.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="323.500" y1="349.000" x2="336.500" y2="349.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="336.500" y1="349.000" x2="336.500" y2="341.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="336.500" y1="341.000" x2="323.500" y2="341.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="323.500" y1="341.000" x2="323.500" y2="349.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="323.500" y1="229.000" x2="336.500" y2="229.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="336.500" y1="229.000" x2="336.500" y2="221.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="336.500" y1="221.000" x2="323.500" y2="221.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="323.500" y1="221.000" x2="323.500" y2="229.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<text x="270.000" y="198.000" font-family="sans-serif" font-size="7.00" text-anchor="middle" fill="#202020" font-weight="bold">후면도 — 벽부 (뚫지 않는다)</text>
+<line x1="210.000" y1="345.000" x2="210.000" y2="377.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="330.000" y1="345.000" x2="330.000" y2="377.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="210.000" y1="375.000" x2="330.000" y2="375.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="210.000,375.000 212.600,375.900 212.600,374.100" fill="#0070a0"/>
+<polygon points="330.000,375.000 327.400,374.100 327.400,375.900" fill="#0070a0"/>
+<text x="270.000" y="373.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">브래킷 피치 240</text>
+<line x1="195.000" y1="345.000" x2="178.000" y2="345.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="195.000" y1="225.000" x2="178.000" y2="225.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="180.000" y1="345.000" x2="180.000" y2="225.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="180.000,345.000 180.900,342.400 179.100,342.400" fill="#0070a0"/>
+<polygon points="180.000,225.000 179.100,227.600 180.900,227.600" fill="#0070a0"/>
+<text x="178.800" y="285.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 178.800 285.000)">190</text>
+<line x1="210.000" y1="225.000" x2="362.000" y2="237.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="210.000,225.000 212.521,226.102 212.663,224.307" fill="#0070a0"/>
+<text x="363.500" y="238.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">제조사 벽부 브래킷 4개소</text>
+<line x1="355.000" y1="326.250" x2="505.000" y2="326.250" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="505.000" y1="326.250" x2="505.000" y2="243.750" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="505.000" y1="243.750" x2="355.000" y2="243.750" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="355.000" y1="243.750" x2="355.000" y2="326.250" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="355.000" y1="245.250" x2="505.000" y2="245.250" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<text x="430.000" y="231.750" font-family="sans-serif" font-size="7.00" text-anchor="middle" fill="#202020" font-weight="bold">평면도</text>
+<line x1="355.000" y1="326.250" x2="338.000" y2="326.250" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="355.000" y1="243.750" x2="338.000" y2="243.750" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="340.000" y1="326.250" x2="340.000" y2="243.750" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="340.000,326.250 340.900,323.650 339.100,323.650" fill="#0070a0"/>
+<polygon points="340.000,243.750 339.100,246.350 340.900,246.350" fill="#0070a0"/>
+<text x="338.800" y="285.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 338.800 285.000)">150</text>
+<line x1="355.000" y1="326.250" x2="355.000" y2="343.250" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="505.000" y1="326.250" x2="505.000" y2="343.250" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="355.000" y1="341.250" x2="505.000" y2="341.250" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="355.000,341.250 357.600,342.150 357.600,340.350" fill="#0070a0"/>
+<polygon points="505.000,341.250 502.400,340.350 502.400,342.150" fill="#0070a0"/>
+<text x="430.000" y="339.850" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">300</text>
+<line x1="430.000" y1="243.750" x2="515.000" y2="255.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="430.000,243.750 432.459,244.983 432.696,243.199" fill="#0070a0"/>
+<text x="516.500" y="256.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">도어 (힌지 좌측)</text>
 <rect x="394.0" y="364.0" width="190.0" height="46.0" fill="#ffffff" stroke="#202020" stroke-width="0.7"/>
 <line x1="394.0" y1="380.0" x2="584.0" y2="380.0" stroke="#202020" stroke-width="0.4"/>
 <line x1="394.0" y1="395.0" x2="584.0" y2="395.0" stroke="#202020" stroke-width="0.4"/>

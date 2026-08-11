@@ -20,9 +20,10 @@ OUT = os.path.dirname(os.path.abspath(__file__))
 # ══════════════════════════════════════════════════════════════════
 P = {
     # 함체 (기성품 — 구매 확정 후 실측값으로 교체)
-    "enc_w": 300.0, "enc_h": 250.0, "enc_d": 150.0,
-    "door_flat_w": 260.0, "door_flat_h": 210.0,   # 도어 실링립 안쪽 평탄부
-    "bp_w": 260.0, "bp_h": 210.0,                 # 백플레이트
+    # 하이박스 300 x 300 x 165 (외형은 확정 / 내부는 실측 전 추정)
+    "enc_w": 300.0, "enc_h": 300.0, "enc_d": 165.0,
+    "door_flat_w": 265.0, "door_flat_h": 265.0,   # 도어 실링립 안쪽 평탄부 (추정)
+    "bp_w": 260.0, "bp_h": 260.0,                 # 백플레이트 (추정)
 
     # 공식 7인치 디스플레이 (실측 확인 필요)
     "disp_w": 194.0, "disp_h": 111.0,
@@ -47,19 +48,22 @@ P = {
     "ac_x": 105.0,
     "vent_x": -105.0,
 
-    # 백플레이트 가공
-    "din_y": -45.0,                                # 레일 중심 (백플레이트 중심 기준)
-    "din_len": 240.0,
-    "din_holes_x": [-105.0, -35.0, 35.0, 105.0],
-    "din_hole_d": 4.5,
-    "pi_cx": -60.0, "pi_cy": 65.0,                 # 파이 나사 4개의 패턴 중심
+    # 백플레이트 가공 — SMPS · 콘센트 1구 · 단자대 8P
+    # ⚠ 세 부품의 외형·나사 위치는 실물 확인 전 추정치입니다.
+    "smps_w": 130.0, "smps_h": 98.0, "smps_d": 40.0,   # 12V 60W 메탈케이스형 (추정)
+    "smps_cx": -60.0, "smps_cy": 58.0,
+    "smps_px": 110.0, "smps_py": 78.0, "smps_hole_d": 4.5,   # 나사 피치 (추정)
+    "outlet_d": 86.0, "outlet_cx": 68.0, "outlet_cy": 58.0,  # 콘센트 1구 원형 (추정)
+    "outlet_px": 60.0, "outlet_hole_d": 4.5,                 # 상하 2점 고정 (추정)
+    "tb_w": 104.0, "tb_h": 26.0,                             # 단자대 8P (추정)
+    "tb_cx": -50.0, "tb_cy": -78.0,
+    "tb_px": 92.0, "tb_hole_d": 4.5,
+    "gnd_x": 112.0, "gnd_y": -112.0, "gnd_hole_d": 4.5,
+    # 파이 + 디스플레이는 도어에 함께 붙습니다 (SH-01)
     "pi_px": 58.0, "pi_py": 49.0, "pi_hole_d": 3.2,
-    "rtc_x": -112.0, "rtc_y": [60.0, 85.0], "rtc_hole_d": 3.2,
-    "ssd_x": 95.0, "ssd_y": [40.0, 90.0], "ssd_hole_d": 4.5,
-    "gnd_x": 120.0, "gnd_y": -95.0, "gnd_hole_d": 4.5,
 
     # 차양 (전개도)
-    "sun_w": 340.0, "sun_rear": 40.0, "sun_top": 190.0, "sun_drop": 40.0,
+    "sun_w": 340.0, "sun_rear": 40.0, "sun_top": 205.0, "sun_drop": 40.0,
     "sun_hole_d": 5.5, "sun_holes_x": [-120.0, -40.0, 40.0, 120.0],
 }
 
@@ -458,39 +462,45 @@ def dwg_backplate():
     centerlines(dr, W / 2 + 12, H / 2 + 12)
 
     holes = []
-    for i, hx in enumerate(P["din_holes_x"]):
-        holes.append(("DIN-%d" % (i + 1), hx, P["din_y"], P["din_hole_d"]))
-    px, py = P["pi_cx"], P["pi_cy"]
-    for i, (dx, dy) in enumerate([(-1, -1), (1, -1), (-1, 1), (1, 1)]):
-        holes.append(("PI-%d" % (i + 1), px + dx * P["pi_px"] / 2,
-                      py + dy * P["pi_py"] / 2, P["pi_hole_d"]))
-    for i, ry in enumerate(P["rtc_y"]):
-        holes.append(("RTC-%d" % (i + 1), P["rtc_x"], ry, P["rtc_hole_d"]))
-    for i, sy in enumerate(P["ssd_y"]):
-        holes.append(("SSD-%d" % (i + 1), P["ssd_x"], sy, P["ssd_hole_d"]))
+    # SMPS 4점
+    for i, (sx, sy) in enumerate([(-1, -1), (1, -1), (-1, 1), (1, 1)]):
+        holes.append(("SMPS-%d" % (i + 1), P["smps_cx"] + sx * P["smps_px"] / 2,
+                      P["smps_cy"] + sy * P["smps_py"] / 2, P["smps_hole_d"]))
+    # 콘센트 2점
+    for i, sy in enumerate((-1, 1)):
+        holes.append(("OUT-%d" % (i + 1), P["outlet_cx"],
+                      P["outlet_cy"] + sy * P["outlet_px"] / 2, P["outlet_hole_d"]))
+    # 단자대 2점
+    for i, sx in enumerate((-1, 1)):
+        holes.append(("TB-%d" % (i + 1), P["tb_cx"] + sx * P["tb_px"] / 2,
+                      P["tb_cy"], P["tb_hole_d"]))
     holes.append(("GND", P["gnd_x"], P["gnd_y"], P["gnd_hole_d"]))
 
     for name, hx, hy, hd in holes:
-        dr.hole(hx, hy, hd, cross=3 if hd < 4 else 4)
+        dr.hole(hx, hy, hd)
 
-    dr.rect("REF", 0, P["din_y"], P["din_len"], 35)
-    dr.rect("REF", px + 10, py, 85, 56)          # 기판 외형 (홀 패턴 중심은 기판 중심에서 10 치우침)
-    dr.rect("REF", px + 10 + 42.5 + 35, py, 70, 20)   # USB-RS485 돌출 영역
+    dr.rect("REF", P["smps_cx"], P["smps_cy"], P["smps_w"], P["smps_h"])
+    dr.circle("REF", P["outlet_cx"], P["outlet_cy"], P["outlet_d"])
+    dr.rect("REF", P["tb_cx"], P["tb_cy"], P["tb_w"], P["tb_h"])
 
     s = dr.s
-    s.dim_h(P["din_holes_x"][0], P["din_holes_x"][-1], -H / 2 - 18, "210", ext_from=P["din_y"])
-    s.dim_h(P["din_holes_x"][0], P["din_holes_x"][1], -H / 2 - 32, "70", ext_from=P["din_y"])
-    s.dim_v(-H / 2, P["din_y"], -W / 2 - 20, "60", ext_from=-W / 2)
-    s.dim_h(px - P["pi_px"] / 2, px + P["pi_px"] / 2, py + 42, "58", ext_from=py + P["pi_py"] / 2)
-    s.dim_v(py - P["pi_py"] / 2, py + P["pi_py"] / 2, px - 52, "49", ext_from=px - P["pi_px"] / 2)
-    s.dim_h(-W / 2, W / 2, H / 2 + 30, "260 (기성 백플레이트)", ext_from=H / 2)
-    s.dim_v(-H / 2, H / 2, W / 2 + 34, "210", ext_from=W / 2)
+    s.dim_h(-W / 2, W / 2, H / 2 + 26, "260 (기성 백플레이트)", ext_from=H / 2)
+    s.dim_v(-H / 2, H / 2, W / 2 + 30, "260", ext_from=W / 2)
+    s.dim_h(P["smps_cx"] - P["smps_px"]/2, P["smps_cx"] + P["smps_px"]/2,
+            P["smps_cy"] + P["smps_py"]/2 + 16, "110", ext_from=P["smps_cy"] + P["smps_py"]/2)
+    s.dim_v(P["smps_cy"] - P["smps_py"]/2, P["smps_cy"] + P["smps_py"]/2,
+            P["smps_cx"] - P["smps_px"]/2 - 16, "78", ext_from=P["smps_cx"] - P["smps_px"]/2)
+    s.dim_v(P["outlet_cy"] - P["outlet_px"]/2, P["outlet_cy"] + P["outlet_px"]/2,
+            P["outlet_cx"] + 60, "60", ext_from=P["outlet_cx"])
+    s.dim_h(P["tb_cx"] - P["tb_px"]/2, P["tb_cx"] + P["tb_px"]/2,
+            P["tb_cy"] - 26, "92", ext_from=P["tb_cy"])
 
-    s.leader(P["din_holes_x"][-1], P["din_y"], 146, -96, "DIN 레일 35mm x 240  Ø4.5 (4)")
-    s.leader(px + P["pi_px"] / 2, py + P["pi_py"] / 2, 20, 128, "라즈베리파이 4  Ø3.2 (4)")
-    s.leader(P["rtc_x"], P["rtc_y"][1], -148, 124, "RTC DS3231  Ø3.2 (2)", anchor="end")
-    s.leader(P["ssd_x"], P["ssd_y"][1], 146, 118, "SSD 브래킷  Ø4.5 (2)")
-    s.leader(P["gnd_x"], P["gnd_y"], 146, -118, "접지 스터드 Ø4.5")
+    s.leader(P["smps_cx"], P["smps_cy"] + P["smps_h"]/2, -20, 140,
+             "SMPS 12V 60W (5A)  130 x 98 x 40")
+    s.leader(P["outlet_cx"] + P["outlet_d"]/2, P["outlet_cy"], 150, 108,
+             "콘센트 1구 원형 220V")
+    s.leader(P["tb_cx"] + P["tb_w"]/2, P["tb_cy"], 150, -60, "단자대 8P (접지 포함)")
+    s.leader(P["gnd_x"], P["gnd_y"], 150, -120, "접지 스터드 Ø4.5")
 
     def table(sv, ty):
         rows = [(n, "%+.1f" % hx, "%+.1f" % hy, "%.1f" % hd) for n, hx, hy, hd in holes]
@@ -498,19 +508,16 @@ def dwg_backplate():
 
     write(dr, "03-backplate", "백플레이트 가공도", "SH-03", [
         "부품이 붙는 면(함체 전면 방향)에서 본 모습. 재질 알루미늄 2t, 기성 백플레이트.",
-        "가공은 구멍 13개뿐이다: Ø4.5 x 7, Ø3.2 x 6.",
-        "파이 나사구멍 패턴 58 x 49 의 중심은 기판(85x56) 중심에서 긴 변 방향으로",
-        "   10mm 치우쳐 있다. 참고선의 기판 외형이 그것을 반영한 위치다.",
-        "파이는 USB·이더넷 면이 오른쪽, GPIO 헤더가 위를 향하게 놓는다.",
-        "   DSI 리본이 왼쪽으로 빠져 힌지(좌측) 쪽으로 자연스럽게 돌아간다.",
-        "USB-RS485 변환기는 파이 오른쪽으로 약 70 돌출한다. 참고선 영역을 비워 둘 것.",
-        "DIN 레일 배치(좌→우): 2단 단자대 - DC/DC 벅 - SMPS - 퓨즈홀더 3 - SPD.",
-        "   AC 구역을 오른쪽 끝에 모아 하부면 AC 커넥터(우측)와 최단으로 잇는다.",
-        "   RS485 배선은 SMPS·AC 배선에서 50 이상 띄우고, 교차 시 직각으로 지난다.",
+        "가공은 구멍 9개다: SMPS 4, 콘센트 2, 단자대 2, 접지 1. 전부 Ø4.5.",
+        "⚠ SMPS · 콘센트 · 단자대의 외형과 나사 피치는 실물 확인 전 추정치다.",
+        "   세 부품을 사서 실측한 뒤 PARAMS 를 고치고 이 도면을 다시 생성할 것.",
+        "라즈베리파이와 디스플레이는 백플레이트에 붙지 않는다. 도어에 함께 붙는다(SH-01).",
+        "   백플레이트에는 AC 계통과 SMPS·단자대만 올라간다.",
+        "배치 원칙 — 콘센트와 단자대 1~3극(220V)을 오른쪽에, 12V·RS485 를 왼쪽에 둔다.",
+        "   하부면 커넥터 배치와 같은 방향이라 AC 배선과 통신 배선이 서로 반대편에 놓인다.",
+        "SMPS 와 콘센트는 발열체다. 도어의 디스플레이 뒷면과 40 이상 띄운다.",
         "접지 스터드는 톱니와셔로 알루미늄 산화막을 관통시켜 도통시킨다.",
-        "   AC 커넥터 PE - SMPS FG - 백플레이트가 한 점에 모이게 한다.",
         "케이블 덕트는 쓰지 않는다. 접착식 타이 앵커로 정리한다(가공 없음).",
-        "실리카겔 홀더는 접착 부착이므로 가공하지 않는다.",
     ], after=table)
 
 
@@ -677,7 +684,7 @@ def dwg_enclosure():
     s = dr.s
 
     # ── 정면도 (좌상) — 도어를 바깥에서 ──
-    ox, oy = -120.0, 290.0
+    ox, oy = -120.0, 300.0
     dr.rect("CUT", ox, oy, Wd, Hh)
     dr.rect("REF", ox, oy, fw, fh)
     dr.rrect("CUT", ox, oy, P["win_w"], P["win_h"], P["win_r"])
@@ -694,7 +701,7 @@ def dwg_enclosure():
              "탬퍼 볼트 6개소 SUS316 핀-인-톡스")
 
     # ── 우측면도 (우상) ──
-    sx, sy = 190.0, 290.0
+    sx, sy = 200.0, 300.0
     dr.rect("CUT", sx, sy, Dd, Hh)
     dr.line("MARK", sx + Dd/2 - 3, sy - Hh/2, sx + Dd/2 - 3, sy + Hh/2)
     dr.line("MARK", sx - Dd/2 + 15, sy - Hh/2, sx - Dd/2 + 15, sy + Hh/2)
@@ -707,7 +714,7 @@ def dwg_enclosure():
     s.leader(sx + Dd/2 - 28, sy - 90, sx + Dd/2 + 34, sy - 74, "디스플레이 스택 28")
 
     # ── 후면도 (좌하) — 벽부 ──
-    rx, ry = -120.0, -50.0
+    rx, ry = -120.0, -70.0
     dr.rect("CUT", rx, ry, Wd, Hh)
     for bxp in (-Wd/2 + 30, Wd/2 - 30):
         for byp in (-Hh/2 + 30, Hh/2 - 30):
@@ -720,7 +727,7 @@ def dwg_enclosure():
              "제조사 벽부 브래킷 4개소")
 
     # ── 평면도 (우하) ──
-    px, py = 190.0, -50.0
+    px, py = 200.0, -70.0
     dr.rect("CUT", px, py, Wd, Dd)
     dr.line("REF", px - Wd/2, py + Dd/2 - 3, px + Wd/2, py + Dd/2 - 3)
     s.text(px, py + Dd/2 + 24, "평면도", 7.0, weight="bold")
