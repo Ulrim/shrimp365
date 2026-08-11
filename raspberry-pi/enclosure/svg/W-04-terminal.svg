@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420mm" height="297mm" viewBox="0 0 420 297">
+<rect x="0" y="0" width="420" height="297" fill="#ffffff"/>
+<rect x="8" y="8" width="404" height="281" fill="none" stroke="#202020" stroke-width="0.6"/>
+<rect x="40.00" y="98.00" width="24.50" height="26.00" fill="#ffffff" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="52.25" y="112.40" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">1</text>
+<text x="52.25" y="118.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#c00000" font-weight="bold">+24V</text>
+<rect x="66.00" y="98.00" width="24.50" height="26.00" fill="#ffffff" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="78.25" y="112.40" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">2</text>
+<text x="78.25" y="118.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#c00000" font-weight="bold">+24V</text>
+<rect x="92.00" y="98.00" width="24.50" height="26.00" fill="#ffffff" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="104.25" y="112.40" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">3</text>
+<text x="104.25" y="118.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#c00000" font-weight="bold">+24V</text>
+<rect x="118.00" y="98.00" width="24.50" height="26.00" fill="#ffffff" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="130.25" y="112.40" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">4</text>
+<text x="130.25" y="118.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#c00000" font-weight="bold">+24V</text>
+<path d="M 44.00 94.00 L 138.50 94.00" fill="none" stroke="#c00000" stroke-width="2.20" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="44.00" y="91.00" font-family="sans-serif" font-size="2.80" text-anchor="start" fill="#c00000" font-weight="normal">브리지</text>
+<rect x="144.00" y="98.00" width="24.50" height="26.00" fill="#ffffff" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="156.25" y="112.40" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">5</text>
+<text x="156.25" y="118.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#202020" font-weight="bold">0V-P</text>
+<rect x="170.00" y="98.00" width="24.50" height="26.00" fill="#ffffff" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="182.25" y="112.40" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">6</text>
+<text x="182.25" y="118.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#202020" font-weight="bold">0V-P</text>
+<rect x="196.00" y="98.00" width="24.50" height="26.00" fill="#ffffff" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="208.25" y="112.40" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">7</text>
+<text x="208.25" y="118.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#202020" font-weight="bold">0V-P</text>
+<rect x="222.00" y="98.00" width="24.50" height="26.00" fill="#ffffff" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="234.25" y="112.40" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">8</text>
+<text x="234.25" y="118.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#202020" font-weight="bold">0V-P</text>
+<path d="M 148.00 94.00 L 242.50 94.00" fill="none" stroke="#202020" stroke-width="2.20" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="148.00" y="91.00" font-family="sans-serif" font-size="2.80" text-anchor="start" fill="#202020" font-weight="normal">브리지</text>
+<rect x="40.00" y="126.00" width="24.50" height="26.00" fill="#fafafa" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="52.25" y="140.40" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold"></text>
+<text x="52.25" y="142.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#0a8a3a" font-weight="bold">A</text>
+<rect x="66.00" y="126.00" width="24.50" height="26.00" fill="#fafafa" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="78.25" y="140.40" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold"></text>
+<text x="78.25" y="142.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#0a8a3a" font-weight="bold">A</text>
+<rect x="92.00" y="126.00" width="24.50" height="26.00" fill="#fafafa" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="104.25" y="140.40" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold"></text>
+<text x="104.25" y="142.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#0a8a3a" font-weight="bold">A</text>
+<rect x="118.00" y="126.00" width="24.50" height="26.00" fill="#fafafa" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="130.25" y="140.40" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold"></text>
+<text x="130.25" y="142.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#0a8a3a" font-weight="bold">A</text>
+<path d="M 44.00 156.00 L 138.50 156.00" fill="none" stroke="#0a8a3a" stroke-width="2.20" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="144.00" y="126.00" width="24.50" height="26.00" fill="#fafafa" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="156.25" y="140.40" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold"></text>
+<text x="156.25" y="142.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#b89000" font-weight="bold">B</text>
+<rect x="170.00" y="126.00" width="24.50" height="26.00" fill="#fafafa" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="182.25" y="140.40" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold"></text>
+<text x="182.25" y="142.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#b89000" font-weight="bold">B</text>
+<rect x="196.00" y="126.00" width="24.50" height="26.00" fill="#fafafa" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="208.25" y="140.40" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold"></text>
+<text x="208.25" y="142.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#b89000" font-weight="bold">B</text>
+<rect x="222.00" y="126.00" width="24.50" height="26.00" fill="#fafafa" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="234.25" y="140.40" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold"></text>
+<text x="234.25" y="142.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#b89000" font-weight="bold">B</text>
+<path d="M 148.00 156.00 L 242.50 156.00" fill="none" stroke="#b89000" stroke-width="2.20" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="248.00" y="98.00" width="24.50" height="26.00" fill="#ffffff" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="260.25" y="112.40" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">9</text>
+<text x="260.25" y="118.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#e07a00" font-weight="bold">+5V</text>
+<rect x="248.00" y="126.00" width="24.50" height="26.00" fill="#fafafa" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="260.25" y="140.40" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold"></text>
+<text x="260.25" y="142.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#8a8a8a" font-weight="bold">0V-S</text>
+<rect x="274.00" y="98.00" width="24.50" height="26.00" fill="#ffffff" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="286.25" y="112.40" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">10</text>
+<text x="286.25" y="118.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#e07a00" font-weight="bold">+5V</text>
+<rect x="274.00" y="126.00" width="24.50" height="26.00" fill="#fafafa" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="286.25" y="140.40" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold"></text>
+<text x="286.25" y="142.00" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#8a8a8a" font-weight="bold">0V-S</text>
+<path d="M 252.00 94.00 L 294.50 94.00" fill="none" stroke="#e07a00" stroke-width="2.20" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M 252.00 156.00 L 294.50 156.00" fill="none" stroke="#8a8a8a" stroke-width="2.20" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="40.00" y="82.00" font-family="sans-serif" font-size="4.40" text-anchor="start" fill="#202020" font-weight="bold">2단 단자대 10위치 = 20극   (1층 = 위, 2층 = 아래)</text>
+<text x="40.00" y="168.00" font-family="sans-serif" font-size="3.60" text-anchor="start" fill="#666" font-weight="normal">← 센서·RS485 구역 (좌)                    AC 구역 (우) →</text>
+<rect x="40.00" y="176.00" width="74.00" height="22.00" fill="#fff0f0" stroke="#c00000" stroke-width="1.40" rx="1.5"/>
+<text x="77.00" y="186.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">LK1</text>
+<text x="77.00" y="190.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">0V-P ↔ 0V-S  필수</text>
+<rect x="124.00" y="176.00" width="74.00" height="22.00" fill="#f0fff2" stroke="#2f8f3f" stroke-width="1.20" rx="1.5"/>
+<text x="161.00" y="186.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">LK2</text>
+<text x="161.00" y="190.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">0V-P ↔ PE  기본 장착</text>
+<rect x="208.00" y="176.00" width="74.00" height="22.00" fill="#f0fff2" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="245.00" y="186.20" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">PE 접지단자</text>
+<text x="245.00" y="190.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">레일 접지형</text>
+<rect x="40.00" y="220.00" width="57.55" height="26.00" fill="#ffffff" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="68.78" y="232.20" font-family="sans-serif" font-size="3.40" text-anchor="middle" fill="#202020" font-weight="bold">2단 단자대</text>
+<text x="68.78" y="236.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">47</text>
+<rect x="98.75" y="220.00" width="42.55" height="26.00" fill="#ffffff" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="120.03" y="232.20" font-family="sans-serif" font-size="3.40" text-anchor="middle" fill="#202020" font-weight="bold">DDR-30G-5</text>
+<text x="120.03" y="236.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">35</text>
+<rect x="142.50" y="220.00" width="64.42" height="26.00" fill="#ffffff" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="174.71" y="232.20" font-family="sans-serif" font-size="3.40" text-anchor="middle" fill="#202020" font-weight="bold">HDR-60-24</text>
+<text x="174.71" y="236.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">52</text>
+<rect x="208.12" y="220.00" width="64.42" height="26.00" fill="#ffffff" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="240.34" y="232.20" font-family="sans-serif" font-size="3.40" text-anchor="middle" fill="#202020" font-weight="bold">퓨즈 x3</text>
+<text x="240.34" y="236.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">52</text>
+<rect x="273.75" y="220.00" width="21.30" height="26.00" fill="#ffffff" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="284.40" y="232.20" font-family="sans-serif" font-size="3.40" text-anchor="middle" fill="#202020" font-weight="bold">SPD</text>
+<text x="284.40" y="236.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">18</text>
+<rect x="296.25" y="220.00" width="42.55" height="26.00" fill="#f2f2f2" stroke="#202020" stroke-width="0.70" rx="1.5"/>
+<text x="317.52" y="232.20" font-family="sans-serif" font-size="3.40" text-anchor="middle" fill="#202020" font-weight="bold">(예비 35)</text>
+<text x="317.52" y="236.80" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">35</text>
+<text x="40.00" y="214.00" font-family="sans-serif" font-size="4.00" text-anchor="start" fill="#202020" font-weight="bold">DIN 레일 240mm 배분 — 사용 205, 여유 35 (AC 라인 필터 자리 18 포함)</text>
+<path d="M 40.00 252.00 L 340.00 252.00" fill="none" stroke="#202020" stroke-width="1.40" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="190.00" y="258.00" font-family="sans-serif" font-size="3.40" text-anchor="middle" fill="#202020" font-weight="normal">240</text>
+<rect x="244.00" y="259.00" width="168.00" height="30.00" fill="#fff" stroke="#202020" stroke-width="0.6"/>
+<line x1="244.00" y1="274.00" x2="412.00" y2="274.00" stroke="#202020" stroke-width="0.4"/>
+<text x="247.00" y="269.50" font-family="sans-serif" font-size="6.00" text-anchor="start" fill="#202020" font-weight="bold">단자대 배치 · 결선도</text>
+<text x="247.00" y="283.00" font-family="sans-serif" font-size="3.60" text-anchor="start" fill="#202020" font-weight="normal">Shrimp365 수질 모니터링 장비 — 내부 배선</text>
+<text x="409.00" y="283.00" font-family="sans-serif" font-size="3.60" text-anchor="end" fill="#202020" font-weight="normal">도번 W-04   Rev.A</text>
+<text x="14.00" y="22.00" font-family="sans-serif" font-size="4.60" text-anchor="start" fill="#202020" font-weight="bold">주기</text>
+<text x="14.00" y="27.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">1.</text>
+<text x="20.00" y="27.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">2단 단자대 10위치(20극). 굵은 선은 삽입 브리지로 묶는 구간이다.</text>
+<text x="14.00" y="32.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">2.</text>
+<text x="20.00" y="32.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">1층 1~4 = +24V, 5~8 = 0V-P, 9~10 = +5V.</text>
+<text x="14.00" y="37.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">3.</text>
+<text x="20.00" y="37.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">2층 1~4 = RS485 A, 5~8 = RS485 B, 9~10 = 0V-S.</text>
+<text x="14.00" y="42.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">4.</text>
+<text x="20.00" y="42.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">센서·RS485 는 왼쪽, AC 는 오른쪽에 모은다. 하부면 커넥터 배치와 같은 방향이라</text>
+<text x="20.00" y="47.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">AC 배선과 통신 배선이 함체 안에서 서로 반대편에 놓인다.</text>
+<text x="14.00" y="52.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">5.</text>
+<text x="20.00" y="52.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">LK1 은 필수다. 조립 시 빠뜨리면 통신이 간헐적으로 끊긴다 — W-01·W-03 참조.</text>
+<text x="14.00" y="57.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">6.</text>
+<text x="20.00" y="57.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">LK2 는 기본 장착이며 접지 루프 시험 때 분리할 수 있다.</text>
+<text x="14.00" y="62.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">7.</text>
+<text x="20.00" y="62.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">PE 는 별도 레일 접지형 단자를 쓴다. 일반 단자대에 PE 를 섞지 않는다.</text>
+<text x="14.00" y="67.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">8.</text>
+<text x="20.00" y="67.00" font-family="sans-serif" font-size="3.30" text-anchor="start" fill="#202020" font-weight="normal">어느 극에 무엇을 무는지는 WIRING.md 의 결선표가 기준이다.</text>
+<line x1="14.00" y1="283.00" x2="23.00" y2="283.00" stroke="#c00000" stroke-width="1.4"/>
+<text x="25.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">+24V</text>
+<line x1="37.00" y1="283.00" x2="46.00" y2="283.00" stroke="#202020" stroke-width="1.4"/>
+<text x="48.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">0V-P</text>
+<line x1="60.00" y1="283.00" x2="69.00" y2="283.00" stroke="#0a8a3a" stroke-width="1.4"/>
+<text x="71.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">A</text>
+<line x1="77.00" y1="283.00" x2="86.00" y2="283.00" stroke="#b89000" stroke-width="1.4"/>
+<text x="88.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">B</text>
+<line x1="94.00" y1="283.00" x2="103.00" y2="283.00" stroke="#e07a00" stroke-width="1.4"/>
+<text x="105.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">+5V</text>
+<line x1="115.00" y1="283.00" x2="124.00" y2="283.00" stroke="#8a8a8a" stroke-width="1.4"/>
+<text x="126.00" y="284.20" font-family="sans-serif" font-size="3.20" text-anchor="start" fill="#202020" font-weight="normal">0V-S</text>
+</svg>

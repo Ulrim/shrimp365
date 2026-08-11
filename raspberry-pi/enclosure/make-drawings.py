@@ -123,12 +123,12 @@ STYLE = {
 
 
 class Svg:
-    def __init__(self, ox, oy):
-        self.ox, self.oy = ox, oy
+    def __init__(self, ox, oy, k=1.0):
+        self.ox, self.oy, self.k = ox, oy, k
         self.body = []
 
-    def X(self, x): return self.ox + x
-    def Y(self, y): return self.oy - y
+    def X(self, x): return self.ox + self.k * x
+    def Y(self, y): return self.oy - self.k * y
 
     def line(self, layer, x1, y1, x2, y2):
         self.body.append('<line x1="%.3f" y1="%.3f" x2="%.3f" y2="%.3f" %s/>'
@@ -136,14 +136,14 @@ class Svg:
 
     def circle(self, layer, x, y, r):
         self.body.append('<circle cx="%.3f" cy="%.3f" r="%.3f" %s/>'
-                         % (self.X(x), self.Y(y), r, STYLE[layer]))
+                         % (self.X(x), self.Y(y), r * self.k, STYLE[layer]))
 
     def arc(self, layer, x, y, r, a1, a2):
         p1 = (x + r * math.cos(math.radians(a1)), y + r * math.sin(math.radians(a1)))
         p2 = (x + r * math.cos(math.radians(a2)), y + r * math.sin(math.radians(a2)))
         large = 1 if (a2 - a1) % 360 > 180 else 0
         self.body.append('<path d="M %.3f %.3f A %.3f %.3f 0 %d 0 %.3f %.3f" %s/>'
-                         % (self.X(p1[0]), self.Y(p1[1]), r, r, large,
+                         % (self.X(p1[0]), self.Y(p1[1]), r * self.k, r * self.k, large,
                             self.X(p2[0]), self.Y(p2[1]), STYLE[layer]))
 
     def text(self, x, y, s, size=3.0, anchor="middle", color="#202020", weight="normal"):
@@ -159,7 +159,7 @@ class Svg:
     def arrow(self, x, y, ang):
         """모델좌표 (x,y) 에 각도 ang(도) 방향 화살촉"""
         a = math.radians(ang)
-        L, Wd = 2.6, 0.9
+        L, Wd = 2.6 / self.k, 0.9 / self.k
         tip = (self.X(x), self.Y(y))
         bx, by = x - L * math.cos(a), y - L * math.sin(a)
         p2 = (self.X(bx - Wd * math.sin(a)), self.Y(by + Wd * math.cos(a)))
@@ -169,18 +169,20 @@ class Svg:
 
     # --- 치수 ---
     def dim_h(self, x1, x2, y, label, ext_from=None):
+        o = 2.0 / self.k
         if ext_from is not None:
-            self.line("DIM", x1, ext_from, x1, y + (2 if y > ext_from else -2))
-            self.line("DIM", x2, ext_from, x2, y + (2 if y > ext_from else -2))
+            self.line("DIM", x1, ext_from, x1, y + (o if y > ext_from else -o))
+            self.line("DIM", x2, ext_from, x2, y + (o if y > ext_from else -o))
         self.line("DIM", x1, y, x2, y)
         self.arrow(x1, y, 180)
         self.arrow(x2, y, 0)
-        self.text((x1 + x2) / 2, y + 1.4, label, 3.2, color="#0070a0")
+        self.text((x1 + x2) / 2, y + 1.4 / self.k, label, 3.2, color="#0070a0")
 
     def dim_v(self, y1, y2, x, label, ext_from=None):
+        o = 2.0 / self.k
         if ext_from is not None:
-            self.line("DIM", ext_from, y1, x + (2 if x > ext_from else -2), y1)
-            self.line("DIM", ext_from, y2, x + (2 if x > ext_from else -2), y2)
+            self.line("DIM", ext_from, y1, x + (o if x > ext_from else -o), y1)
+            self.line("DIM", ext_from, y2, x + (o if x > ext_from else -o), y2)
         self.line("DIM", x, y1, x, y2)
         self.arrow(x, y1, 270)
         self.arrow(x, y2, 90)
@@ -192,8 +194,8 @@ class Svg:
     def leader(self, x, y, tx, ty, label, anchor="start"):
         self.line("DIM", x, y, tx, ty)
         self.arrow(x, y, math.degrees(math.atan2(y - ty, x - tx)))
-        dx = 1.5 if anchor == "start" else -1.5
-        self.text(tx + dx, ty - 1.0, label, 3.0, anchor=anchor, color="#0070a0")
+        dx = (1.5 if anchor == "start" else -1.5) / self.k
+        self.text(tx + dx, ty - 1.0 / self.k, label, 3.0, anchor=anchor, color="#0070a0")
 
 
 def esc(s):
@@ -227,8 +229,8 @@ def centerlines(dr, xext, yext):
 class Draw:
     """DXF 와 SVG 에 동시에 그립니다. dim_* / note 는 SVG 전용."""
 
-    def __init__(self, ox, oy):
-        self.d, self.s = Dxf(), Svg(ox, oy)
+    def __init__(self, ox, oy, k=1.0):
+        self.d, self.s = Dxf(), Svg(ox, oy, k)
 
     def line(self, layer, *a):
         self.d.line(layer, *a); self.s.line(layer, *a)
@@ -266,7 +268,7 @@ class Draw:
 # ══════════════════════════════════════════════════════════════════
 #  시트 (테두리 · 표제란 · 주석)
 # ══════════════════════════════════════════════════════════════════
-def sheet(dr, title, no, notes, extra_rows=None):
+def sheet(dr, title, no, notes, extra_rows=None, scale="1:1"):
     s = dr.s
     b = []
     b.append('<rect x="0" y="0" width="%.1f" height="%.1f" fill="#ffffff"/>' % (SHEET_W, SHEET_H))
@@ -286,7 +288,7 @@ def sheet(dr, title, no, notes, extra_rows=None):
     s.raw_text(tx + 4, ty + 11, title, 6.5, weight="bold")
     s.raw_text(tx + 4, ty + 26, "Shrimp365 수질 모니터링 장비 함체", 4.0)
     s.raw_text(tx + tw - 4, ty + 26, "도번 %s" % no, 4.0, anchor="end")
-    s.raw_text(tx + 4, ty + 41, "척도 1:1   투상 제3각   단위 mm", 3.6)
+    s.raw_text(tx + 4, ty + 41, "척도 %s   투상 제3각   단위 mm" % scale, 3.6)
     s.raw_text(tx + tw - 4, ty + 41, "A2 / Rev.A", 3.6, anchor="end")
 
     # 주석 — 좌측 열. 공백으로 시작하는 줄은 앞 항목의 이어짐이라 번호를 붙이지 않는다.
@@ -318,8 +320,8 @@ def sheet(dr, title, no, notes, extra_rows=None):
     return ny
 
 
-def write(dr, base, title, no, notes, extra=None, after=None):
-    y = sheet(dr, title, no, notes, extra)
+def write(dr, base, title, no, notes, extra=None, after=None, scale="1:1"):
+    y = sheet(dr, title, no, notes, extra, scale)
     if after:
         after(dr.s, y + 8)
     os.makedirs(os.path.join(OUT, "dxf"), exist_ok=True)
@@ -664,6 +666,86 @@ def dwg_section():
     ])
 
 
+# ══════════════════════════════════════════════════════════════════
+#  도면 7 — 외함 3면도 (설계 요구 형상)
+# ══════════════════════════════════════════════════════════════════
+def dwg_enclosure():
+    K = 0.5
+    dr = Draw(330, 250, K)
+    Wd, Hh, Dd = P["enc_w"], P["enc_h"], P["enc_d"]
+    fw, fh = P["door_flat_w"], P["door_flat_h"]
+    s = dr.s
+
+    # ── 정면도 (좌상) — 도어를 바깥에서 ──
+    ox, oy = -120.0, 290.0
+    dr.rect("CUT", ox, oy, Wd, Hh)
+    dr.rect("REF", ox, oy, fw, fh)
+    dr.rrect("CUT", ox, oy, P["win_w"], P["win_h"], P["win_r"])
+    for bxp in (-Wd/2 + 15, Wd/2 - 15):
+        for byp in (-Hh/2 + 20, 0.0, Hh/2 - 20):
+            dr.circle("MARK", ox + bxp, oy + byp, 4)
+    s.text(ox, oy + Hh/2 + 24, "정면도 — 도어 (바깥에서)", 7.0, weight="bold")
+    s.dim_h(ox - Wd/2, ox + Wd/2, oy - Hh/2 - 30, "300", ext_from=oy - Hh/2)
+    s.dim_v(oy - Hh/2, oy + Hh/2, ox - Wd/2 - 30, "250", ext_from=ox - Wd/2)
+    s.dim_h(ox - fw/2, ox + fw/2, oy - fh/2 - 13, "도어 평탄부 260", ext_from=oy - fh/2)
+    s.dim_v(oy - fh/2, oy + fh/2, ox + Wd/2 + 30, "210", ext_from=ox + fw/2)
+    s.leader(ox + P["win_w"]/2, oy, ox + Wd/2 + 42, oy + 70, "디스플레이 개구부 176x94 (SH-01)")
+    s.leader(ox + Wd/2 - 15, oy - Hh/2 + 20, ox + Wd/2 + 42, oy - 96,
+             "탬퍼 볼트 6개소 SUS316 핀-인-톡스")
+
+    # ── 우측면도 (우상) ──
+    sx, sy = 190.0, 290.0
+    dr.rect("CUT", sx, sy, Dd, Hh)
+    dr.line("MARK", sx + Dd/2 - 3, sy - Hh/2, sx + Dd/2 - 3, sy + Hh/2)
+    dr.line("MARK", sx - Dd/2 + 15, sy - Hh/2, sx - Dd/2 + 15, sy + Hh/2)
+    dr.line("MARK", sx - Dd/2 + 71.5, sy - Hh/2 + 30, sx - Dd/2 + 71.5, sy + Hh/2 - 30)
+    s.text(sx, sy + Hh/2 + 24, "우측면도", 7.0, weight="bold")
+    s.dim_h(sx - Dd/2, sx + Dd/2, sy - Hh/2 - 30, "150", ext_from=sy - Hh/2)
+    s.leader(sx - Dd/2 + 15, sy + 90, sx + Dd/2 + 34, sy + 118, "백플레이트 면 (후면 내벽 +12)")
+    s.leader(sx - Dd/2 + 71.5, sy + 30, sx + Dd/2 + 34, sy + 62, "DIN 기기 앞끝 71.5")
+    s.leader(sx + Dd/2 - 3, sy - 40, sx + Dd/2 + 34, sy - 20, "도어 3t")
+    s.leader(sx + Dd/2 - 28, sy - 90, sx + Dd/2 + 34, sy - 74, "디스플레이 스택 28")
+
+    # ── 후면도 (좌하) — 벽부 ──
+    rx, ry = -120.0, -50.0
+    dr.rect("CUT", rx, ry, Wd, Hh)
+    for bxp in (-Wd/2 + 30, Wd/2 - 30):
+        for byp in (-Hh/2 + 30, Hh/2 - 30):
+            dr.rect("MARK", rx + bxp, ry + byp, 26, 16)
+    s.text(rx, ry + Hh/2 + 24, "후면도 — 벽부 (뚫지 않는다)", 7.0, weight="bold")
+    s.dim_h(rx - Wd/2 + 30, rx + Wd/2 - 30, ry - Hh/2 - 30, "브래킷 피치 240",
+            ext_from=ry - Hh/2 + 30)
+    s.dim_v(ry - Hh/2 + 30, ry + Hh/2 - 30, rx - Wd/2 - 30, "190", ext_from=rx - Wd/2)
+    s.leader(rx - Wd/2 + 30, ry + Hh/2 - 30, rx + Wd/2 + 34, ry + 96,
+             "제조사 벽부 브래킷 4개소")
+
+    # ── 평면도 (우하) ──
+    px, py = 190.0, -50.0
+    dr.rect("CUT", px, py, Wd, Dd)
+    dr.line("REF", px - Wd/2, py + Dd/2 - 3, px + Wd/2, py + Dd/2 - 3)
+    s.text(px, py + Dd/2 + 24, "평면도", 7.0, weight="bold")
+    s.dim_v(py - Dd/2, py + Dd/2, px - Wd/2 - 30, "150", ext_from=px - Wd/2)
+    s.dim_h(px - Wd/2, px + Wd/2, py - Dd/2 - 30, "300", ext_from=py - Dd/2)
+    s.leader(px, py + Dd/2, px + Wd/2 + 20, py + 60, "도어 (힌지 좌측)")
+
+    write(dr, "07-enclosure", "외함 4면도 — 설계 요구 형상", "SH-07", [
+        "이 도면은 가공도가 아니라 외함이 만족해야 할 형상이다. 기성품을 고르든",
+        "   새로 만들든 이 치수를 만족해야 한다. 구멍 가공은 SH-01, SH-02 를 따른다.",
+        "외형 300 x 250 x 150. 내부 유효 최소 250(W) x 220(H) x 120(D).",
+        "재질 폴리카보네이트 또는 ABS. 금속 불가 — 파이4 내장 WiFi 가 차폐된다.",
+        "도어는 힌지형, 불투명, 나사 체결식. 힌지 좌측.",
+        "   원터치 래치 제품은 소비자가 맨손으로 열 수 있어 쓸 수 없다.",
+        "도어 평탄부 260 x 210 이 확보되어야 디스플레이 194 x 111 이 앉는다.",
+        "백플레이트는 알루미늄, 후면 내벽에서 12 이격. 방열 경로이므로 금속이어야 한다.",
+        "면별 용도 — 도어: 디스플레이 / 하면: 커넥터 6 / 후면: 벽부 브래킷.",
+        "   좌우면과 상면은 뚫지 않는다. 물이 고여 방수가 깨진다.",
+        "IP66 이상. 도어 개스킷은 함체 기본품을 쓰고 균일하게 압축되어야 한다.",
+        "색상 밝은 회색(RAL 7035 계열). 검정은 일사 흡수가 커서 내부 온도를 올린다.",
+        "설치는 하면이 아래를 향하는 수직 벽부. 눕히거나 뒤집어 달지 않는다.",
+        "설계 근거와 검증 기준은 ENCLOSURE.md 를 볼 것.",
+    ], ["※ 지금 치수는 가정치다. 함체 확정 후 실측하여 PARAMS 를 갱신할 것."], scale="1:2")
+
+
 if __name__ == "__main__":
     print("제작도면 생성")
     dwg_door()
@@ -672,4 +754,5 @@ if __name__ == "__main__":
     dwg_pressframe()
     dwg_sunshield()
     dwg_section()
+    dwg_enclosure()
     print("완료 — %s" % OUT)

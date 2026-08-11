@@ -1,0 +1,181 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="594mm" height="420mm" viewBox="0 0 594 420">
+<rect x="0" y="0" width="594.0" height="420.0" fill="#ffffff"/>
+<rect x="10" y="10" width="574.0" height="400.0" fill="none" stroke="#202020" stroke-width="0.7"/>
+<line x1="195.000" y1="167.500" x2="345.000" y2="167.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="345.000" y1="167.500" x2="345.000" y2="42.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="345.000" y1="42.500" x2="195.000" y2="42.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="195.000" y1="42.500" x2="195.000" y2="167.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="205.000" y1="157.500" x2="335.000" y2="157.500" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<line x1="335.000" y1="157.500" x2="335.000" y2="52.500" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<line x1="335.000" y1="52.500" x2="205.000" y2="52.500" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<line x1="205.000" y1="52.500" x2="205.000" y2="157.500" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<line x1="227.500" y1="128.500" x2="312.500" y2="128.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="314.000" y1="127.000" x2="314.000" y2="83.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="312.500" y1="81.500" x2="227.500" y2="81.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="226.000" y1="83.000" x2="226.000" y2="127.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<path d="M 312.500 128.500 A 1.500 1.500 0 0 0 314.000 127.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<path d="M 314.000 83.000 A 1.500 1.500 0 0 0 312.500 81.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<path d="M 227.500 81.500 A 1.500 1.500 0 0 0 226.000 83.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<path d="M 226.000 127.000 A 1.500 1.500 0 0 0 227.500 128.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<circle cx="202.500" cy="157.500" r="1.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<circle cx="202.500" cy="105.000" r="1.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<circle cx="202.500" cy="52.500" r="1.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<circle cx="337.500" cy="157.500" r="1.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<circle cx="337.500" cy="105.000" r="1.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<circle cx="337.500" cy="52.500" r="1.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<text x="270.000" y="30.500" font-family="sans-serif" font-size="7.00" text-anchor="middle" fill="#202020" font-weight="bold">정면도 — 도어 (바깥에서)</text>
+<line x1="195.000" y1="167.500" x2="195.000" y2="184.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="345.000" y1="167.500" x2="345.000" y2="184.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="195.000" y1="182.500" x2="345.000" y2="182.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="195.000,182.500 197.600,183.400 197.600,181.600" fill="#0070a0"/>
+<polygon points="345.000,182.500 342.400,181.600 342.400,183.400" fill="#0070a0"/>
+<text x="270.000" y="181.100" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">300</text>
+<line x1="195.000" y1="167.500" x2="178.000" y2="167.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="195.000" y1="42.500" x2="178.000" y2="42.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="180.000" y1="167.500" x2="180.000" y2="42.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="180.000,167.500 180.900,164.900 179.100,164.900" fill="#0070a0"/>
+<polygon points="180.000,42.500 179.100,45.100 180.900,45.100" fill="#0070a0"/>
+<text x="178.800" y="105.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 178.800 105.000)">250</text>
+<line x1="205.000" y1="157.500" x2="205.000" y2="166.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="335.000" y1="157.500" x2="335.000" y2="166.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="205.000" y1="164.000" x2="335.000" y2="164.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="205.000,164.000 207.600,164.900 207.600,163.100" fill="#0070a0"/>
+<polygon points="335.000,164.000 332.400,163.100 332.400,164.900" fill="#0070a0"/>
+<text x="270.000" y="162.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">도어 평탄부 260</text>
+<line x1="335.000" y1="157.500" x2="362.000" y2="157.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="335.000" y1="52.500" x2="362.000" y2="52.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="360.000" y1="157.500" x2="360.000" y2="52.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="360.000,157.500 360.900,154.900 359.100,154.900" fill="#0070a0"/>
+<polygon points="360.000,52.500 359.100,55.100 360.900,55.100" fill="#0070a0"/>
+<text x="358.800" y="105.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 358.800 105.000)">210</text>
+<line x1="314.000" y1="105.000" x2="366.000" y2="70.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="314.000,105.000 316.659,104.295 315.654,102.802" fill="#0070a0"/>
+<text x="367.500" y="71.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">디스플레이 개구부 176x94 (SH-01)</text>
+<line x1="337.500" y1="157.500" x2="366.000" y2="153.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="337.500,157.500 340.209,157.983 339.928,156.206" fill="#0070a0"/>
+<text x="367.500" y="154.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">탬퍼 볼트 6개소 SUS316 핀-인-톡스</text>
+<line x1="387.500" y1="167.500" x2="462.500" y2="167.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="462.500" y1="167.500" x2="462.500" y2="42.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="462.500" y1="42.500" x2="387.500" y2="42.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="387.500" y1="42.500" x2="387.500" y2="167.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="461.000" y1="167.500" x2="461.000" y2="42.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="395.000" y1="167.500" x2="395.000" y2="42.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="423.250" y1="152.500" x2="423.250" y2="57.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<text x="425.000" y="30.500" font-family="sans-serif" font-size="7.00" text-anchor="middle" fill="#202020" font-weight="bold">우측면도</text>
+<line x1="387.500" y1="167.500" x2="387.500" y2="184.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="462.500" y1="167.500" x2="462.500" y2="184.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="387.500" y1="182.500" x2="462.500" y2="182.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="387.500,182.500 390.100,183.400 390.100,181.600" fill="#0070a0"/>
+<polygon points="462.500,182.500 459.900,181.600 459.900,183.400" fill="#0070a0"/>
+<text x="425.000" y="181.100" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">150</text>
+<line x1="395.000" y1="60.000" x2="479.500" y2="46.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="395.000,60.000 397.712,60.463 397.418,58.687" fill="#0070a0"/>
+<text x="481.000" y="47.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">백플레이트 면 (후면 내벽 +12)</text>
+<line x1="423.250" y1="90.000" x2="479.500" y2="74.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="423.250,90.000 425.997,90.154 425.505,88.423" fill="#0070a0"/>
+<text x="481.000" y="75.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">DIN 기기 앞끝 71.5</text>
+<line x1="461.000" y1="125.000" x2="479.500" y2="115.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="461.000,125.000 463.715,124.555 462.859,122.972" fill="#0070a0"/>
+<text x="481.000" y="116.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">도어 3t</text>
+<line x1="448.500" y1="150.000" x2="479.500" y2="142.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="448.500,150.000 451.242,150.222 450.793,148.479" fill="#0070a0"/>
+<text x="481.000" y="143.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">디스플레이 스택 28</text>
+<line x1="195.000" y1="337.500" x2="345.000" y2="337.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="345.000" y1="337.500" x2="345.000" y2="212.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="345.000" y1="212.500" x2="195.000" y2="212.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="195.000" y1="212.500" x2="195.000" y2="337.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="203.500" y1="326.500" x2="216.500" y2="326.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="216.500" y1="326.500" x2="216.500" y2="318.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="216.500" y1="318.500" x2="203.500" y2="318.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="203.500" y1="318.500" x2="203.500" y2="326.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="203.500" y1="231.500" x2="216.500" y2="231.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="216.500" y1="231.500" x2="216.500" y2="223.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="216.500" y1="223.500" x2="203.500" y2="223.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="203.500" y1="223.500" x2="203.500" y2="231.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="323.500" y1="326.500" x2="336.500" y2="326.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="336.500" y1="326.500" x2="336.500" y2="318.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="336.500" y1="318.500" x2="323.500" y2="318.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="323.500" y1="318.500" x2="323.500" y2="326.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="323.500" y1="231.500" x2="336.500" y2="231.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="336.500" y1="231.500" x2="336.500" y2="223.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="336.500" y1="223.500" x2="323.500" y2="223.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="323.500" y1="223.500" x2="323.500" y2="231.500" stroke="#008000" stroke-width="0.35" fill="none"/>
+<text x="270.000" y="200.500" font-family="sans-serif" font-size="7.00" text-anchor="middle" fill="#202020" font-weight="bold">후면도 — 벽부 (뚫지 않는다)</text>
+<line x1="210.000" y1="322.500" x2="210.000" y2="354.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="330.000" y1="322.500" x2="330.000" y2="354.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="210.000" y1="352.500" x2="330.000" y2="352.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="210.000,352.500 212.600,353.400 212.600,351.600" fill="#0070a0"/>
+<polygon points="330.000,352.500 327.400,351.600 327.400,353.400" fill="#0070a0"/>
+<text x="270.000" y="351.100" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">브래킷 피치 240</text>
+<line x1="195.000" y1="322.500" x2="178.000" y2="322.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="195.000" y1="227.500" x2="178.000" y2="227.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="180.000" y1="322.500" x2="180.000" y2="227.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="180.000,322.500 180.900,319.900 179.100,319.900" fill="#0070a0"/>
+<polygon points="180.000,227.500 179.100,230.100 180.900,230.100" fill="#0070a0"/>
+<text x="178.800" y="275.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 178.800 275.000)">190</text>
+<line x1="210.000" y1="227.500" x2="362.000" y2="227.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="210.000,227.500 212.603,228.391 212.597,226.591" fill="#0070a0"/>
+<text x="363.500" y="228.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">제조사 벽부 브래킷 4개소</text>
+<line x1="350.000" y1="312.500" x2="500.000" y2="312.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="500.000" y1="312.500" x2="500.000" y2="237.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="500.000" y1="237.500" x2="350.000" y2="237.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="350.000" y1="237.500" x2="350.000" y2="312.500" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="350.000" y1="239.000" x2="500.000" y2="239.000" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
+<text x="425.000" y="225.500" font-family="sans-serif" font-size="7.00" text-anchor="middle" fill="#202020" font-weight="bold">평면도</text>
+<line x1="350.000" y1="312.500" x2="333.000" y2="312.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="350.000" y1="237.500" x2="333.000" y2="237.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="335.000" y1="312.500" x2="335.000" y2="237.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="335.000,312.500 335.900,309.900 334.100,309.900" fill="#0070a0"/>
+<polygon points="335.000,237.500 334.100,240.100 335.900,240.100" fill="#0070a0"/>
+<text x="333.800" y="275.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 333.800 275.000)">150</text>
+<line x1="350.000" y1="312.500" x2="350.000" y2="329.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="500.000" y1="312.500" x2="500.000" y2="329.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="350.000" y1="327.500" x2="500.000" y2="327.500" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="350.000,327.500 352.600,328.400 352.600,326.600" fill="#0070a0"/>
+<polygon points="500.000,327.500 497.400,326.600 497.400,328.400" fill="#0070a0"/>
+<text x="425.000" y="326.100" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">300</text>
+<line x1="425.000" y1="237.500" x2="510.000" y2="245.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="425.000,237.500 427.511,238.625 427.669,236.832" fill="#0070a0"/>
+<text x="511.500" y="246.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">도어 (힌지 좌측)</text>
+<rect x="394.0" y="364.0" width="190.0" height="46.0" fill="#ffffff" stroke="#202020" stroke-width="0.7"/>
+<line x1="394.0" y1="380.0" x2="584.0" y2="380.0" stroke="#202020" stroke-width="0.4"/>
+<line x1="394.0" y1="395.0" x2="584.0" y2="395.0" stroke="#202020" stroke-width="0.4"/>
+<text x="398.000" y="375.000" font-family="sans-serif" font-size="6.50" text-anchor="start" fill="#202020" font-weight="bold">외함 4면도 — 설계 요구 형상</text>
+<text x="398.000" y="390.000" font-family="sans-serif" font-size="4.00" text-anchor="start" fill="#202020" font-weight="normal">Shrimp365 수질 모니터링 장비 함체</text>
+<text x="580.000" y="390.000" font-family="sans-serif" font-size="4.00" text-anchor="end" fill="#202020" font-weight="normal">도번 SH-07</text>
+<text x="398.000" y="405.000" font-family="sans-serif" font-size="3.60" text-anchor="start" fill="#202020" font-weight="normal">척도 1:2   투상 제3각   단위 mm</text>
+<text x="580.000" y="405.000" font-family="sans-serif" font-size="3.60" text-anchor="end" fill="#202020" font-weight="normal">A2 / Rev.A</text>
+<text x="16.000" y="26.000" font-family="sans-serif" font-size="4.80" text-anchor="start" fill="#202020" font-weight="bold">주기</text>
+<text x="16.000" y="34.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">1.</text>
+<text x="22.000" y="34.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">이 도면은 가공도가 아니라 외함이 만족해야 할 형상이다. 기성품을 고르든</text>
+<text x="22.000" y="39.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">새로 만들든 이 치수를 만족해야 한다. 구멍 가공은 SH-01, SH-02 를 따른다.</text>
+<text x="16.000" y="44.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">2.</text>
+<text x="22.000" y="44.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">외형 300 x 250 x 150. 내부 유효 최소 250(W) x 220(H) x 120(D).</text>
+<text x="16.000" y="49.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">3.</text>
+<text x="22.000" y="49.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">재질 폴리카보네이트 또는 ABS. 금속 불가 — 파이4 내장 WiFi 가 차폐된다.</text>
+<text x="16.000" y="54.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">4.</text>
+<text x="22.000" y="54.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">도어는 힌지형, 불투명, 나사 체결식. 힌지 좌측.</text>
+<text x="22.000" y="60.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">원터치 래치 제품은 소비자가 맨손으로 열 수 있어 쓸 수 없다.</text>
+<text x="16.000" y="65.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">5.</text>
+<text x="22.000" y="65.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">도어 평탄부 260 x 210 이 확보되어야 디스플레이 194 x 111 이 앉는다.</text>
+<text x="16.000" y="70.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">6.</text>
+<text x="22.000" y="70.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">백플레이트는 알루미늄, 후면 내벽에서 12 이격. 방열 경로이므로 금속이어야 한다.</text>
+<text x="16.000" y="75.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">7.</text>
+<text x="22.000" y="75.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">면별 용도 — 도어: 디스플레이 / 하면: 커넥터 6 / 후면: 벽부 브래킷.</text>
+<text x="22.000" y="80.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">좌우면과 상면은 뚫지 않는다. 물이 고여 방수가 깨진다.</text>
+<text x="16.000" y="86.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">8.</text>
+<text x="22.000" y="86.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">IP66 이상. 도어 개스킷은 함체 기본품을 쓰고 균일하게 압축되어야 한다.</text>
+<text x="16.000" y="91.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">9.</text>
+<text x="22.000" y="91.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">색상 밝은 회색(RAL 7035 계열). 검정은 일사 흡수가 커서 내부 온도를 올린다.</text>
+<text x="16.000" y="96.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">10.</text>
+<text x="22.000" y="96.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">설치는 하면이 아래를 향하는 수직 벽부. 눕히거나 뒤집어 달지 않는다.</text>
+<text x="16.000" y="101.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">11.</text>
+<text x="22.000" y="101.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">설계 근거와 검증 기준은 ENCLOSURE.md 를 볼 것.</text>
+<text x="16.000" y="112.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">※ 지금 치수는 가정치다. 함체 확정 후 실측하여 PARAMS 를 갱신할 것.</text>
+<line x1="16.0" y1="398.0" x2="28.0" y2="398.0" stroke="#c00000" stroke-width="0.8"/>
+<text x="30.000" y="399.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">가공 CUT</text>
+<line x1="62.0" y1="398.0" x2="74.0" y2="398.0" stroke="#008000" stroke-width="0.8"/>
+<text x="76.000" y="399.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">마킹 MARK</text>
+<line x1="108.0" y1="398.0" x2="120.0" y2="398.0" stroke="#909090" stroke-width="0.8"/>
+<text x="122.000" y="399.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">참고 REF</text>
+</svg>
