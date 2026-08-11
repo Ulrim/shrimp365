@@ -104,7 +104,10 @@ export const metadata: Metadata = {
   verification: {
     google: "mNMCEXdK_oCiqIUM4SgQr6BahBkSMJ-ZZL7B64IAXaY",
     other: {
-      "naver-site-verification": "e17088aeef9f7e6ce4357be73f5a7d2591018cbd",
+      "naver-site-verification": [
+        "e17088aeef9f7e6ce4357be73f5a7d2591018cbd",
+        "40f2127ab44f4b5a851eff0591a11160b15ba8ef",
+      ],
     },
   },
 }
