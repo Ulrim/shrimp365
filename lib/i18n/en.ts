@@ -1310,6 +1310,7 @@ export const en: Dict = {
     updateRequestFailed: "Could not apply the change. Please try again shortly.",
   },
   pairDevice: {
+    locationNote: "Your phone's current location is saved as this device's location (for the map; skipped if permission is denied).",
     trigger: "Connect device with code",
     done: "Connected",
     doneMsg: "{{device}} is now connected to {{tank}}.",

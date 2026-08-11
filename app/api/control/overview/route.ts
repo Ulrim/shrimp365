@@ -37,13 +37,23 @@ export async function GET(req: NextRequest) {
     // last_payload 는 여기서 쓰지 않으므로 빼서 전송량을 줄인다(큰 JSON 일 수 있음).
     type FarmRow = { id: string; user_id: string; name: string; location: string; latitude: number | null; longitude: number | null }
     type TankRow = { id: string; farm_id: string; name: string; status: string }
-    type DeviceRow = { id: string; tank_id: string; name: string; active: boolean; last_seen_at: string | null; serial: string | null; agent_version: string | null }
+    type DeviceRow = { id: string; tank_id: string; name: string; active: boolean; last_seen_at: string | null; serial: string | null; agent_version: string | null; latitude?: number | null; longitude?: number | null }
     type ProfileRow = { id: string; name: string | null }
 
     const [farmRows, tanks, devices, profileRows, alertsRes] = await Promise.all([
       fetchAll<FarmRow>((f, t) => admin.from("farms").select("id, user_id, name, location, latitude, longitude").range(f, t)),
       fetchAll<TankRow>((f, t) => admin.from("tanks").select("id, farm_id, name, status").range(f, t)),
-      fetchAll<DeviceRow>((f, t) => admin.from("sensor_devices").select("id, tank_id, name, active, last_seen_at, serial, agent_version").range(f, t)),
+      // 장비 좌표(latitude/longitude)는 마이그레이션 전이면 컬럼이 없어
+      // 조회가 통째로 실패한다. 그 경우 좌표 없이 다시 읽는다.
+      (async () => {
+        try {
+          return await fetchAll<DeviceRow>((f, t) => admin.from("sensor_devices")
+            .select("id, tank_id, name, active, last_seen_at, serial, agent_version, latitude, longitude").range(f, t))
+        } catch {
+          return await fetchAll<DeviceRow>((f, t) => admin.from("sensor_devices")
+            .select("id, tank_id, name, active, last_seen_at, serial, agent_version").range(f, t))
+        }
+      })(),
       fetchAll<ProfileRow>((f, t) => admin.from("profiles").select("id, name").range(f, t)),
       // 알림은 최근 30건만 보여 주므로 페이지네이션이 필요 없다.
       admin.from("alerts")
@@ -130,8 +140,31 @@ export async function GET(req: NextRequest) {
       }
     })
 
+    // 좌표가 기록된 장비 — 지도에 장비별 마커로 찍는다.
+    // (페어링 때 휴대폰 위치로 기록되며, 예전에 연결한 장비는 좌표가 없을 수 있다.)
+    const tankById = new Map(tanks.map(t => [t.id, t]))
+    const farmById = new Map(farmRows.map(f => [f.id, f]))
+    const device_markers = devices
+      .filter(d => d.active && typeof d.latitude === "number" && typeof d.longitude === "number")
+      .map(d => {
+        const tank = tankById.get(d.tank_id)
+        const farm = tank ? farmById.get(tank.farm_id) : undefined
+        const seen = d.last_seen_at ? new Date(d.last_seen_at).getTime() : null
+        return {
+          id: d.id,
+          name: d.name,
+          latitude: d.latitude!,
+          longitude: d.longitude!,
+          online: !!(seen && now - seen <= OFFLINE_AFTER_MS),
+          last_seen_at: d.last_seen_at,
+          tank_name: tank?.name ?? "",
+          farm_name: farm?.name ?? "",
+        }
+      })
+
     return NextResponse.json({
       role: auth.role,
+      device_markers,
       stats: {
         farms: farms.length,
         tanks: tanks.length,

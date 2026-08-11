@@ -1310,6 +1310,7 @@ export const ko: Dict = {
     updateRequestFailed: "변경하지 못했습니다. 잠시 후 다시 시도해 주세요.",
   },
   pairDevice: {
+    locationNote: "연결하는 휴대폰의 현재 위치가 이 장비의 위치로 기록됩니다(지도 표시용 · 위치 권한 거부 시 생략).",
     trigger: "코드로 기기 연결",
     done: "연결 완료",
     doneMsg: "{{device}} 가 {{tank}} 에 연결되었습니다.",

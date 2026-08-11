@@ -91,18 +91,41 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "코드가 만료되었습니다. 기기에서 새 코드를 받아 주세요." }, { status: 410 })
   }
 
+  // 연결하는 휴대폰의 현재 위치 — 페어링은 현장에서 하므로 이 좌표가 곧
+  // 장비 위치다(GPS 없는 장비의 위치 파악 방법). 권한 거부 등으로 없으면 생략.
+  const lat = typeof body.latitude === "number" && body.latitude >= -90 && body.latitude <= 90
+    ? body.latitude : null
+  const lng = typeof body.longitude === "number" && body.longitude >= -180 && body.longitude <= 180
+    ? body.longitude : null
+
   // 4. 기기를 만든다. api_key 는 테이블 기본값으로 자동 생성된다.
-  const { data: device, error: deviceError } = await admin
+  //    위치 컬럼 마이그레이션 전이라면 좌표만 빼고 다시 시도한다(등록이 우선).
+  const baseDevice = {
+    tank_id: tankId,
+    name: name || `${tank.name} 센서`,
+    device_type: "multi",
+    serial: pairing.serial,
+    firmware: pairing.firmware,
+  }
+  const withLocation = lat !== null && lng !== null
+    ? { ...baseDevice, latitude: lat, longitude: lng, located_at: new Date().toISOString() }
+    : baseDevice
+
+  let { data: device, error: deviceError } = await admin
     .from("sensor_devices")
-    .insert({
-      tank_id: tankId,
-      name: name || `${tank.name} 센서`,
-      device_type: "multi",
-      serial: pairing.serial,
-      firmware: pairing.firmware,
-    })
+    .insert(withLocation)
     .select("id, name")
     .single()
+
+  if (deviceError && withLocation !== baseDevice
+      && /latitude|longitude|located_at|column|schema/i.test(deviceError.message || "")) {
+    console.warn("[sensors/pair/claim] 위치 컬럼 없음 — 좌표 없이 등록(마이그레이션 필요)")
+    ;({ data: device, error: deviceError } = await admin
+      .from("sensor_devices")
+      .insert(baseDevice)
+      .select("id, name")
+      .single())
+  }
 
   if (deviceError || !device) {
     console.error("[sensors/pair/claim] device insert", deviceError)

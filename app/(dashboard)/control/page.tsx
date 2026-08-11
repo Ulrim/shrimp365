@@ -8,7 +8,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/lib/auth-context"
 import { useAutoRefresh, sinceLabel } from "@/lib/use-auto-refresh"
-import { ControlMap, type ControlFarm } from "@/components/control/control-map"
+import { ControlMap, type ControlFarm, type DeviceMarker } from "@/components/control/control-map"
 import { formatDateTime } from "@/lib/utils"
 
 // ── 응답 형태 ────────────────────────────────────────────────────────────────
@@ -23,6 +23,7 @@ type Overview = {
     open_alerts: number
   }
   farms: ControlFarm[]
+  device_markers?: DeviceMarker[]
   offline_devices: { id: string; name: string; serial: string | null; version: string | null; last_seen_at: string | null }[]
   alerts: { id: string; type: string; parameter: string | null; value: number | null; message: string; created_at: string; tank_name: string; farm_name: string }[]
 }
@@ -151,7 +152,7 @@ export default function ControlCenterPage() {
       {/* 지도 — 관제의 중심 */}
       <Card className="bg-card border-border overflow-hidden">
         <CardContent className="p-3">
-          <ControlMap farms={data.farms} height={420} />
+          <ControlMap farms={data.farms} deviceMarkers={data.device_markers ?? []} height={420} />
         </CardContent>
       </Card>
 

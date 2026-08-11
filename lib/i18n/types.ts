@@ -1198,6 +1198,7 @@ export interface Dict {
     updateRequestFailed: string
   }
   pairDevice: {
+    locationNote: string
     trigger: string
     done: string
     doneMsg: string

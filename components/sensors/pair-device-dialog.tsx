@@ -36,15 +36,30 @@ export function PairDeviceDialog({ tank, onSuccess }: { tank: Tank; onSuccess: (
     }, 200)
   }
 
+  /** 연결하는 휴대폰의 현재 위치. 페어링은 수조 옆에서 하므로 이 좌표가
+   *  곧 장비 위치다(장비에는 GPS 가 없다). 권한 거부·시간 초과면 조용히
+   *  생략한다 — 위치가 없어도 연결은 되어야 한다. */
+  function getPosition(): Promise<{ latitude: number; longitude: number } | null> {
+    return new Promise(resolve => {
+      if (typeof navigator === "undefined" || !navigator.geolocation) { resolve(null); return }
+      navigator.geolocation.getCurrentPosition(
+        pos => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+        () => resolve(null),
+        { enableHighAccuracy: true, timeout: 6000, maximumAge: 60_000 },
+      )
+    })
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError("")
     setSaving(true)
     try {
+      const pos = await getPosition()
       const res = await fetch("/api/sensors/pair/claim", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, tank_id: tank.id, name }),
+        body: JSON.stringify({ code, tank_id: tank.id, name, ...(pos ?? {}) }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json?.error || `${t.pairDevice.connectFailed} (${res.status})`)
@@ -128,6 +143,10 @@ export function PairDeviceDialog({ tank, onSuccess }: { tank: Tank; onSuccess: (
                 className="min-h-[44px]"
               />
             </div>
+
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              {t.pairDevice.locationNote}
+            </p>
 
             {error && (
               <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2" role="alert">

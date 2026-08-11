@@ -115,20 +115,34 @@ function buildPopup(f: ControlFarm): HTMLElement {
   return root
 }
 
+export type DeviceMarker = {
+  id: string
+  name: string
+  latitude: number
+  longitude: number
+  online: boolean
+  last_seen_at: string | null
+  tank_name: string
+  farm_name: string
+}
+
 /** 관제센터 지도 — 플랫폼의 모든 농장을 한 판에 찍는다.
  *
  *  양식장 관리의 지도와 목적이 다르다. 저쪽은 "내 농장", 여기는 "전체 중
  *  어디가 급한가" 다. 그래서 표식이 상태를 크게 말해야 한다 — 위험 농장은
  *  크고 붉게, 기기가 끊긴 농장은 테두리를 점선으로 구분한다.
+ *
+ *  좌표가 기록된 장비(페어링 때 휴대폰 위치)는 작은 점으로 함께 찍는다 —
+ *  농장을 확대하면 장비가 수조별로 어디 있는지 보인다.
  */
-export function ControlMap({ farms, height = 420 }: { farms: ControlFarm[]; height?: number }) {
+export function ControlMap({ farms, deviceMarkers = [], height = 420 }: { farms: ControlFarm[]; deviceMarkers?: DeviceMarker[]; height?: number }) {
   const holder = useRef<HTMLDivElement>(null)
   const map = useRef<LeafletMap | null>(null)
 
   const located = farms.filter(f => f.latitude !== null && f.longitude !== null)
 
   useEffect(() => {
-    if (located.length === 0 || !holder.current) return
+    if ((located.length === 0 && deviceMarkers.length === 0) || !holder.current) return
     let alive = true
 
     ;(async () => {
@@ -177,8 +191,40 @@ export function ControlMap({ farms, height = 420 }: { farms: ControlFarm[]; heig
         }
       }
 
-      const bounds = L.latLngBounds(located.map(f => [f.latitude!, f.longitude!] as [number, number]))
-      if (located.length === 1) m.setView(bounds.getCenter(), 12)
+      // 장비별 마커 — 작은 점. 이름과 소속(농장·수조), 마지막 수신을 팝업으로.
+      for (const d of deviceMarkers) {
+        const dColor = d.online ? "#3B82F6" : "#94A3B8"
+        const dm = L.circleMarker([d.latitude, d.longitude], {
+          radius: 5,
+          color: dColor,
+          fillColor: dColor,
+          fillOpacity: 0.85,
+          weight: 1.5,
+          dashArray: d.online ? undefined : "2 3",
+        }).addTo(m)
+        dm.bindTooltip(d.name, { direction: "top", offset: L.point(0, -6) })
+        const pop = document.createElement("div")
+        pop.style.lineHeight = "1.5"
+        const nm = document.createElement("b"); nm.textContent = d.name; pop.appendChild(nm)
+        const wh = document.createElement("div")
+        wh.style.color = "#64748B"
+        wh.textContent = [d.farm_name, d.tank_name].filter(Boolean).join(" · ")   // 사용자 입력 — 이스케이프
+        pop.appendChild(wh)
+        const st = document.createElement("div")
+        st.textContent = d.online
+          ? "온라인"
+          : d.last_seen_at ? `끊김 · ${agoLabel(d.last_seen_at)}` : "수신 기록 없음"
+        st.style.color = d.online ? "#10B981" : "#DC2626"
+        pop.appendChild(st)
+        dm.bindPopup(pop)
+      }
+
+      const pts: [number, number][] = [
+        ...located.map(f => [f.latitude!, f.longitude!] as [number, number]),
+        ...deviceMarkers.map(d => [d.latitude, d.longitude] as [number, number]),
+      ]
+      const bounds = L.latLngBounds(pts)
+      if (pts.length === 1) m.setView(bounds.getCenter(), 12)
       else m.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 })
     })()
 
@@ -187,9 +233,10 @@ export function ControlMap({ farms, height = 420 }: { farms: ControlFarm[]; heig
       if (map.current) { map.current.remove(); map.current = null }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [located.map(f => `${f.id}:${f.latitude},${f.longitude}:${f.danger}:${f.warning}:${f.offline}`).join("|")])
+  }, [located.map(f => `${f.id}:${f.latitude},${f.longitude}:${f.danger}:${f.warning}:${f.offline}`).join("|")
+    + "#" + deviceMarkers.map(d => `${d.id}:${d.latitude},${d.longitude}:${d.online}`).join("|")])
 
-  if (located.length === 0) {
+  if (located.length === 0 && deviceMarkers.length === 0) {
     return (
       <div
         className="w-full rounded-xl border border-border bg-muted flex items-center justify-center text-sm text-muted-foreground"

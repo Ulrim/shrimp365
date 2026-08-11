@@ -1310,6 +1310,7 @@ export const id: Dict = {
     updateRequestFailed: "Perubahan gagal. Silakan coba lagi sebentar lagi.",
   },
   pairDevice: {
+    locationNote: "Lokasi ponsel saat ini disimpan sebagai lokasi perangkat (untuk peta; dilewati jika izin ditolak).",
     trigger: "Hubungkan perangkat dengan kode",
     done: "Terhubung",
     doneMsg: "{{device}} kini terhubung ke {{tank}}.",

@@ -121,6 +121,9 @@ export interface SensorDevice {
   last_payload: Record<string, number | string | boolean> | null
   /** 장비가 보고한 수집기 버전. 원격 업데이트의 기준이 된다. */
   agent_version: string | null
+  latitude?: number | null    // 페어링 때 휴대폰 위치로 기록된 장비 좌표
+  longitude?: number | null
+  located_at?: string | null
   /** 주인이 승인한 목표 버전. null 이면 업데이트하지 않는다. */
   update_to: string | null
   /** 기기가 되보고한 진행 상황. */

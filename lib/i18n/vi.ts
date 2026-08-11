@@ -1310,6 +1310,7 @@ export const vi: Dict = {
     updateRequestFailed: "Không thể thay đổi. Vui lòng thử lại sau.",
   },
   pairDevice: {
+    locationNote: "Vị trí hiện tại của điện thoại sẽ được lưu làm vị trí thiết bị (dùng cho bản đồ; bỏ qua nếu từ chối quyền).",
     trigger: "Kết nối thiết bị bằng mã",
     done: "Kết nối thành công",
     doneMsg: "{{device}} đã được kết nối với {{tank}}.",
