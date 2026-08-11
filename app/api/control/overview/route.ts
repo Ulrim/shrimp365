@@ -69,6 +69,31 @@ export async function GET(req: NextRequest) {
       devicesByTank.set(d.tank_id, list)
     }
 
+    // 지도 팝업에 보여 줄 대표 수조 1개의 최신 수질.
+    // 대표는 "지금 가장 급한 수조" — 위험 > 주의 > 정상 순으로 고른다.
+    const STATUS_RANK: Record<string, number> = { danger: 0, warning: 1, active: 2, inactive: 3 }
+    const repTankByFarm = new Map<string, TankRow>()
+    for (const [farmId, list] of tanksByFarm) {
+      const rep = [...list].sort((a, b) =>
+        (STATUS_RANK[a.status] ?? 9) - (STATUS_RANK[b.status] ?? 9) || a.name.localeCompare(b.name))[0]
+      if (rep) repTankByFarm.set(farmId, rep)
+    }
+    type WqRow = {
+      temperature: number | null; ph: number | null
+      do_level: number | null; salinity: number | null; recorded_at: string
+    }
+    const wqByFarm = new Map<string, WqRow>()
+    await Promise.all([...repTankByFarm.entries()].map(async ([farmId, tank]) => {
+      const { data } = await admin
+        .from("water_quality_readings")
+        .select("temperature, ph, do_level, salinity, recorded_at")
+        .eq("tank_id", tank.id)
+        .order("recorded_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (data) wqByFarm.set(farmId, data as WqRow)
+    }))
+
     const farms = farmRows.map(f => {
       const own = tanksByFarm.get(f.id) ?? []
       const ownDevices = own.flatMap(t => devicesByTank.get(t.id) ?? [])
@@ -87,6 +112,8 @@ export async function GET(req: NextRequest) {
         warning: own.filter(t => t.status === "warning").length,
         devices: ownDevices.length,
         offline,
+        rep_tank: repTankByFarm.get(f.id)?.name ?? null,
+        wq: wqByFarm.get(f.id) ?? null,
       }
     })
 

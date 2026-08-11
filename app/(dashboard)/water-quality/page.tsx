@@ -156,17 +156,18 @@ function buildCompareData(
     .sort((a, b) => (a.t as number) - (b.t as number))
 }
 
-function SensorCompareChart({ data, names, fill = false }: { data: Record<string, number | string>[]; names: string[]; fill?: boolean }) {
+function SensorCompareChart({ data, names, fill = false, big = false }: { data: Record<string, number | string>[]; names: string[]; fill?: boolean; big?: boolean }) {
+  const fs = big ? 17 : 11
   return (
     <ResponsiveContainer width="100%" height={fill ? "100%" : 260}>
       <LineChart data={data} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={100} />
-        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={44} />
-        <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
-        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={big ? 140 : 100} />
+        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} width={big ? 60 : 44} />
+        <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: big ? 16 : 12 }} />
+        <Legend wrapperStyle={{ fontSize: big ? 18 : 12 }} />
         {names.map((n, i) => (
-          <Line key={n} type="monotone" dataKey={n} stroke={SENSOR_COLORS[i % SENSOR_COLORS.length]} strokeWidth={2} dot={false} connectNulls activeDot={{ r: 4 }} />
+          <Line key={n} type="monotone" dataKey={n} stroke={SENSOR_COLORS[i % SENSOR_COLORS.length]} strokeWidth={big ? 3.5 : 2} dot={false} connectNulls activeDot={{ r: big ? 6 : 4 }} />
         ))}
       </LineChart>
     </ResponsiveContainer>
@@ -250,77 +251,82 @@ interface ChartPanelProps {
   chartColor: string
   unit: string
   fill?: boolean
+  big?: boolean
 }
 
-function SingleParamChart({ chartData, stdKey, chartLabel, chartColor, unit, fill = false }: ChartPanelProps) {
+function SingleParamChart({ chartData, stdKey, chartLabel, chartColor, unit, fill = false, big = false }: ChartPanelProps) {
   const { t } = useT()
   const std = WATER_QUALITY_STANDARDS[stdKey]
   const yVals = chartData.map(d => d[stdKey as keyof typeof d] as number).filter(Boolean)
   const padding = (std.max - std.min) * 0.5
   const yMin = Math.min(std.warning_min - padding * 0.2, ...yVals)
   const yMax = Math.max(std.warning_max + padding * 0.2, ...yVals)
+  const fs = big ? 17 : 11
+  const refFs = big ? 14 : 10
 
   return (
     <ResponsiveContainer width="100%" height={fill ? "100%" : 260}>
       <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={100} />
-        <YAxis domain={[yMin, yMax]} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={42} tickFormatter={v => `${v}${unit}`} />
+        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={big ? 140 : 100} />
+        <YAxis domain={[yMin, yMax]} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} width={big ? 70 : 42} tickFormatter={v => `${v}${unit}`} />
         <Tooltip
-          contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }}
+          contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px", fontSize: big ? 16 : 12 }}
           labelStyle={{ color: "hsl(var(--muted-foreground))" }}
           itemStyle={{ color: "hsl(var(--foreground))" }}
         />
-        <ReferenceLine y={std.max} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: t.waterQualityX.chartMax, fill: "#34d399", fontSize: 10, position: "insideTopRight" }} />
-        <ReferenceLine y={std.min} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: t.waterQualityX.chartMin, fill: "#34d399", fontSize: 10, position: "insideBottomRight" }} />
-        <ReferenceLine y={std.warning_max} stroke="#fbbf24" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: t.waterQualityX.chartWarnHigh, fill: "#fbbf24", fontSize: 10, position: "insideTopRight" }} />
-        <ReferenceLine y={std.warning_min} stroke="#fbbf24" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: t.waterQualityX.chartWarnLow, fill: "#fbbf24", fontSize: 10, position: "insideBottomRight" }} />
-        <Line type="monotone" dataKey={stdKey} name={chartLabel} stroke={chartColor} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+        <ReferenceLine y={std.max} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: t.waterQualityX.chartMax, fill: "#34d399", fontSize: refFs, position: "insideTopRight" }} />
+        <ReferenceLine y={std.min} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: t.waterQualityX.chartMin, fill: "#34d399", fontSize: refFs, position: "insideBottomRight" }} />
+        <ReferenceLine y={std.warning_max} stroke="#fbbf24" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: t.waterQualityX.chartWarnHigh, fill: "#fbbf24", fontSize: refFs, position: "insideTopRight" }} />
+        <ReferenceLine y={std.warning_min} stroke="#fbbf24" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: t.waterQualityX.chartWarnLow, fill: "#fbbf24", fontSize: refFs, position: "insideBottomRight" }} />
+        <Line type="monotone" dataKey={stdKey} name={chartLabel} stroke={chartColor} strokeWidth={big ? 3.5 : 2} dot={false} activeDot={{ r: big ? 6 : 4 }} />
       </LineChart>
     </ResponsiveContainer>
   )
 }
 
-function NitrogenChart({ chartData, fill = false }: { chartData: ReturnType<typeof buildChartData>; fill?: boolean }) {
+function NitrogenChart({ chartData, fill = false, big = false }: { chartData: ReturnType<typeof buildChartData>; fill?: boolean; big?: boolean }) {
   const { t } = useT()
+  const fs = big ? 17 : 11
   return (
     <ResponsiveContainer width="100%" height={fill ? "100%" : 260}>
       <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={100} />
-        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={48} tickFormatter={v => `${v}`} />
+        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={big ? 140 : 100} />
+        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} width={big ? 64 : 48} tickFormatter={v => `${v}`} />
         <Tooltip
-          contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }}
+          contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px", fontSize: big ? 16 : 12 }}
           labelStyle={{ color: "hsl(var(--muted-foreground))" }}
           itemStyle={{ color: "hsl(var(--foreground))" }}
           formatter={(v, name) => [`${v} mg/L`, name]}
         />
-        <Legend wrapperStyle={{ fontSize: "12px", color: "hsl(var(--muted-foreground))" }} />
-        <Line type="monotone" dataKey="ammonia" name={t.waterQuality.ammonia} stroke="#f97316" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-        <Line type="monotone" dataKey="nitrite" name={t.waterQuality.nitrite} stroke="#ec4899" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-        <Line type="monotone" dataKey="nitrate" name={t.waterQuality.nitrate} stroke="#84cc16" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+        <Legend wrapperStyle={{ fontSize: big ? "18px" : "12px", color: "hsl(var(--muted-foreground))" }} />
+        <Line type="monotone" dataKey="ammonia" name={t.waterQuality.ammonia} stroke="#f97316" strokeWidth={big ? 3.5 : 2} dot={false} activeDot={{ r: big ? 6 : 4 }} />
+        <Line type="monotone" dataKey="nitrite" name={t.waterQuality.nitrite} stroke="#ec4899" strokeWidth={big ? 3.5 : 2} dot={false} activeDot={{ r: big ? 6 : 4 }} />
+        <Line type="monotone" dataKey="nitrate" name={t.waterQuality.nitrate} stroke="#84cc16" strokeWidth={big ? 3.5 : 2} dot={false} activeDot={{ r: big ? 6 : 4 }} />
       </LineChart>
     </ResponsiveContainer>
   )
 }
 
-function OverviewChart({ chartData, fill = false }: { chartData: ReturnType<typeof buildChartData>; fill?: boolean }) {
+function OverviewChart({ chartData, fill = false, big = false }: { chartData: ReturnType<typeof buildChartData>; fill?: boolean; big?: boolean }) {
   const { t } = useT()
+  const fs = big ? 17 : 11
   return (
     <ResponsiveContainer width="100%" height={fill ? "100%" : 260}>
       <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={100} />
-        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={42} />
+        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={big ? 140 : 100} />
+        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} width={big ? 60 : 42} />
         <Tooltip
-          contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }}
+          contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px", fontSize: big ? 16 : 12 }}
           labelStyle={{ color: "hsl(var(--muted-foreground))" }}
           itemStyle={{ color: "hsl(var(--foreground))" }}
         />
-        <Legend wrapperStyle={{ fontSize: "12px", color: "hsl(var(--muted-foreground))" }} />
-        <Line type="monotone" dataKey="temperature" name={t.waterQuality.temperature} stroke="#0ea5e9" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-        <Line type="monotone" dataKey="do_level" name="DO" stroke="#14b8a6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-        <Line type="monotone" dataKey="ph" name="pH" stroke="#a78bfa" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+        <Legend wrapperStyle={{ fontSize: big ? "18px" : "12px", color: "hsl(var(--muted-foreground))" }} />
+        <Line type="monotone" dataKey="temperature" name={t.waterQuality.temperature} stroke="#0ea5e9" strokeWidth={big ? 3.5 : 2} dot={false} activeDot={{ r: big ? 6 : 4 }} />
+        <Line type="monotone" dataKey="do_level" name="DO" stroke="#14b8a6" strokeWidth={big ? 3.5 : 2} dot={false} activeDot={{ r: big ? 6 : 4 }} />
+        <Line type="monotone" dataKey="ph" name="pH" stroke="#a78bfa" strokeWidth={big ? 3.5 : 2} dot={false} activeDot={{ r: big ? 6 : 4 }} />
       </LineChart>
     </ResponsiveContainer>
   )
@@ -359,9 +365,13 @@ export default function WaterQualityPage() {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
   // 그래프 전체화면 — 현장에서 벽걸이 모니터나 태블릿으로 크게 볼 때 쓴다.
   const [fullChart, setFullChart] = useState<null | "main" | "compare">(null)
+  // 전광판 모드 — 전체화면에서 글자·선을 키우고 항목을 자동 순환한다.
+  const [boardMode, setBoardMode] = useState(false)
+  // 추세 그래프 탭 — 전광판 자동 순환을 위해 제어형으로 둔다.
+  const [chartTab, setChartTab] = useState("overview")
 
   useEffect(() => {
-    if (!fullChart) return
+    if (!fullChart) { setBoardMode(false); return }   // 전체화면을 닫으면 전광판도 끈다
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setFullChart(null) }
     window.addEventListener("keydown", onKey)
     document.body.style.overflow = "hidden"   // 뒤 페이지 스크롤 잠금
@@ -370,6 +380,25 @@ export default function WaterQualityPage() {
       document.body.style.overflow = ""
     }
   }, [fullChart])
+
+  // 전광판 자동 순환 — 15초마다 다음 항목으로. 추세 그래프는 탭을,
+  // 센서별 비교는 비교 항목을 돌린다.
+  useEffect(() => {
+    if (!boardMode || !fullChart) return
+    const MAIN_ORDER = ["overview", "nitrogen", "temperature", "ph", "do_level", "salinity", "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity"]
+    const COMPARE_ORDER = ["temperature", "ph", "do_level", "salinity"] as const
+    const id = setInterval(() => {
+      if (fullChart === "main") {
+        setChartTab(cur => MAIN_ORDER[(MAIN_ORDER.indexOf(cur) + 1) % MAIN_ORDER.length])
+      } else {
+        setCompareParam(cur => {
+          const i = COMPARE_ORDER.indexOf(cur as typeof COMPARE_ORDER[number])
+          return COMPARE_ORDER[(i + 1) % COMPARE_ORDER.length]
+        })
+      }
+    }, 15_000)
+    return () => clearInterval(id)
+  }, [boardMode, fullChart])
 
   // Load tanks on mount
   useEffect(() => {
@@ -915,6 +944,18 @@ export default function WaterQualityPage() {
                         {m.label}
                       </button>
                     ))}
+                    {fullChart === "compare" && (
+                      <button
+                        onClick={() => setBoardMode(b => !b)}
+                        aria-pressed={boardMode}
+                        aria-label={t.waterQualityX.boardMode}
+                        title={t.waterQualityX.boardMode}
+                        className={"px-2.5 py-1 rounded-lg border text-xs font-medium transition-colors " +
+                          (boardMode ? "bg-ocean-600 text-white border-ocean-600" : "border-border text-muted-foreground hover:bg-accent hover:text-foreground")}
+                      >
+                        {t.waterQualityX.boardMode}
+                      </button>
+                    )}
                     <button
                       onClick={() => setFullChart(fullChart === "compare" ? null : "compare")}
                       aria-label={fullChart === "compare" ? t.common.close : t.waterQualityX.fullscreen}
@@ -927,7 +968,7 @@ export default function WaterQualityPage() {
                 </div>
                 {compareData.length > 0 ? (
                   <div className={fullChart === "compare" ? "flex-1 min-h-0" : ""}>
-                    <SensorCompareChart data={compareData} names={compareNames} fill={fullChart === "compare"} />
+                    <SensorCompareChart data={compareData} names={compareNames} fill={fullChart === "compare"} big={fullChart === "compare" && boardMode} />
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground/70 py-8 text-center">
@@ -957,6 +998,18 @@ export default function WaterQualityPage() {
                     {refreshSec >= 60 ? `${refreshSec / 60}${t.waterQuality.autoRefreshMin}` : `${refreshSec}${t.waterQualityX.autoRefreshSec}`}
                     {lastRefreshed && <span className="opacity-70">· {sinceLabel(lastRefreshed)}</span>}
                   </span>
+                  {fullChart === "main" && (
+                    <button
+                      onClick={() => setBoardMode(b => !b)}
+                      aria-pressed={boardMode}
+                      aria-label={t.waterQualityX.boardMode}
+                      title={t.waterQualityX.boardMode}
+                      className={"px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors " +
+                        (boardMode ? "bg-ocean-600 text-white border-ocean-600" : "border-border text-muted-foreground hover:bg-accent hover:text-foreground")}
+                    >
+                      {t.waterQualityX.boardMode}
+                    </button>
+                  )}
                   <button
                     onClick={() => setFullChart(fullChart === "main" ? null : "main")}
                     aria-label={fullChart === "main" ? t.common.close : t.waterQualityX.fullscreen}
@@ -969,7 +1022,7 @@ export default function WaterQualityPage() {
               </div>
             </CardHeader>
             <CardContent className={fullChart === "main" ? "flex-1 min-h-0 overflow-auto" : undefined}>
-              <Tabs defaultValue="overview">
+              <Tabs value={chartTab} onValueChange={setChartTab}>
                 <TabsList className="bg-muted border border-border mb-4 flex-wrap gap-y-1 h-auto min-h-9">
                   <TabsTrigger value="overview"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.tabOverview}</TabsTrigger>
                   <TabsTrigger value="nitrogen"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.tabNitrogen}</TabsTrigger>
@@ -993,7 +1046,7 @@ export default function WaterQualityPage() {
                   ) : (
                     <div aria-label={t.waterQualityX.overviewChartAria} role="img"
                       className={fullChart === "main" ? "h-[calc(100vh-250px)]" : undefined}>
-                      <OverviewChart chartData={chartData} fill={fullChart === "main"} />
+                      <OverviewChart chartData={chartData} fill={fullChart === "main"} big={fullChart === "main" && boardMode} />
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground mt-2 text-center">{t.waterQualityX.overviewCaption}</p>
@@ -1008,7 +1061,7 @@ export default function WaterQualityPage() {
                   ) : (
                     <div aria-label={t.waterQualityX.nitrogenChartAria} role="img"
                       className={fullChart === "main" ? "h-[calc(100vh-250px)]" : undefined}>
-                      <NitrogenChart chartData={chartData} fill={fullChart === "main"} />
+                      <NitrogenChart chartData={chartData} fill={fullChart === "main"} big={fullChart === "main" && boardMode} />
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground mt-2 text-center">{t.waterQualityX.nitrogenCaption}</p>
@@ -1045,6 +1098,7 @@ export default function WaterQualityPage() {
                           chartColor={chartColor}
                           unit={unit}
                           fill={fullChart === "main"}
+                          big={fullChart === "main" && boardMode}
                         />
                       </div>
                     )}

@@ -16,6 +16,32 @@ export type ControlFarm = {
   warning: number
   devices: number
   offline: number
+  // 대표 수조(가장 급한 수조) 1개의 최신 수질 — 지도 위에 바로 보여 준다.
+  rep_tank?: string | null
+  wq?: {
+    temperature: number | null; ph: number | null
+    do_level: number | null; salinity: number | null; recorded_at: string
+  } | null
+}
+
+/** 측정 시각을 "n분 전" 으로. 관제 화면은 한국어 전용이다. */
+function agoLabel(iso: string): string {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+  if (mins < 1) return "방금 전"
+  if (mins < 60) return `${mins}분 전`
+  const h = Math.floor(mins / 60)
+  if (h < 24) return `${h}시간 전`
+  return `${Math.floor(h / 24)}일 전`
+}
+
+/** 지도 위에 상시 표시할 요약(수온·DO). 숫자는 코드가 만드는 값이라 안전하다. */
+function wqSummary(f: ControlFarm): string | null {
+  const w = f.wq
+  if (!w) return null
+  const parts: string[] = []
+  if (typeof w.temperature === "number") parts.push(`${w.temperature.toFixed(1)}°C`)
+  if (typeof w.do_level === "number") parts.push(`DO ${w.do_level.toFixed(1)}`)
+  return parts.length ? parts.join(" · ") : null
 }
 
 /** 팝업 내용을 DOM 으로 만든다. 사용자 입력(이름·주소)은 textContent 로만
@@ -55,6 +81,30 @@ function buildPopup(f: ControlFarm): HTMLElement {
     line2.append(" · 모두 정상")
   }
   root.appendChild(line2)
+
+  // 대표 수조의 최신 수질 — 있는 값만 골라 한 줄로.
+  if (f.wq) {
+    const w = f.wq
+    const wqLine = document.createElement("div")
+    wqLine.style.marginTop = "4px"
+    const vals: string[] = []
+    if (typeof w.temperature === "number") vals.push(`수온 ${w.temperature.toFixed(1)}°C`)
+    if (typeof w.ph === "number") vals.push(`pH ${w.ph.toFixed(2)}`)
+    if (typeof w.do_level === "number") vals.push(`DO ${w.do_level.toFixed(2)}`)
+    if (typeof w.salinity === "number") vals.push(`염도 ${w.salinity.toFixed(1)}‰`)
+    if (vals.length) {
+      const b = document.createElement("b")
+      b.textContent = vals.join(" · ")   // 숫자 — 코드가 만든 값
+      wqLine.appendChild(b)
+      const meta = document.createElement("div")
+      meta.style.color = "#64748B"
+      meta.style.fontSize = "11px"
+      // 대표 수조 이름은 사용자 입력 — textContent 로만 넣는다.
+      meta.textContent = `${f.rep_tank ?? ""} · ${agoLabel(w.recorded_at)}`
+      root.appendChild(wqLine)
+      root.appendChild(meta)
+    }
+  }
 
   if (f.location) {
     const loc = document.createElement("div")
@@ -96,7 +146,7 @@ export function ControlMap({ farms, height = 420 }: { farms: ControlFarm[]; heig
 
       for (const f of located) {
         const color = f.danger ? "#DC2626" : f.warning ? "#D97706" : "#10B981"
-        L.circleMarker([f.latitude!, f.longitude!], {
+        const marker = L.circleMarker([f.latitude!, f.longitude!], {
           // 급한 곳일수록 크게 — 축소해서 봐도 위험 농장이 먼저 보인다.
           radius: f.danger ? 13 : f.warning ? 11 : 9,
           color,
@@ -113,6 +163,18 @@ export function ControlMap({ farms, height = 420 }: { farms: ControlFarm[]; heig
           // 스크립트가 도는 순간 권한 탈취로 이어진다. 사용자 값은 textContent
           // 로만 넣고, 숫자·색은 코드가 만드는 것이라 안전하다.
           .bindPopup(buildPopup(f))
+
+        // 대표 수조의 핵심 수질(수온·DO)을 표식 옆에 상시 표시한다 —
+        // 클릭 없이도 지도만 보고 상황을 읽을 수 있어야 관제 화면이다.
+        const summary = wqSummary(f)
+        if (summary) {
+          marker.bindTooltip(summary, {
+            permanent: true,
+            direction: "top",
+            offset: L.point(0, -10),
+            opacity: 0.92,
+          })
+        }
       }
 
       const bounds = L.latLngBounds(located.map(f => [f.latitude!, f.longitude!] as [number, number]))

@@ -1229,6 +1229,7 @@ export const en: Dict = {
     noSensorTagAll: "Records exist but carry no sensor tag (device_id). Check that the DB migration ran, then run NOTIFY pgrst, 'reload schema'; in the SQL Editor and refresh.",
     sensorTagMismatch: "Tagged records exist but none match this tank's current sensors. If you re-paired a sensor, wait for new records to accumulate.",
     fullscreen: "Fullscreen",
+    boardMode: "Signage mode",
     noValuesYet: "No values received yet",
     noChartData: "No data to display.",
     noDataHint: "Enter water quality data or connect a sensor.",

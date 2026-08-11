@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
-import { getFarms, getAllTanks, getAlerts, getDiagnoses, getWaterQuality, getInventoryItems } from "@/lib/db"
-import { MOCK_FARMS, MOCK_TANKS, MOCK_ALERTS, MOCK_DIAGNOSES, MOCK_WATER_QUALITY, MOCK_INVENTORY_ITEMS, isTestAccount } from "@/lib/mock-data"
+import { getFarms, getAllTanks, getAlerts, getDiagnoses, getWaterQuality, getInventoryItems, getSensorDevices } from "@/lib/db"
+import { MOCK_FARMS, MOCK_TANKS, MOCK_ALERTS, MOCK_DIAGNOSES, MOCK_WATER_QUALITY, MOCK_INVENTORY_ITEMS, MOCK_SENSOR_DEVICES, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
-import { Farm, Tank, Alert, DiagnosisResult, WaterQualityReading, InventoryItem } from "@/types"
+import { Farm, Tank, Alert, DiagnosisResult, WaterQualityReading, InventoryItem, SensorDevice } from "@/types"
+import { DeviceCurrentValues } from "@/components/sensors/device-current-values"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -54,6 +55,8 @@ export default function DashboardPage() {
   const [diagnoses, setDiagnoses] = useState<DiagnosisResult[]>([])
   const [wqData, setWqData]         = useState<WaterQualityReading[]>([])
   const [selectedTankId, setSelectedTankId] = useState<string>("")
+  // 선택한 수조의 센서(기기)들 — 센서별 마지막 수신값 요약에 쓴다.
+  const [tankDevices, setTankDevices] = useState<SensorDevice[]>([])
   const [lowStockItems, setLowStockItems]   = useState<InventoryItem[]>([])
   const [loading, setLoading]       = useState(true)
 
@@ -82,7 +85,10 @@ export default function DashboardPage() {
     setAlerts(a.filter(x => !x.resolved))
     setDiagnoses(d)
     setLowStockItems(inv.filter(i => i.reorder_level > 0 && i.current_stock <= i.reorder_level))
-    if (selectedTankId) setWqData(await getWaterQuality(selectedTankId, 24))
+    if (selectedTankId) {
+      setWqData(await getWaterQuality(selectedTankId, 24))
+      try { setTankDevices(await getSensorDevices(selectedTankId)) } catch { }
+    }
   }, [user?.email, selectedTankId])
 
   const { lastRefreshed } = useAutoRefresh(reload, 60, !loading)
@@ -131,6 +137,7 @@ export default function DashboardPage() {
     const mock = isTestAccount(user?.email)
     if (mock) {
       setWqData(MOCK_WATER_QUALITY[selectedTankId] || [])
+      setTankDevices(MOCK_SENSOR_DEVICES.filter(d => d.tank_id === selectedTankId))
       return
     }
     async function reloadWq() {
@@ -138,6 +145,7 @@ export default function DashboardPage() {
         const wq = await getWaterQuality(selectedTankId, 24)
         setWqData(wq)
       } catch { }
+      try { setTankDevices(await getSensorDevices(selectedTankId)) } catch { setTankDevices([]) }
     }
     reloadWq()
   }, [selectedTankId])
@@ -374,6 +382,9 @@ export default function DashboardPage() {
           </Card>
         </div>
       </div>
+
+      {/* 선택한 수조의 센서별 마지막 수신값 — 센서가 있을 때만 보인다 */}
+      <DeviceCurrentValues devices={tankDevices} />
 
       {/* Diagnoses table */}
       <Card className="bg-card border-border">
