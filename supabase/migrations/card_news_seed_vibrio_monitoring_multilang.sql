@@ -7,6 +7,12 @@
 -- 실행 조건: card_news.sql 을 먼저 실행해 테이블이 있어야 한다.
 -- 재실행 안전: 같은 (slug, locale)이 있으면 내용을 덮어쓴다.
 --              published_at·조회수·좋아요는 건드리지 않는다.
+--
+-- 게시 보류: 사용자 요청으로 이 편은 공개하지 않는다.
+-- published 를 false 로 두었으므로 이 파일을 실행해도 노출되지 않는다.
+-- 나중에 공개하려면 아래 published 값을 true 로 바꾸거나
+--   update public.card_news set published = true where slug = 'vibrio-monitoring';
+-- 를 실행한다.
 -- ============================================================
 
 insert into public.card_news
@@ -81,7 +87,7 @@ Shrimp365 logs temperature, feed rate and mortality together so you can see the 
     $cn$vibrio$cn$, $cn$disease management$cn$, $cn$water temperature$cn$, $cn$feed management$cn$,
     $cn$pond management$cn$, $cn$mortality$cn$, $cn$white shrimp$cn$, $cn$shrimp farming$cn$
   ]::text[],
-  true,
+  false,
   $cn$2026-08-09 09:00:00+09$cn$::timestamptz
 ),
 
@@ -153,7 +159,7 @@ Shrimp365 ghi nhiệt độ, lượng cho ăn và số tôm chết cùng lúc đ
     $cn$vibrio$cn$, $cn$quản lý dịch bệnh$cn$, $cn$nhiệt độ nước$cn$, $cn$quản lý thức ăn$cn$,
     $cn$quản lý ao$cn$, $cn$tôm chết$cn$, $cn$tôm thẻ chân trắng$cn$, $cn$nuôi tôm$cn$
   ]::text[],
-  true,
+  false,
   $cn$2026-08-09 09:00:00+09$cn$::timestamptz
 ),
 
@@ -225,7 +231,7 @@ Shrimp365 mencatat suhu, jumlah pakan, dan kematian bersama agar Anda melihat ko
     $cn$vibrio$cn$, $cn$manajemen penyakit$cn$, $cn$suhu air$cn$, $cn$manajemen pakan$cn$,
     $cn$manajemen tambak$cn$, $cn$kematian udang$cn$, $cn$udang vaname$cn$, $cn$budidaya udang$cn$
   ]::text[],
-  true,
+  false,
   $cn$2026-08-09 09:00:00+09$cn$::timestamptz
 )
 
