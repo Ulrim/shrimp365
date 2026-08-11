@@ -2,9 +2,11 @@
 
 > AI-powered shrimp aquaculture management platform for white shrimp (Litopenaeus vannamei) farmers.
 
-Shrimp365 (shrimp365.kr) is a comprehensive SaaS platform designed for shrimp aquaculture farms. It provides real-time water quality monitoring, AI-driven advisory, disease diagnosis, production cycle management, and farm operations management — all in one place. 한국어로는 흰다리새우 어가를 위한 새우양식 관리 솔루션입니다.
+Shrimp365 (shrimp365.kr) is a comprehensive SaaS platform designed for shrimp aquaculture farms. It provides real-time water quality monitoring, AI-driven advisory, disease diagnosis, production cycle management, and farm operations management — all in one place.
 
-Last updated: 2026-06-25
+흰다리새우 어가를 위한 새우양식 관리 솔루션입니다. 수질 모니터링·AI 어드바이저·양식 일지·질병 진단·재고 관리를 하나의 앱에서 무료로 제공합니다.
+
+Last updated: 2026-08-11
 
 ---
 
