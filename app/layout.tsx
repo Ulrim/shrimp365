@@ -69,14 +69,17 @@ export const metadata: Metadata = {
     alternateLocale: ["en_US", "en_GB", "vi_VN", "id_ID"],
     url: "https://www.shrimp365.kr",
     siteName: "Shrimp365",
-    title: "Shrimp365 | AI Shrimp Farm Management Platform",
-    description: "AI-powered water quality monitoring, production management & disease diagnosis for vannamei shrimp farms. Real-time pH·DO·temperature alerts on your smartphone.",
-    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "Shrimp365 — AI Shrimp Farm Management Platform" }],
+    // 루트(/)는 한국어 페이지이므로 OG도 한국어로 맞춘다. 영어·베트남어·인니어
+    // OG는 각 언어 페이지(app/[lang]/page.tsx)에서 덮어쓴다.
+    // 네이버 권장 길이: 제목 40자 이내, 설명 80자 이내.
+    title: "Shrimp365 | 새우양식 관리 AI 솔루션",
+    description: "수질 모니터링·AI 질병 진단·양식 일지까지. 흰다리새우 어가를 위한 무료 새우양식 관리 솔루션.",
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "Shrimp365 — 새우양식 관리 AI 솔루션" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Shrimp365 | AI Shrimp Farm Management Platform",
-    description: "AI-powered water quality monitoring & disease diagnosis for vannamei shrimp farms. Manage feeding, inventory & health from your phone.",
+    title: "Shrimp365 | 새우양식 관리 AI 솔루션",
+    description: "흰다리새우 수질 모니터링·AI 질병 진단·양식 일지. 무료 새우양식 관리 솔루션.",
     images: ["/opengraph-image"],
   },
   alternates: {
