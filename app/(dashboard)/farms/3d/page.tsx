@@ -56,7 +56,7 @@ const STATUS_BADGE: Record<Tank["status"], "success" | "warning" | "danger" | "s
 
 /** DB 수조를 3D 자리에 붙인다.
  *
- *  지금은 이름순으로 상부·하부 자리에 차례로 넣는다. 수조마다 자리를 지정하는
+ *  지금은 이름순으로 1번·2번 자리에 차례로 넣는다. 수조마다 자리를 지정하는
  *  필드를 두는 게 맞지만, 그 전까지는 순서 매핑이 가장 덜 틀린다. 자리보다
  *  수조가 많으면 남는 수조는 3D 에 안 나오므로 화면에서 그 수를 알려 준다. */
 function mapTanksToSlots(slots: string[], tanks: Tank[]): Record<string, Tank> {
