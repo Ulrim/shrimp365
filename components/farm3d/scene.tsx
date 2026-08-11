@@ -4,8 +4,8 @@ import { useMemo, useRef } from "react"
 import * as THREE from "three"
 import { useFrame } from "@react-three/fiber"
 import { Html } from "@react-three/drei"
-import type { Farm3DLayout, TankSpec } from "@/lib/farm3d/layout"
-import { spansToPositions } from "@/lib/farm3d/layout"
+import type { Farm3DLayout, Point2, TankSpec } from "@/lib/farm3d/layout"
+import { insetPolygon, spansToPositions } from "@/lib/farm3d/layout"
 import type { Tank } from "@/types"
 
 // ─── 색 ───────────────────────────────────────────────────────────────────────
@@ -36,19 +36,36 @@ const COLOR = {
   tankFloor: "#475569",
 } as const
 
+/** 수조 테두리로 상태 색을 두르는 띠의 높이. */
+const RIM = 0.12
+
 // ─── 지오메트리 헬퍼 ──────────────────────────────────────────────────────────
 
-/** XZ 폴리곤을 바닥판(얇은 판)으로 만든다.
+/** XZ 폴리곤을 Shape 로 바꾼다.
  *
  *  THREE.Shape 는 XY 평면에서 만들어지고 ExtrudeGeometry 는 +Z 로 뽑는다.
- *  우리가 원하는 건 XZ 평면에 눕힌 판이라, 만든 뒤 X축으로 -90° 돌린다.
- *  이때 shape 의 Y 가 월드 Z 로 가므로 Z 부호가 뒤집힌다. 그래서 shape 를
- *  만들 때 z 를 그대로 넣고 회전으로 맞추는 대신, -z 로 넣어 두 번 뒤집히지
- *  않게 한다.
+ *  만든 뒤 X축으로 -90° 돌리면 shape 의 Y 가 월드 -Z 로 가므로, 애초에 z 를
+ *  뒤집어 넣어야 도면과 같은 방향으로 선다.
  */
-function slabGeometry(points: { x: number; z: number }[], thickness: number): THREE.ExtrudeGeometry {
-  const shape = new THREE.Shape(points.map(p => new THREE.Vector2(p.x, -p.z)))
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false })
+function toVec2(points: Point2[]): THREE.Vector2[] {
+  return points.map(p => new THREE.Vector2(p.x, -p.z))
+}
+
+/** XZ 폴리곤을 얇은 판으로 뽑는다. y = 0 에서 위로 thickness 만큼 차지한다. */
+function slabGeometry(points: Point2[], thickness: number): THREE.ExtrudeGeometry {
+  const geo = new THREE.ExtrudeGeometry(new THREE.Shape(toVec2(points)), {
+    depth: thickness,
+    bevelEnabled: false,
+  })
+  geo.rotateX(-Math.PI / 2)
+  return geo
+}
+
+/** 속이 빈 벽체. 바깥 윤곽에서 안쪽 윤곽을 도려내고 위로 뽑는다. */
+function wallGeometry(outer: Point2[], inner: Point2[], height: number): THREE.ExtrudeGeometry {
+  const shape = new THREE.Shape(toVec2(outer))
+  shape.holes.push(new THREE.Path(toVec2(inner)))
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false })
   geo.rotateX(-Math.PI / 2)
   return geo
 }
@@ -78,7 +95,7 @@ function vaultGeometry(span: number, rise: number, length: number, thickness: nu
 }
 
 /** 모서리를 자른 팔각형 대지 윤곽. */
-function octagon(width: number, depth: number, cut: number): { x: number; z: number }[] {
+function octagon(width: number, depth: number, cut: number): Point2[] {
   const hw = width / 2
   const hd = depth / 2
   return [
@@ -91,6 +108,16 @@ function octagon(width: number, depth: number, cut: number): { x: number; z: num
     { x: -hw, z: hd - cut },
     { x: -hw, z: -hd + cut },
   ]
+}
+
+/** 폴리곤을 감싸는 사각형의 한가운데. 이름표를 띄울 자리로 쓴다. */
+function boundsCenter(points: Point2[]): { x: number; z: number } {
+  const xs = points.map(p => p.x)
+  const zs = points.map(p => p.z)
+  return {
+    x: (Math.min(...xs) + Math.max(...xs)) / 2,
+    z: (Math.min(...zs) + Math.max(...zs)) / 2,
+  }
 }
 
 // ─── 수조 ─────────────────────────────────────────────────────────────────────
@@ -106,35 +133,35 @@ interface TankMeshProps {
 }
 
 function TankMesh({ spec, tank, selected, hovered, onSelect, onHover }: TankMeshProps) {
-  const ring = useRef<THREE.Mesh>(null)
-  const r = spec.diameter / 2
+  const rim = useRef<THREE.Mesh>(null)
   const status = tank?.status ?? "inactive"
   const color = STATUS_COLOR[status]
   const filled = status !== "inactive"
 
+  const inner = useMemo(
+    () => insetPolygon(spec.outline, spec.wallThickness),
+    [spec.outline, spec.wallThickness],
+  )
+  const floorGeo = useMemo(() => slabGeometry(spec.outline, 0.06), [spec.outline])
   const wallGeo = useMemo(
-    () => new THREE.CylinderGeometry(r, r, spec.wallHeight, 40, 1, true),
-    [r, spec.wallHeight],
+    () => wallGeometry(spec.outline, inner, spec.wallHeight - RIM),
+    [spec.outline, inner, spec.wallHeight],
   )
-  const waterGeo = useMemo(
-    () => new THREE.CylinderGeometry(r - 0.08, r - 0.08, spec.waterDepth, 40),
-    [r, spec.waterDepth],
-  )
-  const floorGeo = useMemo(() => new THREE.CircleGeometry(r, 40), [r])
-  const rimGeo = useMemo(() => new THREE.TorusGeometry(r, 0.07, 8, 48), [r])
-  const haloGeo = useMemo(() => new THREE.RingGeometry(r + 0.25, r + 0.75, 48), [r])
+  const rimGeo = useMemo(() => wallGeometry(spec.outline, inner, RIM), [spec.outline, inner])
+  const waterGeo = useMemo(() => slabGeometry(inner, spec.waterDepth), [inner, spec.waterDepth])
 
-  // 선택한 수조만 링을 천천히 뛰게 한다. 12기 중 어느 걸 보고 있는지
-  // 시선을 잡아 주는 용도라, 나머지는 가만히 둔다.
+  const center = useMemo(() => boundsCenter(spec.outline), [spec.outline])
+
+  // 선택 표시는 벽 윗면 띠를 뛰게 해서 준다. 수조 두 기가 건물 바닥을 꽉
+  // 채우고 있어서, 바닥에 테두리를 깔면 수조 밑에 들어가 보이지 않는다.
   useFrame(({ clock }) => {
-    if (!ring.current) return
-    const m = ring.current.material as THREE.MeshBasicMaterial
-    m.opacity = 0.35 + 0.25 * Math.sin(clock.elapsedTime * 2.5)
+    if (!rim.current) return
+    const m = rim.current.material as THREE.MeshStandardMaterial
+    m.emissiveIntensity = selected ? 0.75 + 0.55 * Math.sin(clock.elapsedTime * 2.5) : 0.45
   })
 
   return (
     <group
-      position={[spec.x, 0, spec.z]}
       onClick={e => {
         e.stopPropagation()
         onSelect(spec.slot)
@@ -149,47 +176,47 @@ function TankMesh({ spec, tank, selected, hovered, onSelect, onHover }: TankMesh
         document.body.style.cursor = "auto"
       }}
     >
-      {/* 바닥 */}
-      <mesh geometry={floorGeo} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]} receiveShadow>
+      {/* 수조 바닥 */}
+      <mesh geometry={floorGeo} receiveShadow>
         <meshStandardMaterial color={filled ? COLOR.tankFloor : COLOR.dryFloor} roughness={0.95} />
       </mesh>
 
-      {/* 물 — 비어 있는 수조는 아예 그리지 않는다. 높이 0 인 물을 놓으면
-          원기둥이 바닥을 뚫고 나와 부풀어 보인다. */}
+      {/* 물 — 비어 있는 수조는 아예 그리지 않는다. 깊이 0 인 물을 놓으면
+          바닥을 뚫고 나와 부풀어 보인다. */}
       {filled && (
-        <mesh geometry={waterGeo} position={[0, spec.waterDepth / 2, 0]}>
-          <meshStandardMaterial color={COLOR.water} transparent opacity={0.85} roughness={0.15} metalness={0.1} />
+        <mesh geometry={waterGeo} position={[0, 0.06, 0]}>
+          {/* 660 m² 짜리 평면이라 거칠기를 낮추면 태양 반사가 흰 얼룩으로
+              크게 번진다. 잔물결이 있는 실제 수면에 가깝게 올린다. */}
+          <meshStandardMaterial color={COLOR.water} transparent opacity={0.9} roughness={0.42} metalness={0} />
         </mesh>
       )}
 
       {/* 벽체 */}
-      <mesh geometry={wallGeo} position={[0, spec.wallHeight / 2, 0]} castShadow receiveShadow>
+      <mesh geometry={wallGeo} castShadow receiveShadow>
         <meshStandardMaterial
           color={COLOR.tankWall}
-          roughness={0.65}
-          side={THREE.DoubleSide}
+          roughness={0.7}
           emissive={hovered ? color : "#000000"}
-          emissiveIntensity={hovered ? 0.25 : 0}
+          emissiveIntensity={hovered ? 0.3 : 0}
         />
       </mesh>
 
-      {/* 상단 테두리 — 상태 색을 여기에 입힌다. 위에서 내려다볼 때 가장 잘 보인다 */}
-      <mesh geometry={rimGeo} position={[0, spec.wallHeight, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.5} roughness={0.4} />
+      {/* 벽 윗면 띠 — 상태 색을 여기에 입힌다. 위에서 내려다볼 때 가장 잘
+          보이고, 선택하면 이 띠가 뛴다 */}
+      <mesh ref={rim} geometry={rimGeo} position={[0, spec.wallHeight - RIM, 0]}>
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.45} roughness={0.5} />
       </mesh>
 
-      {/* 선택 표시 */}
-      {selected && (
-        <mesh ref={ring} geometry={haloGeo} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
-          <meshBasicMaterial color={color} transparent opacity={0.5} side={THREE.DoubleSide} />
-        </mesh>
-      )}
-
-      <Html center position={[0, spec.wallHeight + 0.9, 0]} distanceFactor={26} zIndexRange={[10, 0]}>
+      <Html
+        center
+        position={[center.x, spec.wallHeight + 1.6, center.z]}
+        distanceFactor={34}
+        zIndexRange={[10, 0]}
+      >
         <div
-          className="pointer-events-none select-none whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold"
+          className="pointer-events-none select-none whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold"
           style={{
-            background: selected || hovered ? color : "rgba(15,23,42,0.75)",
+            background: selected || hovered ? color : "rgba(15,23,42,0.8)",
             color: selected || hovered ? "#ffffff" : "#cbd5e1",
             border: `1px solid ${color}`,
           }}
@@ -229,7 +256,7 @@ export function FarmScene({ layout, tankBySlot, selected, hovered, onSelect, onH
   )
 
   /** 기둥 자리. 도면의 원(圓) 표기를 그대로 옮긴 것이다 — 바깥 둘레 한 바퀴에
-   *  가운데 열이 하나 더 있다. 가운데 열이 두 동 지붕이 만나는 골을 받는다. */
+   *  가운데 열이 하나 더 있다. 가운데 열은 두 수조를 가르는 벽 위에 선다. */
   const columnPositions = useMemo(() => {
     const xs = spansToPositions(columns.xSpans)
     const zs = spansToPositions(columns.zSpans)
@@ -265,18 +292,18 @@ export function FarmScene({ layout, tankBySlot, selected, hovered, onSelect, onH
   return (
     <group>
       {/* 배경 지면 — 대지 밖은 넓게 깔아 지평선을 만든다 */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.2, 0]} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.42, 0]} receiveShadow>
         <planeGeometry args={[400, 400]} />
         <meshStandardMaterial color={COLOR.ground} roughness={1} />
       </mesh>
 
-      {/* 대지 */}
-      <mesh geometry={sitePadGeo} position={[0, -0.15, 0]} receiveShadow>
+      {/* 대지 — 윗면이 y = -0.25 에 오게 놓는다 */}
+      <mesh geometry={sitePadGeo} position={[0, -0.4, 0]} receiveShadow>
         <meshStandardMaterial color={COLOR.sitePad} roughness={0.95} />
       </mesh>
 
-      {/* 건물 바닥 슬래브 */}
-      <mesh geometry={slabGeo} position={[0, 0, 0]} receiveShadow>
+      {/* 건물 바닥 슬래브 — 윗면이 y = 0. 수조는 이 위에 선다 */}
+      <mesh geometry={slabGeo} position={[0, -0.25, 0]} receiveShadow>
         <meshStandardMaterial color={COLOR.slab} roughness={0.9} />
       </mesh>
 
@@ -337,7 +364,7 @@ export function FarmScene({ layout, tankBySlot, selected, hovered, onSelect, onH
         shadow-camera-bottom={-45}
         shadow-camera-far={140}
         // 90 m 를 덮는 그림자맵이라 픽셀 하나가 4 cm 를 넘는다. 그대로 두면
-        // 수조 벽 같은 곡면에 제 그림자가 줄무늬로 얼룩진다(shadow acne).
+        // 벽 같은 면에 제 그림자가 줄무늬로 얼룩진다(shadow acne).
         shadow-normalBias={0.08}
       />
       <directionalLight position={[-30, 20, -20]} intensity={0.35} />

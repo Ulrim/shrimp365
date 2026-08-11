@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MUAN_LAYOUT, polygonArea, spansToPositions, tankVolume } from "@/lib/farm3d/layout"
+import { MUAN_LAYOUT, polygonArea, spansToPositions, tankArea, tankVolume } from "@/lib/farm3d/layout"
 import type { ViewKey } from "@/components/farm3d/farm-3d-viewer"
 import { STATUS_COLOR } from "@/components/farm3d/scene"
 import type { Farm, Tank, WaterQualityReading } from "@/types"
@@ -56,10 +56,9 @@ const STATUS_BADGE: Record<Tank["status"], "success" | "warning" | "danger" | "s
 
 /** DB 수조를 3D 자리에 붙인다.
  *
- *  지금은 이름순으로 A-1, A-2 … 자리에 차례로 넣는다. 실제 배치도를 받으면
- *  수조마다 자리를 지정하는 필드를 두는 게 맞지만, 그 전까지는 순서 매핑이
- *  가장 덜 틀린다. 자리보다 수조가 많으면 남는 수조는 3D 에 안 나오므로
- *  화면에서 그 수를 알려 준다. */
+ *  지금은 이름순으로 상부·하부 자리에 차례로 넣는다. 수조마다 자리를 지정하는
+ *  필드를 두는 게 맞지만, 그 전까지는 순서 매핑이 가장 덜 틀린다. 자리보다
+ *  수조가 많으면 남는 수조는 3D 에 안 나오므로 화면에서 그 수를 알려 준다. */
 function mapTanksToSlots(slots: string[], tanks: Tank[]): Record<string, Tank> {
   const sorted = [...tanks].sort((a, b) => a.name.localeCompare(b.name, "ko"))
   const out: Record<string, Tank> = {}
@@ -156,6 +155,7 @@ export default function Farm3DPage() {
       areaMatchesDrawing: Math.abs(area - layout.building.floorAreaFromDrawing) < 0.05,
       columns: spansToPositions(layout.columns.xSpans).length,
       tankCount: layout.tanks.length,
+      tankArea: layout.tanks.reduce((sum, t) => sum + tankArea(t), 0),
       water,
     }
   }, [layout])
@@ -205,9 +205,9 @@ export default function Farm3DPage() {
         <SummaryCard icon={<Compass className="h-4 w-4" />} label="기둥 열" value={`X ${stats.columns}열`} sub="4.0 + 3.0×18 + 1.0 + 4.0" />
         <SummaryCard
           icon={<Droplets className="h-4 w-4" />}
-          label="수조"
-          value={`${stats.tankCount}기`}
-          sub={`총 수량 약 ${Math.round(stats.water).toLocaleString("ko-KR")} m³`}
+          label="사각 수조"
+          value={`${stats.tankCount}기 · ${stats.tankArea.toLocaleString("ko-KR")} m²`}
+          sub={`담수 약 ${Math.round(stats.water).toLocaleString("ko-KR")} m³`}
         />
       </div>
 
@@ -296,9 +296,12 @@ export default function Farm3DPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Row label="수조 제원" value={`Ø${selectedSpec.diameter} m · 수심 ${selectedSpec.waterDepth} m`} />
-                <Row label="담수량" value={`약 ${tankVolume(selectedSpec).toFixed(1)} m³`} />
-                <Row label="도면 위치" value={`X ${selectedSpec.x} m · Z ${selectedSpec.z} m`} />
+                <Row
+                  label="수조 면적"
+                  value={`${tankArea(selectedSpec).toLocaleString("ko-KR")} m² (도면 ${selectedSpec.areaFromDrawing})`}
+                />
+                <Row label="수심 · 벽 높이" value={`${selectedSpec.waterDepth} m · ${selectedSpec.wallHeight} m`} />
+                <Row label="담수량" value={`약 ${Math.round(tankVolume(selectedSpec)).toLocaleString("ko-KR")} m³`} />
 
                 {selectedTank ? (
                   <>
