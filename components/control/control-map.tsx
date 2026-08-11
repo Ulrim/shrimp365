@@ -126,6 +126,37 @@ export type DeviceMarker = {
   farm_name: string
 }
 
+/** 같은 자리(약 10m 격자)에 장비가 여럿이면 점이 완전히 겹쳐 하나로 보인다.
+ *  같은 곳에서 연달아 페어링하면 좌표가 사실상 동일하기 때문이다.
+ *  겹치는 무리를 찾아 중심 둘레에 작은 원형으로 벌려 그린다(표시용 오프셋
+ *  약 12m — 실제 좌표는 그대로 저장돼 있고 화면 배치만 벌린다). */
+function spreadOverlaps(markers: DeviceMarker[]): (DeviceMarker & { showLat: number; showLng: number })[] {
+  const groups = new Map<string, DeviceMarker[]>()
+  for (const d of markers) {
+    const key = `${d.latitude.toFixed(4)}:${d.longitude.toFixed(4)}`
+    const list = groups.get(key) ?? []
+    list.push(d)
+    groups.set(key, list)
+  }
+  const out: (DeviceMarker & { showLat: number; showLng: number })[] = []
+  for (const list of groups.values()) {
+    if (list.length === 1) {
+      out.push({ ...list[0], showLat: list[0].latitude, showLng: list[0].longitude })
+      continue
+    }
+    const r = 0.00012   // 위도 기준 약 13m
+    list.forEach((d, i) => {
+      const a = (2 * Math.PI * i) / list.length
+      out.push({
+        ...d,
+        showLat: d.latitude + r * Math.cos(a),
+        showLng: d.longitude + (r * Math.sin(a)) / Math.cos((d.latitude * Math.PI) / 180),
+      })
+    })
+  }
+  return out
+}
+
 /** 관제센터 지도 — 플랫폼의 모든 농장을 한 판에 찍는다.
  *
  *  양식장 관리의 지도와 목적이 다르다. 저쪽은 "내 농장", 여기는 "전체 중
@@ -192,9 +223,10 @@ export function ControlMap({ farms, deviceMarkers = [], height = 420 }: { farms:
       }
 
       // 장비별 마커 — 작은 점. 이름과 소속(농장·수조), 마지막 수신을 팝업으로.
-      for (const d of deviceMarkers) {
+      // 같은 자리의 장비들은 spreadOverlaps 가 벌려 배치한다.
+      for (const d of spreadOverlaps(deviceMarkers)) {
         const dColor = d.online ? "#3B82F6" : "#94A3B8"
-        const dm = L.circleMarker([d.latitude, d.longitude], {
+        const dm = L.circleMarker([d.showLat, d.showLng], {
           radius: 5,
           color: dColor,
           fillColor: dColor,

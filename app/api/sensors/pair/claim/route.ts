@@ -98,33 +98,82 @@ export async function POST(req: NextRequest) {
   const lng = typeof body.longitude === "number" && body.longitude >= -180 && body.longitude <= 180
     ? body.longitude : null
 
-  // 4. 기기를 만든다. api_key 는 테이블 기본값으로 자동 생성된다.
-  //    위치 컬럼 마이그레이션 전이라면 좌표만 빼고 다시 시도한다(등록이 우선).
-  const baseDevice = {
-    tank_id: tankId,
-    name: name || `${tank.name} 센서`,
-    device_type: "multi",
-    serial: pairing.serial,
-    firmware: pairing.firmware,
-  }
-  const withLocation = lat !== null && lng !== null
-    ? { ...baseDevice, latitude: lat, longitude: lng, located_at: new Date().toISOString() }
-    : baseDevice
+  // 4. 기기를 만들거나 — 같은 기기의 재연결이면 기존 행을 재사용한다.
+  //
+  //    기기는 하드웨어 고유번호(라즈베리파이 CPU 시리얼)를 보고한다. 같은
+  //    시리얼의 기기가 이미 이 사용자 소유로 등록돼 있으면 새로 만들지 않고
+  //    그 행을 되살린다(새 기기 키 발급, 수조·이름·좌표 갱신). 그래야
+  //    계정 변경→재연결을 반복해도 기기가 늘어나지 않고, 그 기기의 센서별
+  //    수질 이력도 그대로 이어진다.
+  let device: { id: string; name: string } | null = null
+  let deviceError: { message?: string } | null = null
+  let reusedExisting = false   // 재사용이면 경합 패배 시 지우면 안 된다(이력 보존)
 
-  let { data: device, error: deviceError } = await admin
-    .from("sensor_devices")
-    .insert(withLocation)
-    .select("id, name")
-    .single()
-
-  if (deviceError && withLocation !== baseDevice
-      && /latitude|longitude|located_at|column|schema/i.test(deviceError.message || "")) {
-    console.warn("[sensors/pair/claim] 위치 컬럼 없음 — 좌표 없이 등록(마이그레이션 필요)")
-    ;({ data: device, error: deviceError } = await admin
+  if (pairing.serial) {
+    const { data: existing } = await admin
       .from("sensor_devices")
-      .insert(baseDevice)
-      .select("id, name")
-      .single())
+      .select("id, name, tanks!sensor_devices_tank_id_fkey(farms!tanks_farm_id_fkey(user_id))")
+      .eq("serial", pairing.serial)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const exTank = existing?.tanks as unknown as
+      | { farms?: { user_id?: string } | { user_id?: string }[] }
+      | { farms?: { user_id?: string } | { user_id?: string }[] }[] | null
+    const exTankOne = Array.isArray(exTank) ? exTank[0] : exTank
+    const exFarm = exTankOne && (Array.isArray(exTankOne.farms) ? exTankOne.farms[0] : exTankOne.farms)
+    const sameOwner = existing && exFarm?.user_id === user.id
+
+    if (existing && sameOwner) {
+      // 새 기기 키 — 기기 쪽은 이전 키를 이미 버렸다(계정 변경 시 삭제).
+      const newKey = Array.from(crypto.getRandomValues(new Uint8Array(24)))
+        .map(b => b.toString(16).padStart(2, "0")).join("")
+      const basePatch: Record<string, unknown> = {
+        tank_id: tankId,
+        name: name || existing.name,          // 새 이름이 없으면 기존 이름 유지
+        firmware: pairing.firmware,
+        api_key: newKey,
+        active: true,
+        update_to: null, update_status: null, update_message: null,
+      }
+      const patch = lat !== null && lng !== null
+        ? { ...basePatch, latitude: lat, longitude: lng, located_at: new Date().toISOString() }
+        : basePatch
+
+      let res = await admin.from("sensor_devices").update(patch).eq("id", existing.id).select("id, name").single()
+      if (res.error && patch !== basePatch
+          && /latitude|longitude|located_at|column|schema/i.test(res.error.message || "")) {
+        res = await admin.from("sensor_devices").update(basePatch).eq("id", existing.id).select("id, name").single()
+      }
+      device = res.data
+      deviceError = res.error
+      reusedExisting = !!res.data
+    }
+  }
+
+  if (!device && !deviceError) {
+    // 처음 보는 기기 — 새로 만든다. api_key 는 테이블 기본값으로 자동 생성.
+    // 위치 컬럼 마이그레이션 전이라면 좌표만 빼고 다시 시도한다(등록이 우선).
+    const baseDevice = {
+      tank_id: tankId,
+      name: name || `${tank.name} 센서`,
+      device_type: "multi",
+      serial: pairing.serial,
+      firmware: pairing.firmware,
+    }
+    const withLocation = lat !== null && lng !== null
+      ? { ...baseDevice, latitude: lat, longitude: lng, located_at: new Date().toISOString() }
+      : baseDevice
+
+    let res = await admin.from("sensor_devices").insert(withLocation).select("id, name").single()
+    if (res.error && withLocation !== baseDevice
+        && /latitude|longitude|located_at|column|schema/i.test(res.error.message || "")) {
+      console.warn("[sensors/pair/claim] 위치 컬럼 없음 — 좌표 없이 등록(마이그레이션 필요)")
+      res = await admin.from("sensor_devices").insert(baseDevice).select("id, name").single()
+    }
+    device = res.data
+    deviceError = res.error
   }
 
   if (deviceError || !device) {
@@ -149,7 +198,8 @@ export async function POST(req: NextRequest) {
 
   if (claimError || !claimed) {
     // 경합에서 졌다면 방금 만든 기기를 되돌린다.
-    await admin.from("sensor_devices").delete().eq("id", device.id)
+    // 단, 기존 기기를 재사용한 경우에는 지우면 안 된다 — 이력이 있는 행이다.
+    if (!reusedExisting) await admin.from("sensor_devices").delete().eq("id", device.id)
     return NextResponse.json({ error: "이미 처리된 코드입니다." }, { status: 409 })
   }
 
