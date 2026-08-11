@@ -7,7 +7,7 @@ import { getFarms, getAllTanks } from "@/lib/db"
 import { MOCK_FARMS, MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
-import type { Farm, Tank } from "@/types"
+import type { Farm, Tank, IconComponent } from "@/types"
 
 interface SearchPanelProps {
   open: boolean
@@ -24,7 +24,7 @@ export function SearchPanel({ open, onClose }: SearchPanelProps) {
   const [tanks, setTanks] = useState<Tank[]>([])
   const [selectedIdx, setSelectedIdx] = useState(0)
 
-  const navPages: { href: string; label: string; desc: string; icon: React.ElementType }[] = [
+  const navPages: { href: string; label: string; desc: string; icon: IconComponent }[] = [
     { href: "/dashboard",            label: t.nav.dashboard,            icon: LayoutDashboard, desc: t.search.descDashboard },
     { href: "/water-quality",        label: t.nav.waterQuality,         icon: Droplets,        desc: t.search.descWaterQuality },
     { href: "/record/water-quality", label: t.record.waterQuality,      icon: Droplets,        desc: t.search.descRecordWater },
@@ -65,7 +65,7 @@ export function SearchPanel({ open, onClose }: SearchPanelProps) {
   )
 
   type ResultItem =
-    | { kind: "page";  href: string; label: string; desc: string; icon: React.ElementType }
+    | { kind: "page";  href: string; label: string; desc: string; icon: IconComponent }
     | { kind: "farm";  id: string;   name: string; location: string }
     | { kind: "tank";  id: string;   name: string; status: Tank["status"] }
 

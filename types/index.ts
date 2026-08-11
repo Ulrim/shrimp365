@@ -1,3 +1,14 @@
+import type { ComponentType } from "react"
+
+/** 아이콘 자리에 꽂는 컴포넌트. 실제로 들어오는 건 늘 lucide-react 아이콘이다.
+ *
+ *  여기서 React.ElementType 을 쓰면 안 된다. @react-three/fiber 가 전역
+ *  JSX.IntrinsicElements 에 three.js 요소(mesh, group, boxGeometry …)를 얹기
+ *  때문에, ElementType 유니온이 그 태그들까지 삼킨다. 그러면 태그마다 받는
+ *  prop 이 달라 공통 prop 이 하나도 안 남고 className 이 never 로 좁혀진다.
+ *  받는 쪽을 컴포넌트로 못박아 두면 그 영향에서 벗어난다. */
+export type IconComponent = ComponentType<{ className?: string }>
+
 export interface User {
   id: string
   email: string
