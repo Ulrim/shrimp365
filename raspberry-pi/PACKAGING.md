@@ -6,6 +6,7 @@
 프로그램은 바뀌지 않습니다. 이 문서는 기구·전원·배선·조립만 다룹니다.
 설치와 설정 절차는 [INSTALL.md](INSTALL.md), 기능은 [README.md](README.md) 를 보세요.
 
+> **통합 엑셀 → [enclosure/xlsx/hardware.xlsx](enclosure/xlsx/hardware.xlsx)** — 부품·결선·좌표·검사를 한 파일로
 > **외함 설계 → [enclosure/ENCLOSURE.md](enclosure/ENCLOSURE.md)** — 요구 형상·성능·검증 기준
 > **내부 배선 → [enclosure/WIRING.md](enclosure/WIRING.md)** — 결선표·핀맵·배선 검사
 > **제작도면 → [enclosure/DRAWINGS.md](enclosure/DRAWINGS.md)** — DXF/SVG 도면 7장 + 배선 계통도 4장

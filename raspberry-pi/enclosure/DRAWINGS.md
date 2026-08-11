@@ -4,6 +4,7 @@
 
 ```
 enclosure/
+├── xlsx/hardware.xlsx      ★ 하드웨어 사양 통합 엑셀 (부품·결선·좌표·검사)
 ├── ENCLOSURE.md            외함 설계서 (요구 형상·성능·검증 기준)
 ├── WIRING.md               내부 배선 설계서 (결선표·핀맵·검사)
 ├── PARTS.md                기성품 구매 목록 (모델·수량·확인 상태)
