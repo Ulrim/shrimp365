@@ -617,7 +617,7 @@ export const ko: Dict = {
     navFaq: "자주 묻는 질문",
     navDemo: "데모 체험",
     navStart: "무료 시작",
-    heroBadge: "흰다리새우 전문 양식 관리 플랫폼",
+    heroBadge: "흰다리새우 전문 새우양식 관리 솔루션",
     heroH1: "새우 양식,",
     heroH1Highlight: "이제 쉽게 관리하세요",
     heroSubtitle: "수질 모니터링부터 AI 질병 진단, 재고·생산 관리까지.\n양식장 운영에 필요한 모든 것을 한 곳에서 해결하세요.",
@@ -683,7 +683,7 @@ export const ko: Dict = {
     ctaDemo: "데모 먼저 보기",
     ctaMobileHint: "스마트폰에서도 사용 가능",
     ctaSecureHint: "데이터 암호화 보안",
-    footerDesc: "흰다리새우 양식 어가를 위한 AI 기반 통합 관리 플랫폼",
+    footerDesc: "흰다리새우 어가를 위한 AI 기반 새우양식 관리 솔루션",
   },
   board: {
     title: "커뮤니티 게시판",
