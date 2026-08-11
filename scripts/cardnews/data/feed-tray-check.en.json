@@ -1,0 +1,15 @@
+{
+  "slug": "feed-tray-check", "locale": "en",
+  "cards": [
+    { "type": "cover", "label": "READING THE TRAY", "title": ["The tray beats", "the feed table"], "subtitle": "What is left gives you the answer" },
+    { "type": "point", "index": "01", "label": "How much", "value": "4–5%", "caption": "Only part of that meal" },
+    { "type": "point", "index": "02", "label": "Check after", "value": "1–2 hr", "caption": "Lift it in this window" },
+    { "type": "point", "index": "03", "label": "If it is clean", "valueStyle": "text", "value": ["Raise it", "2–5%"], "caption": "Never jump up in one step" },
+    { "type": "point", "index": "04", "label": "If feed is left", "valueStyle": "text", "value": ["Cut the", "next meal"], "caption": "Leftovers are a load on the bottom" },
+    { "type": "point", "index": "05", "label": "Per day", "value": "4–5", "caption": "Check on every round" },
+    { "type": "point", "index": "06", "label": "Cut in advance", "valueStyle": "text", "value": ["Cloud · moult", "heat · heavy rain"], "caption": "Intake falls before anything else" },
+    { "type": "outro", "title": ["The tray:", "how to use it"],
+      "rows": [["How much", "4–5% of meal"], ["Check after", "1–2 hours"], ["If clean", "Raise 2–5%"], ["If left", "Cut next meal"], ["Rounds", "4–5 a day"], ["Log", "Every round"]],
+      "ctaTitle": "Log feed and leftovers every round", "ctaNote": "Free · No app install", "ctaUrl": "shrimp365.kr" }
+  ]
+}

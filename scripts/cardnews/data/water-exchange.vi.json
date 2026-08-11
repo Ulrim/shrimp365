@@ -1,0 +1,16 @@
+{
+  "slug": "water-exchange",
+  "locale": "vi",
+  "cards": [
+    { "type": "cover", "label": "THAY NƯỚC", "title": ["Thứ tự quan trọng", "hơn lượng nước"], "subtitle": "Đừng thay quá 30% một lần" },
+    { "type": "point", "index": "01", "label": "Mỗi lần", "value": "≤ 30%", "caption": "Chia 20–30% nhiều đợt" },
+    { "type": "point", "index": "02", "label": "Làm trước tiên", "valueStyle": "text", "value": ["Đo nước mới", "trước đã"], "caption": "So nhiệt độ, độ mặn, pH" },
+    { "type": "point", "index": "03", "label": "Độ mặn", "value": "< 5 ppt", "caption": "Đừng vượt mức này trong ngày" },
+    { "type": "point", "index": "04", "label": "Nhiệt độ", "value": "< 3 ℃", "caption": "Xem cả biên độ trong ngày" },
+    { "type": "point", "index": "05", "label": "Xả ở đâu", "valueStyle": "text", "value": ["Tầng mặt hay", "tầng đáy"], "caption": "Nước mưa nổi, bùn thì chìm" },
+    { "type": "point", "index": "06", "label": "Sau khi thay", "valueStyle": "text", "value": ["Xem nitrit", "và màu nước"], "caption": "Vi khuẩn và tảo đều bị lung lay" },
+    { "type": "outro", "title": ["Thay nước:", "làm thế nào"],
+      "rows": [["Mỗi lần", "≤ 30%"], ["Khuyến nghị", "20–30% mỗi đợt"], ["Độ mặn đổi", "< 5 ppt"], ["Nhiệt độ đổi", "< 3 ℃"], ["Nước mới", "Đo trước"], ["Sau khi thay", "Kiểm tra nitrit"]],
+      "ctaTitle": "Ghi chất lượng nước trước và sau", "ctaNote": "Miễn phí · Không cần cài app", "ctaUrl": "shrimp365.kr" }
+  ]
+}

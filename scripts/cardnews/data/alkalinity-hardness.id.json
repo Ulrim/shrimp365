@@ -1,0 +1,16 @@
+{
+  "slug": "alkalinity-hardness",
+  "locale": "id",
+  "cards": [
+    { "type": "cover", "label": "ALKALINITAS · KESADAHAN", "title": ["pH goyah?", "Lihat alkalinitas"], "subtitle": "Nitrifikasi pun berhenti di sini" },
+    { "type": "point", "index": "01", "label": "Alkalinitas", "value": "100–150", "caption": "mg/L. Jaga di rentang ini" },
+    { "type": "point", "index": "02", "label": "Apa fungsinya", "valueStyle": "text", "value": ["Menahan pH", "agar stabil"], "caption": "Daya penyangga itulah alkalinitas" },
+    { "type": "point", "index": "03", "label": "Kalau rendah", "valueStyle": "text", "value": ["pH mulai", "berayun lebar"], "caption": "Mulai melewati 0,5 per hari" },
+    { "type": "point", "index": "04", "label": "Nitrifikasi", "value": "7.14 g", "caption": "Terpakai per 1 g amonia" },
+    { "type": "point", "index": "05", "label": "Kesadahan", "valueStyle": "text", "value": ["Kalsium dan", "magnesium"], "caption": "Bahan pembentuk kulit baru" },
+    { "type": "point", "index": "06", "label": "Rasionya", "value": "1 : 3", "caption": "Satu kalsium tiga magnesium" },
+    { "type": "outro", "title": ["Alkalinitas:", "yang dipantau"],
+      "rows": [["Alkalinitas", "100–150 mg/L"], ["pH / hari", "< 0,5"], ["Nitrifikasi", "7.14 g"], ["Kesadahan", "Ca · Mg"], ["Ca : Mg", "1 : 3"], ["Cek", "Mingguan"]],
+      "ctaTitle": "Catat alkalinitas dan pH bersama", "ctaNote": "Gratis · Tanpa instal aplikasi", "ctaUrl": "shrimp365.kr" }
+  ]
+}

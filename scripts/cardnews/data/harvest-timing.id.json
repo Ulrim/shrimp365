@@ -1,0 +1,15 @@
+{
+  "slug": "harvest-timing", "locale": "id",
+  "cards": [
+    { "type": "cover", "label": "WAKTU PANEN", "title": ["Kapan dipanen", "menentukan untung"], "subtitle": "Hindari hari setelah ganti kulit" },
+    { "type": "point", "index": "01", "label": "Hindari", "valueStyle": "text", "value": ["Dua hari setelah", "ganti kulit"], "caption": "Kulit lunak berarti kerugian besar" },
+    { "type": "point", "index": "02", "label": "Selisih ukuran", "valueStyle": "text", "value": ["Ukuran tak rata", "memotong harga"], "caption": "Yang di luar grade dihargai murah" },
+    { "type": "point", "index": "03", "label": "Sehari sebelum", "valueStyle": "text", "value": ["Hentikan", "pemberian pakan"], "caption": "Usus kosong menjaga kesegaran" },
+    { "type": "point", "index": "04", "label": "Kalau berhenti tumbuh", "valueStyle": "text", "value": ["Hanya biaya pakan", "yang bertambah"], "caption": "Laju tumbuh harian memberi jawaban" },
+    { "type": "point", "index": "05", "label": "Oksigen sebelum", "value": "≥ 5 mg/L", "caption": "Rendah berarti mati saat diangkut" },
+    { "type": "point", "index": "06", "label": "Dasar keputusan", "valueStyle": "text", "value": ["Catatan,", "bukan firasat"], "caption": "Bobot yang diukur tiap hari" },
+    { "type": "outro", "title": ["Panen:", "yang dipantau"],
+      "rows": [["Hindari", "Usai ganti kulit"], ["Selisih ukuran", "Makin rata makin baik"], ["Sehari sebelum", "Stop pakan"], ["Oksigen", "≥ 5.0 mg/L"], ["Dasar", "Laju tumbuh"], ["Catat", "Bobot harian"]],
+      "ctaTitle": "Catat bobot dan pertumbuhan tiap hari", "ctaNote": "Gratis · Tanpa instal aplikasi", "ctaUrl": "shrimp365.kr" }
+  ]
+}

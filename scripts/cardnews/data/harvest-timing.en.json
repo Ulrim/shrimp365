@@ -1,0 +1,15 @@
+{
+  "slug": "harvest-timing", "locale": "en",
+  "cards": [
+    { "type": "cover", "label": "HARVEST TIMING", "title": ["When you pull", "decides the margin"], "subtitle": "Avoid the days right after moulting" },
+    { "type": "point", "index": "01", "label": "Avoid", "valueStyle": "text", "value": ["Two days after", "a moult"], "caption": "Soft shells mean heavy losses" },
+    { "type": "point", "index": "02", "label": "Size spread", "valueStyle": "text", "value": ["Uneven sizes", "cut the price"], "caption": "Off-grade weight earns less" },
+    { "type": "point", "index": "03", "label": "The day before", "valueStyle": "text", "value": ["Stop", "feeding"], "caption": "An empty gut holds freshness" },
+    { "type": "point", "index": "04", "label": "If growth stops", "valueStyle": "text", "value": ["Only the feed", "bill grows"], "caption": "Daily growth rate gives the answer" },
+    { "type": "point", "index": "05", "label": "Oxygen before", "value": "≥ 5 mg/L", "caption": "Low oxygen kills them in transit" },
+    { "type": "point", "index": "06", "label": "Decide on", "valueStyle": "text", "value": ["Records,", "not instinct"], "caption": "Weights you measured every day" },
+    { "type": "outro", "title": ["Harvest:", "what to watch"],
+      "rows": [["Avoid", "Right after moult"], ["Size spread", "Tighter is better"], ["Day before", "Stop feeding"], ["Oxygen", "≥ 5.0 mg/L"], ["Basis", "Daily growth"], ["Log", "Weight daily"]],
+      "ctaTitle": "Log weight and growth every day", "ctaNote": "Free · No app install", "ctaUrl": "shrimp365.kr" }
+  ]
+}

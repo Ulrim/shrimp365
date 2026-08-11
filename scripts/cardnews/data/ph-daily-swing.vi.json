@@ -1,0 +1,16 @@
+{
+  "slug": "ph-daily-swing",
+  "locale": "vi",
+  "cards": [
+    { "type": "cover", "label": "BIÊN ĐỘ pH TRONG NGÀY", "title": ["Biên độ quan trọng", "hơn con số"], "subtitle": "Đừng để vượt 0,5 mỗi ngày" },
+    { "type": "point", "index": "01", "label": "Khoảng phù hợp", "value": "7.5–8.5", "caption": "Quản lý trong khoảng này" },
+    { "type": "point", "index": "02", "label": "Biên độ ngày", "value": "< 0.5", "caption": "Vượt là tảo đã quá dày" },
+    { "type": "point", "index": "03", "label": "Vì sao dao động", "valueStyle": "text", "value": ["Ngày lên,", "đêm xuống"], "caption": "Quang hợp và hô hấp tạo ra" },
+    { "type": "point", "index": "04", "label": "Khi cao", "valueStyle": "text", "value": ["Amoniac", "độc hơn"], "caption": "pH 8,5 thì dạng độc khoảng 11%" },
+    { "type": "point", "index": "05", "label": "Khi thấp", "valueStyle": "text", "value": ["Khí H2S", "độc hơn"], "caption": "Ngược hẳn với amoniac" },
+    { "type": "point", "index": "06", "label": "Cách xử lý", "valueStyle": "text", "value": ["Bắt đầu từ", "độ kiềm"], "caption": "Không có đệm thì cứ dao động" },
+    { "type": "outro", "title": ["pH:", "cần theo dõi"],
+      "rows": [["Khoảng phù hợp", "7.5–8.5"], ["Biên độ ngày", "< 0,5"], ["Đo", "Rạng sáng · chiều"], ["Khi cao", "Nguy amoniac"], ["Khi thấp", "Nguy khí H2S"], ["Xử lý", "Bảo đảm độ kiềm"]],
+      "ctaTitle": "Ghi pH lúc rạng sáng và buổi chiều", "ctaNote": "Miễn phí · Không cần cài app", "ctaUrl": "shrimp365.kr" }
+  ]
+}
