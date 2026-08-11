@@ -1,0 +1,16 @@
+{
+  "slug": "water-exchange",
+  "locale": "id",
+  "cards": [
+    { "type": "cover", "label": "GANTI AIR", "title": ["Urutan lebih", "penting dari jumlah"], "subtitle": "Jangan ganti lebih dari 30% sekaligus" },
+    { "type": "point", "index": "01", "label": "Sekali ganti", "value": "≤ 30%", "caption": "Lakukan 20–30% bertahap" },
+    { "type": "point", "index": "02", "label": "Lakukan dulu", "valueStyle": "text", "value": ["Ukur air", "yang akan masuk"], "caption": "Bandingkan suhu, salinitas, pH" },
+    { "type": "point", "index": "03", "label": "Salinitas", "value": "< 5 ppt", "caption": "Jangan lewati ini dalam sehari" },
+    { "type": "point", "index": "04", "label": "Suhu", "value": "< 3 ℃", "caption": "Perhatikan ayunan hariannya" },
+    { "type": "point", "index": "05", "label": "Buang dari mana", "valueStyle": "text", "value": ["Permukaan atau", "dasar"], "caption": "Hujan mengambang, endapan tenggelam" },
+    { "type": "point", "index": "06", "label": "Sesudahnya", "valueStyle": "text", "value": ["Cek nitrit", "dan warna air"], "caption": "Bakteri dan plankton ikut tergoyang" },
+    { "type": "outro", "title": ["Ganti air:", "caranya"],
+      "rows": [["Sekali ganti", "≤ 30%"], ["Disarankan", "20–30% bertahap"], ["Ubah salinitas", "< 5 ppt"], ["Ubah suhu", "< 3 ℃"], ["Air baru", "Ukur dulu"], ["Sesudahnya", "Cek nitrit"]],
+      "ctaTitle": "Catat kualitas air sebelum dan sesudah", "ctaNote": "Gratis · Tanpa instal aplikasi", "ctaUrl": "shrimp365.kr" }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "slug": "harvest-timing", "locale": "vi",
+  "cards": [
+    { "type": "cover", "label": "THỜI ĐIỂM THU HOẠCH", "title": ["Thu lúc nào", "quyết định lời lỗ"], "subtitle": "Tránh mấy ngày ngay sau khi lột" },
+    { "type": "point", "index": "01", "label": "Nên tránh", "valueStyle": "text", "value": ["Hai ngày sau", "khi tôm lột"], "caption": "Vỏ mềm thì hao hụt rất lớn" },
+    { "type": "point", "index": "02", "label": "Chênh cỡ", "valueStyle": "text", "value": ["Cỡ không đều", "thì bị ép giá"], "caption": "Phần lệch cỡ bán được ít hơn" },
+    { "type": "point", "index": "03", "label": "Hôm trước thu", "valueStyle": "text", "value": ["Ngừng", "cho ăn"], "caption": "Ruột rỗng thì giữ độ tươi lâu" },
+    { "type": "point", "index": "04", "label": "Nếu ngừng lớn", "valueStyle": "text", "value": ["Chỉ có tiền cám", "là tăng"], "caption": "Tốc độ lớn mỗi ngày cho câu trả lời" },
+    { "type": "point", "index": "05", "label": "Oxy trước khi thu", "value": "≥ 5 mg/L", "caption": "Thiếu oxy thì chết dọc đường" },
+    { "type": "point", "index": "06", "label": "Căn cứ", "valueStyle": "text", "value": ["Ghi chép,", "không phải cảm tính"], "caption": "Trọng lượng cân mỗi ngày" },
+    { "type": "outro", "title": ["Thu hoạch:", "cần xem gì"],
+      "rows": [["Nên tránh", "Ngay sau khi lột"], ["Chênh cỡ", "Càng đều càng lợi"], ["Hôm trước", "Ngừng cho ăn"], ["Oxy", "≥ 5.0 mg/L"], ["Căn cứ", "Tốc độ lớn"], ["Ghi chép", "Cân mỗi ngày"]],
+      "ctaTitle": "Ghi trọng lượng và tốc độ lớn mỗi ngày", "ctaNote": "Miễn phí · Không cần cài app", "ctaUrl": "shrimp365.kr" }
+  ]
+}

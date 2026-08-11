@@ -6,11 +6,11 @@
     { "type": "point", "index": "01", "label": "Target", "value": "< 1 mg/L", "caption": "Keep it under this line" },
     { "type": "point", "index": "02", "label": "Why it kills", "valueStyle": "text", "value": ["Oxygen is there,", "they cannot use it"], "caption": "It blocks oxygen in the blood" },
     { "type": "point", "index": "03", "label": "When it rises", "valueStyle": "text", "value": ["Before nitrifiers", "settle in"], "caption": "Common in newly started ponds" },
-    { "type": "point", "index": "04", "label": "Salinity", "value": "≥ 20 ppt", "caption": "Higher salinity, lower toxicity" },
-    { "type": "point", "index": "05", "label": "Chloride ratio", "value": "20 : 1", "caption": "20 chloride to 1 nitrite" },
-    { "type": "point", "index": "06", "label": "First move", "valueStyle": "text", "value": ["Cut the feed", "first"], "caption": "Less nitrogen in, faster down" },
+    { "type": "point", "index": "04", "label": "Salinity", "valueStyle": "text", "value": ["The lower it is,", "the worse it hits"], "caption": "Near 5 ppt, hold a stricter line" },
+    { "type": "point", "index": "05", "label": "First move", "valueStyle": "text", "value": ["Cut the feed", "first"], "caption": "Less nitrogen in, faster down" },
+    { "type": "point", "index": "06", "label": "Oxygen", "value": "≥ 5 mg/L", "caption": "Watch the pre-dawn reading" },
     { "type": "outro", "title": ["Nitrite:", "what to watch"],
-      "rows": [["Target", "< 1 mg/L"], ["Rises after", "Disinfection"], ["Chloride ratio", "≥ 20 : 1"], ["Salinity", "Higher is safer"], ["Feed", "Cut first"], ["Check", "Every day"]],
+      "rows": [["Target", "< 1 mg/L"], ["Rises after", "Disinfection"], ["Salinity", "Lower is worse"], ["Feed", "Cut first"], ["Oxygen", "≥ 5.0 mg/L"], ["Check", "Every day"]],
       "ctaTitle": "Log ammonia and nitrite together", "ctaNote": "Free · No app install", "ctaUrl": "shrimp365.kr" }
   ]
 }

@@ -1,0 +1,15 @@
+{
+  "slug": "aeration-layout", "locale": "vi",
+  "cards": [
+    { "type": "cover", "label": "BỐ TRÍ QUẠT NƯỚC", "title": ["Bố trí quan trọng", "hơn số lượng"], "subtitle": "Nước phải chảy vòng một chiều" },
+    { "type": "point", "index": "01", "label": "Thâm canh", "value": "16–24", "caption": "HP mỗi ha. Tùy mật độ nuôi" },
+    { "type": "point", "index": "02", "label": "Nguyên tắc", "valueStyle": "text", "value": ["Cho nước chảy", "vòng một chiều"], "caption": "Cặn sẽ dồn vào giữa ao" },
+    { "type": "point", "index": "03", "label": "Khoảng cách", "valueStyle": "text", "value": ["Cách bờ ra,", "cách xa nhau"], "caption": "Dòng chảy đụng nhau sẽ triệt tiêu" },
+    { "type": "point", "index": "04", "label": "Giờ chạy", "valueStyle": "text", "value": ["Từ lúc mặt trời lặn", "đến sau khi mọc"], "caption": "Chạy trước khi oxy tụt" },
+    { "type": "point", "index": "05", "label": "Mục tiêu rạng sáng", "value": "≥ 5 mg/L", "caption": "Thời điểm thấp nhất trong ngày" },
+    { "type": "point", "index": "06", "label": "Mùa nóng", "valueStyle": "text", "value": ["Giữa trưa", "cũng phải chạy"], "caption": "Phá phân tầng, trộn nước đáy" },
+    { "type": "outro", "title": ["Quạt nước:", "dùng thế nào"],
+      "rows": [["Thâm canh", "16–24 HP/ha"], ["Bố trí", "Chảy vòng một chiều"], ["Giờ chạy", "Lặn đến mọc"], ["Oxy rạng sáng", "≥ 5.0 mg/L"], ["Trưa mùa nóng", "Phá phân tầng"], ["Kiểm tra", "Cánh · bạc đạn"]],
+      "ctaTitle": "Ghi oxy rạng sáng theo từng ao", "ctaNote": "Miễn phí · Không cần cài app", "ctaUrl": "shrimp365.kr" }
+  ]
+}

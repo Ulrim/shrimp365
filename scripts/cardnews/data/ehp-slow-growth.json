@@ -1,0 +1,16 @@
+{
+  "slug": "ehp-slow-growth",
+  "locale": "ko",
+  "cards": [
+    { "type": "cover", "label": "EHP", "title": ["안 죽는데", "안 큽니다"], "subtitle": "폐사가 아니라 성장 정체입니다" },
+    { "type": "point", "index": "01", "label": "주 증상", "valueStyle": "text", "value": ["폐사가 아니라", "성장 정체"], "caption": "크기가 고르지 않게 벌어집니다" },
+    { "type": "point", "index": "02", "label": "표적", "valueStyle": "text", "value": ["간췌장에", "들어갑니다"], "caption": "AHPND와 같은 기관입니다" },
+    { "type": "point", "index": "03", "label": "함께 오는 것", "valueStyle": "text", "value": ["흰 변과", "무른 껍질"], "caption": "먹이 반응도 함께 떨어집니다" },
+    { "type": "point", "index": "04", "label": "피해 규모", "value": "10–20%", "caption": "아시아 연간 생산 감소 보고" },
+    { "type": "point", "index": "05", "label": "확인", "valueStyle": "text", "value": ["PCR 검사가", "필요합니다"], "caption": "눈으로는 확정할 수 없습니다" },
+    { "type": "point", "index": "06", "label": "대책", "valueStyle": "text", "value": ["치료제가", "없습니다"], "caption": "종묘와 차단이 전부입니다" },
+    { "type": "outro", "title": ["EHP는", "이렇게 봅니다"],
+      "rows": [["주 증상", "성장 정체"], ["표적 기관", "간췌장"], ["동반 증상", "흰 변 · 무른 껍질"], ["피해", "연 10–20%"], ["확진", "PCR"], ["대책", "종묘 · 차단"]],
+      "ctaTitle": "일 성장률을 수조별로 기록", "ctaNote": "완전 무료 · 앱 설치 불필요", "ctaUrl": "shrimp365.kr" }
+  ]
+}

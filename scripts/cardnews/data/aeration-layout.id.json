@@ -1,0 +1,15 @@
+{
+  "slug": "aeration-layout", "locale": "id",
+  "cards": [
+    { "type": "cover", "label": "TATA LETAK KINCIR", "title": ["Tata letak lebih", "penting dari jumlah"], "subtitle": "Air harus berputar satu arah" },
+    { "type": "point", "index": "01", "label": "Intensif", "value": "16–24", "caption": "HP per ha. Tergantung padat tebar" },
+    { "type": "point", "index": "02", "label": "Prinsipnya", "valueStyle": "text", "value": ["Buat air", "berputar satu arah"], "caption": "Endapan berkumpul di tengah" },
+    { "type": "point", "index": "03", "label": "Jarak", "valueStyle": "text", "value": ["Jauh dari tanggul,", "berjauhan"], "caption": "Arus bertabrakan saling mematikan" },
+    { "type": "point", "index": "04", "label": "Jam operasi", "valueStyle": "text", "value": ["Sejak matahari terbenam", "sampai lewat terbit"], "caption": "Jalankan sebelum oksigen turun" },
+    { "type": "point", "index": "05", "label": "Target subuh", "value": "≥ 5 mg/L", "caption": "Titik terendah dalam sehari" },
+    { "type": "point", "index": "06", "label": "Musim panas", "valueStyle": "text", "value": ["Tengah hari", "pun dijalankan"], "caption": "Pecah lapisan, aduk dasarnya" },
+    { "type": "outro", "title": ["Kincir:", "cara memakainya"],
+      "rows": [["Intensif", "16–24 HP/ha"], ["Tata letak", "Putaran satu arah"], ["Jam operasi", "Terbenam–terbit"], ["Oksigen subuh", "≥ 5.0 mg/L"], ["Siang musim panas", "Pecah lapisan"], ["Periksa", "Kipas · bantalan"]],
+      "ctaTitle": "Catat oksigen subuh per petak", "ctaNote": "Gratis · Tanpa instal aplikasi", "ctaUrl": "shrimp365.kr" }
+  ]
+}

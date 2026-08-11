@@ -1,0 +1,16 @@
+{
+  "slug": "ph-daily-swing",
+  "locale": "en",
+  "cards": [
+    { "type": "cover", "label": "DAILY pH SWING", "title": ["The swing matters", "more than the number"], "subtitle": "Do not pass 0.5 in a day" },
+    { "type": "point", "index": "01", "label": "Target range", "value": "7.5–8.5", "caption": "Manage within this band" },
+    { "type": "point", "index": "02", "label": "Daily swing", "value": "< 0.5", "caption": "Past this means an overbloom" },
+    { "type": "point", "index": "03", "label": "Why it moves", "valueStyle": "text", "value": ["Up by day,", "down by night"], "caption": "Photosynthesis and respiration" },
+    { "type": "point", "index": "04", "label": "When high", "valueStyle": "text", "value": ["Ammonia turns", "more toxic"], "caption": "At pH 8.5 the toxic form is 11%" },
+    { "type": "point", "index": "05", "label": "When low", "valueStyle": "text", "value": ["Sulfide turns", "more toxic"], "caption": "The opposite of ammonia" },
+    { "type": "point", "index": "06", "label": "The fix", "valueStyle": "text", "value": ["Start with", "alkalinity"], "caption": "No buffer means it keeps moving" },
+    { "type": "outro", "title": ["pH:", "what to watch"],
+      "rows": [["Target", "7.5–8.5"], ["Daily swing", "< 0.5"], ["Measure", "Dawn · afternoon"], ["When high", "Ammonia risk"], ["When low", "Sulfide risk"], ["The fix", "Secure alkalinity"]],
+      "ctaTitle": "Log pH at dawn and afternoon", "ctaNote": "Free · No app install", "ctaUrl": "shrimp365.kr" }
+  ]
+}

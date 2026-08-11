@@ -7,6 +7,12 @@
 -- 실행 조건: card_news.sql 을 먼저 실행해 테이블이 있어야 한다.
 -- 재실행 안전: 같은 (slug, locale)이 있으면 내용을 덮어쓴다.
 --              published_at 은 갱신하지 않는다 — 조회수·좋아요도 그대로다.
+--
+-- 게시 보류: 사용자 요청으로 이 편은 공개하지 않는다.
+-- published 를 false 로 두었으므로 이 파일을 실행해도 노출되지 않는다.
+-- 나중에 공개하려면 아래 published 값을 true 로 바꾸거나
+--   update public.card_news set published = true where slug = 'vibrio-monitoring';
+-- 를 실행한다.
 -- ============================================================
 
 insert into public.card_news
@@ -78,7 +84,7 @@ Shrimp365는 수온과 급이량, 폐사를 함께 기록해 병이 들어올 �
     $cn$비브리오$cn$, $cn$질병관리$cn$, $cn$수온$cn$, $cn$사료관리$cn$,
     $cn$양식장관리$cn$, $cn$폐사$cn$, $cn$흰다리새우$cn$, $cn$새우양식$cn$
   ]::text[],
-  true,
+  false,
   $cn$2026-08-09 09:00:00+09$cn$::timestamptz
 )
 on conflict (slug, locale) do update set

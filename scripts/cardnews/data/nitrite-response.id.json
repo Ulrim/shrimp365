@@ -6,11 +6,11 @@
     { "type": "point", "index": "01", "label": "Batas aman", "value": "< 1 mg/L", "caption": "Jaga di bawah angka ini" },
     { "type": "point", "index": "02", "label": "Kenapa bahaya", "valueStyle": "text", "value": ["Oksigen ada,", "tapi tak terpakai"], "caption": "Nitrit menghambat oksigen di darah" },
     { "type": "point", "index": "03", "label": "Kapan naik", "valueStyle": "text", "value": ["Sebelum bakteri", "nitrifikasi mapan"], "caption": "Sering di tambak yang baru mulai" },
-    { "type": "point", "index": "04", "label": "Salinitas", "value": "≥ 20 ppt", "caption": "Makin asin, makin rendah racunnya" },
-    { "type": "point", "index": "05", "label": "Rasio klorida", "value": "20 : 1", "caption": "20 klorida untuk 1 nitrit" },
-    { "type": "point", "index": "06", "label": "Langkah awal", "valueStyle": "text", "value": ["Kurangi pakan", "lebih dulu"], "caption": "Nitrogen berkurang, angka turun" },
+    { "type": "point", "index": "04", "label": "Salinitas", "valueStyle": "text", "value": ["Makin rendah,", "makin berbahaya"], "caption": "Di sekitar 5 ppt, perketat batasnya" },
+    { "type": "point", "index": "05", "label": "Langkah awal", "valueStyle": "text", "value": ["Kurangi pakan", "lebih dulu"], "caption": "Nitrogen berkurang, angka turun" },
+    { "type": "point", "index": "06", "label": "Oksigen", "value": "≥ 5 mg/L", "caption": "Perhatikan angka menjelang subuh" },
     { "type": "outro", "title": ["Nitrit:", "yang dipantau"],
-      "rows": [["Batas aman", "< 1 mg/L"], ["Naik setelah", "Desinfeksi"], ["Rasio klorida", "≥ 20 : 1"], ["Salinitas", "Tinggi lebih aman"], ["Pakan", "Kurangi dulu"], ["Cek", "Setiap hari"]],
+      "rows": [["Batas aman", "< 1 mg/L"], ["Naik setelah", "Desinfeksi"], ["Salinitas", "Rendah lebih bahaya"], ["Pakan", "Kurangi dulu"], ["Oksigen", "≥ 5.0 mg/L"], ["Cek", "Setiap hari"]],
       "ctaTitle": "Catat amonia dan nitrit bersama", "ctaNote": "Gratis · Tanpa instal aplikasi", "ctaUrl": "shrimp365.kr" }
   ]
 }

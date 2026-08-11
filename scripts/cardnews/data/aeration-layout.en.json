@@ -1,0 +1,15 @@
+{
+  "slug": "aeration-layout", "locale": "en",
+  "cards": [
+    { "type": "cover", "label": "AERATOR LAYOUT", "title": ["Layout beats", "adding more units"], "subtitle": "The water has to turn one way" },
+    { "type": "point", "index": "01", "label": "Intensive", "value": "16–24", "caption": "HP per ha. Density decides" },
+    { "type": "point", "index": "02", "label": "The principle", "valueStyle": "text", "value": ["Make the water", "turn one way"], "caption": "Sludge collects in the centre" },
+    { "type": "point", "index": "03", "label": "Spacing", "valueStyle": "text", "value": ["Off the dyke,", "far apart"], "caption": "Crossing currents kill each other" },
+    { "type": "point", "index": "04", "label": "Run time", "valueStyle": "text", "value": ["From sundown", "past sunrise"], "caption": "Run before it drops, not after" },
+    { "type": "point", "index": "05", "label": "Dawn target", "value": "≥ 5 mg/L", "caption": "The lowest point of the day" },
+    { "type": "point", "index": "06", "label": "Summer", "valueStyle": "text", "value": ["Run at", "midday too"], "caption": "Break layers, mix the bottom" },
+    { "type": "outro", "title": ["Aerators:", "how to use them"],
+      "rows": [["Intensive", "16–24 HP/ha"], ["Layout", "One-way flow"], ["Run time", "Sundown–sunrise"], ["Dawn DO", "≥ 5.0 mg/L"], ["Summer noon", "Break layers"], ["Inspect", "Paddles · bearings"]],
+      "ctaTitle": "Log dawn oxygen per tank", "ctaNote": "Free · No app install", "ctaUrl": "shrimp365.kr" }
+  ]
+}

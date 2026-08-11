@@ -1,0 +1,15 @@
+{
+  "slug": "ehp-slow-growth", "locale": "vi",
+  "cards": [
+    { "type": "cover", "label": "EHP", "title": ["Không chết", "mà cũng không lớn"], "subtitle": "Không phải hao hụt mà là chậm lớn" },
+    { "type": "point", "index": "01", "label": "Triệu chứng chính", "valueStyle": "text", "value": ["Không phải chết,", "mà là chậm lớn"], "caption": "Cỡ tôm ngày càng chênh nhau" },
+    { "type": "point", "index": "02", "label": "Đích tấn công", "valueStyle": "text", "value": ["Đi vào", "gan tụy"], "caption": "Cùng cơ quan mà AHPND đánh" },
+    { "type": "point", "index": "03", "label": "Đi kèm", "valueStyle": "text", "value": ["Phân trắng,", "vỏ mềm"], "caption": "Phản ứng bắt mồi cũng giảm" },
+    { "type": "point", "index": "04", "label": "Thiệt hại", "value": "10–20%", "caption": "Sản lượng năm ở châu Á" },
+    { "type": "point", "index": "05", "label": "Xác định", "valueStyle": "text", "value": ["Phải xét nghiệm", "PCR"], "caption": "Nhìn mắt thường không chắc được" },
+    { "type": "point", "index": "06", "label": "Điều trị", "valueStyle": "text", "value": ["Không có", "thuốc chữa"], "caption": "Chỉ có giống sạch và cách ly" },
+    { "type": "outro", "title": ["EHP:", "cần theo dõi"],
+      "rows": [["Triệu chứng", "Chậm lớn"], ["Cơ quan đích", "Gan tụy"], ["Đi kèm", "Phân trắng"], ["Thiệt hại", "10–20% mỗi năm"], ["Xác định", "PCR"], ["Đối phó", "Giống · cách ly"]],
+      "ctaTitle": "Ghi tốc độ lớn theo từng ao", "ctaNote": "Miễn phí · Không cần cài app", "ctaUrl": "shrimp365.kr" }
+  ]
+}

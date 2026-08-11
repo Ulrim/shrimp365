@@ -1,0 +1,16 @@
+{
+  "slug": "alkalinity-hardness",
+  "locale": "vi",
+  "cards": [
+    { "type": "cover", "label": "ĐỘ KIỀM · ĐỘ CỨNG", "title": ["pH dao động", "là do độ kiềm"], "subtitle": "Nitrat hóa cũng dừng ở đây" },
+    { "type": "point", "index": "01", "label": "Độ kiềm", "value": "100–150", "caption": "mg/L. Giữ trong khoảng này" },
+    { "type": "point", "index": "02", "label": "Nó làm gì", "valueStyle": "text", "value": ["Giữ cho pH", "khỏi dao động"], "caption": "Khả năng đệm chính là độ kiềm" },
+    { "type": "point", "index": "03", "label": "Khi thấp", "valueStyle": "text", "value": ["pH bắt đầu", "dao động mạnh"], "caption": "Vượt 0,5 mỗi ngày" },
+    { "type": "point", "index": "04", "label": "Nitrat hóa", "value": "7.14 g", "caption": "Tốn cho mỗi 1 g amoniac" },
+    { "type": "point", "index": "05", "label": "Độ cứng", "valueStyle": "text", "value": ["Canxi và", "magie"], "caption": "Nguyên liệu tạo vỏ mới" },
+    { "type": "point", "index": "06", "label": "Tỉ lệ", "value": "1 : 3", "caption": "1 canxi cho 3 magie" },
+    { "type": "outro", "title": ["Độ kiềm:", "cần theo dõi"],
+      "rows": [["Độ kiềm", "100–150 mg/L"], ["pH / ngày", "< 0,5"], ["Nitrat hóa tốn", "7.14 g"], ["Độ cứng", "Canxi · Magie"], ["Ca : Mg", "1 : 3"], ["Kiểm tra", "Tuần 1 lần trở lên"]],
+      "ctaTitle": "Ghi độ kiềm và pH cùng lúc", "ctaNote": "Miễn phí · Không cần cài app", "ctaUrl": "shrimp365.kr" }
+  ]
+}
