@@ -13,11 +13,11 @@ export const metadata: Metadata = {
   title: "무안 양식장 3D 도면 | Shrimp365",
   description:
     "무안 새우양식장 가설건축물 도면(지상 1층 평면도)을 3D로 세운 모형입니다. 대지 63 × 27 m, 연면적 1,342.5 m², 사각 수조 2기의 치수를 돌려 보며 확인할 수 있습니다.",
-  alternates: { canonical: `${BASE}/muan-3d` },
+  alternates: { canonical: `${BASE}/3d/muan` },
   openGraph: {
     title: "무안 양식장 3D 도면",
     description: "건축허가 도면을 그대로 세운 3D 모형 — 대지 63 × 27 m, 연면적 1,342.5 m², 사각 수조 2기.",
-    url: `${BASE}/muan-3d`,
+    url: `${BASE}/3d/muan`,
     type: "website",
   },
 }

@@ -111,7 +111,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     // 무안 양식장 3D 도면 — 한국어판만 있어 hreflang 을 걸지 않는다.
     {
-      url: `${BASE}/muan-3d`,
+      url: `${BASE}/3d/muan`,
       lastModified: new Date("2026-08-12"),
       changeFrequency: "monthly",
       priority: 0.6,
