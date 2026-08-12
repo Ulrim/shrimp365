@@ -1,4 +1,5 @@
 import { MetadataRoute } from "next"
+import { SHOW_BOARD, SHOW_CARDNEWS } from "@/lib/features"
 import { getAllCardNewsServer } from "@/lib/card-news-server"
 import { hreflangMap, localePrefix, MARKETING_LOCALES } from "@/lib/marketing-locale"
 
@@ -110,10 +111,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     },
     // Community board — public read (login only for posting)
-    ...localizedPage("/board", new Date("2026-07-24"), "daily", 0.7),
+    ...(SHOW_BOARD ? localizedPage("/board", new Date("2026-07-24"), "daily", 0.7) : []),
     // Card news — 언어별 목록 + 글 (랜딩 다음으로 SEO 가치가 큰 공개 콘텐츠)
-    ...cardNewsIndexEntries,
-    ...cardNewsEntries,
+    ...(SHOW_CARDNEWS ? cardNewsIndexEntries : []),
+    ...(SHOW_CARDNEWS ? cardNewsEntries : []),
     // 4개 언어 모두 제공되는 콘텐츠 페이지
     ...localizedPage("/guide", new Date("2026-07-29"), "monthly", 0.8),
     ...localizedPage("/pricing", new Date("2026-07-29"), "monthly", 0.6),

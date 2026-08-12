@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { SHOW_BOARD, SHOW_CARDNEWS } from "@/lib/features"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
@@ -44,8 +45,8 @@ export function BottomNav() {
     { href: "/reports",       icon: BarChart3,     label: t.nav.reports },
     // 공개 콘텐츠는 언어별 주소가 따로 있다. 접두사 없는 주소는 한국어로
     // 고정되므로, 로그인한 사용자의 언어에 맞는 주소로 보낸다.
-    { href: localizedHref("/board", locale),    icon: MessageSquare, label: t.board.title },
-    { href: localizedHref("/cardnews", locale), icon: Layers,        label: t.cardNews.title },
+    ...(SHOW_BOARD ? [{ href: localizedHref("/board", locale),    icon: MessageSquare, label: t.board.title }] : []),
+    ...(SHOW_CARDNEWS ? [{ href: localizedHref("/cardnews", locale), icon: Layers,        label: t.cardNews.title }] : []),
     ...(canControl ? [{ href: "/control", icon: Radar, label: "관제센터" }] : []),
     ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
   ]

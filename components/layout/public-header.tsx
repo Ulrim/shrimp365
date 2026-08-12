@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { SHOW_BOARD, SHOW_CARDNEWS } from "@/lib/features"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Globe, Menu, X } from "lucide-react"
@@ -56,8 +57,8 @@ export function PublicFooter({ maxWidth = "max-w-5xl" }: { maxWidth?: string }) 
   const prefix = localePrefix(locale)
   const links = [
     { href: prefix || "/", label: t.nav.home },
-    { href: `${prefix}/cardnews`, label: t.cardNews.title },
-    { href: `${prefix}/board`, label: t.board.title },
+    ...(SHOW_CARDNEWS ? [{ href: `${prefix}/cardnews`, label: t.cardNews.title }] : []),
+    ...(SHOW_BOARD ? [{ href: `${prefix}/board`, label: t.board.title }] : []),
     { href: `${prefix}/guide`, label: t.nav.guide },
     { href: `${prefix}/pricing`, label: t.landing.navPricing },
     { href: `${prefix}/terms`, label: t.settings.legalTerms },
@@ -99,8 +100,8 @@ export function PublicHeader({ maxWidth = "max-w-5xl" }: { maxWidth?: string }) 
   const prefix = localePrefix(locale)
   const links = [
     { href: prefix || "/", label: t.nav.home },
-    { href: `${prefix}/cardnews`, label: t.cardNews.title },
-    { href: `${prefix}/board`, label: t.board.title },
+    ...(SHOW_CARDNEWS ? [{ href: `${prefix}/cardnews`, label: t.cardNews.title }] : []),
+    ...(SHOW_BOARD ? [{ href: `${prefix}/board`, label: t.board.title }] : []),
     { href: `${prefix}/guide`, label: t.nav.guide },
     { href: `${prefix}/pricing`, label: t.landing.navPricing },
   ]

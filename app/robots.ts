@@ -1,7 +1,12 @@
 import { MetadataRoute } from "next"
 
+import { SHOW_BOARD, SHOW_CARDNEWS } from "@/lib/features"
+
+// 감춘 섹션은 공개 목록에서 빼고 크롤도 막는다(색인에 남지 않게).
+const HIDDEN_PATHS = [...(SHOW_BOARD ? [] : ["/board"]), ...(SHOW_CARDNEWS ? [] : ["/cardnews"])]
 const PUBLIC_PATHS = ["/", "/en", "/vi", "/id", "/demo", "/board", "/cardnews", "/guide", "/login", "/signup", "/pricing", "/privacy", "/terms", "/opengraph-image", "/sitemap.xml"]
-const PRIVATE_PATHS = ["/home", "/dashboard", "/water-quality", "/journal", "/farms", "/diagnosis", "/production", "/inventory", "/ai-advisor", "/reports", "/admin", "/help", "/record", "/onboarding", "/api/", "/_next/"]
+  .filter(p => !HIDDEN_PATHS.includes(p))
+const PRIVATE_PATHS = [...HIDDEN_PATHS, "/home", "/dashboard", "/water-quality", "/journal", "/farms", "/diagnosis", "/production", "/inventory", "/ai-advisor", "/reports", "/admin", "/help", "/record", "/onboarding", "/api/", "/_next/"]
 
 export default function robots(): MetadataRoute.Robots {
   return {
