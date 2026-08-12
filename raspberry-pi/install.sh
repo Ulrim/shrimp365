@@ -121,6 +121,23 @@ else
   echo "    (화면의 Wi‑Fi 조회는 되지만 접속 변경은 안 될 수 있습니다.)"
 fi
 
+# ── 4-c. 무선 절전 끄기 ──────────────────────────────────────────────────────
+# 파이의 wlan0 은 기본이 절전 켬이라, 회선이 한 번 끊기면 다시 붙지 못한 채
+# 몇 시간씩 오프라인으로 남는 일이 있다. 무인 계측기에는 전력보다 연결
+# 유지가 중요하므로 절전을 끈다. (원격 업데이트도 이 파일을 동기화한다)
+if [ -d /etc/NetworkManager/conf.d ]; then
+  echo "==> 무선 절전 끄기 (연결 끊김 후 자동 복구용)"
+  cat > /etc/NetworkManager/conf.d/99-shrimp365-wifi-powersave.conf <<'NMEOF'
+# Shrimp365 — 무선 절전 끄기
+# 파이의 wlan0 절전은 회선이 끊긴 뒤 자동 복구를 막는 흔한 원인이다.
+# 무인으로 도는 계측기라 전력보다 연결 유지가 중요하다.
+[connection]
+wifi.powersave = 2
+NMEOF
+  chmod 644 /etc/NetworkManager/conf.d/99-shrimp365-wifi-powersave.conf
+  nmcli general reload 2>/dev/null || true
+fi
+
 # ── 5. 서비스 등록 ───────────────────────────────────────────────────────────
 if [ -d /run/systemd/system ]; then
   echo "==> 서비스 등록"

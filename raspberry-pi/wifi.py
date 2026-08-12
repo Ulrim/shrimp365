@@ -225,3 +225,32 @@ def connect(ssid: str, password: str = "") -> dict:
         friendly = msg or "접속하지 못했습니다."
     log.warning("Wi‑Fi 접속 실패(%s): %s", ssid, msg or code)
     return {"ok": False, "error": friendly}
+
+
+def kick() -> dict:
+    """끊긴 무선을 다시 붙인다(무인 복구용).
+
+    공유기가 재부팅되거나 신호가 잠깐 끊기면 NetworkManager 가 대개 알아서
+    다시 붙지만, 파이의 무선 랜은 그러지 못한 채 몇 시간씩 오프라인으로
+    남는 일이 있다. 전송이 연달아 실패할 때 수집기가 이 함수를 불러
+    장치를 깨운다 — 사람이 현장에 가지 않아도 회선이 돌아오게 하려는 것이다.
+
+    이미 붙어 있으면 아무것도 하지 않는다(멀쩡한 회선을 끊지 않는다).
+    """
+    dev = _wifi_device()
+    if dev is None:
+        return {"ok": False, "error": "무선 장치 없음"}
+
+    st = status()
+    if st.get("connected"):
+        return {"ok": True, "note": "이미 연결됨"}
+
+    # 무선 기능이 꺼져 있으면(절전·오작동) 먼저 켠다.
+    _run(["radio", "wifi", "on"], _QUICK)
+    # 저장된 연결로 다시 붙인다. 프로파일이 있으면 비밀번호 없이 붙는다.
+    code, _, err = _run(["device", "connect", dev], _CONNECT)
+    if code == 0:
+        log.info("Wi‑Fi 를 다시 연결했습니다(%s).", dev)
+        return {"ok": True}
+    log.warning("Wi‑Fi 재연결 실패(%s): %s", dev, (err or "").strip()[:120])
+    return {"ok": False, "error": (err or "").strip()[:120]}

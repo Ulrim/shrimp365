@@ -101,9 +101,20 @@ polkit.addRule(function(action, subject) {
 """
 
 # 어느 /etc 경로에 어떤 정본을 둘지. polkit 은 그 하위체계를 쓰는 기기에만.
+# 라즈베리파이 무선 랜은 기본이 절전 켬이다. 조용할 때 잠들었다가 공유기와
+# 연결이 끊기면, 다시 붙지 못한 채 몇 시간씩 오프라인으로 남는 일이 잦다.
+# 무인 계측기에는 치명적이라 절전을 끈다(2 = disable).
+_WIFI_POWERSAVE_TEXT = """# Shrimp365 — 무선 절전 끄기
+# 파이의 wlan0 절전은 회선이 끊긴 뒤 자동 복구를 막는 흔한 원인이다.
+# 무인으로 도는 계측기라 전력보다 연결 유지가 중요하다.
+[connection]
+wifi.powersave = 2
+"""
+
 SYSTEM_FILES = {
     Path("/etc/systemd/system/shrimp365-update.timer"): _TIMER_TEXT,
     Path("/etc/polkit-1/rules.d/50-shrimp365-nm.rules"): _POLKIT_TEXT,
+    Path("/etc/NetworkManager/conf.d/99-shrimp365-wifi-powersave.conf"): _WIFI_POWERSAVE_TEXT,
 }
 
 
@@ -115,6 +126,7 @@ def ensure_system_files() -> None:
     바로 반영한다. 재실행해도 안전(멱등)하다.
     """
     changed_unit = False
+    changed_nm = False
     for path, text in SYSTEM_FILES.items():
         if not path.parent.exists():
             continue  # 그 하위체계를 안 쓰는 기기
@@ -138,11 +150,17 @@ def ensure_system_files() -> None:
             log.info("시스템 파일을 갱신했습니다: %s", path)
             if str(path).startswith("/etc/systemd/"):
                 changed_unit = True
+            if str(path).startswith("/etc/NetworkManager/"):
+                changed_nm = True
         except OSError as exc:
             log.warning("시스템 파일 갱신 실패(%s): %s", path, exc)
     if changed_unit:
         subprocess.run(["systemctl", "daemon-reload"], check=False)
         subprocess.run(["systemctl", "restart", "shrimp365-update.timer"], check=False)
+    if changed_nm:
+        # 설정 파일만 두면 다음 재부팅까지 적용되지 않는다. 지금 반영한다.
+        # (reload 는 연결을 끊지 않는다 — 무인 장비라 회선을 흔들면 안 된다.)
+        subprocess.run(["nmcli", "general", "reload"], check=False)
 
 # ── 서명 공개키 ──────────────────────────────────────────────────────────────
 # release.py --init 로 만든 공개키를 여기에 붙여 넣는다.

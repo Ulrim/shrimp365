@@ -1,5 +1,5 @@
 {
-  "latest": "1.6.3",
+  "latest": "1.6.4",
   "releases": {
     "1.5.0": {
       "notes": "염도 단위를 퍼밀(‰)로",
@@ -65,6 +65,20 @@
       "sha256": "94d29886518637d195a24fb47e10dbc2caca22461db4bc30d8f66e7068a3f03c",
       "size": 57771,
       "signature": "Wqv1kfsi9XT0Qk1U1UQG3fFa97TVf7tANfg2WYbo7qI62ZWiJnAd0JVGs9MtqNbqAFdeTCZloSPNV7JfTOftDg=="
+    },
+    "1.6.4": {
+      "notes": "인터넷 끊김 후 자동 복구 — 무선 절전 끄기 + 재연결 워치독",
+      "released_at": "2026-08-12",
+      "setup": {
+        "file": "shrimp365-setup-1.6.4.tar.gz",
+        "sha256": "5a663a5f1206ff792193277f27ce11964d09a8f7e3c764ed62cdf9738b1c8442",
+        "size": 89961,
+        "signature": "E/E17u4n1+TpLU4S1BOx7/LemCl63RT9OmjLqvmHKuahDROOB9sl1bCBC4szsdMAqd4D28YzGGyHZ9U5kd2LBg=="
+      },
+      "file": "shrimp365-agent-1.6.4.tar.gz",
+      "sha256": "240438fb4df600f1a9837e30ae1ff67ece59b7d2b7966c30ab2e1b8c3a937be3",
+      "size": 58822,
+      "signature": "8HeCtU6ViOoDT4/X+KFkOjPyCJ08JRC1BQoFcXbOJoN5i3oIhZ487KqGzkAUA+LY18jzOrQRdmy6KmsICuICCQ=="
     }
   }
 }

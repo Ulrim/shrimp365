@@ -65,7 +65,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.6.3"
+VERSION = "1.6.4"
 log = logging.getLogger("shrimp365")
 
 
@@ -1246,6 +1246,8 @@ def main() -> int:
     interval_holder = {"seconds": interval}
     # 화면 언어(ko/en/vi/id). 화면에서 고르면 config 에도 남긴다.
     lang_holder = {"lang": cfg.get("webui", "language", fallback="ko")}
+    # 연속 전송 실패 횟수. 회선이 끊긴 채 안 돌아올 때 무선을 다시 깨우는 기준.
+    net_fail = {"count": 0}
 
     def handle_signal(signum, _frame):
         nonlocal stop
@@ -1572,6 +1574,7 @@ def main() -> int:
                     ok, detail = post(endpoint, auth["key"], payload)
                     if ok:
                         log.info("전송 완료")
+                        net_fail["count"] = 0
                         status_line = "sent " + time.strftime("%H:%M")
                         # 회선이 살아 있는 지금이 밀린 것을 비울 기회다.
                         sent = flush_buffer(store, endpoint, auth["key"], flush_batch, _stopped_global)
@@ -1585,6 +1588,22 @@ def main() -> int:
                         if store is not None:
                             store.append(payload, recorded_at)
                         status_line = _with_pending("SEND FAIL", store)
+
+                        # 무인 복구 — 연달아 실패하면 무선이 끊긴 채 안 돌아온
+                        # 것일 수 있다. 사람이 현장에 가지 않아도 되게 직접 깨운다.
+                        # 회선 문제일 때만 시도한다(HTTP 응답이 온 경우는 서버 쪽
+                        # 문제라 무선을 흔들어 봐야 소용없다).
+                        net_fail["count"] += 1
+                        if (wifi_mod is not None
+                                and detail.startswith("연결 실패")
+                                and net_fail["count"] >= 3
+                                and net_fail["count"] % 3 == 0):
+                            log.warning("전송이 %d회 연속 실패 — Wi‑Fi 재연결을 시도합니다.",
+                                        net_fail["count"])
+                            try:
+                                wifi_mod.kick()
+                            except Exception as exc:  # noqa: BLE001 — 복구 시도가 수집을 막으면 안 된다
+                                log.warning("Wi‑Fi 재연결 시도 실패: %s", exc)
 
         if state is not None:
             state.update(
