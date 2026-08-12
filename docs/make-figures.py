@@ -480,9 +480,9 @@ def f07():
                    "수조 %d" % (i * 2 + j + 1), 2.8, fill="#4a5560")
     g.text(tx + tw / 2, 68.6, "배치 · 색으로 상태 표시", 2.6, fill="#8a97a5")
 
-    g.text(3, 79, "구현 — 대시보드 · 수질 현황 · 기록 입력 · 그래프 · 알림 · 리포트 · 기기 관리",
-           3.1, anchor="start", fill=GREEN, weight="bold")
-    g.text(3, 84.5, "예정 — 디지털 트윈 (양식장·수조 배치도 위에 실시간 값을 겹쳐 표시)",
+    g.text(3, 79, "개발 예정 — 대시보드 · 수질 현황 · 기록 입력 · 그래프 · 알림 · 리포트 · 기기 관리",
+           3.1, anchor="start", fill=AMBER, weight="bold")
+    g.text(3, 84.5, "개발 예정 — 디지털 트윈 (양식장·수조 배치도 위에 실시간 값을 겹쳐 표시)",
            3.1, anchor="start", fill=AMBER, weight="bold")
     g.save("F-07")
 
