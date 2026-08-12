@@ -74,7 +74,7 @@ async function callGPT(question: string, context: string): Promise<string> {
 - 수온: 23~30°C (최적 26~28°C)
 - pH: 7.8~8.5
 - DO: 5.0 mg/L 이상 (7.0+ 권장)
-- 염도: 15~25‰ (ppt 와 같은 값)
+- 염도: 15~35‰ (ppt 와 같은 값)
 - 암모니아(NH₃): 0.5 mg/L 미만
 - 아질산염: 0.1 mg/L 미만
 - 질산염: 20 mg/L 미만
@@ -348,7 +348,7 @@ function buildWaterQualityStandardResponse(): string {
 | 수온 | 26~28°C | <22°C 또는 >32°C |
 | DO | 7.0 mg/L 이상 | 5.0 mg/L 미만 |
 | pH | 7.8~8.5 | <7.5 또는 >8.8 |
-| 염도 | 15~25‰ | <10 또는 >35‰ |
+| 염도 | 15~35‰ | <10 또는 >40‰ |
 | 암모니아 (NH₃) | 0.1 mg/L 미만 | 0.5 mg/L 초과 |
 | 아질산염 (NO₂) | 0.1 mg/L 미만 | 0.5 mg/L 초과 |
 | 질산염 (NO₃) | 20 mg/L 미만 | 50 mg/L 초과 |

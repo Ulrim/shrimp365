@@ -310,7 +310,7 @@ var RANGES = {
   ph:          {label:"pH",   unit:"",         digits:2, ok:[7.5,8.5], warn:[7,9]},
   do_level:    {label:"용존산소", unit:"ppm",  digits:2, ok:[5,20],   warn:[4,20]},
   // 흰다리새우 해수 양식 기준.
-  salinity:    {label:"염도", unit:"\u2030",  digits:1, ok:[15,25],   warn:[10,30]}
+  salinity:    {label:"염도", unit:"\u2030",  digits:1, ok:[15,35],   warn:[10,40]}
 };
 var ORDER = ["temperature","ph","do_level","salinity"];
 

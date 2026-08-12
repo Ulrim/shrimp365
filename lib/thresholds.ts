@@ -5,7 +5,7 @@ export const WQ_THRESHOLDS = {
   // 염도(ppt) — 흰다리새우 해수 양식 기준.
   // 저염도로 키우는 농장이라면 이 범위를 벗어난 채로 정상 운영하게 되므로,
   // 농장별 설정이 생기기 전까지는 그런 농장에서 알림이 계속 뜬다.
-  salinity:    { warning: { min: 15, max: 25 }, danger: { min: 10, max: 30 } },
+  salinity:    { warning: { min: 15, max: 35 }, danger: { min: 10, max: 40 } },
   ammonia:     { warning: { min: null, max: 0.5 }, danger: { min: null, max: 1.0 } },
   nitrite:     { warning: { min: null, max: 0.2 }, danger: { min: null, max: 0.5 } },
   nitrate:     { warning: { min: null, max: 20 }, danger: { min: null, max: 40 } },

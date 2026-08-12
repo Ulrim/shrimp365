@@ -65,7 +65,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.6.4"
+VERSION = "1.6.5"
 log = logging.getLogger("shrimp365")
 
 
