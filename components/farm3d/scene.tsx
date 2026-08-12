@@ -10,6 +10,15 @@ import type { Tank } from "@/types"
 
 // ─── 색 ───────────────────────────────────────────────────────────────────────
 
+/** 씬이 수조 한 기를 그리는 데 실제로 필요한 것 전부.
+ *
+ *  DB 의 Tank 행을 통째로 넘기지 않는다. 로그인 없이 보는 공개 페이지에는
+ *  사육 마릿수나 수질 같은 값이 아예 없고, 있어서도 안 된다. */
+export interface TankDisplay {
+  name: string
+  status: Tank["status"]
+}
+
 /** 수조 상태 색. farm-map.tsx 의 지도 마커와 같은 값을 쓴다 — 두 화면에서
  *  같은 수조가 다른 색으로 보이면 안 된다. */
 export const STATUS_COLOR: Record<Tank["status"], string> = {
@@ -124,8 +133,8 @@ function boundsCenter(points: Point2[]): { x: number; z: number } {
 
 interface TankMeshProps {
   spec: TankSpec
-  /** 이 자리에 연결된 DB 수조. 아직 안 만든 자리면 null. */
-  tank: Tank | null
+  /** 이 자리에 연결된 수조. 아직 안 만든 자리면 null. */
+  tank: TankDisplay | null
   selected: boolean
   hovered: boolean
   onSelect: (slot: string) => void
@@ -232,8 +241,8 @@ function TankMesh({ spec, tank, selected, hovered, onSelect, onHover }: TankMesh
 
 export interface SceneProps {
   layout: Farm3DLayout
-  /** 자리 번호 → DB 수조. 연결 안 된 자리는 키가 없다. */
-  tankBySlot: Record<string, Tank>
+  /** 자리 번호 → 표시할 수조. 연결 안 된 자리는 키가 없다. */
+  tankBySlot: Record<string, TankDisplay>
   selected: string | null
   hovered: string | null
   onSelect: (slot: string | null) => void

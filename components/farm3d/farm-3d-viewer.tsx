@@ -6,8 +6,8 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { OrbitControls } from "@react-three/drei"
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib"
 import { FarmScene } from "@/components/farm3d/scene"
+import type { TankDisplay } from "@/components/farm3d/scene"
 import type { Farm3DLayout } from "@/lib/farm3d/layout"
-import type { Tank } from "@/types"
 
 // ─── 시점 ─────────────────────────────────────────────────────────────────────
 
@@ -66,7 +66,7 @@ function CameraRig({
 
 export interface Farm3DViewerProps {
   layout: Farm3DLayout
-  tankBySlot: Record<string, Tank>
+  tankBySlot: Record<string, TankDisplay>
   selected: string | null
   hovered: string | null
   onSelect: (slot: string | null) => void

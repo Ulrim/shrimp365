@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MUAN_LAYOUT, polygonArea, spansToPositions, tankArea, tankVolume } from "@/lib/farm3d/layout"
 import type { ViewKey } from "@/components/farm3d/farm-3d-viewer"
 import { STATUS_COLOR } from "@/components/farm3d/scene"
+import type { TankDisplay } from "@/components/farm3d/scene"
 import type { Farm, Tank, WaterQualityReading } from "@/types"
 
 // three.js 는 window 를 직접 만지므로 서버에서 부르면 터진다. 이 페이지가
@@ -123,6 +124,15 @@ export default function Farm3DPage() {
 
   const slotNames = useMemo(() => layout.tanks.map(t => t.slot), [layout.tanks])
   const tankBySlot = useMemo(() => mapTanksToSlots(slotNames, tanks), [slotNames, tanks])
+
+  // 씬에는 그리는 데 필요한 것만 넘긴다. 사육 마릿수·수질은 옆 패널이 쓴다.
+  const displayBySlot = useMemo(() => {
+    const out: Record<string, TankDisplay> = {}
+    for (const [slot, tank] of Object.entries(tankBySlot)) {
+      out[slot] = { name: tank.name, status: tank.status }
+    }
+    return out
+  }, [tankBySlot])
 
   const selectedSpec = layout.tanks.find(t => t.slot === selected) ?? null
   const selectedTank = selected ? tankBySlot[selected] ?? null : null
@@ -259,7 +269,7 @@ export default function Farm3DPage() {
           <div className="h-[420px] w-full bg-slate-950 sm:h-[520px] lg:h-[600px]">
             <Farm3DViewer
               layout={layout}
-              tankBySlot={tankBySlot}
+              tankBySlot={displayBySlot}
               selected={selected}
               hovered={hovered}
               onSelect={setSelected}

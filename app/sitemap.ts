@@ -109,6 +109,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.7,
     },
+    // 무안 양식장 3D 도면 — 한국어판만 있어 hreflang 을 걸지 않는다.
+    {
+      url: `${BASE}/muan-3d`,
+      lastModified: new Date("2026-08-12"),
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
     // Community board — public read (login only for posting)
     ...localizedPage("/board", new Date("2026-07-24"), "daily", 0.7),
     // Card news — 언어별 목록 + 글 (랜딩 다음으로 SEO 가치가 큰 공개 콘텐츠)

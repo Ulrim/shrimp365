@@ -56,7 +56,10 @@ const MARKETING_LOCALE_PREFIXES = ["en", "vi", "id"]
 // 접두사 없는 한국어판 공개 페이지. 각각 /en·/vi·/id 짝이 있다.
 // "/" 도 포함한다. 루트는 한국어판 랜딩이고 /en·/vi·/id 짝이 있다.
 // (p === "/" 일 때 startsWith("//") 는 실질적으로 pathname === "/" 만 매칭한다.)
-const KOREAN_PUBLIC_PATHS = ["/", "/cardnews", "/board", "/guide", "/pricing", "/terms", "/privacy"]
+// /muan-3d 는 한국어판만 있는 공개 페이지다. 나머지는 /en·/vi·/id 짝이 있다.
+// 짝이 있든 없든 여기 있으면 언어가 한국어로 고정되므로, 영어 쿠키를 가진
+// 방문자가 와도 한국어 본문에 영어 껍데기가 씌워지는 일이 없다.
+const KOREAN_PUBLIC_PATHS = ["/", "/cardnews", "/board", "/guide", "/pricing", "/terms", "/privacy", "/muan-3d"]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
