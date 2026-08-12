@@ -33,7 +33,7 @@
 <path d="M 254.50 103.00 L 254.50 100.00 L 335.50 100.00 L 335.50 103.00" fill="none" stroke="#202020" stroke-width="0.80" stroke-linejoin="round" stroke-linecap="round"/>
 <text x="295.00" y="97.50" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#202020" font-weight="bold">RS485  2P</text>
 <path d="M 339.50 103.00 L 339.50 100.00 L 378.00 100.00 L 378.00 103.00" fill="none" stroke="#202020" stroke-width="0.80" stroke-linejoin="round" stroke-linecap="round"/>
-<text x="358.75" y="97.50" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#202020" font-weight="bold">예비·본딩 1P</text>
+<text x="358.75" y="97.50" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#202020" font-weight="bold">본딩 1P</text>
 <text x="40.00" y="86.00" font-family="sans-serif" font-size="5.40" text-anchor="start" fill="#202020" font-weight="bold">단자대 8P (접지 포함) — 단단 8극</text>
 <rect x="40.00" y="158.00" width="340.00" height="90.00" fill="#ffffff" stroke="#202020" stroke-width="0.80" rx="1.5"/>
 <text x="210.00" y="204.40" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold"></text>

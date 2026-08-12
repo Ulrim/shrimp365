@@ -40,13 +40,12 @@ P = {
     "pf_win_w": 178.0, "pf_win_h": 95.0, "pf_win_r": 3.0,
     "pf_hole_d": 3.4,
 
-    # 하부면 커넥터 — 커넥터 확정 후 반드시 재확인
+    # 하부면 커넥터 — 원형 타공은 4개소뿐이다 (AC 1 + 센서 3). 예비·벤트 없음.
     "m12_hole_d": 16.5,     # M12 전면체결형(M16x1.5 나사부) 기준
-    "vent_hole_d": 12.5,    # M12x1.5 통기 벤트
     "conn_y": 100.0,        # 후면 외벽에서 커넥터 중심까지
     "sensor_pitch": 36.0,
-    "ac_x": 105.0,
-    "vent_x": -105.0,
+    "sensor_cx": -66.0,     # 센서 3구의 중심 (좌측 그룹)
+    "ac_x": 102.0,          # AC 인입 (우측 끝 — 센서군과 132 이격)
 
     # 백플레이트 가공 — SMPS · 콘센트 1구 · 단자대 8P
     # ⚠ 세 부품의 외형·나사 위치는 실물 확인 전 추정치입니다.
@@ -407,11 +406,10 @@ def dwg_bottom():
     dr.rect("REF", 0, D / 2, W, D)
     dr.line("REF", -W / 2, D, W / 2, D)
 
-    holes = [(P["vent_x"], P["vent_hole_d"], "VENT"),
-             (-1.5 * sp, P["m12_hole_d"], "pH"),
-             (-0.5 * sp, P["m12_hole_d"], "DO"),
-             (0.5 * sp, P["m12_hole_d"], "EC"),
-             (1.5 * sp, P["m12_hole_d"], "SPARE"),
+    cx = P["sensor_cx"]
+    holes = [(cx - sp, P["m12_hole_d"], "pH"),
+             (cx, P["m12_hole_d"], "DO"),
+             (cx + sp, P["m12_hole_d"], "EC"),
              (P["ac_x"], P["m12_hole_d"], "AC")]
     for hx, hd, name in holes:
         dr.hole(hx, y, hd)
@@ -421,17 +419,16 @@ def dwg_bottom():
     s.raw_text(dr.s.X(0), dr.s.Y(D + 8), "▲ 함체 전면(도어) 쪽", 4.2, anchor="middle")
     s.raw_text(dr.s.X(0), dr.s.Y(-14), "▼ 함체 후면 쪽", 4.2, anchor="middle")
 
-    s.dim_h(-1.5 * sp, -0.5 * sp, y - 26, "36", ext_from=y)
-    s.dim_h(-0.5 * sp, 0.5 * sp, y - 26, "36", ext_from=y)
-    s.dim_h(0.5 * sp, 1.5 * sp, y - 26, "36", ext_from=y)
-    s.dim_h(0, P["ac_x"], y - 42, "105", ext_from=y)
-    s.dim_h(P["vent_x"], 0, y - 42, "105", ext_from=y)
-    s.dim_v(0, y, -W / 2 - 26, "후면에서 100", ext_from=-W / 2)
-    s.dim_h(-W / 2, W / 2, D + 22, "300 (참고)", ext_from=D)
+    s.dim_h(cx - sp, cx, y - 26, "%g" % sp, ext_from=y)
+    s.dim_h(cx, cx + sp, y - 26, "%g" % sp, ext_from=y)
+    s.dim_h(cx + sp, P["ac_x"], y - 42, "%g" % (P["ac_x"] - cx - sp), ext_from=y)
+    s.dim_h(0, P["ac_x"], y - 58, "%g" % P["ac_x"], ext_from=y)
+    s.dim_h(cx - sp, 0, y - 58, "%g" % abs(cx - sp), ext_from=y)
+    s.dim_v(0, y, -W / 2 - 26, "후면에서 %g" % y, ext_from=-W / 2)
+    s.dim_h(-W / 2, W / 2, D + 22, "%g (참고)" % W, ext_from=D)
 
     s.leader(P["ac_x"] + P["m12_hole_d"] / 2, y, 142, y + 40, "AC: Ø16.5  M12 S-coded")
-    s.leader(0.5 * sp + P["m12_hole_d"] / 2, y, 60, y + 54, "센서: Ø16.5  M12 A-coded (4개소)")
-    s.leader(P["vent_x"], y - P["vent_hole_d"] / 2, -132, y - 58, "벤트: Ø12.5  M12x1.5", anchor="end")
+    s.leader(cx + sp + P["m12_hole_d"] / 2, y, 60, y + 54, "센서: Ø16.5  M12 A-coded (3개소)")
 
     def table(sv, ty):
         rows = [(n, "%+.1f" % hx, "%.1f" % y, "%.1f" % hd) for hx, hd, n in holes]
@@ -439,18 +436,20 @@ def dwg_bottom():
 
     write(dr, "02-bottom", "하부면 타공도", "SH-02", [
         "함체 하부면을 정면도에서 아래로 90° 전개한 모습. 좌우는 정면에서 본 것과 같다.",
-        "정면에서 보아 좌→우 순서: VENT, pH, DO, EC, SPARE, AC.",
+        "원형 타공은 4개소뿐이다. 정면에서 보아 좌→우 순서: pH, DO, EC, AC.",
         "AC 는 M12 S-coded, 센서는 M12 A-coded 로 코딩이 다르다. 두 계열은 물리적으로",
         "   서로 결합되지 않으므로 AC 를 센서 포트에 꽂는 사고가 원천 차단된다.",
+        "   센서군과 AC 사이를 132 띄운 것도 같은 이유다.",
         "구멍 지름은 M16x1.5 나사부를 갖는 전면체결형 M12 커넥터 기준이다.",
         "   후면체결형·2점나사형은 치수가 다르다 — 커넥터 확정 후 재확인할 것.",
         "커넥터에 회전방지 평면이 있는 제품이면 Ø16.5 에 폭 15.5 평면을 추가한다.",
-        "Y=100 은 후면 외벽 기준이다. SMPS 깊이(약 56)와 백플레이트 이격을 피해",
+        "Y=100 은 후면 외벽 기준이다. SMPS 깊이(약 57)와 백플레이트 이격을 피해",
         "   커넥터 몸통이 간섭 없이 들어가도록 정한 값이다.",
         "커넥터는 전부 하부면에만 둔다. 측면·상부는 물이 고여 방수가 깨진다.",
         "타공 후 버를 제거하고 개스킷 접촉면을 평탄하게 다듬는다.",
-        "미사용 포트(SPARE)에는 방수캡을 씌워 출하한다.",
-    ], ["※ 유선 LAN 은 사용하지 않기로 하여 RJ45 포트를 삭제했다."], after=table)
+    ], ["※ 유선 LAN 을 쓰지 않아 RJ45 를, 발주 결정에 따라 예비 포트와 통기 벤트를 뺐다.",
+        "   벤트가 없으므로 결로 대책은 함체 안의 실리카겔뿐이다 — 정비 시 교체할 것."],
+          after=table)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -752,7 +751,7 @@ def dwg_enclosure():
         "도어 평탄부 %g x %g 이 확보되어야 디스플레이 %g x %g 이 앉는다."
         % (P["door_flat_w"], P["door_flat_h"], P["disp_w"], P["disp_h"]),
         "백플레이트는 알루미늄, 후면 내벽에서 12 이격. 방열 경로이므로 금속이어야 한다.",
-        "면별 용도 — 도어: 디스플레이 / 하면: 커넥터 6 / 후면: 벽부 브래킷.",
+        "면별 용도 — 도어: 디스플레이 / 하면: 커넥터 4 / 후면: 벽부 브래킷.",
         "   좌우면과 상면은 뚫지 않는다. 물이 고여 방수가 깨진다.",
         "IP66 이상. 도어 개스킷은 함체 기본품을 쓰고 균일하게 압축되어야 한다.",
         "색상 밝은 회색(RAL 7035 계열). 검정은 일사 흡수가 커서 내부 온도를 올린다.",

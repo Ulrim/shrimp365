@@ -6,62 +6,54 @@
 <line x1="528.000" y1="103.000" x2="228.000" y2="103.000" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
 <line x1="228.000" y1="103.000" x2="228.000" y2="268.000" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
 <line x1="228.000" y1="103.000" x2="528.000" y2="103.000" stroke="#909090" stroke-width="0.25" stroke-dasharray="4,2,1,2" fill="none"/>
-<circle cx="273.000" cy="168.000" r="6.250" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="262.750" y1="168.000" x2="283.250" y2="168.000" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="273.000" y1="178.250" x2="273.000" y2="157.750" stroke="#008000" stroke-width="0.35" fill="none"/>
-<text x="273.000" y="154.000" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">VENT</text>
-<circle cx="324.000" cy="168.000" r="8.250" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="311.750" y1="168.000" x2="336.250" y2="168.000" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="324.000" y1="180.250" x2="324.000" y2="155.750" stroke="#008000" stroke-width="0.35" fill="none"/>
-<text x="324.000" y="154.000" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">pH</text>
-<circle cx="360.000" cy="168.000" r="8.250" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="347.750" y1="168.000" x2="372.250" y2="168.000" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="360.000" y1="180.250" x2="360.000" y2="155.750" stroke="#008000" stroke-width="0.35" fill="none"/>
-<text x="360.000" y="154.000" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">DO</text>
-<circle cx="396.000" cy="168.000" r="8.250" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="383.750" y1="168.000" x2="408.250" y2="168.000" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="396.000" y1="180.250" x2="396.000" y2="155.750" stroke="#008000" stroke-width="0.35" fill="none"/>
-<text x="396.000" y="154.000" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">EC</text>
-<circle cx="432.000" cy="168.000" r="8.250" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="419.750" y1="168.000" x2="444.250" y2="168.000" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="432.000" y1="180.250" x2="432.000" y2="155.750" stroke="#008000" stroke-width="0.35" fill="none"/>
-<text x="432.000" y="154.000" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">SPARE</text>
-<circle cx="483.000" cy="168.000" r="8.250" stroke="#c00000" stroke-width="0.6" fill="none"/>
-<line x1="470.750" y1="168.000" x2="495.250" y2="168.000" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="483.000" y1="180.250" x2="483.000" y2="155.750" stroke="#008000" stroke-width="0.35" fill="none"/>
-<text x="483.000" y="154.000" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">AC</text>
+<circle cx="276.000" cy="168.000" r="8.250" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="263.750" y1="168.000" x2="288.250" y2="168.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="276.000" y1="180.250" x2="276.000" y2="155.750" stroke="#008000" stroke-width="0.35" fill="none"/>
+<text x="276.000" y="154.000" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">pH</text>
+<circle cx="312.000" cy="168.000" r="8.250" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="299.750" y1="168.000" x2="324.250" y2="168.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="312.000" y1="180.250" x2="312.000" y2="155.750" stroke="#008000" stroke-width="0.35" fill="none"/>
+<text x="312.000" y="154.000" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">DO</text>
+<circle cx="348.000" cy="168.000" r="8.250" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="335.750" y1="168.000" x2="360.250" y2="168.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="348.000" y1="180.250" x2="348.000" y2="155.750" stroke="#008000" stroke-width="0.35" fill="none"/>
+<text x="348.000" y="154.000" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">EC</text>
+<circle cx="480.000" cy="168.000" r="8.250" stroke="#c00000" stroke-width="0.6" fill="none"/>
+<line x1="467.750" y1="168.000" x2="492.250" y2="168.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="480.000" y1="180.250" x2="480.000" y2="155.750" stroke="#008000" stroke-width="0.35" fill="none"/>
+<text x="480.000" y="154.000" font-family="sans-serif" font-size="3.60" text-anchor="middle" fill="#202020" font-weight="bold">AC</text>
 <text x="378.000" y="95.000" font-family="sans-serif" font-size="4.20" text-anchor="middle" fill="#202020" font-weight="normal">▲ 함체 전면(도어) 쪽</text>
 <text x="378.000" y="282.000" font-family="sans-serif" font-size="4.20" text-anchor="middle" fill="#202020" font-weight="normal">▼ 함체 후면 쪽</text>
-<line x1="324.000" y1="168.000" x2="324.000" y2="196.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="360.000" y1="168.000" x2="360.000" y2="196.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="324.000" y1="194.000" x2="360.000" y2="194.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="324.000,194.000 326.600,194.900 326.600,193.100" fill="#0070a0"/>
-<polygon points="360.000,194.000 357.400,193.100 357.400,194.900" fill="#0070a0"/>
-<text x="342.000" y="192.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">36</text>
-<line x1="360.000" y1="168.000" x2="360.000" y2="196.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="396.000" y1="168.000" x2="396.000" y2="196.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="360.000" y1="194.000" x2="396.000" y2="194.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="360.000,194.000 362.600,194.900 362.600,193.100" fill="#0070a0"/>
-<polygon points="396.000,194.000 393.400,193.100 393.400,194.900" fill="#0070a0"/>
-<text x="378.000" y="192.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">36</text>
-<line x1="396.000" y1="168.000" x2="396.000" y2="196.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="432.000" y1="168.000" x2="432.000" y2="196.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="396.000" y1="194.000" x2="432.000" y2="194.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="396.000,194.000 398.600,194.900 398.600,193.100" fill="#0070a0"/>
-<polygon points="432.000,194.000 429.400,193.100 429.400,194.900" fill="#0070a0"/>
-<text x="414.000" y="192.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">36</text>
-<line x1="378.000" y1="168.000" x2="378.000" y2="212.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="483.000" y1="168.000" x2="483.000" y2="212.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="378.000" y1="210.000" x2="483.000" y2="210.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="378.000,210.000 380.600,210.900 380.600,209.100" fill="#0070a0"/>
-<polygon points="483.000,210.000 480.400,209.100 480.400,210.900" fill="#0070a0"/>
-<text x="430.500" y="208.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">105</text>
-<line x1="273.000" y1="168.000" x2="273.000" y2="212.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="378.000" y1="168.000" x2="378.000" y2="212.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<line x1="273.000" y1="210.000" x2="378.000" y2="210.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="273.000,210.000 275.600,210.900 275.600,209.100" fill="#0070a0"/>
-<polygon points="378.000,210.000 375.400,209.100 375.400,210.900" fill="#0070a0"/>
-<text x="325.500" y="208.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">105</text>
+<line x1="276.000" y1="168.000" x2="276.000" y2="196.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="312.000" y1="168.000" x2="312.000" y2="196.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="276.000" y1="194.000" x2="312.000" y2="194.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="276.000,194.000 278.600,194.900 278.600,193.100" fill="#0070a0"/>
+<polygon points="312.000,194.000 309.400,193.100 309.400,194.900" fill="#0070a0"/>
+<text x="294.000" y="192.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">36</text>
+<line x1="312.000" y1="168.000" x2="312.000" y2="196.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="348.000" y1="168.000" x2="348.000" y2="196.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="312.000" y1="194.000" x2="348.000" y2="194.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="312.000,194.000 314.600,194.900 314.600,193.100" fill="#0070a0"/>
+<polygon points="348.000,194.000 345.400,193.100 345.400,194.900" fill="#0070a0"/>
+<text x="330.000" y="192.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">36</text>
+<line x1="348.000" y1="168.000" x2="348.000" y2="212.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="480.000" y1="168.000" x2="480.000" y2="212.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="348.000" y1="210.000" x2="480.000" y2="210.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="348.000,210.000 350.600,210.900 350.600,209.100" fill="#0070a0"/>
+<polygon points="480.000,210.000 477.400,209.100 477.400,210.900" fill="#0070a0"/>
+<text x="414.000" y="208.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">132</text>
+<line x1="378.000" y1="168.000" x2="378.000" y2="228.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="480.000" y1="168.000" x2="480.000" y2="228.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="378.000" y1="226.000" x2="480.000" y2="226.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="378.000,226.000 380.600,226.900 380.600,225.100" fill="#0070a0"/>
+<polygon points="480.000,226.000 477.400,225.100 477.400,226.900" fill="#0070a0"/>
+<text x="429.000" y="224.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">102</text>
+<line x1="276.000" y1="168.000" x2="276.000" y2="228.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="378.000" y1="168.000" x2="378.000" y2="228.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<line x1="276.000" y1="226.000" x2="378.000" y2="226.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="276.000,226.000 278.600,226.900 278.600,225.100" fill="#0070a0"/>
+<polygon points="378.000,226.000 375.400,225.100 375.400,226.900" fill="#0070a0"/>
+<text x="327.000" y="224.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">102</text>
 <line x1="228.000" y1="268.000" x2="200.000" y2="268.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <line x1="228.000" y1="168.000" x2="200.000" y2="168.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <line x1="202.000" y1="268.000" x2="202.000" y2="168.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
@@ -74,15 +66,12 @@
 <polygon points="228.000,81.000 230.600,81.900 230.600,80.100" fill="#0070a0"/>
 <polygon points="528.000,81.000 525.400,80.100 525.400,81.900" fill="#0070a0"/>
 <text x="378.000" y="79.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">300 (참고)</text>
-<line x1="491.250" y1="168.000" x2="520.000" y2="128.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="491.250,168.000 493.498,166.414 492.037,165.363" fill="#0070a0"/>
+<line x1="488.250" y1="168.000" x2="520.000" y2="128.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="488.250,168.000 490.571,166.523 489.162,165.404" fill="#0070a0"/>
 <text x="521.500" y="129.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">AC: Ø16.5  M12 S-coded</text>
-<line x1="404.250" y1="168.000" x2="438.000" y2="114.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="404.250,168.000 406.391,166.272 404.865,165.318" fill="#0070a0"/>
-<text x="439.500" y="115.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">센서: Ø16.5  M12 A-coded (4개소)</text>
-<line x1="273.000" y1="174.250" x2="246.000" y2="226.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="273.000,174.250 270.999,176.139 272.595,176.971" fill="#0070a0"/>
-<text x="244.500" y="227.000" font-family="sans-serif" font-size="3.00" text-anchor="end" fill="#0070a0" font-weight="normal">벤트: Ø12.5  M12x1.5</text>
+<line x1="356.250" y1="168.000" x2="438.000" y2="114.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="356.250,168.000 358.915,167.318 357.923,165.816" fill="#0070a0"/>
+<text x="439.500" y="115.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">센서: Ø16.5  M12 A-coded (3개소)</text>
 <rect x="394.0" y="364.0" width="190.0" height="46.0" fill="#ffffff" stroke="#202020" stroke-width="0.7"/>
 <line x1="394.0" y1="380.0" x2="584.0" y2="380.0" stroke="#202020" stroke-width="0.4"/>
 <line x1="394.0" y1="395.0" x2="584.0" y2="395.0" stroke="#202020" stroke-width="0.4"/>
@@ -95,60 +84,52 @@
 <text x="16.000" y="34.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">1.</text>
 <text x="22.000" y="34.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">함체 하부면을 정면도에서 아래로 90° 전개한 모습. 좌우는 정면에서 본 것과 같다.</text>
 <text x="16.000" y="39.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">2.</text>
-<text x="22.000" y="39.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">정면에서 보아 좌→우 순서: VENT, pH, DO, EC, SPARE, AC.</text>
+<text x="22.000" y="39.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">원형 타공은 4개소뿐이다. 정면에서 보아 좌→우 순서: pH, DO, EC, AC.</text>
 <text x="16.000" y="44.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">3.</text>
 <text x="22.000" y="44.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">AC 는 M12 S-coded, 센서는 M12 A-coded 로 코딩이 다르다. 두 계열은 물리적으로</text>
 <text x="22.000" y="49.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">서로 결합되지 않으므로 AC 를 센서 포트에 꽂는 사고가 원천 차단된다.</text>
-<text x="16.000" y="54.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">4.</text>
-<text x="22.000" y="54.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">구멍 지름은 M16x1.5 나사부를 갖는 전면체결형 M12 커넥터 기준이다.</text>
-<text x="22.000" y="60.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">후면체결형·2점나사형은 치수가 다르다 — 커넥터 확정 후 재확인할 것.</text>
-<text x="16.000" y="65.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">5.</text>
-<text x="22.000" y="65.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">커넥터에 회전방지 평면이 있는 제품이면 Ø16.5 에 폭 15.5 평면을 추가한다.</text>
-<text x="16.000" y="70.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">6.</text>
-<text x="22.000" y="70.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">Y=100 은 후면 외벽 기준이다. SMPS 깊이(약 56)와 백플레이트 이격을 피해</text>
-<text x="22.000" y="75.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">커넥터 몸통이 간섭 없이 들어가도록 정한 값이다.</text>
-<text x="16.000" y="80.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">7.</text>
-<text x="22.000" y="80.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">커넥터는 전부 하부면에만 둔다. 측면·상부는 물이 고여 방수가 깨진다.</text>
-<text x="16.000" y="86.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">8.</text>
-<text x="22.000" y="86.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">타공 후 버를 제거하고 개스킷 접촉면을 평탄하게 다듬는다.</text>
-<text x="16.000" y="91.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">9.</text>
-<text x="22.000" y="91.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">미사용 포트(SPARE)에는 방수캡을 씌워 출하한다.</text>
-<text x="16.000" y="102.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">※ 유선 LAN 은 사용하지 않기로 하여 RJ45 포트를 삭제했다.</text>
+<text x="22.000" y="54.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">센서군과 AC 사이를 132 띄운 것도 같은 이유다.</text>
+<text x="16.000" y="60.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">4.</text>
+<text x="22.000" y="60.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">구멍 지름은 M16x1.5 나사부를 갖는 전면체결형 M12 커넥터 기준이다.</text>
+<text x="22.000" y="65.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">후면체결형·2점나사형은 치수가 다르다 — 커넥터 확정 후 재확인할 것.</text>
+<text x="16.000" y="70.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">5.</text>
+<text x="22.000" y="70.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">커넥터에 회전방지 평면이 있는 제품이면 Ø16.5 에 폭 15.5 평면을 추가한다.</text>
+<text x="16.000" y="75.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">6.</text>
+<text x="22.000" y="75.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">Y=100 은 후면 외벽 기준이다. SMPS 깊이(약 57)와 백플레이트 이격을 피해</text>
+<text x="22.000" y="80.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">커넥터 몸통이 간섭 없이 들어가도록 정한 값이다.</text>
+<text x="16.000" y="86.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">7.</text>
+<text x="22.000" y="86.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">커넥터는 전부 하부면에만 둔다. 측면·상부는 물이 고여 방수가 깨진다.</text>
+<text x="16.000" y="91.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">8.</text>
+<text x="22.000" y="91.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">타공 후 버를 제거하고 개스킷 접촉면을 평탄하게 다듬는다.</text>
+<text x="16.000" y="102.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">※ 유선 LAN 을 쓰지 않아 RJ45 를, 발주 결정에 따라 예비 포트와 통기 벤트를 뺐다.</text>
+<text x="16.000" y="107.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">   벤트가 없으므로 결로 대책은 함체 안의 실리카겔뿐이다 — 정비 시 교체할 것.</text>
 <line x1="16.0" y1="398.0" x2="28.0" y2="398.0" stroke="#c00000" stroke-width="0.8"/>
 <text x="30.000" y="399.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">가공 CUT</text>
 <line x1="62.0" y1="398.0" x2="74.0" y2="398.0" stroke="#008000" stroke-width="0.8"/>
 <text x="76.000" y="399.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">마킹 MARK</text>
 <line x1="108.0" y1="398.0" x2="120.0" y2="398.0" stroke="#909090" stroke-width="0.8"/>
 <text x="122.000" y="399.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">참고 REF</text>
-<text x="16.000" y="115.400" font-family="sans-serif" font-size="3.60" text-anchor="start" fill="#202020" font-weight="bold">구멍 좌표 (X: 좌우 중심 / Y: 후면 외벽 기준, mm)</text>
-<rect x="16.0" y="119.4" width="126.0" height="45.2" fill="none" stroke="#202020" stroke-width="0.4"/>
-<line x1="16.0" y1="127.0" x2="142.0" y2="127.0" stroke="#202020" stroke-width="0.4"/>
-<text x="20.000" y="125.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="bold">이름</text>
-<text x="68.000" y="125.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="bold">X</text>
-<text x="96.000" y="125.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="bold">Y</text>
-<text x="120.000" y="125.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="bold">Ø</text>
-<text x="20.000" y="132.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">VENT</text>
-<text x="68.000" y="132.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">-105.0</text>
-<text x="96.000" y="132.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">100.0</text>
-<text x="120.000" y="132.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">12.5</text>
-<text x="20.000" y="139.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">pH</text>
-<text x="68.000" y="139.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">-54.0</text>
-<text x="96.000" y="139.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">100.0</text>
-<text x="120.000" y="139.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">16.5</text>
-<text x="20.000" y="145.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">DO</text>
-<text x="68.000" y="145.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">-18.0</text>
-<text x="96.000" y="145.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">100.0</text>
-<text x="120.000" y="145.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">16.5</text>
-<text x="20.000" y="151.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">EC</text>
-<text x="68.000" y="151.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">+18.0</text>
-<text x="96.000" y="151.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">100.0</text>
-<text x="120.000" y="151.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">16.5</text>
-<text x="20.000" y="157.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">SPARE</text>
-<text x="68.000" y="157.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">+54.0</text>
-<text x="96.000" y="157.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">100.0</text>
-<text x="120.000" y="157.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">16.5</text>
-<text x="20.000" y="163.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">AC</text>
-<text x="68.000" y="163.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">+105.0</text>
-<text x="96.000" y="163.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">100.0</text>
-<text x="120.000" y="163.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">16.5</text>
+<text x="16.000" y="120.400" font-family="sans-serif" font-size="3.60" text-anchor="start" fill="#202020" font-weight="bold">구멍 좌표 (X: 좌우 중심 / Y: 후면 외벽 기준, mm)</text>
+<rect x="16.0" y="124.4" width="126.0" height="32.8" fill="none" stroke="#202020" stroke-width="0.4"/>
+<line x1="16.0" y1="132.0" x2="142.0" y2="132.0" stroke="#202020" stroke-width="0.4"/>
+<text x="20.000" y="130.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="bold">이름</text>
+<text x="68.000" y="130.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="bold">X</text>
+<text x="96.000" y="130.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="bold">Y</text>
+<text x="120.000" y="130.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="bold">Ø</text>
+<text x="20.000" y="137.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">pH</text>
+<text x="68.000" y="137.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">-102.0</text>
+<text x="96.000" y="137.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">100.0</text>
+<text x="120.000" y="137.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">16.5</text>
+<text x="20.000" y="144.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">DO</text>
+<text x="68.000" y="144.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">-66.0</text>
+<text x="96.000" y="144.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">100.0</text>
+<text x="120.000" y="144.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">16.5</text>
+<text x="20.000" y="150.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">EC</text>
+<text x="68.000" y="150.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">-30.0</text>
+<text x="96.000" y="150.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">100.0</text>
+<text x="120.000" y="150.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">16.5</text>
+<text x="20.000" y="156.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">AC</text>
+<text x="68.000" y="156.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">+102.0</text>
+<text x="96.000" y="156.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">100.0</text>
+<text x="120.000" y="156.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">16.5</text>
 </svg>

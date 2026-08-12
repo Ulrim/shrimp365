@@ -212,14 +212,13 @@ def build():
 
     # ── 하부면 커넥터 ──
     sp = P["sensor_pitch"]
-    conn = [(P["vent_x"], P["vent_hole_d"], "vent_gore_M12"),
-            (-1.5 * sp, P["m12_hole_d"], "M12_A_pH"),
-            (-0.5 * sp, P["m12_hole_d"], "M12_A_DO"),
-            (0.5 * sp, P["m12_hole_d"], "M12_A_EC"),
-            (1.5 * sp, P["m12_hole_d"], "M12_A_SPARE"),
+    cx = P["sensor_cx"]
+    conn = [(cx - sp, P["m12_hole_d"], "M12_A_pH"),
+            (cx, P["m12_hole_d"], "M12_A_DO"),
+            (cx + sp, P["m12_hole_d"], "M12_A_EC"),
             (P["ac_x"], P["m12_hole_d"], "AC_inlet")]
     for cx_, dia, name in conn:
-        col = C["black"] if "vent" in name else C["metal"]
+        col = C["black"] if "AC" in name else C["metal"]
         p = P_(name, col, "connector")
         cyl(p, cx_, -14.0, P["conn_y"], dia / 2, 40.0, axis="y")
         cyl(p, cx_, -14.0, P["conn_y"], dia / 2 + 3, 8.0, axis="y")

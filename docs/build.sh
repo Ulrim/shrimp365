@@ -11,6 +11,7 @@ cd "$(dirname "$0")/.."
 
 python3 raspberry-pi/enclosure/make-drawings.py
 python3 raspberry-pi/enclosure/make-wiring.py
+python3 docs/make-figures.py
 python3 docs/make-spec.py
 
 CHROME="${CHROME:-}"

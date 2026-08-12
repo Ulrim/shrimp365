@@ -50,7 +50,7 @@
 <path d="M 244.00 145.00 L 244.00 142.00 L 316.00 142.00 L 316.00 145.00" fill="none" stroke="#202020" stroke-width="0.80" stroke-linejoin="round" stroke-linecap="round"/>
 <text x="280.00" y="139.50" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#202020" font-weight="bold">RS485  2P</text>
 <path d="M 320.00 145.00 L 320.00 142.00 L 354.00 142.00 L 354.00 145.00" fill="none" stroke="#202020" stroke-width="0.80" stroke-linejoin="round" stroke-linecap="round"/>
-<text x="337.00" y="139.50" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#202020" font-weight="bold">예비·본딩 1P</text>
+<text x="337.00" y="139.50" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#202020" font-weight="bold">본딩 1P</text>
 <path d="M 238.00 96.00 L 270.00 96.00 L 270.00 130.00 L 261.00 130.00 L 261.00 150.00" fill="none" stroke="#0a8a3a" stroke-width="1.30" stroke-linejoin="round" stroke-linecap="round"/>
 <path d="M 238.00 114.00 L 256.00 114.00 L 256.00 136.00 L 299.00 136.00 L 299.00 150.00" fill="none" stroke="#b89000" stroke-width="1.30" stroke-linejoin="round" stroke-linecap="round"/>
 <path d="M 157.00 122.00 L 157.00 142.00 L 337.00 142.00 L 337.00 150.00" fill="none" stroke="#8a8a8a" stroke-width="1.40" stroke-linejoin="round" stroke-linecap="round"/>

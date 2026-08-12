@@ -51,7 +51,7 @@
 <path d="M 244.00 177.00 L 244.00 174.00 L 316.00 174.00 L 316.00 177.00" fill="none" stroke="#202020" stroke-width="0.80" stroke-linejoin="round" stroke-linecap="round"/>
 <text x="280.00" y="171.50" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#202020" font-weight="bold">RS485  2P</text>
 <path d="M 320.00 177.00 L 320.00 174.00 L 354.00 174.00 L 354.00 177.00" fill="none" stroke="#202020" stroke-width="0.80" stroke-linejoin="round" stroke-linecap="round"/>
-<text x="337.00" y="171.50" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#202020" font-weight="bold">예비·본딩 1P</text>
+<text x="337.00" y="171.50" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#202020" font-weight="bold">본딩 1P</text>
 <rect x="150.00" y="96.00" width="78.00" height="46.00" fill="#f4f8ff" stroke="#202020" stroke-width="0.70" rx="1.5"/>
 <text x="189.00" y="116.50" font-family="sans-serif" font-size="4.00" text-anchor="middle" fill="#202020" font-weight="bold">SMPS</text>
 <text x="189.00" y="121.10" font-family="sans-serif" font-size="3.00" text-anchor="middle" fill="#555" font-weight="normal">220V → 12V</text>
