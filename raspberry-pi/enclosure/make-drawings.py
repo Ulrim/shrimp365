@@ -369,7 +369,8 @@ def dwg_door():
     s.dim_v(-P["win_h"] / 2, P["win_h"] / 2, 100, "94", ext_from=P["win_w"] / 2)
     s.dim_h(-P["so_px"] / 2, P["so_px"] / 2, -78, "스탠드오프 피치 210", ext_from=-P["so_py"] / 2)
     s.dim_v(-P["so_py"] / 2, P["so_py"] / 2, -122, "127", ext_from=-P["so_px"] / 2)
-    s.dim_h(-P["door_flat_w"] / 2, P["door_flat_w"] / 2, -118, "도어 평탄부 260 (참고)",
+    s.dim_h(-P["door_flat_w"] / 2, P["door_flat_w"] / 2, -118,
+            "도어 평탄부 %g (참고)" % P["door_flat_w"],
             ext_from=-P["door_flat_h"] / 2)
 
     s.leader(P["win_w"] / 2 - 3, P["win_h"] / 2 - 3, 140, 84, "R3 (4개소)")
@@ -390,7 +391,8 @@ def dwg_door():
         "   3.5 이다. 유리 뒷면 가장자리에 단차가 있으면 개스킷이 뜬다 — 시제품",
         "   1대로 실측 확인한 뒤 양산 도면을 확정할 것.",
         "도어 바깥면에 노출되는 나사는 없어야 한다.",
-    ], ["※ 함체 외곽 300x250 과 평탄부 260x210 은 기성 함체 카탈로그값이다.",
+    ], ["※ 함체 외곽 %gx%g 과 평탄부 %gx%g 은 기성 함체 카탈로그값이다."
+        % (P["enc_w"], P["enc_h"], P["door_flat_w"], P["door_flat_h"]),
         "   구매 확정 후 실측하여 PARAMS 를 갱신하고 도면을 다시 생성할 것."])
 
 
@@ -692,10 +694,10 @@ def dwg_enclosure():
         for byp in (-Hh/2 + 20, 0.0, Hh/2 - 20):
             dr.circle("MARK", ox + bxp, oy + byp, 4)
     s.text(ox, oy + Hh/2 + 24, "정면도 — 도어 (바깥에서)", 7.0, weight="bold")
-    s.dim_h(ox - Wd/2, ox + Wd/2, oy - Hh/2 - 30, "300", ext_from=oy - Hh/2)
-    s.dim_v(oy - Hh/2, oy + Hh/2, ox - Wd/2 - 30, "250", ext_from=ox - Wd/2)
-    s.dim_h(ox - fw/2, ox + fw/2, oy - fh/2 - 13, "도어 평탄부 260", ext_from=oy - fh/2)
-    s.dim_v(oy - fh/2, oy + fh/2, ox + Wd/2 + 30, "210", ext_from=ox + fw/2)
+    s.dim_h(ox - Wd/2, ox + Wd/2, oy - Hh/2 - 30, "%g" % Wd, ext_from=oy - Hh/2)
+    s.dim_v(oy - Hh/2, oy + Hh/2, ox - Wd/2 - 30, "%g" % Hh, ext_from=ox - Wd/2)
+    s.dim_h(ox - fw/2, ox + fw/2, oy - fh/2 - 13, "도어 평탄부 %g" % fw, ext_from=oy - fh/2)
+    s.dim_v(oy - fh/2, oy + fh/2, ox + Wd/2 + 30, "%g" % fh, ext_from=ox + fw/2)
     s.leader(ox + P["win_w"]/2, oy, ox + Wd/2 + 42, oy + 70, "디스플레이 개구부 176x94 (SH-01)")
     s.leader(ox + Wd/2 - 15, oy - Hh/2 + 20, ox + Wd/2 + 42, oy - 96,
              "탬퍼 볼트 6개소 SUS316 핀-인-톡스")
@@ -705,11 +707,14 @@ def dwg_enclosure():
     dr.rect("CUT", sx, sy, Dd, Hh)
     dr.line("MARK", sx + Dd/2 - 3, sy - Hh/2, sx + Dd/2 - 3, sy + Hh/2)
     dr.line("MARK", sx - Dd/2 + 15, sy - Hh/2, sx - Dd/2 + 15, sy + Hh/2)
-    dr.line("MARK", sx - Dd/2 + 71.5, sy - Hh/2 + 30, sx - Dd/2 + 71.5, sy + Hh/2 - 30)
+    # 내부 부품 앞끝 = 후면벽 3 + 이격 12 + 백플레이트 2 + SMPS 깊이
+    dfront = 3.0 + 12.0 + 2.0 + P["smps_d"]
+    dr.line("MARK", sx - Dd/2 + dfront, sy - Hh/2 + 30, sx - Dd/2 + dfront, sy + Hh/2 - 30)
     s.text(sx, sy + Hh/2 + 24, "우측면도", 7.0, weight="bold")
-    s.dim_h(sx - Dd/2, sx + Dd/2, sy - Hh/2 - 30, "150", ext_from=sy - Hh/2)
+    s.dim_h(sx - Dd/2, sx + Dd/2, sy - Hh/2 - 30, "%g" % Dd, ext_from=sy - Hh/2)
     s.leader(sx - Dd/2 + 15, sy + 90, sx + Dd/2 + 34, sy + 118, "백플레이트 면 (후면 내벽 +12)")
-    s.leader(sx - Dd/2 + 71.5, sy + 30, sx + Dd/2 + 34, sy + 62, "DIN 기기 앞끝 71.5")
+    s.leader(sx - Dd/2 + dfront, sy + 30, sx + Dd/2 + 34, sy + 62,
+             "내부 부품 앞끝 %g (SMPS 기준)" % dfront)
     s.leader(sx + Dd/2 - 3, sy - 40, sx + Dd/2 + 34, sy - 20, "도어 3t")
     s.leader(sx + Dd/2 - 28, sy - 90, sx + Dd/2 + 34, sy - 74, "디스플레이 스택 28")
 
@@ -720,9 +725,10 @@ def dwg_enclosure():
         for byp in (-Hh/2 + 30, Hh/2 - 30):
             dr.rect("MARK", rx + bxp, ry + byp, 26, 16)
     s.text(rx, ry + Hh/2 + 24, "후면도 — 벽부 (뚫지 않는다)", 7.0, weight="bold")
-    s.dim_h(rx - Wd/2 + 30, rx + Wd/2 - 30, ry - Hh/2 - 30, "브래킷 피치 240",
-            ext_from=ry - Hh/2 + 30)
-    s.dim_v(ry - Hh/2 + 30, ry + Hh/2 - 30, rx - Wd/2 - 30, "190", ext_from=rx - Wd/2)
+    s.dim_h(rx - Wd/2 + 30, rx + Wd/2 - 30, ry - Hh/2 - 30,
+            "브래킷 피치 %g" % (Wd - 60), ext_from=ry - Hh/2 + 30)
+    s.dim_v(ry - Hh/2 + 30, ry + Hh/2 - 30, rx - Wd/2 - 30, "%g" % (Hh - 60),
+            ext_from=rx - Wd/2)
     s.leader(rx - Wd/2 + 30, ry + Hh/2 - 30, rx + Wd/2 + 34, ry + 96,
              "제조사 벽부 브래킷 4개소")
 
@@ -731,18 +737,20 @@ def dwg_enclosure():
     dr.rect("CUT", px, py, Wd, Dd)
     dr.line("REF", px - Wd/2, py + Dd/2 - 3, px + Wd/2, py + Dd/2 - 3)
     s.text(px, py + Dd/2 + 24, "평면도", 7.0, weight="bold")
-    s.dim_v(py - Dd/2, py + Dd/2, px - Wd/2 - 30, "150", ext_from=px - Wd/2)
-    s.dim_h(px - Wd/2, px + Wd/2, py - Dd/2 - 30, "300", ext_from=py - Dd/2)
+    s.dim_v(py - Dd/2, py + Dd/2, px - Wd/2 - 30, "%g" % Dd, ext_from=px - Wd/2)
+    s.dim_h(px - Wd/2, px + Wd/2, py - Dd/2 - 30, "%g" % Wd, ext_from=py - Dd/2)
     s.leader(px, py + Dd/2, px + Wd/2 + 20, py + 60, "도어 (힌지 좌측)")
 
     write(dr, "07-enclosure", "외함 4면도 — 설계 요구 형상", "SH-07", [
         "이 도면은 가공도가 아니라 외함이 만족해야 할 형상이다. 기성품을 고르든",
         "   새로 만들든 이 치수를 만족해야 한다. 구멍 가공은 SH-01, SH-02 를 따른다.",
-        "외형 300 x 250 x 150. 내부 유효 최소 250(W) x 220(H) x 120(D).",
+        "외형 %g x %g x %g. 내부 유효 최소 270(W) x 270(H) x 135(D)."
+        % (P["enc_w"], P["enc_h"], P["enc_d"]),
         "재질 폴리카보네이트 또는 ABS. 금속 불가 — 파이4 내장 WiFi 가 차폐된다.",
         "도어는 힌지형, 불투명, 나사 체결식. 힌지 좌측.",
         "   원터치 래치 제품은 소비자가 맨손으로 열 수 있어 쓸 수 없다.",
-        "도어 평탄부 260 x 210 이 확보되어야 디스플레이 194 x 111 이 앉는다.",
+        "도어 평탄부 %g x %g 이 확보되어야 디스플레이 %g x %g 이 앉는다."
+        % (P["door_flat_w"], P["door_flat_h"], P["disp_w"], P["disp_h"]),
         "백플레이트는 알루미늄, 후면 내벽에서 12 이격. 방열 경로이므로 금속이어야 한다.",
         "면별 용도 — 도어: 디스플레이 / 하면: 커넥터 6 / 후면: 벽부 브래킷.",
         "   좌우면과 상면은 뚫지 않는다. 물이 고여 방수가 깨진다.",

@@ -35,19 +35,19 @@
 <line x1="180.000" y1="175.000" x2="180.000" y2="25.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <polygon points="180.000,175.000 180.900,172.400 179.100,172.400" fill="#0070a0"/>
 <polygon points="180.000,25.000 179.100,27.600 180.900,27.600" fill="#0070a0"/>
-<text x="178.800" y="100.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 178.800 100.000)">250</text>
+<text x="178.800" y="100.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 178.800 100.000)">300</text>
 <line x1="203.750" y1="166.250" x2="203.750" y2="174.750" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <line x1="336.250" y1="166.250" x2="336.250" y2="174.750" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <line x1="203.750" y1="172.750" x2="336.250" y2="172.750" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <polygon points="203.750,172.750 206.350,173.650 206.350,171.850" fill="#0070a0"/>
 <polygon points="336.250,172.750 333.650,171.850 333.650,173.650" fill="#0070a0"/>
-<text x="270.000" y="171.350" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">도어 평탄부 260</text>
+<text x="270.000" y="171.350" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">도어 평탄부 265</text>
 <line x1="336.250" y1="166.250" x2="362.000" y2="166.250" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <line x1="336.250" y1="33.750" x2="362.000" y2="33.750" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <line x1="360.000" y1="166.250" x2="360.000" y2="33.750" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <polygon points="360.000,166.250 360.900,163.650 359.100,163.650" fill="#0070a0"/>
 <polygon points="360.000,33.750 359.100,36.350 360.900,36.350" fill="#0070a0"/>
-<text x="358.800" y="100.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 358.800 100.000)">210</text>
+<text x="358.800" y="100.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 358.800 100.000)">265</text>
 <line x1="314.000" y1="100.000" x2="366.000" y2="65.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <polygon points="314.000,100.000 316.659,99.295 315.654,97.802" fill="#0070a0"/>
 <text x="367.500" y="66.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">디스플레이 개구부 176x94 (SH-01)</text>
@@ -60,20 +60,20 @@
 <line x1="388.750" y1="25.000" x2="388.750" y2="175.000" stroke="#c00000" stroke-width="0.6" fill="none"/>
 <line x1="469.750" y1="175.000" x2="469.750" y2="25.000" stroke="#008000" stroke-width="0.35" fill="none"/>
 <line x1="396.250" y1="175.000" x2="396.250" y2="25.000" stroke="#008000" stroke-width="0.35" fill="none"/>
-<line x1="424.500" y1="160.000" x2="424.500" y2="40.000" stroke="#008000" stroke-width="0.35" fill="none"/>
+<line x1="417.250" y1="160.000" x2="417.250" y2="40.000" stroke="#008000" stroke-width="0.35" fill="none"/>
 <text x="430.000" y="13.000" font-family="sans-serif" font-size="7.00" text-anchor="middle" fill="#202020" font-weight="bold">우측면도</text>
 <line x1="388.750" y1="175.000" x2="388.750" y2="192.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <line x1="471.250" y1="175.000" x2="471.250" y2="192.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <line x1="388.750" y1="190.000" x2="471.250" y2="190.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <polygon points="388.750,190.000 391.350,190.900 391.350,189.100" fill="#0070a0"/>
 <polygon points="471.250,190.000 468.650,189.100 468.650,190.900" fill="#0070a0"/>
-<text x="430.000" y="188.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">150</text>
+<text x="430.000" y="188.600" font-family="sans-serif" font-size="3.20" text-anchor="middle" fill="#0070a0" font-weight="normal">165</text>
 <line x1="396.250" y1="55.000" x2="488.250" y2="41.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <polygon points="396.250,55.000 398.956,55.499 398.685,53.719" fill="#0070a0"/>
 <text x="489.750" y="42.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">백플레이트 면 (후면 내벽 +12)</text>
-<line x1="424.500" y1="85.000" x2="488.250" y2="69.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
-<polygon points="424.500,85.000 427.241,85.240 426.803,83.494" fill="#0070a0"/>
-<text x="489.750" y="70.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">DIN 기기 앞끝 71.5</text>
+<line x1="417.250" y1="85.000" x2="488.250" y2="69.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
+<polygon points="417.250,85.000 419.984,85.306 419.589,83.550" fill="#0070a0"/>
+<text x="489.750" y="70.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">내부 부품 앞끝 57 (SMPS 기준)</text>
 <line x1="469.750" y1="120.000" x2="488.250" y2="110.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <polygon points="469.750,120.000 472.465,119.555 471.609,117.972" fill="#0070a0"/>
 <text x="489.750" y="111.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">도어 3t</text>
@@ -112,7 +112,7 @@
 <line x1="180.000" y1="345.000" x2="180.000" y2="225.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <polygon points="180.000,345.000 180.900,342.400 179.100,342.400" fill="#0070a0"/>
 <polygon points="180.000,225.000 179.100,227.600 180.900,227.600" fill="#0070a0"/>
-<text x="178.800" y="285.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 178.800 285.000)">190</text>
+<text x="178.800" y="285.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 178.800 285.000)">240</text>
 <line x1="210.000" y1="225.000" x2="362.000" y2="237.000" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <polygon points="210.000,225.000 212.521,226.102 212.663,224.307" fill="#0070a0"/>
 <text x="363.500" y="238.000" font-family="sans-serif" font-size="3.00" text-anchor="start" fill="#0070a0" font-weight="normal">제조사 벽부 브래킷 4개소</text>
@@ -127,7 +127,7 @@
 <line x1="340.000" y1="326.250" x2="340.000" y2="243.750" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <polygon points="340.000,326.250 340.900,323.650 339.100,323.650" fill="#0070a0"/>
 <polygon points="340.000,243.750 339.100,246.350 340.900,246.350" fill="#0070a0"/>
-<text x="338.800" y="285.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 338.800 285.000)">150</text>
+<text x="338.800" y="285.000" font-family="sans-serif" font-size="3.2" text-anchor="middle" fill="#0070a0" transform="rotate(-90 338.800 285.000)">165</text>
 <line x1="355.000" y1="326.250" x2="355.000" y2="343.250" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <line x1="505.000" y1="326.250" x2="505.000" y2="343.250" stroke="#0070a0" stroke-width="0.25" fill="none"/>
 <line x1="355.000" y1="341.250" x2="505.000" y2="341.250" stroke="#0070a0" stroke-width="0.25" fill="none"/>
@@ -150,14 +150,14 @@
 <text x="22.000" y="34.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">이 도면은 가공도가 아니라 외함이 만족해야 할 형상이다. 기성품을 고르든</text>
 <text x="22.000" y="39.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">새로 만들든 이 치수를 만족해야 한다. 구멍 가공은 SH-01, SH-02 를 따른다.</text>
 <text x="16.000" y="44.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">2.</text>
-<text x="22.000" y="44.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">외형 300 x 250 x 150. 내부 유효 최소 250(W) x 220(H) x 120(D).</text>
+<text x="22.000" y="44.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">외형 300 x 300 x 165. 내부 유효 최소 270(W) x 270(H) x 135(D).</text>
 <text x="16.000" y="49.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">3.</text>
 <text x="22.000" y="49.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">재질 폴리카보네이트 또는 ABS. 금속 불가 — 파이4 내장 WiFi 가 차폐된다.</text>
 <text x="16.000" y="54.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">4.</text>
 <text x="22.000" y="54.800" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">도어는 힌지형, 불투명, 나사 체결식. 힌지 좌측.</text>
 <text x="22.000" y="60.000" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">원터치 래치 제품은 소비자가 맨손으로 열 수 있어 쓸 수 없다.</text>
 <text x="16.000" y="65.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">5.</text>
-<text x="22.000" y="65.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">도어 평탄부 260 x 210 이 확보되어야 디스플레이 194 x 111 이 앉는다.</text>
+<text x="22.000" y="65.200" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">도어 평탄부 265 x 265 이 확보되어야 디스플레이 194 x 111 이 앉는다.</text>
 <text x="16.000" y="70.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">6.</text>
 <text x="22.000" y="70.400" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">백플레이트는 알루미늄, 후면 내벽에서 12 이격. 방열 경로이므로 금속이어야 한다.</text>
 <text x="16.000" y="75.600" font-family="sans-serif" font-size="3.40" text-anchor="start" fill="#202020" font-weight="normal">7.</text>
