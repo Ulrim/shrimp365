@@ -118,6 +118,11 @@ PAGE = """<!doctype html>
   .cell:active{background:#16223C}
   .tap{font-size:11px;color:#475569;font-weight:600}
 
+  /* 값 칸 아래 보조 줄 (전도도 → 양액 계산에 쓴 EC) */
+  .sub2{margin-top:5px;font-size:13px;color:#94A3B8;font-weight:600}
+  .sub2 b{color:#E8EDF7;font-family:ui-monospace,monospace;font-weight:800}
+  .sub2 .dim{color:#64748B;font-weight:500;font-size:12px}
+
   /* 양액 안내 띠 — 계기판 아래 한 줄 */
   .nut{
     flex:0 0 auto;margin-top:9px;padding:9px 14px;border-radius:12px;
@@ -476,6 +481,8 @@ var I18N = {
   nut_high:{ko:"농도 높음 — 원수 교환",en:"Too strong — exchange with source water",vi:"Quá đậm — thay bằng nước nguồn",id:"Terlalu pekat — tukar air baku"},
   nut_ok:{ko:"양액 농도 적정",en:"Nutrient level OK",vi:"Nồng độ đạt",id:"Konsentrasi pas"},
   nut_conc:{ko:"농도",en:"Conc.",vi:"Nồng độ",id:"Konsentrasi"},
+  nut_ec_calc:{ko:"양액 EC",en:"Nutrient EC",vi:"EC dinh dưỡng",id:"EC nutrisi"},
+  nut_ec_atc:{ko:"25℃ 환산",en:"at 25℃",vi:"quy về 25℃",id:"pada 25℃"},
   nut_need_cal:{ko:"교정값을 확인하세요",en:"Check calibration values",vi:"Kiểm tra giá trị hiệu chuẩn",id:"Periksa nilai kalibrasi"},
   nut_bad_cfg:{ko:"목표 EC 가 원수 EC 보다 커야 합니다",en:"Target EC must exceed source EC",vi:"EC mục tiêu phải lớn hơn EC nguồn",id:"EC target harus melebihi EC baku"},
   ec_measure:{ko:"EC 센서 측정 항목",en:"EC sensor measures",vi:"Cảm biến EC đo",id:"Sensor EC mengukur"},
@@ -553,9 +560,21 @@ function renderValues(d){
     // 백슬래시가 한 번 더 벗겨져 JS 가 깨지기 쉽다.
     return '<div class="cell ' + cls + '" onclick="openChart(&quot;' + key + '&quot;)">' +
            '<div class="k">' + mlabel(key) + ' <span class="tap">' + t("graph") + ' ›</span></div>' +
-           '<div class="v">' + v + (r.unit ? '<small>' + (ms ? "mS/cm" : r.unit) + '</small>' : '') + '</div></div>';
+           '<div class="v">' + v + (r.unit ? '<small>' + (ms ? "mS/cm" : r.unit) + '</small>' : '') + '</div>' +
+           subLine(key, d) + '</div>';
   }).join("");
   return '<div class="grid">' + cells + '</div>' + renderNutrient(d);
+}
+
+// 값 칸 아래 보조 줄. 지금은 전도도 칸에만 쓴다 —
+// 양액 계산은 25℃ 로 환산한 EC 로 하므로, 실제로 쓰인 값을 같이 보여 준다.
+// (보정을 끄면 잰 값과 같지만, 어느 값으로 계산했는지 눈에 보이는 편이 낫다.)
+function subLine(key, d){
+  if (key !== "conductivity") return "";
+  var n = d.nutrient;
+  if (!n || typeof n.ec !== "number") return "";
+  return '<div class="sub2">' + t("nut_ec_calc") + ' <b>' + n.ec + '</b> mS/cm' +
+         (n.atc ? ' <span class="dim">' + t("nut_ec_atc") + '</span>' : '') + '</div>';
 }
 
 // 양액 안내 — 켜 두었을 때만. "지금 얼마를 넣어야 하는가" 를 한 줄로 답한다.

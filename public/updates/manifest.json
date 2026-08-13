@@ -1,5 +1,5 @@
 {
-  "latest": "1.6.8",
+  "latest": "1.6.9",
   "releases": {
     "1.5.0": {
       "notes": "염도 단위를 퍼밀(‰)로",
@@ -135,6 +135,20 @@
       "sha256": "a765be449c783cfda34625093ae859cbad1060d76f95c4c7ab5a73b59768bad7",
       "size": 68614,
       "signature": "kV96bClf0e8nYIIve8ztvENFgd50t4D6xn30GLJjuC6FOXAso7wIjRdhZjSVFhQMHhDxHaF2HTnqxeDUk8jvBg=="
+    },
+    "1.6.9": {
+      "notes": "전도도 칸 아래에 양액 계산에 쓴 EC(25℃ 환산) 표시",
+      "released_at": "2026-08-13",
+      "setup": {
+        "file": "shrimp365-setup-1.6.9.tar.gz",
+        "sha256": "3c1e5a948b622d391e6f7d971baf45a9c857fcc6a569f04c6d34f6e8cb4ed9e8",
+        "size": 101035,
+        "signature": "DCRo+Z9Ij45+k6+QusvwLC/BLTGtSokNaEpejfRnBzRBTfmGs3+lLdTuR57Nh2RTH8tNbHe2TQPHQQCp8Y4UDA=="
+      },
+      "file": "shrimp365-agent-1.6.9.tar.gz",
+      "sha256": "9d3ab17322415bad8f985d7d37148993bc15943f2eac731499f10e0c4fe5dfc6",
+      "size": 68961,
+      "signature": "S7zCOiYnSfQ3BHvkwSu2PBUDkvbQcud6IYs9AQ2qvdopJsHEYQ0shL93hMpaRCcZANG1l/+EuWatv6B9l61DBQ=="
     }
   }
 }
