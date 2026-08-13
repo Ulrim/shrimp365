@@ -435,7 +435,20 @@ var I18N = {
   wifi_connect_fail:{ko:"연결하지 못했습니다.",en:"Couldn't connect.",vi:"Không kết nối được.",id:"Gagal menyambung."},
   // 언어 설정
   lang_title:{ko:"언어 설정",en:"Language",vi:"Ngôn ngữ",id:"Bahasa"},
-  lang_hint:{ko:"화면 언어를 고르세요",en:"Choose the display language",vi:"Chọn ngôn ngữ hiển thị",id:"Pilih bahasa tampilan"}
+  lang_hint:{ko:"화면 언어를 고르세요",en:"Choose the display language",vi:"Chọn ngôn ngữ hiển thị",id:"Pilih bahasa tampilan"},
+  // 재시작
+  menu_restart:{ko:"재시작",en:"Restart",vi:"Khởi động lại",id:"Mulai ulang"},
+  menu_restart_sub:{ko:"프로그램 다시 시작 · 기기 재부팅",en:"Restart program · Reboot device",vi:"Khởi động lại chương trình · thiết bị",id:"Mulai ulang program · perangkat"},
+  restart_app:{ko:"프로그램 다시 시작",en:"Restart program",vi:"Khởi động lại chương trình",id:"Mulai ulang program"},
+  restart_app_sub:{ko:"측정 프로그램만 다시 켭니다 · 약 15초",en:"Restarts the measuring program only · about 15s",vi:"Chỉ khởi động lại chương trình đo · khoảng 15 giây",id:"Hanya program pengukuran · sekitar 15 detik"},
+  reboot_dev:{ko:"기기 재부팅",en:"Reboot device",vi:"Khởi động lại thiết bị",id:"Mulai ulang perangkat"},
+  reboot_dev_sub:{ko:"기기 전체를 다시 켭니다 · 약 1분",en:"Restarts the whole device · about 1 min",vi:"Khởi động lại toàn bộ thiết bị · khoảng 1 phút",id:"Mulai ulang seluruh perangkat · sekitar 1 menit"},
+  restart_hint:{ko:"측정 기록과 연결 정보는 그대로 유지됩니다.",en:"Measurements and account link are kept.",vi:"Dữ liệu đo và kết nối tài khoản được giữ nguyên.",id:"Data pengukuran dan tautan akun tetap tersimpan."},
+  restart_confirm:{ko:"정말 다시 시작할까요?",en:"Restart now?",vi:"Khởi động lại ngay?",id:"Mulai ulang sekarang?"},
+  restart_yes:{ko:"네, 다시 시작",en:"Yes, restart",vi:"Vâng, khởi động lại",id:"Ya, mulai ulang"},
+  restarting:{ko:"다시 시작하는 중… 잠시 뒤 화면이 돌아옵니다",en:"Restarting… the screen will return shortly",vi:"Đang khởi động lại… màn hình sẽ trở lại",id:"Memulai ulang… layar akan kembali"},
+  rebooting:{ko:"재부팅하는 중… 약 1분 뒤 화면이 돌아옵니다",en:"Rebooting… the screen returns in about a minute",vi:"Đang khởi động lại… khoảng 1 phút",id:"Memulai ulang… sekitar 1 menit"},
+  restart_fail:{ko:"다시 시작하지 못했습니다.",en:"Couldn't restart.",vi:"Không khởi động lại được.",id:"Gagal memulai ulang."}
 };
 
 function t(key, vars){
@@ -760,7 +773,8 @@ function drawSettingsMenu(){
   var items = [
     {t:"menu_sensors", sub:"menu_sensors_sub", fn:"openSensors()"},
     {t:"menu_wifi",    sub:"menu_wifi_sub",    fn:"openWifi()"},
-    {t:"menu_lang",    sub:"menu_lang_sub",    fn:"openLang()"}
+    {t:"menu_lang",    sub:"menu_lang_sub",    fn:"openLang()"},
+    {t:"menu_restart", sub:"menu_restart_sub", fn:"openRestart()"}
   ];
   var rows = items.map(function(it){
     return '<div class="srow" style="cursor:pointer" onclick="' + it.fn + '">' +
@@ -809,6 +823,81 @@ function drawLang(){
         rows +
       '</div>' +
     '</div>';
+}
+
+// ── 재시작 ───────────────────────────────────────────────────────────────────
+// 현장에서 뭔가 멎었을 때 사람이 전원을 뽑지 않고 화면에서 되살릴 수 있게 한다.
+// 전원을 뽑으면 보관 중인 값이 상할 수 있어, 곱게 끝내는 길을 열어 둔다.
+var restartAsk = null;   // null | "app" | "dev"
+
+function openRestart(){ restartAsk = null; drawRestart(); }
+
+function drawRestart(){
+  document.getElementById("wifi").innerHTML = "";
+  var body;
+  if (restartAsk){
+    var isDev = restartAsk === "dev";
+    body =
+      '<div class="wcur">' + t(isDev ? "reboot_dev" : "restart_app") + '<br>' +
+        '<b>' + t("restart_confirm") + '</b></div>' +
+      '<div class="ranges" style="margin-top:8px">' +
+        '<button aria-pressed="true" onclick="doRestart(&quot;' + restartAsk + '&quot;)">' +
+          t("restart_yes") + '</button>' +
+        '<button onclick="restartBack()">' + t("cancel") + '</button>' +
+      '</div>';
+  } else {
+    var rows = [
+      {k:"app", t:"restart_app", sub:"restart_app_sub"},
+      {k:"dev", t:"reboot_dev",  sub:"reboot_dev_sub"}
+    ].map(function(it){
+      return '<div class="srow" style="cursor:pointer" onclick="askRestart(&quot;' + it.k + '&quot;)">' +
+        '<div class="sname">' + t(it.t) + '<div class="sub">' + t(it.sub) + '</div></div>' +
+        '<span style="color:#64748B;font-size:20px;flex:0 0 auto">\u203A</span>' +
+      '</div>';
+    }).join("");
+    body = rows + '<div class="sub" style="margin-top:8px">' + t("restart_hint") + '</div>';
+  }
+  document.getElementById("setup").innerHTML =
+    '<div class="setup">' +
+      '<div class="chead">' +
+        '<span class="ctitle">' + t("menu_restart") + '</span>' +
+        '<button style="margin-left:auto" onclick="drawSettingsMenu()">' + t("back_menu") + '</button>' +
+      '</div>' +
+      '<div class="sbody">' + body + '</div>' +
+    '</div>';
+}
+
+function askRestart(kind){ restartAsk = kind; drawRestart(); }
+function restartBack(){ restartAsk = null; drawRestart(); }
+
+function doRestart(kind){
+  var dev = kind === "dev";
+  // 요청을 보내는 순간 프로그램이 끝나므로 응답을 못 받을 수 있다.
+  // 그래서 성공 화면을 먼저 띄우고, 실패했을 때만 되돌린다.
+  document.getElementById("setup").innerHTML =
+    '<div class="overlay"><h1>' + t(dev ? "rebooting" : "restarting") + '</h1></div>';
+  fetch(dev ? "/api/reboot" : "/api/restart", {method:"POST"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d && d.ok === false){
+        restartAsk = null;
+        drawRestart();
+        setupMsg = null;
+        document.getElementById("setup").innerHTML =
+          '<div class="setup"><div class="chead">' +
+            '<span class="ctitle">' + t("menu_restart") + '</span>' +
+            '<button style="margin-left:auto" onclick="drawSettingsMenu()">' + t("back_menu") + '</button>' +
+          '</div><div class="sbody"><div class="msg err">' +
+            esc(d.error || t("restart_fail")) + '</div></div></div>';
+        return;
+      }
+      // 되살아나면 화면을 새로 읽는다. 프로그램 재시작은 약 15초, 재부팅은 약 1분.
+      setTimeout(function(){ location.reload(); }, dev ? 60000 : 18000);
+    })
+    .catch(function(){
+      // 응답을 못 받은 것은 대개 프로그램이 이미 끝났다는 뜻이다 — 정상이다.
+      setTimeout(function(){ location.reload(); }, dev ? 60000 : 18000);
+    });
 }
 
 function setLang(l){
@@ -1250,6 +1339,8 @@ def serve(
     on_wifi_connect=None,
     language="ko",
     on_set_lang=None,
+    on_restart=None,
+    on_reboot=None,
 ) -> ThreadingHTTPServer | None:
     """상태 페이지를 띄운다. 실패해도 수집은 계속되어야 하므로 None 을 돌려준다."""
 
@@ -1344,6 +1435,12 @@ def serve(
                     return
                 self._send(200, json.dumps(on_wifi_connect(ssid, password)).encode(),
                            "application/json")
+                return
+            if self.path == "/api/restart" and on_restart is not None:
+                self._send(200, json.dumps(on_restart()).encode(), "application/json")
+                return
+            if self.path == "/api/reboot" and on_reboot is not None:
+                self._send(200, json.dumps(on_reboot()).encode(), "application/json")
                 return
             if self.path == "/api/lang" and on_set_lang is not None:
                 body = self._body()

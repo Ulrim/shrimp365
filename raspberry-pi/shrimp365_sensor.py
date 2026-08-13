@@ -26,6 +26,7 @@ import logging
 import os
 import signal
 import struct
+import subprocess
 import sys
 import threading
 import time
@@ -65,7 +66,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.6.5"
+VERSION = "1.6.6"
 log = logging.getLogger("shrimp365")
 
 
@@ -1473,6 +1474,37 @@ def main() -> int:
                 return {"ok": False, "error": "이 기기에서 Wi‑Fi 설정을 지원하지 않습니다."}
             return wifi_mod.connect(ssid, password)
 
+        def ui_restart() -> dict:
+            """프로그램만 다시 시작한다.
+
+            권한이 필요 없다 — 스스로 곱게 끝내면 systemd 가 되살린다
+            (shrimp365-sensor.service 의 Restart=always, RestartSec=15).
+            측정값·보관함은 종료 절차에서 정상적으로 닫힌다.
+            """
+            nonlocal stop
+            log.info("화면에서 프로그램 다시 시작을 요청했습니다.")
+            if state is not None:
+                state.update(status="다시 시작하는 중… 약 15초")
+            stop = True          # 메인 루프가 정리하고 빠져나온다
+            return {"ok": True, "seconds": 15}
+
+        def ui_reboot() -> dict:
+            """기기를 재부팅한다. polkit 규칙으로 이 사용자에게만 열어 두었다."""
+            log.info("화면에서 기기 재부팅을 요청했습니다.")
+            if state is not None:
+                state.update(status="재부팅하는 중… 약 1분")
+            try:
+                res = subprocess.run(["systemctl", "reboot"],
+                                     capture_output=True, text=True, timeout=15)
+            except (OSError, subprocess.SubprocessError) as exc:
+                log.error("재부팅 실패: %s", exc)
+                return {"ok": False, "error": str(exc)[:120]}
+            if res.returncode != 0:
+                msg = (res.stderr or "").strip()[:120]
+                log.error("재부팅 실패: %s", msg)
+                return {"ok": False, "error": msg or "권한이 없어 재부팅하지 못했습니다."}
+            return {"ok": True, "seconds": 60}
+
         def ui_set_lang(lang: str) -> bool:
             """화면 언어를 바꾼다. 화면은 이미 즉시 반영하므로, 여기선 파일에
             남겨 재부팅 후에도 유지되게 한다. 파일 저장이 실패해도 이번 세션은
@@ -1501,6 +1533,8 @@ def main() -> int:
             on_wifi_connect=ui_wifi_connect,
             language=lang_holder["lang"],
             on_set_lang=ui_set_lang,
+            on_restart=ui_restart,
+            on_reboot=ui_reboot,
         )
         state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중",
                      version=VERSION)

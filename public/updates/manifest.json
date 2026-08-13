@@ -1,5 +1,5 @@
 {
-  "latest": "1.6.5",
+  "latest": "1.6.6",
   "releases": {
     "1.5.0": {
       "notes": "염도 단위를 퍼밀(‰)로",
@@ -93,6 +93,20 @@
       "sha256": "cf20bf2ed087433628e024e51221a6c9a3232d9fd6e110d48f4831da37a4975b",
       "size": 58823,
       "signature": "6AbAXyV6/c/BsqEW3ZzRYIQQadZQIP9ezStMAK5xvAXIfcSsR6xBCtYAPoOweCXXIw02VcL9ZApe+EfjojncCA=="
+    },
+    "1.6.6": {
+      "notes": "설정에 재시작 추가 — 프로그램 다시 시작 / 기기 재부팅",
+      "released_at": "2026-08-13",
+      "setup": {
+        "file": "shrimp365-setup-1.6.6.tar.gz",
+        "sha256": "43d45014faea5490b04d70dc315d0cba9c59121132c352cba702f95dbde267d5",
+        "size": 92156,
+        "signature": "tSyklZ83JZjLSYmuQ/OhEG8OhjSemuBLCoPDy3NxkNYYU9+LdJesyZS1DhotXi+jw/zB6eVNJypveDyJawpYAw=="
+      },
+      "file": "shrimp365-agent-1.6.6.tar.gz",
+      "sha256": "1184f92691dd5d9feded44fe7abd9afc8eca6661b5113e29a001401f5c0b8391",
+      "size": 60885,
+      "signature": "pW2WtAfsg475pr06Hsj1DfDka+FOiZSXUQNCwrERmCibLpylOIP+7S+hbkaAUAXOlyraWsDdUzq5Tgk+QgoFDA=="
     }
   }
 }
