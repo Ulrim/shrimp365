@@ -1,5 +1,5 @@
 {
-  "latest": "1.6.7",
+  "latest": "1.6.8",
   "releases": {
     "1.5.0": {
       "notes": "염도 단위를 퍼밀(‰)로",
@@ -121,6 +121,20 @@
       "sha256": "6b373c0492b73b202ba268d2e73b242f2e904c51ea343aa2a3d4b5bb0a7982f6",
       "size": 62898,
       "signature": "GklnGj8jPFx7F1fIxxTWpAgYpnED5PAIMBQDrnIadRaqQ+dR8uxX9mBtGkgJeUsP7ZuRIVCfs4D17d+iK96qDg=="
+    },
+    "1.6.8": {
+      "notes": "양액(수경재배) EC 관리 — 보충량 자동 계산",
+      "released_at": "2026-08-13",
+      "setup": {
+        "file": "shrimp365-setup-1.6.8.tar.gz",
+        "sha256": "25ee37d47126c380360cf1d776b150ad59fd5706cd994833726e2f7448943901",
+        "size": 100692,
+        "signature": "8iBvpS0cVuyLm4q7m7GAcgIpBeBHhM/H/4GaZBw2vCrPRIAj6m6O8edcHPGqRkUjys3G/1VIKPQGL+mPL8a0Cg=="
+      },
+      "file": "shrimp365-agent-1.6.8.tar.gz",
+      "sha256": "a765be449c783cfda34625093ae859cbad1060d76f95c4c7ab5a73b59768bad7",
+      "size": 68614,
+      "signature": "kV96bClf0e8nYIIve8ztvENFgd50t4D6xn30GLJjuC6FOXAso7wIjRdhZjSVFhQMHhDxHaF2HTnqxeDUk8jvBg=="
     }
   }
 }

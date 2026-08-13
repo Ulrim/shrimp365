@@ -66,7 +66,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.6.7"
+VERSION = "1.6.8"
 log = logging.getLogger("shrimp365")
 
 
@@ -524,6 +524,95 @@ def normalize(name: str, value: float, unit: str) -> float | None:
     return round(value, 3)
 
 
+# ── 양액(수경재배) EC 관리 ────────────────────────────────────────────────────
+# EC 로 양액 농도를 보고 보충량을 계산한다. 계산식은 현장에서 쓰던 환산표
+# (쪽파 수경재배 EC 자동계산)를 그대로 옮긴 것이다.
+#
+# 정확도는 전적으로 '교정 EC 상승폭' 에 달려 있다 — 실제 원액·원수로 재서
+# 넣어야 한다. 그래서 실증 전에는 화면에 그 사실을 계속 알린다.
+
+# EC 온도보정 계수 — 25℃ 기준, 1℃ 당 약 2%. 수용액의 통상값이다.
+EC_TEMP_COEFF = 0.02
+
+
+def ec_at_25c(ec_ms: float, water_temp: float | None) -> float:
+    """측정 EC 를 25℃ 기준으로 환산한다(ATC).
+
+    센서가 스스로 보정하는 모델이면 이 함수를 쓰지 않는다(이중 보정 방지).
+    수온을 모르면 그대로 돌려준다 — 억지로 보정하는 것보다 낫다.
+    """
+    if water_temp is None:
+        return ec_ms
+    denom = 1.0 + EC_TEMP_COEFF * (water_temp - 25.0)
+    if denom <= 0.1:          # 말이 안 되는 수온 — 보정하지 않는다
+        return ec_ms
+    return ec_ms / denom
+
+
+def nutrient_plan(conductivity_us: float | None, water_temp: float | None,
+                  cfg: dict) -> dict | None:
+    """지금 EC 로 양액을 어떻게 손봐야 하는지 계산한다.
+
+    돌려주는 것: 상대농도(%), 판단(low|ok|high), 보충량(A·B mL) 또는 교환량(L).
+    계산할 수 없으면 None — 화면은 아무것도 띄우지 않는다.
+    """
+    if not cfg.get("enabled") or conductivity_us is None:
+        return None
+
+    ec = conductivity_us / 1000.0                      # uS/cm → mS/cm
+    if cfg.get("atc", True):
+        ec = ec_at_25c(ec, water_temp)
+
+    target = float(cfg.get("target_ec", 1.8))
+    source = float(cfg.get("source_ec", 0.3))
+    span = target - source
+    if span <= 0:                                      # 설정이 어긋났다
+        return {"error": "target_lte_source", "ec": round(ec, 2)}
+
+    # 상대농도 — 원수 자체의 전도도를 뺀, 양액 성분만의 농도.
+    percent = (ec - source) / span * 100.0
+
+    out = {
+        "ec": round(ec, 2),
+        "target": round(target, 2),
+        "percent": round(max(percent, 0.0), 1),
+        "atc": bool(cfg.get("atc", True)),
+    }
+
+    # 목표에 못 미치면 보충, 넘으면 원수로 교환. 사이면 그대로 둔다.
+    # 0.05 mS/cm 는 센서 흔들림 수준이라 그 안쪽은 건드리지 않는다.
+    DEADBAND = 0.05
+    if ec < target - DEADBAND:
+        rise = target - ec
+        cal_rise = float(cfg.get("cal_ec_rise", 0.05))
+        cal_ml = float(cfg.get("cal_ml", 10))
+        cal_liters = float(cfg.get("cal_liters", 100))
+        tank = float(cfg.get("tank_liters", 1000))
+        if cal_rise <= 0 or cal_liters <= 0:
+            return {**out, "verdict": "low", "error": "bad_calibration"}
+        total_ml = rise / cal_rise * cal_ml * tank / cal_liters
+        a_ratio = min(max(float(cfg.get("a_ratio", 50)), 0.0), 100.0)
+        out.update({
+            "verdict": "low",
+            "need_rise": round(rise, 2),
+            "dose_total": round(total_ml),
+            "dose_a": round(total_ml * a_ratio / 100.0),
+            "dose_b": round(total_ml * (100.0 - a_ratio) / 100.0),
+        })
+    elif ec > target + DEADBAND:
+        tank = float(cfg.get("tank_liters", 1000))
+        gap = ec - source
+        if gap <= 0:
+            return {**out, "verdict": "high", "error": "bad_source"}
+        out.update({
+            "verdict": "high",
+            "exchange_l": round(tank * (ec - target) / gap),
+        })
+    else:
+        out["verdict"] = "ok"
+    return out
+
+
 # ── 수집 ──────────────────────────────────────────────────────────────────────
 
 def read_all(client: ModbusClient, enabled: dict[str, int],
@@ -850,6 +939,48 @@ def save_ec_mode(config_path: Path, mode: str, unit: str) -> bool:
         return False
 
 
+def save_nutrient(config_path: Path, values: dict) -> bool:
+    """양액 설정을 [nutrient] 구간에 적는다. 없는 항목은 새로 끼워 넣는다."""
+    try:
+        lines = config_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    except OSError:
+        return False
+
+    wanted = {k: ("true" if v is True else "false" if v is False else f"{v:g}")
+              for k, v in values.items()}
+    seen: set[str] = set()
+    in_sec = False
+    insert_at = None
+    for i, line in enumerate(lines):
+        stripped = line.strip().lower()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if in_sec and insert_at is None:
+                insert_at = i
+            in_sec = stripped == "[nutrient]"
+            continue
+        if in_sec:
+            for key, val in wanted.items():
+                if stripped.startswith(key) and "=" in line:
+                    lines[i] = f"{key} = {val}\n"
+                    seen.add(key)
+    missing = [f"{k} = {v}\n" for k, v in wanted.items() if k not in seen]
+    if missing:
+        if insert_at is not None:
+            lines[insert_at:insert_at] = missing
+        elif in_sec:
+            lines.extend(missing)
+        else:
+            # [nutrient] 구간이 아예 없는 예전 설정 파일 — 끝에 만들어 붙인다.
+            lines.append("\n[nutrient]\n")
+            lines.extend(missing)
+    try:
+        config_path.write_text("".join(lines), encoding="utf-8")
+        os.chmod(config_path, 0o600)
+        return True
+    except OSError:
+        return False
+
+
 def save_device_key(config_path: Path, key: str) -> bool:
     """받은 기기 키를 설정 파일에 적는다.
 
@@ -1084,6 +1215,23 @@ def main() -> int:
     ec_holder = {
         "mode": _mode if _mode in ("salinity", "conductivity") else "salinity",
         "unit": _unit if _unit in ("us", "ms") else "us",
+    }
+    # 양액 관리 설정. 화면에서 바꿀 수 있어 값 하나를 여러 곳에서 함께 본다.
+    def _nf(key, default):
+        try:
+            return cfg.getfloat("nutrient", key, fallback=default)
+        except ValueError:
+            return default
+    nut_holder = {
+        "enabled": cfg.getboolean("nutrient", "enabled", fallback=False),
+        "target_ec": _nf("target_ec", 1.8),
+        "source_ec": _nf("source_ec", 0.3),
+        "tank_liters": _nf("tank_liters", 1000),
+        "cal_ml": _nf("cal_ml", 10),
+        "cal_liters": _nf("cal_liters", 100),
+        "cal_ec_rise": _nf("cal_ec_rise", 0.05),
+        "a_ratio": _nf("a_ratio", 50),
+        "atc": cfg.getboolean("nutrient", "atc", fallback=True),
     }
 
     # 슬레이브 ID 변경. 같은 ID 를 쓰는 센서가 둘일 때 쓴다.
@@ -1543,6 +1691,45 @@ def main() -> int:
                 return {"ok": False, "error": "이 기기에서 Wi‑Fi 설정을 지원하지 않습니다."}
             return wifi_mod.connect(ssid, password)
 
+        def ui_nutrient() -> dict:
+            return dict(nut_holder)
+
+        def ui_save_nutrient(payload: dict) -> dict:
+            """화면에서 고친 양액 설정을 적용하고 파일에도 남긴다."""
+            LIMITS = {
+                "target_ec":   (0.1, 20.0),
+                "source_ec":   (0.0, 20.0),
+                "tank_liters": (1.0, 1_000_000.0),
+                "cal_ml":      (0.1, 100_000.0),
+                "cal_liters":  (0.1, 100_000.0),
+                "cal_ec_rise": (0.001, 20.0),
+                "a_ratio":     (0.0, 100.0),
+            }
+            new_vals: dict = {}
+            for key, (lo, hi) in LIMITS.items():
+                if key not in payload:
+                    continue
+                try:
+                    val = float(payload[key])
+                except (TypeError, ValueError):
+                    return {"ok": False, "error": f"{key}: 숫자가 아닙니다"}
+                if not lo <= val <= hi:
+                    return {"ok": False, "error": f"{key}: {lo:g}~{hi:g} 사이여야 합니다"}
+                new_vals[key] = val
+
+            if new_vals.get("target_ec", nut_holder["target_ec"]) <= \
+               new_vals.get("source_ec", nut_holder["source_ec"]):
+                return {"ok": False, "error": "목표 EC 는 원수 EC 보다 커야 합니다."}
+
+            for flag in ("enabled", "atc"):
+                if flag in payload:
+                    new_vals[flag] = bool(payload[flag])
+
+            nut_holder.update(new_vals)
+            saved = save_nutrient(args.config, dict(nut_holder))
+            log.info("화면에서 양액 설정을 바꿨습니다: %s (파일 저장 %s)", new_vals, saved)
+            return {"ok": True, "saved": saved}
+
         def ui_restart() -> dict:
             """프로그램만 다시 시작한다.
 
@@ -1604,6 +1791,8 @@ def main() -> int:
             on_set_lang=ui_set_lang,
             on_restart=ui_restart,
             on_reboot=ui_reboot,
+            get_nutrient=ui_nutrient,
+            on_save_nutrient=ui_save_nutrient,
         )
         state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중",
                      version=VERSION, ec_unit=ec_holder["unit"])
@@ -1651,6 +1840,7 @@ def main() -> int:
         if not values:
             log.error("읽은 값이 없습니다. 배선·전원·슬레이브 ID를 확인하세요. %s", errors)
             status_line = "SENSOR ERROR"
+            nutrient = None          # 값이 없으면 양액 안내도 띄우지 않는다
         else:
             stored = {k: v for k, v in values.items() if k in STORED_FIELDS}
             extra = {k: v for k, v in values.items() if k not in STORED_FIELDS}
@@ -1659,6 +1849,10 @@ def main() -> int:
             last_values = values
             if hist is not None:
                 hist.record(values)
+
+            # 양액 보충량 — 켜져 있고 전도도가 있을 때만. 화면이 이 값을 띄운다.
+            nutrient = nutrient_plan(values.get("conductivity"),
+                                     values.get("temperature"), nut_holder)
 
             if args.dry_run:
                 print(json.dumps(values, ensure_ascii=False, indent=2))
@@ -1711,6 +1905,7 @@ def main() -> int:
         if state is not None:
             state.update(
                 values=last_values,
+                nutrient=nutrient,
                 status=status_line,
                 errors=errors,
                 linked=bool(auth["key"]),

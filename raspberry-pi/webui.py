@@ -50,6 +50,7 @@ class State:
             "pair_error": None,
 
             "ec_unit": "us",       # 전도도 표시 단위(us|ms). 화면이 값을 바꿔 보여 준다.
+            "nutrient": None,      # 양액 보충 안내(켜 둔 경우에만)
         }
 
     def update(self, **kwargs) -> None:
@@ -96,10 +97,10 @@ PAGE = """<!doctype html>
   .chip.off{border-color:#D97706;color:#F59E0B}
   .chip.hold{border-color:#3B82F6;color:#60A5FA}
 
-  main{flex:1;display:flex;align-items:center;justify-content:center;padding:10px 16px;min-height:0}
+  main{flex:1;display:flex;flex-direction:column;justify-content:center;padding:10px 16px;min-height:0}
 
   /* 측정값 — 2×2 */
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;width:100%;height:100%}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;width:100%;flex:1;min-height:0}
   .cell{
     background:#111A2E;border:1px solid #22304C;border-radius:14px;
     padding:10px 18px;display:flex;flex-direction:column;justify-content:center;
@@ -116,6 +117,20 @@ PAGE = """<!doctype html>
   .cell{cursor:pointer}
   .cell:active{background:#16223C}
   .tap{font-size:11px;color:#475569;font-weight:600}
+
+  /* 양액 안내 띠 — 계기판 아래 한 줄 */
+  .nut{
+    flex:0 0 auto;margin-top:9px;padding:9px 14px;border-radius:12px;
+    display:flex;align-items:center;gap:12px;
+    background:#111A2E;border:1px solid #22304C;
+  }
+  .nut.low{border-color:#1E40AF;background:#1E40AF18}
+  .nut.high{border-color:#D97706;background:#D9770618}
+  .nut.ok{border-color:#10B981;background:#10B98112}
+  .nut .head{font-size:14px;font-weight:800;flex:0 0 auto}
+  .nut .dose{font:800 26px/1 ui-monospace,monospace;letter-spacing:-.01em}
+  .nut .dose small{font-size:13px;font-weight:600;color:#94A3B8;margin-left:3px}
+  .nut .meta{margin-left:auto;font-size:12px;color:#94A3B8;text-align:right;line-height:1.5}
 
   /* 설정 화면 */
   .setup{
@@ -327,8 +342,18 @@ function orderFor(d){
   return ["temperature","ph","do_level",fourth];
 }
 
+// 양액(수경재배)에서는 적정 범위가 새우와 전혀 다르다. 새우 기준을 그대로
+// 쓰면 정상값(수온 24℃, pH 6.2)이 온통 빨갛게 떠 경고가 무의미해진다.
+// 양액 관리를 켠 장비에서는 이 기준으로 바꿔 본다.
+var NUT_RANGES = {
+  temperature: {ok:[18,26], warn:[15,30]},
+  ph:          {ok:[5.5,6.5], warn:[5.0,7.0]}
+};
+var nutMode = false;   // 계기판이 매번 갱신할 때 함께 정한다
+
 function level(key, v){
-  var r = RANGES[key]; if(!r || !r.ok) return "";
+  var r = (nutMode && NUT_RANGES[key]) ? NUT_RANGES[key] : RANGES[key];
+  if(!r || !r.ok) return "";
   if(v >= r.ok[0] && v <= r.ok[1]) return "";
   if(v >= r.warn[0] && v <= r.warn[1]) return "warn";
   return "crit";
@@ -429,6 +454,30 @@ var I18N = {
   n_do:{ko:"용존산소",en:"Dissolved O₂",vi:"Oxy hòa tan",id:"Oksigen"},
   n_ec:{ko:"전도도 / 염도",en:"Conductivity / Salinity",vi:"Độ dẫn / Độ mặn",id:"Konduktivitas / Salinitas"},
   n_ec_only:{ko:"전도도",en:"Conductivity",vi:"Độ dẫn",id:"Konduktivitas"},
+  // 양액
+  menu_nutrient:{ko:"양액 설정",en:"Nutrient solution",vi:"Dung dịch dinh dưỡng",id:"Larutan nutrisi"},
+  menu_nutrient_sub:{ko:"EC 로 농도 보고 보충량 계산",en:"Dosing from EC readings",vi:"Tính lượng bổ sung theo EC",id:"Hitung dosis dari EC"},
+  nut_use:{ko:"양액 관리 사용",en:"Use nutrient management",vi:"Dùng quản lý dinh dưỡng",id:"Pakai manajemen nutrisi"},
+  nut_use_sub:{ko:"켜면 계기판에 보충량이 뜹니다",en:"Shows dosing on the dashboard",vi:"Hiện lượng bổ sung trên bảng đo",id:"Menampilkan dosis di dasbor"},
+  nut_target:{ko:"목표 EC",en:"Target EC",vi:"EC mục tiêu",id:"EC target"},
+  nut_source:{ko:"원수 EC",en:"Source water EC",vi:"EC nước nguồn",id:"EC air baku"},
+  nut_tank:{ko:"탱크 용량",en:"Tank volume",vi:"Dung tích bể",id:"Volume tangki"},
+  nut_cal_ml:{ko:"교정 투입량",en:"Calibration dose",vi:"Lượng hiệu chuẩn",id:"Dosis kalibrasi"},
+  nut_cal_l:{ko:"교정 기준수량",en:"Calibration volume",vi:"Thể tích hiệu chuẩn",id:"Volume kalibrasi"},
+  nut_cal_rise:{ko:"교정 EC 상승폭",en:"Calibration EC rise",vi:"Mức tăng EC hiệu chuẩn",id:"Kenaikan EC kalibrasi"},
+  nut_a_ratio:{ko:"A액 비율",en:"A-solution ratio",vi:"Tỉ lệ dung dịch A",id:"Rasio larutan A"},
+  nut_atc:{ko:"수온 보정(25℃)",en:"Temp. compensation (25℃)",vi:"Bù nhiệt (25℃)",id:"Kompensasi suhu (25℃)"},
+  nut_atc_sub:{ko:"센서가 스스로 보정하면 끄세요",en:"Turn off if the sensor already compensates",vi:"Tắt nếu cảm biến đã tự bù",id:"Matikan bila sensor sudah mengompensasi"},
+  nut_cal_hint:{ko:"교정값은 실제 원액·원수로 재서 넣어야 보충량이 맞습니다. 시험 수조에 원수를 담고 원액을 정량 투입해 오른 EC 를 재세요.",en:"Calibration must be measured with your own stock solution and source water, or the dose will be off. Dose a test tank and measure the EC rise.",vi:"Phải hiệu chuẩn bằng dung dịch và nước thực tế, nếu không lượng bổ sung sẽ sai. Đo mức tăng EC trong bể thử.",id:"Kalibrasi harus diukur dengan larutan dan air Anda sendiri, jika tidak dosis akan meleset. Ukur kenaikan EC di tangki uji."},
+  nut_ec_note:{ko:"EC 는 전체 이온의 대리지표라 N·P·K 개별 농도를 뜻하지 않습니다.",en:"EC is a proxy for total ions — it does not give individual N/P/K levels.",vi:"EC chỉ là chỉ số tổng ion — không cho biết N/P/K riêng lẻ.",id:"EC hanya proksi total ion — bukan kadar N/P/K masing-masing."},
+  nut_saved:{ko:"저장했습니다.",en:"Saved.",vi:"Đã lưu.",id:"Tersimpan."},
+  // 계기판 안내
+  nut_low:{ko:"양액 보충",en:"Add nutrient",vi:"Bổ sung dinh dưỡng",id:"Tambah nutrisi"},
+  nut_high:{ko:"농도 높음 — 원수 교환",en:"Too strong — exchange with source water",vi:"Quá đậm — thay bằng nước nguồn",id:"Terlalu pekat — tukar air baku"},
+  nut_ok:{ko:"양액 농도 적정",en:"Nutrient level OK",vi:"Nồng độ đạt",id:"Konsentrasi pas"},
+  nut_conc:{ko:"농도",en:"Conc.",vi:"Nồng độ",id:"Konsentrasi"},
+  nut_need_cal:{ko:"교정값을 확인하세요",en:"Check calibration values",vi:"Kiểm tra giá trị hiệu chuẩn",id:"Periksa nilai kalibrasi"},
+  nut_bad_cfg:{ko:"목표 EC 가 원수 EC 보다 커야 합니다",en:"Target EC must exceed source EC",vi:"EC mục tiêu phải lớn hơn EC nguồn",id:"EC target harus melebihi EC baku"},
   ec_measure:{ko:"EC 센서 측정 항목",en:"EC sensor measures",vi:"Cảm biến EC đo",id:"Sensor EC mengukur"},
   ec_measure_sub:{ko:"이 센서로 무엇을 잴지 고릅니다",en:"Choose what this sensor reports",vi:"Chọn giá trị cảm biến báo về",id:"Pilih nilai yang dilaporkan"},
   ec_salinity:{ko:"염도",en:"Salinity",vi:"Độ mặn",id:"Salinitas"},
@@ -491,6 +540,7 @@ function mlabel(key){
 
 // 측정값은 언제나 이 화면이다. 연결 여부와 무관하다.
 function renderValues(d){
+  nutMode = !!d.nutrient;
   var cells = orderFor(d).map(function(key){
     var r = RANGES[key];
     var has = d.values && typeof d.values[key] === "number";
@@ -505,7 +555,35 @@ function renderValues(d){
            '<div class="k">' + mlabel(key) + ' <span class="tap">' + t("graph") + ' ›</span></div>' +
            '<div class="v">' + v + (r.unit ? '<small>' + (ms ? "mS/cm" : r.unit) + '</small>' : '') + '</div></div>';
   }).join("");
-  return '<div class="grid">' + cells + '</div>';
+  return '<div class="grid">' + cells + '</div>' + renderNutrient(d);
+}
+
+// 양액 안내 — 켜 두었을 때만. "지금 얼마를 넣어야 하는가" 를 한 줄로 답한다.
+function renderNutrient(d){
+  var n = d.nutrient;
+  if (!n) return "";
+  if (n.error === "target_lte_source") {
+    return '<div class="nut high"><span class="head">' + t("nut_bad_cfg") + '</span></div>';
+  }
+  var meta = '<span class="meta">EC ' + n.ec + ' / ' + n.target + ' mS/cm<br>' +
+             t("nut_conc") + ' ' + n.percent + '%</span>';
+  if (n.verdict === "low") {
+    if (n.error === "bad_calibration") {
+      return '<div class="nut high"><span class="head">' + t("nut_need_cal") + '</span>' + meta + '</div>';
+    }
+    return '<div class="nut low">' +
+      '<span class="head">' + t("nut_low") + '</span>' +
+      '<span class="dose">A ' + n.dose_a + '<small>mL</small></span>' +
+      '<span class="dose">B ' + n.dose_b + '<small>mL</small></span>' +
+      meta + '</div>';
+  }
+  if (n.verdict === "high") {
+    return '<div class="nut high">' +
+      '<span class="head">' + t("nut_high") + '</span>' +
+      '<span class="dose">' + (n.exchange_l !== undefined ? n.exchange_l : "--") + '<small>L</small></span>' +
+      meta + '</div>';
+  }
+  return '<div class="nut ok"><span class="head">' + t("nut_ok") + '</span>' + meta + '</div>';
 }
 
 // 연결 상태 — 어느 계정·수조에 붙어 있는지
@@ -799,6 +877,7 @@ function drawSettingsMenu(){
     {t:"menu_sensors", sub:"menu_sensors_sub", fn:"openSensors()"},
     {t:"menu_wifi",    sub:"menu_wifi_sub",    fn:"openWifi()"},
     {t:"menu_lang",    sub:"menu_lang_sub",    fn:"openLang()"},
+    {t:"menu_nutrient", sub:"menu_nutrient_sub", fn:"openNutrient()"},
     {t:"menu_restart", sub:"menu_restart_sub", fn:"openRestart()"}
   ];
   var rows = items.map(function(it){
@@ -848,6 +927,129 @@ function drawLang(){
         rows +
       '</div>' +
     '</div>';
+}
+
+// ── 양액 설정 ────────────────────────────────────────────────────────────────
+// 수경재배용. EC 로 양액 농도를 보고 보충량을 계산해 계기판에 띄운다.
+// 숫자는 소수점까지 자유롭게 넣어야 해서(1.8, 0.05 …) 스테퍼 대신 숫자판을 쓴다.
+var nutData = null, nutMsg = null, nutEdit = null, nutBuf = "";
+
+var NUT_FIELDS = [
+  {k:"target_ec",   t:"nut_target",   unit:"mS/cm"},
+  {k:"source_ec",   t:"nut_source",   unit:"mS/cm"},
+  {k:"tank_liters", t:"nut_tank",     unit:"L"},
+  {k:"cal_ml",      t:"nut_cal_ml",   unit:"mL"},
+  {k:"cal_liters",  t:"nut_cal_l",    unit:"L"},
+  {k:"cal_ec_rise", t:"nut_cal_rise", unit:"mS/cm"},
+  {k:"a_ratio",     t:"nut_a_ratio",  unit:"%"}
+];
+
+function openNutrient(){
+  nutMsg = null; nutEdit = null;
+  fetch("/api/nutrient", {cache:"no-store"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ nutData = d; drawNutrient(); })
+    .catch(function(){ alert(t("load_fail")); });
+}
+
+function drawNutrient(){
+  if (!nutData) return;
+  document.getElementById("wifi").innerHTML = "";
+  var body;
+
+  if (nutEdit){
+    // 숫자판 — 고른 항목 하나만 고친다.
+    var f = NUT_FIELDS.filter(function(x){ return x.k === nutEdit; })[0];
+    var keys = ["1","2","3","4","5","6","7","8","9",".","0","back"];
+    var pad = keys.map(function(k){
+      var label = k === "back" ? "\u232B" : k;
+      return '<button onclick="nutKey(&quot;' + k + '&quot;)">' + label + '</button>';
+    });
+    var rows = "";
+    for (var i = 0; i < 4; i++){
+      rows += '<div class="krow">' + pad.slice(i*3, i*3+3).join("") + '</div>';
+    }
+    body =
+      '<div class="wcur">' + t(f.t) + ' <span class="sub">' + f.unit + '</span><br>' +
+        '<b style="font-size:24px;font-family:ui-monospace,monospace">' +
+          (nutBuf || "0") + '</b></div>' +
+      '<div class="kbd" style="max-width:330px">' + rows +
+        '<div class="krow">' +
+          '<button class="wide" onclick="nutCancel()">' + t("cancel") + '</button>' +
+          '<button class="go" onclick="nutApply()">' + t("save") + '</button>' +
+        '</div>' +
+      '</div>';
+  } else {
+    var msg = nutMsg ? '<div class="msg ' + nutMsg.kind + '">' + esc(nutMsg.text) + '</div>' : "";
+    var onoff = function(key, label, sub){
+      var on = !!nutData[key];
+      return '<div class="srow">' +
+        '<div class="sname">' + t(label) +
+          (sub ? '<div class="sub">' + t(sub) + '</div>' : '') + '</div>' +
+        '<button class="toggle' + (on ? " on" : "") + '" onclick="nutToggle(&quot;' + key + '&quot;)">' +
+          (on ? t("on") : t("off")) + '</button>' +
+      '</div>';
+    };
+    var rows2 = NUT_FIELDS.map(function(f){
+      var v = nutData[f.k];
+      return '<div class="srow" style="cursor:pointer" onclick="nutOpenKey(&quot;' + f.k + '&quot;)">' +
+        '<div class="sname">' + t(f.t) + '</div>' +
+        '<div class="num" style="width:auto;padding:0 12px">' + v + '</div>' +
+        '<span class="sub" style="width:52px">' + f.unit + '</span>' +
+      '</div>';
+    }).join("");
+    body = msg + onoff("enabled", "nut_use", "nut_use_sub") + rows2 +
+      onoff("atc", "nut_atc", "nut_atc_sub") +
+      '<div class="msg err" style="margin-top:8px">' + t("nut_cal_hint") + '</div>' +
+      '<div class="sub">' + t("nut_ec_note") + '</div>';
+  }
+
+  document.getElementById("setup").innerHTML =
+    '<div class="setup">' +
+      '<div class="chead">' +
+        '<span class="ctitle">' + t("menu_nutrient") + '</span>' +
+        '<button style="margin-left:auto" onclick="' +
+          (nutEdit ? "nutCancel()" : "drawSettingsMenu()") + '">' +
+          (nutEdit ? t("back_list") : t("back_menu")) + '</button>' +
+      '</div>' +
+      '<div class="sbody">' + body + '</div>' +
+      (nutEdit ? '' :
+        '<div class="ranges sfoot">' +
+          '<button onclick="saveNutrient()" aria-pressed="true">' + t("save") + '</button>' +
+        '</div>') +
+    '</div>';
+}
+
+function nutToggle(key){ nutData[key] = !nutData[key]; drawNutrient(); }
+function nutOpenKey(k){ nutEdit = k; nutBuf = String(nutData[k]); drawNutrient(); }
+function nutCancel(){ nutEdit = null; nutBuf = ""; drawNutrient(); }
+function nutKey(k){
+  if (k === "back") nutBuf = nutBuf.slice(0, -1);
+  else if (k === "." ) { if (nutBuf.indexOf(".") < 0) nutBuf += (nutBuf || "0") === "0" && !nutBuf ? "0." : "."; }
+  else nutBuf = (nutBuf === "0" ? "" : nutBuf) + k;
+  if (nutBuf.length > 9) nutBuf = nutBuf.slice(0, 9);
+  drawNutrient();
+}
+function nutApply(){
+  var v = parseFloat(nutBuf);
+  if (!isNaN(v)) nutData[nutEdit] = v;
+  nutEdit = null; nutBuf = "";
+  drawNutrient();
+}
+
+function saveNutrient(){
+  fetch("/api/nutrient/save", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify(nutData)
+  })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      nutMsg = d && d.ok
+        ? {kind:"ok", text: d.saved ? t("nut_saved") : t("saved_mem")}
+        : {kind:"err", text:(d && d.error) || t("save_fail")};
+      drawNutrient();
+    })
+    .catch(function(){ nutMsg = {kind:"err", text:t("save_fail")}; drawNutrient(); });
 }
 
 // ── 재시작 ───────────────────────────────────────────────────────────────────
@@ -1400,6 +1602,8 @@ def serve(
     on_set_lang=None,
     on_restart=None,
     on_reboot=None,
+    get_nutrient=None,
+    on_save_nutrient=None,
 ) -> ThreadingHTTPServer | None:
     """상태 페이지를 띄운다. 실패해도 수집은 계속되어야 하므로 None 을 돌려준다."""
 
@@ -1428,6 +1632,8 @@ def serve(
                 self._history()
             elif self.path == "/api/sensors" and get_sensors is not None:
                 self._send(200, json.dumps(get_sensors()).encode(), "application/json")
+            elif self.path == "/api/nutrient" and get_nutrient is not None:
+                self._send(200, json.dumps(get_nutrient()).encode(), "application/json")
             elif self.path == "/api/wifi" and get_wifi is not None:
                 self._send(200, json.dumps(get_wifi()).encode(), "application/json")
             elif self.path in ("/", "/index.html"):
@@ -1493,6 +1699,10 @@ def serve(
                                "application/json")
                     return
                 self._send(200, json.dumps(on_wifi_connect(ssid, password)).encode(),
+                           "application/json")
+                return
+            if self.path == "/api/nutrient/save" and on_save_nutrient is not None:
+                self._send(200, json.dumps(on_save_nutrient(self._body())).encode(),
                            "application/json")
                 return
             if self.path == "/api/restart" and on_restart is not None:
