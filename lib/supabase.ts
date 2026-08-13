@@ -53,6 +53,7 @@ export type DbWaterQuality = {
   nitrate: number | null
   alkalinity: number | null
   turbidity: number | null
+  conductivity?: number | null
   recorded_at: string
   created_at: string
 }

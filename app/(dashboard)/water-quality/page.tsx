@@ -124,6 +124,8 @@ function buildChartData(readings: WaterQualityReading[], locale: Locale, last24h
     nitrate:     Number(r.nitrate.toFixed(1)),
     alkalinity:  Number(r.alkalinity.toFixed(1)),
     turbidity:   Number(r.turbidity.toFixed(1)),
+    // 전도도는 안 쓰는 농장이 많아 값이 있을 때만 점을 찍는다(선이 0 으로 처지지 않게).
+    conductivity: typeof r.conductivity === "number" ? Math.round(r.conductivity) : null,
   }})
 }
 
@@ -304,6 +306,30 @@ function NitrogenChart({ chartData, fill = false, big = false }: { chartData: Re
         <Line type="monotone" dataKey="ammonia" name={t.waterQuality.ammonia} stroke="#f97316" strokeWidth={big ? 3.5 : 2} dot={false} activeDot={{ r: big ? 6 : 4 }} />
         <Line type="monotone" dataKey="nitrite" name={t.waterQuality.nitrite} stroke="#ec4899" strokeWidth={big ? 3.5 : 2} dot={false} activeDot={{ r: big ? 6 : 4 }} />
         <Line type="monotone" dataKey="nitrate" name={t.waterQuality.nitrate} stroke="#84cc16" strokeWidth={big ? 3.5 : 2} dot={false} activeDot={{ r: big ? 6 : 4 }} />
+      </LineChart>
+    </ResponsiveContainer>
+  )
+}
+
+// 전도도(EC) — 해수 약 50,000 uS/cm, 양액 1~3 mS/cm 로 쓰는 곳마다 적정값이
+// 달라 기준선을 긋지 않는다. 값의 흐름만 보여 준다.
+function ConductivityChart({ chartData, fill = false, big = false }: { chartData: ReturnType<typeof buildChartData>; fill?: boolean; big?: boolean }) {
+  const { t } = useT()
+  const fs = big ? 17 : 11
+  return (
+    <ResponsiveContainer width="100%" height={fill ? "100%" : 260}>
+      <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={big ? 140 : 100} />
+        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} width={big ? 78 : 60} />
+        <Tooltip
+          contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px", fontSize: big ? 16 : 12 }}
+          labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+          itemStyle={{ color: "hsl(var(--foreground))" }}
+          formatter={(v) => [`${v} µS/cm`, t.waterQualityX.conductivity]}
+        />
+        <Line type="monotone" dataKey="conductivity" name={t.waterQualityX.conductivity}
+          stroke="#22d3ee" strokeWidth={big ? 3.5 : 2} dot={false} connectNulls activeDot={{ r: big ? 6 : 4 }} />
       </LineChart>
     </ResponsiveContainer>
   )
@@ -531,6 +557,9 @@ export default function WaterQualityPage() {
   )
   const latest = useMemo(() => (readings.length ? readings[readings.length - 1] : null), [readings])
   const chartData = useMemo(() => buildChartData(readings, locale, false), [readings, locale])
+  // 전도도를 쓰는 농장(EC 센서를 전도도 모드로 둔 곳)에서만 탭을 보여 준다.
+  const hasConductivity = useMemo(
+    () => readings.some(r => typeof r.conductivity === "number"), [readings])
 
   // 센서별 비교 그래프 데이터 — 활성 센서가 2대 이상일 때만 만든다.
   const activeDevices = useMemo(() => tankDevices.filter(d => d.active), [tankDevices])
@@ -568,6 +597,8 @@ export default function WaterQualityPage() {
       [`${t.waterQuality.nitrate}(mg/L)`]: r.nitrate,
       [`${t.waterQuality.alkalinity}(mg/L)`]: r.alkalinity,
       [`${t.waterQuality.turbidity}(NTU)`]: r.turbidity,
+      // 전도도를 쓰는 농장에서만 값이 있다. 안 쓰면 빈 칸으로 둔다.
+      ...(hasConductivity ? { [`${t.waterQualityX.conductivity}(µS/cm)`]: r.conductivity ?? "" } : {}),
     }))
     exportToCsv(rows, `${t.waterQualityX.csvFilePrefix}_${selectedTank.name}_${new Date().toISOString().split("T")[0]}`)
   }
@@ -1035,6 +1066,7 @@ export default function WaterQualityPage() {
                   <TabsTrigger value="nitrate"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.nitrate}</TabsTrigger>
                   <TabsTrigger value="alkalinity" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.alkalinity}</TabsTrigger>
                   <TabsTrigger value="turbidity"  className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.turbidity}</TabsTrigger>
+                  {hasConductivity && <TabsTrigger value="conductivity" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.conductivity}</TabsTrigger>}
                 </TabsList>
 
                 <TabsContent value="overview">
@@ -1113,6 +1145,26 @@ export default function WaterQualityPage() {
                   </TabsContent>
                   )
                 })}
+
+                {hasConductivity && (
+                  <TabsContent value="conductivity">
+                    {chartData.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground/60">
+                        <Waves className="w-10 h-10" aria-hidden="true" />
+                        <p className="text-sm">{t.waterQualityX.noChartData}</p>
+                      </div>
+                    ) : (
+                      <div aria-label={t.waterQualityX.conductivity} role="img"
+                        className={fullChart === "main" ? "h-[calc(100vh-280px)]" : undefined}>
+                        <ConductivityChart chartData={chartData}
+                          fill={fullChart === "main"} big={fullChart === "main" && boardMode} />
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-2 text-center">
+                      {t.waterQualityX.conductivityCaption}
+                    </p>
+                  </TabsContent>
+                )}
               </Tabs>
             </CardContent>
           </Card>

@@ -41,6 +41,9 @@ function toWaterQuality(w: DbWaterQuality): WaterQualityReading {
     nitrate: w.nitrate ?? 0,
     alkalinity: w.alkalinity ?? 0,
     turbidity: w.turbidity ?? 0,
+    // 전도도는 안 쓰는 농장이 대부분이라 0 으로 채우지 않는다 —
+    // 0 으로 두면 "쟀는데 0" 과 "안 쟀다" 가 구분되지 않는다.
+    conductivity: w.conductivity ?? null,
     recorded_at: w.recorded_at,
     created_at: w.created_at,
   }
@@ -193,6 +196,7 @@ type WqSeriesRow = {
   temperature: number | null; ph: number | null; do_level: number | null
   salinity: number | null; ammonia: number | null; nitrite: number | null
   nitrate: number | null; alkalinity: number | null; turbidity: number | null
+  conductivity?: number | null
 }
 
 export async function getWaterQuality(tankId: string, hours = 168, deviceId?: string | null): Promise<WaterQualityReading[]> {
@@ -210,6 +214,7 @@ export async function getWaterQuality(tankId: string, hours = 168, deviceId?: st
       temperature: r.temperature, ph: r.ph, do_level: r.do_level,
       salinity: r.salinity, ammonia: r.ammonia, nitrite: r.nitrite,
       nitrate: r.nitrate, alkalinity: r.alkalinity, turbidity: r.turbidity,
+      conductivity: r.conductivity ?? null,
       recorded_at: r.recorded_at,
       created_at: r.recorded_at,
     }))

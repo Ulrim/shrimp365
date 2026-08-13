@@ -49,6 +49,8 @@ export interface WaterQualityReading {
   nitrate: number
   alkalinity: number
   turbidity: number
+  /** 전도도(uS/cm). EC 센서를 전도도 모드로 쓰는 농장에서만 채워진다. */
+  conductivity?: number | null
   recorded_at: string
   created_at: string
 }

@@ -145,7 +145,8 @@ export async function POST(req: NextRequest) {
   }
 
   // 2. 측정값 파싱 + 유효 범위 검증 (DB 오염·오버플로 방지)
-  const FIELDS = ["temperature", "ph", "do_level", "salinity", "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity"] as const
+  // conductivity — EC 센서를 전도도 모드로 쓰는 농장(양액·민물)이 있어 함께 저장한다.
+  const FIELDS = ["temperature", "ph", "do_level", "salinity", "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity", "conductivity"] as const
   type FieldKey = typeof FIELDS[number]
 
   const VALID_RANGE: Record<FieldKey, [number, number]> = {
@@ -158,6 +159,7 @@ export async function POST(req: NextRequest) {
     nitrate:     [ 0,  500],
     alkalinity:  [ 0, 1000],
     turbidity:   [ 0, 1000],
+    conductivity:[ 0, 200000],  // uS/cm — 바닷물이 약 50,000
   }
 
   const values: Partial<Record<FieldKey, number>> = {}
@@ -188,28 +190,36 @@ export async function POST(req: NextRequest) {
   // 3. water_quality_readings 삽입
   //    device_id 로 "어느 센서가 잰 값인지" 를 남긴다. 마이그레이션 전이라
   //    컬럼이 없으면 그 컬럼만 빼고 다시 저장한다(측정은 절대 멈추면 안 된다).
-  const baseRow = { tank_id: device.tank_id, ...values, recorded_at: recordedAt }
-  let { data: reading, error: insertError } = await supabaseAdmin
-    .from("water_quality_readings")
-    .insert({ ...baseRow, device_id: device.id })
-    .select()
-    .single()
-
-  // device_id 컬럼이 아직 없을 때(마이그레이션 전)만 그 컬럼을 빼고 재시도한다.
+  // 마이그레이션이 아직 안 된 DB 를 만나도 측정이 멈춰서는 안 된다.
+  // 아직 없는 칸(device_id·conductivity)은 하나씩 빼고 다시 시도한다.
   // 'column' 만 보고 판단하면 tank_id NOT NULL 등 엉뚱한 오류까지 삼키므로,
-  // device_id 를 콕 집은 경우 또는 미정의 컬럼 코드(42703/PGRST204)일 때만.
-  const msg = insertError?.message || ""
-  const missingDeviceCol = !!insertError && (
-    insertError.code === "42703" || insertError.code === "PGRST204" ||
-    (/device_id/i.test(msg) && /(column|schema cache|does not exist|not found)/i.test(msg))
-  )
-  if (missingDeviceCol) {
-    console.warn("[sensors/data] device_id 컬럼 없음 — 없이 저장(마이그레이션 필요)")
-    ;({ data: reading, error: insertError } = await supabaseAdmin
-      .from("water_quality_readings")
-      .insert(baseRow)
-      .select()
-      .single())
+  // 그 칸 이름을 콕 집은 경우 또는 미정의 컬럼 코드(42703/PGRST204)일 때만.
+  const OPTIONAL_COLS = ["device_id", "conductivity"] as const
+  let row: Record<string, unknown> = {
+    tank_id: device.tank_id, ...values, recorded_at: recordedAt, device_id: device.id,
+  }
+  let reading: Record<string, unknown> | null = null
+  let insertError: { message?: string; code?: string } | null = null
+
+  for (let attempt = 0; ; attempt++) {
+    const res = await supabaseAdmin
+      .from("water_quality_readings").insert(row).select().single()
+    reading = res.data
+    insertError = res.error
+    if (!insertError) break
+
+    const msg = insertError.message || ""
+    const undefinedCol = insertError.code === "42703" || insertError.code === "PGRST204"
+    const missing = OPTIONAL_COLS.find(col =>
+      col in row && (
+        (new RegExp(col, "i").test(msg) && /(column|schema cache|does not exist|not found)/i.test(msg)) ||
+        undefinedCol
+      ))
+    if (!missing || attempt >= OPTIONAL_COLS.length) break
+
+    console.warn(`[sensors/data] ${missing} 칸 없음 — 빼고 저장(마이그레이션 필요)`)
+    const { [missing]: _drop, ...rest } = row
+    row = rest
   }
 
   if (insertError) {
@@ -300,7 +310,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    reading_id: reading.id,
+    reading_id: reading?.id,
     tank_id: device.tank_id,
     alerts_triggered: thresholdAlerts.length,
   })
