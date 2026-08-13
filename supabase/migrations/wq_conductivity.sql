@@ -20,7 +20,13 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- 그래프용 구간 평균 함수에 전도도를 더한다(wq_series.sql 의 갱신판).
 -- 이 파일만 실행해도 되도록 함수 전체를 다시 만든다.
-CREATE OR REPLACE FUNCTION public.wq_series(
+--
+-- 돌려주는 항목이 늘었으므로 CREATE OR REPLACE 로는 안 된다(42P13).
+-- 먼저 지우고 새로 만든다. 지운 잠깐 사이에는 웹이 폴백 경로(최신 1,000행)로
+-- 그리므로 화면이 멈추지는 않는다.
+DROP FUNCTION IF EXISTS public.wq_series(uuid, int, uuid, int);
+
+CREATE FUNCTION public.wq_series(
   p_tank uuid,
   p_hours int,
   p_device uuid DEFAULT NULL,
