@@ -48,6 +48,8 @@ class State:
             "pair_code": None,
             "pair_url": "",
             "pair_error": None,
+
+            "ec_unit": "us",       # 전도도 표시 단위(us|ms). 화면이 값을 바꿔 보여 준다.
         }
 
     def update(self, **kwargs) -> None:
@@ -310,9 +312,20 @@ var RANGES = {
   ph:          {label:"pH",   unit:"",         digits:2, ok:[7.5,8.5], warn:[7,9]},
   do_level:    {label:"용존산소", unit:"ppm",  digits:2, ok:[5,20],   warn:[4,20]},
   // 흰다리새우 해수 양식 기준.
-  salinity:    {label:"염도", unit:"\u2030",  digits:1, ok:[15,35],   warn:[10,40]}
+  salinity:    {label:"염도", unit:"\u2030",  digits:1, ok:[15,35],   warn:[10,40]},
+  // 전도도는 쓰는 곳마다 적정값이 달라(해수 약 50,000 uS/cm, 양액 1~3 mS/cm)
+  // 좋고 나쁨을 코드가 정하지 않는다. 값만 그대로 보여 준다.
+  conductivity:{label:"전도도", unit:"uS/cm", digits:0, ok:null, warn:null}
 };
-var ORDER = ["temperature","ph","do_level","salinity"];
+// 네 번째 칸은 EC 센서 설정을 따라간다. 염도 환산을 쓰면 염도가,
+// 전도도 모드면 전도도가 올라오므로 값이 있는 쪽을 보여 준다.
+function orderFor(d){
+  var v = (d && d.values) || {};
+  var fourth = (typeof v.salinity === "number") ? "salinity"
+             : (typeof v.conductivity === "number") ? "conductivity"
+             : "salinity";
+  return ["temperature","ph","do_level",fourth];
+}
 
 function level(key, v){
   var r = RANGES[key]; if(!r || !r.ok) return "";
@@ -415,6 +428,14 @@ var I18N = {
   load_fail:{ko:"설정을 불러오지 못했습니다.",en:"Couldn't load settings.",vi:"Không tải được cài đặt.",id:"Gagal memuat pengaturan."},
   n_do:{ko:"용존산소",en:"Dissolved O₂",vi:"Oxy hòa tan",id:"Oksigen"},
   n_ec:{ko:"전도도 / 염도",en:"Conductivity / Salinity",vi:"Độ dẫn / Độ mặn",id:"Konduktivitas / Salinitas"},
+  n_ec_only:{ko:"전도도",en:"Conductivity",vi:"Độ dẫn",id:"Konduktivitas"},
+  ec_measure:{ko:"EC 센서 측정 항목",en:"EC sensor measures",vi:"Cảm biến EC đo",id:"Sensor EC mengukur"},
+  ec_measure_sub:{ko:"이 센서로 무엇을 잴지 고릅니다",en:"Choose what this sensor reports",vi:"Chọn giá trị cảm biến báo về",id:"Pilih nilai yang dilaporkan"},
+  ec_salinity:{ko:"염도",en:"Salinity",vi:"Độ mặn",id:"Salinitas"},
+  ec_conductivity:{ko:"전도도",en:"Conductivity",vi:"Độ dẫn",id:"Konduktivitas"},
+  ec_unit_label:{ko:"전도도 단위",en:"Conductivity unit",vi:"Đơn vị độ dẫn",id:"Satuan konduktivitas"},
+  ec_hint_sal:{ko:"전도도에서 염도(‰)로 환산해 기록합니다 — 해수 양식 기본",en:"Converts conductivity to salinity (‰) — default for seawater",vi:"Quy đổi độ dẫn sang độ mặn (‰) — mặc định nước biển",id:"Mengonversi ke salinitas (‰) — bawaan air laut"},
+  ec_hint_ec:{ko:"환산 없이 전도도(EC)를 그대로 씁니다 — 양액·민물에 적합",en:"Uses conductivity (EC) as-is — for nutrient solution or fresh water",vi:"Dùng độ dẫn (EC) trực tiếp — cho dung dịch dinh dưỡng, nước ngọt",id:"Memakai konduktivitas (EC) langsung — untuk nutrisi atau air tawar"},
   // Wi‑Fi
   wifi_loading:{ko:"불러오는 중…",en:"Loading…",vi:"Đang tải…",id:"Memuat…"},
   wifi_now:{ko:"지금 연결됨 · <b>{ssid}</b>{ip}",en:"Connected · <b>{ssid}</b>{ip}",vi:"Đã kết nối · <b>{ssid}</b>{ip}",id:"Terhubung · <b>{ssid}</b>{ip}"},
@@ -464,21 +485,25 @@ function mlabel(key){
   if (key === "temperature") return t("m_temperature");
   if (key === "do_level") return t("m_do");
   if (key === "salinity") return t("m_salinity");
+  if (key === "conductivity") return t("n_ec_only");
   return key;
 }
 
 // 측정값은 언제나 이 화면이다. 연결 여부와 무관하다.
 function renderValues(d){
-  var cells = ORDER.map(function(key){
+  var cells = orderFor(d).map(function(key){
     var r = RANGES[key];
     var has = d.values && typeof d.values[key] === "number";
-    var v = has ? d.values[key].toFixed(r.digits) : "--";
+    // 전도도를 mS/cm 로 보기로 했으면 나눠서 보여 준다(보내는 값은 uS/cm 그대로).
+    var ms = (key === "conductivity" && d.ec_unit === "ms");
+    var raw = has ? (ms ? d.values[key] / 1000 : d.values[key]) : null;
+    var v = has ? raw.toFixed(ms ? 2 : r.digits) : "--";
     var cls = has ? level(key, d.values[key]) : "none";
     // 따옴표 이스케이프를 피하려고 &quot; 를 쓴다. PAGE 가 파이썬 문자열이라
     // 백슬래시가 한 번 더 벗겨져 JS 가 깨지기 쉽다.
     return '<div class="cell ' + cls + '" onclick="openChart(&quot;' + key + '&quot;)">' +
            '<div class="k">' + mlabel(key) + ' <span class="tap">' + t("graph") + ' ›</span></div>' +
-           '<div class="v">' + v + (r.unit ? '<small>' + r.unit + '</small>' : '') + '</div></div>';
+           '<div class="v">' + v + (r.unit ? '<small>' + (ms ? "mS/cm" : r.unit) + '</small>' : '') + '</div></div>';
   }).join("");
   return '<div class="grid">' + cells + '</div>';
 }
@@ -943,6 +968,7 @@ function drawSettings(){
         msg + found +
         '<div class="sub" style="margin:2px 0 6px">' + t("slave_hint") + '</div>' +
         rows +
+        ecRow(d) +
         '<div class="srow">' +
           '<div class="sname">' + t("interval") + '<div class="sub">' + t("interval_sub") + '</div></div>' +
           '<div class="step">' +
@@ -958,6 +984,38 @@ function drawSettings(){
       '</div>' +
     '</div>';
 }
+
+// EC 센서 측정 항목 — 같은 센서로 염도와 전도도 둘 다 낼 수 있어 고르게 한다.
+// 양액처럼 EC 자체가 관리 대상인 곳에서는 염도로 바꾼 값이 뜻을 흐린다.
+function ecRow(d){
+  var mode = d.ec_mode || "salinity";
+  var unit = d.ec_unit || "us";
+  var pick = function(val, label){
+    return '<button class="toggle' + (mode === val ? " on" : "") + '" ' +
+      'onclick="setEcMode(&quot;' + val + '&quot;)">' + t(label) + '</button>';
+  };
+  var row =
+    '<div class="srow">' +
+      '<div class="sname">' + t("ec_measure") +
+        '<div class="sub">' + t(mode === "conductivity" ? "ec_hint_ec" : "ec_hint_sal") + '</div></div>' +
+      pick("salinity", "ec_salinity") + pick("conductivity", "ec_conductivity") +
+    '</div>';
+  // 단위는 전도도로 볼 때만 뜻이 있다.
+  if (mode === "conductivity"){
+    var u = function(val, label){
+      return '<button class="toggle' + (unit === val ? " on" : "") + '" ' +
+        'onclick="setEcUnit(&quot;' + val + '&quot;)">' + label + '</button>';
+    };
+    row += '<div class="srow">' +
+      '<div class="sname">' + t("ec_unit_label") + '</div>' +
+      u("us", "uS/cm") + u("ms", "mS/cm") +
+    '</div>';
+  }
+  return row;
+}
+
+function setEcMode(v){ setupData.ec_mode = v; drawSettings(); }
+function setEcUnit(v){ setupData.ec_unit = v; drawSettings(); }
 
 // 센서 이름 — 서버가 준 한국어 이름 대신 화면 언어로 보여 준다.
 function senName(key){
@@ -1062,7 +1120,8 @@ function autoAssign(){
 }
 
 function saveSettings(){
-  var payload = {interval: setupData.interval};
+  var payload = {interval: setupData.interval,
+                 ec_mode: setupData.ec_mode, ec_unit: setupData.ec_unit};
   setupData.sensors.forEach(function(sn){
     payload[sn.key] = {enabled: sn.enabled, slave_id: sn.slave_id};
   });

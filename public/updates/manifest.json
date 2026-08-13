@@ -1,5 +1,5 @@
 {
-  "latest": "1.6.6",
+  "latest": "1.6.7",
   "releases": {
     "1.5.0": {
       "notes": "염도 단위를 퍼밀(‰)로",
@@ -107,6 +107,20 @@
       "sha256": "1184f92691dd5d9feded44fe7abd9afc8eca6661b5113e29a001401f5c0b8391",
       "size": 60885,
       "signature": "pW2WtAfsg475pr06Hsj1DfDka+FOiZSXUQNCwrERmCibLpylOIP+7S+hbkaAUAXOlyraWsDdUzq5Tgk+QgoFDA=="
+    },
+    "1.6.7": {
+      "notes": "EC 센서 측정 항목 선택 — 염도 / 전도도(양액)",
+      "released_at": "2026-08-13",
+      "setup": {
+        "file": "shrimp365-setup-1.6.7.tar.gz",
+        "sha256": "744bd6ca8e38ea443ae7293c2f5d39b43b35ba19190c32f82afff78c1f5b0c5b",
+        "size": 94404,
+        "signature": "P6j2qoiZ7kAHd2tWvgfedxv+2+Z+h7qCA1Z2rjPfnPnmCxiaPqtL2dL7tY5Ro6xVD9IW+gpfCVn4Lm7KxXwXDQ=="
+      },
+      "file": "shrimp365-agent-1.6.7.tar.gz",
+      "sha256": "6b373c0492b73b202ba268d2e73b242f2e904c51ea343aa2a3d4b5bb0a7982f6",
+      "size": 62898,
+      "signature": "GklnGj8jPFx7F1fIxxTWpAgYpnED5PAIMBQDrnIadRaqQ+dR8uxX9mBtGkgJeUsP7ZuRIVCfs4D17d+iK96qDg=="
     }
   }
 }

@@ -66,7 +66,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.6.6"
+VERSION = "1.6.7"
 log = logging.getLogger("shrimp365")
 
 
@@ -527,7 +527,8 @@ def normalize(name: str, value: float, unit: str) -> float | None:
 # ── 수집 ──────────────────────────────────────────────────────────────────────
 
 def read_all(client: ModbusClient, enabled: dict[str, int],
-             ec_to_ppm: float = DEFAULT_EC_TO_PPM) -> tuple[dict[str, float], dict[str, str]]:
+             ec_to_ppm: float = DEFAULT_EC_TO_PPM,
+             ec_mode: str = "salinity") -> tuple[dict[str, float], dict[str, str]]:
     """켜져 있는 센서를 모두 읽어 (측정값, 오류) 를 돌려준다."""
     values: dict[str, float] = {}
     temps: dict[str, float] = {}
@@ -589,7 +590,11 @@ def read_all(client: ModbusClient, enabled: dict[str, int],
 
     # 염도는 전도도에서 환산한다. 센서의 염도 레지스터는 믿지 않는다.
     # 수온이 있어야 실용염분식을 쓸 수 있으므로 수온을 고른 뒤에 계산한다.
-    if raw_conductivity is not None:
+    #
+    # ec_mode 가 conductivity 면 환산하지 않는다 — 양액처럼 EC 자체가 관리
+    # 대상인 곳에서는 염도로 바꾼 값이 오히려 뜻을 흐린다. 전도도는 위에서
+    # 이미 values["conductivity"] 에 담겼으므로 그대로 쓰인다.
+    if raw_conductivity is not None and ec_mode != "conductivity":
         salinity = salinity_from_ec(
             raw_conductivity[0], raw_conductivity[1], ec_to_ppm,
             values.get("temperature"),
@@ -794,6 +799,49 @@ def save_language(config_path: Path, lang: str) -> bool:
         if not in_webui:
             return False   # [webui] 구간이 없다
         lines.append(f"language = {lang}\n")   # [webui] 가 파일 끝까지 이어졌다
+    try:
+        config_path.write_text("".join(lines), encoding="utf-8")
+        os.chmod(config_path, 0o600)
+        return True
+    except OSError:
+        return False
+
+
+def save_ec_mode(config_path: Path, mode: str, unit: str) -> bool:
+    """EC 센서 측정 항목·단위를 [sensors] 구간에 적는다.
+
+    항목이 없으면 구간 안에 새로 끼워 넣는다. 주석을 지우지 않으려고
+    configparser 로 통째로 다시 쓰지 않고 줄 단위로 손본다.
+    """
+    try:
+        lines = config_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    except OSError:
+        return False
+
+    wanted = {"ec_mode": mode, "ec_unit": unit}
+    seen: set[str] = set()
+    in_sensors = False
+    insert_at = None
+    for i, line in enumerate(lines):
+        stripped = line.strip().lower()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if in_sensors and insert_at is None:
+                insert_at = i          # [sensors] 를 막 벗어나는 참
+            in_sensors = stripped == "[sensors]"
+            continue
+        if in_sensors:
+            for key, val in wanted.items():
+                if stripped.startswith(key) and "=" in line:
+                    lines[i] = f"{key} = {val}\n"
+                    seen.add(key)
+    missing = [f"{k} = {v}\n" for k, v in wanted.items() if k not in seen]
+    if missing:
+        if insert_at is not None:
+            lines[insert_at:insert_at] = missing
+        elif in_sensors:               # [sensors] 가 파일 끝까지 이어졌다
+            lines.extend(missing)
+        else:
+            return False               # [sensors] 구간이 없다
     try:
         config_path.write_text("".join(lines), encoding="utf-8")
         os.chmod(config_path, 0o600)
@@ -1029,6 +1077,14 @@ def main() -> int:
     port = cfg.get("serial", "port", fallback="/dev/ttyUSB0")
     baudrate = cfg.getint("serial", "baudrate", fallback=9600)
     ec_to_ppm = cfg.getfloat("sensors", "ec_to_ppm", fallback=DEFAULT_EC_TO_PPM)
+    # EC 센서로 무엇을 잴지 — salinity(염도) 또는 conductivity(전도도).
+    # 화면에서 바꿀 수 있으므로 값 하나를 여러 곳에서 함께 본다.
+    _mode = cfg.get("sensors", "ec_mode", fallback="salinity").strip().lower()
+    _unit = cfg.get("sensors", "ec_unit", fallback="us").strip().lower()
+    ec_holder = {
+        "mode": _mode if _mode in ("salinity", "conductivity") else "salinity",
+        "unit": _unit if _unit in ("us", "ms") else "us",
+    }
 
     # 슬레이브 ID 변경. 같은 ID 를 쓰는 센서가 둘일 때 쓴다.
     if args.set_id:
@@ -1402,6 +1458,16 @@ def main() -> int:
             if not 60 <= new_interval <= 3600:
                 return {"ok": False, "error": "측정 주기는 60~3600초"}
 
+            # EC 센서 측정 항목(염도/전도도)과 표시 단위.
+            mode = payload.get("ec_mode")
+            unit = payload.get("ec_unit")
+            if mode in ("salinity", "conductivity"):
+                ec_holder["mode"] = mode
+            if unit in ("us", "ms"):
+                ec_holder["unit"] = unit
+            if state is not None:
+                state.update(ec_unit=ec_holder["unit"])
+
             # 파일 저장이 실패해도 지금 화면에서는 동작해야 하므로 먼저 적용한다.
             enabled.clear()
             enabled.update(on)
@@ -1409,6 +1475,7 @@ def main() -> int:
             saved = save_sensor_config(args.config, settings)
             if saved:
                 save_interval(args.config, new_interval)
+                save_ec_mode(args.config, ec_holder["mode"], ec_holder["unit"])
             log.info("화면에서 센서 설정을 바꿨습니다: %s, 주기 %d초", on, new_interval)
             return {"ok": True, "saved": saved}
 
@@ -1445,6 +1512,8 @@ def main() -> int:
             return {
                 "interval": interval_holder["seconds"],
                 "port": port,
+                "ec_mode": ec_holder["mode"],
+                "ec_unit": ec_holder["unit"],
                 "sensors": [
                     {
                         "key": key,
@@ -1537,7 +1606,7 @@ def main() -> int:
             on_reboot=ui_reboot,
         )
         state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중",
-                     version=VERSION)
+                     version=VERSION, ec_unit=ec_holder["unit"])
 
     # 이미 연결된 기기라면 어느 계정·수조에 붙어 있는지 확인해 화면에 남긴다.
     if auth["key"] and state is not None:
@@ -1577,7 +1646,7 @@ def main() -> int:
         started = time.monotonic()
 
         with serial_lock:
-            values, errors = read_all(client, dict(enabled), ec_to_ppm)
+            values, errors = read_all(client, dict(enabled), ec_to_ppm, ec_holder["mode"])
 
         if not values:
             log.error("읽은 값이 없습니다. 배선·전원·슬레이브 ID를 확인하세요. %s", errors)
