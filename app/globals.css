@@ -99,3 +99,18 @@
 ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
 .dark ::-webkit-scrollbar-thumb { background: #4b5563; }
 .dark ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+
+/* Leaflet 지도 쌓임 순서
+ *
+ * Leaflet 은 내부 요소에 z-index 를 크게 준다(타일 400, 컨트롤 800, 모서리
+ * 1000). 그런데 다이얼로그·시트는 z-50 이라, 그냥 두면 지도가 모달 위로
+ * 튀어 올라 화면을 덮는다(양식장 추가 창에서 실제로 그랬다).
+ *
+ * 지도를 독립된 쌓임 맥락(isolation)으로 묶고 그 맥락 자체를 z-0 으로 둔다.
+ * 지도 안에서의 층(타일 < 마커 < 컨트롤)은 그대로 유지되면서, 지도 전체는
+ * 모달 아래에 머문다. */
+.leaflet-container {
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+}

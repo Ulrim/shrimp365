@@ -1,5 +1,5 @@
 {
-  "latest": "1.6.9",
+  "latest": "1.7.0",
   "releases": {
     "1.5.0": {
       "notes": "염도 단위를 퍼밀(‰)로",
@@ -149,6 +149,20 @@
       "sha256": "9d3ab17322415bad8f985d7d37148993bc15943f2eac731499f10e0c4fe5dfc6",
       "size": 68961,
       "signature": "S7zCOiYnSfQ3BHvkwSu2PBUDkvbQcud6IYs9AQ2qvdopJsHEYQ0shL93hMpaRCcZANG1l/+EuWatv6B9l61DBQ=="
+    },
+    "1.7.0": {
+      "notes": "값이 안 나올 때 어느 센서가 응답 없는지 화면에 표시",
+      "released_at": "2026-08-18",
+      "setup": {
+        "file": "shrimp365-setup-1.7.0.tar.gz",
+        "sha256": "b7515a967c1f0f0beb3bcdd7068c4acd7a10ac8760f0826f67c4379cfdddc24d",
+        "size": 101397,
+        "signature": "W31z00YjrFlBi5GBi+woTAyhnlvlq9/lCnIHNjRA9kowsSp62mCkt6hf+tTzXd89wIuG86EN+1DxLA2ium3wAg=="
+      },
+      "file": "shrimp365-agent-1.7.0.tar.gz",
+      "sha256": "20ce4cfa94d4b092268c48fa49fe13895f18604e359b4c96e09f82403254615a",
+      "size": 69326,
+      "signature": "47sIhjfDMa0KaP7IXh/G3sZ1lg49OP+csTiNPe7DidK2QZW6TtMNbLAsVm0sUtV0FtInFGHpx6c6j6dLqn/9AA=="
     }
   }
 }

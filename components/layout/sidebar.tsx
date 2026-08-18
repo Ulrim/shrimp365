@@ -19,6 +19,7 @@ import { SettingsPanel } from "@/components/layout/settings-panel"
 import { LanguageSwitcher } from "@/components/ui/language-switcher"
 import { isMonitorAccount } from "@/lib/mock-data"
 import { localizedHref, stripLocalePrefix } from "@/lib/marketing-locale"
+import type { IconComponent } from "@/types"
 
 // 농업 화면(/daumlabs)에 없는 메뉴 — 새우 전용 문맥(설계서 4-3). "숨김"이 아니라
 // `/daumlabs` 아래에 페이지 자체가 없어 접두사를 붙일 수 없는 항목이다.
@@ -74,7 +75,7 @@ export function Sidebar() {
     router.replace("/")
   }
 
-  const NavItem = ({ href, icon: Icon, label, badge }: { href: string; icon: React.ElementType; label: string; badge?: string }) => {
+  const NavItem = ({ href, icon: Icon, label, badge }: { href: string; icon: IconComponent; label: string; badge?: string }) => {
     // 농업 화면이면 /daumlabs 를 먹인다. 이미 접두사가 붙은 주소와 pathname 을
     // 그대로 견주므로 활성 표시 로직은 손대지 않는다(설계서 4-4).
     const to = withAgri(href)

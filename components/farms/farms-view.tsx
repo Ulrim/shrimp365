@@ -42,6 +42,7 @@ import {
   Sprout,
   FlaskConical,
   ArrowRight,
+  Box,
 } from "lucide-react"
 import Link from "next/link"
 import { formatDate } from "@/lib/utils"
@@ -1665,6 +1666,9 @@ function StatusSummary({ tanks }: { tanks: Tank[] }) {
 export function FarmsView() {
   const { user } = useAuth()
   const { t } = useT()
+  // 3D 도면은 무안 새우 양식장 전용이라 /daumlabs 아래에 페이지가 없다.
+  // 농업 화면에서는 버튼 자체를 내린다(sidebar 의 AGRI_HIDDEN 과 같은 취급).
+  const { isAgri } = useAgriRoute()
   const [farms, setFarms] = useState<Farm[]>([])
   const [tanksMap, setTanksMap] = useState<Record<string, Tank[]>>({})
   // 지도용 전체 수조 — 펼치지 않은 양식장도 마커 색이 상태를 반영해야 한다.
@@ -1768,7 +1772,17 @@ export function FarmsView() {
             {t.farms.subtitle}
           </p>
         </div>
-        <AddFarmDialog onSuccess={handleFarmAdded} />
+        <div className="flex items-center gap-2">
+          {/* 도면 기반 3D 배치도. 수조 상태를 평면이 아니라 실제 배치로 본다. */}
+          {!isAgri && (
+            <Button asChild variant="outline" size="sm">
+              <Link href="/farms/3d">
+                <Box className="w-4 h-4 mr-1.5" /> 3D 도면
+              </Link>
+            </Button>
+          )}
+          <AddFarmDialog onSuccess={handleFarmAdded} />
+        </div>
       </div>
 
       {/* 양식장 위치 — 여러 곳을 운영할 때 급한 곳이 어디인지 한눈에 */}
