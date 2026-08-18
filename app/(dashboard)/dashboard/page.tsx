@@ -9,6 +9,7 @@ import { MOCK_FARMS, MOCK_TANKS, MOCK_ALERTS, MOCK_DIAGNOSES, MOCK_WATER_QUALITY
 import { useAuth } from "@/lib/auth-context"
 import { Farm, Tank, Alert, DiagnosisResult, WaterQualityReading, InventoryItem, SensorDevice } from "@/types"
 import { DeviceCurrentValues } from "@/components/sensors/device-current-values"
+import { NutrientStatusCard } from "@/components/sensors/nutrient-status-card"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -382,6 +383,10 @@ export default function DashboardPage() {
           </Card>
         </div>
       </div>
+
+      {/* 양액 상태 — "지금 뭘 해야 하나"가 원시 수치보다 먼저 온다.
+          농업 모드 + payload 에 nut_* 가 있을 때만 렌더(새우 모드 diff 없음). */}
+      <NutrientStatusCard devices={tankDevices} tank={tanks.find(tk => tk.id === selectedTankId) ?? null} />
 
       {/* 선택한 수조의 센서별 마지막 수신값 — 센서가 있을 때만 보인다 */}
       <DeviceCurrentValues devices={tankDevices} />

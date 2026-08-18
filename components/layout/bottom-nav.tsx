@@ -6,6 +6,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
+import { useFarmMode } from "@/lib/farm-mode-context"
 import { cn } from "@/lib/utils"
 import {
   Home, LayoutDashboard, Droplets, ClipboardList,
@@ -18,11 +19,15 @@ import { PLAN_LABELS, PLAN_COLORS } from "@/lib/plans"
 import { isMonitorAccount } from "@/lib/mock-data"
 import { localizedHref, stripLocalePrefix } from "@/lib/marketing-locale"
 
+// 농업 모드에서 숨기는 메뉴 — sidebar 와 같은 집합(설계서 4-1).
+const AGRI_HIDDEN = new Set(["/production", "/inventory", "/ai-advisor", "/reports"])
+
 export function BottomNav() {
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuth()
   const { t, locale } = useT()
+  const { isAgriMode } = useFarmMode()
   const [moreOpen, setMoreOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const isAdmin = user?.role === "admin" || isMonitorAccount(user?.email)
@@ -49,7 +54,7 @@ export function BottomNav() {
     ...(SHOW_CARDNEWS ? [{ href: localizedHref("/cardnews", locale), icon: Layers,        label: t.cardNews.title }] : []),
     ...(canControl ? [{ href: "/control", icon: Radar, label: "관제센터" }] : []),
     ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
-  ]
+  ].filter(item => !isAgriMode || !AGRI_HIDDEN.has(item.href))
 
   // 언어 접두사를 뗀 뒤 견준다. /en/cardnews 도 "더보기" 안의 항목이다.
   const here = stripLocalePrefix(pathname).path

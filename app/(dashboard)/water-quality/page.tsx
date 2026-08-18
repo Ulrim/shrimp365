@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceLine, Legend,
+  ResponsiveContainer, ReferenceLine, ReferenceArea, Legend,
 } from "recharts"
 import { MOCK_TANKS, MOCK_WATER_QUALITY, WATER_QUALITY_STANDARDS, MOCK_ALERTS, MOCK_SENSOR_DEVICES, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
@@ -28,6 +28,7 @@ import { formatDateTime } from "@/lib/utils"
 import type { Tank, WaterQualityReading, Alert, SensorDevice } from "@/types"
 import type { Dict, Locale } from "@/lib/i18n"
 import { useT } from "@/lib/i18n-context"
+import { useFarmMode } from "@/lib/farm-mode-context"
 import { useAutoRefresh, sinceLabel } from "@/lib/use-auto-refresh"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -126,6 +127,9 @@ function buildChartData(readings: WaterQualityReading[], locale: Locale, last24h
     turbidity:   Number(r.turbidity.toFixed(1)),
     // 전도도는 안 쓰는 농장이 많아 값이 있을 때만 점을 찍는다(선이 0 으로 처지지 않게).
     conductivity: typeof r.conductivity === "number" ? Math.round(r.conductivity) : null,
+    // 유량·차압(농업 모드) — 전도도와 같은 이유로 값이 있을 때만.
+    flow_rate: typeof r.flow_rate === "number" ? Number(r.flow_rate.toFixed(1)) : null,
+    diff_pressure: typeof r.diff_pressure === "number" ? Number(r.diff_pressure.toFixed(1)) : null,
   }})
 }
 
@@ -188,6 +192,9 @@ function devicePayloadLabels(t: Dict): Record<string, { label: string; unit?: st
     tds:           { label: "TDS", unit: "ppm" },
     do_saturation: { label: t.waterQualityX.doSaturation, unit: "%" },
     orp:           { label: "ORP", unit: "mV" },
+    // 유량·차압 — 새우 모드에서도 무해(장비가 안 보내면 안 보임).
+    flow_rate:     { label: t.waterQualityX.flowRate, unit: "L/min" },
+    diff_pressure: { label: t.waterQualityX.diffPressure, unit: "kPa" },
   }
 }
 
@@ -254,9 +261,13 @@ interface ChartPanelProps {
   unit: string
   fill?: boolean
   big?: boolean
+  /** 농업 모드 베드 레시피 — 있으면 std 기준선 대신 목표선+허용밴드를 그린다. */
+  recipe?: { target: number; tol: number } | null
+  /** 농업 모드에서 새우 해수 기준선(std)을 숨긴다(레시피 없어도 오탐 방지). */
+  hideStd?: boolean
 }
 
-function SingleParamChart({ chartData, stdKey, chartLabel, chartColor, unit, fill = false, big = false }: ChartPanelProps) {
+function SingleParamChart({ chartData, stdKey, chartLabel, chartColor, unit, fill = false, big = false, recipe = null, hideStd = false }: ChartPanelProps) {
   const { t } = useT()
   const std = WATER_QUALITY_STANDARDS[stdKey]
   const yVals = chartData.map(d => d[stdKey as keyof typeof d] as number).filter(Boolean)
@@ -265,6 +276,7 @@ function SingleParamChart({ chartData, stdKey, chartLabel, chartColor, unit, fil
   const yMax = Math.max(std.warning_max + padding * 0.2, ...yVals)
   const fs = big ? 17 : 11
   const refFs = big ? 14 : 10
+  const showStd = !hideStd && !recipe
 
   return (
     <ResponsiveContainer width="100%" height={fill ? "100%" : 260}>
@@ -277,10 +289,15 @@ function SingleParamChart({ chartData, stdKey, chartLabel, chartColor, unit, fil
           labelStyle={{ color: "hsl(var(--muted-foreground))" }}
           itemStyle={{ color: "hsl(var(--foreground))" }}
         />
-        <ReferenceLine y={std.max} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: t.waterQualityX.chartMax, fill: "#34d399", fontSize: refFs, position: "insideTopRight" }} />
-        <ReferenceLine y={std.min} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: t.waterQualityX.chartMin, fill: "#34d399", fontSize: refFs, position: "insideBottomRight" }} />
-        <ReferenceLine y={std.warning_max} stroke="#fbbf24" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: t.waterQualityX.chartWarnHigh, fill: "#fbbf24", fontSize: refFs, position: "insideTopRight" }} />
-        <ReferenceLine y={std.warning_min} stroke="#fbbf24" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: t.waterQualityX.chartWarnLow, fill: "#fbbf24", fontSize: refFs, position: "insideBottomRight" }} />
+        {showStd && <ReferenceLine y={std.max} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: t.waterQualityX.chartMax, fill: "#34d399", fontSize: refFs, position: "insideTopRight" }} />}
+        {showStd && <ReferenceLine y={std.min} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: t.waterQualityX.chartMin, fill: "#34d399", fontSize: refFs, position: "insideBottomRight" }} />}
+        {showStd && <ReferenceLine y={std.warning_max} stroke="#fbbf24" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: t.waterQualityX.chartWarnHigh, fill: "#fbbf24", fontSize: refFs, position: "insideTopRight" }} />}
+        {showStd && <ReferenceLine y={std.warning_min} stroke="#fbbf24" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: t.waterQualityX.chartWarnLow, fill: "#fbbf24", fontSize: refFs, position: "insideBottomRight" }} />}
+        {/* 레시피 목표선+허용밴드 — 정상 범위 = emerald(기존 std 선과 같은 문법) */}
+        {recipe && <ReferenceArea y1={recipe.target - recipe.tol} y2={recipe.target + recipe.tol} fill="#34d399" fillOpacity={0.08} stroke="none" ifOverflow="extendDomain" />}
+        {recipe && <ReferenceLine y={recipe.target} stroke="#34d399" strokeDasharray="6 3" strokeOpacity={0.9} label={{ value: `${t.waterQualityX.targetLabel} ${recipe.target}`, fill: "#34d399", fontSize: refFs, position: "insideTopRight" }} />}
+        {recipe && <ReferenceLine y={recipe.target + recipe.tol} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.5} />}
+        {recipe && <ReferenceLine y={recipe.target - recipe.tol} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.5} />}
         <Line type="monotone" dataKey={stdKey} name={chartLabel} stroke={chartColor} strokeWidth={big ? 3.5 : 2} dot={false} activeDot={{ r: big ? 6 : 4 }} />
       </LineChart>
     </ResponsiveContainer>
@@ -312,10 +329,21 @@ function NitrogenChart({ chartData, fill = false, big = false }: { chartData: Re
 }
 
 // 전도도(EC) — 해수 약 50,000 uS/cm, 양액 1~3 mS/cm 로 쓰는 곳마다 적정값이
-// 달라 기준선을 긋지 않는다. 값의 흐름만 보여 준다.
-function ConductivityChart({ chartData, fill = false, big = false }: { chartData: ReturnType<typeof buildChartData>; fill?: boolean; big?: boolean }) {
+// 달라 "전역" 기준선은 긋지 않는다. 다만 농업 모드에서 베드별 레시피가 있으면
+// 그 베드의 목표 EC 선 + 허용밴드(±tolerance)를 그린다 — 전역 상수가 아니라
+// 농장별 설정이므로 기존 결정과 충돌하지 않는다(설계서 4-3).
+// recipe 의 target/tol 은 µS/cm — Y축이 µS/cm 이므로 환산 없이 그대로,
+// 라벨만 mS/cm(÷1000)로 적는다.
+function ConductivityChart({ chartData, fill = false, big = false, recipe = null, msCmHint = false }: {
+  chartData: ReturnType<typeof buildChartData>
+  fill?: boolean
+  big?: boolean
+  recipe?: { target: number; tol: number } | null
+  msCmHint?: boolean
+}) {
   const { t } = useT()
   const fs = big ? 17 : 11
+  const refFs = big ? 14 : 10
   return (
     <ResponsiveContainer width="100%" height={fill ? "100%" : 260}>
       <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
@@ -326,10 +354,47 @@ function ConductivityChart({ chartData, fill = false, big = false }: { chartData
           contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px", fontSize: big ? 16 : 12 }}
           labelStyle={{ color: "hsl(var(--muted-foreground))" }}
           itemStyle={{ color: "hsl(var(--foreground))" }}
-          formatter={(v) => [`${v} µS/cm`, t.waterQualityX.conductivity]}
+          formatter={(v) => [
+            msCmHint ? `${v} µS/cm (${(Number(v) / 1000).toFixed(2)} mS/cm)` : `${v} µS/cm`,
+            t.waterQualityX.conductivity,
+          ]}
         />
+        {recipe && <ReferenceArea y1={recipe.target - recipe.tol} y2={recipe.target + recipe.tol} fill="#34d399" fillOpacity={0.08} stroke="none" ifOverflow="extendDomain" />}
+        {recipe && <ReferenceLine y={recipe.target} stroke="#34d399" strokeDasharray="6 3" strokeOpacity={0.9} label={{ value: `${t.waterQualityX.targetLabel} ${(recipe.target / 1000).toFixed(2)}`, fill: "#34d399", fontSize: refFs, position: "insideTopRight" }} />}
+        {recipe && <ReferenceLine y={recipe.target + recipe.tol} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.5} />}
+        {recipe && <ReferenceLine y={recipe.target - recipe.tol} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.5} />}
         <Line type="monotone" dataKey="conductivity" name={t.waterQualityX.conductivity}
           stroke="#22d3ee" strokeWidth={big ? 3.5 : 2} dot={false} connectNulls activeDot={{ r: big ? 6 : 4 }} />
+      </LineChart>
+    </ResponsiveContainer>
+  )
+}
+
+// 유량·차압(농업 모드) — 기준선 없는 단일 라인. ConductivityChart 와 같은 결.
+function AgriLineChart({ chartData, dataKey, name, color, unit, fill = false, big = false }: {
+  chartData: ReturnType<typeof buildChartData>
+  dataKey: "flow_rate" | "diff_pressure"
+  name: string
+  color: string
+  unit: string
+  fill?: boolean
+  big?: boolean
+}) {
+  const fs = big ? 17 : 11
+  return (
+    <ResponsiveContainer width="100%" height={fill ? "100%" : 260}>
+      <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={big ? 140 : 100} />
+        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} width={big ? 64 : 48} />
+        <Tooltip
+          contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px", fontSize: big ? 16 : 12 }}
+          labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+          itemStyle={{ color: "hsl(var(--foreground))" }}
+          formatter={(v) => [`${v} ${unit}`, name]}
+        />
+        <Line type="monotone" dataKey={dataKey} name={name}
+          stroke={color} strokeWidth={big ? 3.5 : 2} dot={false} connectNulls activeDot={{ r: big ? 6 : 4 }} />
       </LineChart>
     </ResponsiveContainer>
   )
@@ -360,9 +425,13 @@ function OverviewChart({ chartData, fill = false, big = false }: { chartData: Re
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+// 농업 모드 기본 노출 탭 — 이 밖의 탭(새우 지표)은 "더보기"로 접는다(수아 시안 5-1).
+const AGRI_PRIMARY_TABS = new Set(["conductivity", "ph", "temperature", "do_level", "flow_rate", "diff_pressure"])
+
 export default function WaterQualityPage() {
   const { user } = useAuth()
   const { t, locale } = useT()
+  const { isAgriMode } = useFarmMode()
   const PARAM_META: ParamMeta[] = useMemo(
     () => PARAM_DEFS.map(m => ({ ...m, label: paramLabel(t, m.key as string) })),
     [t],
@@ -395,6 +464,20 @@ export default function WaterQualityPage() {
   const [boardMode, setBoardMode] = useState(false)
   // 추세 그래프 탭 — 전광판 자동 순환을 위해 제어형으로 둔다.
   const [chartTab, setChartTab] = useState("overview")
+  // 농업 모드에서 새우 지표 탭(개요·질소·염도 등)을 펼쳤는지.
+  const [showAllTabs, setShowAllTabs] = useState(false)
+
+  // 농업 모드 기본 탭은 EC — 모드가 비동기로 파생되므로 초기값 대신 효과로 맞춘다.
+  // 사용자가 이미 다른 탭을 골랐다면(기본 "overview" 그대로가 아니면) 건드리지 않는다.
+  useEffect(() => {
+    if (isAgriMode) setChartTab(cur => (cur === "overview" ? "conductivity" : cur))
+  }, [isAgriMode])
+
+  // 접을 때 현재 탭이 접히는 탭이면 EC 로 복귀시킨다(수아 시안 5-1).
+  const toggleMoreTabs = () => {
+    if (showAllTabs && !AGRI_PRIMARY_TABS.has(chartTab)) setChartTab("conductivity")
+    setShowAllTabs(v => !v)
+  }
 
   useEffect(() => {
     if (!fullChart) { setBoardMode(false); return }   // 전체화면을 닫으면 전광판도 끈다
@@ -577,6 +660,15 @@ export default function WaterQualityPage() {
   }, [allReadings, activeDevices, compareParam, locale])
 
   const selectedTank = tanks.find(t => t.id === selectedTankId)
+
+  // 베드 레시피 목표선 — 농업 모드 + 해당 베드에 레시피가 있을 때만.
+  // target/tol 은 µS/cm 저장값 그대로(Y축이 µS/cm), 라벨만 차트가 ÷1000 한다.
+  const ecRecipe = isAgriMode && selectedTank?.target_ec != null
+    ? { target: selectedTank.target_ec, tol: selectedTank.ec_tolerance ?? 100 }
+    : null
+  const phRecipe = isAgriMode && selectedTank?.target_ph != null
+    ? { target: selectedTank.target_ph, tol: selectedTank.ph_tolerance ?? 0.5 }
+    : null
 
   function handleRefresh() {
     setIsRefreshing(true)
@@ -1054,20 +1146,52 @@ export default function WaterQualityPage() {
             </CardHeader>
             <CardContent className={fullChart === "main" ? "flex-1 min-h-0 overflow-auto" : undefined}>
               <Tabs value={chartTab} onValueChange={setChartTab}>
-                <TabsList className="bg-muted border border-border mb-4 flex-wrap gap-y-1 h-auto min-h-9">
-                  <TabsTrigger value="overview"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.tabOverview}</TabsTrigger>
-                  <TabsTrigger value="nitrogen"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.tabNitrogen}</TabsTrigger>
-                  <TabsTrigger value="temperature" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.temperature}</TabsTrigger>
-                  <TabsTrigger value="ph"         className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.ph}</TabsTrigger>
-                  <TabsTrigger value="do_level"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">DO</TabsTrigger>
-                  <TabsTrigger value="salinity"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.salinity}</TabsTrigger>
-                  <TabsTrigger value="ammonia"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.ammonia}</TabsTrigger>
-                  <TabsTrigger value="nitrite"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.nitrite}</TabsTrigger>
-                  <TabsTrigger value="nitrate"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.nitrate}</TabsTrigger>
-                  <TabsTrigger value="alkalinity" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.alkalinity}</TabsTrigger>
-                  <TabsTrigger value="turbidity"  className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.turbidity}</TabsTrigger>
-                  {hasConductivity && <TabsTrigger value="conductivity" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.conductivity}</TabsTrigger>}
-                </TabsList>
+                {!isAgriMode ? (
+                  <TabsList className="bg-muted border border-border mb-4 flex-wrap gap-y-1 h-auto min-h-9">
+                    <TabsTrigger value="overview"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.tabOverview}</TabsTrigger>
+                    <TabsTrigger value="nitrogen"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.tabNitrogen}</TabsTrigger>
+                    <TabsTrigger value="temperature" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.temperature}</TabsTrigger>
+                    <TabsTrigger value="ph"         className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.ph}</TabsTrigger>
+                    <TabsTrigger value="do_level"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">DO</TabsTrigger>
+                    <TabsTrigger value="salinity"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.salinity}</TabsTrigger>
+                    <TabsTrigger value="ammonia"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.ammonia}</TabsTrigger>
+                    <TabsTrigger value="nitrite"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.nitrite}</TabsTrigger>
+                    <TabsTrigger value="nitrate"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.nitrate}</TabsTrigger>
+                    <TabsTrigger value="alkalinity" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.alkalinity}</TabsTrigger>
+                    <TabsTrigger value="turbidity"  className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.turbidity}</TabsTrigger>
+                    {hasConductivity && <TabsTrigger value="conductivity" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.conductivity}</TabsTrigger>}
+                  </TabsList>
+                ) : (
+                  /* 농업 모드 — EC 가 첫 탭(데이터 없어도 노출), 새우 지표는 "더보기"로 접는다. */
+                  <TabsList className="bg-muted border border-border mb-4 flex-wrap gap-y-1 h-auto min-h-9">
+                    <TabsTrigger value="conductivity"  className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">EC</TabsTrigger>
+                    <TabsTrigger value="ph"            className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.ph}</TabsTrigger>
+                    <TabsTrigger value="temperature"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.temperature}</TabsTrigger>
+                    <TabsTrigger value="do_level"      className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">DO</TabsTrigger>
+                    <TabsTrigger value="flow_rate"     className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.flowRate}</TabsTrigger>
+                    <TabsTrigger value="diff_pressure" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.diffPressure}</TabsTrigger>
+                    {showAllTabs && (
+                      <>
+                        <TabsTrigger value="overview"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.tabOverview}</TabsTrigger>
+                        <TabsTrigger value="nitrogen"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.tabNitrogen}</TabsTrigger>
+                        <TabsTrigger value="salinity"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.salinity}</TabsTrigger>
+                        <TabsTrigger value="ammonia"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.ammonia}</TabsTrigger>
+                        <TabsTrigger value="nitrite"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.nitrite}</TabsTrigger>
+                        <TabsTrigger value="nitrate"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.nitrate}</TabsTrigger>
+                        <TabsTrigger value="alkalinity" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.alkalinity}</TabsTrigger>
+                        <TabsTrigger value="turbidity"  className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.turbidity}</TabsTrigger>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      onClick={toggleMoreTabs}
+                      className="text-xs text-muted-foreground hover:text-foreground px-2"
+                      aria-expanded={showAllTabs}
+                    >
+                      {showAllTabs ? t.waterQualityX.tabLess : t.waterQualityX.tabMore}
+                    </button>
+                  </TabsList>
+                )}
 
                 <TabsContent value="overview">
                   {chartData.length === 0 ? (
@@ -1131,6 +1255,10 @@ export default function WaterQualityPage() {
                           unit={unit}
                           fill={fullChart === "main"}
                           big={fullChart === "main" && boardMode}
+                          // 농업 모드 pH: 레시피가 있으면 목표선+밴드, 없어도 새우
+                          // 해수 기준선(std)은 숨긴다(오탐 방지 — 수아 시안 5-3).
+                          recipe={stdKey === "ph" ? phRecipe : null}
+                          hideStd={isAgriMode && stdKey === "ph"}
                         />
                       </div>
                     )}
@@ -1146,7 +1274,7 @@ export default function WaterQualityPage() {
                   )
                 })}
 
-                {hasConductivity && (
+                {(hasConductivity || isAgriMode) && (
                   <TabsContent value="conductivity">
                     {chartData.length === 0 ? (
                       <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground/60">
@@ -1157,11 +1285,54 @@ export default function WaterQualityPage() {
                       <div aria-label={t.waterQualityX.conductivity} role="img"
                         className={fullChart === "main" ? "h-[calc(100vh-280px)]" : undefined}>
                         <ConductivityChart chartData={chartData}
-                          fill={fullChart === "main"} big={fullChart === "main" && boardMode} />
+                          fill={fullChart === "main"} big={fullChart === "main" && boardMode}
+                          recipe={ecRecipe} msCmHint={isAgriMode} />
                       </div>
                     )}
                     <p className="text-xs text-muted-foreground mt-2 text-center">
                       {t.waterQualityX.conductivityCaption}
+                    </p>
+                  </TabsContent>
+                )}
+
+                {/* 유량·차압 (농업 모드 전용 탭) */}
+                {isAgriMode && (
+                  <TabsContent value="flow_rate">
+                    {chartData.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground/60">
+                        <Waves className="w-10 h-10" aria-hidden="true" />
+                        <p className="text-sm">{t.waterQualityX.noChartData}</p>
+                      </div>
+                    ) : (
+                      <div aria-label={t.waterQualityX.flowRate} role="img"
+                        className={fullChart === "main" ? "h-[calc(100vh-280px)]" : undefined}>
+                        <AgriLineChart chartData={chartData} dataKey="flow_rate"
+                          name={t.waterQualityX.flowRate} color="#6366f1" unit="L/min"
+                          fill={fullChart === "main"} big={fullChart === "main" && boardMode} />
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-2 text-center">
+                      {t.waterQualityX.flowCaption}
+                    </p>
+                  </TabsContent>
+                )}
+                {isAgriMode && (
+                  <TabsContent value="diff_pressure">
+                    {chartData.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground/60">
+                        <Waves className="w-10 h-10" aria-hidden="true" />
+                        <p className="text-sm">{t.waterQualityX.noChartData}</p>
+                      </div>
+                    ) : (
+                      <div aria-label={t.waterQualityX.diffPressure} role="img"
+                        className={fullChart === "main" ? "h-[calc(100vh-280px)]" : undefined}>
+                        <AgriLineChart chartData={chartData} dataKey="diff_pressure"
+                          name={t.waterQualityX.diffPressure} color="#f43f5e" unit="kPa"
+                          fill={fullChart === "main"} big={fullChart === "main" && boardMode} />
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-2 text-center">
+                      {t.waterQualityX.diffPressureCaption}
                     </p>
                   </TabsContent>
                 )}

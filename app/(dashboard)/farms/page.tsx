@@ -38,6 +38,9 @@ import {
   Cpu,
   ChevronDown,
   ChevronUp,
+  Waves,
+  Sprout,
+  FlaskConical,
 } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import type { SensorDevice } from "@/types"
@@ -46,6 +49,7 @@ import { PairDeviceDialog } from "@/components/sensors/pair-device-dialog"
 import { CoordinateField } from "@/components/farms/coordinate-field"
 import { FarmMap } from "@/components/farms/farm-map"
 import { useT } from "@/lib/i18n-context"
+import { useFarmMode } from "@/lib/farm-mode-context"
 import { AddressSearch } from "@/components/ui/address-search"
 
 function computeCycleDay(stockingDate: string | null | undefined): number {
@@ -110,6 +114,42 @@ function useStatusMeta() {
   return STATUS_META
 }
 
+// ─── Farm Type Picker ────────────────────────────────────────────────────────
+// 온보딩 Step 1 과 같은 유형 2택 카드(수아 시안 6-1) — Add/Edit 농장 폼 공용.
+
+type FarmType = "shrimp" | "agriculture"
+
+function FarmTypePicker({ value, onChange }: { value: FarmType; onChange: (v: FarmType) => void }) {
+  const { t } = useT()
+  const CARDS = [
+    { type: "shrimp" as const, Icon: Waves, label: t.onboarding.farmTypeShrimp, desc: t.onboarding.farmTypeShrimpDesc },
+    { type: "agriculture" as const, Icon: Sprout, label: t.onboarding.farmTypeAgri, desc: t.onboarding.farmTypeAgriDesc },
+  ]
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-muted-foreground text-sm">{t.onboarding.farmTypeLabel}</Label>
+      <div className="grid grid-cols-2 gap-3" role="group" aria-label={t.onboarding.farmTypeLabel}>
+        {CARDS.map(({ type, Icon, label, desc }) => (
+          <button
+            key={type}
+            type="button"
+            onClick={() => onChange(type)}
+            aria-pressed={value === type}
+            className={`min-h-[44px] rounded-xl border p-3 text-left transition-all
+              ${value === type
+                ? "border-ocean-500 bg-ocean-500/5 ring-1 ring-ocean-500/40"
+                : "border-border bg-muted/50 hover:border-ocean-300"}`}
+          >
+            <Icon className={`w-5 h-5 mb-1.5 ${value === type ? "text-ocean-600" : "text-muted-foreground"}`} aria-hidden="true" />
+            <p className="text-sm font-semibold text-foreground">{label}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Add Farm Dialog ─────────────────────────────────────────────────────────
 
 function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
@@ -119,6 +159,7 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({ name: "", location: "", owner_name: "", area: "" })
+  const [farmType, setFarmType] = useState<FarmType>("shrimp")
   const [coords, setCoords] = useState<{ lat: number | null; lon: number | null }>({ lat: null, lon: null })
 
   async function handleSubmit(e: React.FormEvent) {
@@ -133,6 +174,8 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
         area: parseFloat(form.area),
         latitude: coords.lat,
         longitude: coords.lon,
+        // 새우(기본)는 DB DEFAULT 에 맡긴다 — 마이그레이션 전 DB 에서도 등록이 막히지 않는다.
+        ...(farmType === "agriculture" ? { farm_type: farmType } : {}),
       })
       setSubmitted(true)
       onSuccess()
@@ -150,6 +193,7 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
       setSubmitted(false)
       setError(null)
       setForm({ name: "", location: "", owner_name: "", area: "" })
+      setFarmType("shrimp")
     }
   }
 
@@ -186,6 +230,7 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
             {error && (
               <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
             )}
+            <FarmTypePicker value={farmType} onChange={setFarmType} />
             <div className="space-y-1.5">
               <Label htmlFor="farm-name" className="text-muted-foreground text-sm">{t.farms.farmName} *</Label>
               <Input
@@ -272,38 +317,186 @@ function AddFarmDialog({ onSuccess }: { onSuccess: () => void }) {
   )
 }
 
+// ─── 양액 레시피 폼 (농업 베드 전용) ─────────────────────────────────────────
+// 입력은 mS/cm, 저장은 µS/cm(×1000) — 환산은 저장 지점 한 곳뿐(수아 시안 0장).
+
+interface RecipeForm { ec: string; ecTol: string; ph: string; phTol: string }
+
+const EMPTY_RECIPE: RecipeForm = { ec: "", ecTol: "0.1", ph: "", phTol: "0.5" }
+
+function recipeFromTank(tank: Tank): RecipeForm {
+  return {
+    ec: tank.target_ec != null ? String(tank.target_ec / 1000) : "",
+    ecTol: String((tank.ec_tolerance ?? 100) / 1000),
+    ph: tank.target_ph != null ? String(tank.target_ph) : "",
+    phTol: String(tank.ph_tolerance ?? 0.5),
+  }
+}
+
+/** 값이 있을 때만 범위 검증. 오류 문구 또는 null. */
+function validateRecipe(t: Dict, r: RecipeForm): string | null {
+  if (r.ec) {
+    const ec = parseFloat(r.ec)
+    if (isNaN(ec) || ec < 0.1 || ec > 10) return t.agri.ecRangeError
+    const tol = parseFloat(r.ecTol)
+    if (isNaN(tol) || tol < 0.01 || tol > 2) return t.agri.ecToleranceRangeError
+  }
+  if (r.ph) {
+    const ph = parseFloat(r.ph)
+    if (isNaN(ph) || ph < 3 || ph > 9) return t.agri.phRangeError
+    const tol = parseFloat(r.phTol)
+    if (isNaN(tol) || tol < 0.1 || tol > 2) return t.agri.phToleranceRangeError
+  }
+  return null
+}
+
+/** 저장용 변환 — 목표를 지우면 NULL, 오차는 건드리지 않는다(DEFAULT 유지). */
+function recipeToDb(r: RecipeForm) {
+  return {
+    target_ec: r.ec ? Math.round(parseFloat(r.ec) * 1000) : null,
+    ...(r.ec ? { ec_tolerance: Math.round(parseFloat(r.ecTol) * 1000) } : {}),
+    target_ph: r.ph ? parseFloat(r.ph) : null,
+    ...(r.ph ? { ph_tolerance: parseFloat(r.phTol) } : {}),
+  }
+}
+
+function RecipeFields({ idPrefix, value, onChange }: {
+  idPrefix: string
+  value: RecipeForm
+  onChange: (v: RecipeForm) => void
+}) {
+  const { t } = useT()
+  const set = (patch: Partial<RecipeForm>) => onChange({ ...value, ...patch })
+  const inputCls = "bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
+  return (
+    <div className="border-t border-border pt-4 mt-1 space-y-3">
+      <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+        <FlaskConical className="w-4 h-4 text-ocean-600" aria-hidden="true" />
+        {t.agri.recipeTitle} <span className="text-xs text-muted-foreground font-normal">{t.agri.recipeOptional}</span>
+      </p>
+      <p className="text-xs text-muted-foreground">{t.agri.recipeHint}</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor={`${idPrefix}-ec`} className="text-muted-foreground text-sm">
+            {t.agri.targetEc} ({t.agri.targetEcUnit})
+          </Label>
+          <Input
+            id={`${idPrefix}-ec`}
+            type="number" step={0.1} min={0.1} max={10}
+            placeholder={t.agri.targetEcPlaceholder}
+            className={inputCls}
+            value={value.ec}
+            onChange={e => set({ ec: e.target.value })}
+          />
+        </div>
+        <div className={`space-y-1.5 ${!value.ec ? "opacity-50" : ""}`}>
+          <Label htmlFor={`${idPrefix}-ec-tol`} className="text-muted-foreground text-sm">
+            {t.agri.ecTolerance} (± {t.agri.targetEcUnit})
+          </Label>
+          <Input
+            id={`${idPrefix}-ec-tol`}
+            type="number" step={0.05} min={0.01} max={2}
+            placeholder={t.agri.ecTolerancePlaceholder}
+            className={inputCls}
+            value={value.ecTol}
+            onChange={e => set({ ecTol: e.target.value })}
+            disabled={!value.ec}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={`${idPrefix}-ph`} className="text-muted-foreground text-sm">
+            {t.agri.targetPh}
+          </Label>
+          <Input
+            id={`${idPrefix}-ph`}
+            type="number" step={0.1} min={3} max={9}
+            placeholder={t.agri.targetPhPlaceholder}
+            className={inputCls}
+            value={value.ph}
+            onChange={e => set({ ph: e.target.value })}
+          />
+        </div>
+        <div className={`space-y-1.5 ${!value.ph ? "opacity-50" : ""}`}>
+          <Label htmlFor={`${idPrefix}-ph-tol`} className="text-muted-foreground text-sm">
+            {t.agri.phTolerance} (±)
+          </Label>
+          <Input
+            id={`${idPrefix}-ph-tol`}
+            type="number" step={0.1} min={0.1} max={2}
+            className={inputCls}
+            value={value.phTol}
+            onChange={e => set({ phTol: e.target.value })}
+            disabled={!value.ph}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Add Tank Dialog ─────────────────────────────────────────────────────────
 
 function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void }) {
   const { t } = useT()
+  // 폼·레시피 라벨은 전역 UI 모드가 아니라 "지금 편집 중인 farm" 유형으로 가른다
+  // (혼합 계정에서도 agriculture farm 의 베드 폼은 농업 라벨이어야 한다 — 수아 시안 0장).
+  const isAgriFarm = (farm.farm_type ?? "shrimp") === "agriculture"
   const [open, setOpen] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [form, setForm] = useState({ name: "", volume: "", density: "", stocking_date: "", harvest_date: "", tank_type: "노지" as "노지" | "실내" | "반실내" })
+  // NFT 베드는 대부분 온실·실내라 농업 기본 유형은 "실내".
+  const initialForm = { name: "", volume: "", density: "", stocking_date: "", harvest_date: "", tank_type: (isAgriFarm ? "실내" : "노지") as "노지" | "실내" | "반실내" }
+  const [form, setForm] = useState(initialForm)
+  const [recipe, setRecipe] = useState<RecipeForm>(EMPTY_RECIPE)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const volume = parseFloat(form.volume) || 0
     const density = parseFloat(form.density) || 0
     if (!form.name.trim()) { setError(t.farmsX.tankNameRequired); return }
-    if (volume <= 0 || volume > 100000) { setError(t.farmsX.volumeRange); return }
-    if (density < 0 || density > 10000) { setError(t.farmsX.densityRange); return }
+    if (isAgriFarm) {
+      // 양액조 용량은 선택 입력 — 넣었을 때만 범위를 본다.
+      if (form.volume && (volume <= 0 || volume > 100000)) { setError(t.farmsX.volumeRange); return }
+      const recipeError = validateRecipe(t, recipe)
+      if (recipeError) { setError(recipeError); return }
+    } else {
+      if (volume <= 0 || volume > 100000) { setError(t.farmsX.volumeRange); return }
+      if (density < 0 || density > 10000) { setError(t.farmsX.densityRange); return }
+    }
     setSaving(true)
     setError(null)
     try {
-      const cycleDay = form.stocking_date ? computeCycleDay(form.stocking_date) : 0
-      await createTank({
-        farm_id: farm.id,
-        name: form.name.trim(),
-        tank_type: form.tank_type,
-        volume,
-        stocking_density: density,
-        shrimp_count: Math.round(volume * density),
-        cycle_day: cycleDay,
-        stocking_date: form.stocking_date || null,
-        harvest_date: form.harvest_date || null,
-      })
+      if (isAgriFarm) {
+        // 입식 밀도·입식일·출하일은 새우 전용 — 0/null 저장.
+        const db = recipeToDb(recipe)
+        await createTank({
+          farm_id: farm.id,
+          name: form.name.trim(),
+          tank_type: form.tank_type,
+          volume,
+          stocking_density: 0,
+          shrimp_count: 0,
+          cycle_day: 0,
+          stocking_date: null,
+          harvest_date: null,
+          ...(db.target_ec != null ? { target_ec: db.target_ec, ec_tolerance: db.ec_tolerance } : {}),
+          ...(db.target_ph != null ? { target_ph: db.target_ph, ph_tolerance: db.ph_tolerance } : {}),
+        })
+      } else {
+        const cycleDay = form.stocking_date ? computeCycleDay(form.stocking_date) : 0
+        await createTank({
+          farm_id: farm.id,
+          name: form.name.trim(),
+          tank_type: form.tank_type,
+          volume,
+          stocking_density: density,
+          shrimp_count: Math.round(volume * density),
+          cycle_day: cycleDay,
+          stocking_date: form.stocking_date || null,
+          harvest_date: form.harvest_date || null,
+        })
+      }
       setSubmitted(true)
       onSuccess()
     } catch (err) {
@@ -319,7 +512,8 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
     if (!v) {
       setSubmitted(false)
       setError(null)
-      setForm({ name: "", volume: "", density: "", stocking_date: "", harvest_date: "", tank_type: "노지" })
+      setForm(initialForm)
+      setRecipe(EMPTY_RECIPE)
     }
   }
 
@@ -357,10 +551,10 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
               <p className="text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
             )}
             <div className="space-y-1.5">
-              <Label htmlFor="tank-name" className="text-muted-foreground text-sm">{t.farms.tankName} *</Label>
+              <Label htmlFor="tank-name" className="text-muted-foreground text-sm">{isAgriFarm ? t.agri.bedName : t.farms.tankName} *</Label>
               <Input
                 id="tank-name"
-                placeholder={t.farms.tankNamePlaceholder}
+                placeholder={isAgriFarm ? t.agri.bedNamePlaceholder : t.farms.tankNamePlaceholder}
                 className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
@@ -368,7 +562,7 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-muted-foreground text-sm">{t.common.type}</Label>
+              <Label className="text-muted-foreground text-sm">{isAgriFarm ? t.agri.bedType : t.common.type}</Label>
               <div className="flex gap-2">
                 {(["노지", "실내", "반실내"] as const).map(type => (
                   <button
@@ -386,54 +580,76 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
                 ))}
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="tank-volume" className="text-muted-foreground text-sm">{t.farms.tankVolume} ({t.farms.tankVolumeUnit}) *</Label>
-              <Input
-                id="tank-volume"
-                type="number"
-                placeholder={t.farmsX.volumePlaceholder}
-                min={1}
-                className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
-                value={form.volume}
-                onChange={e => setForm(f => ({ ...f, volume: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="tank-density" className="text-muted-foreground text-sm">{t.farms.tankDensity} ({t.farms.tankDensityUnit}) *</Label>
-              <Input
-                id="tank-density"
-                type="number"
-                placeholder={t.farmsX.densityPlaceholder}
-                min={1}
-                className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
-                value={form.density}
-                onChange={e => setForm(f => ({ ...f, density: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {isAgriFarm ? (
               <div className="space-y-1.5">
-                <Label htmlFor="tank-stocking" className="text-muted-foreground text-sm">{t.production.stockingDate}</Label>
+                <Label htmlFor="tank-volume" className="text-muted-foreground text-sm">{t.agri.bedVolume} ({t.farms.tankVolumeUnit}) {t.agri.recipeOptional}</Label>
                 <Input
-                  id="tank-stocking"
-                  type="date"
-                  className="bg-muted border-border text-foreground focus-visible:ring-ocean-500/50"
-                  value={form.stocking_date}
-                  onChange={e => setForm(f => ({ ...f, stocking_date: e.target.value }))}
+                  id="tank-volume"
+                  type="number"
+                  placeholder="예: 1"
+                  min={0.1}
+                  step={0.1}
+                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
+                  value={form.volume}
+                  onChange={e => setForm(f => ({ ...f, volume: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground">{t.agri.bedVolumeHint}</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label htmlFor="tank-volume" className="text-muted-foreground text-sm">{t.farms.tankVolume} ({t.farms.tankVolumeUnit}) *</Label>
+                <Input
+                  id="tank-volume"
+                  type="number"
+                  placeholder={t.farmsX.volumePlaceholder}
+                  min={1}
+                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
+                  value={form.volume}
+                  onChange={e => setForm(f => ({ ...f, volume: e.target.value }))}
+                  required
                 />
               </div>
+            )}
+            {!isAgriFarm && (
               <div className="space-y-1.5">
-                <Label htmlFor="tank-harvest" className="text-muted-foreground text-sm">{t.farmsX.plannedHarvestDate}</Label>
+                <Label htmlFor="tank-density" className="text-muted-foreground text-sm">{t.farms.tankDensity} ({t.farms.tankDensityUnit}) *</Label>
                 <Input
-                  id="tank-harvest"
-                  type="date"
-                  className="bg-muted border-border text-foreground focus-visible:ring-ocean-500/50"
-                  value={form.harvest_date}
-                  onChange={e => setForm(f => ({ ...f, harvest_date: e.target.value }))}
+                  id="tank-density"
+                  type="number"
+                  placeholder={t.farmsX.densityPlaceholder}
+                  min={1}
+                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-ocean-500/50"
+                  value={form.density}
+                  onChange={e => setForm(f => ({ ...f, density: e.target.value }))}
+                  required
                 />
               </div>
-            </div>
+            )}
+            {!isAgriFarm && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="tank-stocking" className="text-muted-foreground text-sm">{t.production.stockingDate}</Label>
+                  <Input
+                    id="tank-stocking"
+                    type="date"
+                    className="bg-muted border-border text-foreground focus-visible:ring-ocean-500/50"
+                    value={form.stocking_date}
+                    onChange={e => setForm(f => ({ ...f, stocking_date: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="tank-harvest" className="text-muted-foreground text-sm">{t.farmsX.plannedHarvestDate}</Label>
+                  <Input
+                    id="tank-harvest"
+                    type="date"
+                    className="bg-muted border-border text-foreground focus-visible:ring-ocean-500/50"
+                    value={form.harvest_date}
+                    onChange={e => setForm(f => ({ ...f, harvest_date: e.target.value }))}
+                  />
+                </div>
+              </div>
+            )}
+            {isAgriFarm && <RecipeFields idPrefix="recipe" value={recipe} onChange={setRecipe} />}
             <DialogFooter className="pt-2">
               <Button
                 type="button"
@@ -479,21 +695,31 @@ function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({ name: farm.name, location: farm.location, owner_name: farm.owner_name ?? "", area: String(farm.area) })
+  const [farmType, setFarmType] = useState<FarmType>(farm.farm_type ?? "shrimp")
   const [coords, setCoords] = useState<{ lat: number | null; lon: number | null }>({ lat: farm.latitude, lon: farm.longitude })
 
   useEffect(() => {
     if (open) {
       setForm({ name: farm.name, location: farm.location, owner_name: farm.owner_name ?? "", area: String(farm.area) })
+      setFarmType(farm.farm_type ?? "shrimp")
       setCoords({ lat: farm.latitude, lon: farm.longitude })
     }
   }, [open, farm])
+
+  const typeChanged = farmType !== (farm.farm_type ?? "shrimp")
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     setError(null)
     try {
-      await updateFarm(farm.id, { name: form.name, location: form.location, owner_name: form.owner_name, area: parseFloat(form.area) || 0, latitude: coords.lat, longitude: coords.lon })
+      await updateFarm(farm.id, {
+        name: form.name, location: form.location, owner_name: form.owner_name,
+        area: parseFloat(form.area) || 0, latitude: coords.lat, longitude: coords.lon,
+        // 유형은 바뀐 경우에만 싣는다 — 마이그레이션 전 DB 에서 기존 새우 계정의
+        // 농장 수정이 "없는 컬럼" 오류로 막히면 안 된다.
+        ...(typeChanged ? { farm_type: farmType } : {}),
+      })
       setOpen(false)
       onSuccess()
     } catch (err) {
@@ -517,6 +743,10 @@ function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+          <FarmTypePicker value={farmType} onChange={setFarmType} />
+          {typeChanged && (
+            <p className="text-xs text-muted-foreground">{t.agri.farmTypeChangeNote}</p>
+          )}
           <div className="space-y-2">
             <Label className="text-muted-foreground">{t.farms.farmName} *</Label>
             <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required className="bg-muted border-border text-foreground" />
@@ -607,8 +837,10 @@ function DeleteFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => vo
 
 // ─── Edit Tank Dialog ─────────────────────────────────────────────────────────
 
-function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void }) {
+function EditTankDialog({ tank, farm, onSuccess }: { tank: Tank; farm: Farm; onSuccess: () => void }) {
   const { t } = useT()
+  // 폼 라벨·레시피는 편집 중인 farm 의 유형으로 가른다(혼합 계정 대응).
+  const isAgriFarm = (farm.farm_type ?? "shrimp") === "agriculture"
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -621,38 +853,57 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
     status: tank.status,
     tank_type: (tank.tank_type ?? "노지") as "노지" | "실내" | "반실내",
   })
+  const [recipe, setRecipe] = useState<RecipeForm>(() => recipeFromTank(tank))
 
   useEffect(() => {
-    if (open) setForm({
-      name: tank.name,
-      volume: String(tank.volume),
-      density: String(tank.stocking_density),
-      stocking_date: tank.stocking_date ?? "",
-      harvest_date: tank.harvest_date ?? "",
-      status: tank.status,
-      tank_type: (tank.tank_type ?? "노지") as "노지" | "실내" | "반실내",
-    })
+    if (open) {
+      setForm({
+        name: tank.name,
+        volume: String(tank.volume),
+        density: String(tank.stocking_density),
+        stocking_date: tank.stocking_date ?? "",
+        harvest_date: tank.harvest_date ?? "",
+        status: tank.status,
+        tank_type: (tank.tank_type ?? "노지") as "노지" | "실내" | "반실내",
+      })
+      setRecipe(recipeFromTank(tank))
+    }
   }, [open, tank])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (isAgriFarm) {
+      const recipeError = validateRecipe(t, recipe)
+      if (recipeError) { setError(recipeError); return }
+    }
     setSaving(true)
     setError(null)
     try {
       const volume = parseFloat(form.volume) || 0
-      const density = parseFloat(form.density) || 0
-      const cycleDay = form.stocking_date ? computeCycleDay(form.stocking_date) : tank.cycle_day
-      await updateTank(tank.id, {
-        name: form.name,
-        tank_type: form.tank_type,
-        volume,
-        stocking_density: density,
-        shrimp_count: Math.round(volume * density),
-        cycle_day: cycleDay,
-        stocking_date: form.stocking_date || null,
-        harvest_date: form.harvest_date || null,
-        status: form.status as Tank["status"],
-      })
+      if (isAgriFarm) {
+        // 입식 관련 칸은 건드리지 않는다(새우 전용 — 농업 베드는 0/null 유지).
+        await updateTank(tank.id, {
+          name: form.name,
+          tank_type: form.tank_type,
+          volume,
+          status: form.status as Tank["status"],
+          ...recipeToDb(recipe),
+        })
+      } else {
+        const density = parseFloat(form.density) || 0
+        const cycleDay = form.stocking_date ? computeCycleDay(form.stocking_date) : tank.cycle_day
+        await updateTank(tank.id, {
+          name: form.name,
+          tank_type: form.tank_type,
+          volume,
+          stocking_density: density,
+          shrimp_count: Math.round(volume * density),
+          cycle_day: cycleDay,
+          stocking_date: form.stocking_date || null,
+          harvest_date: form.harvest_date || null,
+          status: form.status as Tank["status"],
+        })
+      }
       setOpen(false)
       onSuccess()
     } catch (err) {
@@ -684,11 +935,11 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="space-y-2">
-            <Label className="text-muted-foreground">{t.farms.tankName} *</Label>
-            <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required className="bg-muted border-border text-foreground" />
+            <Label className="text-muted-foreground">{isAgriFarm ? t.agri.bedName : t.farms.tankName} *</Label>
+            <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder={isAgriFarm ? t.agri.bedNamePlaceholder : undefined} required className="bg-muted border-border text-foreground placeholder:text-muted-foreground" />
           </div>
           <div className="space-y-2">
-            <Label className="text-muted-foreground">{t.common.type}</Label>
+            <Label className="text-muted-foreground">{isAgriFarm ? t.agri.bedType : t.common.type}</Label>
             <div className="flex gap-2">
               {(["노지", "실내", "반실내"] as const).map(type => (
                 <button
@@ -706,26 +957,37 @@ function EditTankDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void
               ))}
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {isAgriFarm ? (
             <div className="space-y-2">
-              <Label className="text-muted-foreground">{t.farms.tankVolume} ({t.farms.tankVolumeUnit})</Label>
-              <Input type="number" value={form.volume} onChange={e => setForm(p => ({ ...p, volume: e.target.value }))} className="bg-muted border-border text-foreground" />
+              <Label className="text-muted-foreground">{t.agri.bedVolume} ({t.farms.tankVolumeUnit}) {t.agri.recipeOptional}</Label>
+              <Input type="number" min={0.1} step={0.1} value={form.volume} onChange={e => setForm(p => ({ ...p, volume: e.target.value }))} className="bg-muted border-border text-foreground" />
+              <p className="text-xs text-muted-foreground">{t.agri.bedVolumeHint}</p>
             </div>
-            <div className="space-y-2">
-              <Label className="text-muted-foreground">{t.farms.tankDensity} ({t.farms.tankDensityUnit})</Label>
-              <Input type="number" value={form.density} onChange={e => setForm(p => ({ ...p, density: e.target.value }))} className="bg-muted border-border text-foreground" />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">{t.farms.tankVolume} ({t.farms.tankVolumeUnit})</Label>
+                <Input type="number" value={form.volume} onChange={e => setForm(p => ({ ...p, volume: e.target.value }))} className="bg-muted border-border text-foreground" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">{t.farms.tankDensity} ({t.farms.tankDensityUnit})</Label>
+                <Input type="number" value={form.density} onChange={e => setForm(p => ({ ...p, density: e.target.value }))} className="bg-muted border-border text-foreground" />
+              </div>
             </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-muted-foreground">{t.production.stockingDate}</Label>
-              <Input type="date" value={form.stocking_date} onChange={e => setForm(p => ({ ...p, stocking_date: e.target.value }))} className="bg-muted border-border text-foreground" />
+          )}
+          {!isAgriFarm && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">{t.production.stockingDate}</Label>
+                <Input type="date" value={form.stocking_date} onChange={e => setForm(p => ({ ...p, stocking_date: e.target.value }))} className="bg-muted border-border text-foreground" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">{t.farmsX.plannedHarvestDate}</Label>
+                <Input type="date" value={form.harvest_date} onChange={e => setForm(p => ({ ...p, harvest_date: e.target.value }))} className="bg-muted border-border text-foreground" />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-muted-foreground">{t.farmsX.plannedHarvestDate}</Label>
-              <Input type="date" value={form.harvest_date} onChange={e => setForm(p => ({ ...p, harvest_date: e.target.value }))} className="bg-muted border-border text-foreground" />
-            </div>
-          </div>
+          )}
+          {isAgriFarm && <RecipeFields idPrefix="recipe-edit" value={recipe} onChange={setRecipe} />}
           <div className="space-y-2">
             <Label className="text-muted-foreground">{t.common.status}</Label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -974,6 +1236,9 @@ function payloadLabels(t: Dict): Record<string, { label: string; unit: string }>
     tds:           { label: "TDS",    unit: "ppm" },
     do_saturation: { label: t.waterQualityX.doSaturation, unit: "%" },
     orp:           { label: "ORP",    unit: "mV" },
+    // 유량·차압 — 새우 모드에서도 무해(장비가 안 보내면 안 보임).
+    flow_rate:     { label: t.waterQualityX.flowRate, unit: "L/min" },
+    diff_pressure: { label: t.waterQualityX.diffPressure, unit: "kPa" },
   }
 }
 
@@ -1153,11 +1418,12 @@ function DeviceUpdate({
 
 // ─── Tank Card ───────────────────────────────────────────────────────────────
 
-function TankCard({ tank, onRefresh }: { tank: Tank; onRefresh: () => void }) {
+function TankCard({ tank, farm, onRefresh }: { tank: Tank; farm: Farm; onRefresh: () => void }) {
   const { t } = useT()
   const STATUS_META = useStatusMeta()
   const meta = STATUS_META[tank.status]
   const isPulsing = tank.status === "warning" || tank.status === "danger"
+  const isAgriFarm = (farm.farm_type ?? "shrimp") === "agriculture"
 
   return (
     <Card className={`bg-card border transition-all hover:border-border hover:bg-card group ${meta.border}`}>
@@ -1224,11 +1490,28 @@ function TankCard({ tank, onRefresh }: { tank: Tank; onRefresh: () => void }) {
           )}
         </div>
 
+        {/* 레시피 요약 — 농업 farm 의 베드에만 (수아 시안 6-2) */}
+        {isAgriFarm && (
+          <p className="text-xs text-muted-foreground tabular-nums flex items-center gap-1.5">
+            <FlaskConical className="w-3.5 h-3.5 text-ocean-600 shrink-0" aria-hidden="true" />
+            {tank.target_ec == null && tank.target_ph == null
+              ? t.agri.recipeNotSet
+              : [
+                  tank.target_ec != null
+                    ? `EC ${(tank.target_ec / 1000).toFixed(2)} ±${((tank.ec_tolerance ?? 100) / 1000).toFixed(2)}`
+                    : null,
+                  tank.target_ph != null
+                    ? `pH ${tank.target_ph} ±${tank.ph_tolerance ?? 0.5}`
+                    : null,
+                ].filter(Boolean).join(" · ")}
+          </p>
+        )}
+
         {/* Action row */}
         <div className="flex items-center justify-between pt-1 border-t border-border">
           <p className="text-muted-foreground text-xs">{t.farmsX.registered} {formatDate(tank.created_at)}</p>
           <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-            <EditTankDialog tank={tank} onSuccess={onRefresh} />
+            <EditTankDialog tank={tank} farm={farm} onSuccess={onRefresh} />
             <DeleteTankDialog tank={tank} onSuccess={onRefresh} />
           </div>
         </div>
@@ -1360,6 +1643,8 @@ function StatusSummary({ tanks }: { tanks: Tank[] }) {
 export default function FarmsPage() {
   const { user } = useAuth()
   const { t } = useT()
+  // farm 유형이 바뀌면 전역 UI 모드(메뉴·라벨)도 다시 계산해야 한다.
+  const { refreshFarmMode } = useFarmMode()
   const [farms, setFarms] = useState<Farm[]>([])
   const [tanksMap, setTanksMap] = useState<Record<string, Tank[]>>({})
   // 지도용 전체 수조 — 펼치지 않은 양식장도 마커 색이 상태를 반영해야 한다.
@@ -1430,6 +1715,7 @@ export default function FarmsPage() {
   const handleFarmAdded = () => {
     loadFarms()
     loadAllTanks()
+    refreshFarmMode()
   }
 
   const handleTankAdded = () => {
@@ -1557,7 +1843,7 @@ export default function FarmsPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {selectedTanks.map(tank => (
-                <TankCard key={tank.id} tank={tank} onRefresh={handleTankAdded} />
+                <TankCard key={tank.id} tank={tank} farm={selectedFarm!} onRefresh={handleTankAdded} />
               ))}
             </div>
           )}

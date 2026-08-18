@@ -22,6 +22,8 @@ export type DbFarm = {
   longitude: number | null
   owner_name: string
   area: number
+  /** 마이그레이션 전 DB 에서는 컬럼이 없어 undefined 로 온다. */
+  farm_type?: "shrimp" | "agriculture"
   created_at: string
 }
 
@@ -37,6 +39,11 @@ export type DbTank = {
   stocking_date: string | null
   harvest_date: string | null
   tank_type: "노지" | "실내" | "반실내"
+  /** 양액 레시피(농업 모드) — µS/cm 저장. 마이그레이션 전에는 undefined. */
+  target_ec?: number | null
+  ec_tolerance?: number
+  target_ph?: number | null
+  ph_tolerance?: number
   created_at: string
 }
 
@@ -54,6 +61,8 @@ export type DbWaterQuality = {
   alkalinity: number | null
   turbidity: number | null
   conductivity?: number | null
+  flow_rate?: number | null
+  diff_pressure?: number | null
   recorded_at: string
   created_at: string
 }

@@ -17,6 +17,10 @@ export interface Farm {
   longitude: number | null
   owner_name?: string
   area: number
+  /** 농장 유형 — 기본 새우 양식. agriculture 는 수경재배(농업 모드).
+   *  마이그레이션 전 DB·목데이터는 값이 없을 수 있어 선택 필드로 두고,
+   *  읽는 쪽에서 "shrimp" 으로 간주한다. */
+  farm_type?: "shrimp" | "agriculture"
   tank_count: number
   created_at: string
 }
@@ -33,6 +37,12 @@ export interface Tank {
   stocking_date?: string | null
   harvest_date?: string | null
   tank_type?: "노지" | "실내" | "반실내"
+  /** 양액 레시피(농업 모드 베드 전용) — µS/cm 저장. null 이면 미설정. */
+  target_ec?: number | null
+  /** 허용 오차(±µS/cm). 사업 목표 ±0.1 dS/m = 100 µS/cm. */
+  ec_tolerance?: number
+  target_ph?: number | null
+  ph_tolerance?: number
   created_at: string
 }
 
@@ -51,6 +61,10 @@ export interface WaterQualityReading {
   turbidity: number
   /** 전도도(uS/cm). EC 센서를 전도도 모드로 쓰는 농장에서만 채워진다. */
   conductivity?: number | null
+  /** 순환 유량(L/min) — 수경재배 순환 라인. 안 재는 곳은 null. */
+  flow_rate?: number | null
+  /** 차압(kPa) — UV 살균기·필터 막힘 감시. 안 재는 곳은 null. */
+  diff_pressure?: number | null
   recorded_at: string
   created_at: string
 }

@@ -19,6 +19,9 @@ function payloadLabels(t: Dict): Record<string, { label: string; unit?: string }
     tds:           { label: "TDS", unit: "ppm" },
     do_saturation: { label: t.waterQualityX.doSaturation, unit: "%" },
     orp:           { label: "ORP", unit: "mV" },
+    // 유량·차압 — 새우 모드에서도 무해(장비가 안 보내면 안 보임).
+    flow_rate:     { label: t.waterQualityX.flowRate, unit: "L/min" },
+    diff_pressure: { label: t.waterQualityX.diffPressure, unit: "kPa" },
   }
 }
 

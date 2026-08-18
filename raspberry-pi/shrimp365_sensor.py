@@ -241,6 +241,11 @@ class SensorSpec:
     slave_id: int
     # {보낼 이름: 값 레지스터 번호}
     fields: dict[str, int] = field(default_factory=dict)
+    # 설정 파일에 항목이 없을 때의 기본 사용 여부.
+    # 기존 3종(pH/DO/EC)은 켬 — 예전 설정 파일과 동작이 같아야 한다.
+    # 유량·차압은 수경재배 전용이라 끔 — 새우 장비가 없는 센서를 매 주기
+    # 읽으려다 오류를 쌓으면 안 된다.
+    default_enabled: bool = True
 
 
 # 값 레지스터 위치는 프로토콜 문서 기준.
@@ -251,10 +256,16 @@ SENSOR_SPECS: dict[str, SensorSpec] = {
     # 염도(0x0006)는 읽지 않는다. 민물에서 132 ppt 처럼 말이 안 되는 값이 나와
     # 믿을 수 없다. 대신 전도도에서 직접 환산한다(아래 salinity_from_ec).
     "ec": SensorSpec("ec", 4, {"conductivity": 0x0000, "tds": 0x0002, "temperature": 0x0008}),
+    # 유량·차압(수경재배) — 같은 RS-485 프로토콜 계열을 가정한 잠정 배치다.
+    # 슬레이브 ID·레지스터는 하드웨어 스펙 확정 후 설정에서 맞춘다(설계서 6장).
+    # 기본 꺼짐이라 켜기 전에는 어떤 장비에도 영향이 없다.
+    "flow": SensorSpec("flow", 5, {"flow_rate": 0x0000}, default_enabled=False),
+    "dp": SensorSpec("dp", 6, {"diff_pressure": 0x0000}, default_enabled=False),
 }
 
 # 화면에 띄울 이름. 코드 안의 key 를 그대로 보여 주면 알아보기 어렵다.
-SENSOR_LABELS = {"ph": "pH / ORP", "do": "용존산소", "ec": "전도도 / 염도"}
+SENSOR_LABELS = {"ph": "pH / ORP", "do": "용존산소", "ec": "전도도 / 염도",
+                 "flow": "유량", "dp": "차압"}
 
 # 수온을 어느 센서 것으로 쓸지. 앞에 있는 것부터 우선.
 #
@@ -266,7 +277,7 @@ TEMPERATURE_PRIORITY = ("do", "ph", "ec")
 
 # 서버가 수질 기록으로 저장하는 항목. 나머지는 참고용으로 함께 보내되
 # 기기 카드의 "마지막 수신값"에만 남는다.
-STORED_FIELDS = {"temperature", "ph", "do_level", "salinity"}
+STORED_FIELDS = {"temperature", "ph", "do_level", "salinity", "flow_rate", "diff_pressure"}
 
 
 # 첫 레지스터의 단위 코드로 어떤 센서인지 짐작한다.
@@ -483,6 +494,8 @@ PLAUSIBLE = {
     "tds":           (0.0, 100000.0),  # ppm
     "do_saturation": (0.0, 200.0),
     "orp":           (-2000.0, 2000.0),
+    "flow_rate":     (0.0, 1000.0),    # L/min — 서버 화이트리스트와 같은 범위
+    "diff_pressure": (0.0, 1000.0),    # kPa
 }
 
 
@@ -519,6 +532,21 @@ def normalize(name: str, value: float, unit: str) -> float | None:
         # ppm 으로 통일한다. 물에서 mg/L 과 ppm 은 수치가 같으므로 환산이 없다.
         if unit == "ug/L":
             return round(value / 1000, 3)
+        return round(value, 2)
+
+    if name == "diff_pressure":
+        # kPa 로 통일한다(UV 살균기·필터 차압). 이 계열 변환기의 압력 단위 코드는
+        # mbar/bar/mmHg — 그 밖의 단위(코드 없음 포함)는 kPa 로 간주한다.
+        if unit == "bar":
+            return round(value * 100.0, 2)
+        if unit == "mbar":
+            return round(value * 0.1, 2)
+        if unit == "mmHg":
+            return round(value * 0.133322, 2)
+        return round(value, 2)
+
+    if name == "flow_rate":
+        # L/min 그대로 보낸다. 단위 코드표에 유량 단위가 없어 환산하지 않는다.
         return round(value, 2)
 
     return round(value, 3)
@@ -611,6 +639,50 @@ def nutrient_plan(conductivity_us: float | None, water_temp: float | None,
     else:
         out["verdict"] = "ok"
     return out
+
+
+# 교정값의 출고 기본값. 이 값 그대로면 현장 실측을 하지 않았다고 본다.
+NUT_CAL_DEFAULTS = {"cal_ml": 10.0, "cal_liters": 100.0, "cal_ec_rise": 0.05}
+
+
+def nutrient_calibrated(cfg: dict) -> bool:
+    """교정값을 현장에서 실측해 바꿨는지. 기본값 그대로면 미교정.
+
+    우연히 실측값이 기본값과 같을 수도 있지만, 그때 '참고값' 표시가 남는 쪽이
+    미교정인데 확정값처럼 보이는 쪽보다 낫다(보수적 판단).
+    """
+    for key, default in NUT_CAL_DEFAULTS.items():
+        try:
+            if abs(float(cfg.get(key, default)) - default) > 1e-9:
+                return True
+        except (TypeError, ValueError):
+            continue
+    return False
+
+
+def nutrient_payload(plan: dict | None, cfg: dict) -> dict:
+    """nutrient_plan 결과를 업로드 payload 용 평탄한 nut_* 키로 바꾼다.
+
+    계산의 진실은 장비, 웹은 표시(설계서 4-4) — 서버의 sanitizePayload 가
+    이 키들을 그대로 통과시켜 sensor_devices.last_payload 에 실리고,
+    웹 대시보드의 양액 상태 카드가 그 값을 보여 준다.
+    nut_target_ec 는 저장 원칙대로 µS/cm 로 보낸다(화면에서 ÷1000).
+    """
+    if not plan or plan.get("error") or "verdict" not in plan:
+        return {}
+    out = {
+        "nut_percent": plan.get("percent"),
+        "nut_verdict": plan.get("verdict"),
+        "nut_target_ec": round(float(plan.get("target", 0.0)) * 1000),
+        "nut_calibrated": nutrient_calibrated(cfg),
+    }
+    if plan.get("verdict") == "low":
+        out["nut_dose_a_ml"] = plan.get("dose_a")
+        out["nut_dose_b_ml"] = plan.get("dose_b")
+    elif plan.get("verdict") == "high":
+        out["nut_exchange_l"] = plan.get("exchange_l")
+    # 값이 비어 있는 키는 보내지 않는다(서버가 어차피 버린다).
+    return {k: v for k, v in out.items() if v is not None}
 
 
 # ── 수집 ──────────────────────────────────────────────────────────────────────
@@ -1290,7 +1362,7 @@ def main() -> int:
                 (f"{SENSOR_LABELS[k]} (ID {cfg.getint('sensors', f'{k}_slave_id', fallback=v.slave_id)})",
                  cfg.getint("sensors", f"{k}_slave_id", fallback=v.slave_id))
                 for k, v in SENSOR_SPECS.items()
-                if cfg.getboolean("sensors", f"{k}_enabled", fallback=True)
+                if cfg.getboolean("sensors", f"{k}_enabled", fallback=v.default_enabled)
             ]
 
         try:
@@ -1407,7 +1479,7 @@ def main() -> int:
         print("설정의 슬레이브 ID 와 견줘 보세요 — /etc/shrimp365/config.ini 의 [sensors]")
         for key, spec in SENSOR_SPECS.items():
             configured = cfg.getint("sensors", f"{key}_slave_id", fallback=spec.slave_id)
-            on = cfg.getboolean("sensors", f"{key}_enabled", fallback=True)
+            on = cfg.getboolean("sensors", f"{key}_enabled", fallback=spec.default_enabled)
             mark = "" if any(f[0] == configured for f in found) else "   ← 응답 없음"
             print(f"  {key}_slave_id = {configured}"
                   f"{'' if on else '  (꺼져 있음)'}{mark}")
@@ -1415,7 +1487,8 @@ def main() -> int:
 
     enabled: dict[str, int] = {}
     for key, spec in SENSOR_SPECS.items():
-        if cfg.getboolean("sensors", f"{key}_enabled", fallback=True):
+        # 기본값은 스펙별로 다르다 — 기존 3종은 켬, 유량·차압은 끔(위 SENSOR_SPECS 주석).
+        if cfg.getboolean("sensors", f"{key}_enabled", fallback=spec.default_enabled):
             enabled[key] = cfg.getint("sensors", f"{key}_slave_id", fallback=spec.slave_id)
 
     if not enabled:
@@ -1860,6 +1933,8 @@ def main() -> int:
             else:
                 recorded_at = time.strftime("%Y-%m-%dT%H:%M:%S%z") or None
                 payload = {**values, "serial": serial_no, "firmware": f"pi-{VERSION}"}
+                # 양액 요약(nut_*) — 계산이 있을 때만. 웹 양액 상태 카드가 쓴다.
+                payload.update(nutrient_payload(nutrient, nut_holder))
 
                 if not auth["key"]:
                     # 연결되지 않은 장비도 계측기로는 그대로 쓸 수 있어야 한다.

@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { FarmModeProvider } from "@/lib/farm-mode-context"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
 import { BottomNav } from "@/components/layout/bottom-nav"
@@ -28,15 +29,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null
 
   return (
-    <div className="min-h-screen flex bg-background">
-      <Sidebar />
-      <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
-        <Header />
-        <main className="flex-1 overflow-auto p-4 pb-24 lg:p-6 lg:pb-6">
-          {children}
-        </main>
+    <FarmModeProvider>
+      <div className="min-h-screen flex bg-background">
+        <Sidebar />
+        <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+          <Header />
+          <main className="flex-1 overflow-auto p-4 pb-24 lg:p-6 lg:pb-6">
+            {children}
+          </main>
+        </div>
+        <BottomNav />
       </div>
-      <BottomNav />
-    </div>
+    </FarmModeProvider>
   )
 }

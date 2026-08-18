@@ -6,6 +6,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
+import { useFarmMode } from "@/lib/farm-mode-context"
 import { cn } from "@/lib/utils"
 import {
   Home, LayoutDashboard, Droplets, BookOpen, Building2,
@@ -19,6 +20,10 @@ import { LanguageSwitcher } from "@/components/ui/language-switcher"
 import { isMonitorAccount } from "@/lib/mock-data"
 import { localizedHref, stripLocalePrefix } from "@/lib/marketing-locale"
 
+// 농업 모드에서 숨기는 메뉴 — 새우 전용 문맥(설계서 4-1). 노출 제어일 뿐,
+// URL 직접 접근은 서버에서 막지 않는다(권한 문제가 아니라 문맥 문제).
+const AGRI_HIDDEN = new Set(["/production", "/inventory", "/ai-advisor", "/reports"])
+
 const DropMark = ({ size = 17 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M12 2.5c4 4.5 6 7.6 6 11a6 6 0 0 1-12 0c0-3.4 2-6.5 6-11Z" />
@@ -30,6 +35,7 @@ export function Sidebar() {
   const router = useRouter()
   const { user, logout } = useAuth()
   const { t, locale } = useT()
+  const { isAgriMode } = useFarmMode()
   const [collapsed, setCollapsed] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const isAdmin = user?.role === "admin" || isMonitorAccount(user?.email)
@@ -57,6 +63,9 @@ export function Sidebar() {
     ...(canControl ? [{ href: "/control", icon: Radar, label: "관제센터" }] : []),
     ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
   ]
+
+  // 배열을 복제하지 않는다 — 라벨은 i18n merge 가 치환하므로 필터 한 줄이 전부다.
+  const monitorNav = isAgriMode ? MONITOR_NAV.filter(i => !AGRI_HIDDEN.has(i.href)) : MONITOR_NAV
 
   const handleLogout = async () => {
     // logout()이 홈("/")으로 하드 리다이렉트하므로 아래는 fallback.
@@ -110,7 +119,7 @@ export function Sidebar() {
           {!collapsed && (
             <div>
               <span className="text-foreground font-bold text-lg tracking-tight">Shrimp365</span>
-              <p className="text-[#1E40AF] text-[10px] font-mono tracking-[0.15em]">SMART AQUACULTURE</p>
+              <p className="text-[#1E40AF] text-[10px] font-mono tracking-[0.15em]">{t.nav.brandTagline}</p>
             </div>
           )}
         </Link>
@@ -127,7 +136,7 @@ export function Sidebar() {
 
         {/* Monitor section */}
         <SectionLabel label={t.nav.sectionMonitor} />
-        {MONITOR_NAV.map(item => <NavItem key={item.href} {...item} />)}
+        {monitorNav.map(item => <NavItem key={item.href} {...item} />)}
       </nav>
 
       {/* Bottom */}
