@@ -4,13 +4,13 @@ import nextTs from "eslint-config-next/typescript";
 
 const reactCompilerCompatibilityFiles = [
   "app/(dashboard)/diagnosis/page.tsx",
-  "app/(dashboard)/farms/page.tsx",
   "app/(dashboard)/reports/page.tsx",
-  "app/(dashboard)/water-quality/page.tsx",
+  "components/farms/farms-view.tsx",
   "components/layout/notifications-panel.tsx",
   "components/layout/search-panel.tsx",
   "components/layout/settings-panel.tsx",
   "components/layout/sidebar.tsx",
+  "components/water-quality/water-quality-view.tsx",
 ];
 
 const eslintConfig = defineConfig([

@@ -1393,5 +1393,8 @@ export const ko: Dict = {
     noActionNeeded: "보충 불필요",
     uncalibratedBadge: "실측 교정 전 — 참고값",
     targetShort: "목표",
+    // ── 화면 전환 진입점 (/farms 농장 카드, 설계서 5-4) ──
+    openAgriScreen: "수경재배 화면 열기",
+    openShrimpScreen: "새우 양식 화면 열기",
   },
 }

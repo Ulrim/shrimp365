@@ -7,13 +7,13 @@
 // 남는다(교정값이 장비에만 있어 서버는 계산하지 않는다). 이 카드는 그 값으로
 // "지금 뭘 해야 하나"를 원시 수치보다 먼저 보여 준다(수아 시안 4장).
 //
-// 렌더 조건: 농업 UI 모드 그리고 활성 기기 payload 에 nut_percent 가 숫자로
-// 존재. 조건 미충족이면 null — 새우 모드 diff 없음.
+// 렌더 조건: 농업 화면(/daumlabs) 그리고 활성 기기 payload 에 nut_percent 가
+// 숫자로 존재. 조건 미충족이면 null — 새우 화면 diff 없음.
 
 import { Card, CardContent } from "@/components/ui/card"
 import { FlaskConical } from "lucide-react"
 import { useT } from "@/lib/i18n-context"
-import { useFarmMode } from "@/lib/farm-mode-context"
+import { useAgriRoute } from "@/lib/agri-route"
 import type { SensorDevice, Tank } from "@/types"
 import type { Dict } from "@/lib/i18n"
 
@@ -48,12 +48,12 @@ function VerdictBadge({ verdict }: { verdict: Verdict }) {
 
 export function NutrientStatusCard({ devices, tank }: { devices: SensorDevice[]; tank?: Tank | null }) {
   const { t } = useT()
-  const { isAgriMode } = useFarmMode()
+  const { isAgri } = useAgriRoute()
 
   const withNutrient = devices.filter(
     d => d.active && typeof d.last_payload?.nut_percent === "number"
   )
-  if (!isAgriMode || withNutrient.length === 0) return null
+  if (!isAgri || withNutrient.length === 0) return null
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

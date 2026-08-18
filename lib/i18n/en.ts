@@ -1390,5 +1390,7 @@ export const en: Dict = {
     noActionNeeded: "No action needed",
     uncalibratedBadge: "Not field-calibrated — reference only",
     targetShort: "Target",
+    openAgriScreen: "Open hydroponics view",
+    openShrimpScreen: "Open shrimp farming view",
   },
 }

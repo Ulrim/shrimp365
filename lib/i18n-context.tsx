@@ -103,11 +103,14 @@ export function mergeDict(base: Dict, override: DictOverride): Dict {
   return out as unknown as Dict
 }
 
-/** 농업 UI 모드에서만 한국어 사전 위에 agri-ko 를 덮어 다시 제공한다.
+/** 농업(수경재배) 화면에서만 한국어 사전 위에 agri-ko 를 덮어 다시 제공한다.
  *
- *  - enabled 가 아니면(새우·혼합 계정) 자식을 그대로 돌려준다 — merge 자체를
- *    하지 않으므로 새우 모드 동작 무변화.
- *  - 영어·베트남어·인니어는 농업 오버라이드 사전이 아직 없어(설계서 4-2 후속)
+ *  - 장착 위치는 `app/(dashboard)/layout.tsx` 이고, 켜짐/꺼짐 판정은
+ *    URL(`isAgriPath(pathname)`)이다 — 설계서 4-5.
+ *  - **enabled 와 무관하게 언제나 Provider 를 렌더한다.** 조건부로 `<>{children}</>`
+ *    를 돌려주면 `/home ↔ /daumlabs/home` 경계를 넘을 때 엘리먼트 타입이 바뀌어
+ *    셸 전체가 언마운트된다(사이드바 접힘 상태·스크롤 소실). 값만 갈아 끼운다.
+ *  - 영어·베트남어·인니어는 농업 오버라이드 사전이 아직 없어(설계서 8장 후속)
  *    기존 라벨 그대로 둔다. */
 export function AgriDictOverride({ enabled, children }: { enabled: boolean; children: ReactNode }) {
   const ctx = useContext(I18nContext)
@@ -117,6 +120,6 @@ export function AgriDictOverride({ enabled, children }: { enabled: boolean; chil
     () => ({ locale, setLocale, t: locale === "ko" ? mergeDict(t, agriKo) : t }),
     [locale, t, setLocale],
   )
-  if (!enabled || locale !== "ko") return <>{children}</>
-  return <I18nContext.Provider value={merged}>{children}</I18nContext.Provider>
+  const value = enabled && locale === "ko" ? merged : ctx
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }

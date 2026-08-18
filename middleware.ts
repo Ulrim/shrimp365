@@ -6,6 +6,7 @@ const LANG_COOKIE = "shrimp365_lang"
 
 const PROTECTED_PATHS = [
   "/home",
+  "/daumlabs",
   "/record",
   "/dashboard",
   "/water-quality",

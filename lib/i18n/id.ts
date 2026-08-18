@@ -1392,5 +1392,7 @@ export const id: Dict = {
     noActionNeeded: "No action needed",
     uncalibratedBadge: "Not field-calibrated — reference only",
     targetShort: "Target",
+    openAgriScreen: "Buka tampilan hidroponik",
+    openShrimpScreen: "Buka tampilan budidaya udang",
   },
 }

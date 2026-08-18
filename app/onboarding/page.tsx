@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { getFarms, createFarm, createTank } from "@/lib/db"
 import { isTestAccount } from "@/lib/mock-data"
+import { AGRI_PREFIX } from "@/lib/agri-route"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { AddressSearch } from "@/components/ui/address-search"
@@ -676,7 +677,8 @@ export default function OnboardingPage() {
                 </div>
                 <Button
                   className="w-full bg-ocean-600 hover:bg-ocean-700 text-white font-semibold min-h-[44px] text-base gap-2"
-                  onClick={() => router.replace("/home")}
+                  // 수경재배로 등록했으면 농업 화면(/daumlabs)으로 착지한다(설계서 5-2).
+                  onClick={() => router.replace(isAgri ? `${AGRI_PREFIX}/home` : "/home")}
                 >
                   {t.onboarding.complete} <ChevronRight className="w-5 h-5" aria-hidden="true" />
                 </Button>

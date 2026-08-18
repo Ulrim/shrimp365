@@ -1,9 +1,10 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { FarmModeProvider } from "@/lib/farm-mode-context"
+import { AgriDictOverride } from "@/lib/i18n-context"
+import { isAgriPath } from "@/lib/agri-route"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
 import { BottomNav } from "@/components/layout/bottom-nav"
@@ -11,6 +12,9 @@ import { BottomNav } from "@/components/layout/bottom-nav"
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
   const router = useRouter()
+  // 농업 화면인지는 주소로 결정한다(설계서 3장). 네비게이션마다 다시 렌더되므로
+  // /home ↔ /daumlabs/home 전환에 즉시 반응하고, 비동기가 없어 깜빡임이 없다.
+  const pathname = usePathname()
 
   useEffect(() => {
     if (!loading && !user) {
@@ -29,7 +33,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null
 
   return (
-    <FarmModeProvider>
+    <AgriDictOverride enabled={isAgriPath(pathname ?? "")}>
       <div className="min-h-screen flex bg-background">
         <Sidebar />
         <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
@@ -40,6 +44,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
         <BottomNav />
       </div>
-    </FarmModeProvider>
+    </AgriDictOverride>
   )
 }

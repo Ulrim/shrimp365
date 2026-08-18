@@ -1286,6 +1286,9 @@ export interface Dict {
     noActionNeeded: string
     uncalibratedBadge: string
     targetShort: string
+    // ── 화면 전환 진입점 (/farms 농장 카드) ──
+    openAgriScreen: string
+    openShrimpScreen: string
   }
 }
 

@@ -6,7 +6,7 @@ import { SHOW_BOARD, SHOW_CARDNEWS } from "@/lib/features"
 const HIDDEN_PATHS = [...(SHOW_BOARD ? [] : ["/board"]), ...(SHOW_CARDNEWS ? [] : ["/cardnews"])]
 const PUBLIC_PATHS = ["/", "/en", "/vi", "/id", "/demo", "/board", "/cardnews", "/guide", "/login", "/signup", "/pricing", "/privacy", "/terms", "/opengraph-image", "/sitemap.xml"]
   .filter(p => !HIDDEN_PATHS.includes(p))
-const PRIVATE_PATHS = [...HIDDEN_PATHS, "/home", "/dashboard", "/water-quality", "/journal", "/farms", "/diagnosis", "/production", "/inventory", "/ai-advisor", "/reports", "/admin", "/help", "/record", "/onboarding", "/api/", "/_next/"]
+const PRIVATE_PATHS = [...HIDDEN_PATHS, "/home", "/daumlabs", "/dashboard", "/water-quality", "/journal", "/farms", "/diagnosis", "/production", "/inventory", "/ai-advisor", "/reports", "/admin", "/help", "/record", "/onboarding", "/api/", "/_next/"]
 
 export default function robots(): MetadataRoute.Robots {
   return {

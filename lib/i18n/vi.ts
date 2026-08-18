@@ -1392,5 +1392,7 @@ export const vi: Dict = {
     noActionNeeded: "No action needed",
     uncalibratedBadge: "Not field-calibrated — reference only",
     targetShort: "Target",
+    openAgriScreen: "Mở giao diện thủy canh",
+    openShrimpScreen: "Mở giao diện nuôi tôm",
   },
 }
