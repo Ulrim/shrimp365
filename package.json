@@ -26,6 +26,8 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-toast": "^1.2.15",
     "@react-pdf/renderer": "^4.5.1",
+    "@react-three/drei": "^10.7.8",
+    "@react-three/fiber": "^9.7.0",
     "@sentry/nextjs": "^10.61.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.1",
@@ -45,6 +47,7 @@
     "react-hook-form": "^7.75.0",
     "recharts": "^3.8.1",
     "tailwind-merge": "^3.5.0",
+    "three": "^0.185.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -52,6 +55,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.185.4",
     "docx": "^9.6.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",

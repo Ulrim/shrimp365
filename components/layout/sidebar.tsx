@@ -18,6 +18,7 @@ import { SettingsPanel } from "@/components/layout/settings-panel"
 import { LanguageSwitcher } from "@/components/ui/language-switcher"
 import { isMonitorAccount } from "@/lib/mock-data"
 import { localizedHref, stripLocalePrefix } from "@/lib/marketing-locale"
+import type { IconComponent } from "@/types"
 
 const DropMark = ({ size = 17 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -64,7 +65,7 @@ export function Sidebar() {
     router.replace("/")
   }
 
-  const NavItem = ({ href, icon: Icon, label, badge }: { href: string; icon: React.ElementType; label: string; badge?: string }) => {
+  const NavItem = ({ href, icon: Icon, label, badge }: { href: string; icon: IconComponent; label: string; badge?: string }) => {
     // 언어 접두사를 뗀 뒤 견준다. /en/cardnews 를 보고 있어도 카드뉴스가
     // 눌린 것으로 표시되어야 한다.
     const here = stripLocalePrefix(pathname).path

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import Link from "next/link"
 import { MOCK_FARMS, MOCK_TANKS, MOCK_SENSOR_DEVICES, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
 import { getFarms, getTanksByFarm, getAllTanks, createFarm, createTank, updateFarm, deleteFarm, updateTank, deleteTank, getSensorDevices, deleteSensorDevice, toggleSensorDevice, requestDeviceUpdate } from "@/lib/db"
@@ -38,6 +39,7 @@ import {
   Cpu,
   ChevronDown,
   ChevronUp,
+  Box,
 } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import type { SensorDevice } from "@/types"
@@ -1463,7 +1465,15 @@ export default function FarmsPage() {
             {t.farms.subtitle}
           </p>
         </div>
-        <AddFarmDialog onSuccess={handleFarmAdded} />
+        <div className="flex items-center gap-2">
+          {/* 도면 기반 3D 배치도. 수조 상태를 평면이 아니라 실제 배치로 본다. */}
+          <Button asChild variant="outline" size="sm">
+            <Link href="/farms/3d">
+              <Box className="w-4 h-4 mr-1.5" /> 3D 도면
+            </Link>
+          </Button>
+          <AddFarmDialog onSuccess={handleFarmAdded} />
+        </div>
       </div>
 
       {/* 양식장 위치 — 여러 곳을 운영할 때 급한 곳이 어디인지 한눈에 */}
