@@ -14,6 +14,8 @@ function toFarm(f: DbFarm, tankCount = 0): Farm {
     // 마이그레이션 전이면 컬럼이 없어 undefined 로 온다. null 로 맞춰 둔다.
     latitude: f.latitude ?? null,
     longitude: f.longitude ?? null,
+    // 마이그레이션 전이면 컬럼이 없다. 기본은 언제나 새우 양식이다.
+    farm_type: f.farm_type ?? "shrimp",
     tank_count: tankCount,
   }
 }
@@ -24,6 +26,11 @@ function toTank(t: DbTank): Tank {
     stocking_date: t.stocking_date ?? null,
     harvest_date: t.harvest_date ?? null,
     tank_type: t.tank_type ?? "노지",
+    // 양액 레시피 — 미설정(NULL)과 마이그레이션 전(undefined)을 같게 다룬다.
+    target_ec: t.target_ec ?? null,
+    ec_tolerance: t.ec_tolerance ?? 100,
+    target_ph: t.target_ph ?? null,
+    ph_tolerance: t.ph_tolerance ?? 0.5,
   }
 }
 
@@ -44,6 +51,9 @@ function toWaterQuality(w: DbWaterQuality): WaterQualityReading {
     // 전도도는 안 쓰는 농장이 대부분이라 0 으로 채우지 않는다 —
     // 0 으로 두면 "쟀는데 0" 과 "안 쟀다" 가 구분되지 않는다.
     conductivity: w.conductivity ?? null,
+    // 유량·차압도 전도도와 같은 이유로 0 을 채우지 않는다.
+    flow_rate: w.flow_rate ?? null,
+    diff_pressure: w.diff_pressure ?? null,
     recorded_at: w.recorded_at,
     created_at: w.created_at,
   }
@@ -64,7 +74,9 @@ export async function getFarms(): Promise<Farm[]> {
   )
 }
 
-export async function createFarm(values: { name: string; location?: string; area?: number; owner_name?: string; latitude?: number | null; longitude?: number | null }) {
+// farm_type 은 정의된 경우에만 insert 에 싣는다 — 마이그레이션 전 DB 에서
+// 새우 계정의 농장 추가가 "없는 컬럼" 오류로 막히면 안 된다.
+export async function createFarm(values: { name: string; location?: string; area?: number; owner_name?: string; latitude?: number | null; longitude?: number | null; farm_type?: "shrimp" | "agriculture" }) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("로그인이 필요합니다.")
 
@@ -77,9 +89,10 @@ export async function createFarm(values: { name: string; location?: string; area
     throw new Error(`현재 플랜(${plan.toUpperCase()})에서는 양식장을 최대 ${limit}개까지 등록할 수 있습니다. 업그레이드하려면 /pricing 페이지를 방문하세요.`)
   }
 
+  const { farm_type, ...rest } = values
   const { data, error } = await supabase
     .from("farms")
-    .insert({ ...values, user_id: user.id })
+    .insert({ ...rest, ...(farm_type !== undefined ? { farm_type } : {}), user_id: user.id })
     .select()
     .single()
 
@@ -87,7 +100,7 @@ export async function createFarm(values: { name: string; location?: string; area
   return toFarm(data)
 }
 
-export async function updateFarm(id: string, values: Partial<{ name: string; location: string; owner_name: string; area: number; latitude: number | null; longitude: number | null }>) {
+export async function updateFarm(id: string, values: Partial<{ name: string; location: string; owner_name: string; area: number; latitude: number | null; longitude: number | null; farm_type: "shrimp" | "agriculture" }>) {
   const { data, error } = await supabase
     .from("farms")
     .update(values)
@@ -138,6 +151,11 @@ export async function createTank(values: {
   stocking_date?: string | null
   harvest_date?: string | null
   tank_type?: "노지" | "실내" | "반실내"
+  /** 양액 레시피(농업 모드) — µS/cm. 정의된 경우에만 insert 에 실린다. */
+  target_ec?: number | null
+  ec_tolerance?: number
+  target_ph?: number | null
+  ph_tolerance?: number
 }) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("로그인이 필요합니다.")
@@ -197,6 +215,8 @@ type WqSeriesRow = {
   salinity: number | null; ammonia: number | null; nitrite: number | null
   nitrate: number | null; alkalinity: number | null; turbidity: number | null
   conductivity?: number | null
+  flow_rate?: number | null
+  diff_pressure?: number | null
 }
 
 export async function getWaterQuality(tankId: string, hours = 168, deviceId?: string | null): Promise<WaterQualityReading[]> {
@@ -215,6 +235,8 @@ export async function getWaterQuality(tankId: string, hours = 168, deviceId?: st
       salinity: r.salinity, ammonia: r.ammonia, nitrite: r.nitrite,
       nitrate: r.nitrate, alkalinity: r.alkalinity, turbidity: r.turbidity,
       conductivity: r.conductivity ?? null,
+      flow_rate: r.flow_rate ?? null,
+      diff_pressure: r.diff_pressure ?? null,
       recorded_at: r.recorded_at,
       created_at: r.recorded_at,
     }))

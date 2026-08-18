@@ -10,6 +10,7 @@ import { MOCK_ALERTS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
 import { stripLocalePrefix } from "@/lib/marketing-locale"
+import { stripAgriPrefix } from "@/lib/agri-route"
 
 const DropMark = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -47,8 +48,9 @@ export function Header() {
     locale === "vi" ? "vi-VN" :
     locale === "id" ? "id-ID" : "en-US"
 
-  // 언어 접두사를 뗀 뒤 찾는다. /en/cardnews 에서도 제목이 나와야 한다.
-  const title = pageLabels[stripLocalePrefix(pathname).path] || "Shrimp365"
+  // 언어 접두사와 /daumlabs 접두사를 뗀 뒤 찾는다. /en/cardnews 에서도,
+  // /daumlabs/water-quality 에서도 제목이 나와야 한다(라벨은 i18n 이 치환한다).
+  const title = pageLabels[stripAgriPrefix(stripLocalePrefix(pathname).path)] || "Shrimp365"
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [notiOpen, setNotiOpen] = useState(false)

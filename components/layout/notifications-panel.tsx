@@ -8,6 +8,7 @@ import { MOCK_ALERTS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
 import { formatDateTime } from "@/lib/utils"
+import { useAgriRoute } from "@/lib/agri-route"
 import type { Alert } from "@/types"
 
 interface NotificationsPanelProps {
@@ -31,6 +32,7 @@ const TYPE_BG: Record<Alert["type"], string> = {
 export function NotificationsPanel({ open, onClose, onCountChange }: NotificationsPanelProps) {
   const { user } = useAuth()
   const { t } = useT()
+  const { href: withAgri } = useAgriRoute()
   const router = useRouter()
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [loading, setLoading] = useState(false)
@@ -169,7 +171,7 @@ export function NotificationsPanel({ open, onClose, onCountChange }: Notificatio
                 </div>
                 <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                   <button
-                    onClick={() => { router.push(`/water-quality?tank=${alert.tank_id}`); onClose() }}
+                    onClick={() => { router.push(withAgri(`/water-quality?tank=${alert.tank_id}`)); onClose() }}
                     className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-ocean-500 transition-colors"
                     title={t.notif.gotoTank}
                   >
@@ -195,7 +197,7 @@ export function NotificationsPanel({ open, onClose, onCountChange }: Notificatio
 
       {/* Footer */}
       <div className="border-t border-border px-4 py-2">
-        <a href="/water-quality" onClick={onClose} className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center justify-center gap-1">
+        <a href={withAgri("/water-quality")} onClick={onClose} className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center justify-center gap-1">
           {t.notif.viewMore} →
         </a>
       </div>

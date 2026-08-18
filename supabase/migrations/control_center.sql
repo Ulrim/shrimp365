@@ -12,25 +12,30 @@
 -- 이미 막혀 있다(authenticated 는 name 컬럼만 UPDATE 가능).
 -- ============================================================
 
--- 1) role 값을 네 가지로 제한한다.
+-- 1) role 값을 다섯 가지로 제한한다.
 --    지금까지 제약이 없어 어떤 문자열이든 들어갈 수 있었다.
 --
---    CHECK 를 걸기 전에 기존 데이터를 먼저 정리한다. 네 값 밖의 role 이
+--    CHECK 를 걸기 전에 기존 데이터를 먼저 정리한다. 허용값 밖의 role 이
 --    하나라도 있으면 제약 추가가 통째로 실패하기 때문이다. NULL 이나
---    예상 밖 값은 기본값인 operator 로 되돌린다(권한이 없는 쪽으로 안전하게).
+--    예상 밖 값은 기본값인 farmer(양식어가·최소 권한)로 되돌린다.
+-- 예전에 컬럼 인라인으로 붙은 profiles_role_check 가 남아 있으면 farmer 를
+-- 막으므로 함께 지운다(없어도 오류 안 남).
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_valid;
+
 UPDATE public.profiles
-SET role = 'operator'
-WHERE role IS NULL OR role NOT IN ('admin', 'manager', 'operator', 'viewer');
+SET role = 'farmer'
+WHERE role IS NULL OR role NOT IN ('admin', 'manager', 'operator', 'viewer', 'farmer');
 
 DO $$ BEGIN
   ALTER TABLE public.profiles
     ADD CONSTRAINT profiles_role_valid
-    CHECK (role IN ('admin', 'manager', 'operator', 'viewer'));
+    CHECK (role IN ('admin', 'manager', 'operator', 'viewer', 'farmer'));
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- CHECK 는 role IS NULL 을 통과시킨다. 신규 행이 role 없이 들어오는 것을 막고
--- 기본값을 operator(최소 권한)로 고정한다.
-ALTER TABLE public.profiles ALTER COLUMN role SET DEFAULT 'operator';
+-- 기본값을 farmer(양식어가·최소 권한)로 고정한다.
+ALTER TABLE public.profiles ALTER COLUMN role SET DEFAULT 'farmer';
 DO $$ BEGIN
   ALTER TABLE public.profiles ALTER COLUMN role SET NOT NULL;
 EXCEPTION WHEN others THEN

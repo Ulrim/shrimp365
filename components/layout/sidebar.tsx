@@ -6,6 +6,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
+import { useAgriRoute } from "@/lib/agri-route"
 import { cn } from "@/lib/utils"
 import {
   Home, LayoutDashboard, Droplets, BookOpen, Building2,
@@ -20,6 +21,10 @@ import { isMonitorAccount } from "@/lib/mock-data"
 import { localizedHref, stripLocalePrefix } from "@/lib/marketing-locale"
 import type { IconComponent } from "@/types"
 
+// 농업 화면(/daumlabs)에 없는 메뉴 — 새우 전용 문맥(설계서 4-3). "숨김"이 아니라
+// `/daumlabs` 아래에 페이지 자체가 없어 접두사를 붙일 수 없는 항목이다.
+const AGRI_HIDDEN = new Set(["/production", "/inventory", "/ai-advisor", "/reports"])
+
 const DropMark = ({ size = 17 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M12 2.5c4 4.5 6 7.6 6 11a6 6 0 0 1-12 0c0-3.4 2-6.5 6-11Z" />
@@ -31,6 +36,8 @@ export function Sidebar() {
   const router = useRouter()
   const { user, logout } = useAuth()
   const { t, locale } = useT()
+  // 농업 화면 판정은 주소로 한다. withAgri()는 새우 화면에서 문자열을 그대로 돌려준다.
+  const { isAgri, href: withAgri } = useAgriRoute()
   const [collapsed, setCollapsed] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const isAdmin = user?.role === "admin" || isMonitorAccount(user?.email)
@@ -59,6 +66,9 @@ export function Sidebar() {
     ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
   ]
 
+  // 배열을 복제하지 않는다 — 라벨은 i18n merge 가 치환하므로 필터 한 줄이 전부다.
+  const monitorNav = isAgri ? MONITOR_NAV.filter(i => !AGRI_HIDDEN.has(i.href)) : MONITOR_NAV
+
   const handleLogout = async () => {
     // logout()이 홈("/")으로 하드 리다이렉트하므로 아래는 fallback.
     await logout()
@@ -66,14 +76,17 @@ export function Sidebar() {
   }
 
   const NavItem = ({ href, icon: Icon, label, badge }: { href: string; icon: IconComponent; label: string; badge?: string }) => {
+    // 농업 화면이면 /daumlabs 를 먹인다. 이미 접두사가 붙은 주소와 pathname 을
+    // 그대로 견주므로 활성 표시 로직은 손대지 않는다(설계서 4-4).
+    const to = withAgri(href)
     // 언어 접두사를 뗀 뒤 견준다. /en/cardnews 를 보고 있어도 카드뉴스가
     // 눌린 것으로 표시되어야 한다.
     const here = stripLocalePrefix(pathname).path
-    const target = stripLocalePrefix(href).path
+    const target = stripLocalePrefix(to).path
     const isActive = here === target || here.startsWith(target + "/")
     return (
       <Link
-        href={href}
+        href={to}
         className={cn(
           "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative",
           isActive
@@ -104,14 +117,14 @@ export function Sidebar() {
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className={cn("flex items-center gap-3 px-4 py-5 border-b border-border", collapsed && "justify-center px-2")}>
-        <Link href="/home" className="flex items-center gap-3">
+        <Link href={withAgri("/home")} className="flex items-center gap-3">
           <div className="w-9 h-9 border-[1.5px] border-[#1E40AF] text-[#1E40AF] rounded-xl flex items-center justify-center shrink-0">
             <DropMark />
           </div>
           {!collapsed && (
             <div>
               <span className="text-foreground font-bold text-lg tracking-tight">Shrimp365</span>
-              <p className="text-[#1E40AF] text-[10px] font-mono tracking-[0.15em]">SMART AQUACULTURE</p>
+              <p className="text-[#1E40AF] text-[10px] font-mono tracking-[0.15em]">{t.nav.brandTagline}</p>
             </div>
           )}
         </Link>
@@ -128,7 +141,7 @@ export function Sidebar() {
 
         {/* Monitor section */}
         <SectionLabel label={t.nav.sectionMonitor} />
-        {MONITOR_NAV.map(item => <NavItem key={item.href} {...item} />)}
+        {monitorNav.map(item => <NavItem key={item.href} {...item} />)}
       </nav>
 
       {/* Bottom */}

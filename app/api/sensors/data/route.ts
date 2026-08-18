@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase-server"
-import { checkThresholds } from "@/lib/thresholds"
+import { checkThresholds, checkRecipe, hasRecipe, type TankRecipe } from "@/lib/thresholds"
 
 // In-memory rate limit: max 60 requests per device per minute
 const RATE_LIMIT_WINDOW_MS = 60_000
@@ -146,7 +146,8 @@ export async function POST(req: NextRequest) {
 
   // 2. 측정값 파싱 + 유효 범위 검증 (DB 오염·오버플로 방지)
   // conductivity — EC 센서를 전도도 모드로 쓰는 농장(양액·민물)이 있어 함께 저장한다.
-  const FIELDS = ["temperature", "ph", "do_level", "salinity", "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity", "conductivity"] as const
+  // flow_rate·diff_pressure — 수경재배(농업 모드) 순환 유량과 UV 살균기·필터 차압.
+  const FIELDS = ["temperature", "ph", "do_level", "salinity", "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity", "conductivity", "flow_rate", "diff_pressure"] as const
   type FieldKey = typeof FIELDS[number]
 
   const VALID_RANGE: Record<FieldKey, [number, number]> = {
@@ -160,6 +161,8 @@ export async function POST(req: NextRequest) {
     alkalinity:  [ 0, 1000],
     turbidity:   [ 0, 1000],
     conductivity:[ 0, 200000],  // uS/cm — 바닷물이 약 50,000
+    flow_rate:    [ 0, 1000],   // L/min
+    diff_pressure:[ 0, 1000],   // kPa
   }
 
   const values: Partial<Record<FieldKey, number>> = {}
@@ -194,7 +197,7 @@ export async function POST(req: NextRequest) {
   // 아직 없는 칸(device_id·conductivity)은 하나씩 빼고 다시 시도한다.
   // 'column' 만 보고 판단하면 tank_id NOT NULL 등 엉뚱한 오류까지 삼키므로,
   // 그 칸 이름을 콕 집은 경우 또는 미정의 컬럼 코드(42703/PGRST204)일 때만.
-  const OPTIONAL_COLS = ["device_id", "conductivity"] as const
+  const OPTIONAL_COLS = ["device_id", "conductivity", "flow_rate", "diff_pressure"] as const
   let row: Record<string, unknown> = {
     tank_id: device.tank_id, ...values, recorded_at: recordedAt, device_id: device.id,
   }
@@ -228,7 +231,33 @@ export async function POST(req: NextRequest) {
   }
 
   // 4. 임계값 체크 → 알림 생성 + 수조 상태 갱신
-  const thresholdAlerts = checkThresholds(values as Parameters<typeof checkThresholds>[0])
+  //
+  // 베드(수조)에 양액 레시피가 있으면 레시피 기반 체크(checkRecipe)를 함께 돌려
+  // 결과를 합친다. 레시피 조회는 별도 쿼리 + 실패 무시 — 마이그레이션 전 DB
+  // (컬럼 없음)에서도 기존 새우 장비 수신이 절대 멈추면 안 된다.
+  let recipe: TankRecipe | null = null
+  try {
+    const { data: tankRow } = await supabaseAdmin
+      .from("tanks")
+      .select("target_ec, ec_tolerance, target_ph, ph_tolerance")
+      .eq("id", device.tank_id)
+      .maybeSingle()
+    if (tankRow) recipe = tankRow as TankRecipe
+  } catch { /* 컬럼 없음 등 — 레시피 없이 기존 흐름 그대로 */ }
+
+  // 레시피가 설정된 베드에서는 전역 체크 중 두 항목을 건너뛴다.
+  //  - 염도: 새우 해수 기준이라 농업에서 오탐(설계서 4-4. 농업 장비는
+  //    ec_mode=conductivity 라 실제로는 거의 안 보내지만 방어적으로 막는다).
+  //  - pH(목표 pH 가 있을 때만): 레시피 체크와 전역 체크가 같은 parameter("pH")
+  //    행을 두고 서로 다른 기준으로 다투면 알림이 매 수신마다 뒤집힌다.
+  const globalValues: Partial<Record<FieldKey, number>> = { ...values }
+  if (hasRecipe(recipe)) delete globalValues.salinity
+  if (recipe?.target_ph != null) delete globalValues.ph
+
+  const thresholdAlerts = [
+    ...checkThresholds(globalValues as Parameters<typeof checkThresholds>[0]),
+    ...checkRecipe(values, recipe),
+  ]
 
   // 같은 항목이 계속 범위 밖이면 알림을 새로 만들지 않는다.
   //
@@ -270,6 +299,15 @@ export async function POST(req: NextRequest) {
   // 다음에 정말 문제가 생겨도 옛 알림만 갱신되고 새로 알리지 않는다.
   const stillBad = new Set(thresholdAlerts.map(a => a.parameter))
   const recovered = Object.keys(values).filter(p => !stillBad.has(p))
+  // 레시피 알림은 parameter 가 값 키와 달라("EC"/"pH") 별도 매핑으로 복귀를 잡는다.
+  // 0 은 전극이 물 밖일 때 나오는 값이라 checkRecipe 가 판정에서 제외한다 —
+  // 판정을 안 했으면 복귀도 아니다(비대칭이면 이탈 알림이 0 수신에 닫혀 버린다).
+  if (recipe?.target_ec != null && values.conductivity !== undefined && values.conductivity !== 0 && !stillBad.has("EC")) {
+    recovered.push("EC")
+  }
+  if (recipe?.target_ph != null && values.ph !== undefined && values.ph !== 0 && !stillBad.has("pH")) {
+    recovered.push("pH")
+  }
   if (recovered.length > 0) {
     try {
       await supabaseAdmin

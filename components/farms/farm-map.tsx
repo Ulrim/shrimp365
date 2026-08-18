@@ -7,6 +7,7 @@ import { MapPin } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { Farm, Tank } from "@/types"
+import { useAgriRoute } from "@/lib/agri-route"
 
 type Status = Tank["status"]
 
@@ -53,6 +54,7 @@ function farmPopup(name: string, tanks: number, bad: number, warn: number, locat
  *  불러오면 터진다. 그래서 effect 안에서 동적으로 가져온다.
  */
 export function FarmMap({ farms, tanks }: { farms: Farm[]; tanks: Tank[] }) {
+  const { href: withAgri } = useAgriRoute()
   const holder = useRef<HTMLDivElement>(null)
   const map = useRef<LeafletMap | null>(null)
 
@@ -149,7 +151,7 @@ export function FarmMap({ farms, tanks }: { farms: Farm[]; tanks: Tank[] }) {
         {located.length < farms.length && (
           <p className="text-xs text-muted-foreground px-4 py-2.5 border-t border-border">
             좌표가 없는 양식장 {farms.length - located.length}곳은 표시되지 않습니다 —{" "}
-            <Link href="/farms" className="text-ocean-500 hover:underline">좌표 넣기</Link>
+            <Link href={withAgri("/farms")} className="text-ocean-500 hover:underline">좌표 넣기</Link>
           </p>
         )}
       </CardContent>

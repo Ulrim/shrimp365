@@ -90,6 +90,8 @@ export interface Dict {
     admin: string
     sectionRecord: string
     sectionMonitor: string
+    /** 로고 부제 — 언어 무관 영문 고정. 농업 모드 오버라이드로만 바뀐다. */
+    brandTagline: string
   }
   hub: {
     greeting: string
@@ -552,6 +554,11 @@ export interface Dict {
   onboarding: {
     title: string
     subtitle: string
+    farmTypeLabel: string
+    farmTypeShrimp: string
+    farmTypeShrimpDesc: string
+    farmTypeAgri: string
+    farmTypeAgriDesc: string
     step1Title: string
     step1Subtitle: string
     step2Title: string
@@ -1150,6 +1157,13 @@ export interface Dict {
     dissolvedOxygen: string
     conductivity: string
     doSaturation: string
+    flowRate: string
+    diffPressure: string
+    flowCaption: string
+    diffPressureCaption: string
+    tabMore: string
+    tabLess: string
+    targetLabel: string
   }
   farmsX: {
     saveFailed: string
@@ -1225,4 +1239,60 @@ export interface Dict {
     loading: string
     noWarnings: string
   }
+  /** 수경재배(농업) 폼·카드 전용 라벨.
+   *  전역 UI 모드가 아니라 farm.farm_type 기준으로 쓰므로 항상 본 사전에서 읽는다
+   *  — 혼합 계정(새우+농업 farm)은 전역 모드가 새우라 i18n 오버라이드가 없어도
+   *  agriculture farm 의 베드 폼에는 이 라벨이 나와야 한다. */
+  agri: {
+    // ── 베드 폼 (onboarding Step 2 + /farms 다이얼로그 공용) ──
+    bedName: string
+    bedNamePlaceholder: string
+    bedType: string
+    bedVolume: string
+    bedVolumeHint: string
+    addBed: string
+    removeBed: string
+    // ── 레시피 ──
+    recipeTitle: string
+    recipeOptional: string
+    recipeHint: string
+    targetEc: string
+    targetEcUnit: string
+    targetEcPlaceholder: string
+    ecTolerance: string
+    ecTolerancePlaceholder: string
+    targetPh: string
+    targetPhPlaceholder: string
+    phTolerance: string
+    toleranceDefaultNote: string
+    recipeEditNote: string
+    recipeNotSet: string
+    ecRangeError: string
+    ecToleranceRangeError: string
+    phRangeError: string
+    phToleranceRangeError: string
+    farmTypeChangeNote: string
+    // ── 양액 상태 카드 ──
+    nutrientTitle: string
+    currentStrength: string
+    verdictOk: string
+    verdictLow: string
+    verdictHigh: string
+    doseA: string
+    doseB: string
+    doseSuffix: string
+    exchangePrefix: string
+    exchangeSuffix: string
+    noActionNeeded: string
+    uncalibratedBadge: string
+    targetShort: string
+    // ── 화면 전환 진입점 (/farms 농장 카드) ──
+    openAgriScreen: string
+    openShrimpScreen: string
+  }
 }
+
+/** 2단(섹션 → 키) 부분 오버라이드 — 농업 모드 사전(agri-ko)이 쓴다.
+ *  섹션 값이 통짜 객체라 Partial<Dict> 로는 섹션 안 일부 키만 둘 수 없어
+ *  2단 DeepPartial 을 따로 둔다. */
+export type DictOverride = { [K in keyof Dict]?: Partial<Dict[K]> }

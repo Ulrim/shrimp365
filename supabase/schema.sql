@@ -49,6 +49,8 @@ CREATE TABLE IF NOT EXISTS public.farms (
   location   TEXT DEFAULT '',
   owner_name TEXT DEFAULT '',
   area       NUMERIC DEFAULT 0,
+  -- 농장 유형 — 기본은 새우 양식. agriculture 는 수경재배(농업 모드).
+  farm_type  TEXT NOT NULL DEFAULT 'shrimp' CHECK (farm_type IN ('shrimp', 'agriculture')),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -67,6 +69,11 @@ CREATE TABLE IF NOT EXISTS public.tanks (
   stocking_date    DATE,
   harvest_date     DATE,
   tank_type        TEXT DEFAULT '노지' CHECK (tank_type IN ('노지', '실내', '반실내')),
+  -- 양액 레시피 (농업 모드 베드 전용) — µS/cm 저장, NULL 이면 미설정
+  target_ec        DOUBLE PRECISION,
+  ec_tolerance     DOUBLE PRECISION NOT NULL DEFAULT 100,
+  target_ph        DOUBLE PRECISION,
+  ph_tolerance     DOUBLE PRECISION NOT NULL DEFAULT 0.5,
   created_at       TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -85,6 +92,9 @@ CREATE TABLE IF NOT EXISTS public.water_quality_readings (
   nitrate     NUMERIC,
   alkalinity  NUMERIC,
   turbidity   NUMERIC,
+  -- 농업 모드 신규 항목 — 순환 유량(L/min), UV 살균기·필터 차압(kPa)
+  flow_rate     DOUBLE PRECISION,
+  diff_pressure DOUBLE PRECISION,
   recorded_at TIMESTAMPTZ DEFAULT NOW(),
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
