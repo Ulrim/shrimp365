@@ -280,7 +280,8 @@ export function ControlMap({ farms, deviceMarkers = [], height = 420 }: { farms:
   }
 
   return (
-    <div className="relative">
+    // isolate — 범례(z-500)가 모달 위로 튀어 오르지 않도록 이 안에 가둔다.
+    <div className="relative isolate z-0">
       <div ref={holder} style={{ height }} className="w-full rounded-xl overflow-hidden bg-muted" role="img" aria-label="전체 농장 관제 지도" />
       {/* 범례 — 관제 화면은 교대 근무자도 본다. 색의 뜻을 화면에 적어 둔다. */}
       <div className="absolute bottom-3 left-3 z-[500] rounded-lg bg-card/95 border border-border px-3 py-2 text-[11px] leading-relaxed shadow">
