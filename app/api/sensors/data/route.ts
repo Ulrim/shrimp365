@@ -300,10 +300,12 @@ export async function POST(req: NextRequest) {
   const stillBad = new Set(thresholdAlerts.map(a => a.parameter))
   const recovered = Object.keys(values).filter(p => !stillBad.has(p))
   // 레시피 알림은 parameter 가 값 키와 달라("EC"/"pH") 별도 매핑으로 복귀를 잡는다.
-  if (recipe?.target_ec != null && values.conductivity !== undefined && !stillBad.has("EC")) {
+  // 0 은 전극이 물 밖일 때 나오는 값이라 checkRecipe 가 판정에서 제외한다 —
+  // 판정을 안 했으면 복귀도 아니다(비대칭이면 이탈 알림이 0 수신에 닫혀 버린다).
+  if (recipe?.target_ec != null && values.conductivity !== undefined && values.conductivity !== 0 && !stillBad.has("EC")) {
     recovered.push("EC")
   }
-  if (recipe?.target_ph != null && values.ph !== undefined && !stillBad.has("pH")) {
+  if (recipe?.target_ph != null && values.ph !== undefined && values.ph !== 0 && !stillBad.has("pH")) {
     recovered.push("pH")
   }
   if (recovered.length > 0) {

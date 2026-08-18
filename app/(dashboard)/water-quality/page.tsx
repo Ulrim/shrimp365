@@ -492,9 +492,13 @@ export default function WaterQualityPage() {
 
   // 전광판 자동 순환 — 15초마다 다음 항목으로. 추세 그래프는 탭을,
   // 센서별 비교는 비교 항목을 돌린다.
+  // 농업 모드는 농업 기본 탭 순서로 돈다 — 새우 고정 순서를 쓰면 conductivity 가
+  // indexOf === -1 이라 overview 로 튀고 접힌 새우 탭만 순환한다.
   useEffect(() => {
     if (!boardMode || !fullChart) return
-    const MAIN_ORDER = ["overview", "nitrogen", "temperature", "ph", "do_level", "salinity", "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity"]
+    const MAIN_ORDER = isAgriMode
+      ? ["conductivity", "ph", "temperature", "do_level", "flow_rate", "diff_pressure"]
+      : ["overview", "nitrogen", "temperature", "ph", "do_level", "salinity", "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity"]
     const COMPARE_ORDER = ["temperature", "ph", "do_level", "salinity"] as const
     const id = setInterval(() => {
       if (fullChart === "main") {
@@ -507,7 +511,7 @@ export default function WaterQualityPage() {
       }
     }, 15_000)
     return () => clearInterval(id)
-  }, [boardMode, fullChart])
+  }, [boardMode, fullChart, isAgriMode])
 
   // Load tanks on mount
   useEffect(() => {
