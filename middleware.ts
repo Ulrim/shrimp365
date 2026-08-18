@@ -6,7 +6,7 @@ const LANG_COOKIE = "shrimp365_lang"
 
 const PROTECTED_PATHS = [
   "/home",
-  "/daumlabs",
+  "/daumlabs", // lib/agri-route.ts 의 AGRI_PREFIX 와 함께 바꿀 것
   "/record",
   "/dashboard",
   "/water-quality",

@@ -598,7 +598,12 @@ NOTIFY pgrst, 'reload schema';
    풀린다). 헤더 제목이 `/daumlabs/*`에서 비지 않는지.
 5. 전 농장 agriculture 계정: 로그인 → `/daumlabs/home` 착지. 혼합 계정: `/home` 착지
    후 `/farms` 버튼으로 전환. 온보딩 수경재배 → `/daumlabs/home`.
-6. 비로그인 `/daumlabs/home` → `/login`. 로그인 후 원복 동작.
+6. 비로그인 `/daumlabs/home` → `/login`.
+   **원복은 현재 범위 밖이다** — 미들웨어(154행)가 원래 주소를 `next` 파라미터로
+   보존하지 않아 로그인 후 항상 `/home`으로 간다. 기존 모든 보호 경로가 똑같이
+   동작하므로 회귀는 아니다. 농업 전용 계정은 `/home`의 자동 교정으로 결국
+   `/daumlabs/home`에 닿지만, **혼합 계정은 눌렀던 `/daumlabs/*` 딥링크를 잃는다**.
+   새 주소를 문자·SNS로 공유할 계획이면 후속 과제(8장)로 처리한다.
 7. `/home ↔ /daumlabs/home` 왕복 시 사이드바 접힘 상태가 유지되는지(4-5의
    Provider 항상 렌더 수정이 제대로 됐는지).
 8. `lib/farm-mode-context.tsx` 잔여 import가 없는지(`rg farm-mode-context`).
@@ -610,6 +615,8 @@ NOTIFY pgrst, 'reload schema';
 사람 몫 안내 포함:
 - `agriculture_mode.sql` 실행(아직 안 했다면). 배포 순서 SQL → 웹 → 장비 펌웨어.
 - 농가에 안내할 주소가 `/daumlabs`로 바뀐다 — 기존에 공유한 링크가 있으면 갱신.
+  `/daumlabs` 한 마디만 쳐도 `app/(dashboard)/daumlabs/page.tsx`가 `/daumlabs/home`
+  으로 넘겨 준다.
 - 보충량 정확도는 현장 실측 교정에 달렸다.
 - 유량·차압 Modbus 레지스터 맵은 하드웨어 스펙 확정 후 장비 설정에 입력.
 
@@ -625,6 +632,9 @@ water-quality 농업 탭·목표선, 장비 payload `nut_*` — HEAD `f26452b`�
 - **`middleware.ts` → `proxy.ts` 개명** — Next 16에서 deprecated.
   `npx @next/codemod@canary middleware-to-proxy .`. 라우팅 변경과 섞지 않고
   별도 커밋으로. (5-1 주석)
+- **로그인 후 딥링크 복귀** — 미들웨어가 원래 주소를 `next` 파라미터로 보존하고
+  로그인 페이지가 그리로 되돌리기. 혼합 계정이 `/daumlabs/*` 링크를 받았을 때
+  필요하다(7-C 6). 보호 경로 전체에 걸리는 변경이라 별도 커밋으로.
 - 농업판 도움말 `/daumlabs/help`, 농업판 리포트 `/daumlabs/reports`(KPI 재설계)
 - 사이드바 상단 전역 화면 전환 스위치(farm 조회가 필요 — 5-4)
 - **KPI 자동산출·성능 검증 리포트** — EC 제어 정확도(목표 대비 체류율),
