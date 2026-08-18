@@ -122,6 +122,8 @@ PAGE = """<!doctype html>
   .sub2{margin-top:5px;font-size:13px;color:#94A3B8;font-weight:600}
   .sub2 b{color:#E8EDF7;font-family:ui-monospace,monospace;font-weight:800}
   .sub2 .dim{color:#64748B;font-weight:500;font-size:12px}
+  .sub2.bad{color:#F87171}
+  .sub2.bad .dim{color:#94A3B8;display:block;margin-top:2px}
 
   /* 양액 안내 띠 — 계기판 아래 한 줄 */
   .nut{
@@ -459,6 +461,8 @@ var I18N = {
   n_do:{ko:"용존산소",en:"Dissolved O₂",vi:"Oxy hòa tan",id:"Oksigen"},
   n_ec:{ko:"전도도 / 염도",en:"Conductivity / Salinity",vi:"Độ dẫn / Độ mặn",id:"Konduktivitas / Salinitas"},
   n_ec_only:{ko:"전도도",en:"Conductivity",vi:"Độ dẫn",id:"Konduktivitas"},
+  sen_noreply:{ko:"센서 응답 없음",en:"No sensor response",vi:"Cảm biến không phản hồi",id:"Sensor tak merespons"},
+  sen_check:{ko:"설정 → 센서 설정 → 선 훑기",en:"Settings → Sensors → Scan bus",vi:"Cài đặt → Cảm biến → Quét",id:"Pengaturan → Sensor → Pindai"},
   // 양액
   menu_nutrient:{ko:"양액 설정",en:"Nutrient solution",vi:"Dung dịch dinh dưỡng",id:"Larutan nutrisi"},
   menu_nutrient_sub:{ko:"EC 로 농도 보고 보충량 계산",en:"Dosing from EC readings",vi:"Tính lượng bổ sung theo EC",id:"Hitung dosis dari EC"},
@@ -566,10 +570,29 @@ function renderValues(d){
   return '<div class="grid">' + cells + '</div>' + renderNutrient(d);
 }
 
+// 값 칸이 비었을 때 "어느 센서 탓인지" 를 짚어 준다. 화면에 -- 만 뜨면
+// 사람이 원인을 알 길이 없어, 배선을 뜯기 전에 무엇부터 볼지 알려 준다.
+function ownerSensor(key){
+  if (key === "ph") return "ph";
+  if (key === "do_level") return "do";
+  if (key === "salinity" || key === "conductivity") return "ec";
+  return null;   // 수온은 세 센서 중 아무거나 대므로 특정하지 않는다
+}
+
 // 값 칸 아래 보조 줄. 지금은 전도도 칸에만 쓴다 —
 // 양액 계산은 25℃ 로 환산한 EC 로 하므로, 실제로 쓰인 값을 같이 보여 준다.
 // (보정을 끄면 잰 값과 같지만, 어느 값으로 계산했는지 눈에 보이는 편이 낫다.)
 function subLine(key, d){
+  // 값이 없는데 담당 센서가 오류를 냈으면 그 사실을 먼저 알린다.
+  var has = d.values && typeof d.values[key] === "number";
+  if (!has) {
+    var who = ownerSensor(key);
+    if (who && d.errors && d.errors[who]) {
+      return '<div class="sub2 bad">' + t("sen_noreply") +
+             '<div class="dim">' + t("sen_check") + '</div></div>';
+    }
+    return "";
+  }
   if (key !== "conductivity") return "";
   var n = d.nutrient;
   if (!n || typeof n.ec !== "number") return "";
