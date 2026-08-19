@@ -1441,7 +1441,7 @@ export const ko: Dict = {
     statusNotMeasured: "미측정",
     // ── 대시보드 (§4) ──
     ecDeviationLabel: "EC 이탈 알림",
-    ecDeviationSub: "목표 ±0.10 mS/cm",
+    ecDeviationSub: "베드 레시피 기준 이탈",
     dpTrendTitle: "차압 추세 · 최근 24시간",
     dpDelta: "24시간 전 대비 {{v}} kPa",
     dpRisingHint: "올라가는 추세입니다 — UV 살균기·필터 막힘을 점검해 보세요.",

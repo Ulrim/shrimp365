@@ -95,9 +95,15 @@ export function WaterQualityRecordView() {
             do_level: parseFloat(values.do_level as string) || 0,
             // EC 환산 지점 4/4 — 입력 mS/cm × 1000 = 저장 µS/cm.
             // (나머지 3곳: 레시피 폼 저장, 차트 목표선 라벨, 양액 상태 카드)
-            conductivity: values.conductivity ? Math.round(parseFloat(values.conductivity as string) * 1000) : 0,
-            flow_rate: parseFloat(values.flow_rate as string) || 0,
-            diff_pressure: parseFloat(values.diff_pressure as string) || 0,
+            //
+            // 새우 6항목과 달리 이 셋은 **빈 칸을 0 이 아니라 null 로 저장한다.**
+            // 저장소가 일부러 nullable 로 둔 컬럼이라서다 — 0 을 넣으면 판정은
+            // 무사해도(0 은 건너뛴다) 차트가 깨진다. buildChartData 의
+            // `typeof === "number"` 검사를 0 이 통과해 EC 선이 바닥으로 처지고,
+            // wq_series 버킷 평균에 섞이면 스파이크가 아니라 조용히 낮아진 값이 된다.
+            conductivity: values.conductivity ? Math.round(parseFloat(values.conductivity as string) * 1000) : null,
+            flow_rate: values.flow_rate ? parseFloat(values.flow_rate as string) : null,
+            diff_pressure: values.diff_pressure ? parseFloat(values.diff_pressure as string) : null,
             // 새우 6항목은 농업 폼에서 받지 않는다. 0 이면 checkThresholds 가
             // 판정에서 건너뛴다(lib/thresholds.ts).
             salinity: 0, ammonia: 0, nitrite: 0, nitrate: 0, alkalinity: 0, turbidity: 0,

@@ -539,9 +539,11 @@ export function JournalView() {
             temperature: parseFloat(jForm.temperature) || 0, ph: parseFloat(jForm.ph) || 0,
             do_level: parseFloat(jForm.do_level) || 0,
             // EC 환산 — 입력 mS/cm × 1000 = 저장 µS/cm.
-            conductivity: jForm.conductivity ? Math.round(parseFloat(jForm.conductivity) * 1000) : 0,
-            flow_rate: parseFloat(jForm.flow_rate) || 0,
-            diff_pressure: parseFloat(jForm.diff_pressure) || 0,
+            // 안 잰 항목은 0 이 아니라 null 이다(측정 폼과 같은 이유 — 0 을 넣으면
+            // 차트 선이 바닥으로 처지고 버킷 평균이 조용히 낮아진다).
+            conductivity: jForm.conductivity ? Math.round(parseFloat(jForm.conductivity) * 1000) : null,
+            flow_rate: jForm.flow_rate ? parseFloat(jForm.flow_rate) : null,
+            diff_pressure: jForm.diff_pressure ? parseFloat(jForm.diff_pressure) : null,
             // 새우 6항목은 농업에서 받지 않는다 — 0 이면 판정에서 빠진다.
             salinity: 0, ammonia: 0, nitrite: 0, nitrate: 0, alkalinity: 0, turbidity: 0,
             recorded_at: new Date(`${jForm.date}T12:00:00`).toISOString(),

@@ -296,11 +296,12 @@ export async function insertWaterQuality(
   let recipe: TankRecipe | null = null
   let profile: FarmProfile = "shrimp"
   try {
-    const { data: tankRow } = await supabase
+    const { data: tankRow, error: tankErr } = await supabase
       .from("tanks")
       .select("target_ec, ec_tolerance, target_ph, ph_tolerance, farms!inner(farm_type)")
       .eq("id", tankId)
       .maybeSingle()
+    if (tankErr) console.warn("[db] 베드 레시피·농장유형 조회 실패 — shrimp 프로필로 진행:", tankErr.message)
     if (tankRow) {
       recipe = tankRow as TankRecipe
       const joined = (tankRow as { farms?: unknown }).farms

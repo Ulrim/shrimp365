@@ -1435,7 +1435,7 @@ export const vi: Dict = {
     statusNoStandard: "No standard",
     statusNotMeasured: "Not measured",
     ecDeviationLabel: "EC deviations",
-    ecDeviationSub: "Target ±0.10 mS/cm",
+    ecDeviationSub: "Outside the bed recipe range",
     dpTrendTitle: "Diff. pressure · last 24h",
     dpDelta: "{{v}} kPa vs 24h ago",
     dpRisingHint: "Trending up — check the UV unit and filter for clogging.",

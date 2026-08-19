@@ -243,11 +243,14 @@ export async function POST(req: NextRequest) {
   let recipe: TankRecipe | null = null
   let profile: FarmProfile = "shrimp"
   try {
-    const { data: tankRow } = await supabaseAdmin
+    const { data: tankRow, error: tankErr } = await supabaseAdmin
       .from("tanks")
       .select("target_ec, ec_tolerance, target_ph, ph_tolerance, farms!inner(farm_type)")
       .eq("id", device.tank_id)
       .maybeSingle()
+    // 실패하면 조용히 새우 프로필로 떨어져 EC 알림이 흔적 없이 사라진다.
+    // 수신은 계속하되(비치명) 왜 사라졌는지는 남긴다.
+    if (tankErr) console.warn("[sensors/data] 베드 레시피·농장유형 조회 실패 — shrimp 프로필로 진행:", tankErr.message)
     if (tankRow) {
       recipe = tankRow as TankRecipe
       // Supabase 조인 결과는 관계 카디널리티에 따라 객체 또는 배열로 온다.

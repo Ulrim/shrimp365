@@ -525,7 +525,12 @@ export const JOURNAL_DEFAULTS_KEY_AGRI = "journal_form_defaults_agri"  // 신규
   (`types/index.ts:127`). **추가 조회 0회** — `alerts`는 이미 로드돼 있다.
 - 아이콘은 진단 카드가 쓰던 `FlaskConical`을 **그대로 재사용**하되 색만
   purple → **ocean**으로 바꾼다. 새 아이콘 import가 없고, ocean은 이 앱에서 "양액·측정"의 색이다.
-- 부제 `t.agri.ecDeviationSub` = **`목표 ±0.10 mS/cm`** — 사업 KPI(±0.1 dS/m)를 화면에 박아 둔다.
+- 부제 `t.agri.ecDeviationSub` = **`베드 레시피 기준 이탈`** (무수치).
+  > **구현 중 정정 (태양 리뷰 Y-1).** 이 시안은 `목표 ±0.10 mS/cm` 로 사업 KPI 를
+  > 화면에 박자고 했으나, 카운트가 전 베드 합산이라 부제의 ±0.10 이 `ec_tolerance`
+  > 가 다른 베드(시드 2번 = ±0.15)와 모순된다. §1 원칙 2("기준이 없으면 색을
+  > 칠하지 않는다")와 같은 뿌리 — **없는 전역 기준을 문안으로 만들지 않는다.**
+  > ko/en/vi/id 4개 언어 모두 무수치 문안으로 간다.
 - 값이 `0`일 때 색을 바꾸지 않는다. StatCard는 원래 판정 색을 쓰지 않는다(§1 원칙 2).
 
 ### 4-4. 메인 차트 — EC 단독 + 목표 밴드 (164~172, 289~309행)

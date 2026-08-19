@@ -886,7 +886,9 @@ function EditTankDialog({ tank, farm, onSuccess }: { tank: Tank; farm: Farm; onS
           name: form.name,
           tank_type: form.tank_type,
           volume,
-          cycle_day: form.stocking_date ? computeCycleDay(form.stocking_date) : tank.cycle_day,
+          // 정식일을 지웠으면 재배일수도 0 이다. 옛 값을 남기면 날짜 없는
+          // 베드에 "재배 12일차" 가 계속 뜬다.
+          cycle_day: form.stocking_date ? computeCycleDay(form.stocking_date) : 0,
           stocking_date: form.stocking_date || null,
           harvest_date: form.harvest_date || null,
           status: form.status as Tank["status"],

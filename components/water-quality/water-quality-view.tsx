@@ -185,7 +185,10 @@ const SENSOR_COLORS = ["#0ea5e9", "#f59e0b", "#a78bfa", "#14b8a6", "#ec4899", "#
 function buildCompareData(
   readings: WaterQualityReading[],
   devNameById: Map<string, string>,
-  metricKey: typeof STD_KEYS[number],
+  // 새우 9항목은 non-null 이지만 conductivity·flow_rate·diff_pressure 는 이
+  // 저장소가 **일부러 nullable 로 둔** 컬럼이다("쟀는데 0"과 "안 쟀다"를 구분하려고 —
+  // lib/db.ts). 농업 비교 항목에 EC 가 들어오면서 그 null 이 여기까지 온다.
+  metricKey: keyof WaterQualityReading,
   digits: number,
   locale: Locale,
 ) {
@@ -201,13 +204,17 @@ function buildCompareData(
         time: multiDay
           ? `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
           : d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }),
-        [devNameById.get(r.device_id!)!]: Number((r[metricKey] as number).toFixed(digits)),
-      } as Record<string, number | string>
+        // buildChartData 와 같은 가드. 없으면 null 에서 TypeError 가 나고
+        // useMemo 안이라 화면 전체가 죽는다(백스크린).
+        [devNameById.get(r.device_id!)!]: typeof r[metricKey] === "number"
+          ? Number((r[metricKey] as number).toFixed(digits))
+          : null,
+      } as Record<string, number | string | null>
     })
     .sort((a, b) => (a.t as number) - (b.t as number))
 }
 
-function SensorCompareChart({ data, names, fill = false, big = false }: { data: Record<string, number | string>[]; names: string[]; fill?: boolean; big?: boolean }) {
+function SensorCompareChart({ data, names, fill = false, big = false }: { data: Record<string, number | string | null>[]; names: string[]; fill?: boolean; big?: boolean }) {
   const fs = big ? 17 : 11
   return (
     <ResponsiveContainer width="100%" height={fill ? "100%" : 260}>
@@ -548,7 +555,7 @@ export function WaterQualityView() {
   }, [])
   // 수조의 전체 기록(모든 센서 + 수기). 센서별 보기는 여기서 걸러 낸다.
   const [allReadings, setAllReadings] = useState<WaterQualityReading[]>([])
-  const [compareParam, setCompareParam] = useState<typeof STD_KEYS[number]>("temperature")
+  const [compareParam, setCompareParam] = useState<keyof WaterQualityReading>("temperature")
   const [tankAlerts, setTankAlerts] = useState<Alert[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -761,8 +768,11 @@ export function WaterQualityView() {
   const compareData = useMemo(() => {
     if (activeDevices.length < 2) return []
     const nameById = new Map(activeDevices.map(d => [d.id, d.name]))
-    const meta = PARAM_DEFS.find(m => m.key === compareParam)
-    const digits = meta?.unit === "" ? 2 : (compareParam === "ammonia" || compareParam === "nitrite" ? 3 : 1)
+    const meta = [...PARAM_DEFS, ...AGRI_PARAM_DEFS].find(m => m.key === compareParam)
+    // EC 는 µS/cm 정수로 찍는다(buildChartData 의 Math.round 와 같은 자릿수).
+    const digits = compareParam === "conductivity" ? 0
+      : meta?.unit === "" ? 2
+      : (compareParam === "ammonia" || compareParam === "nitrite" ? 3 : 1)
     return buildCompareData(allReadings, nameById, compareParam, digits, locale)
   }, [allReadings, activeDevices, compareParam, locale])
 
@@ -1251,7 +1261,7 @@ export function WaterQualityView() {
                     ).map(m => (
                       <button
                         key={m.key}
-                        onClick={() => setCompareParam(m.key as typeof STD_KEYS[number])}
+                        onClick={() => setCompareParam(m.key)}
                         className={"px-2.5 py-1 rounded-full border text-xs font-medium transition-colors " +
                           (compareParam === m.key ? "bg-ocean-600 text-white border-ocean-600" : "bg-card text-muted-foreground border-border hover:bg-accent")}
                       >
