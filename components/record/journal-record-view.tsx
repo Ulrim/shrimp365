@@ -9,7 +9,7 @@ import { getAllTanks } from "@/lib/db"
 import { MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
 import { Tank } from "@/types"
 import { StepWizard, WizardStep } from "@/components/wizard/step-wizard"
-import { FEED_TYPES, MICROBIAL_TYPES, loadJournalDefaults, saveJournalDefaults, submitJournal, JournalFormValues } from "@/lib/record-actions"
+import { FEED_TYPES, MICROBIAL_TYPES, AGRI_NUTRIENT_TYPES, AGRI_INPUT_TYPES, loadJournalDefaults, saveJournalDefaults, submitJournal, JournalFormValues } from "@/lib/record-actions"
 import { Building2 } from "lucide-react"
 import Link from "next/link"
 
@@ -17,7 +17,7 @@ const TODAY = new Date().toISOString().split("T")[0]
 
 export function JournalRecordView() {
   const router = useRouter()
-  const { href: withAgri } = useAgriRoute()
+  const { isAgri, href: withAgri } = useAgriRoute()
   const { user } = useAuth()
   const { t } = useT()
   const mock = isTestAccount(user?.email)
@@ -28,19 +28,21 @@ export function JournalRecordView() {
   const [error, setError] = useState<string | null>(null)
 
   const [values, setValues] = useState<Record<string, unknown>>(() => {
-    const defaults = typeof window !== "undefined" ? loadJournalDefaults() : {}
+    const defaults = typeof window !== "undefined" ? loadJournalDefaults(isAgri) : {}
     return {
       tank_id: "",
       date: TODAY,
-      feed_type: defaults.feed_type ?? FEED_TYPES[2],
+      feed_type: defaults.feed_type ?? (isAgri ? AGRI_NUTRIENT_TYPES[0] : FEED_TYPES[2]),
       feeding_amount: "",
-      feeding_times: defaults.feeding_times ?? "4",
+      feeding_times: defaults.feeding_times ?? (isAgri ? "" : "4"),
+      // 농업에는 대응물이 없다. 폼에 노출하지 않고 0 으로 저장한다 —
+      // mortality_count 를 다른 뜻으로 재활용하지 않는다(설계서 3-2).
       mortality_count: "",
       water_exchange_rate: "",
       disinfection: defaults.disinfection ?? false,
       disinfection_type: defaults.disinfection_type ?? "",
       microbial_input: defaults.microbial_input ?? false,
-      microbial_type: defaults.microbial_type ?? MICROBIAL_TYPES[0],
+      microbial_type: defaults.microbial_type ?? (isAgri ? AGRI_INPUT_TYPES[0] : MICROBIAL_TYPES[0]),
       microbial_amount: "",
       feedItemId: "",
       microbialItemId: "",
@@ -73,23 +75,67 @@ export function JournalRecordView() {
     setSaving(true)
     try {
       if (!mock) {
-        await submitJournal(values as unknown as JournalFormValues, { mock })
+        // 농업에서는 폐사 칸이 없다. 컬럼 매핑은 새우와 같으므로 submitJournal 은
+        // 그대로 쓰고, 값만 0 으로 눌러 보낸다.
+        const payload = isAgri ? { ...values, mortality_count: "0" } : values
+        await submitJournal(payload as unknown as JournalFormValues, { mock })
       }
-      saveJournalDefaults(values)
+      saveJournalDefaults(values, isAgri)
       setSaved(true)
       setTimeout(() => router.replace(withAgri("/home")), 1200)
     } catch {
-      setError("저장에 실패했습니다. 다시 시도해주세요.")
+      setError(t.recordX.saveFailed)
     } finally {
       setSaving(false)
     }
   }
 
-  const steps: WizardStep[] = [
+  // 농업 4스텝 — 양액 관리 → 재배 작업 → 설비 점검.
+  // 설비 점검 순서가 새우(폭기→여과→순환→급이)와 다르다. 양액이 도는 순서
+  // (펌프 → 필터 → 냉각)를 따라간 것이라 현장 점검 동선과 같다(수아 시안 §3-2).
+  const agriSteps: WizardStep[] = [
+    {
+      fields: [
+        { key: "tank_id", label: t.wizard.tankLabel, type: "tank" },
+        { key: "date", label: t.wizard.date, type: "date" },
+      ],
+    },
+    {
+      title: t.agri.journalStepNutrient,
+      fields: [
+        { key: "feed_type", label: t.agri.nutrientType, type: "select", options: AGRI_NUTRIENT_TYPES },
+        { key: "feeding_amount", label: t.agri.nutrientRefill, type: "number", placeholder: "예: 40", unit: "L", optional: true, hint: t.agri.nutrientRefillHint },
+        { key: "feeding_times", label: t.agri.refillTimes, type: "number", placeholder: "예: 2", unit: "회/일", optional: true },
+        { key: "water_exchange_rate", label: t.agri.exchangeRate, type: "number", placeholder: "예: 30", unit: "%", optional: true, hint: t.agri.exchangeRateHint },
+      ],
+    },
+    {
+      title: t.agri.journalStepWork,
+      fields: [
+        { key: "disinfection", label: t.agri.pestControl, type: "switch" },
+        { key: "disinfection_type", label: t.agri.pestAgent, type: "text", placeholder: t.agri.pestAgentPlaceholder, optional: true, dependsOn: { key: "disinfection", value: true } },
+        { key: "microbial_input", label: t.agri.inputApplied, type: "switch" },
+        { key: "microbial_type", label: t.agri.inputType, type: "select", options: AGRI_INPUT_TYPES, dependsOn: { key: "microbial_input", value: true }, optional: true },
+        { key: "microbial_amount", label: t.agri.inputAmount, type: "number", placeholder: "예: 0.5", unit: "kg", dependsOn: { key: "microbial_input", value: true }, optional: true, hint: t.agri.inputAmountHint },
+      ],
+    },
+    {
+      title: t.wizard.confirmTitle,
+      fields: [
+        { key: "check_circulation", label: t.agri.checkPump, type: "switch" },
+        { key: "check_filtration", label: t.agri.checkFilterUv, type: "switch" },
+        { key: "check_aeration", label: t.agri.checkChiller, type: "switch" },
+        { key: "check_feeding_check", label: t.agri.checkGrowth, type: "switch" },
+        { key: "notes", label: t.journal.notes, type: "textarea", placeholder: t.agri.journalNotesPlaceholder, optional: true },
+      ],
+    },
+  ]
+
+  const shrimpSteps: WizardStep[] = [
     {
       // Step 1: 수조 + 날짜
       fields: [
-        { key: "tank_id", label: "수조 선택", type: "tank" },
+        { key: "tank_id", label: t.wizard.tankLabel, type: "tank" },
         { key: "date", label: t.wizard.date, type: "date" },
       ],
     },
@@ -131,6 +177,8 @@ export function JournalRecordView() {
     },
   ]
 
+  const steps = isAgri ? agriSteps : shrimpSteps
+
   if (loadingTanks) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -142,12 +190,12 @@ export function JournalRecordView() {
   if (tankLoadError) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center gap-4">
-        <p className="text-destructive font-medium">수조 목록을 불러오지 못했습니다.</p>
+        <p className="text-destructive font-medium">{t.recordX.tankLoadFailed}</p>
         <button
           onClick={() => { setTankLoadError(false); setLoadingTanks(true); getAllTanks().then(r => { setTanks(r); setLoadingTanks(false) }).catch(() => { setTankLoadError(true); setLoadingTanks(false) }) }}
           className="text-sm text-emerald-600 underline"
         >
-          다시 시도
+          {t.homeHub.retry}
         </button>
       </div>
     )
@@ -160,15 +208,15 @@ export function JournalRecordView() {
           <Building2 className="w-8 h-8 text-emerald-500" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-foreground mb-2">등록된 수조가 없습니다</h2>
-          <p className="text-muted-foreground text-sm">양식 일지를 작성하려면 먼저 양식장과 수조를 등록해 주세요.</p>
+          <h2 className="text-xl font-bold text-foreground mb-2">{t.recordX.noTanksTitle}</h2>
+          <p className="text-muted-foreground text-sm">{t.recordX.noTanksJournalMsg}</p>
         </div>
         <Link
           href="/onboarding"
           className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
         >
           <Building2 className="w-4 h-4" />
-          양식장 등록하기
+          {t.recordX.registerFarmCta}
         </Link>
       </div>
     )

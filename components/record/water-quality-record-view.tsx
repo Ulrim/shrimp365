@@ -17,7 +17,7 @@ const TODAY = new Date().toISOString().split("T")[0]
 
 export function WaterQualityRecordView() {
   const router = useRouter()
-  const { href: withAgri } = useAgriRoute()
+  const { isAgri, href: withAgri } = useAgriRoute()
   const { user } = useAuth()
   const { t } = useT()
   const mock = isTestAccount(user?.email)
@@ -35,6 +35,10 @@ export function WaterQualityRecordView() {
     nitrate: "",
     alkalinity: "",
     turbidity: "",
+    // 농업(수경재배) 3항목. 새우 폼은 이 칸을 쓰지도 저장하지도 않는다.
+    conductivity: "",
+    flow_rate: "",
+    diff_pressure: "",
   })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -56,14 +60,27 @@ export function WaterQualityRecordView() {
 
   const handleComplete = async () => {
     setError(null)
-    const wqFields: WqField[] = ["temperature", "ph", "do_level", "salinity", "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity"]
+    const wqFields: WqField[] = isAgri
+      ? ["conductivity", "ph", "temperature", "do_level", "flow_rate", "diff_pressure"]
+      : ["temperature", "ph", "do_level", "salinity", "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity"]
     for (const field of wqFields) {
       const raw = values[field] as string
       if (!raw) continue
       const val = parseFloat(raw)
-      if (!Number.isFinite(val)) { setError(`${WQ_BOUNDS[field].label}: 유효한 숫자를 입력해주세요.`); return }
-      if (val < WQ_BOUNDS[field].min || val > WQ_BOUNDS[field].max) {
-        setError(`${WQ_BOUNDS[field].label}: ${WQ_BOUNDS[field].min}~${WQ_BOUNDS[field].max}${WQ_BOUNDS[field].unit} 범위를 벗어났습니다.`)
+      if (!Number.isFinite(val)) { setError(`${WQ_BOUNDS[field].label}: ${t.journalX.errInvalidNumber}`); return }
+      // EC 만 사람이 쓰는 단위(mS/cm)와 경계 단위(µS/cm)가 다르다.
+      // 입력값을 µS/cm 로 올려 비교하고, 에러 문구는 mS/cm 로 되돌려 보여 준다 —
+      // 그대로 쓰면 "0~20000" 이 떠서 농가가 자릿수를 오해한다(수아 시안 §2-5).
+      const bound = WQ_BOUNDS[field]
+      const compare = isAgri && field === "conductivity" ? val * 1000 : val
+      if (compare < bound.min || compare > bound.max) {
+        if (isAgri && field === "conductivity") {
+          setError(t.agri.ecRangeErrorMs
+            .replace("{{min}}", String(bound.min / 1000))
+            .replace("{{max}}", String(bound.max / 1000)))
+        } else {
+          setError(`${bound.label}: ${bound.min}~${bound.max}${bound.unit} ${t.journalX.errOutOfRange}`)
+        }
         return
       }
     }
@@ -71,6 +88,22 @@ export function WaterQualityRecordView() {
     setSaving(true)
     try {
       if (!mock) {
+        if (isAgri) {
+          await insertWaterQuality(values.tank_id as string, {
+            temperature: parseFloat(values.temperature as string) || 0,
+            ph: parseFloat(values.ph as string) || 0,
+            do_level: parseFloat(values.do_level as string) || 0,
+            // EC 환산 지점 4/4 — 입력 mS/cm × 1000 = 저장 µS/cm.
+            // (나머지 3곳: 레시피 폼 저장, 차트 목표선 라벨, 양액 상태 카드)
+            conductivity: values.conductivity ? Math.round(parseFloat(values.conductivity as string) * 1000) : 0,
+            flow_rate: parseFloat(values.flow_rate as string) || 0,
+            diff_pressure: parseFloat(values.diff_pressure as string) || 0,
+            // 새우 6항목은 농업 폼에서 받지 않는다. 0 이면 checkThresholds 가
+            // 판정에서 건너뛴다(lib/thresholds.ts).
+            salinity: 0, ammonia: 0, nitrite: 0, nitrate: 0, alkalinity: 0, turbidity: 0,
+            recorded_at: new Date(`${values.date as string}T12:00:00`).toISOString(),
+          })
+        } else {
         await insertWaterQuality(values.tank_id as string, {
           temperature: parseFloat(values.temperature as string) || 0,
           ph: parseFloat(values.ph as string) || 0,
@@ -83,19 +116,79 @@ export function WaterQualityRecordView() {
           turbidity: parseFloat(values.turbidity as string) || 0,
           recorded_at: new Date(`${values.date as string}T12:00:00`).toISOString(),
         })
+        }
       }
       setSaved(true)
       setTimeout(() => router.replace(withAgri("/dashboard")), 1200)
     } catch {
-      setError("저장에 실패했습니다. 다시 시도해주세요.")
+      setError(t.recordX.saveFailed)
     } finally {
       setSaving(false)
     }
   }
 
-  const steps: WizardStep[] = [
+  // 선택한 베드의 레시피를 힌트에 실어 보낸다. tanks 는 이미 select("*") 로
+  // 받아 둔 것이라 **추가 조회가 없다**.
+  //
+  // 아래 steps 배열은 **매 렌더 다시 만들어진다** — useMemo 로 굳히면 베드를
+  // 바꾸거나 EC 를 입력해도 힌트가 따라오지 않는다(수아 시안 §8-2).
+  const selectedTank = tanks.find(tk => tk.id === values.tank_id)
+
+  const ecHint = () => {
+    const parts: string[] = []
+    if (selectedTank?.target_ec != null) {
+      parts.push(t.agri.recordEcTarget
+        .replace("{{target}}", (selectedTank.target_ec / 1000).toFixed(2))
+        .replace("{{tol}}", ((selectedTank.ec_tolerance ?? 100) / 1000).toFixed(2)))
+    } else {
+      // 레시피가 없어도 **숫자 범위를 적지 않는다.** 힌트에 "일반적으로 1.2~2.2"
+      // 를 쓰는 순간 그것이 전역 EC 기준선이 된다(수아 시안 §2-4).
+      parts.push(t.agri.recordEcNoTarget)
+    }
+    const v = parseFloat(values.conductivity as string)
+    if (Number.isFinite(v) && v > 0) {
+      parts.push(t.agri.recordEcSaveNote.replace("{{v}}", Math.round(v * 1000).toLocaleString()))
+    }
+    return parts.join(" · ")
+  }
+
+  const phHint = () =>
+    selectedTank?.target_ph != null
+      ? t.agri.recordPhTarget
+          .replace("{{target}}", String(selectedTank.target_ph))
+          .replace("{{tol}}", String(selectedTank.ph_tolerance ?? 0.5))
+      : t.agri.recordPhNoTarget
+
+  // 농업 4스텝 — EC 가 첫 입력 항목이다(사업 KPI 가 EC 제어 정확도).
+  const agriSteps: WizardStep[] = [
     {
-      fields: [{ key: "tank_id", label: "수조 선택", type: "tank" }],
+      fields: [{ key: "tank_id", label: t.wizard.tankLabel, type: "tank" }],
+    },
+    {
+      fields: [
+        { key: "date", label: t.wizard.date, type: "date" },
+        { key: "conductivity", label: "EC", type: "number", placeholder: "예: 1.85", unit: t.agri.targetEcUnit, optional: true, hint: ecHint() },
+        { key: "ph", label: "pH", type: "number", placeholder: "예: 6.0", optional: true, hint: phHint() },
+      ],
+    },
+    {
+      fields: [
+        { key: "temperature", label: t.waterQuality.temperature, type: "number", placeholder: "예: 21.5", unit: "°C", optional: true, hint: t.agri.recordTempHint },
+        { key: "do_level", label: "DO", type: "number", placeholder: "예: 7.0", unit: "ppm", optional: true, hint: t.agri.recordDoHint },
+      ],
+    },
+    {
+      fields: [
+        { key: "flow_rate", label: t.waterQualityX.flowRate, type: "number", placeholder: "예: 12", unit: "L/min", optional: true, hint: t.agri.recordFlowHint },
+        { key: "diff_pressure", label: t.waterQualityX.diffPressure, type: "number", placeholder: "예: 15", unit: "kPa", optional: true, hint: t.agri.recordDpHint },
+      ],
+      title: t.wizard.confirmTitle,
+    },
+  ]
+
+  const shrimpSteps: WizardStep[] = [
+    {
+      fields: [{ key: "tank_id", label: t.wizard.tankLabel, type: "tank" }],
     },
     {
       fields: [
@@ -126,6 +219,8 @@ export function WaterQualityRecordView() {
     },
   ]
 
+  const steps = isAgri ? agriSteps : shrimpSteps
+
   if (loadingTanks) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -137,12 +232,12 @@ export function WaterQualityRecordView() {
   if (tankLoadError) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center gap-4">
-        <p className="text-destructive font-medium">수조 목록을 불러오지 못했습니다.</p>
+        <p className="text-destructive font-medium">{t.recordX.tankLoadFailed}</p>
         <button
           onClick={() => { setTankLoadError(false); setLoadingTanks(true); getAllTanks().then(r => { setTanks(r); setLoadingTanks(false) }).catch(() => { setTankLoadError(true); setLoadingTanks(false) }) }}
           className="text-sm text-ocean-600 underline"
         >
-          다시 시도
+          {t.homeHub.retry}
         </button>
       </div>
     )
@@ -155,15 +250,15 @@ export function WaterQualityRecordView() {
           <Building2 className="w-8 h-8 text-ocean-500" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-foreground mb-2">등록된 수조가 없습니다</h2>
-          <p className="text-muted-foreground text-sm">수질 기록을 시작하려면 먼저 양식장과 수조를 등록해 주세요.</p>
+          <h2 className="text-xl font-bold text-foreground mb-2">{t.recordX.noTanksTitle}</h2>
+          <p className="text-muted-foreground text-sm">{t.recordX.noTanksWqMsg}</p>
         </div>
         <Link
           href="/onboarding"
           className="inline-flex items-center gap-2 bg-ocean-500 hover:bg-ocean-600 text-white font-semibold px-6 min-h-[44px] py-3 rounded-xl transition-colors"
         >
           <Building2 className="w-4 h-4" aria-hidden="true" />
-          양식장 등록하기
+          {t.recordX.registerFarmCta}
         </Link>
       </div>
     )
@@ -180,6 +275,7 @@ export function WaterQualityRecordView() {
       saving={saving}
       saved={saved}
       error={error}
+      notice={isAgri ? t.agri.recordNotice : undefined}
     />
   )
 }

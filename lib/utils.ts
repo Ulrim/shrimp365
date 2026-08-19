@@ -40,6 +40,12 @@ export const WQ_BOUNDS = {
   nitrate:        { min: 0,   max: 200,  label: "질산염",    unit: "mg/L" },
   alkalinity:     { min: 0,   max: 500,  label: "알칼리도",  unit: "mg/L" },
   turbidity:      { min: 0,   max: 500,  label: "탁도",      unit: "NTU" },
+  // 농업(수경재배) 3종 — 기존 9항목의 값은 한 글자도 바꾸지 않는다.
+  // conductivity 는 **µS/cm** 다(DB 저장 단위). 사람에게 보이는 폼은 mS/cm 로
+  // 받으므로, 농업 폼은 이 경계를 ÷1000 해서 "0~20 mS/cm" 로 보여 준다.
+  conductivity:   { min: 0,   max: 20000, label: "EC",        unit: "µS/cm" },
+  flow_rate:      { min: 0,   max: 500,  label: "유량",      unit: "L/min" },
+  diff_pressure:  { min: 0,   max: 500,  label: "차압",      unit: "kPa" },
 } as const
 
 export type WqField = keyof typeof WQ_BOUNDS

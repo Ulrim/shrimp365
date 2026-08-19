@@ -21,6 +21,16 @@ export const agriKo: DictOverride = {
   },
   wizard: {
     selectTank: "베드를 선택하세요",
+    tankLabel: "베드 선택",
+  },
+  recordX: {
+    // 측정·일지 폼의 빈 상태·에러 문구 (수아 시안 §2-7·§3-5).
+    tankLoadFailed: "베드 목록을 불러오지 못했습니다.",
+    noTanksTitle: "등록된 베드가 없습니다",
+    noTanksWqMsg: "측정 기록을 시작하려면 먼저 농장과 베드를 등록해 주세요.",
+    noTanksJournalMsg: "영농 일지를 쓰려면 먼저 농장과 베드를 등록해 주세요.",
+    registerFarmCta: "농장 등록하기",
+    // saveFailed 는 농업에서도 같은 문장 — 오버라이드하지 않는다.
   },
   hub: {
     greeting: "안녕하세요, {{name}}님!",
