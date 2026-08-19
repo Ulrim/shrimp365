@@ -69,13 +69,18 @@ export type AgriStdKey = keyof typeof AGRI_QUALITY_STANDARDS
 //   flow_rate · diff_pressure : water_quality_readings 에서 **nullable** 컬럼이고
 //     입력 폼도 빈 칸을 null 로 저장한다. 0 은 "쟀더니 0" 이다 → measured.
 //
-//   temperature · ph · do_level : NOT NULL 컬럼이고 폼이 빈 칸을 0 으로 저장한다
-//     (`parseFloat(...) || 0`). 0 은 압도적으로 "안 쟀다"이지, 결빙(0 ℃)이나
+//   temperature · ph · do_level : 폼이 빈 칸을 0 으로 저장하고(`parseFloat(...) || 0`)
+//     읽는 쪽도 0 으로 채운다. 0 은 압도적으로 "안 쟀다"이지, 결빙(0 ℃)이나
 //     무산소(0 ppm)가 아니다. 0 을 실측으로 읽으면 안 잰 항목이 전부 위험으로
 //     뜬다. 알림 쪽(checkThresholds)도 0 을 판정에서 건너뛰므로 화면만 위험으로
 //     칠하면 2번 어긋남이 되살아난다 → missing.
-//     · 한계: 진짜 DO 0 ppm(무산소)을 놓친다. 컬럼을 nullable 로 바꾸기 전에는
-//       "안 쟀다"와 구별할 방법이 없다. 마이그레이션이 붙으면 measured 로 옮긴다.
+//     · 한계: 진짜 DO 0 ppm(무산소)을 놓친다.
+//     · 고치려면 — **마이그레이션이 아니다.** 이 셋은 스키마상 이미 nullable 이다
+//       (schema.sql 의 `temperature NUMERIC`). 0 을 만드는 것은 DB 가 아니라
+//       lib/db.ts toWaterQuality 의 `?? 0` 과 WaterQualityReading 의 `number` 타입이다.
+//       (a) `?? 0` 제거 (b) 타입을 `number | null` 로 (c) `.toFixed()` 를 부르는
+//       차트·카드 전 지점에 null 가드 — (c) 를 빠뜨리면 예전 buildCompareData 와
+//       같은 크래시가 9개 항목으로 늘어난다. 별도 커밋감이다.
 //
 //   conductivity : nullable 이지만 0 은 실측으로 치지 않는다. 양액 EC 0 은
 //     물리적으로 불가능하고(순수한 물도 아니다), 센서가 물 밖에서 0 을 보낸다.

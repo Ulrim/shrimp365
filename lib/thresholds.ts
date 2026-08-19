@@ -174,7 +174,10 @@ export function resolvableParameters(
   const table: Partial<Record<ThresholdKey, ThresholdBand>> =
     profile === "agriculture" ? AGRI_THRESHOLDS : WQ_THRESHOLDS
   return (Object.entries(values) as [ThresholdKey, number | undefined][])
-    .filter(([param, value]) => typeof value === "number" && value !== 0 && param in table)
+    .filter(([param, value]) =>
+      // NaN 은 지금 라우트가 걸러 내지만(route.ts 의 Number.isFinite 검사) 여기서도
+      // 막는다 — 새는 순간 그 항목의 열린 알림이 조용히 닫힌다.
+      typeof value === "number" && Number.isFinite(value) && value !== 0 && param in table)
     .map(([param]) => alertParameterKey(param))
 }
 
