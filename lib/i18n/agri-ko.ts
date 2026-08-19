@@ -24,6 +24,11 @@ export const agriKo: DictOverride = {
     tankLabel: "베드 선택",
   },
   recordX: {
+    // 기록 허브 부제 (record-hub-view.tsx).
+    waterQualityAria: "측정 기록 입력하기",
+    waterQualitySub: "EC·pH·양액 온도 등",
+    journalAria: "영농 일지 입력하기",
+    journalSub: "양액 보충·교환·설비 점검 등",
     // 측정·일지 폼의 빈 상태·에러 문구 (수아 시안 §2-7·§3-5).
     tankLoadFailed: "베드 목록을 불러오지 못했습니다.",
     noTanksTitle: "등록된 베드가 없습니다",
@@ -106,12 +111,49 @@ export const agriKo: DictOverride = {
   },
   waterQualityX: {
     cycleDays: "재배일수",
+    capacity: "양액조 용량",
     wholeTank: "베드 전체",
     tankSelectAria: "베드 선택",
     paramStatusTitle: "항목별 현재 양액 상태",
     csvFilePrefix: "양액데이터",
     noDataHint: "측정 데이터를 입력하거나 센서를 연결해 주세요.",
     noAlertsMsg: "미처리 알림이 없습니다 — 양액이 목표 범위에 있습니다.",
+  },
+  // 일지 어휘 — ko.ts 의 journalX 중 **뜻이 실제로 달라지는 키만** 덮는다.
+  // 오버라이드 표가 길수록 새우 사전과 어긋날 지점이 늘어난다.
+  //
+  // 의도적으로 덮지 않는 것:
+  //  - mortality / mortalityCount / unitFish — 농업에 대응물이 없다. 그럴듯한
+  //    농업 라벨을 씌우면 나중에 누군가 그 라벨을 믿고 mortality_count 를 쓴다.
+  //    **뜻 없는 컬럼은 뜻 없는 채로 감춘다** — 렌더 경로를 막는 것으로 푼다.
+  //  - vibrio*/diag*/selectTestType 등 — 진단 카드가 농업에서 통째로 숨겨진다.
+  //  - stock/usageAmount/noStockDeduct — 재고 연동은 항목이 비어 자연히 건너뛴다.
+  //  - checkCirculation/microbialDosed/checklistHint 등 — 어휘가 중립이라 정확하다.
+  journalX: {
+    checkAeration: "근권 냉방 칠러 점검",
+    checkAerationDesc: "칠러 가동 상태와 양액 온도 유지 확인",
+    checkFiltration: "필터·UV 살균기 점검",
+    checkFiltrationDesc: "필터 청결 및 UV 램프 가동 상태 확인",
+    checkFeeding: "생육 상태 확인",
+    checkFeedingDesc: "잎 색·초장·뿌리 상태 확인",
+    feed: "양액",
+    feedType: "양액 종류",
+    feedingTimes: "보충 횟수",
+    waterExchangeRate: "양액 교환율",
+    microbial: "자재",
+    microbialInput: "자재 투입",
+    microbialInputDesc: "미생물제·보충제 등 투입 여부",
+    microbialType: "자재 종류",
+    disinfectionDo: "방제 실시",
+    disinfectionDesc: "베드·배관 방제 여부",
+    disinfectionMethod: "방제 방법/약제",
+    disinfectionMethodPlaceholder: "약제 이름을 입력하세요",
+    tabWater: "측정값",
+    tabOps: "재배 작업",
+    waterQualityHint: "측정값을 직접 입력하세요. 센서 연동 시 자동으로 불러옵니다.",
+    highRiskTanks: "고위험 베드",
+    riskMsgLow: "현재 모든 베드가 정상 범위입니다.",
+    riskMsgMedium: "일부 베드에서 주의가 필요합니다. 모니터링을 강화하세요.",
   },
   journal: {
     title: "영농 일지",
@@ -128,6 +170,7 @@ export const agriKo: DictOverride = {
   },
   farmsX: {
     tankNameRequired: "베드 이름을 입력해주세요.",
+    stockingDayN: "재배 {{n}}일차",
     farmTanksHeading: "{{name}} 베드",
     tankStatusAria: "베드 상태",
     statusAutoNote: "측정 데이터 저장 시 자동 갱신됩니다",

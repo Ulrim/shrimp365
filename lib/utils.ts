@@ -29,6 +29,15 @@ export function getStatusColor(value: number, normal: [number, number], warning:
   return "danger"
 }
 
+/** 정식일(새우: 입식일)로부터 오늘까지의 재배/사육 일차. 첫날이 1일차.
+ *  farms-view 에 있던 것을 화면 두 곳(양액 관리 요약 스트립)에서 함께 쓰려고
+ *  옮겼다. 계산은 한 글자도 바뀌지 않았다. */
+export function computeCycleDay(stockingDate: string | null | undefined): number {
+  if (!stockingDate) return 0
+  const ms = Date.now() - new Date(stockingDate).getTime()
+  return Math.max(1, Math.floor(ms / 86_400_000) + 1)
+}
+
 // 수질 파라미터 물리적 유효 범위
 export const WQ_BOUNDS = {
   temperature:    { min: 0,   max: 45,   label: "수온",      unit: "°C" },

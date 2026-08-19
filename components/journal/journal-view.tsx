@@ -27,7 +27,7 @@ import {
   BookOpen, Plus, Thermometer, Droplets, Wind, Waves, UtensilsCrossed,
   RefreshCw, FlaskConical, Skull, CheckCircle2, Calendar, User, StickyNote,
   Pencil, Trash2, AlertTriangle, Download, ChevronDown,
-  XCircle, AlertCircle, Clock, FileText, Activity, Zap, Gauge,
+  XCircle, AlertCircle, Clock, FileText, Activity, Zap, Gauge, Repeat,
 } from "lucide-react"
 import { formatDate, formatDateTime } from "@/lib/utils"
 import { exportToCsv } from "@/lib/export"
@@ -167,6 +167,7 @@ function saveJournalDefaults(form: typeof defaultJournalForm, agri = false) {
 
 function JournalCard({ entry, currentUserId, currentUserName, onEdit, onDelete }: { entry: JournalEntry; currentUserId?: string; currentUserName?: string; onEdit: (e: JournalEntry) => void; onDelete: (e: JournalEntry) => void }) {
   const { t } = useT()
+  const { isAgri } = useAgriRoute()
   const authorName = entry.created_by === currentUserId ? (currentUserName || t.journalX.me) : (entry.created_by ? entry.created_by.slice(0, 8) + "…" : "")
   return (
     <Card className="bg-card border-border hover:border-border/80 transition-all group">
@@ -197,13 +198,21 @@ function JournalCard({ entry, currentUserId, currentUserName, onEdit, onDelete }
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
           <div className="bg-muted rounded-lg p-3 text-center">
             <div className="flex items-center justify-center gap-1 text-ocean-500 mb-1"><UtensilsCrossed className="w-3.5 h-3.5" /></div>
-            <p className="text-lg font-bold text-foreground">{entry.feeding_amount}<span className="text-xs text-muted-foreground">kg</span></p>
+            <p className="text-lg font-bold text-foreground">{entry.feeding_amount}<span className="text-xs text-muted-foreground">{isAgri ? "L" : "kg"}</span></p>
             <p className="text-xs text-muted-foreground">{t.journal.catFeeding}</p>
           </div>
+          {/* 2번 타일 — 새우는 폐사, 농업은 보충 횟수.
+              폐사에 농업 라벨을 씌우지 않고 타일 자체를 갈아 끼운다(수아 시안 §3-4).
+              amber 를 그대로 물려줘 4칸 색 리듬(ocean-amber-teal-purple)을 지킨다. */}
           <div className="bg-muted rounded-lg p-3 text-center">
-            <div className="flex items-center justify-center gap-1 text-amber-500 mb-1"><Skull className="w-3.5 h-3.5" /></div>
-            <p className="text-lg font-bold text-foreground">{entry.mortality_count.toLocaleString()}<span className="text-xs text-muted-foreground">{t.journalX.unitFish}</span></p>
-            <p className="text-xs text-muted-foreground">{t.journalX.mortality}</p>
+            <div className="flex items-center justify-center gap-1 text-amber-500 mb-1">
+              {isAgri ? <Repeat className="w-3.5 h-3.5" /> : <Skull className="w-3.5 h-3.5" />}
+            </div>
+            <p className="text-lg font-bold text-foreground">
+              {isAgri ? entry.feeding_times : entry.mortality_count.toLocaleString()}
+              <span className="text-xs text-muted-foreground">{isAgri ? t.common.unit.timesPerDay : t.journalX.unitFish}</span>
+            </p>
+            <p className="text-xs text-muted-foreground">{isAgri ? t.journalX.feedingTimes : t.journalX.mortality}</p>
           </div>
           <div className="bg-muted rounded-lg p-3 text-center">
             <div className="flex items-center justify-center gap-1 text-teal-500 mb-1"><RefreshCw className="w-3.5 h-3.5" /></div>
@@ -219,7 +228,7 @@ function JournalCard({ entry, currentUserId, currentUserName, onEdit, onDelete }
 
         <div className="text-xs text-foreground/80 bg-muted rounded-lg px-3 py-2 flex items-start gap-2">
           <p className="text-xs text-muted-foreground font-medium shrink-0">{t.journalX.feed}:</p>
-          <p>{entry.feed_type} · {entry.feeding_times}{t.common.unit.timesPerDay}</p>
+          <p>{isAgri ? entry.feed_type : `${entry.feed_type} · ${entry.feeding_times}${t.common.unit.timesPerDay}`}</p>
         </div>
         {entry.notes && (
           <div className="mt-2 text-xs text-foreground/80 bg-muted rounded-lg px-3 py-2 flex items-start gap-2">
@@ -438,14 +447,21 @@ export function JournalView() {
   }
 
   const handleJCsvExport = () => {
-    exportToCsv(journals.map(j => ({
+    exportToCsv(journals.map(j => isAgri ? {
+      날짜: j.date, 베드: j.tank_name,
+      양액보충량_L: j.feeding_amount, 양액종류: j.feed_type, 보충횟수: j.feeding_times,
+      양액교환율: j.water_exchange_rate,
+      자재투입: j.microbial_input ? "예" : "아니오", 자재종류: j.microbial_type || "",
+      방제: j.disinfection ? "예" : "아니오", 메모: j.notes || "",
+      작성자: j.created_by, 작성일: j.created_at,
+    } : {
       날짜: j.date, 수조: j.tank_name,
       급이량_kg: j.feeding_amount, 사료종류: j.feed_type, 급이횟수: j.feeding_times,
       폐사수: j.mortality_count, 환수율: j.water_exchange_rate,
       미생물투입: j.microbial_input ? "예" : "아니오", 미생물종류: j.microbial_type || "",
       소독: j.disinfection ? "예" : "아니오", 메모: j.notes || "",
       작성자: j.created_by, 작성일: j.created_at,
-    })), `journal_${new Date().toISOString().split("T")[0]}`)
+    }), `journal_${new Date().toISOString().split("T")[0]}`)
   }
 
   const jUpdate = (field: string, value: string | boolean) =>

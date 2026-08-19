@@ -1330,6 +1330,20 @@ export interface Dict {
     checkChiller: string
     checkGrowth: string
     journalNotesPlaceholder: string
+    // ── 상태 표현 (중립 신규) ──
+    statusNoStandard: string
+    statusNotMeasured: string
+    // ── 대시보드 (농업) ──
+    ecDeviationLabel: string
+    ecDeviationSub: string
+    dpTrendTitle: string
+    dpDelta: string
+    dpRisingHint: string
+    dpSteadyHint: string
+    dpNoData: string
+    // ── 베드 카드 ──
+    plantingDate: string
+    harvestPlanDate: string
   }
 }
 

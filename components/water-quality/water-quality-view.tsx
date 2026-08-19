@@ -21,14 +21,15 @@ import {
 import {
   Thermometer, Droplets, Wind, Waves, AlertTriangle,
   CheckCircle2, XCircle, AlertCircle, RefreshCw, Plus, Download, Wifi, Clock,
-  Maximize2, X,
+  Maximize2, X, Zap, Gauge, FlaskConical,
 } from "lucide-react"
 import { exportToCsv } from "@/lib/export"
-import { formatDateTime } from "@/lib/utils"
+import { formatDateTime, computeCycleDay } from "@/lib/utils"
 import type { Tank, WaterQualityReading, Alert, SensorDevice } from "@/types"
 import type { Dict, Locale } from "@/lib/i18n"
 import { useT } from "@/lib/i18n-context"
 import { useAgriRoute } from "@/lib/agri-route"
+import { AGRI_QUALITY_STANDARDS, AGRI_STATUS_STYLES, agriStatusPulses, getAgriStatus, type AgriRecipe, type AgriStatusLevel } from "@/lib/agri-standards"
 import { useAutoRefresh, sinceLabel } from "@/lib/use-auto-refresh"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -83,6 +84,50 @@ const STD_KEYS = [
   "temperature", "ph", "do_level", "salinity",
   "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity",
 ] as const
+
+// ── 농업(수경재배) 항목 6종 ───────────────────────────────────────────────
+//
+// 염도·암모니아·아질산염·질산염·알칼리도·탁도는 여기 없다. 농업 폼이 받지
+// 않으므로 값이 늘 0 이고, **0 을 "정상" 으로 칠하는 지금이 가장 나쁜 상태**다.
+// 새우 경로(PARAM_DEFS + getStatus + STATUS_STYLES)는 한 줄도 건드리지 않는다.
+const AGRI_PARAM_DEFS: { key: keyof WaterQualityReading; unit: string; icon: React.ReactNode; chartColor: string }[] = [
+  { key: "conductivity",  unit: "mS/cm", icon: <Zap className="w-5 h-5" />,         chartColor: "#0ea5e9" },
+  { key: "ph",            unit: "",      icon: <Droplets className="w-5 h-5" />,    chartColor: "#a78bfa" },
+  { key: "temperature",   unit: "°C",    icon: <Thermometer className="w-5 h-5" />, chartColor: "#0ea5e9" },
+  { key: "do_level",      unit: "ppm",   icon: <Wind className="w-5 h-5" />,        chartColor: "#14b8a6" },
+  { key: "flow_rate",     unit: "L/min", icon: <Waves className="w-5 h-5" />,       chartColor: "#6366f1" },
+  { key: "diff_pressure", unit: "kPa",   icon: <Gauge className="w-5 h-5" />,       chartColor: "#f43f5e" },
+]
+
+function agriParamLabel(t: Dict, key: string): string {
+  switch (key) {
+    case "conductivity":  return "EC"
+    case "ph":            return "pH"
+    case "do_level":      return "DO"
+    case "temperature":   return t.waterQuality.temperature
+    case "flow_rate":     return t.waterQualityX.flowRate
+    case "diff_pressure": return t.waterQualityX.diffPressure
+    default:              return key
+  }
+}
+
+/** 화면 표기값. EC 만 저장 µS/cm → 표시 mS/cm 로 내린다(단위 원칙). */
+function agriDisplayValue(key: string, raw: number | null | undefined): string {
+  if (raw == null || raw === 0) return "—"
+  if (key === "conductivity") return (raw / 1000).toFixed(2)
+  if (key === "ph") return raw.toFixed(2)
+  return raw.toFixed(1)
+}
+
+function useAgriStatusText(): (s: AgriStatusLevel) => string {
+  const { t } = useT()
+  return (s) =>
+    s === "정상" ? t.dashboard.normal
+    : s === "주의" ? t.dashboard.warning
+    : s === "위험" ? t.dashboard.danger
+    : s === "미측정" ? t.agri.statusNotMeasured
+    : t.agri.statusNoStandard
+}
 
 const TIME_RANGES = [
   { labelKey: "period24h" as const, hours: 24 },
@@ -248,6 +293,59 @@ function ReadingCard({ meta, reading }: { meta: ParamMeta; reading: WaterQuality
         <div className="mt-2 text-xs text-muted-foreground">
           {t.waterQuality.normalRange}: {std.min} – {std.max}{meta.unit}
         </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function AgriReadingCard({ meta, reading, recipe }: {
+  meta: { key: keyof WaterQualityReading; unit: string; icon: React.ReactNode }
+  reading: WaterQualityReading
+  recipe: AgriRecipe | null
+}) {
+  const { t } = useT()
+  const statusText = useAgriStatusText()
+  const label = agriParamLabel(t, meta.key as string)
+  const raw = reading[meta.key] as number | null | undefined
+  const status = getAgriStatus(meta.key as string, raw, recipe)
+  const styles = AGRI_STATUS_STYLES[status]
+  const shown = agriDisplayValue(meta.key as string, raw)
+
+  // 기준선 문구 — 기준이 없는 항목에는 아무것도 쓰지 않는다. 없는 기준을
+  // 그럴듯하게 채우면 그것이 곧 전역 기준선이 된다.
+  let rangeText: string | null = null
+  if (meta.key === "conductivity" && recipe?.target_ec != null) {
+    rangeText = `${t.waterQualityX.targetLabel} ${(recipe.target_ec / 1000).toFixed(2)} ±${((recipe.ec_tolerance ?? 100) / 1000).toFixed(2)} ${meta.unit}`
+  } else if (meta.key === "ph" && recipe?.target_ph != null) {
+    rangeText = `${t.waterQualityX.targetLabel} ${recipe.target_ph} ±${recipe.ph_tolerance ?? 0.5}`
+  } else if (meta.key === "ph" || meta.key === "temperature" || meta.key === "do_level") {
+    const std = AGRI_QUALITY_STANDARDS[meta.key]
+    rangeText = `${t.waterQuality.normalRange}: ${std.min} – ${std.max}${meta.unit}`
+  }
+
+  return (
+    <Card
+      className={`border min-w-0 overflow-hidden ${styles.bg} transition-all hover:brightness-110`}
+      aria-label={`${label}: ${shown}${meta.unit} — ${t.waterQualityX.statusLabel}: ${statusText(status)}`}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${styles.bg} ${styles.text}`} aria-hidden="true">
+            {meta.icon}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-full ${styles.dot} ${agriStatusPulses(status) ? "animate-pulse" : ""}`} aria-hidden="true" />
+            <span className={`text-xs font-medium ${styles.text}`}>{statusText(status)}</span>
+          </div>
+        </div>
+
+        <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
+        <p className={`text-2xl font-bold tabular-nums ${styles.text}`}>
+          {shown}
+          {meta.unit && <span className="text-sm font-normal text-muted-foreground ml-1">{meta.unit}</span>}
+        </p>
+
+        {rangeText && <div className="mt-2 text-xs text-muted-foreground">{rangeText}</div>}
       </CardContent>
     </Card>
   )
@@ -436,6 +534,11 @@ export function WaterQualityView() {
     () => PARAM_DEFS.map(m => ({ ...m, label: paramLabel(t, m.key as string) })),
     [t],
   )
+  const AGRI_PARAM_META: ParamMeta[] = useMemo(
+    () => AGRI_PARAM_DEFS.map(m => ({ ...m, label: agriParamLabel(t, m.key as string) })),
+    [t],
+  )
+  const agriStatusText = useAgriStatusText()
   const [tanks, setTanks] = useState<Tank[]>([])
   const [selectedTankId, setSelectedTankId] = useState<string>("")
   const initialTankIdFromUrl = useRef<string | null>(null)
@@ -681,7 +784,18 @@ export function WaterQualityView() {
 
   function handleExportCsv() {
     if (!readings.length || !selectedTank) return
-    const rows = readings.map(r => ({
+    // 농업 CSV — EC 는 **mS/cm 로 내보낸다.** 농가가 엑셀에서 보는 숫자가
+    // 화면과 달라지면 안 된다(단위 원칙).
+    const rows = isAgri ? readings.map(r => ({
+      [t.waterQuality.recordedAt]: r.recorded_at,
+      [t.waterQuality.tank]: selectedTank.name,
+      "EC(mS/cm)": r.conductivity != null ? (r.conductivity / 1000).toFixed(2) : "",
+      "pH": r.ph,
+      [`${t.waterQuality.temperature}(°C)`]: r.temperature,
+      "DO(ppm)": r.do_level,
+      [`${t.waterQualityX.flowRate}(L/min)`]: r.flow_rate ?? "",
+      [`${t.waterQualityX.diffPressure}(kPa)`]: r.diff_pressure ?? "",
+    })) : readings.map(r => ({
       [t.waterQuality.recordedAt]: r.recorded_at,
       [t.waterQuality.tank]: selectedTank.name,
       [`${t.waterQuality.temperature}(°C)`]: r.temperature,
@@ -843,7 +957,46 @@ export function WaterQualityView() {
                 </Select>
               </div>
 
-              {selectedTank && (
+              {selectedTank && isAgri && (
+                /* 입식수·밀도는 농업 베드에서 항상 0 이다. 값 없는 항목을 넣지 않고
+                   농가가 실제로 확인하는 것(정식일·레시피)으로 바꾼다. */
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:gap-x-6 text-sm">
+                  {selectedTank.stocking_date && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">{t.waterQualityX.cycleDays}</p>
+                      <p className="font-semibold text-foreground">{t.waterQualityX.dayN.replace("{{n}}", String(computeCycleDay(selectedTank.stocking_date)))}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xs text-muted-foreground">{t.waterQualityX.capacity}</p>
+                    <p className="font-semibold text-foreground">{selectedTank.volume.toLocaleString()}㎥</p>
+                  </div>
+                  {selectedTank.stocking_date && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">{t.agri.plantingDate}</p>
+                      <p className="font-semibold text-foreground tabular-nums">{selectedTank.stocking_date}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xs text-muted-foreground">{t.agri.recipeTitle}</p>
+                    <p className="font-semibold text-foreground tabular-nums flex items-center gap-1.5">
+                      <FlaskConical className="w-3 h-3 text-ocean-600 shrink-0" aria-hidden="true" />
+                      {selectedTank.target_ec == null && selectedTank.target_ph == null
+                        ? t.agri.recipeNotSet
+                        : [
+                            selectedTank.target_ec != null
+                              ? `EC ${(selectedTank.target_ec / 1000).toFixed(2)} ±${((selectedTank.ec_tolerance ?? 100) / 1000).toFixed(2)}`
+                              : null,
+                            selectedTank.target_ph != null
+                              ? `pH ${selectedTank.target_ph} ±${selectedTank.ph_tolerance ?? 0.5}`
+                              : null,
+                          ].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {selectedTank && !isAgri && (
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:gap-x-6 text-sm">
                   <div>
                     <p className="text-xs text-muted-foreground">{t.waterQualityX.cycleDays}</p>
@@ -962,7 +1115,29 @@ export function WaterQualityView() {
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground mb-3 font-medium">{t.waterQualityX.paramStatusTitle}</p>
                 <div className="flex flex-wrap gap-2">
-                  {PARAM_META.map(meta => {
+                  {isAgri ? AGRI_PARAM_META.map(meta => {
+                    const raw = latest[meta.key] as number | null | undefined
+                    const status = getAgriStatus(meta.key as string, raw, selectedTank ?? null)
+                    const styles = AGRI_STATUS_STYLES[status]
+                    const label = agriStatusText(status)
+                    const shown = agriDisplayValue(meta.key as string, raw)
+                    return (
+                      <div
+                        key={meta.key}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium ${styles.bg} ${styles.text}`}
+                        aria-label={`${meta.label} ${t.waterQualityX.statusLabel}: ${label}`}
+                        role="status"
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${styles.dot} ${agriStatusPulses(status) ? "animate-pulse" : ""}`} aria-hidden="true" />
+                        <span>{meta.label}</span>
+                        <span className="opacity-50" aria-hidden="true">·</span>
+                        {/* 값을 함께 넣는다 — "기준 없음" 일 때 상태만 있으면 정보가 0 이다 */}
+                        <span className="tabular-nums">{shown}{meta.unit && ` ${meta.unit}`}</span>
+                        <span className="opacity-50" aria-hidden="true">·</span>
+                        <span>{label}</span>
+                      </div>
+                    )
+                  }) : PARAM_META.map(meta => {
                     const stdKey = meta.key as typeof STD_KEYS[number]
                     const value = latest[meta.key] as number
                     const status = getStatus(value, stdKey)
@@ -989,11 +1164,19 @@ export function WaterQualityView() {
 
           {/* ── Current Readings Grid ────────────────────────────────────────── */}
           {latest ? (
+            isAgri ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {AGRI_PARAM_META.map(meta => (
+                <AgriReadingCard key={meta.key} meta={meta} reading={latest} recipe={selectedTank ?? null} />
+              ))}
+            </div>
+            ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
               {PARAM_META.map(meta => (
                 <ReadingCard key={meta.key} meta={meta} reading={latest} />
               ))}
             </div>
+            )
           ) : (
             <Card className="bg-card border-border">
               <CardContent className="p-8 text-center">
@@ -1061,7 +1244,11 @@ export function WaterQualityView() {
                 <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
                   <p className="text-sm font-medium text-foreground">{t.waterQualityX.sensorCompare}</p>
                   <div className="flex flex-wrap items-center gap-1.5">
-                    {PARAM_META.filter(m => ["temperature", "ph", "do_level", "salinity"].includes(m.key)).map(m => (
+                    {/* 농업은 염도를 빼고 EC 를 1순위로 */}
+                    {(isAgri
+                      ? AGRI_PARAM_META.filter(m => ["conductivity", "ph", "temperature", "do_level"].includes(m.key))
+                      : PARAM_META.filter(m => ["temperature", "ph", "do_level", "salinity"].includes(m.key))
+                    ).map(m => (
                       <button
                         key={m.key}
                         onClick={() => setCompareParam(m.key as typeof STD_KEYS[number])}

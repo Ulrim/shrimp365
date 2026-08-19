@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, ReferenceArea } from "recharts"
 import { getFarms, getAllTanks, getAlerts, getDiagnoses, getWaterQuality, getInventoryItems, getSensorDevices } from "@/lib/db"
 import { MOCK_FARMS, MOCK_TANKS, MOCK_ALERTS, MOCK_DIAGNOSES, MOCK_WATER_QUALITY, MOCK_INVENTORY_ITEMS, MOCK_SENSOR_DEVICES, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
@@ -17,13 +17,14 @@ import {
   Building2, Layers, AlertTriangle, ThermometerSun,
   Droplets, Wind, FlaskConical, ArrowRight,
   CheckCircle2, AlertCircle, XCircle, Activity,
-  BookOpen, Bot, Package
+  BookOpen, Bot, Package, Zap, Gauge
 } from "lucide-react"
-import { formatDateTime } from "@/lib/utils"
+import { formatDateTime, computeCycleDay } from "@/lib/utils"
 import { useT } from "@/lib/i18n-context"
 import { useAgriRoute } from "@/lib/agri-route"
 import { useAutoRefresh, sinceLabel } from "@/lib/use-auto-refresh"
 import { WeatherCard } from "@/components/weather/weather-card"
+import { AGRI_STATUS_STYLES, getAgriStatus, type AgriStatusLevel } from "@/lib/agri-standards"
 
 function StatCard({ icon, label, value, sub, color, iconBg }: { icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string; iconBg: string }) {
   // iconBg 는 정적 Tailwind 클래스로 받는다. 예전엔 color 문자열을 치환해
@@ -164,7 +165,11 @@ export function DashboardView() {
   const chartData = wqData
     .filter((_, i) => i % 4 === 0)
     .slice(-24)
-    .map(r => ({
+    .map(r => (isAgri ? {
+      time: new Date(r.recorded_at).toLocaleTimeString(localeStr, { hour: "2-digit", minute: "2-digit" }),
+      // y좌표는 언제나 µS/cm. 사람이 읽는 곳(목표선 라벨·툴팁)에서만 ÷1000 한다.
+      EC: r.conductivity ?? null,
+    } : {
       time: new Date(r.recorded_at).toLocaleTimeString(localeStr, { hour: "2-digit", minute: "2-digit" }),
       [t.waterQuality.temperature]: +r.temperature.toFixed(1),
       DO:   +r.do_level.toFixed(1),
@@ -172,6 +177,48 @@ export function DashboardView() {
     }))
 
   const latestWq = wqData[wqData.length - 1]
+
+  // ── 농업 전용 파생값 — 전부 이미 로드된 데이터에서 뽑는다(추가 조회 0회) ──
+  const selectedTank = tanks.find(tk => tk.id === selectedTankId) ?? null
+  const ecTarget = isAgri && selectedTank?.target_ec != null ? selectedTank.target_ec : null
+  const ecTol = selectedTank?.ec_tolerance ?? 100
+
+  // 차압 추세 — 최근 24h 스파크라인. wqData 에 이미 들어 있다.
+  const dpSeries = wqData
+    .map(r => (typeof r.diff_pressure === "number" ? r.diff_pressure : null))
+    .filter((v): v is number => v != null)
+  const dpLast = dpSeries.length ? dpSeries[dpSeries.length - 1] : null
+  // 상승 판정은 **표시용 휴리스틱**이다 — 알림을 만들지 않는다. 차압 절대 기준은
+  // 없고(베드마다 다르다), 두 조건 AND 는 오탐을 줄이기 위한 장치일 뿐이다.
+  const dpHead = dpSeries.slice(0, 3)
+  const dpTail = dpSeries.slice(-3)
+  const dpAvg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length
+  const dpDelta = dpSeries.length >= 3 ? dpAvg(dpTail) - dpAvg(dpHead) : null
+  const dpRising = dpDelta != null && dpDelta >= 2 && dpAvg(dpHead) > 0 && dpDelta / dpAvg(dpHead) >= 0.2
+  const dpChartData = dpSeries.map((dp, i) => ({ i, dp }))
+
+  // 최신값 타일(농업) — 판정 4종. 기준이 없으면 색을 칠하지 않는다.
+  const agriTiles = latestWq ? ([
+    { key: "conductivity", label: "EC", raw: latestWq.conductivity ?? null,
+      text: latestWq.conductivity ? (latestWq.conductivity / 1000).toFixed(2) : "—", unit: " mS/cm", icon: <Zap className="w-4 h-4" /> },
+    { key: "ph", label: "pH", raw: latestWq.ph,
+      text: latestWq.ph ? latestWq.ph.toFixed(2) : "—", unit: "", icon: <Droplets className="w-4 h-4" /> },
+    { key: "temperature", label: t.waterQuality.temperature, raw: latestWq.temperature,
+      text: latestWq.temperature ? latestWq.temperature.toFixed(1) : "—", unit: " °C", icon: <ThermometerSun className="w-4 h-4" /> },
+    // 유량은 절대 기준이 없다 — 값이 있어도 "기준 없음"(로드맵: 베드별 설정).
+    { key: "flow_rate", label: t.waterQualityX.flowRate, raw: latestWq.flow_rate ?? null,
+      text: latestWq.flow_rate ? latestWq.flow_rate.toFixed(1) : "—", unit: " L/min", icon: <Wind className="w-4 h-4" /> },
+  ].map(tile => {
+    const status: AgriStatusLevel = getAgriStatus(tile.key, tile.raw, selectedTank)
+    return { ...tile, status }
+  })) : []
+
+  const agriStatusText = (s: AgriStatusLevel) =>
+    s === "정상" ? t.dashboard.normal
+    : s === "주의" ? t.dashboard.warning
+    : s === "위험" ? t.dashboard.danger
+    : s === "미측정" ? t.agri.statusNotMeasured
+    : t.agri.statusNoStandard
 
   if (loading) {
     return (
@@ -201,8 +248,9 @@ export function DashboardView() {
         </div>
       )}
 
-      {/* Low Stock Warning */}
-      {lowStockItems.length > 0 && (
+      {/* Low Stock Warning — /daumlabs 아래에 재고 페이지가 없다. 갈 곳 없는
+          경고를 띄우지 않도록 농업에서는 배너째 렌더하지 않는다. */}
+      {!isAgri && lowStockItems.length > 0 && (
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3" role="alert" aria-label={`${t.inventory.lowStockItems} ${lowStockItems.length}${t.common.unit.pcs}`}>
           <Package className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
           <div className="flex-1">
@@ -212,15 +260,11 @@ export function DashboardView() {
               {lowStockItems.length > 3 ? ` +${lowStockItems.length - 3}` : ""}
             </p>
           </div>
-          {/* /daumlabs 아래에 재고 페이지가 없다 — 접두사를 붙일 수 없어 죽은
-              링크가 되므로 농업 화면에서는 바로가기를 렌더하지 않는다(설계서 4-3). */}
-          {!isAgri && (
-            <Link href="/inventory" className="shrink-0">
-              <Button size="sm" variant="outline" aria-label={t.a11y.goToInventory} className="border-amber-500/40 text-amber-700 hover:bg-amber-500/20 text-xs h-8 min-h-[44px]">
-                {t.nav.inventory}
-              </Button>
-            </Link>
-          )}
+          <Link href="/inventory" className="shrink-0">
+            <Button size="sm" variant="outline" aria-label={t.a11y.goToInventory} className="border-amber-500/40 text-amber-700 hover:bg-amber-500/20 text-xs h-8 min-h-[44px]">
+              {t.nav.inventory}
+            </Button>
+          </Link>
         </div>
       )}
 
@@ -260,7 +304,14 @@ export function DashboardView() {
         <StatCard icon={<Building2 className="w-5 h-5 text-ocean-500" />} label={t.dashboard.activeFarms} value={farms.length} sub={`${t.common.total} ${tanks.length}`} color="text-ocean-500" iconBg="bg-ocean-500/20" />
         <StatCard icon={<Layers className="w-5 h-5 text-teal-500" />} label={t.dashboard.activeTanks} value={statusCounts.active} sub={`${t.dashboard.warning} ${statusCounts.warning} / ${t.dashboard.danger} ${statusCounts.danger}`} color="text-teal-500" iconBg="bg-teal-500/20" />
         <StatCard icon={<AlertTriangle className="w-5 h-5 text-amber-500" />} label={t.dashboard.alertsToday} value={alerts.length} sub={t.dashboard.alertsNone} color="text-amber-500" iconBg="bg-amber-500/20" />
-        <StatCard icon={<FlaskConical className="w-5 h-5 text-purple-400" />} label={t.dashboard.positiveTests} value={diagnoses[0]?.test_type || "—"} sub={diagnoses[0] ? `${diagnoses[0].tank_name} · ${diagnoses[0].result}` : t.dashboard.noJournal} color="text-purple-400" iconBg="bg-purple-500/20" />
+        {/* 4번째 — 새우: 최근 진단(비브리오). 농업: EC 이탈 알림.
+            alerts 는 이미 로드돼 있고 checkRecipe 가 parameter:"EC" 를 넣는다
+            (lib/thresholds.ts) → 추가 조회 0회. */}
+        {isAgri ? (
+          <StatCard icon={<FlaskConical className="w-5 h-5 text-ocean-500" />} label={t.agri.ecDeviationLabel} value={alerts.filter(a => a.parameter === "EC").length} sub={t.agri.ecDeviationSub} color="text-ocean-500" iconBg="bg-ocean-500/20" />
+        ) : (
+          <StatCard icon={<FlaskConical className="w-5 h-5 text-purple-400" />} label={t.dashboard.positiveTests} value={diagnoses[0]?.test_type || "—"} sub={diagnoses[0] ? `${diagnoses[0].tank_name} · ${diagnoses[0].result}` : t.dashboard.noJournal} color="text-purple-400" iconBg="bg-purple-500/20" />
+        )}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -289,6 +340,28 @@ export function DashboardView() {
               {chartData.length > 0 ? (
                 <div role="img" aria-label={t.a11y.wqChart}>
                 <ResponsiveContainer width="100%" height={220}>
+                  {isAgri ? (
+                  /* EC 단독 + 목표 밴드. 수온·DO·pH 3선과 섞지 않는다 —
+                     축 스케일이 다르다(EC 1850 vs pH 6). 단일 계열이라 범례 없음. */
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval={5} />
+                    <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} width={45} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }}
+                      labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+                      formatter={(v) => [`${Number(v).toLocaleString()} µS/cm (${(Number(v) / 1000).toFixed(2)} mS/cm)`, "EC"] as [string, string]}
+                    />
+                    {ecTarget != null && (<>
+                      <ReferenceArea y1={ecTarget - ecTol} y2={ecTarget + ecTol} fill="#34d399" fillOpacity={0.08} stroke="none" ifOverflow="extendDomain" />
+                      <ReferenceLine y={ecTarget} stroke="#34d399" strokeDasharray="6 3" strokeOpacity={0.9}
+                        label={{ value: `${t.waterQualityX.targetLabel} ${(ecTarget / 1000).toFixed(2)}`, fill: "#34d399", fontSize: 11, position: "insideTopRight" }} />
+                      <ReferenceLine y={ecTarget + ecTol} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.5} />
+                      <ReferenceLine y={ecTarget - ecTol} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.5} />
+                    </>)}
+                    <Line type="monotone" dataKey="EC" stroke="#0ea5e9" strokeWidth={2} dot={false} connectNulls />
+                  </LineChart>
+                  ) : (
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} interval={5} />
@@ -299,6 +372,7 @@ export function DashboardView() {
                     <Line type="monotone" dataKey="DO"   stroke="#14b8a6" strokeWidth={2} dot={false} />
                     <Line type="monotone" dataKey="pH"   stroke="#a78bfa" strokeWidth={2} dot={false} />
                   </LineChart>
+                  )}
                 </ResponsiveContainer>
                 </div>
               ) : (
@@ -308,7 +382,28 @@ export function DashboardView() {
                 </div>
               )}
 
-              {latestWq && (
+              {latestWq && isAgri && (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
+                  {agriTiles.map(tile => {
+                    const st = AGRI_STATUS_STYLES[tile.status]
+                    return (
+                      <div key={tile.key} className={`flex items-center gap-2 p-3 rounded-xl border ${st.bg}`}>
+                        <span className={st.text} aria-hidden="true">{tile.icon}</span>
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground truncate">{tile.label}</p>
+                          <p className={`text-sm font-bold tabular-nums ${st.text}`}>
+                            {tile.text}<span className="font-medium ml-0.5">{tile.unit}</span>
+                          </p>
+                          {/* 3번째 줄 — 4종으로 늘어나면 텍스트 없이는 구분이 안 된다 */}
+                          <p className="text-[10px] text-muted-foreground">{agriStatusText(tile.status)}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {latestWq && !isAgri && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
                   {[
                     { label: t.waterQuality.temperature, value: latestWq.temperature.toFixed(1), unit: "°C", icon: <ThermometerSun className="w-4 h-4" />, ok: latestWq.temperature >= 25 && latestWq.temperature <= 32 },
@@ -349,7 +444,15 @@ export function DashboardView() {
                       <span className={`w-2 h-2 rounded-full ${meta.dot} ${tank.status !== "active" ? "animate-pulse" : ""}`} />
                       <div>
                         <p className="text-sm font-medium text-foreground">{tank.name}</p>
-                        <p className="text-xs text-muted-foreground">{tank.cycle_day}</p>
+                        {/* 농업: 레시피 요약 > (없으면) 아무것도 안 쓴다.
+                            cycle_day 가 0 인 베드에 "0" 을 찍는 것은 정보가 아니다. */}
+                        {isAgri ? (
+                          tank.target_ec != null
+                            ? <p className="text-xs text-muted-foreground tabular-nums">EC {(tank.target_ec / 1000).toFixed(2)}</p>
+                            : tank.stocking_date
+                              ? <p className="text-xs text-muted-foreground">{t.farmsX.stockingDayN.replace("{{n}}", String(computeCycleDay(tank.stocking_date)))}</p>
+                              : null
+                        ) : <p className="text-xs text-muted-foreground">{tank.cycle_day}</p>}
                       </div>
                     </div>
                     <span className={`text-xs font-medium ${meta.color}`}>{meta.label}</span>
@@ -364,6 +467,43 @@ export function DashboardView() {
             longitude={farms[0]?.longitude ?? null}
             farmName={farms[0]?.name}
           />
+
+          {/* 차압 추세 — 필터 막힘·UV 오염은 수경재배의 핵심 고장 모드인데
+              지금까지 화면에 신호가 없었다. wqData 에 이미 있어 추가 조회 0회. */}
+          {isAgri && (
+            <Card className="bg-card border-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-foreground text-base flex items-center gap-1.5">
+                  <Gauge className="w-4 h-4 text-rose-500" aria-hidden="true" />
+                  {t.agri.dpTrendTitle}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {dpLast == null ? (
+                  <p className="text-xs text-muted-foreground">{t.agri.dpNoData}</p>
+                ) : (<>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-2xl font-bold text-foreground tabular-nums">
+                      {dpLast.toFixed(1)}<span className="text-sm font-semibold text-muted-foreground ml-1">kPa</span>
+                    </p>
+                    {dpDelta != null && (
+                      <p className={`text-xs tabular-nums ${dpRising ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+                        {dpDelta >= 0 ? "▲" : "▼"} {t.agri.dpDelta.replace("{{v}}", Math.abs(dpDelta).toFixed(1))}
+                      </p>
+                    )}
+                  </div>
+                  <ResponsiveContainer width="100%" height={48}>
+                    <LineChart data={dpChartData}>
+                      <Line type="monotone" dataKey="dp" stroke="#f43f5e" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {dpRising ? t.agri.dpRisingHint : t.agri.dpSteadyHint}
+                  </p>
+                </>)}
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="bg-card border-border">
             <CardHeader className="pb-2">

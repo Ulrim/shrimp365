@@ -1436,5 +1436,19 @@ export const ko: Dict = {
     checkChiller: "근권 냉방 칠러",
     checkGrowth: "생육 상태",
     journalNotesPlaceholder: "특이사항을 적어 주세요. 수확량도 여기에 적습니다.",
+    // ── 상태 표현 (수아 시안 §1) ──
+    statusNoStandard: "기준 없음",
+    statusNotMeasured: "미측정",
+    // ── 대시보드 (§4) ──
+    ecDeviationLabel: "EC 이탈 알림",
+    ecDeviationSub: "목표 ±0.10 mS/cm",
+    dpTrendTitle: "차압 추세 · 최근 24시간",
+    dpDelta: "24시간 전 대비 {{v}} kPa",
+    dpRisingHint: "올라가는 추세입니다 — UV 살균기·필터 막힘을 점검해 보세요.",
+    dpSteadyHint: "특이한 변화가 없습니다.",
+    dpNoData: "차압 데이터가 아직 없습니다.",
+    // ── 베드 카드 (§5) ──
+    plantingDate: "정식일",
+    harvestPlanDate: "수확 예정일",
   },
 }
