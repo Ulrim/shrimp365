@@ -29,7 +29,8 @@ import type { Tank, WaterQualityReading, Alert, SensorDevice } from "@/types"
 import type { Dict, Locale } from "@/lib/i18n"
 import { useT } from "@/lib/i18n-context"
 import { useAgriRoute } from "@/lib/agri-route"
-import { AGRI_QUALITY_STANDARDS, AGRI_STATUS_STYLES, agriStatusPulses, getAgriStatus, type AgriRecipe, type AgriStatusLevel } from "@/lib/agri-standards"
+import { AGRI_QUALITY_STANDARDS, AGRI_STATUS_STYLES, agriIsMissing, agriStatusPulses, getAgriStatus, type AgriRecipe, type AgriStandard, type AgriStatusLevel } from "@/lib/agri-standards"
+import { alertDisplayLabel } from "@/lib/thresholds"
 import { useAutoRefresh, sinceLabel } from "@/lib/use-auto-refresh"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -111,12 +112,29 @@ function agriParamLabel(t: Dict, key: string): string {
   }
 }
 
-/** 화면 표기값. EC 만 저장 µS/cm → 표시 mS/cm 로 내린다(단위 원칙). */
+/** 화면 표기값. EC 만 저장 µS/cm → 표시 mS/cm 로 내린다(단위 원칙).
+ *  0 을 "—" 로 접을지는 항목마다 다르다 — 유량 0(펌프 정지)·차압 0 은 실측값이라
+ *  그대로 찍는다(agriIsMissing → lib/agri-standards.ts). */
 function agriDisplayValue(key: string, raw: number | null | undefined): string {
-  if (raw == null || raw === 0) return "—"
-  if (key === "conductivity") return (raw / 1000).toFixed(2)
-  if (key === "ph") return raw.toFixed(2)
-  return raw.toFixed(1)
+  if (agriIsMissing(key, raw)) return "—"
+  const v = raw as number
+  if (key === "conductivity") return (v / 1000).toFixed(2)
+  if (key === "ph") return v.toFixed(2)
+  return v.toFixed(1)
+}
+
+/** 추세 차트에 그을 농업 기준. 없는 항목은 undefined — 선을 아예 긋지 않는다. */
+function agriChartStd(stdKey: string): AgriStandard | undefined {
+  return (AGRI_QUALITY_STANDARDS as Record<string, AgriStandard | undefined>)[stdKey]
+}
+
+/** 표시용 기준 문구. 한쪽 경계가 없는 밴드(DO 하한만 있음)도 문장이 되게 한다. */
+function agriRangeText(t: Dict, std: AgriStandard, unit: string): string | null {
+  const { min, max } = std
+  if (min != null && max != null) return `${t.waterQuality.normalRange}: ${min} – ${max}${unit}`
+  if (min != null) return `${t.waterQuality.normalRange}: ${t.agri.rangeAtLeast.replace("{{v}}", `${min}${unit}`)}`
+  if (max != null) return `${t.waterQuality.normalRange}: ${t.agri.rangeAtMost.replace("{{v}}", `${max}${unit}`)}`
+  return null
 }
 
 function useAgriStatusText(): (s: AgriStatusLevel) => string {
@@ -191,6 +209,8 @@ function buildCompareData(
   metricKey: keyof WaterQualityReading,
   digits: number,
   locale: Locale,
+  /** 저장 단위 → 표시 단위 배율. 농업 EC 만 1/1000(µS/cm → mS/cm). */
+  scale = 1,
 ) {
   const first = readings.length ? new Date(readings[0].recorded_at) : null
   const lastPt = readings.length ? new Date(readings[readings.length - 1].recorded_at) : null
@@ -207,14 +227,14 @@ function buildCompareData(
         // buildChartData 와 같은 가드. 없으면 null 에서 TypeError 가 나고
         // useMemo 안이라 화면 전체가 죽는다(백스크린).
         [devNameById.get(r.device_id!)!]: typeof r[metricKey] === "number"
-          ? Number((r[metricKey] as number).toFixed(digits))
+          ? Number(((r[metricKey] as number) * scale).toFixed(digits))
           : null,
       } as Record<string, number | string | null>
     })
     .sort((a, b) => (a.t as number) - (b.t as number))
 }
 
-function SensorCompareChart({ data, names, fill = false, big = false }: { data: Record<string, number | string | null>[]; names: string[]; fill?: boolean; big?: boolean }) {
+function SensorCompareChart({ data, names, unit = "", fill = false, big = false }: { data: Record<string, number | string | null>[]; names: string[]; unit?: string; fill?: boolean; big?: boolean }) {
   const fs = big ? 17 : 11
   return (
     <ResponsiveContainer width="100%" height={fill ? "100%" : 260}>
@@ -222,7 +242,10 @@ function SensorCompareChart({ data, names, fill = false, big = false }: { data: 
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={big ? 140 : 100} />
         <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} width={big ? 60 : 44} />
-        <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: big ? 16 : 12 }} />
+        {/* 단위는 툴팁에만 — 축 폭(44px)이 "1.80 mS/cm" 를 감당하지 못한다.
+            unit 이 빈 문자열이면 formatter 를 달지 않는다 → 새우 툴팁은 그대로. */}
+        <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: big ? 16 : 12 }}
+          formatter={unit ? ((v, name) => [`${v} ${unit}`, name] as [string, string]) : undefined} />
         <Legend wrapperStyle={{ fontSize: big ? 18 : 12 }} />
         {names.map((n, i) => (
           <Line key={n} type="monotone" dataKey={n} stroke={SENSOR_COLORS[i % SENSOR_COLORS.length]} strokeWidth={big ? 3.5 : 2} dot={false} connectNulls activeDot={{ r: big ? 6 : 4 }} />
@@ -326,8 +349,10 @@ function AgriReadingCard({ meta, reading, recipe }: {
   } else if (meta.key === "ph" && recipe?.target_ph != null) {
     rangeText = `${t.waterQualityX.targetLabel} ${recipe.target_ph} ±${recipe.ph_tolerance ?? 0.5}`
   } else if (meta.key === "ph" || meta.key === "temperature" || meta.key === "do_level") {
-    const std = AGRI_QUALITY_STANDARDS[meta.key]
-    rangeText = `${t.waterQuality.normalRange}: ${std.min} – ${std.max}${meta.unit}`
+    rangeText = agriRangeText(t, AGRI_QUALITY_STANDARDS[meta.key], meta.unit)
+  } else if (meta.key === "flow_rate" && status === "위험") {
+    // 유량에 숫자 기준은 없지만 0 은 사실이다 — 왜 빨간지 한 줄로 알려 준다.
+    rangeText = t.agri.flowStoppedHint
   }
 
   return (
@@ -368,36 +393,69 @@ interface ChartPanelProps {
   big?: boolean
   /** 농업 모드 베드 레시피 — 있으면 std 기준선 대신 목표선+허용밴드를 그린다. */
   recipe?: { target: number; tol: number } | null
-  /** 농업 모드에서 새우 해수 기준선(std)을 숨긴다(레시피 없어도 오탐 방지). */
+  /** 새우 해수 기준선(std) 대신 그릴 농업 기준. 농업 모드에서만 넘긴다.
+   *  `null` 이면 기준선을 아예 그리지 않는다(기준 없는 항목). */
+  agriStd?: AgriStandard | null
+  /** 농업 모드에서 새우 해수 기준선(std)을 숨긴다. */
   hideStd?: boolean
 }
 
-function SingleParamChart({ chartData, stdKey, chartLabel, chartColor, unit, fill = false, big = false, recipe = null, hideStd = false }: ChartPanelProps) {
+function SingleParamChart({ chartData, stdKey, chartLabel, chartColor, unit, fill = false, big = false, recipe = null, agriStd = null, hideStd = false }: ChartPanelProps) {
   const { t } = useT()
-  const std = WATER_QUALITY_STANDARDS[stdKey]
-  const yVals = chartData.map(d => d[stdKey as keyof typeof d] as number).filter(Boolean)
-  const padding = (std.max - std.min) * 0.5
-  const yMin = Math.min(std.warning_min - padding * 0.2, ...yVals)
-  const yMax = Math.max(std.warning_max + padding * 0.2, ...yVals)
+  // 새우 상수는 새우일 때만 쓴다. 농업 베드에 해수 기준선(수온 25~32 ℃)을 그으면
+  // 22 ℃ 로 정상 운전 중인 선이 "경고 하한" 아래에 찍히는데 바로 위 카드는
+  // "정상"이라고 말한다 — 기준선이 화면 안에서 서로를 반박한다.
+  const std: AgriStandard = agriStd ?? { ...WATER_QUALITY_STANDARDS[stdKey], unit }
+  const yVals = chartData
+    .map(d => d[stdKey as keyof typeof d] as number)
+    .filter(v => typeof v === "number" && Number.isFinite(v) && v !== 0)
   const fs = big ? 17 : 11
   const refFs = big ? 14 : 10
   const showStd = !hideStd && !recipe
+
+  // Y 도메인도 그리는 기준선만 따라간다. 안 그리는 선까지 도메인에 넣으면 축이
+  // 엉뚱한 데까지 늘어나 실제 변동이 평평한 선으로 뭉개진다.
+  let yDomain: [number | string, number | string] = ["auto", "auto"]
+  const { min: sMin, max: sMax, warning_min: sWMin, warning_max: sWMax } = std
+  if (showStd && sMin != null && sMax != null && sWMin != null && sWMax != null) {
+    // 새우 화면과 **완전히 같은 식** — 기존 차트가 한 픽셀도 움직이지 않는다.
+    const padding = (sMax - sMin) * 0.5
+    yDomain = [Math.min(sWMin - padding * 0.2, ...yVals), Math.max(sWMax + padding * 0.2, ...yVals)]
+  } else if (showStd) {
+    // 한쪽이 열린 밴드(농업 DO: 하한만 있음) — 있는 경계만 넣는다.
+    const bounds = [sMin, sMax, sWMin, sWMax].filter((v): v is number => v != null)
+    const lo = Math.min(...bounds, ...yVals)
+    const hi = Math.max(...bounds, ...yVals)
+    const padding = (hi - lo) * 0.1 || 1
+    yDomain = [lo - padding, hi + padding]
+  } else if (recipe) {
+    const padding = recipe.tol * 2.5
+    yDomain = [Math.min(recipe.target - padding, ...yVals), Math.max(recipe.target + padding, ...yVals)]
+  }
+
+  // `y != null` 이지 truthy 검사가 아니다 — 새우 암모니아·질산염 등은 하한이
+  // **0** 이라 truthy 로 걸면 그 선이 사라진다.
+  const line = (y: number | null, stroke: string, opacity: number, label: string, top: boolean) =>
+    showStd && y != null
+      ? <ReferenceLine y={y} stroke={stroke} strokeDasharray="4 4" strokeOpacity={opacity}
+          label={{ value: label, fill: stroke, fontSize: refFs, position: top ? "insideTopRight" : "insideBottomRight" }} />
+      : null
 
   return (
     <ResponsiveContainer width="100%" height={fill ? "100%" : 260}>
       <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={big ? 140 : 100} />
-        <YAxis domain={[yMin, yMax]} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} width={big ? 70 : 42} tickFormatter={v => `${v}${unit}`} />
+        <YAxis domain={yDomain} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} width={big ? 70 : 42} tickFormatter={v => `${v}${unit}`} />
         <Tooltip
           contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px", fontSize: big ? 16 : 12 }}
           labelStyle={{ color: "hsl(var(--muted-foreground))" }}
           itemStyle={{ color: "hsl(var(--foreground))" }}
         />
-        {showStd && <ReferenceLine y={std.max} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: t.waterQualityX.chartMax, fill: "#34d399", fontSize: refFs, position: "insideTopRight" }} />}
-        {showStd && <ReferenceLine y={std.min} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: t.waterQualityX.chartMin, fill: "#34d399", fontSize: refFs, position: "insideBottomRight" }} />}
-        {showStd && <ReferenceLine y={std.warning_max} stroke="#fbbf24" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: t.waterQualityX.chartWarnHigh, fill: "#fbbf24", fontSize: refFs, position: "insideTopRight" }} />}
-        {showStd && <ReferenceLine y={std.warning_min} stroke="#fbbf24" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: t.waterQualityX.chartWarnLow, fill: "#fbbf24", fontSize: refFs, position: "insideBottomRight" }} />}
+        {line(std.max, "#34d399", 0.6, t.waterQualityX.chartMax, true)}
+        {line(std.min, "#34d399", 0.6, t.waterQualityX.chartMin, false)}
+        {line(std.warning_max, "#fbbf24", 0.5, t.waterQualityX.chartWarnHigh, true)}
+        {line(std.warning_min, "#fbbf24", 0.5, t.waterQualityX.chartWarnLow, false)}
         {/* 레시피 목표선+허용밴드 — 정상 범위 = emerald(기존 std 선과 같은 문법) */}
         {recipe && <ReferenceArea y1={recipe.target - recipe.tol} y2={recipe.target + recipe.tol} fill="#34d399" fillOpacity={0.08} stroke="none" ifOverflow="extendDomain" />}
         {recipe && <ReferenceLine y={recipe.target} stroke="#34d399" strokeDasharray="6 3" strokeOpacity={0.9} label={{ value: `${t.waterQualityX.targetLabel} ${recipe.target}`, fill: "#34d399", fontSize: refFs, position: "insideTopRight" }} />}
@@ -769,12 +827,21 @@ export function WaterQualityView() {
     if (activeDevices.length < 2) return []
     const nameById = new Map(activeDevices.map(d => [d.id, d.name]))
     const meta = [...PARAM_DEFS, ...AGRI_PARAM_DEFS].find(m => m.key === compareParam)
-    // EC 는 µS/cm 정수로 찍는다(buildChartData 의 Math.round 와 같은 자릿수).
-    const digits = compareParam === "conductivity" ? 0
+    // 농업 EC 는 **사람이 읽는 단위(mS/cm)로 내려서** 그린다. 같은 페이지의 카드·
+    // CSV·EC 탭 툴팁이 전부 mS/cm 인데 이 그래프만 원시 µS/cm 였다(단위 원칙).
+    // 새우 모드에는 EC 비교 버튼 자체가 없으므로(아래 필터: 수온·pH·DO·염도)
+    // 이 분기는 새우 화면에 닿지 않는다.
+    const ecAsMsCm = isAgri && compareParam === "conductivity"
+    const digits = compareParam === "conductivity" ? (ecAsMsCm ? 2 : 0)
       : meta?.unit === "" ? 2
       : (compareParam === "ammonia" || compareParam === "nitrite" ? 3 : 1)
-    return buildCompareData(allReadings, nameById, compareParam, digits, locale)
-  }, [allReadings, activeDevices, compareParam, locale])
+    return buildCompareData(allReadings, nameById, compareParam, digits, locale, ecAsMsCm ? 1 / 1000 : 1)
+  }, [allReadings, activeDevices, compareParam, locale, isAgri])
+
+  // 비교 그래프 툴팁 단위 — 농업에서만 붙인다(새우 툴팁 문구는 그대로 둔다).
+  const compareUnit = isAgri
+    ? (AGRI_PARAM_DEFS.find(m => m.key === compareParam)?.unit ?? "")
+    : ""
 
   const selectedTank = tanks.find(t => t.id === selectedTankId)
 
@@ -1292,7 +1359,7 @@ export function WaterQualityView() {
                 </div>
                 {compareData.length > 0 ? (
                   <div className={fullChart === "compare" ? "flex-1 min-h-0" : ""}>
-                    <SensorCompareChart data={compareData} names={compareNames} fill={fullChart === "compare"} big={fullChart === "compare" && boardMode} />
+                    <SensorCompareChart data={compareData} names={compareNames} unit={compareUnit} fill={fullChart === "compare"} big={fullChart === "compare" && boardMode} />
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground/70 py-8 text-center">
@@ -1456,10 +1523,15 @@ export function WaterQualityView() {
                           unit={unit}
                           fill={fullChart === "main"}
                           big={fullChart === "main" && boardMode}
-                          // 농업 모드 pH: 레시피가 있으면 목표선+밴드, 없어도 새우
-                          // 해수 기준선(std)은 숨긴다(오탐 방지 — 수아 시안 5-3).
+                          // 농업 모드: 새우 해수 기준선은 **어느 항목에도** 긋지
+                          // 않는다. pH 만 막았던 탓에 수온·DO 차트에 25~32 ℃ 선이
+                          // 그대로 남아, 22 ℃ 정상 운전이 "경고 하한" 아래에 찍히는데
+                          // 바로 위 카드는 "정상"이라고 말했다.
+                          // 대신 농업 기준(AGRI_QUALITY_STANDARDS = 알림 기준 파생)을
+                          // 넘겨 카드·알림·기준선 셋이 같은 숫자를 쓰게 한다.
                           recipe={stdKey === "ph" ? phRecipe : null}
-                          hideStd={isAgri && stdKey === "ph"}
+                          agriStd={isAgri ? (agriChartStd(stdKey) ?? null) : null}
+                          hideStd={isAgri && !agriChartStd(stdKey)}
                         />
                       </div>
                     )}
@@ -1558,9 +1630,11 @@ export function WaterQualityView() {
               ) : (
                 <div className="space-y-2">
                   {tankAlerts.map(alert => {
+                    // alerts.parameter 는 저장 키다(프로필 무관) — 화면 문구는
+                    // 여기서 고른다(lib/thresholds.ts alertDisplayLabel).
                     const alertParamLabel = STD_KEYS.includes(alert.parameter as typeof STD_KEYS[number])
                       ? paramLabel(t, alert.parameter)
-                      : alert.parameter
+                      : alertDisplayLabel(alert.parameter, isAgri ? "agriculture" : "shrimp")
                     const isDanger = alert.type === "danger"
                     return (
                       <div

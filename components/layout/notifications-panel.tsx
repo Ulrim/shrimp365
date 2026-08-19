@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
 import { formatDateTime } from "@/lib/utils"
 import { useAgriRoute } from "@/lib/agri-route"
+import { alertDisplayLabel } from "@/lib/thresholds"
 import type { Alert } from "@/types"
 
 interface NotificationsPanelProps {
@@ -32,7 +33,7 @@ const TYPE_BG: Record<Alert["type"], string> = {
 export function NotificationsPanel({ open, onClose, onCountChange }: NotificationsPanelProps) {
   const { user } = useAuth()
   const { t } = useT()
-  const { href: withAgri } = useAgriRoute()
+  const { isAgri, href: withAgri } = useAgriRoute()
   const router = useRouter()
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [loading, setLoading] = useState(false)
@@ -158,7 +159,11 @@ export function NotificationsPanel({ open, onClose, onCountChange }: Notificatio
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className="text-sm text-foreground font-medium truncate">{alert.tank_name}</span>
                     {alert.parameter && (
-                      <span className="text-xs text-muted-foreground shrink-0">{alert.parameter}</span>
+                      // 저장 키를 그대로 찍지 않는다 — 농업에서는 "수온"이 아니라
+                      // "양액 온도"로 읽어야 한다(lib/thresholds.ts).
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {alertDisplayLabel(alert.parameter, isAgri ? "agriculture" : "shrimp")}
+                      </span>
                     )}
                   </div>
                   <p className="text-xs text-foreground/80 leading-relaxed">{alert.message}</p>

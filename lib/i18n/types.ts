@@ -1341,6 +1341,10 @@ export interface Dict {
     dpRisingHint: string
     dpSteadyHint: string
     dpNoData: string
+    dpNeedMore: string
+    rangeAtLeast: string
+    rangeAtMost: string
+    flowStoppedHint: string
     // ── 베드 카드 ──
     plantingDate: string
     harvestPlanDate: string

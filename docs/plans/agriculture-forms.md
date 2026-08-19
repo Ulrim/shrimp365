@@ -487,6 +487,14 @@ export const AGRI_QUALITY_STANDARDS = {
 배치 위치(기존 파일 확장 vs 신규 파일)는 서연이 판단하되, **새우 상수의 값을
 한 글자도 바꾸지 않는다**가 조건이다.
 
+> **개정(구현 시 수정됨 — `lib/agri-standards.ts`가 실제 기준)**
+> 위 블록처럼 표시용 숫자를 따로 적지 않는다. 손으로 적은 결과 표시 기준과 알림
+> 기준(`AGRI_THRESHOLDS`)이 어긋나 DO 3.0 ppm·27 ℃가 "카드는 위험인데 알림은
+> warning", DO 12 초과가 "카드는 위험인데 알림은 없음"이 됐다.
+> `AGRI_QUALITY_STANDARDS`는 이제 `AGRI_THRESHOLDS`에서 파생한다:
+> warning 밴드 = 화면 "정상", danger 밴드 = 화면 "주의", 그 밖 = 화면 "위험".
+> 기준을 고칠 때는 `lib/thresholds.ts` 한 곳만 고친다.
+
 "항목별 현재 양액 상태" 카드(`water-quality-view.tsx:960-988`)는 농업일 때
 **표시 항목을 EC·pH·양액 온도·DO·유량·차압 6종으로 교체**하고, 기준이 없는
 항목(EC 레시피 미설정·유량·차압)은 **중립 배지(값만, 색 없음)** 로 표시한다.

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase-server"
-import { checkThresholds, checkRecipe, hasRecipe, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
+import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
 
 // In-memory rate limit: max 60 requests per device per minute
 const RATE_LIMIT_WINDOW_MS = 60_000
@@ -314,8 +314,15 @@ export async function POST(req: NextRequest) {
 
   // 범위 안으로 돌아온 항목은 알림을 닫는다. 안 닫으면 위 중복 방지 때문에
   // 다음에 정말 문제가 생겨도 옛 알림만 갱신되고 새로 알리지 않는다.
+  //
+  // 비교 대상은 **알림 키**(alerts.parameter)여야 한다. 측정값 객체의 키는
+  // "temperature" 인데 저장되는 알림 키는 "수온" 이라, 값 키를 그대로 넘기면
+  // `.in("parameter", …)` 가 어떤 행과도 안 맞아 복귀가 조용히 실패한다.
+  // resolvableParameters 가 그 변환과 "판정한 항목만" 필터를 함께 맡는다.
   const stillBad = new Set(thresholdAlerts.map(a => a.parameter))
-  const recovered = Object.keys(values).filter(p => !stillBad.has(p))
+  const recovered = resolvableParameters(
+    globalValues as Parameters<typeof resolvableParameters>[0], profile,
+  ).filter(p => !stillBad.has(p))
   // 레시피 알림은 parameter 가 값 키와 달라("EC"/"pH") 별도 매핑으로 복귀를 잡는다.
   // 0 은 전극이 물 밖일 때 나오는 값이라 checkRecipe 가 판정에서 제외한다 —
   // 판정을 안 했으면 복귀도 아니다(비대칭이면 이탈 알림이 0 수신에 닫혀 버린다).

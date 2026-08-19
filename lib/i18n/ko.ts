@@ -1447,6 +1447,10 @@ export const ko: Dict = {
     dpRisingHint: "올라가는 추세입니다 — UV 살균기·필터 막힘을 점검해 보세요.",
     dpSteadyHint: "특이한 변화가 없습니다.",
     dpNoData: "차압 데이터가 아직 없습니다.",
+    dpNeedMore: "추세를 말하기에는 측정이 아직 적습니다 — 6회 이상 쌓이면 비교합니다.",
+    rangeAtLeast: "{{v}} 이상",
+    rangeAtMost: "{{v}} 이하",
+    flowStoppedHint: "유량 0 — 순환 펌프가 멈췄는지 확인하세요.",
     // ── 베드 카드 (§5) ──
     plantingDate: "정식일",
     harvestPlanDate: "수확 예정일",

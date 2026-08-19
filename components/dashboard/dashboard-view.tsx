@@ -24,7 +24,7 @@ import { useT } from "@/lib/i18n-context"
 import { useAgriRoute } from "@/lib/agri-route"
 import { useAutoRefresh, sinceLabel } from "@/lib/use-auto-refresh"
 import { WeatherCard } from "@/components/weather/weather-card"
-import { AGRI_STATUS_STYLES, getAgriStatus, type AgriStatusLevel } from "@/lib/agri-standards"
+import { AGRI_STATUS_STYLES, agriIsMissing, getAgriStatus, type AgriStatusLevel } from "@/lib/agri-standards"
 
 function StatCard({ icon, label, value, sub, color, iconBg }: { icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string; iconBg: string }) {
   // iconBg 는 정적 Tailwind 클래스로 받는다. 예전엔 color 문자열을 치환해
@@ -190,24 +190,37 @@ export function DashboardView() {
   const dpLast = dpSeries.length ? dpSeries[dpSeries.length - 1] : null
   // 상승 판정은 **표시용 휴리스틱**이다 — 알림을 만들지 않는다. 차압 절대 기준은
   // 없고(베드마다 다르다), 두 조건 AND 는 오탐을 줄이기 위한 장치일 뿐이다.
-  const dpHead = dpSeries.slice(0, 3)
-  const dpTail = dpSeries.slice(-3)
+  //
+  // 표본이 6개 미만이면 앞 3개와 뒤 3개가 겹친다(정확히 3개면 같은 구간이다).
+  // 그러면 8 → 20 → 34 kPa 로 오르는 베드가 "▲ 0.0 kPa · 변화 없음"으로 뜬다 —
+  // 가장 위험한 신호를 정반대로 읽는 것이다. 겹치지 않을 만큼 쌓이기 전에는
+  // **추세를 아예 말하지 않는다.** 없는 판정이 틀린 판정보다 낫다.
+  const DP_WINDOW = 3
+  const dpComparable = dpSeries.length >= DP_WINDOW * 2
+  const dpHead = dpSeries.slice(0, DP_WINDOW)
+  const dpTail = dpSeries.slice(-DP_WINDOW)
   const dpAvg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length
-  const dpDelta = dpSeries.length >= 3 ? dpAvg(dpTail) - dpAvg(dpHead) : null
+  const dpDelta = dpComparable ? dpAvg(dpTail) - dpAvg(dpHead) : null
   const dpRising = dpDelta != null && dpDelta >= 2 && dpAvg(dpHead) > 0 && dpDelta / dpAvg(dpHead) >= 0.2
   const dpChartData = dpSeries.map((dp, i) => ({ i, dp }))
 
   // 최신값 타일(농업) — 판정 4종. 기준이 없으면 색을 칠하지 않는다.
+  //
+  // 표기는 agriIsMissing 이 정한다. `raw ? … : "—"` 를 쓰면 유량 0(펌프 정지)이
+  // "—(미측정)"으로 사라진다 — 항목별 0 의 뜻은 lib/agri-standards.ts 한 곳에.
+  const agriText = (key: string, raw: number | null | undefined, digits: number, scale = 1) =>
+    agriIsMissing(key, raw) ? "—" : ((raw as number) * scale).toFixed(digits)
   const agriTiles = latestWq ? ([
     { key: "conductivity", label: "EC", raw: latestWq.conductivity ?? null,
-      text: latestWq.conductivity ? (latestWq.conductivity / 1000).toFixed(2) : "—", unit: " mS/cm", icon: <Zap className="w-4 h-4" /> },
+      text: agriText("conductivity", latestWq.conductivity, 2, 1 / 1000), unit: " mS/cm", icon: <Zap className="w-4 h-4" /> },
     { key: "ph", label: "pH", raw: latestWq.ph,
-      text: latestWq.ph ? latestWq.ph.toFixed(2) : "—", unit: "", icon: <Droplets className="w-4 h-4" /> },
+      text: agriText("ph", latestWq.ph, 2), unit: "", icon: <Droplets className="w-4 h-4" /> },
     { key: "temperature", label: t.waterQuality.temperature, raw: latestWq.temperature,
-      text: latestWq.temperature ? latestWq.temperature.toFixed(1) : "—", unit: " °C", icon: <ThermometerSun className="w-4 h-4" /> },
-    // 유량은 절대 기준이 없다 — 값이 있어도 "기준 없음"(로드맵: 베드별 설정).
+      text: agriText("temperature", latestWq.temperature, 1), unit: " °C", icon: <ThermometerSun className="w-4 h-4" /> },
+    // 유량에 숫자 기준은 없다("기준 없음"). 다만 0 = 펌프 정지는 사실이라
+    // getAgriStatus 가 위험으로 잡는다.
     { key: "flow_rate", label: t.waterQualityX.flowRate, raw: latestWq.flow_rate ?? null,
-      text: latestWq.flow_rate ? latestWq.flow_rate.toFixed(1) : "—", unit: " L/min", icon: <Wind className="w-4 h-4" /> },
+      text: agriText("flow_rate", latestWq.flow_rate, 1), unit: " L/min", icon: <Wind className="w-4 h-4" /> },
   ].map(tile => {
     const status: AgriStatusLevel = getAgriStatus(tile.key, tile.raw, selectedTank)
     return { ...tile, status }
@@ -498,7 +511,9 @@ export function DashboardView() {
                     </LineChart>
                   </ResponsiveContainer>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    {dpRising ? t.agri.dpRisingHint : t.agri.dpSteadyHint}
+                    {!dpComparable ? t.agri.dpNeedMore
+                      : dpRising ? t.agri.dpRisingHint
+                      : t.agri.dpSteadyHint}
                   </p>
                 </>)}
               </CardContent>

@@ -34,6 +34,7 @@ import { exportToCsv } from "@/lib/export"
 import { useT } from "@/lib/i18n-context"
 import { useAgriRoute } from "@/lib/agri-route"
 import { AGRI_NUTRIENT_TYPES, AGRI_INPUT_TYPES } from "@/lib/record-actions"
+import { agriNumOrNull, agriEcToMicroSiemens } from "@/lib/agri-standards"
 
 // ── Diagnosis helpers ─────────────────────────────────────────────────────────
 
@@ -541,9 +542,11 @@ export function JournalView() {
             // EC 환산 — 입력 mS/cm × 1000 = 저장 µS/cm.
             // 안 잰 항목은 0 이 아니라 null 이다(측정 폼과 같은 이유 — 0 을 넣으면
             // 차트 선이 바닥으로 처지고 버킷 평균이 조용히 낮아진다).
-            conductivity: jForm.conductivity ? Math.round(parseFloat(jForm.conductivity) * 1000) : null,
-            flow_rate: jForm.flow_rate ? parseFloat(jForm.flow_rate) : null,
-            diff_pressure: jForm.diff_pressure ? parseFloat(jForm.diff_pressure) : null,
+            // 다만 빈 칸과 "0" 은 구별한다 — 유량 0 은 펌프 정지라는 실측값이다
+            // (항목별 0 의 뜻: lib/agri-standards.ts 의 AGRI_ZERO_MEANING).
+            conductivity: agriEcToMicroSiemens(jForm.conductivity),
+            flow_rate: agriNumOrNull(jForm.flow_rate),
+            diff_pressure: agriNumOrNull(jForm.diff_pressure),
             // 새우 6항목은 농업에서 받지 않는다 — 0 이면 판정에서 빠진다.
             salinity: 0, ammonia: 0, nitrite: 0, nitrate: 0, alkalinity: 0, turbidity: 0,
             recorded_at: new Date(`${jForm.date}T12:00:00`).toISOString(),
