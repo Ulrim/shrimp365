@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase-server"
-import { checkThresholds, checkRecipe, hasRecipe, type TankRecipe } from "@/lib/thresholds"
+import { checkThresholds, checkRecipe, hasRecipe, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
 
 // In-memory rate limit: max 60 requests per device per minute
 const RATE_LIMIT_WINDOW_MS = 60_000
@@ -235,14 +235,28 @@ export async function POST(req: NextRequest) {
   // 베드(수조)에 양액 레시피가 있으면 레시피 기반 체크(checkRecipe)를 함께 돌려
   // 결과를 합친다. 레시피 조회는 별도 쿼리 + 실패 무시 — 마이그레이션 전 DB
   // (컬럼 없음)에서도 기존 새우 장비 수신이 절대 멈추면 안 된다.
+  //
+  // 같은 조회에 농장 유형(farms.farm_type)을 조인해 판정 프로필도 함께 받는다.
+  // **서버에는 URL이 없다** — 화면의 /daumlabs 분기가 여기까지 오지 않으므로
+  // 판정 축은 데이터, 즉 farms.farm_type 이다(설계서 3-5·7장 3번 축).
+  // 조인이라 쿼리 수는 늘지 않는다. 실패하면 profile 은 "shrimp" 로 남는다.
   let recipe: TankRecipe | null = null
+  let profile: FarmProfile = "shrimp"
   try {
     const { data: tankRow } = await supabaseAdmin
       .from("tanks")
-      .select("target_ec, ec_tolerance, target_ph, ph_tolerance")
+      .select("target_ec, ec_tolerance, target_ph, ph_tolerance, farms!inner(farm_type)")
       .eq("id", device.tank_id)
       .maybeSingle()
-    if (tankRow) recipe = tankRow as TankRecipe
+    if (tankRow) {
+      recipe = tankRow as TankRecipe
+      // Supabase 조인 결과는 관계 카디널리티에 따라 객체 또는 배열로 온다.
+      const joined = (tankRow as { farms?: unknown }).farms
+      const farmRow = Array.isArray(joined) ? joined[0] : joined
+      if ((farmRow as { farm_type?: string } | undefined)?.farm_type === "agriculture") {
+        profile = "agriculture"
+      }
+    }
   } catch { /* 컬럼 없음 등 — 레시피 없이 기존 흐름 그대로 */ }
 
   // 레시피가 설정된 베드에서는 전역 체크 중 두 항목을 건너뛴다.
@@ -255,7 +269,7 @@ export async function POST(req: NextRequest) {
   if (recipe?.target_ph != null) delete globalValues.ph
 
   const thresholdAlerts = [
-    ...checkThresholds(globalValues as Parameters<typeof checkThresholds>[0]),
+    ...checkThresholds(globalValues as Parameters<typeof checkThresholds>[0], profile),
     ...checkRecipe(values, recipe),
   ]
 

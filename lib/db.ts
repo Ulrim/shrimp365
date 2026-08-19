@@ -1,6 +1,6 @@
 import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbSensorDevice, DbProductionCycle, DbGrowthSample, DbCycleCost, DbCycleHarvest, DbInventoryItem, DbInventoryTransaction } from "@/lib/supabase"
 import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction } from "@/types"
-import { checkThresholds } from "@/lib/thresholds"
+import { checkThresholds, checkRecipe, hasRecipe, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
 import { PLAN_LIMITS, type Plan } from "@/lib/plans"
 import { isTestAccount } from "@/lib/mock-data"
 
@@ -285,8 +285,34 @@ export async function insertWaterQuality(
 
   if (error) throw error
 
+  // 판정 프로필과 베드 레시피를 한 번에 조회한다.
+  //
+  // 지금까지 이 수동 입력 경로에는 checkRecipe 가 아예 없었다 — 센서로 들어온
+  // 값에는 레시피 이탈 알림이 생기는데 손으로 적은 같은 값에는 안 생겼다.
+  // 두 경로의 판정이 다르면 농가는 어느 쪽도 믿지 않는다. 대칭으로 맞춘다.
+  //
+  // 판정 축은 URL 이 아니라 farms.farm_type 이다(설계서 3-5). 조회 실패는
+  // 비치명 — profile 은 "shrimp", recipe 는 null 로 남아 기존 흐름 그대로다.
+  let recipe: TankRecipe | null = null
+  let profile: FarmProfile = "shrimp"
+  try {
+    const { data: tankRow } = await supabase
+      .from("tanks")
+      .select("target_ec, ec_tolerance, target_ph, ph_tolerance, farms!inner(farm_type)")
+      .eq("id", tankId)
+      .maybeSingle()
+    if (tankRow) {
+      recipe = tankRow as TankRecipe
+      const joined = (tankRow as { farms?: unknown }).farms
+      const farmRow = Array.isArray(joined) ? joined[0] : joined
+      if ((farmRow as { farm_type?: string } | undefined)?.farm_type === "agriculture") {
+        profile = "agriculture"
+      }
+    }
+  } catch { /* 컬럼 없음 등 — 기본값(새우·레시피 없음)으로 진행 */ }
+
   // Auto-generate alerts and update tank status based on threshold violations
-  const thresholdAlerts = checkThresholds({
+  const globalValues = {
     temperature: values.temperature,
     ph: values.ph,
     do_level: values.do_level,
@@ -296,7 +322,18 @@ export async function insertWaterQuality(
     nitrate: values.nitrate,
     alkalinity: values.alkalinity,
     turbidity: values.turbidity,
-  })
+  }
+  // 센서 경로(app/api/sensors/data/route.ts)와 같은 예외 규칙.
+  //  - 염도: 레시피가 있는 베드에서는 새우 해수 기준이 오탐이 된다.
+  //  - pH: 목표 pH 가 있으면 레시피가 판정을 맡는다. 전역 체크와 둘이 다투면
+  //    같은 parameter("pH") 알림이 저장할 때마다 뒤집힌다.
+  if (hasRecipe(recipe)) delete (globalValues as { salinity?: number }).salinity
+  if (recipe?.target_ph != null) delete (globalValues as { ph?: number }).ph
+
+  const thresholdAlerts = [
+    ...checkThresholds(globalValues, profile),
+    ...checkRecipe({ conductivity: values.conductivity ?? undefined, ph: values.ph }, recipe),
+  ]
   for (const alert of thresholdAlerts) {
     try {
       await supabase.from("alerts").insert({
