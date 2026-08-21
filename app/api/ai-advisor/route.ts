@@ -1,7 +1,26 @@
 import { NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 import { createServerClient } from "@supabase/ssr"
+
+// Vercel에서 스트리밍 응답이 기본 함수 시간 제한에 잘리지 않게 한다. 셀프호스팅에서는 무해.
+export const maxDuration = 60
+
 const openaiKey = process.env.OPENAI_API_KEY
+
+// 오픈웨이트 모델 셀프호스팅(OpenAI 호환 서버 — Ollama/vLLM/LM Studio 등).
+// AI_BASE_URL 설정 시 OPENAI_API_KEY보다 우선한다. 예: http://ollama:11434/v1
+const aiBaseUrl = process.env.AI_BASE_URL
+const aiModel = process.env.AI_MODEL || "qwen3:4b-instruct-2507-q4_K_M"
+// Ollama는 키를 검증하지 않지만 SDK가 값을 요구해 더미 기본값을 둔다.
+const aiApiKey = process.env.AI_API_KEY || "ollama"
+
+// 백엔드 선택 우선순위: ① AI_BASE_URL(로컬 서버) ② OPENAI_API_KEY(기존 경로)
+// ③ null — 규칙 기반 buildAnswer 폴백. 호출이 실패해도 ③으로 내려간다.
+function pickBackend(): { client: OpenAI; model: string } | null {
+  if (aiBaseUrl) return { client: new OpenAI({ baseURL: aiBaseUrl, apiKey: aiApiKey }), model: aiModel }
+  if (openaiKey) return { client: new OpenAI({ apiKey: openaiKey }), model: "gpt-4o-mini" }
+  return null
+}
 
 const MAX_QUESTION_LENGTH = 500
 const MAX_CONTEXT_LENGTH = 2000
@@ -51,9 +70,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "질문이 없습니다." }, { status: 400 })
     }
 
-    if (openaiKey) {
-      const answer = await callGPT(question, context)
-      return NextResponse.json({ answer, remaining: null })
+    // stream: true — text/plain ReadableStream 으로 토큰 단위 응답 (CPU 추론이 느려 필수)
+    if (body.stream === true) {
+      return streamAnswer(question, context)
+    }
+
+    // stream 미지정·false — 기존 JSON 규약 유지 (하위 호환)
+    const backend = pickBackend()
+    if (backend) {
+      try {
+        const answer = await callLLM(backend, question, context)
+        return NextResponse.json({ answer, remaining: null })
+      } catch {
+        // LLM 호출 실패(연결 거부·모델 미pull 등) — 500 대신 규칙 기반 폴백
+      }
     }
 
     const answer = buildAnswer(question, context)
@@ -63,10 +93,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function callGPT(question: string, context: string): Promise<string> {
-  const client = new OpenAI({ apiKey: openaiKey })
-
-  const systemPrompt = `당신은 흰다리새우(Litopenaeus vannamei) 양식 전문가 AI 어시스턴트입니다.
+const SYSTEM_PROMPT = `당신은 흰다리새우(Litopenaeus vannamei) 양식 전문가 AI 어시스턴트입니다.
 수질 관리, 질병 예방, 급이 전략, 환수, 폭기 등 양식장 운영에 대한 전문적이고 실용적인 조언을 제공합니다.
 답변은 반드시 한국어로 작성하고, 마크다운 형식을 사용하며, 구체적이고 실행 가능한 내용을 포함해야 합니다.
 
@@ -81,22 +108,86 @@ async function callGPT(question: string, context: string): Promise<string> {
 - 알칼리도: 100~150 mg/L CaCO₃
 - 탁도: 10 NTU 미만`
 
-  const userMessage = context
-    ? `[현재 양식장 데이터]\n${context}\n\n[질문]\n${question}`
-    : question
+function buildUserMessage(question: string, context: string): string {
+  return context ? `[현재 양식장 데이터]\n${context}\n\n[질문]\n${question}` : question
+}
 
-  const message = await client.chat.completions.create({
-    model: "gpt-4o-mini",
+// 비스트리밍 LLM 호출 (기존 callGPT를 백엔드 선택형으로 일반화)
+async function callLLM(backend: { client: OpenAI; model: string }, question: string, context: string): Promise<string> {
+  const message = await backend.client.chat.completions.create({
+    model: backend.model,
     max_tokens: 800,
     messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userMessage },
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: buildUserMessage(question, context) },
     ],
   })
 
   const content = message.choices[0].message.content
   if (content) return content
   return buildAnswer(question, context)
+}
+
+// 스트리밍 도중 끊겼을 때 절반 답변 뒤에 붙이는 안내 (스트림은 error 없이 close)
+const STREAM_INTERRUPTED_NOTICE =
+  "\n\n---\n⚠️ 연결이 끊겨 답변이 여기까지만 생성되었습니다. 잠시 후 다시 질문해 주세요."
+
+/** 텍스트 전체를 한 청크로 흘리는 text/plain 스트림 — 규칙 기반 폴백도 같은 규약을 쓴다. */
+function textStreamResponse(text: string): Response {
+  const encoder = new TextEncoder()
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoder.encode(text))
+      controller.close()
+    },
+  })
+  return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8" } })
+}
+
+// 스트리밍 응답 — openai SDK stream:true 의 async iterator 를 ReadableStream 으로 변환
+// (node_modules/next/dist/docs .../route.md Streaming 섹션의 Web API 직접 사용 패턴)
+async function streamAnswer(question: string, context: string): Promise<Response> {
+  const backend = pickBackend()
+  if (backend) {
+    try {
+      const completion = await backend.client.chat.completions.create({
+        model: backend.model,
+        max_tokens: 800,
+        stream: true,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: buildUserMessage(question, context) },
+        ],
+      })
+
+      const encoder = new TextEncoder()
+      const stream = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          let streamed = false // 토큰을 하나라도 내보냈는지
+          try {
+            for await (const chunk of completion) {
+              const delta = chunk.choices[0]?.delta?.content
+              if (delta) {
+                streamed = true
+                controller.enqueue(encoder.encode(delta))
+              }
+            }
+          } catch {
+            // 도중 끊김 — 첫 토큰 전이면 규칙 기반 답변으로 폴백, 이후면 안내 문구를 붙이고
+            // error 없이 close 한다 (클라이언트는 절반 답변 + 안내를 그대로 본다).
+            controller.enqueue(encoder.encode(streamed ? STREAM_INTERRUPTED_NOTICE : buildAnswer(question, context)))
+          }
+          controller.close()
+        },
+      })
+      return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8" } })
+    } catch {
+      // 첫 토큰 수신 전 실패(연결 거부·모델 미pull 등) — 규칙 기반 폴백으로 내려간다
+    }
+  }
+
+  // 백엔드 없음 · 호출 실패 — 규칙 기반 답변을 같은 스트림 규약으로 반환 (클라 경로 단일화)
+  return textStreamResponse(buildAnswer(question, context))
 }
 
 function buildAnswer(question: string, context: string): string {

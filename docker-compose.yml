@@ -18,3 +18,20 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: production
+
+  # AI 어드바이저 로컬 추론 서버 — `--profile ai`로 옵트인 (기본 `up`에는 뜨지 않음).
+  # 포트는 호스트에 노출하지 않는다 — 웹 컨테이너가 내부 네트워크(http://ollama:11434/v1)로만 접근.
+  # shrimp365에 depends_on을 걸지 않는다 — 프로필 미활성 시 compose 기동이 깨진다.
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    restart: unless-stopped
+    profiles: ["ai"]
+    volumes:
+      - ollama-models:/root/.ollama   # 모델 저장 — pull 1회면 재기동에도 유지
+    environment:
+      OLLAMA_KEEP_ALIVE: 24h          # 모델 램 상주 — 매 요청 재로딩(수십 초) 방지
+      OLLAMA_CONTEXT_LENGTH: "8192"   # KV 캐시 램 상한
+
+volumes:
+  ollama-models:
