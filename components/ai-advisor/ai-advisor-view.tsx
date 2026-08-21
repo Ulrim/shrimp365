@@ -240,6 +240,10 @@ export function AIAdvisorView() {
   const [includeContext, setIncludeContext] = useState(true)
 
   const sendingRef = useRef(false) // 상태 반영 전 더블클릭 방지
+  const abortRef = useRef<AbortController | null>(null) // 진행 중 스트림 — 이탈 시 중단용
+
+  // 스트리밍 중 페이지를 떠나면 연결을 끊는다 — 리더 루프 잔류·백엔드 낭비 방지 (검수 권고)
+  useEffect(() => () => abortRef.current?.abort(), [])
   const logRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const idRef = useRef(0)
@@ -292,6 +296,9 @@ export function AIAdvisorView() {
     setSending(true)
     setInput("")
 
+    const abort = new AbortController()
+    abortRef.current = abort
+
     const assistantId = `msg-${++idRef.current}`
     setMessages(prev => [
       ...prev,
@@ -309,6 +316,7 @@ export function AIAdvisorView() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question, ...(context ? { context } : {}), stream: true }),
+        signal: abort.signal,
       })
 
       if (!res.ok) {
@@ -347,7 +355,8 @@ export function AIAdvisorView() {
         setMessages(prev => prev.map(m => (m.id === assistantId ? { ...m, content: text } : m)))
       }
     } catch {
-      fail(ERROR_MSG[locale])
+      // 언마운트로 중단된 요청은 에러가 아니다 — 조용히 종료
+      if (!abort.signal.aborted) fail(ERROR_MSG[locale])
     } finally {
       sendingRef.current = false
       setSending(false)
