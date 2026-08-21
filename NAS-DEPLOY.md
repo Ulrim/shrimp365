@@ -225,3 +225,7 @@ sudo docker compose --profile ai up -d
 
 Ollama 를 켜지 않거나(모델 미pull 포함) 중간에 꺼져도 AI 어드바이저는 죽지 않는다 —
 기존처럼 규칙 기반 답변으로 자동 폴백된다.
+
+> NAS의 Ollama를 Vercel에서 쓰려면 Cloudflare Tunnel로 공개 HTTPS URL을 만들어
+> AI_BASE_URL에 넣는 방법도 있으나(Ollama 자체 인증이 없어 Access 보호 필수),
+> 운영 기본은 Groq를 권장.
