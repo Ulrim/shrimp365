@@ -18,26 +18,109 @@ import { useT } from "@/lib/i18n-context"
 
 const WEEK_LABELS = ["5/28", "5/29", "5/30", "5/31", "6/1", "6/2", "6/3"]
 
-const weeklyDo = WEEK_LABELS.map((day, i) => ({
-  day,
-  "A-1조": +(6.2 + Math.sin(i) * 0.3).toFixed(2),
-  "B-2조": +(4.8 + Math.sin(i + 1) * 0.5).toFixed(2),
-  "C-2조": +(5.5 + Math.sin(i + 2) * 0.4).toFixed(2),
-  기준선: 5.0,
-}))
+// ─── 예시 보고서 시나리오 ─────────────────────────────────────────────────────
+//
+// 예시 보고서는 지원사업 증빙(화면 캡처 + CSV)으로 함께 제출되고, 검토자가 KPI ·
+// 양식장 표 · 상태 파이 · 폐사 추이 차트 · CSV 를 서로 대조한다. 그래서 수치는
+// 아래 한 곳에서만 정하고 나머지는 전부 여기서 파생시킨다. 값을 바꿀 때도 여기만
+// 고치면 다섯 곳이 동시에 따라온다. 무작위 값(Math.random)은 렌더마다 숫자가
+// 달라져 캡처끼리도 어긋나므로 쓰지 않는다.
+//
+// 시나리오: 양식장 2곳 · 수조 13개(정상 10 · 주의 1 · 위험 2) · 주간 폐사 1,480마리.
+// 주의/위험 수조는 모두 1양식장에 있고, 이슈 이력의 B-1(주의) · B-2(위험) ·
+// C-2(위험) 와 같은 수조다.
 
-const weeklyMortality = WEEK_LABELS.map((day, i) => ({
-  day,
-  폐사량: Math.round(150 + i * 30 + Math.random() * 50),
-  이전주: Math.round(120 + i * 20 + Math.random() * 40),
-}))
-
-
-// 예시 보고서의 양식장 표 — 화면 표와 CSV 가 같은 값을 쓰도록 한 곳에 둔다.
+/** 양식장 표 — 화면 표와 CSV 가 같은 행을 쓴다. normal+warning+danger 는 tankCount 와 같아야 한다. */
 const EXAMPLE_FARM_ROWS = [
   { nameKey: "exampleFarm1" as const, tankCount: 8, shrimpCount: 476500, normal: 5, warning: 1, danger: 2, mortality: 1250, risk: "medium" as const },
   { nameKey: "exampleFarm2" as const, tankCount: 5, shrimpCount: 312000, normal: 5, warning: 0, danger: 0, mortality: 230, risk: "low" as const },
 ]
+
+/** 표를 세로로 합한 총계 — KPI · 상태 파이 · 폐사 추이 차트가 모두 이 값을 쓴다. */
+const EXAMPLE_TOTALS = EXAMPLE_FARM_ROWS.reduce(
+  (acc, row) => ({
+    tanks: acc.tanks + row.tankCount,
+    normal: acc.normal + row.normal,
+    warning: acc.warning + row.warning,
+    danger: acc.danger + row.danger,
+    mortality: acc.mortality + row.mortality,
+  }),
+  { tanks: 0, normal: 0, warning: 0, danger: 0, mortality: 0 }
+)
+
+/** 주요 이슈 이력. 문구는 t.reportsX.issueHistoryItems 의 같은 순서 항목을 쓴다.
+ *  KPI "경보 발생" 건수는 여기서 정기 점검(success)을 뺀 수다. */
+const EXAMPLE_ISSUE_ROWS = [
+  { date: "06/03", badge: "danger" as const },
+  { date: "06/02", badge: "danger" as const },
+  { date: "06/01", badge: "warning" as const },
+  { date: "05/31", badge: "warning" as const },
+  { date: "05/29", badge: "success" as const },
+]
+
+const EXAMPLE_ALERT_COUNT = EXAMPLE_ISSUE_ROWS.filter(row => row.badge !== "success").length
+
+/** 표본 수조 3개의 용존산소 추이(mg/L). KPI 평균 DO 는 이 표본에서 계산한다.
+ *  B-2조 06/01 의 4.2 는 이슈 이력 "DO 4.2 mg/L 저하"와 같은 사건이고,
+ *  그 뒤 값이 회복하는 것은 같은 행의 조치("폭기 증가")와 맞춘 것이다. */
+const EXAMPLE_DO_SERIES: Record<"A-1조" | "B-2조" | "C-2조", number[]> = {
+  "A-1조": [6.6, 6.5, 6.4, 6.3, 6.1, 6.0, 5.9],
+  "B-2조": [5.4, 5.1, 4.8, 4.5, 4.2, 4.4, 4.6],
+  "C-2조": [6.0, 5.9, 5.8, 5.6, 5.5, 5.3, 5.1],
+}
+
+/** DO 위험 기준선(mg/L). 차트의 기준선 시리즈와 ReferenceLine 이 같은 값을 쓴다. */
+const DO_BASELINE = 5.0
+
+/** 차트가 대조 대상이 아닌 값 — 시나리오 서술을 위해 같은 자리에 둔다.
+ *  탁도 9.8 은 주간 평균이고, 이슈 이력의 C-2조 32.5 NTU 는 그중 하루의 최고값이다. */
+const EXAMPLE_AVG = { temperature: 28.5, turbidity: 9.8 }
+
+/** 이전 주 값 — KPI 의 "이전 주" 표시와 폐사 추이 차트의 이전주 막대가 같은 값을 쓴다. */
+const EXAMPLE_PREV = {
+  temperature: 28.1,
+  do: 5.9,
+  mortality: 980,
+  turbidity: 7.2,
+  alerts: 2,
+  normalTanks: 11,
+}
+
+/** 주간 총계를 가중치대로 요일에 나눈다. 마지막 날이 반올림 잔차를 흡수해
+ *  일자별 합계가 총계와 항상 정확히 같다(검토자가 막대를 더해 본다). */
+function splitByDay(total: number, weights: number[]): number[] {
+  const weightSum = weights.reduce((sum, w) => sum + w, 0)
+  const parts = weights.map(w => Math.round((total * w) / weightSum))
+  parts[parts.length - 1] += total - parts.reduce((sum, v) => sum + v, 0)
+  return parts
+}
+
+// 주 후반으로 갈수록 가파른 곡선 — 06/02 AHPND 양성, 06/03 탁도 위험과 같은 흐름.
+const MORTALITY_WEIGHTS = [13, 15, 17, 19, 23, 29, 32]
+const PREV_MORTALITY_WEIGHTS = [11, 12, 13, 14, 15, 16, 17]
+
+const exampleMortalityByDay = splitByDay(EXAMPLE_TOTALS.mortality, MORTALITY_WEIGHTS)
+const examplePrevMortalityByDay = splitByDay(EXAMPLE_PREV.mortality, PREV_MORTALITY_WEIGHTS)
+
+/** 차트에 그린 표본 값 전체의 평균 = KPI 평균 DO. */
+const EXAMPLE_AVG_DO = (() => {
+  const values = Object.values(EXAMPLE_DO_SERIES).flat()
+  return +(values.reduce((sum, v) => sum + v, 0) / values.length).toFixed(1)
+})()
+
+const weeklyDo = WEEK_LABELS.map((day, i) => ({
+  day,
+  "A-1조": EXAMPLE_DO_SERIES["A-1조"][i],
+  "B-2조": EXAMPLE_DO_SERIES["B-2조"][i],
+  "C-2조": EXAMPLE_DO_SERIES["C-2조"][i],
+  기준선: DO_BASELINE,
+}))
+
+const weeklyMortality = WEEK_LABELS.map((day, i) => ({
+  day,
+  폐사량: exampleMortalityByDay[i],
+  이전주: examplePrevMortalityByDay[i],
+}))
 
 /** 인쇄물 표제에 쓰는 값 — 제목·기간·발행일. */
 type PrintMeta = { periodLabel: string; dateRange: string; issuedAt: string }
@@ -65,19 +148,21 @@ function TrendIcon({ trend, bad }: { trend: string; bad: boolean }) {
 function ExampleReport({ printMeta }: { printMeta: PrintMeta }) {
   const { t } = useT()
 
+  // 파이 = 양식장 표의 상태 열을 세로로 합한 값(합 13개 = 총 수조 수).
   const exampleTankStatusData = [
-    { name: t.reports.normalDays, value: 5, color: "#10b981" },
-    { name: t.reports.warningDays, value: 1, color: "#f59e0b" },
-    { name: t.reports.dangerDays, value: 2, color: "#ef4444" },
+    { name: t.reports.normalDays, value: EXAMPLE_TOTALS.normal, color: "#10b981" },
+    { name: t.reports.warningDays, value: EXAMPLE_TOTALS.warning, color: "#f59e0b" },
+    { name: t.reports.dangerDays, value: EXAMPLE_TOTALS.danger, color: "#ef4444" },
   ]
 
+  // KPI 는 모두 시나리오 상수에서 파생된다. 여기에 숫자를 직접 적지 말 것.
   const exampleKpis = [
-    { label: t.reports.avgTemperature, value: "28.5°C", prev: "28.1°C", trend: "up", bad: true },
-    { label: t.reports.avgDo, value: "6.2 mg/L", prev: "6.5 mg/L", trend: "down", bad: true },
-    { label: t.reports.totalMortality, value: `1,250${t.reportsX.unitShrimp}`, prev: `980${t.reportsX.unitShrimp}`, trend: "up", bad: true },
-    { label: t.reports.avgTurbidity, value: "9.8 NTU", prev: "7.2 NTU", trend: "up", bad: true },
-    { label: t.reports.alertsCount, value: `7${t.reportsX.unitCases}`, prev: `3${t.reportsX.unitCases}`, trend: "up", bad: true },
-    { label: t.reports.normalTanks, value: `5${t.common.unit.pcs}`, prev: `6${t.common.unit.pcs}`, trend: "down", bad: true },
+    { label: t.reports.avgTemperature, value: `${EXAMPLE_AVG.temperature}°C`, prev: `${EXAMPLE_PREV.temperature}°C`, trend: "up", bad: true },
+    { label: t.reports.avgDo, value: `${EXAMPLE_AVG_DO} mg/L`, prev: `${EXAMPLE_PREV.do} mg/L`, trend: "down", bad: true },
+    { label: t.reports.totalMortality, value: `${EXAMPLE_TOTALS.mortality.toLocaleString()}${t.reportsX.unitShrimp}`, prev: `${EXAMPLE_PREV.mortality.toLocaleString()}${t.reportsX.unitShrimp}`, trend: "up", bad: true },
+    { label: t.reports.avgTurbidity, value: `${EXAMPLE_AVG.turbidity} NTU`, prev: `${EXAMPLE_PREV.turbidity} NTU`, trend: "up", bad: true },
+    { label: t.reports.alertsCount, value: `${EXAMPLE_ALERT_COUNT}${t.reportsX.unitCases}`, prev: `${EXAMPLE_PREV.alerts}${t.reportsX.unitCases}`, trend: "up", bad: true },
+    { label: t.reports.normalTanks, value: `${EXAMPLE_TOTALS.normal}${t.common.unit.pcs}`, prev: `${EXAMPLE_PREV.normalTanks}${t.common.unit.pcs}`, trend: "down", bad: true },
   ]
 
   return (
@@ -87,7 +172,7 @@ function ExampleReport({ printMeta }: { printMeta: PrintMeta }) {
       {/* KPI Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
         {exampleKpis.map(kpi => (
-          <Card key={kpi.label} className="bg-card border-border min-w-0 overflow-hidden">
+          <Card key={kpi.label} className="bg-card border-border min-w-0 overflow-hidden print:break-inside-avoid">
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground mb-2">{kpi.label}</p>
               <p className="text-xl font-bold text-foreground mb-1">{kpi.value}</p>
@@ -102,7 +187,7 @@ function ExampleReport({ printMeta }: { printMeta: PrintMeta }) {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2">
-          <Card className="bg-card border-border">
+          <Card className="bg-card border-border print:break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base text-foreground flex items-center gap-2">
                 <Droplets className="w-4 h-4 text-teal-500" />{t.reports.doWeeklyTrend}
@@ -116,7 +201,7 @@ function ExampleReport({ printMeta }: { printMeta: PrintMeta }) {
                   <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} domain={[3.5, 8]} width={35} />
                   <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }} labelStyle={{ color: "hsl(var(--muted-foreground))" }} />
                   <Legend wrapperStyle={{ fontSize: "12px", color: "hsl(var(--muted-foreground))" }} />
-                  <ReferenceLine y={5} stroke="#ef4444" strokeDasharray="4 4" label={{ value: t.reports.baseline, fill: "#ef4444", fontSize: 10, position: "right" }} />
+                  <ReferenceLine y={DO_BASELINE} stroke="#ef4444" strokeDasharray="4 4" label={{ value: t.reports.baseline, fill: "#ef4444", fontSize: 10, position: "right" }} />
                   <Line type="monotone" dataKey="A-1조" name={t.reportsX.tankA1} stroke="#0ea5e9" strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="B-2조" name={t.reportsX.tankB2} stroke="#f59e0b" strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="C-2조" name={t.reportsX.tankC2} stroke="#a78bfa" strokeWidth={2} dot={false} />
@@ -126,7 +211,7 @@ function ExampleReport({ printMeta }: { printMeta: PrintMeta }) {
           </Card>
         </div>
 
-        <Card className="bg-card border-border">
+        <Card className="bg-card border-border print:break-inside-avoid">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-foreground flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-ocean-500" />{t.reports.tankStatusDist}
@@ -154,7 +239,7 @@ function ExampleReport({ printMeta }: { printMeta: PrintMeta }) {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <Card className="bg-card border-border">
+        <Card className="bg-card border-border print:break-inside-avoid">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-foreground flex items-center gap-2">
               <Fish className="w-4 h-4 text-amber-500" />{t.reports.mortalityComparison}
@@ -175,20 +260,14 @@ function ExampleReport({ printMeta }: { printMeta: PrintMeta }) {
           </CardContent>
         </Card>
 
-        <Card className="bg-card border-border">
+        <Card className="bg-card border-border print:break-inside-avoid">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-foreground flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-red-500" />{t.reports.issueHistory}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {[
-              { date: "06/03", badge: "danger" as const },
-              { date: "06/02", badge: "danger" as const },
-              { date: "06/01", badge: "warning" as const },
-              { date: "05/31", badge: "warning" as const },
-              { date: "05/29", badge: "success" as const },
-            ].map((item, i) => {
+            {EXAMPLE_ISSUE_ROWS.map((item, i) => {
               const info = t.reportsX.issueHistoryItems[i]
               return (
               <div key={i} className="flex items-start gap-3 p-3 bg-muted rounded-xl border border-border">
@@ -210,7 +289,7 @@ function ExampleReport({ printMeta }: { printMeta: PrintMeta }) {
         </Card>
       </div>
 
-      <Card className="bg-card border-border">
+      <Card className="bg-card border-border print:break-inside-avoid">
         <CardHeader className="pb-2">
           <CardTitle className="text-base text-foreground">{t.reports.farmSummaryExample}</CardTitle>
         </CardHeader>
@@ -299,7 +378,7 @@ function RealReport({ farms, tanks, journals, periodDays, printMeta }: { farms: 
           { label: t.reports.periodMortality, value: `${totalMortality.toLocaleString()}${t.reportsX.unitShrimp}` },
           { label: t.reports.periodFeeding, value: `${totalFeeding.toFixed(1)}kg` },
         ].map(kpi => (
-          <Card key={kpi.label} className="bg-card border-border min-w-0 overflow-hidden">
+          <Card key={kpi.label} className="bg-card border-border min-w-0 overflow-hidden print:break-inside-avoid">
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground mb-2">{kpi.label}</p>
               <p className="text-xl font-bold text-foreground">{kpi.value}</p>
@@ -311,7 +390,7 @@ function RealReport({ farms, tanks, journals, periodDays, printMeta }: { farms: 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Mortality chart */}
         <div className="xl:col-span-2">
-          <Card className="bg-card border-border">
+          <Card className="bg-card border-border print:break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base text-foreground flex items-center gap-2">
                 <Fish className="w-4 h-4 text-amber-500" />{t.reports.dailyMortality}
@@ -339,7 +418,7 @@ function RealReport({ farms, tanks, journals, periodDays, printMeta }: { farms: 
         </div>
 
         {/* Tank status */}
-        <Card className="bg-card border-border">
+        <Card className="bg-card border-border print:break-inside-avoid">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-foreground flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-ocean-500" />{t.reports.tankStatusDist}
@@ -373,7 +452,7 @@ function RealReport({ farms, tanks, journals, periodDays, printMeta }: { farms: 
       </div>
 
       {/* Farm summary table */}
-      <Card className="bg-card border-border">
+      <Card className="bg-card border-border print:break-inside-avoid">
         <CardHeader className="pb-2">
           <CardTitle className="text-base text-foreground">{t.reports.farmSummary}</CardTitle>
         </CardHeader>
@@ -425,7 +504,7 @@ function RealReport({ farms, tanks, journals, periodDays, printMeta }: { farms: 
 
       {/* Recent journal entries */}
       {weekJournals.length > 0 && (
-        <Card className="bg-card border-border">
+        <Card className="bg-card border-border print:break-inside-avoid">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-foreground flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-ocean-500" />{t.reports.journalSummary}
