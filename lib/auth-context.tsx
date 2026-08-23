@@ -161,6 +161,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = async () => {
+    // 0) 이 기기의 푸시 구독을 먼저 끊는다. 공용 태블릿에서 로그아웃만 하고
+    //    아무도 로그인하지 않으면, 끊지 않는 한 앞사람 수조 알림이 이 기기
+    //    잠금화면에 계속 뜬다. 세션이 살아 있는 지금 해야 서버가 받아 준다.
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration()
+      const sub = await reg?.pushManager.getSubscription()
+      if (sub) {
+        await fetch("/api/push/unsubscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        }).catch(() => {})
+        await sub.unsubscribe().catch(() => {})
+      }
+    } catch {
+      // 푸시 해지가 안 돼도 로그아웃 자체는 반드시 진행한다.
+    }
     // 1) global — 서버 측 세션(refresh token)을 revoke 해 해당 계정 연결을 실제로 끊는다.
     try {
       await supabase.auth.signOut({ scope: "global" })

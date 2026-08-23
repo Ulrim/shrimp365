@@ -119,12 +119,24 @@ function matchesCurrentKey(sub: PushSubscription): boolean {
   }
 }
 
+/** 서비스워커 등록·구독·서버 저장이 끝나지 않으면 pushState 가 "unknown" 에
+ *  고착하고, 그 상태에서는 인탭 알림까지 막힌다(푸시가 맡을 거라고 보고 비켜서므로).
+ *  어느 단계든 이 시간을 넘기면 푸시를 포기하고 인탭으로 돌려보낸다. */
+const ENABLE_TIMEOUT_MS = 8_000
+
 /**
  * 서비스워커를 등록하고 푸시를 구독해 서버에 저장한다.
  * 어느 단계에서 실패하든 false 를 돌려주고, 호출한 쪽은 인탭 방식으로 폴백한다.
  */
 async function enablePush(): Promise<boolean> {
   if (!pushSupported()) return false
+  return Promise.race([
+    doEnablePush(),
+    new Promise<boolean>(resolve => setTimeout(() => resolve(false), ENABLE_TIMEOUT_MS)),
+  ])
+}
+
+async function doEnablePush(): Promise<boolean> {
   try {
     const registration = await navigator.serviceWorker.register(SW_URL)
     // register() 는 곧바로 돌아오지만 pushManager 는 활성 워커가 있어야 쓸 수 있다.
@@ -150,9 +162,14 @@ async function enablePush(): Promise<boolean> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(sub.toJSON()),
     })
-    // 서버가 저장하지 못했으면(마이그레이션 전·비로그인 등) 구독은 있어도
-    // 발송할 곳을 모른다. 켜졌다고 말하면 안 된다.
-    return res.ok
+    // 서버가 저장하지 못했으면(설정 미완 503·비로그인 401·마이그레이션 전 등)
+    // 구독은 있어도 발송할 곳을 모른다. 켜졌다고 말하면 안 되고, 쓸 수 없는
+    // 구독을 브라우저에 남겨 두지도 않는다 — 다음 로드에서 새로 만들면 된다.
+    if (!res.ok) {
+      try { await sub.unsubscribe() } catch { /* 실패해도 상태는 off 다 */ }
+      return false
+    }
+    return true
   } catch {
     return false
   }
