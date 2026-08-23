@@ -48,6 +48,16 @@ create index if not exists push_subscriptions_user_idx
 -- 정책은 브라우저(anon 키)에서 직접 접근하는 경우를 위한 것이다.
 alter table public.push_subscriptions enable row level security;
 
+-- Supabase 는 public 스키마의 새 테이블에 anon·authenticated·service_role 권한을
+-- 자동으로 붙여 준다. 그 기본값에 기대지 않고 필요한 것만 명시한다.
+--   · anon(비로그인)은 구독할 일이 없다 — 아예 뗀다.
+--   · authenticated 는 테이블 권한만 갖고, 어느 줄을 만질 수 있는지는 아래 RLS 가 정한다.
+--   · service_role 은 발송 때 전체를 조회하고 만료 구독을 지운다.
+--     RLS 는 우회하지만 **테이블 GRANT 까지 우회하지는 않으므로** 명시가 필요하다.
+revoke all on public.push_subscriptions from anon;
+grant select, insert, update, delete on public.push_subscriptions to authenticated;
+grant select, insert, update, delete on public.push_subscriptions to service_role;
+
 drop policy if exists "push_subscriptions_select_own" on public.push_subscriptions;
 create policy "push_subscriptions_select_own" on public.push_subscriptions
   for select using (auth.uid() = user_id);
