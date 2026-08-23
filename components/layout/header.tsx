@@ -98,7 +98,12 @@ export function Header() {
 
   useAutoRefresh(reloadAlerts, 60)
 
-  const { permission: notifyPermission, request: requestNotify } = useAlertNotifications(alerts)
+  const { permission: notifyPermission, deliverable: notifyDeliverable, request: requestNotify } =
+    useAlertNotifications(alerts, {
+      enabled: t.notif.deviceEnabled,
+      more: t.notif.deviceMore,
+      tankFallback: t.reports.tank,
+    })
 
   // Global Cmd+K / Ctrl+K shortcut for search
   useEffect(() => {
@@ -161,6 +166,7 @@ export function Header() {
               onClose={() => setNotiOpen(false)}
               onCountChange={setAlertCount}
               notifyPermission={notifyPermission}
+              notifyDeliverable={notifyDeliverable}
               onEnableNotify={requestNotify}
             />
           </div>

@@ -43,6 +43,32 @@ function readPermissionOnServer(): AlertNotifyPermission {
   return "unsupported"
 }
 
+// 권한을 받고도 실제로 못 띄우는 브라우저가 있다 — 안드로이드 크롬은
+// new Notification() 생성자를 막고 서비스워커의 showNotification 을 요구한다.
+// 이 저장소에는 서비스워커가 없다. 조용히 실패하면 화면은 "켜짐"이라 말하는데
+// 알림은 평생 한 건도 안 오므로, 한 번 실패하면 그 사실을 화면까지 올린다.
+let deliveryBroken = false
+function readDeliverable(): boolean { return !deliveryBroken }
+function readDeliverableOnServer(): boolean { return true }
+
+/** 알림을 띄운다. 브라우저가 생성자를 막으면 false 를 돌려주고 상태를 내린다. */
+function showNotification(title: string, body: string, tag: string): boolean {
+  try {
+    const popup = new Notification(title, { body, tag, icon: "/icons/icon-192.png" })
+    popup.onclick = () => {
+      try { window.focus() } catch { /* 포커스 실패는 무시 */ }
+      popup.close()
+    }
+    return true
+  } catch {
+    if (!deliveryBroken) {
+      deliveryBroken = true
+      notifyPermissionChanged()
+    }
+    return false
+  }
+}
+
 function loadSeen(): Set<string> {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
@@ -63,6 +89,15 @@ function saveSeen(seen: Set<string>) {
   }
 }
 
+export interface AlertNotifyTexts {
+  /** 켜기 직후 확인용으로 띄우는 알림 본문. */
+  enabled: string
+  /** 상한을 넘은 나머지 건수 안내. {{count}} 가 숫자로 바뀐다. */
+  more: string
+  /** 수조 이름이 없을 때 쓸 이름. */
+  tankFallback: string
+}
+
 /**
  * 새로 들어온 위험·주의 알림을 기기 알림(브라우저 알림)으로 띄운다.
  *
@@ -73,9 +108,16 @@ function saveSeen(seen: Set<string>) {
  * 닫은 뒤에도 받으려면 서버 푸시(웹푸시 + VAPID 키)나 문자 발송이 따로 필요하다.
  *
  * @param alerts 현재 미해결 알림 목록. 부모가 주기적으로 갱신해 주면 그때마다 새것을 찾는다.
+ * @param texts  알림 문구 — 4개 언어 제품이므로 화면에서 번역해 넘긴다.
  */
-export function useAlertNotifications(alerts: Alert[]) {
+export function useAlertNotifications(alerts: Alert[], texts: AlertNotifyTexts) {
   const permission = useSyncExternalStore(subscribePermission, readPermission, readPermissionOnServer)
+  /** 권한은 있는데 이 브라우저가 실제로는 못 띄우는 상태인지. */
+  const deliverable = useSyncExternalStore(subscribePermission, readDeliverable, readDeliverableOnServer)
+  // 최신 문구를 담아 둔다 — 언어를 바꿔도 효과가 다시 돌지 않게.
+  // 렌더 중 ref 쓰기는 금지라 효과로 넣는다(use-auto-refresh 와 같은 방식).
+  const latestTexts = useRef(texts)
+  useEffect(() => { latestTexts.current = texts }, [texts])
   const seen = useRef<Set<string> | null>(null)
   // 첫 로드에 이미 떠 있던 알림까지 띄우면, 앱을 열 때마다 지난 알림이 쏟아진다.
   // 처음 한 번은 "본 것"으로만 기록하고 넘어간다.
@@ -83,68 +125,67 @@ export function useAlertNotifications(alerts: Alert[]) {
 
   const request = useCallback(async () => {
     if (typeof window === "undefined" || !("Notification" in window)) return
+    let granted = false
     try {
-      await Notification.requestPermission()
+      // requestPermission 은 await 이전에 동기 호출해야 사용자 제스처로 인정된다.
+      granted = (await Notification.requestPermission()) === "granted"
     } catch {
       /* 사용자가 창을 닫는 등으로 실패해도 화면은 그대로 둔다. */
     }
     notifyPermissionChanged()
+    // 켜자마자 확인 알림을 한 번 띄운다. 사람에게는 "켜졌다"는 확인이고,
+    // 우리에게는 이 브라우저가 정말 띄울 수 있는지 확인하는 점검이다.
+    if (granted) showNotification("Shrimp365", latestTexts.current.enabled, "shrimp365-enabled")
   }, [])
 
   useEffect(() => {
     if (permission !== "granted") return
+    // 이 브라우저가 못 띄우는 것이 이미 드러났으면 매 주기 헛시도하지 않는다.
+    // 화면에는 deliverable=false 로 사실이 표시되고 있다.
+    if (!readDeliverable()) return
     if (seen.current === null) seen.current = loadSeen()
     const remembered = seen.current
 
     // 정보성(info)까지 띄우면 피로해진다. 조치가 필요한 것만.
     const actionable = alerts.filter(a => a.type === "danger" || a.type === "warning")
+    // 첫 조회인지 먼저 확정한다. 아래 조기 반환보다 뒤에 두면, 처음 열었을 때
+    // 새 알림이 없던 경우 primed 가 서지 않아 **그다음에 온 진짜 첫 알림을 삼킨다.**
+    const firstPass = !primed.current
+    primed.current = true
+
     const fresh = actionable.filter(a => !remembered.has(a.id))
     if (fresh.length === 0) return
 
-    fresh.forEach(a => remembered.add(a.id))
-    saveSeen(remembered)
-
-    // 첫 조회분은 기록만 하고 띄우지 않는다.
-    if (!primed.current) {
-      primed.current = true
+    // 첫 조회분은 기록만 하고 띄우지 않는다 — 앱을 열 때마다 지난 알림이 쏟아지지 않게.
+    if (firstPass) {
+      fresh.forEach(a => remembered.add(a.id))
+      saveSeen(remembered)
       return
     }
 
     // 위험을 먼저 띄운다 — 상한에 걸려 잘리더라도 급한 것이 남게.
     const ordered = [...fresh].sort((a, b) => (a.type === b.type ? 0 : a.type === "danger" ? -1 : 1))
     const shown = ordered.slice(0, MAX_POPUPS)
+    const { more, tankFallback } = latestTexts.current
 
+    // 띄운 것만 "본 것"으로 남긴다. 상한에 걸려 못 띄운 건은 기록하지 않아야
+    // 다음 주기에 다시 후보가 된다(초판은 전부 기록해 영영 안 뜨게 만들었다).
     shown.forEach(a => {
-      try {
-        const popup = new Notification(
-          `${a.type === "danger" ? "🔴" : "🟡"} ${a.tank_name || "수조"}`,
-          {
-            body: a.message,
-            // 같은 알림이 여러 번 쌓이지 않게 id 로 묶는다.
-            tag: `shrimp365-alert-${a.id}`,
-            icon: "/icons/icon-192.png",
-          },
-        )
-        popup.onclick = () => {
-          try { window.focus() } catch { /* 포커스 실패는 무시 */ }
-          popup.close()
-        }
-      } catch {
-        // 일부 브라우저는 생성자 호출 자체를 막는다(서비스워커 필수 정책 등).
-        // 기기 알림이 안 될 뿐 화면 안 알림함은 그대로 동작한다.
+      const shownOk = showNotification(
+        `${a.type === "danger" ? "🔴" : "🟡"} ${a.tank_name || tankFallback}`,
+        a.message,
+        `shrimp365-alert-${a.id}`,
+      )
+      if (shownOk) {
+        remembered.add(a.id)
       }
     })
+    saveSeen(remembered)
 
     if (ordered.length > shown.length) {
-      try {
-        new Notification("Shrimp365", {
-          body: `그 외 ${ordered.length - shown.length}건의 알림이 더 있습니다.`,
-          tag: "shrimp365-alert-overflow",
-          icon: "/icons/icon-192.png",
-        })
-      } catch { /* 위와 같음 */ }
+      showNotification("Shrimp365", more.replace("{{count}}", String(ordered.length - shown.length)), "shrimp365-alert-overflow")
     }
   }, [alerts, permission])
 
-  return { permission, request }
+  return { permission, deliverable, request }
 }

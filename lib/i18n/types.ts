@@ -736,6 +736,9 @@ export interface Dict {
     enableDevice: string
     deviceOn: string
     deviceBlocked: string
+    deviceUnsupported: string
+    deviceEnabled: string
+    deviceMore: string
     viewMore: string
   }
   anomaly: {

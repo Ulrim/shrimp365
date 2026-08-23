@@ -18,6 +18,8 @@ interface NotificationsPanelProps {
   onCountChange?: (count: number) => void
   /** 기기 알림 상태 — 헤더가 훅에서 받아 내려 준다. */
   notifyPermission?: AlertNotifyPermission
+  /** 권한이 있어도 이 브라우저가 실제로 띄울 수 있는지. 안드로이드 크롬은 못 띄운다. */
+  notifyDeliverable?: boolean
   onEnableNotify?: () => void
 }
 
@@ -33,7 +35,7 @@ const TYPE_BG: Record<Alert["type"], string> = {
   info:    "border-ocean-500/20 bg-ocean-500/5",
 }
 
-export function NotificationsPanel({ open, onClose, onCountChange, notifyPermission, onEnableNotify }: NotificationsPanelProps) {
+export function NotificationsPanel({ open, onClose, onCountChange, notifyPermission, notifyDeliverable = true, onEnableNotify }: NotificationsPanelProps) {
   const { user } = useAuth()
   const { t } = useT()
   const { href: withAgri } = useAgriRoute()
@@ -142,16 +144,22 @@ export function NotificationsPanel({ open, onClose, onCountChange, notifyPermiss
           {notifyPermission === "default" ? (
             <button
               onClick={onEnableNotify}
-              className="w-full flex items-center justify-center gap-2 min-h-[36px] rounded-lg bg-ocean-500/10 text-ocean-600 hover:bg-ocean-500/20 text-xs font-medium transition-colors"
+              className="w-full flex items-center justify-center gap-2 min-h-[44px] rounded-lg bg-ocean-500/10 text-ocean-600 hover:bg-ocean-500/20 text-xs font-medium transition-colors"
             >
-              <BellRing className="w-3.5 h-3.5" />
+              <BellRing className="w-3.5 h-3.5" aria-hidden="true" />
               {t.notif.enableDevice}
             </button>
           ) : notifyPermission === "granted" ? (
-            <p className="flex items-center justify-center gap-1.5 text-xs text-emerald-600">
-              <BellRing className="w-3.5 h-3.5" />
-              {t.notif.deviceOn}
-            </p>
+            notifyDeliverable ? (
+              <p className="flex items-center justify-center gap-1.5 text-xs text-emerald-600">
+                <BellRing className="w-3.5 h-3.5" aria-hidden="true" />
+                {t.notif.deviceOn}
+              </p>
+            ) : (
+              // 권한은 받았지만 브라우저가 생성자를 막는 경우(안드로이드 크롬 등).
+              // "켜짐"이라고 말해 놓고 한 건도 안 오는 것보다 사실대로 알리는 편이 낫다.
+              <p className="text-center text-xs text-amber-600">{t.notif.deviceUnsupported}</p>
+            )
           ) : (
             <p className="text-center text-xs text-muted-foreground">{t.notif.deviceBlocked}</p>
           )}

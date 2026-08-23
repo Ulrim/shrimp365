@@ -965,7 +965,7 @@ export function WaterQualityView() {
                   {t.anomaly.none}
                 </p>
               ) : (
-                <ul className="space-y-2" role="list">
+                <ul className="space-y-2" role="list" aria-live="polite" aria-relevant="additions">
                   {anomalies.map(a => (
                     <li
                       key={`${a.parameter}-${a.kind}`}
@@ -980,13 +980,16 @@ export function WaterQualityView() {
                       </span>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`text-sm font-medium ${a.type === "danger" ? "text-red-500" : "text-amber-500"}`}>
-                            {a.message}
-                          </span>
+                          <Badge variant={a.type === "danger" ? "danger" : "warning"}>
+                            {a.type === "danger" ? t.dashboard.danger : t.dashboard.warning}
+                          </Badge>
                           <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground shrink-0">
                             {a.kind === "surge" ? t.anomaly.surge : a.kind === "drift" ? t.anomaly.drift : t.anomaly.deviation}
                           </span>
                         </div>
+                        {/* 본문은 기본 글자색으로 — 경고색 위에 경고색 글자를 얹으면
+                            라이트 모드에서 대비가 2:1 대까지 떨어진다(WCAG AA 미달). */}
+                        <p className="text-sm text-foreground mt-1">{a.message}</p>
                       </div>
                     </li>
                   ))}
