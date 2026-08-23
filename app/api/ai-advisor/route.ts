@@ -9,11 +9,23 @@ export const maxDuration = 60
 // 그런 배포에서는 AI_MODEL 을 반드시 설정해야 한다.
 const DEFAULT_MODEL = "qwen3:4b-instruct-2507-q4_K_M"
 
-// 시간 예산: 백엔드당 15초 상한 × 최대 3단 = 45초 < maxDuration 60초 —
-// 어떤 실패 조합에서도 규칙 기반 폴백이 함수 수명 안에 나간다.
+// 시간 예산. 어떤 실패 조합에서도 규칙 기반 폴백이 함수 수명(maxDuration 60초) 안에 나간다.
 // maxRetries 0: 다음 백엔드로의 전환이 곧 재시도라, SDK 자체 재시도는 겹치는 비용만 된다.
-const BACKEND_TIMEOUT_MS = 15_000
-const CHAIN_BUDGET_MS = 45_000
+//
+// 스트리밍은 SDK 타임아웃이 **스트림 끝까지** 적용되므로 따로 길게 잡는다.
+// 여기를 짧게 두면 긴 답변이 생성 도중 끊긴다.
+const BACKEND_TIMEOUT_MS = 20_000
+const STREAM_TIMEOUT_MS = 50_000
+const CHAIN_BUDGET_MS = 50_000
+
+// 답변 길이 상한. 한국어는 한 글자가 1~2 토큰이라 영어보다 훨씬 빨리 닳는다 —
+// 800 토큰이면 표가 들어간 분석이 400~600자에서 잘렸다(실제로 잘렸다).
+const MAX_ANSWER_TOKENS = 2500
+
+// 상한에 걸려 끊겼을 때 붙이는 안내. 잘린 것을 모르고 읽으면 마지막 항목을
+// 결론으로 오해한다.
+const ANSWER_TRUNCATED_NOTICE =
+  "\n\n---\n답변이 길어 여기서 멈췄습니다. 항목을 좁혀 다시 물어보시면 끝까지 답해 드립니다."
 
 interface Backend { name: string; client: OpenAI; model: string }
 
@@ -137,6 +149,7 @@ export async function POST(req: NextRequest) {
 const SYSTEM_PROMPT = `당신은 흰다리새우(Litopenaeus vannamei) 양식 전문가 AI 어시스턴트입니다.
 수질 관리, 질병 예방, 급이 전략, 환수, 폭기 등 양식장 운영에 대한 전문적이고 실용적인 조언을 제공합니다.
 답변은 반드시 한국어로 작성하고, 마크다운 형식을 사용하며, 구체적이고 실행 가능한 내용을 포함해야 합니다.
+가장 중요한 내용을 앞에 두세요 — 분량이 길어지면 뒤쪽이 잘릴 수 있습니다.
 
 주요 수질 기준값 (흰다리새우):
 - 수온: 23~30°C (최적 26~28°C)
@@ -157,7 +170,7 @@ function buildUserMessage(question: string, context: string): string {
 async function callLLM(backend: Backend, question: string, context: string, remainingMs: number): Promise<string> {
   const message = await backend.client.chat.completions.create({
     model: backend.model,
-    max_tokens: 800,
+    max_tokens: MAX_ANSWER_TOKENS,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: buildUserMessage(question, context) },
@@ -165,7 +178,9 @@ async function callLLM(backend: Backend, question: string, context: string, rema
   }, { timeout: Math.min(BACKEND_TIMEOUT_MS, remainingMs) })
 
   const content = message.choices[0].message.content
-  if (content) return content
+  if (content) {
+    return message.choices[0].finish_reason === "length" ? content + ANSWER_TRUNCATED_NOTICE : content
+  }
   return buildAnswer(question, context)
 }
 
@@ -206,23 +221,28 @@ function streamAnswer(question: string, context: string): Response {
         try {
           const completion = await backend.client.chat.completions.create({
             model: backend.model,
-            max_tokens: 800,
+            max_tokens: MAX_ANSWER_TOKENS,
             stream: true,
             messages: [
               { role: "system", content: SYSTEM_PROMPT },
               { role: "user", content: buildUserMessage(question, context) },
             ],
-          }, { timeout: Math.min(BACKEND_TIMEOUT_MS, remaining), signal: upstream.signal })
+          }, { timeout: Math.min(STREAM_TIMEOUT_MS, remaining), signal: upstream.signal })
 
           try {
+            let truncated = false
             for await (const chunk of completion) {
               if (cancelled) break
-              const delta = chunk.choices[0]?.delta?.content
+              const choice = chunk.choices[0]
+              const delta = choice?.delta?.content
               if (delta) {
                 streamed = true
                 safeEnqueue(delta)
               }
+              // 상한에 걸려 끝난 것인지 — 모델이 마지막 조각에 알려 준다.
+              if (choice?.finish_reason === "length") truncated = true
             }
+            if (truncated) safeEnqueue(ANSWER_TRUNCATED_NOTICE)
             safeClose()
             return
           } catch (e) {
