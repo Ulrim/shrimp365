@@ -43,6 +43,30 @@ interface Probe {
   키: string
   결과: string
   걸린시간?: string
+  /** 호출이 실패했을 때, 이 계정에서 실제로 쓸 수 있는 모델 목록. */
+  이_계정에서_쓸_수_있는_모델?: string[] | string
+  추천?: string
+}
+
+/** 한국어를 쓸 만한 대화형 모델을 목록에서 골라 앞에 세운다.
+ *  음성(whisper)·안전필터(guard)·임베딩처럼 채팅에 못 쓰는 것은 뺀다. */
+function rankModels(ids: string[]): string[] {
+  const usable = ids.filter(id => !/whisper|tts|guard|embed|moderation|vision-only/i.test(id))
+  const score = (id: string) => {
+    const s = id.toLowerCase()
+    let n = 0
+    if (s.includes("kimi")) n += 50          // 한국어 평이 좋은 오픈웨이트
+    if (s.includes("qwen")) n += 45
+    if (s.includes("llama-3.3") || s.includes("llama3.3")) n += 40
+    if (s.includes("gpt-oss")) n += 35
+    if (s.includes("llama-4") || s.includes("maverick") || s.includes("scout")) n += 30
+    if (s.includes("70b") || s.includes("120b")) n += 10
+    if (s.includes("instruct") || s.includes("versatile")) n += 5
+    if (s.includes("8b") || s.includes("1b") || s.includes("instant")) n -= 10
+    if (s.includes("preview") || s.includes("deprecated")) n -= 15
+    return n
+  }
+  return [...usable].sort((a, b) => score(b) - score(a) || a.localeCompare(b))
 }
 
 /** 백엔드를 실제로 한 번 호출해 본다. 토큰 1개만 요청해 비용·한도를 아낀다. */
@@ -79,6 +103,25 @@ async function probe(
     const err = e as { status?: number; message?: string; code?: string }
     const status = err.status ? `HTTP ${err.status}` : (err.code ?? "오류")
     row.결과 = `❌ ${status} — ${scrub(err.message ?? "알 수 없는 오류", apiKey)}`
+
+    // 모델명이 틀렸을 때(404) 추측으로 고치게 두지 않는다 —
+    // 이 계정에서 실제로 쓸 수 있는 목록을 그대로 뽑아 준다.
+    try {
+      const client = new OpenAI({
+        ...(baseURL ? { baseURL } : {}),
+        apiKey: apiKey || "missing",
+        timeout: 10_000,
+        maxRetries: 0,
+      })
+      const list = await client.models.list()
+      const ids = (list.data ?? []).map(m => m.id).filter(Boolean)
+      const ranked = rankModels(ids)
+      row.이_계정에서_쓸_수_있는_모델 = ranked.length ? ranked : ids
+      if (ranked[0]) row.추천 = `AI_MODEL 에 "${ranked[0]}" 를 넣고 재배포해 보세요.`
+    } catch (le) {
+      const lerr = le as { status?: number; message?: string }
+      row.이_계정에서_쓸_수_있는_모델 = `목록 조회 실패 — ${scrub(lerr.message ?? "알 수 없는 오류", apiKey)}`
+    }
   }
   row.걸린시간 = `${Date.now() - started}ms`
   return row
@@ -129,6 +172,9 @@ export async function GET(req: NextRequest) {
   }
   if (aiBaseUrl && !/\/v\d+\/?$/.test(aiBaseUrl.trim())) {
     진단.push(`AI_BASE_URL 이 "/v1" 로 끝나지 않습니다(현재: ${hostOf(aiBaseUrl)}…). Groq 는 https://api.groq.com/openai/v1 이어야 합니다.`)
+  }
+  for (const r of 검사) {
+    if (r.추천) 진단.push(`${r.이름}: 모델명이 맞지 않습니다. ${r.추천}`)
   }
   if (검사.some(r => r.결과.startsWith("✅"))) {
     진단.push("정상 응답한 백엔드가 있습니다. 그래도 화면에 규칙 답변이 나온다면 환경변수를 넣은 뒤 재배포하지 않았을 가능성이 큽니다(빌드 시점 환경이 굳습니다).")

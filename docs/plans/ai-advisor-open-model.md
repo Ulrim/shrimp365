@@ -338,6 +338,23 @@ volumes:
   sudo docker exec -it ollama ollama pull qwen3:4b-instruct-2507-q4_K_M
   ```
 
+### 개정 3 — 모델 ID 는 검증 없이 문서에 박지 않는다 (실배포에서 확인)
+
+Groq 배포 후 AI 가 붙지 않아 `/api/admin/ai-diag` 로 확인한 결과:
+
+```
+❌ HTTP 404 — The model `moonshotai/kimi-k2-instruct-0905` does not exist
+```
+
+주소·키·재배포는 전부 정상이었고 **모델 ID 하나가 틀렸다.** 초판 리서치가
+"프록시 차단으로 Groq 공식 페이지를 직접 열지 못했고 태그명은 pull 성공으로
+최종 검증할 것"이라고 불확실성을 명시했는데, 그 미검증 값을 권장값으로 문서와
+`.env.example` 에 그대로 실은 것이 원인이다.
+
+**규칙**: 모델 ID 는 제공자가 수시로 바꾸고 폐기한다. 문서에는 "예시"로만 적고,
+실제 값은 `/api/admin/ai-diag` 가 그 계정에서 조회한 목록에서 고른다. 진단 창구는
+404 를 만나면 `models.list()` 로 사용 가능한 목록을 뽑아 추천까지 제시한다.
+
 ## 7. 운영·한계 — 반드시 알고 배포할 것
 
 1. **램 (NAS/로컬 한정)**: 모델 + KV 캐시 약 4GB. **NAS 램 8GB면 빠듯하고 16GB 권장.**
