@@ -12,7 +12,7 @@ import { exportToCsv } from "@/lib/export"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Download, TrendingUp, TrendingDown, Minus, BarChart3, Fish, Droplets, AlertTriangle, BookOpen, ChevronDown, ChevronUp, Calendar } from "lucide-react"
+import { Download, Printer, TrendingUp, TrendingDown, Minus, BarChart3, Fish, Droplets, AlertTriangle, BookOpen, ChevronDown, ChevronUp, Calendar } from "lucide-react"
 import type { Farm, Tank, JournalEntry } from "@/types"
 import { useT } from "@/lib/i18n-context"
 
@@ -738,15 +738,15 @@ export default function ReportsPage() {
                 title={t.reports.printSaveHint}
                 aria-label={t.reports.printSave}
               >
-                <Download className="w-4 h-4 mr-2" aria-hidden="true" />{t.reports.printSave}
+                <Printer className="w-4 h-4 mr-2" aria-hidden="true" />{t.reports.printSave}
               </Button>
               <Button
                 variant="outline"
                 className="border-border text-foreground/80 hover:text-foreground hover:bg-accent min-h-[44px]"
                 onClick={handleCsv}
                 disabled={!canExportCsv}
-                title={t.reports.csvExport}
-                aria-label={t.reports.csvExport}
+                title={canExportCsv ? t.reports.csvExport : t.reports.noData}
+                aria-label={canExportCsv ? t.reports.csvExport : `${t.reports.csvExport} — ${t.reports.noData}`}
               >
                 <Download className="w-4 h-4 mr-2" aria-hidden="true" />
                 <span className="hidden sm:inline">{t.reports.csvExport}</span>
