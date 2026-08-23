@@ -765,6 +765,8 @@ export const en: Dict = {
     deviceBlocked: "Notifications are blocked in your browser",
     deviceUnsupported: "This browser cannot display device notifications",
     deviceEnabled: "Device alerts are on. Danger and warning alerts will appear here.",
+    devicePushOn: "Device alerts on — delivered even when the app is closed",
+    devicePushEnabled: "Danger and warning alerts now reach this device even when the app is closed.",
     deviceMore: "{{count}} more alert(s) waiting.",
     markResolved: "Mark as resolved",
     viewMore: "View more on the water quality page",

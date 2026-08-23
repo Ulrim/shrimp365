@@ -765,6 +765,8 @@ export const ko: Dict = {
     deviceBlocked: "브라우저에서 알림이 차단되어 있습니다",
     deviceUnsupported: "이 브라우저에서는 기기 알림을 띄울 수 없습니다",
     deviceEnabled: "기기 알림이 켜졌습니다. 위험·주의 알림을 이 기기로 보냅니다.",
+    devicePushOn: "기기 알림 켜짐 — 앱을 닫아도 받습니다",
+    devicePushEnabled: "이제 앱을 닫아 두어도 위험·주의 알림이 이 기기로 옵니다.",
     deviceMore: "그 외 {{count}}건의 알림이 더 있습니다.",
     markResolved: "해결됨으로 표시",
     viewMore: "수질 모니터링 페이지에서 자세히 보기",

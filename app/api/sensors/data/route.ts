@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase-server"
 import { checkThresholds, checkRecipe, hasRecipe, type TankRecipe } from "@/lib/thresholds"
+import { sendAlertPush } from "@/lib/push-server"
 
 // In-memory rate limit: max 60 requests per device per minute
 const RATE_LIMIT_WINDOW_MS = 60_000
@@ -268,7 +269,7 @@ export async function POST(req: NextRequest) {
     try {
       const { data: open } = await supabaseAdmin
         .from("alerts")
-        .select("id")
+        .select("id, type")
         .eq("tank_id", device.tank_id)
         .eq("parameter", alert.parameter)
         .eq("resolved", false)
@@ -281,6 +282,13 @@ export async function POST(req: NextRequest) {
           .from("alerts")
           .update({ type: alert.type, value: alert.value, message: alert.message })
           .eq("id", open.id)
+
+        // 주의 → 위험으로 올라간 것은 새 사건이다. 같은 줄을 갱신만 하면
+        // 화면에는 색이 바뀌지만 아무도 그 사실을 모른다. 등급이 오를 때만
+        // 밀어 준다 — 그대로면 1분마다 같은 푸시가 쌓여 소음이 된다.
+        if (open.type !== "danger" && alert.type === "danger") {
+          await sendAlertPush(device.tank_id, { type: alert.type, message: alert.message, parameter: alert.parameter })
+        }
       } else {
         await supabaseAdmin.from("alerts").insert({
           tank_id: device.tank_id,
@@ -291,6 +299,10 @@ export async function POST(req: NextRequest) {
           message: alert.message,
           resolved: false,
         })
+
+        // 새로 생긴 알림 — 앱이 닫혀 있어도 닿아야 한다.
+        // 실패해도 sendAlertPush 가 전부 삼키므로 수집은 멈추지 않는다.
+        await sendAlertPush(device.tank_id, { type: alert.type, message: alert.message, parameter: alert.parameter })
       }
     } catch (e) { console.warn("[sensors/data] non-fatal:", e instanceof Error ? e.message : e) }
   }
