@@ -5,19 +5,9 @@ import { createServerClient } from "@supabase/ssr"
 // Vercel에서 스트리밍 응답이 기본 함수 시간 제한에 잘리지 않게 한다. 셀프호스팅에서는 무해.
 export const maxDuration = 60
 
-const openaiKey = process.env.OPENAI_API_KEY
-
-// 1차 백엔드 — 오픈웨이트 모델(OpenAI 호환 서버: Groq/OpenRouter/Ollama/vLLM 등).
-// AI_BASE_URL 설정 시 OPENAI_API_KEY보다 우선한다. 예: https://api.groq.com/openai/v1
-const aiBaseUrl = process.env.AI_BASE_URL
-const aiModel = process.env.AI_MODEL || "qwen3:4b-instruct-2507-q4_K_M"
-// Ollama는 키를 검증하지 않지만 SDK가 값을 요구해 더미 기본값을 둔다.
-const aiApiKey = process.env.AI_API_KEY || "ollama"
-
-// 2차(폴백) 백엔드 — 1차가 429(한도 소진)·연결 실패·타임아웃일 때 같은 요청 안에서 자동 전환.
-const aiFallbackBaseUrl = process.env.AI_FALLBACK_BASE_URL
-const aiFallbackModel = process.env.AI_FALLBACK_MODEL || "qwen3:4b-instruct-2507-q4_K_M"
-const aiFallbackApiKey = process.env.AI_FALLBACK_API_KEY || "ollama"
+// 자체 설치(Ollama) 기준 기본 모델. 호스팅 API(Groq 등)에는 이 이름의 모델이 없으므로
+// 그런 배포에서는 AI_MODEL 을 반드시 설정해야 한다.
+const DEFAULT_MODEL = "qwen3:4b-instruct-2507-q4_K_M"
 
 // 시간 예산: 백엔드당 15초 상한 × 최대 3단 = 45초 < maxDuration 60초 —
 // 어떤 실패 조합에서도 규칙 기반 폴백이 함수 수명 안에 나간다.
@@ -25,17 +15,49 @@ const aiFallbackApiKey = process.env.AI_FALLBACK_API_KEY || "ollama"
 const BACKEND_TIMEOUT_MS = 15_000
 const CHAIN_BUDGET_MS = 45_000
 
-interface Backend { client: OpenAI; model: string }
+interface Backend { name: string; client: OpenAI; model: string }
 
 // 자동 전환 체인: ① AI_BASE_URL(운영 기본 Groq) ② AI_FALLBACK_BASE_URL(선택)
 // ③ OPENAI_API_KEY(기존 경로) — 전부 실패·미설정이면 규칙 기반 buildAnswer.
+//
+// 환경변수는 **요청 시점에** 읽는다. 모듈 최상단에서 읽어 두면 번들 시점 값이
+// 굳어 버리는 배포 형태가 있어, 환경변수를 넣고도 안 붙는 일이 생긴다.
 function backendChain(): Backend[] {
   const opts = { timeout: BACKEND_TIMEOUT_MS, maxRetries: 0 }
   const chain: Backend[] = []
-  if (aiBaseUrl) chain.push({ client: new OpenAI({ baseURL: aiBaseUrl, apiKey: aiApiKey, ...opts }), model: aiModel })
-  if (aiFallbackBaseUrl) chain.push({ client: new OpenAI({ baseURL: aiFallbackBaseUrl, apiKey: aiFallbackApiKey, ...opts }), model: aiFallbackModel })
-  if (openaiKey) chain.push({ client: new OpenAI({ apiKey: openaiKey, ...opts }), model: "gpt-4o-mini" })
+  const aiBaseUrl = process.env.AI_BASE_URL
+  const fbBaseUrl = process.env.AI_FALLBACK_BASE_URL
+  const openaiKey = process.env.OPENAI_API_KEY
+
+  if (aiBaseUrl) chain.push({
+    name: "1차(AI_BASE_URL)",
+    client: new OpenAI({ baseURL: aiBaseUrl, apiKey: process.env.AI_API_KEY || "ollama", ...opts }),
+    model: process.env.AI_MODEL || DEFAULT_MODEL,
+  })
+  if (fbBaseUrl) chain.push({
+    name: "2차(AI_FALLBACK_BASE_URL)",
+    client: new OpenAI({ baseURL: fbBaseUrl, apiKey: process.env.AI_FALLBACK_API_KEY || "ollama", ...opts }),
+    model: process.env.AI_FALLBACK_MODEL || DEFAULT_MODEL,
+  })
+  if (openaiKey) chain.push({
+    name: "3차(OPENAI_API_KEY)",
+    client: new OpenAI({ apiKey: openaiKey, ...opts }),
+    model: "gpt-4o-mini",
+  })
+
+  // 하나도 없으면 규칙 기반 답변만 나간다 — 설정 누락을 로그로 남긴다.
+  if (chain.length === 0) {
+    console.error("[ai-advisor] 설정된 AI 백엔드가 없습니다. AI_BASE_URL 또는 OPENAI_API_KEY 를 설정하세요. 내장 규칙 답변으로 폴백합니다.")
+  }
   return chain
+}
+
+/** 실패 원인을 로그에 남긴다. 조용히 폴백하면 왜 AI 가 안 붙는지 아무도 모른다. */
+function logBackendFailure(name: string, model: string, e: unknown) {
+  const err = e as { status?: number; message?: string; code?: string }
+  console.error(
+    `[ai-advisor] ${name} 실패 — model=${model} status=${err?.status ?? err?.code ?? "?"} ${err?.message ?? e}`,
+  )
 }
 
 const MAX_QUESTION_LENGTH = 500
@@ -99,8 +121,9 @@ export async function POST(req: NextRequest) {
       try {
         const answer = await callLLM(backend, question, context, remaining)
         return NextResponse.json({ answer, remaining: null })
-      } catch {
+      } catch (e) {
         // 429(한도 소진)·연결 실패·타임아웃 — 다음 백엔드로 자동 전환
+        logBackendFailure(backend.name, backend.model, e)
       }
     }
 
@@ -202,16 +225,18 @@ function streamAnswer(question: string, context: string): Response {
             }
             safeClose()
             return
-          } catch {
+          } catch (e) {
             if (streamed) {
               safeEnqueue(STREAM_INTERRUPTED_NOTICE)
               safeClose()
               return
             }
             // 첫 토큰 전 끊김 — 다음 백엔드로
+            logBackendFailure(backend.name, backend.model, e)
           }
-        } catch {
+        } catch (e) {
           // create 자체 실패: 429(한도 소진)·연결 거부·타임아웃 — 다음 백엔드로
+          logBackendFailure(backend.name, backend.model, e)
         }
       }
 
