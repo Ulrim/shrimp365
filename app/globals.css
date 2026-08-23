@@ -114,3 +114,96 @@
   z-index: 0;
   isolation: isolate;
 }
+
+/* 인쇄 — 리포트 화면을 그대로 PDF 증빙으로 뽑기 위한 규칙
+ *
+ * 리포트 화면을 브라우저 인쇄로 저장한 PDF 가 지원사업 "리포트 증빙"으로 제출된다.
+ * 그런데 대시보드 레이아웃은 화면용으로 min-h-screen · overflow-hidden ·
+ * overflow-auto 를 겹쳐 쓴다. 스크롤 컨테이너가 남아 있으면 브라우저는 "보이는
+ * 만큼"만 찍어서 긴 리포트가 첫 페이지에서 잘린다. 인쇄에서는 스크롤과 높이 제한을
+ * 모두 풀어 내용이 여러 페이지로 이어지게 한다.
+ *
+ * 크롬(사이드바·헤더·하단네비) 숨김은 레이아웃의 print:hidden 래퍼가 맡는다.
+ * 여기서는 높이·overflow·페이지 나눔만 다룬다 — Tailwind print:* 유틸로 덮으면
+ * 같은 미디어 계열인 lg:* 와 출력 순서 싸움이 나기 때문이다. */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  /* 화면 높이에 맞춘 제약을 푼다. 남겨두면 첫 페이지 뒤가 통째로 사라진다. */
+  .min-h-screen,
+  .h-screen {
+    min-height: 0 !important;
+    height: auto !important;
+  }
+
+  /* 스크롤 컨테이너 → 일반 흐름. 표의 가로 스크롤(overflow-x-auto)도 함께 풀린다. */
+  .overflow-auto,
+  .overflow-hidden,
+  .overflow-scroll,
+  .overflow-x-auto,
+  .overflow-y-auto {
+    overflow: visible !important;
+  }
+
+  /* 하단네비 자리로 비워둔 pb-24 는 네비가 사라진 인쇄물에선 빈 여백일 뿐이다.
+   * 좌우 여백은 @page 가 준다. */
+  main {
+    padding: 0 !important;
+  }
+
+  /* 화면 위에 떠 있는 것(쿠키 배너·새 버전 알림·모달·토스트)은 증빙에 찍히면 안 된다.
+   * position:fixed 는 인쇄에서 페이지마다 반복되기도 한다. */
+  .fixed {
+    display: none !important;
+  }
+
+  /* 본문은 페이지 폭을 온전히 쓴다(사이드바가 사라진 만큼 밀림이 없어야 한다). */
+  #print-report {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    /* 상태 색(정상·주의·위험 배지, 파이 범례)이 빠지면 증빙으로서 의미가 없다. */
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* recharts 는 화면에서 잰 픽셀 폭으로 SVG 를 그리고, 인쇄로 넘어갈 때 다시 재지
+   * 못한다. 넓은 모니터에서 뽑으면 차트가 용지 밖으로 나가 잘리므로 용지 폭으로 묶고,
+   * SVG 는 viewBox 비율대로 줄어들게 둔다.
+   *
+   * 여기서 max-width 를 % 로 주면 안 된다. recharts 는 ResponsiveContainer 가 다시
+   * 줄어들 수 있도록 wrapper 바로 위에 width:0 인 div 를 끼워 넣는데, % 는 그 0px 를
+   * 기준으로 계산돼 차트가 통째로 사라진다(실제로 그랬다). 뷰포트 단위여야 한다. */
+  #print-report .recharts-responsive-container {
+    max-width: 100% !important;
+  }
+  #print-report .recharts-wrapper {
+    /* 100vw 에서 카드 좌우 여백(p-6 = 48px)과 테두리만큼 뺀 값. 카드 안쪽 폭이다. */
+    max-width: calc(100vw - 4rem) !important;
+  }
+  #print-report .recharts-wrapper > svg {
+    max-width: 100%;
+  }
+
+  /* 카드·차트·표가 페이지 경계에서 반토막 나지 않게. */
+  #print-report table,
+  #print-report .recharts-wrapper {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  #print-report tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
