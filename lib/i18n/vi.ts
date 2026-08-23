@@ -766,6 +766,8 @@ export const vi: Dict = {
     deviceBlocked: "Trình duyệt đang chặn thông báo",
     deviceUnsupported: "Trình duyệt này không thể hiển thị thông báo thiết bị",
     deviceEnabled: "Đã bật thông báo thiết bị. Cảnh báo nguy hiểm và chú ý sẽ hiện ở đây.",
+    devicePushOn: "Đã bật thông báo thiết bị — nhận được cả khi đã đóng ứng dụng",
+    devicePushEnabled: "Từ giờ cảnh báo nguy hiểm và chú ý sẽ đến thiết bị này ngay cả khi ứng dụng đã đóng.",
     deviceMore: "Còn {{count}} thông báo khác.",
     markResolved: "Đánh dấu đã xử lý",
     viewMore: "Xem chi tiết trên trang chất lượng nước",

@@ -738,6 +738,8 @@ export interface Dict {
     deviceBlocked: string
     deviceUnsupported: string
     deviceEnabled: string
+    devicePushOn: string
+    devicePushEnabled: string
     deviceMore: string
     viewMore: string
   }

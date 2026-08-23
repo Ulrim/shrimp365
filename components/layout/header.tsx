@@ -98,9 +98,10 @@ export function Header() {
 
   useAutoRefresh(reloadAlerts, 60)
 
-  const { permission: notifyPermission, deliverable: notifyDeliverable, request: requestNotify } =
+  const { permission: notifyPermission, deliverable: notifyDeliverable, pushActive: notifyPushActive, request: requestNotify } =
     useAlertNotifications(alerts, {
       enabled: t.notif.deviceEnabled,
+      pushEnabled: t.notif.devicePushEnabled,
       more: t.notif.deviceMore,
       tankFallback: t.reports.tank,
     })
@@ -167,6 +168,7 @@ export function Header() {
               onCountChange={setAlertCount}
               notifyPermission={notifyPermission}
               notifyDeliverable={notifyDeliverable}
+              notifyPushActive={notifyPushActive}
               onEnableNotify={requestNotify}
             />
           </div>

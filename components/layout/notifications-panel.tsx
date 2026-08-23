@@ -20,6 +20,8 @@ interface NotificationsPanelProps {
   notifyPermission?: AlertNotifyPermission
   /** 권한이 있어도 이 브라우저가 실제로 띄울 수 있는지. 안드로이드 크롬은 못 띄운다. */
   notifyDeliverable?: boolean
+  /** 서버 푸시 구독이 살아 있는지 — 참이면 앱을 닫아도 알림이 온다. */
+  notifyPushActive?: boolean
   onEnableNotify?: () => void
 }
 
@@ -35,7 +37,7 @@ const TYPE_BG: Record<Alert["type"], string> = {
   info:    "border-ocean-500/20 bg-ocean-500/5",
 }
 
-export function NotificationsPanel({ open, onClose, onCountChange, notifyPermission, notifyDeliverable = true, onEnableNotify }: NotificationsPanelProps) {
+export function NotificationsPanel({ open, onClose, onCountChange, notifyPermission, notifyDeliverable = true, notifyPushActive = false, onEnableNotify }: NotificationsPanelProps) {
   const { user } = useAuth()
   const { t } = useT()
   const { href: withAgri } = useAgriRoute()
@@ -150,7 +152,14 @@ export function NotificationsPanel({ open, onClose, onCountChange, notifyPermiss
               {t.notif.enableDevice}
             </button>
           ) : notifyPermission === "granted" ? (
-            notifyDeliverable ? (
+            notifyPushActive ? (
+              // 서버 푸시가 붙었다. 이건 "탭이 열려 있으면 뜬다"와 전혀 다른 약속이라
+              // 문구도 달라야 한다 — 새벽에 앱을 닫고 자도 온다는 것이 요점이다.
+              <p className="flex items-center justify-center gap-1.5 text-xs text-emerald-600">
+                <BellRing className="w-3.5 h-3.5" aria-hidden="true" />
+                {t.notif.devicePushOn}
+              </p>
+            ) : notifyDeliverable ? (
               <p className="flex items-center justify-center gap-1.5 text-xs text-emerald-600">
                 <BellRing className="w-3.5 h-3.5" aria-hidden="true" />
                 {t.notif.deviceOn}

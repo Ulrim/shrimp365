@@ -766,6 +766,8 @@ export const id: Dict = {
     deviceBlocked: "Notifikasi diblokir di peramban Anda",
     deviceUnsupported: "Peramban ini tidak dapat menampilkan notifikasi perangkat",
     deviceEnabled: "Notifikasi perangkat aktif. Peringatan bahaya dan perhatian akan muncul di sini.",
+    devicePushOn: "Notifikasi perangkat aktif — tetap diterima meski aplikasi ditutup",
+    devicePushEnabled: "Mulai sekarang peringatan bahaya dan perhatian sampai ke perangkat ini meski aplikasi ditutup.",
     deviceMore: "Ada {{count}} notifikasi lainnya.",
     markResolved: "Tandai sudah selesai",
     viewMore: "Lihat selengkapnya di halaman kualitas air",
