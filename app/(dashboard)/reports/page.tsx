@@ -8,6 +8,7 @@ import {
 import { MOCK_TANKS, MOCK_WATER_QUALITY, MOCK_FARMS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
 import { getFarms, getAllTanks, getJournalEntries } from "@/lib/db"
+import { exportToCsv } from "@/lib/export"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -32,6 +33,26 @@ const weeklyMortality = WEEK_LABELS.map((day, i) => ({
 }))
 
 
+// 예시 보고서의 양식장 표 — 화면 표와 CSV 가 같은 값을 쓰도록 한 곳에 둔다.
+const EXAMPLE_FARM_ROWS = [
+  { nameKey: "exampleFarm1" as const, tankCount: 8, shrimpCount: 476500, normal: 5, warning: 1, danger: 2, mortality: 1250, risk: "medium" as const },
+  { nameKey: "exampleFarm2" as const, tankCount: 5, shrimpCount: 312000, normal: 5, warning: 0, danger: 0, mortality: 230, risk: "low" as const },
+]
+
+/** 인쇄물 표제에 쓰는 값 — 제목·기간·발행일. */
+type PrintMeta = { periodLabel: string; dateRange: string; issuedAt: string }
+
+// 화면에서는 숨기고 인쇄에서만 나오는 표제. 출력물이 어떤 기간의 보고서인지 드러낸다.
+function PrintTitle({ meta }: { meta: PrintMeta }) {
+  const { t } = useT()
+  return (
+    <div className="hidden print:block mb-4 pb-3 border-b border-border">
+      <h1 className="text-lg font-bold text-foreground">{t.reports.title} · {meta.periodLabel}</h1>
+      <p className="text-xs text-muted-foreground mt-1">{meta.dateRange} · {t.reports.issuedAt}: {meta.issuedAt}</p>
+    </div>
+  )
+}
+
 function TrendIcon({ trend, bad }: { trend: string; bad: boolean }) {
   const isGood = (trend === "up" && !bad) || (trend === "down" && bad)
   if (trend === "up") return <TrendingUp className={`w-4 h-4 ${isGood ? "text-emerald-500" : "text-red-500"}`} />
@@ -41,7 +62,7 @@ function TrendIcon({ trend, bad }: { trend: string; bad: boolean }) {
 
 // ─── Example Report (mock) ────────────────────────────────────────────────────
 
-function ExampleReport() {
+function ExampleReport({ printMeta }: { printMeta: PrintMeta }) {
   const { t } = useT()
 
   const exampleTankStatusData = [
@@ -61,6 +82,8 @@ function ExampleReport() {
 
   return (
     <div id="print-report" className="space-y-6">
+      <PrintTitle meta={printMeta} />
+
       {/* KPI Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
         {exampleKpis.map(kpi => (
@@ -205,30 +228,22 @@ function ExampleReport() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                <tr className="hover:bg-accent">
-                  <td className="py-3 text-foreground font-medium">{t.reportsX.exampleFarm1}</td>
-                  <td className="py-3 text-center text-foreground/80">8{t.common.unit.pcs}</td>
-                  <td className="py-3 text-center text-foreground/80">476,500{t.reportsX.unitShrimp}</td>
-                  <td className="py-3 text-center">
-                    <span className="text-emerald-500">5</span><span className="text-muted-foreground"> / </span>
-                    <span className="text-amber-500">1</span><span className="text-muted-foreground"> / </span>
-                    <span className="text-red-500">2</span>
-                  </td>
-                  <td className="py-3 text-center text-amber-500">1,250{t.reportsX.unitShrimp}</td>
-                  <td className="py-3 text-right"><Badge variant="warning">{t.reports.riskMedium}</Badge></td>
-                </tr>
-                <tr className="hover:bg-accent">
-                  <td className="py-3 text-foreground font-medium">{t.reportsX.exampleFarm2}</td>
-                  <td className="py-3 text-center text-foreground/80">5{t.common.unit.pcs}</td>
-                  <td className="py-3 text-center text-foreground/80">312,000{t.reportsX.unitShrimp}</td>
-                  <td className="py-3 text-center">
-                    <span className="text-emerald-500">5</span><span className="text-muted-foreground"> / </span>
-                    <span className="text-amber-500">0</span><span className="text-muted-foreground"> / </span>
-                    <span className="text-red-500">0</span>
-                  </td>
-                  <td className="py-3 text-center text-foreground/80">230{t.reportsX.unitShrimp}</td>
-                  <td className="py-3 text-right"><Badge variant="success">{t.reports.riskLow}</Badge></td>
-                </tr>
+                {EXAMPLE_FARM_ROWS.map(row => (
+                  <tr key={row.nameKey} className="hover:bg-accent">
+                    <td className="py-3 text-foreground font-medium">{t.reportsX[row.nameKey]}</td>
+                    <td className="py-3 text-center text-foreground/80">{row.tankCount}{t.common.unit.pcs}</td>
+                    <td className="py-3 text-center text-foreground/80">{row.shrimpCount.toLocaleString()}{t.reportsX.unitShrimp}</td>
+                    <td className="py-3 text-center">
+                      <span className="text-emerald-500">{row.normal}</span><span className="text-muted-foreground"> / </span>
+                      <span className="text-amber-500">{row.warning}</span><span className="text-muted-foreground"> / </span>
+                      <span className="text-red-500">{row.danger}</span>
+                    </td>
+                    <td className={`py-3 text-center ${row.risk === "medium" ? "text-amber-500" : "text-foreground/80"}`}>{row.mortality.toLocaleString()}{t.reportsX.unitShrimp}</td>
+                    <td className="py-3 text-right">
+                      <Badge variant={row.risk === "medium" ? "warning" : "success"}>{row.risk === "medium" ? t.reports.riskMedium : t.reports.riskLow}</Badge>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -240,7 +255,7 @@ function ExampleReport() {
 
 // ─── Real Report ──────────────────────────────────────────────────────────────
 
-function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tanks: Tank[]; journals: JournalEntry[]; periodDays: number }) {
+function RealReport({ farms, tanks, journals, periodDays, printMeta }: { farms: Farm[]; tanks: Tank[]; journals: JournalEntry[]; periodDays: number; printMeta: PrintMeta }) {
   const { t } = useT()
   const periodStart = new Date(Date.now() - periodDays * 86400000)
   const weekJournals = journals.filter(j => new Date(j.date) >= periodStart)
@@ -274,6 +289,8 @@ function RealReport({ farms, tanks, journals, periodDays }: { farms: Farm[]; tan
 
   return (
     <div id="print-report" className="space-y-6">
+      <PrintTitle meta={printMeta} />
+
       {/* KPI Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
@@ -493,6 +510,10 @@ export default function ReportsPage() {
   const dateLocale = locale === "ko" ? "ko-KR" : locale === "vi" ? "vi-VN" : locale === "id" ? "id-ID" : "en-US"
   const fmtDate = (d: Date) => d.toLocaleDateString(dateLocale, { year: "numeric", month: "long", day: "numeric" })
   const dateRange = `${fmtDate(periodStart)} ~ ${fmtDate(now)}`
+  // 발행일 = 오늘. 인쇄물이 언제 뽑은 보고서인지 드러나야 한다.
+  const issuedAt = fmtDate(now)
+  const periodLabel = t.reports[(PERIOD_OPTIONS.find(opt => opt.days === periodDays) ?? PERIOD_OPTIONS[0]).labelKey]
+  const printMeta: PrintMeta = { periodLabel, dateRange, issuedAt }
 
   function handlePdf() {
     window.print()
@@ -507,14 +528,108 @@ export default function ReportsPage() {
   }
 
   const hasData = farms.length > 0 || tanks.length > 0
+  // 화면에 예시 보고서가 떠 있으면 CSV 도 같은 예시 값을 내보낸다(증빙 캡처용).
+  const showingExample = isMock || (!hasData && showExample)
+  // RealReport 와 같은 기준으로 기간 내 일지를 고른다.
+  const csvJournals = journals.filter(j => new Date(j.date) >= periodStart)
+  const canExportCsv = showingExample || farms.length > 0 || csvJournals.length > 0
+
+  // CSV 열 이름 — 새 문구를 만들지 않고 화면에 이미 쓰는 라벨만 조합한다.
+  const CSV_COL = {
+    section: t.common.type,
+    date: t.common.date,
+    farm: t.reports.farm,
+    tank: t.reports.tank,
+    tankCount: t.reports.totalTanks,
+    shrimpCount: t.reports.shrimpCount,
+    normal: t.reports.normalDays,
+    warning: t.reports.warningDays,
+    danger: t.reports.dangerDays,
+    mortality: `${t.reports.mortality}(${t.reportsX.unitShrimp.trim()})`,
+    feeding: `${t.reports.feeding}(kg)`,
+    exchange: `${t.reports.waterExchange}(%)`,
+  }
+
+  // exportToCsv 는 첫 행의 key 를 헤더로 쓴다. 요약 행과 일지 행이 열을 공유하도록
+  // 모든 행을 빈 행에서 시작해 같은 열을 빠짐없이 갖게 만든다.
+  function csvBlankRow(section: string): Record<string, unknown> {
+    return {
+      [CSV_COL.section]: section,
+      [CSV_COL.date]: "",
+      [CSV_COL.farm]: "",
+      [CSV_COL.tank]: "",
+      [CSV_COL.tankCount]: "",
+      [CSV_COL.shrimpCount]: "",
+      [CSV_COL.normal]: "",
+      [CSV_COL.warning]: "",
+      [CSV_COL.danger]: "",
+      [CSV_COL.mortality]: "",
+      [CSV_COL.feeding]: "",
+      [CSV_COL.exchange]: "",
+    }
+  }
+
+  function buildCsvRows(): Record<string, unknown>[] {
+    if (showingExample) {
+      return EXAMPLE_FARM_ROWS.map(row => ({
+        ...csvBlankRow(t.reports.farmSummary),
+        [CSV_COL.farm]: t.reportsX[row.nameKey],
+        [CSV_COL.tankCount]: row.tankCount,
+        [CSV_COL.shrimpCount]: row.shrimpCount,
+        [CSV_COL.normal]: row.normal,
+        [CSV_COL.warning]: row.warning,
+        [CSV_COL.danger]: row.danger,
+        [CSV_COL.mortality]: row.mortality,
+      }))
+    }
+    // 양식장별 운영 요약 — 화면 표와 같은 계산이다.
+    const summaryRows = farms.map(farm => {
+      const farmTanks = tanks.filter(tk => tk.farm_id === farm.id)
+      const farmJournals = csvJournals.filter(j => farmTanks.some(tk => tk.id === j.tank_id))
+      return {
+        ...csvBlankRow(t.reports.farmSummary),
+        [CSV_COL.farm]: farm.name,
+        [CSV_COL.tankCount]: farmTanks.length,
+        [CSV_COL.shrimpCount]: farmTanks.reduce((sum, tk) => sum + tk.shrimp_count, 0),
+        [CSV_COL.normal]: farmTanks.filter(tk => tk.status === "active").length,
+        [CSV_COL.warning]: farmTanks.filter(tk => tk.status === "warning").length,
+        [CSV_COL.danger]: farmTanks.filter(tk => tk.status === "danger").length,
+        [CSV_COL.mortality]: farmJournals.reduce((sum, j) => sum + j.mortality_count, 0),
+        [CSV_COL.feeding]: +farmJournals.reduce((sum, j) => sum + j.feeding_amount, 0).toFixed(1),
+      }
+    })
+    // 일지 상세 — 같은 파일 아래쪽에 붙인다.
+    const journalRows = csvJournals.map(j => {
+      const tank = tanks.find(tk => tk.id === j.tank_id)
+      const farm = farms.find(f => f.id === tank?.farm_id)
+      return {
+        ...csvBlankRow(t.reports.journalSummary),
+        [CSV_COL.date]: j.date,
+        [CSV_COL.farm]: farm?.name ?? "",
+        [CSV_COL.tank]: j.tank_name,
+        [CSV_COL.mortality]: j.mortality_count,
+        [CSV_COL.feeding]: j.feeding_amount,
+        [CSV_COL.exchange]: j.water_exchange_rate,
+      }
+    })
+    return [...summaryRows, ...journalRows]
+  }
+
+  function handleCsv() {
+    const rows = buildCsvRows()
+    if (rows.length === 0) return
+    // 파일명은 로케일과 무관하게 ISO 날짜로 고정한다.
+    const period = periodDays === 7 ? "weekly" : `${periodDays}d`
+    exportToCsv(rows, `${period}-report_${new Date().toISOString().split("T")[0]}`)
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-center justify-between flex-wrap gap-3 print:hidden">
         <div>
           <h2 className="text-xl font-bold text-foreground">{t.reports.title}</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">{dateRange}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{dateRange} · {t.reports.issuedAt}: {issuedAt}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex flex-wrap items-center gap-1 bg-muted border border-border rounded-xl p-1">
@@ -536,15 +651,29 @@ export default function ReportsPage() {
             ))}
           </div>
           {(hasData || showExample) && (
-            <Button
-              variant="outline"
-              className="border-border text-foreground/80 hover:text-foreground hover:bg-accent min-h-[44px]"
-              onClick={handlePdf}
-              title={t.reports.printSaveHint}
-              aria-label={t.reports.printSave}
-            >
-              <Download className="w-4 h-4 mr-2" aria-hidden="true" />{t.reports.printSave}
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                className="border-border text-foreground/80 hover:text-foreground hover:bg-accent min-h-[44px]"
+                onClick={handlePdf}
+                title={t.reports.printSaveHint}
+                aria-label={t.reports.printSave}
+              >
+                <Download className="w-4 h-4 mr-2" aria-hidden="true" />{t.reports.printSave}
+              </Button>
+              <Button
+                variant="outline"
+                className="border-border text-foreground/80 hover:text-foreground hover:bg-accent min-h-[44px]"
+                onClick={handleCsv}
+                disabled={!canExportCsv}
+                title={t.reports.csvExport}
+                aria-label={t.reports.csvExport}
+              >
+                <Download className="w-4 h-4 mr-2" aria-hidden="true" />
+                <span className="hidden sm:inline">{t.reports.csvExport}</span>
+                <span className="sm:hidden">CSV</span>
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -597,16 +726,16 @@ export default function ReportsPage() {
                   <Download className="w-3.5 h-3.5 mr-1.5" />{t.reports.printSave}
                 </Button>
               </div>
-              <ExampleReport />
+              <ExampleReport printMeta={printMeta} />
             </div>
           )}
         </div>
       ) : isMock ? (
         /* Test accounts: always show example report */
-        <ExampleReport />
+        <ExampleReport printMeta={printMeta} />
       ) : (
         /* Real users with data: show real report */
-        <RealReport farms={farms} tanks={tanks} journals={journals} periodDays={periodDays} />
+        <RealReport farms={farms} tanks={tanks} journals={journals} periodDays={periodDays} printMeta={printMeta} />
       )}
     </div>
   )

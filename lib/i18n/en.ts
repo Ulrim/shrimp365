@@ -366,6 +366,7 @@ export const en: Dict = {
     suggestQ4: "Optimal water quality standards for L. vannamei",
   },
   reports: {
+    issuedAt: "Issued",
     title: "Reports",
     subtitle: "Analyze water quality and alert data by period",
     period7d: "7 Days",

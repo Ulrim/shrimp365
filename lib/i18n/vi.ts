@@ -366,6 +366,7 @@ export const vi: Dict = {
     suggestQ4: "Tiêu chuẩn chất lượng nước tối ưu cho tôm thẻ chân trắng",
   },
   reports: {
+    issuedAt: "Ngày phát hành",
     title: "Báo cáo",
     subtitle: "Phân tích dữ liệu chất lượng nước và cảnh báo theo kỳ",
     period7d: "7 ngày",

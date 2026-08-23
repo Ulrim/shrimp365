@@ -366,6 +366,7 @@ export const id: Dict = {
     suggestQ4: "Standar kualitas air optimal untuk udang vaname",
   },
   reports: {
+    issuedAt: "Tanggal terbit",
     title: "Laporan",
     subtitle: "Analisis data kualitas air dan peringatan berdasarkan periode",
     period7d: "7 Hari",

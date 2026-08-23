@@ -366,6 +366,7 @@ export const ko: Dict = {
     suggestQ4: "흰다리새우 최적 수질 기준이 궁금해요",
   },
   reports: {
+    issuedAt: "발행일",
     title: "리포트",
     subtitle: "기간별 수질·알림 데이터 분석",
     period7d: "7일",

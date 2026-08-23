@@ -407,6 +407,7 @@ export interface Dict {
     suggestQ4: string
   }
   reports: {
+    issuedAt: string
     title: string
     subtitle: string
     period7d: string
