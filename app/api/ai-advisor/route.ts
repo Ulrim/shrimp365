@@ -1,7 +1,42 @@
 import { NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 import { createServerClient } from "@supabase/ssr"
+
+// Vercel에서 스트리밍 응답이 기본 함수 시간 제한에 잘리지 않게 한다. 셀프호스팅에서는 무해.
+export const maxDuration = 60
+
 const openaiKey = process.env.OPENAI_API_KEY
+
+// 1차 백엔드 — 오픈웨이트 모델(OpenAI 호환 서버: Groq/OpenRouter/Ollama/vLLM 등).
+// AI_BASE_URL 설정 시 OPENAI_API_KEY보다 우선한다. 예: https://api.groq.com/openai/v1
+const aiBaseUrl = process.env.AI_BASE_URL
+const aiModel = process.env.AI_MODEL || "qwen3:4b-instruct-2507-q4_K_M"
+// Ollama는 키를 검증하지 않지만 SDK가 값을 요구해 더미 기본값을 둔다.
+const aiApiKey = process.env.AI_API_KEY || "ollama"
+
+// 2차(폴백) 백엔드 — 1차가 429(한도 소진)·연결 실패·타임아웃일 때 같은 요청 안에서 자동 전환.
+const aiFallbackBaseUrl = process.env.AI_FALLBACK_BASE_URL
+const aiFallbackModel = process.env.AI_FALLBACK_MODEL || "qwen3:4b-instruct-2507-q4_K_M"
+const aiFallbackApiKey = process.env.AI_FALLBACK_API_KEY || "ollama"
+
+// 시간 예산: 백엔드당 15초 상한 × 최대 3단 = 45초 < maxDuration 60초 —
+// 어떤 실패 조합에서도 규칙 기반 폴백이 함수 수명 안에 나간다.
+// maxRetries 0: 다음 백엔드로의 전환이 곧 재시도라, SDK 자체 재시도는 겹치는 비용만 된다.
+const BACKEND_TIMEOUT_MS = 15_000
+const CHAIN_BUDGET_MS = 45_000
+
+interface Backend { client: OpenAI; model: string }
+
+// 자동 전환 체인: ① AI_BASE_URL(운영 기본 Groq) ② AI_FALLBACK_BASE_URL(선택)
+// ③ OPENAI_API_KEY(기존 경로) — 전부 실패·미설정이면 규칙 기반 buildAnswer.
+function backendChain(): Backend[] {
+  const opts = { timeout: BACKEND_TIMEOUT_MS, maxRetries: 0 }
+  const chain: Backend[] = []
+  if (aiBaseUrl) chain.push({ client: new OpenAI({ baseURL: aiBaseUrl, apiKey: aiApiKey, ...opts }), model: aiModel })
+  if (aiFallbackBaseUrl) chain.push({ client: new OpenAI({ baseURL: aiFallbackBaseUrl, apiKey: aiFallbackApiKey, ...opts }), model: aiFallbackModel })
+  if (openaiKey) chain.push({ client: new OpenAI({ apiKey: openaiKey, ...opts }), model: "gpt-4o-mini" })
+  return chain
+}
 
 const MAX_QUESTION_LENGTH = 500
 const MAX_CONTEXT_LENGTH = 2000
@@ -51,9 +86,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "질문이 없습니다." }, { status: 400 })
     }
 
-    if (openaiKey) {
-      const answer = await callGPT(question, context)
-      return NextResponse.json({ answer, remaining: null })
+    // stream: true — text/plain ReadableStream 으로 토큰 단위 응답 (CPU 추론이 느려 필수)
+    if (body.stream === true) {
+      return streamAnswer(question, context)
+    }
+
+    // stream 미지정·false — 기존 JSON 규약 유지 (하위 호환)
+    const t0 = Date.now()
+    for (const backend of backendChain()) {
+      const remaining = CHAIN_BUDGET_MS - (Date.now() - t0)
+      if (remaining < 3_000) break
+      try {
+        const answer = await callLLM(backend, question, context, remaining)
+        return NextResponse.json({ answer, remaining: null })
+      } catch {
+        // 429(한도 소진)·연결 실패·타임아웃 — 다음 백엔드로 자동 전환
+      }
     }
 
     const answer = buildAnswer(question, context)
@@ -63,10 +111,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function callGPT(question: string, context: string): Promise<string> {
-  const client = new OpenAI({ apiKey: openaiKey })
-
-  const systemPrompt = `당신은 흰다리새우(Litopenaeus vannamei) 양식 전문가 AI 어시스턴트입니다.
+const SYSTEM_PROMPT = `당신은 흰다리새우(Litopenaeus vannamei) 양식 전문가 AI 어시스턴트입니다.
 수질 관리, 질병 예방, 급이 전략, 환수, 폭기 등 양식장 운영에 대한 전문적이고 실용적인 조언을 제공합니다.
 답변은 반드시 한국어로 작성하고, 마크다운 형식을 사용하며, 구체적이고 실행 가능한 내용을 포함해야 합니다.
 
@@ -81,22 +126,105 @@ async function callGPT(question: string, context: string): Promise<string> {
 - 알칼리도: 100~150 mg/L CaCO₃
 - 탁도: 10 NTU 미만`
 
-  const userMessage = context
-    ? `[현재 양식장 데이터]\n${context}\n\n[질문]\n${question}`
-    : question
+function buildUserMessage(question: string, context: string): string {
+  return context ? `[현재 양식장 데이터]\n${context}\n\n[질문]\n${question}` : question
+}
 
-  const message = await client.chat.completions.create({
-    model: "gpt-4o-mini",
+// 비스트리밍 LLM 호출 (기존 callGPT를 백엔드 선택형으로 일반화)
+async function callLLM(backend: Backend, question: string, context: string, remainingMs: number): Promise<string> {
+  const message = await backend.client.chat.completions.create({
+    model: backend.model,
     max_tokens: 800,
     messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userMessage },
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: buildUserMessage(question, context) },
     ],
-  })
+  }, { timeout: Math.min(BACKEND_TIMEOUT_MS, remainingMs) })
 
   const content = message.choices[0].message.content
   if (content) return content
   return buildAnswer(question, context)
+}
+
+// 스트리밍 도중 끊겼을 때 절반 답변 뒤에 붙이는 안내 (스트림은 error 없이 close)
+const STREAM_INTERRUPTED_NOTICE =
+  "\n\n---\n⚠️ 연결이 끊겨 답변이 여기까지만 생성되었습니다. 잠시 후 다시 질문해 주세요."
+
+// 스트리밍 응답 — openai SDK stream:true 의 async iterator 를 ReadableStream 으로 변환
+// (node_modules/next/dist/docs .../route.md Streaming 섹션의 Web API 직접 사용 패턴)
+//
+// 자동 전환 규칙: 첫 토큰 수신 전 실패(429·연결 거부·타임아웃)만 다음 백엔드로
+// 전환한다. 첫 토큰 이후 끊김은 전환하지 않는다 — 반토막 답변 뒤에 다른 모델의
+// 전체 답변이 이어 붙는 중복을 막기 위해 안내 문구를 붙이고 error 없이 close 한다.
+// 규칙 기반 폴백도 같은 text/plain 규약으로 흘린다 (클라이언트 처리 경로 단일화).
+function streamAnswer(question: string, context: string): Response {
+  const backends = backendChain()
+  const encoder = new TextEncoder()
+  const t0 = Date.now()
+  // 클라이언트 이탈 시 진행 중인 백엔드 요청(스트림 소비 포함)을 끊는다 —
+  // 무료 한도·NAS CPU 를 아무도 안 보는 답변 생성에 쓰지 않기 위해.
+  const upstream = new AbortController()
+  let cancelled = false
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      // cancel 된 컨트롤러에 enqueue 하면 throw 한다 — 반드시 가드를 거친다
+      const safeEnqueue = (text: string) => {
+        if (cancelled) return
+        try { controller.enqueue(encoder.encode(text)) } catch { cancelled = true }
+      }
+      const safeClose = () => { try { controller.close() } catch { /* 이미 취소됨 */ } }
+
+      let streamed = false // 토큰을 하나라도 내보냈는지
+      for (const backend of backends) {
+        if (cancelled) break
+        const remaining = CHAIN_BUDGET_MS - (Date.now() - t0)
+        if (remaining < 3_000) break
+        try {
+          const completion = await backend.client.chat.completions.create({
+            model: backend.model,
+            max_tokens: 800,
+            stream: true,
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              { role: "user", content: buildUserMessage(question, context) },
+            ],
+          }, { timeout: Math.min(BACKEND_TIMEOUT_MS, remaining), signal: upstream.signal })
+
+          try {
+            for await (const chunk of completion) {
+              if (cancelled) break
+              const delta = chunk.choices[0]?.delta?.content
+              if (delta) {
+                streamed = true
+                safeEnqueue(delta)
+              }
+            }
+            safeClose()
+            return
+          } catch {
+            if (streamed) {
+              safeEnqueue(STREAM_INTERRUPTED_NOTICE)
+              safeClose()
+              return
+            }
+            // 첫 토큰 전 끊김 — 다음 백엔드로
+          }
+        } catch {
+          // create 자체 실패: 429(한도 소진)·연결 거부·타임아웃 — 다음 백엔드로
+        }
+      }
+
+      // 전 백엔드 실패·미설정 — 규칙 기반 답변을 같은 스트림 규약으로
+      if (!streamed) safeEnqueue(buildAnswer(question, context))
+      safeClose()
+    },
+    cancel() {
+      cancelled = true
+      upstream.abort()
+    },
+  })
+  return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8" } })
 }
 
 function buildAnswer(question: string, context: string): string {

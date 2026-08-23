@@ -1,11 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { usePathname } from "next/navigation"
 import { Bell, Search } from "lucide-react"
 import { SearchPanel } from "@/components/layout/search-panel"
 import { NotificationsPanel } from "@/components/layout/notifications-panel"
 import { getAlerts } from "@/lib/db"
+import { useAutoRefresh } from "@/lib/use-auto-refresh"
+import { useAlertNotifications } from "@/lib/use-alert-notifications"
+import type { Alert } from "@/types"
 import { MOCK_ALERTS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
@@ -55,24 +58,52 @@ export function Header() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [notiOpen, setNotiOpen] = useState(false)
   const [alertCount, setAlertCount] = useState(0)
+  const [alerts, setAlerts] = useState<Alert[]>([])
 
-  // Load unread alert count on mount
+  // 미해결 알림을 불러온다. 개수만이 아니라 목록까지 들고 있어야
+  // 새로 생긴 알림을 가려내 기기 알림으로 띄울 수 있다.
+  //
+  // 첫 로드는 프로미스 체인 안에서 상태를 넣는다 — 효과 본문에서 곧바로
+  // setState 하면 렌더가 한 번 더 돈다(home-view 와 같은 방식).
   useEffect(() => {
-    async function loadCount() {
-      try {
-        const data = await getAlerts(true)
-        const count = data.length
-          ? data.length
-          : (isTestAccount(user?.email) ? MOCK_ALERTS.filter(a => !a.resolved).length : 0)
-        setAlertCount(count)
-      } catch {
-        if (isTestAccount(user?.email)) {
-          setAlertCount(MOCK_ALERTS.filter(a => !a.resolved).length)
-        }
-      }
-    }
-    loadCount()
+    let alive = true
+    const mockList = () => (isTestAccount(user?.email) ? MOCK_ALERTS.filter(a => !a.resolved) : [])
+    getAlerts(true)
+      .then(data => {
+        if (!alive) return
+        const list = data.length ? data : mockList()
+        setAlerts(list)
+        setAlertCount(list.length)
+      })
+      .catch(() => {
+        if (!alive) return
+        const mock = mockList()
+        setAlerts(mock)
+        setAlertCount(mock.length)
+      })
+    return () => { alive = false }
   }, [user?.email])
+
+  // 센서가 1분마다 값을 올린다. 알림도 같은 주기로 따라가야 새로 생긴 이상을
+  // 새로고침 없이 받는다 — 기기 알림이 의미를 가지려면 이 폴링이 있어야 한다.
+  // 실패는 훅이 삼키고 다음 주기에 다시 시도한다.
+  const reloadAlerts = useCallback(async () => {
+    const data = await getAlerts(true)
+    const list = data.length
+      ? data
+      : (isTestAccount(user?.email) ? MOCK_ALERTS.filter(a => !a.resolved) : [])
+    setAlerts(list)
+    setAlertCount(list.length)
+  }, [user?.email])
+
+  useAutoRefresh(reloadAlerts, 60)
+
+  const { permission: notifyPermission, deliverable: notifyDeliverable, request: requestNotify } =
+    useAlertNotifications(alerts, {
+      enabled: t.notif.deviceEnabled,
+      more: t.notif.deviceMore,
+      tankFallback: t.reports.tank,
+    })
 
   // Global Cmd+K / Ctrl+K shortcut for search
   useEffect(() => {
@@ -134,6 +165,9 @@ export function Header() {
               open={notiOpen}
               onClose={() => setNotiOpen(false)}
               onCountChange={setAlertCount}
+              notifyPermission={notifyPermission}
+              notifyDeliverable={notifyDeliverable}
+              onEnableNotify={requestNotify}
             />
           </div>
         </div>

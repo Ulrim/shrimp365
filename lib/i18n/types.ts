@@ -407,6 +407,7 @@ export interface Dict {
     suggestQ4: string
   }
   reports: {
+    issuedAt: string
     title: string
     subtitle: string
     period7d: string
@@ -732,7 +733,22 @@ export interface Dict {
     threshold: string
     gotoTank: string
     markResolved: string
+    enableDevice: string
+    deviceOn: string
+    deviceBlocked: string
+    deviceUnsupported: string
+    deviceEnabled: string
+    deviceMore: string
     viewMore: string
+  }
+  anomaly: {
+    title: string
+    subtitle: string
+    none: string
+    needMore: string
+    surge: string
+    drift: string
+    deviation: string
   }
   subs: {
     price: string

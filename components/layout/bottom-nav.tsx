@@ -47,7 +47,7 @@ export function BottomNav() {
     { href: "/farms",         icon: Building2,     label: t.nav.farms },
     { href: "/production",    icon: FlaskConical,  label: t.nav.production },
     { href: "/inventory",     icon: Package,       label: t.nav.inventory },
-    { href: "/ai-advisor",    icon: BrainCircuit,  label: t.nav.aiAdvisor, badge: t.common.comingSoon },
+    { href: "/ai-advisor",    icon: BrainCircuit,  label: t.nav.aiAdvisor },
     { href: "/reports",       icon: BarChart3,     label: t.nav.reports },
     // 공개 콘텐츠는 언어별 주소가 따로 있다. 접두사 없는 주소는 한국어로
     // 고정되므로, 로그인한 사용자의 언어에 맞는 주소로 보낸다.
@@ -160,11 +160,6 @@ export function BottomNav() {
                   >
                     <item.icon className={cn("w-5 h-5", active ? "text-[#1E40AF]" : "text-muted-foreground")} />
                     <span className="flex-1 font-medium text-[15px]">{item.label}</span>
-                    {"badge" in item && item.badge && (
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
-                        {item.badge}
-                      </span>
-                    )}
                     <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </Link>
                 )
