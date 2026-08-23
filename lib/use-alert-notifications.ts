@@ -165,16 +165,18 @@ async function probePush(): Promise<void> {
     return
   }
   try {
-    const registration = await navigator.serviceWorker.getRegistration()
-    const existing = registration ? await registration.pushManager.getSubscription() : null
-    if (existing && matchesCurrentKey(existing)) {
-      setPushState("on")
-      return
-    }
-    // 권한을 이미 받아 둔 기기인데 구독만 사라진 경우가 있다(브라우저가 오래된
-    // 구독을 정리하거나 키가 바뀐 경우). 조용히 다시 구독한다 — 권한 창은
-    // 뜨지 않으므로 사용자를 방해하지 않는다. 이걸 안 하면 화면은 "켜짐"인데
-    // 앱을 닫으면 한 건도 안 오는 상태로 조용히 되돌아간다.
+    // 브라우저에 구독 객체가 있다는 것만으로 "켜짐"이라 단정하면 안 된다.
+    // 실제로 발송되려면 **서버가 그 구독을, 그것도 지금 로그인한 사람 것으로**
+    // 알고 있어야 한다. 둘은 어긋날 수 있다.
+    //
+    //   · 공용 태블릿에서 계정이 바뀌면 브라우저 구독은 그대로인데 서버 기록은
+    //     앞사람 것이다 → 새 사용자는 한 건도 못 받고, 앞사람 수조 알림이
+    //     이 태블릿 잠금화면에 계속 뜬다.
+    //   · 세션이 만료된 채로 구독하면 구독은 만들어지고 서버 저장만 401 로 실패한다.
+    //
+    // 어느 쪽이든 "켜짐"으로 표시되면 인탭 알림까지 꺼져서 **푸시도 인탭도 0건**이
+    // 된다. 고치기 전보다 나쁘다. 그래서 매번 서버에 다시 등록하고 그 결과를 따른다.
+    // enablePush 는 기존 구독이 쓸 만하면 재사용하므로 추가 비용은 요청 한 번이다.
     if (readPermission() === "granted") {
       setPushState((await enablePush()) ? "on" : "off")
       return

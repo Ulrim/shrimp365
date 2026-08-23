@@ -57,9 +57,12 @@ self.addEventListener("push", (event) => {
   // 외부 주소나 javascript: 를 열지 않게 앞의 "/" 하나로 못 박는다("//호스트" 제외).
   const url =
     typeof payload.url === "string" && /^\/(?!\/)/.test(payload.url) ? payload.url : DEFAULT_URL
-  // tag 가 같으면 새 알림이 옛 알림을 덮어쓴다. 같은 수조·같은 항목 알림이
-  // 밤새 스무 개 쌓이는 것을 막는다.
+  // tag 가 같으면 새 알림이 옛 알림을 덮어쓴다. 서버는 수조+항목으로 tag 를 주므로
+  // 같은 항목 알림이 밤새 쌓이지 않으면서, 다른 항목 알림끼리는 서로를 지우지 않는다.
   const tag = typeof payload.tag === "string" && payload.tag ? payload.tag : `shrimp365-${url}`
+  // 덮어쓸 때 소리·진동을 다시 울릴지. 이게 없으면 주의 → 위험 승격이
+  // 조용히 교체되어 자고 있는 사람은 깨지 않는다.
+  const urgent = payload.urgent === true
 
   event.waitUntil(
     self.registration.showNotification(title, {
@@ -67,6 +70,9 @@ self.addEventListener("push", (event) => {
       icon: ICON,
       badge: ICON,
       tag,
+      renotify: true,
+      // 위험은 손으로 닫을 때까지 남긴다. 잠깐 떴다 사라지면 못 보고 지나친다.
+      requireInteraction: urgent,
       data: { url },
     })
   )

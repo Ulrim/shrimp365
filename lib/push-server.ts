@@ -14,6 +14,9 @@ import { createAdminClient } from "@/lib/supabase-server"
 export interface PushAlert {
   type: "danger" | "warning"
   message: string
+  /** 어느 항목인지(DO·pH…). 알림을 항목 단위로 묶는 데 쓴다 — 없으면 한 수조의
+   *  여러 항목 알림이 서로를 덮어써 마지막 하나만 남는다. */
+  parameter?: string | null
 }
 
 interface VapidDetails {
@@ -37,6 +40,17 @@ function readVapid(): VapidDetails | null {
 /** 웹푸시가 설정되어 있는지. 화면·진단에서 쓰라고 열어 둔다. */
 export function isPushConfigured(): boolean {
   return readVapid() !== null
+}
+
+/** 푸시 서비스가 응답하지 않으면 센서 수집 응답이 같이 늘어지고, 장비는
+ *  타임아웃으로 판단해 같은 측정을 다시 올린다. 알림 때문에 측정이 중복되면 안 된다. */
+const SEND_TIMEOUT_MS = 5_000
+function withTimeout<T>(p: Promise<T>): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("push send timeout")), SEND_TIMEOUT_MS)),
+  ])
 }
 
 interface SubscriptionRow {
@@ -94,6 +108,13 @@ export async function sendAlertPush(tankId: string, alert: PushAlert): Promise<v
       title: `${alert.type === "danger" ? "🔴" : "🟡"} ${tank.name || "수조"}`,
       body: alert.message,
       url: `/water-quality?tank=${tankId}`,
+      // 같은 수조라도 **항목이 다르면 다른 알림**이다. 수조 단위로 묶으면
+      // DO 위험과 pH 주의가 같은 분에 걸렸을 때 하나가 조용히 사라진다.
+      tag: `shrimp365-${tankId}-${alert.parameter ?? "etc"}`,
+      // 위험은 소리·진동을 다시 울리고 손으로 닫을 때까지 남긴다.
+      // 주의 알림이 떠 있는 상태에서 위험으로 올라갔을 때, 조용히 교체되면
+      // 새벽에 자는 사람은 깨지 않는다 — 이 기능이 있는 이유가 그 순간이다.
+      urgent: alert.type === "danger",
     })
 
     const expired: string[] = []
@@ -102,7 +123,7 @@ export async function sendAlertPush(tankId: string, alert: PushAlert): Promise<v
     await Promise.all(
       (subs as SubscriptionRow[]).map(async (sub) => {
         try {
-          await webpush.sendNotification(
+          await withTimeout(webpush.sendNotification(
             { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
             payload,
             {
@@ -112,7 +133,7 @@ export async function sendAlertPush(tankId: string, alert: PushAlert): Promise<v
               TTL: 3600,
               urgency: alert.type === "danger" ? "high" : "normal",
             }
-          )
+          ))
           delivered.push(sub.endpoint)
         } catch (e) {
           const status = (e as { statusCode?: number }).statusCode

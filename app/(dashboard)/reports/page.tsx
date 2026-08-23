@@ -802,7 +802,7 @@ export default function ReportsPage() {
                   className="border-border text-foreground/80 hover:bg-accent"
                   onClick={handlePdf}
                 >
-                  <Download className="w-3.5 h-3.5 mr-1.5" />{t.reports.printSave}
+                  <Printer className="w-3.5 h-3.5 mr-1.5" />{t.reports.printSave}
                 </Button>
               </div>
               <ExampleReport printMeta={printMeta} />

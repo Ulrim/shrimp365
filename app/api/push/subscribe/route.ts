@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
+import { isPushConfigured } from "@/lib/push-server"
 
 // POST /api/push/subscribe
 // 브라우저가 pushManager.subscribe() 로 받아 온 구독을 저장한다.
@@ -43,6 +44,19 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 })
+  }
+
+  // 서버가 실제로 보낼 수 있을 때만 구독을 받는다.
+  //
+  // 클라이언트는 공개키 하나만 보고 구독을 시도하는데, 서버 발송에는 개인키와
+  // subject 까지 필요하다. 공개키만 넣고 재배포한 상태에서 구독을 받아 주면
+  // 화면은 "앱을 닫아도 받습니다"라고 하는데 서버는 한 건도 못 보내고,
+  // 인탭 알림까지 꺼져서 알림이 전멸한다. 거절하면 클라이언트가 인탭으로 폴백한다.
+  if (!isPushConfigured()) {
+    return NextResponse.json(
+      { error: "서버에 푸시 설정(VAPID)이 완료되지 않았습니다." },
+      { status: 503 },
+    )
   }
 
   let body: Record<string, unknown>
