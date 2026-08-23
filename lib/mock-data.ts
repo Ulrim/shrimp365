@@ -116,23 +116,93 @@ export const MOCK_TANKS: Tank[] = [
 // ─────────────────────────────────────────────
 // 수질 데이터
 // ─────────────────────────────────────────────
-function generateWQ(tankId: string, days = 7, opts: { highTurbidity?: boolean; lowDo?: boolean; highAmmonia?: boolean } = {}) {
+/** 목데이터는 언제 열어도 같아야 한다.
+ *
+ *  Math.random() 을 쓰면 시연할 때마다 화면이 달라지고, 이상징후 판정도 뜰 때가
+ *  있고 안 뜰 때가 있다. 증빙 캡처는 재현되어야 하므로 tankId 로 씨앗을 고정한다. */
+function seeded(seed: string): () => number {
+  let h = 2166136261
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return () => {
+    h += 0x6D2B79F5
+    let t = Math.imul(h ^ (h >>> 15), 1 | h)
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/** 시연용 수질 기록을 만든다.
+ *
+ *  opts 의 앞 세 개(lowDo·highTurbidity·highAmmonia)는 **임계값 초과** 상황이라
+ *  알림함과 수조 상태 뱃지를 보여 준다. 뒤 세 개는 **임계값을 넘기 전** 상황이라
+ *  이상징후 탐지(lib/thresholds.ts) 화면을 보여 준다 — 이 둘은 다른 기능이고,
+ *  데모 계정에 둘 다 있어야 각각을 캡처할 수 있다.
+ *
+ *  이상징후 시나리오 구간은 잡음을 넣지 않는다. 잡음이 한 걸음 폭보다 크면
+ *  단조 증가·감소가 끊겨 "연속 악화" 판정이 성립하지 않는다. */
+function generateWQ(
+  tankId: string,
+  days = 7,
+  opts: {
+    highTurbidity?: boolean
+    lowDo?: boolean
+    highAmmonia?: boolean
+    /** 급변 — 최근 2시간 안에 DO 가 크게 떨어진다(임계값 5.0 은 아직 안 넘음). */
+    doSurge?: boolean
+    /** 일별 악화 — 날마다 최저 DO 가 내려간다. 하루 주기와 구분되는 신호다. */
+    doDailyDecline?: boolean
+    /** 연속 악화 — 암모니아가 여러 시간에 걸쳐 꾸준히 오른다(임계값 0.5 미만에서). */
+    ammoniaDrift?: boolean
+  } = {},
+) {
   const data: WaterQualityReading[] = []
+  const rnd = seeded(tankId)
   const now = new Date()
   for (let i = days * 24; i >= 0; i--) {
     const t = new Date(now.getTime() - i * 3600000)
+    const hoursAgo = i
+
+    // ── DO ──────────────────────────────────────────────────────────────
+    let doLevel: number
+    if (opts.doDailyDecline) {
+      // 하루 0.45 씩 꾸준히 내려간다. 하루 주기(sin)도 살려 두되 진폭을 하락 폭보다
+      // 작게(±0.15) 둔다 — 주기가 하락보다 크면 날짜별 최저값이 오르내려 "연속 악화"가
+      // 성립하지 않는다(날짜 경계와 시각이 어긋나기 때문이며, 실제로 그렇게 끊겼다).
+      // 시간에 비례해 내리므로 달력 날짜와 무관하게 날마다 바닥이 낮아진다.
+      doLevel = 3.95 + (hoursAgo / 24) * 0.45 + Math.sin(hoursAgo / 6) * 0.15
+    } else if (opts.doSurge && hoursAgo <= 2) {
+      doLevel = 5.05                                   // 6.5 대에서 한 번에 떨어짐
+    } else if (opts.lowDo) {
+      doLevel = 3.8 + (rnd() - 0.5) * 0.6
+    } else {
+      doLevel = 6.5 + Math.sin(hoursAgo / 6) * 0.8 + (rnd() - 0.5) * 0.3
+    }
+
+    // ── 암모니아 ────────────────────────────────────────────────────────
+    let ammonia: number
+    if (opts.ammoniaDrift && hoursAgo <= 8) {
+      ammonia = 0.09 + (8 - hoursAgo) * 0.045          // 0.09 → 0.45 (임계 0.5 미만)
+    } else if (opts.highAmmonia) {
+      ammonia = 0.55 + rnd() * 0.2
+    } else {
+      ammonia = 0.08 + rnd() * 0.12
+    }
+
     data.push({
       id: `wq-${tankId}-${i}`,
       tank_id: tankId,
-      temperature: 28 + Math.sin(i / 12) * 1.5 + (Math.random() - 0.5) * 0.4,
-      ph: 7.9 + Math.sin(i / 8) * 0.25 + (Math.random() - 0.5) * 0.08,
-      do_level: opts.lowDo ? 3.8 + (Math.random() - 0.5) * 0.6 : 6.5 + Math.sin(i / 6) * 0.8 + (Math.random() - 0.5) * 0.3,
-      salinity: 20 + (Math.random() - 0.5) * 0.5,
-      ammonia: opts.highAmmonia ? 0.55 + Math.random() * 0.2 : 0.08 + Math.random() * 0.12,
-      nitrite: 0.04 + Math.random() * 0.06,
-      nitrate: 6 + Math.random() * 4,
-      alkalinity: 125 + (Math.random() - 0.5) * 10,
-      turbidity: opts.highTurbidity ? 28 + Math.random() * 12 : 4 + Math.random() * 4,
+      temperature: 28 + Math.sin(hoursAgo / 12) * 1.5 + (rnd() - 0.5) * 0.4,
+      ph: 7.9 + Math.sin(hoursAgo / 8) * 0.25 + (rnd() - 0.5) * 0.08,
+      do_level: doLevel,
+      salinity: 20 + (rnd() - 0.5) * 0.5,
+      ammonia,
+      nitrite: 0.04 + rnd() * 0.06,
+      nitrate: 6 + rnd() * 4,
+      alkalinity: 125 + (rnd() - 0.5) * 10,
+      turbidity: opts.highTurbidity ? 28 + rnd() * 12 : 4 + rnd() * 4,
       recorded_at: t.toISOString(),
       created_at: t.toISOString(),
     })
@@ -142,14 +212,14 @@ function generateWQ(tankId: string, days = 7, opts: { highTurbidity?: boolean; l
 
 export const MOCK_WATER_QUALITY: Record<string, WaterQualityReading[]> = {
   "tank-1":  generateWQ("tank-1"),
-  "tank-2":  generateWQ("tank-2"),
+  "tank-2":  generateWQ("tank-2", 7, { doSurge: true }),          // 이상징후: 급변
   "tank-3":  generateWQ("tank-3"),
-  "tank-4":  generateWQ("tank-4", 7, { lowDo: true }),
+  "tank-4":  generateWQ("tank-4", 7, { doDailyDecline: true }),   // 이상징후: 일별 악화 (+ DO 임계 근접)
   "tank-5":  generateWQ("tank-5"),
   "tank-6":  generateWQ("tank-6", 7, { highTurbidity: true }),
   "tank-7":  generateWQ("tank-7"),
   "tank-8":  generateWQ("tank-8"),
-  "tank-9":  generateWQ("tank-9"),
+  "tank-9":  generateWQ("tank-9", 7, { ammoniaDrift: true }),     // 이상징후: 연속 악화
   "tank-10": generateWQ("tank-10"),
   "tank-11": generateWQ("tank-11", 7, { highAmmonia: true }),
   "tank-12": generateWQ("tank-12"),
