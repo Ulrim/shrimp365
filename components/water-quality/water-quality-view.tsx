@@ -21,8 +21,9 @@ import {
 import {
   Thermometer, Droplets, Wind, Waves, AlertTriangle,
   CheckCircle2, XCircle, AlertCircle, RefreshCw, Plus, Download, Wifi, Clock,
-  Maximize2, X,
+  Maximize2, X, Activity, TrendingUp, TrendingDown, Gauge,
 } from "lucide-react"
+import { detectTrendAnomalies, TREND_MIN_SAMPLES, type TrendAnomaly } from "@/lib/thresholds"
 import { exportToCsv } from "@/lib/export"
 import { formatDateTime } from "@/lib/utils"
 import type { Tank, WaterQualityReading, Alert, SensorDevice } from "@/types"
@@ -93,6 +94,14 @@ const TIME_RANGES = [
 
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** 이상징후 종류를 한눈에 — 급변·연속악화는 방향까지 보여 주고, 범위 이탈은 계기 모양. */
+function AnomalyIcon({ kind, value, reference }: Pick<TrendAnomaly, "kind" | "value" | "reference">) {
+  if (kind === "deviation") return <Gauge className="w-4 h-4" aria-hidden="true" />
+  return value >= reference
+    ? <TrendingUp className="w-4 h-4" aria-hidden="true" />
+    : <TrendingDown className="w-4 h-4" aria-hidden="true" />
+}
 
 function getStatus(value: number, stdKey: typeof STD_KEYS[number]): StatusLevel {
   const s = WATER_QUALITY_STANDARDS[stdKey]
@@ -643,6 +652,8 @@ export function WaterQualityView() {
     [allReadings, selectedDeviceId],
   )
   const latest = useMemo(() => (readings.length ? readings[readings.length - 1] : null), [readings])
+  // 임계값을 넘기 전에 잡는 신호. readings 는 오래된 것 → 최신 순이라 그대로 넘긴다.
+  const anomalies = useMemo(() => detectTrendAnomalies(readings), [readings])
   const chartData = useMemo(() => buildChartData(readings, locale, false), [readings, locale])
   // 전도도를 쓰는 농장(EC 센서를 전도도 모드로 둔 곳)에서만 탭을 보여 준다.
   const hasConductivity = useMemo(
@@ -930,6 +941,59 @@ export function WaterQualityView() {
               ))}
             </div>
           )}
+
+          {/* ── 이상징후 탐지 ──────────────────────────────────────────────── */}
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base text-foreground flex items-center gap-2">
+                <Activity className="w-4 h-4 text-violet-500" aria-hidden="true" />
+                {t.anomaly.title}
+                {anomalies.length > 0 && (
+                  <Badge variant={anomalies.some(a => a.type === "danger") ? "danger" : "warning"}>
+                    {anomalies.length}
+                  </Badge>
+                )}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">{t.anomaly.subtitle}</p>
+            </CardHeader>
+            <CardContent>
+              {readings.length < TREND_MIN_SAMPLES ? (
+                <p className="text-sm text-muted-foreground py-2">{t.anomaly.needMore}</p>
+              ) : anomalies.length === 0 ? (
+                <p className="flex items-center gap-2 text-sm text-emerald-600 py-2">
+                  <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+                  {t.anomaly.none}
+                </p>
+              ) : (
+                <ul className="space-y-2" role="list">
+                  {anomalies.map(a => (
+                    <li
+                      key={`${a.parameter}-${a.kind}`}
+                      className={`flex items-start gap-3 p-3 rounded-xl border ${
+                        a.type === "danger"
+                          ? "bg-red-500/10 border-red-500/30"
+                          : "bg-amber-500/10 border-amber-500/30"
+                      }`}
+                    >
+                      <span className={`mt-0.5 shrink-0 ${a.type === "danger" ? "text-red-500" : "text-amber-500"}`}>
+                        <AnomalyIcon kind={a.kind} value={a.value} reference={a.reference} />
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-sm font-medium ${a.type === "danger" ? "text-red-500" : "text-amber-500"}`}>
+                            {a.message}
+                          </span>
+                          <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground shrink-0">
+                            {a.kind === "surge" ? t.anomaly.surge : a.kind === "drift" ? t.anomaly.drift : t.anomaly.deviation}
+                          </span>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
 
           {/* ── Sensor selector (한 수조에 센서가 2대 이상일 때) ──────────────── */}
           {tankDevices.filter(d => d.active).length > 1 && (

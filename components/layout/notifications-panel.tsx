@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Bell, X, CheckCircle2, AlertCircle, XCircle, Info, CheckCheck, RefreshCw, ArrowRight } from "lucide-react"
+import { Bell, BellRing, X, CheckCircle2, AlertCircle, XCircle, Info, CheckCheck, RefreshCw, ArrowRight } from "lucide-react"
 import { getAlerts, resolveAlert } from "@/lib/db"
 import { MOCK_ALERTS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
@@ -10,11 +10,15 @@ import { useT } from "@/lib/i18n-context"
 import { formatDateTime } from "@/lib/utils"
 import { useAgriRoute } from "@/lib/agri-route"
 import type { Alert } from "@/types"
+import type { AlertNotifyPermission } from "@/lib/use-alert-notifications"
 
 interface NotificationsPanelProps {
   open: boolean
   onClose: () => void
   onCountChange?: (count: number) => void
+  /** 기기 알림 상태 — 헤더가 훅에서 받아 내려 준다. */
+  notifyPermission?: AlertNotifyPermission
+  onEnableNotify?: () => void
 }
 
 const TYPE_ICON: Record<Alert["type"], React.ReactNode> = {
@@ -29,7 +33,7 @@ const TYPE_BG: Record<Alert["type"], string> = {
   info:    "border-ocean-500/20 bg-ocean-500/5",
 }
 
-export function NotificationsPanel({ open, onClose, onCountChange }: NotificationsPanelProps) {
+export function NotificationsPanel({ open, onClose, onCountChange, notifyPermission, onEnableNotify }: NotificationsPanelProps) {
   const { user } = useAuth()
   const { t } = useT()
   const { href: withAgri } = useAgriRoute()
@@ -131,6 +135,28 @@ export function NotificationsPanel({ open, onClose, onCountChange }: Notificatio
           </button>
         </div>
       </div>
+
+      {/* 기기 알림 — 브라우저가 지원할 때만 노출한다. 차단 상태면 안내만 남긴다. */}
+      {notifyPermission && notifyPermission !== "unsupported" && (
+        <div className="px-4 py-2 border-b border-border">
+          {notifyPermission === "default" ? (
+            <button
+              onClick={onEnableNotify}
+              className="w-full flex items-center justify-center gap-2 min-h-[36px] rounded-lg bg-ocean-500/10 text-ocean-600 hover:bg-ocean-500/20 text-xs font-medium transition-colors"
+            >
+              <BellRing className="w-3.5 h-3.5" />
+              {t.notif.enableDevice}
+            </button>
+          ) : notifyPermission === "granted" ? (
+            <p className="flex items-center justify-center gap-1.5 text-xs text-emerald-600">
+              <BellRing className="w-3.5 h-3.5" />
+              {t.notif.deviceOn}
+            </p>
+          ) : (
+            <p className="text-center text-xs text-muted-foreground">{t.notif.deviceBlocked}</p>
+          )}
+        </div>
+      )}
 
       {/* Alert list */}
       <div className="max-h-[420px] overflow-y-auto">

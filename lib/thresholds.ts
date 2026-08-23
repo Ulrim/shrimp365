@@ -145,3 +145,168 @@ export function checkRecipe(
 
   return alerts
 }
+
+// ── 추세 기반 이상징후 탐지 ─────────────────────────────────────────────
+//
+// 위 WQ_THRESHOLDS 는 "지금 값이 선을 넘었나"만 본다. 그것만으로는 늦다 —
+// DO 가 7.2 → 6.4 → 5.4 로 내려가는 동안은 5.0 을 안 넘었으니 아무 말이 없다가,
+// 넘는 순간 위험 알림이 뜬다. 그때는 이미 손쓸 시간이 짧다.
+//
+// 여기서는 값의 "움직임"을 본다. 세 신호를 각각 다른 이유로 잡는다.
+//   급변(surge)      직전 측정 대비 한 번에 크게 튀었다 — 사고·오염·장비 고장.
+//   연속 악화(drift)  여러 번에 걸쳐 한 방향으로 꾸준히 나빠진다 — 서서히 무너지는 중.
+//   범위 이탈(deviation) 이 수조의 평소 값에서 벗어났다 — 절대 기준이 아닌 자기 기준.
+//
+// 결과는 alerts 테이블에 저장하지 않는다. 저장되는 알림은 임계값 초과로만
+// 한정해 두어야 알림함이 추정으로 넘치지 않는다. 이건 화면에서 읽는 신호다.
+
+/** 어느 쪽으로 움직여야 "나빠지는" 것인지. */
+type Worsening = "up" | "down" | "both"
+
+/** 항목별 판정 기준.
+ *  surge 는 "직전 대비 이만큼 튀면 비정상"인 폭이고, 연속 악화의 누적 폭 기준도 겸한다.
+ *  값은 흰다리새우 해수 양식의 통상 변동폭에서 잡았다 — 정상 운영에서 한 측정 주기에
+ *  이만큼 움직이는 일은 드물다. */
+const TREND_RULES: Record<ThresholdKey, { worsening: Worsening; surge: number; digits: number }> = {
+  temperature: { worsening: "both", surge: 2.0,  digits: 1 },
+  ph:          { worsening: "both", surge: 0.4,  digits: 2 },
+  do_level:    { worsening: "down", surge: 1.2,  digits: 2 },
+  salinity:    { worsening: "both", surge: 3.0,  digits: 1 },
+  ammonia:     { worsening: "up",   surge: 0.25, digits: 2 },
+  nitrite:     { worsening: "up",   surge: 0.10, digits: 2 },
+  nitrate:     { worsening: "up",   surge: 8.0,  digits: 1 },
+  alkalinity:  { worsening: "both", surge: 25,   digits: 0 },
+  turbidity:   { worsening: "up",   surge: 6.0,  digits: 1 },
+}
+
+export interface TrendAnomaly {
+  parameter: string
+  kind: "surge" | "drift" | "deviation"
+  /** 임계값 알림과 같은 등급 체계를 쓴다 — 화면에서 색을 공유하기 위해. */
+  type: "danger" | "warning"
+  message: string
+  value: number
+  /** 비교 기준값 — 급변이면 직전 값, 연속 악화면 구간 시작값, 이탈이면 평소 평균. */
+  reference: number
+}
+
+/** 판정에 필요한 최소 측정 횟수. 2~3개로는 추세라고 부를 수 없다. */
+export const TREND_MIN_SAMPLES = 4
+/** 평소 범위(평균·표준편차)를 논하려면 표본이 더 있어야 한다. */
+const DEVIATION_MIN_SAMPLES = 6
+/** 표준편차 몇 배를 벗어나야 "평소와 다르다"고 볼지. */
+const DEVIATION_SIGMA = 2.5
+/** 몇 번 연속 같은 방향이어야 추세로 볼지. */
+const DRIFT_MIN_STEPS = 3
+
+/** 이 움직임이 악화 방향인가. */
+function isWorsening(delta: number, worsening: Worsening): boolean {
+  if (delta === 0) return false
+  if (worsening === "both") return true
+  return worsening === "up" ? delta > 0 : delta < 0
+}
+
+/** 끝에서 거슬러 올라가며 연속으로 같은 방향인 구간의 길이. */
+function trailingRunLength(series: number[], sign: number): number {
+  let steps = 0
+  for (let i = series.length - 1; i > 0; i--) {
+    const d = series[i] - series[i - 1]
+    if (d === 0 || Math.sign(d) !== sign) break
+    steps++
+  }
+  return steps
+}
+
+/**
+ * 시간순(오래된 것 → 최신) 측정 기록에서 이상징후를 뽑는다.
+ *
+ * 항목당 최대 하나만 보고한다(급변 > 연속 악화 > 범위 이탈 순). 같은 항목에
+ * 세 줄이 뜨면 읽는 사람이 무엇부터 봐야 할지 알 수 없다.
+ *
+ * 0 은 "안 쟀다"로 본다 — DB 기본값이 0 이라 측정하지 않은 항목과 구분되지 않는다.
+ * 이 관례는 checkThresholds 와 같다.
+ */
+export function detectTrendAnomalies(
+  readings: Partial<Record<ThresholdKey, number>>[],
+): TrendAnomaly[] {
+  if (readings.length < TREND_MIN_SAMPLES) return []
+  const found: TrendAnomaly[] = []
+
+  for (const key of Object.keys(TREND_RULES) as ThresholdKey[]) {
+    const rule = TREND_RULES[key]
+    const label = PARAM_LABELS[key] ?? key
+    const fmt = (n: number) => n.toFixed(rule.digits)
+
+    const series = readings
+      .map(r => r[key])
+      .filter((v): v is number => typeof v === "number" && v !== 0)
+
+    if (series.length < TREND_MIN_SAMPLES) continue
+
+    const latest = series[series.length - 1]
+    const prev = series[series.length - 2]
+    const step = latest - prev
+
+    // ① 급변 — 한 주기에 크게 튀었다
+    if (isWorsening(step, rule.worsening) && Math.abs(step) >= rule.surge) {
+      found.push({
+        parameter: label,
+        kind: "surge",
+        type: Math.abs(step) >= rule.surge * 2 ? "danger" : "warning",
+        message: `${label} ${fmt(latest)} — 직전 ${fmt(prev)} 에서 ${fmt(Math.abs(step))} 급변`,
+        value: latest,
+        reference: prev,
+      })
+      continue
+    }
+
+    // ② 연속 악화 — 여러 주기에 걸쳐 한 방향
+    const sign = Math.sign(step)
+    if (sign !== 0 && isWorsening(step, rule.worsening)) {
+      const steps = trailingRunLength(series, sign)
+      if (steps >= DRIFT_MIN_STEPS) {
+        const start = series[series.length - 1 - steps]
+        const total = Math.abs(latest - start)
+        if (total >= rule.surge) {
+          found.push({
+            parameter: label,
+            kind: "drift",
+            type: total >= rule.surge * 2 ? "danger" : "warning",
+            message: `${label} ${fmt(latest)} — ${steps + 1}회 연속 ${sign > 0 ? "상승" : "하락"} (${fmt(start)} → ${fmt(latest)})`,
+            value: latest,
+            reference: start,
+          })
+          continue
+        }
+      }
+    }
+
+    // ③ 평소 범위 이탈 — 이 수조의 자기 기준에서 벗어났다
+    if (series.length >= DEVIATION_MIN_SAMPLES) {
+      const baseline = series.slice(0, -1)
+      const mean = baseline.reduce((s, v) => s + v, 0) / baseline.length
+      const variance = baseline.reduce((s, v) => s + (v - mean) ** 2, 0) / baseline.length
+      const sd = Math.sqrt(variance)
+      const gap = latest - mean
+      // sd 가 0 에 가까우면(늘 같은 값) 아주 작은 변화도 무한대 배수가 된다.
+      // 그런 경우까지 잡으면 소수점 흔들림마다 경고가 뜨므로, 판정 폭의 1/4 을
+      // 최소 유의미 변화로 두고 그보다 작으면 넘어간다.
+      if (sd > 0 && Math.abs(gap) >= rule.surge / 4 && Math.abs(gap) / sd >= DEVIATION_SIGMA
+          && isWorsening(gap, rule.worsening)) {
+        found.push({
+          parameter: label,
+          kind: "deviation",
+          type: "warning",
+          message: `${label} ${fmt(latest)} — 평소 범위(평균 ${fmt(mean)}) 를 벗어남`,
+          value: latest,
+          reference: mean,
+        })
+      }
+    }
+  }
+
+  // 위험을 먼저, 그다음 급변 → 연속 악화 → 범위 이탈 순으로 읽히게 한다.
+  const kindOrder = { surge: 0, drift: 1, deviation: 2 }
+  return found.sort((a, b) =>
+    (a.type === b.type ? 0 : a.type === "danger" ? -1 : 1) || kindOrder[a.kind] - kindOrder[b.kind])
+}

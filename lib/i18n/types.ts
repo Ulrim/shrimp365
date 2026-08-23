@@ -732,7 +732,19 @@ export interface Dict {
     threshold: string
     gotoTank: string
     markResolved: string
+    enableDevice: string
+    deviceOn: string
+    deviceBlocked: string
     viewMore: string
+  }
+  anomaly: {
+    title: string
+    subtitle: string
+    none: string
+    needMore: string
+    surge: string
+    drift: string
+    deviation: string
   }
   subs: {
     price: string
