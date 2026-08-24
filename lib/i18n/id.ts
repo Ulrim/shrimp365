@@ -780,6 +780,7 @@ export const id: Dict = {
     surge: "Perubahan mendadak",
     drift: "Penurunan berlanjut",
     deviation: "Di luar rentang biasa",
+    causes: "Dugaan penyebab",
   },
   subs: {
     price: "Harga",

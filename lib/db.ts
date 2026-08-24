@@ -1,6 +1,6 @@
 import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbSensorDevice, DbProductionCycle, DbGrowthSample, DbCycleCost, DbCycleHarvest, DbInventoryItem, DbInventoryTransaction } from "@/lib/supabase"
 import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction } from "@/types"
-import { checkThresholds } from "@/lib/thresholds"
+import { checkThresholds, planMissingInputAlerts, MISSING_INPUT_PARAMETER } from "@/lib/thresholds"
 import { PLAN_LIMITS, type Plan } from "@/lib/plans"
 import { isTestAccount } from "@/lib/mock-data"
 
@@ -310,6 +310,18 @@ export async function insertWaterQuality(
       })
     } catch { /* alert insert failure is non-fatal */ }
   }
+
+  // 기록이 다시 들어왔으니 이 수조의 입력 누락 알림은 닫는다.
+  // 주기 판정(syncMissingInputAlerts)이 돌 때까지 기다리지 않는다 — 방금 입력한
+  // 사람의 화면에서 "기록이 없습니다" 가 그대로 남아 있으면 안 된다.
+  try {
+    await supabase
+      .from("alerts")
+      .update({ resolved: true })
+      .eq("tank_id", tankId)
+      .eq("parameter", MISSING_INPUT_PARAMETER)
+      .eq("resolved", false)
+  } catch { /* non-fatal */ }
 
   // Sync tank status with the worst threshold level from this reading
   const newStatus = thresholdAlerts.some(a => a.type === "danger") ? "danger"
@@ -625,6 +637,125 @@ export async function createAlert(values: {
     .single()
   if (error) throw error
   return data
+}
+
+// ─────────────────────────────────────────────
+// 입력 누락 알림
+// ─────────────────────────────────────────────
+//
+// 이 저장소에는 스케줄러(cron)가 없다. 수질 위험·위험도 상승 알림은 값이
+// 들어오는 순간(센서 수신 API·수동 입력)에 만들어지지만, **입력 누락은 아무
+// 일도 일어나지 않는 것이 사건**이라 그 방식으로는 영영 만들어지지 않는다.
+//
+// 그래서 화면이 켜져 있는 동안 브라우저가 대신 돌린다 — 헤더의 알림 폴링
+// (components/layout/header.tsx, 60초)에 얹었다. 헤더는 대시보드 전 화면에
+// 떠 있어 어느 페이지를 열어도 판정이 돌고, 판정 결과가 곧바로 같은 폴링의
+// 다음 조회에 잡힌다.
+//
+// 다만 60초마다 실제로 훑으면 안 된다. 그래서 두 겹으로 막는다.
+//  ① 브라우저 단위 스로틀 — localStorage 에 마지막 실행 시각을 남기고
+//     MISSING_INPUT_CHECK_INTERVAL_MIN 안에는 건너뛴다. localStorage 는 같은
+//     출처의 모든 탭이 공유하므로 탭을 10개 열어도 시간당 한 번이다.
+//  ② 알림 단위 중복 방지 — 센서 수신 경로(app/api/sensors/data/route.ts)와
+//     같은 방식으로, 열려 있는 같은 알림이 있으면 새로 만들지 않고 갱신만 한다.
+//     ①을 뚫고 두 탭이 동시에 들어오더라도 여기서 걸린다.
+//  그래도 정확히 같은 순간에 겹쳐 두 줄이 생겼다면, 다음 판정 때 가장 오래된
+//  한 줄만 남기고 나머지를 닫아 스스로 정리한다.
+//
+// 쓰기는 전부 사용자 세션(anon 키 + RLS)으로 나간다. alerts 의 RLS 정책
+// (alerts_all_own)이 본인 수조로 범위를 좁혀 주므로 service-role 이 필요 없다.
+
+/** 한 브라우저에서 입력 누락 판정을 다시 돌리기까지의 최소 간격(분).
+ *  72시간을 보는 판정이라 한 시간 늦어도 의미가 달라지지 않는다. */
+const MISSING_INPUT_CHECK_INTERVAL_MIN = 60
+
+const MISSING_INPUT_CHECK_KEY = "shrimp365.missing-input-checked-at"
+
+/** 이번 주기에 판정을 돌릴 차례인지. 돌릴 차례면 곧바로 시각을 찍고 true 를
+ *  돌려준다 — 비동기 작업을 시작하기 **전에** 자리를 선점해야 다른 탭이
+ *  같은 창으로 들어오지 않는다. */
+function claimMissingInputCheck(email?: string | null): boolean {
+  const who = email ?? ""
+  const now = Date.now()
+  try {
+    const raw = window.localStorage.getItem(MISSING_INPUT_CHECK_KEY)
+    if (raw) {
+      const sep = raw.lastIndexOf("|")
+      const lastWho = sep >= 0 ? raw.slice(0, sep) : ""
+      const lastAt = Number(sep >= 0 ? raw.slice(sep + 1) : raw)
+      // 계정이 바뀌었으면 남의 기록이다. 기다리지 않고 바로 돌린다.
+      if (lastWho === who && Number.isFinite(lastAt) &&
+          now - lastAt < MISSING_INPUT_CHECK_INTERVAL_MIN * 60_000) {
+        return false
+      }
+    }
+    window.localStorage.setItem(MISSING_INPUT_CHECK_KEY, `${who}|${now}`)
+    return true
+  } catch {
+    // 사생활 보호 모드 등으로 localStorage 를 못 쓰는 브라우저. 스로틀만
+    // 포기하고 판정은 돌린다 — 중복은 위 ②가 막는다.
+    return true
+  }
+}
+
+/**
+ * 기록이 끊긴 수조를 찾아 입력 누락 알림을 만들고, 돌아온 수조의 알림은 닫는다.
+ *
+ * 실패는 삼킨다 — 알림 폴링에 얹혀 도는 부가 작업이라 여기서 던지면 정작
+ * 봐야 할 알림 목록 갱신까지 멈춘다.
+ *
+ * @param email 로그인 계정. 데모 계정은 목데이터로 화면을 그리므로 건너뛴다.
+ * @returns 알림을 만들거나 닫아 목록이 달라졌으면 true.
+ */
+export async function syncMissingInputAlerts(email?: string | null): Promise<boolean> {
+  if (typeof window === "undefined") return false
+  // 데모 계정 화면은 MOCK_ALERTS 로 그린다. 여기서 DB 를 건드리면 시연 중에
+  // 알림함이 목데이터와 어긋난다.
+  if (isTestAccount(email)) return false
+  if (!claimMissingInputCheck(email)) return false
+
+  try {
+    const tanks = await getAllTanks()
+    if (tanks.length === 0) return false
+    const tankIds = tanks.map(t => t.id)
+
+    // 열려 있는 입력 누락 알림을 한 번에 가져온다(수조마다 조회하지 않는다).
+    const { data: openRows, error: openErr } = await supabase
+      .from("alerts")
+      .select("id, tank_id, value")
+      .in("tank_id", tankIds)
+      .eq("parameter", MISSING_INPUT_PARAMETER)
+      .eq("resolved", false)
+      .order("created_at", { ascending: true })
+    if (openErr) throw openErr
+
+    // 수조별 마지막 기록 시각. 비운 수조는 애초에 판정하지 않으니 묻지 않는다.
+    const judged = tanks.filter(t => t.status !== "inactive")
+    const lastAt = new Map<string, string | null>()
+    await Promise.all(judged.map(async t => {
+      const latest = await getLatestWaterQuality(t.id)
+      lastAt.set(t.id, latest?.recorded_at ?? null)
+    }))
+
+    // 무엇을 만들고 갱신하고 닫을지는 순수 함수가 정한다(판정과 쓰기를 갈라 둔다).
+    const plan = planMissingInputAlerts(tanks, lastAt, openRows ?? [])
+
+    if (plan.resolve.length > 0) {
+      await supabase.from("alerts").update({ resolved: true }).in("id", plan.resolve)
+    }
+    for (const r of plan.refresh) {
+      await supabase.from("alerts").update({ value: r.value, message: r.message }).eq("id", r.id)
+    }
+    if (plan.insert.length > 0) {
+      await supabase.from("alerts").insert(plan.insert)
+    }
+
+    // 갱신만 한 경우는 목록의 구성이 그대로라 다시 불러올 필요가 없다.
+    return plan.insert.length > 0 || plan.resolve.length > 0
+  } catch {
+    // 다음 주기에 다시 시도한다. 자리는 이미 선점했으므로 한 간격 뒤가 된다.
+    return false
+  }
 }
 
 // ─────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction } from "@/types"
+import { checkMissingInput, MISSING_INPUT_HOURS } from "@/lib/thresholds"
 
 export const MOCK_USER = {
   id: "mock-user-1",
@@ -156,13 +157,19 @@ function generateWQ(
     doDailyDecline?: boolean
     /** 연속 악화 — 암모니아가 여러 시간에 걸쳐 꾸준히 오른다(임계값 0.5 미만에서). */
     ammoniaDrift?: boolean
+    /** 입력 누락 — 기록 전체를 이만큼 과거로 밀어 마지막 기록이 오래되게 만든다.
+     *  값 자체는 건드리지 않는다(씨앗 난수 호출 순서도 그대로). 시각만 옮긴다. */
+    staleDays?: number
   } = {},
 ) {
   const data: WaterQualityReading[] = []
   const rnd = seeded(tankId)
   const now = new Date()
+  const staleH = (opts.staleDays ?? 0) * 24
   for (let i = days * 24; i >= 0; i--) {
-    const t = new Date(now.getTime() - i * 3600000)
+    const t = new Date(now.getTime() - (i + staleH) * 3600000)
+    // 값을 만드는 기준은 옮기지 않은 i 그대로다 — 그래야 staleDays 를 줘도
+    // 파형과 난수열이 변하지 않고, 이 수조의 기존 캡처가 그대로 재현된다.
     const hoursAgo = i
 
     // ── DO ──────────────────────────────────────────────────────────────
@@ -217,7 +224,7 @@ export const MOCK_WATER_QUALITY: Record<string, WaterQualityReading[]> = {
   "tank-4":  generateWQ("tank-4", 7, { doDailyDecline: true }),   // 이상징후: 일별 악화 (+ DO 임계 근접)
   "tank-5":  generateWQ("tank-5"),
   "tank-6":  generateWQ("tank-6", 7, { highTurbidity: true }),
-  "tank-7":  generateWQ("tank-7"),
+  "tank-7":  generateWQ("tank-7", 7, { staleDays: 4 }),   // 입력 누락: 마지막 기록이 4일 전(기준 72시간 초과)
   "tank-8":  generateWQ("tank-8"),
   "tank-9":  generateWQ("tank-9", 7, { ammoniaDrift: true }),     // 이상징후: 연속 악화
   "tank-10": generateWQ("tank-10"),
@@ -246,6 +253,33 @@ export const MOCK_ALERTS: Alert[] = [
   { id: "alert-3", tank_id: "tank-11", tank_name: "F-1조", type: "warning", parameter: "ammonia",   value: 0.62, threshold: 0.5, message: "암모니아 농도가 주의 수준을 초과했습니다. 환수 및 미생물 투입 권장",       created_at: daysAgoZ(0.1),  resolved: false },
   { id: "alert-4", tank_id: "tank-6",  tank_name: "C-2조", type: "warning", parameter: "ph",        value: 9.1,  threshold: 8.5, message: "pH가 허용 범위를 초과했습니다",                                           created_at: daysAgoZ(0.15), resolved: false },
 ]
+
+// 입력 누락 알림 — 데모 계정에서도 이 알림을 캡처할 수 있어야 한다(과업지시서 4-2 증빙).
+//
+// 문구를 손으로 적어 넣지 않고 실제 판정 함수를 그대로 돌린다. 데모 화면에
+// 보이는 것과 현장에서 만들어지는 것이 한 글자도 달라지면 증빙으로 못 쓴다.
+// tank-7(D-1조) 은 MOCK_WATER_QUALITY 에서 staleDays: 4 로 기록이 4일 전에
+// 끊겨 있어, 기준(72시간)을 넘긴 유일한 수조다.
+const MISSING_INPUT_DEMO_TANK = MOCK_TANKS.find(t => t.id === "tank-7")
+const MISSING_INPUT_DEMO_LAST =
+  MOCK_WATER_QUALITY["tank-7"]?.[MOCK_WATER_QUALITY["tank-7"].length - 1]?.recorded_at ?? null
+const MISSING_INPUT_DEMO_VERDICT = MISSING_INPUT_DEMO_TANK
+  ? checkMissingInput(MISSING_INPUT_DEMO_TANK, MISSING_INPUT_DEMO_LAST)
+  : null
+
+if (MISSING_INPUT_DEMO_TANK && MISSING_INPUT_DEMO_VERDICT && MISSING_INPUT_DEMO_LAST) {
+  MOCK_ALERTS.push({
+    id: "alert-5",
+    tank_id: MISSING_INPUT_DEMO_TANK.id,
+    tank_name: MISSING_INPUT_DEMO_TANK.name,
+    ...MISSING_INPUT_DEMO_VERDICT,
+    // 마지막 기록에서 정확히 기준 시간이 지난 순간에 생겼을 알림이다.
+    created_at: new Date(
+      new Date(MISSING_INPUT_DEMO_LAST).getTime() + MISSING_INPUT_HOURS * 3600000,
+    ).toISOString(),
+    resolved: false,
+  })
+}
 
 // ─────────────────────────────────────────────
 // 양식일지 (최근 14일, 다양한 수조)

@@ -779,6 +779,7 @@ export const en: Dict = {
     surge: "Sudden change",
     drift: "Sustained decline",
     deviation: "Outside usual range",
+    causes: "Likely causes",
   },
   subs: {
     price: "Price",
