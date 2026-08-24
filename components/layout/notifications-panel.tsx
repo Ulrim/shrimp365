@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
 import { formatDateTime } from "@/lib/utils"
 import { useAgriRoute } from "@/lib/agri-route"
+import { MISSING_INPUT_PARAMETER } from "@/lib/thresholds"
 import type { Alert } from "@/types"
 import type { AlertNotifyPermission } from "@/lib/use-alert-notifications"
 
@@ -205,7 +206,11 @@ export function NotificationsPanel({ open, onClose, onCountChange, notifyPermiss
                     )}
                   </div>
                   <p className="text-xs text-foreground/80 leading-relaxed">{alert.message}</p>
-                  {alert.value != null && alert.threshold != null && (
+                  {/* 입력 누락은 "측정값"이 없는 알림이다 — value 는 마지막 기록 이후
+                      경과 **시간**이고 threshold 는 72시간이다. 이 줄을 그대로 붙이면
+                      "측정값 96 / 기준 72" 가 되어 수질 수치로 오해한다. 감추는 게 맞다.
+                      (water-quality-view.tsx 의 같은 가드와 짝) */}
+                  {alert.parameter !== MISSING_INPUT_PARAMETER && alert.value != null && alert.threshold != null && (
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {t.notif.measured}: <span className="text-foreground">{alert.value}</span> / {t.notif.threshold}: {alert.threshold}
                     </p>

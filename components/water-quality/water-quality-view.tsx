@@ -1487,8 +1487,15 @@ export function WaterQualityView() {
                               {isDanger ? t.dashboard.danger : t.dashboard.warning}
                             </Badge>
                           </div>
+                          {/* 입력 누락은 "측정값"이 없는 알림이다(value 는 경과 시간,
+                              threshold 는 72시간). 측정값/기준을 그대로 붙이면
+                              "측정값 96 → 기준 72" 가 되어 수질 수치로 오해한다.
+                              항목 이름만 남긴다 — 위 배너의 가드와 같은 방식. */}
                           <p className="text-xs text-muted-foreground mt-1">
-                            {t.waterQualityX.item}: {alertParamLabel} · {t.waterQualityX.measured} {alert.value} → {t.waterQualityX.threshold} {alert.threshold}
+                            {t.waterQualityX.item}: {alertParamLabel}
+                            {alert.parameter !== MISSING_INPUT_PARAMETER && (
+                              <> · {t.waterQualityX.measured} {alert.value} → {t.waterQualityX.threshold} {alert.threshold}</>
+                            )}
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">{formatDateTime(alert.created_at)}</p>
                         </div>
