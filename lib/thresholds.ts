@@ -13,7 +13,9 @@ export const WQ_THRESHOLDS = {
   turbidity:   { warning: { min: null, max: 20 }, danger: { min: null, max: 30 } },
 } as const
 
-const PARAM_LABELS: Record<string, string> = {
+/** 컬럼 키 → 화면·알림에 쓰는 라벨.
+ *  alerts 행의 parameter 에 저장되는 값이 이 라벨이라, 알림을 다시 찾을 때도 쓴다. */
+export const PARAM_LABELS: Record<string, string> = {
   temperature: "수온",
   ph:          "pH",
   do_level:    "DO",
@@ -422,4 +424,257 @@ export function detectTrendAnomalies(
   const kindOrder = { surge: 0, drift: 1, deviation: 2 }
   return [...best.values()].sort((a, b) =>
     (a.type === b.type ? 0 : a.type === "danger" ? -1 : 1) || kindOrder[a.kind] - kindOrder[b.kind])
+}
+
+// ── 입력 누락(기록 끊김) 판정 ───────────────────────────────────────────
+//
+// 위의 세 판정(임계값·레시피·추세)은 모두 "값이 들어온 다음"에만 돌아간다.
+// 값 자체가 끊기면 아무 판정도 돌지 않고, 화면은 마지막 기록을 그대로 띄운
+// 채 조용해진다. 센서가 죽었거나 사람이 기록을 잊은 것이 가장 위험한데도
+// 알림함은 비어 있다. 그래서 "조용해진 수조"를 따로 찾아 알린다.
+//
+// 72시간(3일)을 기준으로 삼는 근거:
+//  · 수기 입력 농가는 매일 재지 않는다. 주 2~3회가 흔해서 24시간으로 잡으면
+//    정상 운영 중인 농가에 매일 알림이 뜨고, 곧 알림 자체를 무시하게 된다.
+//  · 센서 농가는 1분 주기라 3일 침묵이면 정전·통신 두절·기기 고장이 확실하다.
+//    (기기 자체의 오프라인 표시는 sensor_devices.last_seen_at 이 따로 한다.)
+//  · 금요일 마지막 기록이 월요일 아침까지 이어져도 오탐이 나지 않는,
+//    주말을 견디는 가장 짧은 값이 3일이다.
+export const MISSING_INPUT_HOURS = 72
+
+/** 입력 누락 알림 행의 parameter 값.
+ *
+ *  이 문자열이 곧 식별자다 — 중복 방지(같은 수조에 열린 알림이 있으면 갱신만)와
+ *  자동 해소(기록이 다시 들어오면 닫기)가 tank_id + 이 값으로 같은 알림을 찾는다.
+ *  임계값 항목 라벨(수온·pH·DO…)과 절대 겹치지 않아야 한다. */
+export const MISSING_INPUT_PARAMETER = "입력 누락"
+
+export interface MissingInputAlert {
+  parameter: typeof MISSING_INPUT_PARAMETER
+  /** 즉시성이 낮은 신호다 — 위험(danger)으로 올리면 진짜 수질 위험이 묻힌다. */
+  type: "warning"
+  /** 마지막 기록 이후 경과 시간(시간). 알림 행의 value 로 그대로 들어간다. */
+  value: number
+  /** 판정 기준(시간) = MISSING_INPUT_HOURS. */
+  threshold: number
+  message: string
+}
+
+const MD = (d: Date) => `${d.getMonth() + 1}월 ${d.getDate()}일`
+
+/**
+ * 이 수조가 "입력 누락" 상태인가.
+ *
+ * @param tank            이름·상태·등록 시각. 상태가 inactive 면 판정하지 않는다 —
+ *                        입식 전이거나 수확이 끝나 비워 둔 수조라 기록이 없는 게 정상이다.
+ * @param lastRecordedAt  마지막 수질 기록 시각. 한 번도 없으면 null 을 넘긴다.
+ *                        이때는 수조 등록 시각(created_at)을 기준으로 센다 —
+ *                        방금 등록한 수조에 곧바로 알림이 뜨면 안 된다.
+ * @returns 알림이 필요하면 내용, 아니면 null(=정상이거나 판정 대상이 아님).
+ */
+export function checkMissingInput(
+  tank: { name: string; status?: string | null; created_at?: string | null },
+  lastRecordedAt: string | number | Date | null | undefined,
+  now: number = Date.now(),
+): MissingInputAlert | null {
+  if (tank.status === "inactive") return null
+
+  const ref = lastRecordedAt ?? tank.created_at ?? null
+  if (ref === null) return null
+  const refMs = new Date(ref).getTime()
+  if (!Number.isFinite(refMs)) return null
+
+  const elapsedH = (now - refMs) / H
+  if (elapsedH < MISSING_INPUT_HOURS) return null
+
+  const days = Math.floor(elapsedH / 24)
+  const name = tank.name || "수조"
+  const message = lastRecordedAt
+    ? `${name} — ${days}일째 수질 기록이 없습니다 (마지막 기록 ${MD(new Date(refMs))}). 측정값을 입력하거나 센서 상태를 확인하세요.`
+    : `${name} — 등록 후 ${days}일 동안 수질 기록이 한 번도 없습니다. 첫 측정값을 입력하세요.`
+
+  return {
+    parameter: MISSING_INPUT_PARAMETER,
+    type: "warning",
+    value: Math.round(elapsedH),
+    threshold: MISSING_INPUT_HOURS,
+    message,
+  }
+}
+
+/** 지금 열려 있는 입력 누락 알림 한 줄. */
+export interface MissingInputOpenAlert {
+  id: string
+  tank_id: string
+  /** 마지막으로 기록해 둔 경과 시간. 달라졌을 때만 갱신한다. */
+  value: number | null
+}
+
+/** 무엇을 새로 만들고, 무엇만 갱신하고, 무엇을 닫을지. */
+export interface MissingInputPlan {
+  insert: {
+    tank_id: string
+    type: "warning"
+    parameter: string
+    value: number
+    threshold: number
+    message: string
+    resolved: false
+  }[]
+  refresh: { id: string; value: number; message: string }[]
+  resolve: string[]
+}
+
+/**
+ * 수조 목록 · 마지막 기록 시각 · 열려 있는 알림을 놓고, 무엇을 할지 정한다.
+ *
+ * DB 를 건드리지 않는 순수 함수다 — 판정과 쓰기를 갈라 두어야 시나리오를
+ * 그대로 돌려 볼 수 있다. 실제 쓰기는 lib/db.ts 의 syncMissingInputAlerts 가 한다.
+ *
+ * 규칙은 센서 수신 경로(app/api/sensors/data/route.ts)와 같다.
+ *   · 열린 알림이 있으면 새로 만들지 않는다(중복 방지). 경과 일수만 갱신한다.
+ *   · 판정이 풀리면(기록 복귀·수조 비움) 닫는다(자동 해소).
+ *   · 어쩌다 같은 수조에 두 줄이 생겼으면 가장 오래된 한 줄만 남기고 닫는다.
+ *
+ * @param openAlerts 오래된 것부터(created_at ASC) 정렬되어 있어야 한다.
+ */
+export function planMissingInputAlerts(
+  tanks: { id: string; name: string; status?: string | null; created_at?: string | null }[],
+  lastRecordedAt: Map<string, string | null>,
+  openAlerts: MissingInputOpenAlert[],
+  now: number = Date.now(),
+): MissingInputPlan {
+  const plan: MissingInputPlan = { insert: [], refresh: [], resolve: [] }
+
+  const openByTank = new Map<string, MissingInputOpenAlert[]>()
+  for (const a of openAlerts) {
+    const list = openByTank.get(a.tank_id)
+    if (list) list.push(a); else openByTank.set(a.tank_id, [a])
+  }
+
+  for (const tank of tanks) {
+    const open = openByTank.get(tank.id) ?? []
+    // 같은 순간에 두 탭이 만들어 버린 중복 — 가장 오래된 한 줄만 남긴다.
+    if (open.length > 1) plan.resolve.push(...open.slice(1).map(a => a.id))
+
+    const verdict = checkMissingInput(tank, lastRecordedAt.get(tank.id) ?? null, now)
+
+    if (!verdict) {
+      // 기록이 다시 들어왔거나 수조를 비웠다.
+      if (open.length > 0) plan.resolve.push(open[0].id)
+      continue
+    }
+    if (open.length > 0) {
+      if (open[0].value !== verdict.value) {
+        plan.refresh.push({ id: open[0].id, value: verdict.value, message: verdict.message })
+      }
+      continue
+    }
+    plan.insert.push({
+      tank_id: tank.id,
+      type: verdict.type,
+      parameter: verdict.parameter,
+      value: verdict.value,
+      threshold: verdict.threshold,
+      message: verdict.message,
+      resolved: false,
+    })
+  }
+
+  return plan
+}
+
+// ── 주요 원인 후보 ──────────────────────────────────────────────────────
+//
+// 판정은 "무엇이 잘못됐나"까지만 말한다. 현장에서 필요한 다음 한 걸음은
+// "왜 그렇게 됐나" 다 — 그 후보를 항목별·방향별로 적어 둔다.
+//
+// 출처는 이 저장소가 이미 쓰고 있는 규칙 기반 권고문(app/api/ai-advisor/route.ts
+// 의 buildDoResponse·buildAmmoniaResponse·buildTurbidityResponse·buildWaterChangeResponse)
+// 과 흰다리새우 사육수 관리의 확립된 사실(질산화가 알칼리도를 소모한다, 광합성이
+// 주간 pH 를 올린다 등)이다. 근거가 약한 항목은 억지로 채우지 않고 2~3개만 둔다.
+//
+// 문구를 여기 한국어 상수로 두는 이유는 판정 문구(checkThresholds·
+// detectTrendAnomalies 의 message)가 이미 그렇기 때문이다. 원인 후보만 i18n 으로
+// 빼면 같은 카드 안에서 한 줄은 번역되고 한 줄은 안 되는 상태가 된다.
+// 판정 문구 전체를 번역하는 일은 별도 과제로 함께 가는 편이 맞다.
+
+/** 값이 오를 때(up)와 내릴 때(down) 각각 무엇을 먼저 의심할지. */
+export interface CauseCandidates {
+  up: string[]
+  down: string[]
+}
+
+const CAUSE_CANDIDATES: Record<ThresholdKey, CauseCandidates> = {
+  temperature: {
+    up:   ["기온 상승·직사일광", "히터 과작동 또는 쿨러 정지", "수온이 높은 물로 환수"],
+    down: ["기온 급강하·강우 유입", "히터 정지 또는 고장", "수온이 낮은 물로 환수"],
+  },
+  ph: {
+    up:   ["광합성 일주기 — 주간 CO₂ 소모", "플랑크톤·조류 과다 번성", "pH 가 높은 물로 환수"],
+    down: ["알칼리도 부족으로 완충력 저하", "야간 호흡·유기물 분해로 CO₂ 축적", "질산화 진행에 따른 산 생성"],
+  },
+  do_level: {
+    up:   ["주간 광합성으로 인한 과포화", "폭기 과다"],
+    down: ["수온 상승 — 1℃ 상승 시 포화 DO 약 0.2 mg/L 감소", "유기물 축적에 따른 산소 소모", "고밀도 사육으로 대사량 증가", "폭기 효율 저하 — 에어스톤 막힘·블로워 노화"],
+  },
+  salinity: {
+    up:   ["고수온·건조로 인한 증발 농축", "염도가 높은 해수로 환수", "담수 보충 부족"],
+    down: ["강우 유입·유출수 혼입", "염도가 낮은 물로 환수", "지하수·보충수 과다 투입"],
+  },
+  ammonia: {
+    up:   ["잔사·폐사체 등 유기물 축적", "생물여과 효율 저하", "급이 과잉으로 미섭이 사료 분해"],
+    down: ["환수·미생물제 투입 효과", "생물여과 정상화"],
+  },
+  nitrite: {
+    up:   ["질산화 2단계(아질산→질산) 미성숙", "여재 교체·소독 직후 질산화 세균 감소", "환수 부족으로 축적"],
+    down: ["환수 실시", "질산화 세균 정착 진행"],
+  },
+  nitrate: {
+    up:   ["질산화 최종산물 누적", "환수 부족", "급이량 과다"],
+    down: ["환수 실시", "조류 흡수·탈질"],
+  },
+  alkalinity: {
+    up:   ["석회·중탄산나트륨 등 완충제 과다 투입", "알칼리도가 높은 원수 유입"],
+    down: ["질산화 과정의 알칼리도 소모", "환수·보충 부족", "알칼리도가 낮은 원수 사용"],
+  },
+  turbidity: {
+    up:   ["사료 잔사·미섭이 사료 증가", "저질(슬러지) 부유", "플랑크톤 과다 번성", "여과·스키머 효율 저하"],
+    down: ["환수·여과로 부유물 제거", "플랑크톤 급감(수색 변화 동반)"],
+  },
+}
+
+/** 화면에 쓰는 라벨("수온")과 DB 컬럼 키("temperature") 둘 다로 찾을 수 있게.
+ *  판정 결과의 parameter 는 라벨이지만, 목데이터 알림은 컬럼 키를 쓴다. */
+const CAUSE_KEY_BY_NAME: Record<string, ThresholdKey> = (() => {
+  const map: Record<string, ThresholdKey> = {}
+  for (const key of Object.keys(CAUSE_CANDIDATES) as ThresholdKey[]) {
+    map[key] = key
+    const label = PARAM_LABELS[key]
+    if (label) map[label] = key
+  }
+  return map
+})()
+
+/**
+ * 이 항목이 이 방향으로 움직인 주요 원인 후보.
+ *
+ * @param parameter 항목 이름. 라벨("암모니아")과 컬럼 키("ammonia") 둘 다 받는다.
+ * @param direction 값이 오른 쪽인지 내린 쪽인지.
+ * @returns 원인 후보. 표에 없는 항목(EC 등)이면 빈 배열 — 화면은 이때 아무것도 그리지 않는다.
+ */
+export function causeCandidates(parameter: string, direction: "up" | "down"): string[] {
+  const key = CAUSE_KEY_BY_NAME[parameter]
+  if (!key) return []
+  return CAUSE_CANDIDATES[key][direction]
+}
+
+/** 이상징후 한 건의 원인 후보. 기준값보다 올라갔는지 내려갔는지로 방향을 잡는다. */
+export function anomalyCauses(a: Pick<TrendAnomaly, "parameter" | "value" | "reference">): string[] {
+  return causeCandidates(a.parameter, a.value >= a.reference ? "up" : "down")
+}
+
+/** 임계값 초과 알림 한 건의 원인 후보. 상한을 넘었으면 up, 하한을 밑돌면 down. */
+export function thresholdAlertCauses(a: { parameter: string; value: number; threshold: number }): string[] {
+  return causeCandidates(a.parameter, a.value >= a.threshold ? "up" : "down")
 }

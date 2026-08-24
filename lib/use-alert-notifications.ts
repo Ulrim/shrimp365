@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react"
+import { MISSING_INPUT_PARAMETER } from "@/lib/thresholds"
 import type { Alert } from "@/types"
 
 /** 기기 알림 상태.
@@ -352,7 +353,12 @@ export function useAlertNotifications(alerts: Alert[], texts: AlertNotifyTexts) 
     const remembered = seen.current
 
     // 정보성(info)까지 띄우면 피로해진다. 조치가 필요한 것만.
-    const actionable = alerts.filter(a => a.type === "danger" || a.type === "warning")
+    //
+    // 입력 누락은 type 이 warning 이라 여기에 걸리지만 기기 팝업에서는 뺀다.
+    // "3일째 기록이 없다"는 저즉시성 신호다 — 저산소·고암모니아 팝업과 같은 자리에
+    // 끼면 진짜 위급 알림의 신뢰도만 깎는다. 알림함(패널)에는 그대로 남는다.
+    const actionable = alerts.filter(a =>
+      (a.type === "danger" || a.type === "warning") && a.parameter !== MISSING_INPUT_PARAMETER)
     // 첫 조회인지 먼저 확정한다. 아래 조기 반환보다 뒤에 두면, 처음 열었을 때
     // 새 알림이 없던 경우 primed 가 서지 않아 **그다음에 온 진짜 첫 알림을 삼킨다.**
     const firstPass = !primed.current

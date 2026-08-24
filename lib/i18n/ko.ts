@@ -779,6 +779,7 @@ export const ko: Dict = {
     surge: "급변",
     drift: "연속 악화",
     deviation: "범위 이탈",
+    causes: "주요 원인 후보",
   },
   subs: {
     price: "요금",

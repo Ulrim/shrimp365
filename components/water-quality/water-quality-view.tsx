@@ -21,9 +21,12 @@ import {
 import {
   Thermometer, Droplets, Wind, Waves, AlertTriangle,
   CheckCircle2, XCircle, AlertCircle, RefreshCw, Plus, Download, Wifi, Clock,
-  Maximize2, X, Activity, TrendingUp, TrendingDown, Gauge,
+  Maximize2, X, Activity, TrendingUp, TrendingDown, Gauge, ChevronRight,
 } from "lucide-react"
-import { detectTrendAnomalies, TREND_MIN_SAMPLES, type TrendAnomaly } from "@/lib/thresholds"
+import {
+  detectTrendAnomalies, TREND_MIN_SAMPLES, anomalyCauses, thresholdAlertCauses,
+  MISSING_INPUT_PARAMETER, type TrendAnomaly,
+} from "@/lib/thresholds"
 import { exportToCsv } from "@/lib/export"
 import { formatDateTime } from "@/lib/utils"
 import type { Tank, WaterQualityReading, Alert, SensorDevice } from "@/types"
@@ -101,6 +104,29 @@ function AnomalyIcon({ kind, value, reference }: Pick<TrendAnomaly, "kind" | "va
   return value >= reference
     ? <TrendingUp className="w-4 h-4" aria-hidden="true" />
     : <TrendingDown className="w-4 h-4" aria-hidden="true" />
+}
+
+/** 주요 원인 후보 — "이 값이 왜 이렇게 됐나" 의 1차 후보 목록.
+ *
+ *  기본은 접어 둔다. 판정 한 줄마다 원인 서너 줄이 함께 펼쳐지면 카드가 길어져
+ *  정작 급한 문구를 못 읽는다. 필요한 사람이 한 번 눌러 편다.
+ *  <details> 를 쓰는 이유는 상태를 리액트로 들고 있지 않아도 되고(항목이 늘어도
+ *  렌더가 늘지 않는다), 키보드·스크린리더 동작이 브라우저 기본으로 붙기 때문이다. */
+function CauseCandidates({ causes, label }: { causes: string[]; label: string }) {
+  if (causes.length === 0) return null
+  return (
+    <details className="group mt-1.5">
+      <summary className="inline-flex items-center gap-1 cursor-pointer select-none text-xs text-muted-foreground hover:text-foreground transition-colors list-none [&::-webkit-details-marker]:hidden">
+        <ChevronRight className="w-3 h-3 shrink-0 transition-transform group-open:rotate-90" aria-hidden="true" />
+        {label} ({causes.length})
+      </summary>
+      <ul className="mt-1.5 ml-5 space-y-1 list-disc list-outside marker:text-muted-foreground/50">
+        {causes.map(c => (
+          <li key={c} className="text-xs text-muted-foreground leading-relaxed">{c}</li>
+        ))}
+      </ul>
+    </details>
+  )
 }
 
 function getStatus(value: number, stdKey: typeof STD_KEYS[number]): StatusLevel {
@@ -922,9 +948,18 @@ export function WaterQualityView() {
                     <p className={`text-sm font-medium ${alert.type === "danger" ? "text-red-500" : "text-amber-500"}`}>
                       {alert.message}
                     </p>
+                    {/* 입력 누락은 "측정값"이 없는 알림이다(value 는 경과 시간).
+                        측정값/기준 줄을 그대로 붙이면 읽는 사람이 수질 수치로 오해한다. */}
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {t.waterQualityX.measured}: {alert.value} / {t.waterQualityX.threshold}: {alert.threshold} · {formatDateTime(alert.created_at)}
+                      {alert.parameter !== MISSING_INPUT_PARAMETER && (
+                        <>{t.waterQualityX.measured}: {alert.value} / {t.waterQualityX.threshold}: {alert.threshold} · </>
+                      )}
+                      {formatDateTime(alert.created_at)}
                     </p>
+                    {/* 위험 항목에도 원인 후보를 붙인다 — 접힌 상태에서는 한 줄이라
+                        배너 높이가 지금과 같다. 임계값을 넘긴 항목이야말로
+                        "왜 그렇게 됐나" 가 가장 급한 자리다. */}
+                    <CauseCandidates causes={thresholdAlertCauses(alert)} label={t.anomaly.causes} />
                   </div>
                   <button
                     onClick={async () => {
@@ -990,6 +1025,7 @@ export function WaterQualityView() {
                         {/* 본문은 기본 글자색으로 — 경고색 위에 경고색 글자를 얹으면
                             라이트 모드에서 대비가 2:1 대까지 떨어진다(WCAG AA 미달). */}
                         <p className="text-sm text-foreground mt-1">{a.message}</p>
+                        <CauseCandidates causes={anomalyCauses(a)} label={t.anomaly.causes} />
                       </div>
                     </li>
                   ))}
@@ -1451,8 +1487,15 @@ export function WaterQualityView() {
                               {isDanger ? t.dashboard.danger : t.dashboard.warning}
                             </Badge>
                           </div>
+                          {/* 입력 누락은 "측정값"이 없는 알림이다(value 는 경과 시간,
+                              threshold 는 72시간). 측정값/기준을 그대로 붙이면
+                              "측정값 96 → 기준 72" 가 되어 수질 수치로 오해한다.
+                              항목 이름만 남긴다 — 위 배너의 가드와 같은 방식. */}
                           <p className="text-xs text-muted-foreground mt-1">
-                            {t.waterQualityX.item}: {alertParamLabel} · {t.waterQualityX.measured} {alert.value} → {t.waterQualityX.threshold} {alert.threshold}
+                            {t.waterQualityX.item}: {alertParamLabel}
+                            {alert.parameter !== MISSING_INPUT_PARAMETER && (
+                              <> · {t.waterQualityX.measured} {alert.value} → {t.waterQualityX.threshold} {alert.threshold}</>
+                            )}
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">{formatDateTime(alert.created_at)}</p>
                         </div>

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 import { Bell, Search } from "lucide-react"
 import { SearchPanel } from "@/components/layout/search-panel"
 import { NotificationsPanel } from "@/components/layout/notifications-panel"
-import { getAlerts } from "@/lib/db"
+import { getAlerts, syncMissingInputAlerts } from "@/lib/db"
 import { useAutoRefresh } from "@/lib/use-auto-refresh"
 import { useAlertNotifications } from "@/lib/use-alert-notifications"
 import type { Alert } from "@/types"
@@ -69,11 +69,26 @@ export function Header() {
     let alive = true
     const mockList = () => (isTestAccount(user?.email) ? MOCK_ALERTS.filter(a => !a.resolved) : [])
     getAlerts(true)
-      .then(data => {
+      .then(async data => {
         if (!alive) return
         const list = data.length ? data : mockList()
         setAlerts(list)
         setAlertCount(list.length)
+
+        // 입력 누락 판정은 목록을 먼저 그린 다음에 돌린다 — 첫 화면의 알림
+        // 배지가 이 판정을 기다리느라 늦게 뜨면 안 된다. 실제로 알림이 생기거나
+        // 닫혔을 때만 한 번 더 불러온다(내부 스로틀 때문에 대개 건너뛴다).
+        try {
+          if (!(await syncMissingInputAlerts(user?.email)) || !alive) return
+          const next = await getAlerts(true)
+          if (!alive) return
+          const refreshed = next.length ? next : mockList()
+          setAlerts(refreshed)
+          setAlertCount(refreshed.length)
+        } catch {
+          // 이미 그려 둔 목록을 지우지 않는다 — 아래 catch 로 흘러가면
+          // 멀쩡히 떠 있던 알림이 빈 목록으로 덮인다.
+        }
       })
       .catch(() => {
         if (!alive) return
@@ -88,6 +103,10 @@ export function Header() {
   // 새로고침 없이 받는다 — 기기 알림이 의미를 가지려면 이 폴링이 있어야 한다.
   // 실패는 훅이 삼키고 다음 주기에 다시 시도한다.
   const reloadAlerts = useCallback(async () => {
+    // 스케줄러가 없으므로 입력 누락 판정도 이 폴링에 얹어 돌린다. 판정 자체는
+    // 브라우저 단위로 스로틀되어(lib/db.ts) 60초마다 실제 조회가 나가지는 않고,
+    // 여기서 먼저 돌려 두면 새로 만들어진 알림이 아래 조회에 그대로 잡힌다.
+    await syncMissingInputAlerts(user?.email)
     const data = await getAlerts(true)
     const list = data.length
       ? data

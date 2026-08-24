@@ -13,6 +13,7 @@ import {
   Crown, CheckCircle2, Activity, Fish,
 } from "lucide-react"
 import { formatDateTime } from "@/lib/utils"
+import { MISSING_INPUT_PARAMETER } from "@/lib/thresholds"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -399,7 +400,11 @@ export default function AdminPage() {
                         )}
                       </div>
                       <p className="text-xs text-foreground/80">{alert.message}</p>
-                      {alert.value != null && alert.threshold != null && (
+                      {/* 입력 누락은 "측정값"이 없는 알림이다 — value 는 마지막 기록
+                          이후 경과 **시간**이고 기준은 72시간이다. 그대로 두면
+                          "측정값 96 / 기준 72" 가 되어 수질 수치로 오해한다.
+                          (water-quality-view.tsx·notifications-panel.tsx 와 같은 가드) */}
+                      {alert.parameter !== MISSING_INPUT_PARAMETER && alert.value != null && alert.threshold != null && (
                         <p className="text-xs text-muted-foreground mt-0.5">
                           측정값: <span className="text-foreground">{alert.value}</span> / 기준: {alert.threshold}
                         </p>

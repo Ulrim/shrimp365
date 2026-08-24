@@ -780,6 +780,7 @@ export const vi: Dict = {
     surge: "Thay đổi đột ngột",
     drift: "Suy giảm liên tục",
     deviation: "Ngoài khoảng thường",
+    causes: "Nguyên nhân nghi ngờ",
   },
   subs: {
     price: "Giá",

@@ -751,6 +751,7 @@ export interface Dict {
     surge: string
     drift: string
     deviation: string
+    causes: string
   }
   subs: {
     price: string

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase-server"
-import { checkThresholds, checkRecipe, hasRecipe, type TankRecipe } from "@/lib/thresholds"
+import { checkThresholds, checkRecipe, hasRecipe, PARAM_LABELS, MISSING_INPUT_PARAMETER, type TankRecipe } from "@/lib/thresholds"
 import { sendAlertPush } from "@/lib/push-server"
 
 // In-memory rate limit: max 60 requests per device per minute
@@ -310,7 +310,25 @@ export async function POST(req: NextRequest) {
   // 범위 안으로 돌아온 항목은 알림을 닫는다. 안 닫으면 위 중복 방지 때문에
   // 다음에 정말 문제가 생겨도 옛 알림만 갱신되고 새로 알리지 않는다.
   const stillBad = new Set(thresholdAlerts.map(a => a.parameter))
-  const recovered = Object.keys(values).filter(p => !stillBad.has(p))
+  // 알림 행의 parameter 는 화면에 쓰는 **라벨**("수온")이지 컬럼 키("temperature")가
+  // 아니다. 여기서 컬럼 키를 그대로 넣으면 어느 행과도 안 맞아 복귀가 영영 잡히지
+  // 않는다(초판이 그랬다 — 한 번 뜬 임계값 알림은 손으로 닫기 전에는 계속 열려
+  // 있었고, 중복 방지 때문에 새 알림도 뜨지 않았다). 라벨로 바꿔서 맞춘다.
+  //
+  // 판정 대상은 values 가 아니라 globalValues 다. 레시피가 있는 베드에서는 위에서
+  // salinity·ph 를 뺐고, 그 두 항목의 복귀는 아래 target_ec/target_ph 분기가 따로
+  // 잡는다. values 를 쓰면 판정하지도 않은 항목까지 복귀시킨다.
+  //
+  // 0 은 이 저장소 규약상 "미측정"이라 checkThresholds 가 판정에서 건너뛴다
+  // (lib/thresholds.ts). 판정을 안 한 값은 복귀도 아니다 — 비대칭이면 전극이 물
+  // 밖으로 나와 DO 0.0 을 계속 보낼 때 열려 있던 저산소 위험 알림이 조용히 닫힌다.
+  // 기기는 살아 있으니 오프라인 표시도 안 뜨고 알림함만 초록색이 된다.
+  const recovered = (Object.keys(globalValues) as (keyof typeof globalValues)[])
+    .filter(k => globalValues[k] !== 0)
+    .map(k => PARAM_LABELS[k])
+    .filter((label): label is string => !!label && !stillBad.has(label))
+  // 값이 들어왔다는 사실 자체가 입력 누락의 해소다.
+  recovered.push(MISSING_INPUT_PARAMETER)
   // 레시피 알림은 parameter 가 값 키와 달라("EC"/"pH") 별도 매핑으로 복귀를 잡는다.
   // 0 은 전극이 물 밖일 때 나오는 값이라 checkRecipe 가 판정에서 제외한다 —
   // 판정을 안 했으면 복귀도 아니다(비대칭이면 이탈 알림이 0 수신에 닫혀 버린다).
