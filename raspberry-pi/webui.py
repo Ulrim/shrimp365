@@ -463,6 +463,9 @@ var I18N = {
   n_ec_only:{ko:"전도도",en:"Conductivity",vi:"Độ dẫn",id:"Konduktivitas"},
   sen_noreply:{ko:"센서 응답 없음",en:"No sensor response",vi:"Cảm biến không phản hồi",id:"Sensor tak merespons"},
   sen_check:{ko:"설정 → 센서 설정 → 선 훑기",en:"Settings → Sensors → Scan bus",vi:"Cài đặt → Cảm biến → Quét",id:"Pengaturan → Sensor → Pindai"},
+  sen_probe:{ko:"전극 확인 필요",en:"Check the probe",vi:"Kiểm tra đầu dò",id:"Periksa probe"},
+  sen_probe_sub:{ko:"센서는 응답하지만 값을 내지 못합니다 — 전극 연결·상태를 확인하세요",en:"The sensor replies but reports no value — check the probe connection",vi:"Cảm biến phản hồi nhưng không có giá trị — kiểm tra kết nối đầu dò",id:"Sensor merespons tetapi tanpa nilai — periksa sambungan probe"},
+  sen_range:{ko:"값이 범위를 벗어남",en:"Value out of range",vi:"Giá trị ngoài khoảng",id:"Nilai di luar rentang"},
   // 양액
   menu_nutrient:{ko:"양액 설정",en:"Nutrient solution",vi:"Dung dịch dinh dưỡng",id:"Larutan nutrisi"},
   menu_nutrient_sub:{ko:"EC 로 농도 보고 보충량 계산",en:"Dosing from EC readings",vi:"Tính lượng bổ sung theo EC",id:"Hitung dosis dari EC"},
@@ -587,7 +590,18 @@ function subLine(key, d){
   var has = d.values && typeof d.values[key] === "number";
   if (!has) {
     var who = ownerSensor(key);
-    if (who && d.errors && d.errors[who]) {
+    var why = who && d.errors ? d.errors[who] : null;
+    if (why) {
+      // 원인마다 봐야 할 곳이 다르다. 응답이 아예 없으면 배선·ID,
+      // 응답은 하는데 값이 없으면 전극이다. 둘을 뭉뚱그리면 헛수고를 시킨다.
+      if (why === "probe") {
+        return '<div class="sub2 bad">' + t("sen_probe") +
+               '<div class="dim">' + t("sen_probe_sub") + '</div></div>';
+      }
+      if (String(why).indexOf("range:") === 0) {
+        return '<div class="sub2 bad">' + t("sen_range") +
+               '<div class="dim">' + esc(String(why).slice(6)) + '</div></div>';
+      }
       return '<div class="sub2 bad">' + t("sen_noreply") +
              '<div class="dim">' + t("sen_check") + '</div></div>';
     }

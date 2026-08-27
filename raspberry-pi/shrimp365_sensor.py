@@ -66,7 +66,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.7.0"
+VERSION = "1.7.1"
 log = logging.getLogger("shrimp365")
 
 
@@ -711,7 +711,7 @@ def read_all(client: ModbusClient, enabled: dict[str, int],
                     log.debug("%s 센서 읽기 실패(%s) — 다시 시도합니다.", key, exc)
                     time.sleep(0.05)
                     continue
-                errors[key] = str(exc)
+                errors[key] = "no_reply"
                 log.warning("%s 센서 읽기 실패: %s", key, exc)
         if regs is None:
             continue
@@ -732,7 +732,15 @@ def read_all(client: ModbusClient, enabled: dict[str, int],
                     "--dump 으로 레지스터를 확인해 보세요.",
                     key, name, value, raw_value, unit or "단위없음",
                 )
-                errors.setdefault(key, f"{name} 값 이상({value})")
+                # 원시값이 16비트 최대치면 값이 없다는 뜻이다. 변환기는 살아
+                # 있는데 전극이 안 붙었거나 망가졌을 때 이 값을 내보낸다.
+                # 배선을 뜯기 전에 전극부터 보라고 따로 알려 준다.
+                if raw_value in (0x7FFF, 0xFFFF):
+                    errors.setdefault(key, "probe")
+                    log.warning("%s 전극이 값을 내지 못합니다(원시 %s) — 전극 연결을 확인하세요.",
+                                key, raw_value)
+                else:
+                    errors.setdefault(key, f"range:{value}")
                 continue
 
             if name == "temperature":

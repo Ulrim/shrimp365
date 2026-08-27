@@ -1,5 +1,5 @@
 {
-  "latest": "1.7.0",
+  "latest": "1.7.1",
   "releases": {
     "1.5.0": {
       "notes": "염도 단위를 퍼밀(‰)로",
@@ -163,6 +163,20 @@
       "sha256": "20ce4cfa94d4b092268c48fa49fe13895f18604e359b4c96e09f82403254615a",
       "size": 69326,
       "signature": "47sIhjfDMa0KaP7IXh/G3sZ1lg49OP+csTiNPe7DidK2QZW6TtMNbLAsVm0sUtV0FtInFGHpx6c6j6dLqn/9AA=="
+    },
+    "1.7.1": {
+      "notes": "센서가 응답해도 값을 못 낼 때(전극 미연결) 원인을 구분해 표시",
+      "released_at": "2026-08-27",
+      "setup": {
+        "file": "shrimp365-setup-1.7.1.tar.gz",
+        "sha256": "2c0c23c3c583683f8019a629545ca233eb3502146db9ab65974d65451ad03dab",
+        "size": 101924,
+        "signature": "Y6lCtmIRJXyFl8UgagPGvA4gqMrJ+BGT4NyeAZPFNhk5Czimy5mLm2P9rFAt1DWFWSiBOH6A3zYh5k8ITcgPAg=="
+      },
+      "file": "shrimp365-agent-1.7.1.tar.gz",
+      "sha256": "f944109b278ab55a82f7dc170e358d0b1b18f5e449db98d25ec163eefe87843a",
+      "size": 69859,
+      "signature": "fyU29VUAGDRZYYzs6DzK/nQtsPvJlvkuVa6xK2uWRzMdzNJGhgExJ3xzkmLZCuEZkye3+YKCA7AC6IiwQPj8CA=="
     }
   }
 }
