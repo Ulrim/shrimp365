@@ -6,7 +6,9 @@
 // 사유마다 고쳐야 할 곳이 다르므로 뭉뚱그리지 않는다.
 //   no_reply   응답 자체가 없음 → 배선·전원·슬레이브 ID
 //   probe      통신은 되는데 값이 없음 → 전극 연결·상태
-//   supersat:N 물에서 나올 수 없는 값 → 전극이 물에 잠겼는지·보정
+//   do_air:N   센서도 산소가 많다고 함 → 전극이 물 밖
+//   do_scale:N/R mg/L 만 어긋남 → 보정
+//   supersat:N 물에서 나올 수 없는 값(대조 불가)
 //   range:N    값이 허용 범위 밖
 import type { Dict } from "@/lib/i18n"
 
@@ -28,7 +30,12 @@ export function readSensorFaults(
     let reason: string
     if (raw === "no_reply") reason = t.waterQualityX.faultNoReply
     else if (raw === "probe") reason = t.waterQualityX.faultProbe
-    else if (raw.startsWith("supersat:")) {
+    else if (raw.startsWith("do_air:")) {
+      reason = t.waterQualityX.faultDoAir.replace("{{p}}", raw.slice(7))
+    } else if (raw.startsWith("do_scale:")) {
+      const [p2, r2] = raw.slice(9).split("/")
+      reason = t.waterQualityX.faultDoScale.replace("{{p}}", p2).replace("{{r}}", r2 ?? "?")
+    } else if (raw.startsWith("supersat:")) {
       reason = t.waterQualityX.faultSupersat.replace("{{p}}", raw.slice(9))
     } else if (raw.startsWith("range:")) {
       reason = t.waterQualityX.faultRange.replace("{{v}}", raw.slice(6))

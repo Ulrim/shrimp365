@@ -1257,6 +1257,8 @@ export const ko: Dict = {
     faultNoReply: "응답 없음 — 배선·전원·ID 확인",
     faultProbe: "전극 이상 — 통신은 되나 값을 내지 못함",
     faultSupersat: "포화도 {{p}}% — 물에 잠겼는지·보정 확인",
+    faultDoAir: "전극이 물 밖인 듯 — 포화도 {{p}}%, 완전히 담그세요",
+    faultDoScale: "보정 필요 — mg/L 은 {{p}}% 인데 센서 보고는 {{r}}%",
     faultRange: "값이 범위를 벗어남 ({{v}})",
     sensorFault: "센서 이상",
     conductivityCaption: "전도도(EC) 흐름 · µS/cm — 양액은 1,000 µS/cm 가 1 mS/cm 입니다",

@@ -1258,6 +1258,8 @@ export const id: Dict = {
     faultNoReply: "Tak merespons — cek kabel, daya, ID",
     faultProbe: "Probe bermasalah — merespons tanpa nilai",
     faultSupersat: "Saturasi {{p}}% — pastikan terendam dan terkalibrasi",
+    faultDoAir: "Probe tampak di luar air — saturasi {{p}}%, rendam sepenuhnya",
+    faultDoScale: "Perlu kalibrasi — mg/L menunjukkan {{p}}% tetapi sensor {{r}}%",
     faultRange: "Nilai di luar rentang ({{v}})",
     sensorFault: "Sensor bermasalah",
     conductivityCaption: "Tren konduktivitas (EC) · µS/cm — 1.000 µS/cm sama dengan 1 mS/cm",

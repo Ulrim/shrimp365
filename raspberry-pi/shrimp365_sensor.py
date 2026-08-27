@@ -67,7 +67,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.7.7"
+VERSION = "1.7.8"
 log = logging.getLogger("shrimp365")
 
 
@@ -920,12 +920,33 @@ def read_all(client: ModbusClient, enabled: dict[str, int],
         if sat > 0:
             pct = do_val / sat * 100.0
             if pct > DO_SUPERSAT_LIMIT:
-                errors.setdefault("do", f"supersat:{round(pct)}")
-                log.warning(
-                    "용존산소가 물에서 나올 수 없는 값입니다: %s mg/L (수온 %s℃ 포화 %.1f, %d%%) "
-                    "— 전극이 물에 잠겼는지, 보정이 되어 있는지 확인하세요.",
-                    do_val, water_t, sat, round(pct),
-                )
+                # 센서가 스스로 보고하는 포화도(%)와 견줘 원인을 가른다.
+                # 같은 전극에서 나온 두 값이라 서로 어긋나면 뜻이 분명하다.
+                #   · 센서도 높다고 함  → 전극이 실제로 산소가 많은 곳(대개 공기)에 있다
+                #   · 센서는 정상이라 함 → mg/L 눈금만 어긋났다(보정 문제)
+                # 고칠 방법이 서로 달라서 뭉뚱그리면 헛수고를 시킨다.
+                reported = values.get("do_saturation")
+                if reported is not None and 60.0 <= reported <= 140.0:
+                    errors.setdefault("do", f"do_scale:{round(pct)}/{round(reported)}")
+                    log.warning(
+                        "용존산소 mg/L 눈금이 어긋난 것으로 보입니다: %s mg/L 은 포화 %d%% 인데 "
+                        "센서가 보고한 포화도는 %d%% 입니다 — 보정이 필요합니다.",
+                        do_val, round(pct), round(reported),
+                    )
+                elif reported is not None and reported > 140.0:
+                    errors.setdefault("do", f"do_air:{round(pct)}")
+                    log.warning(
+                        "용존산소가 물에서 나올 수 없는 값입니다: %s mg/L (포화 %d%%), "
+                        "센서 보고 포화도도 %d%% — 전극이 물에 잠겼는지 확인하세요.",
+                        do_val, round(pct), round(reported),
+                    )
+                else:
+                    errors.setdefault("do", f"supersat:{round(pct)}")
+                    log.warning(
+                        "용존산소가 물에서 나올 수 없는 값입니다: %s mg/L (수온 %s℃ 포화 %.1f, %d%%) "
+                        "— 전극이 물에 잠겼는지, 보정이 되어 있는지 확인하세요.",
+                        do_val, water_t, sat, round(pct),
+                    )
 
     # 염도는 전도도에서 환산한다. 센서의 염도 레지스터는 믿지 않는다.
     # 수온이 있어야 실용염분식을 쓸 수 있으므로 수온을 고른 뒤에 계산한다.

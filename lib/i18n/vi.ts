@@ -1258,6 +1258,8 @@ export const vi: Dict = {
     faultNoReply: "Không phản hồi — kiểm tra dây, nguồn, ID",
     faultProbe: "Lỗi đầu dò — có phản hồi nhưng không có giá trị",
     faultSupersat: "Bão hòa {{p}}% — kiểm tra ngập nước và hiệu chuẩn",
+    faultDoAir: "Đầu dò như ngoài nước — bão hòa {{p}}%, hãy nhúng ngập",
+    faultDoScale: "Cần hiệu chuẩn — mg/L cho {{p}}% nhưng cảm biến báo {{r}}%",
     faultRange: "Giá trị ngoài khoảng ({{v}})",
     sensorFault: "Lỗi cảm biến",
     conductivityCaption: "Xu hướng độ dẫn (EC) · µS/cm — 1.000 µS/cm bằng 1 mS/cm",

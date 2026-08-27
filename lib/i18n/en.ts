@@ -1257,6 +1257,8 @@ export const en: Dict = {
     faultNoReply: "No reply — check wiring, power, ID",
     faultProbe: "Probe fault — replies but reports no value",
     faultSupersat: "{{p}}% saturation — check it is submerged and calibrated",
+    faultDoAir: "Probe seems out of water — {{p}}% saturation, submerge it",
+    faultDoScale: "Needs calibration — mg/L implies {{p}}% but sensor reports {{r}}%",
     faultRange: "Value out of range ({{v}})",
     sensorFault: "Sensor fault",
     conductivityCaption: "Conductivity (EC) trend · µS/cm — 1,000 µS/cm equals 1 mS/cm",
