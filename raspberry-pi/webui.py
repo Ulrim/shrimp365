@@ -392,6 +392,7 @@ var LANG_ORDER = ["ko","en","vi","id"];
 var I18N = {
   // 측정 항목
   m_temperature:{ko:"수온",en:"Temperature",vi:"Nhiệt độ",id:"Suhu"},
+  m_ph_label:{ko:"pH",en:"pH",vi:"pH",id:"pH"},
   m_do:{ko:"용존산소",en:"Dissolved O₂",vi:"Oxy hòa tan",id:"Oksigen"},
   m_salinity:{ko:"염도",en:"Salinity",vi:"Độ mặn",id:"Salinitas"},
   graph:{ko:"그래프",en:"Graph",vi:"Biểu đồ",id:"Grafik"},
@@ -497,6 +498,17 @@ var I18N = {
   sen_supersat:{ko:"물에서 나올 수 없는 값",en:"Impossible for water",vi:"Không thể có trong nước",id:"Mustahil untuk air"},
   sen_supersat_sub:{ko:"포화도 {{p}}% — 전극이 물에 잠겼는지, 보정이 되어 있는지 확인하세요",en:"{{p}}% saturation — check the probe is submerged and calibrated",vi:"Bão hòa {{p}}% — kiểm tra đầu dò đã ngập nước và đã hiệu chuẩn",id:"Saturasi {{p}}% — pastikan probe terendam dan terkalibrasi"},
   // 양액
+  menu_cal:{ko:"보정 설정",en:"Calibration",vi:"Hiệu chuẩn",id:"Kalibrasi"},
+  menu_cal_sub:{ko:"휴대용 측정기 값에 맞추기",en:"Match a handheld meter",vi:"Khớp với máy đo cầm tay",id:"Samakan dengan meter genggam"},
+  cal_now:{ko:"센서값",en:"Sensor",vi:"Cảm biến",id:"Sensor"},
+  cal_offset:{ko:"보정",en:"Offset",vi:"Bù",id:"Offset"},
+  cal_result:{ko:"보정 후",en:"Corrected",vi:"Sau hiệu chuẩn",id:"Terkoreksi"},
+  cal_set:{ko:"실측값 입력",en:"Enter actual",vi:"Nhập giá trị thực",id:"Masukkan nilai nyata"},
+  cal_reset:{ko:"보정 해제",en:"Clear",vi:"Xóa",id:"Hapus"},
+  cal_ask:{ko:"휴대용 측정기로 잰 값을 넣으세요",en:"Enter the value from your handheld meter",vi:"Nhập giá trị đo bằng máy cầm tay",id:"Masukkan nilai dari meter genggam"},
+  cal_none:{ko:"지금 읽히는 값이 없어 보정할 수 없습니다",en:"No current reading — cannot calibrate",vi:"Không có giá trị hiện tại — không thể hiệu chuẩn",id:"Tak ada nilai saat ini — tak bisa kalibrasi"},
+  cal_saved:{ko:"보정했습니다.",en:"Calibrated.",vi:"Đã hiệu chuẩn.",id:"Terkalibrasi."},
+  cal_note:{ko:"1점 보정입니다 — 잰 그 지점에서만 정확합니다. 어긋남이 크면 보정으로 덮지 말고 전극을 먼저 손보세요.",en:"One-point correction — accurate only near the point you set. If the gap is large, fix the probe instead of masking it.",vi:"Hiệu chuẩn 1 điểm — chỉ chính xác quanh điểm đã đặt. Nếu lệch nhiều, hãy sửa đầu dò.",id:"Kalibrasi satu titik — akurat hanya di sekitar titik itu. Jika selisih besar, perbaiki probe."},
   menu_nutrient:{ko:"양액 설정",en:"Nutrient solution",vi:"Dung dịch dinh dưỡng",id:"Larutan nutrisi"},
   menu_nutrient_sub:{ko:"EC 로 농도 보고 보충량 계산",en:"Dosing from EC readings",vi:"Tính lượng bổ sung theo EC",id:"Hitung dosis dari EC"},
   nut_use:{ko:"양액 관리 사용",en:"Use nutrient management",vi:"Dùng quản lý dinh dưỡng",id:"Pakai manajemen nutrisi"},
@@ -992,6 +1004,7 @@ function drawSettingsMenu(){
     {t:"menu_sensors", sub:"menu_sensors_sub", fn:"openSensors()"},
     {t:"menu_wifi",    sub:"menu_wifi_sub",    fn:"openWifi()"},
     {t:"menu_lang",    sub:"menu_lang_sub",    fn:"openLang()"},
+    {t:"menu_cal",      sub:"menu_cal_sub",      fn:"openCal()"},
     {t:"menu_nutrient", sub:"menu_nutrient_sub", fn:"openNutrient()"},
     {t:"menu_restart", sub:"menu_restart_sub", fn:"openRestart()"}
   ];
@@ -1042,6 +1055,120 @@ function drawLang(){
         rows +
       '</div>' +
     '</div>';
+}
+
+// ── 보정 설정 ────────────────────────────────────────────────────────────────
+// 사람이 오프셋을 계산하게 하지 않는다. 휴대용 측정기로 잰 값을 넣으면
+// 장비가 지금 센서값과의 차이를 구해 저장한다.
+var calData = null, calMsg = null, calEdit = null, calBuf = "";
+
+var CAL_ITEMS = [
+  {k:"temperature",  t:"m_temperature", unit:"\u00B0C"},
+  {k:"ph",           t:"m_ph_label",    unit:""},
+  {k:"do_level",     t:"m_do",          unit:"ppm"},
+  {k:"conductivity", t:"n_ec_only",     unit:"uS/cm"}
+];
+
+function openCal(){
+  calMsg = null; calEdit = null;
+  fetch("/api/calibration", {cache:"no-store"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ calData = d; drawCal(); })
+    .catch(function(){ alert(t("load_fail")); });
+}
+
+function fmt(v){ return (v === null || v === undefined) ? "--" : v; }
+
+function drawCal(){
+  if (!calData) return;
+  document.getElementById("wifi").innerHTML = "";
+  var body;
+
+  if (calEdit){
+    var it = CAL_ITEMS.filter(function(x){ return x.k === calEdit; })[0];
+    var keys = ["1","2","3","4","5","6","7","8","9",".","0","back"];
+    var pad = keys.map(function(k){
+      return '<button onclick="calKey(&quot;' + k + '&quot;)">' + (k === "back" ? "\u232B" : k) + '</button>';
+    });
+    var rows = "";
+    for (var i = 0; i < 4; i++) rows += '<div class="krow">' + pad.slice(i*3, i*3+3).join("") + '</div>';
+    body =
+      '<div class="wcur">' + t(it.t) + ' — ' + t("cal_ask") + '<br>' +
+        '<span class="sub">' + t("cal_now") + ' ' + fmt(calData.raw[it.k]) + ' ' + it.unit + '</span><br>' +
+        '<b style="font-size:24px;font-family:ui-monospace,monospace">' + (calBuf || "0") + '</b> ' + it.unit +
+      '</div>' +
+      '<div class="kbd" style="max-width:330px">' + rows +
+        '<div class="krow">' +
+          '<button class="wide" onclick="calCancel()">' + t("cancel") + '</button>' +
+          '<button class="go" onclick="calApply()">' + t("save") + '</button>' +
+        '</div></div>';
+  } else {
+    var msg = calMsg ? '<div class="msg ' + calMsg.kind + '">' + esc(calMsg.text) + '</div>' : "";
+    var list = CAL_ITEMS.map(function(it){
+      var raw = calData.raw[it.k], off = calData.offsets[it.k] || 0, cor = calData.corrected[it.k];
+      var offTxt = off ? (off > 0 ? "+" + off : String(off)) : "0";
+      return '<div class="srow">' +
+        '<div class="sname">' + t(it.t) +
+          '<div class="sub">' + t("cal_now") + ' ' + fmt(raw) + ' ' + it.unit +
+            (off ? '  \u2192  ' + t("cal_result") + ' <b>' + fmt(cor) + '</b>' : '') +
+          '</div></div>' +
+        '<div class="num" style="width:auto;padding:0 10px">' + offTxt + '</div>' +
+        '<button class="toggle" onclick="calOpen(&quot;' + it.k + '&quot;)">' + t("cal_set") + '</button>' +
+        (off ? '<button class="toggle" onclick="calClear(&quot;' + it.k + '&quot;)">' + t("cal_reset") + '</button>' : '') +
+      '</div>';
+    }).join("");
+    body = msg + list + '<div class="msg err" style="margin-top:8px">' + t("cal_note") + '</div>';
+  }
+
+  document.getElementById("setup").innerHTML =
+    '<div class="setup">' +
+      '<div class="chead">' +
+        '<span class="ctitle">' + t("menu_cal") + '</span>' +
+        '<button style="margin-left:auto" onclick="' +
+          (calEdit ? "calCancel()" : "drawSettingsMenu()") + '">' +
+          (calEdit ? t("back_list") : t("back_menu")) + '</button>' +
+      '</div>' +
+      '<div class="sbody">' + body + '</div>' +
+    '</div>';
+}
+
+function calOpen(k){
+  if (calData.raw[k] === null || calData.raw[k] === undefined){
+    calMsg = {kind:"err", text:t("cal_none")}; drawCal(); return;
+  }
+  calEdit = k; calBuf = String(calData.raw[k]); drawCal();
+}
+function calCancel(){ calEdit = null; calBuf = ""; drawCal(); }
+function calKey(k){
+  if (k === "back") calBuf = calBuf.slice(0, -1);
+  else if (k === "."){ if (calBuf.indexOf(".") < 0) calBuf += "."; }
+  else calBuf = (calBuf === "0" ? "" : calBuf) + k;
+  if (calBuf.length > 9) calBuf = calBuf.slice(0, 9);
+  drawCal();
+}
+function calApply(){ calSend({name: calEdit, actual: parseFloat(calBuf || "0")}); }
+function calClear(k){ calSend({name: k, offset: 0}); }
+
+function calSend(payload){
+  fetch("/api/calibration/save", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify(payload)
+  })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      calEdit = null; calBuf = "";
+      calMsg = d && d.ok ? {kind:"ok", text:t("cal_saved")}
+                         : {kind:"err", text:(d && d.error) || t("save_fail")};
+      openCalRefresh();
+    })
+    .catch(function(){ calMsg = {kind:"err", text:t("save_fail")}; drawCal(); });
+}
+
+function openCalRefresh(){
+  fetch("/api/calibration", {cache:"no-store"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ calData = d; drawCal(); })
+    .catch(function(){ drawCal(); });
 }
 
 // ── 양액 설정 ────────────────────────────────────────────────────────────────
@@ -1771,6 +1898,8 @@ def serve(
     on_set_lang=None,
     on_restart=None,
     on_reboot=None,
+    get_calibration=None,
+    on_save_calibration=None,
     get_nutrient=None,
     on_save_nutrient=None,
 ) -> ThreadingHTTPServer | None:
@@ -1801,6 +1930,8 @@ def serve(
                 self._history()
             elif self.path == "/api/sensors" and get_sensors is not None:
                 self._send(200, json.dumps(get_sensors()).encode(), "application/json")
+            elif self.path == "/api/calibration" and get_calibration is not None:
+                self._send(200, json.dumps(get_calibration()).encode(), "application/json")
             elif self.path == "/api/nutrient" and get_nutrient is not None:
                 self._send(200, json.dumps(get_nutrient()).encode(), "application/json")
             elif self.path == "/api/wifi" and get_wifi is not None:
@@ -1872,6 +2003,10 @@ def serve(
                                "application/json")
                     return
                 self._send(200, json.dumps(on_wifi_connect(ssid, password)).encode(),
+                           "application/json")
+                return
+            if self.path == "/api/calibration/save" and on_save_calibration is not None:
+                self._send(200, json.dumps(on_save_calibration(self._body())).encode(),
                            "application/json")
                 return
             if self.path == "/api/nutrient/save" and on_save_nutrient is not None:

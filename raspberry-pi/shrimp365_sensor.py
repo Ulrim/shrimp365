@@ -67,7 +67,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.7.9"
+VERSION = "1.8.0"
 log = logging.getLogger("shrimp365")
 
 
@@ -668,6 +668,34 @@ def normalize(name: str, value: float, unit: str) -> float | None:
         return round(value, 2)
 
     return round(value, 3)
+
+
+# ── 센서값 보정 ───────────────────────────────────────────────────────────────
+# 전극은 쓰다 보면 실제와 조금씩 어긋난다. 휴대용 측정기 값에 맞추도록
+# 항목마다 더할 값(offset)을 둔다.
+#
+# 1점 보정이다 — 한 지점에서 맞추므로 측정 범위 전체가 맞지는 않는다.
+# 전극 자체의 영점·기울기 보정을 대신하지 못하며, 어긋남이 크면(예: 두 배)
+# 보정으로 덮지 말고 전극을 손봐야 한다. 그래서 화면에서 큰 보정값을 넣으면
+# 경고를 띄운다.
+CALIBRATED = ("temperature", "ph", "do_level", "conductivity")
+
+
+def apply_calibration(values: dict[str, float], offsets: dict[str, float]) -> dict[str, float]:
+    """보정값을 더한 새 측정값을 돌려준다. 원본은 건드리지 않는다."""
+    out = dict(values)
+    for name in CALIBRATED:
+        off = offsets.get(name, 0.0)
+        if not off or name not in out:
+            continue
+        fixed = out[name] + off
+        # 보정 때문에 있을 수 없는 값이 되면 보정을 접는다. 음수 용존산소 같은
+        # 값을 만들어 내는 것보다 원값을 그대로 두는 편이 정직하다.
+        if plausible(name, fixed):
+            out[name] = round(fixed, 3)
+        else:
+            log.warning("%s 보정값(%+g)을 적용하면 범위를 벗어나 적용하지 않습니다.", name, off)
+    return out
 
 
 # ── 용존산소 타당성 ──────────────────────────────────────────────────────────
@@ -1297,6 +1325,45 @@ def save_nutrient(config_path: Path, values: dict) -> bool:
         return False
 
 
+def save_calibration(config_path: Path, offsets: dict[str, float]) -> bool:
+    """보정값을 [calibration] 구간에 적는다. 없으면 구간째 만들어 붙인다."""
+    try:
+        lines = config_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    except OSError:
+        return False
+    wanted = {f"{k}_offset": f"{v:g}" for k, v in offsets.items()}
+    seen: set[str] = set()
+    in_sec = False
+    insert_at = None
+    for i, line in enumerate(lines):
+        stripped = line.strip().lower()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if in_sec and insert_at is None:
+                insert_at = i
+            in_sec = stripped == "[calibration]"
+            continue
+        if in_sec:
+            for key, val in wanted.items():
+                if stripped.startswith(key) and "=" in line:
+                    lines[i] = f"{key} = {val}\n"
+                    seen.add(key)
+    missing = [f"{k} = {v}\n" for k, v in wanted.items() if k not in seen]
+    if missing:
+        if insert_at is not None:
+            lines[insert_at:insert_at] = missing
+        elif in_sec:
+            lines.extend(missing)
+        else:
+            lines.append("\n[calibration]\n")
+            lines.extend(missing)
+    try:
+        config_path.write_text("".join(lines), encoding="utf-8")
+        os.chmod(config_path, 0o600)
+        return True
+    except OSError:
+        return False
+
+
 def save_device_key(config_path: Path, key: str) -> bool:
     """받은 기기 키를 설정 파일에 적는다.
 
@@ -1538,6 +1605,14 @@ def main() -> int:
             return cfg.getfloat("nutrient", key, fallback=default)
         except ValueError:
             return default
+    # 센서값 보정(더할 값). 화면에서 실측값을 넣으면 여기에 반영된다.
+    cal_holder = {
+        name: cfg.getfloat("calibration", f"{name}_offset", fallback=0.0)
+        for name in CALIBRATED
+    }
+    # 보정 전 원값 — 보정 화면이 "지금 센서가 읽은 값" 을 보여 줄 때 쓴다.
+    raw_holder: dict[str, float] = {}
+
     nut_holder = {
         "enabled": cfg.getboolean("nutrient", "enabled", fallback=False),
         "target_ec": _nf("target_ec", 1.8),
@@ -2018,6 +2093,55 @@ def main() -> int:
                 return {"ok": False, "error": "이 기기에서 Wi‑Fi 설정을 지원하지 않습니다."}
             return wifi_mod.connect(ssid, password)
 
+        def ui_calibration() -> dict:
+            """보정 화면에 필요한 것 — 지금 읽은 값(보정 전), 보정값, 보정 후."""
+            raw = {k: raw_holder.get(k) for k in CALIBRATED}
+            fixed = apply_calibration(
+                {k: v for k, v in raw_holder.items() if v is not None}, cal_holder)
+            return {
+                "offsets": dict(cal_holder),
+                "raw": raw,
+                "corrected": {k: fixed.get(k) for k in CALIBRATED},
+            }
+
+        def ui_save_calibration(payload: dict) -> dict:
+            """보정값을 정한다.
+
+            사람은 오프셋을 계산하지 않는다. 휴대용 측정기로 잰 값(actual)을
+            넣으면 지금 센서값과의 차이를 장비가 구한다. offset 을 직접 주는
+            길도 열어 두되(초기화·미세조정), 화면은 실측값 쪽을 쓴다.
+            """
+            name = payload.get("name")
+            if name not in CALIBRATED:
+                return {"ok": False, "error": "알 수 없는 항목입니다."}
+
+            if "offset" in payload:                     # 직접 지정(초기화 포함)
+                try:
+                    offset = float(payload["offset"])
+                except (TypeError, ValueError):
+                    return {"ok": False, "error": "숫자가 아닙니다."}
+            else:                                       # 실측값으로 계산
+                measured = raw_holder.get(name)
+                if measured is None:
+                    return {"ok": False, "error": "지금 센서값이 없어 보정할 수 없습니다."}
+                try:
+                    actual = float(payload.get("actual"))
+                except (TypeError, ValueError):
+                    return {"ok": False, "error": "숫자가 아닙니다."}
+                offset = actual - measured
+
+            # 터무니없는 보정은 막는다. 이만큼 어긋났다면 보정으로 덮을 일이
+            # 아니라 전극을 손봐야 한다 — 덮어 두면 잘못된 값을 믿게 된다.
+            LIMIT = {"temperature": 10.0, "ph": 3.0, "do_level": 5.0, "conductivity": 5000.0}
+            if abs(offset) > LIMIT[name]:
+                return {"ok": False,
+                        "error": f"보정값이 너무 큽니다({offset:+.2f}). 전극 상태를 먼저 확인하세요."}
+
+            cal_holder[name] = round(offset, 3)
+            saved = save_calibration(args.config, dict(cal_holder))
+            log.info("보정값을 바꿨습니다: %s %+g (파일 저장 %s)", name, offset, saved)
+            return {"ok": True, "saved": saved, "offset": cal_holder[name]}
+
         def ui_nutrient() -> dict:
             return dict(nut_holder)
 
@@ -2119,6 +2243,8 @@ def main() -> int:
             on_set_lang=ui_set_lang,
             on_restart=ui_restart,
             on_reboot=ui_reboot,
+            get_calibration=ui_calibration,
+            on_save_calibration=ui_save_calibration,
             get_nutrient=ui_nutrient,
             on_save_nutrient=ui_save_nutrient,
         )
@@ -2164,6 +2290,9 @@ def main() -> int:
 
         with serial_lock:
             values, errors = read_all(client, dict(enabled), ec_to_ppm, ec_holder["mode"])
+            raw_holder.clear()
+            raw_holder.update(values)          # 보정 전 값을 화면이 볼 수 있게 남긴다
+            values = apply_calibration(values, cal_holder)
 
         if not values:
             log.error("읽은 값이 없습니다. 배선·전원·슬레이브 ID를 확인하세요. %s", errors)

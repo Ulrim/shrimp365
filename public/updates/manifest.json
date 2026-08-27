@@ -1,5 +1,5 @@
 {
-  "latest": "1.7.9",
+  "latest": "1.8.0",
   "releases": {
     "1.5.0": {
       "notes": "염도 단위를 퍼밀(‰)로",
@@ -289,6 +289,20 @@
       "sha256": "019c4bbd7dd8dc3da559ef85ce90de3cdc9098bc65fe89d09ae68bdeb2944412",
       "size": 78008,
       "signature": "SeIkPP6vwYSCT0UxvoGpu9/OlloL7kaIsLnz8ngd+26QxNld5JSaZf4GPTbIJAMx8jTTH9Zj1NsNn5RZ2bagAw=="
+    },
+    "1.8.0": {
+      "notes": "센서값 보정 기능 — 실측값을 넣으면 차이를 자동 계산",
+      "released_at": "2026-08-27",
+      "setup": {
+        "file": "shrimp365-setup-1.8.0.tar.gz",
+        "sha256": "e4c9b8b54579ccd66a50dac90697e26e3297b2135a44421d1538582687888fbe",
+        "size": 113713,
+        "signature": "x+War25wSxYH3bSQWkjJOmtFymAzs+j4cLjAIWVmnQEp4WriDiGz7ub8DMRDkzOx/FBCwfABhQJB1Ce/Vl0SAg=="
+      },
+      "file": "shrimp365-agent-1.8.0.tar.gz",
+      "sha256": "42a12a3c60e6f29e21ecc4df98bf9c9ebe797e4e4dfc42f4342573f7af28a907",
+      "size": 81169,
+      "signature": "zxo+v5LahAAUTqvcG1Vxz76R3HjUcosDd0GCt0gw/t+lJqW/g1bP6fPEJzWMbjID2lSIC1+lwCUkNrwgLPQhCg=="
     }
   }
 }
