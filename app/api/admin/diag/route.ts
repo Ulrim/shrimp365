@@ -81,11 +81,52 @@ export async function GET(req: NextRequest) {
   // 4) 활성 기기 목록 — 기록의 device_id 와 대조할 기준.
   const { data: devices } = await admin
     .from("sensor_devices")
-    .select("id, name, tank_id, active, last_seen_at, agent_version")
+    .select("id, name, tank_id, active, last_seen_at, agent_version, last_payload")
     .order("created_at", { ascending: true })
+
+  // 5) 기기별 최신 측정값과 자동 판정.
+  //    "지금 값이 정상인가" 를 사람이 계산하지 않고도 알 수 있어야 한다.
+  //    용존산소는 수온에 따라 물이 품을 수 있는 양이 정해지므로, 포화도를
+  //    계산해 물에서 나올 수 없는 값인지 함께 말해 준다.
+  const 최신값: Record<string, unknown>[] = []
+  for (const d of (devices ?? []).filter(x => x.active)) {
+    const { data: last } = await admin
+      .from("water_quality_readings")
+      .select("recorded_at, temperature, ph, do_level, salinity, conductivity")
+      .eq("device_id", d.id)
+      .order("recorded_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    let 판정 = "측정값 없음"
+    if (last) {
+      const t = last.temperature as number | null
+      const dov = last.do_level as number | null
+      if (typeof dov === "number" && typeof t === "number" && t > -5 && t < 60) {
+        // Benson-Krause — 1기압 담수 기준 포화 용존산소
+        const K = t + 273.15
+        const sat = Math.exp(-139.34411 + 1.575701e5 / K - 6.642308e7 / K ** 2
+          + 1.243800e10 / K ** 3 - 8.621949e11 / K ** 4)
+        const pct = Math.round((dov / sat) * 100)
+        판정 = pct > 150
+          ? `용존산소 ${dov} mg/L = 포화 ${pct}% — 물에서 나올 수 없는 값(전극이 물 밖이거나 보정 필요)`
+          : pct < 40
+            ? `용존산소 ${dov} mg/L = 포화 ${pct}% — 낮음(산소 공급 확인)`
+            : `용존산소 ${dov} mg/L = 포화 ${pct}% — 정상`
+      } else if (typeof dov !== "number") {
+        판정 = "용존산소 값이 없음"
+      }
+    }
+    최신값.push({
+      기기: d.name, 최근수신: d.last_seen_at, 버전: d.agent_version,
+      최신측정: last ?? null, 판정,
+      마지막원본: (d as Record<string, unknown>).last_payload ?? null,
+    })
+  }
 
   return NextResponse.json({
     설명: "사이트가 실제로 쓰는 API 경로로 검사한 결과입니다. 이 결과를 그대로 복사해 전달해 주세요.",
+    기기별_최신값: 최신값,
     supabase_프로젝트: projectHost,
     검사1_device_id_직접조회: explicitSelect,
     검사2_전체조회에_device_id_포함: starHasDeviceId,
