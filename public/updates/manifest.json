@@ -1,5 +1,5 @@
 {
-  "latest": "1.7.6",
+  "latest": "1.7.7",
   "releases": {
     "1.5.0": {
       "notes": "염도 단위를 퍼밀(‰)로",
@@ -247,6 +247,20 @@
       "sha256": "624086d16bf5078aae272bd690d564f7356ba316568141843bbe77fb1bec1f62",
       "size": 75391,
       "signature": "Z+pIpakPphlFl8rp+wff2A6cPU06iMWKXqLyEUqpSFZ++l+Dp93zDL38dWVwUDoXeV4hE9Fi/atMkqO0mP+lAg=="
+    },
+    "1.7.7": {
+      "notes": "느린 센서 대응 — 재시도 간격을 늘려 간헐적 응답 없음 복구",
+      "released_at": "2026-08-27",
+      "setup": {
+        "file": "shrimp365-setup-1.7.7.tar.gz",
+        "sha256": "1b963e64fa2c3142a899a7ff8ee6c02dcccd7f42a60bddf5a84fc393c66a3236",
+        "size": 108026,
+        "signature": "Cct6cC+j1EBjs+ZnAiVlZZh867ZXDgmoRz2JdPRJjNPzUANUmW/y3WAv9/o5S+DXPj3lIw6sKUqWm0Zz3Mp6CQ=="
+      },
+      "file": "shrimp365-agent-1.7.7.tar.gz",
+      "sha256": "95f696d2cc52fa78e30393be26463094325516fcf5a80c3e1f95e0d33adff916",
+      "size": 75731,
+      "signature": "bap9VymGvfAfvlapjzDr7rPYHKd1K74YEXxVUThhc/gKtMxInCC40Y1pxbTtMny0iOoIhSVnI5dsQmSCMn/2Bg=="
     }
   }
 }

@@ -67,7 +67,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.7.6"
+VERSION = "1.7.7"
 log = logging.getLogger("shrimp365")
 
 
@@ -122,9 +122,9 @@ class ModbusClient:
     # 놓치고, 그 결과 "응답 없음"·CRC 오류가 난다. 한 대만 물렸을 때는 상대가
     # 바뀌지 않아 드러나지 않고, 여러 대일 때만 한 대씩 돌아가며 실패한다.
     #
-    # 30ms 는 흔한 변환기에서 넉넉한 값이다. 센서 세 대라도 한 주기에 60ms
-    # 남짓 더 쓸 뿐이라(측정 주기는 60초) 비용이 사실상 없다.
-    SLAVE_SWITCH_GAP = 0.03
+    # 50ms 는 반응이 느린 변환기까지 감안한 값이다. 센서 세 대라도 한 주기에
+    # 100ms 남짓 더 쓸 뿐이라(측정 주기는 60초) 비용이 사실상 없다.
+    SLAVE_SWITCH_GAP = 0.05
 
     def _await_gap(self, slave_id: int | None = None) -> None:
         idle = time.monotonic() - self._last_use
@@ -840,18 +840,32 @@ def read_all(client: ModbusClient, enabled: dict[str, int],
         # 한 번 어긋나면 한 번만 다시 물어본다. 선을 여럿이 나눠 쓰다 보면
         # 잡음이나 응답 겹침으로 한 프레임이 깨지는 일이 있는데, 그때마다
         # 한 주기를 통째로 버릴 이유는 없다.
+        # 다시 물어볼 때는 점점 더 오래 쉰다.
+        #
+        # 반응이 느린 변환기는 앞 기기의 응답이 끝난 직후에는 대답을 못 하다가,
+        # 선이 충분히 조용해지면 멀쩡히 답한다. 실제로 [선 훑기]에서는 잡히는데
+        # [센서 테스트]에서는 응답 없음으로 나오는 일이 있었다 — 훑기는 빈 ID 를
+        # 지나며 1초씩 쉬어 가는 반면, 테스트는 30ms 만에 다음 기기를 부르기
+        # 때문이다. 그래서 짧게 두 번 더 시도하되 간격을 늘려 준다.
+        # 정상일 때는 첫 시도에서 끝나므로 시간을 쓰지 않는다.
+        RETRY_WAITS = (0.15, 0.4)
         regs = None
-        for attempt in (1, 2):
+        last_exc: Exception | None = None
+        for attempt in range(len(RETRY_WAITS) + 1):
             try:
                 regs = client.read_input_registers(slave_id, 0x0000, 16)
+                if attempt:
+                    log.info("%s 센서: %d번째 시도에서 응답했습니다.", key, attempt + 1)
                 break
             except (ModbusError, serial.SerialException) as exc:
-                if attempt == 1:
-                    log.debug("%s 센서 읽기 실패(%s) — 다시 시도합니다.", key, exc)
-                    time.sleep(0.05)
+                last_exc = exc
+                if attempt < len(RETRY_WAITS):
+                    log.debug("%s 센서 읽기 실패(%s) — %.2f초 뒤 다시 시도합니다.",
+                              key, exc, RETRY_WAITS[attempt])
+                    time.sleep(RETRY_WAITS[attempt])
                     continue
                 errors[key] = "no_reply"
-                log.warning("%s 센서 읽기 실패: %s", key, exc)
+                log.warning("%s 센서 읽기 실패: %s", key, last_exc)
         if regs is None:
             continue
 
