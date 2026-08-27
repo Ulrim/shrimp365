@@ -67,7 +67,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.7.5"
+VERSION = "1.7.6"
 log = logging.getLogger("shrimp365")
 
 
@@ -100,6 +100,8 @@ class ModbusClient:
         self._ser: serial.Serial | None = None
         # 마지막으로 선을 쓴 시각. 다음 프레임을 언제 보낼 수 있는지 계산한다.
         self._last_use = 0.0
+        # 직전에 말을 건 슬레이브. 상대가 바뀔 때는 더 오래 쉰다(아래 참고).
+        self._last_slave: int | None = None
 
     def _frame_gap(self) -> float:
         """MODBUS-RTU 가 요구하는 프레임 간 침묵(3.5 문자 시간).
@@ -114,11 +116,51 @@ class ModbusClient:
         """
         return max(0.008, 3.5 * 11.0 / self.baudrate)
 
-    def _await_gap(self) -> None:
+    # 상대를 바꿀 때 두는 여유. 규격상으로는 3.5문자면 되지만, 값싼 USB-RS485
+    # 변환기는 송신에서 수신으로 넘어가는 데 그보다 오래 걸린다. 앞 기기가
+    # 말을 끝낸 직후 다른 기기에게 물으면 변환기가 아직 송신 상태라 첫 바이트를
+    # 놓치고, 그 결과 "응답 없음"·CRC 오류가 난다. 한 대만 물렸을 때는 상대가
+    # 바뀌지 않아 드러나지 않고, 여러 대일 때만 한 대씩 돌아가며 실패한다.
+    #
+    # 30ms 는 흔한 변환기에서 넉넉한 값이다. 센서 세 대라도 한 주기에 60ms
+    # 남짓 더 쓸 뿐이라(측정 주기는 60초) 비용이 사실상 없다.
+    SLAVE_SWITCH_GAP = 0.03
+
+    def _await_gap(self, slave_id: int | None = None) -> None:
         idle = time.monotonic() - self._last_use
         gap = self._frame_gap()
+        if slave_id is not None and self._last_slave is not None and slave_id != self._last_slave:
+            gap = max(gap, self.SLAVE_SWITCH_GAP)
         if idle < gap:
             time.sleep(gap - idle)
+
+    def _drain(self, quiet: float = 0.02, limit: float = 0.5) -> None:
+        """오류가 난 뒤 선에 남은 바이트를 끝까지 걷어 낸다.
+
+        센서 한 대가 늦게 답하거나 프레임이 깨지면, 그 잔여 바이트가 선에
+        남는다. 곧바로 다음 센서에게 물으면 그 바이트가 먼저 읽혀 "다른
+        기기가 응답함"·CRC 불일치로 이어진다. 한 대만 물렸을 때는 부딪힐
+        상대가 없어 멀쩡하고, 두 대 이상일 때만 번갈아 실패하는 이유다.
+
+        그래서 실패한 순간에는 선이 조용해질 때까지 비운 뒤 다음으로 넘어간다.
+        조용해지면 바로 끝내므로 정상일 때는 시간을 쓰지 않는다.
+        """
+        if self._ser is None or not self._ser.is_open:
+            return
+        deadline = time.monotonic() + limit
+        try:
+            while time.monotonic() < deadline:
+                pending = self._ser.in_waiting
+                if pending:
+                    self._ser.read(pending)
+                    continue
+                time.sleep(quiet)
+                if not self._ser.in_waiting:
+                    break
+            self._ser.reset_input_buffer()
+        except (OSError, serial.SerialException):
+            pass          # 선이 빠졌을 수도 있다. 정리 실패가 수집을 막아선 안 된다.
+        self._last_use = time.monotonic()
 
     def open(self) -> None:
         if self._ser and self._ser.is_open:
@@ -148,23 +190,30 @@ class ModbusClient:
 
         # 앞 프레임이 끝난 뒤 충분히 조용해질 때까지 기다렸다가 버퍼를 비운다.
         # 순서가 중요하다 — 먼저 비우면 그 뒤에 도착하는 꼬리를 못 걸러 낸다.
-        self._await_gap()
+        self._await_gap(slave_id)
         self._ser.reset_input_buffer()
         self._ser.write(frame)
+        self._last_slave = slave_id
 
         # 응답: ID(1) 기능코드(1) 바이트수(1) 데이터(2*count) CRC(2)
         expected = 5 + count * 2
         response = self._ser.read(expected)
         self._last_use = time.monotonic()
-        if len(response) < 5:
-            raise ModbusError(f"ID {slave_id}: 응답 없음 (배선·전원·슬레이브 ID 확인)")
 
+        # 어긋난 프레임을 그대로 두면 다음 센서 차례를 망친다.
+        # 실패로 판단하는 모든 길에서 선을 비우고 나간다.
+        def fail(reason: str) -> ModbusError:
+            self._drain()
+            return ModbusError(f"ID {slave_id}: {reason}")
+
+        if len(response) < 5:
+            raise fail("응답 없음 (배선·전원·슬레이브 ID 확인)")
         if response[0] != slave_id:
-            raise ModbusError(f"ID {slave_id}: 다른 기기가 응답함({response[0]})")
+            raise fail(f"다른 기기가 응답함({response[0]})")
         if response[1] & 0x80:
-            raise ModbusError(f"ID {slave_id}: 예외 응답 코드 {response[2]}")
+            raise fail(f"예외 응답 코드 {response[2]}")
         if crc16(response[:-2]) != response[-2:]:
-            raise ModbusError(f"ID {slave_id}: CRC 불일치 (노이즈·종단저항 확인)")
+            raise fail("CRC 불일치 (노이즈·종단저항 확인)")
 
         byte_count = response[2]
         data = response[3:3 + byte_count]

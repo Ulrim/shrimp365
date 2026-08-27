@@ -1,5 +1,5 @@
 {
-  "latest": "1.7.5",
+  "latest": "1.7.6",
   "releases": {
     "1.5.0": {
       "notes": "염도 단위를 퍼밀(‰)로",
@@ -233,6 +233,20 @@
       "sha256": "5499b56a74ad30f72c4ab93e72f6f8808266818ff9cc70ca9b51c72770b493c1",
       "size": 74536,
       "signature": "Mi6SNFwfuLGMu7AwmoCDNP1B1STN3xgwnIISyJ1U9fl7nk4ntwvl8LRg0LkaEv8V/SOcHM6KycVI0dHsDxpIAA=="
+    },
+    "1.7.6": {
+      "notes": "센서 여러 대일 때 한 대씩 오류 나던 문제 — 전환 간격·오류 후 선 정리 보강",
+      "released_at": "2026-08-27",
+      "setup": {
+        "file": "shrimp365-setup-1.7.6.tar.gz",
+        "sha256": "48bfec1a874f83353d27e4a4373583cb2a490dd3a2ed3079d61c34beedfdaf3e",
+        "size": 107689,
+        "signature": "8+5e6RB3ziGw1tdvmSiM4p+gV3ZPsoswNfHqPd6YwfMqS8I630MBJW87NtdlxmKPnl/1Jg/GnOMfROrHY5UfCw=="
+      },
+      "file": "shrimp365-agent-1.7.6.tar.gz",
+      "sha256": "624086d16bf5078aae272bd690d564f7356ba316568141843bbe77fb1bec1f62",
+      "size": 75391,
+      "signature": "Z+pIpakPphlFl8rp+wff2A6cPU06iMWKXqLyEUqpSFZ++l+Dp93zDL38dWVwUDoXeV4hE9Fi/atMkqO0mP+lAg=="
     }
   }
 }
