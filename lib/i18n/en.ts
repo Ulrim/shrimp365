@@ -1258,6 +1258,7 @@ export const en: Dict = {
     faultProbe: "Probe fault — replies but reports no value",
     faultSupersat: "{{p}}% saturation — check it is submerged and calibrated",
     faultDoAir: "Probe seems out of water — {{p}}% saturation, submerge it",
+    faultTempOff: "Probe seems out of water — {{a}}℃ here vs {{b}}℃ elsewhere",
     faultDoScale: "Needs calibration — mg/L implies {{p}}% but sensor reports {{r}}%",
     faultRange: "Value out of range ({{v}})",
     sensorFault: "Sensor fault",

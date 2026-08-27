@@ -1,5 +1,5 @@
 {
-  "latest": "1.7.8",
+  "latest": "1.7.9",
   "releases": {
     "1.5.0": {
       "notes": "염도 단위를 퍼밀(‰)로",
@@ -275,6 +275,20 @@
       "sha256": "772d9947fbabe58a17128e690c8c7bd667fa366d3c67cbefa413b3ff14e9866f",
       "size": 76638,
       "signature": "UMN+a2PesYgvNLeNxnAoAep9rPrAbnTx0QJyEkngcxbI4zhOOl2FZBeQFHmqhpdhNQOam0t61/mxNaQ0BJFmBw=="
+    },
+    "1.7.9": {
+      "notes": "수온 교차검증으로 물 밖 전극 감지 + 값 없음 판정 결함 수정",
+      "released_at": "2026-08-27",
+      "setup": {
+        "file": "shrimp365-setup-1.7.9.tar.gz",
+        "sha256": "ae8ab52631ed9b2573639342bac8f6dfba0b481b5ca1db96ce58c43cc913e3dc",
+        "size": 110301,
+        "signature": "usiReJJJ8ncZBnj9ebiCSnSc5hrJkpl27NOAmP43nguGGx4FJ2SxjodkHsOcuJ9OX8iq2M5520016KrdpaX9BQ=="
+      },
+      "file": "shrimp365-agent-1.7.9.tar.gz",
+      "sha256": "019c4bbd7dd8dc3da559ef85ce90de3cdc9098bc65fe89d09ae68bdeb2944412",
+      "size": 78008,
+      "signature": "SeIkPP6vwYSCT0UxvoGpu9/OlloL7kaIsLnz8ngd+26QxNld5JSaZf4GPTbIJAMx8jTTH9Zj1NsNn5RZ2bagAw=="
     }
   }
 }

@@ -1258,6 +1258,7 @@ export const ko: Dict = {
     faultProbe: "전극 이상 — 통신은 되나 값을 내지 못함",
     faultSupersat: "포화도 {{p}}% — 물에 잠겼는지·보정 확인",
     faultDoAir: "전극이 물 밖인 듯 — 포화도 {{p}}%, 완전히 담그세요",
+    faultTempOff: "전극이 물 밖인 듯 — 이 센서 {{a}}℃ / 다른 센서 {{b}}℃",
     faultDoScale: "보정 필요 — mg/L 은 {{p}}% 인데 센서 보고는 {{r}}%",
     faultRange: "값이 범위를 벗어남 ({{v}})",
     sensorFault: "센서 이상",

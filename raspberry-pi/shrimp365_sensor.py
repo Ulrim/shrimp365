@@ -67,7 +67,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.7.8"
+VERSION = "1.7.9"
 log = logging.getLogger("shrimp365")
 
 
@@ -472,7 +472,7 @@ def test_sensors(client: ModbusClient, enabled: dict[str, int],
                 entry["fields"].append(item)
                 continue
             item["value"] = value
-            if raw_value in (0x7FFF, 0xFFFF):
+            if raw is not None and raw in (0x7FFF, -1, 0xFFFF):
                 item["verdict"] = "probe"        # 변환기는 살아 있고 전극이 값을 못 냄
             elif not plausible(name, value):
                 item["verdict"] = "range"
@@ -690,6 +690,15 @@ def do_saturation_mgl(celsius: float) -> float:
 # 수조도 120% 를 넘기 어렵고, 전극이 공기 중에 있으면 200% 를 훌쩍 넘는다.
 DO_SUPERSAT_LIMIT = 150.0
 
+# 센서 사이 수온이 이만큼(℃) 벌어지면 하나가 물 밖이라고 본다.
+# 같은 수조에 담긴 전극들은 계절이 어떻든 이보다 가깝다.
+TEMP_DISAGREE_C = 3.0
+
+# 센서마다 "이게 없으면 못 쓰는" 주 항목. 부수 항목(포화도·TDS·ORP)이 값을
+# 못 내는 것은 흔하고 해가 없으므로 오류로 올리지 않는다 — 그래야 진짜 고장이
+# 잡음에 묻히지 않는다.
+PRIMARY_FIELD = {"ph": "ph", "do": "do_level", "ec": "conductivity"}
+
 
 # ── 양액(수경재배) EC 관리 ────────────────────────────────────────────────────
 # EC 로 양액 농도를 보고 보충량을 계산한다. 계산식은 현장에서 쓰던 환산표
@@ -877,6 +886,14 @@ def read_all(client: ModbusClient, enabled: dict[str, int],
             value = normalize(name, raw_value, unit)
             if value is None:
                 continue
+            # 값이 없다는 신호(16비트 최대치)는 나누기 전 원시 레지스터로 봐야
+            # 한다. decode 가 소수점을 이미 적용해 돌려주므로 그 값과 비교하면
+            # 영영 걸리지 않는다(1.7.1~1.7.8 의 결함).
+            sentinel = idx < len(regs) and regs[idx] in (0x7FFF, -1, 0xFFFF)
+            if sentinel and name != PRIMARY_FIELD.get(key):
+                # 부수 항목이 값을 못 내는 것뿐이다. 조용히 넘긴다.
+                log.debug("%s 의 %s 는 값을 내지 않습니다(원시 %s).", key, name, regs[idx])
+                continue
             if not plausible(name, value):
                 # 있을 수 없는 값이다. 담아 두면 화면·그래프가 망가지고,
                 # 서버는 어차피 버리므로 여기서 이유를 남기고 끊는다.
@@ -888,10 +905,10 @@ def read_all(client: ModbusClient, enabled: dict[str, int],
                 # 원시값이 16비트 최대치면 값이 없다는 뜻이다. 변환기는 살아
                 # 있는데 전극이 안 붙었거나 망가졌을 때 이 값을 내보낸다.
                 # 배선을 뜯기 전에 전극부터 보라고 따로 알려 준다.
-                if raw_value in (0x7FFF, 0xFFFF):
+                if sentinel:
                     errors.setdefault(key, "probe")
                     log.warning("%s 전극이 값을 내지 못합니다(원시 %s) — 전극 연결을 확인하세요.",
-                                key, raw_value)
+                                key, regs[idx])
                 else:
                     errors.setdefault(key, f"range:{value}")
                 continue
@@ -905,10 +922,38 @@ def read_all(client: ModbusClient, enabled: dict[str, int],
                     raw_conductivity = (raw_value, unit)
 
     # 수온은 한 값만 보낸다 — 센서마다 미세하게 다른 값을 겹쳐 보내면 혼란스럽다.
+    # 센서마다 수온이 다르면 그중 하나가 물 밖이다.
+    #
+    # 전극들은 같은 물에 담겨 있으니 수온이 몇 도씩 벌어질 수 없다. 벌어졌다면
+    # 그 전극만 공기 중(대개 함체 안이라 더 덥다)에 있다는 뜻이다. 실제로
+    # DO 만 31.4℃, pH·EC 는 23~24℃ 로 온 적이 있는데, 우선순위상 DO 를 먼저
+    # 쓰던 탓에 공기 온도가 수조 수온으로 기록되고 있었다.
+    #
+    # 그래서 튀는 전극은 수온 후보에서 빼고, 사람에게도 알린다. 값을 조용히
+    # 고르기만 하면 전극이 물 밖에 있다는 사실 자체를 아무도 모르게 된다.
+    trusted = dict(temps)
+    if len(temps) >= 2:
+        ordered = sorted(temps.values())
+        if ordered[-1] - ordered[0] > TEMP_DISAGREE_C:
+            mid = len(ordered) // 2
+            median = ordered[mid] if len(ordered) % 2 else (ordered[mid - 1] + ordered[mid]) / 2
+            outlier = max(temps, key=lambda k: abs(temps[k] - median))
+            errors.setdefault(outlier, f"temp_off:{temps[outlier]:.1f}/{median:.1f}")
+            log.warning(
+                "%s 센서의 수온(%.1f℃)이 다른 센서(%.1f℃)와 %.1f도 차이 납니다 — "
+                "그 전극이 물 밖에 있을 수 있습니다. 수온은 나머지 센서 값을 씁니다.",
+                outlier, temps[outlier], median, abs(temps[outlier] - median),
+            )
+            trusted.pop(outlier, None)
+
     for key in TEMPERATURE_PRIORITY:
-        if key in temps:
-            values["temperature"] = temps[key]
+        if key in trusted:
+            values["temperature"] = trusted[key]
             break
+    else:
+        # 전부 이상치로 걸러졌을 리는 없지만, 그래도 값은 남긴다.
+        if temps:
+            values["temperature"] = next(iter(temps.values()))
 
     # 용존산소가 물에서 나올 수 없는 값인지 본다. 값은 그대로 두고(사람이
     # 직접 봐야 판단이 된다) 이상하다는 사실만 함께 남긴다. 전극이 물에 안

@@ -1147,6 +1147,7 @@ export interface Dict {
     faultProbe: string
     faultSupersat: string
     faultDoAir: string
+    faultTempOff: string
     faultDoScale: string
     faultRange: string
     sensorFault: string

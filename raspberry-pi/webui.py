@@ -488,6 +488,8 @@ var I18N = {
   v_supersat:{ko:"포화도 {{p}}% — 물에 안 잠겼거나 보정 필요",en:"{{p}}% saturation — not submerged or needs calibration",vi:"Bão hòa {{p}}% — chưa ngập hoặc cần hiệu chuẩn",id:"Saturasi {{p}}% — belum terendam atau perlu kalibrasi"},
   v_undecodable:{ko:"해석 불가",en:"Cannot decode",vi:"Không giải mã được",id:"Tak terbaca"},
   test_none:{ko:"켜져 있는 센서가 없습니다.",en:"No sensors enabled.",vi:"Không có cảm biến bật.",id:"Tak ada sensor aktif."},
+  sen_temp_off:{ko:"전극이 물 밖에 있는 듯",en:"Probe seems out of water",vi:"Đầu dò như ngoài nước",id:"Probe tampak di luar air"},
+  sen_temp_off_sub:{ko:"이 센서 수온 {{a}}℃ / 다른 센서 {{b}}℃ — 같은 물이라면 이렇게 다를 수 없습니다. 전극을 물에 담그세요",en:"This sensor reads {{a}}℃ vs {{b}}℃ on the others — same water cannot differ this much. Submerge the probe",vi:"Cảm biến này {{a}}℃ so với {{b}}℃ ở cảm biến khác — cùng một nước không thể chênh vậy. Hãy nhúng đầu dò",id:"Sensor ini {{a}}℃ vs {{b}}℃ pada yang lain — air yang sama tak mungkin sebeda itu. Rendam probe"},
   sen_do_air:{ko:"전극이 물 밖에 있는 듯",en:"Probe seems out of water",vi:"Đầu dò như đang ngoài nước",id:"Probe tampak di luar air"},
   sen_do_air_sub:{ko:"포화도 {{p}}% — 센서도 산소가 많다고 보고합니다. 전극을 물에 완전히 담그세요",en:"{{p}}% saturation — the sensor also reports high oxygen. Submerge the probe fully",vi:"Bão hòa {{p}}% — cảm biến cũng báo oxy cao. Hãy nhúng ngập đầu dò",id:"Saturasi {{p}}% — sensor juga melaporkan oksigen tinggi. Rendam probe sepenuhnya"},
   sen_do_scale:{ko:"보정 필요 — 눈금이 어긋남",en:"Needs calibration — scale is off",vi:"Cần hiệu chuẩn — thang đo lệch",id:"Perlu kalibrasi — skala meleset"},
@@ -622,6 +624,12 @@ function subLine(key, d){
   // (예: 전극이 공기 중에 있으면 용존산소가 포화도 200% 넘게 나온다)
   if (has && why0) {
     var w = String(why0);
+    if (w.indexOf("temp_off:") === 0) {
+      var tp = w.slice(9).split("/");
+      return '<div class="sub2 bad">' + t("sen_temp_off") +
+             '<div class="dim">' + t("sen_temp_off_sub")
+               .replace("{{a}}", esc(tp[0])).replace("{{b}}", esc(tp[1] || "?")) + '</div></div>';
+    }
     if (w.indexOf("do_air:") === 0) {
       return '<div class="sub2 bad">' + t("sen_do_air") +
              '<div class="dim">' + t("sen_do_air_sub").replace("{{p}}", esc(w.slice(7))) + '</div></div>';

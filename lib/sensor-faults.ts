@@ -30,7 +30,10 @@ export function readSensorFaults(
     let reason: string
     if (raw === "no_reply") reason = t.waterQualityX.faultNoReply
     else if (raw === "probe") reason = t.waterQualityX.faultProbe
-    else if (raw.startsWith("do_air:")) {
+    else if (raw.startsWith("temp_off:")) {
+      const [a, b] = raw.slice(9).split("/")
+      reason = t.waterQualityX.faultTempOff.replace("{{a}}", a).replace("{{b}}", b ?? "?")
+    } else if (raw.startsWith("do_air:")) {
       reason = t.waterQualityX.faultDoAir.replace("{{p}}", raw.slice(7))
     } else if (raw.startsWith("do_scale:")) {
       const [p2, r2] = raw.slice(9).split("/")

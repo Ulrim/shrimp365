@@ -1259,6 +1259,7 @@ export const id: Dict = {
     faultProbe: "Probe bermasalah — merespons tanpa nilai",
     faultSupersat: "Saturasi {{p}}% — pastikan terendam dan terkalibrasi",
     faultDoAir: "Probe tampak di luar air — saturasi {{p}}%, rendam sepenuhnya",
+    faultTempOff: "Probe tampak di luar air — {{a}}℃ vs {{b}}℃",
     faultDoScale: "Perlu kalibrasi — mg/L menunjukkan {{p}}% tetapi sensor {{r}}%",
     faultRange: "Nilai di luar rentang ({{v}})",
     sensorFault: "Sensor bermasalah",

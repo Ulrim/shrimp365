@@ -1259,6 +1259,7 @@ export const vi: Dict = {
     faultProbe: "Lỗi đầu dò — có phản hồi nhưng không có giá trị",
     faultSupersat: "Bão hòa {{p}}% — kiểm tra ngập nước và hiệu chuẩn",
     faultDoAir: "Đầu dò như ngoài nước — bão hòa {{p}}%, hãy nhúng ngập",
+    faultTempOff: "Đầu dò như ngoài nước — {{a}}℃ so với {{b}}℃",
     faultDoScale: "Cần hiệu chuẩn — mg/L cho {{p}}% nhưng cảm biến báo {{r}}%",
     faultRange: "Giá trị ngoài khoảng ({{v}})",
     sensorFault: "Lỗi cảm biến",
