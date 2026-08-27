@@ -466,6 +466,8 @@ var I18N = {
   sen_probe:{ko:"전극 확인 필요",en:"Check the probe",vi:"Kiểm tra đầu dò",id:"Periksa probe"},
   sen_probe_sub:{ko:"센서는 응답하지만 값을 내지 못합니다 — 전극 연결·상태를 확인하세요",en:"The sensor replies but reports no value — check the probe connection",vi:"Cảm biến phản hồi nhưng không có giá trị — kiểm tra kết nối đầu dò",id:"Sensor merespons tetapi tanpa nilai — periksa sambungan probe"},
   sen_range:{ko:"값이 범위를 벗어남",en:"Value out of range",vi:"Giá trị ngoài khoảng",id:"Nilai di luar rentang"},
+  sen_supersat:{ko:"물에서 나올 수 없는 값",en:"Impossible for water",vi:"Không thể có trong nước",id:"Mustahil untuk air"},
+  sen_supersat_sub:{ko:"포화도 {{p}}% — 전극이 물에 잠겼는지, 보정이 되어 있는지 확인하세요",en:"{{p}}% saturation — check the probe is submerged and calibrated",vi:"Bão hòa {{p}}% — kiểm tra đầu dò đã ngập nước và đã hiệu chuẩn",id:"Saturasi {{p}}% — pastikan probe terendam dan terkalibrasi"},
   // 양액
   menu_nutrient:{ko:"양액 설정",en:"Nutrient solution",vi:"Dung dịch dinh dưỡng",id:"Larutan nutrisi"},
   menu_nutrient_sub:{ko:"EC 로 농도 보고 보충량 계산",en:"Dosing from EC readings",vi:"Tính lượng bổ sung theo EC",id:"Hitung dosis dari EC"},
@@ -586,11 +588,22 @@ function ownerSensor(key){
 // 양액 계산은 25℃ 로 환산한 EC 로 하므로, 실제로 쓰인 값을 같이 보여 준다.
 // (보정을 끄면 잰 값과 같지만, 어느 값으로 계산했는지 눈에 보이는 편이 낫다.)
 function subLine(key, d){
-  // 값이 없는데 담당 센서가 오류를 냈으면 그 사실을 먼저 알린다.
   var has = d.values && typeof d.values[key] === "number";
+  var who0 = ownerSensor(key);
+  var why0 = who0 && d.errors ? d.errors[who0] : null;
+
+  // 값이 나왔더라도 그 값이 말이 안 되면 그대로 믿게 두어서는 안 된다.
+  // (예: 전극이 공기 중에 있으면 용존산소가 포화도 200% 넘게 나온다)
+  if (has && why0 && String(why0).indexOf("supersat:") === 0) {
+    var pct = String(why0).slice(9);
+    return '<div class="sub2 bad">' + t("sen_supersat") +
+           '<div class="dim">' + t("sen_supersat_sub").replace("{{p}}", esc(pct)) + '</div></div>';
+  }
+
+  // 값이 없는데 담당 센서가 오류를 냈으면 그 사실을 먼저 알린다.
   if (!has) {
-    var who = ownerSensor(key);
-    var why = who && d.errors ? d.errors[who] : null;
+    var who = who0;
+    var why = why0;
     if (why) {
       // 원인마다 봐야 할 곳이 다르다. 응답이 아예 없으면 배선·ID,
       // 응답은 하는데 값이 없으면 전극이다. 둘을 뭉뚱그리면 헛수고를 시킨다.

@@ -1,5 +1,5 @@
 {
-  "latest": "1.7.2",
+  "latest": "1.7.3",
   "releases": {
     "1.5.0": {
       "notes": "염도 단위를 퍼밀(‰)로",
@@ -191,6 +191,20 @@
       "sha256": "ed8efb23c14b967012ef3b5e23b43184ca78e6d88ac19964170215e9bd5a2117",
       "size": 71139,
       "signature": "vAeJt2qkKMGh9LeXokE3ZJACB4DVR+X3yutpJUmlqkZ34+S8gLgj0FU+tcyaOVNPjuyeVxputHd3S0umEiPZDg=="
+    },
+    "1.7.3": {
+      "notes": "용존산소 과포화 감지 — 물에서 나올 수 없는 값을 화면이 짚어 준다",
+      "released_at": "2026-08-27",
+      "setup": {
+        "file": "shrimp365-setup-1.7.3.tar.gz",
+        "sha256": "30f4b680337025fa574da67bc432610d292021785646b5fec21d243f534f19d0",
+        "size": 104514,
+        "signature": "MKWNA9DUB4pCueAZVIU70BySNLsZDXsOzCebU5d45jZvz9ZzMA5LgUBIdFaQlU6KWNTVrEeOVsui6yonpb74CA=="
+      },
+      "file": "shrimp365-agent-1.7.3.tar.gz",
+      "sha256": "7342691497aeb64a2552e2496e86f3bb083044a17bd359b5a6da4f8e84aae4fd",
+      "size": 72226,
+      "signature": "DlODkQ+02q9Rp/7UWBrZUMKP7uTq4WsXoOxdYl6FK6PEB5PCYLqld//3hdzyB2J+0iyuIpArZe7L/vAS4gZbBA=="
     }
   }
 }

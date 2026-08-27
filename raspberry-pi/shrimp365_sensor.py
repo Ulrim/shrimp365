@@ -23,6 +23,7 @@ import argparse
 import configparser
 import json
 import logging
+import math
 import os
 import signal
 import struct
@@ -66,7 +67,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.7.2"
+VERSION = "1.7.3"
 log = logging.getLogger("shrimp365")
 
 
@@ -552,6 +553,27 @@ def normalize(name: str, value: float, unit: str) -> float | None:
     return round(value, 3)
 
 
+# ── 용존산소 타당성 ──────────────────────────────────────────────────────────
+# 물이 품을 수 있는 산소량은 수온으로 정해진다(1기압 담수 기준, Benson-Krause).
+# 24℃ 물은 8.4 mg/L 언저리가 한계다. 그보다 한참 높은 값이 나오면 물이 아니라
+# 공기를 재고 있거나 보정이 틀어진 것이다 — 값을 버리지는 않되 알려 준다.
+def do_saturation_mgl(celsius: float) -> float:
+    """수온에서의 100% 포화 용존산소(mg/L). 계산 못 하면 0."""
+    if celsius < -5 or celsius > 60:
+        return 0.0
+    t = celsius + 273.15
+    try:
+        return math.exp(-139.34411 + 1.575701e5 / t - 6.642308e7 / t ** 2
+                        + 1.243800e10 / t ** 3 - 8.621949e11 / t ** 4)
+    except (OverflowError, ValueError):
+        return 0.0
+
+
+# 이 배수를 넘으면 물에서 나올 수 없는 값으로 본다. 산소를 세게 불어넣는
+# 수조도 120% 를 넘기 어렵고, 전극이 공기 중에 있으면 200% 를 훌쩍 넘는다.
+DO_SUPERSAT_LIMIT = 150.0
+
+
 # ── 양액(수경재배) EC 관리 ────────────────────────────────────────────────────
 # EC 로 양액 농도를 보고 보충량을 계산한다. 계산식은 현장에서 쓰던 환산표
 # (쪽파 수경재배 EC 자동계산)를 그대로 옮긴 것이다.
@@ -756,6 +778,23 @@ def read_all(client: ModbusClient, enabled: dict[str, int],
         if key in temps:
             values["temperature"] = temps[key]
             break
+
+    # 용존산소가 물에서 나올 수 없는 값인지 본다. 값은 그대로 두고(사람이
+    # 직접 봐야 판단이 된다) 이상하다는 사실만 함께 남긴다. 전극이 물에 안
+    # 잠겼거나 보정이 틀어졌을 때 여기에 걸린다.
+    do_val = values.get("do_level")
+    water_t = values.get("temperature")
+    if do_val is not None and water_t is not None:
+        sat = do_saturation_mgl(water_t)
+        if sat > 0:
+            pct = do_val / sat * 100.0
+            if pct > DO_SUPERSAT_LIMIT:
+                errors.setdefault("do", f"supersat:{round(pct)}")
+                log.warning(
+                    "용존산소가 물에서 나올 수 없는 값입니다: %s mg/L (수온 %s℃ 포화 %.1f, %d%%) "
+                    "— 전극이 물에 잠겼는지, 보정이 되어 있는지 확인하세요.",
+                    do_val, water_t, sat, round(pct),
+                )
 
     # 염도는 전도도에서 환산한다. 센서의 염도 레지스터는 믿지 않는다.
     # 수온이 있어야 실용염분식을 쓸 수 있으므로 수온을 고른 뒤에 계산한다.
