@@ -67,7 +67,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.7.4"
+VERSION = "1.7.5"
 log = logging.getLogger("shrimp365")
 
 
@@ -2059,6 +2059,11 @@ def main() -> int:
             else:
                 recorded_at = time.strftime("%Y-%m-%dT%H:%M:%S%z") or None
                 payload = {**values, "serial": serial_no, "firmware": f"pi-{VERSION}"}
+                # 못 읽은 센서의 사유를 함께 보낸다. 값만 빼고 보내면 웹은
+                # "왜 없는지" 를 알 길이 없어, 현장에 가 봐야만 원인을 안다.
+                # 서버는 이 값을 기기 카드의 마지막 수신값에 그대로 남긴다.
+                for _k, _why in errors.items():
+                    payload[f"err_{_k}"] = str(_why)[:60]
                 # 양액 요약(nut_*) — 계산이 있을 때만. 웹 양액 상태 카드가 쓴다.
                 payload.update(nutrient_payload(nutrient, nut_holder))
 

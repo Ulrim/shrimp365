@@ -1,0 +1,39 @@
+// 기기가 보낸 센서 오류를 사람 말로 옮긴다.
+//
+// 장비는 못 읽은 센서마다 err_<키> 를 함께 보낸다(1.7.5+). 값만 빼고 보내면
+// 웹에서는 "왜 없는지" 를 알 수 없어 현장에 가 봐야만 원인을 알 수 있었다.
+//
+// 사유마다 고쳐야 할 곳이 다르므로 뭉뚱그리지 않는다.
+//   no_reply   응답 자체가 없음 → 배선·전원·슬레이브 ID
+//   probe      통신은 되는데 값이 없음 → 전극 연결·상태
+//   supersat:N 물에서 나올 수 없는 값 → 전극이 물에 잠겼는지·보정
+//   range:N    값이 허용 범위 밖
+import type { Dict } from "@/lib/i18n"
+
+const SENSOR_NAMES: Record<string, string> = {
+  ph: "pH", do: "DO", ec: "EC", flow: "유량", dp: "차압",
+}
+
+export type SensorFault = { sensor: string; reason: string }
+
+export function readSensorFaults(
+  payload: Record<string, unknown> | null | undefined,
+  t: Dict,
+): SensorFault[] {
+  if (!payload) return []
+  const out: SensorFault[] = []
+  for (const [key, raw] of Object.entries(payload)) {
+    if (!key.startsWith("err_") || typeof raw !== "string") continue
+    const sensor = SENSOR_NAMES[key.slice(4)] ?? key.slice(4)
+    let reason: string
+    if (raw === "no_reply") reason = t.waterQualityX.faultNoReply
+    else if (raw === "probe") reason = t.waterQualityX.faultProbe
+    else if (raw.startsWith("supersat:")) {
+      reason = t.waterQualityX.faultSupersat.replace("{{p}}", raw.slice(9))
+    } else if (raw.startsWith("range:")) {
+      reason = t.waterQualityX.faultRange.replace("{{v}}", raw.slice(6))
+    } else reason = raw
+    out.push({ sensor, reason })
+  }
+  return out
+}

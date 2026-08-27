@@ -1143,6 +1143,11 @@ export interface Dict {
     noSensorTagAll: string
     sensorTagMismatch: string
     fullscreen: string
+    faultNoReply: string
+    faultProbe: string
+    faultSupersat: string
+    faultRange: string
+    sensorFault: string
     conductivityCaption: string
     boardMode: string
     noValuesYet: string
