@@ -1,5 +1,5 @@
 {
-  "latest": "1.7.3",
+  "latest": "1.7.4",
   "releases": {
     "1.5.0": {
       "notes": "염도 단위를 퍼밀(‰)로",
@@ -205,6 +205,20 @@
       "sha256": "7342691497aeb64a2552e2496e86f3bb083044a17bd359b5a6da4f8e84aae4fd",
       "size": 72226,
       "signature": "DlODkQ+02q9Rp/7UWBrZUMKP7uTq4WsXoOxdYl6FK6PEB5PCYLqld//3hdzyB2J+0iyuIpArZe7L/vAS4gZbBA=="
+    },
+    "1.7.4": {
+      "notes": "설정에 [센서 테스트] 추가 — 통신·전극·값을 나눠 진단",
+      "released_at": "2026-08-27",
+      "setup": {
+        "file": "shrimp365-setup-1.7.4.tar.gz",
+        "sha256": "e7ed7059004344cc74e9610f9f9ea0a369b99fb491db7727914a81354f29ff30",
+        "size": 106627,
+        "signature": "WWgTfQfX9CQ0NwRCX4tNC1KwbeF8uNbE/5V3EjbXBGzRy5VAx3n9taPPcKu+phyrQQv6bXw6PfoNzyIX3MzlBg=="
+      },
+      "file": "shrimp365-agent-1.7.4.tar.gz",
+      "sha256": "70ea03636256c9043e4d8268c91fc09082139a50b7d321a6045e162916227edc",
+      "size": 74250,
+      "signature": "6AzcGoUclsQngygSjUR9s6Szmc/p8EkrBPRw9FmAxA4Y/HeXtp9k23hzWMCXtZCR2iHgvfgOju2Wt/vgpY64DQ=="
     }
   }
 }

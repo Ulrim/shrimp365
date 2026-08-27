@@ -67,7 +67,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.7.3"
+VERSION = "1.7.4"
 log = logging.getLogger("shrimp365")
 
 
@@ -376,6 +376,74 @@ def dump_registers(client: ModbusClient, slave_id: int) -> list[str]:
             f"  0x{i:04X}  원시 {raw:>7}   소수 {decimals}자리  단위 {unit:<6}  →  {shown}"
         )
     return lines
+
+
+def test_sensors(client: ModbusClient, enabled: dict[str, int],
+                 ec_mode: str = "salinity") -> list[dict]:
+    """켜 둔 센서를 지금 한 번 읽어 항목마다 상태를 매긴다.
+
+    현장에서 값이 안 나올 때 SSH 로 --dump 를 치지 않고도 원인을 가리려고
+    만들었다. 통신이 되는지, 전극이 값을 내는지, 값이 말이 되는지를 나눠
+    보여 준다 — 셋은 고쳐야 할 곳이 서로 다르기 때문이다.
+
+    돌려주는 것: [{key, label, slave_id, ok, error, fields:[{name, value,
+    unit, raw, verdict}]}]
+    """
+    out: list[dict] = []
+    for key, slave_id in enabled.items():
+        spec = SENSOR_SPECS[key]
+        entry: dict = {
+            "key": key, "label": SENSOR_LABELS.get(key, key),
+            "slave_id": slave_id, "ok": False, "error": None, "fields": [],
+        }
+        try:
+            regs = client.read_input_registers(slave_id, 0x0000, 16)
+        except (ModbusError, serial.SerialException) as exc:
+            # 통신 자체가 안 된다 — 배선·전원·슬레이브 ID 를 봐야 한다.
+            entry["error"] = "no_reply"
+            log.info("[테스트] %s(ID %s) 응답 없음: %s", key, slave_id, exc)
+            out.append(entry)
+            continue
+
+        entry["ok"] = True          # 변환기와는 이야기가 됐다
+        water_t = None
+        for name, idx in spec.fields.items():
+            decoded = decode(regs, idx)
+            raw = regs[idx] if idx < len(regs) else None
+            item: dict = {"name": name, "raw": raw, "value": None, "unit": "", "verdict": "?"}
+            if decoded is None:
+                item["verdict"] = "undecodable"
+                entry["fields"].append(item)
+                continue
+            raw_value, unit = decoded
+            item["unit"] = unit
+            value = normalize(name, raw_value, unit)
+            if value is None:
+                item["verdict"] = "undecodable"
+                entry["fields"].append(item)
+                continue
+            item["value"] = value
+            if raw_value in (0x7FFF, 0xFFFF):
+                item["verdict"] = "probe"        # 변환기는 살아 있고 전극이 값을 못 냄
+            elif not plausible(name, value):
+                item["verdict"] = "range"
+            else:
+                item["verdict"] = "ok"
+                if name == "temperature":
+                    water_t = value
+            entry["fields"].append(item)
+
+        # 값 자체는 범위 안이어도 물에서 나올 수 없는 경우가 있다(전극이 공중).
+        if water_t is not None:
+            sat = do_saturation_mgl(water_t)
+            for item in entry["fields"]:
+                if item["name"] == "do_level" and item["verdict"] == "ok" and sat > 0:
+                    pct = item["value"] / sat * 100.0
+                    if pct > DO_SUPERSAT_LIMIT:
+                        item["verdict"] = "supersat"
+                        item["saturation"] = round(pct)
+        out.append(entry)
+    return out
 
 
 def scan_bus(client: ModbusClient, first: int, last: int) -> list[tuple[int, str, str]]:
@@ -1768,6 +1836,16 @@ def main() -> int:
             log.info("화면에서 슬레이브 ID 를 바꿨습니다: %d → %d", old_id, new_id)
             return {"ok": True}
 
+        def ui_test() -> list[dict]:
+            """화면의 [센서 테스트]. 측정 차례와 겹치지 않게 자물쇠를 잡는다."""
+            with serial_lock:
+                try:
+                    return test_sensors(client_holder["client"], dict(enabled),
+                                        ec_holder["mode"])
+                except serial.SerialException as exc:
+                    return [{"key": "_", "label": "", "slave_id": 0, "ok": False,
+                             "error": str(exc)[:120], "fields": []}]
+
         def ui_auto() -> dict:
             """꽂아 둔 센서를 훑어 배치를 제안한다. 저장은 사람이 누른다."""
             with serial_lock:
@@ -1900,6 +1978,7 @@ def main() -> int:
             on_unlink=unlink_account,
             history=hist,
             on_scan=ui_scan,
+            on_test=ui_test,
             on_save_sensors=ui_save_sensors,
             on_set_id=ui_set_id,
             on_auto=ui_auto,

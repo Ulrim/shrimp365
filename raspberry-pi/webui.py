@@ -178,6 +178,16 @@ PAGE = """<!doctype html>
     padding:9px 12px;margin-bottom:7px;
   }
   .found b{color:#60A5FA;font-family:ui-monospace,monospace}
+  /* 센서 테스트 결과 */
+  .trow{margin-top:8px;padding-top:7px;border-top:1px solid #22304C;line-height:1.7}
+  .trow:first-of-type{border-top:0;margin-top:4px}
+  .tfield{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:12px;margin-top:2px}
+  .tname{min-width:96px;color:#94A3B8;font-family:ui-monospace,monospace}
+  .tval{min-width:92px;color:#E8EDF7;font-weight:700;font-family:ui-monospace,monospace}
+  .traw{margin-left:auto}
+  .okv{color:#34D399;font-weight:700}
+  .badv{color:#F87171;font-weight:700}
+  .dim{color:#64748B;font-weight:500}
   .msg{font-size:12px;padding:8px 12px;border-radius:9px;margin-bottom:7px}
   .msg.ok{background:#10B98118;color:#34D399}
   .msg.err{background:#DC262618;color:#F87171}
@@ -466,6 +476,18 @@ var I18N = {
   sen_probe:{ko:"전극 확인 필요",en:"Check the probe",vi:"Kiểm tra đầu dò",id:"Periksa probe"},
   sen_probe_sub:{ko:"센서는 응답하지만 값을 내지 못합니다 — 전극 연결·상태를 확인하세요",en:"The sensor replies but reports no value — check the probe connection",vi:"Cảm biến phản hồi nhưng không có giá trị — kiểm tra kết nối đầu dò",id:"Sensor merespons tetapi tanpa nilai — periksa sambungan probe"},
   sen_range:{ko:"값이 범위를 벗어남",en:"Value out of range",vi:"Giá trị ngoài khoảng",id:"Nilai di luar rentang"},
+  test_btn:{ko:"센서 테스트",en:"Test sensors",vi:"Kiểm tra cảm biến",id:"Uji sensor"},
+  test_running:{ko:"센서를 읽는 중… 최대 20초",en:"Reading sensors… up to 20s",vi:"Đang đọc cảm biến… tối đa 20 giây",id:"Membaca sensor… hingga 20 dtk"},
+  test_fail:{ko:"테스트하지 못했습니다.",en:"Test failed.",vi:"Không kiểm tra được.",id:"Uji gagal."},
+  test_title:{ko:"센서 테스트 결과",en:"Sensor test result",vi:"Kết quả kiểm tra",id:"Hasil uji sensor"},
+  test_comm_ok:{ko:"통신 정상",en:"Comms OK",vi:"Giao tiếp tốt",id:"Komunikasi OK"},
+  test_no_reply:{ko:"응답 없음 — 배선·전원·ID 확인",en:"No reply — check wiring, power, ID",vi:"Không phản hồi — kiểm tra dây, nguồn, ID",id:"Tak merespons — cek kabel, daya, ID"},
+  v_ok:{ko:"정상",en:"OK",vi:"Tốt",id:"OK"},
+  v_probe:{ko:"전극 이상 — 값을 내지 못함",en:"Probe fault — no value",vi:"Lỗi đầu dò — không có giá trị",id:"Probe bermasalah — tanpa nilai"},
+  v_range:{ko:"범위 벗어남",en:"Out of range",vi:"Ngoài khoảng",id:"Di luar rentang"},
+  v_supersat:{ko:"포화도 {{p}}% — 물에 안 잠겼거나 보정 필요",en:"{{p}}% saturation — not submerged or needs calibration",vi:"Bão hòa {{p}}% — chưa ngập hoặc cần hiệu chuẩn",id:"Saturasi {{p}}% — belum terendam atau perlu kalibrasi"},
+  v_undecodable:{ko:"해석 불가",en:"Cannot decode",vi:"Không giải mã được",id:"Tak terbaca"},
+  test_none:{ko:"켜져 있는 센서가 없습니다.",en:"No sensors enabled.",vi:"Không có cảm biến bật.",id:"Tak ada sensor aktif."},
   sen_supersat:{ko:"물에서 나올 수 없는 값",en:"Impossible for water",vi:"Không thể có trong nước",id:"Mustahil untuk air"},
   sen_supersat_sub:{ko:"포화도 {{p}}% — 전극이 물에 잠겼는지, 보정이 되어 있는지 확인하세요",en:"{{p}}% saturation — check the probe is submerged and calibrated",vi:"Bão hòa {{p}}% — kiểm tra đầu dò đã ngập nước và đã hiệu chuẩn",id:"Saturasi {{p}}% — pastikan probe terendam dan terkalibrasi"},
   // 양액
@@ -1227,6 +1249,7 @@ function drawSettings(){
     ? '<div class="msg ' + setupMsg.kind + '">' + setupMsg.text + '</div>' : "";
 
   var found = d.found ? renderFound(d.found) : "";
+  var test = d.test ? renderTest(d.test) : "";
 
   document.getElementById("setup").innerHTML =
     '<div class="setup">' +
@@ -1236,7 +1259,7 @@ function drawSettings(){
         '<button onclick="drawSettingsMenu()">' + t("back_menu") + '</button>' +
       '</div>' +
       '<div class="sbody">' +
-        msg + found +
+        msg + test + found +
         '<div class="sub" style="margin:2px 0 6px">' + t("slave_hint") + '</div>' +
         rows +
         ecRow(d) +
@@ -1251,6 +1274,7 @@ function drawSettings(){
       '<div class="ranges sfoot">' +
         '<button onclick="autoAssign()">' + t("auto_assign") + '</button>' +
         '<button onclick="scanBus()">' + t("scan_bus") + '</button>' +
+        '<button onclick="testSensors()">' + t("test_btn") + '</button>' +
         '<button onclick="saveSettings()" aria-pressed="true">' + t("save") + '</button>' +
       '</div>' +
     '</div>';
@@ -1294,6 +1318,57 @@ function senName(key){
   if (key === "do") return t("n_do");
   if (key === "ec") return t("n_ec");
   return key;
+}
+
+// 센서 테스트 결과 — 통신 / 전극 / 값 세 층을 나눠 보여 준다.
+// 셋은 고쳐야 할 곳이 서로 다르므로 뭉뚱그리면 헛수고를 시킨다.
+function verdictText(f){
+  if (f.verdict === "ok") return {cls:"okv", txt:t("v_ok")};
+  if (f.verdict === "probe") return {cls:"badv", txt:t("v_probe")};
+  if (f.verdict === "range") return {cls:"badv", txt:t("v_range")};
+  if (f.verdict === "supersat")
+    return {cls:"badv", txt:t("v_supersat").replace("{{p}}", String(f.saturation))};
+  return {cls:"badv", txt:t("v_undecodable")};
+}
+
+function renderTest(list){
+  if (!list.length) return '<div class="msg err">' + t("test_none") + '</div>';
+  var blocks = list.map(function(sen){
+    var head = '<b>' + esc(sen.label || sen.key) + '</b> <span class="dim">ID ' + sen.slave_id + '</span> — ' +
+      (sen.ok ? '<span class="okv">' + t("test_comm_ok") + '</span>'
+              : '<span class="badv">' + t("test_no_reply") + '</span>');
+    if (!sen.ok) return '<div class="trow">' + head + '</div>';
+    var rows = (sen.fields || []).map(function(f){
+      var v = verdictText(f);
+      var shown = (f.value === null || f.value === undefined) ? "--" : f.value;
+      return '<div class="tfield">' +
+        '<span class="tname">' + esc(f.name) + '</span>' +
+        '<span class="tval">' + esc(String(shown)) + ' <span class="dim">' + esc(f.unit || "") + '</span></span>' +
+        '<span class="' + v.cls + '">' + v.txt + '</span>' +
+        '<span class="dim traw">원시 ' + (f.raw === null ? "-" : f.raw) + '</span>' +
+      '</div>';
+    }).join("");
+    return '<div class="trow">' + head + rows + '</div>';
+  }).join("");
+  return '<div class="found" style="max-height:none">' +
+    '<b>' + t("test_title") + '</b>' + blocks + '</div>';
+}
+
+function testSensors(){
+  setupMsg = {kind:"ok", text:t("test_running")};
+  setupData.test = null;
+  drawSettings();
+  fetch("/api/sensors/test", {method:"POST"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      setupData.test = d.result || [];
+      setupMsg = null;
+      drawSettings();
+    })
+    .catch(function(){
+      setupMsg = {kind:"err", text:t("test_fail")};
+      drawSettings();
+    });
 }
 
 function renderFound(found){
@@ -1660,6 +1735,7 @@ def serve(
     on_unlink=None,
     history=None,
     on_scan=None,
+    on_test=None,
     on_save_sensors=None,
     on_set_id=None,
     on_auto=None,
@@ -1736,6 +1812,10 @@ def serve(
             if self.path == "/api/sensors/scan" and on_scan is not None:
                 # 선을 훑는 동안 측정 차례가 오면 기다린다. 몇 초 걸릴 수 있다.
                 self._send(200, json.dumps({"found": on_scan()}).encode(), "application/json")
+                return
+            if self.path == "/api/sensors/test" and on_test is not None:
+                # 센서를 실제로 읽으므로 몇 초 걸릴 수 있다.
+                self._send(200, json.dumps({"result": on_test()}).encode(), "application/json")
                 return
             if self.path == "/api/sensors/auto" and on_auto is not None:
                 self._send(200, json.dumps(on_auto()).encode(), "application/json")
