@@ -1,10 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import { SHOW_BOARD, SHOW_CARDNEWS } from "@/lib/features"
+import { MRV_PLATFORM_URL, SHOW_BOARD, SHOW_CARDNEWS } from "@/lib/features"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { Globe, Menu, X } from "lucide-react"
+import { ExternalLink, Globe, Menu, X } from "lucide-react"
 import { useT } from "@/lib/i18n-context"
 import { LOCALES, LOCALE_NAMES, type Locale } from "@/lib/i18n"
 import { hasLocalizedUrl, localizedHref, localePrefix, stripLocalePrefix } from "@/lib/marketing-locale"
@@ -72,6 +72,18 @@ export function PublicFooter({ maxWidth = "max-w-5xl" }: { maxWidth?: string }) 
             {l.label}
           </Link>
         ))}
+        {/* 컬리버 탄소 MRV 플랫폼(외부 서비스) — 주소가 설정된 경우에만 노출한다.
+            내부 라우팅이 아니므로 next/link 가 아닌 <a> 로 새 탭을 연다. */}
+        {MRV_PLATFORM_URL && (
+          <a
+            href={MRV_PLATFORM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#1E40AF] hover:underline transition-colors"
+          >
+            {t.nav.mrvPlatform}
+          </a>
+        )}
         <span className="ml-auto">© {new Date().getFullYear()} CULIVER INC.</span>
       </div>
     </footer>
@@ -140,6 +152,19 @@ export function PublicHeader({ maxWidth = "max-w-5xl" }: { maxWidth?: string }) 
 
         <div className="ml-auto flex items-center gap-2">
           <LangSelect className="hidden sm:inline-flex" />
+          {/* 컬리버 탄소 MRV 플랫폼(외부 도메인). 주소 미설정 시 렌더하지 않는다.
+              채움 스타일은 회원가입이 독점하므로 여기서는 브랜드색 테두리로만 구분한다. */}
+          {MRV_PLATFORM_URL && (
+            <a
+              href={MRV_PLATFORM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:inline-flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg border border-[#1E40AF]/40 text-[#1E40AF] hover:bg-[#1E40AF]/5 transition-colors"
+            >
+              {t.nav.mrvPlatform}
+              <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+            </a>
+          )}
           <Link
             href="/login"
             className="hidden sm:inline-flex items-center text-sm text-foreground px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors"
@@ -207,6 +232,18 @@ export function PublicHeader({ maxWidth = "max-w-5xl" }: { maxWidth?: string }) 
             </div>
 
             <div className="border-t border-border mt-3 pt-3 flex flex-col gap-2">
+              {MRV_PLATFORM_URL && (
+                <a
+                  href={MRV_PLATFORM_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setOpen(false)}
+                  className="px-3 min-h-[44px] flex items-center justify-center gap-1 rounded-lg border border-[#1E40AF]/40 text-[#1E40AF] text-sm hover:bg-[#1E40AF]/5 transition-colors"
+                >
+                  {t.nav.mrvPlatform}
+                  <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+                </a>
+              )}
               <Link
                 href="/login"
                 onClick={() => setOpen(false)}

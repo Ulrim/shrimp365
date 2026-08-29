@@ -90,6 +90,8 @@ export interface Dict {
     admin: string
     sectionRecord: string
     sectionMonitor: string
+    /** 컬리버 탄소 MRV 플랫폼 진입 라벨(외부 서비스). */
+    mrvPlatform: string
     /** 로고 부제 — 언어 무관 영문 고정. 농업 모드 오버라이드로만 바뀐다. */
     brandTagline: string
   }
