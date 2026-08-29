@@ -8,3 +8,8 @@
 // 관리할 수 있어야 하기 때문이다(완전 차단이 필요하면 따로 막는다).
 export const SHOW_CARDNEWS = false
 export const SHOW_BOARD = false
+
+// 컬리버 탄소 MRV 플랫폼 진입 주소. 비어 있으면 진입 버튼을 렌더하지 않는다
+// (culiver 배포 전까지는 비워 두는 것이 정상 — 깨진 링크를 실서비스에 노출하지 않는다).
+// NEXT_PUBLIC_* 는 빌드타임 정적 치환이라 반드시 리터럴로 직접 참조해야 한다(동적 인덱싱 금지).
+export const MRV_PLATFORM_URL = process.env.NEXT_PUBLIC_MRV_PLATFORM_URL ?? ""

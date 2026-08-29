@@ -92,6 +92,7 @@ export const ko: Dict = {
     admin: "시스템 모니터링",
     sectionRecord: "기록",
     sectionMonitor: "모니터링",
+    mrvPlatform: "탄소 MRV 플랫폼",
     brandTagline: "SMART AQUACULTURE",
   },
   hub: {

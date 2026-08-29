@@ -92,6 +92,7 @@ export const vi: Dict = {
     admin: "Giám sát hệ thống",
     sectionRecord: "Ghi chép",
     sectionMonitor: "Theo dõi",
+    mrvPlatform: "Nền tảng MRV các-bon",
     brandTagline: "SMART AQUACULTURE",
   },
   hub: {
