@@ -1,0 +1,16 @@
+{
+  "slug": "dead-shrimp-handling",
+  "locale": "ko",
+  "cards": [
+    { "type": "cover", "label": "폐사체 관리", "title": ["건져내는 게", "방역입니다"], "subtitle": "그날 안에 치우십시오" },
+    { "type": "point", "index": "01", "label": "이유", "valueStyle": "text", "value": ["산 새우가", "먹습니다"], "caption": "병이 그대로 옮겨 갑니다" },
+    { "type": "point", "index": "02", "label": "주기", "value": "매일", "caption": "아침 순찰 때 함께 봅니다" },
+    { "type": "point", "index": "03", "label": "숫자", "valueStyle": "text", "value": ["몇 마리인지", "적습니다"], "caption": "추세가 원인을 알려 줍니다" },
+    { "type": "point", "index": "04", "label": "경보선", "value": "하루 1%", "caption": "넘으면 원인부터 찾습니다" },
+    { "type": "point", "index": "05", "label": "처리", "valueStyle": "text", "value": ["양식장 밖", "깊이 묻기"], "caption": "물가에 두면 다시 들어옵니다" },
+    { "type": "point", "index": "06", "label": "도구", "valueStyle": "text", "value": ["뜰채는", "따로 씁니다"], "caption": "수조 간에 돌려 쓰지 않습니다" },
+    { "type": "outro", "title": ["폐사체는", "이렇게 다룹니다"],
+      "rows": [["수거", "매일 아침"], ["기록", "마릿수"], ["경보선", "하루 1%"], ["처리", "밖에 매립"], ["도구", "수조별 전용"], ["소독", "장화·뜰채"]],
+      "ctaTitle": "폐사 마릿수를 매일 기록", "ctaNote": "완전 무료 · 앱 설치 불필요", "ctaUrl": "shrimp365.kr" }
+  ]
+}

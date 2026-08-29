@@ -1,0 +1,16 @@
+{
+  "slug": "aerator-power-cost",
+  "locale": "ko",
+  "cards": [
+    { "type": "cover", "label": "수차 운용", "title": ["끄는 시간이", "전기료입니다"], "subtitle": "다만 새벽엔 끄지 마십시오" },
+    { "type": "point", "index": "01", "label": "절대 시간", "value": "새벽 3~6시", "caption": "이 시간대는 끄지 않습니다" },
+    { "type": "point", "index": "02", "label": "한낮", "valueStyle": "text", "value": ["광합성으로", "산소가 남습니다"], "caption": "그래도 성층은 깨야 합니다" },
+    { "type": "point", "index": "03", "label": "판단 기준", "valueStyle": "text", "value": ["시계가 아니라", "측정값"], "caption": "DO 5 mg/L를 기준으로 켭니다" },
+    { "type": "point", "index": "04", "label": "효율", "valueStyle": "text", "value": ["날개가 닳으면", "전기만 먹습니다"], "caption": "수류가 약해졌는지 보십시오" },
+    { "type": "point", "index": "05", "label": "배치", "valueStyle": "text", "value": ["물이 돌게", "놓습니다"], "caption": "찌꺼기를 가운데로 모읍니다" },
+    { "type": "point", "index": "06", "label": "비용", "value": "kW × 시간", "caption": "수조별로 적으면 비교됩니다" },
+    { "type": "outro", "title": ["수차 전기료,", "이렇게 줄입니다"],
+      "rows": [["고정 가동", "새벽 3~6시"], ["한낮", "성층 파괴용"], ["기준", "DO 5 mg/L"], ["점검", "날개 마모"], ["배치", "회전 수류"], ["계산", "kW × 시간"]],
+      "ctaTitle": "가동 시간과 DO를 함께 기록", "ctaNote": "완전 무료 · 앱 설치 불필요", "ctaUrl": "shrimp365.kr" }
+  ]
+}
