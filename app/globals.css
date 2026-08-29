@@ -36,6 +36,25 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 221 83% 53%;
+
+    /* --- 컬리버 MRV 플랫폼 토큰(/mrv 하위 화면 전용) ---
+       원본 mrv-platform/apps/web/src/styles/tokens.css 의 값을 그대로 옮겼다.
+       shrimp365 의 색 이름과 겹치지 않게 mrv- 접두사를 붙였고, 매핑은
+       tailwind.config.ts 의 colors.mrv 에 있다. */
+    --mrv-bg: 210 20% 98%;
+    --mrv-surface: 0 0% 100%;
+    --mrv-border: 214 15% 88%;
+    --mrv-fg: 222 34% 14%;
+    --mrv-muted: 220 9% 46%;
+    --mrv-primary: 205 90% 38%;
+    --mrv-green: 145 63% 37%;
+    --mrv-green-bg: 145 55% 94%;
+    --mrv-amber: 38 92% 45%;
+    --mrv-amber-bg: 40 90% 94%;
+    --mrv-red: 0 72% 48%;
+    --mrv-red-bg: 0 80% 96%;
+    --mrv-na: 220 9% 55%;
+    --mrv-na-bg: 220 14% 94%;
   }
 
   .dark {

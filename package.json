@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "mrv:verify-kpi": "node scripts/mrv/verify-kpi.mjs",
+    "mrv:verify-rls": "bash scripts/mrv/verify-rls.sh",
     "cardnews": "node scripts/cardnews/render.mjs"
   },
   "dependencies": {

@@ -1,0 +1,42 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+
+# --- Local dev databases (SQLite) ---
+*.db
+*.sqlite
+*.sqlite3
+culiver_dev.db
+
+# --- Node / Vite ---
+node_modules/
+apps/web/dist/
+*.local
+
+# --- Secrets / env ---
+.env
+.env.*
+!.env.example
+infra/.env
+!infra/.env.example
+apps/web/.env
+!apps/web/.env.example
+
+# --- Editor / OS ---
+.DS_Store
+.idea/
+.vscode/
+*.log

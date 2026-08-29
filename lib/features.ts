@@ -9,7 +9,14 @@
 export const SHOW_CARDNEWS = false
 export const SHOW_BOARD = false
 
-// 컬리버 탄소 MRV 플랫폼 진입 주소. 비어 있으면 진입 버튼을 렌더하지 않는다
-// (culiver 배포 전까지는 비워 두는 것이 정상 — 깨진 링크를 실서비스에 노출하지 않는다).
+// 컬리버 탄소 MRV 플랫폼 진입 주소.
+//
+// 플랫폼은 이제 이 앱 안(/mrv)에 있으므로 기본값이 내부 경로다. 환경변수로 절대 URL을
+// 넣으면 그쪽으로 보낸다 — 별도 도메인에 따로 배포하는 경우를 위한 탈출구다.
+// 빈 문자열로 두면 진입 버튼 자체를 감춘다(운영 중 잠시 내리고 싶을 때).
+//
 // NEXT_PUBLIC_* 는 빌드타임 정적 치환이라 반드시 리터럴로 직접 참조해야 한다(동적 인덱싱 금지).
-export const MRV_PLATFORM_URL = process.env.NEXT_PUBLIC_MRV_PLATFORM_URL ?? ""
+export const MRV_PLATFORM_URL = process.env.NEXT_PUBLIC_MRV_PLATFORM_URL ?? "/mrv"
+
+/** 진입 주소가 이 앱 내부 경로인지(= next/link 로 이동하고 새 탭을 열지 않는지). */
+export const MRV_PLATFORM_IS_INTERNAL = MRV_PLATFORM_URL.startsWith("/")
