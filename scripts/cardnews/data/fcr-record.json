@@ -1,0 +1,16 @@
+{
+  "slug": "fcr-record",
+  "locale": "ko",
+  "cards": [
+    { "type": "cover", "label": "사료계수", "title": ["사료 1 kg에", "몇 g 늘었나"], "subtitle": "이 숫자가 손익입니다" },
+    { "type": "point", "index": "01", "label": "계산", "valueStyle": "text", "value": ["총 사료량 ÷", "늘어난 무게"], "caption": "단위는 둘 다 kg입니다" },
+    { "type": "point", "index": "02", "label": "좋은 값", "value": "1.2~1.5", "caption": "이 범위면 잘 하고 있습니다" },
+    { "type": "point", "index": "03", "label": "1.8 이상", "valueStyle": "text", "value": ["사료가", "새고 있습니다"], "caption": "남기거나 폐사가 있습니다" },
+    { "type": "point", "index": "04", "label": "필요한 것", "valueStyle": "text", "value": ["급이 기록", "표본 중량"], "caption": "하나만 없어도 못 냅니다" },
+    { "type": "point", "index": "05", "label": "재는 주기", "value": "주 1회", "caption": "표본을 떠서 평균을 냅니다" },
+    { "type": "point", "index": "06", "label": "쓰는 법", "valueStyle": "text", "value": ["추세를", "봅니다"], "caption": "한 번 값보다 흐름이 중요합니다" },
+    { "type": "outro", "title": ["사료계수,", "이렇게 씁니다"],
+      "rows": [["계산", "사료 ÷ 증체"], ["좋은 값", "1.2~1.5"], ["경고", "1.8 이상"], ["필요 기록", "급이·중량"], ["주기", "주 1회"], ["보는 법", "추세"]],
+      "ctaTitle": "급이량과 중량을 한곳에", "ctaNote": "완전 무료 · 앱 설치 불필요", "ctaUrl": "shrimp365.kr" }
+  ]
+}

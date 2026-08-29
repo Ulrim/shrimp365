@@ -1,0 +1,16 @@
+{
+  "slug": "white-feces-disease",
+  "locale": "ko",
+  "cards": [
+    { "type": "cover", "label": "백변증", "title": ["흰 변이 뜨면", "이미 늦습니다"], "subtitle": "먹이대부터 보십시오" },
+    { "type": "point", "index": "01", "label": "첫 신호", "valueStyle": "text", "value": ["수면에 뜬", "흰 배설물"], "caption": "가늘고 길게 떠다닙니다" },
+    { "type": "point", "index": "02", "label": "같이 온다", "valueStyle": "text", "value": ["섭이량이", "떨어집니다"], "caption": "먹이대에 사료가 남습니다" },
+    { "type": "point", "index": "03", "label": "장 색깔", "valueStyle": "text", "value": ["중장선이", "희어집니다"], "caption": "정상은 검거나 갈색입니다" },
+    { "type": "point", "index": "04", "label": "원인", "valueStyle": "text", "value": ["비브리오와", "바닥 악화"], "caption": "한 가지 원인이 아닙니다" },
+    { "type": "point", "index": "05", "label": "먼저 할 일", "valueStyle": "text", "value": ["급이를", "줄입니다"], "caption": "남은 사료가 바닥을 더 망칩니다" },
+    { "type": "point", "index": "06", "label": "바닥", "valueStyle": "text", "value": ["침전물을", "걷어냅니다"], "caption": "환수와 폭기를 같이 합니다" },
+    { "type": "outro", "title": ["흰 변,", "이렇게 봅니다"],
+      "rows": [["첫 신호", "수면의 흰 변"], ["동반 증상", "섭이량 감소"], ["중장선", "희게 변함"], ["원인", "세균·바닥"], ["첫 조치", "급이 감량"], ["다음", "바닥·환수"]],
+      "ctaTitle": "섭이량 변화를 매일 기록", "ctaNote": "완전 무료 · 앱 설치 불필요", "ctaUrl": "shrimp365.kr" }
+  ]
+}

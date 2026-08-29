@@ -1,0 +1,16 @@
+{
+  "slug": "stocking-density",
+  "locale": "ko",
+  "cards": [
+    { "type": "cover", "label": "사육 밀도", "title": ["많이 넣으면", "많이 죽습니다"], "subtitle": "산소가 한계를 정합니다" },
+    { "type": "point", "index": "01", "label": "결정 요인", "valueStyle": "text", "value": ["마릿수보다", "산소입니다"], "caption": "수차 용량이 상한을 정합니다" },
+    { "type": "point", "index": "02", "label": "반집약", "value": "50~100", "caption": "㎡당 마릿수 기준입니다" },
+    { "type": "point", "index": "03", "label": "집약", "value": "150~300", "caption": "수차와 관리가 받쳐줄 때만" },
+    { "type": "point", "index": "04", "label": "수차 기준", "value": "1 HP", "caption": "생물량 400~500 kg를 감당" },
+    { "type": "point", "index": "05", "label": "넘기면", "valueStyle": "text", "value": ["수질이", "먼저 무너집니다"], "caption": "암모니아와 아질산이 먼저 옵니다" },
+    { "type": "point", "index": "06", "label": "실속", "valueStyle": "text", "value": ["생존율이", "수익입니다"], "caption": "적게 넣고 크게 키우는 편이 낫습니다" },
+    { "type": "outro", "title": ["밀도는", "이렇게 정합니다"],
+      "rows": [["기준", "산소 공급량"], ["반집약", "50~100/㎡"], ["집약", "150~300/㎡"], ["수차 1 HP", "생물량 400 kg"], ["과밀 신호", "암모니아 상승"], ["목표", "생존율"]],
+      "ctaTitle": "입식 밀도와 수질을 함께", "ctaNote": "완전 무료 · 앱 설치 불필요", "ctaUrl": "shrimp365.kr" }
+  ]
+}
