@@ -28,9 +28,23 @@ from app.database import SessionLocal, init_db  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Farm, Tank  # noqa: E402
 from app.services.alert_service import alert_service  # noqa: E402
+from app.services.camera_manager import camera_manager  # noqa: E402
 
 SERVICE_KEY = os.environ["VISION_SERVICE_KEY"]
 TEST_USER_ID = uuid.UUID("11111111-1111-1111-1111-111111111111")
+
+
+@pytest.fixture(autouse=True)
+async def _stop_streams_after_each_test():
+    """테스트가 남긴 스트림 처리기를 반드시 멈춘다.
+
+    처리기는 asyncio 백그라운드 작업이라 테스트가 끝나도 살아남아 개체수를
+    계속 쓴다. 테스트 DB 는 SQLite 파일 하나라 그 쓰기가 잠금을 잡고 있으면
+    다음 테스트의 create_all 이 "database is locked" 로 터진다. 카메라를
+    시작한 테스트가 스스로 정리하더라도, 중간에 실패하면 남는다.
+    """
+    yield
+    await camera_manager.stop_all()
 
 
 @pytest.fixture

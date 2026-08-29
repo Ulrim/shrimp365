@@ -47,6 +47,11 @@ def _make_engine():
         # NullPool keeps connections loop-agnostic (pytest spins up a fresh
         # event loop per test); SQLite connections are cheap to reopen.
         kwargs["poolclass"] = NullPool
+        # SQLite 는 파일 하나를 쓰기 잠금으로 막는다. 테스트에서는 스트림
+        # 처리기가 개체수를 쓰는 동안 다른 테스트가 같은 파일을 읽어, 기계가
+        # 바쁘면 기본 대기(5초)로는 모자라 "database is locked" 가 난다.
+        # 운영은 Postgres 라 해당 없다 — 이 값은 테스트 안정성만을 위한 것이다.
+        kwargs["connect_args"] = {"timeout": 10}
     else:
         kwargs["pool_pre_ping"] = True
     return create_async_engine(settings.database_url, **kwargs)

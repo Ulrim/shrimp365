@@ -57,6 +57,7 @@ export function CameraSettings({ tanks, cameras, statuses, configs, onChanged }:
   const [cameraType, setCameraType] = useState<CameraTypeValue>("picamera")
   const [streamUrlValue, setStreamUrlValue] = useState("")
   const [tankArea, setTankArea] = useState("")
+  const [hostId, setHostId] = useState("")
 
   // 경보 설정 폼
   const [alertCameraId, setAlertCameraId] = useState("")
@@ -91,6 +92,7 @@ export function CameraSettings({ tanks, cameras, statuses, configs, onChanged }:
         camera_type: cameraType,
         stream_url: streamUrlValue.trim() || null,
         tank_area_m2: tankArea ? Number(tankArea) : null,
+        host_id: hostId.trim() || null,
       })
       setName("")
       setTankArea("")
@@ -146,6 +148,7 @@ export function CameraSettings({ tanks, cameras, statuses, configs, onChanged }:
                     <p className="text-sm font-medium truncate">{camera.name}</p>
                     <p className="text-xs text-muted-foreground truncate">
                       {camera.tank_name ?? "수조"} · {camera.camera_type.toUpperCase()}
+                      {camera.host_id ? ` · ${camera.host_id}` : ""}
                       {camera.stream_url ? ` · ${camera.stream_url}` : ""}
                     </p>
                   </div>
@@ -239,6 +242,19 @@ export function CameraSettings({ tanks, cameras, statuses, configs, onChanged }:
               <p className="text-[11px] text-muted-foreground">{typeHint}</p>
             </div>
           )}
+
+          <div className="space-y-1.5">
+            <Label>장비 ID (선택)</Label>
+            <Input
+              value={hostId}
+              onChange={e => setHostId(e.target.value)}
+              placeholder="예: pi-tank-1"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              카메라가 물린 라즈베리파이의 이름입니다. 파이가 여러 대일 때 어느
+              장비가 이 카메라를 맡을지 가릅니다. 한 대뿐이면 비워 두세요.
+            </p>
+          </div>
 
           <div className="space-y-1.5">
             <Label>수조 면적 (㎡, 선택)</Label>

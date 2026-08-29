@@ -292,6 +292,8 @@ export interface VisionCamera {
   is_active: boolean
   install_height: number | null
   tank_area_m2: number | null
+  /** 이 카메라가 물려 있는 장비(라즈베리파이) 이름. 비전 서비스가 한 대뿐이면 null. */
+  host_id: string | null
   created_at: string
   /** 목록 조회에서 조인해 오는 표시용 값. 단건 조회에는 없다. */
   tank_name?: string

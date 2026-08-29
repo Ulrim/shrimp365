@@ -43,6 +43,11 @@ create table if not exists public.vision_cameras (
   install_height real,
   tank_area_m2   real,
 
+  -- 이 카메라가 물려 있는 장비(라즈베리파이)의 이름. CSI 카메라는 보드에
+  -- 리본으로 직접 붙어 있어, 그 보드에서 도는 서비스만 열 수 있다.
+  -- 비워 두면 "장비 이름을 정하지 않은 배포" — 비전 서비스가 한 대뿐일 때다.
+  host_id        text,
+
   created_at    timestamptz not null default now()
 );
 
@@ -57,6 +62,15 @@ alter table public.vision_cameras
 alter table public.vision_cameras
   add constraint vision_cameras_camera_type_check
   check (camera_type in ('picamera','usb','rtsp','http'));
+
+-- 위와 같은 이유로, 이미 실행한 DB 에도 컬럼을 더해 준다.
+alter table public.vision_cameras
+  add column if not exists host_id text;
+
+-- 각 장비는 뜰 때 "내 카메라"만 골라 온다. 장비가 여러 대면 이 조회가
+-- 기동 때마다 돈다.
+create index if not exists idx_vision_cameras_host
+  on public.vision_cameras (host_id) where host_id is not null;
 
 alter table public.vision_cameras enable row level security;
 

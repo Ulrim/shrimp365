@@ -1,7 +1,12 @@
-"""Cameras: CRUD + start/stop/status/snapshot in simulation mode."""
+"""Cameras: CRUD + start/stop/status/snapshot + 장비 귀속(host_id)."""
 from __future__ import annotations
 
 import asyncio
+
+import pytest
+
+from app.config import settings
+from app.services.camera_manager import camera_manager
 
 
 async def test_camera_crud(client, auth_headers, tank):
@@ -129,3 +134,95 @@ async def test_unknown_camera_type_rejected(client, auth_headers, tank):
         headers=auth_headers,
     )
     assert resp.status_code == 422
+
+
+async def make_camera(client, auth_headers, tank, name, host_id=None):
+    body = {"tank_id": tank["id"], "name": name, "camera_type": "picamera"}
+    if host_id is not None:
+        body["host_id"] = host_id
+    resp = await client.post("/api/v1/cameras", json=body, headers=auth_headers)
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
+@pytest.fixture
+def no_real_streams(monkeypatch):
+    """카메라를 실제로 켜지 않고 "어느 것을 켜려 했는지" 만 기록한다.
+
+    귀속 판정을 보는 테스트에 진짜 스트림은 필요 없다. 오히려 해롭다 —
+    처리기가 백그라운드에서 개체수를 계속 쓰면 테스트용 SQLite 파일이
+    잠겨 뒤따르는 테스트가 "database is locked" 로 터진다.
+    """
+    started: list[str] = []
+
+    async def fake_start(camera, farm_id):
+        started.append(camera.name)
+
+    monkeypatch.setattr(camera_manager, "start_camera", fake_start)
+    return started
+
+
+async def test_foreign_host_camera_rejected(client, auth_headers, tank, monkeypatch):
+    """다른 장비에 물린 카메라는 이 서비스에서 시작되지 않는다.
+
+    CSI 카메라는 보드에 리본으로 붙어 있어 그 보드에서만 열린다. 이 확인이
+    없으면 비전 파이가 두 대일 때 서로 남의 카메라를 열려고 무한 재시도한다.
+    """
+    camera = await make_camera(client, auth_headers, tank, "2번 수조 카메라", "pi-tank-2")
+    assert camera["host_id"] == "pi-tank-2"
+
+    # 이 서비스는 1번 수조 파이라고 하자.
+    monkeypatch.setattr(settings, "vision_host_id", "pi-tank-1")
+
+    resp = await client.post(f"/api/v1/cameras/{camera['id']}/start", headers=auth_headers)
+    assert resp.status_code == 409
+    # 어느 장비에서 시작해야 하는지 알려 줘야 설정을 고칠 수 있다.
+    assert "pi-tank-2" in resp.json()["detail"]
+
+
+async def test_own_host_camera_accepted(
+    client, auth_headers, tank, monkeypatch, no_real_streams
+):
+    monkeypatch.setattr(settings, "vision_host_id", "pi-tank-1")
+    camera = await make_camera(client, auth_headers, tank, "1번 수조 카메라", "pi-tank-1")
+
+    resp = await client.post(f"/api/v1/cameras/{camera['id']}/start", headers=auth_headers)
+    assert resp.status_code == 202
+    assert no_real_streams == ["1번 수조 카메라"]
+
+
+async def test_auto_start_skips_other_hosts(
+    client, auth_headers, tank, monkeypatch, no_real_streams
+):
+    """뜰 때 자동 시작도 내 카메라만 고른다.
+
+    테스트 DB 는 한 파일을 여러 테스트가 나눠 쓰므로, 앞선 테스트가 남긴
+    카메라와 섞이지 않도록 이 테스트만의 장비 이름을 쓴다.
+    """
+    mine, theirs = "pi-autostart-mine", "pi-autostart-theirs"
+    for host in (mine, theirs):
+        await make_camera(client, auth_headers, tank, f"{host} 카메라", host)
+
+    monkeypatch.setattr(settings, "vision_host_id", mine)
+    started = await camera_manager.auto_start_active_cameras()
+
+    assert started == 1
+    # 개수만 세면 남의 카메라를 대신 시작해도 통과한다. 무엇을 켰는지까지 본다.
+    assert no_real_streams == [f"{mine} 카메라"]
+
+
+async def test_unnamed_host_owns_unnamed_cameras(
+    client, auth_headers, tank, monkeypatch, no_real_streams
+):
+    """장비가 한 대뿐인 배포에는 이름을 강제하지 않는다.
+
+    양쪽 다 이름이 없으면 내 것으로 본다 — 이름을 요구하면 설정만 늘고
+    얻는 것이 없다.
+    """
+    monkeypatch.setattr(settings, "vision_host_id", "")
+    camera = await make_camera(client, auth_headers, tank, "유일한 카메라")
+    assert camera["host_id"] is None
+
+    resp = await client.post(f"/api/v1/cameras/{camera['id']}/start", headers=auth_headers)
+    assert resp.status_code == 202
+    assert no_real_streams == ["유일한 카메라"]

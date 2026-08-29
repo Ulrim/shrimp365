@@ -134,7 +134,12 @@ VISION_STREAM_SECRET=...      # Vercel 과 같은 값
 DATABASE_URL=postgresql+asyncpg://postgres.xxxx:비밀번호@aws-0-....pooler.supabase.com:5432/postgres
 SHRIMP365_INTERNAL_URL=https://www.shrimp365.kr   # 경보 웹푸시를 되부를 주소
 CORS_ORIGINS=https://www.shrimp365.kr
+VISION_HOST_ID=pi-tank-1                          # 비전 장비가 여러 대면 필수
 ```
+
+> `VISION_HOST_ID` 는 화면에서 카메라를 등록할 때 적는 **장비 ID** 와 같아야
+> 합니다. 비전 파이가 여러 대인데 이 값이 없으면, 각 파이가 DB 의 모든 카메라를
+> 열려 들고 남의 카메라를 못 잡아 영원히 재시도합니다.
 
 ### 한 호스트 (B) — `.env.local` 하나에 위 값을 모두 넣고
 
@@ -329,5 +334,7 @@ docker compose --profile vision restart vision
 | 영상 자리가 비고 콘솔에 mixed content | 비전 호스트가 http — https 인증서를 붙여야 합니다 |
 | `NEXT_PUBLIC_*` 을 넣었는데 그대로 | 빌드 시점에 박히는 값입니다. 재배포하세요 |
 | 파이에서 카메라를 못 엶 | `rpicam-hello --list-cameras` 로 먼저 확인. 서비스 사용자가 `video` 그룹인지 |
+| 시작 눌렀더니 409 "다른 장비" | 그 카메라는 다른 파이 것입니다. 메시지에 적힌 장비에서 시작하세요 |
+| 파이가 남의 카메라를 계속 재시도 | `VISION_HOST_ID` 와 화면의 장비 ID 가 어긋났습니다 |
 | 파이 영상 색이 이상함 (새우가 파랑) | picamera2 채널 순서 문제 — `camera_source.py` 의 `[:, :, ::-1]` 이 빠졌는지 |
 | 파이가 뜨겁고 개체수가 띄엄띄엄 | 발열 스로틀링. 방열판·팬을 달거나 `fps_target` 을 0.5 로 낮추세요 |

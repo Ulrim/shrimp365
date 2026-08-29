@@ -26,11 +26,10 @@ Group=video
 Environment=LANG=C.UTF-8
 Environment=PYTHONIOENCODING=utf-8
 
-# 추론이 4코어를 다 먹으면 같은 파이에서 도는 수질 센서 수집이 밀린다.
-# 우선순위를 낮춰 센서 쪽을 먼저 보낸다 — 개체수는 1초 늦어도 되지만
-# 센서 값은 타이밍이 어긋나면 기록이 비뚤어진다.
-Nice=10
-CPUWeight=50
+# 이 파이는 개체수 전용이다(수질 센서는 다른 파이가 맡는다). 그래서 추론이
+# 4코어를 다 써도 양보할 상대가 없다 — 우선순위를 낮추지 않는다.
+# 한 대에 둘을 같이 올리게 되면 Nice=10, CPUWeight=50 을 넣어 센서 쪽을
+# 먼저 보내야 한다.
 
 NoNewPrivileges=yes
 PrivateTmp=yes

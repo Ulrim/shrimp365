@@ -44,6 +44,14 @@ class Settings(BaseSettings):
     # 비워 두면 푸시만 건너뛰고 경보는 그대로 alerts 에 적힌다.
     shrimp365_internal_url: str = Field(default="")
 
+    # 이 장비의 이름. 카메라를 등록할 때 적은 "장비 ID" 와 맞아야 그 카메라를
+    # 이 서비스가 맡는다. 비전 서비스가 한 대뿐이면 비워 둬도 된다.
+    #
+    # 왜 필요한가: CSI 카메라는 보드에 리본으로 직접 붙어 있어 그 보드에서만
+    # 열 수 있다. 이름이 없으면 모든 장비가 DB 의 모든 카메라를 열려 들고,
+    # 남의 카메라를 잡지 못해 영원히 재시도한다.
+    vision_host_id: str = Field(default="")
+
     # AI model
     model_path: str = Field(default="./ai/models/shrimp_yolov8n.pt")
     confidence_threshold: float = Field(default=0.25)

@@ -27,6 +27,8 @@ class CameraCreate(BaseModel):
     is_active: bool = True
     install_height: float | None = None
     tank_area_m2: float | None = None
+    # 이 카메라가 달린 장비 이름. 비전 서비스가 여러 대일 때 누가 맡을지 가른다.
+    host_id: str | None = Field(default=None, max_length=64)
 
 
 class CameraUpdate(BaseModel):
@@ -45,6 +47,7 @@ class CameraUpdate(BaseModel):
     is_active: bool | None = None
     install_height: float | None = None
     tank_area_m2: float | None = None
+    host_id: str | None = Field(default=None, max_length=64)
 
 
 class CameraSchema(BaseModel):
@@ -61,6 +64,7 @@ class CameraSchema(BaseModel):
     is_active: bool
     install_height: float | None = None
     tank_area_m2: float | None = None
+    host_id: str | None = None
     created_at: datetime
 
 

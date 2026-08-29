@@ -83,6 +83,7 @@ export async function createCamera(values: {
   fps_target?: number
   tank_area_m2?: number | null
   install_height?: number | null
+  host_id?: string | null
 }): Promise<VisionCamera> {
   return api<VisionCamera>("/cameras", { method: "POST", body: JSON.stringify(values) })
 }

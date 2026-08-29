@@ -21,6 +21,23 @@ class MaxCamerasReachedError(RuntimeError):
     pass
 
 
+class ForeignCameraError(RuntimeError):
+    """다른 장비에 물린 카메라를 이 서비스에서 열려고 한 경우."""
+
+
+def owns_camera(camera: Camera) -> bool:
+    """이 장비가 맡는 카메라인가.
+
+    CSI 카메라는 보드에 리본으로 직접 붙어 있어 그 보드에서만 열린다. 장비가
+    여러 대인데 이 확인이 없으면, 각 장비가 DB 의 모든 카메라를 열려 들고
+    남의 카메라를 못 잡아 영원히 재시도한다.
+
+    양쪽 다 이름이 없으면(단일 장비 배포) 전부 내 것으로 본다 — 장비가 하나뿐인
+    곳에 이름을 강제하면 설정만 늘고 얻는 것이 없다.
+    """
+    return (camera.host_id or "") == (settings.vision_host_id or "")
+
+
 class CameraManager:
     def __init__(self) -> None:
         self._processors: dict[uuid.UUID, CameraStreamProcessor] = {}
@@ -86,8 +103,17 @@ class CameraManager:
                 .where(Camera.is_active.is_(True))
             )
             rows = result.all()
+        # 내 것만 남긴다. 남의 카메라는 애초에 열 수 없다(위 owns_camera 주석).
+        mine = [(camera, farm_id) for camera, farm_id in rows if owns_camera(camera)]
+        skipped = len(rows) - len(mine)
+        if skipped:
+            logger.info(
+                "다른 장비의 카메라 %d대는 건너뜁니다 (이 장비: %r)",
+                skipped,
+                settings.vision_host_id or "(이름 없음)",
+            )
         started = 0
-        for camera, farm_id in rows:
+        for camera, farm_id in mine:
             try:
                 await self.start_camera(camera, farm_id)
                 started += 1

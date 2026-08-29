@@ -33,6 +33,8 @@ class Camera(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     install_height: Mapped[float | None] = mapped_column(Float)
     tank_area_m2: Mapped[float | None] = mapped_column(Float)
+    # 이 카메라가 물려 있는 장비 이름(app/config.py 의 vision_host_id 와 짝).
+    host_id: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utcnow
     )

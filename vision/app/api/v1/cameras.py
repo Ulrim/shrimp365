@@ -11,9 +11,10 @@ from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import select
 
 from app.api.deps import SessionDep
+from app.config import settings
 from app.models import Camera, Tank
 from app.schemas import CameraCreate, CameraSchema, CameraStatusSchema, CameraUpdate
-from app.services.camera_manager import MaxCamerasReachedError, camera_manager
+from app.services.camera_manager import MaxCamerasReachedError, camera_manager, owns_camera
 from app.services.stream_service import frame_store
 
 router = APIRouter()
@@ -91,6 +92,17 @@ async def delete_camera(camera_id: uuid.UUID, session: SessionDep) -> None:
 @router.post("/{camera_id}/start", status_code=status.HTTP_202_ACCEPTED)
 async def start_camera(camera_id: uuid.UUID, session: SessionDep) -> dict[str, str]:
     camera = await _get_camera_or_404(session, camera_id)
+    # 남의 장비 카메라면 열어 봐야 실패한다. 조용히 재시도하게 두지 말고
+    # 어느 장비에 물려 있는지 알려 준다 — 설정을 고칠 사람이 봐야 할 정보다.
+    if not owns_camera(camera):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"이 카메라는 '{camera.host_id}' 장비에 물려 있습니다. "
+                f"그 장비에서 시작하세요 (여기는 "
+                f"'{settings.vision_host_id or '이름 없음'}')."
+            ),
+        )
     farm_id = await _farm_id_of(session, camera.tank_id)
     try:
         await camera_manager.start_camera(camera, farm_id)
