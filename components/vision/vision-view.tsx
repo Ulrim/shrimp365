@@ -370,6 +370,7 @@ export function VisionView() {
               live={live.latest[selectedCamera.id]}
               status={live.statuses[selectedCamera.id]}
               showBoxes={showBoxes}
+              stream={live.stream}
             />
           )}
 
@@ -387,6 +388,7 @@ export function VisionView() {
                     live={live.latest[camera.id]}
                     status={live.statuses[camera.id]}
                     showBoxes={false}
+                    stream={live.stream}
                   />
                   <p className="text-xs text-muted-foreground mt-1 truncate px-0.5">{camera.name}</p>
                 </button>

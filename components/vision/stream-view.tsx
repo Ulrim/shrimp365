@@ -28,10 +28,12 @@ interface Props {
   live?: LiveCount
   status?: VisionCameraStatus
   showBoxes?: boolean
+  /** 영상 주소를 만드는 데 필요한 값(useVisionLive().stream). 직결 배포에서만 쓰인다. */
+  stream?: { streamBase: string | null; token: string | null }
   className?: string
 }
 
-export function StreamView({ camera, live, status, showBoxes = true, className }: Props) {
+export function StreamView({ camera, live, status, showBoxes = true, stream, className }: Props) {
   const imgRef = useRef<HTMLImageElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [streamError, setStreamError] = useState(false)
@@ -99,8 +101,8 @@ export function StreamView({ camera, live, status, showBoxes = true, className }
            파이프라인이 처리하지 못하고, 크기도 미리 알 수 없다. */
         <img
           ref={imgRef}
-          key={`${camera.id}-${attempt}`}
-          src={streamUrl(camera.id)}
+          key={`${camera.id}-${attempt}-${stream?.token ?? ""}`}
+          src={streamUrl(camera.id, stream)}
           alt={`${camera.name} 실시간 영상`}
           className="block w-full"
           onError={() => setStreamError(true)}

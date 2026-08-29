@@ -51,13 +51,25 @@ export interface VisionLive {
   alerts: LiveAlert[]
   /** 이 사용자가 볼 수 있는 카메라 id — 토큰이 허용한 범위와 같다. */
   cameraIds: string[]
+  /** 영상 주소를 만들 때 쓴다(직결 배포에서만 값이 있다). streamUrl() 에 넘긴다. */
+  stream: { streamBase: string | null; token: string | null }
 }
 
-function socketUrl(wsPath: string, token: string): string {
-  const proto = window.location.protocol === "https:" ? "wss" : "ws"
-  // 경로의 `all` 은 "토큰이 허락하는 카메라 전부"를 뜻한다. 남의 카메라는
-  // 서버가 잘라 내므로 여기서 목록을 나열할 필요가 없다.
-  return `${proto}://${window.location.host}${wsPath}/stream/all?token=${encodeURIComponent(token)}`
+/**
+ * 실시간 연결 주소.
+ *
+ * `wsUrl` 은 두 모양으로 온다 — 직결 배포는 절대 주소(`wss://vision…/ws`),
+ * 같은 호스트 배포는 경로(`/vision-ws`). 경로면 지금 보고 있는 출처에
+ * 붙이고, 절대 주소면 그대로 쓴다.
+ *
+ * 끝의 `all` 은 "토큰이 허락하는 카메라 전부"를 뜻한다. 남의 카메라는 서버가
+ * 잘라 내므로 여기서 목록을 나열할 필요가 없다.
+ */
+function socketUrl(wsUrl: string, token: string): string {
+  const base = /^wss?:\/\//.test(wsUrl)
+    ? wsUrl
+    : `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}${wsUrl}`
+  return `${base.replace(/\/+$/, "")}/stream/all?token=${encodeURIComponent(token)}`
 }
 
 export function useVisionLive(enabled = true): VisionLive {
@@ -68,6 +80,11 @@ export function useVisionLive(enabled = true): VisionLive {
   const [statuses, setStatuses] = useState<Record<string, VisionCameraStatus>>({})
   const [alerts, setAlerts] = useState<LiveAlert[]>([])
   const [cameraIds, setCameraIds] = useState<string[]>([])
+  // 영상 주소를 만드는 데 필요한 값. 직결 배포에서만 채워진다.
+  const [stream, setStream] = useState<{ streamBase: string | null; token: string | null }>({
+    streamBase: null,
+    token: null,
+  })
 
   const attemptRef = useRef(0)
 
@@ -140,6 +157,7 @@ export function useVisionLive(enabled = true): VisionLive {
       if (disposed) return
 
       setCameraIds(session.cameraIds)
+      setStream({ streamBase: session.streamBase, token: session.token })
       if (!session.enabled || !session.token || !session.wsUrl) {
         // 아직 카메라가 없거나 서비스가 꺼져 있다. 계속 두드릴 이유가 없다.
         setSocketState("disabled")
@@ -186,5 +204,5 @@ export function useVisionLive(enabled = true): VisionLive {
   }, [enabled, handle])
 
   const wsState: WsState = enabled ? socketState : "disabled"
-  return { wsState, latest, statuses, alerts, cameraIds }
+  return { wsState, latest, statuses, alerts, cameraIds, stream }
 }

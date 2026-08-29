@@ -26,9 +26,49 @@ shrimp365 것을 씁니다 — 로그인은 Supabase Auth 하나, 양식장·수
 개체수(`count_records`)와 수질(`water_quality_readings`)이 **같은 Supabase**에
 쌓이므로 통합 분석이 조인 한 번으로 끝납니다.
 
-## 3. 설치 순서
+## 3. 어디에 무엇을 올리나 — 배포 형태 두 가지
 
-### 3-1. DB 마이그레이션 (사람이 실행)
+**비전 서비스는 상시 구동되는 호스트가 필요합니다.** 서버리스(Vercel Functions)
+에는 올릴 수 없습니다 — Python 컨테이너를 돌릴 수 없을뿐더러, 영상(MJPEG)과
+실시간 연결(WebSocket)이 **끝나지 않는 연결**이라 함수 실행 시간 상한에 걸려
+잘립니다. 원본 설계서(§2.5 인프라 제약)가 지적한 그 지점입니다.
+
+그래서 배포 형태가 둘로 갈립니다. `NEXT_PUBLIC_VISION_PUBLIC_URL` 하나로
+결정되고, 화면 코드는 세션 응답이 알려 주는 대로 따라갑니다.
+
+### (A) 웹은 Vercel, 비전은 별도 호스트 — **현재 shrimp365 운영 형태**
+
+```
+브라우저 ──▶ Vercel (www.shrimp365.kr)   로그인·화면·토큰 발급·제어 API
+    │
+    └──────▶ 비전 호스트 (vision.shrimp365.kr)   영상 + 실시간 (서명 토큰)
+                    │
+                    ▼  Supabase
+```
+
+브라우저가 영상과 실시간 연결을 **비전 호스트에 직접** 붙습니다. Vercel 은
+로그인 확인과 3분짜리 서명 토큰 발급, 그리고 제어용 JSON API(카메라 시작·정지
+등) 중계만 맡습니다 — 이건 짧은 요청이라 서버리스로 충분합니다.
+
+비전 호스트에는 **공개 https 주소와 인증서**가 필요합니다. 웹이 https 인데
+영상이 http 면 브라우저가 혼합 콘텐츠로 막습니다.
+
+> 비전 호스트를 인터넷에 두더라도 **`/api/v1` 은 절대 열지 마세요.** 서비스
+> 키를 가진 쪽은 모든 수조를 볼 수 있습니다. 프록시에서 `/stream` 과 `/ws`
+> 만 열고 나머지는 막습니다(§3-3 설정 참고).
+
+### (B) 웹과 비전을 한 호스트에 — NAS·자체 서버
+
+```
+브라우저 ──▶ 한 호스트 : 웹이 영상을 중계, 실시간만 프록시가 넘김
+```
+
+`NEXT_PUBLIC_VISION_PUBLIC_URL` 을 비우면 이 방식입니다. 영상은 같은 출처라
+`<img>` 가 세션 쿠키를 실어 보내므로 토큰이 필요 없습니다.
+
+---
+
+## 3-1. DB 마이그레이션 (사람이 실행 — 두 형태 공통)
 
 Supabase Dashboard → SQL Editor 에서 실행합니다.
 
@@ -38,56 +78,103 @@ supabase/migrations/vision_monitoring.sql
 
 > 이 저장소에는 service_role 키가 없으므로 에이전트가 실행할 수 없습니다.
 
-### 3-2. 환경변수
+## 3-2. 환경변수
 
-`.env.local` 에 다음을 채웁니다(설명은 `.env.example` 참고).
+### Vercel (A) — 대시보드 → Settings → Environment Variables
+
+| 이름 | 값 | 비고 |
+|---|---|---|
+| `VISION_SERVICE_KEY` | `openssl rand -hex 32` | 비전 호스트와 **같은 값** |
+| `VISION_STREAM_SECRET` | `openssl rand -hex 32` | 비전 호스트와 **같은 값** |
+| `VISION_SERVICE_URL` | `https://vision.shrimp365.kr` | 제어 API 호출 주소 |
+| `NEXT_PUBLIC_VISION_PUBLIC_URL` | `https://vision.shrimp365.kr` | 이 값이 (A) 방식을 켭니다 |
+
+`NEXT_PUBLIC_*` 는 빌드 시점에 번들에 박히므로, 넣은 뒤 **재배포**해야 반영됩니다.
+
+### 비전 호스트 (A) — 그 서버의 `.env`
 
 ```bash
-# 두 값 모두 openssl rand -hex 32 로 만들고, 웹과 비전이 같은 값을 봐야 합니다.
-VISION_SERVICE_KEY=...
-VISION_STREAM_SECRET=...
-
-# Supabase Postgres — 드라이버만 asyncpg 로 바꿉니다.
-DATABASE_URL=postgresql+asyncpg://postgres.xxxx:비밀번호@aws-0-...pooler.supabase.com:5432/postgres
+VISION_SERVICE_KEY=...        # Vercel 과 같은 값
+VISION_STREAM_SECRET=...      # Vercel 과 같은 값
+DATABASE_URL=postgresql+asyncpg://postgres.xxxx:비밀번호@aws-0-....pooler.supabase.com:5432/postgres
+SHRIMP365_INTERNAL_URL=https://www.shrimp365.kr   # 경보 웹푸시를 되부를 주소
+CORS_ORIGINS=https://www.shrimp365.kr
 ```
 
-### 3-3. 컨테이너 기동
+### 한 호스트 (B) — `.env.local` 하나에 위 값을 모두 넣고
+
+`NEXT_PUBLIC_VISION_PUBLIC_URL` 은 **비우고**, `VISION_SERVICE_URL=http://vision:8000`,
+`NEXT_PUBLIC_VISION_WS_PATH=/vision-ws` 를 씁니다.
+
+## 3-3. 비전 서비스 기동
+
+한 호스트(B)에서는 저장소 루트에서:
 
 ```bash
 docker compose --profile vision up -d --build
 ```
 
-`vision` 은 프로필로 감싸 두었습니다 — 카메라를 안 쓰는 농장에서는 뜨지
-않습니다(CPU 추론이 무겁습니다).
+별도 호스트(A)에서는 `vision/` 만 있으면 됩니다:
 
-### 3-4. 리버스 프록시 (실시간 연결)
+```bash
+docker build -t shrimp365-vision ./vision
+docker run -d --name shrimp365-vision --restart unless-stopped \
+  --env-file .env -p 127.0.0.1:8000:8000 \
+  -v vision-models:/app/ai/models \
+  shrimp365-vision
+```
 
-영상(MJPEG)은 웹 컨테이너가 중계하므로 프록시 설정이 필요 없습니다.
-**WebSocket 만** 따로 넘겨야 합니다 — Next.js 라우트 핸들러는 프로토콜
-업그레이드를 처리하지 못하기 때문입니다.
+`127.0.0.1` 에만 묶어 두고 앞단에 nginx 를 세웁니다.
+
+## 3-4. 리버스 프록시
+
+### (A) 비전 호스트의 nginx — `/stream` 과 `/ws` 만 연다
 
 ```nginx
-# 실시간 개체수 이벤트. 서명 토큰(?token=)이 자격 증명이므로
-# 이 경로에 별도 인증을 걸지 않습니다.
+server {
+    listen 443 ssl http2;
+    server_name vision.shrimp365.kr;
+    # ssl_certificate ... (certbot 등으로 발급)
+
+    # 제어 API 는 외부에 열지 않는다. 서비스 키를 가진 쪽은 모든 수조를 본다.
+    location /api/ { return 404; }
+
+    # 영상 — 끝나지 않는 multipart 응답이라 버퍼링을 끄고 타임아웃을 길게 둔다.
+    location /stream/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_buffering off;
+        proxy_read_timeout 3600s;
+    }
+
+    # 실시간 이벤트. 서명 토큰(?token=)이 자격 증명이다.
+    location /ws/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    location /health { proxy_pass http://127.0.0.1:8000; }
+}
+```
+
+### (B) 한 호스트의 nginx — 실시간만 넘긴다
+
+```nginx
 location /vision-ws/ {
     proxy_pass http://vision:8000/ws/;
     proxy_http_version 1.1;
     proxy_set_header Upgrade    $http_upgrade;
     proxy_set_header Connection "upgrade";
     proxy_set_header Host       $host;
-
     # 개체수는 1초에 한 번 오지만 카메라가 멈추면 조용해진다.
     # 기본 60초로는 정상 연결이 끊겨 화면이 계속 재접속한다.
     proxy_read_timeout  3600s;
     proxy_send_timeout  3600s;
 }
 ```
-
-`NEXT_PUBLIC_VISION_WS_PATH` 의 기본값이 `/vision-ws` 입니다. 다른 경로를 쓰면
-두 곳을 함께 바꾸세요.
-
-> **비전 서비스를 인터넷에 직접 노출하지 마세요.** 서비스 키를 가진 쪽은 모든
-> 수조를 볼 수 있습니다. `docker-compose.yml` 이 포트를 호스트에 열지 않는 이유입니다.
 
 ## 4. 모델이 없어도 됩니다 — 시뮬레이션 모드
 
@@ -115,12 +202,18 @@ docker compose --profile vision restart vision
                              ──(X-Vision-Key)──▶ 비전 서비스
 ```
 
-영상과 실시간 연결은 헤더를 실을 수 없어 따로 다룹니다.
+영상과 실시간 연결은 인증 헤더를 실을 수 없어 따로 다룹니다. `/api/vision/session`
+이 "이 사용자가 가진 카메라 id 목록"을 담은 **3분짜리 HMAC 서명**을 발급하고,
+비전 서비스가 그 집합을 벗어난 요청을 잘라 냅니다.
 
-- **MJPEG** — 같은 출처라 `<img>` 가 쿠키를 보냅니다. 웹이 중계하며 세션으로 판정합니다.
-- **WebSocket** — 브라우저가 비전 서비스에 직접 붙습니다. `/api/vision/session` 이
-  "이 사용자가 가진 카메라 id 목록"을 3분짜리 HMAC 서명으로 발급하고, 비전
-  서비스가 그 집합을 벗어난 구독을 잘라 냅니다.
+| | (A) 별도 호스트 | (B) 한 호스트 |
+|---|---|---|
+| MJPEG | 비전 호스트에 직접, `?token=` | 웹이 중계, 세션 쿠키 |
+| WebSocket | 비전 호스트에 직접, `?token=` | 프록시 경유, `?token=` |
+
+토큰이 새어 나가도 **그 사용자의 카메라만**, 3분 동안만 볼 수 있습니다.
+연결은 붙는 순간에만 검사하므로, 오래 열려 있는 영상이 3분마다 끊기지는
+않습니다.
 
 ## 6. 경보가 어디로 가나
 
@@ -151,3 +244,6 @@ docker compose --profile vision restart vision
 | 실시간만 계속 재접속 | 프록시 `/vision-ws` 설정, `VISION_STREAM_SECRET` 이 양쪽 같은 값인지 |
 | 개체수가 안 쌓임 | `DATABASE_URL` 이 asyncpg 인지, 마이그레이션을 실행했는지 |
 | 경보가 안 옴 | 설정 탭에서 경보를 만들었는지(기본값 없음) |
+| 영상이 몇 초 뒤 끊김 (Vercel) | `NEXT_PUBLIC_VISION_PUBLIC_URL` 미설정 → 서버리스가 중계하다 시간 상한에 잘림 |
+| 영상 자리가 비고 콘솔에 mixed content | 비전 호스트가 http — https 인증서를 붙여야 합니다 |
+| `NEXT_PUBLIC_*` 을 넣었는데 그대로 | 빌드 시점에 박히는 값입니다. 재배포하세요 |
