@@ -21,6 +21,7 @@ from app.config import auto_start_streams_active, settings, simulation_mode_acti
 from app.database import init_db
 from app.services.broadcaster import broadcaster
 from app.services.camera_manager import camera_manager
+from app.services.pairing import ensure_device_key
 
 logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
 logger = logging.getLogger(__name__)
@@ -40,6 +41,13 @@ async def lifespan(app: FastAPI):
             "VISION_STREAM_SECRET 이 비어 있습니다 — 영상·실시간 연결이 전부 거부됩니다."
         )
     await init_db()
+
+    # 기기 키가 없으면 여기서 페어링을 돌린다. 승인될 때까지 기다리므로
+    # 기동이 길어질 수 있지만, 신원 없이 뜨면 어느 카메라도 맡지 못한다.
+    # 실패해도 서비스는 뜬다 — /health 로 상태를 볼 수 있어야 하고, 사용자가
+    # 화면에서 다시 시도할 수 있어야 한다.
+    await ensure_device_key(app.version)
+
     await broadcaster.start()
     camera_manager.start_watchdog()
     if auto_start_streams_active():

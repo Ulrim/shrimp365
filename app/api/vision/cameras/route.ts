@@ -16,9 +16,16 @@ export async function GET(req: NextRequest) {
   if (!session) return UNAUTHORIZED()
 
   const tankId = req.nextUrl.searchParams.get("tank_id")
+  // ⚠ select("*") 를 쓰면 안 된다 — api_key(기기 키)까지 브라우저로 나간다.
+  //   그 키를 쥔 쪽은 그 카메라 행세를 할 수 있다. 화면에 필요한 열만 고른다.
   let query = session.supabase
     .from("vision_cameras")
-    .select("*, tanks(name, farm_id, farms(name))")
+    .select(
+      "id, tank_id, name, camera_type, stream_url, resolution_w, resolution_h," +
+      " fps_target, is_active, install_height, tank_area_m2, serial, firmware," +
+      " agent_version, last_seen_at, created_at," +
+      " tanks(name, farm_id, farms(name))"
+    )
     .order("created_at", { ascending: true })
   if (tankId) query = query.eq("tank_id", tankId)
 

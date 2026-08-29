@@ -40,17 +40,31 @@ class Settings(BaseSettings):
         default="",
         validation_alias=AliasChoices("VISION_STREAM_SECRET", "STREAM_SECRET"),
     )
-    # 경보를 웹푸시로 내보낼 때 되부르는 shrimp365 주소(컨테이너 내부).
-    # 비워 두면 푸시만 건너뛰고 경보는 그대로 alerts 에 적힌다.
-    shrimp365_internal_url: str = Field(default="")
+    # shrimp365 주소. 두 곳에 쓴다 — 경보 웹푸시를 되부를 때, 그리고 기기
+    # 페어링 때. 같은 호스트에 있으면 컨테이너 내부 주소, 파이면 공개 주소다.
+    # 비워 두면 푸시와 페어링만 건너뛰고 나머지는 그대로 돈다.
+    shrimp365_internal_url: str = Field(
+        default="",
+        validation_alias=AliasChoices("SHRIMP365_URL", "SHRIMP365_INTERNAL_URL"),
+    )
 
-    # 이 장비의 이름. 카메라를 등록할 때 적은 "장비 ID" 와 맞아야 그 카메라를
-    # 이 서비스가 맡는다. 비전 서비스가 한 대뿐이면 비워 둬도 된다.
+    # 이 장비의 기기 키. 페어링(6자리 코드 승인) 때 발급되어 vision_cameras 의
+    # api_key 와 짝을 이룬다. 이 값으로 "내 카메라"를 알아본다.
     #
     # 왜 필요한가: CSI 카메라는 보드에 리본으로 직접 붙어 있어 그 보드에서만
-    # 열 수 있다. 이름이 없으면 모든 장비가 DB 의 모든 카메라를 열려 들고,
+    # 열 수 있다. 신원이 없으면 모든 장비가 DB 의 모든 카메라를 열려 들고,
     # 남의 카메라를 잡지 못해 영원히 재시도한다.
-    vision_host_id: str = Field(default="")
+    #
+    # 보통은 환경변수가 아니라 페어링이 채운다(app/services/pairing.py 가
+    # 상태 파일에 적는다). 환경변수로 주면 그쪽이 우선한다.
+    device_key: str = Field(
+        default="", validation_alias=AliasChoices("VISION_DEVICE_KEY", "DEVICE_KEY")
+    )
+
+    # 페어링으로 받은 기기 키를 보관하는 곳. systemd 의 StateDirectory 가
+    # 만들어 주는 자리다. 환경변수를 다시 쓰지 않는 이유는 서비스가 자기
+    # 설정 파일을 고치면 배포 도구와 어긋나기 때문이다.
+    device_state_path: str = Field(default="/var/lib/shrimp365-vision/device.json")
 
     # AI model
     model_path: str = Field(default="./ai/models/shrimp_yolov8n.pt")

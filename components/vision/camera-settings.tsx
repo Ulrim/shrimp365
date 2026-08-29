@@ -13,6 +13,8 @@ import {
 import {
   createAlertConfig, createCamera, deleteAlertConfig, deleteCamera, startCamera, stopCamera,
 } from "@/lib/vision"
+import { PairCameraDialog } from "@/components/vision/pair-camera-dialog"
+import { formatDateTime } from "@/lib/utils"
 import type { Tank, VisionAlertConfig, VisionCamera, VisionCameraStatus } from "@/types"
 
 // 카메라 등록·시작/정지와 개체수 경보 설정.
@@ -54,10 +56,9 @@ export function CameraSettings({ tanks, cameras, statuses, configs, onChanged }:
   // 수조 목록이 늦게 도착해도 렌더 한 번으로 맞는 값이 나온다.
   const [pickedTankId, setPickedTankId] = useState("")
   const [name, setName] = useState("")
-  const [cameraType, setCameraType] = useState<CameraTypeValue>("picamera")
-  const [streamUrlValue, setStreamUrlValue] = useState("")
+  const [cameraType, setCameraType] = useState<CameraTypeValue>("usb")
+  const [streamUrlValue, setStreamUrlValue] = useState("0")
   const [tankArea, setTankArea] = useState("")
-  const [hostId, setHostId] = useState("")
 
   // 경보 설정 폼
   const [alertCameraId, setAlertCameraId] = useState("")
@@ -92,7 +93,6 @@ export function CameraSettings({ tanks, cameras, statuses, configs, onChanged }:
         camera_type: cameraType,
         stream_url: streamUrlValue.trim() || null,
         tank_area_m2: tankArea ? Number(tankArea) : null,
-        host_id: hostId.trim() || null,
       })
       setName("")
       setTankArea("")
@@ -127,12 +127,22 @@ export function CameraSettings({ tanks, cameras, statuses, configs, onChanged }:
       {/* ── 카메라 목록 ─────────────────────────── */}
       <Card className="bg-muted border-border">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">등록된 카메라</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="text-base">등록된 카메라</CardTitle>
+            <PairCameraDialog tanks={tanks} onSuccess={onChanged} />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            라즈베리파이는 <strong>카메라 연결</strong>로 등록합니다 — 파이 화면에 뜬 6자리 코드를
+            입력하면 됩니다. 기기 키를 옮겨 적을 필요가 없습니다.
+          </p>
         </CardHeader>
         <CardContent className="space-y-2">
           {cameras.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">
-              아직 등록된 카메라가 없습니다. 아래에서 추가하세요.
+              아직 등록된 카메라가 없습니다.
+              {tanks.length === 0
+                ? " 먼저 양식장과 수조를 등록하세요."
+                : " 라즈베리파이를 켜고 위의 '카메라 연결'을 누르세요."}
             </p>
           ) : (
             cameras.map(camera => {
@@ -148,8 +158,13 @@ export function CameraSettings({ tanks, cameras, statuses, configs, onChanged }:
                     <p className="text-sm font-medium truncate">{camera.name}</p>
                     <p className="text-xs text-muted-foreground truncate">
                       {camera.tank_name ?? "수조"} · {camera.camera_type.toUpperCase()}
-                      {camera.host_id ? ` · ${camera.host_id}` : ""}
                       {camera.stream_url ? ` · ${camera.stream_url}` : ""}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground/80 truncate">
+                      {camera.serial ? `시리얼 ${camera.serial}` : "직접 추가한 카메라"}
+                      {camera.last_seen_at
+                        ? ` · 마지막 응답 ${formatDateTime(camera.last_seen_at)}`
+                        : " · 아직 응답 없음"}
                     </p>
                   </div>
                   <Badge variant={running ? "success" : status === "error" ? "danger" : "secondary"}>
@@ -187,7 +202,11 @@ export function CameraSettings({ tanks, cameras, statuses, configs, onChanged }:
       {/* ── 카메라 추가 ─────────────────────────── */}
       <Card className="bg-muted border-border">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">카메라 추가</CardTitle>
+          <CardTitle className="text-base">직접 추가 (IP·USB 카메라)</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            보드에 붙지 않은 카메라를 주소로 등록합니다. 라즈베리파이 카메라는
+            위의 <strong>카메라 연결</strong>을 쓰세요.
+          </p>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
@@ -242,19 +261,6 @@ export function CameraSettings({ tanks, cameras, statuses, configs, onChanged }:
               <p className="text-[11px] text-muted-foreground">{typeHint}</p>
             </div>
           )}
-
-          <div className="space-y-1.5">
-            <Label>장비 ID (선택)</Label>
-            <Input
-              value={hostId}
-              onChange={e => setHostId(e.target.value)}
-              placeholder="예: pi-tank-1"
-            />
-            <p className="text-[11px] text-muted-foreground">
-              카메라가 물린 라즈베리파이의 이름입니다. 파이가 여러 대일 때 어느
-              장비가 이 카메라를 맡을지 가릅니다. 한 대뿐이면 비워 두세요.
-            </p>
-          </div>
 
           <div className="space-y-1.5">
             <Label>수조 면적 (㎡, 선택)</Label>

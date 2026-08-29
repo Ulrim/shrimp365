@@ -33,8 +33,14 @@ class Camera(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     install_height: Mapped[float | None] = mapped_column(Float)
     tank_area_m2: Mapped[float | None] = mapped_column(Float)
-    # 이 카메라가 물려 있는 장비 이름(app/config.py 의 vision_host_id 와 짝).
-    host_id: Mapped[str | None] = mapped_column(String)
+    # ── 기기 신원 (app/config.py 의 device_key 와 짝) ──
+    # 페어링 때 발급된다. 장비는 이 값으로 "내 카메라"를 알아본다.
+    api_key: Mapped[str | None] = mapped_column(String)
+    # 라즈베리파이 CPU 시리얼. 같은 보드의 재연결을 알아보는 데 쓴다.
+    serial: Mapped[str | None] = mapped_column(String)
+    firmware: Mapped[str | None] = mapped_column(String)
+    agent_version: Mapped[str | None] = mapped_column(String)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utcnow
     )

@@ -43,10 +43,19 @@ create table if not exists public.vision_cameras (
   install_height real,
   tank_area_m2   real,
 
-  -- 이 카메라가 물려 있는 장비(라즈베리파이)의 이름. CSI 카메라는 보드에
-  -- 리본으로 직접 붙어 있어, 그 보드에서 도는 서비스만 열 수 있다.
-  -- 비워 두면 "장비 이름을 정하지 않은 배포" — 비전 서비스가 한 대뿐일 때다.
-  host_id        text,
+  -- ── 기기 신원 ──
+  -- 이 카메라가 물려 있는 라즈베리파이를 가리킨다. CSI 카메라는 보드에 리본으로
+  -- 직접 붙어 있어 그 보드에서 도는 서비스만 열 수 있으므로, 어느 장비 것인지
+  -- 반드시 구분되어야 한다. sensor_devices 와 같은 방식이다.
+  --
+  -- api_key 는 페어링(6자리 코드 승인) 때 발급되어 장비가 보관한다. 장비는
+  -- 이 값으로 "내 카메라"를 알아본다. 사람이 옮겨 적지 않는다.
+  api_key       text,
+  -- 라즈베리파이 CPU 시리얼. 보드마다 고정이라 같은 기기의 재연결을 알아본다.
+  serial        text,
+  firmware      text,
+  agent_version text,
+  last_seen_at  timestamptz,
 
   created_at    timestamptz not null default now()
 );
@@ -65,12 +74,36 @@ alter table public.vision_cameras
 
 -- 위와 같은 이유로, 이미 실행한 DB 에도 컬럼을 더해 준다.
 alter table public.vision_cameras
-  add column if not exists host_id text;
+  add column if not exists api_key text,
+  add column if not exists serial text,
+  add column if not exists firmware text,
+  add column if not exists agent_version text,
+  add column if not exists last_seen_at timestamptz;
 
--- 각 장비는 뜰 때 "내 카메라"만 골라 온다. 장비가 여러 대면 이 조회가
--- 기동 때마다 돈다.
-create index if not exists idx_vision_cameras_host
-  on public.vision_cameras (host_id) where host_id is not null;
+-- 손으로 적던 장비 이름은 기기 키로 대체됐다. 남아 있으면 지운다.
+alter table public.vision_cameras drop column if exists host_id;
+
+-- 키가 없는 기존 행에 하나씩 채운다.
+-- ⚠ ADD COLUMN ... DEFAULT 로 한 번에 넣으면 안 된다 — 기존 행 전체가
+--   **같은 값**을 갖게 되어 모든 장비가 서로를 자기 카메라로 여긴다.
+--   UPDATE 는 행마다 함수를 다시 평가하므로 각기 다른 키가 들어간다.
+update public.vision_cameras
+   set api_key = encode(gen_random_bytes(24), 'hex')
+ where api_key is null;
+
+alter table public.vision_cameras
+  alter column api_key set default encode(gen_random_bytes(24), 'hex');
+alter table public.vision_cameras
+  alter column api_key set not null;
+
+-- 장비는 뜰 때 이 키로 "내 카메라"를 찾는다.
+create unique index if not exists vision_cameras_api_key_idx
+  on public.vision_cameras (api_key);
+
+-- 같은 보드를 두 번 등록하는 실수를 잡기 위한 인덱스(유일성은 강제하지 않는다 —
+-- 보드를 교체하고 기존 카메라 항목을 재사용하는 경우가 있다).
+create index if not exists idx_vision_cameras_serial
+  on public.vision_cameras (serial) where serial is not null;
 
 alter table public.vision_cameras enable row level security;
 
@@ -159,6 +192,74 @@ alter table public.vision_alert_configs enable row level security;
 drop policy if exists "vision_alert_configs_all_own" on public.vision_alert_configs;
 create policy "vision_alert_configs_all_own" on public.vision_alert_configs for all
   using (user_id = auth.uid());
+
+-- ------------------------------------------------------------
+-- vision_pairings — 카메라 기기 페어링 (코드로 연결)
+--
+-- sensor_pairings 와 같은 방식이다. 긴 키를 장비 설정 파일에 옮겨 적는 대신,
+-- TV·셋톱박스처럼 6자리 코드를 승인한다.
+--
+--   1. 파이가 서버에 코드를 요청한다 → 화면·로그에 6자리 코드를 띄운다
+--   2. 농가가 로그인한 상태에서 코드를 입력하고 수조를 고른다
+--   3. 파이가 폴링하다가 기기 키를 받아 저장한다
+--
+-- 시리얼만으로 기기를 지정하지 않는 이유:
+--   시리얼은 장비 겉면에서 읽을 수 있는 값이라 아무나 남의 계정에 카메라를
+--   붙일 수 있다. 개체수는 경보와 판단의 근거이므로 "어디에 붙일지"와
+--   "붙여도 되는지"를 분리해야 한다. 승인은 로그인한 계정 주인만 할 수 있다.
+-- ------------------------------------------------------------
+create table if not exists public.vision_pairings (
+  id             uuid primary key default gen_random_uuid(),
+
+  -- 화면에 띄우는 6자리 숫자. 사람이 옮겨 적는 값이라 짧게 유지한다.
+  code           text not null check (code ~ '^[0-9]{6}$'),
+
+  -- 코드를 요청한 장비만 아는 값. 기기 키는 이 값을 제시해야 받을 수 있다.
+  -- 코드만 알아낸 제3자가 키를 가로채지 못하게 한다.
+  pairing_secret text not null,
+
+  -- 장비가 자기소개로 보낸 값. 승인 화면에서 어느 기기인지 보여 준다.
+  serial         text,
+  firmware       text,
+
+  -- 승인되면 채워진다.
+  camera_id      uuid references public.vision_cameras(id) on delete cascade,
+  claimed_by     uuid references auth.users(id) on delete set null,
+  claimed_at     timestamptz,
+
+  -- 코드는 짧게 살아 있어야 한다. 오래 열어 두면 추측 공격의 여지가 커진다.
+  expires_at     timestamptz not null default (now() + interval '15 minutes'),
+  created_at     timestamptz not null default now()
+);
+
+-- 아직 승인되지 않은 코드는 서로 겹치면 안 된다.
+-- 승인이 끝난 코드는 나중에 재사용해도 무방하다.
+create unique index if not exists vision_pairings_active_code
+  on public.vision_pairings (code)
+  where claimed_at is null;
+
+create index if not exists vision_pairings_secret_idx
+  on public.vision_pairings (pairing_secret);
+create index if not exists vision_pairings_expires_idx
+  on public.vision_pairings (expires_at);
+
+-- RLS: 이 표는 전적으로 서버(service_role)를 통해서만 다룬다.
+-- 정책을 만들지 않으므로 anon·authenticated 는 아무것도 할 수 없다.
+alter table public.vision_pairings enable row level security;
+revoke all on public.vision_pairings from anon, authenticated;
+
+-- 만료되고 승인도 안 된 코드를 정리한다.
+-- 페어링 요청이 들어올 때 서버가 호출하므로 별도 스케줄러가 필요 없다.
+create or replace function public.purge_expired_vision_pairings()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  delete from public.vision_pairings
+   where claimed_at is null
+     and expires_at < now() - interval '1 hour';
+$$;
 
 -- ------------------------------------------------------------
 -- vision_count_history() — 구간 집계
@@ -269,5 +370,5 @@ grant execute on function public.vision_count_history(uuid, timestamptz, timesta
 grant execute on function public.vision_count_wq_series(uuid, timestamptz, timestamptz, int) to authenticated;
 
 do $$ begin
-  raise notice 'vision_monitoring: vision_cameras / count_records / vision_alert_configs 준비 완료';
+  raise notice 'vision_monitoring: vision_cameras / count_records / vision_alert_configs / vision_pairings 준비 완료';
 end $$;

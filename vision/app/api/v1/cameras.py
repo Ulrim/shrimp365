@@ -11,7 +11,6 @@ from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import select
 
 from app.api.deps import SessionDep
-from app.config import settings
 from app.models import Camera, Tank
 from app.schemas import CameraCreate, CameraSchema, CameraStatusSchema, CameraUpdate
 from app.services.camera_manager import MaxCamerasReachedError, camera_manager, owns_camera
@@ -98,9 +97,9 @@ async def start_camera(camera_id: uuid.UUID, session: SessionDep) -> dict[str, s
         raise HTTPException(
             status_code=409,
             detail=(
-                f"이 카메라는 '{camera.host_id}' 장비에 물려 있습니다. "
-                f"그 장비에서 시작하세요 (여기는 "
-                f"'{settings.vision_host_id or '이름 없음'}')."
+                f"이 카메라는 다른 장비에 물려 있습니다"
+                f"{f' (시리얼 {camera.serial})' if camera.serial else ''}. "
+                "그 장비에서 시작하세요."
             ),
         )
     farm_id = await _farm_id_of(session, camera.tank_id)
