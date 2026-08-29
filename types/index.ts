@@ -271,3 +271,110 @@ export interface InventoryTransaction {
   notes: string | null
   created_at: string
 }
+
+// ── 개체수 모니터링 (카메라 비전) ────────────────────
+//
+// 카메라는 수조에 달린 장비다 — sensor_devices 와 같은 자리에 있고, 양식장은
+// tank → farm 으로 따라간다. 개체수 기록은 수조·양식장 id 를 함께 들고 있어
+// 수질 기록과 tank_id 로 곧장 맞물린다.
+
+export interface VisionCamera {
+  id: string
+  tank_id: string
+  name: string
+  camera_type: "usb" | "rtsp" | "http"
+  /** usb 는 장치 번호("0"), rtsp/http 는 전체 주소. 미설정이면 null. */
+  stream_url: string | null
+  resolution_w: number
+  resolution_h: number
+  /** 추론 샘플링 FPS(0.5~5) — 영상 재생 속도가 아니라 "초당 몇 번 세는가". */
+  fps_target: number
+  is_active: boolean
+  install_height: number | null
+  tank_area_m2: number | null
+  created_at: string
+  /** 목록 조회에서 조인해 오는 표시용 값. 단건 조회에는 없다. */
+  tank_name?: string
+  farm_name?: string
+}
+
+export type VisionCameraStatus = "running" | "online" | "offline" | "error"
+
+export interface CountRecord {
+  time: string
+  camera_id: string
+  tank_id: string
+  farm_id: string
+  count: number
+  confidence_avg: number | null
+  model_version: string | null
+  inference_ms: number | null
+}
+
+/** vision_count_history() 가 돌려주는 한 칸. */
+export interface CountBucket {
+  bucket: string
+  avg_count: number
+  max_count: number
+  min_count: number
+  confidence_avg: number | null
+  sample_count: number
+}
+
+/** vision_count_wq_series() 가 돌려주는 한 칸 — 개체수와 수질을 같은 시각에 맞춘 값.
+ *  한쪽만 측정된 구간이 흔해서(수질은 분 단위, 개체수는 초 단위) 각 항목이 null 일 수 있다. */
+export interface CountWaterQualityPoint {
+  bucket: string
+  avg_count: number | null
+  count_samples: number
+  avg_temperature: number | null
+  avg_do: number | null
+  avg_ph: number | null
+  wq_samples: number
+}
+
+export type VisionAlertType = "count_drop" | "count_spike" | "offline" | "threshold"
+
+export interface VisionAlertConfig {
+  id: string
+  camera_id: string | null
+  user_id: string
+  alert_type: VisionAlertType
+  threshold_value: number | null
+  threshold_pct: number | null
+  window_minutes: number
+  is_enabled: boolean
+  notify_email: string | null
+  notify_webhook: string | null
+  created_at: string
+}
+
+/** WebSocket 으로 오는 실시간 이벤트. 비전 서비스가 미는 세 종류가 전부다. */
+export type VisionEvent =
+  | {
+      type: "count_update"
+      camera_id: string
+      timestamp: string
+      count: number
+      confidence_avg: number | null
+      bbox_count: number
+      bboxes: { x1: number; y1: number; x2: number; y2: number; confidence: number }[]
+      frame_width: number
+      frame_height: number
+      inference_ms: number
+    }
+  | {
+      type: "alert"
+      camera_id: string
+      tank_id: string
+      alert_type: VisionAlertType | "compound"
+      severity: "danger" | "warning"
+      message: string
+      timestamp: string
+    }
+  | {
+      type: "camera_status"
+      camera_id: string
+      status: VisionCameraStatus
+      message: string
+    }

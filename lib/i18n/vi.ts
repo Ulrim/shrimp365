@@ -81,6 +81,7 @@ export const vi: Dict = {
     dashboard: "Bảng điều khiển",
     farms: "Trại & Bể",
     waterQuality: "Chất lượng nước",
+    vision: "Đếm tôm",
     journal: "Nhật ký trại",
     diagnosis: "Chẩn đoán bệnh",
     production: "Quản lý sản xuất",

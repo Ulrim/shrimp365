@@ -25,6 +25,14 @@ export const PARAM_LABELS: Record<string, string> = {
   nitrate:     "질산염",
   alkalinity:  "알칼리도",
   turbidity:   "탁도",
+  // 개체수 모니터링(카메라 비전) 경보. 수질과 같은 alerts 표에 쌓이므로
+  // 라벨도 같은 자리에서 찾는다 — 알림함이 종류를 가리지 않고 이름을 붙일 수 있다.
+  // 키는 vision/app/services/alert_service.py 의 PARAMETERS 와 짝이다.
+  shrimp_count_drop:        "개체수 급감",
+  shrimp_count_spike:       "개체수 급증",
+  shrimp_count_low:         "개체수 임계 미만",
+  shrimp_camera_offline:    "카메라 끊김",
+  shrimp_count_do_critical: "개체수·용존산소 동시 이상",
 }
 
 type ThresholdKey = keyof typeof WQ_THRESHOLDS

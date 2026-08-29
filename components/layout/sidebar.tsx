@@ -12,7 +12,7 @@ import {
   Home, LayoutDashboard, Droplets, BookOpen, Building2,
   BrainCircuit, BarChart3, Settings, LogOut,
   ChevronLeft, ChevronRight, Zap, FlaskConical, Package, ShieldCheck,
-  ClipboardList, HelpCircle, MessageSquare, Layers, Radar,
+  ClipboardList, HelpCircle, MessageSquare, Layers, Radar, Video,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
@@ -23,7 +23,7 @@ import type { IconComponent } from "@/types"
 
 // 농업 화면(/daumlabs)에 없는 메뉴 — 새우 전용 문맥(설계서 4-3). "숨김"이 아니라
 // `/daumlabs` 아래에 페이지 자체가 없어 접두사를 붙일 수 없는 항목이다.
-const AGRI_HIDDEN = new Set(["/production", "/inventory", "/ai-advisor", "/reports"])
+const AGRI_HIDDEN = new Set(["/production", "/inventory", "/ai-advisor", "/reports", "/vision"])
 
 const DropMark = ({ size = 17 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -52,6 +52,7 @@ export function Sidebar() {
   const MONITOR_NAV = [
     { href: "/dashboard",    icon: LayoutDashboard, label: t.nav.dashboard },
     { href: "/water-quality", icon: Droplets,       label: t.nav.waterQuality },
+    { href: "/vision",       icon: Video,          label: t.nav.vision },
     { href: "/journal",      icon: BookOpen,        label: t.nav.journal },
     { href: "/farms",        icon: Building2,       label: t.nav.farms },
     { href: "/production",   icon: FlaskConical,    label: t.nav.production },

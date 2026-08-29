@@ -1,0 +1,117 @@
+"""Async SQLAlchemy engine / session factory + startup checks.
+
+Models declare against `Base`; request handlers depend on `get_session`.
+Background services (stream processors) open their own sessions via
+`SessionLocal`.
+
+The engine is created lazily from `settings.database_url` so tests can point
+DATABASE_URL at a temporary SQLite file before importing the app.
+
+**스키마는 이 서비스가 만들지 않는다.** shrimp365 의
+`supabase/migrations/vision_monitoring.sql` 이 원본이고, 사람이 Supabase SQL
+Editor 에서 실행한다. 원본(ShrimpVision 단독)에서는 여기서 create_all 과
+TimescaleDB 하이퍼테이블 설정을 했지만, 통합판에서 그렇게 두면 두 곳이 서로
+다른 스키마를 주장하게 된다. 대신 뜰 때 필요한 표가 있는지 확인만 하고,
+없으면 무엇을 실행해야 하는지 로그로 알린다.
+"""
+from __future__ import annotations
+
+import logging
+from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.pool import NullPool
+
+from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+# 이 서비스가 반드시 있어야 도는 표. 앞의 셋은 vision_monitoring.sql 이,
+# 뒤의 셋은 shrimp365 본체 스키마가 만든다.
+REQUIRED_TABLES = (
+    "vision_cameras",
+    "count_records",
+    "vision_alert_configs",
+    "tanks",
+    "farms",
+    "alerts",
+)
+
+
+def _make_engine():
+    kwargs: dict = {"echo": settings.debug}
+    if settings.database_url.startswith("sqlite"):
+        # NullPool keeps connections loop-agnostic (pytest spins up a fresh
+        # event loop per test); SQLite connections are cheap to reopen.
+        kwargs["poolclass"] = NullPool
+    else:
+        kwargs["pool_pre_ping"] = True
+    return create_async_engine(settings.database_url, **kwargs)
+
+
+engine = _make_engine()
+SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+
+
+class Base(DeclarativeBase):
+    """Declarative base for all ORM models (see app/models/)."""
+
+
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    async with SessionLocal() as session:
+        yield session
+
+
+def utcnow() -> datetime:
+    """Timezone-aware UTC now (stored in TIMESTAMPTZ / SQLite ISO columns)."""
+    return datetime.now(UTC)
+
+
+def ensure_utc(dt: datetime | None) -> datetime | None:
+    """Attach UTC tzinfo to naive datetimes (SQLite returns naive UTC)."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt
+
+
+async def init_db() -> None:
+    """Prepare the database for this process.
+
+    · SQLite(테스트): 매핑에서 표를 만든다. 테스트는 빈 파일에서 시작한다.
+    · Postgres(운영): 아무것도 만들지 않고 필요한 표가 있는지만 확인한다.
+      빠진 표가 있으면 경고를 남기되 기동은 막지 않는다 — /health 는 떠 있어야
+      배포 도구가 원인을 볼 수 있고, 카메라를 아직 등록하지 않은 상태와
+      마이그레이션을 실행하지 않은 상태를 로그로 구분할 수 있어야 한다.
+    """
+    from app import models  # noqa: F401  (register mappers)
+
+    if engine.dialect.name != "postgresql":
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        return
+
+    async with engine.connect() as conn:
+        rows = await conn.execute(
+            text(
+                "SELECT table_name FROM information_schema.tables "
+                "WHERE table_schema = 'public' AND table_name = ANY(:names)"
+            ),
+            {"names": list(REQUIRED_TABLES)},
+        )
+        present = {r[0] for r in rows}
+
+    missing = [t for t in REQUIRED_TABLES if t not in present]
+    if missing:
+        logger.error(
+            "필요한 표가 없습니다: %s — shrimp365 저장소의 "
+            "supabase/migrations/vision_monitoring.sql 을 Supabase SQL Editor 에서 "
+            "실행하세요.",
+            ", ".join(missing),
+        )
+    else:
+        logger.info("Schema check passed (%d tables)", len(REQUIRED_TABLES))

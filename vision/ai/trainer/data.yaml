@@ -1,0 +1,14 @@
+# YOLOv8 dataset config for shrimp detection fine-tuning (Agent-B).
+# See plan §8.2 for the data collection plan.
+path: ./datasets/shrimp
+train: images/train
+val: images/val
+
+nc: 1            # 클래스 수 (흰다리새우만)
+names: ['shrimp']
+
+# Phase 1 (1~2개월): CULIVER 실제 수조 영상에서 프레임 추출
+#   - 다양한 밀도 (50마리/수조 ~ 500마리/수조)
+#   - 다양한 조명 조건 (주간/야간/인공조명)
+#   - 목표 데이터셋: 3,000장 이상
+# Phase 2 (3개월): 파인튜닝 — 베이스 YOLOv8n/s, 목표 mAP@0.5 >= 0.85
