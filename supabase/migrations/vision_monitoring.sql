@@ -25,9 +25,12 @@ create table if not exists public.vision_cameras (
   tank_id       uuid not null references public.tanks(id) on delete cascade,
   name          text not null,
 
-  -- usb: stream_url 이 장치 번호("0"), rtsp/http: 전체 URL.
+  -- picamera: 라즈베리파이 CSI 카메라(리본). stream_url 이 필요 없다 — 보드에
+  --           직접 붙어 있어 주소로 가리킬 대상이 없다.
+  -- usb     : stream_url 이 장치 번호("0")
+  -- rtsp/http: stream_url 이 전체 URL
   camera_type   text not null default 'usb'
-                  check (camera_type in ('usb','rtsp','http')),
+                  check (camera_type in ('picamera','usb','rtsp','http')),
   stream_url    text,
 
   resolution_w  int  not null default 1920,
@@ -45,6 +48,15 @@ create table if not exists public.vision_cameras (
 
 create index if not exists idx_vision_cameras_tank
   on public.vision_cameras (tank_id);
+
+-- 이 파일을 이미 한 번 실행한 뒤 picamera 가 추가됐다. create table if not exists
+-- 는 기존 표를 고치지 않으므로 제약을 다시 걸어 준다(처음 실행이면 방금 만든
+-- 제약을 같은 내용으로 덮어쓴다 — 어느 쪽이든 안전하다).
+alter table public.vision_cameras
+  drop constraint if exists vision_cameras_camera_type_check;
+alter table public.vision_cameras
+  add constraint vision_cameras_camera_type_check
+  check (camera_type in ('picamera','usb','rtsp','http'));
 
 alter table public.vision_cameras enable row level security;
 

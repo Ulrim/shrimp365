@@ -21,7 +21,7 @@ from app.config import settings, simulation_mode_active
 from app.database import SessionLocal, utcnow
 from app.models import Camera, CountRecord
 from app.services.broadcaster import broadcaster
-from app.services.camera_source import CameraSource, SimulatedCamera
+from app.services.camera_source import CameraSource, PiCameraSource, SimulatedCamera
 from app.services.detector import ShrimpDetector, SimulatedDetector, TankSimulation
 from app.services.rendering import annotate_frame, encode_jpeg
 
@@ -94,6 +94,9 @@ class CameraSnapshot:
     camera_type: str
     stream_url: str | None
     fps_target: float
+    # CSI 카메라는 해상도를 우리가 정해서 열어야 한다(URL 이 없다).
+    resolution_w: int = 1280
+    resolution_h: int = 720
 
     @classmethod
     def from_model(cls, camera: Camera, farm_id: uuid.UUID) -> CameraSnapshot:
@@ -105,6 +108,8 @@ class CameraSnapshot:
             camera_type=camera.camera_type,
             stream_url=camera.stream_url,
             fps_target=camera.fps_target,
+            resolution_w=camera.resolution_w,
+            resolution_h=camera.resolution_h,
         )
 
 
@@ -129,7 +134,11 @@ class CameraStreamProcessor:
             self.source = SimulatedCamera(sim)
             self.detector = SimulatedDetector(sim)
         else:
-            self.source = CameraSource(camera.camera_type, camera.stream_url)
+            # CSI 카메라(라즈베리파이 전용)는 libcamera 라 다른 길로 연다.
+            if camera.camera_type == "picamera":
+                self.source = PiCameraSource(camera.resolution_w, camera.resolution_h)
+            else:
+                self.source = CameraSource(camera.camera_type, camera.stream_url)
             self.detector = ShrimpDetector()
 
     # -- lifecycle ------------------------------------------------------------

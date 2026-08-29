@@ -22,10 +22,13 @@ import type { Tank, VisionAlertConfig, VisionCamera, VisionCameraStatus } from "
 // 같은 사고방식이라 사용자가 새로 배울 것이 없다.
 
 const CAMERA_TYPES = [
+  { value: "picamera", label: "라즈베리파이 카메라 (CSI)", hint: "보드에 직접 연결된 카메라 — 주소가 필요 없습니다" },
   { value: "usb",  label: "USB 카메라", hint: "장치 번호를 적습니다. 보통 0" },
   { value: "rtsp", label: "RTSP (IP 카메라)", hint: "rtsp://아이디:비밀번호@주소:554/stream" },
   { value: "http", label: "HTTP (MJPEG)", hint: "http://주소/video" },
 ] as const
+
+type CameraTypeValue = (typeof CAMERA_TYPES)[number]["value"]
 
 const ALERT_TYPES = [
   { value: "count_drop",  label: "개체수 급감", desc: "최근 평균보다 크게 줄면 알립니다. 폐사·질병의 첫 신호입니다." },
@@ -51,8 +54,8 @@ export function CameraSettings({ tanks, cameras, statuses, configs, onChanged }:
   // 수조 목록이 늦게 도착해도 렌더 한 번으로 맞는 값이 나온다.
   const [pickedTankId, setPickedTankId] = useState("")
   const [name, setName] = useState("")
-  const [cameraType, setCameraType] = useState<"usb" | "rtsp" | "http">("usb")
-  const [streamUrlValue, setStreamUrlValue] = useState("0")
+  const [cameraType, setCameraType] = useState<CameraTypeValue>("picamera")
+  const [streamUrlValue, setStreamUrlValue] = useState("")
   const [tankArea, setTankArea] = useState("")
 
   // 경보 설정 폼
@@ -204,7 +207,7 @@ export function CameraSettings({ tanks, cameras, statuses, configs, onChanged }:
             <Select
               value={cameraType}
               onValueChange={(v) => {
-                const next = v as "usb" | "rtsp" | "http"
+                const next = v as CameraTypeValue
                 setCameraType(next)
                 // 방식이 바뀌면 주소 형식도 완전히 달라진다. 남은 값을 그대로
                 // 두면 rtsp 자리에 "0" 이 남아 연결이 실패한다.
@@ -218,15 +221,24 @@ export function CameraSettings({ tanks, cameras, statuses, configs, onChanged }:
             </Select>
           </div>
 
-          <div className="space-y-1.5">
-            <Label>{cameraType === "usb" ? "장치 번호" : "스트림 주소"}</Label>
-            <Input
-              value={streamUrlValue}
-              onChange={e => setStreamUrlValue(e.target.value)}
-              placeholder={typeHint}
-            />
-            <p className="text-[11px] text-muted-foreground">{typeHint}</p>
-          </div>
+          {cameraType === "picamera" ? (
+            <div className="space-y-1.5">
+              <Label>연결 주소</Label>
+              <p className="text-sm text-muted-foreground pt-2">
+                필요 없습니다 — 보드에 직접 붙은 카메라를 그대로 씁니다.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <Label>{cameraType === "usb" ? "장치 번호" : "스트림 주소"}</Label>
+              <Input
+                value={streamUrlValue}
+                onChange={e => setStreamUrlValue(e.target.value)}
+                placeholder={typeHint}
+              />
+              <p className="text-[11px] text-muted-foreground">{typeHint}</p>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label>수조 면적 (㎡, 선택)</Label>

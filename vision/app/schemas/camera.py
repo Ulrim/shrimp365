@@ -12,7 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-CameraType = Literal["usb", "rtsp", "http"]
+CameraType = Literal["picamera", "usb", "rtsp", "http"]
 CameraStatusValue = Literal["online", "offline", "error", "running"]
 
 

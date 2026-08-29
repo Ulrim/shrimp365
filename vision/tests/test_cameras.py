@@ -104,3 +104,28 @@ async def test_service_key_required(client, tank):
 
     resp = await client.get("/api/v1/cameras", headers={"X-Vision-Key": "wrong"})
     assert resp.status_code == 401
+
+
+async def test_picamera_type_accepted(client, auth_headers, tank):
+    """라즈베리파이 CSI 카메라는 주소 없이 등록된다.
+
+    보드에 리본으로 직접 붙어 있어 가리킬 주소가 없다. stream_url 을 요구하면
+    현장에서 쓸 수 없는 값을 억지로 채워 넣게 된다.
+    """
+    resp = await client.post(
+        "/api/v1/cameras",
+        json={"tank_id": tank["id"], "name": "파이 카메라", "camera_type": "picamera"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["camera_type"] == "picamera"
+    assert resp.json()["stream_url"] is None
+
+
+async def test_unknown_camera_type_rejected(client, auth_headers, tank):
+    resp = await client.post(
+        "/api/v1/cameras",
+        json={"tank_id": tank["id"], "name": "이상한 카메라", "camera_type": "webcam"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 422

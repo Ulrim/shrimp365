@@ -26,7 +26,35 @@ shrimp365 것을 씁니다 — 로그인은 Supabase Auth 하나, 양식장·수
 개체수(`count_records`)와 수질(`water_quality_readings`)이 **같은 Supabase**에
 쌓이므로 통합 분석이 조인 한 번으로 끝납니다.
 
-## 3. 어디에 무엇을 올리나 — 배포 형태 두 가지
+## 3. 주소가 두 개다 — 먼저 구분하기
+
+헷갈리기 쉬운 지점입니다. **사용자가 보는 주소**와 **영상이 흘러오는 주소**는
+다릅니다.
+
+| | 주소 | 무엇이 있나 | 어디서 서빙 |
+|---|---|---|---|
+| **화면** | `https://www.shrimp365.kr/vision` | 개체수 메뉴 — 개요·실시간·이력·통합분석·설정 | Vercel |
+| 제어 API | `https://www.shrimp365.kr/api/vision/*` | 로그인 확인·카메라 시작/정지·토큰 발급 | Vercel |
+| **비전 호스트** | `https://vision.shrimp365.kr` | 영상(MJPEG)·실시간 이벤트(WebSocket)·추론 | 라즈베리파이 등 상시 서버 |
+
+사용자는 `www.shrimp365.kr/vision` 하나만 알면 됩니다. 왼쪽 메뉴 **개체수** 를
+누르면 그 주소입니다. `vision.shrimp365.kr` 은 그 화면이 뒤에서 영상을 받아 오는
+곳이라 사용자가 직접 열 일이 없습니다.
+
+### 비전 호스트를 `www.shrimp365.kr/...` 아래에 둘 수 없는 이유
+
+`www` 는 **Vercel** 이 받습니다. 그 아래 어떤 경로를 만들어도 요청은 Vercel 을
+거치게 되는데, Vercel 은 서버리스라 영상처럼 **끝나지 않는 연결**을 라즈베리파이로
+넘겨줄 수 없습니다(함수 실행 시간 상한에 걸려 잘리고, WebSocket 은 아예 안 됩니다).
+그래서 영상만 별도 호스트로 뺍니다.
+
+> 도메인을 Cloudflare 로 프록시해 경로 단위로 갈라내는 방법이 없지는 않지만,
+> Vercel 앞에 프록시를 한 겹 더 얹는 구성이라 권하지 않습니다. 서브도메인이
+> 훨씬 단순하고 고장 지점이 적습니다.
+
+---
+
+## 3-1. 어디에 무엇을 올리나 — 배포 형태 두 가지
 
 **비전 서비스는 상시 구동되는 호스트가 필요합니다.** 서버리스(Vercel Functions)
 에는 올릴 수 없습니다 — Python 컨테이너를 돌릴 수 없을뿐더러, 영상(MJPEG)과
@@ -39,12 +67,19 @@ shrimp365 것을 씁니다 — 로그인은 Supabase Auth 하나, 양식장·수
 ### (A) 웹은 Vercel, 비전은 별도 호스트 — **현재 shrimp365 운영 형태**
 
 ```
-브라우저 ──▶ Vercel (www.shrimp365.kr)   로그인·화면·토큰 발급·제어 API
+브라우저 ──▶ Vercel (www.shrimp365.kr)        로그인·화면·토큰 발급·제어 API
     │
-    └──────▶ 비전 호스트 (vision.shrimp365.kr)   영상 + 실시간 (서명 토큰)
+    └──────▶ 비전 호스트 (vision.shrimp365.kr)  영상 + 실시간 (서명 토큰)
                     │
                     ▼  Supabase
 ```
+
+**라즈베리파이 CSI 카메라를 쓴다면 비전 호스트는 그 파이입니다.** 리본으로 보드에
+직접 붙은 카메라라 네트워크 너머에서 열 수 없기 때문입니다. 설치는
+`vision/deploy/README.md` 를 보세요 — 도커가 아니라 systemd 서비스로 올립니다
+(picamera2 가 라즈베리파이 OS 시스템 패키지라 컨테이너 안에서 다루기 번거롭습니다).
+
+USB·IP(RTSP) 카메라라면 비전 호스트는 아무 상시 서버나 됩니다.
 
 브라우저가 영상과 실시간 연결을 **비전 호스트에 직접** 붙습니다. Vercel 은
 로그인 확인과 3분짜리 서명 토큰 발급, 그리고 제어용 JSON API(카메라 시작·정지
@@ -55,7 +90,7 @@ shrimp365 것을 씁니다 — 로그인은 Supabase Auth 하나, 양식장·수
 
 > 비전 호스트를 인터넷에 두더라도 **`/api/v1` 은 절대 열지 마세요.** 서비스
 > 키를 가진 쪽은 모든 수조를 볼 수 있습니다. 프록시에서 `/stream` 과 `/ws`
-> 만 열고 나머지는 막습니다(§3-3 설정 참고).
+> 만 열고 나머지는 막습니다(§3-4·§3-6 참고).
 
 ### (B) 웹과 비전을 한 호스트에 — NAS·자체 서버
 
@@ -68,7 +103,7 @@ shrimp365 것을 씁니다 — 로그인은 Supabase Auth 하나, 양식장·수
 
 ---
 
-## 3-1. DB 마이그레이션 (사람이 실행 — 두 형태 공통)
+## 3-2. DB 마이그레이션 (사람이 실행 — 두 형태 공통)
 
 Supabase Dashboard → SQL Editor 에서 실행합니다.
 
@@ -78,7 +113,7 @@ supabase/migrations/vision_monitoring.sql
 
 > 이 저장소에는 service_role 키가 없으므로 에이전트가 실행할 수 없습니다.
 
-## 3-2. 환경변수
+## 3-3. 환경변수
 
 ### Vercel (A) — 대시보드 → Settings → Environment Variables
 
@@ -106,7 +141,50 @@ CORS_ORIGINS=https://www.shrimp365.kr
 `NEXT_PUBLIC_VISION_PUBLIC_URL` 은 **비우고**, `VISION_SERVICE_URL=http://vision:8000`,
 `NEXT_PUBLIC_VISION_WS_PATH=/vision-ws` 를 씁니다.
 
-## 3-3. 비전 서비스 기동
+## 3-4. 비전 호스트에 https 주소 붙이기 (A 방식)
+
+브라우저가 영상과 실시간 값을 직접 받으려면 비전 호스트에 **유효한 https 주소**가
+필요합니다. 웹이 https 인데 영상이 http 면 브라우저가 혼합 콘텐츠로 막습니다.
+
+농장 공유기 뒤에 있는 라즈베리파이라면 포트를 열지 않고 쓰는 **Cloudflare Tunnel**
+이 가장 간단합니다(무료, 인증서 자동, WebSocket 지원).
+
+```bash
+# 파이에서
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64 \
+  -o /usr/local/bin/cloudflared && sudo chmod +x /usr/local/bin/cloudflared
+
+cloudflared tunnel login                      # 브라우저로 도메인 인증
+cloudflared tunnel create shrimp365-vision
+cloudflared tunnel route dns shrimp365-vision vision.shrimp365.kr
+```
+
+`~/.cloudflared/config.yml`:
+
+```yaml
+tunnel: shrimp365-vision
+credentials-file: /root/.cloudflared/<터널ID>.json
+
+ingress:
+  # 제어 API 는 외부에 열지 않는다. 서비스 키를 가진 쪽은 모든 수조를 본다.
+  - hostname: vision.shrimp365.kr
+    path: ^/api/.*
+    service: http_status:404
+  - hostname: vision.shrimp365.kr
+    service: http://localhost:8000
+  - service: http_status:404
+```
+
+```bash
+sudo cloudflared service install
+sudo systemctl enable --now cloudflared
+curl https://vision.shrimp365.kr/health     # {"status":"ok","mode":"simulation"}
+```
+
+> 공인 IP 와 공유기 설정을 직접 다룰 수 있다면 nginx + certbot 으로 같은 결과를
+> 낼 수 있습니다(설정은 §3-6).
+
+## 3-5. 비전 서비스 기동
 
 한 호스트(B)에서는 저장소 루트에서:
 
@@ -114,7 +192,10 @@ CORS_ORIGINS=https://www.shrimp365.kr
 docker compose --profile vision up -d --build
 ```
 
-별도 호스트(A)에서는 `vision/` 만 있으면 됩니다:
+**라즈베리파이 CSI 카메라**라면 도커가 아니라 systemd 로 올립니다 —
+설치 명령은 `vision/deploy/README.md` 에 그대로 옮겨 적어 두었습니다.
+
+그 밖의 별도 호스트(A)에서는 `vision/` 만 있으면 됩니다:
 
 ```bash
 docker build -t shrimp365-vision ./vision
@@ -126,7 +207,7 @@ docker run -d --name shrimp365-vision --restart unless-stopped \
 
 `127.0.0.1` 에만 묶어 두고 앞단에 nginx 를 세웁니다.
 
-## 3-4. 리버스 프록시
+## 3-6. 리버스 프록시 (직접 운영하는 경우)
 
 ### (A) 비전 호스트의 nginx — `/stream` 과 `/ws` 만 연다
 
@@ -247,3 +328,6 @@ docker compose --profile vision restart vision
 | 영상이 몇 초 뒤 끊김 (Vercel) | `NEXT_PUBLIC_VISION_PUBLIC_URL` 미설정 → 서버리스가 중계하다 시간 상한에 잘림 |
 | 영상 자리가 비고 콘솔에 mixed content | 비전 호스트가 http — https 인증서를 붙여야 합니다 |
 | `NEXT_PUBLIC_*` 을 넣었는데 그대로 | 빌드 시점에 박히는 값입니다. 재배포하세요 |
+| 파이에서 카메라를 못 엶 | `rpicam-hello --list-cameras` 로 먼저 확인. 서비스 사용자가 `video` 그룹인지 |
+| 파이 영상 색이 이상함 (새우가 파랑) | picamera2 채널 순서 문제 — `camera_source.py` 의 `[:, :, ::-1]` 이 빠졌는지 |
+| 파이가 뜨겁고 개체수가 띄엄띄엄 | 발열 스로틀링. 방열판·팬을 달거나 `fps_target` 을 0.5 로 낮추세요 |

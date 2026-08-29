@@ -14,7 +14,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base, utcnow
 
-CAMERA_TYPES = ("usb", "rtsp", "http")
+CAMERA_TYPES = ("picamera", "usb", "rtsp", "http")
 
 
 class Camera(Base):

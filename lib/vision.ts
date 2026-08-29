@@ -78,7 +78,7 @@ export async function getCameras(tankId?: string): Promise<VisionCamera[]> {
 export async function createCamera(values: {
   tank_id: string
   name: string
-  camera_type?: "usb" | "rtsp" | "http"
+  camera_type?: VisionCamera["camera_type"]
   stream_url?: string | null
   fps_target?: number
   tank_area_m2?: number | null

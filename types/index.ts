@@ -282,7 +282,7 @@ export interface VisionCamera {
   id: string
   tank_id: string
   name: string
-  camera_type: "usb" | "rtsp" | "http"
+  camera_type: "picamera" | "usb" | "rtsp" | "http"
   /** usb 는 장치 번호("0"), rtsp/http 는 전체 주소. 미설정이면 null. */
   stream_url: string | null
   resolution_w: number
