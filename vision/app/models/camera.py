@@ -6,6 +6,7 @@ shrimp365 의 수조를 그대로 가리킨다(tank_id) — 양식장·수조를
 """
 from __future__ import annotations
 
+import secrets
 import uuid
 from datetime import datetime
 
@@ -34,8 +35,16 @@ class Camera(Base):
     install_height: Mapped[float | None] = mapped_column(Float)
     tank_area_m2: Mapped[float | None] = mapped_column(Float)
     # ── 기기 신원 (app/config.py 의 device_key 와 짝) ──
-    # 페어링 때 발급된다. 장비는 이 값으로 "내 카메라"를 알아본다.
-    api_key: Mapped[str | None] = mapped_column(String)
+    # 장비는 이 값으로 "내 카메라"를 알아본다.
+    #
+    # DB 에도 기본값이 있지만 **여기에도 반드시 있어야 한다.** 파이썬 쪽 기본값이
+    # 없으면 SQLAlchemy 가 INSERT 에 api_key = NULL 을 명시적으로 실어 보내
+    # DB 기본값을 덮어쓰고, NOT NULL 제약에 걸려 카메라 등록이 통째로 실패한다.
+    # (열을 nullable=False 로 둬서 테스트용 SQLite 에서도 같은 제약이 선다 —
+    #  그래야 이 실수가 다시 나면 테스트가 잡는다.)
+    api_key: Mapped[str] = mapped_column(
+        String, nullable=False, default=lambda: secrets.token_hex(24)
+    )
     # 라즈베리파이 CPU 시리얼. 같은 보드의 재연결을 알아보는 데 쓴다.
     serial: Mapped[str | None] = mapped_column(String)
     firmware: Mapped[str | None] = mapped_column(String)

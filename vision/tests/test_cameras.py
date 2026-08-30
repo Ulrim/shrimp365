@@ -279,3 +279,24 @@ async def test_host_url_exposed(client, auth_headers, tank):
     resp = await client.get(f"/api/v1/cameras/{camera['id']}", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json()["host_url"] == "https://vision-2.shrimp365.kr"
+
+
+async def test_created_camera_gets_unique_key(client, auth_headers, tank):
+    """카메라를 만들면 기기 키가 자동으로, 서로 다르게 채워져야 한다.
+
+    이 검사가 없어 실제 Postgres 에서 카메라 등록이 통째로 실패한 적이 있다.
+    모델에 파이썬 기본값이 없으면 SQLAlchemy 가 INSERT 에 api_key = NULL 을
+    명시적으로 실어 보내 DB 기본값을 덮어쓰고 NOT NULL 제약에 걸린다.
+    (SQLite 에서도 같은 제약이 서도록 열을 nullable=False 로 뒀다.)
+    """
+    keys = []
+    for i in range(2):
+        camera = await make_camera(client, auth_headers, tank, f"키 자동발급 {i}")
+        async with SessionLocal() as session:
+            row = await session.get(Camera, uuid.UUID(camera["id"]))
+            assert row is not None
+            assert row.api_key, "기기 키가 비어 있다 — 파이썬 기본값이 빠졌다"
+            keys.append(row.api_key)
+
+    # 같은 키가 두 카메라에 붙으면 두 장비가 서로를 자기 것으로 여긴다.
+    assert keys[0] != keys[1], "카메라마다 다른 키여야 한다"
