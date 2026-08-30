@@ -124,7 +124,7 @@ shrimp365 의 기존 관제센터 라우트와 같은 방식이다: 라우트가
 |---|---|---|
 | 판정 로직 | `app/services/alert_jobs.py` | `lib/mrv/alert-jobs.ts` |
 | 실행 주체 | 상주 워커 + APScheduler | Vercel Cron → `POST/GET /api/mrv/jobs/evaluate-alerts` |
-| 주기 | 15분 (`ALERT_EVAL_INTERVAL_MINUTES`) | 15분 (`vercel.json` 의 `crons`) |
+| 주기 | 15분 (`ALERT_EVAL_INTERVAL_MINUTES`) | 하루 1회 23:00 UTC (`vercel.json` 의 `crons`) |
 | 인증 | 없음(프로세스 내부 호출) | `CRON_SECRET` (Bearer) |
 
 이 창구는 **전 조직의 사이트를 평가**하므로 어떤 사용자 세션으로도 열리지 않는다.
@@ -135,10 +135,25 @@ shrimp365 의 기존 관제센터 라우트와 같은 방식이다: 라우트가
 (org 순회 생략 · DO 동시각 동점 처리 · 모르는 지표명 거부). 셋 다 `mrv:verify-alerts` 가
 원본과 같은 판정을 내는지 확인한다.
 
-> **Vercel 요금제 주의**: Hobby 플랜은 Cron 이 하루 1회로 제한된다. 15분 주기가 필요하면
-> Pro 이상이어야 한다. 플랜을 올리지 않겠다면 `vercel.json` 의 `crons` 를 지우고 Supabase
-> `pg_cron` + `pg_net` 이나 외부 스케줄러로 같은 URL 을 15분마다 때리면 된다 — 라우트는
-> 어느 쪽에서 불려도 똑같이 동작한다.
+#### 왜 15분이 아니라 하루 1회이고, 왜 하필 23:00 UTC 인가
+
+**Hobby 플랜은 하루 1회를 넘는 cron 을 거부한다 — 빈도가 낮아지는 게 아니라 배포 자체가
+실패한다.** (`*/15 * * * *` 로 올렸다가 실제로 배포가 깨졌다.) 그래서 기본값은 어느
+플랜에서든 배포되는 하루 1회다.
+
+시각이 23:00 UTC(= 08:00 KST)인 것은 임의가 아니다. `mortality_spike` 는 **당일(UTC)
+폐사 수**를 직전 N일 평균과 비교하는데, 00:00 UTC 에 돌리면 "당일"이 방금 시작해 폐사 수가
+0 이라 **트리거가 사실상 영영 켜지지 않는다**. UTC 하루가 거의 끝난 시점에 돌려야 그날 값이
+다 모인 상태로 비교된다. 덤으로 결과를 아침(KST)에 보게 된다.
+
+원본과 같은 15분 주기가 필요하면(DO 저하는 빨리 알수록 좋다) 둘 중 하나다:
+
+- Vercel Pro 이상으로 올리고 `vercel.json` 의 `schedule` 을 `*/15 * * * *` 로 되돌린다.
+- `vercel.json` 의 `crons` 를 지우고 Supabase `pg_cron` + `pg_net` 이나 외부 스케줄러로
+  같은 URL 을 15분마다 때린다. 라우트는 어느 쪽에서 불려도 똑같이 동작한다.
+
+주기를 바꿔도 판정 자체는 달라지지 않는다 — 같은 알림이 이미 열려 있으면 다시 만들지
+않으므로(중복 억제), 자주 돌린다고 알림이 쌓이지는 않는다.
 
 ### 3.8 이식하지 않은 것
 
@@ -282,7 +297,7 @@ npm run build       # 빌드
 5. **`CRON_SECRET` 설정** — 알림 배치 창구를 여는 유일한 열쇠다. 이 값이 없으면 창구가
    503 으로 닫힌 채이고 **알림이 하나도 만들어지지 않는다**(화면은 정상으로 보이므로
    빠뜨리면 알아채기 어렵다). `openssl rand -hex 32` 로 만들어 Vercel 환경변수에 넣으면
-   Cron 이 알아서 `Authorization: Bearer` 로 붙여 준다. 요금제 주의는 3.7 참고.
+   Cron 이 알아서 `Authorization: Bearer` 로 붙여 준다. 주기와 요금제 제약은 3.7 참고.
    설정 뒤 한 번 손으로 확인:
    ```bash
    curl -X POST -H "Authorization: Bearer $CRON_SECRET" \
