@@ -400,7 +400,6 @@ on conflict (slug, locale) do update set
   cover_url    = excluded.cover_url,
   tags         = excluded.tags,
   published    = excluded.published,
-  published_at = excluded.published_at,
   updated_at   = now();
 
 -- ────────────────────────────────────────────────────────────
