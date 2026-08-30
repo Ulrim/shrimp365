@@ -4,6 +4,7 @@ import { getCardNewsServer, getCardNewsLocalesServer } from "@/lib/card-news-ser
 import { ko } from "@/lib/i18n"
 import { CardNewsDetailView, excerpt } from "@/components/cardnews/cardnews-detail-view"
 import { BASE, hreflangMap } from "@/lib/marketing-locale"
+import { showCardNews, visibleCardNewsLocales } from "@/lib/features"
 
 export const revalidate = 300
 
@@ -23,6 +24,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const cover = post.cover_url || post.images[0]
   // 실제로 등록된 언어판만 hreflang으로 연결한다.
   const locales = await getCardNewsLocalesServer(post.slug)
+  // 감춘 언어판은 hreflang 으로도 알리지 않는다.
+  const shownLocales = visibleCardNewsLocales(locales)
 
   return {
     title: post.title,
@@ -30,8 +33,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     keywords: post.tags.length ? post.tags : undefined,
     alternates: {
       canonical: url,
-      languages: locales.length > 1 ? hreflangMap(`/cardnews/${encodeURIComponent(post.slug)}`, locales) : undefined,
+      languages: shownLocales.length > 1 ? hreflangMap(`/cardnews/${encodeURIComponent(post.slug)}`, shownLocales) : undefined,
     },
+    robots: showCardNews("ko") ? undefined : { index: false, follow: true },
     openGraph: {
       title: post.title,
       description,

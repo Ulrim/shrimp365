@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { CardNewsListView } from "@/components/cardnews/cardnews-list-view"
 import { ko, en, vi, id, type Dict, type Locale } from "@/lib/i18n"
 import { BASE, hreflangMap, isMarketingLocale } from "@/lib/marketing-locale"
+import { visibleCardNewsLocales } from "@/lib/features"
 
 export const revalidate = 300
 
@@ -19,7 +20,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description: c.subtitle,
     alternates: {
       canonical: `${BASE}/${lang}/cardnews`,
-      languages: hreflangMap("/cardnews", ["ko", "en", "vi", "id"]),
+      languages: hreflangMap("/cardnews", visibleCardNewsLocales(["ko", "en", "vi", "id"])),
     },
     openGraph: {
       title: c.title,
