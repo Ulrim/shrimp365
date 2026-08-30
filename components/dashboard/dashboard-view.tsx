@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, ReferenceArea } from "recharts"
@@ -21,7 +21,7 @@ import {
 } from "lucide-react"
 import { formatDateTime, computeCycleDay } from "@/lib/utils"
 import { useT } from "@/lib/i18n-context"
-import { useAgriRoute } from "@/lib/agri-route"
+import { belongsToAgriScreen, useAgriRoute } from "@/lib/agri-route"
 import { useAutoRefresh, sinceLabel } from "@/lib/use-auto-refresh"
 import { WeatherCard } from "@/components/weather/weather-card"
 import { AGRI_STATUS_STYLES, agriIsMissing, getAgriStatus, type AgriStatusLevel } from "@/lib/agri-standards"
@@ -53,16 +53,40 @@ export function DashboardView() {
   const router = useRouter()
   const { t, locale } = useT()
   const { isAgri, href: withAgri } = useAgriRoute()
-  const [farms, setFarms]       = useState<Farm[]>([])
-  const [tanks, setTanks]       = useState<Tank[]>([])
+  // 계정의 전체 농장·수조. 화면에 쓰는 것은 아래에서 이 화면 몫만 걸러 낸다.
+  const [allFarms, setAllFarms] = useState<Farm[]>([])
+  const [allTanks, setAllTanks] = useState<Tank[]>([])
   const [alerts, setAlerts]     = useState<Alert[]>([])
   const [diagnoses, setDiagnoses] = useState<DiagnosisResult[]>([])
   const [wqData, setWqData]         = useState<WaterQualityReading[]>([])
-  const [selectedTankId, setSelectedTankId] = useState<string>("")
+  // 사용자가 고른 수조. 실제로 쓰는 값은 아래 selectedTankId 로, 목록에서
+  // 파생시킨다 — 화면(URL)이 바뀌면 목록이 바뀌므로 고른 값이 남의 축에
+  // 남아 있을 수 있다.
+  const [pickedTankId, setPickedTankId] = useState<string>("")
   // 선택한 수조의 센서(기기)들 — 센서별 마지막 수신값 요약에 쓴다.
   const [tankDevices, setTankDevices] = useState<SensorDevice[]>([])
   const [lowStockItems, setLowStockItems]   = useState<InventoryItem[]>([])
   const [loading, setLoading]       = useState(true)
+
+  // 화면은 URL 이 정한다(설계서 3장). 그러니 이 대시보드가 세고·고르고·그리는
+  // 대상도 이 화면에 속한 것뿐이어야 한다. 혼합 계정(양식장+수경재배)에서
+  // 안 거르면 새우 대시보드에서 수경재배 베드를 골라 새우 기준으로 판정하게
+  // 되고(그 반대도 같다), 농장 수·수조 수도 남의 축까지 세게 된다.
+  const farms = useMemo(
+    () => allFarms.filter(f => belongsToAgriScreen(f.farm_type, isAgri)),
+    [allFarms, isAgri],
+  )
+  const tanks = useMemo(
+    () => allTanks.filter(tk => belongsToAgriScreen(tk.farm_type, isAgri)),
+    [allTanks, isAgri],
+  )
+
+  // 고른 수조가 이 화면 목록에 없으면 첫 수조로 떨어진다. 상태를 고쳐 쓰지
+  // 않고 파생시킨다 — 효과 안에서 setState 하면 렌더가 한 번 더 돈다.
+  const selectedTankId = useMemo(() => {
+    if (!tanks.length) return ""
+    return tanks.some(tk => tk.id === pickedTankId) ? pickedTankId : tanks[0].id
+  }, [tanks, pickedTankId])
 
   const TANK_STATUS_META = {
     active:   { label: t.dashboard.normal,  color: "text-emerald-500", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400" },
@@ -84,8 +108,8 @@ export function DashboardView() {
     const [f, tk, a, d, inv] = await Promise.all([
       getFarms(), getAllTanks(), getAlerts(true), getDiagnoses(), getInventoryItems()
     ])
-    setFarms(f)
-    setTanks(tk)
+    setAllFarms(f)
+    setAllTanks(tk)
     setAlerts(a.filter(x => !x.resolved))
     setDiagnoses(d)
     setLowStockItems(inv.filter(i => i.reorder_level > 0 && i.current_stock <= i.reorder_level))
@@ -101,12 +125,12 @@ export function DashboardView() {
     async function load() {
       const mock = isTestAccount(user?.email)
       if (mock) {
-        setFarms(MOCK_FARMS)
-        setTanks(MOCK_TANKS)
+        setAllFarms(MOCK_FARMS)
+        setAllTanks(MOCK_TANKS)
         setAlerts(MOCK_ALERTS.filter(x => !x.resolved))
         setDiagnoses(MOCK_DIAGNOSES)
         setLowStockItems(MOCK_INVENTORY_ITEMS.filter(i => i.reorder_level > 0 && i.current_stock <= i.reorder_level))
-        setSelectedTankId("tank-1")
+        setPickedTankId("tank-1")
         setWqData(MOCK_WATER_QUALITY["tank-1"] || [])
         setLoading(false)
         return
@@ -115,15 +139,17 @@ export function DashboardView() {
         const [f, tk, a, d, inv] = await Promise.all([
           getFarms(), getAllTanks(), getAlerts(true), getDiagnoses(), getInventoryItems()
         ])
-        setFarms(f)
-        setTanks(tk)
+        setAllFarms(f)
+        setAllTanks(tk)
         setAlerts(a.filter(x => !x.resolved))
         setDiagnoses(d)
         setLowStockItems(inv.filter(i => i.reorder_level > 0 && i.current_stock <= i.reorder_level))
 
-        const firstTank = tk[0] ?? null
+        // 첫 수조도 이 화면 몫에서 고른다 — 남의 축 수조를 골라 두면 아래
+        // 보정 효과가 다시 고르면서 24시간 측정 조회가 한 번 헛돈다.
+        const firstTank = tk.find(x => belongsToAgriScreen(x.farm_type, isAgri)) ?? null
         if (firstTank) {
-          setSelectedTankId(firstTank.id)
+          setPickedTankId(firstTank.id)
           const wq = await getWaterQuality(firstTank.id, 24)
           setWqData(wq)
         }
@@ -134,7 +160,7 @@ export function DashboardView() {
       }
     }
     load()
-  }, [user, router])
+  }, [user, router, isAgri])
 
   useEffect(() => {
     if (!selectedTankId || loading) return
@@ -336,7 +362,7 @@ export function DashboardView() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <select
                     value={selectedTankId}
-                    onChange={e => setSelectedTankId(e.target.value)}
+                    onChange={e => setPickedTankId(e.target.value)}
                     aria-label={t.reports.selectTank}
                     className="bg-muted border border-border rounded-lg px-2 py-1 text-foreground text-sm focus:outline-none focus:border-ocean-500 max-w-[180px] sm:max-w-none"
                   >

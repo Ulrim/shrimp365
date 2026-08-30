@@ -48,6 +48,10 @@ export interface Tank {
   stocking_date?: string | null
   harvest_date?: string | null
   tank_type?: "노지" | "실내" | "반실내"
+  /** 소속 농장의 유형. 수조 자신의 칸이 아니라 getAllTanks 의 farms 조인에서
+   *  파생한 값이다 — 그래서 선택 필드다(조인 없이 읽는 경로는 채우지 않는다).
+   *  화면이 "이 수조가 이 화면에 속하는가"를 판단하는 데만 쓴다. */
+  farm_type?: "shrimp" | "agriculture"
   /** 양액 레시피(농업 모드 베드 전용) — µS/cm 저장. null 이면 미설정. */
   target_ec?: number | null
   /** 허용 오차(±µS/cm). 사업 목표 ±0.1 dS/m = 100 µS/cm. */

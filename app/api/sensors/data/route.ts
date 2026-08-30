@@ -194,9 +194,15 @@ export async function POST(req: NextRequest) {
   //    device_id 로 "어느 센서가 잰 값인지" 를 남긴다. 마이그레이션 전이라
   //    컬럼이 없으면 그 컬럼만 빼고 다시 저장한다(측정은 절대 멈추면 안 된다).
   // 마이그레이션이 아직 안 된 DB 를 만나도 측정이 멈춰서는 안 된다.
-  // 아직 없는 칸(device_id·conductivity)은 하나씩 빼고 다시 시도한다.
-  // 'column' 만 보고 판단하면 tank_id NOT NULL 등 엉뚱한 오류까지 삼키므로,
-  // 그 칸 이름을 콕 집은 경우 또는 미정의 컬럼 코드(42703/PGRST204)일 때만.
+  // 아직 없는 칸(device_id·conductivity·flow_rate·diff_pressure)은 하나씩 빼고
+  // 다시 시도한다.
+  //
+  // **에러가 이름을 콕 집은 칸만 뗀다.** 예전에는 미정의 컬럼 코드
+  // (42703/PGRST204)만 보이면 목록을 앞에서부터 훑어 아무 칸이나 뗐다. 그러면
+  // 없는 칸이 diff_pressure 하나여도 device_id·conductivity·flow_rate 가 먼저
+  // 걸려 멀쩡한 측정값 셋이 조용히 사라진다. 코드는 "칸이 없어서 난 오류인가"를
+  // 확인하는 데만 쓰고, 뗄 대상은 메시지가 지목한 이름으로 고른다.
+  // ('column' 문구만 보고 판단하면 tank_id NOT NULL 같은 엉뚱한 오류까지 삼킨다.)
   const OPTIONAL_COLS = ["device_id", "conductivity", "flow_rate", "diff_pressure"] as const
   let row: Record<string, unknown> = {
     tank_id: device.tank_id, ...values, recorded_at: recordedAt, device_id: device.id,
@@ -212,12 +218,15 @@ export async function POST(req: NextRequest) {
     if (!insertError) break
 
     const msg = insertError.message || ""
-    const undefinedCol = insertError.code === "42703" || insertError.code === "PGRST204"
-    const missing = OPTIONAL_COLS.find(col =>
-      col in row && (
-        (new RegExp(col, "i").test(msg) && /(column|schema cache|does not exist|not found)/i.test(msg)) ||
-        undefinedCol
-      ))
+    // 칸이 없어서 난 오류인가 — 코드 또는 문구로 확인한다.
+    const isMissingColumnError =
+      insertError.code === "42703" || insertError.code === "PGRST204" ||
+      /(column|schema cache|does not exist|not found)/i.test(msg)
+    // 메시지가 이름을 집은 칸만 후보다. 앞뒤가 단어 문자면 다른 칸 이름의
+    // 부분 문자열을 잘못 집을 수 있으므로 경계를 함께 본다.
+    const named = OPTIONAL_COLS.find(col =>
+      col in row && new RegExp(`(^|[^A-Za-z0-9_])${col}([^A-Za-z0-9_]|$)`, "i").test(msg))
+    const missing = isMissingColumnError ? named : undefined
     if (!missing || attempt >= OPTIONAL_COLS.length) break
 
     console.warn(`[sensors/data] ${missing} 칸 없음 — 빼고 저장(마이그레이션 필요)`)
@@ -259,6 +268,17 @@ export async function POST(req: NextRequest) {
       if ((farmRow as { farm_type?: string } | undefined)?.farm_type === "agriculture") {
         profile = "agriculture"
       }
+      // **레시피는 농업 농장에서만 적용한다.**
+      //
+      // target_ec/target_ph 는 tanks 에 남는 값이라 농장을 agriculture 로 썼다가
+      // shrimp 로 되돌리면 그대로 남는다(새우 농장 폼에는 레시피 칸이 없어 지울
+      // 방법도 없다). 그 상태로 레시피를 적용하면 새우 농가에서 두 가지가 한꺼번에
+      // 깨진다 — 염도 알림이 영구히 사라지고(아래 hasRecipe 분기), 양식지 pH
+      // 7.8~8.5 가 남은 목표 6.0±0.5 에 걸려 매 수신마다 danger 알림이 뜬다.
+      //
+      // 판정 축은 farms.farm_type 하나다(설계서 3-5). 새우 농장이면 새우 규칙만
+      // 쓴다 — 레시피 칸에 뭐가 남아 있든 상관없다.
+      if (profile !== "agriculture") recipe = null
     }
   } catch { /* 컬럼 없음 등 — 레시피 없이 기존 흐름 그대로 */ }
 

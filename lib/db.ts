@@ -1,6 +1,6 @@
 import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbSensorDevice, DbProductionCycle, DbGrowthSample, DbCycleCost, DbCycleHarvest, DbInventoryItem, DbInventoryTransaction } from "@/lib/supabase"
 import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction } from "@/types"
-import { checkThresholds, checkRecipe, hasRecipe, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
+import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
 import { PLAN_LIMITS, type Plan } from "@/lib/plans"
 import { isTestAccount } from "@/lib/mock-data"
 
@@ -20,9 +20,23 @@ function toFarm(f: DbFarm, tankCount = 0): Farm {
   }
 }
 
-function toTank(t: DbTank): Tank {
+/** 조인해 온 farms 행에서 농장 유형을 뽑는다.
+ *  Supabase 조인 결과는 카디널리티에 따라 객체 또는 배열로 온다.
+ *  마이그레이션 전 DB 에는 farm_type 칸이 없어 undefined 로 오므로 새우로 본다. */
+function joinedFarmType(row: { farms?: unknown }): "shrimp" | "agriculture" {
+  const joined = row.farms
+  const farm = Array.isArray(joined) ? joined[0] : joined
+  return (farm as { farm_type?: string } | undefined)?.farm_type === "agriculture"
+    ? "agriculture"
+    : "shrimp"
+}
+
+function toTank(t: DbTank, farmType?: "shrimp" | "agriculture"): Tank {
   return {
     ...t,
+    // 농장 유형은 조인해 온 경우에만 싣는다. 조인 없는 경로에서 "shrimp" 를
+    // 기본으로 채우면 "모르는 것"과 "새우인 것"이 구분되지 않는다.
+    ...(farmType ? { farm_type: farmType } : {}),
     stocking_date: t.stocking_date ?? null,
     harvest_date: t.harvest_date ?? null,
     tank_type: t.tank_type ?? "노지",
@@ -128,17 +142,24 @@ export async function getTanksByFarm(farmId: string): Promise<Tank[]> {
     .order("name", { ascending: true })
 
   if (error) throw error
-  return (data || []).map(toTank)
+  // 화살표로 감싼다 — `.map(toTank)` 는 두 번째 인자로 index 를 넘긴다.
+  return (data || []).map(t => toTank(t))
 }
 
 export async function getAllTanks(): Promise<Tank[]> {
+  // farms 조인은 원래 RLS 용이었다. 여기에 농장 유형을 함께 실어, 화면이
+  // "이 수조가 지금 이 화면(URL)에 속하는가"를 판단할 수 있게 한다.
+  //
+  // farm_type 을 이름으로 집지 않고 `*` 로 받는 이유: 마이그레이션 전 DB 에는
+  // 그 칸이 없어 이름을 집으면 쿼리 전체가 400 으로 죽는다. 그러면 기존 새우
+  // 계정의 수조 목록이 통째로 사라진다.
   const { data, error } = await supabase
     .from("tanks")
-    .select("*, farms!inner(user_id)")
+    .select("*, farms!inner(*)")
     .order("name", { ascending: true })
 
   if (error) throw error
-  return (data || []).map(toTank)
+  return (data || []).map(t => toTank(t, joinedFarmType(t)))
 }
 
 export async function createTank(values: {
@@ -309,6 +330,11 @@ export async function insertWaterQuality(
       if ((farmRow as { farm_type?: string } | undefined)?.farm_type === "agriculture") {
         profile = "agriculture"
       }
+      // 레시피는 농업 농장에서만 적용한다 — 센서 경로와 같은 규칙.
+      // 농장을 shrimp 로 되돌려도 tanks 의 target_ec/target_ph 는 남고, 새우
+      // 농장 폼에는 그 칸이 없어 지울 방법이 없다. 그 잔재를 적용하면 염도
+      // 알림이 영구히 사라지고 양식지 pH 가 매번 danger 로 뜬다.
+      if (profile !== "agriculture") recipe = null
     }
   } catch { /* 컬럼 없음 등 — 기본값(새우·레시피 없음)으로 진행 */ }
 
@@ -335,18 +361,74 @@ export async function insertWaterQuality(
     ...checkThresholds(globalValues, profile),
     ...checkRecipe({ conductivity: values.conductivity ?? undefined, ph: values.ph }, recipe),
   ]
+  // 같은 항목이 아직 열려 있으면 새 줄을 만들지 않고 그 줄을 갱신한다.
+  // 센서 경로(app/api/sensors/data/route.ts)와 **같은 규칙**이다.
+  //
+  // 이 경로에는 원래 중복 억제도 자동 해제도 없었다. 수동 입력은 하루 몇 번이라
+  // 밤새 480건 쌓이는 문제가 없었기 때문이다. 그런데 열린 알림 **개수**를 세는
+  // 화면이 생기면서(대시보드 "EC 이탈" 타일) 결과가 달라졌다 — 이탈한 값을
+  // 손으로 적을 때마다 개수가 1씩 오르고, 정상값을 적어도 내려가지 않는다.
+  // 센서가 없는 베드에서는 다음 수신이 닫아 주지도 않으니 영영 0 이 안 된다.
+  // 두 경로의 알림 규칙을 하나로 맞춘다.
   for (const alert of thresholdAlerts) {
     try {
-      await supabase.from("alerts").insert({
-        tank_id: tankId,
-        type: alert.type,
-        parameter: alert.parameter,
-        value: alert.value,
-        threshold: alert.threshold,
-        message: alert.message,
-        resolved: false,
-      })
+      const { data: open } = await supabase
+        .from("alerts")
+        .select("id")
+        .eq("tank_id", tankId)
+        .eq("parameter", alert.parameter)
+        .eq("resolved", false)
+        .limit(1)
+        .maybeSingle()
+
+      if (open) {
+        // 이미 알린 상태다. 최신 값과 심각도만 반영한다.
+        await supabase
+          .from("alerts")
+          .update({ type: alert.type, value: alert.value, message: alert.message })
+          .eq("id", open.id)
+      } else {
+        await supabase.from("alerts").insert({
+          tank_id: tankId,
+          type: alert.type,
+          parameter: alert.parameter,
+          value: alert.value,
+          threshold: alert.threshold,
+          message: alert.message,
+          resolved: false,
+        })
+      }
     } catch { /* alert insert failure is non-fatal */ }
+  }
+
+  // 범위 안으로 돌아온 항목은 알림을 닫는다. 안 닫으면 위 중복 억제 때문에
+  // 다음에 정말 문제가 생겨도 옛 알림만 갱신되고 새로 알리지 않는다.
+  //
+  // 판정한 항목만 닫는다 — resolvableParameters 가 값 키를 알림 키("수온")로
+  // 바꾸면서 "이번에 판정한 것만" 을 함께 거른다. 빈 칸으로 저장된 0 은
+  // 판정도 복귀도 아니다(그래서 안 적은 항목이 남의 알림을 닫지 않는다).
+  const stillBad = new Set(thresholdAlerts.map(a => a.parameter))
+  const recovered = resolvableParameters(globalValues, profile)
+    .filter(p => !stillBad.has(p))
+  // 레시피 알림은 parameter 가 값 키와 달라("EC"/"pH") 별도 매핑으로 잡는다.
+  // 0 은 판정에서 제외했으므로 복귀에서도 제외한다(비대칭이면 전극이 물 밖에
+  // 나온 순간 진짜 이탈 알림이 닫힌다).
+  const ec = values.conductivity
+  if (recipe?.target_ec != null && ec != null && ec !== 0 && !stillBad.has("EC")) {
+    recovered.push("EC")
+  }
+  if (recipe?.target_ph != null && values.ph !== 0 && !stillBad.has("pH")) {
+    recovered.push("pH")
+  }
+  if (recovered.length > 0) {
+    try {
+      await supabase
+        .from("alerts")
+        .update({ resolved: true })
+        .eq("tank_id", tankId)
+        .eq("resolved", false)
+        .in("parameter", recovered)
+    } catch { /* non-fatal */ }
   }
 
   // Sync tank status with the worst threshold level from this reading

@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine, ReferenceArea, Legend,
@@ -28,7 +29,7 @@ import { formatDateTime, computeCycleDay } from "@/lib/utils"
 import type { Tank, WaterQualityReading, Alert, SensorDevice } from "@/types"
 import type { Dict, Locale } from "@/lib/i18n"
 import { useT } from "@/lib/i18n-context"
-import { useAgriRoute } from "@/lib/agri-route"
+import { AGRI_PREFIX, belongsToAgriScreen, useAgriRoute } from "@/lib/agri-route"
 import { AGRI_QUALITY_STANDARDS, AGRI_STATUS_STYLES, agriIsMissing, agriStatusPulses, getAgriStatus, type AgriRecipe, type AgriStandard, type AgriStatusLevel } from "@/lib/agri-standards"
 import { alertDisplayLabel } from "@/lib/thresholds"
 import { useAutoRefresh, sinceLabel } from "@/lib/use-auto-refresh"
@@ -604,9 +605,37 @@ export function WaterQualityView() {
     [t],
   )
   const agriStatusText = useAgriStatusText()
-  const [tanks, setTanks] = useState<Tank[]>([])
-  const [selectedTankId, setSelectedTankId] = useState<string>("")
+  const router = useRouter()
+  // 계정의 전체 수조. 화면에 뿌리는 목록은 아래에서 이 화면 몫만 걸러 낸다.
+  const [allTanks, setAllTanks] = useState<Tank[]>([])
+  // 사용자가 고른 수조. 실제로 쓰는 값은 아래 selectedTankId 로, 목록에서
+  // 파생시킨다 — 화면(URL)이 바뀌면 목록이 바뀌므로 고른 값이 남의 축에
+  // 남아 있을 수 있다.
+  const [pickedTankId, setPickedTankId] = useState<string>("")
   const initialTankIdFromUrl = useRef<string | null>(null)
+
+  // 화면은 URL 이 정한다(설계서 3장). 그러니 고를 수 있는 대상도 이 화면에
+  // 속한 것뿐이어야 한다. 혼합 계정(양식장+수경재배)에서 목록을 안 거르면
+  // 새우 화면에서 수경재배 베드를 골라 새우 기준으로 판정하게 되고, 카드가
+  // 통째로 빨개진다(염도 0·알칼리도 0·22℃). 반대 방향도 같다 — 농업 화면에서
+  // 새우 수조를 고르면 pH 8.0 이 농업 기준(5.5~6.5)에 걸려 위험이 된다.
+  //
+  // 판정 축을 수조별 farm_type 으로 바꾸지 않는 이유: 이 페이지의 카드·탭·
+  // CSV·그래프가 전부 isAgri 하나로 갈린다. 판정만 수조를 따라가면 "새우 카드
+  // 격자에 농업 기준" 같은 반쪽 화면이 된다. 화면과 데이터를 함께 맞춘다.
+  const tanks = useMemo(
+    () => allTanks.filter(tk => belongsToAgriScreen(tk.farm_type, isAgri)),
+    [allTanks, isAgri],
+  )
+
+  // 고른 수조가 이 화면 목록에 없으면 ?tank= → 첫 수조 순으로 떨어진다.
+  // 상태를 효과로 고쳐 쓰지 않고 파생시킨다(렌더가 한 번 더 돌지 않는다).
+  const selectedTankId = useMemo(() => {
+    if (!tanks.length) return ""
+    if (pickedTankId && tanks.some(tk => tk.id === pickedTankId)) return pickedTankId
+    const paramId = initialTankIdFromUrl.current
+    return (paramId && tanks.find(tk => tk.id === paramId)?.id) || tanks[0].id
+  }, [tanks, pickedTankId])
 
   useEffect(() => {
     initialTankIdFromUrl.current = new URLSearchParams(window.location.search).get("tank")
@@ -616,6 +645,9 @@ export function WaterQualityView() {
   const [compareParam, setCompareParam] = useState<keyof WaterQualityReading>("temperature")
   const [tankAlerts, setTankAlerts] = useState<Alert[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  // 수조 목록을 한 번이라도 받아 왔는가. 필터 결과가 비었을 때 "아직 로딩 중"
+  // 과 "이 화면에 속한 수조가 없다"를 구분하는 데 쓴다.
+  const [tanksLoaded, setTanksLoaded] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [hours, setHours] = useState<24 | 72 | 168>(168)
 
@@ -667,13 +699,18 @@ export function WaterQualityView() {
     const MAIN_ORDER = isAgri
       ? ["conductivity", "ph", "temperature", "do_level", "flow_rate", "diff_pressure"]
       : ["overview", "nitrogen", "temperature", "ph", "do_level", "salinity", "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity"]
-    const COMPARE_ORDER = ["temperature", "ph", "do_level", "salinity"] as const
+    // 비교 순환도 같은 이유로 농업 순서를 따로 둔다 — 새우 순서를 그대로 쓰면
+    // EC 가 indexOf === -1 로 빠지고, 베드에서 늘 0 인 염도를 돌린다.
+    // **아래 비교 버튼 목록과 같은 항목·같은 순서여야 한다.**
+    const COMPARE_ORDER: readonly (keyof WaterQualityReading)[] = isAgri
+      ? ["conductivity", "ph", "temperature", "do_level"]
+      : ["temperature", "ph", "do_level", "salinity"]
     const id = setInterval(() => {
       if (fullChart === "main") {
         setChartTab(cur => MAIN_ORDER[(MAIN_ORDER.indexOf(cur) + 1) % MAIN_ORDER.length])
       } else {
         setCompareParam(cur => {
-          const i = COMPARE_ORDER.indexOf(cur as typeof COMPARE_ORDER[number])
+          const i = COMPARE_ORDER.indexOf(cur)
           return COMPARE_ORDER[(i + 1) % COMPARE_ORDER.length]
         })
       }
@@ -686,28 +723,36 @@ export function WaterQualityView() {
     async function loadTanks() {
       const mock = isTestAccount(user?.email)
       if (mock) {
-        setTanks(MOCK_TANKS)
-        const paramId = initialTankIdFromUrl.current
-        const target = paramId ? (MOCK_TANKS.find(t => t.id === paramId) ?? MOCK_TANKS[0]) : MOCK_TANKS[0]
-        setSelectedTankId(target.id)
+        setAllTanks(MOCK_TANKS)
+        setTanksLoaded(true)
         return
       }
       try {
         const dbTanks = await getAllTanks()
         if (dbTanks.length > 0) {
-          setTanks(dbTanks)
+          // 알림 패널 등이 넘겨준 ?tank= 가 다른 축의 수조를 가리키면, 그
+          // 수조가 사는 화면으로 한 번 넘긴다. 안 그러면 목록 필터에 걸려
+          // 엉뚱한 수조가 조용히 대신 뜬다.
           const paramId = initialTankIdFromUrl.current
-          const target = paramId ? (dbTanks.find(t => t.id === paramId) ?? dbTanks[0]) : dbTanks[0]
-          setSelectedTankId(target.id)
+          const wanted = paramId ? dbTanks.find(t => t.id === paramId) : undefined
+          if (wanted && !belongsToAgriScreen(wanted.farm_type, isAgri)) {
+            const prefix = (wanted.farm_type ?? "shrimp") === "agriculture" ? AGRI_PREFIX : ""
+            router.replace(`${prefix}/water-quality?tank=${wanted.id}`)
+            return
+          }
+          setAllTanks(dbTanks)
+          setTanksLoaded(true)
         } else {
+          setTanksLoaded(true)
           setIsLoading(false)
         }
       } catch {
+        setTanksLoaded(true)
         setIsLoading(false)
       }
     }
     loadTanks()
-  }, [user])
+  }, [user, isAgri, router])
 
   // Load water quality when selected tank changes
   const loadTankData = useCallback(async (tankId: string) => {
@@ -757,7 +802,21 @@ export function WaterQualityView() {
   const { lastRefreshed } = useAutoRefresh(refreshTank, refreshSec, !!selectedTankId)
 
   // Derive a single tank's status from a water quality reading
-  function deriveStatus(reading: WaterQualityReading): StatusLevel {
+  //
+  // 상단 요약 배지(정상/주의/위험 개수)의 판정도 화면 축을 따른다. 새우 기준을
+  // 그대로 쓰면 농업 화면에서 정상 운전(22.9 ℃ · pH 6.0)이 전부 "위험"으로
+  // 세어진다 — 항목별 배지·카드에서 없앤 것과 같은 오탐이 개수에만 남아 있었다.
+  // 농업 판정은 항목별 0 의 뜻과 베드 레시피를 함께 보는 getAgriStatus 한 곳에
+  // 맡긴다(카드·배지와 같은 함수). 기준 없음·미측정은 세지 않는다.
+  function deriveStatus(reading: WaterQualityReading, tank?: Tank | null): StatusLevel {
+    if (isAgri) {
+      return AGRI_PARAM_DEFS.reduce<StatusLevel>((acc, m) => {
+        const s = getAgriStatus(m.key as string, reading[m.key] as number | null | undefined, tank ?? null)
+        if (s === "위험") return "위험"
+        if (s === "주의" && acc !== "위험") return "주의"
+        return acc
+      }, "정상")
+    }
     return STD_KEYS.reduce<StatusLevel>((acc, k) => {
       const val = reading[k] as number
       if (!val || val === 0) return acc          // skip DB-default zeros
@@ -780,7 +839,7 @@ export function WaterQualityView() {
         const mockReadings = MOCK_WATER_QUALITY[tank.id] ?? []
         const latestReading = mockReadings.length > 0 ? mockReadings[mockReadings.length - 1] : null
         if (!latestReading) { if (tank.status !== "inactive") counts.정상++; return }
-        counts[deriveStatus(latestReading)]++
+        counts[deriveStatus(latestReading, tank)]++
       })
       setSummaryStatusCounts(counts)
       return
@@ -790,7 +849,7 @@ export function WaterQualityView() {
       try {
         const latestReading = await getLatestWaterQuality(tank.id)
         if (!latestReading) { if (tank.status !== "inactive") counts.정상++; return }
-        counts[deriveStatus(latestReading)]++
+        counts[deriveStatus(latestReading, tank)]++
       } catch {
         if (tank.status === "active")  counts.정상++
         else if (tank.status === "warning") counts.주의++
@@ -799,7 +858,9 @@ export function WaterQualityView() {
     }))
 
     setSummaryStatusCounts(counts)
-  }, [user?.email]) // eslint-disable-line react-hooks/exhaustive-deps
+    // isAgri 를 반드시 딸려 보낸다 — deriveStatus 가 화면 축으로 갈리므로,
+    // 이 콜백이 옛 isAgri 를 물고 있으면 요약 개수만 이전 화면 기준으로 남는다.
+  }, [user?.email, isAgri]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     computeSummary(tanks)
@@ -896,7 +957,9 @@ export function WaterQualityView() {
     return t.waterQuality.period7d
   }
 
-  if (!isLoading && tanks.length === 0) {
+  // 목록을 한 번이라도 받아 왔는데 이 화면 몫이 하나도 없으면 안내를 띄운다.
+  // (isLoading 은 수조를 고른 뒤의 측정값 로딩을 가리키므로 여기서 못 쓴다.)
+  if (tanksLoaded && tanks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-96 space-y-4 animate-fade-in">
         <div className="w-16 h-16 rounded-2xl bg-ocean-500/20 flex items-center justify-center">
@@ -1006,7 +1069,7 @@ export function WaterQualityView() {
             <div className="flex items-center gap-3 flex-1">
               <div>
                 <p className="text-xs text-muted-foreground mb-1.5">{t.waterQuality.tank}</p>
-                <Select value={selectedTankId} onValueChange={setSelectedTankId}>
+                <Select value={selectedTankId} onValueChange={setPickedTankId}>
                   <SelectTrigger
                     className="w-full sm:w-48 min-h-[44px] bg-muted border-border text-foreground focus:ring-ocean-500/30"
                     aria-label={t.waterQualityX.tankSelectAria}

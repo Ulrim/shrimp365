@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { MOCK_JOURNALS, MOCK_DIAGNOSES, MOCK_TANKS, MOCK_INVENTORY_ITEMS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
 import {
@@ -32,7 +32,7 @@ import {
 import { formatDate, formatDateTime } from "@/lib/utils"
 import { exportToCsv } from "@/lib/export"
 import { useT } from "@/lib/i18n-context"
-import { useAgriRoute } from "@/lib/agri-route"
+import { belongsToAgriScreen, useAgriRoute } from "@/lib/agri-route"
 import { AGRI_NUTRIENT_TYPES, AGRI_INPUT_TYPES } from "@/lib/record-actions"
 import { agriNumOrNull, agriEcToMicroSiemens } from "@/lib/agri-standards"
 
@@ -321,9 +321,20 @@ export function JournalView() {
   const mock = isTestAccount(user?.email)
 
   const [pageTab, setPageTab] = useState<"journal" | "diagnosis">("journal")
+  // 비브리오 진단은 **새우 전용 화면**이다. AHPND·EHP·WSSV 는 수경재배에 뜻이
+  // 없고(그래서 agri-ko 가 일부러 번역하지 않았다), 진단 기록은 베드에 대해
+  // 쓸 수 있어서도 안 된다. 상태를 지우지 않고 화면 축으로 덮는다 — 새우
+  // 사용자의 탭 전환 동작은 한 글자도 바뀌지 않는다.
+  const tab: "journal" | "diagnosis" = isAgri ? "journal" : pageTab
 
   // Shared
-  const [tanks, setTanks] = useState<Tank[]>([])
+  const [allTanks, setAllTanks] = useState<Tank[]>([])
+  // 기록 대상도 이 화면 몫만 고를 수 있어야 한다(설계서 3장). 혼합 계정에서
+  // 안 거르면 농업 일지 폼으로 새우 수조에 양액 EC 를 적을 수 있다(그 반대도).
+  const tanks = useMemo(
+    () => allTanks.filter(tk => belongsToAgriScreen(tk.farm_type, isAgri)),
+    [allTanks, isAgri],
+  )
 
   // ── Journal state ──
   const [journals, setJournals] = useState<JournalEntry[]>([])
@@ -413,7 +424,7 @@ export function JournalView() {
     if (mock) {
       setJournals(MOCK_JOURNALS)
       setDiagnoses(MOCK_DIAGNOSES)
-      setTanks(MOCK_TANKS)
+      setAllTanks(MOCK_TANKS)
       setInventoryItems(MOCK_INVENTORY_ITEMS)
       setJLoading(false)
       setDLoading(false)
@@ -421,7 +432,7 @@ export function JournalView() {
     }
     try {
       const [, tanksData, invData] = await Promise.all([loadJournals("", "", 0, true), getAllTanks(), getInventoryItems()])
-      setTanks(tanksData)
+      setAllTanks(tanksData)
       setInventoryItems(invData)
       await loadDiagnoses("", "", 0, true)
     } catch { } finally {
@@ -767,15 +778,17 @@ export function JournalView() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-xl font-bold text-foreground">
-            {pageTab === "journal" ? t.journal.title : t.diagnosis.title}
+            {tab === "journal" ? t.journal.title : t.diagnosis.title}
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {pageTab === "journal" ? t.journal.subtitle : t.diagnosis.subtitle}
+            {tab === "journal" ? t.journal.subtitle : t.diagnosis.subtitle}
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Tab switcher */}
+          {/* Tab switcher — 농업 화면에는 갈 곳이 하나뿐이라 아예 안 그린다.
+              (진단 탭은 새우 전용이다. 위 `tab` 도 같은 판단을 한다.) */}
+          {!isAgri && (
           <div className="flex bg-muted border border-border rounded-xl p-1">
             <button
               onClick={() => setPageTab("journal")}
@@ -798,9 +811,10 @@ export function JournalView() {
               <FlaskConical className="w-3.5 h-3.5" />{t.diagnosis.title}
             </button>
           </div>
+          )}
 
           {/* Journal actions */}
-          {pageTab === "journal" && (
+          {tab === "journal" && (
             <>
               {journals.length > 0 && (
                 <Button
@@ -821,7 +835,7 @@ export function JournalView() {
           )}
 
           {/* Diagnosis actions */}
-          {pageTab === "diagnosis" && (
+          {tab === "diagnosis" && (
             <>
               {diagnoses.length > 0 && (
                 <Button
@@ -927,7 +941,7 @@ export function JournalView() {
       </div>
 
       {/* ── Journal Tab ── */}
-      {pageTab === "journal" && (
+      {tab === "journal" && (
         <>
           <div className="flex flex-wrap items-center gap-3 bg-muted border border-border rounded-xl px-4 py-3">
             <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -981,7 +995,7 @@ export function JournalView() {
       )}
 
       {/* ── Diagnosis Tab ── */}
-      {pageTab === "diagnosis" && (
+      {tab === "diagnosis" && (
         <>
           <div className="flex flex-wrap items-center gap-3 bg-muted border border-border rounded-xl px-4 py-3">
             <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
