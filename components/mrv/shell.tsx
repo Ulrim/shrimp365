@@ -88,37 +88,54 @@ function NavBar() {
     ...(isEnterprise ? ENTERPRISE_NAV_ITEMS : []),
   ]
 
+  // print:hidden — MRV 리포트는 심사용 증빙으로 인쇄되는 문서라 내비게이션이 함께 찍히면
+  // 안 된다(앱의 다른 구역이 쓰는 규약과 같다).
   return (
     <nav
       aria-label="주요 메뉴"
-      className="sticky top-0 z-40 flex flex-wrap items-center gap-1 border-b border-mrv-border bg-mrv-surface px-6 py-3"
+      className="sticky top-0 z-40 flex items-center gap-1 border-b border-mrv-border bg-mrv-surface px-4 py-3 sm:px-6 print:hidden"
     >
-      <Link href="/mrv/overview" className="mr-4 text-sm font-bold text-mrv-fg">
-        컬리버 MRV
-      </Link>
-      {items.map((item) => {
-        const isActive = pathname === item.to || pathname.startsWith(item.to + "/")
-        return (
-          <Link
-            key={item.to}
-            href={item.to}
-            aria-current={isActive ? "page" : undefined}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${
-              isActive
-                ? "bg-mrv-bg text-mrv-primary"
-                : "text-mrv-muted hover:bg-mrv-bg hover:text-mrv-fg"
-            }`}
-          >
-            {item.label}
-            {ENTERPRISE_PATHS.has(item.to) && (
-              <span className="rounded-full bg-mrv-na-bg px-1.5 py-0.5 text-[10px] font-semibold text-mrv-muted">
-                ENTERPRISE
-              </span>
-            )}
-          </Link>
-        )
-      })}
-      <div className="ml-auto pl-3">
+      <div className="flex shrink-0 items-center gap-2 pr-3">
+        {/* shrimp365 로 돌아가는 길. MRV 는 이제 별도 앱이 아니라 이 앱의 한 구역이므로,
+            들어온 사람이 되돌아갈 문이 없으면 브라우저 뒤로가기 말고는 나갈 수가 없다. */}
+        <Link
+          href="/home"
+          className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-mrv-muted hover:bg-mrv-bg hover:text-mrv-fg"
+        >
+          <span aria-hidden="true">←</span>
+          <span className="hidden sm:inline">shrimp365</span>
+        </Link>
+        <Link href="/mrv/overview" className="text-sm font-bold text-mrv-fg">
+          컬리버 MRV
+        </Link>
+      </div>
+      {/* 메뉴가 최대 12개다. 좁은 화면에서 줄바꿈하면 내비가 화면 절반을 먹으므로
+          가로 스크롤로 흘린다(항목은 전부 닿을 수 있고 본문 자리는 그대로다). */}
+      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+        {items.map((item) => {
+          const isActive = pathname === item.to || pathname.startsWith(item.to + "/")
+          return (
+            <Link
+              key={item.to}
+              href={item.to}
+              aria-current={isActive ? "page" : undefined}
+              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${
+                isActive
+                  ? "bg-mrv-primary/10 text-mrv-primary"
+                  : "text-mrv-muted hover:bg-mrv-bg hover:text-mrv-fg"
+              }`}
+            >
+              {item.label}
+              {ENTERPRISE_PATHS.has(item.to) && (
+                <span className="rounded-full bg-mrv-na-bg px-1.5 py-0.5 text-[10px] font-semibold text-mrv-muted">
+                  ENTERPRISE
+                </span>
+              )}
+            </Link>
+          )
+        })}
+      </div>
+      <div className="shrink-0 pl-3">
         <SitePicker />
       </div>
     </nav>
