@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server"
-import { NOT_FOUND, UNAUTHORIZED, ownsCamera, requireSession, visionFetch } from "@/lib/vision-server"
+import { NOT_FOUND, UNAUTHORIZED, cameraHost, requireSession, visionFetch } from "@/lib/vision-server"
 
 // MJPEG 영상 중계 — <img src="/api/vision/stream/{id}"> 가 물고 있는 주소.
 //
@@ -21,9 +21,11 @@ export async function GET(req: NextRequest, { params }: Params) {
   const { id } = await params
   const session = await requireSession(req)
   if (!session) return UNAUTHORIZED()
-  if (!(await ownsCamera(session.supabase, id))) return NOT_FOUND()
+  const baseUrl = await cameraHost(session.supabase, id)
+  if (!baseUrl) return NOT_FOUND()
 
   const res = await visionFetch(`/stream/${id}`, {
+    baseUrl,
     timeoutMs: 0,
     // 브라우저가 탭을 닫으면 이 신호가 비전 서비스까지 전달돼 프레임 생산이
     // 멈춘다. 없으면 아무도 안 보는 스트림이 계속 흐른다.

@@ -259,3 +259,23 @@ async def test_api_key_never_returned(client, auth_headers, tank):
         assert resp.status_code == 200
         assert "secret-key" not in resp.text
         assert "api_key" not in resp.text
+
+
+async def test_host_url_exposed(client, auth_headers, tank):
+    """카메라를 맡은 장비 주소가 응답에 실려야 한다.
+
+    파이가 여러 대면 화면이 이 값으로 각 카메라의 영상·실시간 연결을 제
+    장비로 보낸다. 빠지면 전부 첫 번째 장비로 몰린다.
+    """
+    camera = await make_camera(client, auth_headers, tank, "호스트 주소 검사")
+    async with SessionLocal() as session:
+        await session.execute(
+            update(Camera)
+            .where(Camera.id == uuid.UUID(camera["id"]))
+            .values(host_url="https://vision-2.shrimp365.kr")
+        )
+        await session.commit()
+
+    resp = await client.get(f"/api/v1/cameras/{camera['id']}", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json()["host_url"] == "https://vision-2.shrimp365.kr"

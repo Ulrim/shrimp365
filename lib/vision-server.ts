@@ -14,7 +14,11 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 // 나오지 않는다(supabase/migrations/vision_monitoring.sql 의
 // vision_cameras_all_own). 조건을 손으로 적으면 언젠가 한 곳을 빠뜨린다.
 
-/** 컨테이너 내부 주소. docker-compose 의 서비스 이름이 기본값이다. */
+/** 카메라에 host_url 이 없을 때 쓰는 기본 주소.
+ *
+ *  장비가 한 대뿐인 배포(같은 호스트에 웹과 비전을 함께 띄운 경우)에서는
+ *  이 값이 곧 그 장비다. 파이가 여러 대면 카메라마다 host_url 이 채워지므로
+ *  이 값은 쓰이지 않는다. */
 export const VISION_SERVICE_URL =
   process.env.VISION_SERVICE_URL || "http://vision:8000"
 
@@ -62,6 +66,27 @@ export async function ownsCamera(supabase: SupabaseClient, cameraId: string): Pr
   return !!data
 }
 
+/**
+ * 이 카메라를 맡은 장비의 주소를 찾는다. 소유 확인을 겸한다.
+ *
+ * 파이가 여러 대면 카메라마다 붙는 곳이 다르다. 전역 주소 하나로 보내면
+ * 시작·정지·영상이 전부 첫 번째 장비로만 가고, 나머지 장비의 카메라는
+ * "다른 장비에 물려 있습니다"만 돌려받는다.
+ *
+ * @returns 내 카메라가 아니면 null. 맞으면 그 장비의 주소(없으면 기본 주소).
+ */
+export async function cameraHost(
+  supabase: SupabaseClient, cameraId: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("vision_cameras")
+    .select("id, host_url")
+    .eq("id", cameraId)
+    .maybeSingle()
+  if (!data) return null   // RLS 가 남의 카메라를 걸러 낸다
+  return (data.host_url as string | null)?.replace(/\/+$/, "") || VISION_SERVICE_URL
+}
+
 /** 이 수조가 내 것인가. 카메라를 새로 달 때 확인한다. */
 export async function ownsTank(supabase: SupabaseClient, tankId: string): Promise<boolean> {
   const { data } = await supabase
@@ -82,9 +107,9 @@ export async function ownsTank(supabase: SupabaseClient, tankId: string): Promis
  */
 export async function visionFetch(
   path: string,
-  init: RequestInit & { timeoutMs?: number } = {}
+  init: RequestInit & { timeoutMs?: number; baseUrl?: string } = {}
 ): Promise<Response> {
-  const { timeoutMs = 10_000, ...rest } = init
+  const { timeoutMs = 10_000, baseUrl, ...rest } = init
   const key = process.env.VISION_SERVICE_KEY
   if (!key) {
     return Response.json(
@@ -99,7 +124,7 @@ export async function visionFetch(
   const controller = timeoutMs > 0 ? new AbortController() : null
   const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null
   try {
-    return await fetch(`${VISION_SERVICE_URL}${path}`, {
+    return await fetch(`${baseUrl || VISION_SERVICE_URL}${path}`, {
       ...rest,
       headers,
       signal: controller?.signal,

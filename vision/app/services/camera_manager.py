@@ -158,7 +158,15 @@ class CameraManager:
                     await session.execute(
                         update(Camera)
                         .where(Camera.id.in_(running))
-                        .values(last_seen_at=utcnow(), agent_version=AGENT_VERSION)
+                        .values(
+                            last_seen_at=utcnow(),
+                            agent_version=AGENT_VERSION,
+                            **(
+                                {"host_url": settings.vision_public_url}
+                                if settings.vision_public_url
+                                else {}
+                            ),
+                        )
                     )
                     await session.commit()
             except Exception as exc:  # noqa: BLE001 - 보고 실패가 추론을 멈추면 안 된다

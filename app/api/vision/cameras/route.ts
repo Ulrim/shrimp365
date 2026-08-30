@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     .select(
       "id, tank_id, name, camera_type, stream_url, resolution_w, resolution_h," +
       " fps_target, is_active, install_height, tank_area_m2, serial, firmware," +
-      " agent_version, last_seen_at, created_at," +
+      " agent_version, last_seen_at, host_url, created_at," +
       " tanks(name, farm_id, farms(name))"
     )
     .order("created_at", { ascending: true })

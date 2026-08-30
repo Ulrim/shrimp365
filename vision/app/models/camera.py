@@ -41,6 +41,8 @@ class Camera(Base):
     firmware: Mapped[str | None] = mapped_column(String)
     agent_version: Mapped[str | None] = mapped_column(String)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # 이 카메라를 서비스하는 장비의 공개 주소. 살아 있음 보고 때 갱신된다.
+    host_url: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utcnow
     )

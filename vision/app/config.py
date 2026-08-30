@@ -61,6 +61,11 @@ class Settings(BaseSettings):
         default="", validation_alias=AliasChoices("VISION_DEVICE_KEY", "DEVICE_KEY")
     )
 
+    # 이 장비의 공개 주소. 브라우저가 영상과 실시간 연결을 여기로 직접 붙는다.
+    # 파이가 여러 대면 각자 다른 주소를 갖는다(vision-1/vision-2…).
+    # 페어링과 살아 있음 보고 때 shrimp365 에 알려 카메라 행에 적힌다.
+    vision_public_url: str = Field(default="")
+
     # 페어링으로 받은 기기 키를 보관하는 곳. systemd 의 StateDirectory 가
     # 만들어 주는 자리다. 환경변수를 다시 쓰지 않는 이유는 서비스가 자기
     # 설정 파일을 고치면 배포 도구와 어긋나기 때문이다.

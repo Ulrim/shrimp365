@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
   // 3. 아직 승인되지 않은 코드를 찾는다.
   const { data: pairing } = await admin
     .from("vision_pairings")
-    .select("id, serial, firmware, expires_at, claimed_at")
+    .select("id, serial, firmware, public_url, expires_at, claimed_at")
     .eq("code", code)
     .is("claimed_at", null)
     .maybeSingle()
@@ -133,6 +133,8 @@ export async function POST(req: NextRequest) {
           tank_id: tankId,
           name: name || existing.name,      // 새 이름이 없으면 기존 이름 유지
           firmware: pairing.firmware,
+          // 장비를 옮기거나 터널 주소를 바꾼 뒤 재연결하는 경우가 있다.
+          host_url: pairing.public_url,
           api_key: randomBytes(24).toString("hex"),
           is_active: true,
         })
@@ -156,6 +158,9 @@ export async function POST(req: NextRequest) {
         camera_type: "picamera",
         serial: pairing.serial,
         firmware: pairing.firmware,
+        // 브라우저가 이 카메라의 영상에 붙을 주소. 파이가 여러 대여도
+        // 각 카메라가 제 장비로 연결되게 하는 값이다.
+        host_url: pairing.public_url,
       })
       .select("id, name")
       .single()

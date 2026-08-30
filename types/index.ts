@@ -298,6 +298,8 @@ export interface VisionCamera {
   agent_version: string | null
   /** 장비가 마지막으로 살아 있음을 알린 시각. 연결 여부 판단에 쓴다. */
   last_seen_at: string | null
+  /** 이 카메라를 서비스하는 장비의 공개 주소. 파이가 여러 대면 카메라마다 다르다. */
+  host_url: string | null
   created_at: string
   /** 목록 조회에서 조인해 오는 표시용 값. 단건 조회에는 없다. */
   tank_name?: string

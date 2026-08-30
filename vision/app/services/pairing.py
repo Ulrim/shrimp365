@@ -126,7 +126,15 @@ async def run_pairing(version: str = "1.0.0") -> str | None:
 
     async with httpx.AsyncClient(timeout=10) as client:
         status, data = await _post_json(
-            client, pair_url, {"serial": serial, "firmware": f"vision-{version}"}
+            client,
+            pair_url,
+            {
+                "serial": serial,
+                "firmware": f"vision-{version}",
+                # 브라우저가 이 장비의 영상에 붙을 주소. 승인 때 카메라 행에
+                # 적혀, 파이가 여러 대여도 각 카메라가 제 장비로 연결된다.
+                "public_url": settings.vision_public_url or None,
+            },
         )
         if status != 200 or "code" not in data:
             reason = data.get("error") or (

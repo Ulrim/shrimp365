@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server"
-import { NOT_FOUND, UNAUTHORIZED, ownsCamera, passThrough, requireSession, visionFetch } from "@/lib/vision-server"
+import { NOT_FOUND, UNAUTHORIZED, cameraHost, passThrough, requireSession, visionFetch } from "@/lib/vision-server"
 
 // 카메라 동작: start / stop (POST), status / snapshot (GET).
 //
@@ -13,30 +13,34 @@ type Params = { params: Promise<{ id: string; action: string }> }
 const POST_ACTIONS = new Set(["start", "stop"])
 const GET_ACTIONS = new Set(["status", "snapshot"])
 
+/** 로그인·소유 확인을 하고, 이 카메라를 맡은 장비의 주소를 돌려준다. */
 async function authorize(req: NextRequest, id: string) {
   const session = await requireSession(req)
-  if (!session) return { error: UNAUTHORIZED() }
-  if (!(await ownsCamera(session.supabase, id))) return { error: NOT_FOUND() }
-  return { error: null }
+  if (!session) return { error: UNAUTHORIZED(), baseUrl: null }
+  const baseUrl = await cameraHost(session.supabase, id)
+  if (!baseUrl) return { error: NOT_FOUND(), baseUrl: null }
+  return { error: null, baseUrl }
 }
 
 export async function POST(req: NextRequest, { params }: Params) {
   const { id, action } = await params
   if (!POST_ACTIONS.has(action)) return NOT_FOUND()
-  const { error } = await authorize(req, id)
+  const { error, baseUrl } = await authorize(req, id)
   if (error) return error
 
-  const res = await visionFetch(`/api/v1/cameras/${id}/${action}`, { method: "POST" })
+  const res = await visionFetch(`/api/v1/cameras/${id}/${action}`, {
+    method: "POST", baseUrl: baseUrl!,
+  })
   return passThrough(res)
 }
 
 export async function GET(req: NextRequest, { params }: Params) {
   const { id, action } = await params
   if (!GET_ACTIONS.has(action)) return NOT_FOUND()
-  const { error } = await authorize(req, id)
+  const { error, baseUrl } = await authorize(req, id)
   if (error) return error
 
-  const res = await visionFetch(`/api/v1/cameras/${id}/${action}`)
+  const res = await visionFetch(`/api/v1/cameras/${id}/${action}`, { baseUrl: baseUrl! })
   if (action !== "snapshot") return passThrough(res)
 
   // 스냅샷은 JPEG 이다. 실패했을 때만 JSON 이 온다.

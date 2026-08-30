@@ -67,6 +67,7 @@ class CameraSchema(BaseModel):
     firmware: str | None = None
     agent_version: str | None = None
     last_seen_at: datetime | None = None
+    host_url: str | None = None
     created_at: datetime
 
 

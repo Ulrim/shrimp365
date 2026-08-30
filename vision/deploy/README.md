@@ -52,6 +52,9 @@ DATABASE_URL=postgresql+asyncpg://postgres.xxxx:비밀번호@aws-0-....pooler.su
 SHRIMP365_URL=https://www.shrimp365.kr
 CORS_ORIGINS=https://www.shrimp365.kr
 
+# 이 파이의 공개 주소. 파이가 여러 대면 각자 다르게(vision-1 / vision-2 …).
+VISION_PUBLIC_URL=https://vision-1.shrimp365.kr
+
 # 파이 4 는 추론이 무겁습니다. 초당 한 번이면 개체수 세기에 충분합니다.
 MAX_CAMERAS=1
 AUTO_START_STREAMS=true
@@ -111,12 +114,25 @@ sudo systemctl restart shrimp365-vision
 CSI 카메라는 리본으로 보드에 직접 붙어 있어, **그 보드에서 도는 서비스만** 열 수
 있습니다. 그래서 수조마다 파이를 두면 각 파이가 자기 카메라만 맡아야 합니다.
 
-**따로 할 일이 없습니다.** 파이마다 페어링을 한 번씩 하면, 각 파이가 자기 기기
-키로 자기 카메라만 알아봅니다. 뜰 때 자기 카메라만 골라 시작하고, 남의 카메라를
-시작하라는 요청이 오면 거절합니다.
+파이마다 두 가지만 다르게 하면 됩니다.
+
+1. **`VISION_PUBLIC_URL`** — 파이마다 자기 주소(`vision-1`, `vision-2` …)
+2. **페어링** — 파이마다 한 번씩
+
+나머지(`VISION_SERVICE_KEY`·`VISION_STREAM_SECRET`·`DATABASE_URL`)는 모든 파이가
+같은 값을 씁니다.
+
+이렇게 해 두면 각 파이가 자기 기기 키로 자기 카메라만 알아보고, 그 주소가
+카메라 행에 적혀 화면이 영상·실시간·시작/정지를 **카메라마다 제 파이로** 보냅니다.
+파이가 세 대면 브라우저가 실시간 연결도 세 개를 엽니다 — 한 대가 죽어도 나머지는
+그대로 보입니다.
 
 이름을 손으로 정해 양쪽에 적는 방식이 아닌 이유가 여기 있습니다 — 오타 하나로
 파이가 남의 카메라를 열려 들고, 그때는 원인이 로그에 보이지 않습니다.
+
+> 파이마다 터널(또는 인증서)이 하나씩 필요합니다. Cloudflare Tunnel 이면
+> 파이에서 `cloudflared tunnel create shrimp365-vision-2` 처럼 이름만 바꿔
+> 만들고 `vision-2.shrimp365.kr` 로 라우팅하면 됩니다.
 
 > 파이마다 https 주소가 따로 필요합니다(`vision-1.shrimp365.kr` …). 대수가 늘면
 > 파이에서 추론하지 말고 RTSP 로 영상만 보내 한 서버에서 모아 추론하는 구성이

@@ -57,6 +57,12 @@ create table if not exists public.vision_cameras (
   agent_version text,
   last_seen_at  timestamptz,
 
+  -- 이 카메라를 서비스하는 장비의 공개 주소(https://vision-1.shrimp365.kr).
+  -- 파이가 여러 대면 카메라마다 붙는 곳이 다르다 — 영상도, 실시간 연결도,
+  -- 시작·정지 명령도 그 장비로 가야 한다. 전역 주소 하나로는 첫 번째 장비의
+  -- 카메라만 동작한다. 장비가 페어링과 살아 있음 보고 때 스스로 알려 준다.
+  host_url      text,
+
   created_at    timestamptz not null default now()
 );
 
@@ -78,7 +84,8 @@ alter table public.vision_cameras
   add column if not exists serial text,
   add column if not exists firmware text,
   add column if not exists agent_version text,
-  add column if not exists last_seen_at timestamptz;
+  add column if not exists last_seen_at timestamptz,
+  add column if not exists host_url text;
 
 -- 손으로 적던 장비 이름은 기기 키로 대체됐다. 남아 있으면 지운다.
 alter table public.vision_cameras drop column if exists host_id;
@@ -221,6 +228,8 @@ create table if not exists public.vision_pairings (
   -- 장비가 자기소개로 보낸 값. 승인 화면에서 어느 기기인지 보여 준다.
   serial         text,
   firmware       text,
+  -- 브라우저가 이 장비의 영상에 붙을 주소. 승인 때 카메라 행으로 옮긴다.
+  public_url     text,
 
   -- 승인되면 채워진다.
   camera_id      uuid references public.vision_cameras(id) on delete cascade,
@@ -234,6 +243,10 @@ create table if not exists public.vision_pairings (
 
 -- 아직 승인되지 않은 코드는 서로 겹치면 안 된다.
 -- 승인이 끝난 코드는 나중에 재사용해도 무방하다.
+-- 이 파일을 이미 실행한 뒤 추가된 열.
+alter table public.vision_pairings
+  add column if not exists public_url text;
+
 create unique index if not exists vision_pairings_active_code
   on public.vision_pairings (code)
   where claimed_at is null;

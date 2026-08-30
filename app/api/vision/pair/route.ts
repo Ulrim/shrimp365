@@ -43,6 +43,18 @@ function shortString(v: unknown, max = 64): string | null {
   return t || null
 }
 
+/** 장비가 알려 온 공개 주소. https 가 아니면 버린다. */
+function httpsUrl(v: unknown, max = 200): string | null {
+  if (typeof v !== "string") return null
+  const trimmed = v.trim().slice(0, max).replace(/\/+$/, "")
+  if (!trimmed) return null
+  try {
+    return new URL(trimmed).protocol === "https:" ? trimmed : null
+  } catch {
+    return null
+  }
+}
+
 /** 6자리 코드. 헷갈리기 쉬운 값(000000 등)도 그대로 쓰되 유일성만 보장한다. */
 function makeCode(): string {
   return String(randomInt(0, 1_000_000)).padStart(6, "0")
@@ -64,6 +76,9 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   const serial = shortString(body.serial)
   const firmware = shortString(body.firmware)
+  // 브라우저가 이 장비의 영상에 붙을 주소. https 만 받는다 — 웹이 https 인데
+  // 영상이 http 면 브라우저가 혼합 콘텐츠로 막는다.
+  const publicUrl = httpsUrl(body.public_url)
 
   // 같은 장비가 코드를 계속 새로 뽑아 코드 공간을 채우는 것을 막는다.
   if (rateLimited(requestCounts, serial ?? clientKey(req, "anon"),
@@ -94,7 +109,7 @@ export async function POST(req: NextRequest) {
     const code = makeCode()
     const { data, error } = await admin
       .from("vision_pairings")
-      .insert({ code, pairing_secret: pairingSecret, serial, firmware })
+      .insert({ code, pairing_secret: pairingSecret, serial, firmware, public_url: publicUrl })
       .select("code, expires_at")
       .single()
 

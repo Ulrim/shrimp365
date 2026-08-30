@@ -35,7 +35,12 @@ shrimp365 것을 씁니다 — 로그인은 Supabase Auth 하나, 양식장·수
 |---|---|---|---|
 | **화면** | `https://www.shrimp365.kr/vision` | 개체수 메뉴 — 개요·실시간·이력·통합분석·설정 | Vercel |
 | 제어 API | `https://www.shrimp365.kr/api/vision/*` | 로그인 확인·카메라 시작/정지·토큰 발급 | Vercel |
-| **비전 호스트** | `https://vision.shrimp365.kr` | 영상(MJPEG)·실시간 이벤트(WebSocket)·추론 | 라즈베리파이 등 상시 서버 |
+| **비전 호스트** | `https://vision-1.shrimp365.kr` | 영상(MJPEG)·실시간 이벤트(WebSocket)·추론 | 라즈베리파이 등 상시 서버 |
+
+**파이가 여러 대면 비전 호스트도 여러 개입니다**(`vision-1`, `vision-2` …).
+CSI 카메라는 보드에 리본으로 붙어 있어 그 보드에서만 열리기 때문입니다. 카메라마다
+자기 장비 주소가 기록되어(`vision_cameras.host_url`), 화면이 영상·실시간·시작/정지를
+**카메라마다 제 장비로** 보냅니다. 사용자에게는 여전히 `/vision` 한 화면입니다.
 
 사용자는 `www.shrimp365.kr/vision` 하나만 알면 됩니다. 왼쪽 메뉴 **개체수** 를
 누르면 그 주소입니다. `vision.shrimp365.kr` 은 그 화면이 뒤에서 영상을 받아 오는
@@ -121,8 +126,12 @@ supabase/migrations/vision_monitoring.sql
 |---|---|---|
 | `VISION_SERVICE_KEY` | `openssl rand -hex 32` | 비전 호스트와 **같은 값** |
 | `VISION_STREAM_SECRET` | `openssl rand -hex 32` | 비전 호스트와 **같은 값** |
-| `VISION_SERVICE_URL` | `https://vision.shrimp365.kr` | 제어 API 호출 주소 |
-| `NEXT_PUBLIC_VISION_PUBLIC_URL` | `https://vision.shrimp365.kr` | 이 값이 (A) 방식을 켭니다 |
+| `VISION_SERVICE_URL` | `https://vision-1.shrimp365.kr` | 카메라에 장비 주소가 없을 때 쓰는 예비값 |
+| `NEXT_PUBLIC_VISION_PUBLIC_URL` | `https://vision-1.shrimp365.kr` | 이 값이 (A) 방식을 켭니다 |
+
+> 파이를 페어링해 쓰면 카메라마다 장비 주소가 기록되므로 위 두 값은 **예비용**입니다
+> (직접 추가한 IP·USB 카메라에만 쓰입니다). 파이가 여러 대여도 Vercel 설정은
+> 그대로 두면 됩니다 — 라우팅은 카메라 행이 결정합니다.
 
 `NEXT_PUBLIC_*` 는 빌드 시점에 번들에 박히므로, 넣은 뒤 **재배포**해야 반영됩니다.
 
@@ -134,6 +143,7 @@ VISION_STREAM_SECRET=...      # Vercel 과 같은 값
 DATABASE_URL=postgresql+asyncpg://postgres.xxxx:비밀번호@aws-0-....pooler.supabase.com:5432/postgres
 SHRIMP365_URL=https://www.shrimp365.kr            # 페어링·경보 푸시에 쓰는 주소
 CORS_ORIGINS=https://www.shrimp365.kr
+VISION_PUBLIC_URL=https://vision-1.shrimp365.kr   # 이 장비의 주소(파이마다 다르게)
 ```
 
 > 기기 키(`VISION_DEVICE_KEY`)는 넣지 않습니다 — **페어링이 채웁니다**(§5-1).
@@ -368,5 +378,7 @@ docker compose --profile vision restart vision
 | 시작 눌렀더니 409 "다른 장비" | 그 카메라는 다른 파이 것입니다. 그 파이에서 시작하세요 |
 | 코드가 로그에 안 뜸 | `SHRIMP365_URL` 확인. 요청 제한(1시간 10회)에 걸렸을 수도 있습니다 |
 | 코드를 넣으니 "찾을 수 없음" | 15분이 지났습니다. 서비스를 재시작하면 새 코드가 뜹니다 |
+| 파이 2대 중 한 대만 영상이 나옴 | 그 파이의 `VISION_PUBLIC_URL` 이 비었거나 다른 파이와 같습니다 |
+| 터널 주소를 바꿨더니 안 나옴 | `VISION_PUBLIC_URL` 을 고치고 재시작하면 1분 안에 반영됩니다 |
 | 파이 영상 색이 이상함 (새우가 파랑) | picamera2 채널 순서 문제 — `camera_source.py` 의 `[:, :, ::-1]` 이 빠졌는지 |
 | 파이가 뜨겁고 개체수가 띄엄띄엄 | 발열 스로틀링. 방열판·팬을 달거나 `fps_target` 을 0.5 로 낮추세요 |

@@ -33,17 +33,25 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 // 실시간 연결 준비물
 // ─────────────────────────────────────────────
 
+/** 한 장비(라즈베리파이)의 실시간 연결과, 그 장비가 맡은 카메라들. */
+export interface VisionHost {
+  /** 절대 주소(wss://vision-1…/ws) 또는 같은 출처 경로(/vision-ws). */
+  wsUrl: string
+  cameraIds: string[]
+}
+
 export interface VisionSessionInfo {
   /** 비전 서비스가 설정되어 있고 볼 카메라가 있는가. false 면 화면은 안내만 띄운다. */
   enabled: boolean
   cameraIds: string[]
   token: string | null
-  /** direct = 브라우저가 비전 호스트에 바로 붙는다(Vercel 등 서버리스 배포).
+  /** direct = 브라우저가 장비에 바로 붙는다(Vercel 등 서버리스 배포).
    *  proxy  = 웹과 비전이 한 호스트에 있어 웹이 영상을 중계한다(NAS 등). */
   mode: "direct" | "proxy"
-  /** direct 일 때 비전 호스트의 공개 주소. proxy 면 null. */
+  /** 카메라에 host_url 이 없을 때 쓰는 기본 영상 주소. proxy 면 null. */
   streamBase: string | null
-  wsUrl: string | null
+  /** 장비 목록. 파이가 여러 대면 실시간 연결도 그만큼 열어야 한다. */
+  hosts: VisionHost[]
   expiresIn?: number
 }
 
@@ -115,23 +123,28 @@ export async function getCameraStatus(
 /**
  * MJPEG 영상 주소. `<img src={...}>` 에 그대로 쓴다.
  *
+ * **주소는 카메라마다 다르다.** CSI 카메라는 보드에 리본으로 붙어 있어 그
+ * 보드에서만 열린다 — 파이가 여러 대면 각 카메라의 영상은 제 장비에서 온다.
+ * 그래서 카메라 행의 host_url 을 먼저 본다.
+ *
  * 배포 형태에 따라 두 갈래다(자세한 이유는 app/api/vision/session/route.ts).
- *  · direct — 비전 호스트에 바로 붙고 서명 토큰을 주소에 싣는다. 서버리스
+ *  · direct — 장비에 바로 붙고 서명 토큰을 주소에 싣는다. 서버리스
  *    배포(Vercel)는 끝나지 않는 응답을 중계할 수 없어 반드시 이쪽이다.
  *  · proxy  — 같은 출처의 중계 경로. `<img>` 가 세션 쿠키를 실어 보내므로
- *    토큰이 필요 없다.
+ *    토큰이 필요 없다. 중계 라우트가 카메라의 장비를 찾아 넘긴다.
  *
  * 세션을 아직 못 받았으면 중계 경로를 돌려준다 — 같은 호스트 배포에서는
  * 그대로 맞고, 직결 배포에서는 세션이 도착하는 순간 주소가 갱신된다.
  */
 export function streamUrl(
-  cameraId: string,
+  camera: Pick<VisionCamera, "id" | "host_url">,
   session?: Pick<VisionSessionInfo, "streamBase" | "token"> | null
 ): string {
-  if (session?.streamBase && session.token) {
-    return `${session.streamBase}/stream/${cameraId}?token=${encodeURIComponent(session.token)}`
+  const base = camera.host_url?.replace(/\/+$/, "") || session?.streamBase
+  if (base && session?.token) {
+    return `${base}/stream/${camera.id}?token=${encodeURIComponent(session.token)}`
   }
-  return `/api/vision/stream/${cameraId}`
+  return `/api/vision/stream/${camera.id}`
 }
 
 // ─────────────────────────────────────────────

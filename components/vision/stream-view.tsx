@@ -101,8 +101,8 @@ export function StreamView({ camera, live, status, showBoxes = true, stream, cla
            파이프라인이 처리하지 못하고, 크기도 미리 알 수 없다. */
         <img
           ref={imgRef}
-          key={`${camera.id}-${attempt}-${stream?.token ?? ""}`}
-          src={streamUrl(camera.id, stream)}
+          key={`${camera.id}-${camera.host_url ?? ""}-${attempt}-${stream?.token ?? ""}`}
+          src={streamUrl(camera, stream)}
           alt={`${camera.name} 실시간 영상`}
           className="block w-full"
           onError={() => setStreamError(true)}
