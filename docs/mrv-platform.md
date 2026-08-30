@@ -19,9 +19,10 @@ FastAPI + React(Vite) 모노레포였고, 이 문서는 그것이 여기서 어�
 | 자리 | 내용 |
 |---|---|
 | `app/mrv/**` | 화면 14개(개요·입력·기준선·알림·비교·추천·MRV 리포트·SOP·온보딩·제어 콘솔·멀티사이트·감사 로그) |
-| `app/api/mrv/**` | API 라우트 37개 |
+| `app/api/mrv/**` | API 라우트 38개 — 원본 엔드포인트 41개 + 알림 배치 실행 창구 1개 |
 | `lib/mrv/kpi/**` | **KPI/MRV 산식 엔진** — 가장 보호받는 코드 |
-| `lib/mrv/*.ts` | 인증·테넌시·조립 서비스(kpi-service, mrv-report-service, ingestion 등) |
+| `lib/mrv/*.ts` | 인증·테넌시·조립 서비스(kpi-service, mrv-report-service, ingestion, alert-jobs 등) |
+| `vercel.json` | 알림 배치 Cron 일정(3.7) |
 | `lib/mrv/ui/**`, `components/mrv/**` | 화면이 쓰는 훅·표시 메타·공통 컴포넌트 |
 | `supabase/migrations/mrv_platform.sql` | DB 스키마 + RLS + 기본 데이터 |
 | `scripts/mrv/**` | 검증 도구(아래 4절) |
@@ -111,16 +112,53 @@ shrimp365 의 기존 관제센터 라우트와 같은 방식이다: 라우트가
   고르고 브라우저에 기억한다. 사이트가 하나면 자동으로 그것이 골라진다.
 - 기본 조회 기간도 고정 날짜(2026-06) 대신 **최근 30일**이다.
 
+### 3.7 알림 배치: 상주 워커 → 스케줄 라우트
+
+원본에는 FastAPI 와 별개로 **상주 워커 프로세스**(`worker.py`)가 있었다. APScheduler 로
+15분마다 `job_evaluate_alerts` 를 돌려 DO 저하·폐사 급증·KPI red 를 판정하고 `alerts` 행을
+만드는 일을 했다. 알림을 **만들어 내는** 쪽은 라우터가 아니라 여기였다.
+
+이 배포 형태에는 상주 프로세스가 없다. 같은 일을 스케줄러가 때려 주는 라우트로 옮겼다:
+
+| | 원본 | 이식본 |
+|---|---|---|
+| 판정 로직 | `app/services/alert_jobs.py` | `lib/mrv/alert-jobs.ts` |
+| 실행 주체 | 상주 워커 + APScheduler | Vercel Cron → `POST/GET /api/mrv/jobs/evaluate-alerts` |
+| 주기 | 15분 (`ALERT_EVAL_INTERVAL_MINUTES`) | 15분 (`vercel.json` 의 `crons`) |
+| 인증 | 없음(프로세스 내부 호출) | `CRON_SECRET` (Bearer) |
+
+이 창구는 **전 조직의 사이트를 평가**하므로 어떤 사용자 세션으로도 열리지 않는다.
+`CRON_SECRET` 이 설정돼 있지 않으면 열어 두지 않고 **503 으로 닫는다** — 설정을 깜빡한
+배포에서 인증 없는 전 조직 접근 창구가 조용히 열려 있는 것이 가장 나쁜 결과이기 때문이다.
+
+판정 로직에서 원본과 의도적으로 다른 세 가지는 `lib/mrv/alert-jobs.ts` 머리말에 적었다
+(org 순회 생략 · DO 동시각 동점 처리 · 모르는 지표명 거부). 셋 다 `mrv:verify-alerts` 가
+원본과 같은 판정을 내는지 확인한다.
+
+> **Vercel 요금제 주의**: Hobby 플랜은 Cron 이 하루 1회로 제한된다. 15분 주기가 필요하면
+> Pro 이상이어야 한다. 플랜을 올리지 않겠다면 `vercel.json` 의 `crons` 를 지우고 Supabase
+> `pg_cron` + `pg_net` 이나 외부 스케줄러로 같은 URL 을 15분마다 때리면 된다 — 라우트는
+> 어느 쪽에서 불려도 똑같이 동작한다.
+
+### 3.8 이식하지 않은 것
+
+- **MQTT 수집기** (`app/services/mqtt_consumer.py`) — 원본에서도 브로커가 없으면 안전하게
+  no-op 하는 골격이었고, 같은 `process_batch` 를 부르는 얇은 층이라 HTTP 수집 경로
+  (`POST /api/mrv/ingest/readings`)가 그대로 대체한다. 게이트웨이를 MQTT 로 붙일 일이
+  생기면 브로커 배선과 함께 다시 판단할 문제다.
+- **WeasyPrint PDF 렌더** — 3.5 참고(인쇄용 HTML 로 대체).
+
 ---
 
 ## 4. 검증
 
-이식이 원본과 어긋나지 않았는지 **네 계층을 각각 원본과 대조**한다. 산식만 맞아서는
-부족하다 — 설정을 잘못 읽거나, 계측값을 잘못 정규화하거나, 엔진에 엉뚱한 행을 넣으면
-산식이 정확해도 결과가 틀리고, 그런 오류는 화면에 아무 표시도 남기지 않는다.
+이식이 원본과 어긋나지 않았는지 **다섯 계층을 각각 원본과 대조**한다. 산식만 맞아서는
+부족하다 — 설정을 잘못 읽거나, 계측값을 잘못 정규화하거나, 엔진에 엉뚱한 행을 넣거나,
+알림을 잘못 판정하면 산식이 정확해도 결과가 틀리고, 그런 오류는 화면에 아무 표시도
+남기지 않는다.
 
 ```bash
-npm run mrv:verify        # 아래 다섯 가지를 한 번에
+npm run mrv:verify        # 아래 여섯 가지를 한 번에
 ```
 
 | 명령 | 무엇을 대조하나 | 규모 |
@@ -129,9 +167,10 @@ npm run mrv:verify        # 아래 다섯 가지를 한 번에
 | `mrv:verify-config` | **설정 해석** — `params_json` → 산출 파라미터(거부해야 할 문서까지) | 102 문서 |
 | `mrv:verify-ingestion` | **계측값 정규화** — 적산/순시/구간/DO → 저장값 + quality_flag (ADR 0001) | 44 배치 / 372 계측값 |
 | `mrv:verify-pipeline` | **조립 계층** — 같은 DB 행 → 같은 KPI (기간 자르기·폭기 구분·생체량 선택) | 25 시나리오 / 1,699 계측값 |
+| `mrv:verify-alerts` | **알림 배치** — 트리거 3종 판정·구독 스위치·중복 억제·payload | 60 시나리오 / 113 사이트 / 알림 128건 |
 | `mrv:verify-rls` | **스키마 방어선** — 테넌트 격리·기준선 불변성·승인 게이트·시계열 집계 | 21 항목 |
 
-앞의 네 가지는 원본 Python 을 실제로 돌려 기준값을 만든 뒤 TypeScript 이식본과 값을
+앞의 다섯 가지는 원본 Python 을 실제로 돌려 기준값을 만든 뒤 TypeScript 이식본과 값을
 비교한다(`scripts/mrv/gen_*_fixtures.py` → `scripts/mrv/verify-*.mjs`). 원본 코드는
 `mrv-platform/` 에 그대로 남아 있으므로 언제든 다시 대조할 수 있다.
 
@@ -190,6 +229,15 @@ npm run build       # 빌드
    비로그인 방문자에게 화면이 잠깐 그려졌다 사라졌다. 다른 인증 구역과 같이 미들웨어에서
    먼저 막는다.
 
+6. **알림을 만들어 내는 쪽이 통째로 빠져 있던 문제** (`lib/mrv/alert-jobs.ts` 신설)
+   화면·API·테이블은 다 이식됐는데 `mrv_alerts` 에 **행을 넣는 코드가 어디에도 없었다**.
+   알림 목록이 영원히 비고, 그런데도 화면은 정상으로 보인다(빈 목록과 "알림 없음"은
+   구별되지 않는다). 원인은 그 로직이 FastAPI 라우터가 아니라 별도 워커 프로세스에
+   있었다는 것 — **라우트만 세면 놓치는 자리**다. 3.7 참고.
+
+   같은 실수를 다시 하지 않으려면: 원본에서 옮길 것을 셀 때 `routers/` 만 보지 말고
+   `worker.py` 처럼 프로세스 진입점이 따로 있는지 확인할 것.
+
 ---
 
 ## 5. 배포 전에 할 일 (사람 몫)
@@ -205,7 +253,17 @@ npm run build       # 빌드
    카카오처럼 JWT 에 이메일이 실리지 않는 계정은 `supabase_user_id` 를 함께 줘 미리 연결한다.
 4. **수집 API 키 발급** — 게이트웨이용 `mrv_api_keys` 행은 화면에서 만들지 않는다.
    원문 키의 sha256 해시만 저장하므로, 키를 생성해 해시를 넣고 원문은 게이트웨이에만 준다.
-5. **환경변수**(둘 다 선택) — `.env.example` 의 `NEXT_PUBLIC_MRV_PLATFORM_URL`,
+5. **`CRON_SECRET` 설정** — 알림 배치 창구를 여는 유일한 열쇠다. 이 값이 없으면 창구가
+   503 으로 닫힌 채이고 **알림이 하나도 만들어지지 않는다**(화면은 정상으로 보이므로
+   빠뜨리면 알아채기 어렵다). `openssl rand -hex 32` 로 만들어 Vercel 환경변수에 넣으면
+   Cron 이 알아서 `Authorization: Bearer` 로 붙여 준다. 요금제 주의는 3.7 참고.
+   설정 뒤 한 번 손으로 확인:
+   ```bash
+   curl -X POST -H "Authorization: Bearer $CRON_SECRET" \
+     https://<배포주소>/api/mrv/jobs/evaluate-alerts
+   # → {"evaluated_sites":N,"created_count":...,"failed_sites":0,...}
+   ```
+6. **그 밖의 환경변수**(둘 다 선택) — `.env.example` 의 `NEXT_PUBLIC_MRV_PLATFORM_URL`,
    `NEXT_PUBLIC_MRV_SUPPORT_CONTACT` 참고.
 
 ---
