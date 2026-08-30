@@ -25,8 +25,12 @@ export type BaselineRow = {
   locked_at: string | null
 }
 
-function metric(value: number | null, unit: string): KpiMetric {
-  return { value, unit, status: value !== null ? "green" : "na" }
+function metric(value: number | null | undefined, unit: string): KpiMetric {
+  // null 과 undefined 를 같이 '산출 불가'로 본다.
+  // `value !== null` 로만 보면 값이 없을 때(컬럼이 안 실려 왔을 때) status 가 'green' 이 되어
+  // **없는 값이 정상으로 표시된다**. 지금은 select('*') 라 실제로는 생기지 않지만,
+  // 컬럼 이름이 바뀌는 날 조용히 그렇게 된다 — 증빙 시스템에서 가장 나쁜 실패 방향이다.
+  return { value: value ?? null, unit, status: value != null ? "green" : "na" }
 }
 
 export function baselineRowToResponse(row: BaselineRow) {

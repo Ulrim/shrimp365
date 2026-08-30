@@ -42,8 +42,11 @@ function formatPeriod(from: string, to: string): string {
 }
 
 export function KpiCard({ title, metric, configVersion, period, betterWhen }: KpiCardProps) {
-  // metric 이 없거나 value 가 null 이면 '산출 불가'다 — 0 으로 보여 주지 않는다.
-  const isNa = metric === null || metric.value === null
+  // metric 이 없거나 value 가 없으면 '산출 불가'다 — 0 으로 보여 주지 않는다.
+  // `== null` 로 undefined 까지 함께 잡는다. `=== null` 만 보면 값이 없을 때 formatValue 가
+  // undefined 를 받아 던지고, 오류 경계가 **화면 전체**를 "Server Error" 로 바꿔 버린다
+  // (한 카드의 값 하나 때문에 나머지 지표까지 못 보게 된다).
+  const isNa = metric === null || metric.value == null
   const status: KpiMetricStatus = isNa ? "na" : metric.status
   const signal = SIGNAL_PRESENTATION[status]
 
