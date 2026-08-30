@@ -1,5 +1,5 @@
 {
-  "latest": "1.7.0",
+  "latest": "1.7.1",
   "releases": {
     "1.5.0": {
       "notes": "염도 단위를 퍼밀(‰)로",
@@ -163,6 +163,20 @@
       "sha256": "20ce4cfa94d4b092268c48fa49fe13895f18604e359b4c96e09f82403254615a",
       "size": 69326,
       "signature": "47sIhjfDMa0KaP7IXh/G3sZ1lg49OP+csTiNPe7DidK2QZW6TtMNbLAsVm0sUtV0FtInFGHpx6c6j6dLqn/9AA=="
+    },
+    "1.7.1": {
+      "notes": "농업(수경재배) 장비 지원 — 유량·차압 센서와 양액 상태 전송",
+      "released_at": "2026-08-30",
+      "setup": {
+        "file": "shrimp365-setup-1.7.1.tar.gz",
+        "sha256": "a7f8ce40c4c9e0069bfd4d1b7b7bc3ffea54dc52a2b6699038303e9fe3a6edb3",
+        "size": 102983,
+        "signature": "TBnteGO4BkiNFMvUuPuPJVLf/KAJYJtHjxCubpq/qREH/ka4zDf/Ln99y+SpVq+QYBETV7dZ5AoAw+VdCVmGBQ=="
+      },
+      "file": "shrimp365-agent-1.7.1.tar.gz",
+      "sha256": "c80d06bcfb35d8e8cc305ca150de5fbac6913a416c714eb08bb4c64ecf48f8ee",
+      "size": 70618,
+      "signature": "U7vZbmBZlsJIiB9VaRubY7+OhvRP2vYwc2ReQK9YbOJB3g91qtWRTw1s/ven9WXgf68aYI0ZiYPgvX7H1kCIBw=="
     }
   }
 }

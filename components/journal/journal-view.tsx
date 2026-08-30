@@ -338,6 +338,15 @@ export function JournalView() {
 
   // ── Journal state ──
   const [journals, setJournals] = useState<JournalEntry[]>([])
+  // 목록과 CSV 도 같은 축으로 거른다. JournalCard 는 단위와 2번 타일을 화면
+  // 축(isAgri)에서 가져오므로, 안 거르면 새우 일지의 "사료 40 kg" 이 농업
+  // 주소에서 "40 L 양액 보충" 으로 읽히고 폐사 수가 통째로 사라진다.
+  // 축은 일지가 조인으로 들고 온다(getJournalEntries) — 수조 목록이 늦게
+  // 도착해도 첫 페인트가 흔들리지 않는다.
+  const visibleJournals = useMemo(
+    () => journals.filter(j => belongsToAgriScreen(j.farm_type, isAgri)),
+    [journals, isAgri],
+  )
   const [jLoading, setJLoading] = useState(true)
   const [jLoadingMore, setJLoadingMore] = useState(false)
   const [jHasMore, setJHasMore] = useState(false)
@@ -459,7 +468,7 @@ export function JournalView() {
   }
 
   const handleJCsvExport = () => {
-    exportToCsv(journals.map(j => isAgri ? {
+    exportToCsv(visibleJournals.map(j => isAgri ? {
       날짜: j.date, 베드: j.tank_name,
       양액보충량_L: j.feeding_amount, 양액종류: j.feed_type, 보충횟수: j.feeding_times,
       양액교환율: j.water_exchange_rate,
@@ -816,7 +825,7 @@ export function JournalView() {
           {/* Journal actions */}
           {tab === "journal" && (
             <>
-              {journals.length > 0 && (
+              {visibleJournals.length > 0 && (
                 <Button
                   variant="outline"
                   onClick={handleJCsvExport}
@@ -960,7 +969,7 @@ export function JournalView() {
             <div className="flex items-center justify-center h-40"><div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" /></div>
           ) : (
             <>
-              {journals.length === 0 ? (
+              {visibleJournals.length === 0 ? (
                 <div className="col-span-2 flex flex-col items-center justify-center py-16 gap-4 text-center">
                   <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
                     <BookOpen className="w-8 h-8 text-muted-foreground opacity-50" />
@@ -975,7 +984,7 @@ export function JournalView() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {journals.map(entry => (
+                  {visibleJournals.map(entry => (
                     <JournalCard key={entry.id} entry={entry} currentUserId={user?.id} currentUserName={user?.name} onEdit={handleJEdit} onDelete={setJDeleteTarget} />
                   ))}
                 </div>

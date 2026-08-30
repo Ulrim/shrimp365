@@ -106,6 +106,11 @@ export interface JournalEntry {
   notes?: string
   created_by: string
   created_at: string
+  /** 이 일지가 달린 수조가 속한 농장의 유형. 일지 자신의 칸이 아니라
+   *  getJournalEntries 의 tanks→farms 조인에서 파생한 값이다(조회는 늘지
+   *  않는다) — 그래서 선택 필드다. 화면이 "이 일지가 이 화면(URL)에
+   *  속하는가"를 판단하는 데만 쓴다. */
+  farm_type?: "shrimp" | "agriculture"
 }
 
 export interface DiagnosisResult {
@@ -134,6 +139,11 @@ export interface Alert {
   message: string
   created_at: string
   resolved: boolean
+  /** 이 알림이 달린 수조가 속한 농장의 유형. 알림 자신의 칸이 아니라
+   *  getAlerts 의 tanks→farms 조인에서 파생한 값이다(조회는 늘지 않는다) —
+   *  그래서 선택 필드다. 화면이 "이 알림이 이 화면(URL)에 속하는가"와
+   *  "어느 쪽 이름표를 붙일 것인가"를 판단하는 데 쓴다. */
+  farm_type?: "shrimp" | "agriculture"
 }
 
 export interface SensorDevice {

@@ -31,6 +31,24 @@ function joinedFarmType(row: { farms?: unknown }): "shrimp" | "agriculture" {
     : "shrimp"
 }
 
+/** 조인해 온 `tanks(name, farms(*))` 에서 그 수조가 속한 농장의 유형을 뽑는다.
+ *
+ *  알림·일지처럼 수조를 참조하는 목록이 **자기 축을 스스로 들고 오게** 하는
+ *  공통 경로다. 화면 쪽에서 tank_id → 수조 목록 → farm_type 으로 되짚지
+ *  않아도 되고, 이미 있던 `tanks(name)` 조인을 넓히는 것이라 조회는 한 번도
+ *  늘지 않는다. 수조 목록을 들고 있지 않은 화면(알림 패널)도 판정할 수 있다.
+ *
+ *  `farms(*)` 로 받는 이유는 getAllTanks 와 같다 — 마이그레이션 전 DB 에는
+ *  farm_type 칸이 없어 이름으로 집으면 쿼리 전체가 400 으로 죽는다.
+ *
+ *  조인이 비면(수조가 지워진 알림 등) undefined 를 준다. "모르는 것"과
+ *  "새우인 것"을 구분해 두고, 읽는 쪽(belongsToAgriScreen)이 새우로 본다. */
+function joinedTankFarmType(joined: unknown): "shrimp" | "agriculture" | undefined {
+  const tank = Array.isArray(joined) ? joined[0] : joined
+  if (!tank) return undefined
+  return joinedFarmType(tank as { farms?: unknown })
+}
+
 function toTank(t: DbTank, farmType?: "shrimp" | "agriculture"): Tank {
   return {
     ...t,
@@ -454,7 +472,7 @@ export async function getJournalEntries(
 ): Promise<JournalEntry[]> {
   let query = supabase
     .from("journal_entries")
-    .select("*, tanks(name)")
+    .select("*, tanks(name, farms(*))")
     .order("date", { ascending: false })
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1)
@@ -488,6 +506,7 @@ export async function getJournalEntries(
     notes: e.notes ?? undefined,
     created_by: e.created_by ?? "",
     created_at: e.created_at,
+    farm_type: joinedTankFarmType(e.tanks),
   }))
 }
 
@@ -699,7 +718,7 @@ export async function createDiagnosis(values: {
 export async function getAlerts(onlyActive = true): Promise<Alert[]> {
   let query = supabase
     .from("alerts")
-    .select("*, tanks(name)")
+    .select("*, tanks(name, farms(*))")
     .order("created_at", { ascending: false })
     .limit(50)
 
@@ -719,6 +738,7 @@ export async function getAlerts(onlyActive = true): Promise<Alert[]> {
     message: a.message,
     created_at: a.created_at,
     resolved: a.resolved,
+    farm_type: joinedTankFarmType(a.tanks),
   }))
 }
 

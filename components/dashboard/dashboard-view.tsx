@@ -56,7 +56,7 @@ export function DashboardView() {
   // 계정의 전체 농장·수조. 화면에 쓰는 것은 아래에서 이 화면 몫만 걸러 낸다.
   const [allFarms, setAllFarms] = useState<Farm[]>([])
   const [allTanks, setAllTanks] = useState<Tank[]>([])
-  const [alerts, setAlerts]     = useState<Alert[]>([])
+  const [allAlerts, setAllAlerts] = useState<Alert[]>([])
   const [diagnoses, setDiagnoses] = useState<DiagnosisResult[]>([])
   const [wqData, setWqData]         = useState<WaterQualityReading[]>([])
   // 사용자가 고른 수조. 실제로 쓰는 값은 아래 selectedTankId 로, 목록에서
@@ -79,6 +79,13 @@ export function DashboardView() {
   const tanks = useMemo(
     () => allTanks.filter(tk => belongsToAgriScreen(tk.farm_type, isAgri)),
     [allTanks, isAgri],
+  )
+  // 알림도 같은 축으로 거른다. 안 거르면 빨간 배너와 "오늘의 알림" 개수가
+  // 이 화면에서는 고를 수도, 갈 수도 없는 반대 축 수조를 지목한다.
+  // 축은 알림이 조인으로 들고 온다(getAlerts) — 수조 목록을 되짚지 않는다.
+  const alerts = useMemo(
+    () => allAlerts.filter(a => belongsToAgriScreen(a.farm_type, isAgri)),
+    [allAlerts, isAgri],
   )
 
   // 고른 수조가 이 화면 목록에 없으면 첫 수조로 떨어진다. 상태를 고쳐 쓰지
@@ -110,7 +117,7 @@ export function DashboardView() {
     ])
     setAllFarms(f)
     setAllTanks(tk)
-    setAlerts(a.filter(x => !x.resolved))
+    setAllAlerts(a.filter(x => !x.resolved))
     setDiagnoses(d)
     setLowStockItems(inv.filter(i => i.reorder_level > 0 && i.current_stock <= i.reorder_level))
     if (selectedTankId) {
@@ -127,7 +134,7 @@ export function DashboardView() {
       if (mock) {
         setAllFarms(MOCK_FARMS)
         setAllTanks(MOCK_TANKS)
-        setAlerts(MOCK_ALERTS.filter(x => !x.resolved))
+        setAllAlerts(MOCK_ALERTS.filter(x => !x.resolved))
         setDiagnoses(MOCK_DIAGNOSES)
         setLowStockItems(MOCK_INVENTORY_ITEMS.filter(i => i.reorder_level > 0 && i.current_stock <= i.reorder_level))
         setPickedTankId("tank-1")
@@ -141,7 +148,7 @@ export function DashboardView() {
         ])
         setAllFarms(f)
         setAllTanks(tk)
-        setAlerts(a.filter(x => !x.resolved))
+        setAllAlerts(a.filter(x => !x.resolved))
         setDiagnoses(d)
         setLowStockItems(inv.filter(i => i.reorder_level > 0 && i.current_stock <= i.reorder_level))
 

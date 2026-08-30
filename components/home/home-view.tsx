@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
@@ -8,7 +8,7 @@ import { useT } from "@/lib/i18n-context"
 import { getFarms, getAllTanks, getAlerts } from "@/lib/db"
 import { isTestAccount, MOCK_TANKS, MOCK_ALERTS } from "@/lib/mock-data"
 import { useAutoRefresh } from "@/lib/use-auto-refresh"
-import { AGRI_PREFIX, useAgriRoute } from "@/lib/agri-route"
+import { AGRI_PREFIX, belongsToAgriScreen, useAgriRoute } from "@/lib/agri-route"
 import { ClipboardList, BarChart3, AlertTriangle, CheckCircle2, Activity } from "lucide-react"
 import { AdSlot } from "@/components/ads/ad-slot"
 import { Tank, Alert } from "@/types"
@@ -21,15 +21,27 @@ export function HomeView() {
   const [checking, setChecking] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [retry, setRetry] = useState(0)
-  const [tanks, setTanks] = useState<Tank[]>([])
-  const [alerts, setAlerts] = useState<Alert[]>([])
+  const [allTanks, setAllTanks] = useState<Tank[]>([])
+  const [allAlerts, setAllAlerts] = useState<Alert[]>([])
+
+  // 홈이 세는 것도 이 화면 몫이어야 한다(설계서 3장). 혼합 계정에서 안 거르면
+  // 농업 홈이 새우 수조의 위험을 세고, 알림 링크가 이 화면에서는 갈 수도 없는
+  // 반대 축 수조를 가리킨다(그 반대도 같다).
+  const tanks = useMemo(
+    () => allTanks.filter(tk => belongsToAgriScreen(tk.farm_type, isAgri)),
+    [allTanks, isAgri],
+  )
+  const alerts = useMemo(
+    () => allAlerts.filter(a => belongsToAgriScreen(a.farm_type, isAgri)),
+    [allAlerts, isAgri],
+  )
 
   useEffect(() => {
     if (!user) return
     const mock = isTestAccount(user.email)
     if (mock) {
-      setTanks(MOCK_TANKS)
-      setAlerts(MOCK_ALERTS.filter(a => !a.resolved))
+      setAllTanks(MOCK_TANKS)
+      setAllAlerts(MOCK_ALERTS.filter(a => !a.resolved))
       setChecking(false)
       return
     }
@@ -49,8 +61,8 @@ export function HomeView() {
       .then(result => {
         if (!result) return
         const [tankList, alertList] = result
-        setTanks(tankList)
-        setAlerts(alertList.filter((a: Alert) => !a.resolved))
+        setAllTanks(tankList)
+        setAllAlerts(alertList.filter((a: Alert) => !a.resolved))
         setChecking(false)
       })
       .catch(() => { setLoadError(true); setChecking(false) })
@@ -61,8 +73,8 @@ export function HomeView() {
   const reload = useCallback(async () => {
     if (!user || isTestAccount(user.email)) return
     const [tankList, alertList] = await Promise.all([getAllTanks(), getAlerts(true)])
-    setTanks(tankList)
-    setAlerts(alertList.filter((a: Alert) => !a.resolved))
+    setAllTanks(tankList)
+    setAllAlerts(alertList.filter((a: Alert) => !a.resolved))
   }, [user])
 
   useAutoRefresh(reload, 60, !checking && !loadError)
