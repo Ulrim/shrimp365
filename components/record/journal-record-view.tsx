@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
-import { useAgriRoute } from "@/lib/agri-route"
+import { AGRI_PREFIX, belongsToAgriScreen, useAgriRoute } from "@/lib/agri-route"
 import { getAllTanks } from "@/lib/db"
 import { MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
 import { Tank } from "@/types"
@@ -22,7 +22,8 @@ export function JournalRecordView() {
   const { t } = useT()
   const mock = isTestAccount(user?.email)
 
-  const [tanks, setTanks] = useState<Tank[]>([])
+  // 계정의 전체 수조. 폼에 뿌리는 목록은 아래에서 이 화면 몫만 걸러 낸다.
+  const [allTanks, setAllTanks] = useState<Tank[]>([])
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -60,11 +61,22 @@ export function JournalRecordView() {
   const [tankLoadError, setTankLoadError] = useState(false)
 
   useEffect(() => {
-    if (mock) { setTanks(MOCK_TANKS); return }
+    if (mock) { setAllTanks(MOCK_TANKS); return }
     getAllTanks()
-      .then(result => { setTanks(result); setLoadingTanks(false) })
+      .then(result => { setAllTanks(result); setLoadingTanks(false) })
       .catch(() => { setTankLoadError(true); setLoadingTanks(false) })
   }, [mock])
+
+  // 화면은 URL 이 정한다(설계서 3장). **쓰기 화면이라 더 엄하게 지킨다** —
+  // 안 거르면 농업 일지 폼(양액 보충 L·병해충 방제)이 새우 수조에 저장되고,
+  // 새우 폼(급이 kg·폐사 마리)이 베드에 저장된다. 같은 컬럼을 두 뜻으로
+  // 쓰는 설계(3-2)라 잘못 적힌 행은 나중에 구분할 방법도 없다.
+  // 고를 수 없으면 저장할 수도 없다 — 목록이 유일한 관문이다(StepWizard 의
+  // 수조 칸은 optional 이 아니라 비어 있으면 다음 단계로 못 넘어간다).
+  const tanks = useMemo(
+    () => allTanks.filter(tk => belongsToAgriScreen(tk.farm_type, isAgri)),
+    [allTanks, isAgri],
+  )
 
   const handleChange = (key: string, value: unknown) => {
     setValues(prev => ({ ...prev, [key]: value }))
@@ -192,7 +204,7 @@ export function JournalRecordView() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center gap-4">
         <p className="text-destructive font-medium">{t.recordX.tankLoadFailed}</p>
         <button
-          onClick={() => { setTankLoadError(false); setLoadingTanks(true); getAllTanks().then(r => { setTanks(r); setLoadingTanks(false) }).catch(() => { setTankLoadError(true); setLoadingTanks(false) }) }}
+          onClick={() => { setTankLoadError(false); setLoadingTanks(true); getAllTanks().then(r => { setAllTanks(r); setLoadingTanks(false) }).catch(() => { setTankLoadError(true); setLoadingTanks(false) }) }}
           className="text-sm text-emerald-600 underline"
         >
           {t.homeHub.retry}
@@ -201,7 +213,13 @@ export function JournalRecordView() {
     )
   }
 
-  if (!mock && tanks.length === 0) {
+  // 이 화면 몫의 수조가 하나도 없을 때. `!mock` 조건을 뺐다 — 목데이터는
+  // 전부 새우라 데모 계정이 농업 주소를 직접 치면 목록이 비는데, 예전 조건
+  // 이면 그 경우에 빈 드롭다운짜리 마법사가 떴다.
+  if (tanks.length === 0) {
+    // 다른 축에는 수조가 있는가. 있으면 "농장을 등록하세요"가 아니라 그
+    // 수조가 사는 화면으로 보낸다(설계서 5-4 의 화면 전환 진입점과 같은 문구).
+    const crossAxis = allTanks.length > 0
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center gap-6">
         <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 flex items-center justify-center">
@@ -212,11 +230,13 @@ export function JournalRecordView() {
           <p className="text-muted-foreground text-sm">{t.recordX.noTanksJournalMsg}</p>
         </div>
         <Link
-          href="/onboarding"
-          className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+          href={crossAxis ? (isAgri ? "/home" : `${AGRI_PREFIX}/home`) : "/onboarding"}
+          className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 min-h-[44px] py-3 rounded-xl transition-colors"
         >
           <Building2 className="w-4 h-4" />
-          {t.recordX.registerFarmCta}
+          {crossAxis
+            ? (isAgri ? t.agri.openShrimpScreen : t.agri.openAgriScreen)
+            : t.recordX.registerFarmCta}
         </Link>
       </div>
     )

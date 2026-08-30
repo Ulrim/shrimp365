@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
-import { useAgriRoute } from "@/lib/agri-route"
+import { AGRI_PREFIX, belongsToAgriScreen, useAgriRoute } from "@/lib/agri-route"
 import { getAllTanks, insertWaterQuality } from "@/lib/db"
 import { MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
 import { WQ_BOUNDS, WqField } from "@/lib/utils"
@@ -23,7 +23,8 @@ export function WaterQualityRecordView() {
   const { t } = useT()
   const mock = isTestAccount(user?.email)
 
-  const [tanks, setTanks] = useState<Tank[]>([])
+  // 계정의 전체 수조. 폼에 뿌리는 목록은 아래에서 이 화면 몫만 걸러 낸다.
+  const [allTanks, setAllTanks] = useState<Tank[]>([])
   const [values, setValues] = useState<Record<string, unknown>>({
     tank_id: "",
     date: TODAY,
@@ -49,11 +50,22 @@ export function WaterQualityRecordView() {
   const [tankLoadError, setTankLoadError] = useState(false)
 
   useEffect(() => {
-    if (mock) { setTanks(MOCK_TANKS); return }
+    if (mock) { setAllTanks(MOCK_TANKS); return }
     getAllTanks()
-      .then(result => { setTanks(result); setLoadingTanks(false) })
+      .then(result => { setAllTanks(result); setLoadingTanks(false) })
       .catch(() => { setTankLoadError(true); setLoadingTanks(false) })
   }, [mock])
+
+  // 화면은 URL 이 정한다(설계서 3장). **쓰기 화면이라 더 엄하게 지킨다** —
+  // 모니터링은 틀린 기준으로 빨갛게 칠하고 끝이지만, 여기서는 농업 폼으로
+  // 새우 수조에 양액 EC 를 저장할 수 있고 그렇게 남은 행은 지워지지 않는다.
+  // 반대 방향도 같다(새우 폼이 베드에 염도·알칼리도를 적는다).
+  // 고를 수 없으면 저장할 수도 없다 — 목록이 유일한 관문이다(StepWizard 의
+  // 수조 칸은 optional 이 아니라 비어 있으면 다음 단계로 못 넘어간다).
+  const tanks = useMemo(
+    () => allTanks.filter(tk => belongsToAgriScreen(tk.farm_type, isAgri)),
+    [allTanks, isAgri],
+  )
 
   const handleChange = (key: string, value: unknown) => {
     setValues(prev => ({ ...prev, [key]: value }))
@@ -244,7 +256,7 @@ export function WaterQualityRecordView() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center gap-4">
         <p className="text-destructive font-medium">{t.recordX.tankLoadFailed}</p>
         <button
-          onClick={() => { setTankLoadError(false); setLoadingTanks(true); getAllTanks().then(r => { setTanks(r); setLoadingTanks(false) }).catch(() => { setTankLoadError(true); setLoadingTanks(false) }) }}
+          onClick={() => { setTankLoadError(false); setLoadingTanks(true); getAllTanks().then(r => { setAllTanks(r); setLoadingTanks(false) }).catch(() => { setTankLoadError(true); setLoadingTanks(false) }) }}
           className="text-sm text-ocean-600 underline"
         >
           {t.homeHub.retry}
@@ -253,7 +265,13 @@ export function WaterQualityRecordView() {
     )
   }
 
-  if (!mock && tanks.length === 0) {
+  // 이 화면 몫의 수조가 하나도 없을 때. `!mock` 조건을 뺐다 — 목데이터는
+  // 전부 새우라 데모 계정이 농업 주소를 직접 치면 목록이 비는데, 예전 조건
+  // 이면 그 경우에 빈 드롭다운짜리 마법사가 떴다.
+  if (tanks.length === 0) {
+    // 다른 축에는 수조가 있는가. 있으면 "농장을 등록하세요"가 아니라 그
+    // 수조가 사는 화면으로 보낸다(설계서 5-4 의 화면 전환 진입점과 같은 문구).
+    const crossAxis = allTanks.length > 0
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center gap-6">
         <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
@@ -264,11 +282,13 @@ export function WaterQualityRecordView() {
           <p className="text-muted-foreground text-sm">{t.recordX.noTanksWqMsg}</p>
         </div>
         <Link
-          href="/onboarding"
+          href={crossAxis ? (isAgri ? "/home" : `${AGRI_PREFIX}/home`) : "/onboarding"}
           className="inline-flex items-center gap-2 bg-ocean-500 hover:bg-ocean-600 text-white font-semibold px-6 min-h-[44px] py-3 rounded-xl transition-colors"
         >
           <Building2 className="w-4 h-4" aria-hidden="true" />
-          {t.recordX.registerFarmCta}
+          {crossAxis
+            ? (isAgri ? t.agri.openShrimpScreen : t.agri.openAgriScreen)
+            : t.recordX.registerFarmCta}
         </Link>
       </div>
     )
