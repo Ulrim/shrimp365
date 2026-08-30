@@ -1,0 +1,15 @@
+{
+  "slug": "feed-tray-check", "locale": "id",
+  "cards": [
+    { "type": "cover", "label": "MEMBACA ANCO", "title": ["Anco lebih tepat", "dari tabel pakan"], "subtitle": "Sisanya yang memberi jawaban" },
+    { "type": "point", "index": "01", "label": "Jumlahnya", "value": "4–5%", "caption": "Hanya sebagian dari jatah itu" },
+    { "type": "point", "index": "02", "label": "Cek setelah", "value": "1–2 jam", "caption": "Angkat dalam rentang ini" },
+    { "type": "point", "index": "03", "label": "Kalau bersih", "valueStyle": "text", "value": ["Naikkan", "2–5%"], "caption": "Jangan melonjak sekaligus" },
+    { "type": "point", "index": "04", "label": "Kalau bersisa", "valueStyle": "text", "value": ["Kurangi", "jatah berikutnya"], "caption": "Sisa pakan membebani dasar" },
+    { "type": "point", "index": "05", "label": "Per hari", "value": "4–5 kali", "caption": "Periksa tiap kali pemberian" },
+    { "type": "point", "index": "06", "label": "Kurangi saat", "valueStyle": "text", "value": ["Mendung · ganti kulit", "panas · hujan deras"], "caption": "Nafsu makan turun lebih dulu" },
+    { "type": "outro", "title": ["Anco:", "cara memakainya"],
+      "rows": [["Jumlah", "4–5% jatah"], ["Cek setelah", "1–2 jam"], ["Kalau bersih", "Naik 2–5%"], ["Kalau bersisa", "Kurangi berikutnya"], ["Frekuensi", "4–5 kali sehari"], ["Catat", "Tiap pemberian"]],
+      "ctaTitle": "Catat pakan dan sisanya tiap pemberian", "ctaNote": "Gratis · Tanpa instal aplikasi", "ctaUrl": "shrimp365.kr" }
+  ]
+}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 import { createAdminClient } from "@/lib/supabase-server"
+import { SUPER_ADMIN_EMAIL } from "@/lib/control-auth"
 
 export async function GET(req: NextRequest) {
   // 1. 호출자 인증 확인
@@ -26,7 +27,10 @@ export async function GET(req: NextRequest) {
       .select("role")
       .eq("id", user.id)
       .single()
-    if (callerProfile?.role !== "admin") {
+    // 총관리자(오너)는 이메일로도 인정한다 — role 이 어쩌다 farmer 로 새어도
+    // 관제센터(이메일 기준)만 되고 /admin 은 막히는 불일치를 없앤다.
+    const isOwner = (user.email || "").trim().toLowerCase() === SUPER_ADMIN_EMAIL.trim().toLowerCase()
+    if (callerProfile?.role !== "admin" && !isOwner) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -81,13 +85,14 @@ export async function GET(req: NextRequest) {
         id: uid,
         email: u.email ?? "",
         name: (profile?.name as string) || (u.email?.split("@")[0] ?? ""),
-        role: (profile?.role as string) || "operator",
+        role: (profile?.role as string) || "farmer",
         plan: (profile?.plan as string) || "free",
         farm_count: farmsByUser.get(uid) ?? 0,
         tank_count: tanksByUser.get(uid) ?? 0,
         active_tanks: activeTanksByUser.get(uid) ?? 0,
         alert_count: alertsByUser.get(uid) ?? 0,
         joined_at: u.created_at,
+        last_login: u.last_sign_in_at ?? null,
       }
     })
 

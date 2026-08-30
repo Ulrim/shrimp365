@@ -1,0 +1,15 @@
+{
+  "slug": "feed-tray-check", "locale": "vi",
+  "cards": [
+    { "type": "cover", "label": "ĐỌC SÀNG ĂN", "title": ["Sàng ăn đáng tin", "hơn bảng cho ăn"], "subtitle": "Phần thừa cho bạn câu trả lời" },
+    { "type": "point", "index": "01", "label": "Lượng bỏ vào", "value": "4–5%", "caption": "Chỉ một phần của cữ đó" },
+    { "type": "point", "index": "02", "label": "Kiểm tra sau", "value": "1–2 giờ", "caption": "Nhấc sàng lên trong khoảng này" },
+    { "type": "point", "index": "03", "label": "Nếu sạch trơn", "valueStyle": "text", "value": ["Tăng lên", "2–5%"], "caption": "Đừng tăng vọt một lần" },
+    { "type": "point", "index": "04", "label": "Nếu còn thừa", "valueStyle": "text", "value": ["Giảm cữ", "kế tiếp"], "caption": "Thức ăn thừa là gánh nặng cho đáy" },
+    { "type": "point", "index": "05", "label": "Mỗi ngày", "value": "4–5 cữ", "caption": "Cữ nào cũng phải kiểm tra" },
+    { "type": "point", "index": "06", "label": "Giảm trước khi", "valueStyle": "text", "value": ["Trời âm u · lột", "nắng nóng · mưa lớn"], "caption": "Lượng ăn tụt trước tiên" },
+    { "type": "outro", "title": ["Sàng ăn:", "dùng thế nào"],
+      "rows": [["Lượng bỏ vào", "4–5% của cữ"], ["Kiểm tra sau", "1–2 giờ"], ["Nếu sạch", "Tăng 2–5%"], ["Nếu thừa", "Giảm cữ sau"], ["Số cữ", "4–5 mỗi ngày"], ["Ghi chép", "Mỗi cữ"]],
+      "ctaTitle": "Ghi lượng cho ăn và phần thừa mỗi cữ", "ctaNote": "Miễn phí · Không cần cài app", "ctaUrl": "shrimp365.kr" }
+  ]
+}

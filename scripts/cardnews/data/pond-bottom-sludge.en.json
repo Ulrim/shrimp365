@@ -1,0 +1,16 @@
+{
+  "slug": "pond-bottom-sludge",
+  "locale": "en",
+  "cards": [
+    { "type": "cover", "label": "POND BOTTOM", "title": ["Black bottom", "means too late"], "subtitle": "If it smells, it is sulfide" },
+    { "type": "point", "index": "01", "label": "Hydrogen sulfide", "value": "< 0.01", "caption": "mg/L. Stay under this" },
+    { "type": "point", "index": "02", "label": "How toxic", "valueStyle": "text", "value": ["Even 0.002", "is dangerous"], "caption": "A different order of magnitude" },
+    { "type": "point", "index": "03", "label": "Where it forms", "valueStyle": "text", "value": ["Sludge with", "no oxygen"], "caption": "Where feed and waste pile up" },
+    { "type": "point", "index": "04", "label": "pH", "valueStyle": "text", "value": ["Lower pH,", "more toxic"], "caption": "The opposite of ammonia" },
+    { "type": "point", "index": "05", "label": "Prevention", "value": "≥ 3 mg/L", "caption": "Oxygen at the bottom stops it" },
+    { "type": "point", "index": "06", "label": "Check it", "valueStyle": "text", "value": ["Scoop the mud", "and smell it"], "caption": "Black and like rotten eggs" },
+    { "type": "outro", "title": ["Pond bottom:", "what to watch"],
+      "rows": [["Sulfide", "< 0.01 mg/L"], ["Risk starts", "0.002 mg/L"], ["Bottom oxygen", "≥ 3 mg/L"], ["pH", "Lower is worse"], ["How to check", "Colour, smell"], ["Fix", "Aerate, clean"]],
+      "ctaTitle": "Log oxygen and pH per tank", "ctaNote": "Free · No app install", "ctaUrl": "shrimp365.kr" }
+  ]
+}

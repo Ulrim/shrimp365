@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Shrimp365">
+  <rect width="32" height="32" rx="7" fill="#1E40AF"/>
+  <g fill="#FFFFFF">
+    <path d="M13.4 25.4C7.4 24.8 3.6 19.6 4.6 14.0C5.8 7.6 12.4 3.9 19.0 6.1C21.2 6.9 23.1 8.2 24.4 9.9L20.1 13.5C19.3 12.5 18.2 11.7 17.0 11.3C13.4 10.1 10.1 12.2 9.6 15.3C9.1 18.0 11.0 20.6 14.0 21.1Z"/>
+    <path d="M23.2 8.6L29.0 5.8L27.2 11.0L29.2 14.8L20.6 13.4Z"/>
+  </g>
+  <g fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round">
+    <path d="M11.2 24.4L10.4 27.4"/>
+    <path d="M15.4 25.2L15.6 27.8"/>
+  </g>
+</svg>

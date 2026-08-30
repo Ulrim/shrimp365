@@ -1,0 +1,16 @@
+{
+  "slug": "water-exchange",
+  "locale": "ko",
+  "cards": [
+    { "type": "cover", "label": "환수 요령", "title": ["환수는 양보다", "순서입니다"], "subtitle": "한 번에 30%를 넘기지 마십시오" },
+    { "type": "point", "index": "01", "label": "1회 한도", "value": "≤ 30%", "caption": "20~30%씩 나눠서 하십시오" },
+    { "type": "point", "index": "02", "label": "먼저 할 일", "valueStyle": "text", "value": ["새 물부터", "재십시오"], "caption": "수온·염도·pH를 비교합니다" },
+    { "type": "point", "index": "03", "label": "염도", "value": "< 5 ppt", "caption": "하루 변화 폭을 넘기지 마십시오" },
+    { "type": "point", "index": "04", "label": "수온", "value": "< 3 ℃", "caption": "하루 변동 폭도 같이 봅니다" },
+    { "type": "point", "index": "05", "label": "어디서 빼나", "valueStyle": "text", "value": ["표층이냐", "바닥이냐"], "caption": "빗물은 위, 찌꺼기는 아래" },
+    { "type": "point", "index": "06", "label": "환수 뒤", "valueStyle": "text", "value": ["아질산과", "물색을 봅니다"], "caption": "세균과 플랑크톤이 흔들립니다" },
+    { "type": "outro", "title": ["환수는", "이렇게 합니다"],
+      "rows": [["1회 한도", "≤ 30%"], ["권장", "20~30%씩"], ["염도 변화", "< 5 ppt"], ["수온 변화", "< 3 ℃"], ["새 물", "먼저 측정"], ["환수 뒤", "아질산 확인"]],
+      "ctaTitle": "환수 전후 수질을 나란히 기록", "ctaNote": "완전 무료 · 앱 설치 불필요", "ctaUrl": "shrimp365.kr" }
+  ]
+}

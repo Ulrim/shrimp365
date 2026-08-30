@@ -1,0 +1,308 @@
+{
+  "latest": "1.8.0",
+  "releases": {
+    "1.5.0": {
+      "notes": "염도 단위를 퍼밀(‰)로",
+      "released_at": "2026-08-07",
+      "setup": {
+        "file": "shrimp365-setup-1.5.0.tar.gz",
+        "sha256": "046552f8ff2e6416d8b7a9d60b96ee047986924079253b4bfd8875057fdaf64b",
+        "size": 70919
+      }
+    },
+    "1.6.0": {
+      "notes": "Wi‑Fi 설정·버전 표시·계정 변경·원격 업데이트 서명 활성화",
+      "released_at": "2026-08-10",
+      "setup": {
+        "file": "shrimp365-setup-1.6.0.tar.gz",
+        "sha256": "80b7121d8687039d1f0293a80b370677d3b5f461b54f7871ee2621de02f4440c",
+        "size": 82016,
+        "signature": "l7O7EQOEIaqsGlIgudJrgbyd2NHy6do18rNoPqSdMJM204SMuEhmtyIpdE6eQaBwalTRILs0VoYTgpppQqiNCw=="
+      },
+      "file": "shrimp365-agent-1.6.0.tar.gz",
+      "sha256": "ff8db121efecd30ae7e577d3db75366353e6800eac659b3351b12dc73d1f8a42",
+      "size": 51442,
+      "signature": "azMKjSGMNbG0e2wxGhAQBwsOpOsywkgOsX9ThpiHm9Dqq1YI6Hz7jUmefhm86EirPTEsp37iQEpzkAn/oMLTAw=="
+    },
+    "1.6.1": {
+      "notes": "현장 기기 자동 업데이트 확인용 + 공개키 없이도 버전 보고하도록 수정",
+      "released_at": "2026-08-10",
+      "setup": {
+        "file": "shrimp365-setup-1.6.1.tar.gz",
+        "sha256": "d004fa8747240dfd6d016ea750f5a01d0cbb2659fda3f594dc231ac5a3d0027a",
+        "size": 82119,
+        "signature": "r1fYgYfJtmhQDFfUoPMJBmAGNC6XVix/riEep/iOI3Bjq5Qxa9Xp8voJP49dNjavrl4r4juJR9wa7+z0Lm7zBQ=="
+      },
+      "file": "shrimp365-agent-1.6.1.tar.gz",
+      "sha256": "7e02a2e55f998ac4ca2e13f5c08ba106794ea66f8bac28c6f42fa572d52519eb",
+      "size": 51555,
+      "signature": "qiNRChNWs93LzE/miZ0zxaYJVwvR5k+NcDzUoveboIXdkgG6AnGo6esvIncBxy/dMcf8SuHgwy20/vsdkWmvAA=="
+    },
+    "1.6.2": {
+      "notes": "원격 자동 업데이트 동작 확인용 (기능 변경 없음)",
+      "released_at": "2026-08-10",
+      "setup": {
+        "file": "shrimp365-setup-1.6.2.tar.gz",
+        "sha256": "7c5e92ed75ed22eecabbad99662c1640f85774d36632ee33ee4127fa8411f0d9",
+        "size": 82119,
+        "signature": "1AXcBSUOoqj994Ruriv1/HN6YWrsVEdNisEARm4Grk1eui4G8p7Oy2P22XlVvZOGgaT/a5xVYGBhde06oAkNAg=="
+      },
+      "file": "shrimp365-agent-1.6.2.tar.gz",
+      "sha256": "289220b1621973f2c30899d966b1a3c627b00a713c05b5fa05c0a9696d6aa8ec",
+      "size": 51555,
+      "signature": "+8QnReb/DL0BRlWxQ2chDiq+v7NYgnEyeebz4HO0jCvXPtuAzZlAwTbMxSLLr1P134Gv78hNStsMF0t+xNb3Ag=="
+    },
+    "1.6.3": {
+      "notes": "설정 화면(센서·Wi‑Fi·언어), 4개 언어(ko/en/vi/id) 지원, 다국어 글꼴 설치",
+      "released_at": "2026-08-10",
+      "setup": {
+        "file": "shrimp365-setup-1.6.3.tar.gz",
+        "sha256": "042b4e8a390d3a72ba67a4c42bea20fcf4f9ce628d15e7e1a1d5ef24981e53b4",
+        "size": 88802,
+        "signature": "pgkKRl2tuYNARf0hkLwFTjUhIcItQkhd8xR/s2BypUGh8jZhwRx1GLz7L+z0n+VrkIVX9Zab4/fdWTXcIn7gBg=="
+      },
+      "file": "shrimp365-agent-1.6.3.tar.gz",
+      "sha256": "94d29886518637d195a24fb47e10dbc2caca22461db4bc30d8f66e7068a3f03c",
+      "size": 57771,
+      "signature": "Wqv1kfsi9XT0Qk1U1UQG3fFa97TVf7tANfg2WYbo7qI62ZWiJnAd0JVGs9MtqNbqAFdeTCZloSPNV7JfTOftDg=="
+    },
+    "1.6.4": {
+      "notes": "인터넷 끊김 후 자동 복구 — 무선 절전 끄기 + 재연결 워치독",
+      "released_at": "2026-08-12",
+      "setup": {
+        "file": "shrimp365-setup-1.6.4.tar.gz",
+        "sha256": "5a663a5f1206ff792193277f27ce11964d09a8f7e3c764ed62cdf9738b1c8442",
+        "size": 89961,
+        "signature": "E/E17u4n1+TpLU4S1BOx7/LemCl63RT9OmjLqvmHKuahDROOB9sl1bCBC4szsdMAqd4D28YzGGyHZ9U5kd2LBg=="
+      },
+      "file": "shrimp365-agent-1.6.4.tar.gz",
+      "sha256": "240438fb4df600f1a9837e30ae1ff67ece59b7d2b7966c30ab2e1b8c3a937be3",
+      "size": 58822,
+      "signature": "8HeCtU6ViOoDT4/X+KFkOjPyCJ08JRC1BQoFcXbOJoN5i3oIhZ487KqGzkAUA+LY18jzOrQRdmy6KmsICuICCQ=="
+    },
+    "1.6.5": {
+      "notes": "염도 적정 범위 상한을 35퍼밀로",
+      "released_at": "2026-08-12",
+      "setup": {
+        "file": "shrimp365-setup-1.6.5.tar.gz",
+        "sha256": "62887ef3f597f644aebabfa053c7edc6baad9fe175bc04adef0fb666b4f8e00e",
+        "size": 89961,
+        "signature": "ddPgYzhhfFfWY0/Xtf7E2wMxhr5NonadFTO3AEZUBjtwm3yEjRZhbftBzqDTzLLPM7pZ792SjLqR0oFBhgwBCQ=="
+      },
+      "file": "shrimp365-agent-1.6.5.tar.gz",
+      "sha256": "cf20bf2ed087433628e024e51221a6c9a3232d9fd6e110d48f4831da37a4975b",
+      "size": 58823,
+      "signature": "6AbAXyV6/c/BsqEW3ZzRYIQQadZQIP9ezStMAK5xvAXIfcSsR6xBCtYAPoOweCXXIw02VcL9ZApe+EfjojncCA=="
+    },
+    "1.6.6": {
+      "notes": "설정에 재시작 추가 — 프로그램 다시 시작 / 기기 재부팅",
+      "released_at": "2026-08-13",
+      "setup": {
+        "file": "shrimp365-setup-1.6.6.tar.gz",
+        "sha256": "43d45014faea5490b04d70dc315d0cba9c59121132c352cba702f95dbde267d5",
+        "size": 92156,
+        "signature": "tSyklZ83JZjLSYmuQ/OhEG8OhjSemuBLCoPDy3NxkNYYU9+LdJesyZS1DhotXi+jw/zB6eVNJypveDyJawpYAw=="
+      },
+      "file": "shrimp365-agent-1.6.6.tar.gz",
+      "sha256": "1184f92691dd5d9feded44fe7abd9afc8eca6661b5113e29a001401f5c0b8391",
+      "size": 60885,
+      "signature": "pW2WtAfsg475pr06Hsj1DfDka+FOiZSXUQNCwrERmCibLpylOIP+7S+hbkaAUAXOlyraWsDdUzq5Tgk+QgoFDA=="
+    },
+    "1.6.7": {
+      "notes": "EC 센서 측정 항목 선택 — 염도 / 전도도(양액)",
+      "released_at": "2026-08-13",
+      "setup": {
+        "file": "shrimp365-setup-1.6.7.tar.gz",
+        "sha256": "744bd6ca8e38ea443ae7293c2f5d39b43b35ba19190c32f82afff78c1f5b0c5b",
+        "size": 94404,
+        "signature": "P6j2qoiZ7kAHd2tWvgfedxv+2+Z+h7qCA1Z2rjPfnPnmCxiaPqtL2dL7tY5Ro6xVD9IW+gpfCVn4Lm7KxXwXDQ=="
+      },
+      "file": "shrimp365-agent-1.6.7.tar.gz",
+      "sha256": "6b373c0492b73b202ba268d2e73b242f2e904c51ea343aa2a3d4b5bb0a7982f6",
+      "size": 62898,
+      "signature": "GklnGj8jPFx7F1fIxxTWpAgYpnED5PAIMBQDrnIadRaqQ+dR8uxX9mBtGkgJeUsP7ZuRIVCfs4D17d+iK96qDg=="
+    },
+    "1.6.8": {
+      "notes": "양액(수경재배) EC 관리 — 보충량 자동 계산",
+      "released_at": "2026-08-13",
+      "setup": {
+        "file": "shrimp365-setup-1.6.8.tar.gz",
+        "sha256": "25ee37d47126c380360cf1d776b150ad59fd5706cd994833726e2f7448943901",
+        "size": 100692,
+        "signature": "8iBvpS0cVuyLm4q7m7GAcgIpBeBHhM/H/4GaZBw2vCrPRIAj6m6O8edcHPGqRkUjys3G/1VIKPQGL+mPL8a0Cg=="
+      },
+      "file": "shrimp365-agent-1.6.8.tar.gz",
+      "sha256": "a765be449c783cfda34625093ae859cbad1060d76f95c4c7ab5a73b59768bad7",
+      "size": 68614,
+      "signature": "kV96bClf0e8nYIIve8ztvENFgd50t4D6xn30GLJjuC6FOXAso7wIjRdhZjSVFhQMHhDxHaF2HTnqxeDUk8jvBg=="
+    },
+    "1.6.9": {
+      "notes": "전도도 칸 아래에 양액 계산에 쓴 EC(25℃ 환산) 표시",
+      "released_at": "2026-08-13",
+      "setup": {
+        "file": "shrimp365-setup-1.6.9.tar.gz",
+        "sha256": "3c1e5a948b622d391e6f7d971baf45a9c857fcc6a569f04c6d34f6e8cb4ed9e8",
+        "size": 101035,
+        "signature": "DCRo+Z9Ij45+k6+QusvwLC/BLTGtSokNaEpejfRnBzRBTfmGs3+lLdTuR57Nh2RTH8tNbHe2TQPHQQCp8Y4UDA=="
+      },
+      "file": "shrimp365-agent-1.6.9.tar.gz",
+      "sha256": "9d3ab17322415bad8f985d7d37148993bc15943f2eac731499f10e0c4fe5dfc6",
+      "size": 68961,
+      "signature": "S7zCOiYnSfQ3BHvkwSu2PBUDkvbQcud6IYs9AQ2qvdopJsHEYQ0shL93hMpaRCcZANG1l/+EuWatv6B9l61DBQ=="
+    },
+    "1.7.0": {
+      "notes": "값이 안 나올 때 어느 센서가 응답 없는지 화면에 표시",
+      "released_at": "2026-08-18",
+      "setup": {
+        "file": "shrimp365-setup-1.7.0.tar.gz",
+        "sha256": "b7515a967c1f0f0beb3bcdd7068c4acd7a10ac8760f0826f67c4379cfdddc24d",
+        "size": 101397,
+        "signature": "W31z00YjrFlBi5GBi+woTAyhnlvlq9/lCnIHNjRA9kowsSp62mCkt6hf+tTzXd89wIuG86EN+1DxLA2ium3wAg=="
+      },
+      "file": "shrimp365-agent-1.7.0.tar.gz",
+      "sha256": "20ce4cfa94d4b092268c48fa49fe13895f18604e359b4c96e09f82403254615a",
+      "size": 69326,
+      "signature": "47sIhjfDMa0KaP7IXh/G3sZ1lg49OP+csTiNPe7DidK2QZW6TtMNbLAsVm0sUtV0FtInFGHpx6c6j6dLqn/9AA=="
+    },
+    "1.7.1": {
+      "notes": "센서가 응답해도 값을 못 낼 때(전극 미연결) 원인을 구분해 표시",
+      "released_at": "2026-08-27",
+      "setup": {
+        "file": "shrimp365-setup-1.7.1.tar.gz",
+        "sha256": "2c0c23c3c583683f8019a629545ca233eb3502146db9ab65974d65451ad03dab",
+        "size": 101924,
+        "signature": "Y6lCtmIRJXyFl8UgagPGvA4gqMrJ+BGT4NyeAZPFNhk5Czimy5mLm2P9rFAt1DWFWSiBOH6A3zYh5k8ITcgPAg=="
+      },
+      "file": "shrimp365-agent-1.7.1.tar.gz",
+      "sha256": "f944109b278ab55a82f7dc170e358d0b1b18f5e449db98d25ec163eefe87843a",
+      "size": 69859,
+      "signature": "fyU29VUAGDRZYYzs6DzK/nQtsPvJlvkuVa6xK2uWRzMdzNJGhgExJ3xzkmLZCuEZkye3+YKCA7AC6IiwQPj8CA=="
+    },
+    "1.7.2": {
+      "notes": "전극 이상 구분 표시 + 유량·차압 센서 지원 통합",
+      "released_at": "2026-08-27",
+      "setup": {
+        "file": "shrimp365-setup-1.7.2.tar.gz",
+        "sha256": "8eaa8f6bf3a16b7d2ca69c8c86540dd00f4abea690a7f620eefb214b29e3742c",
+        "size": 103508,
+        "signature": "J6pLIujoYxGU9SFj2BUeSEkamfydCbIokSVcfWoopEfKn5BZcjTKidhSq/bGMyplQxmEh/xH6oJI5AYPGJhYBw=="
+      },
+      "file": "shrimp365-agent-1.7.2.tar.gz",
+      "sha256": "ed8efb23c14b967012ef3b5e23b43184ca78e6d88ac19964170215e9bd5a2117",
+      "size": 71139,
+      "signature": "vAeJt2qkKMGh9LeXokE3ZJACB4DVR+X3yutpJUmlqkZ34+S8gLgj0FU+tcyaOVNPjuyeVxputHd3S0umEiPZDg=="
+    },
+    "1.7.3": {
+      "notes": "용존산소 과포화 감지 — 물에서 나올 수 없는 값을 화면이 짚어 준다",
+      "released_at": "2026-08-27",
+      "setup": {
+        "file": "shrimp365-setup-1.7.3.tar.gz",
+        "sha256": "30f4b680337025fa574da67bc432610d292021785646b5fec21d243f534f19d0",
+        "size": 104514,
+        "signature": "MKWNA9DUB4pCueAZVIU70BySNLsZDXsOzCebU5d45jZvz9ZzMA5LgUBIdFaQlU6KWNTVrEeOVsui6yonpb74CA=="
+      },
+      "file": "shrimp365-agent-1.7.3.tar.gz",
+      "sha256": "7342691497aeb64a2552e2496e86f3bb083044a17bd359b5a6da4f8e84aae4fd",
+      "size": 72226,
+      "signature": "DlODkQ+02q9Rp/7UWBrZUMKP7uTq4WsXoOxdYl6FK6PEB5PCYLqld//3hdzyB2J+0iyuIpArZe7L/vAS4gZbBA=="
+    },
+    "1.7.4": {
+      "notes": "설정에 [센서 테스트] 추가 — 통신·전극·값을 나눠 진단",
+      "released_at": "2026-08-27",
+      "setup": {
+        "file": "shrimp365-setup-1.7.4.tar.gz",
+        "sha256": "e7ed7059004344cc74e9610f9f9ea0a369b99fb491db7727914a81354f29ff30",
+        "size": 106627,
+        "signature": "WWgTfQfX9CQ0NwRCX4tNC1KwbeF8uNbE/5V3EjbXBGzRy5VAx3n9taPPcKu+phyrQQv6bXw6PfoNzyIX3MzlBg=="
+      },
+      "file": "shrimp365-agent-1.7.4.tar.gz",
+      "sha256": "70ea03636256c9043e4d8268c91fc09082139a50b7d321a6045e162916227edc",
+      "size": 74250,
+      "signature": "6AzcGoUclsQngygSjUR9s6Szmc/p8EkrBPRw9FmAxA4Y/HeXtp9k23hzWMCXtZCR2iHgvfgOju2Wt/vgpY64DQ=="
+    },
+    "1.7.5": {
+      "notes": "못 읽은 센서의 사유를 서버로 함께 보내 웹에서도 이유가 보이게",
+      "released_at": "2026-08-27",
+      "setup": {
+        "file": "shrimp365-setup-1.7.5.tar.gz",
+        "sha256": "820153ea34ecc1f5359e60641aab4973c25db3658aec56c7d80005c4f2e387a1",
+        "size": 106834,
+        "signature": "mIF25I9BPCZdngfgkpIeza64DRPXWYgzsjXPKphSX+IwzdmH3Fe8o4GPSUPCdmFSScvVd4vA0u72htEFfeRYCA=="
+      },
+      "file": "shrimp365-agent-1.7.5.tar.gz",
+      "sha256": "5499b56a74ad30f72c4ab93e72f6f8808266818ff9cc70ca9b51c72770b493c1",
+      "size": 74536,
+      "signature": "Mi6SNFwfuLGMu7AwmoCDNP1B1STN3xgwnIISyJ1U9fl7nk4ntwvl8LRg0LkaEv8V/SOcHM6KycVI0dHsDxpIAA=="
+    },
+    "1.7.6": {
+      "notes": "센서 여러 대일 때 한 대씩 오류 나던 문제 — 전환 간격·오류 후 선 정리 보강",
+      "released_at": "2026-08-27",
+      "setup": {
+        "file": "shrimp365-setup-1.7.6.tar.gz",
+        "sha256": "48bfec1a874f83353d27e4a4373583cb2a490dd3a2ed3079d61c34beedfdaf3e",
+        "size": 107689,
+        "signature": "8+5e6RB3ziGw1tdvmSiM4p+gV3ZPsoswNfHqPd6YwfMqS8I630MBJW87NtdlxmKPnl/1Jg/GnOMfROrHY5UfCw=="
+      },
+      "file": "shrimp365-agent-1.7.6.tar.gz",
+      "sha256": "624086d16bf5078aae272bd690d564f7356ba316568141843bbe77fb1bec1f62",
+      "size": 75391,
+      "signature": "Z+pIpakPphlFl8rp+wff2A6cPU06iMWKXqLyEUqpSFZ++l+Dp93zDL38dWVwUDoXeV4hE9Fi/atMkqO0mP+lAg=="
+    },
+    "1.7.7": {
+      "notes": "느린 센서 대응 — 재시도 간격을 늘려 간헐적 응답 없음 복구",
+      "released_at": "2026-08-27",
+      "setup": {
+        "file": "shrimp365-setup-1.7.7.tar.gz",
+        "sha256": "1b963e64fa2c3142a899a7ff8ee6c02dcccd7f42a60bddf5a84fc393c66a3236",
+        "size": 108026,
+        "signature": "Cct6cC+j1EBjs+ZnAiVlZZh867ZXDgmoRz2JdPRJjNPzUANUmW/y3WAv9/o5S+DXPj3lIw6sKUqWm0Zz3Mp6CQ=="
+      },
+      "file": "shrimp365-agent-1.7.7.tar.gz",
+      "sha256": "95f696d2cc52fa78e30393be26463094325516fcf5a80c3e1f95e0d33adff916",
+      "size": 75731,
+      "signature": "bap9VymGvfAfvlapjzDr7rPYHKd1K74YEXxVUThhc/gKtMxInCC40Y1pxbTtMny0iOoIhSVnI5dsQmSCMn/2Bg=="
+    },
+    "1.7.8": {
+      "notes": "용존산소 이상 원인을 물 밖/보정 필요로 구분",
+      "released_at": "2026-08-27",
+      "setup": {
+        "file": "shrimp365-setup-1.7.8.tar.gz",
+        "sha256": "4d6bf0cd3c143be960dc3491161204d109385777860f067ca273ca7f620cdd56",
+        "size": 109018,
+        "signature": "Bu7tq09IxWWFSJGLTdTA88khLDul5FNX64C3tRY7RYGx1idZ/Y/7ANUx6jtNPpNReOmrZhFDiY/QydWv/mMJCg=="
+      },
+      "file": "shrimp365-agent-1.7.8.tar.gz",
+      "sha256": "772d9947fbabe58a17128e690c8c7bd667fa366d3c67cbefa413b3ff14e9866f",
+      "size": 76638,
+      "signature": "UMN+a2PesYgvNLeNxnAoAep9rPrAbnTx0QJyEkngcxbI4zhOOl2FZBeQFHmqhpdhNQOam0t61/mxNaQ0BJFmBw=="
+    },
+    "1.7.9": {
+      "notes": "수온 교차검증으로 물 밖 전극 감지 + 값 없음 판정 결함 수정",
+      "released_at": "2026-08-27",
+      "setup": {
+        "file": "shrimp365-setup-1.7.9.tar.gz",
+        "sha256": "ae8ab52631ed9b2573639342bac8f6dfba0b481b5ca1db96ce58c43cc913e3dc",
+        "size": 110301,
+        "signature": "usiReJJJ8ncZBnj9ebiCSnSc5hrJkpl27NOAmP43nguGGx4FJ2SxjodkHsOcuJ9OX8iq2M5520016KrdpaX9BQ=="
+      },
+      "file": "shrimp365-agent-1.7.9.tar.gz",
+      "sha256": "019c4bbd7dd8dc3da559ef85ce90de3cdc9098bc65fe89d09ae68bdeb2944412",
+      "size": 78008,
+      "signature": "SeIkPP6vwYSCT0UxvoGpu9/OlloL7kaIsLnz8ngd+26QxNld5JSaZf4GPTbIJAMx8jTTH9Zj1NsNn5RZ2bagAw=="
+    },
+    "1.8.0": {
+      "notes": "센서값 보정 기능 — 실측값을 넣으면 차이를 자동 계산",
+      "released_at": "2026-08-27",
+      "setup": {
+        "file": "shrimp365-setup-1.8.0.tar.gz",
+        "sha256": "e4c9b8b54579ccd66a50dac90697e26e3297b2135a44421d1538582687888fbe",
+        "size": 113713,
+        "signature": "x+War25wSxYH3bSQWkjJOmtFymAzs+j4cLjAIWVmnQEp4WriDiGz7ub8DMRDkzOx/FBCwfABhQJB1Ce/Vl0SAg=="
+      },
+      "file": "shrimp365-agent-1.8.0.tar.gz",
+      "sha256": "42a12a3c60e6f29e21ecc4df98bf9c9ebe797e4e4dfc42f4342573f7af28a907",
+      "size": 81169,
+      "signature": "zxo+v5LahAAUTqvcG1Vxz76R3HjUcosDd0GCt0gw/t+lJqW/g1bP6fPEJzWMbjID2lSIC1+lwCUkNrwgLPQhCg=="
+    }
+  }
+}

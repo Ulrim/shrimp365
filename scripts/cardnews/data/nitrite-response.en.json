@@ -1,0 +1,16 @@
+{
+  "slug": "nitrite-response",
+  "locale": "en",
+  "cards": [
+    { "type": "cover", "label": "NITRITE RESPONSE", "title": ["After ammonia", "comes nitrite"], "subtitle": "Catching one is not the end" },
+    { "type": "point", "index": "01", "label": "Target", "value": "< 1 mg/L", "caption": "Keep it under this line" },
+    { "type": "point", "index": "02", "label": "Why it kills", "valueStyle": "text", "value": ["Oxygen is there,", "they cannot use it"], "caption": "It blocks oxygen in the blood" },
+    { "type": "point", "index": "03", "label": "When it rises", "valueStyle": "text", "value": ["Before nitrifiers", "settle in"], "caption": "Common in newly started ponds" },
+    { "type": "point", "index": "04", "label": "Salinity", "valueStyle": "text", "value": ["The lower it is,", "the worse it hits"], "caption": "Near 5 ppt, hold a stricter line" },
+    { "type": "point", "index": "05", "label": "First move", "valueStyle": "text", "value": ["Cut the feed", "first"], "caption": "Less nitrogen in, faster down" },
+    { "type": "point", "index": "06", "label": "Oxygen", "value": "≥ 5 mg/L", "caption": "Watch the pre-dawn reading" },
+    { "type": "outro", "title": ["Nitrite:", "what to watch"],
+      "rows": [["Target", "< 1 mg/L"], ["Rises after", "Disinfection"], ["Salinity", "Lower is worse"], ["Feed", "Cut first"], ["Oxygen", "≥ 5.0 mg/L"], ["Check", "Every day"]],
+      "ctaTitle": "Log ammonia and nitrite together", "ctaNote": "Free · No app install", "ctaUrl": "shrimp365.kr" }
+  ]
+}

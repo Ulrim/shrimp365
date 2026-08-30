@@ -1,0 +1,73 @@
+{
+  "slug": "vibrio-monitoring",
+  "locale": "ko",
+  "cards": [
+    {
+      "type": "cover",
+      "label": "비브리오 관리",
+      "title": ["밤에 물이", "빛나고 있다면"],
+      "subtitle": "발광 비브리오입니다"
+    },
+    {
+      "type": "point",
+      "index": "01",
+      "label": "총 비브리오",
+      "value": "< 10³",
+      "caption": "CFU/mL 아래로 유지합니다"
+    },
+    {
+      "type": "point",
+      "index": "02",
+      "label": "경고 구간",
+      "value": "10² – 10³",
+      "caption": "이때부터 대응을 시작합니다"
+    },
+    {
+      "type": "point",
+      "index": "03",
+      "label": "초록 집락",
+      "valueStyle": "text",
+      "value": ["더 위험한", "쪽입니다"],
+      "caption": "TCBS 배지에서 초록으로 납니다"
+    },
+    {
+      "type": "point",
+      "index": "04",
+      "label": "발광",
+      "valueStyle": "text",
+      "value": ["찌꺼기가", "많다는 뜻입니다"],
+      "caption": "바닥과 사료를 먼저 보십시오"
+    },
+    {
+      "type": "point",
+      "index": "05",
+      "label": "잘 늘 때",
+      "valueStyle": "text",
+      "value": ["고수온기에", "빨라집니다"],
+      "caption": "여름에 증식 속도가 올라갑니다"
+    },
+    {
+      "type": "point",
+      "index": "06",
+      "label": "막는 법",
+      "valueStyle": "text",
+      "value": ["바닥과", "급이 관리"],
+      "caption": "약보다 환경이 먼저입니다"
+    },
+    {
+      "type": "outro",
+      "title": ["비브리오는", "이렇게 봅니다"],
+      "rows": [
+        ["안전", "< 10² CFU/mL"],
+        ["경고", "10² – 10³"],
+        ["위험", "> 10³"],
+        ["더 위험한 쪽", "초록 집락"],
+        ["발광", "찌꺼기 많음"],
+        ["대책", "바닥 · 급이 관리"]
+      ],
+      "ctaTitle": "수온과 급이를 함께 기록",
+      "ctaNote": "완전 무료 · 앱 설치 불필요",
+      "ctaUrl": "shrimp365.kr"
+    }
+  ]
+}

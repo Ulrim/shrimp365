@@ -10,6 +10,9 @@ services:
         NEXT_PUBLIC_SUPABASE_URL:      https://okecfkqpoigxvlsomqjc.supabase.co
         NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZWNma3Fwb2lneHZsc29tcWpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4ODE2MzMsImV4cCI6MjA5MzQ1NzYzM30._2R8h2okwLc7DlXPm6XED9i2CDmJlOFhuyIlgfNA0Zs
         NEXT_PUBLIC_SITE_URL:          https://www.shrimp365.kr
+        # 컬리버 탄소 MRV 플랫폼 진입 버튼. 배포 주소가 정해지면 값을 넣어 활성화한다.
+        # 비워 두면(기본) 헤더/푸터에 버튼이 렌더되지 않는다.
+        NEXT_PUBLIC_MRV_PLATFORM_URL:  ""
     container_name: shrimp365
     restart: unless-stopped
     env_file:
@@ -18,3 +21,20 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: production
+
+  # AI 어드바이저 로컬 추론 서버 — `--profile ai`로 옵트인 (기본 `up`에는 뜨지 않음).
+  # 포트는 호스트에 노출하지 않는다 — 웹 컨테이너가 내부 네트워크(http://ollama:11434/v1)로만 접근.
+  # shrimp365에 depends_on을 걸지 않는다 — 프로필 미활성 시 compose 기동이 깨진다.
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    restart: unless-stopped
+    profiles: ["ai"]
+    volumes:
+      - ollama-models:/root/.ollama   # 모델 저장 — pull 1회면 재기동에도 유지
+    environment:
+      OLLAMA_KEEP_ALIVE: 24h          # 모델 램 상주 — 매 요청 재로딩(수십 초) 방지
+      OLLAMA_CONTEXT_LENGTH: "8192"   # KV 캐시 램 상한
+
+volumes:
+  ollama-models:

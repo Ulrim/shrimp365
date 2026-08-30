@@ -1,0 +1,16 @@
+{
+  "slug": "nitrification-basics",
+  "locale": "vi",
+  "cards": [
+    { "type": "cover", "label": "NITRAT HÓA", "title": ["Men vi sinh", "không phải thuốc"], "subtitle": "Phải vài tuần mới ổn định" },
+    { "type": "point", "index": "01", "label": "Đường đi", "valueStyle": "text", "value": ["Amoniac →", "nitrit → nitrat"], "caption": "Diễn ra qua hai bước riêng" },
+    { "type": "point", "index": "02", "label": "Vi khuẩn", "valueStyle": "text", "value": ["Mỗi bước một", "loại khác nhau"], "caption": "Nên nitrit mới bị dồn lại" },
+    { "type": "point", "index": "03", "label": "Thời gian ổn", "value": "2–4 tuần", "caption": "Đổ hôm nay không hạ hôm nay" },
+    { "type": "point", "index": "04", "label": "Khi nào đổ", "valueStyle": "text", "value": ["Lúc bắt đầu và", "sau khi sát trùng"], "caption": "Đổ thường xuyên, không đợi sự cố" },
+    { "type": "point", "index": "05", "label": "Độ kiềm", "value": "7.14 g", "caption": "Tốn cho mỗi 1 g amoniac" },
+    { "type": "point", "index": "06", "label": "Oxy", "value": "≥ 5 mg/L", "caption": "Vi khuẩn này cũng cần oxy" },
+    { "type": "outro", "title": ["Men vi sinh:", "dùng thế nào"],
+      "rows": [["Đường đi", "Hai bước"], ["Thời gian ổn", "2–4 tuần"], ["Khi nào đổ", "Đầu vụ, sau sát trùng"], ["Độ kiềm", "100–150 mg/L"], ["Oxy", "≥ 5.0 mg/L"], ["Khi số tăng", "Giảm ăn trước"]],
+      "ctaTitle": "Ghi độ kiềm và đạm cùng lúc", "ctaNote": "Miễn phí · Không cần cài app", "ctaUrl": "shrimp365.kr" }
+  ]
+}

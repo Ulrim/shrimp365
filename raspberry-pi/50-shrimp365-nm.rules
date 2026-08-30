@@ -1,0 +1,25 @@
+// Shrimp365 수집기가 화면에서 Wi‑Fi 를 바꿔 붙이고, 기기를 재부팅할 수 있게 한다.
+//
+// 이 프로그램은 시스템 서비스(shrimp365 사용자)로 돌고 로그인 세션이
+// 없다. polkit 은 기본적으로 "활성 로컬 세션" 에만 이런 제어를 열어
+// 주므로, 세션 없는 이 사용자에게는 따로 허용해 주어야 한다.
+//
+// 허용 범위는 NetworkManager 와 재부팅으로 한정한다. 그 밖의 시스템
+// 권한은 주지 않는다(전원 끄기·최대절전도 주지 않는다 — 무인 장비가
+// 꺼지면 사람이 현장에 가야 다시 켤 수 있다).
+// 설치 위치: /etc/polkit-1/rules.d/50-shrimp365-nm.rules
+//
+// 이 규칙이 없으면 화면의 Wi‑Fi 조회·검색은 대개 되지만 접속 시도에서
+// "권한이 없어 바꾸지 못했습니다" 가 뜨고, 화면의 [기기 재부팅] 도 막힌다.
+
+polkit.addRule(function(action, subject) {
+    if (action.id.indexOf("org.freedesktop.NetworkManager.") === 0 &&
+        subject.user === "shrimp365") {
+        return polkit.Result.YES;
+    }
+    if ((action.id === "org.freedesktop.login1.reboot" ||
+         action.id === "org.freedesktop.login1.reboot-multiple-sessions") &&
+        subject.user === "shrimp365") {
+        return polkit.Result.YES;
+    }
+});

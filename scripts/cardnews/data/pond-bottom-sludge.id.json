@@ -1,0 +1,16 @@
+{
+  "slug": "pond-bottom-sludge",
+  "locale": "id",
+  "cards": [
+    { "type": "cover", "label": "DASAR TAMBAK", "title": ["Dasar menghitam", "berarti terlambat"], "subtitle": "Kalau berbau, itu H2S" },
+    { "type": "point", "index": "01", "label": "Hidrogen sulfida", "value": "< 0.01", "caption": "mg/L. Jaga di bawah ini" },
+    { "type": "point", "index": "02", "label": "Seberapa racun", "valueStyle": "text", "value": ["0.002 saja", "sudah bahaya"], "caption": "Beda orde dengan parameter lain" },
+    { "type": "point", "index": "03", "label": "Muncul di mana", "valueStyle": "text", "value": ["Endapan dasar", "tanpa oksigen"], "caption": "Tempat pakan dan kotoran menumpuk" },
+    { "type": "point", "index": "04", "label": "pH", "valueStyle": "text", "value": ["Makin rendah pH,", "makin beracun"], "caption": "Kebalikan dari amonia" },
+    { "type": "point", "index": "05", "label": "Cara mencegah", "value": "≥ 3 mg/L", "caption": "Ada oksigen di dasar, tak terbentuk" },
+    { "type": "point", "index": "06", "label": "Cara cek", "valueStyle": "text", "value": ["Ambil lumpurnya", "lalu dicium"], "caption": "Hitam dan bau telur busuk" },
+    { "type": "outro", "title": ["Dasar tambak:", "yang dipantau"],
+      "rows": [["Hidrogen sulfida", "< 0.01 mg/L"], ["Mulai bahaya", "0.002 mg/L"], ["Oksigen dasar", "≥ 3 mg/L"], ["pH", "Rendah lebih bahaya"], ["Cara cek", "Warna dan bau"], ["Penanganan", "Kincir, kuras"]],
+      "ctaTitle": "Catat oksigen dan pH per petak", "ctaNote": "Gratis · Tanpa instal aplikasi", "ctaUrl": "shrimp365.kr" }
+  ]
+}

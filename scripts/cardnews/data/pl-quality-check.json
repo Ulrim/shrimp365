@@ -1,0 +1,16 @@
+{
+  "slug": "pl-quality-check",
+  "locale": "ko",
+  "cards": [
+    { "type": "cover", "label": "종묘 판별", "title": ["좋은 종묘가", "절반입니다"], "subtitle": "입식 전에 봐야 합니다" },
+    { "type": "point", "index": "01", "label": "크기", "value": "PL 10~12", "caption": "너무 어리면 초기 폐사가 큽니다" },
+    { "type": "point", "index": "02", "label": "고르기", "valueStyle": "text", "value": ["크기가", "고를 것"], "caption": "편차는 나중에 더 벌어집니다" },
+    { "type": "point", "index": "03", "label": "헤엄", "valueStyle": "text", "value": ["벽을 따라", "활발할 것"], "caption": "가라앉아 있으면 나쁩니다" },
+    { "type": "point", "index": "04", "label": "몸", "valueStyle": "text", "value": ["중장이", "꽉 찬 것"], "caption": "비어 있으면 굶은 것입니다" },
+    { "type": "point", "index": "05", "label": "스트레스", "valueStyle": "text", "value": ["염도를 낮춰", "30분 관찰"], "caption": "생존 90% 이상이면 합격" },
+    { "type": "point", "index": "06", "label": "검사", "valueStyle": "text", "value": ["EHP·WSSV", "음성 확인"], "caption": "유전자 검사서를 받으십시오" },
+    { "type": "outro", "title": ["종묘는", "이렇게 봅니다"],
+      "rows": [["크기", "PL 10~12"], ["균일도", "크기 차이 적게"], ["활력", "벽 따라 유영"], ["소화관", "꽉 찬 상태"], ["스트레스", "생존 90%↑"], ["검사", "유전자 음성"]],
+      "ctaTitle": "입식 정보를 수조별로 기록", "ctaNote": "완전 무료 · 앱 설치 불필요", "ctaUrl": "shrimp365.kr" }
+  ]
+}

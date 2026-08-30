@@ -23,6 +23,9 @@
 # misc
 .DS_Store
 *.pem
+# 업데이트 서명 개인키만 예외로 저장소에 포함한다(단일 운영자·비공개 저장소 전제).
+# 저장소를 공개로 바꾸면 이 키는 폐기하고 새로 만들 것.
+!raspberry-pi/secrets/release-key.pem
 
 # debug
 npm-debug.log*
@@ -47,7 +50,20 @@ next-env.d.ts
 *.png
 *.jpeg
 *.jpg
-# .claude 내부는 무시하되, 공유 스킬만 저장소에 포함
-# (세션마다 새로 clone되므로 스킬은 커밋 필요)
+# 카드뉴스 이미지는 사이트가 서빙하는 실제 콘텐츠이므로 저장소에 포함한다
+!public/cardnews/**/*.png
+# 앱 아이콘(파비콘·PWA)도 빌드 산출물이 아니라 소스다
+!public/icons/*.png
+!app/apple-icon.png
+# .claude 내부는 무시하되, 공유 스킬·에이전트만 저장소에 포함
+# (세션마다 새로 clone되므로 스킬과 팀 정의는 커밋 필요)
 .claude/*
 !.claude/skills/
+!.claude/agents/
+
+# Python
+__pycache__/
+*.pyc
+
+# 라즈베리파이 터치스크린 미리보기 — make-preview.py 로 생성하는 빌드 산출물
+/kiosk-preview.html

@@ -1,0 +1,16 @@
+{
+  "slug": "water-exchange",
+  "locale": "en",
+  "cards": [
+    { "type": "cover", "label": "WATER EXCHANGE", "title": ["Order matters", "more than volume"], "subtitle": "Never swap over 30% at once" },
+    { "type": "point", "index": "01", "label": "Per exchange", "value": "≤ 30%", "caption": "Do 20–30% in stages" },
+    { "type": "point", "index": "02", "label": "Do this first", "valueStyle": "text", "value": ["Measure the", "incoming water"], "caption": "Compare temp, salinity, pH" },
+    { "type": "point", "index": "03", "label": "Salinity", "value": "< 5 ppt", "caption": "Never pass this in one day" },
+    { "type": "point", "index": "04", "label": "Temperature", "value": "< 3 ℃", "caption": "Watch the daily swing too" },
+    { "type": "point", "index": "05", "label": "Where to drain", "valueStyle": "text", "value": ["Surface or", "bottom"], "caption": "Rain floats, sludge sinks" },
+    { "type": "point", "index": "06", "label": "Afterwards", "valueStyle": "text", "value": ["Check nitrite", "and colour"], "caption": "Bacteria and plankton get shaken" },
+    { "type": "outro", "title": ["Water exchange:", "how to do it"],
+      "rows": [["Per exchange", "≤ 30%"], ["Recommended", "20–30% stages"], ["Salinity shift", "< 5 ppt"], ["Temp shift", "< 3 ℃"], ["New water", "Measure first"], ["Afterwards", "Check nitrite"]],
+      "ctaTitle": "Log water quality before and after", "ctaNote": "Free · No app install", "ctaUrl": "shrimp365.kr" }
+  ]
+}

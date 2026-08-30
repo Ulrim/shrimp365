@@ -14,8 +14,9 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { LikeButton } from "@/components/ui/like-button"
 import {
-  Eye, MessageSquare, Trash2, Pencil, Send, X, ImagePlus, AlertTriangle,
+  Eye, Heart, MessageSquare, Trash2, Pencil, Send, X, ImagePlus, AlertTriangle,
 } from "lucide-react"
 
 function formatDateTime(iso: string, locale: string) {
@@ -87,7 +88,7 @@ export function PostArticle({ post: initialPost, initialComments }: { post: Boar
     setEditError("")
     setSavingEdit(true)
     try {
-      await updatePost(post.id, { title: eTitle, content: eContent, image_url: eImage })
+      await updatePost(post.id, { title: eTitle, content: eContent, image_url: eImage, locale })
       setPost(prev => ({ ...prev, title: eTitle.trim(), content: eContent.trim(), image_url: eImage }))
       setEditing(false)
     } catch (e) {
@@ -163,6 +164,7 @@ export function PostArticle({ post: initialPost, initialComments }: { post: Boar
             <span className="font-medium text-foreground/70">{post.author_name}</span>
             <span>{formatDateTime(post.created_at, locale)}</span>
             <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5" />{post.view_count}</span>
+            <span className="flex items-center gap-1"><Heart className="w-3.5 h-3.5" />{post.like_count ?? 0}</span>
             <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{comments.length}</span>
             {(isOwner || isAdmin) && (
               <span className="ml-auto flex items-center gap-2">
@@ -185,6 +187,10 @@ export function PostArticle({ post: initialPost, initialComments }: { post: Boar
           )}
 
           <p className="text-foreground/90 leading-relaxed whitespace-pre-line break-words">{post.content}</p>
+
+          <div className="mt-8 flex justify-center">
+            <LikeButton kind="board" id={post.id} initialCount={post.like_count ?? 0} />
+          </div>
         </article>
       )}
 

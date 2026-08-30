@@ -18,8 +18,12 @@ export type DbFarm = {
   user_id: string
   name: string
   location: string
+  latitude: number | null
+  longitude: number | null
   owner_name: string
   area: number
+  /** 마이그레이션 전 DB 에서는 컬럼이 없어 undefined 로 온다. */
+  farm_type?: "shrimp" | "agriculture"
   created_at: string
 }
 
@@ -35,12 +39,18 @@ export type DbTank = {
   stocking_date: string | null
   harvest_date: string | null
   tank_type: "노지" | "실내" | "반실내"
+  /** 양액 레시피(농업 모드) — µS/cm 저장. 마이그레이션 전에는 undefined. */
+  target_ec?: number | null
+  ec_tolerance?: number
+  target_ph?: number | null
+  ph_tolerance?: number
   created_at: string
 }
 
 export type DbWaterQuality = {
   id: string
   tank_id: string
+  device_id?: string | null
   temperature: number | null
   ph: number | null
   do_level: number | null
@@ -50,6 +60,9 @@ export type DbWaterQuality = {
   nitrate: number | null
   alkalinity: number | null
   turbidity: number | null
+  conductivity?: number | null
+  flow_rate?: number | null
+  diff_pressure?: number | null
   recorded_at: string
   created_at: string
 }
@@ -100,6 +113,14 @@ export type DbSensorDevice = {
   api_key: string
   active: boolean
   last_seen_at: string | null
+  serial: string | null
+  firmware: string | null
+  last_payload: Record<string, number | string | boolean> | null
+  agent_version: string | null
+  update_to: string | null
+  update_status: "requested" | "downloading" | "applied" | "failed" | "rolled_back" | null
+  update_message: string | null
+  update_status_at: string | null
   created_at: string
 }
 

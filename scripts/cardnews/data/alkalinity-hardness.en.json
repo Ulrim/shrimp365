@@ -1,0 +1,16 @@
+{
+  "slug": "alkalinity-hardness",
+  "locale": "en",
+  "cards": [
+    { "type": "cover", "label": "ALKALINITY · HARDNESS", "title": ["If pH swings,", "check alkalinity"], "subtitle": "Nitrification stops here too" },
+    { "type": "point", "index": "01", "label": "Alkalinity", "value": "100–150", "caption": "mg/L. Hold this range" },
+    { "type": "point", "index": "02", "label": "What it does", "valueStyle": "text", "value": ["It holds", "pH steady"], "caption": "Buffering capacity is alkalinity" },
+    { "type": "point", "index": "03", "label": "When it is low", "valueStyle": "text", "value": ["pH starts", "swinging"], "caption": "It begins to pass 0.5 a day" },
+    { "type": "point", "index": "04", "label": "Nitrification", "value": "7.14 g", "caption": "Used per 1 g of ammonia" },
+    { "type": "point", "index": "05", "label": "Hardness", "valueStyle": "text", "value": ["Calcium and", "magnesium"], "caption": "The material for new shells" },
+    { "type": "point", "index": "06", "label": "The ratio", "value": "1 : 3", "caption": "One calcium to three magnesium" },
+    { "type": "outro", "title": ["Alkalinity:", "what to watch"],
+      "rows": [["Alkalinity", "100–150 mg/L"], ["pH / day", "< 0.5"], ["Nitrification", "7.14 g"], ["Hardness", "Ca · Mg"], ["Ca : Mg", "1 : 3"], ["Check", "Weekly or more"]],
+      "ctaTitle": "Log alkalinity and pH together", "ctaNote": "Free · No app install", "ctaUrl": "shrimp365.kr" }
+  ]
+}
