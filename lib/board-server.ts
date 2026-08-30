@@ -13,10 +13,13 @@ function publicClient() {
 
 // React cache()로 같은 요청 안에서 generateMetadata와 페이지 컴포넌트가
 // 중복 조회하지 않도록 메모이즈.
-export const getPostsServer = cache(async (): Promise<BoardPost[]> => {
+// 언어별 분리 — 화면 언어와 같은 언어로 쓰인 글만 보여준다.
+// (locale은 글 저장 시 본문 판별로 자동 설정된다. lib/detect-locale.ts 참고)
+export const getPostsServer = cache(async (locale: string): Promise<BoardPost[]> => {
   const { data, error } = await publicClient()
     .from("board_posts")
     .select("*, board_comments(count)")
+    .eq("locale", locale)
     .order("created_at", { ascending: false })
   if (error) throw error
   return (data || []).map((p: BoardPost & { board_comments: { count: number }[] }) => ({

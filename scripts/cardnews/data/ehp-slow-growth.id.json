@@ -1,0 +1,15 @@
+{
+  "slug": "ehp-slow-growth", "locale": "id",
+  "cards": [
+    { "type": "cover", "label": "EHP", "title": ["Tidak mati,", "tapi tidak besar"], "subtitle": "Bukan kematian, tapi kerdil" },
+    { "type": "point", "index": "01", "label": "Gejala utama", "valueStyle": "text", "value": ["Bukan kematian,", "melainkan kerdil"], "caption": "Ukurannya makin tidak seragam" },
+    { "type": "point", "index": "02", "label": "Sasarannya", "valueStyle": "text", "value": ["Masuk ke", "hepatopankreas"], "caption": "Organ yang sama dengan AHPND" },
+    { "type": "point", "index": "03", "label": "Yang menyertai", "valueStyle": "text", "value": ["Feses putih,", "kulit lunak"], "caption": "Respons makan juga menurun" },
+    { "type": "point", "index": "04", "label": "Kerugiannya", "value": "10–20%", "caption": "Produksi tahunan di Asia" },
+    { "type": "point", "index": "05", "label": "Memastikan", "valueStyle": "text", "value": ["Perlu uji", "PCR"], "caption": "Mata telanjang tak bisa memastikan" },
+    { "type": "point", "index": "06", "label": "Pengobatan", "valueStyle": "text", "value": ["Tidak ada", "obatnya"], "caption": "Hanya benur bersih dan pencegahan" },
+    { "type": "outro", "title": ["EHP:", "yang dipantau"],
+      "rows": [["Gejala utama", "Pertumbuhan kerdil"], ["Organ sasaran", "Hepatopankreas"], ["Penyerta", "Feses putih"], ["Kerugian", "10–20% setahun"], ["Memastikan", "PCR"], ["Penanganan", "Benur · pencegahan"]],
+      "ctaTitle": "Catat laju tumbuh harian per petak", "ctaNote": "Gratis · Tanpa instal aplikasi", "ctaUrl": "shrimp365.kr" }
+  ]
+}

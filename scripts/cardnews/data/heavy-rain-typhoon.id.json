@@ -1,0 +1,16 @@
+{
+  "slug": "heavy-rain-typhoon",
+  "locale": "id",
+  "cards": [
+    { "type": "cover", "label": "TOPAN · HUJAN DERAS", "title": ["Kematian datang", "keesokan harinya"], "subtitle": "Air hujan mengambang, tidak menyatu" },
+    { "type": "point", "index": "01", "label": "Air hujan", "valueStyle": "text", "value": ["Mengambang di atas,", "tidak menyatu"], "caption": "Tambak terbelah jadi lapisan" },
+    { "type": "point", "index": "02", "label": "Ayunan salinitas", "value": "< 5 ppt", "caption": "Lewat ini dalam sehari berbahaya" },
+    { "type": "point", "index": "03", "label": "Saat hujan", "valueStyle": "text", "value": ["Kincir jangan", "dimatikan"], "caption": "Aduk sebelum lapisan terbentuk" },
+    { "type": "point", "index": "04", "label": "Hujan reda", "valueStyle": "text", "value": ["Buang air", "dari permukaan"], "caption": "Air tawar berada di atas" },
+    { "type": "point", "index": "05", "label": "Alkalinitas", "value": "≥ 100", "caption": "mg/L. Menahan pH agar stabil" },
+    { "type": "point", "index": "06", "label": "Pakan", "valueStyle": "text", "value": ["Kurangi saat", "hari hujan"], "caption": "Pakan sisa menghabiskan oksigen" },
+    { "type": "outro", "title": ["Hujan deras:", "apa yang dilakukan"],
+      "rows": [["Salinitas / hari", "< 5 ppt"], ["Alkalinitas", "≥ 100 mg/L"], ["Saat hujan", "Kincir jalan"], ["Hujan reda", "Buang permukaan"], ["Pakan", "Dikurangi"], ["Oksigen", "≥ 5.0 mg/L"]],
+      "ctaTitle": "Peringatan saat salinitas atau oksigen berubah", "ctaNote": "Gratis · Tanpa instal aplikasi", "ctaUrl": "shrimp365.kr" }
+  ]
+}

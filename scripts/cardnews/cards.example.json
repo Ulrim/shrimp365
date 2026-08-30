@@ -1,0 +1,78 @@
+{
+  "_": "카드 데이터 스키마 예시. 실제 작업물은 scripts/cardnews/data/<slug>.json 으로 만든다.",
+  "_스키마": {
+    "slug": "영문 kebab-case. public/cardnews/<slug>/ 에 PNG가 떨어진다",
+    "cards[].type": "cover | point(기본값) | outro",
+    "cover": "label(12자) / title(배열=줄단위, 줄당 6~8자, 2줄) / subtitle(20자)",
+    "point": "index / label(8자) / value(8자, 등폭) / caption(22자) / valueStyle: 'text'면 문장으로 크게",
+    "outro": "title(배열) / rows([라벨, 값] 6행 이내) / ctaTitle / ctaNote / ctaUrl"
+  },
+
+  "slug": "example-topic",
+  "cards": [
+    {
+      "type": "cover",
+      "label": "흰다리새우 수질 기준",
+      "title": ["이 숫자만", "외우세요"],
+      "subtitle": "현장에서 바로 쓰는 적정 범위 6가지"
+    },
+    {
+      "type": "point",
+      "index": "01",
+      "label": "수온",
+      "value": "28–32 ℃",
+      "caption": "하루 변동 폭은 3℃ 이내로"
+    },
+    {
+      "type": "point",
+      "index": "02",
+      "label": "pH",
+      "value": "7.5–8.5",
+      "caption": "하루 변동 폭은 0.5 이내로 유지"
+    },
+    {
+      "type": "point",
+      "index": "03",
+      "label": "용존산소",
+      "value": "≥ 5.0",
+      "caption": "새벽 4~6시에 측정한 값 기준"
+    },
+    {
+      "type": "point",
+      "index": "04",
+      "label": "측정 시각",
+      "valueStyle": "text",
+      "value": ["낮에 잰 값은", "쓸모가 없습니다"],
+      "caption": "산소는 새벽 4~6시에 가장 낮습니다"
+    },
+    {
+      "type": "point",
+      "index": "05",
+      "label": "염도",
+      "value": "15–25 ppt",
+      "caption": "하루 5 ppt 이상 급변은 위험"
+    },
+    {
+      "type": "point",
+      "index": "06",
+      "label": "암모니아",
+      "value": "< 0.1",
+      "caption": "pH가 높을수록 같은 농도도 위험"
+    },
+    {
+      "type": "outro",
+      "title": ["저장해두고", "매일 확인하세요"],
+      "rows": [
+        ["수온", "28–32 ℃"],
+        ["pH", "7.5–8.5"],
+        ["DO 용존산소", "≥ 5.0 mg/L"],
+        ["염도", "15–25 ppt"],
+        ["암모니아", "< 0.1 mg/L"],
+        ["아질산", "< 1.0 mg/L"]
+      ],
+      "ctaTitle": "기준을 넘으면 자동으로 알림",
+      "ctaNote": "완전 무료 · 앱 설치 불필요",
+      "ctaUrl": "shrimp365.kr"
+    }
+  ]
+}

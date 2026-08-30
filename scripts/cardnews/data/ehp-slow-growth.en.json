@@ -1,0 +1,15 @@
+{
+  "slug": "ehp-slow-growth", "locale": "en",
+  "cards": [
+    { "type": "cover", "label": "EHP", "title": ["They do not die.", "They do not grow."], "subtitle": "Not mortality — stunted growth" },
+    { "type": "point", "index": "01", "label": "Main sign", "valueStyle": "text", "value": ["Not mortality,", "stunted growth"], "caption": "Sizes spread further apart" },
+    { "type": "point", "index": "02", "label": "The target", "valueStyle": "text", "value": ["It enters the", "hepatopancreas"], "caption": "The same organ AHPND hits" },
+    { "type": "point", "index": "03", "label": "Alongside", "valueStyle": "text", "value": ["White faeces,", "soft shells"], "caption": "Feed response drops as well" },
+    { "type": "point", "index": "04", "label": "The cost", "value": "10–20%", "caption": "Annual output loss across Asia" },
+    { "type": "point", "index": "05", "label": "Confirming", "valueStyle": "text", "value": ["It takes a", "PCR test"], "caption": "The eye cannot confirm it" },
+    { "type": "point", "index": "06", "label": "Treatment", "valueStyle": "text", "value": ["There is", "no cure"], "caption": "Clean seed and exclusion only" },
+    { "type": "outro", "title": ["EHP:", "what to watch"],
+      "rows": [["Main sign", "Stunted growth"], ["Target organ", "Hepatopancreas"], ["Alongside", "White faeces"], ["Cost", "10–20% a year"], ["Confirm", "PCR"], ["Response", "Seed · exclusion"]],
+      "ctaTitle": "Log daily growth rate per tank", "ctaNote": "Free · No app install", "ctaUrl": "shrimp365.kr" }
+  ]
+}

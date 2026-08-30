@@ -3,14 +3,30 @@ import { cookies, headers } from "next/headers"
 import localFont from "next/font/local"
 import "./globals.css"
 
+// 본문용 서브셋 — KS X 1001 상용 한글 2,350자 + 라틴(베트남어 성조 포함) + 기호.
+// 원본 2,009KB 를 481KB 로 줄였다. preload 를 끄는 것이 핵심으로, 2MB 폰트를
+// 최우선 순위로 받느라 정작 화면을 그릴 JS·CSS 가 밀려 FCP 가 3초를 넘고 있었다.
+// display: swap 이라 글자는 시스템 폰트로 즉시 보이고 로드 후 교체된다.
 const pretendard = localFont({
-  src: "../public/fonts/PretendardVariable.woff2",
+  src: "../public/fonts/PretendardVariable.subset.woff2",
   variable: "--font-pretendard",
   weight: "100 900",
   display: "swap",
-  preload: true,
+  preload: false,
   fallback: ["-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
   adjustFontFallback: "Arial",
+})
+
+// 서브셋에 없는 희귀 글자(옛한글·한자 등)만 담당하는 2순위 폰트.
+// globals.css 의 font-family 체인에서 뒤에 오므로, 그런 글자가 없는 페이지는
+// 이 2MB 파일을 아예 요청하지 않는다. 글자 깨짐 없이 용량만 줄이는 구조.
+const pretendardFull = localFont({
+  src: "../public/fonts/PretendardVariable.woff2",
+  variable: "--font-pretendard-full",
+  weight: "100 900",
+  display: "swap",
+  preload: false,
+  adjustFontFallback: false,
 })
 import { AuthProvider } from "@/lib/auth-context"
 import { I18nProvider } from "@/lib/i18n-context"
@@ -119,7 +135,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  themeColor: "#0ea5e9",
+  themeColor: "#1E40AF",
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -395,7 +411,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <html lang={defaultLocale} suppressHydrationWarning className={pretendard.variable}>
+    <html lang={defaultLocale} suppressHydrationWarning className={`${pretendard.variable} ${pretendardFull.variable}`}>
       <head>
         <script
           type="application/ld+json"

@@ -23,6 +23,11 @@ const daumFrame = " https://postcode.map.daum.net https://*.daum.net https://*.k
 const daumImg = " https://*.daumcdn.net https://*.daum.net https://*.kakaocdn.net https://*.kakao.com"
 const daumConnect = " https://*.daumcdn.net https://*.daum.net https://*.kakaocdn.net https://dapi.kakao.com"
 
+// OpenStreetMap 타일 — Leaflet 지도(관제센터·양식장·프로필 지도)가 지도 타일을
+// <img> 로 받아 온다. CSP img-src 에 이 호스트가 없으면 타일이 전부 차단돼
+// 지도가 빈 화면(회색)으로만 보인다. 항상 허용한다.
+const mapImg = " https://tile.openstreetmap.org https://*.tile.openstreetmap.org"
+
 // Google Analytics (gtag.js) — 항상 허용.
 const gaScript = " https://www.googletagmanager.com"
 const gaImg = " https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com"
@@ -53,7 +58,7 @@ const securityHeaders = [
       "default-src 'self'",
       `script-src 'self' 'unsafe-inline' 'unsafe-eval'${adScript}${daumScript}${gaScript}`,
       "style-src 'self' 'unsafe-inline'",
-      `img-src 'self' data: blob: https://*.supabase.co${adImg}${daumImg}${gaImg}`,
+      `img-src 'self' data: blob: https://*.supabase.co${mapImg}${adImg}${daumImg}${gaImg}`,
       "font-src 'self'",
       `connect-src 'self' https://*.supabase.co wss://*.supabase.co${adConnect}${daumConnect}${gaConnect}${sentryConnect}`,
       `frame-src 'self'${adFrame}${daumFrame}`,

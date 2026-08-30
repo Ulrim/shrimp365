@@ -7,6 +7,7 @@ export interface Dict {
     select: string
   }
   common: {
+    menu: string
     save: string
     cancel: string
     delete: string
@@ -74,6 +75,7 @@ export interface Dict {
   }
   nav: {
     home: string
+    guide: string
     dashboard: string
     farms: string
     waterQuality: string
@@ -88,6 +90,10 @@ export interface Dict {
     admin: string
     sectionRecord: string
     sectionMonitor: string
+    /** 컬리버 탄소 MRV 플랫폼 진입 라벨(외부 서비스). */
+    mrvPlatform: string
+    /** 로고 부제 — 언어 무관 영문 고정. 농업 모드 오버라이드로만 바뀐다. */
+    brandTagline: string
   }
   hub: {
     greeting: string
@@ -403,6 +409,7 @@ export interface Dict {
     suggestQ4: string
   }
   reports: {
+    issuedAt: string
     title: string
     subtitle: string
     period7d: string
@@ -550,6 +557,11 @@ export interface Dict {
   onboarding: {
     title: string
     subtitle: string
+    farmTypeLabel: string
+    farmTypeShrimp: string
+    farmTypeShrimpDesc: string
+    farmTypeAgri: string
+    farmTypeAgriDesc: string
     step1Title: string
     step1Subtitle: string
     step2Title: string
@@ -683,6 +695,7 @@ export interface Dict {
     commentEmpty: string
     deleteCommentConfirm: string
     loginRequired: string
+    localeNotice: string
     loadError: string
   }
   cookie: {
@@ -722,7 +735,25 @@ export interface Dict {
     threshold: string
     gotoTank: string
     markResolved: string
+    enableDevice: string
+    deviceOn: string
+    deviceBlocked: string
+    deviceUnsupported: string
+    deviceEnabled: string
+    devicePushOn: string
+    devicePushEnabled: string
+    deviceMore: string
     viewMore: string
+  }
+  anomaly: {
+    title: string
+    subtitle: string
+    none: string
+    needMore: string
+    surge: string
+    drift: string
+    deviation: string
+    causes: string
   }
   subs: {
     price: string
@@ -1031,4 +1062,266 @@ export interface Dict {
     currency: string
     deleteRecord: string
   }
+  cardNews: {
+    title: string
+    subtitle: string
+    badge: string
+    empty: string
+    emptyMsg: string
+    back: string
+    backToList: string
+    views: string
+    cardsUnit: string
+    cardIndex: string
+    prev: string
+    next: string
+    related: string
+    tagAll: string
+    saveImage: string
+    share: string
+    copyLink: string
+    linkCopied: string
+    shareOther: string
+    shareOnX: string
+    shareOnFacebook: string
+    linkLabel: string
+    like: string
+    liked: string
+    unlike: string
+    likes: string
+    ctaTitle: string
+    ctaDesc: string
+    ctaButton: string
+    readMore: string
+    newPost: string
+    formTitle: string
+    fieldTitle: string
+    fieldTitlePlaceholder: string
+    fieldSlug: string
+    fieldSlugHelp: string
+    fieldLocale: string
+    fieldSummary: string
+    fieldSummaryPlaceholder: string
+    fieldBody: string
+    fieldBodyPlaceholder: string
+    fieldImages: string
+    fieldImagesHelp: string
+    fieldTags: string
+    fieldTagsPlaceholder: string
+    imageAdd: string
+    imageUploading: string
+    imageRemove: string
+    moveUp: string
+    moveDown: string
+    published: string
+    draft: string
+    submit: string
+    submitting: string
+    adminOnly: string
+    loadError: string
+  }
+  time: {
+    justNow: string
+    minutesAgo: string
+    hoursAgo: string
+    daysAgo: string
+  }
+  waterQualityX: {
+    cycleDays: string
+    dayN: string
+    capacity: string
+    stockedCount: string
+    density: string
+    latestMeasurement: string
+    sensorAutoCollect: string
+    paramStatusTitle: string
+    sensorView: string
+    wholeTank: string
+    sensorCurrentN: string
+    sensorCompare: string
+    noSignal: string
+    sensorCaption: string
+    noSensorHistory: string
+    noSensorTagAll: string
+    sensorTagMismatch: string
+    fullscreen: string
+    faultNoReply: string
+    faultProbe: string
+    faultSupersat: string
+    faultDoAir: string
+    faultTempOff: string
+    faultDoScale: string
+    faultRange: string
+    sensorFault: string
+    conductivityCaption: string
+    boardMode: string
+    noValuesYet: string
+    noChartData: string
+    noDataHint: string
+    refresh: string
+    refreshDataAria: string
+    tabOverview: string
+    tabNitrogen: string
+    overviewCaption: string
+    nitrogenCaption: string
+    overviewChartAria: string
+    nitrogenChartAria: string
+    trendChartAria: string
+    chartMax: string
+    chartMin: string
+    chartWarnHigh: string
+    chartWarnLow: string
+    warnRange: string
+    alertHistory: string
+    noAlertsMsg: string
+    item: string
+    measured: string
+    threshold: string
+    dismissAlertAria: string
+    statusLabel: string
+    periodSelectAria: string
+    tankSelectAria: string
+    autoRefreshSec: string
+    csvFilePrefix: string
+    dissolvedOxygen: string
+    conductivity: string
+    doSaturation: string
+    flowRate: string
+    diffPressure: string
+    flowCaption: string
+    diffPressureCaption: string
+    tabMore: string
+    tabLess: string
+    targetLabel: string
+  }
+  farmsX: {
+    saveFailed: string
+    deleteFailed: string
+    tankNameRequired: string
+    volumeRange: string
+    densityRange: string
+    areaPlaceholder: string
+    volumePlaceholder: string
+    densityPlaceholder: string
+    plannedHarvestDate: string
+    plannedHarvest: string
+    tankTypeOutdoor: string
+    tankTypeIndoor: string
+    tankTypeSemiIndoor: string
+    tankStatusAria: string
+    statusAutoNote: string
+    shrimpCount: string
+    stockingDayN: string
+    registered: string
+    registeredDate: string
+    farmTanksHeading: string
+    deviceSection: string
+    connectedN: string
+    notConnected: string
+    deviceLoading: string
+    noDevices: string
+    deviceActive: string
+    deviceInactive: string
+    activateTitle: string
+    deactivateTitle: string
+    deleteDeviceAria: string
+    version: string
+    versionUnknown: string
+    newVersion: string
+    updateBtn: string
+    requesting: string
+    cancelPendingTitle: string
+    upToDate: string
+    updateRequested: string
+    updateDownloading: string
+    updateApplied: string
+    updateFailedStatus: string
+    updateRolledBack: string
+    updatePending: string
+    autoApplyNote: string
+    updateRequestFailed: string
+  }
+  pairDevice: {
+    locationNote: string
+    trigger: string
+    done: string
+    doneMsg: string
+    doneHint: string
+    codeHelpBefore: string
+    codeDigits: string
+    codeHelpAfter: string
+    codeLabel: string
+    nameLabel: string
+    nameOptional: string
+    namePlaceholder: string
+    connecting: string
+    connect: string
+    connectFailed: string
+  }
+  weather: {
+    title: string
+    today: string
+    tomorrow: string
+    noCoordsMsg: string
+    setCoordsLink: string
+    fetchFailed: string
+    loading: string
+    noWarnings: string
+  }
+  /** 수경재배(농업) 폼·카드 전용 라벨.
+   *  전역 UI 모드가 아니라 farm.farm_type 기준으로 쓰므로 항상 본 사전에서 읽는다
+   *  — 혼합 계정(새우+농업 farm)은 전역 모드가 새우라 i18n 오버라이드가 없어도
+   *  agriculture farm 의 베드 폼에는 이 라벨이 나와야 한다. */
+  agri: {
+    // ── 베드 폼 (onboarding Step 2 + /farms 다이얼로그 공용) ──
+    bedName: string
+    bedNamePlaceholder: string
+    bedType: string
+    bedVolume: string
+    bedVolumeHint: string
+    addBed: string
+    removeBed: string
+    // ── 레시피 ──
+    recipeTitle: string
+    recipeOptional: string
+    recipeHint: string
+    targetEc: string
+    targetEcUnit: string
+    targetEcPlaceholder: string
+    ecTolerance: string
+    ecTolerancePlaceholder: string
+    targetPh: string
+    targetPhPlaceholder: string
+    phTolerance: string
+    toleranceDefaultNote: string
+    recipeEditNote: string
+    recipeNotSet: string
+    ecRangeError: string
+    ecToleranceRangeError: string
+    phRangeError: string
+    phToleranceRangeError: string
+    farmTypeChangeNote: string
+    // ── 양액 상태 카드 ──
+    nutrientTitle: string
+    currentStrength: string
+    verdictOk: string
+    verdictLow: string
+    verdictHigh: string
+    doseA: string
+    doseB: string
+    doseSuffix: string
+    exchangePrefix: string
+    exchangeSuffix: string
+    noActionNeeded: string
+    uncalibratedBadge: string
+    targetShort: string
+    // ── 화면 전환 진입점 (/farms 농장 카드) ──
+    openAgriScreen: string
+    openShrimpScreen: string
+  }
 }
+
+/** 2단(섹션 → 키) 부분 오버라이드 — 농업 모드 사전(agri-ko)이 쓴다.
+ *  섹션 값이 통짜 객체라 Partial<Dict> 로는 섹션 안 일부 키만 둘 수 없어
+ *  2단 DeepPartial 을 따로 둔다. */
+export type DictOverride = { [K in keyof Dict]?: Partial<Dict[K]> }

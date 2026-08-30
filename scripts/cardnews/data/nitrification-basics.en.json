@@ -1,0 +1,16 @@
+{
+  "slug": "nitrification-basics",
+  "locale": "en",
+  "cards": [
+    { "type": "cover", "label": "NITRIFICATION", "title": ["Probiotics are", "not medicine"], "subtitle": "They take weeks to settle in" },
+    { "type": "point", "index": "01", "label": "The pathway", "valueStyle": "text", "value": ["Ammonia →", "nitrite → nitrate"], "caption": "It runs in two separate steps" },
+    { "type": "point", "index": "02", "label": "The bacteria", "valueStyle": "text", "value": ["Each step has", "a different one"], "caption": "That is why nitrite piles up" },
+    { "type": "point", "index": "03", "label": "To settle in", "value": "2–4 wk", "caption": "Adding today fixes nothing today" },
+    { "type": "point", "index": "04", "label": "When to add", "valueStyle": "text", "value": ["At start-up and", "after disinfection"], "caption": "Routinely, not after trouble" },
+    { "type": "point", "index": "05", "label": "Alkalinity", "value": "7.14 g", "caption": "Used per 1 g of ammonia" },
+    { "type": "point", "index": "06", "label": "Oxygen", "value": "≥ 5 mg/L", "caption": "Nitrifiers need oxygen too" },
+    { "type": "outro", "title": ["Probiotics:", "how to use them"],
+      "rows": [["Pathway", "Two steps"], ["Settling time", "2–4 weeks"], ["When to add", "Start, after clean"], ["Alkalinity", "100–150 mg/L"], ["Oxygen", "≥ 5.0 mg/L"], ["If levels rise", "Cut feed first"]],
+      "ctaTitle": "Log alkalinity and nitrogen together", "ctaNote": "Free · No app install", "ctaUrl": "shrimp365.kr" }
+  ]
+}

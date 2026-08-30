@@ -144,8 +144,12 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 # 사이트 URL
 NEXT_PUBLIC_SITE_URL=https://www.shrimp365.kr
 
-# OpenAI
+# OpenAI (선택 — AI_BASE_URL 미설정 시 대안)
 OPENAI_API_KEY=sk-...
+
+# AI 어드바이저 오픈모델 (선택 — 9절 참조. 설정 시 OPENAI_API_KEY 보다 우선)
+AI_BASE_URL=http://ollama:11434/v1
+AI_MODEL=qwen3:4b-instruct-2507-q4_K_M
 
 # DODO Payments
 DODO_PAYMENTS_API_KEY=...
@@ -165,3 +169,63 @@ DODO_PAYMENTS_ENVIRONMENT=live_mode
 | `operator@shrimp365.com` | 운영자 시연 |
 
 > Supabase → Authentication → Users 에서 생성 필요 (Auto Confirm User 체크)
+
+---
+
+## 9. AI 어드바이저 — 오픈모델(Ollama) 켜기
+
+> 현재 운영 배포가 Vercel이면 이 섹션은 해당 없음 — Vercel에서는 .env에 Groq/OpenRouter 등
+> 호스팅 API를 지정한다(`.env.example` 참조). 아래는 NAS 도커로 돌릴 때의 선택 구성이다.
+
+AI 어드바이저를 외부 유료 API 없이 NAS에서 직접 추론한다. 옵트인 방식이라
+켜지 않으면 기존 배포에 아무 영향이 없다.
+
+### ① Ollama 컨테이너 기동
+
+```bash
+cd /volume1/docker/shrimp365/shrimp365
+sudo docker compose --profile ai up -d
+```
+
+`--profile ai` 를 붙여야 `ollama` 서비스가 뜬다. 평소 `docker compose up -d` 에는 뜨지 않는다.
+
+### ② 모델 내려받기 (최초 1회, 약 2.5GB)
+
+```bash
+sudo docker exec -it ollama ollama pull qwen3:4b-instruct-2507-q4_K_M
+```
+
+모델은 도커 볼륨(`ollama-models`)에 저장되어 재기동해도 유지된다.
+
+### ③ 환경변수 연결
+
+`.env.local` 에 추가:
+
+```
+AI_BASE_URL=http://ollama:11434/v1
+AI_MODEL=qwen3:4b-instruct-2507-q4_K_M
+```
+
+이후 재빌드·재기동:
+
+```bash
+sudo docker compose build --no-cache
+sudo docker compose --profile ai up -d
+```
+
+### ④ 주의 — 램·속도
+
+- **램**: 모델 + KV 캐시 약 4GB. **8GB NAS면 빠듯하고 16GB 권장.** 다른 컨테이너와
+  경합하면 스왑으로 더 느려진다.
+- **속도**: CPU 추론 3~8 tok/s 수준(기종 의존 추정치 — **배포 후 실측 1회 권장**,
+  추천 질문 하나로 체감 확인). 너무 느리면 `gemma3:1b` 로 다운그레이드 가능:
+  `sudo docker exec -it ollama ollama pull gemma3:1b` 후 `.env.local` 의 `AI_MODEL=gemma3:1b`.
+
+### ⑤ 안 켜면?
+
+Ollama 를 켜지 않거나(모델 미pull 포함) 중간에 꺼져도 AI 어드바이저는 죽지 않는다 —
+기존처럼 규칙 기반 답변으로 자동 폴백된다.
+
+> NAS의 Ollama를 Vercel에서 쓰려면 Cloudflare Tunnel로 공개 HTTPS URL을 만들어
+> AI_BASE_URL에 넣는 방법도 있으나(Ollama 자체 인증이 없어 Access 보호 필수),
+> 운영 기본은 Groq를 권장.

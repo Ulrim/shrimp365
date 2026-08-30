@@ -1,10 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { SHOW_BOARD, showCardNews } from "@/lib/features"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
+import { localizedHref } from "@/lib/marketing-locale"
 import { LOCALES, LOCALE_NAMES, type Locale } from "@/lib/i18n"
 import { OPS_CSS } from "./ops-theme"
 import {
@@ -100,11 +102,19 @@ function NavBar({ onDemoClick }: { onDemoClick: () => void }) {
   const [open, setOpen] = useState(false)
   const { t, locale } = useT()
   const l = t.landing
+  // 페이지 내 앵커(#)와 실제 페이지(/)를 함께 노출한다. 실제 페이지 링크가
+  // 랜딩에만 없으면 방문자가 카드뉴스·게시판의 존재를 알 방법이 없다.
   const links = [
     { href: "#features", label: l.navFeatures },
     { href: "#how-it-works", label: l.navHowItWorks },
     { href: "#pricing", label: l.navPricing },
     { href: "#faq", label: l.navFaq },
+  ]
+  // 랜딩이 /en 이면 카드뉴스·게시판도 /en 으로 보내야 한다.
+  // 접두사 없는 주소는 한국어로 고정되어 있다.
+  const pages = [
+    ...(showCardNews(locale) ? [{ href: localizedHref("/cardnews", locale), label: t.cardNews.title }] : []),
+    ...(SHOW_BOARD ? [{ href: localizedHref("/board", locale), label: t.board.title }] : []),
   ]
   return (
     <header className="s365-header">
@@ -114,6 +124,7 @@ function NavBar({ onDemoClick }: { onDemoClick: () => void }) {
         </Link>
         <nav className="s365-links">
           {links.map(n => <a key={n.href} href={n.href}>{n.label}</a>)}
+          {pages.map(n => <Link key={n.href} href={n.href}>{n.label}</Link>)}
         </nav>
         <div className="s365-navright">
           <LocaleChips current={locale} />
@@ -127,6 +138,8 @@ function NavBar({ onDemoClick }: { onDemoClick: () => void }) {
       {open && (
         <div className="s365-mobile">
           {links.map(n => <a key={n.href} href={n.href} onClick={() => setOpen(false)}>{n.label}</a>)}
+          {pages.map(n => <Link key={n.href} href={n.href} onClick={() => setOpen(false)}>{n.label}</Link>)}
+          <Link href="/guide" onClick={() => setOpen(false)}>{t.nav.guide}</Link>
           <button onClick={() => { setOpen(false); onDemoClick() }} className="s365-mobile-demo">{l.navDemo}</button>
           <div className="s365-mobile-row">
             <Link href="/login" className="s365-btn ghost" style={{ flex: 1, justifyContent: "center" }}>{t.auth.loginButton}</Link>
@@ -142,7 +155,7 @@ function NavBar({ onDemoClick }: { onDemoClick: () => void }) {
 export default function LandingPage() {
   const { user } = useAuth()
   const router = useRouter()
-  const { t } = useT()
+  const { t, locale } = useT()
   const l = t.landing
   const [faqOpen, setFaqOpen] = useState<number | null>(null)
 
@@ -314,9 +327,14 @@ export default function LandingPage() {
             <span className="s365-mark"><DropMark size={13} /></span> Shrimp365
           </div>
           <div className="s365-footlinks">
-            <Link href="/pricing">{l.navPricing}</Link>
-            <Link href="/terms">{t.settings.legalTerms}</Link>
-            <Link href="/privacy">{t.settings.legalPrivacy}</Link>
+            {/* 공개 콘텐츠 허브 — 랜딩에서 크롤 경로를 열어 준다.
+                모두 언어별 주소가 있으므로 지금 보고 있는 언어를 그대로 잇는다. */}
+            <Link href={localizedHref("/pricing", locale)}>{l.navPricing}</Link>
+            {showCardNews(locale) && <Link href={localizedHref("/cardnews", locale)}>{t.cardNews.title}</Link>}
+            {SHOW_BOARD && <Link href={localizedHref("/board", locale)}>{t.board.title}</Link>}
+            <Link href={localizedHref("/guide", locale)}>{t.nav.guide}</Link>
+            <Link href={localizedHref("/terms", locale)}>{t.settings.legalTerms}</Link>
+            <Link href={localizedHref("/privacy", locale)}>{t.settings.legalPrivacy}</Link>
             <Link href="/login">{t.auth.loginButton}</Link>
           </div>
           <div className="mono s365-copy">© {new Date().getFullYear()} Shrimp365 · {l.footerDesc}</div>

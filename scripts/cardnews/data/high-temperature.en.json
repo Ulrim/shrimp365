@@ -1,0 +1,72 @@
+{
+  "slug": "high-temperature",
+  "locale": "en",
+  "cards": [
+    {
+      "type": "cover",
+      "label": "WHITE SHRIMP · HEAT",
+      "title": ["Above 34 ℃", "it's a new pond"],
+      "subtitle": "Summer losses start with oxygen"
+    },
+    {
+      "type": "point",
+      "index": "01",
+      "label": "Danger line",
+      "value": "34 ℃",
+      "caption": "Past this, survival beats growth"
+    },
+    {
+      "type": "point",
+      "index": "02",
+      "label": "Why summer kills",
+      "valueStyle": "text",
+      "value": ["Less oxygen in,", "more oxygen needed"],
+      "caption": "The gap widens as water warms"
+    },
+    {
+      "type": "point",
+      "index": "03",
+      "label": "Hepatopancreas",
+      "value": "33 ℃",
+      "caption": "Held here, the organ starts to fail"
+    },
+    {
+      "type": "point",
+      "index": "04",
+      "label": "Water depth",
+      "value": "≥ 1.2 m",
+      "caption": "Deeper water heats up slower"
+    },
+    {
+      "type": "point",
+      "index": "05",
+      "label": "Aerators",
+      "valueStyle": "text",
+      "value": ["Run them", "at midday too"],
+      "caption": "Break the layers, mix the bottom"
+    },
+    {
+      "type": "point",
+      "index": "06",
+      "label": "Feed",
+      "valueStyle": "text",
+      "value": ["Leftovers", "become poison"],
+      "caption": "Uneaten feed burns your oxygen"
+    },
+    {
+      "type": "outro",
+      "title": ["What to watch", "through summer"],
+      "rows": [
+        ["Danger line", "≥ 34 ℃"],
+        ["Dissolved oxygen", "≥ 5.0 mg/L"],
+        ["Water depth", "≥ 1.2 m"],
+        ["Temp / day", "< 3 ℃"],
+        ["Aerators", "Midday too"],
+        ["Feed", "Cut back"]
+      ],
+      "ctaTitle": "Alerts when temperature crosses the line",
+      "ctaNote": "Free · No app install",
+      "ctaUrl": "shrimp365.kr"
+    }
+  ]
+}

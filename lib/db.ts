@@ -1,6 +1,6 @@
 import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbSensorDevice, DbProductionCycle, DbGrowthSample, DbCycleCost, DbCycleHarvest, DbInventoryItem, DbInventoryTransaction } from "@/lib/supabase"
 import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction } from "@/types"
-import { checkThresholds } from "@/lib/thresholds"
+import { checkThresholds, planMissingInputAlerts, MISSING_INPUT_PARAMETER } from "@/lib/thresholds"
 import { PLAN_LIMITS, type Plan } from "@/lib/plans"
 import { isTestAccount } from "@/lib/mock-data"
 
@@ -8,7 +8,16 @@ import { isTestAccount } from "@/lib/mock-data"
 // 타입 변환 헬퍼
 // ─────────────────────────────────────────────
 function toFarm(f: DbFarm, tankCount = 0): Farm {
-  return { ...f, owner_name: f.owner_name ?? "", tank_count: tankCount }
+  return {
+    ...f,
+    owner_name: f.owner_name ?? "",
+    // 마이그레이션 전이면 컬럼이 없어 undefined 로 온다. null 로 맞춰 둔다.
+    latitude: f.latitude ?? null,
+    longitude: f.longitude ?? null,
+    // 마이그레이션 전이면 컬럼이 없다. 기본은 언제나 새우 양식이다.
+    farm_type: f.farm_type ?? "shrimp",
+    tank_count: tankCount,
+  }
 }
 
 function toTank(t: DbTank): Tank {
@@ -17,6 +26,11 @@ function toTank(t: DbTank): Tank {
     stocking_date: t.stocking_date ?? null,
     harvest_date: t.harvest_date ?? null,
     tank_type: t.tank_type ?? "노지",
+    // 양액 레시피 — 미설정(NULL)과 마이그레이션 전(undefined)을 같게 다룬다.
+    target_ec: t.target_ec ?? null,
+    ec_tolerance: t.ec_tolerance ?? 100,
+    target_ph: t.target_ph ?? null,
+    ph_tolerance: t.ph_tolerance ?? 0.5,
   }
 }
 
@@ -24,6 +38,7 @@ function toWaterQuality(w: DbWaterQuality): WaterQualityReading {
   return {
     id: w.id,
     tank_id: w.tank_id,
+    device_id: w.device_id ?? null,
     temperature: w.temperature ?? 0,
     ph: w.ph ?? 0,
     do_level: w.do_level ?? 0,
@@ -33,6 +48,12 @@ function toWaterQuality(w: DbWaterQuality): WaterQualityReading {
     nitrate: w.nitrate ?? 0,
     alkalinity: w.alkalinity ?? 0,
     turbidity: w.turbidity ?? 0,
+    // 전도도는 안 쓰는 농장이 대부분이라 0 으로 채우지 않는다 —
+    // 0 으로 두면 "쟀는데 0" 과 "안 쟀다" 가 구분되지 않는다.
+    conductivity: w.conductivity ?? null,
+    // 유량·차압도 전도도와 같은 이유로 0 을 채우지 않는다.
+    flow_rate: w.flow_rate ?? null,
+    diff_pressure: w.diff_pressure ?? null,
     recorded_at: w.recorded_at,
     created_at: w.created_at,
   }
@@ -53,7 +74,9 @@ export async function getFarms(): Promise<Farm[]> {
   )
 }
 
-export async function createFarm(values: { name: string; location?: string; area?: number; owner_name?: string }) {
+// farm_type 은 정의된 경우에만 insert 에 싣는다 — 마이그레이션 전 DB 에서
+// 새우 계정의 농장 추가가 "없는 컬럼" 오류로 막히면 안 된다.
+export async function createFarm(values: { name: string; location?: string; area?: number; owner_name?: string; latitude?: number | null; longitude?: number | null; farm_type?: "shrimp" | "agriculture" }) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("로그인이 필요합니다.")
 
@@ -66,9 +89,10 @@ export async function createFarm(values: { name: string; location?: string; area
     throw new Error(`현재 플랜(${plan.toUpperCase()})에서는 양식장을 최대 ${limit}개까지 등록할 수 있습니다. 업그레이드하려면 /pricing 페이지를 방문하세요.`)
   }
 
+  const { farm_type, ...rest } = values
   const { data, error } = await supabase
     .from("farms")
-    .insert({ ...values, user_id: user.id })
+    .insert({ ...rest, ...(farm_type !== undefined ? { farm_type } : {}), user_id: user.id })
     .select()
     .single()
 
@@ -76,7 +100,7 @@ export async function createFarm(values: { name: string; location?: string; area
   return toFarm(data)
 }
 
-export async function updateFarm(id: string, values: Partial<{ name: string; location: string; owner_name: string; area: number }>) {
+export async function updateFarm(id: string, values: Partial<{ name: string; location: string; owner_name: string; area: number; latitude: number | null; longitude: number | null; farm_type: "shrimp" | "agriculture" }>) {
   const { data, error } = await supabase
     .from("farms")
     .update(values)
@@ -127,6 +151,11 @@ export async function createTank(values: {
   stocking_date?: string | null
   harvest_date?: string | null
   tank_type?: "노지" | "실내" | "반실내"
+  /** 양액 레시피(농업 모드) — µS/cm. 정의된 경우에만 insert 에 실린다. */
+  target_ec?: number | null
+  ec_tolerance?: number
+  target_ph?: number | null
+  ph_tolerance?: number
 }) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("로그인이 필요합니다.")
@@ -172,25 +201,70 @@ export async function deleteTank(id: string) {
 // ─────────────────────────────────────────────
 // WATER QUALITY
 // ─────────────────────────────────────────────
-export async function getWaterQuality(tankId: string, hours = 168): Promise<WaterQualityReading[]> {
-  const since = new Date(Date.now() - hours * 3_600_000).toISOString()
+// deviceId 를 주면 그 센서(기기)가 잰 값만 돌려준다. 없으면 수조 전체(합산).
+//
+// Supabase API 는 요청당 최대 1,000행만 준다. 센서 여러 대가 분 단위로 올리면
+// 7일치는 수만 행이라, 예전처럼 "오래된 순 + 상한" 으로 받으면 화면이
+// 가장 오래된 일부만 보게 된다(최신 값·센서 표시가 영영 안 보이는 버그).
+// 그래서 ① DB 함수 wq_series(구간 평균으로 압축, 전 구간 커버)를 먼저 쓰고,
+// ② 함수가 아직 없으면(마이그레이션 전) 최신 순으로 1,000행을 받아 뒤집는다
+//    — 이 경우 구간이 길면 최근 것부터 보이는 게 옳다.
+type WqSeriesRow = {
+  recorded_at: string; device_id: string | null
+  temperature: number | null; ph: number | null; do_level: number | null
+  salinity: number | null; ammonia: number | null; nitrite: number | null
+  nitrate: number | null; alkalinity: number | null; turbidity: number | null
+  conductivity?: number | null
+  flow_rate?: number | null
+  diff_pressure?: number | null
+}
 
-  const { data, error } = await supabase
+export async function getWaterQuality(tankId: string, hours = 168, deviceId?: string | null): Promise<WaterQualityReading[]> {
+  // ① 구간 평균 시리즈 (전 구간 커버, 행 수 상한 안전)
+  const { data: series, error: rpcError } = await supabase.rpc("wq_series", {
+    p_tank: tankId,
+    p_hours: hours,
+    p_device: deviceId ?? null,
+  })
+  if (!rpcError && Array.isArray(series)) {
+    return (series as WqSeriesRow[]).map(r => toWaterQuality({
+      id: `${r.recorded_at}:${r.device_id ?? "manual"}`,
+      tank_id: tankId,
+      device_id: r.device_id,
+      temperature: r.temperature, ph: r.ph, do_level: r.do_level,
+      salinity: r.salinity, ammonia: r.ammonia, nitrite: r.nitrite,
+      nitrate: r.nitrate, alkalinity: r.alkalinity, turbidity: r.turbidity,
+      conductivity: r.conductivity ?? null,
+      flow_rate: r.flow_rate ?? null,
+      diff_pressure: r.diff_pressure ?? null,
+      recorded_at: r.recorded_at,
+      created_at: r.recorded_at,
+    }))
+  }
+
+  // ② 폴백 — 최신 순 1,000행을 받아 시간순으로 뒤집는다.
+  const since = new Date(Date.now() - hours * 3_600_000).toISOString()
+  let query = supabase
     .from("water_quality_readings")
     .select("*")
     .eq("tank_id", tankId)
     .gte("recorded_at", since)
-    .order("recorded_at", { ascending: true })
+  if (deviceId) query = query.eq("device_id", deviceId)
+
+  const { data, error } = await query.order("recorded_at", { ascending: false }).limit(1000)
 
   if (error) throw error
-  return (data || []).map(toWaterQuality)
+  return (data || []).map(toWaterQuality).reverse()
 }
 
-export async function getLatestWaterQuality(tankId: string): Promise<WaterQualityReading | null> {
-  const { data, error } = await supabase
+export async function getLatestWaterQuality(tankId: string, deviceId?: string | null): Promise<WaterQualityReading | null> {
+  let query = supabase
     .from("water_quality_readings")
     .select("*")
     .eq("tank_id", tankId)
+  if (deviceId) query = query.eq("device_id", deviceId)
+
+  const { data, error } = await query
     .order("recorded_at", { ascending: false })
     .limit(1)
     .single()
@@ -236,6 +310,18 @@ export async function insertWaterQuality(
       })
     } catch { /* alert insert failure is non-fatal */ }
   }
+
+  // 기록이 다시 들어왔으니 이 수조의 입력 누락 알림은 닫는다.
+  // 주기 판정(syncMissingInputAlerts)이 돌 때까지 기다리지 않는다 — 방금 입력한
+  // 사람의 화면에서 "기록이 없습니다" 가 그대로 남아 있으면 안 된다.
+  try {
+    await supabase
+      .from("alerts")
+      .update({ resolved: true })
+      .eq("tank_id", tankId)
+      .eq("parameter", MISSING_INPUT_PARAMETER)
+      .eq("resolved", false)
+  } catch { /* non-fatal */ }
 
   // Sync tank status with the worst threshold level from this reading
   const newStatus = thresholdAlerts.some(a => a.type === "danger") ? "danger"
@@ -554,6 +640,125 @@ export async function createAlert(values: {
 }
 
 // ─────────────────────────────────────────────
+// 입력 누락 알림
+// ─────────────────────────────────────────────
+//
+// 이 저장소에는 스케줄러(cron)가 없다. 수질 위험·위험도 상승 알림은 값이
+// 들어오는 순간(센서 수신 API·수동 입력)에 만들어지지만, **입력 누락은 아무
+// 일도 일어나지 않는 것이 사건**이라 그 방식으로는 영영 만들어지지 않는다.
+//
+// 그래서 화면이 켜져 있는 동안 브라우저가 대신 돌린다 — 헤더의 알림 폴링
+// (components/layout/header.tsx, 60초)에 얹었다. 헤더는 대시보드 전 화면에
+// 떠 있어 어느 페이지를 열어도 판정이 돌고, 판정 결과가 곧바로 같은 폴링의
+// 다음 조회에 잡힌다.
+//
+// 다만 60초마다 실제로 훑으면 안 된다. 그래서 두 겹으로 막는다.
+//  ① 브라우저 단위 스로틀 — localStorage 에 마지막 실행 시각을 남기고
+//     MISSING_INPUT_CHECK_INTERVAL_MIN 안에는 건너뛴다. localStorage 는 같은
+//     출처의 모든 탭이 공유하므로 탭을 10개 열어도 시간당 한 번이다.
+//  ② 알림 단위 중복 방지 — 센서 수신 경로(app/api/sensors/data/route.ts)와
+//     같은 방식으로, 열려 있는 같은 알림이 있으면 새로 만들지 않고 갱신만 한다.
+//     ①을 뚫고 두 탭이 동시에 들어오더라도 여기서 걸린다.
+//  그래도 정확히 같은 순간에 겹쳐 두 줄이 생겼다면, 다음 판정 때 가장 오래된
+//  한 줄만 남기고 나머지를 닫아 스스로 정리한다.
+//
+// 쓰기는 전부 사용자 세션(anon 키 + RLS)으로 나간다. alerts 의 RLS 정책
+// (alerts_all_own)이 본인 수조로 범위를 좁혀 주므로 service-role 이 필요 없다.
+
+/** 한 브라우저에서 입력 누락 판정을 다시 돌리기까지의 최소 간격(분).
+ *  72시간을 보는 판정이라 한 시간 늦어도 의미가 달라지지 않는다. */
+const MISSING_INPUT_CHECK_INTERVAL_MIN = 60
+
+const MISSING_INPUT_CHECK_KEY = "shrimp365.missing-input-checked-at"
+
+/** 이번 주기에 판정을 돌릴 차례인지. 돌릴 차례면 곧바로 시각을 찍고 true 를
+ *  돌려준다 — 비동기 작업을 시작하기 **전에** 자리를 선점해야 다른 탭이
+ *  같은 창으로 들어오지 않는다. */
+function claimMissingInputCheck(email?: string | null): boolean {
+  const who = email ?? ""
+  const now = Date.now()
+  try {
+    const raw = window.localStorage.getItem(MISSING_INPUT_CHECK_KEY)
+    if (raw) {
+      const sep = raw.lastIndexOf("|")
+      const lastWho = sep >= 0 ? raw.slice(0, sep) : ""
+      const lastAt = Number(sep >= 0 ? raw.slice(sep + 1) : raw)
+      // 계정이 바뀌었으면 남의 기록이다. 기다리지 않고 바로 돌린다.
+      if (lastWho === who && Number.isFinite(lastAt) &&
+          now - lastAt < MISSING_INPUT_CHECK_INTERVAL_MIN * 60_000) {
+        return false
+      }
+    }
+    window.localStorage.setItem(MISSING_INPUT_CHECK_KEY, `${who}|${now}`)
+    return true
+  } catch {
+    // 사생활 보호 모드 등으로 localStorage 를 못 쓰는 브라우저. 스로틀만
+    // 포기하고 판정은 돌린다 — 중복은 위 ②가 막는다.
+    return true
+  }
+}
+
+/**
+ * 기록이 끊긴 수조를 찾아 입력 누락 알림을 만들고, 돌아온 수조의 알림은 닫는다.
+ *
+ * 실패는 삼킨다 — 알림 폴링에 얹혀 도는 부가 작업이라 여기서 던지면 정작
+ * 봐야 할 알림 목록 갱신까지 멈춘다.
+ *
+ * @param email 로그인 계정. 데모 계정은 목데이터로 화면을 그리므로 건너뛴다.
+ * @returns 알림을 만들거나 닫아 목록이 달라졌으면 true.
+ */
+export async function syncMissingInputAlerts(email?: string | null): Promise<boolean> {
+  if (typeof window === "undefined") return false
+  // 데모 계정 화면은 MOCK_ALERTS 로 그린다. 여기서 DB 를 건드리면 시연 중에
+  // 알림함이 목데이터와 어긋난다.
+  if (isTestAccount(email)) return false
+  if (!claimMissingInputCheck(email)) return false
+
+  try {
+    const tanks = await getAllTanks()
+    if (tanks.length === 0) return false
+    const tankIds = tanks.map(t => t.id)
+
+    // 열려 있는 입력 누락 알림을 한 번에 가져온다(수조마다 조회하지 않는다).
+    const { data: openRows, error: openErr } = await supabase
+      .from("alerts")
+      .select("id, tank_id, value")
+      .in("tank_id", tankIds)
+      .eq("parameter", MISSING_INPUT_PARAMETER)
+      .eq("resolved", false)
+      .order("created_at", { ascending: true })
+    if (openErr) throw openErr
+
+    // 수조별 마지막 기록 시각. 비운 수조는 애초에 판정하지 않으니 묻지 않는다.
+    const judged = tanks.filter(t => t.status !== "inactive")
+    const lastAt = new Map<string, string | null>()
+    await Promise.all(judged.map(async t => {
+      const latest = await getLatestWaterQuality(t.id)
+      lastAt.set(t.id, latest?.recorded_at ?? null)
+    }))
+
+    // 무엇을 만들고 갱신하고 닫을지는 순수 함수가 정한다(판정과 쓰기를 갈라 둔다).
+    const plan = planMissingInputAlerts(tanks, lastAt, openRows ?? [])
+
+    if (plan.resolve.length > 0) {
+      await supabase.from("alerts").update({ resolved: true }).in("id", plan.resolve)
+    }
+    for (const r of plan.refresh) {
+      await supabase.from("alerts").update({ value: r.value, message: r.message }).eq("id", r.id)
+    }
+    if (plan.insert.length > 0) {
+      await supabase.from("alerts").insert(plan.insert)
+    }
+
+    // 갱신만 한 경우는 목록의 구성이 그대로라 다시 불러올 필요가 없다.
+    return plan.insert.length > 0 || plan.resolve.length > 0
+  } catch {
+    // 다음 주기에 다시 시도한다. 자리는 이미 선점했으므로 한 간격 뒤가 된다.
+    return false
+  }
+}
+
+// ─────────────────────────────────────────────
 // SENSOR DEVICES
 // ─────────────────────────────────────────────
 
@@ -566,8 +771,51 @@ function toSensorDevice(d: DbSensorDevice): SensorDevice {
     api_key: d.api_key,
     active: d.active,
     last_seen_at: d.last_seen_at,
+    serial: d.serial ?? null,
+    firmware: d.firmware ?? null,
+    last_payload: d.last_payload ?? null,
+    agent_version: d.agent_version ?? null,
+    update_to: d.update_to ?? null,
+    update_status: d.update_status ?? null,
+    update_message: d.update_message ?? null,
+    update_status_at: d.update_status_at ?? null,
     created_at: d.created_at,
   }
+}
+
+/** 이 기기에 특정 버전으로의 업데이트를 승인한다.
+ *  기기는 다음 확인 때(하루 한 번) 이 값을 보고 받아 간다.
+ *  null 을 주면 승인을 거둬들인다 — 아직 안 받아 갔다면 취소된다. */
+export async function requestDeviceUpdate(id: string, version: string | null): Promise<SensorDevice> {
+  // 다운그레이드 승인 방지 — 장비는 현재보다 높지 않은 버전을 거부하므로
+  // (updater.py), 낮거나 같은 버전을 승인해 두면 장비가 매번 거부하고
+  // 승인이 영영 소비되지 않는 상태로 남는다. 여기서 미리 막는다.
+  if (version) {
+    const { data: dev } = await supabase
+      .from("sensor_devices").select("agent_version").eq("id", id).single()
+    const cur = dev?.agent_version as string | null | undefined
+    const parse = (v: string) => v.split(".").map(Number)
+    if (cur && /^\d+\.\d+\.\d+$/.test(cur) && /^\d+\.\d+\.\d+$/.test(version)) {
+      const [a, b] = [parse(version), parse(cur)]
+      const newer = a[0] !== b[0] ? a[0] > b[0] : a[1] !== b[1] ? a[1] > b[1] : a[2] > b[2]
+      if (!newer) throw new Error(`현재 버전(${cur})보다 높은 버전만 승인할 수 있습니다.`)
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("sensor_devices")
+    .update({
+      update_to: version,
+      update_requested_at: version ? new Date().toISOString() : null,
+      update_status: version ? "requested" : null,
+      update_message: null,
+    })
+    .eq("id", id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return toSensorDevice(data)
 }
 
 export async function getSensorDevices(tankId: string): Promise<SensorDevice[]> {

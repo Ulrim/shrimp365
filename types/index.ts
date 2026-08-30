@@ -1,8 +1,19 @@
+import type { ComponentType } from "react"
+
+/** 아이콘 자리에 꽂는 컴포넌트. 실제로 들어오는 건 늘 lucide-react 아이콘이다.
+ *
+ *  여기서 React.ElementType 을 쓰면 안 된다. @react-three/fiber 가 전역
+ *  JSX.IntrinsicElements 에 three.js 요소(mesh, group, boxGeometry …)를 얹기
+ *  때문에, ElementType 유니온이 그 태그들까지 삼킨다. 그러면 태그마다 받는
+ *  prop 이 달라 공통 prop 이 하나도 안 남고 className 이 never 로 좁혀진다.
+ *  받는 쪽을 컴포넌트로 못박아 두면 그 영향에서 벗어난다. */
+export type IconComponent = ComponentType<{ className?: string }>
+
 export interface User {
   id: string
   email: string
   name: string
-  role: "admin" | "operator" | "viewer"
+  role: "admin" | "manager" | "operator" | "viewer" | "farmer"
   plan?: "free" | "basic" | "pro" | "enterprise"
   farm_count?: number
 }
@@ -12,8 +23,15 @@ export interface Farm {
   user_id: string
   name: string
   location: string
+  /** 지도 표시와 기상 연동에 쓰는 좌표. 아직 안 정했으면 null. */
+  latitude: number | null
+  longitude: number | null
   owner_name?: string
   area: number
+  /** 농장 유형 — 기본 새우 양식. agriculture 는 수경재배(농업 모드).
+   *  마이그레이션 전 DB·목데이터는 값이 없을 수 있어 선택 필드로 두고,
+   *  읽는 쪽에서 "shrimp" 으로 간주한다. */
+  farm_type?: "shrimp" | "agriculture"
   tank_count: number
   created_at: string
 }
@@ -30,12 +48,19 @@ export interface Tank {
   stocking_date?: string | null
   harvest_date?: string | null
   tank_type?: "노지" | "실내" | "반실내"
+  /** 양액 레시피(농업 모드 베드 전용) — µS/cm 저장. null 이면 미설정. */
+  target_ec?: number | null
+  /** 허용 오차(±µS/cm). 사업 목표 ±0.1 dS/m = 100 µS/cm. */
+  ec_tolerance?: number
+  target_ph?: number | null
+  ph_tolerance?: number
   created_at: string
 }
 
 export interface WaterQualityReading {
   id: string
   tank_id: string
+  device_id?: string | null   // 어느 센서(기기)가 잰 값인지. 예전 기록은 null.
   temperature: number
   ph: number
   do_level: number
@@ -45,6 +70,12 @@ export interface WaterQualityReading {
   nitrate: number
   alkalinity: number
   turbidity: number
+  /** 전도도(uS/cm). EC 센서를 전도도 모드로 쓰는 농장에서만 채워진다. */
+  conductivity?: number | null
+  /** 순환 유량(L/min) — 수경재배 순환 라인. 안 재는 곳은 null. */
+  flow_rate?: number | null
+  /** 차압(kPa) — UV 살균기·필터 막힘 감시. 안 재는 곳은 null. */
+  diff_pressure?: number | null
   recorded_at: string
   created_at: string
 }
@@ -109,6 +140,23 @@ export interface SensorDevice {
   api_key: string
   active: boolean
   last_seen_at: string | null
+  /** 라즈베리파이 CPU 시리얼 등 하드웨어 고정값. 기기가 스스로 보고한다. */
+  serial: string | null
+  /** 장비에서 도는 클라이언트 버전. */
+  firmware: string | null
+  /** 마지막으로 수신한 원본 측정값. 수질 기록에 저장하지 않는 값도 들어 있다. */
+  last_payload: Record<string, number | string | boolean> | null
+  /** 장비가 보고한 수집기 버전. 원격 업데이트의 기준이 된다. */
+  agent_version: string | null
+  latitude?: number | null    // 페어링 때 휴대폰 위치로 기록된 장비 좌표
+  longitude?: number | null
+  located_at?: string | null
+  /** 주인이 승인한 목표 버전. null 이면 업데이트하지 않는다. */
+  update_to: string | null
+  /** 기기가 되보고한 진행 상황. */
+  update_status: "requested" | "downloading" | "applied" | "failed" | "rolled_back" | null
+  update_message: string | null
+  update_status_at: string | null
   created_at: string
 }
 

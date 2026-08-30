@@ -1,0 +1,72 @@
+{
+  "slug": "high-temperature",
+  "locale": "id",
+  "cards": [
+    {
+      "type": "cover",
+      "label": "UDANG VANAME · SUHU TINGGI",
+      "title": ["Di atas 34 ℃", "tambak berubah"],
+      "subtitle": "Kematian musim panas mulai dari oksigen"
+    },
+    {
+      "type": "point",
+      "index": "01",
+      "label": "Batas bahaya",
+      "value": "34 ℃",
+      "caption": "Lewat ini, bertahan lebih dulu dari tumbuh"
+    },
+    {
+      "type": "point",
+      "index": "02",
+      "label": "Kenapa panas fatal",
+      "valueStyle": "text",
+      "value": ["Oksigen larut turun,", "kebutuhan naik"],
+      "caption": "Makin panas, makin lebar jaraknya"
+    },
+    {
+      "type": "point",
+      "index": "03",
+      "label": "Hepatopankreas",
+      "value": "33 ℃",
+      "caption": "Bertahan di sini, organnya rusak"
+    },
+    {
+      "type": "point",
+      "index": "04",
+      "label": "Kedalaman air",
+      "value": "≥ 1.2 m",
+      "caption": "Air lebih dalam naik suhunya lebih lambat"
+    },
+    {
+      "type": "point",
+      "index": "05",
+      "label": "Kincir",
+      "valueStyle": "text",
+      "value": ["Siang bolong", "tetap jalan"],
+      "caption": "Pecah stratifikasi, aduk air dasar"
+    },
+    {
+      "type": "point",
+      "index": "06",
+      "label": "Pakan",
+      "valueStyle": "text",
+      "value": ["Sisa pakan", "jadi racun"],
+      "caption": "Pakan tak termakan menghabiskan oksigen"
+    },
+    {
+      "type": "outro",
+      "title": ["Yang dipantau", "saat musim panas"],
+      "rows": [
+        ["Batas bahaya", "≥ 34 ℃"],
+        ["Oksigen terlarut", "≥ 5.0 mg/L"],
+        ["Kedalaman air", "≥ 1.2 m"],
+        ["Suhu / hari", "< 3 ℃"],
+        ["Kincir", "Siang juga"],
+        ["Pakan", "Kurangi"]
+      ],
+      "ctaTitle": "Notifikasi saat suhu melewati batas",
+      "ctaNote": "Gratis · Tanpa instal aplikasi",
+      "ctaUrl": "shrimp365.kr"
+    }
+  ]
+}

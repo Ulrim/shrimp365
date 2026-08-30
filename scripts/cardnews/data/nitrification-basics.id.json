@@ -1,0 +1,16 @@
+{
+  "slug": "nitrification-basics",
+  "locale": "id",
+  "cards": [
+    { "type": "cover", "label": "NITRIFIKASI", "title": ["Probiotik itu", "bukan obat"], "subtitle": "Perlu berminggu-minggu untuk mapan" },
+    { "type": "point", "index": "01", "label": "Alurnya", "valueStyle": "text", "value": ["Amonia →", "nitrit → nitrat"], "caption": "Berjalan dalam dua tahap terpisah" },
+    { "type": "point", "index": "02", "label": "Bakterinya", "valueStyle": "text", "value": ["Tiap tahap", "bakterinya beda"], "caption": "Karena itu nitrit sempat menumpuk" },
+    { "type": "point", "index": "03", "label": "Waktu mapan", "value": "2–4 mgg", "caption": "Ditebar hari ini, tak turun hari ini" },
+    { "type": "point", "index": "04", "label": "Kapan ditebar", "valueStyle": "text", "value": ["Saat mulai dan", "usai desinfeksi"], "caption": "Rutin, bukan setelah ada masalah" },
+    { "type": "point", "index": "05", "label": "Alkalinitas", "value": "7.14 g", "caption": "Terpakai per 1 g amonia" },
+    { "type": "point", "index": "06", "label": "Oksigen", "value": "≥ 5 mg/L", "caption": "Bakteri ini juga butuh oksigen" },
+    { "type": "outro", "title": ["Probiotik:", "cara memakainya"],
+      "rows": [["Alur", "Dua tahap"], ["Waktu mapan", "2–4 minggu"], ["Kapan ditebar", "Awal, usai desinfeksi"], ["Alkalinitas", "100–150 mg/L"], ["Oksigen", "≥ 5.0 mg/L"], ["Jika angka naik", "Kurangi pakan"]],
+      "ctaTitle": "Catat alkalinitas dan nitrogen", "ctaNote": "Gratis · Tanpa instal aplikasi", "ctaUrl": "shrimp365.kr" }
+  ]
+}

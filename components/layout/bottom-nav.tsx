@@ -1,29 +1,38 @@
 "use client"
 
 import { useState } from "react"
+import { SHOW_BOARD, showCardNews } from "@/lib/features"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
+import { useAgriRoute } from "@/lib/agri-route"
 import { cn } from "@/lib/utils"
 import {
   Home, LayoutDashboard, Droplets, ClipboardList,
   MoreHorizontal, Building2, FlaskConical, Package,
-  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight, BookOpen, BrainCircuit, MessageSquare,
+  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight, BookOpen, BrainCircuit, MessageSquare, Layers, Radar,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
 import { PLAN_LABELS, PLAN_COLORS } from "@/lib/plans"
 import { isMonitorAccount } from "@/lib/mock-data"
+import { localizedHref, stripLocalePrefix } from "@/lib/marketing-locale"
+
+// 농업 화면(/daumlabs)에 없는 메뉴 — sidebar 와 같은 집합(설계서 4-3).
+const AGRI_HIDDEN = new Set(["/production", "/inventory", "/ai-advisor", "/reports"])
 
 export function BottomNav() {
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuth()
-  const { t } = useT()
+  const { t, locale } = useT()
+  // 농업 화면 판정은 주소로 한다. withAgri()는 새우 화면에서 문자열을 그대로 돌려준다.
+  const { isAgri, href: withAgri } = useAgriRoute()
   const [moreOpen, setMoreOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const isAdmin = user?.role === "admin" || isMonitorAccount(user?.email)
+  const canControl = isAdmin || user?.role === "manager"
 
   const PRIMARY = [
     { href: "/home",               icon: Home,          label: t.nav.home },
@@ -38,15 +47,22 @@ export function BottomNav() {
     { href: "/farms",         icon: Building2,     label: t.nav.farms },
     { href: "/production",    icon: FlaskConical,  label: t.nav.production },
     { href: "/inventory",     icon: Package,       label: t.nav.inventory },
-    { href: "/ai-advisor",    icon: BrainCircuit,  label: t.nav.aiAdvisor, badge: t.common.comingSoon },
+    { href: "/ai-advisor",    icon: BrainCircuit,  label: t.nav.aiAdvisor },
     { href: "/reports",       icon: BarChart3,     label: t.nav.reports },
-    { href: "/board",         icon: MessageSquare, label: t.board.title },
+    // 공개 콘텐츠는 언어별 주소가 따로 있다. 접두사 없는 주소는 한국어로
+    // 고정되므로, 로그인한 사용자의 언어에 맞는 주소로 보낸다.
+    ...(SHOW_BOARD ? [{ href: localizedHref("/board", locale),    icon: MessageSquare, label: t.board.title }] : []),
+    ...(showCardNews(locale) ? [{ href: localizedHref("/cardnews", locale), icon: Layers,        label: t.cardNews.title }] : []),
+    ...(canControl ? [{ href: "/control", icon: Radar, label: "관제센터" }] : []),
     ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
-  ]
+  ].filter(item => !isAgri || !AGRI_HIDDEN.has(item.href))
 
-  const isMoreActive = MORE.some(
-    (item) => pathname === item.href || pathname.startsWith(item.href + "/")
-  )
+  // 언어 접두사를 뗀 뒤 견준다. /en/cardnews 도 "더보기" 안의 항목이다.
+  const here = stripLocalePrefix(pathname).path
+  const isMoreActive = MORE.some((item) => {
+    const target = stripLocalePrefix(withAgri(item.href)).path
+    return here === target || here.startsWith(target + "/")
+  })
 
   const handleLogout = async () => {
     setMoreOpen(false)
@@ -61,11 +77,12 @@ export function BottomNav() {
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-xl border-t border-border">
         <div className="flex items-stretch h-16 pb-safe">
           {PRIMARY.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(item.href + "/")
+            const to = withAgri(item.href)
+            const active = pathname === to || pathname.startsWith(to + "/")
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={to}
                 className="relative flex-1 flex flex-col items-center justify-center gap-1 min-h-[44px] transition-colors px-1"
               >
                 {active && (
@@ -127,11 +144,12 @@ export function BottomNav() {
             {/* Nav items */}
             <div className="px-4 space-y-1">
               {MORE.map((item) => {
-                const active = pathname === item.href || pathname.startsWith(item.href + "/")
+                const to = withAgri(item.href)
+                const active = pathname === to || pathname.startsWith(to + "/")
                 return (
                   <Link
                     key={item.href}
-                    href={item.href}
+                    href={to}
                     onClick={() => setMoreOpen(false)}
                     className={cn(
                       "flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all",
@@ -142,11 +160,6 @@ export function BottomNav() {
                   >
                     <item.icon className={cn("w-5 h-5", active ? "text-[#1E40AF]" : "text-muted-foreground")} />
                     <span className="flex-1 font-medium text-[15px]">{item.label}</span>
-                    {"badge" in item && item.badge && (
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
-                        {item.badge}
-                      </span>
-                    )}
                     <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </Link>
                 )

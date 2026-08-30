@@ -1,4 +1,5 @@
 import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction } from "@/types"
+import { checkMissingInput, MISSING_INPUT_HOURS } from "@/lib/thresholds"
 
 export const MOCK_USER = {
   id: "mock-user-1",
@@ -39,16 +40,17 @@ export interface AdminUserRow {
   active_tanks: number
   alert_count: number
   joined_at: string
+  last_login?: string | null
 }
 
 export const MOCK_ADMIN_STATS = {
   users: [
-    { id: "mock-user-1", email: "admin@shrimp365.com",    name: "김양식",   role: "admin",    plan: "pro",    farm_count: 2, tank_count: 12, active_tanks: 8,  alert_count: 4, joined_at: "2024-01-15T00:00:00Z" },
-    { id: "mock-user-2", email: "operator@shrimp365.com", name: "이운영",   role: "operator", plan: "basic",  farm_count: 1, tank_count: 5,  active_tanks: 4,  alert_count: 1, joined_at: "2024-03-10T00:00:00Z" },
-    { id: "mock-user-3", email: "park@aqua.kr",           name: "박수산",   role: "operator", plan: "free",   farm_count: 1, tank_count: 3,  active_tanks: 3,  alert_count: 0, joined_at: "2024-05-20T00:00:00Z" },
-    { id: "mock-user-4", email: "choi@sea.kr",            name: "최새우",   role: "operator", plan: "basic",  farm_count: 1, tank_count: 8,  active_tanks: 6,  alert_count: 2, joined_at: "2024-02-28T00:00:00Z" },
-    { id: "mock-user-5", email: "jung@shrimp.com",        name: "정양식",   role: "operator", plan: "pro",    farm_count: 3, tank_count: 20, active_tanks: 18, alert_count: 0, joined_at: "2024-04-01T00:00:00Z" },
-    { id: "mock-user-6", email: "newuser@test.com",       name: "신규가입자", role: "operator", plan: "free",   farm_count: 0, tank_count: 0,  active_tanks: 0,  alert_count: 0, joined_at: "2026-05-12T00:00:00Z" },
+    { id: "mock-user-1", email: "admin@shrimp365.com",    name: "김양식",   role: "admin",    plan: "pro",    farm_count: 2, tank_count: 12, active_tanks: 8,  alert_count: 4, joined_at: "2024-01-15T00:00:00Z", last_login: "2026-08-10T01:20:00Z" },
+    { id: "mock-user-2", email: "operator@shrimp365.com", name: "이운영",   role: "farmer",   plan: "basic",  farm_count: 1, tank_count: 5,  active_tanks: 4,  alert_count: 1, joined_at: "2024-03-10T00:00:00Z", last_login: "2026-08-09T22:05:00Z" },
+    { id: "mock-user-3", email: "park@aqua.kr",           name: "박수산",   role: "farmer",   plan: "free",   farm_count: 1, tank_count: 3,  active_tanks: 3,  alert_count: 0, joined_at: "2024-05-20T00:00:00Z", last_login: "2026-08-08T09:41:00Z" },
+    { id: "mock-user-4", email: "choi@sea.kr",            name: "최새우",   role: "farmer",   plan: "basic",  farm_count: 1, tank_count: 8,  active_tanks: 6,  alert_count: 2, joined_at: "2024-02-28T00:00:00Z", last_login: "2026-07-30T14:12:00Z" },
+    { id: "mock-user-5", email: "jung@shrimp.com",        name: "정양식",   role: "farmer",   plan: "pro",    farm_count: 3, tank_count: 20, active_tanks: 18, alert_count: 0, joined_at: "2024-04-01T00:00:00Z", last_login: "2026-08-10T00:03:00Z" },
+    { id: "mock-user-6", email: "newuser@test.com",       name: "신규가입자", role: "farmer",   plan: "free",   farm_count: 0, tank_count: 0,  active_tanks: 0,  alert_count: 0, joined_at: "2026-05-12T00:00:00Z", last_login: null },
   ] as AdminUserRow[],
   total_farms: 8,
   total_tanks: 48,
@@ -73,6 +75,7 @@ export const MOCK_FARMS: Farm[] = [
     user_id: "mock-user-1",
     name: "제1양식장",
     location: "전남 여수시 돌산읍",
+    latitude: 34.6667, longitude: 127.7614,
     owner_name: "김양식",
     area: 5000,
     tank_count: 8,
@@ -83,6 +86,7 @@ export const MOCK_FARMS: Farm[] = [
     user_id: "mock-user-1",
     name: "제2양식장",
     location: "전남 고흥군 도화면",
+    latitude: 34.5147, longitude: 127.2856,
     owner_name: "김양식",
     area: 3200,
     tank_count: 4,
@@ -113,23 +117,99 @@ export const MOCK_TANKS: Tank[] = [
 // ─────────────────────────────────────────────
 // 수질 데이터
 // ─────────────────────────────────────────────
-function generateWQ(tankId: string, days = 7, opts: { highTurbidity?: boolean; lowDo?: boolean; highAmmonia?: boolean } = {}) {
+/** 목데이터는 언제 열어도 같아야 한다.
+ *
+ *  Math.random() 을 쓰면 시연할 때마다 화면이 달라지고, 이상징후 판정도 뜰 때가
+ *  있고 안 뜰 때가 있다. 증빙 캡처는 재현되어야 하므로 tankId 로 씨앗을 고정한다. */
+function seeded(seed: string): () => number {
+  let h = 2166136261
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return () => {
+    h += 0x6D2B79F5
+    let t = Math.imul(h ^ (h >>> 15), 1 | h)
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/** 시연용 수질 기록을 만든다.
+ *
+ *  opts 의 앞 세 개(lowDo·highTurbidity·highAmmonia)는 **임계값 초과** 상황이라
+ *  알림함과 수조 상태 뱃지를 보여 준다. 뒤 세 개는 **임계값을 넘기 전** 상황이라
+ *  이상징후 탐지(lib/thresholds.ts) 화면을 보여 준다 — 이 둘은 다른 기능이고,
+ *  데모 계정에 둘 다 있어야 각각을 캡처할 수 있다.
+ *
+ *  이상징후 시나리오 구간은 잡음을 넣지 않는다. 잡음이 한 걸음 폭보다 크면
+ *  단조 증가·감소가 끊겨 "연속 악화" 판정이 성립하지 않는다. */
+function generateWQ(
+  tankId: string,
+  days = 7,
+  opts: {
+    highTurbidity?: boolean
+    lowDo?: boolean
+    highAmmonia?: boolean
+    /** 급변 — 최근 2시간 안에 DO 가 크게 떨어진다(임계값 5.0 은 아직 안 넘음). */
+    doSurge?: boolean
+    /** 일별 악화 — 날마다 최저 DO 가 내려간다. 하루 주기와 구분되는 신호다. */
+    doDailyDecline?: boolean
+    /** 연속 악화 — 암모니아가 여러 시간에 걸쳐 꾸준히 오른다(임계값 0.5 미만에서). */
+    ammoniaDrift?: boolean
+    /** 입력 누락 — 기록 전체를 이만큼 과거로 밀어 마지막 기록이 오래되게 만든다.
+     *  값 자체는 건드리지 않는다(씨앗 난수 호출 순서도 그대로). 시각만 옮긴다. */
+    staleDays?: number
+  } = {},
+) {
   const data: WaterQualityReading[] = []
+  const rnd = seeded(tankId)
   const now = new Date()
+  const staleH = (opts.staleDays ?? 0) * 24
   for (let i = days * 24; i >= 0; i--) {
-    const t = new Date(now.getTime() - i * 3600000)
+    const t = new Date(now.getTime() - (i + staleH) * 3600000)
+    // 값을 만드는 기준은 옮기지 않은 i 그대로다 — 그래야 staleDays 를 줘도
+    // 파형과 난수열이 변하지 않고, 이 수조의 기존 캡처가 그대로 재현된다.
+    const hoursAgo = i
+
+    // ── DO ──────────────────────────────────────────────────────────────
+    let doLevel: number
+    if (opts.doDailyDecline) {
+      // 하루 0.45 씩 꾸준히 내려간다. 하루 주기(sin)도 살려 두되 진폭을 하락 폭보다
+      // 작게(±0.15) 둔다 — 주기가 하락보다 크면 날짜별 최저값이 오르내려 "연속 악화"가
+      // 성립하지 않는다(날짜 경계와 시각이 어긋나기 때문이며, 실제로 그렇게 끊겼다).
+      // 시간에 비례해 내리므로 달력 날짜와 무관하게 날마다 바닥이 낮아진다.
+      doLevel = 3.95 + (hoursAgo / 24) * 0.45 + Math.sin(hoursAgo / 6) * 0.15
+    } else if (opts.doSurge && hoursAgo <= 2) {
+      doLevel = 5.05                                   // 6.5 대에서 한 번에 떨어짐
+    } else if (opts.lowDo) {
+      doLevel = 3.8 + (rnd() - 0.5) * 0.6
+    } else {
+      doLevel = 6.5 + Math.sin(hoursAgo / 6) * 0.8 + (rnd() - 0.5) * 0.3
+    }
+
+    // ── 암모니아 ────────────────────────────────────────────────────────
+    let ammonia: number
+    if (opts.ammoniaDrift && hoursAgo <= 8) {
+      ammonia = 0.09 + (8 - hoursAgo) * 0.045          // 0.09 → 0.45 (임계 0.5 미만)
+    } else if (opts.highAmmonia) {
+      ammonia = 0.55 + rnd() * 0.2
+    } else {
+      ammonia = 0.08 + rnd() * 0.12
+    }
+
     data.push({
       id: `wq-${tankId}-${i}`,
       tank_id: tankId,
-      temperature: 28 + Math.sin(i / 12) * 1.5 + (Math.random() - 0.5) * 0.4,
-      ph: 7.9 + Math.sin(i / 8) * 0.25 + (Math.random() - 0.5) * 0.08,
-      do_level: opts.lowDo ? 3.8 + (Math.random() - 0.5) * 0.6 : 6.5 + Math.sin(i / 6) * 0.8 + (Math.random() - 0.5) * 0.3,
-      salinity: 20 + (Math.random() - 0.5) * 0.5,
-      ammonia: opts.highAmmonia ? 0.55 + Math.random() * 0.2 : 0.08 + Math.random() * 0.12,
-      nitrite: 0.04 + Math.random() * 0.06,
-      nitrate: 6 + Math.random() * 4,
-      alkalinity: 125 + (Math.random() - 0.5) * 10,
-      turbidity: opts.highTurbidity ? 28 + Math.random() * 12 : 4 + Math.random() * 4,
+      temperature: 28 + Math.sin(hoursAgo / 12) * 1.5 + (rnd() - 0.5) * 0.4,
+      ph: 7.9 + Math.sin(hoursAgo / 8) * 0.25 + (rnd() - 0.5) * 0.08,
+      do_level: doLevel,
+      salinity: 20 + (rnd() - 0.5) * 0.5,
+      ammonia,
+      nitrite: 0.04 + rnd() * 0.06,
+      nitrate: 6 + rnd() * 4,
+      alkalinity: 125 + (rnd() - 0.5) * 10,
+      turbidity: opts.highTurbidity ? 28 + rnd() * 12 : 4 + rnd() * 4,
       recorded_at: t.toISOString(),
       created_at: t.toISOString(),
     })
@@ -139,14 +219,14 @@ function generateWQ(tankId: string, days = 7, opts: { highTurbidity?: boolean; l
 
 export const MOCK_WATER_QUALITY: Record<string, WaterQualityReading[]> = {
   "tank-1":  generateWQ("tank-1"),
-  "tank-2":  generateWQ("tank-2"),
+  "tank-2":  generateWQ("tank-2", 7, { doSurge: true }),          // 이상징후: 급변
   "tank-3":  generateWQ("tank-3"),
-  "tank-4":  generateWQ("tank-4", 7, { lowDo: true }),
+  "tank-4":  generateWQ("tank-4", 7, { doDailyDecline: true }),   // 이상징후: 일별 악화 (+ DO 임계 근접)
   "tank-5":  generateWQ("tank-5"),
   "tank-6":  generateWQ("tank-6", 7, { highTurbidity: true }),
-  "tank-7":  generateWQ("tank-7"),
+  "tank-7":  generateWQ("tank-7", 7, { staleDays: 4 }),   // 입력 누락: 마지막 기록이 4일 전(기준 72시간 초과)
   "tank-8":  generateWQ("tank-8"),
-  "tank-9":  generateWQ("tank-9"),
+  "tank-9":  generateWQ("tank-9", 7, { ammoniaDrift: true }),     // 이상징후: 연속 악화
   "tank-10": generateWQ("tank-10"),
   "tank-11": generateWQ("tank-11", 7, { highAmmonia: true }),
   "tank-12": generateWQ("tank-12"),
@@ -156,7 +236,7 @@ export const WATER_QUALITY_STANDARDS = {
   temperature: { min: 25, max: 32, warning_min: 23, warning_max: 34, unit: "°C",   label: "수온" },
   ph:          { min: 7.5, max: 8.5, warning_min: 7.0, warning_max: 9.0, unit: "", label: "pH" },
   do_level:    { min: 5.0, max: 9.0, warning_min: 4.0, warning_max: 10.0, unit: "mg/L", label: "용존산소(DO)" },
-  salinity:    { min: 15, max: 25, warning_min: 12, warning_max: 28, unit: "ppt",  label: "염도" },
+  salinity:    { min: 15, max: 35, warning_min: 12, warning_max: 40, unit: "‰", label: "염도" },
   ammonia:     { min: 0, max: 0.5, warning_min: 0, warning_max: 1.0, unit: "mg/L", label: "암모니아" },
   nitrite:     { min: 0, max: 0.1, warning_min: 0, warning_max: 0.5, unit: "mg/L", label: "아질산염" },
   nitrate:     { min: 0, max: 20,  warning_min: 0, warning_max: 40,  unit: "mg/L", label: "질산염" },
@@ -173,6 +253,33 @@ export const MOCK_ALERTS: Alert[] = [
   { id: "alert-3", tank_id: "tank-11", tank_name: "F-1조", type: "warning", parameter: "ammonia",   value: 0.62, threshold: 0.5, message: "암모니아 농도가 주의 수준을 초과했습니다. 환수 및 미생물 투입 권장",       created_at: daysAgoZ(0.1),  resolved: false },
   { id: "alert-4", tank_id: "tank-6",  tank_name: "C-2조", type: "warning", parameter: "ph",        value: 9.1,  threshold: 8.5, message: "pH가 허용 범위를 초과했습니다",                                           created_at: daysAgoZ(0.15), resolved: false },
 ]
+
+// 입력 누락 알림 — 데모 계정에서도 이 알림을 캡처할 수 있어야 한다(과업지시서 4-2 증빙).
+//
+// 문구를 손으로 적어 넣지 않고 실제 판정 함수를 그대로 돌린다. 데모 화면에
+// 보이는 것과 현장에서 만들어지는 것이 한 글자도 달라지면 증빙으로 못 쓴다.
+// tank-7(D-1조) 은 MOCK_WATER_QUALITY 에서 staleDays: 4 로 기록이 4일 전에
+// 끊겨 있어, 기준(72시간)을 넘긴 유일한 수조다.
+const MISSING_INPUT_DEMO_TANK = MOCK_TANKS.find(t => t.id === "tank-7")
+const MISSING_INPUT_DEMO_LAST =
+  MOCK_WATER_QUALITY["tank-7"]?.[MOCK_WATER_QUALITY["tank-7"].length - 1]?.recorded_at ?? null
+const MISSING_INPUT_DEMO_VERDICT = MISSING_INPUT_DEMO_TANK
+  ? checkMissingInput(MISSING_INPUT_DEMO_TANK, MISSING_INPUT_DEMO_LAST)
+  : null
+
+if (MISSING_INPUT_DEMO_TANK && MISSING_INPUT_DEMO_VERDICT && MISSING_INPUT_DEMO_LAST) {
+  MOCK_ALERTS.push({
+    id: "alert-5",
+    tank_id: MISSING_INPUT_DEMO_TANK.id,
+    tank_name: MISSING_INPUT_DEMO_TANK.name,
+    ...MISSING_INPUT_DEMO_VERDICT,
+    // 마지막 기록에서 정확히 기준 시간이 지난 순간에 생겼을 알림이다.
+    created_at: new Date(
+      new Date(MISSING_INPUT_DEMO_LAST).getTime() + MISSING_INPUT_HOURS * 3600000,
+    ).toISOString(),
+    resolved: false,
+  })
+}
 
 // ─────────────────────────────────────────────
 // 양식일지 (최근 14일, 다양한 수조)
@@ -272,11 +379,11 @@ export const MOCK_DIAGNOSES: DiagnosisResult[] = [
 // IoT 센서
 // ─────────────────────────────────────────────
 export const MOCK_SENSOR_DEVICES: SensorDevice[] = [
-  { id: "dev-1", tank_id: "tank-1", name: "A-1조 멀티센서 (수온·DO·pH·염도)", device_type: "multi", api_key: "sk-demo-a1-xxxxx", active: true, last_seen_at: daysAgoZ(0.003), created_at: "2024-04-01T00:00:00Z" },
-  { id: "dev-2", tank_id: "tank-3", name: "B-1조 멀티센서", device_type: "multi", api_key: "sk-demo-b1-xxxxx", active: true, last_seen_at: daysAgoZ(0.008), created_at: "2024-04-05T00:00:00Z" },
-  { id: "dev-3", tank_id: "tank-5", name: "C-1조 수온·DO 센서", device_type: "do", api_key: "sk-demo-c1-xxxxx", active: true, last_seen_at: daysAgoZ(0.01),  created_at: "2024-04-10T00:00:00Z" },
-  { id: "dev-4", tank_id: "tank-6", name: "C-2조 멀티센서", device_type: "multi", api_key: "sk-demo-c2-xxxxx", active: true, last_seen_at: daysAgoZ(0.006), created_at: "2024-04-10T00:00:00Z" },
-  { id: "dev-5", tank_id: "tank-9", name: "E-1조 수온센서", device_type: "temperature", api_key: "sk-demo-e1-xxxxx", active: true, last_seen_at: daysAgoZ(0.02),  created_at: "2024-04-20T00:00:00Z" },
+  { id: "dev-1", tank_id: "tank-1", name: "A-1조 멀티센서 (수온·DO·pH·염도)", device_type: "multi", api_key: "sk-demo-a1-xxxxx", active: true, last_seen_at: daysAgoZ(0.003), serial: "10000000c0ffee01", firmware: "pi-1.0.0", last_payload: { temperature: 28.4, ph: 7.85, do_level: 6.42, salinity: 21.4, conductivity: 32100 }, agent_version: "1.1.0", update_to: null, update_status: null, update_message: null, update_status_at: null, created_at: "2024-04-01T00:00:00Z" },
+  { id: "dev-2", tank_id: "tank-3", name: "B-1조 멀티센서", device_type: "multi", api_key: "sk-demo-b1-xxxxx", active: true, last_seen_at: daysAgoZ(0.008), serial: "10000000c0ffee02", firmware: "pi-1.0.0", last_payload: { temperature: 29.1, ph: 8.02, do_level: 6.9, salinity: 22.0 }, agent_version: "1.0.0", update_to: null, update_status: null, update_message: null, update_status_at: null, created_at: "2024-04-05T00:00:00Z" },
+  { id: "dev-3", tank_id: "tank-5", name: "C-1조 수온·DO 센서", device_type: "do", api_key: "sk-demo-c1-xxxxx", active: true, last_seen_at: daysAgoZ(0.01), serial: "10000000c0ffee03", firmware: "pi-1.0.0", last_payload: { temperature: 27.8, do_level: 5.8 }, agent_version: "1.0.0", update_to: "1.1.0", update_status: "requested", update_message: null, update_status_at: null, created_at: "2024-04-10T00:00:00Z" },
+  { id: "dev-4", tank_id: "tank-6", name: "C-2조 멀티센서", device_type: "multi", api_key: "sk-demo-c2-xxxxx", active: true, last_seen_at: daysAgoZ(0.006), serial: "10000000c0ffee04", firmware: "pi-1.0.0", last_payload: { temperature: 28.9, ph: 7.7, do_level: 6.1, salinity: 20.6 }, agent_version: "1.1.0", update_to: null, update_status: null, update_message: null, update_status_at: null, created_at: "2024-04-10T00:00:00Z" },
+  { id: "dev-5", tank_id: "tank-9", name: "E-1조 수온센서", device_type: "temperature", api_key: "sk-demo-e1-xxxxx", active: true, last_seen_at: daysAgoZ(0.02), serial: "10000000c0ffee05", firmware: "pi-1.0.0", last_payload: { temperature: 28.2 }, agent_version: "1.0.0", update_to: null, update_status: "failed", update_message: null, update_status_at: null, created_at: "2024-04-20T00:00:00Z" },
 ]
 
 // ─────────────────────────────────────────────

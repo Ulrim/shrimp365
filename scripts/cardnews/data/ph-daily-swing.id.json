@@ -1,0 +1,16 @@
+{
+  "slug": "ph-daily-swing",
+  "locale": "id",
+  "cards": [
+    { "type": "cover", "label": "AYUNAN pH HARIAN", "title": ["Ayunannya lebih", "penting dari angka"], "subtitle": "Jangan lewat 0,5 dalam sehari" },
+    { "type": "point", "index": "01", "label": "Rentang ideal", "value": "7.5–8.5", "caption": "Kelola di dalam rentang ini" },
+    { "type": "point", "index": "02", "label": "Ayunan harian", "value": "< 0.5", "caption": "Lewat ini berarti plankton pekat" },
+    { "type": "point", "index": "03", "label": "Kenapa goyah", "valueStyle": "text", "value": ["Naik siang,", "turun malam"], "caption": "Fotosintesis dan respirasi" },
+    { "type": "point", "index": "04", "label": "Saat tinggi", "valueStyle": "text", "value": ["Amonia jadi", "lebih beracun"], "caption": "Di pH 8,5 bentuk racunnya 11%" },
+    { "type": "point", "index": "05", "label": "Saat rendah", "valueStyle": "text", "value": ["Sulfida jadi", "lebih beracun"], "caption": "Kebalikan dari amonia" },
+    { "type": "point", "index": "06", "label": "Cara menangani", "valueStyle": "text", "value": ["Mulai dari", "alkalinitas"], "caption": "Tanpa penyangga terus berayun" },
+    { "type": "outro", "title": ["pH:", "yang dipantau"],
+      "rows": [["Rentang", "7.5–8.5"], ["Ayunan harian", "< 0,5"], ["Ukur", "Subuh · sore"], ["Saat tinggi", "Risiko amonia"], ["Saat rendah", "Risiko sulfida"], ["Penanganan", "Jaga alkalinitas"]],
+      "ctaTitle": "Catat pH subuh dan sore", "ctaNote": "Gratis · Tanpa instal aplikasi", "ctaUrl": "shrimp365.kr" }
+  ]
+}

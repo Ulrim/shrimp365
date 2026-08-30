@@ -1,0 +1,16 @@
+{
+  "slug": "vibrio-monitoring",
+  "locale": "id",
+  "cards": [
+    { "type": "cover", "label": "PENGENDALIAN VIBRIO", "title": ["Kalau air", "menyala di malam hari"], "subtitle": "Itu vibrio berpendar" },
+    { "type": "point", "index": "01", "label": "Total vibrio", "value": "< 10³", "caption": "CFU/mL. Jaga di bawah ini" },
+    { "type": "point", "index": "02", "label": "Zona waspada", "value": "10² – 10³", "caption": "Mulai bertindak dari sini" },
+    { "type": "point", "index": "03", "label": "Koloni hijau", "valueStyle": "text", "value": ["Jenis yang", "lebih berbahaya"], "caption": "Berwarna hijau di media TCBS" },
+    { "type": "point", "index": "04", "label": "Pendarnya", "valueStyle": "text", "value": ["Artinya bahan", "organik melimpah"], "caption": "Periksa dasar dan jumlah pakan" },
+    { "type": "point", "index": "05", "label": "Kapan meledak", "valueStyle": "text", "value": ["Makin hangat,", "makin cepat"], "caption": "Musim panas mempercepat perbanyakan" },
+    { "type": "point", "index": "06", "label": "Cara mencegah", "valueStyle": "text", "value": ["Kelola dasar", "dan pakan"], "caption": "Lingkungan lebih penting dari obat" },
+    { "type": "outro", "title": ["Vibrio:", "yang dipantau"],
+      "rows": [["Aman", "< 10² CFU/mL"], ["Waspada", "10² – 10³"], ["Bahaya", "> 10³"], ["Lebih bahaya", "Koloni hijau"], ["Berpendar", "Organik berlebih"], ["Penanganan", "Dasar, pakan"]],
+      "ctaTitle": "Catat suhu dan pakan bersama", "ctaNote": "Gratis · Tanpa instal aplikasi", "ctaUrl": "shrimp365.kr" }
+  ]
+}

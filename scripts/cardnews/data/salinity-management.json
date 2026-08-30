@@ -1,0 +1,16 @@
+{
+  "slug": "salinity-management",
+  "locale": "ko",
+  "cards": [
+    { "type": "cover", "label": "염도 관리", "title": ["비 온 다음 날,", "염도를 재세요"], "subtitle": "급변이 문제입니다" },
+    { "type": "point", "index": "01", "label": "생존 범위", "value": "0.5~45", "caption": "살긴 삽니다. 잘 크진 않습니다" },
+    { "type": "point", "index": "02", "label": "안정 염도", "value": "15~25", "caption": "이 구간에서 성장이 가장 낫습니다" },
+    { "type": "point", "index": "03", "label": "하루 변동", "value": "≤ 5 ppt", "caption": "급변이 탈피와 면역을 흔듭니다" },
+    { "type": "point", "index": "04", "label": "비 온 뒤", "valueStyle": "text", "value": ["표층만", "싱거워집니다"], "caption": "수차를 돌려 섞으십시오" },
+    { "type": "point", "index": "05", "label": "여름 증발", "valueStyle": "text", "value": ["염도가", "올라갑니다"], "caption": "보충수가 없으면 계속 오릅니다" },
+    { "type": "point", "index": "06", "label": "재는 법", "valueStyle": "text", "value": ["같은 자리", "같은 시각"], "caption": "표층만 재면 속습니다" },
+    { "type": "outro", "title": ["염도는", "이렇게 봅니다"],
+      "rows": [["생존 범위", "0.5~45 ppt"], ["안정 염도", "15~25 ppt"], ["하루 변동", "5 ppt 이내"], ["비 온 뒤", "수차로 혼합"], ["여름", "보충수 준비"], ["재는 법", "중층·같은 시각"]],
+      "ctaTitle": "염도를 매일 기록", "ctaNote": "완전 무료 · 앱 설치 불필요", "ctaUrl": "shrimp365.kr" }
+  ]
+}

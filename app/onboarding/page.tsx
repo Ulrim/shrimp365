@@ -6,15 +6,18 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { getFarms, createFarm, createTank } from "@/lib/db"
 import { isTestAccount } from "@/lib/mock-data"
+import { AGRI_PREFIX } from "@/lib/agri-route"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { AddressSearch } from "@/components/ui/address-search"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Building2, Layers, CheckCircle2, Plus, Trash2, ChevronRight, ChevronLeft, AlertCircle } from "lucide-react"
-import { useT } from "@/lib/i18n-context"
+import { Building2, Layers, CheckCircle2, Plus, Trash2, ChevronRight, ChevronLeft, AlertCircle, Waves, Sprout, FlaskConical } from "lucide-react"
+import { useT, mergeDict } from "@/lib/i18n-context"
+import { agriKo } from "@/lib/i18n/agri-ko"
 
 type TankType = "노지" | "실내" | "반실내"
+type FarmType = "shrimp" | "agriculture"
 
 interface TankForm {
   id: number
@@ -23,6 +26,9 @@ interface TankForm {
   volume: string
   stocking_density: string
   stocking_date: string
+  /** 양액 레시피(농업) — mS/cm 로 입력받아 저장 시 ×1000 (µS/cm) */
+  target_ec: string
+  target_ph: string
 }
 
 function computeCycleDay(stockingDate: string): number {
@@ -34,8 +40,14 @@ function computeCycleDay(stockingDate: string): number {
 export default function OnboardingPage() {
   const router = useRouter()
   const { user } = useAuth()
-  const { t } = useT()
+  const { t: baseT, locale } = useT()
   const [step, setStep] = useState<1 | 2 | 3>(1)
+  // 유형 선택 — 기본은 언제나 새우 양식(절대 원칙).
+  const [farmType, setFarmType] = useState<FarmType>("shrimp")
+  const isAgri = farmType === "agriculture"
+  // 온보딩 시점엔 farm 이 없어 전역 모드가 새우이므로 페이지 로컬로 merge 한다.
+  // 농업 오버라이드 사전은 한국어뿐(설계서 4-2) — 다른 언어는 기존 라벨 그대로.
+  const t = isAgri && locale === "ko" ? mergeDict(baseT, agriKo) : baseT
   const [checking, setChecking] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -49,7 +61,7 @@ export default function OnboardingPage() {
 
   // Step 2 — tanks
   const [tanks, setTanks] = useState<TankForm[]>([
-    { id: 1, name: "", tank_type: "노지", volume: "", stocking_density: "", stocking_date: "" },
+    { id: 1, name: "", tank_type: "노지", volume: "", stocking_density: "", stocking_date: "", target_ec: "", target_ph: "" },
   ])
   const [nextId, setNextId] = useState(2)
 
@@ -80,10 +92,21 @@ export default function OnboardingPage() {
   }
 
   // ─── Tank management ───
+  // NFT 베드는 대부분 온실·실내라 농업 모드 기본 유형은 "실내"(수아 시안 1-2).
+  const defaultTankType: TankType = isAgri ? "실내" : "노지"
+
   const addTank = () => {
     if (tanks.length >= 20) return
-    setTanks(prev => [...prev, { id: nextId, name: "", tank_type: "노지", volume: "", stocking_density: "", stocking_date: "" }])
+    setTanks(prev => [...prev, { id: nextId, name: "", tank_type: defaultTankType, volume: "", stocking_density: "", stocking_date: "", target_ec: "", target_ph: "" }])
     setNextId(n => n + 1)
+  }
+
+  // 유형을 바꾸면 아직 등록 전인 베드/수조 카드의 유형 기본값을 맞춘다.
+  const selectFarmType = (type: FarmType) => {
+    if (type === farmType) return
+    setFarmType(type)
+    const def: TankType = type === "agriculture" ? "실내" : "노지"
+    setTanks(prev => prev.map(tk => ({ ...tk, tank_type: def })))
   }
 
   const removeTank = (id: number) => {
@@ -106,6 +129,17 @@ export default function OnboardingPage() {
   const validateStep2 = () => {
     for (const tk of tanks) {
       if (!tk.name.trim()) return t.onboarding.tankName
+      if (isAgri) {
+        // 레시피는 선택 입력 — 입력했을 때만 범위를 본다.
+        if (tk.target_ec) {
+          const ec = parseFloat(tk.target_ec)
+          if (isNaN(ec) || ec < 0.1 || ec > 10) return t.agri.ecRangeError
+        }
+        if (tk.target_ph) {
+          const ph = parseFloat(tk.target_ph)
+          if (isNaN(ph) || ph < 3 || ph > 9) return t.agri.phRangeError
+        }
+      }
     }
     return ""
   }
@@ -132,10 +166,30 @@ export default function OnboardingPage() {
         location: fullLocation,
         owner_name: ownerName.trim(),
         area: farmArea ? parseFloat(farmArea) : 0,
+        // 새우는 DB DEFAULT('shrimp')에 맡긴다 — 마이그레이션 전 DB 무변화.
+        ...(isAgri ? { farm_type: "agriculture" as const } : {}),
       })
 
       await Promise.all(tanks.map(tk => {
         const volume = parseFloat(tk.volume) || 0
+        if (isAgri) {
+          // 입식 밀도·입식일은 새우 전용 — 0/null 로 저장한다.
+          // 목표 EC 는 mS/cm 입력 → µS/cm(×1000) 저장. 오차는 DB DEFAULT.
+          return createTank({
+            farm_id: farm.id,
+            name: tk.name.trim(),
+            tank_type: tk.tank_type,
+            volume,
+            stocking_density: 0,
+            shrimp_count: 0,
+            cycle_day: 0,
+            stocking_date: null,
+            // 값이 있을 때만 싣는다 — 마이그레이션 전 DB(컬럼 없음)에서도
+            // 레시피를 비워 두면 등록이 막히지 않는다.
+            ...(tk.target_ec ? { target_ec: Math.round(parseFloat(tk.target_ec) * 1000) } : {}),
+            ...(tk.target_ph ? { target_ph: parseFloat(tk.target_ph) } : {}),
+          })
+        }
         const density = parseFloat(tk.stocking_density) || 0
         return createTank({
           farm_id: farm.id,
@@ -254,6 +308,41 @@ export default function OnboardingPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* 유형 선택 — 카드 2택 (수아 시안 1-1). 기본은 새우 양식. */}
+                <div className="space-y-1.5">
+                  <Label className="text-foreground text-sm font-medium">
+                    {t.onboarding.farmTypeLabel} <span className="text-destructive" aria-hidden="true">*</span>
+                  </Label>
+                  <div className="grid grid-cols-2 gap-3" role="group" aria-label={t.onboarding.farmTypeLabel}>
+                    <button
+                      type="button"
+                      onClick={() => selectFarmType("shrimp")}
+                      aria-pressed={farmType === "shrimp"}
+                      className={`min-h-[44px] rounded-xl border p-4 text-left transition-all
+                        ${farmType === "shrimp"
+                          ? "border-ocean-500 bg-ocean-500/5 ring-1 ring-ocean-500/40"
+                          : "border-border bg-muted/50 hover:border-ocean-300"}`}
+                    >
+                      <Waves className={`w-6 h-6 mb-2 ${farmType === "shrimp" ? "text-ocean-600" : "text-muted-foreground"}`} aria-hidden="true" />
+                      <p className="text-sm font-semibold text-foreground">{t.onboarding.farmTypeShrimp}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{t.onboarding.farmTypeShrimpDesc}</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectFarmType("agriculture")}
+                      aria-pressed={farmType === "agriculture"}
+                      className={`min-h-[44px] rounded-xl border p-4 text-left transition-all
+                        ${farmType === "agriculture"
+                          ? "border-ocean-500 bg-ocean-500/5 ring-1 ring-ocean-500/40"
+                          : "border-border bg-muted/50 hover:border-ocean-300"}`}
+                    >
+                      <Sprout className={`w-6 h-6 mb-2 ${farmType === "agriculture" ? "text-ocean-600" : "text-muted-foreground"}`} aria-hidden="true" />
+                      <p className="text-sm font-semibold text-foreground">{t.onboarding.farmTypeAgri}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{t.onboarding.farmTypeAgriDesc}</p>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="space-y-1.5">
                   <Label htmlFor="farm-name" className="text-foreground text-sm font-medium">
                     {t.onboarding.farmName} <span className="text-destructive" aria-hidden="true">*</span>
@@ -384,9 +473,9 @@ export default function OnboardingPage() {
 
                       <div className="space-y-1.5">
                         <Label className="text-foreground text-xs font-medium">
-                          수조 유형 <span className="text-destructive" aria-hidden="true">*</span>
+                          {isAgri ? t.agri.bedType : "수조 유형"} <span className="text-destructive" aria-hidden="true">*</span>
                         </Label>
-                        <div className="flex gap-2" role="group" aria-label="수조 유형 선택">
+                        <div className="flex gap-2" role="group" aria-label={isAgri ? t.agri.bedType : "수조 유형 선택"}>
                           {(["노지", "실내", "반실내"] as TankType[]).map(type => (
                             <button
                               key={type}
@@ -404,50 +493,120 @@ export default function OnboardingPage() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
+                      {isAgri ? (
                         <div className="space-y-1.5">
                           <Label htmlFor={`tank-volume-${tank.id}`} className="text-foreground text-xs font-medium">
-                            {t.onboarding.volume} <span className="text-muted-foreground font-normal">(㎥)</span>
+                            {t.agri.bedVolume} <span className="text-muted-foreground font-normal">(㎥, 선택)</span>
                           </Label>
                           <Input
                             id={`tank-volume-${tank.id}`}
                             type="number"
                             min="0"
+                            step="0.1"
                             value={tank.volume}
                             onChange={e => updateTank(tank.id, "volume", e.target.value)}
-                            placeholder="예: 500"
+                            placeholder="예: 1"
                             className="min-h-[44px] text-sm"
                           />
+                          <p className="text-xs text-muted-foreground">{t.agri.bedVolumeHint}</p>
                         </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label htmlFor={`tank-volume-${tank.id}`} className="text-foreground text-xs font-medium">
+                              {t.onboarding.volume} <span className="text-muted-foreground font-normal">(㎥)</span>
+                            </Label>
+                            <Input
+                              id={`tank-volume-${tank.id}`}
+                              type="number"
+                              min="0"
+                              value={tank.volume}
+                              onChange={e => updateTank(tank.id, "volume", e.target.value)}
+                              placeholder="예: 500"
+                              className="min-h-[44px] text-sm"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor={`tank-density-${tank.id}`} className="text-foreground text-xs font-medium">
+                              {t.onboarding.density} <span className="text-muted-foreground font-normal">(마리/㎥)</span>
+                            </Label>
+                            <Input
+                              id={`tank-density-${tank.id}`}
+                              type="number"
+                              min="0"
+                              value={tank.stocking_density}
+                              onChange={e => updateTank(tank.id, "stocking_density", e.target.value)}
+                              placeholder="예: 100"
+                              className="min-h-[44px] text-sm"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {!isAgri && (
                         <div className="space-y-1.5">
-                          <Label htmlFor={`tank-density-${tank.id}`} className="text-foreground text-xs font-medium">
-                            {t.onboarding.density} <span className="text-muted-foreground font-normal">(마리/㎥)</span>
+                          <Label htmlFor={`tank-date-${tank.id}`} className="text-foreground text-xs font-medium">
+                            입식일 <span className="text-muted-foreground font-normal">(선택)</span>
                           </Label>
                           <Input
-                            id={`tank-density-${tank.id}`}
-                            type="number"
-                            min="0"
-                            value={tank.stocking_density}
-                            onChange={e => updateTank(tank.id, "stocking_density", e.target.value)}
-                            placeholder="예: 100"
+                            id={`tank-date-${tank.id}`}
+                            type="date"
+                            value={tank.stocking_date}
+                            onChange={e => updateTank(tank.id, "stocking_date", e.target.value)}
+                            max={new Date().toISOString().split("T")[0]}
                             className="min-h-[44px] text-sm"
                           />
                         </div>
-                      </div>
+                      )}
 
-                      <div className="space-y-1.5">
-                        <Label htmlFor={`tank-date-${tank.id}`} className="text-foreground text-xs font-medium">
-                          입식일 <span className="text-muted-foreground font-normal">(선택)</span>
-                        </Label>
-                        <Input
-                          id={`tank-date-${tank.id}`}
-                          type="date"
-                          value={tank.stocking_date}
-                          onChange={e => updateTank(tank.id, "stocking_date", e.target.value)}
-                          max={new Date().toISOString().split("T")[0]}
-                          className="min-h-[44px] text-sm"
-                        />
-                      </div>
+                      {/* 양액 레시피 블록 (수아 시안 1-2) — 온보딩은 목표 2필드만.
+                          오차 입력은 /farms 폼에만 둔다(점진적 공개). */}
+                      {isAgri && (
+                        <div className="border-t border-border pt-3 space-y-2">
+                          <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                            <FlaskConical className="w-4 h-4 text-ocean-600" aria-hidden="true" />
+                            {t.agri.recipeTitle} <span className="text-muted-foreground font-normal">{t.agri.recipeOptional}</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">{t.agri.recipeHint}</p>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <Label htmlFor={`tank-ec-${tank.id}`} className="text-foreground text-xs font-medium">
+                                {t.agri.targetEc} <span className="text-muted-foreground font-normal">({t.agri.targetEcUnit})</span>
+                              </Label>
+                              <Input
+                                id={`tank-ec-${tank.id}`}
+                                type="number"
+                                step="0.1"
+                                min="0.1"
+                                max="10"
+                                value={tank.target_ec}
+                                onChange={e => updateTank(tank.id, "target_ec", e.target.value)}
+                                placeholder={t.agri.targetEcPlaceholder}
+                                className="min-h-[44px] text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor={`tank-ph-${tank.id}`} className="text-foreground text-xs font-medium">
+                                {t.agri.targetPh}
+                              </Label>
+                              <Input
+                                id={`tank-ph-${tank.id}`}
+                                type="number"
+                                step="0.1"
+                                min="3"
+                                max="9"
+                                value={tank.target_ph}
+                                onChange={e => updateTank(tank.id, "target_ph", e.target.value)}
+                                placeholder={t.agri.targetPhPlaceholder}
+                                className="min-h-[44px] text-sm"
+                              />
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {t.agri.toleranceDefaultNote} {t.agri.recipeEditNote}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   ))}
 
@@ -518,7 +677,8 @@ export default function OnboardingPage() {
                 </div>
                 <Button
                   className="w-full bg-ocean-600 hover:bg-ocean-700 text-white font-semibold min-h-[44px] text-base gap-2"
-                  onClick={() => router.replace("/home")}
+                  // 수경재배로 등록했으면 농업 화면(/daumlabs)으로 착지한다(설계서 5-2).
+                  onClick={() => router.replace(isAgri ? `${AGRI_PREFIX}/home` : "/home")}
                 >
                   {t.onboarding.complete} <ChevronRight className="w-5 h-5" aria-hidden="true" />
                 </Button>
