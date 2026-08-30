@@ -115,32 +115,80 @@ shrimp365 의 기존 관제센터 라우트와 같은 방식이다: 라우트가
 
 ## 4. 검증
 
-이식이 원본과 어긋나지 않았는지 두 가지를 기계적으로 확인한다.
+이식이 원본과 어긋나지 않았는지 **네 계층을 각각 원본과 대조**한다. 산식만 맞아서는
+부족하다 — 설정을 잘못 읽거나, 계측값을 잘못 정규화하거나, 엔진에 엉뚱한 행을 넣으면
+산식이 정확해도 결과가 틀리고, 그런 오류는 화면에 아무 표시도 남기지 않는다.
 
 ```bash
-npm run mrv:verify-kpi   # 산식 250개 시나리오를 원본 Python 엔진 결과와 대조
-npm run mrv:verify-rls   # 임시 Postgres 를 띄워 테넌트 격리·불변성·승인 게이트 시험
+npm run mrv:verify        # 아래 다섯 가지를 한 번에
 ```
 
-**`mrv:verify-kpi`** — `scripts/mrv/gen_kpi_fixtures.py` 가 원본 `culiver_kpi` 로 시나리오별
-기준값을 만들어 `kpi-fixtures.json` 에 넣고, `verify-kpi.mjs` 가 같은 입력을 TypeScript 엔진에
-넣어 대조한다. EI·FCR·OEI·폐사율·Scope2·신호등·전후비교·추천 전부, 산식 문자열까지 비교한다.
-산식을 고쳤다면 기준값을 다시 만들고(`python3 scripts/mrv/gen_kpi_fixtures.py > scripts/mrv/kpi-fixtures.json`)
-다시 통과시킬 것.
+| 명령 | 무엇을 대조하나 | 규모 |
+|---|---|---|
+| `mrv:verify-kpi` | **산식 엔진** — EI·FCR·OEI·폐사율·Scope2·신호등·전후비교·추천 | 250 시나리오 |
+| `mrv:verify-config` | **설정 해석** — `params_json` → 산출 파라미터(거부해야 할 문서까지) | 102 문서 |
+| `mrv:verify-ingestion` | **계측값 정규화** — 적산/순시/구간/DO → 저장값 + quality_flag (ADR 0001) | 44 배치 / 372 계측값 |
+| `mrv:verify-pipeline` | **조립 계층** — 같은 DB 행 → 같은 KPI (기간 자르기·폭기 구분·생체량 선택) | 25 시나리오 / 1,699 계측값 |
+| `mrv:verify-rls` | **스키마 방어선** — 테넌트 격리·기준선 불변성·승인 게이트·시계열 집계 | 21 항목 |
 
-**`mrv:verify-rls`** — 임시 Postgres 16 에 Supabase `auth` 스텁을 얹고 마이그레이션을 실제로
-적용한 뒤 13가지를 시험한다: 조직 A 가 조직 B 의 사이트·KPI 를 읽지 못하는지, 남의 조직에
-행을 밀어 넣지 못하는지, 로그인 직후 자기 사용자 행은 읽히는지, 미인증 세션에 아무것도 보이지
-않는지, 잠긴 기준선의 UPDATE/DELETE 가 거부되는지, 사이트당 잠긴 기준선이 하나로 제한되는지,
-승인자 없는 `approved`·승인 시각 없는 `applied` 가 CHECK 에 걸리는지.
+앞의 네 가지는 원본 Python 을 실제로 돌려 기준값을 만든 뒤 TypeScript 이식본과 값을
+비교한다(`scripts/mrv/gen_*_fixtures.py` → `scripts/mrv/verify-*.mjs`). 원본 코드는
+`mrv-platform/` 에 그대로 남아 있으므로 언제든 다시 대조할 수 있다.
 
-그 외 공통 검사:
+`mrv:verify-rls` 는 임시 Postgres 16 을 띄워 마이그레이션을 실제로 적용한 뒤 시험한다.
+운영 DB 에 접속하지 않으므로 아무 때나 돌려도 안전하다.
+
+### 산식을 고쳤다면
+
+1. 기준값을 다시 만든다:
+   ```bash
+   python3 scripts/mrv/gen_kpi_fixtures.py > scripts/mrv/kpi-fixtures.json
+   ```
+   (원본 Python 도 함께 고쳤을 때만. 이식본만 고쳤다면 기준값은 그대로 두고 통과시켜야 한다.)
+2. `mrv_kpi_config` 에 새 version 행을 추가한다 — 기존 행을 고치면 과거 스냅샷이 어떤
+   파라미터로 산출됐는지 추적할 수 없다.
+3. `npm run mrv:verify` 를 통과시킨다.
+
+기준값 생성에는 Python 패키지가 필요하다: `pip install sqlalchemy pydantic pydantic-settings`.
+검증 자체(`verify-*.mjs`)는 이미 만들어진 JSON 만 읽으므로 Python 없이도 돌아간다.
+
+### 그 외 공통 검사
 
 ```bash
 npx tsc --noEmit    # 타입
 npm run lint        # 린트
 npm run build       # 빌드
 ```
+
+### 재검증에서 찾아 고친 것
+
+검증을 산식 한 계층에서 네 계층으로 넓히면서 아래를 찾아 고쳤다. 기록해 두는 이유는,
+같은 종류의 실수가 다시 들어올 자리를 표시해 두기 위해서다.
+
+1. **임계값 쌍을 반쪽만 받아들이던 문제** (`lib/mrv/kpi/config.ts`)
+   `{"fcr": {"red_threshold": 2.0}}` 처럼 한쪽만 적힌 문서를 이식본이 나머지 기본값으로
+   조용히 메웠다. 운영자가 설정한 적 없는 조합(red 만 2.0, amber 는 기본 1.5)으로 신호등이
+   판정하게 된다. 원본과 같이 거부하도록 고쳤다(원본은 KeyError → 500, 여기서는 422).
+
+2. **정렬 없는 페이지네이션** (`kpi-service` · `recommendation-service` · `ingestion` 등 9곳)
+   Postgres 는 `ORDER BY` 없는 `LIMIT/OFFSET` 의 행 순서를 보장하지 않는다. 1,000행을
+   넘는 조회에서 어떤 행은 빠지고 어떤 행은 두 번 읽힌다. 특히 추천 엔진 입력인
+   폭기 전력 **합계**가 그렇게 계산되고 있었다(14일치면 수만 행이라 실제로 넘는다).
+   모든 페이지 조회에 결정론적 정렬을 붙이고, 그 요구를 `fetchAll` 주석에 못박았다.
+
+3. **수집 때마다 저장된 계측값을 전부 훑던 문제** (`lib/mrv/ingestion.ts`)
+   중복 판정을 위해 해당 계측기의 **모든** 계측값을 읽고 있었다. 몇 달 운영한 사이트면
+   수집 요청 한 번에 수십만 행이다. 중복은 배치가 담은 시각 구간에서만 생기므로 그
+   범위로 좁혔다.
+
+4. **리포트 생성 실패 시 남던 고아 스냅샷** (`lib/mrv/mrv-report-service.ts`)
+   Scope2 산정이 거부되는 입력(예: After 기간 생산량 0)일 때 스냅샷만 저장된 뒤 422 가
+   났다. 산정을 스냅샷 저장보다 앞으로 옮겨 그 구간을 없앴다.
+
+5. **`/mrv` 가 미들웨어 보호 경로에 없던 문제** (`middleware.ts`)
+   셸이 클라이언트에서 세션을 확인해 리다이렉트했으므로 데이터가 새지는 않았지만,
+   비로그인 방문자에게 화면이 잠깐 그려졌다 사라졌다. 다른 인증 구역과 같이 미들웨어에서
+   먼저 막는다.
 
 ---
 

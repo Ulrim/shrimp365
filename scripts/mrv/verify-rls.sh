@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# MRV 스키마 방어선 검증 — 임시 Postgres 를 띄워 마이그레이션을 실제로 적용하고
-# 테넌트 격리(Hard Rule 4) · 기준선 불변성(ADR 0002) · 승인 게이트를 시험한다.
+# MRV 스키마 검증 — 임시 Postgres 를 띄워 마이그레이션을 실제로 적용하고
+# 테넌트 격리(Hard Rule 4) · 기준선 불변성(ADR 0002) · 승인 게이트 · 시계열 집계 함수를
+# 시험한다. 운영 DB 에 접속하지 않으므로 아무 때나 돌려도 안전하다.
 #
 # 사용:  bash scripts/mrv/verify-rls.sh
 # 요구:  postgresql-16 클라이언트/서버 바이너리, postgres 계정으로 initdb 가능한 환경.
@@ -33,8 +34,9 @@ $PSQL -q -f "$ROOT/scripts/mrv/supabase-auth-stub.sql"
 $PSQL -q -f "$ROOT/supabase/migrations/mrv_platform.sql"
 
 # NOTICE: 접두사를 떼고 PASS/FAIL 줄만 남긴다.
-RESULT="$($PSQL -f "$ROOT/scripts/mrv/verify-rls.sql" 2>&1 \
-  | sed -E 's/^.*NOTICE:  //' | grep -E '^(PASS|FAIL)' || true)"
+RESULT="$( { $PSQL -f "$ROOT/scripts/mrv/verify-rls.sql" 2>&1
+             $PSQL -f "$ROOT/scripts/mrv/verify-aggregate.sql" 2>&1
+           } | sed -E 's/^.*NOTICE:  //' | grep -E '^(PASS|FAIL)' || true)"
 echo "$RESULT"
 
 if echo "$RESULT" | grep -q FAIL; then

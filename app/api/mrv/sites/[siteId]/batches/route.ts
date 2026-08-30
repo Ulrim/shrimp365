@@ -22,7 +22,12 @@ export async function GET(
     await resolveSiteForOrg(auth.db, siteId, auth.orgId)
 
     const tanks = await fetchAll<{ id: string }>((f, t) =>
-      auth.db.from(T.tanks).select("id").eq("site_id", siteId).range(f, t),
+      auth.db
+        .from(T.tanks)
+        .select("id")
+        .eq("site_id", siteId)
+        .order("id", { ascending: true })
+        .range(f, t),
     )
     if (tanks.length === 0) return NextResponse.json([])
 

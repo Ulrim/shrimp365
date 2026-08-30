@@ -238,6 +238,18 @@ function kpiThresholdsFromDict(raw: unknown, fallback: KpiThresholds): KpiThresh
     }
     const subDoc = sub as ParamsJson
     rejectUnknown(subDoc, ["red_threshold", "amber_threshold"], `MetricThresholds(${metric})`)
+    // 임계값은 쌍으로만 의미가 있다. 한쪽만 적힌 문서를 나머지 기본값으로 메우면
+    // 운영자가 의도하지 않은 조합(예: red 만 올리고 amber 는 그대로)이 조용히 만들어져,
+    // 신호등이 설정한 적 없는 기준으로 판정하게 된다. 원본과 같이 거부한다
+    // (원본은 KeyError 로 500 이 났고, 여기서는 422 로 원인을 알려 준다).
+    for (const required of ["red_threshold", "amber_threshold"] as const) {
+      if (subDoc[required] === undefined || subDoc[required] === null) {
+        throw new KpiValueError(
+          `MetricThresholds(${metric}) requires both red_threshold and amber_threshold; ` +
+            `'${required}' is missing`,
+        )
+      }
+    }
     out[metric] = {
       redThreshold: num(subDoc, "red_threshold", base.redThreshold),
       amberThreshold: num(subDoc, "amber_threshold", base.amberThreshold),

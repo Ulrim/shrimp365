@@ -55,7 +55,13 @@ async function meterIdsOfType(
   type: string,
 ): Promise<string[]> {
   const rows = await fetchAll<{ id: string }>((f, t) =>
-    db.from(T.meters).select("id").eq("site_id", siteId).eq("type", type).range(f, t),
+    db
+      .from(T.meters)
+      .select("id")
+      .eq("site_id", siteId)
+      .eq("type", type)
+      .order("id", { ascending: true })
+      .range(f, t),
   )
   return rows.map((r) => r.id)
 }
@@ -146,7 +152,12 @@ async function latestBiomassKg(db: MrvDb, siteId: string): Promise<number | null
 
 async function siteBatchIds(db: MrvDb, siteId: string): Promise<string[]> {
   const tanks = await fetchAll<{ id: string }>((f, t) =>
-    db.from(T.tanks).select("id").eq("site_id", siteId).range(f, t),
+    db
+      .from(T.tanks)
+      .select("id")
+      .eq("site_id", siteId)
+      .order("id", { ascending: true })
+      .range(f, t),
   )
   if (tanks.length === 0) return []
   const batches = await fetchAll<{ id: string }>((f, t) =>
@@ -157,6 +168,7 @@ async function siteBatchIds(db: MrvDb, siteId: string): Promise<string[]> {
         "tank_id",
         tanks.map((x) => x.id),
       )
+      .order("id", { ascending: true })
       .range(f, t),
   )
   return batches.map((b) => b.id)
@@ -204,7 +216,13 @@ async function recentAerationPowerKwh(
   end: Date,
 ): Promise<number> {
   const meters = await fetchAll<{ id: string }>((f, t) =>
-    db.from(T.meters).select("id").eq("site_id", siteId).eq("is_aeration", true).range(f, t),
+    db
+      .from(T.meters)
+      .select("id")
+      .eq("site_id", siteId)
+      .eq("is_aeration", true)
+      .order("id", { ascending: true })
+      .range(f, t),
   )
   if (meters.length === 0) return 0.0
   const rows = await fetchAll<{ value: number }>((f, t) =>
@@ -218,6 +236,10 @@ async function recentAerationPowerKwh(
       .gte("time", start.toISOString())
       .lt("time", end.toISOString())
       .eq("quality_flag", "ok")
+      // 이 행들을 합산하므로 페이지 경계가 흔들리면 합이 틀린다(정렬 없는 LIMIT/OFFSET 은
+      // 행 순서를 보장하지 않아 일부가 빠지거나 두 번 세어질 수 있다).
+      .order("time", { ascending: true })
+      .order("meter_id", { ascending: true })
       .range(f, t),
   )
   return rows.reduce((acc, r) => acc + r.value, 0.0)

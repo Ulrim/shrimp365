@@ -52,6 +52,11 @@ export function mrvDb(): MrvDb {
  * 그냥 조회하면 1001번째부터 조용히 잘려 **KPI 가 틀린 값으로 계산된다**(오류도 나지
  * 않는다 — 가장 위험한 형태의 버그다). 범위를 나눠 끝까지 읽는다.
  * shrimp365 의 관제센터 라우트가 쓰는 fetchAll 과 같은 방식이다.
+ *
+ * ★ 전달하는 질의에는 **반드시 결정론적 정렬(.order)** 이 있어야 한다. 정렬 없는
+ * LIMIT/OFFSET 은 Postgres 가 행 순서를 보장하지 않아, 페이지 경계에서 어떤 행은 빠지고
+ * 어떤 행은 두 번 읽힌다 — 합계를 내거나 중복을 판정하는 자리에서는 그대로 틀린 값이 된다.
+ * 마땅한 정렬 키가 없으면 기본키(대개 id, readings 는 time+meter_id)로 정렬할 것.
  */
 export async function fetchAll<T>(
   build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,

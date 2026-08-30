@@ -164,15 +164,8 @@ export async function generateMrvReport(params: {
   const ef = await loadEmissionFactor(db, emissionFactorId)
 
   const comp = await computeSiteKpiResults(db, site.id, afterPeriodFrom, afterPeriodTo)
-  const afterSnapshotId = await persistKpiSnapshot(db, {
-    siteId: site.id,
-    orgId,
-    periodStart: afterPeriodFrom,
-    periodEnd: afterPeriodTo,
-    comp,
-  })
-
   const beforeInputs = await baselineEiInputs(db, bsl)
+
   const baselinePowerMwh =
     beforeInputs.total_power_kwh !== null ? beforeInputs.total_power_kwh / 1000.0 : null
   const afterPowerMwh = comp.ei.totalPowerKwh / 1000.0
@@ -188,8 +181,18 @@ export async function generateMrvReport(params: {
     emissionFactorYear: ef.year,
     emissionFactorVersion: ef.version,
   }
+  // ★ 산정을 스냅샷 저장보다 먼저 한다. 산정이 거부되는 입력(예: after 기간 생산량이 0)
+  // 이면 여기서 멈추므로, 리포트 없이 스냅샷만 남는 고아 행이 생기지 않는다.
   // 엔진의 KpiValueError 는 handleRoute 가 422 로 옮긴다(원본과 같은 상태 코드).
   const scope2 = computeScope2Reduction(scope2Inputs)
+
+  const afterSnapshotId = await persistKpiSnapshot(db, {
+    siteId: site.id,
+    orgId,
+    periodStart: afterPeriodFrom,
+    periodEnd: afterPeriodTo,
+    comp,
+  })
 
   const beforeJson = {
     period: { from: bsl.period_start, to: bsl.period_end },

@@ -1,0 +1,5837 @@
+{
+ "generatedBy": "app.services.ingestion (python original)",
+ "cases": [
+  {
+   "name": "cumulative-normal",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:00:00Z",
+      "value": 100.0,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:00:00Z",
+      "value": 105.5,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 2,
+      "meterId": "m1",
+      "ts": "2026-04-01T02:00:00Z",
+      "value": 112.0,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     }
+    ],
+    "prior": {}
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:00:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:00:00Z",
+     "value": 5.5,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T02:00:00Z",
+     "value": 6.5,
+     "qualityFlag": "ok"
+    }
+   ]
+  },
+  {
+   "name": "cumulative-rollover",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:00:00Z",
+      "value": 100.0,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:00:00Z",
+      "value": 3.0,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     }
+    ],
+    "prior": {}
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:00:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:00:00Z",
+     "value": 3.0,
+     "qualityFlag": "suspect"
+    }
+   ]
+  },
+  {
+   "name": "cumulative-with-history",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:00:00Z",
+      "value": 130.0,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     }
+    ],
+    "prior": {
+     "m1": {
+      "ts": "2026-04-01T00:00:00Z",
+      "value": 4.5
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:00:00Z",
+     "value": 130.0,
+     "qualityFlag": "suspect"
+    }
+   ]
+  },
+  {
+   "name": "cumulative-no-history",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:00:00Z",
+      "value": 100.0,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     }
+    ],
+    "prior": {}
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:00:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    }
+   ]
+  },
+  {
+   "name": "instant-normal",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:00:00Z",
+      "value": 10.0,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:00:00Z",
+      "value": 14.0,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 2,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:30:00Z",
+      "value": 12.0,
+      "readingKind": "instant_kw",
+      "seq": null
+     }
+    ],
+    "prior": {}
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:00:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:00:00Z",
+     "value": 12.0,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:30:00Z",
+     "value": 6.5,
+     "qualityFlag": "ok"
+    }
+   ]
+  },
+  {
+   "name": "instant-gap-too-wide",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:00:00Z",
+      "value": 10.0,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "m1",
+      "ts": "2026-04-01T03:00:00Z",
+      "value": 12.0,
+      "readingKind": "instant_kw",
+      "seq": null
+     }
+    ],
+    "prior": {}
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:00:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T03:00:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    }
+   ]
+  },
+  {
+   "name": "instant-same-ts",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:00:00Z",
+      "value": 10.0,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:00:00Z",
+      "value": 12.0,
+      "readingKind": "instant_kw",
+      "seq": 2
+     }
+    ],
+    "prior": {}
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:00:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:00:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    }
+   ]
+  },
+  {
+   "name": "instant-exact-2h-boundary",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:00:00Z",
+      "value": 10.0,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "m1",
+      "ts": "2026-04-01T02:00:00Z",
+      "value": 20.0,
+      "readingKind": "instant_kw",
+      "seq": null
+     }
+    ],
+    "prior": {}
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:00:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T02:00:00Z",
+     "value": 30.0,
+     "qualityFlag": "ok"
+    }
+   ]
+  },
+  {
+   "name": "interval-values",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:00:00Z",
+      "value": 3.25,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:00:00Z",
+      "value": 0.0,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 2,
+      "meterId": "m1",
+      "ts": "2026-04-01T02:00:00Z",
+      "value": -1.0,
+      "readingKind": "interval_kwh",
+      "seq": null
+     }
+    ],
+    "prior": {}
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:00:00Z",
+     "value": 3.25,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:00:00Z",
+     "value": 0.0,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T02:00:00Z",
+     "value": -1.0,
+     "qualityFlag": "suspect"
+    }
+   ]
+  },
+  {
+   "name": "do-range",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "d1",
+      "ts": "2026-04-01T00:00:00Z",
+      "value": 6.4,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "d1",
+      "ts": "2026-04-01T00:01:00Z",
+      "value": 0.0,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 2,
+      "meterId": "d1",
+      "ts": "2026-04-01T00:02:00Z",
+      "value": 20.0,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 3,
+      "meterId": "d1",
+      "ts": "2026-04-01T00:03:00Z",
+      "value": 20.0001,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 4,
+      "meterId": "d1",
+      "ts": "2026-04-01T00:04:00Z",
+      "value": -0.1,
+      "readingKind": "do_mg_l",
+      "seq": null
+     }
+    ],
+    "prior": {}
+   },
+   "expected": [
+    {
+     "meterId": "d1",
+     "ts": "2026-04-01T00:00:00Z",
+     "value": 6.4,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "d1",
+     "ts": "2026-04-01T00:01:00Z",
+     "value": 0.0,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "d1",
+     "ts": "2026-04-01T00:02:00Z",
+     "value": 20.0,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "d1",
+     "ts": "2026-04-01T00:03:00Z",
+     "value": 20.0001,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "d1",
+     "ts": "2026-04-01T00:04:00Z",
+     "value": -0.1,
+     "qualityFlag": "suspect"
+    }
+   ]
+  },
+  {
+   "name": "ordering-shuffled",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T02:00:00Z",
+      "value": 112.0,
+      "readingKind": "cumulative_kwh",
+      "seq": 3
+     },
+     {
+      "index": 1,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:00:00Z",
+      "value": 100.0,
+      "readingKind": "cumulative_kwh",
+      "seq": 1
+     },
+     {
+      "index": 2,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:00:00Z",
+      "value": 105.5,
+      "readingKind": "cumulative_kwh",
+      "seq": 2
+     }
+    ],
+    "prior": {}
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:00:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:00:00Z",
+     "value": 5.5,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T02:00:00Z",
+     "value": 6.5,
+     "qualityFlag": "ok"
+    }
+   ]
+  },
+  {
+   "name": "multi-meter-interleaved",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:00:00Z",
+      "value": 100.0,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "m2",
+      "ts": "2026-04-01T00:00:00Z",
+      "value": 500.0,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 2,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:00:00Z",
+      "value": 104.0,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 3,
+      "meterId": "m2",
+      "ts": "2026-04-01T01:00:00Z",
+      "value": 503.5,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 4,
+      "meterId": "d1",
+      "ts": "2026-04-01T01:00:00Z",
+      "value": 7.2,
+      "readingKind": "do_mg_l",
+      "seq": null
+     }
+    ],
+    "prior": {}
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:00:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T00:00:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "d1",
+     "ts": "2026-04-01T01:00:00Z",
+     "value": 7.2,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:00:00Z",
+     "value": 4.0,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T01:00:00Z",
+     "value": 3.5,
+     "qualityFlag": "ok"
+    }
+   ]
+  },
+  {
+   "name": "tiebreak-by-meter-id",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m2",
+      "ts": "2026-04-01T00:00:00Z",
+      "value": 1.0,
+      "readingKind": "interval_kwh",
+      "seq": 1
+     },
+     {
+      "index": 1,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:00:00Z",
+      "value": 2.0,
+      "readingKind": "interval_kwh",
+      "seq": 1
+     }
+    ],
+    "prior": {}
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:00:00Z",
+     "value": 2.0,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T00:00:00Z",
+     "value": 1.0,
+     "qualityFlag": "ok"
+    }
+   ]
+  },
+  {
+   "name": "empty-batch",
+   "input": {
+    "raws": [],
+    "prior": {}
+   },
+   "expected": []
+  },
+  {
+   "name": "random-0",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m0",
+      "ts": "2026-04-01T03:57:00Z",
+      "value": 58.19,
+      "readingKind": "cumulative_kwh",
+      "seq": 4
+     }
+    ],
+    "prior": {}
+   },
+   "expected": [
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T03:57:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    }
+   ]
+  },
+  {
+   "name": "random-1",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m0",
+      "ts": "2026-04-01T01:46:00Z",
+      "value": 290.807,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "m2",
+      "ts": "2026-04-01T02:38:00Z",
+      "value": 82.892,
+      "readingKind": "instant_kw",
+      "seq": 1
+     },
+     {
+      "index": 2,
+      "meterId": "m0",
+      "ts": "2026-04-01T05:29:00Z",
+      "value": 190.543,
+      "readingKind": "instant_kw",
+      "seq": 2
+     },
+     {
+      "index": 3,
+      "meterId": "m0",
+      "ts": "2026-04-01T06:21:00Z",
+      "value": 505.525,
+      "readingKind": "instant_kw",
+      "seq": 1
+     },
+     {
+      "index": 4,
+      "meterId": "m0",
+      "ts": "2026-04-01T07:08:00Z",
+      "value": 517.485,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 5,
+      "meterId": "m1",
+      "ts": "2026-04-01T03:24:00Z",
+      "value": 214.531,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 6,
+      "meterId": "m2",
+      "ts": "2026-04-01T03:58:00Z",
+      "value": 79.353,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 7,
+      "meterId": "m2",
+      "ts": "2026-04-01T01:41:00Z",
+      "value": 150.453,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 8,
+      "meterId": "m2",
+      "ts": "2026-04-01T04:54:00Z",
+      "value": 219.662,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 9,
+      "meterId": "m0",
+      "ts": "2026-04-01T04:02:00Z",
+      "value": 515.067,
+      "readingKind": "instant_kw",
+      "seq": null
+     }
+    ],
+    "prior": {}
+   },
+   "expected": [
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T01:41:00Z",
+     "value": 150.453,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T01:46:00Z",
+     "value": 290.807,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T02:38:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T03:24:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T03:58:00Z",
+     "value": 79.353,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T04:02:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T04:54:00Z",
+     "value": 139.54033333333334,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T05:29:00Z",
+     "value": 511.56725,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T06:21:00Z",
+     "value": 301.62946666666664,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T07:08:00Z",
+     "value": 517.485,
+     "qualityFlag": "ok"
+    }
+   ]
+  },
+  {
+   "name": "random-2",
+   "input": {
+    "raws": [],
+    "prior": {}
+   },
+   "expected": []
+  },
+  {
+   "name": "random-3",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m2",
+      "ts": "2026-04-01T06:23:00Z",
+      "value": 397.34,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "m2",
+      "ts": "2026-04-01T02:26:00Z",
+      "value": 338.952,
+      "readingKind": "do_mg_l",
+      "seq": 0
+     },
+     {
+      "index": 2,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:15:00Z",
+      "value": 553.852,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 3,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:10:00Z",
+      "value": 407.197,
+      "readingKind": "interval_kwh",
+      "seq": 0
+     },
+     {
+      "index": 4,
+      "meterId": "m0",
+      "ts": "2026-04-01T01:43:00Z",
+      "value": 85.278,
+      "readingKind": "instant_kw",
+      "seq": 4
+     },
+     {
+      "index": 5,
+      "meterId": "m0",
+      "ts": "2026-04-01T00:41:00Z",
+      "value": 215.904,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 6,
+      "meterId": "m2",
+      "ts": "2026-04-01T07:54:00Z",
+      "value": 536.671,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 7,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:02:00Z",
+      "value": 248.87,
+      "readingKind": "cumulative_kwh",
+      "seq": 0
+     },
+     {
+      "index": 8,
+      "meterId": "m2",
+      "ts": "2026-04-01T06:17:00Z",
+      "value": 543.763,
+      "readingKind": "instant_kw",
+      "seq": 3
+     },
+     {
+      "index": 9,
+      "meterId": "m1",
+      "ts": "2026-04-01T04:21:00Z",
+      "value": 319.167,
+      "readingKind": "do_mg_l",
+      "seq": 3
+     },
+     {
+      "index": 10,
+      "meterId": "m1",
+      "ts": "2026-04-01T07:44:00Z",
+      "value": 181.15,
+      "readingKind": "cumulative_kwh",
+      "seq": 3
+     },
+     {
+      "index": 11,
+      "meterId": "m2",
+      "ts": "2026-04-01T05:18:00Z",
+      "value": 239.333,
+      "readingKind": "do_mg_l",
+      "seq": 4
+     },
+     {
+      "index": 12,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:15:00Z",
+      "value": 214.837,
+      "readingKind": "interval_kwh",
+      "seq": 4
+     },
+     {
+      "index": 13,
+      "meterId": "m0",
+      "ts": "2026-04-01T02:50:00Z",
+      "value": 281.455,
+      "readingKind": "do_mg_l",
+      "seq": 0
+     },
+     {
+      "index": 14,
+      "meterId": "m0",
+      "ts": "2026-04-01T05:25:00Z",
+      "value": 112.701,
+      "readingKind": "interval_kwh",
+      "seq": 1
+     },
+     {
+      "index": 15,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:47:00Z",
+      "value": 398.389,
+      "readingKind": "instant_kw",
+      "seq": 2
+     },
+     {
+      "index": 16,
+      "meterId": "m2",
+      "ts": "2026-04-01T03:24:00Z",
+      "value": -1.97,
+      "readingKind": "instant_kw",
+      "seq": 1
+     },
+     {
+      "index": 17,
+      "meterId": "m0",
+      "ts": "2026-04-01T03:20:00Z",
+      "value": 479.664,
+      "readingKind": "instant_kw",
+      "seq": 4
+     },
+     {
+      "index": 18,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:01:00Z",
+      "value": 116.234,
+      "readingKind": "interval_kwh",
+      "seq": null
+     }
+    ],
+    "prior": {
+     "m0": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 18.418
+     },
+     "m1": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 70.57
+     },
+     "m2": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 318.843
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:10:00Z",
+     "value": 407.197,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:15:00Z",
+     "value": 214.837,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T00:41:00Z",
+     "value": 215.904,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T01:43:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:47:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T02:26:00Z",
+     "value": 338.952,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T02:50:00Z",
+     "value": 281.455,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T03:20:00Z",
+     "value": 456.66145,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T03:24:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T04:21:00Z",
+     "value": 319.167,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:01:00Z",
+     "value": 116.234,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:02:00Z",
+     "value": 248.87,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:15:00Z",
+     "value": 86.96155,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T05:18:00Z",
+     "value": 239.333,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T05:25:00Z",
+     "value": 112.701,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T06:17:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T06:23:00Z",
+     "value": 47.055150000000005,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T07:44:00Z",
+     "value": 181.15,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T07:54:00Z",
+     "value": 708.2916749999999,
+     "qualityFlag": "ok"
+    }
+   ]
+  },
+  {
+   "name": "random-4",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m0",
+      "ts": "2026-04-01T06:05:00Z",
+      "value": 100.514,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:24:00Z",
+      "value": 469.153,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 2,
+      "meterId": "m1",
+      "ts": "2026-04-01T02:48:00Z",
+      "value": 327.277,
+      "readingKind": "cumulative_kwh",
+      "seq": 2
+     },
+     {
+      "index": 3,
+      "meterId": "m0",
+      "ts": "2026-04-01T04:33:00Z",
+      "value": 266.92,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 4,
+      "meterId": "m0",
+      "ts": "2026-04-01T05:15:00Z",
+      "value": 512.168,
+      "readingKind": "instant_kw",
+      "seq": 4
+     },
+     {
+      "index": 5,
+      "meterId": "m2",
+      "ts": "2026-04-01T07:39:00Z",
+      "value": 96.354,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 6,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:19:00Z",
+      "value": 84.183,
+      "readingKind": "instant_kw",
+      "seq": 3
+     },
+     {
+      "index": 7,
+      "meterId": "m1",
+      "ts": "2026-04-01T03:45:00Z",
+      "value": 244.135,
+      "readingKind": "interval_kwh",
+      "seq": 2
+     }
+    ],
+    "prior": {
+     "m2": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 18.439
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:19:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T02:48:00Z",
+     "value": 243.094,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T03:45:00Z",
+     "value": 244.135,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T04:33:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T05:15:00Z",
+     "value": 272.6808,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:24:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T06:05:00Z",
+     "value": 100.514,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T07:39:00Z",
+     "value": 96.354,
+     "qualityFlag": "ok"
+    }
+   ]
+  },
+  {
+   "name": "random-5",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:59:00Z",
+      "value": 518.157,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "m1",
+      "ts": "2026-04-01T02:50:00Z",
+      "value": 561.43,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 2,
+      "meterId": "m0",
+      "ts": "2026-04-01T02:12:00Z",
+      "value": 332.976,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 3,
+      "meterId": "m1",
+      "ts": "2026-04-01T03:14:00Z",
+      "value": 505.572,
+      "readingKind": "do_mg_l",
+      "seq": 3
+     },
+     {
+      "index": 4,
+      "meterId": "m0",
+      "ts": "2026-04-01T06:29:00Z",
+      "value": 514.706,
+      "readingKind": "cumulative_kwh",
+      "seq": 0
+     },
+     {
+      "index": 5,
+      "meterId": "m0",
+      "ts": "2026-04-01T05:58:00Z",
+      "value": 570.104,
+      "readingKind": "interval_kwh",
+      "seq": 3
+     },
+     {
+      "index": 6,
+      "meterId": "m0",
+      "ts": "2026-04-01T02:33:00Z",
+      "value": 269.132,
+      "readingKind": "do_mg_l",
+      "seq": 0
+     },
+     {
+      "index": 7,
+      "meterId": "m0",
+      "ts": "2026-04-01T06:29:00Z",
+      "value": 38.915,
+      "readingKind": "cumulative_kwh",
+      "seq": 2
+     },
+     {
+      "index": 8,
+      "meterId": "m2",
+      "ts": "2026-04-01T02:17:00Z",
+      "value": 322.811,
+      "readingKind": "cumulative_kwh",
+      "seq": 0
+     }
+    ],
+    "prior": {
+     "m1": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 305.043
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T02:12:00Z",
+     "value": 332.976,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T02:17:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T02:33:00Z",
+     "value": 269.132,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T02:50:00Z",
+     "value": 561.43,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T03:14:00Z",
+     "value": 505.572,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T05:58:00Z",
+     "value": 570.104,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:59:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T06:29:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T06:29:00Z",
+     "value": 38.915,
+     "qualityFlag": "suspect"
+    }
+   ]
+  },
+  {
+   "name": "random-6",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T04:41:00Z",
+      "value": 290.659,
+      "readingKind": "do_mg_l",
+      "seq": 4
+     },
+     {
+      "index": 1,
+      "meterId": "m0",
+      "ts": "2026-04-01T00:28:00Z",
+      "value": 289.963,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 2,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:52:00Z",
+      "value": 276.617,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 3,
+      "meterId": "m2",
+      "ts": "2026-04-01T07:12:00Z",
+      "value": 29.226,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 4,
+      "meterId": "m0",
+      "ts": "2026-04-01T04:18:00Z",
+      "value": 508.039,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 5,
+      "meterId": "m0",
+      "ts": "2026-04-01T06:22:00Z",
+      "value": 168.444,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 6,
+      "meterId": "m0",
+      "ts": "2026-04-01T03:24:00Z",
+      "value": 36.584,
+      "readingKind": "do_mg_l",
+      "seq": 3
+     },
+     {
+      "index": 7,
+      "meterId": "m1",
+      "ts": "2026-04-01T04:44:00Z",
+      "value": 414.328,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 8,
+      "meterId": "m2",
+      "ts": "2026-04-01T07:17:00Z",
+      "value": 379.011,
+      "readingKind": "instant_kw",
+      "seq": 3
+     },
+     {
+      "index": 9,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:16:00Z",
+      "value": 344.435,
+      "readingKind": "instant_kw",
+      "seq": 0
+     },
+     {
+      "index": 10,
+      "meterId": "m2",
+      "ts": "2026-04-01T05:00:00Z",
+      "value": 356.473,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 11,
+      "meterId": "m1",
+      "ts": "2026-04-01T06:17:00Z",
+      "value": 582.277,
+      "readingKind": "interval_kwh",
+      "seq": 1
+     },
+     {
+      "index": 12,
+      "meterId": "m2",
+      "ts": "2026-04-01T07:53:00Z",
+      "value": 523.643,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 13,
+      "meterId": "m1",
+      "ts": "2026-04-01T04:17:00Z",
+      "value": 91.808,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 14,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:03:00Z",
+      "value": 295.586,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 15,
+      "meterId": "m2",
+      "ts": "2026-04-01T05:06:00Z",
+      "value": 431.622,
+      "readingKind": "do_mg_l",
+      "seq": null
+     }
+    ],
+    "prior": {}
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:03:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:16:00Z",
+     "value": 69.33560833333333,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T00:28:00Z",
+     "value": 289.963,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T03:24:00Z",
+     "value": 36.584,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T04:17:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T04:18:00Z",
+     "value": 508.039,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T04:41:00Z",
+     "value": 290.659,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T04:44:00Z",
+     "value": 414.328,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T05:00:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T05:06:00Z",
+     "value": 431.622,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:52:00Z",
+     "value": 276.617,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T06:17:00Z",
+     "value": 582.277,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T06:22:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T07:12:00Z",
+     "value": 29.226,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T07:17:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T07:53:00Z",
+     "value": 523.643,
+     "qualityFlag": "ok"
+    }
+   ]
+  },
+  {
+   "name": "random-7",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T04:46:00Z",
+      "value": 196.708,
+      "readingKind": "interval_kwh",
+      "seq": 2
+     },
+     {
+      "index": 1,
+      "meterId": "m0",
+      "ts": "2026-04-01T05:57:00Z",
+      "value": 122.005,
+      "readingKind": "do_mg_l",
+      "seq": 4
+     },
+     {
+      "index": 2,
+      "meterId": "m1",
+      "ts": "2026-04-01T02:56:00Z",
+      "value": 10.042,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 3,
+      "meterId": "m1",
+      "ts": "2026-04-01T03:10:00Z",
+      "value": 19.665,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 4,
+      "meterId": "m0",
+      "ts": "2026-04-01T02:38:00Z",
+      "value": 504.838,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 5,
+      "meterId": "m1",
+      "ts": "2026-04-01T06:50:00Z",
+      "value": 165.606,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 6,
+      "meterId": "m1",
+      "ts": "2026-04-01T03:12:00Z",
+      "value": 289.176,
+      "readingKind": "interval_kwh",
+      "seq": 1
+     },
+     {
+      "index": 7,
+      "meterId": "m2",
+      "ts": "2026-04-01T06:10:00Z",
+      "value": 297.778,
+      "readingKind": "do_mg_l",
+      "seq": 3
+     },
+     {
+      "index": 8,
+      "meterId": "m1",
+      "ts": "2026-04-01T03:21:00Z",
+      "value": 265.321,
+      "readingKind": "interval_kwh",
+      "seq": 4
+     },
+     {
+      "index": 9,
+      "meterId": "m2",
+      "ts": "2026-04-01T00:52:00Z",
+      "value": 465.022,
+      "readingKind": "cumulative_kwh",
+      "seq": 3
+     },
+     {
+      "index": 10,
+      "meterId": "m2",
+      "ts": "2026-04-01T04:11:00Z",
+      "value": 126.659,
+      "readingKind": "do_mg_l",
+      "seq": 2
+     },
+     {
+      "index": 11,
+      "meterId": "m2",
+      "ts": "2026-04-01T07:22:00Z",
+      "value": 341.28,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 12,
+      "meterId": "m2",
+      "ts": "2026-04-01T02:56:00Z",
+      "value": 86.028,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 13,
+      "meterId": "m0",
+      "ts": "2026-04-01T02:36:00Z",
+      "value": 289.016,
+      "readingKind": "cumulative_kwh",
+      "seq": 4
+     },
+     {
+      "index": 14,
+      "meterId": "m0",
+      "ts": "2026-04-01T01:04:00Z",
+      "value": 538.398,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 15,
+      "meterId": "m0",
+      "ts": "2026-04-01T06:30:00Z",
+      "value": 246.444,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 16,
+      "meterId": "m0",
+      "ts": "2026-04-01T01:11:00Z",
+      "value": 215.079,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 17,
+      "meterId": "m1",
+      "ts": "2026-04-01T03:55:00Z",
+      "value": 481.119,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 18,
+      "meterId": "m2",
+      "ts": "2026-04-01T01:14:00Z",
+      "value": 60.926,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 19,
+      "meterId": "m0",
+      "ts": "2026-04-01T00:51:00Z",
+      "value": 536.256,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 20,
+      "meterId": "m0",
+      "ts": "2026-04-01T00:35:00Z",
+      "value": 403.316,
+      "readingKind": "interval_kwh",
+      "seq": 4
+     },
+     {
+      "index": 21,
+      "meterId": "m2",
+      "ts": "2026-04-01T06:09:00Z",
+      "value": 301.197,
+      "readingKind": "cumulative_kwh",
+      "seq": 3
+     }
+    ],
+    "prior": {}
+   },
+   "expected": [
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T00:35:00Z",
+     "value": 403.316,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T00:51:00Z",
+     "value": 536.256,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T00:52:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T01:04:00Z",
+     "value": 538.398,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T01:11:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T01:14:00Z",
+     "value": 60.926,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T02:36:00Z",
+     "value": 73.93700000000001,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T02:38:00Z",
+     "value": 504.838,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T02:56:00Z",
+     "value": 10.042,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T02:56:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T03:10:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T03:12:00Z",
+     "value": 289.176,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T03:21:00Z",
+     "value": 265.321,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T03:55:00Z",
+     "value": 461.454,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T04:11:00Z",
+     "value": 126.659,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T04:46:00Z",
+     "value": 196.708,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T05:57:00Z",
+     "value": 122.005,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T06:09:00Z",
+     "value": 215.16899999999998,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T06:10:00Z",
+     "value": 297.778,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T06:30:00Z",
+     "value": 246.444,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T06:50:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T07:22:00Z",
+     "value": 40.08299999999997,
+     "qualityFlag": "ok"
+    }
+   ]
+  },
+  {
+   "name": "random-8",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m2",
+      "ts": "2026-04-01T03:15:00Z",
+      "value": 436.36,
+      "readingKind": "do_mg_l",
+      "seq": 4
+     },
+     {
+      "index": 1,
+      "meterId": "m2",
+      "ts": "2026-04-01T02:14:00Z",
+      "value": 476.286,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 2,
+      "meterId": "m2",
+      "ts": "2026-04-01T03:20:00Z",
+      "value": 249.977,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 3,
+      "meterId": "m0",
+      "ts": "2026-04-01T06:38:00Z",
+      "value": 199.963,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 4,
+      "meterId": "m0",
+      "ts": "2026-04-01T07:54:00Z",
+      "value": 177.812,
+      "readingKind": "cumulative_kwh",
+      "seq": 3
+     },
+     {
+      "index": 5,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:08:00Z",
+      "value": 533.415,
+      "readingKind": "do_mg_l",
+      "seq": 4
+     },
+     {
+      "index": 6,
+      "meterId": "m1",
+      "ts": "2026-04-01T03:06:00Z",
+      "value": 377.187,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 7,
+      "meterId": "m1",
+      "ts": "2026-04-01T04:44:00Z",
+      "value": 271.854,
+      "readingKind": "do_mg_l",
+      "seq": 3
+     },
+     {
+      "index": 8,
+      "meterId": "m2",
+      "ts": "2026-04-01T02:14:00Z",
+      "value": 179.136,
+      "readingKind": "do_mg_l",
+      "seq": 4
+     }
+    ],
+    "prior": {
+     "m0": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 397.113
+     },
+     "m2": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 340.497
+     },
+     "m1": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 37.453
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:08:00Z",
+     "value": 533.415,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T02:14:00Z",
+     "value": 476.286,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T02:14:00Z",
+     "value": 179.136,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T03:06:00Z",
+     "value": 377.187,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T03:15:00Z",
+     "value": 436.36,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T03:20:00Z",
+     "value": 249.977,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T04:44:00Z",
+     "value": 271.854,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T06:38:00Z",
+     "value": 199.963,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T07:54:00Z",
+     "value": 177.812,
+     "qualityFlag": "suspect"
+    }
+   ]
+  },
+  {
+   "name": "random-9",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T04:04:00Z",
+      "value": 361.024,
+      "readingKind": "interval_kwh",
+      "seq": 4
+     },
+     {
+      "index": 1,
+      "meterId": "m0",
+      "ts": "2026-04-01T04:54:00Z",
+      "value": 577.294,
+      "readingKind": "instant_kw",
+      "seq": 2
+     },
+     {
+      "index": 2,
+      "meterId": "m1",
+      "ts": "2026-04-01T03:15:00Z",
+      "value": 438.818,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 3,
+      "meterId": "m2",
+      "ts": "2026-04-01T01:29:00Z",
+      "value": 127.76,
+      "readingKind": "do_mg_l",
+      "seq": 2
+     },
+     {
+      "index": 4,
+      "meterId": "m1",
+      "ts": "2026-04-01T02:38:00Z",
+      "value": 317.401,
+      "readingKind": "interval_kwh",
+      "seq": 2
+     },
+     {
+      "index": 5,
+      "meterId": "m1",
+      "ts": "2026-04-01T03:05:00Z",
+      "value": 485.72,
+      "readingKind": "cumulative_kwh",
+      "seq": 4
+     },
+     {
+      "index": 6,
+      "meterId": "m1",
+      "ts": "2026-04-01T04:54:00Z",
+      "value": 479.699,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 7,
+      "meterId": "m0",
+      "ts": "2026-04-01T02:47:00Z",
+      "value": 211.239,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 8,
+      "meterId": "m2",
+      "ts": "2026-04-01T04:39:00Z",
+      "value": 278.547,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 9,
+      "meterId": "m2",
+      "ts": "2026-04-01T03:27:00Z",
+      "value": 409.706,
+      "readingKind": "do_mg_l",
+      "seq": 4
+     },
+     {
+      "index": 10,
+      "meterId": "m0",
+      "ts": "2026-04-01T07:40:00Z",
+      "value": 324.186,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 11,
+      "meterId": "m0",
+      "ts": "2026-04-01T06:32:00Z",
+      "value": 482.62,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 12,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:32:00Z",
+      "value": 26.708,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 13,
+      "meterId": "m1",
+      "ts": "2026-04-01T02:21:00Z",
+      "value": 223.769,
+      "readingKind": "do_mg_l",
+      "seq": 3
+     },
+     {
+      "index": 14,
+      "meterId": "m1",
+      "ts": "2026-04-01T07:29:00Z",
+      "value": 540.255,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 15,
+      "meterId": "m1",
+      "ts": "2026-04-01T07:41:00Z",
+      "value": 348.8,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 16,
+      "meterId": "m0",
+      "ts": "2026-04-01T04:45:00Z",
+      "value": 165.776,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 17,
+      "meterId": "m0",
+      "ts": "2026-04-01T06:10:00Z",
+      "value": 363.652,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 18,
+      "meterId": "m1",
+      "ts": "2026-04-01T02:25:00Z",
+      "value": 593.452,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 19,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:52:00Z",
+      "value": 84.997,
+      "readingKind": "interval_kwh",
+      "seq": 2
+     },
+     {
+      "index": 20,
+      "meterId": "m2",
+      "ts": "2026-04-01T00:57:00Z",
+      "value": 231.817,
+      "readingKind": "cumulative_kwh",
+      "seq": 1
+     },
+     {
+      "index": 21,
+      "meterId": "m2",
+      "ts": "2026-04-01T03:15:00Z",
+      "value": 574.818,
+      "readingKind": "cumulative_kwh",
+      "seq": 3
+     }
+    ],
+    "prior": {
+     "m0": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 166.343
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:52:00Z",
+     "value": 84.997,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T00:57:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T01:29:00Z",
+     "value": 127.76,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T02:21:00Z",
+     "value": 223.769,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T02:25:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T02:38:00Z",
+     "value": 317.401,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T02:47:00Z",
+     "value": 211.239,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T03:05:00Z",
+     "value": 485.72,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T03:15:00Z",
+     "value": 77.04483333333333,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T03:15:00Z",
+     "value": 343.001,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T03:27:00Z",
+     "value": 409.706,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T04:04:00Z",
+     "value": 361.024,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T04:39:00Z",
+     "value": 278.547,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T04:45:00Z",
+     "value": 165.776,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T04:54:00Z",
+     "value": 479.699,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T04:54:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:32:00Z",
+     "value": 26.708,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T06:10:00Z",
+     "value": 363.652,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T06:32:00Z",
+     "value": 155.14986666666664,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T07:29:00Z",
+     "value": 552.788925,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T07:40:00Z",
+     "value": 324.186,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T07:41:00Z",
+     "value": 348.8,
+     "qualityFlag": "ok"
+    }
+   ]
+  },
+  {
+   "name": "random-10",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T02:24:00Z",
+      "value": 498.884,
+      "readingKind": "instant_kw",
+      "seq": 0
+     },
+     {
+      "index": 1,
+      "meterId": "m0",
+      "ts": "2026-04-01T02:15:00Z",
+      "value": 385.5,
+      "readingKind": "cumulative_kwh",
+      "seq": 0
+     }
+    ],
+    "prior": {
+     "m0": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 177.494
+     },
+     "m1": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 176.801
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T02:15:00Z",
+     "value": 385.5,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T02:24:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    }
+   ]
+  },
+  {
+   "name": "random-11",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m0",
+      "ts": "2026-04-01T00:22:00Z",
+      "value": 16.383,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "m0",
+      "ts": "2026-04-01T06:04:00Z",
+      "value": 467.927,
+      "readingKind": "do_mg_l",
+      "seq": 4
+     },
+     {
+      "index": 2,
+      "meterId": "m1",
+      "ts": "2026-04-01T06:28:00Z",
+      "value": 132.643,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 3,
+      "meterId": "m0",
+      "ts": "2026-04-01T01:24:00Z",
+      "value": 442.958,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 4,
+      "meterId": "m2",
+      "ts": "2026-04-01T00:13:00Z",
+      "value": 209.46,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 5,
+      "meterId": "m0",
+      "ts": "2026-04-01T05:45:00Z",
+      "value": 26.24,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 6,
+      "meterId": "m2",
+      "ts": "2026-04-01T06:56:00Z",
+      "value": 530.704,
+      "readingKind": "instant_kw",
+      "seq": 2
+     },
+     {
+      "index": 7,
+      "meterId": "m2",
+      "ts": "2026-04-01T05:51:00Z",
+      "value": 593.309,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 8,
+      "meterId": "m0",
+      "ts": "2026-04-01T03:11:00Z",
+      "value": 83.216,
+      "readingKind": "cumulative_kwh",
+      "seq": 2
+     },
+     {
+      "index": 9,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:01:00Z",
+      "value": 355.863,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 10,
+      "meterId": "m0",
+      "ts": "2026-04-01T00:36:00Z",
+      "value": 94.379,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 11,
+      "meterId": "m1",
+      "ts": "2026-04-01T06:17:00Z",
+      "value": 535.037,
+      "readingKind": "interval_kwh",
+      "seq": 1
+     },
+     {
+      "index": 12,
+      "meterId": "m1",
+      "ts": "2026-04-01T03:58:00Z",
+      "value": 488.792,
+      "readingKind": "do_mg_l",
+      "seq": 2
+     },
+     {
+      "index": 13,
+      "meterId": "m0",
+      "ts": "2026-04-01T05:19:00Z",
+      "value": 298.453,
+      "readingKind": "instant_kw",
+      "seq": 1
+     },
+     {
+      "index": 14,
+      "meterId": "m0",
+      "ts": "2026-04-01T03:43:00Z",
+      "value": 510.561,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 15,
+      "meterId": "m0",
+      "ts": "2026-04-01T06:40:00Z",
+      "value": 14.732,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 16,
+      "meterId": "m1",
+      "ts": "2026-04-01T04:11:00Z",
+      "value": 467.273,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 17,
+      "meterId": "m2",
+      "ts": "2026-04-01T02:12:00Z",
+      "value": 399.462,
+      "readingKind": "do_mg_l",
+      "seq": 4
+     }
+    ],
+    "prior": {
+     "m1": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 204.14
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T00:13:00Z",
+     "value": 209.46,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T00:22:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T00:36:00Z",
+     "value": 94.379,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T01:24:00Z",
+     "value": 426.57500000000005,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T02:12:00Z",
+     "value": 399.462,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T03:11:00Z",
+     "value": 83.216,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T03:43:00Z",
+     "value": 510.561,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T03:58:00Z",
+     "value": 488.792,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T04:11:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:01:00Z",
+     "value": 355.863,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T05:19:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T05:45:00Z",
+     "value": 26.24,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T05:51:00Z",
+     "value": 593.309,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T06:04:00Z",
+     "value": 467.927,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T06:17:00Z",
+     "value": 535.037,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T06:28:00Z",
+     "value": 132.643,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T06:40:00Z",
+     "value": 18.77883333333333,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T06:56:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    }
+   ]
+  },
+  {
+   "name": "random-12",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T04:16:00Z",
+      "value": 331.929,
+      "readingKind": "interval_kwh",
+      "seq": 4
+     },
+     {
+      "index": 1,
+      "meterId": "m0",
+      "ts": "2026-04-01T00:59:00Z",
+      "value": 430.642,
+      "readingKind": "cumulative_kwh",
+      "seq": 2
+     },
+     {
+      "index": 2,
+      "meterId": "m2",
+      "ts": "2026-04-01T06:53:00Z",
+      "value": 179.234,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 3,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:39:00Z",
+      "value": 563.099,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 4,
+      "meterId": "m1",
+      "ts": "2026-04-01T02:31:00Z",
+      "value": 515.907,
+      "readingKind": "do_mg_l",
+      "seq": 4
+     },
+     {
+      "index": 5,
+      "meterId": "m2",
+      "ts": "2026-04-01T06:20:00Z",
+      "value": 237.24,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     }
+    ],
+    "prior": {
+     "m0": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 28.772
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:39:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T00:59:00Z",
+     "value": 430.642,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T02:31:00Z",
+     "value": 515.907,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T04:16:00Z",
+     "value": 331.929,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T06:20:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T06:53:00Z",
+     "value": 179.234,
+     "qualityFlag": "ok"
+    }
+   ]
+  },
+  {
+   "name": "random-13",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T04:26:00Z",
+      "value": 477.273,
+      "readingKind": "interval_kwh",
+      "seq": 1
+     },
+     {
+      "index": 1,
+      "meterId": "m0",
+      "ts": "2026-04-01T01:09:00Z",
+      "value": 74.49,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 2,
+      "meterId": "m2",
+      "ts": "2026-04-01T01:04:00Z",
+      "value": 116.539,
+      "readingKind": "instant_kw",
+      "seq": 4
+     },
+     {
+      "index": 3,
+      "meterId": "m2",
+      "ts": "2026-04-01T03:25:00Z",
+      "value": 53.256,
+      "readingKind": "do_mg_l",
+      "seq": 4
+     },
+     {
+      "index": 4,
+      "meterId": "m2",
+      "ts": "2026-04-01T02:44:00Z",
+      "value": 525.679,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 5,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:52:00Z",
+      "value": 78.316,
+      "readingKind": "instant_kw",
+      "seq": 2
+     },
+     {
+      "index": 6,
+      "meterId": "m1",
+      "ts": "2026-04-01T06:28:00Z",
+      "value": 565.926,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 7,
+      "meterId": "m1",
+      "ts": "2026-04-01T02:32:00Z",
+      "value": 190.067,
+      "readingKind": "do_mg_l",
+      "seq": 4
+     },
+     {
+      "index": 8,
+      "meterId": "m2",
+      "ts": "2026-04-01T01:25:00Z",
+      "value": 32.488,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 9,
+      "meterId": "m0",
+      "ts": "2026-04-01T07:55:00Z",
+      "value": 22.691,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 10,
+      "meterId": "m0",
+      "ts": "2026-04-01T05:34:00Z",
+      "value": 167.242,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 11,
+      "meterId": "m0",
+      "ts": "2026-04-01T04:24:00Z",
+      "value": 242.95,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 12,
+      "meterId": "m2",
+      "ts": "2026-04-01T07:39:00Z",
+      "value": 387.491,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 13,
+      "meterId": "m1",
+      "ts": "2026-04-01T07:56:00Z",
+      "value": 363.769,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 14,
+      "meterId": "m0",
+      "ts": "2026-04-01T01:24:00Z",
+      "value": 576.124,
+      "readingKind": "do_mg_l",
+      "seq": 0
+     },
+     {
+      "index": 15,
+      "meterId": "m0",
+      "ts": "2026-04-01T07:41:00Z",
+      "value": 419.576,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 16,
+      "meterId": "m2",
+      "ts": "2026-04-01T01:38:00Z",
+      "value": 399.469,
+      "readingKind": "instant_kw",
+      "seq": 0
+     },
+     {
+      "index": 17,
+      "meterId": "m2",
+      "ts": "2026-04-01T02:49:00Z",
+      "value": 267.709,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 18,
+      "meterId": "m0",
+      "ts": "2026-04-01T00:18:00Z",
+      "value": 270.536,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 19,
+      "meterId": "m2",
+      "ts": "2026-04-01T06:22:00Z",
+      "value": 166.216,
+      "readingKind": "instant_kw",
+      "seq": 1
+     },
+     {
+      "index": 20,
+      "meterId": "m2",
+      "ts": "2026-04-01T05:50:00Z",
+      "value": 295.974,
+      "readingKind": "do_mg_l",
+      "seq": 1
+     }
+    ],
+    "prior": {}
+   },
+   "expected": [
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T00:18:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T01:04:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T01:09:00Z",
+     "value": 74.49,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T01:24:00Z",
+     "value": 576.124,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T01:25:00Z",
+     "value": 32.488,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T01:38:00Z",
+     "value": 46.795341666666666,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:52:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T02:32:00Z",
+     "value": 190.067,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T02:44:00Z",
+     "value": 508.8314,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T02:49:00Z",
+     "value": 267.709,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T03:25:00Z",
+     "value": 53.256,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T04:24:00Z",
+     "value": 242.95,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T04:26:00Z",
+     "value": 477.273,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T05:34:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T05:50:00Z",
+     "value": 295.974,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T06:22:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T06:28:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T07:39:00Z",
+     "value": 355.29532500000005,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T07:41:00Z",
+     "value": 419.576,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T07:55:00Z",
+     "value": 22.691,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T07:56:00Z",
+     "value": 363.769,
+     "qualityFlag": "suspect"
+    }
+   ]
+  },
+  {
+   "name": "random-14",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m0",
+      "ts": "2026-04-01T03:49:00Z",
+      "value": 4.826,
+      "readingKind": "instant_kw",
+      "seq": 4
+     },
+     {
+      "index": 1,
+      "meterId": "m2",
+      "ts": "2026-04-01T07:55:00Z",
+      "value": 447.017,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 2,
+      "meterId": "m1",
+      "ts": "2026-04-01T04:50:00Z",
+      "value": 11.406,
+      "readingKind": "instant_kw",
+      "seq": 0
+     },
+     {
+      "index": 3,
+      "meterId": "m0",
+      "ts": "2026-04-01T04:00:00Z",
+      "value": 349.787,
+      "readingKind": "instant_kw",
+      "seq": 0
+     },
+     {
+      "index": 4,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:31:00Z",
+      "value": 116.373,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 5,
+      "meterId": "m2",
+      "ts": "2026-04-01T05:14:00Z",
+      "value": 112.22,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 6,
+      "meterId": "m2",
+      "ts": "2026-04-01T02:10:00Z",
+      "value": 441.16,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 7,
+      "meterId": "m0",
+      "ts": "2026-04-01T00:30:00Z",
+      "value": 444.424,
+      "readingKind": "instant_kw",
+      "seq": 3
+     },
+     {
+      "index": 8,
+      "meterId": "m2",
+      "ts": "2026-04-01T07:39:00Z",
+      "value": 389.442,
+      "readingKind": "interval_kwh",
+      "seq": 4
+     },
+     {
+      "index": 9,
+      "meterId": "m2",
+      "ts": "2026-04-01T07:11:00Z",
+      "value": 176.958,
+      "readingKind": "instant_kw",
+      "seq": 1
+     },
+     {
+      "index": 10,
+      "meterId": "m2",
+      "ts": "2026-04-01T02:17:00Z",
+      "value": 6.215,
+      "readingKind": "do_mg_l",
+      "seq": 1
+     },
+     {
+      "index": 11,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:44:00Z",
+      "value": 586.409,
+      "readingKind": "interval_kwh",
+      "seq": 2
+     },
+     {
+      "index": 12,
+      "meterId": "m2",
+      "ts": "2026-04-01T01:58:00Z",
+      "value": 232.322,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 13,
+      "meterId": "m2",
+      "ts": "2026-04-01T00:25:00Z",
+      "value": -1.065,
+      "readingKind": "cumulative_kwh",
+      "seq": 1
+     },
+     {
+      "index": 14,
+      "meterId": "m0",
+      "ts": "2026-04-01T07:49:00Z",
+      "value": 87.35,
+      "readingKind": "do_mg_l",
+      "seq": 1
+     },
+     {
+      "index": 15,
+      "meterId": "m0",
+      "ts": "2026-04-01T07:47:00Z",
+      "value": 525.283,
+      "readingKind": "do_mg_l",
+      "seq": 3
+     },
+     {
+      "index": 16,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:39:00Z",
+      "value": 85.238,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 17,
+      "meterId": "m0",
+      "ts": "2026-04-01T04:52:00Z",
+      "value": 236.684,
+      "readingKind": "instant_kw",
+      "seq": 1
+     },
+     {
+      "index": 18,
+      "meterId": "m0",
+      "ts": "2026-04-01T01:54:00Z",
+      "value": 20.148,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 19,
+      "meterId": "m0",
+      "ts": "2026-04-01T01:03:00Z",
+      "value": 574.052,
+      "readingKind": "do_mg_l",
+      "seq": 2
+     }
+    ],
+    "prior": {
+     "m0": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 40.051
+     },
+     "m1": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 242.621
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T00:25:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T00:30:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T01:03:00Z",
+     "value": 574.052,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:31:00Z",
+     "value": 116.373,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:39:00Z",
+     "value": 85.238,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T01:54:00Z",
+     "value": 20.148,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T01:58:00Z",
+     "value": 233.387,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T02:10:00Z",
+     "value": 67.3482,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T02:17:00Z",
+     "value": 6.215,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T03:49:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T04:00:00Z",
+     "value": 32.506191666666666,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T04:50:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T04:52:00Z",
+     "value": 254.13743333333335,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T05:14:00Z",
+     "value": 112.22,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:44:00Z",
+     "value": 586.409,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T07:11:00Z",
+     "value": 281.94855,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T07:39:00Z",
+     "value": 389.442,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T07:47:00Z",
+     "value": 525.283,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T07:49:00Z",
+     "value": 87.35,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T07:55:00Z",
+     "value": 447.017,
+     "qualityFlag": "ok"
+    }
+   ]
+  },
+  {
+   "name": "random-15",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:16:00Z",
+      "value": 87.28,
+      "readingKind": "interval_kwh",
+      "seq": 4
+     },
+     {
+      "index": 1,
+      "meterId": "m0",
+      "ts": "2026-04-01T00:57:00Z",
+      "value": 19.505,
+      "readingKind": "interval_kwh",
+      "seq": 4
+     },
+     {
+      "index": 2,
+      "meterId": "m2",
+      "ts": "2026-04-01T04:42:00Z",
+      "value": 218.632,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 3,
+      "meterId": "m1",
+      "ts": "2026-04-01T06:35:00Z",
+      "value": 135.545,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 4,
+      "meterId": "m0",
+      "ts": "2026-04-01T00:33:00Z",
+      "value": 137.846,
+      "readingKind": "do_mg_l",
+      "seq": 4
+     },
+     {
+      "index": 5,
+      "meterId": "m0",
+      "ts": "2026-04-01T07:33:00Z",
+      "value": 181.807,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 6,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:36:00Z",
+      "value": 151.24,
+      "readingKind": "instant_kw",
+      "seq": null
+     }
+    ],
+    "prior": {
+     "m0": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 393.502
+     },
+     "m2": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 341.891
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T00:33:00Z",
+     "value": 137.846,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T00:57:00Z",
+     "value": 19.505,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:16:00Z",
+     "value": 87.28,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T04:42:00Z",
+     "value": 218.632,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:36:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T06:35:00Z",
+     "value": 141.00262499999997,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T07:33:00Z",
+     "value": 181.807,
+     "qualityFlag": "suspect"
+    }
+   ]
+  },
+  {
+   "name": "random-16",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:58:00Z",
+      "value": 484.983,
+      "readingKind": "do_mg_l",
+      "seq": 1
+     },
+     {
+      "index": 1,
+      "meterId": "m0",
+      "ts": "2026-04-01T04:36:00Z",
+      "value": 389.452,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 2,
+      "meterId": "m0",
+      "ts": "2026-04-01T04:54:00Z",
+      "value": 337.461,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 3,
+      "meterId": "m2",
+      "ts": "2026-04-01T03:09:00Z",
+      "value": 380.912,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 4,
+      "meterId": "m0",
+      "ts": "2026-04-01T03:57:00Z",
+      "value": 181.513,
+      "readingKind": "interval_kwh",
+      "seq": 3
+     },
+     {
+      "index": 5,
+      "meterId": "m0",
+      "ts": "2026-04-01T01:46:00Z",
+      "value": 115.994,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 6,
+      "meterId": "m2",
+      "ts": "2026-04-01T02:49:00Z",
+      "value": 138.566,
+      "readingKind": "cumulative_kwh",
+      "seq": 0
+     },
+     {
+      "index": 7,
+      "meterId": "m2",
+      "ts": "2026-04-01T02:41:00Z",
+      "value": 469.349,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 8,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:10:00Z",
+      "value": 440.696,
+      "readingKind": "do_mg_l",
+      "seq": null
+     }
+    ],
+    "prior": {
+     "m0": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 275.388
+     },
+     "m1": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 369.166
+     },
+     "m2": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 144.415
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T01:46:00Z",
+     "value": 115.994,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T02:41:00Z",
+     "value": 469.349,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T02:49:00Z",
+     "value": 138.566,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T03:09:00Z",
+     "value": 86.57966666666665,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T03:57:00Z",
+     "value": 181.513,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T04:36:00Z",
+     "value": 389.452,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T04:54:00Z",
+     "value": 337.461,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:10:00Z",
+     "value": 440.696,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:58:00Z",
+     "value": 484.983,
+     "qualityFlag": "suspect"
+    }
+   ]
+  },
+  {
+   "name": "random-17",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T06:49:00Z",
+      "value": 157.493,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "m2",
+      "ts": "2026-04-01T07:27:00Z",
+      "value": 571.272,
+      "readingKind": "interval_kwh",
+      "seq": 3
+     },
+     {
+      "index": 2,
+      "meterId": "m2",
+      "ts": "2026-04-01T01:03:00Z",
+      "value": 580.968,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 3,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:53:00Z",
+      "value": 61.827,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 4,
+      "meterId": "m2",
+      "ts": "2026-04-01T04:48:00Z",
+      "value": 138.027,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 5,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:57:00Z",
+      "value": 432.551,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 6,
+      "meterId": "m1",
+      "ts": "2026-04-01T06:04:00Z",
+      "value": 6.372,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 7,
+      "meterId": "m0",
+      "ts": "2026-04-01T06:59:00Z",
+      "value": 531.265,
+      "readingKind": "interval_kwh",
+      "seq": 2
+     },
+     {
+      "index": 8,
+      "meterId": "m0",
+      "ts": "2026-04-01T02:30:00Z",
+      "value": 569.011,
+      "readingKind": "cumulative_kwh",
+      "seq": 0
+     },
+     {
+      "index": 9,
+      "meterId": "m1",
+      "ts": "2026-04-01T03:13:00Z",
+      "value": 449.136,
+      "readingKind": "interval_kwh",
+      "seq": 3
+     },
+     {
+      "index": 10,
+      "meterId": "m0",
+      "ts": "2026-04-01T04:59:00Z",
+      "value": 125.374,
+      "readingKind": "do_mg_l",
+      "seq": null
+     }
+    ],
+    "prior": {
+     "m1": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 380.114
+     },
+     "m2": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 126.867
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:57:00Z",
+     "value": 432.551,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T01:03:00Z",
+     "value": 580.968,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:53:00Z",
+     "value": 61.827,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T02:30:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T03:13:00Z",
+     "value": 449.136,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T04:48:00Z",
+     "value": 138.027,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T04:59:00Z",
+     "value": 125.374,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T06:04:00Z",
+     "value": 6.372,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T06:49:00Z",
+     "value": 157.493,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T06:59:00Z",
+     "value": 531.265,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T07:27:00Z",
+     "value": 571.272,
+     "qualityFlag": "ok"
+    }
+   ]
+  },
+  {
+   "name": "random-18",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T07:37:00Z",
+      "value": 57.494,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "m0",
+      "ts": "2026-04-01T04:02:00Z",
+      "value": 320.925,
+      "readingKind": "do_mg_l",
+      "seq": 1
+     },
+     {
+      "index": 2,
+      "meterId": "m0",
+      "ts": "2026-04-01T07:58:00Z",
+      "value": 368.169,
+      "readingKind": "instant_kw",
+      "seq": 3
+     },
+     {
+      "index": 3,
+      "meterId": "m0",
+      "ts": "2026-04-01T06:02:00Z",
+      "value": 274.055,
+      "readingKind": "cumulative_kwh",
+      "seq": 0
+     },
+     {
+      "index": 4,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:59:00Z",
+      "value": 51.758,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 5,
+      "meterId": "m2",
+      "ts": "2026-04-01T02:28:00Z",
+      "value": 145.574,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 6,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:21:00Z",
+      "value": 211.141,
+      "readingKind": "do_mg_l",
+      "seq": 2
+     },
+     {
+      "index": 7,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:03:00Z",
+      "value": 576.448,
+      "readingKind": "cumulative_kwh",
+      "seq": 4
+     },
+     {
+      "index": 8,
+      "meterId": "m1",
+      "ts": "2026-04-01T03:09:00Z",
+      "value": 22.961,
+      "readingKind": "interval_kwh",
+      "seq": 0
+     },
+     {
+      "index": 9,
+      "meterId": "m1",
+      "ts": "2026-04-01T06:52:00Z",
+      "value": 22.734,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 10,
+      "meterId": "m0",
+      "ts": "2026-04-01T04:57:00Z",
+      "value": 128.673,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 11,
+      "meterId": "m2",
+      "ts": "2026-04-01T07:35:00Z",
+      "value": 313.903,
+      "readingKind": "instant_kw",
+      "seq": 0
+     },
+     {
+      "index": 12,
+      "meterId": "m0",
+      "ts": "2026-04-01T00:51:00Z",
+      "value": 429.532,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 13,
+      "meterId": "m1",
+      "ts": "2026-04-01T04:16:00Z",
+      "value": 217.143,
+      "readingKind": "do_mg_l",
+      "seq": 1
+     },
+     {
+      "index": 14,
+      "meterId": "m1",
+      "ts": "2026-04-01T06:49:00Z",
+      "value": 560.128,
+      "readingKind": "do_mg_l",
+      "seq": 2
+     },
+     {
+      "index": 15,
+      "meterId": "m2",
+      "ts": "2026-04-01T07:47:00Z",
+      "value": 506.177,
+      "readingKind": "instant_kw",
+      "seq": 4
+     },
+     {
+      "index": 16,
+      "meterId": "m2",
+      "ts": "2026-04-01T06:40:00Z",
+      "value": -2.287,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 17,
+      "meterId": "m1",
+      "ts": "2026-04-01T03:08:00Z",
+      "value": 196.148,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 18,
+      "meterId": "m0",
+      "ts": "2026-04-01T00:43:00Z",
+      "value": 62.531,
+      "readingKind": "instant_kw",
+      "seq": 1
+     }
+    ],
+    "prior": {
+     "m0": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 324.171
+     },
+     "m2": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 282.827
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T00:43:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T00:51:00Z",
+     "value": 429.532,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:03:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:21:00Z",
+     "value": 211.141,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:59:00Z",
+     "value": 293.1628,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T02:28:00Z",
+     "value": 145.574,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T03:08:00Z",
+     "value": 196.148,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T03:09:00Z",
+     "value": 22.961,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T04:02:00Z",
+     "value": 320.925,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T04:16:00Z",
+     "value": 217.143,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T04:57:00Z",
+     "value": 128.673,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T06:02:00Z",
+     "value": 211.524,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T06:40:00Z",
+     "value": -2.287,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T06:49:00Z",
+     "value": 560.128,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T06:52:00Z",
+     "value": 22.734,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T07:35:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T07:37:00Z",
+     "value": 57.494,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T07:47:00Z",
+     "value": 82.00800000000001,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T07:58:00Z",
+     "value": 620.8165333333333,
+     "qualityFlag": "ok"
+    }
+   ]
+  },
+  {
+   "name": "random-19",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m0",
+      "ts": "2026-04-01T02:20:00Z",
+      "value": 459.321,
+      "readingKind": "instant_kw",
+      "seq": 4
+     },
+     {
+      "index": 1,
+      "meterId": "m2",
+      "ts": "2026-04-01T07:18:00Z",
+      "value": 191.147,
+      "readingKind": "cumulative_kwh",
+      "seq": 2
+     },
+     {
+      "index": 2,
+      "meterId": "m0",
+      "ts": "2026-04-01T00:57:00Z",
+      "value": 594.245,
+      "readingKind": "instant_kw",
+      "seq": 1
+     },
+     {
+      "index": 3,
+      "meterId": "m0",
+      "ts": "2026-04-01T03:25:00Z",
+      "value": 131.984,
+      "readingKind": "instant_kw",
+      "seq": 0
+     },
+     {
+      "index": 4,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:03:00Z",
+      "value": 357.236,
+      "readingKind": "cumulative_kwh",
+      "seq": 0
+     },
+     {
+      "index": 5,
+      "meterId": "m2",
+      "ts": "2026-04-01T00:38:00Z",
+      "value": 230.707,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 6,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:21:00Z",
+      "value": 190.573,
+      "readingKind": "interval_kwh",
+      "seq": 3
+     },
+     {
+      "index": 7,
+      "meterId": "m0",
+      "ts": "2026-04-01T05:58:00Z",
+      "value": 342.264,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 8,
+      "meterId": "m0",
+      "ts": "2026-04-01T03:06:00Z",
+      "value": 395.551,
+      "readingKind": "do_mg_l",
+      "seq": 3
+     },
+     {
+      "index": 9,
+      "meterId": "m0",
+      "ts": "2026-04-01T01:19:00Z",
+      "value": 12.194,
+      "readingKind": "instant_kw",
+      "seq": 2
+     },
+     {
+      "index": 10,
+      "meterId": "m2",
+      "ts": "2026-04-01T06:22:00Z",
+      "value": 115.214,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 11,
+      "meterId": "m2",
+      "ts": "2026-04-01T00:06:00Z",
+      "value": 542.905,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 12,
+      "meterId": "m0",
+      "ts": "2026-04-01T02:50:00Z",
+      "value": 114.845,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 13,
+      "meterId": "m0",
+      "ts": "2026-04-01T02:07:00Z",
+      "value": 228.513,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 14,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:47:00Z",
+      "value": 33.172,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 15,
+      "meterId": "m2",
+      "ts": "2026-04-01T07:08:00Z",
+      "value": 193.189,
+      "readingKind": "interval_kwh",
+      "seq": null
+     }
+    ],
+    "prior": {
+     "m0": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 341.495
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T00:06:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T00:38:00Z",
+     "value": 230.707,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T00:57:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T01:19:00Z",
+     "value": 111.18048333333331,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:47:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T02:07:00Z",
+     "value": 228.513,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T02:20:00Z",
+     "value": 239.68679166666666,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T02:50:00Z",
+     "value": 114.845,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T03:06:00Z",
+     "value": 395.551,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T03:25:00Z",
+     "value": 320.29020833333334,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:03:00Z",
+     "value": 324.06399999999996,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:21:00Z",
+     "value": 190.573,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T05:58:00Z",
+     "value": 210.28,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T06:22:00Z",
+     "value": 115.214,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T07:08:00Z",
+     "value": 193.189,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T07:18:00Z",
+     "value": 191.147,
+     "qualityFlag": "suspect"
+    }
+   ]
+  },
+  {
+   "name": "random-20",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m0",
+      "ts": "2026-04-01T00:07:00Z",
+      "value": 533.851,
+      "readingKind": "do_mg_l",
+      "seq": 0
+     },
+     {
+      "index": 1,
+      "meterId": "m0",
+      "ts": "2026-04-01T02:48:00Z",
+      "value": 529.873,
+      "readingKind": "interval_kwh",
+      "seq": 3
+     },
+     {
+      "index": 2,
+      "meterId": "m0",
+      "ts": "2026-04-01T00:53:00Z",
+      "value": 493.285,
+      "readingKind": "instant_kw",
+      "seq": null
+     }
+    ],
+    "prior": {
+     "m0": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 51.532
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T00:07:00Z",
+     "value": 533.851,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T00:53:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T02:48:00Z",
+     "value": 529.873,
+     "qualityFlag": "ok"
+    }
+   ]
+  },
+  {
+   "name": "random-21",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m2",
+      "ts": "2026-04-01T03:56:00Z",
+      "value": 53.13,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "m0",
+      "ts": "2026-04-01T06:09:00Z",
+      "value": 429.723,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 2,
+      "meterId": "m2",
+      "ts": "2026-04-01T02:19:00Z",
+      "value": 255.854,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 3,
+      "meterId": "m2",
+      "ts": "2026-04-01T07:47:00Z",
+      "value": 276.576,
+      "readingKind": "do_mg_l",
+      "seq": 2
+     },
+     {
+      "index": 4,
+      "meterId": "m1",
+      "ts": "2026-04-01T02:03:00Z",
+      "value": 426.27,
+      "readingKind": "cumulative_kwh",
+      "seq": 1
+     },
+     {
+      "index": 5,
+      "meterId": "m0",
+      "ts": "2026-04-01T07:25:00Z",
+      "value": 481.104,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 6,
+      "meterId": "m1",
+      "ts": "2026-04-01T07:03:00Z",
+      "value": 286.037,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 7,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:23:00Z",
+      "value": 478.687,
+      "readingKind": "interval_kwh",
+      "seq": 0
+     }
+    ],
+    "prior": {
+     "m0": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 318.209
+     },
+     "m1": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 188.71
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:23:00Z",
+     "value": 478.687,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T02:03:00Z",
+     "value": 426.27,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T02:19:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T03:56:00Z",
+     "value": 249.7620666666667,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T06:09:00Z",
+     "value": 429.723,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T07:03:00Z",
+     "value": 286.037,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T07:25:00Z",
+     "value": 51.38099999999997,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T07:47:00Z",
+     "value": 276.576,
+     "qualityFlag": "suspect"
+    }
+   ]
+  },
+  {
+   "name": "random-22",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m2",
+      "ts": "2026-04-01T06:19:00Z",
+      "value": 295.355,
+      "readingKind": "do_mg_l",
+      "seq": 2
+     },
+     {
+      "index": 1,
+      "meterId": "m2",
+      "ts": "2026-04-01T07:24:00Z",
+      "value": 509.074,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 2,
+      "meterId": "m0",
+      "ts": "2026-04-01T03:17:00Z",
+      "value": 382.625,
+      "readingKind": "cumulative_kwh",
+      "seq": 2
+     }
+    ],
+    "prior": {
+     "m0": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 73.069
+     },
+     "m2": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 385.013
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T03:17:00Z",
+     "value": 382.625,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T06:19:00Z",
+     "value": 295.355,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T07:24:00Z",
+     "value": 509.074,
+     "qualityFlag": "suspect"
+    }
+   ]
+  },
+  {
+   "name": "random-23",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T07:58:00Z",
+      "value": 106.393,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "m1",
+      "ts": "2026-04-01T07:56:00Z",
+      "value": 65.083,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 2,
+      "meterId": "m0",
+      "ts": "2026-04-01T02:26:00Z",
+      "value": 424.33,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 3,
+      "meterId": "m0",
+      "ts": "2026-04-01T01:28:00Z",
+      "value": 269.788,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 4,
+      "meterId": "m1",
+      "ts": "2026-04-01T04:44:00Z",
+      "value": 477.094,
+      "readingKind": "do_mg_l",
+      "seq": 4
+     },
+     {
+      "index": 5,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:50:00Z",
+      "value": 203.409,
+      "readingKind": "instant_kw",
+      "seq": 3
+     },
+     {
+      "index": 6,
+      "meterId": "m0",
+      "ts": "2026-04-01T00:08:00Z",
+      "value": 336.27,
+      "readingKind": "instant_kw",
+      "seq": 1
+     },
+     {
+      "index": 7,
+      "meterId": "m0",
+      "ts": "2026-04-01T00:12:00Z",
+      "value": 42.566,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 8,
+      "meterId": "m2",
+      "ts": "2026-04-01T05:25:00Z",
+      "value": 164.285,
+      "readingKind": "cumulative_kwh",
+      "seq": 3
+     },
+     {
+      "index": 9,
+      "meterId": "m2",
+      "ts": "2026-04-01T02:35:00Z",
+      "value": 129.81,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 10,
+      "meterId": "m0",
+      "ts": "2026-04-01T02:18:00Z",
+      "value": 166.959,
+      "readingKind": "instant_kw",
+      "seq": 3
+     },
+     {
+      "index": 11,
+      "meterId": "m2",
+      "ts": "2026-04-01T03:23:00Z",
+      "value": 380.12,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 12,
+      "meterId": "m0",
+      "ts": "2026-04-01T07:56:00Z",
+      "value": 173.306,
+      "readingKind": "instant_kw",
+      "seq": 3
+     },
+     {
+      "index": 13,
+      "meterId": "m1",
+      "ts": "2026-04-01T03:07:00Z",
+      "value": 199.371,
+      "readingKind": "interval_kwh",
+      "seq": 4
+     },
+     {
+      "index": 14,
+      "meterId": "m2",
+      "ts": "2026-04-01T01:37:00Z",
+      "value": 485.786,
+      "readingKind": "instant_kw",
+      "seq": null
+     }
+    ],
+    "prior": {
+     "m1": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 5.915
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T00:08:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T00:12:00Z",
+     "value": 12.627866666666668,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T01:28:00Z",
+     "value": 197.82420000000002,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T01:37:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T02:18:00Z",
+     "value": 181.9779166666667,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T02:26:00Z",
+     "value": 257.371,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T02:35:00Z",
+     "value": 129.81,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T03:07:00Z",
+     "value": 199.371,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T03:23:00Z",
+     "value": 380.12,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T04:44:00Z",
+     "value": 477.094,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T05:25:00Z",
+     "value": 164.285,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:50:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T07:56:00Z",
+     "value": 65.083,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T07:56:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T07:58:00Z",
+     "value": 106.393,
+     "qualityFlag": "ok"
+    }
+   ]
+  },
+  {
+   "name": "random-24",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m2",
+      "ts": "2026-04-01T06:27:00Z",
+      "value": 76.21,
+      "readingKind": "cumulative_kwh",
+      "seq": 0
+     },
+     {
+      "index": 1,
+      "meterId": "m2",
+      "ts": "2026-04-01T05:33:00Z",
+      "value": 24.377,
+      "readingKind": "instant_kw",
+      "seq": 4
+     },
+     {
+      "index": 2,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:06:00Z",
+      "value": 492.225,
+      "readingKind": "do_mg_l",
+      "seq": 2
+     },
+     {
+      "index": 3,
+      "meterId": "m0",
+      "ts": "2026-04-01T04:53:00Z",
+      "value": 63.632,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 4,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:04:00Z",
+      "value": 435.066,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 5,
+      "meterId": "m0",
+      "ts": "2026-04-01T05:14:00Z",
+      "value": 590.373,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 6,
+      "meterId": "m0",
+      "ts": "2026-04-01T05:36:00Z",
+      "value": 480.982,
+      "readingKind": "do_mg_l",
+      "seq": 3
+     },
+     {
+      "index": 7,
+      "meterId": "m2",
+      "ts": "2026-04-01T07:23:00Z",
+      "value": 103.724,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 8,
+      "meterId": "m0",
+      "ts": "2026-04-01T01:32:00Z",
+      "value": 108.365,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 9,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:11:00Z",
+      "value": 455.595,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 10,
+      "meterId": "m2",
+      "ts": "2026-04-01T05:14:00Z",
+      "value": 541.864,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 11,
+      "meterId": "m2",
+      "ts": "2026-04-01T01:15:00Z",
+      "value": 4.88,
+      "readingKind": "do_mg_l",
+      "seq": 1
+     },
+     {
+      "index": 12,
+      "meterId": "m2",
+      "ts": "2026-04-01T03:54:00Z",
+      "value": 13.713,
+      "readingKind": "cumulative_kwh",
+      "seq": 1
+     },
+     {
+      "index": 13,
+      "meterId": "m1",
+      "ts": "2026-04-01T02:27:00Z",
+      "value": 3.24,
+      "readingKind": "interval_kwh",
+      "seq": 4
+     },
+     {
+      "index": 14,
+      "meterId": "m1",
+      "ts": "2026-04-01T04:31:00Z",
+      "value": 462.496,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     }
+    ],
+    "prior": {
+     "m0": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 148.931
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:06:00Z",
+     "value": 492.225,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:11:00Z",
+     "value": 455.595,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T01:15:00Z",
+     "value": 4.88,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T01:32:00Z",
+     "value": 108.365,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T02:27:00Z",
+     "value": 3.24,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T03:54:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T04:31:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T04:53:00Z",
+     "value": 63.632,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:04:00Z",
+     "value": 435.066,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T05:14:00Z",
+     "value": 590.373,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T05:14:00Z",
+     "value": 541.864,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T05:33:00Z",
+     "value": 31.424249999999994,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T05:36:00Z",
+     "value": 480.982,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T06:27:00Z",
+     "value": 51.833,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T07:23:00Z",
+     "value": 103.724,
+     "qualityFlag": "suspect"
+    }
+   ]
+  },
+  {
+   "name": "random-25",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m2",
+      "ts": "2026-04-01T04:17:00Z",
+      "value": 210.469,
+      "readingKind": "instant_kw",
+      "seq": 3
+     },
+     {
+      "index": 1,
+      "meterId": "m0",
+      "ts": "2026-04-01T05:53:00Z",
+      "value": 524.621,
+      "readingKind": "cumulative_kwh",
+      "seq": 4
+     },
+     {
+      "index": 2,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:03:00Z",
+      "value": 404.981,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 3,
+      "meterId": "m0",
+      "ts": "2026-04-01T05:52:00Z",
+      "value": 599.491,
+      "readingKind": "interval_kwh",
+      "seq": 2
+     },
+     {
+      "index": 4,
+      "meterId": "m2",
+      "ts": "2026-04-01T05:07:00Z",
+      "value": 453.337,
+      "readingKind": "instant_kw",
+      "seq": 0
+     },
+     {
+      "index": 5,
+      "meterId": "m0",
+      "ts": "2026-04-01T02:17:00Z",
+      "value": 438.035,
+      "readingKind": "interval_kwh",
+      "seq": null
+     }
+    ],
+    "prior": {}
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:03:00Z",
+     "value": 404.981,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T02:17:00Z",
+     "value": 438.035,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T04:17:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T05:07:00Z",
+     "value": 276.58583333333337,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T05:52:00Z",
+     "value": 599.491,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T05:53:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    }
+   ]
+  },
+  {
+   "name": "random-26",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m2",
+      "ts": "2026-04-01T05:02:00Z",
+      "value": 90.549,
+      "readingKind": "cumulative_kwh",
+      "seq": 0
+     },
+     {
+      "index": 1,
+      "meterId": "m2",
+      "ts": "2026-04-01T07:24:00Z",
+      "value": 102.439,
+      "readingKind": "do_mg_l",
+      "seq": 4
+     },
+     {
+      "index": 2,
+      "meterId": "m2",
+      "ts": "2026-04-01T00:17:00Z",
+      "value": 335.687,
+      "readingKind": "interval_kwh",
+      "seq": 2
+     },
+     {
+      "index": 3,
+      "meterId": "m2",
+      "ts": "2026-04-01T03:45:00Z",
+      "value": 151.865,
+      "readingKind": "instant_kw",
+      "seq": 0
+     },
+     {
+      "index": 4,
+      "meterId": "m0",
+      "ts": "2026-04-01T07:08:00Z",
+      "value": 542.888,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 5,
+      "meterId": "m0",
+      "ts": "2026-04-01T04:23:00Z",
+      "value": 586.201,
+      "readingKind": "interval_kwh",
+      "seq": 4
+     },
+     {
+      "index": 6,
+      "meterId": "m0",
+      "ts": "2026-04-01T06:23:00Z",
+      "value": 516.085,
+      "readingKind": "cumulative_kwh",
+      "seq": 4
+     },
+     {
+      "index": 7,
+      "meterId": "m0",
+      "ts": "2026-04-01T01:38:00Z",
+      "value": 254.246,
+      "readingKind": "instant_kw",
+      "seq": null
+     },
+     {
+      "index": 8,
+      "meterId": "m0",
+      "ts": "2026-04-01T02:01:00Z",
+      "value": 579.478,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 9,
+      "meterId": "m1",
+      "ts": "2026-04-01T07:01:00Z",
+      "value": 342.558,
+      "readingKind": "instant_kw",
+      "seq": 1
+     },
+     {
+      "index": 10,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:38:00Z",
+      "value": 307.914,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 11,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:53:00Z",
+      "value": 507.101,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 12,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:05:00Z",
+      "value": 172.345,
+      "readingKind": "instant_kw",
+      "seq": 0
+     },
+     {
+      "index": 13,
+      "meterId": "m2",
+      "ts": "2026-04-01T05:38:00Z",
+      "value": 585.97,
+      "readingKind": "instant_kw",
+      "seq": 0
+     },
+     {
+      "index": 14,
+      "meterId": "m1",
+      "ts": "2026-04-01T04:42:00Z",
+      "value": 500.316,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 15,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:12:00Z",
+      "value": 366.785,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     }
+    ],
+    "prior": {
+     "m0": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 33.968
+     },
+     "m1": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 323.0
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:12:00Z",
+     "value": 366.785,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T00:17:00Z",
+     "value": 335.687,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:05:00Z",
+     "value": 238.11575,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T01:38:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T02:01:00Z",
+     "value": 579.478,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T03:45:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T04:23:00Z",
+     "value": 586.201,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T04:42:00Z",
+     "value": 327.971,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T05:02:00Z",
+     "value": 90.549,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:38:00Z",
+     "value": 307.914,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T05:38:00Z",
+     "value": 202.9557,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:53:00Z",
+     "value": 6.785000000000025,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T06:23:00Z",
+     "value": 261.83900000000006,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T07:01:00Z",
+     "value": 481.47343333333333,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T07:08:00Z",
+     "value": 542.888,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T07:24:00Z",
+     "value": 102.439,
+     "qualityFlag": "suspect"
+    }
+   ]
+  },
+  {
+   "name": "random-27",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m0",
+      "ts": "2026-04-01T04:11:00Z",
+      "value": 475.543,
+      "readingKind": "instant_kw",
+      "seq": 1
+     },
+     {
+      "index": 1,
+      "meterId": "m1",
+      "ts": "2026-04-01T02:59:00Z",
+      "value": 492.715,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 2,
+      "meterId": "m0",
+      "ts": "2026-04-01T01:24:00Z",
+      "value": 23.143,
+      "readingKind": "do_mg_l",
+      "seq": 2
+     },
+     {
+      "index": 3,
+      "meterId": "m0",
+      "ts": "2026-04-01T07:50:00Z",
+      "value": 377.446,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 4,
+      "meterId": "m0",
+      "ts": "2026-04-01T04:58:00Z",
+      "value": 232.739,
+      "readingKind": "cumulative_kwh",
+      "seq": 3
+     }
+    ],
+    "prior": {
+     "m0": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 172.477
+     },
+     "m1": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 250.775
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T01:24:00Z",
+     "value": 23.143,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T02:59:00Z",
+     "value": 492.715,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T04:11:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T04:58:00Z",
+     "value": 232.739,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T07:50:00Z",
+     "value": 377.446,
+     "qualityFlag": "ok"
+    }
+   ]
+  },
+  {
+   "name": "random-28",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m0",
+      "ts": "2026-04-01T04:18:00Z",
+      "value": 534.25,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "m2",
+      "ts": "2026-04-01T02:42:00Z",
+      "value": 301.332,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 2,
+      "meterId": "m2",
+      "ts": "2026-04-01T03:23:00Z",
+      "value": 375.817,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 3,
+      "meterId": "m0",
+      "ts": "2026-04-01T01:02:00Z",
+      "value": 574.89,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 4,
+      "meterId": "m2",
+      "ts": "2026-04-01T03:55:00Z",
+      "value": 497.161,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 5,
+      "meterId": "m1",
+      "ts": "2026-04-01T05:37:00Z",
+      "value": 572.81,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 6,
+      "meterId": "m2",
+      "ts": "2026-04-01T02:09:00Z",
+      "value": 298.334,
+      "readingKind": "instant_kw",
+      "seq": 1
+     },
+     {
+      "index": 7,
+      "meterId": "m2",
+      "ts": "2026-04-01T05:29:00Z",
+      "value": 76.118,
+      "readingKind": "interval_kwh",
+      "seq": 3
+     },
+     {
+      "index": 8,
+      "meterId": "m2",
+      "ts": "2026-04-01T05:04:00Z",
+      "value": 557.851,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 9,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:58:00Z",
+      "value": 40.352,
+      "readingKind": "cumulative_kwh",
+      "seq": 4
+     },
+     {
+      "index": 10,
+      "meterId": "m0",
+      "ts": "2026-04-01T07:51:00Z",
+      "value": 249.689,
+      "readingKind": "do_mg_l",
+      "seq": null
+     },
+     {
+      "index": 11,
+      "meterId": "m1",
+      "ts": "2026-04-01T00:01:00Z",
+      "value": 549.813,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     }
+    ],
+    "prior": {
+     "m0": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 90.178
+     },
+     "m2": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 161.384
+     },
+     "m1": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 296.863
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T00:01:00Z",
+     "value": 549.813,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T01:02:00Z",
+     "value": 574.89,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:58:00Z",
+     "value": 40.352,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T02:09:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T02:42:00Z",
+     "value": 301.332,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T03:23:00Z",
+     "value": 375.817,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T03:55:00Z",
+     "value": 497.161,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T04:18:00Z",
+     "value": 534.25,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T05:04:00Z",
+     "value": 557.851,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T05:29:00Z",
+     "value": 76.118,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T05:37:00Z",
+     "value": 572.81,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T07:51:00Z",
+     "value": 249.689,
+     "qualityFlag": "suspect"
+    }
+   ]
+  },
+  {
+   "name": "random-29",
+   "input": {
+    "raws": [
+     {
+      "index": 0,
+      "meterId": "m1",
+      "ts": "2026-04-01T01:44:00Z",
+      "value": 413.797,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 1,
+      "meterId": "m0",
+      "ts": "2026-04-01T01:54:00Z",
+      "value": 303.13,
+      "readingKind": "do_mg_l",
+      "seq": 0
+     },
+     {
+      "index": 2,
+      "meterId": "m2",
+      "ts": "2026-04-01T04:25:00Z",
+      "value": 279.524,
+      "readingKind": "interval_kwh",
+      "seq": null
+     },
+     {
+      "index": 3,
+      "meterId": "m2",
+      "ts": "2026-04-01T00:41:00Z",
+      "value": 379.834,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 4,
+      "meterId": "m1",
+      "ts": "2026-04-01T07:47:00Z",
+      "value": 501.404,
+      "readingKind": "cumulative_kwh",
+      "seq": null
+     },
+     {
+      "index": 5,
+      "meterId": "m1",
+      "ts": "2026-04-01T06:09:00Z",
+      "value": 560.962,
+      "readingKind": "cumulative_kwh",
+      "seq": 4
+     },
+     {
+      "index": 6,
+      "meterId": "m1",
+      "ts": "2026-04-01T02:36:00Z",
+      "value": 400.614,
+      "readingKind": "instant_kw",
+      "seq": 0
+     },
+     {
+      "index": 7,
+      "meterId": "m1",
+      "ts": "2026-04-01T06:23:00Z",
+      "value": 48.936,
+      "readingKind": "do_mg_l",
+      "seq": 3
+     },
+     {
+      "index": 8,
+      "meterId": "m0",
+      "ts": "2026-04-01T02:07:00Z",
+      "value": 549.208,
+      "readingKind": "instant_kw",
+      "seq": 1
+     },
+     {
+      "index": 9,
+      "meterId": "m0",
+      "ts": "2026-04-01T03:33:00Z",
+      "value": 429.927,
+      "readingKind": "interval_kwh",
+      "seq": 0
+     }
+    ],
+    "prior": {
+     "m1": {
+      "ts": "2026-03-31T23:00:00Z",
+      "value": 379.638
+     }
+    }
+   },
+   "expected": [
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T00:41:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T01:44:00Z",
+     "value": 413.797,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T01:54:00Z",
+     "value": 303.13,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T02:07:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T02:36:00Z",
+     "value": 0.0,
+     "qualityFlag": "bad"
+    },
+    {
+     "meterId": "m0",
+     "ts": "2026-04-01T03:33:00Z",
+     "value": 429.927,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m2",
+     "ts": "2026-04-01T04:25:00Z",
+     "value": 279.524,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T06:09:00Z",
+     "value": 160.348,
+     "qualityFlag": "ok"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T06:23:00Z",
+     "value": 48.936,
+     "qualityFlag": "suspect"
+    },
+    {
+     "meterId": "m1",
+     "ts": "2026-04-01T07:47:00Z",
+     "value": 501.404,
+     "qualityFlag": "suspect"
+    }
+   ]
+  }
+ ]
+}

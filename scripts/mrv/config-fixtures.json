@@ -1,0 +1,3485 @@
+{
+ "generatedBy": "culiver_kpi.config (python original)",
+ "cases": [
+  {
+   "name": "empty/ei",
+   "metric": "ei",
+   "params": {},
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "empty/fcr",
+   "metric": "fcr",
+   "params": {},
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "empty/oei",
+   "metric": "oei",
+   "params": {},
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   }
+  },
+  {
+   "name": "empty/mortality",
+   "metric": "mortality",
+   "params": {},
+   "rejects": false,
+   "expected": {
+    "movingAvgWindowDays": 7
+   },
+   "roundTrip": {
+    "movingAvgWindowDays": 7
+   }
+  },
+  {
+   "name": "empty/alerting",
+   "metric": "alerting",
+   "params": {},
+   "rejects": false,
+   "expected": {
+    "doLowMgL": 3.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 5,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 1.6,
+      "amberThreshold": 1.5
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   },
+   "roundTrip": {
+    "doLowMgL": 3.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 5,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 1.6,
+      "amberThreshold": 1.5
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   }
+  },
+  {
+   "name": "empty/recommend",
+   "metric": "recommend",
+   "params": {},
+   "rejects": false,
+   "expected": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   },
+   "roundTrip": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   }
+  },
+  {
+   "name": "seeded-default/ei",
+   "metric": "ei",
+   "params": {
+    "ei": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_delta_kg": 0.0
+    },
+    "fcr": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_delta_kg": 0.0
+    },
+    "oei": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_kg": 0.0,
+     "do_band_method": "sample_count",
+     "oei_scale_factor": 1.0,
+     "clamp_max": 100.0
+    },
+    "mortality": {
+     "moving_avg_window_days": 7
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "seeded-default/fcr",
+   "metric": "fcr",
+   "params": {
+    "ei": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_delta_kg": 0.0
+    },
+    "fcr": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_delta_kg": 0.0
+    },
+    "oei": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_kg": 0.0,
+     "do_band_method": "sample_count",
+     "oei_scale_factor": 1.0,
+     "clamp_max": 100.0
+    },
+    "mortality": {
+     "moving_avg_window_days": 7
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "seeded-default/oei",
+   "metric": "oei",
+   "params": {
+    "ei": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_delta_kg": 0.0
+    },
+    "fcr": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_delta_kg": 0.0
+    },
+    "oei": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_kg": 0.0,
+     "do_band_method": "sample_count",
+     "oei_scale_factor": 1.0,
+     "clamp_max": 100.0
+    },
+    "mortality": {
+     "moving_avg_window_days": 7
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   }
+  },
+  {
+   "name": "seeded-default/mortality",
+   "metric": "mortality",
+   "params": {
+    "ei": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_delta_kg": 0.0
+    },
+    "fcr": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_delta_kg": 0.0
+    },
+    "oei": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_kg": 0.0,
+     "do_band_method": "sample_count",
+     "oei_scale_factor": 1.0,
+     "clamp_max": 100.0
+    },
+    "mortality": {
+     "moving_avg_window_days": 7
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "movingAvgWindowDays": 7
+   },
+   "roundTrip": {
+    "movingAvgWindowDays": 7
+   }
+  },
+  {
+   "name": "seeded-default/alerting",
+   "metric": "alerting",
+   "params": {
+    "ei": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_delta_kg": 0.0
+    },
+    "fcr": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_delta_kg": 0.0
+    },
+    "oei": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_kg": 0.0,
+     "do_band_method": "sample_count",
+     "oei_scale_factor": 1.0,
+     "clamp_max": 100.0
+    },
+    "mortality": {
+     "moving_avg_window_days": 7
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "doLowMgL": 3.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 5,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 1.6,
+      "amberThreshold": 1.5
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   },
+   "roundTrip": {
+    "doLowMgL": 3.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 5,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 1.6,
+      "amberThreshold": 1.5
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   }
+  },
+  {
+   "name": "seeded-default/recommend",
+   "metric": "recommend",
+   "params": {
+    "ei": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_delta_kg": 0.0
+    },
+    "fcr": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_delta_kg": 0.0
+    },
+    "oei": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_kg": 0.0,
+     "do_band_method": "sample_count",
+     "oei_scale_factor": 1.0,
+     "clamp_max": 100.0
+    },
+    "mortality": {
+     "moving_avg_window_days": 7
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   },
+   "roundTrip": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   }
+  },
+  {
+   "name": "tuned/ei",
+   "metric": "ei",
+   "params": {
+    "ei": {
+     "included_quality_flags": [
+      "ok",
+      "suspect"
+     ],
+     "min_biomass_delta_kg": 12.5
+    },
+    "fcr": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_delta_kg": 3.0
+    },
+    "oei": {
+     "included_quality_flags": [
+      "ok",
+      "suspect"
+     ],
+     "min_biomass_kg": 5.0,
+     "do_band_method": "time_weighted",
+     "oei_scale_factor": 250.0,
+     "clamp_max": 1000.0
+    },
+    "mortality": {
+     "moving_avg_window_days": 3
+    },
+    "alerting": {
+     "do_low_mg_l": 3.5,
+     "mortality_spike_ratio": 1.8,
+     "mortality_spike_min_count": 8,
+     "kpi_red_metrics": [
+      "ei_total",
+      "oei"
+     ],
+     "thresholds": {
+      "ei_total": {
+       "red_threshold": 9.0,
+       "amber_threshold": 7.5
+      },
+      "ei_aeration": {
+       "red_threshold": 6.5,
+       "amber_threshold": 5.5
+      },
+      "fcr": {
+       "red_threshold": 1.8,
+       "amber_threshold": 1.55
+      },
+      "oei": {
+       "red_threshold": 45.0,
+       "amber_threshold": 58.0
+      },
+      "mortality_rate": {
+       "red_threshold": 15.0,
+       "amber_threshold": 9.0
+      }
+     }
+    },
+    "recommend": {
+     "included_feed_quality_flags": [
+      "ok",
+      "suspect"
+     ],
+     "target_feed_rate_pct_of_biomass": 0.025,
+     "max_feed_adjustment_ratio": 0.1,
+     "do_low_margin_mg_l": 0.5,
+     "do_high_margin_mg_l": 0.4,
+     "high_water_temp_c": 31.5
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok",
+     "suspect"
+    ],
+    "minBiomassDeltaKg": 12.5
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok",
+     "suspect"
+    ],
+    "minBiomassDeltaKg": 12.5
+   }
+  },
+  {
+   "name": "tuned/fcr",
+   "metric": "fcr",
+   "params": {
+    "ei": {
+     "included_quality_flags": [
+      "ok",
+      "suspect"
+     ],
+     "min_biomass_delta_kg": 12.5
+    },
+    "fcr": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_delta_kg": 3.0
+    },
+    "oei": {
+     "included_quality_flags": [
+      "ok",
+      "suspect"
+     ],
+     "min_biomass_kg": 5.0,
+     "do_band_method": "time_weighted",
+     "oei_scale_factor": 250.0,
+     "clamp_max": 1000.0
+    },
+    "mortality": {
+     "moving_avg_window_days": 3
+    },
+    "alerting": {
+     "do_low_mg_l": 3.5,
+     "mortality_spike_ratio": 1.8,
+     "mortality_spike_min_count": 8,
+     "kpi_red_metrics": [
+      "ei_total",
+      "oei"
+     ],
+     "thresholds": {
+      "ei_total": {
+       "red_threshold": 9.0,
+       "amber_threshold": 7.5
+      },
+      "ei_aeration": {
+       "red_threshold": 6.5,
+       "amber_threshold": 5.5
+      },
+      "fcr": {
+       "red_threshold": 1.8,
+       "amber_threshold": 1.55
+      },
+      "oei": {
+       "red_threshold": 45.0,
+       "amber_threshold": 58.0
+      },
+      "mortality_rate": {
+       "red_threshold": 15.0,
+       "amber_threshold": 9.0
+      }
+     }
+    },
+    "recommend": {
+     "included_feed_quality_flags": [
+      "ok",
+      "suspect"
+     ],
+     "target_feed_rate_pct_of_biomass": 0.025,
+     "max_feed_adjustment_ratio": 0.1,
+     "do_low_margin_mg_l": 0.5,
+     "do_high_margin_mg_l": 0.4,
+     "high_water_temp_c": 31.5
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 3.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 3.0
+   }
+  },
+  {
+   "name": "tuned/oei",
+   "metric": "oei",
+   "params": {
+    "ei": {
+     "included_quality_flags": [
+      "ok",
+      "suspect"
+     ],
+     "min_biomass_delta_kg": 12.5
+    },
+    "fcr": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_delta_kg": 3.0
+    },
+    "oei": {
+     "included_quality_flags": [
+      "ok",
+      "suspect"
+     ],
+     "min_biomass_kg": 5.0,
+     "do_band_method": "time_weighted",
+     "oei_scale_factor": 250.0,
+     "clamp_max": 1000.0
+    },
+    "mortality": {
+     "moving_avg_window_days": 3
+    },
+    "alerting": {
+     "do_low_mg_l": 3.5,
+     "mortality_spike_ratio": 1.8,
+     "mortality_spike_min_count": 8,
+     "kpi_red_metrics": [
+      "ei_total",
+      "oei"
+     ],
+     "thresholds": {
+      "ei_total": {
+       "red_threshold": 9.0,
+       "amber_threshold": 7.5
+      },
+      "ei_aeration": {
+       "red_threshold": 6.5,
+       "amber_threshold": 5.5
+      },
+      "fcr": {
+       "red_threshold": 1.8,
+       "amber_threshold": 1.55
+      },
+      "oei": {
+       "red_threshold": 45.0,
+       "amber_threshold": 58.0
+      },
+      "mortality_rate": {
+       "red_threshold": 15.0,
+       "amber_threshold": 9.0
+      }
+     }
+    },
+    "recommend": {
+     "included_feed_quality_flags": [
+      "ok",
+      "suspect"
+     ],
+     "target_feed_rate_pct_of_biomass": 0.025,
+     "max_feed_adjustment_ratio": 0.1,
+     "do_low_margin_mg_l": 0.5,
+     "do_high_margin_mg_l": 0.4,
+     "high_water_temp_c": 31.5
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok",
+     "suspect"
+    ],
+    "minBiomassKg": 5.0,
+    "doBandMethod": "time_weighted",
+    "oeiScaleFactor": 250.0,
+    "clampMax": 1000.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok",
+     "suspect"
+    ],
+    "minBiomassKg": 5.0,
+    "doBandMethod": "time_weighted",
+    "oeiScaleFactor": 250.0,
+    "clampMax": 1000.0
+   }
+  },
+  {
+   "name": "tuned/mortality",
+   "metric": "mortality",
+   "params": {
+    "ei": {
+     "included_quality_flags": [
+      "ok",
+      "suspect"
+     ],
+     "min_biomass_delta_kg": 12.5
+    },
+    "fcr": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_delta_kg": 3.0
+    },
+    "oei": {
+     "included_quality_flags": [
+      "ok",
+      "suspect"
+     ],
+     "min_biomass_kg": 5.0,
+     "do_band_method": "time_weighted",
+     "oei_scale_factor": 250.0,
+     "clamp_max": 1000.0
+    },
+    "mortality": {
+     "moving_avg_window_days": 3
+    },
+    "alerting": {
+     "do_low_mg_l": 3.5,
+     "mortality_spike_ratio": 1.8,
+     "mortality_spike_min_count": 8,
+     "kpi_red_metrics": [
+      "ei_total",
+      "oei"
+     ],
+     "thresholds": {
+      "ei_total": {
+       "red_threshold": 9.0,
+       "amber_threshold": 7.5
+      },
+      "ei_aeration": {
+       "red_threshold": 6.5,
+       "amber_threshold": 5.5
+      },
+      "fcr": {
+       "red_threshold": 1.8,
+       "amber_threshold": 1.55
+      },
+      "oei": {
+       "red_threshold": 45.0,
+       "amber_threshold": 58.0
+      },
+      "mortality_rate": {
+       "red_threshold": 15.0,
+       "amber_threshold": 9.0
+      }
+     }
+    },
+    "recommend": {
+     "included_feed_quality_flags": [
+      "ok",
+      "suspect"
+     ],
+     "target_feed_rate_pct_of_biomass": 0.025,
+     "max_feed_adjustment_ratio": 0.1,
+     "do_low_margin_mg_l": 0.5,
+     "do_high_margin_mg_l": 0.4,
+     "high_water_temp_c": 31.5
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "movingAvgWindowDays": 3
+   },
+   "roundTrip": {
+    "movingAvgWindowDays": 3
+   }
+  },
+  {
+   "name": "tuned/alerting",
+   "metric": "alerting",
+   "params": {
+    "ei": {
+     "included_quality_flags": [
+      "ok",
+      "suspect"
+     ],
+     "min_biomass_delta_kg": 12.5
+    },
+    "fcr": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_delta_kg": 3.0
+    },
+    "oei": {
+     "included_quality_flags": [
+      "ok",
+      "suspect"
+     ],
+     "min_biomass_kg": 5.0,
+     "do_band_method": "time_weighted",
+     "oei_scale_factor": 250.0,
+     "clamp_max": 1000.0
+    },
+    "mortality": {
+     "moving_avg_window_days": 3
+    },
+    "alerting": {
+     "do_low_mg_l": 3.5,
+     "mortality_spike_ratio": 1.8,
+     "mortality_spike_min_count": 8,
+     "kpi_red_metrics": [
+      "ei_total",
+      "oei"
+     ],
+     "thresholds": {
+      "ei_total": {
+       "red_threshold": 9.0,
+       "amber_threshold": 7.5
+      },
+      "ei_aeration": {
+       "red_threshold": 6.5,
+       "amber_threshold": 5.5
+      },
+      "fcr": {
+       "red_threshold": 1.8,
+       "amber_threshold": 1.55
+      },
+      "oei": {
+       "red_threshold": 45.0,
+       "amber_threshold": 58.0
+      },
+      "mortality_rate": {
+       "red_threshold": 15.0,
+       "amber_threshold": 9.0
+      }
+     }
+    },
+    "recommend": {
+     "included_feed_quality_flags": [
+      "ok",
+      "suspect"
+     ],
+     "target_feed_rate_pct_of_biomass": 0.025,
+     "max_feed_adjustment_ratio": 0.1,
+     "do_low_margin_mg_l": 0.5,
+     "do_high_margin_mg_l": 0.4,
+     "high_water_temp_c": 31.5
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "doLowMgL": 3.5,
+    "mortalitySpikeRatio": 1.8,
+    "mortalitySpikeMinCount": 8,
+    "kpiRedMetrics": [
+     "ei_total",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 9.0,
+      "amberThreshold": 7.5
+     },
+     "ei_aeration": {
+      "redThreshold": 6.5,
+      "amberThreshold": 5.5
+     },
+     "fcr": {
+      "redThreshold": 1.8,
+      "amberThreshold": 1.55
+     },
+     "oei": {
+      "redThreshold": 45.0,
+      "amberThreshold": 58.0
+     },
+     "mortality_rate": {
+      "redThreshold": 15.0,
+      "amberThreshold": 9.0
+     }
+    }
+   },
+   "roundTrip": {
+    "doLowMgL": 3.5,
+    "mortalitySpikeRatio": 1.8,
+    "mortalitySpikeMinCount": 8,
+    "kpiRedMetrics": [
+     "ei_total",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 9.0,
+      "amberThreshold": 7.5
+     },
+     "ei_aeration": {
+      "redThreshold": 6.5,
+      "amberThreshold": 5.5
+     },
+     "fcr": {
+      "redThreshold": 1.8,
+      "amberThreshold": 1.55
+     },
+     "oei": {
+      "redThreshold": 45.0,
+      "amberThreshold": 58.0
+     },
+     "mortality_rate": {
+      "redThreshold": 15.0,
+      "amberThreshold": 9.0
+     }
+    }
+   }
+  },
+  {
+   "name": "tuned/recommend",
+   "metric": "recommend",
+   "params": {
+    "ei": {
+     "included_quality_flags": [
+      "ok",
+      "suspect"
+     ],
+     "min_biomass_delta_kg": 12.5
+    },
+    "fcr": {
+     "included_quality_flags": [
+      "ok"
+     ],
+     "min_biomass_delta_kg": 3.0
+    },
+    "oei": {
+     "included_quality_flags": [
+      "ok",
+      "suspect"
+     ],
+     "min_biomass_kg": 5.0,
+     "do_band_method": "time_weighted",
+     "oei_scale_factor": 250.0,
+     "clamp_max": 1000.0
+    },
+    "mortality": {
+     "moving_avg_window_days": 3
+    },
+    "alerting": {
+     "do_low_mg_l": 3.5,
+     "mortality_spike_ratio": 1.8,
+     "mortality_spike_min_count": 8,
+     "kpi_red_metrics": [
+      "ei_total",
+      "oei"
+     ],
+     "thresholds": {
+      "ei_total": {
+       "red_threshold": 9.0,
+       "amber_threshold": 7.5
+      },
+      "ei_aeration": {
+       "red_threshold": 6.5,
+       "amber_threshold": 5.5
+      },
+      "fcr": {
+       "red_threshold": 1.8,
+       "amber_threshold": 1.55
+      },
+      "oei": {
+       "red_threshold": 45.0,
+       "amber_threshold": 58.0
+      },
+      "mortality_rate": {
+       "red_threshold": 15.0,
+       "amber_threshold": 9.0
+      }
+     }
+    },
+    "recommend": {
+     "included_feed_quality_flags": [
+      "ok",
+      "suspect"
+     ],
+     "target_feed_rate_pct_of_biomass": 0.025,
+     "max_feed_adjustment_ratio": 0.1,
+     "do_low_margin_mg_l": 0.5,
+     "do_high_margin_mg_l": 0.4,
+     "high_water_temp_c": 31.5
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedFeedQualityFlags": [
+     "ok",
+     "suspect"
+    ],
+    "targetFeedRatePctOfBiomass": 0.025,
+    "maxFeedAdjustmentRatio": 0.1,
+    "doLowMarginMgL": 0.5,
+    "doHighMarginMgL": 0.4,
+    "highWaterTempC": 31.5
+   },
+   "roundTrip": {
+    "includedFeedQualityFlags": [
+     "ok",
+     "suspect"
+    ],
+    "targetFeedRatePctOfBiomass": 0.025,
+    "maxFeedAdjustmentRatio": 0.1,
+    "doLowMarginMgL": 0.5,
+    "doHighMarginMgL": 0.4,
+    "highWaterTempC": 31.5
+   }
+  },
+  {
+   "name": "partial-metrics/ei",
+   "metric": "ei",
+   "params": {
+    "oei": {
+     "oei_scale_factor": 12.5
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "partial-metrics/fcr",
+   "metric": "fcr",
+   "params": {
+    "oei": {
+     "oei_scale_factor": 12.5
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "partial-metrics/oei",
+   "metric": "oei",
+   "params": {
+    "oei": {
+     "oei_scale_factor": 12.5
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 12.5,
+    "clampMax": 100.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 12.5,
+    "clampMax": 100.0
+   }
+  },
+  {
+   "name": "partial-metrics/mortality",
+   "metric": "mortality",
+   "params": {
+    "oei": {
+     "oei_scale_factor": 12.5
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "movingAvgWindowDays": 7
+   },
+   "roundTrip": {
+    "movingAvgWindowDays": 7
+   }
+  },
+  {
+   "name": "partial-metrics/alerting",
+   "metric": "alerting",
+   "params": {
+    "oei": {
+     "oei_scale_factor": 12.5
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "doLowMgL": 3.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 5,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 1.6,
+      "amberThreshold": 1.5
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   },
+   "roundTrip": {
+    "doLowMgL": 3.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 5,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 1.6,
+      "amberThreshold": 1.5
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   }
+  },
+  {
+   "name": "partial-metrics/recommend",
+   "metric": "recommend",
+   "params": {
+    "oei": {
+     "oei_scale_factor": 12.5
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   },
+   "roundTrip": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   }
+  },
+  {
+   "name": "partial-keys/ei",
+   "metric": "ei",
+   "params": {
+    "ei": {
+     "min_biomass_delta_kg": 4.0
+    },
+    "recommend": {
+     "high_water_temp_c": 29.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 4.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 4.0
+   }
+  },
+  {
+   "name": "partial-keys/fcr",
+   "metric": "fcr",
+   "params": {
+    "ei": {
+     "min_biomass_delta_kg": 4.0
+    },
+    "recommend": {
+     "high_water_temp_c": 29.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "partial-keys/oei",
+   "metric": "oei",
+   "params": {
+    "ei": {
+     "min_biomass_delta_kg": 4.0
+    },
+    "recommend": {
+     "high_water_temp_c": 29.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   }
+  },
+  {
+   "name": "partial-keys/mortality",
+   "metric": "mortality",
+   "params": {
+    "ei": {
+     "min_biomass_delta_kg": 4.0
+    },
+    "recommend": {
+     "high_water_temp_c": 29.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "movingAvgWindowDays": 7
+   },
+   "roundTrip": {
+    "movingAvgWindowDays": 7
+   }
+  },
+  {
+   "name": "partial-keys/alerting",
+   "metric": "alerting",
+   "params": {
+    "ei": {
+     "min_biomass_delta_kg": 4.0
+    },
+    "recommend": {
+     "high_water_temp_c": 29.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "doLowMgL": 3.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 5,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 1.6,
+      "amberThreshold": 1.5
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   },
+   "roundTrip": {
+    "doLowMgL": 3.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 5,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 1.6,
+      "amberThreshold": 1.5
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   }
+  },
+  {
+   "name": "partial-keys/recommend",
+   "metric": "recommend",
+   "params": {
+    "ei": {
+     "min_biomass_delta_kg": 4.0
+    },
+    "recommend": {
+     "high_water_temp_c": 29.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 29.0
+   },
+   "roundTrip": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 29.0
+   }
+  },
+  {
+   "name": "flat-legacy-ei/ei",
+   "metric": "ei",
+   "params": {
+    "included_quality_flags": [
+     "ok",
+     "suspect"
+    ],
+    "min_biomass_delta_kg": 2.0
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok",
+     "suspect"
+    ],
+    "minBiomassDeltaKg": 2.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok",
+     "suspect"
+    ],
+    "minBiomassDeltaKg": 2.0
+   }
+  },
+  {
+   "name": "flat-legacy-ei/fcr",
+   "metric": "fcr",
+   "params": {
+    "included_quality_flags": [
+     "ok",
+     "suspect"
+    ],
+    "min_biomass_delta_kg": 2.0
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok",
+     "suspect"
+    ],
+    "minBiomassDeltaKg": 2.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok",
+     "suspect"
+    ],
+    "minBiomassDeltaKg": 2.0
+   }
+  },
+  {
+   "name": "flat-legacy-ei/oei",
+   "metric": "oei",
+   "params": {
+    "included_quality_flags": [
+     "ok",
+     "suspect"
+    ],
+    "min_biomass_delta_kg": 2.0
+   },
+   "rejects": true
+  },
+  {
+   "name": "flat-legacy-ei/mortality",
+   "metric": "mortality",
+   "params": {
+    "included_quality_flags": [
+     "ok",
+     "suspect"
+    ],
+    "min_biomass_delta_kg": 2.0
+   },
+   "rejects": true
+  },
+  {
+   "name": "flat-legacy-ei/alerting",
+   "metric": "alerting",
+   "params": {
+    "included_quality_flags": [
+     "ok",
+     "suspect"
+    ],
+    "min_biomass_delta_kg": 2.0
+   },
+   "rejects": true
+  },
+  {
+   "name": "flat-legacy-ei/recommend",
+   "metric": "recommend",
+   "params": {
+    "included_quality_flags": [
+     "ok",
+     "suspect"
+    ],
+    "min_biomass_delta_kg": 2.0
+   },
+   "rejects": true
+  },
+  {
+   "name": "alerting-only/ei",
+   "metric": "ei",
+   "params": {
+    "alerting": {
+     "do_low_mg_l": 4.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "alerting-only/fcr",
+   "metric": "fcr",
+   "params": {
+    "alerting": {
+     "do_low_mg_l": 4.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "alerting-only/oei",
+   "metric": "oei",
+   "params": {
+    "alerting": {
+     "do_low_mg_l": 4.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   }
+  },
+  {
+   "name": "alerting-only/mortality",
+   "metric": "mortality",
+   "params": {
+    "alerting": {
+     "do_low_mg_l": 4.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "movingAvgWindowDays": 7
+   },
+   "roundTrip": {
+    "movingAvgWindowDays": 7
+   }
+  },
+  {
+   "name": "alerting-only/alerting",
+   "metric": "alerting",
+   "params": {
+    "alerting": {
+     "do_low_mg_l": 4.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "doLowMgL": 4.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 5,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 1.6,
+      "amberThreshold": 1.5
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   },
+   "roundTrip": {
+    "doLowMgL": 4.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 5,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 1.6,
+      "amberThreshold": 1.5
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   }
+  },
+  {
+   "name": "alerting-only/recommend",
+   "metric": "recommend",
+   "params": {
+    "alerting": {
+     "do_low_mg_l": 4.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   },
+   "roundTrip": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   }
+  },
+  {
+   "name": "thresholds-partial-metrics/ei",
+   "metric": "ei",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "fcr": {
+       "red_threshold": 2.0,
+       "amber_threshold": 1.7
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "thresholds-partial-metrics/fcr",
+   "metric": "fcr",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "fcr": {
+       "red_threshold": 2.0,
+       "amber_threshold": 1.7
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "thresholds-partial-metrics/oei",
+   "metric": "oei",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "fcr": {
+       "red_threshold": 2.0,
+       "amber_threshold": 1.7
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   }
+  },
+  {
+   "name": "thresholds-partial-metrics/mortality",
+   "metric": "mortality",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "fcr": {
+       "red_threshold": 2.0,
+       "amber_threshold": 1.7
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "movingAvgWindowDays": 7
+   },
+   "roundTrip": {
+    "movingAvgWindowDays": 7
+   }
+  },
+  {
+   "name": "thresholds-partial-metrics/alerting",
+   "metric": "alerting",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "fcr": {
+       "red_threshold": 2.0,
+       "amber_threshold": 1.7
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "doLowMgL": 3.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 5,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 2.0,
+      "amberThreshold": 1.7
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   },
+   "roundTrip": {
+    "doLowMgL": 3.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 5,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 2.0,
+      "amberThreshold": 1.7
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   }
+  },
+  {
+   "name": "thresholds-partial-metrics/recommend",
+   "metric": "recommend",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "fcr": {
+       "red_threshold": 2.0,
+       "amber_threshold": 1.7
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   },
+   "roundTrip": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   }
+  },
+  {
+   "name": "thresholds-absent/ei",
+   "metric": "ei",
+   "params": {
+    "alerting": {
+     "mortality_spike_min_count": 3
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "thresholds-absent/fcr",
+   "metric": "fcr",
+   "params": {
+    "alerting": {
+     "mortality_spike_min_count": 3
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "thresholds-absent/oei",
+   "metric": "oei",
+   "params": {
+    "alerting": {
+     "mortality_spike_min_count": 3
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   }
+  },
+  {
+   "name": "thresholds-absent/mortality",
+   "metric": "mortality",
+   "params": {
+    "alerting": {
+     "mortality_spike_min_count": 3
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "movingAvgWindowDays": 7
+   },
+   "roundTrip": {
+    "movingAvgWindowDays": 7
+   }
+  },
+  {
+   "name": "thresholds-absent/alerting",
+   "metric": "alerting",
+   "params": {
+    "alerting": {
+     "mortality_spike_min_count": 3
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "doLowMgL": 3.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 3,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 1.6,
+      "amberThreshold": 1.5
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   },
+   "roundTrip": {
+    "doLowMgL": 3.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 3,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 1.6,
+      "amberThreshold": 1.5
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   }
+  },
+  {
+   "name": "thresholds-absent/recommend",
+   "metric": "recommend",
+   "params": {
+    "alerting": {
+     "mortality_spike_min_count": 3
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   },
+   "roundTrip": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   }
+  },
+  {
+   "name": "unknown-key-ei/ei",
+   "metric": "ei",
+   "params": {
+    "ei": {
+     "min_biomass_delta_kg": 1.0,
+     "typo_key": 1
+    }
+   },
+   "rejects": true
+  },
+  {
+   "name": "unknown-key-ei/fcr",
+   "metric": "fcr",
+   "params": {
+    "ei": {
+     "min_biomass_delta_kg": 1.0,
+     "typo_key": 1
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "unknown-key-ei/oei",
+   "metric": "oei",
+   "params": {
+    "ei": {
+     "min_biomass_delta_kg": 1.0,
+     "typo_key": 1
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   }
+  },
+  {
+   "name": "unknown-key-ei/mortality",
+   "metric": "mortality",
+   "params": {
+    "ei": {
+     "min_biomass_delta_kg": 1.0,
+     "typo_key": 1
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "movingAvgWindowDays": 7
+   },
+   "roundTrip": {
+    "movingAvgWindowDays": 7
+   }
+  },
+  {
+   "name": "unknown-key-ei/alerting",
+   "metric": "alerting",
+   "params": {
+    "ei": {
+     "min_biomass_delta_kg": 1.0,
+     "typo_key": 1
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "doLowMgL": 3.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 5,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 1.6,
+      "amberThreshold": 1.5
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   },
+   "roundTrip": {
+    "doLowMgL": 3.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 5,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 1.6,
+      "amberThreshold": 1.5
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   }
+  },
+  {
+   "name": "unknown-key-ei/recommend",
+   "metric": "recommend",
+   "params": {
+    "ei": {
+     "min_biomass_delta_kg": 1.0,
+     "typo_key": 1
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   },
+   "roundTrip": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   }
+  },
+  {
+   "name": "unknown-key-oei/ei",
+   "metric": "ei",
+   "params": {
+    "oei": {
+     "oei_scale_facter": 2.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "unknown-key-oei/fcr",
+   "metric": "fcr",
+   "params": {
+    "oei": {
+     "oei_scale_facter": 2.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "unknown-key-oei/oei",
+   "metric": "oei",
+   "params": {
+    "oei": {
+     "oei_scale_facter": 2.0
+    }
+   },
+   "rejects": true
+  },
+  {
+   "name": "unknown-key-oei/mortality",
+   "metric": "mortality",
+   "params": {
+    "oei": {
+     "oei_scale_facter": 2.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "movingAvgWindowDays": 7
+   },
+   "roundTrip": {
+    "movingAvgWindowDays": 7
+   }
+  },
+  {
+   "name": "unknown-key-oei/alerting",
+   "metric": "alerting",
+   "params": {
+    "oei": {
+     "oei_scale_facter": 2.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "doLowMgL": 3.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 5,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 1.6,
+      "amberThreshold": 1.5
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   },
+   "roundTrip": {
+    "doLowMgL": 3.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 5,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 1.6,
+      "amberThreshold": 1.5
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   }
+  },
+  {
+   "name": "unknown-key-oei/recommend",
+   "metric": "recommend",
+   "params": {
+    "oei": {
+     "oei_scale_facter": 2.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   },
+   "roundTrip": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   }
+  },
+  {
+   "name": "unknown-key-alerting/ei",
+   "metric": "ei",
+   "params": {
+    "alerting": {
+     "do_low": 3.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "unknown-key-alerting/fcr",
+   "metric": "fcr",
+   "params": {
+    "alerting": {
+     "do_low": 3.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "unknown-key-alerting/oei",
+   "metric": "oei",
+   "params": {
+    "alerting": {
+     "do_low": 3.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   }
+  },
+  {
+   "name": "unknown-key-alerting/mortality",
+   "metric": "mortality",
+   "params": {
+    "alerting": {
+     "do_low": 3.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "movingAvgWindowDays": 7
+   },
+   "roundTrip": {
+    "movingAvgWindowDays": 7
+   }
+  },
+  {
+   "name": "unknown-key-alerting/alerting",
+   "metric": "alerting",
+   "params": {
+    "alerting": {
+     "do_low": 3.0
+    }
+   },
+   "rejects": true
+  },
+  {
+   "name": "unknown-key-alerting/recommend",
+   "metric": "recommend",
+   "params": {
+    "alerting": {
+     "do_low": 3.0
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   },
+   "roundTrip": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   }
+  },
+  {
+   "name": "unknown-key-recommend/ei",
+   "metric": "ei",
+   "params": {
+    "recommend": {
+     "high_water_temp": 30
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "unknown-key-recommend/fcr",
+   "metric": "fcr",
+   "params": {
+    "recommend": {
+     "high_water_temp": 30
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "unknown-key-recommend/oei",
+   "metric": "oei",
+   "params": {
+    "recommend": {
+     "high_water_temp": 30
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   }
+  },
+  {
+   "name": "unknown-key-recommend/mortality",
+   "metric": "mortality",
+   "params": {
+    "recommend": {
+     "high_water_temp": 30
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "movingAvgWindowDays": 7
+   },
+   "roundTrip": {
+    "movingAvgWindowDays": 7
+   }
+  },
+  {
+   "name": "unknown-key-recommend/alerting",
+   "metric": "alerting",
+   "params": {
+    "recommend": {
+     "high_water_temp": 30
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "doLowMgL": 3.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 5,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 1.6,
+      "amberThreshold": 1.5
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   },
+   "roundTrip": {
+    "doLowMgL": 3.0,
+    "mortalitySpikeRatio": 2.0,
+    "mortalitySpikeMinCount": 5,
+    "kpiRedMetrics": [
+     "ei_total",
+     "fcr",
+     "mortality_rate",
+     "oei"
+    ],
+    "thresholds": {
+     "ei_total": {
+      "redThreshold": 8.5,
+      "amberThreshold": 7.0
+     },
+     "ei_aeration": {
+      "redThreshold": 6.0,
+      "amberThreshold": 5.0
+     },
+     "fcr": {
+      "redThreshold": 1.6,
+      "amberThreshold": 1.5
+     },
+     "oei": {
+      "redThreshold": 50.0,
+      "amberThreshold": 60.0
+     },
+     "mortality_rate": {
+      "redThreshold": 12.0,
+      "amberThreshold": 8.0
+     }
+    }
+   }
+  },
+  {
+   "name": "unknown-key-recommend/recommend",
+   "metric": "recommend",
+   "params": {
+    "recommend": {
+     "high_water_temp": 30
+    }
+   },
+   "rejects": true
+  },
+  {
+   "name": "unknown-threshold-metric/ei",
+   "metric": "ei",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "ei_totl": {
+       "red_threshold": 1,
+       "amber_threshold": 2
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "unknown-threshold-metric/fcr",
+   "metric": "fcr",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "ei_totl": {
+       "red_threshold": 1,
+       "amber_threshold": 2
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "unknown-threshold-metric/oei",
+   "metric": "oei",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "ei_totl": {
+       "red_threshold": 1,
+       "amber_threshold": 2
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   }
+  },
+  {
+   "name": "unknown-threshold-metric/mortality",
+   "metric": "mortality",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "ei_totl": {
+       "red_threshold": 1,
+       "amber_threshold": 2
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "movingAvgWindowDays": 7
+   },
+   "roundTrip": {
+    "movingAvgWindowDays": 7
+   }
+  },
+  {
+   "name": "unknown-threshold-metric/alerting",
+   "metric": "alerting",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "ei_totl": {
+       "red_threshold": 1,
+       "amber_threshold": 2
+      }
+     }
+    }
+   },
+   "rejects": true
+  },
+  {
+   "name": "unknown-threshold-metric/recommend",
+   "metric": "recommend",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "ei_totl": {
+       "red_threshold": 1,
+       "amber_threshold": 2
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   },
+   "roundTrip": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   }
+  },
+  {
+   "name": "unknown-threshold-key/ei",
+   "metric": "ei",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "fcr": {
+       "red_threshold": 2.0,
+       "amber": 1.7
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "unknown-threshold-key/fcr",
+   "metric": "fcr",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "fcr": {
+       "red_threshold": 2.0,
+       "amber": 1.7
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "unknown-threshold-key/oei",
+   "metric": "oei",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "fcr": {
+       "red_threshold": 2.0,
+       "amber": 1.7
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   }
+  },
+  {
+   "name": "unknown-threshold-key/mortality",
+   "metric": "mortality",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "fcr": {
+       "red_threshold": 2.0,
+       "amber": 1.7
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "movingAvgWindowDays": 7
+   },
+   "roundTrip": {
+    "movingAvgWindowDays": 7
+   }
+  },
+  {
+   "name": "unknown-threshold-key/alerting",
+   "metric": "alerting",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "fcr": {
+       "red_threshold": 2.0,
+       "amber": 1.7
+      }
+     }
+    }
+   },
+   "rejects": true
+  },
+  {
+   "name": "unknown-threshold-key/recommend",
+   "metric": "recommend",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "fcr": {
+       "red_threshold": 2.0,
+       "amber": 1.7
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   },
+   "roundTrip": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   }
+  },
+  {
+   "name": "threshold-missing-amber/ei",
+   "metric": "ei",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "fcr": {
+       "red_threshold": 2.0
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "threshold-missing-amber/fcr",
+   "metric": "fcr",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "fcr": {
+       "red_threshold": 2.0
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "threshold-missing-amber/oei",
+   "metric": "oei",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "fcr": {
+       "red_threshold": 2.0
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   }
+  },
+  {
+   "name": "threshold-missing-amber/mortality",
+   "metric": "mortality",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "fcr": {
+       "red_threshold": 2.0
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "movingAvgWindowDays": 7
+   },
+   "roundTrip": {
+    "movingAvgWindowDays": 7
+   }
+  },
+  {
+   "name": "threshold-missing-amber/alerting",
+   "metric": "alerting",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "fcr": {
+       "red_threshold": 2.0
+      }
+     }
+    }
+   },
+   "rejects": true
+  },
+  {
+   "name": "threshold-missing-amber/recommend",
+   "metric": "recommend",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "fcr": {
+       "red_threshold": 2.0
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   },
+   "roundTrip": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   }
+  },
+  {
+   "name": "threshold-missing-red/ei",
+   "metric": "ei",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "oei": {
+       "amber_threshold": 55.0
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "threshold-missing-red/fcr",
+   "metric": "fcr",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "oei": {
+       "amber_threshold": 55.0
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassDeltaKg": 0.0
+   }
+  },
+  {
+   "name": "threshold-missing-red/oei",
+   "metric": "oei",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "oei": {
+       "amber_threshold": 55.0
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   },
+   "roundTrip": {
+    "includedQualityFlags": [
+     "ok"
+    ],
+    "minBiomassKg": 0.0,
+    "doBandMethod": "sample_count",
+    "oeiScaleFactor": 1.0,
+    "clampMax": 100.0
+   }
+  },
+  {
+   "name": "threshold-missing-red/mortality",
+   "metric": "mortality",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "oei": {
+       "amber_threshold": 55.0
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "movingAvgWindowDays": 7
+   },
+   "roundTrip": {
+    "movingAvgWindowDays": 7
+   }
+  },
+  {
+   "name": "threshold-missing-red/alerting",
+   "metric": "alerting",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "oei": {
+       "amber_threshold": 55.0
+      }
+     }
+    }
+   },
+   "rejects": true
+  },
+  {
+   "name": "threshold-missing-red/recommend",
+   "metric": "recommend",
+   "params": {
+    "alerting": {
+     "thresholds": {
+      "oei": {
+       "amber_threshold": 55.0
+      }
+     }
+    }
+   },
+   "rejects": false,
+   "expected": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   },
+   "roundTrip": {
+    "includedFeedQualityFlags": [
+     "ok"
+    ],
+    "targetFeedRatePctOfBiomass": 0.03,
+    "maxFeedAdjustmentRatio": 0.05,
+    "doLowMarginMgL": 0.3,
+    "doHighMarginMgL": 0.3,
+    "highWaterTempC": 30.0
+   }
+  }
+ ]
+}

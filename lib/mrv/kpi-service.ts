@@ -160,7 +160,12 @@ export async function computeSiteKpiResults(
   // --- 계측기와 계측값 ---
   const meters = await fetchAll<{ id: string; type: string; is_aeration: boolean }>(
     (f, t) =>
-      db.from(T.meters).select("id, type, is_aeration").eq("site_id", siteId).range(f, t),
+      db
+        .from(T.meters)
+        .select("id, type, is_aeration")
+        .eq("site_id", siteId)
+        .order("id", { ascending: true })
+        .range(f, t),
   )
   const meterType = new Map(meters.map((m) => [m.id, m.type]))
   const aerationByMeter = new Map(meters.map((m) => [m.id, m.is_aeration]))
@@ -236,7 +241,12 @@ export async function computeSiteKpiResults(
   let batches: { id: string; stocked_count: number }[] = []
   if (tankIds.length > 0) {
     batches = await fetchAll<{ id: string; stocked_count: number }>((f, t) =>
-      db.from(T.batches).select("id, stocked_count").in("tank_id", tankIds).range(f, t),
+      db
+        .from(T.batches)
+        .select("id, stocked_count")
+        .in("tank_id", tankIds)
+        .order("id", { ascending: true })
+        .range(f, t),
     )
   }
   const batchIds = batches.map((b) => b.id)

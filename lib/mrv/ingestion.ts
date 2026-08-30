@@ -170,6 +170,7 @@ export async function processBatch(
             .from(T.meters)
             .select("id, org_id, site_id")
             .in("id", meterIdsInBatch)
+            .order("id", { ascending: true })
             .range(f, t),
         )
   const meterById = new Map(meterRows.map((m) => [m.id, m]))
@@ -216,10 +217,31 @@ export async function processBatch(
   const unique = new Map<string, NormalizedReading>()
   for (const n of normalized) unique.set(dedupeKey(n.meterId, n.ts), n)
   const intrabatchDupes = normalized.length - unique.size
+  if (unique.size === 0) {
+    result.deduped = intrabatchDupes
+    return result
+  }
 
   // 이미 저장된 (meter_id, ts) 조회 — 재전송분을 걸러 낸다.
+  //
+  // 조회 범위를 이번 배치가 담은 시각 구간으로 좁힌다. 중복은 배치에 들어 있는 시각에서만
+  // 생길 수 있으므로 그 밖을 읽을 이유가 없는데, 좁히지 않으면 해당 계측기의 **저장된 모든
+  // 계측값**을 끌어오게 된다 — 몇 달 운영한 사이트에서는 수집 요청 한 번마다 수십만 행이다.
+  // (원본도 전 구간을 읽었지만, 그쪽은 같은 프로세스의 DB 세션이라 비용이 드러나지 않았다.)
+  const batchTimes = Array.from(unique.values()).map((n) => n.ts.getTime())
+  const windowStart = new Date(Math.min(...batchTimes))
+  const windowEnd = new Date(Math.max(...batchTimes))
+
   const existingRows = await fetchAll<{ meter_id: string; time: string }>((f, t) =>
-    db.from(T.readings).select("meter_id, time").in("meter_id", meterIds).range(f, t),
+    db
+      .from(T.readings)
+      .select("meter_id, time")
+      .in("meter_id", meterIds)
+      .gte("time", windowStart.toISOString())
+      .lte("time", windowEnd.toISOString())
+      .order("time", { ascending: true })
+      .order("meter_id", { ascending: true })
+      .range(f, t),
   )
   const existingKeys = new Set(
     existingRows.map((r) => dedupeKey(r.meter_id, new Date(r.time))),
