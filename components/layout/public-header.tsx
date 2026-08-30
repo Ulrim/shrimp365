@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { MRV_PLATFORM_IS_INTERNAL, MRV_PLATFORM_URL, SHOW_BOARD, SHOW_CARDNEWS } from "@/lib/features"
+import { MRV_PLATFORM_IS_INTERNAL, MRV_PLATFORM_URL, SHOW_BOARD, showCardNews } from "@/lib/features"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { ExternalLink, Globe, Menu, X } from "lucide-react"
@@ -25,9 +25,15 @@ function LangSelect({ className = "" }: { className?: string }) {
   // 카드뉴스처럼 언어별 주소가 있는 경로에서는 주소까지 옮긴다.
   // 그렇지 않으면 /en/cardnews 에서 언어를 바꿔도 주소가 그대로 남아
   // 검색엔진이 보는 주소와 실제 언어가 어긋난다.
+  //
+  // 다만 옮겨 갈 언어에서 카드뉴스를 감췄다면 그 언어의 홈으로 보낸다.
+  // 메뉴에 없는 화면에 언어 전환으로 떨어뜨리지 않기 위해서다.
   function change(next: Locale) {
     setLocale(next)
-    if (hasLocalizedUrl(pathname)) router.push(localizedHref(pathname, next))
+    if (!hasLocalizedUrl(pathname)) return
+    const onCardNews = stripLocalePrefix(pathname).path.startsWith("/cardnews")
+    if (onCardNews && !showCardNews(next)) router.push(localePrefix(next) || "/")
+    else router.push(localizedHref(pathname, next))
   }
 
   return (
@@ -57,7 +63,7 @@ export function PublicFooter({ maxWidth = "max-w-5xl" }: { maxWidth?: string }) 
   const prefix = localePrefix(locale)
   const links = [
     { href: prefix || "/", label: t.nav.home },
-    ...(SHOW_CARDNEWS ? [{ href: `${prefix}/cardnews`, label: t.cardNews.title }] : []),
+    ...(showCardNews(locale) ? [{ href: `${prefix}/cardnews`, label: t.cardNews.title }] : []),
     ...(SHOW_BOARD ? [{ href: `${prefix}/board`, label: t.board.title }] : []),
     { href: `${prefix}/guide`, label: t.nav.guide },
     { href: `${prefix}/pricing`, label: t.landing.navPricing },
@@ -120,7 +126,7 @@ export function PublicHeader({ maxWidth = "max-w-5xl" }: { maxWidth?: string }) 
   const prefix = localePrefix(locale)
   const links = [
     { href: prefix || "/", label: t.nav.home },
-    ...(SHOW_CARDNEWS ? [{ href: `${prefix}/cardnews`, label: t.cardNews.title }] : []),
+    ...(showCardNews(locale) ? [{ href: `${prefix}/cardnews`, label: t.cardNews.title }] : []),
     ...(SHOW_BOARD ? [{ href: `${prefix}/board`, label: t.board.title }] : []),
     { href: `${prefix}/guide`, label: t.nav.guide },
     { href: `${prefix}/pricing`, label: t.landing.navPricing },

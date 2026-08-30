@@ -4,6 +4,7 @@ import { getCardNewsServer, getCardNewsLocalesServer } from "@/lib/card-news-ser
 import { CardNewsDetailView, excerpt } from "@/components/cardnews/cardnews-detail-view"
 import { ko, en, vi, id, type Dict, type Locale } from "@/lib/i18n"
 import { BASE, hreflangMap, isMarketingLocale, HREFLANG_TAG } from "@/lib/marketing-locale"
+import { visibleCardNewsLocales } from "@/lib/features"
 
 export const revalidate = 300
 
@@ -32,7 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     keywords: post.tags.length ? post.tags : undefined,
     alternates: {
       canonical: url,
-      languages: locales.length > 1 ? hreflangMap(path, locales) : undefined,
+      languages: visibleCardNewsLocales(locales).length > 1 ? hreflangMap(path, visibleCardNewsLocales(locales)) : undefined,
     },
     openGraph: {
       title: post.title,
