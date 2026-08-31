@@ -585,6 +585,11 @@ export function JournalView() {
       setJournals(prev => [{
         id: "local-" + Date.now(), tank_id: jForm.tank_id,
         tank_name: selectedTank?.name || "",
+        // 로컬로 만드는 카드에도 축을 실어야 목록 필터(visibleJournals)에
+        // 걸리지 않는다. DB 가 안 되는 경로라 조인으로 받을 수 없다 —
+        // 수조는 이미 이 화면 축으로 거른 목록에서 고른 것이므로 그 수조의
+        // 축이 곧 이 화면의 축이다.
+        farm_type: selectedTank?.farm_type ?? (isAgri ? "agriculture" : "shrimp"),
         date: jForm.date, feeding_amount: parseFloat(jForm.feeding_amount) || 0,
         feed_type: jForm.feed_type, feeding_times: parseInt(jForm.feeding_times) || 0,
         // 농업에는 대응물이 없다. 폼에서 감추고 0 으로 저장한다 — 컬럼을

@@ -95,6 +95,18 @@ export function DashboardView() {
     return tanks.some(tk => tk.id === pickedTankId) ? pickedTankId : tanks[0].id
   }, [tanks, pickedTankId])
 
+  // 이 화면 몫 수조가 하나도 없으면(selectedTankId === "") 측정값·기기 로더가
+  // 아예 돌지 않는다 — 상태에는 직전 축의 값이 그대로 남는다. 그대로 그리면
+  // "운영 농장 0" 옆에 반대 축 EC 차트가 뜨고, 새우 수조의 pH 8.0 으로 농업
+  // 상태 타일을 판정한다. water-quality-view 의
+  // `tanksLoaded && tanks.length === 0` 가드와 같은 뜻을, 여기서는 파생으로
+  // 건다 — 대시보드는 수조 말고도 농장·알림·재고를 그리므로 화면을 통째로
+  // 비울 수 없고, 효과 안에서 setState 하면 렌더가 한 번 더 돈다.
+  //
+  // 수조가 있는 화면에서는 값이 그대로 지나가므로 기존 동작은 바뀌지 않는다.
+  const visibleWq = selectedTankId ? wqData : []
+  const visibleDevices = selectedTankId ? tankDevices : []
+
   const TANK_STATUS_META = {
     active:   { label: t.dashboard.normal,  color: "text-emerald-500", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400" },
     warning:  { label: t.dashboard.warning, color: "text-amber-500",   bg: "bg-amber-500/10 border-amber-500/20",   dot: "bg-amber-400" },
@@ -195,7 +207,7 @@ export function DashboardView() {
 
   const localeStr = locale === "ko" ? "ko-KR" : locale === "vi" ? "vi-VN" : locale === "id" ? "id-ID" : "en-US"
 
-  const chartData = wqData
+  const chartData = visibleWq
     .filter((_, i) => i % 4 === 0)
     .slice(-24)
     .map(r => (isAgri ? {
@@ -209,7 +221,7 @@ export function DashboardView() {
       pH:   +r.ph.toFixed(2),
     }))
 
-  const latestWq = wqData[wqData.length - 1]
+  const latestWq = visibleWq[visibleWq.length - 1]
 
   // ── 농업 전용 파생값 — 전부 이미 로드된 데이터에서 뽑는다(추가 조회 0회) ──
   const selectedTank = tanks.find(tk => tk.id === selectedTankId) ?? null
@@ -217,7 +229,7 @@ export function DashboardView() {
   const ecTol = selectedTank?.ec_tolerance ?? 100
 
   // 차압 추세 — 최근 24h 스파크라인. wqData 에 이미 들어 있다.
-  const dpSeries = wqData
+  const dpSeries = visibleWq
     .map(r => (typeof r.diff_pressure === "number" ? r.diff_pressure : null))
     .filter((v): v is number => v != null)
   const dpLast = dpSeries.length ? dpSeries[dpSeries.length - 1] : null
@@ -581,10 +593,10 @@ export function DashboardView() {
 
       {/* 양액 상태 — "지금 뭘 해야 하나"가 원시 수치보다 먼저 온다.
           농업 모드 + payload 에 nut_* 가 있을 때만 렌더(새우 모드 diff 없음). */}
-      <NutrientStatusCard devices={tankDevices} tank={tanks.find(tk => tk.id === selectedTankId) ?? null} />
+      <NutrientStatusCard devices={visibleDevices} tank={tanks.find(tk => tk.id === selectedTankId) ?? null} />
 
       {/* 선택한 수조의 센서별 마지막 수신값 — 센서가 있을 때만 보인다 */}
-      <DeviceCurrentValues devices={tankDevices} />
+      <DeviceCurrentValues devices={visibleDevices} />
 
       {/* Diagnoses table — 비브리오 진단은 새우 전용 내용이고 /daumlabs 아래에
           진단 페이지가 없다. 농업 화면에서는 카드째 렌더하지 않는다(설계서 7-A 9). */}

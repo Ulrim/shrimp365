@@ -463,28 +463,20 @@ export async function insertWaterQuality(
 // ─────────────────────────────────────────────
 // JOURNAL ENTRIES
 // ─────────────────────────────────────────────
-export async function getJournalEntries(
-  tankId?: string,
-  limit = 50,
-  from?: string,
-  to?: string,
-  offset = 0
-): Promise<JournalEntry[]> {
-  let query = supabase
-    .from("journal_entries")
-    .select("*, tanks(name, farms(*))")
-    .order("date", { ascending: false })
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1)
-
-  if (tankId) query = query.eq("tank_id", tankId)
-  if (from) query = query.gte("date", from)
-  if (to) query = query.lte("date", to)
-
-  const { data, error } = await query
-  if (error) throw error
-
-  return (data || []).map((e) => ({
+/** journal_entries 행 → JournalEntry.
+ *
+ *  조회·생성·수정 세 경로가 **같은 매핑**을 쓰게 한군데로 모은다. 같은
+ *  타입인데 경로마다 필드가 있다 없다 하면, 화면의 축 필터
+ *  (belongsToAgriScreen)가 방금 저장한 일지를 남의 축으로 보고 목록에서
+ *  지워 버린다 — 저장은 됐는데 카드가 사라지니 농가는 다시 쓴다.
+ *
+ *  farm_type 은 일지 자신의 칸이 아니라 tanks→farms 조인에서 파생한다.
+ *  그래서 세 경로 모두 select 에 `tanks(name, farms(*))` 를 실어야 한다.
+ *  이미 있던 `tanks(name)` 조인을 넓히는 것이라 조회는 한 번도 늘지 않고,
+ *  `farms(*)` 로 받는 이유는 getAllTanks 와 같다 — 마이그레이션 전 DB 에는
+ *  farm_type 칸이 없어 이름으로 집으면 쿼리 전체가 400 으로 죽는다. */
+function toJournalEntry(e: DbJournalEntry & { tanks?: unknown }): JournalEntry {
+  return {
     id: e.id,
     tank_id: e.tank_id,
     tank_name: (e.tanks as { name: string } | null)?.name ?? "",
@@ -507,7 +499,35 @@ export async function getJournalEntries(
     created_by: e.created_by ?? "",
     created_at: e.created_at,
     farm_type: joinedTankFarmType(e.tanks),
-  }))
+  }
+}
+
+// 세 경로가 같은 조인을 쓴다. 하나만 좁히면 farm_type 이 빠져 축 필터가
+// 방금 저장한 일지를 지운다 — 문자열을 나눠 두지 않는 이유다.
+const JOURNAL_SELECT = "*, tanks(name, farms(*))"
+
+export async function getJournalEntries(
+  tankId?: string,
+  limit = 50,
+  from?: string,
+  to?: string,
+  offset = 0
+): Promise<JournalEntry[]> {
+  let query = supabase
+    .from("journal_entries")
+    .select(JOURNAL_SELECT)
+    .order("date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  if (tankId) query = query.eq("tank_id", tankId)
+  if (from) query = query.gte("date", from)
+  if (to) query = query.lte("date", to)
+
+  const { data, error } = await query
+  if (error) throw error
+
+  return (data || []).map(toJournalEntry)
 }
 
 export async function updateJournalEntry(
@@ -518,33 +538,11 @@ export async function updateJournalEntry(
     .from("journal_entries")
     .update(values)
     .eq("id", id)
-    .select("*, tanks(name)")
+    .select(JOURNAL_SELECT)
     .single()
 
   if (error) throw error
-  return {
-    id: data.id,
-    tank_id: data.tank_id,
-    tank_name: (data.tanks as { name: string } | null)?.name ?? "",
-    date: data.date,
-    feeding_amount: data.feeding_amount ?? 0,
-    feed_type: data.feed_type ?? "",
-    feeding_times: data.feeding_times ?? 0,
-    mortality_count: data.mortality_count ?? 0,
-    water_exchange_rate: data.water_exchange_rate ?? 0,
-    microbial_input: data.microbial_input ?? false,
-    microbial_type: data.microbial_type ?? undefined,
-    microbial_amount: data.microbial_amount ?? null,
-    disinfection: data.disinfection ?? false,
-    disinfection_type: data.disinfection_type ?? null,
-    check_aeration: data.check_aeration ?? false,
-    check_filtration: data.check_filtration ?? false,
-    check_circulation: data.check_circulation ?? false,
-    check_feeding_check: data.check_feeding_check ?? false,
-    notes: data.notes ?? undefined,
-    created_by: data.created_by ?? "",
-    created_at: data.created_at,
-  } as JournalEntry
+  return toJournalEntry(data)
 }
 
 export async function deleteJournalEntry(id: string) {
@@ -552,39 +550,17 @@ export async function deleteJournalEntry(id: string) {
   if (error) throw error
 }
 
-export async function createJournalEntry(values: Omit<DbJournalEntry, "id" | "created_at" | "created_by">) {
+export async function createJournalEntry(values: Omit<DbJournalEntry, "id" | "created_at" | "created_by">): Promise<JournalEntry> {
   const { data: { user } } = await supabase.auth.getUser()
 
   const { data, error } = await supabase
     .from("journal_entries")
     .insert({ ...values, created_by: user?.id ?? null })
-    .select("*, tanks(name)")
+    .select(JOURNAL_SELECT)
     .single()
 
   if (error) throw error
-  return {
-    id: data.id,
-    tank_id: data.tank_id,
-    tank_name: (data.tanks as { name: string } | null)?.name ?? "",
-    date: data.date,
-    feeding_amount: data.feeding_amount ?? 0,
-    feed_type: data.feed_type ?? "",
-    feeding_times: data.feeding_times ?? 0,
-    mortality_count: data.mortality_count ?? 0,
-    water_exchange_rate: data.water_exchange_rate ?? 0,
-    microbial_input: data.microbial_input ?? false,
-    microbial_type: data.microbial_type ?? undefined,
-    microbial_amount: data.microbial_amount ?? null,
-    disinfection: data.disinfection ?? false,
-    disinfection_type: data.disinfection_type ?? null,
-    check_aeration: data.check_aeration ?? false,
-    check_filtration: data.check_filtration ?? false,
-    check_circulation: data.check_circulation ?? false,
-    check_feeding_check: data.check_feeding_check ?? false,
-    notes: data.notes ?? undefined,
-    created_by: data.created_by ?? "",
-    created_at: data.created_at,
-  } as JournalEntry
+  return toJournalEntry(data)
 }
 
 // ─────────────────────────────────────────────
