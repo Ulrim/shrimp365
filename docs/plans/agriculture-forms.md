@@ -729,6 +729,16 @@ export const AGRI_QUALITY_STANDARDS = {
   대안은 수조 id 를 먼저 조회해 `.in("tank_id", ids)` 로 거는 것 — 왕복이 늘고
   목록 로딩 순서에 의존한다. 설계 비용이 실재하므로 별건으로 다룬다.
 
+- **`farm_type` 을 선택 필드에서 "필수 + undefined 허용" 으로** — 개정 4의 버그
+  (일지 저장 시 목록에서 사라짐)는 매핑 함수가 `farm_type` 을 빠뜨렸는데
+  **선택 필드라 tsc 가 못 잡은** 것이 원인이었다. `farm_type?: T` 를
+  `farm_type: T | undefined` 로 바꾸면 누락이 TS2741 이 된다(실측 확인).
+  다만 지금 바꾸면 `lib/mock-data.ts` 의 목 객체 18개에 `farm_type: undefined`
+  를 일일이 적어야 해 소음이 크다. 재발 방지의 실질은 이미 **매핑 함수와
+  select 문자열의 단일화**(`toJournalEntry` · `JOURNAL_SELECT`)가 맡고 있으므로
+  급하지 않다. 목데이터를 손볼 일이 생길 때 함께 처리한다. Farm · Tank ·
+  Alert · JournalEntry 넷을 한 번에 바꿔야 한다.
+
 - **생육 균일도 KPI** — 측정 방법(초장·엽수 샘플링)이 정해지지 않았다.
 - **`AGRI_THRESHOLDS` 실증 재교정** — 나주 시험포 여름·겨울 각 1주기 데이터.
 - 작물별 레시피 프리셋, 영어·베트남어·인니어 농업 오버라이드 사전.

@@ -195,7 +195,8 @@ export async function createTank(values: {
   ec_tolerance?: number
   target_ph?: number | null
   ph_tolerance?: number
-}) {
+  // 반환이 void 인 이유는 아래 주석 참고.
+}): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("로그인이 필요합니다.")
 
@@ -210,26 +211,20 @@ export async function createTank(values: {
     }
   }
 
-  const { data, error } = await supabase
-    .from("tanks")
-    .insert(values)
-    .select()
-    .single()
-
+  // 일부러 아무것도 돌려주지 않는다. 이 select 에는 farms 조인이 없어
+  // toTank() 가 farm_type 을 채울 수 없고, 그 객체를 축 필터가 걸린 목록에
+  // 낙관적으로 꽂으면 방금 만든 수조가 화면에서 사라진다 — 일지에서 세 번
+  // 터진 그 버그다(개정 4). 조인 없는 경로에 "shrimp" 를 채워 넣는 것은
+  // "모르는 것"과 "새우인 것"을 뭉개므로 하지 않는다. 호출부는 전부 저장 후
+  // 재조회하므로 반환이 필요 없다. 필요해지면 이 select 에 farms(*) 를 달 것.
+  const { error } = await supabase.from("tanks").insert(values)
   if (error) throw error
-  return toTank(data)
 }
 
-export async function updateTank(id: string, values: Partial<DbTank>) {
-  const { data, error } = await supabase
-    .from("tanks")
-    .update(values)
-    .eq("id", id)
-    .select()
-    .single()
-
+export async function updateTank(id: string, values: Partial<DbTank>): Promise<void> {
+  // createTank 와 같은 이유로 반환하지 않는다.
+  const { error } = await supabase.from("tanks").update(values).eq("id", id)
   if (error) throw error
-  return toTank(data)
 }
 
 export async function deleteTank(id: string) {
