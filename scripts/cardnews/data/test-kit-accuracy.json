@@ -1,0 +1,16 @@
+{
+  "slug": "test-kit-accuracy",
+  "locale": "ko",
+  "cards": [
+    { "type": "cover", "label": "측정 오차", "title": ["숫자가 틀리면", "대응도 틀립니다"], "subtitle": "재는 법부터 맞추십시오" },
+    { "type": "point", "index": "01", "label": "시각", "valueStyle": "text", "value": ["매번 같은", "시각에"], "caption": "아침 값과 낮 값은 다릅니다" },
+    { "type": "point", "index": "02", "label": "자리", "valueStyle": "text", "value": ["같은 지점", "중층에서"], "caption": "표층만 뜨면 실제와 다릅니다" },
+    { "type": "point", "index": "03", "label": "시약", "valueStyle": "text", "value": ["개봉일을", "적습니다"], "caption": "오래되면 값이 낮게 나옵니다" },
+    { "type": "point", "index": "04", "label": "보관", "value": "25 ℃ 이하", "caption": "직사광선을 피해 어둡게" },
+    { "type": "point", "index": "05", "label": "용기", "valueStyle": "text", "value": ["헹구고", "씁니다"], "caption": "전에 쓴 시약이 남아 있습니다" },
+    { "type": "point", "index": "06", "label": "기록", "valueStyle": "text", "value": ["값 옆에", "시각을"], "caption": "시각 없는 숫자는 비교가 안 됩니다" },
+    { "type": "outro", "title": ["측정은", "이렇게 합니다"],
+      "rows": [["시각", "매일 동일"], ["지점", "같은 곳 중층"], ["시약", "개봉일 기재"], ["보관", "25 ℃ 이하"], ["용기", "매번 헹굼"], ["기록", "값 + 시각"]],
+      "ctaTitle": "측정 시각까지 함께 기록", "ctaNote": "완전 무료 · 앱 설치 불필요", "ctaUrl": "shrimp365.kr" }
+  ]
+}

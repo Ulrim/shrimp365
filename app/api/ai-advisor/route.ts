@@ -1,7 +1,76 @@
 import { NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 import { createServerClient } from "@supabase/ssr"
-const openaiKey = process.env.OPENAI_API_KEY
+
+// Vercel에서 스트리밍 응답이 기본 함수 시간 제한에 잘리지 않게 한다. 셀프호스팅에서는 무해.
+export const maxDuration = 60
+
+// 자체 설치(Ollama) 기준 기본 모델. 호스팅 API(Groq 등)에는 이 이름의 모델이 없으므로
+// 그런 배포에서는 AI_MODEL 을 반드시 설정해야 한다.
+const DEFAULT_MODEL = "qwen3:4b-instruct-2507-q4_K_M"
+
+// 시간 예산. 어떤 실패 조합에서도 규칙 기반 폴백이 함수 수명(maxDuration 60초) 안에 나간다.
+// maxRetries 0: 다음 백엔드로의 전환이 곧 재시도라, SDK 자체 재시도는 겹치는 비용만 된다.
+//
+// 스트리밍은 SDK 타임아웃이 **스트림 끝까지** 적용되므로 따로 길게 잡는다.
+// 여기를 짧게 두면 긴 답변이 생성 도중 끊긴다.
+const BACKEND_TIMEOUT_MS = 20_000
+const STREAM_TIMEOUT_MS = 50_000
+const CHAIN_BUDGET_MS = 50_000
+
+// 답변 길이 상한. 한국어는 한 글자가 1~2 토큰이라 영어보다 훨씬 빨리 닳는다 —
+// 800 토큰이면 표가 들어간 분석이 400~600자에서 잘렸다(실제로 잘렸다).
+const MAX_ANSWER_TOKENS = 2500
+
+// 상한에 걸려 끊겼을 때 붙이는 안내. 잘린 것을 모르고 읽으면 마지막 항목을
+// 결론으로 오해한다.
+const ANSWER_TRUNCATED_NOTICE =
+  "\n\n---\n답변이 길어 여기서 멈췄습니다. 항목을 좁혀 다시 물어보시면 끝까지 답해 드립니다."
+
+interface Backend { name: string; client: OpenAI; model: string }
+
+// 자동 전환 체인: ① AI_BASE_URL(운영 기본 Groq) ② AI_FALLBACK_BASE_URL(선택)
+// ③ OPENAI_API_KEY(기존 경로) — 전부 실패·미설정이면 규칙 기반 buildAnswer.
+//
+// 환경변수는 **요청 시점에** 읽는다. 모듈 최상단에서 읽어 두면 번들 시점 값이
+// 굳어 버리는 배포 형태가 있어, 환경변수를 넣고도 안 붙는 일이 생긴다.
+function backendChain(): Backend[] {
+  const opts = { timeout: BACKEND_TIMEOUT_MS, maxRetries: 0 }
+  const chain: Backend[] = []
+  const aiBaseUrl = process.env.AI_BASE_URL
+  const fbBaseUrl = process.env.AI_FALLBACK_BASE_URL
+  const openaiKey = process.env.OPENAI_API_KEY
+
+  if (aiBaseUrl) chain.push({
+    name: "1차(AI_BASE_URL)",
+    client: new OpenAI({ baseURL: aiBaseUrl, apiKey: process.env.AI_API_KEY || "ollama", ...opts }),
+    model: process.env.AI_MODEL || DEFAULT_MODEL,
+  })
+  if (fbBaseUrl) chain.push({
+    name: "2차(AI_FALLBACK_BASE_URL)",
+    client: new OpenAI({ baseURL: fbBaseUrl, apiKey: process.env.AI_FALLBACK_API_KEY || "ollama", ...opts }),
+    model: process.env.AI_FALLBACK_MODEL || DEFAULT_MODEL,
+  })
+  if (openaiKey) chain.push({
+    name: "3차(OPENAI_API_KEY)",
+    client: new OpenAI({ apiKey: openaiKey, ...opts }),
+    model: "gpt-4o-mini",
+  })
+
+  // 하나도 없으면 규칙 기반 답변만 나간다 — 설정 누락을 로그로 남긴다.
+  if (chain.length === 0) {
+    console.error("[ai-advisor] 설정된 AI 백엔드가 없습니다. AI_BASE_URL 또는 OPENAI_API_KEY 를 설정하세요. 내장 규칙 답변으로 폴백합니다.")
+  }
+  return chain
+}
+
+/** 실패 원인을 로그에 남긴다. 조용히 폴백하면 왜 AI 가 안 붙는지 아무도 모른다. */
+function logBackendFailure(name: string, model: string, e: unknown) {
+  const err = e as { status?: number; message?: string; code?: string }
+  console.error(
+    `[ai-advisor] ${name} 실패 — model=${model} status=${err?.status ?? err?.code ?? "?"} ${err?.message ?? e}`,
+  )
+}
 
 const MAX_QUESTION_LENGTH = 500
 const MAX_CONTEXT_LENGTH = 2000
@@ -51,9 +120,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "질문이 없습니다." }, { status: 400 })
     }
 
-    if (openaiKey) {
-      const answer = await callGPT(question, context)
-      return NextResponse.json({ answer, remaining: null })
+    // stream: true — text/plain ReadableStream 으로 토큰 단위 응답 (CPU 추론이 느려 필수)
+    if (body.stream === true) {
+      return streamAnswer(question, context)
+    }
+
+    // stream 미지정·false — 기존 JSON 규약 유지 (하위 호환)
+    const t0 = Date.now()
+    for (const backend of backendChain()) {
+      const remaining = CHAIN_BUDGET_MS - (Date.now() - t0)
+      if (remaining < 3_000) break
+      try {
+        const answer = await callLLM(backend, question, context, remaining)
+        return NextResponse.json({ answer, remaining: null })
+      } catch (e) {
+        // 429(한도 소진)·연결 실패·타임아웃 — 다음 백엔드로 자동 전환
+        logBackendFailure(backend.name, backend.model, e)
+      }
     }
 
     const answer = buildAnswer(question, context)
@@ -63,12 +146,10 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function callGPT(question: string, context: string): Promise<string> {
-  const client = new OpenAI({ apiKey: openaiKey })
-
-  const systemPrompt = `당신은 흰다리새우(Litopenaeus vannamei) 양식 전문가 AI 어시스턴트입니다.
+const SYSTEM_PROMPT = `당신은 흰다리새우(Litopenaeus vannamei) 양식 전문가 AI 어시스턴트입니다.
 수질 관리, 질병 예방, 급이 전략, 환수, 폭기 등 양식장 운영에 대한 전문적이고 실용적인 조언을 제공합니다.
 답변은 반드시 한국어로 작성하고, 마크다운 형식을 사용하며, 구체적이고 실행 가능한 내용을 포함해야 합니다.
+가장 중요한 내용을 앞에 두세요 — 분량이 길어지면 뒤쪽이 잘릴 수 있습니다.
 
 주요 수질 기준값 (흰다리새우):
 - 수온: 23~30°C (최적 26~28°C)
@@ -81,22 +162,114 @@ async function callGPT(question: string, context: string): Promise<string> {
 - 알칼리도: 100~150 mg/L CaCO₃
 - 탁도: 10 NTU 미만`
 
-  const userMessage = context
-    ? `[현재 양식장 데이터]\n${context}\n\n[질문]\n${question}`
-    : question
+function buildUserMessage(question: string, context: string): string {
+  return context ? `[현재 양식장 데이터]\n${context}\n\n[질문]\n${question}` : question
+}
 
-  const message = await client.chat.completions.create({
-    model: "gpt-4o-mini",
-    max_tokens: 800,
+// 비스트리밍 LLM 호출 (기존 callGPT를 백엔드 선택형으로 일반화)
+async function callLLM(backend: Backend, question: string, context: string, remainingMs: number): Promise<string> {
+  const message = await backend.client.chat.completions.create({
+    model: backend.model,
+    max_tokens: MAX_ANSWER_TOKENS,
     messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userMessage },
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: buildUserMessage(question, context) },
     ],
-  })
+  }, { timeout: Math.min(BACKEND_TIMEOUT_MS, remainingMs) })
 
   const content = message.choices[0].message.content
-  if (content) return content
+  if (content) {
+    return message.choices[0].finish_reason === "length" ? content + ANSWER_TRUNCATED_NOTICE : content
+  }
   return buildAnswer(question, context)
+}
+
+// 스트리밍 도중 끊겼을 때 절반 답변 뒤에 붙이는 안내 (스트림은 error 없이 close)
+const STREAM_INTERRUPTED_NOTICE =
+  "\n\n---\n⚠️ 연결이 끊겨 답변이 여기까지만 생성되었습니다. 잠시 후 다시 질문해 주세요."
+
+// 스트리밍 응답 — openai SDK stream:true 의 async iterator 를 ReadableStream 으로 변환
+// (node_modules/next/dist/docs .../route.md Streaming 섹션의 Web API 직접 사용 패턴)
+//
+// 자동 전환 규칙: 첫 토큰 수신 전 실패(429·연결 거부·타임아웃)만 다음 백엔드로
+// 전환한다. 첫 토큰 이후 끊김은 전환하지 않는다 — 반토막 답변 뒤에 다른 모델의
+// 전체 답변이 이어 붙는 중복을 막기 위해 안내 문구를 붙이고 error 없이 close 한다.
+// 규칙 기반 폴백도 같은 text/plain 규약으로 흘린다 (클라이언트 처리 경로 단일화).
+function streamAnswer(question: string, context: string): Response {
+  const backends = backendChain()
+  const encoder = new TextEncoder()
+  const t0 = Date.now()
+  // 클라이언트 이탈 시 진행 중인 백엔드 요청(스트림 소비 포함)을 끊는다 —
+  // 무료 한도·NAS CPU 를 아무도 안 보는 답변 생성에 쓰지 않기 위해.
+  const upstream = new AbortController()
+  let cancelled = false
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      // cancel 된 컨트롤러에 enqueue 하면 throw 한다 — 반드시 가드를 거친다
+      const safeEnqueue = (text: string) => {
+        if (cancelled) return
+        try { controller.enqueue(encoder.encode(text)) } catch { cancelled = true }
+      }
+      const safeClose = () => { try { controller.close() } catch { /* 이미 취소됨 */ } }
+
+      let streamed = false // 토큰을 하나라도 내보냈는지
+      for (const backend of backends) {
+        if (cancelled) break
+        const remaining = CHAIN_BUDGET_MS - (Date.now() - t0)
+        if (remaining < 3_000) break
+        try {
+          const completion = await backend.client.chat.completions.create({
+            model: backend.model,
+            max_tokens: MAX_ANSWER_TOKENS,
+            stream: true,
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              { role: "user", content: buildUserMessage(question, context) },
+            ],
+          }, { timeout: Math.min(STREAM_TIMEOUT_MS, remaining), signal: upstream.signal })
+
+          try {
+            let truncated = false
+            for await (const chunk of completion) {
+              if (cancelled) break
+              const choice = chunk.choices[0]
+              const delta = choice?.delta?.content
+              if (delta) {
+                streamed = true
+                safeEnqueue(delta)
+              }
+              // 상한에 걸려 끝난 것인지 — 모델이 마지막 조각에 알려 준다.
+              if (choice?.finish_reason === "length") truncated = true
+            }
+            if (truncated) safeEnqueue(ANSWER_TRUNCATED_NOTICE)
+            safeClose()
+            return
+          } catch (e) {
+            if (streamed) {
+              safeEnqueue(STREAM_INTERRUPTED_NOTICE)
+              safeClose()
+              return
+            }
+            // 첫 토큰 전 끊김 — 다음 백엔드로
+            logBackendFailure(backend.name, backend.model, e)
+          }
+        } catch (e) {
+          // create 자체 실패: 429(한도 소진)·연결 거부·타임아웃 — 다음 백엔드로
+          logBackendFailure(backend.name, backend.model, e)
+        }
+      }
+
+      // 전 백엔드 실패·미설정 — 규칙 기반 답변을 같은 스트림 규약으로
+      if (!streamed) safeEnqueue(buildAnswer(question, context))
+      safeClose()
+    },
+    cancel() {
+      cancelled = true
+      upstream.abort()
+    },
+  })
+  return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8" } })
 }
 
 function buildAnswer(question: string, context: string): string {

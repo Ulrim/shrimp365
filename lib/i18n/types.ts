@@ -90,6 +90,8 @@ export interface Dict {
     admin: string
     sectionRecord: string
     sectionMonitor: string
+    /** 컬리버 탄소 MRV 플랫폼 진입 라벨(외부 서비스). */
+    mrvPlatform: string
     /** 로고 부제 — 언어 무관 영문 고정. 농업 모드 오버라이드로만 바뀐다. */
     brandTagline: string
   }
@@ -408,6 +410,7 @@ export interface Dict {
     suggestQ4: string
   }
   reports: {
+    issuedAt: string
     title: string
     subtitle: string
     period7d: string
@@ -733,7 +736,25 @@ export interface Dict {
     threshold: string
     gotoTank: string
     markResolved: string
+    enableDevice: string
+    deviceOn: string
+    deviceBlocked: string
+    deviceUnsupported: string
+    deviceEnabled: string
+    devicePushOn: string
+    devicePushEnabled: string
+    deviceMore: string
     viewMore: string
+  }
+  anomaly: {
+    title: string
+    subtitle: string
+    none: string
+    needMore: string
+    surge: string
+    drift: string
+    deviation: string
+    causes: string
   }
   subs: {
     price: string
@@ -1132,6 +1153,14 @@ export interface Dict {
     noSensorTagAll: string
     sensorTagMismatch: string
     fullscreen: string
+    faultNoReply: string
+    faultProbe: string
+    faultSupersat: string
+    faultDoAir: string
+    faultTempOff: string
+    faultDoScale: string
+    faultRange: string
+    sensorFault: string
     conductivityCaption: string
     boardMode: string
     noValuesYet: string

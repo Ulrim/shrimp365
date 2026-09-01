@@ -4,13 +4,13 @@
   "cards": [
     { "type": "cover", "label": "출하 판단", "title": ["언제 빼느냐가", "수익을 정합니다"], "subtitle": "탈피 직후는 피하십시오" },
     { "type": "point", "index": "01", "label": "피할 때", "valueStyle": "text", "value": ["탈피 직후", "이틀"], "caption": "껍질이 물러 손실이 큽니다" },
-    { "type": "point", "index": "02", "label": "크기 편차", "valueStyle": "text", "value": ["고르지 않으면", "값이 깎입니다"], "caption": "규격에서 벗어난 만큼 손해" },
+    { "type": "point", "index": "02", "label": "크기 차이", "valueStyle": "text", "value": ["고르지 않으면", "값이 깎입니다"], "caption": "크기가 안 맞으면 손해입니다" },
     { "type": "point", "index": "03", "label": "출하 전날", "valueStyle": "text", "value": ["급이를", "멈춥니다"], "caption": "중장을 비워야 선도가 좋습니다" },
     { "type": "point", "index": "04", "label": "안 크면", "valueStyle": "text", "value": ["사료값만", "쌓입니다"], "caption": "일 성장률이 답을 알려 줍니다" },
     { "type": "point", "index": "05", "label": "직전 산소", "value": "≥ 5 mg/L", "caption": "낮으면 수송 중에 죽습니다" },
     { "type": "point", "index": "06", "label": "판단 근거", "valueStyle": "text", "value": ["감이 아니라", "기록입니다"], "caption": "매일 잰 중량이 근거입니다" },
     { "type": "outro", "title": ["출하는", "이렇게 봅니다"],
-      "rows": [["피할 때", "탈피 직후"], ["크기 편차", "작을수록 유리"], ["출하 전날", "급이 중단"], ["직전 산소", "≥ 5.0 mg/L"], ["판단 근거", "일 성장률"], ["기록", "매일 중량"]],
+      "rows": [["피할 때", "탈피 직후"], ["크기 차이", "작을수록 유리"], ["출하 전날", "급이 중단"], ["직전 산소", "≥ 5.0 mg/L"], ["판단 근거", "일 성장률"], ["기록", "매일 중량"]],
       "ctaTitle": "중량과 성장률을 매일 기록", "ctaNote": "완전 무료 · 앱 설치 불필요", "ctaUrl": "shrimp365.kr" }
   ]
 }

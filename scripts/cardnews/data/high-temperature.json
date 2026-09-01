@@ -43,7 +43,7 @@
       "label": "수차",
       "valueStyle": "text",
       "value": ["한낮에도", "돌리세요"],
-      "caption": "성층을 깨고 바닥 물을 섞습니다"
+      "caption": "위아래 물을 섞어 줍니다"
     },
     {
       "type": "point",

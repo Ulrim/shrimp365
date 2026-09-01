@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase-server"
-import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
+import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, MISSING_INPUT_PARAMETER, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
+import { sendAlertPush } from "@/lib/push-server"
 
 // In-memory rate limit: max 60 requests per device per minute
 const RATE_LIMIT_WINDOW_MS = 60_000
@@ -305,7 +306,7 @@ export async function POST(req: NextRequest) {
     try {
       const { data: open } = await supabaseAdmin
         .from("alerts")
-        .select("id")
+        .select("id, type")
         .eq("tank_id", device.tank_id)
         .eq("parameter", alert.parameter)
         .eq("resolved", false)
@@ -318,6 +319,13 @@ export async function POST(req: NextRequest) {
           .from("alerts")
           .update({ type: alert.type, value: alert.value, message: alert.message })
           .eq("id", open.id)
+
+        // 주의 → 위험으로 올라간 것은 새 사건이다. 같은 줄을 갱신만 하면
+        // 화면에는 색이 바뀌지만 아무도 그 사실을 모른다. 등급이 오를 때만
+        // 밀어 준다 — 그대로면 1분마다 같은 푸시가 쌓여 소음이 된다.
+        if (open.type !== "danger" && alert.type === "danger") {
+          await sendAlertPush(device.tank_id, { type: alert.type, message: alert.message, parameter: alert.parameter })
+        }
       } else {
         await supabaseAdmin.from("alerts").insert({
           tank_id: device.tank_id,
@@ -328,6 +336,10 @@ export async function POST(req: NextRequest) {
           message: alert.message,
           resolved: false,
         })
+
+        // 새로 생긴 알림 — 앱이 닫혀 있어도 닿아야 한다.
+        // 실패해도 sendAlertPush 가 전부 삼키므로 수집은 멈추지 않는다.
+        await sendAlertPush(device.tank_id, { type: alert.type, message: alert.message, parameter: alert.parameter })
       }
     } catch (e) { console.warn("[sensors/data] non-fatal:", e instanceof Error ? e.message : e) }
   }
@@ -339,10 +351,22 @@ export async function POST(req: NextRequest) {
   // "temperature" 인데 저장되는 알림 키는 "수온" 이라, 값 키를 그대로 넘기면
   // `.in("parameter", …)` 가 어떤 행과도 안 맞아 복귀가 조용히 실패한다.
   // resolvableParameters 가 그 변환과 "판정한 항목만" 필터를 함께 맡는다.
+  //
+  // 0 은 이 저장소 규약상 "미측정"이라 checkThresholds 가 판정에서 건너뛴다.
+  // 판정을 안 한 값은 복귀도 아니다 — 비대칭이면 전극이 물 밖으로 나와 DO 0.0 을
+  // 계속 보낼 때 열려 있던 저산소 위험 알림이 조용히 닫힌다. 기기는 살아 있으니
+  // 오프라인 표시도 안 뜨고 알림함만 초록색이 된다. resolvableParameters 가
+  // 그 "판정한 항목만" 규칙을 checkThresholds 와 같은 파일에서 함께 지킨다.
+  //
+  // 판정 대상은 values 가 아니라 globalValues 다. 레시피가 있는 베드에서는 위에서
+  // salinity·ph 를 뺐고, 그 두 항목의 복귀는 아래 target_ec/target_ph 분기가 따로
+  // 잡는다. values 를 쓰면 판정하지도 않은 항목까지 복귀시킨다.
   const stillBad = new Set(thresholdAlerts.map(a => a.parameter))
   const recovered = resolvableParameters(
     globalValues as Parameters<typeof resolvableParameters>[0], profile,
   ).filter(p => !stillBad.has(p))
+  // 값이 들어왔다는 사실 자체가 입력 누락의 해소다.
+  recovered.push(MISSING_INPUT_PARAMETER)
   // 레시피 알림은 parameter 가 값 키와 달라("EC"/"pH") 별도 매핑으로 복귀를 잡는다.
   // 0 은 전극이 물 밖일 때 나오는 값이라 checkRecipe 가 판정에서 제외한다 —
   // 판정을 안 했으면 복귀도 아니다(비대칭이면 이탈 알림이 0 수신에 닫혀 버린다).

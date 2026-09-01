@@ -34,15 +34,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <AgriDictOverride enabled={isAgriPath(pathname ?? "")}>
+      {/* 인쇄(리포트 → PDF 증빙)에서는 앱 크롬을 걷어내고 스크롤 컨테이너를 푼다.
+        *
+        * 크롬은 display:contents 래퍼로 감싼다. 래퍼는 화면에서 박스를 만들지 않아
+        * flex 배치가 그대로고, 인쇄에서만 print:hidden 으로 통째로 사라진다. 사이드바
+        * 자체에 print:hidden 을 붙이면 같은 미디어 계열인 lg:flex 와 순서 싸움이 나서
+        * 인쇄 폭에 따라 다시 나타날 수 있어 이 방식을 쓴다. 검색·알림·설정 패널도
+        * 같은 래퍼 안이라 열려 있는 채로 인쇄해도 찍히지 않는다.
+        *
+        * 높이·overflow 해제는 app/globals.css 의 @media print 가 맡는다. 여기서
+        * print:overflow-visible 로 덮으면 lg:* 와 순서에 의존하게 되기 때문이다. */}
       <div className="min-h-screen flex bg-background">
-        <Sidebar />
+        <div className="contents print:hidden">
+          <Sidebar />
+        </div>
         <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
-          <Header />
+          <div className="contents print:hidden">
+            <Header />
+          </div>
           <main className="flex-1 overflow-auto p-4 pb-24 lg:p-6 lg:pb-6">
             {children}
           </main>
         </div>
-        <BottomNav />
+        <div className="contents print:hidden">
+          <BottomNav />
+        </div>
       </div>
     </AgriDictOverride>
   )

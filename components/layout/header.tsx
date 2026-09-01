@@ -1,11 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { usePathname } from "next/navigation"
 import { Bell, Search } from "lucide-react"
 import { SearchPanel } from "@/components/layout/search-panel"
 import { NotificationsPanel } from "@/components/layout/notifications-panel"
-import { getAlerts } from "@/lib/db"
+import { getAlerts, syncMissingInputAlerts } from "@/lib/db"
+import { useAutoRefresh } from "@/lib/use-auto-refresh"
+import { useAlertNotifications } from "@/lib/use-alert-notifications"
+import type { Alert } from "@/types"
 import { MOCK_ALERTS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
@@ -55,24 +58,72 @@ export function Header() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [notiOpen, setNotiOpen] = useState(false)
   const [alertCount, setAlertCount] = useState(0)
+  const [alerts, setAlerts] = useState<Alert[]>([])
 
-  // Load unread alert count on mount
+  // 미해결 알림을 불러온다. 개수만이 아니라 목록까지 들고 있어야
+  // 새로 생긴 알림을 가려내 기기 알림으로 띄울 수 있다.
+  //
+  // 첫 로드는 프로미스 체인 안에서 상태를 넣는다 — 효과 본문에서 곧바로
+  // setState 하면 렌더가 한 번 더 돈다(home-view 와 같은 방식).
   useEffect(() => {
-    async function loadCount() {
-      try {
-        const data = await getAlerts(true)
-        const count = data.length
-          ? data.length
-          : (isTestAccount(user?.email) ? MOCK_ALERTS.filter(a => !a.resolved).length : 0)
-        setAlertCount(count)
-      } catch {
-        if (isTestAccount(user?.email)) {
-          setAlertCount(MOCK_ALERTS.filter(a => !a.resolved).length)
+    let alive = true
+    const mockList = () => (isTestAccount(user?.email) ? MOCK_ALERTS.filter(a => !a.resolved) : [])
+    getAlerts(true)
+      .then(async data => {
+        if (!alive) return
+        const list = data.length ? data : mockList()
+        setAlerts(list)
+        setAlertCount(list.length)
+
+        // 입력 누락 판정은 목록을 먼저 그린 다음에 돌린다 — 첫 화면의 알림
+        // 배지가 이 판정을 기다리느라 늦게 뜨면 안 된다. 실제로 알림이 생기거나
+        // 닫혔을 때만 한 번 더 불러온다(내부 스로틀 때문에 대개 건너뛴다).
+        try {
+          if (!(await syncMissingInputAlerts(user?.email)) || !alive) return
+          const next = await getAlerts(true)
+          if (!alive) return
+          const refreshed = next.length ? next : mockList()
+          setAlerts(refreshed)
+          setAlertCount(refreshed.length)
+        } catch {
+          // 이미 그려 둔 목록을 지우지 않는다 — 아래 catch 로 흘러가면
+          // 멀쩡히 떠 있던 알림이 빈 목록으로 덮인다.
         }
-      }
-    }
-    loadCount()
+      })
+      .catch(() => {
+        if (!alive) return
+        const mock = mockList()
+        setAlerts(mock)
+        setAlertCount(mock.length)
+      })
+    return () => { alive = false }
   }, [user?.email])
+
+  // 센서가 1분마다 값을 올린다. 알림도 같은 주기로 따라가야 새로 생긴 이상을
+  // 새로고침 없이 받는다 — 기기 알림이 의미를 가지려면 이 폴링이 있어야 한다.
+  // 실패는 훅이 삼키고 다음 주기에 다시 시도한다.
+  const reloadAlerts = useCallback(async () => {
+    // 스케줄러가 없으므로 입력 누락 판정도 이 폴링에 얹어 돌린다. 판정 자체는
+    // 브라우저 단위로 스로틀되어(lib/db.ts) 60초마다 실제 조회가 나가지는 않고,
+    // 여기서 먼저 돌려 두면 새로 만들어진 알림이 아래 조회에 그대로 잡힌다.
+    await syncMissingInputAlerts(user?.email)
+    const data = await getAlerts(true)
+    const list = data.length
+      ? data
+      : (isTestAccount(user?.email) ? MOCK_ALERTS.filter(a => !a.resolved) : [])
+    setAlerts(list)
+    setAlertCount(list.length)
+  }, [user?.email])
+
+  useAutoRefresh(reloadAlerts, 60)
+
+  const { permission: notifyPermission, deliverable: notifyDeliverable, pushActive: notifyPushActive, request: requestNotify } =
+    useAlertNotifications(alerts, {
+      enabled: t.notif.deviceEnabled,
+      pushEnabled: t.notif.devicePushEnabled,
+      more: t.notif.deviceMore,
+      tankFallback: t.reports.tank,
+    })
 
   // Global Cmd+K / Ctrl+K shortcut for search
   useEffect(() => {
@@ -134,6 +185,10 @@ export function Header() {
               open={notiOpen}
               onClose={() => setNotiOpen(false)}
               onCountChange={setAlertCount}
+              notifyPermission={notifyPermission}
+              notifyDeliverable={notifyDeliverable}
+              notifyPushActive={notifyPushActive}
+              onEnableNotify={requestNotify}
             />
           </div>
         </div>

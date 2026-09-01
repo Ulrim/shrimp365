@@ -178,6 +178,16 @@ PAGE = """<!doctype html>
     padding:9px 12px;margin-bottom:7px;
   }
   .found b{color:#60A5FA;font-family:ui-monospace,monospace}
+  /* 센서 테스트 결과 */
+  .trow{margin-top:8px;padding-top:7px;border-top:1px solid #22304C;line-height:1.7}
+  .trow:first-of-type{border-top:0;margin-top:4px}
+  .tfield{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:12px;margin-top:2px}
+  .tname{min-width:96px;color:#94A3B8;font-family:ui-monospace,monospace}
+  .tval{min-width:92px;color:#E8EDF7;font-weight:700;font-family:ui-monospace,monospace}
+  .traw{margin-left:auto}
+  .okv{color:#34D399;font-weight:700}
+  .badv{color:#F87171;font-weight:700}
+  .dim{color:#64748B;font-weight:500}
   .msg{font-size:12px;padding:8px 12px;border-radius:9px;margin-bottom:7px}
   .msg.ok{background:#10B98118;color:#34D399}
   .msg.err{background:#DC262618;color:#F87171}
@@ -382,6 +392,7 @@ var LANG_ORDER = ["ko","en","vi","id"];
 var I18N = {
   // 측정 항목
   m_temperature:{ko:"수온",en:"Temperature",vi:"Nhiệt độ",id:"Suhu"},
+  m_ph_label:{ko:"pH",en:"pH",vi:"pH",id:"pH"},
   m_do:{ko:"용존산소",en:"Dissolved O₂",vi:"Oxy hòa tan",id:"Oksigen"},
   m_salinity:{ko:"염도",en:"Salinity",vi:"Độ mặn",id:"Salinitas"},
   graph:{ko:"그래프",en:"Graph",vi:"Biểu đồ",id:"Grafik"},
@@ -463,7 +474,41 @@ var I18N = {
   n_ec_only:{ko:"전도도",en:"Conductivity",vi:"Độ dẫn",id:"Konduktivitas"},
   sen_noreply:{ko:"센서 응답 없음",en:"No sensor response",vi:"Cảm biến không phản hồi",id:"Sensor tak merespons"},
   sen_check:{ko:"설정 → 센서 설정 → 선 훑기",en:"Settings → Sensors → Scan bus",vi:"Cài đặt → Cảm biến → Quét",id:"Pengaturan → Sensor → Pindai"},
+  sen_probe:{ko:"전극 확인 필요",en:"Check the probe",vi:"Kiểm tra đầu dò",id:"Periksa probe"},
+  sen_probe_sub:{ko:"센서는 응답하지만 값을 내지 못합니다 — 전극 연결·상태를 확인하세요",en:"The sensor replies but reports no value — check the probe connection",vi:"Cảm biến phản hồi nhưng không có giá trị — kiểm tra kết nối đầu dò",id:"Sensor merespons tetapi tanpa nilai — periksa sambungan probe"},
+  sen_range:{ko:"값이 범위를 벗어남",en:"Value out of range",vi:"Giá trị ngoài khoảng",id:"Nilai di luar rentang"},
+  test_btn:{ko:"센서 테스트",en:"Test sensors",vi:"Kiểm tra cảm biến",id:"Uji sensor"},
+  test_running:{ko:"센서를 읽는 중… 최대 20초",en:"Reading sensors… up to 20s",vi:"Đang đọc cảm biến… tối đa 20 giây",id:"Membaca sensor… hingga 20 dtk"},
+  test_fail:{ko:"테스트하지 못했습니다.",en:"Test failed.",vi:"Không kiểm tra được.",id:"Uji gagal."},
+  test_title:{ko:"센서 테스트 결과",en:"Sensor test result",vi:"Kết quả kiểm tra",id:"Hasil uji sensor"},
+  test_comm_ok:{ko:"통신 정상",en:"Comms OK",vi:"Giao tiếp tốt",id:"Komunikasi OK"},
+  test_no_reply:{ko:"응답 없음 — 배선·전원·ID 확인",en:"No reply — check wiring, power, ID",vi:"Không phản hồi — kiểm tra dây, nguồn, ID",id:"Tak merespons — cek kabel, daya, ID"},
+  v_ok:{ko:"정상",en:"OK",vi:"Tốt",id:"OK"},
+  v_probe:{ko:"전극 이상 — 값을 내지 못함",en:"Probe fault — no value",vi:"Lỗi đầu dò — không có giá trị",id:"Probe bermasalah — tanpa nilai"},
+  v_range:{ko:"범위 벗어남",en:"Out of range",vi:"Ngoài khoảng",id:"Di luar rentang"},
+  v_supersat:{ko:"포화도 {{p}}% — 물에 안 잠겼거나 보정 필요",en:"{{p}}% saturation — not submerged or needs calibration",vi:"Bão hòa {{p}}% — chưa ngập hoặc cần hiệu chuẩn",id:"Saturasi {{p}}% — belum terendam atau perlu kalibrasi"},
+  v_undecodable:{ko:"해석 불가",en:"Cannot decode",vi:"Không giải mã được",id:"Tak terbaca"},
+  test_none:{ko:"켜져 있는 센서가 없습니다.",en:"No sensors enabled.",vi:"Không có cảm biến bật.",id:"Tak ada sensor aktif."},
+  sen_temp_off:{ko:"전극이 물 밖에 있는 듯",en:"Probe seems out of water",vi:"Đầu dò như ngoài nước",id:"Probe tampak di luar air"},
+  sen_temp_off_sub:{ko:"이 센서 수온 {{a}}℃ / 다른 센서 {{b}}℃ — 같은 물이라면 이렇게 다를 수 없습니다. 전극을 물에 담그세요",en:"This sensor reads {{a}}℃ vs {{b}}℃ on the others — same water cannot differ this much. Submerge the probe",vi:"Cảm biến này {{a}}℃ so với {{b}}℃ ở cảm biến khác — cùng một nước không thể chênh vậy. Hãy nhúng đầu dò",id:"Sensor ini {{a}}℃ vs {{b}}℃ pada yang lain — air yang sama tak mungkin sebeda itu. Rendam probe"},
+  sen_do_air:{ko:"전극이 물 밖에 있는 듯",en:"Probe seems out of water",vi:"Đầu dò như đang ngoài nước",id:"Probe tampak di luar air"},
+  sen_do_air_sub:{ko:"포화도 {{p}}% — 센서도 산소가 많다고 보고합니다. 전극을 물에 완전히 담그세요",en:"{{p}}% saturation — the sensor also reports high oxygen. Submerge the probe fully",vi:"Bão hòa {{p}}% — cảm biến cũng báo oxy cao. Hãy nhúng ngập đầu dò",id:"Saturasi {{p}}% — sensor juga melaporkan oksigen tinggi. Rendam probe sepenuhnya"},
+  sen_do_scale:{ko:"보정 필요 — 눈금이 어긋남",en:"Needs calibration — scale is off",vi:"Cần hiệu chuẩn — thang đo lệch",id:"Perlu kalibrasi — skala meleset"},
+  sen_do_scale_sub:{ko:"mg/L 은 포화 {{p}}% 인데 센서 보고 포화도는 {{r}}% 입니다 — 물에는 잠겨 있으니 보정만 하면 됩니다",en:"mg/L implies {{p}}% but the sensor reports {{r}}% — it is submerged; only calibration is needed",vi:"mg/L cho ra {{p}}% nhưng cảm biến báo {{r}}% — đã ngập nước, chỉ cần hiệu chuẩn",id:"mg/L menunjukkan {{p}}% tetapi sensor melaporkan {{r}}% — sudah terendam, cukup kalibrasi"},
+  sen_supersat:{ko:"물에서 나올 수 없는 값",en:"Impossible for water",vi:"Không thể có trong nước",id:"Mustahil untuk air"},
+  sen_supersat_sub:{ko:"포화도 {{p}}% — 전극이 물에 잠겼는지, 보정이 되어 있는지 확인하세요",en:"{{p}}% saturation — check the probe is submerged and calibrated",vi:"Bão hòa {{p}}% — kiểm tra đầu dò đã ngập nước và đã hiệu chuẩn",id:"Saturasi {{p}}% — pastikan probe terendam dan terkalibrasi"},
   // 양액
+  menu_cal:{ko:"보정 설정",en:"Calibration",vi:"Hiệu chuẩn",id:"Kalibrasi"},
+  menu_cal_sub:{ko:"휴대용 측정기 값에 맞추기",en:"Match a handheld meter",vi:"Khớp với máy đo cầm tay",id:"Samakan dengan meter genggam"},
+  cal_now:{ko:"센서값",en:"Sensor",vi:"Cảm biến",id:"Sensor"},
+  cal_offset:{ko:"보정",en:"Offset",vi:"Bù",id:"Offset"},
+  cal_result:{ko:"보정 후",en:"Corrected",vi:"Sau hiệu chuẩn",id:"Terkoreksi"},
+  cal_set:{ko:"실측값 입력",en:"Enter actual",vi:"Nhập giá trị thực",id:"Masukkan nilai nyata"},
+  cal_reset:{ko:"보정 해제",en:"Clear",vi:"Xóa",id:"Hapus"},
+  cal_ask:{ko:"휴대용 측정기로 잰 값을 넣으세요",en:"Enter the value from your handheld meter",vi:"Nhập giá trị đo bằng máy cầm tay",id:"Masukkan nilai dari meter genggam"},
+  cal_none:{ko:"지금 읽히는 값이 없어 보정할 수 없습니다",en:"No current reading — cannot calibrate",vi:"Không có giá trị hiện tại — không thể hiệu chuẩn",id:"Tak ada nilai saat ini — tak bisa kalibrasi"},
+  cal_saved:{ko:"보정했습니다.",en:"Calibrated.",vi:"Đã hiệu chuẩn.",id:"Terkalibrasi."},
+  cal_note:{ko:"1점 보정입니다 — 잰 그 지점에서만 정확합니다. 어긋남이 크면 보정으로 덮지 말고 전극을 먼저 손보세요.",en:"One-point correction — accurate only near the point you set. If the gap is large, fix the probe instead of masking it.",vi:"Hiệu chuẩn 1 điểm — chỉ chính xác quanh điểm đã đặt. Nếu lệch nhiều, hãy sửa đầu dò.",id:"Kalibrasi satu titik — akurat hanya di sekitar titik itu. Jika selisih besar, perbaiki probe."},
   menu_nutrient:{ko:"양액 설정",en:"Nutrient solution",vi:"Dung dịch dinh dưỡng",id:"Larutan nutrisi"},
   menu_nutrient_sub:{ko:"EC 로 농도 보고 보충량 계산",en:"Dosing from EC readings",vi:"Tính lượng bổ sung theo EC",id:"Hitung dosis dari EC"},
   nut_use:{ko:"양액 관리 사용",en:"Use nutrient management",vi:"Dùng quản lý dinh dưỡng",id:"Pakai manajemen nutrisi"},
@@ -583,11 +628,51 @@ function ownerSensor(key){
 // 양액 계산은 25℃ 로 환산한 EC 로 하므로, 실제로 쓰인 값을 같이 보여 준다.
 // (보정을 끄면 잰 값과 같지만, 어느 값으로 계산했는지 눈에 보이는 편이 낫다.)
 function subLine(key, d){
-  // 값이 없는데 담당 센서가 오류를 냈으면 그 사실을 먼저 알린다.
   var has = d.values && typeof d.values[key] === "number";
+  var who0 = ownerSensor(key);
+  var why0 = who0 && d.errors ? d.errors[who0] : null;
+
+  // 값이 나왔더라도 그 값이 말이 안 되면 그대로 믿게 두어서는 안 된다.
+  // (예: 전극이 공기 중에 있으면 용존산소가 포화도 200% 넘게 나온다)
+  if (has && why0) {
+    var w = String(why0);
+    if (w.indexOf("temp_off:") === 0) {
+      var tp = w.slice(9).split("/");
+      return '<div class="sub2 bad">' + t("sen_temp_off") +
+             '<div class="dim">' + t("sen_temp_off_sub")
+               .replace("{{a}}", esc(tp[0])).replace("{{b}}", esc(tp[1] || "?")) + '</div></div>';
+    }
+    if (w.indexOf("do_air:") === 0) {
+      return '<div class="sub2 bad">' + t("sen_do_air") +
+             '<div class="dim">' + t("sen_do_air_sub").replace("{{p}}", esc(w.slice(7))) + '</div></div>';
+    }
+    if (w.indexOf("do_scale:") === 0) {
+      var parts = w.slice(9).split("/");
+      return '<div class="sub2 bad">' + t("sen_do_scale") +
+             '<div class="dim">' + t("sen_do_scale_sub")
+               .replace("{{p}}", esc(parts[0])).replace("{{r}}", esc(parts[1] || "?")) + '</div></div>';
+    }
+    if (w.indexOf("supersat:") === 0) {
+      return '<div class="sub2 bad">' + t("sen_supersat") +
+             '<div class="dim">' + t("sen_supersat_sub").replace("{{p}}", esc(w.slice(9))) + '</div></div>';
+    }
+  }
+
+  // 값이 없는데 담당 센서가 오류를 냈으면 그 사실을 먼저 알린다.
   if (!has) {
-    var who = ownerSensor(key);
-    if (who && d.errors && d.errors[who]) {
+    var who = who0;
+    var why = why0;
+    if (why) {
+      // 원인마다 봐야 할 곳이 다르다. 응답이 아예 없으면 배선·ID,
+      // 응답은 하는데 값이 없으면 전극이다. 둘을 뭉뚱그리면 헛수고를 시킨다.
+      if (why === "probe") {
+        return '<div class="sub2 bad">' + t("sen_probe") +
+               '<div class="dim">' + t("sen_probe_sub") + '</div></div>';
+      }
+      if (String(why).indexOf("range:") === 0) {
+        return '<div class="sub2 bad">' + t("sen_range") +
+               '<div class="dim">' + esc(String(why).slice(6)) + '</div></div>';
+      }
       return '<div class="sub2 bad">' + t("sen_noreply") +
              '<div class="dim">' + t("sen_check") + '</div></div>';
     }
@@ -919,6 +1004,7 @@ function drawSettingsMenu(){
     {t:"menu_sensors", sub:"menu_sensors_sub", fn:"openSensors()"},
     {t:"menu_wifi",    sub:"menu_wifi_sub",    fn:"openWifi()"},
     {t:"menu_lang",    sub:"menu_lang_sub",    fn:"openLang()"},
+    {t:"menu_cal",      sub:"menu_cal_sub",      fn:"openCal()"},
     {t:"menu_nutrient", sub:"menu_nutrient_sub", fn:"openNutrient()"},
     {t:"menu_restart", sub:"menu_restart_sub", fn:"openRestart()"}
   ];
@@ -969,6 +1055,120 @@ function drawLang(){
         rows +
       '</div>' +
     '</div>';
+}
+
+// ── 보정 설정 ────────────────────────────────────────────────────────────────
+// 사람이 오프셋을 계산하게 하지 않는다. 휴대용 측정기로 잰 값을 넣으면
+// 장비가 지금 센서값과의 차이를 구해 저장한다.
+var calData = null, calMsg = null, calEdit = null, calBuf = "";
+
+var CAL_ITEMS = [
+  {k:"temperature",  t:"m_temperature", unit:"\u00B0C"},
+  {k:"ph",           t:"m_ph_label",    unit:""},
+  {k:"do_level",     t:"m_do",          unit:"ppm"},
+  {k:"conductivity", t:"n_ec_only",     unit:"uS/cm"}
+];
+
+function openCal(){
+  calMsg = null; calEdit = null;
+  fetch("/api/calibration", {cache:"no-store"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ calData = d; drawCal(); })
+    .catch(function(){ alert(t("load_fail")); });
+}
+
+function fmt(v){ return (v === null || v === undefined) ? "--" : v; }
+
+function drawCal(){
+  if (!calData) return;
+  document.getElementById("wifi").innerHTML = "";
+  var body;
+
+  if (calEdit){
+    var it = CAL_ITEMS.filter(function(x){ return x.k === calEdit; })[0];
+    var keys = ["1","2","3","4","5","6","7","8","9",".","0","back"];
+    var pad = keys.map(function(k){
+      return '<button onclick="calKey(&quot;' + k + '&quot;)">' + (k === "back" ? "\u232B" : k) + '</button>';
+    });
+    var rows = "";
+    for (var i = 0; i < 4; i++) rows += '<div class="krow">' + pad.slice(i*3, i*3+3).join("") + '</div>';
+    body =
+      '<div class="wcur">' + t(it.t) + ' — ' + t("cal_ask") + '<br>' +
+        '<span class="sub">' + t("cal_now") + ' ' + fmt(calData.raw[it.k]) + ' ' + it.unit + '</span><br>' +
+        '<b style="font-size:24px;font-family:ui-monospace,monospace">' + (calBuf || "0") + '</b> ' + it.unit +
+      '</div>' +
+      '<div class="kbd" style="max-width:330px">' + rows +
+        '<div class="krow">' +
+          '<button class="wide" onclick="calCancel()">' + t("cancel") + '</button>' +
+          '<button class="go" onclick="calApply()">' + t("save") + '</button>' +
+        '</div></div>';
+  } else {
+    var msg = calMsg ? '<div class="msg ' + calMsg.kind + '">' + esc(calMsg.text) + '</div>' : "";
+    var list = CAL_ITEMS.map(function(it){
+      var raw = calData.raw[it.k], off = calData.offsets[it.k] || 0, cor = calData.corrected[it.k];
+      var offTxt = off ? (off > 0 ? "+" + off : String(off)) : "0";
+      return '<div class="srow">' +
+        '<div class="sname">' + t(it.t) +
+          '<div class="sub">' + t("cal_now") + ' ' + fmt(raw) + ' ' + it.unit +
+            (off ? '  \u2192  ' + t("cal_result") + ' <b>' + fmt(cor) + '</b>' : '') +
+          '</div></div>' +
+        '<div class="num" style="width:auto;padding:0 10px">' + offTxt + '</div>' +
+        '<button class="toggle" onclick="calOpen(&quot;' + it.k + '&quot;)">' + t("cal_set") + '</button>' +
+        (off ? '<button class="toggle" onclick="calClear(&quot;' + it.k + '&quot;)">' + t("cal_reset") + '</button>' : '') +
+      '</div>';
+    }).join("");
+    body = msg + list + '<div class="msg err" style="margin-top:8px">' + t("cal_note") + '</div>';
+  }
+
+  document.getElementById("setup").innerHTML =
+    '<div class="setup">' +
+      '<div class="chead">' +
+        '<span class="ctitle">' + t("menu_cal") + '</span>' +
+        '<button style="margin-left:auto" onclick="' +
+          (calEdit ? "calCancel()" : "drawSettingsMenu()") + '">' +
+          (calEdit ? t("back_list") : t("back_menu")) + '</button>' +
+      '</div>' +
+      '<div class="sbody">' + body + '</div>' +
+    '</div>';
+}
+
+function calOpen(k){
+  if (calData.raw[k] === null || calData.raw[k] === undefined){
+    calMsg = {kind:"err", text:t("cal_none")}; drawCal(); return;
+  }
+  calEdit = k; calBuf = String(calData.raw[k]); drawCal();
+}
+function calCancel(){ calEdit = null; calBuf = ""; drawCal(); }
+function calKey(k){
+  if (k === "back") calBuf = calBuf.slice(0, -1);
+  else if (k === "."){ if (calBuf.indexOf(".") < 0) calBuf += "."; }
+  else calBuf = (calBuf === "0" ? "" : calBuf) + k;
+  if (calBuf.length > 9) calBuf = calBuf.slice(0, 9);
+  drawCal();
+}
+function calApply(){ calSend({name: calEdit, actual: parseFloat(calBuf || "0")}); }
+function calClear(k){ calSend({name: k, offset: 0}); }
+
+function calSend(payload){
+  fetch("/api/calibration/save", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify(payload)
+  })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      calEdit = null; calBuf = "";
+      calMsg = d && d.ok ? {kind:"ok", text:t("cal_saved")}
+                         : {kind:"err", text:(d && d.error) || t("save_fail")};
+      openCalRefresh();
+    })
+    .catch(function(){ calMsg = {kind:"err", text:t("save_fail")}; drawCal(); });
+}
+
+function openCalRefresh(){
+  fetch("/api/calibration", {cache:"no-store"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ calData = d; drawCal(); })
+    .catch(function(){ drawCal(); });
 }
 
 // ── 양액 설정 ────────────────────────────────────────────────────────────────
@@ -1200,6 +1400,7 @@ function drawSettings(){
     ? '<div class="msg ' + setupMsg.kind + '">' + setupMsg.text + '</div>' : "";
 
   var found = d.found ? renderFound(d.found) : "";
+  var test = d.test ? renderTest(d.test) : "";
 
   document.getElementById("setup").innerHTML =
     '<div class="setup">' +
@@ -1209,7 +1410,7 @@ function drawSettings(){
         '<button onclick="drawSettingsMenu()">' + t("back_menu") + '</button>' +
       '</div>' +
       '<div class="sbody">' +
-        msg + found +
+        msg + test + found +
         '<div class="sub" style="margin:2px 0 6px">' + t("slave_hint") + '</div>' +
         rows +
         ecRow(d) +
@@ -1224,6 +1425,7 @@ function drawSettings(){
       '<div class="ranges sfoot">' +
         '<button onclick="autoAssign()">' + t("auto_assign") + '</button>' +
         '<button onclick="scanBus()">' + t("scan_bus") + '</button>' +
+        '<button onclick="testSensors()">' + t("test_btn") + '</button>' +
         '<button onclick="saveSettings()" aria-pressed="true">' + t("save") + '</button>' +
       '</div>' +
     '</div>';
@@ -1267,6 +1469,57 @@ function senName(key){
   if (key === "do") return t("n_do");
   if (key === "ec") return t("n_ec");
   return key;
+}
+
+// 센서 테스트 결과 — 통신 / 전극 / 값 세 층을 나눠 보여 준다.
+// 셋은 고쳐야 할 곳이 서로 다르므로 뭉뚱그리면 헛수고를 시킨다.
+function verdictText(f){
+  if (f.verdict === "ok") return {cls:"okv", txt:t("v_ok")};
+  if (f.verdict === "probe") return {cls:"badv", txt:t("v_probe")};
+  if (f.verdict === "range") return {cls:"badv", txt:t("v_range")};
+  if (f.verdict === "supersat")
+    return {cls:"badv", txt:t("v_supersat").replace("{{p}}", String(f.saturation))};
+  return {cls:"badv", txt:t("v_undecodable")};
+}
+
+function renderTest(list){
+  if (!list.length) return '<div class="msg err">' + t("test_none") + '</div>';
+  var blocks = list.map(function(sen){
+    var head = '<b>' + esc(sen.label || sen.key) + '</b> <span class="dim">ID ' + sen.slave_id + '</span> — ' +
+      (sen.ok ? '<span class="okv">' + t("test_comm_ok") + '</span>'
+              : '<span class="badv">' + t("test_no_reply") + '</span>');
+    if (!sen.ok) return '<div class="trow">' + head + '</div>';
+    var rows = (sen.fields || []).map(function(f){
+      var v = verdictText(f);
+      var shown = (f.value === null || f.value === undefined) ? "--" : f.value;
+      return '<div class="tfield">' +
+        '<span class="tname">' + esc(f.name) + '</span>' +
+        '<span class="tval">' + esc(String(shown)) + ' <span class="dim">' + esc(f.unit || "") + '</span></span>' +
+        '<span class="' + v.cls + '">' + v.txt + '</span>' +
+        '<span class="dim traw">원시 ' + (f.raw === null ? "-" : f.raw) + '</span>' +
+      '</div>';
+    }).join("");
+    return '<div class="trow">' + head + rows + '</div>';
+  }).join("");
+  return '<div class="found" style="max-height:none">' +
+    '<b>' + t("test_title") + '</b>' + blocks + '</div>';
+}
+
+function testSensors(){
+  setupMsg = {kind:"ok", text:t("test_running")};
+  setupData.test = null;
+  drawSettings();
+  fetch("/api/sensors/test", {method:"POST"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      setupData.test = d.result || [];
+      setupMsg = null;
+      drawSettings();
+    })
+    .catch(function(){
+      setupMsg = {kind:"err", text:t("test_fail")};
+      drawSettings();
+    });
 }
 
 function renderFound(found){
@@ -1633,6 +1886,7 @@ def serve(
     on_unlink=None,
     history=None,
     on_scan=None,
+    on_test=None,
     on_save_sensors=None,
     on_set_id=None,
     on_auto=None,
@@ -1644,6 +1898,8 @@ def serve(
     on_set_lang=None,
     on_restart=None,
     on_reboot=None,
+    get_calibration=None,
+    on_save_calibration=None,
     get_nutrient=None,
     on_save_nutrient=None,
 ) -> ThreadingHTTPServer | None:
@@ -1674,6 +1930,8 @@ def serve(
                 self._history()
             elif self.path == "/api/sensors" and get_sensors is not None:
                 self._send(200, json.dumps(get_sensors()).encode(), "application/json")
+            elif self.path == "/api/calibration" and get_calibration is not None:
+                self._send(200, json.dumps(get_calibration()).encode(), "application/json")
             elif self.path == "/api/nutrient" and get_nutrient is not None:
                 self._send(200, json.dumps(get_nutrient()).encode(), "application/json")
             elif self.path == "/api/wifi" and get_wifi is not None:
@@ -1710,6 +1968,10 @@ def serve(
                 # 선을 훑는 동안 측정 차례가 오면 기다린다. 몇 초 걸릴 수 있다.
                 self._send(200, json.dumps({"found": on_scan()}).encode(), "application/json")
                 return
+            if self.path == "/api/sensors/test" and on_test is not None:
+                # 센서를 실제로 읽으므로 몇 초 걸릴 수 있다.
+                self._send(200, json.dumps({"result": on_test()}).encode(), "application/json")
+                return
             if self.path == "/api/sensors/auto" and on_auto is not None:
                 self._send(200, json.dumps(on_auto()).encode(), "application/json")
                 return
@@ -1741,6 +2003,10 @@ def serve(
                                "application/json")
                     return
                 self._send(200, json.dumps(on_wifi_connect(ssid, password)).encode(),
+                           "application/json")
+                return
+            if self.path == "/api/calibration/save" and on_save_calibration is not None:
+                self._send(200, json.dumps(on_save_calibration(self._body())).encode(),
                            "application/json")
                 return
             if self.path == "/api/nutrient/save" and on_save_nutrient is not None:

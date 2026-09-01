@@ -23,6 +23,7 @@ import argparse
 import configparser
 import json
 import logging
+import math
 import os
 import signal
 import struct
@@ -66,7 +67,7 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.7.1"
+VERSION = "1.8.0"
 log = logging.getLogger("shrimp365")
 
 
@@ -99,6 +100,8 @@ class ModbusClient:
         self._ser: serial.Serial | None = None
         # 마지막으로 선을 쓴 시각. 다음 프레임을 언제 보낼 수 있는지 계산한다.
         self._last_use = 0.0
+        # 직전에 말을 건 슬레이브. 상대가 바뀔 때는 더 오래 쉰다(아래 참고).
+        self._last_slave: int | None = None
 
     def _frame_gap(self) -> float:
         """MODBUS-RTU 가 요구하는 프레임 간 침묵(3.5 문자 시간).
@@ -113,11 +116,51 @@ class ModbusClient:
         """
         return max(0.008, 3.5 * 11.0 / self.baudrate)
 
-    def _await_gap(self) -> None:
+    # 상대를 바꿀 때 두는 여유. 규격상으로는 3.5문자면 되지만, 값싼 USB-RS485
+    # 변환기는 송신에서 수신으로 넘어가는 데 그보다 오래 걸린다. 앞 기기가
+    # 말을 끝낸 직후 다른 기기에게 물으면 변환기가 아직 송신 상태라 첫 바이트를
+    # 놓치고, 그 결과 "응답 없음"·CRC 오류가 난다. 한 대만 물렸을 때는 상대가
+    # 바뀌지 않아 드러나지 않고, 여러 대일 때만 한 대씩 돌아가며 실패한다.
+    #
+    # 50ms 는 반응이 느린 변환기까지 감안한 값이다. 센서 세 대라도 한 주기에
+    # 100ms 남짓 더 쓸 뿐이라(측정 주기는 60초) 비용이 사실상 없다.
+    SLAVE_SWITCH_GAP = 0.05
+
+    def _await_gap(self, slave_id: int | None = None) -> None:
         idle = time.monotonic() - self._last_use
         gap = self._frame_gap()
+        if slave_id is not None and self._last_slave is not None and slave_id != self._last_slave:
+            gap = max(gap, self.SLAVE_SWITCH_GAP)
         if idle < gap:
             time.sleep(gap - idle)
+
+    def _drain(self, quiet: float = 0.02, limit: float = 0.5) -> None:
+        """오류가 난 뒤 선에 남은 바이트를 끝까지 걷어 낸다.
+
+        센서 한 대가 늦게 답하거나 프레임이 깨지면, 그 잔여 바이트가 선에
+        남는다. 곧바로 다음 센서에게 물으면 그 바이트가 먼저 읽혀 "다른
+        기기가 응답함"·CRC 불일치로 이어진다. 한 대만 물렸을 때는 부딪힐
+        상대가 없어 멀쩡하고, 두 대 이상일 때만 번갈아 실패하는 이유다.
+
+        그래서 실패한 순간에는 선이 조용해질 때까지 비운 뒤 다음으로 넘어간다.
+        조용해지면 바로 끝내므로 정상일 때는 시간을 쓰지 않는다.
+        """
+        if self._ser is None or not self._ser.is_open:
+            return
+        deadline = time.monotonic() + limit
+        try:
+            while time.monotonic() < deadline:
+                pending = self._ser.in_waiting
+                if pending:
+                    self._ser.read(pending)
+                    continue
+                time.sleep(quiet)
+                if not self._ser.in_waiting:
+                    break
+            self._ser.reset_input_buffer()
+        except (OSError, serial.SerialException):
+            pass          # 선이 빠졌을 수도 있다. 정리 실패가 수집을 막아선 안 된다.
+        self._last_use = time.monotonic()
 
     def open(self) -> None:
         if self._ser and self._ser.is_open:
@@ -147,23 +190,30 @@ class ModbusClient:
 
         # 앞 프레임이 끝난 뒤 충분히 조용해질 때까지 기다렸다가 버퍼를 비운다.
         # 순서가 중요하다 — 먼저 비우면 그 뒤에 도착하는 꼬리를 못 걸러 낸다.
-        self._await_gap()
+        self._await_gap(slave_id)
         self._ser.reset_input_buffer()
         self._ser.write(frame)
+        self._last_slave = slave_id
 
         # 응답: ID(1) 기능코드(1) 바이트수(1) 데이터(2*count) CRC(2)
         expected = 5 + count * 2
         response = self._ser.read(expected)
         self._last_use = time.monotonic()
-        if len(response) < 5:
-            raise ModbusError(f"ID {slave_id}: 응답 없음 (배선·전원·슬레이브 ID 확인)")
 
+        # 어긋난 프레임을 그대로 두면 다음 센서 차례를 망친다.
+        # 실패로 판단하는 모든 길에서 선을 비우고 나간다.
+        def fail(reason: str) -> ModbusError:
+            self._drain()
+            return ModbusError(f"ID {slave_id}: {reason}")
+
+        if len(response) < 5:
+            raise fail("응답 없음 (배선·전원·슬레이브 ID 확인)")
         if response[0] != slave_id:
-            raise ModbusError(f"ID {slave_id}: 다른 기기가 응답함({response[0]})")
+            raise fail(f"다른 기기가 응답함({response[0]})")
         if response[1] & 0x80:
-            raise ModbusError(f"ID {slave_id}: 예외 응답 코드 {response[2]}")
+            raise fail(f"예외 응답 코드 {response[2]}")
         if crc16(response[:-2]) != response[-2:]:
-            raise ModbusError(f"ID {slave_id}: CRC 불일치 (노이즈·종단저항 확인)")
+            raise fail("CRC 불일치 (노이즈·종단저항 확인)")
 
         byte_count = response[2]
         data = response[3:3 + byte_count]
@@ -377,6 +427,74 @@ def dump_registers(client: ModbusClient, slave_id: int) -> list[str]:
     return lines
 
 
+def test_sensors(client: ModbusClient, enabled: dict[str, int],
+                 ec_mode: str = "salinity") -> list[dict]:
+    """켜 둔 센서를 지금 한 번 읽어 항목마다 상태를 매긴다.
+
+    현장에서 값이 안 나올 때 SSH 로 --dump 를 치지 않고도 원인을 가리려고
+    만들었다. 통신이 되는지, 전극이 값을 내는지, 값이 말이 되는지를 나눠
+    보여 준다 — 셋은 고쳐야 할 곳이 서로 다르기 때문이다.
+
+    돌려주는 것: [{key, label, slave_id, ok, error, fields:[{name, value,
+    unit, raw, verdict}]}]
+    """
+    out: list[dict] = []
+    for key, slave_id in enabled.items():
+        spec = SENSOR_SPECS[key]
+        entry: dict = {
+            "key": key, "label": SENSOR_LABELS.get(key, key),
+            "slave_id": slave_id, "ok": False, "error": None, "fields": [],
+        }
+        try:
+            regs = client.read_input_registers(slave_id, 0x0000, 16)
+        except (ModbusError, serial.SerialException) as exc:
+            # 통신 자체가 안 된다 — 배선·전원·슬레이브 ID 를 봐야 한다.
+            entry["error"] = "no_reply"
+            log.info("[테스트] %s(ID %s) 응답 없음: %s", key, slave_id, exc)
+            out.append(entry)
+            continue
+
+        entry["ok"] = True          # 변환기와는 이야기가 됐다
+        water_t = None
+        for name, idx in spec.fields.items():
+            decoded = decode(regs, idx)
+            raw = regs[idx] if idx < len(regs) else None
+            item: dict = {"name": name, "raw": raw, "value": None, "unit": "", "verdict": "?"}
+            if decoded is None:
+                item["verdict"] = "undecodable"
+                entry["fields"].append(item)
+                continue
+            raw_value, unit = decoded
+            item["unit"] = unit
+            value = normalize(name, raw_value, unit)
+            if value is None:
+                item["verdict"] = "undecodable"
+                entry["fields"].append(item)
+                continue
+            item["value"] = value
+            if raw is not None and raw in (0x7FFF, -1, 0xFFFF):
+                item["verdict"] = "probe"        # 변환기는 살아 있고 전극이 값을 못 냄
+            elif not plausible(name, value):
+                item["verdict"] = "range"
+            else:
+                item["verdict"] = "ok"
+                if name == "temperature":
+                    water_t = value
+            entry["fields"].append(item)
+
+        # 값 자체는 범위 안이어도 물에서 나올 수 없는 경우가 있다(전극이 공중).
+        if water_t is not None:
+            sat = do_saturation_mgl(water_t)
+            for item in entry["fields"]:
+                if item["name"] == "do_level" and item["verdict"] == "ok" and sat > 0:
+                    pct = item["value"] / sat * 100.0
+                    if pct > DO_SUPERSAT_LIMIT:
+                        item["verdict"] = "supersat"
+                        item["saturation"] = round(pct)
+        out.append(entry)
+    return out
+
+
 def scan_bus(client: ModbusClient, first: int, last: int) -> list[tuple[int, str, str]]:
     """선에 물려 있는 슬레이브 ID 를 훑는다.
 
@@ -552,6 +670,64 @@ def normalize(name: str, value: float, unit: str) -> float | None:
     return round(value, 3)
 
 
+# ── 센서값 보정 ───────────────────────────────────────────────────────────────
+# 전극은 쓰다 보면 실제와 조금씩 어긋난다. 휴대용 측정기 값에 맞추도록
+# 항목마다 더할 값(offset)을 둔다.
+#
+# 1점 보정이다 — 한 지점에서 맞추므로 측정 범위 전체가 맞지는 않는다.
+# 전극 자체의 영점·기울기 보정을 대신하지 못하며, 어긋남이 크면(예: 두 배)
+# 보정으로 덮지 말고 전극을 손봐야 한다. 그래서 화면에서 큰 보정값을 넣으면
+# 경고를 띄운다.
+CALIBRATED = ("temperature", "ph", "do_level", "conductivity")
+
+
+def apply_calibration(values: dict[str, float], offsets: dict[str, float]) -> dict[str, float]:
+    """보정값을 더한 새 측정값을 돌려준다. 원본은 건드리지 않는다."""
+    out = dict(values)
+    for name in CALIBRATED:
+        off = offsets.get(name, 0.0)
+        if not off or name not in out:
+            continue
+        fixed = out[name] + off
+        # 보정 때문에 있을 수 없는 값이 되면 보정을 접는다. 음수 용존산소 같은
+        # 값을 만들어 내는 것보다 원값을 그대로 두는 편이 정직하다.
+        if plausible(name, fixed):
+            out[name] = round(fixed, 3)
+        else:
+            log.warning("%s 보정값(%+g)을 적용하면 범위를 벗어나 적용하지 않습니다.", name, off)
+    return out
+
+
+# ── 용존산소 타당성 ──────────────────────────────────────────────────────────
+# 물이 품을 수 있는 산소량은 수온으로 정해진다(1기압 담수 기준, Benson-Krause).
+# 24℃ 물은 8.4 mg/L 언저리가 한계다. 그보다 한참 높은 값이 나오면 물이 아니라
+# 공기를 재고 있거나 보정이 틀어진 것이다 — 값을 버리지는 않되 알려 준다.
+def do_saturation_mgl(celsius: float) -> float:
+    """수온에서의 100% 포화 용존산소(mg/L). 계산 못 하면 0."""
+    if celsius < -5 or celsius > 60:
+        return 0.0
+    t = celsius + 273.15
+    try:
+        return math.exp(-139.34411 + 1.575701e5 / t - 6.642308e7 / t ** 2
+                        + 1.243800e10 / t ** 3 - 8.621949e11 / t ** 4)
+    except (OverflowError, ValueError):
+        return 0.0
+
+
+# 이 배수를 넘으면 물에서 나올 수 없는 값으로 본다. 산소를 세게 불어넣는
+# 수조도 120% 를 넘기 어렵고, 전극이 공기 중에 있으면 200% 를 훌쩍 넘는다.
+DO_SUPERSAT_LIMIT = 150.0
+
+# 센서 사이 수온이 이만큼(℃) 벌어지면 하나가 물 밖이라고 본다.
+# 같은 수조에 담긴 전극들은 계절이 어떻든 이보다 가깝다.
+TEMP_DISAGREE_C = 3.0
+
+# 센서마다 "이게 없으면 못 쓰는" 주 항목. 부수 항목(포화도·TDS·ORP)이 값을
+# 못 내는 것은 흔하고 해가 없으므로 오류로 올리지 않는다 — 그래야 진짜 고장이
+# 잡음에 묻히지 않는다.
+PRIMARY_FIELD = {"ph": "ph", "do": "do_level", "ec": "conductivity"}
+
+
 # ── 양액(수경재배) EC 관리 ────────────────────────────────────────────────────
 # EC 로 양액 농도를 보고 보충량을 계산한다. 계산식은 현장에서 쓰던 환산표
 # (쪽파 수경재배 EC 자동계산)를 그대로 옮긴 것이다.
@@ -701,18 +877,32 @@ def read_all(client: ModbusClient, enabled: dict[str, int],
         # 한 번 어긋나면 한 번만 다시 물어본다. 선을 여럿이 나눠 쓰다 보면
         # 잡음이나 응답 겹침으로 한 프레임이 깨지는 일이 있는데, 그때마다
         # 한 주기를 통째로 버릴 이유는 없다.
+        # 다시 물어볼 때는 점점 더 오래 쉰다.
+        #
+        # 반응이 느린 변환기는 앞 기기의 응답이 끝난 직후에는 대답을 못 하다가,
+        # 선이 충분히 조용해지면 멀쩡히 답한다. 실제로 [선 훑기]에서는 잡히는데
+        # [센서 테스트]에서는 응답 없음으로 나오는 일이 있었다 — 훑기는 빈 ID 를
+        # 지나며 1초씩 쉬어 가는 반면, 테스트는 30ms 만에 다음 기기를 부르기
+        # 때문이다. 그래서 짧게 두 번 더 시도하되 간격을 늘려 준다.
+        # 정상일 때는 첫 시도에서 끝나므로 시간을 쓰지 않는다.
+        RETRY_WAITS = (0.15, 0.4)
         regs = None
-        for attempt in (1, 2):
+        last_exc: Exception | None = None
+        for attempt in range(len(RETRY_WAITS) + 1):
             try:
                 regs = client.read_input_registers(slave_id, 0x0000, 16)
+                if attempt:
+                    log.info("%s 센서: %d번째 시도에서 응답했습니다.", key, attempt + 1)
                 break
             except (ModbusError, serial.SerialException) as exc:
-                if attempt == 1:
-                    log.debug("%s 센서 읽기 실패(%s) — 다시 시도합니다.", key, exc)
-                    time.sleep(0.05)
+                last_exc = exc
+                if attempt < len(RETRY_WAITS):
+                    log.debug("%s 센서 읽기 실패(%s) — %.2f초 뒤 다시 시도합니다.",
+                              key, exc, RETRY_WAITS[attempt])
+                    time.sleep(RETRY_WAITS[attempt])
                     continue
-                errors[key] = str(exc)
-                log.warning("%s 센서 읽기 실패: %s", key, exc)
+                errors[key] = "no_reply"
+                log.warning("%s 센서 읽기 실패: %s", key, last_exc)
         if regs is None:
             continue
 
@@ -724,6 +914,14 @@ def read_all(client: ModbusClient, enabled: dict[str, int],
             value = normalize(name, raw_value, unit)
             if value is None:
                 continue
+            # 값이 없다는 신호(16비트 최대치)는 나누기 전 원시 레지스터로 봐야
+            # 한다. decode 가 소수점을 이미 적용해 돌려주므로 그 값과 비교하면
+            # 영영 걸리지 않는다(1.7.1~1.7.8 의 결함).
+            sentinel = idx < len(regs) and regs[idx] in (0x7FFF, -1, 0xFFFF)
+            if sentinel and name != PRIMARY_FIELD.get(key):
+                # 부수 항목이 값을 못 내는 것뿐이다. 조용히 넘긴다.
+                log.debug("%s 의 %s 는 값을 내지 않습니다(원시 %s).", key, name, regs[idx])
+                continue
             if not plausible(name, value):
                 # 있을 수 없는 값이다. 담아 두면 화면·그래프가 망가지고,
                 # 서버는 어차피 버리므로 여기서 이유를 남기고 끊는다.
@@ -732,7 +930,15 @@ def read_all(client: ModbusClient, enabled: dict[str, int],
                     "--dump 으로 레지스터를 확인해 보세요.",
                     key, name, value, raw_value, unit or "단위없음",
                 )
-                errors.setdefault(key, f"{name} 값 이상({value})")
+                # 원시값이 16비트 최대치면 값이 없다는 뜻이다. 변환기는 살아
+                # 있는데 전극이 안 붙었거나 망가졌을 때 이 값을 내보낸다.
+                # 배선을 뜯기 전에 전극부터 보라고 따로 알려 준다.
+                if sentinel:
+                    errors.setdefault(key, "probe")
+                    log.warning("%s 전극이 값을 내지 못합니다(원시 %s) — 전극 연결을 확인하세요.",
+                                key, regs[idx])
+                else:
+                    errors.setdefault(key, f"range:{value}")
                 continue
 
             if name == "temperature":
@@ -744,10 +950,76 @@ def read_all(client: ModbusClient, enabled: dict[str, int],
                     raw_conductivity = (raw_value, unit)
 
     # 수온은 한 값만 보낸다 — 센서마다 미세하게 다른 값을 겹쳐 보내면 혼란스럽다.
+    # 센서마다 수온이 다르면 그중 하나가 물 밖이다.
+    #
+    # 전극들은 같은 물에 담겨 있으니 수온이 몇 도씩 벌어질 수 없다. 벌어졌다면
+    # 그 전극만 공기 중(대개 함체 안이라 더 덥다)에 있다는 뜻이다. 실제로
+    # DO 만 31.4℃, pH·EC 는 23~24℃ 로 온 적이 있는데, 우선순위상 DO 를 먼저
+    # 쓰던 탓에 공기 온도가 수조 수온으로 기록되고 있었다.
+    #
+    # 그래서 튀는 전극은 수온 후보에서 빼고, 사람에게도 알린다. 값을 조용히
+    # 고르기만 하면 전극이 물 밖에 있다는 사실 자체를 아무도 모르게 된다.
+    trusted = dict(temps)
+    if len(temps) >= 2:
+        ordered = sorted(temps.values())
+        if ordered[-1] - ordered[0] > TEMP_DISAGREE_C:
+            mid = len(ordered) // 2
+            median = ordered[mid] if len(ordered) % 2 else (ordered[mid - 1] + ordered[mid]) / 2
+            outlier = max(temps, key=lambda k: abs(temps[k] - median))
+            errors.setdefault(outlier, f"temp_off:{temps[outlier]:.1f}/{median:.1f}")
+            log.warning(
+                "%s 센서의 수온(%.1f℃)이 다른 센서(%.1f℃)와 %.1f도 차이 납니다 — "
+                "그 전극이 물 밖에 있을 수 있습니다. 수온은 나머지 센서 값을 씁니다.",
+                outlier, temps[outlier], median, abs(temps[outlier] - median),
+            )
+            trusted.pop(outlier, None)
+
     for key in TEMPERATURE_PRIORITY:
-        if key in temps:
-            values["temperature"] = temps[key]
+        if key in trusted:
+            values["temperature"] = trusted[key]
             break
+    else:
+        # 전부 이상치로 걸러졌을 리는 없지만, 그래도 값은 남긴다.
+        if temps:
+            values["temperature"] = next(iter(temps.values()))
+
+    # 용존산소가 물에서 나올 수 없는 값인지 본다. 값은 그대로 두고(사람이
+    # 직접 봐야 판단이 된다) 이상하다는 사실만 함께 남긴다. 전극이 물에 안
+    # 잠겼거나 보정이 틀어졌을 때 여기에 걸린다.
+    do_val = values.get("do_level")
+    water_t = values.get("temperature")
+    if do_val is not None and water_t is not None:
+        sat = do_saturation_mgl(water_t)
+        if sat > 0:
+            pct = do_val / sat * 100.0
+            if pct > DO_SUPERSAT_LIMIT:
+                # 센서가 스스로 보고하는 포화도(%)와 견줘 원인을 가른다.
+                # 같은 전극에서 나온 두 값이라 서로 어긋나면 뜻이 분명하다.
+                #   · 센서도 높다고 함  → 전극이 실제로 산소가 많은 곳(대개 공기)에 있다
+                #   · 센서는 정상이라 함 → mg/L 눈금만 어긋났다(보정 문제)
+                # 고칠 방법이 서로 달라서 뭉뚱그리면 헛수고를 시킨다.
+                reported = values.get("do_saturation")
+                if reported is not None and 60.0 <= reported <= 140.0:
+                    errors.setdefault("do", f"do_scale:{round(pct)}/{round(reported)}")
+                    log.warning(
+                        "용존산소 mg/L 눈금이 어긋난 것으로 보입니다: %s mg/L 은 포화 %d%% 인데 "
+                        "센서가 보고한 포화도는 %d%% 입니다 — 보정이 필요합니다.",
+                        do_val, round(pct), round(reported),
+                    )
+                elif reported is not None and reported > 140.0:
+                    errors.setdefault("do", f"do_air:{round(pct)}")
+                    log.warning(
+                        "용존산소가 물에서 나올 수 없는 값입니다: %s mg/L (포화 %d%%), "
+                        "센서 보고 포화도도 %d%% — 전극이 물에 잠겼는지 확인하세요.",
+                        do_val, round(pct), round(reported),
+                    )
+                else:
+                    errors.setdefault("do", f"supersat:{round(pct)}")
+                    log.warning(
+                        "용존산소가 물에서 나올 수 없는 값입니다: %s mg/L (수온 %s℃ 포화 %.1f, %d%%) "
+                        "— 전극이 물에 잠겼는지, 보정이 되어 있는지 확인하세요.",
+                        do_val, water_t, sat, round(pct),
+                    )
 
     # 염도는 전도도에서 환산한다. 센서의 염도 레지스터는 믿지 않는다.
     # 수온이 있어야 실용염분식을 쓸 수 있으므로 수온을 고른 뒤에 계산한다.
@@ -1053,6 +1325,45 @@ def save_nutrient(config_path: Path, values: dict) -> bool:
         return False
 
 
+def save_calibration(config_path: Path, offsets: dict[str, float]) -> bool:
+    """보정값을 [calibration] 구간에 적는다. 없으면 구간째 만들어 붙인다."""
+    try:
+        lines = config_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    except OSError:
+        return False
+    wanted = {f"{k}_offset": f"{v:g}" for k, v in offsets.items()}
+    seen: set[str] = set()
+    in_sec = False
+    insert_at = None
+    for i, line in enumerate(lines):
+        stripped = line.strip().lower()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if in_sec and insert_at is None:
+                insert_at = i
+            in_sec = stripped == "[calibration]"
+            continue
+        if in_sec:
+            for key, val in wanted.items():
+                if stripped.startswith(key) and "=" in line:
+                    lines[i] = f"{key} = {val}\n"
+                    seen.add(key)
+    missing = [f"{k} = {v}\n" for k, v in wanted.items() if k not in seen]
+    if missing:
+        if insert_at is not None:
+            lines[insert_at:insert_at] = missing
+        elif in_sec:
+            lines.extend(missing)
+        else:
+            lines.append("\n[calibration]\n")
+            lines.extend(missing)
+    try:
+        config_path.write_text("".join(lines), encoding="utf-8")
+        os.chmod(config_path, 0o600)
+        return True
+    except OSError:
+        return False
+
+
 def save_device_key(config_path: Path, key: str) -> bool:
     """받은 기기 키를 설정 파일에 적는다.
 
@@ -1294,6 +1605,14 @@ def main() -> int:
             return cfg.getfloat("nutrient", key, fallback=default)
         except ValueError:
             return default
+    # 센서값 보정(더할 값). 화면에서 실측값을 넣으면 여기에 반영된다.
+    cal_holder = {
+        name: cfg.getfloat("calibration", f"{name}_offset", fallback=0.0)
+        for name in CALIBRATED
+    }
+    # 보정 전 원값 — 보정 화면이 "지금 센서가 읽은 값" 을 보여 줄 때 쓴다.
+    raw_holder: dict[str, float] = {}
+
     nut_holder = {
         "enabled": cfg.getboolean("nutrient", "enabled", fallback=False),
         "target_ec": _nf("target_ec", 1.8),
@@ -1721,6 +2040,16 @@ def main() -> int:
             log.info("화면에서 슬레이브 ID 를 바꿨습니다: %d → %d", old_id, new_id)
             return {"ok": True}
 
+        def ui_test() -> list[dict]:
+            """화면의 [센서 테스트]. 측정 차례와 겹치지 않게 자물쇠를 잡는다."""
+            with serial_lock:
+                try:
+                    return test_sensors(client_holder["client"], dict(enabled),
+                                        ec_holder["mode"])
+                except serial.SerialException as exc:
+                    return [{"key": "_", "label": "", "slave_id": 0, "ok": False,
+                             "error": str(exc)[:120], "fields": []}]
+
         def ui_auto() -> dict:
             """꽂아 둔 센서를 훑어 배치를 제안한다. 저장은 사람이 누른다."""
             with serial_lock:
@@ -1763,6 +2092,55 @@ def main() -> int:
             if wifi_mod is None:
                 return {"ok": False, "error": "이 기기에서 Wi‑Fi 설정을 지원하지 않습니다."}
             return wifi_mod.connect(ssid, password)
+
+        def ui_calibration() -> dict:
+            """보정 화면에 필요한 것 — 지금 읽은 값(보정 전), 보정값, 보정 후."""
+            raw = {k: raw_holder.get(k) for k in CALIBRATED}
+            fixed = apply_calibration(
+                {k: v for k, v in raw_holder.items() if v is not None}, cal_holder)
+            return {
+                "offsets": dict(cal_holder),
+                "raw": raw,
+                "corrected": {k: fixed.get(k) for k in CALIBRATED},
+            }
+
+        def ui_save_calibration(payload: dict) -> dict:
+            """보정값을 정한다.
+
+            사람은 오프셋을 계산하지 않는다. 휴대용 측정기로 잰 값(actual)을
+            넣으면 지금 센서값과의 차이를 장비가 구한다. offset 을 직접 주는
+            길도 열어 두되(초기화·미세조정), 화면은 실측값 쪽을 쓴다.
+            """
+            name = payload.get("name")
+            if name not in CALIBRATED:
+                return {"ok": False, "error": "알 수 없는 항목입니다."}
+
+            if "offset" in payload:                     # 직접 지정(초기화 포함)
+                try:
+                    offset = float(payload["offset"])
+                except (TypeError, ValueError):
+                    return {"ok": False, "error": "숫자가 아닙니다."}
+            else:                                       # 실측값으로 계산
+                measured = raw_holder.get(name)
+                if measured is None:
+                    return {"ok": False, "error": "지금 센서값이 없어 보정할 수 없습니다."}
+                try:
+                    actual = float(payload.get("actual"))
+                except (TypeError, ValueError):
+                    return {"ok": False, "error": "숫자가 아닙니다."}
+                offset = actual - measured
+
+            # 터무니없는 보정은 막는다. 이만큼 어긋났다면 보정으로 덮을 일이
+            # 아니라 전극을 손봐야 한다 — 덮어 두면 잘못된 값을 믿게 된다.
+            LIMIT = {"temperature": 10.0, "ph": 3.0, "do_level": 5.0, "conductivity": 5000.0}
+            if abs(offset) > LIMIT[name]:
+                return {"ok": False,
+                        "error": f"보정값이 너무 큽니다({offset:+.2f}). 전극 상태를 먼저 확인하세요."}
+
+            cal_holder[name] = round(offset, 3)
+            saved = save_calibration(args.config, dict(cal_holder))
+            log.info("보정값을 바꿨습니다: %s %+g (파일 저장 %s)", name, offset, saved)
+            return {"ok": True, "saved": saved, "offset": cal_holder[name]}
 
         def ui_nutrient() -> dict:
             return dict(nut_holder)
@@ -1853,6 +2231,7 @@ def main() -> int:
             on_unlink=unlink_account,
             history=hist,
             on_scan=ui_scan,
+            on_test=ui_test,
             on_save_sensors=ui_save_sensors,
             on_set_id=ui_set_id,
             on_auto=ui_auto,
@@ -1864,6 +2243,8 @@ def main() -> int:
             on_set_lang=ui_set_lang,
             on_restart=ui_restart,
             on_reboot=ui_reboot,
+            get_calibration=ui_calibration,
+            on_save_calibration=ui_save_calibration,
             get_nutrient=ui_nutrient,
             on_save_nutrient=ui_save_nutrient,
         )
@@ -1909,6 +2290,9 @@ def main() -> int:
 
         with serial_lock:
             values, errors = read_all(client, dict(enabled), ec_to_ppm, ec_holder["mode"])
+            raw_holder.clear()
+            raw_holder.update(values)          # 보정 전 값을 화면이 볼 수 있게 남긴다
+            values = apply_calibration(values, cal_holder)
 
         if not values:
             log.error("읽은 값이 없습니다. 배선·전원·슬레이브 ID를 확인하세요. %s", errors)
@@ -1933,6 +2317,11 @@ def main() -> int:
             else:
                 recorded_at = time.strftime("%Y-%m-%dT%H:%M:%S%z") or None
                 payload = {**values, "serial": serial_no, "firmware": f"pi-{VERSION}"}
+                # 못 읽은 센서의 사유를 함께 보낸다. 값만 빼고 보내면 웹은
+                # "왜 없는지" 를 알 길이 없어, 현장에 가 봐야만 원인을 안다.
+                # 서버는 이 값을 기기 카드의 마지막 수신값에 그대로 남긴다.
+                for _k, _why in errors.items():
+                    payload[f"err_{_k}"] = str(_why)[:60]
                 # 양액 요약(nut_*) — 계산이 있을 때만. 웹 양액 상태 카드가 쓴다.
                 payload.update(nutrient_payload(nutrient, nut_holder))
 

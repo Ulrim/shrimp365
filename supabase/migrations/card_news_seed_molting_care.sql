@@ -27,7 +27,7 @@ values (
 
 ■ 껍질이 굳지 않는다면 — 탈피 부전
 
-새 껍질을 만드는 데는 물속의 무기질이 쓰입니다. 알칼리도가 낮은 물에서는 껍질이 제대로 굳지 못하고, 탈피를 시작했다가 마치지 못한 채 죽는 개체가 나옵니다. 이것을 탈피 부전이라고 부릅니다.
+새 껍질을 만드는 데는 물속의 무기질이 쓰입니다. 알칼리도(pH가 흔들리지 않게 붙잡아 주는 힘)가 낮은 물에서는 껍질이 제대로 굳지 못하고, 탈피를 시작했다가 마치지 못한 채 죽는 개체가 나옵니다. 이것을 탈피 부전이라고 부릅니다.
 
 알칼리도는 100~150 mg/L를 기준으로 관리하십시오. 이 값은 pH를 안정시키는 역할도 함께 합니다. 알칼리도가 낮으면 하루 중 pH 변동 폭이 커지고, 그 자체로 새우에게 부담이 됩니다.
 
@@ -82,5 +82,4 @@ on conflict (slug, locale) do update set
   cover_url    = excluded.cover_url,
   tags         = excluded.tags,
   published    = excluded.published,
-  published_at = excluded.published_at,
   updated_at   = now();

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { readSensorFaults } from "@/lib/sensor-faults"
 import { MOCK_FARMS, MOCK_TANKS, MOCK_SENSOR_DEVICES, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
 import { getFarms, getTanksByFarm, getAllTanks, createFarm, createTank, updateFarm, deleteFarm, updateTank, deleteTank, getSensorDevices, deleteSensorDevice, toggleSensorDevice, requestDeviceUpdate } from "@/lib/db"
@@ -43,6 +44,7 @@ import {
   FlaskConical,
   ArrowRight,
   Box,
+  AlertTriangle,
 } from "lucide-react"
 import Link from "next/link"
 import { formatDate, computeCycleDay } from "@/lib/utils"
@@ -1253,7 +1255,9 @@ function DeviceIdentity({ device }: { device: SensorDevice }) {
     ([k, v]) => typeof v === "number" && k in PAYLOAD_LABELS
   ) as [string, number][]
 
-  if (!device.serial && measured.length === 0) return null
+  const faults = readSensorFaults(payload, t)
+
+  if (!device.serial && measured.length === 0 && faults.length === 0) return null
 
   return (
     <div className="mt-2 pt-2 border-t border-border/60 space-y-1.5">
@@ -1275,6 +1279,18 @@ function DeviceIdentity({ device }: { device: SensorDevice }) {
               </span>
             )
           })}
+        </div>
+      )}
+      {/* 값이 빠진 이유 — 장비가 함께 보낸 사유를 그대로 알려 준다.
+          이게 없으면 "왜 pH 가 안 보이지" 를 현장에 가서야 알 수 있다. */}
+      {faults.length > 0 && (
+        <div className="space-y-0.5">
+          {faults.map(f => (
+            <p key={f.sensor} className="text-[10px] text-red-500 flex items-start gap-1">
+              <AlertTriangle className="w-3 h-3 shrink-0 mt-px" aria-hidden="true" />
+              <span><span className="font-semibold">{f.sensor}</span> · {f.reason}</span>
+            </p>
+          ))}
         </div>
       )}
     </div>

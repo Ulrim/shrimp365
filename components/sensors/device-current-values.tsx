@@ -5,6 +5,7 @@
 // 대시보드처럼 "지금 어느 센서가 얼마인가" 만 빠르게 확인하는 자리에 쓴다.
 
 import { Card, CardContent } from "@/components/ui/card"
+import { readSensorFaults } from "@/lib/sensor-faults"
 import { useT } from "@/lib/i18n-context"
 import type { SensorDevice } from "@/types"
 import type { Dict } from "@/lib/i18n"
@@ -74,6 +75,12 @@ export function DeviceCurrentValues({ devices }: { devices: SensorDevice[] }) {
                 ) : (
                   <p className="text-xs text-muted-foreground/60">{t.waterQualityX.noValuesYet}</p>
                 )}
+                {/* 값이 빠진 이유 — 장비가 함께 보낸 사유. */}
+                {readSensorFaults(payload, t).map(f => (
+                  <p key={f.sensor} className="mt-1 text-[11px] text-red-500">
+                    <span className="font-semibold">{f.sensor}</span> · {f.reason}
+                  </p>
+                ))}
               </div>
             )
           })}
