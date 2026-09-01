@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
-import { ChevronLeft, ChevronRight, Check } from "lucide-react"
+import { ChevronLeft, ChevronRight, Check, Info } from "lucide-react"
 import { Tank } from "@/types"
 
 export type StepField = {
@@ -38,9 +38,12 @@ type Props = {
   saving?: boolean
   saved?: boolean
   error?: string | null
+  /** 폼 전체에 대한 안내 한 줄. 첫 스텝에서만 뜬다.
+   *  새우 폼은 넘기지 않으므로 undefined — 렌더 결과가 이전과 완전히 같다. */
+  notice?: string
 }
 
-export function StepWizard({ title, steps, tanks, values, onChange, onComplete, saving, saved, error }: Props) {
+export function StepWizard({ title, steps, tanks, values, onChange, onComplete, saving, saved, error, notice }: Props) {
   const { t } = useT()
   const [step, setStep] = useState(0)
   const total = steps.length
@@ -93,6 +96,14 @@ export function StepWizard({ title, steps, tanks, values, onChange, onComplete, 
           style={{ width: `${((step + 1) / total) * 100}%` }}
         />
       </div>
+
+      {/* 폼 전체 안내 — 필드에 딸린 힌트(bg-muted/50)와 다른 색·위치로 구분한다 */}
+      {notice && step === 0 && (
+        <p className="text-xs text-muted-foreground leading-relaxed bg-ocean-500/5 border border-ocean-500/20 rounded-xl px-3 py-2 mb-4 flex items-start gap-2">
+          <Info className="w-3.5 h-3.5 text-ocean-600 shrink-0 mt-0.5" aria-hidden="true" />
+          <span>{notice}</span>
+        </p>
+      )}
 
       {/* Step card */}
       <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-5">
