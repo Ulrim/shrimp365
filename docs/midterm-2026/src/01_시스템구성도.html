@@ -1,0 +1,163 @@
+<meta charset="utf-8">
+<style>
+  @font-face{font-family:Pretendard;src:url(__FONT__) format("woff2");font-weight:100 900;font-display:block}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Pretendard,sans-serif;background:#fff;color:#14202b;-webkit-font-smoothing:antialiased}
+  .sheet{width:1500px;padding:44px 48px 40px;background:#fff}
+
+  .head{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:3px solid #0e3a5c;padding-bottom:14px;margin-bottom:26px}
+  .head h1{font-size:36px;font-weight:800;letter-spacing:-.02em;color:#0e3a5c}
+  .head .sub{font-size:15px;color:#5b6b7a;margin-top:7px;font-weight:500}
+  .head .tag{font-size:13.5px;color:#0e3a5c;background:#e8f1f7;border:1px solid #c3dcec;border-radius:6px;padding:7px 13px;font-weight:700;line-height:1.5;text-align:right}
+
+  .band{display:flex;align-items:flex-start;gap:14px}
+  .col{flex:1;display:flex;flex-direction:column}
+  .arrow{display:flex;align-items:center;justify-content:center;width:44px;flex:0 0 44px;font-size:30px;color:#7f99ad;font-weight:700}
+
+  .zone{border:2px solid #cfdae3;border-radius:12px;background:#fff;display:flex;flex-direction:column;overflow:hidden}
+  .zone > h2{font-size:18px;font-weight:800;color:#fff;background:#0e3a5c;padding:11px 14px;letter-spacing:-.01em}
+  .zone.field > h2{background:#146b52}
+  .zone.out > h2{background:#8a4b12}
+  .zone .body{padding:13px 14px 15px;flex:1}
+  .zone .body ul{list-style:none}
+  .zone .body li{font-size:14.5px;line-height:1.55;color:#25333f;padding-left:13px;position:relative;margin-bottom:6px}
+  .zone .body li::before{content:"";position:absolute;left:0;top:8.5px;width:5px;height:5px;border-radius:50%;background:#5b8fb0}
+  .zone .body li b{font-weight:700;color:#0e3a5c}
+  .note{font-size:13px;color:#6b7c8b;margin-top:9px;padding-top:9px;border-top:1px dashed #d5dfe7;line-height:1.5}
+
+  .sub-box{border:1.5px solid #dce5ec;border-radius:9px;padding:10px 12px;margin-bottom:9px;background:#f7fafc}
+  .sub-box h3{font-size:14.5px;font-weight:800;color:#0e3a5c;margin-bottom:5px}
+  .sub-box p{font-size:13.5px;line-height:1.5;color:#3a4855}
+  .sub-box:last-child{margin-bottom:0}
+
+  .footband{margin-top:16px;border:2px solid #cfdae3;border-radius:12px;background:#f4f8fa;padding:13px 16px;display:flex;gap:26px;align-items:center}
+  .footband .lbl{font-size:16px;font-weight:800;color:#0e3a5c;white-space:nowrap;border-right:2px solid #cfdae3;padding-right:22px}
+  .footband .items{display:flex;gap:30px;flex-wrap:wrap;flex:1}
+  .footband .items div{font-size:14px;color:#25333f;line-height:1.5}
+  .footband .items b{color:#0e3a5c;font-weight:700}
+
+  .kpi{margin-top:16px;display:flex;gap:12px}
+  .kpi div{flex:1;border:1.5px solid #c3dcec;background:#e8f1f7;border-radius:9px;padding:10px 13px}
+  .kpi .k{font-size:12.5px;color:#4b687f;font-weight:700;letter-spacing:.02em}
+  .kpi .v{font-size:16px;font-weight:800;color:#0e3a5c;margin-top:3px}
+
+  .foot{margin-top:18px;font-size:12.5px;color:#7a8894;display:flex;justify-content:space-between;border-top:1px solid #e2e9ee;padding-top:11px}
+</style>
+
+<div class="sheet" id="sheet">
+  <div class="head">
+    <div>
+      <h1>AI 엣지 수질진단 모듈 시스템 구성도</h1>
+      <div class="sub">소규모·중소형 양식장 보급형 — 현장 설치형 엣지 장비 / 수조 옆에 설치되어 단독으로 측정·판단·경보</div>
+    </div>
+    <div class="tag">㈜컬리버 · Shrimp365<br>2026년 전남 지역기업 성장사다리<br>과제 1. 시제품 제작</div>
+  </div>
+
+  <div class="band">
+    <div class="col">
+      <div class="zone field">
+        <h2>① 센서부 — 수조 침지</h2>
+        <div class="body">
+          <ul>
+            <li><b>수온</b> 0~50 ℃</li>
+            <li><b>pH · ORP</b> pH 0~14</li>
+            <li><b>용존산소(DO)</b> 0~20 ㎎/L, 포화도(%) 동시 출력</li>
+            <li><b>전기전도도 · TDS · 염도</b> 염도는 전도도에서 환산</li>
+          </ul>
+          <div class="note">RS-485 MODBUS-RTU 4선(전원 2 + 통신 A/B 2)<br>센서 전원 DC 9~24V · 다중 센서 동일 선 병렬<br>확장 예정 : 탁도 · 암모니아 · 아질산 · 질산염</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow" style="align-self:center">▶</div>
+
+    <div class="col" style="flex:1.45">
+      <div class="zone">
+        <h2>② 엣지 제어부 — 현장 단독 판단</h2>
+        <div class="body">
+          <div class="sub-box">
+            <h3>데이터 수집</h3>
+            <p>USB-RS485 변환기 경유 폴링 · 측정주기 1~5분(기본 60초) · 센서별 보정값(offset) 적용</p>
+          </div>
+          <div class="sub-box">
+            <h3>데이터 저장부</h3>
+            <p>전송 실패분 재전송 큐(SQLite) · 화면 그래프용 측정 이력 별도 보관 — <b>통신 두절 시에도 72시간 이상 보존</b></p>
+          </div>
+          <div class="sub-box">
+            <h3>이상징후 판단</h3>
+            <p>규칙 기반 위험판정 + 경량 이상탐지 · 수온 급변 / pH 이탈 / DO 저하 / 탁도 상승 → <b>정상 · 주의 · 경고 · 위험</b> 4단계</p>
+          </div>
+          <div class="sub-box">
+            <h3>설비 운전 권고</h3>
+            <p>DO 저하 → 산소공급기·브로워 가동 권고 / DO 충분 지속 → 과잉 폭기 경고 / 탁도·pH 급변 → 순환펌프·여과·환수 점검 권고</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow" style="align-self:center">▶</div>
+
+    <div class="col">
+      <div class="zone out">
+        <h2>③ 현장 경보부</h2>
+        <div class="body">
+          <ul>
+            <li><b>7인치 터치 화면</b> 기준 이탈 시 해당 값 칸이 주황(주의)·빨강(위험)으로 전환</li>
+            <li><b>문자 LCD</b> 1602 / 2004 — 저가형 구성</li>
+            <li><b>부저 · 경광등</b> 확장 단자</li>
+          </ul>
+          <div class="note"><b>통신이 끊겨도 경보는 작동합니다.</b><br>현장 알림을 우선 구현한 이유입니다.<br>경보 반응시간 목표 <b>5초 이내</b></div>
+        </div>
+      </div>
+      <div class="zone out" style="margin-top:14px">
+        <h2>④ 통신부</h2>
+        <div class="body">
+          <ul>
+            <li>무선랜 / 유선 — 장비 화면에서 공유기 검색·연결</li>
+            <li>회선 복구 시 <b>끊겼던 시점부터 순서대로</b> 자동 재전송</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow" style="align-self:center">▶</div>
+
+    <div class="col">
+      <div class="zone">
+        <h2>⑤ 관리자 확인</h2>
+        <div class="body">
+          <ul>
+            <li><b>Shrimp365 웹 · 모바일</b> 수질 현황, 차트, 알림 이력</li>
+            <li>수조별 기준 이탈 알림 자동 생성·해제</li>
+            <li>주간 수질 리포트 · 운영 기록 연계</li>
+            <li>센서 오류 사유 표시(무응답 / 전극 / 범위 이탈 등)</li>
+          </ul>
+          <div class="note">6자리 코드로 기기–계정 연결<br>승인 전에는 어떤 데이터도 올라가지 않음</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footband">
+    <div class="lbl">⑥ 전원부 · 함체</div>
+    <div class="items">
+      <div><b>센서 전원</b> DC 9~24V SMPS</div>
+      <div><b>제어부 전원</b> 정격 어댑터 (전압 변동 시 통신 오류)</div>
+      <div><b>접지</b> 센서 0V와 제어부 GND 공통 결선</div>
+      <div><b>배선</b> 10 m 초과 시 양 끝 120 Ω 종단저항</div>
+      <div><b>함체</b> 방수 하우징 · 케이블 글랜드 (고습·염분 환경)</div>
+    </div>
+  </div>
+
+  <div class="kpi">
+    <div><div class="k">과제 정량목표 ①</div><div class="v">시제품 1식 제작</div></div>
+    <div><div class="k">과제 정량목표 ②</div><div class="v">성능검증 2회 이상</div></div>
+    <div><div class="k">과제 정량목표 ③</div><div class="v">데이터 저장 72시간 이상</div></div>
+    <div><div class="k">과제 정량목표 ④</div><div class="v">경보 반응 5초 이내</div></div>
+  </div>
+
+  <div class="foot">
+    <span>본 과제는 설비 직접 자동제어가 아닌 <b>이상징후 감지 · 운전 권고 · 경보</b> 중심으로 구성하며, 릴레이 출력·자동제어는 후속 고도화 단계로 연계함</span>
+    <span>㈜컬리버 / 전남 순천시 태봉길 3, 4층 401호</span>
+  </div>
+</div>
