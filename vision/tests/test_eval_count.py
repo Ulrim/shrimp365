@@ -288,7 +288,8 @@ def test_main_writes_a_json_verdict(tmp_path, monkeypatch, capsys):
     )
 
     assert code == 0  # 평균 오차 3.3% -> 기준 통과
-    assert sorted(fake.calls) == ["a.jpg", "b.jpg", "c.jpg"]
+    # 첫 장은 워밍업으로 한 번 더 돌린다(모델 적재 시간이 p95 를 오염시키지 않게).
+    assert fake.calls == ["a.jpg", "a.jpg", "b.jpg", "c.jpg"]
 
     import json
 

@@ -192,15 +192,20 @@ def run_inference(
     max_det: int = 1000,
 ) -> list[Sample]:
     model = _load_yolo(weights)
+    # max_det 를 넘기지 않으면 ultralytics 기본값 300 에서 개수가 잘린다.
+    kwargs: dict = {"conf": min_conf, "iou": iou, "max_det": max_det, "verbose": False}
+    if imgsz:
+        kwargs["imgsz"] = imgsz
+    if device:
+        kwargs["device"] = device
+
+    # 첫 장은 모델 적재·워밍업까지 포함해 수백~수천 ms 가 찍힌다. 그대로 두면
+    # p95 가 그 한 장에 끌려가 처리 시간을 잘못 보고한다. 미리 한 번 돌려 둔다.
+    model.predict(str(images[0]), **kwargs)
+
     samples: list[Sample] = []
     for image in images:
         start = time.perf_counter()
-        # max_det 를 넘기지 않으면 ultralytics 기본값 300 에서 개수가 잘린다.
-        kwargs = {"conf": min_conf, "iou": iou, "max_det": max_det, "verbose": False}
-        if imgsz:
-            kwargs["imgsz"] = imgsz
-        if device:
-            kwargs["device"] = device
         results = model.predict(str(image), **kwargs)
         latency_ms = (time.perf_counter() - start) * 1000
         scores: list[float] = []
