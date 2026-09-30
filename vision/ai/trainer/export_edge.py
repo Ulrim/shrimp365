@@ -159,10 +159,24 @@ def bench(args: argparse.Namespace) -> int:
     size = f"{frame.shape[1]}x{frame.shape[0]}"
     print(f"[측정] {args.weights} ({backend}), {args.runs}회, 프레임 {size}")
 
+    if not args.image:
+        print(
+            "  참고: --image 로 실제 수조 사진을 주는 편이 정확합니다. 합성 프레임은",
+            "검출이 거의 없어 후처리(NMS) 비용이 실제보다 싸게 나옵니다.",
+        )
     try:
         first = detector.detect(frame)  # 첫 회는 모델 적재 포함이라 따로 본다
     except RuntimeError as exc:
         print(f"{exc}", file=sys.stderr)
+        return 1
+    except ImportError:
+        # .pt 를 파이에서 직접 돌리려는 경우. ONNX 를 쓰면 필요 없다.
+        print(
+            "[오류] 이 가중치를 읽는 데 ultralytics(torch)가 필요합니다.\n"
+            "파이에서는 ONNX 로 내보낸 모델을 쓰세요(docs/VISION_MODEL_TRAINING.md):\n"
+            '    pip install -e ".[edge]"  그리고  --weights ai/models/shrimp_yolov8n.onnx',
+            file=sys.stderr,
+        )
         return 1
     print(f"  첫 회(모델 적재 포함) {first.inference_ms}ms, 검출 {first.count}개")
 
