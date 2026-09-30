@@ -158,9 +158,10 @@ def postprocess(
     boxes[:, [0, 2]] -= pad_x
     boxes[:, [1, 3]] -= pad_y
     boxes /= max(gain, 1e-9)
-    boxes[:, [0, 2]] = boxes[:, [0, 2]].clip(0, orig_w)
-    boxes[:, [1, 3]] = boxes[:, [1, 3]].clip(0, orig_h)
 
+    # 화면 밖으로 나간 부분을 자르는 것은 **NMS 뒤에** 한다. ultralytics 도 그
+    # 순서다. 먼저 자르면 테두리에 걸친 박스의 면적이 달라져 IoU 가 바뀌고,
+    # 드물게 NMS 결과가 갈린다(두 경로의 개수가 달라진다).
     result: list[BBox] = []
     for cls in np.unique(classes):
         idx = np.nonzero(classes == cls)[0]
@@ -168,10 +169,10 @@ def postprocess(
             j = int(idx[local])
             result.append(
                 BBox(
-                    float(boxes[j, 0]),
-                    float(boxes[j, 1]),
-                    float(boxes[j, 2]),
-                    float(boxes[j, 3]),
+                    float(min(max(boxes[j, 0], 0.0), orig_w)),
+                    float(min(max(boxes[j, 1], 0.0), orig_h)),
+                    float(min(max(boxes[j, 2], 0.0), orig_w)),
+                    float(min(max(boxes[j, 3], 0.0), orig_h)),
                     float(scores[j]),
                 )
             )
