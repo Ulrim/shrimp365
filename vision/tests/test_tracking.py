@@ -68,12 +68,14 @@ class _FakeModel:
     def __init__(self, results):
         self._results = results
         self.track_kwargs = None
+        self.predict_kwargs = None
 
     def track(self, frame, **kwargs):
         self.track_kwargs = kwargs
         return self._results
 
     def predict(self, frame, **kwargs):
+        self.predict_kwargs = kwargs
         return self._results
 
 
@@ -139,3 +141,28 @@ def test_stable_count_ema(monkeypatch):
     assert processor._update_stable_count(0) == 25
     # Smoothed value damps a single-frame spike far below the raw reading.
     assert processor._update_stable_count(200) < 200
+
+
+def test_detector_raises_the_detection_cap_for_dense_tanks():
+    """ultralytics 기본 max_det 는 300 이다. 밀식 수조는 그보다 많이 잡힐 수
+    있고, 그대로 두면 오류 없이 300 에서 잘려 과소 계수가 된다."""
+    detector = ShrimpDetector(model_path="fake.pt")
+    detector._model = _FakeModel([_FakeResult([])])
+    frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+
+    detector.detect(frame)
+    predict_kwargs = detector._model.predict_kwargs
+    assert predict_kwargs["max_det"] == settings.max_detections
+    assert predict_kwargs["max_det"] > 300
+    assert predict_kwargs["iou"] == settings.nms_iou_threshold
+
+    detector.detect_with_tracking(frame)
+    assert detector._model.track_kwargs["max_det"] == settings.max_detections
+
+
+def test_onnx_detector_shares_the_same_caps():
+    from app.services.detector_onnx import OnnxShrimpDetector
+
+    detector = OnnxShrimpDetector(model_path="x.onnx")
+    assert detector.max_det == settings.max_detections
+    assert detector.iou_threshold == settings.nms_iou_threshold

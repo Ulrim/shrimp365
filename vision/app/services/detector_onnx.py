@@ -193,6 +193,7 @@ class OnnxShrimpDetector:
         conf_threshold: float | None = None,
         iou_threshold: float | None = None,
         imgsz: int | None = None,
+        max_det: int | None = None,
     ) -> None:
         self.model_path = model_path or settings.model_path
         self.conf_threshold = (
@@ -201,6 +202,7 @@ class OnnxShrimpDetector:
         self.iou_threshold = (
             iou_threshold if iou_threshold is not None else settings.nms_iou_threshold
         )
+        self.max_det = max_det if max_det is not None else settings.max_detections
         self._imgsz = imgsz or (settings.model_imgsz or None)
         self._session = None
         self._input_name: str | None = None
@@ -262,6 +264,7 @@ class OnnxShrimpDetector:
             orig_h,
             self.conf_threshold,
             self.iou_threshold,
+            max_det=self.max_det,
         )
         inference_ms = int((time.perf_counter() - start) * 1000)
         conf_avg = round(sum(b.confidence for b in bboxes) / len(bboxes), 3) if bboxes else 0.0

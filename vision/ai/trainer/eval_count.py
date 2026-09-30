@@ -189,12 +189,14 @@ def run_inference(
     imgsz: int | None,
     device: str | None,
     hard: set[str],
+    max_det: int = 1000,
 ) -> list[Sample]:
     model = _load_yolo(weights)
     samples: list[Sample] = []
     for image in images:
         start = time.perf_counter()
-        kwargs = {"conf": min_conf, "iou": iou, "verbose": False}
+        # max_det 를 넘기지 않으면 ultralytics 기본값 300 에서 개수가 잘린다.
+        kwargs = {"conf": min_conf, "iou": iou, "max_det": max_det, "verbose": False}
         if imgsz:
             kwargs["imgsz"] = imgsz
         if device:
@@ -233,6 +235,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--split", default="valid", choices=("train", "valid", "val", "test"))
     parser.add_argument("--conf", type=float, default=0.25, help="운영에서 쓸 신뢰도 임계값")
     parser.add_argument("--iou", type=float, default=0.7, help="NMS IoU (겹침이 심하면 올린다)")
+    parser.add_argument(
+        "--max-det",
+        type=int,
+        default=1000,
+        help="한 장에서 셀 최대 개체 수(기본 1000). 이 값에서 잘리면 과소 계수가 된다",
+    )
     parser.add_argument("--imgsz", type=int, default=None, help="추론 해상도(미지정=모델 기본값)")
     parser.add_argument("--device", default=None, help='"cpu", "0" 등. 미지정이면 자동')
     parser.add_argument("--limit", type=int, default=None, help="이미지 수 상한(빠른 점검)")
@@ -282,7 +290,14 @@ def main(argv: list[str] | None = None) -> int:
     min_conf = min(SWEEP_THRESHOLDS + [args.conf])
     print(f"[평가] {len(images)}장 @ {images_dir}")
     samples = run_inference(
-        args.weights, images, min_conf, args.iou, args.imgsz, args.device, hard
+        args.weights,
+        images,
+        min_conf,
+        args.iou,
+        args.imgsz,
+        args.device,
+        hard,
+        max_det=args.max_det,
     )
 
     overall = summarize(samples, args.conf)

@@ -80,6 +80,10 @@ class Settings(BaseSettings):
     # 추론 해상도. 0 이면 모델에 적힌 값을 쓴다. 파이 4 에서 속도가 급하면
     # 416/320 으로 내보낸 ONNX 를 쓴다(ai/trainer/export_edge.py --imgsz).
     model_imgsz: int = Field(default=0)
+    # 한 프레임에서 셀 수 있는 최대 개체 수. ultralytics 기본값은 300 인데,
+    # 밀식 수조는 한 화면에 그보다 많이 잡힐 수 있어 그대로 두면 **조용히
+    # 300 에서 잘린다**(과소 계수인데 오류가 없어 알아채기 어렵다).
+    max_detections: int = Field(default=1000)
     # ONNX Runtime 스레드 수. 0 이면 런타임 기본값(코어 수 전부). 파이 4 에서
     # 다른 작업과 코어를 나눠 써야 하면 2~3 으로 제한한다.
     inference_threads: int = Field(default=0)

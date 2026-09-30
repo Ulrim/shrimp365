@@ -242,9 +242,20 @@ class ShrimpDetector:
     """Ultralytics YOLO wrapper. The heavy import happens lazily inside
     `_load()` so the app runs without the `ml` extra installed."""
 
-    def __init__(self, model_path: str | None = None, conf_threshold: float | None = None):
+    def __init__(
+        self,
+        model_path: str | None = None,
+        conf_threshold: float | None = None,
+        iou_threshold: float | None = None,
+        max_det: int | None = None,
+    ):
         self.model_path = model_path or settings.model_path
         self.conf_threshold = conf_threshold or settings.confidence_threshold
+        self.iou_threshold = (
+            iou_threshold if iou_threshold is not None else settings.nms_iou_threshold
+        )
+        # ultralytics 기본값 300 을 그대로 쓰면 밀식 수조에서 개수가 잘린다.
+        self.max_det = max_det if max_det is not None else settings.max_detections
         self._model = None
 
     def _load(self):
@@ -257,7 +268,13 @@ class ShrimpDetector:
     def detect(self, frame) -> DetectionResult:  # noqa: ANN001 (np.ndarray, BGR)
         model = self._load()
         start = time.perf_counter()
-        results = model.predict(frame, conf=self.conf_threshold, verbose=False)
+        results = model.predict(
+            frame,
+            conf=self.conf_threshold,
+            iou=self.iou_threshold,
+            max_det=self.max_det,
+            verbose=False,
+        )
         inference_ms = int((time.perf_counter() - start) * 1000)
         return self._to_result(results, frame, inference_ms, track_ids=None)
 
@@ -274,6 +291,8 @@ class ShrimpDetector:
             persist=True,
             tracker="bytetrack.yaml",
             conf=self.conf_threshold,
+            iou=self.iou_threshold,
+            max_det=self.max_det,
             verbose=False,
         )
         inference_ms = int((time.perf_counter() - start) * 1000)
