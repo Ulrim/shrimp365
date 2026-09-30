@@ -12,6 +12,7 @@ EXTRACT = BACKEND / "ai" / "trainer" / "extract_frames.py"
 PREPARE = BACKEND / "ai" / "trainer" / "prepare_dataset.py"
 EXPORT = BACKEND / "ai" / "trainer" / "export_edge.py"
 EVAL = BACKEND / "ai" / "trainer" / "eval_count.py"
+NOTEBOOK = BACKEND / "ai" / "trainer" / "colab_train_shrimp.ipynb"
 ALL_SCRIPTS = (TRAIN, EXTRACT, PREPARE, EXPORT, EVAL)
 
 
@@ -98,3 +99,28 @@ def test_train_help_runs_without_ml_deps():
     assert proc.returncode == 0
     for flag in ("--data", "--base-model", "--epochs", "--imgsz", "--batch", "--device"):
         assert flag in proc.stdout
+
+
+def test_colab_notebook_is_valid_and_wired_to_the_trainer_scripts():
+    """노트북이 깨진 JSON 이거나 셀 코드가 문법적으로 틀리면 Colab 에서 열어 본 뒤에야
+    안다. 여기서 미리 막는다(실행은 GPU 가 필요해 할 수 없다)."""
+    import json
+
+    notebook = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
+    assert notebook["nbformat"] == 4
+    code_cells = [c for c in notebook["cells"] if c["cell_type"] == "code"]
+    assert len(code_cells) >= 10
+
+    for index, cell in enumerate(code_cells):
+        body = "\n".join(
+            line
+            for line in cell["source"].splitlines()
+            if not line.lstrip().startswith(("!", "%"))
+        )
+        ast.parse(body, filename=f"{NOTEBOOK.name}#code[{index}]")
+
+    joined = "\n".join(c["source"] for c in notebook["cells"])
+    for script in ("prepare_dataset.py", "train.py", "eval_count.py", "export_edge.py"):
+        assert script in joined, f"노트북이 {script} 를 쓰지 않는다"
+    # 드라이브의 실제 폴더 이름(공백·한글 포함)이 그대로 들어가 있어야 한다.
+    assert "01. 흰다리새우 학습 데이터" in joined

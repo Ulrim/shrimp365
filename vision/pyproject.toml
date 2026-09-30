@@ -41,6 +41,10 @@ dev = [
     "pytest>=8.2",
     "pytest-asyncio>=0.23",
     "ruff>=0.4",
+    # 파이에서 쓰는 ONNX 경로를 실제 런타임으로 검증한다
+    # (tests/test_detector_onnx_runtime.py). 없으면 그 테스트만 건너뛴다.
+    "onnxruntime>=1.17",
+    "onnx>=1.16",
 ]
 
 [tool.ruff]

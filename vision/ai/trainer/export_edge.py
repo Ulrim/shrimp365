@@ -116,7 +116,7 @@ def install(path: Path, imgsz: int) -> Path:
         shutil.copy2(path, target)
     rel = f"./ai/models/{target.name}"
     print(f"[설치] {target}")
-    print("\n파이의 /etc/shrimp365-vision.env 에 다음을 넣으세요:")
+    print("\n파이의 /etc/shrimp365-vision/env 에 다음을 넣으세요:")
     print(f"    MODEL_PATH={rel}")
     print(f"    MODEL_IMGSZ={imgsz}")
     if target.suffix == ".onnx":

@@ -35,12 +35,19 @@ sudo rm -rf /tmp/shrimp365
 # 가상환경 — picamera2 를 쓰려면 시스템 패키지가 보여야 합니다.
 cd /opt/shrimp365-vision
 sudo python3 -m venv --system-site-packages .venv
-sudo .venv/bin/pip install -e ".[ml]"
+sudo .venv/bin/pip install -e ".[edge]"
 sudo chown -R shrimp365:video /opt/shrimp365-vision
 ```
 
-> `.[ml]` 설치(ultralytics·torch)는 파이에서 **20~40분** 걸립니다. 정상입니다.
-> 모델 없이 시뮬레이션으로 먼저 확인만 할 거라면 `pip install -e .` 만 해도 됩니다.
+> **왜 `.[edge]` 인가.** 파이에서 쓰는 모델은 ONNX(`MODEL_PATH=....onnx`)이고,
+> 추론은 onnxruntime 만으로 돕니다(전처리·후처리는 `app/services/detector_onnx.py`
+> 가 직접 합니다). 설치가 1분이면 끝납니다.
+>
+> `.pt` 가중치를 파이에서 직접 돌리려면 `.[ml]`(ultralytics·torch)이 필요한데
+> 설치에 **20~40분** 걸리고 메모리도 많이 씁니다. 권하지 않습니다.
+> 모델 없이 시뮬레이션으로 확인만 할 거라면 `pip install -e .` 만 해도 됩니다.
+>
+> 모델을 만들어 올리는 절차는 `docs/VISION_MODEL_TRAINING.md` 에 있습니다.
 
 ## 3. 환경변수
 
@@ -140,10 +147,23 @@ CSI 카메라는 리본으로 보드에 직접 붙어 있어, **그 보드에서
 
 ## 8. 성능에 대해
 
-파이 4 의 CPU 추론은 빠르지 않습니다(YOLOv8n 기준 초당 2~3장 수준). 다만 개체수는
-**초당 한 번이면 충분**하므로 기본값(`fps_target=1`)으로 쓸 수 있습니다.
+파이 4 의 CPU 추론은 빠르지 않습니다. 다만 개체수는 **초당 한 번이면 충분**하므로
+기본값(`fps_target=1`)으로 쓸 수 있습니다. 수행계획서 기준은 장당 1~3초입니다.
+
+추측하지 말고 이 파이에서 직접 재세요. 이 숫자가 검수 근거입니다.
+
+```bash
+cd /opt/shrimp365-vision
+.venv/bin/python ai/trainer/export_edge.py \
+    --weights ai/models/shrimp_yolov8n.onnx --bench --runs 30
+```
+
+기준을 넘으면 더 작은 해상도로 내보낸 모델(416)로 바꾸거나, `--format ncnn` 으로
+내보낸 모델을 씁니다. 해상도를 바꾸면 정확도도 바뀌므로 계수 오차율을 다시
+재야 합니다(`docs/VISION_MODEL_TRAINING.md`).
 
 - **방열판이나 팬을 다세요.** 추론이 4코어를 계속 쓰면 발열로 성능이 떨어집니다.
+- 코어를 다른 작업과 나눠 써야 하면 `INFERENCE_THREADS=2` 로 제한할 수 있습니다.
 - 이 파이는 개체수 전용입니다(수질 센서는 다른 파이가 맡습니다). 그래서 서비스
   파일에 우선순위를 낮추는 설정을 두지 않았습니다 — 양보할 상대가 없습니다.
   한 대에 둘을 같이 올리게 되면 `Nice=10`, `CPUWeight=50` 을 넣어 센서 쪽을

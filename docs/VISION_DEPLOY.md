@@ -283,7 +283,11 @@ docker cp shrimp_yolov8n.pt shrimp365-vision:/app/ai/models/
 docker compose --profile vision restart vision
 ```
 
-학습·프레임 추출 CLI 는 `vision/ai/trainer/` 에 있습니다.
+**모델을 만드는 방법과 라즈베리파이에 올리는 절차는
+[VISION_MODEL_TRAINING.md](VISION_MODEL_TRAINING.md) 에 따로 있습니다.**
+파이에서는 `.pt` 대신 `.onnx` 를 쓰는 편이 가볍고 빠릅니다(`MODEL_PATH` 확장자만
+바꾸면 코드가 알아서 갈라집니다). 학습·평가·내보내기 CLI 는 `vision/ai/trainer/`
+에 있습니다.
 
 ## 5. 인증이 어떻게 도는가
 

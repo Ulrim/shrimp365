@@ -54,3 +54,34 @@ def test_simulation_wins_over_camera_type(monkeypatch):
     )
     processor = CameraStreamProcessor(snapshot("picamera"))
     assert not isinstance(processor.source, PiCameraSource)
+
+
+def test_pi_camera_stream_uses_the_onnx_detector_when_model_is_onnx(monkeypatch):
+    """파이 배포 조합(CSI 카메라 + ONNX 모델)이 실제로 그 경로를 타는지 확인한다.
+
+    MODEL_PATH 만 바꿔 파이에 적용하는 것이 설계이므로, 이 연결이 끊기면
+    파이에서 torch 를 찾다가 실패한다.
+    """
+    from app.config import settings
+    from app.services.detector_onnx import OnnxShrimpDetector
+
+    monkeypatch.setattr("app.services.stream_service.simulation_mode_active", lambda: False)
+    monkeypatch.setattr(settings, "model_path", "./ai/models/shrimp_yolov8n.onnx")
+
+    processor = CameraStreamProcessor(snapshot("picamera"))
+
+    assert isinstance(processor.source, PiCameraSource)
+    assert isinstance(processor.detector, OnnxShrimpDetector)
+
+
+def test_usb_camera_stream_uses_ultralytics_for_pt_weights(monkeypatch):
+    from app.config import settings
+    from app.services.detector import ShrimpDetector
+
+    monkeypatch.setattr("app.services.stream_service.simulation_mode_active", lambda: False)
+    monkeypatch.setattr(settings, "model_path", "./ai/models/shrimp_yolov8n.pt")
+
+    processor = CameraStreamProcessor(snapshot("usb"))
+
+    assert isinstance(processor.source, CameraSource)
+    assert isinstance(processor.detector, ShrimpDetector)
