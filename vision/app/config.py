@@ -74,6 +74,15 @@ class Settings(BaseSettings):
     # AI model
     model_path: str = Field(default="./ai/models/shrimp_yolov8n.pt")
     confidence_threshold: float = Field(default=0.25)
+    # NMS IoU. 겹쳐 있는 새우를 하나로 합쳐 버리면 과소 계수가 되므로, 겹침이
+    # 심한 수조에서는 올려 본다(ai/trainer/eval_count.py --iou 로 먼저 확인).
+    nms_iou_threshold: float = Field(default=0.7)
+    # 추론 해상도. 0 이면 모델에 적힌 값을 쓴다. 파이 4 에서 속도가 급하면
+    # 416/320 으로 내보낸 ONNX 를 쓴다(ai/trainer/export_edge.py --imgsz).
+    model_imgsz: int = Field(default=0)
+    # ONNX Runtime 스레드 수. 0 이면 런타임 기본값(코어 수 전부). 파이 4 에서
+    # 다른 작업과 코어를 나눠 써야 하면 2~3 으로 제한한다.
+    inference_threads: int = Field(default=0)
     inference_fps: int = Field(default=1)
     max_cameras: int = Field(default=16)
     # ByteTrack-style tracking for dedup counting (falls back to plain
@@ -131,6 +140,15 @@ def simulation_mode_active() -> bool:
         return settings.simulation_mode
     if not os.path.exists(settings.model_path):
         return True
+    if settings.model_path.lower().endswith(".onnx"):
+        # 파이에서는 torch/ultralytics 없이 onnxruntime 만 깔고 돌린다.
+        # 여기서 ultralytics 를 요구하면 실제 모델이 있어도 시뮬레이션으로
+        # 떨어져 버린다.
+        try:  # pragma: no cover - depends on optional edge extra
+            import onnxruntime  # noqa: F401
+        except ImportError:
+            return True
+        return False
     try:  # pragma: no cover - depends on optional ml extra
         import ultralytics  # noqa: F401
     except ImportError:

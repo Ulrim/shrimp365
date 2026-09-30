@@ -22,7 +22,11 @@ from app.database import SessionLocal, utcnow
 from app.models import Camera, CountRecord
 from app.services.broadcaster import broadcaster
 from app.services.camera_source import CameraSource, PiCameraSource, SimulatedCamera
-from app.services.detector import ShrimpDetector, SimulatedDetector, TankSimulation
+from app.services.detector import (
+    SimulatedDetector,
+    TankSimulation,
+    build_detector,
+)
 from app.services.rendering import annotate_frame, encode_jpeg
 
 logger = logging.getLogger(__name__)
@@ -139,7 +143,7 @@ class CameraStreamProcessor:
                 self.source = PiCameraSource(camera.resolution_w, camera.resolution_h)
             else:
                 self.source = CameraSource(camera.camera_type, camera.stream_url)
-            self.detector = ShrimpDetector()
+            self.detector = build_detector()
 
     # -- lifecycle ------------------------------------------------------------
     def start(self) -> None:

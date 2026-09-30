@@ -318,3 +318,16 @@ class ShrimpDetector:
             model_version=self.model_path.rsplit("/", 1)[-1],
             track_ids=track_ids,
         )
+
+
+def build_detector():  # noqa: ANN201 - ShrimpDetector | OnnxShrimpDetector
+    """MODEL_PATH 확장자를 보고 실행 경로를 고른다.
+
+    `.onnx`  -> onnxruntime (라즈베리파이 권장: torch 를 깔지 않는다)
+    그 밖(.pt, *_ncnn_model, openvino 디렉터리) -> ultralytics
+    """
+    if settings.model_path.lower().endswith(".onnx"):
+        from app.services.detector_onnx import OnnxShrimpDetector  # noqa: PLC0415 - 순환 방지
+
+        return OnnxShrimpDetector()
+    return ShrimpDetector()

@@ -31,6 +31,12 @@ ml = [
     "ultralytics>=8.2",
     "opencv-python-headless>=4.9",
 ]
+# 라즈베리파이 4 배포용. torch 를 깔지 않고 ONNX 모델만 돌린다.
+#   MODEL_PATH=./ai/models/shrimp_yolov8n.onnx
+# 전처리·후처리는 app/services/detector_onnx.py 가 numpy 로 직접 한다.
+edge = [
+    "onnxruntime>=1.17",
+]
 dev = [
     "pytest>=8.2",
     "pytest-asyncio>=0.23",
