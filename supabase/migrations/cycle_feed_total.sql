@@ -112,7 +112,10 @@ CREATE POLICY "je_all_own" ON public.journal_entries FOR ALL
 -- 없을 때다. 연결된 일지가 없는 것과 급이 0 kg 은 다른 사건이므로 구분한다
 -- (평가서 1-2 의 원칙 — 빈칸을 0 으로 채우지 않는다).
 --
--- linked_days 는 "이 사이클에 연결된 일지가 며칠치인가"다. 사이클 기간보다
+-- linked_days 는 "이 사이클에 연결된 일지가 며칠치인가"다. journal_entries 에
+-- (tank_id, date) 유니크가 없어 하루에 두 건이 들어올 수 있으므로 COUNT(*) 가
+-- 아니라 COUNT(DISTINCT date) 로 센다 — 행수를 일수라고 부르면 과대 계수된다.
+-- 사이클 기간보다
 -- 훨씬 적으면 합계를 믿어서는 안 된다. 화면은 이 숫자를 함께 보여 준다.
 DROP FUNCTION IF EXISTS public.cycle_feed_summary(uuid);
 
@@ -122,7 +125,7 @@ RETURNS TABLE (
   linked_days   int
 )
 LANGUAGE sql STABLE AS $$
-  SELECT SUM(j.feeding_amount)::numeric, COUNT(*)::int
+  SELECT SUM(j.feeding_amount)::numeric, COUNT(DISTINCT j.date)::int
   FROM public.journal_entries j
   WHERE j.cycle_id = p_cycle
 $$;

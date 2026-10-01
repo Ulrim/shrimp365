@@ -75,7 +75,7 @@
 
 | 계획서가 요구한 것 | 저장소 현황 | 근거 |
 |---|---|---|
-| kg당 생산 원가 | **구현 완료**(사후 집계). `costPerKg` = 총비용/총수확kg | `app/(dashboard)/production/page.tsx` (735줄) |
+| kg당 생산 원가 | **구현 완료**(사후 집계). `costPerKg` = 총비용/총수확kg | `app/(dashboard)/production/page.tsx:344` |
 | 이익·ROI·FCR | 구현 완료(사후 집계). 단 **FCR은 실계정에서 항상 `null`** — 2절 13번 | 동일, `profit`·`roi`·`fcr` |
 | 데이터 기반 테이블 | 구현 완료. 입식·성장샘플(ABW·생존율·추정바이오매스)·비용 6종·수확 | `supabase/migrations/production_management.sql` |
 | **AI 생육 성장곡선** | **미구현.** `성장곡선\|growthCurve\|predict\|forecast` 검색 결과는 날씨 API의 open-meteo forecast뿐 | — |
@@ -273,10 +273,10 @@
 
 | 등급 | 빠진 것 | 무엇이 막히나 | 확인된 사실 | 메울 방법 |
 |---|---|---|---|---|
-| **치명** | **크기별(마리수/kg) 시장 단가 시계열** | **엔진 3 성립 불가** | 현재는 수확 시점에 한 번 입력하는 단일 `cycle_harvests.price_per_kg`뿐 | 날짜 × 사이즈 구간 × 단가 테이블 신설 + 외부 시세 출처 확보(지훈 조사). 당장은 농가가 받은 실제 단가를 사이즈와 함께 입력받는 것으로 시작 |
+| **치명** | **크기별(마리수/kg) 시장 단가 시계열** | **엔진 3 성립 불가** | 현재는 수확 시점에 한 번 입력하는 단일 `cycle_harvests.price_per_kg`뿐. **2026.10.01 `cycle_harvests_channel.sql` 로 `channel`·`size_count_per_kg` 를 추가해 받을 자리는 생겼다 — 쌓일 데이터가 없다는 문제는 그대로다** | 날짜 × 사이즈 구간 × 단가 테이블 신설 + 외부 시세 출처 확보(지훈 조사). 당장은 농가가 받은 실제 단가를 사이즈와 함께 입력받는 것으로 시작 |
 | **치명** | **완료된 과거 사이클 이력(학습 데이터)** | 엔진 1 적합 불가 | 몇 건이 쌓여 있는지는 **운영 DB를 봐야 알 수 있고 저장소로는 알 수 없다** | **사람이 먼저 확인해야 한다(9절).** 부족하면 문헌 파라미터로 cold start 후 농가별 보정 |
-| **높음** | `production_cycles.total_feed_kg` **컬럼이 존재하지 않음** | **FCR이 실계정에서 항상 `null`** | `types/index.ts:213`과 `lib/mock-data.ts`에만 있고 **마이그레이션 SQL에는 0건**이다. 비교하자면 `initial_weight_g`·`pl_species`는 각각 `add_initial_weight_to_cycles.sql`·`add_pl_species.sql`로 컬럼이 추가되어 있는데 `total_feed_kg`만 없다. `lib/db.ts:999`는 `select("*, tanks(name, farms(name))")`로 테이블 실제 컬럼만 가져오므로 없는 컬럼이 채워질 길이 없다. 따라서 `production/page.tsx:343`의 FCR은 **목업 계정에서만 숫자가 나온다** | `journal_entries.feeding_amount`를 사이클 기간으로 합산해 산출(아래 항목 선결). 사료 효율 목표의 기준선이므로 급하다 |
-| **높음** | `journal_entries`에 **`cycle_id`가 없음** | 급이·폐사를 사이클에 못 붙임 → 엔진 4·5 입력 불안정 | `supabase/schema.sql`의 journal_entries는 `tank_id` + `date` 키뿐이고 인덱스도 `idx_je_tank_date`뿐이다. `growth_samples`·`cycle_costs`·`cycle_harvests`에는 `cycle_id`가 있는데 journal_entries에만 없다 | `tank_id` + 날짜 범위 조인으로 우회 가능하나, 한 수조에서 사이클이 겹치거나 비면 어긋난다. `cycle_id` 컬럼 추가 + 백필 권장 |
+| **높음** ✅해소 | `production_cycles.total_feed_kg` **컬럼이 존재하지 않았음** | **FCR이 실계정에서 항상 `null`** | `types/index.ts:213`과 `lib/mock-data.ts`에만 있고 **마이그레이션 SQL에는 0건**이다. 비교하자면 `initial_weight_g`·`pl_species`는 각각 `add_initial_weight_to_cycles.sql`·`add_pl_species.sql`로 컬럼이 추가되어 있는데 `total_feed_kg`만 없다. `lib/db.ts:999`는 `select("*, tanks(name, farms(name))")`로 테이블 실제 컬럼만 가져오므로 없는 컬럼이 채워질 길이 없다. 따라서 `production/page.tsx:343`의 FCR은 **목업 계정에서만 숫자가 나온다** | `journal_entries.feeding_amount`를 사이클 기간으로 합산해 산출(아래 항목 선결). **2026.10.01 `cycle_feed_total.sql` 로 컬럼과 합산 함수 `cycle_feed_summary()` 를 작성 — 「마이그레이션 0건」은 더 이상 사실이 아니다. 단 사람이 Supabase 에서 실행해야 반영된다** |
+| **높음** ✅해소 | `journal_entries`에 **`cycle_id`가 없었음** | 급이·폐사를 사이클에 못 붙임 → 엔진 4·5 입력 불안정 | `supabase/schema.sql`의 journal_entries는 `tank_id` + `date` 키뿐이고 인덱스도 `idx_je_tank_date`뿐이다. `growth_samples`·`cycle_costs`·`cycle_harvests`에는 `cycle_id`가 있는데 journal_entries에만 없다 | `tank_id` + 날짜 범위 조인으로 우회 가능하나, 한 수조에서 사이클이 겹치거나 비면 어긋난다. `cycle_id` 컬럼 추가 + 백필 권장. **2026.10.01 `cycle_feed_total.sql` 로 컬럼 추가 완료. 백필은 일부러 넣지 않았다** — 겹치는 사이클에서 잘못 붙고, 잘못 붙은 일지는 FCR 을 틀리게 하면서 화면에는 정상으로 보인다. 확인 질의를 주석으로 동봉했다 |
 | 중간 | 전력 사용량 실측 | 폭기 전력 절감 효과를 수치로 못 보여줌 | `cycle_costs`는 `category='electricity'`와 `amount`뿐 — **금액만 있고 사용량(kWh)이 없다** | 계획서 ESG 항목·`advice.py`의 과잉폭기 안내와 연결되므로 kWh 기록 필드 추가 |
 | 중간 | 비전 지표(활동량·사료반응성·개체크기) | 엔진 5의 2차(교차검증) 불가 | 비전 모듈 자체가 미착수 | 3차 묶음(비전)에서 함께 생성 |
 | 낮음 | 사료 제품별 단백질·권장 급이율 | 엔진 5 권장량 정밀도 | `feed_type`은 자유 텍스트 | 사료 카탈로그 테이블(지훈 조사) |

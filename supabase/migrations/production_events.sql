@@ -162,3 +162,15 @@ NOTIFY pgrst, 'reload schema';
 DO $$ BEGIN
   RAISE NOTICE 'production_events table ready.';
 END $$;
+
+-- ── 5) 반입 멱등성 키 ────────────────────────────────────────
+-- 파일 자체는 몇 번을 돌려도 안전하지만, 그것과 **데이터 반입이 안전한가**는
+-- 다른 문제다. 사람이 반입 SQL 을 두 번 돌리면 70건이 140건이 되고, 그 중복은
+-- 생체량 합계를 두 배로 만들면서 화면에는 정상적인 숫자로 보인다.
+--
+-- source_ref('ProductionEvents!A37' 처럼 원본 파일·시트·행)가 바로 그 자연키다.
+-- 원본 한 행은 이벤트 하나에 대응하므로 유일해야 한다. source_ref 를 적지 않은
+-- 수기 입력 행까지 막을 이유는 없으므로 NULL 은 제외한다.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_production_events_source_ref
+  ON public.production_events(source_ref)
+  WHERE source_ref IS NOT NULL;
