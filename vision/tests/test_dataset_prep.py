@@ -9,6 +9,7 @@ from __future__ import annotations
 import importlib.util
 import math
 import sys
+from collections import Counter
 from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -270,3 +271,114 @@ def test_missing_source_directory_fails_clearly(tmp_path):
         assert "데이터셋 경로가 없습니다" in str(exc)
     else:  # pragma: no cover
         raise AssertionError("없는 경로인데 통과했다")
+
+
+# ---------------------------------------------------------------------------
+# 프레임 단위 재분할 (--on-leakage regroup)
+# ---------------------------------------------------------------------------
+
+
+def _leaky_items() -> list[prep.Item]:
+    """증강 사본이 train/valid 에 흩어진 상태를 만든다(shrimp_cf 의 실제 모습)."""
+    items: list[prep.Item] = []
+    for frame in range(20):
+        for copy in range(3):
+            # 한 프레임의 사본 3장이 train/valid/test 에 나뉘어 들어간다
+            split = ("train", "valid", "test")[copy]
+            items.append(
+                _item(split, f"f{frame}_c{copy}.jpg", f"s__frame{frame}", f"h{frame}{copy}")
+            )
+    return items
+
+
+def test_regroup_removes_every_leak():
+    items = _leaky_items()
+    assert prep.find_leaks(items, use_hash=True)  # 재분할 전에는 누수가 있다
+
+    stats = prep.regroup_splits(items)
+
+    assert prep.find_leaks(items, use_hash=True) == []
+    assert stats["groups"] == 20
+    assert stats["moved"] > 0
+
+
+def test_regroup_keeps_every_image():
+    items = _leaky_items()
+    before = len(items)
+    prep.regroup_splits(items)
+    assert len(items) == before  # 버리지 않는다 — drop 과의 결정적 차이
+
+
+def test_regroup_keeps_each_frame_in_one_split():
+    items = _leaky_items()
+    prep.regroup_splits(items)
+    by_frame: dict[str, set[str]] = {}
+    for item in items:
+        by_frame.setdefault(item.stem, set()).add(item.split)
+    assert all(len(splits) == 1 for splits in by_frame.values())
+
+
+def test_regroup_roughly_preserves_split_ratio():
+    items = _leaky_items()  # 원래 train/valid/test = 20/20/20
+    prep.regroup_splits(items)
+    counts = Counter(i.split for i in items)
+    for split in ("train", "valid", "test"):
+        assert 12 <= counts[split] <= 28  # 묶음 단위라 정확히 같을 수는 없다
+
+
+def test_regroup_is_deterministic():
+    first = _leaky_items()
+    second = _leaky_items()
+    prep.regroup_splits(first)
+    prep.regroup_splits(second)
+    assert [i.split for i in first] == [i.split for i in second]
+
+
+def test_regroup_merges_byte_identical_files_across_frames():
+    """프레임 이름이 달라도 내용이 같으면 한 묶음으로 봐야 누수가 남지 않는다."""
+    items = [
+        _item("train", "a.jpg", "s__frameA", "same-bytes"),
+        _item("valid", "b.jpg", "s__frameB", "same-bytes"),
+        _item("train", "c.jpg", "s__frameC", "other"),
+        _item("valid", "d.jpg", "s__frameD", "other2"),
+    ]
+    prep.regroup_splits(items)
+    splits = {i.out_name: i.split for i in items}
+    assert splits["a.jpg"] == splits["b.jpg"]  # 같은 내용은 같은 분할로
+    assert prep.find_leaks(items, use_hash=True) == []
+
+
+def test_regroup_keeps_sources_separate():
+    """원본마다 비율을 따로 지킨다 — 작은 데이터셋이 한 분할로 쏠리면 안 된다."""
+    items = []
+    for i in range(10):
+        items.append(_item("train", f"big{i}.jpg", f"big__f{i}", f"bh{i}"))
+    for i in range(4):
+        items.append(_item("train" if i < 2 else "valid", f"sm{i}.jpg", f"sm__f{i}", f"sh{i}"))
+    for item in items:
+        item.source = item.stem.split("__")[0]
+
+    prep.regroup_splits(items)
+
+    small = [i for i in items if i.source == "sm"]
+    assert {i.split for i in small} == {"train", "valid"}  # 작은 원본도 두 분할에 남는다
+
+
+def test_end_to_end_regroup_writes_all_images(tmp_path):
+    root = tmp_path / "src"
+    for split in ("train", "valid"):
+        (root / split / "images").mkdir(parents=True)
+        (root / split / "labels").mkdir(parents=True)
+        for i in range(4):
+            stem = f"frame{i}_jpg.rf.{split}{i}"  # 같은 frame{i} 가 양쪽에 있다
+            (root / split / "images" / f"{stem}.jpg").write_bytes(f"{split}{i}".encode())
+            (root / split / "labels" / f"{stem}.txt").write_text("0 0.5 0.5 0.1 0.1\n")
+    (root / "data.yaml").write_text("nc: 1\nnames: ['shrimp']\n", encoding="utf-8")
+
+    out = tmp_path / "out"
+    assert prep.main(["--source", f"s={root}", "--out", str(out), "--on-leakage", "regroup"]) == 0
+
+    written = sum(
+        len(list((out / split / "images").iterdir())) for split in ("train", "valid", "test")
+    )
+    assert written == 8  # 8장 전부 살아 있다

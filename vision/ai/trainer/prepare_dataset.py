@@ -40,6 +40,7 @@ import argparse
 import hashlib
 import json
 import os
+import random
 import shutil
 import sys
 from collections import Counter
@@ -332,6 +333,88 @@ def find_leaks(items: list[Item], use_hash: bool) -> list[Leak]:
     return leaks
 
 
+def _canonical_groups(items: list[Item]) -> dict[str, str]:
+    """프레임 이름으로 묶고, 파일 내용이 같은 묶음끼리 다시 합친다.
+
+    증강 사본은 프레임 이름이 같고, 이름이 달라도 바이트가 같은 중복이 있을 수
+    있다. 둘 다 한 덩어리로 묶어야 재분할 뒤에도 누수가 남지 않는다.
+    """
+    parent: dict[str, str] = {}
+
+    def find(key: str) -> str:
+        parent.setdefault(key, key)
+        while parent[key] != key:
+            parent[key] = parent[parent[key]]
+            key = parent[key]
+        return key
+
+    def union(a: str, b: str) -> None:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            root = min(ra, rb)
+            parent[ra] = root
+            parent[rb] = root
+
+    for item in items:
+        find(item.stem)
+    by_digest: dict[str, str] = {}
+    for item in items:
+        if not item.digest:
+            continue
+        if item.digest in by_digest:
+            union(by_digest[item.digest], item.stem)
+        else:
+            by_digest[item.digest] = item.stem
+    return {item.stem: find(item.stem) for item in items}
+
+
+def regroup_splits(items: list[Item], seed: int = 20260101) -> dict:
+    """같은 원본 프레임의 사본을 한 분할에 몰아넣어 누수를 없앤다.
+
+    train 에서 덜어내는 `drop` 과 달리 **한 장도 버리지 않는다.** shrimp_cf 처럼
+    증강한 뒤에 분할한 데이터셋은 사본이 train 과 valid 에 흩어져 있어서, 버리는
+    방식으로는 학습 데이터가 크게 줄어든다(실제로 3,927장 -> 1,469장이 되었다).
+
+    원본별로 따로 다시 나눠 각 데이터셋의 train/valid/test 비율을 지킨다.
+    같은 입력에 대해 항상 같은 결과가 나오도록 씨앗을 고정한다.
+    """
+    canonical = _canonical_groups(items)
+    moved = 0
+    groups_total = 0
+
+    by_source: dict[str, list[Item]] = {}
+    for item in items:
+        by_source.setdefault(item.source, []).append(item)
+
+    for source, source_items in sorted(by_source.items()):
+        ratios = Counter(i.split for i in source_items)
+        total = sum(ratios.values())
+        targets = {s: ratios.get(s, 0) / total for s in OUT_SPLITS}
+
+        groups: dict[str, list[Item]] = {}
+        for item in source_items:
+            groups.setdefault(canonical[item.stem], []).append(item)
+        groups_total += len(groups)
+
+        keys = sorted(groups)
+        random.Random(f"{seed}:{source}").shuffle(keys)
+        # 큰 묶음부터 넣어야 마지막에 비율이 크게 틀어지지 않는다.
+        keys.sort(key=lambda k: -len(groups[k]))
+
+        filled = {s: 0 for s in OUT_SPLITS}
+        for key in keys:
+            # 목표 대비 가장 덜 찬 분할에 통째로 넣는다(목표가 0 인 분할은 제외).
+            candidates = [s for s in OUT_SPLITS if targets[s] > 0]
+            chosen = min(candidates, key=lambda s: (filled[s] / targets[s], s))
+            for item in groups[key]:
+                if item.split != chosen:
+                    item.split = chosen
+                    moved += 1
+                filled[chosen] += 1
+
+    return {"groups": groups_total, "moved": moved}
+
+
 # ---------------------------------------------------------------------------
 # 쓰기
 # ---------------------------------------------------------------------------
@@ -460,9 +543,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--on-leakage",
-        choices=("report", "drop"),
+        choices=("report", "drop", "regroup"),
         default="report",
-        help="train 과 valid/test 에 같은 프레임이 있을 때: 보고만 하거나 train 쪽을 뺀다",
+        help=(
+            "train 과 valid/test 에 같은 프레임이 있을 때. "
+            "report=보고만, drop=train 쪽을 뺀다, "
+            "regroup=프레임 단위로 다시 나눈다(한 장도 버리지 않는다, 권장)"
+        ),
     )
     parser.add_argument("--limit", type=int, default=None, help="원본 분할별 이미지 상한(연습용)")
     parser.add_argument("--dry-run", action="store_true", help="검사만 하고 파일을 쓰지 않는다")
@@ -516,6 +603,7 @@ def main(argv: list[str] | None = None) -> int:
 
     leaks = find_leaks(items, use_hash)
     dropped_leak = 0
+    regrouped: dict | None = None
     if leaks:
         print(f"[경고] 분할 누수 {len(leaks)}건 — 같은 프레임이 train 과 valid/test 에 함께 있음")
         for leak in leaks[:10]:
@@ -528,6 +616,23 @@ def main(argv: list[str] | None = None) -> int:
             items = [i for i in items if not (i.split == "train" and i.out_name in drop_names)]
             dropped_leak = before - len(items)
             print(f"        -> train 에서 {dropped_leak}장 제외했습니다(검증 점수 보호).")
+        elif args.on_leakage == "regroup":
+            stats = regroup_splits(items)
+            regrouped = stats
+            print(
+                f"        -> 프레임 {stats['groups']}묶음 기준으로 다시 나눴습니다"
+                f" ({stats['moved']}장 이동, 버린 것 없음)."
+            )
+            remaining = find_leaks(items, use_hash)
+            if remaining:
+                print(
+                    f"[오류] 재분할 뒤에도 누수가 {len(remaining)}건 남았습니다.",
+                    file=sys.stderr,
+                )
+                return 1
+            print("        -> 재검사: 누수 0건")
+            counts = Counter(i.split for i in items)
+            print(f"        -> 새 분할: {dict(sorted(counts.items()))}")
     else:
         print("[검사] 분할 누수 없음")
 
@@ -544,6 +649,7 @@ def main(argv: list[str] | None = None) -> int:
             for k in leaks[:20]
         ],
         "leak_dropped_from_train": dropped_leak,
+        "regrouped": regrouped,
         "dry_run": bool(args.dry_run),
     }
 
