@@ -250,6 +250,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--device", default=None, help='"cpu", "0" 등. 미지정이면 자동')
     parser.add_argument("--limit", type=int, default=None, help="이미지 수 상한(빠른 점검)")
     parser.add_argument(
+        "--min-gt",
+        type=int,
+        default=0,
+        help=(
+            "정답 개체가 이 수 이상인 장면만 판정·추천에 쓴다. "
+            "운영 수조는 밀집 장면이라, 새우가 1~2마리뿐인 장면이 평균을 지배하면 "
+            "실제 성능을 가린다(예: --min-gt 11)"
+        ),
+    )
+    parser.add_argument(
         "--hard-list",
         default=None,
         help="탁도·겹침 이미지 파일명 목록(한 줄에 하나). 이 묶음은 ±30%% 기준으로 판정",
@@ -305,12 +315,24 @@ def main(argv: list[str] | None = None) -> int:
         max_det=args.max_det,
     )
 
-    overall = summarize(samples, args.conf)
-    easy = [s for s in samples if not s.hard]
-    hard_samples = [s for s in samples if s.hard]
+    if args.min_gt:
+        kept = [s for s in samples if s.gt >= args.min_gt]
+        if not kept:
+            raise SystemExit(f"[오류] 정답 {args.min_gt}마리 이상인 장면이 없습니다.")
+        print(
+            f"[판정 대상] 정답 {args.min_gt}마리 이상 {len(kept)}장만 사용 "
+            f"(전체 {len(samples)}장 중). 밀도 구간표는 전체를 그대로 보여 줍니다."
+        )
+        judged = kept
+    else:
+        judged = samples
+
+    overall = summarize(judged, args.conf)
+    easy = [s for s in judged if not s.hard]
+    hard_samples = [s for s in judged if s.hard]
     latencies = sorted(s.latency_ms for s in samples)
     p95 = latencies[min(len(latencies) - 1, int(0.95 * len(latencies)))]
-    rec_conf, rec = best_threshold(samples)
+    rec_conf, rec = best_threshold(judged)
 
     print(f"\n[conf={args.conf}] 전체")
     _print_row("전체", overall)
@@ -329,14 +351,14 @@ def main(argv: list[str] | None = None) -> int:
 
     print("\n[임계값 훑기] 추가 추론 없이 conf 만 바꿔 다시 센 결과")
     for t in SWEEP_THRESHOLDS:
-        row = summarize(samples, t)
+        row = summarize(judged, t)
         mark = " <= 추천" if t == rec_conf else ""
         print(
             f"  conf={t:.2f} 평균오차 {row['error_rate_mean'] * 100:5.1f}% "
             f"±20% 내 {row['within_20pct'] * 100:5.1f}% 편향 {row['bias']:+6.2f}{mark}"
         )
 
-    worst = sorted(samples, key=lambda s: -error_rate(s.predicted(args.conf), s.gt))[:10]
+    worst = sorted(judged, key=lambda s: -error_rate(s.predicted(args.conf), s.gt))[:10]
     print("\n[오차가 큰 장면]")
     for s in worst:
         pred = s.predicted(args.conf)
@@ -348,7 +370,7 @@ def main(argv: list[str] | None = None) -> int:
         f"p95 {p95:.0f}ms (라즈베리파이 실측은 ai/trainer/export_edge.py --bench 로)"
     )
 
-    ok_general = summarize(easy or samples, args.conf)["error_rate_mean"] <= TARGET_ERROR
+    ok_general = summarize(easy or judged, args.conf)["error_rate_mean"] <= TARGET_ERROR
     ok_hard = (
         summarize(hard_samples, args.conf)["error_rate_mean"] <= TARGET_ERROR_HARD
         if hard_samples
@@ -373,7 +395,9 @@ def main(argv: list[str] | None = None) -> int:
             "easy": summarize(easy, args.conf) if hard_samples else None,
             "hard": summarize(hard_samples, args.conf) if hard_samples else None,
             "density": density_breakdown(samples, args.conf),
-            "sweep": {str(t): summarize(samples, t) for t in SWEEP_THRESHOLDS},
+            "min_gt": args.min_gt,
+            "judged_n": len(judged),
+            "sweep": {str(t): summarize(judged, t) for t in SWEEP_THRESHOLDS},
             "recommended_conf": rec_conf,
             "latency_ms": {
                 "median": round(statistics.median(latencies), 1),

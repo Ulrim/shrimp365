@@ -337,3 +337,56 @@ def test_main_applies_the_relaxed_target_to_the_hard_subset(tmp_path, monkeypatc
     printed = capsys.readouterr().out
     assert "탁도·겹침 오차율 ±30%" in printed
     assert "일반" in printed
+
+
+def test_min_gt_restricts_the_verdict_to_dense_scenes(tmp_path, monkeypatch, capsys):
+    """운영 수조는 밀집 장면이다. 1~2마리짜리 장면이 수백 장 섞여 있으면 그쪽이
+    평균과 추천 임계값을 지배해, 정작 중요한 밀집 성능이 가려진다."""
+    yaml_path = _dataset(tmp_path, {"sparse1.jpg": 1, "sparse2.jpg": 1, "dense.jpg": 50})
+    fake = _FakeModel(
+        {
+            "sparse1.jpg": [0.9],  # 희소 장면은 정확
+            "sparse2.jpg": [0.9],
+            "dense.jpg": [0.9] * 20,  # 밀집 장면은 60% 누락
+        }
+    )
+    monkeypatch.setattr(ec, "_load_yolo", lambda _weights: fake)
+    out_json = tmp_path / "r.json"
+
+    # 전체로 보면 밀집 1장이 묻혀 평균이 20% 라 통과로 보인다
+    assert ec.main(["--weights", "w.pt", "--data", str(yaml_path), "--strict"]) == 0
+
+    # 밀집 장면만 보면 미달이어야 한다
+    code = ec.main(
+        [
+            "--weights",
+            "w.pt",
+            "--data",
+            str(yaml_path),
+            "--min-gt",
+            "11",
+            "--json",
+            str(out_json),
+            "--strict",
+        ]
+    )
+    assert code == 2
+
+    import json
+
+    payload = json.loads(out_json.read_text(encoding="utf-8"))
+    assert payload["min_gt"] == 11
+    assert payload["judged_n"] == 1
+    assert payload["overall"]["gt_total"] == 50
+    assert "판정 대상" in capsys.readouterr().out
+
+
+def test_min_gt_without_matching_scenes_fails_clearly(tmp_path, monkeypatch):
+    yaml_path = _dataset(tmp_path, {"a.jpg": 2})
+    monkeypatch.setattr(ec, "_load_yolo", lambda _weights: _FakeModel({"a.jpg": [0.9, 0.9]}))
+    try:
+        ec.main(["--weights", "w.pt", "--data", str(yaml_path), "--min-gt", "50"])
+    except SystemExit as exc:
+        assert "50마리 이상인 장면이 없습니다" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("대상이 없는데 통과했다")
