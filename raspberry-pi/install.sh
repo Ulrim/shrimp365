@@ -22,7 +22,7 @@ CONF_DIR=/etc/shrimp365
 CONF="$CONF_DIR/config.ini"
 SERVICE_USER=shrimp365
 
-MODULES=(shrimp365_sensor.py display.py webui.py wifi.py buffer.py history.py updater.py limits.py anomaly.py advice.py)
+MODULES=(shrimp365_sensor.py display.py webui.py wifi.py buffer.py history.py updater.py limits.py anomaly.py advice.py verify.py)
 
 # 시스템 파일 — 모듈과 달리 /opt 밖으로 간다. 없으면 설치를 멈춘다.
 POLKIT_RULE=50-shrimp365-nm.rules
