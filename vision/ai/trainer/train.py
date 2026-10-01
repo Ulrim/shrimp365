@@ -45,6 +45,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help=f"on success, copy best.pt to {DEFAULT_INSTALL_PATH}",
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="같은 --project/--name 의 last.pt 에서 이어서 학습한다(중단된 학습 복구)",
+    )
     return parser.parse_args(argv)
 
 
@@ -67,22 +72,45 @@ def _final_map50(results) -> float | None:  # noqa: ANN001 - ultralytics metrics
             return None
 
 
+def _resume(yolo_cls, args: argparse.Namespace):  # noqa: ANN001, ANN202
+    """중단된 학습을 last.pt 에서 이어 간다.
+
+    CPU 로 긴 학습을 돌릴 때(또는 Colab 세션이 끊길 때) 필요하다. ultralytics 는
+    실행 디렉터리의 args.yaml 에서 원래 설정을 전부 복원하므로, 여기서 data·
+    epochs 를 다시 넘기면 오히려 어긋난다. resume=True 만 준다.
+    """
+    last = Path(args.project) / args.name / "weights" / "last.pt"
+    if not last.exists():
+        print(f"[오류] 이어서 할 가중치가 없습니다: {last}", file=sys.stderr)
+        print(
+            "       --resume 없이 처음부터 시작하거나 --project/--name 을 확인하세요.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+    print(f"[이어서 학습] {last} (설정은 원래 실행의 args.yaml 을 그대로 씁니다)")
+    model = yolo_cls(str(last))
+    return model.train(resume=True)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     yolo_cls = _load_yolo_class()
 
-    model = yolo_cls(args.base_model)
-    device = None if args.device == "auto" else args.device
-    print(f"[학습 시작] data={args.data} base={args.base_model} epochs={args.epochs}")
-    results = model.train(
-        data=args.data,
-        epochs=args.epochs,
-        imgsz=args.imgsz,
-        batch=args.batch,
-        device=device,
-        project=args.project,
-        name=args.name,
-    )
+    if args.resume:
+        results = _resume(yolo_cls, args)
+    else:
+        model = yolo_cls(args.base_model)
+        device = None if args.device == "auto" else args.device
+        print(f"[학습 시작] data={args.data} base={args.base_model} epochs={args.epochs}")
+        results = model.train(
+            data=args.data,
+            epochs=args.epochs,
+            imgsz=args.imgsz,
+            batch=args.batch,
+            device=device,
+            project=args.project,
+            name=args.name,
+        )
 
     map50 = _final_map50(results)
     if map50 is not None:
