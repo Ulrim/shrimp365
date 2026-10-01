@@ -9,7 +9,8 @@
 --   탈피 장애의 원인을 가릴 수 없고, Mg:Ca 비를 못 보면 해수 희석 농가의
 --   미네랄 보충 판단이 서지 않는다. 칸이 없으면 농가가 입력할 자리도 없다.
 --
--- 단위 원칙: 플락은 cm(이뮤프 콘 침전 높이), 나머지는 ppm 으로 저장한다.
+-- 단위 원칙: 플락은 cm(침전 높이), 나머지는 ppm 으로 저장한다. 실데이터의 단위를
+--   그대로 쓴다 — 침전량을 mL/L 로 재는 농가도 있으니 환산하지 않고 받는다.
 --   표시 단위 환산은 화면에서 한다(wq_conductivity.sql 원칙과 같다).
 --
 -- 전부 nullable 이다. 측정하지 않은 항목은 비워 둔다 — **0 으로 채우지 않는다.**
@@ -71,7 +72,7 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ── 칸 설명 ──────────────────────────────────────────────────
 COMMENT ON COLUMN public.water_quality_readings.floc_cm IS
-  '플락 침전 높이(cm). 이뮤프 콘 등으로 측정한 침전량. NULL = 미측정 — 0 과 구분한다.';
+  '플락 침전 높이(cm). 천황수산 원본의 단위를 그대로 쓴다 — 측정 방법(임호프 콘 눈금/침전관 높이)은 농가 확인이 필요하다. mL/L 로 재는 농가의 값을 이 칸에 섞지 말 것. NULL = 미측정이며 0 과 구분한다.';
 COMMENT ON COLUMN public.water_quality_readings.magnesium_ppm IS
   '마그네슘(ppm). 해수가 약 1,300 ppm. Ca 와 함께 탈피·외피 경화 판단에 쓴다. NULL = 미측정.';
 COMMENT ON COLUMN public.water_quality_readings.calcium_ppm IS
