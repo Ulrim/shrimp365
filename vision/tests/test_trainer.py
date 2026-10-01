@@ -13,8 +13,9 @@ PREPARE = BACKEND / "ai" / "trainer" / "prepare_dataset.py"
 EXPORT = BACKEND / "ai" / "trainer" / "export_edge.py"
 EVAL = BACKEND / "ai" / "trainer" / "eval_count.py"
 PSEUDO = BACKEND / "ai" / "trainer" / "pseudo_label.py"
+COMPARE = BACKEND / "ai" / "trainer" / "compare_backends.py"
 NOTEBOOK = BACKEND / "ai" / "trainer" / "colab_train_shrimp.ipynb"
-ALL_SCRIPTS = (TRAIN, EXTRACT, PREPARE, EXPORT, EVAL, PSEUDO)
+ALL_SCRIPTS = (TRAIN, EXTRACT, PREPARE, EXPORT, EVAL, PSEUDO, COMPARE)
 
 
 def test_trainer_scripts_parse():

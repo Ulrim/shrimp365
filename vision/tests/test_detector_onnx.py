@@ -312,3 +312,63 @@ def test_onnx_model_does_not_force_simulation_mode(monkeypatch, tmp_path):
         assert config.simulation_mode_active() is expected
     finally:
         config.simulation_mode_active.cache_clear()
+
+
+# ---------------------------------------------------------------------------
+# 두 경로 비교 도구 (ai/trainer/compare_backends.py)
+# ---------------------------------------------------------------------------
+
+
+def _compare_module():
+    import importlib.util
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    path = _Path(__file__).resolve().parents[1] / "ai" / "trainer" / "compare_backends.py"
+    spec = importlib.util.spec_from_file_location("compare_backends", path)
+    module = importlib.util.module_from_spec(spec)
+    _sys.modules["compare_backends"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_iou_matrix_basic_overlap():
+    cb = _compare_module()
+    a = np.array([[0, 0, 10, 10]], dtype=np.float32)
+    b = np.array([[0, 0, 10, 10], [5, 0, 15, 10], [100, 100, 110, 110]], dtype=np.float32)
+    ious = cb.iou_matrix(a, b)
+    assert ious[0, 0] == pytest.approx(1.0)
+    assert ious[0, 1] == pytest.approx(1 / 3)  # 절반 겹침 -> 50/150
+    assert ious[0, 2] == pytest.approx(0.0)
+
+
+def test_match_boxes_pairs_by_overlap_not_by_order():
+    """순번으로 비교하면 박스 하나만 어긋나도 뒤가 전부 밀린다. 그래서 IoU 로 짝짓는다."""
+    cb = _compare_module()
+    # 같은 개체 3개인데 b 쪽 순서가 뒤섞이고 1픽셀씩 어긋나 있다.
+    a = np.array([[0, 0, 10, 10], [50, 50, 60, 60], [100, 100, 110, 110]], dtype=np.float32)
+    b = np.array([[100, 101, 110, 111], [1, 0, 11, 10], [50, 50, 60, 61]], dtype=np.float32)
+
+    pairs, un_a, un_b = cb.match_boxes(a, b)
+
+    assert len(pairs) == 3
+    assert (un_a, un_b) == (0, 0)
+    assert sorted(pairs) == [(0, 1), (1, 2), (2, 0)]  # 순번이 아니라 위치로 짝지었다
+
+
+def test_match_boxes_reports_unmatched_on_both_sides():
+    cb = _compare_module()
+    a = np.array([[0, 0, 10, 10], [200, 200, 210, 210]], dtype=np.float32)
+    b = np.array([[0, 0, 10, 10], [400, 400, 410, 410]], dtype=np.float32)
+    pairs, un_a, un_b = cb.match_boxes(a, b)
+    assert len(pairs) == 1
+    assert (un_a, un_b) == (1, 1)
+
+
+def test_match_boxes_handles_empty_sides():
+    cb = _compare_module()
+    empty = np.zeros((0, 4), dtype=np.float32)
+    boxes = np.array([[0, 0, 10, 10]], dtype=np.float32)
+    assert cb.match_boxes(empty, boxes) == ([], 0, 1)
+    assert cb.match_boxes(boxes, empty) == ([], 1, 0)
+    assert cb.match_boxes(empty, empty) == ([], 0, 0)
