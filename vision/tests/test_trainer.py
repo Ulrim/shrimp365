@@ -125,3 +125,17 @@ def test_colab_notebook_is_valid_and_wired_to_the_trainer_scripts():
         assert script in joined, f"노트북이 {script} 를 쓰지 않는다"
     # 드라이브의 실제 폴더 이름(공백·한글 포함)이 그대로 들어가 있어야 한다.
     assert "01. 흰다리새우 학습 데이터" in joined
+
+
+def test_train_exposes_resume_for_interrupted_runs():
+    """CPU 장시간 학습과 Colab 세션 끊김을 복구하는 경로. 플래그가 사라지면
+    긴 학습을 처음부터 다시 돌려야 한다."""
+    proc = subprocess.run(
+        [sys.executable, str(TRAIN), "--help"],
+        capture_output=True,
+        text=True,
+        cwd=BACKEND,
+        timeout=60,
+    )
+    assert proc.returncode == 0
+    assert "--resume" in proc.stdout
