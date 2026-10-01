@@ -25,14 +25,16 @@ const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, "..", "..", "..")
 const OUT = path.resolve(HERE, "..", "assets")
 
-/** 장비 화면 6컷. state 는 make-preview.py 의 STATES 순서, act 는 화면 안에서 부를 함수. */
+/** 장비 화면 8컷. state 는 make-preview.py 의 STATES 순서, act 는 화면 안에서 부를 함수. */
 const SCREENS = [
   { key: "A", state: 0, act: null },                          // 정상 수집
   { key: "B", state: 5, act: `openChart("do_level")` },       // 24시간 그래프
-  { key: "C", state: 5, act: null },                          // 용존산소 위험
+  { key: "C", state: 5, act: null },                          // 용존산소 위험 + 운전 권고
   { key: "D", state: 3, act: null },                          // 통신 두절
-  { key: "E", state: 6, act: null },                          // 센서 오류
+  { key: "E", state: 8, act: null },                          // 센서 오류
   { key: "F", state: 0, act: `openSettings();openSensors();setTimeout(scanBus,150)` },
+  { key: "G", state: 6, act: null },                          // 추세 경고 (임계 전)
+  { key: "H", state: 7, act: null },                          // 과잉 폭기 (전력 절감)
 ]
 
 const PAGES = [

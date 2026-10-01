@@ -39,11 +39,18 @@ REPO = HERE.parent
 OUT_DIR = REPO / "public" / "updates"
 KEY_PATH = HERE / "secrets" / "release-key.pem"
 
-# 업데이트 꾸러미에 담을 파일. updater.py 의 허용 목록과 같아야 한다.
-# 이미 설치된 장비의 코드만 바꾸는 것이므로 프로그램 파일만 들어간다.
+# 업데이트 꾸러미에 담을 파일. 이미 설치된 장비의 코드만 바꾸는 것이므로
+# 프로그램 파일만 들어간다.
+#
+# **여기에 파일을 새로 추가할 때는 현장 장비가 그것을 받을 수 있는지 먼저 보라.**
+# 꾸러미를 검사하는 것은 장비가 지금 가진 updater.py 다. 1.8.0 까지는 받을 파일
+# 이름을 하나하나 적어 두어, 목록에 없는 새 파일이 보이면 꾸러미 전체를 거부했다.
+# 그래서 1.9.0 앞에 updater.py 만 바꾼 1.8.1 을 한 번 내보내야 했다(README 참고).
+# 1.8.1 부터는 이름의 모양으로 검사하므로 이 과정은 다시 필요하지 않다.
 PAYLOAD = [
     "shrimp365_sensor.py", "display.py", "webui.py", "wifi.py",
     "buffer.py", "history.py", "updater.py",
+    "limits.py", "anomaly.py", "advice.py",
 ]
 
 # 설치 꾸러미에 담을 파일. 빈 라즈베리파이에 처음 설치할 때 필요한 전부다.

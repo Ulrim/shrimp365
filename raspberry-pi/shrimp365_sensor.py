@@ -49,8 +49,13 @@ except ImportError:  # pragma: no cover
 
 try:
     import webui
-except ImportError:  # pragma: no cover
+except ImportError as _exc:  # pragma: no cover
+    # 조용히 넘기면 터치스크린만 꺼진 채 측정은 돌아, 현장에서는 "화면이 죽었다"
+    # 로만 보이고 원인을 알 길이 없다. 꾸러미에 빠진 모듈 이름이라도 남긴다.
     webui = None
+    _WEBUI_IMPORT_ERROR = str(_exc)
+else:
+    _WEBUI_IMPORT_ERROR = ""
 
 try:
     import wifi as wifi_mod
@@ -67,7 +72,25 @@ try:
 except ImportError:  # pragma: no cover
     history_mod = None
 
-VERSION = "1.8.0"
+# 이상탐지·운전 권고. 이력(history)이 있어야 추세를 볼 수 있으므로 함께 선택사항이다.
+try:
+    import anomaly as anomaly_mod
+except ImportError:  # pragma: no cover
+    anomaly_mod = None
+
+try:
+    import advice as advice_mod
+except ImportError:  # pragma: no cover
+    advice_mod = None
+
+VERSION = "1.9.0"
+
+# 추세 판정을 몇 초마다 다시 돌릴지. 임계값 권고는 매 측정마다 즉시 나가고,
+# 추세는 몇 분 늦어도 되므로 나눠 둔다 — 라즈베리 제로에서 1분마다 나흘치를
+# 다시 훑으면 측정 주기를 잡아먹는다.
+ANALYSIS_INTERVAL_S = 300
+# 추세를 볼 구간. 날짜별 극값으로 보는 항목이 최소 3일을 요구해 나흘을 읽는다.
+ANALYSIS_WINDOW_H = 96
 log = logging.getLogger("shrimp365")
 
 
@@ -1908,6 +1931,10 @@ def main() -> int:
     # 기본값은 켬. 127.0.0.1 에만 열리므로 화면이 없는 장비에서도 해가 없고,
     # 나중에 화면을 붙였을 때 설정을 고칠 필요가 없다. 끄려면 enabled = false.
     state = None
+    if webui is None and _WEBUI_IMPORT_ERROR:
+        log.error("장비 화면을 띄울 수 없습니다 — %s. 설치 꾸러미에 모듈이 빠졌는지 확인하세요.",
+                  _WEBUI_IMPORT_ERROR)
+
     if webui is not None and cfg.getboolean("webui", "enabled", fallback=True):
         state = webui.State()
 
@@ -2285,6 +2312,11 @@ def main() -> int:
     last_values: dict[str, float] = {}
     status_line = ""
 
+    # 추세 판정 결과를 들고 있는다. 매 측정마다 나흘치를 다시 훑지 않기 위함이고,
+    # 그 사이에도 권고는 이 결과를 재료로 계속 나간다.
+    analysis: dict = {"at": 0.0, "rows": [], "anomalies": []}
+    advices: list[dict] = []
+
     while not stop:
         started = time.monotonic()
 
@@ -2298,6 +2330,7 @@ def main() -> int:
             log.error("읽은 값이 없습니다. 배선·전원·슬레이브 ID를 확인하세요. %s", errors)
             status_line = "SENSOR ERROR"
             nutrient = None          # 값이 없으면 양액 안내도 띄우지 않는다
+            advices = []             # 못 잰 값으로 설비를 돌리라고 할 수는 없다
         else:
             stored = {k: v for k, v in values.items() if k in STORED_FIELDS}
             extra = {k: v for k, v in values.items() if k not in STORED_FIELDS}
@@ -2310,6 +2343,31 @@ def main() -> int:
             # 양액 보충량 — 켜져 있고 전도도가 있을 때만. 화면이 이 값을 띄운다.
             nutrient = nutrient_plan(values.get("conductivity"),
                                      values.get("temperature"), nut_holder)
+
+            # 이상징후와 설비 운전 권고 — 통신과 무관하게 장비 안에서 끝낸다.
+            #
+            # 둘의 주기를 나눈 이유: 용존산소가 기준을 깬 순간의 안내가 몇 분
+            # 늦으면 안내가 아니다. 반대로 "나흘째 하락" 은 1분마다 다시 셀 일이
+            # 아니다. 그래서 권고는 매 측정, 추세는 ANALYSIS_INTERVAL_S 마다 본다.
+            if advice_mod is not None:
+                now_s = time.time()
+                if (anomaly_mod is not None and hist is not None
+                        and now_s - analysis["at"] >= ANALYSIS_INTERVAL_S):
+                    try:
+                        analysis["rows"] = hist.recent(ANALYSIS_WINDOW_H)
+                        analysis["anomalies"] = anomaly_mod.detect(analysis["rows"])
+                    except Exception as exc:  # noqa: BLE001 — 판정이 수집을 막으면 안 된다
+                        log.warning("이상탐지 실패: %s", exc)
+                        analysis["anomalies"] = []
+                    analysis["at"] = now_s
+                try:
+                    advices = advice_mod.recommend(values, analysis["anomalies"],
+                                                   analysis["rows"], nutrient is not None)
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("운전 권고 실패: %s", exc)
+                    advices = []
+                if advices:
+                    log.info("운전 권고 %s", [a["code"] for a in advices])
 
             if args.dry_run:
                 print(json.dumps(values, ensure_ascii=False, indent=2))
@@ -2370,6 +2428,8 @@ def main() -> int:
             state.update(
                 values=last_values,
                 nutrient=nutrient,
+                advice=advices,
+                anomalies=analysis["anomalies"],
                 status=status_line,
                 errors=errors,
                 linked=bool(auth["key"]),
