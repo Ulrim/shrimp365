@@ -18,13 +18,22 @@ import { recordAudit } from "@/lib/mrv/audit"
 
 const UNIQUE_VIOLATION = "23505"
 
+/**
+ * 응답에 싣는 열. `created_at` 이 들어 있는 것은 장식이 아니다 — 배출계수를 **언제
+ * 등록했는지**가 증빙의 일부다(계수가 바뀐 시점과 리포트 생성 시점의 선후를 제3자가
+ * 확인한다). 예전에는 이 열을 빼고 보내면서 타입(`EmissionFactor`)에는 필수로 적어 두어,
+ * 화면이 `created_at` 을 읽으면 타입은 string 인데 런타임은 undefined 였다.
+ */
+const EMISSION_FACTOR_COLUMNS =
+  "id, factor_tco2e_per_mwh, source, year, version, effective_from, created_at"
+
 export async function GET(req: NextRequest) {
   return handleRoute(async () => {
     const auth = await authorizeMrv(req)
     const rows = await fetchAll((f, t) =>
       auth.db
         .from(T.emissionFactors)
-        .select("id, factor_tco2e_per_mwh, source, year, version, effective_from")
+        .select(EMISSION_FACTOR_COLUMNS)
         .order("effective_from", { ascending: false })
         .range(f, t),
     )
@@ -61,7 +70,13 @@ export async function POST(req: NextRequest) {
       version: body.version,
       effective_from: effectiveFrom.toISOString(),
     }
-    const { error } = await auth.db.from(T.emissionFactors).insert(row)
+    // 저장된 행을 그대로 돌려받는다 — created_at 은 DB 기본값이 채우므로, 보내 준 값을
+    // 되돌려 주면 응답에 그 열이 빠진다(위 주석의 그 불일치가 여기서 생겼다).
+    const { data: stored, error } = await auth.db
+      .from(T.emissionFactors)
+      .insert(row)
+      .select(EMISSION_FACTOR_COLUMNS)
+      .single()
     if (error) {
       if ((error as { code?: string }).code === UNIQUE_VIOLATION) {
         throw new HttpError(409, "an emission factor with this version already exists")
@@ -79,6 +94,6 @@ export async function POST(req: NextRequest) {
       diff: { before: null, after: row },
     })
 
-    return NextResponse.json(row, { status: 201 })
+    return NextResponse.json(stored, { status: 201 })
   })
 }

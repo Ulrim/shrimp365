@@ -1,11 +1,16 @@
 "use client"
 
 /**
- * 급이 · 폐사 수기 입력.
+ * 급이 · 폐사 입력 — 수기 폼 + 표준 기록지(CSV) 업로드.
  * 원본: mrv-platform/apps/web/src/features/input/{InputPage,FeedLogForm,MortalityLogForm}.tsx
  *
  * 이 두 값이 각각 FCR 과 폐사율의 분자다. 그래서 입력 검증이 화면에도, 서버에도 있다 —
  * 화면 검증은 빠른 피드백일 뿐이고 최종 판정은 서버가 한다.
+ *
+ * MASTER 4장 화면 #4 는 "수동 입력 폼 + 표준 기록지(CSV 업로드) + 입력 검증" 을 요구한다.
+ * 원본에는 업로드가 없어(엔드포인트 41개에 기록지 창구가 없다) 이식 범위 밖이었고,
+ * 여기서 더했다. 업로드도 같은 서버 창구를 줄마다 호출하므로 검증 기준이 갈라지지 않는다 —
+ * 해석 규칙은 `lib/mrv/csv-records.ts`, 그 검증은 `npm run mrv:verify-csv`.
  *
  * viewer 는 쓰기 권한이 없다. 폼을 감추지 않고 비활성 상태로 보여 주며 이유를 적는다 —
  * 메뉴가 사라지면 사용자는 기능이 없는 줄 안다.
@@ -15,9 +20,16 @@ import { useId, useState } from "react"
 import { apiFetch, errorMessage, useApiMutation } from "@/lib/mrv/client"
 import { useMrvSession } from "@/lib/mrv/ui/session"
 import { useMrvSite } from "@/lib/mrv/ui/site"
-import { localInputToIsoUtc, nowLocalInputValue } from "@/lib/mrv/ui/datetime"
+import { formatIsoLocal, localInputToIsoUtc, nowLocalInputValue } from "@/lib/mrv/ui/datetime"
 import { BatchSelect } from "@/components/mrv/batch-select"
+import { CsvUpload } from "@/components/mrv/csv-upload"
 import { INPUT_CLASS, PRIMARY_BUTTON, PageHeader } from "@/components/mrv/ui"
+import {
+  FEED_CSV_TEMPLATE,
+  MORTALITY_CSV_TEMPLATE,
+  parseFeedCsv,
+  parseMortalityCsv,
+} from "@/lib/mrv/csv-records"
 
 const WRITER_ROLES = new Set(["owner", "operator"])
 
@@ -291,6 +303,47 @@ export default function InputPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <FeedLogForm siteId={selectedSiteId} canWrite={canWrite} />
         <MortalityLogForm siteId={selectedSiteId} canWrite={canWrite} />
+      </div>
+
+      <div className="flex flex-col gap-6">
+        <CsvUpload
+          title="급이 기록지 업로드 (CSV)"
+          parse={parseFeedCsv}
+          endpoint={
+            selectedSiteId
+              ? `/sites/${encodeURIComponent(selectedSiteId)}/feed-logs`
+              : null
+          }
+          template={FEED_CSV_TEMPLATE}
+          templateFilename="급이기록지_견본.csv"
+          columnsHint="필요한 열: batch_id(배치) · ts(시각) · feed_kg(급이량). 한국어 머리글도 받습니다."
+          previewColumns={[
+            { header: "배치", cell: (r) => r.batch_id },
+            { header: "급이 시각", cell: (r) => formatIsoLocal(r.ts) },
+            { header: "급이량(kg)", cell: (r) => String(r.feed_kg) },
+          ]}
+          canWrite={canWrite}
+        />
+
+        <CsvUpload
+          title="폐사 기록지 업로드 (CSV)"
+          parse={parseMortalityCsv}
+          endpoint={
+            selectedSiteId
+              ? `/sites/${encodeURIComponent(selectedSiteId)}/mortality-logs`
+              : null
+          }
+          template={MORTALITY_CSV_TEMPLATE}
+          templateFilename="폐사기록지_견본.csv"
+          columnsHint="필요한 열: batch_id(배치) · ts(시각) · dead_count(폐사 개체수). cause_note(원인 메모)는 선택입니다."
+          previewColumns={[
+            { header: "배치", cell: (r) => r.batch_id },
+            { header: "기록 시각", cell: (r) => formatIsoLocal(r.ts) },
+            { header: "폐사 개체수", cell: (r) => String(r.dead_count) },
+            { header: "원인 메모", cell: (r) => r.cause_note ?? "—" },
+          ]}
+          canWrite={canWrite}
+        />
       </div>
     </div>
   )

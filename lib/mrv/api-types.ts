@@ -466,6 +466,28 @@ export interface EmissionFactorListResponse {
 }
 
 /**
+ * GET /kpi-config 행. 조직 전역 설정이라 org_id가 없다(배출계수와 같은 자리).
+ * `params_json`은 엔진이 해석하는 자유 JSON이라 구조를 타입으로 묶지 않는다 —
+ * 묶으면 엔진이 키를 더하는 날 화면이 먼저 깨진다. 화면은 표시만 한다.
+ */
+export interface KpiConfigEntry {
+  id: string;
+  version: string;
+  params_json: Record<string, unknown>;
+  effective_from: string;
+}
+
+/**
+ * GET /kpi-config 응답 — effective_from 내림차순.
+ * `active_version`은 지금 KPI 판정에 실제로 쓰이는 버전이다. 화면이 items[0]을 보고
+ * 다시 고르지 않도록 서버가 못 박아 준다(정렬 규칙이 둘로 갈리면 화면이 거짓말을 한다).
+ */
+export interface KpiConfigListResponse {
+  items: KpiConfigEntry[];
+  active_version: string | null;
+}
+
+/**
  * GET /kpi-snapshots/{id} 응답(1.7절 drill-down 종착점) — kpi_snapshots 1행 그대로.
  * before.kpi_snapshot_id/after.kpi_snapshot_id를 클릭해 여기로 들어가면 스칼라 5종 +
  * inputs_json + provenance_json + config_version까지 원본 근거를 역추적할 수 있다.

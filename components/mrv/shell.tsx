@@ -28,6 +28,9 @@ const BASE_NAV_ITEMS: { to: string; label: string }[] = [
   { to: "/mrv/baseline", label: "기준선 잠금" },
   { to: "/mrv/alerts", label: "알림 센터" },
   { to: "/mrv/onboarding", label: "온보딩" },
+  // 설정은 플랜 게이팅 대상이 아니다 — 계측기를 등록하지 못하면 START 도 아무 값을
+  // 볼 수 없으므로 전 플랜이 들어와야 한다. 쓰기 권한은 화면 안에서 역할로 가린다.
+  { to: "/mrv/settings", label: "설정" },
 ]
 
 const PRO_NAV_ITEMS: { to: string; label: string }[] = [
@@ -109,7 +112,7 @@ function NavBar() {
           컬리버 MRV
         </Link>
       </div>
-      {/* 메뉴가 최대 12개다. 좁은 화면에서 줄바꿈하면 내비가 화면 절반을 먹으므로
+      {/* 메뉴가 최대 13개다(기본 6 + PRO 4 + ENTERPRISE 3). 좁은 화면에서 줄바꿈하면 내비가 화면 절반을 먹으므로
           가로 스크롤로 흘린다(항목은 전부 닿을 수 있고 본문 자리는 그대로다). */}
       <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
         {items.map((item) => {

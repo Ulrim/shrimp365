@@ -4,7 +4,7 @@
  * 수조 다중 선택(수조별 비교).
  * 원본: mrv-platform/apps/web/src/features/dashboard/components/TankMultiSelect.tsx
  *
- * 선택이 없으면 사이트 전체 전력 시계열을 본다는 뜻이다 — 빈 선택을 "아무것도 안 보임"이
+ * 선택이 없으면 사이트 전체 시계열을 본다는 뜻이다 — 빈 선택을 "아무것도 안 보임"이
  * 아니라 기본값으로 다루는 것이 원본의 규칙이다.
  */
 
@@ -85,7 +85,7 @@ export function TankMultiSelect({
 
       {value.length === 0 && !isLoading && (
         <p className="text-xs text-mrv-muted">
-          선택 없음 = 사이트 전체 전력 시계열을 표시합니다.
+          선택 없음 = 사이트의 계측기 전체를 지표별로 표시합니다.
         </p>
       )}
     </fieldset>
