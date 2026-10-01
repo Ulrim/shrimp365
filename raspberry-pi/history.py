@@ -86,6 +86,36 @@ class History:
         if time.time() - self._last_prune > 3600:
             self._prune()
 
+    def recent(self, hours: int) -> list[dict]:
+        """지정 구간의 **원본** 측정점. 이상탐지(anomaly.py)가 쓴다.
+
+        series() 를 쓰지 않는 이유는 그쪽이 그래프용으로 칸마다 평균을 내기 때문이다.
+        평균을 내면 급변이 뭉개져, 정작 찾아야 할 "짧고 깊게 떨어진 구간" 이
+        평평해진다. 판정에는 잰 값 그대로가 필요하다.
+        """
+        if self._conn is None:
+            return []
+        since = int(time.time()) - hours * 3600
+        with self._lock:
+            try:
+                rows = self._conn.execute(
+                    f"select ts, {', '.join(FIELDS)} from samples "
+                    "where ts >= ? order by ts",
+                    (since,),
+                ).fetchall()
+            except sqlite3.Error as exc:
+                log.warning("이력 조회 실패: %s", exc)
+                return []
+
+        out = []
+        for row in rows:
+            point: dict = {"t": row[0]}
+            for name, value in zip(FIELDS, row[1:]):
+                if value is not None:
+                    point[name] = float(value)
+            out.append(point)
+        return out
+
     def series(self, field: str, hours: int) -> dict:
         """지정 구간의 값을 그래프용으로 줄여서 돌려준다.
 

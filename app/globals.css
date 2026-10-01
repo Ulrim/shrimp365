@@ -106,7 +106,9 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-family: var(--font-pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif);
+    /* 1순위 서브셋(481KB) → 2순위 원본(2MB, 희귀 글자 있을 때만 요청) → 시스템 폰트 */
+    font-family: var(--font-pretendard, ui-sans-serif), var(--font-pretendard-full, ui-sans-serif),
+      -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   }
 }
 

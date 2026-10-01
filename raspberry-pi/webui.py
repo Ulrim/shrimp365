@@ -21,6 +21,8 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
+import limits
+
 log = logging.getLogger("shrimp365.webui")
 
 
@@ -51,6 +53,10 @@ class State:
 
             "ec_unit": "us",       # 전도도 표시 단위(us|ms). 화면이 값을 바꿔 보여 준다.
             "nutrient": None,      # 양액 보충 안내(켜 둔 경우에만)
+
+            # 장비가 스스로 낸 판단. 통신과 무관하게 여기서 끝난다.
+            "advice": [],          # 설비 운전 권고 (advice.py)
+            "anomalies": [],       # 추세 이상징후 (anomaly.py)
         }
 
     def update(self, **kwargs) -> None:
@@ -138,6 +144,27 @@ PAGE = """<!doctype html>
   .nut .dose{font:800 26px/1 ui-monospace,monospace;letter-spacing:-.01em}
   .nut .dose small{font-size:13px;font-weight:600;color:#94A3B8;margin-left:3px}
   .nut .meta{margin-left:auto;font-size:12px;color:#94A3B8;text-align:right;line-height:1.5}
+
+  /* 설비 운전 권고 — 값 격자 바로 아래. "무엇을 돌릴까" 가 값보다 아래이되
+     양액 안내보다는 위다(폐사까지의 시간이 짧은 쪽을 먼저 읽게 한다). */
+  .adv{
+    flex:0 0 auto;margin-top:9px;padding:8px 13px;border-radius:12px;
+    background:#111A2E;border:1px solid #22304C;
+  }
+  .adv.danger{border-color:#DC2626;background:#DC262618}
+  .adv.warn{border-color:#D97706;background:#D9770618}
+  .adv.save{border-color:#10B981;background:#10B98112}
+  .adv .head{
+    font-size:11.5px;font-weight:800;letter-spacing:.04em;color:#94A3B8;
+    text-transform:uppercase;margin-bottom:4px;
+  }
+  .adv .row{display:flex;align-items:baseline;gap:9px;line-height:1.35}
+  .adv .row + .row{margin-top:5px;padding-top:5px;border-top:1px solid #1E293B}
+  .adv .act{font-size:15px;font-weight:800;color:#E8EDF7}
+  .adv .row.danger .act{color:#F87171}
+  .adv .row.warn .act{color:#FBBF24}
+  .adv .row.save .act{color:#34D399}
+  .adv .why{font-size:12.5px;color:#94A3B8;margin-left:auto;text-align:right;flex:0 0 auto}
 
   /* 설정 화면 */
   .setup{
@@ -337,18 +364,19 @@ PAGE = """<!doctype html>
 <div id="account"></div>
 
 <script>
-// 흰다리새우 적정 범위. 화면에서 바로 이상을 알아보기 위한 것으로,
-// 실제 알림 판정은 서버가 한다.
+// 값 칸의 표시 형식. **판정 숫자는 여기 없다** — limits.py 가 주입하는 BANDS 를
+// 쓴다(화면·운전 권고·서버 알림이 같은 기준이어야 하므로 한 곳에 모았다).
 var RANGES = {
-  temperature: {label:"수온", unit:"\\u00B0C", digits:1, ok:[28,32],  warn:[26,34]},
-  ph:          {label:"pH",   unit:"",         digits:2, ok:[7.5,8.5], warn:[7,9]},
-  do_level:    {label:"용존산소", unit:"ppm",  digits:2, ok:[5,20],   warn:[4,20]},
-  // 흰다리새우 해수 양식 기준.
-  salinity:    {label:"염도", unit:"\u2030",  digits:1, ok:[15,35],   warn:[10,40]},
+  temperature: {unit:"\\u00B0C", digits:1},
+  ph:          {unit:"",          digits:2},
+  do_level:    {unit:"ppm",       digits:2},
+  salinity:    {unit:"\u2030",    digits:1},
   // 전도도는 쓰는 곳마다 적정값이 달라(해수 약 50,000 uS/cm, 양액 1~3 mS/cm)
   // 좋고 나쁨을 코드가 정하지 않는다. 값만 그대로 보여 준다.
-  conductivity:{label:"전도도", unit:"uS/cm", digits:0, ok:null, warn:null}
+  conductivity:{unit:"uS/cm",     digits:0}
 };
+var BANDS = __BANDS__;
+var NUT_BANDS = __NUT_BANDS__;
 // 네 번째 칸은 EC 센서 설정을 따라간다. 염도 환산을 쓰면 염도가,
 // 전도도 모드면 전도도가 올라오므로 값이 있는 쪽을 보여 준다.
 function orderFor(d){
@@ -361,19 +389,23 @@ function orderFor(d){
 
 // 양액(수경재배)에서는 적정 범위가 새우와 전혀 다르다. 새우 기준을 그대로
 // 쓰면 정상값(수온 24℃, pH 6.2)이 온통 빨갛게 떠 경고가 무의미해진다.
-// 양액 관리를 켠 장비에서는 이 기준으로 바꿔 본다.
-var NUT_RANGES = {
-  temperature: {ok:[18,26], warn:[15,30]},
-  ph:          {ok:[5.5,6.5], warn:[5.0,7.0]}
-};
+// 양액 관리를 켠 장비에서는 NUT_BANDS 로 바꿔 본다(둘 다 limits.py 가 준다).
 var nutMode = false;   // 계기판이 매번 갱신할 때 함께 정한다
 
+// 밴드의 한쪽 끝이 null 이면 그쪽은 보지 않는다 — 용존산소에 상한이 없는 것이
+// 그 예다. 예전에는 상한 자리에 20 을 박아 두어, 과포화를 "위험"으로 찍었다.
+function within(pair, v){
+  if (!pair) return false;
+  if (pair[0] !== null && v < pair[0]) return false;
+  if (pair[1] !== null && v > pair[1]) return false;
+  return true;
+}
+
 function level(key, v){
-  var r = (nutMode && NUT_RANGES[key]) ? NUT_RANGES[key] : RANGES[key];
-  if(!r || !r.ok) return "";
-  if(v >= r.ok[0] && v <= r.ok[1]) return "";
-  if(v >= r.warn[0] && v <= r.warn[1]) return "warn";
-  return "crit";
+  var b = (nutMode && NUT_BANDS[key]) ? NUT_BANDS[key] : BANDS[key];
+  if(!b) return "";
+  if(within(b.ok, v)) return "";
+  return within(b.warn, v) ? "warn" : "crit";
 }
 
 function esc(s){ return String(s).replace(/[&<>]/g, function(c){
@@ -574,7 +606,23 @@ var I18N = {
   restart_yes:{ko:"네, 다시 시작",en:"Yes, restart",vi:"Vâng, khởi động lại",id:"Ya, mulai ulang"},
   restarting:{ko:"다시 시작하는 중… 잠시 뒤 화면이 돌아옵니다",en:"Restarting… the screen will return shortly",vi:"Đang khởi động lại… màn hình sẽ trở lại",id:"Memulai ulang… layar akan kembali"},
   rebooting:{ko:"재부팅하는 중… 약 1분 뒤 화면이 돌아옵니다",en:"Rebooting… the screen returns in about a minute",vi:"Đang khởi động lại… khoảng 1 phút",id:"Memulai ulang… sekitar 1 menit"},
-  restart_fail:{ko:"다시 시작하지 못했습니다.",en:"Couldn't restart.",vi:"Không khởi động lại được.",id:"Gagal memulai ulang."}
+  restart_fail:{ko:"다시 시작하지 못했습니다.",en:"Couldn't restart.",vi:"Không khởi động lại được.",id:"Gagal memulai ulang."},
+  // 설비 운전 권고 — advice.py 가 코드만 보내고 문장은 여기서 만든다.
+  // 한 줄에 "무엇을 하라" 만 적는다. 왜 그런지는 옆의 값이 말한다.
+  adv_head:{ko:"설비 운전 권고",en:"Equipment action",vi:"Khuyến nghị vận hành",id:"Rekomendasi operasi"},
+  adv_do_critical:{ko:"산소공급기·브로워 즉시 최대 가동 · 급이 중단",en:"Run aerator/blower at full now · stop feeding",vi:"Chạy máy sục/quạt khí hết công suất · ngừng cho ăn",id:"Jalankan aerator/blower penuh · hentikan pakan"},
+  adv_do_low:{ko:"브로워 가동 — 폭기량 20~30% 증대",en:"Start blower — raise aeration 20–30%",vi:"Bật quạt khí — tăng sục 20–30%",id:"Nyalakan blower — naikkan aerasi 20–30%"},
+  adv_do_falling:{ko:"용존산소 하락 중 — 폭기 증대 준비",en:"DO falling — be ready to raise aeration",vi:"DO đang giảm — chuẩn bị tăng sục",id:"DO menurun — siap menaikkan aerasi"},
+  adv_do_surplus:{ko:"과잉 폭기 — 브로워 출력·가동시간 점검",en:"Over-aeration — check blower output and run time",vi:"Sục quá mức — kiểm tra công suất và giờ chạy",id:"Aerasi berlebih — periksa daya dan jam operasi"},
+  adv_ph_critical:{ko:"즉시 환수 · 알칼리도 점검",en:"Exchange water now · check alkalinity",vi:"Thay nước ngay · kiểm tra độ kiềm",id:"Ganti air sekarang · periksa alkalinitas"},
+  adv_ph_shift:{ko:"pH 급변 — 환수·알칼리도 점검",en:"pH shift — exchange water, check alkalinity",vi:"pH biến động — thay nước, kiểm tra độ kiềm",id:"pH bergeser — ganti air, periksa alkalinitas"},
+  adv_turbidity_high:{ko:"순환펌프·여과장치 점검 · 역세척",en:"Check circulation pump and filter · backwash",vi:"Kiểm tra bơm tuần hoàn và lọc · rửa ngược",id:"Periksa pompa sirkulasi dan filter · backwash"},
+  adv_turbidity_up:{ko:"탁도 상승 — 여과 효율 점검",en:"Turbidity rising — check filtration",vi:"Độ đục tăng — kiểm tra hiệu suất lọc",id:"Kekeruhan naik — periksa efisiensi filter"},
+  adv_temp_high:{ko:"차광·냉각 가동 · 폭기 증대",en:"Shade/cool now · raise aeration",vi:"Che nắng/làm mát · tăng sục khí",id:"Naungi/dinginkan · naikkan aerasi"},
+  adv_temp_low:{ko:"히터 가동 점검",en:"Check the heater",vi:"Kiểm tra máy sưởi",id:"Periksa pemanas"},
+  adv_temp_swing:{ko:"수온 급변 — 환수량·외기 유입 점검",en:"Temperature swing — check exchange volume and outside air",vi:"Nhiệt độ biến động — kiểm tra lượng thay nước và khí trời",id:"Suhu berayun — periksa volume ganti air dan udara luar"},
+  adv_salinity_critical:{ko:"환수 중단 · 원수 염도 확인",en:"Stop water exchange · check source salinity",vi:"Ngừng thay nước · kiểm tra độ mặn nguồn",id:"Hentikan ganti air · periksa salinitas sumber"},
+  adv_salinity_shift:{ko:"염도 급변 — 환수량·원수 점검",en:"Salinity shift — check exchange volume and source",vi:"Độ mặn biến động — kiểm tra lượng thay nước và nguồn",id:"Salinitas bergeser — periksa volume ganti air dan sumber"}
 };
 
 function t(key, vars){
@@ -612,7 +660,27 @@ function renderValues(d){
            '<div class="v">' + v + (r.unit ? '<small>' + (ms ? "mS/cm" : r.unit) + '</small>' : '') + '</div>' +
            subLine(key, d) + '</div>';
   }).join("");
-  return '<div class="grid">' + cells + '</div>' + renderNutrient(d);
+  return '<div class="grid">' + cells + '</div>' + renderAdvice(d) + renderNutrient(d);
+}
+
+// 설비 운전 권고 — "지금 무엇을 돌릴까" 한 줄.
+//
+// 값과 색만으로는 새벽 세 시에 한 번 더 생각해야 한다. 장비가 대신 답한다.
+// **두 줄까지만** 띄운다. 800×480 에 더 넣으면 값 격자가 눌리고, 급한 것과
+// 덜 급한 것이 같은 무게로 보여 결국 아무것도 읽히지 않는다.
+function renderAdvice(d){
+  var list = (d && d.advice) || [];
+  if (!list.length) return "";
+  var top = list.slice(0, 2);
+  var rows = top.map(function(a){
+    var val = (typeof a.value === "number")
+      ? '<span class="why">' + a.value.toFixed(a.digits || 1) + '</span>' : "";
+    return '<div class="row ' + esc(a.level) + '">' +
+           '<span class="act">' + t("adv_" + a.code) + '</span>' + val + '</div>';
+  }).join("");
+  // 테두리 색은 가장 급한 것을 따른다 — 목록은 이미 급한 순이다.
+  return '<div class="adv ' + esc(top[0].level) + '">' +
+         '<div class="head">' + t("adv_head") + '</div>' + rows + '</div>';
 }
 
 // 값 칸이 비었을 때 "어느 센서 탓인지" 를 짚어 준다. 화면에 -- 만 뜨면
@@ -1908,7 +1976,12 @@ def serve(
     # 첫 화면 언어를 페이지에 새겨 둔다(웹페이지와 같은 4종). 화면에서 바꾸면
     # JS 가 즉시 다시 그리고 서버에도 남기므로, 다음에 열 때 그 언어로 뜬다.
     lang = language if language in ("ko", "en", "vi", "id") else "ko"
-    page_bytes = PAGE.replace("__LANG__", lang).encode()
+    # 판정 숫자는 limits.py 한 곳에서만 온다 — 화면에 같은 값을 또 적어 두면
+    # 한쪽만 고쳐져 수조 옆 색과 서버 알림이 어긋난다(실제로 수온이 그랬다).
+    page_bytes = (PAGE
+                  .replace("__LANG__", lang)
+                  .replace("__BANDS__", json.dumps(limits.BANDS))
+                  .replace("__NUT_BANDS__", json.dumps(limits.NUTRIENT_BANDS))).encode()
 
     class Handler(BaseHTTPRequestHandler):
         # 기본 로거는 요청마다 stderr 를 채운다. journald 가 지저분해지므로 끈다.

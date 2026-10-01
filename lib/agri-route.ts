@@ -61,6 +61,21 @@ export function agriHref(href: string, agri: boolean): string {
   return AGRI_PREFIX + href
 }
 
+/** 이 농장(또는 그 농장에 속한 수조)이 지금 보고 있는 화면에 속하는가.
+ *
+ *  화면은 URL 이 정하고(`isAgri`) 데이터는 `farms.farm_type` 을 들고 있다.
+ *  두 축이 어긋난 것을 한 목록에 섞으면 남의 기준으로 판정하게 된다 —
+ *  새우 화면의 수경재배 베드는 염도 0·22 ℃ 때문에 통째로 빨개지고, 농업
+ *  화면의 새우 수조는 pH 8.0 이 농업 기준(5.5~6.5)에 걸려 위험이 된다.
+ *
+ *  값이 없으면(마이그레이션 전 DB·목데이터) 언제나 새우로 본다. */
+export function belongsToAgriScreen(
+  farmType: "shrimp" | "agriculture" | null | undefined,
+  isAgri: boolean,
+): boolean {
+  return ((farmType ?? "shrimp") === "agriculture") === isAgri
+}
+
 /** 화면에서 쓰는 훅. `const { isAgri, href } = useAgriRoute()` */
 export function useAgriRoute(): { isAgri: boolean; href: (p: string) => string } {
   const pathname = usePathname()

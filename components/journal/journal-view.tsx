@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { MOCK_JOURNALS, MOCK_DIAGNOSES, MOCK_TANKS, MOCK_INVENTORY_ITEMS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
 import {
@@ -27,11 +27,14 @@ import {
   BookOpen, Plus, Thermometer, Droplets, Wind, Waves, UtensilsCrossed,
   RefreshCw, FlaskConical, Skull, CheckCircle2, Calendar, User, StickyNote,
   Pencil, Trash2, AlertTriangle, Download, ChevronDown,
-  XCircle, AlertCircle, Clock, FileText, Activity,
+  XCircle, AlertCircle, Clock, FileText, Activity, Zap, Gauge, Repeat,
 } from "lucide-react"
 import { formatDate, formatDateTime } from "@/lib/utils"
 import { exportToCsv } from "@/lib/export"
 import { useT } from "@/lib/i18n-context"
+import { belongsToAgriScreen, useAgriRoute } from "@/lib/agri-route"
+import { AGRI_NUTRIENT_TYPES, AGRI_INPUT_TYPES } from "@/lib/record-actions"
+import { agriNumOrNull, agriEcToMicroSiemens } from "@/lib/agri-standards"
 
 // ── Diagnosis helpers ─────────────────────────────────────────────────────────
 
@@ -92,6 +95,9 @@ const defaultJournalForm = {
   date: new Date().toISOString().split("T")[0],
   temperature: "", ph: "", do_level: "", salinity: "",
   ammonia: "", nitrite: "", nitrate: "", alkalinity: "", turbidity: "",
+  // 농업(수경재배) 3항목 — 측정 폼(record/water-quality-record-view.tsx)과
+  // 같은 6항목을 받는다. 두 입력 경로가 다른 항목을 받으면 데이터가 갈라진다.
+  conductivity: "", flow_rate: "", diff_pressure: "",
   feeding_amount: "",
   feed_type: "PHOCA 9073S(39%)",
   feeding_times: "4",
@@ -129,15 +135,18 @@ type JournalPersistedDefaults = {
 }
 
 const JOURNAL_DEFAULTS_KEY = "journal_form_defaults"
+// 농업 폼 기본값은 키를 나눈다(lib/record-actions.ts 와 같은 규칙).
+// 한 계정이 두 폼을 오가면 새우 폼 "사료 종류"에 "A/B 표준 배양액" 이 뜬다.
+const JOURNAL_DEFAULTS_KEY_AGRI = "journal_form_defaults_agri"
 
-function loadJournalDefaults(): JournalPersistedDefaults {
+function loadJournalDefaults(agri = false): JournalPersistedDefaults {
   try {
-    const raw = localStorage.getItem(JOURNAL_DEFAULTS_KEY)
+    const raw = localStorage.getItem(agri ? JOURNAL_DEFAULTS_KEY_AGRI : JOURNAL_DEFAULTS_KEY)
     return raw ? JSON.parse(raw) : {}
   } catch { return {} }
 }
 
-function saveJournalDefaults(form: typeof defaultJournalForm) {
+function saveJournalDefaults(form: typeof defaultJournalForm, agri = false) {
   try {
     const toSave: JournalPersistedDefaults = {
       feed_type:           form.feed_type,
@@ -151,7 +160,7 @@ function saveJournalDefaults(form: typeof defaultJournalForm) {
       check_circulation:   form.check_circulation,
       check_feeding_check: form.check_feeding_check,
     }
-    localStorage.setItem(JOURNAL_DEFAULTS_KEY, JSON.stringify(toSave))
+    localStorage.setItem(agri ? JOURNAL_DEFAULTS_KEY_AGRI : JOURNAL_DEFAULTS_KEY, JSON.stringify(toSave))
   } catch { /* ignore storage errors */ }
 }
 
@@ -159,6 +168,7 @@ function saveJournalDefaults(form: typeof defaultJournalForm) {
 
 function JournalCard({ entry, currentUserId, currentUserName, onEdit, onDelete }: { entry: JournalEntry; currentUserId?: string; currentUserName?: string; onEdit: (e: JournalEntry) => void; onDelete: (e: JournalEntry) => void }) {
   const { t } = useT()
+  const { isAgri } = useAgriRoute()
   const authorName = entry.created_by === currentUserId ? (currentUserName || t.journalX.me) : (entry.created_by ? entry.created_by.slice(0, 8) + "…" : "")
   return (
     <Card className="bg-card border-border hover:border-border/80 transition-all group">
@@ -189,13 +199,21 @@ function JournalCard({ entry, currentUserId, currentUserName, onEdit, onDelete }
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
           <div className="bg-muted rounded-lg p-3 text-center">
             <div className="flex items-center justify-center gap-1 text-ocean-500 mb-1"><UtensilsCrossed className="w-3.5 h-3.5" /></div>
-            <p className="text-lg font-bold text-foreground">{entry.feeding_amount}<span className="text-xs text-muted-foreground">kg</span></p>
+            <p className="text-lg font-bold text-foreground">{entry.feeding_amount}<span className="text-xs text-muted-foreground">{isAgri ? "L" : "kg"}</span></p>
             <p className="text-xs text-muted-foreground">{t.journal.catFeeding}</p>
           </div>
+          {/* 2번 타일 — 새우는 폐사, 농업은 보충 횟수.
+              폐사에 농업 라벨을 씌우지 않고 타일 자체를 갈아 끼운다(수아 시안 §3-4).
+              amber 를 그대로 물려줘 4칸 색 리듬(ocean-amber-teal-purple)을 지킨다. */}
           <div className="bg-muted rounded-lg p-3 text-center">
-            <div className="flex items-center justify-center gap-1 text-amber-500 mb-1"><Skull className="w-3.5 h-3.5" /></div>
-            <p className="text-lg font-bold text-foreground">{entry.mortality_count.toLocaleString()}<span className="text-xs text-muted-foreground">{t.journalX.unitFish}</span></p>
-            <p className="text-xs text-muted-foreground">{t.journalX.mortality}</p>
+            <div className="flex items-center justify-center gap-1 text-amber-500 mb-1">
+              {isAgri ? <Repeat className="w-3.5 h-3.5" /> : <Skull className="w-3.5 h-3.5" />}
+            </div>
+            <p className="text-lg font-bold text-foreground">
+              {isAgri ? entry.feeding_times : entry.mortality_count.toLocaleString()}
+              <span className="text-xs text-muted-foreground">{isAgri ? t.common.unit.timesPerDay : t.journalX.unitFish}</span>
+            </p>
+            <p className="text-xs text-muted-foreground">{isAgri ? t.journalX.feedingTimes : t.journalX.mortality}</p>
           </div>
           <div className="bg-muted rounded-lg p-3 text-center">
             <div className="flex items-center justify-center gap-1 text-teal-500 mb-1"><RefreshCw className="w-3.5 h-3.5" /></div>
@@ -211,7 +229,7 @@ function JournalCard({ entry, currentUserId, currentUserName, onEdit, onDelete }
 
         <div className="text-xs text-foreground/80 bg-muted rounded-lg px-3 py-2 flex items-start gap-2">
           <p className="text-xs text-muted-foreground font-medium shrink-0">{t.journalX.feed}:</p>
-          <p>{entry.feed_type} · {entry.feeding_times}{t.common.unit.timesPerDay}</p>
+          <p>{isAgri ? entry.feed_type : `${entry.feed_type} · ${entry.feeding_times}${t.common.unit.timesPerDay}`}</p>
         </div>
         {entry.notes && (
           <div className="mt-2 text-xs text-foreground/80 bg-muted rounded-lg px-3 py-2 flex items-start gap-2">
@@ -296,18 +314,39 @@ const D_PAGE = 20
 export function JournalView() {
   const { user } = useAuth()
   const { t } = useT()
+  const { isAgri } = useAgriRoute()
   const riskLabels: Record<RiskLevel, string> = {
     low: t.journalX.riskLow, medium: t.journalX.riskMedium, high: t.journalX.riskHigh, critical: t.journalX.riskCritical,
   }
   const mock = isTestAccount(user?.email)
 
   const [pageTab, setPageTab] = useState<"journal" | "diagnosis">("journal")
+  // 비브리오 진단은 **새우 전용 화면**이다. AHPND·EHP·WSSV 는 수경재배에 뜻이
+  // 없고(그래서 agri-ko 가 일부러 번역하지 않았다), 진단 기록은 베드에 대해
+  // 쓸 수 있어서도 안 된다. 상태를 지우지 않고 화면 축으로 덮는다 — 새우
+  // 사용자의 탭 전환 동작은 한 글자도 바뀌지 않는다.
+  const tab: "journal" | "diagnosis" = isAgri ? "journal" : pageTab
 
   // Shared
-  const [tanks, setTanks] = useState<Tank[]>([])
+  const [allTanks, setAllTanks] = useState<Tank[]>([])
+  // 기록 대상도 이 화면 몫만 고를 수 있어야 한다(설계서 3장). 혼합 계정에서
+  // 안 거르면 농업 일지 폼으로 새우 수조에 양액 EC 를 적을 수 있다(그 반대도).
+  const tanks = useMemo(
+    () => allTanks.filter(tk => belongsToAgriScreen(tk.farm_type, isAgri)),
+    [allTanks, isAgri],
+  )
 
   // ── Journal state ──
   const [journals, setJournals] = useState<JournalEntry[]>([])
+  // 목록과 CSV 도 같은 축으로 거른다. JournalCard 는 단위와 2번 타일을 화면
+  // 축(isAgri)에서 가져오므로, 안 거르면 새우 일지의 "사료 40 kg" 이 농업
+  // 주소에서 "40 L 양액 보충" 으로 읽히고 폐사 수가 통째로 사라진다.
+  // 축은 일지가 조인으로 들고 온다(getJournalEntries) — 수조 목록이 늦게
+  // 도착해도 첫 페인트가 흔들리지 않는다.
+  const visibleJournals = useMemo(
+    () => journals.filter(j => belongsToAgriScreen(j.farm_type, isAgri)),
+    [journals, isAgri],
+  )
   const [jLoading, setJLoading] = useState(true)
   const [jLoadingMore, setJLoadingMore] = useState(false)
   const [jHasMore, setJHasMore] = useState(false)
@@ -318,8 +357,12 @@ export function JournalView() {
   const [jForm, setJForm] = useState(defaultJournalForm)
 
   function openJournalDialog() {
-    const saved = loadJournalDefaults()
-    setJForm({ ...defaultJournalForm, date: new Date().toISOString().split("T")[0], ...saved })
+    const saved = loadJournalDefaults(isAgri)
+    // 새우 제품명이 농업 select 의 기본값으로 남으면 목록에 없는 값이라 빈 칸이 된다.
+    const agriDefaults = isAgri
+      ? { feed_type: AGRI_NUTRIENT_TYPES[0], microbial_type: AGRI_INPUT_TYPES[0], feeding_times: "" }
+      : {}
+    setJForm({ ...defaultJournalForm, date: new Date().toISOString().split("T")[0], ...agriDefaults, ...saved })
     setJDialogOpen(true)
   }
   const [jSaving, setJSaving] = useState(false)
@@ -390,7 +433,7 @@ export function JournalView() {
     if (mock) {
       setJournals(MOCK_JOURNALS)
       setDiagnoses(MOCK_DIAGNOSES)
-      setTanks(MOCK_TANKS)
+      setAllTanks(MOCK_TANKS)
       setInventoryItems(MOCK_INVENTORY_ITEMS)
       setJLoading(false)
       setDLoading(false)
@@ -398,7 +441,7 @@ export function JournalView() {
     }
     try {
       const [, tanksData, invData] = await Promise.all([loadJournals("", "", 0, true), getAllTanks(), getInventoryItems()])
-      setTanks(tanksData)
+      setAllTanks(tanksData)
       setInventoryItems(invData)
       await loadDiagnoses("", "", 0, true)
     } catch { } finally {
@@ -425,14 +468,21 @@ export function JournalView() {
   }
 
   const handleJCsvExport = () => {
-    exportToCsv(journals.map(j => ({
+    exportToCsv(visibleJournals.map(j => isAgri ? {
+      날짜: j.date, 베드: j.tank_name,
+      양액보충량_L: j.feeding_amount, 양액종류: j.feed_type, 보충횟수: j.feeding_times,
+      양액교환율: j.water_exchange_rate,
+      자재투입: j.microbial_input ? "예" : "아니오", 자재종류: j.microbial_type || "",
+      방제: j.disinfection ? "예" : "아니오", 메모: j.notes || "",
+      작성자: j.created_by, 작성일: j.created_at,
+    } : {
       날짜: j.date, 수조: j.tank_name,
       급이량_kg: j.feeding_amount, 사료종류: j.feed_type, 급이횟수: j.feeding_times,
       폐사수: j.mortality_count, 환수율: j.water_exchange_rate,
       미생물투입: j.microbial_input ? "예" : "아니오", 미생물종류: j.microbial_type || "",
       소독: j.disinfection ? "예" : "아니오", 메모: j.notes || "",
       작성자: j.created_by, 작성일: j.created_at,
-    })), `journal_${new Date().toISOString().split("T")[0]}`)
+    }), `journal_${new Date().toISOString().split("T")[0]}`)
   }
 
   const jUpdate = (field: string, value: string | boolean) =>
@@ -440,14 +490,22 @@ export function JournalView() {
 
   const handleJSave = async () => {
     setJSaveError(null)
-    const wqFields: WqField[] = ["temperature", "ph", "do_level", "salinity", "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity"]
+    const wqFields: WqField[] = isAgri
+      ? ["conductivity", "ph", "temperature", "do_level", "flow_rate", "diff_pressure"]
+      : ["temperature", "ph", "do_level", "salinity", "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity"]
     for (const field of wqFields) {
       const raw = jForm[field as keyof typeof jForm] as string
       if (!raw) continue
       const val = parseFloat(raw)
       if (!Number.isFinite(val)) { setJSaveError(`${WQ_BOUNDS[field].label}: ${t.journalX.errInvalidNumber}`); return }
-      if (val < WQ_BOUNDS[field].min || val > WQ_BOUNDS[field].max) {
-        setJSaveError(`${WQ_BOUNDS[field].label}: ${WQ_BOUNDS[field].min}~${WQ_BOUNDS[field].max}${WQ_BOUNDS[field].unit} ${t.journalX.errOutOfRange}`)
+      // EC 만 입력 단위(mS/cm)와 경계 단위(µS/cm)가 다르다 — 비교는 올려서,
+      // 에러 문구는 내려서. 그대로 쓰면 "0~20000" 이 뜬다(수아 시안 §2-5).
+      const bound = WQ_BOUNDS[field]
+      const compare = isAgri && field === "conductivity" ? val * 1000 : val
+      if (compare < bound.min || compare > bound.max) {
+        setJSaveError(isAgri && field === "conductivity"
+          ? t.agri.ecRangeErrorMs.replace("{{min}}", String(bound.min / 1000)).replace("{{max}}", String(bound.max / 1000))
+          : `${bound.label}: ${bound.min}~${bound.max}${bound.unit} ${t.journalX.errOutOfRange}`)
         return
       }
     }
@@ -458,7 +516,9 @@ export function JournalView() {
         feeding_amount: parseFloat(jForm.feeding_amount) || 0,
         feed_type: jForm.feed_type,
         feeding_times: parseInt(jForm.feeding_times) || 0,
-        mortality_count: parseInt(jForm.mortality_count) || 0,
+        // 농업에는 대응물이 없다. 폼에서 감추고 0 으로 저장한다 — 컬럼을
+        // 다른 뜻으로 재활용하지 않는다(설계서 3-2).
+        mortality_count: isAgri ? 0 : parseInt(jForm.mortality_count) || 0,
         water_exchange_rate: parseInt(jForm.water_exchange_rate) || 0,
         microbial_input: jForm.microbial_input,
         microbial_type: jForm.microbial_input ? jForm.microbial_type : null,
@@ -489,11 +549,28 @@ export function JournalView() {
         }
       } catch { /* 재고 차감 실패 시 일지 저장은 유지 */ }
 
-      const hasWq = jForm.temperature || jForm.ph || jForm.do_level || jForm.salinity ||
-        jForm.ammonia || jForm.nitrite || jForm.nitrate || jForm.alkalinity || jForm.turbidity
+      const hasWq = isAgri
+        ? !!(jForm.conductivity || jForm.ph || jForm.temperature || jForm.do_level ||
+             jForm.flow_rate || jForm.diff_pressure)
+        : !!(jForm.temperature || jForm.ph || jForm.do_level || jForm.salinity ||
+             jForm.ammonia || jForm.nitrite || jForm.nitrate || jForm.alkalinity || jForm.turbidity)
       if (hasWq) {
         try {
-          await insertWaterQuality(jForm.tank_id, {
+          await insertWaterQuality(jForm.tank_id, isAgri ? {
+            temperature: parseFloat(jForm.temperature) || 0, ph: parseFloat(jForm.ph) || 0,
+            do_level: parseFloat(jForm.do_level) || 0,
+            // EC 환산 — 입력 mS/cm × 1000 = 저장 µS/cm.
+            // 안 잰 항목은 0 이 아니라 null 이다(측정 폼과 같은 이유 — 0 을 넣으면
+            // 차트 선이 바닥으로 처지고 버킷 평균이 조용히 낮아진다).
+            // 다만 빈 칸과 "0" 은 구별한다 — 유량 0 은 펌프 정지라는 실측값이다
+            // (항목별 0 의 뜻: lib/agri-standards.ts 의 AGRI_ZERO_MEANING).
+            conductivity: agriEcToMicroSiemens(jForm.conductivity),
+            flow_rate: agriNumOrNull(jForm.flow_rate),
+            diff_pressure: agriNumOrNull(jForm.diff_pressure),
+            // 새우 6항목은 농업에서 받지 않는다 — 0 이면 판정에서 빠진다.
+            salinity: 0, ammonia: 0, nitrite: 0, nitrate: 0, alkalinity: 0, turbidity: 0,
+            recorded_at: new Date(`${jForm.date}T12:00:00`).toISOString(),
+          } : {
             temperature: parseFloat(jForm.temperature) || 0, ph: parseFloat(jForm.ph) || 0,
             do_level: parseFloat(jForm.do_level) || 0, salinity: parseFloat(jForm.salinity) || 0,
             ammonia: parseFloat(jForm.ammonia) || 0, nitrite: parseFloat(jForm.nitrite) || 0,
@@ -508,9 +585,16 @@ export function JournalView() {
       setJournals(prev => [{
         id: "local-" + Date.now(), tank_id: jForm.tank_id,
         tank_name: selectedTank?.name || "",
+        // 로컬로 만드는 카드에도 축을 실어야 목록 필터(visibleJournals)에
+        // 걸리지 않는다. DB 가 안 되는 경로라 조인으로 받을 수 없다 —
+        // 수조는 이미 이 화면 축으로 거른 목록에서 고른 것이므로 그 수조의
+        // 축이 곧 이 화면의 축이다.
+        farm_type: selectedTank?.farm_type ?? (isAgri ? "agriculture" : "shrimp"),
         date: jForm.date, feeding_amount: parseFloat(jForm.feeding_amount) || 0,
         feed_type: jForm.feed_type, feeding_times: parseInt(jForm.feeding_times) || 0,
-        mortality_count: parseInt(jForm.mortality_count) || 0,
+        // 농업에는 대응물이 없다. 폼에서 감추고 0 으로 저장한다 — 컬럼을
+        // 다른 뜻으로 재활용하지 않는다(설계서 3-2).
+        mortality_count: isAgri ? 0 : parseInt(jForm.mortality_count) || 0,
         water_exchange_rate: parseInt(jForm.water_exchange_rate) || 0,
         microbial_input: jForm.microbial_input,
         microbial_type: jForm.microbial_input ? jForm.microbial_type : undefined,
@@ -522,7 +606,7 @@ export function JournalView() {
       }, ...prev])
     } finally {
       setJSaving(false); setJSaved(true)
-      saveJournalDefaults(jForm)
+      saveJournalDefaults(jForm, isAgri)
       setTimeout(() => { setJSaved(false); setJDialogOpen(false); setJForm(defaultJournalForm); setJSaveError(null) }, 1200)
     }
   }
@@ -708,15 +792,17 @@ export function JournalView() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-xl font-bold text-foreground">
-            {pageTab === "journal" ? t.journal.title : t.diagnosis.title}
+            {tab === "journal" ? t.journal.title : t.diagnosis.title}
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {pageTab === "journal" ? t.journal.subtitle : t.diagnosis.subtitle}
+            {tab === "journal" ? t.journal.subtitle : t.diagnosis.subtitle}
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Tab switcher */}
+          {/* Tab switcher — 농업 화면에는 갈 곳이 하나뿐이라 아예 안 그린다.
+              (진단 탭은 새우 전용이다. 위 `tab` 도 같은 판단을 한다.) */}
+          {!isAgri && (
           <div className="flex bg-muted border border-border rounded-xl p-1">
             <button
               onClick={() => setPageTab("journal")}
@@ -739,11 +825,12 @@ export function JournalView() {
               <FlaskConical className="w-3.5 h-3.5" />{t.diagnosis.title}
             </button>
           </div>
+          )}
 
           {/* Journal actions */}
-          {pageTab === "journal" && (
+          {tab === "journal" && (
             <>
-              {journals.length > 0 && (
+              {visibleJournals.length > 0 && (
                 <Button
                   variant="outline"
                   onClick={handleJCsvExport}
@@ -762,7 +849,7 @@ export function JournalView() {
           )}
 
           {/* Diagnosis actions */}
-          {pageTab === "diagnosis" && (
+          {tab === "diagnosis" && (
             <>
               {diagnoses.length > 0 && (
                 <Button
@@ -868,7 +955,7 @@ export function JournalView() {
       </div>
 
       {/* ── Journal Tab ── */}
-      {pageTab === "journal" && (
+      {tab === "journal" && (
         <>
           <div className="flex flex-wrap items-center gap-3 bg-muted border border-border rounded-xl px-4 py-3">
             <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -887,7 +974,7 @@ export function JournalView() {
             <div className="flex items-center justify-center h-40"><div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" /></div>
           ) : (
             <>
-              {journals.length === 0 ? (
+              {visibleJournals.length === 0 ? (
                 <div className="col-span-2 flex flex-col items-center justify-center py-16 gap-4 text-center">
                   <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
                     <BookOpen className="w-8 h-8 text-muted-foreground opacity-50" />
@@ -902,7 +989,7 @@ export function JournalView() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {journals.map(entry => (
+                  {visibleJournals.map(entry => (
                     <JournalCard key={entry.id} entry={entry} currentUserId={user?.id} currentUserName={user?.name} onEdit={handleJEdit} onDelete={setJDeleteTarget} />
                   ))}
                 </div>
@@ -922,7 +1009,7 @@ export function JournalView() {
       )}
 
       {/* ── Diagnosis Tab ── */}
-      {pageTab === "diagnosis" && (
+      {tab === "diagnosis" && (
         <>
           <div className="flex flex-wrap items-center gap-3 bg-muted border border-border rounded-xl px-4 py-3">
             <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -1087,7 +1174,7 @@ export function JournalView() {
           <div className="space-y-4 mt-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-foreground/80 flex items-center gap-1"><UtensilsCrossed className="w-3.5 h-3.5 text-ocean-500" />{t.journal.catFeeding} (kg)</Label>
+                <Label className="text-foreground/80 flex items-center gap-1"><UtensilsCrossed className="w-3.5 h-3.5 text-ocean-500" />{t.journal.catFeeding} ({isAgri ? "L" : "kg"})</Label>
                 <Input type="number" step="0.1" value={jEditForm.feeding_amount || ""} onChange={e => setJEditForm(p => ({ ...p, feeding_amount: e.target.value }))} className="bg-background border-border text-foreground" />
               </div>
               <div className="space-y-2">
@@ -1095,7 +1182,7 @@ export function JournalView() {
                 <Select value={jEditForm.feed_type || ""} onValueChange={v => setJEditForm(p => ({ ...p, feed_type: v }))}>
                   <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-card border-border">
-                    {FEED_TYPES.map(f => <SelectItem key={f} value={f} className="text-foreground hover:bg-accent">{f}</SelectItem>)}
+                    {(isAgri ? AGRI_NUTRIENT_TYPES : FEED_TYPES).map(f => <SelectItem key={f} value={f} className="text-foreground hover:bg-accent">{f}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -1105,10 +1192,12 @@ export function JournalView() {
                 <Label className="text-foreground/80">{t.journalX.feedingTimes}</Label>
                 <Input type="number" value={jEditForm.feeding_times || ""} onChange={e => setJEditForm(p => ({ ...p, feeding_times: e.target.value }))} className="bg-background border-border text-foreground" />
               </div>
+              {!isAgri && (
               <div className="space-y-2">
                 <Label className="text-foreground/80 flex items-center gap-1"><Skull className="w-3.5 h-3.5 text-amber-500" />{t.journalX.mortality} ({t.journalX.unitFish})</Label>
                 <Input type="number" value={jEditForm.mortality_count || ""} onChange={e => setJEditForm(p => ({ ...p, mortality_count: e.target.value }))} className="bg-background border-border text-foreground" />
               </div>
+              )}
               <div className="space-y-2 col-span-2 sm:col-span-1">
                 <Label className="text-foreground/80 flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5 text-teal-500" />{t.journalX.waterExchangeRate} (%)</Label>
                 <Input type="number" value={jEditForm.water_exchange_rate || ""} onChange={e => setJEditForm(p => ({ ...p, water_exchange_rate: e.target.value }))} className="bg-background border-border text-foreground" />
@@ -1178,7 +1267,7 @@ export function JournalView() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-foreground/80 flex items-center gap-1"><UtensilsCrossed className="w-3.5 h-3.5 text-ocean-500" />{t.journal.catFeeding} (kg)</Label>
+                  <Label className="text-foreground/80 flex items-center gap-1"><UtensilsCrossed className="w-3.5 h-3.5 text-ocean-500" />{t.journal.catFeeding} ({isAgri ? "L" : "kg"})</Label>
                   <Input type="number" step="0.1" placeholder="0.0" value={jForm.feeding_amount} onChange={e => jUpdate("feeding_amount", e.target.value)} className="bg-background border-border text-foreground" />
                   {inventoryItems.filter(i => i.category === "feed").length > 0 && (
                     <select value={jForm.feedItemId} onChange={e => jUpdate("feedItemId", e.target.value)}
@@ -1195,7 +1284,7 @@ export function JournalView() {
                   <Select value={jForm.feed_type} onValueChange={v => jUpdate("feed_type", v)}>
                     <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
                     <SelectContent className="bg-card border-border">
-                      {FEED_TYPES.map(f => <SelectItem key={f} value={f} className="text-foreground hover:bg-accent">{f}</SelectItem>)}
+                      {(isAgri ? AGRI_NUTRIENT_TYPES : FEED_TYPES).map(f => <SelectItem key={f} value={f} className="text-foreground hover:bg-accent">{f}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1205,10 +1294,12 @@ export function JournalView() {
                   <Label className="text-foreground/80">{t.journalX.feedingTimes} ({t.common.unit.timesPerDay})</Label>
                   <Input type="number" placeholder="4" value={jForm.feeding_times} onChange={e => jUpdate("feeding_times", e.target.value)} className="bg-background border-border text-foreground" />
                 </div>
+                {!isAgri && (
                 <div className="space-y-2">
                   <Label className="text-foreground/80 flex items-center gap-1"><Skull className="w-3.5 h-3.5 text-amber-500" />{t.journalX.mortalityCount} ({t.journalX.unitFish})</Label>
                   <Input type="number" placeholder="0" value={jForm.mortality_count} onChange={e => jUpdate("mortality_count", e.target.value)} className="bg-background border-border text-foreground" />
                 </div>
+                )}
                 <div className="space-y-2 col-span-2 sm:col-span-1">
                   <Label className="text-foreground/80 flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5 text-teal-500" />{t.journalX.waterExchangeRate} (%)</Label>
                   <Input type="number" placeholder="0" value={jForm.water_exchange_rate} onChange={e => jUpdate("water_exchange_rate", e.target.value)} className="bg-background border-border text-foreground" />
@@ -1223,7 +1314,15 @@ export function JournalView() {
             <TabsContent value="water" className="space-y-4 mt-4">
               <p className="text-xs text-muted-foreground bg-ocean-500/10 border border-ocean-500/20 rounded-lg px-3 py-2">{t.journalX.waterQualityHint}</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {[
+                {(isAgri ? [
+                  // 측정 폼과 같은 6항목·같은 단위. EC 는 mS/cm 로 받아 µS/cm 로 저장한다.
+                  { key: "conductivity",  label: "EC (mS/cm)",                          icon: <Zap         className="w-3.5 h-3.5 text-ocean-500" />,  placeholder: "1.85" },
+                  { key: "ph",            label: "pH",                                  icon: <Droplets    className="w-3.5 h-3.5 text-blue-500" />,   placeholder: "6.0" },
+                  { key: "temperature",   label: `${t.waterQuality.temperature} (°C)`,  icon: <Thermometer className="w-3.5 h-3.5 text-red-500" />,    placeholder: "21.5" },
+                  { key: "do_level",      label: "DO (ppm)",                            icon: <Wind        className="w-3.5 h-3.5 text-teal-500" />,   placeholder: "7.0" },
+                  { key: "flow_rate",     label: `${t.waterQualityX.flowRate} (L/min)`, icon: <Waves       className="w-3.5 h-3.5 text-indigo-500" />, placeholder: "12" },
+                  { key: "diff_pressure", label: `${t.waterQualityX.diffPressure} (kPa)`, icon: <Gauge     className="w-3.5 h-3.5 text-rose-500" />,   placeholder: "15" },
+                ] : [
                   { key: "temperature", label: `${t.waterQuality.temperature} (°C)`,   icon: <Thermometer className="w-3.5 h-3.5 text-red-500" />,    placeholder: "28.0" },
                   { key: "ph",          label: "pH",                                   icon: <Droplets    className="w-3.5 h-3.5 text-blue-500" />,   placeholder: "7.8" },
                   { key: "do_level",    label: "DO (mg/L)",                            icon: <Wind        className="w-3.5 h-3.5 text-teal-500" />,   placeholder: "6.5" },
@@ -1233,7 +1332,7 @@ export function JournalView() {
                   { key: "nitrate",     label: `${t.waterQuality.nitrate} (mg/L)`,     icon: <FlaskConical className="w-3.5 h-3.5 text-yellow-500" />,placeholder: "5.0" },
                   { key: "alkalinity",  label: `${t.waterQuality.alkalinity} (mg/L)`,  icon: <FlaskConical className="w-3.5 h-3.5 text-purple-500" />,placeholder: "120" },
                   { key: "turbidity",   label: `${t.waterQuality.turbidity} (NTU)`,    icon: <Droplets    className="w-3.5 h-3.5 text-gray-500" />,   placeholder: "5" },
-                ].map(f => (
+                ]).map(f => (
                   <div key={f.key} className="space-y-2">
                     <Label className="text-foreground/80 flex items-center gap-1">{f.icon}{f.label}</Label>
                     <Input type="number" step="0.01" placeholder={f.placeholder} value={jForm[f.key as keyof typeof jForm] as string} onChange={e => jUpdate(f.key, e.target.value)} className="bg-background border-border text-foreground" />
@@ -1277,7 +1376,7 @@ export function JournalView() {
                       <Select value={jForm.microbial_type} onValueChange={v => jUpdate("microbial_type", v)}>
                         <SelectTrigger className="bg-background border-border text-foreground"><SelectValue /></SelectTrigger>
                         <SelectContent className="bg-card border-border">
-                          {MICROBIAL_TYPES.map(m => <SelectItem key={m} value={m} className="text-foreground hover:bg-accent">{m}</SelectItem>)}
+                          {(isAgri ? AGRI_INPUT_TYPES : MICROBIAL_TYPES).map(m => <SelectItem key={m} value={m} className="text-foreground hover:bg-accent">{m}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>

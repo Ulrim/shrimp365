@@ -113,6 +113,7 @@ export interface Dict {
     saved: string
     step: string
     selectTank: string
+    tankLabel: string
     date: string
     confirmTitle: string
   }
@@ -1044,6 +1045,13 @@ export interface Dict {
     waterQualitySub: string
     journalAria: string
     journalSub: string
+    // ── 기록 폼 공용 문구 (하드코딩 추출분) ──
+    tankLoadFailed: string
+    noTanksTitle: string
+    noTanksWqMsg: string
+    noTanksJournalMsg: string
+    registerFarmCta: string
+    saveFailed: string
   }
   a11y: {
     unresolvedAlerts: string
@@ -1318,6 +1326,57 @@ export interface Dict {
     // ── 화면 전환 진입점 (/farms 농장 카드) ──
     openAgriScreen: string
     openShrimpScreen: string
+    // ── 측정 입력 폼 (농업) ──
+    recordNotice: string
+    recordEcTarget: string
+    recordEcNoTarget: string
+    recordEcSaveNote: string
+    recordPhTarget: string
+    recordPhNoTarget: string
+    recordTempHint: string
+    recordDoHint: string
+    recordFlowHint: string
+    recordDpHint: string
+    ecRangeErrorMs: string
+    // ── 일지 입력 폼 (농업) ──
+    journalStepNutrient: string
+    journalStepWork: string
+    nutrientType: string
+    nutrientRefill: string
+    nutrientRefillHint: string
+    refillTimes: string
+    exchangeRate: string
+    exchangeRateHint: string
+    pestControl: string
+    pestAgent: string
+    pestAgentPlaceholder: string
+    inputApplied: string
+    inputType: string
+    inputAmount: string
+    inputAmountHint: string
+    checkPump: string
+    checkFilterUv: string
+    checkChiller: string
+    checkGrowth: string
+    journalNotesPlaceholder: string
+    // ── 상태 표현 (중립 신규) ──
+    statusNoStandard: string
+    statusNotMeasured: string
+    // ── 대시보드 (농업) ──
+    ecDeviationLabel: string
+    ecDeviationSub: string
+    dpTrendTitle: string
+    dpDelta: string
+    dpRisingHint: string
+    dpSteadyHint: string
+    dpNoData: string
+    dpNeedMore: string
+    rangeAtLeast: string
+    rangeAtMost: string
+    flowStoppedHint: string
+    // ── 베드 카드 ──
+    plantingDate: string
+    harvestPlanDate: string
   }
 }
 
