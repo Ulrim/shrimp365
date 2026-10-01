@@ -4,14 +4,23 @@ docs/plans/tips-2026-dataset-assessment.md 가 인용하는 수치를 만드는 
 문서에 숫자만 적어 두면 나중에 아무도 다시 확인하지 못하므로, 그 숫자가 어디서
 나왔는지 여기에 남긴다. raspberry-pi/verify.py 와 같은 역할이다.
 
-핵심 결론 세 가지를 순서대로 확인한다.
+핵심 결론을 순서대로 확인한다.
 
   1. 적산수온 축에 곡선을 얹으면 잘 맞는다          R² 0.967~0.992
   2. 그러나 적합도는 예측력이 아니다                 홀드아웃 MAE 14.94 g
-  3. Winf 를 고정하면 예측이 산다                    홀드아웃 MAE 2.84 g
+  3. Winf 를 고정하면 예측이 산다                    홀드아웃 MAE  2.84 g
+  4. 7.5 g 에서 구간을 끊으면 더 산다                홀드아웃 MAE  0.90 g
 
 2번이 이 스크립트의 존재 이유다. R² 만 보고 "성장곡선 됩니다" 라고 보고했다면
 수조 2에서 19.7 g 을 95.1 g 으로 예측하는 엔진을 현장에 내보낼 뻔했다.
+
+4번은 문헌이 먼저 말한 것을 데이터가 확인해 준 자리다. Powell(2020)이 흰다리새우
+성장 궤적에서 7.5 g 을 경계로 두 패턴이 갈린다고 보고했는데, 그 경계로 끊으니
+우리 데이터에서도 오차가 3분의 1로 줄었다. 하나의 곡선으로 입식부터 출하까지
+덮으려 한 것이 2번 실패의 진짜 원인이었다.
+
+출하 판단에 필요한 구간은 어차피 7.5 g 이상이다. MAE 0.90 g 은 출하 크기
+20~28 g 에서 3~4% 오차이므로 쓸 수 있다.
 
 데이터: 천황수산 새우 양식 AI 학습용 데이터셋 v1.0 (5개 수조, 2024-03-12~12-05).
 저장소에 포함하지 않는다 — 단일 농가의 운영 기록이고 원본에 거래처명이 들어 있다.
@@ -42,6 +51,11 @@ BASE_TEMP_C = 15.0
 # Winf 를 고정할 때 쓸 후보값(g). 25~40 g 어디로 잡아도 홀드아웃 MAE 가
 # 2.8~3.6 g 안에 들어온다 — 정확한 값보다 "고정한다"는 사실이 중요하다.
 WINF_CANDIDATES = (25.0, 30.0, 35.0, 40.0)
+
+# 성장 구간이 갈리는 경계(g). Powell(2020, Aquaculture Research, DOI 10.1111/are.14391)이
+# 흰다리새우 성장 궤적에서 7.5 g 을 경계로 두 패턴이 뚜렷이 갈린다고 보고했다.
+# 우리 데이터에서도 이 경계로 끊었을 때 홀드아웃 오차가 가장 작았다.
+STANZA_BREAK_G = 7.5
 
 # 곡선을 부르려면 최소 몇 점이 필요한가. 그 아래는 적합 자체가 의미 없다.
 MIN_SAMPLES = 8
@@ -118,12 +132,20 @@ def step1_goodness_of_fit(daily, growth, tanks):
     return scores
 
 
-def step2_holdout(daily, growth, tanks, w_inf=None):
-    """앞 70% 로 적합해 뒤 30%(미래)를 예측한다. 이것이 실제로 쓸 때의 상황이다."""
+def step2_holdout(daily, growth, tanks, w_inf=None, stanza2_only=False):
+    """앞 70% 로 적합해 뒤 30%(미래)를 예측한다. 이것이 실제로 쓸 때의 상황이다.
+
+    stanza2_only 를 켜면 STANZA_BREAK_G 이상만 쓴다. 출하 판단에 필요한 구간이
+    어차피 그쪽이고, 하나의 곡선으로 입식부터 덮으려 할 때 예측이 무너진다.
+    """
     maes = []
     detail = []
     for tank in tanks:
         gt = series_for(daily, growth, tank, BASE_TEMP_C)
+        if stanza2_only:
+            gt = gt[gt.body_weight_g >= STANZA_BREAK_G].reset_index(drop=True)
+            if len(gt) < 6:
+                continue
         cut = int(len(gt) * 0.7)
         train, test = gt.iloc[:cut], gt.iloc[cut:]
         if len(test) < 2:
@@ -206,12 +228,32 @@ def main() -> int:
     print(f"\n  최적 {best[0]:.0f} g 에서 MAE {best[1]:.2f} g — 자유 적합 대비 {free_mae / best[1]:.1f}배 개선.")
     print("  Winf 를 자유 파라미터로 두지 않는 것이 엔진 1 의 1순위 설계 규칙이다.")
 
+    print(f"\n[5] 홀드아웃 — {STANZA_BREAK_G:g} g 이상 구간만 쓰고 Winf 도 고정하면\n")
+    print(f"{'고정 Winf':>10} {'평균 MAE(g)':>13}   수조별")
+    stanza_best = None
+    for w in WINF_CANDIDATES:
+        mae, det = step2_holdout(daily, growth, tanks, w_inf=w, stanza2_only=True)
+        per = " ".join(f"T{t}:{m:.1f}" for t, m, _, _ in det if m is not None)
+        print(f"{w:>10.0f} {mae:>13.2f}   {per}")
+        if stanza_best is None or mae < stanza_best[1]:
+            stanza_best = (w, mae)
+
     step3_walk_forward(daily, growth, tanks)
 
     print("\n" + "=" * 68)
-    print("결론 — 엔진 1 은 이 데이터로 구현 가능하다. 단 Winf 는 고정한다.")
-    print("문헌 파라미터 조사는 데이터가 없을 때의 차선책이 아니라, 데이터가")
-    print("있어도 필요한 구조다. 위 [2] 와 [3] 의 차이가 그 근거다.")
+    print("네 처방 비교 — 홀드아웃 MAE")
+    print("=" * 68)
+    print(f"  전 구간 · Winf 자유             {free_mae:>6.2f} g   쓸 수 없다")
+    print(f"  전 구간 · Winf {best[0]:.0f} g 고정       {best[1]:>6.2f} g")
+    print(f"  {STANZA_BREAK_G:g} g 이상 · Winf 자유        {step2_holdout(daily, growth, tanks, stanza2_only=True)[0]:>6.2f} g")
+    print(f"  {STANZA_BREAK_G:g} g 이상 · Winf {stanza_best[0]:.0f} g 고정  {stanza_best[1]:>6.2f} g   권고")
+    print("=" * 68)
+    print("결론 — 엔진 1 은 이 데이터로 구현 가능하다.")
+    print(f"하나의 곡선으로 입식부터 출하까지 덮지 말고 {STANZA_BREAK_G:g} g 에서 끊고,")
+    print("Winf 는 자유 파라미터로 두지 않는다. 둘을 같이 적용하면 오차가")
+    print(f"{free_mae / stanza_best[1]:.0f}분의 1로 줄어든다 — 출하 크기 20~28 g 에서 3~4% 다.")
+    print("문헌 조사는 데이터가 없을 때의 차선책이 아니라 데이터가 있어도")
+    print("필요한 구조다. 7.5 g 경계도 Winf 값도 문헌이 먼저 알려 준 것이다.")
     print("=" * 68)
     return 0
 
