@@ -23,11 +23,15 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from pathlib import Path
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+#: 재시도 깃발을 들여다보는 간격(초). 누른 손이 기다리는 시간이다.
+RETRY_POLL_SECONDS = 0.2
 
 # 코드 유효 시간(서버 기준 15분)에 맞춰 폴링한다.
 POLL_INTERVAL_SECONDS = 5
@@ -55,6 +59,13 @@ class PairingState:
     def __init__(self) -> None:
         self._task: asyncio.Task | None = None
         self._deadline: float | None = None
+        #: 다음 시도를 기다리는 중에 "지금 해라"를 받는 깃발. 화면의 버튼과
+        #: 자동 재시도가 같은 고리를 쓰게 한다 — 길이 두 개면 코드가 두 개
+        #: 발급되고 화면에는 둘 중 아무 것이나 뜬다.
+        self._retry_requested = False
+        #: 마지막으로 남긴 실패 사유. begin_request 가 지우는 self.error 와
+        #: 달리 시도를 넘어 남는다 — 같은 말을 로그에 되풀이하지 않기 위해서다.
+        self._last_failure: str | None = None
 
     # -- 화면이 읽는 쪽 -------------------------------------------------------
     def snapshot(self) -> dict:
@@ -87,17 +98,27 @@ class PairingState:
         self._deadline = deadline
 
     def linked(self, camera_id: str | None, tank_name: str | None) -> None:
+        self._last_failure = None  # 다음에 실패하면 다시 크게 알려야 한다
         self.status = "linked"
         self.code = None
         self._deadline = None
         self.camera_id = camera_id
         self.tank_name = tank_name
 
-    def failed(self, reason: str) -> None:
+    def failed(self, reason: str) -> bool:
+        """실패를 적는다. **같은 사유가 되풀이되면 True.**
+
+        부르는 쪽이 로그 수준을 낮추는 데 쓴다. 와이파이가 없는 장비는 5분마다
+        다시 시도하는데, 그때마다 빨간 ERROR 를 남기면 로그가 그것으로 가득 차
+        정작 봐야 할 줄이 묻힌다. 사유는 화면에 늘 떠 있다.
+        """
+        again = reason == self._last_failure
+        self._last_failure = reason
         self.status = "failed"
         self.code = None
         self._deadline = None
         self.error = reason
+        return again
 
     def expired(self) -> None:
         self.status = "expired"
@@ -117,10 +138,38 @@ class PairingState:
         """
         self._task = task
 
+    def request_retry(self) -> None:
+        """쉬고 있는 재시도 고리를 지금 깨운다."""
+        self._retry_requested = True
+
+    async def wait_before_retry(self, seconds: float) -> None:
+        """다음 시도까지 쉰다. 화면에서 버튼을 누르면 기다리지 않고 깨어난다.
+
+        asyncio.Event 가 아니라 깃발을 자주 들여다본다. Event 는 처음 쓰인
+        이벤트 루프에 묶여 다른 루프에서 건드리면 터지는데, 이 객체는 모듈
+        단일 객체라 그 사고가 나기 쉽다(테스트가 바로 잡아냈다). 5분을
+        0.2초로 쪼개 보는 값은 공짜고, 터치스크린에서 누른 손이 기다리는
+        시간이 그만큼 짧아진다.
+        """
+        self._retry_requested = False
+        deadline = time.monotonic() + seconds
+        while not self._retry_requested:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                break
+            await asyncio.sleep(min(RETRY_POLL_SECONDS, left))
+        self._retry_requested = False
+
     def start(self, version: str) -> bool:
-        """화면의 [기기 연결] 버튼. 이미 돌고 있으면 아무것도 하지 않는다."""
+        """화면의 [기기 연결] 버튼.
+
+        기동할 때 띄운 재시도 고리가 이미 돌고 있으면 **그것을 깨운다.**
+        예전에는 False 를 돌려주고 끝이었다 — 쉬는 중에 버튼을 누르면 아무
+        일도 일어나지 않아, 현장에서는 고장으로 보인다.
+        """
         if self.running():
-            return False
+            self.request_retry()
+            return True
         self.begin_request()
         self._task = asyncio.create_task(run_pairing(version))
         return True
@@ -255,9 +304,20 @@ async def run_pairing(version: str = "1.0.0") -> str | None:
             reason = data.get("error") or (
                 "인터넷 연결을 확인하세요" if not status else f"서버 오류 {status}"
             )
-            # 여기서 자동으로 반복하면 요청 제한에 걸린다. 사유를 남기고 멈춘다.
-            logger.error("연결 코드를 받지 못했습니다: %s", reason)
-            pairing_state.failed(str(reason))
+            # 여기서 반복하지 않는다 — 한 번만 해 보고 사유를 남긴다. 다시
+            # 시도하는 간격은 부르는 쪽(app/main.py 의 PAIR_RETRY_SECONDS)이
+            # 정한다. 그래야 "얼마나 자주 두드릴지" 가 한 곳에만 있다.
+            #
+            # 같은 사유가 되풀이될 때는 조용히 적는다. 와이파이가 없는 장비는
+            # 5분마다 다시 시도하는데, 그때마다 빨간 ERROR 를 남기면 로그가
+            # 그것으로 가득 차 정작 봐야 할 줄이 묻힌다. 사유는 화면에 늘
+            # 떠 있으므로 로그로 되풀이할 이유가 없다.
+            again = pairing_state.failed(str(reason))
+            logger.log(
+                logging.DEBUG if again else logging.ERROR,
+                "연결 코드를 받지 못했습니다: %s",
+                reason,
+            )
             return None
 
         code = str(data["code"])

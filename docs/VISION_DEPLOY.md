@@ -137,16 +137,24 @@ supabase/migrations/vision_monitoring.sql
 
 ### 비전 호스트 (A) — 그 서버의 `.env`
 
+**라즈베리파이라면 넣을 것이 없습니다.** 설치만 하면 전원을 넣는 순간 연결 코드를
+받아 돕니다(`vision/deploy/README.md`). 아래는 브라우저에서 **영상까지** 볼 때만
+필요합니다.
+
 ```bash
+SHRIMP365_URL=https://www.shrimp365.kr            # 기본값. 페어링·보고에 쓰는 주소
+VISION_PUBLIC_URL=https://vision-1.shrimp365.kr   # 이 장비의 주소(파이마다 다르게)
 VISION_SERVICE_KEY=...        # Vercel 과 같은 값
 VISION_STREAM_SECRET=...      # Vercel 과 같은 값
-DATABASE_URL=postgresql+asyncpg://postgres.xxxx:비밀번호@aws-0-....pooler.supabase.com:5432/postgres
-SHRIMP365_URL=https://www.shrimp365.kr            # 페어링·경보 푸시에 쓰는 주소
 CORS_ORIGINS=https://www.shrimp365.kr
-VISION_PUBLIC_URL=https://vision-1.shrimp365.kr   # 이 장비의 주소(파이마다 다르게)
 ```
 
 > 기기 키(`VISION_DEVICE_KEY`)는 넣지 않습니다 — **페어링이 채웁니다**(§5-1).
+>
+> `DATABASE_URL` 도 넣지 않습니다. 개체수는 기기 키로 `/api/vision/device` 에
+> 올라가고, 서버가 service_role 로 기록합니다 — 장비에 데이터베이스 비밀번호를
+> 두지 않습니다(파이를 집어 가도 다른 농장의 자료에 닿지 못합니다). 서버를
+> 거치지 않고 Postgres 에 직접 쓰는 배포에서만 넣습니다.
 
 ### 한 호스트 (B) — `.env.local` 하나에 위 값을 모두 넣고
 
@@ -373,7 +381,7 @@ docker compose --profile vision restart vision
 | 화면이 "실시간 꺼짐" | `VISION_SERVICE_KEY` 미설정, 또는 등록된 카메라 없음 |
 | 영상 자리가 "연결할 수 없습니다" | 카메라를 시작했는지(설정 탭), `docker compose logs vision` |
 | 실시간만 계속 재접속 | 프록시 `/vision-ws` 설정, `VISION_STREAM_SECRET` 이 양쪽 같은 값인지 |
-| 개체수가 안 쌓임 | `DATABASE_URL` 이 asyncpg 인지, 마이그레이션을 실행했는지 |
+| 개체수가 안 쌓임 | 장비 화면의 "서버 끊김" 표시, Vercel 의 `SUPABASE_SERVICE_ROLE_KEY`, 마이그레이션 실행 여부 |
 | 경보가 안 옴 | 설정 탭에서 경보를 만들었는지(기본값 없음) |
 | 영상이 몇 초 뒤 끊김 (Vercel) | `NEXT_PUBLIC_VISION_PUBLIC_URL` 미설정 → 서버리스가 중계하다 시간 상한에 잘림 |
 | 영상 자리가 비고 콘솔에 mixed content | 비전 호스트가 http — https 인증서를 붙여야 합니다 |

@@ -158,7 +158,8 @@ create index if not exists idx_count_records_farm_time
 
 alter table public.count_records enable row level security;
 
--- 읽기만 열어 준다. 쓰기는 비전 서비스가 DB 직결(서비스 권한)로 한다.
+-- 읽기만 열어 준다. 쓰기는 /api/vision/device 가 service_role 로 한다 —
+-- 장비는 기기 키만 들고 그 경로로 올리고, 데이터베이스 비밀번호를 갖지 않는다.
 drop policy if exists "count_records_select_own" on public.count_records;
 create policy "count_records_select_own" on public.count_records for select
   using (farm_id in (

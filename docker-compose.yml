@@ -57,6 +57,11 @@ services:
       # 장비 터치스크린은 라즈베리파이에 붙이는 화면이다. 컨테이너에는 화면이
       # 없으므로 띄우지 않는다.
       KIOSK_ENABLED: "false"
+    volumes:
+      # 기기 키와 아직 못 올린 개체수가 여기 있다. 볼륨을 안 걸면 컨테이너를
+      # 다시 만들 때마다 키가 사라져 **수조에 다시 연결해야** 하고, 그 사이
+      # 못 올린 측정값도 함께 사라진다.
+      - vision-state:/var/lib/shrimp365-vision
     # 모델(ai/models/shrimp_yolov8n_416.onnx, 12MB)은 이제 저장소에 들어 있어
     # `COPY . .` 로 이미지에 함께 굽힌다. 예전처럼 여기에 빈 볼륨을 걸면 그
     # 디렉터리를 **덮어써서** 모델이 사라지고, 서비스는 멀쩡히 뜬 채 가짜
@@ -72,3 +77,4 @@ services:
 
 volumes:
   ollama-models:
+  vision-state:

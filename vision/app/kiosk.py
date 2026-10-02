@@ -37,7 +37,10 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 from app.config import settings, simulation_mode_active, simulation_mode_reason
 from app.services.camera_manager import camera_manager
 from app.services.pairing import pairing_state
+from app.services.reporter import reporter
 from app.services.stream_service import frame_store
+from app.services.sync_service import backlog as sync_backlog
+from app.services.sync_service import enabled as sync_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +109,15 @@ def build_state() -> dict:
         "simulation": simulation_mode_active(),
         "simulation_reason": simulation_mode_reason(),
         # 추측하지 않는다 — 한 번도 보고하지 않았으면 None 그대로 보낸다.
-        "server_ok": camera_manager.last_report_ok,
+        #
+        # 어느 쪽을 보는지가 구성에 따라 다르다. 서버로 올리는 구성(기본)에서는
+        # 로컬 DB 쓰기가 언제나 성공하므로 그것으로는 회선 상태를 알 수 없다 —
+        # 실제로 shrimp365 에 닿았는지는 reporter 만 안다.
+        "server_ok": reporter.last_ok if sync_enabled() else camera_manager.last_report_ok,
+        # 못 올려 보관 중인 개체수. 끊긴 동안 "값이 사라지는 중"이 아니라는
+        # 것을 농장에서 눈으로 확인할 수 있어야 한다. 장비 안의 DB 에 실제로
+        # 남아 있는 수다 — 메모리에 든 수가 아니라 재부팅을 넘기는 수다.
+        "pending_uploads": sync_backlog() if sync_enabled() else 0,
         "pairing": pairing_state.snapshot(),
         "public_url": settings.vision_public_url or None,
         "model": settings.model_path.rsplit("/", 1)[-1],
@@ -424,8 +435,13 @@ function render(d){
     chips += '<span class="chip off">카메라 없음</span>';
   }
   if (d.pairing.linked) {
+    // 끊긴 동안 보관 건수를 함께 보여 준다 — 값이 사라지는 중이 아니라는
+    // 것을 농장에서 눈으로 확인할 수 있어야 한다.
+    var slabel = d.server_ok === false ? "서버 끊김" : "연결됨";
+    if (d.server_ok === false && d.pending_uploads > 0)
+      slabel += " · " + d.pending_uploads + "건 보관";
     chips += '<span class="chip ' + (d.server_ok === false ? "off" : "on") + '">' +
-      (d.server_ok === false ? "서버 끊김" : "연결됨") + '</span>';
+      slabel + '</span>';
   } else {
     chips += '<span class="chip off">미연결</span>';
   }
