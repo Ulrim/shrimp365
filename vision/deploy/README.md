@@ -27,7 +27,8 @@ sudo useradd -r -s /usr/sbin/nologin -G video shrimp365 2>/dev/null || true
 sudo mkdir -p /opt/shrimp365-vision /etc/shrimp365-vision
 
 # 저장소의 vision/ 만 내려받아 배치합니다.
-sudo git clone --depth 1 -b claude/camera-vision-migration-43d9xz \
+# 브랜치는 이 저장소에서 실제로 배포되는 브랜치입니다(main 이 아닙니다).
+sudo git clone --depth 1 -b claude/shrimp-water-quality-monitoring-aZ4EY \
   https://github.com/Ulrim/shrimp365.git /tmp/shrimp365
 sudo cp -r /tmp/shrimp365/vision/* /opt/shrimp365-vision/
 sudo rm -rf /tmp/shrimp365
@@ -49,7 +50,31 @@ sudo chown -R shrimp365:video /opt/shrimp365-vision
 >
 > 모델을 만들어 올리는 절차는 `docs/VISION_MODEL_TRAINING.md` 에 있습니다.
 
-## 3. 환경변수
+## 3. 모델 파일 올리기
+
+**이 단계를 건너뛰면 서비스는 멀쩡히 뜨지만 개체수가 가짜입니다.** 가중치는
+수십~수백 MB 이진 파일이라 저장소에 넣지 않습니다(`.gitignore`). 학습해서 받은
+`shrimp_yolov8n_416.onnx` 를 PC 에서 파이로 복사하세요.
+
+PC(윈도우 PowerShell 또는 터미널)에서:
+
+```bash
+scp shrimp_yolov8n_416.onnx pi@192.168.0.50:/tmp/
+```
+
+파이에서:
+
+```bash
+sudo mv /tmp/shrimp_yolov8n_416.onnx /opt/shrimp365-vision/ai/models/
+sudo chown shrimp365:video /opt/shrimp365-vision/ai/models/shrimp_yolov8n_416.onnx
+ls -la /opt/shrimp365-vision/ai/models/   # 파일 크기가 0 이 아닌지 확인
+```
+
+> **416 과 640 중 무엇을 쓰나.** 파이 4 라면 416 을 권합니다 — 측정한 계수
+> 오차율은 둘 다 약 5%(밀식 구간)로 사실상 같은데 416 이 훨씬 빠릅니다.
+> 실제 속도는 §9 에서 이 파이로 직접 재세요.
+
+## 4. 환경변수
 
 ```bash
 sudo tee /etc/shrimp365-vision/env >/dev/null <<'EOF'
@@ -62,6 +87,12 @@ CORS_ORIGINS=https://www.shrimp365.kr
 # 이 파이의 공개 주소. 파이가 여러 대면 각자 다르게(vision-1 / vision-2 …).
 VISION_PUBLIC_URL=https://vision-1.shrimp365.kr
 
+# §3 에서 올린 모델. 이 줄이 없으면 기본값(...shrimp_yolov8n.pt)을 찾다가
+# 파일이 없어 **조용히 시뮬레이션으로 떨어집니다**. 절대 경로로 적으세요.
+MODEL_PATH=/opt/shrimp365-vision/ai/models/shrimp_yolov8n_416.onnx
+# 측정으로 고른 값(기본 0.25 보다 계수 오차율이 낮았습니다).
+CONFIDENCE_THRESHOLD=0.35
+
 # 파이 4 는 추론이 무겁습니다. 초당 한 번이면 개체수 세기에 충분합니다.
 MAX_CAMERAS=1
 AUTO_START_STREAMS=true
@@ -69,7 +100,7 @@ EOF
 sudo chmod 600 /etc/shrimp365-vision/env
 ```
 
-## 4. 서비스 등록
+## 5. 서비스 등록
 
 ```bash
 sudo cp /opt/shrimp365-vision/deploy/shrimp365-vision.service /etc/systemd/system/
@@ -88,7 +119,7 @@ journalctl -u shrimp365-vision -f
 ───────────────────────────────────────────────
 ```
 
-## 5. 기기 등록 (페어링)
+## 6. 기기 등록 (페어링)
 
 수질 센서 파이와 같은 방식입니다. 긴 키를 옮겨 적지 않습니다.
 
@@ -110,13 +141,13 @@ journalctl -u shrimp365-vision -f
 sudo systemctl restart shrimp365-vision
 ```
 
-## 6. 바깥에서 닿게 하기
+## 7. 바깥에서 닿게 하기
 
 브라우저가 영상과 실시간 값을 받으려면 이 파이에 **https 주소**가 있어야 합니다.
 농장 공유기 뒤에 있는 파이에는 포트 개방 없이 쓰는 Cloudflare Tunnel 이 가장 간단합니다.
 설정은 `docs/VISION_DEPLOY.md` §3-4 를 보세요.
 
-## 7. 파이가 여러 대일 때
+## 8. 파이가 여러 대일 때
 
 CSI 카메라는 리본으로 보드에 직접 붙어 있어, **그 보드에서 도는 서비스만** 열 수
 있습니다. 그래서 수조마다 파이를 두면 각 파이가 자기 카메라만 맡아야 합니다.
@@ -145,7 +176,7 @@ CSI 카메라는 리본으로 보드에 직접 붙어 있어, **그 보드에서
 > 파이에서 추론하지 말고 RTSP 로 영상만 보내 한 서버에서 모아 추론하는 구성이
 > 낫습니다. 그때는 카메라 종류를 `rtsp` 로 등록하면 됩니다 — 코드는 그대로입니다.
 
-## 8. 성능에 대해
+## 9. 성능에 대해
 
 파이 4 의 CPU 추론은 빠르지 않습니다. 다만 개체수는 **초당 한 번이면 충분**하므로
 기본값(`fps_target=1`)으로 쓸 수 있습니다. 수행계획서 기준은 장당 1~3초입니다.
@@ -155,10 +186,10 @@ CSI 카메라는 리본으로 보드에 직접 붙어 있어, **그 보드에서
 ```bash
 cd /opt/shrimp365-vision
 .venv/bin/python ai/trainer/export_edge.py \
-    --weights ai/models/shrimp_yolov8n.onnx --bench --runs 30
+    --weights ai/models/shrimp_yolov8n_416.onnx --bench --runs 30
 ```
 
-기준을 넘으면 더 작은 해상도로 내보낸 모델(416)로 바꾸거나, `--format ncnn` 으로
+기준을 넘으면 더 작은 해상도로 내보낸 모델(320)로 바꾸거나, `--format ncnn` 으로
 내보낸 모델을 씁니다. 해상도를 바꾸면 정확도도 바뀌므로 계수 오차율을 다시
 재야 합니다(`docs/VISION_MODEL_TRAINING.md`).
 

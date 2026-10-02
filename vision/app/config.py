@@ -140,24 +140,11 @@ def simulation_mode_active() -> bool:
     학습된 모델이 아직 없으므로 기본값은 사실상 시뮬레이션이다. 이 모드가
     있어야 카메라·모델 없이도 전체 화면과 경보를 시연할 수 있다.
     """
-    if settings.simulation_mode is not None:
-        return settings.simulation_mode
-    if not os.path.exists(settings.model_path):
-        return True
-    if settings.model_path.lower().endswith(".onnx"):
-        # 파이에서는 torch/ultralytics 없이 onnxruntime 만 깔고 돌린다.
-        # 여기서 ultralytics 를 요구하면 실제 모델이 있어도 시뮬레이션으로
-        # 떨어져 버린다.
-        try:  # pragma: no cover - depends on optional edge extra
-            import onnxruntime  # noqa: F401
-        except ImportError:
-            return True
-        return False
-    try:  # pragma: no cover - depends on optional ml extra
-        import ultralytics  # noqa: F401
-    except ImportError:
-        return True
-    return False
+    # 판정 자체는 simulation_mode_reason() 한 곳에만 둔다. 둘로 나눠 두면
+    # 한쪽만 고쳐져 "이유는 없는데 시뮬레이션" 같은 상태가 생긴다.
+    # 양쪽 다 lru_cache 라 /health 가 매번 파일을 stat 하지도 않고, 한쪽만
+    # 캐시돼 서로 다른 답을 내놓는 일도 없다.
+    return simulation_mode_reason() is not None
 
 
 def auto_start_streams_active() -> bool:
@@ -165,3 +152,48 @@ def auto_start_streams_active() -> bool:
     if settings.auto_start_streams is not None:
         return settings.auto_start_streams
     return simulation_mode_active()
+
+
+@lru_cache(maxsize=1)
+def simulation_mode_reason() -> str | None:
+    """시뮬레이션으로 떨어진 이유를 사람이 읽을 문장으로 돌려준다.
+
+    실모드면 None. 이 함수가 있는 이유는 파이에서 **조용히** 시뮬레이션으로
+    떨어지는 것이 가장 위험한 실패이기 때문이다 — 서비스는 멀쩡히 뜨고 화면에
+    그래프도 그려지는데, 그 숫자가 가짜다. 그대로 두면 가짜 개체수가 실제 DB
+    에 쌓이고, 경보까지 그 값으로 울린다. 기동 로그에서 한 번에 알아채야 한다.
+    """
+    if settings.simulation_mode is True:
+        return "SIMULATION_MODE=true 로 직접 켜 두었습니다."
+    if settings.simulation_mode is False:
+        return None
+    if not os.path.exists(settings.model_path):
+        return (
+            f"모델 파일이 없습니다: {settings.model_path} "
+            "(MODEL_PATH 를 .onnx 파일의 실제 경로로 지정하세요)"
+        )
+    if settings.model_path.lower().endswith(".onnx"):
+        try:  # pragma: no cover - depends on optional edge extra
+            import onnxruntime  # noqa: F401
+        except ImportError:
+            return 'onnxruntime 이 없습니다 (pip install -e ".[edge]")'
+        return None
+    try:  # pragma: no cover - depends on optional ml extra
+        import ultralytics  # noqa: F401
+    except ImportError:
+        return (
+            'ultralytics 가 없습니다. .pt 가중치는 ".[ml]" 가 필요합니다 — '
+            "파이에서는 .onnx 로 내보내 쓰는 쪽을 권합니다"
+            " (ai/trainer/export_edge.py)"
+        )
+    return None
+
+
+def reset_simulation_mode_cache() -> None:
+    """시뮬레이션 판정 캐시를 모두 비운다(테스트용).
+
+    캐시가 두 함수에 걸려 있어 한쪽만 비우면 서로 다른 답이 나온다. 비우는
+    창구를 하나로 두어, 캐시를 더 달더라도 부르는 쪽이 바뀌지 않게 한다.
+    """
+    simulation_mode_reason.cache_clear()
+    simulation_mode_active.cache_clear()
