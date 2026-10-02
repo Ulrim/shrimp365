@@ -17,6 +17,7 @@ TimescaleDB 하이퍼테이블 설정을 했지만, 통합판에서 그렇게 �
 from __future__ import annotations
 
 import logging
+import sys
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 
@@ -25,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import NullPool
 
-from app.config import settings
+from app.config import config_problems, explain_config_problems, settings
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,21 @@ REQUIRED_TABLES = (
 )
 
 
+#: 설정 파일 자리. 로그에서 바로 집어 고칠 수 있도록 메시지에 넣는다.
+ENV_PATH = "/etc/shrimp365-vision/env"
+
+
 def _make_engine():
+    # 엔진은 import 시점에 만들어진다. 설정이 비어 있으면 여기서
+    # sqlalchemy 가 "Could not parse SQLAlchemy URL" 을 던지고 서비스가
+    # 죽는데, 현장에서 그 문구로는 무엇을 해야 할지 알 수 없다.
+    # install.sh 가 만드는 env 는 세 줄이 비어 있으므로 **첫 기동은 반드시**
+    # 여기에 걸린다 — 그때 할 일이 보여야 한다.
+    problems = config_problems()
+    if problems:
+        print(explain_config_problems(problems, ENV_PATH), file=sys.stderr, flush=True)
+        raise SystemExit(1)
+
     kwargs: dict = {"echo": settings.debug}
     if settings.database_url.startswith("sqlite"):
         # NullPool keeps connections loop-agnostic (pytest spins up a fresh

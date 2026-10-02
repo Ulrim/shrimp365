@@ -213,3 +213,50 @@ def reset_simulation_mode_cache() -> None:
     """
     simulation_mode_reason.cache_clear()
     simulation_mode_active.cache_clear()
+
+
+#: 반드시 채워야 하는 설정과, 비었을 때 사람에게 할 말.
+#: install.sh 가 만드는 env 파일은 이 셋이 비어 있으므로 첫 기동은 반드시
+#: 여기에 걸린다. 그때 파이썬 스택트레이스가 아니라 할 일이 보여야 한다.
+_REQUIRED = (
+    ("DATABASE_URL", "database_url", "Supabase → Connect → Session pooler 문자열"),
+    ("VISION_SERVICE_KEY", "vision_service_key", "웹(Vercel)에 넣은 것과 같은 값"),
+    ("VISION_STREAM_SECRET", "stream_secret", "웹(Vercel)에 넣은 것과 같은 값"),
+)
+
+
+def config_problems() -> list[str]:
+    """설정에서 사람이 고쳐야 할 것들. 비어 있으면 설정이 온전하다는 뜻이다."""
+    problems = []
+    for env_name, attr, hint in _REQUIRED:
+        if not str(getattr(settings, attr, "") or "").strip():
+            problems.append(f"{env_name} 가 비어 있습니다 — {hint}")
+
+    url = settings.database_url.strip()
+    if url and not url.startswith(("sqlite", "postgresql+asyncpg://")):
+        if url.startswith("postgresql://") or url.startswith("postgres://"):
+            # 가장 흔한 실수다. Supabase 가 주는 문자열을 그대로 붙여넣으면 이렇게 된다.
+            problems.append(
+                "DATABASE_URL 의 접두사를 postgresql+asyncpg:// 로 바꿔야 합니다 "
+                "(Supabase 가 주는 postgresql:// 에 +asyncpg 를 끼워 넣으세요)"
+            )
+        else:
+            problems.append(f"DATABASE_URL 을 알아볼 수 없습니다: {url[:40]}…")
+    return problems
+
+
+def explain_config_problems(problems: list[str], env_path: str) -> str:
+    """systemd 로그에서 바로 읽히도록 묶는다."""
+    lines = [
+        "=" * 68,
+        "  [설정이 덜 되었습니다] 서비스를 시작할 수 없습니다.",
+        "",
+    ]
+    lines += [f"   · {p}" for p in problems]
+    lines += [
+        "",
+        f"  고치기:   sudo nano {env_path}",
+        "  다시 시작: sudo systemctl restart shrimp365-vision",
+        "=" * 68,
+    ]
+    return "\n".join(lines)

@@ -203,3 +203,67 @@ async def test_port_conflict_does_not_kill_the_service(monkeypatch, caplog):
         assert built == [], "포트를 못 잡았는데 서버를 만들려 들었다"
     finally:
         busy.close()
+
+
+# ---------------------------------------------------------------------------
+# 설정 점검 (app/config.config_problems)
+#
+# install.sh 가 만드는 env 는 세 줄이 비어 있다. 그래서 **첫 기동은 반드시**
+# 여기에 걸린다 — 그때 파이썬 스택트레이스가 아니라 할 일이 보여야 한다.
+# ---------------------------------------------------------------------------
+
+
+def _problems(monkeypatch, **over):
+    import app.config as config
+
+    defaults = {
+        "database_url": "postgresql+asyncpg://u:p@h:5432/d",
+        "vision_service_key": "k" * 32,
+        "stream_secret": "s" * 32,
+    }
+    for attr, val in {**defaults, **over}.items():
+        monkeypatch.setattr(settings, attr, val)
+    return config.config_problems()
+
+
+def test_complete_config_has_no_problems(monkeypatch):
+    assert _problems(monkeypatch) == []
+
+
+def test_empty_values_are_each_named(monkeypatch):
+    found = _problems(monkeypatch, database_url="", vision_service_key="", stream_secret="")
+    joined = " | ".join(found)
+    for env_name in ("DATABASE_URL", "VISION_SERVICE_KEY", "VISION_STREAM_SECRET"):
+        assert env_name in joined, f"{env_name} 를 짚어 주지 않는다"
+
+
+def test_whitespace_only_counts_as_empty(monkeypatch):
+    """nano 에서 값을 지우면 공백이 남기 쉽다."""
+    assert any("DATABASE_URL" in p for p in _problems(monkeypatch, database_url="   "))
+
+
+def test_supabase_string_pasted_as_is_is_caught(monkeypatch):
+    """가장 흔한 실수 — +asyncpg 를 빠뜨린 채 붙여넣기.
+
+    이걸 못 잡으면 sqlalchemy 가 'Could not parse SQLAlchemy URL' 만 던지고
+    끝난다. 현장에서 그 문구로는 무엇을 고쳐야 할지 알 수 없다.
+    """
+    found = _problems(
+        monkeypatch,
+        database_url="postgresql://postgres.abc:pw@aws-0.pooler.supabase.com:5432/postgres",
+    )
+    assert any("+asyncpg" in p for p in found)
+
+
+def test_sqlite_is_accepted(monkeypatch):
+    """테스트와 개발은 SQLite 로 돈다 — 막으면 안 된다."""
+    assert _problems(monkeypatch, database_url="sqlite+aiosqlite:///./t.db") == []
+
+
+def test_message_names_the_file_and_the_restart_command(monkeypatch):
+    import app.config as config
+
+    text = config.explain_config_problems(["X 가 비어 있습니다"], "/etc/shrimp365-vision/env")
+    assert "/etc/shrimp365-vision/env" in text
+    assert "systemctl restart shrimp365-vision" in text
+    assert "X 가 비어 있습니다" in text
