@@ -25,15 +25,64 @@ sudo apt install -y python3-picamera2 python3-venv git libgl1 fonts-noto-cjk
 
 sudo useradd -r -s /usr/sbin/nologin -G video shrimp365 2>/dev/null || true
 sudo mkdir -p /opt/shrimp365-vision /etc/shrimp365-vision
+```
 
-# 저장소의 vision/ 만 내려받아 배치합니다.
-# 브랜치는 이 저장소에서 실제로 배포되는 브랜치입니다(main 이 아닙니다).
-sudo git clone --depth 1 -b claude/shrimp-water-quality-monitoring-aZ4EY \
-  https://github.com/Ulrim/shrimp365.git /tmp/shrimp365
-sudo cp -r /tmp/shrimp365/vision/* /opt/shrimp365-vision/
-sudo rm -rf /tmp/shrimp365
+### 2-a. 코드 올리기
 
-# 가상환경 — picamera2 를 쓰려면 시스템 패키지가 보여야 합니다.
+`shrimp365` 는 **비공개 저장소**입니다. `git clone` 을 그냥 하면 인증을 묻고,
+거기에 GitHub 계정 비밀번호를 넣어도 통하지 않습니다 — GitHub 는 2021-08 부터
+Git 작업에 비밀번호를 받지 않습니다. 둘 중 하나로 하세요.
+
+**방법 1 — PC 에서 ZIP 으로 받아 복사 (토큰이 필요 없습니다).**
+
+브라우저로 GitHub 저장소에 들어가 브랜치를 `claude/shrimp-water-quality-monitoring-aZ4EY`
+로 바꾸고 **Code → Download ZIP**. 압축을 풀고 그 안의 `vision` 폴더만 보냅니다.
+
+```bash
+# PC 에서
+scp -r shrimp365-claude-shrimp-water-quality-monitoring-aZ4EY/vision pi@192.168.0.50:/tmp/
+
+# 파이에서
+sudo cp -r /tmp/vision/* /opt/shrimp365-vision/
+rm -rf /tmp/vision
+```
+
+**방법 2 — 파이에서 바로 clone (읽기 전용 토큰을 하나 만듭니다).**
+
+GitHub → Settings → Developer settings → Personal access tokens →
+**Fine-grained tokens** → Generate new token
+
+- Repository access: **Only select repositories** → `Ulrim/shrimp365`
+- Permissions → Repository permissions → **Contents: Read-only**
+- Expiration: 설치에만 쓰니 **7 days** 로 충분합니다
+
+`vision/` 은 0.35 MB 인데 저장소 전체는 51 MB 입니다(`public/` 의 카드뉴스
+이미지가 대부분). 필요한 것만 받습니다 — 1.8 MB 로 끝납니다.
+
+```bash
+# sudo 를 쓰지 않습니다. root 로 받으면 파일 주인이 어긋나고, 토큰도
+# root 의 프로세스에 남습니다.
+cd ~
+git clone --depth 1 --filter=blob:none --sparse \
+  -b claude/shrimp-water-quality-monitoring-aZ4EY \
+  https://github.com/Ulrim/shrimp365.git shrimp365-src
+# Username: GitHub 아이디
+# Password: 위에서 만든 토큰을 붙여넣기 (화면에 안 보이는 게 정상입니다)
+
+cd ~/shrimp365-src
+git sparse-checkout set vision
+
+sudo cp -r ~/shrimp365-src/vision/* /opt/shrimp365-vision/
+rm -rf ~/shrimp365-src          # 토큰이 남은 설정까지 같이 지웁니다
+```
+
+> 명령줄에 토큰을 적지 말고 **프롬프트에 붙여넣으세요.** 명령줄에 쓰면
+> `~/.bash_history` 와 `ps` 에 그대로 남습니다.
+
+### 2-b. 파이썬 환경
+
+```bash
+# picamera2 를 쓰려면 가상환경이 시스템 패키지를 볼 수 있어야 합니다.
 cd /opt/shrimp365-vision
 sudo python3 -m venv --system-site-packages .venv
 sudo .venv/bin/pip install -e ".[edge]"
