@@ -12,6 +12,11 @@
 고치면 배포 도구가 덮어쓸 때 신원이 사라진다.
 
 승인 전까지 이 장비는 아무 카메라도 맡지 않는다(camera_manager.owns_camera).
+
+코드는 로그에만 띄우면 화면 있는 장비에서 쓸 수 없다(현장에서 journalctl 을
+칠 사람은 없다). 그래서 진행 상태를 `pairing_state` 에 남겨, 터치스크린이
+코드를 보여주고 [기기 연결] 버튼으로 다시 받을 수 있게 한다
+(app/kiosk.py). 수질 센서 파이의 webui.py 와 같은 방식이다.
 """
 from __future__ import annotations
 
@@ -27,6 +32,101 @@ logger = logging.getLogger(__name__)
 # 코드 유효 시간(서버 기준 15분)에 맞춰 폴링한다.
 POLL_INTERVAL_SECONDS = 5
 POLL_DEADLINE_SECONDS = 15 * 60
+
+
+class PairingState:
+    """페어링 진행 상태. 화면이 읽고, run_pairing 이 쓴다.
+
+    한 장비에서 페어링은 한 번에 하나뿐이라 모듈 수준 단일 객체로 충분하다.
+    이벤트 루프 하나에서만 건드리므로 잠금을 두지 않는다 — 화면 서버도 같은
+    루프에서 돈다(app/main.py 가 같은 프로세스에 띄운다).
+    """
+
+    #: idle(아직 시작 안 함) · requesting(코드 요청 중) · waiting(승인 대기)
+    #: linked(완료) · failed(코드를 못 받음) · expired(15분 지남)
+    status: str = "idle"
+    code: str | None = None
+    error: str | None = None
+    tank_name: str | None = None
+    camera_id: str | None = None
+    #: 코드 만료까지 남은 초. 화면이 카운트다운을 그린다.
+    expires_in: int | None = None
+
+    def __init__(self) -> None:
+        self._task: asyncio.Task | None = None
+        self._deadline: float | None = None
+
+    # -- 화면이 읽는 쪽 -------------------------------------------------------
+    def snapshot(self) -> dict:
+        remaining = None
+        if self._deadline is not None and self.status == "waiting":
+            try:
+                remaining = max(0, int(self._deadline - asyncio.get_running_loop().time()))
+            except RuntimeError:  # 루프 밖에서 부르면(테스트 등) 남은 시간만 비운다
+                remaining = None
+        return {
+            "status": self.status,
+            "code": self.code,
+            "error": self.error,
+            "tank_name": self.tank_name,
+            "camera_id": self.camera_id,
+            "expires_in": remaining,
+            "serial": board_serial(),
+            "linked": load_device_key() is not None,
+        }
+
+    # -- run_pairing 이 쓰는 쪽 ----------------------------------------------
+    def begin_request(self) -> None:
+        self.status = "requesting"
+        self.code = self.error = None
+        self._deadline = None
+
+    def code_received(self, code: str, deadline: float) -> None:
+        self.status = "waiting"
+        self.code = code
+        self._deadline = deadline
+
+    def linked(self, camera_id: str | None, tank_name: str | None) -> None:
+        self.status = "linked"
+        self.code = None
+        self._deadline = None
+        self.camera_id = camera_id
+        self.tank_name = tank_name
+
+    def failed(self, reason: str) -> None:
+        self.status = "failed"
+        self.code = None
+        self._deadline = None
+        self.error = reason
+
+    def expired(self) -> None:
+        self.status = "expired"
+        self.code = None
+        self._deadline = None
+
+    # -- 버튼이 부르는 쪽 ----------------------------------------------------
+    def running(self) -> bool:
+        return self._task is not None and not self._task.done()
+
+    def start(self, version: str) -> bool:
+        """화면의 [기기 연결] 버튼. 이미 돌고 있으면 아무것도 하지 않는다."""
+        if self.running():
+            return False
+        self.begin_request()
+        self._task = asyncio.create_task(run_pairing(version))
+        return True
+
+    def cancel(self) -> bool:
+        if not self.running():
+            return False
+        self._task.cancel()  # type: ignore[union-attr]
+        self.status = "idle"
+        self.code = None
+        self._deadline = None
+        return True
+
+
+pairing_state = PairingState()
 
 
 def board_serial() -> str:
@@ -113,16 +213,19 @@ async def run_pairing(version: str = "1.0.0") -> str | None:
             "SHRIMP365_URL 이 없어 페어링을 시작할 수 없습니다 — "
             "예: https://www.shrimp365.kr"
         )
+        pairing_state.failed("SHRIMP365_URL 이 설정되지 않았습니다")
         return None
 
     try:
         import httpx
     except ImportError:
         logger.error("httpx 가 없어 페어링을 할 수 없습니다.")
+        pairing_state.failed("httpx 가 설치되지 않았습니다")
         return None
 
     pair_url = f"{base}/api/vision/pair"
     serial = board_serial()
+    pairing_state.begin_request()
 
     async with httpx.AsyncClient(timeout=10) as client:
         status, data = await _post_json(
@@ -142,6 +245,7 @@ async def run_pairing(version: str = "1.0.0") -> str | None:
             )
             # 여기서 자동으로 반복하면 요청 제한에 걸린다. 사유를 남기고 멈춘다.
             logger.error("연결 코드를 받지 못했습니다: %s", reason)
+            pairing_state.failed(str(reason))
             return None
 
         code = str(data["code"])
@@ -158,6 +262,7 @@ async def run_pairing(version: str = "1.0.0") -> str | None:
 
         loop = asyncio.get_running_loop()
         deadline = loop.time() + POLL_DEADLINE_SECONDS
+        pairing_state.code_received(code, deadline)
         while loop.time() < deadline:
             await asyncio.sleep(POLL_INTERVAL_SECONDS)
             status, info = await _get_json(client, f"{pair_url}?secret={secret}")
@@ -169,14 +274,18 @@ async def run_pairing(version: str = "1.0.0") -> str | None:
                 logger.warning("연결 완료 — 수조: %s", tank)
                 if key:
                     save_device_key(key, info.get("camera_id"), info.get("tank_name"))
+                    pairing_state.linked(info.get("camera_id"), info.get("tank_name"))
                     return str(key)
+                pairing_state.failed("서버가 기기 키를 주지 않았습니다")
                 return None
 
             if state in ("expired", "not_found", "revoked"):
-                logger.info("코드가 만료되었습니다. 서비스를 다시 시작하면 새 코드를 받습니다.")
+                logger.info("코드가 만료되었습니다. 화면의 [기기 연결] 을 다시 누르세요.")
+                pairing_state.expired()
                 return None
 
-    logger.info("승인 대기 시간이 지났습니다. 서비스를 다시 시작하면 새 코드를 받습니다.")
+    logger.info("승인 대기 시간이 지났습니다. 화면의 [기기 연결] 을 다시 누르세요.")
+    pairing_state.expired()
     return None
 
 

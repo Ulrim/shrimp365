@@ -94,6 +94,16 @@ class Settings(BaseSettings):
     # 다른 작업과 코어를 나눠 써야 하면 2~3 으로 제한한다.
     inference_threads: int = Field(default=0)
     inference_fps: int = Field(default=1)
+
+    # 장비 터치스크린(키오스크). 공식 7인치 800×480 을 기준으로 만들었다.
+    #
+    # **반드시 127.0.0.1 에만 붙인다.** 본 서비스(8000)는 Cloudflare 터널로
+    # 바깥에 열리는데, 화면은 영상과 페어링 코드를 인증 없이 보여 준다 —
+    # 장비 앞에 선 사람만 볼 수 있다는 전제로 만든 화면이다. 같은 포트에
+    # 얹으면 카메라 id 하나로 남의 수조를 들여다볼 수 있게 된다.
+    kiosk_enabled: bool = Field(default=True)
+    kiosk_host: str = Field(default="127.0.0.1")
+    kiosk_port: int = Field(default=8080)
     max_cameras: int = Field(default=16)
     # ByteTrack-style tracking for dedup counting (falls back to plain
     # detection per camera if the tracker raises).
