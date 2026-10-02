@@ -29,6 +29,7 @@ import {
 } from "./constants"
 import { COST_ITEMS } from "./cost-items"
 import type { CostItem } from "./cost-items"
+import { mergeExclusions } from "./exclusions"
 import type { Exclusion } from "./exclusions"
 
 /** 단가. 전부 선택이고 빠지면 constants.ts 의 기본값을 쓴다. */
@@ -65,6 +66,17 @@ export type CostInput = {
   electricityKwh?: number | null
   /** 전기비 실액(원). 고지서가 있으면 이쪽이 정확하다. */
   electricityKrw?: number | null
+  /**
+   * 전기 고지서가 덮지 못한 개월 수. 천황수산 코호트는 고지서가 2024-10 까지라
+   * **11·12월 2개월이 빠져 있다.** 그 두 달 전기비는 electricityKrw 에 들어
+   * 있지 않으므로 EXCLUSION "electricity_billing_incomplete" 로 알린다.
+   *
+   * **엔진이 월평균으로 추정해 채우지 않는다.** 3월 5,869,350원과 10월
+   * 1,909,650원이 3배 차이 나는 계절성이 있고, 추정액을 실청구액에 섞으면
+   * 반환값에서 어느 쪽이 고지서인지 구분되지 않는다. 추정할지 말지는 사람이
+   * 정하고, 정하면 otherKrw 로 넣는다.
+   */
+  electricityUnbilledMonths?: number | null
 
   /** 인건비(원). **null 과 0 은 다르다** — 위 주석 참조. */
   laborKrw?: number | null
@@ -168,11 +180,17 @@ export function computeCost(input: CostInput, prices: CostUnitPrices = {}): Cost
   }))
   exclusions.push({ code: "cost_depreciation_not_modeled", quantity: null, unit: "krw" })
 
+  const unbilled = input.electricityUnbilledMonths
+  if (typeof unbilled === "number" && Number.isFinite(unbilled) && unbilled > 0) {
+    exclusions.push({ code: "electricity_billing_incomplete", quantity: unbilled, unit: "month" })
+  }
+
   return {
     lines,
     knownTotalKrw,
     missingItems,
-    complete: missingItems.length === 0,
+    // 고지서가 덮지 못한 구간이 있으면 전기비가 들어와 있어도 완전하지 않다.
+    complete: missingItems.length === 0 && !(typeof unbilled === "number" && unbilled > 0),
     exclusions,
   }
 }
@@ -209,15 +227,26 @@ export function addCosts(base: CostBreakdown, extra: CostBreakdown): CostBreakdo
     knownTotalKrw += line.krw
   }
 
-  const exclusions: Exclusion[] = missingItems.map((item) => ({
-    code: "cost_not_recorded" as const,
-    item,
-    quantity: null,
-    unit: "krw" as const,
-  }))
-  exclusions.push({ code: "cost_depreciation_not_modeled", quantity: null, unit: "krw" })
+  // 항목 경고는 합산 결과에서 다시 구하고, 그 밖의 경고(전기 고지서 미비 등)는
+  // 양쪽에서 그대로 들고 온다 — 더하면서 떨어뜨리면 경고가 조용히 사라진다.
+  const carried = [...base.exclusions, ...extra.exclusions].filter((e) => e.code !== "cost_not_recorded")
+  const exclusions = mergeExclusions(
+    missingItems.map((item) => ({
+      code: "cost_not_recorded" as const,
+      item,
+      quantity: null,
+      unit: "krw" as const,
+    })),
+    carried,
+  )
 
-  return { lines, knownTotalKrw, missingItems, complete: missingItems.length === 0, exclusions }
+  return {
+    lines,
+    knownTotalKrw,
+    missingItems,
+    complete: missingItems.length === 0 && base.complete && extra.complete,
+    exclusions,
+  }
 }
 
 /** 항목 하나의 금액. 미입력이면 null — 0 이 아니다. */

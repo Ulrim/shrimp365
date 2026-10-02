@@ -146,12 +146,19 @@ export type ActualsInput = {
   feedKg?: number | null
   revenue?: RevenueInput
   /**
-   * 회차 경계가 라벨되지 않았나. 천황수산 데이터는 70건 전부
-   * `not_validated_outcome_label` 이고 수조 간 분조가 57% 다 — **생존율·FCR 의
-   * 정답을 이 데이터로 만들 수 없다**(dataset-assessment 4절). 기본 false 로
-   * 두지만, 그 데이터로 돌릴 때는 true 를 넘겨 반환값에 남겨야 한다.
+   * 생존율·FCR 의 분모(= 회차 경계)가 어디서 왔나.
+   *
+   *   "source_data"   원본 데이터에 회차 ID 가 있다. 경고 없음.
+   *   "human_derived" **사람이 메모를 읽어 복원한 파생 라벨이다.** 천황수산
+   *                   데이터가 이쪽이다 — 단일 코호트로 복원되지만 그 복원은
+   *                   원본의 사실이 아니고, 수조별 분해는 메모 해석에
+   *                   의존한다(dataset-assessment 4-7·4-8).
+   *   "unresolved"    복원하지 못했다. 분모를 모르면 생존율도 FCR 도 뜻이 없다.
+   *
+   * 생략하면 경고하지 않는다 — **엔진은 분모의 출처를 알 수 없고, 모르는 것을
+   * 추측해 경고하지도 않는다.** 호출자가 적어 넣는 자리다.
    */
-  cycleBoundaryLabeled?: boolean
+  cycleBoundary?: "source_data" | "human_derived" | "unresolved"
 }
 
 export type ActualPerformance = {
@@ -231,8 +238,10 @@ export function computeActuals(input: ActualsInput, cost: CostBreakdown): Actual
     operatingProfitKrw !== null && cost.knownTotalKrw !== 0 ? operatingProfitKrw / cost.knownTotalKrw : null
 
   const own: Exclusion[] = []
-  if (input.cycleBoundaryLabeled === false) {
-    own.push({ code: "cycle_boundary_not_labeled", quantity: null, unit: null })
+  if (input.cycleBoundary === "human_derived") {
+    own.push({ code: "cycle_boundary_derived_label", quantity: null, unit: null })
+  } else if (input.cycleBoundary === "unresolved") {
+    own.push({ code: "cycle_boundary_not_resolved", quantity: null, unit: null })
   }
 
   return {

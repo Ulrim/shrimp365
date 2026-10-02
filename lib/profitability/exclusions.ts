@@ -36,8 +36,20 @@ export type ExclusionCode =
   | "survival_rate_assumed"
   /** 개체중이 엔진 1 의 예측값이다 — 실측이 아니다. quantity 는 g. */
   | "abw_from_growth_projection"
-  /** 회차 경계가 라벨되지 않았다. 생존율·FCR 의 정답이 없다는 뜻이다. */
-  | "cycle_boundary_not_labeled"
+  /**
+   * 회차 경계가 원본 데이터의 사실이 아니라 **사람 검수로 만든 파생 라벨**이다.
+   *
+   * 천황수산 데이터가 그렇다. `label_status` 는 70건 전부
+   * `not_validated_outcome_label` 이고 `production_cycle_id` 가 없는데, 그것은
+   * 복원이 불가능해서가 아니라 데이터 제작자가 **메모를 자동 라벨로 쓰지
+   * 않는다는 원칙**을 지킨 것이다. 사람이 ManagementNotes 를 읽으면 단일
+   * 코호트로 복원된다(dataset-assessment 4절). 생존율 44.8%·FCR 3.21 의
+   * 분모는 **그 복원 결과**이고, 원본의 사실이 아니다. 특히 **수조별 분해는
+   * 메모 해석에 의존한다.**
+   */
+  | "cycle_boundary_derived_label"
+  /** 회차 경계를 복원하지 못했다. 생존율·FCR 의 분모 자체가 정해지지 않는다. */
+  | "cycle_boundary_not_resolved"
 
 export type ExclusionUnit = "krw" | "krw_per_kg" | "kg" | "count" | "month" | "day" | "gram" | "ratio"
 
