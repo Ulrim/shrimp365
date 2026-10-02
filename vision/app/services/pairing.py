@@ -108,6 +108,15 @@ class PairingState:
     def running(self) -> bool:
         return self._task is not None and not self._task.done()
 
+    def adopt(self, task: asyncio.Task) -> None:
+        """기동할 때 뒤에서 도는 페어링을 이 상태에 묶는다.
+
+        묶어 두지 않으면 화면의 [기기 연결] 버튼이 "안 돌고 있다"고 보고
+        두 번째 페어링을 시작해, 서버가 코드를 두 개 내주고 화면에는 둘 중
+        아무 것이나 뜬다.
+        """
+        self._task = task
+
     def start(self, version: str) -> bool:
         """화면의 [기기 연결] 버튼. 이미 돌고 있으면 아무것도 하지 않는다."""
         if self.running():

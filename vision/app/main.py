@@ -29,10 +29,29 @@ from app.config import (
 from app.database import init_db
 from app.services.broadcaster import broadcaster
 from app.services.camera_manager import camera_manager
-from app.services.pairing import ensure_device_key
+from app.services.pairing import ensure_device_key, load_device_key, pairing_state
 
 logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
 logger = logging.getLogger(__name__)
+
+
+async def _start_cameras() -> int:
+    if not auto_start_streams_active():
+        return 0
+    started = await camera_manager.auto_start_active_cameras()
+    logger.info("Auto-started %d camera stream(s)", started)
+    return started
+
+
+async def _pair_then_count(version: str) -> None:
+    """연결을 기다렸다가, 승인되면 그 자리에서 세기 시작한다.
+
+    승인 뒤에 다시 시작하게 두면 현장에서 그 사실을 알 길이 없다 — 화면은
+    "연결됨"인데 개체수는 영영 0 이다.
+    """
+    key = await ensure_device_key(version)
+    if key:
+        await _start_cameras()
 
 
 @asynccontextmanager
@@ -64,13 +83,6 @@ async def lifespan(app: FastAPI):
             "VISION_STREAM_SECRET 이 비어 있습니다 — 영상·실시간 연결이 전부 거부됩니다."
         )
     await init_db()
-
-    # 기기 키가 없으면 여기서 페어링을 돌린다. 승인될 때까지 기다리므로
-    # 기동이 길어질 수 있지만, 신원 없이 뜨면 어느 카메라도 맡지 못한다.
-    # 실패해도 서비스는 뜬다 — /health 로 상태를 볼 수 있어야 하고, 사용자가
-    # 화면에서 다시 시도할 수 있어야 한다.
-    await ensure_device_key(app.version)
-
     await broadcaster.start()
     camera_manager.start_watchdog()
 
@@ -80,14 +92,34 @@ async def lifespan(app: FastAPI):
     if settings.kiosk_enabled:
         kiosk_task = asyncio.create_task(kiosk.serve(), name="kiosk")
 
-    if auto_start_streams_active():
-        started = await camera_manager.auto_start_active_cameras()
-        logger.info("Auto-started %d camera stream(s)", started)
+    # 기기 키가 있으면(= 이미 연결된 장비) 바로 세기 시작한다.
+    #
+    # 없으면 페어링을 **뒤에서** 돌린다. 예전에는 여기서 기다렸는데, 승인까지
+    # 최대 15분을 붙들고 있어 그동안 화면도 /health 도 뜨지 않았다. 그런데
+    # 코드를 보여 주는 것이 바로 그 화면이다 — 연결하려면 화면이 필요하고,
+    # 화면은 연결이 끝나야 뜨는 교착이었다. 승인되면 그 자리에서 카메라를
+    # 시작하므로 다시 시작할 필요도 없다.
+    pairing_task = None
+    if load_device_key():
+        await ensure_device_key(app.version)  # settings.device_key 를 채운다
+        await _start_cameras()
+    else:
+        logger.warning(
+            "아직 수조에 연결되지 않은 장비입니다 — 연결 코드를 받는 중입니다.\n"
+            "  장비 화면(터치스크린)이나 이 로그에 6자리 코드가 뜹니다."
+        )
+        pairing_task = asyncio.create_task(
+            _pair_then_count(app.version), name="pairing"
+        )
+        pairing_state.adopt(pairing_task)
+
     yield
-    if kiosk_task is not None:
-        kiosk_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await kiosk_task
+
+    for task in (pairing_task, kiosk_task):
+        if task is not None:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
     await camera_manager.stop_all()
     await broadcaster.stop()
 
