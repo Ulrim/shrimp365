@@ -51,6 +51,7 @@ import type {
 import { countPerKgFromAbwG } from "@/lib/pricing"
 import type { PriceAnchor, SizeElasticity, SizePriceEstimate } from "@/lib/pricing"
 
+import { addDays } from "./dates"
 import { mergeHarvestExclusions } from "./exclusions"
 import type { HarvestExclusion } from "./exclusions"
 import { abwAtDay } from "./outlook"
@@ -99,6 +100,12 @@ export type HarvestContext = {
   unitPrices: CostUnitPrices
   /** 밴드에 담을 개체중 폭(±g). 기본 0. */
   abwUncertaintyG: number
+  /**
+   * 기준일(YYYY-MM-DD) 또는 null. 후보에 날짜를 붙이는 데만 쓴다 —
+   * **계산에는 들어가지 않는다**(계절 보정이 없으므로 달이 금액을 바꾸지
+   * 않는다). null 이면 날짜 칸이 null 이고, 엔진이 오늘을 지어내지 않는다.
+   */
+  asOfDate: string | null
 }
 
 /** 밴드 양끝을 만드는 변종. */
@@ -193,6 +200,11 @@ export type CandidateFailure =
 
 export type HarvestCandidate = {
   dayOffset: number
+  /**
+   * 그 시점의 날짜(YYYY-MM-DD). 기준일을 안 받으면 null 이다. 화면의 x축이
+   * 날짜이므로 후보마다 들고 다닌다 — 적산수온이 아니라 날짜다.
+   */
+  date: string | null
   abwG: number | null
   /** 그 개체중의 미/kg. 농가가 등급으로 읽는 표기다. */
   countPerKg: number | null
@@ -205,6 +217,11 @@ export type HarvestCandidate = {
   priceKrwPerKg: number | null
   /** 탄력성 밴드 양끝의 단가. */
   priceBandKrwPerKg: { low: number; high: number } | null
+  /**
+   * 앵커 단가에 대한 비(= 크기 프리미엄 배수). 1.0655 면 +6.55% 다.
+   * 금액과 별개로 화면이 「크기 프리미엄」 행의 보조 수치로 쓴다.
+   */
+  priceRatioFromAnchor: number | null
   /** 그 크기가 사다리 관측 범위(23.5~33.3 g) 밖인가. */
   priceOutsideObservedSize: boolean
   /** 예측 개체중이 엔진 1 의 고정 상한(Winf)에 닿았는가. */
@@ -473,6 +490,7 @@ export function evaluateCandidate(
     return {
       candidate: {
         dayOffset,
+        date: addDays(ctx.asOfDate, dayOffset),
         abwG: null,
         countPerKg: null,
         cdd: null,
@@ -481,6 +499,7 @@ export function evaluateCandidate(
         biomassKg: null,
         priceKrwPerKg: null,
         priceBandKrwPerKg: null,
+        priceRatioFromAnchor: null,
         priceOutsideObservedSize: false,
         abwAtWinfCeiling: false,
         revenueKrw: null,
@@ -546,6 +565,7 @@ export function evaluateCandidate(
   return {
     candidate: {
       dayOffset,
+      date: addDays(ctx.asOfDate, dayOffset),
       abwG: v.abwG,
       countPerKg: countPerKgFromAbwG(v.abwG),
       cdd: v.cdd,
@@ -554,6 +574,7 @@ export function evaluateCandidate(
       biomassKg: v.biomassKg,
       priceKrwPerKg: v.priceKrwPerKg,
       priceBandKrwPerKg,
+      priceRatioFromAnchor: v.price.priceRatio,
       priceOutsideObservedSize: v.price.exclusions.some(
         (e) => e.code === "price_target_outside_observed_size",
       ),
