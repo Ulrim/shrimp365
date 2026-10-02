@@ -151,9 +151,12 @@ X-GNOME-Autostart-enabled=true
 EOF
 chown "$TARGET_USER:$TARGET_USER" "$USER_HOME/.config/autostart/shrimp365-vision-kiosk.desktop"
 
+# wayfire — 파일이 없으면 만들어서라도 넣는다. 예전에는 "있을 때만" 고쳤는데,
+# 그러면 wayfire 로 부팅하는데 설정 파일이 아직 없는 기기에서 자동 실행이
+# 조용히 등록되지 않는다(화면이 영영 안 뜬다).
 WAYFIRE_INI="$USER_HOME/.config/wayfire.ini"
-if [ -f "$WAYFIRE_INI" ] && ! grep -q "shrimp365-vision-kiosk" "$WAYFIRE_INI"; then
-  if grep -q "^\[autostart\]" "$WAYFIRE_INI"; then
+if ! grep -qs "shrimp365-vision-kiosk" "$WAYFIRE_INI"; then
+  if grep -qs "^\[autostart\]" "$WAYFIRE_INI"; then
     sed -i '/^\[autostart\]/a shrimp365vision = /usr/local/bin/shrimp365-vision-kiosk' "$WAYFIRE_INI"
   else
     printf '\n[autostart]\nshrimp365vision = /usr/local/bin/shrimp365-vision-kiosk\n' >> "$WAYFIRE_INI"
@@ -161,8 +164,17 @@ if [ -f "$WAYFIRE_INI" ] && ! grep -q "shrimp365-vision-kiosk" "$WAYFIRE_INI"; t
   chown "$TARGET_USER:$TARGET_USER" "$WAYFIRE_INI"
 fi
 
+# labwc — **사용자 autostart 가 있으면 시스템 것을 대신한다(합치지 않는다).**
+# 그래서 빈 파일에 우리 줄만 적으면 작업표시줄·바탕화면이 사라진다
+# (/etc/xdg/labwc/autostart 가 그것들을 띄운다). 없을 때는 시스템 것을
+# 먼저 복사해 두고 우리 줄을 덧붙인다.
 LABWC_DIR="$USER_HOME/.config/labwc"
 install -d -o "$TARGET_USER" -g "$TARGET_USER" "$LABWC_DIR"
+if [ ! -f "$LABWC_DIR/autostart" ] && [ -f /etc/xdg/labwc/autostart ]; then
+  echo "==> labwc 기본 autostart 를 먼저 복사합니다 (작업표시줄 유지)"
+  install -m 644 -o "$TARGET_USER" -g "$TARGET_USER" \
+    /etc/xdg/labwc/autostart "$LABWC_DIR/autostart"
+fi
 if ! grep -qs "shrimp365-vision-kiosk" "$LABWC_DIR/autostart"; then
   echo "/usr/local/bin/shrimp365-vision-kiosk &" >> "$LABWC_DIR/autostart"
   chown "$TARGET_USER:$TARGET_USER" "$LABWC_DIR/autostart"
