@@ -227,9 +227,12 @@ async def run_pairing(version: str = "1.0.0") -> str | None:
 
     try:
         import httpx
-    except ImportError:
-        logger.error("httpx 가 없어 페어링을 할 수 없습니다.")
-        pairing_state.failed("httpx 가 설치되지 않았습니다")
+    except ImportError as exc:
+        # exc 를 버리면 안 된다. httpx **안에서** 난 ImportError 도 여기 걸리는데
+        # (예: idna 가 빠진 경우) "httpx 가 없습니다" 라고만 적으면 엉뚱한 데를
+        # 뒤지게 된다 — 실제로 그렇게 한참 돌아갔다.
+        logger.error("페어링에 필요한 httpx 를 불러오지 못했습니다: %s", exc)
+        pairing_state.failed(f"httpx 를 불러오지 못했습니다 — {exc}")
         return None
 
     pair_url = f"{base}/api/vision/pair"

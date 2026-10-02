@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import uuid
 
 import pytest
@@ -20,6 +21,18 @@ from app.services import camera_manager as cm
 @pytest.fixture
 def anyio_backend():
     return "asyncio"
+
+
+async def _stop(task: asyncio.Task) -> None:
+    """맞춤 루프가 **실제로 멈출 때까지** 기다린다.
+
+    cancel() 만 하고 넘어가면 루프가 아직 질의 중일 수 있다. 다음 테스트가
+    같은 SQLite 파일을 쓰면서 부딪혀 간헐적으로 깨진다 — 그런 테스트는
+    고치는 데 드는 시간보다 사람을 헷갈리게 하는 비용이 크다.
+    """
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
 
 
 @pytest.fixture
@@ -61,7 +74,7 @@ async def test_camera_turned_on_later_is_picked_up(monkeypatch, tank_id):
                 break
         assert mgr.is_running(cam_id), "맞춤 루프가 카메라를 집어가지 못했다"
     finally:
-        task.cancel()
+        await _stop(task)
         await mgr.stop_all()
 
 
@@ -82,7 +95,7 @@ async def test_reconcile_never_takes_another_devices_camera(monkeypatch, tank_id
         await asyncio.sleep(0.4)
         assert not mgr._processors, "남의 카메라를 열었다"
     finally:
-        task.cancel()
+        await _stop(task)
         await mgr.stop_all()
 
 
@@ -109,7 +122,7 @@ async def test_reconcile_survives_a_database_hiccup(monkeypatch):
         assert len(calls) >= 2, "첫 실패에서 루프가 멈췄다"
         assert not task.done(), "루프가 죽었다"
     finally:
-        task.cancel()
+        await _stop(task)
 
 
 @pytest.mark.anyio
@@ -133,5 +146,5 @@ async def test_reconcile_does_not_restart_a_running_camera(monkeypatch, tank_id)
         await asyncio.sleep(0.4)
         assert mgr.processor(cam_id) is first, "돌고 있는 카메라를 다시 시작했다"
     finally:
-        task.cancel()
+        await _stop(task)
         await mgr.stop_all()
