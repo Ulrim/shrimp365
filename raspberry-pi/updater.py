@@ -25,6 +25,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -43,11 +44,24 @@ APP_DIR = Path("/opt/shrimp365")
 PREV_DIR = Path("/opt/shrimp365.prev")
 STAGE_DIR = Path("/opt/shrimp365.new")
 
-# 꾸러미에 들어올 수 있는 파일. 이 목록에 없는 것은 풀지 않는다.
-ALLOWED = {
-    "shrimp365_sensor.py", "display.py", "webui.py", "wifi.py",
-    "buffer.py", "history.py", "updater.py", "VERSION",
-}
+# 꾸러미에 들어올 수 있는 파일.
+#
+# 예전에는 파일 이름을 하나하나 적어 두었다. 그 방식은 **모듈을 새로 만들 때마다
+# 장비를 발이 묶이게** 했다 — 이미 나가 있는 장비는 자기가 가진 옛 목록으로
+# 꾸러미를 검사하므로, 목록에 없는 새 파일이 들어오면 업데이트 전체를 거부한다.
+# 그래서 1.8.0 장비는 1.9.0(limits/anomaly/advice 추가) 을 받을 수 없었고,
+# updater.py 만 바꾼 중간 버전을 한 번 거쳐야 했다.
+#
+# 이제는 **이름의 모양**으로 막는다. 막으려는 것은 애초에 경로다 — tar 는
+# `../` 나 `a/b` 로 /opt 바깥을 건드리게 만들 수 있다. 아래 규칙은 소문자·숫자·
+# 밑줄로만 된 한 덩어리 `.py` 만 받으므로 슬래시도 점도 들어올 수 없다.
+# 꾸러미는 서명을 통과한 것이고, 푸는 자리는 /opt/shrimp365.new 한 곳이다.
+ALLOWED_NAME = re.compile(r"^[a-z0-9_]+\.py$")
+ALLOWED_EXTRA = {"VERSION"}
+
+
+def allowed_name(name: str) -> bool:
+    return name in ALLOWED_EXTRA or bool(ALLOWED_NAME.match(name))
 
 # 꾸러미 크기 상한. 압축 폭탄으로 디스크를 채우는 것을 막는다.
 MAX_PACKAGE_BYTES = 8 * 1024 * 1024
@@ -308,7 +322,7 @@ def safe_extract(blob: bytes, dest: Path) -> None:
                 name = m.name.lstrip("./")
                 if not m.isfile():
                     raise ValueError(f"파일이 아닌 항목이 있습니다: {m.name}")
-                if name not in ALLOWED:
+                if not allowed_name(name):
                     raise ValueError(f"허용되지 않은 파일: {m.name}")
                 if m.size > MAX_PACKAGE_BYTES:
                     raise ValueError(f"파일이 너무 큽니다: {m.name}")

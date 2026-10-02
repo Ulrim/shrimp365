@@ -8,8 +8,8 @@ import { MOCK_ALERTS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
 import { formatDateTime } from "@/lib/utils"
-import { useAgriRoute } from "@/lib/agri-route"
-import { MISSING_INPUT_PARAMETER } from "@/lib/thresholds"
+import { agriHref, useAgriRoute } from "@/lib/agri-route"
+import { alertDisplayLabel, MISSING_INPUT_PARAMETER } from "@/lib/thresholds"
 import type { Alert } from "@/types"
 import type { AlertNotifyPermission } from "@/lib/use-alert-notifications"
 
@@ -202,7 +202,16 @@ export function NotificationsPanel({ open, onClose, onCountChange, notifyPermiss
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className="text-sm text-foreground font-medium truncate">{alert.tank_name}</span>
                     {alert.parameter && (
-                      <span className="text-xs text-muted-foreground shrink-0">{alert.parameter}</span>
+                      // 저장 키를 그대로 찍지 않는다 — 농업에서는 "수온"이 아니라
+                      // "양액 온도"로 읽어야 한다(lib/thresholds.ts).
+                      //
+                      // 기준은 **그 알림이 달린 수조의 농장 유형**이지 지금 보고
+                      // 있는 주소가 아니다. 이 패널은 헤더에 붙어 두 축의 알림을
+                      // 함께 보여 주므로, 주소로 이름표를 정하면 새우 양식지의
+                      // "수온"이 농업 주소에서 "양액 온도"로 뒤바뀐다.
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {alertDisplayLabel(alert.parameter, alert.farm_type ?? "shrimp")}
+                      </span>
                     )}
                   </div>
                   <p className="text-xs text-foreground/80 leading-relaxed">{alert.message}</p>
@@ -219,7 +228,15 @@ export function NotificationsPanel({ open, onClose, onCountChange, notifyPermiss
                 </div>
                 <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                   <button
-                    onClick={() => { router.push(withAgri(`/water-quality?tank=${alert.tank_id}`)); onClose() }}
+                    // 갈 곳도 그 알림이 속한 축이다. 주소를 기준으로 삼으면
+                    // 농업 주소에서 새우 알림을 눌렀을 때 /daumlabs/water-quality
+                    // 로 가고, 그 화면에는 그 수조가 없어 고를 수가 없다.
+                    // 순수 새우 계정에서는 모든 알림이 shrimp 라 결과가 지금과
+                    // 한 글자도 다르지 않다.
+                    onClick={() => {
+                      router.push(agriHref(`/water-quality?tank=${alert.tank_id}`, alert.farm_type === "agriculture"))
+                      onClose()
+                    }}
                     className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-ocean-500 transition-colors"
                     title={t.notif.gotoTank}
                   >

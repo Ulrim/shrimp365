@@ -20,7 +20,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-import webui  # noqa: E402  — 경로를 넣은 뒤에 불러와야 한다
+import limits  # noqa: E402  — 경로를 넣은 뒤에 불러와야 한다
+import webui  # noqa: E402
 
 OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE.parent / "kiosk-preview.html"
 
@@ -35,6 +36,7 @@ def base_state(**over) -> dict:
         "errors": {}, "serial": "10000000c0ffee01", "pending": 0,
         "linked": True, "account": "ky****4@gmail.com", "tank": "A-1조", "farm": "1양식장",
         "pairing": False, "pair_code": None, "pair_url": "", "pair_error": None,
+        "advice": [], "anomalies": [],
     }
     state.update(over)
     return state
@@ -51,8 +53,22 @@ STATES = [
         status="연결 대기 중")),
     ("인터넷 끊김", base_state(status="SEND FAIL 14:32 · 보관 37건", pending=37)),
     ("복구 직후 (재전송)", base_state(status="sent +37 14:32")),
-    ("용존산소 위험", base_state(
-        values={**VALUES, "do_level": 3.1}, status="sent 14:32")),
+    ("용존산소 위험 · 운전 권고", base_state(
+        values={**VALUES, "do_level": 3.1}, status="sent 14:32",
+        advice=[{"code": "do_critical", "level": "danger", "value": 3.1, "digits": 2}],
+        anomalies=[{"parameter": "do_level", "kind": "surge", "type": "danger",
+                    "value": 3.1, "reference": 5.4, "digits": 2,
+                    "direction": "down", "gap_minutes": 24}])),
+    ("추세 경고 (기준 안인데 내려가는 중)", base_state(
+        values={**VALUES, "do_level": 5.6}, status="sent 14:32",
+        advice=[{"code": "do_falling", "level": "warn", "value": 5.6, "digits": 2},
+                {"code": "temp_swing", "level": "warn", "value": 28.4, "digits": 1}],
+        anomalies=[{"parameter": "do_level", "kind": "drift", "type": "warning",
+                    "value": 5.6, "reference": 7.1, "digits": 2,
+                    "direction": "down", "span_hours": 5}])),
+    ("과잉 폭기 (전력 절감)", base_state(
+        values={**VALUES, "do_level": 8.7}, status="sent 14:32",
+        advice=[{"code": "do_surplus", "level": "save", "value": 8.7, "digits": 2}])),
     ("센서 오류", base_state(
         values={"temperature": 28.4, "ph": 7.85},
         errors={"ec": "응답 없음 (배선·전원·슬레이브 ID 확인)"},
@@ -182,7 +198,13 @@ window.addEventListener("message", function(e){
 
 
 def main() -> int:
-    page = webui.PAGE
+    # 판정 밴드는 webui.serve() 가 limits.py 에서 주입한다. 미리보기는 그 함수를
+    # 거치지 않으므로 여기서 같은 치환을 해 준다 — 안 하면 화면 스크립트가
+    # `var BANDS = __BANDS__;` 에서 그대로 깨진다.
+    page = (webui.PAGE
+            .replace("__LANG__", "ko")
+            .replace("__BANDS__", json.dumps(limits.BANDS))
+            .replace("__NUT_BANDS__", json.dumps(limits.NUTRIENT_BANDS)))
     mock = (MOCK
             .replace("__STATES__", json.dumps(STATES, ensure_ascii=False))
             .replace("__HIST__", json.dumps(HIST))

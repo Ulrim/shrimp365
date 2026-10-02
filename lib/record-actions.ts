@@ -10,6 +10,11 @@ export const FEED_TYPES = [
 ]
 export const MICROBIAL_TYPES = ["컬리버 1호", "컬리버 2호", "컬리버 3호", "기타"]
 
+// 농업(수경재배) 선택지. 위 새우 상수는 손대지 않는다.
+// 자재는 제품명이 아니라 **범주**로 둔다 — 특정 제품에 묶이지 않게(수아 시안 §3-1).
+export const AGRI_NUTRIENT_TYPES = ["A/B 표준 배양액", "자가 배양액", "추비(단비)", "기타"]
+export const AGRI_INPUT_TYPES = ["미생물제", "칼슘·규산 보충제", "천적", "기타"]
+
 export type JournalPersistedDefaults = {
   feed_type?: string
   feeding_times?: string
@@ -24,15 +29,19 @@ export type JournalPersistedDefaults = {
 }
 
 export const JOURNAL_DEFAULTS_KEY = "journal_form_defaults"
+// 농업 폼 기본값은 키를 분리한다. 한 계정이 두 폼을 오가면 새우 폼 "사료 종류"에
+// "A/B 표준 배양액" 이 떠 있게 된다(수아 시안 §3-3).
+export const JOURNAL_DEFAULTS_KEY_AGRI = "journal_form_defaults_agri"
 
-export function loadJournalDefaults(): JournalPersistedDefaults {
+// 두 번째 인자 기본값이 false — 기존 호출부는 한 글자도 고치지 않는다.
+export function loadJournalDefaults(agri = false): JournalPersistedDefaults {
   try {
-    const raw = localStorage.getItem(JOURNAL_DEFAULTS_KEY)
+    const raw = localStorage.getItem(agri ? JOURNAL_DEFAULTS_KEY_AGRI : JOURNAL_DEFAULTS_KEY)
     return raw ? JSON.parse(raw) : {}
   } catch { return {} }
 }
 
-export function saveJournalDefaults(form: Record<string, unknown>) {
+export function saveJournalDefaults(form: Record<string, unknown>, agri = false) {
   try {
     const toSave: JournalPersistedDefaults = {
       feed_type:           form.feed_type as string,
@@ -46,7 +55,7 @@ export function saveJournalDefaults(form: Record<string, unknown>) {
       check_circulation:   form.check_circulation as boolean,
       check_feeding_check: form.check_feeding_check as boolean,
     }
-    localStorage.setItem(JOURNAL_DEFAULTS_KEY, JSON.stringify(toSave))
+    localStorage.setItem(agri ? JOURNAL_DEFAULTS_KEY_AGRI : JOURNAL_DEFAULTS_KEY, JSON.stringify(toSave))
   } catch { /* ignore */ }
 }
 

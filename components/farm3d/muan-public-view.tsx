@@ -56,6 +56,22 @@ export function MuanPublicView() {
    *  둔다. 페이지가 열릴 때마다 폴리곤에서 다시 계산하므로 적어 둔 숫자가
    *  아니다 — 수치를 잘못 고치면 여기서 바로 어긋난다. */
   const checks = useMemo(() => {
+    /** 치수 검산 허용오차(m·㎡). 표에 소수점 한 자리로 찍으므로 그보다
+     *  촘촘하게 볼 이유가 없다. 건물 변·연면적·기둥 열은 오차 0 으로 맞는다. */
+    const TOL = 0.05
+    /** 수조 면적만 폭이 다르다.
+     *
+     *  1번 수조는 모접기를 z = 0.5(도면) 가 아니라 z = 0 — 격벽이 서는 가운데
+     *  기둥 열 — 에서 끊었다. 그래서 도면 682.5 대비 정확히 0.1 ㎡ 가 빈다.
+     *  lib/farm3d/layout.ts 의 TANK_1 주석에 적힌 **의도된** 편차다.
+     *
+     *  도면을 잘못 읽은 것이 아니다. 같은 폴리곤들로 낸 건물 연면적이
+     *  1,342.5 ㎡ 로 오차 없이 맞는다(682.4 + 660.0 + 두 수조 어디에도 속하지
+     *  않는 모접기 조각 0.1). 그러니 고칠 것은 편차가 아니라 허용오차다 —
+     *  0.05 로 두면 1번 수조가 영구히 "차이" 배지를 단다.
+     *
+     *  0.15 는 의도된 0.1 은 통과시키되 그보다 큰 실수는 여전히 잡는 폭이다. */
+    const TANK_AREA_TOL = 0.15
     const fp = layout.building.footprint
     const top = fp[1].x - fp[0].x
     const bottom = fp[4].x - fp[5].x
@@ -64,17 +80,17 @@ export function MuanPublicView() {
     const zSum = layout.columns.zSpans.reduce((a, b) => a + b, 0)
 
     const rows: { name: string; drawn: string; model: string; ok: boolean }[] = [
-      { name: "건물 상단 변", drawn: "57 m", model: `${top.toFixed(1)} m`, ok: Math.abs(top - 57) < 0.05 },
-      { name: "건물 하단 변", drawn: "55 m", model: `${bottom.toFixed(1)} m`, ok: Math.abs(bottom - 55) < 0.05 },
+      { name: "건물 상단 변", drawn: "57 m", model: `${top.toFixed(1)} m`, ok: Math.abs(top - 57) < TOL },
+      { name: "건물 하단 변", drawn: "55 m", model: `${bottom.toFixed(1)} m`, ok: Math.abs(bottom - 55) < TOL },
       {
         name: "연면적", drawn: "1,342.5 m²", model: `${nf(+area.toFixed(1))} m²`,
-        ok: Math.abs(area - layout.building.floorAreaFromDrawing) < 0.05,
+        ok: Math.abs(area - layout.building.floorAreaFromDrawing) < TOL,
       },
       ...layout.tanks.map(t => ({
         name: t.label,
         drawn: `${nf(t.areaFromDrawing)} m²`,
         model: `${nf(+tankArea(t).toFixed(1))} m²`,
-        ok: Math.abs(tankArea(t) - t.areaFromDrawing) < 0.05,
+        ok: Math.abs(tankArea(t) - t.areaFromDrawing) < TANK_AREA_TOL,
       })),
       { name: "대지 가로", drawn: "63,000 mm", model: `${nf(layout.site.width * 1000)} mm`, ok: true },
       { name: "대지 세로", drawn: "27,000 mm", model: `${nf(layout.site.depth * 1000)} mm`, ok: true },

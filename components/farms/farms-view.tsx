@@ -47,7 +47,7 @@ import {
   AlertTriangle,
 } from "lucide-react"
 import Link from "next/link"
-import { formatDate } from "@/lib/utils"
+import { formatDate, computeCycleDay } from "@/lib/utils"
 import { AGRI_PREFIX, useAgriRoute } from "@/lib/agri-route"
 import type { SensorDevice } from "@/types"
 import type { Dict } from "@/lib/i18n"
@@ -56,12 +56,6 @@ import { CoordinateField } from "@/components/farms/coordinate-field"
 import { FarmMap } from "@/components/farms/farm-map"
 import { useT } from "@/lib/i18n-context"
 import { AddressSearch } from "@/components/ui/address-search"
-
-function computeCycleDay(stockingDate: string | null | undefined): number {
-  if (!stockingDate) return 0
-  const ms = Date.now() - new Date(stockingDate).getTime()
-  return Math.max(1, Math.floor(ms / 86_400_000) + 1)
-}
 import type { Farm, Tank } from "@/types"
 
 // 수조 형태는 DB 에 한국어 값("노지" 등)으로 저장되므로 값은 그대로 두고
@@ -473,8 +467,11 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
     setError(null)
     try {
       if (isAgriFarm) {
-        // 입식 밀도·입식일·출하일은 새우 전용 — 0/null 저장.
+        // 입식 밀도·마리수만 새우 전용이다(0 저장).
+        // 정식일·수확 예정일은 stocking_date/harvest_date 를 **그대로 재사용**한다 —
+        // 의미가 1:1 이라 컬럼을 새로 뚫을 이유가 없다(설계서 3-3, 마이그레이션 0건).
         const db = recipeToDb(recipe)
+        const agriCycleDay = form.stocking_date ? computeCycleDay(form.stocking_date) : 0
         await createTank({
           farm_id: farm.id,
           name: form.name.trim(),
@@ -482,9 +479,9 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
           volume,
           stocking_density: 0,
           shrimp_count: 0,
-          cycle_day: 0,
-          stocking_date: null,
-          harvest_date: null,
+          cycle_day: agriCycleDay,
+          stocking_date: form.stocking_date || null,
+          harvest_date: form.harvest_date || null,
           ...(db.target_ec != null ? { target_ec: db.target_ec, ec_tolerance: db.ec_tolerance } : {}),
           ...(db.target_ph != null ? { target_ph: db.target_ph, ph_tolerance: db.ph_tolerance } : {}),
         })
@@ -630,30 +627,29 @@ function AddTankDialog({ farm, onSuccess }: { farm: Farm; onSuccess: () => void 
                 />
               </div>
             )}
-            {!isAgriFarm && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="tank-stocking" className="text-muted-foreground text-sm">{t.production.stockingDate}</Label>
-                  <Input
-                    id="tank-stocking"
-                    type="date"
-                    className="bg-muted border-border text-foreground focus-visible:ring-ocean-500/50"
-                    value={form.stocking_date}
-                    onChange={e => setForm(f => ({ ...f, stocking_date: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="tank-harvest" className="text-muted-foreground text-sm">{t.farmsX.plannedHarvestDate}</Label>
-                  <Input
-                    id="tank-harvest"
-                    type="date"
-                    className="bg-muted border-border text-foreground focus-visible:ring-ocean-500/50"
-                    value={form.harvest_date}
-                    onChange={e => setForm(f => ({ ...f, harvest_date: e.target.value }))}
-                  />
-                </div>
+            {/* 개정 1 에서 농업에 숨겼던 두 날짜를 농업 라벨로 되살린다 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="tank-stocking" className="text-muted-foreground text-sm">{isAgriFarm ? t.agri.plantingDate : t.production.stockingDate}</Label>
+                <Input
+                  id="tank-stocking"
+                  type="date"
+                  className="bg-muted border-border text-foreground focus-visible:ring-ocean-500/50"
+                  value={form.stocking_date}
+                  onChange={e => setForm(f => ({ ...f, stocking_date: e.target.value }))}
+                />
               </div>
-            )}
+              <div className="space-y-1.5">
+                <Label htmlFor="tank-harvest" className="text-muted-foreground text-sm">{isAgriFarm ? t.agri.harvestPlanDate : t.farmsX.plannedHarvestDate}</Label>
+                <Input
+                  id="tank-harvest"
+                  type="date"
+                  className="bg-muted border-border text-foreground focus-visible:ring-ocean-500/50"
+                  value={form.harvest_date}
+                  onChange={e => setForm(f => ({ ...f, harvest_date: e.target.value }))}
+                />
+              </div>
+            </div>
             {isAgriFarm && <RecipeFields idPrefix="recipe" value={recipe} onChange={setRecipe} />}
             <DialogFooter className="pt-2">
               <Button
@@ -886,11 +882,17 @@ function EditTankDialog({ tank, farm, onSuccess }: { tank: Tank; farm: Farm; onS
     try {
       const volume = parseFloat(form.volume) || 0
       if (isAgriFarm) {
-        // 입식 관련 칸은 건드리지 않는다(새우 전용 — 농업 베드는 0/null 유지).
+        // 입식 밀도·마리수는 건드리지 않는다(새우 전용).
+        // 정식일·수확 예정일은 같은 컬럼을 농업 의미로 쓴다(설계서 3-3).
         await updateTank(tank.id, {
           name: form.name,
           tank_type: form.tank_type,
           volume,
+          // 정식일을 지웠으면 재배일수도 0 이다. 옛 값을 남기면 날짜 없는
+          // 베드에 "재배 12일차" 가 계속 뜬다.
+          cycle_day: form.stocking_date ? computeCycleDay(form.stocking_date) : 0,
+          stocking_date: form.stocking_date || null,
+          harvest_date: form.harvest_date || null,
           status: form.status as Tank["status"],
           ...recipeToDb(recipe),
         })
@@ -980,18 +982,16 @@ function EditTankDialog({ tank, farm, onSuccess }: { tank: Tank; farm: Farm; onS
               </div>
             </div>
           )}
-          {!isAgriFarm && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">{t.production.stockingDate}</Label>
-                <Input type="date" value={form.stocking_date} onChange={e => setForm(p => ({ ...p, stocking_date: e.target.value }))} className="bg-muted border-border text-foreground" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">{t.farmsX.plannedHarvestDate}</Label>
-                <Input type="date" value={form.harvest_date} onChange={e => setForm(p => ({ ...p, harvest_date: e.target.value }))} className="bg-muted border-border text-foreground" />
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-muted-foreground">{isAgriFarm ? t.agri.plantingDate : t.production.stockingDate}</Label>
+              <Input type="date" value={form.stocking_date} onChange={e => setForm(p => ({ ...p, stocking_date: e.target.value }))} className="bg-muted border-border text-foreground" />
             </div>
-          )}
+            <div className="space-y-2">
+              <Label className="text-muted-foreground">{isAgriFarm ? t.agri.harvestPlanDate : t.farmsX.plannedHarvestDate}</Label>
+              <Input type="date" value={form.harvest_date} onChange={e => setForm(p => ({ ...p, harvest_date: e.target.value }))} className="bg-muted border-border text-foreground" />
+            </div>
+          </div>
           {isAgriFarm && <RecipeFields idPrefix="recipe-edit" value={recipe} onChange={setRecipe} />}
           <div className="space-y-2">
             <Label className="text-muted-foreground">{t.common.status}</Label>
@@ -1461,13 +1461,16 @@ function TankCard({ tank, farm, onRefresh }: { tank: Tank; farm: Farm; onRefresh
           </span>
         </div>
 
-        {/* Cycle day */}
-        <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg ${meta.bg} ${meta.text} w-fit`}>
-          <TrendingUp className="w-3.5 h-3.5" />
-          {tank.stocking_date
-            ? t.farmsX.stockingDayN.replace("{{n}}", String(computeCycleDay(tank.stocking_date)))
-            : t.waterQualityX.dayN.replace("{{n}}", String(tank.cycle_day))}
-        </div>
+        {/* Cycle day — 농업 베드는 정식일이 없으면 칩째 렌더하지 않는다.
+            "0일차" 는 정보가 아니라 잡음이다. 새우 폴백(cycle_day)은 무변. */}
+        {(!isAgriFarm || tank.stocking_date) && (
+          <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg ${meta.bg} ${meta.text} w-fit`}>
+            <TrendingUp className="w-3.5 h-3.5" />
+            {tank.stocking_date
+              ? t.farmsX.stockingDayN.replace("{{n}}", String(computeCycleDay(tank.stocking_date)))
+              : t.waterQualityX.dayN.replace("{{n}}", String(tank.cycle_day))}
+          </div>
+        )}
 
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-2">
@@ -1477,22 +1480,31 @@ function TankCard({ tank, farm, onRefresh }: { tank: Tank; farm: Farm; onRefresh
             </p>
             <p className="text-foreground font-bold text-sm">{tank.volume.toLocaleString()} {t.farms.tankVolumeUnit}</p>
           </div>
+          {/* 밀도 → 농업에서는 베드 유형. 입식 마리수 타일은 렌더하지 않는다.
+              둘 다 농업 베드에서 항상 0 이라 카드 절반이 "0 마리" 가 됐다. */}
           <div className="bg-muted rounded-lg p-2.5">
             <p className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
-              <Layers className="w-3 h-3" /> {t.waterQualityX.density}
+              <Layers className="w-3 h-3" /> {isAgriFarm ? t.agri.bedType : t.waterQualityX.density}
             </p>
-            <p className="text-foreground font-bold text-sm">{tank.stocking_density} {t.farms.tankDensityUnit}</p>
-          </div>
-          <div className="col-span-2 bg-muted rounded-lg p-2.5">
-            <p className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
-              <Fish className="w-3 h-3" /> {t.farmsX.shrimpCount}
+            <p className="text-foreground font-bold text-sm">
+              {isAgriFarm
+                ? tankTypeLabel(t, (tank.tank_type ?? "실내") as TankType)
+                : `${tank.stocking_density} ${t.farms.tankDensityUnit}`}
             </p>
-            <p className="text-foreground font-bold text-sm">{tank.shrimp_count.toLocaleString()} {t.journalX.unitFish}</p>
           </div>
+          {!isAgriFarm && (
+            <div className="col-span-2 bg-muted rounded-lg p-2.5">
+              <p className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
+                <Fish className="w-3 h-3" /> {t.farmsX.shrimpCount}
+              </p>
+              <p className="text-foreground font-bold text-sm">{tank.shrimp_count.toLocaleString()} {t.journalX.unitFish}</p>
+            </div>
+          )}
           {tank.stocking_date && (
             <div className="bg-muted rounded-lg p-2.5">
               <p className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
-                <Calendar className="w-3 h-3" /> {t.production.stockingDate}
+                {isAgriFarm ? <Sprout className="w-3 h-3" /> : <Calendar className="w-3 h-3" />}
+                {isAgriFarm ? t.agri.plantingDate : t.production.stockingDate}
               </p>
               <p className="text-foreground font-bold text-sm">{formatDate(tank.stocking_date)}</p>
             </div>
@@ -1500,7 +1512,8 @@ function TankCard({ tank, farm, onRefresh }: { tank: Tank; farm: Farm; onRefresh
           {tank.harvest_date && (
             <div className="bg-muted rounded-lg p-2.5">
               <p className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
-                <ShoppingCart className="w-3 h-3" /> {t.farmsX.plannedHarvest}
+                {isAgriFarm ? <Calendar className="w-3 h-3" /> : <ShoppingCart className="w-3 h-3" />}
+                {isAgriFarm ? t.agri.harvestPlanDate : t.farmsX.plannedHarvest}
               </p>
               <p className={`font-bold text-sm ${new Date(tank.harvest_date) <= new Date() ? "text-red-500" : "text-foreground"}`}>
                 {formatDate(tank.harvest_date)}

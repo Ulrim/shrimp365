@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase-server"
-import { checkThresholds, checkRecipe, hasRecipe, PARAM_LABELS, MISSING_INPUT_PARAMETER, type TankRecipe } from "@/lib/thresholds"
+import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, MISSING_INPUT_PARAMETER, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
 import { sendAlertPush } from "@/lib/push-server"
 
 // In-memory rate limit: max 60 requests per device per minute
@@ -195,9 +195,15 @@ export async function POST(req: NextRequest) {
   //    device_id 로 "어느 센서가 잰 값인지" 를 남긴다. 마이그레이션 전이라
   //    컬럼이 없으면 그 컬럼만 빼고 다시 저장한다(측정은 절대 멈추면 안 된다).
   // 마이그레이션이 아직 안 된 DB 를 만나도 측정이 멈춰서는 안 된다.
-  // 아직 없는 칸(device_id·conductivity)은 하나씩 빼고 다시 시도한다.
-  // 'column' 만 보고 판단하면 tank_id NOT NULL 등 엉뚱한 오류까지 삼키므로,
-  // 그 칸 이름을 콕 집은 경우 또는 미정의 컬럼 코드(42703/PGRST204)일 때만.
+  // 아직 없는 칸(device_id·conductivity·flow_rate·diff_pressure)은 하나씩 빼고
+  // 다시 시도한다.
+  //
+  // **에러가 이름을 콕 집은 칸만 뗀다.** 예전에는 미정의 컬럼 코드
+  // (42703/PGRST204)만 보이면 목록을 앞에서부터 훑어 아무 칸이나 뗐다. 그러면
+  // 없는 칸이 diff_pressure 하나여도 device_id·conductivity·flow_rate 가 먼저
+  // 걸려 멀쩡한 측정값 셋이 조용히 사라진다. 코드는 "칸이 없어서 난 오류인가"를
+  // 확인하는 데만 쓰고, 뗄 대상은 메시지가 지목한 이름으로 고른다.
+  // ('column' 문구만 보고 판단하면 tank_id NOT NULL 같은 엉뚱한 오류까지 삼킨다.)
   const OPTIONAL_COLS = ["device_id", "conductivity", "flow_rate", "diff_pressure"] as const
   let row: Record<string, unknown> = {
     tank_id: device.tank_id, ...values, recorded_at: recordedAt, device_id: device.id,
@@ -213,12 +219,15 @@ export async function POST(req: NextRequest) {
     if (!insertError) break
 
     const msg = insertError.message || ""
-    const undefinedCol = insertError.code === "42703" || insertError.code === "PGRST204"
-    const missing = OPTIONAL_COLS.find(col =>
-      col in row && (
-        (new RegExp(col, "i").test(msg) && /(column|schema cache|does not exist|not found)/i.test(msg)) ||
-        undefinedCol
-      ))
+    // 칸이 없어서 난 오류인가 — 코드 또는 문구로 확인한다.
+    const isMissingColumnError =
+      insertError.code === "42703" || insertError.code === "PGRST204" ||
+      /(column|schema cache|does not exist|not found)/i.test(msg)
+    // 메시지가 이름을 집은 칸만 후보다. 앞뒤가 단어 문자면 다른 칸 이름의
+    // 부분 문자열을 잘못 집을 수 있으므로 경계를 함께 본다.
+    const named = OPTIONAL_COLS.find(col =>
+      col in row && new RegExp(`(^|[^A-Za-z0-9_])${col}([^A-Za-z0-9_]|$)`, "i").test(msg))
+    const missing = isMissingColumnError ? named : undefined
     if (!missing || attempt >= OPTIONAL_COLS.length) break
 
     console.warn(`[sensors/data] ${missing} 칸 없음 — 빼고 저장(마이그레이션 필요)`)
@@ -236,14 +245,42 @@ export async function POST(req: NextRequest) {
   // 베드(수조)에 양액 레시피가 있으면 레시피 기반 체크(checkRecipe)를 함께 돌려
   // 결과를 합친다. 레시피 조회는 별도 쿼리 + 실패 무시 — 마이그레이션 전 DB
   // (컬럼 없음)에서도 기존 새우 장비 수신이 절대 멈추면 안 된다.
+  //
+  // 같은 조회에 농장 유형(farms.farm_type)을 조인해 판정 프로필도 함께 받는다.
+  // **서버에는 URL이 없다** — 화면의 /daumlabs 분기가 여기까지 오지 않으므로
+  // 판정 축은 데이터, 즉 farms.farm_type 이다(설계서 3-5·7장 3번 축).
+  // 조인이라 쿼리 수는 늘지 않는다. 실패하면 profile 은 "shrimp" 로 남는다.
   let recipe: TankRecipe | null = null
+  let profile: FarmProfile = "shrimp"
   try {
-    const { data: tankRow } = await supabaseAdmin
+    const { data: tankRow, error: tankErr } = await supabaseAdmin
       .from("tanks")
-      .select("target_ec, ec_tolerance, target_ph, ph_tolerance")
+      .select("target_ec, ec_tolerance, target_ph, ph_tolerance, farms!inner(farm_type)")
       .eq("id", device.tank_id)
       .maybeSingle()
-    if (tankRow) recipe = tankRow as TankRecipe
+    // 실패하면 조용히 새우 프로필로 떨어져 EC 알림이 흔적 없이 사라진다.
+    // 수신은 계속하되(비치명) 왜 사라졌는지는 남긴다.
+    if (tankErr) console.warn("[sensors/data] 베드 레시피·농장유형 조회 실패 — shrimp 프로필로 진행:", tankErr.message)
+    if (tankRow) {
+      recipe = tankRow as TankRecipe
+      // Supabase 조인 결과는 관계 카디널리티에 따라 객체 또는 배열로 온다.
+      const joined = (tankRow as { farms?: unknown }).farms
+      const farmRow = Array.isArray(joined) ? joined[0] : joined
+      if ((farmRow as { farm_type?: string } | undefined)?.farm_type === "agriculture") {
+        profile = "agriculture"
+      }
+      // **레시피는 농업 농장에서만 적용한다.**
+      //
+      // target_ec/target_ph 는 tanks 에 남는 값이라 농장을 agriculture 로 썼다가
+      // shrimp 로 되돌리면 그대로 남는다(새우 농장 폼에는 레시피 칸이 없어 지울
+      // 방법도 없다). 그 상태로 레시피를 적용하면 새우 농가에서 두 가지가 한꺼번에
+      // 깨진다 — 염도 알림이 영구히 사라지고(아래 hasRecipe 분기), 양식지 pH
+      // 7.8~8.5 가 남은 목표 6.0±0.5 에 걸려 매 수신마다 danger 알림이 뜬다.
+      //
+      // 판정 축은 farms.farm_type 하나다(설계서 3-5). 새우 농장이면 새우 규칙만
+      // 쓴다 — 레시피 칸에 뭐가 남아 있든 상관없다.
+      if (profile !== "agriculture") recipe = null
+    }
   } catch { /* 컬럼 없음 등 — 레시피 없이 기존 흐름 그대로 */ }
 
   // 레시피가 설정된 베드에서는 전역 체크 중 두 항목을 건너뛴다.
@@ -256,7 +293,7 @@ export async function POST(req: NextRequest) {
   if (recipe?.target_ph != null) delete globalValues.ph
 
   const thresholdAlerts = [
-    ...checkThresholds(globalValues as Parameters<typeof checkThresholds>[0]),
+    ...checkThresholds(globalValues as Parameters<typeof checkThresholds>[0], profile),
     ...checkRecipe(values, recipe),
   ]
 
@@ -309,24 +346,25 @@ export async function POST(req: NextRequest) {
 
   // 범위 안으로 돌아온 항목은 알림을 닫는다. 안 닫으면 위 중복 방지 때문에
   // 다음에 정말 문제가 생겨도 옛 알림만 갱신되고 새로 알리지 않는다.
-  const stillBad = new Set(thresholdAlerts.map(a => a.parameter))
-  // 알림 행의 parameter 는 화면에 쓰는 **라벨**("수온")이지 컬럼 키("temperature")가
-  // 아니다. 여기서 컬럼 키를 그대로 넣으면 어느 행과도 안 맞아 복귀가 영영 잡히지
-  // 않는다(초판이 그랬다 — 한 번 뜬 임계값 알림은 손으로 닫기 전에는 계속 열려
-  // 있었고, 중복 방지 때문에 새 알림도 뜨지 않았다). 라벨로 바꿔서 맞춘다.
+  //
+  // 비교 대상은 **알림 키**(alerts.parameter)여야 한다. 측정값 객체의 키는
+  // "temperature" 인데 저장되는 알림 키는 "수온" 이라, 값 키를 그대로 넘기면
+  // `.in("parameter", …)` 가 어떤 행과도 안 맞아 복귀가 조용히 실패한다.
+  // resolvableParameters 가 그 변환과 "판정한 항목만" 필터를 함께 맡는다.
+  //
+  // 0 은 이 저장소 규약상 "미측정"이라 checkThresholds 가 판정에서 건너뛴다.
+  // 판정을 안 한 값은 복귀도 아니다 — 비대칭이면 전극이 물 밖으로 나와 DO 0.0 을
+  // 계속 보낼 때 열려 있던 저산소 위험 알림이 조용히 닫힌다. 기기는 살아 있으니
+  // 오프라인 표시도 안 뜨고 알림함만 초록색이 된다. resolvableParameters 가
+  // 그 "판정한 항목만" 규칙을 checkThresholds 와 같은 파일에서 함께 지킨다.
   //
   // 판정 대상은 values 가 아니라 globalValues 다. 레시피가 있는 베드에서는 위에서
   // salinity·ph 를 뺐고, 그 두 항목의 복귀는 아래 target_ec/target_ph 분기가 따로
   // 잡는다. values 를 쓰면 판정하지도 않은 항목까지 복귀시킨다.
-  //
-  // 0 은 이 저장소 규약상 "미측정"이라 checkThresholds 가 판정에서 건너뛴다
-  // (lib/thresholds.ts). 판정을 안 한 값은 복귀도 아니다 — 비대칭이면 전극이 물
-  // 밖으로 나와 DO 0.0 을 계속 보낼 때 열려 있던 저산소 위험 알림이 조용히 닫힌다.
-  // 기기는 살아 있으니 오프라인 표시도 안 뜨고 알림함만 초록색이 된다.
-  const recovered = (Object.keys(globalValues) as (keyof typeof globalValues)[])
-    .filter(k => globalValues[k] !== 0)
-    .map(k => PARAM_LABELS[k])
-    .filter((label): label is string => !!label && !stillBad.has(label))
+  const stillBad = new Set(thresholdAlerts.map(a => a.parameter))
+  const recovered = resolvableParameters(
+    globalValues as Parameters<typeof resolvableParameters>[0], profile,
+  ).filter(p => !stillBad.has(p))
   // 값이 들어왔다는 사실 자체가 입력 누락의 해소다.
   recovered.push(MISSING_INPUT_PARAMETER)
   // 레시피 알림은 parameter 가 값 키와 달라("EC"/"pH") 별도 매핑으로 복귀를 잡는다.

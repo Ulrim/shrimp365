@@ -39,12 +39,36 @@ REPO = HERE.parent
 OUT_DIR = REPO / "public" / "updates"
 KEY_PATH = HERE / "secrets" / "release-key.pem"
 
-# 업데이트 꾸러미에 담을 파일. updater.py 의 허용 목록과 같아야 한다.
-# 이미 설치된 장비의 코드만 바꾸는 것이므로 프로그램 파일만 들어간다.
+# 업데이트 꾸러미에 담을 파일. 이미 설치된 장비의 코드만 바꾸는 것이므로
+# 프로그램 파일만 들어간다.
+#
+# **여기에 파일을 새로 추가할 때는 현장 장비가 그것을 받을 수 있는지 먼저 보라.**
+# 꾸러미를 검사하는 것은 장비가 지금 가진 updater.py 다. 1.8.0 까지는 받을 파일
+# 이름을 하나하나 적어 두어, 목록에 없는 새 파일이 보이면 꾸러미 전체를 거부했다.
+# 그래서 1.9.0 앞에 updater.py 만 바꾼 1.8.1 을 한 번 내보내야 했다(README 참고).
+# 1.8.1 부터는 이름의 모양으로 검사하므로 이 과정은 다시 필요하지 않다.
 PAYLOAD = [
     "shrimp365_sensor.py", "display.py", "webui.py", "wifi.py",
     "buffer.py", "history.py", "updater.py",
+    "limits.py", "anomaly.py", "advice.py",
+    # 판정 자체점검. 장비에서 바로 돌려 보일 수 있어야 성능검증 자리에서 쓸모가 있다.
+    "verify.py",
 ]
+
+# 다리 꾸러미 — 1.8.0 장비를 새 updater 로 건너오게 하는 한 번짜리.
+#
+# 1.8.0 의 updater 는 받을 파일 이름을 하나하나 적어 둔 목록으로 검사하므로,
+# limits/anomaly/advice 가 들어 있으면 꾸러미 **전체**를 거부한다. 그래서 다리
+# 꾸러미에는 그 목록에 이미 있는 파일만 담는다.
+#
+# shrimp365_sensor.py 가 함께 들어가는 것은 장식이 아니다. 1.8.0 의 sanity_check
+# 가 꾸러미를 푼 자리에서 `import shrimp365_sensor` 를 해 보기 때문에, 그 파일이
+# 없으면 다리 꾸러미가 "불러오기 실패" 로 튕긴다.
+#
+# 이 상태의 장비는 새 수집기 + 옛 화면이 된다. 새 수집기는 anomaly·advice 를
+# 못 찾으면 조용히 건너뛰고(선택 import), 옛 화면은 모르는 상태 키를 무시하므로
+# 다음 꾸러미(1.9.0)가 올 때까지 멀쩡히 돈다.
+BRIDGE_PAYLOAD = ["updater.py", "shrimp365_sensor.py"]
 
 # 설치 꾸러미에 담을 파일. 빈 라즈베리파이에 처음 설치할 때 필요한 전부다.
 # 저장소를 받지 않고도(토큰·브랜치 지정 없이) 설치할 수 있게 하려는 것이다.
@@ -229,7 +253,10 @@ def cmd_build(args) -> int:
     agent_name = agent_digest = None
     if private is not None:
         agent_name = f"shrimp365-agent-{version}.tar.gz"
-        agent_blob = pack(OUT_DIR / agent_name, PAYLOAD)
+        # 다리 버전은 업데이트 꾸러미만 줄인다. 설치 꾸러미는 그대로 전부 담는다 —
+        # 새로 설치하는 장비는 애초에 옛 목록에 묶여 있지 않다.
+        agent_blob = pack(OUT_DIR / agent_name,
+                          BRIDGE_PAYLOAD if getattr(args, "bridge", False) else PAYLOAD)
         agent_digest = hashlib.sha256(agent_blob).hexdigest()
 
     # ── 설치 꾸러미 — 빈 파이에 처음 설치할 때 받는 것 ───────────────────────
@@ -279,6 +306,9 @@ def cmd_build(args) -> int:
 
     if agent_digest:
         print(f"업데이트 꾸러미: public/updates/{agent_name}  ({len(agent_blob):,} 바이트)")
+        if getattr(args, "bridge", False):
+            print(f"                 ↳ 다리 꾸러미입니다 — {', '.join(BRIDGE_PAYLOAD)} 만 들었습니다.")
+            print("                   농가들이 이것을 적용한 뒤에 본 버전을 내세요.")
     print(f"설치   꾸러미: public/updates/{setup_name}  ({len(setup_blob):,} 바이트)")
     print("                 + shrimp365-setup-latest.tar.gz (같은 내용, 고정 이름)")
     print()
@@ -313,6 +343,9 @@ def main() -> int:
     p_build.add_argument("--notes", default="", help="변경 내용 한 줄")
     p_build.add_argument("--setup-only", action="store_true",
                          help="서명 열쇠 없이 설치 꾸러미만 만듦")
+    p_build.add_argument("--bridge", action="store_true",
+                         help="1.8.0 장비가 받을 수 있게 업데이트 꾸러미를 updater.py"
+                              " + shrimp365_sensor.py 로만 만듦 (README 참고)")
     p_build.set_defaults(func=cmd_build)
 
     args = parser.parse_args()
