@@ -20,6 +20,10 @@ os.environ["AUTO_START_STREAMS"] = "false"
 os.environ["REDIS_URL"] = "redis://127.0.0.1:1/0"  # nothing listens -> local pub/sub
 os.environ["VISION_SERVICE_KEY"] = "test-service-key-test-service-key"
 os.environ["VISION_STREAM_SECRET"] = "test-stream-secret-test-stream-secret"
+# 장비 화면은 실제 포트를 잡는다. 테스트가 돌 때마다 8080 을 물면 개발 PC 에서
+# 다른 서버와 부딪히고, 테스트끼리도 부딪힌다. 화면 자체는 test_kiosk.py 가
+# 앱을 직접 만들어 확인한다.
+os.environ["KIOSK_ENABLED"] = "false"
 
 import pytest  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402

@@ -8,12 +8,15 @@ Startup (lifespan): 스키마 확인 → 브로드캐스터(Redis 또는 인프�
 """
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app import kiosk
 from app.api.mjpeg import router as mjpeg_router
 from app.api.v1.router import api_router
 from app.api.websocket.stream import router as ws_router
@@ -70,10 +73,21 @@ async def lifespan(app: FastAPI):
 
     await broadcaster.start()
     camera_manager.start_watchdog()
+
+    # 장비 터치스크린. 127.0.0.1 전용 포트에 따로 띄운다 — 이 포트를 터널로
+    # 내보내면 인증 없는 영상이 바깥에 열린다(app/kiosk.py 머리말).
+    kiosk_task = None
+    if settings.kiosk_enabled:
+        kiosk_task = asyncio.create_task(kiosk.serve(), name="kiosk")
+
     if auto_start_streams_active():
         started = await camera_manager.auto_start_active_cameras()
         logger.info("Auto-started %d camera stream(s)", started)
     yield
+    if kiosk_task is not None:
+        kiosk_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await kiosk_task
     await camera_manager.stop_all()
     await broadcaster.stop()
 

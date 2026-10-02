@@ -52,6 +52,12 @@ class CameraManager:
         self._processors: dict[uuid.UUID, CameraStreamProcessor] = {}
         self._watchdog_task: asyncio.Task | None = None
         self._heartbeat_task: asyncio.Task | None = None
+        # 마지막 살아 있음 보고가 DB 에 닿았는지. 장비 화면이 "서버 연결"을
+        # 정직하게 표시하려면 이 값이 필요하다 — 없으면 화면이 추측해야 하고,
+        # 회선이 끊긴 것을 모른 채 멀쩡한 줄 알고 쓰게 된다.
+        # None 은 "아직 한 번도 보고하지 않음"(카메라가 없을 때).
+        self.last_report_ok: bool | None = None
+        self.last_report_at: float | None = None
 
     # -- lifecycle ------------------------------------------------------------
     def is_running(self, camera_id: uuid.UUID) -> bool:
@@ -169,8 +175,12 @@ class CameraManager:
                         )
                     )
                     await session.commit()
+                self.last_report_ok = True
+                self.last_report_at = time.monotonic()
             except Exception as exc:  # noqa: BLE001 - 보고 실패가 추론을 멈추면 안 된다
                 logger.debug("살아 있음 보고 실패: %s", exc)
+                self.last_report_ok = False
+                self.last_report_at = time.monotonic()
 
     async def _watchdog(self) -> None:
         from app.services.alert_service import alert_service
