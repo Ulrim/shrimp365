@@ -108,6 +108,15 @@ class PairingState:
     def running(self) -> bool:
         return self._task is not None and not self._task.done()
 
+    def adopt(self, task: asyncio.Task) -> None:
+        """기동할 때 뒤에서 도는 페어링을 이 상태에 묶는다.
+
+        묶어 두지 않으면 화면의 [기기 연결] 버튼이 "안 돌고 있다"고 보고
+        두 번째 페어링을 시작해, 서버가 코드를 두 개 내주고 화면에는 둘 중
+        아무 것이나 뜬다.
+        """
+        self._task = task
+
     def start(self, version: str) -> bool:
         """화면의 [기기 연결] 버튼. 이미 돌고 있으면 아무것도 하지 않는다."""
         if self.running():
@@ -218,9 +227,12 @@ async def run_pairing(version: str = "1.0.0") -> str | None:
 
     try:
         import httpx
-    except ImportError:
-        logger.error("httpx 가 없어 페어링을 할 수 없습니다.")
-        pairing_state.failed("httpx 가 설치되지 않았습니다")
+    except ImportError as exc:
+        # exc 를 버리면 안 된다. httpx **안에서** 난 ImportError 도 여기 걸리는데
+        # (예: idna 가 빠진 경우) "httpx 가 없습니다" 라고만 적으면 엉뚱한 데를
+        # 뒤지게 된다 — 실제로 그렇게 한참 돌아갔다.
+        logger.error("페어링에 필요한 httpx 를 불러오지 못했습니다: %s", exc)
+        pairing_state.failed(f"httpx 를 불러오지 못했습니다 — {exc}")
         return None
 
     pair_url = f"{base}/api/vision/pair"

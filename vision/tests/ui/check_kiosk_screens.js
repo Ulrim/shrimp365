@@ -35,7 +35,14 @@ const PY = fs.existsSync(path.join(VISION, '.venv/bin/python'))
   : 'python3';
 const HTML = execFileSync(PY, ['-c', 'from app.kiosk import PAGE_HTML; print(PAGE_HTML)'], {
   cwd: VISION,
-  env: { ...process.env, DATABASE_URL: 'sqlite+aiosqlite:///:memory:' },
+  // 설정 점검이 생긴 뒤로 DATABASE_URL 하나로는 모자란다 — 셋 다 없으면
+  // 모듈을 불러오는 자리에서 멈춰 HTML 대신 안내문이 나온다.
+  env: {
+    ...process.env,
+    DATABASE_URL: 'sqlite+aiosqlite:///:memory:',
+    VISION_SERVICE_KEY: 'ui-check-key',
+    VISION_STREAM_SECRET: 'ui-check-secret',
+  },
   maxBuffer: 1 << 24,
 }).toString();
 

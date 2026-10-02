@@ -10,6 +10,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import uuid
 
 import pytest
@@ -17,7 +18,7 @@ from starlette.testclient import TestClient
 
 from app import kiosk
 from app.config import settings
-from app.services.pairing import PairingState
+from app.services.pairing import PairingState, pairing_state
 
 
 @pytest.fixture
@@ -203,3 +204,148 @@ async def test_port_conflict_does_not_kill_the_service(monkeypatch, caplog):
         assert built == [], "포트를 못 잡았는데 서버를 만들려 들었다"
     finally:
         busy.close()
+
+
+# ---------------------------------------------------------------------------
+# 설정 점검 (app/config.config_problems)
+#
+# install.sh 가 만드는 env 는 세 줄이 비어 있다. 그래서 **첫 기동은 반드시**
+# 여기에 걸린다 — 그때 파이썬 스택트레이스가 아니라 할 일이 보여야 한다.
+# ---------------------------------------------------------------------------
+
+
+def _problems(monkeypatch, **over):
+    import app.config as config
+
+    defaults = {
+        "database_url": "postgresql+asyncpg://u:p@h:5432/d",
+        "vision_service_key": "k" * 32,
+        "stream_secret": "s" * 32,
+    }
+    for attr, val in {**defaults, **over}.items():
+        monkeypatch.setattr(settings, attr, val)
+    return config.config_problems()
+
+
+def test_complete_config_has_no_problems(monkeypatch):
+    assert _problems(monkeypatch) == []
+
+
+def test_empty_values_are_each_named(monkeypatch):
+    found = _problems(monkeypatch, database_url="", vision_service_key="", stream_secret="")
+    joined = " | ".join(found)
+    for env_name in ("DATABASE_URL", "VISION_SERVICE_KEY", "VISION_STREAM_SECRET"):
+        assert env_name in joined, f"{env_name} 를 짚어 주지 않는다"
+
+
+def test_whitespace_only_counts_as_empty(monkeypatch):
+    """nano 에서 값을 지우면 공백이 남기 쉽다."""
+    assert any("DATABASE_URL" in p for p in _problems(monkeypatch, database_url="   "))
+
+
+def test_supabase_string_pasted_as_is_is_caught(monkeypatch):
+    """가장 흔한 실수 — +asyncpg 를 빠뜨린 채 붙여넣기.
+
+    이걸 못 잡으면 sqlalchemy 가 'Could not parse SQLAlchemy URL' 만 던지고
+    끝난다. 현장에서 그 문구로는 무엇을 고쳐야 할지 알 수 없다.
+    """
+    found = _problems(
+        monkeypatch,
+        database_url="postgresql://postgres.abc:pw@aws-0.pooler.supabase.com:5432/postgres",
+    )
+    assert any("+asyncpg" in p for p in found)
+
+
+def test_sqlite_is_accepted(monkeypatch):
+    """테스트와 개발은 SQLite 로 돈다 — 막으면 안 된다."""
+    assert _problems(monkeypatch, database_url="sqlite+aiosqlite:///./t.db") == []
+
+
+def test_message_names_the_file_and_the_restart_command(monkeypatch):
+    import app.config as config
+
+    text = config.explain_config_problems(["X 가 비어 있습니다"], "/etc/shrimp365-vision/env")
+    assert "/etc/shrimp365-vision/env" in text
+    assert "systemctl restart shrimp365-vision" in text
+    assert "X 가 비어 있습니다" in text
+
+
+# ---------------------------------------------------------------------------
+# CORS_ORIGINS 형식 (app/config)
+#
+# pydantic-settings 는 목록 필드의 환경변수를 JSON 으로 먼저 해독한다. 그래서
+# .env.example 이 안내하는 "쉼표로 구분" 도, install.sh 가 쓰던 값도, 심지어
+# **빈 값까지** SettingsError 로 터져 서비스가 뜨지 않았다. 현장에서 설정을
+# 손으로 고치는 이상, 형식 하나 틀렸다고 못 뜨면 안 된다.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("https://www.shrimp365.kr", ["https://www.shrimp365.kr"]),
+        ("https://a.kr,https://b.kr", ["https://a.kr", "https://b.kr"]),
+        (" https://a.kr , https://b.kr ", ["https://a.kr", "https://b.kr"]),
+        ('["https://a.kr","https://b.kr"]', ["https://a.kr", "https://b.kr"]),  # 예전 JSON
+        ("https://a.kr,,", ["https://a.kr"]),  # 꼬리 쉼표
+    ],
+)
+def test_cors_origins_accepts_the_documented_forms(raw, expected):
+    from app.config import Settings
+
+    assert Settings._split_origins(raw) == expected
+
+
+@pytest.mark.parametrize("raw", ["", "   ", None])
+def test_blank_cors_origins_falls_back_instead_of_crashing(raw):
+    """.env.example 의 `CORS_ORIGINS=` 가 그대로 터지면 안 된다."""
+    from app.config import Settings
+
+    got = Settings._split_origins(raw)
+    assert got is None or got == ["http://localhost:3000"]
+
+
+# ---------------------------------------------------------------------------
+# 기동 중 뒤에서 도는 연결 작업 (app.main._pair_then_count)
+#
+# 연결은 그물 밖의 일이라 무엇이든 터진다 — DNS, 인증서, 방화벽. 그 예외가
+# 작업 밖으로 새면 아무도 보지 않다가 서비스를 내릴 때 되살아나
+# "Application shutdown failed. Exiting." 로 끝난다. 진짜 원인과 아무 상관
+# 없어 보이는 자리에서. 실제로 그렇게 걸렸다.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_pairing_failure_does_not_escape_the_background_task(monkeypatch, caplog):
+    import app.main as main
+
+    async def boom(_version):
+        raise PermissionError("인증서를 읽지 못했습니다")
+
+    monkeypatch.setattr(main, "ensure_device_key", boom)
+
+    # 예외가 새면 여기서 터진다.
+    await main._pair_then_count("1.0.0")
+
+    assert "연결을 진행하지 못했습니다" in caplog.text
+    assert "PermissionError" in caplog.text
+    # 화면이 사유를 보여 줄 수 있어야 한다.
+    snap = pairing_state.snapshot()
+    assert snap["status"] == "failed"
+    assert "PermissionError" in (snap["error"] or "")
+
+
+@pytest.mark.anyio
+async def test_cancellation_still_propagates(monkeypatch):
+    """취소는 삼키면 안 된다 — 종료할 때 작업이 안 멈춘다."""
+    import app.main as main
+
+    async def forever(_version):
+        await asyncio.sleep(3600)
+
+    monkeypatch.setattr(main, "ensure_device_key", forever)
+    task = asyncio.create_task(main._pair_then_count("1.0.0"))
+    await asyncio.sleep(0.05)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task

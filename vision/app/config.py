@@ -11,11 +11,13 @@ shrimp365 통합판 — 원본(ShrimpVision 단독 서비스)과 달라진 것:
 """
 from __future__ import annotations
 
+import contextlib
 import os
 from functools import lru_cache
+from typing import Annotated
 
-from pydantic import AliasChoices, Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import AliasChoices, Field, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -94,6 +96,17 @@ class Settings(BaseSettings):
     # 다른 작업과 코어를 나눠 써야 하면 2~3 으로 제한한다.
     inference_threads: int = Field(default=0)
     inference_fps: int = Field(default=1)
+    # 개체수를 DB 에 적는 간격(초). 추론은 초당 한 번 돌지만, 그 값을 전부
+    # 남길 이유는 없다.
+    #
+    # 초마다 적으면 카메라 한 대가 하루 86,400행을 쌓는다. Supabase 무료
+    # 구간(500MB)이 두어 달이면 차고, 그때 수질 기록까지 같이 멈춘다 — 조용히
+    # 진행되고 되돌리기도 어렵다. 화면이 보여 주는 가장 촘촘한 구간이 1분이라
+    # 10초 간격이면 한 칸에 6점으로 충분하다.
+    #
+    # 실시간 화면과 경보는 영향을 받지 않는다. 둘 다 메모리에서 매 프레임
+    # 갱신된다(frame_store·EMA).
+    count_write_interval_seconds: float = Field(default=10.0)
 
     # 장비 터치스크린(키오스크). 공식 7인치 800×480 을 기준으로 만들었다.
     #
@@ -138,9 +151,34 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO")
     # shrimp365 웹 컨테이너에서만 부른다. 브라우저가 직접 오지는 않지만,
     # 개발 중 http://localhost:3000 에서 붙어 보는 경우를 위해 남긴다.
-    cors_origins: list[str] = Field(
+    # 쉼표로 구분해 적는다:  CORS_ORIGINS=https://www.shrimp365.kr,https://shrimp365.kr
+    #
+    # NoDecode 가 필요한 이유: pydantic-settings 는 목록 필드를 보면 환경변수
+    # 값을 **JSON 으로 먼저 해독한다.** 그래서 쉼표 문자열은 물론 빈 값까지
+    # SettingsError 로 터졌다 — .env.example 이 "쉼표로 구분" 이라고 안내하고
+    # install.sh 가 그대로 썼는데도. 해독을 끄고 아래 검증기가 직접 읽는다.
+    cors_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["http://localhost:3000"]
     )
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def _split_origins(cls, v):  # noqa: ANN001, ANN206
+        """쉼표 구분·JSON·빈 값을 모두 받는다.
+
+        현장에서 설정 파일을 손으로 고치므로, 형식 하나를 틀렸다고 서비스가
+        뜨지 않으면 안 된다. 빈 값은 "지정 안 함"으로 보고 기본값을 쓴다.
+        """
+        if v is None or isinstance(v, list):
+            return v
+        text = str(v).strip()
+        if not text:
+            return ["http://localhost:3000"]
+        if text.startswith("["):  # 예전에 JSON 으로 적어 둔 설정도 그대로 받는다
+            import json  # noqa: PLC0415
+            with contextlib.suppress(ValueError):
+                return json.loads(text)
+        return [part.strip() for part in text.split(",") if part.strip()]
 
 
 settings = Settings()
@@ -213,3 +251,50 @@ def reset_simulation_mode_cache() -> None:
     """
     simulation_mode_reason.cache_clear()
     simulation_mode_active.cache_clear()
+
+
+#: 반드시 채워야 하는 설정과, 비었을 때 사람에게 할 말.
+#: install.sh 가 만드는 env 파일은 이 셋이 비어 있으므로 첫 기동은 반드시
+#: 여기에 걸린다. 그때 파이썬 스택트레이스가 아니라 할 일이 보여야 한다.
+_REQUIRED = (
+    ("DATABASE_URL", "database_url", "Supabase → Connect → Session pooler 문자열"),
+    ("VISION_SERVICE_KEY", "vision_service_key", "웹(Vercel)에 넣은 것과 같은 값"),
+    ("VISION_STREAM_SECRET", "stream_secret", "웹(Vercel)에 넣은 것과 같은 값"),
+)
+
+
+def config_problems() -> list[str]:
+    """설정에서 사람이 고쳐야 할 것들. 비어 있으면 설정이 온전하다는 뜻이다."""
+    problems = []
+    for env_name, attr, hint in _REQUIRED:
+        if not str(getattr(settings, attr, "") or "").strip():
+            problems.append(f"{env_name} 가 비어 있습니다 — {hint}")
+
+    url = settings.database_url.strip()
+    if url and not url.startswith(("sqlite", "postgresql+asyncpg://")):
+        if url.startswith("postgresql://") or url.startswith("postgres://"):
+            # 가장 흔한 실수다. Supabase 가 주는 문자열을 그대로 붙여넣으면 이렇게 된다.
+            problems.append(
+                "DATABASE_URL 의 접두사를 postgresql+asyncpg:// 로 바꿔야 합니다 "
+                "(Supabase 가 주는 postgresql:// 에 +asyncpg 를 끼워 넣으세요)"
+            )
+        else:
+            problems.append(f"DATABASE_URL 을 알아볼 수 없습니다: {url[:40]}…")
+    return problems
+
+
+def explain_config_problems(problems: list[str], env_path: str) -> str:
+    """systemd 로그에서 바로 읽히도록 묶는다."""
+    lines = [
+        "=" * 68,
+        "  [설정이 덜 되었습니다] 서비스를 시작할 수 없습니다.",
+        "",
+    ]
+    lines += [f"   · {p}" for p in problems]
+    lines += [
+        "",
+        f"  고치기:   sudo nano {env_path}",
+        "  다시 시작: sudo systemctl restart shrimp365-vision",
+        "=" * 68,
+    ]
+    return "\n".join(lines)

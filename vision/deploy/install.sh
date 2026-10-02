@@ -97,10 +97,64 @@ if [ ! -x "$APP_DIR/.venv/bin/python" ]; then
 fi
 # .[edge] = onnxruntime 만. .[ml](torch) 은 파이에서 20~40분 걸리고 메모리도
 # 많이 쓴다 — 파이는 ONNX 로 돈다.
+# PYTHONNOUSERSITE=1 이 필요하다. 가상환경을 --system-site-packages 로 만들면
+# (picamera2 를 보려면 그래야 한다) pip 가 **root 의 ~/.local** 에 있는 것까지
+# "이미 설치됨" 으로 세고 건너뛴다. 그런데 /root 는 700 이라 서비스 사용자는
+# 그걸 읽지 못한다 — 설치는 성공한 것처럼 끝나고, 기동할 때
+# "ModuleNotFoundError: No module named 'idna'" 로 터진다.
+# sudo pip install 을 한 번이라도 한 기기에서 재현된다(실제로 그렇게 걸렸다).
+export PYTHONNOUSERSITE=1
 "$APP_DIR/.venv/bin/pip" install -q --upgrade pip
-"$APP_DIR/.venv/bin/pip" install -q -e "$APP_DIR[edge]"
+"$APP_DIR/.venv/bin/pip" install -q -e "${APP_DIR}[edge]"
+
+# 설치가 끝났는데 실행에 필요한 것이 빠져 있으면, 그 사실은 **첫 기동 때**
+# 파이썬 스택트레이스로 드러난다. 현장에서 그 문구로 원인을 찾기 어렵다.
+# 여기서 한 번 불러 보고 빠진 것을 이름으로 말한다.
+#
+# 실제로 이렇게 당했다: sqlalchemy 를 [asyncio] 없이 선언해 greenlet 이
+# 빠졌는데, 파이썬 3.11 에서는 어쩌다 따라와 멀쩡했고 파이의 3.13 에서만
+# 터졌다. 개발 PC 에서는 끝까지 보이지 않는 종류다.
 
 chown -R "$SERVICE_USER":video "$APP_DIR"
+
+# **서비스 사용자로** 확인한다. root 로만 불러 보면 root 에게만 보이는 패키지를
+# "있다" 고 판정해, 정작 서비스가 뜰 때 없다고 터지는 것을 못 잡는다.
+echo "==> 설치 점검 (서비스 사용자로)"
+if ! su -s /bin/bash "$SERVICE_USER" -c "'$APP_DIR/.venv/bin/python'" <<'PYEOF'
+import sys
+
+REQUIRED = [
+    ("fastapi", "웹 프레임워크"),
+    ("uvicorn", "서버"),
+    ("sqlalchemy", "DB"),
+    ("sqlalchemy.ext.asyncio", "DB 비동기 (greenlet 필요)"),
+    ("asyncpg", "Postgres 드라이버"),
+    ("onnxruntime", "추론 엔진"),
+    ("numpy", "배열 연산"),
+    ("PIL", "이미지"),
+    ("httpx", "서버 통신"),
+]
+
+missing = []
+for mod, what in REQUIRED:
+    try:
+        __import__(mod)
+    except Exception as exc:  # noqa: BLE001
+        missing.append(f"  · {mod} ({what}) — {type(exc).__name__}: {exc}")
+
+if missing:
+    print("설치가 덜 되었습니다:", file=sys.stderr)
+    for line in missing:
+        print(line, file=sys.stderr)
+    sys.exit(1)
+PYEOF
+then
+  echo
+  echo "  ! 위 항목이 빠져 서비스가 뜨지 않습니다."
+  echo "    인터넷을 확인하고 다시 실행하세요:  sudo ./deploy/install.sh"
+  exit 1
+fi
+echo "    실행에 필요한 것이 모두 있습니다."
 
 # ── 5. 설정 파일 ─────────────────────────────────────────────────────────────
 if [ -f "$CONF" ]; then

@@ -265,7 +265,31 @@ CSI 카메라는 리본으로 보드에 직접 붙어 있어, **그 보드에서
 > 추론하는 구성이 낫습니다. 그때는 카메라 종류를 `rtsp` 로 등록하면 됩니다 —
 > 코드는 그대로입니다.
 
-## 10. 성능에 대해
+## 10. 쌓이는 기록 관리 (한 번만 해두면 됩니다)
+
+장비는 10초마다 개체수 한 줄을 적습니다. 카메라 한 대가 하루 8,640행,
+1년이면 약 315만 행입니다. Supabase 무료 구간은 500MB 라 그냥 두면 언젠가
+차고, **그때 수질 기록까지 같이 멈춥니다.** 조용히 진행되고 알아차렸을 때는
+이미 늦습니다.
+
+`supabase/migrations/vision_retention.sql` 을 Supabase SQL Editor 에서 한 번
+실행해 두세요. 오래된 기록을 지우는 함수가 생기고, pg_cron 으로 매일 자동
+실행하는 방법이 주석에 적혀 있습니다.
+
+지금 얼마나 쌓였는지는 이렇게 봅니다.
+
+```sql
+select count(*) as 전체행,
+       min(time) as 가장_오래된,
+       pg_size_pretty(pg_total_relation_size('public.count_records')) as 크기
+  from public.count_records;
+```
+
+> 더 촘촘히 또는 더 성기게 남기려면 `/etc/shrimp365-vision/env` 에
+> `COUNT_WRITE_INTERVAL_SECONDS` 를 넣으세요(기본 10초). 실시간 화면과 경보는
+> 이 값과 무관하게 매 프레임 갱신됩니다 — 저장 밀도만 달라집니다.
+
+## 11. 성능에 대해
 
 파이 4 의 CPU 추론은 빠르지 않습니다. 다만 개체수는 **초당 한 번이면 충분**하므로
 기본값(`fps_target=1`)으로 쓸 수 있습니다. 수행계획서 기준은 장당 1~3초입니다.
