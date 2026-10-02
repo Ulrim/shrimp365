@@ -70,9 +70,20 @@ __pycache__/
 # 라즈베리파이 터치스크린 미리보기 — make-preview.py 로 생성하는 빌드 산출물
 /kiosk-preview.html
 
-# 비전 서비스가 학습된 YOLO 가중치를 두는 자리. 수백 MB짜리 이진 파일이라
-# 저장소에 넣지 않는다 — 배포 때 볼륨으로 마운트한다(vision/README.md 참고).
+# 비전 서비스가 학습된 YOLO 가중치를 두는 자리.
+#
+# 기본은 "넣지 않는다"다. 학습 중간 산출물(.pt, last.pt, epoch*.pt)은 한 개가
+# 수십 MB 이고 재학습마다 새 blob 이 영구히 쌓인다.
+#
+# 예외는 **파이에 올리는 배포용 ONNX 하나**다. 이 파일이 저장소에 없으면
+# 설치하는 사람이 PC 를 거쳐 scp 로 따로 옮겨야 하고, 그 단계를 빠뜨리면
+# 서비스가 조용히 시뮬레이션으로 떠서 가짜 개체수가 DB 에 쌓인다. 12 MB 를
+# 넣는 값으로 그 함정을 없애는 쪽이 낫다고 보았다(public/ 의 카드뉴스
+# 이미지가 이미 43 MB 다 — 이 저장소에서 유별난 크기가 아니다).
+#
+# 재학습이 잦아져 history 가 불편해지면 GitHub Release 자산으로 옮긴다.
 /vision/ai/models/*
 !/vision/ai/models/.gitkeep
+!/vision/ai/models/shrimp_yolov8n_416.onnx
 /vision/.venv/
 .venv/

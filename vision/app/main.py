@@ -17,7 +17,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.mjpeg import router as mjpeg_router
 from app.api.v1.router import api_router
 from app.api.websocket.stream import router as ws_router
-from app.config import auto_start_streams_active, settings, simulation_mode_active
+from app.config import (
+    auto_start_streams_active,
+    settings,
+    simulation_mode_active,
+    simulation_mode_reason,
+)
 from app.database import init_db
 from app.services.broadcaster import broadcaster
 from app.services.camera_manager import camera_manager
@@ -29,9 +34,24 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info(
-        "Starting shrimp365 vision service (simulation_mode=%s)", simulation_mode_active()
-    )
+    reason = simulation_mode_reason()
+    if reason is None:
+        logger.info(
+            "Starting shrimp365 vision service — 실제 모델로 추론합니다 (%s)",
+            settings.model_path,
+        )
+    else:
+        # 조용히 넘어가면 가짜 개체수가 실제 DB 에 쌓이고 경보도 그 값으로
+        # 울린다. 로그를 훑기만 해도 걸리도록 눈에 띄게 적는다.
+        logger.warning(
+            "=" * 68
+            + "\n  [시뮬레이션 모드] 이 서비스가 내보내는 개체수는 가짜입니다."
+            + "\n  이유: %s"
+            + "\n  카메라를 실제로 세려면 위 문제를 고치고 다시 시작하세요:"
+            + "\n      sudo systemctl restart shrimp365-vision"
+            + "\n" + "=" * 68,
+            reason,
+        )
     if not settings.vision_service_key:
         logger.error(
             "VISION_SERVICE_KEY 가 비어 있습니다 — /api/v1 의 모든 요청이 401 로 거부됩니다."
