@@ -79,6 +79,7 @@ export interface Dict {
     dashboard: string
     farms: string
     waterQuality: string
+    vision: string
     journal: string
     diagnosis: string
     production: string

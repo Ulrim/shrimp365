@@ -81,6 +81,7 @@ export const id: Dict = {
     dashboard: "Dashboard",
     farms: "Tambak & Kolam",
     waterQuality: "Kualitas Air",
+    vision: "Jumlah Udang",
     journal: "Jurnal Tambak",
     diagnosis: "Diagnosis Penyakit",
     production: "Produksi",

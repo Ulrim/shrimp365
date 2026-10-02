@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Download, Printer, TrendingUp, TrendingDown, Minus, BarChart3, Fish, Droplets, AlertTriangle, BookOpen, ChevronDown, ChevronUp, Calendar } from "lucide-react"
 import type { Farm, Tank, JournalEntry } from "@/types"
+import { ReportCountSection } from "@/components/vision/report-count-section"
 import { useT } from "@/lib/i18n-context"
 
 const WEEK_LABELS = ["5/28", "5/29", "5/30", "5/31", "6/1", "6/2", "6/3"]
@@ -452,6 +453,9 @@ function RealReport({ farms, tanks, journals, periodDays, printMeta }: { farms: 
       </div>
 
       {/* Farm summary table */}
+      {/* 개체수 추이 — 카메라를 쓰는 농장에서만 나온다(카메라가 없으면 null). */}
+      <ReportCountSection periodDays={periodDays} />
+
       <Card className="bg-card border-border print:break-inside-avoid">
         <CardHeader className="pb-2">
           <CardTitle className="text-base text-foreground">{t.reports.farmSummary}</CardTitle>

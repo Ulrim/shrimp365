@@ -1,0 +1,45 @@
+[Unit]
+Description=Shrimp365 vision service (개체수 모니터링)
+Documentation=https://www.shrimp365.kr/guide
+After=network-online.target
+Wants=network-online.target
+
+# 카메라 케이블이 빠지거나 인터넷이 끊겨도 프로세스는 계속 살아 있어야 한다.
+# 재시작 폭주를 막기 위한 상한(수질 센서 서비스와 같은 정책).
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/shrimp365-vision
+ExecStart=/opt/shrimp365-vision/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+EnvironmentFile=/etc/shrimp365-vision/env
+Restart=always
+RestartSec=15
+
+# video 그룹이 있어야 CSI 카메라(/dev/video*, /dev/media*)에 닿는다.
+User=shrimp365
+Group=video
+
+# 로그 메시지가 한글이다. 서비스는 로케일이 비어 있는 상태로 뜨므로
+# 인코딩을 명시하지 않으면 journalctl 에서 한글이 깨질 수 있다.
+Environment=LANG=C.UTF-8
+Environment=PYTHONIOENCODING=utf-8
+
+# 이 파이는 개체수 전용이다(수질 센서는 다른 파이가 맡는다). 그래서 추론이
+# 4코어를 다 써도 양보할 상대가 없다 — 우선순위를 낮추지 않는다.
+# 한 대에 둘을 같이 올리게 되면 Nice=10, CPUWeight=50 을 넣어 센서 쪽을
+# 먼저 보내야 한다.
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/shrimp365-vision/ai/models
+StateDirectory=shrimp365-vision
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -36,5 +36,31 @@ services:
       OLLAMA_KEEP_ALIVE: 24h          # 모델 램 상주 — 매 요청 재로딩(수십 초) 방지
       OLLAMA_CONTEXT_LENGTH: "8192"   # KV 캐시 램 상한
 
+  # 개체수 모니터링 추론 서비스(vision/) — `--profile vision` 으로 옵트인.
+  # 카메라를 안 쓰는 농장에서는 뜨지 않아야 한다(CPU 추론이 무겁다).
+  #
+  # 포트를 호스트에 노출하지 않는다 — 웹 컨테이너가 내부망(http://vision:8000)
+  # 으로만 부른다. 영상은 웹이 중계하고(/api/vision/stream/…), 실시간 연결만
+  # 리버스 프록시가 /vision-ws 로 넘긴다(docs/VISION_DEPLOY.md 참고).
+  vision:
+    image: shrimp365-vision:latest
+    build:
+      context: ./vision
+    container_name: shrimp365-vision
+    restart: unless-stopped
+    profiles: ["vision"]
+    env_file:
+      - .env.local
+    environment:
+      # 웹 컨테이너를 되부르는 주소 — 경보를 웹푸시로 내보낼 때만 쓴다.
+      SHRIMP365_INTERNAL_URL: http://shrimp365:3000
+    volumes:
+      # 학습된 YOLO 가중치. 수백 MB라 이미지에 굽지 않고 마운트한다.
+      - vision-models:/app/ai/models
+    # USB 카메라를 쓴다면 장치를 실어 준다(RTSP·HTTP 카메라는 필요 없다):
+    # devices:
+    #   - "/dev/video0:/dev/video0"
+
 volumes:
   ollama-models:
+  vision-models:

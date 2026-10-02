@@ -69,3 +69,10 @@ __pycache__/
 
 # 라즈베리파이 터치스크린 미리보기 — make-preview.py 로 생성하는 빌드 산출물
 /kiosk-preview.html
+
+# 비전 서비스가 학습된 YOLO 가중치를 두는 자리. 수백 MB짜리 이진 파일이라
+# 저장소에 넣지 않는다 — 배포 때 볼륨으로 마운트한다(vision/README.md 참고).
+/vision/ai/models/*
+!/vision/ai/models/.gitkeep
+/vision/.venv/
+.venv/
