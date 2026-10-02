@@ -16,7 +16,6 @@
 set -euo pipefail
 
 CONF=/etc/shrimp365-vision/env
-APP_DIR=/opt/shrimp365-vision
 TARGET_USER="${SUDO_USER:-$(id -un)}"
 USER_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
 

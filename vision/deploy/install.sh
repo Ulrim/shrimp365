@@ -98,7 +98,7 @@ fi
 # .[edge] = onnxruntime 만. .[ml](torch) 은 파이에서 20~40분 걸리고 메모리도
 # 많이 쓴다 — 파이는 ONNX 로 돈다.
 "$APP_DIR/.venv/bin/pip" install -q --upgrade pip
-"$APP_DIR/.venv/bin/pip" install -q -e "$APP_DIR[edge]"
+"$APP_DIR/.venv/bin/pip" install -q -e "${APP_DIR}[edge]"
 
 # 설치가 끝났는데 실행에 필요한 것이 빠져 있으면, 그 사실은 **첫 기동 때**
 # 파이썬 스택트레이스로 드러난다. 현장에서 그 문구로 원인을 찾기 어렵다.
