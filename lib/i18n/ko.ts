@@ -81,6 +81,7 @@ export const ko: Dict = {
     dashboard: "대시보드",
     farms: "양식장·수조",
     waterQuality: "수질 모니터링",
+    vision: "개체수",
     journal: "양식 일지",
     diagnosis: "질병 진단",
     production: "생산 관리",

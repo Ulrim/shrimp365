@@ -1,0 +1,33 @@
+# YOLOv8 데이터셋 설정 — **형태 예시**입니다.
+#
+# 실제 학습에 쓰는 data.yaml 은 손으로 쓰지 말고 prepare_dataset.py 가 만들게
+# 하세요. 드라이브의 라벨 데이터는 세그멘테이션 폴리곤이고 클래스 인덱스가
+# 겹치기 때문에, 그 변환을 거치지 않으면 학습이 조용히 망가집니다.
+#
+#   python ai/trainer/prepare_dataset.py \
+#       --source shrimp_cf='/content/drive/MyDrive/00. 데이터/01. 흰다리새우 학습 데이터/03. shrimp_cf/shrimp_cf.v1i.yolov8' \
+#       --source counting_pl='/content/drive/MyDrive/00. 데이터/01. 흰다리새우 학습 데이터/04. Counting PL/Counting PL.v1i.yolov8' \
+#       --out datasets/shrimp --on-leakage drop
+#   -> datasets/shrimp/data.yaml  (절대 경로가 박힌 파일이 생깁니다)
+#
+# 자세한 내용: docs/VISION_MODEL_TRAINING.md
+
+path: ./datasets/shrimp
+train: train/images
+val: valid/images
+test: test/images
+
+nc: 1            # 클래스 수 (성체·자어를 합쳐 '새우' 하나로 봅니다)
+names: ['shrimp']
+
+# 성체와 자어를 구분하려면 prepare_dataset.py 에 --stage-classes 를 주고,
+# 그때 생성되는 파일은 nc: 2, names: ['shrimp', 'shrimp_pl'] 이 됩니다.
+#
+# 데이터 현황 (docs/VISION_MODEL_TRAINING.md §1)
+#   shrimp_cf     5,032장  라벨 있음(폴리곤)  → 주 학습 데이터
+#   Counting PL     213장  라벨 있음(박스)    → 보조(자어)
+#   해외 DB1~DB5          라벨 없음          → 라벨링 필요
+#   AI허브 135            학습용 이미지 없음  → 계수 모델엔 못 씀
+#
+# 가장 크게 성능을 올리는 길은 **우리 수조 영상**을 extract_frames.py 로 뽑아
+# 라벨링해 추가하는 것입니다(공개 데이터와 물 색·조명·각도가 다릅니다).

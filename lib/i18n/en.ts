@@ -81,6 +81,7 @@ export const en: Dict = {
     dashboard: "Dashboard",
     farms: "Farms & Tanks",
     waterQuality: "Water Quality",
+    vision: "Shrimp Count",
     journal: "Farm Journal",
     diagnosis: "Disease Diagnosis",
     production: "Production",

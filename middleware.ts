@@ -10,6 +10,7 @@ const PROTECTED_PATHS = [
   "/record",
   "/dashboard",
   "/water-quality",
+  "/vision",
   "/journal",
   "/farms",
   "/diagnosis",

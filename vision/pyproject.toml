@@ -1,0 +1,65 @@
+[project]
+name = "shrimp365-vision"
+version = "1.0.0"
+description = "shrimp365 비전 서비스 — 카메라 영상 기반 흰다리새우 개체수 모니터링"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "sqlalchemy>=2.0",
+    "asyncpg>=0.29",
+    "aiosqlite>=0.20",
+    "redis>=5.0",
+    "numpy>=1.26",
+    "pillow>=10.0",
+    # 경보를 shrimp365 로 되보내(웹푸시) 알린다. 없으면 푸시만 조용히 건너뛴다.
+    "httpx>=0.27",
+]
+
+# 원본(ShrimpVision 단독)에 있던 것 중 여기서 뺀 것:
+#   python-jose / passlib / bcrypt — 자체 로그인이 없다(Supabase Auth 를 쓴다)
+#   alembic                        — 스키마는 supabase/migrations 가 소유한다
+#   celery                         — 리포트 배치가 없다(shrimp365 리포트에 흡수)
+#   weasyprint / jinja2            — 같은 이유
+#   email-validator, python-multipart — 쓰는 곳이 없어졌다
+
+[project.optional-dependencies]
+# 무거운 ML 의존성. 없어도 시뮬레이션 모드로 전체 기능이 돈다.
+ml = [
+    "ultralytics>=8.2",
+    "opencv-python-headless>=4.9",
+]
+# 라즈베리파이 4 배포용. torch 를 깔지 않고 ONNX 모델만 돌린다.
+#   MODEL_PATH=./ai/models/shrimp_yolov8n.onnx
+# 전처리·후처리는 app/services/detector_onnx.py 가 numpy 로 직접 한다.
+edge = [
+    "onnxruntime>=1.17",
+]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.4",
+    # 파이에서 쓰는 ONNX 경로를 실제 런타임으로 검증한다
+    # (tests/test_detector_onnx_runtime.py). 없으면 그 테스트만 건너뛴다.
+    "onnxruntime>=1.17",
+    "onnx>=1.16",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
