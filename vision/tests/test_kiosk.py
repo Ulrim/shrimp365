@@ -267,3 +267,38 @@ def test_message_names_the_file_and_the_restart_command(monkeypatch):
     assert "/etc/shrimp365-vision/env" in text
     assert "systemctl restart shrimp365-vision" in text
     assert "X 가 비어 있습니다" in text
+
+
+# ---------------------------------------------------------------------------
+# CORS_ORIGINS 형식 (app/config)
+#
+# pydantic-settings 는 목록 필드의 환경변수를 JSON 으로 먼저 해독한다. 그래서
+# .env.example 이 안내하는 "쉼표로 구분" 도, install.sh 가 쓰던 값도, 심지어
+# **빈 값까지** SettingsError 로 터져 서비스가 뜨지 않았다. 현장에서 설정을
+# 손으로 고치는 이상, 형식 하나 틀렸다고 못 뜨면 안 된다.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("https://www.shrimp365.kr", ["https://www.shrimp365.kr"]),
+        ("https://a.kr,https://b.kr", ["https://a.kr", "https://b.kr"]),
+        (" https://a.kr , https://b.kr ", ["https://a.kr", "https://b.kr"]),
+        ('["https://a.kr","https://b.kr"]', ["https://a.kr", "https://b.kr"]),  # 예전 JSON
+        ("https://a.kr,,", ["https://a.kr"]),  # 꼬리 쉼표
+    ],
+)
+def test_cors_origins_accepts_the_documented_forms(raw, expected):
+    from app.config import Settings
+
+    assert Settings._split_origins(raw) == expected
+
+
+@pytest.mark.parametrize("raw", ["", "   ", None])
+def test_blank_cors_origins_falls_back_instead_of_crashing(raw):
+    """.env.example 의 `CORS_ORIGINS=` 가 그대로 터지면 안 된다."""
+    from app.config import Settings
+
+    got = Settings._split_origins(raw)
+    assert got is None or got == ["http://localhost:3000"]
