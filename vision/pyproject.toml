@@ -8,7 +8,11 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
-    "sqlalchemy>=2.0",
+    # [asyncio] 가 꼭 필요하다 — greenlet 을 이 추가 설치만 가져온다.
+    # 그냥 "sqlalchemy" 로 두면 파이썬 3.11 에서는 어쩌다 따라와 멀쩡해 보이고,
+    # 3.13(라즈베리파이 OS Bookworm)에서는 안 따라와 기동할 때 터진다:
+    #   ImportError: The SQLAlchemy asyncio module requires ... 'greenlet'
+    "sqlalchemy[asyncio]>=2.0",
     "asyncpg>=0.29",
     "aiosqlite>=0.20",
     "redis>=5.0",

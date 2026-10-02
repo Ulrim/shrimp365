@@ -100,6 +100,50 @@ fi
 "$APP_DIR/.venv/bin/pip" install -q --upgrade pip
 "$APP_DIR/.venv/bin/pip" install -q -e "$APP_DIR[edge]"
 
+# 설치가 끝났는데 실행에 필요한 것이 빠져 있으면, 그 사실은 **첫 기동 때**
+# 파이썬 스택트레이스로 드러난다. 현장에서 그 문구로 원인을 찾기 어렵다.
+# 여기서 한 번 불러 보고 빠진 것을 이름으로 말한다.
+#
+# 실제로 이렇게 당했다: sqlalchemy 를 [asyncio] 없이 선언해 greenlet 이
+# 빠졌는데, 파이썬 3.11 에서는 어쩌다 따라와 멀쩡했고 파이의 3.13 에서만
+# 터졌다. 개발 PC 에서는 끝까지 보이지 않는 종류다.
+echo "==> 설치 점검"
+if ! "$APP_DIR/.venv/bin/python" - <<'PYEOF'
+import sys
+
+REQUIRED = [
+    ("fastapi", "웹 프레임워크"),
+    ("uvicorn", "서버"),
+    ("sqlalchemy", "DB"),
+    ("sqlalchemy.ext.asyncio", "DB 비동기 (greenlet 필요)"),
+    ("asyncpg", "Postgres 드라이버"),
+    ("onnxruntime", "추론 엔진"),
+    ("numpy", "배열 연산"),
+    ("PIL", "이미지"),
+    ("httpx", "서버 통신"),
+]
+
+missing = []
+for mod, what in REQUIRED:
+    try:
+        __import__(mod)
+    except Exception as exc:  # noqa: BLE001
+        missing.append(f"  · {mod} ({what}) — {type(exc).__name__}: {exc}")
+
+if missing:
+    print("설치가 덜 되었습니다:", file=sys.stderr)
+    for line in missing:
+        print(line, file=sys.stderr)
+    sys.exit(1)
+PYEOF
+then
+  echo
+  echo "  ! 위 항목이 빠져 서비스가 뜨지 않습니다."
+  echo "    인터넷을 확인하고 다시 실행하세요:  sudo ./deploy/install.sh"
+  exit 1
+fi
+echo "    실행에 필요한 것이 모두 있습니다."
+
 chown -R "$SERVICE_USER":video "$APP_DIR"
 
 # ── 5. 설정 파일 ─────────────────────────────────────────────────────────────
