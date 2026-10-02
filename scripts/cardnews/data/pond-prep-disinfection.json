@@ -1,0 +1,16 @@
+{
+  "slug": "pond-prep-disinfection",
+  "locale": "ko",
+  "cards": [
+    { "type": "cover", "label": "입식 준비", "title": ["바닥을 말리는", "시간을 주세요"], "subtitle": "다음 사이클이 여기서 갈립니다" },
+    { "type": "point", "index": "01", "label": "건조", "value": "2~4주", "caption": "갈라질 때까지 말립니다" },
+    { "type": "point", "index": "02", "label": "찌꺼기", "valueStyle": "text", "value": ["검은 흙을", "걷어냅니다"], "caption": "말려도 없어지지 않습니다" },
+    { "type": "point", "index": "03", "label": "석회", "valueStyle": "text", "value": ["바닥 pH를", "올립니다"], "caption": "산성 바닥은 pH를 흔듭니다" },
+    { "type": "point", "index": "04", "label": "물 채운 뒤", "valueStyle": "text", "value": ["여과 후", "소독합니다"], "caption": "잡어와 게가 병을 옮깁니다" },
+    { "type": "point", "index": "05", "label": "기다림", "value": "7일 이상", "caption": "소독제가 빠진 뒤 입식합니다" },
+    { "type": "point", "index": "06", "label": "물 만들기", "valueStyle": "text", "value": ["식물성", "플랑크톤"], "caption": "물 맑기 30~40 cm로 맞춥니다" },
+    { "type": "outro", "title": ["입식 전에", "할 일"],
+      "rows": [["건조", "2~4주"], ["퇴적물", "걷어내기"], ["석회", "바닥 pH 올리기"], ["입수", "여과 후 소독"], ["대기", "7일 이상"], ["물 맑기", "30~40 cm"]],
+      "ctaTitle": "사이클 준비 일정을 기록", "ctaNote": "완전 무료 · 앱 설치 불필요", "ctaUrl": "shrimp365.kr" }
+  ]
+}

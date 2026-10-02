@@ -4,7 +4,7 @@
   "cards": [
     { "type": "cover", "label": "pH 하루 변동", "title": ["pH는 숫자보다", "폭이 중요합니다"], "subtitle": "하루 0.5를 넘지 마십시오" },
     { "type": "point", "index": "01", "label": "적정 범위", "value": "7.5–8.5", "caption": "이 안에서 관리합니다" },
-    { "type": "point", "index": "02", "label": "하루 변동", "value": "< 0.5", "caption": "넘으면 플랑크톤 과증식입니다" },
+    { "type": "point", "index": "02", "label": "하루 변동", "value": "< 0.5", "caption": "플랑크톤이 너무 많다는 뜻" },
     { "type": "point", "index": "03", "label": "왜 흔들리나", "valueStyle": "text", "value": ["낮에 오르고", "밤에 내립니다"], "caption": "광합성과 호흡이 만드는 곡선" },
     { "type": "point", "index": "04", "label": "높을 때", "valueStyle": "text", "value": ["암모니아가", "독해집니다"], "caption": "pH 8.5면 독성형이 약 11%" },
     { "type": "point", "index": "05", "label": "낮을 때", "valueStyle": "text", "value": ["황화수소가", "독해집니다"], "caption": "암모니아와 정반대입니다" },

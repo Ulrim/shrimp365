@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { SHOW_BOARD, SHOW_CARDNEWS } from "@/lib/features"
+import { SHOW_BOARD, showCardNews } from "@/lib/features"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
@@ -113,7 +113,7 @@ function NavBar({ onDemoClick }: { onDemoClick: () => void }) {
   // 랜딩이 /en 이면 카드뉴스·게시판도 /en 으로 보내야 한다.
   // 접두사 없는 주소는 한국어로 고정되어 있다.
   const pages = [
-    ...(SHOW_CARDNEWS ? [{ href: localizedHref("/cardnews", locale), label: t.cardNews.title }] : []),
+    ...(showCardNews(locale) ? [{ href: localizedHref("/cardnews", locale), label: t.cardNews.title }] : []),
     ...(SHOW_BOARD ? [{ href: localizedHref("/board", locale), label: t.board.title }] : []),
   ]
   return (
@@ -330,7 +330,7 @@ export default function LandingPage() {
             {/* 공개 콘텐츠 허브 — 랜딩에서 크롤 경로를 열어 준다.
                 모두 언어별 주소가 있으므로 지금 보고 있는 언어를 그대로 잇는다. */}
             <Link href={localizedHref("/pricing", locale)}>{l.navPricing}</Link>
-            {SHOW_CARDNEWS && <Link href={localizedHref("/cardnews", locale)}>{t.cardNews.title}</Link>}
+            {showCardNews(locale) && <Link href={localizedHref("/cardnews", locale)}>{t.cardNews.title}</Link>}
             {SHOW_BOARD && <Link href={localizedHref("/board", locale)}>{t.board.title}</Link>}
             <Link href={localizedHref("/guide", locale)}>{t.nav.guide}</Link>
             <Link href={localizedHref("/terms", locale)}>{t.settings.legalTerms}</Link>

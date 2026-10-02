@@ -1,0 +1,16 @@
+{
+  "slug": "cycle-review",
+  "locale": "ko",
+  "cards": [
+    { "type": "cover", "label": "사이클 마감", "title": ["다음 사이클은", "지금 정해집니다"], "subtitle": "숫자를 남기고 끝내십시오" },
+    { "type": "point", "index": "01", "label": "생존율", "valueStyle": "text", "value": ["입식 대비", "출하 마릿수"], "caption": "가장 먼저 낼 숫자입니다" },
+    { "type": "point", "index": "02", "label": "사료계수", "valueStyle": "text", "value": ["총 사료 ÷", "늘어난 무게"], "caption": "1.2~1.5면 잘한 것입니다" },
+    { "type": "point", "index": "03", "label": "kg당 원가", "valueStyle": "text", "value": ["총비용 ÷", "출하 중량"], "caption": "값을 받을 하한선입니다" },
+    { "type": "point", "index": "04", "label": "사고 기록", "valueStyle": "text", "value": ["언제 무슨 일이", "있었는지"], "caption": "날짜와 수질값을 같이 적습니다" },
+    { "type": "point", "index": "05", "label": "비교", "valueStyle": "text", "value": ["지난 사이클과", "나란히"], "caption": "혼자 보면 좋은지 모릅니다" },
+    { "type": "point", "index": "06", "label": "다음 준비", "valueStyle": "text", "value": ["바닥 정리를", "바로"], "caption": "말리는 데 2~4주가 걸립니다" },
+    { "type": "outro", "title": ["사이클 마감,", "남길 숫자"],
+      "rows": [["생존율", "출하 ÷ 입식"], ["사료계수", "1.2~1.5"], ["kg당 원가", "총비용 ÷ 중량"], ["사고", "날짜·수질"], ["비교", "지난 사이클"], ["다음", "바닥 정리"]],
+      "ctaTitle": "사이클 전체를 한곳에 기록", "ctaNote": "완전 무료 · 앱 설치 불필요", "ctaUrl": "shrimp365.kr" }
+  ]
+}

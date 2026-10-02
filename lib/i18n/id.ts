@@ -93,6 +93,7 @@ export const id: Dict = {
     admin: "Monitor Sistem",
     sectionRecord: "Pencatatan",
     sectionMonitor: "Pemantauan",
+    mrvPlatform: "Platform MRV Karbon",
     brandTagline: "SMART AQUACULTURE",
   },
   hub: {

@@ -3,14 +3,14 @@
   "locale": "ko",
   "cards": [
     { "type": "cover", "label": "수차 배치", "title": ["수차는 개수보다", "배치입니다"], "subtitle": "물이 한 방향으로 돌아야 합니다" },
-    { "type": "point", "index": "01", "label": "집약식 기준", "value": "16–24", "caption": "ha당 HP. 밀도에 따라 다릅니다" },
+    { "type": "point", "index": "01", "label": "밀도 높으면", "value": "16–24", "caption": "1 ha당 수차 마력 합계입니다" },
     { "type": "point", "index": "02", "label": "배치 원칙", "valueStyle": "text", "value": ["한 방향으로", "돌게 놓습니다"], "caption": "찌꺼기가 가운데로 모입니다" },
     { "type": "point", "index": "03", "label": "간격", "valueStyle": "text", "value": ["둑에서 띄우고", "서로 벌립니다"], "caption": "물살이 겹치면 힘이 죽습니다" },
     { "type": "point", "index": "04", "label": "가동 시간", "valueStyle": "text", "value": ["해 진 뒤부터", "해 뜬 뒤까지"], "caption": "떨어질 시간대에 미리 돌립니다" },
     { "type": "point", "index": "05", "label": "새벽 목표", "value": "≥ 5 mg/L", "caption": "하루 중 가장 낮은 시각의 값" },
-    { "type": "point", "index": "06", "label": "여름", "valueStyle": "text", "value": ["한낮에도", "돌리십시오"], "caption": "성층을 깨고 바닥을 섞습니다" },
+    { "type": "point", "index": "06", "label": "여름", "valueStyle": "text", "value": ["한낮에도", "돌리십시오"], "caption": "위아래 물을 섞어 줍니다" },
     { "type": "outro", "title": ["수차는", "이렇게 씁니다"],
-      "rows": [["집약식", "16–24 HP/ha"], ["배치", "한 방향 회전"], ["가동", "해 진 뒤~해 뜬 뒤"], ["새벽 DO", "≥ 5.0 mg/L"], ["여름 한낮", "성층 깨기"], ["점검", "날개 · 베어링"]],
+      "rows": [["높은 밀도", "1 ha 16–24마력"], ["배치", "한 방향 회전"], ["가동", "해 진 뒤~해 뜬 뒤"], ["새벽 산소", "≥ 5.0 mg/L"], ["여름 한낮", "위아래 섞기"], ["점검", "날개 · 베어링"]],
       "ctaTitle": "새벽 산소를 수조별로 기록", "ctaNote": "완전 무료 · 앱 설치 불필요", "ctaUrl": "shrimp365.kr" }
   ]
 }

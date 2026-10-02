@@ -1,5 +1,5 @@
 import { MetadataRoute } from "next"
-import { SHOW_BOARD, SHOW_CARDNEWS } from "@/lib/features"
+import { SHOW_BOARD, SHOW_CARDNEWS, visibleCardNewsLocales } from "@/lib/features"
 import { getAllCardNewsServer } from "@/lib/card-news-server"
 import { hreflangMap, localePrefix, MARKETING_LOCALES } from "@/lib/marketing-locale"
 
@@ -32,11 +32,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     updatedBySlugLocale.set(`${p.slug}|${p.locale}`, p.updated_at)
   }
 
+  // 감춘 언어(showCardNews 가 false)는 주소도 hreflang 도 내보내지 않는다.
+  // 사이트맵에 남겨 두면 메뉴에서만 사라지고 검색 결과로는 그대로 들어온다.
   const cardNewsEntries: MetadataRoute.Sitemap = []
   for (const [slug, locales] of localesBySlug) {
     const path = `/cardnews/${encodeURIComponent(slug)}`
-    const languages = hreflangMap(path, [...locales])
-    for (const locale of locales) {
+    const shown = visibleCardNewsLocales([...locales])
+    const languages = hreflangMap(path, shown)
+    for (const locale of shown) {
       cardNewsEntries.push({
         url: `${BASE}${localePrefix(locale)}${path}`,
         lastModified: new Date(updatedBySlugLocale.get(`${slug}|${locale}`) ?? Date.now()),
@@ -48,13 +51,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   // 언어별 카드뉴스 목록 페이지
-  const cardNewsIndexLocales = new Set(cardNews.map((p) => p.locale))
-  const cardNewsIndexEntries: MetadataRoute.Sitemap = [...cardNewsIndexLocales].map((locale) => ({
+  const cardNewsIndexLocales = visibleCardNewsLocales([...new Set(cardNews.map((p) => p.locale))])
+  const cardNewsIndexEntries: MetadataRoute.Sitemap = cardNewsIndexLocales.map((locale) => ({
     url: `${BASE}${localePrefix(locale)}/cardnews`,
     lastModified: new Date(),
     changeFrequency: "weekly" as const,
     priority: 0.9,
-    alternates: { languages: hreflangMap("/cardnews", [...cardNewsIndexLocales]) },
+    alternates: { languages: hreflangMap("/cardnews", cardNewsIndexLocales) },
   }))
 
   // 정적 공개 페이지 — 4개 언어 모두 실제 주소가 있으므로 언어별로 등록한다.

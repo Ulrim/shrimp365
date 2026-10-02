@@ -10,6 +10,9 @@ services:
         NEXT_PUBLIC_SUPABASE_URL:      https://okecfkqpoigxvlsomqjc.supabase.co
         NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZWNma3Fwb2lneHZsc29tcWpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4ODE2MzMsImV4cCI6MjA5MzQ1NzYzM30._2R8h2okwLc7DlXPm6XED9i2CDmJlOFhuyIlgfNA0Zs
         NEXT_PUBLIC_SITE_URL:          https://www.shrimp365.kr
+        # 컬리버 탄소 MRV 플랫폼 진입 버튼. 배포 주소가 정해지면 값을 넣어 활성화한다.
+        # 비워 두면(기본) 헤더/푸터에 버튼이 렌더되지 않는다.
+        NEXT_PUBLIC_MRV_PLATFORM_URL:  ""
     container_name: shrimp365
     restart: unless-stopped
     env_file:
