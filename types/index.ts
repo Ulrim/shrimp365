@@ -222,8 +222,12 @@ export interface GrowthSample {
   cycle_id: string
   tank_id: string
   sampled_at: string
-  sample_count: number
-  total_weight_g: number
+  // DB 에서 nullable 이다. 실데이터에는 개체중만 기록되고 표본수·총중량이 없는
+  // 행이 있어(천황수산 GrowthSamples) 두 칸을 비울 수 있게 스키마를 고쳤다.
+  // abw_g 는 NOT NULL 로 남는다 — 성장곡선이 쓰는 값이고, 이 값이 없는 행은
+  // 성장 실측이 아니다.
+  sample_count: number | null
+  total_weight_g: number | null
   abw_g: number
   survival_rate: number | null
   estimated_population: number | null

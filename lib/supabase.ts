@@ -163,8 +163,9 @@ export type DbGrowthSample = {
   cycle_id: string
   tank_id: string
   sampled_at: string
-  sample_count: number
-  total_weight_g: number
+  // nullable — types/index.ts 의 GrowthSample 주석 참고.
+  sample_count: number | null
+  total_weight_g: number | null
   abw_g: number
   survival_rate: number | null
   estimated_population: number | null
