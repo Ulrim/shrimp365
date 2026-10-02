@@ -48,8 +48,26 @@ async def _pair_then_count(version: str) -> None:
 
     승인 뒤에 다시 시작하게 두면 현장에서 그 사실을 알 길이 없다 — 화면은
     "연결됨"인데 개체수는 영영 0 이다.
+
+    여기서 터지는 것은 **이 안에서 끝낸다.** 뒤에서 도는 작업의 예외는
+    아무도 보지 않다가 서비스를 내릴 때 되살아나 "Application shutdown
+    failed" 로 끝난다 — 진짜 원인(그물·DNS·인증서)과 아무 상관 없어 보이는
+    자리에서. 연결에 실패해도 세는 일과 화면은 계속 돌아야 한다.
     """
-    key = await ensure_device_key(version)
+    try:
+        key = await ensure_device_key(version)
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - 그물 밖의 일은 무엇이든 터진다
+        logger.error(
+            "연결을 진행하지 못했습니다: %s: %s\n"
+            "  개체수 측정과 장비 화면은 계속 돕니다. 화면의 [기기 연결] 로"
+            " 다시 시도할 수 있습니다.",
+            type(exc).__name__,
+            exc,
+        )
+        pairing_state.failed(f"{type(exc).__name__}: {exc}")
+        return
     if key:
         await _start_cameras()
 
@@ -118,7 +136,9 @@ async def lifespan(app: FastAPI):
     for task in (pairing_task, kiosk_task):
         if task is not None:
             task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
+            # CancelledError 만 삼키면 모자란다. 이미 다른 예외로 끝난 작업을
+            # await 하면 그 예외가 여기서 되살아나 종료 자체가 실패한다.
+            with contextlib.suppress(Exception, asyncio.CancelledError):
                 await task
     await camera_manager.stop_all()
     await broadcaster.stop()

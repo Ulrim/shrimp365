@@ -10,6 +10,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import uuid
 
 import pytest
@@ -17,7 +18,7 @@ from starlette.testclient import TestClient
 
 from app import kiosk
 from app.config import settings
-from app.services.pairing import PairingState
+from app.services.pairing import PairingState, pairing_state
 
 
 @pytest.fixture
@@ -302,3 +303,49 @@ def test_blank_cors_origins_falls_back_instead_of_crashing(raw):
 
     got = Settings._split_origins(raw)
     assert got is None or got == ["http://localhost:3000"]
+
+
+# ---------------------------------------------------------------------------
+# 기동 중 뒤에서 도는 연결 작업 (app.main._pair_then_count)
+#
+# 연결은 그물 밖의 일이라 무엇이든 터진다 — DNS, 인증서, 방화벽. 그 예외가
+# 작업 밖으로 새면 아무도 보지 않다가 서비스를 내릴 때 되살아나
+# "Application shutdown failed. Exiting." 로 끝난다. 진짜 원인과 아무 상관
+# 없어 보이는 자리에서. 실제로 그렇게 걸렸다.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_pairing_failure_does_not_escape_the_background_task(monkeypatch, caplog):
+    import app.main as main
+
+    async def boom(_version):
+        raise PermissionError("인증서를 읽지 못했습니다")
+
+    monkeypatch.setattr(main, "ensure_device_key", boom)
+
+    # 예외가 새면 여기서 터진다.
+    await main._pair_then_count("1.0.0")
+
+    assert "연결을 진행하지 못했습니다" in caplog.text
+    assert "PermissionError" in caplog.text
+    # 화면이 사유를 보여 줄 수 있어야 한다.
+    snap = pairing_state.snapshot()
+    assert snap["status"] == "failed"
+    assert "PermissionError" in (snap["error"] or "")
+
+
+@pytest.mark.anyio
+async def test_cancellation_still_propagates(monkeypatch):
+    """취소는 삼키면 안 된다 — 종료할 때 작업이 안 멈춘다."""
+    import app.main as main
+
+    async def forever(_version):
+        await asyncio.sleep(3600)
+
+    monkeypatch.setattr(main, "ensure_device_key", forever)
+    task = asyncio.create_task(main._pair_then_count("1.0.0"))
+    await asyncio.sleep(0.05)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
