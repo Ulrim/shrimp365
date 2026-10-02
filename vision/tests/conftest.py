@@ -24,6 +24,11 @@ os.environ["VISION_STREAM_SECRET"] = "test-stream-secret-test-stream-secret"
 # 다른 서버와 부딪히고, 테스트끼리도 부딪힌다. 화면 자체는 test_kiosk.py 가
 # 앱을 직접 만들어 확인한다.
 os.environ["KIOSK_ENABLED"] = "false"
+# 기기 키 파일을 임시 자리로 고정한다. 기본값은 /var/lib/shrimp365-vision/
+# device.json 이라, 같은 기계에 서비스가 설치되어 있으면 **테스트가 그 기기의
+# 진짜 키를 읽는다.** 그러면 owns_camera 가 "남의 카메라" 로 판정해 카메라를
+# 시작하는 테스트가 409 로 떨어진다 — 코드는 멀쩡한데 기계 상태 때문에.
+os.environ["DEVICE_STATE_PATH"] = f"{_TMP}/device.json"
 
 import pytest  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
