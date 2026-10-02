@@ -132,6 +132,8 @@ class CameraStreamProcessor:
         # raw count is what gets stored and broadcast (WS contract unchanged).
         self._count_ema: float | None = None
         self._tracking_fallback_logged = False
+        #: 마지막으로 DB 에 적은 시각(monotonic). None 이면 아직 안 적었다.
+        self._last_write_at: float | None = None
 
         if self.simulation_mode:
             sim = TankSimulation(seed=str(camera.id))
@@ -200,20 +202,30 @@ class CameraStreamProcessor:
         annotated = annotate_frame(frame, result, self.camera.name, now)
         frame_store.push_frame(self.camera.id, encode_jpeg(annotated))
 
+        # 매 프레임을 적지 않는다(설정 주석 참고). 실시간 화면·경보는 아래에서
+        # 매 프레임 갱신되므로 이 간격은 저장 밀도에만 영향을 준다.
+        tick = time.monotonic()
+        should_write = (
+            self._last_write_at is None
+            or tick - self._last_write_at >= settings.count_write_interval_seconds
+        )
+
         async with SessionLocal() as session:
-            session.add(
-                CountRecord(
-                    time=now,
-                    camera_id=self.camera.id,
-                    tank_id=self.camera.tank_id,
-                    farm_id=self.camera.farm_id,
-                    count=result.count,
-                    confidence_avg=result.confidence_avg,
-                    model_version=result.model_version,
-                    inference_ms=result.inference_ms,
+            if should_write:
+                self._last_write_at = tick
+                session.add(
+                    CountRecord(
+                        time=now,
+                        camera_id=self.camera.id,
+                        tank_id=self.camera.tank_id,
+                        farm_id=self.camera.farm_id,
+                        count=result.count,
+                        confidence_avg=result.confidence_avg,
+                        model_version=result.model_version,
+                        inference_ms=result.inference_ms,
+                    )
                 )
-            )
-            await session.commit()
+                await session.commit()
 
             frame_store.set_latest_count(
                 LatestCount(

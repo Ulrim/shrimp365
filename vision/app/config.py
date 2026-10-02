@@ -96,6 +96,17 @@ class Settings(BaseSettings):
     # 다른 작업과 코어를 나눠 써야 하면 2~3 으로 제한한다.
     inference_threads: int = Field(default=0)
     inference_fps: int = Field(default=1)
+    # 개체수를 DB 에 적는 간격(초). 추론은 초당 한 번 돌지만, 그 값을 전부
+    # 남길 이유는 없다.
+    #
+    # 초마다 적으면 카메라 한 대가 하루 86,400행을 쌓는다. Supabase 무료
+    # 구간(500MB)이 두어 달이면 차고, 그때 수질 기록까지 같이 멈춘다 — 조용히
+    # 진행되고 되돌리기도 어렵다. 화면이 보여 주는 가장 촘촘한 구간이 1분이라
+    # 10초 간격이면 한 칸에 6점으로 충분하다.
+    #
+    # 실시간 화면과 경보는 영향을 받지 않는다. 둘 다 메모리에서 매 프레임
+    # 갱신된다(frame_store·EMA).
+    count_write_interval_seconds: float = Field(default=10.0)
 
     # 장비 터치스크린(키오스크). 공식 7인치 800×480 을 기준으로 만들었다.
     #
