@@ -99,29 +99,37 @@ sudo chown -R shrimp365:video /opt/shrimp365-vision
 >
 > 모델을 만들어 올리는 절차는 `docs/VISION_MODEL_TRAINING.md` 에 있습니다.
 
-## 3. 모델 파일 올리기
+## 3. 모델 확인 (복사할 것 없음)
 
-**이 단계를 건너뛰면 서비스는 멀쩡히 뜨지만 개체수가 가짜입니다.** 가중치는
-수십~수백 MB 이진 파일이라 저장소에 넣지 않습니다(`.gitignore`). 학습해서 받은
-`shrimp_yolov8n_416.onnx` 를 PC 에서 파이로 복사하세요.
-
-PC(윈도우 PowerShell 또는 터미널)에서:
+배포용 모델 `shrimp_yolov8n_416.onnx` (12 MB) 는 **저장소에 함께 들어 있습니다.**
+2 단계에서 코드를 올렸다면 이미 와 있습니다. 확인만 하세요.
 
 ```bash
-scp shrimp_yolov8n_416.onnx pi@192.168.0.50:/tmp/
+ls -la /opt/shrimp365-vision/ai/models/shrimp_yolov8n_416.onnx
+sha256sum /opt/shrimp365-vision/ai/models/shrimp_yolov8n_416.onnx
+# ae95071c7e53df7e828e0faf51a54e0f7c5bb3010312b1d305949af12d533804
 ```
 
-파이에서:
+없거나 크기가 0 이면 2 단계의 복사가 덜 된 것입니다. 다시 하세요.
 
-```bash
-sudo mv /tmp/shrimp_yolov8n_416.onnx /opt/shrimp365-vision/ai/models/
-sudo chown shrimp365:video /opt/shrimp365-vision/ai/models/shrimp_yolov8n_416.onnx
-ls -la /opt/shrimp365-vision/ai/models/   # 파일 크기가 0 이 아닌지 확인
-```
+> **왜 이 파일만 저장소에 넣었나.** 학습 중간 산출물(`.pt`)은 넣지 않습니다 —
+> 재학습마다 수십 MB 가 history 에 영구히 쌓입니다. 하지만 배포용 ONNX 가
+> 저장소에 없으면 설치하는 사람이 PC 를 거쳐 따로 옮겨야 하고, 그 단계를
+> 빠뜨리면 **서비스가 조용히 시뮬레이션으로 떠서 가짜 개체수가 DB 에 쌓입니다.**
+> 12 MB 로 그 함정을 없애는 쪽을 택했습니다.
 
-> **416 과 640 중 무엇을 쓰나.** 파이 4 라면 416 을 권합니다 — 측정한 계수
-> 오차율은 둘 다 약 5%(밀식 구간)로 사실상 같은데 416 이 훨씬 빠릅니다.
-> 실제 속도는 §9 에서 이 파이로 직접 재세요.
+> **다른 해상도를 쓰려면.** 416 은 파이 4 기준입니다. 더 정확한 쪽이 필요하면
+> 640 을 직접 내보내 올리고(`ai/trainer/export_edge.py`), `MODEL_PATH` 와
+> **`CONFIDENCE_THRESHOLD` 를 같이** 바꾸세요. 해상도마다 최적값이 다릅니다.
+>
+> | 해상도 | 최적 conf | 평균 계수 오차 | ±20% 내 | pred/gt |
+> |---|---|---|---|---|
+> | 416 (함께 들어 있음) | **0.30** | 4.6% | 94.6% | 0.973 |
+> | 512 | 0.25 | 4.4% | 94.0% | 0.996 |
+> | 640 | 0.25 | 3.5% | 95.1% | 0.960 |
+>
+> valid 분할의 밀식 구간(GT ≥ 11, 185장) 기준입니다. 속도는 §9 에서 이 파이로
+> 직접 재세요 — 세 해상도의 정확도 차이는 작고, 속도 차이가 큽니다.
 
 ## 4. 환경변수
 
@@ -136,11 +144,12 @@ CORS_ORIGINS=https://www.shrimp365.kr
 # 이 파이의 공개 주소. 파이가 여러 대면 각자 다르게(vision-1 / vision-2 …).
 VISION_PUBLIC_URL=https://vision-1.shrimp365.kr
 
-# §3 에서 올린 모델. 이 줄이 없으면 기본값(...shrimp_yolov8n.pt)을 찾다가
-# 파일이 없어 **조용히 시뮬레이션으로 떨어집니다**. 절대 경로로 적으세요.
+# 저장소에 함께 들어 있는 모델. 기본값이 이미 이 파일을 가리키므로 생략해도
+# 되지만, 서비스의 WorkingDirectory 에 의존하지 않도록 절대 경로로 못박습니다.
 MODEL_PATH=/opt/shrimp365-vision/ai/models/shrimp_yolov8n_416.onnx
-# 측정으로 고른 값(기본 0.25 보다 계수 오차율이 낮았습니다).
-CONFIDENCE_THRESHOLD=0.35
+# 함께 들어 있는 416 모델의 측정 최적값입니다. 해상도를 바꾸면 이 값도
+# 바꿔야 합니다 — 416→0.30, 512→0.25, 640→0.25.
+CONFIDENCE_THRESHOLD=0.30
 
 # 파이 4 는 추론이 무겁습니다. 초당 한 번이면 개체수 세기에 충분합니다.
 MAX_CAMERAS=1

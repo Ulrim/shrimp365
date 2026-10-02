@@ -72,8 +72,14 @@ class Settings(BaseSettings):
     device_state_path: str = Field(default="/var/lib/shrimp365-vision/device.json")
 
     # AI model
-    model_path: str = Field(default="./ai/models/shrimp_yolov8n.pt")
-    confidence_threshold: float = Field(default=0.25)
+    # 기본값은 **저장소에 함께 들어 있는** 배포용 ONNX 다. 여기를 존재하지 않는
+    # 파일로 두면 MODEL_PATH 를 깜빡한 설치가 조용히 시뮬레이션으로 떨어진다
+    # (가짜 개체수가 실제 DB 에 쌓인다). 실제로 있는 파일을 가리켜 둔다.
+    model_path: str = Field(default="./ai/models/shrimp_yolov8n_416.onnx")
+    # 함께 들어 있는 416 ONNX 의 측정 최적값. 해상도마다 최적값이 다르다
+    # (416→0.30, 512→0.25, 640→0.25). 다른 모델로 바꾸면 반드시 다시 재라
+    # (ai/trainer/eval_count.py 가 sweep 으로 추천값을 내준다).
+    confidence_threshold: float = Field(default=0.30)
     # NMS IoU. 겹쳐 있는 새우를 하나로 합쳐 버리면 과소 계수가 되므로, 겹침이
     # 심한 수조에서는 올려 본다(ai/trainer/eval_count.py --iou 로 먼저 확인).
     nms_iou_threshold: float = Field(default=0.7)
