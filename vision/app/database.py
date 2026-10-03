@@ -16,6 +16,7 @@ TimescaleDB 하이퍼테이블 설정을 했지만, 통합판에서 그렇게 �
 """
 from __future__ import annotations
 
+import contextlib
 import logging
 import sys
 from collections.abc import AsyncGenerator
@@ -111,6 +112,34 @@ def ensure_utc(dt: datetime | None) -> datetime | None:
     return dt
 
 
+#: 장비 안의 SQLite 에 나중에 생긴 열. create_all 은 **없는 표만** 만들고
+#: 이미 있는 표에는 열을 더하지 않는다 — 그래서 이미 돌고 있는 파이에서는
+#: 새 열이 영영 생기지 않고, 그 열을 쓰는 INSERT 가 통째로 실패해 개체수
+#: 기록이 멈춘다. 한 줄씩 확인해서 없으면 더한다.
+#:
+#: 운영 Postgres 는 여기로 오지 않는다 — 거기는 사람이 마이그레이션을 돌린다.
+_LATE_COLUMNS = {
+    "count_records": {"length_cm": "REAL"},
+}
+
+
+async def _add_missing_columns(conn) -> None:  # noqa: ANN001 - sync 커넥션
+    """SQLite 표에 빠진 열을 더한다. 있으면 아무것도 하지 않는다."""
+    for table, columns in _LATE_COLUMNS.items():
+        try:
+            rows = await conn.execute(text(f"PRAGMA table_info({table})"))
+            have = {r[1] for r in rows}
+        except Exception as exc:  # noqa: BLE001 - 표가 없으면 create_all 이 만든다
+            logger.debug("%s 의 열을 확인하지 못했습니다: %s", table, exc)
+            continue
+        for name, decl in columns.items():
+            if name in have:
+                continue
+            with contextlib.suppress(Exception):
+                await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {decl}"))
+                logger.info("장비 DB 의 %s 에 %s 열을 더했습니다.", table, name)
+
+
 async def init_db() -> None:
     """Prepare the database for this process.
 
@@ -125,6 +154,7 @@ async def init_db() -> None:
     if engine.dialect.name != "postgresql":
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            await _add_missing_columns(conn)
         return
 
     async with engine.connect() as conn:

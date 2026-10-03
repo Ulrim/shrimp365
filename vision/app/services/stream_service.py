@@ -251,6 +251,7 @@ class CameraStreamProcessor:
                         confidence_avg=result.confidence_avg,
                         model_version=result.model_version,
                         inference_ms=result.inference_ms,
+                        length_cm=length_cm,
                     )
                 )
                 await session.commit()

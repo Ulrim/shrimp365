@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import {
-  Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts"
 import {
   Activity, AlertTriangle, Camera as CameraIcon, Download, Fish, Radio, Video,
@@ -171,6 +171,13 @@ export function VisionView() {
     [history, range.hours]
   )
 
+  /** 길이 기준을 잡은 장비만 체장을 올린다. 한 구간도 없으면 축과 선을 그리지
+   *  않는다 — 빈 축이 떠 있으면 "왜 값이 안 나오나" 를 묻게 된다. */
+  const hasLength = useMemo(
+    () => chartData.some(b => b.avg_length_cm != null),
+    [chartData]
+  )
+
   async function handleExport() {
     if (!selectedCamera) return
     setExporting(true)
@@ -188,6 +195,7 @@ export function VisionView() {
           카메라: selectedCamera.name,
           수조: selectedCamera.tank_name ?? "",
           개체수: r.count,
+          추정체장cm: r.length_cm ?? "",
           평균신뢰도: r.confidence_avg ?? "",
           모델: r.model_version ?? "",
           추론시간ms: r.inference_ms ?? "",
@@ -448,16 +456,40 @@ export function VisionView() {
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
                       <XAxis dataKey="label" tick={{ fontSize: 11 }} className="text-muted-foreground" />
-                      <YAxis tick={{ fontSize: 11 }} className="text-muted-foreground" width={52} />
+                      <YAxis yAxisId="count" tick={{ fontSize: 11 }} className="text-muted-foreground" width={52} />
+                      {hasLength && (
+                        <YAxis
+                          yAxisId="len" orientation="right" width={44}
+                          tick={{ fontSize: 11 }} className="text-muted-foreground"
+                          tickFormatter={(v) => `${v}cm`}
+                        />
+                      )}
                       <Tooltip
                         contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                        formatter={(value) =>
-                          [typeof value === "number" ? `${value.toLocaleString()}마리` : String(value ?? "—"), "평균 개체수"]}
+                        formatter={(value, name) => {
+                          if (typeof value !== "number") return [String(value ?? "—"), String(name)]
+                          return name === "추정 체장"
+                            ? [`${value.toFixed(1)}cm`, "추정 체장"]
+                            : [`${value.toLocaleString()}마리`, "평균 개체수"]
+                        }}
                       />
+                      {hasLength && <Legend wrapperStyle={{ fontSize: 11 }} />}
                       <Area
+                        yAxisId="count"
                         type="monotone" dataKey="avg_count" name="평균 개체수"
                         stroke="#14b8a6" strokeWidth={2} fill="url(#countFill)"
                       />
+                      {hasLength && (
+                        /* 선만 그린다. 면으로 채우면 개체수와 겹쳐 둘 다 안 보인다.
+                           connectNulls 로 길이를 못 잰 구간을 건너뛴다 — 끊어 두면
+                           장비가 잠깐 쉰 자리마다 선이 토막 난다. */
+                        <Area
+                          yAxisId="len"
+                          type="monotone" dataKey="avg_length_cm" name="추정 체장"
+                          stroke="#f59e0b" strokeWidth={2} fill="none"
+                          dot={false} connectNulls
+                        />
+                      )}
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
