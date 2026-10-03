@@ -84,16 +84,39 @@ export function StreamView({ camera, live, status, showBoxes = true, stream, cla
   return (
     <div className={cn("relative overflow-hidden rounded-xl border border-border bg-black", className)}>
       {streamError ? (
-        <div className="flex aspect-video flex-col items-center justify-center gap-2 text-muted-foreground">
+        /* 두 경우를 가려서 말한다. 예전에는 둘 다 "카메라가 시작되어 있는지
+           확인하세요" 라고 했는데, 터널을 안 깐 장비에서는 그 말이 **거짓**
+           이다 — 카메라는 멀쩡히 돌고 개체수도 쌓이는 중인데 엉뚱한 곳을
+           뒤지게 된다. 주소가 아예 없는 것과 주소는 있는데 못 붙는 것은
+           고치는 방법이 다르다. */
+        <div className="flex aspect-video flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground">
           <VideoOff className="w-8 h-8" />
-          <p className="text-xs">영상에 연결할 수 없습니다</p>
-          <p className="text-[11px] text-muted-foreground/70">카메라가 시작되어 있는지 확인하세요</p>
-          <button
-            onClick={() => { setStreamError(false); setAttempt(a => a + 1) }}
-            className="mt-1 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-accent"
-          >
-            다시 시도
-          </button>
+          {camera.host_url ? (
+            <>
+              <p className="text-xs">영상에 연결할 수 없습니다</p>
+              <p className="text-[11px] text-muted-foreground/70">
+                카메라가 시작되어 있는지, 장비가 인터넷에 붙어 있는지 확인하세요
+              </p>
+              <button
+                onClick={() => { setStreamError(false); setAttempt(a => a + 1) }}
+                className="mt-1 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-accent"
+              >
+                다시 시도
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-xs">이 장비는 아직 바깥에서 볼 수 없습니다</p>
+              <p className="max-w-xs text-[11px] leading-relaxed text-muted-foreground/70">
+                개체수는 정상으로 기록되고 있습니다. 영상까지 보려면 장비에
+                공개 주소가 있어야 합니다 — 농장 공유기 뒤에 있는 장비에는
+                터널(Cloudflare Tunnel)을 깝니다.
+              </p>
+              <p className="text-[11px] text-muted-foreground/70">
+                설치 안내: <span className="font-mono">docs/VISION_DEPLOY.md §3-4</span>
+              </p>
+            </>
+          )}
         </div>
       ) : (
         /* eslint-disable-next-line @next/next/no-img-element -- MJPEG 스트림은
