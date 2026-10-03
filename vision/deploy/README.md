@@ -20,7 +20,7 @@
 | 카메라 | CSI 카메라 (리본 케이블) |
 | 화면 | 공식 7인치 터치스크린 800×480 (선택이지만 권장) |
 | OS | Raspberry Pi OS **Bookworm 이상, 데스크톱 포함** (Lite 는 화면을 못 답니다) |
-| 받아 둘 값 | `VISION_SERVICE_KEY`·`VISION_STREAM_SECRET` (웹에 넣은 것과 같은 값), Supabase DB 주소 |
+| 받아 둘 값 | **없습니다.** 설정할 것이 하나도 없습니다 |
 
 ---
 
@@ -36,48 +36,33 @@ rpicam-hello --list-cameras
 
 ## 2. 코드 받기
 
-`shrimp365` 는 **비공개 저장소**입니다. `git clone` 을 그냥 하면 인증을 묻고,
-거기에 GitHub 계정 비밀번호를 넣어도 통하지 않습니다 — GitHub 는 2021-08 부터
-Git 작업에 비밀번호를 받지 않습니다. 둘 중 하나로 하세요.
+저장소가 공개라 **토큰도 로그인도 필요 없습니다.**
 
-**방법 1 — PC 에서 ZIP 으로 받아 복사 (토큰이 필요 없습니다).**
-
-브라우저로 GitHub 저장소에 들어가 브랜치를 `claude/shrimp-water-quality-monitoring-aZ4EY`
-로 바꾸고 **Code → Download ZIP**. 압축을 풀고 그 안의 `vision` 폴더만 보냅니다.
-
-```bash
-# PC 에서
-scp -r shrimp365-claude-shrimp-water-quality-monitoring-aZ4EY/vision pi@192.168.0.50:~/
-```
-
-**방법 2 — 파이에서 바로 clone (읽기 전용 토큰을 하나 만듭니다).**
-
-GitHub → Settings → Developer settings → Personal access tokens →
-**Fine-grained tokens** → Generate new token
-
-- Repository access: **Only select repositories** → `Ulrim/shrimp365`
-- Permissions → Repository permissions → **Contents: Read-only**
-- Expiration: 설치에만 쓰니 **7 days** 로 충분합니다
+**한 줄씩 그대로 붙여넣으세요.** 여러 줄을 한 번에 붙이면 터미널이 줄바꿈을
+먹어 `fatal: Too many arguments` 가 납니다 — 그래서 역슬래시(`\`)로 줄을
+잇지 않았습니다.
 
 ```bash
 cd ~
-git clone --depth 1 --filter=blob:none --sparse \
-  -b claude/shrimp-water-quality-monitoring-aZ4EY \
-  https://github.com/Ulrim/shrimp365.git shrimp365-src
-# Username: GitHub 아이디
-# Password: 위에서 만든 토큰을 붙여넣기 (화면에 안 보이는 게 정상입니다)
-
+```
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/Ulrim/shrimp365.git shrimp365-src
+```
+```bash
 cd ~/shrimp365-src
+```
+```bash
 git sparse-checkout set vision
-cp -r vision ~/vision
+```
+```bash
+cp -r ~/shrimp365-src/vision ~/vision
 ```
 
 > `--filter=blob:none --sparse` 는 필요한 것만 받습니다. 저장소 전체는 51 MB
 > 인데(대부분 `public/` 의 카드뉴스 이미지) 이렇게 받으면 24 MB 입니다.
 >
-> clone 에 `sudo` 를 쓰지 마세요. root 로 받으면 파일 주인이 어긋나고, 토큰도
-> root 의 프로세스에 남습니다. 토큰은 명령줄에 적지 말고 **프롬프트에
-> 붙여넣으세요** — 명령줄에 쓰면 `~/.bash_history` 와 `ps` 에 그대로 남습니다.
+> **`sudo` 를 쓰지 마세요.** root 로 받으면 파일 주인이 어긋나, 나중에 지우려
+> 할 때 `Permission denied` 가 납니다(그때는 `sudo rm -rf` 로 지워야 합니다).
 
 ## 3. 설치 — 명령 하나
 
@@ -102,30 +87,138 @@ sudo ./deploy/install.sh
 이미 설치된 기기에서 다시 실행하면 프로그램만 새 것으로 바꾸고, 설정과 기기
 연결은 그대로 둡니다.
 
-## 4. 설정 — 세 줄
+## 3-0. 깔려 있던 것을 지우고 처음부터 (선택)
+
+프로그램만 새로 바꾸려면 §3-1 로 가세요. 아래는 **아예 처음부터** 할 때입니다.
+
+**삭제 스크립트는 새 코드에 들어 있습니다.** 그래서 지우기 전에 먼저 받습니다 —
+파이에 깔려 있는 버전에는 이 스크립트가 없을 수 있습니다. 한 줄씩 붙여넣으세요.
 
 ```bash
-sudo nano /etc/shrimp365-vision/env
+sudo rm -rf ~/shrimp365-src
+```
+```bash
+cd ~
+```
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/Ulrim/shrimp365.git shrimp365-src
+```
+```bash
+cd ~/shrimp365-src
+```
+```bash
+git sparse-checkout set vision
+```
+```bash
+sudo ~/shrimp365-src/vision/deploy/uninstall.sh --all
+```
+```bash
+sudo rm -rf ~/vision
+```
+```bash
+cp -r ~/shrimp365-src/vision ~/vision
+```
+```bash
+cd ~/vision
+```
+```bash
+sudo ./deploy/install.sh
 ```
 
-채울 것은 세 줄뿐입니다.
+첫 줄에서 **옛 소스 폴더를 먼저** 지우는 것은, 같은 이름으로 새로 받기
+때문입니다(`git clone` 은 폴더가 비어 있지 않으면 거부합니다). 받은 뒤에는
+`~/shrimp365-src` 가 **다시 깔 소스**이므로 지우지 마세요.
 
-```
-VISION_SERVICE_KEY=웹에_넣은_값
-VISION_STREAM_SECRET=웹에_넣은_값
-DATABASE_URL=postgresql+asyncpg://postgres.xxxx:비밀번호@aws-0-....pooler.supabase.com:5432/postgres
-```
+| | `uninstall.sh` | `uninstall.sh --all` |
+|---|---|---|
+| 프로그램·설정·서비스·키오스크 | 지움 | 지움 |
+| 기기 키 (`/var/lib/shrimp365-vision`) | **남김** | 지움 |
+| 다시 깐 뒤 | 그 연결을 그대로 씀 | **6자리 코드로 재연결** |
 
-`DATABASE_URL` 은 Supabase → Settings → Database → **Session pooler** 문자열입니다.
-Supabase 가 주는 값은 `postgresql://` 로 시작하므로 **`+asyncpg` 를 끼워 넣어야**
-합니다.
+어느 쪽이든 서버(Supabase)의 카메라 등록과 쌓인 개체수는 **지워지지 않습니다.**
+`--all` 로 지워 재연결해도 **같은 보드면 그 카메라를 재사용하고 이력도
+이어집니다** — 웹에 카메라가 중복으로 생기지 않습니다.
 
-나머지(모델 경로·임계값·동시 카메라 수)는 기본값이 이미 맞습니다.
+> `~/vision` 을 예전에 `sudo` 로 받았다면 주인이 root 라 `sudo rm -rf` 가
+> 필요합니다. `Permission denied` 가 나는 이유가 그것입니다.
+>
+> 키오스크 자동 실행은 **한 줄만 뽑아냅니다.** 설정 파일을 지우지 않습니다 —
+> labwc 는 사용자 파일이 시스템 기본값을 대체하므로, 통째로 지우면 작업표시줄
+> 같은 바탕화면 설정이 함께 사라집니다(실제로 그런 일이 있었습니다).
 
-## 5. 시작
+## 3-1. 이미 깔려 있는 파이를 새 프로그램으로 바꾸기
+
+같은 스크립트를 다시 돌리면 됩니다. **설정과 기기 연결은 그대로 둡니다** —
+수조에 다시 연결할 필요가 없고, 쌓인 개체수도 그대로입니다.
 
 ```bash
-sudo systemctl start shrimp365-vision
+cd ~/shrimp365-src
+git pull
+cp -r vision/. ~/vision/
+cd ~/vision
+sudo ./deploy/install.sh
+```
+
+> `git pull` 이 `--depth 1` 때문에 거부하면 받은 것을 지우고 §2 를 다시 하세요.
+>
+> **프로그램을 바꾸지 않고 `/etc/shrimp365-vision/env` 만 고치는 것은 위험할
+> 수 있습니다.** 새로 생긴 설정(또는 없어진 필수 설정)은 새 프로그램만 압니다.
+> 예를 들어 `DATABASE_URL` 을 비워 두고 돌아가는 것은 2026-10 이후 버전의
+> 기능입니다 — 그 전 버전에서 그 줄을 지우면 엉뚱한 주소로 붙으려다 멈춥니다.
+> **순서는 늘 프로그램 먼저, 설정 나중입니다.**
+
+## 4. 설정 — 없습니다
+
+채울 것이 없습니다. 설치가 끝나면 서비스가 이미 돌고 있습니다.
+
+장비는 전원을 넣으면 스스로 6자리 연결 코드를 받아 화면에 띄웁니다. 그 코드를
+shrimp365 에서 입력하면 기기 키를 받아 보관하고, 개체수는 그 키로 shrimp365 에
+올라갑니다 — **수질 센서 장비와 같은 방식입니다.**
+
+> 예전에는 이 자리에서 `VISION_SERVICE_KEY`·`VISION_STREAM_SECRET`·`DATABASE_URL`
+> 세 줄을 채워야 했습니다. 그 세 줄이 설치에서 가장 큰 걸림돌이었습니다 —
+> pooler 와 direct 구분, `+asyncpg` 접두사, 비밀번호 특수문자 인코딩. 지금은
+> 모두 필요 없습니다.
+>
+> 장비에 데이터베이스 비밀번호를 두지 않는 쪽이 안전하기도 합니다. 비밀번호를
+> 들고 있으면 파이 한 대를 집어 가면 **모든 농장의 자료**를 읽고 쓸 수 있습니다.
+> 기기 키는 그 장비의 카메라 하나로 범위가 묶입니다.
+
+인터넷이 끊겨도 개체수는 장비 안에 쌓이고, 돌아오면 밀린 것까지 올라갑니다.
+화면에 "서버 끊김 · N건 보관" 으로 보입니다 — 숫자가 보이는 동안은 잃는 것이
+없습니다. 올라간 기록은 장비에 7일만 남기고 지웁니다(원본은 서버에 있고, SD
+카드는 쓰기로 닳는 부품입니다).
+
+### 이미 `DATABASE_URL` 을 넣어 둔 기기라면
+
+설치 스크립트는 **기존 설정을 건드리지 않습니다.** 예전 방식으로 깔아 둔
+기기는 계속 DB 에 직접 붙습니다(그래도 돕니다).
+
+간단한 쪽으로 옮기려면 **먼저 §3-1 로 프로그램을 새로 바꾸세요.** 설정 없이
+돌아가는 것은 새 프로그램의 기능입니다. 옛 프로그램에서 이 줄을 지우면
+`postgresql+asyncpg://postgres:change-me@db:5432/postgres` 라는 더미 주소로
+붙으려다 멈추고, 설정 점검은 "문제 없음"으로 통과해 안내조차 나오지 않습니다.
+
+프로그램을 바꾼 뒤에 이렇게 합니다.
+
+```bash
+sudo sed -i 's/^DATABASE_URL=/#DATABASE_URL=/' /etc/shrimp365-vision/env
+sudo systemctl restart shrimp365-vision
+journalctl -u shrimp365-vision -n 30 --no-pager
+```
+
+로그에 이 줄이 뜨면 옮겨진 것입니다 — `측정값은 기기 키로 … 에 올립니다`.
+기기 연결(페어링)은 그대로 유지되므로 다시 연결할 필요가 없습니다. 옮긴 뒤에는
+그 파이에서 데이터베이스 비밀번호를 **지워도 됩니다**.
+
+`/etc/shrimp365-vision/env` 에는 선택 항목만 있습니다 — 브라우저에서 영상까지
+보려면 §8 의 터널과 두 비밀값, 성능을 조절하려면 동시 카메라 수.
+
+## 5. 시작 — 이미 돌고 있습니다
+
+설치 스크립트가 켜 둡니다. 로그만 확인하세요.
+
+```bash
 journalctl -u shrimp365-vision -f
 ```
 
@@ -250,8 +343,8 @@ CSI 카메라는 리본으로 보드에 직접 붙어 있어, **그 보드에서
 1. **`VISION_PUBLIC_URL`** — 파이마다 자기 주소(`vision-1`, `vision-2` …)
 2. **페어링** — 파이마다 한 번씩
 
-나머지(`VISION_SERVICE_KEY`·`VISION_STREAM_SECRET`·`DATABASE_URL`)는 모든 파이가
-같은 값을 씁니다.
+`VISION_PUBLIC_URL` 은 브라우저에서 영상까지 볼 때만 필요합니다 — 개체수만
+쓸 거라면 파이마다 다르게 할 것이 **페어링 한 번뿐**입니다.
 
 이렇게 해 두면 각 파이가 자기 기기 키로 자기 카메라만 알아보고, 그 주소가
 카메라 행에 적혀 화면이 영상·실시간·시작/정지를 **카메라마다 제 파이로** 보냅니다.
@@ -327,7 +420,8 @@ valid 분할의 밀식 구간(GT ≥ 11, 185장) 기준입니다. 정확도 차�
 
 | 증상 | 확인 |
 |---|---|
-| 화면에 "개체수 화면을 불러오지 못했습니다" | `systemctl status shrimp365-vision` → 설정 세 줄이 비었는지 |
+| 화면에 "개체수 화면을 불러오지 못했습니다" | `systemctl status shrimp365-vision` → 서비스가 떴는지 |
+| 화면에 "서버 끊김 · N건 보관" | 인터넷 연결. 값은 쌓이고 있으니 잃지 않습니다 |
 | 로그에 `[시뮬레이션 모드]` 배너 | 배너에 적힌 이유대로. 대개 `MODEL_PATH` 또는 모델 파일 없음 |
 | 코드가 안 나옴 | `SHRIMP365_URL` 과 인터넷 연결. 로그에 사유가 적힙니다 |
 | 영상이 웹에서 안 보임 | §8 의 터널과 `VISION_PUBLIC_URL` |

@@ -20,13 +20,19 @@ import logging
 import sys
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
+from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import NullPool
 
-from app.config import config_problems, explain_config_problems, settings
+from app.config import (
+    config_problems,
+    explain_config_problems,
+    local_database_url,
+    settings,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -57,8 +63,14 @@ def _make_engine():
         print(explain_config_problems(problems, ENV_PATH), file=sys.stderr, flush=True)
         raise SystemExit(1)
 
+    url = local_database_url()
     kwargs: dict = {"echo": settings.debug}
-    if settings.database_url.startswith("sqlite"):
+    if url.startswith("sqlite"):
+        # 로컬 파일은 디렉터리가 있어야 열린다. systemd 의 StateDirectory 가
+        # 만들어 주지만, 손으로 실행해 볼 때도 되어야 한다.
+        path = url.split("///", 1)[-1]
+        if path and path != ":memory:":
+            Path(path).parent.mkdir(parents=True, exist_ok=True)
         # NullPool keeps connections loop-agnostic (pytest spins up a fresh
         # event loop per test); SQLite connections are cheap to reopen.
         kwargs["poolclass"] = NullPool
@@ -69,7 +81,7 @@ def _make_engine():
         kwargs["connect_args"] = {"timeout": 10}
     else:
         kwargs["pool_pre_ping"] = True
-    return create_async_engine(settings.database_url, **kwargs)
+    return create_async_engine(url, **kwargs)
 
 
 engine = _make_engine()

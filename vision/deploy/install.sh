@@ -164,27 +164,28 @@ else
   cat > "$CONF" <<'EOF'
 # Shrimp365 개체수(비전) 설정
 #
-# 채워야 하는 것은 아래 세 줄뿐입니다. 나머지는 기본값으로 둡니다.
+# **채울 것이 없습니다.** 이대로 두면 됩니다.
 #
-#   VISION_SERVICE_KEY   웹(Vercel)에 넣은 것과 같은 값
-#   VISION_STREAM_SECRET 웹(Vercel)에 넣은 것과 같은 값
-#   DATABASE_URL         Supabase → Settings → Database → Session pooler
-#                        접두사를 postgresql+asyncpg:// 로 바꿔 넣으세요
+# 전원을 넣으면 장비가 스스로 6자리 연결 코드를 받아 화면에 띄우고, 그 코드를
+# shrimp365 에서 입력하면 끝입니다. 기기 키는 그때 받아 장비가 보관하고,
+# 개체수는 그 키로 shrimp365 에 올라갑니다 — 수질 센서와 같은 방식입니다.
+# 장비에 데이터베이스 비밀번호를 두지 않습니다(파이를 집어 가도 다른 농장의
+# 자료에 닿지 못합니다).
 #
-# 고친 뒤:  sudo systemctl restart shrimp365-vision
-
-VISION_SERVICE_KEY=
-VISION_STREAM_SECRET=
-DATABASE_URL=
+# 아래는 모두 선택입니다. 고친 뒤:  sudo systemctl restart shrimp365-vision
 
 SHRIMP365_URL=https://www.shrimp365.kr
+
+# ── 선택 1. 브라우저에서 영상까지 보려면 ────────────────────────────────────
+# 개체수 측정·기록·장비 화면은 이것 없이도 됩니다. 웹에서 실시간 영상을 보려면
+# 이 파이에 공개 주소(Cloudflare Tunnel 등)가 있어야 하고, 아래 두 값이
+# 웹(Vercel)에 넣은 것과 같아야 합니다. docs/VISION_DEPLOY.md §3-4 참고.
+VISION_PUBLIC_URL=
+VISION_SERVICE_KEY=
+VISION_STREAM_SECRET=
 CORS_ORIGINS=https://www.shrimp365.kr
 
-# 이 파이의 공개 주소(Cloudflare Tunnel 등). 아직 없으면 비워 두세요 —
-# 장비 화면과 개체수 기록은 이것 없이도 됩니다. 브라우저에서 영상을 보려면
-# 필요합니다. 파이가 여러 대면 각자 다르게(vision-1 / vision-2 …).
-VISION_PUBLIC_URL=
-
+# ── 선택 2. 성능 ───────────────────────────────────────────────────────────
 # 파이 4 는 추론이 무겁습니다. 개체수는 초당 한 번이면 충분합니다.
 MAX_CAMERAS=1
 AUTO_START_STREAMS=true
@@ -193,6 +194,12 @@ AUTO_START_STREAMS=true
 # 다른 해상도로 바꿀 때만 두 줄을 같이 고치세요 — 416→0.30, 512→0.25, 640→0.25.
 # MODEL_PATH=/opt/shrimp365-vision/ai/models/shrimp_yolov8n_416.onnx
 # CONFIDENCE_THRESHOLD=0.30
+
+# ── 선택 3. 데이터베이스에 직접 붙는 배포 ──────────────────────────────────
+# 서버를 거치지 않고 Postgres 에 바로 쓰려면 여기에 연결 문자열을 넣습니다
+# (접두사는 postgresql+asyncpg://). 비워 두는 것이 기본이고 권장입니다 —
+# 넣으면 그 비밀번호가 이 파이에 남습니다.
+# DATABASE_URL=
 EOF
 fi
 # 비밀값이 들어가는 파일이다. 매번 권한을 다시 좁힌다.
@@ -214,6 +221,12 @@ if [ -d /run/systemd/system ]; then
   if [ "$RUNNING" = yes ]; then
     echo "==> 새 프로그램으로 재시작"
     systemctl restart shrimp365-vision
+  else
+    # 채울 설정이 없으므로 기다릴 이유가 없다. 바로 켜서 연결 코드를 받게
+    # 한다 — 예전에는 사람이 설정 세 줄을 채운 뒤에야 시작할 수 있었다.
+    echo "==> 시작"
+    systemctl start shrimp365-vision || true
+    systemctl is-active --quiet shrimp365-vision && RUNNING=yes
   fi
 else
   echo "==> systemd 가 없어 서비스 등록을 건너뜁니다."
@@ -236,33 +249,32 @@ EOF
 fi
 
 if [ "$FIRST_INSTALL" = yes ]; then
+  if [ "$RUNNING" = yes ]; then
+    echo "설정은 채울 것이 없습니다. 이미 돌고 있습니다."
+  else
+    echo "설정은 채울 것이 없습니다. 시작하세요:"
+    echo "     sudo systemctl start shrimp365-vision"
+  fi
   cat <<EOF
-다음 순서로 진행하세요.
 
-  1) 설정 세 줄 채우기 — 비밀값 2개와 DB 주소
-       sudo nano $CONF
-
-  2) 시작
-       sudo systemctl start shrimp365-vision
-       journalctl -u shrimp365-vision -f
-
-     로그에 이 줄이 보이면 모델이 제대로 물린 것입니다:
-       "실제 모델로 추론합니다"
-
-     대신 "[시뮬레이션 모드]" 배너가 뜨면 개체수가 가짜입니다. 배너에 이유와
-     고치는 방법이 적혀 있습니다.
-
-  3) 터치스크린을 붙일 거라면 (권장)
+  1) 터치스크린을 붙일 거라면 (권장)
        sudo ./deploy/setup-kiosk.sh
        sudo reboot
 
-     화면에서 [기기 연결 시작] 을 누르면 6자리 코드가 나옵니다.
+     켜면 화면에 6자리 연결 코드가 뜹니다.
 
-  4) 화면이 없다면 — 코드를 로그에서 봅니다
+  2) 6자리 코드를 www.shrimp365.kr 에 입력
+       로그인 → 개체수 → 설정 → 카메라 연결 → 수조 선택
+
+     화면이 없으면 코드는 로그에 뜹니다:
        journalctl -u shrimp365-vision -f
 
-     뜨는 6자리 코드를 www.shrimp365.kr 에 입력하세요.
-     로그인 → 개체수 → 설정 → 카메라 연결 → 수조 선택
+     수조를 고르면 바로 세기 시작합니다. 그 뒤로는 전원만 넣으면 됩니다.
+
+  확인할 것 — 로그에 이 줄이 보이면 모델이 제대로 물린 것입니다:
+       "실제 모델로 추론합니다"
+  대신 "[시뮬레이션 모드]" 배너가 뜨면 개체수가 가짜입니다. 배너에 이유와
+  고치는 방법이 적혀 있습니다.
 EOF
 elif [ "$RUNNING" = yes ]; then
   echo "   프로그램을 새 것으로 바꾸고 다시 시작했습니다."

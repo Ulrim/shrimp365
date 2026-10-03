@@ -27,6 +27,7 @@ from app.config import (
     simulation_mode_reason,
 )
 from app.database import init_db
+from app.services import sync_service
 from app.services.broadcaster import broadcaster
 from app.services.camera_manager import camera_manager
 from app.services.pairing import ensure_device_key, load_device_key, pairing_state
@@ -43,8 +44,16 @@ async def _start_cameras() -> int:
     return started
 
 
+#: 연결 코드를 못 받았을 때 다시 시도하는 간격(초). 점점 늘리고 5분에서 멈춘다.
+#:
+#: 전원을 넣은 직후에는 와이파이가 아직 안 붙어 있는 일이 흔하다. 한 번 실패하고
+#: 멈추면 화면 없는 장비는 재부팅 말고는 길이 없고, 화면이 있어도 사람이 와서
+#: 버튼을 눌러 줘야 한다 — 설치하고 전원만 넣으면 된다는 말이 거짓이 된다.
+PAIR_RETRY_SECONDS = (10, 20, 40, 80, 160, 300)
+
+
 async def _pair_then_count(version: str) -> None:
-    """연결을 기다렸다가, 승인되면 그 자리에서 세기 시작한다.
+    """연결될 때까지 다시 시도하고, 승인되면 그 자리에서 세기 시작한다.
 
     승인 뒤에 다시 시작하게 두면 현장에서 그 사실을 알 길이 없다 — 화면은
     "연결됨"인데 개체수는 영영 0 이다.
@@ -54,22 +63,40 @@ async def _pair_then_count(version: str) -> None:
     failed" 로 끝난다 — 진짜 원인(그물·DNS·인증서)과 아무 상관 없어 보이는
     자리에서. 연결에 실패해도 세는 일과 화면은 계속 돌아야 한다.
     """
-    try:
-        key = await ensure_device_key(version)
-    except asyncio.CancelledError:
-        raise
-    except Exception as exc:  # noqa: BLE001 - 그물 밖의 일은 무엇이든 터진다
-        logger.error(
-            "연결을 진행하지 못했습니다: %s: %s\n"
-            "  개체수 측정과 장비 화면은 계속 돕니다. 화면의 [기기 연결] 로"
-            " 다시 시도할 수 있습니다.",
-            type(exc).__name__,
-            exc,
-        )
-        pairing_state.failed(f"{type(exc).__name__}: {exc}")
-        return
-    if key:
-        await _start_cameras()
+    attempt = 0
+    while True:
+        key = None
+        try:
+            key = await ensure_device_key(version)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - 그물 밖의 일은 무엇이든 터진다
+            logger.error(
+                "연결을 진행하지 못했습니다: %s: %s\n"
+                "  개체수 측정과 장비 화면은 계속 돕니다.",
+                type(exc).__name__,
+                exc,
+            )
+            pairing_state.failed(f"{type(exc).__name__}: {exc}")
+
+        if key:
+            # 승인되자마자 내 카메라를 받아 온다. 맞춤 주기(30초)를 기다리게 두면
+            # 화면은 "연결됨"인데 개체수는 한참 0 이라, 사람은 실패한 줄 안다.
+            if sync_service.enabled():
+                with contextlib.suppress(Exception):
+                    await sync_service.pull_assignment()
+            await _start_cameras()
+            return
+
+        if pairing_state.status == "expired":
+            # 코드는 받았는데 15분 안에 아무도 입력하지 않은 경우다. 그물
+            # 문제가 아니므로 기다릴 이유가 없다 — 새 코드를 바로 받아 화면에
+            # 띄운다. 농장 사람이 한참 뒤에 와도 유효한 코드를 보게 된다.
+            attempt, delay = 0, 1.0
+        else:
+            delay = PAIR_RETRY_SECONDS[min(attempt, len(PAIR_RETRY_SECONDS) - 1)]
+            attempt += 1
+        await pairing_state.wait_before_retry(delay)
 
 
 @asynccontextmanager
@@ -92,17 +119,29 @@ async def lifespan(app: FastAPI):
             + "\n" + "=" * 68,
             reason,
         )
-    if not settings.vision_service_key:
-        logger.error(
-            "VISION_SERVICE_KEY 가 비어 있습니다 — /api/v1 의 모든 요청이 401 로 거부됩니다."
-        )
-    if not settings.stream_secret:
-        logger.error(
-            "VISION_STREAM_SECRET 이 비어 있습니다 — 영상·실시간 연결이 전부 거부됩니다."
+    # 바깥 길(터널)을 안 깐 장비에서는 이 둘이 비어 있는 것이 정상이다.
+    # 오류가 아니라 "아직 안 쓰는 기능" 이므로 그렇게 적는다 — 빨간 ERROR 가
+    # 뜨면 설치가 잘못된 줄 알고 멀쩡한 것을 뒤지게 된다.
+    if not settings.vision_service_key or not settings.stream_secret:
+        logger.info(
+            "브라우저에서 영상 보기는 꺼져 있습니다(터널 미설정). "
+            "개체수 측정·기록·장비 화면은 그대로 돕니다.\n"
+            "  영상까지 보려면 docs/VISION_DEPLOY.md §3-4 를 따라 터널을 깔고 "
+            "VISION_SERVICE_KEY·VISION_STREAM_SECRET 을 채우세요."
         )
     await init_db()
     await broadcaster.start()
     camera_manager.start_watchdog()
+
+    # 로컬 기록을 서버와 맞추는 일. DATABASE_URL 을 직접 준 배포(도커·서버)
+    # 에서는 DB 가 이미 원본이므로 돌리지 않는다.
+    sync_task = None
+    if sync_service.enabled():
+        sync_task = asyncio.create_task(sync_service.run(), name="sync")
+        logger.info(
+            "측정값은 기기 키로 %s 에 올립니다(장비에 DB 비밀번호를 두지 않습니다).",
+            settings.shrimp365_internal_url,
+        )
 
     # 장비 터치스크린. 127.0.0.1 전용 포트에 따로 띄운다 — 이 포트를 터널로
     # 내보내면 인증 없는 영상이 바깥에 열린다(app/kiosk.py 머리말).
@@ -133,7 +172,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    for task in (pairing_task, kiosk_task):
+    for task in (pairing_task, sync_task, kiosk_task):
         if task is not None:
             task.cancel()
             # CancelledError 만 삼키면 모자란다. 이미 다른 예외로 끝난 작업을

@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import uuid
 
 import pytest
@@ -18,6 +19,7 @@ from starlette.testclient import TestClient
 
 from app import kiosk
 from app.config import settings
+from app.services import pairing as pairing_mod
 from app.services.pairing import PairingState, pairing_state
 
 
@@ -209,8 +211,9 @@ async def test_port_conflict_does_not_kill_the_service(monkeypatch, caplog):
 # ---------------------------------------------------------------------------
 # 설정 점검 (app/config.config_problems)
 #
-# install.sh 가 만드는 env 는 세 줄이 비어 있다. 그래서 **첫 기동은 반드시**
-# 여기에 걸린다 — 그때 파이썬 스택트레이스가 아니라 할 일이 보여야 한다.
+# 필수 설정은 **하나도 없다.** 설치하고 전원만 넣으면 돌아야 한다 — 기기 키는
+# 페어링이 받아 오고, 개체수는 그 키로 서버에 올리고, 로컬 DB 는 스스로
+# 만든다. 설정을 직접 준 배포(DB 직결 등)에서 값이 틀렸을 때만 짚어 준다.
 # ---------------------------------------------------------------------------
 
 
@@ -231,16 +234,28 @@ def test_complete_config_has_no_problems(monkeypatch):
     assert _problems(monkeypatch) == []
 
 
-def test_empty_values_are_each_named(monkeypatch):
-    found = _problems(monkeypatch, database_url="", vision_service_key="", stream_secret="")
-    joined = " | ".join(found)
-    for env_name in ("DATABASE_URL", "VISION_SERVICE_KEY", "VISION_STREAM_SECRET"):
-        assert env_name in joined, f"{env_name} 를 짚어 주지 않는다"
+def test_nothing_is_required(monkeypatch):
+    """설정이 하나도 없어도 문제가 아니다.
+
+    예전에는 이 세 값이 비면 기동을 막았다. 그래서 설치한 사람이 Supabase
+    연결 문자열을 찾아 붙이기 전까지 장비가 아예 돌지 않았고, 그것이 설치에서
+    가장 큰 걸림돌이었다. 지금은 비어 있는 것이 **정상 설치 상태**다.
+    """
+    assert _problems(monkeypatch, database_url="", vision_service_key="", stream_secret="") == []
 
 
-def test_whitespace_only_counts_as_empty(monkeypatch):
-    """nano 에서 값을 지우면 공백이 남기 쉽다."""
-    assert any("DATABASE_URL" in p for p in _problems(monkeypatch, database_url="   "))
+def test_blank_database_url_falls_back_to_the_local_file(monkeypatch):
+    """비었거나 공백뿐이면 로컬 파일 DB 로 간다 — 서버로 올리는 구성이다.
+
+    nano 에서 값을 지우면 공백이 남기 쉽다. 그때 sqlalchemy 가
+    'Could not parse SQLAlchemy URL' 로 터지면 안 된다.
+    """
+    import app.config as config
+
+    for blank in ("", "   ", "\t"):
+        monkeypatch.setattr(settings, "database_url", blank)
+        assert config.server_sync_mode() is True
+        assert config.local_database_url().startswith("sqlite+aiosqlite:///")
 
 
 def test_supabase_string_pasted_as_is_is_caught(monkeypatch):
@@ -319,20 +334,124 @@ def test_blank_cors_origins_falls_back_instead_of_crashing(raw):
 async def test_pairing_failure_does_not_escape_the_background_task(monkeypatch, caplog):
     import app.main as main
 
+    tries = 0
+
     async def boom(_version):
+        nonlocal tries
+        tries += 1
         raise PermissionError("인증서를 읽지 못했습니다")
 
     monkeypatch.setattr(main, "ensure_device_key", boom)
+    monkeypatch.setattr(main, "PAIR_RETRY_SECONDS", (0.01,))
 
-    # 예외가 새면 여기서 터진다.
-    await main._pair_then_count("1.0.0")
+    # 예외가 새면 작업이 죽고, 종료할 때 "Application shutdown failed" 로 돌아온다.
+    task = asyncio.create_task(main._pair_then_count("1.0.0"))
+    await asyncio.sleep(0.05)
+    assert not task.done(), "실패했다고 연결을 포기하면 안 된다"
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
 
     assert "연결을 진행하지 못했습니다" in caplog.text
     assert "PermissionError" in caplog.text
+    assert tries >= 2, "다시 시도하지 않았다"
     # 화면이 사유를 보여 줄 수 있어야 한다.
     snap = pairing_state.snapshot()
     assert snap["status"] == "failed"
     assert "PermissionError" in (snap["error"] or "")
+
+
+@pytest.mark.anyio
+async def test_pairing_keeps_trying_until_the_network_comes_up(monkeypatch):
+    """전원을 넣은 직후에는 와이파이가 아직 안 붙어 있는 일이 흔하다.
+
+    한 번 실패하고 멈추면 화면 없는 장비는 재부팅 말고는 길이 없다.
+    """
+    import app.main as main
+
+    tries = 0
+
+    async def flaky(_version):
+        nonlocal tries
+        tries += 1
+        if tries < 3:
+            pairing_state.failed("인터넷 연결을 확인하세요")
+            return None
+        return "device-key"
+
+    monkeypatch.setattr(main, "ensure_device_key", flaky)
+    monkeypatch.setattr(main, "PAIR_RETRY_SECONDS", (0.01,))
+    monkeypatch.setattr(main, "_start_cameras", _noop)
+    monkeypatch.setattr(main.sync_service, "enabled", lambda: False)
+
+    await asyncio.wait_for(main._pair_then_count("1.0.0"), timeout=5)
+    assert tries == 3  # 붙은 뒤에는 더 시도하지 않는다
+
+
+@pytest.mark.anyio
+async def test_screen_button_does_not_wait_out_the_backoff(monkeypatch):
+    """쉬는 중에 버튼을 누르면 바로 다시 시도해야 한다.
+
+    예전에는 "이미 돌고 있다"며 False 만 돌려줬다 — 버튼을 눌렀는데 아무 일도
+    일어나지 않으면 현장에서는 고장으로 보인다.
+    """
+    import app.main as main
+
+    tries = 0
+
+    async def never(_version):
+        nonlocal tries
+        tries += 1
+        pairing_state.failed("인터넷 연결을 확인하세요")
+        return None
+
+    monkeypatch.setattr(main, "ensure_device_key", never)
+    monkeypatch.setattr(main, "PAIR_RETRY_SECONDS", (3600,))  # 눌러서 깨우지 않으면 못 온다
+
+    task = asyncio.create_task(main._pair_then_count("1.0.0"))
+    pairing_state.adopt(task)
+    await asyncio.sleep(0.05)
+    assert tries == 1
+
+    assert pairing_state.start("1.0.0") is True  # 버튼
+    await asyncio.sleep(pairing_mod.RETRY_POLL_SECONDS * 3)
+    assert tries == 2, "버튼을 눌렀는데 다음 시도까지 그대로 기다렸다"
+
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+
+
+@pytest.mark.anyio
+async def test_expired_code_is_replaced_without_waiting(monkeypatch):
+    """15분이 지난 코드는 그물 문제가 아니다 — 새 코드를 바로 띄운다.
+
+    사람이 한참 뒤에 장비를 보러 왔을 때 만료된 코드가 떠 있으면, 그것을
+    입력하고 안 된다고 여긴다.
+    """
+    import app.main as main
+
+    tries = 0
+
+    async def expires(_version):
+        nonlocal tries
+        tries += 1
+        pairing_state.expired()
+        return None
+
+    monkeypatch.setattr(main, "ensure_device_key", expires)
+    monkeypatch.setattr(main, "PAIR_RETRY_SECONDS", (3600,))  # 만료면 이걸 쓰지 않아야 한다
+
+    task = asyncio.create_task(main._pair_then_count("1.0.0"))
+    await asyncio.sleep(1.2)
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+    assert tries >= 2, "만료된 코드를 그대로 두고 기다렸다"
+
+
+async def _noop() -> None:
+    return None
 
 
 @pytest.mark.anyio
@@ -349,3 +468,35 @@ async def test_cancellation_still_propagates(monkeypatch):
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
+
+
+@pytest.mark.anyio
+async def test_repeated_pairing_failure_is_logged_once(monkeypatch, caplog):
+    """같은 사유가 되풀이될 때 로그를 가득 채우지 않는다.
+
+    와이파이가 없는 장비는 5분마다 다시 시도한다. 그때마다 빨간 ERROR 를
+    남기면 로그가 그것으로만 차서, 정작 봐야 할 줄(모델·카메라)이 묻힌다.
+    """
+    import logging
+
+    from app.services import pairing as pm
+
+    monkeypatch.setattr(pm.settings, "shrimp365_internal_url", "http://127.0.0.1:9")
+    monkeypatch.setattr(pm.settings, "device_key", "")
+    monkeypatch.setattr(pm, "board_serial", lambda: "test-serial")
+
+    caplog.set_level(logging.DEBUG, logger="app.services.pairing")
+    # 앞 테스트가 남긴 "이미 말한 사유"를 지운다 — 안 지우면 첫 줄까지
+    # 되풀이로 보고 조용히 넘어가, 이 테스트가 무엇도 확인하지 못한다.
+    pm.pairing_state.status = "idle"
+    pm.pairing_state.error = None
+    pm.pairing_state._last_failure = None
+
+    for _ in range(3):
+        assert await pm.run_pairing("1.0.0") is None
+
+    errs = [r for r in caplog.records if r.levelno >= logging.ERROR
+            and "연결 코드를 받지 못했습니다" in r.getMessage()]
+    assert len(errs) == 1, f"같은 사유를 {len(errs)}번 ERROR 로 남겼다"
+    # 사유 자체는 화면이 읽을 수 있어야 한다.
+    assert pm.pairing_state.snapshot()["error"]

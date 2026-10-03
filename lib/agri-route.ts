@@ -28,6 +28,25 @@ export const AGRI_ROUTES = [
 
 const AGRI_ROUTE_SET: ReadonlySet<string> = new Set(AGRI_ROUTES)
 
+/** 농업 화면의 메뉴에서 빼는 항목(설계서 4-3) — 새우 전용 기능들.
+ *
+ *  **한곳에만 둔다.** 예전에는 sidebar.tsx 와 bottom-nav.tsx 가 각자 같은
+ *  집합을 들고 "sidebar 와 같은 집합" 이라고 주석까지 달아 두었는데, 실제로는
+ *  어긋났다. `/vision` 이 사이드바에만 추가되어 **휴대폰에서는 개체수 화면에
+ *  갈 길이 아예 없었다**(모바일은 하단 메뉴를 쓴다). 둘이 같아야 한다면
+ *  같은 것을 보게 하는 쪽이 맞다.
+ *
+ *  AGRI_ROUTES 로 대신 판정하지 않는다. 그쪽은 "`/daumlabs` 아래에 그 페이지가
+ *  있는가" 이고, 이쪽은 "농업 문맥에서 보여 줄 것인가" 다. 게시판·카드뉴스는
+ *  농업 쪽에 페이지가 없어도 접두사 없이 그대로 열어 주는 것이 맞다. */
+export const AGRI_HIDDEN_NAV: ReadonlySet<string> = new Set([
+  "/production",
+  "/inventory",
+  "/ai-advisor",
+  "/reports",
+  "/vision",
+])
+
 /** 쿼리스트링·해시를 뗀 경로 부분만 돌려준다. `/water-quality?tank=1` → `/water-quality` */
 function pathOnly(href: string): string {
   const cut = href.search(/[?#]/)

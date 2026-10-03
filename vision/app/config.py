@@ -25,9 +25,22 @@ class Settings(BaseSettings):
 
     # Database / cache
     # Supabase 연결 문자열(asyncpg 드라이버). 세션 풀러 주소를 쓴다.
-    database_url: str = Field(
-        default="postgresql+asyncpg://postgres:change-me@db:5432/postgres"
-    )
+    # 비워 두면 **장비 안의 로컬 파일**을 쓴다. 그게 라즈베리파이의 기본이다.
+    #
+    # 예전에는 여기에 Supabase 연결 문자열을 넣어야 했고, 그것이 설치에서 가장
+    # 큰 걸림돌이었다 — pooler 와 direct 구분, `+asyncpg` 접두사, 비밀번호
+    # 특수문자 인코딩. 수질 센서 파이는 그런 것이 하나도 없다. 비전도 같게 한다.
+    #
+    # 보안상으로도 이쪽이 맞다. 장비가 DB 비밀번호를 들고 있으면 파이 하나를
+    # 집어 가면 **모든 농장의 데이터**를 읽고 쓸 수 있다. 기기 키는 자기
+    # 카메라로 범위가 묶인다.
+    #
+    # 측정값은 sync_service 가 기기 키로 shrimp365 에 올린다. 회선이 끊겨도
+    # 로컬 파일에 남아 있다가 돌아오면 함께 올라간다(메모리가 아니라 파일이라
+    # 재부팅해도 잃지 않는다).
+    #
+    # 서버·도커 배포처럼 DB 옆에 두고 직접 붙일 때만 여기에 주소를 넣는다.
+    database_url: str = Field(default="")
     redis_url: str = Field(default="redis://redis:6379/0")
 
     # ── 인증 ────────────────────────────────────────────────
@@ -253,14 +266,37 @@ def reset_simulation_mode_cache() -> None:
     simulation_mode_active.cache_clear()
 
 
-#: 반드시 채워야 하는 설정과, 비었을 때 사람에게 할 말.
-#: install.sh 가 만드는 env 파일은 이 셋이 비어 있으므로 첫 기동은 반드시
-#: 여기에 걸린다. 그때 파이썬 스택트레이스가 아니라 할 일이 보여야 한다.
-_REQUIRED = (
-    ("DATABASE_URL", "database_url", "Supabase → Connect → Session pooler 문자열"),
-    ("VISION_SERVICE_KEY", "vision_service_key", "웹(Vercel)에 넣은 것과 같은 값"),
-    ("VISION_STREAM_SECRET", "stream_secret", "웹(Vercel)에 넣은 것과 같은 값"),
-)
+#: 없으면 **기동 자체가 안 되는** 설정. 지금은 하나도 없다 — 비어 있는 것이
+#: 정상이고, 아래 값 검사는 사람이 일부러 채웠을 때만 돈다.
+#:
+#: 셋을 차례로 뺐다.
+#:
+#:   DATABASE_URL          비우면 장비 안의 파일을 쓰고, 측정값은 기기 키로
+#:                         서버에 올린다. 이 한 줄이 설치에서 가장 큰
+#:                         걸림돌이었다(pooler/direct, +asyncpg, 비밀번호 인코딩).
+#:   VISION_SERVICE_KEY    바깥에서 이 장비를 부를 때(터널을 깔아 브라우저가
+#:   VISION_STREAM_SECRET  영상을 직접 받을 때)만 쓴다. 비어 있으면 그 요청을
+#:                         **전부 거절한다**(core/security.py — 빈 키는
+#:                         fail-closed). 없을 때 위험해지는 것이 아니라 바깥
+#:                         길이 닫힐 뿐인데, 그 둘 때문에 기동을 막으면 터널이
+#:                         없는 농장은 개체수조차 못 센다.
+#:
+#: 설치하고 전원을 넣으면 6자리 코드가 뜬다. 그것으로 끝이다.
+_REQUIRED: tuple[tuple[str, str, str], ...] = ()
+
+
+def local_database_url() -> str:
+    """실제로 쓸 DB 주소. 비어 있으면 장비 안의 파일을 쓴다."""
+    if settings.database_url.strip():
+        return settings.database_url.strip()
+    # 기기 키와 같은 자리에 둔다. systemd 의 StateDirectory 가 만들어 준다.
+    state_dir = os.path.dirname(settings.device_state_path) or "."
+    return f"sqlite+aiosqlite:///{state_dir}/local.db"
+
+
+def server_sync_mode() -> bool:
+    """측정값을 서버로 올리는 방식인가(= 로컬 파일을 쓰는가)."""
+    return not settings.database_url.strip()
 
 
 def config_problems() -> list[str]:

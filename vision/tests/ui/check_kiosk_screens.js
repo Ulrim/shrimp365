@@ -37,12 +37,9 @@ const HTML = execFileSync(PY, ['-c', 'from app.kiosk import PAGE_HTML; print(PAG
   cwd: VISION,
   // 설정 점검이 생긴 뒤로 DATABASE_URL 하나로는 모자란다 — 셋 다 없으면
   // 모듈을 불러오는 자리에서 멈춰 HTML 대신 안내문이 나온다.
-  env: {
-    ...process.env,
-    DATABASE_URL: 'sqlite+aiosqlite:///:memory:',
-    VISION_SERVICE_KEY: 'ui-check-key',
-    VISION_STREAM_SECRET: 'ui-check-secret',
-  },
+  // 설정이 0개가 된 뒤로는 아무것도 넣어 줄 필요가 없다. 기기 키 자리만
+  // 임시로 돌려 둔다 — 이 기계에 서비스가 깔려 있으면 진짜 키를 읽는다.
+  env: { ...process.env, DEVICE_STATE_PATH: '/tmp/kiosk-ui-check/device.json' },
   maxBuffer: 1 << 24,
 }).toString();
 
@@ -54,7 +51,7 @@ const JPEG = Buffer.from(
 
 const base = {
   version: '1.0.0', camera: null, count: null, count_age: null, confidence: null,
-  history: [], simulation: false, simulation_reason: null, server_ok: null,
+  history: [], simulation: false, simulation_reason: null, server_ok: null, pending_uploads: 0,
   pairing: { status: 'idle', code: null, error: null, tank_name: null,
              camera_id: null, expires_in: null, serial: '100000001a2b3c4d', linked: false },
   public_url: null, model: 'shrimp_yolov8n_416.onnx', conf_threshold: 0.3,
@@ -81,9 +78,9 @@ const scenes = {
   offline: [{ ...base,
     camera: { id: 'x', name: 'A-1조 수중 카메라', status: 'offline', type: 'csi' },
     count: 118, count_age: 94, confidence: 0.51, history: hist(200, 118),
-    server_ok: false, pairing: linked },
+    server_ok: false, pending_uploads: 37, pairing: linked },
     { want: ['#camempty'],
-      text: ['카메라에서 신호가 오지 않습니다', '서버 끊김', '94초 전 값'] }],
+      text: ['카메라에서 신호가 오지 않습니다', '서버 끊김 · 37건 보관', '94초 전 값'] }],
 
   // 가짜 개체수 — 숨기면 안 된다
   simulation: [{ ...base,

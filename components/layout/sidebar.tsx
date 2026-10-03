@@ -6,7 +6,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
-import { useAgriRoute } from "@/lib/agri-route"
+import { AGRI_HIDDEN_NAV, useAgriRoute } from "@/lib/agri-route"
 import { cn } from "@/lib/utils"
 import {
   Home, LayoutDashboard, Droplets, BookOpen, Building2,
@@ -20,10 +20,6 @@ import { LanguageSwitcher } from "@/components/ui/language-switcher"
 import { isMonitorAccount } from "@/lib/mock-data"
 import { localizedHref, stripLocalePrefix } from "@/lib/marketing-locale"
 import type { IconComponent } from "@/types"
-
-// 농업 화면(/daumlabs)에 없는 메뉴 — 새우 전용 문맥(설계서 4-3). "숨김"이 아니라
-// `/daumlabs` 아래에 페이지 자체가 없어 접두사를 붙일 수 없는 항목이다.
-const AGRI_HIDDEN = new Set(["/production", "/inventory", "/ai-advisor", "/reports", "/vision"])
 
 const DropMark = ({ size = 17 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -68,7 +64,7 @@ export function Sidebar() {
   ]
 
   // 배열을 복제하지 않는다 — 라벨은 i18n merge 가 치환하므로 필터 한 줄이 전부다.
-  const monitorNav = isAgri ? MONITOR_NAV.filter(i => !AGRI_HIDDEN.has(i.href)) : MONITOR_NAV
+  const monitorNav = isAgri ? MONITOR_NAV.filter(i => !AGRI_HIDDEN_NAV.has(i.href)) : MONITOR_NAV
 
   const handleLogout = async () => {
     // logout()이 홈("/")으로 하드 리다이렉트하므로 아래는 fallback.
