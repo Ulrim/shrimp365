@@ -33,6 +33,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // 이식 원본(FastAPI + Vite SPA) — 자체 툴체인을 갖는 참조 소스이므로
+    // shrimp365 의 lint 대상이 아니다. 실행 코드는 lib/mrv, app/mrv, app/api/mrv 에 있다.
+    "mrv-platform/**",
   ]),
 ]);
 
