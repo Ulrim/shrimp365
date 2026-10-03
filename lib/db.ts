@@ -291,6 +291,68 @@ export async function getWaterQuality(tankId: string, hours = 168, deviceId?: st
   return (data || []).map(toWaterQuality).reverse()
 }
 
+// ── 달력일 평균 수질 — 엔진 1(성장곡선)의 적산수온축 입력 ──────────────────
+//
+// getWaterQuality 로는 이 일을 할 수 없다. 이유가 셋이다.
+//   · wq_series 가 p_hours 를 `LEAST(..., 24 * 60)` 으로 자른다 — **상한 60일**.
+//     9개월 사이클은 268일이라 함수가 구간을 아예 덮지 못한다.
+//   · 버킷이 달력일이 아니라 epoch 초를 나눈 것이다. 적산수온은 날짜 단위로
+//     더해야 하는데 같은 날이 두 버킷으로 갈리거나 두 날이 한 버킷에 묶인다.
+//   · 폴백 경로는 60초 간격 원시 행이다. 268일 × 수조면 수십만 행이고 API 는
+//     요청당 1,000행이다.
+// 그래서 DB 함수를 따로 뒀다(supabase/migrations/wq_daily_mean.sql).
+//
+// **마이그레이션이 실행되지 않은 환경에서는 빈 배열을 돌려준다.** 0℃ 로 채우지
+// 않는다 — 엔진 1 의 cumulativeDegreeDays 가 결측을 평균 증분으로 메우고
+// filledDays 로 알리는데, 0℃ 를 관측값으로 넘기면 그 신호가 사라지고 적산수온이
+// 조용히 작아진다. 호출자는 빈 배열을 「수온 기록 없음」으로 다룬다.
+export type DailyWaterQualityMean = {
+  /** YYYY-MM-DD (Asia/Seoul 기준 달력일). */
+  day: string
+  temperature: number | null
+  ph: number | null
+  do_level: number | null
+  salinity: number | null
+  /** 그날 집계에 들어간 측정 수. 적으면 평균의 대표성이 떨어진다. */
+  sample_count: number
+}
+
+export async function getDailyWaterQualityMean(
+  tankId: string,
+  from: string,
+  to: string,
+): Promise<DailyWaterQualityMean[]> {
+  const { data, error } = await supabase.rpc("wq_daily_mean", {
+    p_tank: tankId,
+    p_from: from.slice(0, 10),
+    p_to: to.slice(0, 10),
+  })
+  // 함수가 없으면(마이그레이션 전) 조용히 빈 배열. 던지면 화면 전체가 죽는다.
+  if (error || !Array.isArray(data)) return []
+  return (data as DailyWaterQualityMean[]).map(r => ({
+    day: String(r.day).slice(0, 10),
+    temperature: r.temperature ?? null,
+    ph: r.ph ?? null,
+    do_level: r.do_level ?? null,
+    salinity: r.salinity ?? null,
+    sample_count: r.sample_count ?? 0,
+  }))
+}
+
+/**
+ * 엔진 1 이 바로 먹는 모양(`DailyWaterTemp[]`)으로 줄인다. 날짜와 수온만 남는다.
+ * 타입을 lib/growth 에서 import 하지 않는다 — db 층이 엔진에 의존하면 순환이
+ * 생긴다. 구조가 같으므로 그대로 들어간다.
+ */
+export async function getDailyWaterTemps(
+  tankId: string,
+  from: string,
+  to: string,
+): Promise<{ date: string; waterTempC: number | null }[]> {
+  const rows = await getDailyWaterQualityMean(tankId, from, to)
+  return rows.map(r => ({ date: r.day, waterTempC: r.temperature }))
+}
+
 export async function getLatestWaterQuality(tankId: string, deviceId?: string | null): Promise<WaterQualityReading | null> {
   let query = supabase
     .from("water_quality_readings")

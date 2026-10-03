@@ -975,6 +975,377 @@ export interface Dict {
     noCycles: string
     noCyclesMsg: string
     biomass: string
+    // ── 엔진 1·2·3 결과 화면(설계서 9-7) ────────────────────────────────
+    tabHarvest: string
+    tenThousandWon: string
+    decisionWindowTpl: string
+    decisionWindowNone: string
+    decisionNowLabel: string
+    profitHeadline: string
+    profitRecorded: string
+    profitWithKnownGap: string
+    profitOpenLow: string
+    profitBandAria: string
+    widthUnknown: string
+    detailsOpen: string
+    detailsClose: string
+    knownTotalLabel: string
+    missingItemsTpl: string
+    fixCostTpl: string
+    priceBasisTitle: string
+    priceBasisNone: string
+    priceBasisGapNote: string
+    priceObservedRange: string
+    priceRealized: string
+    priceExplicit: string
+    inventoryTitle: string
+    inventoryKgLabel: string
+    inventoryValuationHint: string
+    outOfLedgerKgLabel: string
+    growthAxisDate: string
+    growthAxisCdd: string
+    growthBandMae: string
+    growthExcludedLegendTpl: string
+    growthNeedSamplesTpl: string
+    growthHaveSamplesTpl: string
+    growthNeedStanzaTpl: string
+    growthForecastNeedsTemp: string
+    growthNoTempSeries: string
+    growthFilledDaysTpl: string
+    growthObserved: string
+    growthFitted: string
+    growthForecast: string
+    growthTargetWeight: string
+    windowRangeTpl: string
+    windowRangeDaysTpl: string
+    windowSpanDaysTpl: string
+    windowIndistinguishable: string
+    windowManualTarget: string
+    windowShowChart: string
+    windowHideChart: string
+    windowChartAria: string
+    windowUnevaluableTpl: string
+    windowBandNote: string
+    marginalTitle: string
+    marginalTitleTpl: string
+    marginalNotEstimated: string
+    marginalShowTable: string
+    marginalHideTable: string
+    marginalRatioTpl: string
+    marginalNetLabel: string
+    marginalPerDayTitle: string
+    marginalPerDayUnit: string
+    marginalZeroCrossTpl: string
+    marginalColFactor: string
+    marginalColAmount: string
+    marginalColSource: string
+    marginalColFrom: string
+    marginalColTo: string
+    marginalColPerDay: string
+    marginalSignUncertain: string
+    sensitivityTitle: string
+    sensitivityDistanceTpl: string
+    sensitivityBreakEven: string
+    sensitivityGapTpl: string
+    sensitivityBreakEvenAboveOne: string
+    sensitivityActual: string
+    sensitivityAssumed: string
+    sensitivityHeldFixed: string
+    sensitivityMixedWeight: string
+    sensitivityChartAria: string
+    sensitivityColSurvival: string
+    sensitivityColRevenue: string
+    sensitivityColProfit: string
+    sensitivityColCostPerKg: string
+    sensitivityFeedHeldFixed: string
+    sensitivityCostHeldFixed: string
+    sensitivityPriceHeldFixed: string
+    sensitivityMeanWeight: string
+    costBarAria: string
+    costBarOpenEnd: string
+    costBarClosed: string
+    blockerChecklistTitle: string
+    profitPositive: string
+    profitNegative: string
+    sizeLadderTitle: string
+    sizeLadderColSize: string
+    sizeLadderColCountPerKg: string
+    sizeLadderColPrice: string
+    sizeLadderColBand: string
+    sizeLadderColPremium: string
+    sizeLadderAnchorNote: string
+  }
+  /**
+   * 엔진이 돌려준 **코드 → 문구**. 엔진 넷(lib/growth·profitability·pricing·
+   * harvest)은 설계 규칙으로 문장을 만들지 않는다 — 코드와 수치만 돌려주고
+   * 번역이 화면의 일이다(raspberry-pi/advice.py 와 같은 원칙).
+   *
+   * **production 안에 넣지 않았다.** 엔진 6(다국어 리포트)이 같은 코드 집합을
+   * PDF 에서 다시 쓴다. 화면 전용 섹션에 묻어 두면 그때 전부 옮기게 된다.
+   *
+   * 수치는 문구에 넣지 않는다 — ExclusionChip 이 `{제목} · {수량}{단위}` 로
+   * 조립하고 단위는 unit 에서 온다. 불가피한 키만 `{{n}}` 보간(`Tpl` 접미사).
+   */
+  engines: {
+    /** 짧은 제목. 칩·요약줄에 쓴다. 엔진 2(12) + 단가(17) + 엔진 3(11) = 40 코드. */
+    exclusion: {
+      // 엔진 2 — lib/profitability/exclusions.ts
+      cost_not_recorded: string
+      cost_depreciation_not_modeled: string
+      electricity_billing_incomplete: string
+      revenue_unsold_inventory: string
+      harvest_not_in_event_ledger: string
+      price_from_channel_median: string
+      price_basis_not_selected: string
+      remaining_period_cost_not_estimated: string
+      survival_rate_assumed: string
+      abw_from_growth_projection: string
+      cycle_boundary_derived_label: string
+      cycle_boundary_not_resolved: string
+      // 크기별 단가 — lib/pricing/exclusions.ts
+      price_elasticity_provisional: string
+      price_elasticity_single_vendor: string
+      price_elasticity_lower_bound: string
+      price_elasticity_size_dependent: string
+      price_elasticity_form_specific: string
+      price_seasonality_not_modeled: string
+      price_ladder_vendor_mixed: string
+      price_ladder_premium_excluded: string
+      price_ladder_not_monotonic: string
+      price_ladder_elasticity_implausible: string
+      price_ladder_form_not_slope_eligible: string
+      price_stage_multiplier_assumed: string
+      price_stage_multiplier_ranged: string
+      price_extrapolated_from_anchor: string
+      price_target_outside_observed_size: string
+      price_official_statistics_unavailable: string
+      price_anchor_not_farmgate: string
+      // 엔진 3 — lib/harvest/exclusions.ts
+      harvest_daily_survival_default: string
+      harvest_zero_mortality_assumed: string
+      harvest_water_temp_outlook_assumed: string
+      harvest_anchor_converted_to_farmgate: string
+      harvest_horizon_truncated: string
+      harvest_window_indistinguishable: string
+      harvest_abw_uncertainty_not_in_band: string
+      harvest_abw_at_winf_ceiling: string
+      harvest_feed_rate_caller_supplied: string
+      harvest_candidate_now_added: string
+      harvest_marginal_never_crosses_zero: string
+    }
+    /** 한 줄 설명. 「자세히」가 펼치는 것. exclusion 과 같은 키 집합이다. */
+    exclusionDetail: {
+      cost_not_recorded: string
+      cost_depreciation_not_modeled: string
+      electricity_billing_incomplete: string
+      revenue_unsold_inventory: string
+      harvest_not_in_event_ledger: string
+      price_from_channel_median: string
+      price_basis_not_selected: string
+      remaining_period_cost_not_estimated: string
+      survival_rate_assumed: string
+      abw_from_growth_projection: string
+      cycle_boundary_derived_label: string
+      cycle_boundary_not_resolved: string
+      price_elasticity_provisional: string
+      price_elasticity_single_vendor: string
+      price_elasticity_lower_bound: string
+      price_elasticity_size_dependent: string
+      price_elasticity_form_specific: string
+      price_seasonality_not_modeled: string
+      price_ladder_vendor_mixed: string
+      price_ladder_premium_excluded: string
+      price_ladder_not_monotonic: string
+      price_ladder_elasticity_implausible: string
+      price_ladder_form_not_slope_eligible: string
+      price_stage_multiplier_assumed: string
+      price_stage_multiplier_ranged: string
+      price_extrapolated_from_anchor: string
+      price_target_outside_observed_size: string
+      price_official_statistics_unavailable: string
+      price_anchor_not_farmgate: string
+      harvest_daily_survival_default: string
+      harvest_zero_mortality_assumed: string
+      harvest_water_temp_outlook_assumed: string
+      harvest_anchor_converted_to_farmgate: string
+      harvest_horizon_truncated: string
+      harvest_window_indistinguishable: string
+      harvest_abw_uncertainty_not_in_band: string
+      harvest_abw_at_winf_ceiling: string
+      harvest_feed_rate_caller_supplied: string
+      harvest_candidate_now_added: string
+      harvest_marginal_never_crosses_zero: string
+    }
+    /** ExclusionUnit. 수치 뒤에 붙는다. countPerKg 는 화면 전용(엔진 단위가 아니다). */
+    unit: {
+      krw: string
+      krw_per_kg: string
+      kg: string
+      count: string
+      month: string
+      day: string
+      gram: string
+      ratio: string
+      countPerKg: string
+    }
+    /** SalesChannel — lib/profitability/constants.ts */
+    channel: {
+      wholesale: string
+      retail_live: string
+      retail_frozen: string
+    }
+    channelObservedTpl: string
+    /** 설계서 2-2 의 세 그룹. 금액축에서의 위치로 갈린다. */
+    group: {
+      quantified: string
+      unquantified: string
+      denominator: string
+    }
+    groupHint: {
+      quantified: string
+      unquantified: string
+      denominator: string
+    }
+    /** 근거 출처 태그. 블랙박스 금지(계획서 2-3). */
+    source: {
+      growth: string
+      pricing: string
+      profitability: string
+      harvest: string
+    }
+    /** FitFailure — lib/growth/gompertz.ts */
+    fitFailure: {
+      invalid_winf: string
+      no_samples: string
+      insufficient_samples: string
+      degenerate_axis: string
+      non_finite_params: string
+    }
+    /** CddForAbwFailure */
+    cddFailure: {
+      invalid_params: string
+      target_not_positive: string
+      target_at_or_above_winf: string
+      non_finite_result: string
+    }
+    /** ExclusionReason — 성장 실측에서 빠진 점의 이유 */
+    growthExcluded: {
+      not_finite: string
+      abw_not_positive: string
+      below_stanza_break: string
+      abw_at_or_above_winf: string
+    }
+    /** PriceFailure — lib/profitability/channel.ts */
+    priceFailure: {
+      price_basis_not_selected: string
+      invalid_price: string
+      no_realized_basis: string
+    }
+    /** SizePriceFailure — lib/pricing/size-price.ts */
+    sizePriceFailure: {
+      anchor_invalid: string
+      target_invalid: string
+      anchor_premium_excluded: string
+      elasticity_form_mismatch: string
+      elasticity_out_of_plausible_range: string
+    }
+    /** BreakEvenFailure — lib/profitability/sensitivity.ts */
+    breakEvenFailure: {
+      no_price: string
+      no_mean_weight: string
+      no_stocked_count: string
+      unreachable: string
+    }
+    /** HarvestDecisionCode — 엔진 3 의 판정. **문장이 아니라 코드다.** */
+    decision: {
+      harvest_now: string
+      hold: string
+      window_includes_now: string
+      hold_beyond_horizon: string
+      indeterminate: string
+    }
+    /** HarvestWindowFailure(+ HarvestAnchorFailure) */
+    windowFailure: {
+      count_unavailable: string
+      survival_rate_invalid: string
+      no_candidates: string
+      now_not_evaluable: string
+      price_anchor_not_farmgate: string
+      price_anchor_unconvertible: string
+    }
+    /** CandidateFailure — 후보 하나를 평가하지 못한 이유 */
+    candidateFailure: {
+      abw_unavailable: string
+      survival_unavailable: string
+      price_unavailable: string
+      profit_unavailable: string
+    }
+    /**
+     * AttributionCode — 이익 차액의 요인 분해.
+     * **cost_* 여섯 개를 다 적는다** — 템플릿 리터럴 `cost_${CostItem}` 이라
+     * 비용 6항목 전부가 올 수 있고, 다섯 개만 적으면 cost_labor 가 화면에서
+     * 조용히 사라진다(설계서 4-5).
+     */
+    attribution: {
+      size_premium: string
+      growth: string
+      mortality: string
+      price_size_interaction: string
+      cost_pl: string
+      cost_feed: string
+      cost_electricity: string
+      cost_labor: string
+      cost_chemicals: string
+      cost_other: string
+    }
+    /** MarginalSign — 하루당 이익 변화의 부호 패턴 */
+    marginalSign: {
+      always_positive: string
+      always_negative: string
+      crosses: string
+      mixed: string
+      indeterminate: string
+    }
+    /** 이익 밴드의 폭이 어디서 왔나. **「신뢰구간」이 아니다.** */
+    bandSource: {
+      price_elasticity: string
+      abw_uncertainty: string
+    }
+    /** DailySurvivalSource — 일별 생존율의 출처 */
+    survivalSource: {
+      provided: string
+      derived_from_cycle: string
+      default: string
+    }
+    /** DistributionStage — 단가가 어느 유통 단계의 것인가 */
+    stage: {
+      farmgate: string
+      wholesale: string
+      mart_promo: string
+      direct_bulk: string
+      online_retail: string
+      online_premium: string
+    }
+    /** ProductForm — 상품 상태. 활 ÷ 냉동 ≈ 2.2 배라 섞지 않는다. */
+    form: {
+      live: string
+      fresh: string
+      chilled: string
+      frozen: string
+    }
+    /** EngineBlocker — 계산에 필요한 것 체크리스트(설계서 4-7) */
+    blocker: {
+      no_samples: string
+      samples_below_min: string
+      samples_below_stanza: string
+      fit_failure: string
+      no_price_basis: string
+      no_cost: string
+      no_temp_series: string
+      window_failure: string
+    }
+    /** 밴드는 신뢰구간이 아니라는 설명. 금액 폭 옆에 상시 노출한다. */
+    bandNotCi: string
   }
   loginX: {
     heroTitle: string

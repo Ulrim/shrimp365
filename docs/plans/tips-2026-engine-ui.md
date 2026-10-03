@@ -104,7 +104,19 @@ CycleDetail
 | **B. 모르는 폭 (아래쪽)** | `cost_not_recorded` ×3(인건·약품·기타) · `cost_depreciation_not_modeled` · `electricity_billing_incomplete` 2개월 | 손익을 **내린다** | **모른다.** 엔진이 추정을 거부한다(전기는 월별 3배 계절성, 감가는 모델에 없음) |
 | **C. 분모 경고** | `cycle_boundary_derived_label` | 금액이 아니다 | 생존율 44.8% · FCR 3.21 의 **분모 신뢰도**를 흔든다 |
 
-→ **기록된 −2,921만원은 비관 끝값이 아니다. 위로 아는 폭이 2,431만원 있고, 아래로는 폭을 모르는 구간이 열려 있는, 축 중간의 한 점이다.**
+→ **기록된 −2,921만원은 비관 끝값이 아니다. 위로 아는 폭이 있고, 아래로는 폭을 모르는 구간이 열려 있는, 축 중간의 한 점이다.**
+
+> **구현에서 A 그룹이 둘로 갈렸다(2026-10-03).** 이 표는 A 두 건이 모두
+> 「kg × 사용자가 고른 단가」로 계산된다고 적었는데, **원장 누락 출하는 계산되지
+> 않는다.** 엔진 2 가 거부한다 — `outOfLedgerHarvestKg` 는 중량만 받고 매출로
+> 환산하지 않는다(`performance.ts` 58~64행: 「엔진이 매출로 환산하지 않는다 —
+> 단가를 모른다」). 출하 시점·채널·크기를 모르는 중량에 단가를 곱하면 그것은
+> 관측이 아니라 **가정**이고, 그 가정이 손익에 그대로 들어간다.
+>
+> 그래서 띠의 상한은 **재고 평가분만**이다(설계서의 +2,431만이 아니라 재고 몫
+> 하나). 원장 누락분은 중량만 보이는 행으로 남고 금액 자리에 「폭 미상」이
+> 들어간다. **설계서보다 좁은 폭을 그리는 쪽이 맞다** — 폭을 넓게 그려 놓고 그
+> 끝이 가정이면, 폭을 그린 목적(모르는 것을 모른다고 보이기)이 뒤집힌다.
 
 이 한 문장이 설계의 전부다. 그러면 그래픽이 결정된다.
 
@@ -308,27 +320,75 @@ type ExclusionChipProps = {
 
 ### 4-4. `HarvestWindowBand` (≥sm) / `HarvestWindowStrip` (<sm)
 
-> **엔진 3 은 아직 없다.** 아래 타입은 과제 설명(「후보 시점별 이익(밴드), 추천 구간, 한계분석」)에서
-> 역산한 **가정**이다. 서연이 `lib/harvest/index.ts` 를 쓰는 사람이므로 이름이 다르면 **그쪽을 따르고
-> 이 문서를 고친다.** 화면이 필요로 하는 최소 필드는 이것이다 — 엔진 3 설계의 입력으로 써도 된다.
+> **정합 완료(2026-10-03).** 이 절은 원래 엔진 3 이 없을 때 과제 설명에서 역산한 **가정 타입**이었다.
+> `lib/harvest/` 가 구현된 뒤 실제 반환 타입으로 고쳐 적었다 — 설계서가 엔진을 따른다(10절 D-2 의
+> 약속대로). **아래 이름이 `lib/harvest/index.ts` 의 것이고, 화면은 이것만 읽는다.**
+>
+> 가정과 실제가 어긋난 자리 여섯 군데를 그대로 기록해 둔다. 이름만 바뀐 것이 아니라
+> **설계가 바뀐 자리가 둘(③⑥)** 있다.
+>
+> | # | 가정했던 것 | 엔진의 실제 | 왜 다른가 |
+> |---|---|---|---|
+> | ① | `candidate.profitKrw` | `candidate.operatingProfitKrw` | 엔진 2 의 `ActualPerformance.operatingProfitKrw` 와 같은 이름을 쓴다. 두 엔진의 「이익」이 다른 이름이면 화면이 둘을 섞는다 |
+> | ② | `window.indistinguishableWithinWindow` | `window.recommended.indistinguishableWithinWindow` | **구간이 없으면 구분 가능성도 없다.** 최상위에 두면 `recommended === null` 일 때 `false` 가 「구분된다」로 읽힌다 |
+> | ③ | `MarginalRow`(요인별 금액) | `candidate.attribution.components[].code` | **이름이 아니라 구조가 다르다.** 4-5 참조 — 엔진의 `MarginalRow` 는 **후보와 후보 사이의 하루당 이익 변화**(다른 것)이고, 요인 분해는 `ProfitAttribution` 이다 |
+> | ④ | `factor: "weight_gain"` | `code: "growth"` | |
+> | ⑤ | `factor: "feed_cost"` / `"electricity_cost"` | `code: "cost_feed"` / `"cost_electricity"` | 템플릿 리터럴 `` `cost_${CostItem}` `` 이라 비용 6항목 전부가 올 수 있다. 화면이 다섯 요인만 하드코딩하면 `cost_labor` 가 조용히 사라진다 |
+> | ⑥ | (없음) | `code: "price_size_interaction"` | **교차항이 새로 있다.** 성장×폐사·바이오매스×단가가 셋으로 나뉘지 않아 잔차로 둔 항이고, 그래서 **components 의 합이 `profitDeltaKrw` 와 정확히 같다.** 화면이 이 행을 빼면 합이 안 맞고, 그 차이를 화면이 숨기거나 꾸며야 한다 |
+>
+> 그리고 `marginal` 은 **null 이 아니다** — 언제나 객체이고, 못 구했으면 `sign: "indeterminate"` 다.
 
 ```ts
+// lib/harvest/index.ts 의 실제 타입. 화면이 읽는 필드만 발췌했다.
 type HarvestCandidate = {
-  date: string              // ISO. 날짜다 — 적산수온이 아니다
   dayOffset: number
+  date: string | null              // 기준일을 안 받으면 null. **지어내지 않는다**
   abwG: number | null
-  profitKrw: number | null
-  profitBandKrw: { low: number; high: number } | null  // 단가 탄력성 0.63~0.73 폭
-  exclusions: Exclusion[]
+  countPerKg: number | null        // 농가가 등급으로 읽는 표기
+  operatingProfitKrw: number | null
+  profitBandKrw: { low: number; high: number } | null   // 탄력성 0.63~0.73 폭
+  profitDeltaFromNowKrw: number | null                  // "지금 출하" 대비 차액
+  profitDeltaBandKrw: { low: number; high: number } | null
+  priceKrwPerKg: number | null
+  priceRatioFromAnchor: number | null                   // 1.0655 면 +6.55%
+  priceOutsideObservedSize: boolean                     // 사다리 관측 범위(23.5~33.3 g) 밖
+  abwAtWinfCeiling: boolean
+  attribution: ProfitAttribution | null                 // 4-5
+  failure: CandidateFailure | null
+  exclusions: HarvestExclusion[]
 }
+
+type RecommendedWindow = {
+  startDayOffset: number; endDayOffset: number
+  startDate: string | null; endDate: string | null      // 기준일 없으면 null
+  candidateCount: number
+  indistinguishableWithinWindow: boolean                // ★ 구간 안에 있다(위 ②)
+  includesNow: boolean
+}
+
 type HarvestWindow = {
-  candidates: HarvestCandidate[]
-  recommended: { startDate: string; endDate: string } | null  // ★ 점이 아니라 구간
-  /** 구간 안에서 통계적으로 구분되지 않는다는 사실. 화면이 이것을 문장으로 띄운다. */
-  indistinguishableWithinWindow: boolean
-  marginal: MarginalBreakdown | null   // 4-5
-  failure: string | null
-  exclusions: Exclusion[]
+  asOfDate: string | null
+  stepDays: number | null
+  horizonDays: number
+  candidates: readonly HarvestCandidate[]
+  unevaluableCandidateCount: number                     // 0 이 아니면 최대가 그 뒤일 수 있다
+  best: { index: number; dayOffset: number; date: string | null
+          operatingProfitKrw: number
+          profitBandKrw: { low: number; high: number } | null } | null
+  recommended: RecommendedWindow | null                 // ★ 점이 아니라 구간
+  decision: HarvestDecisionCode | null                  // 문장이 아니다
+  band: { sources: readonly ("price_elasticity" | "abw_uncertainty")[]
+          priceElasticity: { low: number; high: number }
+          abwUncertaintyG: number }                     // 「신뢰구간」이 아니다
+  marginal: MarginalAnalysis                            // ★ null 이 아니다
+  survival: { dailySurvivalRate: number | null; dailyMortalityRate: number | null
+              source: DailySurvivalSource }
+  price: { stage: DistributionStage | null; form: ProductForm | null
+           anchorKrwPerKg: number | null; anchorAbwG: number | null
+           elasticity: SizeElasticity
+           convertedFrom: DistributionStage | null; conversionMultiplier: number | null }
+  failure: HarvestWindowFailure | null
+  exclusions: HarvestExclusion[]
 }
 ```
 
@@ -336,32 +396,66 @@ type HarvestWindow = {
 - 추천 구간에 **해칭 패턴**을 깐다 — SVG `<defs><pattern>` 로 45° 사선. §10 `pattern-texture`: 색 없이도 구간이 구분돼야 한다.
 - 농가의 수동 입력 `cycle.target_harvest_date` 는 `ReferenceLine` 으로 **병기**한다(계획서 2-3: 「수동 입력을 추천값과 병기」). 추천과 다르면 그 사실이 눈에 보여야 한다.
 - 구간 폭 텍스트를 차트 밖에 항상 쓴다: `11월 18일 ~ 24일 · 7일` + `이 구간 안에서는 차이가 구분되지 않습니다`.
+- `recommended.startDate` 가 `null` 이면(기준일 미지정) **일수로 쓴다** — `지금부터 14~21일`. 날짜를 지어내지 않는다.
+- `decision` 다섯 코드가 각각 다른 문장이다. 특히 `hold_beyond_horizon` 과 `indeterminate` 를 `hold` 와 같은 문구로 처리하면 **보지 않은 날을 보고 고른 것처럼 읽힌다**(엔진 주석). `unevaluableCandidateCount > 0` 이면 그 수를 같이 쓴다.
 
 ### 4-5. `MarginalBreakdown` — 요구 ③
 
+> **정합 완료(2026-10-03).** 이 절의 가정 타입(`MarginalRow.factor`)은 엔진에 없다. 그리고 이것은
+> 이름 문제가 아니다 — **엔진에는 `MarginalRow` 라는 타입이 실제로 있는데, 뜻이 다르다.**
+>
+> | 엔진의 타입 | 무엇인가 | 이 컴포넌트가 쓰는가 |
+> |---|---|---|
+> | `ProfitAttribution.components[]` | **요인별 금액 분해**(크기 프리미엄·성장·폐사·교차항·비용). 후보 하나를 "지금" 과 비교한 것 | **이것이다.** 발산 막대의 행 |
+> | `MarginalAnalysis.rows[]` (`MarginalRow`) | **후보와 후보 사이의 하루당 이익 변화**(원/일). 0 을 지나는 지점이 경제적 출하 적기 | 같은 컴포넌트의 **아래쪽 보조 표**. 요인 분해가 아니다 |
+>
+> 둘을 섞으면 안 된다. 하나는 「왜 이익이 바뀌나」이고 하나는 「언제 바뀜이 멈추나」다.
+
 ```ts
-type MarginalRow = {
-  factor: "size_premium" | "weight_gain" | "mortality_loss" | "feed_cost" | "electricity_cost" | "net"
-  /** 세 상태뿐이다. 「0」은 상태가 아니다. */
-  state: "value" | "band" | "not_estimated"
-  krw: number | null
-  bandKrw: { low: number; high: number } | null
-  /** 보조 수치. 예: 크기 프리미엄의 priceRatio 1.0655 */
-  ratio: number | null
-  source: "growth" | "pricing" | "profitability" | "harvest"
-  exclusions: Exclusion[]
+// 요인 분해 — 발산 막대의 행. candidate.attribution 을 그대로 읽는다.
+type AttributionCode =
+  | "size_premium"            // 큰 개체의 kg당 단가 프리미엄
+  | "growth"                  // ★ "weight_gain" 이 아니다
+  | "mortality"               // ★ "mortality_loss" 가 아니다. 음수다
+  | "price_size_interaction"  // ★ 새로 있다. 교차항(성장×폐사, 바이오매스×단가)
+  | `cost_${CostItem}`        // ★ cost_feed · cost_electricity · cost_pl · cost_labor
+                              //    · cost_chemicals · cost_other. 음수다
+type AttributionComponent = { code: AttributionCode; krw: number }
+type ProfitAttribution = {
+  baselineDayOffset: number
+  revenueDeltaKrw: number
+  costDeltaKrw: number
+  profitDeltaKrw: number
+  components: readonly AttributionComponent[]
+  dominantGainCode: AttributionCode | null   // 가장 큰 플러스. 화면이 강조한다
+  dominantLossCode: AttributionCode | null   // 가장 큰 마이너스
 }
-type MarginalBreakdown = { rows: MarginalRow[]; horizonDays: number }
+
+// 하루당 변화 — 보조 표. window.marginal 을 읽는다. **null 이 아니다**
+type MarginalRow = {
+  fromDayOffset: number; toDayOffset: number; days: number
+  deltaProfitKrw: number | null
+  perDayKrw: number | null                               // 0 을 지나는 지점이 적기다
+  perDayBandKrw: { low: number; high: number } | null
+  signCertain: boolean                                   // 밴드가 0 을 품지 않는가
+}
+type MarginalAnalysis = {
+  rows: readonly MarginalRow[]
+  sign: "always_positive" | "always_negative" | "crosses" | "mixed" | "indeterminate"
+  crossing: { fromDayOffset: number; toDayOffset: number } | null
+  zeroCrossingDayOffset: number | null                    // 선형보간한 0 통과 일수
+}
 ```
 
 - **발산 수평 막대.** 중앙 0선에서 오른쪽(이익↑) / 왼쪽(이익↓). 행 끝에 `tabular-nums` 금액 + `▲`/`▼` + 텍스트. **recharts 를 쓰지 않는다** — waterfall 이 없고, div 20줄로 더 잘 된다.
-- 행마다 **출처 태그**(`엔진1`/`단가`/`엔진2`)를 작게 붙인다. 계획서 2-3 검증 조건이 「근거 수치가 화면에 모두 노출(블랙박스 금지)」다.
-- `state: "not_estimated"` 행은 **점선 테두리 + 「미산정」**. 사료비가 여기 걸리는 경우가 실제로 많다 — `projectHarvestScenarios` 는 잔여 급이량을 안 받으면 0 으로 채우지 않고 `remaining_period_cost_not_estimated` 를 올린다(`projection.ts` 16~19행). **그 행을 0 으로 그리면 "2주 더 키워라" 쪽으로 이익이 부풀고, 그것이 이 화면에서 가장 위험한 착각이다.**
-- 미산정 행이 하나라도 있으면 `net` 행의 **아래쪽 끝을 열어 둔다**(2-3 의 `◀┄` 와 같은 처방).
-- `mortality_loss` 는 거의 항상 `survival_rate_assumed` 를 달고 온다 — 엔진 1 은 ABW 만 예측하고 생존율을 예측하지 않는다. 그 칩을 그 행에 붙인다.
-- `[수치 표 ▾]` 토글 → 같은 데이터를 `<table>` 로. §10 `data-table`(차트만으로는 SR 접근 불가) 과 블랙박스 금지를 한 번에 만족한다.
-
-### 4-6. `SurvivalSensitivity` — 요구 ④
+- **행 목록을 하드코딩하지 않는다.** `components` 를 순회한다. 가정 타입의 다섯 요인만 적으면 `cost_labor`·`cost_chemicals`·`price_size_interaction` 이 **조용히 사라지고, 그러면 막대의 합이 `profitDeltaKrw` 와 안 맞는다.** 엔진이 교차항을 잔차로 둔 이유가 「합이 정확히 같게」 하려는 것이므로(`candidate.ts` 172~178행) 그 성질을 화면이 깨면 안 된다.
+- **합계 행은 `profitDeltaKrw` 를 그대로 쓴다.** 막대를 더해 만들지 않는다 — 반올림된 값에서 다시 계산하지 않는다는 3-2 규칙.
+- 행마다 **출처 태그**를 작게 붙인다. 계획서 2-3 검증 조건이 「근거 수치가 화면에 모두 노출(블랙박스 금지)」다. 코드 → 출처 매핑: `size_premium`·`price_size_interaction` → `pricing` / `growth`·`mortality` → `growth` / `cost_*` → `profitability`.
+- **「미산정」 상태는 엔진의 `null` 로 판정한다.** 가정 타입의 `state` 필드는 엔진에 없다. 화면이 세운다 —
+  `candidate.additionalCostKrw === null` 이면 비용 행 전체가 미산정이고(`projectHarvestScenarios` 는 잔여 급이량을 안 받으면 0 으로 채우지 않고 `remaining_period_cost_not_estimated` 를 올린다), `candidate.attribution === null` 이면 분해 자체가 없다. **비용 행을 0 으로 그리면 "2주 더 키워라" 쪽으로 이익이 부풀고, 그것이 이 화면에서 가장 위험한 착각이다.**
+- 미산정 행이 하나라도 있으면 합계 행의 **아래쪽 끝을 열어 둔다**(2-3 의 `◀┄` 와 같은 처방).
+- `mortality` 행은 거의 항상 `survival_rate_assumed`(또는 `harvest_daily_survival_default`)를 달고 온다 — 엔진 1 은 ABW 만 예측하고 생존율을 예측하지 않는다. 그 칩을 그 행에 붙인다.
+- `[수치 표 ▾]` 토글 → 같은 데이터를 `<table>` 로. §10 `data-table`(차트만으로는 SR 접근 불가) 과 블랙박스 금지를 한 번에 만족한다. 이 표에 `marginal.rows`(하루당 변화)도 같이 넣는다.
 
 ```ts
 type SurvivalSensitivityProps = {
@@ -761,8 +855,8 @@ div. 사유는 2-3 에 적었다.
 
 | # | 항목 | 왜 막히나 | 제안 |
 |---|---|---|---|
-| **D-1** | **일별 평균 수온 시계열이 화면에 없다** | 엔진 1 은 `cumulativeDegreeDays(DailyWaterTemp[])` 로 적산수온축을 만든다. 그런데 `CycleDetail` 은 샘플·비용·수확만 불러온다(325~335행). `lib/db.ts` 의 수온 조회는 `getWaterQuality(tankId, hours = 168)` 뿐이고 **60초 주기** 원시 행이다. 9개월 사이클이면 약 39만 행 — 클라이언트에서 받을 수 없다. **엔진 1 이 이 화면에서 못 돌아간다** | **일별 평균 수온 집계가 필요하다**(뷰 또는 집계 쿼리 1건). 계획서 1-4 의 `wq_series` 월별 파티셔닝과 같은 자리다. 나는 `lib/`·DB 를 건드리지 않으므로 서연 몫이다. 그때까지 성장 탭은 7절 「수온 시계열 없음」 상태로 렌더된다 |
-| **D-2** | **엔진 3 반환 타입 미확정** | `lib/harvest/` 가 아직 없다 | 4-4 의 `HarvestWindow`·`HarvestCandidate`·`MarginalRow` 는 **화면이 필요로 하는 최소 필드**다. 엔진 3 설계의 입력으로 쓰거나, 다른 이름이면 엔진을 따르고 이 문서를 고친다. **`recommended` 가 구간(시작·끝)이어야 하고 `indistinguishableWithinWindow` 가 반환값에 있어야 한다** — 없으면 화면이 그 문장을 지어내게 된다 |
+| **D-1** | ~~**일별 평균 수온 시계열이 화면에 없다**~~ → **해소(2026-10-03)** | 엔진 1 은 `cumulativeDegreeDays(DailyWaterTemp[])` 로 적산수온축을 만든다. 그런데 `CycleDetail` 은 샘플·비용·수확만 불러온다. `lib/db.ts` 의 수온 조회는 `getWaterQuality(tankId, hours = 168)` 뿐이고 **60초 주기** 원시 행이다. 9개월 사이클이면 약 39만 행 — 클라이언트에서 받을 수 없다. 게다가 `wq_series` 는 `p_hours` 를 `LEAST(..., 24 * 60)` 으로 자르므로 **상한이 60일**이고, 버킷도 달력일이 아니라 epoch 초를 나눈 것이라 적산수온의 날짜 단위와 맞지 않는다 | **DB 함수 `wq_daily_mean(p_tank, p_from, p_to)` 를 신설했다**(`supabase/migrations/wq_daily_mean.sql`) — 달력일(Asia/Seoul) 평균. `wq_series` 를 고치지 않은 이유는 그쪽이 그래프용이고 상한을 늘리면 그래프가 느려진다는 것(마이그레이션 머리주석). 조회 경로는 `lib/db.ts` 의 `getDailyWaterTemps()`. **사람이 Supabase SQL Editor 에서 그 파일을 실행해야 동작한다** — 실행 전에는 성장 탭이 7절 「수온 시계열 없음」 상태로 렌더된다 |
+| **D-2** | ~~**엔진 3 반환 타입 미확정**~~ → **해소(2026-10-03)** | `lib/harvest/` 가 없었다 | 엔진 3 이 구현됐고 **설계서를 엔진에 맞춰 고쳤다**(4-4·4-5). 가정과 어긋난 자리 여섯 군데를 4-4 의 표에 기록해 두었다. 약속한 두 조건은 둘 다 지켜졌다 — `recommended` 는 구간(`startDayOffset`·`endDayOffset` + 날짜)이고, `indistinguishableWithinWindow` 는 반환값에 있다(단, **최상위가 아니라 `recommended` 안**이다 — 구간이 없으면 구분 가능성도 없으므로) |
 | **D-3** | 잔여기간 급이량 입력 경로 | `projectHarvestScenarios` 의 `additionalCost` 를 아무도 채우지 않으면 한계분석의 사료비 행이 영구히 「미산정」이다 | 엔진 5(급이 최적화, 계획서 3-4)가 채울 자리다. 그때까지 미산정 행으로 두는 것이 맞다 — **0 으로 채우는 것이 가장 위험한 선택이다** |
 | **D-4** | `cycle.total_feed_kg` | FCR 이 이 값에 걸려 있다(343행) | 계획서 2-0 ①로 이미 처리됨. 확인만 |
 

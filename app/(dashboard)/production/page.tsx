@@ -9,7 +9,7 @@ import {
   getGrowthSamples, createGrowthSample, deleteGrowthSample,
   getCycleCosts, createCycleCost, deleteCycleCost,
   getCycleHarvests, createCycleHarvest, deleteCycleHarvest,
-  getAllTanks,
+  getAllTanks, getDailyWaterTemps,
 } from "@/lib/db"
 import { ProductionCycle, GrowthSample, CycleCost, CycleHarvest } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,30 +28,30 @@ import { Plus, Trash2, FlaskConical, TrendingUp, DollarSign, ChevronRight, Check
 import { format, differenceInDays } from "date-fns"
 import { ko } from "date-fns/locale"
 import type { Tank } from "@/types"
-import type { Dict, Locale } from "@/lib/i18n"
+import type { PriceBasis } from "@/lib/profitability"
 
-// 비용 카테고리 메타(값·색상은 코드, 라벨은 i18n)
-const COST_CATEGORY_META: { value: CycleCost["category"]; color: string }[] = [
-  { value: "pl",          color: "bg-teal-500" },
-  { value: "feed",        color: "bg-blue-500" },
-  { value: "electricity", color: "bg-yellow-500" },
-  { value: "labor",       color: "bg-purple-500" },
-  { value: "chemicals",   color: "bg-orange-500" },
-  { value: "other",       color: "bg-muted-foreground" },
-]
+// ── 엔진 1·2·3 결과 블록(설계서 docs/plans/tips-2026-engine-ui.md) ─────────
+// 이 파일을 쪼개지 않는다. 새 컴포넌트는 전부 components/production/ 에 있고
+// 여기는 import 만 늘어난다.
+import { COST_CATEGORY_META } from "@/components/production/cost-meta"
+import { fmt, fmtKRW, localeTag, signColorClass, signGlyph } from "@/components/production/format"
+import { breakdownCandidate, useCycleEngines } from "@/components/production/use-cycle-engines"
+import type { EngineBlocker } from "@/components/production/use-cycle-engines"
+import { DecisionStrip } from "@/components/production/decision-strip"
+import { EngineEmptyState } from "@/components/production/engine-empty-state"
+import { GrowthCurveChart } from "@/components/production/growth-curve-chart"
+import { CostCompositionBar } from "@/components/production/cost-composition-bar"
+import { PriceBasisPicker } from "@/components/production/price-basis-picker"
+import { ProfitHeadline } from "@/components/production/profit-headline"
+import { InventoryInput } from "@/components/production/inventory-input"
+import { SurvivalSensitivityPanel } from "@/components/production/survival-sensitivity"
+import { HarvestWindowView } from "@/components/production/harvest-window"
+import { MarginalBreakdown } from "@/components/production/marginal-breakdown"
+import { SizePremiumLadder } from "@/components/production/size-premium-ladder"
 
-function localeTag(locale: Locale): string {
-  return locale === "ko" ? "ko-KR" : locale === "vi" ? "vi-VN" : locale === "id" ? "id-ID" : "en-US"
-}
-function fmt(n: number | null | undefined, locale: Locale, digits = 0): string {
-  if (n == null) return "-"
-  return n.toLocaleString(localeTag(locale), { maximumFractionDigits: digits })
-}
-function fmtKRW(n: number | null | undefined, locale: Locale, t: Dict): string {
-  if (n == null) return "-"
-  if (Math.abs(n) >= 1_000_000) return (n / 1_000_000).toFixed(1) + t.production.millionWon
-  return n.toLocaleString(localeTag(locale)) + t.production.won
-}
+// 수온 기록이 없음을 뜻하는 **안정된 빈 배열.** 매번 `[]` 를 새로 만들면
+// useCycleEngines 의 useMemo 가 렌더마다 엔진 셋을 다시 돌린다.
+const NO_TEMPS: { date: string; waterTempC: number | null }[] = []
 
 function StatusBadge({ status }: { status: ProductionCycle["status"] }) {
   const { t } = useT()
@@ -218,9 +218,15 @@ function NewSampleDialog({ cycle, open, onClose, onCreated }: { cycle: Productio
 }
 
 // ─── 비용 추가 모달 ─────────────────────────────────────────────────────────
-function NewCostDialog({ cycleId, open, onClose, onCreated }: { cycleId: string; open: boolean; onClose: () => void; onCreated: (c: CycleCost) => void }) {
+// initialCategory 는 「경고 → 작업」 경로를 위한 것이다. 비용 미입력 경고의
+// 「인건비 입력」 버튼이 이 모달을 category="labor" 로 미리 채워 연다.
+// **새 모달을 만들지 않는다**(설계서 2-5).
+function NewCostDialog({ cycleId, open, onClose, onCreated, initialCategory }: { cycleId: string; open: boolean; onClose: () => void; onCreated: (c: CycleCost) => void; initialCategory?: CycleCost["category"] | null }) {
   const { t } = useT()
-  const [form, setForm] = useState({ category: "feed" as CycleCost["category"], label: "", amount: "", recorded_at: new Date().toISOString().split("T")[0], notes: "" })
+  // **effect 로 채우지 않는다.** 초기 상태로 받고, 호출부가 key 로 다시 마운트
+  // 한다 — effect 에서 setState 하면 렌더가 한 번 더 돌고, 열려 있는 동안
+  // 사용자가 바꾼 선택을 덮을 위험도 생긴다.
+  const [form, setForm] = useState({ category: (initialCategory ?? "feed") as CycleCost["category"], label: "", amount: "", recorded_at: new Date().toISOString().split("T")[0], notes: "" })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(p => ({ ...p, [k]: e.target.value }))
@@ -320,7 +326,22 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
   const [tab, setTab] = useState("growth")
   const [sampleDlg, setSampleDlg] = useState(false)
   const [costDlg, setCostDlg] = useState(false)
+  const [costDlgCategory, setCostDlgCategory] = useState<CycleCost["category"] | null>(null)
   const [harvestDlg, setHarvestDlg] = useState(false)
+
+  // ── 엔진 입력 중 사람이 정하는 것 ────────────────────────────────────────
+  // **단가는 미리 고르지 않는다.** 도매 17,000 과 소매 활새우 26,500 이 56%
+  // 벌어지고, 고르는 순간 그 56% 가 결정된다. 엔진 2 도 기본 채널로 떨어지지
+  // 않는다(lib/profitability/channel.ts).
+  const [priceBasis, setPriceBasis] = useState<PriceBasis | null>(null)
+  // 재고 중량·원장 누락 중량. **빈 칸은 null 이고 0 이 아니다.**
+  const [inventoryKg, setInventoryKg] = useState<number | null>(null)
+  const [outOfLedgerKg, setOutOfLedgerKg] = useState<number | null>(null)
+  // 일별 평균 수온. null 은 「아직 안 불렀다」, [] 는 「불렀고 없다」다.
+  // mock 은 **state 를 거치지 않고 파생**시킨다 — effect 에서 동기로 setState
+  // 하면 렌더가 한 번 더 돈다.
+  const [fetchedTemps, setFetchedTemps] = useState<{ date: string; waterTempC: number | null }[] | null>(null)
+  const dailyTemps = isMock ? NO_TEMPS : fetchedTemps
 
   useEffect(() => {
     if (isMock) {
@@ -333,6 +354,38 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
       getCycleHarvests(cycle.id).then(setHarvests).catch(() => {})
     }
   }, [cycle.id, isMock])
+
+  // 일별 평균 수온 — 엔진 1 의 적산수온축 입력. **원시 행을 받지 않는다**:
+  // 60초 주기 × 9개월 = 약 39만 행이고 API 는 요청당 1,000행이다. DB 함수
+  // wq_daily_mean 이 달력일(Asia/Seoul) 평균으로 압축해 준다. 그 함수가 아직
+  // 실행되지 않은 환경에서는 빈 배열이 오고, 성장 탭이 「수온 기록 없음」
+  // 상태로 렌더된다 — 0℃ 로 채우지 않는다.
+  useEffect(() => {
+    if (isMock) return
+    const from = cycle.stocking_date
+    const to = cycle.actual_harvest_date ?? new Date().toISOString().slice(0, 10)
+    let alive = true
+    getDailyWaterTemps(cycle.tank_id, from, to)
+      .then(rows => { if (alive) setFetchedTemps(rows) })
+      .catch(() => { if (alive) setFetchedTemps(NO_TEMPS) })
+    return () => { alive = false }
+  }, [cycle.tank_id, cycle.stocking_date, cycle.actual_harvest_date, isMock])
+
+  // ── 엔진 1·2·3 한 번에 ──────────────────────────────────────────────────
+  const engines = useCycleEngines({
+    cycle, samples, costs, harvests, dailyTemps, priceBasis, inventoryKg, outOfLedgerKg,
+  })
+
+  // 경고의 「그 자리에서 고칠」 버튼이 기존 모달을 미리 채워 연다.
+  const openCostDialog = useCallback((category: CycleCost["category"]) => {
+    setCostDlgCategory(category)
+    setCostDlg(true)
+  }, [])
+
+  // 체크리스트에 늘 보여 줄 항목. 갖춰진 것은 ✓ 로 나온다.
+  const harvestChecklist: EngineBlocker["kind"][] = [
+    "no_temp_series", "samples_below_stanza", "no_cost", "no_price_basis", "window_failure",
+  ]
 
   // 계산 지표
   const totalCost = costs.reduce((s, c) => s + c.amount, 0)
@@ -399,12 +452,20 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
         </div>
       </div>
 
-      {/* 탭 */}
+      {/* 판정 한 줄 — KPI 와 Tabs 사이. 모바일에서 농가가 제일 먼저 보는 것. */}
+      <DecisionStrip
+        harvest={engines.window}
+        blockers={engines.blockers}
+        onJumpToHarvest={() => setTab("harvest")}
+      />
+
+      {/* 탭 — 네 칸이 상한이다(375px 에서 칸당 약 85px). 라벨은 2글자. */}
       <Tabs value={tab} onValueChange={setTab} className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="mx-4 mt-3 bg-muted border border-border grid grid-cols-3">
-          <TabsTrigger value="growth" className="text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-teal-500/20">{t.production.tabGrowth}</TabsTrigger>
-          <TabsTrigger value="cost" className="text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-teal-500/20">{t.production.tabCost}</TabsTrigger>
-          <TabsTrigger value="finance" className="text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-teal-500/20">{t.production.tabFinance}</TabsTrigger>
+        <TabsList className="mx-4 mt-3 bg-muted border border-border grid grid-cols-4">
+          <TabsTrigger value="growth" className="text-xs sm:text-sm text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-teal-500/20">{t.production.tabGrowth}</TabsTrigger>
+          <TabsTrigger value="cost" className="text-xs sm:text-sm text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-teal-500/20">{t.production.tabCost}</TabsTrigger>
+          <TabsTrigger value="finance" className="text-xs sm:text-sm text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-teal-500/20">{t.production.tabFinance}</TabsTrigger>
+          <TabsTrigger value="harvest" className="text-xs sm:text-sm text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-teal-500/20">{t.production.tabHarvest}</TabsTrigger>
         </TabsList>
 
         {/* 성장 추적 탭 */}
@@ -413,25 +474,56 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
             <h3 className="text-foreground font-medium">{t.production.abwGrowthCurve}</h3>
             {!isMock && <Button size="sm" onClick={() => setSampleDlg(true)} aria-label={t.production.sampleTitle} className="bg-teal-500 hover:bg-teal-600 text-white text-xs min-h-[44px]"><Plus className="w-3 h-3 mr-1" />{t.production.sampleInput}</Button>}
           </div>
-          {growthChartData.length > 0 ? (
-            <div className="bg-muted rounded-xl p-3" role="img" aria-label={t.production.abwChartAria}>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={growthChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
-                  <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--foreground))" }} />
-                  <Legend wrapperStyle={{ color: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                  <Line type="monotone" dataKey="ABW(g)" stroke="#14b8a6" strokeWidth={2} dot={{ fill: "#14b8a6", r: 4 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
+          {/* 엔진 1 — 적합·예측·±MAE 리본·제외된 점. 적합이 서면 이쪽을 그리고,
+              아니면 **빈 축을 그리지 않고** 무엇이 없는지 쓴다. */}
+          {samples.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
               <Fish className="w-10 h-10 opacity-30" />
               <p className="text-sm">{t.production.noSamples}</p>
               {!isMock && <Button size="sm" onClick={() => setSampleDlg(true)} className="mt-1 bg-teal-500 hover:bg-teal-600 text-white text-xs" aria-label={t.production.firstSample}><Plus className="w-3 h-3 mr-1" />{t.production.firstSample}</Button>}
             </div>
+          ) : (
+            <>
+              {engines.growthPoints.length > 0 ? (
+                <GrowthCurveChart
+                  fit={engines.fit}
+                  cddAxis={engines.cddAxis}
+                  growthPoints={engines.growthPoints}
+                  growthPointDates={engines.growthPointDates}
+                  cddNow={engines.cddNow}
+                  outlookWaterTempC={engines.outlookWaterTempC}
+                  horizonDays={28}
+                  targetWeightG={cycle.target_weight_g}
+                />
+              ) : (
+                // 적산수온축이 없으면 샘플이 있어도 엔진 1 이 못 돈다.
+                // 기존 LineChart 로 실측만 보여 주는 쪽이 아무것도 안 보여
+                // 주는 것보다 낫다 — 농가가 넣은 값이기 때문이다.
+                growthChartData.length > 0 && (
+                  <div className="bg-muted rounded-xl p-3" role="img" aria-label={t.production.abwChartAria}>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={growthChartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                        <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--foreground))" }} />
+                        <Legend wrapperStyle={{ color: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                        <Line type="monotone" dataKey="ABW(g)" stroke="#14b8a6" strokeWidth={2} dot={{ fill: "#14b8a6", r: 4 }} isAnimationActive={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )
+              )}
+              {/* 무엇이 없어서 곡선이 안 나오는지. 「샘플 없음」과 「7.5 g 이상
+                  샘플 부족」을 같은 문구로 처리하지 않는다. */}
+              <EngineEmptyState
+                blockers={engines.blockers.filter(b =>
+                  b.kind === "no_temp_series" || b.kind === "samples_below_min" ||
+                  b.kind === "samples_below_stanza" || b.kind === "fit_failure")}
+                onAction={() => setSampleDlg(true)}
+                actionLabel={b => (b.kind === "no_temp_series" || b.kind === "fit_failure" ? null : t.production.sampleInput)}
+              />
+            </>
           )}
 
           <div className="space-y-2">
@@ -461,8 +553,12 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
               <h3 className="text-foreground font-medium">{t.production.totalCost}</h3>
               <p className="text-2xl font-bold text-red-500">{fmtKRW(totalCost, locale, t)}</p>
             </div>
-            {!isMock && <Button size="sm" onClick={() => setCostDlg(true)} aria-label={t.production.addCost} className="bg-ocean-500 hover:bg-ocean-600 text-white text-xs min-h-[44px]"><Plus className="w-3 h-3 mr-1" />{t.production.addCost}</Button>}
+            {!isMock && <Button size="sm" onClick={() => { setCostDlgCategory(null); setCostDlg(true) }} aria-label={t.production.addCost} className="bg-ocean-500 hover:bg-ocean-600 text-white text-xs min-h-[44px]"><Plus className="w-3 h-3 mr-1" />{t.production.addCost}</Button>}
           </div>
+
+          {/* 엔진 2 — 비용 구성. **파이가 아니다**: 파이에는 「미입력」을 그릴
+              자리가 없고, 그러면 knownTotalKrw 가 총비용으로 읽힌다. */}
+          <CostCompositionBar cost={engines.cost} onFixCost={isMock ? undefined : openCostDialog} />
 
           {costByCategory.length > 0 && (
             <div className="grid grid-cols-3 gap-2">
@@ -502,6 +598,32 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
 
         {/* 수익 분석 탭 */}
         <TabsContent value="finance" className="flex-1 overflow-auto p-4 space-y-4">
+          {/* ── 엔진 2 ─────────────────────────────────────────────────────
+              순서가 뜻이다. 단가를 **먼저** 묻고(56% 레버), 그 다음 금액과 폭을
+              같은 무게로 보이고, 그 다음 「무엇을 고치면」의 답(생존율)이 온다.
+              기존 6 KPI 카드는 그 아래로 밀리기만 하고 지워지지 않는다 —
+              사후 집계 산식은 예측값의 검증 기준으로 남는다(엔진 2 머리주석). */}
+          <PriceBasisPicker
+            value={priceBasis}
+            onChange={setPriceBasis}
+            realizedKrwPerKg={engines.actualsRecorded.realizedPriceKrwPerKg}
+          />
+
+          <InventoryInput
+            inventoryKg={inventoryKg}
+            outOfLedgerKg={outOfLedgerKg}
+            onChange={next => { setInventoryKg(next.inventoryKg); setOutOfLedgerKg(next.outOfLedgerKg) }}
+          />
+
+          <ProfitHeadline
+            recorded={engines.actualsRecorded}
+            withKnownGap={engines.actualsWithKnownGap}
+            exclusions={engines.exclusions}
+            onFixCost={isMock ? undefined : openCostDialog}
+          />
+
+          <SurvivalSensitivityPanel sensitivity={engines.sensitivity} />
+
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-muted rounded-xl p-3">
               <p className="text-muted-foreground text-xs">{t.production.totalRevenue}</p>
@@ -511,13 +633,32 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
               <p className="text-muted-foreground text-xs">{t.production.totalCostSimple}</p>
               <p className="text-red-500 font-bold text-xl">{fmtKRW(totalCost, locale, t)}</p>
             </div>
-            <div className="bg-muted rounded-xl p-3">
+            {/* B-3 — **색만으로 부호를 말하지 않는다.** 적록색약 사용자에게
+                emerald 와 red 는 같은 색이다. 글리프(▲/▼)와 「이익」/「손실」
+                텍스트를 덧붙인다. 색은 그대로 둔다. */}
+            <div className="bg-muted rounded-xl p-3" aria-label={`${t.production.netProfit} ${fmtKRW(profit, locale, t)} ${profit >= 0 ? t.production.profitPositive : t.production.profitNegative}`}>
               <p className="text-muted-foreground text-xs">{t.production.netProfit}</p>
-              <p className={`font-bold text-xl ${profit >= 0 ? "text-emerald-500" : "text-red-500"}`}>{fmtKRW(profit, locale, t)}</p>
+              <p className={`font-bold text-xl tabular-nums ${signColorClass(profit)}`}>
+                <span aria-hidden="true">{signGlyph(profit)}</span>
+                {fmtKRW(Math.abs(profit), locale, t)}
+                <span className="ml-1 text-xs font-normal text-muted-foreground">
+                  {profit >= 0 ? t.production.profitPositive : t.production.profitNegative}
+                </span>
+              </p>
             </div>
-            <div className="bg-muted rounded-xl p-3">
+            <div className="bg-muted rounded-xl p-3" aria-label={`ROI ${roi ?? t.common.none}`}>
               <p className="text-muted-foreground text-xs">ROI</p>
-              <p className={`font-bold text-xl ${(parseFloat(roi ?? "0")) >= 0 ? "text-emerald-500" : "text-red-500"}`}>{roi ? `${roi}%` : (cycle.status === "active" ? t.production.statusActive : "-")}</p>
+              <p className={`font-bold text-xl tabular-nums ${roi === null ? "text-muted-foreground" : signColorClass(parseFloat(roi))}`}>
+                {roi === null
+                  ? (cycle.status === "active" ? t.production.statusActive : "-")
+                  : <>
+                      <span aria-hidden="true">{signGlyph(parseFloat(roi))}</span>
+                      {Math.abs(parseFloat(roi)).toFixed(1)}%
+                      <span className="ml-1 text-xs font-normal text-muted-foreground">
+                        {parseFloat(roi) >= 0 ? t.production.profitPositive : t.production.profitNegative}
+                      </span>
+                    </>}
+              </p>
             </div>
             <div className="bg-muted rounded-xl p-3" aria-label={`${t.production.fcrName} FCR ${fcr ?? cycle.fcr?.toFixed(2) ?? t.common.none}`}>
               <p className="text-muted-foreground text-xs">FCR <span className="text-muted-foreground/60 font-normal">({t.production.fcrName})</span></p>
@@ -554,12 +695,50 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
             )}
           </div>
         </TabsContent>
+
+        {/* ── 출하 탭 — 엔진 3 ──────────────────────────────────────────────
+            탭을 하나만 늘린 이유: 엔진 3 의 산출물(구간·한계분석·크기
+            프리미엄)은 서로를 설명하는 한 덩어리다. 수익 탭에 밀어 넣으면
+            스크롤이 길어져 생존율이 화면 밖으로 밀린다. */}
+        <TabsContent value="harvest" className="flex-1 overflow-auto p-4 space-y-4">
+          {engines.window === null ? (
+            // **빈 달력을 그리지 않는다.** 무엇이 없는지 체크리스트로 쓴다.
+            <EngineEmptyState
+              blockers={engines.blockers.filter(b => harvestChecklist.includes(b.kind))}
+              checklist={harvestChecklist}
+              onAction={b => {
+                if (b.kind === "no_price_basis") setTab("finance")
+                else if (b.kind === "no_cost") { setCostDlgCategory(null); setCostDlg(true) }
+                else if (b.kind === "samples_below_stanza") setSampleDlg(true)
+              }}
+              actionLabel={b =>
+                b.kind === "no_price_basis" ? t.production.priceBasisTitle
+                : b.kind === "no_cost" ? t.production.addCost
+                : b.kind === "samples_below_stanza" ? t.production.sampleInput
+                : null}
+            />
+          ) : (
+            <>
+              <HarvestWindowView harvest={engines.window} manualTargetDate={cycle.target_harvest_date} />
+              {/* 왜 그런지 — 요인 분해. 추천 구간의 대표(= best) 후보를 쓴다. */}
+              <MarginalBreakdown
+                candidate={breakdownCandidate(engines.window)}
+                marginal={engines.window.marginal}
+                exclusions={engines.window.exclusions}
+              />
+              <SizePremiumLadder
+                estimates={engines.sizePriceEstimates}
+                currentAbwG={latestSample?.abw_g ?? null}
+              />
+            </>
+          )}
+        </TabsContent>
       </Tabs>
 
       {!isMock && (
         <>
           <NewSampleDialog cycle={cycle} open={sampleDlg} onClose={() => setSampleDlg(false)} onCreated={s => setSamples(p => [...p, s])} />
-          <NewCostDialog cycleId={cycle.id} open={costDlg} onClose={() => setCostDlg(false)} onCreated={c => setCosts(p => [...p, c])} />
+          <NewCostDialog key={costDlgCategory ?? "default"} cycleId={cycle.id} open={costDlg} initialCategory={costDlgCategory} onClose={() => setCostDlg(false)} onCreated={c => setCosts(p => [...p, c])} />
           <NewHarvestDialog cycleId={cycle.id} open={harvestDlg} onClose={() => setHarvestDlg(false)} onCreated={h => setHarvests(p => [...p, h])} />
         </>
       )}
