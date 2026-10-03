@@ -6,21 +6,18 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
-import { useAgriRoute } from "@/lib/agri-route"
+import { AGRI_HIDDEN_NAV, useAgriRoute } from "@/lib/agri-route"
 import { cn } from "@/lib/utils"
 import {
   Home, LayoutDashboard, Droplets, ClipboardList,
   MoreHorizontal, Building2, FlaskConical, Package,
-  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight, BookOpen, BrainCircuit, MessageSquare, Layers, Radar,
+  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight, BookOpen, BrainCircuit, MessageSquare, Layers, Radar, Video, HelpCircle,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
 import { PLAN_LABELS, PLAN_COLORS } from "@/lib/plans"
 import { isMonitorAccount } from "@/lib/mock-data"
 import { localizedHref, stripLocalePrefix } from "@/lib/marketing-locale"
-
-// 농업 화면(/daumlabs)에 없는 메뉴 — sidebar 와 같은 집합(설계서 4-3).
-const AGRI_HIDDEN = new Set(["/production", "/inventory", "/ai-advisor", "/reports"])
 
 export function BottomNav() {
   const pathname = usePathname()
@@ -43,6 +40,7 @@ export function BottomNav() {
 
   const MORE = [
     { href: "/water-quality", icon: Droplets,      label: t.nav.waterQuality },
+    { href: "/vision",        icon: Video,         label: t.nav.vision },
     { href: "/journal",       icon: BookOpen,      label: t.nav.journal },
     { href: "/farms",         icon: Building2,     label: t.nav.farms },
     { href: "/production",    icon: FlaskConical,  label: t.nav.production },
@@ -55,7 +53,7 @@ export function BottomNav() {
     ...(showCardNews(locale) ? [{ href: localizedHref("/cardnews", locale), icon: Layers,        label: t.cardNews.title }] : []),
     ...(canControl ? [{ href: "/control", icon: Radar, label: "관제센터" }] : []),
     ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
-  ].filter(item => !isAgri || !AGRI_HIDDEN.has(item.href))
+  ].filter(item => !isAgri || !AGRI_HIDDEN_NAV.has(item.href))
 
   // 언어 접두사를 뗀 뒤 견준다. /en/cardnews 도 "더보기" 안의 항목이다.
   const here = stripLocalePrefix(pathname).path
@@ -168,6 +166,17 @@ export function BottomNav() {
 
             {/* Bottom actions */}
             <div className="px-4 pt-2 pb-6 mt-2 border-t border-border space-y-1">
+              {/* 도움말은 사이드바에만 있어 휴대폰에서는 갈 길이 없었다.
+                  사이드바와 같은 자리(설정 위)에 둔다. */}
+              <Link
+                href="/help"
+                onClick={() => setMoreOpen(false)}
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-foreground active:bg-accent transition-all"
+              >
+                <HelpCircle className="w-5 h-5 text-muted-foreground" />
+                <span className="flex-1 font-medium text-[15px] text-left">{t.headerX.help}</span>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </Link>
               <button
                 onClick={() => { setMoreOpen(false); setSettingsOpen(true) }}
                 className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-foreground active:bg-accent transition-all"
