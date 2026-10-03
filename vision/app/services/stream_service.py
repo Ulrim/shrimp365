@@ -20,6 +20,7 @@ import numpy as np
 from app.config import settings, simulation_mode_active
 from app.database import SessionLocal, utcnow
 from app.models import Camera, CountRecord
+from app.services import tuning
 from app.services.broadcaster import broadcaster
 from app.services.camera_source import CameraSource, PiCameraSource, SimulatedCamera
 from app.services.detector import (
@@ -205,6 +206,12 @@ class CameraStreamProcessor:
         else:
             bgr = np.asarray(frame)[:, :, ::-1]
             result = await asyncio.to_thread(self._run_detection, bgr)
+
+        # 수조 바깥(철망·배관·수면 반사)까지 세지 않도록 거른다. 모델은 클래스가
+        # "새우" 하나뿐이라 무언가를 찾으면 무조건 새우라고 부른다 — 재학습
+        # 전까지는 이 보정이 현장에서 가장 효과가 크다. 장비 화면에서 네모를
+        # 긋는다(app/services/tuning.py).
+        result = tuning.apply(result, tuning.get(self.camera.id))
         stable_count = self._update_stable_count(result.count)
 
         now = utcnow()

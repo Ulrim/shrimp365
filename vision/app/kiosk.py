@@ -35,6 +35,7 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from app.config import settings, simulation_mode_active, simulation_mode_reason
+from app.services import tuning
 from app.services.camera_manager import camera_manager
 from app.services.pairing import pairing_state
 from app.services.reporter import reporter
@@ -175,6 +176,41 @@ def create_app() -> FastAPI:
     async def pair_start() -> JSONResponse:
         started = pairing_state.start(AGENT_VERSION)
         return JSONResponse({"started": started, "pairing": pairing_state.snapshot()})
+
+    @app.get("/api/tuning")
+    async def tuning_get() -> JSONResponse:
+        cam = _current_camera()
+        if cam is None:
+            return JSONResponse({"camera": None})
+        t = tuning.get(cam)
+        return JSONResponse({
+            "camera": str(cam),
+            "roi": list(t.roi) if t.roi else None,
+            "min_conf": t.min_conf,
+            "base_conf": settings.confidence_threshold,
+        })
+
+    @app.post("/api/tuning")
+    async def tuning_set(body: dict) -> JSONResponse:
+        """화면에서 그은 네모와 고른 신뢰도를 저장한다. 다음 프레임부터 적용된다."""
+        cam = _current_camera()
+        if cam is None:
+            return JSONResponse({"error": "카메라가 없습니다."}, status_code=409)
+        roi = body.get("roi")
+        box = None
+        if isinstance(roi, list) and len(roi) == 4:
+            with contextlib.suppress(TypeError, ValueError):
+                box = tuple(float(v) for v in roi)  # type: ignore[assignment]
+        conf = body.get("min_conf")
+        with contextlib.suppress(TypeError, ValueError):
+            conf = float(conf) if conf is not None else None
+        saved = tuning.save(cam, tuning.Tuning(roi=box, min_conf=conf))
+        t = tuning.get(cam)
+        return JSONResponse({
+            "saved": saved,
+            "roi": list(t.roi) if t.roi else None,
+            "min_conf": t.min_conf,
+        })
 
     @app.post("/api/pair/cancel")
     async def pair_cancel() -> JSONResponse:
@@ -353,6 +389,27 @@ PAGE_HTML = """<!doctype html>
   .steps b{color:#fff}
   .ttl{font-size:12px;color:#64748B;font-weight:700;margin-bottom:14px}
   .orow{display:flex;gap:9px}
+
+  /* 범위 설정 — 화면 위에 네모를 긋는다 */
+  .tune{position:fixed;inset:0;background:#0B1120;z-index:40;display:flex;
+    flex-direction:column;padding:10px 14px;gap:8px}
+  .tune .th{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+  .tune .th b{font-size:16px}
+  .tune .th span{font-size:12.5px;color:#93A4BF}
+  .tune .stage{position:relative;flex:1 1 auto;min-height:0;
+    display:flex;align-items:center;justify-content:center;background:#000;
+    border-radius:10px;overflow:hidden;touch-action:none}
+  .tune .stage img{max-width:100%;max-height:100%;display:block;
+    -webkit-user-select:none;user-select:none;-webkit-user-drag:none}
+  /* 바깥은 어둡게 덮어, 세는 영역이 한눈에 보이게 한다 */
+  .tune .shade{position:absolute;background:rgba(2,6,23,.66);pointer-events:none}
+  .tune .box{position:absolute;border:2px solid #34D399;pointer-events:none;
+    box-shadow:0 0 0 9999px rgba(2,6,23,0)}
+  .tune .tf{display:flex;align-items:center;gap:9px;flex:0 0 auto}
+  .tune .tf label{font-size:12.5px;color:#93A4BF}
+  .tune input[type=range]{flex:1 1 auto;height:34px}
+  .tune .cv{font:800 15px/1 ui-monospace,monospace;color:#60A5FA;min-width:46px;
+    text-align:right}
 </style>
 </head>
 <body>
@@ -384,6 +441,7 @@ PAGE_HTML = """<!doctype html>
     <div class="camfoot">
       <div class="camname" id="camname"></div>
       <div class="spacer"></div>
+      <button id="tunebtn" onclick="openTune()">범위 설정</button>
       <button id="pairbtn" onclick="startPair()">기기 연결</button>
     </div>
   </div>
@@ -562,6 +620,119 @@ function renderOverlay(p, url){
       '4. 이 카메라를 붙일 <b>수조</b> 선택' +
     '</div>' +
     '<div class="orow"><button onclick="cancelPair()">취소</button></div></div>';
+}
+
+// ── 범위 설정 ────────────────────────────────────────────────────────────
+// 모델은 클래스가 "새우" 하나뿐이라 수조 바깥의 철망·배관까지 센다. 카메라가
+// 고정되어 있으므로 셀 영역을 한 번만 그으면 그 뒤로는 손댈 일이 없다.
+// 웹이 아니라 **이 화면**에 둔 이유는 간단하다 — 영상이 여기에만 있다.
+var tuneBox = null;      // [x1,y1,x2,y2] 비율
+var tuneDrag = null;
+var tuneConf = null;
+
+function openTune(){
+  fetch("/api/tuning").then(function(r){ return r.json(); }).then(function(d){
+    if(!d.camera){ alert("카메라가 아직 없습니다."); return; }
+    tuneBox = d.roi;
+    tuneConf = d.min_conf == null ? d.base_conf : d.min_conf;
+    drawTune();
+  });
+}
+function closeTune(){
+  var el = document.getElementById("tune");
+  if(el) el.remove();
+  tuneDrag = null;
+}
+function drawTune(){
+  var el = document.getElementById("tune");
+  if(!el){
+    el = document.createElement("div");
+    el.id = "tune"; el.className = "tune";
+    document.body.appendChild(el);
+    el.innerHTML =
+      '<div class="th"><b>세는 범위</b>' +
+      '<span>수조 안쪽을 손가락으로 그으세요. 바깥은 세지 않습니다.</span>' +
+      '<div style="flex:1"></div>' +
+      '<button onclick="clearTune()">전체로</button>' +
+      '<button onclick="closeTune()">닫기</button>' +
+      '<button class="primary" onclick="saveTune()">저장</button></div>' +
+      '<div class="stage" id="tstage"><img id="timg" alt=""></div>' +
+      '<div class="tf"><label>최소 신뢰도</label>' +
+      '<input type="range" id="tconf" min="0.2" max="0.9" step="0.05">' +
+      '<div class="cv" id="tconfv"></div></div>';
+    var stage = el.querySelector("#tstage");
+    stage.addEventListener("pointerdown", tuneDown);
+    stage.addEventListener("pointermove", tuneMove);
+    stage.addEventListener("pointerup", tuneUp);
+    stage.addEventListener("pointercancel", tuneUp);
+    var sl = el.querySelector("#tconf");
+    sl.addEventListener("input", function(){
+      tuneConf = parseFloat(sl.value);
+      document.getElementById("tconfv").textContent = tuneConf.toFixed(2);
+    });
+  }
+  el.querySelector("#timg").src = "/frame.jpg?t=" + Date.now();
+  var sl = el.querySelector("#tconf");
+  sl.value = tuneConf;
+  document.getElementById("tconfv").textContent = Number(tuneConf).toFixed(2);
+  paintTune();
+}
+/** 이미지가 실제로 그려진 사각형. 레터박스(남는 여백)를 빼야 좌표가 맞는다. */
+function imgRect(){
+  var img = document.getElementById("timg");
+  var s = document.getElementById("tstage").getBoundingClientRect();
+  var r = img.getBoundingClientRect();
+  return { x: r.left - s.left, y: r.top - s.top, w: r.width, h: r.height };
+}
+function paintTune(){
+  var el = document.getElementById("tune");
+  if(!el) return;
+  var old = el.querySelectorAll(".box,.shade");
+  for(var i=0;i<old.length;i++) old[i].remove();
+  if(!tuneBox) return;
+  var r = imgRect();
+  var x1 = r.x + tuneBox[0]*r.w, y1 = r.y + tuneBox[1]*r.h;
+  var x2 = r.x + tuneBox[2]*r.w, y2 = r.y + tuneBox[3]*r.h;
+  var stage = document.getElementById("tstage");
+  function shade(l,t,w,h){
+    if(w<=0||h<=0) return;
+    var d = document.createElement("div");
+    d.className = "shade";
+    d.style.left=l+"px"; d.style.top=t+"px"; d.style.width=w+"px"; d.style.height=h+"px";
+    stage.appendChild(d);
+  }
+  shade(r.x, r.y, r.w, y1-r.y);
+  shade(r.x, y2, r.w, r.y+r.h-y2);
+  shade(r.x, y1, x1-r.x, y2-y1);
+  shade(x2, y1, r.x+r.w-x2, y2-y1);
+  var b = document.createElement("div");
+  b.className = "box";
+  b.style.left=x1+"px"; b.style.top=y1+"px";
+  b.style.width=(x2-x1)+"px"; b.style.height=(y2-y1)+"px";
+  stage.appendChild(b);
+}
+function tunePos(e){
+  var r = imgRect();
+  var s = document.getElementById("tstage").getBoundingClientRect();
+  var x = (e.clientX - s.left - r.x) / r.w;
+  var y = (e.clientY - s.top - r.y) / r.h;
+  return [Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y))];
+}
+function tuneDown(e){ tuneDrag = tunePos(e); e.preventDefault(); }
+function tuneMove(e){
+  if(!tuneDrag) return;
+  var p = tunePos(e);
+  tuneBox = [Math.min(tuneDrag[0],p[0]), Math.min(tuneDrag[1],p[1]),
+             Math.max(tuneDrag[0],p[0]), Math.max(tuneDrag[1],p[1])];
+  paintTune();
+}
+function tuneUp(){ tuneDrag = null; }
+function clearTune(){ tuneBox = null; paintTune(); }
+function saveTune(){
+  fetch("/api/tuning", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ roi: tuneBox, min_conf: tuneConf })})
+    .then(function(r){ return r.json(); })
+    .then(function(){ closeTune(); tick(); });
 }
 
 function startPair(){ fetch("/api/pair/start", {method:"POST"}).then(tick); }
