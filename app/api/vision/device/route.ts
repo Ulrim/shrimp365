@@ -144,6 +144,7 @@ export async function POST(req: NextRequest) {
       confidence_avg?: number | null
       model_version?: string | null
       inference_ms?: number | null
+      length_cm?: number | null
     }>
     agent_version?: string
     host_url?: string | null
@@ -166,8 +167,20 @@ export async function POST(req: NextRequest) {
     allowed.set(c.id, { tank_id: c.tank_id, farm_id: tank?.farm_id ?? null })
   }
 
+  type CountRow = {
+    time: string
+    camera_id: string
+    tank_id: string
+    farm_id: string
+    count: number
+    confidence_avg: number | null
+    model_version: string | null
+    inference_ms: number | null
+    length_cm: number | null
+  }
+
   const incoming = Array.isArray(body.counts) ? body.counts.slice(0, MAX_COUNTS_PER_REQUEST) : []
-  const rows = []
+  const rows: CountRow[] = []
   let rejected = 0
   for (const r of incoming) {
     const owner = r.camera_id ? allowed.get(r.camera_id) : undefined
@@ -177,22 +190,37 @@ export async function POST(req: NextRequest) {
     }
     rows.push({
       time: r.time,
-      camera_id: r.camera_id,
+      camera_id: r.camera_id as string,
       tank_id: owner.tank_id,
       farm_id: owner.farm_id,
       count: Math.round(r.count),
       confidence_avg: r.confidence_avg ?? null,
       model_version: r.model_version ?? null,
       inference_ms: r.inference_ms ?? null,
+      length_cm: typeof r.length_cm === "number" ? r.length_cm : null,
     })
   }
 
   if (rows.length > 0) {
     // 장비가 재전송해도 중복으로 쌓이지 않게 한다 — 끊겼다 붙으면 보관분을
     // 다시 보내는데, 그때마다 행이 늘면 기록이 믿을 수 없게 된다.
-    const { error } = await admin
-      .from("count_records")
-      .upsert(rows, { onConflict: "camera_id,time", ignoreDuplicates: true })
+    const save = (r: Array<Partial<CountRow>>) =>
+      admin.from("count_records").upsert(r, { onConflict: "camera_id,time", ignoreDuplicates: true })
+
+    let { error } = await save(rows)
+    // length_cm 은 나중에 생긴 열이다. 마이그레이션(vision_length.sql)을 아직
+    // 돌리지 않은 서버에서는 그 열이 없어 **개체수 전체가 저장되지 않는다.**
+    // 길이 하나 때문에 기록이 멈추면 안 되므로, 그 경우에만 길이를 떼고 다시
+    // 넣는다. 마이그레이션을 돌리면 저절로 길이까지 들어가기 시작한다.
+    if (error && /length_cm/.test(`${error.message} ${error.details ?? ""}`)) {
+      console.warn("[vision/device] count_records.length_cm 열이 없습니다 — 길이를 빼고 저장합니다. supabase/migrations/vision_length.sql 을 실행하세요.")
+      const withoutLength = rows.map((r) => {
+        const copy: Partial<CountRow> = { ...r }
+        delete copy.length_cm
+        return copy
+      })
+      ;({ error } = await save(withoutLength))
+    }
     if (error) {
       return NextResponse.json({ error: "기록을 저장하지 못했습니다." }, { status: 500 })
     }

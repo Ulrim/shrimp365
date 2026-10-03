@@ -31,3 +31,7 @@ class CountRecord(Base):
     frame_path: Mapped[str | None] = mapped_column(String)
     model_version: Mapped[str | None] = mapped_column(String)
     inference_ms: Mapped[int | None] = mapped_column(Integer)
+    #: 이 프레임에서 잰 몸길이의 가운뎃값(cm). 먹이망 격자로 축척을 잡은
+    #: 장비에서만 들어온다 — 안 잡았으면 NULL 이다. 상자에서 잰 추정값이라
+    #: 개별 한 마리의 자를 대신하지 못한다(app/services/tuning.py 머리말).
+    length_cm: Mapped[float | None] = mapped_column(Float)

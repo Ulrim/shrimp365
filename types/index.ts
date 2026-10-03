@@ -331,6 +331,8 @@ export interface CountRecord {
   confidence_avg: number | null
   model_version: string | null
   inference_ms: number | null
+  /** 추정 체장(cm). 먹이망 격자로 축척을 잡은 장비만 보낸다. */
+  length_cm?: number | null
 }
 
 /** vision_count_history() 가 돌려주는 한 칸. */
@@ -341,6 +343,8 @@ export interface CountBucket {
   min_count: number
   confidence_avg: number | null
   sample_count: number
+  /** 추정 체장의 평균(cm). 길이 기준을 안 잡은 장비는 NULL 이라 빠진다. */
+  avg_length_cm: number | null
 }
 
 /** vision_count_wq_series() 가 돌려주는 한 칸 — 개체수와 수질을 같은 시각에 맞춘 값.

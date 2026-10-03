@@ -35,6 +35,7 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from app.config import settings, simulation_mode_active, simulation_mode_reason
+from app.services import tuning
 from app.services.camera_manager import camera_manager
 from app.services.pairing import pairing_state
 from app.services.reporter import reporter
@@ -104,6 +105,9 @@ def build_state() -> dict:
         "count": None if latest is None else latest.count,
         "count_age": age,
         "confidence": None if latest is None else latest.confidence_avg,
+        # 먹이망 격자로 축척을 잡아 두었을 때만 나온다. 안 잡았으면 None —
+        # 자를 대지 않고 길이를 지어내지 않는다.
+        "length_cm": None if latest is None else latest.length_cm,
         "history": [[int(ts), c] for ts, c in _history],
         # 가짜 값을 진짜처럼 보여 주지 않는다.
         "simulation": simulation_mode_active(),
@@ -175,6 +179,59 @@ def create_app() -> FastAPI:
     async def pair_start() -> JSONResponse:
         started = pairing_state.start(AGENT_VERSION)
         return JSONResponse({"started": started, "pairing": pairing_state.snapshot()})
+
+    @app.get("/api/tuning")
+    async def tuning_get() -> JSONResponse:
+        cam = _current_camera()
+        if cam is None:
+            return JSONResponse({"camera": None})
+        t = tuning.get(cam)
+        return JSONResponse({
+            "camera": str(cam),
+            "roi": list(t.roi) if t.roi else None,
+            "min_conf": t.min_conf,
+            "base_conf": settings.confidence_threshold,
+            "px_per_cm": list(t.px_per_cm) if t.px_per_cm else None,
+            "cell_cm": list(tuning.MESH_CELL_CM),
+        })
+
+    @app.post("/api/tuning")
+    async def tuning_set(body: dict) -> JSONResponse:
+        """화면에서 그은 네모와 고른 신뢰도를 저장한다. 다음 프레임부터 적용된다."""
+        cam = _current_camera()
+        if cam is None:
+            return JSONResponse({"error": "카메라가 없습니다."}, status_code=409)
+        roi = body.get("roi")
+        box = None
+        if isinstance(roi, list) and len(roi) == 4:
+            with contextlib.suppress(TypeError, ValueError):
+                box = tuple(float(v) for v in roi)  # type: ignore[assignment]
+        conf = body.get("min_conf")
+        with contextlib.suppress(TypeError, ValueError):
+            conf = float(conf) if conf is not None else None
+        # 축척은 "격자 몇 칸을 덮었나" 로 받는다. 픽셀 값을 그대로 받으면
+        # 화면 크기가 바뀔 때마다 틀어진다.
+        px = None
+        cal = body.get("calibration")
+        if isinstance(cal, dict):
+            with contextlib.suppress(TypeError, ValueError):
+                px = tuning.scale_from_cells(
+                    (float(cal["w_px"]), float(cal["h_px"])),
+                    (int(cal["cells_x"]), int(cal["cells_y"])),
+                )
+        elif body.get("px_per_cm") is None and "calibration" in body:
+            px = None  # 명시적으로 지우기
+        else:
+            px = tuning.get(cam).px_per_cm  # 안 보냈으면 그대로 둔다
+
+        saved = tuning.save(cam, tuning.Tuning(roi=box, min_conf=conf, px_per_cm=px))
+        t = tuning.get(cam)
+        return JSONResponse({
+            "saved": saved,
+            "roi": list(t.roi) if t.roi else None,
+            "min_conf": t.min_conf,
+            "px_per_cm": list(t.px_per_cm) if t.px_per_cm else None,
+        })
 
     @app.post("/api/pair/cancel")
     async def pair_cancel() -> JSONResponse:
@@ -353,6 +410,28 @@ PAGE_HTML = """<!doctype html>
   .steps b{color:#fff}
   .ttl{font-size:12px;color:#64748B;font-weight:700;margin-bottom:14px}
   .orow{display:flex;gap:9px}
+
+  /* 범위 설정 — 화면 위에 네모를 긋는다 */
+  .tune{position:fixed;inset:0;background:#0B1120;z-index:40;display:flex;
+    flex-direction:column;padding:10px 14px;gap:8px}
+  .tune .th{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+  .tune .th b{font-size:16px}
+  .tune .th span{font-size:12.5px;color:#93A4BF}
+  .tune .stage{position:relative;flex:1 1 auto;min-height:0;
+    display:flex;align-items:center;justify-content:center;background:#000;
+    border-radius:10px;overflow:hidden;touch-action:none}
+  .tune .stage img{max-width:100%;max-height:100%;display:block;
+    -webkit-user-select:none;user-select:none;-webkit-user-drag:none}
+  /* 바깥은 어둡게 덮어, 세는 영역이 한눈에 보이게 한다 */
+  .tune .shade{position:absolute;background:rgba(2,6,23,.66);pointer-events:none}
+  .tune .calbox{position:absolute;border:2px dashed #FBBF24;pointer-events:none}
+  .tune .box{position:absolute;border:2px solid #34D399;pointer-events:none;
+    box-shadow:0 0 0 9999px rgba(2,6,23,0)}
+  .tune .tf{display:flex;align-items:center;gap:9px;flex:0 0 auto}
+  .tune .tf label{font-size:12.5px;color:#93A4BF}
+  .tune input[type=range]{flex:1 1 auto;height:34px}
+  .tune .cv{font:800 15px/1 ui-monospace,monospace;color:#60A5FA;min-width:46px;
+    text-align:right}
 </style>
 </head>
 <body>
@@ -384,6 +463,7 @@ PAGE_HTML = """<!doctype html>
     <div class="camfoot">
       <div class="camname" id="camname"></div>
       <div class="spacer"></div>
+      <button id="tunebtn" onclick="openTune()">범위 설정</button>
       <button id="pairbtn" onclick="startPair()">기기 연결</button>
     </div>
   </div>
@@ -461,6 +541,10 @@ function render(d){
     var bits = [];
     if (d.count_age != null) bits.push(stale ? (d.count_age + "초 전 값") : "방금");
     if (d.confidence != null) bits.push("신뢰도 " + Math.round(d.confidence * 100) + "%");
+    // 길이 기준(먹이망 격자)을 잡아 두었을 때만 나온다. "추정" 을 붙이는 것은
+    // 상자에서 잰 값이라 자를 댄 값이 아니기 때문이다 — 비스듬히 누운 새우는
+    // 상자가 몸보다 커서 최대 두께만큼 길게 나온다.
+    if (d.length_cm != null) bits.push("추정 체장 " + d.length_cm.toFixed(1) + "cm");
     document.getElementById("countsub").textContent = bits.join(" · ");
   }
 
@@ -562,6 +646,204 @@ function renderOverlay(p, url){
       '4. 이 카메라를 붙일 <b>수조</b> 선택' +
     '</div>' +
     '<div class="orow"><button onclick="cancelPair()">취소</button></div></div>';
+}
+
+// ── 범위 설정 ────────────────────────────────────────────────────────────
+// 모델은 클래스가 "새우" 하나뿐이라 수조 바깥의 철망·배관까지 센다. 카메라가
+// 고정되어 있으므로 셀 영역을 한 번만 그으면 그 뒤로는 손댈 일이 없다.
+// 웹이 아니라 **이 화면**에 둔 이유는 간단하다 — 영상이 여기에만 있다.
+var tuneBox = null;      // [x1,y1,x2,y2] 비율 — 세는 범위
+var tuneCal = null;      // [x1,y1,x2,y2] 비율 — 격자를 덮은 네모
+var tuneDrag = null;
+var tuneConf = null;
+var tuneMode = "roi";    // "roi" 또는 "cal"
+var tuneCells = [1, 1];  // 격자 몇 칸을 덮었나
+var tuneCellCm = [8, 7.5];
+var tuneScale = null;
+
+function openTune(){
+  fetch("/api/tuning").then(function(r){ return r.json(); }).then(function(d){
+    if(!d.camera){ alert("카메라가 아직 없습니다."); return; }
+    tuneBox = d.roi;
+    tuneConf = d.min_conf == null ? d.base_conf : d.min_conf;
+    tuneScale = d.px_per_cm;
+    tuneCellCm = d.cell_cm || [8, 7.5];
+    tuneCal = null; tuneMode = "roi"; tuneCells = [1, 1];
+    drawTune();
+  });
+}
+function closeTune(){
+  var el = document.getElementById("tune");
+  if(el) el.remove();
+  tuneDrag = null;
+}
+function drawTune(){
+  var el = document.getElementById("tune");
+  if(!el){
+    el = document.createElement("div");
+    el.id = "tune"; el.className = "tune";
+    document.body.appendChild(el);
+    el.innerHTML =
+      '<div class="th"><b id="tmode">세는 범위</b>' +
+      '<span id="thelp"></span>' +
+      '<div style="flex:1"></div>' +
+      '<button id="tswap" onclick="swapTune()"></button>' +
+      '<button onclick="clearTune()">지우기</button>' +
+      '<button onclick="closeTune()">닫기</button>' +
+      '<button class="primary" onclick="saveTune()">저장</button></div>' +
+      '<div class="stage" id="tstage"><img id="timg" alt=""></div>' +
+      '<div class="tf" id="trow"></div>';
+    var stage = el.querySelector("#tstage");
+    stage.addEventListener("pointerdown", tuneDown);
+    stage.addEventListener("pointermove", tuneMove);
+    stage.addEventListener("pointerup", tuneUp);
+    stage.addEventListener("pointercancel", tuneUp);
+  }
+  el.querySelector("#timg").src = "/frame.jpg?t=" + Date.now();
+  renderTuneRow();
+  paintTune();
+}
+/** 머리말과 아래칸을 지금 모드에 맞게 다시 그린다. */
+function renderTuneRow(){
+  var el = document.getElementById("tune");
+  if(!el) return;
+  var cal = tuneMode === "cal";
+  el.querySelector("#tmode").textContent = cal ? "길이 기준 잡기" : "세는 범위";
+  el.querySelector("#thelp").textContent = cal
+    ? "먹이망 격자를 손가락으로 덮고, 덮은 칸 수를 적으세요."
+    : "수조 안쪽을 손가락으로 그으세요. 바깥은 세지 않습니다.";
+  el.querySelector("#tswap").textContent = cal ? "범위 설정으로" : "길이 기준 잡기";
+  var row = el.querySelector("#trow");
+  if(cal){
+    row.innerHTML =
+      '<label>덮은 칸</label>' +
+      '<input id="tcx" type="number" min="1" max="20" style="width:64px">' +
+      '<span style="color:#64748B">× 세로</span>' +
+      '<input id="tcy" type="number" min="1" max="20" style="width:64px">' +
+      '<span style="color:#64748B">칸 (한 칸 ' + tuneCellCm[0] +
+        ' × ' + tuneCellCm[1] + ' cm)</span>' +
+      '<div style="flex:1"></div><div class="cv" id="tscale"></div>';
+    row.querySelector("#tcx").value = tuneCells[0];
+    row.querySelector("#tcy").value = tuneCells[1];
+    row.querySelector("#tcx").addEventListener("input", calcScale);
+    row.querySelector("#tcy").addEventListener("input", calcScale);
+    calcScale();
+  } else {
+    row.innerHTML =
+      '<label>최소 신뢰도</label>' +
+      '<input type="range" id="tconf" min="0.2" max="0.9" step="0.05">' +
+      '<div class="cv" id="tconfv"></div>';
+    var sl = row.querySelector("#tconf");
+    sl.value = tuneConf;
+    row.querySelector("#tconfv").textContent = Number(tuneConf).toFixed(2);
+    sl.addEventListener("input", function(){
+      tuneConf = parseFloat(sl.value);
+      document.getElementById("tconfv").textContent = tuneConf.toFixed(2);
+    });
+  }
+}
+function swapTune(){
+  tuneMode = tuneMode === "cal" ? "roi" : "cal";
+  renderTuneRow();
+  paintTune();
+}
+/** 덮은 네모와 칸 수로 1 cm 가 몇 픽셀인지 미리 보여 준다. */
+function calcScale(){
+  var el = document.getElementById("tune");
+  var cx = parseInt((el.querySelector("#tcx")||{}).value, 10);
+  var cy = parseInt((el.querySelector("#tcy")||{}).value, 10);
+  tuneCells = [cx > 0 ? cx : 1, cy > 0 ? cy : 1];
+  var out = el.querySelector("#tscale");
+  if(!tuneCal || !out){ if(out) out.textContent = "—"; return; }
+  var img = document.getElementById("timg");
+  // 화면에 그려진 크기가 아니라 **원본 프레임 픽셀**로 환산해야 한다.
+  var nw = img.naturalWidth || 1, nh = img.naturalHeight || 1;
+  var wpx = (tuneCal[2]-tuneCal[0]) * nw, hpx = (tuneCal[3]-tuneCal[1]) * nh;
+  var sx = wpx / (tuneCells[0] * tuneCellCm[0]);
+  var sy = hpx / (tuneCells[1] * tuneCellCm[1]);
+  out.textContent = sx.toFixed(1) + " / " + sy.toFixed(1) + " px·cm";
+}
+/** 이미지가 실제로 그려진 사각형. 레터박스(남는 여백)를 빼야 좌표가 맞는다. */
+function imgRect(){
+  var img = document.getElementById("timg");
+  var s = document.getElementById("tstage").getBoundingClientRect();
+  var r = img.getBoundingClientRect();
+  return { x: r.left - s.left, y: r.top - s.top, w: r.width, h: r.height };
+}
+function paintTune(){
+  var el = document.getElementById("tune");
+  if(!el) return;
+  var old = el.querySelectorAll(".box,.shade,.calbox");
+  for(var i=0;i<old.length;i++) old[i].remove();
+  var r = imgRect();
+  // 기준 네모는 어느 모드에서나 보여 준다 — 범위를 그을 때도 어디를 쟀는지
+  // 보여야 "저 격자 기준으로 재는구나" 가 전달된다.
+  if(tuneCal){
+    var c = document.createElement("div");
+    c.className = "calbox";
+    c.style.left=(r.x + tuneCal[0]*r.w)+"px"; c.style.top=(r.y + tuneCal[1]*r.h)+"px";
+    c.style.width=((tuneCal[2]-tuneCal[0])*r.w)+"px";
+    c.style.height=((tuneCal[3]-tuneCal[1])*r.h)+"px";
+    document.getElementById("tstage").appendChild(c);
+  }
+  if(!tuneBox) return;
+  var x1 = r.x + tuneBox[0]*r.w, y1 = r.y + tuneBox[1]*r.h;
+  var x2 = r.x + tuneBox[2]*r.w, y2 = r.y + tuneBox[3]*r.h;
+  var stage = document.getElementById("tstage");
+  function shade(l,t,w,h){
+    if(w<=0||h<=0) return;
+    var d = document.createElement("div");
+    d.className = "shade";
+    d.style.left=l+"px"; d.style.top=t+"px"; d.style.width=w+"px"; d.style.height=h+"px";
+    stage.appendChild(d);
+  }
+  shade(r.x, r.y, r.w, y1-r.y);
+  shade(r.x, y2, r.w, r.y+r.h-y2);
+  shade(r.x, y1, x1-r.x, y2-y1);
+  shade(x2, y1, r.x+r.w-x2, y2-y1);
+  var b = document.createElement("div");
+  b.className = "box";
+  b.style.left=x1+"px"; b.style.top=y1+"px";
+  b.style.width=(x2-x1)+"px"; b.style.height=(y2-y1)+"px";
+  stage.appendChild(b);
+}
+function tunePos(e){
+  var r = imgRect();
+  var s = document.getElementById("tstage").getBoundingClientRect();
+  var x = (e.clientX - s.left - r.x) / r.w;
+  var y = (e.clientY - s.top - r.y) / r.h;
+  return [Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y))];
+}
+function tuneDown(e){ tuneDrag = tunePos(e); e.preventDefault(); }
+function tuneMove(e){
+  if(!tuneDrag) return;
+  var p = tunePos(e);
+  var box = [Math.min(tuneDrag[0],p[0]), Math.min(tuneDrag[1],p[1]),
+             Math.max(tuneDrag[0],p[0]), Math.max(tuneDrag[1],p[1])];
+  if(tuneMode === "cal"){ tuneCal = box; calcScale(); } else { tuneBox = box; }
+  paintTune();
+}
+function tuneUp(){ tuneDrag = null; }
+function clearTune(){
+  if(tuneMode === "cal"){ tuneCal = null; tuneScale = null; calcScale(); }
+  else tuneBox = null;
+  paintTune();
+}
+function saveTune(){
+  var payload = { roi: tuneBox, min_conf: tuneConf };
+  if(tuneCal){
+    // 원본 프레임 픽셀로 보낸다. 화면에 그려진 크기로 보내면 모니터가 바뀔 때
+    // 축척이 통째로 틀어진다.
+    var img = document.getElementById("timg");
+    var nw = img.naturalWidth || 1, nh = img.naturalHeight || 1;
+    payload.calibration = {
+      w_px: (tuneCal[2]-tuneCal[0]) * nw, h_px: (tuneCal[3]-tuneCal[1]) * nh,
+      cells_x: tuneCells[0], cells_y: tuneCells[1] };
+  }
+  fetch("/api/tuning", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify(payload)})
+    .then(function(r){ return r.json(); })
+    .then(function(){ closeTune(); tick(); });
 }
 
 function startPair(){ fetch("/api/pair/start", {method:"POST"}).then(tick); }

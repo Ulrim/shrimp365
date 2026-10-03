@@ -128,6 +128,7 @@ async def push_counts() -> int:
             "confidence_avg": r.confidence_avg,
             "model_version": r.model_version,
             "inference_ms": r.inference_ms,
+            "length_cm": r.length_cm,
         }
         for r in rows
     ]
