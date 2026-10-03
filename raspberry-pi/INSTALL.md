@@ -133,6 +133,12 @@ sudo reboot
 **방법 A(웹사이트에서 받기)를 권합니다.** 계정도 토큰도 git 도 필요 없습니다.
 나머지는 인터넷이 없거나 저장소에서 직접 받아야 할 때 씁니다.
 
+> **사이트가 주는 것은 "마지막으로 배포한 버전" 입니다.** 저장소에 들어간 코드가
+> 자동으로 올라가지는 않습니다 — `release.py build` 로 꾸러미를 만들어 커밋해야
+> 사이트에 반영됩니다. 방금 들어간 변경을 파이에 올리려는 것이라면,
+> 아래 `manifest.json` 의 `latest` 가 그 버전인지 먼저 확인하시거나 **방법 B**
+> 로 저장소에서 바로 받으세요.
+
 ### 방법 A — 웹사이트에서 바로 받기 (권장)
 
 ```bash
@@ -166,17 +172,15 @@ git clone -b claude/shrimp-water-quality-monitoring-aZ4EY \
 cd shrimp365/raspberry-pi
 ```
 
-> **`-b` 브랜치 이름을 빠뜨리지 마세요.** 센서 프로그램은 아직 위 작업 브랜치에만
-> 있습니다. 그냥 `git clone` 하면 기본 브랜치를 받게 되어 `raspberry-pi` 폴더 자체가
-> 없고, 다음 단계에서 `command not found` 가 납니다.
-> 이 작업이 기본 브랜치에 합쳐진 뒤에는 `-b` 없이 받으셔도 됩니다.
+> 위 브랜치가 지금의 **기본 브랜치**라 `-b` 를 빼고 `git clone` 해도 같은 것을
+> 받습니다. 적어 두는 것은 나중에 기본 브랜치가 바뀌어도 이 문서가 가리키는 곳이
+> 흔들리지 않게 하기 위함입니다.
 
-비공개 저장소이므로 아이디와 **개인용 액세스 토큰**(비밀번호 자리에 입력)을 묻습니다.
-토큰은 GitHub → Settings → Developer settings → Personal access tokens 에서 만들고,
-권한은 `repo` **읽기**만 주면 됩니다.
+저장소가 **공개**라 아이디도 토큰도 묻지 않습니다. 위 두 줄이면 끝입니다.
 
-> 현장 장비에 토큰을 남기지 마세요. 받은 뒤 `git credential-cache exit` 로 지우거나,
-> 애초에 방법 A·C·D 를 쓰는 편이 안전합니다.
+> 예전에는 비공개라 개인용 액세스 토큰이 필요했습니다. 그 설명을 보고 토큰을 만들어
+> 현장 장비에 남기신 적이 있다면 지금 지우세요 — `git credential-cache exit` 로
+> 캐시를 비우고, GitHub → Settings → Developer settings 에서 그 토큰을 폐기합니다.
 
 ### 방법 C — USB 메모리로 옮기기 (인터넷이 불안한 현장)
 
@@ -575,9 +579,14 @@ sudo -u shrimp365 python3 -c "import sqlite3;print(sqlite3.connect('/var/lib/shr
 ls -l /etc/shrimp365/config.ini               # -rw------- shrimp365
 ```
 
-6) **www.shrimp365.kr** 의 수조 화면에서 측정 시각이 1분마다 갱신되는가
+```bash
+# 6) 판정이 설계대로인가 — 센서·인터넷 없이 돈다
+python3 /opt/shrimp365/verify.py              # 마지막 줄 "모두 통과"
+```
 
-여섯 개가 다 맞으면 설치 완료입니다.
+7) **www.shrimp365.kr** 의 수조 화면에서 측정 시각이 1분마다 갱신되는가
+
+일곱 개가 다 맞으면 설치 완료입니다.
 
 ---
 
