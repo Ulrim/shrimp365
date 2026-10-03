@@ -12,6 +12,7 @@
 // 점만 보면 크기 프리미엄이 과소평가된다.
 
 import { useT } from "@/lib/i18n-context"
+import { mergePricingExclusions } from "@/lib/pricing"
 import type { SizePriceEstimate } from "@/lib/pricing"
 
 import { ExclusionChip } from "./exclusion-chip"
@@ -22,15 +23,27 @@ export type SizePremiumLadderProps = {
   estimates: readonly SizePriceEstimate[]
   /** 지금 개체중(g). 그 행을 강조한다. */
   currentAbwG?: number | null
+  /**
+   * 농가가 고른 채널 라벨.
+   *
+   * **`stage` 로 대신하면 안 된다.** 앵커의 `stage` 는 「농가 수취 단계인가」를
+   * 가르는 **환산 플래그**이고, 세 채널 모두 농가 실수취액이라 전부
+   * `wholesale` 이다(÷2.2 가 또 걸리면 안 되므로 그게 맞다). 그런데 그것을
+   * 출처 라벨로도 노출하면, 소매(활) 26,500원을 고른 농가의 화면 머리에
+   * 「도매」가 뜬다. 환산 플래그와 출처 라벨은 다른 것이다.
+   */
+  channelLabel?: string | null
 }
 
-export function SizePremiumLadder({ estimates, currentAbwG }: SizePremiumLadderProps) {
+export function SizePremiumLadder({ estimates, currentAbwG, channelLabel }: SizePremiumLadderProps) {
   const { t, locale } = useT()
   if (estimates.length === 0) return null
 
   const first = estimates[0]
   // 행마다 같은 경고가 반복되므로 표 아래에 **한 번** 모아 쓴다. 숨기지 않는다.
-  const shared = first.exclusions
+  // **첫 행만 쓰면 안 된다** — price_target_outside_observed_size 처럼 특정
+  // 크기에서만 나는 경고가 0번째에 없으면 조용히 사라진다.
+  const shared = mergePricingExclusions(...estimates.map(e => e.exclusions))
 
   // 지금 개체중에 가장 가까운 행. 없으면 강조하지 않는다.
   const nearest =
@@ -45,9 +58,10 @@ export function SizePremiumLadder({ estimates, currentAbwG }: SizePremiumLadderP
     <section className="space-y-2">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h4 className="text-sm font-medium text-foreground">{t.production.sizeLadderTitle}</h4>
-        {first.stage !== null && first.form !== null && (
+        {(channelLabel != null || (first.stage !== null && first.form !== null)) && (
           <p className="text-[11px] text-muted-foreground">
-            {t.engines.stage[first.stage]} · {t.engines.form[first.form]}
+            {channelLabel ?? (first.stage === null ? "" : t.engines.stage[first.stage])}
+            {first.form !== null && ` · ${t.engines.form[first.form]}`}
           </p>
         )}
       </div>

@@ -27,7 +27,12 @@ export type CostCompositionBarProps = {
 export function CostCompositionBar({ cost, onFixCost }: CostCompositionBarProps) {
   const { t, locale } = useT()
   const total = cost.knownTotalKrw
+  // 막대 세그먼트는 폭이 있어야 그려지므로 0원은 뺀다.
   const lines = cost.lines.filter(l => l.krw > 0)
+  // **범례는 다르다.** 「약품비 0원」을 실제로 입력한 농가의 그 사실이 범례에서
+  // 사라지면, 0 과 미입력을 가르자는 이 파일의 취지와 정반대가 된다.
+  // cost.lines 는 **입력된 항목만** 들어 있으므로(cost.ts), 0원 행이 있다는
+  // 것은 농가가 0 을 넣었다는 뜻이다.
   // **한 항목도 입력되지 않았으면 「0원」을 쓰지 않는다.** knownTotalKrw 는
   // 그때도 수 0 이지만, 그것은 「비용이 0원이다」가 아니라 「더한 것이
   // 없다」는 뜻이다. 둘을 같은 글자로 쓰면 엔진 2 가 합계 필드를 totalKrw 가
@@ -76,7 +81,7 @@ export function CostCompositionBar({ cost, onFixCost }: CostCompositionBarProps)
 
       {/* 범례 — 색만으로 구분하지 않도록 항목명 텍스트를 병기한다. */}
       <ul className="flex flex-wrap gap-x-3 gap-y-1">
-        {lines.map(l => (
+        {cost.lines.map(l => (
           <li key={l.item} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <span className={`h-2 w-2 shrink-0 rounded-full ${costColor(l.item)}`} aria-hidden="true" />
             <span className="text-foreground">{t.production.costCategories[l.item]}</span>

@@ -7,9 +7,17 @@
 // (lib/profitability/index.ts). 그래서 화면이 묻고, **묻기 전에는 폭을 그리지
 // 않는다.**
 //
-// 입력이 비면 `null` 이다 — `0` 이 아니다. "0" 을 입력하는 것과 비워 두는 것이
+// ── 입력 문자열을 상태로 들고 있는 이유 ──────────────────────────────────
+// 숫자를 상태로 들면 controlled input 이 매 입력마다 `number` 를 거쳐
+// `String()` 으로 되돌아온다. 그러면 **소수점을 칠 수 없다** — "1." 이
+// parseFloat 로 1 이 되고 value 가 "1" 로 덮여 점이 지워진다. step="0.1" 을
+// 둔 것은 소수를 받겠다는 뜻인데 1.5 를 못 넣는다.
+//
+// 그래서 **보이는 글자는 문자열 그대로** 두고, 부모에는 파싱된 수만 올린다.
+// 빈 칸은 `null` 이다 — `0` 이 아니다. "0" 을 입력하는 것과 비워 두는 것이
 // 다른 사건이고, 그 차이가 엔진의 missingItems·exclusions 로 그대로 간다.
-// 그래서 parse 가 `""` 를 null 로 돌려주고, 사용자가 "0" 을 치면 0 이다.
+
+import { useState } from "react"
 
 import { useT } from "@/lib/i18n-context"
 
@@ -19,7 +27,7 @@ export type InventoryInputProps = {
   onChange: (next: { inventoryKg: number | null; outOfLedgerKg: number | null }) => void
 }
 
-/** 빈 칸은 null, "0" 은 0. **둘을 같게 만들지 않는다.** */
+/** 빈 칸은 null, "0" 은 0. **둘을 같게 만들지 않는다.** 음수·NaN 도 null. */
 function parseKg(raw: string): number | null {
   if (raw.trim() === "") return null
   const v = Number.parseFloat(raw)
@@ -28,6 +36,9 @@ function parseKg(raw: string): number | null {
 
 export function InventoryInput({ inventoryKg, outOfLedgerKg, onChange }: InventoryInputProps) {
   const { t } = useT()
+  // 보이는 글자. 부모의 수와 **같을 필요가 없다** — "1." 같은 중간 상태가 있다.
+  const [inventoryText, setInventoryText] = useState(inventoryKg === null ? "" : String(inventoryKg))
+  const [outOfLedgerText, setOutOfLedgerText] = useState(outOfLedgerKg === null ? "" : String(outOfLedgerKg))
 
   return (
     <section className="space-y-2 rounded-lg border border-border bg-muted/40 p-3">
@@ -40,8 +51,11 @@ export function InventoryInput({ inventoryKg, outOfLedgerKg, onChange }: Invento
             min={0}
             step="0.1"
             inputMode="decimal"
-            value={inventoryKg === null ? "" : String(inventoryKg)}
-            onChange={e => onChange({ inventoryKg: parseKg(e.target.value), outOfLedgerKg })}
+            value={inventoryText}
+            onChange={e => {
+              setInventoryText(e.target.value)
+              onChange({ inventoryKg: parseKg(e.target.value), outOfLedgerKg })
+            }}
             className="mt-1 min-h-[44px] w-full rounded-xl border border-border bg-muted px-3 text-sm tabular-nums text-foreground focus:border-ocean-500 focus:outline-none"
           />
         </label>
@@ -52,8 +66,11 @@ export function InventoryInput({ inventoryKg, outOfLedgerKg, onChange }: Invento
             min={0}
             step="0.1"
             inputMode="decimal"
-            value={outOfLedgerKg === null ? "" : String(outOfLedgerKg)}
-            onChange={e => onChange({ inventoryKg, outOfLedgerKg: parseKg(e.target.value) })}
+            value={outOfLedgerText}
+            onChange={e => {
+              setOutOfLedgerText(e.target.value)
+              onChange({ inventoryKg, outOfLedgerKg: parseKg(e.target.value) })
+            }}
             className="mt-1 min-h-[44px] w-full rounded-xl border border-border bg-muted px-3 text-sm tabular-nums text-foreground focus:border-ocean-500 focus:outline-none"
           />
         </label>

@@ -14,6 +14,7 @@ import { ChevronRight } from "lucide-react"
 import { useT } from "@/lib/i18n-context"
 import type { HarvestWindow } from "@/lib/harvest"
 
+import { MIN_FIT_SAMPLES } from "./use-cycle-engines"
 import type { EngineBlocker } from "./use-cycle-engines"
 import { fmtAmount, shortDate, signColorClass, signGlyph, tpl } from "./format"
 
@@ -33,7 +34,8 @@ function blockerShort(b: EngineBlocker, t: ReturnType<typeof useT>["t"]): string
     case "no_samples":
       return t.engines.fitFailure.no_samples
     case "samples_below_stanza":
-      return tpl(t.production.growthNeedStanzaTpl, 3)
+      // 남은 수를 쓴다 — 2건 넣은 농가에게 「3건 필요」라고 하지 않는다.
+      return tpl(t.production.growthNeedStanzaTpl, Math.max(0, MIN_FIT_SAMPLES - b.eligible))
     case "samples_below_min":
       return tpl(t.production.growthNeedSamplesTpl, b.need)
     case "fit_failure":
@@ -68,7 +70,16 @@ export function DecisionStrip({ harvest, blockers, onJumpToHarvest }: DecisionSt
             r.startDayOffset === r.endDayOffset ? `${r.startDayOffset}` : `${r.startDayOffset}~${r.endDayOffset}`,
           )
 
-  const reason = harvest === null && blockers.length > 0 ? blockerShort(blockers[0], t) : null
+  // **window 가 null 일 때만 사유를 쓰면 안 된다.** 냉동 채널처럼
+  // `window !== null` 인데 `failure` 가 찬 경로가 있고, 그때 recommended·
+  // decision 이 둘 다 null 이라 스트립이 「계산 불가」만 쓰고 이유를 한 글자도
+  // 안 쓴다 — 가진 정보를 조건 하나 때문에 버리는 것이다.
+  const reason =
+    harvest?.failure != null
+      ? t.engines.windowFailure[harvest.failure]
+      : harvest === null && blockers.length > 0
+        ? blockerShort(blockers[0], t)
+        : null
 
   const aria = [
     rangeLabel === null ? t.production.decisionWindowNone : tpl(t.production.decisionWindowTpl, rangeLabel),

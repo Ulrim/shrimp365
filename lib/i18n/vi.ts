@@ -1013,6 +1013,7 @@ export const vi: Dict = {
     profitRecorded: "Giá trị đã ghi nhận",
     profitWithKnownGap: "Khi tính cả phần biên đã biết",
     profitOpenLow: "Còn mở về phía dưới",
+    profitGapNeedsInventory: "Nhập khối lượng tồn kho thì khoảng sẽ được tính",
     profitBandAria: "Biên lợi nhuận hoạt động. Giá trị đã ghi nhận, phần biên tính được và phần chưa biết biên",
     widthUnknown: "Chưa rõ biên",
     detailsOpen: "Chi tiết",

@@ -1012,6 +1012,7 @@ export const en: Dict = {
     profitRecorded: "Recorded value",
     profitWithKnownGap: "With the known range applied",
     profitOpenLow: "Open-ended downward",
+    profitGapNeedsInventory: "Enter the inventory weight and the range is calculated",
     profitBandAria: "Operating profit range. Recorded value, the range that can be calculated, and the part whose range is unknown",
     widthUnknown: "Range unknown",
     detailsOpen: "Details",

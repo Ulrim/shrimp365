@@ -85,6 +85,7 @@ export function HarvestWindowView({ harvest, manualTargetDate }: HarvestWindowVi
     dayOffset: c.dayOffset,
     profitKrw: c.operatingProfitKrw,
     bandLow: c.profitBandKrw === null ? null : c.profitBandKrw.low,
+    bandHigh: c.profitBandKrw === null ? null : c.profitBandKrw.high,
     bandSpan: c.profitBandKrw === null ? null : c.profitBandKrw.high - c.profitBandKrw.low,
     abwG: c.abwG,
   }))
@@ -132,7 +133,16 @@ export function HarvestWindowView({ harvest, manualTargetDate }: HarvestWindowVi
             <ComposedChart data={rows}>
               <defs>
                 <pattern id="harvest-hatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
-                  <line x1="0" y1="0" x2="0" y2="6" stroke="#1d4ed8" strokeWidth="2" strokeOpacity="0.28" />
+                  {/* **28% 불투명으로는 배경과 1.2~1.6:1 밖에 안 된다**(실측).
+                      해칭의 존재 이유가 「색 없이도 구간이 구분된다」인데,
+                      그 해칭이 안 보이면 색만 남는다. 불투명으로 긋고 색을
+                      테마별로 가른다. */}
+                  <line
+                    x1="0" y1="0" x2="0" y2="6"
+                    stroke="currentColor"
+                    className="text-ocean-700 dark:text-ocean-300"
+                    strokeWidth="2"
+                  />
                 </pattern>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -153,7 +163,10 @@ export function HarvestWindowView({ harvest, manualTargetDate }: HarvestWindowVi
               )}
               {/* 이익 밴드 — 투명 Area 를 깔고 폭을 쌓는 표준 처방. */}
               <Area dataKey="bandLow" stackId="pb" stroke="none" fill="none" isAnimationActive={false} legendType="none" />
-              <Area dataKey="bandSpan" stackId="pb" stroke="none" fill="#3b82f6" fillOpacity={0.1} isAnimationActive={false} legendType="none" />
+              <Area dataKey="bandSpan" stackId="pb" stroke="none" fill="#3b82f6" fillOpacity={0.14} isAnimationActive={false} legendType="none" />
+              {/* 면만으로는 3:1 을 못 넘는다(실측). 끝을 선으로 긋는다. */}
+              <Line dataKey="bandLow" type="monotone" stroke="currentColor" className="text-ocean-700 dark:text-ocean-300" strokeWidth={1} strokeDasharray="3 3" dot={false} isAnimationActive={false} legendType="none" connectNulls />
+              <Line dataKey="bandHigh" type="monotone" stroke="currentColor" className="text-ocean-700 dark:text-ocean-300" strokeWidth={1} strokeDasharray="3 3" dot={false} isAnimationActive={false} legendType="none" connectNulls />
               <Line dataKey="profitKrw" type="monotone" stroke="#2563eb" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls />
             </ComposedChart>
           </ResponsiveContainer>
@@ -192,8 +205,12 @@ export function HarvestWindowView({ harvest, manualTargetDate }: HarvestWindowVi
       {/* 엔진 3 이 올린 경고. **여기 안 그리면 실패 사유가 사라진다** —
           예: 냉동 채널을 고르면 후보 전부가 price_unavailable 로 떨어지는데,
           「비교 기준이 없다」만 보이고 「냉동은 기울기 근거가 못 된다」는
-          말이 어디에도 안 나온다. 그 말은 후보의 exclusions 에 들어 있고
-          window.exclusions 로 올라온다(window.ts 632행). */}
+          말이 어디에도 안 나온다.
+          (처음엔 이 주석에 「window.ts 632행이 합쳐 준다」고 적었는데
+           **틀린 말이었다.** 632행 병합은 성공 경로에만 있고, 실패 경로인
+           now_not_evaluable 조기 반환은 앵커 경고만 들고 나갔다. 엔진 쪽을
+           고쳐서 이제 실제로 올라온다 — scripts/harvest/verify.mjs 라-28 이
+           그걸 박아 둔다.) */}
       {harvest.exclusions.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {harvest.exclusions.map(e => (

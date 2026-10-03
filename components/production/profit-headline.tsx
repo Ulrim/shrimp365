@@ -44,15 +44,27 @@ export type ProfitHeadlineProps = {
   exclusions: readonly AnyExclusion[]
   /** NewCostDialog 를 category 로 미리 채워 연다. **새 모달을 만들지 않는다.** */
   onFixCost?: (item: CostItem) => void
+  /**
+   * 폭이 안 그려지는 **사유**. 둘인데 문구가 하나면 방금 채널을 고른 농가에게
+   * 「채널을 고르면 금액이 계산됩니다」라고 다시 말하게 된다 — 기능이 고장난
+   * 것처럼 보이고, 정작 비어 있는 칸(재고 중량)은 지목되지 않는다.
+   */
+  gapBlockedBy?: "price" | "inventory" | null
 }
 
-export function ProfitHeadline({ recorded, withKnownGap, exclusions, onFixCost }: ProfitHeadlineProps) {
+export function ProfitHeadline({ recorded, withKnownGap, exclusions, onFixCost, gapBlockedBy = null }: ProfitHeadlineProps) {
   const { t, locale } = useT()
 
   const point = recorded.operatingProfitKrw
   const knownHigh = withKnownGap?.operatingProfitKrw ?? null
   const groups = groupExclusions(exclusions)
   const openLow = groups.unquantified.length > 0
+  const gapNote =
+    gapBlockedBy === "inventory"
+      ? t.production.profitGapNeedsInventory
+      : gapBlockedBy === "price"
+        ? t.production.priceBasisNone
+        : null
 
   // 오른쪽 수치 축의 범위. 0 이 점 오른쪽에 있으면 0 까지 보여 준다 — 「적자가
   // 흑자에서 얼마나 떨어져 있나」가 폭의 뜻이기 때문이다.
@@ -67,7 +79,7 @@ export function ProfitHeadline({ recorded, withKnownGap, exclusions, onFixCost }
   const aria = [
     t.production.profitBandAria,
     `${t.production.profitRecorded} ${fmtAmount(point, locale, t)}`,
-    knownHigh === null ? t.production.priceBasisNone : `${t.production.profitWithKnownGap} ${fmtAmount(knownHigh, locale, t)}`,
+    knownHigh === null ? (gapNote ?? "") : `${t.production.profitWithKnownGap} ${fmtAmount(knownHigh, locale, t)}`,
     openLow ? t.production.profitOpenLow : "",
   ].filter(s => s !== "").join(". ")
 
@@ -93,7 +105,7 @@ export function ProfitHeadline({ recorded, withKnownGap, exclusions, onFixCost }
 
       {/* ── 축 ─────────────────────────────────────────────────────────── */}
       {point === null ? (
-        <p className="text-xs text-muted-foreground">{t.production.priceBasisNone}</p>
+        <p className="text-xs text-muted-foreground">{gapNote ?? t.production.priceBasisNone}</p>
       ) : (
         <>
           <div className="relative h-14" role="img" aria-label={aria}>
@@ -104,10 +116,11 @@ export function ProfitHeadline({ recorded, withKnownGap, exclusions, onFixCost }
                 style={{ width: `${OPEN_PCT}%` }}
               />
             )}
-            {/* 아는 폭 — 채워진 띠. 단가 미선택이면 아예 그리지 않는다. */}
+            {/* 아는 폭 — 채워진 띠. 단가 미선택이면 아예 그리지 않는다.
+                테두리를 같이 둔다 — 다크에서 면만으로는 배경과 2:1 을 못 넘는다. */}
             {knownHigh !== null && knownPct > 0 && (
               <div
-                className="absolute inset-y-4 rounded-sm bg-ocean-200 dark:bg-ocean-900"
+                className="absolute inset-y-4 rounded-sm border-2 border-ocean-700 bg-ocean-200 dark:border-ocean-300 dark:bg-ocean-800"
                 style={{ left: `${OPEN_PCT}%`, width: `${knownPct}%` }}
               />
             )}
@@ -150,8 +163,8 @@ export function ProfitHeadline({ recorded, withKnownGap, exclusions, onFixCost }
             )}
           </div>
 
-          {knownHigh === null && (
-            <p className="text-xs text-muted-foreground">{t.production.priceBasisNone}</p>
+          {knownHigh === null && gapNote !== null && (
+            <p className="text-xs text-muted-foreground">{gapNote}</p>
           )}
         </>
       )}
@@ -160,6 +173,7 @@ export function ProfitHeadline({ recorded, withKnownGap, exclusions, onFixCost }
       <UncertaintyList
         groups={groups}
         knownGapKrw={point !== null && knownHigh !== null ? knownHigh - point : null}
+        gapNote={gapNote}
         onFixCost={onFixCost}
       />
     </section>
@@ -180,10 +194,12 @@ const GROUP_ORDER: readonly Exclude<ExclusionGroup, never>[] = [
 function UncertaintyList({
   groups,
   knownGapKrw,
+  gapNote,
   onFixCost,
 }: {
   groups: Record<ExclusionGroup, AnyExclusion[]>
   knownGapKrw: number | null
+  gapNote: string | null
   onFixCost?: (item: CostItem) => void
 }) {
   const { t, locale } = useT()
@@ -202,8 +218,10 @@ function UncertaintyList({
         const amount =
           g === "quantified"
             ? knownGapKrw === null
-              ? t.production.priceBasisNone
-              : `+${fmtAmount(knownGapKrw, locale, t, { abs: true })}`
+              ? (gapNote ?? t.production.widthUnknown)
+              // 폭이 음수로 나올 경로는 못 찾았지만 가드는 둔다 — abs 로
+              // 감싸고 + 를 붙이면 부호가 뒤집혀 보인다.
+              : `${knownGapKrw >= 0 ? "+" : "−"}${fmtAmount(knownGapKrw, locale, t, { abs: true })}`
             : g === "unquantified"
               ? t.production.widthUnknown
               : ""

@@ -73,6 +73,8 @@ type Row = {
   forecast?: number
   bandLow?: number
   bandSpan?: number
+  /** 밴드 위쪽 끝(절대값). **경계선을 그리기 위한 것이다** — 아래 주석 참조. */
+  bandHigh?: number
 }
 
 const DAY_MS = 86_400_000
@@ -134,7 +136,8 @@ export function GrowthCurveChart({
       const row: Row = { x: xOf(p.date, p.cdd), dateKey: p.date, cdd: p.cdd, fitted: v }
       if (maeG !== null && maeG > 0) {
         row.bandLow = Math.max(0, v - maeG)
-        row.bandSpan = Math.min(v + maeG, params.winfG) - row.bandLow
+        row.bandHigh = Math.min(v + maeG, params.winfG)
+        row.bandSpan = row.bandHigh - row.bandLow
       }
       out.push(row)
     }
@@ -154,7 +157,8 @@ export function GrowthCurveChart({
         const row: Row = { x: xOf(key, cdd), dateKey: key, cdd, forecast: v }
         if (maeG !== null && maeG > 0) {
           row.bandLow = Math.max(0, v - maeG)
-          row.bandSpan = Math.min(v + maeG, params.winfG) - row.bandLow
+          row.bandHigh = Math.min(v + maeG, params.winfG)
+          row.bandSpan = row.bandHigh - row.bandLow
         }
         out.push(row)
       }
@@ -190,7 +194,7 @@ export function GrowthCurveChart({
 
   const aria = [
     t.production.abwChartAria,
-    maeG === null ? "" : tpl(t.production.growthBandMae, maeG.toFixed(2)),
+    maeG === null || maeG <= 0 ? "" : tpl(t.production.growthBandMae, fmt(maeG, locale, 2)),
     excluded.length > 0 ? tpl(t.production.growthExcludedLegendTpl, excluded.length) : "",
   ].filter(s => s !== "").join(". ")
 
@@ -242,7 +246,14 @@ export function GrowthCurveChart({
               {/* ±MAE 리본. **「신뢰구간」이 아니다.** 투명 Area 를 깔고 폭을 쌓는
                   표준 처방 — dataKey 에 배열을 주는 방식이 이 버전에서 불안정하다. */}
               <Area data={rows} dataKey="bandLow" stackId="band" stroke="none" fill="none" isAnimationActive={false} legendType="none" />
-              <Area data={rows} dataKey="bandSpan" stackId="band" stroke="none" fill="#3b82f6" fillOpacity={0.1} isAnimationActive={false} legendType="none" />
+              <Area data={rows} dataKey="bandSpan" stackId="band" stroke="none" fill="#3b82f6" fillOpacity={0.14} isAnimationActive={false} legendType="none" />
+              {/* **경계선.** 반투명 면만으로는 어느 테마에서도 비텍스트 최소
+                  3:1(WCAG 1.4.11)을 못 넘는다 — 실측으로 라이트 1.27:1 ·
+                  다크 1.34:1 이었다. 면을 3:1 까지 진하게 하면 밴드가 곡선을
+                  덮어 「장식이 데이터를 가리지 않는다」(§10)를 어긴다.
+                  그래서 면은 옅게 두고 **끝을 선으로 긋는다.** */}
+              <Line data={rows} dataKey="bandLow" type="monotone" stroke="currentColor" className="text-ocean-700 dark:text-ocean-300" strokeWidth={1} strokeDasharray="3 3" dot={false} isAnimationActive={false} legendType="none" connectNulls />
+              <Line data={rows} dataKey="bandHigh" type="monotone" stroke="currentColor" className="text-ocean-700 dark:text-ocean-300" strokeWidth={1} strokeDasharray="3 3" dot={false} isAnimationActive={false} legendType="none" connectNulls />
               {targetWeightG != null && Number.isFinite(targetWeightG) && (
                 <ReferenceLine y={targetWeightG} stroke="hsl(var(--border))" strokeDasharray="4 4" />
               )}
@@ -256,7 +267,10 @@ export function GrowthCurveChart({
         </div>
       ) : null}
 
-      {/* 범례·주석 — 차트 밖. 색만으로 계열을 구분하지 않는다. */}
+      {/* 범례·주석 — 차트 밖. 색만으로 계열을 구분하지 않는다.
+          **그려지지 않은 계열을 설명하지 않는다** — hasData 가 false 면
+          차트가 없는데 「실측·적합·예측」 세 줄만 남는다. */}
+      {hasData && (
       <ul className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
         <li className="flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full bg-ocean-600" aria-hidden="true" />
@@ -280,10 +294,16 @@ export function GrowthCurveChart({
           <li>{t.production.growthTargetWeight} {fmtG(targetWeightG, locale)}</li>
         )}
       </ul>
+      )}
 
-      {/* ±MAE 라벨 — **MAE 라고 쓴다.** */}
-      {maeG !== null && (
-        <p className="text-[11px] text-muted-foreground">{tpl(t.production.growthBandMae, maeG.toFixed(2))}</p>
+      {/* ±MAE 라벨 — **MAE 라고 쓴다.**
+          `> 0` 가드가 필요하다: 완전 적합이면 trainMaeG 가 1e-15 같은 값이라
+          「±0.00 g」이 뜬다. 리본은 같은 가드로 이미 막아 두었는데 라벨만
+          빠져 있었다. 소수점은 로케일 규칙을 따른다(vi·id 는 쉼표). */}
+      {maeG !== null && maeG > 0 && (
+        <p className="text-[11px] text-muted-foreground">
+          {tpl(t.production.growthBandMae, fmt(maeG, locale, 2))}
+        </p>
       )}
       {/* 수온 전망이 없어 날짜축에 예측선을 못 그린 경우. */}
       {axis === "date" && !canForecastOnDate && (

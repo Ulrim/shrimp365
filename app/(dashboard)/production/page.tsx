@@ -53,6 +53,25 @@ import { SizePremiumLadder } from "@/components/production/size-premium-ladder"
 // useCycleEngines 의 useMemo 가 렌더마다 엔진 셋을 다시 돌린다.
 const NO_TEMPS: { date: string; waterTempC: number | null }[] = []
 
+// 출하 탭 체크리스트에 **늘 보여 줄 전제 항목.** 갖춰진 것은 ✓ 로 나온다.
+//
+// `window_failure` 를 넣지 않는다. 이 체크리스트는 `engines.window === null`
+// 일 때만 렌더되는데, `window_failure` 블로커는 `window !== null` 일 때만
+// 올라온다 — **두 조건이 상호배타라 구조적으로 절대 블로커가 될 수 없다.**
+// 넣어 두면 「출하 구간을 못 구해서 띄운 화면」이 「✓ 출하 구간 계산」에
+// 취소선까지 그어 보여주고, 남은 한 칸을 찾으라고 만든 체크리스트가
+// 이미 끝난 것으로 표시된 항목을 내놓는다.
+//
+// 애초에 출하 구간 계산은 **전제가 아니라 결과**다. 여기 있을 것이 아니다.
+const HARVEST_CHECKLIST: EngineBlocker["kind"][] = [
+  "no_temp_series",
+  "samples_below_min",
+  "samples_below_stanza",
+  "fit_failure",
+  "no_cost",
+  "no_price_basis",
+]
+
 function StatusBadge({ status }: { status: ProductionCycle["status"] }) {
   const { t } = useT()
   if (status === "active")    return <Badge aria-label={t.production.statusActiveAria} className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-emerald-500/30">{t.production.statusActive}</Badge>
@@ -382,10 +401,6 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
     setCostDlg(true)
   }, [])
 
-  // 체크리스트에 늘 보여 줄 항목. 갖춰진 것은 ✓ 로 나온다.
-  const harvestChecklist: EngineBlocker["kind"][] = [
-    "no_temp_series", "samples_below_stanza", "no_cost", "no_price_basis", "window_failure",
-  ]
 
   // 계산 지표
   const totalCost = costs.reduce((s, c) => s + c.amount, 0)
@@ -396,7 +411,10 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
   const fcr = totalHarvestKg > 0 && cycle.total_feed_kg ? (cycle.total_feed_kg / totalHarvestKg).toFixed(2) : null
   const costPerKg = totalHarvestKg > 0 ? (totalCost / totalHarvestKg).toFixed(0) : null
   const profit = totalRevenue - totalCost
-  const roi = totalCost > 0 ? ((profit / totalCost) * 100).toFixed(1) : null
+  // **수로 들고 포맷만 한다.** format.ts 가 「문자열을 다시 parseFloat 해서
+  // 쓰지 말 것」을 규칙으로 적었는데, roi 를 문자열로 만들어 두면 색·부호·
+  // 절댓값을 쓸 때마다 되돌리게 된다.
+  const roiPct = totalCost > 0 ? (profit / totalCost) * 100 : null
 
   const growthChartData = samples.map(s => ({
     date: format(new Date(s.sampled_at), "MM/dd"),
@@ -521,7 +539,7 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
                   b.kind === "no_temp_series" || b.kind === "samples_below_min" ||
                   b.kind === "samples_below_stanza" || b.kind === "fit_failure")}
                 onAction={() => setSampleDlg(true)}
-                actionLabel={b => (b.kind === "no_temp_series" || b.kind === "fit_failure" ? null : t.production.sampleInput)}
+                actionLabel={kind => (kind === "no_temp_series" || kind === "fit_failure" ? null : t.production.sampleInput)}
               />
             </>
           )}
@@ -550,7 +568,12 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
         <TabsContent value="cost" className="flex-1 overflow-auto p-4 space-y-4">
           <div className="flex justify-between items-center">
             <div>
-              <h3 className="text-foreground font-medium">{t.production.totalCost}</h3>
+              {/* **「총」이라고 쓸 수 있는 건 전부 입력됐을 때뿐이다.**
+                  totalCost 는 입력된 행의 합이라 engines.cost.knownTotalKrw 와
+                  같은 성격이다. complete 가 false 인데 「총 투입 비용」이라고
+                  쓰면, 바로 아래 막대의 「입력된 항목 합계」와 같은 수를 놓고
+                  서로를 부정한다. 카드는 그대로 두고 라벨만 분기한다. */}
+              <h3 className="text-foreground font-medium">{engines.cost.complete ? t.production.totalCost : t.production.knownTotalLabel}</h3>
               <p className="text-2xl font-bold text-red-500">{fmtKRW(totalCost, locale, t)}</p>
             </div>
             {!isMock && <Button size="sm" onClick={() => { setCostDlgCategory(null); setCostDlg(true) }} aria-label={t.production.addCost} className="bg-ocean-500 hover:bg-ocean-600 text-white text-xs min-h-[44px]"><Plus className="w-3 h-3 mr-1" />{t.production.addCost}</Button>}
@@ -620,9 +643,10 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
             withKnownGap={engines.actualsWithKnownGap}
             exclusions={engines.exclusions}
             onFixCost={isMock ? undefined : openCostDialog}
+            gapBlockedBy={priceBasis === null ? "price" : inventoryKg === null ? "inventory" : null}
           />
 
-          <SurvivalSensitivityPanel sensitivity={engines.sensitivity} />
+          <SurvivalSensitivityPanel sensitivity={engines.sensitivity} failure={engines.sensitivityFailure} />
 
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-muted rounded-xl p-3">
@@ -630,7 +654,7 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
               <p className="text-teal-500 font-bold text-xl">{fmtKRW(totalRevenue, locale, t)}</p>
             </div>
             <div className="bg-muted rounded-xl p-3">
-              <p className="text-muted-foreground text-xs">{t.production.totalCostSimple}</p>
+              <p className="text-muted-foreground text-xs">{engines.cost.complete ? t.production.totalCostSimple : t.production.knownTotalLabel}</p>
               <p className="text-red-500 font-bold text-xl">{fmtKRW(totalCost, locale, t)}</p>
             </div>
             {/* B-3 — **색만으로 부호를 말하지 않는다.** 적록색약 사용자에게
@@ -646,16 +670,16 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
                 </span>
               </p>
             </div>
-            <div className="bg-muted rounded-xl p-3" aria-label={`ROI ${roi ?? t.common.none}`}>
+            <div className="bg-muted rounded-xl p-3" aria-label={`ROI ${roiPct === null ? t.common.none : `${roiPct.toFixed(1)}%`}`}>
               <p className="text-muted-foreground text-xs">ROI</p>
-              <p className={`font-bold text-xl tabular-nums ${roi === null ? "text-muted-foreground" : signColorClass(parseFloat(roi))}`}>
-                {roi === null
+              <p className={`font-bold text-xl tabular-nums ${roiPct === null ? "text-muted-foreground" : signColorClass(roiPct)}`}>
+                {roiPct === null
                   ? (cycle.status === "active" ? t.production.statusActive : "-")
                   : <>
-                      <span aria-hidden="true">{signGlyph(parseFloat(roi))}</span>
-                      {Math.abs(parseFloat(roi)).toFixed(1)}%
+                      <span aria-hidden="true">{signGlyph(roiPct)}</span>
+                      {Math.abs(roiPct).toFixed(1)}%
                       <span className="ml-1 text-xs font-normal text-muted-foreground">
-                        {parseFloat(roi) >= 0 ? t.production.profitPositive : t.production.profitNegative}
+                        {roiPct >= 0 ? t.production.profitPositive : t.production.profitNegative}
                       </span>
                     </>}
               </p>
@@ -704,17 +728,17 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
           {engines.window === null ? (
             // **빈 달력을 그리지 않는다.** 무엇이 없는지 체크리스트로 쓴다.
             <EngineEmptyState
-              blockers={engines.blockers.filter(b => harvestChecklist.includes(b.kind))}
-              checklist={harvestChecklist}
+              blockers={engines.blockers.filter(b => HARVEST_CHECKLIST.includes(b.kind))}
+              checklist={HARVEST_CHECKLIST}
               onAction={b => {
                 if (b.kind === "no_price_basis") setTab("finance")
                 else if (b.kind === "no_cost") { setCostDlgCategory(null); setCostDlg(true) }
                 else if (b.kind === "samples_below_stanza") setSampleDlg(true)
               }}
-              actionLabel={b =>
-                b.kind === "no_price_basis" ? t.production.priceBasisTitle
-                : b.kind === "no_cost" ? t.production.addCost
-                : b.kind === "samples_below_stanza" ? t.production.sampleInput
+              actionLabel={kind =>
+                kind === "no_price_basis" ? t.production.priceBasisTitle
+                : kind === "no_cost" ? t.production.addCost
+                : kind === "samples_below_stanza" ? t.production.sampleInput
                 : null}
             />
           ) : (
@@ -729,6 +753,12 @@ function CycleDetail({ cycle, isMock, onClose, onUpdate }: { cycle: ProductionCy
               <SizePremiumLadder
                 estimates={engines.sizePriceEstimates}
                 currentAbwG={latestSample?.abw_g ?? null}
+                channelLabel={
+                  priceBasis === null ? null
+                  : priceBasis.kind === "realized" ? t.production.priceRealized
+                  : priceBasis.kind === "explicit" ? t.production.priceExplicit
+                  : t.engines.channel[priceBasis.channel]
+                }
               />
             </>
           )}

@@ -1013,6 +1013,7 @@ export const id: Dict = {
     profitRecorded: "Nilai tercatat",
     profitWithKnownGap: "Jika rentang yang diketahui disertakan",
     profitOpenLow: "Masih terbuka ke bawah",
+    profitGapNeedsInventory: "Isi berat stok, lalu rentangnya dihitung",
     profitBandAria: "Rentang laba operasional. Nilai tercatat, rentang yang dapat dihitung, dan bagian yang rentangnya tidak diketahui",
     widthUnknown: "Rentang tidak diketahui",
     detailsOpen: "Detail",

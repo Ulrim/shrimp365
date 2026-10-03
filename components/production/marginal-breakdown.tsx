@@ -257,7 +257,9 @@ export function MarginalBreakdown({ candidate, marginal, exclusions }: MarginalB
                       <td className="px-2 py-1.5 tabular-nums text-foreground">{r.toDayOffset}{t.engines.unit.day}</td>
                       <td className={`px-2 py-1.5 text-right tabular-nums ${signColorClass(r.perDayKrw)}`}>
                         <span aria-hidden="true">{signGlyph(r.perDayKrw)}</span>
-                        {r.perDayKrw === null ? "—" : fmt(Math.abs(r.perDayKrw), locale)}
+                        {/* 바로 옆 열이 「미산정」을 쓰는데 여기만 「—」면
+                            같은 상태가 두 글자로 보인다. */}
+                        {r.perDayKrw === null ? t.production.marginalNotEstimated : fmt(Math.abs(r.perDayKrw), locale)}
                         {/* 밴드가 0 을 품으면 부호를 단정하지 않는다. */}
                         {!r.signCertain && (
                           <span className="ml-1 text-[10px] text-amber-700 dark:text-amber-400" title={t.production.marginalSignUncertain}>

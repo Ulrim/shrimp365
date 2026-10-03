@@ -1012,6 +1012,7 @@ export const ko: Dict = {
     profitRecorded: "기록된 값",
     profitWithKnownGap: "아는 폭을 반영하면",
     profitOpenLow: "아래로 열려 있음",
+    profitGapNeedsInventory: "재고 중량을 넣으면 폭이 계산됩니다",
     profitBandAria: "영업이익 폭. 기록된 값과 계산되는 폭, 폭을 모르는 구간",
     widthUnknown: "폭 미상",
     detailsOpen: "자세히",

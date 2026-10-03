@@ -985,6 +985,7 @@ export interface Dict {
     profitRecorded: string
     profitWithKnownGap: string
     profitOpenLow: string
+    profitGapNeedsInventory: string
     profitBandAria: string
     widthUnknown: string
     detailsOpen: string

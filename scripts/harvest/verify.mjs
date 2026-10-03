@@ -68,6 +68,7 @@ const {
   dailySurvivalFromCycle,
   harvestWindow,
   harvestWindowBySurvival,
+  hasExclusion,
   resolveDailySurvival,
   resolveHarvestAnchor,
   survivalOverDays,
@@ -525,6 +526,15 @@ function anchorChecks() {
   const frozen = harvestWindow(cheonhwangInput({ price: { anchor: FARM_PRICE_ANCHOR, elasticity: FROZEN_SIZE_ELASTICITY } }))
   checkEqual("라-26 냉동 계수로 활 단가를 계산하면 막힌다", frozen.failure, "now_not_evaluable")
   checkEqual("라-27 그 이유가 후보에 남는다", frozen.candidates[0].failure, "price_unavailable")
+  // **실패 경로에서도 이유가 반환값에 남아야 한다.** failure 코드만으로는
+  // 화면이 「냉동이라 기울기 근거가 없다」를 말할 수 없고, 농가는 자기
+  // 데이터가 모자란 줄 안다. now_not_evaluable 조기 반환이 후보 경고를
+  // 버리고 있었다(2026-10-03 수정).
+  check(
+    "라-28 그 이유가 window.exclusions 에도 올라온다",
+    hasExclusion(frozen.exclusions, "price_ladder_form_not_slope_eligible"),
+    `exclusions=[${frozen.exclusions.map((e) => e.code).join(", ")}]`,
+  )
 
   console.log("")
   console.log(`  소매 28,000원/kg @23.5g → 농가 ${krw(converted.price.anchorKrwPerKg)}원/kg (÷2.2)`)

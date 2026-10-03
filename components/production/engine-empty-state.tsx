@@ -16,6 +16,7 @@ import { Check, Circle } from "lucide-react"
 
 import { useT } from "@/lib/i18n-context"
 
+import { MIN_FIT_SAMPLES } from "./use-cycle-engines"
 import type { EngineBlocker } from "./use-cycle-engines"
 import { tpl } from "./format"
 
@@ -24,7 +25,12 @@ export type EngineEmptyStateProps = {
   /** 전체 항목. 갖춰진 것은 ✓ 로 보인다. 주지 않으면 막는 것만 나열한다. */
   checklist?: readonly EngineBlocker["kind"][]
   onAction?: (b: EngineBlocker) => void
-  actionLabel?: (b: EngineBlocker) => string | null
+  /**
+   * 버튼 문구. **블로커가 아니라 kind 를 받는다** — 갖춰진 항목에는 블로커
+   * 객체가 없고, 없는 것을 `as EngineBlocker` 로 지어내면 호출부가 `b.need`
+   * 같은 필드를 읽는 날 undefined 로 터진다(tsc 가 못 잡는다).
+   */
+  actionLabel?: (kind: EngineBlocker["kind"]) => string | null
 }
 
 /** blocker → 한 줄 문장. **엔진이 준 코드로만 만든다.** */
@@ -36,7 +42,9 @@ function blockerText(b: EngineBlocker, t: ReturnType<typeof useT>["t"]): string 
       return `${tpl(t.production.growthNeedSamplesTpl, b.need)} — ${tpl(t.production.growthHaveSamplesTpl, b.have)}`
     case "samples_below_stanza":
       // 「현재 0건 / 전체 5건」 — 넣은 샘플이 무시된 것이 아니라는 사실.
-      return `${tpl(t.production.growthNeedStanzaTpl, 3)} — ${tpl(t.production.growthHaveSamplesTpl, b.eligible)} / ${b.total}${t.engines.unit.count}`
+      // 상수를 리터럴로 박지 않는다 — MIN_FIT_SAMPLES 가 바뀌면 판정과
+      // 문구가 조용히 어긋난다. 필요한 수는 **남은 수**다.
+      return `${tpl(t.production.growthNeedStanzaTpl, Math.max(0, MIN_FIT_SAMPLES - b.eligible))} — ${tpl(t.production.growthHaveSamplesTpl, b.eligible)} / ${b.total}${t.engines.unit.count}`
     case "fit_failure":
       return t.engines.fitFailure[b.failure]
     case "no_price_basis":
@@ -64,7 +72,7 @@ export function EngineEmptyState({ blockers, checklist, onAction, actionLabel }:
         {kinds.map(kind => {
           const b = blocked.get(kind)
           const ok = b === undefined
-          const label = actionLabel?.(b ?? ({ kind } as EngineBlocker)) ?? null
+          const label = actionLabel?.(kind) ?? null
           return (
             <li key={kind} className="flex items-start gap-2">
               {ok ? (

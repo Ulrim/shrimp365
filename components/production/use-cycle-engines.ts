@@ -57,6 +57,7 @@ import type {
   CostItem,
   PriceBasis,
   SalesChannel,
+  BreakEvenFailure,
   SurvivalSensitivity,
 } from "@/lib/profitability"
 
@@ -64,6 +65,7 @@ import {
   FARM_PRICE_ANCHOR,
   SIZE_ELASTICITY_DEFAULT,
   abwFromCountPerKg,
+  mergePricingExclusions,
   sizePriceTable,
 } from "@/lib/pricing"
 import type { PriceAnchor, ProductForm, SizePriceEstimate } from "@/lib/pricing"
@@ -128,6 +130,12 @@ export type CycleEngineResult = {
   /** 「아는 폭」을 반영한 두 번째 호출. 단가 미선택이면 null. */
   actualsWithKnownGap: ActualPerformance | null
   sensitivity: SurvivalSensitivity | null
+  /**
+   * 민감도를 못 돌린 **이유**. null 이 되는 사유가 둘인데 화면이 늘 「입식
+   * 마리수가 없다」고 쓰면, 출하 전 사이클(harvests 가 비어 있는 것이 정상)
+   * 에서 멀쩡한 입식수를 두고 틀린 사유가 나간다.
+   */
+  sensitivityFailure: BreakEvenFailure | null
   // 크기별 단가
   anchor: PriceAnchor | null
   sizePriceEstimates: readonly SizePriceEstimate[]
@@ -157,7 +165,23 @@ const SIZE_TABLE_TARGETS_G: readonly number[] = [20, 22.5, 25, 27.5, 30, 32.5, 3
  */
 const DEFAULT_ANCHOR_COUNT_PER_KG = 35
 
-/** 채널 → 상품 상태. **냉동을 활로 두지 않는다** — 기울기가 1/3 로 다르다. */
+/**
+ * 채널 → 상품 상태. **냉동을 활로 두지 않는다** — 기울기가 1/3 로 다르다.
+ *
+ * ⚠ **`realized`(실현 단가)는 여기서 `live` 가 된다. 그것은 가정이다.**
+ * 실현 단가는 「채널·등급이 섞인 평균이라 어느 채널도 아니다」(channel.ts
+ * 30~35행)이고, 천황수산 40건 중 17건이 냉동이다. 그 혼합값에 `live_fresh`
+ * 탄력성(0.63~0.73)이 걸린다.
+ *
+ * 그래도 `live` 로 두는 이유 — `PriceAnchor.form` 이 필수라 「모름」을 표현할
+ * 자리가 없고, `frozen` 으로 두면 추정 자체가 거부돼 실현 단가로는 아무것도
+ * 못 보게 된다. 대신 **그 가정은 화면에 드러난다**: estimateSizePrice 가
+ * 추정마다 `price_elasticity_form_specific`(「활·생물 사다리에서 나온
+ * 계수입니다. 선·냉동에는 쓸 수 없습니다」)를 올리고, 그 칩이 사다리 아래와
+ * 영업이익 경고 목록에 나간다.
+ *
+ * 혼합 비율을 받을 수 있게 되면 그때 고칠 자리다.
+ */
 function formOfChannel(channel: SalesChannel | null | undefined): ProductForm {
   return channel === "retail_frozen" ? "frozen" : "live"
 }
@@ -228,10 +252,17 @@ function meanHarvestWeightG(harvests: readonly CycleHarvest[]): number | null {
  * 않는다.** 그것은 「한 마리도 안 죽었다」는 주장이고, 그 주장이 들어가면
  * 엔진 3 의 바이오매스가 2배 넘게 과대가 된다.
  */
-function survivingCountNow(cycle: ProductionCycle, latest: GrowthSample | null): number | null {
-  if (latest !== null && isNum(latest.estimated_population)) return latest.estimated_population
-  if (latest !== null && isNum(latest.survival_rate) && isNum(cycle.stocking_count)) {
-    return (cycle.stocking_count * latest.survival_rate) / 100
+function survivingCountNow(cycle: ProductionCycle, sortedSamples: readonly GrowthSample[]): number | null {
+  // **역순으로 첫 유효값.** 최신 샘플 하나만 보면, 그 행에 개체수도 생존율도
+  // 없고 바로 전 행에는 있을 때 출하 윈도우가 통째로 안 돈다. 가진 관측 중
+  // 가장 최근 것을 쓰되, **없으면 입식수로 떨어지지 않는다**(그건 「한 마리도
+  // 안 죽었다」는 주장이고, 바이오매스가 2배 넘게 과대가 된다).
+  for (let i = sortedSamples.length - 1; i >= 0; i--) {
+    const s = sortedSamples[i]
+    if (isNum(s.estimated_population)) return s.estimated_population
+    if (isNum(s.survival_rate) && isNum(cycle.stocking_count)) {
+      return (cycle.stocking_count * s.survival_rate) / 100
+    }
   }
   return null
 }
@@ -391,8 +422,14 @@ export function useCycleEngines(input: CycleEngineInput): CycleEngineResult {
     const rates = isNum(referenceRate) && !SENSITIVITY_RATES.includes(referenceRate)
       ? [...SENSITIVITY_RATES, referenceRate].sort((a, b) => a - b)
       : SENSITIVITY_RATES
-    const sensitivity =
-      isNum(cycle.stocking_count) && meanWeightG !== null ? survivalSensitivity(sensitivityInput, rates) : null
+    // 평균 개체중은 **출하 실적이 있어야** 나온다. 진행 중 사이클은 harvests 가
+    // 비어 있는 것이 정상이므로, 그 경우를 「입식 마리수 없음」으로 말하면 안 된다.
+    const sensitivityFailure: BreakEvenFailure | null = !isNum(cycle.stocking_count)
+      ? "no_stocked_count"
+      : meanWeightG === null
+        ? "no_mean_weight"
+        : null
+    const sensitivity = sensitivityFailure === null ? survivalSensitivity(sensitivityInput, rates) : null
 
     // ── 크기별 단가 — 앵커 ─────────────────────────────────────────────
     // 수준은 사용자가 고른 근거에서, 크기는 **농가의 실제 출하 평균**에서.
@@ -426,7 +463,7 @@ export function useCycleEngines(input: CycleEngineInput): CycleEngineResult {
     const sizePriceEstimates = anchor === null ? [] : sizePriceTable(anchor, SIZE_TABLE_TARGETS_G)
 
     // ── 엔진 3 — 출하 윈도우 ───────────────────────────────────────────
-    const countNow = survivingCountNow(cycle, sorted.length > 0 ? sorted[sorted.length - 1] : null)
+    const countNow = survivingCountNow(cycle, sorted)
     const fitParams = fit?.params ?? null
 
     let window: HarvestWindow | null = null
@@ -472,7 +509,8 @@ export function useCycleEngines(input: CycleEngineInput): CycleEngineResult {
       (actualsWithKnownGap ?? actualsRecorded).exclusions,
       actualsRecorded.exclusions,
       sensitivity === null ? undefined : mergeExclusions(sensitivity.exclusions),
-      sizePriceEstimates[0]?.exclusions,
+      // 첫 행만 쓰면 특정 크기에서만 나는 경고가 사라진다.
+      mergePricingExclusions(...sizePriceEstimates.map(e => e.exclusions)),
     )
 
     return {
@@ -486,6 +524,7 @@ export function useCycleEngines(input: CycleEngineInput): CycleEngineResult {
       actualsRecorded,
       actualsWithKnownGap,
       sensitivity,
+      sensitivityFailure,
       anchor,
       sizePriceEstimates,
       window,

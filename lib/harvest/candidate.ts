@@ -134,6 +134,16 @@ export type VariantResult = {
   failure: CandidateFailure | null
   /** 급이량을 바이오매스 비율로 구했는가. */
   feedFromRate: boolean
+  /**
+   * **실패했을 때 그 이유를 담은 경고.** 성공하면 비어 있다(성공 경로의 경고는
+   * 후보가 따로 모은다).
+   *
+   * 이게 없으면 단가가 거부된 이유가 여기서 사라진다 — 호출자는
+   * `failure: "price_unavailable"` 만 받고, 화면은 「그 크기의 단가를 구할 수
+   * 없습니다」라고만 쓰게 된다. 냉동 계수로 활 단가를 계산하려다 막힌 것인지,
+   * 앵커가 프리미엄 상품이라 막힌 것인지 구분되지 않는다.
+   */
+  exclusions: HarvestExclusion[]
 }
 
 /** 세 변종 묶음. 밴드와 차액 밴드의 기준이 된다. */
@@ -318,11 +328,11 @@ export function evaluateVariant(
   variant: VariantSpec,
 ): VariantResult {
   const abwG = shiftedAbwG(ctx, dayOffset, variant.abwShiftG)
-  if (abwG === null) return { variant: null, failure: "abw_unavailable", feedFromRate: false }
+  if (abwG === null) return { variant: null, failure: "abw_unavailable", feedFromRate: false, exclusions: [] }
 
   const survival = survivalOverDays(ctx.dailySurvivalRate, dayOffset)
   if (survival === null) {
-    return { variant: null, failure: "survival_unavailable", feedFromRate: false }
+    return { variant: null, failure: "survival_unavailable", feedFromRate: false, exclusions: [] }
   }
   const survivingCount = ctx.survivingCountNow * survival
 
@@ -332,7 +342,8 @@ export function evaluateVariant(
     elasticityVariant(ctx.elasticity, variant.elasticityValue),
   )
   if (price.krwPerKg === null) {
-    return { variant: null, failure: "price_unavailable", feedFromRate: false }
+    // 단가 모델이 올린 거부 사유를 그대로 들고 나간다.
+    return { variant: null, failure: "price_unavailable", feedFromRate: false, exclusions: price.exclusions }
   }
 
   const { input: additionalInput, feedFromRate } = accumulateAdditionalCost(
@@ -354,7 +365,7 @@ export function evaluateVariant(
   )
   const scenario = projection.scenarios[0]
   if (scenario === undefined || scenario.operatingProfitKrw === null || scenario.biomassKg === null) {
-    return { variant: null, failure: "profit_unavailable", feedFromRate }
+    return { variant: null, failure: "profit_unavailable", feedFromRate, exclusions: [] }
   }
 
   // 「지금 대비 추가분」만 따로 들고 있어야 근거 분해에서 비용 항목을 뽑을 수
@@ -374,6 +385,8 @@ export function evaluateVariant(
     },
     failure: null,
     feedFromRate,
+    // 성공했을 때의 경고는 후보가 따로 모은다(아래 `own` · price.exclusions).
+    exclusions: [],
   }
 }
 
@@ -512,7 +525,12 @@ export function evaluateCandidate(
         profitDeltaBandKrw: null,
         attribution: null,
         failure: point.failure,
-        exclusions: [],
+        // **비워 두면 실패의 이유가 사라진다.** 단가가 거부된 경우 그 사유가
+        // point.exclusions 에 들어 있다 — 예: 냉동 계수로 활 단가를 계산하려다
+        // 막히면 price_ladder_form_not_slope_eligible. 호출자가
+        // failure 코드만 받으면 「단가를 구할 수 없다」까지만 알 수 있고,
+        // 화면은 농가에게 엉뚱한 원인을 지목하게 된다.
+        exclusions: mergeHarvestExclusions(point.exclusions),
       },
       variants,
     }

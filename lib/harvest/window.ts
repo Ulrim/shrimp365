@@ -497,6 +497,18 @@ export function harvestWindow(input: HarvestWindowInput): HarvestWindow {
       candidates: [nowEval.candidate],
       unevaluableCandidateCount: 1,
       price: priceInfo,
+      // **후보가 올린 경고를 같이 내보낸다.** 성공 경로는 아래에서
+      // `...candidates.map(c => c.exclusions)` 로 합치는데, 이 조기 반환만
+      // 앵커 경고(withAnchor)로 끝나고 있었다. 그래서 "지금" 을 평가하지 못한
+      // **이유**가 반환값에서 사라졌다 — 예컨대 냉동 앵커로 단가가 거부되면
+      // `price_ladder_form_not_slope_eligible` 가 후보에만 남고 호출자는
+      // `now_not_evaluable` 만 받는다. 화면은 「비교 기준이 없습니다」라고만
+      // 쓰게 되고, 농가는 자기 데이터가 모자란 줄 안다.
+      //
+      // 실패할 때야말로 이유가 필요하다. 실패 경로에서 경고를 버리면 이 엔진이
+      // 「금액 옆에 언제나 빠진 것을 붙인다」고 한 설계가 가장 중요한 순간에
+      // 깨진다.
+      exclusions: mergeHarvestExclusions(withAnchor, nowEval.candidate.exclusions),
     }
   }
 

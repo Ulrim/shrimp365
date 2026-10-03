@@ -327,8 +327,17 @@ export async function getDailyWaterQualityMean(
     p_from: from.slice(0, 10),
     p_to: to.slice(0, 10),
   })
-  // 함수가 없으면(마이그레이션 전) 조용히 빈 배열. 던지면 화면 전체가 죽는다.
-  if (error || !Array.isArray(data)) return []
+  // 함수가 없으면(마이그레이션 전) 빈 배열. 던지면 화면 전체가 죽는다.
+  //
+  // **다만 조용히 삼키지는 않는다.** 그러면 세 사건이 화면에서 한 글자로
+  // 같아진다 — ① 마이그레이션 미실행 ② RLS 거부·네트워크 장애 ③ 정말로 수온
+  // 기록이 없음. ②가 「기록이 없습니다」로 나가면 농가는 센서를 확인하지
+  // 않고 운영자는 장애를 못 본다.
+  if (error) {
+    console.warn("[wq_daily_mean] 조회 실패 — 수온 기록 없음으로 처리한다", error)
+    return []
+  }
+  if (!Array.isArray(data)) return []
   return (data as DailyWaterQualityMean[]).map(r => ({
     day: String(r.day).slice(0, 10),
     temperature: r.temperature ?? null,

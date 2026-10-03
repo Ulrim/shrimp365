@@ -31,7 +31,7 @@ import {
 } from "recharts"
 
 import { useT } from "@/lib/i18n-context"
-import type { SurvivalSensitivity as Sensitivity } from "@/lib/profitability"
+import type { BreakEvenFailure, SurvivalSensitivity as Sensitivity } from "@/lib/profitability"
 
 import { fmt, fmtAmount, fmtAmountTick, fmtG, fmtPct, fmtPctPoint, signColorClass, signGlyph, tpl } from "./format"
 
@@ -46,18 +46,20 @@ const AXIS_TICK = { fill: "hsl(var(--muted-foreground))", fontSize: 11 } as cons
 
 export type SurvivalSensitivityProps = {
   sensitivity: Sensitivity | null
+  /** 못 돌린 이유. **「입식 마리수 없음」으로 뭉개지 않는다.** */
+  failure?: BreakEvenFailure | null
   /** 차트 높이. 모바일 180 / 데스크톱 220(설계서 5절). */
   height?: number
 }
 
-export function SurvivalSensitivityPanel({ sensitivity, height = 220 }: SurvivalSensitivityProps) {
+export function SurvivalSensitivityPanel({ sensitivity, failure = null, height = 220 }: SurvivalSensitivityProps) {
   const { t, locale } = useT()
 
   if (sensitivity === null) {
     return (
       <section className="space-y-2">
         <h4 className="text-sm font-medium text-foreground">{t.production.sensitivityTitle}</h4>
-        <p className="text-xs text-muted-foreground">{t.engines.breakEvenFailure.no_stocked_count}</p>
+        <p className="text-xs text-muted-foreground">{t.engines.breakEvenFailure[failure ?? "no_stocked_count"]}</p>
       </section>
     )
   }
@@ -115,6 +117,26 @@ export function SurvivalSensitivityPanel({ sensitivity, height = 220 }: Survival
         <div className="rounded-xl bg-muted p-2" role="img" aria-label={t.production.sensitivityChartAria}>
           <ResponsiveContainer width="100%" height={height}>
             <ComposedChart data={chartRows}>
+              {/* 부족 구간 해칭 — **색만으로 구간을 말하지 않는다**(§10
+                  pattern-texture). 평평한 amber 12% 는 다크모드에서 배경과
+                  대비 1.3:1 로, 비텍스트 최소 3:1(WCAG 1.4.11)에 한참 못 미친다.
+                  이 면적이 요구 ④ 의 핵심 그래픽(「메워야 하는 거리」)이라
+                  안 보이면 그 요구가 통째로 사라진다. */}
+              <defs>
+                <pattern id="shortfall-hatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+                  <rect width="6" height="6" fill="#f59e0b" fillOpacity="0.14" />
+                  {/* **색을 테마별로 가른다.** amber-500(#f59e0b)은 흰 배경에
+                      불투명으로 깔아도 1.8:1 이라 3:1 을 넘을 수 없고,
+                      amber-600 도 라이트에서 2.91:1 로 턱밑이었다(실측).
+                      currentColor + 다크 분기로 양쪽 다 넘긴다. */}
+                  <line
+                    x1="0" y1="0" x2="0" y2="6"
+                    stroke="currentColor"
+                    className="text-amber-700 dark:text-amber-400"
+                    strokeWidth="2"
+                  />
+                </pattern>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis
                 dataKey="survivalPct"
@@ -131,7 +153,7 @@ export function SurvivalSensitivityPanel({ sensitivity, height = 220 }: Survival
               />
               {/* 부족 구간 — 「메워야 하는 거리」가 면적으로 보인다. */}
               {refPct !== null && bePct !== null && bePct > refPct && (
-                <ReferenceArea x1={refPct} x2={bePct} fill="#f59e0b" fillOpacity={0.12} />
+                <ReferenceArea x1={refPct} x2={bePct} fill="url(#shortfall-hatch)" />
               )}
               {/* 0선 = 손익분기. 색이 아니라 선으로 가른다. */}
               <ReferenceLine y={0} stroke="hsl(var(--foreground))" strokeOpacity={0.4} strokeDasharray="4 4" />
