@@ -136,3 +136,100 @@ def test_nonsense_values_are_ignored(state):
 def test_broken_file_does_not_stop_counting(state):
     (state / "tuning.json").write_text("{깨진 파일")
     assert tuning.get(uuid.uuid4()).is_empty()
+
+
+# ── 길이 재기 ───────────────────────────────────────────────────────────────
+def test_scale_from_one_mesh_cell():
+    """격자 한 칸(8 × 7.5 cm)을 80 × 75 픽셀로 덮었다면 1 cm = 10 픽셀."""
+    assert tuning.scale_from_cells((80, 75), (1, 1)) == (10.0, 10.0)
+
+
+def test_scale_from_several_cells():
+    """여러 칸을 덮으면 손가락 오차가 칸 수만큼 나뉜다."""
+    assert tuning.scale_from_cells((240, 225), (3, 3)) == (10.0, 10.0)
+
+
+def test_scale_handles_non_square_cells():
+    """칸이 정사각형이 아니다(8 vs 7.5). 두 축을 같은 수로 나누면 틀린다."""
+    sx, sy = tuning.scale_from_cells((80, 75), (1, 1))
+    assert sx == sy == 10.0
+    # 같은 픽셀 크기라면 축척이 달라져야 한다
+    sx2, sy2 = tuning.scale_from_cells((80, 80), (1, 1))
+    assert sx2 == 10.0
+    assert sy2 == pytest.approx(10.667, abs=0.01)
+
+
+def test_scale_rejects_nonsense():
+    assert tuning.scale_from_cells((0, 75), (1, 1)) is None
+    assert tuning.scale_from_cells((80, 75), (0, 1)) is None
+    assert tuning.scale_from_cells((99999, 99999), (1, 1)) is None
+
+
+def test_horizontal_shrimp_measures_true_length():
+    """수평으로 누운 새우는 거의 정확해야 한다 — 기준이 되는 경우다."""
+    b = BBox(0, 0, 150, 30, 0.9)          # 1 cm = 10 px → 15 cm × 3 cm
+    got = tuning.body_length_cm(b, (10.0, 10.0))
+    assert got == pytest.approx(15.3, abs=0.1)   # √(15² + 3²)
+
+
+def test_angled_shrimp_is_overestimated_but_bounded():
+    """45도로 누우면 두께만큼 커진다 — L+T 를 넘지는 않아야 한다.
+
+    15 cm 몸길이 · 3 cm 두께가 45도면 상자는 약 12.7 × 12.7 cm 가 된다.
+    """
+    side = (15 + 3) * 0.7071
+    b = BBox(0, 0, side * 10, side * 10, 0.9)
+    got = tuning.body_length_cm(b, (10.0, 10.0))
+    assert 15.0 <= got <= 18.0, f"L..L+T 를 벗어났다: {got}"
+
+
+def test_axes_use_their_own_scale():
+    """카메라가 비스듬하면 가로·세로 축척이 다르다. 한쪽만 쓰면 틀린다."""
+    b = BBox(0, 0, 100, 100, 0.9)
+    same = tuning.body_length_cm(b, (10.0, 10.0))     # 10 × 10 cm → 14.14
+    skew = tuning.body_length_cm(b, (10.0, 20.0))     # 10 × 5 cm  → 11.18
+    assert same == pytest.approx(14.14, abs=0.02)
+    assert skew == pytest.approx(11.18, abs=0.02)
+
+
+def test_no_scale_means_no_lengths():
+    """축척을 안 잡았으면 길이를 지어내지 않는다."""
+    r = _result([(0, 0, 100, 20, 0.9)])
+    assert tuning.lengths_cm(r, tuning.Tuning()) == []
+
+
+def test_lengths_follow_the_boxes():
+    r = _result([(0, 0, 100, 20, 0.9), (0, 0, 50, 10, 0.9)])
+    got = tuning.lengths_cm(r, tuning.Tuning(px_per_cm=(10.0, 10.0)))
+    assert len(got) == 2
+    assert got[0] > got[1]
+
+
+def test_median_ignores_one_merged_pair():
+    """두 마리가 겹쳐 한 상자로 잡히면 길이가 두 배로 나온다.
+
+    평균은 그 한 건에 끌려간다. 가운뎃값은 꿈쩍하지 않아야 한다.
+    """
+    normal = [12.0, 12.5, 11.8, 12.2, 12.1]
+    with_merged = [*normal, 25.0]
+    assert tuning.median(normal) == pytest.approx(12.1, abs=0.01)
+    assert tuning.median(with_merged) == pytest.approx(12.15, abs=0.05)
+    # 평균이었다면 14.3 까지 끌려갔을 것이다
+    assert sum(with_merged) / len(with_merged) > 14.0
+
+
+def test_median_of_nothing_is_nothing():
+    assert tuning.median([]) is None
+
+
+def test_scale_survives_saving(state):
+    cam = uuid.uuid4()
+    tuning.save(cam, tuning.Tuning(px_per_cm=(12.5, 11.8)))
+    assert tuning.get(cam).px_per_cm == (12.5, 11.8)
+
+
+def test_zero_scale_is_refused(state):
+    """0 이면 나눗셈이 터지고, 음수면 길이가 음수로 나온다."""
+    cam = uuid.uuid4()
+    tuning.save(cam, tuning.Tuning(px_per_cm=(0.0, 10.0)))
+    assert tuning.get(cam).px_per_cm is None

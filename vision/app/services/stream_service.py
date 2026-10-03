@@ -41,6 +41,8 @@ class LatestCount:
     timestamp: datetime
     count: int
     confidence_avg: float | None
+    #: 이 프레임에서 잰 몸길이의 가운뎃값(cm). 축척을 안 잡았으면 None.
+    length_cm: float | None = None
 
 
 class FrameStore:
@@ -211,8 +213,12 @@ class CameraStreamProcessor:
         # "새우" 하나뿐이라 무언가를 찾으면 무조건 새우라고 부른다 — 재학습
         # 전까지는 이 보정이 현장에서 가장 효과가 크다. 장비 화면에서 네모를
         # 긋는다(app/services/tuning.py).
-        result = tuning.apply(result, tuning.get(self.camera.id))
+        tune = tuning.get(self.camera.id)
+        result = tuning.apply(result, tune)
         stable_count = self._update_stable_count(result.count)
+        # 먹이망 격자로 축척을 잡아 두었으면 몸길이도 잰다. 평균이 아니라
+        # 가운뎃값을 쓰는 이유는 겹쳐 잡힌 두 마리 때문이다(tuning.median).
+        length_cm = tuning.median(tuning.lengths_cm(result, tune))
 
         now = utcnow()
         # 박스를 그리고 JPEG 로 굽는 일은 **이벤트 루프 밖**에서 한다. 파이에서
@@ -257,6 +263,7 @@ class CameraStreamProcessor:
                     timestamp=now,
                     count=result.count,
                     confidence_avg=result.confidence_avg,
+                    length_cm=length_cm,
                 )
             )
 
@@ -267,6 +274,7 @@ class CameraStreamProcessor:
                     "timestamp": now.isoformat(),
                     "count": result.count,
                     "confidence_avg": result.confidence_avg,
+                    "length_cm": length_cm,
                     "bbox_count": len(result.bboxes),
                     # Frame-pixel boxes for the frontend canvas overlay
                     # (payload capped to keep WS messages sane).

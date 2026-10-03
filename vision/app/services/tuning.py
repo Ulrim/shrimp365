@@ -42,9 +42,13 @@ class Tuning:
     roi: tuple[float, float, float, float] | None = None
     #: 이 값보다 약한 탐지는 버린다. None 이면 모델 기본값을 그대로 쓴다.
     min_conf: float | None = None
+    #: 1 cm 가 가로·세로로 각각 몇 픽셀인가. 먹이망 격자로 잰다.
+    #: 가로·세로를 따로 두는 이유는 격자 칸이 정사각형이 아니고(8 × 7.5 cm),
+    #: 카메라가 비스듬히 보면 두 축의 축척이 달라지기 때문이다.
+    px_per_cm: tuple[float, float] | None = None
 
     def is_empty(self) -> bool:
-        return self.roi is None and self.min_conf is None
+        return self.roi is None and self.min_conf is None and self.px_per_cm is None
 
 
 def _path() -> Path:
@@ -81,7 +85,19 @@ def get(camera_id: uuid.UUID | str) -> Tuning:
         conf = None
     if conf is not None and not (0.0 < conf < 1.0):
         conf = None
-    return Tuning(roi=box, min_conf=conf)
+
+    scale = raw.get("px_per_cm")
+    px = None
+    if isinstance(scale, list) and len(scale) == 2:
+        try:
+            sx, sy = float(scale[0]), float(scale[1])
+        except (TypeError, ValueError):
+            sx = sy = 0.0
+        # 0 이나 음수면 나눗셈이 터지거나 길이가 음수로 나온다. 터무니없이 큰
+        # 값도 막는다 — 1 cm 가 1000픽셀이면 격자를 잘못 짚은 것이다.
+        if 0.1 < sx < 1000 and 0.1 < sy < 1000:
+            px = (sx, sy)
+    return Tuning(roi=box, min_conf=conf, px_per_cm=px)
 
 
 def save(camera_id: uuid.UUID | str, tuning: Tuning) -> bool:
@@ -95,6 +111,8 @@ def save(camera_id: uuid.UUID | str, tuning: Tuning) -> bool:
             entry["roi"] = list(tuning.roi)
         if tuning.min_conf is not None:
             entry["min_conf"] = tuning.min_conf
+        if tuning.px_per_cm is not None:
+            entry["px_per_cm"] = list(tuning.px_per_cm)
         data[key] = entry
     try:
         _path().write_text(json.dumps(data, indent=1))
@@ -152,3 +170,70 @@ def apply(result: DetectionResult, tuning: Tuning) -> DetectionResult:
         model_version=result.model_version,
         track_ids=tracks,
     )
+
+
+#: 먹이망 격자 한 칸의 실제 크기(cm). 현장에서 쓰는 망의 규격이다.
+MESH_CELL_CM = (8.0, 7.5)
+
+
+def scale_from_cells(
+    box_px: tuple[float, float], cells: tuple[int, int],
+    cell_cm: tuple[float, float] = MESH_CELL_CM,
+) -> tuple[float, float] | None:
+    """격자 몇 칸을 덮은 네모의 픽셀 크기로 1 cm 당 픽셀 수를 구한다.
+
+    여러 칸을 한 번에 덮을수록 정확하다 — 한 칸만 짚으면 손가락 오차가
+    그대로 축척 오차가 된다. 세 칸을 덮으면 오차가 1/3 로 준다.
+    """
+    w_px, h_px = box_px
+    nx, ny = cells
+    if nx < 1 or ny < 1 or w_px <= 0 or h_px <= 0:
+        return None
+    sx = w_px / (nx * cell_cm[0])
+    sy = h_px / (ny * cell_cm[1])
+    if not (0.1 < sx < 1000 and 0.1 < sy < 1000):
+        return None
+    return (round(sx, 4), round(sy, 4))
+
+
+def body_length_cm(b: BBox, px_per_cm: tuple[float, float]) -> float:
+    """상자 하나에서 몸길이를 추정한다(cm).
+
+    모델은 네모 상자만 주고 **어느 쪽을 보고 누웠는지는 모른다.** 길이 L,
+    두께 T 인 새우가 각도 θ 로 누우면 상자의 대각선은 이렇게 된다.
+
+        대각선² = L² + T² + 4·L·T·|sinθ·cosθ|
+
+        θ=0°  (수평)   → √(L²+T²) ≈ L      거의 정확
+        θ=45° (비스듬) → L + T             두께만큼 과대 (새우는 약 +20%)
+
+    그래서 대각선은 **L 이상 L+T 이하**다. 개별 마리는 최대 20% 과대평가되지만,
+    여러 마리 평균에서는 각도가 섞여 치우침이 일정해진다. 날짜별 평균을 견주는
+    **성장 추이**에 쓰는 값이지, 한 마리의 자를 대신하는 값이 아니다.
+
+    가로·세로 축척이 다르므로 각 축을 따로 cm 로 바꾼 뒤 대각선을 잰다.
+    """
+    w_cm = abs(b.x2 - b.x1) / px_per_cm[0]
+    h_cm = abs(b.y2 - b.y1) / px_per_cm[1]
+    return round((w_cm**2 + h_cm**2) ** 0.5, 2)
+
+
+def lengths_cm(result: DetectionResult, t: Tuning) -> list[float]:
+    """이 프레임에서 잰 몸길이들. 축척이 없으면 빈 목록."""
+    if t.px_per_cm is None:
+        return []
+    return [body_length_cm(b, t.px_per_cm) for b in result.bboxes]
+
+
+def median(values: list[float]) -> float | None:
+    """가운뎃값. 평균이 아니라 가운뎃값을 쓰는 이유는 **한 마리 때문이다.**
+
+    두 마리가 겹쳐 한 상자로 잡히면 길이가 두 배로 나온다. 평균은 그 한 건에
+    끌려가지만 가운뎃값은 거의 꿈쩍하지 않는다.
+    """
+    if not values:
+        return None
+    s = sorted(values)
+    n = len(s)
+    mid = n // 2
+    return round(s[mid] if n % 2 else (s[mid - 1] + s[mid]) / 2, 2)

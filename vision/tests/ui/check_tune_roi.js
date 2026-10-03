@@ -40,6 +40,7 @@ const state = {
   pairing: { status: 'idle', code: null, error: null, tank_name: 'A-1조', camera_id: 'c1',
              expires_in: null, serial: '1000', linked: true },
   public_url: null, model: 'shrimp_yolov8n_416.onnx', conf_threshold: 0.3,
+  length_cm: 12.4,
 };
 
 (async () => {
@@ -60,7 +61,8 @@ const state = {
         body: JSON.stringify({ saved: true, roi: posted.roi, min_conf: posted.min_conf }) });
     }
     r.fulfill({ contentType: 'application/json',
-      body: JSON.stringify({ camera: 'c1', roi: null, min_conf: null, base_conf: 0.3 }) });
+      body: JSON.stringify({ camera: 'c1', roi: null, min_conf: null, base_conf: 0.3,
+                             px_per_cm: null, cell_cm: [8, 7.5] }) });
   });
   await p.route('http://kiosk.test/', r => r.fulfill({ contentType: 'text/html; charset=utf-8', body: HTML }));
   await p.goto('http://kiosk.test/', { waitUntil: 'load' });
@@ -75,7 +77,7 @@ const state = {
     if (!(await p.$('#tune'))) problems.push('범위 설정 화면이 안 열린다');
     else {
       const body = await p.evaluate(() => document.body.innerText);
-      for (const t of ['세는 범위', '최소 신뢰도', '저장', '전체로'])
+      for (const t of ['세는 범위', '최소 신뢰도', '저장', '지우기'])
         if (!body.includes(t)) problems.push(`문구 없음: ${t}`);
 
       // 이미지가 그려진 사각형의 가운데 절반을 긋는다.
