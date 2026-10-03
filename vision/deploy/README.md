@@ -38,13 +38,24 @@ rpicam-hello --list-cameras
 
 저장소가 공개라 **토큰도 로그인도 필요 없습니다.**
 
+**한 줄씩 그대로 붙여넣으세요.** 여러 줄을 한 번에 붙이면 터미널이 줄바꿈을
+먹어 `fatal: Too many arguments` 가 납니다 — 그래서 역슬래시(`\`)로 줄을
+잇지 않았습니다.
+
 ```bash
 cd ~
-git clone --depth 1 --filter=blob:none --sparse \
-  https://github.com/Ulrim/shrimp365.git shrimp365-src
-cd shrimp365-src
+```
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/Ulrim/shrimp365.git shrimp365-src
+```
+```bash
+cd ~/shrimp365-src
+```
+```bash
 git sparse-checkout set vision
-cp -r vision ~/vision
+```
+```bash
+cp -r ~/shrimp365-src/vision ~/vision
 ```
 
 > `--filter=blob:none --sparse` 는 필요한 것만 받습니다. 저장소 전체는 51 MB
@@ -80,13 +91,43 @@ sudo ./deploy/install.sh
 
 프로그램만 새로 바꾸려면 §3-1 로 가세요. 아래는 **아예 처음부터** 할 때입니다.
 
+**삭제 스크립트는 새 코드에 들어 있습니다.** 그래서 지우기 전에 먼저 받습니다 —
+파이에 깔려 있는 버전에는 이 스크립트가 없을 수 있습니다. 한 줄씩 붙여넣으세요.
+
+```bash
+sudo rm -rf ~/shrimp365-src
+```
+```bash
+cd ~
+```
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/Ulrim/shrimp365.git shrimp365-src
+```
+```bash
+cd ~/shrimp365-src
+```
+```bash
+git sparse-checkout set vision
+```
+```bash
+sudo ~/shrimp365-src/vision/deploy/uninstall.sh --all
+```
+```bash
+sudo rm -rf ~/vision
+```
+```bash
+cp -r ~/shrimp365-src/vision ~/vision
+```
 ```bash
 cd ~/vision
-sudo ./deploy/uninstall.sh          # 기기 연결은 남긴다
-sudo rm -rf ~/vision ~/shrimp365-src
+```
+```bash
+sudo ./deploy/install.sh
 ```
 
-그 뒤 §2 부터 다시 합니다.
+첫 줄에서 **옛 소스 폴더를 먼저** 지우는 것은, 같은 이름으로 새로 받기
+때문입니다(`git clone` 은 폴더가 비어 있지 않으면 거부합니다). 받은 뒤에는
+`~/shrimp365-src` 가 **다시 깔 소스**이므로 지우지 마세요.
 
 | | `uninstall.sh` | `uninstall.sh --all` |
 |---|---|---|

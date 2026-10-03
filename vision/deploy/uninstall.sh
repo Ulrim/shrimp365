@@ -68,6 +68,8 @@ for p in /opt/shrimp365-vision /etc/shrimp365-vision \
   [ -e "$p" ] && echo "    남음: $p" || echo "    없음: $p"
 done
 echo
-echo "    받아 둔 소스(~/vision, ~/shrimp365-src)는 직접 지우세요."
-echo "    예전에 sudo 로 clone 했다면 주인이 root 라 sudo 가 필요합니다:"
-echo "      sudo rm -rf ~/vision ~/shrimp365-src"
+echo "    다시 깔려면:  cd ~/vision && sudo ./deploy/install.sh"
+echo
+echo "    받아 둔 소스 폴더는 남아 있습니다. **다시 깔 소스는 지우지 마세요.**"
+echo "    쓰지 않는 옛 폴더만 지우면 됩니다. 예전에 sudo 로 clone 했다면"
+echo "    주인이 root 라 sudo 가 필요합니다:   sudo rm -rf <그 폴더>"
