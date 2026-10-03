@@ -6,6 +6,10 @@
  * 아무 표시도 남기지 않는다. 그래서 정상 파싱뿐 아니라 **어떤 문서를 거부하는가**까지
  * 원본과 맞춰 둔다 — 잘못된 설정을 조용히 기본값으로 메우면 그 자체가 오염이다.
  *
+ * **차분이 덮지 않는 것**: 최상위 `baseline` 블록은 이식본에만 있는 확장이므로(원본
+ * Python 에 그 개념이 없다) 여기 픽스처에 상대가 없다. 그 블록이 지표 파서를 세우지
+ * 않는다는 사실은 `scripts/mrv/verify-baseline-readiness.mjs` ⑪ 가 실물 파서로 고정한다.
+ *
  * 실행:
  *   python3 scripts/mrv/gen_config_fixtures.py > scripts/mrv/config-fixtures.json
  *   node scripts/mrv/verify-config.mjs

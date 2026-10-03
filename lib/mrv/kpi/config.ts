@@ -18,6 +18,9 @@
  *
  * 하위호환: 서브키가 하나도 없는 평면 문서는 EI 평면 params 로 간주해 폴백한다.
  *
+ * 확장(이식본 전용, 원본 Python 에 없음): 최상위 `baseline` 블록. 지표 산출에는 쓰이지
+ * 않고 기준선 잠금 전 입력 충분성 판정이 읽는다. 아래 EXTENSION_KEYS 주석 참고.
+ *
  * 버전 규약(★ 반드시 준수):
  *   - 기본 버전은 DEFAULT_CONFIG_VERSION = '2026.1.0' (SemVer-유사: YYYY.MAJOR.MINOR).
  *   - 산식/파라미터 의미가 바뀌면 산식만 고치지 말고 **반드시**:
@@ -60,11 +63,29 @@ export type ParamsJson = Record<string, unknown>
 const METRIC_KEYS = ["ei", "fcr", "oei", "mortality", "alerting", "recommend"] as const
 
 /**
- * params_json 이 지표별 서브키 문서인지(평면 EI 문서가 아닌지) 판별.
+ * 지표가 아니면서 최상위에 놓이는 블록. **원본 Python 에는 없는 이식본 확장이다.**
+ *
+ * 이 목록이 필요한 이유는 `isNestedDoc` 의 판정 방식 때문이다. 아래 함수는 "지표 서브키가
+ * 하나도 없으면 평면 EI 문서"로 보고 **최상위 문서 전체를** `rejectUnknown` 에 넘긴다.
+ * 그래서 확장 블록을 여기에 등재하지 않으면, 그 블록만 적힌 문서
+ * (예: `{"baseline": {...}}`)가 평면 EI 문서로 오판되어 6종 파서 전부가
+ * `KpiValueError` 를 던진다 — 그 org 의 `/kpi`·리포트·알림이 통째로 422 가 된다.
+ *
+ * 등재된 블록의 내용은 이 파일이 검사하지 않는다. 각 블록의 소비자가 자기 스키마로
+ * 검증한다(`baseline` → `lib/mrv/baseline-readiness.ts`). 잘못된 확장 블록이 지표 산출을
+ * 세우지 않게 하려는 의도적 분리다.
+ */
+const EXTENSION_KEYS = ["baseline"] as const
+
+/** 중첩 문서 판별에 쓰는 최상위 허용 키 전체(지표 + 확장). */
+const NESTED_DOC_KEYS = [...METRIC_KEYS, ...EXTENSION_KEYS] as const
+
+/**
+ * params_json 이 서브키 문서인지(평면 EI 문서가 아닌지) 판별.
  * 서브키 중 하나라도 있으면 '중첩 문서'로 본다. 하나도 없으면 평면 EI 문서로 간주.
  */
 function isNestedDoc(params: ParamsJson): boolean {
-  return METRIC_KEYS.some((k) => k in params)
+  return NESTED_DOC_KEYS.some((k) => k in params)
 }
 
 /** 지표 서브 params 추출. 중첩 문서면 해당 서브키(없으면 {}), 평면 문서면 전체를 반환. */

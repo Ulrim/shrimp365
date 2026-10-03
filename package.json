@@ -14,7 +14,8 @@
     "mrv:verify-rls": "bash scripts/mrv/verify-rls.sh",
     "mrv:verify-pipeline": "node scripts/mrv/verify-pipeline.mjs",
     "mrv:verify-csv": "node scripts/mrv/verify-csv.mjs",
-    "mrv:verify": "npm run mrv:verify-kpi && npm run mrv:verify-config && npm run mrv:verify-ingestion && npm run mrv:verify-pipeline && npm run mrv:verify-alerts && npm run mrv:verify-csv && npm run mrv:verify-rls",
+    "mrv:verify-baseline": "node scripts/mrv/verify-baseline-readiness.mjs",
+    "mrv:verify": "npm run mrv:verify-kpi && npm run mrv:verify-config && npm run mrv:verify-ingestion && npm run mrv:verify-pipeline && npm run mrv:verify-alerts && npm run mrv:verify-csv && npm run mrv:verify-baseline && npm run mrv:verify-rls",
     "cardnews": "node scripts/cardnews/render.mjs"
   },
   "dependencies": {

@@ -119,6 +119,45 @@ export interface BaselineResponse {
   locked_at: string | null;
 }
 
+/**
+ * GET /sites/{siteId}/baseline/readiness 의 검사 1건.
+ *
+ * severity: blocking = 통과해야 잠긴다(사유를 적으면 강행 가능, 단 all_metrics_null 제외).
+ *           warning  = 막지 않지만 사람이 봐야 한다. info = 상태 알림.
+ * observed/threshold 는 판정에 실제로 쓴 값이다 — 되돌릴 수 없는 결정이라 숫자를 숨기지 않는다.
+ */
+export interface BaselineReadinessCheck {
+  id: string;
+  severity: "blocking" | "warning" | "info";
+  passed: boolean;
+  message: string;
+  observed?: number | null;
+  threshold?: number | null;
+}
+
+/**
+ * GET /sites/{siteId}/baseline/readiness 응답 — 잠그기 전 입력 충분성 점검.
+ * 잠금 라우트와 **같은 판정 함수**를 쓰므로 여기서 ok 면 잠금도 통과한다.
+ */
+export interface BaselineReadinessResponse {
+  site_id: string;
+  period: { from: string; to: string };
+  config_version: string;
+  /** 차단 항목이 하나도 없는가. */
+  ok: boolean;
+  /** 사유를 적어도 넘길 수 없는 항목이 있는가. */
+  fatal: boolean;
+  /** 임계값이 kpi_config 에서 왔는지 코드 기본값인지. */
+  policy_source: "kpi_config" | "default";
+  policy: {
+    min_period_days: number;
+    min_power_readings: number;
+    min_feed_logs: number;
+    max_excluded_reading_ratio: number;
+  };
+  checks: BaselineReadinessCheck[];
+}
+
 // ---------------------------------------------------------------------------
 // 수기 입력 — feed_logs / mortality_logs (MASTER 화면4, 슬라이스 A/B 데이터원)
 // ---------------------------------------------------------------------------
