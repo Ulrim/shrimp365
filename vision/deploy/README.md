@@ -36,38 +36,13 @@ rpicam-hello --list-cameras
 
 ## 2. 코드 받기
 
-`shrimp365` 는 **비공개 저장소**입니다. `git clone` 을 그냥 하면 인증을 묻고,
-거기에 GitHub 계정 비밀번호를 넣어도 통하지 않습니다 — GitHub 는 2021-08 부터
-Git 작업에 비밀번호를 받지 않습니다. 둘 중 하나로 하세요.
-
-**방법 1 — PC 에서 ZIP 으로 받아 복사 (토큰이 필요 없습니다).**
-
-브라우저로 GitHub 저장소에 들어가 브랜치를 `claude/shrimp-water-quality-monitoring-aZ4EY`
-로 바꾸고 **Code → Download ZIP**. 압축을 풀고 그 안의 `vision` 폴더만 보냅니다.
-
-```bash
-# PC 에서
-scp -r shrimp365-claude-shrimp-water-quality-monitoring-aZ4EY/vision pi@192.168.0.50:~/
-```
-
-**방법 2 — 파이에서 바로 clone (읽기 전용 토큰을 하나 만듭니다).**
-
-GitHub → Settings → Developer settings → Personal access tokens →
-**Fine-grained tokens** → Generate new token
-
-- Repository access: **Only select repositories** → `Ulrim/shrimp365`
-- Permissions → Repository permissions → **Contents: Read-only**
-- Expiration: 설치에만 쓰니 **7 days** 로 충분합니다
+저장소가 공개라 **토큰도 로그인도 필요 없습니다.**
 
 ```bash
 cd ~
 git clone --depth 1 --filter=blob:none --sparse \
-  -b claude/shrimp-water-quality-monitoring-aZ4EY \
   https://github.com/Ulrim/shrimp365.git shrimp365-src
-# Username: GitHub 아이디
-# Password: 위에서 만든 토큰을 붙여넣기 (화면에 안 보이는 게 정상입니다)
-
-cd ~/shrimp365-src
+cd shrimp365-src
 git sparse-checkout set vision
 cp -r vision ~/vision
 ```
@@ -75,9 +50,8 @@ cp -r vision ~/vision
 > `--filter=blob:none --sparse` 는 필요한 것만 받습니다. 저장소 전체는 51 MB
 > 인데(대부분 `public/` 의 카드뉴스 이미지) 이렇게 받으면 24 MB 입니다.
 >
-> clone 에 `sudo` 를 쓰지 마세요. root 로 받으면 파일 주인이 어긋나고, 토큰도
-> root 의 프로세스에 남습니다. 토큰은 명령줄에 적지 말고 **프롬프트에
-> 붙여넣으세요** — 명령줄에 쓰면 `~/.bash_history` 와 `ps` 에 그대로 남습니다.
+> **`sudo` 를 쓰지 마세요.** root 로 받으면 파일 주인이 어긋나, 나중에 지우려
+> 할 때 `Permission denied` 가 납니다(그때는 `sudo rm -rf` 로 지워야 합니다).
 
 ## 3. 설치 — 명령 하나
 
@@ -101,6 +75,27 @@ sudo ./deploy/install.sh
 
 이미 설치된 기기에서 다시 실행하면 프로그램만 새 것으로 바꾸고, 설정과 기기
 연결은 그대로 둡니다.
+
+## 3-1. 이미 깔려 있는 파이를 새 프로그램으로 바꾸기
+
+같은 스크립트를 다시 돌리면 됩니다. **설정과 기기 연결은 그대로 둡니다** —
+수조에 다시 연결할 필요가 없고, 쌓인 개체수도 그대로입니다.
+
+```bash
+cd ~/shrimp365-src
+git pull
+cp -r vision/. ~/vision/
+cd ~/vision
+sudo ./deploy/install.sh
+```
+
+> `git pull` 이 `--depth 1` 때문에 거부하면 받은 것을 지우고 §2 를 다시 하세요.
+>
+> **프로그램을 바꾸지 않고 `/etc/shrimp365-vision/env` 만 고치는 것은 위험할
+> 수 있습니다.** 새로 생긴 설정(또는 없어진 필수 설정)은 새 프로그램만 압니다.
+> 예를 들어 `DATABASE_URL` 을 비워 두고 돌아가는 것은 2026-10 이후 버전의
+> 기능입니다 — 그 전 버전에서 그 줄을 지우면 엉뚱한 주소로 붙으려다 멈춥니다.
+> **순서는 늘 프로그램 먼저, 설정 나중입니다.**
 
 ## 4. 설정 — 없습니다
 
@@ -127,12 +122,19 @@ shrimp365 에서 입력하면 기기 키를 받아 보관하고, 개체수는 �
 ### 이미 `DATABASE_URL` 을 넣어 둔 기기라면
 
 설치 스크립트는 **기존 설정을 건드리지 않습니다.** 예전 방식으로 깔아 둔
-기기는 계속 DB 에 직접 붙습니다(그래도 돕니다). 간단한 쪽으로 옮기려면 그 줄만
-지우고 다시 시작하세요.
+기기는 계속 DB 에 직접 붙습니다(그래도 돕니다).
+
+간단한 쪽으로 옮기려면 **먼저 §3-1 로 프로그램을 새로 바꾸세요.** 설정 없이
+돌아가는 것은 새 프로그램의 기능입니다. 옛 프로그램에서 이 줄을 지우면
+`postgresql+asyncpg://postgres:change-me@db:5432/postgres` 라는 더미 주소로
+붙으려다 멈추고, 설정 점검은 "문제 없음"으로 통과해 안내조차 나오지 않습니다.
+
+프로그램을 바꾼 뒤에 이렇게 합니다.
 
 ```bash
 sudo sed -i 's/^DATABASE_URL=/#DATABASE_URL=/' /etc/shrimp365-vision/env
 sudo systemctl restart shrimp365-vision
+journalctl -u shrimp365-vision -n 30 --no-pager
 ```
 
 로그에 이 줄이 뜨면 옮겨진 것입니다 — `측정값은 기기 키로 … 에 올립니다`.
