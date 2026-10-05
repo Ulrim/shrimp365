@@ -78,6 +78,11 @@ class CameraManager:
     def processor(self, camera_id: uuid.UUID) -> CameraStreamProcessor | None:
         return self._processors.get(camera_id)
 
+    def running_camera_ids(self) -> list[uuid.UUID]:
+        """지금 돌고 있는 카메라들. 목록을 복사해 돌려준다 — 부르는 쪽이 돌면서
+        카메라를 멈출 수 있고, 그러면 사전이 바뀌는 중에 순회하게 된다."""
+        return list(self._processors)
+
     async def start_camera(
         self, camera: Camera, farm_id: uuid.UUID
     ) -> CameraStreamProcessor:

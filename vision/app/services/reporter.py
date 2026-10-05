@@ -77,6 +77,53 @@ class ServerReporter:
             logger.info("서버 연결이 돌아왔습니다 — 보관분을 올리고 있습니다.")
         return True
 
+    async def send_snapshot(
+        self,
+        camera_id: str,
+        jpeg: bytes,
+        *,
+        taken_at: str,
+        count: int | None = None,
+        length_cm: float | None = None,
+        size: tuple[int, int] | None = None,
+    ) -> int:
+        """수조 사진 한 장을 올린다. HTTP 상태 코드를 그대로 돌려준다.
+
+        **본문은 JPEG 바이트 그대로** 보낸다. JSON 에 base64 로 실으면 전송량이
+        3분의 1 늘고, 농장 회선에서 그 차이는 공짜가 아니다. 사진에 딸린 숫자는
+        헤더로 보낸다.
+
+        상태 코드를 숨기지 않는 이유: 부르는 쪽이 501(이 서버는 아직 사진을
+        받지 않음 — 마이그레이션 미적용)과 연결 실패를 다르게 다뤄야 한다.
+        앞쪽은 사람이 SQL 을 돌릴 때까지 영원히 실패하므로 계속 올려 봐야
+        회선만 태운다.
+        """
+        headers = {
+            "X-Device-Key": settings.device_key,
+            "Content-Type": "image/jpeg",
+            "X-Camera-Id": camera_id,
+            "X-Taken-At": taken_at,
+        }
+        if count is not None:
+            headers["X-Count"] = str(int(count))
+        if length_cm is not None:
+            headers["X-Length-Cm"] = f"{length_cm:.2f}"
+        if size is not None:
+            headers["X-Width"], headers["X-Height"] = str(size[0]), str(size[1])
+
+        base = settings.shrimp365_internal_url.rstrip("/")
+        if not base or not settings.device_key:
+            return 0
+        try:
+            async with await _client() as client:
+                res = await client.post(
+                    f"{base}/api/vision/device/snapshot", content=jpeg, headers=headers
+                )
+                return res.status_code
+        except Exception as exc:  # noqa: BLE001 - 그물 밖의 일은 무엇이든 터진다
+            logger.debug("사진을 올리지 못했습니다: %s", exc)
+            return 0
+
     async def fetch_assignment(self) -> dict[str, Any] | None:
         """내가 맡은 카메라와 경보 규칙. 실패하면 None."""
         status, data = await _get("/api/vision/device")

@@ -15,69 +15,24 @@
 //   GET  /api/vision/device  — "나는 어느 수조에 붙어 있고, 내 카메라는 무엇이며,
 //                              경보 규칙은 무엇인가"
 //   POST /api/vision/device  — 개체수 기록을 묶어서 올린다(+ 살아 있음 보고)
+//   POST /api/vision/device/snapshot — 수조 사진 한 장(공유기 뒤에서도 보이게)
 //
 // 인증은 X-Device-Key. 페어링(6자리 코드 승인) 때 발급되어 장비가 보관하는
 // 값이고, 사람이 옮겨 적지 않는다.
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase-server"
+import {
+  camerasOf,
+  deviceUnauthorized as unauthorized,
+  serviceUnavailable,
+  tankOf,
+  touch,
+} from "@/lib/vision-device"
 
 export const dynamic = "force-dynamic"
 
 /** 한 번에 받는 기록 수 상한. 장비가 오래 끊겼다 붙어도 한 번에 쏟아붓지 못하게. */
 const MAX_COUNTS_PER_REQUEST = 500
-
-type DeviceCamera = {
-  id: string
-  tank_id: string
-  name: string
-  camera_type: string
-  stream_url: string | null
-  resolution_w: number
-  resolution_h: number
-  fps_target: number
-  is_active: boolean
-}
-
-/** 이 기기가 살아 있다고 적는다. GET·POST 어느 쪽이든 연락은 연락이다. */
-async function touch(
-  admin: ReturnType<typeof createAdminClient>,
-  key: string,
-  extra: { agent_version?: string; host_url?: string | null } = {}
-) {
-  const patch: Record<string, unknown> = { last_seen_at: new Date().toISOString() }
-  if (extra.agent_version) patch.agent_version = extra.agent_version
-  if (extra.host_url !== undefined) patch.host_url = extra.host_url || null
-  await admin.from("vision_cameras").update(patch).eq("api_key", key)
-}
-
-function unauthorized() {
-  return NextResponse.json({ error: "유효하지 않은 기기 키입니다." }, { status: 401 })
-}
-
-function serviceUnavailable() {
-  return NextResponse.json(
-    { error: "서버에 SUPABASE_SERVICE_ROLE_KEY 가 설정되지 않았습니다." },
-    { status: 503 }
-  )
-}
-
-type CameraRow = DeviceCamera & {
-  tanks?: { name?: string; farm_id?: string } | { name?: string; farm_id?: string }[]
-}
-
-/** 이 기기 키가 맡은 카메라들. 없으면 빈 배열(아직 연결 전이거나 해제됨). */
-async function camerasOf(
-  admin: ReturnType<typeof createAdminClient>,
-  key: string
-): Promise<CameraRow[]> {
-  const { data } = await admin
-    .from("vision_cameras")
-    .select(
-      "id, tank_id, name, camera_type, stream_url, resolution_w, resolution_h, fps_target, is_active, tanks!vision_cameras_tank_id_fkey(name, farm_id)"
-    )
-    .eq("api_key", key)
-  return (data ?? []) as unknown as CameraRow[]
-}
 
 // ---------------------------------------------------------------------------
 // GET — 내가 맡은 것과 지켜야 할 규칙
@@ -109,7 +64,7 @@ export async function GET(req: NextRequest) {
   await touch(admin, key)
 
   const cameras = rows.map((c) => {
-    const tank = Array.isArray(c.tanks) ? c.tanks[0] : c.tanks
+    const tank = tankOf(c)
     return {
       id: c.id,
       tank_id: c.tank_id,
@@ -163,7 +118,7 @@ export async function POST(req: NextRequest) {
   // 통과시키면 기기 키 하나로 남의 수조에 기록을 심을 수 있다.
   const allowed = new Map<string, { tank_id: string; farm_id: string | null }>()
   for (const c of mine) {
-    const tank = Array.isArray(c.tanks) ? c.tanks[0] : c.tanks
+    const tank = tankOf(c)
     allowed.set(c.id, { tank_id: c.tank_id, farm_id: tank?.farm_id ?? null })
   }
 

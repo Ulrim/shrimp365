@@ -27,7 +27,7 @@ from app.config import (
     simulation_mode_reason,
 )
 from app.database import init_db
-from app.services import sync_service
+from app.services import snapshot_sender, sync_service
 from app.services.broadcaster import broadcaster
 from app.services.camera_manager import camera_manager
 from app.services.pairing import ensure_device_key, load_device_key, pairing_state
@@ -124,10 +124,12 @@ async def lifespan(app: FastAPI):
     # 뜨면 설치가 잘못된 줄 알고 멀쩡한 것을 뒤지게 된다.
     if not settings.vision_service_key or not settings.stream_secret:
         logger.info(
-            "브라우저에서 영상 보기는 꺼져 있습니다(터널 미설정). "
+            "끊김 없는 영상(MJPEG)은 꺼져 있습니다(터널 미설정). "
             "개체수 측정·기록·장비 화면은 그대로 돕니다.\n"
-            "  영상까지 보려면 docs/VISION_DEPLOY.md §3-4 를 따라 터널을 깔고 "
-            "VISION_SERVICE_KEY·VISION_STREAM_SECRET 을 채우세요."
+            "  웹에서는 이 장비가 15초마다 올리는 수조 사진이 대신 보입니다 — "
+            "대개 이것으로 충분하고, 깔 것이 없습니다.\n"
+            "  초 단위 영상까지 필요하면 docs/VISION_DEPLOY.md §3-5 를 따라 "
+            "터널을 깔고 VISION_SERVICE_KEY·VISION_STREAM_SECRET 을 채우세요."
         )
     await init_db()
     await broadcaster.start()
@@ -141,6 +143,19 @@ async def lifespan(app: FastAPI):
         logger.info(
             "측정값은 기기 키로 %s 에 올립니다(장비에 DB 비밀번호를 두지 않습니다).",
             settings.shrimp365_internal_url,
+        )
+
+    # 수조 사진을 서버로 밀어 올리는 일. 영상(MJPEG)은 브라우저가 장비로
+    # 들어오는 연결이라 농장 공유기가 막지만, 사진은 개체수와 같은 방향으로
+    # 나가므로 공유기를 그대로 두고 쓸 수 있다(snapshot_sender 머리말).
+    snapshot_task = None
+    if snapshot_sender.enabled():
+        snapshot_task = asyncio.create_task(
+            snapshot_sender.run(), name="snapshot"
+        )
+        logger.info(
+            "수조 사진을 %.0f초마다 올립니다 — 공유기 뒤에서도 웹에서 보입니다.",
+            settings.snapshot_interval_seconds,
         )
 
     # 장비 터치스크린. 127.0.0.1 전용 포트에 따로 띄운다 — 이 포트를 터널로
@@ -172,7 +187,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    for task in (pairing_task, sync_task, kiosk_task):
+    for task in (pairing_task, sync_task, snapshot_task, kiosk_task):
         if task is not None:
             task.cancel()
             # CancelledError 만 삼키면 모자란다. 이미 다른 예외로 끝난 작업을

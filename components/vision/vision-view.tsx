@@ -229,12 +229,16 @@ export function VisionView() {
             카메라 영상에서 흰다리새우를 세어 수질과 함께 봅니다.
           </p>
         </div>
+        {/* 이 배지는 **수조를 어떤 길로 보고 있는가**를 말한다. 예전에는 실시간
+            연결이 없으면 "연결 끊김"이라고 했는데, 농장 공유기 뒤에 있는 장비
+            에서는 그 연결이 애초에 열리지 않는 것이 정상이다 — 장비는 멀쩡히
+            돌고 개체수도 쌓이는 중인데 화면만 고장난 것처럼 보였다. 그 경우
+            화면은 장비가 올려 둔 사진을 띄우므로, 그렇게 적는다. */}
         <Badge variant={live.wsState === "open" ? "success" : live.wsState === "connecting" ? "warning" : "secondary"}>
           <Radio className="w-3 h-3 mr-1" />
           {live.wsState === "open" ? "실시간 연결됨"
             : live.wsState === "connecting" ? "연결 중…"
-            : live.wsState === "disabled" ? "실시간 꺼짐"
-            : "연결 끊김"}
+            : "사진으로 봅니다"}
         </Badge>
       </div>
 

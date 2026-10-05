@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState } from "react"
 import { VideoOff } from "lucide-react"
 import { streamUrl } from "@/lib/vision"
+import { ageLabel, useVisionFrame } from "@/lib/use-vision-frame"
 import type { LiveCount } from "@/lib/use-vision-live"
 import type { VisionCamera, VisionCameraStatus } from "@/types"
 import { cn } from "@/lib/utils"
 
-// MJPEG 영상 + 탐지 박스 오버레이.
+// MJPEG 영상 + 탐지 박스 오버레이. 영상이 안 열리면 장비가 올려 둔 사진.
 //
 // 영상과 박스는 서로 다른 길로 온다. 영상은 <img> 가 물고 있는 MJPEG 스트림,
 // 박스는 WebSocket 으로 오는 count_update 다. 둘의 프레임이 완벽히 같은 순간을
@@ -15,6 +16,16 @@ import { cn } from "@/lib/utils"
 // 서버가 이미 영상에 박스를 그려 넣으므로, 이 캔버스는 **박스를 끌 수 있게**
 // 하려고 얹는 것이 아니라 좌표를 화면 크기에 맞춰 다시 그려 확대해도 선명하게
 // 보이도록 하는 것이다.
+//
+// 영상이 안 열리는 흔한 경우 — 그리고 그때 무엇을 보여 주는가
+// ---------------------------------------------------------
+// 농장 공유기 뒤에 있는 장비에는 바깥에서 **들어갈** 수 없다(NAT). 그래서
+// 영상도 WebSocket 도 열리지 않는다 — 장비는 멀쩡히 돌고 개체수도 쌓이는
+// 중인데. 그 자리에 장비가 **올려 둔** 사진을 띄운다. 개체수와 같은 방향
+// (나가는 연결)으로 오므로 공유기를 그대로 두고 쓸 수 있다.
+//
+// 그 사진은 최대 15초 묵었다. 그래서 "N초 전"을 반드시 함께 적는다 — 멈춘
+// 사진을 실시간이라고 보여 주는 것이 가장 나쁘다.
 
 const STATUS_META: Record<VisionCameraStatus, { label: string; dot: string }> = {
   running: { label: "분석 중", dot: "bg-emerald-400" },
@@ -40,6 +51,19 @@ export function StreamView({ camera, live, status, showBoxes = true, stream, cla
   // 재시도 때 <img> 를 새로 만들어야 브라우저가 끊긴 스트림을 다시 문다.
   const [attempt, setAttempt] = useState(0)
 
+  // 영상이 열려 있으면 사진은 받지 않는다 — 같은 것을 두 길로 받을 이유가 없다.
+  const frame = useVisionFrame(camera.id, streamError)
+  const showFrame = streamError && frame.url !== null
+
+  // "N초 전"이 멈춰 있으면 사진이 묵은 것을 알 수 없다. 사진을 띄우는 동안만
+  // 1초마다 다시 그린다.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!showFrame) return
+    const timer = setInterval(() => setNow(Date.now()), 1_000)
+    return () => clearInterval(timer)
+  }, [showFrame])
+
   // 카메라가 바뀌면 이 컴포넌트는 통째로 다시 마운트된다(부모가 key 를 준다).
   // 그래서 streamError 를 효과로 되돌릴 필요가 없다 — 새 인스턴스는 처음부터
   // 깨끗하게 시작한다.
@@ -47,6 +71,10 @@ export function StreamView({ camera, live, status, showBoxes = true, stream, cla
   const effective: VisionCameraStatus =
     status ?? (live ? "running" : camera.is_active ? "online" : "offline")
   const meta = STATUS_META[effective]
+
+  // 사진으로 내려앉으면 개체수도 그 사진에 딸려 온 값을 쓴다. 실시간 연결이
+  // 없는 장비에서 "—" 만 띄우면, 사진 속 박스는 세 마리인데 숫자는 비어 있다.
+  const shownCount = live ? live.count : showFrame ? frame.count : null
 
   // 새 값이 오거나 창 크기가 바뀔 때마다 박스를 다시 그린다.
   useEffect(() => {
@@ -64,6 +92,9 @@ export function StreamView({ camera, live, status, showBoxes = true, stream, cla
       if (!ctx) return
       ctx.clearRect(0, 0, w, h)
 
+      // 올려 둔 사진에는 장비가 이미 박스를 그려 넣었다. 여기서 또 그리면
+      // 사진 속 박스와 몇 초 어긋난 박스가 겹쳐 보인다.
+      if (showFrame) return
       if (!showBoxes || !live?.bboxes.length || !live.frame_width || !live.frame_height) return
       // 추론 프레임 좌표 → 화면에 그려진 크기로 환산.
       const sx = w / live.frame_width
@@ -79,16 +110,25 @@ export function StreamView({ camera, live, status, showBoxes = true, stream, cla
     const observer = new ResizeObserver(draw)
     observer.observe(img)
     return () => observer.disconnect()
-  }, [live, showBoxes, camera.id])
+  }, [live, showBoxes, showFrame, camera.id])
 
   return (
     <div className={cn("relative overflow-hidden rounded-xl border border-border bg-black", className)}>
-      {streamError ? (
-        /* 두 경우를 가려서 말한다. 예전에는 둘 다 "카메라가 시작되어 있는지
+      {showFrame ? (
+        /* eslint-disable-next-line @next/next/no-img-element -- blob: 주소는
+           next/image 가 다루지 못한다(원격 호스트 허용 목록 밖이고 최적화할
+           원본도 없다). */
+        <img
+          ref={imgRef}
+          src={frame.url!}
+          alt={`${camera.name} 수조 사진`}
+          className="block w-full"
+        />
+      ) : streamError ? (
+        /* 세 경우를 가려서 말한다. 예전에는 전부 "카메라가 시작되어 있는지
            확인하세요" 라고 했는데, 터널을 안 깐 장비에서는 그 말이 **거짓**
            이다 — 카메라는 멀쩡히 돌고 개체수도 쌓이는 중인데 엉뚱한 곳을
-           뒤지게 된다. 주소가 아예 없는 것과 주소는 있는데 못 붙는 것은
-           고치는 방법이 다르다. */
+           뒤지게 된다. 고치는 방법이 서로 다르다. */
         <div className="flex aspect-video flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground">
           <VideoOff className="w-8 h-8" />
           {camera.host_url ? (
@@ -104,16 +144,21 @@ export function StreamView({ camera, live, status, showBoxes = true, stream, cla
                 다시 시도
               </button>
             </>
+          ) : !frame.checked ? (
+            <p className="text-xs">수조 사진을 받는 중…</p>
           ) : (
             <>
-              <p className="text-xs">이 장비는 아직 바깥에서 볼 수 없습니다</p>
+              <p className="text-xs">아직 올라온 수조 사진이 없습니다</p>
               <p className="max-w-xs text-[11px] leading-relaxed text-muted-foreground/70">
-                개체수는 정상으로 기록되고 있습니다. 영상까지 보려면 장비에
-                공개 주소가 있어야 합니다 — 농장 공유기 뒤에 있는 장비에는
-                터널(Cloudflare Tunnel)을 깝니다.
+                개체수는 정상으로 기록되고 있습니다. 이 장비는 농장 공유기 뒤에
+                있어 영상을 바로 볼 수 없고, 대신 사진을 15초마다 올립니다 —
+                카메라가 돌기 시작하면 곧 여기에 보입니다.
               </p>
-              <p className="text-[11px] text-muted-foreground/70">
-                설치 안내: <span className="font-mono">docs/VISION_DEPLOY.md §3-4</span>
+              <p className="max-w-xs text-[11px] leading-relaxed text-muted-foreground/70">
+                계속 비어 있으면 서버에
+                <span className="font-mono"> vision_snapshot.sql </span>
+                을 실행했는지 확인하세요. 끊김 없는 영상이 필요하면 장비에
+                터널(Cloudflare Tunnel)을 깝니다.
               </p>
             </>
           )}
@@ -136,7 +181,7 @@ export function StreamView({ camera, live, status, showBoxes = true, stream, cla
 
       <div className="absolute left-3 top-3 flex items-baseline gap-1.5 rounded-lg bg-black/70 px-2.5 py-1.5 backdrop-blur">
         <span className="text-lg font-bold tabular-nums leading-none text-teal-300">
-          {live ? live.count.toLocaleString() : "—"}
+          {shownCount !== null ? shownCount.toLocaleString() : "—"}
         </span>
         <span className="text-[10px] text-white/60">마리</span>
       </div>
@@ -146,12 +191,19 @@ export function StreamView({ camera, live, status, showBoxes = true, stream, cla
         <span className="text-[10px] text-white/80">{meta.label}</span>
       </div>
 
-      {live && (
+      {live ? (
         <div className="absolute bottom-3 left-3 rounded-lg bg-black/70 px-2 py-1 text-[10px] text-white/70 backdrop-blur">
           신뢰도 {live.confidence_avg !== null ? `${Math.round(live.confidence_avg * 100)}%` : "—"}
           {" · "}추론 {live.inference_ms}ms
         </div>
-      )}
+      ) : showFrame ? (
+        /* 사진이 얼마나 묵었는지 숨기지 않는다. 이 한 줄이 없으면 15초 전
+           사진을 지금 수조로 믿게 된다. */
+        <div className="absolute bottom-3 left-3 rounded-lg bg-black/70 px-2 py-1 text-[10px] text-white/70 backdrop-blur">
+          사진 {ageLabel(frame.takenAt, now) ?? "방금"}
+          {frame.lengthCm !== null && <> {" · "}체장 {frame.lengthCm.toFixed(1)}cm</>}
+        </div>
+      ) : null}
     </div>
   )
 }
