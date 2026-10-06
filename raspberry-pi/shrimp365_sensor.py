@@ -2425,11 +2425,23 @@ def main() -> int:
                                 log.warning("Wi‑Fi 재연결 시도 실패: %s", exc)
 
         if state is not None:
+            # 화면의 "AI 모드" 표시가 기대는 근거. 켜졌다고 쓰려면 실제로 돌고 있어야
+            # 하므로, 모듈 셋이 다 있고 이력까지 읽히는 경우에만 켜진 것으로 본다.
+            ai_state = {
+                "enabled": (advice_mod is not None and anomaly_mod is not None
+                            and hist is not None),
+                "window_h": ANALYSIS_WINDOW_H,
+                "interval_s": ANALYSIS_INTERVAL_S,
+                "samples": len(analysis["rows"]),
+                "at": (time.strftime("%H:%M", time.localtime(analysis["at"]))
+                       if analysis["at"] else None),
+            }
             state.update(
                 values=last_values,
                 nutrient=nutrient,
                 advice=advices,
                 anomalies=analysis["anomalies"],
+                ai=ai_state,
                 status=status_line,
                 errors=errors,
                 linked=bool(auth["key"]),

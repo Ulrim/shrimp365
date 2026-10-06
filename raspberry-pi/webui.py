@@ -57,6 +57,7 @@ class State:
             # 장비가 스스로 낸 판단. 통신과 무관하게 여기서 끝난다.
             "advice": [],          # 설비 운전 권고 (advice.py)
             "anomalies": [],       # 추세 이상징후 (anomaly.py)
+            "ai": {},              # 위 둘이 실제로 돌고 있는지 — 화면의 "AI 모드" 표시
         }
 
     def update(self, **kwargs) -> None:
@@ -102,6 +103,37 @@ PAGE = """<!doctype html>
   .chip.on{border-color:#10B981;color:#10B981}
   .chip.off{border-color:#D97706;color:#F59E0B}
   .chip.hold{border-color:#3B82F6;color:#60A5FA}
+
+  /* AI 모드 표시 — 이 장비가 값만 보여 주는 계측기가 아니라는 것을 머리에 박아 둔다.
+     눌러서 "무엇을 하고 있는지" 를 열 수 있으므로 누를 수 있게 보이도록 한다. */
+  .ai{
+    display:flex;align-items:center;gap:6px;flex:0 0 auto;cursor:pointer;
+    font-size:11.5px;font-weight:800;letter-spacing:.02em;
+    padding:3px 9px;border-radius:999px;
+    border:1px solid #1E3A5F;background:#0F1D33;color:#64748B;
+  }
+  .ai.on{border-color:#2563EB;background:#1E40AF22;color:#93C5FD}
+  .ai .bulb{width:7px;height:7px;border-radius:50%;background:#475569;flex:0 0 auto}
+  .ai.on .bulb{background:#3B82F6;box-shadow:0 0 0 3px #3B82F633}
+
+  /* AI 모드 설명판 */
+  .aibox{max-width:520px;text-align:left;width:100%;margin-top:10px;
+    background:#111A2E;border:1px solid #22304C;border-radius:12px;padding:4px 16px 14px}
+  .aibox .layer{
+    display:flex;gap:11px;align-items:flex-start;
+    padding:10px 0;border-top:1px solid #1E293B;
+  }
+  .aibox .layer:first-of-type{border-top:0}
+  .aibox .n{
+    flex:0 0 auto;width:21px;height:21px;border-radius:50%;margin-top:1px;
+    background:#1E40AF;color:#fff;font-size:11px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .aibox .ttl{font-size:14.5px;font-weight:700;color:#E8EDF7}
+  .aibox .dsc{font-size:12.5px;color:#94A3B8;line-height:1.5;margin-top:2px}
+  .aibox .now{margin-left:auto;flex:0 0 auto;font-size:12px;font-weight:700;color:#60A5FA;text-align:right}
+  .aibox .foot{margin-top:11px;padding-top:10px;border-top:1px solid #1E293B;
+    font-size:12px;color:#64748B;line-height:1.55}
 
   main{flex:1;display:flex;flex-direction:column;justify-content:center;padding:10px 16px;min-height:0}
 
@@ -344,6 +376,7 @@ PAGE = """<!doctype html>
   </span>
   <span class="brand">Shrimp365</span>
   <span class="ver" id="ver"></span>
+  <span class="ai" id="ai" onclick="openAi()"><span class="bulb"></span><span id="ailabel"></span></span>
   <span class="link" id="link"></span>
 </header>
 
@@ -362,6 +395,7 @@ PAGE = """<!doctype html>
 <div id="setup"></div>
 <div id="wifi"></div>
 <div id="account"></div>
+<div id="aipanel"></div>
 
 <script>
 // 값 칸의 표시 형식. **판정 숫자는 여기 없다** — limits.py 가 주입하는 BANDS 를
@@ -622,7 +656,23 @@ var I18N = {
   adv_temp_low:{ko:"히터 가동 점검",en:"Check the heater",vi:"Kiểm tra máy sưởi",id:"Periksa pemanas"},
   adv_temp_swing:{ko:"수온 급변 — 환수량·외기 유입 점검",en:"Temperature swing — check exchange volume and outside air",vi:"Nhiệt độ biến động — kiểm tra lượng thay nước và khí trời",id:"Suhu berayun — periksa volume ganti air dan udara luar"},
   adv_salinity_critical:{ko:"환수 중단 · 원수 염도 확인",en:"Stop water exchange · check source salinity",vi:"Ngừng thay nước · kiểm tra độ mặn nguồn",id:"Hentikan ganti air · periksa salinitas sumber"},
-  adv_salinity_shift:{ko:"염도 급변 — 환수량·원수 점검",en:"Salinity shift — check exchange volume and source",vi:"Độ mặn biến động — kiểm tra lượng thay nước và nguồn",id:"Salinitas bergeser — periksa volume ganti air dan sumber"}
+  adv_salinity_shift:{ko:"염도 급변 — 환수량·원수 점검",en:"Salinity shift — check exchange volume and source",vi:"Độ mặn biến động — kiểm tra lượng thay nước và nguồn",id:"Salinitas bergeser — periksa volume ganti air dan sumber"},
+  // AI 모드 — 머리의 표시와, 눌렀을 때 열리는 설명판
+  ai_mode:{ko:"AI 모드",en:"AI mode",vi:"Chế độ AI",id:"Mode AI"},
+  ai_off:{ko:"AI 모드 꺼짐",en:"AI mode off",vi:"Chế độ AI tắt",id:"Mode AI mati"},
+  ai_title:{ko:"AI 모드 — 장비가 스스로 하는 일",en:"AI mode — what the device decides on its own",vi:"Chế độ AI — thiết bị tự quyết định gì",id:"Mode AI — apa yang diputuskan perangkat sendiri"},
+  ai_l1:{ko:"기준 이탈 판정",en:"Threshold judgement",vi:"Đánh giá ngưỡng",id:"Penilaian ambang"},
+  ai_l1d:{ko:"지금 값이 흰다리새우 적정 범위를 벗어났는지. 매 측정마다.",en:"Whether the current value is outside the range for whiteleg shrimp. Every reading.",vi:"Giá trị hiện tại có ngoài ngưỡng tôm thẻ không. Mỗi lần đo.",id:"Apakah nilai saat ini di luar rentang udang vaname. Setiap pengukuran."},
+  ai_l2:{ko:"경량 이상탐지",en:"Lightweight anomaly detection",vi:"Phát hiện bất thường nhẹ",id:"Deteksi anomali ringan"},
+  ai_l2d:{ko:"급변 · 연속 악화 · 평소 범위 이탈. 기준을 깨기 전에 찾는다.",en:"Surge, sustained drift, deviation from the usual range — found before a limit is crossed.",vi:"Đột biến, xấu đi liên tục, lệch khỏi mức thường — trước khi vượt ngưỡng.",id:"Lonjakan, perburukan terus-menerus, simpangan dari biasanya — sebelum ambang terlampaui."},
+  ai_l3:{ko:"설비 운전 권고",en:"Equipment action advice",vi:"Khuyến nghị vận hành",id:"Rekomendasi operasi"},
+  ai_l3d:{ko:"판정을 「지금 무엇을 돌릴까」 로 바꾼다. 설비를 직접 돌리지는 않는다.",en:"Turns a judgement into what to run now. It does not switch equipment itself.",vi:"Biến đánh giá thành việc cần chạy ngay. Không tự bật thiết bị.",id:"Mengubah penilaian jadi apa yang harus dijalankan. Tidak menyalakan alat sendiri."},
+  ai_none:{ko:"없음",en:"none",vi:"không",id:"tidak ada"},
+  ai_cases:{ko:"{n}건",en:"{n}",vi:"{n}",id:"{n}"},
+  ai_watching:{ko:"{h}시간 · {n}개 점",en:"{h} h · {n} points",vi:"{h} giờ · {n} điểm",id:"{h} jam · {n} titik"},
+  ai_local:{ko:"모두 장비 안에서 계산합니다. 서버도 인터넷도 쓰지 않으므로 회선이 끊겨도 그대로 돕니다.",en:"All of this runs inside the device — no server, no internet, so it keeps working when the line drops.",vi:"Tất cả chạy trong thiết bị — không cần máy chủ hay internet, vẫn chạy khi mất mạng.",id:"Semua berjalan di dalam perangkat — tanpa server atau internet, tetap jalan saat koneksi putus."},
+  ai_offd:{ko:"판정 모듈이나 측정 이력이 없어 꺼져 있습니다. 측정과 전송은 그대로 됩니다.",en:"Off — the judgement modules or the history store are missing. Measuring and sending still work.",vi:"Đang tắt — thiếu mô-đun đánh giá hoặc lịch sử đo. Vẫn đo và gửi bình thường.",id:"Mati — modul penilaian atau riwayat tidak ada. Pengukuran dan pengiriman tetap jalan."},
+  ai_last:{ko:"마지막 추세 분석 {t} · {m}분마다",en:"Last trend pass {t} · every {m} min",vi:"Phân tích xu hướng {t} · mỗi {m} phút",id:"Analisis tren {t} · tiap {m} menit"}
 };
 
 function t(key, vars){
@@ -983,6 +1033,7 @@ function render(d){
   }
   document.getElementById("link").innerHTML = renderLink(d);
   document.getElementById("ver").textContent = d.version ? "v" + d.version : "";
+  renderAi(d);
   // 그래프를 보고 있는 중에는 뒤 화면을 다시 그리지 않는다.
   // 3초마다 갱신하면 조작 중에 깜빡이고 눌림이 씹힌다.
   if (!chartKey) document.getElementById("main").innerHTML = renderValues(d);
@@ -999,6 +1050,65 @@ function render(d){
   btn.textContent = d.linked ? t("info") : t("link_device");
   btn.className = "act" + (d.linked ? " ghost" : "");
   btn.onclick = d.linked ? showInfo : startPair;
+}
+
+// ── AI 모드 ───────────────────────────────────────────────────────────────
+//
+// 이 장비는 값을 띄우는 계측기가 아니라 스스로 판정하고 권고한다. 그런데 평소
+// 화면은 숫자 넉 장뿐이라 그 사실이 보이지 않는다. 머리에 표시를 두어 켜져 있음을
+// 늘 알리고, 누르면 **무엇을 하고 있는지**를 연다 — 현장에서도 점검 자리에서도
+// "AI 가 뭘 한다는 거냐" 는 질문에 화면이 직접 답하게 하려는 것이다.
+//
+// 켜졌다고 쓰는 근거는 수집기가 보내 준다(판정 모듈 + 측정 이력이 다 있을 때만).
+// 화면이 제멋대로 켜졌다고 하면 그 표시는 거짓말이 된다.
+var aiOpen = false;
+
+function renderAi(d){
+  var ai = d.ai || {};
+  var on = !!ai.enabled;
+  var el = document.getElementById("ai");
+  el.className = "ai" + (on ? " on" : "");
+  document.getElementById("ailabel").textContent = on ? t("ai_mode") : t("ai_off");
+  if (aiOpen) drawAi(d);
+}
+
+function openAi(){ aiOpen = true; drawAi(lastState || {}); }
+function closeAi(){ aiOpen = false; document.getElementById("aipanel").innerHTML = ""; }
+
+function drawAi(d){
+  var ai = d.ai || {}, on = !!ai.enabled;
+  var anomalies = (d.anomalies || []).length;
+  var advice = (d.advice || []).length;
+
+  // 기준 이탈은 지금 값으로 바로 센다 — 화면의 색과 같은 판정이다.
+  var out = 0;
+  var vals = d.values || {};
+  for (var k in vals) { if (typeof vals[k] === "number" && level(k, vals[k])) out++; }
+
+  var cnt = function(n){ return n ? t("ai_cases", {n:n}) : t("ai_none"); };
+  var layer = function(n, ttl, dsc, now){
+    return '<div class="layer"><span class="n">' + n + '</span>' +
+           '<div><div class="ttl">' + t(ttl) + '</div>' +
+           '<div class="dsc">' + t(dsc) + '</div></div>' +
+           '<span class="now">' + now + '</span></div>';
+  };
+
+  var foot = on
+    ? (ai.at ? t("ai_last", {t:esc(ai.at), m:Math.round((ai.interval_s||300)/60)}) + '<br>' : '')
+      + t("ai_local")
+    : t("ai_offd");
+
+  document.getElementById("aipanel").innerHTML =
+    '<div class="overlay"><h1>' + t("ai_title") + '</h1>' +
+      '<div class="aibox">' +
+        layer(1, "ai_l1", "ai_l1d", cnt(out)) +
+        layer(2, "ai_l2", "ai_l2d",
+              (on && ai.samples ? t("ai_watching", {h:ai.window_h||96, n:ai.samples}) + '<br>' : '') + cnt(anomalies)) +
+        layer(3, "ai_l3", "ai_l3d", cnt(advice)) +
+        '<div class="foot">' + foot + '</div>' +
+      '</div>' +
+      '<div class="ovbtns"><button class="act ghost" onclick="closeAi()">' + t("close") + '</button></div>' +
+    '</div>';
 }
 
 // 연결된 계정을 보여 주고, 화면에서 바로 다른 계정으로 옮길 수 있게 한다.

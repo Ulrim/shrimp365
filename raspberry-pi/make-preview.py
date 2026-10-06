@@ -37,6 +37,8 @@ def base_state(**over) -> dict:
         "linked": True, "account": "ky****4@gmail.com", "tank": "A-1조", "farm": "1양식장",
         "pairing": False, "pair_code": None, "pair_url": "", "pair_error": None,
         "advice": [], "anomalies": [],
+        "ai": {"enabled": True, "window_h": 96, "interval_s": 300,
+               "samples": 5742, "at": "14:30"},
     }
     state.update(over)
     return state
