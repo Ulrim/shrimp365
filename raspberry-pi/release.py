@@ -296,7 +296,15 @@ def cmd_build(args) -> int:
             "signature": sign("agent", agent_digest),
         })
     manifest["releases"][version] = entry
-    manifest["latest"] = version
+    # `latest` 는 **현장 장비가 받을 수 있는 가장 높은 버전**이다. 웹의 기기 카드가
+    # 이 값으로 「업데이트」 버튼을 띄우므로, 업데이트 꾸러미가 없는 버전을 가리키면
+    # 누른 사람에게는 "파일 이름이 이상합니다" 만 돌아온다.
+    #
+    # 그래서 설치 꾸러미만 만든 경우(--setup-only, 서명 열쇠 없음)에는 건드리지
+    # 않는다. 새로 설치하는 사람은 고정 이름(shrimp365-setup-latest.tar.gz)으로
+    # 받으므로 이 값과 상관없다.
+    if private is not None:
+        manifest["latest"] = version
     manifest_path.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
