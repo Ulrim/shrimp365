@@ -2383,6 +2383,13 @@ def main() -> int:
                 # 양액 요약(nut_*) — 계산이 있을 때만. 웹 양액 상태 카드가 쓴다.
                 payload.update(nutrient_payload(nutrient, nut_holder))
 
+                # 추세 이상징후를 함께 올린다. 장비 화면에만 뜨면 새벽에 아무도
+                # 못 보므로, 서버가 이것으로 알림을 만들어 휴대폰까지 보낸다.
+                # 임계값을 깨기 전에 잡는 것이 이 판정의 존재 이유인데, 그 결과가
+                # 관리자에게 닿지 않으면 반쪽이다.
+                if anomaly_mod is not None and analysis["anomalies"]:
+                    payload["ai_anomaly"] = anomaly_mod.payload_field(analysis["anomalies"])
+
                 if not auth["key"]:
                     # 연결되지 않은 장비도 계측기로는 그대로 쓸 수 있어야 한다.
                     # 값은 모아 두었다가 연결되는 순간 한꺼번에 올린다.
@@ -2425,11 +2432,23 @@ def main() -> int:
                                 log.warning("Wi‑Fi 재연결 시도 실패: %s", exc)
 
         if state is not None:
+            # 화면의 "AI 모드" 표시가 기대는 근거. 켜졌다고 쓰려면 실제로 돌고 있어야
+            # 하므로, 모듈 셋이 다 있고 이력까지 읽히는 경우에만 켜진 것으로 본다.
+            ai_state = {
+                "enabled": (advice_mod is not None and anomaly_mod is not None
+                            and hist is not None),
+                "window_h": ANALYSIS_WINDOW_H,
+                "interval_s": ANALYSIS_INTERVAL_S,
+                "samples": len(analysis["rows"]),
+                "at": (time.strftime("%H:%M", time.localtime(analysis["at"]))
+                       if analysis["at"] else None),
+            }
             state.update(
                 values=last_values,
                 nutrient=nutrient,
                 advice=advices,
                 anomalies=analysis["anomalies"],
+                ai=ai_state,
                 status=status_line,
                 errors=errors,
                 linked=bool(auth["key"]),

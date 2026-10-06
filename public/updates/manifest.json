@@ -303,6 +303,15 @@
       "sha256": "42a12a3c60e6f29e21ecc4df98bf9c9ebe797e4e4dfc42f4342573f7af28a907",
       "size": 81169,
       "signature": "zxo+v5LahAAUTqvcG1Vxz76R3HjUcosDd0GCt0gw/t+lJqW/g1bP6fPEJzWMbjID2lSIC1+lwCUkNrwgLPQhCg=="
+    },
+    "1.9.0": {
+      "notes": "현장 이상징후 판정·설비 운전 권고·AI 모드 표시",
+      "released_at": "2026-10-06",
+      "setup": {
+        "file": "shrimp365-setup-1.9.0.tar.gz",
+        "sha256": "fd6eeeecf0b7b90cf5098067f42d554533fadf0943dca33ac892eeebdf727ff0",
+        "size": 135427
+      }
     }
   }
 }

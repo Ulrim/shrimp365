@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase-server"
-import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, MISSING_INPUT_PARAMETER, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
+import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, parseTrendAlerts, TREND_ALERT_PARAMETERS, MISSING_INPUT_PARAMETER, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
 import { sendAlertPush } from "@/lib/push-server"
 
 // In-memory rate limit: max 60 requests per device per minute
@@ -292,10 +292,29 @@ export async function POST(req: NextRequest) {
   if (hasRecipe(recipe)) delete globalValues.salinity
   if (recipe?.target_ph != null) delete globalValues.ph
 
-  const thresholdAlerts = [
+  // 장비가 찾아 보낸 추세 이상징후. 임계값을 깨기 전 단계라 **같은 목록에 섞어**
+  // 중복 억제·복귀·푸시를 그대로 태운다 — 알림 수명 관리를 두 벌 만들지 않는다.
+  //
+  // 두 가지를 걸러 둔다.
+  //  · **밀린 값에는 반응하지 않는다.** 회선이 돌아오면 buffer 가 며칠치를 한꺼번에
+  //    올리는데, 그 안의 추세 판정은 지금 상황이 아니다. 사흘 전 급락으로 새벽에
+  //    휴대폰이 울리면 그 알림은 거짓말이다.
+  //  · **농업 베드는 뺀다.** 장비의 추세 기준(수온 2.0 ℃, pH 0.4)은 새우 해수
+  //    기준이라, 근권 냉방으로 일부러 흔드는 양액에 대면 정상 운전이 경고가 된다.
+  const FRESH_MS = 15 * 60_000
+  const fresh = Date.now() - new Date(recordedAt).getTime() <= FRESH_MS
+  const trendAlerts = (fresh && profile !== "agriculture")
+    ? parseTrendAlerts(body.ai_anomaly)
+    : []
+
+  // 수조 색(초록·주황·빨강)을 정하는 것은 **지금 값의 판정**뿐이다. 추세 경고까지
+  // 섞으면 기준 안에서 멀쩡히 도는 수조가 "위험" 으로 보여 진짜 이탈과 구분되지
+  // 않는다. 그래서 둘을 나눠 두고, 알림 수명(중복 억제·복귀·푸시)만 함께 태운다.
+  const statusAlerts = [
     ...checkThresholds(globalValues as Parameters<typeof checkThresholds>[0], profile),
     ...checkRecipe(values, recipe),
   ]
+  const thresholdAlerts = [...statusAlerts, ...trendAlerts]
 
   // 같은 항목이 계속 범위 밖이면 알림을 새로 만들지 않는다.
   //
@@ -367,6 +386,14 @@ export async function POST(req: NextRequest) {
   ).filter(p => !stillBad.has(p))
   // 값이 들어왔다는 사실 자체가 입력 누락의 해소다.
   recovered.push(MISSING_INPUT_PARAMETER)
+  // 추세 알림의 복귀 — 이번에 보고되지 않은 항목은 더 이상 이상징후가 아니다.
+  // 장비가 매 측정마다 **전체 목록**을 보내므로 빠진 것이 곧 해소다.
+  // 밀린 값(fresh 아님)으로는 닫지 않는다 — 사흘 전 payload 에 없다는 이유로
+  // 지금 열려 있는 경고를 닫으면, 정작 지금 벌어지는 일을 지워 버린다.
+  if (fresh && profile !== "agriculture") {
+    const stillTrending = new Set(trendAlerts.map(a => a.parameter))
+    recovered.push(...TREND_ALERT_PARAMETERS.filter(p => !stillTrending.has(p)))
+  }
   // 레시피 알림은 parameter 가 값 키와 달라("EC"/"pH") 별도 매핑으로 복귀를 잡는다.
   // 0 은 전극이 물 밖일 때 나오는 값이라 checkRecipe 가 판정에서 제외한다 —
   // 판정을 안 했으면 복귀도 아니다(비대칭이면 이탈 알림이 0 수신에 닫혀 버린다).
@@ -387,8 +414,8 @@ export async function POST(req: NextRequest) {
     } catch (e) { console.warn("[sensors/data] non-fatal:", e instanceof Error ? e.message : e) }
   }
 
-  const newStatus = thresholdAlerts.some(a => a.type === "danger") ? "danger"
-    : thresholdAlerts.some(a => a.type === "warning") ? "warning"
+  const newStatus = statusAlerts.some(a => a.type === "danger") ? "danger"
+    : statusAlerts.some(a => a.type === "warning") ? "warning"
     : "active"
 
   try {
@@ -419,5 +446,6 @@ export async function POST(req: NextRequest) {
     reading_id: reading?.id,
     tank_id: device.tank_id,
     alerts_triggered: thresholdAlerts.length,
+    trend_alerts: trendAlerts.length,
   })
 }
