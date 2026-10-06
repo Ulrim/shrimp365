@@ -2383,6 +2383,13 @@ def main() -> int:
                 # 양액 요약(nut_*) — 계산이 있을 때만. 웹 양액 상태 카드가 쓴다.
                 payload.update(nutrient_payload(nutrient, nut_holder))
 
+                # 추세 이상징후를 함께 올린다. 장비 화면에만 뜨면 새벽에 아무도
+                # 못 보므로, 서버가 이것으로 알림을 만들어 휴대폰까지 보낸다.
+                # 임계값을 깨기 전에 잡는 것이 이 판정의 존재 이유인데, 그 결과가
+                # 관리자에게 닿지 않으면 반쪽이다.
+                if anomaly_mod is not None and analysis["anomalies"]:
+                    payload["ai_anomaly"] = anomaly_mod.payload_field(analysis["anomalies"])
+
                 if not auth["key"]:
                     # 연결되지 않은 장비도 계측기로는 그대로 쓸 수 있어야 한다.
                     # 값은 모아 두었다가 연결되는 순간 한꺼번에 올린다.

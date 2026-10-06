@@ -26,7 +26,7 @@ import {
 } from "lucide-react"
 import {
   detectTrendAnomalies, TREND_MIN_SAMPLES, anomalyCauses, thresholdAlertCauses,
-  MISSING_INPUT_PARAMETER, alertDisplayLabel, type TrendAnomaly,
+  alertDisplayLabel, hasThresholdLine, type TrendAnomaly,
 } from "@/lib/thresholds"
 import { exportToCsv } from "@/lib/export"
 import { formatDateTime, computeCycleDay } from "@/lib/utils"
@@ -1240,10 +1240,10 @@ export function WaterQualityView() {
                     <p className={`text-sm font-medium ${alert.type === "danger" ? "text-red-500" : "text-amber-500"}`}>
                       {alert.message}
                     </p>
-                    {/* 입력 누락은 "측정값"이 없는 알림이다(value 는 경과 시간).
-                        측정값/기준 줄을 그대로 붙이면 읽는 사람이 수질 수치로 오해한다. */}
+                    {/* 넘어선 선이 없는 알림(입력 누락·추세)에는 측정값/기준 줄을
+                        붙이지 않는다 — lib/thresholds.ts 의 hasThresholdLine 참고. */}
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {alert.parameter !== MISSING_INPUT_PARAMETER && (
+                      {hasThresholdLine(alert.parameter) && (
                         <>{t.waterQualityX.measured}: {alert.value} / {t.waterQualityX.threshold}: {alert.threshold} · </>
                       )}
                       {formatDateTime(alert.created_at)}
@@ -1820,13 +1820,12 @@ export function WaterQualityView() {
                               {isDanger ? t.dashboard.danger : t.dashboard.warning}
                             </Badge>
                           </div>
-                          {/* 입력 누락은 "측정값"이 없는 알림이다(value 는 경과 시간,
-                              threshold 는 72시간). 측정값/기준을 그대로 붙이면
-                              "측정값 96 → 기준 72" 가 되어 수질 수치로 오해한다.
-                              항목 이름만 남긴다 — 위 배너의 가드와 같은 방식. */}
+                          {/* 넘어선 선이 없는 알림(입력 누락·추세)에는 측정값/기준을
+                              붙이지 않고 항목 이름만 남긴다 — 위 배너의 가드와 같은
+                              조건(lib/thresholds.ts 의 hasThresholdLine)을 쓴다. */}
                           <p className="text-xs text-muted-foreground mt-1">
                             {t.waterQualityX.item}: {alertParamLabel}
-                            {alert.parameter !== MISSING_INPUT_PARAMETER && (
+                            {hasThresholdLine(alert.parameter) && (
                               <> · {t.waterQualityX.measured} {alert.value} → {t.waterQualityX.threshold} {alert.threshold}</>
                             )}
                           </p>

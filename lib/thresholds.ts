@@ -542,6 +542,79 @@ export function detectTrendAnomalies(
     (a.type === b.type ? 0 : a.type === "danger" ? -1 : 1) || kindOrder[a.kind] - kindOrder[b.kind])
 }
 
+// ── 장비가 보낸 추세 이상징후 → 알림 ────────────────────────────────────
+//
+// detectTrendAnomalies 는 **브라우저**에서 돈다. 화면을 열어 둔 사람에게만 보이고
+// 알림함에도 휴대폰에도 남지 않는다는 뜻이다. 그런데 임계값을 깨기 전에 잡는 것이
+// 이 판정의 존재 이유라, 정작 그 결과가 관리자에게 닿지 않으면 반쪽이다.
+//
+// 그래서 **장비**(raspberry-pi/anomaly.py — 같은 판정의 파이썬 이식)가 찾은 것을
+// 측정값과 함께 올려 보내면, 수신 라우트가 그것으로 알림을 만든다.
+//
+// 장비가 보낸 것을 그대로 믿지는 않는다. 아래 파서가 **항목·종류·등급만** 받고
+// 문구는 서버가 짓는다 — 기기 키를 쥔 쪽이 알림함에 아무 글이나 띄우지 못하게.
+
+/** 추세 알림의 저장 키는 임계값 알림과 **달라야 한다.**
+ *  같으면 둘이 한 행을 두고 다투어, 추세 경고가 임계 경고를 덮거나 그 반대가 된다. */
+const TREND_SUFFIX = " 추세"
+
+/** 추세 알림이 쓸 수 있는 저장 키 전부. 복귀 처리에서 "보고되지 않은 것"을
+ *  고르려면 가능한 키를 알아야 한다. */
+export const TREND_ALERT_PARAMETERS: string[] =
+  Object.keys(TREND_RULES).map(k => alertParameterKey(k) + TREND_SUFFIX)
+
+const TREND_KINDS = new Set(["surge", "drift", "deviation"])
+
+const TREND_KIND_TEXT: Record<string, string> = {
+  surge:     "급변",
+  drift:     "연속 악화",
+  deviation: "평소 범위 이탈",
+}
+
+/** 추세 알림도 알림 행의 모양은 임계값 알림과 같다 — 수명 관리를 공유하므로
+ *  같은 타입이어야 한다. 다른 것은 저장 키(접미사)와 문구뿐이다. */
+export type TrendAlert = ThresholdAlert
+
+/**
+ * 장비가 보낸 추세 이상징후 문자열을 알림으로 바꾼다.
+ *
+ * 형식은 `항목:종류:등급:값` 을 쉼표로 이은 것이다. 중첩 JSON 이 아니라 한 줄짜리
+ * 문자열인 이유는, 기기 카드에 남는 `last_payload` 가 스칼라만 보관해서 — 배열로
+ * 보내면 나중에 "그때 장비가 뭘 보냈나" 를 볼 수 없다.
+ *
+ *     "do_level:surge:danger:3.10,ph:deviation:warning:7.42"
+ *
+ * 모르는 항목·종류·등급은 조용히 버린다. 기기 쪽이 먼저 올라가고 서버가 나중에
+ * 올라가는 순서가 흔해서, 모르는 값에 500 을 내면 그동안 측정까지 멈춘다.
+ */
+export function parseTrendAlerts(raw: unknown, max = 3): TrendAlert[] {
+  if (typeof raw !== "string" || !raw) return []
+  const out: TrendAlert[] = []
+  for (const part of raw.split(",")) {
+    if (out.length >= max) break
+    const [field, kind, type, valueText] = part.trim().split(":")
+    if (!(field in TREND_RULES) || !TREND_KINDS.has(kind)) continue
+    if (type !== "danger" && type !== "warning") continue
+    // Number("") 은 0 이다. 빈 자리를 그대로 두면 "DO 0.00 급변" 같은 알림이 선다.
+    // 0 은 이 저장소 규약상 "안 쟀다" 이고, 장비도 0 인 점은 판정에서 빼므로
+    // 추세 알림에 0 이 실려 오는 일은 없다 — 오면 깨진 것이라 버린다.
+    const value = Number(valueText)
+    if (!valueText || !Number.isFinite(value) || value === 0) continue
+
+    const label = PARAM_LABELS[field] ?? field
+    const digits = TREND_RULES[field as ThresholdKey].digits
+    out.push({
+      parameter: label + TREND_SUFFIX,
+      value,
+      // 추세 판정에는 넘어선 선이 없다. 0 은 이 표의 "기준 없음" 자리다.
+      threshold: 0,
+      type,
+      message: `${label} ${value.toFixed(digits)} — ${TREND_KIND_TEXT[kind]} 감지 (기준 이탈 전)`,
+    })
+  }
+  return out
+}
+
 // ── 입력 누락(기록 끊김) 판정 ───────────────────────────────────────────
 //
 // 위의 세 판정(임계값·레시피·추세)은 모두 "값이 들어온 다음"에만 돌아간다.
@@ -564,6 +637,19 @@ export const MISSING_INPUT_HOURS = 72
  *  자동 해소(기록이 다시 들어오면 닫기)가 tank_id + 이 값으로 같은 알림을 찾는다.
  *  임계값 항목 라벨(수온·pH·DO…)과 절대 겹치지 않아야 한다. */
 export const MISSING_INPUT_PARAMETER = "입력 누락"
+
+/** 이 알림에 「측정값 / 기준」 줄을 붙여도 되는가.
+ *
+ *  둘은 붙이면 안 된다.
+ *   · **입력 누락** — value 가 경과 시간이고 threshold 는 72시간이다. 그대로
+ *     찍으면 "측정값 96 / 기준 72" 가 되어 수질 수치로 읽힌다.
+ *   · **추세 알림** — 넘어선 선이 애초에 없다(threshold 0). "기준: 0" 은
+ *     기준이 0 이라는 말로 읽혀, 멀쩡한 값이 0 을 넘겨 경고가 난 것처럼 보인다.
+ *
+ *  화면마다 조건을 따로 적으면 한쪽만 고쳐져 어긋나므로 판정과 같은 파일에 둔다. */
+export function hasThresholdLine(parameter: string): boolean {
+  return parameter !== MISSING_INPUT_PARAMETER && !parameter.endsWith(TREND_SUFFIX)
+}
 
 export interface MissingInputAlert {
   parameter: typeof MISSING_INPUT_PARAMETER

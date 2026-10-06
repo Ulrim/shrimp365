@@ -131,7 +131,24 @@ check("잠깐 높은 것만으로는 폭기를 줄이라고 하지 않는다",
       codes({"do_level": 8.6}, [], [{"t": NOW - i * 60, "do_level": 8.6} for i in range(5)]), [])
 
 
-print("\n⑤ 전 구간 — 이력 DB → 이상탐지 → 운전 권고")
+print("\n⑤ 서버로 보내는 추세 요약")
+check("급락 하나 → 한 줄",
+      anomaly.payload_field([{"parameter": "do_level", "kind": "surge", "type": "danger",
+                              "value": 3.1037, "digits": 2}]),
+      "do_level:surge:danger:3.1")
+check("심한 것부터 세 개까지만",
+      anomaly.payload_field([{"parameter": f, "kind": "surge", "type": "warning",
+                              "value": 1.0, "digits": 1} for f in
+                             ("do_level", "ph", "temperature", "salinity")]).count(",") + 1,
+      3)
+check("판정이 없으면 빈 문자열", anomaly.payload_field([]), "")
+# 서버(lib/thresholds.ts 의 parseTrendAlerts)가 이 형식을 읽는다. 형식이 틀어지면
+# 장비는 멀쩡히 보내는데 알림만 조용히 사라지므로, 모양을 여기서 묶어 둔다.
+check("형식은 항목:종류:등급:값",
+      len(anomaly.payload_field([{"parameter": "ph", "kind": "drift", "type": "warning",
+                                  "value": 7.4, "digits": 2}]).split(":")), 4)
+
+print("\n⑥ 전 구간 — 이력 DB → 이상탐지 → 운전 권고")
 rows = store(drop)
 last = {k: v for k, v in rows[-1].items() if k != "t"}
 check("급락한 수조에 권고가 선다", codes(last, anomaly.detect(rows), rows), [("warn", "do_low")])
