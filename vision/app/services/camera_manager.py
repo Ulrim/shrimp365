@@ -9,6 +9,7 @@ import uuid
 
 from sqlalchemy import select, update
 
+from app.version import VERSION
 from app.config import settings
 from app.database import SessionLocal, utcnow
 from app.models import Camera, Tank
@@ -27,7 +28,9 @@ HEARTBEAT_INTERVAL_SECONDS = 60
 #: 웹에서 카메라를 켜도 장비가 영영 모르고, 사람이 SSH 로 들어가 서비스를
 #: 다시 시작해야 했다. 그래서 장비 쪽에서도 주기적으로 맞춰 본다.
 RECONCILE_INTERVAL_SECONDS = 30
-AGENT_VERSION = "1.0.0"
+#: 서버에 보고하는 프로그램 버전. 값은 app/version.py 한 곳에서만 정한다
+#: (원격 업데이트가 VERSION 파일을 바꾸면 그대로 따라간다).
+AGENT_VERSION = VERSION
 
 
 class MaxCamerasReachedError(RuntimeError):

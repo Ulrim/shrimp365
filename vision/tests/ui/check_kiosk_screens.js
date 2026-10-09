@@ -67,7 +67,27 @@ const scenes = {
     camera: { id: 'x', name: 'A-1조 수중 카메라', status: 'running', type: 'csi' },
     count: 131, count_age: 2, confidence: 0.55, history: hist(300, 131),
     server_ok: true, pairing: linked },
-    { want: ['#live'], text: ['131', '마리', 'A-1조'] }],
+    { want: ['#live'], text: ['131', '마리', 'A-1조', 'v1.0.0'] }],
+
+  // 원격 업데이트가 되돌려진 장비 — 농장에서 눈으로 알아볼 수 있어야 한다.
+  // 서비스는 멀쩡히(이전 버전으로) 돌고 측정도 계속되므로, 이 표시가 없으면
+  // 옛 버전으로 도는 파이가 조용히 남는다.
+  rolledback: [{ ...base,
+    camera: { id: 'x', name: 'A-1조 수중 카메라', status: 'running', type: 'csi' },
+    count: 131, count_age: 2, confidence: 0.55, history: hist(300, 131),
+    server_ok: true, pairing: linked,
+    update: { status: 'rolled_back', version: '1.0.0',
+              message: '재시작 후 자리를 잡지 못했습니다', at: 1760000000 } },
+    { want: ['#live', '.warn'], text: ['v1.0.0', '업데이트 되돌림'] }],
+
+  // 잘 올라간 경우에는 아무 말도 덧붙이지 않는다. 늘 무언가 떠 있으면
+  // 정작 문제가 생겼을 때 눈에 띄지 않는다.
+  updated: [{ ...base,
+    camera: { id: 'x', name: 'A-1조 수중 카메라', status: 'running', type: 'csi' },
+    count: 131, count_age: 2, confidence: 0.55, history: hist(300, 131),
+    server_ok: true, pairing: linked, version: '1.1.0',
+    update: { status: 'applied', version: '1.1.0', message: '정상', at: 1760000000 } },
+    { want: ['#live'], text: ['v1.1.0'], absent: ['업데이트 되돌림', '업데이트 거부됨'] }],
 
   // 설치 직후 — 무엇을 해야 하는지가 화면 한가운데 있어야 한다
   unpaired: [{ ...base },
@@ -127,6 +147,11 @@ const scenes = {
     for (const sel of check.want) if (!(await p.$(sel))) problems.push(`없음: ${sel}`);
     const body = await p.evaluate(() => document.body.innerText);
     for (const t of check.text) if (!body.includes(t)) problems.push(`문구 없음: "${t}"`);
+    // 없어야 하는 문구. "잘 됐을 때 조용한가" 는 "문제일 때 보이는가" 만큼
+    // 중요하다 — 늘 무언가 떠 있으면 아무도 읽지 않게 된다.
+    for (const t of (check.absent || [])) {
+      if (body.includes(t)) problems.push(`없어야 할 문구: "${t}"`);
+    }
     const h = await p.evaluate(() => document.body.scrollHeight);
     if (h > 480) problems.push(`세로 넘침: ${h}px (화면은 480 이다)`);
     if (errs.length) problems.push(`콘솔: ${errs.join('; ')}`);

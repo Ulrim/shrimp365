@@ -28,6 +28,7 @@ from app.config import (
 )
 from app.database import init_db
 from app.services import snapshot_sender, sync_service
+from app.version import VERSION as APP_VERSION
 from app.services.broadcaster import broadcaster
 from app.services.camera_manager import camera_manager
 from app.services.pairing import ensure_device_key, load_device_key, pairing_state
@@ -200,7 +201,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="shrimp365 Vision Service",
-    version="1.0.0",
+    version=APP_VERSION,
     description="비전센서·AI 기반 비접촉 흰다리새우 개체수 모니터링 (내부 전용)",
     lifespan=lifespan,
 )

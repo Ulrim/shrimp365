@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import ipaddress
+import json
 import logging
 import socket
 import time
@@ -30,11 +31,13 @@ import uuid
 from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from app.config import settings, simulation_mode_active, simulation_mode_reason
+from app.version import VERSION
 from app.services import tuning
 from app.services.camera_manager import camera_manager
 from app.services.pairing import pairing_state
@@ -45,7 +48,9 @@ from app.services.sync_service import enabled as sync_enabled
 
 logger = logging.getLogger(__name__)
 
-AGENT_VERSION = "1.0.0"
+#: 서버에 보고하는 프로그램 버전. 값은 app/version.py 한 곳에서만 정한다
+#: (원격 업데이트가 VERSION 파일을 바꾸면 그대로 따라간다).
+AGENT_VERSION = VERSION
 
 #: 추이 그래프용 표본. 5초 간격 × 360 = 30분.
 _SAMPLE_INTERVAL_SECONDS = 5
@@ -77,6 +82,31 @@ async def _sampler() -> None:
         await asyncio.sleep(_SAMPLE_INTERVAL_SECONDS)
         with contextlib.suppress(Exception):  # 표본 수집이 서비스를 멈추면 안 된다
             sample_once()
+
+
+def update_state() -> dict | None:
+    """마지막 원격 업데이트 결과. 없으면 None.
+
+    **SSH 없이 "이 장비가 올라갔나" 를 확인할 유일한 길이다.** 업데이터는
+    농장에 아무도 없을 때 한밤중에 돌고, 실패하면 조용히 이전 버전으로
+    되돌린다 — 그 사실이 어딘가에 남지 않으면 아무도 모른다.
+
+    업데이터(deploy/updater.py)가 적는 자리를 그대로 읽는다. 서로 다른 곳을
+    보면 화면은 영영 비어 있고, 그 증상의 원인은 보이지 않는다.
+    """
+    path = Path(settings.device_state_path).with_name("update-result.json")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    return {
+        "status": str(data.get("status") or ""),
+        "version": str(data.get("version") or ""),
+        "message": str(data.get("message") or "")[:300],
+        "at": data.get("at") if isinstance(data.get("at"), int) else None,
+    }
 
 
 def build_state() -> dict:
@@ -124,6 +154,9 @@ def build_state() -> dict:
         "pending_uploads": sync_backlog() if sync_enabled() else 0,
         "pairing": pairing_state.snapshot(),
         "public_url": settings.vision_public_url or None,
+        # 마지막 원격 업데이트 결과. 되돌려진 장비를 농장에서 눈으로 알아볼
+        # 수 있어야 한다 — 그러지 못하면 옛 버전으로 도는 파이가 조용히 남는다.
+        "update": update_state(),
         "model": settings.model_path.rsplit("/", 1)[-1],
         "conf_threshold": settings.confidence_threshold,
     }
@@ -383,6 +416,10 @@ PAGE_HTML = """<!doctype html>
   button.primary{border-color:#1E40AF;background:#1E40AF;color:#fff}
   .spacer{margin-left:auto}
 
+  /* 업데이트가 되돌려졌을 때의 표시. 시뮬레이션 경고만큼 크게 띄우지는
+     않는다 — 장비는 멀쩡히 돌고 있고(이전 버전으로), 측정도 계속된다. */
+  .warn{color:#FBBF24;font-weight:700}
+
   /* 시뮬레이션 경고 띠 — 숨기지 않는다 */
   .simbar{
     flex:0 0 auto;margin:0 16px 10px;padding:9px 14px;border-radius:12px;
@@ -501,7 +538,16 @@ function drawSpark(points){
 }
 
 function render(d){
-  document.getElementById("ver").textContent = "v" + d.version;
+  // 버전은 머리말에 둔다. 아래 카메라 줄은 이름이 길면 말줄임으로 잘려,
+  // 정작 봐야 할 때 안 보인다(그 줄에 붙였다가 화면에서 확인하고 옮겼다).
+  var vtxt = "v" + esc(d.version);
+  // 되돌려졌거나 거부된 경우만 덧붙인다. 잘 올라간 것까지 적으면 늘 무언가
+  // 떠 있게 되어, 정작 문제가 생겼을 때 눈에 띄지 않는다.
+  if (d.update && (d.update.status === "rolled_back" || d.update.status === "rejected")) {
+    vtxt += ' <span class="warn">· 업데이트 '
+         + (d.update.status === "rolled_back" ? "되돌림" : "거부됨") + '</span>';
+  }
+  document.getElementById("ver").innerHTML = vtxt;
 
   // ── 상태 칩 ──
   var chips = "";

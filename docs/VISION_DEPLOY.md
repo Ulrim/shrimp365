@@ -10,6 +10,7 @@ ShrimpVision 을 shrimp365 에 통합한 결과물입니다.
 | 구성 | 위치 | 설명 |
 |---|---|---|
 | 추론 서비스 | `vision/` | Python·FastAPI. YOLOv8 + ByteTrack, 카메라 스트림, 경보 판정 |
+| 원격 업데이트 | `vision/deploy/updater.py` ↔ `vision/deploy/release.py` | **짝을 이룹니다.** 서명으로만 통과시킵니다 — 공개키가 비어 있으면 아무것도 받지 않습니다 |
 | DB 스키마 | `supabase/migrations/vision_monitoring.sql` | `vision_cameras` · `count_records` · `vision_alert_configs` + 집계 함수 |
 | 웹 API | `app/api/vision/*` | 로그인 확인 → 소유 확인 → 비전 서비스 중계 |
 | 화면 | `app/(dashboard)/vision`, `components/vision/*` | 개요·실시간·이력·통합 분석·설정 |
@@ -241,6 +242,36 @@ curl https://vision.shrimp365.kr/health     # {"status":"ok","mode":"simulation"
 
 > 공인 IP 와 공유기 설정을 직접 다룰 수 있다면 nginx + certbot 으로 같은 결과를
 > 낼 수 있습니다(설정은 §3-7).
+
+## 3-5-1. 원격 업데이트 (장비가 여러 대면 사실상 필수)
+
+새 버전을 내면 장비들이 1시간 안에 스스로 받아 깝니다. 설치할 때 타이머가 함께
+등록되므로 장비 쪽에 따로 할 일은 없습니다.
+
+**처음 한 번은 사무실 PC 에서 열쇠를 만들어야 합니다.** 그 전에는 장비가
+아무것도 받지 않습니다 — 공개키가 비어 있으면 막힌 채로 두는 것이 기본값입니다.
+
+```
+cd shrimp365/vision && python3 deploy/release.py init
+```
+
+나온 `RELEASE_PUBLIC_KEY = "..."` 한 줄을 `vision/deploy/updater.py` 에 넣고
+커밋합니다. 개인키는 `vision/deploy/secrets/` 에 생기고 저장소에 올라가지
+않습니다 — **백업하세요.**
+
+이후 버전을 낼 때마다:
+
+```
+cd shrimp365/vision && python3 deploy/release.py build 1.1.0 --notes "변경 내용"
+```
+
+그리고 `public/updates/vision` 과 버전 파일들을 커밋·푸시하면 끝입니다.
+
+자세한 것(확인하는 법, 되돌리기, 농장별로 끄기)은 `vision/deploy/README.md` §8-1.
+
+> 수질 센서 파이의 서명 열쇠는 **쓰지 않습니다.** 그 키는 저장소가 공개로
+> 바뀌면서 노출됐습니다(`docs/SIGNING_KEY_ROTATION.md`). 비전 장비는 처음부터
+> 다른 열쇠를 쓰므로, 센서 쪽 키 교체를 기다리지 않아도 됩니다.
 
 ## 3-6. 비전 서비스 기동
 

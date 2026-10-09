@@ -25,6 +25,7 @@ from pathlib import Path
 
 from sqlalchemy import delete, func, select
 
+from app.version import VERSION
 from app.config import server_sync_mode, settings
 from app.database import SessionLocal
 from app.models import Camera, CountRecord, Farm, Tank
@@ -35,7 +36,9 @@ logger = logging.getLogger(__name__)
 #: 맞추는 주기(초). 개체수는 10초마다 한 줄이라 30초면 서너 줄씩 올라간다.
 SYNC_INTERVAL_SECONDS = 30
 
-AGENT_VERSION = "1.0.0"
+#: 서버에 보고하는 프로그램 버전. 값은 app/version.py 한 곳에서만 정한다
+#: (원격 업데이트가 VERSION 파일을 바꾸면 그대로 따라간다).
+AGENT_VERSION = VERSION
 
 
 def _watermark_path() -> Path:

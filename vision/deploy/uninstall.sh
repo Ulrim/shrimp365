@@ -27,6 +27,10 @@ USER_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6 || true)"
 echo "==> 서비스 정지"
 systemctl stop shrimp365-vision 2>/dev/null || true
 systemctl disable shrimp365-vision 2>/dev/null || true
+# 원격 업데이트 타이머. 이것을 남겨 두면 지운 뒤에도 시간마다 깨어나
+# 없어진 경로를 찾으며 로그에 오류를 쌓는다.
+systemctl stop shrimp365-vision-update.timer 2>/dev/null || true
+systemctl disable shrimp365-vision-update.timer 2>/dev/null || true
 
 echo "==> 장비 화면(키오스크) 자동 실행 되돌리기"
 pkill -f shrimp365-vision-kiosk 2>/dev/null || true
@@ -48,6 +52,9 @@ echo "==> 프로그램·설정·서비스 삭제"
 rm -rf /opt/shrimp365-vision
 rm -rf /etc/shrimp365-vision
 rm -f /etc/systemd/system/shrimp365-vision.service
+rm -f /etc/systemd/system/shrimp365-vision-update.service
+rm -f /etc/systemd/system/shrimp365-vision-update.timer
+rm -rf /opt/shrimp365-vision.prev /opt/shrimp365-vision.new
 systemctl daemon-reload 2>/dev/null || true
 
 if [ "$ALL" = yes ]; then

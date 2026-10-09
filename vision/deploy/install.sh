@@ -10,7 +10,7 @@
 #   · 프로그램을 /opt/shrimp365-vision 에 배치
 #   · 가상환경 + onnxruntime 추론 의존성 설치
 #   · 설정 파일을 /etc/shrimp365-vision/env 로 생성 (있으면 건드리지 않음)
-#   · systemd 서비스 등록
+#   · systemd 서비스 등록 + 원격 업데이트 타이머(1시간마다)
 #
 # 이미 설치된 기기에서 다시 실행하면 프로그램만 새 것으로 바꿉니다.
 # 설정 파일과 받아 둔 기기 키는 그대로 둡니다.
@@ -25,6 +25,7 @@ CONF_DIR=/etc/shrimp365-vision
 CONF="$CONF_DIR/env"
 SERVICE_USER=shrimp365
 UNIT=shrimp365-vision.service
+UPDATE_UNIT=shrimp365-vision-update
 MODEL=ai/models/shrimp_yolov8n_416.onnx
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -61,6 +62,13 @@ apt-get install -y python3-picamera2 2>/dev/null \
   || echo "    (python3-picamera2 없음 — CSI 카메라를 쓰려면 라즈베리파이 OS 가 필요합니다)"
 apt-get install -y python3-venv python3-dev libgl1 2>/dev/null \
   || apt-get install -y python3-venv python3-dev 2>/dev/null || true
+# 원격 업데이트가 서명을 확인하는 데 쓴다. 업데이터는 가상환경이 아니라
+# **시스템 파이썬**으로 돌기 때문에(설치본을 통째로 갈아 끼우는 쪽이라
+# 자기가 바꾸는 가상환경에 의존하면 안 된다) 여기에 있어야 한다.
+# 없으면 업데이트를 건너뛸 뿐 측정은 그대로 돈다.
+apt-get install -y python3-cryptography 2>/dev/null \
+  || echo "    (python3-cryptography 없음 — 원격 업데이트가 꺼집니다. 측정은 정상입니다)"
+
 # 영상 위에 그리는 카메라 이름이 한글이다. 글꼴이 없으면 네모(□□□)로 나온다.
 apt-get install -y fonts-noto-cjk 2>/dev/null \
   || apt-get install -y fonts-nanum 2>/dev/null \
@@ -179,7 +187,7 @@ SHRIMP365_URL=https://www.shrimp365.kr
 # ── 선택 1. 브라우저에서 영상까지 보려면 ────────────────────────────────────
 # 개체수 측정·기록·장비 화면은 이것 없이도 됩니다. 웹에서 실시간 영상을 보려면
 # 이 파이에 공개 주소(Cloudflare Tunnel 등)가 있어야 하고, 아래 두 값이
-# 웹(Vercel)에 넣은 것과 같아야 합니다. docs/VISION_DEPLOY.md §3-4 참고.
+# 웹(Vercel)에 넣은 것과 같아야 합니다. docs/VISION_DEPLOY.md §3-5 참고.
 VISION_PUBLIC_URL=
 VISION_SERVICE_KEY=
 VISION_STREAM_SECRET=
@@ -195,7 +203,19 @@ AUTO_START_STREAMS=true
 # MODEL_PATH=/opt/shrimp365-vision/ai/models/shrimp_yolov8n_416.onnx
 # CONFIDENCE_THRESHOLD=0.30
 
-# ── 선택 3. 데이터베이스에 직접 붙는 배포 ──────────────────────────────────
+# ── 선택 3. 원격 업데이트 ──────────────────────────────────────────────────
+# 새 버전이 나오면 이 장비가 1시간 안에 스스로 받아 깝니다. 농장마다 찾아가지
+# 않아도 되게 하려는 것입니다.
+#
+# 아무 파일이나 받지 않습니다. 꾸러미가 진짜인지는 **서명**이 판단하고,
+# 공개키는 프로그램 안에 박혀 있습니다 — 서버가 털려도 이 장비에 코드를 심을
+# 수 없습니다. 적용 후 서비스가 자리를 잡지 못하면 이전 버전으로 되돌립니다.
+#
+# 이 농장만 멈춰 두려면 false 로 바꾸세요.
+UPDATE_ENABLED=true
+# UPDATE_MANIFEST_URL=https://www.shrimp365.kr/updates/vision/manifest.json
+
+# ── 선택 4. 데이터베이스에 직접 붙는 배포 ──────────────────────────────────
 # 서버를 거치지 않고 Postgres 에 바로 쓰려면 여기에 연결 문자열을 넣습니다
 # (접두사는 postgresql+asyncpg://). 비워 두는 것이 기본이고 권장입니다 —
 # 넣으면 그 비밀번호가 이 파이에 남습니다.
@@ -215,8 +235,13 @@ RUNNING=no
 if [ -d /run/systemd/system ]; then
   echo "==> 서비스 등록"
   install -m 644 "$SRC/deploy/$UNIT" /etc/systemd/system/
+  # 원격 업데이트 타이머. 이미 깔린 장비에서 다시 돌려도 여기서 붙는다 —
+  # 그래야 "업데이트를 받으려면 먼저 사람이 가야 한다" 가 한 번으로 끝난다.
+  install -m 644 "$SRC/deploy/$UPDATE_UNIT.service" /etc/systemd/system/
+  install -m 644 "$SRC/deploy/$UPDATE_UNIT.timer" /etc/systemd/system/
   systemctl daemon-reload
   systemctl enable shrimp365-vision >/dev/null
+  systemctl enable --now "$UPDATE_UNIT.timer" >/dev/null 2>&1 || true
   systemctl is-active --quiet shrimp365-vision && RUNNING=yes
   if [ "$RUNNING" = yes ]; then
     echo "==> 새 프로그램으로 재시작"
