@@ -158,40 +158,15 @@ async def check_connection(url: str) -> bool:
 def check_remote_update(env: dict[str, str]) -> None:
     """원격 업데이트가 실제로 돌 수 있는 상태인지 본다.
 
-    세 가지가 다 맞아야 돈다 — 설정이 켜져 있고, 서명 공개키가 박혀 있고,
-    시스템 파이썬에 cryptography 가 있어야 한다. 하나라도 빠지면 업데이터는
-    **조용히 건너뛴다**(그것이 안전한 기본값이다). 조용하다는 것이 문제다:
-    오너는 배포했다고 생각하는데 장비는 영영 옛 버전으로 돈다. 여기서 한 번에
-    짚어 준다.
+    설정이 켜져 있고 타이머가 돌아야 한다. 빠지면 업데이터는 **조용히
+    건너뛴다** — 배포한 쪽은 올렸다고 생각하는데 이 장비만 옛 버전으로 돈다.
+    여기서 짚어 준다.
 
     어느 것도 측정을 막지 않는다. 그래서 전부 [참고] 다.
     """
     print()
     if env.get("UPDATE_ENABLED", "true").lower() in {"false", "0", "no", "off"}:
         print(f"{WARN}원격 업데이트가 꺼져 있습니다(UPDATE_ENABLED=false)")
-        return
-
-    try:
-        text = (Path(__file__).resolve().parent / "updater.py").read_text(encoding="utf-8")
-        has_key = bool(re.search(r'^RELEASE_PUBLIC_KEY\s*=\s*"(.+)"', text, re.MULTILINE))
-    except OSError:
-        print(f"{WARN}업데이터 파일을 찾을 수 없습니다 — 원격 업데이트가 꺼집니다")
-        return
-    if not has_key:
-        print(f"{WARN}서명 공개키가 비어 있어 원격 업데이트가 꺼져 있습니다")
-        print("        사무실 PC 에서:  python3 deploy/release.py init")
-        print("        나온 공개키를 deploy/updater.py 에 넣고 배포하세요")
-        return
-
-    # 업데이터는 가상환경이 아니라 시스템 파이썬으로 돈다. 이 스크립트는
-    # 가상환경에서 도는 경우가 많으므로 시스템 쪽을 따로 물어본다.
-    found = subprocess.run(
-        ["/usr/bin/python3", "-c", "import cryptography"],
-        capture_output=True, check=False,
-    ).returncode == 0
-    if not found:
-        print(f"{WARN}시스템 파이썬에 cryptography 가 없어 원격 업데이트가 꺼집니다")
-        print("        고치기:  sudo apt install -y python3-cryptography")
         return
 
     active = subprocess.run(

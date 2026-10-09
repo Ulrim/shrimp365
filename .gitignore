@@ -28,8 +28,6 @@
 # 공개로 바뀌면서 그 키가 그대로 노출됐다. 예외를 없앴으니 새 키는 오너 PC 에만
 # 남는다.
 raspberry-pi/secrets/
-# 비전 장비 배포 서명 개인키. 센서와 **따로** 쓴다 — 한쪽이 새도 다른 쪽은 멀쩡해야 한다.
-vision/deploy/secrets/
 
 # debug
 npm-debug.log*

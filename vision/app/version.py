@@ -22,7 +22,7 @@ from __future__ import annotations
 from pathlib import Path
 
 #: 저장소에서 바로 띄웠을 때 쓰는 값. release.py 가 pyproject 와 함께 올린다.
-FALLBACK = "1.0.0"
+FALLBACK = "1.1.0"
 
 
 def _read_version_file() -> str | None:

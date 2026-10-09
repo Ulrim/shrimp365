@@ -7,46 +7,52 @@
 오래 가지 못한다 — 한 대라도 빠지면 그 농장만 옛 코드로 돌고, 어느 농장이
 어느 버전인지 아무도 모르게 된다.
 
-**이 기능은 성격상 남의 장비에서 코드를 실행하는 통로다.** 아무 파일이나
-받아 넣으면 그대로 뒷문이 된다. 그래서 무엇을 믿고 무엇을 안 믿는지 분명히
-적어 둔다.
+무엇을 믿고 있나 — 숨기지 말 것
+-------------------------------
+**이 기능은 남의 장비에서 코드를 실행하는 통로다.** 그 믿음의 경계가 어디인지
+분명히 적어 둔다.
 
-  믿지 않는 것   웹사이트, DB, 목록 파일(manifest), 회선. 전부 털릴 수 있다.
-  믿는 것        **서명 하나.** 꾸러미가 진짜인지는 오너의 개인키로만 만들 수
-                 있는 서명이 보장한다. 공개키는 이 파일 안에 박혀 있다.
+  믿는 것      https 로 받은 www.shrimp365.kr 의 파일. 곧 **저장소에 쓸 수
+               있는 사람**이다(Vercel 이 저장소의 public/ 를 그대로 서빙한다).
+  안 믿는 것   회선 중간, 그리고 꾸러미의 **내용과 모양**. 목록에 적힌 해시와
+               한 바이트라도 다르면 버리고, 허용한 모양의 파일만 푼다.
 
-그래서 서버가 통째로 털려도 농가 장비에 **코드를 심을 수는 없다.** 이미 서명된
-예전 버전을 다시 미는 것도 막힌다 — 아래에서 지금보다 낮거나 같은 버전은
-거부한다.
+**서명은 쓰지 않는다.** 한때 넣었다가 뺐다. 서명이 지켜 주는 것은 "저장소가
+털려도 코드를 못 심는다" 하나인데, 그러려면 개인키가 저장소 밖 — 오너의 PC —
+에 있어야 하고, 그러면 버전을 낼 수 있는 사람도 그 PC 앞에 앉은 사람뿐이다.
+이 저장소는 그렇게 굴러가지 않는다(변경과 배포가 전부 저장소 쪽에서 난다).
+키를 저장소나 CI 에 두면 지키려던 대상에게 열쇠를 맡기는 셈이라 아무것도
+막지 못한다 — 편하다는 이유로 그렇게 해 두고 "서명이 있으니 안전하다" 고
+말하는 것이 가장 나쁘다.
 
-막지 못하는 것은 하나다. 서버를 쥔 쪽은 목록의 latest 를 낮춰 **장비를 옛
-버전에 묶어 둘 수 있다**(새 버전을 보여 주지 않는 것). 코드가 바뀌지는 않지만
-보안 수정이 늦어진다. 서명에 발행 시각이나 만료를 넣으면 막히는데, 그러면
-오프라인이 길었던 장비가 멀쩡한 꾸러미를 거부하게 되어 지금은 넣지 않았다.
+그래서 **GitHub 계정이 곧 신뢰의 경계다.** 거기에 2단계 인증을 걸어 두는 것이
+이 장비들의 실질적인 자물쇠다. 거꾸로, 회선 중간에서 바꿔치기하거나 깨진 채
+받아 오는 것은 아래 해시 확인이 막는다.
 
+해시가 막지 못하는 것은 목록 자체가 바뀐 경우다(같은 사람이 둘 다 쓸 수 있다).
+그 선을 넘은 상대에게는 이 코드가 할 수 있는 것이 없다.
+
+무너지지 않게 한 것
+-------------------
 적용에 실패하면 이전 버전으로 되돌린다. 수조를 지켜보는 장비가 업데이트 한
-번에 먹통이 되는 것은, 구버전으로 도는 것보다 훨씬 나쁘다.
-
-수질 센서 파이(raspberry-pi/updater.py)와 같은 구조지만 **열쇠는 따로 쓴다.**
-한쪽 개인키가 새도 다른 쪽은 멀쩡해야 한다. 비전 파이는 카메라가 달려 있어
-잃었을 때의 손해가 더 크다.
+번에 먹통이 되는 것은, 구버전으로 도는 것보다 훨씬 나쁘다. 되돌린 꾸러미는
+기억해 두었다가 다시 받지 않는다 — 그러지 않으면 나쁜 버전 하나가 전 농장을
+매시간 흔든다.
 
 승인 절차가 없는 이유
 ---------------------
 센서 파이는 웹에서 농가가 "업데이트" 를 눌러야 받아 간다. 비전 파이는 그
-단계를 두지 않았다 — **목록에 올리는 것 자체가 승인**이다. 새 버전을 서명해
-목록에 올릴 수 있는 사람은 개인키를 가진 오너뿐이고, 그 사람이 곧 승인하는
-사람이다. 단계를 하나 더 두면 서버에 "허용 버전" 을 적는 자리가 생기는데,
-그 자리는 털릴 수 있는 반면 막아 주는 것은 없다.
+단계를 두지 않았다 — **목록에 올리는 것 자체가 승인**이다. 단계를 하나 더
+두면 서버에 "허용 버전" 을 적는 자리가 생기는데, 그 자리를 쓸 수 있는 사람은
+이미 꾸러미도 올릴 수 있는 사람이라 막아 주는 것이 없다.
 
     sudo python3 updater.py              # 한 번 확인하고 적용
-    python3 updater.py --dry-run         # 받아서 검증까지만, 적용 안 함
+    python3 updater.py --dry-run         # 받아서 확인까지만, 적용 안 함
 """
 
 from __future__ import annotations
 
 import argparse
-import base64
 import hashlib
 import json
 import logging
@@ -76,19 +82,6 @@ STATE_DIR = Path("/var/lib/shrimp365-vision")
 RESULT_PATH = STATE_DIR / "update-result.json"
 
 DEFAULT_MANIFEST = "https://www.shrimp365.kr/updates/vision/manifest.json"
-
-# ── 서명 공개키 ──────────────────────────────────────────────────────────────
-#
-# **비어 있으면 아무것도 받지 않는다.** 이것이 기본값인 것은 실수가 아니다.
-#
-# 열쇠는 `deploy/release.py init` 로 **오너 PC 에서** 만들고, 거기서 나온
-# 공개키를 여기에 붙여 넣는다. 개인키는 저장소에 넣지 않는다 — 한때 센서
-# 파이의 개인키를 저장소에 두었다가 저장소가 공개로 바뀌면서 그대로 노출됐다.
-# 공개된 키는 되돌릴 수 없다(git 기록에 남는다). 폐기하고 새로 만드는 길뿐이다.
-#
-# 센서 파이의 키를 그대로 가져다 쓰지 않는다. 그 키는 이미 노출됐고, 붙이는
-# 순간 그것을 가진 사람이 모든 농장의 카메라 파이에 코드를 심을 수 있다.
-RELEASE_PUBLIC_KEY = ""
 
 # 꾸러미에 들어올 수 있는 것.
 #
@@ -169,8 +162,9 @@ def current_version(app_dir: Path | None = None) -> str:
 
 def _fetch(url: str, timeout: int = 60, limit: int = MAX_PACKAGE_BYTES) -> bytes:
     if not url.startswith("https://"):
-        # http 로 받으면 중간에서 바꿔치기할 수 있다. 서명이 막아 주기는 하지만
-        # 굳이 그 한 겹에만 기댈 이유가 없다.
+        # https 만 받는다. 평문으로 받으면 회선 중간에서 목록과 꾸러미를 함께
+        # 바꿔치기할 수 있고, 그러면 해시 확인이 아무것도 보장하지 못한다 —
+        # 해시를 적은 쪽도 같은 사람이 되기 때문이다.
         raise ValueError(f"https 주소만 받습니다: {url!r}")
     req = urllib.request.Request(url, headers={"User-Agent": "shrimp365-vision-updater"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 — 위에서 https 확인
@@ -181,47 +175,31 @@ def _fetch(url: str, timeout: int = 60, limit: int = MAX_PACKAGE_BYTES) -> bytes
     return data
 
 
-def _load_verifier():
-    """Ed25519 검증기. 준비되지 않으면 None — 그러면 아무것도 받지 않는다."""
-    if not RELEASE_PUBLIC_KEY:
-        log.info(
-            "서명 공개키가 없어 원격 업데이트를 건너뜁니다. "
-            "deploy/release.py init 로 열쇠를 만들고 공개키를 updater.py 에 넣으세요."
-        )
-        return None
-    try:
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-    except ImportError:
-        log.warning("cryptography 가 없어 서명을 확인할 수 없습니다. "
-                    "sudo apt install -y python3-cryptography")
-        return None
-    try:
-        return Ed25519PublicKey.from_public_bytes(base64.b64decode(RELEASE_PUBLIC_KEY))
-    except Exception as exc:  # noqa: BLE001 — 키가 깨졌으면 이유를 남기고 포기
-        log.error("서명 공개키를 읽을 수 없습니다: %s", exc)
-        return None
+def verify_payload(blob: bytes, entry: dict) -> None:
+    """받아 온 꾸러미가 목록에 적힌 그것인지 본다. 어긋나면 예외.
 
+    막아 주는 것은 **중간에서 바뀌거나 깨진 것**이다 — 농장 회선에서 내려받기가
+    잘리는 일은 흔하고, 잘린 tar 를 그대로 풀면 반쪽짜리 설치본이 된다.
 
-def verify_package(blob: bytes, version: str, entry: dict, verifier) -> None:
-    """해시와 서명을 확인한다. 어긋나면 예외를 던진다."""
+    막아 주지 **못하는** 것은 목록 자체가 바뀐 경우다. 목록과 꾸러미를 같은
+    자리에서 받아 오므로, 거기에 쓸 수 있는 사람은 둘 다 고칠 수 있다. 그
+    선은 서명으로만 그을 수 있고, 이 저장소는 그러지 않기로 했다(머리말 참고).
+    """
     digest = hashlib.sha256(blob).hexdigest()
     expected = str(entry.get("sha256", "")).lower()
+    if not expected:
+        raise ValueError("목록에 해시가 없어 받을 수 없습니다")
     if digest != expected:
         raise ValueError(f"해시 불일치 (받은 것 {digest[:12]}…, 기대 {expected[:12]}…)")
-    if not entry.get("signature"):
-        raise ValueError("이 버전에는 서명이 없어 받을 수 없습니다")
-    signature = base64.b64decode(str(entry["signature"]))
-    # 서명 대상에 **버전을 함께** 넣는다. 그래야 예전 꾸러미의 서명을 떼어
-    # 새 버전인 것처럼 갖다 붙일 수 없다.
-    verifier.verify(signature, f"{version}\n{digest}\n".encode())
 
 
 def safe_extract(blob: bytes, dest: Path) -> None:
     """꾸러미를 푼다. 허용한 모양의 평범한 파일만 받는다.
 
     tar 는 경로에 `../` 를 넣거나 심볼릭 링크를 걸어 바깥 파일을 덮어쓰게
-    만들 수 있다. 서명을 통과한 꾸러미라도 형식은 따로 본다 — 서명은 "오너가
-    만든 것" 만 보장하고, 실수로 잘못 묶인 것까지 막아 주지는 않는다.
+    만들 수 있다. 해시가 맞는 꾸러미라도 **모양은 따로 본다** — 해시는 "받아 온
+    것이 올린 것과 같다" 만 보장하고, 그 안에 무엇이 들었는지는 말해 주지
+    않는다. 서명을 쓰지 않는 구성에서는 이 검사가 주된 방어선이다.
     """
     dest.mkdir(parents=True, exist_ok=True)
     total = 0
@@ -651,12 +629,6 @@ def run(dry_run: bool) -> int:
     here = current_version()
     log.info("현재 버전 %s — 새 버전을 확인합니다.", here)
 
-    verifier = _load_verifier()
-    if verifier is None:
-        # 이유는 _load_verifier 가 이미 적었다. 화면에서도 보이게 남긴다.
-        write_result("skipped", here, "서명 공개키가 없습니다")
-        return 0
-
     try:
         manifest = json.loads(_fetch(settings["manifest"], limit=256 * 1024).decode("utf-8"))
     except Exception as exc:  # noqa: BLE001 — 회선 문제면 다음 기회에
@@ -685,13 +657,13 @@ def run(dry_run: bool) -> int:
             raise ValueError(f"파일 이름이 이상합니다: {file_name!r}")
         base_url = settings["manifest"].rsplit("/", 1)[0]
         blob = _fetch(f"{base_url}/{file_name}")
-        verify_package(blob, target, entry, verifier)
+        verify_payload(blob, entry)
     except Exception as exc:  # noqa: BLE001 — 검증 실패는 조용히 포기한다
         log.error("업데이트를 거부했습니다: %s", exc)
         write_result("rejected", here, str(exc))
         return 1
 
-    log.info("서명 확인 완료.")
+    log.info("내려받기 확인 완료(해시 일치).")
     if dry_run:
         log.info("--dry-run 이라 적용하지 않고 끝냅니다.")
         return 0

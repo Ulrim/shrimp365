@@ -4,12 +4,15 @@
 농장 수십 곳의 카메라 파이가 한꺼번에 넘어간다. 그래서 이 파일은 "잘 되는가"
 보다 **"제대로 거부하는가"** 를 본다.
 
+서명을 쓰지 않기로 했으므로(deploy/updater.py 머리말), 남은 방어선은 둘이다 —
+**해시**(받아 온 것이 올린 것과 같은가)와 **모양**(경로·종류·크기). 둘 다
+여기서 본다.
+
 업데이터는 설치본(/opt)과 systemd 를 건드리므로, 경로를 받는 함수는 임시
 폴더로, 그렇지 않은 것은 실제 꾸러미를 만들어 확인한다.
 """
 from __future__ import annotations
 
-import base64
 import hashlib
 import importlib.util
 import io
@@ -33,20 +36,6 @@ def _load(name: str):
 
 
 updater = _load("updater")
-
-# **건너뛰지 않는다.** 한때 cryptography 가 없으면 skip 하게 두었더니, 서명
-# 위조를 막는 테스트 다섯 개가 조용히 넘어가고 스위트는 초록색으로 끝났다.
-# 그 다섯이 "서버가 털려도 코드를 심을 수 없다" 를 증명하는 전부다. 여기서
-# 못 불러오면 테스트가 실패해야 한다(pyproject 의 dev 에 들어 있다).
-from cryptography.hazmat.primitives.asymmetric.ed25519 import (  # noqa: E402
-    Ed25519PrivateKey,
-)
-
-
-def needs_crypto(func):
-    """예전 표시를 지우지 않고 그대로 둔다 — 이제는 아무것도 건너뛰지 않는다."""
-    return func
-
 
 # ── 꾸러미 만들기 도우미 ────────────────────────────────────────────────────
 def make_tar(entries: dict[str, bytes], *, kind: str = "file") -> bytes:
@@ -77,83 +66,55 @@ def good_payload(version: str = "1.1.0") -> dict[str, bytes]:
     }
 
 
-def signed_entry(blob: bytes, version: str, key) -> dict:
-    digest = hashlib.sha256(blob).hexdigest()
-    sig = base64.b64encode(key.sign(f"{version}\n{digest}\n".encode())).decode()
-    return {"file": f"shrimp365-vision-{version}.tar.gz", "sha256": digest, "signature": sig}
+def entry_for(blob: bytes, version: str = "1.1.0") -> dict:
+    """목록에 적히는 한 줄. release.py 가 만드는 것과 같은 모양."""
+    return {
+        "file": f"shrimp365-vision-{version}.tar.gz",
+        "sha256": hashlib.sha256(blob).hexdigest(),
+    }
 
 
-@pytest.fixture
-def key():
-    return Ed25519PrivateKey.generate()
-
-
-# ── 공개키가 없으면 아무것도 받지 않는다 ────────────────────────────────────
-def test_no_public_key_means_no_updates(monkeypatch):
-    """기본값이 빈 문자열인 것은 실수가 아니다.
-
-    노출된 센서 파이 키를 그대로 붙이면, 그 키를 가진 사람이 모든 농장의
-    카메라 파이에 코드를 심을 수 있다. 열쇠를 새로 만들기 전에는 막혀 있어야
-    한다.
-    """
-    monkeypatch.setattr(updater, "RELEASE_PUBLIC_KEY", "")
-    assert updater._load_verifier() is None
-
-
-def test_shipped_default_has_no_key():
-    """저장소에 들어 있는 기본값에 키가 박혀 있으면 안 된다."""
-    text = (DEPLOY / "updater.py").read_text(encoding="utf-8")
-    assert 'RELEASE_PUBLIC_KEY = ""' in text
-
-
-def test_sensor_key_is_not_reused():
-    """센서 파이의 노출된 키가 흘러들어 오지 않았는지 본다."""
-    leaked = "nd//EqamOY3+Kwpite46c1IppbdkOoBw+0z6T3fRpPI="
-    assert leaked not in (DEPLOY / "updater.py").read_text(encoding="utf-8")
-
-
-# ── 서명 ────────────────────────────────────────────────────────────────────
-@needs_crypto
-def test_good_package_passes(key):
+# ── 받아 온 것이 올린 것과 같은가 ─────────────────────────────────────────
+#
+# 농장 회선에서 내려받기가 잘리는 일은 흔하다. 잘린 tar 를 그대로 풀면
+# 반쪽짜리 설치본이 되고, 그 장비는 사람이 가야 산다.
+def test_matching_package_passes():
     blob = make_tar(good_payload())
-    updater.verify_package(blob, "1.1.0", signed_entry(blob, "1.1.0", key), key.public_key())
+    updater.verify_payload(blob, entry_for(blob))
 
 
-@needs_crypto
-def test_tampered_bytes_are_rejected(key):
+def test_tampered_bytes_are_rejected():
     blob = make_tar(good_payload())
-    entry = signed_entry(blob, "1.1.0", key)
     with pytest.raises(ValueError, match="해시"):
-        updater.verify_package(blob + b"x", "1.1.0", entry, key.public_key())
+        updater.verify_payload(blob + b"x", entry_for(blob))
 
 
-@needs_crypto
-def test_another_key_cannot_sign(key):
-    """서버가 털려도 코드를 심을 수 없다 — 이것이 전부다."""
-    attacker = Ed25519PrivateKey.generate()
+def test_truncated_download_is_rejected():
+    """회선이 끊겨 반만 받아 온 경우. 가장 흔한 실패다."""
     blob = make_tar(good_payload())
-    entry = signed_entry(blob, "1.1.0", attacker)
-    from cryptography.exceptions import InvalidSignature
-    with pytest.raises(InvalidSignature):
-        updater.verify_package(blob, "1.1.0", entry, key.public_key())
+    with pytest.raises(ValueError, match="해시"):
+        updater.verify_payload(blob[: len(blob) // 2], entry_for(blob))
 
 
-@needs_crypto
-def test_signature_cannot_be_moved_to_another_version(key):
-    """1.1.0 의 서명을 떼어 9.9.9 라고 붙이는 수법을 막는다."""
+def test_entry_without_a_hash_is_rejected():
+    """해시가 없으면 확인할 길이 없다 — 받지 않는다."""
     blob = make_tar(good_payload())
-    entry = signed_entry(blob, "1.1.0", key)
-    from cryptography.exceptions import InvalidSignature
-    with pytest.raises(InvalidSignature):
-        updater.verify_package(blob, "9.9.9", entry, key.public_key())
+    with pytest.raises(ValueError, match="해시가 없어"):
+        updater.verify_payload(blob, {"file": "x.tar.gz"})
 
 
-@needs_crypto
-def test_unsigned_entry_is_rejected(key):
+def test_hash_comparison_ignores_case():
     blob = make_tar(good_payload())
-    entry = {"sha256": hashlib.sha256(blob).hexdigest()}
-    with pytest.raises(ValueError, match="서명이 없어"):
-        updater.verify_package(blob, "1.1.0", entry, key.public_key())
+    entry = entry_for(blob)
+    entry["sha256"] = entry["sha256"].upper()
+    updater.verify_payload(blob, entry)
+
+
+def test_no_signing_key_is_left_in_the_updater():
+    """서명을 쓰지 않기로 했다. 흔적이 남아 있으면 읽는 사람이 헷갈린다."""
+    text = (DEPLOY / "updater.py").read_text(encoding="utf-8")
+    assert "RELEASE_PUBLIC_KEY" not in text
+    assert "Ed25519" not in text
 
 
 # ── 버전 되감기 ─────────────────────────────────────────────────────────────
@@ -411,7 +372,7 @@ def test_version_is_written_after_the_package(tmp_path):
 # 조각이 다 맞아도 run() 이 순서를 잘못 밟으면 소용이 없다. 특히 "거부했는데
 # 적용까지 가는" 길이 생기면 앞의 검증이 전부 장식이 된다.
 @pytest.fixture
-def wired(tmp_path, monkeypatch, key):
+def wired(tmp_path, monkeypatch):
     """설정·상태 파일을 임시 폴더로 돌리고, 적용 단계는 기록만 한다."""
     conf = tmp_path / "env"
     conf.write_text("UPDATE_ENABLED=true\n")
@@ -424,14 +385,6 @@ def wired(tmp_path, monkeypatch, key):
     # run() 은 적용 전에 설치본의 파이썬이 있는지 본다.
     (tmp_path / "opt" / ".venv" / "bin").mkdir(parents=True)
     (tmp_path / "opt" / ".venv" / "bin" / "python").write_text("#!/bin/sh\n")
-
-    pub = base64.b64encode(key.public_key().public_bytes(
-        encoding=__import__("cryptography.hazmat.primitives.serialization",
-                            fromlist=["x"]).Encoding.Raw,
-        format=__import__("cryptography.hazmat.primitives.serialization",
-                          fromlist=["x"]).PublicFormat.Raw,
-    )).decode()
-    monkeypatch.setattr(updater, "RELEASE_PUBLIC_KEY", pub)
 
     applied = []
     def fake_apply(blob, version, python):
@@ -450,10 +403,9 @@ def _serve(monkeypatch, manifest: dict, blob: bytes):
     monkeypatch.setattr(updater, "_fetch", fake_fetch)
 
 
-@needs_crypto
-def test_run_applies_a_good_release(wired, monkeypatch, key, tmp_path):
+def test_run_applies_a_good_release(wired, monkeypatch, tmp_path):
     blob = make_tar(good_payload())
-    entry = signed_entry(blob, "1.1.0", key)
+    entry = entry_for(blob, "1.1.0")
     _serve(monkeypatch, {"latest": "1.1.0", "releases": {"1.1.0": entry}}, blob)
 
     assert updater.run(dry_run=False) == 0
@@ -461,49 +413,47 @@ def test_run_applies_a_good_release(wired, monkeypatch, key, tmp_path):
     assert json.loads(wired["result"].read_text())["status"] == "applied"
 
 
-@needs_crypto
-def test_run_refuses_a_forged_release_and_never_applies(wired, monkeypatch, key):
-    """남이 서명한 꾸러미는 적용 단계까지 가지 못한다 — 이것이 전부다."""
-    attacker = Ed25519PrivateKey.generate()
+def test_run_refuses_a_package_that_does_not_match_and_never_applies(wired, monkeypatch):
+    """목록과 다른 바이트가 오면 적용 단계까지 가지 못한다.
+
+    서명이 없으므로 이것이 **내용에 대한 유일한 검사**다. 여기가 뚫리면
+    나머지는 전부 장식이다.
+    """
     blob = make_tar(good_payload())
-    entry = signed_entry(blob, "1.1.0", attacker)
-    _serve(monkeypatch, {"latest": "1.1.0", "releases": {"1.1.0": entry}}, blob)
+    entry = entry_for(blob)
+    _serve(monkeypatch, {"latest": "1.1.0", "releases": {"1.1.0": entry}}, b"\x00" * len(blob))
 
     assert updater.run(dry_run=False) == 1
     assert wired["applied"] == []
     assert json.loads(wired["result"].read_text())["status"] == "rejected"
 
 
-@needs_crypto
-def test_run_refuses_tampered_bytes(wired, monkeypatch, key):
+def test_run_refuses_tampered_bytes(wired, monkeypatch):
     blob = make_tar(good_payload())
-    entry = signed_entry(blob, "1.1.0", key)
+    entry = entry_for(blob, "1.1.0")
     _serve(monkeypatch, {"latest": "1.1.0", "releases": {"1.1.0": entry}}, blob + b"evil")
 
     assert updater.run(dry_run=False) == 1
     assert wired["applied"] == []
 
 
-@needs_crypto
-def test_dry_run_verifies_but_does_not_apply(wired, monkeypatch, key):
+def test_dry_run_verifies_but_does_not_apply(wired, monkeypatch):
     blob = make_tar(good_payload())
-    entry = signed_entry(blob, "1.1.0", key)
+    entry = entry_for(blob, "1.1.0")
     _serve(monkeypatch, {"latest": "1.1.0", "releases": {"1.1.0": entry}}, blob)
 
     assert updater.run(dry_run=True) == 0
     assert wired["applied"] == []
 
 
-@needs_crypto
-def test_run_skips_when_already_latest(wired, monkeypatch, key):
+def test_run_skips_when_already_latest(wired, monkeypatch):
     blob = make_tar(good_payload())
     _serve(monkeypatch, {"latest": "1.0.0",
-                         "releases": {"1.0.0": signed_entry(blob, "1.0.0", key)}}, blob)
+                         "releases": {"1.0.0": entry_for(blob, "1.0.0")}}, blob)
     assert updater.run(dry_run=False) == 0
     assert wired["applied"] == []
 
 
-@needs_crypto
 def test_run_stops_when_disabled(wired, monkeypatch):
     wired["conf"].write_text("UPDATE_ENABLED=false\n")
     def boom(*a, **k):
@@ -512,16 +462,6 @@ def test_run_stops_when_disabled(wired, monkeypatch):
     assert updater.run(dry_run=False) == 0
 
 
-def test_run_stops_without_a_public_key(wired, monkeypatch):
-    monkeypatch.setattr(updater, "RELEASE_PUBLIC_KEY", "")
-    def boom(*a, **k):
-        raise AssertionError("공개키가 없으면 받아 오지도 않아야 한다")
-    monkeypatch.setattr(updater, "_fetch", boom)
-    assert updater.run(dry_run=False) == 0
-    assert json.loads(wired["result"].read_text())["status"] == "skipped"
-
-
-@needs_crypto
 def test_offline_is_not_an_error(wired, monkeypatch):
     """농장 회선은 끊긴다. 다음 차례에 다시 보면 된다."""
     def dead(*a, **k):
@@ -536,10 +476,9 @@ def test_offline_is_not_an_error(wired, monkeypatch):
 # 없으면 나쁜 릴리스 하나가 전 농장을 매시간 흔든다. 1.1.0 이 건강 확인에
 # 실패해 되돌아가도 목록의 latest 는 그대로라, 한 시간 뒤 같은 것을 다시
 # 받아 다시 적용하고 다시 되돌린다. 그동안 카메라가 멈춘다. 끝이 없다.
-@needs_crypto
-def test_a_release_that_rolled_back_is_not_retried(wired, monkeypatch, key):
+def test_a_release_that_rolled_back_is_not_retried(wired, monkeypatch):
     blob = make_tar(good_payload())
-    entry = signed_entry(blob, "1.1.0", key)
+    entry = entry_for(blob, "1.1.0")
     _serve(monkeypatch, {"latest": "1.1.0", "releases": {"1.1.0": entry}}, blob)
     monkeypatch.setattr(updater, "apply_update",
                         lambda b, v, p: ("rolled_back", "자리를 잡지 못했습니다"))
@@ -549,18 +488,17 @@ def test_a_release_that_rolled_back_is_not_retried(wired, monkeypatch, key):
     assert json.loads(wired["result"].read_text())["tried"] == "1.1.0"
 
 
-@needs_crypto
-def test_a_fixed_package_under_the_same_version_is_retried(wired, monkeypatch, key):
+def test_a_fixed_package_under_the_same_version_is_retried(wired, monkeypatch):
     """번호를 올리지 않고 고쳐 올리는 길을 막지는 않는다 — 해시가 다르다."""
     bad = make_tar(good_payload())
     _serve(monkeypatch,
-           {"latest": "1.1.0", "releases": {"1.1.0": signed_entry(bad, "1.1.0", key)}}, bad)
+           {"latest": "1.1.0", "releases": {"1.1.0": entry_for(bad, "1.1.0")}}, bad)
     monkeypatch.setattr(updater, "apply_update", lambda b, v, p: ("rolled_back", "실패"))
     updater.run(dry_run=False)
 
     fixed = make_tar({**good_payload(), "app/main.py": b"VALUE = 3\n"})
     _serve(monkeypatch,
-           {"latest": "1.1.0", "releases": {"1.1.0": signed_entry(fixed, "1.1.0", key)}}, fixed)
+           {"latest": "1.1.0", "releases": {"1.1.0": entry_for(fixed, "1.1.0")}}, fixed)
     tried = []
     monkeypatch.setattr(updater, "apply_update",
                         lambda b, v, p: (tried.append(v), ("applied", "정상"))[1])
@@ -568,12 +506,11 @@ def test_a_fixed_package_under_the_same_version_is_retried(wired, monkeypatch, k
     assert tried == ["1.1.0"]
 
 
-@needs_crypto
-def test_a_release_that_only_failed_to_prepare_is_retried(wired, monkeypatch, key):
+def test_a_release_that_only_failed_to_prepare_is_retried(wired, monkeypatch):
     """준비 단계 실패는 설치본을 건드리지 않았다 — 회선 탓일 수 있으니 다시 해 본다."""
     blob = make_tar(good_payload())
     _serve(monkeypatch,
-           {"latest": "1.1.0", "releases": {"1.1.0": signed_entry(blob, "1.1.0", key)}}, blob)
+           {"latest": "1.1.0", "releases": {"1.1.0": entry_for(blob, "1.1.0")}}, blob)
     monkeypatch.setattr(updater, "apply_update", lambda b, v, p: ("failed", "준비 단계 실패"))
     assert updater.run(dry_run=False) == 1
     assert updater.run(dry_run=False) == 1   # 건너뛰지 않는다
@@ -607,12 +544,11 @@ def test_rollback_refuses_a_backup_without_a_version(tmp_path, monkeypatch):
     assert (app_dir / "app" / "main.py").read_text() == "VALUE = 1\n"
 
 
-@needs_crypto
-def test_a_device_that_could_not_roll_back_says_broken(wired, monkeypatch, key):
+def test_a_device_that_could_not_roll_back_says_broken(wired, monkeypatch):
     """화면이 "되돌렸습니다" 라고 하면 사람이 안 간다. 실제로는 죽어 있는데."""
     blob = make_tar(good_payload())
     _serve(monkeypatch,
-           {"latest": "1.1.0", "releases": {"1.1.0": signed_entry(blob, "1.1.0", key)}}, blob)
+           {"latest": "1.1.0", "releases": {"1.1.0": entry_for(blob, "1.1.0")}}, blob)
     monkeypatch.setattr(updater, "apply_update",
                         lambda b, v, p: ("broken", "되돌리지 못했습니다"))
     assert updater.run(dry_run=False) == 1

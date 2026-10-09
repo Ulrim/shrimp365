@@ -10,7 +10,7 @@ ShrimpVision 을 shrimp365 에 통합한 결과물입니다.
 | 구성 | 위치 | 설명 |
 |---|---|---|
 | 추론 서비스 | `vision/` | Python·FastAPI. YOLOv8 + ByteTrack, 카메라 스트림, 경보 판정 |
-| 원격 업데이트 | `vision/deploy/updater.py` ↔ `vision/deploy/release.py` | **짝을 이룹니다.** 서명으로만 통과시킵니다 — 공개키가 비어 있으면 아무것도 받지 않습니다 |
+| 원격 업데이트 | `vision/deploy/updater.py` ↔ `vision/deploy/release.py` | **짝을 이룹니다.** 허용 경로·해시 규칙이 어긋나면 현장 장비가 전부 거부합니다 |
 | DB 스키마 | `supabase/migrations/vision_monitoring.sql` | `vision_cameras` · `count_records` · `vision_alert_configs` + 집계 함수 |
 | 웹 API | `app/api/vision/*` | 로그인 확인 → 소유 확인 → 비전 서비스 중계 |
 | 화면 | `app/(dashboard)/vision`, `components/vision/*` | 개요·실시간·이력·통합 분석·설정 |
@@ -246,34 +246,32 @@ curl https://vision.shrimp365.kr/health     # {"status":"ok","mode":"simulation"
 ## 3-5-1. 원격 업데이트 (장비가 여러 대면 사실상 필수)
 
 새 버전을 내면 장비들이 1시간 안에 스스로 받아 깝니다. 설치할 때 타이머가 함께
-등록되므로 장비 쪽에 따로 할 일은 없습니다.
+등록되므로 **장비 쪽에도, 운영자 쪽에도 미리 할 일은 없습니다.**
 
-**장비를 깔기 전에** 사무실 PC 에서 열쇠를 만드세요. 공개키가 비어 있는 상태로
-설치한 장비는 **평생 수동 업데이트입니다** — 키가 없으면 아무것도 받지 않으므로,
-나중에 키를 커밋해도 그 장비에는 닿지 않습니다. 이미 깔았다면 그 장비에서
-`git pull` + `sudo ./deploy/install.sh` 를 한 번만 더 돌리면 됩니다.
+버전을 낼 때:
 
 ```
-cd shrimp365/vision && python3 deploy/release.py init
-```
-
-나온 `RELEASE_PUBLIC_KEY = "..."` 한 줄을 `vision/deploy/updater.py` 에 넣고
-커밋합니다. 개인키는 `vision/deploy/secrets/` 에 생기고 저장소에 올라가지
-않습니다 — **백업하세요.**
-
-이후 버전을 낼 때마다:
-
-```
-cd shrimp365/vision && python3 deploy/release.py build 1.1.0 --notes "변경 내용"
+cd vision && python3 deploy/release.py build 1.1.0 --notes "변경 내용"
 ```
 
 그리고 `public/updates/vision` 과 버전 파일들을 커밋·푸시하면 끝입니다.
+Vercel 이 저장소의 `public/` 를 그대로 서빙합니다.
 
-자세한 것(확인하는 법, 되돌리기, 농장별로 끄기)은 `vision/deploy/README.md` §8-1.
+### 믿음의 경계는 GitHub 계정입니다
 
-> 수질 센서 파이의 서명 열쇠는 **쓰지 않습니다.** 그 키는 저장소가 공개로
-> 바뀌면서 노출됐습니다(`docs/SIGNING_KEY_ROTATION.md`). 비전 장비는 처음부터
-> 다른 열쇠를 쓰므로, 센서 쪽 키 교체를 기다리지 않아도 됩니다.
+장비가 믿는 것은 https 로 받은 `www.shrimp365.kr` 의 파일이고, 그것은 곧
+**저장소에 쓸 수 있는 사람**입니다. 받아 온 꾸러미는 목록의 해시와 한 바이트라도
+다르면 버리고, 풀 때도 허용한 모양의 파일만 받습니다 — 회선 중간에서 바뀌거나
+깨진 것은 막힙니다. 다만 저장소 자체를 쥔 쪽은 막지 못합니다.
+
+서명을 넣으면 그 선을 그을 수 있지만, 개인키가 저장소 밖에 있어야 하고 그러면
+버전을 낼 수 있는 사람도 그 키를 가진 한 사람뿐이 됩니다. 키를 저장소나 CI 에
+두는 절충은 지키려던 대상에게 열쇠를 맡기는 것이라 아무것도 막지 못합니다.
+
+> **GitHub 계정에 2단계 인증을 켜 두세요.** 그것이 모든 농장 파이의 자물쇠입니다.
+
+적용에 실패하면 이전 버전으로 되돌리고, 되돌린 꾸러미는 다시 받지 않습니다.
+자세한 것은 `vision/deploy/README.md` §8-1.
 
 ## 3-6. 비전 서비스 기동
 

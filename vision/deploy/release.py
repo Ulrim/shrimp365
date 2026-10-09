@@ -1,29 +1,28 @@
 #!/usr/bin/env python3
-"""비전 장비의 새 버전을 만들고 서명하는 도구. **오너 PC 에서만** 실행한다.
+"""비전 장비의 새 버전을 만든다.
 
-원격 업데이트의 안전은 전적으로 개인키 관리에 달려 있다. 이 키를 가진 사람은
-모든 농장의 카메라 파이에서 원하는 코드를 실행할 수 있다.
-
-    # 처음 한 번 — 열쇠 만들기
-    python3 deploy/release.py init
-
-    # 새 버전 낼 때마다
     python3 deploy/release.py build 1.1.0 --notes "수조 사진 밀어 올리기"
-    git add public/updates/vision && git commit && git push
+    git add public/updates/vision vision/VERSION vision/pyproject.toml \
+            vision/app/version.py
+    git commit && git push
 
-배포는 파일을 저장소에 올리는 것으로 끝난다. 웹사이트가 그대로 서빙하고,
-장비들이 한 시간 안에 받아 간다.
+올리는 것으로 끝이다. Vercel 이 저장소의 `public/` 를 그대로 서빙하고,
+현장 장비들이 한 시간 안에 받아 간다.
 
-**개인키는 저장소에 넣지 않는다.** `vision/deploy/secrets/` 는 .gitignore 에
-걸려 있다. 한때 센서 파이의 개인키를 저장소에 함께 두었다 — 비공개 저장소를
-전제로 한 것이었는데, 공개로 바뀌면서 그대로 노출됐다. 공개된 키는 되돌릴 수
-없다(git 기록에 남는다). 그래서 비전 장비는 **센서와 다른 열쇠**를 쓴다.
+**서명하지 않는다.** 장비가 믿는 것은 https 로 받은 www.shrimp365.kr 의
+파일이고, 그것은 곧 **저장소에 쓸 수 있는 사람**이다. 서명을 넣으려면 개인키가
+저장소 밖에 있어야 하는데, 그러면 버전을 낼 수 있는 사람도 그 키를 가진 한
+사람뿐이 된다 — 이 저장소는 그렇게 굴러가지 않는다. 키를 저장소나 CI 에 두는
+절충은 지키려던 대상에게 열쇠를 맡기는 것이라 아무것도 막지 못한다.
+
+그래서 **GitHub 계정의 2단계 인증이 이 장비들의 실질적인 자물쇠다.**
+자세한 것은 deploy/updater.py 머리말.
 """
 
 from __future__ import annotations
 
 import argparse
-import base64
+import contextlib
 import gzip
 import hashlib
 import io
@@ -34,17 +33,10 @@ import tarfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-try:
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-except ImportError:
-    sys.exit("cryptography 가 필요합니다:  pip install cryptography")
-
 HERE = Path(__file__).resolve().parent          # vision/deploy
 VISION = HERE.parent                            # vision
 REPO = VISION.parent                            # 저장소 뿌리
 OUT_DIR = REPO / "public" / "updates" / "vision"
-KEY_PATH = HERE / "secrets" / "release-key.pem"
 UPDATER = HERE / "updater.py"
 
 #: 꾸러미에 담을 것. 업데이터의 허용 규칙(ALLOWED_PATH·ALLOWED_EXTRA)과
@@ -67,82 +59,6 @@ def iter_payload() -> list[Path]:
     if not files:
         sys.exit("app/ 에서 파이썬 파일을 찾지 못했습니다. vision/ 안에서 실행하세요.")
     return files
-
-
-# ── 열쇠 ─────────────────────────────────────────────────────────────────────
-
-def cmd_init(args) -> int:
-    if KEY_PATH.exists() and not args.force:
-        print(f"이미 열쇠가 있습니다: {KEY_PATH}")
-        print("정말 새로 만들려면 --force. 단, 기존 열쇠로 서명한 꾸러미는")
-        print("현장 장비가 더 이상 받아들이지 않게 됩니다.")
-        return 1
-
-    KEY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    private = Ed25519PrivateKey.generate()
-    KEY_PATH.write_bytes(private.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption(),
-    ))
-    KEY_PATH.chmod(0o600)
-
-    pub = base64.b64encode(private.public_key().public_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PublicFormat.Raw,
-    )).decode()
-
-    print(f"개인키를 만들었습니다: {KEY_PATH}  (권한 600)")
-    print()
-    print("이 키는 이 PC 에만 있습니다 — 저장소에 올라가지 않습니다(.gitignore).")
-    print("백업해 두세요. 잃으면 현장 장비는 더 이상 새 업데이트를 받지 못합니다")
-    print("(개체수 측정은 그대로 계속됩니다). 다시 만들려면 모든 장비가 한 번은")
-    print("사람 손을 거쳐야 합니다.")
-    print()
-    print("아래 한 줄을 vision/deploy/updater.py 의 RELEASE_PUBLIC_KEY 에 넣으세요.")
-    print()
-    print(f'RELEASE_PUBLIC_KEY = "{pub}"')
-    return 0
-
-
-def load_private() -> Ed25519PrivateKey:
-    if not KEY_PATH.exists():
-        sys.exit("열쇠가 없습니다. 먼저 실행하세요:  python3 deploy/release.py init")
-    key = serialization.load_pem_private_key(KEY_PATH.read_bytes(), password=None)
-    if not isinstance(key, Ed25519PrivateKey):
-        sys.exit("열쇠 형식이 Ed25519 가 아닙니다.")
-    return key
-
-
-def check_pubkey_matches(private: Ed25519PrivateKey) -> None:
-    """updater.py 에 박힌 공개키가 이 개인키의 짝인지 본다.
-
-    어긋난 채로 배포하면 **모든 장비가 꾸러미를 거부한다.** 배포한 사람은
-    올렸다고 생각하고, 장비는 조용히 옛 버전으로 돈다 — 알아채기까지 한참
-    걸리는 종류의 사고다. 여기서 멈추는 편이 낫다.
-    """
-    pub = base64.b64encode(private.public_key().public_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PublicFormat.Raw,
-    )).decode()
-    text = UPDATER.read_text(encoding="utf-8")
-    match = re.search(r'^RELEASE_PUBLIC_KEY\s*=\s*"([^"]*)"', text, re.MULTILINE)
-    if match is None:
-        sys.exit("updater.py 에서 RELEASE_PUBLIC_KEY 를 찾지 못했습니다.")
-    embedded = match.group(1)
-    if not embedded:
-        sys.exit(
-            "updater.py 의 RELEASE_PUBLIC_KEY 가 비어 있습니다.\n"
-            f"아래 한 줄을 넣고 다시 실행하세요:\n\n"
-            f'    RELEASE_PUBLIC_KEY = "{pub}"\n'
-        )
-    if embedded != pub:
-        sys.exit(
-            "updater.py 의 공개키가 이 개인키의 짝이 아닙니다.\n"
-            "이대로 내면 현장 장비가 꾸러미를 전부 거부합니다.\n\n"
-            f"  박혀 있는 것: {embedded}\n"
-            f"  이 개인키   : {pub}\n"
-        )
 
 
 # ── 버전 ─────────────────────────────────────────────────────────────────────
@@ -219,12 +135,40 @@ def check_size(blob: bytes, unpacked: bytes) -> None:
                  f"({len(unpacked):,} > {updater.MAX_UNPACKED_BYTES:,} 바이트).")
 
 
+#: 저장소에 남겨 두는 꾸러미 수.
+#:
+#: 배포할 때마다 90 KB 쯤이 저장소에 쌓이고, git 은 지워도 기록에서 사라지지
+#: 않는다. 장비는 언제나 **최신 하나**로 건너뛰므로 옛 꾸러미는 쓰이지 않는다 —
+#: 몇 개만 남기는 것은 "무엇이 올라갔었나" 를 눈으로 보기 위한 것뿐이다.
+KEEP_RELEASES = 5
+
+
+def prune(manifest: dict, keep_name: str) -> None:
+    """오래된 꾸러미를 목록과 폴더에서 함께 지운다.
+
+    둘 중 하나만 지우면 어긋난다 — 파일만 지우면 목록이 없는 파일을 가리키고,
+    목록만 지우면 아무도 안 쓰는 파일이 남는다.
+    """
+    releases = manifest.get("releases") or {}
+    ordered = sorted(
+        (v for v in releases if re.fullmatch(r"\d{1,3}(\.\d{1,3}){2}", v)),
+        key=lambda v: tuple(int(x) for x in v.split(".")),
+        reverse=True,
+    )
+    for old_version in ordered[KEEP_RELEASES:]:
+        entry = releases.pop(old_version, {})
+        file_name = str(entry.get("file", ""))
+        # 방금 만든 것은 어떤 경우에도 지우지 않는다.
+        if not file_name or file_name == keep_name or "/" in file_name:
+            continue
+        with contextlib.suppress(OSError):
+            (OUT_DIR / file_name).unlink()
+        print(f"  오래된 꾸러미 정리: {file_name}")
+
+
 def cmd_build(args) -> int:
     version = args.version
     check_version(version)
-    private = load_private()
-    check_pubkey_matches(private)
-
     bump_source_version(version)
 
     payload = iter_payload()
@@ -233,6 +177,8 @@ def cmd_build(args) -> int:
 
     # 같은 소스에서 같은 바이트가 나오게 한다. 시각·소유자·권한을 고정하지
     # 않으면 빌드할 때마다 해시가 달라져, 꾸러미가 진짜 바뀐 것인지 알 수 없다.
+    # 서명이 없는 구성에서는 이것이 "올라가 있는 것이 이 소스에서 나왔나" 를
+    # 확인할 유일한 길이다 — 같은 버전을 다시 빌드해 해시를 맞춰 보면 된다.
     def reset(info: tarfile.TarInfo) -> tarfile.TarInfo:
         info.uid = info.gid = 0
         info.uname = info.gname = ""
@@ -244,9 +190,8 @@ def cmd_build(args) -> int:
     #
     # `tarfile.open(mode="w:gz")` 는 gzip 머리말에 **지금 시각**을 적는다. 그래서
     # 같은 소스로 두 번 만들어도 바이트가 달라지고, 해시도 달라진다. 그러면
-    # "올라가 있는 꾸러미가 이 소스에서 나온 것이 맞나" 를 확인할 길이 없다 —
-    # 서명이 지켜 주는 것은 "오너가 만들었다" 까지고, 무엇으로 만들었는지는
-    # 아니다. mtime=0 으로 직접 압축해 둘을 모두 고정한다.
+    # "올라가 있는 꾸러미가 이 소스에서 나온 것이 맞나" 를 확인할 길이 없다.
+    # mtime=0 으로 직접 압축해 gzip 머리말의 시각까지 고정한다.
     raw = io.BytesIO()
     with tarfile.open(fileobj=raw, mode="w") as tar:
         for path in payload:
@@ -263,10 +208,6 @@ def cmd_build(args) -> int:
     blob = buf.getvalue()
 
     digest = hashlib.sha256(blob).hexdigest()
-    # 서명 대상에 버전을 함께 넣는다 — updater.verify_package 와 같은 모양.
-    signature = base64.b64encode(
-        private.sign(f"{version}\n{digest}\n".encode())
-    ).decode()
 
     check_size(blob, raw.getvalue())
 
@@ -283,7 +224,6 @@ def cmd_build(args) -> int:
         "file": name,
         "sha256": digest,
         "size": len(blob),
-        "signature": signature,
         "notes": args.notes,
         "released_at": datetime.now(UTC).strftime("%Y-%m-%d"),
     }
@@ -295,6 +235,8 @@ def cmd_build(args) -> int:
     if not numbered:
         sys.exit("목록에 쓸 수 있는 버전이 없습니다 — manifest.json 을 확인하세요.")
     manifest["latest"] = max(numbered, key=lambda v: tuple(int(x) for x in v.split(".")))
+    prune(manifest, name)
+
     manifest_path.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -316,11 +258,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Shrimp365 비전 장비 배포 도구")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    p_init = sub.add_parser("init", help="서명 열쇠 만들기(처음 한 번)")
-    p_init.add_argument("--force", action="store_true", help="기존 열쇠를 덮어씀")
-    p_init.set_defaults(func=cmd_init)
-
-    p_build = sub.add_parser("build", help="새 버전 꾸러미를 만들고 서명")
+    p_build = sub.add_parser("build", help="새 버전 꾸러미를 만든다")
     p_build.add_argument("version", help="예: 1.1.0")
     p_build.add_argument("--notes", default="", help="변경 내용 한 줄")
     p_build.set_defaults(func=cmd_build)

@@ -63,13 +63,6 @@ apt-get install -y python3-picamera2 2>/dev/null \
   || echo "    (python3-picamera2 없음 — CSI 카메라를 쓰려면 라즈베리파이 OS 가 필요합니다)"
 apt-get install -y python3-venv python3-dev libgl1 2>/dev/null \
   || apt-get install -y python3-venv python3-dev 2>/dev/null || true
-# 원격 업데이트가 서명을 확인하는 데 쓴다. 업데이터는 가상환경이 아니라
-# **시스템 파이썬**으로 돌기 때문에(설치본을 통째로 갈아 끼우는 쪽이라
-# 자기가 바꾸는 가상환경에 의존하면 안 된다) 여기에 있어야 한다.
-# 없으면 업데이트를 건너뛸 뿐 측정은 그대로 돈다.
-apt-get install -y python3-cryptography 2>/dev/null \
-  || echo "    (python3-cryptography 없음 — 원격 업데이트가 꺼집니다. 측정은 정상입니다)"
-
 # 영상 위에 그리는 카메라 이름이 한글이다. 글꼴이 없으면 네모(□□□)로 나온다.
 apt-get install -y fonts-noto-cjk 2>/dev/null \
   || apt-get install -y fonts-nanum 2>/dev/null \
@@ -216,9 +209,9 @@ AUTO_START_STREAMS=true
 # 새 버전이 나오면 이 장비가 1시간 안에 스스로 받아 깝니다. 농장마다 찾아가지
 # 않아도 되게 하려는 것입니다.
 #
-# 아무 파일이나 받지 않습니다. 꾸러미가 진짜인지는 **서명**이 판단하고,
-# 공개키는 프로그램 안에 박혀 있습니다 — 서버가 털려도 이 장비에 코드를 심을
-# 수 없습니다. 적용 후 서비스가 자리를 잡지 못하면 이전 버전으로 되돌립니다.
+# 받아 오는 곳은 https://www.shrimp365.kr 한 곳이고, 목록에 적힌 해시와 한
+# 바이트라도 다르면 버립니다(농장 회선에서 내려받기가 잘리는 일은 흔합니다).
+# 적용 후 서비스가 자리를 잡지 못하면 이전 버전으로 되돌립니다.
 #
 # 이 농장만 멈춰 두려면 false 로 바꾸세요.
 UPDATE_ENABLED=true
