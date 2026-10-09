@@ -49,7 +49,9 @@ BACKOFF_FACTOR = 2.0
 MAX_INTERVAL_SECONDS = 300.0
 
 
-def shrink(jpeg: bytes, *, width: int | None = None, quality: int | None = None) -> tuple[bytes, int, int]:
+def shrink(
+    jpeg: bytes, *, width: int | None = None, quality: int | None = None
+) -> tuple[bytes, int, int]:
     """사진을 올릴 만한 크기로 줄인다. (바이트, 폭, 높이).
 
     이미 그 폭보다 작으면 **다시 인코딩하지 않는다.** 한 번 더 JPEG 으로

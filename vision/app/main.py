@@ -28,10 +28,10 @@ from app.config import (
 )
 from app.database import init_db
 from app.services import snapshot_sender, sync_service
-from app.version import VERSION as APP_VERSION
 from app.services.broadcaster import broadcaster
 from app.services.camera_manager import camera_manager
 from app.services.pairing import ensure_device_key, load_device_key, pairing_state
+from app.version import VERSION as APP_VERSION
 
 logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
 logger = logging.getLogger(__name__)

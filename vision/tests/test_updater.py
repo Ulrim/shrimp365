@@ -34,13 +34,18 @@ def _load(name: str):
 
 updater = _load("updater")
 
-try:
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-    HAVE_CRYPTO = True
-except ImportError:  # pragma: no cover
-    HAVE_CRYPTO = False
+# **건너뛰지 않는다.** 한때 cryptography 가 없으면 skip 하게 두었더니, 서명
+# 위조를 막는 테스트 다섯 개가 조용히 넘어가고 스위트는 초록색으로 끝났다.
+# 그 다섯이 "서버가 털려도 코드를 심을 수 없다" 를 증명하는 전부다. 여기서
+# 못 불러오면 테스트가 실패해야 한다(pyproject 의 dev 에 들어 있다).
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (  # noqa: E402
+    Ed25519PrivateKey,
+)
 
-needs_crypto = pytest.mark.skipif(not HAVE_CRYPTO, reason="cryptography 가 없습니다")
+
+def needs_crypto(func):
+    """예전 표시를 지우지 않고 그대로 둔다 — 이제는 아무것도 건너뛰지 않는다."""
+    return func
 
 
 # ── 꾸러미 만들기 도우미 ────────────────────────────────────────────────────
@@ -80,8 +85,6 @@ def signed_entry(blob: bytes, version: str, key) -> dict:
 
 @pytest.fixture
 def key():
-    if not HAVE_CRYPTO:
-        pytest.skip("cryptography 가 없습니다")
     return Ed25519PrivateKey.generate()
 
 
@@ -418,6 +421,9 @@ def wired(tmp_path, monkeypatch, key):
     monkeypatch.setattr(updater, "APP_DIR", tmp_path / "opt")
     (tmp_path / "opt").mkdir()
     (tmp_path / "opt" / "VERSION").write_text("1.0.0\n")
+    # run() 은 적용 전에 설치본의 파이썬이 있는지 본다.
+    (tmp_path / "opt" / ".venv" / "bin").mkdir(parents=True)
+    (tmp_path / "opt" / ".venv" / "bin" / "python").write_text("#!/bin/sh\n")
 
     pub = base64.b64encode(key.public_key().public_bytes(
         encoding=__import__("cryptography.hazmat.primitives.serialization",
@@ -428,9 +434,12 @@ def wired(tmp_path, monkeypatch, key):
     monkeypatch.setattr(updater, "RELEASE_PUBLIC_KEY", pub)
 
     applied = []
-    monkeypatch.setattr(updater, "apply_update",
-                        lambda blob, version, python: (applied.append(version), (True, "정상"))[1])
-    return {"conf": conf, "applied": applied, "result": tmp_path / "state" / "update-result.json"}
+    def fake_apply(blob, version, python):
+        applied.append(version)
+        return "applied", "정상"
+    monkeypatch.setattr(updater, "apply_update", fake_apply)
+    return {"conf": conf, "applied": applied, "result": tmp_path / "state" / "update-result.json",
+            "tmp": tmp_path}
 
 
 def _serve(monkeypatch, manifest: dict, blob: bytes):
@@ -443,8 +452,6 @@ def _serve(monkeypatch, manifest: dict, blob: bytes):
 
 @needs_crypto
 def test_run_applies_a_good_release(wired, monkeypatch, key, tmp_path):
-    (tmp_path / "opt" / ".venv" / "bin").mkdir(parents=True)
-    (tmp_path / "opt" / ".venv" / "bin" / "python").write_text("#!/bin/sh\n")
     blob = make_tar(good_payload())
     entry = signed_entry(blob, "1.1.0", key)
     _serve(monkeypatch, {"latest": "1.1.0", "releases": {"1.1.0": entry}}, blob)
@@ -522,3 +529,120 @@ def test_offline_is_not_an_error(wired, monkeypatch):
     monkeypatch.setattr(updater, "_fetch", dead)
     assert updater.run(dry_run=False) == 0
     assert wired["applied"] == []
+
+
+# ── 실패한 꾸러미를 기억한다 ────────────────────────────────────────────────
+#
+# 없으면 나쁜 릴리스 하나가 전 농장을 매시간 흔든다. 1.1.0 이 건강 확인에
+# 실패해 되돌아가도 목록의 latest 는 그대로라, 한 시간 뒤 같은 것을 다시
+# 받아 다시 적용하고 다시 되돌린다. 그동안 카메라가 멈춘다. 끝이 없다.
+@needs_crypto
+def test_a_release_that_rolled_back_is_not_retried(wired, monkeypatch, key):
+    blob = make_tar(good_payload())
+    entry = signed_entry(blob, "1.1.0", key)
+    _serve(monkeypatch, {"latest": "1.1.0", "releases": {"1.1.0": entry}}, blob)
+    monkeypatch.setattr(updater, "apply_update",
+                        lambda b, v, p: ("rolled_back", "자리를 잡지 못했습니다"))
+
+    assert updater.run(dry_run=False) == 1          # 한 번은 해 본다
+    assert updater.run(dry_run=False) == 0          # 두 번째는 건너뛴다
+    assert json.loads(wired["result"].read_text())["tried"] == "1.1.0"
+
+
+@needs_crypto
+def test_a_fixed_package_under_the_same_version_is_retried(wired, monkeypatch, key):
+    """번호를 올리지 않고 고쳐 올리는 길을 막지는 않는다 — 해시가 다르다."""
+    bad = make_tar(good_payload())
+    _serve(monkeypatch,
+           {"latest": "1.1.0", "releases": {"1.1.0": signed_entry(bad, "1.1.0", key)}}, bad)
+    monkeypatch.setattr(updater, "apply_update", lambda b, v, p: ("rolled_back", "실패"))
+    updater.run(dry_run=False)
+
+    fixed = make_tar({**good_payload(), "app/main.py": b"VALUE = 3\n"})
+    _serve(monkeypatch,
+           {"latest": "1.1.0", "releases": {"1.1.0": signed_entry(fixed, "1.1.0", key)}}, fixed)
+    tried = []
+    monkeypatch.setattr(updater, "apply_update",
+                        lambda b, v, p: (tried.append(v), ("applied", "정상"))[1])
+    assert updater.run(dry_run=False) == 0
+    assert tried == ["1.1.0"]
+
+
+@needs_crypto
+def test_a_release_that_only_failed_to_prepare_is_retried(wired, monkeypatch, key):
+    """준비 단계 실패는 설치본을 건드리지 않았다 — 회선 탓일 수 있으니 다시 해 본다."""
+    blob = make_tar(good_payload())
+    _serve(monkeypatch,
+           {"latest": "1.1.0", "releases": {"1.1.0": signed_entry(blob, "1.1.0", key)}}, blob)
+    monkeypatch.setattr(updater, "apply_update", lambda b, v, p: ("failed", "준비 단계 실패"))
+    assert updater.run(dry_run=False) == 1
+    assert updater.run(dry_run=False) == 1   # 건너뛰지 않는다
+
+
+# ── 되돌리기가 거짓말을 하지 않는다 ─────────────────────────────────────────
+def test_rollback_refuses_an_incomplete_backup(tmp_path, monkeypatch):
+    """반쪽짜리 백업으로 덮으면 **멀쩡하던 설치본까지 깨진다.**
+
+    되돌리기는 마지막 보루다. 그것이 상황을 악화시키면 사람이 가야 한다.
+    """
+    monkeypatch.setattr(updater.subprocess, "run", lambda *a, **k: None)
+    app_dir, prev = tmp_path / "opt", tmp_path / "prev"
+    _install(app_dir, "1.0.0")
+    (prev / "app").mkdir(parents=True)      # app/main.py 가 없다 — 보관 도중 끊겼다
+    (prev / "VERSION").write_text("0.9.0\n")
+
+    assert updater.roll_back(app_dir=app_dir, prev_dir=prev) is False
+    # 멀쩡하던 설치본은 그대로여야 한다
+    assert (app_dir / "app" / "main.py").read_text() == "VALUE = 1\n"
+
+
+def test_rollback_refuses_a_backup_without_a_version(tmp_path, monkeypatch):
+    monkeypatch.setattr(updater.subprocess, "run", lambda *a, **k: None)
+    app_dir, prev = tmp_path / "opt", tmp_path / "prev"
+    _install(app_dir, "1.0.0")
+    (prev / "app").mkdir(parents=True)
+    (prev / "app" / "main.py").write_text("X\n")
+
+    assert updater.roll_back(app_dir=app_dir, prev_dir=prev) is False
+    assert (app_dir / "app" / "main.py").read_text() == "VALUE = 1\n"
+
+
+@needs_crypto
+def test_a_device_that_could_not_roll_back_says_broken(wired, monkeypatch, key):
+    """화면이 "되돌렸습니다" 라고 하면 사람이 안 간다. 실제로는 죽어 있는데."""
+    blob = make_tar(good_payload())
+    _serve(monkeypatch,
+           {"latest": "1.1.0", "releases": {"1.1.0": signed_entry(blob, "1.1.0", key)}}, blob)
+    monkeypatch.setattr(updater, "apply_update",
+                        lambda b, v, p: ("broken", "되돌리지 못했습니다"))
+    assert updater.run(dry_run=False) == 1
+    assert json.loads(wired["result"].read_text())["status"] == "broken"
+
+
+# ── 바이트코드 캐시가 설치본까지 실려 가지 않는다 ───────────────────────────
+def test_pycache_is_not_carried_into_the_install(tmp_path):
+    """install.sh 와 release.py 는 둘 다 일부러 뺀다. 업데이트만 넣고 있었다."""
+    app_dir, prev, stage = tmp_path / "opt", tmp_path / "prev", tmp_path / "stage"
+    _install(app_dir, "1.0.0")
+    updater.safe_extract(make_tar(good_payload()), stage)
+    (stage / "app" / "__pycache__").mkdir()
+    (stage / "app" / "__pycache__" / "main.cpython-311.pyc").write_bytes(b"\x00")
+
+    updater.swap_in(stage, app_dir=app_dir, prev_dir=prev)
+    assert not (app_dir / "app" / "__pycache__").exists()
+
+
+# ── 낱개 파일을 원자적으로 바꾼다 ───────────────────────────────────────────
+def test_files_are_replaced_atomically(tmp_path, monkeypatch):
+    """updater.py 가 반쯤 잘리면 그 장비는 다시는 원격 업데이트를 못 받는다."""
+    seen = []
+    real_replace = updater.os.replace
+    monkeypatch.setattr(updater.os, "replace",
+                        lambda a, b: (seen.append(Path(b).name), real_replace(a, b))[1])
+    app_dir, prev, stage = tmp_path / "opt", tmp_path / "prev", tmp_path / "stage"
+    _install(app_dir, "1.0.0")
+    updater.safe_extract(make_tar(good_payload()), stage)
+    updater.swap_in(stage, app_dir=app_dir, prev_dir=prev)
+
+    assert "updater.py" in seen and "VERSION" in seen
+    assert not list(app_dir.rglob("*.tmp"))

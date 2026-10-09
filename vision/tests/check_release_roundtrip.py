@@ -13,7 +13,13 @@ pytest 와 함께 돌리지 않는 이유: 열쇠 생성과 하위 프로세스�
 
     python3 vision/tests/check_release_roundtrip.py
 """
-import base64, importlib.util, json, shutil, subprocess, sys, tempfile
+import base64
+import importlib.util
+import json
+import shutil
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
 VISION = Path(__file__).resolve().parent.parent
@@ -21,15 +27,21 @@ DEPLOY = VISION / "deploy"
 
 def load(name):
     spec = importlib.util.spec_from_file_location(name, DEPLOY / f"{name}.py")
-    m = importlib.util.module_from_spec(spec); sys.modules[name] = m
-    spec.loader.exec_module(m); return m
+    m = importlib.util.module_from_spec(spec)
+    sys.modules[name] = m
+    spec.loader.exec_module(m)
+    return m
 
 updater = load("updater")
 ok = True
+
+
 def check(name, cond, detail=""):
     global ok
-    print(f"{'  ok  ' if cond else 'FAIL  '}{name}" + ("" if cond or not detail else f" — {detail}"))
-    if not cond: ok = False
+    tail = "" if cond or not detail else f" — {detail}"
+    print(f"{'  ok  ' if cond else 'FAIL  '}{name}{tail}")
+    if not cond:
+        ok = False
 
 work = Path(tempfile.mkdtemp())
 repo = work / "repo"
@@ -84,7 +96,12 @@ blob = (repo / "public/updates/vision" / entry["file"]).read_bytes()
 check("꾸러미 크기가 상한 안이다", len(blob) < updater.MAX_PACKAGE_BYTES, f"{len(blob):,} 바이트")
 
 # ── 5. 업데이터가 받아들이는가 ──
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+# 여기서 불러온다 — 열쇠를 만든 뒤에야 쓸 일이 있고, 머리말에서 불러오면
+# cryptography 가 없는 환경에서 아무 설명 없이 죽는다.
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (  # noqa: E402
+    Ed25519PublicKey,
+)
+
 verifier = Ed25519PublicKey.from_public_bytes(base64.b64decode(pub))
 try:
     updater.verify_package(blob, "1.1.0", entry, verifier)
@@ -111,7 +128,8 @@ app_dir = work / "opt"
 (app_dir / "app").mkdir(parents=True)
 (app_dir / "app/stale.py").write_text("X=1\n")
 (app_dir / "VERSION").write_text("1.0.0\n")
-(app_dir / ".venv").mkdir(); (app_dir / ".venv/python").write_text("bin")
+(app_dir / ".venv").mkdir()
+(app_dir / ".venv/python").write_text("bin")
 updater.swap_in(stage, app_dir=app_dir, prev_dir=work / "prev")
 check("설치본이 새 버전이 된다", (app_dir / "VERSION").read_text().strip() == "1.1.0")
 check("옛 모듈이 남지 않는다", not (app_dir / "app/stale.py").exists())

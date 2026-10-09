@@ -37,7 +37,6 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from app.config import settings, simulation_mode_active, simulation_mode_reason
-from app.version import VERSION
 from app.services import tuning
 from app.services.camera_manager import camera_manager
 from app.services.pairing import pairing_state
@@ -45,6 +44,7 @@ from app.services.reporter import reporter
 from app.services.stream_service import frame_store
 from app.services.sync_service import backlog as sync_backlog
 from app.services.sync_service import enabled as sync_enabled
+from app.version import VERSION
 
 logger = logging.getLogger(__name__)
 

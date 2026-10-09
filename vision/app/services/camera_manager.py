@@ -9,11 +9,11 @@ import uuid
 
 from sqlalchemy import select, update
 
-from app.version import VERSION
 from app.config import settings
 from app.database import SessionLocal, utcnow
 from app.models import Camera, Tank
 from app.services.stream_service import CameraSnapshot, CameraStreamProcessor, frame_store
+from app.version import VERSION
 
 logger = logging.getLogger(__name__)
 

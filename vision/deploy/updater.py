@@ -15,9 +15,14 @@
   믿는 것        **서명 하나.** 꾸러미가 진짜인지는 오너의 개인키로만 만들 수
                  있는 서명이 보장한다. 공개키는 이 파일 안에 박혀 있다.
 
-그래서 서버가 통째로 털려도 농가 장비에 코드를 심을 수는 없다. 공격자가 할 수
-있는 최대치는 "이미 서명된 예전 버전을 다시 주는 것"인데, 아래에서 지금보다
-낮거나 같은 버전은 거부하므로 그것도 막힌다.
+그래서 서버가 통째로 털려도 농가 장비에 **코드를 심을 수는 없다.** 이미 서명된
+예전 버전을 다시 미는 것도 막힌다 — 아래에서 지금보다 낮거나 같은 버전은
+거부한다.
+
+막지 못하는 것은 하나다. 서버를 쥔 쪽은 목록의 latest 를 낮춰 **장비를 옛
+버전에 묶어 둘 수 있다**(새 버전을 보여 주지 않는 것). 코드가 바뀌지는 않지만
+보안 수정이 늦어진다. 서명에 발행 시각이나 만료를 넣으면 막히는데, 그러면
+오프라인이 길었던 장비가 멀쩡한 꾸러미를 거부하게 되어 지금은 넣지 않았다.
 
 적용에 실패하면 이전 버전으로 되돌린다. 수조를 지켜보는 장비가 업데이트 한
 번에 먹통이 되는 것은, 구버전으로 도는 것보다 훨씬 나쁘다.
@@ -114,7 +119,12 @@ MANAGED_DIRS = ("app",)
 
 
 def allowed_path(name: str) -> bool:
-    return name in ALLOWED_EXTRA or bool(ALLOWED_PATH.match(name))
+    """꾸러미가 이 이름을 가져도 되는가.
+
+    `fullmatch` 다. `match` 는 `$` 가 말미 개행 앞에서도 맞아 `app/main.py\n`
+    같은 이름을 통과시켰다 — 그 이름 그대로 파일이 만들어진다.
+    """
+    return name in ALLOWED_EXTRA or bool(ALLOWED_PATH.fullmatch(name))
 
 
 #: 꾸러미 크기 상한. 압축 폭탄으로 SD 카드를 채우는 것을 막는다.
@@ -221,7 +231,12 @@ def safe_extract(blob: bytes, dest: Path) -> None:
         with tarfile.open(tmp.name, "r:gz") as tar:
             members = []
             for m in tar.getmembers():
-                name = m.name.lstrip("./")
+                # 이름을 **고쳐서 받지 않는다.** 예전에는 `lstrip("./")` 로
+                # 앞의 점과 빗금을 떼어 냈는데, 그것은 문자 집합을 떼는 것이라
+                # `..././app/main.py` 가 조용히 `app/main.py` 로 개명되어
+                # 들어왔다. /opt 밖으로 나가지는 못했지만, 수상한 이름을
+                # 고쳐서 받아들이는 것은 이 파일의 성격에 맞지 않는다.
+                name = m.name[2:] if m.name.startswith("./") else m.name
                 if not m.isfile():
                     raise ValueError(f"파일이 아닌 항목이 있습니다: {m.name}")
                 if not allowed_path(name):
@@ -284,6 +299,7 @@ def service_healthy(wait_seconds: int = 120) -> tuple[bool, str]:
     """
     deadline = time.time() + wait_seconds
     stable_since = None
+    last_detail = "재시작 후 자리를 잡지 못했습니다"
     while time.time() < deadline:
         active = subprocess.run(
             ["systemctl", "is-active", "--quiet", SERVICE], check=False
@@ -302,9 +318,44 @@ def service_healthy(wait_seconds: int = 120) -> tuple[bool, str]:
                     json.loads(resp.read().decode("utf-8"))
                 return True, "정상"
             except Exception:  # noqa: BLE001
-                return False, "서비스는 떴지만 응답하지 않습니다"
+                # **한 번 못 받았다고 포기하지 않는다.** Type=simple 이라
+                # systemd 는 프로세스를 띄우자마자 "살아 있음" 으로 보지만,
+                # uvicorn 은 기동 절차(DB 준비·브로드캐스터·카메라 열기·ONNX
+                # 세션 생성)가 끝나기 전에는 응답하지 않는다. 파이 4 에서
+                # 차가운 SD 카드로 그 합이 35초를 넘는 일이 흔하고, 예전에는
+                # 거기서 **멀쩡한 새 버전을 되돌렸다.** 되돌린 뒤에도 목록의
+                # latest 는 그대로라 한 시간 뒤 같은 일이 반복된다.
+                last_detail = "서비스는 떴지만 아직 응답하지 않습니다"
         time.sleep(3)
-    return False, "재시작 후 자리를 잡지 못했습니다"
+    return False, last_detail
+
+
+def _skip_pycache(_dir: str, names: list[str]) -> set[str]:
+    """바이트코드 캐시는 옮기지 않는다.
+
+    검사 단계의 `py_compile` 이 스테이지 폴더에 `__pycache__` 를 남긴다
+    (PYTHONDONTWRITEBYTECODE 는 import 할 때만 듣고 py_compile 은 막지
+    못한다). 그대로 두면 설치본까지 실려 가는데, install.sh 와 release.py 는
+    둘 다 일부러 빼고 있다 — 업데이트 경로만 규칙이 어긋나 있었다.
+    """
+    return {n for n in names if n == "__pycache__" or n.endswith(".pyc")}
+
+
+def _replace_file(src: Path, dst: Path) -> None:
+    """파일을 **원자적으로** 갈아 끼운다.
+
+    `shutil.copy2` 는 대상을 그 자리에서 비우고 다시 쓴다. 하필 그 순간
+    전원이 나가면 반쯤 잘린 파일이 남는다. 다른 파일이면 다음 차례가
+    고쳐 주지만, `deploy/updater.py` 가 잘리면 **그 다음 차례가 없다** —
+    고치러 농장에 가야 하고, 그것이 이 기능이 없애려던 일이다.
+
+    옆에 다 쓰고 이름만 바꾼다. 이름 바꾸기는 같은 파일 시스템 안에서
+    쪼개지지 않으므로, 어느 순간에 끊겨도 옛것이거나 새것이다.
+    """
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dst.with_name(dst.name + ".tmp")
+    shutil.copy2(src, tmp)
+    os.replace(tmp, dst)
 
 
 def _copy_managed(src_root: Path, dst_root: Path, *, replace_dirs: bool) -> None:
@@ -320,14 +371,12 @@ def _copy_managed(src_root: Path, dst_root: Path, *, replace_dirs: bool) -> None
         dst = dst_root / name
         if replace_dirs and dst.exists():
             shutil.rmtree(dst)
-        shutil.copytree(src, dst, dirs_exist_ok=not replace_dirs)
+        shutil.copytree(src, dst, dirs_exist_ok=not replace_dirs, ignore=_skip_pycache)
     for name in sorted(ALLOWED_EXTRA):
         src = src_root / name
         if not src.is_file():
             continue
-        dst = dst_root / name
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dst)
+        _replace_file(src, dst_root / name)
 
 
 def recover_interrupted(app_dir: Path | None = None) -> bool:
@@ -387,41 +436,67 @@ def swap_in(staged: Path, app_dir: Path | None = None, prev_dir: Path | None = N
         for tmp in (incoming, retiring):
             if tmp.exists():
                 shutil.rmtree(tmp)
-        shutil.copytree(src, incoming)
+        shutil.copytree(src, incoming, ignore=_skip_pycache)
         if live.exists():
             os.rename(live, retiring)
         os.rename(incoming, live)
         shutil.rmtree(retiring, ignore_errors=True)
 
-    # 낱개 파일은 작아서 쓰기 한 번으로 끝난다. VERSION 이 뒤에 적히는 것이
-    # 중요하다 — 앞서 적고 교체가 실패하면 장비가 자기를 새 버전이라고 믿는다.
+    # 낱개 파일도 원자적으로 바꾼다. VERSION 이 뒤에 적히는 것이 중요하다 —
+    # 앞서 적고 교체가 실패하면 장비가 자기를 새 버전이라고 믿는다.
     for name in sorted(ALLOWED_EXTRA):
         src = staged / name
         if not src.is_file():
             continue
-        dst = app_dir / name
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dst)
+        _replace_file(src, app_dir / name)
 
 
 def roll_back(app_dir: Path | None = None, prev_dir: Path | None = None) -> bool:
     app_dir = APP_DIR if app_dir is None else app_dir
     prev_dir = PREV_DIR if prev_dir is None else prev_dir
-    if not prev_dir.exists():
+
+    # **백업이 온전한지 먼저 본다.** 예전에는 바로 복사했는데, 보관하다가
+    # 끊긴 반쪽짜리 백업으로 덮으면 **멀쩡하던 설치본까지 깨진다.** 되돌리기는
+    # 마지막 보루라, 그것이 상황을 악화시키면 사람이 가는 수밖에 없다.
+    if not prev_dir.is_dir():
         log.error("되돌릴 이전 버전이 없습니다.")
         return False
+    if not (prev_dir / "app" / "main.py").is_file():
+        log.error("보관해 둔 이전 버전이 온전하지 않습니다 — 덮어쓰지 않습니다.")
+        return False
+    if not parse_version((prev_dir / "VERSION").read_text(encoding="utf-8").strip()
+                         if (prev_dir / "VERSION").is_file() else ""):
+        log.error("보관해 둔 이전 버전의 VERSION 을 읽을 수 없습니다 — 덮어쓰지 않습니다.")
+        return False
+
     _copy_managed(prev_dir, app_dir, replace_dirs=True)
+    _owner_fix(app_dir)
     subprocess.run(["systemctl", "restart", SERVICE], check=False)
     return True
 
 
 def _owner_fix(app_dir: Path | None = None) -> None:
-    """서비스 계정이 읽을 수 있게 되돌린다. 업데이터는 root 로 돈다."""
+    """설치본을 **root 소유·모두 읽기**로 되돌린다.
+
+    서비스 계정(shrimp365)의 소유로 두면 안 된다. 이 트리 안에는 root 로
+    실행되는 것이 둘 있다 — 업데이트 타이머가 돌리는 `deploy/updater.py` 와,
+    그 업데이터가 검사용으로 실행하는 `.venv/bin/python` 이다. 소유자는
+    0644 파일을 고쳐 쓸 수 있으므로, 서비스 쪽에 구멍이 하나 나면 거기서
+    root 로 올라서는 길이 생긴다(파이썬은 스크립트가 있는 폴더를 import
+    경로에 넣으므로 `deploy/json.py` 하나면 된다).
+
+    서비스는 설치본에 **쓰지 않는다** — 기기 키·워터마크·보정값은 전부
+    /var/lib/shrimp365-vision 에 적는다. 그래서 읽기만 있으면 충분하다.
+    """
     app_dir = APP_DIR if app_dir is None else app_dir
-    subprocess.run(["chown", "-R", "shrimp365:video", str(app_dir)], check=False)
+    subprocess.run(["chown", "-R", "root:video", str(app_dir)], check=False)
+    # a+rX — 파일은 읽기, 디렉터리는 들어가기. 실행 비트가 붙어 있던 파일은
+    # 그대로 두고 아무 파일에나 새로 붙이지는 않는다(X 는 대문자다).
+    subprocess.run(["chmod", "-R", "a+rX", str(app_dir)], check=False)
 
 
-def apply_update(blob: bytes, version: str, python: Path) -> tuple[bool, str]:
+def apply_update(blob: bytes, version: str, python: Path) -> tuple[str, str]:
+    """꾸러미를 적용한다. ("applied" | "rolled_back" | "broken" | "failed", 설명)."""
     # ── 1단계: 설치본을 건드리기 전 ──────────────────────────────────────────
     # 여기서 실패하면 설치본은 손대지 않은 상태라 그냥 포기하면 된다.
     if STAGE_DIR.exists():
@@ -432,7 +507,8 @@ def apply_update(blob: bytes, version: str, python: Path) -> tuple[bool, str]:
         sanity_check(STAGE_DIR, python)
     except Exception as exc:  # noqa: BLE001
         shutil.rmtree(STAGE_DIR, ignore_errors=True)
-        return False, f"준비 단계 실패: {exc}"
+        # 아직 설치본을 건드리지 않았다. 그냥 포기하면 된다.
+        return "failed", f"준비 단계 실패: {exc}"
 
     # ── 2단계: 여기서부터 설치본을 바꾼다 ────────────────────────────────────
     # 도중에 무엇이 잘못되든 반드시 되돌린다. 반쯤 바뀐 상태로 두면 새것도
@@ -442,21 +518,33 @@ def apply_update(blob: bytes, version: str, python: Path) -> tuple[bool, str]:
         _owner_fix()
     except Exception as exc:  # noqa: BLE001
         log.error("교체 도중 실패했습니다(%s) — 이전 버전으로 되돌립니다.", exc)
-        roll_back()
-        _owner_fix()
-        return False, f"교체 실패: {exc}"
+        return _undo(f"교체 실패: {exc}")
     finally:
         shutil.rmtree(STAGE_DIR, ignore_errors=True)
 
     subprocess.run(["systemctl", "restart", SERVICE], check=False)
     ok, detail = service_healthy()
     if ok:
-        return True, detail
+        return "applied", detail
 
     log.error("새 버전이 자리를 잡지 못했습니다 — 이전 버전으로 되돌립니다.")
-    roll_back()
-    _owner_fix()
-    return False, detail
+    return _undo(detail)
+
+
+def _undo(detail: str) -> tuple[str, str]:
+    """되돌리고, **실제로 되돌아갔는지** 를 돌려준다.
+
+    예전에는 roll_back() 의 결과를 버렸다. 그래서 백업이 없어 되돌리지 못한
+    장비도 화면에 "이전 버전으로 되돌렸습니다" 라고 떴다 — 실제로는 반쯤
+    바뀐 채 죽어 있는데. 그 화면이 SSH 없이 상태를 아는 유일한 길이라고 이
+    코드가 스스로 말하고 있으므로, 거짓말을 하면 안 된다.
+    """
+    if roll_back():
+        ok, detail2 = service_healthy(wait_seconds=90)
+        if ok:
+            return "rolled_back", detail
+        return "broken", f"{detail} / 되돌린 뒤에도 서비스가 뜨지 않습니다: {detail2}"
+    return "broken", f"{detail} / 되돌리지 못했습니다(보관된 이전 버전 없음)"
 
 
 # ── 설정·결과 ────────────────────────────────────────────────────────────────
@@ -481,19 +569,51 @@ def read_settings(path: Path | None = None) -> dict:
     }
 
 
-def write_result(status: str, version: str, message: str = "") -> None:
-    """마지막 결과를 남긴다. 장비 화면이 읽어 사람에게 보여 준다.
+def write_result(
+    status: str, version: str, message: str = "",
+    *, tried: str | None = None, tried_sha: str | None = None,
+) -> None:
+    """마지막 결과를 남긴다. 두 가지 일을 한다.
 
-    적지 못해도 업데이트를 실패로 만들지 않는다 — 표시용이다.
+    1. 장비 화면이 읽어 사람에게 보여 준다(SSH 없이 아는 유일한 길).
+    2. **다음 실행이 같은 실패를 되풀이하지 않게 한다** — 아래 already_failed.
+
+    적지 못해도 업데이트를 실패로 만들지 않는다.
     """
     try:
         STATE_DIR.mkdir(parents=True, exist_ok=True)
         RESULT_PATH.write_text(json.dumps({
             "status": status, "version": version,
             "message": message[:300], "at": int(time.time()),
+            "tried": tried, "tried_sha256": tried_sha,
         }, ensure_ascii=False), encoding="utf-8")
     except OSError as exc:
         log.debug("결과를 적지 못했습니다: %s", exc)
+
+
+def read_result() -> dict:
+    try:
+        data = json.loads(RESULT_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def already_failed(target: str, sha256: str) -> bool:
+    """이 꾸러미는 지난번에 적용했다가 되돌린 것인가.
+
+    없으면 **나쁜 릴리스 하나가 전 농장을 영원히 흔든다.** 1.1.0 이 건강
+    확인에 실패해 1.0.0 으로 되돌아가도 목록의 latest 는 그대로 1.1.0 이라,
+    한 시간 뒤 타이머가 같은 꾸러미를 다시 받아 다시 적용하고 다시 되돌린다.
+    매번 서비스가 두 번 재시작하고 그동안 카메라가 멈춘다. 끝이 없다.
+
+    같은 번호로 **고친 꾸러미를 다시 올리면** 해시가 달라지므로 다시 받는다 —
+    버전을 올리지 않고 고치는 길을 막지는 않는다.
+    """
+    last = read_result()
+    if last.get("status") not in {"rolled_back", "broken"}:
+        return False
+    return last.get("tried") == target and last.get("tried_sha256") == sha256
 
 
 def pick_target(manifest: dict, here: str) -> tuple[str, dict] | None:
@@ -548,6 +668,16 @@ def run(dry_run: bool) -> int:
         return 0
     target, entry = picked
 
+    # 지난번에 적용했다가 되돌린 바로 그 꾸러미면 다시 받지 않는다.
+    # 없으면 나쁜 릴리스 하나가 매시간 전 농장을 흔든다(already_failed 참고).
+    entry_sha = str(entry.get("sha256", "")).lower()
+    if already_failed(target, entry_sha):
+        log.warning(
+            "%s 는 지난번에 적용했다가 되돌렸습니다 — 다시 시도하지 않습니다."
+            " 고친 꾸러미를 올리거나 다음 버전을 내세요.", target,
+        )
+        return 0
+
     log.info("새 버전 %s 를 받습니다.", target)
     try:
         file_name = str(entry.get("file", ""))
@@ -572,14 +702,22 @@ def run(dry_run: bool) -> int:
         write_result("failed", here, "설치본을 찾을 수 없습니다")
         return 1
 
-    ok, detail = apply_update(blob, target, python)
-    if ok:
+    status, detail = apply_update(blob, target, python)
+    if status == "applied":
         log.info("업데이트 완료: %s → %s", here, target)
         write_result("applied", target, detail)
         return 0
 
-    log.error("업데이트 실패: %s (이전 버전 %s 로 되돌렸습니다)", detail, here)
-    write_result("rolled_back", here, detail)
+    # 무엇을 시도하다 실패했는지 함께 적는다 — 다음 실행이 같은 꾸러미를
+    # 다시 받지 않게 하는 근거이자, 화면에 띄울 사실이다.
+    if status == "rolled_back":
+        log.error("업데이트 실패: %s (이전 버전 %s 로 되돌렸습니다)", detail, here)
+    elif status == "broken":
+        # 가장 나쁜 경우다. 사람이 가야 한다 — 그 사실을 숨기지 않는다.
+        log.error("업데이트 실패하고 되돌리지도 못했습니다: %s", detail)
+    else:
+        log.error("업데이트를 적용하지 못했습니다: %s (설치본은 그대로입니다)", detail)
+    write_result(status, here, detail, tried=target, tried_sha=entry_sha)
     return 1
 
 

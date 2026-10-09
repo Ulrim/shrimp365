@@ -200,6 +200,25 @@ def check_payload_allowed(names: list[str]) -> None:
 
 # ── 꾸러미 ───────────────────────────────────────────────────────────────────
 
+def check_size(blob: bytes, unpacked: bytes) -> None:
+    """현장 장비가 받아 줄 크기인지 본다.
+
+    넘기면 **모든 장비가 "꾸러미가 너무 큽니다" 로 거부**하는데, 배포한
+    사람은 올렸다고 생각한다. 그 어긋남은 한참 뒤에야 드러난다.
+    """
+    sys.path.insert(0, str(HERE))
+    try:
+        import updater  # type: ignore
+    finally:
+        sys.path.pop(0)
+    if len(blob) > updater.MAX_PACKAGE_BYTES:
+        sys.exit(f"꾸러미가 너무 큽니다({len(blob):,} > {updater.MAX_PACKAGE_BYTES:,} 바이트). "
+                 "장비가 거부합니다 — 넣을 것을 줄이거나 updater 의 상한을 먼저 올리세요.")
+    if len(unpacked) > updater.MAX_UNPACKED_BYTES:
+        sys.exit(f"푼 크기가 너무 큽니다"
+                 f"({len(unpacked):,} > {updater.MAX_UNPACKED_BYTES:,} 바이트).")
+
+
 def cmd_build(args) -> int:
     version = args.version
     check_version(version)
@@ -249,6 +268,8 @@ def cmd_build(args) -> int:
         private.sign(f"{version}\n{digest}\n".encode())
     ).decode()
 
+    check_size(blob, raw.getvalue())
+
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     name = f"shrimp365-vision-{version}.tar.gz"
     (OUT_DIR / name).write_bytes(blob)
@@ -268,8 +289,12 @@ def cmd_build(args) -> int:
     }
     # latest 는 **가장 높은 버전**으로 둔다. 되돌리려고 낮은 번호를 다시 내도
     # 장비는 어차피 받지 않으므로(되감기 방지), 여기서도 올리지 않는다.
-    best = max(manifest["releases"], key=lambda v: tuple(int(x) for x in v.split(".")))
-    manifest["latest"] = best
+    # 버전 모양이 아닌 키가 섞여 있어도 터지지 않는다. 여기서 예외가 나면
+    # tar.gz 는 이미 써졌고 소스 버전도 올라간 뒤라 어중간한 상태가 남는다.
+    numbered = [v for v in manifest["releases"] if re.fullmatch(r"\d{1,3}(\.\d{1,3}){2}", v)]
+    if not numbered:
+        sys.exit("목록에 쓸 수 있는 버전이 없습니다 — manifest.json 을 확인하세요.")
+    manifest["latest"] = max(numbered, key=lambda v: tuple(int(x) for x in v.split(".")))
     manifest_path.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -280,7 +305,8 @@ def cmd_build(args) -> int:
     print(f"최신  : {manifest['latest']}")
     print()
     print("이제 저장소에 올리면 장비들이 받아 갑니다:")
-    print("  git add public/updates/vision vision/VERSION vision/pyproject.toml vision/app/version.py")
+    print("  git add public/updates/vision vision/VERSION vision/pyproject.toml \\")
+    print("          vision/app/version.py")
     print(f'  git commit -m "비전 장비 {version} 배포"')
     print("  git push")
     return 0

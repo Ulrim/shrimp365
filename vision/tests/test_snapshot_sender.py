@@ -12,10 +12,10 @@ import uuid
 import pytest
 from PIL import Image
 
+from app.database import utcnow
 from app.services import snapshot_sender as mod
 from app.services.snapshot_sender import SnapshotSender, shrink
 from app.services.stream_service import LatestCount, frame_store
-from app.database import utcnow
 
 
 def jpeg(width: int, height: int, *, color=(10, 120, 60)) -> bytes:

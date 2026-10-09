@@ -27,6 +27,7 @@ import time
 from pathlib import Path
 
 from app.config import settings
+from app.version import VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -258,7 +259,7 @@ async def _get_json(client, url: str) -> tuple[int, dict]:
         return 0, {}
 
 
-async def run_pairing(version: str = "1.0.0") -> str | None:
+async def run_pairing(version: str = VERSION) -> str | None:
     """코드를 받아 로그에 띄우고, 승인될 때까지 기다린다.
 
     성공하면 기기 키를 돌려주고 상태 파일에도 저장한다. 실패하면 None —
@@ -361,7 +362,7 @@ async def run_pairing(version: str = "1.0.0") -> str | None:
     return None
 
 
-async def ensure_device_key(version: str = "1.0.0") -> str | None:
+async def ensure_device_key(version: str = VERSION) -> str | None:
     """기기 키를 확보한다. 이미 있으면 그대로, 없으면 페어링을 돌린다."""
     key = load_device_key()
     if key:

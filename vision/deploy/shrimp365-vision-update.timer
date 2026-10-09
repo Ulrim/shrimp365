@@ -15,8 +15,8 @@ OnUnitActiveSec=1h
 # 늘어날 예정이라, 정각마다 한꺼번에 몰리면 서버도 농장 회선도 손해다.
 RandomizedDelaySec=10min
 
-# 꺼져 있던 동안 지나간 차례는 켜질 때 한 번 몰아서 돈다.
-Persistent=true
+# Persistent= 는 여기서 쓸 수 없다 — OnCalendar= 타이머에만 듣는다. 꺼져
+# 있던 장비가 켜질 때 따라잡는 일은 위의 OnBootSec 이 맡는다.
 
 [Install]
 WantedBy=timers.target

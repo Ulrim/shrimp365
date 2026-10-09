@@ -35,7 +35,8 @@ fi
 
 # 설치를 시작하기 전에 있어야 할 것들을 먼저 본다. 절반 설치된 상태가
 # 가장 고치기 어렵다.
-for f in pyproject.toml app/main.py "deploy/$UNIT"; do
+for f in pyproject.toml app/main.py "deploy/$UNIT" \
+         "deploy/$UPDATE_UNIT.service" "deploy/$UPDATE_UNIT.timer" "deploy/updater.py"; do
   if [ ! -f "$SRC/$f" ]; then
     echo "필요한 파일이 없습니다: $f" >&2
     echo "vision 폴더를 통째로 내려받았는지 확인하세요." >&2
@@ -123,7 +124,15 @@ export PYTHONNOUSERSITE=1
 # 빠졌는데, 파이썬 3.11 에서는 어쩌다 따라와 멀쩡했고 파이의 3.13 에서만
 # 터졌다. 개발 PC 에서는 끝까지 보이지 않는 종류다.
 
-chown -R "$SERVICE_USER":video "$APP_DIR"
+# **설치본은 root 소유로 둔다.** 서비스 계정 소유로 두면, 이 트리 안의 root
+# 실행 코드(원격 업데이트 타이머가 돌리는 deploy/updater.py, 그 업데이터가
+# 검사용으로 실행하는 .venv/bin/python)를 서비스 계정이 고쳐 쓸 수 있다 —
+# 서비스 쪽에 구멍이 하나 나면 거기서 root 로 올라서는 길이 된다.
+#
+# 서비스는 설치본에 쓰지 않는다. 기기 키·워터마크·보정값은 전부
+# /var/lib/shrimp365-vision 에 적는다. 읽기만 있으면 충분하다.
+chown -R root:video "$APP_DIR"
+chmod -R a+rX "$APP_DIR"
 
 # **서비스 사용자로** 확인한다. root 로만 불러 보면 root 에게만 보이는 패키지를
 # "있다" 고 판정해, 정작 서비스가 뜰 때 없다고 터지는 것을 못 잡는다.
@@ -223,8 +232,10 @@ UPDATE_ENABLED=true
 EOF
 fi
 # 비밀값이 들어가는 파일이다. 매번 권한을 다시 좁힌다.
-chown "$SERVICE_USER":"$SERVICE_USER" "$CONF"
-chmod 600 "$CONF"
+# 설정 파일에는 공유 키가 들어간다. 서비스는 **읽기만** 하면 되므로
+# 소유자는 root 로 두고 그룹 읽기만 연다.
+chown root:"$SERVICE_USER" "$CONF"
+chmod 640 "$CONF"
 
 # 기기 키를 두는 곳. 서비스로 돌 때는 systemd(StateDirectory)가 만들지만,
 # 손으로 한 번 실행해 볼 때도 필요하므로 여기서 미리 만든다.
@@ -241,7 +252,13 @@ if [ -d /run/systemd/system ]; then
   install -m 644 "$SRC/deploy/$UPDATE_UNIT.timer" /etc/systemd/system/
   systemctl daemon-reload
   systemctl enable shrimp365-vision >/dev/null
-  systemctl enable --now "$UPDATE_UNIT.timer" >/dev/null 2>&1 || true
+  if systemctl enable --now "$UPDATE_UNIT.timer" >/dev/null 2>&1; then
+    echo "    원격 업데이트 타이머 등록됨(1시간마다 확인)"
+  else
+    # 조용히 넘어가면 "자동 업데이트가 켜진 줄 알았는데 안 되는" 장비가 남고,
+    # 그 사실은 아무 데도 적히지 않는다.
+    echo "    ! 원격 업데이트 타이머를 켜지 못했습니다 — 이 장비는 수동 업데이트입니다"
+  fi
   systemctl is-active --quiet shrimp365-vision && RUNNING=yes
   if [ "$RUNNING" = yes ]; then
     echo "==> 새 프로그램으로 재시작"

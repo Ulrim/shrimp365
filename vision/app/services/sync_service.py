@@ -25,11 +25,11 @@ from pathlib import Path
 
 from sqlalchemy import delete, func, select
 
-from app.version import VERSION
 from app.config import server_sync_mode, settings
 from app.database import SessionLocal
 from app.models import Camera, CountRecord, Farm, Tank
 from app.services.reporter import BATCH_SIZE, reporter
+from app.version import VERSION
 
 logger = logging.getLogger(__name__)
 
