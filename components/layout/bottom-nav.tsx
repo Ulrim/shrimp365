@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { SHOW_BOARD, showCardNews } from "@/lib/features"
+import { MRV_PLATFORM_IS_INTERNAL, MRV_PLATFORM_URL, SHOW_BOARD, showCardNews } from "@/lib/features"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils"
 import {
   Home, LayoutDashboard, Droplets, ClipboardList,
   MoreHorizontal, Building2, FlaskConical, Package,
-  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight, BookOpen, BrainCircuit, MessageSquare, Layers, Radar,
+  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight, BookOpen, BrainCircuit, MessageSquare, Layers, Radar, Leaf, ExternalLink,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
@@ -49,6 +49,20 @@ export function BottomNav() {
     { href: "/inventory",     icon: Package,       label: t.nav.inventory },
     { href: "/ai-advisor",    icon: BrainCircuit,  label: t.nav.aiAdvisor },
     { href: "/reports",       icon: BarChart3,     label: t.nav.reports },
+    // 컬리버 탄소 MRV 플랫폼. 사이드바는 lg 이상에서만 보이므로, 휴대폰에서 같은
+    // 자리는 이 '더보기' 목록이다. 농업 화면에서 숨기는 이유는 sidebar 와 같다 —
+    // 아래 AGRI_HIDDEN 필터는 href 로 견주는데 이 항목의 href 는 환경변수에 따라
+    // 절대 URL 이 될 수 있고, 새우 RAS 탄소 MRV 는 수경재배 문맥의 메뉴가 아니다.
+    ...(!isAgri && MRV_PLATFORM_URL
+      ? [
+          {
+            href: MRV_PLATFORM_URL,
+            icon: Leaf,
+            label: t.nav.mrvPlatform,
+            external: !MRV_PLATFORM_IS_INTERNAL,
+          },
+        ]
+      : []),
     // 공개 콘텐츠는 언어별 주소가 따로 있다. 접두사 없는 주소는 한국어로
     // 고정되므로, 로그인한 사용자의 언어에 맞는 주소로 보낸다.
     ...(SHOW_BOARD ? [{ href: localizedHref("/board", locale),    icon: MessageSquare, label: t.board.title }] : []),
@@ -60,6 +74,8 @@ export function BottomNav() {
   // 언어 접두사를 뗀 뒤 견준다. /en/cardnews 도 "더보기" 안의 항목이다.
   const here = stripLocalePrefix(pathname).path
   const isMoreActive = MORE.some((item) => {
+    // 외부 주소는 이 앱의 경로가 아니므로 활성 판정에 넣지 않는다.
+    if ("external" in item && item.external) return false
     const target = stripLocalePrefix(withAgri(item.href)).path
     return here === target || here.startsWith(target + "/")
   })
@@ -144,23 +160,50 @@ export function BottomNav() {
             {/* Nav items */}
             <div className="px-4 space-y-1">
               {MORE.map((item) => {
-                const to = withAgri(item.href)
-                const active = pathname === to || pathname.startsWith(to + "/")
+                const external = "external" in item && item.external === true
+                const to = external ? item.href : withAgri(item.href)
+                const active = !external && (pathname === to || pathname.startsWith(to + "/"))
+                const className = cn(
+                  "flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all",
+                  active
+                    ? "bg-[#1E40AF]/10 text-[#1E40AF] border border-[#1E40AF]/25"
+                    : "text-foreground active:bg-accent"
+                )
+                const inner = (
+                  <>
+                    <item.icon className={cn("w-5 h-5", active ? "text-[#1E40AF]" : "text-muted-foreground")} />
+                    <span className="flex-1 font-medium text-[15px]">{item.label}</span>
+                    {/* 새 탭으로 열리는 항목은 꺾쇠(이 앱 안에서 이동) 대신 그 사실을
+                        아이콘으로 알린다 — 같은 모양이면 뒤로 가기가 되는 줄 안다. */}
+                    {external ? (
+                      <ExternalLink className="w-4 h-4 text-muted-foreground" aria-label="새 탭에서 열림" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </>
+                )
+                if (external) {
+                  return (
+                    <a
+                      key={item.href}
+                      href={to}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setMoreOpen(false)}
+                      className={className}
+                    >
+                      {inner}
+                    </a>
+                  )
+                }
                 return (
                   <Link
                     key={item.href}
                     href={to}
                     onClick={() => setMoreOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all",
-                      active
-                        ? "bg-[#1E40AF]/10 text-[#1E40AF] border border-[#1E40AF]/25"
-                        : "text-foreground active:bg-accent"
-                    )}
+                    className={className}
                   >
-                    <item.icon className={cn("w-5 h-5", active ? "text-[#1E40AF]" : "text-muted-foreground")} />
-                    <span className="flex-1 font-medium text-[15px]">{item.label}</span>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    {inner}
                   </Link>
                 )
               })}

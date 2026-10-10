@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { SHOW_BOARD, showCardNews } from "@/lib/features"
+import { MRV_PLATFORM_IS_INTERNAL, MRV_PLATFORM_URL, SHOW_BOARD, showCardNews } from "@/lib/features"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils"
 import {
   Home, LayoutDashboard, Droplets, BookOpen, Building2,
   BrainCircuit, BarChart3, Settings, LogOut,
-  ChevronLeft, ChevronRight, Zap, FlaskConical, Package, ShieldCheck,
+  ChevronLeft, ChevronRight, Leaf, FlaskConical, Package, ShieldCheck,
   ClipboardList, HelpCircle, MessageSquare, Layers, Radar,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -58,6 +58,22 @@ export function Sidebar() {
     { href: "/inventory",    icon: Package,         label: t.nav.inventory },
     { href: "/ai-advisor",   icon: BrainCircuit,    label: t.nav.aiAdvisor },
     { href: "/reports",      icon: BarChart3,       label: t.nav.reports },
+    // 컬리버 탄소 MRV 플랫폼. 이 앱 안(/mrv)이면 내부 이동, 별도 도메인으로 배포했으면
+    // 새 탭으로 연다(공개 헤더와 같은 규약). 주소를 비워 두면 항목 자체가 없다.
+    //
+    // 농업 화면(/daumlabs)에서는 숨긴다. AGRI_HIDDEN 으로 걸러지지 않기 때문이다 —
+    // 그 집합은 href 로 견주는데 이 항목의 href 는 환경변수에 따라 절대 URL 이 될 수
+    // 있다. 그리고 이건 새우 RAS 탄소 MRV 라 수경재배 문맥에 놓을 메뉴가 아니다.
+    ...(!isAgri && MRV_PLATFORM_URL
+      ? [
+          {
+            href: MRV_PLATFORM_URL,
+            icon: Leaf,
+            label: t.nav.mrvPlatform,
+            external: !MRV_PLATFORM_IS_INTERNAL,
+          },
+        ]
+      : []),
     // 공개 콘텐츠는 언어별 주소가 따로 있다. 접두사 없는 주소는 한국어로
     // 고정되므로, 로그인한 사용자의 언어에 맞는 주소로 보낸다.
     ...(SHOW_BOARD ? [{ href: localizedHref("/board", locale),    icon: MessageSquare, label: t.board.title }] : []),
@@ -75,26 +91,25 @@ export function Sidebar() {
     router.replace("/")
   }
 
-  const NavItem = ({ href, icon: Icon, label, badge }: { href: string; icon: IconComponent; label: string; badge?: string }) => {
+  const NavItem = ({ href, icon: Icon, label, badge, external }: { href: string; icon: IconComponent; label: string; badge?: string; external?: boolean }) => {
     // 농업 화면이면 /daumlabs 를 먹인다. 이미 접두사가 붙은 주소와 pathname 을
     // 그대로 견주므로 활성 표시 로직은 손대지 않는다(설계서 4-4).
-    const to = withAgri(href)
+    // 외부 주소는 접두사도 활성 표시도 해당되지 않는다 — 이 앱의 경로가 아니다.
+    const to = external ? href : withAgri(href)
     // 언어 접두사를 뗀 뒤 견준다. /en/cardnews 를 보고 있어도 카드뉴스가
     // 눌린 것으로 표시되어야 한다.
     const here = stripLocalePrefix(pathname).path
     const target = stripLocalePrefix(to).path
-    const isActive = here === target || here.startsWith(target + "/")
-    return (
-      <Link
-        href={to}
-        className={cn(
-          "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative",
-          isActive
-            ? "bg-[#1E40AF]/10 text-[#1E40AF] border border-[#1E40AF]/25"
-            : "text-muted-foreground hover:text-foreground hover:bg-accent",
-          collapsed && "justify-center px-2"
-        )}
-      >
+    const isActive = !external && (here === target || here.startsWith(target + "/"))
+    const className = cn(
+      "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative",
+      isActive
+        ? "bg-[#1E40AF]/10 text-[#1E40AF] border border-[#1E40AF]/25"
+        : "text-muted-foreground hover:text-foreground hover:bg-accent",
+      collapsed && "justify-center px-2"
+    )
+    const inner = (
+      <>
         <Icon className={cn("w-5 h-5 shrink-0", isActive ? "text-[#1E40AF]" : "text-muted-foreground group-hover:text-foreground")} />
         {!collapsed && <span className="flex-1">{label}</span>}
         {!collapsed && badge && (
@@ -103,6 +118,20 @@ export function Sidebar() {
           </span>
         )}
         {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#1E40AF] rounded-r-full" />}
+      </>
+    )
+    // 접혔을 때는 글자가 없으므로 아이콘만 남는다 — 외부든 내부든 title 로 이름을 준다.
+    const titleAttr = collapsed ? label : undefined
+    if (external) {
+      return (
+        <a href={to} target="_blank" rel="noopener noreferrer" title={titleAttr} className={className}>
+          {inner}
+        </a>
+      )
+    }
+    return (
+      <Link href={to} title={titleAttr} className={className}>
+        {inner}
       </Link>
     )
   }
