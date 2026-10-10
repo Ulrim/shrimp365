@@ -151,7 +151,7 @@ export interface BaselineReadinessResponse {
   policy_source: "kpi_config" | "default";
   policy: {
     min_period_days: number;
-    min_power_readings: number;
+    min_readings_per_meter_day: number;
     min_feed_logs: number;
     max_excluded_reading_ratio: number;
   };
@@ -834,4 +834,44 @@ export interface OrgPlanUpdateRequest {
 export interface OrgPlanUpdateResponse {
   id: string;
   plan: Plan;
+}
+
+// ---------------------------------------------------------------------------
+// 사람이 넣는 계측값 — POST /sites/{siteId}/readings
+// (게이트웨이 창구 POST /ingest/readings 와 같은 응답 모양이다. 전력은 이 운영에서
+//  수기 입력이므로 이 창구가 EI·Scope2·기준선의 유일한 전력 근거가 된다.)
+// ---------------------------------------------------------------------------
+
+/** 사람이 넣을 수 있는 출처. 'device' 는 게이트웨이 창구 전용이라 받지 않는다. */
+export type ManualReadingSource = "manual" | "csv";
+
+/** 계측 원표현. 저장 규약은 구간 kWh 이고 변환은 수집 계층이 한다(ADR 0001). */
+export type ReadingKind =
+  | "interval_kwh"
+  | "cumulative_kwh"
+  | "instant_kw"
+  | "do_mg_l";
+
+export interface ReadingsCreateRequest {
+  source: ManualReadingSource;
+  readings: {
+    meter_id: string;
+    /** ISO8601. 구간값은 **구간의 끝 시각**이다(ADR 0001: Δ는 뒤 시각에 붙는다). */
+    ts: string;
+    value: number;
+    reading_kind: ReadingKind;
+  }[];
+}
+
+export interface ReadingsIngestResult {
+  /** 새로 저장된 건수. */
+  accepted: number;
+  /** 이미 같은 (계측기, 시각) 이 있어 흡수된 건수. */
+  deduped: number;
+  rejected: { index: number; reason: string }[];
+  /**
+   * 저장된 건들의 quality_flag 분포. 'ok' 만 KPI 산입 목록에 든다 — 적산 지침의 첫
+   * 건처럼 구간값을 낼 수 없는 건은 'suspect' 로 들어가 EI 에서 빠진다.
+   */
+  quality: { ok: number; suspect: number; bad: number };
 }

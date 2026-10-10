@@ -33,7 +33,17 @@ const INSTANT_MAX_GAP_HOURS = 2.0
 /** DO 물리 상한(mg/L). 넘으면 센서 이상으로 보고 'suspect'. */
 const DO_PLAUSIBLE_MAX = 20.0
 
-const SCOPE_REJECT_REASON = "unknown meter_id or not in api key scope"
+const SCOPE_REJECT_REASON = "unknown meter_id or not in the authorized site scope"
+
+/**
+ * 계측값의 출처. `mrv_readings.source` 의 CHECK 와 같은 집합이며, `mrv_feed_logs.source`
+ * 선례와 같은 모양이다.
+ *
+ * **왜 필요한가.** 전력은 수기 입력으로 들어온다. 수기로 적은 kWh 와 게이트웨이가 올린
+ * kWh 가 DB 에서 구분되지 않으면, 심사 때 "이 기준선의 전력 근거가 계측기 값인가 사람이
+ * 적은 값인가" 에 답할 수 없다. 둘 다 유효한 증빙이지만 **같은 증빙은 아니다.**
+ */
+export type ReadingSource = "device" | "manual" | "csv"
 
 export type RawReading = {
   /** 배치 안 원 위치. rejected[] 가 이 값으로 어느 건이 거부됐는지 가리킨다. */
@@ -58,6 +68,15 @@ export type ProcessResult = {
   accepted: number
   deduped: number
   rejected: { index: number; reason: string }[]
+  /**
+   * 저장된 건들의 quality_flag 분포. 수기 입력에 필요하다 — 적산 지침은 한 배치에 직전
+   * 값이 없으면 구간값을 낼 수 없어 'suspect' 로 들어가고(ADR 0001), 그 건은 EI 산입
+   * 목록(`included_quality_flags`)에서 빠진다. "20건 올렸는데 왜 EI 가 안 변하나" 를
+   * 운영자가 화면에서 바로 알 수 있어야 한다.
+   *
+   * 새로 저장된 건만 센다(deduped·rejected 는 들어가지 않는다).
+   */
+  quality: { ok: number; suspect: number; bad: number }
 }
 
 /** (meter_id, ts) 멱등 비교용 정규 키. 표현이 달라도 같은 시각이면 같은 키가 된다. */
@@ -156,10 +175,21 @@ export function normalizeReadings(
  */
 export async function processBatch(
   db: MrvDb,
-  params: { orgId: string; siteId: string; raws: readonly RawReading[] },
+  params: {
+    orgId: string
+    siteId: string
+    raws: readonly RawReading[]
+    /** 저장할 출처. 게이트웨이 수집이 기본이고, 사람이 넣은 값은 호출부가 바꿔 준다. */
+    source?: ReadingSource
+  },
 ): Promise<ProcessResult> {
-  const { orgId, siteId, raws } = params
-  const result: ProcessResult = { accepted: 0, deduped: 0, rejected: [] }
+  const { orgId, siteId, raws, source = "device" } = params
+  const result: ProcessResult = {
+    accepted: 0,
+    deduped: 0,
+    rejected: [],
+    quality: { ok: 0, suspect: 0, bad: 0 },
+  }
 
   const meterIdsInBatch = Array.from(new Set(raws.map((r) => r.meterId)))
   const meterRows =
@@ -178,7 +208,8 @@ export async function processBatch(
   const valid: RawReading[] = []
   for (const r of raws) {
     const meter = meterById.get(r.meterId)
-    // 요청 본문의 site_id 나 게이트웨이 id 는 믿지 않는다. API 키가 정한 스코프가 진실이다.
+    // 요청 본문의 site_id 나 게이트웨이 id 는 믿지 않는다. 호출부가 넘긴 스코프
+    // (게이트웨이는 API 키, 수기 입력은 세션 + 소유권 확인)가 진실이다.
     if (!meter || meter.org_id !== orgId || meter.site_id !== siteId) {
       result.rejected.push({ index: r.index, reason: SCOPE_REJECT_REASON })
       continue
@@ -260,7 +291,11 @@ export async function processBatch(
       org_id: orgId,
       value: n.value,
       quality_flag: n.qualityFlag,
+      source,
     })
+    if (n.qualityFlag === "ok") result.quality.ok += 1
+    else if (n.qualityFlag === "suspect") result.quality.suspect += 1
+    else result.quality.bad += 1
   }
 
   if (newRows.length > 0) {

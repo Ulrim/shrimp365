@@ -57,6 +57,8 @@ function healthyComp(overrides = {}) {
       aerationPowerKwh: 980.4,
       includedReadingCount: 4321,
       excludedReadingCount: 12,
+      // 밀도 검사의 분모. 엔진이 산출 근거로 들고 있는 값이다(산입된 계측기만).
+      sourceMeterIds: ["meter-total", "meter-aeration"],
     },
     fcr: { fcr: 1.35, includedFeedCount: 28 },
     oei: { oei: 72.5, doTotalSamples: 2880, doInBandSamples: 2101 },
@@ -185,22 +187,87 @@ try {
   }, {})
   check("③ 정확히 7일은 통과(경계 포함)", failedBlockingIds(exactly7).includes("period_too_short"), false)
 
-  // ── ④ 근거 건수가 모자라면 막는다 ───────────────────────────────────────
+  // ── ④ 근거 밀도가 모자라면 막는다 ───────────────────────────────────────
+  // 절대 건수가 아니라 계측기·일당 건수로 본다. 30일 · 계측기 1대 · 3건 = 0.1/일.
   const fewReadings = assessBaselineReadiness(
-    healthyComp({ ei: { includedReadingCount: 3, excludedReadingCount: 0 } }),
+    healthyComp({
+      ei: {
+        includedReadingCount: 3,
+        excludedReadingCount: 0,
+        sourceMeterIds: ["meter-total"],
+      },
+    }),
     PERIOD,
     {},
   )
-  checkTrue("④ 전력 계측값 3건은 막힌다", failedBlockingIds(fewReadings).includes("power_readings_low"))
+  checkTrue(
+    "④ 30일에 전력 3건은 막힌다",
+    failedBlockingIds(fewReadings).includes("power_readings_sparse"),
+  )
   checkTrue(
     "④ 메시지에 실제 건수가 들어간다",
-    fewReadings.checks.find((c) => c.id === "power_readings_low").message.includes("3건"),
+    fewReadings.checks.find((c) => c.id === "power_readings_sparse").message.includes("3건"),
   )
   check(
-    "④ 관측값·기준값을 그대로 싣는다",
-    fewReadings.checks.find((c) => c.id === "power_readings_low").observed,
-    3,
+    "④ 관측값은 계측기·일당 밀도다",
+    fewReadings.checks.find((c) => c.id === "power_readings_sparse").observed,
+    0.1,
   )
+
+  // ── ④-2 수기 입력(하루 1건)이 통과해야 한다 ─────────────────────────────
+  // 여기가 이 검사를 밀도로 바꾼 이유다. 전력은 사람이 손으로 넣으므로 7일이면 7건뿐이고,
+  // 절대 100건 기준에서는 **언제나** 막혀 강행 스위치가 일상이 된다.
+  const WEEK = { from: new Date("2026-08-01T00:00:00Z"), to: new Date("2026-08-08T00:00:00Z") }
+  const manualDaily = assessBaselineReadiness(
+    healthyComp({
+      ei: {
+        includedReadingCount: 7,
+        excludedReadingCount: 0,
+        sourceMeterIds: ["meter-total"],
+      },
+    }),
+    WEEK,
+    {},
+  )
+  check("④-2 7일 · 하루 1건 수기 입력은 통과", manualDaily.ok, true)
+  // 적산 지침은 첫 건이 기준점이라 산입되지 않는다 → 7건 적어도 산입 6건(0.857/일).
+  const manualCumulative = assessBaselineReadiness(
+    healthyComp({
+      ei: {
+        includedReadingCount: 6,
+        excludedReadingCount: 1,
+        sourceMeterIds: ["meter-total"],
+      },
+    }),
+    WEEK,
+    {},
+  )
+  check("④-2 적산 지침 7건(산입 6건)도 통과 — 기본값 0.8 의 이유", manualCumulative.ok, true)
+  // 계측기 수로도 정규화된다 — 10대 사이트가 1대 사이트보다 느슨해지지 않는다.
+  const tenMetersSparse = assessBaselineReadiness(
+    healthyComp({
+      ei: {
+        includedReadingCount: 70,
+        excludedReadingCount: 0,
+        sourceMeterIds: Array.from({ length: 10 }, (_, i) => `meter-${i}`),
+      },
+    }),
+    WEEK,
+    {},
+  )
+  check("④-2 계측기 10대 · 70건은 1대 · 7건과 같은 밀도(1.0)", tenMetersSparse.ok, true)
+  const tenMetersThin = assessBaselineReadiness(
+    healthyComp({
+      ei: {
+        includedReadingCount: 7,
+        excludedReadingCount: 0,
+        sourceMeterIds: Array.from({ length: 10 }, (_, i) => `meter-${i}`),
+      },
+    }),
+    WEEK,
+    {},
+  )
+  check("④-2 계측기 10대에 7건이면 막힌다(0.1/일)", tenMetersThin.ok, false)
 
   const fewFeed = assessBaselineReadiness(
     healthyComp({ fcr: { includedFeedCount: 1 } }),
@@ -231,12 +298,21 @@ try {
   check("⑤ 정확히 50% 는 통과(경계 포함)", failedBlockingIds(half).includes("excluded_ratio_high"), false)
   // 계측값이 아예 0건이면 0으로 나누지 않는다(제외율 0 으로 본다 — 건수 검사가 따로 막는다).
   const noReadings = assessBaselineReadiness(
-    healthyComp({ ei: { includedReadingCount: 0, excludedReadingCount: 0 } }),
+    healthyComp({
+      ei: { includedReadingCount: 0, excludedReadingCount: 0, sourceMeterIds: [] },
+    }),
     PERIOD,
     {},
   )
   check("⑤ 0건이어도 NaN 이 나오지 않는다", noReadings.checks.find((c) => c.id === "excluded_ratio_high").observed, 0)
-  checkTrue("⑤ 0건은 건수 검사가 막는다", failedBlockingIds(noReadings).includes("power_readings_low"))
+  checkTrue("⑤ 0건은 밀도 검사가 막는다", failedBlockingIds(noReadings).includes("power_readings_sparse"))
+  // 계측기 0대로 나누지 않는다 — 밀도 0 으로 보고 "한 건도 없다"를 말한다.
+  check("⑤ 계측기 0대에서도 밀도가 NaN 이 아니다", noReadings.checks.find((c) => c.id === "power_readings_sparse").observed, 0)
+  checkTrue(
+    "⑤ 0건 메시지는 '한 건도 없다'를 말한다",
+    noReadings.checks.find((c) => c.id === "power_readings_sparse").message.includes("한 건도 없습니다"),
+    noReadings.checks.find((c) => c.id === "power_readings_sparse").message,
+  )
 
   // ── ⑥ Δbiomass — 임계값을 복제하지 않고 엔진의 결론을 읽는다 ───────────
   // 엔진은 `biomassDeltaKg <= minBiomassDeltaKg` 일 때 EI·FCR 을 null 로 낸다. 판정은
@@ -346,7 +422,7 @@ try {
   checkTrue("⑧ 모르는 키는 거부(오탈자 조기 발견)", rejects({ baseline: { min_perio_days: 7 } }))
 
   const custom = baselinePolicyFromParams({
-    baseline: { min_period_days: 30, min_power_readings: 10_000 },
+    baseline: { min_period_days: 30, min_readings_per_meter_day: 50 },
   })
   check("⑧ 설정이 있으면 출처가 kpi_config", custom.source, "kpi_config")
   check("⑧ 적은 키만 덮어쓴다", custom.policy.minPeriodDays, 30)
@@ -354,7 +430,7 @@ try {
 
   // ── ⑧-2 가드를 '조용히 끄는' 값은 전부 거부한다 ────────────────────────
   // Number(null)·Number("")·Number([])·Number(false) 는 모두 0 이다. 강제변환에 기대면
-  // `min_power_readings: null` 한 줄이 임계값을 0 으로 만들어 가드를 끈다. 되돌릴 수 없는
+  // `min_readings_per_meter_day: null` 한 줄이 임계값을 0 으로 만들어 가드를 끈다. 되돌릴 수 없는
   // 잠금의 임계값이라 조용히 기본값으로 메우지도, 0 으로 떨어지지도 않아야 한다.
   for (const [label, value] of [
     ["문자열", "일주일"],
@@ -366,11 +442,11 @@ try {
     ["NaN 문자열", "NaN"],
   ]) {
     checkTrue(
-      `⑧-2 min_power_readings 가 ${label} 이면 거부한다`,
-      rejects({ baseline: { min_power_readings: value } }),
+      `⑧-2 min_readings_per_meter_day 가 ${label} 이면 거부한다`,
+      rejects({ baseline: { min_readings_per_meter_day: value } }),
     )
   }
-  checkTrue("⑧-2 음수 임계값은 거부", rejects({ baseline: { min_power_readings: -1 } }))
+  checkTrue("⑧-2 음수 임계값은 거부", rejects({ baseline: { min_readings_per_meter_day: -1 } }))
   checkTrue("⑧-2 음수 기간도 거부", rejects({ baseline: { min_period_days: -7 } }))
   checkTrue("⑧-2 비율 1 초과는 거부", rejects({ baseline: { max_excluded_reading_ratio: 100 } }))
   checkTrue("⑧-2 비율 음수도 거부", rejects({ baseline: { max_excluded_reading_ratio: -0.1 } }))
@@ -378,7 +454,8 @@ try {
   // 0 은 명시적 선택이므로 허용한다(그 선택은 config_version·감사 로그에 남는다).
   check(
     "⑧-2 0 은 허용한다(명시적으로 '보지 않겠다')",
-    baselinePolicyFromParams({ baseline: { min_power_readings: 0 } }).policy.minPowerReadings,
+    baselinePolicyFromParams({ baseline: { min_readings_per_meter_day: 0 } }).policy
+      .minReadingsPerMeterDay,
     0,
   )
   check(
@@ -394,17 +471,18 @@ try {
 
   // 설정으로 기준을 올리면 통과하던 기준선이 막혀야 한다.
   const strict = assessBaselineReadiness(healthyComp(), PERIOD, {
-    baseline: { min_power_readings: 999_999 },
+    baseline: { min_readings_per_meter_day: 999 },
   })
   check("⑧ 설정이 실제로 판정에 적용된다", strict.ok, false)
-  check("⑧ 적용된 정책이 결과에 실린다", strict.policy.minPowerReadings, 999_999)
+  check("⑧ 적용된 정책이 결과에 실린다", strict.policy.minReadingsPerMeterDay, 999)
   check("⑧ 출처도 결과에 실린다", strict.policySource, "kpi_config")
 
   // 설정을 느슨하게 하면 막히던 것이 통과해야 한다(양방향 확인).
   const lenient = assessBaselineReadiness(
     healthyComp({ ei: { includedReadingCount: 3, excludedReadingCount: 0 } }),
     { from: PERIOD.from, to: new Date(PERIOD.from.getTime() + 2 * DAY) },
-    { baseline: { min_period_days: 1, min_power_readings: 1, min_feed_logs: 1 } },
+    // 계측기 2대 · 2일 · 산입 3건 = 0.75/일. 기본값 0.8 이면 막히는데, 설정으로 내리면 통과한다.
+    { baseline: { min_period_days: 1, min_readings_per_meter_day: 0.5, min_feed_logs: 1 } },
   )
   check("⑧ 느슨한 설정이면 통과한다", lenient.ok, true)
 
@@ -439,9 +517,13 @@ try {
   const weird = assessBaselineReadiness(
     healthyComp({ ei: { includedReadingCount: 7, excludedReadingCount: 3 } }),
     PERIOD,
-    { baseline: { min_power_readings: 5 } },
+    { baseline: { min_readings_per_meter_day: 0.1 } },
   )
-  check("⑩ 산입 건수를 그대로 쓴다", weird.checks.find((c) => c.id === "power_readings_low").observed, 7)
+  checkTrue(
+    "⑩ 산입 건수를 그대로 쓴다",
+    weird.checks.find((c) => c.id === "power_readings_sparse").message.includes("7건"),
+    weird.checks.find((c) => c.id === "power_readings_sparse").message,
+  )
   check("⑩ 제외율도 준 값으로만 계산한다", weird.checks.find((c) => c.id === "excluded_ratio_high").observed, 0.3)
 
   // ── ⑪ baseline 블록이 지표 산출을 세우지 않는다 ────────────────────────

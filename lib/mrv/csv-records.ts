@@ -47,6 +47,25 @@ export interface MortalityCsvRecord {
   cause_note: string | null;
 }
 
+/** 전력 기록지가 쓸 수 있는 계측 원표현. 파일 하나에 한 가지만 쓴다(아래 설명 참고). */
+export type PowerReadingKind = "interval_kwh" | "cumulative_kwh";
+
+/**
+ * 해석된 전력 계측값 1건 — POST /sites/{id}/readings 의 `readings[]` 원소 그대로.
+ *
+ * **표현을 행마다 섞지 않는 이유.** 적산 지침과 구간 사용량은 같은 숫자가 전혀 다른 뜻이다
+ * (12,345 는 "계량기가 12,345 를 가리킨다" 이거나 "12,345 kWh 를 썼다" 이다). 기록지는
+ * 사람이 손으로 채우는 종이에 가까우므로, 한 파일 안에서 행마다 뜻이 바뀌면 틀린 해석이
+ * 조용히 저장된다. 그래서 표현은 **업로드 단위로 한 번** 고르고 모든 행에 같게 적는다.
+ */
+export interface PowerCsvRecord {
+  meter_id: string;
+  /** ISO8601 UTC */
+  ts: string;
+  value: number;
+  reading_kind: PowerReadingKind;
+}
+
 /** 줄 단위 오류. `line` 은 **파일의 실제 줄 번호**(헤더 포함, 1부터)다 — 운영자가 에디터에서 바로 찾아간다. */
 export interface CsvRowError {
   line: number;
@@ -210,6 +229,23 @@ const HEADER_ALIASES: Record<string, string> = {
   메모: "cause_note",
   원인: "cause_note",
   원인메모: "cause_note",
+  meter_id: "meter_id",
+  meter: "meter_id",
+  계측기: "meter_id",
+  계측기id: "meter_id",
+  계측기_id: "meter_id",
+  계량기: "meter_id",
+  // 전력값 열. "값"·"수치" 처럼 뜻이 모이지 않는 이름은 받지 않는다 — 적산 지침인지
+  // 구간 사용량인지 알 수 없는 이름이 붙으면 틀린 해석이 조용히 저장된다. 표현은
+  // 업로드 단위로 고르므로, 열 이름은 둘 중 어느 표현에서도 읽히는 것만 받는다.
+  value: "value",
+  kwh: "value",
+  전력량: "value",
+  전력량_kwh: "value",
+  사용량: "value",
+  사용량_kwh: "value",
+  지침: "value",
+  계량기지침: "value",
 };
 
 function mapHeaders(cells: string[]): Map<string, number> {
@@ -471,6 +507,110 @@ export function parseMortalityCsv(text: string): CsvParseResult<MortalityCsvReco
   return { records, lines, errors, dataLineCount: dataRows.length };
 }
 
+/**
+ * 전력 기록지 해석.
+ *
+ * **왜 값이 0 이어도 받는가.** 급이량과 달리 "이 구간에 0 kWh 를 썼다" 는 실제 계측이다
+ * (블로어를 돌리지 않은 날). 0 을 거부하면 운영자는 그 줄을 지우게 되고, 그러면 기간에
+ * 구멍이 생겨 **계측이 끊긴 것과 구분되지 않는다.** 음수만 거부한다.
+ *
+ * **적산 지침을 올릴 때의 제약(ADR 0001 의 귀결).** 저장되는 값은 구간 kWh 뿐이고 원
+ * 카운터는 되살릴 수 없다. 그래서 구간 사용량은 **한 배치 안에서 직전 지침과의 차이**로만
+ * 계산된다 — 계측기당 지침이 한 건뿐인 파일은 구간값을 하나도 만들지 못하고, 그 건은
+ * 'suspect' 로 들어가 EI 산입에서 빠진다. 보내 놓고 "왜 EI 가 안 변하나" 가 되지 않게
+ * **보내기 전에** 막고, 직전 지침을 같은 파일에 함께 넣으라고 알린다(이미 저장된 지침을
+ * 다시 올려도 중복으로 흡수되므로 안전하다).
+ */
+export function parsePowerCsv(
+  text: string,
+  readingKind: PowerReadingKind,
+): CsvParseResult<PowerCsvRecord> {
+  const { rows, unterminatedAtLine } = splitCsvRows(text);
+  const header = readRequiredHeaders(rows, [
+    { canonical: "meter_id", label: "meter_id(계측기)" },
+    { canonical: "ts", label: "ts(시각)" },
+    {
+      canonical: "value",
+      label:
+        readingKind === "cumulative_kwh" ? "value(계량기 지침)" : "value(구간 사용량 kWh)",
+    },
+  ]);
+  if ("message" in header) {
+    const first =
+      unterminatedAtLine !== null ? unterminatedError(unterminatedAtLine) : header;
+    return { records: [], lines: [], errors: [first], dataLineCount: 0 };
+  }
+
+  const records: PowerCsvRecord[] = [];
+  const lines: number[] = [];
+  const errors: CsvRowError[] = [];
+  const dataRows = rows.slice(1);
+  if (unterminatedAtLine !== null) errors.push(unterminatedError(unterminatedAtLine));
+
+  const requirement =
+    readingKind === "cumulative_kwh"
+      ? "계량기 지침은 0 이상의 숫자여야 합니다"
+      : "구간 사용량(kWh)은 0 이상의 숫자여야 합니다";
+
+  for (const row of dataRows) {
+    const meterId = cell(row.cells, header.index, "meter_id");
+    const tsRaw = cell(row.cells, header.index, "ts");
+    const valueRaw = cell(row.cells, header.index, "value");
+
+    if (!meterId) {
+      errors.push({ line: row.line, message: "계측기가 비어 있습니다." });
+      continue;
+    }
+    const ts = parseRecordTimestamp(tsRaw);
+    if (!ts) {
+      errors.push({
+        line: row.line,
+        message: `시각을 읽을 수 없습니다: '${tsRaw}' (예: 2026-10-01 14:30)`,
+      });
+      continue;
+    }
+    const value = parseDecimal(valueRaw);
+    if (value === null || value < 0) {
+      errors.push({ line: row.line, message: numberFieldError(valueRaw, requirement) });
+      continue;
+    }
+    records.push({ meter_id: meterId, ts, value, reading_kind: readingKind });
+    lines.push(row.line);
+  }
+
+  errors.push(
+    ...findDuplicateKeys(
+      records.map((r, i) => ({ key: `${r.meter_id}\u0000${r.ts}`, line: lines[i] })),
+    ),
+  );
+
+  // 적산 지침은 계측기당 2건 이상이어야 구간값이 나온다. 1건만 든 계측기를 그냥 보내면
+  // 저장은 되지만 산입은 0 이다 — 성공처럼 보이는 실패라 보내기 전에 막는다.
+  if (readingKind === "cumulative_kwh") {
+    const countByMeter = new Map<string, number>();
+    const firstLineByMeter = new Map<string, number>();
+    records.forEach((r, i) => {
+      countByMeter.set(r.meter_id, (countByMeter.get(r.meter_id) ?? 0) + 1);
+      if (!firstLineByMeter.has(r.meter_id)) firstLineByMeter.set(r.meter_id, lines[i]);
+    });
+    for (const [meterId, count] of countByMeter) {
+      if (count >= 2) continue;
+      errors.push({
+        line: firstLineByMeter.get(meterId) as number,
+        message:
+          `계측기 '${meterId}' 의 지침이 1건뿐입니다. 지침 두 건의 차이가 구간 사용량이므로 ` +
+          "1건만으로는 전력이 산출되지 않습니다. 직전 지침을 같은 파일에 함께 넣어 주세요 " +
+          "(이미 올린 지침을 다시 넣어도 중복으로 흡수됩니다).",
+      });
+    }
+  }
+
+  // 오류 목록은 줄 번호 순으로 보여 준다(중복·건수 검사가 뒤에 붙어 순서가 섞인다).
+  errors.sort((a, b) => a.line - b.line);
+
+  return { records, lines, errors, dataLineCount: dataRows.length };
+}
+
 /** 화면이 내려 주는 기록지 서식 견본. 헤더 이름은 영문 정식 이름으로 둔다. */
 export const FEED_CSV_TEMPLATE =
   "batch_id,ts,feed_kg\n" +
@@ -481,3 +621,20 @@ export const MORTALITY_CSV_TEMPLATE =
   "batch_id,ts,dead_count,cause_note\n" +
   "batch-001,2026-10-01 09:00,3,고수온 의심\n" +
   "batch-001,2026-10-02 09:00,0,\n";
+
+/**
+ * 전력 기록지 견본은 표현마다 다르다 — 같은 `value` 열에 적을 숫자의 뜻이 다르기 때문이다.
+ * 견본의 숫자도 그 차이가 보이게 골랐다(지침은 늘어나는 누적값, 사용량은 하루치).
+ */
+export const POWER_INTERVAL_CSV_TEMPLATE =
+  "meter_id,ts,value\n" +
+  "meter-total,2026-10-01 00:00,412.5\n" +
+  "meter-total,2026-10-02 00:00,398.2\n" +
+  "meter-aeration,2026-10-01 00:00,240.1\n" +
+  "meter-aeration,2026-10-02 00:00,233.7\n";
+
+export const POWER_CUMULATIVE_CSV_TEMPLATE =
+  "meter_id,ts,value\n" +
+  "meter-total,2026-10-01 00:00,128430.0\n" +
+  "meter-total,2026-10-02 00:00,128842.5\n" +
+  "meter-total,2026-10-03 00:00,129240.7\n";

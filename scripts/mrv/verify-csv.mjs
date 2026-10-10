@@ -61,8 +61,11 @@ try {
     parseFeedCsv,
     parseMortalityCsv,
     parseRecordTimestamp,
+    parsePowerCsv,
     FEED_CSV_TEMPLATE,
     MORTALITY_CSV_TEMPLATE,
+    POWER_INTERVAL_CSV_TEMPLATE,
+    POWER_CUMULATIVE_CSV_TEMPLATE,
   } = require(join(outDir, "out", "csv-records.js"))
 
   // ── ① 저수준 분해 ───────────────────────────────────────────────────────
@@ -365,6 +368,104 @@ try {
     [...feedBad.errors, ...mortBad.errors].every(
       (e) => Number.isInteger(e.line) && e.line > 0 && typeof e.message === "string" && e.message.length > 0,
     ),
+  )
+
+  // ── ⑩ 전력 기록지 ───────────────────────────────────────────────────────
+  // 전력은 EI·폭기 EI·Scope2·기준선의 유일한 근거이고, 이 운영에서는 사람이 넣는다.
+  // 그래서 "틀린 줄을 거부하는가" 뿐 아니라 **"조용히 산입에서 빠지는 파일을 미리
+  // 막는가"** 까지 본다 — 저장은 됐는데 KPI 가 그대로인 실패가 가장 알아채기 어렵다.
+  const powerOk = parsePowerCsv(POWER_INTERVAL_CSV_TEMPLATE, "interval_kwh")
+  check("⑩ 구간 사용량 견본이 그대로 해석된다", powerOk.errors, [])
+  check("⑩ 견본 4줄", powerOk.records.length, 4)
+  check("⑩ 표현이 모든 행에 같게 붙는다", [...new Set(powerOk.records.map((r) => r.reading_kind))], [
+    "interval_kwh",
+  ])
+  check("⑩ 계측기·값을 그대로 싣는다", powerOk.records[0], {
+    meter_id: "meter-total",
+    ts: "2026-10-01T00:00:00.000Z",
+    value: 412.5,
+    reading_kind: "interval_kwh",
+  })
+  check(
+    "⑩ 한국어 머리글(계량기·지침)도 받는다",
+    parsePowerCsv("계측기,시각,사용량\nm1,2026-10-01 00:00,12.5", "interval_kwh").records.length,
+    1,
+  )
+  // 0 은 실제 계측이다(돌리지 않은 날). 거부하면 운영자가 줄을 비우게 되고, 그러면
+  // 계측이 끊긴 것과 구분되지 않는다.
+  check(
+    "⑩ 0 kWh 는 받는다",
+    parsePowerCsv("meter_id,ts,value\nm1,2026-10-01 00:00,0", "interval_kwh").records.length,
+    1,
+  )
+  check(
+    "⑩ 음수는 거부한다",
+    parsePowerCsv("meter_id,ts,value\nm1,2026-10-01 00:00,-3", "interval_kwh").errors.map((e) => e.line),
+    [2],
+  )
+  check(
+    "⑩ 계측기가 비면 거부한다",
+    parsePowerCsv("meter_id,ts,value\n,2026-10-01 00:00,5", "interval_kwh").errors.map((e) => e.line),
+    [2],
+  )
+  check(
+    "⑩ 같은 계측기·시각 중복은 거부한다",
+    parsePowerCsv(
+      "meter_id,ts,value\nm1,2026-10-01 00:00,5\nm1,2026-10-01 00:00,6",
+      "interval_kwh",
+    ).errors.length > 0,
+    true,
+  )
+  // 다른 계측기의 같은 시각은 정상이다(총전력계와 폭기계를 같은 시각에 검침한다).
+  check(
+    "⑩ 다른 계측기의 같은 시각은 정상",
+    parsePowerCsv(
+      "meter_id,ts,value\nm1,2026-10-01 00:00,5\nm2,2026-10-01 00:00,6",
+      "interval_kwh",
+    ).errors,
+    [],
+  )
+  check(
+    "⑩ 필요한 열이 없으면 알린다",
+    parsePowerCsv("meter_id,ts\nm1,2026-10-01 00:00", "interval_kwh").errors.length > 0,
+    true,
+  )
+
+  // 적산 지침: 계측기당 2건 이상이어야 구간값이 나온다(ADR 0001 — 원 카운터는 되살릴 수
+  // 없으므로 Δ는 같은 배치 안에서만 계산된다).
+  const cumOk = parsePowerCsv(POWER_CUMULATIVE_CSV_TEMPLATE, "cumulative_kwh")
+  check("⑩ 적산 지침 견본이 그대로 해석된다", cumOk.errors, [])
+  check("⑩ 적산 표현이 붙는다", cumOk.records[0].reading_kind, "cumulative_kwh")
+  const cumSingle = parsePowerCsv(
+    "meter_id,ts,value\nm1,2026-10-01 00:00,128430",
+    "cumulative_kwh",
+  )
+  checkTrue(
+    "⑩ 지침이 1건뿐이면 보내기 전에 막는다",
+    cumSingle.errors.length === 1,
+    JSON.stringify(cumSingle.errors),
+  )
+  checkTrue(
+    "⑩ 그 사유가 '직전 지침을 함께' 를 알려 준다",
+    cumSingle.errors[0].message.includes("직전 지침"),
+    cumSingle.errors[0]?.message,
+  )
+  // 한 계측기만 1건이면 그 계측기만 걸린다 — 나머지를 함께 막지 않는다.
+  const cumMixed = parsePowerCsv(
+    "meter_id,ts,value\nm1,2026-10-01 00:00,100\nm1,2026-10-02 00:00,150\nm2,2026-10-01 00:00,200",
+    "cumulative_kwh",
+  )
+  check("⑩ 2건 있는 계측기는 통과, 1건인 계측기만 걸린다", cumMixed.errors.length, 1)
+  checkTrue(
+    "⑩ 걸린 계측기 이름을 지목한다",
+    cumMixed.errors[0].message.includes("m2"),
+    cumMixed.errors[0]?.message,
+  )
+  // 구간 사용량에는 이 제약이 없다 — 1건만으로도 그 자체가 사용량이다.
+  check(
+    "⑩ 구간 사용량은 1건도 정상",
+    parsePowerCsv("meter_id,ts,value\nm1,2026-10-01 00:00,12.5", "interval_kwh").errors,
+    [],
   )
 
   if (failures.length > 0) {

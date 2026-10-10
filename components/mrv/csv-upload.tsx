@@ -46,6 +46,8 @@ type UploadOutcome = {
   stoppedAt: { line: number; message: string } | null
   /** 운영자가 중간에 멈췄다. */
   cancelled: boolean
+  /** 일괄 전송에서 서버가 돌려준 요약(수락·중복·산입 가능 건수 등). */
+  note?: string | null
 }
 
 export type CsvUploadProps<T> = {
@@ -64,6 +66,17 @@ export type CsvUploadProps<T> = {
   /** 미리보기 표의 열 정의. */
   previewColumns: { header: string; cell: (record: T) => string }[]
   canWrite: boolean
+  /** 저장 성공 뒤 한 줄. 지표가 기록 종류마다 다르므로 호출부가 적는다. */
+  successNote: string
+  /**
+   * **일괄 전송**. 주면 줄마다 보내는 대신 전체를 한 요청으로 보낸다.
+   *
+   * 전력이 이것을 필요로 한다. 적산 지침은 **한 배치 안의 직전 지침과의 차이**로만 구간
+   * 사용량이 되므로(ADR 0001), 줄마다 따로 보내면 모든 건이 '직전값 없음' 이 되어 전부
+   * 산입에서 빠진다 — 저장은 됐는데 EI 는 그대로인 상태다. 급이·폐사는 줄이 서로
+   * 독립이라 줄마다 보내는 쪽이 "어디까지 들어갔나" 를 더 정확히 알려 주므로 그대로 둔다.
+   */
+  batchSubmit?: ((records: T[]) => Promise<{ savedCount: number; note?: string }>) | null
 }
 
 export function CsvUpload<T>({
@@ -75,6 +88,8 @@ export function CsvUpload<T>({
   columnsHint,
   previewColumns,
   canWrite,
+  successNote,
+  batchSubmit = null,
 }: CsvUploadProps<T>) {
   const fileId = useId()
 
@@ -104,7 +119,7 @@ export function CsvUpload<T>({
    */
   const canSend =
     canWrite &&
-    Boolean(endpoint) &&
+    Boolean(endpoint ?? batchSubmit) &&
     !isUploading &&
     outcome === null &&
     parsed !== null &&
@@ -153,11 +168,41 @@ export function CsvUpload<T>({
   }
 
   async function handleSend() {
-    if (!canSend || !parsed || !endpoint) return
+    if (!canSend || !parsed) return
     const records = parsed.records
     setOutcome(null)
     cancelRef.current = false
     setProgress({ done: 0, total: records.length })
+
+    // 일괄 전송: 한 요청이므로 중간 상태가 없다. 성공이면 전부, 실패면 전무다 —
+    // 어디까지 들어갔나를 물을 필요가 없는 쪽이라 줄 번호를 가리키지 않는다.
+    if (batchSubmit) {
+      try {
+        const res = await batchSubmit(records)
+        setProgress(null)
+        setOutcome({
+          savedCount: res.savedCount,
+          stoppedAt: null,
+          cancelled: false,
+          note: res.note ?? null,
+        })
+      } catch (err) {
+        setProgress(null)
+        setOutcome({
+          savedCount: 0,
+          cancelled: false,
+          stoppedAt: {
+            line: parsed.lines[0],
+            message: errorMessage(err, "서버가 이 파일을 거절했습니다."),
+          },
+        })
+      }
+      return
+    }
+
+    // 줄 단위 전송은 경로가 반드시 있어야 한다(canSend 가 둘 중 하나를 요구하므로
+    // 여기 도달했다면 batchSubmit 이 없는 경우다).
+    if (!endpoint) return
 
     let saved = 0
     for (let i = 0; i < records.length; i += 1) {
@@ -326,11 +371,14 @@ export function CsvUpload<T>({
 
       {/* ── 결과 ───────────────────────────────────────────────────────────── */}
       {outcome && outcome.stoppedAt === null && !outcome.cancelled && (
-        <p role="status" className="text-sm text-mrv-green">
-          {outcome.savedCount}건을 모두 저장했습니다. KPI(FCR·폐사율)에 반영됩니다.
-          다시 올리려면 [지우기] 를 눌러 파일을 새로 고르세요(같은 파일을 한 번 더 보내면
-          중복이 되고, 저장된 기록은 화면에서 지울 수 없습니다).
-        </p>
+        <div role="status" className="flex flex-col gap-1 text-sm text-mrv-green">
+          <p>
+            {outcome.savedCount}건을 저장했습니다. {successNote} 다시 올리려면 [지우기] 를
+            눌러 파일을 새로 고르세요(같은 파일을 한 번 더 보내면 중복이 되고, 저장된 기록은
+            화면에서 지울 수 없습니다).
+          </p>
+          {outcome.note && <p className="text-mrv-fg">{outcome.note}</p>}
+        </div>
       )}
 
       {outcome && outcome.cancelled && (
@@ -384,7 +432,9 @@ export function CsvUpload<T>({
                 : "저장"}
           </button>
         )}
-        {isUploading && (
+        {/* 일괄 전송은 요청 하나라 중간에 끊을 지점이 없다 — 끊어도 서버는 이미
+            전부 받았거나 아무것도 받지 않았으므로, 버튼을 두면 거짓말이 된다. */}
+        {isUploading && !batchSubmit && (
           <button
             type="button"
             onClick={() => {

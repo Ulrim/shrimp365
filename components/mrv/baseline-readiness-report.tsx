@@ -125,8 +125,8 @@ export function BaselineReadinessReport({
             : `코드 기본값 (kpi_config 에 baseline 설정 없음 · 산식 버전 ${readiness.config_version})`}
         </span>
         <span>
-          최소 {readiness.policy.min_period_days}일 · 전력 계측값{" "}
-          {readiness.policy.min_power_readings}건 · 급이 기록{" "}
+          최소 {readiness.policy.min_period_days}일 · 전력 계측값 하루 계측기당{" "}
+          {readiness.policy.min_readings_per_meter_day}건 · 급이 기록{" "}
           {readiness.policy.min_feed_logs}건 · 제외율 상한{" "}
           {(readiness.policy.max_excluded_reading_ratio * 100).toFixed(0)}%
         </span>

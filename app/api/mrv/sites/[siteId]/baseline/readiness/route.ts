@@ -49,7 +49,7 @@ export async function GET(
       policy_source: readiness.policySource,
       policy: {
         min_period_days: readiness.policy.minPeriodDays,
-        min_power_readings: readiness.policy.minPowerReadings,
+        min_readings_per_meter_day: readiness.policy.minReadingsPerMeterDay,
         min_feed_logs: readiness.policy.minFeedLogs,
         max_excluded_reading_ratio: readiness.policy.maxExcludedReadingRatio,
       },

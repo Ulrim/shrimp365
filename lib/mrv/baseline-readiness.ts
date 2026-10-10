@@ -30,7 +30,7 @@
  *
  * **블록의 검증은 여기서 한다.** 집 양식(`rejectUnknown`)과 같은 태도로, 모르는 키와
  * 숫자가 아닌 값·범위를 벗어난 값을 `KpiValueError`(→ 422)로 거부한다. 되돌릴 수 없는
- * 잠금의 가드이므로 **조용히 기본값으로 메우지 않는다** — `min_power_readings: null` 을
+ * 잠금의 가드이므로 **조용히 기본값으로 메우지 않는다** — `min_readings_per_meter_day: null` 을
  * 0 으로 읽어 가드를 꺼 버리는 쪽이 설정 오류를 알려 주는 쪽보다 훨씬 위험하다.
  */
 
@@ -43,18 +43,27 @@ export interface BaselinePolicy {
   /** 기준선 기간의 최소 길이(일). 운영 주기를 한 바퀴는 돌아야 대표성이 생긴다. */
   minPeriodDays: number;
   /**
-   * 산입된 전력 계측값의 최소 건수.
+   * 산입된 전력 계측값의 최소 밀도 — **계측기 1대 · 1일당 건수**.
    *
-   * ⚠ 기본값 100 은 **시간 이하 주기의 자동 수집을 전제한다**(15분 주기 1대면 7일에
-   * 672건). 하루 1건 수기 입력 사이트에서는 7일에 7건뿐이라 언제나 막히고, 그러면
-   * 운영자가 강행 스위치를 습관적으로 켜게 된다 — 가드의 자살이다. 반대로 계측기가
-   * 10대인 사이트는 `includedReadingCount` 가 전 계측기 합이라 1/10 기간에 100건을
-   * 채운다. 즉 **같은 숫자가 수집 주기와 설비 규모에 따라 10배씩 느슨해진다.**
-   * 수기 입력 사이트나 대형 사이트에서는 `params_json.baseline.min_power_readings` 로
-   * 반드시 조정해야 한다. 일·계측기당 기대 건수로 정규화하는 편이 본래 옳지만, 수집
-   * 주기를 이 계층이 알지 못하므로 지금은 절대 건수 + 설정 가능으로 둔다.
+   * **왜 절대 건수가 아닌가.** 절대 건수는 같은 숫자가 현장마다 전혀 다른 뜻이 된다.
+   * 15분 주기 자동 수집 1대면 7일에 672건이라 "100건"은 사실상 아무것도 막지 않고,
+   * **하루 한 번 수기로 적는 사이트는 7일에 7건뿐이라 언제나 막힌다** — 그러면 운영자가
+   * 강행 스위치를 습관적으로 켜게 되고 가드가 있으나 마나가 된다. 게다가
+   * `includedReadingCount` 는 전 계측기 합이라 계측기 10대인 사이트는 1대인 사이트의
+   * 1/10 기간에 같은 건수를 채운다. 즉 절대 건수는 **수집 주기와 설비 규모에 따라
+   * 10배씩 느슨해지는 기준**이다.
+   *
+   * 기간 일수와 산입 계측기 수로 나누면 그 둘이 상쇄된다. 이 운영에서 전력은 사람이
+   * 수기로 넣으므로 최소 단위는 "계측기마다 하루 한 건"이고, 기본값은 1.0 이 아니라
+   * **0.8** 이다 — 적산 지침은 두 건의 차이가 구간 사용량이어서 **첫 건이 기준점으로만
+   * 쓰이고 산입되지 않기** 때문이다(7일 동안 7건을 적으면 산입은 6건, 0.857/일).
+   *
+   * ⚠ 알려진 한계: 이 기준은 **밀도만 보고 분포는 보지 못한다.** 30일 기간에서 사흘치만
+   * 15분 주기로 들어와도 밀도는 28.8 이라 통과한다. 날짜 커버리지(계측값이 있는 날 수 /
+   * 기간 일수)로 보는 편이 옳지만, 그 수는 엔진이 내주지 않으므로 지금은 밀도 + 제외율
+   * 두 가지로 본다.
    */
-  minPowerReadings: number;
+  minReadingsPerMeterDay: number;
   /** 산입된 급이 기록의 최소 건수. */
   minFeedLogs: number;
   /**
@@ -70,7 +79,7 @@ export interface BaselinePolicy {
 
 export const DEFAULT_BASELINE_POLICY: BaselinePolicy = {
   minPeriodDays: 7,
-  minPowerReadings: 100,
+  minReadingsPerMeterDay: 0.8,
   minFeedLogs: 3,
   maxExcludedReadingRatio: 0.5,
 };
@@ -107,7 +116,7 @@ const MS_PER_DAY = 86_400_000;
 /** `baseline` 블록에서 허용하는 키. 이 밖은 오탈자로 보고 거부한다. */
 const BASELINE_KEYS = [
   "min_period_days",
-  "min_power_readings",
+  "min_readings_per_meter_day",
   "min_feed_logs",
   "max_excluded_reading_ratio",
 ] as const;
@@ -116,7 +125,7 @@ const BASELINE_KEYS = [
  * 설정값 하나를 읽는다. 키가 없으면 기본값, 있으면 **엄격하게** 검사한다.
  *
  * `Number()` 강제변환에 기대지 않는 이유: `Number(null)`·`Number("")`·`Number([])`·
- * `Number(false)` 가 모두 `0` 이다. 그대로 쓰면 `min_power_readings: null` 한 줄이
+ * `Number(false)` 가 모두 `0` 이다. 그대로 쓰면 `min_readings_per_meter_day: null` 한 줄이
  * 가드를 조용히 끈다. 되돌릴 수 없는 잠금의 임계값이라 그 실패 방식은 받아들일 수 없다.
  * 숫자 리터럴만 받고, 범위를 벗어나면 422 로 되돌려 보낸다.
  */
@@ -178,10 +187,10 @@ export function baselinePolicyFromParams(params: ParamsJson | null | undefined):
       minPeriodDays: strictNum(doc, "min_period_days", DEFAULT_BASELINE_POLICY.minPeriodDays, {
         min: 0,
       }),
-      minPowerReadings: strictNum(
+      minReadingsPerMeterDay: strictNum(
         doc,
-        "min_power_readings",
-        DEFAULT_BASELINE_POLICY.minPowerReadings,
+        "min_readings_per_meter_day",
+        DEFAULT_BASELINE_POLICY.minReadingsPerMeterDay,
         { min: 0 },
       ),
       minFeedLogs: strictNum(doc, "min_feed_logs", DEFAULT_BASELINE_POLICY.minFeedLogs, {
@@ -260,20 +269,37 @@ export function assessBaselineReadiness(
     threshold: policy.minPeriodDays,
   });
 
-  // ── ③ 전력 계측값 건수 — EI 의 분자 근거 ────────────────────────────────
+  // ── ③ 전력 근거의 밀도 — EI 의 분자 근거 ────────────────────────────────
+  // 절대 건수가 아니라 **계측기·일당 건수**로 본다(정책 주석의 이유 참고). 나누는 두
+  // 값은 둘 다 이미 손에 있다 — 기간은 인자이고, 산입 계측기 수는 엔진이 산출 근거로
+  // 들고 있는 `sourceMeterIds` 다. 엔진을 건드리지 않고 정규화할 수 있는 이유다.
   const included = comp.ei.includedReadingCount;
   const excluded = comp.ei.excludedReadingCount;
+  const includedMeterCount = comp.ei.sourceMeterIds.length;
+  // 산입된 계측값이 없으면 계측기 수도 0 이라 밀도를 정의할 수 없다. 0 으로 나누는
+  // 대신 밀도 0 으로 보고, 메시지는 "한 건도 없다"를 그대로 말한다.
+  const readingDensity =
+    includedMeterCount > 0 && periodDays > 0
+      ? included / periodDays / includedMeterCount
+      : 0;
+  const densityOk = readingDensity >= policy.minReadingsPerMeterDay;
   checks.push({
-    id: "power_readings_low",
+    id: "power_readings_sparse",
     severity: "blocking",
-    passed: included >= policy.minPowerReadings,
-    message:
-      included >= policy.minPowerReadings
-        ? `산입된 전력 계측값 ${included}건.`
-        : `산입된 전력 계측값이 ${included}건으로 최소 ${policy.minPowerReadings}건보다 적습니다. ` +
+    passed: densityOk,
+    message: densityOk
+      ? `산입된 전력 계측값 ${included}건 — 계측기 ${includedMeterCount}대 · ${periodDays.toFixed(1)}일 ` +
+        `기준 하루 계측기당 ${readingDensity.toFixed(2)}건.`
+      : includedMeterCount === 0
+        ? "산입된 전력 계측값이 한 건도 없습니다. EI(전력집약도)의 분자가 이 값들의 합이라, " +
+          "전력 근거 없이 잠근 기준선은 이후 모든 전·후 비교의 원점으로 쓸 수 없습니다. " +
+          "전력 계측값을 입력하거나(입력 화면의 전력 구역) 기간을 다시 고르세요."
+        : `산입된 전력 계측값이 ${included}건으로, 계측기 ${includedMeterCount}대 · ` +
+          `${periodDays.toFixed(1)}일 기준 하루 계측기당 ${readingDensity.toFixed(2)}건입니다 ` +
+          `(최소 ${policy.minReadingsPerMeterDay}건). 전력 근거가 비어 있는 날이 있다는 뜻입니다 — ` +
           "EI(전력집약도)의 분자가 이 값들의 합입니다.",
-    observed: included,
-    threshold: policy.minPowerReadings,
+    observed: Number(readingDensity.toFixed(4)),
+    threshold: policy.minReadingsPerMeterDay,
   });
 
   // ── ④ 제외 비율 — "산출은 됐지만 믿을 수 없다" 를 가른다 ────────────────
