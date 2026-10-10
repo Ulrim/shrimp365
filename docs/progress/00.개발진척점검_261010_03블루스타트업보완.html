@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>개발 진척 점검</title>
+<style>
+  :root{
+    color-scheme: light;
+    --bg:#FBFBF9; --panel:#FFFFFF; --ink:#25231E; --soft:#63615A; --faint:#9C9A90;
+    --line:#E5E4DC; --line2:#EFEEE7;
+    --clay:#C6613F; --green:#4F7A52; --amber:#B4832B; --blue:#3E6B8C;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme: dark;
+      --bg:#171613; --panel:#1E1D19; --ink:#EDEBE4; --soft:#B0ADA3; --faint:#7C7A72;
+      --line:#302E28; --line2:#26241F;
+      --clay:#E08761; --green:#84B489; --amber:#DDB35C; --blue:#7FAECE;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --bg:#171613; --panel:#1E1D19; --ink:#EDEBE4; --soft:#B0ADA3; --faint:#7C7A72;
+    --line:#302E28; --line2:#26241F;
+    --clay:#E08761; --green:#84B489; --amber:#DDB35C; --blue:#7FAECE;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+    line-height:1.55;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1060px;margin:0 auto;padding:48px 28px 96px;}
+  header{border-bottom:1px solid var(--line);padding-bottom:22px;margin-bottom:26px;}
+  .kicker{font-size:12.5px;letter-spacing:.08em;color:var(--faint);margin:0 0 10px;}
+  h1{font-size:29px;line-height:1.3;margin:0 0 10px;letter-spacing:-.02em;font-weight:700;}
+  .sub{font-size:13.5px;color:var(--soft);margin:0;max-width:78ch;}
+  h2{font-size:16px;margin:46px 0 6px;font-weight:700;padding-bottom:8px;border-bottom:1px solid var(--line);}
+  h2 .no{color:var(--faint);font-weight:600;margin-right:8px;font-variant-numeric:tabular-nums;}
+  .h2note{font-size:12.5px;color:var(--soft);margin:10px 0 14px;max-width:84ch;}
+  h3.grp{font-size:12px;letter-spacing:.05em;color:var(--faint);font-weight:700;margin:20px 0 8px;}
+
+  .metrics{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 20px;}
+  .m{border:1px solid var(--line);border-radius:8px;padding:9px 13px;min-width:110px;background:var(--panel);}
+  .m .k{font-size:10.5px;color:var(--faint);margin:0;letter-spacing:.03em;}
+  .m .v{font-size:16px;font-weight:700;margin:2px 0 0;font-variant-numeric:tabular-nums;}
+  .m.hot .v{color:var(--clay);} .m.ok .v{color:var(--green);} .m.amb .v{color:var(--amber);}
+
+  .tblbox{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel);margin:0 0 12px;}
+  table{border-collapse:collapse;width:100%;min-width:880px;font-size:12.3px;}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line2);vertical-align:top;}
+  th{font-size:11.2px;color:var(--faint);font-weight:600;border-bottom:1px solid var(--line);white-space:nowrap;}
+  tr:last-child td{border-bottom:none;}
+  td.c{text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  td b{font-weight:600;color:var(--ink);}
+  td small{color:var(--faint);font-size:11px;display:block;}
+  a{color:var(--blue);text-decoration:none;border-bottom:1px solid var(--line);}
+  a:hover{border-bottom-color:var(--blue);}
+  .tag{font-size:10.3px;border-radius:999px;padding:1px 7px;border:1px solid var(--line);white-space:nowrap;display:inline-block;font-weight:600;}
+  .tag.ok{border-color:var(--green);color:var(--green);}
+  .tag.no{border-color:var(--clay);color:var(--clay);}
+  .tag.amb{border-color:var(--amber);color:var(--amber);}
+  .callout{border-left:3px solid var(--clay);background:var(--panel);border-radius:0 8px 8px 0;
+    padding:13px 17px;margin:0 0 12px;}
+  .callout.calm{border-left-color:var(--blue);}
+  .callout.good{border-left-color:var(--green);}
+  .callout.amb{border-left-color:var(--amber);}
+  .callout p{margin:0 0 7px;font-size:13.3px;color:var(--soft);line-height:1.62;}
+  .callout p:last-child{margin-bottom:0;}
+  .callout b{color:var(--ink);}
+  code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.3px;background:var(--line2);padding:1px 5px;border-radius:4px;}
+  pre{background:var(--line2);border-radius:8px;padding:12px 14px;overflow-x:auto;margin:0 0 12px;}
+  pre code{background:none;padding:0;font-size:11.3px;line-height:1.65;}
+  .pin{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;}
+  .x{color:var(--clay);font-weight:700;}
+  .o{color:var(--green);font-weight:700;}
+  footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--faint);line-height:1.6;}
+  @media (max-width:760px){ .wrap{padding:32px 16px 64px;} h1{font-size:23px;} }
+  .tag.blue{border-color:var(--blue);color:var(--blue);}
+  .bar{height:8px;border-radius:4px;background:var(--line2);position:relative;min-width:90px;margin-top:4px;}
+  .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--green);}
+  .bar b{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--amber);opacity:.85;}
+  td.pct{white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .wk{white-space:nowrap;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="kicker">2026년 10월 10일 · 260829_지원사업 정리 폴더 · 개발 13부</p>
+  <h1>개발 진척 점검 — 사업계획서 대비</h1>
+  <p class="sub">GitHub 저장소 3개(<b>shrimp365</b>, <b>pipe_vision</b>, <b>OpenFieldDigitalFarming</b>)를 과제별 사업계획서·협약 산출물(2부 「지원사업별 개발 정리」 기준)과 항목 하나하나 대조했습니다. 코드와 git 이력을 직접 읽어 판정했고, <b>코드가 있어도 실데이터로 검증되지 않았으면 ‘완료’로 치지 않았습니다.</b> 미병합 브랜치까지 모두 열어 봤습니다. 테스트는 의존성이 없어 대부분 실행하지 못했고(엣지 자가점검 verify.py 35항목만 실행·통과), 이 점은 각 절에 적었습니다.</p>
+</header>
+
+<div class="metrics">
+  <div class="m"><p class="k">점검 과제</p><p class="v">7개</p></div>
+  <div class="m"><p class="k">커밋 합계</p><p class="v">666</p></div>
+  <div class="m amb"><p class="k">미병합 브랜치에 갇힌 핵심 기능</p><p class="v">4건</p></div>
+  <div class="m hot"><p class="k">실데이터 검증 끝난 정량목표</p><p class="v">0건</p></div>
+  <div class="m hot"><p class="k">특허 실시예 코드 없음</p><p class="v">5건</p></div>
+</div>
+
+<h2><span class="no">00</span>한눈에 — 과제별 완료율</h2>
+<p class="h2note">초록 막대 = 코드 기준(기능이 저장소에 있음), 주황 막대 = 제출 증빙 기준(현장 설치·실데이터·문서까지 갖춤). 둘의 차이가 ‘남은 일’의 크기입니다.</p>
+<div class="tblbox"><table>
+<thead><tr><th>과제 · 종료</th><th>저장소</th><th>코드 기준</th><th>증빙 기준</th><th>한 줄 판정</th></tr></thead>
+<tbody>
+<tr><td><b>02 청년그린창업</b><small>10/31 · 3주</small></td><td>shrimp365</td><td class="pct">약 75%<div class="bar"><i style="width:75%"></i></div></td><td class="pct">35~40%<div class="bar"><b style="width:38%"></b></div></td><td>KPI·Scope2 MRV·기준선 잠금·SOP 4종·START/PRO/ENT까지 코드가 있으나 <b>미병합 브랜치</b>에만 있고, <b>전력(kWh) 계측 경로가 없어</b> 전·후 비교를 만들 수 없음</td></tr>
+<tr><td><b>03 블루스타트업</b><small>11/30 · 10/10 재점검</small></td><td>shrimp365</td><td class="pct">약 70%<div class="bar"><i style="width:70%"></i></div></td><td class="pct">약 35%<div class="bar"><b style="width:35%"></b></div></td><td>계수 모델·파이 설치꾸러미·대시보드 동작. <b>10/6~10/10에 수조 사진·추정 체장이 운영 반영</b>(코드 +10%p). 단 <b>저장소 모델은 보고한 0.7642 모델이 아님</b>(10/2 공개데이터 재학습), 탈피각 배제·급이 동기·가동률 산출 없음. <b>증빙은 현장 설치가 병목</b>이라 그대로</td></tr>
+<tr><td><b>05 AI·데이터</b><small>11/30</small></td><td>shrimp365</td><td class="pct">약 50%<div class="bar"><i style="width:50%"></i></div></td><td class="pct">약 30%<div class="bar"><b style="width:30%"></b></div></td><td>플랫폼·입력화면·규칙 기반 이상탐지는 운영 중. <b>항목 정의서·표준 데이터셋·폐사 위험 예측은 0건</b></td></tr>
+<tr><td><b>10 성장사다리</b><small>11/30</small></td><td>shrimp365 /raspberry-pi</td><td class="pct">약 70%<div class="bar"><i style="width:70%"></i></div></td><td class="pct">약 45%<div class="bar"><b style="width:45%"></b></div></td><td>센서·판정·운전권고·로컬 버퍼 구현. <b>부저·경광등 출력 0</b>, <b>72시간·5초 측정 체계 0</b>, 성능검증 2회 기록 미착수</td></tr>
+<tr><td><b>11 AI 지능형 농업</b><small>11/30</small></td><td>OpenField DigitalFarming</td><td class="pct">55~60%<div class="bar"><i style="width:58%"></i></div></td><td class="pct">25~30%<div class="bar"><b style="width:28%"></b></div></td><td>판단엔진·조치추천·대시보드는 과거 공공자료로 오프라인 시제품 수준. <b>센서 수집·구동부 제어·기상청 API 0</b>, 핵심 폴더 <code>src/ofdf/data</code>가 커밋에서 빠져 재현 불가</td></tr>
+<tr><td><b>06 AI대전환</b><small>12/4</small></td><td>pipe_vision</td><td class="pct">약 63%<div class="bar"><i style="width:63%"></i></div></td><td class="pct">≈ 0%<div class="bar"><b style="width:3%"></b></div></td><td>촬영→판정→DB→HMI→대시보드 골격은 거의 완성. <b>표면결함 AI 3종 미학습</b>, <b>FAT/SAT/MSA 결과서는 전부 합성 데이터</b>, MES는 mock</td></tr>
+<tr><td><b>04 팁스 창업사업화</b><small>27.02.28</small></td><td>shrimp365</td><td class="pct">30~45%<div class="bar"><i style="width:40%"></i></div></td><td class="pct">약 25%<div class="bar"><b style="width:25%"></b></div></td><td>출하 의사결정 엔진(성장곡선→수익성→출하창)은 <b>미병합 브랜치</b>에. <code>activity_analyzer.py</code>·<code>feed_analyzer.py</code>는 저장소 전체 이력에 없음</td></tr>
+</tbody></table></div>
+<p class="h2note">01 TIPS R&D(진단키트·미생물), 07 RISE, 08 폐패각, 12~14는 소프트웨어 저장소가 없는 과제라 이번 점검 대상이 아닙니다.</p>
+
+<h2><span class="no">01</span>세 저장소에 공통으로 걸린 문제 여섯 가지</h2>
+<div class="callout">
+  <p><b>① 다 만들어 놓고 운영에 안 들어간 코드가 넷입니다.</b> NAS에 배포되는 shrimp365 운영 브랜치(<code>shrimp-water-quality-monitoring-aZ4EY</code>)에는 없고, 아래 브랜치에만 있습니다 — <code>mrv-platform-github-merge</code>(02 KPI·MRV·SOP·요금제, 10/3), <code>optimistic-archimedes</code>(04 출하엔진·05 성장예측·스키마 5건, 10/3), <code>hardware-packaging</code>(04·10 함체 설계, 8/12), <code>camera-vision-migration</code>(03 원격 업데이트 3커밋 + 1.1.0 배포꾸러미, 10/10). 각각 운영 브랜치보다 66커밋 뒤처져 있어 병합 충돌 정리가 필요하고, <b>배포되지 않은 코드는 점검에서 증빙이 되지 않습니다.</b></p>
+  <p><b>② 보고서·결과서에 적힌 성능 수치가 실데이터에서 나온 것이 아닙니다.</b> 06은 FAT 합성 240장·SAT 합성 480장이고, MSA는 같은 합성 이미지 1장을 30번 돌려 %GR&R 0%가 나온 것입니다. 03은 저장소 모델 수치가 전부 <b>문서 한 곳에만</b> 있습니다 — mAP50 0.924, 계수 오차 2.2%(test 445장), 416 ONNX 34ms가 모두 <code>docs/VISION_MODEL_TRAINING.md</code> 서술이고, 이를 뒷받침할 학습 로그·평가 JSON·결과 CSV는 <b>커밋 0건</b>입니다(재계산으로 검증할 수 없음). 보고한 0.7642 모델 가중치는 저장소 어디에도 없습니다. 11은 과거 관측자료(나주 5개 지점 2016~2025)를 썼지만 정답값이 규칙 자동라벨이고, 같은 날의 일자료를 매시각 입력에 넣어 <b>미래 정보가 섞였을 가능성</b>이 있습니다.</p>
+  <p><b>③ 현장 하드웨어와 맞닿는 마지막 한 겹이 비어 있습니다.</b> 11은 관수·배수 구동부 드라이버 0건, 센서 노드 수집 0건, 기상청 단기예보 연동 0건. 10은 부저·경광등 GPIO 출력 0건. 06은 근접센서 트리거와 경광등 출력이 TODO. 02는 전력계 수집 경로 0건.</p>
+  <p><b>④ 계획서 정량목표를 재는 코드가 없습니다.</b> 10의 72시간 저장·5초 경보, 03의 가동률 95%, 11의 수집·저장률 98%·제어응답 30초, 06의 처리시간(측정 구간이 계획 정의보다 짧음)과 미검률(정의가 틀림). 기능은 있어도 <b>지표를 자동으로 기록·집계하는 장치</b>가 없어서 시험을 해도 증빙이 남지 않습니다.</p>
+  <p><b>⑤ 특허 5건의 실시예 코드가 없습니다.</b> A1 탈피각 배제, A2 급이 동기 신뢰도, B 저면 혐기화 추정, D 사이클 위상 기준선, F 산소공급 스케줄링 — 키워드·로직 모두 0건입니다. E 운영데이터 보정은 센서 오프셋·품질플래그 단편만 있습니다. 출원 마감(02 10/31, 10·03·05 11월)을 생각하면 변리사와 ‘명세서 실시예로만 쓸지, 최소 구현을 붙일지’를 이번 주에 정해야 합니다.</p>
+  <p><b>⑥ 공개 저장소 관련 위험 셋.</b> 배포된 계수 모델이 Ultralytics <b>AGPL-3.0</b> 라이선스라 상용 판매 시 검토가 필요합니다. <b>수질센서 파이</b>의 OTA 서명 개인키가 공개 저장소에 노출됐는데 교체가 끝나지 않았습니다(04·10번 해당). <b>03 비전 파이의 원격 업데이트는 이 키와 무관합니다</b> — 10/10에 서명 방식을 쓰지 않기로 하고 해시 확인 + https 로만 받게 했으므로, 신뢰 경계가 <b>GitHub 저장소 쓰기 권한</b>입니다(계정 2단계 인증이 실질적 자물쇠). 11 저장소는 <code>.gitignore</code>의 <code>data/</code> 한 줄 때문에 데이터 처리 패키지 전체가 첫 커밋부터 빠져 있습니다.</p>
+</div>
+
+<h2><span class="no">02</span>02 청년그린창업 — 탄소저감 통합관리 <span class="tag no">10/31 종료 · 3주</span></h2>
+<div class="tblbox"><table>
+<thead><tr><th>계획서 항목</th><th>상태</th><th>확인한 것</th><th>남은 일</th></tr></thead>
+<tbody>
+<tr><td>데이터 수집 <code>agent.py</code></td><td><span class="tag ok">대체 구현</span></td><td>파일명 <code>agent.py</code>는 저장소 이력에 없음. 같은 기능은 파이 <code>shrimp365_sensor.py</code>(RS-485 Modbus, 60초) + <code>buffer.py</code>(오프라인 재전송)</td><td>납품 원본 보관 또는 “대체 구현” 설명</td></tr>
+<tr><td>클라우드 저장 REST API</td><td><span class="tag ok">완료(수질)</span> <span class="tag amb">부분(전력)</span></td><td><code>app/api/sensors/data</code>(API 키·분당 제한). MRV 수집 API는 브랜치에 있으나 보내는 장치 없음</td><td><b>전력계 설치 또는 kWh CSV 업로드 경로</b></td></tr>
+<tr><td>통신 프로토콜 문서 · QA 로직 명세</td><td><span class="tag amb">부분</span></td><td>README·중간점검 문서에 흩어져 있음, 독립 명세서 없음</td><td>각 1부로 발췌·정리</td></tr>
+<tr><td>KPI 엔진 <code>kpi_engine.py</code></td><td><span class="tag ok">코드 완료</span> <span class="tag amb">미병합</span></td><td>MRV 브랜치 Python KPI 패키지(pytest 118개) + TS 이식본, 차분검증 약 250건. 전력원단위·산소효율·FCR·폐사율</td><td>운영 병합·NAS 배포, OEI 계수 실증 보정</td></tr>
+<tr><td>MRV 리포트 엔진 · Scope2 전·후 그래프</td><td><span class="tag ok">코드 완료</span> <span class="tag blue">현장값 필요</span></td><td>Scope2 산식·A4 리포트·전후 막대그래프 구현. 배출계수 0.4594는 “운영자 확인 필요” 표시</td><td>GIR 최신 배출계수 확정, <b>실데이터 리포트 1건</b></td></tr>
+<tr><td>기준선(Baseline)</td><td><span class="tag no">값 없음</span></td><td>잠금 장치 구현(7일·전력 100건·급이 3건 이상 요구). 시드는 합성뿐</td><td><b>전력 7일 수집 → 10/24 전후 잠금.</b> 남은 기간이 짧아 증빙 범위를 기관과 협의</td></tr>
+<tr><td>통합 대시보드</td><td><span class="tag ok">대부분</span></td><td>운영 대시보드·수질·관제센터. MRV 화면은 브랜치에만</td><td>MRV 화면을 운영 진입점에 통합</td></tr>
+<tr><td>공정 최적화 설명서·룰셋 버전이력</td><td><span class="tag amb">부분</span></td><td>추천 룰 3종(급이·산소·순환), 버전 테이블 구조 있음. 실제 이력은 v2026.1.0 한 건</td><td>설명서 1부, 실증 튜닝을 v2로 기록</td></tr>
+<tr><td>SOP·점검표(수질악화·DO저하·폐사증가)</td><td><span class="tag ok">대부분</span></td><td>SOP 4종 + 점검 실행기록 화면(브랜치). 9/8 문서의 ‘미착수’보다 앞서 있음</td><td>PDF 출력, 현장 점검기록 1건</td></tr>
+<tr><td>START/PRO/ENT 패키지 3종</td><td><span class="tag amb">부분</span></td><td>기능 게이팅 16곳(브랜치). 반면 운영 사이트는 “영원히 무료” 안내</td><td>제안서·가격표·설치운영 매뉴얼 작성, 가격 정책 정리</td></tr>
+<tr><td>특허 D · F 실시예</td><td><span class="tag no">미착수</span></td><td>사이클 위상·혼합 스케줄링 로직 0건. 엣지 “과잉 폭기 감축 권고”가 F와 가장 가까움</td><td>변리사와 실시예 범위 결정</td></tr>
+</tbody></table></div>
+<div class="callout amb"><p><b>02는 코드가 아니라 데이터가 병목입니다.</b> 전력 계측값 없이는 기준선·Scope2·전후 그래프가 모두 빈칸입니다. 3주 안에 전·후 두 구간을 다 재기는 물리적으로 어려우니, 이번 주에 전력계 설치와 함께 “기준선 확보 + 시스템 구축”까지를 증빙 범위로 인정받을 수 있는지 한국환경산업기술원에 확인하십시오.</p></div>
+
+<h2><span class="no">03</span>03 블루스타트업 — 비접촉 개체수 모니터링 <span class="tag amb">11/30 종료</span> <span class="tag blue">10/10 재점검</span></h2>
+<p class="h2note">이 절은 2026-10-10에 저장소와 다시 대조했습니다. 10/6~10/10 사이에 <b>수조 사진 밀어 올리기</b>와 <b>추정 체장</b>이 운영 브랜치에 들어갔고, <b>원격 업데이트</b>가 작업 브랜치에 추가되어 표를 고쳤습니다. 다른 절(02·05·10·11·06·04)은 10/10 원본 그대로입니다.</p>
+<div class="tblbox"><table>
+<thead><tr><th>계획서 항목</th><th>상태</th><th>확인한 것</th><th>남은 일</th></tr></thead>
+<tbody>
+<tr><td>YOLOv8n 계수 모델 (보고 mAP50 0.7642)</td><td><span class="tag amb">다른 모델</span></td><td>저장소 <code>vision/ai/models/shrimp_yolov8n_416.onnx</code>(12.2MB, 10/2)는 공개 Roboflow 5,245장으로 새로 학습한 것. “0.7642·300장·1,017개”는 전 브랜치 grep <b>0건</b></td><td><b>결과보고에 어느 모델을 쓸지 결정</b>, 그 모델의 가중치 해시·평가 출력·데이터 목록 고정</td></tr>
+<tr><td>모델 성능 근거</td><td><span class="tag amb">문서만</span></td><td>mAP@0.5 0.924 / 0.5–0.95 0.680(53에포크), 계수 오차 test 445장 <b>2.2%</b>·±20% 안 98.9%, 416 ONNX 34ms — 전부 <code>docs/VISION_MODEL_TRAINING.md</code> §8 서술. <b>학습 로그·평가 JSON·결과 CSV 커밋 0건</b></td><td>평가 스크립트 재실행 후 <b>출력 파일을 커밋</b>(지금은 숫자를 재계산으로 확인할 수 없음)</td></tr>
+<tr><td>학습·평가·내보내기 코드</td><td><span class="tag ok">완료</span></td><td><code>prepare_dataset</code>·<code>train</code>·<code>eval_count</code>·<code>export_edge</code>·<code>pseudo_label</code>·<code>compare_backends</code>·Colab 노트북 (vision/ai/trainer 8파일)</td><td>—</td></tr>
+<tr><td>추론 서비스 · 개체수 대시보드</td><td><span class="tag ok">완료</span></td><td>파이용 onnxruntime 추론, <b>10초마다</b> <code>count_records</code> 적재, 급감·급증 경보, 실시간 영상·개체수–수질 상관(<code>vision_count_wq_series</code>)·체장 추이(<code>vision_count_history</code>)</td><td>vision SQL <b>4건</b>(monitoring·retention·length·snapshot)을 일괄 설치 안내에 포함</td></tr>
+<tr><td><b>수조 사진 밀어 올리기</b> <small>10/6 운영 반영 · 신규</small></td><td><span class="tag ok">운영 반영</span></td><td>파이가 15초마다 640px JPEG를 개체수와 같은 경로로 업로드 → 공유기(NAT) 뒤 장비도 웹에서 수조 확인. <code>snapshot_sender.py</code>·<code>/api/vision/device/snapshot</code>·<code>use-vision-frame.ts</code>·<code>vision_snapshot.sql</code>. 화면에 “N초 전” 표기</td><td><b>현장 설치 시 증빙 프레임이 자동 축적</b> — 설치만 하면 됨</td></tr>
+<tr><td>엣지 배포 패키징</td><td><span class="tag ok">대부분</span></td><td>명령 하나 설치(<code>install.sh</code>), 6자리 페어링, 오프라인 재전송(SQLite 워터마크), 터치스크린 키오스크</td><td><b>파이 실기 추론속도 측정 기록 없음</b>(도구는 있음 — <code>export_edge.py --bench</code>, 그리고 <code>count_records.inference_ms</code> 열에 자동 적재)</td></tr>
+<tr><td><b>원격 업데이트</b> <small>10/10 · 신규</small></td><td><span class="tag ok">코드 완료</span> <span class="tag amb">미병합</span></td><td>1시간마다 <code>www.shrimp365.kr/updates/vision/</code> 확인 → 해시 대조 → 교체 → 건강확인 실패 시 <b>이전 버전 자동 복귀</b>. 1.1.0 꾸러미 저장소 반영. <b>서명 미사용</b>(신뢰 경계 = GitHub 쓰기 권한)</td><td>운영 병합. 파이에 <b>최초 1회 수동 설치</b> 필요(그 뒤 무인)</td></tr>
+<tr><td>고정 카메라 현장 설치 (Edge 15식)</td><td><span class="tag blue">현장 필요</span></td><td>카메라 코드 완료, 실험실 구동 흔적만. <b>현장 프레임 0장</b></td><td>최소 1~3대 고정 설치, 현장 프레임 100~200장으로 재평가 — <b>03의 단일 최대 병목</b></td></tr>
+<tr><td>반사·그물 마스킹</td><td><span class="tag amb">부분</span></td><td><code>tuning.py</code> — 사각형 관심영역(중심좌표 포함 판정) + 최소 신뢰도. <b>다각형 제외 마스크 없음</b>, FP 감소 측정 없음</td><td>다각형 마스크 + 전후 FP 비교</td></tr>
+<tr><td>seg 전환 · 현장 재학습 1,000장</td><td><span class="tag no">미착수</span></td><td>seg 학습·추론 코드 0건. 다만 <code>prepare_dataset.polygon_to_bbox</code>가 있어 <b>원천 라벨이 폴리곤</b> — 재료는 보유</td><td>일정상 “현 모델로 보고 확정” 판단 권고</td></tr>
+<tr><td>가동률 95% 운영 로그</td><td><span class="tag amb">부분</span></td><td><code>last_seen_at</code>을 덮어쓸 뿐, 가동률·누락률 산출 쿼리 <b>0건</b></td><td><code>count_records</code>가 10초 간격이라 <b>집계 SQL 1건이면 산출 가능</b>(기대 건수 대비 실적재 건수). 난이도 낮음 — 우선 처리 권고</td></tr>
+<tr><td>특허 A1 탈피각 배제 · A2 급이 동기</td><td><span class="tag no">미착수</span></td><td>탈피각·molt·급이 동기 키워드 <b>전 브랜치 0건</b>(재확인). 단일 클래스 모델이라 탈피각 구분 수단 없음</td><td>최소 프로토타입(정지 객체 배제, 급이 시각 가중) 또는 명세서 실시예로 한정</td></tr>
+</tbody></table></div>
+<div class="callout good"><p><b>검증 실행 결과 — 이번에는 실제로 돌렸습니다.</b> 10/10 환경에서 vision 테스트를 실행해 <b>321개 전부 통과</b>했습니다(운영 브랜치 시점 264개 + 원격 업데이트 57개). 원본 보고서 10절의 “의존성이 없어 실행하지 못했다”는 03에 한해 해소됐습니다. 그 밖에 배포 왕복 점검 21건, 장비 화면 점검 8장면, <code>ruff</code> 전부 통과.</p></div>
+<div class="callout amb"><p><b>03의 병목은 코드가 아니라 현장 1대입니다.</b> 코드 쪽은 사진·체장·원격 업데이트까지 붙어 약 70%인데 증빙은 35%에 머뭅니다. 차이의 대부분이 <b>“현장 프레임 0장”</b> 하나에서 나옵니다 — 카메라를 1대만 고정해도 ① 현장 FP/정확도 재평가, ② 파이 실기 추론속도(<code>inference_ms</code> 자동 적재), ③ 가동률 원천 데이터, ④ 수조 사진 증빙이 <b>동시에</b> 풀립니다. 11/30까지 남은 7주를 감안하면 이번 주 설치가 사실상 마지노선입니다.</p></div>
+<div class="callout calm"><p><b>보고 시 표현 주의 두 가지.</b> ① 계수 모델은 Ultralytics <b>AGPL-3.0</b> 기반이므로 상용 판매 시 라이선스 검토가 필요합니다(①⑥ 참조). ② 03의 원격 업데이트는 <b>서명을 쓰지 않습니다</b> — 04·10번 수질센서 파이의 “OTA 서명키 노출” 이슈와 혼동하지 마십시오. 03은 해시 대조 + https 수신이고, 신뢰 경계는 GitHub 저장소 쓰기 권한입니다.</p></div>
+
+<h2><span class="no">04</span>05 AI·데이터 — 생산성 최적화 플랫폼 <span class="tag amb">11/30 종료</span></h2>
+<div class="tblbox"><table>
+<thead><tr><th>계획서 항목</th><th>상태</th><th>확인한 것</th><th>남은 일</th></tr></thead>
+<tbody>
+<tr><td>데이터 항목 30개 이상 (6축)</td><td><span class="tag ok">스키마 충족</span> <span class="tag no">정의서 없음</span></td><td>운영 스키마 도메인 필드 약 53개 — 수질 10 · 급이 3 · 성장·생산 21 · 폐사 <b>1</b> · 진단 7 · 작업이력 11. 정의서 문서 0건</td><td><b>6축 항목 정의서</b>(이름·단위·범위·주기·출처), 폐사 축 보강, 10·11번과 공통 스키마</td></tr>
+<tr><td>표준 데이터셋 1식</td><td><span class="tag no">미착수</span></td><td>범용 CSV 내보내기만. 천황수산 실데이터는 저장소 밖, “현 스키마에 안 들어감(5건 수정 필요)” 판정 문서 있음</td><td>스키마 5건 병합 → 무안·천황 데이터 변환 → 데이터셋 + 설명서</td></tr>
+<tr><td>수질 이상징후 탐지 모델</td><td><span class="tag ok">대부분</span></td><td>웹·엣지 모두 급변·연속악화·3σ 이탈 규칙. 학습형 모델 아님, 정밀도·재현율 측정 없음</td><td>실측 시계열로 오탐·미탐 성능표 1부(“통계 모델”로 기술)</td></tr>
+<tr><td>성장·생산량 예측</td><td><span class="tag ok">대부분</span> <span class="tag amb">미병합</span></td><td>적산수온 Gompertz, 실데이터 홀드아웃 MAE 0.895g(1개 농가·1회차)</td><td>병합. <b>04 TIPS 실적과 중복 주의</b> — 05에선 “재사용”으로 기술</td></tr>
+<tr><td>급이 효율 분석</td><td><span class="tag amb">부분</span></td><td>운영 FCR은 컬럼 누락으로 <b>실계정에서 항상 빈값</b>(수정은 미병합)</td><td>스키마 병합으로 FCR 복구, 급이율 대 성장률 화면 1개</td></tr>
+<tr><td>폐사 위험도 예측</td><td><span class="tag no">미착수</span></td><td>예측 코드 0건, 폐사 라벨 1건뿐</td><td>수질이상·진단양성·급이감소 결합 <b>규칙 점수</b>로 범위 축소</td></tr>
+<tr><td>웹·모바일 입력 화면 + 대시보드</td><td><span class="tag ok">대부분</span></td><td>기록 허브·일지·진단·생산·재고, PWA, 4개 언어. 외주(뉴런모빌리티) 계약과 무관하게 이미 있음</td><td>외주 범위 재정의, 무안 수기 양식과 1:1 대응 점검</td></tr>
+<tr><td>플랫폼 시제품 1식</td><td><span class="tag ok">완료</span></td><td>Docker로 NAS 운영, shrimp365.kr</td><td>버전 동결, 시제품 사양서</td></tr>
+<tr><td>도입 전후 KPI</td><td><span class="tag amb">부분</span></td><td>MRV 쪽 비교 기능은 있으나 MRV 데이터가 운영 데이터와 완전히 분리돼 수질·일지가 흘러가지 않음</td><td>데이터 연결 또는 05 전용 비교 화면, 도입 전 값 측정</td></tr>
+</tbody></table></div>
+<div class="callout amb"><p><b>보고서 화면의 예시값 주의.</b> <code>reports/page.tsx</code>에 증빙 캡처용 고정 시나리오(2개 농장·13개 수조·주간 폐사 1,480마리)가 하드코딩돼 있습니다. 결과보고 캡처에 쓰면 “예시 데이터”라고 표시해야 합니다.</p></div>
+
+<h2><span class="no">05</span>10 전남 성장사다리 — AI 엣지 수질진단 모듈 <span class="tag amb">11/30 종료</span></h2>
+<div class="tblbox"><table>
+<thead><tr><th>모듈 6부 · 정량목표</th><th>상태</th><th>확인한 것</th><th>남은 일</th></tr></thead>
+<tbody>
+<tr><td>① 센서부 (RS-485 Modbus)</td><td><span class="tag ok">완료</span></td><td>Modbus-RTU 직접 구현, pH·ORP·DO·EC(+수온), 염도 환산, 범위 검사</td><td>암모니아·탁도는 “확장 예정”으로 서류 정리</td></tr>
+<tr><td>② 엣지 제어부 (판정·이상탐지)</td><td><span class="tag ok">완료</span></td><td>4단계 밴드, 급변·연속악화·3σ, 5분 주기. 규칙·통계 기반임을 화면에 명시</td><td>“AI” 표현을 서류에서 정리</td></tr>
+<tr><td>③ 전원부</td><td><span class="tag amb">부분</span></td><td>UPS 감시·안전 종료 코드 0건, 설계는 미병합 브랜치에서도 “미정”</td><td>UPS HAT 결정, <b>RTC 추가</b>(정전 후 오프라인 재부팅 시 시각 오류)</td></tr>
+<tr><td>④ 통신부</td><td><span class="tag ok">대부분</span></td><td>Wi-Fi + HTTPS, 페어링, 재전송. Zigbee·MQTT·LTE 0건</td><td>10번은 Wi-Fi로 충분, LTE는 “증설 가능”으로 서술</td></tr>
+<tr><td>⑤ 경보부</td><td><span class="tag amb">부분</span></td><td>현장 화면 색 전환(3초 갱신), LCD, 휴대폰 푸시. <b>부저·경광등·릴레이 출력 0건</b></td><td><b>GPIO 부저·경광등 최소 구현</b> — 없으면 현장에서 경보부 시연 불가</td></tr>
+<tr><td>⑥ 데이터 저장부</td><td><span class="tag ok">구현</span> <span class="tag no">시험 없음</span></td><td>SQLite WAL, 약 30일분 버퍼, 끊긴 지점부터 재전송. 저장 로직 테스트 0건</td><td>—</td></tr>
+<tr><td>72시간 저장 지속</td><td><span class="tag no">측정 체계 없음</span></td><td>시험 절차·로그·집계 스크립트 0건</td><td>통신 72시간 차단 + 전원 차단 n회 시험, 유실 0건 자동 집계</td></tr>
+<tr><td>이상징후 경보 5초 이내</td><td><span class="tag no">측정 체계 없음</span></td><td>측정 주기 60초. “측정→화면 표시”는 3초 이내지만 “사건→경보”는 최대 60초. 반응시간 기록 코드 0건</td><td><b>지표 정의를 “측정 후 표시까지”로 서류 확정</b>, 반응시간 자동 로그</td></tr>
+<tr><td>운전 권고 (자동제어 아님)</td><td><span class="tag ok">완료</span></td><td>DO 위험·저하 추세·과잉 폭기 권고, 자동제어 안 함 명시</td><td>—</td></tr>
+<tr><td>성능검증 2회 · 시제품 1식</td><td><span class="tag no">미착수</span></td><td>합성 데이터 자가점검(verify.py 35항목, 실행해 통과)만. 중간점검 문서상 조립 진도 30%</td><td>기록지 양식, 시험 2회, 실물 조립·설치 사진</td></tr>
+<tr><td>특허 B 저면 혐기화 추정</td><td><span class="tag no">미착수</span></td><td>ORP는 수집·전송만</td><td>ORP·DO·pH 추세 규칙 프로토타입</td></tr>
+</tbody></table></div>
+
+<h2><span class="no">06</span>11 AI 지능형 농업 — 노지 대파 재해위험 <span class="tag amb">11/30 종료</span></h2>
+<div class="tblbox"><table>
+<thead><tr><th>계획서 항목</th><th>상태</th><th>확인한 것</th><th>남은 일</th></tr></thead>
+<tbody>
+<tr><td>재해위험 판단 엔진 (1h·3h)</td><td><span class="tag ok">대부분(오프라인)</span></td><td>LightGBM, 위험유형×시간대별 모델, SHAP 판단근거, 피처 202개. 위험유형은 계획 3종 + 서리·복합. 엣지는 3h 모델만 사용</td><td><b>같은 날 일자료 누설 제거 후 재학습</b>(서리·강우 3h 점수 하락 가능)</td></tr>
+<tr><td>조치추천 4요소</td><td><span class="tag ok">대부분</span></td><td>위험수준·예상시점·판단근거·추천조치 모두 출력</td><td>예상시점이 “지금+3시간” 고정값</td></tr>
+<tr><td>현장제어 · 독립 안전규칙</td><td><span class="tag amb">부분</span></td><td>규칙 계층·충돌 해소 구현, 테스트 16건. <b>구동부 드라이버 0건</b>, 알림 전송 0건, 통신두절·과전류 신호가 들어올 길이 없음</td><td>에이엠피 제어 인터페이스 사양 확보 → 드라이버·명령 확인 로그</td></tr>
+<tr><td>센서 통합노드 수집·저장</td><td><span class="tag amb">부분</span></td><td>파서는 미커밋 폴더에 있음, 모사기만 있음</td><td>노드 출력 형식 확정(뉴런모빌리티), 수집·저장률 산출</td></tr>
+<tr><td>기상청 단기예보 연동</td><td><span class="tag no">미착수</span></td><td>모사 예보로 가치만 분석, 격자·인증키 코드 0건</td><td>API 클라이언트·장애 시 대체 로직</td></tr>
+<tr><td>라벨 · 이벤트 단위 분할 · 기준선 비교</td><td><span class="tag ok">대부분</span></td><td>계획서 기준표를 코드화한 규칙 라벨, ±12시간 블록 분할, 규칙·로지스틱 기준선</td><td>정답값 3자(농가·전문가·AI) 확정, 로지스틱 결과 성능평가서 반영</td></tr>
+<tr><td>대시보드 · 농가 알림</td><td><span class="tag ok">대부분(시연용)</span></td><td>농가·운영자 2계층 화면. 데이터는 2021-11-24 과거자료 재생. 푸시·문자 없음</td><td>실시간 연결, 알림 채널</td></tr>
+<tr><td>STA 외부시험 대응</td><td><span class="tag amb">부분</span></td><td>성능평가서 자동생성·시나리오 실행 스크립트 있음(미커밋 모듈 때문에 지금은 안 돌아감). 시험절차서 없음</td><td><b>STA 시험절차서 초안</b> — 10/23 접수 마감 기준</td></tr>
+</tbody></table></div>
+<div class="tblbox"><table>
+<thead><tr><th>정량지표</th><th>현재 보고값</th><th>판정</th></tr></thead>
+<tbody>
+<tr><td>Macro F1 ≥ 0.80</td><td>10개 중 9개 달성(최저 0.778)</td><td><span class="tag amb">오프라인 근접</span> 강우·서리는 평가 단위를 2등급으로 바꿔 달성. 계획서 3등급 정의로는 강우·과습 0.715/0.615</td></tr>
+<tr><td>위험 재현율 ≥ 85%</td><td>10개 중 9개 달성</td><td><span class="tag amb">오프라인 근접</span> 현장 미측정</td></tr>
+<tr><td>기준선 대비 +5%p</td><td>F1 기준 5/10 · 재현율 기준 10/10</td><td><span class="tag amb">기준 지표 합의 필요</span></td></tr>
+<tr><td>수집·저장률 ≥ 98%</td><td>—</td><td><span class="tag no">산출 코드 없음</span></td></tr>
+<tr><td>AI 판단 ≤ 30초 · 제어응답 ≤ 30초</td><td>판단 평균 37.8ms(서버) · 제어 미측정</td><td><span class="tag ok">판단 달성</span> <span class="tag no">제어 미착수</span></td></tr>
+<tr><td>통신장애 5개 시나리오 100%</td><td>“5/5 적합”</td><td><span class="tag no">근거 약함</span> 서로 다른 5종이 아니라 1종을 난수만 바꿔 5회</td></tr>
+</tbody></table></div>
+<div class="callout"><p><b>이번 주 바로 고칠 것 하나.</b> <code>.gitignore</code>의 <code>data/</code>를 <code>/data/</code>로 바꾸고 <code>src/ofdf/data/</code>를 커밋하십시오. 지금은 학습·보고서 생성·엣지 실행 어느 것도 저장소만으로 재현되지 않습니다. 이 폴더가 작업하던 PC에 남아 있는지부터 확인이 필요합니다. 참고로 <code>configs/weather.yaml</code>이 기대하는 AgERA5 파일명은 9/28에 만든 <code>AgERA5_Naju-Daegyo_2x2mean_daily_2015-2026.csv</code>와 정확히 같습니다.</p></div>
+
+<h2><span class="no">07</span>06 AI대전환 — Clad AL 파이프 비전검사 <span class="tag amb">12/4 납품</span></h2>
+<div class="tblbox"><table>
+<thead><tr><th>모듈 · FP</th><th>완료율</th><th>확인한 것</th><th>남은 일</th></tr></thead>
+<tbody>
+<tr><td>01 요구분석·아키텍처 · 60</td><td class="pct">85%</td><td>요구사항 추적표·아키텍처·데이터 정의서·MES 규격서 존재(9/8)</td><td>9/8 이후 확정사항(15.6" 화면, 파이 2대, 430mm, 모드 분리) 반영, <b>KPI 목표값이 계약값과 다름</b>(600ppm/30% vs 1,000/40%)</td></tr>
+<tr><td>02 이미지 취득·전처리 · 105</td><td class="pct">75%</td><td>파이 카메라 실구현, 재시도·워치독, ROI·반사보정·렌즈왜곡 보정</td><td>촬영 신호가 소프트웨어 타이머뿐 — <b>근접센서 GPIO 트리거</b></td></tr>
+<tr><td>03 길이 측정 · 120</td><td class="pct">65%</td><td>서브픽셀 끝단 검출, 기준자 보정, 다발 64개, MSA 도구</td><td><b>확정 조건(430mm·±0.1mm·카메라모듈3)에서 저장소 자체 계산 %GR&R 79% = 불합격.</b> HQ 카메라·거리·기준자로 실물 MSA</td></tr>
+<tr><td>04 표면결함 AI · 220</td><td class="pct">35%</td><td>규칙 휴리스틱·정상품 이상탐지 엔진만. <b>학습된 모델 0개</b>(.onnx/.pt 0개), 정답셋 0건, 학습/검증/시험 분리 없음</td><td><b>유분기·변색·스크래치 실촬영·라벨링·학습 — 이번 주 착수해야 12/4 가능.</b> 파이 2대 구성에 표면검사 스테이션이 없음</td></tr>
+<tr><td>05 종합 판정·알람 · 75</td><td class="pct">75%</td><td>판정 룰·복합불량·재확인 자동분류·연속 NG 알람</td><td>모드 분리 후 “길이+표면 제품단위 통합판정”이 실제로 안 일어남, 경광등 출력 0</td></tr>
+<tr><td>06 DB·이미지 저장 · 110</td><td class="pct">85%</td><td>테이블 9·마이그레이션 10, 저장 백엔드 4종, 큐·보관정리</td><td>파이 단독 SQLite용 백업 없음</td></tr>
+<tr><td>07 MES 연계 · 115</td><td class="pct">60%</td><td>DB테이블·REST 어댑터, 재시도. <b>MES 주소가 없으면 가짜 전송이 자동으로 켜짐</b>, “연계율 100%”는 자기 테이블 적재율</td><td>에이엠피 MES 실재 확인, 없으면 “DB 테이블 적재 = 연계” 서면 합의</td></tr>
+<tr><td>08 작업자 HMI · 75</td><td class="pct">90%</td><td>실시간 연결, 길이·편차·OK/NG·알람·재확인 입력, 테스트 13개</td><td>현장 사용성 시험</td></tr>
+<tr><td>09 대시보드·KPI 리포트 · 100</td><td class="pct">75%</td><td>LOT 이력·통계·KPI·PDF/XLSX·다중 스테이션 화면</td><td><b>버그: 통계 화면이 5,000건 요청, API 상한 2,000 → 오류 가능</b>. 리포트에 Claim·공수·리드타임·전후 비교 추가</td></tr>
+<tr><td>10 성능검증·시범운영·교육 · 77</td><td class="pct">30%</td><td>FAT/SAT/MSA 하니스·매뉴얼 4종. <b>결과서 전부 합성</b></td><td>실정답셋으로 FAT/SAT 재실행, 시범운영·임계값 보정·교육·인수문서</td></tr>
+</tbody></table></div>
+<div class="tblbox"><table>
+<thead><tr><th>KPI (계약값)</th><th>측정 기능</th><th>문제</th></tr></thead>
+<tbody>
+<tr><td>출하유출불량률 2,000→1,000ppm</td><td><span class="tag ok">있음(수기)</span></td><td>구축 전 2,000ppm 기준값 저장 없음</td></tr>
+<tr><td>검사불량률(오검·미검 분리) → 40%</td><td><span class="tag amb">부분</span></td><td><b>미검 정의가 틀림</b>(“재확인 안 한 건”을 셈, 실제 미검인 “AI가 통과시킨 불량”은 안 셈), 비율 합산, 목표 30%로 잘못 설정</td></tr>
+<tr><td>Claim 5→3건/년 · 리드타임 7→6일</td><td><span class="tag amb">입력·표시만</span></td><td>리포트·목표값·연 누계·전후 비교 없음</td></tr>
+<tr><td>작업공수 300ms/ea → 60%</td><td><span class="tag amb">부분</span></td><td>측정 구간이 “수신→판정”뿐(계획 정의는 “취득~저장”). 12ms는 PC 합성 이미지, 파이 실해상도는 191ms 기록</td></tr>
+</tbody></table></div>
+
+<h2><span class="no">08</span>04 팁스 창업사업화 — 운영분석·출하의사결정 <span class="tag ok">27.02.28 종료</span></h2>
+<div class="tblbox"><table>
+<thead><tr><th>계획서 항목</th><th>상태</th><th>확인한 것</th><th>남은 일</th></tr></thead>
+<tbody>
+<tr><td>Shrimp365 SW 고도화·UI</td><td><span class="tag ok">대부분</span></td><td>화면 다수·4개 언어·PWA·관제 지도. 엘리그 납품문서(화면설계서·테스트결과서·API 명세)는 저장소 밖</td><td>납품문서 별도 보관</td></tr>
+<tr><td><code>activity_analyzer.py</code> · <code>feed_analyzer.py</code></td><td><span class="tag no">저장소에 없음</span></td><td>전 브랜치 이력 0건, 활동량·사료반응 계산 코드도 없음</td><td><b>외주 납품물 회수·커밋</b></td></tr>
+<tr><td>출하 의사결정 로직</td><td><span class="tag ok">대부분</span> <span class="tag amb">미병합</span></td><td>성장곡선→수익성→크기별 단가→출하창, 화면 16개, 검증 스크립트. 근거 데이터 1개 농가·1회차, 단가 기준점 1개</td><td>병합·마이그레이션 7건, 2번째 농가 백테스트, <b>출하 규칙 대표 합의 문서</b></td></tr>
+<tr><td>리스크 경보·급이 최적화·다국어 리포트 엔진</td><td><span class="tag no">미착수</span></td><td>브랜치 문서에 계획만</td><td>기존 경보·푸시 재사용</td></tr>
+<tr><td>제어보드 펌웨어</td><td><span class="tag ok">완료</span></td><td>2,491줄, 1.0.0→1.9.0 67커밋, 실물 센서 대응 이력</td><td>서명키 교체, 1.9.0 원격 업데이트 꾸러미</td></tr>
+<tr><td>PCB·기구 설계 → 시제품</td><td><span class="tag amb">부분</span></td><td>함체 도면·배선도·부품표는 미병합 브랜치, PCB 파일 없음</td><td>10번과 BOM 동시 확정·1차 조립</td></tr>
+<tr><td>현장 실증 로그</td><td><span class="tag no">미착수</span></td><td>—</td><td>수집률·통신 안정성 로그 양식</td></tr>
+</tbody></table></div>
+<div class="callout amb"><p><b>과제 개요가 섞여 있을 수 있습니다.</b> 브랜치 문서 <code>tips-2026-gap-and-plan.md</code>는 이 과제를 “2026.04~2027.01, 총 2억 1,630만(정부 1억 5,000만)”으로 적었는데, 협약 기준은 “2026.05.01~2027.02.28, 1억 715만(정부 7,500만)”입니다. 01 TIPS R&D와 혼동된 것으로 보여 원 협약서로 정정이 필요합니다.</p></div>
+
+<h2><span class="no">09</span>추가로 해야 할 일 — 마감순 통합</h2>
+<div class="tblbox"><table>
+<thead><tr><th>시기</th><th>할 일</th><th>과제</th><th>규모</th></tr></thead>
+<tbody>
+<tr><td class="wk"><b>이번 주</b></td><td><b>shrimp365 미병합 브랜치 2개 병합·NAS 배포</b> (MRV · 출하엔진/스키마)</td><td>02·04·05</td><td>중</td></tr>
+<tr><td></td><td><b>전력계 설치 또는 kWh CSV 수집 경로</b> → 7일 수집 → 10/24 전후 기준선 잠금, 증빙 범위 기관 협의</td><td>02</td><td>중(현장)</td></tr>
+<tr><td></td><td><b>표면결함 3종 촬영·라벨링·학습 착수</b>, 표면검사 스테이션 배치 결정</td><td>06</td><td>대</td></tr>
+<tr><td></td><td>11 저장소 <code>src/ofdf/data</code> 커밋, 에이엠피 제어 사양·뉴런모빌리티 노드 형식 확보</td><td>11</td><td>소</td></tr>
+<tr><td></td><td><b>카메라 1~3대 현장 고정</b> — 03 증빙 네 가지(현장 정확도·파이 속도·가동률·수조 사진)가 여기서 한꺼번에 풀림</td><td>03</td><td>중(현장)</td></tr>
+<tr><td></td><td>보고할 계수 모델 확정(0.7642 납품 vs 저장소 0.924) + <b>평가 출력 파일 커밋</b>(현재 숫자가 문서에만 있음)</td><td>03</td><td>소</td></tr>
+<tr><td></td><td>03 원격 업데이트 브랜치 병합 → 파이 최초 1회 수동 설치(그 뒤 무인 갱신)</td><td>03</td><td>소</td></tr>
+<tr><td></td><td>특허 A1·A2·B·D·E·F 실시예 범위 변리사와 결정</td><td>02·03·05·10</td><td>소</td></tr>
+<tr><td class="wk"><b>10/23까지</b></td><td>STA 시험절차서(11 판단엔진·03 계수) — 누설 제거 재학습 모델 기준</td><td>11·03</td><td>중</td></tr>
+<tr><td></td><td>02 문서 5종(프로토콜·QA·최적화 설명서·SOP PDF·패키지 제안서/가격표/매뉴얼), 배출계수 확정</td><td>02</td><td>중</td></tr>
+<tr><td class="wk"><b>10월 중</b></td><td>10: GPIO 부저·경광등, RTC, 반응시간 자동로그, 72시간 시험 절차·집계 → 성능검증 1차</td><td>10</td><td>중</td></tr>
+<tr><td></td><td>11: 기상청 API, 구동부 드라이버·제어응답 로그, 서로 다른 통신장애 5종 실구현, 수집률 산출</td><td>11</td><td>대</td></tr>
+<tr><td></td><td>05: 6축 항목 정의서, 표준 데이터셋 1식, 이상탐지 성능표, 폐사 위험 규칙 점수</td><td>05</td><td>중</td></tr>
+<tr><td></td><td>03: <b>가동률 집계 SQL 1건</b>(10초 적재 기준 — 난이도 낮음), 파이 실기 속도 기록, 다각형 마스크 + FP 전후 비교</td><td>03</td><td>소~중</td></tr>
+<tr><td></td><td>06: KPI 목표값 계약값으로 수정, 미검 정의 수정, 통계 화면 버그, 근접센서 트리거, 실물 길이 MSA</td><td>06</td><td>중</td></tr>
+<tr><td class="wk"><b>11월</b></td><td>10 성능검증 2차 · 11 현장데이터 보정·3자 라벨 재평가 · 06 실데이터 FAT · 03 결과보고 확정</td><td>10·11·06·03</td><td>—</td></tr>
+<tr><td class="wk"><b>12월~</b></td><td>06 SAT·시범운영·교육·인수문서(12/4) · 04 HW 1차 조립·실증 로그·activity/feed 분석기 회수</td><td>06·04</td><td>—</td></tr>
+<tr><td class="wk"><b>상시</b></td><td>OTA 서명키 교체, AGPL 라이선스 검토, 결과보고 캡처의 예시값 표시</td><td>전체</td><td>소</td></tr>
+</tbody></table></div>
+
+<h2><span class="no">10</span>확인하지 못한 것</h2>
+<div class="callout calm">
+  <p><b>테스트 실행 결과</b> — <b>03(shrimp365 vision)은 10/10에 실제로 실행해 321개 전부 통과</b>했습니다(이 절의 나머지는 10/10 원본 그대로). 다른 저장소는 의존성(lightgbm·node_modules 등)이 없어 실행하지 못했습니다. 정의된 테스트 수는 pipe_vision 약 1,000개, shrimp365 vision <b>321개</b>(10/10 기준, 원본의 249개에서 증가)·MRV 브랜치 500여 개, OpenField 106개입니다. OpenField는 깨끗한 클론에서 약 55건이 실패할 것으로 예상됩니다(미커밋 모듈 때문). 직접 실행한 것은 수질 파이 자가점검 verify.py(35항목 통과)뿐입니다.</p>
+  <p><b>저장소 밖에 있는 것</b> — 외주 납품물 원본(agent.py·kpi_engine.py·mrv_engine.py·activity/feed_analyzer.py·0.7642 모델·라벨 300장), 엘리그 문서, PCB 설계, 운영 DB(Supabase)의 실데이터 양과 실제 설치 대수, 천황수산 데이터셋, 06 과업내용서(7/24) 원문, 특허 청구항 원문.</p>
+  <p><b>현장 상태</b> — 에이엠피 H/W·MES, 나주 포장 시공, Edge 15식 설치 대수, STA 회신 여부. 커밋 메시지에 “파이가 열 대를 넘는다”, “검사 이미지가 수십 GB 쌓였다”는 언급이 있지만 저장소로는 확인되지 않습니다.</p>
+  <p><b>참고</b> — 커밋 작성자는 세 저장소 모두 대부분 Claude(Claude Code)이고 외주사 커밋 흔적은 없습니다. 외주 납품 범위와 자체 개발 범위를 결과보고에서 어떻게 나눠 적을지 정리가 필요합니다.</p>
+</div>
+
+<footer>
+  점검 대상 — github.com/Ulrim/shrimp365 (운영 브랜치 shrimp-water-quality-monitoring-aZ4EY @ bb6214f, 10/6 · 미병합 mrv-platform-github-merge · optimistic-archimedes · hardware-packaging · camera-vision-migration 포함) · github.com/Ulrim/pipe_vision (main @ 7cc6f76, 10/9) · github.com/Ulrim/OpenFieldDigitalFarming (@ 57f8488, 10/5). 기준 문서 — 00. 지원사업별 개발 정리_260908, 00. 개발 항목 정리_260908, 2026 지원사업 추진현황 종합보고_261005. 완료율은 코드 존재와 실데이터 검증을 나눠 추정한 값으로, ±10%p 정도의 판단 폭이 있습니다. 2026-10-10 작성. <b>03 블루스타트업 절은 같은 날 저장소와 재대조해 갱신했습니다</b> — 작업 브랜치 <code>camera-vision-migration-43d9xz</code> @ 39c25b1, 운영 브랜치 @ bb6214f. 나머지 절은 최초 작성본 그대로입니다.
+</footer>
+
+</div>
+</body>
+</html>
