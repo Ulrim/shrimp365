@@ -40,6 +40,26 @@ const config: Config = {
           900: "#0c4a6e",
           950: "#082f49",
         },
+        // 컬리버 MRV 플랫폼 전용 토큰(/mrv 하위 화면). shrimp365 의 기존 색 이름과
+        // 겹치지 않도록 mrv- 네임스페이스에 둔다 — 두 디자인 시스템이 한 앱에 공존하되
+        // 서로의 의미를 덮어쓰지 않게 하기 위함이다. 값은 app/globals.css 의 CSS 변수.
+        mrv: {
+          bg: "hsl(var(--mrv-bg) / <alpha-value>)",
+          surface: "hsl(var(--mrv-surface) / <alpha-value>)",
+          border: "hsl(var(--mrv-border) / <alpha-value>)",
+          fg: "hsl(var(--mrv-fg) / <alpha-value>)",
+          muted: "hsl(var(--mrv-muted) / <alpha-value>)",
+          primary: "hsl(var(--mrv-primary) / <alpha-value>)",
+          // KPI 신호등. 색만으로 의미를 전하지 않는다 — 화면은 항상 텍스트를 함께 낸다.
+          green: "hsl(var(--mrv-green) / <alpha-value>)",
+          "green-bg": "hsl(var(--mrv-green-bg) / <alpha-value>)",
+          amber: "hsl(var(--mrv-amber) / <alpha-value>)",
+          "amber-bg": "hsl(var(--mrv-amber-bg) / <alpha-value>)",
+          red: "hsl(var(--mrv-red) / <alpha-value>)",
+          "red-bg": "hsl(var(--mrv-red-bg) / <alpha-value>)",
+          na: "hsl(var(--mrv-na) / <alpha-value>)",
+          "na-bg": "hsl(var(--mrv-na-bg) / <alpha-value>)",
+        },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
