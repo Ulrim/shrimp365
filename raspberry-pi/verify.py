@@ -3,14 +3,19 @@
 
     python3 raspberry-pi/verify.py
 
+    python3 raspberry-pi/verify.py --full     # 72시간치 실적재까지
+
 센서도 인터넷도 필요 없다. 시험 데이터를 만들어 이력 DB 에 넣고,
 이력 → 이상탐지 → 운전 권고의 전 구간을 돌려 결과를 눈으로 확인한다.
+재전송 큐는 정량목표 「72시간 저장」을 떠받치는 자리라 따로 한 절을 둔다.
 
 왜 두는가
   · 판정 숫자(limits.py)가 **웹 알림 기준과 같은지**를 경계값으로 확인한다.
     수조 옆 화면은 주황인데 웹은 조용한 일이 실제로 있었다(수온 26~27 ℃).
   · 이상탐지가 **잡아야 할 것과 잡지 말아야 할 것**을 둘 다 확인한다.
     해 질 녘마다 경보가 뜨는 쪽이 아무것도 안 뜨는 쪽보다 나쁘다.
+  · **회선이 끊긴 동안 값을 잃지 않는지**를 확인한다. 72시간 목표는 보관량이
+    아니라 "끊겼다 돌아와도 순서대로 다 올라가는가" 이고, 그건 눈으로 볼 수 없다.
   · 성능검증 기록지에 붙일 근거가 된다 — 돌린 결과를 그대로 옮기면 된다.
 
 웹 구현(lib/thresholds.ts 의 detectTrendAnomalies)과의 대조는 이 파일이 하지
@@ -19,6 +24,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 import os
 import sys
@@ -29,9 +35,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import advice          # noqa: E402
+import buffer          # noqa: E402
 import anomaly         # noqa: E402
 import history         # noqa: E402
 import limits          # noqa: E402
+
+# --full 이면 72시간치(4,320건)를 실제로 적재한다. 기본값이 아닌 이유는 파이의
+# SD카드에서 append 하나가 커밋 하나라, 4,320건이 수십 초로 늘어나기 때문이다.
+# 점검 자리에서 35항목을 빠르게 보여 줄 때는 기본으로, 72시간 적재를 직접
+# 보여야 할 때는 --full 로 돌린다.
+FULL = "--full" in sys.argv
 
 fails: list[str] = []
 
@@ -148,7 +161,91 @@ check("형식은 항목:종류:등급:값",
       len(anomaly.payload_field([{"parameter": "ph", "kind": "drift", "type": "warning",
                                   "value": 7.4, "digits": 2}]).split(":")), 4)
 
-print("\n⑥ 전 구간 — 이력 DB → 이상탐지 → 운전 권고")
+print("\n⑥ 재전송 큐 — 회선이 끊긴 동안 값을 잃지 않는가")
+#
+# 정량목표 「데이터 저장 72시간 이상」이 기대는 것은 보관 **용량**이 아니라,
+# 끊겼다 돌아왔을 때 **그 사이 값이 순서대로 다 올라가는가** 다. 용량은 상수를
+# 보면 되지만 나머지는 돌려 봐야 안다.
+
+QDIR = tempfile.mkdtemp()
+
+
+def queue(name: str, **kw) -> buffer.Buffer:
+    q = buffer.Buffer(os.path.join(QDIR, name), **kw)
+    assert q.available, "재전송 큐를 열지 못했습니다"
+    return q
+
+
+def stamp(i: int) -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%S+0900", time.localtime(1770000000 + i * 60))
+
+
+# 보관 상한이 72시간을 넘는가 — 1분 주기 기준. 상수만 보면 되는 항목이다.
+MINUTES_72H = 72 * 60
+check(f"보관 상한 {buffer.DEFAULT_MAX_ROWS:,}건 ≥ 72시간치 {MINUTES_72H:,}건(1분 주기)",
+      buffer.DEFAULT_MAX_ROWS >= MINUTES_72H, True)
+
+q = queue("basic.db")
+for i in range(50):
+    q.append({"temperature": 28.0 + i / 100, "순서": i}, stamp(i))
+check("넣은 만큼 쌓인다", q.pending(), 50)
+
+took = q.take(10)
+check("오래된 것부터 꺼낸다", [r[2]["순서"] for r in took], list(range(10)))
+check("기록 시각이 함께 나온다", took[0][1], stamp(0))
+check("값이 그대로 돌아온다(실수·한글 키)", took[3][2], {"temperature": 28.03, "순서": 3})
+
+q.drop([r[0] for r in took])
+check("올린 만큼 줄어든다", q.pending(), 40)
+check("다음은 그 뒤부터 이어진다", q.take(3)[0][2]["순서"], 10)
+q.close()
+
+# 정전·재부팅 — 파일에 남아 있어야 한다. 메모리에만 있으면 그 사이 값이 사라진다.
+q = queue("basic.db")
+check("재시작해도 남아 있다", q.pending(), 40)
+check("재시작 뒤에도 순서가 유지된다", q.take(1)[0][2]["순서"], 10)
+q.close()
+
+# 상한을 넘으면 **오래된 것부터** 버린다. 최신 것을 버리면 사고 직전 기록이 날아간다.
+#
+# 이 구간에서 버리는 것은 **일부러 시킨 것**이라 큐가 내는 경고를 잠깐 막는다.
+# 안 막으면 기록지에 "상한 초과" 경고가 다섯 줄 섞여, 진짜 경고와 구분되지 않는다.
+logging.getLogger("shrimp365.buffer").setLevel(logging.ERROR)
+q = queue("cap.db", max_rows=10)
+for i in range(15):
+    q.append({"순서": i}, stamp(i))
+check("상한을 넘으면 상한만큼만 남는다", q.pending(), 10)
+check("버리는 쪽은 오래된 것", [r[2]["순서"] for r in q.take(10)], list(range(5, 15)))
+q.close()
+logging.getLogger("shrimp365.buffer").setLevel(logging.NOTSET)
+
+# 깨진 행 하나가 전체를 막으면, 그 뒤 72시간치가 영영 못 올라간다.
+q = queue("broken.db")
+for i in range(3):
+    q.append({"순서": i}, stamp(i))
+q._conn.execute("insert into readings (recorded_at, payload) values (?, ?)",  # noqa: SLF001
+                (stamp(3), "{깨진 JSON"))
+q._conn.commit()  # noqa: SLF001
+for i in range(4, 6):
+    q.append({"순서": i}, stamp(i))
+check("깨진 행은 버리고 나머지는 통과시킨다", [r[2]["순서"] for r in q.take(10)], [0, 1, 2, 4, 5])
+check("버린 뒤에는 큐에서도 사라진다", q.pending(), 5)
+q.close()
+
+if FULL:
+    # 72시간치를 실제로 넣고 전량·순서를 본다. 파이에서는 수십 초 걸린다.
+    q = queue("full.db")
+    t0 = time.monotonic()
+    for i in range(MINUTES_72H):
+        q.append({"순서": i}, stamp(i))
+    took = time.monotonic() - t0
+    check(f"72시간치 {MINUTES_72H:,}건 전량 보존 ({took:.1f}초)", q.pending(), MINUTES_72H)
+    check("72시간치의 맨 앞이 가장 오래된 것", q.take(1)[0][2]["순서"], 0)
+    q.close()
+else:
+    print("  ....  72시간치 실적재는 건너뜀 — 보이시려면 --full 로 다시 돌리세요")
+
+print("\n⑦ 전 구간 — 이력 DB → 이상탐지 → 운전 권고")
 rows = store(drop)
 last = {k: v for k, v in rows[-1].items() if k != "t"}
 check("급락한 수조에 권고가 선다", codes(last, anomaly.detect(rows), rows), [("warn", "do_low")])
