@@ -43,6 +43,19 @@ export function Sidebar() {
   const isAdmin = user?.role === "admin" || isMonitorAccount(user?.email)
   // 관제센터는 관리자·매니저만. 노출은 편의일 뿐이고 실제 차단은 서버 API 가 한다.
   const canControl = isAdmin || user?.role === "manager"
+  /**
+   * 탄소 MRV 플랫폼 진입을 보여 줄 대상.
+   *
+   * 지금은 관제센터(`canControl`)와 같은 집합이지만 **변수를 따로 둔다** — 이유가 다르기
+   * 때문이다. 관제센터는 권한이 없으면 서버가 막는 기능이고, MRV 는 조직 초대제인 **별도
+   * 플랫폼**이다. 초대되지 않은 계정이 들어가면 "초대되지 않음" 안내만 보게 되므로, 그
+   * 화면을 대부분 사용자에게 들이밀지 않으려고 좁힌다. 한쪽 기준이 바뀔 때 다른 쪽이
+   * 조용히 따라가면 안 된다.
+   *
+   * 노출은 편의일 뿐이고 실제 접근 판정은 MRV 쪽 세션·조직 조회가 한다 — 이 메뉴가
+   * 없어도 주소를 직접 치면 들어갈 수 있고, 그래야 초대받은 작업자가 막히지 않는다.
+   */
+  const canSeeMrv = isAdmin || user?.role === "manager"
 
   const RECORD_NAV = [
     { href: "/record/water-quality", icon: Droplets,       label: t.record.waterQuality },
@@ -64,7 +77,7 @@ export function Sidebar() {
     // 농업 화면(/daumlabs)에서는 숨긴다. AGRI_HIDDEN 으로 걸러지지 않기 때문이다 —
     // 그 집합은 href 로 견주는데 이 항목의 href 는 환경변수에 따라 절대 URL 이 될 수
     // 있다. 그리고 이건 새우 RAS 탄소 MRV 라 수경재배 문맥에 놓을 메뉴가 아니다.
-    ...(!isAgri && MRV_PLATFORM_URL
+    ...(canSeeMrv && !isAgri && MRV_PLATFORM_URL
       ? [
           {
             href: MRV_PLATFORM_URL,
