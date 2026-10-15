@@ -13,6 +13,7 @@ import { agriRecord, type AgriRecordDict } from "./record"
 import { agriNutrient, type AgriNutrientDict } from "./nutrient"
 import { agriJournal, type AgriJournalDict } from "./journal"
 import { agriFarms, type AgriFarmsDict } from "./farms"
+import { agriOpenfield, type AgriOpenfieldDict } from "./openfield"
 
 export interface AgriDict {
   common: AgriCommonDict
@@ -23,6 +24,8 @@ export interface AgriDict {
   nutrient: AgriNutrientDict
   journal: AgriJournalDict
   farms: AgriFarmsDict
+  /** 노지 재해위험 카드(OFDF 병합) — docs/plans/openfield-merge.md */
+  openfield: AgriOpenfieldDict
 }
 
 export function agriDict(locale: Locale): AgriDict {
@@ -35,5 +38,6 @@ export function agriDict(locale: Locale): AgriDict {
     nutrient: agriNutrient[locale],
     journal: agriJournal[locale],
     farms: agriFarms[locale],
+    openfield: agriOpenfield[locale],
   }
 }
