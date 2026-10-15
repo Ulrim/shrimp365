@@ -53,7 +53,7 @@ export function AgriJournalCard({ entry, currentUserId, currentUserName, onEdit,
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="text-foreground font-semibold truncate">{entry.tank_name}</span>
-              <span className="inline-flex items-center rounded-full bg-brand/10 text-brand-fg px-2.5 py-0.5 text-xs font-semibold tabular-nums">{dateLabel}</span>
+              <span className="inline-flex items-center rounded-full bg-brand-a10 text-brand-fg px-2.5 py-0.5 text-xs font-semibold tabular-nums">{dateLabel}</span>
             </div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
               <User className="w-3 h-3" aria-hidden="true" />

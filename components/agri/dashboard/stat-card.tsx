@@ -11,11 +11,11 @@ interface StatCardProps {
   sub?: string
   /** 아이콘 글자색. 기본 brand-fg(다크 대비 보정 토큰). */
   iconColor?: string
-  /** 아이콘 박스 배경. 기본 bg-brand/10. */
+  /** 아이콘 박스 배경. 기본 bg-brand-a10. */
   iconBg?: string
 }
 
-export function StatCard({ icon: Icon, label, value, sub, iconColor = "text-brand-fg", iconBg = "bg-brand/10" }: StatCardProps) {
+export function StatCard({ icon: Icon, label, value, sub, iconColor = "text-brand-fg", iconBg = "bg-brand-a10" }: StatCardProps) {
   return (
     <div className="bg-card border border-border rounded-xl p-4 min-w-0 overflow-hidden shadow-sm">
       <div className="flex items-start justify-between gap-2">

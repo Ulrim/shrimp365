@@ -205,7 +205,7 @@ export function AgriJournalView() {
     )
   }
 
-  const inputCls = "min-h-[44px] bg-muted border-border focus-visible:ring-brand/50"
+  const inputCls = "min-h-[44px] bg-muted border-border focus-visible:ring-brand-a50"
 
   return (
     <div className="space-y-6 animate-fade-in">

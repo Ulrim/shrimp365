@@ -117,7 +117,9 @@ async function syncFieldAlerts(admin: AdminClient, tankId: string, judgements: P
     }
 
     const type: "danger" | "warning" = j.level >= 3 ? "danger" : "warning"
-    const message = `${j.level_name ?? ko.level[j.level]} · ${ko.headline[j.risk][j.level]}`
+    // 등급명은 장비가 보낸 level_name 이 아니라 사전 고정 문구를 쓴다 — 푸시 본문을
+    // 장비 쪽에서 바꿀 수 없게. level_name 은 저장만 한다.
+    const message = `${ko.level[j.level]} · ${ko.headline[j.risk][j.level]}`
     const { data: open } = await admin
       .from("alerts")
       .select("id, type")

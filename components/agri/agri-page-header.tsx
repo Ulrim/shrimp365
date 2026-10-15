@@ -23,7 +23,7 @@ export function AgriPageHeader({ title, subtitle, icon: Icon, actions, className
     <div className={cn("flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between", className)}>
       <div className="flex items-start gap-3 min-w-0">
         {Icon && (
-          <div className="w-10 h-10 shrink-0 rounded-xl bg-brand/10 text-brand border border-brand/25 flex items-center justify-center" aria-hidden="true">
+          <div className="w-10 h-10 shrink-0 rounded-xl bg-brand-a10 text-brand border border-brand-a25 flex items-center justify-center" aria-hidden="true">
             <Icon className="w-5 h-5" />
           </div>
         )}

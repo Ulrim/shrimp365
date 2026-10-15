@@ -42,10 +42,18 @@ const config: Config = {
         },
         // 대시보드 셸 강조색(설계서 mode-split.md 4장). 값은 app/globals.css 의
         // --brand / --brand-hover — 새우 파랑(#1E40AF) 기본, data-mode="agriculture" 녹색.
+        // RGB 채널 변수를 쓰는 이유는 globals.css 의 --brand-rgb 주석 참고.
+        // 틴트(a4~a50)는 `bg-brand/10` 수식어 대신 쓴다 — Tailwind v4 는 변수 색의
+        // 수식어를 color-mix 로만 만들고 폴백이 원색이라 구형 브라우저에서 활성
+        // 메뉴가 단색으로 뭉개진다(태양 검수 🟡-1).
         brand: {
           DEFAULT: "var(--brand)",
           hover: "var(--brand-hover)",
           fg: "var(--brand-fg)",
+          "fg-a80": "var(--brand-fg-a80)",
+          a4: "var(--brand-a4)", a5: "var(--brand-a5)", a10: "var(--brand-a10)",
+          a20: "var(--brand-a20)", a25: "var(--brand-a25)", a30: "var(--brand-a30)",
+          a40: "var(--brand-a40)", a50: "var(--brand-a50)",
         },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",

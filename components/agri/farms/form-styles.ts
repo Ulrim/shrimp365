@@ -2,7 +2,7 @@
 // 강조색은 brand 토큰만(농업 모드에서 녹색). ocean-* 는 쓰지 않는다.
 
 export const INPUT_CLS =
-  "bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-brand/50"
+  "bg-muted border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-brand-a50"
 
 export const LABEL_CLS = "text-muted-foreground text-sm"
 

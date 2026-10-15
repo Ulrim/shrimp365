@@ -122,7 +122,7 @@ function CycleFill() {
     return () => cancelAnimationFrame(id)
   }, [])
   return (
-    <div className="h-full bg-brand/30 ease-linear transition-[width]"
+    <div className="h-full bg-brand-a30 ease-linear transition-[width]"
       style={{ width: started ? "100%" : "0%", transitionDuration: `${BOARD_CYCLE_MS}ms` }} />
   )
 }

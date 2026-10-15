@@ -140,8 +140,8 @@ function FarmTypePicker({ value, onChange }: { value: FarmType; onChange: (v: Fa
               className={cn(
                 "min-h-[44px] rounded-xl border p-3 text-left flex items-center gap-2 transition-colors duration-200 motion-reduce:transition-none",
                 active
-                  ? "border-brand bg-brand/5 ring-1 ring-brand/40"
-                  : "border-border bg-muted/50 hover:border-brand/40",
+                  ? "border-brand bg-brand-a5 ring-1 ring-brand-a40"
+                  : "border-border bg-muted/50 hover:border-brand-a40",
               )}
             >
               <Icon className={cn("w-5 h-5 shrink-0", active ? "text-brand-fg" : "text-muted-foreground")} aria-hidden="true" />

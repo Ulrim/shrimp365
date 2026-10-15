@@ -232,7 +232,7 @@ export function AgriMeasureRecordView() {
         notice={r.notice}
         labels={{ selectTank: common.selectBed, optional: common.optionalMark, yes: common.yes, no: common.no, stepAria: common.wizardStepAria }}
         progressClass="bg-brand"
-        noticeClass="bg-brand/5 border-brand/20"
+        noticeClass="bg-brand-a5 border-brand-a20"
         noticeIconClass="text-brand-fg"
       />
       {saved && (

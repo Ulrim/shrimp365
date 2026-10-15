@@ -150,7 +150,7 @@ function DeviceRow({ device, latest, onChanged, onDelete }: {
             type="button"
             onClick={() => handleUpdate(latest)}
             disabled={busy}
-            className="inline-flex items-center gap-1 text-xs px-2.5 min-h-[36px] rounded-lg border border-brand/40 text-brand-fg hover:bg-brand/10 transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1 text-xs px-2.5 min-h-[36px] rounded-lg border border-brand-a40 text-brand-fg hover:bg-brand-a10 transition-colors disabled:opacity-50"
           >
             <ArrowUpCircle className="w-3.5 h-3.5" aria-hidden="true" /> {d.requestUpdate}
           </button>

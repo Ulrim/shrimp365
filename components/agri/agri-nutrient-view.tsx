@@ -418,7 +418,7 @@ function NutrientInner() {
         <CardContent className="p-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap min-w-0">
             <Select value={selectedTankId} onValueChange={selectTank}>
-              <SelectTrigger aria-label={n.bedSelectAria} className="w-full sm:w-52 min-h-[44px] bg-muted border-border text-foreground focus:ring-brand/30">
+              <SelectTrigger aria-label={n.bedSelectAria} className="w-full sm:w-52 min-h-[44px] bg-muted border-border text-foreground focus:ring-brand-a30">
                 <SelectValue placeholder={d.common.selectBed} />
               </SelectTrigger>
               <SelectContent className="bg-popover border-border">

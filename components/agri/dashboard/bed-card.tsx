@@ -63,7 +63,7 @@ export function BedCard({ tank, latest, selected, onSelect }: BedCardProps) {
     <div
       className={cn(
         "rounded-xl border bg-card p-4 flex flex-col gap-3 shadow-sm transition-colors duration-200",
-        selected ? "border-brand/40 ring-1 ring-brand/40" : "border-border hover:border-brand/30",
+        selected ? "border-brand-a40 ring-1 ring-brand-a40" : "border-border hover:border-brand-a30",
       )}
     >
       <button

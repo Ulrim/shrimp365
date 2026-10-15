@@ -59,7 +59,7 @@ type Props = {
   labels?: Partial<WizardLabels>
   /** 진행바 색. 기본 `bg-ocean-500`(새우). 농업 폼은 `bg-brand` 를 넘긴다. */
   progressClass?: string
-  /** 안내(notice) 상자 색. 기본 ocean 결. 농업 폼은 `bg-brand/5 border-brand/20` 을 넘긴다. */
+  /** 안내(notice) 상자 색. 기본 ocean 결. 농업 폼은 `bg-brand-a5 border-brand-a20` 을 넘긴다. */
   noticeClass?: string
   /** 안내 상자 아이콘 색. 기본 `text-ocean-600`. 농업 폼은 `text-brand-fg`. */
   noticeIconClass?: string

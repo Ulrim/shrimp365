@@ -169,7 +169,7 @@ export function HomeView() {
           <Link
             href="/record"
             aria-label={t.homeHub.recordCardAria}
-            className="group flex flex-col items-center justify-center gap-4 rounded-xl border border-border bg-card hover:border-brand hover:bg-brand/[0.04] transition-colors duration-200 py-10 px-6 min-h-[44px] text-center"
+            className="group flex flex-col items-center justify-center gap-4 rounded-xl border border-border bg-card hover:border-brand hover:bg-brand-a4 transition-colors duration-200 py-10 px-6 min-h-[44px] text-center"
           >
             <div className="w-14 h-14 rounded-xl bg-brand flex items-center justify-center text-white" aria-hidden="true">
               <ClipboardList className="w-7 h-7" />

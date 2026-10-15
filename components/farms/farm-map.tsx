@@ -102,6 +102,9 @@ export function FarmMap({ farms, tanks, labels, farmsHref = "/farms" }: {
   const map = useRef<LeafletMap | null>(null)
 
   const located = farms.filter(f => f.latitude !== null && f.longitude !== null)
+  // 팝업 문구가 바뀌면(언어·모드) 마커를 다시 그려야 한다. 의존성 배열에 식을
+  // 직접 쓰면 lint 가 걸려 이름을 붙여 둔다.
+  const popupKey = `${L.tankCountN}|${L.danger}|${L.warning}`
 
   useEffect(() => {
     if (located.length === 0 || !holder.current) return
@@ -155,12 +158,12 @@ export function FarmMap({ farms, tanks, labels, farmsHref = "/farms" }: {
       if (map.current) { map.current.remove(); map.current = null }
     }
     // farms/tanks 배열은 매번 새로 만들어지므로 내용으로 비교한다. 문구는 언어가
-    // 바뀔 때만 달라지므로 팝업 문구 묶음도 함께 비교한다.
+    // 바뀔 때만 달라지므로 팝업 문구 묶음(popupKey)도 함께 비교한다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     located.map(f => `${f.id}:${f.latitude},${f.longitude}`).join("|"),
     tanks.map(tk => `${tk.farm_id}:${tk.status}`).join("|"),
-    `${L.tankCountN}|${L.danger}|${L.warning}`,
+    popupKey,
   ])
 
   if (located.length === 0) {

@@ -112,7 +112,7 @@ export function Sidebar() {
         className={cn(
           "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative",
           isActive
-            ? "bg-brand/10 text-brand-fg border border-brand/25"
+            ? "bg-brand-a10 text-brand-fg border border-brand-a25"
             : "text-muted-foreground hover:text-foreground hover:bg-accent",
           collapsed && "justify-center px-2"
         )}
@@ -174,7 +174,7 @@ export function Sidebar() {
           href="/help"
           className={cn(
             "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all",
-            pathname === "/help" && "bg-brand/10 text-brand-fg border border-brand/25",
+            pathname === "/help" && "bg-brand-a10 text-brand-fg border border-brand-a25",
             collapsed && "justify-center"
           )}
         >
@@ -196,7 +196,7 @@ export function Sidebar() {
         {/* Free badge */}
         {!collapsed && (
           <div className="px-3 py-2">
-            <span className="text-[10px] font-mono font-semibold tracking-wider px-2 py-0.5 rounded-full bg-brand/10 text-brand-fg border border-brand/25">
+            <span className="text-[10px] font-mono font-semibold tracking-wider px-2 py-0.5 rounded-full bg-brand-a10 text-brand-fg border border-brand-a25">
               FREE
             </span>
           </div>

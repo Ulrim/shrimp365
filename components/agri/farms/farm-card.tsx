@@ -30,7 +30,7 @@ export function FarmCard({ farm, tanks, selected, onSelect }: {
         "w-full text-left rounded-xl border p-4 min-h-[44px] transition-colors duration-200 motion-reduce:transition-none",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         selected
-          ? "bg-brand/10 border-brand/40 ring-1 ring-brand/20"
+          ? "bg-brand-a10 border-brand-a40 ring-1 ring-brand-a20"
           : "bg-muted border-border hover:bg-accent",
       )}
     >
@@ -38,7 +38,7 @@ export function FarmCard({ farm, tanks, selected, onSelect }: {
         <div
           className={cn(
             "w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
-            selected ? "bg-brand/20 text-brand-fg" : "bg-background text-muted-foreground",
+            selected ? "bg-brand-a20 text-brand-fg" : "bg-background text-muted-foreground",
           )}
           aria-hidden="true"
         >

@@ -184,7 +184,7 @@ export function BottomNav() {
                     className={cn(
                       "flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all",
                       active
-                        ? "bg-brand/10 text-brand-fg border border-brand/25"
+                        ? "bg-brand-a10 text-brand-fg border border-brand-a25"
                         : "text-foreground active:bg-accent"
                     )}
                   >

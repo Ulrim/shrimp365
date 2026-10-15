@@ -58,7 +58,7 @@ function formFromEntry(e: JournalEntry): EditForm {
 const num = (s: string) => { const n = parseFloat(s); return Number.isFinite(n) ? n : 0 }
 const int = (s: string) => { const n = parseInt(s, 10); return Number.isFinite(n) ? n : 0 }
 
-const inputCls = "bg-muted border-border focus-visible:ring-brand/50 min-h-[44px]"
+const inputCls = "bg-muted border-border focus-visible:ring-brand-a50 min-h-[44px]"
 
 // ── 수정 ─────────────────────────────────────────────────────────────────────
 
@@ -211,7 +211,7 @@ function EditBody({ entry, onClose, onSaved }: { entry: JournalEntry; onClose: (
         <div className="space-y-1.5">
           <Label htmlFor={id("notes")}>{j.notes}</Label>
           <Textarea id={id("notes")} value={form.notes} placeholder={j.notesPlaceholder} rows={4}
-            onChange={e => set("notes", e.target.value)} className="bg-muted border-border focus-visible:ring-brand/50" />
+            onChange={e => set("notes", e.target.value)} className="bg-muted border-border focus-visible:ring-brand-a50" />
         </div>
 
         {error && <p role="alert" className="text-xs text-red-600 dark:text-red-400">{error}</p>}

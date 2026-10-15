@@ -27,14 +27,14 @@ export function AgriRecordHubView() {
           <Link
             href="/daumlabs/record/water-quality"
             aria-label={`${record.measureTitle} - ${record.measureSub}`}
-            className="group flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-brand/25 bg-brand/5 hover:bg-brand/10 hover:border-brand/50 transition-colors duration-200 py-10 sm:py-12 px-6 text-center shadow-sm hover:shadow-md min-h-[44px]"
+            className="group flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-brand-a25 bg-brand-a5 hover:bg-brand-a10 hover:border-brand-a50 transition-colors duration-200 py-10 sm:py-12 px-6 text-center shadow-sm hover:shadow-md min-h-[44px]"
           >
             <div className="w-14 h-14 rounded-2xl bg-brand flex items-center justify-center text-white" aria-hidden="true">
               <ClipboardList className="w-7 h-7" />
             </div>
             <div>
               <p className="text-xl font-bold text-brand-fg">{record.measureTitle}</p>
-              <p className="text-sm text-brand-fg/80 mt-1">{record.measureSub}</p>
+              <p className="text-sm text-brand-fg-a80 mt-1">{record.measureSub}</p>
             </div>
           </Link>
 
