@@ -407,3 +407,55 @@ export type VisionEvent =
       status: VisionCameraStatus
       message: string
     }
+
+// ─────────────────────────────────────────────
+// 노지 재해위험 판단(OFDF 병합) — docs/plans/openfield-merge.md 4장
+// ─────────────────────────────────────────────
+
+/** 판단 근거 하나 — 어떤 변수가 어느 값일 때 얼마나 기여했는가. 카드는 첫 항목의 label 만 쓴다. */
+export interface FieldRiskEvidence {
+  feature: string
+  /** 농가 말 라벨(엣지가 붙여 준 ko). 없으면 화면이 feature 를 env 사전으로 번역한다. */
+  label: string | null
+  value: number | null
+  contribution: number | null
+}
+
+/** 권고 조치 하나. OFDF 는 하드웨어를 직접 돌리지 않으므로 `executed` 는 "엣지가 실행으로
+ *  분류했다"는 뜻이고, 화면에는 모두 "할 일"로 보인다(advisory 는 권고). */
+export interface FieldRiskAction {
+  device: string
+  command: string
+  layer: number | null
+  reason: string | null
+  risk_type: string | null
+  executed: boolean
+  /** 현장 규칙·안전장치가 막은 조치. 있으면 회색으로 보인다. */
+  rejected_by: string | null
+  advisory: boolean
+}
+
+export type FieldRiskType = "heat_dry" | "rain_wet" | "disease" | "frost" | "compound"
+
+/** 판단 1건 = field_risk_judgements 1행. (risk × horizon_h) 가 한 시각에 최대 10건. */
+export interface FieldRiskJudgement {
+  id: string
+  tank_id: string
+  device_id: string | null
+  /** 판단 시각(ISO, tz 포함). */
+  ts: string
+  risk: FieldRiskType
+  horizon_h: 1 | 3
+  /** 0 정상 · 1 주의 · 2 경계 · 3 긴급(OFDF 등급 그대로). */
+  level: 0 | 1 | 2 | 3
+  /** OFDF 가 쓰는 한국어 등급명 — 참고용. 화면은 사전으로 번역한다. */
+  level_name: string | null
+  confidence: number | null
+  model_version: string | null
+  expected_onset: string | null
+  evidence: FieldRiskEvidence[]
+  actions: FieldRiskAction[]
+  /** 그때의 기상·토양 9항목(t_air, canopy_temp, rh, leaf_wetness, solar_w, rain, soil_moisture, soil_index, wind_speed). */
+  environment: Partial<Record<string, number>>
+  created_at: string
+}

@@ -22,6 +22,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AgriPageHeader } from "@/components/agri/agri-page-header"
 import { AgriEmptyState } from "@/components/agri/agri-empty-state"
 import { BedStatusBadge, useAgriStatusLabel } from "@/components/agri/bed-status-badge"
+import { isFieldAlert, fieldAlertLabel } from "@/components/agri/openfield/field-alert-label"
 import { ChartCard, BOARD_CYCLE_MS } from "@/components/agri/charts/chart-card"
 import { ParamTrendChart, TrendEmpty, buildTrendData, type TrendRecipe } from "@/components/agri/charts/param-trend-chart"
 import { SensorCompareChart, buildCompareData, COMPARE_KEYS } from "@/components/agri/charts/sensor-compare-chart"
@@ -662,9 +663,13 @@ function AlertRow({ alert, locale, resolveLabel, thresholdLine, resolving, onRes
   resolving: boolean
   onResolve: () => void
 }) {
+  const { openfield: of } = useAgriT()
   const key: AgriParamKey | undefined = ALERT_PARAM_KEY[alert.parameter]
   let text = alert.message
-  if (key) {
+  if (isFieldAlert(alert.parameter)) {
+    // 노지 재해위험 알림 — parameter 가 키("field:frost")라 openfield 사전으로 이름표를 붙인다.
+    text = `${fieldAlertLabel(alert.parameter, of)} — ${alert.message}`
+  } else if (key) {
     const unit = agriParam(key).unit
     const withUnit = (v: number) => `${agriFormat(key, v)}${unit ? ` ${unit}` : ""}`
     text = `${alertDisplayLabel(alert.parameter, "agriculture")} ${withUnit(alert.value)} — ${fmt(thresholdLine, { v: withUnit(alert.threshold) })}`

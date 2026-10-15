@@ -25,7 +25,7 @@ export interface AgriNavDict {
   sectionRecord: string
   /** 사이드바 섹션 제목 — 모니터링. */
   sectionMonitor: string
-  /** 로고 부제 — 언어 무관 영문 고정. */
+  /** 로고 부제 — 언어 무관 영문 고정. 노지 베드까지 품으므로 HYDROPONICS 가 아니라 FARMING(openfield-merge.md 1-3). */
   brandTagline: string
   /** 하단 네비 다섯째 탭. */
   more: string
@@ -43,7 +43,7 @@ export const agriNav: Record<Locale, AgriNavDict> = {
     farms: "농장·기기 관리",
     sectionRecord: "기록",
     sectionMonitor: "모니터링",
-    brandTagline: "SMART HYDROPONICS",
+    brandTagline: "SMART FARMING",
     more: "더보기",
   },
   en: {
@@ -57,7 +57,7 @@ export const agriNav: Record<Locale, AgriNavDict> = {
     farms: "Farms & devices",
     sectionRecord: "Record",
     sectionMonitor: "Monitor",
-    brandTagline: "SMART HYDROPONICS",
+    brandTagline: "SMART FARMING",
     more: "More",
   },
   vi: {
@@ -71,7 +71,7 @@ export const agriNav: Record<Locale, AgriNavDict> = {
     farms: "Nông trại & thiết bị",
     sectionRecord: "Ghi chép",
     sectionMonitor: "Giám sát",
-    brandTagline: "SMART HYDROPONICS",
+    brandTagline: "SMART FARMING",
     more: "Thêm",
   },
   id: {
@@ -85,7 +85,7 @@ export const agriNav: Record<Locale, AgriNavDict> = {
     farms: "Kebun & perangkat",
     sectionRecord: "Pencatatan",
     sectionMonitor: "Pemantauan",
-    brandTagline: "SMART HYDROPONICS",
+    brandTagline: "SMART FARMING",
     more: "Lainnya",
   },
 }

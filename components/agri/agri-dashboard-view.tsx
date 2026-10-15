@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { useT, useAgriT } from "@/lib/i18n-context"
-import { getFarms, getAllTanks, getAlerts, getLatestWaterQuality, getWaterQuality, getSensorDevices, resolveAlert } from "@/lib/db"
+import { getFarms, getAllTanks, getAlerts, getLatestWaterQuality, getWaterQuality, getSensorDevices, getFieldRiskLatest, resolveAlert } from "@/lib/db"
 import { isTestAccount } from "@/lib/mock-data"
 import { useAutoRefresh } from "@/lib/use-auto-refresh"
 import { Button } from "@/components/ui/button"
@@ -26,8 +26,10 @@ import { BedCard } from "@/components/agri/dashboard/bed-card"
 import { DpTrendCard } from "@/components/agri/dashboard/dp-trend-card"
 import { RecentAlerts } from "@/components/agri/dashboard/recent-alerts"
 import { agoLabel } from "@/components/agri/dashboard/time-ago"
+import { FieldRiskCard } from "@/components/agri/openfield/field-risk-card"
+import { isFieldAlert, fieldAlertLabel } from "@/components/agri/openfield/field-alert-label"
 import { LayoutDashboard, Building2, Sprout, AlertTriangle, FlaskConical, ArrowRight, ClipboardList } from "lucide-react"
-import type { Farm, Tank, Alert, WaterQualityReading, SensorDevice } from "@/types"
+import type { Farm, Tank, Alert, WaterQualityReading, SensorDevice, FieldRiskJudgement } from "@/types"
 
 const isAgri = (x: { farm_type?: string }) => x.farm_type === "agriculture"
 
@@ -61,18 +63,27 @@ async function loadBase(mock: boolean): Promise<BaseData> {
   return { farms, tanks, alerts, latest }
 }
 
-async function loadTankDetail(tankId: string): Promise<{ wq: WaterQualityReading[]; devices: SensorDevice[] }> {
-  const [wq, devices] = await Promise.all([
+interface TankDetail {
+  wq: WaterQualityReading[]
+  devices: SensorDevice[]
+  /** 노지 재해위험 판단(risk × horizon 별 최신). 노지 베드가 아니면 조회하지 않는다. */
+  fieldRisk: FieldRiskJudgement[]
+}
+
+// 노지 판단은 노지 베드에서만 묻는다 — 수경재배 베드는 조회 0회, 화면도 무변(openfield-merge.md 6장).
+async function loadTankDetail(tankId: string, isField: boolean): Promise<TankDetail> {
+  const [wq, devices, fieldRisk] = await Promise.all([
     getWaterQuality(tankId, 24).catch(() => [] as WaterQualityReading[]),
     getSensorDevices(tankId).catch(() => [] as SensorDevice[]),
+    isField ? getFieldRiskLatest(tankId).catch(() => [] as FieldRiskJudgement[]) : Promise.resolve([] as FieldRiskJudgement[]),
   ])
-  return { wq, devices }
+  return { wq, devices, fieldRisk }
 }
 
 export function AgriDashboardView() {
   const { user } = useAuth()
   const { t } = useT()
-  const { common, dashboard: dd } = useAgriT()
+  const { common, dashboard: dd, openfield: of } = useAgriT()
   const ready = !!user
   const mock = isTestAccount(user?.email)
 
@@ -84,6 +95,7 @@ export function AgriDashboardView() {
   const [pickedTankId, setPickedTankId] = useState("")
   const [tankWq, setTankWq] = useState<WaterQualityReading[]>([])
   const [tankDevices, setTankDevices] = useState<SensorDevice[]>([])
+  const [tankFieldRisk, setTankFieldRisk] = useState<FieldRiskJudgement[]>([])
 
   const [resolvingId, setResolvingId] = useState<string | null>(null)
   const [resolveError, setResolveError] = useState<string | null>(null)
@@ -96,9 +108,11 @@ export function AgriDashboardView() {
     return tanks.some(tk => tk.id === pickedTankId) ? pickedTankId : tanks[0].id
   }, [tanks, pickedTankId])
   const selectedTank = tanks.find(tk => tk.id === selectedTankId) ?? null
+  const selectedIsField = selectedTank?.tank_type === "노지"
   // 베드가 하나도 없으면 상세 상태에 남은 직전 값을 그리지 않는다.
   const visibleWq = selectedTankId ? tankWq : []
   const visibleDevices = selectedTankId ? tankDevices : []
+  const visibleFieldRisk = selectedTankId && selectedIsField ? tankFieldRisk : []
 
   useEffect(() => {
     if (!ready) return
@@ -120,13 +134,14 @@ export function AgriDashboardView() {
   useEffect(() => {
     if (!selectedTankId || mock) return
     let alive = true
-    loadTankDetail(selectedTankId).then(({ wq, devices }) => {
+    loadTankDetail(selectedTankId, selectedIsField).then(({ wq, devices, fieldRisk }) => {
       if (!alive) return
       setTankWq(wq)
       setTankDevices(devices)
+      setTankFieldRisk(fieldRisk)
     })
     return () => { alive = false }
-  }, [selectedTankId, mock])
+  }, [selectedTankId, selectedIsField, mock])
 
   // 센서가 1분마다 값을 올리므로 화면도 그 주기로 다시 불러온다. 이미 뜬 화면을
   // 비우지 않도록 loading 은 건드리지 않는다.
@@ -135,11 +150,12 @@ export function AgriDashboardView() {
     const d = await loadBase(mock)
     setBase(d)
     if (selectedTankId) {
-      const { wq, devices } = await loadTankDetail(selectedTankId)
+      const { wq, devices, fieldRisk } = await loadTankDetail(selectedTankId, selectedIsField)
       setTankWq(wq)
       setTankDevices(devices)
+      setTankFieldRisk(fieldRisk)
     }
-  }, [mock, selectedTankId])
+  }, [mock, selectedTankId, selectedIsField])
   const { lastRefreshed } = useAutoRefresh(reload, 60, !loading && !loadError)
 
   const handleResolve = async (id: string) => {
@@ -230,6 +246,10 @@ export function AgriDashboardView() {
   const bannerNames = Array.from(new Set(alerts.map(a => a.tank_name).filter(Boolean)))
   const hasNutrient = visibleDevices.some(dv => dv.active && typeof dv.last_payload?.nut_percent === "number")
   const hasDp = visibleWq.some(r => typeof r.diff_pressure === "number")
+  // 노지 재해위험 알림은 parameter 가 키("field:frost")라 alertDisplayLabel 이 모른다. 목록에 넘기기
+  // 전에 **표시용 사본**의 parameter 만 농가 말로 바꾼다 — alertDisplayLabel 은 모르는 이름을
+  // 그대로 돌려주므로 그 말이 이름표가 된다. 원본(처리 id·EC 집계)은 건드리지 않는다.
+  const shownAlerts = alerts.map(a => isFieldAlert(a.parameter) ? { ...a, parameter: fieldAlertLabel(a.parameter, of) } : a)
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -292,6 +312,11 @@ export function AgriDashboardView() {
         </div>
       </section>
 
+      {/* 노지 재해위험 — 노지 베드이고 판단이 있을 때만. 수경재배 베드에는 아무것도 안 보인다 */}
+      {selectedIsField && selectedTank && visibleFieldRisk.length > 0 && (
+        <FieldRiskCard judgements={visibleFieldRisk} tankName={selectedTank.name} />
+      )}
+
       {hasNutrient || hasDp ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {hasNutrient && selectedTank && (
@@ -318,7 +343,7 @@ export function AgriDashboardView() {
       {/* 센서별 마지막 수신값 — 기기 raw 그대로(수정 없이 import). 센서가 있을 때만 보인다 */}
       <DeviceCurrentValues devices={visibleDevices} />
 
-      <RecentAlerts alerts={alerts} onResolve={handleResolve} resolvingId={resolvingId} error={resolveError} />
+      <RecentAlerts alerts={shownAlerts} onResolve={handleResolve} resolvingId={resolvingId} error={resolveError} />
     </div>
   )
 }

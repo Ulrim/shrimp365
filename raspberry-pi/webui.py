@@ -512,7 +512,7 @@ var MODE = "__MODE__";
 if (MODE !== "agriculture") MODE = "shrimp";
 var BRAND = {
   shrimp:      {name:"Shrimp365", tag:"",                   accent:"#60A5FA"},
-  agriculture: {name:"Farm365",   tag:"SMART HYDROPONICS",  accent:"#4ADE80"}
+  agriculture: {name:"Farm365",   tag:"SMART FARMING",      accent:"#4ADE80"}
 };
 function isAgri(){ return MODE === "agriculture"; }
 // 그래프 SVG 는 속성에 CSS 변수를 못 쓰므로 색을 직접 준다(--brand-text 와 같은 값).

@@ -1,5 +1,5 @@
 import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbSensorDevice, DbProductionCycle, DbGrowthSample, DbCycleCost, DbCycleHarvest, DbInventoryItem, DbInventoryTransaction } from "@/lib/supabase"
-import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction } from "@/types"
+import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction, FieldRiskJudgement } from "@/types"
 import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, planMissingInputAlerts, MISSING_INPUT_PARAMETER, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
 import { PLAN_LIMITS, type Plan } from "@/lib/plans"
 import { isTestAccount } from "@/lib/mock-data"
@@ -1232,4 +1232,59 @@ export async function deleteInventoryTransaction(id: string, itemId: string, typ
     const delta = type === "in" ? -quantity : quantity
     await supabase.from("inventory_items").update({ current_stock: Math.max(0, item.current_stock + delta), updated_at: new Date().toISOString() }).eq("id", itemId)
   }
+}
+
+// ─────────────────────────────────────────────
+// 노지 재해위험 판단 (OFDF) — docs/plans/openfield-merge.md 6장
+// ─────────────────────────────────────────────
+
+/** jsonb 칸은 모양을 믿지 않는다 — 배열이 아니면 빈 배열, 객체가 아니면 빈 객체. */
+function toFieldRisk(r: Record<string, unknown>): FieldRiskJudgement {
+  const env = r.environment
+  return {
+    id: String(r.id),
+    tank_id: String(r.tank_id),
+    device_id: (r.device_id as string | null) ?? null,
+    ts: String(r.ts),
+    risk: r.risk as FieldRiskJudgement["risk"],
+    horizon_h: (Number(r.horizon_h) === 1 ? 1 : 3),
+    level: Math.min(3, Math.max(0, Number(r.level) || 0)) as FieldRiskJudgement["level"],
+    level_name: (r.level_name as string | null) ?? null,
+    confidence: typeof r.confidence === "number" ? r.confidence : null,
+    model_version: (r.model_version as string | null) ?? null,
+    expected_onset: (r.expected_onset as string | null) ?? null,
+    evidence: Array.isArray(r.evidence) ? (r.evidence as FieldRiskJudgement["evidence"]) : [],
+    actions: Array.isArray(r.actions) ? (r.actions as FieldRiskJudgement["actions"]) : [],
+    environment: env && typeof env === "object" && !Array.isArray(env) ? (env as FieldRiskJudgement["environment"]) : {},
+    created_at: String(r.created_at),
+  }
+}
+
+/** 이 베드의 risk × horizon 별 **최신 1건**(최대 5 × 2 = 10건). RLS 적용(소유자·열람자).
+ *
+ *  최근 50건을 받아 클라이언트에서 그룹별 첫 행만 남긴다 — 한 주기(5분)에 최대 10행이
+ *  들어오므로 50건이면 다섯 주기치, 어느 위험이 한 주기 빠져도 그 전 값이 잡힌다.
+ *  테이블이 아직 없으면(field_risk.sql 미실행) 빈 배열 — 노지 카드가 조용히 숨는다. */
+export async function getFieldRiskLatest(tankId: string): Promise<FieldRiskJudgement[]> {
+  const { data, error } = await supabase
+    .from("field_risk_judgements")
+    .select("*")
+    .eq("tank_id", tankId)
+    .order("ts", { ascending: false })
+    .limit(50)
+  if (error) {
+    const missing = error.code === "42P01" || error.code === "PGRST205"
+      || (/field_risk_judgements/.test(error.message ?? "") && /(does not exist|not find|schema cache)/i.test(error.message ?? ""))
+    if (missing) return []
+    throw error
+  }
+  const seen = new Set<string>()
+  const out: FieldRiskJudgement[] = []
+  for (const row of (data ?? []) as Record<string, unknown>[]) {
+    const key = `${row.risk}:${row.horizon_h}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(toFieldRisk(row))
+  }
+  return out
 }
