@@ -8,7 +8,7 @@ import { useT } from "@/lib/i18n-context"
 import { getFarms, getAllTanks, getAlerts } from "@/lib/db"
 import { isTestAccount, MOCK_TANKS, MOCK_ALERTS } from "@/lib/mock-data"
 import { useAutoRefresh } from "@/lib/use-auto-refresh"
-import { AGRI_PREFIX, belongsToAgriScreen, useAgriRoute } from "@/lib/agri-route"
+import { AGRI_PREFIX } from "@/lib/agri-route"
 import { ClipboardList, BarChart3, AlertTriangle, CheckCircle2, Activity } from "lucide-react"
 import { AdSlot } from "@/components/ads/ad-slot"
 import { Tank, Alert } from "@/types"
@@ -16,7 +16,6 @@ import { Tank, Alert } from "@/types"
 export function HomeView() {
   const { user } = useAuth()
   const { t } = useT()
-  const { isAgri, href: withAgri } = useAgriRoute()
   const router = useRouter()
   const [checking, setChecking] = useState(true)
   const [loadError, setLoadError] = useState(false)
@@ -24,16 +23,16 @@ export function HomeView() {
   const [allTanks, setAllTanks] = useState<Tank[]>([])
   const [allAlerts, setAllAlerts] = useState<Alert[]>([])
 
-  // 홈이 세는 것도 이 화면 몫이어야 한다(설계서 3장). 혼합 계정에서 안 거르면
-  // 농업 홈이 새우 수조의 위험을 세고, 알림 링크가 이 화면에서는 갈 수도 없는
-  // 반대 축 수조를 가리킨다(그 반대도 같다).
+  // 이 화면은 새우 전용이다(농업 홈은 components/agri/agri-home-view.tsx). 혼합
+  // 계정에서 안 거르면 새우 홈이 수경재배 베드의 위험을 세고, 알림 링크가 이
+  // 화면에서는 고를 수도 없는 베드를 가리킨다. 값이 없으면 새우로 본다.
   const tanks = useMemo(
-    () => allTanks.filter(tk => belongsToAgriScreen(tk.farm_type, isAgri)),
-    [allTanks, isAgri],
+    () => allTanks.filter(tk => (tk.farm_type ?? "shrimp") !== "agriculture"),
+    [allTanks],
   )
   const alerts = useMemo(
-    () => allAlerts.filter(a => belongsToAgriScreen(a.farm_type, isAgri)),
-    [allAlerts, isAgri],
+    () => allAlerts.filter(a => (a.farm_type ?? "shrimp") !== "agriculture"),
+    [allAlerts],
   )
 
   useEffect(() => {
@@ -53,7 +52,8 @@ export function HomeView() {
         // 여기 한 곳이면 된다. 판정은 profiles.ui_mode 하나다 — 전환 스위치가 저장한
         // 값이고, 온보딩에서 농업 유형을 고르면 함께 저장된다. 혼합 계정도 자기 뜻대로
         // 정할 수 있다. 역방향(/daumlabs/home → /home) 자동 이동은 하지 않는다.
-        if (!isAgri && user.ui_mode === "agriculture") {
+        // 이 뷰는 새우 경로(/home)에서만 렌더되므로 URL 조건은 필요 없다.
+        if (user.ui_mode === "agriculture") {
           router.replace(`${AGRI_PREFIX}/home`)
           return
         }
@@ -67,7 +67,7 @@ export function HomeView() {
         setChecking(false)
       })
       .catch(() => { setLoadError(true); setChecking(false) })
-  }, [user, router, retry, isAgri])
+  }, [user, router, retry])
 
   // 수조 상태와 알림은 1분마다 다시 불러온다. 첫 화면에서 위험 수조를 보고
   // 움직이는 경우가 많은데, 열어 둔 채 두면 옛 상태가 그대로 남는다.
@@ -142,7 +142,7 @@ export function HomeView() {
             </div>
             {alerts.length > 0 && (
               <Link
-                href={withAgri("/dashboard")}
+                href="/dashboard"
                 aria-label={t.homeHub.unresolvedAlertsAria.replace("{{count}}", String(alerts.length))}
                 className="flex items-center gap-2 mt-3 pt-3 border-t border-border text-sm text-amber-600 hover:text-amber-700"
               >
@@ -167,7 +167,7 @@ export function HomeView() {
         {/* Two big action cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Link
-            href={withAgri("/record")}
+            href="/record"
             aria-label={t.homeHub.recordCardAria}
             className="group flex flex-col items-center justify-center gap-4 rounded-xl border border-border bg-card hover:border-brand hover:bg-brand/[0.04] transition-colors duration-200 py-10 px-6 min-h-[44px] text-center"
           >
@@ -181,7 +181,7 @@ export function HomeView() {
           </Link>
 
           <Link
-            href={withAgri("/dashboard")}
+            href="/dashboard"
             aria-label={t.homeHub.monitorCardAria}
             className="group flex flex-col items-center justify-center gap-4 rounded-xl border border-border bg-card hover:border-[#D97706] hover:bg-[#D97706]/[0.05] transition-colors duration-200 py-10 px-6 min-h-[44px] text-center"
           >

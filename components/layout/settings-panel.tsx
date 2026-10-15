@@ -2,7 +2,8 @@
 
 import { BrandMark } from "@/components/ui/brand-mark"
 import { useState, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
+import { BRAND_NAME, modeOfPath } from "@/lib/agri-route"
 import {
   X, Settings, User, Lock, Bell, Info, Save, Eye, EyeOff,
   CheckCircle2, AlertCircle, CreditCard, Mail, Trash2, ExternalLink, RefreshCw,
@@ -54,6 +55,8 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const { user, updateProfile, updatePassword, updateEmail, logout } = useAuth()
   const { t, locale } = useT()
   const router = useRouter()
+  // 정보 탭의 제품 이름은 지금 보는 화면의 모드를 따른다(Shrimp365 / Farm365).
+  const brandName = BRAND_NAME[modeOfPath(usePathname() ?? "")]
   const panelRef = useRef<HTMLDivElement>(null)
   const [tab, setTab] = useState<Tab>("account")
 
@@ -451,7 +454,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               <div className="flex flex-col items-center gap-3 py-4 text-center">
                 <BrandMark size={56} icon={28} />
                 <div>
-                  <p className="text-foreground font-bold text-lg">Shrimp365</p>
+                  <p className="text-foreground font-bold text-lg">{brandName}</p>
                   <p className="text-muted-foreground text-sm">{t.dashboard.subtitle}</p>
                   <p className="text-muted-foreground text-xs mt-1">v1.0.0</p>
                 </div>

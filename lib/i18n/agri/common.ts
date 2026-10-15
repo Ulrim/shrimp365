@@ -64,6 +64,25 @@ export interface AgriCommonDict {
   selectBed: string
   allBeds: string
   noData: string
+
+  /** 공용 StepWizard 에 넘기는 라벨 — 새우 기본값("(선택)"·"예"·"아니오")을 농업 뷰에서 4개 언어로 바꾼다. */
+  optionalMark: string
+  yes: string
+  no: string
+  /** 위저드 진행바 aria-label. `{{n}}` = 현재 단계, `{{total}}` = 전체 단계. */
+  wizardStepAria: string
+
+  /** 온보딩(app/onboarding) 농업 유형 선택 시 라벨. 새우 문구는 기존 t.onboarding. */
+  onboardingTitle: string
+  onboardingSubtitle: string
+  onboardingStep1Title: string
+  onboardingStep1Subtitle: string
+  onboardingStep2Title: string
+  onboardingStep2Subtitle: string
+  /** 뒤에 베드 수가 붙는다 — 기존 ko 원문 형식. */
+  onboardingStep3Subtitle: string
+  /** 레시피 블록 아래 한 줄 — 허용 오차 기본값 + 나중에 바꿀 수 있다는 안내. */
+  onboardingToleranceNote: string
 }
 
 const UNITS: AgriCommonDict["unit"] = {
@@ -111,6 +130,18 @@ export const agriCommon: Record<Locale, AgriCommonDict> = {
     selectBed: "베드를 선택하세요",
     allBeds: "베드 전체",
     noData: "측정 데이터가 없습니다",
+    optionalMark: "(선택)",
+    yes: "예",
+    no: "아니오",
+    wizardStepAria: "{{n}}단계 / {{total}}단계",
+    onboardingTitle: "재배 시설 초기 설정",
+    onboardingSubtitle: "농장과 베드 정보를 등록하면 모든 기능을 즉시 사용할 수 있습니다.",
+    onboardingStep1Title: "농장 정보",
+    onboardingStep1Subtitle: "기본 농장 정보를 입력해주세요",
+    onboardingStep2Title: "베드 등록",
+    onboardingStep2Subtitle: "농장의 베드 정보를 입력해주세요 (최소 1개)",
+    onboardingStep3Subtitle: "등록이 완료되었습니다! 등록한 베드 수:",
+    onboardingToleranceNote: "허용 오차는 기본 ±0.1 mS/cm · pH ±0.5 로 설정됩니다. 농장·기기 관리에서 언제든 바꿀 수 있습니다.",
   },
   en: {
     modeShrimp: "Shrimp farm",
@@ -147,6 +178,18 @@ export const agriCommon: Record<Locale, AgriCommonDict> = {
     selectBed: "Select a bed",
     allBeds: "All beds",
     noData: "No measurements yet",
+    optionalMark: "(optional)",
+    yes: "Yes",
+    no: "No",
+    wizardStepAria: "Step {{n}} of {{total}}",
+    onboardingTitle: "Set up your growing facility",
+    onboardingSubtitle: "Register your farm and beds to start using every feature right away.",
+    onboardingStep1Title: "Farm details",
+    onboardingStep1Subtitle: "Enter the basic farm information",
+    onboardingStep2Title: "Register beds",
+    onboardingStep2Subtitle: "Enter the beds in this farm (at least one)",
+    onboardingStep3Subtitle: "Registration complete! Beds registered:",
+    onboardingToleranceNote: "Tolerance defaults to ±0.1 mS/cm and pH ±0.5. You can change it anytime in Farms & devices.",
   },
   vi: {
     modeShrimp: "Trại tôm",
@@ -183,6 +226,18 @@ export const agriCommon: Record<Locale, AgriCommonDict> = {
     selectBed: "Chọn luống",
     allBeds: "Tất cả luống",
     noData: "Chưa có dữ liệu đo",
+    optionalMark: "(tùy chọn)",
+    yes: "Có",
+    no: "Không",
+    wizardStepAria: "Bước {{n}} / {{total}}",
+    onboardingTitle: "Thiết lập cơ sở canh tác",
+    onboardingSubtitle: "Đăng ký nông trại và luống để dùng ngay mọi tính năng.",
+    onboardingStep1Title: "Thông tin nông trại",
+    onboardingStep1Subtitle: "Nhập thông tin cơ bản của nông trại",
+    onboardingStep2Title: "Đăng ký luống",
+    onboardingStep2Subtitle: "Nhập các luống của nông trại (ít nhất 1)",
+    onboardingStep3Subtitle: "Đăng ký hoàn tất! Số luống đã đăng ký:",
+    onboardingToleranceNote: "Dung sai mặc định ±0,1 mS/cm và pH ±0,5. Có thể thay đổi bất cứ lúc nào trong Nông trại & thiết bị.",
   },
   id: {
     modeShrimp: "Tambak udang",
@@ -219,5 +274,17 @@ export const agriCommon: Record<Locale, AgriCommonDict> = {
     selectBed: "Pilih bedeng",
     allBeds: "Semua bedeng",
     noData: "Belum ada data pengukuran",
+    optionalMark: "(opsional)",
+    yes: "Ya",
+    no: "Tidak",
+    wizardStepAria: "Langkah {{n}} dari {{total}}",
+    onboardingTitle: "Siapkan fasilitas budidaya",
+    onboardingSubtitle: "Daftarkan kebun dan bedeng untuk langsung memakai semua fitur.",
+    onboardingStep1Title: "Informasi kebun",
+    onboardingStep1Subtitle: "Masukkan informasi dasar kebun",
+    onboardingStep2Title: "Daftarkan bedeng",
+    onboardingStep2Subtitle: "Masukkan bedeng di kebun ini (minimal 1)",
+    onboardingStep3Subtitle: "Pendaftaran selesai! Jumlah bedeng terdaftar:",
+    onboardingToleranceNote: "Toleransi default ±0,1 mS/cm dan pH ±0,5. Dapat diubah kapan saja di Kebun & perangkat.",
   },
 }

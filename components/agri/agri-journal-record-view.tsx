@@ -2,7 +2,8 @@
 
 // 영농 일지 폼 `/daumlabs/record/journal` — 수아 시안 mode-split-ui.md 5-4.
 //
-// StepWizard(공용, 수정 금지) 4스텝: 베드·날짜 → 양액 관리 → 재배 작업 → 설비 점검.
+// StepWizard(공용) 4스텝: 베드·날짜 → 양액 관리 → 재배 작업 → 설비 점검. 위저드 안
+// 문구·진행바 색은 props(labels·progressClass)로 농업 사전·brand 토큰을 넘긴다.
 // 컬럼 매핑은 journal_entries 그대로다(feed_type = 양액 종류, feeding_amount = 보충량 L,
 // water_exchange_rate = 교환율 %, disinfection = 방제, microbial_* = 자재 투입,
 // check_* = 설비 점검). 농업에 대응물이 없는 mortality_count 는 폼에 없고 0 으로
@@ -197,6 +198,8 @@ export function AgriJournalRecordView() {
         saving={saving}
         saved={saved}
         error={error}
+        labels={{ selectTank: common.selectBed, optional: common.optionalMark, yes: common.yes, no: common.no, stepAria: common.wizardStepAria }}
+        progressClass="bg-brand"
       />
       {saved && (
         <div className="w-full max-w-md mx-auto px-4 pb-8 grid grid-cols-1 sm:grid-cols-2 gap-3" role="status">

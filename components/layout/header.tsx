@@ -13,7 +13,7 @@ import { MOCK_ALERTS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
 import { useT, useAgriT } from "@/lib/i18n-context"
 import { stripLocalePrefix } from "@/lib/marketing-locale"
-import { isAgriPath, stripAgriPrefix } from "@/lib/agri-route"
+import { BRAND_NAME, isAgriPath, modeOfPath, stripAgriPrefix } from "@/lib/agri-route"
 import { ModeSwitch } from "@/components/layout/mode-switch"
 
 const DropMark = () => (
@@ -67,8 +67,9 @@ export function Header() {
 
   // 언어 접두사를 뗀 뒤 찾는다. /daumlabs/* 는 접두사를 떼고 농업 제목표에서,
   // 그 밖은 기존 제목표에서 — /en/cardnews 에서도 제목이 나와야 한다.
+  // 제목표에 없는 주소의 기본 제목은 모드별 제품 이름(Shrimp365 / Farm365).
   const path = stripLocalePrefix(pathname).path
-  const title = (isAgriPath(path) ? agriPageLabels[stripAgriPrefix(path)] : pageLabels[path]) || "Shrimp365"
+  const title = (isAgriPath(path) ? agriPageLabels[stripAgriPrefix(path)] : pageLabels[path]) || BRAND_NAME[modeOfPath(path)]
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [notiOpen, setNotiOpen] = useState(false)

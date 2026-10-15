@@ -5,6 +5,10 @@
 //
 // 컨텍스트도 프로바이더도 DB 조회도 없다. 순수 함수 + pathname 훅 하나뿐이라
 // 비동기가 없고, 따라서 첫 페인트가 항상 옳다.
+//
+// 3단계(새우 정리) 이후 공유 뷰가 없어져 `agriHref`·`useAgriRoute`·
+// `belongsToAgriScreen`·`AGRI_HIDDEN_NAV` 는 지웠다. 농업 뷰는 `/daumlabs/...`
+// 리터럴을 쓰고, 새우 뷰는 `farm_type !== "agriculture"` 필터를 각자 가진다.
 
 "use client"
 
@@ -30,25 +34,6 @@ export const AGRI_ROUTES = [
 
 const AGRI_ROUTE_SET: ReadonlySet<string> = new Set(AGRI_ROUTES)
 
-/** 농업 화면의 메뉴에서 빼는 항목(설계서 4-3) — 새우 전용 기능들.
- *
- *  **한곳에만 둔다.** 예전에는 sidebar.tsx 와 bottom-nav.tsx 가 각자 같은
- *  집합을 들고 "sidebar 와 같은 집합" 이라고 주석까지 달아 두었는데, 실제로는
- *  어긋났다. `/vision` 이 사이드바에만 추가되어 **휴대폰에서는 개체수 화면에
- *  갈 길이 아예 없었다**(모바일은 하단 메뉴를 쓴다). 둘이 같아야 한다면
- *  같은 것을 보게 하는 쪽이 맞다.
- *
- *  AGRI_ROUTES 로 대신 판정하지 않는다. 그쪽은 "`/daumlabs` 아래에 그 페이지가
- *  있는가" 이고, 이쪽은 "농업 문맥에서 보여 줄 것인가" 다. 게시판·카드뉴스는
- *  농업 쪽에 페이지가 없어도 접두사 없이 그대로 열어 주는 것이 맞다. */
-export const AGRI_HIDDEN_NAV: ReadonlySet<string> = new Set([
-  "/production",
-  "/inventory",
-  "/ai-advisor",
-  "/reports",
-  "/vision",
-])
-
 /** 쿼리스트링·해시를 뗀 경로 부분만 돌려준다. `/water-quality?tank=1` → `/water-quality` */
 function pathOnly(href: string): string {
   const cut = href.search(/[?#]/)
@@ -70,46 +55,17 @@ export function stripAgriPrefix(pathname: string): string {
   return rest === "" || rest === "/" ? "/home" : rest
 }
 
-/** 링크 주소에 농업 접두사를 먹인다.
- *  - `agri`가 false면 문자열이 그대로 나온다 — 새우 모드 회귀 0의 기계적 보증.
- *  - `AGRI_ROUTES`에 있는 경로만 붙인다. `/help`·`/board`·`/onboarding`·
- *    언어 접두사가 붙은 주소(`/en/cardnews`)는 손대지 않는다.
- *  - 쿼리스트링은 보존한다. 이미 접두사가 붙어 있으면 두 번 붙이지 않는다. */
-export function agriHref(href: string, agri: boolean): string {
-  if (!agri) return href
-  if (!href.startsWith("/") || isAgriPath(href)) return href
-  if (!AGRI_ROUTE_SET.has(pathOnly(href))) return href
-  return AGRI_PREFIX + href
-}
-
-/** 이 농장(또는 그 농장에 속한 수조)이 지금 보고 있는 화면에 속하는가.
- *
- *  화면은 URL 이 정하고(`isAgri`) 데이터는 `farms.farm_type` 을 들고 있다.
- *  두 축이 어긋난 것을 한 목록에 섞으면 남의 기준으로 판정하게 된다 —
- *  새우 화면의 수경재배 베드는 염도 0·22 ℃ 때문에 통째로 빨개지고, 농업
- *  화면의 새우 수조는 pH 8.0 이 농업 기준(5.5~6.5)에 걸려 위험이 된다.
- *
- *  값이 없으면(마이그레이션 전 DB·목데이터) 언제나 새우로 본다. */
-export function belongsToAgriScreen(
-  farmType: "shrimp" | "agriculture" | null | undefined,
-  isAgri: boolean,
-): boolean {
-  return ((farmType ?? "shrimp") === "agriculture") === isAgri
-}
-
-/** 화면에서 쓰는 훅. `const { isAgri, href } = useAgriRoute()` */
-export function useAgriRoute(): { isAgri: boolean; href: (p: string) => string } {
-  const pathname = usePathname()
-  const isAgri = isAgriPath(pathname ?? "")
-  return { isAgri, href: (p: string) => agriHref(p, isAgri) }
-}
-
 // ── 모드 두 축 — 계정 모드(ui_mode)와 화면 URL (설계서 mode-split.md 2장) ──────
 //
 //   profiles.ui_mode = 이 계정의 기본 모드 (전환 스위치가 저장, /home 착지 결정)
 //   URL(/daumlabs/**) = 지금 보고 있는 화면 (렌더링 판정은 계속 URL)
 
 export type UiMode = "shrimp" | "agriculture"
+
+/** 셸(사이드바 로고 글자·헤더 기본 제목·설정 패널 정보 탭)에 쓰는 제품 이름 —
+ *  설계서 mode-split.md 1장 결정 3(2026-10-15 변경). 공개 화면(랜딩·게시판·카드뉴스)과
+ *  PWA 제목은 여기 없다 — 언제나 Shrimp365 다. 한 곳에만 둔다. */
+export const BRAND_NAME: Record<UiMode, string> = { shrimp: "Shrimp365", agriculture: "Farm365" }
 
 /** 지금 주소가 어느 모드의 화면인가. `isAgriPath` 의 UiMode 표현. */
 export function modeOfPath(pathname: string): UiMode {

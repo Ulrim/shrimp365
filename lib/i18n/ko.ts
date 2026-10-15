@@ -1328,6 +1328,7 @@ export const ko: Dict = {
     tankTypeSemiIndoor: "반실내",
     tankStatusAria: "수조 상태",
     statusAutoNote: "수질 데이터 저장 시 자동 갱신됩니다",
+    managedInFarm365: "스마트팜 화면(Farm365)에서 관리됩니다",
     shrimpCount: "새우 수",
     stockingDayN: "입식 {{n}}일차",
     registered: "등록",

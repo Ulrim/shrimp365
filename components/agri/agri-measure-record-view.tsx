@@ -2,7 +2,8 @@
 
 // 측정 기록 폼 `/daumlabs/record/water-quality` — 수아 시안 mode-split-ui.md 5-3.
 //
-// StepWizard(공용, 수정 금지)를 그대로 쓰고 이 뷰는 **steps 배열과 저장 함수만** 가진다.
+// StepWizard(공용)를 그대로 쓰고 이 뷰는 **steps 배열과 저장 함수만** 가진다. 위저드 안
+// 문구·진행바 색은 props(labels·progressClass)로 농업 사전·brand 토큰을 넘긴다.
 // 4스텝: 베드 선택 → 양액 농도(EC·pH) → 양액 환경(온도·DO) → 순환 라인(유량·차압).
 //
 // 빈 칸 = null 규칙(저장 함수):
@@ -229,6 +230,10 @@ export function AgriMeasureRecordView() {
         saved={saved}
         error={error}
         notice={r.notice}
+        labels={{ selectTank: common.selectBed, optional: common.optionalMark, yes: common.yes, no: common.no, stepAria: common.wizardStepAria }}
+        progressClass="bg-brand"
+        noticeClass="bg-brand/5 border-brand/20"
+        noticeIconClass="text-brand-fg"
       />
       {saved && (
         <div className="w-full max-w-md mx-auto px-4 pb-8 grid grid-cols-1 sm:grid-cols-2 gap-3" role="status">

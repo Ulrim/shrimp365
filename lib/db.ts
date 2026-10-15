@@ -42,7 +42,7 @@ function joinedFarmType(row: { farms?: unknown }): "shrimp" | "agriculture" {
  *  farm_type 칸이 없어 이름으로 집으면 쿼리 전체가 400 으로 죽는다.
  *
  *  조인이 비면(수조가 지워진 알림 등) undefined 를 준다. "모르는 것"과
- *  "새우인 것"을 구분해 두고, 읽는 쪽(belongsToAgriScreen)이 새우로 본다. */
+ *  "새우인 것"을 구분해 두고, 읽는 쪽(각 뷰의 farm_type 필터)이 새우로 본다. */
 function joinedTankFarmType(joined: unknown): "shrimp" | "agriculture" | undefined {
   const tank = Array.isArray(joined) ? joined[0] : joined
   if (!tank) return undefined
@@ -466,9 +466,9 @@ export async function insertWaterQuality(
 /** journal_entries 행 → JournalEntry.
  *
  *  조회·생성·수정 세 경로가 **같은 매핑**을 쓰게 한군데로 모은다. 같은
- *  타입인데 경로마다 필드가 있다 없다 하면, 화면의 축 필터
- *  (belongsToAgriScreen)가 방금 저장한 일지를 남의 축으로 보고 목록에서
- *  지워 버린다 — 저장은 됐는데 카드가 사라지니 농가는 다시 쓴다.
+ *  타입인데 경로마다 필드가 있다 없다 하면, 화면의 farm_type 필터가 방금
+ *  저장한 일지를 남의 화면 몫으로 보고 목록에서 지워 버린다 — 저장은 됐는데
+ *  카드가 사라지니 농가는 다시 쓴다.
  *
  *  farm_type 은 일지 자신의 칸이 아니라 tanks→farms 조인에서 파생한다.
  *  그래서 세 경로 모두 select 에 `tanks(name, farms(*))` 를 실어야 한다.

@@ -1219,6 +1219,8 @@ export interface Dict {
     tankTypeSemiIndoor: string
     tankStatusAria: string
     statusAutoNote: string
+    /** 농장 유형을 스마트팜으로 고르거나 저장했을 때 — 이 농장은 Farm365 화면으로 간다. */
+    managedInFarm365: string
     shrimpCount: string
     stockingDayN: string
     registered: string
@@ -1380,8 +1382,3 @@ export interface Dict {
     harvestPlanDate: string
   }
 }
-
-/** 2단(섹션 → 키) 부분 오버라이드 — 농업 모드 사전(agri-ko)이 쓴다.
- *  섹션 값이 통짜 객체라 Partial<Dict> 로는 섹션 안 일부 키만 둘 수 없어
- *  2단 DeepPartial 을 따로 둔다. */
-export type DictOverride = { [K in keyof Dict]?: Partial<Dict[K]> }

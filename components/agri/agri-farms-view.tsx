@@ -4,7 +4,8 @@
 //
 // 농업 농장(`farm_type === "agriculture"`)만 다룬다. 새우 농장은 보이지 않고 교차 링크도
 // 없다(화면 전환은 헤더 스위치가 한다). 데이터는 lib/db 함수만 쓰고, 조각은
-// components/agri/farms/* 에 있다. 지도·좌표 입력·기기 연결은 기존 조각을 수정 없이 import.
+// components/agri/farms/* 에 있다. 지도·좌표 입력·기기 연결은 기존 조각을 import 하고,
+// 조각 안의 한국어 문구는 labels props 로 농업 사전(4개 언어)을 넘긴다.
 import { useCallback, useEffect, useRef, useState } from "react"
 import { AlertTriangle, Building2, MapPin, Ruler, Sprout, UserRound } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
@@ -153,7 +154,22 @@ export function AgriFarmsView() {
           {/* 농장 위치 — 좌표를 넣은 농장이 하나라도 있을 때만. 지도 조각은 그대로 import. */}
           {located.length > 0 && (
             <section aria-label={d.farms.mapAria}>
-              <FarmMap farms={farms} tanks={tanks} />
+              <FarmMap
+                farms={farms}
+                tanks={tanks}
+                farmsHref="/daumlabs/farms"
+                labels={{
+                  title: d.farms.mapTitle,
+                  tankCountN: d.farms.mapBedCountN,
+                  danger: d.common.status.danger,
+                  warning: d.common.status.warning,
+                  noCoordsMsg: d.farms.mapNoCoordsMsg,
+                  mapAria: d.farms.mapAria,
+                  locatedN: d.farms.mapLocatedN,
+                  missingN: d.farms.mapMissingN,
+                  addCoords: d.farms.mapAddCoords,
+                }}
+              />
             </section>
           )}
 

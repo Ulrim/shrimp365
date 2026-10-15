@@ -105,6 +105,14 @@ function FarmFormFields({ idPrefix, form, setForm, coords, setCoords, nameError 
         latitude={coords.lat}
         longitude={coords.lon}
         onChange={(lat, lon) => setCoords({ lat, lon })}
+        labels={{
+          title: d.coordsLabel,
+          optional: d.recipeOptional,
+          useCurrent: d.coordsUseCurrent,
+          locating: d.coordsLocating,
+          hint: d.coordsHint,
+          openMap: d.coordsOpenMap,
+        }}
       />
     </>
   )

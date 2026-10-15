@@ -6,7 +6,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useT, useAgriT } from "@/lib/i18n-context"
-import { useAgriRoute } from "@/lib/agri-route"
+import { BRAND_NAME, isAgriPath } from "@/lib/agri-route"
 import { cn } from "@/lib/utils"
 import {
   Home, LayoutDashboard, Droplets, BookOpen, Building2,
@@ -35,7 +35,7 @@ export function Sidebar() {
   const agri = useAgriT()
   // 농업 화면 판정은 주소로 한다(설계서 mode-split.md 2장). 메뉴는 모드별로
   // **명시 배열**을 둔다 — 새우 배열은 예전 그대로고, 농업 배열은 /daumlabs 리터럴이다.
-  const { isAgri } = useAgriRoute()
+  const isAgri = isAgriPath(pathname ?? "")
   const [collapsed, setCollapsed] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const isAdmin = user?.role === "admin" || isMonitorAccount(user?.email)
@@ -86,6 +86,8 @@ export function Sidebar() {
   ]
 
   const homeHref = isAgri ? "/daumlabs/home" : "/home"
+  // 농업 모드는 Farm365, 새우 모드는 Shrimp365(설계서 1장 결정 3). 마크는 공용.
+  const brandName = BRAND_NAME[isAgri ? "agriculture" : "shrimp"]
   const recordNav = isAgri ? AGRI_RECORD_NAV : RECORD_NAV
   const monitorNav = isAgri ? AGRI_MONITOR_NAV : MONITOR_NAV
   const labels = isAgri
@@ -143,7 +145,7 @@ export function Sidebar() {
           </div>
           {!collapsed && (
             <div>
-              <span className="text-foreground font-bold text-lg tracking-tight">Shrimp365</span>
+              <span className="text-foreground font-bold text-lg tracking-tight">{brandName}</span>
               <p className="text-brand-fg text-[10px] font-mono tracking-[0.15em]">{labels.tagline}</p>
             </div>
           )}

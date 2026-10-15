@@ -1328,6 +1328,7 @@ export const en: Dict = {
     tankTypeSemiIndoor: "Semi-indoor",
     tankStatusAria: "Tank status",
     statusAutoNote: "Updated automatically when water quality data is saved",
+    managedInFarm365: "Managed in the smart farm screens (Farm365)",
     shrimpCount: "Shrimp count",
     stockingDayN: "Day {{n}} since stocking",
     registered: "Added",

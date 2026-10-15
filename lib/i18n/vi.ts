@@ -1329,6 +1329,7 @@ export const vi: Dict = {
     tankTypeSemiIndoor: "Bán trong nhà",
     tankStatusAria: "Trạng thái bể",
     statusAutoNote: "Tự động cập nhật khi lưu dữ liệu chất lượng nước",
+    managedInFarm365: "Được quản lý trong màn hình nông trại thông minh (Farm365)",
     shrimpCount: "Số tôm",
     stockingDayN: "Ngày {{n}} sau thả giống",
     registered: "Đăng ký",

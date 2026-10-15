@@ -1329,6 +1329,7 @@ export const id: Dict = {
     tankTypeSemiIndoor: "Semi-tertutup",
     tankStatusAria: "Status kolam",
     statusAutoNote: "Diperbarui otomatis saat data kualitas air disimpan",
+    managedInFarm365: "Dikelola di layar smart farm (Farm365)",
     shrimpCount: "Jumlah udang",
     stockingDayN: "Hari ke-{{n}} sejak tebar",
     registered: "Terdaftar",

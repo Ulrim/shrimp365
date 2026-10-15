@@ -119,6 +119,22 @@ export interface AgriFarmsDict {
   noBedsMsg: string
   saveFailed: string
   deleteFailed: string
+
+  // ── 공용 조각(components/farms/farm-map.tsx · coordinate-field.tsx)에 넘기는 라벨 ──
+  mapTitle: string
+  /** `{{n}}` = 베드 수(지도 팝업). */
+  mapBedCountN: string
+  mapNoCoordsMsg: string
+  /** `{{n}}` = 좌표가 있는 농장 수. */
+  mapLocatedN: string
+  /** `{{n}}` = 좌표가 없는 농장 수. */
+  mapMissingN: string
+  mapAddCoords: string
+  coordsLabel: string
+  coordsUseCurrent: string
+  coordsLocating: string
+  coordsHint: string
+  coordsOpenMap: string
 }
 
 export const agriFarms: Record<Locale, AgriFarmsDict> = {
@@ -221,6 +237,18 @@ export const agriFarms: Record<Locale, AgriFarmsDict> = {
     noBedsMsg: "베드를 추가하여 양액 모니터링을 시작하세요.",
     saveFailed: "저장하지 못했습니다. 다시 시도해 주세요.",
     deleteFailed: "삭제하지 못했습니다. 다시 시도해 주세요.",
+
+    mapTitle: "농장 위치",
+    mapBedCountN: "베드 {{n}}개",
+    mapNoCoordsMsg: "좌표를 넣은 농장이 없습니다. 농장 수정에서 현재 위치로 를 누르면 그 자리 좌표가 들어갑니다.",
+    mapLocatedN: "{{n}}곳",
+    mapMissingN: "좌표가 없는 농장 {{n}}곳은 표시되지 않습니다 —",
+    mapAddCoords: "좌표 넣기",
+    coordsLabel: "좌표",
+    coordsUseCurrent: "현재 위치로",
+    coordsLocating: "확인 중…",
+    coordsHint: "지도 표시와 폭우·태풍 경보에 씁니다. 농장에 서서 휴대폰으로 누르면 가장 정확합니다.",
+    coordsOpenMap: "지도에서 이 위치 확인",
   },
   en: {
     title: "Farms & devices",
@@ -321,6 +349,18 @@ export const agriFarms: Record<Locale, AgriFarmsDict> = {
     noBedsMsg: "Add a bed to start monitoring.",
     saveFailed: "Could not save. Please try again.",
     deleteFailed: "Could not delete. Please try again.",
+
+    mapTitle: "Farm locations",
+    mapBedCountN: "{{n}} beds",
+    mapNoCoordsMsg: "No farm has coordinates yet. Open Edit farm and press Use current location to fill them in.",
+    mapLocatedN: "{{n}} sites",
+    mapMissingN: "{{n}} farms without coordinates are not shown —",
+    mapAddCoords: "Add coordinates",
+    coordsLabel: "Coordinates",
+    coordsUseCurrent: "Use current location",
+    coordsLocating: "Locating…",
+    coordsHint: "Used for the map and heavy-rain/typhoon warnings. Most accurate when pressed on your phone while standing at the farm.",
+    coordsOpenMap: "Check this spot on the map",
   },
   vi: {
     title: "Nông trại & thiết bị",
@@ -421,6 +461,18 @@ export const agriFarms: Record<Locale, AgriFarmsDict> = {
     noBedsMsg: "Thêm luống để bắt đầu giám sát.",
     saveFailed: "Không lưu được. Vui lòng thử lại.",
     deleteFailed: "Không xóa được. Vui lòng thử lại.",
+
+    mapTitle: "Vị trí nông trại",
+    mapBedCountN: "{{n}} luống",
+    mapNoCoordsMsg: "Chưa có nông trại nào có tọa độ. Mở Sửa nông trại và nhấn Dùng vị trí hiện tại để điền.",
+    mapLocatedN: "{{n}} địa điểm",
+    mapMissingN: "{{n}} nông trại chưa có tọa độ không được hiển thị —",
+    mapAddCoords: "Thêm tọa độ",
+    coordsLabel: "Tọa độ",
+    coordsUseCurrent: "Dùng vị trí hiện tại",
+    coordsLocating: "Đang xác định…",
+    coordsHint: "Dùng cho bản đồ và cảnh báo mưa lớn/bão. Chính xác nhất khi nhấn trên điện thoại ngay tại nông trại.",
+    coordsOpenMap: "Xem vị trí này trên bản đồ",
   },
   id: {
     title: "Kebun & perangkat",
@@ -521,5 +573,17 @@ export const agriFarms: Record<Locale, AgriFarmsDict> = {
     noBedsMsg: "Tambahkan bedeng untuk mulai memantau.",
     saveFailed: "Tidak dapat menyimpan. Silakan coba lagi.",
     deleteFailed: "Tidak dapat menghapus. Silakan coba lagi.",
+
+    mapTitle: "Lokasi kebun",
+    mapBedCountN: "{{n}} bedeng",
+    mapNoCoordsMsg: "Belum ada kebun dengan koordinat. Buka Ubah kebun lalu tekan Gunakan lokasi saat ini untuk mengisinya.",
+    mapLocatedN: "{{n}} lokasi",
+    mapMissingN: "{{n}} kebun tanpa koordinat tidak ditampilkan —",
+    mapAddCoords: "Tambah koordinat",
+    coordsLabel: "Koordinat",
+    coordsUseCurrent: "Gunakan lokasi saat ini",
+    coordsLocating: "Mencari lokasi…",
+    coordsHint: "Dipakai untuk peta dan peringatan hujan lebat/topan. Paling akurat jika ditekan dari ponsel saat berada di kebun.",
+    coordsOpenMap: "Lihat titik ini di peta",
   },
 }
