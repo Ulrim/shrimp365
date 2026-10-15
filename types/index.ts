@@ -16,6 +16,9 @@ export interface User {
   role: "admin" | "manager" | "operator" | "viewer" | "farmer"
   plan?: "free" | "basic" | "pro" | "enterprise"
   farm_count?: number
+  /** 계정 기본 화면 모드(profiles.ui_mode). 마이그레이션 전 DB 는 값이 없어
+   *  선택 필드로 두고, 읽는 쪽에서 "shrimp" 으로 간주한다. */
+  ui_mode?: "shrimp" | "agriculture"
 }
 
 export interface Farm {

@@ -8,7 +8,9 @@
 
 "use client"
 
-import { usePathname } from "next/navigation"
+import { useCallback } from "react"
+import { usePathname, useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 
 /** 농업 화면 URL 접두사. 법인명 다움랩스의 로마자 표기. */
 export const AGRI_PREFIX = "/daumlabs"
@@ -100,4 +102,47 @@ export function useAgriRoute(): { isAgri: boolean; href: (p: string) => string }
   const pathname = usePathname()
   const isAgri = isAgriPath(pathname ?? "")
   return { isAgri, href: (p: string) => agriHref(p, isAgri) }
+}
+
+// ── 모드 두 축 — 계정 모드(ui_mode)와 화면 URL (설계서 mode-split.md 2장) ──────
+//
+//   profiles.ui_mode = 이 계정의 기본 모드 (전환 스위치가 저장, /home 착지 결정)
+//   URL(/daumlabs/**) = 지금 보고 있는 화면 (렌더링 판정은 계속 URL)
+
+export type UiMode = "shrimp" | "agriculture"
+
+/** 지금 주소가 어느 모드의 화면인가. `isAgriPath` 의 UiMode 표현. */
+export function modeOfPath(pathname: string): UiMode {
+  return isAgriPath(pathname) ? "agriculture" : "shrimp"
+}
+
+/** 지금 화면의 상대 모드 주소.
+ *  - `/dashboard` ↔ `/daumlabs/dashboard` — AGRI_ROUTES 에 있으면 1:1 로 맞물린다.
+ *  - 상대편에 없는 화면(`/production`, `/vision` …)이면 그쪽 홈으로 간다.
+ *  - 이미 같은 모드면 그대로 돌려준다(쿼리스트링은 떼지 않는다). */
+export function counterpartHref(pathname: string, to: UiMode): string {
+  const current = modeOfPath(pathname)
+  if (current === to) return pathname
+  const base = stripAgriPrefix(pathOnly(pathname))
+  const known = AGRI_ROUTE_SET.has(base) ? base : "/home"
+  return to === "agriculture" ? AGRI_PREFIX + known : known
+}
+
+/** 전환 스위치가 쓰는 훅.
+ *  - `current` = URL 기준(지금 보는 화면) — 스위치의 활성 칸은 이것을 따른다.
+ *  - `saved`   = `user.ui_mode`(계정 설정).
+ *  - `switchTo` = 저장(updateUiMode) 뒤 상대 주소로 이동. 저장이 실패해도 이동은
+ *    한다 — URL 이 화면을 결정하므로(updateUiMode 는 실패를 삼키고 경고만 남긴다). */
+export function useUiMode(): { current: UiMode; saved: UiMode; switchTo: (mode: UiMode) => Promise<void> } {
+  const pathname = usePathname() ?? ""
+  const router = useRouter()
+  const { user, updateUiMode } = useAuth()
+  const current = modeOfPath(pathname)
+  const saved: UiMode = user?.ui_mode ?? "shrimp"
+  const switchTo = useCallback(async (mode: UiMode) => {
+    await updateUiMode(mode)
+    const next = counterpartHref(pathname, mode)
+    if (next !== pathname) router.push(next)
+  }, [pathname, router, updateUiMode])
+  return { current, saved, switchTo }
 }

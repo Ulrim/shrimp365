@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useMemo, ReactNode } fr
 import { ko, en, vi, id, type Dict, type Locale, LOCALES } from "@/lib/i18n"
 import type { DictOverride } from "@/lib/i18n/types"
 import { agriKo } from "@/lib/i18n/agri-ko"
+import { agriDict, type AgriDict } from "@/lib/i18n/agri"
 
 const COOKIE_NAME = "shrimp365_lang"
 const STORAGE_KEY = "shrimp365_lang"
@@ -90,6 +91,13 @@ export function useT() {
   const ctx = useContext(I18nContext)
   if (!ctx) throw new Error("useT must be used within I18nProvider")
   return ctx
+}
+
+/** 농업(스마트팜) 전용 사전(설계서 mode-split.md 6장). 농업 뷰와 농업 모드 셸이
+ *  읽는다. 공용 UI 문구(저장·취소·날짜)는 그대로 `useT().t.common` 을 쓴다. */
+export function useAgriT(): AgriDict {
+  const { locale } = useT()
+  return useMemo(() => agriDict(locale), [locale])
 }
 
 /** 2단(섹션 → 키) 얕은 병합. Dict 는 2단 구조라 이것으로 충분하다.

@@ -40,6 +40,12 @@ const config: Config = {
           900: "#0c4a6e",
           950: "#082f49",
         },
+        // 대시보드 셸 강조색(설계서 mode-split.md 4장). 값은 app/globals.css 의
+        // --brand / --brand-hover — 새우 파랑(#1E40AF) 기본, data-mode="agriculture" 녹색.
+        brand: {
+          DEFAULT: "var(--brand)",
+          hover: "var(--brand-hover)",
+        },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {

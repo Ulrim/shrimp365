@@ -39,7 +39,7 @@ function computeCycleDay(stockingDate: string): number {
 
 export default function OnboardingPage() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, updateUiMode } = useAuth()
   const { t: baseT, locale } = useT()
   const [step, setStep] = useState<1 | 2 | 3>(1)
   // 유형 선택 — 기본은 언제나 새우 양식(절대 원칙).
@@ -677,8 +677,13 @@ export default function OnboardingPage() {
                 </div>
                 <Button
                   className="w-full bg-ocean-600 hover:bg-ocean-700 text-white font-semibold min-h-[44px] text-base gap-2"
-                  // 수경재배로 등록했으면 농업 화면(/daumlabs)으로 착지한다(설계서 5-2).
-                  onClick={() => router.replace(isAgri ? `${AGRI_PREFIX}/home` : "/home")}
+                  // 수경재배로 등록했으면 계정 기본 모드를 스마트팜으로 저장한 뒤 농업
+                  // 화면(/daumlabs)으로 착지한다(설계서 mode-split.md 2-2). 저장 실패
+                  // (마이그레이션 전 DB)는 updateUiMode 가 삼키므로 이동은 언제나 된다.
+                  onClick={async () => {
+                    if (isAgri) await updateUiMode("agriculture").catch(() => {})
+                    router.replace(isAgri ? `${AGRI_PREFIX}/home` : "/home")
+                  }}
                 >
                   {t.onboarding.complete} <ChevronRight className="w-5 h-5" aria-hidden="true" />
                 </Button>

@@ -48,11 +48,12 @@ export function HomeView() {
     getFarms()
       .then(farms => {
         if (farms.length === 0) { router.replace("/onboarding"); return }
-        // 전 농장이 수경재배면 농업 화면으로 넘긴다(설계서 5-2). 로그인·소셜
-        // 콜백·북마크 등 모든 진입 경로가 결국 /home 을 거치므로 교정은 여기
-        // 한 곳이면 된다. 이미 부른 getFarms() 결과를 쓰므로 추가 조회 0회다.
-        // 역방향(/daumlabs/home → /home) 자동 이동은 하지 않는다.
-        if (!isAgri && farms.every(f => (f.farm_type ?? "shrimp") === "agriculture")) {
+        // 계정 기본 모드가 스마트팜이면 농업 홈으로 넘긴다(설계서 mode-split.md 2-2).
+        // 로그인·소셜 콜백·북마크 등 모든 진입 경로가 결국 /home 을 거치므로 교정은
+        // 여기 한 곳이면 된다. 판정은 profiles.ui_mode 하나다 — 전환 스위치가 저장한
+        // 값이고, 온보딩에서 농업 유형을 고르면 함께 저장된다. 혼합 계정도 자기 뜻대로
+        // 정할 수 있다. 역방향(/daumlabs/home → /home) 자동 이동은 하지 않는다.
+        if (!isAgri && user.ui_mode === "agriculture") {
           router.replace(`${AGRI_PREFIX}/home`)
           return
         }
@@ -82,7 +83,7 @@ export function HomeView() {
   if (checking) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]" aria-label={t.homeHub.loadingAria} role="status">
-        <div className="w-8 h-8 border-4 border-[#1E40AF] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-brand border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -95,7 +96,7 @@ export function HomeView() {
         <p className="text-muted-foreground text-sm text-center">{t.homeHub.loadErrorMsg}</p>
         <button
           onClick={() => { setLoadError(false); setChecking(true); setRetry(n => n + 1) }}
-          className="min-h-[44px] px-6 py-2 rounded-xl bg-[#1E40AF] text-white font-medium hover:bg-[#3B82F6] transition-colors"
+          className="min-h-[44px] px-6 py-2 rounded-xl bg-brand text-white font-medium hover:bg-brand-hover transition-colors"
           aria-label={t.homeHub.retryAria}
         >
           {t.homeHub.retry}
@@ -156,7 +157,7 @@ export function HomeView() {
             <Link
               href="/onboarding"
               aria-label={t.homeHub.registerFarmAria}
-              className="inline-flex items-center justify-center min-h-[44px] mt-3 px-5 py-2 rounded-xl bg-[#1E40AF] text-white text-sm font-medium hover:bg-[#3B82F6] transition-colors"
+              className="inline-flex items-center justify-center min-h-[44px] mt-3 px-5 py-2 rounded-xl bg-brand text-white text-sm font-medium hover:bg-brand-hover transition-colors"
             >
               {t.dashboard.goToFarms}
             </Link>
@@ -168,9 +169,9 @@ export function HomeView() {
           <Link
             href={withAgri("/record")}
             aria-label={t.homeHub.recordCardAria}
-            className="group flex flex-col items-center justify-center gap-4 rounded-xl border border-border bg-card hover:border-[#1E40AF] hover:bg-[#1E40AF]/[0.04] transition-colors duration-200 py-10 px-6 min-h-[44px] text-center"
+            className="group flex flex-col items-center justify-center gap-4 rounded-xl border border-border bg-card hover:border-brand hover:bg-brand/[0.04] transition-colors duration-200 py-10 px-6 min-h-[44px] text-center"
           >
-            <div className="w-14 h-14 rounded-xl bg-[#1E40AF] flex items-center justify-center text-white" aria-hidden="true">
+            <div className="w-14 h-14 rounded-xl bg-brand flex items-center justify-center text-white" aria-hidden="true">
               <ClipboardList className="w-7 h-7" />
             </div>
             <div>

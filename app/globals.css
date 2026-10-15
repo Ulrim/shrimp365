@@ -1,6 +1,22 @@
 @import "tailwindcss";
 @config "../tailwind.config.ts";
 
+/* 대시보드 셸 강조색 토큰 — 설계서 mode-split.md 4장.
+ *
+ * 셸(사이드바·헤더·하단 네비·설정 패널·홈)은 #1E40AF 를 직접 적지 않고 `brand`
+ * (tailwind.config.ts) 로 읽는다. 기본값은 예전 하드코딩값 그대로라 새우 모드의
+ * 결과 색은 바뀌지 않는다. `data-mode="agriculture"` 는 (dashboard)/layout.tsx 가
+ * URL(/daumlabs/**)로 판정해 최상위 div 에 붙인다 — 그 아래의 패널이 함께 물든다.
+ * 랜딩·게시판·카드뉴스·관제센터는 이 토큰을 쓰지 않는다(공개 화면은 항상 파랑). */
+:root {
+  --brand: #1E40AF;
+  --brand-hover: #3B82F6;
+}
+[data-mode="agriculture"] {
+  --brand: #15803D;
+  --brand-hover: #16A34A;
+}
+
 @layer base {
   :root {
     --background: 210 40% 98%;

@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { AgriDictOverride } from "@/lib/i18n-context"
-import { isAgriPath } from "@/lib/agri-route"
+import { isAgriPath, modeOfPath } from "@/lib/agri-route"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
 import { BottomNav } from "@/components/layout/bottom-nav"
@@ -24,8 +24,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-10 h-10 border-4 border-[#1E40AF] border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-background" data-mode={modeOfPath(pathname ?? "")}>
+        <div className="w-10 h-10 border-4 border-brand border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -43,8 +43,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         * 같은 래퍼 안이라 열려 있는 채로 인쇄해도 찍히지 않는다.
         *
         * 높이·overflow 해제는 app/globals.css 의 @media print 가 맡는다. 여기서
-        * print:overflow-visible 로 덮으면 lg:* 와 순서에 의존하게 되기 때문이다. */}
-      <div className="min-h-screen flex bg-background">
+        * print:overflow-visible 로 덮으면 lg:* 와 순서에 의존하게 되기 때문이다.
+        *
+        * data-mode 는 셸 강조색 토큰(--brand)을 고른다(설계서 mode-split.md 4장).
+        * 농업 화면(/daumlabs/**)이면 녹색, 아니면 기존 파랑 그대로다. 설정·알림·검색
+        * 패널은 이 div 아래에 렌더되므로 함께 물든다. */}
+      <div className="min-h-screen flex bg-background" data-mode={modeOfPath(pathname ?? "")}>
         <div className="contents print:hidden">
           <Sidebar />
         </div>
