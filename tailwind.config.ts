@@ -45,6 +45,7 @@ const config: Config = {
         brand: {
           DEFAULT: "var(--brand)",
           hover: "var(--brand-hover)",
+          fg: "var(--brand-fg)",
         },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",

@@ -158,7 +158,7 @@ export function Header() {
       <header className="h-14 lg:h-16 border-b border-border bg-card/80 backdrop-blur-md flex items-center justify-between px-4 lg:px-6 shrink-0">
         {/* Mobile: logo + page title stacked; Desktop: just page title */}
         <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
-          <div className="lg:hidden w-8 h-8 border-[1.5px] border-brand text-brand rounded-xl flex items-center justify-center shrink-0">
+          <div className="lg:hidden w-8 h-8 border-[1.5px] border-brand text-brand-fg rounded-xl flex items-center justify-center shrink-0">
             <DropMark />
           </div>
           <div className="min-w-0">

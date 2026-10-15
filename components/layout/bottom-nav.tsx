@@ -114,8 +114,8 @@ export function BottomNav() {
                 {active && (
                   <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-brand rounded-b-full" />
                 )}
-                <item.icon className={cn("w-5 h-5 shrink-0 transition-transform", active ? "text-brand scale-110" : "text-muted-foreground")} />
-                <span className={cn("text-[10px] font-medium leading-none truncate w-full text-center", active ? "text-brand" : "text-muted-foreground")}>
+                <item.icon className={cn("w-5 h-5 shrink-0 transition-transform", active ? "text-brand-fg scale-110" : "text-muted-foreground")} />
+                <span className={cn("text-[10px] font-medium leading-none truncate w-full text-center", active ? "text-brand-fg" : "text-muted-foreground")}>
                   {item.label}
                 </span>
               </Link>
@@ -130,8 +130,8 @@ export function BottomNav() {
             {isMoreActive && (
               <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-brand rounded-b-full" />
             )}
-            <MoreHorizontal className={cn("w-5 h-5 shrink-0", isMoreActive ? "text-brand" : "text-muted-foreground")} />
-            <span className={cn("text-[10px] font-medium leading-none truncate w-full text-center", isMoreActive ? "text-brand" : "text-muted-foreground")}>
+            <MoreHorizontal className={cn("w-5 h-5 shrink-0", isMoreActive ? "text-brand-fg" : "text-muted-foreground")} />
+            <span className={cn("text-[10px] font-medium leading-none truncate w-full text-center", isMoreActive ? "text-brand-fg" : "text-muted-foreground")}>
               {moreLabel}
             </span>
           </button>
@@ -184,11 +184,11 @@ export function BottomNav() {
                     className={cn(
                       "flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all",
                       active
-                        ? "bg-brand/10 text-brand border border-brand/25"
+                        ? "bg-brand/10 text-brand-fg border border-brand/25"
                         : "text-foreground active:bg-accent"
                     )}
                   >
-                    <item.icon className={cn("w-5 h-5", active ? "text-brand" : "text-muted-foreground")} />
+                    <item.icon className={cn("w-5 h-5", active ? "text-brand-fg" : "text-muted-foreground")} />
                     <span className="flex-1 font-medium text-[15px]">{item.label}</span>
                     <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </Link>

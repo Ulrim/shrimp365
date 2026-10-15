@@ -11,10 +11,17 @@
 :root {
   --brand: #1E40AF;
   --brand-hover: #3B82F6;
+  /* 글자·아이콘용. 새우는 --brand 와 같아 결과 색 변화 0. 농업 녹색(#15803D)은
+   * 다크 배경에서 3.6:1 로 AA 미달이라 다크에서만 밝은 톤(green-500)으로 올린다. */
+  --brand-fg: var(--brand);
 }
 [data-mode="agriculture"] {
   --brand: #15803D;
   --brand-hover: #16A34A;
+  --brand-fg: #15803D;
+}
+.dark [data-mode="agriculture"] {
+  --brand-fg: #22C55E;
 }
 
 @layer base {

@@ -110,12 +110,12 @@ export function Sidebar() {
         className={cn(
           "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative",
           isActive
-            ? "bg-brand/10 text-brand border border-brand/25"
+            ? "bg-brand/10 text-brand-fg border border-brand/25"
             : "text-muted-foreground hover:text-foreground hover:bg-accent",
           collapsed && "justify-center px-2"
         )}
       >
-        <Icon className={cn("w-5 h-5 shrink-0", isActive ? "text-brand" : "text-muted-foreground group-hover:text-foreground")} />
+        <Icon className={cn("w-5 h-5 shrink-0", isActive ? "text-brand-fg" : "text-muted-foreground group-hover:text-foreground")} />
         {!collapsed && <span className="flex-1">{label}</span>}
         {!collapsed && badge && (
           <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-full bg-[#D97706]/12 text-[#B45309] border border-[#D97706]/30 shrink-0">
@@ -138,13 +138,13 @@ export function Sidebar() {
       {/* Logo */}
       <div className={cn("flex items-center gap-3 px-4 py-5 border-b border-border", collapsed && "justify-center px-2")}>
         <Link href={homeHref} className="flex items-center gap-3">
-          <div className="w-9 h-9 border-[1.5px] border-brand text-brand rounded-xl flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 border-[1.5px] border-brand text-brand-fg rounded-xl flex items-center justify-center shrink-0">
             <DropMark />
           </div>
           {!collapsed && (
             <div>
               <span className="text-foreground font-bold text-lg tracking-tight">Shrimp365</span>
-              <p className="text-brand text-[10px] font-mono tracking-[0.15em]">{labels.tagline}</p>
+              <p className="text-brand-fg text-[10px] font-mono tracking-[0.15em]">{labels.tagline}</p>
             </div>
           )}
         </Link>
@@ -172,7 +172,7 @@ export function Sidebar() {
           href="/help"
           className={cn(
             "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all",
-            pathname === "/help" && "bg-brand/10 text-brand border border-brand/25",
+            pathname === "/help" && "bg-brand/10 text-brand-fg border border-brand/25",
             collapsed && "justify-center"
           )}
         >
@@ -194,7 +194,7 @@ export function Sidebar() {
         {/* Free badge */}
         {!collapsed && (
           <div className="px-3 py-2">
-            <span className="text-[10px] font-mono font-semibold tracking-wider px-2 py-0.5 rounded-full bg-brand/10 text-brand border border-brand/25">
+            <span className="text-[10px] font-mono font-semibold tracking-wider px-2 py-0.5 rounded-full bg-brand/10 text-brand-fg border border-brand/25">
               FREE
             </span>
           </div>

@@ -400,7 +400,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               <div className="p-4 bg-muted border border-border rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">{t.settings.currentPlan}</span>
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-brand/10 text-brand border border-brand/25">
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-brand/10 text-brand-fg border border-brand/25">
                     Free
                   </span>
                 </div>

@@ -8,6 +8,9 @@
 //   conductivity 는 DB(µS/cm) 저장값을 받아 화면에서 mS/cm 로 보인다(÷1000).
 //   그 밖은 저장값 그대로다.
 // 0 의 뜻(미측정인가 실측인가)은 `agriIsMissing` 한 곳에 맡긴다 — 유량 0 은 펌프 정지.
+import { Zap, Droplets, ThermometerSun, Wind, Waves, Gauge } from "lucide-react"
+import type { IconComponent } from "@/types"
+import type { AgriDict } from "@/lib/i18n/agri"
 import { agriIsMissing } from "@/lib/agri-standards"
 
 /** water_quality_readings 의 컬럼 키. */
@@ -33,16 +36,18 @@ export interface AgriParam {
   scale: number
   /** 차트·타일 강조색(hex). 상태색(emerald/amber/red)과 겹치지 않게 골랐다. */
   color: string
+  /** 타일·탭·입력 폼이 공유하는 아이콘(수아 시안 3-4) — 세 화면이 각자 들고 다니지 않게. */
+  icon: IconComponent
 }
 
 /** 양액 관리 탭 순서이기도 하다 — EC(기본) → pH → 양액 온도 → DO → 유량 → 차압. */
 export const AGRI_PARAMS: readonly AgriParam[] = [
-  { key: "conductivity",  dictKey: "ec",           unit: "mS/cm", digits: 2, scale: 1 / 1000, color: "#0ea5e9" },
-  { key: "ph",            dictKey: "ph",           unit: "",      digits: 2, scale: 1,        color: "#8b5cf6" },
-  { key: "temperature",   dictKey: "temperature",  unit: "°C",    digits: 1, scale: 1,        color: "#f59e0b" },
-  { key: "do_level",      dictKey: "do",           unit: "ppm",   digits: 1, scale: 1,        color: "#14b8a6" },
-  { key: "flow_rate",     dictKey: "flowRate",     unit: "L/min", digits: 1, scale: 1,        color: "#6366f1" },
-  { key: "diff_pressure", dictKey: "diffPressure", unit: "kPa",   digits: 1, scale: 1,        color: "#f43f5e" },
+  { key: "conductivity",  dictKey: "ec",           unit: "mS/cm", digits: 2, scale: 1 / 1000, color: "#0ea5e9", icon: Zap },
+  { key: "ph",            dictKey: "ph",           unit: "",      digits: 2, scale: 1,        color: "#8b5cf6", icon: Droplets },
+  { key: "temperature",   dictKey: "temperature",  unit: "°C",    digits: 1, scale: 1,        color: "#f59e0b", icon: ThermometerSun },
+  { key: "do_level",      dictKey: "do",           unit: "ppm",   digits: 1, scale: 1,        color: "#14b8a6", icon: Wind },
+  { key: "flow_rate",     dictKey: "flowRate",     unit: "L/min", digits: 1, scale: 1,        color: "#6366f1", icon: Waves },
+  { key: "diff_pressure", dictKey: "diffPressure", unit: "kPa",   digits: 1, scale: 1,        color: "#f43f5e", icon: Gauge },
 ] as const
 
 const BY_KEY: Record<AgriParamKey, AgriParam> = Object.fromEntries(
@@ -63,4 +68,12 @@ export function agriDisplayValue(key: AgriParamKey, value: number | null | undef
 export function agriFormat(key: AgriParamKey, value: number | null | undefined): string {
   const v = agriDisplayValue(key, value)
   return v == null ? "—" : v.toFixed(BY_KEY[key].digits)
+}
+
+/** 차트 y 값용 별칭 — `agriDisplayValue` 와 같다(시안 3-4 의 이름). */
+export const agriScaled = agriDisplayValue
+
+/** 항목 이름. 사전은 화면 쪽(useAgriT) 에서 받아 넘긴다. */
+export function agriParamLabel(d: AgriDict, key: AgriParamKey): string {
+  return d.common.param[BY_KEY[key].dictKey]
 }
