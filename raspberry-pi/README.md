@@ -479,6 +479,9 @@ sudo reboot
 [webui]
 enabled = true
 port = 8080
+; 장비 모드 — shrimp(양식장·Shrimp365, 기본) 또는 agriculture(스마트팜·Farm365).
+; 화면의 [설정] → [모드] 에서도 바꿉니다. 화면 이름·라벨·강조색만 바뀌고 측정·전송은 같습니다.
+mode = shrimp
 ```
 
 재부팅 없이 바로 확인하려면

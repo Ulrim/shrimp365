@@ -83,7 +83,7 @@ try:
 except ImportError:  # pragma: no cover
     advice_mod = None
 
-VERSION = "1.9.0"
+VERSION = "1.9.1"
 
 # 추세 판정을 몇 초마다 다시 돌릴지. 임계값 권고는 매 측정마다 즉시 나가고,
 # 추세는 몇 분 늦어도 되므로 나눠 둔다 — 라즈베리 제로에서 1분마다 나흘치를
@@ -1228,10 +1228,10 @@ def save_interval(config_path: Path, seconds: int) -> bool:
         return False
 
 
-def save_language(config_path: Path, lang: str) -> bool:
-    """화면 언어를 [webui] 구간에 적는다. 재부팅 후에도 고른 언어가 남아야 한다.
+def _save_webui_value(config_path: Path, key: str, value: str) -> bool:
+    """[webui] 구간의 항목 하나를 적는다. 재부팅 후에도 고른 값이 남아야 한다.
 
-    language 항목이 없으면 [webui] 안에 새로 끼워 넣는다. 주석을 지우지 않으려고
+    항목이 없으면 [webui] 안에 새로 끼워 넣는다. 주석을 지우지 않으려고
     configparser 로 통째로 다시 쓰지 않고 줄 단위로 손본다(save_interval 과 같은 방식).
     """
     try:
@@ -1245,22 +1245,36 @@ def save_language(config_path: Path, lang: str) -> bool:
             in_webui = True
             continue
         if in_webui:
-            if s.startswith("language") and "=" in line:
-                lines[i] = f"language = {lang}\n"   # 기존 값 교체
+            if s.startswith(key) and "=" in line:
+                lines[i] = f"{key} = {value}\n"   # 기존 값 교체
                 break
             if s.startswith("[") and s.endswith("]"):
-                lines.insert(i, f"language = {lang}\n")   # 다음 구간 직전에 삽입
+                lines.insert(i, f"{key} = {value}\n")   # 다음 구간 직전에 삽입
                 break
     else:
         if not in_webui:
             return False   # [webui] 구간이 없다
-        lines.append(f"language = {lang}\n")   # [webui] 가 파일 끝까지 이어졌다
+        lines.append(f"{key} = {value}\n")   # [webui] 가 파일 끝까지 이어졌다
     try:
         config_path.write_text("".join(lines), encoding="utf-8")
         os.chmod(config_path, 0o600)
         return True
     except OSError:
         return False
+
+
+def save_language(config_path: Path, lang: str) -> bool:
+    """화면 언어를 [webui] 구간에 적는다."""
+    return _save_webui_value(config_path, "language", lang)
+
+
+def save_mode(config_path: Path, mode: str) -> bool:
+    """장비 모드(shrimp|agriculture)를 [webui] 구간에 적는다.
+
+    모드는 장비 화면의 표시 설정이다 — 이름·라벨·강조색이 바뀌고 서버 통신·
+    payload 는 그대로다. 그래서 [sensors] 가 아니라 [webui] 에 둔다.
+    """
+    return _save_webui_value(config_path, "mode", mode)
 
 
 def save_ec_mode(config_path: Path, mode: str, unit: str) -> bool:
@@ -1866,6 +1880,10 @@ def main() -> int:
     interval_holder = {"seconds": interval}
     # 화면 언어(ko/en/vi/id). 화면에서 고르면 config 에도 남긴다.
     lang_holder = {"lang": cfg.get("webui", "language", fallback="ko")}
+    # 장비 모드 — shrimp(양식장) | agriculture(스마트팜). 화면 표시만 바꾼다.
+    # 값이 없거나 모르는 값이면 양식장이다 — 기존 장비는 그대로 돌아야 한다.
+    _ui_mode = cfg.get("webui", "mode", fallback="shrimp").strip().lower()
+    mode_holder = {"mode": _ui_mode if _ui_mode in ("shrimp", "agriculture") else "shrimp"}
     # 연속 전송 실패 횟수. 회선이 끊긴 채 안 돌아올 때 무선을 다시 깨우는 기준.
     net_fail = {"count": 0}
 
@@ -2250,6 +2268,37 @@ def main() -> int:
             log.info("화면 언어를 바꿨습니다: %s (파일 저장 %s)", lang, saved)
             return True
 
+        def ui_mode() -> dict:
+            return {"mode": mode_holder["mode"],
+                    "ec_mode": ec_holder["mode"], "ec_unit": ec_holder["unit"]}
+
+        def ui_set_mode(mode: str) -> dict:
+            """장비 모드를 바꾼다. 화면은 다음 갱신(/api/state)에서 즉시 따라온다.
+
+            스마트팜으로 바꿀 때 EC 센서가 염도를 재고 있으면 전도도(mS/cm)로
+            돌린다 — 양액에서 염도 환산값은 뜻이 없다. 사람이 [센서 설정] 에서
+            다시 바꿀 수 있으므로 강제가 아니라 기본값 교정이다. 양식장으로
+            돌아갈 때는 손대지 않는다(민물·기수에서 전도도로 쓰는 양식장도 있다).
+            """
+            if mode not in ("shrimp", "agriculture"):
+                return {"ok": False, "error": "모드는 shrimp 또는 agriculture 입니다"}
+            mode_holder["mode"] = mode
+            ec_changed = False
+            if mode == "agriculture" and ec_holder["mode"] == "salinity":
+                ec_holder["mode"] = "conductivity"
+                ec_holder["unit"] = "ms"
+                ec_changed = True
+            # 파일 저장이 실패해도 지금 화면에서는 동작해야 하므로 먼저 적용한다.
+            if state is not None:
+                state.update(mode=mode, ec_unit=ec_holder["unit"])
+            saved = save_mode(args.config, mode)
+            if saved and ec_changed:
+                save_ec_mode(args.config, ec_holder["mode"], ec_holder["unit"])
+            log.info("화면에서 장비 모드를 바꿨습니다: %s (EC %s/%s, 파일 저장 %s)",
+                     mode, ec_holder["mode"], ec_holder["unit"], saved)
+            return {"ok": True, "saved": saved, "mode": mode,
+                    "ec_mode": ec_holder["mode"], "ec_unit": ec_holder["unit"]}
+
         webui.serve(
             state,
             cfg.getint("webui", "port", fallback=8080),
@@ -2274,9 +2323,12 @@ def main() -> int:
             on_save_calibration=ui_save_calibration,
             get_nutrient=ui_nutrient,
             on_save_nutrient=ui_save_nutrient,
+            mode=mode_holder["mode"],
+            get_mode=ui_mode,
+            on_set_mode=ui_set_mode,
         )
         state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중",
-                     version=VERSION, ec_unit=ec_holder["unit"])
+                     version=VERSION, ec_unit=ec_holder["unit"], mode=mode_holder["mode"])
 
     # 이미 연결된 기기라면 어느 계정·수조에 붙어 있는지 확인해 화면에 남긴다.
     if auth["key"] and state is not None:

@@ -53,6 +53,7 @@ class State:
 
             "ec_unit": "us",       # 전도도 표시 단위(us|ms). 화면이 값을 바꿔 보여 준다.
             "nutrient": None,      # 양액 보충 안내(켜 둔 경우에만)
+            "mode": "shrimp",      # 장비 모드(shrimp|agriculture). 화면 이름·라벨·색만 바꾼다.
 
             # 장비가 스스로 낸 판단. 통신과 무관하게 여기서 끝난다.
             "advice": [],          # 설비 운전 권고 (advice.py)
@@ -70,11 +71,33 @@ class State:
 
 
 PAGE = """<!doctype html>
-<html lang="__LANG__">
+<html lang="__LANG__" data-mode="__MODE__">
 <meta charset="utf-8">
 <meta name="viewport" content="width=800,initial-scale=1">
 <title>Shrimp365</title>
 <style>
+  /* 강조색 — 모드가 정한다. 양식장은 파랑(기존 값 그대로), 스마트팜은 녹색.
+     색을 쓰는 자리는 전부 이 변수만 보므로 모드 전환은 data-mode 하나로 끝난다. */
+  :root{
+    --brand:#1E40AF;          /* 버튼·마크·활성 칸 */
+    --brand-hover:#3B82F6;    /* 보관 칩 테두리·AI 불빛 */
+    --brand-line:#2563EB;     /* AI 켜짐 테두리 */
+    --brand-text:#60A5FA;     /* 밝은 강조 글자(연결 코드·그래프 현재값) */
+    --brand-text2:#93C5FD;    /* AI 켜짐 글자 */
+    --brand-soft:#1E40AF18;   /* 양액 보충 띠 바탕 */
+    --brand-soft2:#1E40AF22;  /* AI 켜짐 바탕 */
+    --brand-ring:#3B82F633;   /* AI 불빛 테 */
+  }
+  :root[data-mode="agriculture"]{
+    --brand:#15803D;
+    --brand-hover:#16A34A;
+    --brand-line:#16A34A;
+    --brand-text:#4ADE80;
+    --brand-text2:#86EFAC;
+    --brand-soft:#15803D18;
+    --brand-soft2:#15803D22;
+    --brand-ring:#16A34A33;
+  }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;overflow:hidden}
   body{
@@ -87,9 +110,14 @@ PAGE = """<!doctype html>
     display:flex;align-items:center;gap:10px;
     padding:9px 16px;border-bottom:1px solid #22304C;background:#111A2E;
   }
-  .mark{width:24px;height:24px;border-radius:6px;background:#1E40AF;
+  .mark{width:24px;height:24px;border-radius:6px;background:var(--brand);
     display:flex;align-items:center;justify-content:center;flex:0 0 auto}
   .brand{font-weight:800;letter-spacing:-.02em;font-size:16px}
+  /* 부제 — 스마트팜 모드에서만 채워진다. 비어 있으면 자리도 차지하지 않아
+     양식장 화면은 예전과 한 픽셀도 다르지 않다. */
+  .tag{font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--brand-text);
+    flex:0 0 auto;margin-left:-4px}
+  .tag:empty{display:none}
   .ver{font-size:11px;color:#64748B;font-weight:600;flex:0 0 auto}
   .link{
     margin-left:auto;display:flex;align-items:center;gap:7px;
@@ -102,7 +130,7 @@ PAGE = """<!doctype html>
   }
   .chip.on{border-color:#10B981;color:#10B981}
   .chip.off{border-color:#D97706;color:#F59E0B}
-  .chip.hold{border-color:#3B82F6;color:#60A5FA}
+  .chip.hold{border-color:var(--brand-hover);color:var(--brand-text)}
 
   /* AI 모드 표시 — 이 장비가 값만 보여 주는 계측기가 아니라는 것을 머리에 박아 둔다.
      눌러서 "무엇을 하고 있는지" 를 열 수 있으므로 누를 수 있게 보이도록 한다. */
@@ -112,9 +140,9 @@ PAGE = """<!doctype html>
     padding:3px 9px;border-radius:999px;
     border:1px solid #1E3A5F;background:#0F1D33;color:#64748B;
   }
-  .ai.on{border-color:#2563EB;background:#1E40AF22;color:#93C5FD}
+  .ai.on{border-color:var(--brand-line);background:var(--brand-soft2);color:var(--brand-text2)}
   .ai .bulb{width:7px;height:7px;border-radius:50%;background:#475569;flex:0 0 auto}
-  .ai.on .bulb{background:#3B82F6;box-shadow:0 0 0 3px #3B82F633}
+  .ai.on .bulb{background:var(--brand-hover);box-shadow:0 0 0 3px var(--brand-ring)}
 
   /* AI 모드 설명판 */
   .aibox{max-width:520px;text-align:left;width:100%;margin-top:10px;
@@ -126,12 +154,12 @@ PAGE = """<!doctype html>
   .aibox .layer:first-of-type{border-top:0}
   .aibox .n{
     flex:0 0 auto;width:21px;height:21px;border-radius:50%;margin-top:1px;
-    background:#1E40AF;color:#fff;font-size:11px;font-weight:800;
+    background:var(--brand);color:#fff;font-size:11px;font-weight:800;
     display:flex;align-items:center;justify-content:center;
   }
   .aibox .ttl{font-size:14.5px;font-weight:700;color:#E8EDF7}
   .aibox .dsc{font-size:12.5px;color:#94A3B8;line-height:1.5;margin-top:2px}
-  .aibox .now{margin-left:auto;flex:0 0 auto;font-size:12px;font-weight:700;color:#60A5FA;text-align:right}
+  .aibox .now{margin-left:auto;flex:0 0 auto;font-size:12px;font-weight:700;color:var(--brand-text);text-align:right}
   .aibox .foot{margin-top:11px;padding-top:10px;border-top:1px solid #1E293B;
     font-size:12px;color:#64748B;line-height:1.55}
 
@@ -169,13 +197,21 @@ PAGE = """<!doctype html>
     display:flex;align-items:center;gap:12px;
     background:#111A2E;border:1px solid #22304C;
   }
-  .nut.low{border-color:#1E40AF;background:#1E40AF18}
+  .nut.low{border-color:var(--brand);background:var(--brand-soft)}
   .nut.high{border-color:#D97706;background:#D9770618}
   .nut.ok{border-color:#10B981;background:#10B98112}
   .nut .head{font-size:14px;font-weight:800;flex:0 0 auto}
   .nut .dose{font:800 26px/1 ui-monospace,monospace;letter-spacing:-.01em}
   .nut .dose small{font-size:13px;font-weight:600;color:#94A3B8;margin-left:3px}
   .nut .meta{margin-left:auto;font-size:12px;color:#94A3B8;text-align:right;line-height:1.5}
+  /* 스마트팜 모드 — 양액 보충이 이 장비의 주 업무라 값 격자 바로 아래, 권고보다
+     앞에 크게 놓는다. 양식장 모드는 예전 자리(맨 아래, 작게) 그대로다. */
+  .nut.front{padding:12px 16px;border-width:2px;gap:16px}
+  .nut.front .head{font-size:17px}
+  .nut.front .dose{font-size:34px}
+  .nut.front .meta{font-size:13px}
+  .nut.off{border-style:dashed;color:#94A3B8;cursor:pointer}
+  .nut.off .head{font-size:13.5px;font-weight:600}
 
   /* 설비 운전 권고 — 값 격자 바로 아래. "무엇을 돌릴까" 가 값보다 아래이되
      양액 안내보다는 위다(폐사까지의 시간이 짧은 쪽을 먼저 읽게 한다). */
@@ -225,7 +261,7 @@ PAGE = """<!doctype html>
   }
   .step button:first-child{border-radius:8px 0 0 8px}
   .step button:last-child{border-radius:0 8px 8px 0}
-  .step button:active{background:#1E40AF;color:#fff}
+  .step button:active{background:var(--brand);color:#fff}
   .step .num{
     width:46px;height:38px;display:flex;align-items:center;justify-content:center;
     background:#0B1120;border-top:1px solid #22304C;border-bottom:1px solid #22304C;
@@ -236,7 +272,17 @@ PAGE = """<!doctype html>
     background:#111A2E;border:1px solid #22304C;border-radius:11px;
     padding:9px 12px;margin-bottom:7px;
   }
-  .found b{color:#60A5FA;font-family:ui-monospace,monospace}
+  .found b{color:var(--brand-text);font-family:ui-monospace,monospace}
+  /* 모드 고르기 — 두 칸 토글. 활성 칸은 강조색으로 찬다. */
+  .seg{display:flex;gap:8px;margin:8px 0}
+  .seg button{
+    flex:1 1 0;min-width:0;min-height:68px;padding:10px 12px;border-radius:12px;
+    border:1px solid #22304C;background:#111A2E;color:#94A3B8;cursor:pointer;
+    font:700 16px/1.3 inherit;text-align:left;
+  }
+  .seg button small{display:block;font-size:11.5px;font-weight:600;color:#64748B;margin-top:3px}
+  .seg button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+  .seg button[aria-pressed="true"] small{color:#fff;opacity:.8}
   /* 센서 테스트 결과 */
   .trow{margin-top:8px;padding-top:7px;border-top:1px solid #22304C;line-height:1.7}
   .trow:first-of-type{border-top:0;margin-top:4px}
@@ -265,7 +311,7 @@ PAGE = """<!doctype html>
   /* 신호 막대 4칸 */
   .bars{display:flex;align-items:flex-end;gap:2px;height:18px;flex:0 0 auto}
   .bars i{width:4px;background:#334155;border-radius:1px}
-  .bars i.on{background:#60A5FA}
+  .bars i.on{background:var(--brand-text)}
   .bars i:nth-child(1){height:6px}
   .bars i:nth-child(2){height:10px}
   .bars i:nth-child(3){height:14px}
@@ -297,9 +343,9 @@ PAGE = """<!doctype html>
     font:700 16px/1 inherit;color:#E8EDF7;
     background:#16223C;border:1px solid #22304C;border-radius:8px;cursor:pointer;
   }
-  .kbd button:active{background:#1E40AF}
+  .kbd button:active{background:var(--brand)}
   .kbd button.wide{flex:1.6 1 0}
-  .kbd button.go{flex:2 1 0;background:#1E40AF;border-color:#1E40AF;color:#fff}
+  .kbd button.go{flex:2 1 0;background:var(--brand);border-color:var(--brand);color:#fff}
   .kbd button.k-shift.on{background:#334155;border-color:#475569}
 
   /* 그래프 화면 */
@@ -309,7 +355,7 @@ PAGE = """<!doctype html>
   }
   .chead{display:flex;align-items:center;gap:10px;margin-bottom:6px}
   .ctitle{font-size:18px;font-weight:800}
-  .cnow{font:800 22px/1 ui-monospace,monospace;color:#60A5FA}
+  .cnow{font:800 22px/1 ui-monospace,monospace;color:var(--brand-text)}
   .cstats{margin-left:auto;display:flex;gap:12px;font-size:12px;color:#94A3B8}
   .cstats b{color:#E8EDF7;font-weight:700;font-family:ui-monospace,monospace}
   .ranges{display:flex;gap:6px;margin-bottom:6px}
@@ -317,7 +363,7 @@ PAGE = """<!doctype html>
     font:700 13px/1 inherit;padding:8px 14px;min-height:36px;border-radius:8px;
     border:1px solid #22304C;background:transparent;color:#94A3B8;cursor:pointer;
   }
-  .ranges button[aria-pressed="true"]{background:#1E40AF;border-color:#1E40AF;color:#fff}
+  .ranges button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
   .ranges .close{margin-left:auto;border-color:#22304C}
   .plot{flex:1;min-height:0;background:#111A2E;border:1px solid #22304C;border-radius:12px}
   .plot svg{display:block;width:100%;height:100%}
@@ -338,7 +384,7 @@ PAGE = """<!doctype html>
   button.act{
     margin-left:auto;flex:0 0 auto;
     font:700 13px/1 inherit;padding:9px 16px;min-height:38px;border-radius:8px;
-    background:#1E40AF;color:#fff;border:0;cursor:pointer;
+    background:var(--brand);color:#fff;border:0;cursor:pointer;
   }
   button.act.ghost{background:transparent;border:1px solid #22304C;color:#94A3B8}
   button.act:active{opacity:.75}
@@ -356,7 +402,7 @@ PAGE = """<!doctype html>
   .overlay p{color:#94A3B8;font-size:14px;line-height:1.5}
   .code{
     font:800 74px/1 ui-monospace,monospace;letter-spacing:18px;
-    color:#60A5FA;margin:12px 0 8px;padding-left:18px;white-space:nowrap;
+    color:var(--brand-text);margin:12px 0 8px;padding-left:18px;white-space:nowrap;
   }
   .steps{
     text-align:left;display:inline-block;margin-top:6px;
@@ -374,7 +420,8 @@ PAGE = """<!doctype html>
       <path d="M23.2 8.6L29.0 5.8L27.2 11.0L29.2 14.8L20.6 13.4Z"/>
     </svg>
   </span>
-  <span class="brand">Shrimp365</span>
+  <span class="brand" id="brand">Shrimp365</span>
+  <span class="tag" id="tag"></span>
   <span class="ver" id="ver"></span>
   <span class="ai" id="ai" onclick="openAi()"><span class="bulb"></span><span id="ailabel"></span></span>
   <span class="link" id="link"></span>
@@ -415,6 +462,8 @@ var NUT_BANDS = __NUT_BANDS__;
 // 전도도 모드면 전도도가 올라오므로 값이 있는 쪽을 보여 준다.
 function orderFor(d){
   var v = (d && d.values) || {};
+  // 스마트팜에서는 염도를 보여 주지 않는다 — 양액에 염도 환산값은 뜻이 없다.
+  if (isAgri()) return ["temperature","ph","do_level","conductivity"];
   var fourth = (typeof v.salinity === "number") ? "salinity"
              : (typeof v.conductivity === "number") ? "conductivity"
              : "salinity";
@@ -454,6 +503,29 @@ if (!/^(ko|en|vi|id)$/.test(LANG)) LANG = "ko";
 // 언어 이름은 어느 언어에서 보든 그 언어 그대로 적는다(현지 표기).
 var LANG_NAMES = {ko:"한국어", en:"English", vi:"Tiếng Việt", id:"Bahasa Indonesia"};
 var LANG_ORDER = ["ko","en","vi","id"];
+
+// ── 장비 모드 ────────────────────────────────────────────────────────────────
+// shrimp(양식장) | agriculture(스마트팜). 서버가 첫 모드를 __MODE__ 자리에 새겨 주고,
+// 그 뒤로는 /api/state 의 mode 를 따라간다. 바뀌는 것은 화면 이름·라벨·강조색뿐이다 —
+// 측정·전송은 모드를 모른다.
+var MODE = "__MODE__";
+if (MODE !== "agriculture") MODE = "shrimp";
+var BRAND = {
+  shrimp:      {name:"Shrimp365", tag:"",                   accent:"#60A5FA"},
+  agriculture: {name:"Farm365",   tag:"SMART HYDROPONICS",  accent:"#4ADE80"}
+};
+function isAgri(){ return MODE === "agriculture"; }
+// 그래프 SVG 는 속성에 CSS 변수를 못 쓰므로 색을 직접 준다(--brand-text 와 같은 값).
+function accent(){ return BRAND[MODE].accent; }
+
+function applyMode(m){
+  MODE = (m === "agriculture") ? "agriculture" : "shrimp";
+  try { document.documentElement.setAttribute("data-mode", MODE); } catch(e){}
+  var b = BRAND[MODE];
+  document.title = b.name;
+  document.getElementById("brand").textContent = b.name;
+  document.getElementById("tag").textContent = b.tag;
+}
 
 var I18N = {
   // 측정 항목
@@ -508,6 +580,17 @@ var I18N = {
   menu_sensors_sub:{ko:"센서 켜기·끄기, 슬레이브 ID, 측정 주기",en:"Sensors on/off, slave IDs, interval",vi:"Bật/tắt cảm biến, ID, chu kỳ đo",id:"Sensor on/off, ID, interval"},
   menu_wifi_sub:{ko:"공유기에 붙이기",en:"Connect to a router",vi:"Kết nối router",id:"Sambungkan ke router"},
   menu_lang_sub:{ko:"화면 언어 고르기",en:"Choose display language",vi:"Chọn ngôn ngữ hiển thị",id:"Pilih bahasa tampilan"},
+  // 모드
+  menu_mode:{ko:"모드",en:"Mode",vi:"Chế độ",id:"Mode"},
+  menu_mode_sub:{ko:"양식장 / 스마트팜",en:"Shrimp farm / Smart farm",vi:"Trại tôm / Nông trại thông minh",id:"Tambak / Smart farm"},
+  mode_hint:{ko:"이 장비를 어디에 쓰는지 고르세요. 화면 이름·라벨·강조색이 바뀌고, 측정과 서버 전송은 그대로입니다.",en:"Choose where this device is used. The name, labels and accent colour change; measuring and uploading stay the same.",vi:"Chọn nơi dùng thiết bị này. Tên, nhãn và màu nhấn thay đổi; việc đo và gửi dữ liệu giữ nguyên.",id:"Pilih tempat perangkat ini dipakai. Nama, label dan warna aksen berubah; pengukuran dan pengiriman tetap sama."},
+  mode_shrimp:{ko:"양식장",en:"Shrimp farm",vi:"Trại tôm",id:"Tambak"},
+  mode_shrimp_sub:{ko:"수조 · 염도 · 새우 양식 기준",en:"Tanks · salinity · shrimp ranges",vi:"Bể · độ mặn · ngưỡng nuôi tôm",id:"Kolam · salinitas · rentang udang"},
+  mode_agri:{ko:"스마트팜",en:"Smart farm",vi:"Nông trại thông minh",id:"Smart farm"},
+  mode_agri_sub:{ko:"베드 · 전도도(mS/cm) · 양액 보충 안내",en:"Beds · conductivity (mS/cm) · nutrient dosing",vi:"Luống · độ dẫn (mS/cm) · bổ sung dinh dưỡng",id:"Bedeng · konduktivitas (mS/cm) · dosis nutrisi"},
+  mode_ec_note:{ko:"스마트팜으로 바꾸면 EC 센서가 염도 대신 전도도(mS/cm)를 보여 줍니다. [센서 설정] 에서 다시 바꿀 수 있습니다.",en:"Switching to Smart farm shows conductivity (mS/cm) instead of salinity. You can change it back in [Sensor settings].",vi:"Chuyển sang Nông trại thông minh sẽ hiện độ dẫn (mS/cm) thay cho độ mặn. Có thể đổi lại trong [Cài đặt cảm biến].",id:"Beralih ke Smart farm menampilkan konduktivitas (mS/cm) alih-alih salinitas. Bisa diubah kembali di [Pengaturan sensor]."},
+  mode_saved:{ko:"바꿨습니다.",en:"Changed.",vi:"Đã đổi.",id:"Diubah."},
+  nut_off_hint:{ko:"양액 관리 꺼짐 — 눌러서 [양액 설정] 에서 켜세요",en:"Nutrient management off — tap to turn it on in [Nutrient solution]",vi:"Quản lý dinh dưỡng đang tắt — nhấn để bật trong [Dung dịch dinh dưỡng]",id:"Manajemen nutrisi mati — ketuk untuk menyalakan di [Larutan nutrisi]"},
   // 센서 설정
   version:{ko:"버전",en:"Version",vi:"Phiên bản",id:"Versi"},
   checking:{ko:"확인 중",en:"checking",vi:"đang kiểm tra",id:"memeriksa"},
@@ -675,8 +758,17 @@ var I18N = {
   ai_last:{ko:"마지막 추세 분석 {t} · {m}분마다",en:"Last trend pass {t} · every {m} min",vi:"Phân tích xu hướng {t} · mỗi {m} phút",id:"Analisis tren {t} · tiap {m} menit"}
 };
 
+// 스마트팜 모드 사전 — 기본 사전 위에 얕게 얹는다. **바뀌는 키만** 적는다.
+// 수조→베드, 양식장→농장, 새우 기준→양액 기준. 네 언어 모두 채운다(parity).
+var I18N_AGRI = {
+  m_temperature:{ko:"양액 온도",en:"Solution temp.",vi:"Nhiệt độ dung dịch",id:"Suhu larutan"},
+  pair_step2:{ko:"로그인 → 농장·베드 관리",en:"Log in → Farm & bed management",vi:"Đăng nhập → Quản lý nông trại & luống",id:"Masuk → Kelola kebun & bedeng"},
+  pair_step3:{ko:"베드의 <b>센서 기기</b> → <b>코드로 기기 연결</b>",en:"Bed's <b>Sensor devices</b> → <b>Link by code</b>",vi:"<b>Thiết bị cảm biến</b> của luống → <b>Kết nối bằng mã</b>",id:"<b>Perangkat sensor</b> bedeng → <b>Hubungkan via kode</b>"},
+  ai_l1d:{ko:"지금 값이 양액 재배 적정 범위를 벗어났는지. 매 측정마다.",en:"Whether the current value is outside the range for nutrient solution. Every reading.",vi:"Giá trị hiện tại có ngoài ngưỡng dung dịch dinh dưỡng không. Mỗi lần đo.",id:"Apakah nilai saat ini di luar rentang larutan nutrisi. Setiap pengukuran."}
+};
+
 function t(key, vars){
-  var e = I18N[key];
+  var e = (isAgri() && I18N_AGRI[key]) || I18N[key];
   var s = (e && (e[LANG] || e.ko)) || key;
   if (vars) for (var k in vars) s = s.split("{" + k + "}").join(vars[k]);
   return s;
@@ -710,6 +802,9 @@ function renderValues(d){
            '<div class="v">' + v + (r.unit ? '<small>' + (ms ? "mS/cm" : r.unit) + '</small>' : '') + '</div>' +
            subLine(key, d) + '</div>';
   }).join("");
+  // 스마트팜은 양액 보충이 주 업무라 값 바로 아래에 크게 놓는다.
+  // 양식장은 예전 순서 그대로(권고 → 양액).
+  if (isAgri()) return '<div class="grid">' + cells + '</div>' + renderNutrient(d) + renderAdvice(d);
   return '<div class="grid">' + cells + '</div>' + renderAdvice(d) + renderNutrient(d);
 }
 
@@ -806,29 +901,36 @@ function subLine(key, d){
 // 양액 안내 — 켜 두었을 때만. "지금 얼마를 넣어야 하는가" 를 한 줄로 답한다.
 function renderNutrient(d){
   var n = d.nutrient;
-  if (!n) return "";
+  // 스마트팜인데 양액 관리가 꺼져 있으면 그 자리에 켜는 길을 둔다 — 빈칸보다 낫다.
+  // 양식장에서는 예전처럼 아무것도 띄우지 않는다.
+  if (!n) {
+    if (!isAgri()) return "";
+    return '<div class="nut front off" onclick="openSettings();openNutrient()">' +
+      '<span class="head">' + t("nut_off_hint") + '</span></div>';
+  }
+  var cls = isAgri() ? "nut front" : "nut";
   if (n.error === "target_lte_source") {
-    return '<div class="nut high"><span class="head">' + t("nut_bad_cfg") + '</span></div>';
+    return '<div class="' + cls + ' high"><span class="head">' + t("nut_bad_cfg") + '</span></div>';
   }
   var meta = '<span class="meta">EC ' + n.ec + ' / ' + n.target + ' mS/cm<br>' +
              t("nut_conc") + ' ' + n.percent + '%</span>';
   if (n.verdict === "low") {
     if (n.error === "bad_calibration") {
-      return '<div class="nut high"><span class="head">' + t("nut_need_cal") + '</span>' + meta + '</div>';
+      return '<div class="' + cls + ' high"><span class="head">' + t("nut_need_cal") + '</span>' + meta + '</div>';
     }
-    return '<div class="nut low">' +
+    return '<div class="' + cls + ' low">' +
       '<span class="head">' + t("nut_low") + '</span>' +
       '<span class="dose">A ' + n.dose_a + '<small>mL</small></span>' +
       '<span class="dose">B ' + n.dose_b + '<small>mL</small></span>' +
       meta + '</div>';
   }
   if (n.verdict === "high") {
-    return '<div class="nut high">' +
+    return '<div class="' + cls + ' high">' +
       '<span class="head">' + t("nut_high") + '</span>' +
       '<span class="dose">' + (n.exchange_l !== undefined ? n.exchange_l : "--") + '<small>L</small></span>' +
       meta + '</div>';
   }
-  return '<div class="nut ok"><span class="head">' + t("nut_ok") + '</span>' + meta + '</div>';
+  return '<div class="' + cls + ' ok"><span class="head">' + t("nut_ok") + '</span>' + meta + '</div>';
 }
 
 // 연결 상태 — 어느 계정·수조에 붙어 있는지
@@ -981,9 +1083,9 @@ function drawChart(key, hours, d){
   var top = d.points.map(function(p){ return x(p[0]) + "," + y(p[3]); });
   var bot = d.points.map(function(p){ return x(p[0]) + "," + y(p[2]); }).reverse();
   var spread = '<polygon points="' + top.concat(bot).join(" ") +
-               '" fill="#60A5FA" opacity="0.18"/>';
+               '" fill="' + accent() + '" opacity="0.18"/>';
 
-  var line = '<polyline fill="none" stroke="#60A5FA" stroke-width="2" ' +
+  var line = '<polyline fill="none" stroke="' + accent() + '" stroke-width="2" ' +
              'stroke-linejoin="round" stroke-linecap="round" points="' +
              d.points.map(function(p){ return x(p[0]) + "," + y(p[1]); }).join(" ") + '"/>';
 
@@ -1009,7 +1111,7 @@ function drawChart(key, hours, d){
   });
 
   var last = d.points[d.points.length-1];
-  var dot = '<circle cx="' + x(last[0]) + '" cy="' + y(last[1]) + '" r="4" fill="#60A5FA"/>';
+  var dot = '<circle cx="' + x(last[0]) + '" cy="' + y(last[1]) + '" r="4" fill="' + accent() + '"/>';
 
   document.getElementById("chart").innerHTML =
     '<div class="chart">' + head +
@@ -1031,6 +1133,8 @@ function render(d){
     if (bootVersion === null) bootVersion = d.version;
     else if (d.version !== bootVersion) { location.reload(); return; }
   }
+  // 모드는 수집기가 정본이다. 화면이 바꾼 뒤에도, SSH 로 설정을 고친 뒤에도 따라간다.
+  if (d.mode && d.mode !== MODE) applyMode(d.mode);
   document.getElementById("link").innerHTML = renderLink(d);
   document.getElementById("ver").textContent = d.version ? "v" + d.version : "";
   renderAi(d);
@@ -1182,6 +1286,7 @@ function drawSettingsMenu(){
     {t:"menu_sensors", sub:"menu_sensors_sub", fn:"openSensors()"},
     {t:"menu_wifi",    sub:"menu_wifi_sub",    fn:"openWifi()"},
     {t:"menu_lang",    sub:"menu_lang_sub",    fn:"openLang()"},
+    {t:"menu_mode",    sub:"menu_mode_sub",    fn:"openMode()"},
     {t:"menu_cal",      sub:"menu_cal_sub",      fn:"openCal()"},
     {t:"menu_nutrient", sub:"menu_nutrient_sub", fn:"openNutrient()"},
     {t:"menu_restart", sub:"menu_restart_sub", fn:"openRestart()"}
@@ -1233,6 +1338,63 @@ function drawLang(){
         rows +
       '</div>' +
     '</div>';
+}
+
+// ── 모드 설정 ────────────────────────────────────────────────────────────────
+// 양식장(Shrimp365) / 스마트팜(Farm365) 두 칸 토글. 누르는 즉시 수집기에 저장하고
+// 화면도 바로 갈아입는다 — 재시작이 필요 없다(이름·라벨·색만 바뀌므로).
+var modeMsg = null;
+
+function openMode(){ modeMsg = null; drawMode(); }
+
+function drawMode(){
+  document.getElementById("wifi").innerHTML = "";
+  var cell = function(val, label, sub, brand){
+    return '<button aria-pressed="' + (MODE === val ? "true" : "false") + '" ' +
+      'onclick="setMode(&quot;' + val + '&quot;)">' +
+      t(label) + ' <span style="font-weight:600;opacity:.8">· ' + brand + '</span>' +
+      '<small>' + t(sub) + '</small></button>';
+  };
+  var msg = modeMsg ? '<div class="msg ' + modeMsg.kind + '">' + esc(modeMsg.text) + '</div>' : "";
+  document.getElementById("setup").innerHTML =
+    '<div class="setup">' +
+      '<div class="chead">' +
+        '<span class="ctitle">' + t("menu_mode") + '</span>' +
+        '<button style="margin-left:auto" onclick="drawSettingsMenu()">' + t("back_menu") + '</button>' +
+      '</div>' +
+      '<div class="sbody">' +
+        msg +
+        '<div class="sub" style="margin:2px 0 8px">' + t("mode_hint") + '</div>' +
+        '<div class="seg">' +
+          cell("shrimp", "mode_shrimp", "mode_shrimp_sub", BRAND.shrimp.name) +
+          cell("agriculture", "mode_agri", "mode_agri_sub", BRAND.agriculture.name) +
+        '</div>' +
+        '<div class="sub">' + t("mode_ec_note") + '</div>' +
+      '</div>' +
+    '</div>';
+}
+
+function setMode(m){
+  if (m !== "shrimp" && m !== "agriculture") return;
+  if (m === MODE) return;
+  fetch("/api/mode", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({mode:m})})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d && d.ok){
+        applyMode(d.mode || m);
+        if (lastState) {   // 뒤 화면도 새 모드(와 바뀐 EC 단위)로 — 다음 갱신을 기다리지 않는다
+          lastState.mode = MODE;
+          if (d.ec_unit) lastState.ec_unit = d.ec_unit;
+          render(lastState);
+        }
+        modeMsg = {kind:"ok", text: d.saved ? t("mode_saved") : t("saved_mem")};
+      } else {
+        modeMsg = {kind:"err", text:(d && d.error) || t("save_fail")};
+      }
+      drawMode();
+    })
+    .catch(function(){ modeMsg = {kind:"err", text:t("save_fail")}; drawMode(); });
 }
 
 // ── 보정 설정 ────────────────────────────────────────────────────────────────
@@ -2049,6 +2211,7 @@ function tick(){
       document.getElementById("dot").className = "dot bad";
     });
 }
+applyMode(MODE);   // 서버가 새겨 준 첫 모드로 이름·부제를 맞춘다
 tick();
 setInterval(tick, 3000);
 </script>
@@ -2080,16 +2243,23 @@ def serve(
     on_save_calibration=None,
     get_nutrient=None,
     on_save_nutrient=None,
+    mode="shrimp",
+    get_mode=None,
+    on_set_mode=None,
 ) -> ThreadingHTTPServer | None:
     """상태 페이지를 띄운다. 실패해도 수집은 계속되어야 하므로 None 을 돌려준다."""
 
     # 첫 화면 언어를 페이지에 새겨 둔다(웹페이지와 같은 4종). 화면에서 바꾸면
     # JS 가 즉시 다시 그리고 서버에도 남기므로, 다음에 열 때 그 언어로 뜬다.
     lang = language if language in ("ko", "en", "vi", "id") else "ko"
+    # 첫 모드도 같은 방식으로 새긴다 — 첫 페인트부터 올바른 이름·색이어야 한다.
+    # 그 뒤로는 /api/state 의 mode 를 따라가므로 여기 값은 첫 화면용이다.
+    first_mode = mode if mode in ("shrimp", "agriculture") else "shrimp"
     # 판정 숫자는 limits.py 한 곳에서만 온다 — 화면에 같은 값을 또 적어 두면
     # 한쪽만 고쳐져 수조 옆 색과 서버 알림이 어긋난다(실제로 수온이 그랬다).
     page_bytes = (PAGE
                   .replace("__LANG__", lang)
+                  .replace("__MODE__", first_mode)
                   .replace("__BANDS__", json.dumps(limits.BANDS))
                   .replace("__NUT_BANDS__", json.dumps(limits.NUTRIENT_BANDS))).encode()
 
@@ -2119,6 +2289,8 @@ def serve(
                 self._send(200, json.dumps(get_nutrient()).encode(), "application/json")
             elif self.path == "/api/wifi" and get_wifi is not None:
                 self._send(200, json.dumps(get_wifi()).encode(), "application/json")
+            elif self.path == "/api/mode" and get_mode is not None:
+                self._send(200, json.dumps(get_mode()).encode(), "application/json")
             elif self.path in ("/", "/index.html"):
                 self._send(200, page_bytes, "text/html; charset=utf-8")
             else:
@@ -2207,6 +2379,15 @@ def serve(
                 lang_sel = body.get("lang")
                 ok = on_set_lang(lang_sel) if isinstance(lang_sel, str) else False
                 self._send(200, json.dumps({"ok": bool(ok)}).encode(), "application/json")
+                return
+            if self.path == "/api/mode" and on_set_mode is not None:
+                body = self._body()
+                mode_sel = body.get("mode")
+                if not isinstance(mode_sel, str):
+                    self._send(200, json.dumps({"ok": False, "error": "요청이 올바르지 않습니다."}).encode(),
+                               "application/json")
+                    return
+                self._send(200, json.dumps(on_set_mode(mode_sel)).encode(), "application/json")
                 return
             if self.path == "/api/pair/start" and on_pair_start is not None:
                 on_pair_start()
