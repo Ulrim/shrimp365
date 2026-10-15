@@ -33,6 +33,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // openfield/ 는 Python 하위 프로젝트(OFDF). dashboard/*.js 는 키오스크의 <script> 전용이다.
+    "openfield/**",
   ]),
 ]);
 
