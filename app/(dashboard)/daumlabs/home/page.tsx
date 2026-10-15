@@ -1,3 +1,3 @@
-import { HomeView } from "@/components/home/home-view"
+import { AgriHomeView } from "@/components/agri/agri-home-view"
 
-export default function Page() { return <HomeView /> }
+export default function Page() { return <AgriHomeView /> }
