@@ -91,6 +91,7 @@ export const en: Dict = {
     settings: "Settings",
     upgrade: "Upgrade",
     admin: "System Monitor",
+    adminConsole: "Admin console",
     sectionRecord: "Record",
     sectionMonitor: "Monitor",
     mrvPlatform: "Carbon MRV Platform",

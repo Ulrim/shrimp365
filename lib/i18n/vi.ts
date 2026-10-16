@@ -91,6 +91,7 @@ export const vi: Dict = {
     settings: "Cài đặt",
     upgrade: "Nâng cấp",
     admin: "Giám sát hệ thống",
+    adminConsole: "Bảng quản trị",
     sectionRecord: "Ghi chép",
     sectionMonitor: "Theo dõi",
     mrvPlatform: "Nền tảng MRV các-bon",

@@ -29,6 +29,8 @@ export interface AgriNavDict {
   brandTagline: string
   /** 하단 네비 다섯째 탭. */
   more: string
+  /** 메뉴 하단의 관리자 콘솔(/admin) 링크 — manager 이상에게만 보인다. */
+  adminConsole: string
 }
 
 export const agriNav: Record<Locale, AgriNavDict> = {
@@ -45,6 +47,7 @@ export const agriNav: Record<Locale, AgriNavDict> = {
     sectionMonitor: "모니터링",
     brandTagline: "SMART FARMING",
     more: "더보기",
+    adminConsole: "관리자 콘솔",
   },
   en: {
     home: "Home",
@@ -59,6 +62,7 @@ export const agriNav: Record<Locale, AgriNavDict> = {
     sectionMonitor: "Monitor",
     brandTagline: "SMART FARMING",
     more: "More",
+    adminConsole: "Admin console",
   },
   vi: {
     home: "Trang chủ",
@@ -73,6 +77,7 @@ export const agriNav: Record<Locale, AgriNavDict> = {
     sectionMonitor: "Giám sát",
     brandTagline: "SMART FARMING",
     more: "Thêm",
+    adminConsole: "Bảng quản trị",
   },
   id: {
     home: "Beranda",
@@ -87,5 +92,6 @@ export const agriNav: Record<Locale, AgriNavDict> = {
     sectionMonitor: "Pemantauan",
     brandTagline: "SMART FARMING",
     more: "Lainnya",
+    adminConsole: "Konsol admin",
   },
 }

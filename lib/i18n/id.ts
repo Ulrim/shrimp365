@@ -91,6 +91,7 @@ export const id: Dict = {
     settings: "Pengaturan",
     upgrade: "Upgrade",
     admin: "Monitor Sistem",
+    adminConsole: "Konsol admin",
     sectionRecord: "Pencatatan",
     sectionMonitor: "Pemantauan",
     mrvPlatform: "Platform MRV Karbon",

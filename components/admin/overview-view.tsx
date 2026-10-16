@@ -1,92 +1,22 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
-import { isMonitorAccount, isTestAccount, MOCK_ADMIN_STATS, MOCK_ALERTS, type AdminUserRow } from "@/lib/mock-data"
+// 개요(시스템 모니터링) — 옛 app/(dashboard)/admin/page.tsx 에서 사용자 표만 떼어
+// /admin/users 로 보내고 나머지를 그대로 옮겼다(설계서 admin-console.md 5·6장).
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Users, Building2, AlertTriangle, ShieldCheck,
   RefreshCw, XCircle, AlertCircle, Info, TrendingUp,
-  Crown, CheckCircle2, Activity, Fish,
+  CheckCircle2, Activity, Fish,
 } from "lucide-react"
 import { formatDateTime } from "@/lib/utils"
 import { MISSING_INPUT_PARAMETER } from "@/lib/thresholds"
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface AdminStats {
-  users: AdminUserRow[]
-  total_farms: number
-  total_tanks: number
-  total_active_alerts: number
-  tanks_by_status: { active: number; warning: number; danger: number; inactive: number }
-  plan_distribution: { free: number; basic: number; pro: number; enterprise: number }
-  recent_alerts: AdminAlert[]
-  recent_diagnoses: AdminDiagnosis[]
-}
-
-interface AdminAlert {
-  id: string
-  tank_id: string
-  type: "danger" | "warning" | "info"
-  parameter: string | null
-  value: number | null
-  threshold: number | null
-  message: string
-  created_at: string
-  tank?: { name: string; farm?: { user_id: string; name: string } }
-}
-
-interface AdminDiagnosis {
-  id: string
-  tank_id: string
-  test_type: string
-  result: string
-  risk_level: string
-  tested_at: string
-  tank?: { name: string; farm?: { user_id: string; name: string } }
-}
+import { useAdminStats } from "@/components/admin/admin-stats"
+import { StatsLoading, ServiceKeyMissing } from "@/components/admin/stats-status"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function planBadge(plan: string) {
-  const labels: Record<string, string> = { free: "Free", basic: "Basic", pro: "Pro", enterprise: "Enterprise" }
-  const colors: Record<string, string> = {
-    free: "bg-muted text-muted-foreground border-border",
-    basic: "bg-sky-500/20 text-sky-600 border-sky-500/40",
-    pro: "bg-ocean-500/20 text-ocean-600 border-ocean-500/40",
-    enterprise: "bg-purple-500/20 text-purple-600 border-purple-500/40",
-  }
-  return (
-    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${colors[plan] ?? colors.free}`}>
-      {labels[plan] ?? plan}
-    </span>
-  )
-}
-
-function roleBadge(role: string) {
-  if (role === "admin") return <span className="text-xs text-amber-500 font-semibold flex items-center gap-1"><Crown className="w-3 h-3" />관리자</span>
-  if (role === "manager") return <span className="text-xs text-ocean-500 font-medium">매니저</span>
-  if (role === "farmer") return <span className="text-xs text-emerald-500 font-medium">양식어가</span>
-  if (role === "operator") return <span className="text-xs text-muted-foreground">운영자</span>
-  return <span className="text-xs text-muted-foreground">뷰어</span>
-}
-
-function formatLastLogin(iso: string | null | undefined) {
-  if (!iso) return "—"
-  const then = new Date(iso).getTime()
-  const mins = Math.floor((Date.now() - then) / 60000)
-  if (mins < 1) return "방금 전"
-  if (mins < 60) return `${mins}분 전`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}시간 전`
-  const days = Math.floor(hrs / 24)
-  if (days < 7) return `${days}일 전`
-  return new Date(iso).toLocaleDateString("ko-KR")
-}
 
 function alertTypeIcon(type: string) {
   if (type === "danger")  return <XCircle    className="w-4 h-4 text-red-500 shrink-0" />
@@ -101,100 +31,14 @@ function riskBadge(level: string) {
   return <Badge variant="success">낮음</Badge>
 }
 
-// ─── Mock data builder for monitor account ────────────────────────────────────
+// ─── View ─────────────────────────────────────────────────────────────────────
 
-function buildMockStats(): AdminStats {
-  const mockAlerts: AdminAlert[] = MOCK_ALERTS.filter(a => !a.resolved).map(a => ({
-    ...a,
-    tank: { name: a.tank_name, farm: { user_id: "mock-user-1", name: "제1양식장" } },
-  }))
-  const mockDiagnoses: AdminDiagnosis[] = [
-    { id: "diag-1", tank_id: "tank-4", test_type: "AHPND",    result: "양성", risk_level: "high",   tested_at: new Date(Date.now() - 86400000).toISOString(),     tank: { name: "B-2조", farm: { user_id: "mock-user-1", name: "제1양식장" } } },
-    { id: "diag-2", tank_id: "tank-6", test_type: "총비브리오", result: "의심", risk_level: "medium", tested_at: new Date(Date.now() - 86400000).toISOString(),     tank: { name: "C-2조", farm: { user_id: "mock-user-1", name: "제1양식장" } } },
-    { id: "diag-3", tank_id: "tank-1", test_type: "총비브리오", result: "음성", risk_level: "low",    tested_at: new Date(Date.now() - 86400000 * 3).toISOString(), tank: { name: "A-1조", farm: { user_id: "mock-user-1", name: "제1양식장" } } },
-    { id: "diag-4", tank_id: "tank-4", test_type: "EHP",       result: "음성", risk_level: "low",    tested_at: new Date(Date.now() - 86400000 * 5).toISOString(), tank: { name: "F-1조", farm: { user_id: "mock-user-2", name: "제2양식장" } } },
-  ]
-  return {
-    ...MOCK_ADMIN_STATS,
-    recent_alerts: mockAlerts,
-    recent_diagnoses: mockDiagnoses,
-  }
-}
+export function AdminOverviewView() {
+  const { stats, loading, error, refreshing, refresh } = useAdminStats()
+  const [tab, setTab] = useState<"alerts" | "diagnoses">("alerts")
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
-export default function AdminPage() {
-  const { user } = useAuth()
-  const router = useRouter()
-
-  const [stats, setStats] = useState<AdminStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [refreshing, setRefreshing] = useState(false)
-  const [tab, setTab] = useState<"users" | "alerts" | "diagnoses">("users")
-
-  const isMock = isMonitorAccount(user?.email) || isTestAccount(user?.email)
-
-  async function loadStats() {
-    if (isMock) {
-      setStats(buildMockStats())
-      setLoading(false)
-      return
-    }
-    try {
-      const res = await fetch("/api/admin/stats")
-      if (res.status === 403) { router.replace("/dashboard"); return }
-      if (res.status === 503) { setError("SERVICE_KEY_MISSING"); setLoading(false); return }
-      if (!res.ok) throw new Error("fetch failed")
-      const data = await res.json()
-      setStats(data)
-    } catch {
-      setError("fetch_error")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    if (!user) return
-    // 권한 없는 일반 사용자는 대시보드로.
-    // 오너는 이메일로도 인정한다 — 서버(admin/stats)와 같은 기준. role 이
-    // 어쩌다 farmer 로 바뀌어도 오너가 이 화면에서 잠기지 않게 한다.
-    const ownerEmail = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || "kjs100184@gmail.com").toLowerCase()
-    const isOwner = (user.email || "").toLowerCase() === ownerEmail
-    if (!isTestAccount(user.email) && user.role !== "admin" && !isOwner) {
-      router.replace("/dashboard")
-      return
-    }
-    loadStats()
-  }, [user])
-
-  async function handleRefresh() {
-    setRefreshing(true)
-    await loadStats()
-    setRefreshing(false)
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-ocean-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
-
-  if (error === "SERVICE_KEY_MISSING") {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
-        <ShieldCheck className="w-12 h-12 text-amber-500" />
-        <p className="text-foreground font-semibold">서비스 롤 키 미설정</p>
-        <p className="text-sm text-muted-foreground max-w-sm">
-          서버에 <code className="bg-muted px-1 rounded text-ocean-500">SUPABASE_SERVICE_ROLE_KEY</code> 환경변수가 설정되지 않아 관리자 데이터를 조회할 수 없습니다.
-        </p>
-      </div>
-    )
-  }
-
+  if (loading) return <StatsLoading />
+  if (error === "SERVICE_KEY_MISSING") return <ServiceKeyMissing />
   if (!stats) return null
 
   const totalUsers = stats.users.length
@@ -214,7 +58,7 @@ export default function AdminPage() {
         <Button
           variant="outline"
           size="sm"
-          onClick={handleRefresh}
+          onClick={refresh}
           aria-label="통계 새로고침"
           className="border-border text-muted-foreground hover:text-foreground gap-2 min-h-[44px]"
         >
@@ -281,10 +125,9 @@ export default function AdminPage() {
         </CardContent>
       </Card>
 
-      {/* Tabs */}
+      {/* Tabs — 사용자 표는 /admin/users 로 옮겼다 */}
       <div className="flex gap-1 bg-muted border border-border rounded-xl p-1 w-full overflow-x-auto sm:w-fit">
         {([
-          { key: "users",    label: `사용자 (${totalUsers})` },
           { key: "alerts",   label: `활성 알림 (${stats.recent_alerts.length})` },
           { key: "diagnoses", label: `최근 진단 (${stats.recent_diagnoses.length})` },
         ] as const).map(t => (
@@ -300,64 +143,6 @@ export default function AdminPage() {
           </button>
         ))}
       </div>
-
-      {/* Users tab */}
-      {tab === "users" && (
-        <Card className="bg-card border-border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base text-foreground flex items-center gap-2">
-              <Users className="w-4 h-4 text-ocean-500" /> 사용자 현황
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[600px] text-sm">
-                <thead>
-                  <tr className="text-muted-foreground text-xs border-b border-border">
-                    <th className="text-left pb-3 font-medium">이름 / 이메일</th>
-                    <th className="text-left pb-3 font-medium">역할</th>
-                    <th className="text-center pb-3 font-medium">플랜</th>
-                    <th className="text-center pb-3 font-medium">양식장</th>
-                    <th className="text-center pb-3 font-medium">수조 (가동)</th>
-                    <th className="text-center pb-3 font-medium">활성 알림</th>
-                    <th className="text-right pb-3 font-medium">최근 접속</th>
-                    <th className="text-right pb-3 font-medium">가입일</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {stats.users.map(u => (
-                    <tr key={u.id} className="hover:bg-accent transition-colors">
-                      <td className="py-3">
-                        <p className="text-foreground font-medium">{u.name}</p>
-                        <p className="text-xs text-muted-foreground">{u.email}</p>
-                      </td>
-                      <td className="py-3">{roleBadge(u.role)}</td>
-                      <td className="py-3 text-center">{planBadge(u.plan)}</td>
-                      <td className="py-3 text-center text-foreground/80">{u.farm_count}</td>
-                      <td className="py-3 text-center">
-                        <span className="text-emerald-500 font-medium">{u.active_tanks}</span>
-                        <span className="text-muted-foreground">/{u.tank_count}</span>
-                      </td>
-                      <td className="py-3 text-center">
-                        {u.alert_count > 0
-                          ? <span className="text-red-500 font-semibold">{u.alert_count}</span>
-                          : <span className="text-muted-foreground">—</span>
-                        }
-                      </td>
-                      <td className="py-3 text-right text-xs text-muted-foreground">
-                        {formatLastLogin(u.last_login)}
-                      </td>
-                      <td className="py-3 text-right text-xs text-muted-foreground">
-                        {new Date(u.joined_at).toLocaleDateString("ko-KR")}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Alerts tab */}
       {tab === "alerts" && (

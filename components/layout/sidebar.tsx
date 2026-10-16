@@ -12,7 +12,7 @@ import {
   Home, LayoutDashboard, Droplets, BookOpen, Building2,
   BrainCircuit, BarChart3, Settings, LogOut,
   ChevronLeft, ChevronRight, Zap, FlaskConical, Package, ShieldCheck,
-  ClipboardList, HelpCircle, MessageSquare, Layers, Radar, Video, Beaker,
+  ClipboardList, HelpCircle, MessageSquare, Layers, Video, Beaker,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
@@ -39,17 +39,16 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const isAdmin = user?.role === "admin" || isMonitorAccount(user?.email)
-  // 관제센터는 관리자·매니저만. 노출은 편의일 뿐이고 실제 차단은 서버 API 가 한다.
+  // 관리자 콘솔 링크는 관리자·매니저만. 노출은 편의일 뿐이고 실제 차단은 서버 API 가 한다.
   const canControl = isAdmin || user?.role === "manager"
 
-  // 두 모드가 함께 보는 항목(게시판·카드뉴스·관제·관리자) — 조건은 예전 그대로.
+  // 두 모드가 함께 보는 항목(게시판·카드뉴스) — 조건은 예전 그대로.
+  // 관제센터·시스템 모니터링은 관리자 콘솔(/admin)로 옮겼다 — 하단 링크 하나로 들어간다.
   // 공개 콘텐츠는 언어별 주소가 따로 있다. 접두사 없는 주소는 한국어로
   // 고정되므로, 로그인한 사용자의 언어에 맞는 주소로 보낸다.
   const SHARED_NAV = [
     ...(SHOW_BOARD ? [{ href: localizedHref("/board", locale),    icon: MessageSquare, label: t.board.title }] : []),
     ...(showCardNews(locale) ? [{ href: localizedHref("/cardnews", locale), icon: Layers,        label: t.cardNews.title }] : []),
-    ...(canControl ? [{ href: "/control", icon: Radar, label: "관제센터" }] : []),
-    ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
   ]
 
   // ── 새우 모드 메뉴(기존 그대로) ──
@@ -169,6 +168,19 @@ export function Sidebar() {
       {/* Bottom */}
       <div className="px-3 pb-4 space-y-1 border-t border-border pt-3">
         <LanguageSwitcher collapsed={collapsed} />
+
+        {canControl && (
+          <Link
+            href="/admin"
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all",
+              collapsed && "justify-center"
+            )}
+          >
+            <ShieldCheck className="w-5 h-5 shrink-0" />
+            {!collapsed && <span>{isAgri ? agri.nav.adminConsole : t.nav.adminConsole}</span>}
+          </Link>
+        )}
 
         <Link
           href="/help"

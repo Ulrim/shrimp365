@@ -56,7 +56,6 @@ export function Header() {
     "/inventory":               t.nav.inventory,
     "/cardnews":                t.cardNews.title,
     "/board":                   t.board.title,
-    "/admin":                   t.nav.admin,
     "/help":                    t.headerX.help,
   }
 

@@ -91,6 +91,7 @@ export const ko: Dict = {
     settings: "설정",
     upgrade: "업그레이드",
     admin: "시스템 모니터링",
+    adminConsole: "관리자 콘솔",
     sectionRecord: "기록",
     sectionMonitor: "모니터링",
     mrvPlatform: "탄소 MRV 플랫폼",

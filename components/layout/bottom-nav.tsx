@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils"
 import {
   Home, LayoutDashboard, Droplets, ClipboardList,
   MoreHorizontal, Building2, FlaskConical, Package,
-  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight, BookOpen, BrainCircuit, MessageSquare, Layers, Radar, Video, HelpCircle, Beaker,
+  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight, BookOpen, BrainCircuit, MessageSquare, Layers, Video, HelpCircle, Beaker,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
@@ -34,14 +34,13 @@ export function BottomNav() {
   const isAdmin = user?.role === "admin" || isMonitorAccount(user?.email)
   const canControl = isAdmin || user?.role === "manager"
 
-  // 두 모드가 함께 보는 항목(게시판·카드뉴스·관제·관리자) — 조건은 예전 그대로.
+  // 두 모드가 함께 보는 항목(게시판·카드뉴스) — 조건은 예전 그대로.
+  // 관제센터·시스템 모니터링은 관리자 콘솔(/admin)로 옮겼다 — 아래 동작 목록의 링크 하나로 들어간다.
   // 공개 콘텐츠는 언어별 주소가 따로 있다. 접두사 없는 주소는 한국어로
   // 고정되므로, 로그인한 사용자의 언어에 맞는 주소로 보낸다.
   const SHARED_MORE = [
     ...(SHOW_BOARD ? [{ href: localizedHref("/board", locale),    icon: MessageSquare, label: t.board.title }] : []),
     ...(showCardNews(locale) ? [{ href: localizedHref("/cardnews", locale), icon: Layers,        label: t.cardNews.title }] : []),
-    ...(canControl ? [{ href: "/control", icon: Radar, label: "관제센터" }] : []),
-    ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
   ]
 
   // ── 새우 모드(기존 그대로) ──
@@ -198,6 +197,18 @@ export function BottomNav() {
 
             {/* Bottom actions */}
             <div className="px-4 pt-2 pb-6 mt-2 border-t border-border space-y-1">
+              {/* 관리자 콘솔 — 관리자·매니저만(사이드바와 같은 자리: 도움말 위). */}
+              {canControl && (
+                <Link
+                  href="/admin"
+                  onClick={() => setMoreOpen(false)}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-foreground active:bg-accent transition-all"
+                >
+                  <ShieldCheck className="w-5 h-5 text-muted-foreground" />
+                  <span className="flex-1 font-medium text-[15px] text-left">{isAgri ? agri.nav.adminConsole : t.nav.adminConsole}</span>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                </Link>
+              )}
               {/* 도움말은 사이드바에만 있어 휴대폰에서는 갈 길이 없었다.
                   사이드바와 같은 자리(설정 위)에 둔다. */}
               <Link

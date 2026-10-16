@@ -89,6 +89,8 @@ export interface Dict {
     settings: string
     upgrade: string
     admin: string
+    /** 농가 메뉴 하단의 관리자 콘솔(/admin) 링크 라벨. 콘솔 안은 한국어 전용. */
+    adminConsole: string
     sectionRecord: string
     sectionMonitor: string
     /** 컬리버 탄소 MRV 플랫폼 진입 라벨(외부 서비스). */
