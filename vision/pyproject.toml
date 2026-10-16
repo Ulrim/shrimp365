@@ -1,6 +1,6 @@
 [project]
 name = "shrimp365-vision"
-version = "1.1.0"
+version = "1.1.1"
 description = "shrimp365 비전 서비스 — 카메라 영상 기반 흰다리새우 개체수 모니터링"
 requires-python = ">=3.11"
 dependencies = [
