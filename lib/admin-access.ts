@@ -66,10 +66,17 @@ export const ADMIN_PAGES: { key: AdminPageKey; href: string }[] = [
   { key: "diagnostics", href: "/admin/diagnostics" },
 ]
 
-/** 주소 → 화면 키. 콘솔 화면이 아니면(없는 하위 주소 등) null. */
+/** 주소 → 화면 키. 콘솔 화면이 아니면(없는 하위 주소 등) null.
+ *
+ *  하위 주소는 부모 화면의 키를 물려받는다 — `/admin/users/<id>`(사용자 상세)는
+ *  `users` 다. 그래야 레이아웃 가드가 사용자 화면 권한으로 열어 주고 메뉴도
+ *  "사용자"가 활성으로 보인다. 개요(`/admin`)는 모든 주소의 접두어라 정확히
+ *  일치할 때만 인정한다. */
 export function adminPageOf(pathname: string): AdminPageKey | null {
   const path = pathname.replace(/\/+$/, "") || "/"
-  return ADMIN_PAGES.find(p => p.href === path)?.key ?? null
+  return ADMIN_PAGES.find(p =>
+    p.href === path || (p.href !== "/admin" && path.startsWith(`${p.href}/`)),
+  )?.key ?? null
 }
 
 /** 권한 있는 첫 페이지. 하나도 없으면 null(호출부가 서비스 홈으로 보낸다). */

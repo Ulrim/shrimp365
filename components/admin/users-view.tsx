@@ -3,10 +3,11 @@
 // 사용자 — 옛 시스템 모니터링의 "사용자" 탭을 그대로 옮기고, 검색(이름·이메일)과
 // 역할 필터를 더했다(설계서 admin-console.md 3장). 필터는 받은 목록 안에서만 거른다.
 import { useMemo, useState } from "react"
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Users, RefreshCw, Crown, Search } from "lucide-react"
+import { Users, RefreshCw, Crown, Search, ChevronRight } from "lucide-react"
 import { useAdminStats } from "@/components/admin/admin-stats"
 import { StatsLoading, ServiceKeyMissing } from "@/components/admin/stats-status"
 
@@ -160,10 +161,19 @@ export function AdminUsersView() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {rows.map(u => (
-                    <tr key={u.id} className="hover:bg-accent transition-colors">
-                      <td className="py-3">
-                        <p className="text-foreground font-medium">{u.name}</p>
-                        <p className="text-xs text-muted-foreground">{u.email}</p>
+                    <tr key={u.id} className="group hover:bg-accent transition-colors">
+                      <td className="py-1.5">
+                        {/* 상세(/admin/users/<id>)로 — 이름 칸 전체가 링크다. */}
+                        <Link
+                          href={`/admin/users/${encodeURIComponent(u.id)}`}
+                          className="flex items-center gap-1 py-1.5 pr-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <span className="min-w-0">
+                            <span className="block text-foreground font-medium group-hover:underline underline-offset-2">{u.name}</span>
+                            <span className="block text-xs text-muted-foreground">{u.email}</span>
+                          </span>
+                          <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
+                        </Link>
                       </td>
                       <td className="py-3">{roleBadge(u.role)}</td>
                       <td className="py-3 text-center">{planBadge(u.plan)}</td>
