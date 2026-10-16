@@ -52,13 +52,22 @@ CREATE POLICY "frj_select_owner" ON public.field_risk_judgements FOR SELECT
 
 -- 열람자(farm_viewers): 연결된 농장의 베드만 읽는다. 담당자 계정이 노지 카드를
 -- 수질 그래프와 똑같이 볼 수 있어야 한다.
+-- farm_viewers 는 farm_viewers_muan.sql 을 돌려야 생긴다. 그 전에 이 파일을 돌려도
+-- 오류로 멈추지 않도록, 테이블이 있을 때만 정책을 만든다(나중에 이 파일을 다시
+-- 실행하면 그때 정책이 생긴다 — 전체가 재실행 안전하다).
 DROP POLICY IF EXISTS "frj_select_viewer" ON public.field_risk_judgements;
-CREATE POLICY "frj_select_viewer" ON public.field_risk_judgements FOR SELECT
-  USING (tank_id IN (
-    SELECT t.id FROM public.tanks t
-    JOIN public.farm_viewers v ON v.farm_id = t.farm_id
-    WHERE v.user_id = auth.uid()
-  ));
+DO $$ BEGIN
+  IF to_regclass('public.farm_viewers') IS NOT NULL THEN
+    EXECUTE $p$
+      CREATE POLICY "frj_select_viewer" ON public.field_risk_judgements FOR SELECT
+        USING (tank_id IN (
+          SELECT t.id FROM public.tanks t
+          JOIN public.farm_viewers v ON v.farm_id = t.farm_id
+          WHERE v.user_id = auth.uid()
+        ))
+    $p$;
+  END IF;
+END $$;
 
 NOTIFY pgrst, 'reload schema';
 
