@@ -2,15 +2,20 @@
 
 // 관제센터 — 옛 app/(dashboard)/control/page.tsx 를 그대로 옮겼다(설계서 admin-console.md
 // 5·6장). 매니저 선임 패널만 /admin/managers(components/admin/manager-panel.tsx)로 뗐다.
-import { useCallback, useEffect, useState } from "react"
+// 지도 표시 필터·위치 미확인 목록은 docs/plans/control-map-farms.md 2-5·2-7.
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
   Radar, Building2, Layers, Cpu, AlertTriangle, WifiOff,
-  ShieldCheck, Crown,
+  ShieldCheck, Crown, Maximize2, Square, SquareCheck, MapPinOff,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/lib/auth-context"
 import { useAutoRefresh, sinceLabel } from "@/lib/use-auto-refresh"
-import { ControlMap, type ControlFarm, type DeviceMarker } from "@/components/control/control-map"
+import {
+  ControlMap, countMarkers, isLocated,
+  type ControlFarm, type DeviceMarker, type MapFilter, type MapTypeFilter, type MapView,
+} from "@/components/control/control-map"
 import { formatDateTime } from "@/lib/utils"
 
 // ── 응답 형태 ────────────────────────────────────────────────────────────────
@@ -23,6 +28,7 @@ type Overview = {
     devices: number
     devices_online: number
     open_alerts: number
+    farms_located?: number
   }
   farms: ControlFarm[]
   device_markers?: DeviceMarker[]
@@ -44,11 +50,106 @@ function StatTile({ icon, label, value, sub, tone }: {
   )
 }
 
+// ── 지도 표시 필터 ↔ URL 쿼리(?view=farms&type=shrimp&issues=1) ────────────────
+const VIEW_OPTIONS: { key: MapView; label: string }[] = [
+  { key: "all", label: "전체" },
+  { key: "farms", label: "농장만" },
+  { key: "sensors", label: "수질센서만" },
+]
+const TYPE_OPTIONS: { key: MapTypeFilter; label: string }[] = [
+  { key: "all", label: "전체" },
+  { key: "shrimp", label: "양식장" },
+  { key: "agriculture", label: "스마트팜" },
+]
+
+/** 쿼리 → 필터. 모르는 값은 기본값으로(화이트리스트). */
+function parseFilter(sp: { get(name: string): string | null }): MapFilter {
+  const v = sp.get("view")
+  const t = sp.get("type")
+  return {
+    view: v === "farms" || v === "sensors" ? v : "all",
+    type: t === "shrimp" || t === "agriculture" ? t : "all",
+    issuesOnly: sp.get("issues") === "1",
+  }
+}
+
+const sameFilter = (a: MapFilter, b: MapFilter) =>
+  a.view === b.view && a.type === b.type && a.issuesOnly === b.issuesOnly
+
+const SEG_BASE = "min-h-[36px] px-3 rounded-md text-sm font-medium inline-flex items-center gap-1.5 transition-colors"
+const SEG_ON = "bg-foreground text-background"
+const SEG_OFF = "text-muted-foreground hover:text-foreground hover:bg-accent"
+
+function Segmented<K extends string>({ label, options, value, counts, onChange }: {
+  label: string
+  options: { key: K; label: string }[]
+  value: K
+  counts?: Partial<Record<K, number>>
+  onChange: (k: K) => void
+}) {
+  return (
+    <div role="group" aria-label={label} className="inline-flex flex-wrap gap-0.5 rounded-lg border border-border p-0.5">
+      {options.map(o => (
+        <button
+          key={o.key}
+          type="button"
+          aria-pressed={value === o.key}
+          onClick={() => onChange(o.key)}
+          className={`${SEG_BASE} ${value === o.key ? SEG_ON : SEG_OFF}`}
+        >
+          {o.label}
+          {counts?.[o.key] !== undefined && <span className="tabular-nums opacity-80">{counts[o.key]}</span>}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function Spinner() {
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]" role="status" aria-label="관제센터 불러오는 중">
+      <div className="w-8 h-8 border-4 border-[#1E40AF] border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+}
+
+/** `useSearchParams` 는 Suspense 경계가 필요하다(Next 문서 — 없으면 프로덕션 빌드가
+ *  실패한다). 페이지 래퍼(app/(admin)/admin/control/page.tsx)는 그대로 두고 여기서 감싼다. */
 export function ControlCenterView() {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <ControlCenterInner />
+    </Suspense>
+  )
+}
+
+function ControlCenterInner() {
   const { loading: authLoading } = useAuth()
   const [data, setData] = useState<Overview | null>(null)
   const [denied, setDenied] = useState(false)
   const [loading, setLoading] = useState(true)
+
+  // 필터는 URL 이 원본이다(새로고침·공유해도 유지). router.replace 가 반영되기 전
+  // 잠깐은 누른 값(pending)을 먼저 보여 준다 — 버튼이 한 박자 늦게 바뀌지 않게.
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const urlFilter = useMemo(() => parseFilter(searchParams), [searchParams])
+  const [pending, setPending] = useState<MapFilter | null>(null)
+  if (pending && sameFilter(pending, urlFilter)) setPending(null)   // URL 이 따라잡음
+  const filter = pending ?? urlFilter
+  const [fitSignal, setFitSignal] = useState(0)
+
+  const setFilter = (patch: Partial<MapFilter>) => {
+    const next = { ...filter, ...patch }
+    setPending(next)
+    const qs = new URLSearchParams(searchParams.toString())
+    if (next.view === "all") qs.delete("view"); else qs.set("view", next.view)
+    if (next.type === "all") qs.delete("type"); else qs.set("type", next.type)
+    if (next.issuesOnly) qs.set("issues", "1"); else qs.delete("issues")
+    const q = qs.toString()
+    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false })
+  }
 
   const load = useCallback(async () => {
     const res = await fetch("/api/control/overview", { cache: "no-store" })
@@ -74,13 +175,7 @@ export function ControlCenterView() {
   // 관제 화면은 계속 켜 두고 보는 화면이다. 측정 주기에 맞춰 1분마다 따라간다.
   const { lastRefreshed } = useAutoRefresh(load, 60, !denied && !loading)
 
-  if (loading || authLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]" role="status" aria-label="관제센터 불러오는 중">
-        <div className="w-8 h-8 border-4 border-[#1E40AF] border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
+  if (loading || authLoading) return <Spinner />
 
   // 권한 판별은 서버가 한다. 이 화면은 결과를 보여 줄 뿐이다.
   if (denied || !data) {
@@ -96,6 +191,9 @@ export function ControlCenterView() {
   }
 
   const s = data.stats
+  const markers = data.device_markers ?? []
+  const counts = countMarkers(data.farms, markers, filter)
+  const unlocated = data.farms.filter(f => !isLocated(f))
 
   return (
     <div className="space-y-5">
@@ -122,7 +220,10 @@ export function ControlCenterView() {
 
       {/* 요약 — 급한 것부터 색으로 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatTile icon={<Building2 className="w-4 h-4" />} label="농장" value={s.farms} sub={`수조 ${s.tanks}개`} />
+        <StatTile
+          icon={<Building2 className="w-4 h-4" />} label="농장" value={s.farms}
+          sub={`수조 ${s.tanks}개${s.farms_located !== undefined ? ` · 지도 ${s.farms_located}곳` : ""}`}
+        />
         <StatTile
           icon={<Layers className="w-4 h-4" />} label="수조 상태"
           value={<span>
@@ -149,8 +250,63 @@ export function ControlCenterView() {
 
       {/* 지도 — 관제의 중심 */}
       <Card className="bg-card border-border overflow-hidden">
-        <CardContent className="p-3">
-          <ControlMap farms={data.farms} deviceMarkers={data.device_markers ?? []} height={420} />
+        <CardContent className="p-3 space-y-3">
+          {/* 표시 필터 — 바꿔도 지도를 다시 만들지 않는다(확대 유지). 숫자는 지금의
+              유형·문제 필터 기준으로 지도에 찍히는 표식 수. */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <Segmented
+              label="보기" options={VIEW_OPTIONS} value={filter.view}
+              counts={{ all: counts.all, farms: counts.farms, sensors: counts.sensors }}
+              onChange={view => setFilter({ view })}
+            />
+            <div className="inline-flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">유형</span>
+              <Segmented label="농장 유형" options={TYPE_OPTIONS} value={filter.type} onChange={type => setFilter({ type })} />
+            </div>
+            <button
+              type="button"
+              aria-pressed={filter.issuesOnly}
+              onClick={() => setFilter({ issuesOnly: !filter.issuesOnly })}
+              className={`${SEG_BASE} border border-border ${filter.issuesOnly ? SEG_ON : SEG_OFF}`}
+            >
+              {filter.issuesOnly
+                ? <SquareCheck className="w-4 h-4" aria-hidden="true" />
+                : <Square className="w-4 h-4" aria-hidden="true" />}
+              문제 있는 곳만
+            </button>
+            <button
+              type="button"
+              onClick={() => setFitSignal(n => n + 1)}
+              className={`${SEG_BASE} border border-border ${SEG_OFF} sm:ml-auto`}
+            >
+              <Maximize2 className="w-4 h-4" aria-hidden="true" /> 전체 맞춤
+            </button>
+          </div>
+
+          <ControlMap
+            farms={data.farms} deviceMarkers={markers} height={420}
+            view={filter.view} type={filter.type} issuesOnly={filter.issuesOnly} fitSignal={fitSignal}
+          />
+
+          {/* 위치 미확인 농장 — 관리자가 농가에 좌표·주소 입력을 안내할 수 있게. */}
+          {unlocated.length > 0 && (
+            <details className="rounded-lg border border-border">
+              <summary className="cursor-pointer select-none min-h-[36px] px-3 py-2 text-sm text-foreground flex items-center gap-2">
+                <MapPinOff className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
+                위치 미확인 농장 <span className="tabular-nums">{unlocated.length}</span>곳
+              </summary>
+              <ul className="max-h-[280px] overflow-y-auto divide-y divide-border border-t border-border">
+                {unlocated.map(f => (
+                  <li key={f.id} className="px-3 py-2 text-sm min-w-0">
+                    <p className="text-foreground font-medium truncate">
+                      {f.name} <span className="text-muted-foreground font-normal">· {f.owner}</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">{f.location?.trim() ? f.location : "주소 미입력"}</p>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </CardContent>
       </Card>
 

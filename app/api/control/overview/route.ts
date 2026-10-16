@@ -1,5 +1,10 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse, after } from "next/server"
 import { authorizeControl } from "@/lib/control-auth"
+import { createAdminClient } from "@/lib/supabase-server"
+import {
+  GEOCODE_MAX_PER_REQUEST, geocodePriority, isMissingTable, normalizeAddress, pickFarmCoord,
+  refreshFarmGeocodes, type GeocodeCacheRow,
+} from "@/lib/geocode"
 
 // 관제센터 데이터. 플랫폼 전체(모든 사용자)의 농장·수조·기기·알림을 모아 준다.
 //
@@ -35,13 +40,23 @@ export async function GET(req: NextRequest) {
 
   try {
     // last_payload 는 여기서 쓰지 않으므로 빼서 전송량을 줄인다(큰 JSON 일 수 있음).
-    type FarmRow = { id: string; user_id: string; name: string; location: string; latitude: number | null; longitude: number | null }
+    type FarmRow = { id: string; user_id: string; name: string; location: string; latitude: number | null; longitude: number | null; farm_type?: string | null }
     type TankRow = { id: string; farm_id: string; name: string; status: string }
     type DeviceRow = { id: string; tank_id: string; name: string; active: boolean; last_seen_at: string | null; serial: string | null; agent_version: string | null; latitude?: number | null; longitude?: number | null }
     type ProfileRow = { id: string; name: string | null }
 
-    const [farmRows, tanks, devices, profileRows, alertsRes] = await Promise.all([
-      fetchAll<FarmRow>((f, t) => admin.from("farms").select("id, user_id, name, location, latitude, longitude").range(f, t)),
+    const [farmRows, tanks, devices, profileRows, alertsRes, geocodes] = await Promise.all([
+      // farm_type 은 스마트팜 마이그레이션 전 DB 에 없다 — 없으면 빼고 다시 읽고
+      // 모두 양식장으로 본다(장비 좌표 조회와 같은 재시도).
+      (async () => {
+        try {
+          return await fetchAll<FarmRow>((f, t) => admin.from("farms")
+            .select("id, user_id, name, location, latitude, longitude, farm_type").range(f, t))
+        } catch {
+          return await fetchAll<FarmRow>((f, t) => admin.from("farms")
+            .select("id, user_id, name, location, latitude, longitude").range(f, t))
+        }
+      })(),
       fetchAll<TankRow>((f, t) => admin.from("tanks").select("id, farm_id, name, status").range(f, t)),
       // 장비 좌표(latitude/longitude)는 마이그레이션 전이면 컬럼이 없어
       // 조회가 통째로 실패한다. 그 경우 좌표 없이 다시 읽는다.
@@ -61,6 +76,18 @@ export async function GET(req: NextRequest) {
         .eq("resolved", false)
         .order("created_at", { ascending: false })
         .limit(30),
+      // 주소 지오코딩 캐시(설계서 2-2). 테이블이 아직 없으면(farm_geocodes.sql 미실행)
+      // null — 지오코딩을 통째로 건너뛰고 1·2단계 좌표만 쓴다. 그 밖의 오류도
+      // 관제 화면을 막지 않도록 같은 길로 보낸다.
+      (async () => {
+        try {
+          return await fetchAll<GeocodeCacheRow>((f, t) => admin.from("farm_geocodes")
+            .select("farm_id, query, latitude, longitude, precision, geocoded_at").range(f, t))
+        } catch (e) {
+          if (!isMissingTable(e)) console.warn("[control/overview] farm_geocodes 조회 실패", (e as { code?: string })?.code ?? "")
+          return null
+        }
+      })(),
     ])
 
     const nameOf = new Map(profileRows.map(p => [p.id, p.name || ""]))
@@ -104,19 +131,37 @@ export async function GET(req: NextRequest) {
       if (data) wqByFarm.set(farmId, data as WqRow)
     }))
 
+    const farmTypeOf = (f: FarmRow) => (f.farm_type === "agriculture" ? "agriculture" : "shrimp") as "shrimp" | "agriculture"
+    const geocodeByFarm = new Map((geocodes ?? []).map(g => [g.farm_id, g]))
+    // 응답 뒤에 주소를 찾을 농장(1·2단계 좌표가 없고, 캐시가 없거나 낡은 곳).
+    const toGeocode: { farm_id: string; location: string; rank: number }[] = []
+
     const farms = farmRows.map(f => {
       const own = tanksByFarm.get(f.id) ?? []
       const ownDevices = own.flatMap(t => devicesByTank.get(t.id) ?? [])
-      const offline = ownDevices.filter(d =>
-        d.active && (!d.last_seen_at || now - new Date(d.last_seen_at).getTime() > OFFLINE_AFTER_MS)
+      const activeDevices = ownDevices.filter(d => d.active)
+      const offline = activeDevices.filter(d =>
+        !d.last_seen_at || now - new Date(d.last_seen_at).getTime() > OFFLINE_AFTER_MS
       ).length
+      // 좌표 3단계: 농가 입력 → 장비 평균 → 주소 캐시(설계서 2-1). 읽기만 한다.
+      const query = normalizeAddress(f.location)
+      const cached = geocodeByFarm.get(f.id)
+      const coord = pickFarmCoord(f, activeDevices, cached, query)
+      if (geocodes && !coord) {
+        const rank = geocodePriority(cached, query, now)
+        if (rank !== null) toGeocode.push({ farm_id: f.id, location: f.location, rank })
+      }
       return {
         id: f.id,
         name: f.name,
         owner: nameOf.get(f.user_id) || "이름 없음",
         location: f.location,
-        latitude: f.latitude,
-        longitude: f.longitude,
+        farm_type: farmTypeOf(f),
+        latitude: coord?.latitude ?? null,
+        longitude: coord?.longitude ?? null,
+        coord_source: coord?.source ?? null,
+        ...(coord?.precision ? { coord_precision: coord.precision } : {}),
+        has_sensor: activeDevices.length > 0,
         tanks: own.length,
         danger: own.filter(t => t.status === "danger").length,
         warning: own.filter(t => t.status === "warning").length,
@@ -159,14 +204,33 @@ export async function GET(req: NextRequest) {
           last_seen_at: d.last_seen_at,
           tank_name: tank?.name ?? "",
           farm_name: farm?.name ?? "",
+          farm_id: farm?.id ?? null,
+          farm_type: farm ? farmTypeOf(farm) : "shrimp",
         }
       })
+
+    // 지오코딩은 응답을 늦추지 않는다 — 응답을 보낸 뒤 최대 10곳만 찾아 캐시에
+    // 넣고, 다음 새로고침부터 지도에 보인다. service_role 은 서버 안에서만 쓴다.
+    if (toGeocode.length) {
+      const batch = toGeocode
+        .sort((a, b) => a.rank - b.rank)
+        .slice(0, GEOCODE_MAX_PER_REQUEST)
+        .map(({ farm_id, location }) => ({ farm_id, location }))
+      after(async () => {
+        try {
+          await refreshFarmGeocodes(createAdminClient(), batch)
+        } catch (e) {
+          console.warn("[control/overview] 지오코딩 실패", e instanceof Error ? e.message : "")
+        }
+      })
+    }
 
     return NextResponse.json({
       role: auth.role,
       device_markers,
       stats: {
         farms: farms.length,
+        farms_located: farms.filter(f => f.coord_source !== null).length,
         tanks: tanks.length,
         tank_status: {
           active: tanks.filter(t => t.status === "active").length,
