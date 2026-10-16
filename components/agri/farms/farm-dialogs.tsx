@@ -76,6 +76,8 @@ function FarmFormFields({ idPrefix, form, setForm, coords, setCoords, nameError 
           id={`${idPrefix}-location`}
           value={form.location}
           onChange={addr => setForm({ ...form, location: addr })}
+          // 좌표 칸이 비어 있을 때만 검색 결과 좌표로 채운다(농가가 넣은 좌표는 덮지 않는다).
+          onPickCoords={(lat, lon) => { if (coords.lat == null && coords.lon == null) setCoords({ lat, lon }) }}
           placeholder={d.addressPlaceholder}
         />
       </div>

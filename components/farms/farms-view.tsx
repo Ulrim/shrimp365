@@ -257,6 +257,8 @@ function AddFarmDialog({ onSuccess }: { onSuccess: (farmType: FarmType) => void 
                 id="farm-location"
                 value={form.location}
                 onChange={addr => setForm(f => ({ ...f, location: addr }))}
+                // 좌표 칸이 비어 있을 때만 검색 결과 좌표로 채운다(농가가 넣은 좌표는 덮지 않는다).
+                onPickCoords={(lat, lon) => setCoords(c => (c.lat == null && c.lon == null ? { lat, lon } : c))}
                 placeholder={t.farms.locationPlaceholder}
                 required
               />
@@ -593,6 +595,8 @@ function EditFarmDialog({ farm, onSuccess }: { farm: Farm; onSuccess: (result: {
             <AddressSearch
               value={form.location}
               onChange={addr => setForm(p => ({ ...p, location: addr }))}
+              // 좌표 칸이 비어 있을 때만 검색 결과 좌표로 채운다(농가가 넣은 좌표는 덮지 않는다).
+              onPickCoords={(lat, lon) => setCoords(c => (c.lat == null && c.lon == null ? { lat, lon } : c))}
               placeholder={t.farms.locationPlaceholder}
             />
           </div>

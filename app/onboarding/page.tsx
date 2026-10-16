@@ -393,6 +393,7 @@ export default function OnboardingPage() {
                     {t.onboarding.location} <span className="text-destructive" aria-hidden="true">*</span>
                   </Label>
                   <AddressSearch
+                    id="farm-location"
                     value={farmLocation}
                     onChange={setFarmLocation}
                     placeholder={t.onboarding.locationPlaceholder}

@@ -1281,6 +1281,26 @@ export interface Dict {
     loading: string
     noWarnings: string
   }
+  /** 농장 주소 입력칸(components/ui/address-search.tsx). 직접 입력 + 검색 대화상자 두 탭. */
+  addressSearch: {
+    placeholder: string
+    button: string
+    title: string
+    tabDomestic: string
+    tabWorld: string
+    queryLabel: string
+    queryPlaceholder: string
+    search: string
+    searching: string
+    hint: string
+    results: string
+    approx: string
+    noResults: string
+    error: string
+    busy: string
+    loadingWidget: string
+    close: string
+  }
   /** 수경재배(농업) 폼·카드 전용 라벨.
    *  전역 UI 모드가 아니라 farm.farm_type 기준으로 쓰므로 항상 본 사전에서 읽는다
    *  — 혼합 계정(새우+농업 farm)은 전역 모드가 새우라 i18n 오버라이드가 없어도
