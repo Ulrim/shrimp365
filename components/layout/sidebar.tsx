@@ -17,7 +17,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
 import { LanguageSwitcher } from "@/components/ui/language-switcher"
-import { isMonitorAccount } from "@/lib/mock-data"
+import { adminAccess } from "@/lib/admin-access"
 import { localizedHref, stripLocalePrefix } from "@/lib/marketing-locale"
 import type { IconComponent } from "@/types"
 
@@ -38,9 +38,10 @@ export function Sidebar() {
   const isAgri = isAgriPath(pathname ?? "")
   const [collapsed, setCollapsed] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const isAdmin = user?.role === "admin" || isMonitorAccount(user?.email)
-  // 관리자 콘솔 링크는 관리자·매니저만. 노출은 편의일 뿐이고 실제 차단은 서버 API 가 한다.
-  const canControl = isAdmin || user?.role === "manager"
+  // 관리자 콘솔 링크 — 콘솔 가드와 같은 판정(lib/admin-access.ts, 총관리자 이메일 포함).
+  // role 은 프로필이 도착한 뒤에 채워지므로 링크가 조금 늦게 나타날 수 있다(사라지지는 않는다).
+  // 노출은 편의일 뿐이고 실제 차단은 서버 API 가 한다.
+  const showConsole = adminAccess(user).console
 
   // 두 모드가 함께 보는 항목(게시판·카드뉴스) — 조건은 예전 그대로.
   // 관제센터·시스템 모니터링은 관리자 콘솔(/admin)로 옮겼다 — 하단 링크 하나로 들어간다.
@@ -169,7 +170,7 @@ export function Sidebar() {
       <div className="px-3 pb-4 space-y-1 border-t border-border pt-3">
         <LanguageSwitcher collapsed={collapsed} />
 
-        {canControl && (
+        {showConsole && (
           <Link
             href="/admin"
             className={cn(

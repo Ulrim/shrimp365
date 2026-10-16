@@ -6,9 +6,9 @@
 // (설계서 admin-console.md 6장: 데이터 로직 변경 금지). 두 화면이 각자 이 훅을 불러
 // /api/admin/stats 를 한 번씩 부른다. 권한 판정은 서버(api/admin/stats)가 한다.
 import { useCallback, useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { isMonitorAccount, isTestAccount, MOCK_ADMIN_STATS, MOCK_ALERTS, type AdminUserRow } from "@/lib/mock-data"
+import { problemOf, type LoadProblem } from "@/components/admin/stats-status"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,11 +69,11 @@ function buildMockStats(): AdminStats {
 
 export function useAdminStats() {
   const { user } = useAuth()
-  const router = useRouter()
 
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  // 화면이 반드시 무언가를 그리게 — 403 도 농가 화면으로 보내지 않고 콘솔 안에서 알린다.
+  const [error, setError] = useState<LoadProblem | null>(null)
   const [refreshing, setRefreshing] = useState(false)
 
   const isMock = isMonitorAccount(user?.email) || isTestAccount(user?.email)
@@ -85,18 +85,22 @@ export function useAdminStats() {
       return
     }
     try {
-      const res = await fetch("/api/admin/stats")
-      if (res.status === 403) { router.replace("/dashboard"); return }
-      if (res.status === 503) { setError("SERVICE_KEY_MISSING"); setLoading(false); return }
-      if (!res.ok) throw new Error("fetch failed")
+      const res = await fetch("/api/admin/stats", { cache: "no-store" })
+      if (!res.ok) {
+        setError(problemOf(res.status))
+        setStats(null)
+        return
+      }
       const data = await res.json()
       setStats(data)
+      setError(null)
     } catch {
-      setError("fetch_error")
+      setError("failed")
+      setStats(null)
     } finally {
       setLoading(false)
     }
-  }, [isMock, router])
+  }, [isMock])
 
   useEffect(() => {
     if (!user) return

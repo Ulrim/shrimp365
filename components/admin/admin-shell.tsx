@@ -44,6 +44,8 @@ export function AdminShell({ access, children }: { access: AdminAccess; children
   const pathname = usePathname() ?? ""
   const title = adminPageTitle(pathname)
   const badge = user ? roleLabel(user) : null
+  // 모니터·테스트(데모) 계정은 개요·사용자에 목데이터를 본다 — 실제 수치로 오해하지 않게 띠를 단다.
+  const isDemo = isMonitorAccount(user?.email) || isTestAccount(user?.email)
   const serviceHref = user?.ui_mode === "agriculture" ? "/daumlabs/home" : "/home"
 
   const handleLogout = async () => {
@@ -77,14 +79,14 @@ export function AdminShell({ access, children }: { access: AdminAccess; children
           <div className="px-3 pb-4 pt-3 border-t border-border space-y-0.5">
             <Link
               href={serviceHref}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              className="flex items-center gap-3 px-3 min-h-[44px] rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
             >
               <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
               서비스로 돌아가기
             </Link>
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-destructive hover:bg-accent transition-colors"
+              className="w-full flex items-center gap-3 px-3 min-h-[44px] rounded-lg text-sm text-muted-foreground hover:text-destructive hover:bg-accent transition-colors"
             >
               <LogOut className="w-4 h-4 shrink-0" aria-hidden="true" />
               로그아웃
@@ -103,19 +105,21 @@ export function AdminShell({ access, children }: { access: AdminAccess; children
                 <Link
                   href={serviceHref}
                   aria-label="서비스로 돌아가기"
-                  className="w-10 h-10 inline-flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent"
+                  className="w-11 h-11 inline-flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent"
                 >
                   <ArrowLeft className="w-5 h-5" aria-hidden="true" />
                 </Link>
                 <button
                   onClick={handleLogout}
                   aria-label="로그아웃"
-                  className="w-10 h-10 inline-flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-accent"
+                  className="w-11 h-11 inline-flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-accent"
                 >
                   <LogOut className="w-5 h-5" aria-hidden="true" />
                 </button>
               </div>
             </div>
+            {/* 제목(h1)은 셸에만 하나 — 모바일 화면에서는 탭이 제목 구실을 하니 스크린리더용으로만 둔다. */}
+            <h1 className="sr-only">{title}</h1>
             <div className="px-4 pb-2">{identity}</div>
             <AdminNav access={access} variant="tabs" />
           </header>
@@ -125,6 +129,12 @@ export function AdminShell({ access, children }: { access: AdminAccess; children
             <h1 className="text-lg font-semibold text-foreground">{title}</h1>
             {identity}
           </header>
+
+          {isDemo && (
+            <div className="px-4 lg:px-6 py-1.5 text-xs font-medium text-center bg-muted text-foreground border-b border-border" role="note">
+              데모 데이터 — 이 계정의 개요·사용자 화면은 실제 운영 수치가 아닌 예시입니다
+            </div>
+          )}
         </div>
 
         <main className="flex-1 overflow-auto p-4 lg:p-6">{children}</main>

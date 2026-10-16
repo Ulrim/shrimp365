@@ -33,6 +33,10 @@ interface AuthContextType {
   user: AppUser | null
   session: Session | null
   loading: boolean
+  /** profiles 조회가 끝났는가(성공·실패 모두 true, 로그아웃 시 false).
+   *  `loading=false` 직후의 user.role 은 프로필 도착 전 임시값("farmer")이다 —
+   *  role 로 화면을 막거나 돌려보내는 곳(관리자 콘솔 가드)은 이 값을 기다린다. */
+  profileReady: boolean
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   signInWithProvider: (provider: "google" | "kakao") => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
@@ -96,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [profileReady, setProfileReady] = useState(false)
 
   useEffect(() => {
     // onAuthStateChange fires immediately with the current session on subscribe,
@@ -111,20 +116,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     //
     // 그래서 세션은 즉시 반영하고, 프로필 조회는 잠금을 놓은 뒤에 따로 돌린다.
     let alive = true
+    // 지금 user 상태에 담긴 계정 — 같은 계정의 세션 갱신인지 가리는 데 쓴다.
+    let lastUserId: string | null = null
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session)
 
         if (!session?.user) {
+          lastUserId = null
           setUser(null)
+          setProfileReady(false)
           setLoading(false)
           if (event === "SIGNED_OUT") window.location.replace("/")
           return
         }
 
         // 프로필이 오기 전에도 화면은 떠야 한다. 이메일만으로 먼저 채운다.
-        setUser(toAppUser(session.user, { name: "", role: "farmer", plan: "free", ui_mode: "shrimp" }))
+        // 단 같은 사용자의 토큰 갱신(TOKEN_REFRESHED 등)이면 이미 받은 프로필을
+        // 임시값으로 덮지 않는다 — 그러면 콘솔 가드가 잠깐 권한 없음으로 본다.
+        const sameUser = lastUserId === session.user.id
+        lastUserId = session.user.id
+        if (!sameUser) {
+          setUser(toAppUser(session.user, { name: "", role: "farmer", plan: "free", ui_mode: "shrimp" }))
+          setProfileReady(false)
+        }
         setLoading(false)
 
         // 잠금 밖에서 조회한다. setTimeout 0 이면 콜백이 끝난 뒤에 실행된다.
@@ -133,10 +149,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setTimeout(async () => {
           try {
             const profile = await fetchProfile(userId)
-            if (alive) setUser(toAppUser(sbUser, profile))
+            // 그 사이 다른 계정으로 바뀌었으면(로그아웃·재로그인) 늦게 온 답은 버린다.
+            if (alive && lastUserId === userId) setUser(toAppUser(sbUser, profile))
           } catch (e) {
             // 프로필을 못 읽어도 로그인 상태는 유지한다. 위에서 채워 둔 값으로 쓴다.
             console.warn("[auth] profile load failed:", e)
+          } finally {
+            // 실패해도 끝은 끝이다 — 기다리는 화면이 무한 스피너에 갇히지 않게.
+            if (alive && lastUserId === userId) setProfileReady(true)
           }
         }, 0)
       }
@@ -214,6 +234,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setUser(null)
     setSession(null)
+    setProfileReady(false)
     // 로그아웃 후 홈페이지 첫 화면(마케팅 랜딩)으로 이동. 전체 새로고침으로
     // 남은 상태/캐시까지 깨끗이 초기화한다. 랜딩에 로그인 버튼이 있다.
     if (typeof window !== "undefined") window.location.replace("/")
@@ -283,7 +304,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, login, signInWithProvider, logout, signup, updateProfile, updateUiMode, updatePassword, updateEmail, sendPasswordReset, resendVerification, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, loading, profileReady, login, signInWithProvider, logout, signup, updateProfile, updateUiMode, updatePassword, updateEmail, sendPasswordReset, resendVerification, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   )

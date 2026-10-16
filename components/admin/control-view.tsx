@@ -6,8 +6,8 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
-  Radar, Building2, Layers, Cpu, AlertTriangle, WifiOff,
-  ShieldCheck, Crown, Maximize2, Square, SquareCheck, MapPinOff,
+  Building2, Layers, Cpu, AlertTriangle, WifiOff,
+  Crown, Maximize2, Square, SquareCheck, MapPinOff,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/lib/auth-context"
@@ -17,6 +17,7 @@ import {
   type ControlFarm, type DeviceMarker, type MapFilter, type MapTypeFilter, type MapView,
 } from "@/components/control/control-map"
 import { formatDateTime } from "@/lib/utils"
+import { LoadProblemView, StatsLoading, problemOf, type LoadProblem } from "@/components/admin/stats-status"
 
 // ── 응답 형태 ────────────────────────────────────────────────────────────────
 type Overview = {
@@ -106,12 +107,16 @@ function Segmented<K extends string>({ label, options, value, counts, onChange }
 }
 
 function Spinner() {
-  return (
-    <div className="flex items-center justify-center min-h-[60vh]" role="status" aria-label="관제센터 불러오는 중">
-      <div className="w-8 h-8 border-4 border-[#1E40AF] border-t-transparent rounded-full animate-spin" />
-    </div>
-  )
+  return <StatsLoading label="관제센터 불러오는 중" />
 }
+
+/** 불러오기 실패 — 문제 종류(500·503)를 실어 던진다. 자동갱신 중의 일시 실패는
+ *  useAutoRefresh 가 삼키고 이전 화면을 유지한다. */
+function loadError(problem: LoadProblem) {
+  return Object.assign(new Error(problem), { problem })
+}
+const problemFromError = (e: unknown): LoadProblem =>
+  (e as { problem?: LoadProblem } | null)?.problem ?? "failed"
 
 /** `useSearchParams` 는 Suspense 경계가 필요하다(Next 문서 — 없으면 프로덕션 빌드가
  *  실패한다). 페이지 래퍼(app/(admin)/admin/control/page.tsx)는 그대로 두고 여기서 감싼다. */
@@ -126,8 +131,9 @@ export function ControlCenterView() {
 function ControlCenterInner() {
   const { loading: authLoading } = useAuth()
   const [data, setData] = useState<Overview | null>(null)
-  const [denied, setDenied] = useState(false)
+  const [problem, setProblem] = useState<LoadProblem | null>(null)
   const [loading, setLoading] = useState(true)
+  const [retrying, setRetrying] = useState(false)
 
   // 필터는 URL 이 원본이다(새로고침·공유해도 유지). router.replace 가 반영되기 전
   // 잠깐은 누른 값(pending)을 먼저 보여 준다 — 버튼이 한 박자 늦게 바뀌지 않게.
@@ -153,14 +159,14 @@ function ControlCenterInner() {
 
   const load = useCallback(async () => {
     const res = await fetch("/api/control/overview", { cache: "no-store" })
-    if (res.status === 401 || res.status === 403) {
-      setDenied(true)
-      setLoading(false)
-      return
+    if (!res.ok) {
+      const p = problemOf(res.status)
+      // 권한 거절은 자동갱신 중이라도 곧바로 보여 준다(선임 해제 등).
+      if (p === "forbidden") { setProblem(p); setLoading(false); return }
+      throw loadError(p)
     }
-    if (!res.ok) throw new Error()
     setData(await res.json())
-    setDenied(false)
+    setProblem(null)
     setLoading(false)
   }, [])
 
@@ -168,25 +174,34 @@ function ControlCenterInner() {
     if (authLoading) return
     let alive = true
     // setState 가 effect 본문에서 동기로 불리지 않도록 한 틱 미룬다.
-    const t = setTimeout(() => { load().catch(() => { if (alive) setLoading(false) }) }, 0)
+    const t = setTimeout(() => {
+      load().catch(e => { if (alive) { setProblem(problemFromError(e)); setLoading(false) } })
+    }, 0)
     return () => { alive = false; clearTimeout(t) }
   }, [authLoading, load])
 
+  async function retry() {
+    setRetrying(true)
+    try { await load() } catch (e) { setProblem(problemFromError(e)) }
+    setRetrying(false)
+  }
+
   // 관제 화면은 계속 켜 두고 보는 화면이다. 측정 주기에 맞춰 1분마다 따라간다.
-  const { lastRefreshed } = useAutoRefresh(load, 60, !denied && !loading)
+  const { lastRefreshed } = useAutoRefresh(load, 60, !problem && !loading)
 
   if (loading || authLoading) return <Spinner />
 
   // 권한 판별은 서버가 한다. 이 화면은 결과를 보여 줄 뿐이다.
-  if (denied || !data) {
+  if (problem || !data) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 px-4 text-center" role="alert">
-        <ShieldCheck className="w-10 h-10 text-muted-foreground" />
-        <p className="text-foreground font-semibold text-lg">관제센터 접근 권한이 없습니다</p>
-        <p className="text-sm text-muted-foreground max-w-sm">
-          관제센터는 관리자와 매니저만 볼 수 있습니다. 필요하시면 총 관리자에게 선임을 요청하세요.
-        </p>
-      </div>
+      <LoadProblemView
+        problem={problem ?? "failed"}
+        onRetry={retry}
+        retrying={retrying}
+        body={problem === "forbidden"
+          ? "관제센터는 관리자와 매니저만 볼 수 있습니다. 필요하면 총관리자에게 선임을 요청하세요."
+          : problem === "failed" || !problem ? "관제 현황을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요." : undefined}
+      />
     )
   }
 
@@ -198,17 +213,18 @@ function ControlCenterInner() {
   return (
     <div className="space-y-5">
       {/* 헤더 */}
+      {/* 셸 머리(h1 "관제센터")와 같은 이름이라 데스크톱에서는 제목만 숨긴다. */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <Radar className="w-5 h-5 text-ocean-500" /> 관제센터
+        <div className="min-w-0">
+          <h2 className="text-xl font-bold text-foreground lg:sr-only">관제센터</h2>
+          <p className="text-muted-foreground text-sm mt-0.5 lg:mt-0 flex flex-wrap items-center gap-2">
+            플랫폼 전체 농장·수조·기기 현황
             {data.role === "super_admin" && (
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/30 flex items-center gap-1">
-                <Crown className="w-3 h-3" /> 총 관리자
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-foreground text-background inline-flex items-center gap-1">
+                <Crown className="w-3 h-3" aria-hidden="true" /> 총관리자
               </span>
             )}
-          </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">플랫폼 전체 농장·수조·기기 현황</p>
+          </p>
         </div>
         {lastRefreshed && (
           <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
@@ -354,7 +370,7 @@ function ControlCenterInner() {
                 a.type === "danger" ? "border-red-500/25 bg-red-500/5" : "border-amber-500/25 bg-amber-500/5"
               }`}>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-foreground font-medium truncate">{a.message}</p>
+                  <p className="text-foreground font-medium truncate" title={a.message}>{a.message}</p>
                   <span className="text-[11px] text-muted-foreground shrink-0">{formatDateTime(a.created_at)}</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-0.5">{a.farm_name} · {a.tank_name}</p>

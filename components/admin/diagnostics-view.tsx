@@ -6,6 +6,8 @@
 //
 // API 가 이미 키를 가리지만 화면에서도 한 번 더 가린다(6장): 필드 이름에 key·token·
 // secret(·키)이 든 값은 앞 4글자 + "…" 만 남긴다. 복사 버튼도 가린 결과를 복사한다.
+// 단 API 가 이미 줄인 꼴("설정됨 (sk-a…, 51자)"·"미설정")은 그대로 둔다 — 다시 가리면
+// "설정…" 만 남아 설정 여부조차 읽을 수 없다.
 import { useState } from "react"
 import { Activity, BrainCircuit, Play, Loader2, Copy, Check } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,8 +18,14 @@ import { formatDateTime } from "@/lib/utils"
 
 const SENSITIVE_KEY = /key|token|secret|키/i
 
+/** API(ai-diag 의 hint())가 이미 가린 값 — 앞 4글자 이하 + "…" 와 길이만 담는다. */
+const ALREADY_MASKED = /^(설정됨 \([^()]{0,4}…, \d+자\)|미설정)$/
+
 function maskValue(v: unknown): unknown {
-  if (typeof v === "string") return v.length > 4 ? `${v.slice(0, 4)}…` : v
+  if (typeof v === "string") {
+    if (ALREADY_MASKED.test(v)) return v
+    return v.length > 4 ? `${v.slice(0, 4)}…` : v
+  }
   if (typeof v === "number" || typeof v === "bigint") return maskValue(String(v))
   if (Array.isArray(v)) return v.map(maskValue)
   if (v && typeof v === "object") {
@@ -172,7 +180,7 @@ function DiagPanel({ title, description, endpoint, buttonLabel, icon, summarize 
         {result && (
           <div className="space-y-3" aria-live="polite">
             <div className="flex items-center gap-2 flex-wrap text-xs">
-              <span className={`font-mono font-semibold px-2 py-0.5 rounded-full border ${
+              <span className={`${result.status ? "font-mono" : ""} font-semibold px-2 py-0.5 rounded-full border ${
                 ok ? "border-emerald-500/40 text-emerald-600 bg-emerald-500/10" : "border-red-500/40 text-red-600 bg-red-500/10"
               }`}>
                 {result.status ? `HTTP ${result.status}` : "요청 실패"}
@@ -193,14 +201,14 @@ function DiagPanel({ title, description, endpoint, buttonLabel, icon, summarize 
 
             {result.body != null && (
               <details className="rounded-lg border border-border">
-                <summary className="cursor-pointer select-none px-3 py-2 text-sm text-muted-foreground hover:text-foreground">
+                <summary className="cursor-pointer select-none px-3 py-2 min-h-[44px] flex items-center text-sm text-muted-foreground hover:text-foreground">
                   전체 결과(JSON)
                 </summary>
                 <div className="border-t border-border">
                   <div className="flex justify-end px-3 pt-2">
                     <button
                       onClick={copy}
-                      className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 min-h-[32px] rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors"
+                      className="inline-flex items-center gap-1.5 text-sm px-3 min-h-[44px] rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors"
                     >
                       {copied ? <Check className="w-3 h-3" aria-hidden="true" /> : <Copy className="w-3 h-3" aria-hidden="true" />}
                       {copied ? "복사됨" : "복사"}
@@ -224,9 +232,10 @@ function DiagPanel({ title, description, endpoint, buttonLabel, icon, summarize 
 export function DiagnosticsView() {
   return (
     <div className="space-y-5">
+      {/* 셸 머리(h1 "시스템 진단")와 같은 이름이라 데스크톱에서는 제목만 숨긴다. */}
       <div>
-        <h2 className="text-xl font-bold text-foreground">시스템 진단</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">
+        <h2 className="text-xl font-bold text-foreground lg:sr-only">시스템 진단</h2>
+        <p className="text-sm text-muted-foreground mt-0.5 lg:mt-0">
           사이트가 실제로 쓰는 경로로 검사합니다. 결과를 전달할 때는 &quot;복사&quot;를 눌러 그대로 붙여 넣으세요.
         </p>
       </div>

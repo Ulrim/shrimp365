@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
 import { ModeSwitch } from "@/components/layout/mode-switch"
 import { PLAN_LABELS, PLAN_COLORS } from "@/lib/plans"
-import { isMonitorAccount } from "@/lib/mock-data"
+import { adminAccess } from "@/lib/admin-access"
 import { localizedHref, stripLocalePrefix } from "@/lib/marketing-locale"
 
 export function BottomNav() {
@@ -31,8 +31,8 @@ export function BottomNav() {
   const isAgri = isAgriPath(pathname ?? "")
   const [moreOpen, setMoreOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const isAdmin = user?.role === "admin" || isMonitorAccount(user?.email)
-  const canControl = isAdmin || user?.role === "manager"
+  // 관리자 콘솔 링크 — 콘솔 가드와 같은 판정(lib/admin-access.ts, 총관리자 이메일 포함).
+  const showConsole = adminAccess(user).console
 
   // 두 모드가 함께 보는 항목(게시판·카드뉴스) — 조건은 예전 그대로.
   // 관제센터·시스템 모니터링은 관리자 콘솔(/admin)로 옮겼다 — 아래 동작 목록의 링크 하나로 들어간다.
@@ -198,7 +198,7 @@ export function BottomNav() {
             {/* Bottom actions */}
             <div className="px-4 pt-2 pb-6 mt-2 border-t border-border space-y-1">
               {/* 관리자 콘솔 — 관리자·매니저만(사이드바와 같은 자리: 도움말 위). */}
-              {canControl && (
+              {showConsole && (
                 <Link
                   href="/admin"
                   onClick={() => setMoreOpen(false)}

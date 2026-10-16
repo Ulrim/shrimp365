@@ -7,21 +7,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
-  Users, Building2, AlertTriangle, ShieldCheck,
+  Users, Building2, AlertTriangle,
   RefreshCw, XCircle, AlertCircle, Info, TrendingUp,
   CheckCircle2, Activity, Fish,
 } from "lucide-react"
-import { formatDateTime } from "@/lib/utils"
+import { cn, formatDateTime } from "@/lib/utils"
 import { MISSING_INPUT_PARAMETER } from "@/lib/thresholds"
 import { useAdminStats } from "@/components/admin/admin-stats"
-import { StatsLoading, ServiceKeyMissing } from "@/components/admin/stats-status"
+import { StatsLoading, LoadProblemView } from "@/components/admin/stats-status"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function alertTypeIcon(type: string) {
   if (type === "danger")  return <XCircle    className="w-4 h-4 text-red-500 shrink-0" />
   if (type === "warning") return <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
-  return <Info className="w-4 h-4 text-ocean-500 shrink-0" />
+  return <Info className="w-4 h-4 text-slate-500 shrink-0" />
 }
 
 function riskBadge(level: string) {
@@ -37,23 +37,27 @@ export function AdminOverviewView() {
   const { stats, loading, error, refreshing, refresh } = useAdminStats()
   const [tab, setTab] = useState<"alerts" | "diagnoses">("alerts")
 
-  if (loading) return <StatsLoading />
-  if (error === "SERVICE_KEY_MISSING") return <ServiceKeyMissing />
-  if (!stats) return null
+  if (loading) return <StatsLoading label="개요 불러오는 중" />
+  if (error || !stats) return <LoadProblemView problem={error ?? "failed"} onRetry={refresh} retrying={refreshing} />
 
   const totalUsers = stats.users.length
   const dangerCount = stats.tanks_by_status.danger
   const warningCount = stats.tanks_by_status.warning
+  const plans = stats.plan_distribution
+  const planSummary = [
+    ...(plans.enterprise > 0 ? [`Enterprise ${plans.enterprise}`] : []),
+    `Pro ${plans.pro}`, `Basic ${plans.basic}`, `Free ${plans.free}`,
+  ].join(" / ")
+  const dangerAlerts = stats.recent_alerts.filter(a => a.type === "danger").length
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-ocean-500" /> 시스템 모니터링
-          </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">전체 사용자·양식장·수질 현황 통합 뷰</p>
+      {/* 셸 머리(h1 "개요")와 같은 이름이라 데스크톱에서는 제목 줄을 숨긴다. */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-xl font-bold text-foreground lg:sr-only">개요</h2>
+          <p className="text-sm text-muted-foreground mt-0.5 lg:mt-0">시스템 모니터링 · 전체 사용자·양식장·수질 현황</p>
         </div>
         <Button
           variant="outline"
@@ -69,21 +73,24 @@ export function AdminOverviewView() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* 색은 상태색(정상 emerald·위험 red)만, 0 은 muted. 나머지는 중립. */}
         {[
-          { icon: <Users className="w-5 h-5 text-ocean-500" />, label: "등록 사용자", value: totalUsers, sub: `Pro ${stats.plan_distribution.pro} / Basic ${stats.plan_distribution.basic} / Free ${stats.plan_distribution.free}`, color: "text-ocean-500", bg: "bg-ocean-500/10" },
-          { icon: <Building2 className="w-5 h-5 text-teal-500" />, label: "전체 양식장", value: stats.total_farms, sub: `수조 ${stats.total_tanks}개`, color: "text-teal-500", bg: "bg-teal-500/10" },
-          { icon: <Fish className="w-5 h-5 text-emerald-500" />, label: "가동 수조", value: stats.tanks_by_status.active, sub: `주의 ${warningCount} / 위험 ${dangerCount}`, color: "text-emerald-500", bg: "bg-emerald-500/10" },
-          { icon: <AlertTriangle className="w-5 h-5 text-red-500" />, label: "활성 알림", value: stats.total_active_alerts, sub: `위험 ${stats.recent_alerts.filter(a => a.type === "danger").length}건 포함`, color: "text-red-500", bg: "bg-red-500/10" },
-        ].map(card => (
+          { Icon: Users, label: "등록 사용자", value: totalUsers, sub: planSummary, color: "text-foreground" },
+          { Icon: Building2, label: "전체 양식장", value: stats.total_farms, sub: `수조 ${stats.total_tanks}개`, color: "text-foreground" },
+          { Icon: Fish, label: "가동 수조", value: stats.tanks_by_status.active, sub: `주의 ${warningCount} / 위험 ${dangerCount}`, color: "text-emerald-600 dark:text-emerald-400" },
+          { Icon: AlertTriangle, label: "활성 알림", value: stats.total_active_alerts, sub: `위험 ${dangerAlerts}건 포함`, color: "text-red-600 dark:text-red-400" },
+        ].map(({ Icon, ...card }) => (
           <Card key={card.label} className="bg-card border-border">
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between">
-                <div>
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
                   <p className="text-xs text-muted-foreground mb-1">{card.label}</p>
-                  <p className={`text-3xl font-bold ${card.color}`}>{card.value}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{card.sub}</p>
+                  <p className={cn("text-3xl font-bold tabular-nums", card.value === 0 ? "text-muted-foreground" : card.color)}>{card.value}</p>
+                  <p className="text-xs text-muted-foreground mt-1 tabular-nums">{card.sub}</p>
                 </div>
-                <div className={`w-11 h-11 rounded-xl ${card.bg} flex items-center justify-center`}>{card.icon}</div>
+                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                  <Icon className="w-5 h-5 text-muted-foreground" aria-hidden="true" />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -104,7 +111,7 @@ export function AdminOverviewView() {
               <div key={s.label} className="flex items-center gap-2">
                 <div className={`w-3 h-3 rounded-full ${s.color}`} />
                 <span className="text-xs text-muted-foreground">{s.label}</span>
-                <span className={`text-sm font-bold ${s.text}`}>{s.count}</span>
+                <span className={cn("text-sm font-bold tabular-nums", s.count === 0 ? "text-muted-foreground" : s.text)}>{s.count}</span>
               </div>
             ))}
             {/* Visual bar */}
@@ -135,8 +142,8 @@ export function AdminOverviewView() {
             key={t.key}
             onClick={() => setTab(t.key)}
             aria-pressed={tab === t.key}
-            className={`px-4 min-h-[44px] rounded-lg text-sm font-medium transition-all ${
-              tab === t.key ? "bg-ocean-500/20 text-ocean-500 border border-ocean-500/30" : "text-muted-foreground hover:text-foreground"
+            className={`shrink-0 px-4 min-h-[44px] rounded-lg text-sm font-medium transition-all ${
+              tab === t.key ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
             }`}
           >
             {t.label}
@@ -149,7 +156,7 @@ export function AdminOverviewView() {
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-foreground flex items-center gap-2">
-              <Activity className="w-4 h-4 text-red-500" /> 전체 활성 알림
+              <Activity className="w-4 h-4 text-muted-foreground" aria-hidden="true" /> 전체 활성 알림
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -168,13 +175,14 @@ export function AdminOverviewView() {
                         ? "bg-red-500/5 border-red-500/20"
                         : alert.type === "warning"
                         ? "bg-amber-500/5 border-amber-500/20"
-                        : "bg-ocean-500/5 border-ocean-500/20"
+                        : "bg-slate-500/5 border-slate-500/20"
                     }`}
                   >
                     <div className="mt-0.5">{alertTypeIcon(alert.type)}</div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-sm font-medium text-foreground">
+                      {/* 좁은 화면에서는 제목 줄이 접히고 시각은 아래 줄로(sm 부터 오른쪽). */}
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mb-0.5">
+                        <span className="text-sm font-medium text-foreground break-words">
                           {alert.tank?.name ?? alert.tank_id}
                         </span>
                         {alert.tank?.farm?.name && (
@@ -184,7 +192,7 @@ export function AdminOverviewView() {
                           <span className="text-xs text-muted-foreground">· {alert.parameter}</span>
                         )}
                       </div>
-                      <p className="text-xs text-foreground/80">{alert.message}</p>
+                      <p className="text-xs text-foreground/80 break-words">{alert.message}</p>
                       {/* 입력 누락은 "측정값"이 없는 알림이다 — value 는 마지막 기록
                           이후 경과 **시간**이고 기준은 72시간이다. 그대로 두면
                           "측정값 96 / 기준 72" 가 되어 수질 수치로 오해한다.
@@ -194,8 +202,9 @@ export function AdminOverviewView() {
                           측정값: <span className="text-foreground">{alert.value}</span> / 기준: {alert.threshold}
                         </p>
                       )}
+                      <p className="sm:hidden text-xs text-muted-foreground mt-1 tabular-nums">{formatDateTime(alert.created_at)}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground shrink-0 mt-0.5">{formatDateTime(alert.created_at)}</p>
+                    <p className="hidden sm:block text-xs text-muted-foreground shrink-0 mt-0.5 tabular-nums">{formatDateTime(alert.created_at)}</p>
                   </div>
                 ))}
               </div>
@@ -209,7 +218,7 @@ export function AdminOverviewView() {
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-foreground flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-purple-500" /> 최근 질병 진단
+              <TrendingUp className="w-4 h-4 text-muted-foreground" aria-hidden="true" /> 최근 질병 진단
             </CardTitle>
           </CardHeader>
           <CardContent>
