@@ -3,6 +3,7 @@ import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, 
 import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, planMissingInputAlerts, MISSING_INPUT_PARAMETER, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
 import { PLAN_LIMITS, type Plan } from "@/lib/plans"
 import { isTestAccount } from "@/lib/mock-data"
+import { isMissingColumnError } from "@/lib/wq-source"
 
 // ─────────────────────────────────────────────
 // 타입 변환 헬퍼
@@ -311,11 +312,22 @@ export async function insertWaterQuality(
   tankId: string,
   values: Omit<WaterQualityReading, "id" | "tank_id" | "created_at">
 ) {
-  const { data, error } = await supabase
+  // 손으로 적은 기록이라는 표시(source='manual') — 관리자 콘솔이 수기 기록을 가려 본다.
+  // source 칸은 supabase/migrations/wq_source.sql 로 생긴다. 실행 전 DB 에서는 칸이
+  // 없어 insert 가 실패하므로, 그때만 source 를 빼고 한 번 더 넣는다(수기 입력이 깨지지 않게).
+  const row = { ...values, tank_id: tankId }
+  let { data, error } = await supabase
     .from("water_quality_readings")
-    .insert({ ...values, tank_id: tankId })
+    .insert({ ...row, source: "manual" })
     .select()
     .single()
+  if (error && isMissingColumnError(error, "source")) {
+    ;({ data, error } = await supabase
+      .from("water_quality_readings")
+      .insert(row)
+      .select()
+      .single())
+  }
 
   if (error) throw error
 

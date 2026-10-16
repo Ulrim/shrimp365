@@ -5,13 +5,14 @@
 import { useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutGrid, Users, Radar, UserCog, Stethoscope, type LucideIcon } from "lucide-react"
+import { LayoutGrid, Users, Droplets, Radar, UserCog, Stethoscope, type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ADMIN_PAGES, adminPageOf, type AdminAccess, type AdminPageKey } from "@/lib/admin-access"
 
 const META: Record<AdminPageKey, { label: string; icon: LucideIcon }> = {
   overview:    { label: "개요",       icon: LayoutGrid },
   users:       { label: "사용자",     icon: Users },
+  readings:    { label: "수질 기록",   icon: Droplets },
   control:     { label: "관제센터",   icon: Radar },
   managers:    { label: "매니저 관리", icon: UserCog },
   diagnostics: { label: "시스템 진단", icon: Stethoscope },

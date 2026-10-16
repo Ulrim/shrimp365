@@ -8,7 +8,7 @@ import { isMonitorAccount, isTestAccount } from "@/lib/mock-data"
 /** 총관리자 이메일 — 기존 시스템 모니터링 화면과 같은 기준. */
 const SUPER_ADMIN_EMAIL = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || "kjs100184@gmail.com").trim().toLowerCase()
 
-export type AdminPageKey = "overview" | "users" | "control" | "managers" | "diagnostics"
+export type AdminPageKey = "overview" | "users" | "readings" | "control" | "managers" | "diagnostics"
 
 export type AdminAccess = { console: boolean } & Record<AdminPageKey, boolean>
 
@@ -24,17 +24,18 @@ export function isSuperAdminEmail(email?: string | null): boolean {
  *  | 화면        | manager | admin | 총관리자 | 모니터·테스트(추가분) |
  *  | 개요        |   →관제  |  ✅   |   ✅    |   ✅(목데이터) |
  *  | 사용자      |    ✗    |  ✅   |   ✅    |   ✅(목데이터) |
+ *  | 수질 기록   |    ✗    |  ✅   |   ✅    |   ✅(목데이터) |
  *  | 관제센터    |   ✅    |  ✅   |   ✅    |      ✗       |
  *  | 매니저 관리 |    ✗    |   ✗   |   ✅    |      ✗       |
  *  | 시스템 진단 |    ✗    |  ✅   |   ✅    |      ✗       |
  *
  *  모니터·테스트 계정 열은 **덧붙이는** 권한이다 — role 이 없어도 목데이터
- *  화면(개요·사용자)은 열어 준다. role 로 얻은 권한(관제센터·진단 등)은 빼지
+ *  화면(개요·사용자·수질 기록)은 열어 준다. role 로 얻은 권한(관제센터·진단 등)은 빼지
  *  않는다: 실제 admin/manager 인 계정이 데모 이메일이라는 이유로 잠기면 안 된다.
  *  (그 화면들의 데이터는 어차피 서버가 role·이메일로 다시 거른다.) */
 export function adminAccess(user: AccessUser): AdminAccess {
   if (!user) {
-    return { console: false, overview: false, users: false, control: false, managers: false, diagnostics: false }
+    return { console: false, overview: false, users: false, readings: false, control: false, managers: false, diagnostics: false }
   }
   const isSuper = isSuperAdminEmail(user.email)
   const isMock = isMonitorAccount(user.email) || isTestAccount(user.email)
@@ -43,14 +44,17 @@ export function adminAccess(user: AccessUser): AdminAccess {
 
   const overview = isAdmin || isMock
   const users = overview
+  // 수질 기록 — 회원 전체의 측정값이라 사용자 화면과 같은 권한(manager 제외).
+  const readings = overview
   const control = isAdmin || isManager
   const managers = isSuper
   const diagnostics = isAdmin
 
   return {
-    console: overview || users || control || managers || diagnostics,
+    console: overview || users || readings || control || managers || diagnostics,
     overview,
     users,
+    readings,
     control,
     managers,
     diagnostics,
@@ -61,6 +65,7 @@ export function adminAccess(user: AccessUser): AdminAccess {
 export const ADMIN_PAGES: { key: AdminPageKey; href: string }[] = [
   { key: "overview", href: "/admin" },
   { key: "users", href: "/admin/users" },
+  { key: "readings", href: "/admin/readings" },
   { key: "control", href: "/admin/control" },
   { key: "managers", href: "/admin/managers" },
   { key: "diagnostics", href: "/admin/diagnostics" },

@@ -44,7 +44,7 @@ export function AdminShell({ access, children }: { access: AdminAccess; children
   const pathname = usePathname() ?? ""
   const title = adminPageTitle(pathname)
   const badge = user ? roleLabel(user) : null
-  // 모니터·테스트(데모) 계정은 개요·사용자에 목데이터를 본다 — 실제 수치로 오해하지 않게 띠를 단다.
+  // 모니터·테스트(데모) 계정은 개요·사용자·수질 기록에 목데이터를 본다 — 실제 수치로 오해하지 않게 띠를 단다.
   const isDemo = isMonitorAccount(user?.email) || isTestAccount(user?.email)
   const serviceHref = user?.ui_mode === "agriculture" ? "/daumlabs/home" : "/home"
 
@@ -132,7 +132,7 @@ export function AdminShell({ access, children }: { access: AdminAccess; children
 
           {isDemo && (
             <div className="px-4 lg:px-6 py-1.5 text-xs font-medium text-center bg-muted text-foreground border-b border-border" role="note">
-              데모 데이터 — 이 계정의 개요·사용자 화면은 실제 운영 수치가 아닌 예시입니다
+              데모 데이터 — 이 계정의 개요·사용자·수질 기록 화면은 실제 운영 수치가 아닌 예시입니다
             </div>
           )}
         </div>

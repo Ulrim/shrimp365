@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import {
   ArrowLeft, RefreshCw, UserRound, Activity, Building2, Cpu, Bell, Eye,
-  ShieldCheck, XCircle, AlertCircle, Info, CheckCircle2,
+  ShieldCheck, XCircle, AlertCircle, Info, CheckCircle2, Droplets, ArrowRight,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
@@ -18,6 +18,10 @@ import { isMonitorAccount, isTestAccount } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
 import type { AdminUserDetail } from "@/components/admin/user-detail/types"
 import { buildMockUserDetail } from "@/components/admin/user-detail/mock"
+import { DEFAULT_READINGS_FILTER, type AdminReadingRow } from "@/lib/admin-readings"
+import { mockReadingsResponse } from "@/components/admin/readings/mock"
+import { LateEntryMark, RecordedAt, SourceBadge, WqValue, unitOf } from "@/components/admin/readings/parts"
+import { problemOf, type LoadProblem } from "@/components/admin/stats-status"
 import {
   CopyButton, Dot, Empty, Field, NeutralBadge, Section, StatusChip, TONE_TEXT,
   absDate, absTime, planLabel, providerLabel, relTime, roleLabel, uiModeLabel,
@@ -150,6 +154,7 @@ export function AdminUserDetailView({ id }: { id: string }) {
         <ActivityCard detail={detail} />
         <FarmsCard detail={detail} />
         <DevicesCard detail={detail} />
+        <RecentReadingsCard userId={account.id} />
         {hasViewerLinks ? (
           <>
             <AlertsCard detail={detail} />
@@ -347,6 +352,92 @@ function DevicesCard({ detail }: { detail: AdminUserDetail }) {
           </table>
         </div>
       )}
+    </Section>
+  )
+}
+
+// 최근 수질 기록 — /api/admin/readings?user=<id>&page=1(기본 최근 30일)의 앞 5건.
+// 사용자 상세 API 와 따로 불러, 이 카드가 실패해도 상세 화면은 그대로 보인다.
+function RecentReadingsCard({ userId }: { userId: string }) {
+  const { user } = useAuth()
+  const isMock = isMonitorAccount(user?.email) || isTestAccount(user?.email)
+  const [rows, setRows] = useState<AdminReadingRow[] | null>(null)
+  const [total, setTotal] = useState(0)
+  const [problem, setProblem] = useState<LoadProblem | null>(null)
+
+  useEffect(() => {
+    if (!user) return
+    let alive = true
+    const t = setTimeout(async () => {
+      try {
+        if (isMock) {
+          const { response } = mockReadingsResponse({ ...DEFAULT_READINGS_FILTER, user: userId }, Date.now())
+          if (!alive) return
+          setRows(response.rows.slice(0, 5)); setTotal(response.total); setProblem(null)
+          return
+        }
+        const res = await fetch(`/api/admin/readings?user=${encodeURIComponent(userId)}&page=1`, { cache: "no-store" })
+        if (!alive) return
+        if (!res.ok) { setProblem(problemOf(res.status)); setRows(null); return }
+        const body = await res.json() as { total: number; rows: AdminReadingRow[] }
+        if (!alive) return
+        setRows(body.rows.slice(0, 5)); setTotal(body.total); setProblem(null)
+      } catch {
+        if (alive) { setProblem("failed"); setRows(null) }
+      }
+    }, 0)
+    return () => { alive = false; clearTimeout(t) }
+  }, [user, isMock, userId])
+
+  const base = `/admin/readings?user=${encodeURIComponent(userId)}`
+  const linkCls = "inline-flex items-center gap-1 min-h-[44px] px-1 text-sm text-muted-foreground hover:text-foreground underline-offset-2 hover:underline rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+
+  return (
+    <Section
+      icon={Droplets}
+      title="최근 수질 기록"
+      className="lg:col-span-2"
+      aside={rows && <span className="text-xs text-muted-foreground tabular-nums">최근 30일 {total.toLocaleString("ko-KR")}건</span>}
+    >
+      {problem ? (
+        <Empty>
+          {problem === "forbidden" ? "수질 기록을 볼 권한이 없습니다"
+            : problem === "service_key" ? "서비스 롤 키가 없어 수질 기록을 조회할 수 없습니다"
+            : "수질 기록을 불러오지 못했습니다"}
+        </Empty>
+      ) : rows === null ? (
+        <div className="space-y-2" role="status" aria-label="수질 기록 불러오는 중">
+          {[0, 1, 2].map(i => <div key={i} className="h-5 bg-muted rounded animate-pulse" />)}
+        </div>
+      ) : rows.length === 0 ? (
+        <Empty>최근 30일 수질 기록이 없습니다</Empty>
+      ) : (
+        <ul className="divide-y divide-border">
+          {rows.map(r => (
+            <li key={r.id} className="py-2.5 flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 text-sm">
+              <div className="flex items-center gap-2 min-w-0 sm:w-[19rem] shrink-0">
+                <span className="text-foreground"><RecordedAt row={r} /></span>
+                <SourceBadge kind={r.source_kind} deviceName={r.device_name} compact />
+                <LateEntryMark row={r} />
+              </div>
+              <span className="text-muted-foreground truncate min-w-0 flex-1">
+                {r.farm_name} · {unitOf(r.farm_type)} {r.tank_name}
+              </span>
+              <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+                수온 <WqValue v={r.values.temperature} /> · pH <WqValue v={r.values.ph} /> · DO <WqValue v={r.values.do_level} />
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex flex-wrap justify-end gap-x-4 mt-1">
+        <Link href={`${base}&source=manual`} className={linkCls}>
+          수기 기록만 <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+        </Link>
+        <Link href={base} className={linkCls}>
+          전체 보기 <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+        </Link>
+      </div>
     </Section>
   )
 }
