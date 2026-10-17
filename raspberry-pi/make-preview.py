@@ -86,11 +86,18 @@ STATES = [
 # 화면이 mS/cm 로 나눠 보여 준다(ec_unit=ms). nutrient 는 shrimp365_sensor.nutrient_plan() 의 모양.
 AGRI_VALUES = {"temperature": 21.6, "ph": 6.12, "do_level": 7.3, "conductivity": 1640}
 NUT_BASE = {"ec": 1.71, "target": 1.8, "percent": 94.0, "atc": True}
+# 지그비 환경 센서 — zigbee_env.read_latest() 의 모양.
+ENV = {
+    "air_temp": {"value": 23.4, "var": "t_air", "sensors": 1, "age_min": 2},
+    "rh": {"value": 71.5, "var": "rh", "sensors": 2, "age_min": 3},
+    "soil_moisture": {"value": 34.2, "var": "soil_moisture", "sensors": 2, "age_min": 4},
+    "soil_temp": {"value": 19.8, "var": "soil_temp", "sensors": 2, "age_min": 4},
+}
 
 
 def agri_state(**over) -> dict:
     state = base_state(values=dict(AGRI_VALUES), farm="1농장", tank="딸기 B-2베드",
-                       mode="agriculture", ec_mode="conductivity", ec_unit="ms",
+                       mode="agriculture", ec_mode="conductivity", ec_unit="ms", env=ENV,
                        nutrient={**NUT_BASE, "verdict": "low", "need_rise": 0.09,
                                  "dose_total": 180, "dose_a": 90, "dose_b": 90})
     state.update(over)
@@ -110,6 +117,11 @@ AGRI_STATES = [
     ("양액 관리 꺼짐", agri_state(nutrient=None)),
     ("고온 · pH 이탈", agri_state(
         values={**AGRI_VALUES, "temperature": 29.4, "ph": 7.2})),
+    ("지그비 센서 끊김", agri_state(env={
+        "air_temp": {"value": 23.1, "var": "t_air", "sensors": 1, "age_min": 22},
+        "soil_moisture": {"value": 33.9, "var": "soil_moisture", "sensors": 1, "age_min": 6},
+    })),
+    ("지그비 값 없음", agri_state(env={})),
     ("미연결 (측정만)", agri_state(
         linked=False, account=None, tank=None, farm=None,
         status="미연결 — 측정만 · 보관 12건", pending=12)),

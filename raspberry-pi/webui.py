@@ -53,6 +53,7 @@ class State:
 
             "ec_unit": "us",       # 전도도 표시 단위(us|ms). 화면이 값을 바꿔 보여 준다.
             "nutrient": None,      # 양액 보충 안내(켜 둔 경우에만)
+            "env": None,           # 지그비 온습도·토양수분(zigbee_env.py). 끄면 None, 켰는데 값이 없으면 {}
             "mode": "shrimp",      # 장비 모드(shrimp|agriculture). 화면 이름·라벨·색만 바꾼다.
 
             # 장비가 스스로 낸 판단. 통신과 무관하게 여기서 끝난다.
@@ -190,6 +191,20 @@ PAGE = """<!doctype html>
   .sub2 .dim{color:#64748B;font-weight:500;font-size:12px}
   .sub2.bad{color:#F87171}
   .sub2.bad .dim{color:#94A3B8;display:block;margin-top:2px}
+
+  /* 환경 센서 줄 (스마트팜 · 지그비 온습도·토양수분) — 값 격자와 양액 띠 사이.
+     수질 값보다 작게 둔다. 판정 색은 없다(작물·생육 단계마다 적정값이 달라서). */
+  .env{flex:0 0 auto;margin-top:9px;display:flex;gap:11px}
+  .env .e{flex:1;min-width:0;background:#111A2E;border:1px solid #22304C;border-radius:12px;
+    padding:7px 13px;display:flex;flex-direction:column;gap:2px}
+  .env .ek{font-size:12.5px;color:#94A3B8;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .env .ev{font:800 25px/1 ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .env .ev small{font-size:13px;font-weight:600;color:#94A3B8;margin-left:3px}
+  .env .em{font-size:11px;color:#64748B;font-weight:600}
+  .env .e.old .em{color:#F59E0B}
+  .env .e.none .ev{color:#475569}
+  .env.empty{border:1px dashed #22304C;border-radius:12px;padding:9px 14px;
+    font-size:13px;color:#94A3B8;font-weight:600}
 
   /* 양액 안내 띠 — 계기판 아래 한 줄 */
   .nut{
@@ -596,6 +611,15 @@ var I18N = {
   mode_agri_sub:{ko:"베드 · 전도도(mS/cm) · 양액 보충 안내",en:"Beds · conductivity (mS/cm) · nutrient dosing",vi:"Luống · độ dẫn (mS/cm) · bổ sung dinh dưỡng",id:"Bedeng · konduktivitas (mS/cm) · dosis nutrisi"},
   mode_ec_note:{ko:"스마트팜으로 바꾸면 EC 센서가 염도 대신 전도도(mS/cm)를 보여 줍니다. [센서 설정] 에서 다시 바꿀 수 있습니다.",en:"Switching to Smart farm shows conductivity (mS/cm) instead of salinity. You can change it back in [Sensor settings].",vi:"Chuyển sang Nông trại thông minh sẽ hiện độ dẫn (mS/cm) thay cho độ mặn. Có thể đổi lại trong [Cài đặt cảm biến].",id:"Beralih ke Smart farm menampilkan konduktivitas (mS/cm) alih-alih salinitas. Bisa diubah kembali di [Pengaturan sensor]."},
   mode_saved:{ko:"바꿨습니다.",en:"Changed.",vi:"Đã đổi.",id:"Diubah."},
+  env_air:{ko:"기온",en:"Air temp",vi:"Nhiệt độ không khí",id:"Suhu udara"},
+  env_canopy:{ko:"초관부 온도",en:"Canopy temp",vi:"Nhiệt độ tán",id:"Suhu kanopi"},
+  env_rh:{ko:"습도",en:"Humidity",vi:"Độ ẩm",id:"Kelembapan"},
+  env_soil:{ko:"토양수분",en:"Soil moisture",vi:"Độ ẩm đất",id:"Kelembapan tanah"},
+  env_soil_temp:{ko:"지온",en:"Soil temp",vi:"Nhiệt độ đất",id:"Suhu tanah"},
+  env_meta:{ko:"{n}대 · {m}분 전",en:"{n} sensor(s) · {m} min ago",vi:"{n} cảm biến · {m} phút trước",id:"{n} sensor · {m} mnt lalu"},
+  env_now:{ko:"{n}대 · 방금",en:"{n} sensor(s) · just now",vi:"{n} cảm biến · vừa xong",id:"{n} sensor · baru saja"},
+  env_missing:{ko:"값 없음",en:"No data",vi:"Không có dữ liệu",id:"Tidak ada data"},
+  env_empty:{ko:"지그비 센서 값이 들어오지 않습니다 — 수집기(zigbee_bridge)·센서 배터리를 확인하세요",en:"No Zigbee sensor data — check the collector (zigbee_bridge) and sensor batteries",vi:"Không có dữ liệu cảm biến Zigbee — kiểm tra bộ thu (zigbee_bridge) và pin cảm biến",id:"Tidak ada data sensor Zigbee — periksa kolektor (zigbee_bridge) dan baterai sensor"},
   nut_off_hint:{ko:"양액 관리 꺼짐 — 눌러서 [양액 설정] 에서 켜세요",en:"Nutrient management off — tap to turn it on in [Nutrient solution]",vi:"Quản lý dinh dưỡng đang tắt — nhấn để bật trong [Dung dịch dinh dưỡng]",id:"Manajemen nutrisi mati — ketuk untuk menyalakan di [Larutan nutrisi]"},
   // 센서 설정
   version:{ko:"버전",en:"Version",vi:"Phiên bản",id:"Versi"},
@@ -810,8 +834,45 @@ function renderValues(d){
   }).join("");
   // 스마트팜은 양액 보충이 주 업무라 값 바로 아래에 크게 놓는다.
   // 양식장은 예전 순서 그대로(권고 → 양액).
-  if (isAgri()) return '<div class="grid">' + cells + '</div>' + renderNutrient(d) + renderAdvice(d);
+  if (isAgri()) return '<div class="grid">' + cells + '</div>' + renderEnv(d) + renderNutrient(d) + renderAdvice(d);
   return '<div class="grid">' + cells + '</div>' + renderAdvice(d) + renderNutrient(d);
+}
+
+// 지그비 환경 센서 줄 — 스마트팜에서 [zigbee] 를 켠 장비만. 끈 장비(env=null)는
+// 자리도 차지하지 않는다. 켰는데 값이 하나도 없으면 비워 두지 않고 점검할 곳을 알린다.
+var ENV_SLOTS = [
+  {k:"air_temp",      unit:"\u00B0C"},
+  {k:"rh",            unit:"%"},
+  {k:"soil_moisture", unit:"%"},
+  {k:"soil_temp",     unit:"\u00B0C"}
+];
+function envLabel(k, e){
+  if (k === "air_temp") return t(e && e.var === "canopy_temp" ? "env_canopy" : "env_air");
+  if (k === "rh") return t("env_rh");
+  if (k === "soil_moisture") return t("env_soil");
+  return t("env_soil_temp");
+}
+function renderEnv(d){
+  var env = d.env;
+  if (!env) return "";
+  var any = ENV_SLOTS.some(function(s){ return env[s.k]; });
+  if (!any) return '<div class="env empty">' + t("env_empty") + '</div>';
+  // 지온은 값이 있을 때만 — 토양 센서가 없는 베드에서 빈 칸 하나를 늘 띄울 까닭이 없다.
+  var tiles = ENV_SLOTS.filter(function(s){ return s.k !== "soil_temp" || env[s.k]; })
+    .map(function(s){
+      var e = env[s.k];
+      if (!e) {
+        return '<div class="e none"><span class="ek">' + envLabel(s.k, null) + '</span>' +
+               '<span class="ev">--</span><span class="em">' + t("env_missing") + '</span></div>';
+      }
+      var meta = e.age_min < 1 ? t("env_now", {n:e.sensors}) : t("env_meta", {n:e.sensors, m:e.age_min});
+      // 수집 주기(보통 5분)의 세 배를 넘기면 끊기고 있는 것 — 값은 두되 주황으로 알린다.
+      return '<div class="e' + (e.age_min >= 15 ? " old" : "") + '">' +
+             '<span class="ek">' + envLabel(s.k, e) + '</span>' +
+             '<span class="ev">' + e.value.toFixed(1) + '<small>' + s.unit + '</small></span>' +
+             '<span class="em">' + meta + '</span></div>';
+    }).join("");
+  return '<div class="env">' + tiles + '</div>';
 }
 
 // 설비 운전 권고 — "지금 무엇을 돌릴까" 한 줄.
