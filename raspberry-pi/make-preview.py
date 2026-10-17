@@ -86,12 +86,17 @@ STATES = [
 # 화면이 mS/cm 로 나눠 보여 준다(ec_unit=ms). nutrient 는 shrimp365_sensor.nutrient_plan() 의 모양.
 AGRI_VALUES = {"temperature": 21.6, "ph": 6.12, "do_level": 7.3, "conductivity": 1640}
 NUT_BASE = {"ec": 1.71, "target": 1.8, "percent": 94.0, "atc": True}
-# 지그비 환경 센서 — zigbee_env.read_latest() 의 모양.
+# 환경·기상 — field_env.FieldEnv.read() 의 모양. 기상센서(WS90)까지 단 농장.
 ENV = {
-    "air_temp": {"value": 23.4, "var": "t_air", "sensors": 1, "age_min": 2},
-    "rh": {"value": 71.5, "var": "rh", "sensors": 2, "age_min": 3},
+    "air_temp": {"value": 23.4, "var": "t_air", "sensors": 1, "age_min": 0},
+    "humidity": {"value": 71.5, "var": "rh", "sensors": 3, "age_min": 3},
     "soil_moisture": {"value": 34.2, "var": "soil_moisture", "sensors": 2, "age_min": 4},
     "soil_temp": {"value": 19.8, "var": "soil_temp", "sensors": 2, "age_min": 4},
+    "wind_speed": {"value": 3.2, "var": "wind_speed", "sensors": 1, "age_min": 0},
+    "wind_gust": {"value": 6.8, "var": "wind_gust_window", "sensors": 1, "age_min": 0},
+    "wind_dir": {"value": 315, "var": "wind_dir", "sensors": 1, "age_min": 0},
+    "rain_day": {"value": 4.6, "var": "rain", "sensors": 1, "age_min": 0},
+    "rain_rate": {"value": 1.2, "var": "rain_rate", "sensors": 1, "age_min": 0},
 }
 
 
@@ -117,11 +122,16 @@ AGRI_STATES = [
     ("양액 관리 꺼짐", agri_state(nutrient=None)),
     ("고온 · pH 이탈", agri_state(
         values={**AGRI_VALUES, "temperature": 29.4, "ph": 7.2})),
-    ("지그비 센서 끊김", agri_state(env={
+    ("지그비만 (기상센서 없음)", agri_state(env={
+        "air_temp": {"value": 22.8, "var": "canopy_temp", "sensors": 2, "age_min": 3},
+        "humidity": {"value": 74.0, "var": "rh", "sensors": 2, "age_min": 3},
+        "soil_moisture": {"value": 33.9, "var": "soil_moisture", "sensors": 2, "age_min": 4},
+    })),
+    ("센서 끊김", agri_state(env={
         "air_temp": {"value": 23.1, "var": "t_air", "sensors": 1, "age_min": 22},
         "soil_moisture": {"value": 33.9, "var": "soil_moisture", "sensors": 1, "age_min": 6},
     })),
-    ("지그비 값 없음", agri_state(env={})),
+    ("환경 값 없음", agri_state(env={})),
     ("미연결 (측정만)", agri_state(
         linked=False, account=None, tank=None, farm=None,
         status="미연결 — 측정만 · 보관 12건", pending=12)),

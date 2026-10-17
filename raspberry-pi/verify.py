@@ -38,7 +38,7 @@ import advice          # noqa: E402
 import buffer          # noqa: E402
 import anomaly         # noqa: E402
 import history         # noqa: E402
-import zigbee_env      # noqa: E402
+import field_env       # noqa: E402
 import limits          # noqa: E402
 
 # --full 이면 72시간치(4,320건)를 실제로 적재한다. 기본값이 아닌 이유는 파이의
@@ -251,29 +251,58 @@ rows = store(drop)
 last = {k: v for k, v in rows[-1].items() if k != "t"}
 check("급락한 수조에 권고가 선다", codes(last, anomaly.detect(rows), rows), [("warn", "do_low")])
 
-print("\n⑧ 지그비 환경 센서 — 수집기 CSV 에서 화면 값 고르기")
+print("\n⑧ 환경·기상 센서 — 수집기 CSV 에서 화면·서버 값 고르기")
 import datetime as _dt  # noqa: E402
-zdir = Path(tempfile.mkdtemp(prefix="zigbee-"))
+zdir = Path(tempfile.mkdtemp(prefix="field-env-"))
 znow = _dt.datetime(2026, 10, 17, 0, 10)
+HEAD = "ts,zone,sensor_id,variable,value,unit,quality\n"
 (zdir / "zigbee_20261016.csv").write_text(
-    "ts,zone,sensor_id,variable,value,unit,quality\n"
-    "2026-10-16T23:58:00,treatment,CN-T1,rh,80.0,%,ok\n", encoding="utf-8")
+    HEAD + "2026-10-16T23:58:00,treatment,CN-T1,rh,80.0,%,ok\n", encoding="utf-8")
 (zdir / "zigbee_20261017.csv").write_text(
-    "ts,zone,sensor_id,variable,value,unit,quality\n"
+    HEAD +
     "2026-10-17T00:05:00,treatment,CN-T1,canopy_temp,11.0,degC,ok\n"
     "2026-10-17T00:08:00,treatment,CN-T2,canopy_temp,12.0,degC,ok\n"
     "2026-10-17T00:09:00,treatment,CN-T1,rh,84.0,%,ok\n"
     "2026-10-17T00:09:00,treatment,CN-T2,rh,150.0,%,range\n"
     "2026-10-17T00:09:00,control,SOIL-C1,soil_moisture,40.0,%,ok\n"
     "2026-10-16T22:00:00,treatment,SOIL-T1,soil_moisture,10.0,%,ok\n", encoding="utf-8")
-env = zigbee_env.read_latest(zdir, now=znow)
+(zdir / "rtl433_20261016.csv").write_text(
+    HEAD + "2026-10-16T23:50:00,mast,WS90-01,rain,5.0,mm,ok\n", encoding="utf-8")
+(zdir / "rtl433_20261017.csv").write_text(
+    HEAD +
+    "2026-10-17T00:01:00,mast,WS90-01,rain,0.4,mm,ok\n"
+    "2026-10-17T00:06:00,mast,WS90-01,rain,0.2,mm,ok\n"
+    "2026-10-17T00:09:00,mast,WS90-01,wind_speed,3.2,m/s,ok\n"
+    "2026-10-17T00:09:00,mast,WS90-01,wind_gust_window,6.8,m/s,ok\n"
+    "2026-10-17T00:09:00,mast,WS90-01,wind_dir,350,deg,ok\n"
+    "2026-10-17T00:09:00,mast,WS90-02,wind_dir,10,deg,ok\n", encoding="utf-8")
+# 에코윗 게이트웨이는 UTC 로 적는다 — 현지 시각으로 바꿔 넣어 두고 같은 값이 나오는지 본다.
+_utc = (znow - _dt.timedelta(minutes=2)).astimezone().astimezone(_dt.timezone.utc).replace(tzinfo=None)
+(zdir / "ecowitt_20261017.csv").write_text(
+    HEAD + f"{_utc.isoformat()},mast,GW-01,pressure_hpa,1012.4,hPa,ok\n", encoding="utf-8")
+
+fe = field_env.FieldEnv(zdir)
+env = fe.read(now=znow)
 check("센서 둘의 초관부 온도를 평균한다", (env["air_temp"]["value"], env["air_temp"]["sensors"]), (11.5, 2))
 check("기온이 없으면 초관부 온도라고 밝힌다", env["air_temp"]["var"], "canopy_temp")
-check("같은 센서는 가장 최근 값 · 범위 밖 값은 뺀다", env["rh"]["value"], 84.0)
+check("같은 센서는 가장 최근 값 · 범위 밖 값은 뺀다", env["humidity"]["value"], 84.0)
 check("30분 넘은 값은 쓰지 않는다", env["soil_moisture"]["value"], 40.0)
 check("가장 오래된 값의 나이를 알린다", env["air_temp"]["age_min"], 5)
-check("구간을 고르면 그 구간만", "soil_moisture" in zigbee_env.read_latest(zdir, "treatment", now=znow), False)
-check("파일이 없으면 빈 값(오류 아님)", zigbee_env.read_latest(zdir / "없음", now=znow), {})
+check("오늘 강수는 오늘 것만 더한다(어제 5mm 제외)", env["rain_day"]["value"], 0.6)
+check("돌풍은 3초값이 없으면 28초 창 최댓값", (env["wind_gust"]["value"], env["wind_gust"]["var"]),
+      (6.8, "wind_gust_window"))
+check("풍향 350°·10° 의 평균은 0°(180° 가 아니다)", env["wind_dir"]["value"] % 360, 0)
+check("에코윗 UTC 시각을 현지 시각으로 맞춘다", env["pressure"]["age_min"], 2)
+with (zdir / "zigbee_20261017.csv").open("a", encoding="utf-8") as fh:
+    fh.write("2026-10-17T00:10:00,treatment,CN-T1,rh,86.0,%,ok\n2026-10-17T00:10:00,treat")
+env = fe.read(now=znow)
+check("새로 붙은 줄만 이어 읽는다", env["humidity"]["value"], 86.0)
+check("덜 쓰인 마지막 줄은 다음에 읽는다", fe._offset[zdir / "zigbee_20261017.csv"][1] <
+      (zdir / "zigbee_20261017.csv").stat().st_size, True)
+z = field_env.FieldEnv(zdir, zone="treatment").read(now=znow)
+check("구간을 고르면 그 구간만 · 기상(mast)은 함께", ("soil_moisture" in z, "wind_speed" in z), (False, True))
+check("파일이 없으면 빈 값(오류 아님)", field_env.FieldEnv(zdir / "없음").read(now=znow), {})
+check("서버로는 칸 이름 그대로 값만", field_env.payload_values({"air_temp": {"value": 23.4}}), {"air_temp": 23.4})
 check("스마트팜(양액 기준)에서는 새우 운전 권고를 내지 않는다",
       advice.recommend({"temperature": 21.6, "ph": 6.12, "do_level": 7.3}, nutrient_mode=True), [])
 

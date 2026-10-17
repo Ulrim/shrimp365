@@ -1,3 +1,4 @@
+import { ENV_KEYS } from "@/lib/env-params"
 import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbSensorDevice, DbProductionCycle, DbGrowthSample, DbCycleCost, DbCycleHarvest, DbInventoryItem, DbInventoryTransaction } from "@/lib/supabase"
 import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction, FieldRiskJudgement } from "@/types"
 import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, planMissingInputAlerts, MISSING_INPUT_PARAMETER, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
@@ -87,6 +88,8 @@ function toWaterQuality(w: DbWaterQuality): WaterQualityReading {
     // 유량·차압도 전도도와 같은 이유로 0 을 채우지 않는다.
     flow_rate: w.flow_rate ?? null,
     diff_pressure: w.diff_pressure ?? null,
+    // 환경·기상 — 안 재는 장비가 대부분이라 역시 0 을 채우지 않는다.
+    ...Object.fromEntries(ENV_KEYS.map(k => [k, w[k] ?? null])),
     recorded_at: w.recorded_at,
     created_at: w.created_at,
   }
