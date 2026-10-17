@@ -299,6 +299,18 @@ env = fe.read(now=znow)
 check("새로 붙은 줄만 이어 읽는다", env["humidity"]["value"], 86.0)
 check("덜 쓰인 마지막 줄은 다음에 읽는다", fe._offset[zdir / "zigbee_20261017.csv"][1] <
       (zdir / "zigbee_20261017.csv").stat().st_size, True)
+# 수집기가 파일을 새로 만들어 같은 줄을 다시 쓰면(재시작·잘라내기) 처음부터 다시 읽는다.
+# 이미 더한 비를 또 더하면 안 된다.
+_rtl = zdir / "rtl433_20261017.csv"
+_body = _rtl.read_text(encoding="utf-8")
+_rtl.write_text("", encoding="utf-8")        # 잘라냄(logrotate copytruncate 와 같다)
+fe.read(now=znow)
+_rtl.write_text(_body, encoding="utf-8")     # 수집기가 같은 줄을 다시 씀
+check("파일을 다시 읽어도 오늘 강수를 두 번 세지 않는다", fe.read(now=znow)["rain_day"]["value"], 0.6)
+# 같은 WS90 을 rtl433 과 에코윗 게이트웨이 둘로 받아도(같은 센서 이름) 비는 두 배가 되지 않는다.
+with (zdir / "ecowitt_20261017.csv").open("a", encoding="utf-8") as fh:
+    fh.write("2026-10-17T00:01:00,mast,WS90-01,rain,0.4,mm,ok\n2026-10-17T00:06:00,mast,WS90-01,rain,0.2,mm,ok\n")
+check("두 수집기가 같은 비를 적어도 한 번만 센다", fe.read(now=znow)["rain_day"]["value"], 0.6)
 z = field_env.FieldEnv(zdir, zone="treatment").read(now=znow)
 check("구간을 고르면 그 구간만 · 기상(mast)은 함께", ("soil_moisture" in z, "wind_speed" in z), (False, True))
 check("파일이 없으면 빈 값(오류 아님)", field_env.FieldEnv(zdir / "없음").read(now=znow), {})

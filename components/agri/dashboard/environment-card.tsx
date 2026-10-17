@@ -56,6 +56,8 @@ export function EnvironmentCard({ readings, tankName, now }: {
   // 온습도·토양 → 기상 순(ENV_PARAMS 순서). 칸 수에 맞춰 열 수를 골라 한 줄에 한 칸만
   // 남는 일을 줄인다 — 지그비만 단 농장(3~4칸)과 기상센서까지 단 농장(9칸)이 다 맞게.
   const shown = ENV_PARAMS.filter(p => latest.has(p.key) && !FOLDED.has(p.key))
+  // 풍향·돌풍·강우강도만 왔으면(접어서 보이는 칸뿐) 그릴 칸이 없다 — 빈 카드를 띄우지 않는다.
+  if (shown.length === 0) return null
   const cols = COLS[Math.min(shown.length, COLS.length - 1)]
 
   const fmt = (p: EnvParam, v: number) => v.toFixed(p.digits)

@@ -217,7 +217,7 @@ SHELL_CSS = """
   h1{font-size:19px;margin:0 0 4px}
   .lead{color:#64748B;font-size:13px;margin:0 0 14px}
   .tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
-  .tabs button{font:600 12px/1 inherit;padding:8px 12px;border-radius:8px;
+  .tabs button{font-weight:600;font-size:12px;line-height:1;font-family:inherit;padding:8px 12px;border-radius:8px;
        border:1px solid #CBD5E1;background:#fff;color:#475569;cursor:pointer}
   .tabs button[aria-pressed="true"]{background:#1E40AF;border-color:#1E40AF;color:#fff}
   .bezel{width:800px;max-width:100%;border-radius:18px;background:#0B1120;
