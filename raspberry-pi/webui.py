@@ -265,13 +265,13 @@ PAGE = """<!doctype html>
   .sname{font-size:15px;font-weight:700;flex:1;min-width:0}
   .sub{font-size:11px;color:#64748B;font-weight:500}
   .toggle{
-    font:700 12px/1 inherit;padding:9px 13px;min-height:38px;border-radius:8px;
+    font-weight:700;font-size:12px;line-height:1;font-family:inherit;padding:9px 13px;min-height:38px;border-radius:8px;
     border:1px solid #22304C;background:transparent;color:#64748B;cursor:pointer;
   }
   .toggle.on{border-color:#10B981;color:#10B981;background:#10B98115}
   .step{display:flex;align-items:center;gap:0}
   .step button{
-    width:40px;height:38px;font:800 18px/1 inherit;
+    width:40px;height:38px;font-weight:800;font-size:18px;line-height:1;font-family:inherit;
     background:#16223C;color:#93A4BF;border:1px solid #22304C;cursor:pointer;
   }
   .step button:first-child{border-radius:8px 0 0 8px}
@@ -293,7 +293,7 @@ PAGE = """<!doctype html>
   .seg button{
     flex:1 1 0;min-width:0;min-height:68px;padding:10px 12px;border-radius:12px;
     border:1px solid #22304C;background:#111A2E;color:#94A3B8;cursor:pointer;
-    font:700 16px/1.3 inherit;text-align:left;
+    font-weight:700;font-size:16px;line-height:1.3;font-family:inherit;text-align:left;
   }
   .seg button small{display:block;font-size:11.5px;font-weight:600;color:#64748B;margin-top:3px}
   .seg button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
@@ -348,14 +348,14 @@ PAGE = """<!doctype html>
     font:600 18px/1 ui-monospace,monospace;letter-spacing:2px;padding:10px 0;
   }
   .pwf .eye{
-    font:600 12px/1 inherit;padding:9px 11px;border-radius:8px;
+    font-weight:600;font-size:12px;line-height:1;font-family:inherit;padding:9px 11px;border-radius:8px;
     border:1px solid #22304C;background:transparent;color:#94A3B8;cursor:pointer;flex:0 0 auto;
   }
   .kbd{margin-top:8px;display:flex;flex-direction:column;gap:5px}
   .krow{display:flex;gap:5px;justify-content:center}
   .kbd button{
     flex:1 1 0;min-width:0;height:44px;
-    font:700 16px/1 inherit;color:#E8EDF7;
+    font-weight:700;font-size:16px;line-height:1;font-family:inherit;color:#E8EDF7;
     background:#16223C;border:1px solid #22304C;border-radius:8px;cursor:pointer;
   }
   .kbd button:active{background:var(--brand)}
@@ -375,7 +375,7 @@ PAGE = """<!doctype html>
   .cstats b{color:#E8EDF7;font-weight:700;font-family:ui-monospace,monospace}
   .ranges{display:flex;gap:6px;margin-bottom:6px}
   .ranges button{
-    font:700 13px/1 inherit;padding:8px 14px;min-height:36px;border-radius:8px;
+    font-weight:700;font-size:13px;line-height:1;font-family:inherit;padding:8px 14px;min-height:36px;border-radius:8px;
     border:1px solid #22304C;background:transparent;color:#94A3B8;cursor:pointer;
   }
   .ranges button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
@@ -383,7 +383,7 @@ PAGE = """<!doctype html>
   /* 설정·보정·양액 화면 머리의 [닫기]·[‹ 설정]. 클래스 없이 만든 버튼이라 예전에는
      브라우저 기본 모양(흰 사각)으로 떠 혼자 튀었다. 그래프의 [닫기]와 같은 모양으로 둔다. */
   .chead > button{
-    font:700 13px/1 inherit;padding:8px 14px;min-height:36px;border-radius:8px;
+    font-weight:700;font-size:13px;line-height:1;font-family:inherit;padding:8px 14px;min-height:36px;border-radius:8px;
     border:1px solid #22304C;background:transparent;color:#94A3B8;cursor:pointer;flex:0 0 auto;
   }
   .chead > button:active{background:#16223C}
@@ -405,7 +405,7 @@ PAGE = """<!doctype html>
   .time{color:#64748B;font:500 13px ui-monospace,monospace;flex:0 0 auto}
   button.act{
     margin-left:auto;flex:0 0 auto;
-    font:700 13px/1 inherit;padding:9px 16px;min-height:38px;border-radius:8px;
+    font-weight:700;font-size:13px;line-height:1;font-family:inherit;padding:9px 16px;min-height:38px;border-radius:8px;
     background:var(--brand);color:#fff;border:0;cursor:pointer;
   }
   button.act.ghost{background:transparent;border:1px solid #22304C;color:#94A3B8}
@@ -1628,7 +1628,12 @@ function calKey(k){
   if (calBuf.length > 9) calBuf = calBuf.slice(0, 9);
   drawCal();
 }
-function calApply(){ calSend({name: calEdit, actual: parseFloat(calBuf || "0") * calDiv(calEdit)}); }
+// mS/cm → uS/cm 곱셈은 부동소수 오차를 남긴다(1.64*1000 = 1639.9999999999998).
+// 그대로 보내면 보정값이 -2e-13 처럼 0 이 아니게 저장되므로 소수 셋째 자리에서 자른다.
+function calApply(){
+  var v = parseFloat(calBuf || "0") * calDiv(calEdit);
+  calSend({name: calEdit, actual: Math.round(v * 1000) / 1000});
+}
 function calClear(k){ calSend({name: k, offset: 0}); }
 
 function calSend(payload){

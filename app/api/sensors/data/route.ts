@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase-server"
 import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, parseTrendAlerts, TREND_ALERT_PARAMETERS, MISSING_INPUT_PARAMETER, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
 import { sendAlertPush } from "@/lib/push-server"
+import { ENV_PARAMS, ENV_KEYS, type EnvParamKey } from "@/lib/env-params"
+
+/** 환경·기상 칸별 수신 범위 — lib/env-params.ts 에서 만든다. */
+const ENV_RANGE = Object.fromEntries(ENV_PARAMS.map(p => [p.key, p.range])) as Record<EnvParamKey, readonly [number, number]>
 
 // In-memory rate limit: max 60 requests per device per minute
 const RATE_LIMIT_WINDOW_MS = 60_000
@@ -182,24 +186,10 @@ export async function POST(req: NextRequest) {
   // 환경·기상 — 스마트팜 장비가 지그비 온습도·토양수분과 기상센서 값을 같은 줄로 올린다
   // (raspberry-pi/field_env.py, 마이그레이션 environment_readings.sql). 수질 판정·알림에는
   // 넣지 않는다 — 작물·생육 단계마다 적정값이 달라 서버가 좋고 나쁨을 정하지 않는다.
-  const ENV_RANGE = {
-    air_temp:      [-50,   70],  // °C
-    humidity:      [  0,  100],  // %
-    soil_moisture: [  0,  100],  // %
-    soil_temp:     [-30,   70],  // °C
-    wind_speed:    [  0,   80],  // m/s
-    wind_gust:     [  0,  100],  // m/s
-    wind_dir:      [  0,  360],  // 도
-    rain_day:      [  0, 1000],  // mm (장비 현지 자정부터)
-    rain_rate:     [  0,  500],  // mm/h
-    solar:         [  0, 2000],  // W/m²
-    uv_index:      [  0,   20],
-    pressure:      [800, 1100],  // hPa
-  } as const satisfies Record<string, readonly [number, number]>
-  type EnvKey = keyof typeof ENV_RANGE
-  const ENV_COLS = Object.keys(ENV_RANGE) as EnvKey[]
+  // 칸 이름·범위는 lib/env-params.ts 한 곳에 있다(장비 field_env.py·DB CHECK 와 같은 값).
+  const ENV_COLS = ENV_KEYS
 
-  const envValues: Partial<Record<EnvKey, number>> = {}
+  const envValues: Partial<Record<EnvParamKey, number>> = {}
   for (const field of ENV_COLS) {
     const raw = body[field]
     if (raw === undefined || raw === null) continue

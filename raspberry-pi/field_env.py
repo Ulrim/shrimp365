@@ -20,7 +20,7 @@
 하루치가 수 MB 가 된다. 파일마다 어디까지 읽었는지 기억해 두고 새 줄만 읽는다.
 그래서 모듈 함수가 아니라 객체(FieldEnv)를 하나 만들어 계속 쓴다.
 
-칸의 이름은 서버 수신 칸(app/api/sensors/data ENV_FIELDS)과 같다. 화면·서버·웹이
+칸의 이름은 서버 수신 칸(lib/env-params.ts ENV_PARAMS → app/api/sensors/data)과 같다. 화면·서버·웹이
 같은 이름을 본다.
 """
 
@@ -76,7 +76,11 @@ class FieldEnv:
         self.stale = dt.timedelta(minutes=stale_minutes)
         self._offset: dict[Path, tuple[int, int]] = {}      # 파일 → (inode, 읽은 바이트)
         self._latest: dict[tuple[str, str], tuple[dt.datetime, float]] = {}
-        self._rain: dict[tuple[dt.date, str], tuple[dt.datetime, float]] = {}
+        # 강수 누계는 (파일, 날짜, 센서) 마다 따로 센다. 파일을 처음부터 다시 읽게 되면
+        # (수집기가 파일을 새로 만들었거나 잘랐을 때) 그 파일 몫만 지우고 다시 더한다 —
+        # 안 그러면 이미 더한 비를 한 번 더 더한다. 같은 WS90 을 rtl433·에코윗 둘로 받아도
+        # 파일이 달라 따로 쌓이고, 읽을 때 평균을 내므로 두 배가 되지 않는다.
+        self._rain: dict[tuple[str, dt.date, str], tuple[dt.datetime, float]] = {}
 
     # ── 읽기 ────────────────────────────────────────────────────────────────
     def _feed(self, path: Path) -> None:
@@ -87,6 +91,7 @@ class FieldEnv:
         inode, done = self._offset.get(path, (st.st_ino, 0))
         if inode != st.st_ino or st.st_size < done:          # 갈아 끼웠거나 줄었다 → 처음부터
             done = 0
+            self._rain = {k: v for k, v in self._rain.items() if k[0] != path.name}
         if st.st_size == done:
             self._offset[path] = (st.st_ino, done)
             return
@@ -103,9 +108,9 @@ class FieldEnv:
             return
         self._offset[path] = (st.st_ino, done + end + 1)
         for line in chunk[:end].decode("utf-8", errors="replace").splitlines():
-            self._row(line)
+            self._row(line, path.name)
 
-    def _row(self, line: str) -> None:
+    def _row(self, line: str, src: str = "") -> None:
         parts = line.split(",")
         if len(parts) < 7 or parts[0] == "ts":
             return
@@ -124,9 +129,9 @@ class FieldEnv:
         if ts.tzinfo is not None:
             ts = ts.astimezone().replace(tzinfo=None)
         if var == RAIN_VAR:
-            key = (ts.date(), sid)
-            last, total = self._rain.get(key, (ts, 0.0))
-            self._rain[key] = (max(last, ts), total + value)
+            rkey = (src, ts.date(), sid)
+            last, total = self._rain.get(rkey, (ts, 0.0))
+            self._rain[rkey] = (max(last, ts), total + value)
             return
         key = (var, sid)
         if key not in self._latest or ts >= self._latest[key][0]:
@@ -146,7 +151,7 @@ class FieldEnv:
         # 이틀 넘은 파일의 읽은 자리는 잊는다(장비가 몇 달 켜져 있어도 늘지 않게).
         keep = {f"{d:%Y%m%d}" for d in (now - dt.timedelta(days=1), now)}
         self._offset = {p: o for p, o in self._offset.items() if p.stem[-8:] in keep}
-        self._rain = {k: v for k, v in self._rain.items() if k[0] == now.date()}
+        self._rain = {k: v for k, v in self._rain.items() if k[1] == now.date()}
 
         lo, hi = now - self.stale, now + dt.timedelta(minutes=5)
         fresh = {k: v for k, v in self._latest.items() if lo <= v[0] <= hi}
@@ -167,7 +172,7 @@ class FieldEnv:
                     value = sum(v for _, v in hits) / len(hits)
                 out[slot] = _slot(slot, value, var, hits, now)
                 break
-        rain = [(ts, total) for (day, _sid), (ts, total) in self._rain.items()
+        rain = [(ts, total) for (_src, day, _sid), (ts, total) in self._rain.items()
                 if day == now.date() and lo <= ts <= hi]
         if rain:
             out[RAIN_SLOT] = _slot(RAIN_SLOT, sum(t for _, t in rain) / len(rain), RAIN_VAR, rain, now)

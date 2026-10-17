@@ -17,6 +17,9 @@ export interface EnvParam {
   key: EnvParamKey
   unit: string
   digits: number
+  /** 서버가 받는 값 범위 [최소, 최대]. 밖이면 버린다(app/api/sensors/data).
+   *  DB CHECK(environment_readings.sql wqr_env_range)도 같은 값이다 — 바꾸면 둘 다 바꾼다. */
+  range: readonly [number, number]
   /** 스파크라인 색(hex). 상태색(emerald/amber/red)과 겹치지 않게 골랐다. */
   color: string
   icon: IconComponent
@@ -24,18 +27,18 @@ export interface EnvParam {
 
 /** 순서가 곧 카드의 칸 순서다 — 온습도·토양(지그비) → 기상(WS90 등). */
 export const ENV_PARAMS: readonly EnvParam[] = [
-  { key: "air_temp",      unit: "°C",   digits: 1, color: "#f97316", icon: Thermometer },
-  { key: "humidity",      unit: "%",    digits: 1, color: "#0ea5e9", icon: Droplets },
-  { key: "soil_moisture", unit: "%",    digits: 1, color: "#a16207", icon: Sprout },
-  { key: "soil_temp",     unit: "°C",   digits: 1, color: "#b45309", icon: Layers },
-  { key: "wind_speed",    unit: "m/s",  digits: 1, color: "#14b8a6", icon: Wind },
-  { key: "wind_gust",     unit: "m/s",  digits: 1, color: "#0d9488", icon: Wind },
-  { key: "wind_dir",      unit: "°",    digits: 0, color: "#64748b", icon: Navigation },
-  { key: "rain_day",      unit: "mm",   digits: 1, color: "#3b82f6", icon: CloudRain },
-  { key: "rain_rate",     unit: "mm/h", digits: 1, color: "#6366f1", icon: CloudDrizzle },
-  { key: "solar",         unit: "W/m²", digits: 0, color: "#eab308", icon: Sun },
-  { key: "uv_index",      unit: "",     digits: 1, color: "#a855f7", icon: SunDim },
-  { key: "pressure",      unit: "hPa",  digits: 1, color: "#8b5cf6", icon: Gauge },
+  { key: "air_temp",      unit: "°C",   digits: 1, range: [-50, 70], color: "#f97316", icon: Thermometer },
+  { key: "humidity",      unit: "%",    digits: 1, range: [0, 100], color: "#0ea5e9", icon: Droplets },
+  { key: "soil_moisture", unit: "%",    digits: 1, range: [0, 100], color: "#a16207", icon: Sprout },
+  { key: "soil_temp",     unit: "°C",   digits: 1, range: [-30, 70], color: "#b45309", icon: Layers },
+  { key: "wind_speed",    unit: "m/s",  digits: 1, range: [0, 80], color: "#14b8a6", icon: Wind },
+  { key: "wind_gust",     unit: "m/s",  digits: 1, range: [0, 100], color: "#0d9488", icon: Wind },
+  { key: "wind_dir",      unit: "°",    digits: 0, range: [0, 360], color: "#64748b", icon: Navigation },
+  { key: "rain_day",      unit: "mm",   digits: 1, range: [0, 1000], color: "#3b82f6", icon: CloudRain },
+  { key: "rain_rate",     unit: "mm/h", digits: 1, range: [0, 500], color: "#6366f1", icon: CloudDrizzle },
+  { key: "solar",         unit: "W/m²", digits: 0, range: [0, 2000], color: "#eab308", icon: Sun },
+  { key: "uv_index",      unit: "",     digits: 1, range: [0, 20], color: "#a855f7", icon: SunDim },
+  { key: "pressure",      unit: "hPa",  digits: 1, range: [800, 1100], color: "#8b5cf6", icon: Gauge },
 ] as const
 
 export const ENV_KEYS: readonly EnvParamKey[] = ENV_PARAMS.map(p => p.key)
