@@ -106,13 +106,8 @@ AGRI_STATES = [
         values={**AGRI_VALUES, "conductivity": 2350},
         nutrient={**NUT_BASE, "ec": 2.35, "percent": 136.7, "verdict": "high",
                   "exchange_l": 268})),
-    # 양액 관리를 끄면 advice.recommend() 가 새우 기준으로 돌아 정상 양액값에도 권고가 뜬다.
-    # 실제 장비가 지금 그렇게 하므로 미리보기도 그대로 보여 준다.
-    ("양액 관리 꺼짐", agri_state(
-        nutrient=None,
-        advice=[{"code": "ph_critical", "level": "danger", "value": 6.12, "digits": 2},
-                {"code": "temp_low", "level": "warn", "value": 21.6, "digits": 1}])),
-    # 양액 관리를 켜 두면 권고는 비고(advice.recommend), 값 칸 색만 NUTRIENT_BANDS 로 바뀐다.
+    # 스마트팜에서는 양액 관리를 꺼도 권고가 비고 값 칸은 NUTRIENT_BANDS 로 판정한다.
+    ("양액 관리 꺼짐", agri_state(nutrient=None)),
     ("고온 · pH 이탈", agri_state(
         values={**AGRI_VALUES, "temperature": 29.4, "ph": 7.2})),
     ("미연결 (측정만)", agri_state(
