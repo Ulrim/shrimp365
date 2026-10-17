@@ -1,3 +1,4 @@
+import { ENV_KEYS, type EnvParamKey } from "@/lib/env-params"
 import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbSensorDevice, DbProductionCycle, DbGrowthSample, DbCycleCost, DbCycleHarvest, DbInventoryItem, DbInventoryTransaction } from "@/lib/supabase"
 import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction, FieldRiskJudgement } from "@/types"
 import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, planMissingInputAlerts, MISSING_INPUT_PARAMETER, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
@@ -87,6 +88,8 @@ function toWaterQuality(w: DbWaterQuality): WaterQualityReading {
     // 유량·차압도 전도도와 같은 이유로 0 을 채우지 않는다.
     flow_rate: w.flow_rate ?? null,
     diff_pressure: w.diff_pressure ?? null,
+    // 환경·기상 — 안 재는 장비가 대부분이라 역시 0 을 채우지 않는다.
+    ...Object.fromEntries(ENV_KEYS.map(k => [k, w[k] ?? null])),
     recorded_at: w.recorded_at,
     created_at: w.created_at,
   }
@@ -252,7 +255,7 @@ type WqSeriesRow = {
   conductivity?: number | null
   flow_rate?: number | null
   diff_pressure?: number | null
-}
+} & Partial<Record<EnvParamKey, number | null>>  // environment_readings.sql 판부터 함께 온다
 
 export async function getWaterQuality(tankId: string, hours = 168, deviceId?: string | null): Promise<WaterQualityReading[]> {
   // ① 구간 평균 시리즈 (전 구간 커버, 행 수 상한 안전)
@@ -272,6 +275,8 @@ export async function getWaterQuality(tankId: string, hours = 168, deviceId?: st
       conductivity: r.conductivity ?? null,
       flow_rate: r.flow_rate ?? null,
       diff_pressure: r.diff_pressure ?? null,
+      // 환경·기상 — 이 칸을 빼먹으면 대시보드 "환경·기상" 카드가 늘 비어 보인다.
+      ...Object.fromEntries(ENV_KEYS.map(k => [k, r[k] ?? null])),
       recorded_at: r.recorded_at,
       created_at: r.recorded_at,
     }))

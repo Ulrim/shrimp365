@@ -345,6 +345,11 @@ def _unit(variable: str) -> str:
     return spec[0] if spec else EXTRA_UNITS.get(variable, "")
 
 
+def utc_to_local(when: dt.datetime) -> dt.datetime:
+    """UTC 시각(시간대 없음) → 파이 현지 시각(시간대 없음). 다른 수집기 파일과 같은 꼴이다."""
+    return when.replace(tzinfo=dt.timezone.utc).astimezone().replace(tzinfo=None)
+
+
 def report_to_rows(
     body: str | dict[str, Any],
     *,
@@ -372,12 +377,16 @@ def report_to_rows(
 
     # 게이트웨이가 보내는 dateutc 가 있으면 그것을 쓴다. 파이 시계가 틀어져도
     # 관측 시각이 유지된다.
+    #
+    # dateutc 는 **UTC** 다. 다른 수집기(zigbee·rtl433)는 파이 현지 시각을 적으므로
+    # 그대로 적으면 한국에서는 에코윗 행만 9시간 앞선 시각으로 남아, 같은 시각의
+    # 지그비 초관부 온도·습도와 엇갈려 서리·강우 판단이 어긋난다. 현지 시각으로 바꿔 적는다.
     when = now
     if when is None:
         stamp = str(data.get("dateutc", ""))
         for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
             try:
-                when = dt.datetime.strptime(stamp[:19], fmt)
+                when = utc_to_local(dt.datetime.strptime(stamp[:19], fmt))
                 break
             except ValueError:
                 continue

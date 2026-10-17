@@ -7,6 +7,7 @@ fetch 만 가짜 데이터로 바꿔치기한다. 화면 코드를 고치면 이
 돌리는 것만으로 미리보기가 따라온다.
 
     python3 raspberry-pi/make-preview.py [내보낼경로.html]
+    python3 raspberry-pi/make-preview.py --agri [내보낼경로.html]   # 스마트팜(Farm365) 모드
 """
 
 from __future__ import annotations
@@ -23,7 +24,11 @@ sys.path.insert(0, str(HERE))
 import limits  # noqa: E402  — 경로를 넣은 뒤에 불러와야 한다
 import webui  # noqa: E402
 
-OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE.parent / "kiosk-preview.html"
+ARGS = [a for a in sys.argv[1:] if a != "--agri"]
+AGRI = "--agri" in sys.argv[1:]
+MODE = "agriculture" if AGRI else "shrimp"
+OUT = (Path(ARGS[0]) if ARGS
+       else HERE.parent / ("kiosk-preview-agri.html" if AGRI else "kiosk-preview.html"))
 
 VALUES = {"temperature": 28.4, "ph": 7.85, "do_level": 6.42, "salinity": 20.4}
 NOW = 1770000000  # 고정 시각 — 돌릴 때마다 결과가 달라지면 비교가 어렵다
@@ -77,8 +82,81 @@ STATES = [
         status="SENSOR ERROR")),
 ]
 
+# 스마트팜(양액 재배) — 값은 NUTRIENT_BANDS 적정 범위 안쪽, 전도도는 uS/cm 로 올라오고
+# 화면이 mS/cm 로 나눠 보여 준다(ec_unit=ms). nutrient 는 shrimp365_sensor.nutrient_plan() 의 모양.
+AGRI_VALUES = {"temperature": 21.6, "ph": 6.12, "do_level": 7.3, "conductivity": 1640}
+NUT_BASE = {"ec": 1.71, "target": 1.8, "percent": 94.0, "atc": True}
+# 환경·기상 — field_env.FieldEnv.read() 의 모양. 기상센서(WS90)까지 단 농장.
+ENV = {
+    "air_temp": {"value": 23.4, "var": "t_air", "sensors": 1, "age_min": 0},
+    "humidity": {"value": 71.5, "var": "rh", "sensors": 3, "age_min": 3},
+    "soil_moisture": {"value": 34.2, "var": "soil_moisture", "sensors": 2, "age_min": 4},
+    "soil_temp": {"value": 19.8, "var": "soil_temp", "sensors": 2, "age_min": 4},
+    "wind_speed": {"value": 3.2, "var": "wind_speed", "sensors": 1, "age_min": 0},
+    "wind_gust": {"value": 6.8, "var": "wind_gust_window", "sensors": 1, "age_min": 0},
+    "wind_dir": {"value": 315, "var": "wind_dir", "sensors": 1, "age_min": 0},
+    "rain_day": {"value": 4.6, "var": "rain", "sensors": 1, "age_min": 0},
+    "rain_rate": {"value": 1.2, "var": "rain_rate", "sensors": 1, "age_min": 0},
+}
+
+
+def agri_state(**over) -> dict:
+    state = base_state(values=dict(AGRI_VALUES), farm="1농장", tank="딸기 B-2베드",
+                       mode="agriculture", ec_mode="conductivity", ec_unit="ms", env=ENV,
+                       nutrient={**NUT_BASE, "verdict": "low", "need_rise": 0.09,
+                                 "dose_total": 180, "dose_a": 90, "dose_b": 90})
+    state.update(over)
+    return state
+
+
+AGRI_STATES = [
+    ("양액 보충 안내", agri_state()),
+    ("양액 농도 적정", agri_state(
+        values={**AGRI_VALUES, "conductivity": 1810},
+        nutrient={**NUT_BASE, "ec": 1.81, "percent": 100.7, "verdict": "ok"})),
+    ("농도 높음 · 원수 교환", agri_state(
+        values={**AGRI_VALUES, "conductivity": 2350},
+        nutrient={**NUT_BASE, "ec": 2.35, "percent": 136.7, "verdict": "high",
+                  "exchange_l": 268})),
+    # 스마트팜에서는 양액 관리를 꺼도 권고가 비고 값 칸은 NUTRIENT_BANDS 로 판정한다.
+    ("양액 관리 꺼짐", agri_state(nutrient=None)),
+    ("고온 · pH 이탈", agri_state(
+        values={**AGRI_VALUES, "temperature": 29.4, "ph": 7.2})),
+    ("지그비만 (기상센서 없음)", agri_state(env={
+        "air_temp": {"value": 22.8, "var": "canopy_temp", "sensors": 2, "age_min": 3},
+        "humidity": {"value": 74.0, "var": "rh", "sensors": 2, "age_min": 3},
+        "soil_moisture": {"value": 33.9, "var": "soil_moisture", "sensors": 2, "age_min": 4},
+    })),
+    ("센서 끊김", agri_state(env={
+        "air_temp": {"value": 23.1, "var": "t_air", "sensors": 1, "age_min": 22},
+        "soil_moisture": {"value": 33.9, "var": "soil_moisture", "sensors": 1, "age_min": 6},
+    })),
+    ("환경 값 없음", agri_state(env={})),
+    ("미연결 (측정만)", agri_state(
+        linked=False, account=None, tank=None, farm=None,
+        status="미연결 — 측정만 · 보관 12건", pending=12)),
+    ("센서 오류", agri_state(
+        values={"temperature": 21.6, "ph": 6.12, "do_level": 7.3},
+        errors={"ec": "응답 없음 (배선·전원·슬레이브 ID 확인)"},
+        nutrient=None, status="SENSOR ERROR")),
+]
+if AGRI:
+    STATES = AGRI_STATES
+
+# 설정 화면 미리보기용 — shrimp365_sensor.py 의 ui_nutrient()·ui_calibration() 모양.
+# 없으면 양액·보정 화면 칸이 undefined 로 떠 실제 장비와 달라 보인다.
+NUTRIENT = {"enabled": AGRI, "target_ec": 1.8, "source_ec": 0.3, "tank_liters": 1000,
+            "cal_ml": 10, "cal_liters": 100, "cal_ec_rise": 0.05, "a_ratio": 50, "atc": True}
+CALIBRATION = {
+    "offsets": {"temperature": 0.0, "ph": -0.04, "do_level": 0.0, "conductivity": 0.0},
+    "raw": {"temperature": 21.6, "ph": 6.16, "do_level": 7.3, "conductivity": 1640},
+    "corrected": {"temperature": 21.6, "ph": 6.12, "do_level": 7.3, "conductivity": 1640},
+}
+
 SENSORS = {
     "interval": 60, "port": "/dev/ttyUSB0",
+    # 스마트팜으로 바꾸면 장비가 EC 를 전도도(mS/cm)로 한 번 고쳐 준다(INSTALL.md).
+    "ec_mode": "conductivity" if AGRI else "salinity", "ec_unit": "ms" if AGRI else "us",
     "sensors": [
         {"key": "ph", "label": "pH / ORP", "enabled": True, "slave_id": 1},
         {"key": "do", "label": "용존산소", "enabled": True, "slave_id": 3},
@@ -109,6 +187,8 @@ def series(field: str) -> dict:
     base, swing = {
         "temperature": (28.4, 0.6), "ph": (7.85, 0.15),
         "do_level": (6.4, 2.2), "salinity": (20.4, 0.9),
+        "agri:temperature": (21.6, 1.8), "agri:ph": (6.1, 0.2),
+        "agri:do_level": (7.3, 0.9), "agri:conductivity": (1700, 120),
     }[field]
     out = {}
     for hours in (6, 12, 24, 168):
@@ -117,7 +197,7 @@ def series(field: str) -> dict:
             ts = NOW - hours * 3600 + i * step
             h = (ts % 86400) / 3600
             avg = base + math.sin((h - 6) / 3.8) * swing + random.uniform(-swing, swing) * 0.08
-            digits = 2
+            digits = 0 if field.endswith("conductivity") else 2
             points.append([ts, round(avg, digits),
                            round(avg - swing * 0.12, digits), round(avg + swing * 0.12, digits)])
         vals = [p[1] for p in points]
@@ -126,7 +206,10 @@ def series(field: str) -> dict:
     return out
 
 
-HIST = {f: series(f) for f in ("temperature", "ph", "do_level", "salinity")}
+if AGRI:
+    HIST = {f: series("agri:" + f) for f in ("temperature", "ph", "do_level", "conductivity")}
+else:
+    HIST = {f: series(f) for f in ("temperature", "ph", "do_level", "salinity")}
 
 SHELL_CSS = """
   body{margin:0;background:#F1F5F9;color:#0F172A;
@@ -134,7 +217,7 @@ SHELL_CSS = """
   h1{font-size:19px;margin:0 0 4px}
   .lead{color:#64748B;font-size:13px;margin:0 0 14px}
   .tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
-  .tabs button{font:600 12px/1 inherit;padding:8px 12px;border-radius:8px;
+  .tabs button{font-weight:600;font-size:12px;line-height:1;font-family:inherit;padding:8px 12px;border-radius:8px;
        border:1px solid #CBD5E1;background:#fff;color:#475569;cursor:pointer}
   .tabs button[aria-pressed="true"]{background:#1E40AF;border-color:#1E40AF;color:#fff}
   .bezel{width:800px;max-width:100%;border-radius:18px;background:#0B1120;
@@ -151,6 +234,7 @@ SHELL_CSS = """
 MOCK = """
 <script>
 var STATES = __STATES__, HIST = __HIST__, SENSORS = __SENSORS__;
+var NUTRIENT = __NUTRIENT__, CALIBRATION = __CALIBRATION__;
 var SCAN = __SCAN__, AUTO = __AUTO__;
 var WIFI_NETWORKS = __WIFI_NETWORKS__, wifiCur = __WIFI_START__;
 var current = 0;
@@ -168,6 +252,10 @@ window.fetch = function(url, opts){
   else if (url.indexOf("/api/sensors/auto") === 0) body = AUTO;
   else if (url.indexOf("/api/sensors/save") === 0) body = {ok:true, saved:true};
   else if (url.indexOf("/api/sensors") === 0) body = JSON.parse(JSON.stringify(SENSORS));
+  else if (url.indexOf("/api/nutrient/save") === 0) body = {ok:true, saved:true};
+  else if (url.indexOf("/api/nutrient") === 0) body = JSON.parse(JSON.stringify(NUTRIENT));
+  else if (url.indexOf("/api/calibration") === 0 && !(opts && opts.method === "POST"))
+    body = JSON.parse(JSON.stringify(CALIBRATION));
   // Wi‑Fi — 더 구체적인 경로(scan·connect)를 먼저 본다.
   else if (url.indexOf("/api/wifi/scan") === 0) {
     body = {available:true, networks: WIFI_NETWORKS.map(function(n){
@@ -205,12 +293,15 @@ def main() -> int:
     # `var BANDS = __BANDS__;` 에서 그대로 깨진다.
     page = (webui.PAGE
             .replace("__LANG__", "ko")
+            .replace("__MODE__", MODE)
             .replace("__BANDS__", json.dumps(limits.BANDS))
             .replace("__NUT_BANDS__", json.dumps(limits.NUTRIENT_BANDS)))
     mock = (MOCK
             .replace("__STATES__", json.dumps(STATES, ensure_ascii=False))
             .replace("__HIST__", json.dumps(HIST))
             .replace("__SENSORS__", json.dumps(SENSORS, ensure_ascii=False))
+            .replace("__NUTRIENT__", json.dumps(NUTRIENT))
+            .replace("__CALIBRATION__", json.dumps(CALIBRATION))
             .replace("__SCAN__", json.dumps(SCAN, ensure_ascii=False))
             .replace("__AUTO__", json.dumps(AUTO, ensure_ascii=False))
             .replace("__WIFI_NETWORKS__", json.dumps(WIFI_NETWORKS, ensure_ascii=False))
@@ -229,7 +320,7 @@ def main() -> int:
     shell = f"""<!doctype html>
 <html lang="ko"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Shrimp365 터치스크린 미리보기</title>
+<title>{"Farm365" if AGRI else "Shrimp365"} 터치스크린 미리보기</title>
 <style>{SHELL_CSS}</style>
 <h1>라즈베리파이 7인치 터치스크린 화면</h1>
 <p class="lead">공식 디스플레이 실제 해상도(800×480). 실제 장비 화면 코드를 그대로 띄웁니다 — 눌러 보실 수 있습니다.</p>
@@ -237,7 +328,7 @@ def main() -> int:
 <div class="bezel"><iframe class="screen" id="dev" title="장비 화면"></iframe></div>
 <div class="note">
   <b>값 칸을 눌러 보세요.</b> 6시간·12시간·24시간·일주일 그래프가 열립니다.
-  녹색 띠가 적정 범위입니다(흰다리새우 기준).<br>
+  녹색 띠가 적정 범위입니다({"양액 재배 기준" if AGRI else "흰다리새우 기준"}).<br>
   <b>오른쪽 아래 [설정]</b> — 슬레이브 ID·측정 주기를 손가락으로 고칩니다.
   <b>[자동 배치]</b> 는 꽂아 둔 센서를 훑어 값이 나오는 자리를 그대로 배정합니다(이 미리보기에선 용존산소가 3→5로 바뀝니다).<br>
   <b>[Wi‑Fi]</b> — 주변 공유기를 검색해 화면 키보드로 비밀번호를 넣고 붙입니다(이 미리보기에서도 눌러 볼 수 있습니다. 잠긴 공유기를 고르면 화면 키보드가 뜨고, [연결] 하면 위쪽 연결 표시가 그 공유기로 바뀝니다).<br>
