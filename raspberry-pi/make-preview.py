@@ -7,6 +7,7 @@ fetch 만 가짜 데이터로 바꿔치기한다. 화면 코드를 고치면 이
 돌리는 것만으로 미리보기가 따라온다.
 
     python3 raspberry-pi/make-preview.py [내보낼경로.html]
+    python3 raspberry-pi/make-preview.py --agri [내보낼경로.html]   # 스마트팜(Farm365) 모드
 """
 
 from __future__ import annotations
@@ -23,7 +24,11 @@ sys.path.insert(0, str(HERE))
 import limits  # noqa: E402  — 경로를 넣은 뒤에 불러와야 한다
 import webui  # noqa: E402
 
-OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE.parent / "kiosk-preview.html"
+ARGS = [a for a in sys.argv[1:] if a != "--agri"]
+AGRI = "--agri" in sys.argv[1:]
+MODE = "agriculture" if AGRI else "shrimp"
+OUT = (Path(ARGS[0]) if ARGS
+       else HERE.parent / ("kiosk-preview-agri.html" if AGRI else "kiosk-preview.html"))
 
 VALUES = {"temperature": 28.4, "ph": 7.85, "do_level": 6.42, "salinity": 20.4}
 NOW = 1770000000  # 고정 시각 — 돌릴 때마다 결과가 달라지면 비교가 어렵다
@@ -77,6 +82,50 @@ STATES = [
         status="SENSOR ERROR")),
 ]
 
+# 스마트팜(양액 재배) — 값은 NUTRIENT_BANDS 적정 범위 안쪽, 전도도는 uS/cm 로 올라오고
+# 화면이 mS/cm 로 나눠 보여 준다(ec_unit=ms). nutrient 는 shrimp365_sensor.nutrient_plan() 의 모양.
+AGRI_VALUES = {"temperature": 21.6, "ph": 6.12, "do_level": 7.3, "conductivity": 1640}
+NUT_BASE = {"ec": 1.71, "target": 1.8, "percent": 94.0, "atc": True}
+
+
+def agri_state(**over) -> dict:
+    state = base_state(values=dict(AGRI_VALUES), farm="1농장", tank="딸기 B-2베드",
+                       mode="agriculture", ec_mode="conductivity", ec_unit="ms",
+                       nutrient={**NUT_BASE, "verdict": "low", "need_rise": 0.09,
+                                 "dose_total": 180, "dose_a": 90, "dose_b": 90})
+    state.update(over)
+    return state
+
+
+AGRI_STATES = [
+    ("양액 보충 안내", agri_state()),
+    ("양액 농도 적정", agri_state(
+        values={**AGRI_VALUES, "conductivity": 1810},
+        nutrient={**NUT_BASE, "ec": 1.81, "percent": 100.7, "verdict": "ok"})),
+    ("농도 높음 · 원수 교환", agri_state(
+        values={**AGRI_VALUES, "conductivity": 2350},
+        nutrient={**NUT_BASE, "ec": 2.35, "percent": 136.7, "verdict": "high",
+                  "exchange_l": 268})),
+    # 양액 관리를 끄면 advice.recommend() 가 새우 기준으로 돌아 정상 양액값에도 권고가 뜬다.
+    # 실제 장비가 지금 그렇게 하므로 미리보기도 그대로 보여 준다.
+    ("양액 관리 꺼짐", agri_state(
+        nutrient=None,
+        advice=[{"code": "ph_critical", "level": "danger", "value": 6.12, "digits": 2},
+                {"code": "temp_low", "level": "warn", "value": 21.6, "digits": 1}])),
+    # 양액 관리를 켜 두면 권고는 비고(advice.recommend), 값 칸 색만 NUTRIENT_BANDS 로 바뀐다.
+    ("고온 · pH 이탈", agri_state(
+        values={**AGRI_VALUES, "temperature": 29.4, "ph": 7.2})),
+    ("미연결 (측정만)", agri_state(
+        linked=False, account=None, tank=None, farm=None,
+        status="미연결 — 측정만 · 보관 12건", pending=12)),
+    ("센서 오류", agri_state(
+        values={"temperature": 21.6, "ph": 6.12, "do_level": 7.3},
+        errors={"ec": "응답 없음 (배선·전원·슬레이브 ID 확인)"},
+        nutrient=None, status="SENSOR ERROR")),
+]
+if AGRI:
+    STATES = AGRI_STATES
+
 SENSORS = {
     "interval": 60, "port": "/dev/ttyUSB0",
     "sensors": [
@@ -109,6 +158,8 @@ def series(field: str) -> dict:
     base, swing = {
         "temperature": (28.4, 0.6), "ph": (7.85, 0.15),
         "do_level": (6.4, 2.2), "salinity": (20.4, 0.9),
+        "agri:temperature": (21.6, 1.8), "agri:ph": (6.1, 0.2),
+        "agri:do_level": (7.3, 0.9), "agri:conductivity": (1700, 120),
     }[field]
     out = {}
     for hours in (6, 12, 24, 168):
@@ -117,7 +168,7 @@ def series(field: str) -> dict:
             ts = NOW - hours * 3600 + i * step
             h = (ts % 86400) / 3600
             avg = base + math.sin((h - 6) / 3.8) * swing + random.uniform(-swing, swing) * 0.08
-            digits = 2
+            digits = 0 if field.endswith("conductivity") else 2
             points.append([ts, round(avg, digits),
                            round(avg - swing * 0.12, digits), round(avg + swing * 0.12, digits)])
         vals = [p[1] for p in points]
@@ -126,7 +177,10 @@ def series(field: str) -> dict:
     return out
 
 
-HIST = {f: series(f) for f in ("temperature", "ph", "do_level", "salinity")}
+if AGRI:
+    HIST = {f: series("agri:" + f) for f in ("temperature", "ph", "do_level", "conductivity")}
+else:
+    HIST = {f: series(f) for f in ("temperature", "ph", "do_level", "salinity")}
 
 SHELL_CSS = """
   body{margin:0;background:#F1F5F9;color:#0F172A;
@@ -205,6 +259,7 @@ def main() -> int:
     # `var BANDS = __BANDS__;` 에서 그대로 깨진다.
     page = (webui.PAGE
             .replace("__LANG__", "ko")
+            .replace("__MODE__", MODE)
             .replace("__BANDS__", json.dumps(limits.BANDS))
             .replace("__NUT_BANDS__", json.dumps(limits.NUTRIENT_BANDS)))
     mock = (MOCK
@@ -229,7 +284,7 @@ def main() -> int:
     shell = f"""<!doctype html>
 <html lang="ko"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Shrimp365 터치스크린 미리보기</title>
+<title>{"Farm365" if AGRI else "Shrimp365"} 터치스크린 미리보기</title>
 <style>{SHELL_CSS}</style>
 <h1>라즈베리파이 7인치 터치스크린 화면</h1>
 <p class="lead">공식 디스플레이 실제 해상도(800×480). 실제 장비 화면 코드를 그대로 띄웁니다 — 눌러 보실 수 있습니다.</p>
@@ -237,7 +292,7 @@ def main() -> int:
 <div class="bezel"><iframe class="screen" id="dev" title="장비 화면"></iframe></div>
 <div class="note">
   <b>값 칸을 눌러 보세요.</b> 6시간·12시간·24시간·일주일 그래프가 열립니다.
-  녹색 띠가 적정 범위입니다(흰다리새우 기준).<br>
+  녹색 띠가 적정 범위입니다({"양액 재배 기준" if AGRI else "흰다리새우 기준"}).<br>
   <b>오른쪽 아래 [설정]</b> — 슬레이브 ID·측정 주기를 손가락으로 고칩니다.
   <b>[자동 배치]</b> 는 꽂아 둔 센서를 훑어 값이 나오는 자리를 그대로 배정합니다(이 미리보기에선 용존산소가 3→5로 바뀝니다).<br>
   <b>[Wi‑Fi]</b> — 주변 공유기를 검색해 화면 키보드로 비밀번호를 넣고 붙입니다(이 미리보기에서도 눌러 볼 수 있습니다. 잠긴 공유기를 고르면 화면 키보드가 뜨고, [연결] 하면 위쪽 연결 표시가 그 공유기로 바뀝니다).<br>
