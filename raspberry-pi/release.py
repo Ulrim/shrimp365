@@ -53,7 +53,7 @@ KEY_PATH = HERE / "secrets" / "release-key.pem"
 PAYLOAD = [
     "shrimp365_sensor.py", "display.py", "webui.py", "wifi.py",
     "buffer.py", "history.py", "updater.py",
-    "limits.py", "anomaly.py", "advice.py",
+    "limits.py", "anomaly.py", "advice.py", "zigbee_env.py",
     # 판정 자체점검. 장비에서 바로 돌려 보일 수 있어야 성능검증 자리에서 쓸모가 있다.
     "verify.py",
 ]
