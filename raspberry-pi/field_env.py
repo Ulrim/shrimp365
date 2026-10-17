@@ -32,8 +32,6 @@ from pathlib import Path
 
 #: 수집기 파일 이름 앞부분. 뒤에 _YYYYMMDD.csv 가 붙는다.
 SOURCES = ("zigbee", "rtl433", "ecowitt")
-#: 에코윗 게이트웨이는 시각을 UTC(dateutc)로 적는다. 나머지는 파이 현지 시각이다.
-UTC_SOURCES = frozenset({"ecowitt"})
 #: 기상 마스트 — 구간(zone)을 골라도 기상센서는 함께 본다(두 구간 공통 기준이라).
 ZONE_MAST = "mast"
 
@@ -81,7 +79,7 @@ class FieldEnv:
         self._rain: dict[tuple[dt.date, str], tuple[dt.datetime, float]] = {}
 
     # ── 읽기 ────────────────────────────────────────────────────────────────
-    def _feed(self, path: Path, utc: bool) -> None:
+    def _feed(self, path: Path) -> None:
         try:
             st = path.stat()
         except OSError:
@@ -105,9 +103,9 @@ class FieldEnv:
             return
         self._offset[path] = (st.st_ino, done + end + 1)
         for line in chunk[:end].decode("utf-8", errors="replace").splitlines():
-            self._row(line, utc)
+            self._row(line)
 
-    def _row(self, line: str, utc: bool) -> None:
+    def _row(self, line: str) -> None:
         parts = line.split(",")
         if len(parts) < 7 or parts[0] == "ts":
             return
@@ -125,8 +123,6 @@ class FieldEnv:
             return
         if ts.tzinfo is not None:
             ts = ts.astimezone().replace(tzinfo=None)
-        elif utc:
-            ts = ts.replace(tzinfo=dt.timezone.utc).astimezone().replace(tzinfo=None)
         if var == RAIN_VAR:
             key = (ts.date(), sid)
             last, total = self._rain.get(key, (ts, 0.0))
@@ -146,7 +142,7 @@ class FieldEnv:
         # 자정 직후에는 오늘 파일이 비어 있을 수 있어 어제 파일도 본다.
         for day in (now - dt.timedelta(days=1), now):
             for src in SOURCES:
-                self._feed(self.dir / f"{src}_{day:%Y%m%d}.csv", src in UTC_SOURCES)
+                self._feed(self.dir / f"{src}_{day:%Y%m%d}.csv")
         # 이틀 넘은 파일의 읽은 자리는 잊는다(장비가 몇 달 켜져 있어도 늘지 않게).
         keep = {f"{d:%Y%m%d}" for d in (now - dt.timedelta(days=1), now)}
         self._offset = {p: o for p, o in self._offset.items() if p.stem[-8:] in keep}

@@ -276,10 +276,10 @@ HEAD = "ts,zone,sensor_id,variable,value,unit,quality\n"
     "2026-10-17T00:09:00,mast,WS90-01,wind_gust_window,6.8,m/s,ok\n"
     "2026-10-17T00:09:00,mast,WS90-01,wind_dir,350,deg,ok\n"
     "2026-10-17T00:09:00,mast,WS90-02,wind_dir,10,deg,ok\n", encoding="utf-8")
-# 에코윗 게이트웨이는 UTC 로 적는다 — 현지 시각으로 바꿔 넣어 두고 같은 값이 나오는지 본다.
-_utc = (znow - _dt.timedelta(minutes=2)).astimezone().astimezone(_dt.timezone.utc).replace(tzinfo=None)
+# 에코윗 게이트웨이 수집기도 다른 수집기처럼 현지 시각으로 적는다(openfield ecowitt.py 가
+# dateutc 를 바꿔 적는다). 그 파일도 같이 읽는지 본다.
 (zdir / "ecowitt_20261017.csv").write_text(
-    HEAD + f"{_utc.isoformat()},mast,GW-01,pressure_hpa,1012.4,hPa,ok\n", encoding="utf-8")
+    HEAD + "2026-10-17T00:08:00,mast,GW-01,pressure_hpa,1012.4,hPa,ok\n", encoding="utf-8")
 
 fe = field_env.FieldEnv(zdir)
 env = fe.read(now=znow)
@@ -292,7 +292,7 @@ check("오늘 강수는 오늘 것만 더한다(어제 5mm 제외)", env["rain_d
 check("돌풍은 3초값이 없으면 28초 창 최댓값", (env["wind_gust"]["value"], env["wind_gust"]["var"]),
       (6.8, "wind_gust_window"))
 check("풍향 350°·10° 의 평균은 0°(180° 가 아니다)", env["wind_dir"]["value"] % 360, 0)
-check("에코윗 UTC 시각을 현지 시각으로 맞춘다", env["pressure"]["age_min"], 2)
+check("에코윗 게이트웨이 파일도 읽는다(기압)", (env["pressure"]["value"], env["pressure"]["age_min"]), (1012.4, 2))
 with (zdir / "zigbee_20261017.csv").open("a", encoding="utf-8") as fh:
     fh.write("2026-10-17T00:10:00,treatment,CN-T1,rh,86.0,%,ok\n2026-10-17T00:10:00,treat")
 env = fe.read(now=znow)
