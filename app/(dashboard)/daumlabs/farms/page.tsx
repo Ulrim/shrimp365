@@ -1,3 +1,3 @@
-import { FarmsView } from "@/components/farms/farms-view"
+import { AgriFarmsView } from "@/components/agri/agri-farms-view"
 
-export default function Page() { return <FarmsView /> }
+export default function Page() { return <AgriFarmsView /> }

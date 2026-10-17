@@ -11,9 +11,10 @@ import { useAlertNotifications } from "@/lib/use-alert-notifications"
 import type { Alert } from "@/types"
 import { MOCK_ALERTS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
-import { useT } from "@/lib/i18n-context"
+import { useT, useAgriT } from "@/lib/i18n-context"
 import { stripLocalePrefix } from "@/lib/marketing-locale"
-import { stripAgriPrefix } from "@/lib/agri-route"
+import { BRAND_NAME, isAgriPath, modeOfPath, stripAgriPrefix } from "@/lib/agri-route"
+import { ModeSwitch } from "@/components/layout/mode-switch"
 
 const DropMark = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -25,6 +26,19 @@ export function Header() {
   const pathname = usePathname()
   const { user } = useAuth()
   const { t, locale } = useT()
+  const agri = useAgriT()
+
+  // 농업 화면(/daumlabs/*)의 제목표 — 접두사를 뗀 경로 → 농업 사전(4개 언어).
+  const agriPageLabels: Record<string, string> = {
+    "/home":                    agri.nav.home,
+    "/record":                  agri.nav.record,
+    "/record/water-quality":    agri.nav.recordMeasure,
+    "/record/journal":          agri.nav.recordJournal,
+    "/dashboard":               agri.nav.dashboard,
+    "/water-quality":           agri.nav.nutrient,
+    "/journal":                 agri.nav.journal,
+    "/farms":                   agri.nav.farms,
+  }
 
   const pageLabels: Record<string, string> = {
     "/home":                    t.nav.home,
@@ -42,7 +56,6 @@ export function Header() {
     "/inventory":               t.nav.inventory,
     "/cardnews":                t.cardNews.title,
     "/board":                   t.board.title,
-    "/admin":                   t.nav.admin,
     "/help":                    t.headerX.help,
   }
 
@@ -51,9 +64,11 @@ export function Header() {
     locale === "vi" ? "vi-VN" :
     locale === "id" ? "id-ID" : "en-US"
 
-  // 언어 접두사와 /daumlabs 접두사를 뗀 뒤 찾는다. /en/cardnews 에서도,
-  // /daumlabs/water-quality 에서도 제목이 나와야 한다(라벨은 i18n 이 치환한다).
-  const title = pageLabels[stripAgriPrefix(stripLocalePrefix(pathname).path)] || "Shrimp365"
+  // 언어 접두사를 뗀 뒤 찾는다. /daumlabs/* 는 접두사를 떼고 농업 제목표에서,
+  // 그 밖은 기존 제목표에서 — /en/cardnews 에서도 제목이 나와야 한다.
+  // 제목표에 없는 주소의 기본 제목은 모드별 제품 이름(Shrimp365 / Farm365).
+  const path = stripLocalePrefix(pathname).path
+  const title = (isAgriPath(path) ? agriPageLabels[stripAgriPrefix(path)] : pageLabels[path]) || BRAND_NAME[modeOfPath(path)]
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [notiOpen, setNotiOpen] = useState(false)
@@ -143,7 +158,7 @@ export function Header() {
       <header className="h-14 lg:h-16 border-b border-border bg-card/80 backdrop-blur-md flex items-center justify-between px-4 lg:px-6 shrink-0">
         {/* Mobile: logo + page title stacked; Desktop: just page title */}
         <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
-          <div className="lg:hidden w-8 h-8 border-[1.5px] border-[#1E40AF] text-[#1E40AF] rounded-xl flex items-center justify-center shrink-0">
+          <div className="lg:hidden w-8 h-8 border-[1.5px] border-brand text-brand-fg rounded-xl flex items-center justify-center shrink-0">
             <DropMark />
           </div>
           <div className="min-w-0">
@@ -155,6 +170,9 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
+          {/* 양식장 ↔ 스마트팜 전환(설계서 mode-split.md 3장). sm 미만은 더보기 시트가 맡는다. */}
+          <ModeSwitch variant="header" className="mr-1" />
+
           {/* Search */}
           <button
             onClick={() => { setNotiOpen(false); setSearchOpen(v => !v) }}

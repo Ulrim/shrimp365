@@ -71,6 +71,14 @@ const nextConfig: NextConfig = {
   // standalone은 Docker(NAS) 전용 — Vercel 환경에서는 자동 비활성화
   output: process.env.VERCEL ? undefined : "standalone",
   poweredByHeader: false,
+  // 관제센터는 관리자 콘솔로 옮겼다(docs/plans/admin-console.md). 무안군 담당자에게
+  // 안내된 옛 주소가 깨지지 않게 영구(308) 이동한다. 파일 시스템보다 먼저 걸리므로
+  // app/ 에 /control 페이지를 두지 않는다.
+  async redirects() {
+    return [
+      { source: "/control", destination: "/admin/control", permanent: true },
+    ]
+  },
   async headers() {
     return [
       {

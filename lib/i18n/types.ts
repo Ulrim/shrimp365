@@ -89,6 +89,8 @@ export interface Dict {
     settings: string
     upgrade: string
     admin: string
+    /** 농가 메뉴 하단의 관리자 콘솔(/admin) 링크 라벨. 콘솔 안은 한국어 전용. */
+    adminConsole: string
     sectionRecord: string
     sectionMonitor: string
     /** 컬리버 탄소 MRV 플랫폼 진입 라벨(외부 서비스). */
@@ -1219,6 +1221,8 @@ export interface Dict {
     tankTypeSemiIndoor: string
     tankStatusAria: string
     statusAutoNote: string
+    /** 농장 유형을 스마트팜으로 고르거나 저장했을 때 — 이 농장은 Farm365 화면으로 간다. */
+    managedInFarm365: string
     shrimpCount: string
     stockingDayN: string
     registered: string
@@ -1276,6 +1280,26 @@ export interface Dict {
     fetchFailed: string
     loading: string
     noWarnings: string
+  }
+  /** 농장 주소 입력칸(components/ui/address-search.tsx). 직접 입력 + 검색 대화상자 두 탭. */
+  addressSearch: {
+    placeholder: string
+    button: string
+    title: string
+    tabDomestic: string
+    tabWorld: string
+    queryLabel: string
+    queryPlaceholder: string
+    search: string
+    searching: string
+    hint: string
+    results: string
+    approx: string
+    noResults: string
+    error: string
+    busy: string
+    loadingWidget: string
+    close: string
   }
   /** 수경재배(농업) 폼·카드 전용 라벨.
    *  전역 UI 모드가 아니라 farm.farm_type 기준으로 쓰므로 항상 본 사전에서 읽는다
@@ -1380,8 +1404,3 @@ export interface Dict {
     harvestPlanDate: string
   }
 }
-
-/** 2단(섹션 → 키) 부분 오버라이드 — 농업 모드 사전(agri-ko)이 쓴다.
- *  섹션 값이 통짜 객체라 Partial<Dict> 로는 섹션 안 일부 키만 둘 수 없어
- *  2단 DeepPartial 을 따로 둔다. */
-export type DictOverride = { [K in keyof Dict]?: Partial<Dict[K]> }

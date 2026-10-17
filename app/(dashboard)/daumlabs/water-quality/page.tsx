@@ -1,3 +1,3 @@
-import { WaterQualityView } from "@/components/water-quality/water-quality-view"
+import { AgriNutrientView } from "@/components/agri/agri-nutrient-view"
 
-export default function Page() { return <WaterQualityView /> }
+export default function Page() { return <AgriNutrientView /> }
