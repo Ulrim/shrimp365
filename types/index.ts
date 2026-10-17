@@ -83,6 +83,32 @@ export interface WaterQualityReading {
   flow_rate?: number | null
   /** 차압(kPa) — UV 살균기·필터 막힘 감시. 안 재는 곳은 null. */
   diff_pressure?: number | null
+  // ── 환경·기상(스마트팜 장비 · supabase/migrations/environment_readings.sql) ──
+  // 지그비 온습도·토양수분과 기상센서 값. 안 재는 장비·예전 기록은 null(또는 칸 자체가 없음).
+  /** 기온(2m) 또는 초관부 온도(지상 10cm), °C */
+  air_temp?: number | null
+  /** 상대습도, % */
+  humidity?: number | null
+  /** 토양 체적함수율, % */
+  soil_moisture?: number | null
+  /** 지온, °C */
+  soil_temp?: number | null
+  /** 평균 풍속, m/s */
+  wind_speed?: number | null
+  /** 돌풍, m/s */
+  wind_gust?: number | null
+  /** 풍향, 도(0=북) */
+  wind_dir?: number | null
+  /** 장비 현지 자정부터의 강수 누계, mm */
+  rain_day?: number | null
+  /** 강우강도, mm/h */
+  rain_rate?: number | null
+  /** 일사, W/m² */
+  solar?: number | null
+  /** 자외선 지수 */
+  uv_index?: number | null
+  /** 해면기압, hPa */
+  pressure?: number | null
   recorded_at: string
   created_at: string
 }

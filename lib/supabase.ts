@@ -63,6 +63,19 @@ export type DbWaterQuality = {
   conductivity?: number | null
   flow_rate?: number | null
   diff_pressure?: number | null
+  // 환경·기상(environment_readings.sql). 마이그레이션 전 DB 에는 칸이 없다.
+  air_temp?: number | null
+  humidity?: number | null
+  soil_moisture?: number | null
+  soil_temp?: number | null
+  wind_speed?: number | null
+  wind_gust?: number | null
+  wind_dir?: number | null
+  rain_day?: number | null
+  rain_rate?: number | null
+  solar?: number | null
+  uv_index?: number | null
+  pressure?: number | null
   recorded_at: string
   created_at: string
 }

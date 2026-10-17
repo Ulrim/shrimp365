@@ -53,7 +53,7 @@ class State:
 
             "ec_unit": "us",       # 전도도 표시 단위(us|ms). 화면이 값을 바꿔 보여 준다.
             "nutrient": None,      # 양액 보충 안내(켜 둔 경우에만)
-            "env": None,           # 지그비 온습도·토양수분(zigbee_env.py). 끄면 None, 켰는데 값이 없으면 {}
+            "env": None,           # 환경·기상(field_env.py). 끄면 None, 켰는데 값이 없으면 {}
             "mode": "shrimp",      # 장비 모드(shrimp|agriculture). 화면 이름·라벨·색만 바꾼다.
 
             # 장비가 스스로 낸 판단. 통신과 무관하게 여기서 끝난다.
@@ -192,7 +192,7 @@ PAGE = """<!doctype html>
   .sub2.bad{color:#F87171}
   .sub2.bad .dim{color:#94A3B8;display:block;margin-top:2px}
 
-  /* 환경 센서 줄 (스마트팜 · 지그비 온습도·토양수분) — 값 격자와 양액 띠 사이.
+  /* 환경·기상 줄 (스마트팜 · 지그비 온습도·토양수분, 기상센서) — 값 격자와 양액 띠 사이.
      수질 값보다 작게 둔다. 판정 색은 없다(작물·생육 단계마다 적정값이 달라서). */
   .env{flex:0 0 auto;margin-top:9px;display:flex;gap:11px}
   .env .e{flex:1;min-width:0;background:#111A2E;border:1px solid #22304C;border-radius:12px;
@@ -618,8 +618,16 @@ var I18N = {
   env_soil_temp:{ko:"지온",en:"Soil temp",vi:"Nhiệt độ đất",id:"Suhu tanah"},
   env_meta:{ko:"{n}대 · {m}분 전",en:"{n} sensor(s) · {m} min ago",vi:"{n} cảm biến · {m} phút trước",id:"{n} sensor · {m} mnt lalu"},
   env_now:{ko:"{n}대 · 방금",en:"{n} sensor(s) · just now",vi:"{n} cảm biến · vừa xong",id:"{n} sensor · baru saja"},
+  env_wind:{ko:"풍속",en:"Wind",vi:"Gió",id:"Angin"},
+  env_rain_day:{ko:"오늘 강수",en:"Rain today",vi:"Mưa hôm nay",id:"Hujan hari ini"},
+  env_gust:{ko:"돌풍 {v}",en:"gust {v}",vi:"giật {v}",id:"hembusan {v}"},
+  env_rate:{ko:"지금 {v} mm/h",en:"now {v} mm/h",vi:"hiện {v} mm/h",id:"kini {v} mm/j"},
+  dir_N:{ko:"북",en:"N",vi:"Bắc",id:"U"}, dir_NE:{ko:"북동",en:"NE",vi:"Đông Bắc",id:"TL"},
+  dir_E:{ko:"동",en:"E",vi:"Đông",id:"T"}, dir_SE:{ko:"남동",en:"SE",vi:"Đông Nam",id:"TG"},
+  dir_S:{ko:"남",en:"S",vi:"Nam",id:"S"}, dir_SW:{ko:"남서",en:"SW",vi:"Tây Nam",id:"BD"},
+  dir_W:{ko:"서",en:"W",vi:"Tây",id:"B"}, dir_NW:{ko:"북서",en:"NW",vi:"Tây Bắc",id:"BL"},
   env_missing:{ko:"값 없음",en:"No data",vi:"Không có dữ liệu",id:"Tidak ada data"},
-  env_empty:{ko:"지그비 센서 값이 들어오지 않습니다 — 수집기(zigbee_bridge)·센서 배터리를 확인하세요",en:"No Zigbee sensor data — check the collector (zigbee_bridge) and sensor batteries",vi:"Không có dữ liệu cảm biến Zigbee — kiểm tra bộ thu (zigbee_bridge) và pin cảm biến",id:"Tidak ada data sensor Zigbee — periksa kolektor (zigbee_bridge) dan baterai sensor"},
+  env_empty:{ko:"환경·기상 센서 값이 들어오지 않습니다 — 수집기(zigbee_bridge·rtl433_bridge)와 센서 배터리를 확인하세요",en:"No environment or weather data — check the collectors (zigbee_bridge, rtl433_bridge) and sensor batteries",vi:"Không có dữ liệu môi trường/thời tiết — kiểm tra bộ thu (zigbee_bridge, rtl433_bridge) và pin cảm biến",id:"Tidak ada data lingkungan/cuaca — periksa kolektor (zigbee_bridge, rtl433_bridge) dan baterai sensor"},
   nut_off_hint:{ko:"양액 관리 꺼짐 — 눌러서 [양액 설정] 에서 켜세요",en:"Nutrient management off — tap to turn it on in [Nutrient solution]",vi:"Quản lý dinh dưỡng đang tắt — nhấn để bật trong [Dung dịch dinh dưỡng]",id:"Manajemen nutrisi mati — ketuk untuk menyalakan di [Larutan nutrisi]"},
   // 센서 설정
   version:{ko:"버전",en:"Version",vi:"Phiên bản",id:"Versi"},
@@ -838,39 +846,56 @@ function renderValues(d){
   return '<div class="grid">' + cells + '</div>' + renderAdvice(d) + renderNutrient(d);
 }
 
-// 지그비 환경 센서 줄 — 스마트팜에서 [zigbee] 를 켠 장비만. 끈 장비(env=null)는
+// 환경·기상 줄 — 스마트팜에서 [environment] 를 켠 장비만. 끈 장비(env=null)는
 // 자리도 차지하지 않는다. 켰는데 값이 하나도 없으면 비워 두지 않고 점검할 곳을 알린다.
+// 칸 이름은 field_env.py 와 서버 수신 칸이 같다.
+//   opt: 값이 있을 때만 띄운다 — 지온 센서나 기상센서가 없는 농장에 빈 칸을 늘 두지 않는다.
 var ENV_SLOTS = [
-  {k:"air_temp",      unit:"\u00B0C"},
-  {k:"rh",            unit:"%"},
-  {k:"soil_moisture", unit:"%"},
-  {k:"soil_temp",     unit:"\u00B0C"}
+  {k:"air_temp",      unit:"\u00B0C",  digits:1},
+  {k:"humidity",      unit:"%",       digits:1},
+  {k:"soil_moisture", unit:"%",       digits:1},
+  {k:"soil_temp",     unit:"\u00B0C",  digits:1, opt:true},
+  {k:"wind_speed",    unit:"m/s",     digits:1, opt:true},
+  {k:"rain_day",      unit:"mm",      digits:1, opt:true}
 ];
+var ENV_LABEL = {humidity:"env_rh", soil_moisture:"env_soil", soil_temp:"env_soil_temp",
+                 wind_speed:"env_wind", rain_day:"env_rain_day"};
+var COMPASS = ["N","NE","E","SE","S","SW","W","NW"];
 function envLabel(k, e){
   if (k === "air_temp") return t(e && e.var === "canopy_temp" ? "env_canopy" : "env_air");
-  if (k === "rh") return t("env_rh");
-  if (k === "soil_moisture") return t("env_soil");
-  return t("env_soil_temp");
+  return t(ENV_LABEL[k]);
+}
+// 칸 아래 작은 줄 — 바람은 돌풍·풍향, 비는 지금 강우강도를 먼저 보여 준다.
+// 그것이 없으면 센서 대수와 마지막 값의 나이.
+function envMeta(k, e, env){
+  if (k === "wind_speed") {
+    var bits = [];
+    if (env.wind_gust) bits.push(t("env_gust", {v:env.wind_gust.value.toFixed(1)}));
+    if (env.wind_dir) bits.push(t("dir_" + COMPASS[Math.round(env.wind_dir.value / 45) % 8]));
+    if (bits.length) return bits.join(" \u00B7 ");
+  }
+  if (k === "rain_day" && env.rain_rate && env.rain_rate.value > 0) {
+    return t("env_rate", {v:env.rain_rate.value.toFixed(1)});
+  }
+  return e.age_min < 1 ? t("env_now", {n:e.sensors}) : t("env_meta", {n:e.sensors, m:e.age_min});
 }
 function renderEnv(d){
   var env = d.env;
   if (!env) return "";
   var any = ENV_SLOTS.some(function(s){ return env[s.k]; });
   if (!any) return '<div class="env empty">' + t("env_empty") + '</div>';
-  // 지온은 값이 있을 때만 — 토양 센서가 없는 베드에서 빈 칸 하나를 늘 띄울 까닭이 없다.
-  var tiles = ENV_SLOTS.filter(function(s){ return s.k !== "soil_temp" || env[s.k]; })
+  var tiles = ENV_SLOTS.filter(function(s){ return !s.opt || env[s.k]; })
     .map(function(s){
       var e = env[s.k];
       if (!e) {
         return '<div class="e none"><span class="ek">' + envLabel(s.k, null) + '</span>' +
                '<span class="ev">--</span><span class="em">' + t("env_missing") + '</span></div>';
       }
-      var meta = e.age_min < 1 ? t("env_now", {n:e.sensors}) : t("env_meta", {n:e.sensors, m:e.age_min});
       // 수집 주기(보통 5분)의 세 배를 넘기면 끊기고 있는 것 — 값은 두되 주황으로 알린다.
       return '<div class="e' + (e.age_min >= 15 ? " old" : "") + '">' +
              '<span class="ek">' + envLabel(s.k, e) + '</span>' +
-             '<span class="ev">' + e.value.toFixed(1) + '<small>' + s.unit + '</small></span>' +
-             '<span class="em">' + meta + '</span></div>';
+             '<span class="ev">' + e.value.toFixed(s.digits) + '<small>' + s.unit + '</small></span>' +
+             '<span class="em">' + esc(envMeta(s.k, e, env)) + '</span></div>';
     }).join("");
   return '<div class="env">' + tiles + '</div>';
 }
