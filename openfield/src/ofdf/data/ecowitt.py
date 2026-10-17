@@ -371,13 +371,17 @@ def report_to_rows(
         data = dict(body)
 
     # 게이트웨이가 보내는 dateutc 가 있으면 그것을 쓴다. 파이 시계가 틀어져도
-    # 관측 시각이 유지된다.
+    # 관측 시각이 유지된다. dateutc 는 UTC 이고 다른 수집기(지그비·RTL-433)는
+    # 파이 현지 시각(시간대 없음)으로 적으므로 현지 시각으로 바꿔 맞춘다.
+    # 시간대 표기(+09:00)를 붙이지 않는 것은 같은 열에 표기 있는 값과 없는
+    # 값이 섞이면 pandas 가 읽기를 거부하기 때문이다.
     when = now
     if when is None:
         stamp = str(data.get("dateutc", ""))
         for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
             try:
-                when = dt.datetime.strptime(stamp[:19], fmt)
+                when = (dt.datetime.strptime(stamp[:19], fmt)
+                        .replace(tzinfo=dt.timezone.utc).astimezone().replace(tzinfo=None))
                 break
             except ValueError:
                 continue

@@ -32,8 +32,10 @@ from pathlib import Path
 
 #: 수집기 파일 이름 앞부분. 뒤에 _YYYYMMDD.csv 가 붙는다.
 SOURCES = ("zigbee", "rtl433", "ecowitt")
-#: 에코윗 게이트웨이는 시각을 UTC(dateutc)로 적는다. 나머지는 파이 현지 시각이다.
-UTC_SOURCES = frozenset({"ecowitt"})
+#: 시각을 UTC(시간대 표기 없이)로 적는 수집기. 에코윗 수신기는 게이트웨이의 dateutc 를
+#: 현지 시각으로 바꿔 적으므로 이제 모든 수집기가 파이 현지 시각이다. 시간대 표기가
+#: 붙은 값은 이 목록과 상관없이 현지 시각으로 바꾼다.
+UTC_SOURCES: frozenset[str] = frozenset()
 #: 기상 마스트 — 구간(zone)을 골라도 기상센서는 함께 본다(두 구간 공통 기준이라).
 ZONE_MAST = "mast"
 

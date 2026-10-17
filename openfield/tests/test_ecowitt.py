@@ -80,10 +80,46 @@ def test_unmapped_field_is_reported():
     assert any("brandnewfield" in u for u in unknown)
 
 
-def test_observation_time_comes_from_the_gateway():
+@pytest.fixture
+def local_tz(monkeypatch):
+    """파이 현지 시간대를 바꿔 끼운다."""
+    import time
+
+    def use(name: str) -> None:
+        monkeypatch.setenv("TZ", name)
+        time.tzset()
+
+    yield use
+    monkeypatch.undo()
+    time.tzset()
+
+
+def test_observation_time_comes_from_the_gateway(local_tz):
     """파이 시계가 틀어져도 관측 시각이 유지돼야 한다."""
+    local_tz("UTC")
     rows = report_to_rows(body(dateutc="2026-11-01 05:00:00"))
-    assert rows[0]["ts"].startswith("2026-11-01T05:00:00")
+    assert rows[0]["ts"] == "2026-11-01T05:00:00"
+
+
+def test_dateutc_is_written_in_local_time_like_other_collectors(local_tz):
+    """dateutc 는 UTC 다. 지그비·RTL-433 처럼 현지 시각으로 적어야 같은 시각끼리 맞는다."""
+    local_tz("Asia/Seoul")
+    rows = report_to_rows(body(dateutc="2026-11-01 05:00:00"))
+    assert {r["ts"] for r in rows} == {"2026-11-01T14:00:00"}
+
+
+def test_dateutc_late_evening_rolls_into_the_next_local_day(local_tz):
+    local_tz("Asia/Seoul")
+    rows = report_to_rows(body(dateutc="2026-10-31T20:30:00"))
+    assert rows[0]["ts"] == "2026-11-01T05:30:00"
+
+
+def test_given_time_is_kept_as_is(local_tz):
+    import datetime as dt
+
+    local_tz("Asia/Seoul")
+    rows = report_to_rows(body(), now=dt.datetime(2026, 11, 1, 9, 0))
+    assert rows[0]["ts"] == "2026-11-01T09:00:00"
 
 
 def test_rows_match_the_field_collector_format():
