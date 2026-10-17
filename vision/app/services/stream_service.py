@@ -120,13 +120,13 @@ class CameraSnapshot:
         )
 
 
-def _render_jpeg(frame, result, camera_name: str, when) -> bytes:  # noqa: ANN001
-    """박스를 그려 JPEG 로 굽는다 — 스레드에서 부르려고 한 함수로 묶었다.
+def _render_jpeg(frame, result, camera_name: str, when, roi=None) -> bytes:  # noqa: ANN001
+    """세는 범위와 박스를 그려 JPEG 로 굽는다 — 스레드에서 부르려고 묶었다.
 
     두 번 나눠 부르면 스레드를 두 번 오가면서 큰 이미지를 그만큼 더 들고
     다닌다. 하는 일이 이어져 있으니 한 번에 보낸다.
     """
-    return encode_jpeg(annotate_frame(frame, result, camera_name, when))
+    return encode_jpeg(annotate_frame(frame, result, camera_name, when, roi=roi))
 
 
 class CameraStreamProcessor:
@@ -226,7 +226,7 @@ class CameraStreamProcessor:
         # 파이를 5~10배로 잡은 값), 그동안 루프가 멈추면 장비 화면과 API 가
         # 그만큼 굳는다. 추론은 이미 to_thread 로 돌리고 있다 — 같은 이유다.
         jpeg = await asyncio.to_thread(
-            _render_jpeg, frame, result, self.camera.name, now
+            _render_jpeg, frame, result, self.camera.name, now, tune.roi
         )
         frame_store.push_frame(self.camera.id, jpeg)
 
