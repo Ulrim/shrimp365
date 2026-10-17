@@ -6,6 +6,8 @@ HTTP POST 한다. 경로가 바뀌어도 센서는 같은 WS90 이다.
 
 from __future__ import annotations
 
+import datetime as dt
+
 import pytest
 
 from ofdf.data import ecowitt
@@ -81,9 +83,24 @@ def test_unmapped_field_is_reported():
 
 
 def test_observation_time_comes_from_the_gateway():
-    """파이 시계가 틀어져도 관측 시각이 유지돼야 한다."""
+    """파이 시계가 틀어져도 관측 시각이 유지돼야 한다. dateutc 는 UTC 라 현지 시각으로 바꿔 적는다."""
     rows = report_to_rows(body(dateutc="2026-11-01 05:00:00"))
-    assert rows[0]["ts"].startswith("2026-11-01T05:00:00")
+    local = dt.datetime(2026, 11, 1, 5, tzinfo=dt.timezone.utc).astimezone().replace(tzinfo=None)
+    assert rows[0]["ts"] == local.isoformat()
+
+
+def test_gateway_utc_becomes_seoul_time(monkeypatch):
+    """한국(UTC+9)에서는 9시간 뒤로 적혀야 지그비·rtl433 행과 같은 시각축에 선다."""
+    import time
+
+    monkeypatch.setenv("TZ", "Asia/Seoul")
+    time.tzset()
+    try:
+        rows = report_to_rows(body(dateutc="2026-11-01 05:00:00"))
+        assert rows[0]["ts"] == "2026-11-01T14:00:00"
+    finally:
+        monkeypatch.undo()
+        time.tzset()
 
 
 def test_rows_match_the_field_collector_format():

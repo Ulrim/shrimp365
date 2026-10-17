@@ -24,6 +24,7 @@ import { DeviceCurrentValues } from "@/components/sensors/device-current-values"
 import { StatCard } from "@/components/agri/dashboard/stat-card"
 import { BedCard } from "@/components/agri/dashboard/bed-card"
 import { DpTrendCard } from "@/components/agri/dashboard/dp-trend-card"
+import { EnvironmentCard } from "@/components/agri/dashboard/environment-card"
 import { RecentAlerts } from "@/components/agri/dashboard/recent-alerts"
 import { agoLabel } from "@/components/agri/dashboard/time-ago"
 import { FieldRiskCard } from "@/components/agri/openfield/field-risk-card"
@@ -316,6 +317,9 @@ export function AgriDashboardView() {
       {selectedIsField && selectedTank && visibleFieldRisk.length > 0 && (
         <FieldRiskCard judgements={visibleFieldRisk} tankName={selectedTank.name} />
       )}
+
+      {/* 환경·기상 — 장비가 지그비·기상센서 값을 올린 베드만. 없으면 카드가 그려지지 않는다 */}
+      {selectedTank && <EnvironmentCard readings={visibleWq} tankName={selectedTank.name} now={lastRefreshed} />}
 
       {hasNutrient || hasDp ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

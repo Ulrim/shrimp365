@@ -83,6 +83,11 @@ try:
 except ImportError:  # pragma: no cover
     advice_mod = None
 
+try:
+    import field_env as field_env_mod
+except ImportError:  # pragma: no cover
+    field_env_mod = None
+
 VERSION = "1.9.1"
 
 # 추세 판정을 몇 초마다 다시 돌릴지. 임계값 권고는 매 측정마다 즉시 나가고,
@@ -1884,6 +1889,17 @@ def main() -> int:
     # 값이 없거나 모르는 값이면 양식장이다 — 기존 장비는 그대로 돌아야 한다.
     _ui_mode = cfg.get("webui", "mode", fallback="shrimp").strip().lower()
     mode_holder = {"mode": _ui_mode if _ui_mode in ("shrimp", "agriculture") else "shrimp"}
+    # 환경·기상 센서(지그비 온습도·토양수분, 기상센서 WS90). 노지 수집기가 쌓는 CSV 를
+    # 이어 읽어 화면에 띄우고, upload 가 켜져 있으면 수질 값과 같은 줄로 서버에 올린다.
+    field_env = None
+    env_upload = False
+    if field_env_mod is not None and cfg.getboolean("environment", "enabled", fallback=False):
+        field_env = field_env_mod.FieldEnv(
+            cfg.get("environment", "dir", fallback="/home/pi/openfield/data/field"),
+            cfg.get("environment", "zone", fallback=""),
+            cfg.getfloat("environment", "stale_minutes", fallback=30),
+        )
+        env_upload = cfg.getboolean("environment", "upload", fallback=True)
     # 연속 전송 실패 횟수. 회선이 끊긴 채 안 돌아올 때 무선을 다시 깨우는 기준.
     net_fail = {"count": 0}
 
@@ -2378,6 +2394,16 @@ def main() -> int:
             raw_holder.update(values)          # 보정 전 값을 화면이 볼 수 있게 남긴다
             values = apply_calibration(values, cal_holder)
 
+        # 환경·기상 — 켜 둔 장비만. 수질 센서가 죽어도 화면에는 띄우고, 읽기가
+        # 실패해도 수질 측정·전송은 그대로 간다.
+        env = None
+        if field_env is not None:
+            try:
+                env = field_env.read()
+            except Exception as exc:  # noqa: BLE001
+                log.warning("환경·기상 값 읽기 실패: %s", exc)
+                env = {}
+
         if not values:
             log.error("읽은 값이 없습니다. 배선·전원·슬레이브 ID를 확인하세요. %s", errors)
             status_line = "SENSOR ERROR"
@@ -2413,8 +2439,10 @@ def main() -> int:
                         analysis["anomalies"] = []
                     analysis["at"] = now_s
                 try:
-                    advices = advice_mod.recommend(values, analysis["anomalies"],
-                                                   analysis["rows"], nutrient is not None)
+                    # 스마트팜 모드면 양액 관리를 꺼 두었어도 새우 기준 권고(환수·히터)를 내지 않는다.
+                    advices = advice_mod.recommend(
+                        values, analysis["anomalies"], analysis["rows"],
+                        nutrient is not None or mode_holder["mode"] == "agriculture")
                 except Exception as exc:  # noqa: BLE001
                     log.warning("운전 권고 실패: %s", exc)
                     advices = []
@@ -2434,6 +2462,10 @@ def main() -> int:
                     payload[f"err_{_k}"] = str(_why)[:60]
                 # 양액 요약(nut_*) — 계산이 있을 때만. 웹 양액 상태 카드가 쓴다.
                 payload.update(nutrient_payload(nutrient, nut_holder))
+                # 환경·기상 값 — 칸 이름이 곧 서버 칸 이름이다(air_temp, humidity, ...).
+                # 수질 값과 같은 줄로 올려 웹 그래프가 한 시간축을 쓴다.
+                if env and env_upload:
+                    payload.update(field_env_mod.payload_values(env))
 
                 # 추세 이상징후를 함께 올린다. 장비 화면에만 뜨면 새벽에 아무도
                 # 못 보므로, 서버가 이것으로 알림을 만들어 휴대폰까지 보낸다.
@@ -2497,6 +2529,7 @@ def main() -> int:
             }
             state.update(
                 values=last_values,
+                env=env,
                 nutrient=nutrient,
                 advice=advices,
                 anomalies=analysis["anomalies"],

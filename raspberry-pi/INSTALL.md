@@ -792,6 +792,27 @@ sudo reboot
 베드·농장·양액으로, 염도 칸이 전도도(mS/cm)로 바뀌고 양액 보충 안내가 앞에 놓입니다.
 측정과 서버 전송은 두 모드가 같습니다.
 
+**환경·기상 칸 (스마트팜, 선택).** 값 격자 아래에 기온(또는 초관부 온도)·습도·토양수분 칸이,
+센서가 있으면 지온·풍속·오늘 강수 칸이 더 뜹니다. 같은 값이 수질 값과 함께 서버로 올라가
+웹 대시보드의 "환경·기상" 카드에 나옵니다. 장비가 센서를 직접 받지는 않고, 같은 파이에서
+도는 노지 수집기의 파일을 읽습니다.
+
+1. 지그비: SONOFF 동글 + Zigbee2MQTT 로 센서를 페어링하고, 이름을 `openfield/configs/devices.yaml`
+   의 장치 이름과 맞춘 뒤 수집기를 상주로 돌립니다:
+   `python3 openfield/scripts/zigbee_bridge.py --devices openfield/configs/devices.yaml --out /home/pi/openfield/data/field`
+2. 기상센서(WS90, 433MHz): RTL-SDR 동글이면
+   `rtl_433 -f 433.92M -F json | python3 openfield/scripts/rtl433_bridge.py --out /home/pi/openfield/data/field`,
+   에코윗 게이트웨이면 `python3 openfield/scripts/ecowitt_receiver.py --out /home/pi/openfield/data/field`.
+   **세 수집기의 `--out` 을 같은 디렉터리로** 둡니다.
+3. `config.ini` 의 `[environment]` 에서 `enabled = true`, `dir` 을 위 `--out` 과 같게 두고 재시작합니다.
+   화면에만 띄우고 서버로 보내지 않으려면 `upload = false`.
+4. 웹에 보이려면 서버 DB 에 `supabase/migrations/environment_readings.sql` 을 한 번 실행합니다
+   (실행 전에도 장비는 멈추지 않습니다 — 서버가 환경 칸만 빼고 저장합니다).
+
+센서가 여러 대면 평균을 띄우고 "2대 · 3분 전" 처럼 대수와 나이를 함께 보여 줍니다. 15분 넘게
+새 값이 없으면 그 칸 아래 글씨가 주황으로 바뀌고, 30분(`stale_minutes`)이 지나면 값을 지웁니다
+(서버로도 보내지 않습니다). 켰는데 값이 하나도 없으면 수집기·배터리를 확인하라는 줄이 뜹니다.
+
 ### 7. 파이 쪽 로케일도 맞춰 두기 (선택)
 
 꼭 필요하지는 않지만, 파일 이름이나 다른 프로그램에서 한글을 쓰실 거면 맞춰 두는 편이 좋습니다.

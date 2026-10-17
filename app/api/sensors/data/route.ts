@@ -33,7 +33,8 @@ function sanitizePayload(body: Record<string, unknown>): Record<string, unknown>
   const out: Record<string, unknown> = {}
   let count = 0
   for (const [k, v] of Object.entries(body)) {
-    if (count >= 32) break
+    // 환경·기상 칸(최대 12)이 붙으면서 32 를 넘을 수 있어 늘렸다.
+    if (count >= 48) break
     if (typeof v === "number" && Number.isFinite(v)) out[k] = v
     else if (typeof v === "boolean") out[k] = v
     else if (typeof v === "string") out[k] = v.slice(0, 120)
@@ -178,6 +179,37 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // 환경·기상 — 스마트팜 장비가 지그비 온습도·토양수분과 기상센서 값을 같은 줄로 올린다
+  // (raspberry-pi/field_env.py, 마이그레이션 environment_readings.sql). 수질 판정·알림에는
+  // 넣지 않는다 — 작물·생육 단계마다 적정값이 달라 서버가 좋고 나쁨을 정하지 않는다.
+  const ENV_RANGE = {
+    air_temp:      [-50,   70],  // °C
+    humidity:      [  0,  100],  // %
+    soil_moisture: [  0,  100],  // %
+    soil_temp:     [-30,   70],  // °C
+    wind_speed:    [  0,   80],  // m/s
+    wind_gust:     [  0,  100],  // m/s
+    wind_dir:      [  0,  360],  // 도
+    rain_day:      [  0, 1000],  // mm (장비 현지 자정부터)
+    rain_rate:     [  0,  500],  // mm/h
+    solar:         [  0, 2000],  // W/m²
+    uv_index:      [  0,   20],
+    pressure:      [800, 1100],  // hPa
+  } as const satisfies Record<string, readonly [number, number]>
+  type EnvKey = keyof typeof ENV_RANGE
+  const ENV_COLS = Object.keys(ENV_RANGE) as EnvKey[]
+
+  const envValues: Partial<Record<EnvKey, number>> = {}
+  for (const field of ENV_COLS) {
+    const raw = body[field]
+    if (raw === undefined || raw === null) continue
+    const n = Number(raw)
+    const [min, max] = ENV_RANGE[field]
+    if (Number.isFinite(n) && n >= min && n <= max) envValues[field] = n
+  }
+
+  // 수질 값이 하나는 있어야 한다. 환경 값만으로는 받지 않는다 — 아래 수조 상태 갱신이
+  // 수질 판정만 보고 status 를 active 로 덮어써, 진짜 경보 상태를 지워 버린다.
   if (Object.keys(values).length === 0) {
     return NextResponse.json({ error: "측정값이 하나도 없습니다." }, { status: 422 })
   }
@@ -206,7 +238,7 @@ export async function POST(req: NextRequest) {
   // ('column' 문구만 보고 판단하면 tank_id NOT NULL 같은 엉뚱한 오류까지 삼킨다.)
   const OPTIONAL_COLS = ["device_id", "conductivity", "flow_rate", "diff_pressure"] as const
   let row: Record<string, unknown> = {
-    tank_id: device.tank_id, ...values, recorded_at: recordedAt, device_id: device.id,
+    tank_id: device.tank_id, ...values, ...envValues, recorded_at: recordedAt, device_id: device.id,
   }
   let reading: Record<string, unknown> | null = null
   let insertError: { message?: string; code?: string } | null = null
@@ -225,14 +257,16 @@ export async function POST(req: NextRequest) {
       /(column|schema cache|does not exist|not found)/i.test(msg)
     // 메시지가 이름을 집은 칸만 후보다. 앞뒤가 단어 문자면 다른 칸 이름의
     // 부분 문자열을 잘못 집을 수 있으므로 경계를 함께 본다.
-    const named = OPTIONAL_COLS.find(col =>
+    const named = [...OPTIONAL_COLS, ...ENV_COLS].find(col =>
       col in row && new RegExp(`(^|[^A-Za-z0-9_])${col}([^A-Za-z0-9_]|$)`, "i").test(msg))
     const missing = isMissingColumnError ? named : undefined
-    if (!missing || attempt >= OPTIONAL_COLS.length) break
+    if (!missing || attempt > OPTIONAL_COLS.length) break
 
-    console.warn(`[sensors/data] ${missing} 칸 없음 — 빼고 저장(마이그레이션 필요)`)
-    const { [missing]: _drop, ...rest } = row
-    row = rest
+    // 환경·기상 칸은 한 마이그레이션에서 같이 생기므로 하나가 없으면 다 없다.
+    // 하나씩 떼면 매 수신마다 열두 번을 왕복하니 한꺼번에 뗀다.
+    const drop: readonly string[] = (ENV_COLS as readonly string[]).includes(missing) ? ENV_COLS : [missing]
+    console.warn(`[sensors/data] ${missing} 칸 없음 — ${drop.length > 1 ? "환경·기상 칸을" : "그 칸을"} 빼고 저장(마이그레이션 필요)`)
+    row = Object.fromEntries(Object.entries(row).filter(([k]) => !drop.includes(k)))
   }
 
   if (insertError) {
