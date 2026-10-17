@@ -5,17 +5,28 @@ Pillow-only so it works without OpenCV installed.
 from __future__ import annotations
 
 import io
-from datetime import datetime
+import logging
+from datetime import UTC, datetime, tzinfo
 from functools import lru_cache
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from PIL import Image, ImageDraw, ImageFont
 
 from app.config import settings
 from app.services.detector import DetectionResult
 
+logger = logging.getLogger(__name__)
+
 BOX_COLOR = (80, 255, 140)
 TEXT_BG = (0, 0, 0, 160)
+
+#: 머리글 띠가 덮는 높이(px).
+#:
+#: 이름을 가져야 하는 이유: 웹이 얹는 배지(개체수·상태)는 이 띠를 피해
+#: 아래쪽에 두고, 테스트는 이 높이만큼만 글자를 센다. 28 이라는 숫자가 세 곳에
+#: 흩어져 있으면 하나를 고칠 때 둘이 어긋난다.
+HEADER_HEIGHT = 28
 
 #: 세는 범위(관심영역) 표시.
 #:
@@ -53,6 +64,43 @@ def _overlay_font() -> tuple[ImageFont.ImageFont | ImageFont.FreeTypeFont, bool]
 
 def _ascii_safe(text: str) -> str:
     return text.encode("ascii", errors="ignore").decode() or "camera"
+
+
+@lru_cache(maxsize=1)
+def _display_tz() -> tzinfo:
+    """머리글에 적을 시각의 시간대. 없는 이름이면 UTC 로 물러난다.
+
+    시간대 데이터(/usr/share/zoneinfo)는 라즈베리파이 OS 에 들어 있지만,
+    아주 작게 깎은 이미지에는 없을 수 있다. 그때 예외를 내보내면 **프레임
+    한 장이 아니라 카메라가 멈춘다** — 시각 한 줄 때문에 그럴 일이 아니다.
+    """
+    name = settings.display_timezone
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        logger.warning(
+            "시간대 %r 를 찾지 못했습니다 — 그림에는 UTC 로 적습니다."
+            " (DISPLAY_TIMEZONE 설정)",
+            name,
+        )
+        return UTC
+
+
+def local_time_text(when: datetime) -> str:
+    """머리글에 적을 시각 한 줄. 현장 시간대로 적고 꼬리표를 붙인다.
+
+    **왜 UTC 로 적으면 안 되나.** 이 글자는 농장에서 "지금 돌고 있나" 를
+    판단하는 거의 유일한 근거다. UTC 는 한국 시간보다 9시간 이르므로, 방금
+    찍힌 사진에 아침 시각이 적혀 나온다 — 사람은 그것을 "어제 것이 멈춰
+    있다" 로 읽는다. 저장은 UTC 그대로 두고(시간대가 다른 농장이 섞인다),
+    사람이 읽는 글자만 현장 시간으로 바꾼다.
+
+    꼬리표(KST 따위)는 바꾼 시각에서 뽑는다 — 썸머타임이 있는 시간대에서도
+    그 순간에 맞는 이름이 붙고, 이름이 없는 시간대는 +07 처럼 치우침이 적힌다.
+    """
+    aware = when if when.tzinfo is not None else when.replace(tzinfo=UTC)
+    local = aware.astimezone(_display_tz())
+    return f"{local.strftime('%Y-%m-%d %H:%M:%S')} {local.strftime('%Z') or 'UTC'}"
 
 
 def _draw_roi(draw: ImageDraw.ImageDraw, roi, width: int, height: int) -> None:
@@ -112,13 +160,13 @@ def annotate_frame(
     header = (
         f"{name}  |  count: {result.count}  |  "
         f"conf: {result.confidence_avg:.2f}  |  {result.inference_ms}ms  |  "
-        f"{timestamp.strftime('%Y-%m-%d %H:%M:%S')} UTC"
+        f"{local_time_text(timestamp)}"
     )
     # 범위를 잡았다는 사실을 글로도 남긴다. 그림이 작게 줄어 테두리가 잘
     # 안 보이는 자리(웹 목록의 작은 카드)에서도 알 수 있어야 한다.
     if roi is not None:
         header += "  |  " + ("세는 범위" if hangul_ok else "ROI")
-    draw.rectangle((0, 0, annotated.width, 28), fill=TEXT_BG)
+    draw.rectangle((0, 0, annotated.width, HEADER_HEIGHT), fill=TEXT_BG)
     draw.text((10, 6), header, fill=(255, 255, 255), font=font)
     return annotated
 

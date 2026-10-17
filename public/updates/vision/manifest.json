@@ -1,5 +1,5 @@
 {
-  "latest": "1.1.1",
+  "latest": "1.1.2",
   "releases": {
     "1.1.0": {
       "file": "shrimp365-vision-1.1.0.tar.gz",
@@ -14,6 +14,13 @@
       "released_at": "2026-10-16",
       "sha256": "cd165b8deb995cc2f356210fe39a4b777fa008f41d1a82a80764b91d926ac78e",
       "size": 95156
+    },
+    "1.1.2": {
+      "file": "shrimp365-vision-1.1.2.tar.gz",
+      "notes": "그림 시각을 한국 시간으로",
+      "released_at": "2026-10-17",
+      "sha256": "ce5c2992c12075da338bbf650557ae18c283771b95e9bd9262a18c42066a35d9",
+      "size": 96171
     }
   }
 }

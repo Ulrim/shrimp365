@@ -59,6 +59,9 @@ next-env.d.ts
 !app/apple-icon.png
 # 지원사업 점검용 첨부 이미지 — 제출 서류에 그대로 들어가는 자료다
 !docs/**/assets/*.png
+# 점검이 흉내 서버로 내려 주는 수조 사진 — 산출물이 아니라 검사 자료다.
+# 이것이 빠지면 scripts/check-vision-frame-ui.mjs 가 빈 사진으로 돌아간다.
+!scripts/fixtures/*.jpg
 # .claude 내부는 무시하되, 공유 스킬·에이전트만 저장소에 포함
 # (세션마다 새로 clone되므로 스킬과 팀 정의는 커밋 필요)
 .claude/*

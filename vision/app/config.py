@@ -167,6 +167,15 @@ class Settings(BaseSettings):
     # Streaming
     mjpeg_quality: int = Field(default=75)
     frame_buffer_size: int = Field(default=5)
+    # 프레임 머리글에 적는 시각의 시간대(IANA 이름).
+    #
+    # UTC 로 적으면 현장에서 9시간 틀린 시각이 보인다 — 장비가 멈춘 줄 알고
+    # 멀쩡한 카메라를 뒤지게 된다. 저장은 그대로 UTC 다(TIMESTAMPTZ); 이
+    # 설정은 **사람이 읽는 글자**에만 쓴다.
+    #
+    # 베트남·인도네시아 농장에서는 Asia/Ho_Chi_Minh, Asia/Jakarta 로 바꾼다.
+    # 없는 이름을 적으면 UTC 로 적고 경고를 한 번 남긴다.
+    display_timezone: str = Field(default="Asia/Seoul")
 
     # Email notifications (SMTP + STARTTLS). Sending is skipped (log-only)
     # while SMTP_USER or SMTP_PASSWORD is empty.

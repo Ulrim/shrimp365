@@ -31,7 +31,7 @@
 import { createServer } from "node:http"
 import { spawn } from "node:child_process"
 import { once } from "node:events"
-import { readdirSync } from "node:fs"
+import { readFileSync, readdirSync } from "node:fs"
 import { chromium } from "playwright-core"
 
 /** 크로미움을 찾는다. 경로에 버전이 박혀 있어(chromium-1194) 그대로 적으면
@@ -57,8 +57,23 @@ const CAMERA_ID = "11111111-1111-1111-1111-111111111111"
 const TANK_ID = "33333333-3333-3333-3333-333333333333"
 const FARM_ID = "44444444-4444-4444-4444-444444444444"
 
-/** 테스트용 사진 — 640×360, 박스 세 개가 그려져 있다(장비가 보내는 모양). */
-const FRAME_B64 = process.env.FRAME_B64 ?? ""
+/** 테스트용 사진 — 640×360. 장비가 실제로 보내는 모양 그대로다: 위쪽에
+ *  구워 넣은 머리글 띠, 세는 범위 표시, 탐지 박스 세 개.
+ *
+ *  **파일로 둔 이유.** 전에는 FRAME_B64 환경변수로만 받았는데, 그것을 안 넘기면
+ *  빈 몸통이 전달되어 사진이 깨진 채로 점검이 돌았다 — 사슬이 멀쩡한지 보려고
+ *  만든 점검이 사진 없이 돌면 아무것도 보장하지 않는다. 이제 파일이 기본이고,
+ *  환경변수는 다른 사진으로 바꿔 볼 때만 쓴다.
+ *
+ *  다시 만들려면 scripts/fixtures/README.md 를 보라. */
+const FRAME_FIXTURE = new URL("./fixtures/vision-frame-640x360.jpg", import.meta.url)
+const FRAME_BYTES = process.env.FRAME_B64
+  ? Buffer.from(process.env.FRAME_B64, "base64")
+  : readFileSync(FRAME_FIXTURE)
+if (FRAME_BYTES.length < 1000) {
+  console.error(`사진 자료가 비었습니다: ${FRAME_FIXTURE.pathname}`)
+  process.exit(1)
+}
 
 const camera = {
   id: CAMERA_ID, tank_id: TANK_ID, name: "1호 수조 카메라", camera_type: "csi",
@@ -220,7 +235,7 @@ try {
           "X-Frame-Length-Cm": "11.5",
           "Cache-Control": "no-store",
         },
-        body: Buffer.from(FRAME_B64, "base64"),
+        body: FRAME_BYTES,
       })
     })
 
@@ -274,6 +289,22 @@ try {
       check("브라우저가 사진을 해독했다(blob 주소가 살아 있다)", loaded)
       const natural = await shot.evaluate((img) => `${img.naturalWidth}x${img.naturalHeight}`)
       check("장비가 보낸 크기 그대로다", natural === "640x360", natural)
+
+      // 웹 배지는 사진 **아래쪽**에 있어야 한다. 사진 위쪽 띠는 장비가 프레임에
+      // 직접 구워 넣은 글자(카메라 이름·개체수·시각)이고 지울 수 없다 — 배지를
+      // 그 위에 얹으면 둘 다 못 읽는다. 한 번 그렇게 겹쳐 올렸던 자리다.
+      const midY = box ? box.y + box.height / 2 : 0
+      for (const [label, locator] of [
+        ["개체수", page.locator("div").filter({ hasText: /^\d+마리$/ }).last()],
+        ["상태", page.getByText(/^(분석 중|연결됨|중지됨|오류)$/).last()],
+      ]) {
+        const rect = await locator.boundingBox().catch(() => null)
+        check(`${label} 배지가 구워진 글자를 가리지 않는다(아래쪽에 있다)`,
+              !!rect && !!box && rect.y > midY,
+              rect && box
+                ? `배지 y=${Math.round(rect.y)} / 사진 가운데 y=${Math.round(midY)}`
+                : "배지를 찾지 못했다")
+      }
 
       const body = await page.locator("body").innerText()
       check("몇 초 전 사진인지 적혀 있다", /사진 \d+초 전/.test(body),

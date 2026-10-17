@@ -13,10 +13,24 @@ from datetime import UTC, datetime
 import pytest
 from PIL import Image
 
+from app.config import settings
 from app.services.detector import BBox, DetectionResult
-from app.services.rendering import annotate_frame
+from app.services.rendering import (
+    HEADER_HEIGHT,
+    _display_tz,
+    annotate_frame,
+    local_time_text,
+)
 
 WHEN = datetime(2026, 10, 16, 1, 2, 3, tzinfo=UTC)
+
+
+@pytest.fixture(autouse=True)
+def _fresh_timezone():
+    """시간대는 한 번 읽고 캐시한다 — 테스트마다 다시 읽게 비운다."""
+    _display_tz.cache_clear()
+    yield
+    _display_tz.cache_clear()
 
 
 def frame(w: int = 400, h: int = 300, color=(180, 180, 180)) -> Image.Image:
@@ -57,7 +71,7 @@ def header_ink(img: Image.Image) -> int:
     """
     return sum(
         1
-        for y in range(28)
+        for y in range(HEADER_HEIGHT)
         for x in range(img.width)
         if sum(img.getpixel((x, y))[:3]) > 600
     )
@@ -150,3 +164,50 @@ def test_detection_boxes_still_drawn_without_roi():
     img = annotate_frame(frame(), result([(100, 100, 180, 160, 0.9)]), "cam", WHEN)
     hits = [img.getpixel((px, 120)) for px in (100, 101, 102)]
     assert any(g > r and g > b for r, g, b in hits)
+
+
+# ── 머리글의 시각 ───────────────────────────────────────────────────────────
+#
+# **왜 이것이 중요한가.** 농장에서는 로그를 읽지 않는다. "지금 돌고 있나" 를
+# 그림에 적힌 시각 하나로 판단한다. UTC 로 적으면 방금 찍힌 사진에 9시간 전
+# 시각이 보이고, 사람은 그것을 "어제 것이 멈춰 있다" 로 읽는다 — 멀쩡한
+# 카메라를 뜯게 만드는 글자다.
+def test_the_time_is_written_in_local_time(monkeypatch):
+    monkeypatch.setattr(settings, "display_timezone", "Asia/Seoul")
+    # 2026-10-16 01:02:03 UTC == 같은 날 10:02:03 한국 시간
+    assert local_time_text(WHEN) == "2026-10-16 10:02:03 KST"
+
+
+def test_a_naive_time_is_read_as_utc(monkeypatch):
+    """SQLite 에서 돌아온 시각에는 시간대가 없다. 현지 시간으로 오해하면 9시간 틀린다."""
+    monkeypatch.setattr(settings, "display_timezone", "Asia/Seoul")
+    assert local_time_text(WHEN.replace(tzinfo=None)) == local_time_text(WHEN)
+
+
+def test_another_farms_timezone(monkeypatch):
+    """베트남·인도네시아 농장에서도 그 지역 시각이 보여야 한다."""
+    monkeypatch.setattr(settings, "display_timezone", "Asia/Ho_Chi_Minh")
+    assert local_time_text(WHEN).startswith("2026-10-16 08:02:03 ")
+
+
+def test_an_unknown_timezone_falls_back_to_utc(monkeypatch):
+    """시간대 데이터가 없는 이미지에서 예외가 나면 카메라가 멈춘다 — 시각 한 줄 때문에."""
+    monkeypatch.setattr(settings, "display_timezone", "Mars/Olympus_Mons")
+    assert local_time_text(WHEN) == "2026-10-16 01:02:03 UTC"
+
+
+def test_the_header_shows_that_time(monkeypatch):
+    """머리글에 실제로 그 시각이 적히는가 — 글자 수로 센다.
+
+    그림에서 글을 읽을 수는 없으니, 시간대를 바꿔 **다른 글자가 찍히는지**
+    본다. UTC 와 KST 는 자릿수가 같아 폭이 거의 같으므로 픽셀 수를 비교하는
+    대신 서로 다른지만 확인한다.
+    """
+    wide = frame(1280, 720)
+    monkeypatch.setattr(settings, "display_timezone", "Asia/Seoul")
+    _display_tz.cache_clear()
+    seoul = annotate_frame(wide, result(w=1280, h=720), "cam", WHEN)
+    monkeypatch.setattr(settings, "display_timezone", "Mars/Olympus_Mons")
+    _display_tz.cache_clear()
+    utc = annotate_frame(wide, result(w=1280, h=720), "cam", WHEN)
+    assert seoul.tobytes() != utc.tobytes(), "머리글 시각이 시간대를 따라가지 않는다"

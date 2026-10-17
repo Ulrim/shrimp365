@@ -179,31 +179,43 @@ export function StreamView({ camera, live, status, showBoxes = true, stream, cla
 
       <canvas ref={canvasRef} className="pointer-events-none absolute inset-0" aria-hidden />
 
-      <div className="absolute left-3 top-3 flex items-baseline gap-1.5 rounded-lg bg-black/70 px-2.5 py-1.5 backdrop-blur">
-        <span className="text-lg font-bold tabular-nums leading-none text-teal-300">
-          {shownCount !== null ? shownCount.toLocaleString() : "—"}
-        </span>
-        <span className="text-[10px] text-white/60">마리</span>
+      {/* 웹이 얹는 배지는 **전부 아래쪽**에 둔다.
+          그림 위쪽 띠는 장비가 프레임에 직접 구워 넣은 것이다 — 카메라 이름,
+          개체수, 신뢰도, 추론 시간, 찍은 시각, 세는 범위 여부. 그 띠는 지우지
+          않는다: 사진과 숫자가 **같은 프레임에서 나왔다**는 증거가 그것뿐이고,
+          증빙 자료로 쓰이는 것도 그 글자다.
+          그래서 배지를 띠에서 비켜 둔다. 겹쳐 두면 둘 다 못 읽는다. "띠 높이만큼
+          내리면 되지 않나" 는 안 된다 — 띠는 원본 프레임에서 28px 이고 사진은
+          640px 로 줄여 보내므로, 화면에 찍힌 띠의 높이는 장비 해상도와 창 크기에
+          따라 달라진다. 웹은 그 값을 모른다. 아래로 내리는 것이 해상도와 무관하게
+          맞는 유일한 답이다. */}
+      <div className="absolute bottom-3 left-3 flex flex-col items-start gap-1.5">
+        {live ? (
+          <div className="rounded-lg bg-black/70 px-2 py-1 text-[10px] text-white/70 backdrop-blur">
+            신뢰도 {live.confidence_avg !== null ? `${Math.round(live.confidence_avg * 100)}%` : "—"}
+            {" · "}추론 {live.inference_ms}ms
+          </div>
+        ) : showFrame ? (
+          /* 사진이 얼마나 묵었는지 숨기지 않는다. 이 한 줄이 없으면 15초 전
+             사진을 지금 수조로 믿게 된다. */
+          <div className="rounded-lg bg-black/70 px-2 py-1 text-[10px] text-white/70 backdrop-blur">
+            사진 {ageLabel(frame.takenAt, now) ?? "방금"}
+            {frame.lengthCm !== null && <> {" · "}체장 {frame.lengthCm.toFixed(1)}cm</>}
+          </div>
+        ) : null}
+
+        <div className="flex items-baseline gap-1.5 rounded-lg bg-black/70 px-2.5 py-1.5 backdrop-blur">
+          <span className="text-lg font-bold tabular-nums leading-none text-teal-300">
+            {shownCount !== null ? shownCount.toLocaleString() : "—"}
+          </span>
+          <span className="text-[10px] text-white/60">마리</span>
+        </div>
       </div>
 
-      <div className="absolute right-3 top-3 flex items-center gap-1.5 rounded-lg bg-black/70 px-2 py-1.5 backdrop-blur">
+      <div className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-lg bg-black/70 px-2 py-1.5 backdrop-blur">
         <span className={cn("w-2 h-2 rounded-full", meta.dot)} />
         <span className="text-[10px] text-white/80">{meta.label}</span>
       </div>
-
-      {live ? (
-        <div className="absolute bottom-3 left-3 rounded-lg bg-black/70 px-2 py-1 text-[10px] text-white/70 backdrop-blur">
-          신뢰도 {live.confidence_avg !== null ? `${Math.round(live.confidence_avg * 100)}%` : "—"}
-          {" · "}추론 {live.inference_ms}ms
-        </div>
-      ) : showFrame ? (
-        /* 사진이 얼마나 묵었는지 숨기지 않는다. 이 한 줄이 없으면 15초 전
-           사진을 지금 수조로 믿게 된다. */
-        <div className="absolute bottom-3 left-3 rounded-lg bg-black/70 px-2 py-1 text-[10px] text-white/70 backdrop-blur">
-          사진 {ageLabel(frame.takenAt, now) ?? "방금"}
-          {frame.lengthCm !== null && <> {" · "}체장 {frame.lengthCm.toFixed(1)}cm</>}
-        </div>
-      ) : null}
     </div>
   )
 }
