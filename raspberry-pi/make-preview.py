@@ -143,8 +143,20 @@ AGRI_STATES = [
 if AGRI:
     STATES = AGRI_STATES
 
+# 설정 화면 미리보기용 — shrimp365_sensor.py 의 ui_nutrient()·ui_calibration() 모양.
+# 없으면 양액·보정 화면 칸이 undefined 로 떠 실제 장비와 달라 보인다.
+NUTRIENT = {"enabled": AGRI, "target_ec": 1.8, "source_ec": 0.3, "tank_liters": 1000,
+            "cal_ml": 10, "cal_liters": 100, "cal_ec_rise": 0.05, "a_ratio": 50, "atc": True}
+CALIBRATION = {
+    "offsets": {"temperature": 0.0, "ph": -0.04, "do_level": 0.0, "conductivity": 0.0},
+    "raw": {"temperature": 21.6, "ph": 6.16, "do_level": 7.3, "conductivity": 1640},
+    "corrected": {"temperature": 21.6, "ph": 6.12, "do_level": 7.3, "conductivity": 1640},
+}
+
 SENSORS = {
     "interval": 60, "port": "/dev/ttyUSB0",
+    # 스마트팜으로 바꾸면 장비가 EC 를 전도도(mS/cm)로 한 번 고쳐 준다(INSTALL.md).
+    "ec_mode": "conductivity" if AGRI else "salinity", "ec_unit": "ms" if AGRI else "us",
     "sensors": [
         {"key": "ph", "label": "pH / ORP", "enabled": True, "slave_id": 1},
         {"key": "do", "label": "용존산소", "enabled": True, "slave_id": 3},
@@ -222,6 +234,7 @@ SHELL_CSS = """
 MOCK = """
 <script>
 var STATES = __STATES__, HIST = __HIST__, SENSORS = __SENSORS__;
+var NUTRIENT = __NUTRIENT__, CALIBRATION = __CALIBRATION__;
 var SCAN = __SCAN__, AUTO = __AUTO__;
 var WIFI_NETWORKS = __WIFI_NETWORKS__, wifiCur = __WIFI_START__;
 var current = 0;
@@ -239,6 +252,10 @@ window.fetch = function(url, opts){
   else if (url.indexOf("/api/sensors/auto") === 0) body = AUTO;
   else if (url.indexOf("/api/sensors/save") === 0) body = {ok:true, saved:true};
   else if (url.indexOf("/api/sensors") === 0) body = JSON.parse(JSON.stringify(SENSORS));
+  else if (url.indexOf("/api/nutrient/save") === 0) body = {ok:true, saved:true};
+  else if (url.indexOf("/api/nutrient") === 0) body = JSON.parse(JSON.stringify(NUTRIENT));
+  else if (url.indexOf("/api/calibration") === 0 && !(opts && opts.method === "POST"))
+    body = JSON.parse(JSON.stringify(CALIBRATION));
   // Wi‑Fi — 더 구체적인 경로(scan·connect)를 먼저 본다.
   else if (url.indexOf("/api/wifi/scan") === 0) {
     body = {available:true, networks: WIFI_NETWORKS.map(function(n){
@@ -283,6 +300,8 @@ def main() -> int:
             .replace("__STATES__", json.dumps(STATES, ensure_ascii=False))
             .replace("__HIST__", json.dumps(HIST))
             .replace("__SENSORS__", json.dumps(SENSORS, ensure_ascii=False))
+            .replace("__NUTRIENT__", json.dumps(NUTRIENT))
+            .replace("__CALIBRATION__", json.dumps(CALIBRATION))
             .replace("__SCAN__", json.dumps(SCAN, ensure_ascii=False))
             .replace("__AUTO__", json.dumps(AUTO, ensure_ascii=False))
             .replace("__WIFI_NETWORKS__", json.dumps(WIFI_NETWORKS, ensure_ascii=False))

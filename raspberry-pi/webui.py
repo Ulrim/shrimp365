@@ -380,6 +380,13 @@ PAGE = """<!doctype html>
   }
   .ranges button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
   .ranges .close{margin-left:auto;border-color:#22304C}
+  /* 설정·보정·양액 화면 머리의 [닫기]·[‹ 설정]. 클래스 없이 만든 버튼이라 예전에는
+     브라우저 기본 모양(흰 사각)으로 떠 혼자 튀었다. 그래프의 [닫기]와 같은 모양으로 둔다. */
+  .chead > button{
+    font:700 13px/1 inherit;padding:8px 14px;min-height:36px;border-radius:8px;
+    border:1px solid #22304C;background:transparent;color:#94A3B8;cursor:pointer;flex:0 0 auto;
+  }
+  .chead > button:active{background:#16223C}
   .plot{flex:1;min-height:0;background:#111A2E;border:1px solid #22304C;border-radius:12px}
   .plot svg{display:block;width:100%;height:100%}
   .nodata{
@@ -786,6 +793,10 @@ var I18N = {
   ai_l1d:{ko:"지금 값이 흰다리새우 적정 범위를 벗어났는지. 매 측정마다.",en:"Whether the current value is outside the range for whiteleg shrimp. Every reading.",vi:"Giá trị hiện tại có ngoài ngưỡng tôm thẻ không. Mỗi lần đo.",id:"Apakah nilai saat ini di luar rentang udang vaname. Setiap pengukuran."},
   ai_l2:{ko:"경량 이상탐지",en:"Lightweight anomaly detection",vi:"Phát hiện bất thường nhẹ",id:"Deteksi anomali ringan"},
   ai_l2d:{ko:"급변 · 연속 악화 · 평소 범위 이탈. 기준을 깨기 전에 찾는다.",en:"Surge, sustained drift, deviation from the usual range — found before a limit is crossed.",vi:"Đột biến, xấu đi liên tục, lệch khỏi mức thường — trước khi vượt ngưỡng.",id:"Lonjakan, perburukan terus-menerus, simpangan dari biasanya — sebelum ambang terlampaui."},
+  ai_nut_low:{ko:"보충 필요",en:"Dose needed",vi:"Cần bổ sung",id:"Perlu dosis"},
+  ai_nut_high:{ko:"교환 필요",en:"Exchange needed",vi:"Cần thay nước",id:"Perlu ganti air"},
+  ai_nut_ok:{ko:"적정",en:"OK",vi:"Đạt",id:"Pas"},
+  ai_nut_off:{ko:"꺼짐",en:"Off",vi:"Tắt",id:"Mati"},
   ai_l3:{ko:"설비 운전 권고",en:"Equipment action advice",vi:"Khuyến nghị vận hành",id:"Rekomendasi operasi"},
   ai_l3d:{ko:"판정을 「지금 무엇을 돌릴까」 로 바꾼다. 설비를 직접 돌리지는 않는다.",en:"Turns a judgement into what to run now. It does not switch equipment itself.",vi:"Biến đánh giá thành việc cần chạy ngay. Không tự bật thiết bị.",id:"Mengubah penilaian jadi apa yang harus dijalankan. Tidak menyalakan alat sendiri."},
   ai_none:{ko:"없음",en:"none",vi:"không",id:"tidak ada"},
@@ -802,6 +813,12 @@ var I18N_AGRI = {
   m_temperature:{ko:"양액 온도",en:"Solution temp.",vi:"Nhiệt độ dung dịch",id:"Suhu larutan"},
   pair_step2:{ko:"로그인 → 농장·베드 관리",en:"Log in → Farm & bed management",vi:"Đăng nhập → Quản lý nông trại & luống",id:"Masuk → Kelola kebun & bedeng"},
   pair_step3:{ko:"베드의 <b>센서 기기</b> → <b>코드로 기기 연결</b>",en:"Bed's <b>Sensor devices</b> → <b>Link by code</b>",vi:"<b>Thiết bị cảm biến</b> của luống → <b>Kết nối bằng mã</b>",id:"<b>Perangkat sensor</b> bedeng → <b>Hubungkan via kode</b>"},
+  pair_desc:{ko:"Farm365에 로그인한 뒤 아래 코드를 입력하세요<br>연결 전 측정값도 저장해 두었다가 함께 올립니다",en:"Log in to Farm365 and enter the code below<br>Readings taken before linking are stored and uploaded too",vi:"Đăng nhập Farm365 và nhập mã bên dưới<br>Số liệu trước khi kết nối cũng được lưu và tải lên cùng",id:"Masuk ke Farm365 lalu masukkan kode di bawah<br>Data sebelum ditautkan disimpan dan diunggah bersama"},
+  nut_atc:{ko:"온도 보정(25℃)",en:"Temp. compensation (25℃)",vi:"Bù nhiệt (25℃)",id:"Kompensasi suhu (25℃)"},
+  nut_cal_hint:{ko:"교정값은 실제 원액·원수로 재서 넣어야 보충량이 맞습니다. 시험 통에 원수를 담고 원액을 정량 투입해 오른 EC 를 재세요.",en:"Calibration must be measured with your own stock solution and source water, or the dose will be off. Dose a test bucket and measure the EC rise.",vi:"Phải hiệu chuẩn bằng dung dịch và nước thực tế, nếu không lượng bổ sung sẽ sai. Đo mức tăng EC trong thùng thử.",id:"Kalibrasi harus diukur dengan larutan dan air Anda sendiri, jika tidak dosis akan meleset. Ukur kenaikan EC di ember uji."},
+  // 스마트팜에서는 설비 운전 권고(환수·폭기)를 내지 않고 그 자리를 양액 보충 계산이 맡는다.
+  ai_l3:{ko:"양액 보충 계산",en:"Nutrient dosing",vi:"Tính bổ sung dinh dưỡng",id:"Perhitungan dosis nutrisi"},
+  ai_l3d:{ko:"EC 로 A·B 원액 보충량이나 원수 교환량을 계산한다. 펌프를 직접 돌리지는 않는다.",en:"Works out A/B stock doses or a source-water exchange from EC. It does not run pumps itself.",vi:"Tính lượng A/B cần bổ sung hoặc lượng nước thay từ EC. Không tự chạy bơm.",id:"Menghitung dosis A/B atau penggantian air dari EC. Tidak menjalankan pompa sendiri."},
   ai_l1d:{ko:"지금 값이 양액 재배 적정 범위를 벗어났는지. 매 측정마다.",en:"Whether the current value is outside the range for nutrient solution. Every reading.",vi:"Giá trị hiện tại có ngoài ngưỡng dung dịch dinh dưỡng không. Mỗi lần đo.",id:"Apakah nilai saat ini di luar rentang larutan nutrisi. Setiap pengukuran."}
 };
 
@@ -1311,11 +1328,19 @@ function drawAi(d){
         layer(1, "ai_l1", "ai_l1d", cnt(out)) +
         layer(2, "ai_l2", "ai_l2d",
               (on && ai.samples ? t("ai_watching", {h:ai.window_h||96, n:ai.samples}) + '<br>' : '') + cnt(anomalies)) +
-        layer(3, "ai_l3", "ai_l3d", cnt(advice)) +
+        layer(3, "ai_l3", "ai_l3d", isAgri() ? nutState(d.nutrient) : cnt(advice)) +
         '<div class="foot">' + foot + '</div>' +
       '</div>' +
       '<div class="ovbtns"><button class="act ghost" onclick="closeAi()">' + t("close") + '</button></div>' +
     '</div>';
+}
+
+// AI 설명판 3번 칸(스마트팜) — 권고 건수 대신 지금 양액 판정을 한 단어로.
+function nutState(n){
+  if (!n) return t("ai_nut_off");
+  if (n.verdict === "low") return t("ai_nut_low");
+  if (n.verdict === "high") return t("ai_nut_high");
+  return n.verdict === "ok" ? t("ai_nut_ok") : t("ai_none");
 }
 
 // 연결된 계정을 보여 주고, 화면에서 바로 다른 계정으로 옮길 수 있게 한다.
@@ -1522,6 +1547,19 @@ function openCal(){
 
 function fmt(v){ return (v === null || v === undefined) ? "--" : v; }
 
+// 전도도를 mS/cm 로 보는 장비(스마트팜 기본)는 보정 화면도 mS/cm 로 보이고 받는다.
+// 계기판·그래프가 1.64 mS/cm 인데 여기만 1640 uS/cm 이면 휴대용 측정기 값을 옮겨
+// 적을 때 단위를 사람이 바꿔야 한다. 서버·설정 파일에는 uS/cm 그대로 보낸다.
+function calDiv(k){
+  return (k === "conductivity" && lastState && lastState.ec_unit === "ms") ? 1000 : 1;
+}
+function calUnit(it){ return calDiv(it.k) === 1000 ? "mS/cm" : it.unit; }
+function calShow(k, v){
+  if (v === null || v === undefined) return v;
+  var d = calDiv(k);
+  return d === 1 ? v : Math.round(v / d * 1000) / 1000;
+}
+
 function drawCal(){
   if (!calData) return;
   document.getElementById("wifi").innerHTML = "";
@@ -1537,8 +1575,8 @@ function drawCal(){
     for (var i = 0; i < 4; i++) rows += '<div class="krow">' + pad.slice(i*3, i*3+3).join("") + '</div>';
     body =
       '<div class="wcur">' + t(it.t) + ' — ' + t("cal_ask") + '<br>' +
-        '<span class="sub">' + t("cal_now") + ' ' + fmt(calData.raw[it.k]) + ' ' + it.unit + '</span><br>' +
-        '<b style="font-size:24px;font-family:ui-monospace,monospace">' + (calBuf || "0") + '</b> ' + it.unit +
+        '<span class="sub">' + t("cal_now") + ' ' + fmt(calShow(it.k, calData.raw[it.k])) + ' ' + calUnit(it) + '</span><br>' +
+        '<b style="font-size:24px;font-family:ui-monospace,monospace">' + (calBuf || "0") + '</b> ' + calUnit(it) +
       '</div>' +
       '<div class="kbd" style="max-width:330px">' + rows +
         '<div class="krow">' +
@@ -1548,11 +1586,12 @@ function drawCal(){
   } else {
     var msg = calMsg ? '<div class="msg ' + calMsg.kind + '">' + esc(calMsg.text) + '</div>' : "";
     var list = CAL_ITEMS.map(function(it){
-      var raw = calData.raw[it.k], off = calData.offsets[it.k] || 0, cor = calData.corrected[it.k];
+      var raw = calShow(it.k, calData.raw[it.k]), off = calShow(it.k, calData.offsets[it.k] || 0),
+          cor = calShow(it.k, calData.corrected[it.k]);
       var offTxt = off ? (off > 0 ? "+" + off : String(off)) : "0";
       return '<div class="srow">' +
         '<div class="sname">' + t(it.t) +
-          '<div class="sub">' + t("cal_now") + ' ' + fmt(raw) + ' ' + it.unit +
+          '<div class="sub">' + t("cal_now") + ' ' + fmt(raw) + ' ' + calUnit(it) +
             (off ? '  \u2192  ' + t("cal_result") + ' <b>' + fmt(cor) + '</b>' : '') +
           '</div></div>' +
         '<div class="num" style="width:auto;padding:0 10px">' + offTxt + '</div>' +
@@ -1579,7 +1618,7 @@ function calOpen(k){
   if (calData.raw[k] === null || calData.raw[k] === undefined){
     calMsg = {kind:"err", text:t("cal_none")}; drawCal(); return;
   }
-  calEdit = k; calBuf = String(calData.raw[k]); drawCal();
+  calEdit = k; calBuf = String(calShow(k, calData.raw[k])); drawCal();
 }
 function calCancel(){ calEdit = null; calBuf = ""; drawCal(); }
 function calKey(k){
@@ -1589,7 +1628,7 @@ function calKey(k){
   if (calBuf.length > 9) calBuf = calBuf.slice(0, 9);
   drawCal();
 }
-function calApply(){ calSend({name: calEdit, actual: parseFloat(calBuf || "0")}); }
+function calApply(){ calSend({name: calEdit, actual: parseFloat(calBuf || "0") * calDiv(calEdit)}); }
 function calClear(k){ calSend({name: k, offset: 0}); }
 
 function calSend(payload){
