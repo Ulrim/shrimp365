@@ -2413,8 +2413,10 @@ def main() -> int:
                         analysis["anomalies"] = []
                     analysis["at"] = now_s
                 try:
-                    advices = advice_mod.recommend(values, analysis["anomalies"],
-                                                   analysis["rows"], nutrient is not None)
+                    # 스마트팜 모드면 양액 관리를 꺼 두었어도 새우 기준 권고(환수·히터)를 내지 않는다.
+                    advices = advice_mod.recommend(
+                        values, analysis["anomalies"], analysis["rows"],
+                        nutrient is not None or mode_holder["mode"] == "agriculture")
                 except Exception as exc:  # noqa: BLE001
                     log.warning("운전 권고 실패: %s", exc)
                     advices = []

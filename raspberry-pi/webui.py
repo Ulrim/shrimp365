@@ -472,8 +472,14 @@ function orderFor(d){
 
 // 양액(수경재배)에서는 적정 범위가 새우와 전혀 다르다. 새우 기준을 그대로
 // 쓰면 정상값(수온 24℃, pH 6.2)이 온통 빨갛게 떠 경고가 무의미해진다.
-// 양액 관리를 켠 장비에서는 NUT_BANDS 로 바꿔 본다(둘 다 limits.py 가 준다).
+// 양액 관리를 켠 장비와 스마트팜 모드에서는 NUT_BANDS 로 바꿔 본다(둘 다 limits.py 가 준다).
+// 스마트팜에서 양액 관리를 꺼 둔 것은 "보충량 계산을 안 쓴다" 는 뜻이지 새우 기준으로
+// 보라는 뜻이 아니다 — 그렇게 보면 정상 양액(21℃, pH 6.1)이 온통 빨갛게 뜬다.
 var nutMode = false;   // 계기판이 매번 갱신할 때 함께 정한다
+
+function bandFor(key){
+  return (nutMode && NUT_BANDS[key]) ? NUT_BANDS[key] : BANDS[key];
+}
 
 // 밴드의 한쪽 끝이 null 이면 그쪽은 보지 않는다 — 용존산소에 상한이 없는 것이
 // 그 예다. 예전에는 상한 자리에 20 을 박아 두어, 과포화를 "위험"으로 찍었다.
@@ -485,7 +491,7 @@ function within(pair, v){
 }
 
 function level(key, v){
-  var b = (nutMode && NUT_BANDS[key]) ? NUT_BANDS[key] : BANDS[key];
+  var b = bandFor(key);
   if(!b) return "";
   if(within(b.ok, v)) return "";
   return within(b.warn, v) ? "warn" : "crit";
@@ -786,7 +792,7 @@ function mlabel(key){
 
 // 측정값은 언제나 이 화면이다. 연결 여부와 무관하다.
 function renderValues(d){
-  nutMode = !!d.nutrient;
+  nutMode = isAgri() || !!d.nutrient;
   var cells = orderFor(d).map(function(key){
     var r = RANGES[key];
     var has = d.values && typeof d.values[key] === "number";
@@ -1025,6 +1031,16 @@ function fmtTick(ts, hours){
 
 function drawChart(key, hours, d){
   var r = RANGES[key];
+  // 계기판이 전도도를 mS/cm 로 보여 주면 그래프도 같은 단위로 — 이력은 uS/cm 로 쌓인다.
+  if (key === "conductivity" && lastState && lastState.ec_unit === "ms" && d.count) {
+    var k = function(v){ return v / 1000; };
+    d = {count:d.count, min:k(d.min), max:k(d.max), avg:k(d.avg),
+         points:d.points.map(function(p){ return [p[0], k(p[1]), k(p[2]), k(p[3])]; })};
+    r = {unit:"mS/cm", digits:2};
+  }
+  // 적정 범위 — 값 칸 색과 같은 밴드. 한쪽 끝이 null 이면(용존산소 상한) 그쪽은 데이터 끝까지.
+  var b = bandFor(key);
+  var ok = b && b.ok;
   var W = 768, H = 250, padL = 52, padR = 12, padT = 12, padB = 26;
 
   var buttons = RANGE_OPTIONS.map(function(o){
@@ -1061,8 +1077,8 @@ function drawChart(key, hours, d){
   var span = Math.max(d.max - d.min, Math.pow(10, -r.digits));
   var margin = span * 0.25;
   // 적정 범위가 없는 항목(염도)은 데이터 폭만 보고 잡는다.
-  var lo = r.ok ? Math.min(d.min, Math.max(r.ok[0], d.min - margin)) : d.min - margin;
-  var hi = r.ok ? Math.max(d.max, Math.min(r.ok[1], d.max + margin)) : d.max + margin;
+  var lo = (ok && ok[0] !== null) ? Math.min(d.min, Math.max(ok[0], d.min - margin)) : d.min - margin;
+  var hi = (ok && ok[1] !== null) ? Math.max(d.max, Math.min(ok[1], d.max + margin)) : d.max + margin;
   var pad = Math.max((hi - lo) * 0.08, Math.pow(10, -r.digits));
   lo -= pad; hi += pad;
 
@@ -1072,8 +1088,9 @@ function drawChart(key, hours, d){
 
   // 적정 범위 띠 — 범위를 정해 둔 항목에만 깐다.
   var band = "";
-  if (r.ok) {
-    var bandTop = y(Math.min(r.ok[1], hi)), bandBottom = y(Math.max(r.ok[0], lo));
+  if (ok) {
+    var bandTop = y(ok[1] === null ? hi : Math.min(ok[1], hi));
+    var bandBottom = y(ok[0] === null ? lo : Math.max(ok[0], lo));
     band = '<rect x="' + padL + '" y="' + bandTop + '" width="' + (W-padL-padR) +
            '" height="' + Math.max(0, bandBottom - bandTop) +
            '" fill="#10B981" opacity="0.10"/>';
