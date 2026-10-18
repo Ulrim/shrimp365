@@ -24,6 +24,8 @@ import os
 import sys
 import tempfile
 import time
+import types
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -32,6 +34,17 @@ import advice          # noqa: E402
 import anomaly         # noqa: E402
 import history         # noqa: E402
 import limits          # noqa: E402
+import modes           # noqa: E402
+
+# 수집기 본체에서 **장비 시계 가드**를 가져온다. 판정 숫자와 같은 이유로 여기서
+# 다시 적지 않는다 — 두 곳에 적으면 한쪽만 고쳐진다.
+# pyserial 은 개발 PC 에 없을 수 있다. 이 파일은 MODBUS 를 쓰지 않는 함수만 보므로
+# 자리만 채워 둔다(라즈베리파이에서는 실제 모듈이 이미 올라와 있어 아무 일도 없다).
+if "serial" not in sys.modules:
+    _stub = types.ModuleType("serial")
+    _stub.SerialException = type("SerialException", (OSError,), {})
+    sys.modules["serial"] = _stub
+import shrimp365_sensor as sensor   # noqa: E402
 
 fails: list[str] = []
 
@@ -131,7 +144,43 @@ check("잠깐 높은 것만으로는 폭기를 줄이라고 하지 않는다",
       codes({"do_level": 8.6}, [], [{"t": NOW - i * 60, "do_level": 8.6} for i in range(5)]), [])
 
 
-print("\n⑤ 전 구간 — 이력 DB → 이상탐지 → 운전 권고")
+print("\n⑤ 운전 모드 — 기존 설치가 조용히 바뀌지 않는가")
+# 모드는 상호 배타고, 적혀 있지 않으면 기존 설치다. 그 장비들은 [nutrient] enabled
+# 로 수경재배 여부를 말해 왔으므로 그것으로 추론한다 — 마이그레이션 없이 동작이
+# 바뀌면 현장이 깨진다.
+check("모드 미기재 + 양액 켬 → 스마트팜", modes.resolve(None, True), "smartfarm")
+check("모드 미기재 + 양액 끔 → 양식장", modes.resolve(None, False), "aquaculture")
+check("빈 값도 같게 본다", modes.resolve("", True), "smartfarm")
+check("알 수 없는 값은 추론으로 떨어진다", modes.resolve("farm", True), "smartfarm")
+check("적혀 있으면 그대로 쓴다",
+      [modes.resolve(m, False) for m in modes.MODES], list(modes.MODES))
+check("대소문자·공백은 흘려 읽는다", modes.resolve("  MRV ", False), "mrv")
+# 추론으로 MRV 가 되는 길은 없다 — 수질을 보던 장비의 기본 화면이 어느 날 전력
+# 입력 단말로 바뀌면 안 된다.
+check("추론으로는 MRV 가 되지 않는다",
+      [modes.resolve(d, n) == "mrv" for d in (None, "", "farm") for n in (True, False)],
+      [False] * 6)
+check("양액 안내는 스마트팜에만",
+      [modes.shows_nutrient(m) for m in modes.MODES], [False, True, False])
+check("전력 입력은 MRV 에만",
+      [modes.shows_power(m) for m in modes.MODES], [False, False, True])
+check("운전 권고는 MRV 에서만 끈다 (스마트팜은 advice.py 가 비운다)",
+      [modes.shows_advice(m) for m in modes.MODES], [True, True, False])
+check("기본 화면이 수질인 모드", [modes.water_first(m) for m in modes.MODES],
+      [True, True, False])
+
+
+print("\n⑥ 장비 시계 가드 — 틀린 시각의 전력은 기준선을 조용히 오염시킨다")
+# RTC 가 없어 정전 뒤 오프라인 재부팅이면 시계가 틀어진다. 그 시각이 박힌 전력은
+# 거부되지도 않고 저장돼, 몇 달 뒤 리포트에서야 드러난다.
+for year, want in ((1970, False), (2024, False), (2025, True), (2026, True)):
+    check(f"{year}년 → {'전송' if want else '거부'}",
+          sensor.mrv_clock_ok(datetime(year, 6, 1, tzinfo=timezone.utc)), want)
+check("지금 시각은 통과", sensor.mrv_clock_ok(), True)
+check("판정 경계는 한 곳에만 있다", sensor.MRV_CLOCK_MIN_YEAR, 2025)
+
+
+print("\n⑦ 전 구간 — 이력 DB → 이상탐지 → 운전 권고")
 rows = store(drop)
 last = {k: v for k, v in rows[-1].items() if k != "t"}
 check("급락한 수조에 권고가 선다", codes(last, anomaly.detect(rows), rows), [("warn", "do_low")])

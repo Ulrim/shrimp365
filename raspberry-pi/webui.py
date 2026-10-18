@@ -69,6 +69,16 @@ class State:
             "mrv_pending": 0,       # 아직 못 올린 전력 입력 건수
             "mrv_last": None,       # 마지막 전송 결과 한 줄
             "mrv_clock_ok": True,   # 장비 시계를 믿을 수 있는가
+            "mrv_recent": [],       # 계측기별 마지막으로 보낸 지침(값·시각)
+            "mrv_today": 0,         # 오늘 서버까지 올라간 건수
+
+            # 운전 모드 — 이 장비가 무엇을 하는 기계인가(modes.py).
+            # mrv 모드에서는 **기본 화면이 전력 입력 단말**이 된다.
+            "mode": "aquaculture",
+            # 설정에 켜 둔 수질 센서가 있는가. MRV 모드에서 수질 칸을 보일지 정한다 —
+            # 기계실 단말에는 센서가 아예 안 붙어 있을 수 있고, 그 때 '--' 로 채운
+            # 칸을 기본 화면에 두면 보여 줄 것이 없는 화면이 된다.
+            "sensors_on": True,
         }
 
     def update(self, **kwargs) -> None:
@@ -107,6 +117,14 @@ PAGE = """<!doctype html>
     font-size:13px;color:#94A3B8;min-width:0;
   }
   .link b{color:#E8EDF7;font-weight:600}
+  /* 칩은 줄이지 않는다(.chip flex:0 0 auto). 그러면 줄어들 수 있는 것이 계정·사이트
+     이름뿐이라, 칩이 길어진 날 그 이름이 **세로 한 글자씩**으로 무너지고 헤더가 세
+     줄이 된다 — 영어 「The device clock is wrong …」 에서 실제로 그렇게 됐고, 그
+     바람에 헤더가 화면 높이를 먹어 **마지막 지침 두 번째 줄이 화면 밖으로 밀렸다**.
+     이름은 한 줄로 두고 모자라면 … 로 줄인다. 이름은 줄여도 되지만 지침은 아니다. */
+  .link > span:not(.chip){
+    min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
   .chip{
     font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;
     border:1px solid #22304C;color:#94A3B8;white-space:nowrap;flex:0 0 auto;
@@ -325,7 +343,6 @@ PAGE = """<!doctype html>
   /* 푸터 버튼은 오른쪽에 한 덩어리로 모은다. 첫 버튼(설정)만 밀어 두고
      나머지는 붙여, 설정이 [연결 정보]/[기기 연결] 바로 옆에 오게 한다. */
   footer #action{margin-left:0}
-  footer #mrvbtn{margin-left:0}
 
   /* 전력 입력 패널 — 기계실에서 장갑 낀 손가락으로 누른다.
      800×480 전체를 덮고, 닫으면 측정값으로 돌아온다(화면 원칙). */
@@ -405,7 +422,26 @@ PAGE = """<!doctype html>
   .pres.bad h2{color:#F87171}
   .pres .line{font-size:13.5px;color:#CBD5E1;line-height:1.5}
   .pres .line b{font-family:ui-monospace,monospace;color:#E8EDF7}
-  button.act.pw{background:#047857}
+  /* MRV 기본 화면 — 이 장비의 본업이 전력 입력이라 버튼이 가장 크다. */
+  .mhome{flex:1;display:flex;flex-direction:column;min-height:0;gap:8px}
+  .mhead{font-size:11.5px;font-weight:800;letter-spacing:.04em;color:#94A3B8;
+    text-transform:uppercase}
+  .mval{margin-left:auto;font:800 23px/1 ui-monospace,monospace;
+    font-variant-numeric:tabular-nums;flex:0 0 auto}
+  .mval small{font-size:12px;font-weight:600;color:#94A3B8;margin-left:4px}
+  .mcount{display:flex;align-items:center;gap:9px;flex:0 0 auto;font-size:13px;
+    color:#CBD5E1;font-weight:700;flex-wrap:wrap}
+  .mcount span{padding:5px 11px;border-radius:999px;border:1px solid #22304C;
+    background:#111A2E}
+  .mcount span.hold{border-color:#D97706;color:#F59E0B}
+  .mcount span.dim{border:0;background:transparent;color:#64748B;font-weight:500}
+  .mbig{
+    flex:0 0 auto;width:100%;min-height:72px;border:0;border-radius:13px;
+    background:#047857;color:#fff;font:800 25px/1 inherit;cursor:pointer;
+  }
+  .mbig:active{opacity:.8}
+  .mbig.ghost{background:transparent;border:1px solid #22304C;color:#94A3B8;
+    font-size:18px;min-height:60px}
 
   /* 연결 화면 — 버튼을 눌렀을 때만 덮는다 */
   .overlay{
@@ -448,9 +484,6 @@ PAGE = """<!doctype html>
   <span class="time" id="time"></span>
   <button class="act ghost" id="settings" type="button" onclick="openSettings()">설정</button>
   <button class="act" id="action" type="button"></button>
-  <!-- 전력 입력 바로가기. MRV 에 연결됐을 때만 뜬다 — 연결되지 않은 장비에
-       죽은 버튼을 두면 누르고 나서야 못 쓴다는 것을 알게 된다. -->
-  <button class="act pw" id="mrvbtn" type="button" hidden onclick="openPower()"></button>
 </footer>
 
 <div id="overlay"></div>
@@ -770,6 +803,7 @@ var I18N = {
   pw_pending:{ko:"미전송 {n}건",en:"{n} not sent",vi:"{n} chưa gửi",id:"{n} belum terkirim"},
   pw_pending_note:{ko:"회선이 돌아오면 넣은 순서대로 올라갑니다",en:"They upload in the order entered once the line is back",vi:"Sẽ tải lên theo đúng thứ tự khi có mạng lại",id:"Akan terunggah sesuai urutan saat koneksi kembali"},
   pw_clock_bad:{ko:"장비 시계가 맞지 않아 보내지 않습니다 — 시각 확인 필요",en:"The device clock is wrong — not sending until the time is checked",vi:"Đồng hồ thiết bị sai — chưa gửi, cần kiểm tra thời gian",id:"Jam perangkat salah — tidak dikirim, periksa waktu"},
+  pw_clock_bad_chip:{ko:"시계 확인 필요",en:"Clock wrong",vi:"Đồng hồ sai",id:"Jam salah"},
   pw_clock_bad_sub:{ko:"정전 뒤 인터넷 없이 재부팅하면 시계가 틀어집니다. 틀린 시각의 전력은 기준선 기간을 오염시키므로 보내지 않습니다.",en:"Rebooting after a power cut with no internet leaves the clock wrong. Power stamped with a wrong time would contaminate the baseline period, so it is not sent.",vi:"Khởi động lại sau mất điện mà không có internet làm đồng hồ sai. Điện ghi sai thời gian sẽ làm nhiễm kỳ đường cơ sở, nên không gửi.",id:"Reboot setelah listrik mati tanpa internet membuat jam salah. Daya dengan waktu salah akan mencemari periode baseline, jadi tidak dikirim."},
   pw_countable:{ko:"사용량으로 산입됩니다",en:"Counted as usage",vi:"Được tính vào lượng dùng",id:"Dihitung sebagai pemakaian"},
   pw_suspect:{ko:"이 건은 KPI 산입에서 빠집니다 — 구간 사용량을 낼 수 없었습니다",en:"This entry is left out of the KPIs — interval usage could not be derived",vi:"Mục này bị loại khỏi KPI — không tính được lượng dùng trong kỳ",id:"Entri ini tidak masuk KPI — pemakaian periode tak bisa dihitung"},
@@ -784,7 +818,26 @@ var I18N = {
   pw_err_backlog:{ko:"먼저 보관된 입력이 올라간 뒤에 보냅니다 — 순서를 지켜야 지침의 차이가 맞습니다",en:"Held until earlier entries upload — the order must hold for readings to differ correctly",vi:"Giữ lại đến khi các mục trước được tải lên — phải đúng thứ tự để hiệu số chỉ đúng",id:"Ditahan sampai input sebelumnya terunggah — urutan harus benar agar selisih tepat"},
   pw_err_no_meters:{ko:"계측기 목록을 먼저 받아 주세요",en:"Load the meter list first",vi:"Hãy tải danh sách thiết bị đo trước",id:"Muat daftar meter dulu"},
   pw_err_unknown_meter:{ko:"목록에 없는 계측기입니다",en:"That meter is not in the list",vi:"Thiết bị đo không có trong danh sách",id:"Meter itu tidak ada di daftar"},
-  pw_err_kind:{ko:"알 수 없는 입력 종류입니다",en:"Unknown entry type",vi:"Loại nhập không xác định",id:"Jenis input tak dikenal"}
+  pw_err_kind:{ko:"알 수 없는 입력 종류입니다",en:"Unknown entry type",vi:"Loại nhập không xác định",id:"Jenis input tak dikenal"},
+  // ── 운전 모드 ─────────────────────────────────────────────────────────────
+  menu_mode:{ko:"운전 모드",en:"Operating mode",vi:"Chế độ vận hành",id:"Mode operasi"},
+  menu_mode_sub:{ko:"양식장 · 스마트팜 · 탄소 MRV",en:"Aquaculture · Smart farm · Carbon MRV",vi:"Nuôi tôm · Nông trại thông minh · MRV carbon",id:"Budidaya · Smart farm · MRV karbon"},
+  mode_title:{ko:"운전 모드",en:"Operating mode",vi:"Chế độ vận hành",id:"Mode operasi"},
+  mode_hint:{ko:"이 장비가 무엇을 하는 기계인지 고르세요. 한 번에 하나만 고를 수 있습니다.",en:"Choose what this device is for. Only one at a time.",vi:"Chọn thiết bị này dùng để làm gì. Mỗi lần chỉ một chế độ.",id:"Pilih fungsi perangkat ini. Hanya satu sekaligus."},
+  mode_aquaculture:{ko:"양식장",en:"Aquaculture",vi:"Nuôi tôm",id:"Budidaya"},
+  mode_aquaculture_sub:{ko:"수질 측정이 본업 · 기본 화면은 수온·pH·용존산소·염도",en:"Water quality first · dashboard shows temp, pH, DO, salinity",vi:"Ưu tiên chất lượng nước · hiển thị nhiệt độ, pH, DO, độ mặn",id:"Utamakan kualitas air · tampilkan suhu, pH, DO, salinitas"},
+  mode_smartfarm:{ko:"스마트팜",en:"Smart farm",vi:"Nông trại thông minh",id:"Smart farm"},
+  mode_smartfarm_sub:{ko:"수경재배 · EC 로 양액 농도를 보고 보충량을 띄웁니다",en:"Hydroponics · shows nutrient dosing from EC",vi:"Thuỷ canh · hiện lượng bổ sung dinh dưỡng theo EC",id:"Hidroponik · tampilkan dosis nutrisi dari EC"},
+  mode_mrv:{ko:"탄소 MRV",en:"Carbon MRV",vi:"MRV carbon",id:"MRV karbon"},
+  mode_mrv_sub:{ko:"기계실 전력 입력 단말 · 기본 화면이 전력 입력이 됩니다",en:"Power entry terminal · the dashboard becomes power entry",vi:"Thiết bị nhập điện · màn hình chính thành nhập điện",id:"Terminal input daya · dasbor menjadi input daya"},
+  mode_water_note:{ko:"수질 수집과 전송은 모드와 무관하게 계속됩니다. 모드가 바꾸는 것은 화면입니다.",en:"Water readings keep being collected and uploaded in every mode. The mode changes the screen, not the collection.",vi:"Dữ liệu nước vẫn được thu và tải lên ở mọi chế độ. Chế độ chỉ đổi màn hình.",id:"Data air tetap dikumpulkan dan diunggah di semua mode. Mode hanya mengubah tampilan."},
+  mode_mrv_note:{ko:"MRV 모드에서는 양액 안내와 설비 운전 권고를 끕니다. 수질 칸은 센서를 켜 두었을 때만 보입니다.",en:"In MRV mode nutrient dosing and equipment advice are off. Water tiles appear only if sensors are enabled.",vi:"Ở chế độ MRV, dinh dưỡng và khuyến nghị vận hành tắt. Ô nước chỉ hiện khi cảm biến được bật.",id:"Pada mode MRV, dosis nutrisi dan rekomendasi operasi dimatikan. Kotak air muncul hanya bila sensor aktif."},
+  mode_fail:{ko:"모드를 바꾸지 못했습니다.",en:"Couldn't change the mode.",vi:"Không đổi được chế độ.",id:"Gagal mengubah mode."},
+  // MRV 기본 화면
+  mrv_home_last:{ko:"마지막 지침",en:"Last readings",vi:"Chỉ số gần nhất",id:"Angka terakhir"},
+  mrv_home_none:{ko:"아직 보낸 지침이 없습니다",en:"No readings sent yet",vi:"Chưa gửi chỉ số nào",id:"Belum ada angka terkirim"},
+  mrv_home_today:{ko:"오늘 {n}건 보냄",en:"{n} sent today",vi:"Hôm nay đã gửi {n}",id:"{n} terkirim hari ini"},
+  mrv_home_link:{ko:"먼저 MRV 에 연결하세요",en:"Link to MRV first",vi:"Hãy kết nối MRV trước",id:"Tautkan ke MRV dulu"}
 };
 
 function t(key, vars){
@@ -805,7 +858,12 @@ function mlabel(key){
 }
 
 // 측정값은 언제나 이 화면이다. 연결 여부와 무관하다.
+// (MRV 모드에서는 격자만 떼어 쓰므로 renderGrid 로 나눠 두었다.)
 function renderValues(d){
+  return renderGrid(d) + renderAdvice(d) + renderNutrient(d);
+}
+
+function renderGrid(d){
   nutMode = !!d.nutrient;
   var cells = orderFor(d).map(function(key){
     var r = RANGES[key];
@@ -822,7 +880,7 @@ function renderValues(d){
            '<div class="v">' + v + (r.unit ? '<small>' + (ms ? "mS/cm" : r.unit) + '</small>' : '') + '</div>' +
            subLine(key, d) + '</div>';
   }).join("");
-  return '<div class="grid">' + cells + '</div>' + renderAdvice(d) + renderNutrient(d);
+  return '<div class="grid">' + cells + '</div>';
 }
 
 // 설비 운전 권고 — "지금 무엇을 돌릴까" 한 줄.
@@ -949,7 +1007,9 @@ function renderLink(d){
   var hold = d.pending ? '<span class="chip hold">' + t("held", {n:d.pending}) + '</span>' : "";
   // 전력 입력은 독립 경로다. 수질이 잘 올라가는 중에도 전력만 밀려 있을 수 있어
   // 따로 센다. 시계가 수상하면 전력을 아예 보내지 않으므로 그것부터 알린다.
-  if (d.mrv_clock_ok === false) hold += '<span class="chip off">' + t("pw_clock_bad") + '</span>';
+  // 헤더 칩은 **짧은 말**로 적는다. 같은 내용을 바로 아래 띠가 온전한 문장으로 말하고
+  // 있고, 긴 문장을 칩에 넣으면 헤더가 800px 을 넘어 「연결됨」 칩이 잘린다.
+  if (d.mrv_clock_ok === false) hold += '<span class="chip off">' + t("pw_clock_bad_chip") + '</span>';
   else if (d.mrv_pending) hold += '<span class="chip hold">' +
     t("pw_btn") + ' ' + t("pw_pending", {n:d.mrv_pending}) + '</span>';
   if (d.linked) {
@@ -1140,7 +1200,8 @@ function drawChart(key, hours, d){
 // 버전이 바뀐 것을 감지하면 스스로 새로고침해 새 UI 를 띄운다.
 var bootVersion = null;
 
-var lastState = null;
+// 첫 /api/state 가 오기 전에도 기본 화면을 맞게 그리기 위한 모드. 서버가 새겨 준다.
+var lastState = {mode: "__MODE__"};
 
 function render(d){
   lastState = d;
@@ -1152,7 +1213,7 @@ function render(d){
   document.getElementById("ver").textContent = d.version ? "v" + d.version : "";
   // 그래프를 보고 있는 중에는 뒤 화면을 다시 그리지 않는다.
   // 3초마다 갱신하면 조작 중에 깜빡이고 눌림이 씹힌다.
-  if (!chartKey) document.getElementById("main").innerHTML = renderValues(d);
+  if (!chartKey) document.getElementById("main").innerHTML = renderMain(d);
   document.getElementById("overlay").innerHTML = renderOverlay(d);
 
   var st = d.status || "";
@@ -1166,12 +1227,6 @@ function render(d){
   btn.textContent = d.linked ? t("info") : t("link_device");
   btn.className = "act" + (d.linked ? " ghost" : "");
   btn.onclick = d.linked ? showInfo : startPair;
-
-  // 전력 입력 바로가기. MRV 에 연결되지 않았으면 아예 두지 않는다 — 죽은 버튼을
-  // 두면 누르고 나서야 못 쓴다는 것을 알게 된다.
-  var mrv = document.getElementById("mrvbtn");
-  mrv.textContent = t("pw_btn");
-  mrv.hidden = !d.mrv_linked;
 }
 
 // 연결된 계정을 보여 주고, 화면에서 바로 다른 계정으로 옮길 수 있게 한다.
@@ -1243,15 +1298,23 @@ function closeSettings(){
 
 function drawSettingsMenu(){
   document.getElementById("wifi").innerHTML = "";
+  // 모드가 항목을 가른다. 세 모드는 상호 배타이므로, 지금 모드에서 쓰지 않는
+  // 항목은 아예 두지 않는다 — 열어서 고쳐도 아무 일이 없는 화면이 가장 나쁘다.
+  var mode = (lastState && lastState.mode) || "aquaculture";
   var items = [
+    {t:"menu_mode",    sub:"menu_mode_sub",    fn:"openMode()"},
     {t:"menu_sensors", sub:"menu_sensors_sub", fn:"openSensors()"},
     {t:"menu_wifi",    sub:"menu_wifi_sub",    fn:"openWifi()"},
     {t:"menu_lang",    sub:"menu_lang_sub",    fn:"openLang()"},
-    {t:"menu_cal",      sub:"menu_cal_sub",      fn:"openCal()"},
-    {t:"menu_nutrient", sub:"menu_nutrient_sub", fn:"openNutrient()"},
-    {t:"menu_mrv",      sub:"menu_mrv_sub",      fn:"openMrv()"},
-    {t:"menu_restart", sub:"menu_restart_sub", fn:"openRestart()"}
+    {t:"menu_cal",      sub:"menu_cal_sub",      fn:"openCal()"}
   ];
+  // 양액 설정은 MRV 단말에 둘 이유가 없다. 양식장 모드에서는 남겨 둔다 —
+  // [양액 관리 사용] 을 켜는 것이 스마트팜으로 넘어가는 길이기도 하다.
+  if (mode !== "mrv") items.push({t:"menu_nutrient", sub:"menu_nutrient_sub", fn:"openNutrient()"});
+  // MRV 페어링은 그 모드의 주요 항목이다. 다른 모드에서 연결해 두어도 전력 입력
+  // 창구가 열리지 않으므로(모드가 가른다) 그 모드에서만 보여 준다.
+  if (mode === "mrv") items.push({t:"menu_mrv", sub:"menu_mrv_sub", fn:"openMrv()"});
+  items.push({t:"menu_restart", sub:"menu_restart_sub", fn:"openRestart()"});
   var rows = items.map(function(it){
     return '<div class="srow" style="cursor:pointer" onclick="' + it.fn + '">' +
       '<div class="sname">' + t(it.t) +
@@ -1612,6 +1675,120 @@ function doRestart(kind){
       setTimeout(function(){ location.reload(); }, dev ? 60000 : 18000);
     });
 }
+
+// ── MRV 모드 기본 화면 ───────────────────────────────────────────────────────
+// 이 모드에서는 **기본 화면이 전력 입력 단말**이다. 기계실 계량기 옆에 놓이는
+// 장비라 RS-485 수질 센서가 아예 없을 수 있어, 수온·pH 칸을 '--' 로 채워 두면
+// 보여 줄 것이 없는 화면이 기본이 된다. 그래서 센서를 켜 둔 장비에서만 값 격자를
+// 함께 띄우고, 아래에 마지막 지침·오늘 보낸 건수·미전송 건수와 큰 버튼을 둔다.
+function fmtKwh(v){
+  try { return Number(v).toLocaleString(undefined, {maximumFractionDigits:1}); }
+  catch(e){ return String(v); }
+}
+
+function renderMrvCounts(d){
+  return '<div class="mcount">' +
+    '<span>' + t("mrv_home_today", {n: d.mrv_today || 0}) + '</span>' +
+    '<span' + (d.mrv_pending ? ' class="hold"' : '') + '>' +
+      t("pw_pending", {n: d.mrv_pending || 0}) + '</span>' +
+    (d.mrv_last ? '<span class="dim">' + esc(d.mrv_last) + '</span>' : '') +
+    '</div>';
+}
+
+// 연결되지 않았으면 전력 입력 버튼을 띄우지 않는다 — 누르고 나서야 못 쓴다는 것을
+// 알게 하지 않고, 바로 연결 화면으로 보낸다.
+function renderMrvButton(d){
+  if (!d.mrv_linked) {
+    return '<button class="mbig ghost" onclick="openMrvSetup()">' +
+      t("mrv_home_link") + ' ›</button>';
+  }
+  return '<button class="mbig" onclick="openPower()">' + t("pw_btn") + '</button>';
+}
+
+function renderMrvHome(d){
+  var warn = (d.mrv_clock_ok === false)
+    ? '<div class="pwarn">' + t("pw_clock_bad") + '</div>' : "";
+  // 센서를 켜 둔 장비에서는 수질 값이 먼저다. 800×480 에 목록까지 넣으면 값 격자가
+  // 눌리므로, 그 때는 마지막 지침 목록을 접고 건수와 버튼만 남긴다.
+  if (d.sensors_on) {
+    return renderGrid(d) + '<div class="mhome" style="flex:0 0 auto;margin-top:9px">' +
+      warn + renderMrvCounts(d) + renderMrvButton(d) + '</div>';
+  }
+  var rows = d.mrv_recent || [];
+  var list = rows.length
+    ? rows.map(function(r){
+        return '<div class="prow" style="cursor:default;margin-bottom:6px">' +
+          '<span class="pname">' + esc(r.label) + '</span>' +
+          (r.is_aeration ? '<span class="aer">' + t("pw_aeration") + '</span>' : '') +
+          '<span class="mval">' + fmtKwh(r.value) + '<small>kWh</small></span>' +
+          '<span class="punit">' + esc(r.at || "") + '</span>' +
+          '</div>';
+      }).join("")
+    : '<div class="pnote">' + t("mrv_home_none") + '</div>';
+  return '<div class="mhome">' + warn +
+    '<div class="mhead">' + t("mrv_home_last") + '</div>' +
+    '<div class="plist">' + list + '</div>' +
+    renderMrvCounts(d) + renderMrvButton(d) +
+    '</div>';
+}
+
+// 기본 화면은 모드가 정한다. 수질 수집·전송은 모드와 무관하게 계속되므로,
+// 여기서 갈리는 것은 **무엇을 먼저 보여 주는가** 뿐이다.
+function renderMain(d){
+  return (d.mode === "mrv") ? renderMrvHome(d) : renderValues(d);
+}
+
+
+// ── 운전 모드 설정 ──────────────────────────────────────────────────────────
+var modeBusy = false;
+
+function openMode(){ modeBusy = false; drawMode(); }
+
+function drawMode(){
+  document.getElementById("wifi").innerHTML = "";
+  var cur = (lastState && lastState.mode) || "aquaculture";
+  var rows = ["aquaculture", "smartfarm", "mrv"].map(function(m){
+    return '<div class="wrow' + (m === cur ? " cur" : "") + '"' +
+      ' onclick="setMode(&quot;' + m + '&quot;)">' +
+      '<div class="sname">' + t("mode_" + m) +
+        '<div class="sub">' + t("mode_" + m + "_sub") + '</div></div>' +
+      (m === cur ? '<span class="wlock" style="color:#10B981">✓</span>' : '') +
+    '</div>';
+  }).join("");
+  document.getElementById("setup").innerHTML =
+    '<div class="setup">' +
+      '<div class="chead">' +
+        '<span class="ctitle">' + t("mode_title") + '</span>' +
+        '<button style="margin-left:auto" onclick="drawSettingsMenu()">' + t("back_menu") + '</button>' +
+      '</div>' +
+      '<div class="sbody">' +
+        '<div class="sub" style="margin:2px 0 8px">' + t("mode_hint") + '</div>' +
+        rows +
+        '<div class="pnote" style="margin-top:8px">' + t("mode_water_note") + '<br>' +
+          t("mode_mrv_note") + '</div>' +
+      '</div>' +
+    '</div>';
+}
+
+function setMode(m){
+  if (modeBusy) return;
+  modeBusy = true;
+  fetch("/api/mode", {method:"POST", headers:{"Content-Type":"application/json"},
+                      body: JSON.stringify({mode:m})})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      modeBusy = false;
+      if (!d || !d.ok) { alert(t("mode_fail")); return; }
+      if (lastState) lastState.mode = m;
+      // 메뉴 구성이 모드에 따라 달라지므로(전력·양액 항목) 메뉴로 돌아간다.
+      drawSettingsMenu();
+    })
+    .catch(function(){ modeBusy = false; alert(t("mode_fail")); });
+}
+
+// MRV 기본 화면에서 연결 화면으로 바로 들어가는 길. 이 모드의 장비는 연결하지
+// 않으면 아무것도 못 하므로, 설정 메뉴를 거치게 하지 않는다.
+function openMrvSetup(){ settingsOpen = true; openMrv(); }
 
 // ── MRV 연결 (설정 메뉴) ─────────────────────────────────────────────────────
 // 수질 연결과 **따로**다. 한쪽만 연결된 상태가 정상적으로 존재하므로 화면도
@@ -2490,6 +2667,8 @@ def serve(
     on_mrv_unlink=None,
     get_mrv_meters=None,
     on_mrv_power=None,
+    mode="aquaculture",
+    on_set_mode=None,
 ) -> ThreadingHTTPServer | None:
     """상태 페이지를 띄운다. 실패해도 수집은 계속되어야 하므로 None 을 돌려준다."""
 
@@ -2499,6 +2678,8 @@ def serve(
     # 판정 숫자는 limits.py 한 곳에서만 온다 — 화면에 같은 값을 또 적어 두면
     # 한쪽만 고쳐져 수조 옆 색과 서버 알림이 어긋난다(실제로 수온이 그랬다).
     page_bytes = (PAGE
+                  .replace("__MODE__", mode if mode in ("aquaculture", "smartfarm", "mrv")
+                           else "aquaculture")
                   .replace("__LANG__", lang)
                   .replace("__BANDS__", json.dumps(limits.BANDS))
                   .replace("__NUT_BANDS__", json.dumps(limits.NUTRIENT_BANDS))).encode()
@@ -2621,6 +2802,15 @@ def serve(
             # ── MRV 전력 수기 입력 ──────────────────────────────────────
             # 수질 경로(/api/pair/*, /api/unlink)와 **별개**다. 한 창구로 합치면
             # 전력 입력이 수질 연결을 끊는 일이 생긴다.
+            if self.path == "/api/mode" and on_set_mode is not None:
+                body = self._body()
+                picked = body.get("mode")
+                if not isinstance(picked, str):
+                    self._send(200, json.dumps({"ok": False, "error": "모드가 없습니다"}).encode(),
+                               "application/json")
+                    return
+                self._send(200, json.dumps(on_set_mode(picked)).encode(), "application/json")
+                return
             if self.path == "/api/mrv/pair/start" and on_mrv_pair_start is not None:
                 self._send(200, json.dumps(on_mrv_pair_start()).encode(), "application/json")
                 return

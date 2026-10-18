@@ -1266,9 +1266,13 @@ def save_mode(config_path: Path, mode: str) -> bool:
         elif in_device:                # [device] 가 파일 끝까지 이어졌다
             lines.append(f"mode = {mode}\n")
         else:
-            # [device] 구간이 없는 옛 설정 파일. 맨 앞에 만들어 넣는다 — 구간
-            # 선언보다 앞에 키를 적으면 configparser 가 읽지 못한다.
-            lines.insert(0, f"[device]\nmode = {mode}\n\n")
+            # [device] 구간이 없는 옛 설정 파일. 첫 구간 바로 앞에 만들어 넣는다 —
+            # 구간 선언보다 앞에 키를 적으면 configparser 가 읽지 못하고, 머리말
+            # 주석 앞에 끼우면 파일이 무엇인지 설명하는 줄이 가려진다.
+            at = next((i for i, line in enumerate(lines)
+                       if line.strip().startswith("[") and line.strip().endswith("]")),
+                      len(lines))
+            lines.insert(at, f"[device]\nmode = {mode}\n\n")
 
     try:
         config_path.write_text("".join(lines), encoding="utf-8")
@@ -1760,24 +1764,38 @@ class MrvLastReadings:
     직전 지침이 필요 없고, 섞어 두면 다음 지침의 차분 기준이 어긋난다. 그래도
     last_ts 는 갱신한다 — 같은 초에 두 건을 넣으면 (계측기, 시각)이 겹쳐
     **뒤 건이 중복으로 흡수돼 조용히 사라진다.**
+
+    같은 파일에 '오늘 보낸 건수' 도 함께 든다. 화면에만 두면 재부팅으로 0 이 되고,
+    그 숫자는 작업자의 "오늘 이미 넣었나" 에 답하는 값이라 거짓이 되면 안 된다.
     """
 
     def __init__(self, path: str | Path):
         self.path = Path(path)
         self._lock = threading.Lock()
-        self._data: dict[str, dict] = {}
+        self._meters: dict[str, dict] = {}
+        # 오늘 보낸 건수. **파일에 남긴다** — 이 숫자는 작업자의 "오늘 지침을 이미
+        # 넣었나" 에 답하는 값이라, 재부팅으로 0 이 되면 거짓을 말하게 된다.
+        self._today: dict = {"date": "", "count": 0}
         try:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
-            if isinstance(raw, dict):
-                self._data = {k: v for k, v in raw.items() if isinstance(v, dict)}
         except (OSError, ValueError):
             # 처음 쓰는 장비이거나 파일이 깨졌다. 비워 두면 다음 지침이 기준점이
             # 되고 그 사실은 화면이 알린다 — 수집을 막을 일은 아니다.
-            self._data = {}
+            raw = None
+        if isinstance(raw, dict):
+            meters = raw.get("meters")
+            if not isinstance(meters, dict):
+                # 계측기 지도만 담던 옛 모양. 그대로 읽어 들인다.
+                meters = raw
+            self._meters = {k: v for k, v in meters.items() if isinstance(v, dict)}
+            today = raw.get("sent_today")
+            if isinstance(today, dict):
+                self._today = {"date": str(today.get("date") or ""),
+                               "count": int(today.get("count") or 0)}
 
     def get(self, meter_id: str) -> dict | None:
         with self._lock:
-            row = self._data.get(meter_id)
+            row = self._meters.get(meter_id)
             return dict(row) if row else None
 
     def has_reading(self, meter_id: str) -> bool:
@@ -1788,13 +1806,34 @@ class MrvLastReadings:
     def put(self, meter_id: str, ts: str, value: float | None = None) -> None:
         """보낸 시각을 남긴다. value 를 주면 지침 사슬까지 갱신한다."""
         with self._lock:
-            row = dict(self._data.get(meter_id) or {})
+            row = dict(self._meters.get(meter_id) or {})
             row["last_ts"] = ts
             if value is not None:
                 row["value"] = float(value)
                 row["ts"] = ts
-            self._data[meter_id] = row
-            payload = json.dumps(self._data, ensure_ascii=False)
+            self._meters[meter_id] = row
+        self._flush()
+
+    def bump_today(self, n: int = 1) -> int:
+        """서버까지 올라간 건수를 센다. 날짜가 바뀌면 0 에서 다시 센다."""
+        today = time.strftime("%Y-%m-%d")
+        with self._lock:
+            if self._today.get("date") != today:
+                self._today = {"date": today, "count": 0}
+            self._today["count"] += n
+            count = self._today["count"]
+        self._flush()
+        return count
+
+    def today(self) -> int:
+        with self._lock:
+            return int(self._today["count"]) \
+                if self._today.get("date") == time.strftime("%Y-%m-%d") else 0
+
+    def _flush(self) -> None:
+        with self._lock:
+            payload = json.dumps({"meters": self._meters, "sent_today": self._today},
+                                 ensure_ascii=False)
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             # 쓰다가 전원이 나가도 옛 파일이 남게 임시 파일에 쓰고 갈아 끼운다.
@@ -1805,6 +1844,38 @@ class MrvLastReadings:
             # 파일에 못 남겨도 이번 세션의 메모리 값은 살아 있다. 재부팅하면
             # 다음 지침이 기준점이 될 뿐이라 수집을 막지 않는다.
             log.warning("마지막 지침을 파일에 남기지 못했습니다: %s", exc)
+
+
+def _mrv_local_stamp(ts: str) -> str:
+    """UTC ISO 시각을 화면용 지역 시각으로. 작업자는 UTC 를 읽지 않는다."""
+    parsed = _mrv_parse_iso(ts)
+    if parsed is None:
+        return ""
+    try:
+        return parsed.astimezone().strftime("%m-%d %H:%M")
+    except (OSError, OverflowError, ValueError):
+        return ""
+
+
+def mrv_recent_rows(meters: list[dict], lasts: MrvLastReadings) -> list[dict]:
+    """MRV 기본 화면의 '마지막 지침' 줄. 계측기별로 값과 시각을 함께 준다.
+
+    보낸 적 없는 계측기는 넣지 않는다 — 빈 줄을 '--' 로 채우면 "보냈는데 값이
+    안 보인다" 와 "아직 안 보냈다" 가 화면에서 같아 보인다.
+    """
+    rows = []
+    for m in meters:
+        row = lasts.get(str(m.get("id") or "")) or {}
+        if row.get("value") is None or not row.get("ts"):
+            continue
+        rows.append({
+            "id": str(m.get("id")),
+            "label": m.get("label") or str(m.get("id")),
+            "is_aeration": bool(m.get("is_aeration")),
+            "value": float(row["value"]),
+            "at": _mrv_local_stamp(str(row["ts"])),
+        })
+    return rows
 
 
 def _mrv_request(url: str, api_key: str, payload: dict | None = None,
@@ -1957,6 +2028,9 @@ def mrv_submit_power(base: str, api_key: str, meter_id: str, value: float, kind:
     lasts.put(meter_id, ts, value if kind == "cumulative_kwh" else None)
 
     if ok:
+        # 오늘 보낸 건수는 **서버까지 올라간 것만** 센다. 보관된 건을 함께 세면
+        # "오늘 3건 보냄" 과 "미전송 3건" 이 같은 건을 두 번 말하게 된다.
+        lasts.bump_today(1)
         quality = result.get("quality") if isinstance(result.get("quality"), dict) else {}
         rejected = result.get("rejected")
         return {
@@ -1983,7 +2057,8 @@ def mrv_submit_power(base: str, api_key: str, meter_id: str, value: float, kind:
             "error": reason, "code": "backlog" if backlog else "offline"}
 
 
-def mrv_flush(store, base: str, api_key: str, batch: int, should_stop) -> int:
+def mrv_flush(store, base: str, api_key: str, batch: int, should_stop,
+              lasts: MrvLastReadings | None = None) -> int:
     """보관해 둔 전력 입력을 오래된 것부터 올린다. 수질 flush 와 독립이다.
 
     한 건이라도 실패하면 멈춘다 — 적산 지침은 순서가 바뀌면 구간값이 어긋난다.
@@ -2003,6 +2078,8 @@ def mrv_flush(store, base: str, api_key: str, batch: int, should_stop) -> int:
             break
         store.drop([row_id])
         sent += 1
+        if lasts is not None:
+            lasts.bump_today(1)       # 늦게라도 올라갔으면 오늘 보낸 건수에 든다
         time.sleep(0.3)               # 서버 요청 제한에 걸리지 않도록
     return sent
 
@@ -2155,6 +2232,21 @@ def main() -> int:
         "a_ratio": _nf("a_ratio", 50),
         "atc": cfg.getboolean("nutrient", "atc", fallback=True),
     }
+
+    # 운전 모드. 적혀 있지 않으면 기존 설치이므로 [nutrient] enabled 로 추론한다
+    # (modes.resolve 의 주석에 근거를 적었다). 화면에서 바꿀 수 있어 홀더에 든다.
+    _declared_mode = (cfg.get("device", "mode", fallback="")
+                      if cfg.has_section("device") else "")
+    mode_holder = {
+        "mode": (modes_mod.resolve(_declared_mode, nut_holder["enabled"])
+                 if modes_mod is not None else "aquaculture"),
+    }
+    # 모드와 [nutrient] enabled 는 **같은 사실의 두 표현**이다. 추론 규칙이 앞으로도
+    # 맞으려면 둘이 어긋나 있어서는 안 된다 — 모드를 적어 둔 장비에서는 모드가 이긴다.
+    nut_holder["enabled"] = modes_mod.shows_nutrient(mode_holder["mode"]) \
+        if modes_mod is not None else nut_holder["enabled"]
+    log.info("운전 모드: %s%s", mode_holder["mode"],
+             "" if _declared_mode.strip() else " (설정에 적혀 있지 않아 추론)")
 
     # 슬레이브 ID 변경. 같은 ID 를 쓰는 센서가 둘일 때 쓴다.
     if args.set_id:
@@ -2550,7 +2642,11 @@ def main() -> int:
                 settings[key] = {"enabled": bool(item.get("enabled")), "slave_id": slave_id}
 
             on = {k: v["slave_id"] for k, v in settings.items() if v["enabled"]}
-            if not on:
+            if not on and not (modes_mod is not None
+                               and mode_holder["mode"] == "mrv"):
+                # MRV 단말은 기계실 계량기 옆에 놓여 수질 센서가 아예 없을 수 있다.
+                # 그 모드에서만 전부 끌 수 있게 한다 — 다른 모드에서 센서를 다 끄면
+                # 그 장비는 아무것도 재지 않는 채로 조용히 돌게 된다.
                 return {"ok": False, "error": "센서를 하나 이상 켜 주세요."}
             dupes = [i for i in on.values() if list(on.values()).count(i) > 1]
             if dupes:
@@ -2577,6 +2673,9 @@ def main() -> int:
             enabled.clear()
             enabled.update(on)
             interval_holder["seconds"] = new_interval
+            if state is not None:
+                # MRV 모드 화면은 "센서가 설정돼 있는가" 로 수질 칸을 보일지 정한다.
+                state.update(sensors_on=bool(on))
             saved = save_sensor_config(args.config, settings)
             if saved:
                 save_interval(args.config, new_interval)
@@ -2743,6 +2842,12 @@ def main() -> int:
 
             nut_holder.update(new_vals)
             saved = save_nutrient(args.config, dict(nut_holder))
+            # [양액 관리 사용] 은 결국 "이 장비는 스마트팜인가" 와 같은 말이다.
+            # 한쪽만 바뀌면 다음 부팅의 모드 추론이 어긋나므로 함께 옮긴다.
+            # MRV 모드에서는 이 화면을 열 수 없으니 모드를 끌고 가지 않는다.
+            if ("enabled" in new_vals and modes_mod is not None
+                    and mode_holder["mode"] != "mrv"):
+                _apply_mode("smartfarm" if new_vals["enabled"] else "aquaculture")
             log.info("화면에서 양액 설정을 바꿨습니다: %s (파일 저장 %s)", new_vals, saved)
             return {"ok": True, "saved": saved}
 
@@ -2797,7 +2902,9 @@ def main() -> int:
             else:
                 mrv_meters_holder["error"] = result.get("error")
             if state is not None:
-                state.update(mrv_meters=list(mrv_meters_holder["items"]))
+                state.update(mrv_meters=list(mrv_meters_holder["items"]),
+                             mrv_recent=mrv_recent_rows(
+                                 mrv_meters_holder["items"], mrv_lasts))
 
         def ui_mrv_meters() -> dict:
             """전력 화면을 열 때 목록을 갱신한다.
@@ -2913,11 +3020,41 @@ def main() -> int:
                 else:
                     line = f"{label} 전송 실패 — {result.get('error') or ''}"
                 state.update(mrv_last=line, mrv_pending=pending,
-                             mrv_clock_ok=mrv_clock_ok())
+                             mrv_clock_ok=mrv_clock_ok(),
+                             mrv_today=mrv_lasts.today(),
+                             mrv_recent=mrv_recent_rows(
+                                 mrv_meters_holder["items"], mrv_lasts))
             log.info("전력 수기 입력: %s %s %s → %s", meter_id, payload.get("value"),
                      kind, "전송" if result.get("ok") else
                      ("보관" if result.get("queued") else "거부"))
             return result
+
+        def _apply_mode(mode: str) -> bool:
+            """모드를 적용하고 파일에 남긴다. 양액 플래그도 함께 맞춘다.
+
+            모드와 [nutrient] enabled 는 같은 사실의 두 표현이다(모드 결정부 주석
+            참고). 둘이 어긋나면 다음 부팅의 추론이 틀린 모드를 돌려준다.
+            """
+            if modes_mod is None or mode not in modes_mod.MODES:
+                return False
+            mode_holder["mode"] = mode
+            nut_holder["enabled"] = modes_mod.shows_nutrient(mode)
+            saved = save_mode(args.config, mode) and save_nutrient(
+                args.config, dict(nut_holder))
+            if state is not None:
+                state.update(mode=mode)
+            log.info("운전 모드를 바꿨습니다: %s (파일 저장 %s)", mode, saved)
+            return True
+
+        def ui_set_mode(mode: str) -> dict:
+            """화면에서 운전 모드를 고른다.
+
+            수질 수집은 모드와 무관하게 계속된다 — 끄는 것은 화면이지 수집이 아니다.
+            양액 안내·운전 권고는 다음 측정 주기부터 모드를 따른다.
+            """
+            if not _apply_mode(mode):
+                return {"ok": False, "error": "알 수 없는 모드입니다"}
+            return {"ok": True, "mode": mode}
 
         def ui_set_lang(lang: str) -> bool:
             """화면 언어를 바꾼다. 화면은 이미 즉시 반영하므로, 여기선 파일에
@@ -2959,13 +3096,22 @@ def main() -> int:
             on_mrv_unlink=ui_mrv_unlink,
             get_mrv_meters=ui_mrv_meters,
             on_mrv_power=ui_mrv_power,
+            mode=mode_holder["mode"],
+            on_set_mode=ui_set_mode,
         )
         state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중",
                      version=VERSION, ec_unit=ec_holder["unit"],
                      mrv_linked=bool(mrv_auth["key"]),
                      mrv_site_id=mrv_auth["site"] or None,
                      mrv_pending=mrv_store.pending() if mrv_store is not None else 0,
-                     mrv_clock_ok=mrv_clock_ok())
+                     mrv_clock_ok=mrv_clock_ok(),
+                     mrv_today=mrv_lasts.today(),
+                     mode=mode_holder["mode"],
+                     # MRV 모드 화면은 이 값으로 수질 칸을 보일지 정한다. 판정 기준은
+                     # **설정에 켜 둔 센서가 있는가** 다 — 지금 값이 읽히는가가 아니다.
+                     # 값으로 정하면 센서가 고장난 순간 칸이 사라져, 고장이 화면에서
+                     # 사라지는 것으로 보인다.
+                     sensors_on=bool(enabled))
 
         # 이미 연결된 장비라면 계측기 목록을 미리 받아 둔다. 시작을 네트워크에
         # 매달 수 없으므로 뒤에서 받는다 — 목록이 늦게 와도 측정은 이미 돈다.
@@ -3019,7 +3165,7 @@ def main() -> int:
             if mrv_store is None or not mrv_auth["key"] or not mrv_store.pending():
                 continue
             sent = mrv_flush(mrv_store, mrv_base, mrv_auth["key"],
-                             MRV_FLUSH_BATCH, _stopped_global)
+                             MRV_FLUSH_BATCH, _stopped_global, mrv_lasts)
             if sent and state is not None:
                 state.update(
                     mrv_pending=mrv_store.pending(),
@@ -3050,10 +3196,16 @@ def main() -> int:
             values = apply_calibration(values, cal_holder)
 
         if not values:
-            log.error("읽은 값이 없습니다. 배선·전원·슬레이브 ID를 확인하세요. %s", errors)
-            status_line = "SENSOR ERROR"
             nutrient = None          # 값이 없으면 양액 안내도 띄우지 않는다
             advices = []             # 못 잰 값으로 설비를 돌리라고 할 수는 없다
+            if not enabled:
+                # 켜 둔 센서가 하나도 없다. 기계실 계량기 옆 MRV 단말이 그렇다 —
+                # 센서가 안 붙어 있는 것이 정상 상태이므로 오류로 적지 않는다.
+                # 1분마다 "SENSOR ERROR" 를 남기면 정작 봐야 할 로그가 묻힌다.
+                status_line = time.strftime("%H:%M")
+            else:
+                log.error("읽은 값이 없습니다. 배선·전원·슬레이브 ID를 확인하세요. %s", errors)
+                status_line = "SENSOR ERROR"
         else:
             stored = {k: v for k, v in values.items() if k in STORED_FIELDS}
             extra = {k: v for k, v in values.items() if k not in STORED_FIELDS}
@@ -3064,6 +3216,7 @@ def main() -> int:
                 hist.record(values)
 
             # 양액 보충량 — 켜져 있고 전도도가 있을 때만. 화면이 이 값을 띄운다.
+            # nut_holder["enabled"] 가 모드를 따라가므로(위 참고) 스마트팜에서만 선다.
             nutrient = nutrient_plan(values.get("conductivity"),
                                      values.get("temperature"), nut_holder)
 
@@ -3072,7 +3225,11 @@ def main() -> int:
             # 둘의 주기를 나눈 이유: 용존산소가 기준을 깬 순간의 안내가 몇 분
             # 늦으면 안내가 아니다. 반대로 "나흘째 하락" 은 1분마다 다시 셀 일이
             # 아니다. 그래서 권고는 매 측정, 추세는 ANALYSIS_INTERVAL_S 마다 본다.
-            if advice_mod is not None:
+            # 설비 운전 권고 — MRV 단말에서는 끈다. 그 화면 앞에 선 사람은 계량기를
+            # 읽으러 온 사람이고, 수질을 보고 설비를 돌릴 사람이 아니다.
+            # (스마트팜에서 비우는 판단은 advice.py 안에 있다 — 여기서 또 끄지 않는다.)
+            if advice_mod is not None and (modes_mod is None
+                                           or modes_mod.shows_advice(mode_holder["mode"])):
                 now_s = time.time()
                 if (anomaly_mod is not None and hist is not None
                         and now_s - analysis["at"] >= ANALYSIS_INTERVAL_S):
@@ -3091,6 +3248,8 @@ def main() -> int:
                     advices = []
                 if advices:
                     log.info("운전 권고 %s", [a["code"] for a in advices])
+            else:
+                advices = []
 
             if args.dry_run:
                 print(json.dumps(values, ensure_ascii=False, indent=2))
@@ -3165,6 +3324,10 @@ def main() -> int:
                 mrv_linked=bool(mrv_auth["key"]),
                 mrv_pending=mrv_store.pending() if mrv_store is not None else 0,
                 mrv_clock_ok=mrv_clock_ok(),
+                mrv_today=mrv_lasts.today(),
+                mrv_recent=mrv_recent_rows(mrv_meters_holder["items"], mrv_lasts),
+                mode=mode_holder["mode"],
+                sensors_on=bool(enabled),
             )
 
         if screen is not None:

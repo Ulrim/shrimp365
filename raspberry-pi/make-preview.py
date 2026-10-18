@@ -41,6 +41,9 @@ def base_state(**over) -> dict:
         "mrv_linked": False, "mrv_site_id": None,
         "mrv_pairing": False, "mrv_pair_code": None, "mrv_pair_error": None,
         "mrv_meters": [], "mrv_pending": 0, "mrv_last": None, "mrv_clock_ok": True,
+        "mrv_recent": [], "mrv_today": 0,
+        # 운전 모드. 기본은 양식장이고, 센서를 켜 둔 장비로 본다.
+        "mode": "aquaculture", "sensors_on": True,
     }
     state.update(over)
     return state
@@ -58,9 +61,17 @@ MRV_METERS = [
      "is_aeration": False, "has_prev": False},
 ]
 
+# MRV 기본 화면의 "마지막 지침" 줄. 보낸 적 없는 계측기는 들어가지 않는다.
+MRV_RECENT = [
+    {"id": "mtr_total", "label": "총전력계 (수전반)", "is_aeration": False,
+     "value": 128450.6, "at": "10-18 09:12"},
+    {"id": "mtr_blower", "label": "브로워 분전반", "is_aeration": True,
+     "value": 41280.0, "at": "10-18 09:13"},
+]
+
 STATES = [
-    ("연결됨 · 정상", base_state()),
-    ("미연결 (측정만)", base_state(
+    ("양식장 · 정상", base_state()),
+    ("양식장 · 미연결(측정만)", base_state(
         linked=False, account=None, tank=None, farm=None,
         status="미연결 — 측정만 · 보관 12건", pending=12)),
     ("연결 코드", base_state(
@@ -85,21 +96,44 @@ STATES = [
     ("과잉 폭기 (전력 절감)", base_state(
         values={**VALUES, "do_level": 8.7}, status="sent 14:32",
         advice=[{"code": "do_surplus", "level": "save", "value": 8.7, "digits": 2}])),
-    # ── 탄소 MRV 전력 수기 입력 ──────────────────────────────────────────────
-    ("MRV 미연결", base_state(mrv_linked=False)),
-    ("MRV 연결 코드", base_state(
+    # ── 스마트팜(수경재배) ───────────────────────────────────────────────────
+    ("스마트팜 · 양액 보충", base_state(
+        mode="smartfarm",
+        values={"temperature": 24.1, "ph": 6.2, "do_level": 7.1, "conductivity": 1250},
+        ec_unit="ms", status="sent 14:32",
+        nutrient={"ec": 1.25, "target": 1.8, "percent": 63.3, "atc": True,
+                  "verdict": "low", "need_rise": 0.55, "dose_total": 1100,
+                  "dose_a": 550, "dose_b": 550})),
+    # ── 탄소 MRV ─────────────────────────────────────────────────────────────
+    ("MRV · 미연결", base_state(
+        mode="mrv", sensors_on=False, values={}, status="14:32",
+        linked=False, account=None, tank=None, farm=None)),
+    ("MRV · 연결 코드", base_state(
+        mode="mrv", sensors_on=False, values={}, status="14:32",
+        linked=False, account=None, tank=None, farm=None,
         mrv_pairing=True, mrv_pair_code="730412", pair_url="www.shrimp365.kr")),
-    ("MRV 연결됨", base_state(
-        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS)),
-    ("전력 입력 패널", base_state(
+    ("MRV · 기본 화면(연결됨)", base_state(
+        mode="mrv", sensors_on=False, values={}, status="14:32",
         mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_recent=MRV_RECENT, mrv_today=2,
         mrv_last="브로워 분전반 전송 완료 (14:30)")),
-    ("전력 미전송 보관분", base_state(
+    ("MRV · 전력 입력 패널", base_state(
+        mode="mrv", sensors_on=False, values={}, status="14:32",
         mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
-        mrv_pending=3, mrv_last="순환펌프 보관 — 회선 복구 시 전송 (14:28)")),
-    ("장비 시계 이상", base_state(
+        mrv_recent=MRV_RECENT, mrv_today=2)),
+    ("MRV · 미전송 보관분", base_state(
+        mode="mrv", sensors_on=False, values={}, status="14:32",
         mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
-        mrv_clock_ok=False, status="SEND FAIL 14:32 · 보관 4건", pending=4)),
+        mrv_recent=MRV_RECENT, mrv_today=1, mrv_pending=3,
+        mrv_last="순환펌프 보관 — 회선 복구 시 전송 (14:28)")),
+    ("MRV · 장비 시계 이상", base_state(
+        mode="mrv", sensors_on=False, values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_recent=MRV_RECENT, mrv_clock_ok=False)),
+    ("MRV · 수질 센서도 붙인 장비", base_state(
+        mode="mrv", sensors_on=True, status="sent 14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_recent=MRV_RECENT, mrv_today=2)),
     ("센서 오류", base_state(
         values={"temperature": 28.4, "ph": 7.85},
         errors={"ec": "응답 없음 (배선·전원·슬레이브 ID 확인)"},
@@ -260,6 +294,7 @@ def main() -> int:
     # 거치지 않으므로 여기서 같은 치환을 해 준다 — 안 하면 화면 스크립트가
     # `var BANDS = __BANDS__;` 에서 그대로 깨진다.
     page = (webui.PAGE
+            .replace("__MODE__", "aquaculture")
             .replace("__LANG__", "ko")
             .replace("__BANDS__", json.dumps(limits.BANDS))
             .replace("__NUT_BANDS__", json.dumps(limits.NUTRIENT_BANDS)))
@@ -299,7 +334,9 @@ def main() -> int:
   <b>오른쪽 아래 [설정]</b> — 슬레이브 ID·측정 주기를 손가락으로 고칩니다.
   <b>[자동 배치]</b> 는 꽂아 둔 센서를 훑어 값이 나오는 자리를 그대로 배정합니다(이 미리보기에선 용존산소가 3→5로 바뀝니다).<br>
   <b>[Wi‑Fi]</b> — 주변 공유기를 검색해 화면 키보드로 비밀번호를 넣고 붙입니다(이 미리보기에서도 눌러 볼 수 있습니다. 잠긴 공유기를 고르면 화면 키보드가 뜨고, [연결] 하면 위쪽 연결 표시가 그 공유기로 바뀝니다).<br>
-  <b>[전력 입력]</b> — 탄소 MRV 에 연결된 장비에만 오른쪽 아래에 뜹니다. 계측기를 고르고
+  <b>[운전 모드]</b> — 설정 → 운전 모드에서 양식장·스마트팜·탄소 MRV 를 고릅니다. 모드는 상호
+  배타이고, 무엇을 <b>먼저 보여 줄지</b>를 가릅니다(수질 수집·전송은 모드와 무관하게 계속됩니다).<br>
+  <b>[전력 입력]</b> — MRV 모드의 기본 화면이 전력 입력 단말입니다. 큰 버튼을 누르면 계측기를 고르고
   지침(계량기 누적 숫자)이나 구간 사용량을 큰 키패드로 넣습니다. 지침은 직전 지침과 함께
   두 건으로 올라가 그 차이가 구간 사용량이 됩니다(한 건씩 보내면 KPI 에서 빠집니다).<br>
   단위는 <b>용존산소 ppm · 염도 ‰ · 전도도 µS/cm · pH · 전력 kWh</b> 입니다.
