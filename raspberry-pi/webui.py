@@ -71,6 +71,14 @@ class State:
             "mrv_clock_ok": True,   # 장비 시계를 믿을 수 있는가
             "mrv_recent": [],       # 계측기별 마지막으로 보낸 지침(값·시각)
             "mrv_today": 0,         # 오늘 서버까지 올라간 건수
+            # 재전송에서 서버가 **받지 않은** 보관 건수와 그 사유. 조용히 지우지
+            # 않고 화면으로 알린다 — 사람이 적은 지침을 장비가 버리면 안 된다.
+            "mrv_blocked": 0,
+            "mrv_blocked_reason": None,
+            # MRV 안내문에 적을 주소. 수질 페어링만 채우는 pair_url 과 다르다 —
+            # [server] endpoint 가 다른 호스트인 장비에서 틀린 주소를 안내하지 않도록
+            # MRV 창구의 호스트를 따로 둔다.
+            "mrv_pair_url": "",
 
             # 운전 모드 — 이 장비가 무엇을 하는 기계인가(modes.py).
             # mrv 모드에서는 **기본 화면이 전력 입력 단말**이 된다.
@@ -306,6 +314,14 @@ PAGE = """<!doctype html>
     display:flex;flex-direction:column;padding:10px 16px 12px;
   }
   .chead{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  /* 패널 머리의 [뒤로]·[닫기]. 손가락으로 누르는 화면인데 기본 <button> 그대로라
+     19~22px 이었다 — 설정·언어·보정·양액·운전 모드·MRV·전력 패널의 나가는 길이
+     전부 이 버튼이다. .ranges button 과 같은 치수로 맞춘다. */
+  .chead button{
+    font:700 13px/1 inherit;padding:8px 14px;min-height:40px;border-radius:8px;
+    border:1px solid #22304C;background:transparent;color:#94A3B8;cursor:pointer;
+  }
+  .chead button:active{background:#1E40AF;border-color:#1E40AF;color:#fff}
   .ctitle{font-size:18px;font-weight:800}
   .cnow{font:800 22px/1 ui-monospace,monospace;color:#60A5FA}
   .cstats{margin-left:auto;display:flex;gap:12px;font-size:12px;color:#94A3B8}
@@ -362,7 +378,10 @@ PAGE = """<!doctype html>
   .prow:active{background:#16223C}
   .prow .pname{font-size:16px;font-weight:700;flex:1;min-width:0;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .prow .punit{font-size:12px;color:#64748B;font-family:ui-monospace,monospace;flex:0 0 auto}
+  /* 알 수 없는 unit 토큰이 길게 와도 줄이 무너지지 않게 한 줄로 두고 … 로 줄인다.
+     이름(.pname)과 달리 이 칸은 줄어들지 않으므로(flex:0 0 auto) 상한을 둔다. */
+  .prow .punit{font-size:12px;color:#64748B;font-family:ui-monospace,monospace;flex:0 0 auto;
+    max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* 폭기 여부 — 폭기 EI 가 이 플래그로 갈린다. 목록에서 반드시 보여야 한다. */
   .aer{
     font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;flex:0 0 auto;
@@ -819,6 +838,16 @@ var I18N = {
   pw_err_no_meters:{ko:"계측기 목록을 먼저 받아 주세요",en:"Load the meter list first",vi:"Hãy tải danh sách thiết bị đo trước",id:"Muat daftar meter dulu"},
   pw_err_unknown_meter:{ko:"목록에 없는 계측기입니다",en:"That meter is not in the list",vi:"Thiết bị đo không có trong danh sách",id:"Meter itu tidak ada di daftar"},
   pw_err_kind:{ko:"알 수 없는 입력 종류입니다",en:"Unknown entry type",vi:"Loại nhập không xác định",id:"Jenis input tak dikenal"},
+  // 200 을 받았어도 서버가 아무것도 저장하지 않은 경우. 초록 「전송했습니다」로
+  // 적으면 사람은 들어가지 않은 값을 들어갔다고 믿는다.
+  pw_err_refused:{ko:"서버가 받지 않았습니다",en:"The server did not accept it",vi:"Máy chủ không nhận",id:"Server tidak menerimanya"},
+  // 재전송에서 거부가 확정된 보관 건. 지우는 것은 사람이 결정한다.
+  pw_blocked:{ko:"서버가 받지 않은 보관 {n}건 — 전송이 멈췄습니다",en:"{n} held entr(ies) the server refused — uploading is stopped",vi:"{n} mục đang lưu bị máy chủ từ chối — việc tải lên đã dừng",id:"{n} input tersimpan ditolak server — pengunggahan terhenti"},
+  pw_blocked_note:{ko:"계측기가 지워졌거나 다른 사이트로 다시 연결한 뒤라면 이 건들은 다시 보내도 들어가지 않고, 뒤의 입력까지 막습니다. 값을 따로 적어 두신 뒤 치우세요.",en:"If the meter was deleted or this device was re-linked to another site, these can never be accepted and they block the entries behind them. Write the values down, then clear them.",vi:"Nếu thiết bị đo đã bị xoá hoặc thiết bị này được kết nối lại sang cơ sở khác, các mục này sẽ không bao giờ được nhận và còn chặn các mục sau. Hãy ghi lại giá trị rồi xoá.",id:"Jika meter sudah dihapus atau perangkat ini ditautkan ke lokasi lain, input ini tak akan pernah diterima dan menghambat input berikutnya. Catat nilainya lalu bersihkan."},
+  pw_blocked_clear:{ko:"거부된 {n}건 치우기",en:"Clear the {n} refused",vi:"Xoá {n} mục bị từ chối",id:"Bersihkan {n} yang ditolak"},
+  pw_blocked_ask:{ko:"서버가 받지 않은 보관 {n}건을 장비에서 지웁니다.<br>이 값은 되돌릴 수 없습니다 — 필요하면 먼저 적어 두세요.",en:"This deletes the {n} refused entries from the device.<br>They cannot be recovered — write them down first if you need them.",vi:"Thao tác này xoá {n} mục bị từ chối khỏi thiết bị.<br>Không thể phục hồi — hãy ghi lại trước nếu cần.",id:"Ini menghapus {n} input yang ditolak dari perangkat.<br>Tidak bisa dipulihkan — catat dulu bila perlu."},
+  pw_blocked_yes:{ko:"네, 치우기",en:"Yes, clear them",vi:"Vâng, xoá",id:"Ya, bersihkan"},
+  pw_blocked_done:{ko:"치웠습니다 — 남은 보관분부터 다시 올립니다",en:"Cleared — the remaining held entries upload next",vi:"Đã xoá — các mục còn lại sẽ được tải lên",id:"Sudah dibersihkan — input tersisa akan diunggah"},
   // ── 운전 모드 ─────────────────────────────────────────────────────────────
   menu_mode:{ko:"운전 모드",en:"Operating mode",vi:"Chế độ vận hành",id:"Mode operasi"},
   menu_mode_sub:{ko:"양식장 · 스마트팜 · 탄소 MRV",en:"Aquaculture · Smart farm · Carbon MRV",vi:"Nuôi tôm · Nông trại thông minh · MRV carbon",id:"Budidaya · Smart farm · MRV karbon"},
@@ -1010,6 +1039,8 @@ function renderLink(d){
   // 헤더 칩은 **짧은 말**로 적는다. 같은 내용을 바로 아래 띠가 온전한 문장으로 말하고
   // 있고, 긴 문장을 칩에 넣으면 헤더가 800px 을 넘어 「연결됨」 칩이 잘린다.
   if (d.mrv_clock_ok === false) hold += '<span class="chip off">' + t("pw_clock_bad_chip") + '</span>';
+  else if (d.mrv_blocked) hold += '<span class="chip off">' +
+    t("pw_rejected", {n: d.mrv_blocked}) + '</span>';
   else if (d.mrv_pending) hold += '<span class="chip hold">' +
     t("pw_btn") + ' ' + t("pw_pending", {n:d.mrv_pending}) + '</span>';
   if (d.linked) {
@@ -1705,9 +1736,20 @@ function renderMrvButton(d){
   return '<button class="mbig" onclick="openPower()">' + t("pw_btn") + '</button>';
 }
 
+// 서버가 받지 않아 멈춘 보관분. 치우는 버튼은 전력 입력 패널 한 곳에만 두고(같은
+// 판단을 두 곳에 두지 않는다), 기본 화면은 그 사실과 사유만 적는다.
+function renderMrvBlocked(d){
+  if (!d.mrv_blocked) return "";
+  return '<div class="pwarn">' + t("pw_blocked", {n: d.mrv_blocked}) +
+    (d.mrv_blocked_reason
+      ? '<div style="font-weight:500;font-size:12px;margin-top:4px;color:#FCA5A5">' +
+          esc(d.mrv_blocked_reason) + '</div>'
+      : '') + '</div>';
+}
+
 function renderMrvHome(d){
-  var warn = (d.mrv_clock_ok === false)
-    ? '<div class="pwarn">' + t("pw_clock_bad") + '</div>' : "";
+  var warn = ((d.mrv_clock_ok === false)
+    ? '<div class="pwarn">' + t("pw_clock_bad") + '</div>' : "") + renderMrvBlocked(d);
   // 센서를 켜 둔 장비에서는 수질 값이 먼저다. 800×480 에 목록까지 넣으면 값 격자가
   // 눌리므로, 그 때는 마지막 지침 목록을 접고 건수와 버튼만 남긴다.
   if (d.sensors_on) {
@@ -1846,7 +1888,8 @@ function drawMrv(){
       '<div class="code" style="font-size:52px;letter-spacing:12px;padding-left:12px;' +
         'margin:4px 0 8px;text-align:center">' + esc(d.mrv_pair_code) + '</div>' +
       '<div class="steps" style="display:block"><ol>' +
-        '<li>' + t("mrv_step1", {url: esc(d.pair_url || "www.shrimp365.kr")}) + '</li>' +
+        '<li>' + t("mrv_step1",
+          {url: esc(d.mrv_pair_url || d.pair_url || "www.shrimp365.kr")}) + '</li>' +
         '<li>' + t("mrv_step2") + '</li>' +
         '<li>' + t("mrv_step3") + '</li>' +
         '<li>' + t("mrv_step4") + '</li>' +
@@ -1896,13 +1939,23 @@ function drawMrv(){
 var pwrOpen = false, pwrStep = "list", pwrMeters = [], pwrMeter = null;
 var pwrKind = "cumulative_kwh", pwrBuf = "", pwrRes = null;
 var pwrBusy = false, pwrMsg = null, pwrClock = true, pwrPending = 0;
+var pwrBlocked = 0, pwrBlockedReason = null, pwrBlockAsk = false;
+
+// 입력 종류의 기본값은 **계량기 지침**이다. 이 전역이 패널·계측기를 넘어 남으면,
+// 한 번 [구간 사용량] 을 쓴 뒤 다음에 계량기 누적 숫자(예: 128450.6)를 넣었을 때
+// 서버가 그것을 구간 사용량으로 보고 quality_flag='ok' 로 저장한다 — 약 128 MWh 가
+// 경고 없이 EI 분자에 들어간다. 그래서 패널을 열 때와 계측기를 고를 때 되돌린다.
+function pwrResetKind(){ pwrKind = "cumulative_kwh"; }
 
 function openPower(){
   var d = lastState || {};
   pwrOpen = true; pwrStep = "list"; pwrMeter = null; pwrBuf = "";
-  pwrRes = null; pwrMsg = null; pwrBusy = false;
+  pwrRes = null; pwrMsg = null; pwrBusy = false; pwrBlockAsk = false;
+  pwrResetKind();
   pwrMeters = d.mrv_meters || [];
   pwrPending = d.mrv_pending || 0;
+  pwrBlocked = d.mrv_blocked || 0;
+  pwrBlockedReason = d.mrv_blocked_reason || null;
   pwrClock = d.mrv_clock_ok !== false;
   drawPower();
   loadMeters();
@@ -1918,6 +1971,8 @@ function loadMeters(){
       pwrBusy = false;
       if (d.items) pwrMeters = d.items;
       pwrPending = d.pending || 0;
+      pwrBlocked = d.blocked || 0;
+      pwrBlockedReason = d.blocked_reason || null;
       pwrClock = d.clock_ok !== false;
       pwrMsg = d.ok ? null : (d.error || null);
       drawPower();
@@ -1934,6 +1989,8 @@ function closePower(){
 function pwrPick(i){
   pwrMeter = pwrMeters[i] || null;
   if (!pwrMeter) return;
+  // 다른 계측기를 고르면 앞 계측기에서 고른 종류를 끌고 가지 않는다.
+  pwrResetKind();
   pwrBuf = ""; pwrStep = "entry"; drawPower();
 }
 function pwrSetKind(k){ pwrKind = k; drawPower(); }
@@ -1968,6 +2025,7 @@ function pwrSend(){
     .then(function(d){
       pwrBusy = false; pwrRes = d || {};
       if (typeof d.pending === "number") pwrPending = d.pending;
+      if (typeof d.blocked === "number") pwrBlocked = d.blocked;
       // 지침이 들어갔으면 이 계측기는 더 이상 "첫 지침" 이 아니다.
       if (pwrKind === "cumulative_kwh" && (d.ok || d.queued) && pwrMeter) pwrMeter.has_prev = true;
       pwrStep = "result"; drawPower();
@@ -1994,6 +2052,48 @@ function pwrHead(title, back){
     '</div>';
 }
 
+// 서버가 받지 않은 보관 건은 **조용히 사라지지 않는다.** 사유를 적고, 사람이
+// 눌렀을 때만 치운다. 치우지 않으면 뒤의 입력까지 올라가지 못하므로 사유와 함께
+// 그 사실도 적는다.
+function pwrBlockWarn(){
+  if (!pwrBlocked) return "";
+  if (pwrBlockAsk) {
+    return '<div class="pwarn">' + t("pw_blocked_ask", {n: pwrBlocked}) +
+      '<div class="pbtns" style="margin-top:8px">' +
+        '<button aria-pressed="true" onclick="pwrDiscard()">' + t("pw_blocked_yes") + '</button>' +
+        '<button class="ghost" onclick="pwrBlockCancel()">' + t("cancel") + '</button>' +
+      '</div></div>';
+  }
+  return '<div class="pwarn">' + t("pw_blocked", {n: pwrBlocked}) +
+    (pwrBlockedReason ? '<div style="font-weight:500;font-size:12px;margin-top:4px;color:#FCA5A5">' +
+      esc(pwrBlockedReason) + '</div>' : '') +
+    '<div style="font-weight:500;font-size:12px;margin-top:4px;color:#FCA5A5">' +
+      t("pw_blocked_note") + '</div>' +
+    '<div class="pbtns" style="margin-top:8px">' +
+      '<button class="ghost" onclick="pwrBlockAskOn()">' +
+        t("pw_blocked_clear", {n: pwrBlocked}) + '</button>' +
+    '</div></div>';
+}
+
+function pwrBlockAskOn(){ pwrBlockAsk = true; drawPower(); }
+function pwrBlockCancel(){ pwrBlockAsk = false; drawPower(); }
+
+function pwrDiscard(){
+  pwrBlockAsk = false; pwrBusy = true; drawPower();
+  fetch("/api/mrv/discard", {method:"POST"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      pwrBusy = false;
+      if (d && d.ok) {
+        pwrBlocked = 0; pwrBlockedReason = null;
+        pwrMsg = t("pw_blocked_done");
+        if (typeof d.pending === "number") pwrPending = d.pending;
+      }
+      drawPower();
+    })
+    .catch(function(){ pwrBusy = false; pwrMsg = t("pw_err_offline"); drawPower(); });
+}
+
 // 시계가 틀어진 장비는 아무 단계에서도 보낼 수 없다. 누르고 나서 알게 하지 않고
 // 먼저 띄운다 — 틀린 시각의 전력은 기준선 기간을 조용히 오염시킨다(②).
 function pwrClockWarn(){
@@ -2003,10 +2103,27 @@ function pwrClockWarn(){
          t("pw_clock_bad_sub") + '</div></div>';
 }
 
+// 계측기의 unit 은 **내부 저장 규약**이다(mrv_meters.unit 기본값 'kWh_interval' —
+// 이미 구간 증분으로 정규화됐다는 표시). 그것을 기계실 화면에 그대로 찍으면 바로
+// 옆 키패드가 적은 'kWh' 와 달라 보이고, 4언어 어디에도 번역이 없다. 사람이 읽을
+// 단위로 바꿔 보여 준다. 모르는 토큰은 그대로 둔다 — 틀린 단위를 지어내지 않는다.
+var PWR_UNIT_LABEL = {
+  kWh_interval:"kWh", kWh:"kWh", Wh:"Wh", MWh:"MWh",
+  mg_l:"mg/L", "mg/L":"mg/L", degC:"°C", pH:"pH", mV:"mV", mS_cm:"mS/cm"
+};
+function pwrUnitLabel(u){
+  u = String(u == null ? "" : u);
+  if (!u) return "kWh";
+  if (PWR_UNIT_LABEL[u]) return PWR_UNIT_LABEL[u];
+  // 'xxx_interval' 꼴은 뒤의 규약 표시만 떼면 단위가 남는다.
+  var base = u.replace(/_interval$/, "");
+  return PWR_UNIT_LABEL[base] || base;
+}
+
 function pwrMeterLine(m){
   return '<span class="pname">' + esc(m.label) + '</span>' +
     (m.is_aeration ? '<span class="aer">' + t("pw_aeration") + '</span>' : '') +
-    '<span class="punit">' + esc(m.unit || "kWh") + '</span>';
+    '<span class="punit">' + esc(pwrUnitLabel(m.unit)) + '</span>';
 }
 
 function drawPowerList(){
@@ -2022,7 +2139,7 @@ function drawPowerList(){
           '<span style="color:#64748B;font-size:20px;flex:0 0 auto">›</span></div>';
       }).join("") + '</div>';
   }
-  return pwrClockWarn() + body +
+  return pwrClockWarn() + pwrBlockWarn() + body +
     (pwrPending ? '<div class="pnote" style="margin-top:6px">' + t("pw_pending_note") + '</div>' : '') +
     '<div class="pbtns">' +
       '<button class="ghost" onclick="loadMeters()"' + (pwrBusy ? " disabled" : "") + '>' +
@@ -2100,6 +2217,10 @@ function drawPowerResult(){
       (r.rejected_reason ? " — " + esc(r.rejected_reason) : ""));
   } else {
     lines.push(pwrErrText(r));
+    // 서버가 받지 않은 경우(code: refused). 사유를 그대로 보여 준다 — "저장했는데
+    // KPI 가 안 변한다" 를 화면 앞에서 바로 알 수 있어야 한다.
+    if (r.rejected) lines.push(t("pw_rejected", {n: r.rejected}) +
+      (r.rejected_reason ? " — " + esc(r.rejected_reason) : ""));
     if (r.queued) lines.push(t("pw_pending_note"));
   }
   if (pwrPending) lines.push(t("pw_pending", {n: pwrPending}));
@@ -2667,6 +2788,8 @@ def serve(
     on_mrv_unlink=None,
     get_mrv_meters=None,
     on_mrv_power=None,
+    # 서버가 받지 않아 멈춘 보관분을 사람의 확인을 받아 치운다.
+    on_mrv_discard=None,
     mode="aquaculture",
     on_set_mode=None,
 ) -> ThreadingHTTPServer | None:
@@ -2823,6 +2946,9 @@ def serve(
             if self.path == "/api/mrv/meters" and get_mrv_meters is not None:
                 # 서버에 물어보므로 몇 초 걸릴 수 있다.
                 self._send(200, json.dumps(get_mrv_meters()).encode(), "application/json")
+                return
+            if self.path == "/api/mrv/discard" and on_mrv_discard is not None:
+                self._send(200, json.dumps(on_mrv_discard()).encode(), "application/json")
                 return
             if self.path == "/api/mrv/power" and on_mrv_power is not None:
                 body = self._body()

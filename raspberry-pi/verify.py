@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import configparser
 import math
 import os
 import sys
@@ -184,6 +185,152 @@ print("\n⑦ 전 구간 — 이력 DB → 이상탐지 → 운전 권고")
 rows = store(drop)
 last = {k: v for k, v in rows[-1].items() if k != "t"}
 check("급락한 수조에 권고가 선다", codes(last, anomaly.detect(rows), rows), [("warn", "do_low")])
+
+
+# ── 이하 ⑧⑨⑩ 은 "코드가 서로 어긋나지 않는가" 를 본다. 판정과 달리 센서도
+#    데이터도 필요 없고, 한 번 어긋나면 현장에서 조용히 터지는 종류다.
+
+print("\n⑧ 꾸러미 목록 — 수집기가 쓰는 모듈이 장비에 실제로 들어가는가")
+# modes.py 가 release.PAYLOAD 와 install.sh 의 MODULES 에서 빠져 있어, 현장 장비의
+# 모드가 양식장으로 굳고 「MRV 연결」 메뉴가 아예 뜨지 않은 일이 있었다. 선택
+# import 는 빠진 모듈을 조용히 None 으로 만들기 때문에 장비는 오류 하나 내지 않는다.
+# 그래서 사람의 기억이 아니라 여기서 대조한다.
+_SRC = Path(__file__).resolve().parent
+_RELEASE, _INSTALL = _SRC / "release.py", _SRC / "install.sh"
+
+
+def repo_modules() -> set[str]:
+    """저장소 안의 모듈 이름(확장자 없이)."""
+    return {p.stem for p in _SRC.glob("*.py")}
+
+
+def imported_repo_modules(path: Path, known: set[str]) -> set[str]:
+    """그 파일이 import 하는 **저장소 안** 모듈. 선택 import 도 함께 센다."""
+    import ast
+    found: set[str] = set()
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                found.add(alias.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            found.add(node.module.split(".")[0])
+    return {name for name in found if name in known}
+
+
+def payload_names() -> list[str]:
+    """release.py 의 PAYLOAD. import 하지 않고 소스에서 읽는다 — release.py 는
+    cryptography 를 요구하고 그 꾸러미는 장비에 없다."""
+    import ast
+    tree = ast.parse(_RELEASE.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+                isinstance(t, ast.Name) and t.id == "PAYLOAD" for t in node.targets):
+            return [e.value for e in node.value.elts          # type: ignore[attr-defined]
+                    if isinstance(e, ast.Constant) and isinstance(e.value, str)]
+    return []
+
+
+def modules_names() -> list[str]:
+    """install.sh 의 MODULES=( … )."""
+    import re
+    text = _INSTALL.read_text(encoding="utf-8")
+    m = re.search(r"^MODULES=\(([^)]*)\)", text, re.MULTILINE)
+    return m.group(1).split() if m else []
+
+
+if not (_RELEASE.exists() and _INSTALL.exists()):
+    # 장비(/opt/shrimp365)에는 배포 도구가 없다. 거기서는 볼 것이 없으므로 건너뛴다.
+    print("  건너뜀  release.py·install.sh 가 없는 설치본입니다(장비에서는 정상)")
+else:
+    known = repo_modules()
+    needed = (imported_repo_modules(_SRC / "shrimp365_sensor.py", known)
+              | imported_repo_modules(_SRC / "verify.py", known))
+    payload, modules = set(payload_names()), set(modules_names())
+    check("수집기·자체점검이 쓰는 모듈이 전부 release.py 의 PAYLOAD 에 있다",
+          sorted(f"{n}.py" for n in needed if f"{n}.py" not in payload), [])
+    check("수집기·자체점검이 쓰는 모듈이 전부 install.sh 의 MODULES 에 있다",
+          sorted(f"{n}.py" for n in needed if f"{n}.py" not in modules), [])
+    # 두 목록이 어긋나면 새로 설치한 장비와 업데이트한 장비가 서로 다른 파일
+    # 집합으로 돈다 — 재현되지 않는 버그의 온상이다.
+    check("PAYLOAD 와 MODULES 가 같은 모듈 집합이다", sorted(payload ^ modules), [])
+    check("modes.py 가 꾸러미에 있다 (없으면 MRV 모드를 고를 수 없다)",
+          ("modes.py" in payload, "modes.py" in modules), (True, True))
+
+
+print("\n⑨ 전력 입력 가드 — 시계가 밀린 뒤 처음 쓰는 계측기도 막히는가")
+# mrv_clock_ok 는 연도만 본다. RTC 없는 파이는 1970년이 아니라 timesyncd 가 저장해
+# 둔 며칠~몇 주 전 시각으로 올라오는 쪽이 흔하고, 그 값은 연도 검사를 통과한다.
+# 계측기별 가드는 그 계측기를 한 번이라도 쓴 뒤에만 들으므로 전역 최대 전송 시각을
+# 함께 본다.
+_lasts = sensor.MrvLastReadings(os.path.join(tempfile.mkdtemp(), "mrv-last.json"))
+check("보낸 적이 없으면 막지 않는다", sensor.mrv_clock_regressed(_lasts, "2026-05-01T00:00:00+00:00"), False)
+_lasts.put("mtr_blower", "2026-05-01T00:00:00+00:00", 128450.6)
+check("같은 시각은 통과", sensor.mrv_clock_regressed(_lasts, "2026-05-01T00:00:00+00:00"), False)
+check("30초 되돌아간 것은 통과(NTP 보정 여유)",
+      sensor.mrv_clock_regressed(_lasts, "2026-04-30T23:59:30+00:00"), False)
+check("2분 되돌아가면 거부", sensor.mrv_clock_regressed(_lasts, "2026-04-30T23:58:00+00:00"), True)
+# **다른** 계측기로 보내도 막혀야 한다 — 이것이 계측기별 가드가 못 잡던 구멍이다.
+check("한 달 밀린 시계는 처음 쓰는 계측기에서도 거부",
+      sensor.mrv_clock_regressed(_lasts, "2026-04-01T09:00:00+00:00"), True)
+check("전역 최대 시각은 계측기와 무관하다", _lasts.max_ts(), "2026-05-01T00:00:00+00:00")
+# max_ts 를 적지 않던 옛 파일에서도 가드가 들어야 한다.
+_old = Path(tempfile.mkdtemp()) / "mrv-last.json"
+_old.write_text('{"meters": {"m1": {"value": 10.0, "ts": "2026-05-01T00:00:00+00:00",'
+                ' "last_ts": "2026-05-01T00:00:00+00:00"}}}', encoding="utf-8")
+check("max_ts 가 없는 옛 파일은 계측기 시각에서 끌어낸다",
+      sensor.MrvLastReadings(_old).max_ts(), "2026-05-01T00:00:00+00:00")
+
+# 서버가 200 으로 "전부 거부" 를 알려 온 응답을 성공으로 읽지 않는가.
+# (app/api/mrv/ingest/readings/route.ts — 응답은 항상 200 이고 결과는 본문에 있다)
+check("보낸 건수만큼 받아들여졌는지로 판정한다",
+      [sensor._mrv_taken({"accepted": 2, "deduped": 0}),
+       sensor._mrv_taken({"accepted": 0, "deduped": 1}),
+       sensor._mrv_taken({"accepted": 0, "deduped": 0})], [2, 1, 0])
+check("거부 사유 첫 줄을 화면에 넘긴다",
+      sensor._mrv_rejected({"rejected": [{"index": 0, "reason": "out of scope"}]}),
+      (1, "out of scope"))
+
+
+print("\n⑩ 설정 파일 쓰기 — 끝 개행이 없는 파일에 키를 잃지 않는가")
+# [mrv] 가 마지막 구간이고 파일이 개행으로 끝나지 않으면, 적으려는 키가 마지막 줄에
+# 그대로 이어 붙어 **키가 사라지고 원래 값까지 깨진다**(함수는 True 를 돌려주므로
+# 화면은 "연결 완료" 를 적는다).
+_cfgdir = Path(tempfile.mkdtemp())
+
+
+def _written(name: str, text: str, writer) -> configparser.ConfigParser:
+    path = _cfgdir / name
+    path.write_text(text, encoding="utf-8")
+    ok = writer(path)
+    if not ok:
+        fails.append(f"{name}: 설정 파일을 쓰지 못했습니다")
+    parsed = configparser.ConfigParser()
+    parsed.read_string(path.read_text(encoding="utf-8"))
+    return parsed
+
+
+_mrv = _written(
+    "mrv.ini",
+    "[server]\ndevice_key = DK\n\n[mrv]\nbuffer_path = /x/y.db",   # 끝 개행 없음
+    lambda p: sensor.save_mrv_api_key(p, "KEY123", "site_1"))
+check("[mrv] api_key 가 남는다", _mrv.get("mrv", "api_key", fallback=None), "KEY123")
+check("[mrv] site_id 가 남는다", _mrv.get("mrv", "site_id", fallback=None), "site_1")
+check("앞 줄(buffer_path)이 깨지지 않는다",
+      _mrv.get("mrv", "buffer_path", fallback=None), "/x/y.db")
+
+_nut = _written(
+    "nutrient.ini",
+    "[device]\nmode = smartfarm\n\n[nutrient]\ntarget_ec = 1.8",    # 끝 개행 없음
+    lambda p: sensor.save_nutrient(p, {"enabled": True}))
+check("[nutrient] enabled 가 남는다", _nut.get("nutrient", "enabled", fallback=None), "true")
+check("앞 줄(target_ec)이 깨지지 않는다",
+      _nut.get("nutrient", "target_ec", fallback=None), "1.8")
+
+# 전력 보관함과 수질 보관함이 같은 파일이면 수질 전송이 영구히 막힌다.
+check("같은 경로를 같다고 본다",
+      sensor._same_path("/var/lib/shrimp365/queue.db", "/var/lib/shrimp365/./queue.db"), True)
+check("다른 경로는 다르다고 본다",
+      sensor._same_path("/var/lib/shrimp365/queue.db", "/var/lib/shrimp365/mrv-power.db"), False)
 
 print()
 if fails:

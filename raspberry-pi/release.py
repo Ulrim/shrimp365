@@ -47,10 +47,16 @@ KEY_PATH = HERE / "secrets" / "release-key.pem"
 # 이름을 하나하나 적어 두어, 목록에 없는 새 파일이 보이면 꾸러미 전체를 거부했다.
 # 그래서 1.9.0 앞에 updater.py 만 바꾼 1.8.1 을 한 번 내보내야 했다(README 참고).
 # 1.8.1 부터는 이름의 모양으로 검사하므로 이 과정은 다시 필요하지 않다.
+# **모듈을 새로 만들면 이 목록과 install.sh 의 MODULES 에 함께 넣어라.** 수집기는
+# 선택 import 로 모듈을 받으므로, 꾸러미에서 빠져도 조용히 None 이 되어 그 기능만
+# 사라진다 — modes.py 가 빠져 현장 장비의 모드가 양식장으로 굳고 MRV 연결 메뉴가
+# 아예 뜨지 않은 일이 실제로 있었다. verify.py 의 ⑧ 이 두 목록을 대조한다.
 PAYLOAD = [
     "shrimp365_sensor.py", "display.py", "webui.py", "wifi.py",
     "buffer.py", "history.py", "updater.py",
     "limits.py", "anomaly.py", "advice.py",
+    # 운전 모드 판단. 빠지면 모드가 양식장으로 굳어 MRV 전력 입력에 닿을 길이 없다.
+    "modes.py",
     # 판정 자체점검. 장비에서 바로 돌려 보일 수 있어야 성능검증 자리에서 쓸모가 있다.
     "verify.py",
 ]

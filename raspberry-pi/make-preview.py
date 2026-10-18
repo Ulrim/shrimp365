@@ -31,6 +31,15 @@ STAMP = "2026-08-06 14:32:05"
 
 
 def base_state(**over) -> dict:
+    """미리보기 한 장면.
+
+    `_open` 은 **그 장면에서 열어 둘 패널**이다("power" 또는 "mrv"). 패널은 화면
+    코드가 사람 손가락으로 여는 것이라 상태만 바꿔서는 열리지 않는다 — 그런데
+    탭 이름은 「전력 입력 패널」, 「연결 코드」라고 적혀 있었다. **이름이 말하는
+    화면과 보이는 화면이 다른 미리보기는 없는 것만 못하다**(사람이 그것을 보고
+    "되는구나" 라고 판단한다). `main()` 이 이 키를 떼어 `__OPENERS__` 로 넘기므로
+    장비가 받는 상태에는 남지 않는다.
+    """
     state = {
         "values": dict(VALUES), "status": "sent 14:32", "updated_at": STAMP,
         "errors": {}, "serial": "10000000c0ffee01", "pending": 0,
@@ -42,6 +51,7 @@ def base_state(**over) -> dict:
         "mrv_pairing": False, "mrv_pair_code": None, "mrv_pair_error": None,
         "mrv_meters": [], "mrv_pending": 0, "mrv_last": None, "mrv_clock_ok": True,
         "mrv_recent": [], "mrv_today": 0,
+        "mrv_blocked": 0, "mrv_blocked_reason": None, "mrv_pair_url": "",
         # 운전 모드. 기본은 양식장이고, 센서를 켜 둔 장비로 본다.
         "mode": "aquaculture", "sensors_on": True,
     }
@@ -109,15 +119,36 @@ STATES = [
         mode="mrv", sensors_on=False, values={}, status="14:32",
         linked=False, account=None, tank=None, farm=None)),
     ("MRV · 연결 코드", base_state(
+        _open="mrv",
         mode="mrv", sensors_on=False, values={}, status="14:32",
         linked=False, account=None, tank=None, farm=None,
-        mrv_pairing=True, mrv_pair_code="730412", pair_url="www.shrimp365.kr")),
+        # 안내 주소는 MRV 창구의 호스트다. 수질 페어링만 채우는 pair_url 을 쓰면
+        # endpoint 가 다른 호스트인 장비에서 틀린 주소를 안내한다.
+        mrv_pairing=True, mrv_pair_code="730412",
+        mrv_pair_url="www.shrimp365.kr")),
+    ("MRV · 연결 코드 실패", base_state(
+        _open="mrv",
+        mode="mrv", sensors_on=False, values={}, status="14:32",
+        linked=False, account=None, tank=None, farm=None,
+        mrv_pairing=True, mrv_pair_code=None,
+        mrv_pair_error="인터넷 연결을 확인하세요")),
     ("MRV · 기본 화면(연결됨)", base_state(
         mode="mrv", sensors_on=False, values={}, status="14:32",
         mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
         mrv_recent=MRV_RECENT, mrv_today=2,
         mrv_last="브로워 분전반 전송 완료 (14:30)")),
     ("MRV · 전력 입력 패널", base_state(
+        _open="power",
+        mode="mrv", sensors_on=False, values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_recent=MRV_RECENT, mrv_today=2)),
+    ("MRV · 지침 입력(키패드)", base_state(
+        _open="power_entry",
+        mode="mrv", sensors_on=False, values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_recent=MRV_RECENT, mrv_today=2)),
+    ("MRV · 첫 지침(기준점)", base_state(
+        _open="power_entry_first",
         mode="mrv", sensors_on=False, values={}, status="14:32",
         mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
         mrv_recent=MRV_RECENT, mrv_today=2)),
@@ -126,6 +157,12 @@ STATES = [
         mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
         mrv_recent=MRV_RECENT, mrv_today=1, mrv_pending=3,
         mrv_last="순환펌프 보관 — 회선 복구 시 전송 (14:28)")),
+    ("MRV · 서버가 받지 않은 보관분", base_state(
+        mode="mrv", sensors_on=False, values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_recent=MRV_RECENT, mrv_today=0, mrv_pending=3, mrv_blocked=2,
+        mrv_blocked_reason="meter mtr_pump is out of scope for this api key",
+        mrv_last="보관분 전송 중단 — meter mtr_pump is out of scope for this api key")),
     ("MRV · 장비 시계 이상", base_state(
         mode="mrv", sensors_on=False, values={}, status="14:32",
         mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
@@ -214,6 +251,7 @@ SHELL_CSS = """
 MOCK = """
 <script>
 var STATES = __STATES__, HIST = __HIST__, SENSORS = __SENSORS__;
+var OPENERS = __OPENERS__;
 var SCAN = __SCAN__, AUTO = __AUTO__;
 var WIFI_NETWORKS = __WIFI_NETWORKS__, wifiCur = __WIFI_START__;
 var MRV_HAS_PREV = __MRV_HAS_PREV__;
@@ -275,6 +313,23 @@ window.fetch = function(url, opts){
   return Promise.resolve({ ok:true, json: function(){ return Promise.resolve(body); } });
 };
 
+// 그 장면에서 열어 둘 패널을 연다. 탭 이름이 「전력 입력 패널」인데 기본 화면이
+// 보이면, 보는 사람은 없는 화면을 있다고 믿게 된다.
+function openFor(i){
+  var want = OPENERS[i];
+  if (!want) return;
+  if (want === "mrv" && typeof openMrv === "function") return openMrv();
+  if (typeof openPower !== "function") return;
+  openPower();
+  // 계측기를 고른 뒤라야 키패드와 2건 규칙 안내가 나온다. 목록 화면만 띄워 놓고
+  // 「전력 입력 패널」이라고 적어 두면, 보는 사람은 입력 화면을 본 적이 없으면서
+  // 봤다고 믿는다.
+  //   power_entry        직전 지침이 있는 계측기 (사용량이 바로 계산된다)
+  //   power_entry_first  직전 지침이 없는 계측기 (기준점으로만 쓰인다)
+  if (want === "power_entry" && typeof pwrPick === "function") pwrPick(0);
+  else if (want === "power_entry_first" && typeof pwrPick === "function") pwrPick(2);
+}
+
 window.addEventListener("message", function(e){
   if (e.data && typeof e.data.state === "number") {
     current = e.data.state;
@@ -283,8 +338,12 @@ window.addEventListener("message", function(e){
     if (typeof closeWifi === "function") closeWifi();
     if (typeof closePower === "function") closePower();
     tick();
+    openFor(current);
   }
 });
+
+// 첫 장면도 똑같이 — 0번 탭이 패널 탭일 수 있다.
+setTimeout(function(){ openFor(current); }, 0);
 </script>
 """
 
@@ -298,7 +357,10 @@ def main() -> int:
             .replace("__LANG__", "ko")
             .replace("__BANDS__", json.dumps(limits.BANDS))
             .replace("__NUT_BANDS__", json.dumps(limits.NUTRIENT_BANDS)))
+    # `_open` 은 미리보기만의 것이다. 장비가 받는 상태에 남기지 않는다.
+    openers = [st.pop("_open", None) for _, st in STATES]
     mock = (MOCK
+            .replace("__OPENERS__", json.dumps(openers))
             .replace("__STATES__", json.dumps(STATES, ensure_ascii=False))
             .replace("__HIST__", json.dumps(HIST))
             .replace("__SENSORS__", json.dumps(SENSORS, ensure_ascii=False))

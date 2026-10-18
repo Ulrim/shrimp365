@@ -1126,6 +1126,11 @@ def _api_base(endpoint: str) -> str:
     return endpoint.rsplit("/api/", 1)[0] if "/api/" in endpoint else endpoint.rstrip("/")
 
 
+def _host_of(base: str) -> str:
+    """주소에서 사람에게 읽어 줄 호스트만 남긴다(화면 안내문에 쓴다)."""
+    return base.replace("https://", "").replace("http://", "").rstrip("/")
+
+
 def _get_json(url: str, timeout: float = 10.0) -> tuple[int, dict]:
     req = urllib.request.Request(url, headers={"User-Agent": f"shrimp365-pi/{VERSION}"})
     try:
@@ -1159,6 +1164,40 @@ def _post_json(url: str, payload: dict, timeout: float = 10.0) -> tuple[int, dic
     except (urllib.error.URLError, TimeoutError, ValueError) as exc:
         log.warning("페어링 요청 실패: %s", exc)
         return 0, {}
+
+
+def _same_path(a: str, b: str) -> bool:
+    """두 설정 경로가 같은 파일을 가리키는가.
+
+    파일이 아직 없어도 판단해야 하므로 resolve(strict=False) 를 쓴다. 해석에
+    실패하면 문자열로 견준다 — 모르면 '다르다' 가 아니라 적힌 그대로 본다.
+    """
+    try:
+        return Path(a).expanduser().resolve() == Path(b).expanduser().resolve()
+    except (OSError, RuntimeError, ValueError):
+        return str(a).strip() == str(b).strip()
+
+
+def _append_config_lines(lines: list[str], extra: list[str]) -> None:
+    """구간이 파일 끝까지 이어진 경우 항목을 파일 끝에 붙인다.
+
+    **마지막 줄이 개행으로 끝나지 않으면 개행을 먼저 넣는다.** 이것을 빠뜨리면
+    적으려는 항목이 마지막 줄 뒤에 그대로 이어 붙어, 두 값이 한 줄로 뭉친다.
+    실제로 터지는 모양:
+
+        [mrv]
+        buffer_path = /var/lib/shrimp365/mrv-power.db      ← 끝 개행 없음
+        →  buffer_path = /var/lib/shrimp365/mrv-power.dbapi_key = K
+
+    적으려던 키는 사라지고(함수는 True 를 돌려주므로 화면은 "연결 완료" 를
+    적는다) 원래 있던 buffer_path 까지 깨져 오프라인 보관이 없어진다.
+
+    같은 판단을 쓰는 곳이 여럿이라 한 곳에 둔다 — 한쪽만 고쳐지면 그쪽에서
+    같은 일이 다시 일어난다.
+    """
+    if lines and not lines[-1].endswith("\n"):
+        lines[-1] += "\n"
+    lines.extend(extra)
 
 
 def save_sensor_config(config_path: Path, settings: dict[str, dict]) -> bool:
@@ -1203,9 +1242,8 @@ def save_sensor_config(config_path: Path, settings: dict[str, dict]) -> bool:
         out.append(line)
 
     if in_sensors:  # 파일이 [sensors] 로 끝난 경우
-        for name, value in wanted.items():
-            if name not in seen:
-                out.append(f"{name} = {value}\n")
+        _append_config_lines(out, [f"{name} = {value}\n"
+                                   for name, value in wanted.items() if name not in seen])
 
     try:
         config_path.write_text("".join(out), encoding="utf-8")
@@ -1264,7 +1302,7 @@ def save_mode(config_path: Path, mode: str) -> bool:
         if insert_at is not None:
             lines.insert(insert_at, f"mode = {mode}\n")
         elif in_device:                # [device] 가 파일 끝까지 이어졌다
-            lines.append(f"mode = {mode}\n")
+            _append_config_lines(lines, [f"mode = {mode}\n"])
         else:
             # [device] 구간이 없는 옛 설정 파일. 첫 구간 바로 앞에 만들어 넣는다 —
             # 구간 선언보다 앞에 키를 적으면 configparser 가 읽지 못하고, 머리말
@@ -1308,7 +1346,8 @@ def save_language(config_path: Path, lang: str) -> bool:
     else:
         if not in_webui:
             return False   # [webui] 구간이 없다
-        lines.append(f"language = {lang}\n")   # [webui] 가 파일 끝까지 이어졌다
+        # [webui] 가 파일 끝까지 이어졌다
+        _append_config_lines(lines, [f"language = {lang}\n"])
     try:
         config_path.write_text("".join(lines), encoding="utf-8")
         os.chmod(config_path, 0o600)
@@ -1349,7 +1388,7 @@ def save_ec_mode(config_path: Path, mode: str, unit: str) -> bool:
         if insert_at is not None:
             lines[insert_at:insert_at] = missing
         elif in_sensors:               # [sensors] 가 파일 끝까지 이어졌다
-            lines.extend(missing)
+            _append_config_lines(lines, missing)
         else:
             return False               # [sensors] 구간이 없다
     try:
@@ -1388,12 +1427,11 @@ def save_nutrient(config_path: Path, values: dict) -> bool:
     if missing:
         if insert_at is not None:
             lines[insert_at:insert_at] = missing
-        elif in_sec:
-            lines.extend(missing)
+        elif in_sec:                  # [nutrient] 가 파일 끝까지 이어졌다
+            _append_config_lines(lines, missing)
         else:
             # [nutrient] 구간이 아예 없는 예전 설정 파일 — 끝에 만들어 붙인다.
-            lines.append("\n[nutrient]\n")
-            lines.extend(missing)
+            _append_config_lines(lines, ["\n[nutrient]\n"] + missing)
     try:
         config_path.write_text("".join(lines), encoding="utf-8")
         os.chmod(config_path, 0o600)
@@ -1428,11 +1466,10 @@ def save_calibration(config_path: Path, offsets: dict[str, float]) -> bool:
     if missing:
         if insert_at is not None:
             lines[insert_at:insert_at] = missing
-        elif in_sec:
-            lines.extend(missing)
+        elif in_sec:                  # [calibration] 이 파일 끝까지 이어졌다
+            _append_config_lines(lines, missing)
         else:
-            lines.append("\n[calibration]\n")
-            lines.extend(missing)
+            _append_config_lines(lines, ["\n[calibration]\n"] + missing)
     try:
         config_path.write_text("".join(lines), encoding="utf-8")
         os.chmod(config_path, 0o600)
@@ -1506,12 +1543,11 @@ def save_mrv_api_key(config_path: Path, key: str, site_id: str = "") -> bool:
         if insert_at is not None:
             lines[insert_at:insert_at] = missing
         elif in_mrv:                   # [mrv] 가 파일 끝까지 이어졌다
-            lines.extend(missing)
+            _append_config_lines(lines, missing)
         else:
             # [mrv] 구간이 없는 옛 설정 파일. 끝에 만들어 붙인다 — 여기서 포기하면
             # 화면으로 페어링한 키가 재부팅과 함께 사라진다.
-            lines.append("\n[mrv]\n")
-            lines.extend(missing)
+            _append_config_lines(lines, ["\n[mrv]\n"] + missing)
 
     try:
         config_path.write_text("".join(lines), encoding="utf-8")
@@ -1689,6 +1725,10 @@ MRV_PAIR_POLL_S = 3.0
 # 자주 두드릴 필요가 없고, 회선이 돌아온 뒤 30초 안에는 올라간다.
 MRV_FLUSH_INTERVAL_S = 30
 MRV_FLUSH_BATCH = 20
+# 보관분을 몇 번 거부당하면 '거부로 확정' 으로 보고 사람에게 알릴지. 재전송 주기가
+# 30초이므로 1분 반쯤 지나 알린다 — 일시적인 서버 거부로 사람을 부르지 않기 위한
+# 여유이고, 그 뒤로도 **지우는 것은 사람이** 한다(MrvRejected).
+MRV_REJECT_RETRY_MAX = 3
 # 적산 지침(계량기 지침)과 구간 사용량(그 구간에 쓴 양). 서버가 아는 이름 그대로 쓴다.
 MRV_KINDS = ("cumulative_kwh", "interval_kwh")
 
@@ -1711,9 +1751,32 @@ MRV_TS_SKEW_MAX_S = 60.0
 
 
 def mrv_clock_ok(now: datetime | None = None) -> bool:
-    """장비 시계를 믿을 수 있는가. 틀린 시각의 전력은 보내지도, 쌓지도 않는다."""
+    """장비 시계를 믿을 수 있는가(연도만 본다). 그 아래는 정상 운전에 없는 값이다.
+
+    **이것만으로는 부족하다.** RTC 없는 라즈베리파이는 1970년으로 올라오는 것이
+    아니라, systemd-timesyncd 가 저장해 둔 **며칠~몇 주 전 시각**으로 올라오는 쪽이
+    흔하다. 그 값은 이 검사를 그대로 통과한다. 뒤로 밀린 시계는
+    mrv_clock_regressed 가 '지금까지 본 가장 늦은 전송 시각' 과 견주어 잡는다.
+    """
     now = now or datetime.now(timezone.utc)
     return now.year >= MRV_CLOCK_MIN_YEAR
+
+
+def mrv_clock_regressed(lasts: MrvLastReadings, now_iso: str) -> bool:
+    """지금 시각이 이 장비가 이미 보낸 시각보다 뒤로 밀렸는가.
+
+    계측기별 가드(mrv_submit_power 안)가 못 잡는 두 경우를 잡는다.
+      · 시계가 밀린 뒤 **처음** 쓰는 계측기 — 그 계측기에는 직전 기록이 없다
+      · mrv-last-reading.json 이 날아간 장비에 옛 시각으로 다시 쓰는 경우
+
+    여유 MRV_TS_SKEW_MAX_S 초는 NTP 가 몇 초 되돌리는 정상 보정을 거부하지 않기
+    위한 것이다. 그보다 크게 뒤로 가 있으면 지난 달 날짜가 박힌 kWh 가 되므로
+    거부한다 — 기준선 기간에 섞이면 되돌릴 수 없다.
+    """
+    newest = lasts.max_ts()
+    if not newest:
+        return False
+    return _mrv_gap_seconds(newest, now_iso) > MRV_TS_SKEW_MAX_S
 
 
 def _mrv_parse_iso(ts: str) -> datetime | None:
@@ -1767,12 +1830,19 @@ class MrvLastReadings:
 
     같은 파일에 '오늘 보낸 건수' 도 함께 든다. 화면에만 두면 재부팅으로 0 이 되고,
     그 숫자는 작업자의 "오늘 이미 넣었나" 에 답하는 값이라 거짓이 되면 안 된다.
+
+    **계측기와 무관한 전역 최대 전송 시각(max_ts)도 든다.** 계측기별 가드는 그
+    계측기를 한 번이라도 쓴 뒤에만 듣는다 — 시계가 밀린 뒤 **처음** 쓰는 계측기는
+    그 가드를 그대로 통과한다. 전역 값은 "이 장비가 지금까지 본 가장 늦은 시각" 이라
+    계측기가 무엇이든 시계가 뒤로 간 것을 잡는다(mrv_clock_regressed).
     """
 
     def __init__(self, path: str | Path):
         self.path = Path(path)
         self._lock = threading.Lock()
         self._meters: dict[str, dict] = {}
+        # 계측기와 무관한, 지금까지 본 가장 늦은 전송 시각(ISO 문자열).
+        self._max_ts: str = ""
         # 오늘 보낸 건수. **파일에 남긴다** — 이 숫자는 작업자의 "오늘 지침을 이미
         # 넣었나" 에 답하는 값이라, 재부팅으로 0 이 되면 거짓을 말하게 된다.
         self._today: dict = {"date": "", "count": 0}
@@ -1792,6 +1862,14 @@ class MrvLastReadings:
             if isinstance(today, dict):
                 self._today = {"date": str(today.get("date") or ""),
                                "count": int(today.get("count") or 0)}
+            self._max_ts = str(raw.get("max_ts") or "")
+        # max_ts 를 적지 않던 옛 파일에서도 가드가 듣게, 계측기별 시각에서 끌어낸다.
+        # 적힌 값보다 늦은 계측기 시각이 있으면 그쪽을 쓴다.
+        for row in self._meters.values():
+            for key in ("last_ts", "ts"):
+                stamp = str(row.get(key) or "")
+                if stamp > self._max_ts:
+                    self._max_ts = stamp
 
     def get(self, meter_id: str) -> dict | None:
         with self._lock:
@@ -1803,6 +1881,11 @@ class MrvLastReadings:
         row = self.get(meter_id)
         return bool(row and row.get("value") is not None and row.get("ts"))
 
+    def max_ts(self) -> str:
+        """계측기와 무관하게, 지금까지 본 가장 늦은 전송 시각."""
+        with self._lock:
+            return self._max_ts
+
     def put(self, meter_id: str, ts: str, value: float | None = None) -> None:
         """보낸 시각을 남긴다. value 를 주면 지침 사슬까지 갱신한다."""
         with self._lock:
@@ -1812,6 +1895,8 @@ class MrvLastReadings:
                 row["value"] = float(value)
                 row["ts"] = ts
             self._meters[meter_id] = row
+            if ts > self._max_ts:
+                self._max_ts = ts
         self._flush()
 
     def bump_today(self, n: int = 1) -> int:
@@ -1832,8 +1917,8 @@ class MrvLastReadings:
 
     def _flush(self) -> None:
         with self._lock:
-            payload = json.dumps({"meters": self._meters, "sent_today": self._today},
-                                 ensure_ascii=False)
+            payload = json.dumps({"meters": self._meters, "sent_today": self._today,
+                                  "max_ts": self._max_ts}, ensure_ascii=False)
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             # 쓰다가 전원이 나가도 옛 파일이 남게 임시 파일에 쓰고 갈아 끼운다.
@@ -1936,13 +2021,49 @@ def mrv_fetch_meters(base: str, api_key: str) -> dict:
 
 
 def _mrv_send_batch(base: str, api_key: str, body: dict) -> tuple[bool, dict, str]:
-    """계측값 배치를 올린다. (성공?, 서버 결과, 사유) 를 돌려준다."""
+    """계측값 배치를 올린다. (HTTP 성공?, 서버 결과, 사유) 를 돌려준다.
+
+    **첫 칸은 "서버가 받았다" 가 아니라 "요청이 200 으로 왔다" 다.** 수집 창구는
+    일부 건이 거부돼도 200 에 {accepted, deduped, rejected} 로 결과를 적어 보낸다
+    (app/api/mrv/ingest/readings/route.ts 머리말). 그 결과를 보지 않으면 **전부
+    거부된 응답을 전송 성공으로 읽는다.** 판정은 _mrv_taken / _mrv_reject_reason.
+    """
     status, data = _mrv_request(f"{base}/api/mrv/ingest/readings", api_key, body)
     if status == 200 and isinstance(data, dict):
         return True, data, ""
     reason = (data.get("error") if isinstance(data, dict) else None) or (
         "인터넷 연결을 확인하세요" if not status else f"서버 오류 {status}")
     return False, {}, str(reason)[:120]
+
+
+def _mrv_count(result: dict, key: str) -> int:
+    try:
+        return int(result.get(key) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _mrv_taken(result: dict) -> int:
+    """서버가 **받아들인** 건수 = 저장(accepted) + 중복 흡수(deduped).
+
+    중복 흡수를 성공에 넣는 것은 그 건이 이미 서버에 있다는 뜻이기 때문이다 —
+    적산 지침은 직전 건을 함께 보내므로 deduped 는 정상 동작이다.
+    """
+    return _mrv_count(result, "accepted") + _mrv_count(result, "deduped")
+
+
+def _mrv_rejected(result: dict) -> tuple[int, str]:
+    """거부된 건수와 그 첫 사유. 사유는 화면에 그대로 띄운다."""
+    rows = result.get("rejected") if isinstance(result, dict) else None
+    if isinstance(rows, list):
+        reason = ""
+        for row in rows:
+            if isinstance(row, dict) and row.get("reason"):
+                reason = str(row["reason"])[:120]
+                break
+        return len(rows), reason
+    # 건수만 돌려주는 모양에도 대비한다(사유는 알 수 없다).
+    return _mrv_count(result, "rejected"), ""
 
 
 def mrv_submit_power(base: str, api_key: str, meter_id: str, value: float, kind: str,
@@ -1955,10 +2076,11 @@ def mrv_submit_power(base: str, api_key: str, meter_id: str, value: float, kind:
     그 사실을 화면이 적는다.
 
     돌려주는 것
-      ok        서버까지 갔는가
+      ok        서버가 **받아 저장했는가**. 200 을 받았어도 전부 거부됐으면 False 다.
       queued    회선이 끊겨 보관함에 쌓았는가 (값은 유실되지 않는다)
       countable KPI 에 산입될 수 있는 건이 있는가 (quality.ok)
       baseline  직전이 없어 기준점으로만 쓰이는가
+      code      실패 사유 분류. 'refused' 는 서버가 받지 않은 것이다(보관하지 않는다).
     """
     if kind not in MRV_KINDS:
         return {"ok": False, "error": "알 수 없는 입력 종류입니다", "code": "kind"}
@@ -1982,6 +2104,13 @@ def mrv_submit_power(base: str, api_key: str, meter_id: str, value: float, kind:
 
     ts = mrv_now_iso()
     prev = lasts.get(meter_id)
+
+    # ②-2 계측기와 무관하게 시계가 뒤로 밀렸는지 먼저 본다. 아래 계측기별 가드는
+    #     그 계측기를 한 번이라도 쓴 뒤에만 들으므로, 시계가 밀린 뒤 처음 쓰는
+    #     계측기(그리고 마지막 지침 파일이 날아간 장비)를 그냥 통과시킨다.
+    if mrv_clock_regressed(lasts, ts):
+        return {"ok": False, "error": "장비 시계가 뒤로 갔습니다(시각 확인 필요)",
+                "code": "clock"}
 
     # 같은 계측기에 같은 시각으로 두 건을 보내면 (계측기, 시각)이 겹쳐 **뒤 건이
     # 중복으로 흡수된다** — 저장은 성공으로 보이고 값만 사라진다. 그래서 계측기별로
@@ -2022,6 +2151,20 @@ def mrv_submit_power(base: str, api_key: str, meter_id: str, value: float, kind:
     ok, result, reason = (False, {}, "보관 중인 입력이 먼저 올라갑니다") if backlog \
         else _mrv_send_batch(base, api_key, body)
 
+    # ③ 200 을 받았어도 서버가 **아무것도 저장하지 않았을 수 있다.** 저장된 건이
+    #    하나도 없고 거부가 있으면 실패로 분류한다 — 성공으로 읽으면 화면은 초록
+    #    「전송했습니다」를 적고, 사슬(lasts.put)이 **서버에 없는 값**으로 전진해
+    #    다음 지침의 차분 기준이 틀어진다. 보관함에도 넣지 않는다: 스코프 밖
+    #    계측기처럼 거부가 확정된 건은 몇 번을 다시 올려도 들어가지 않고 큐만 막는다.
+    accepted = _mrv_count(result, "accepted") if ok else 0
+    rejected_n, reject_reason = _mrv_rejected(result) if ok else (0, "")
+    if ok and accepted == 0 and rejected_n > 0:
+        log.warning("전력 입력이 서버에서 거부되었습니다(%s).", reject_reason or "사유 미확인")
+        return {"ok": False, "queued": False, "baseline": baseline,
+                "accepted": 0, "deduped": _mrv_count(result, "deduped"),
+                "rejected": rejected_n, "rejected_reason": reject_reason or None,
+                "error": reject_reason or "서버가 받지 않았습니다", "code": "refused"}
+
     # 보관으로 돌아가도 남긴다 — 보관된 payload 가 이미 [직전, 지금] 쌍을
     # 들고 있으므로, 다음 지침은 '지금' 을 직전으로 삼아야 사슬이 이어진다.
     # 구간 사용량은 사슬을 건드리지 않고 시각만 남긴다.
@@ -2032,17 +2175,14 @@ def mrv_submit_power(base: str, api_key: str, meter_id: str, value: float, kind:
         # "오늘 3건 보냄" 과 "미전송 3건" 이 같은 건을 두 번 말하게 된다.
         lasts.bump_today(1)
         quality = result.get("quality") if isinstance(result.get("quality"), dict) else {}
-        rejected = result.get("rejected")
         return {
             "ok": True,
             "queued": False,
             "baseline": baseline,
-            "accepted": int(result.get("accepted") or 0),
-            "deduped": int(result.get("deduped") or 0),
-            "rejected": len(rejected) if isinstance(rejected, list) else 0,
-            "rejected_reason": (rejected[0].get("reason")
-                                if isinstance(rejected, list) and rejected
-                                and isinstance(rejected[0], dict) else None),
+            "accepted": accepted,
+            "deduped": _mrv_count(result, "deduped"),
+            "rejected": rejected_n,
+            "rejected_reason": reject_reason or None,
             "quality": {k: int(quality.get(k) or 0) for k in ("ok", "suspect", "bad")},
             "countable": int((quality or {}).get("ok") or 0) > 0,
         }
@@ -2057,11 +2197,67 @@ def mrv_submit_power(base: str, api_key: str, meter_id: str, value: float, kind:
             "error": reason, "code": "backlog" if backlog else "offline"}
 
 
+class MrvRejected:
+    """재전송에서 **서버가 받지 않은** 보관 행을 세어 둔다.
+
+    왜 세는가. 거부된 행을 지우면 사람이 적은 지침이 조용히 사라지고(🔴), 안 지우면
+    큐가 영원히 그 행에 막힌다. 계측기가 정말 지워졌거나 다른 사이트로 재페어링한
+    뒤라면 그 행은 무엇을 해도 들어가지 않는다. 그래서 몇 번 다시 시도해 본 뒤
+    **'거부로 확정' 으로 표시만 하고 지우지는 않는다** — 화면이 사유와 함께 알리고,
+    사람이 [치우기] 를 눌러야 지워진다.
+
+    횟수를 메모리에만 두는 이유: buffer.py 에는 시도 횟수를 적을 자리가 없고, 그
+    파일은 수질 전송도 함께 쓰므로 손대지 않는다. 재부팅하면 다시 0 에서 세므로,
+    틀리는 방향은 '조용히 버린다' 가 아니라 '한 번 더 시도한다' 쪽이다.
+    """
+
+    def __init__(self, limit: int = MRV_REJECT_RETRY_MAX):
+        self.limit = limit
+        self._tries: dict[int, int] = {}
+        self._confirmed: dict[int, str] = {}
+
+    def count(self, row_id: int, reason: str) -> bool:
+        """거부를 한 번 세고, 확정 단계에 이르렀는지 돌려준다."""
+        self._tries[row_id] = self._tries.get(row_id, 0) + 1
+        if self._tries[row_id] >= self.limit:
+            self._confirmed[row_id] = reason
+            return True
+        return False
+
+    def forget(self, row_id: int) -> None:
+        """올라갔거나 지워진 행은 잊는다."""
+        self._tries.pop(row_id, None)
+        self._confirmed.pop(row_id, None)
+
+    def ids(self) -> list[int]:
+        return sorted(self._confirmed)
+
+    def reason(self) -> str:
+        for row_id in sorted(self._confirmed):
+            if self._confirmed[row_id]:
+                return self._confirmed[row_id]
+        return ""
+
+    def count_confirmed(self) -> int:
+        return len(self._confirmed)
+
+    def clear(self) -> None:
+        self._tries.clear()
+        self._confirmed.clear()
+
+
 def mrv_flush(store, base: str, api_key: str, batch: int, should_stop,
-              lasts: MrvLastReadings | None = None) -> int:
+              lasts: MrvLastReadings | None = None,
+              rejected: MrvRejected | None = None) -> int:
     """보관해 둔 전력 입력을 오래된 것부터 올린다. 수질 flush 와 독립이다.
 
     한 건이라도 실패하면 멈춘다 — 적산 지침은 순서가 바뀌면 구간값이 어긋난다.
+
+    **200 을 받은 것과 서버가 받은 것은 다르다.** 수집 창구는 일부 건이 거부돼도
+    200 에 {accepted, deduped, rejected} 로 결과를 적는다. 그 결과를 보지 않고
+    행을 지우면, 계측기가 지워졌거나 다른 사이트로 재페어링한 장비에서 **보관분이
+    전부 거부됐는데 큐에서 사라지고 화면에는 「전송 완료」가 뜬다.** 전력은 되돌릴
+    수 없는 기준선의 근거이므로, 보낸 건수가 전부 받아들여졌을 때만 행을 지운다.
     """
     if store is None or not api_key:
         return 0
@@ -2069,14 +2265,28 @@ def mrv_flush(store, base: str, api_key: str, batch: int, should_stop,
     for row_id, _recorded_at, payload in store.take(batch):
         if should_stop():
             break
-        if not isinstance(payload, dict) or not payload.get("readings"):
+        readings = payload.get("readings") if isinstance(payload, dict) else None
+        if not isinstance(readings, list) or not readings:
             store.drop([row_id])      # 깨진 행 하나가 전체를 막으면 안 된다
+            if rejected is not None:
+                rejected.forget(row_id)
             continue
-        ok, _result, reason = _mrv_send_batch(base, api_key, payload)
+        ok, result, reason = _mrv_send_batch(base, api_key, payload)
         if not ok:
             log.info("전력 보관분 재전송 중단(%s) — 다음 기회에 이어서 보냅니다.", reason)
             break
+        if _mrv_taken(result) < len(readings):
+            # 보낸 건수만큼 받아들여지지 않았다. 행을 남기고 멈춘다.
+            _n, why = _mrv_rejected(result)
+            why = why or "서버가 받지 않았습니다"
+            confirmed = rejected.count(row_id, why) if rejected is not None else False
+            log.warning("전력 보관분이 거부되었습니다(%s) — 큐를 멈춥니다.%s",
+                        why, " 거부로 확정했습니다(화면에서 치울 수 있습니다)."
+                        if confirmed else "")
+            break
         store.drop([row_id])
+        if rejected is not None:
+            rejected.forget(row_id)
         sent += 1
         if lasts is not None:
             lasts.bump_today(1)       # 늦게라도 올라갔으면 오늘 보낸 건수에 든다
@@ -2543,11 +2753,29 @@ def main() -> int:
     # 값)을 쌓을지 말지에 대한 것이고, 여기 담기는 것은 **사람이 계량기 앞에서 적은
     # 값**이다. 그것을 조용히 버리는 선택지는 두지 않는다.
     mrv_store = None
-    if buffer_mod is not None:
-        mrv_store = buffer_mod.Buffer(
-            _mrv_cfg("buffer_path", "/var/lib/shrimp365/mrv-power.db"))
+    mrv_buffer_path = _mrv_cfg("buffer_path", "/var/lib/shrimp365/mrv-power.db")
+    wq_buffer_path = (cfg.get("buffer", "path", fallback="/var/lib/shrimp365/queue.db")
+                      if cfg.has_section("buffer") else "/var/lib/shrimp365/queue.db")
+    if _same_path(mrv_buffer_path, wq_buffer_path):
+        # 위 주석이 설명하는 사고를 **검사로** 막는다. 같은 파일을 쓰면 수질
+        # flush_buffer 가 전력 payload({"source":"manual","readings":[…]})를 수질
+        # 창구로 올리고, 그 요청이 실패하면 수질 재전송 루프가 첫 실패에서 멈춰
+        # **수질 전송이 영구히 막힌다.** 조용히 고쳐 쓰지 않고 분명히 알린다.
+        log.error("[mrv] buffer_path 가 수질 보관함([buffer] path)과 같습니다: %s — "
+                  "전력 보관함을 열지 않습니다. 설정에서 두 경로를 다르게 적으세요. "
+                  "(그때까지 회선이 끊기면 전력 입력을 보관하지 못하고 화면이 실패로 알립니다.)",
+                  mrv_buffer_path)
+    elif buffer_mod is not None:
+        mrv_store = buffer_mod.Buffer(mrv_buffer_path)
         if not mrv_store.available:
             mrv_store = None
+    # 재전송에서 서버가 받지 않은 보관 행. 조용히 지우지 않고 사람에게 알린다.
+    mrv_rejected = MrvRejected()
+
+    def _mrv_blocked_state() -> dict:
+        """거부로 확정된 보관 행을 화면에 알릴 값. 화면과 재전송 루프가 함께 쓴다."""
+        return {"mrv_blocked": mrv_rejected.count_confirmed(),
+                "mrv_blocked_reason": mrv_rejected.reason() or None}
     mrv_pairing = {"active": False}
     # 마지막으로 받은 계측기 목록. 성공했을 때만 갈아 끼운다 — 회선이 끊긴 사이에도
     # 직전 목록으로 입력할 수 있어야 하고, 실패했다고 목록을 비우면 작업자는
@@ -2921,6 +3149,8 @@ def main() -> int:
                 "items": list(mrv_meters_holder["items"]),
                 "clock_ok": mrv_clock_ok(),
                 "pending": mrv_store.pending() if mrv_store is not None else 0,
+                "blocked": mrv_rejected.count_confirmed(),
+                "blocked_reason": mrv_rejected.reason() or None,
             }
 
         def ui_mrv_pair_start() -> dict:
@@ -2943,7 +3173,13 @@ def main() -> int:
                         _mrv_push_meters(mrv_fetch_meters(mrv_base, key))
                 finally:
                     mrv_pairing["active"] = False
-                    if state is not None and not mrv_auth["key"]:
+                    # 오류가 적혀 있으면 **화면을 닫지 않는다.** 여기서
+                    # mrv_pairing 을 내리면 webui 의 오류·만료 분기(d.mrv_pairing
+                    # 이 참일 때만 보인다)가 영영 보이지 않아, 회선이 끊긴 장비에서
+                    # [코드 받기] 가 아무 반응 없이 되돌아간다. 사람이 [닫기] 나
+                    # [다시 시도] 를 누를 때까지 사유를 띄워 둔다.
+                    if state is not None and not mrv_auth["key"] \
+                            and not state.snapshot().get("mrv_pair_error"):
                         state.update(mrv_pairing=False)
 
             threading.Thread(target=worker, daemon=True).start()
@@ -2978,6 +3214,28 @@ def main() -> int:
             log.info("화면에서 MRV 연결을 해제했습니다(파일 저장 %s).", saved)
             return {"ok": True, "saved": saved}
 
+        def ui_mrv_discard() -> dict:
+            """거부로 확정된 보관 행을 사람의 확인을 받아 치운다.
+
+            계측기가 지워졌거나 다른 사이트로 재페어링한 뒤라면 그 행은 몇 번을
+            올려도 들어가지 않고 큐만 막는다. 그렇다고 장비가 조용히 버릴 수는
+            없으므로, **확정된 행만** 사람이 눌렀을 때 지운다. 아직 확정되지 않은
+            행(재시도 중)은 손대지 않는다.
+            """
+            ids = mrv_rejected.ids()
+            if not ids or mrv_store is None:
+                return {"ok": False, "dropped": 0}
+            mrv_store.drop(ids)
+            for row_id in ids:
+                mrv_rejected.forget(row_id)
+            pending = mrv_store.pending()
+            log.warning("거부로 확정된 전력 보관분 %d건을 화면에서 치웠습니다.", len(ids))
+            if state is not None:
+                state.update(mrv_pending=pending,
+                             mrv_last=f"거부된 {len(ids)}건을 치웠습니다 ({time.strftime('%H:%M')})",
+                             **_mrv_blocked_state())
+            return {"ok": True, "dropped": len(ids), "pending": pending}
+
         def ui_mrv_power(payload: dict) -> dict:
             """화면에서 넣은 전력 한 건을 올린다.
 
@@ -3002,6 +3260,7 @@ def main() -> int:
             )
             pending = mrv_store.pending() if mrv_store is not None else 0
             result["pending"] = pending
+            result["blocked"] = mrv_rejected.count_confirmed()
             # 지침을 한 번 넣었으면 다음 입력은 첫 지침이 아니다. 목록을 다시
             # 받기 전에도 화면이 맞는 말을 하도록 여기서 고쳐 준다.
             if kind == "cumulative_kwh" and (result.get("ok") or result.get("queued")):
@@ -3096,6 +3355,7 @@ def main() -> int:
             on_mrv_unlink=ui_mrv_unlink,
             get_mrv_meters=ui_mrv_meters,
             on_mrv_power=ui_mrv_power,
+            on_mrv_discard=ui_mrv_discard,
             mode=mode_holder["mode"],
             on_set_mode=ui_set_mode,
         )
@@ -3106,6 +3366,11 @@ def main() -> int:
                      mrv_pending=mrv_store.pending() if mrv_store is not None else 0,
                      mrv_clock_ok=mrv_clock_ok(),
                      mrv_today=mrv_lasts.today(),
+                     # MRV 안내에 적을 주소. 수질 페어링만 채우는 pair_url 을 쓰면
+                     # [server] endpoint 가 다른 호스트인 장비에서 틀린 주소를
+                     # 안내한다 — MRV 창구의 호스트를 그대로 적는다.
+                     mrv_pair_url=_host_of(mrv_base),
+                     **_mrv_blocked_state(),
                      mode=mode_holder["mode"],
                      # MRV 모드 화면은 이 값으로 수질 칸을 보일지 정한다. 판정 기준은
                      # **설정에 켜 둔 센서가 있는가** 다 — 지금 값이 읽히는가가 아니다.
@@ -3164,13 +3429,18 @@ def main() -> int:
                 time.sleep(1)
             if mrv_store is None or not mrv_auth["key"] or not mrv_store.pending():
                 continue
+            before = mrv_rejected.count_confirmed()
             sent = mrv_flush(mrv_store, mrv_base, mrv_auth["key"],
-                             MRV_FLUSH_BATCH, _stopped_global, mrv_lasts)
-            if sent and state is not None:
-                state.update(
-                    mrv_pending=mrv_store.pending(),
-                    mrv_last=f"보관분 {sent}건 전송 완료 ({time.strftime('%H:%M')})",
-                )
+                             MRV_FLUSH_BATCH, _stopped_global, mrv_lasts,
+                             mrv_rejected)
+            blocked = mrv_rejected.count_confirmed()
+            if state is not None and (sent or blocked != before):
+                # "전송 완료" 는 **서버가 받은 건수**만 적는다. 거부로 멈췄으면
+                # 그 사실과 사유를 함께 올려 화면이 치울 수 있게 한다.
+                line = (f"보관분 {sent}건 전송 완료 ({time.strftime('%H:%M')})" if sent
+                        else f"보관분 전송 중단 — {mrv_rejected.reason() or '서버가 받지 않았습니다'}")
+                state.update(mrv_pending=mrv_store.pending(), mrv_last=line,
+                             mrv_today=mrv_lasts.today(), **_mrv_blocked_state())
             if sent:
                 log.info("보관해 둔 전력 입력 %d건을 전송했습니다.", sent)
 

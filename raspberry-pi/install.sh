@@ -22,7 +22,10 @@ CONF_DIR=/etc/shrimp365
 CONF="$CONF_DIR/config.ini"
 SERVICE_USER=shrimp365
 
-MODULES=(shrimp365_sensor.py display.py webui.py wifi.py buffer.py history.py updater.py limits.py anomaly.py advice.py verify.py)
+# 모듈을 새로 만들면 여기와 release.py 의 PAYLOAD 에 **함께** 넣는다. 한쪽에만
+# 넣으면 새로 설치한 장비와 업데이트한 장비가 서로 다른 파일 집합으로 돈다.
+# verify.py 의 ⑧ 이 두 목록을 대조한다.
+MODULES=(shrimp365_sensor.py display.py webui.py wifi.py buffer.py history.py updater.py limits.py anomaly.py advice.py modes.py verify.py)
 
 # 시스템 파일 — 모듈과 달리 /opt 밖으로 간다. 없으면 설치를 멈춘다.
 POLKIT_RULE=50-shrimp365-nm.rules
