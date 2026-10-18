@@ -559,8 +559,8 @@ function level(key, v){
   return within(b.warn, v) ? "warn" : "crit";
 }
 
-function esc(s){ return String(s).replace(/[&<>]/g, function(c){
-  return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c]; }); }
+function esc(s){ return String(s).replace(/[&<>"']/g, function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","'":"&#39;"}[c]; }); }
 
 // ── 화면 언어 ────────────────────────────────────────────────────────────────
 // 웹페이지와 같은 4종(ko/en/vi/id). 서버가 첫 언어를 __LANG__ 자리에 새겨 준다.

@@ -123,9 +123,12 @@ export interface PowerRow {
   recorded_at: string
 }
 
+/** 가장 최근 업로드보다 이만큼 앞서 끊긴 회로는 합계·과열 판정에서 뺀다(장비 stale_minutes 와 같다). */
+export const POWER_STALE_MIN = 30
+
 export interface PowerSummary {
-  /** 회로별 마지막 줄 — 인입(main) 먼저, 나머지는 이름순 */
-  circuits: PowerRow[]
+  /** 회로별 마지막 줄 — 인입(main) 먼저, 나머지는 이름순. lost = 다른 회로는 오는데 이 회로만 끊김 */
+  circuits: (PowerRow & { lost: boolean })[]
   /** 지금 전체 전력(W). 인입 계측이 있으면 그것, 없으면 분기 합(partial) */
   totalW: number | null
   partial: boolean
@@ -159,11 +162,16 @@ export function summarizePower(rows: PowerRow[]): PowerSummary {
     const s = total(group, "power_w")
     if (s) series.push({ t, w: s.v })
   }
-  const circuits = Array.from(latest.values()).sort((a, b) =>
-    a.circuit_type === "main" ? -1 : b.circuit_type === "main" ? 1 : a.circuit_id.localeCompare(b.circuit_id))
-  const now = total(circuits, "power_w")
-  const today = total(circuits, "energy_today_kwh")
   const newest = rows.length ? Math.max(...rows.map(r => new Date(r.recorded_at).getTime())) : null
+  // 끊긴 회로의 몇 시간 전 전력·어제 사용량·지난 과열 온도를 지금 값처럼 더하지 않는다.
+  const circuits = Array.from(latest.values(), r => ({
+    ...r,
+    lost: newest !== null && newest - new Date(r.recorded_at).getTime() > POWER_STALE_MIN * 60_000,
+  })).sort((a, b) =>
+    a.circuit_type === "main" ? -1 : b.circuit_type === "main" ? 1 : a.circuit_id.localeCompare(b.circuit_id))
+  const live = circuits.filter(c => !c.lost)
+  const now = total(live, "power_w")
+  const today = total(live, "energy_today_kwh")
   return {
     circuits,
     totalW: now ? now.v : null,

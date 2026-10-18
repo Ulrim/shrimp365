@@ -63,7 +63,11 @@ export function PowerCard({ tankId, tankName, now, mock = false }: {
   if (s.circuits.length === 0) return null
 
   const stale = now != null && s.newest != null && now.getTime() - s.newest > STALE_MIN * 60_000
+  // 장비 전체가 자정 전에 끊겼으면 마지막 "오늘 사용량" 은 어제 것이다.
+  const sameDay = now == null || s.newest == null || new Date(s.newest).toDateString() === now.toDateString()
+  const todayKwh = sameDay ? s.todayKwh : null
   const hot = s.circuits
+    .filter(c => !c.lost)
     .map(c => ({ c, level: breakerLevel(c.device_temp) }))
     .filter(h => h.level !== "")
     .sort((a, b) => (b.c.device_temp ?? 0) - (a.c.device_temp ?? 0))
@@ -122,7 +126,7 @@ export function PowerCard({ tankId, tankName, now, mock = false }: {
             </div>
             <div className="rounded-xl border border-border p-3 min-w-0">
               <p className="text-xs text-muted-foreground truncate">{pd.today}</p>
-              <p className="text-xl font-bold text-foreground tabular-nums mt-1">{s.todayKwh != null ? fmtKwh(s.todayKwh) : "—"}</p>
+              <p className="text-xl font-bold text-foreground tabular-nums mt-1">{todayKwh != null ? fmtKwh(todayKwh) : "—"}</p>
             </div>
           </div>
 
@@ -130,18 +134,19 @@ export function PowerCard({ tankId, tankName, now, mock = false }: {
             {s.circuits.map(c => {
               const type = asType(c.circuit_type)
               const Icon = ICON[type]
-              const lvl = breakerLevel(c.device_temp)
-              const st = c.state === 1 ? pd.on : c.state === 0 ? pd.off : pd.lost
+              const lvl = c.lost ? "" : breakerLevel(c.device_temp)
+              const state = c.lost ? null : c.state
+              const st = state === 1 ? pd.on : state === 0 ? pd.off : pd.lost
               return (
-                <li key={c.circuit_id} className="flex items-center gap-2 px-3 py-2 text-sm min-w-0">
+                <li key={c.circuit_id} className={`flex items-center gap-2 px-3 py-2 text-sm min-w-0 ${c.lost ? "opacity-60" : ""}`}>
                   <Icon className="w-4 h-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                   <div className="min-w-0 flex-1">
                     <p className="text-foreground truncate">{label(type)}</p>
                     <p className="text-xs text-muted-foreground truncate">{c.circuit_id}</p>
                   </div>
                   <span className={`text-xs rounded-full px-2 py-0.5 shrink-0 ${
-                    c.state === 1 ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                    : c.state === 0 ? "bg-muted text-muted-foreground"
+                    state === 1 ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                    : state === 0 ? "bg-muted text-muted-foreground"
                     : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
                   }`}>{st}</span>
                   <div className="text-right tabular-nums shrink-0 w-[4.5rem]" title={pd.colPower}>
