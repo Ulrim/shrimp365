@@ -57,6 +57,18 @@ class State:
             # 장비가 스스로 낸 판단. 통신과 무관하게 여기서 끝난다.
             "advice": [],          # 설비 운전 권고 (advice.py)
             "anomalies": [],       # 추세 이상징후 (anomaly.py)
+
+            # 탄소 MRV 전력 수기 입력. 수질 쪽 연결(linked/pairing)과 **별개**다 —
+            # 키도 창구도 다르고, 한쪽만 연결된 상태가 정상적으로 존재한다.
+            "mrv_linked": False,    # MRV 수집 키를 들고 있는가
+            "mrv_site_id": None,    # 연결된 사이트 번호
+            "mrv_pairing": False,   # MRV 연결 화면을 띄우는 중인가
+            "mrv_pair_code": None,
+            "mrv_pair_error": None,
+            "mrv_meters": [],       # 전력 계측기 목록(서버가 준 것만)
+            "mrv_pending": 0,       # 아직 못 올린 전력 입력 건수
+            "mrv_last": None,       # 마지막 전송 결과 한 줄
+            "mrv_clock_ok": True,   # 장비 시계를 믿을 수 있는가
         }
 
     def update(self, **kwargs) -> None:
@@ -313,6 +325,87 @@ PAGE = """<!doctype html>
   /* 푸터 버튼은 오른쪽에 한 덩어리로 모은다. 첫 버튼(설정)만 밀어 두고
      나머지는 붙여, 설정이 [연결 정보]/[기기 연결] 바로 옆에 오게 한다. */
   footer #action{margin-left:0}
+  footer #mrvbtn{margin-left:0}
+
+  /* 전력 입력 패널 — 기계실에서 장갑 낀 손가락으로 누른다.
+     800×480 전체를 덮고, 닫으면 측정값으로 돌아온다(화면 원칙). */
+  .power{
+    position:fixed;inset:0;background:#0B1120;z-index:40;
+    display:flex;flex-direction:column;padding:10px 16px 12px;
+  }
+  .pbody{flex:1;display:flex;gap:12px;min-height:0}
+  .pcol{flex:1;display:flex;flex-direction:column;min-width:0}
+  .plist{flex:1;overflow-y:auto;min-height:0;-webkit-overflow-scrolling:touch}
+  /* 계측기 한 줄. 손가락으로 누르므로 세로 52px 이상 잡는다. */
+  .prow{
+    display:flex;align-items:center;gap:10px;min-height:52px;
+    padding:9px 13px;margin-bottom:7px;cursor:pointer;
+    background:#111A2E;border:1px solid #22304C;border-radius:11px;
+  }
+  .prow:active{background:#16223C}
+  .prow .pname{font-size:16px;font-weight:700;flex:1;min-width:0;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .prow .punit{font-size:12px;color:#64748B;font-family:ui-monospace,monospace;flex:0 0 auto}
+  /* 폭기 여부 — 폭기 EI 가 이 플래그로 갈린다. 목록에서 반드시 보여야 한다. */
+  .aer{
+    font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;flex:0 0 auto;
+    border:1px solid #3B82F6;color:#60A5FA;
+  }
+  /* 숫자 키패드 — 한 칸 최소 44px(실제로는 더 크다). */
+  .pkeys{
+    flex:0 0 330px;display:grid;gap:6px;
+    grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(4,1fr);
+  }
+  .pkeys button{
+    min-height:44px;font:800 26px/1 ui-monospace,monospace;
+    background:#16223C;color:#E8EDF7;border:1px solid #22304C;border-radius:10px;cursor:pointer;
+  }
+  .pkeys button:active{background:#1E40AF}
+  .pbig{
+    font:800 46px/1 ui-monospace,monospace;font-variant-numeric:tabular-nums;
+    background:#0B1120;border:1px solid #2B3A57;border-radius:11px;
+    padding:12px 14px;margin:7px 0;min-height:64px;
+    display:flex;align-items:center;justify-content:flex-end;gap:8px;
+  }
+  .pbig small{font-size:16px;font-weight:700;color:#94A3B8}
+  .pbig.ph{color:#475569}
+  /* 지침 / 사용량 — 둘을 섞으면 구간값이 어긋난다. 무엇을 넣는지 늘 보이게 둔다. */
+  .pseg{display:flex;gap:6px}
+  .pseg button{
+    flex:1;min-height:48px;padding:7px 9px;border-radius:10px;cursor:pointer;
+    background:transparent;border:1px solid #22304C;color:#94A3B8;
+    font:700 14px/1.25 inherit;text-align:left;
+  }
+  .pseg button .ssub{display:block;font-size:11px;font-weight:500;color:#64748B;margin-top:3px}
+  .pseg button[aria-pressed="true"]{background:#1E40AF;border-color:#1E40AF;color:#fff}
+  .pseg button[aria-pressed="true"] .ssub{color:#C7D7FE}
+  .pnote{font-size:12px;color:#94A3B8;line-height:1.55;margin-bottom:6px}
+  .pnote b{color:#E8EDF7}
+  .pwarn{
+    font-size:13px;font-weight:700;line-height:1.5;padding:9px 12px;border-radius:10px;
+    margin-bottom:7px;background:#DC262618;color:#F87171;border:1px solid #DC2626;
+  }
+  .pbtns{display:flex;gap:8px;flex:0 0 auto;padding-top:8px}
+  .pbtns button{
+    flex:1;min-height:52px;border-radius:10px;cursor:pointer;
+    font:800 16px/1 inherit;background:#1E40AF;color:#fff;border:0;
+  }
+  .pbtns button.ghost{background:transparent;border:1px solid #22304C;color:#94A3B8}
+  .pbtns button:disabled{opacity:.45}
+  .pres{
+    flex:1;display:flex;flex-direction:column;justify-content:center;gap:9px;
+    background:#111A2E;border:1px solid #22304C;border-radius:13px;padding:14px 18px;
+  }
+  .pres.ok{border-color:#10B981}
+  .pres.hold{border-color:#D97706}
+  .pres.bad{border-color:#DC2626}
+  .pres h2{font-size:23px;font-weight:800}
+  .pres.ok h2{color:#34D399}
+  .pres.hold h2{color:#F59E0B}
+  .pres.bad h2{color:#F87171}
+  .pres .line{font-size:13.5px;color:#CBD5E1;line-height:1.5}
+  .pres .line b{font-family:ui-monospace,monospace;color:#E8EDF7}
+  button.act.pw{background:#047857}
 
   /* 연결 화면 — 버튼을 눌렀을 때만 덮는다 */
   .overlay{
@@ -355,6 +448,9 @@ PAGE = """<!doctype html>
   <span class="time" id="time"></span>
   <button class="act ghost" id="settings" type="button" onclick="openSettings()">설정</button>
   <button class="act" id="action" type="button"></button>
+  <!-- 전력 입력 바로가기. MRV 에 연결됐을 때만 뜬다 — 연결되지 않은 장비에
+       죽은 버튼을 두면 누르고 나서야 못 쓴다는 것을 알게 된다. -->
+  <button class="act pw" id="mrvbtn" type="button" hidden onclick="openPower()"></button>
 </footer>
 
 <div id="overlay"></div>
@@ -362,6 +458,7 @@ PAGE = """<!doctype html>
 <div id="setup"></div>
 <div id="wifi"></div>
 <div id="account"></div>
+<div id="power"></div>
 
 <script>
 // 값 칸의 표시 형식. **판정 숫자는 여기 없다** — limits.py 가 주입하는 BANDS 를
@@ -622,7 +719,72 @@ var I18N = {
   adv_temp_low:{ko:"히터 가동 점검",en:"Check the heater",vi:"Kiểm tra máy sưởi",id:"Periksa pemanas"},
   adv_temp_swing:{ko:"수온 급변 — 환수량·외기 유입 점검",en:"Temperature swing — check exchange volume and outside air",vi:"Nhiệt độ biến động — kiểm tra lượng thay nước và khí trời",id:"Suhu berayun — periksa volume ganti air dan udara luar"},
   adv_salinity_critical:{ko:"환수 중단 · 원수 염도 확인",en:"Stop water exchange · check source salinity",vi:"Ngừng thay nước · kiểm tra độ mặn nguồn",id:"Hentikan ganti air · periksa salinitas sumber"},
-  adv_salinity_shift:{ko:"염도 급변 — 환수량·원수 점검",en:"Salinity shift — check exchange volume and source",vi:"Độ mặn biến động — kiểm tra lượng thay nước và nguồn",id:"Salinitas bergeser — periksa volume ganti air dan sumber"}
+  adv_salinity_shift:{ko:"염도 급변 — 환수량·원수 점검",en:"Salinity shift — check exchange volume and source",vi:"Độ mặn biến động — kiểm tra lượng thay nước và nguồn",id:"Salinitas bergeser — periksa volume ganti air dan sumber"},
+  // ── 탄소 MRV 전력 수기 입력 ───────────────────────────────────────────────
+  // 이 화면도 4언어 전부 있어야 한다. 하나만 빠져도 그 언어에서는 키 이름이
+  // 그대로 노출돼 화면이 깨진 것처럼 보인다.
+  menu_mrv:{ko:"MRV 연결",en:"MRV link",vi:"Kết nối MRV",id:"Koneksi MRV"},
+  menu_mrv_sub:{ko:"탄소 MRV 전력 입력 연결",en:"Link for carbon MRV power entry",vi:"Kết nối nhập điện MRV",id:"Koneksi input daya MRV"},
+  mrv_title:{ko:"MRV 연결",en:"MRV link",vi:"Kết nối MRV",id:"Koneksi MRV"},
+  mrv_status:{ko:"연결 상태",en:"Status",vi:"Trạng thái",id:"Status"},
+  mrv_site:{ko:"사이트",en:"Site",vi:"Cơ sở",id:"Lokasi"},
+  mrv_hint:{ko:"전력(kWh)은 사람이 계량기를 읽어 넣습니다. 연결하면 이 화면에서 바로 넣을 수 있습니다.",en:"Power (kWh) is read off the meter by hand. Once linked, you can enter it right here.",vi:"Điện (kWh) do người đọc từ đồng hồ. Sau khi kết nối, có thể nhập ngay tại đây.",id:"Daya (kWh) dibaca dari meter oleh orang. Setelah tertaut, bisa diinput langsung di sini."},
+  mrv_get_code:{ko:"코드 받기",en:"Get a code",vi:"Lấy mã",id:"Ambil kode"},
+  mrv_unlink:{ko:"연결 해제",en:"Unlink",vi:"Ngắt kết nối",id:"Putuskan"},
+  mrv_unlink_ask:{ko:"MRV 연결을 끊습니다.<br>보관해 둔 전력 입력은 지우지 않고, 다시 연결하면 그대로 올라갑니다.",en:"This unlinks MRV.<br>Held power entries are kept and uploaded once linked again.",vi:"Ngắt kết nối MRV.<br>Các số liệu điện đang lưu vẫn được giữ và sẽ tải lên khi kết nối lại.",id:"Memutus koneksi MRV.<br>Input daya yang tersimpan tetap ada dan diunggah saat tertaut kembali."},
+  mrv_unlink_yes:{ko:"네, 연결 해제",en:"Yes, unlink",vi:"Vâng, ngắt",id:"Ya, putuskan"},
+  mrv_pair_title:{ko:"현장 장비를 연결해 주세요",en:"Link this field device",vi:"Vui lòng kết nối thiết bị hiện trường",id:"Hubungkan perangkat lapangan ini"},
+  mrv_pair_desc:{ko:"Shrimp365 웹에 로그인한 뒤 아래 코드를 입력하세요",en:"Log in to Shrimp365 on the web and enter the code below",vi:"Đăng nhập Shrimp365 trên web rồi nhập mã bên dưới",id:"Masuk ke Shrimp365 di web lalu masukkan kode di bawah"},
+  mrv_step1:{ko:"<b>{url}</b> 접속 → 로그인",en:"Open <b>{url}</b> → log in",vi:"Mở <b>{url}</b> → đăng nhập",id:"Buka <b>{url}</b> → masuk"},
+  mrv_step2:{ko:"탄소 MRV → 설정",en:"Carbon MRV → Settings",vi:"MRV carbon → Cài đặt",id:"MRV karbon → Pengaturan"},
+  mrv_step3:{ko:"「현장 장비 연결」 카드 열기",en:"Open the “Field device link” card",vi:"Mở thẻ “Kết nối thiết bị hiện trường”",id:"Buka kartu “Koneksi perangkat lapangan”"},
+  mrv_step4:{ko:"위 6자리 코드 입력",en:"Enter the 6-digit code above",vi:"Nhập mã 6 số ở trên",id:"Masukkan kode 6 digit di atas"},
+  mrv_getting:{ko:"연결 코드를 받는 중…",en:"Getting a pairing code…",vi:"Đang lấy mã kết nối…",id:"Mengambil kode…"},
+  mrv_pair_fail:{ko:"연결 코드를 받지 못했습니다",en:"Couldn't get a pairing code",vi:"Không lấy được mã kết nối",id:"Gagal mendapatkan kode"},
+  pw_btn:{ko:"전력 입력",en:"Power entry",vi:"Nhập điện",id:"Input daya"},
+  pw_title:{ko:"전력 수기 입력",en:"Manual power entry",vi:"Nhập điện thủ công",id:"Input daya manual"},
+  pw_pick:{ko:"계측기를 고르세요",en:"Choose a meter",vi:"Chọn thiết bị đo",id:"Pilih meter"},
+  pw_aeration:{ko:"폭기",en:"Aeration",vi:"Sục khí",id:"Aerasi"},
+  pw_none:{ko:"웹 설정에서 전력 계측기를 먼저 등록하세요",en:"Register a power meter in the web settings first",vi:"Hãy đăng ký thiết bị đo điện trong cài đặt web trước",id:"Daftarkan meter listrik di pengaturan web terlebih dahulu"},
+  pw_reload:{ko:"목록 다시 받기",en:"Reload list",vi:"Tải lại danh sách",id:"Muat ulang daftar"},
+  pw_meter:{ko:"계측기",en:"Meter",vi:"Thiết bị đo",id:"Meter"},
+  pw_kind:{ko:"입력 종류",en:"Entry type",vi:"Loại nhập",id:"Jenis input"},
+  pw_value:{ko:"값",en:"Value",vi:"Giá trị",id:"Nilai"},
+  pw_kind_cum:{ko:"계량기 지침",en:"Meter reading",vi:"Chỉ số đồng hồ",id:"Angka meter"},
+  pw_kind_cum_sub:{ko:"계량기에 찍힌 누적 숫자",en:"The cumulative number on the meter",vi:"Số luỹ kế trên đồng hồ",id:"Angka kumulatif pada meter"},
+  pw_kind_int:{ko:"구간 사용량",en:"Interval usage",vi:"Lượng dùng trong kỳ",id:"Pemakaian periode"},
+  pw_kind_int_sub:{ko:"그 구간에 쓴 양",en:"Energy used in that span",vi:"Lượng điện dùng trong khoảng đó",id:"Energi yang dipakai pada rentang itu"},
+  pw_delta_note:{ko:"지침은 <b>직전 지침과의 차이</b>로 사용량이 됩니다. 장비가 직전 지침을 함께 보냅니다.",en:"A reading becomes usage as the <b>difference from the previous reading</b>. The device sends the previous one along.",vi:"Chỉ số trở thành lượng dùng bằng <b>hiệu với chỉ số trước</b>. Thiết bị gửi kèm chỉ số trước đó.",id:"Angka meter menjadi pemakaian sebagai <b>selisih dari angka sebelumnya</b>. Perangkat mengirimkannya sekalian."},
+  pw_first_note:{ko:"첫 지침은 기준점으로만 쓰이고 사용량은 다음 입력부터 계산됩니다",en:"The first reading is only a reference point — usage is calculated from the next entry on",vi:"Chỉ số đầu tiên chỉ là điểm mốc — lượng dùng được tính từ lần nhập sau",id:"Angka pertama hanya titik acuan — pemakaian dihitung dari input berikutnya"},
+  pw_zero_hint:{ko:"0 도 넣을 수 있습니다(돌리지 않은 구간). 음수는 받지 않습니다.",en:"0 is allowed (a span you did not run). Negative values are not.",vi:"Có thể nhập 0 (khoảng không chạy). Không nhận số âm.",id:"0 boleh (periode tanpa operasi). Nilai negatif tidak diterima."},
+  pw_empty:{ko:"값을 넣으세요",en:"Enter a value",vi:"Hãy nhập giá trị",id:"Masukkan nilai"},
+  pw_check:{ko:"입력값 확인",en:"Check the value",vi:"Kiểm tra giá trị",id:"Periksa nilai"},
+  pw_send:{ko:"전송",en:"Send",vi:"Gửi",id:"Kirim"},
+  pw_send_now:{ko:"보내기",en:"Send it",vi:"Gửi đi",id:"Kirim"},
+  pw_fix:{ko:"고치기",en:"Edit",vi:"Sửa",id:"Ubah"},
+  pw_sending:{ko:"보내는 중…",en:"Sending…",vi:"Đang gửi…",id:"Mengirim…"},
+  pw_sent:{ko:"전송했습니다",en:"Sent",vi:"Đã gửi",id:"Terkirim"},
+  pw_heldt:{ko:"보관했습니다",en:"Held on the device",vi:"Đã lưu trên thiết bị",id:"Disimpan di perangkat"},
+  pw_failed:{ko:"보내지 못했습니다",en:"Couldn't send",vi:"Không gửi được",id:"Gagal mengirim"},
+  pw_more:{ko:"계속 입력",en:"Enter another",vi:"Nhập tiếp",id:"Input lagi"},
+  pw_pending:{ko:"미전송 {n}건",en:"{n} not sent",vi:"{n} chưa gửi",id:"{n} belum terkirim"},
+  pw_pending_note:{ko:"회선이 돌아오면 넣은 순서대로 올라갑니다",en:"They upload in the order entered once the line is back",vi:"Sẽ tải lên theo đúng thứ tự khi có mạng lại",id:"Akan terunggah sesuai urutan saat koneksi kembali"},
+  pw_clock_bad:{ko:"장비 시계가 맞지 않아 보내지 않습니다 — 시각 확인 필요",en:"The device clock is wrong — not sending until the time is checked",vi:"Đồng hồ thiết bị sai — chưa gửi, cần kiểm tra thời gian",id:"Jam perangkat salah — tidak dikirim, periksa waktu"},
+  pw_clock_bad_sub:{ko:"정전 뒤 인터넷 없이 재부팅하면 시계가 틀어집니다. 틀린 시각의 전력은 기준선 기간을 오염시키므로 보내지 않습니다.",en:"Rebooting after a power cut with no internet leaves the clock wrong. Power stamped with a wrong time would contaminate the baseline period, so it is not sent.",vi:"Khởi động lại sau mất điện mà không có internet làm đồng hồ sai. Điện ghi sai thời gian sẽ làm nhiễm kỳ đường cơ sở, nên không gửi.",id:"Reboot setelah listrik mati tanpa internet membuat jam salah. Daya dengan waktu salah akan mencemari periode baseline, jadi tidak dikirim."},
+  pw_countable:{ko:"사용량으로 산입됩니다",en:"Counted as usage",vi:"Được tính vào lượng dùng",id:"Dihitung sebagai pemakaian"},
+  pw_suspect:{ko:"이 건은 KPI 산입에서 빠집니다 — 구간 사용량을 낼 수 없었습니다",en:"This entry is left out of the KPIs — interval usage could not be derived",vi:"Mục này bị loại khỏi KPI — không tính được lượng dùng trong kỳ",id:"Entri ini tidak masuk KPI — pemakaian periode tak bisa dihitung"},
+  pw_dedup:{ko:"직전 지침 {n}건은 중복으로 흡수되었습니다",en:"{n} previous reading(s) were absorbed as duplicates",vi:"{n} chỉ số trước đã được hợp nhất vì trùng",id:"{n} angka sebelumnya diserap sebagai duplikat"},
+  pw_accepted:{ko:"저장 {n}건",en:"{n} stored",vi:"Đã lưu {n}",id:"{n} tersimpan"},
+  pw_rejected:{ko:"거부 {n}건",en:"{n} rejected",vi:"{n} bị từ chối",id:"{n} ditolak"},
+  pw_err_nan:{ko:"숫자가 아닙니다",en:"Not a number",vi:"Không phải số",id:"Bukan angka"},
+  pw_err_negative:{ko:"전력은 음수가 될 수 없습니다",en:"Power cannot be negative",vi:"Điện không thể là số âm",id:"Daya tidak bisa negatif"},
+  pw_err_clock:{ko:"장비 시계가 맞지 않아 보내지 않았습니다",en:"Not sent — the device clock is wrong",vi:"Chưa gửi — đồng hồ thiết bị sai",id:"Tidak dikirim — jam perangkat salah"},
+  pw_err_unlinked:{ko:"MRV 에 연결되지 않았습니다",en:"Not linked to MRV",vi:"Chưa kết nối MRV",id:"Belum tertaut ke MRV"},
+  pw_err_offline:{ko:"서버에 닿지 못했습니다",en:"Couldn't reach the server",vi:"Không tới được máy chủ",id:"Tak bisa menjangkau server"},
+  pw_err_backlog:{ko:"먼저 보관된 입력이 올라간 뒤에 보냅니다 — 순서를 지켜야 지침의 차이가 맞습니다",en:"Held until earlier entries upload — the order must hold for readings to differ correctly",vi:"Giữ lại đến khi các mục trước được tải lên — phải đúng thứ tự để hiệu số chỉ đúng",id:"Ditahan sampai input sebelumnya terunggah — urutan harus benar agar selisih tepat"},
+  pw_err_no_meters:{ko:"계측기 목록을 먼저 받아 주세요",en:"Load the meter list first",vi:"Hãy tải danh sách thiết bị đo trước",id:"Muat daftar meter dulu"},
+  pw_err_unknown_meter:{ko:"목록에 없는 계측기입니다",en:"That meter is not in the list",vi:"Thiết bị đo không có trong danh sách",id:"Meter itu tidak ada di daftar"},
+  pw_err_kind:{ko:"알 수 없는 입력 종류입니다",en:"Unknown entry type",vi:"Loại nhập không xác định",id:"Jenis input tak dikenal"}
 };
 
 function t(key, vars){
@@ -785,6 +947,11 @@ function renderNutrient(d){
 function renderLink(d){
   // 아직 못 올린 값이 있으면 몇 건인지 먼저 알린다.
   var hold = d.pending ? '<span class="chip hold">' + t("held", {n:d.pending}) + '</span>' : "";
+  // 전력 입력은 독립 경로다. 수질이 잘 올라가는 중에도 전력만 밀려 있을 수 있어
+  // 따로 센다. 시계가 수상하면 전력을 아예 보내지 않으므로 그것부터 알린다.
+  if (d.mrv_clock_ok === false) hold += '<span class="chip off">' + t("pw_clock_bad") + '</span>';
+  else if (d.mrv_pending) hold += '<span class="chip hold">' +
+    t("pw_btn") + ' ' + t("pw_pending", {n:d.mrv_pending}) + '</span>';
   if (d.linked) {
     var where = [d.farm, d.tank].filter(Boolean).join(" · ");
     return (d.account ? '<span><b>' + esc(d.account) + '</b></span>' : "") +
@@ -999,6 +1166,12 @@ function render(d){
   btn.textContent = d.linked ? t("info") : t("link_device");
   btn.className = "act" + (d.linked ? " ghost" : "");
   btn.onclick = d.linked ? showInfo : startPair;
+
+  // 전력 입력 바로가기. MRV 에 연결되지 않았으면 아예 두지 않는다 — 죽은 버튼을
+  // 두면 누르고 나서야 못 쓴다는 것을 알게 된다.
+  var mrv = document.getElementById("mrvbtn");
+  mrv.textContent = t("pw_btn");
+  mrv.hidden = !d.mrv_linked;
 }
 
 // 연결된 계정을 보여 주고, 화면에서 바로 다른 계정으로 옮길 수 있게 한다.
@@ -1060,6 +1233,8 @@ function openSettings(){ settingsOpen = true; drawSettingsMenu(); }
 
 function closeSettings(){
   settingsOpen = false;
+  mrvOpen = false;
+  if (mrvTimer) { clearTimeout(mrvTimer); mrvTimer = null; }
   setupData = null;
   document.getElementById("setup").innerHTML = "";
   document.getElementById("wifi").innerHTML = "";
@@ -1074,6 +1249,7 @@ function drawSettingsMenu(){
     {t:"menu_lang",    sub:"menu_lang_sub",    fn:"openLang()"},
     {t:"menu_cal",      sub:"menu_cal_sub",      fn:"openCal()"},
     {t:"menu_nutrient", sub:"menu_nutrient_sub", fn:"openNutrient()"},
+    {t:"menu_mrv",      sub:"menu_mrv_sub",      fn:"openMrv()"},
     {t:"menu_restart", sub:"menu_restart_sub", fn:"openRestart()"}
   ];
   var rows = items.map(function(it){
@@ -1435,6 +1611,343 @@ function doRestart(kind){
       // 응답을 못 받은 것은 대개 프로그램이 이미 끝났다는 뜻이다 — 정상이다.
       setTimeout(function(){ location.reload(); }, dev ? 60000 : 18000);
     });
+}
+
+// ── MRV 연결 (설정 메뉴) ─────────────────────────────────────────────────────
+// 수질 연결과 **따로**다. 한쪽만 연결된 상태가 정상적으로 존재하므로 화면도
+// 둘을 섞지 않는다 — 여기서 하는 일은 탄소 MRV 수집 키를 받아 두는 것뿐이다.
+var mrvOpen = false, mrvAsk = false, mrvTimer = null;
+
+function openMrv(){ mrvOpen = true; mrvAsk = false; drawMrv(); mrvPoll(); }
+
+function mrvBack(){
+  mrvOpen = false;
+  if (mrvTimer) { clearTimeout(mrvTimer); mrvTimer = null; }
+  drawSettingsMenu();
+}
+
+// 설정 화면이 떠 있는 동안 tick() 은 멈춘다. 페어링은 승인을 기다리는 화면이라
+// 스스로 갱신해야 코드가 승인된 순간 화면이 바뀐다.
+function mrvPoll(){
+  if (!mrvOpen) return;
+  fetch("/api/state", {cache:"no-store"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ lastState = d; if (mrvOpen) drawMrv(); })
+    .catch(function(){})
+    .then(function(){ if (mrvOpen) mrvTimer = setTimeout(mrvPoll, 3000); });
+}
+
+function mrvStart(){ mrvAsk = false; fetch("/api/mrv/pair/start", {method:"POST"}).then(drawMrv); }
+function mrvCancel(){ fetch("/api/mrv/pair/cancel", {method:"POST"}).then(drawMrv); }
+function mrvAskUnlink(){ mrvAsk = true; drawMrv(); }
+function mrvAskBack(){ mrvAsk = false; drawMrv(); }
+function mrvUnlink(){
+  mrvAsk = false;
+  fetch("/api/mrv/unlink", {method:"POST"}).then(drawMrv).catch(drawMrv);
+}
+
+function drawMrv(){
+  if (!mrvOpen) return;
+  document.getElementById("wifi").innerHTML = "";
+  var d = lastState || {};
+  var body;
+
+  if (d.mrv_pairing && d.mrv_pair_error) {
+    body = '<div class="sname">' + t("mrv_pair_fail") + '</div>' +
+      '<div class="msg err">' + esc(d.mrv_pair_error) + '</div>' +
+      '<div class="ranges">' +
+        '<button aria-pressed="true" onclick="mrvStart()">' + t("retry") + '</button>' +
+        '<button onclick="mrvCancel()">' + t("close") + '</button>' +
+      '</div>';
+  } else if (d.mrv_pairing && !d.mrv_pair_code) {
+    body = '<div class="wcur">' + t("mrv_getting") + '</div>' +
+      '<div class="ranges"><button onclick="mrvCancel()">' + t("cancel") + '</button></div>';
+  } else if (d.mrv_pairing) {
+    body =
+      '<div class="sname">' + t("mrv_pair_title") + '</div>' +
+      '<div class="sub" style="margin:2px 0 4px">' + t("mrv_pair_desc") + '</div>' +
+      '<div class="code" style="font-size:52px;letter-spacing:12px;padding-left:12px;' +
+        'margin:4px 0 8px;text-align:center">' + esc(d.mrv_pair_code) + '</div>' +
+      '<div class="steps" style="display:block"><ol>' +
+        '<li>' + t("mrv_step1", {url: esc(d.pair_url || "www.shrimp365.kr")}) + '</li>' +
+        '<li>' + t("mrv_step2") + '</li>' +
+        '<li>' + t("mrv_step3") + '</li>' +
+        '<li>' + t("mrv_step4") + '</li>' +
+      '</ol></div>' +
+      '<div class="ranges" style="margin-top:8px">' +
+        '<button onclick="mrvCancel()">' + t("cancel") + '</button></div>';
+  } else if (mrvAsk) {
+    body = '<div class="wcur">' + t("mrv_unlink_ask") + '</div>' +
+      '<div class="ranges" style="margin-top:8px">' +
+        '<button aria-pressed="true" onclick="mrvUnlink()">' + t("mrv_unlink_yes") + '</button>' +
+        '<button onclick="mrvAskBack()">' + t("cancel") + '</button>' +
+      '</div>';
+  } else if (d.mrv_linked) {
+    body =
+      '<div class="srow"><div class="sname">' + t("mrv_status") +
+        '<div class="sub">' + t("mrv_site") + ' ' +
+        esc(d.mrv_site_id || "--") + '</div></div>' +
+        '<span class="chip on">' + t("connected") + '</span></div>' +
+      (d.mrv_pending ? '<div class="srow"><div class="sname">' +
+        t("pw_pending", {n:d.mrv_pending}) +
+        '<div class="sub">' + t("pw_pending_note") + '</div></div></div>' : '') +
+      '<div class="ranges" style="margin-top:8px">' +
+        '<button onclick="mrvAskUnlink()">' + t("mrv_unlink") + '</button></div>';
+  } else {
+    body =
+      '<div class="srow"><div class="sname">' + t("mrv_status") +
+        '<div class="sub">' + t("mrv_hint") + '</div></div>' +
+        '<span class="chip off">' + t("not_connected") + '</span></div>' +
+      '<div class="ranges" style="margin-top:8px">' +
+        '<button aria-pressed="true" onclick="mrvStart()">' + t("mrv_get_code") + '</button></div>';
+  }
+
+  document.getElementById("setup").innerHTML =
+    '<div class="setup">' +
+      '<div class="chead">' +
+        '<span class="ctitle">' + t("mrv_title") + '</span>' +
+        '<button style="margin-left:auto" onclick="mrvBack()">' + t("back_menu") + '</button>' +
+      '</div>' +
+      '<div class="sbody">' + body + '</div>' +
+    '</div>';
+}
+
+
+// ── 전력 수기 입력 패널 ──────────────────────────────────────────────────────
+// 계측기 선택 → 지침/사용량 → 큰 숫자 키패드 → 입력값 확인 → 전송 → 결과.
+// 패널로 덮고, 닫으면 측정값으로 돌아온다(파일 머리말의 화면 원칙).
+var pwrOpen = false, pwrStep = "list", pwrMeters = [], pwrMeter = null;
+var pwrKind = "cumulative_kwh", pwrBuf = "", pwrRes = null;
+var pwrBusy = false, pwrMsg = null, pwrClock = true, pwrPending = 0;
+
+function openPower(){
+  var d = lastState || {};
+  pwrOpen = true; pwrStep = "list"; pwrMeter = null; pwrBuf = "";
+  pwrRes = null; pwrMsg = null; pwrBusy = false;
+  pwrMeters = d.mrv_meters || [];
+  pwrPending = d.mrv_pending || 0;
+  pwrClock = d.mrv_clock_ok !== false;
+  drawPower();
+  loadMeters();
+}
+
+// 열 때마다 목록을 다시 받는다. 웹에서 방금 등록한 계측기가 보이지 않으면
+// 작업자는 그 계측기의 전력을 넣을 방법이 없다.
+function loadMeters(){
+  pwrBusy = true; drawPower();
+  fetch("/api/mrv/meters", {method:"POST"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      pwrBusy = false;
+      if (d.items) pwrMeters = d.items;
+      pwrPending = d.pending || 0;
+      pwrClock = d.clock_ok !== false;
+      pwrMsg = d.ok ? null : (d.error || null);
+      drawPower();
+    })
+    .catch(function(){ pwrBusy = false; pwrMsg = t("pw_err_offline"); drawPower(); });
+}
+
+function closePower(){
+  pwrOpen = false;
+  document.getElementById("power").innerHTML = "";
+  tick();
+}
+
+function pwrPick(i){
+  pwrMeter = pwrMeters[i] || null;
+  if (!pwrMeter) return;
+  pwrBuf = ""; pwrStep = "entry"; drawPower();
+}
+function pwrSetKind(k){ pwrKind = k; drawPower(); }
+function pwrToList(){ pwrStep = "list"; pwrMeter = null; pwrBuf = ""; pwrRes = null; drawPower(); }
+function pwrToEntry(){ pwrStep = "entry"; pwrRes = null; drawPower(); }
+function pwrToCheck(){ if (pwrNum() === null) return; pwrStep = "check"; drawPower(); }
+
+// 키패드 입력. 숫자와 소수점만 들어온다 — 음수 기호 키는 두지 않는다(③).
+function pwrKey(c){
+  if (c === "<") pwrBuf = pwrBuf.slice(0, -1);
+  else if (c === ".") { if (pwrBuf.indexOf(".") < 0) pwrBuf = (pwrBuf || "0") + "."; }
+  else if (pwrBuf.replace(".", "").length < 10) pwrBuf = (pwrBuf === "0" ? "" : pwrBuf) + c;
+  drawPower();
+}
+
+function pwrNum(){
+  if (!pwrBuf || pwrBuf === "." ) return null;
+  var v = parseFloat(pwrBuf);
+  return isFinite(v) ? v : null;
+}
+
+function pwrSend(){
+  var v = pwrNum();
+  if (v === null || !pwrMeter || pwrBusy) return;
+  pwrBusy = true; drawPower();
+  fetch("/api/mrv/power", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({meter_id: pwrMeter.id, value: v, kind: pwrKind})
+  })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      pwrBusy = false; pwrRes = d || {};
+      if (typeof d.pending === "number") pwrPending = d.pending;
+      // 지침이 들어갔으면 이 계측기는 더 이상 "첫 지침" 이 아니다.
+      if (pwrKind === "cumulative_kwh" && (d.ok || d.queued) && pwrMeter) pwrMeter.has_prev = true;
+      pwrStep = "result"; drawPower();
+    })
+    .catch(function(){
+      // 응답을 못 받았다. 장비가 보냈는지 아닌지 화면이 단정하면 안 된다.
+      pwrBusy = false;
+      pwrRes = {ok:false, queued:false, error:t("pw_err_offline")};
+      pwrStep = "result"; drawPower();
+    });
+}
+
+function pwrErrText(res){
+  var key = "pw_err_" + (res.code || "");
+  return I18N[key] ? t(key) : (res.error || t("pw_failed"));
+}
+
+function pwrHead(title, back){
+  return '<div class="chead">' +
+    '<span class="ctitle">' + title + '</span>' +
+    (pwrPending ? '<span class="chip hold" style="margin-left:8px">' +
+      t("pw_pending", {n:pwrPending}) + '</span>' : '') +
+    '<button style="margin-left:auto" onclick="' + back + '">' + t("close") + '</button>' +
+    '</div>';
+}
+
+// 시계가 틀어진 장비는 아무 단계에서도 보낼 수 없다. 누르고 나서 알게 하지 않고
+// 먼저 띄운다 — 틀린 시각의 전력은 기준선 기간을 조용히 오염시킨다(②).
+function pwrClockWarn(){
+  if (pwrClock) return "";
+  return '<div class="pwarn">' + t("pw_clock_bad") +
+         '<div style="font-weight:500;font-size:12px;margin-top:4px;color:#FCA5A5">' +
+         t("pw_clock_bad_sub") + '</div></div>';
+}
+
+function pwrMeterLine(m){
+  return '<span class="pname">' + esc(m.label) + '</span>' +
+    (m.is_aeration ? '<span class="aer">' + t("pw_aeration") + '</span>' : '') +
+    '<span class="punit">' + esc(m.unit || "kWh") + '</span>';
+}
+
+function drawPowerList(){
+  var body;
+  if (!pwrMeters.length) {
+    body = '<div class="pnote">' + (pwrBusy ? t("wifi_loading") : t("pw_none")) + '</div>' +
+      (pwrMsg ? '<div class="msg err">' + esc(pwrMsg) + '</div>' : '');
+  } else {
+    body = '<div class="pnote">' + t("pw_pick") + '</div>' +
+      (pwrMsg ? '<div class="msg err">' + esc(pwrMsg) + '</div>' : '') +
+      '<div class="plist">' + pwrMeters.map(function(m, i){
+        return '<div class="prow" onclick="pwrPick(' + i + ')">' + pwrMeterLine(m) +
+          '<span style="color:#64748B;font-size:20px;flex:0 0 auto">›</span></div>';
+      }).join("") + '</div>';
+  }
+  return pwrClockWarn() + body +
+    (pwrPending ? '<div class="pnote" style="margin-top:6px">' + t("pw_pending_note") + '</div>' : '') +
+    '<div class="pbtns">' +
+      '<button class="ghost" onclick="loadMeters()"' + (pwrBusy ? " disabled" : "") + '>' +
+        t("pw_reload") + '</button>' +
+      '<button class="ghost" onclick="closePower()">' + t("close") + '</button>' +
+    '</div>';
+}
+
+function drawPowerEntry(){
+  var cum = pwrKind === "cumulative_kwh";
+  var hint = cum
+    ? t("pw_delta_note") + (pwrMeter && pwrMeter.has_prev === false
+        ? '<br><b>' + t("pw_first_note") + '</b>' : '')
+    : t("pw_zero_hint");
+  var keys = ["1","2","3","4","5","6","7","8","9",".","0","<"];
+  return pwrClockWarn() +
+    '<div class="pbody">' +
+      '<div class="pcol">' +
+        '<div class="prow" style="cursor:default">' + pwrMeterLine(pwrMeter) + '</div>' +
+        '<div class="pseg">' +
+          '<button aria-pressed="' + cum + '" onclick="pwrSetKind(&quot;cumulative_kwh&quot;)">' +
+            t("pw_kind_cum") + '<span class="ssub">' + t("pw_kind_cum_sub") + '</span></button>' +
+          '<button aria-pressed="' + (!cum) + '" onclick="pwrSetKind(&quot;interval_kwh&quot;)">' +
+            t("pw_kind_int") + '<span class="ssub">' + t("pw_kind_int_sub") + '</span></button>' +
+        '</div>' +
+        '<div class="pbig' + (pwrBuf ? '' : ' ph') + '">' +
+          (pwrBuf || "0") + '<small>kWh</small></div>' +
+        '<div class="pnote">' + (pwrBuf ? hint : '<b>' + t("pw_empty") + '</b> · ' + hint) +
+        '</div>' +
+      '</div>' +
+      '<div class="pkeys">' + keys.map(function(k){
+        return '<button onclick="pwrKey(&quot;' + (k === "<" ? "<" : k) + '&quot;)">' +
+          (k === "<" ? "⌫" : k) + '</button>';
+      }).join("") + '</div>' +
+    '</div>' +
+    '<div class="pbtns">' +
+      '<button class="ghost" onclick="pwrToList()">' + t("back_list") + '</button>' +
+      '<button onclick="pwrToCheck()"' +
+        ((pwrNum() === null || !pwrClock) ? " disabled" : "") + '>' + t("pw_send") + '</button>' +
+    '</div>';
+}
+
+function drawPowerCheck(){
+  var cum = pwrKind === "cumulative_kwh";
+  return pwrClockWarn() +
+    '<div class="pres">' +
+      '<div class="line">' + t("pw_meter") + ' <b>' + esc(pwrMeter.label) + '</b>' +
+        (pwrMeter.is_aeration ? ' <span class="aer">' + t("pw_aeration") + '</span>' : '') + '</div>' +
+      '<div class="line">' + t("pw_kind") + ' <b>' +
+        t(cum ? "pw_kind_cum" : "pw_kind_int") + '</b></div>' +
+      '<div class="line">' + t("pw_value") + '</div>' +
+      '<div class="pbig" style="margin:0">' + esc(pwrBuf) + '<small>kWh</small></div>' +
+      (cum && pwrMeter.has_prev === false
+        ? '<div class="line">' + t("pw_first_note") + '</div>' : '') +
+    '</div>' +
+    '<div class="pbtns">' +
+      '<button class="ghost" onclick="pwrToEntry()">' + t("pw_fix") + '</button>' +
+      '<button onclick="pwrSend()"' + ((pwrBusy || !pwrClock) ? " disabled" : "") + '>' +
+        (pwrBusy ? t("pw_sending") : t("pw_send_now")) + '</button>' +
+    '</div>';
+}
+
+function drawPowerResult(){
+  var r = pwrRes || {};
+  var cls = r.ok ? "ok" : (r.queued ? "hold" : "bad");
+  var title = r.ok ? t("pw_sent") : (r.queued ? t("pw_heldt") : t("pw_failed"));
+  var lines = [];
+  if (r.ok) {
+    lines.push(t("pw_accepted", {n: r.accepted || 0}));
+    if (r.deduped) lines.push(t("pw_dedup", {n: r.deduped}));
+    // "저장은 됐는데 EI 가 그대로" 를 화면에서 바로 알 수 있어야 한다.
+    lines.push(r.countable ? t("pw_countable") : t("pw_suspect"));
+    if (r.baseline) lines.push(t("pw_first_note"));
+    if (r.rejected) lines.push(t("pw_rejected", {n: r.rejected}) +
+      (r.rejected_reason ? " — " + esc(r.rejected_reason) : ""));
+  } else {
+    lines.push(pwrErrText(r));
+    if (r.queued) lines.push(t("pw_pending_note"));
+  }
+  if (pwrPending) lines.push(t("pw_pending", {n: pwrPending}));
+  return '<div class="pres ' + cls + '">' +
+      '<h2>' + title + '</h2>' +
+      '<div class="line">' + t("pw_meter") + ' <b>' + esc(pwrMeter ? pwrMeter.label : "") +
+        '</b> · <b>' + esc(pwrBuf) + ' kWh</b></div>' +
+      lines.map(function(l){ return '<div class="line">' + l + '</div>'; }).join("") +
+    '</div>' +
+    '<div class="pbtns">' +
+      '<button onclick="pwrToList()">' + t("pw_more") + '</button>' +
+      '<button class="ghost" onclick="closePower()">' + t("close") + '</button>' +
+    '</div>';
+}
+
+function drawPower(){
+  if (!pwrOpen) return;
+  var body;
+  if (pwrStep === "entry" && pwrMeter) body = drawPowerEntry();
+  else if (pwrStep === "check" && pwrMeter) body = drawPowerCheck();
+  else if (pwrStep === "result") body = drawPowerResult();
+  else body = drawPowerList();
+  var title = pwrStep === "check" ? t("pw_check") : t("pw_title");
+  document.getElementById("power").innerHTML =
+    '<div class="power">' + pwrHead(title, "closePower()") + body + '</div>';
 }
 
 function setLang(l){
@@ -1929,7 +2442,9 @@ function doConnect(){
 }
 
 function tick(){
-  if (settingsOpen || wifiOpen) return;   // 설정·Wi‑Fi 중에는 뒤 화면을 다시 그리지 않는다
+  // 설정·Wi‑Fi·전력 입력 중에는 뒤 화면을 다시 그리지 않는다.
+  // 3초마다 갱신하면 조작 중에 깜빡이고 눌림이 씹힌다.
+  if (settingsOpen || wifiOpen || pwrOpen) return;
   fetch("/api/state", {cache:"no-store"})
     .then(function(r){ return r.json(); })
     .then(render)
@@ -1970,6 +2485,11 @@ def serve(
     on_save_calibration=None,
     get_nutrient=None,
     on_save_nutrient=None,
+    on_mrv_pair_start=None,
+    on_mrv_pair_cancel=None,
+    on_mrv_unlink=None,
+    get_mrv_meters=None,
+    on_mrv_power=None,
 ) -> ThreadingHTTPServer | None:
     """상태 페이지를 띄운다. 실패해도 수집은 계속되어야 하므로 None 을 돌려준다."""
 
@@ -2097,6 +2617,31 @@ def serve(
                 lang_sel = body.get("lang")
                 ok = on_set_lang(lang_sel) if isinstance(lang_sel, str) else False
                 self._send(200, json.dumps({"ok": bool(ok)}).encode(), "application/json")
+                return
+            # ── MRV 전력 수기 입력 ──────────────────────────────────────
+            # 수질 경로(/api/pair/*, /api/unlink)와 **별개**다. 한 창구로 합치면
+            # 전력 입력이 수질 연결을 끊는 일이 생긴다.
+            if self.path == "/api/mrv/pair/start" and on_mrv_pair_start is not None:
+                self._send(200, json.dumps(on_mrv_pair_start()).encode(), "application/json")
+                return
+            if self.path == "/api/mrv/pair/cancel" and on_mrv_pair_cancel is not None:
+                self._send(200, json.dumps(on_mrv_pair_cancel()).encode(), "application/json")
+                return
+            if self.path == "/api/mrv/unlink" and on_mrv_unlink is not None:
+                self._send(200, json.dumps(on_mrv_unlink()).encode(), "application/json")
+                return
+            if self.path == "/api/mrv/meters" and get_mrv_meters is not None:
+                # 서버에 물어보므로 몇 초 걸릴 수 있다.
+                self._send(200, json.dumps(get_mrv_meters()).encode(), "application/json")
+                return
+            if self.path == "/api/mrv/power" and on_mrv_power is not None:
+                body = self._body()
+                if not isinstance(body.get("meter_id"), str):
+                    self._send(200, json.dumps(
+                        {"ok": False, "error": "계측기를 고르세요", "code": "unknown_meter"}
+                    ).encode(), "application/json")
+                    return
+                self._send(200, json.dumps(on_mrv_power(body)).encode(), "application/json")
                 return
             if self.path == "/api/pair/start" and on_pair_start is not None:
                 on_pair_start()

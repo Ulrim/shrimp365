@@ -37,10 +37,26 @@ def base_state(**over) -> dict:
         "linked": True, "account": "ky****4@gmail.com", "tank": "A-1조", "farm": "1양식장",
         "pairing": False, "pair_code": None, "pair_url": "", "pair_error": None,
         "advice": [], "anomalies": [],
+        # 탄소 MRV 전력 수기 입력. 수질 연결과 별개라 기본값은 미연결이다.
+        "mrv_linked": False, "mrv_site_id": None,
+        "mrv_pairing": False, "mrv_pair_code": None, "mrv_pair_error": None,
+        "mrv_meters": [], "mrv_pending": 0, "mrv_last": None, "mrv_clock_ok": True,
     }
     state.update(over)
     return state
 
+
+# 전력 계측기 — 실제 장비는 서버에서 받아 온다(목록에 없는 id 로는 보낼 수 없다).
+# 미리보기에서는 고정 목록으로 화면 흐름(선택 → 종류 → 키패드 → 확인 → 결과)을
+# 그대로 눌러 볼 수 있게 한다. 폭기 여부가 보이는지도 여기서 확인한다.
+MRV_METERS = [
+    {"id": "mtr_total", "label": "총전력계 (수전반)", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": True},
+    {"id": "mtr_blower", "label": "브로워 분전반", "unit": "kWh_interval",
+     "is_aeration": True, "has_prev": True},
+    {"id": "mtr_pump", "label": "순환펌프", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": False},
+]
 
 STATES = [
     ("연결됨 · 정상", base_state()),
@@ -69,6 +85,21 @@ STATES = [
     ("과잉 폭기 (전력 절감)", base_state(
         values={**VALUES, "do_level": 8.7}, status="sent 14:32",
         advice=[{"code": "do_surplus", "level": "save", "value": 8.7, "digits": 2}])),
+    # ── 탄소 MRV 전력 수기 입력 ──────────────────────────────────────────────
+    ("MRV 미연결", base_state(mrv_linked=False)),
+    ("MRV 연결 코드", base_state(
+        mrv_pairing=True, mrv_pair_code="730412", pair_url="www.shrimp365.kr")),
+    ("MRV 연결됨", base_state(
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS)),
+    ("전력 입력 패널", base_state(
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_last="브로워 분전반 전송 완료 (14:30)")),
+    ("전력 미전송 보관분", base_state(
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_pending=3, mrv_last="순환펌프 보관 — 회선 복구 시 전송 (14:28)")),
+    ("장비 시계 이상", base_state(
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_clock_ok=False, status="SEND FAIL 14:32 · 보관 4건", pending=4)),
     ("센서 오류", base_state(
         values={"temperature": 28.4, "ph": 7.85},
         errors={"ec": "응답 없음 (배선·전원·슬레이브 ID 확인)"},
@@ -151,6 +182,7 @@ MOCK = """
 var STATES = __STATES__, HIST = __HIST__, SENSORS = __SENSORS__;
 var SCAN = __SCAN__, AUTO = __AUTO__;
 var WIFI_NETWORKS = __WIFI_NETWORKS__, wifiCur = __WIFI_START__;
+var MRV_HAS_PREV = __MRV_HAS_PREV__;
 var current = 0;
 
 // 장비의 화면 코드는 그대로 두고 fetch 만 가로챈다.
@@ -176,6 +208,31 @@ window.fetch = function(url, opts){
     try { var b = JSON.parse((opts && opts.body) || "{}"); if (b.ssid) wifiCur = b.ssid; } catch(e){}
     body = {ok:true};
   }
+  // MRV — 전력 계측기 목록과 전송 결과. 서버가 돌려주는 모양 그대로 흉내 낸다.
+  else if (url.indexOf("/api/mrv/meters") === 0) {
+    var st = STATES[current][1];
+    body = {ok:true, items: st.mrv_meters || [], clock_ok: st.mrv_clock_ok !== false,
+            pending: st.mrv_pending || 0};
+  }
+  else if (url.indexOf("/api/mrv/power") === 0) {
+    var s2 = STATES[current][1];
+    var sent = {};
+    try { sent = JSON.parse((opts && opts.body) || "{}"); } catch(e){}
+    if (s2.mrv_clock_ok === false) {
+      body = {ok:false, queued:false, code:"clock", pending:(s2.mrv_pending || 0)};
+    } else if (s2.mrv_pending) {
+      body = {ok:false, queued:true, code:"offline", pending:(s2.mrv_pending || 0) + 1};
+    } else {
+      // 지침이면 직전 1건이 중복으로 흡수되고, 새 건은 구간값이 되어 산입된다.
+      var cum = sent.kind === "cumulative_kwh";
+      var first = cum && (MRV_HAS_PREV[sent.meter_id] === false);
+      body = {ok:true, queued:false, baseline:first,
+              accepted:1, deduped:(cum && !first) ? 1 : 0, rejected:0,
+              quality:{ok:first ? 0 : 1, suspect:0, bad:first ? 1 : 0},
+              countable:!first, pending:0};
+    }
+  }
+  else if (url.indexOf("/api/mrv/") === 0) body = {ok:true};
   else if (url.indexOf("/api/wifi") === 0) {
     body = {available:true, device:"wlan0", radio:true,
             connected:!!wifiCur, ssid:wifiCur, ip: wifiCur ? "192.168.0.42" : null};
@@ -190,6 +247,7 @@ window.addEventListener("message", function(e){
     if (typeof closeSettings === "function") closeSettings();
     if (typeof closeChart === "function") closeChart();
     if (typeof closeWifi === "function") closeWifi();
+    if (typeof closePower === "function") closePower();
     tick();
   }
 });
@@ -212,7 +270,9 @@ def main() -> int:
             .replace("__SCAN__", json.dumps(SCAN, ensure_ascii=False))
             .replace("__AUTO__", json.dumps(AUTO, ensure_ascii=False))
             .replace("__WIFI_NETWORKS__", json.dumps(WIFI_NETWORKS, ensure_ascii=False))
-            .replace("__WIFI_START__", json.dumps(WIFI_START, ensure_ascii=False)))
+            .replace("__WIFI_START__", json.dumps(WIFI_START, ensure_ascii=False))
+            .replace("__MRV_HAS_PREV__", json.dumps(
+                {m["id"]: m["has_prev"] for m in MRV_METERS})))
     # 가짜 fetch 를 화면 스크립트보다 먼저 심는다.
     device = page.replace("<script>", mock + "<script>", 1)
 
@@ -239,7 +299,10 @@ def main() -> int:
   <b>오른쪽 아래 [설정]</b> — 슬레이브 ID·측정 주기를 손가락으로 고칩니다.
   <b>[자동 배치]</b> 는 꽂아 둔 센서를 훑어 값이 나오는 자리를 그대로 배정합니다(이 미리보기에선 용존산소가 3→5로 바뀝니다).<br>
   <b>[Wi‑Fi]</b> — 주변 공유기를 검색해 화면 키보드로 비밀번호를 넣고 붙입니다(이 미리보기에서도 눌러 볼 수 있습니다. 잠긴 공유기를 고르면 화면 키보드가 뜨고, [연결] 하면 위쪽 연결 표시가 그 공유기로 바뀝니다).<br>
-  단위는 <b>용존산소 ppm · 염도 ‰ · 전도도 µS/cm · pH</b> 입니다.
+  <b>[전력 입력]</b> — 탄소 MRV 에 연결된 장비에만 오른쪽 아래에 뜹니다. 계측기를 고르고
+  지침(계량기 누적 숫자)이나 구간 사용량을 큰 키패드로 넣습니다. 지침은 직전 지침과 함께
+  두 건으로 올라가 그 차이가 구간 사용량이 됩니다(한 건씩 보내면 KPI 에서 빠집니다).<br>
+  단위는 <b>용존산소 ppm · 염도 ‰ · 전도도 µS/cm · pH · 전력 kWh</b> 입니다.
 </div>
 <script>
 var DEVICE_HTML = {device_js};
