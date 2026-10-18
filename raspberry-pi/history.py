@@ -28,6 +28,12 @@ MAX_POINTS = 160
 
 FIELDS = ("temperature", "ph", "do_level", "salinity")
 
+# 환경 센서 한 대 한 대의 값(field_env.FieldEnv.read 의 each). 기온·습도·토양 센서가 여러 대인
+# 농장에서 칸을 누르면 센서별 그래프를 그린다. 수집기가 보통 5분마다 적으므로 그 간격으로만 남긴다
+# — 센서 20대 × 8일이어도 5만 줄 안쪽이다.
+ENV_SLOTS = ("air_temp", "humidity", "soil_moisture", "soil_temp", "wind_speed", "rain_day")
+ENV_EVERY_S = 300
+
 
 class History:
     """측정 이력. 수집 루프와 화면 요청이 함께 쓰므로 잠금을 둔다."""
@@ -38,6 +44,7 @@ class History:
         self._lock = threading.Lock()
         self._conn: sqlite3.Connection | None = None
         self._last_prune = 0.0
+        self._last_env = 0
 
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -50,6 +57,15 @@ class History:
                      ph real,
                      do_level real,
                      salinity real
+                   )"""
+            )
+            self._conn.execute(
+                """create table if not exists env_samples (
+                     ts integer not null,
+                     slot text not null,
+                     sid text not null,
+                     value real not null,
+                     primary key (slot, ts, sid)
                    )"""
             )
             self._conn.commit()
@@ -85,6 +101,69 @@ class History:
         # 매번 정리하면 낭비다. 한 시간에 한 번이면 충분하다.
         if time.time() - self._last_prune > 3600:
             self._prune()
+
+    def record_env(self, env: dict | None, ts: int | None = None) -> bool:
+        """센서별 지금 값을 남긴다(ENV_EVERY_S 마다 한 번). 남겼으면 True."""
+        if self._conn is None or not env:
+            return False
+        ts = int(ts if ts is not None else time.time())
+        if ts - self._last_env < ENV_EVERY_S:
+            return False
+        rows = [(ts, slot, e["id"], float(e["value"]))
+                for slot in ENV_SLOTS
+                for e in ((env.get(slot) or {}).get("each") or [])
+                if isinstance(e.get("value"), (int, float))]
+        if not rows:
+            return False
+        with self._lock:
+            try:
+                self._conn.executemany(
+                    "insert or replace into env_samples (ts, slot, sid, value) values (?, ?, ?, ?)", rows)
+                self._conn.commit()
+            except sqlite3.Error as exc:
+                log.warning("환경 이력 저장 실패: %s", exc)
+                return False
+        self._last_env = ts
+        return True
+
+    def env_series(self, slot: str, hours: int) -> dict:
+        """칸 하나의 센서별 그래프 — {"sensors": [{"id", "points": [[t, 평균], ...]}], "avg": [[t, 평균]],
+        "min", "max", "count"}. 구간을 MAX_POINTS 칸으로 나누어 센서마다 평균을 낸다.
+        avg 는 같은 칸(시각)에 값이 있는 센서들의 평균 — 화면 칸의 평균과 같은 뜻이다."""
+        empty = {"sensors": [], "avg": [], "min": None, "max": None, "count": 0}
+        if self._conn is None or slot not in ENV_SLOTS:
+            return empty
+        now = int(time.time())
+        since = now - hours * 3600
+        with self._lock:
+            try:
+                rows = self._conn.execute(
+                    "select ts, sid, value from env_samples where slot = ? and ts >= ? order by ts",
+                    (slot, since),
+                ).fetchall()
+            except sqlite3.Error as exc:
+                log.warning("환경 이력 조회 실패: %s", exc)
+                return empty
+        if not rows:
+            return empty
+        bucket_seconds = max(1, (hours * 3600) // MAX_POINTS)
+        per: dict[str, dict[int, list[float]]] = {}
+        for ts, sid, value in rows:
+            per.setdefault(sid, {}).setdefault((ts - since) // bucket_seconds, []).append(float(value))
+        sensors = []
+        by_bucket: dict[int, list[float]] = {}
+        for sid in sorted(per):
+            pts = []
+            for index in sorted(per[sid]):
+                vals = per[sid][index]
+                v = round(sum(vals) / len(vals), 3)
+                pts.append([since + index * bucket_seconds, v])
+                by_bucket.setdefault(index, []).append(v)
+            sensors.append({"id": sid, "points": pts})
+        avg = [[since + i * bucket_seconds, round(sum(v) / len(v), 3)] for i, v in sorted(by_bucket.items())]
+        values = [float(v) for _, _, v in rows]
+        return {"sensors": sensors, "avg": avg, "min": round(min(values), 3),
+                "max": round(max(values), 3), "count": len(values)}
 
     def recent(self, hours: int) -> list[dict]:
         """지정 구간의 **원본** 측정점. 이상탐지(anomaly.py)가 쓴다.
@@ -174,6 +253,7 @@ class History:
         with self._lock:
             try:
                 self._conn.execute("delete from samples where ts < ?", (cutoff,))
+                self._conn.execute("delete from env_samples where ts < ?", (cutoff,))
                 self._conn.commit()
                 self._last_prune = time.time()
             except sqlite3.Error as exc:

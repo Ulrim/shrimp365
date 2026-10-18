@@ -33,6 +33,8 @@ export interface AgriEnvironmentDict {
   eachAt: string
   highest: string
   lowest: string
+  /** 그래프에는 있지만 마지막 수신에 빠진 센서. */
+  lost: string
   close: string
 }
 
@@ -54,6 +56,7 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     stale: "30분 넘게 새 값이 없습니다 — 장비의 수집기·센서 배터리를 확인하세요.",
     avgOf: "평균 · {{n}}대 ›", eachTitle: "{{param}} · 센서별", eachAt: "{{ago}} 값",
     highest: "최고", lowest: "최저", close: "닫기",
+    lost: "끊김",
   },
   en: {
     title: "Environment & weather · {{name}}",
@@ -72,6 +75,7 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     stale: "No new values for over 30 minutes — check the device's collectors and sensor batteries.",
     avgOf: "avg of {{n}} sensors ›", eachTitle: "{{param}} · by sensor", eachAt: "as of {{ago}}",
     highest: "highest", lowest: "lowest", close: "Close",
+    lost: "No signal",
   },
   vi: {
     title: "Môi trường & thời tiết · {{name}}",
@@ -90,6 +94,7 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     stale: "Hơn 30 phút không có giá trị mới — kiểm tra bộ thu và pin cảm biến của thiết bị.",
     avgOf: "TB {{n}} cảm biến ›", eachTitle: "{{param}} · từng cảm biến", eachAt: "lúc {{ago}}",
     highest: "cao nhất", lowest: "thấp nhất", close: "Đóng",
+    lost: "Mất tín hiệu",
   },
   id: {
     title: "Lingkungan & cuaca · {{name}}",
@@ -108,5 +113,6 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     stale: "Tidak ada nilai baru lebih dari 30 menit — periksa kolektor dan baterai sensor perangkat.",
     avgOf: "rata-rata {{n}} sensor ›", eachTitle: "{{param}} · per sensor", eachAt: "per {{ago}}",
     highest: "tertinggi", lowest: "terendah", close: "Tutup",
+    lost: "Terputus",
   },
 }

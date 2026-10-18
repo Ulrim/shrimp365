@@ -120,7 +120,8 @@ ENV = {
                           {"id": "TH-03", "value": 69.3, "age_min": 0}]},
     "soil_moisture": {"value": 34.2, "var": "soil_moisture", "sensors": 2, "age_min": 4,
                       "each": [{"id": "SM-01", "value": 31.0, "age_min": 4}, {"id": "SM-02", "value": 37.4, "age_min": 2}]},
-    "soil_temp": {"value": 19.8, "var": "soil_temp", "sensors": 2, "age_min": 4},
+    "soil_temp": {"value": 19.8, "var": "soil_temp", "sensors": 2, "age_min": 4,
+                  "each": [{"id": "SM-01", "value": 19.1, "age_min": 4}, {"id": "SM-02", "value": 20.5, "age_min": 2}]},
     "wind_speed": {"value": 3.2, "var": "wind_speed", "sensors": 1, "age_min": 0},
     "wind_gust": {"value": 6.8, "var": "wind_gust_window", "sensors": 1, "age_min": 0},
     "wind_dir": {"value": 315, "var": "wind_dir", "sensors": 1, "age_min": 0},
@@ -225,6 +226,42 @@ WIFI_NETWORKS = [
 WIFI_START = "CULIVER-FARM"  # 처음 연결돼 있는 곳. [연결] 을 누르면 바뀐다.
 
 
+# 센서별 환경 그래프 — history.History.env_series() 의 모양. 센서마다 하루 주기에 고유한 치우침을 준다.
+ENV_EACH_BASE = {
+    "air_temp": ({"TH-01": -0.8, "TH-02": -0.1, "TH-03": 0.9, "TH-04": 0.2}, 23.0, 4.5, 1),
+    "humidity": ({"TH-01": 2.7, "TH-02": -0.5, "TH-03": -2.2}, 72.0, 9.0, 1),
+    "soil_moisture": ({"SM-01": -3.2, "SM-02": 3.2}, 34.0, 1.2, 1),
+    "soil_temp": ({"SM-01": -0.7, "SM-02": 0.7}, 19.5, 1.4, 1),
+}
+
+
+def env_series(slot: str) -> dict:
+    offsets, base, swing, digits = ENV_EACH_BASE[slot]
+    random.seed(hash(slot) & 0xFFFF)
+    out = {}
+    for hours in (6, 12, 24, 168):
+        step = max(1, hours * 3600 // 160)
+        sensors = []
+        for sid, off in offsets.items():
+            pts = []
+            for i in range(160):
+                ts = NOW - hours * 3600 + i * step
+                if sid == "TH-04" and ts > NOW - 47 * 60:      # 끊긴 센서 — 47분 전에 멈췄다
+                    break
+                h = (ts % 86400) / 3600
+                v = base + off + math.sin((h - 9) / 3.8) * swing + random.uniform(-1, 1) * swing * 0.05
+                pts.append([ts, round(v, digits)])
+            sensors.append({"id": sid, "points": pts})
+        n = max(len(x["points"]) for x in sensors)
+        avg = []
+        for i in range(n):
+            vals = [x["points"][i][1] for x in sensors if i < len(x["points"])]
+            avg.append([sensors[0]["points"][i][0], round(sum(vals) / len(vals), 3)])
+        flat = [p[1] for x in sensors for p in x["points"]]
+        out[str(hours)] = {"sensors": sensors, "avg": avg, "min": min(flat), "max": max(flat), "count": len(flat)}
+    return out
+
+
 def series(field: str) -> dict:
     """그래프용 가짜 이력. 하루 주기로 오르내리게 만든다."""
     random.seed(hash(field) & 0xFFFF)
@@ -252,8 +289,10 @@ def series(field: str) -> dict:
 
 if AGRI:
     HIST = {f: series("agri:" + f) for f in ("temperature", "ph", "do_level", "conductivity")}
+    ENV_HIST = {k: env_series(k) for k in ENV_EACH_BASE}
 else:
     HIST = {f: series(f) for f in ("temperature", "ph", "do_level", "salinity")}
+    ENV_HIST = {}
 
 SHELL_CSS = """
   body{margin:0;background:#F1F5F9;color:#0F172A;
@@ -277,7 +316,7 @@ SHELL_CSS = """
 # 실제 800x480 과 같은 크기로 볼 수 있다.
 MOCK = """
 <script>
-var STATES = __STATES__, HIST = __HIST__, SENSORS = __SENSORS__;
+var STATES = __STATES__, HIST = __HIST__, ENV_HIST = __ENV_HIST__, SENSORS = __SENSORS__;
 var NUTRIENT = __NUTRIENT__, CALIBRATION = __CALIBRATION__;
 var SCAN = __SCAN__, AUTO = __AUTO__;
 var WIFI_NETWORKS = __WIFI_NETWORKS__, wifiCur = __WIFI_START__;
@@ -288,6 +327,10 @@ var current = 0;
 window.fetch = function(url, opts){
   var body = {};
   if (url.indexOf("/api/state") === 0) body = STATES[current][1];
+  else if (url.indexOf("/api/env_history") === 0) {
+    var eq = new URLSearchParams(url.split("?")[1] || "");
+    body = (ENV_HIST[eq.get("slot")] || {})[eq.get("hours") || "24"] || {sensors:[],avg:[],count:0};
+  }
   else if (url.indexOf("/api/history") === 0) {
     var q = new URLSearchParams(url.split("?")[1] || "");
     body = (HIST[q.get("key")] || {})[q.get("hours") || "24"] || {points:[],count:0};
@@ -344,6 +387,7 @@ def main() -> int:
     mock = (MOCK
             .replace("__STATES__", json.dumps(STATES, ensure_ascii=False))
             .replace("__HIST__", json.dumps(HIST))
+            .replace("__ENV_HIST__", json.dumps(ENV_HIST))
             .replace("__SENSORS__", json.dumps(SENSORS, ensure_ascii=False))
             .replace("__NUTRIENT__", json.dumps(NUTRIENT))
             .replace("__CALIBRATION__", json.dumps(CALIBRATION))

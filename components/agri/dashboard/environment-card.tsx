@@ -10,13 +10,14 @@
 // 풍속 칸에, 강우강도는 오늘 강수 칸에 접어 칸 수를 줄였다.
 //
 // 같은 칸에 센서가 2대 이상이면 칸에는 평균을 두고 "평균 · N대" 를 붙인다. 칸을 누르면
-// 한 대 한 대의 마지막 값을 펼친다(env_sensors — 장비 화면의 같은 칸을 눌렀을 때와 같다).
+// 센서마다 한 줄씩 24시간 그래프와 마지막 값을 펼친다(env_sensors — 장비 화면의 같은 칸을
+// 눌렀을 때와 같다). 센서 색은 이름순 자리로 정해 목록의 점과 그래프 선이 같은 색이다.
 import { useEffect, useState } from "react"
-import { LineChart, Line, ResponsiveContainer } from "recharts"
+import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useT, useAgriT } from "@/lib/i18n-context"
 import { ENV_PARAMS, compassIndex, type EnvParam, type EnvParamKey, type EnvEach } from "@/lib/env-params"
-import { getLatestEnvSensors } from "@/lib/db"
+import { getEnvSensorSeries } from "@/lib/db"
 import { agoLabel } from "@/components/agri/dashboard/time-ago"
 import type { WaterQualityReading } from "@/types"
 
@@ -52,19 +53,19 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
   const { t } = useT()
   const { environment: ed } = useAgriT()
   // 어느 베드의 값인지 같이 둔다 — 베드를 바꾼 직후 이전 베드의 센서 목록이 보이지 않게.
-  const [eachData, setEachData] = useState<{ tankId: string; each: EnvEach; at: string } | null>(null)
+  const [eachData, setEachData] = useState<{ tankId: string; rows: { each: EnvEach; recorded_at: string }[] } | null>(null)
   const [open, setOpen] = useState<{ tankId: string; key: EnvParamKey } | null>(null)
 
   useEffect(() => {
     if (mock || !tankId) return
     let alive = true
-    getLatestEnvSensors(tankId).then(r => {
-      if (alive) setEachData(r ? { tankId, each: r.each, at: r.recorded_at } : null)
-    })
+    getEnvSensorSeries(tankId).then(rows => { if (alive) setEachData({ tankId, rows }) })
     return () => { alive = false }
   }, [tankId, now, mock])
 
-  const each = eachData && eachData.tankId === tankId ? eachData.each : {}
+  const eachRows = eachData && eachData.tankId === tankId ? eachData.rows : []
+  const lastEach = eachRows.length ? eachRows[eachRows.length - 1] : null
+  const each = lastEach ? lastEach.each : {}
   const eachOf = (k: EnvParamKey) => {
     const list = (each as Record<string, { id: string; v: number }[] | undefined>)[k]
     return list && list.length >= 2 ? list : null
@@ -174,9 +175,9 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
                   )
                 })}
               </div>
-              {openKey && eachData && (
+              {openKey && lastEach && (
                 <EachList param={param(openKey)} label={ed.param[openKey]} rows={eachOf(openKey)!}
-                  at={agoLabel(t.time, eachData.at)} ed={ed} onClose={() => setOpen(null)} />
+                  history={eachRows} at={agoLabel(t.time, lastEach.recorded_at)} ed={ed} onClose={() => setOpen(null)} />
               )}
         </CardContent>
       </Card>
@@ -184,41 +185,89 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
   )
 }
 
-/** 펼친 센서별 목록 — 이름순. 가장 높은·낮은 센서에 표시를 붙여 튀는 센서를 바로 찾게. */
-function EachList({ param, label, rows, at, ed, onClose }: {
+/** 센서 색 — 밝은·어두운 화면 모두에서 읽히는 진한 색. 이름순 자리로 고른다(장비 화면과 같은 규칙). */
+const SENSOR_COLORS = ["#0284c7", "#db2777", "#65a30d", "#d97706", "#9333ea", "#0d9488", "#ea580c", "#dc2626",
+  "#2563eb", "#c026d3", "#16a34a", "#ca8a04"]
+
+/** 펼친 센서별 그래프와 목록 — 이름순. 가장 높은·낮은 센서에 표시를 붙여 튀는 센서를 바로 찾게. */
+function EachList({ param, label, rows, history, at, ed, onClose }: {
   param: EnvParam
   label: string
   rows: { id: string; v: number }[]
+  history: { each: EnvEach; recorded_at: string }[]
   at: string
   ed: ReturnType<typeof useAgriT>["environment"]
   onClose: () => void
 }) {
+  const key = param.key as keyof EnvEach
+  // 그래프에는 지금은 끊겼어도 24시간 안에 값을 보낸 센서까지 그린다 — 언제 끊겼는지 보이게.
+  const ids = Array.from(new Set([...rows.map(r => r.id), ...history.flatMap(h => (h.each[key] ?? []).map(r => r.id))])).sort()
+  const color = (id: string) => SENSOR_COLORS[ids.indexOf(id) % SENSOR_COLORS.length]
+  const data = history
+    .filter(h => h.each[key]?.length)
+    .map(h => ({ t: new Date(h.recorded_at).getTime(), ...Object.fromEntries(h.each[key]!.map(r => [r.id, r.v])) }))
   const sorted = [...rows].sort((a, b) => a.id.localeCompare(b.id))
+  // 24시간 안에 값을 보냈지만 마지막 수신에는 없는 센서 — 평균에서 빠진 센서를 찾게.
+  const lost = ids.filter(id => !rows.some(r => r.id === id))
   const hi = Math.max(...rows.map(r => r.v)), lo = Math.min(...rows.map(r => r.v))
   const spread = hi !== lo
   const fmt = (v: number) => v.toFixed(param.digits)
+  const hhmm = (ms: number) => {
+    const d = new Date(ms)
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+  }
   return (
     <div className="mt-3 rounded-xl border border-border p-3" role="region"
       aria-label={ed.eachTitle.replace("{{param}}", label)}>
-      <div className="flex items-baseline justify-between gap-2 mb-1">
+      <div className="flex items-baseline justify-between gap-2 mb-2">
         <p className="text-sm font-medium text-foreground">{ed.eachTitle.replace("{{param}}", label)}</p>
         <div className="flex items-baseline gap-3">
           <p className="text-xs text-muted-foreground tabular-nums">{ed.eachAt.replace("{{ago}}", at)}</p>
           <button type="button" onClick={onClose} className="text-xs text-primary hover:underline">{ed.close}</button>
         </div>
       </div>
-      <ul className="divide-y divide-border">
-        {sorted.map(r => (
-          <li key={r.id} className="flex items-center gap-2 py-1.5 text-sm">
-            <span className="flex-1 min-w-0 truncate text-foreground">{r.id}</span>
-            {spread && r.v === hi && <span className="text-xs text-orange-600 dark:text-orange-400">{ed.highest}</span>}
-            {spread && r.v === lo && <span className="text-xs text-sky-600 dark:text-sky-400">{ed.lowest}</span>}
-            <span className="tabular-nums font-semibold text-foreground w-20 text-right">
-              {fmt(r.v)}{param.unit && <span className="text-xs font-medium text-muted-foreground ml-1">{param.unit}</span>}
-            </span>
-          </li>
-        ))}
-      </ul>
+      <div className="flex flex-col md:flex-row gap-3">
+        {data.length >= 2 && (
+          <div className="md:flex-1 min-w-0 h-48" aria-hidden="true">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: -12 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border" />
+                <XAxis dataKey="t" type="number" scale="time" domain={["dataMin", "dataMax"]} tickFormatter={hhmm}
+                  tick={{ fontSize: 11 }} stroke="currentColor" className="text-muted-foreground" minTickGap={40} />
+                <YAxis domain={["auto", "auto"]} tick={{ fontSize: 11 }} width={44} stroke="currentColor"
+                  className="text-muted-foreground" tickFormatter={(v: number) => v.toFixed(param.digits)} />
+                <Tooltip labelFormatter={v => hhmm(Number(v))}
+                  formatter={(v, name) => [`${Number(v).toFixed(param.digits)} ${param.unit}`, String(name)]} />
+                {ids.map(id => (
+                  <Line key={id} type="monotone" dataKey={id} stroke={color(id)} strokeWidth={1.75}
+                    dot={false} connectNulls={false} isAnimationActive={false} />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        <ul className="divide-y divide-border md:w-56 shrink-0">
+          {sorted.map(r => (
+            <li key={r.id} className="flex items-center gap-2 py-1.5 text-sm">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color(r.id) }} aria-hidden="true" />
+              <span className="flex-1 min-w-0 truncate text-foreground">{r.id}</span>
+              {spread && r.v === hi && <span className="text-xs text-orange-600 dark:text-orange-400">{ed.highest}</span>}
+              {spread && r.v === lo && <span className="text-xs text-sky-600 dark:text-sky-400">{ed.lowest}</span>}
+              <span className="tabular-nums font-semibold text-foreground w-20 text-right">
+                {fmt(r.v)}{param.unit && <span className="text-xs font-medium text-muted-foreground ml-1">{param.unit}</span>}
+              </span>
+            </li>
+          ))}
+          {lost.map(id => (
+            <li key={id} className="flex items-center gap-2 py-1.5 text-sm opacity-60">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color(id) }} aria-hidden="true" />
+              <span className="flex-1 min-w-0 truncate text-foreground">{id}</span>
+              <span className="text-xs text-muted-foreground">{ed.lost}</span>
+              <span className="tabular-nums text-muted-foreground w-20 text-right">—</span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   )
 }

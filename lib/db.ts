@@ -312,9 +312,10 @@ export async function getPowerReadings(tankId: string, hours = 24): Promise<Powe
   return ((data || []) as PowerReading[]).reverse()
 }
 
-/** 베드의 가장 최근 센서별 환경 값(최근 hours 시간 안). 없거나 env_sensors.sql 전이면 null.
- *  env_sensors 칸은 wq_series 가 돌려주지 않는다(구간 평균으로 묶을 수 없다) — 따로 한 줄만 읽는다. */
-export async function getLatestEnvSensors(tankId: string, hours = 24): Promise<{ each: EnvEach; recorded_at: string } | null> {
+/** 베드의 센서별 환경 값 기록(최근 hours 시간, 오래된 것부터). 없거나 env_sensors.sql 전이면 [].
+ *  env_sensors 칸은 wq_series 가 돌려주지 않는다(구간 평균으로 묶을 수 없다) — 따로 읽는다.
+ *  장비가 5분마다 올리므로 24시간이 288줄이다. API 상한(1,000행) 때문에 최신 순으로 받아 뒤집는다. */
+export async function getEnvSensorSeries(tankId: string, hours = 24): Promise<{ each: EnvEach; recorded_at: string }[]> {
   const since = new Date(Date.now() - hours * 3_600_000).toISOString()
   const { data, error } = await supabase
     .from("water_quality_readings")
@@ -323,10 +324,12 @@ export async function getLatestEnvSensors(tankId: string, hours = 24): Promise<{
     .not("env_sensors", "is", null)
     .gte("recorded_at", since)
     .order("recorded_at", { ascending: false })
-    .limit(1)
-  if (error || !data?.length) return null
-  const r = data[0] as { env_sensors: EnvEach | null; recorded_at: string }
-  return r.env_sensors ? { each: r.env_sensors, recorded_at: r.recorded_at } : null
+    .limit(1000)
+  if (error || !data) return []
+  return (data as { env_sensors: EnvEach | null; recorded_at: string }[])
+    .filter(r => r.env_sensors)
+    .map(r => ({ each: r.env_sensors as EnvEach, recorded_at: r.recorded_at }))
+    .reverse()
 }
 
 export async function getLatestWaterQuality(tankId: string, deviceId?: string | null): Promise<WaterQualityReading | null> {

@@ -1906,6 +1906,8 @@ def main() -> int:
         {k.upper(): v.strip() for k, v in cfg.items("power_circuits")}
         if cfg.has_section("power_circuits") else {})
     power_sent = {"at": 0.0}
+    # 센서별 환경 값(env_each)은 5분에 한 번 — 웹 그래프 24시간이 서버 1,000행 상한 안에 들게.
+    env_each_sent = {"at": 0.0}
     if field_env_mod is not None and (env_on or power_on):
         # 두 기능이 같은 수집기 폴더를 읽는다. 폴더는 [environment] dir 이 정하고,
         # 전력만 켠 장비는 [power] dir(없으면 같은 기본값)을 쓴다.
@@ -2433,6 +2435,9 @@ def main() -> int:
             except Exception as exc:  # noqa: BLE001
                 log.warning("환경·기상 값 읽기 실패: %s", exc)
                 env = {}
+            # 센서별 그래프용 이력 — 수질 센서가 죽어도 남긴다(5분에 한 번, history.ENV_EVERY_S).
+            if hist is not None and env:
+                hist.record_env(env)
         # 전력 회로 — 켜 둔 장비만. 값이 없으면 빈 목록(화면이 점검 안내를 띄운다).
         power = None
         if field_env is not None and power_on:
@@ -2506,9 +2511,11 @@ def main() -> int:
                 if env and env_upload:
                     payload.update(field_env_mod.payload_values(env))
                     # 센서가 여러 대인 칸은 한 대 한 대의 값도 — 웹 카드에서 칸을 누르면 펼쳐 본다.
-                    each = field_env_mod.payload_each(env)
-                    if each:
-                        payload["env_each"] = each
+                    if time.time() - env_each_sent["at"] >= 300:
+                        each = field_env_mod.payload_each(env)
+                        if each:
+                            payload["env_each"] = each
+                            env_each_sent["at"] = time.time()
                 # 전력 회로 — 5분마다. 차단기가 과열 중이면 매번(휴대폰 알림이 늦으면 안 된다).
                 if power and power_upload and power["circuits"]:
                     due = time.time() - power_sent["at"] >= power_every_s

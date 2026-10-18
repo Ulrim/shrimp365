@@ -246,7 +246,16 @@ PAGE = """<!doctype html>
   .env .e.old .em{color:#F59E0B}
   .env .e.many{cursor:pointer;border-color:#2B3E63}
   .env .e.many .ek::after{content:" \u203A";color:#64748B}
-  .eachrow .num{width:96px}
+  .eachbody{flex:1;min-height:0;display:flex;gap:10px}
+  .eachbody .plot{flex:1 1 0;display:flex;align-items:center;justify-content:center}
+  .eachlist{width:270px;flex:0 0 auto;overflow-y:auto;background:#111A2E;border:1px solid #22304C;
+    border-radius:12px;padding:2px 12px}
+  .eachrow{gap:8px}
+  .eachrow .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .eachrow .nm{font-size:14px}
+  .eachrow .num{width:74px}
+  .avgkey::before{content:"";display:inline-block;width:16px;border-top:2px dashed #E8EDF7;
+    vertical-align:middle;margin-right:5px}
   .eachrow .tag{font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px}
   .eachrow .tag.hi{color:#FB923C;border:1px solid #9A3412}
   .eachrow .tag.lo{color:#38BDF8;border:1px solid #075985}
@@ -684,6 +693,9 @@ var I18N = {
   dir_E:{ko:"동",en:"E",vi:"Đông",id:"T"}, dir_SE:{ko:"남동",en:"SE",vi:"Đông Nam",id:"TG"},
   dir_S:{ko:"남",en:"S",vi:"Nam",id:"S"}, dir_SW:{ko:"남서",en:"SW",vi:"Tây Nam",id:"BD"},
   dir_W:{ko:"서",en:"W",vi:"Tây",id:"B"}, dir_NW:{ko:"북서",en:"NW",vi:"Tây Bắc",id:"BL"},
+  env_no_hist:{ko:"아직 쌓인 기록이 없습니다 — 5분마다 남깁니다",en:"No history yet — recorded every 5 minutes",vi:"Chưa có lịch sử — ghi mỗi 5 phút",id:"Belum ada riwayat — dicatat tiap 5 menit"},
+  env_loading:{ko:"기록을 읽는 중…",en:"Loading history…",vi:"Đang tải…",id:"Memuat…"},
+  env_avg_line:{ko:"평균",en:"Average",vi:"Trung bình",id:"Rata-rata"},
   env_each_title:{ko:"{p} · 센서별",en:"{p} · by sensor",vi:"{p} · từng cảm biến",id:"{p} · per sensor"},
   env_avg:{ko:"평균 ({n}대)",en:"Average ({n})",vi:"Trung bình ({n})",id:"Rata-rata ({n})"},
   env_lost:{ko:"끊김",en:"No signal",vi:"Mất tín hiệu",id:"Terputus"},
@@ -1132,15 +1144,79 @@ function renderEnv(d){
   return '<div class="env">' + tiles + '</div>';
 }
 
-// 칸을 누르면 — 센서별 값. 평균은 지금 값이 있는 센서로만 낸다. 끊긴 센서는 회색으로 남겨
-// 평균에서 어느 것이 빠졌는지 보이게 한다. 가장 높은·낮은 센서에 표시를 붙인다.
-var envEachKey = null;
-function openEnvEach(k){ envEachKey = k; drawEnvEach(lastState || {}); }
-function closeEnvEach(){ envEachKey = null; document.getElementById("envpanel").innerHTML = ""; }
+// 칸을 누르면 — 센서별 그래프와 목록. 평균은 지금 값이 있는 센서로만 낸다. 끊긴 센서는
+// 회색 '끊김'으로 남겨 평균에서 어느 것이 빠졌는지 보이게 하고, 가장 높은·낮은 센서에 표시를 붙인다.
+// 그래프는 장비 이력(history.env_samples, 5분 간격)에서 — 인터넷이 끊겨도 그린다.
+// 센서 색은 이름순 자리로 정한다. 목록의 점 색과 선 색이 같다.
+var SENSOR_COLORS = ["#38BDF8","#F472B6","#A3E635","#FBBF24","#C084FC","#2DD4BF","#FB923C","#F87171",
+                     "#60A5FA","#E879F9","#4ADE80","#FACC15"];
+var envEachKey = null, envEachHours = 24, envSeries = null, envSeriesAt = 0;
+function openEnvEach(k){
+  envEachKey = k; envEachHours = 24; envSeries = null;
+  drawEnvEach(lastState || {}); loadEnvSeries();
+}
+function closeEnvEach(){ envEachKey = null; envSeries = null; document.getElementById("envpanel").innerHTML = ""; }
+function setEnvRange(h){ envEachHours = h; envSeries = null; drawEnvEach(lastState || {}); loadEnvSeries(); }
+function loadEnvSeries(){
+  var k = envEachKey, h = envEachHours;
+  if (!k) return;
+  envSeriesAt = Date.now();
+  fetch("/api/env_history?slot=" + k + "&hours=" + h, {cache:"no-store"})
+    .then(function(r){ return r.json(); })
+    .catch(function(){ return {sensors:[], avg:[], count:0}; })
+    .then(function(d){
+      if (envEachKey !== k || envEachHours !== h) return;   // 그새 닫았거나 구간을 바꿨다
+      envSeries = d; drawEnvEach(lastState || {});
+    });
+}
+function sensorColors(e){
+  var ids = (e.each || []).map(function(x){ return x.id; });
+  ((envSeries && envSeries.sensors) || []).forEach(function(s){ if (ids.indexOf(s.id) < 0) ids.push(s.id); });
+  ids.sort();
+  var c = {};
+  ids.forEach(function(id, i){ c[id] = SENSOR_COLORS[i % SENSOR_COLORS.length]; });
+  return c;
+}
+function envPlot(slot, d, colors){
+  if (!d) return '<div class="nodata">' + t("env_loading") + '</div>';
+  if (!d.count) return '<div class="nodata">' + t("env_no_hist") + '</div>';
+  var W = 500, H = 300, padL = 44, padR = 10, padT = 10, padB = 24;
+  var all = [];
+  d.sensors.forEach(function(s){ s.points.forEach(function(p){ all.push(p[0]); }); });
+  var t0 = Math.min.apply(null, all), t1 = Math.max(Math.max.apply(null, all), t0 + 1);
+  var span = Math.max(d.max - d.min, Math.pow(10, -slot.digits));
+  var lo = d.min - span * 0.1, hi = d.max + span * 0.1;
+  var x = function(t){ return padL + (t - t0) / (t1 - t0) * (W - padL - padR); };
+  var y = function(v){ return padT + (hi - v) / (hi - lo) * (H - padT - padB); };
+  var grid = "";
+  for (var i = 0; i <= 3; i++) {
+    var v = lo + (hi - lo) * i / 3, gy = y(v);
+    grid += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (W-padR) + '" y2="' + gy + '" stroke="#22304C" stroke-width="1"/>' +
+            '<text x="' + (padL-6) + '" y="' + (gy+4) + '" text-anchor="end" fill="#64748B" font-size="11" ' +
+            'font-family="ui-monospace,monospace">' + v.toFixed(slot.digits) + '</text>';
+  }
+  [0, 0.5, 1].forEach(function(f){
+    var tt = t0 + (t1 - t0) * f;
+    grid += '<text x="' + x(tt) + '" y="' + (H-7) + '" text-anchor="' + (f === 0 ? "start" : f === 1 ? "end" : "middle") +
+            '" fill="#64748B" font-size="11" font-family="ui-monospace,monospace">' + fmtTick(tt, envEachHours) + '</text>';
+  });
+  var line = function(pts, color, w, dash){
+    if (pts.length === 1) return '<circle cx="' + x(pts[0][0]) + '" cy="' + y(pts[0][1]) + '" r="3" fill="' + color + '"/>';
+    return '<polyline fill="none" stroke="' + color + '" stroke-width="' + w + '"' + (dash ? ' stroke-dasharray="6 5"' : "") +
+      ' stroke-linejoin="round" stroke-linecap="round" points="' +
+      pts.map(function(p){ return x(p[0]) + "," + y(p[1]); }).join(" ") + '"/>';
+  };
+  var lines = d.sensors.map(function(s){ return line(s.points, colors[s.id] || "#94A3B8", 2, false); }).join("");
+  var avg = d.sensors.length >= 2 ? line(d.avg, "#E8EDF7", 1.5, true) : "";
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' + grid + lines + avg + '</svg>';
+}
 function drawEnvEach(d){
   var e = d.env && d.env[envEachKey];
   var slot = ENV_SLOTS.filter(function(s){ return s.k === envEachKey; })[0];
   if (!e || !e.each || !slot) { closeEnvEach(); return; }
+  // 화면이 오래 열려 있으면 그래프도 따라간다(1분마다 다시 읽기).
+  if (envSeries && Date.now() - envSeriesAt > 60000) loadEnvSeries();
+  var colors = sensorColors(e);
   var live = e.each.filter(function(x){ return x.value !== null; }).map(function(x){ return x.value; });
   var hi = Math.max.apply(null, live), lo = Math.min.apply(null, live);
   var spread = live.length >= 2 && hi !== lo;
@@ -1150,16 +1226,26 @@ function drawEnvEach(d){
             : spread && x.value === hi ? '<span class="tag hi">' + t("env_hi") + '</span>'
             : spread && x.value === lo ? '<span class="tag lo">' + t("env_lo") + '</span>' : "";
     var ago = x.age_min < 1 ? t("env_just") : t("env_ago", {m: x.age_min});
-    return '<div class="pwrow eachrow"><div class="nm">' + esc(x.id) + '<small>' + ago + '</small></div>' + tag +
+    return '<div class="pwrow eachrow"><span class="dot" style="background:' + colors[x.id] + '"></span>' +
+      '<div class="nm">' + esc(x.id) + '<small>' + ago + '</small></div>' + tag +
       '<span class="num' + (dead ? " dim" : "") + '">' + (dead ? "--" : x.value.toFixed(slot.digits)) +
       '<small>' + slot.unit + '</small></span></div>';
   }).join("");
+  var buttons = RANGE_OPTIONS.map(function(o){
+    return '<button onclick="setEnvRange(' + o.hours + ')" aria-pressed="' + (o.hours === envEachHours) + '">' +
+      t(o.k) + '</button>';
+  }).join("");
   document.getElementById("envpanel").innerHTML =
-    '<div class="overlay"><h1>' + t("env_each_title", {p: envLabel(envEachKey, e)}) + '</h1>' +
-      '<div class="pwtot"><span>' + t("env_avg", {n: e.sensors}) + ' <b>' + e.value.toFixed(slot.digits) + '</b>' +
-      slot.unit + '</span></div>' +
-      '<div class="pwbox">' + rows + '</div>' +
-      '<div class="ovbtns"><button class="act ghost" onclick="closeEnvEach()">' + t("close") + '</button></div>' +
+    '<div class="chart">' +
+      '<div class="chead"><span class="ctitle">' + t("env_each_title", {p: envLabel(envEachKey, e)}) + '</span>' +
+        '<span class="cnow">' + e.value.toFixed(slot.digits) + '<small style="font-size:13px;color:#94A3B8"> ' +
+        slot.unit + '</small></span>' +
+        '<span class="cstats"><span>' + t("env_avg", {n: e.sensors}) + '</span>' +
+        '<span class="avgkey">' + t("env_avg_line") + '</span></span></div>' +
+      '<div class="ranges">' + buttons +
+        '<button class="close" onclick="closeEnvEach()">' + t("close") + '</button></div>' +
+      '<div class="eachbody"><div class="plot">' + envPlot(slot, envSeries, colors) + '</div>' +
+        '<div class="eachlist">' + rows + '</div></div>' +
     '</div>';
 }
 
@@ -2680,6 +2766,8 @@ def serve(
         def do_GET(self) -> None:
             if self.path.startswith("/api/state"):
                 self._send(200, json.dumps(state.snapshot()).encode(), "application/json")
+            elif self.path.startswith("/api/env_history"):
+                self._env_history()
             elif self.path.startswith("/api/history"):
                 self._history()
             elif self.path == "/api/sensors" and get_sensors is not None:
@@ -2711,6 +2799,20 @@ def serve(
             if hours not in (6, 12, 24, 168):
                 hours = 24
             self._send(200, json.dumps(history.series(key, hours)).encode(), "application/json")
+
+        def _env_history(self) -> None:
+            if history is None:
+                self._send(200, b'{"sensors":[],"avg":[],"count":0}', "application/json")
+                return
+            query = parse_qs(urlparse(self.path).query)
+            slot = (query.get("slot") or [""])[0]
+            try:
+                hours = int((query.get("hours") or ["24"])[0])
+            except ValueError:
+                hours = 24
+            if hours not in (6, 12, 24, 168):
+                hours = 24
+            self._send(200, json.dumps(history.env_series(slot, hours)).encode(), "application/json")
 
         def _body(self) -> dict:
             try:
