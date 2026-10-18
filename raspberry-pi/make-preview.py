@@ -71,6 +71,49 @@ MRV_METERS = [
      "is_aeration": False, "has_prev": False},
 ]
 
+# 계측기가 많은 현장. 펌프·모터가 여러 대인 양식장은 흔하다.
+#
+# **왜 장면을 따로 두는가.** 기본 장면은 계측기가 3대뿐이라 목록이 한 화면에 다 들어간다.
+# 그래서 "한 화면에 몇 대까지 보이는가", "더 있다는 것을 작업자가 아는가" 를 아무도 보지
+# 못했다. 15대면 한 번에 5대가 보이고 여섯째 줄이 반쯤 잘린다 — 목록은 정상적으로
+# 스크롤되지만(창 327px / 내용 885px), 몇 대가 있는지는 화면 어디에도 적혀 있지 않다.
+#
+# 덧붙여: EI 산식은 기기별 계측기를 필요로 하지 않는다(에너지 모듈은 산입된 값의 합과
+# 폭기 부분합만 쓴다). 기기별 등록은 진단용이고, 등록이 늘수록 기준선 잠금 가드의
+# **계측기·일당 건수**(0.8건) 를 맞추기가 어려워진다 — 15대면 7일에 84건이다.
+MRV_METERS_MANY = [
+    {"id": "mtr_total", "label": "총전력계 (수전반)", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": True},
+    {"id": "mtr_blower1", "label": "브로워 1호", "unit": "kWh_interval",
+     "is_aeration": True, "has_prev": True},
+    {"id": "mtr_blower2", "label": "브로워 2호", "unit": "kWh_interval",
+     "is_aeration": True, "has_prev": True},
+    {"id": "mtr_blower3", "label": "브로워 3호", "unit": "kWh_interval",
+     "is_aeration": True, "has_prev": False},
+    {"id": "mtr_pump1", "label": "순환펌프 1호", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": True},
+    {"id": "mtr_pump2", "label": "순환펌프 2호", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": True},
+    {"id": "mtr_pump3", "label": "순환펌프 3호", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": False},
+    {"id": "mtr_pump4", "label": "순환펌프 4호", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": False},
+    {"id": "mtr_drum", "label": "드럼필터 모터", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": True},
+    {"id": "mtr_skimmer", "label": "단백질 스키머", "unit": "kWh_interval",
+     "is_aeration": True, "has_prev": True},
+    {"id": "mtr_uv", "label": "UV 살균기", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": True},
+    {"id": "mtr_heat1", "label": "히터 1호", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": True},
+    {"id": "mtr_heat2", "label": "히터 2호", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": False},
+    {"id": "mtr_feeder", "label": "자동급이기", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": True},
+    {"id": "mtr_light", "label": "조명 · 기타", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": True},
+]
+
 # MRV 기본 화면의 "마지막 지침" 줄. 보낸 적 없는 계측기는 들어가지 않는다.
 MRV_RECENT = [
     {"id": "mtr_total", "label": "총전력계 (수전반)", "is_aeration": False,
@@ -151,6 +194,11 @@ STATES = [
         _open="power_entry_first",
         mode="mrv", sensors_on=False, values={}, status="14:32",
         mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_recent=MRV_RECENT, mrv_today=2)),
+    ("MRV · 계측기 많은 현장", base_state(
+        _open="power",
+        mode="mrv", sensors_on=False, values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS_MANY,
         mrv_recent=MRV_RECENT, mrv_today=2)),
     ("MRV · 미전송 보관분", base_state(
         mode="mrv", sensors_on=False, values={}, status="14:32",
@@ -369,7 +417,7 @@ def main() -> int:
             .replace("__WIFI_NETWORKS__", json.dumps(WIFI_NETWORKS, ensure_ascii=False))
             .replace("__WIFI_START__", json.dumps(WIFI_START, ensure_ascii=False))
             .replace("__MRV_HAS_PREV__", json.dumps(
-                {m["id"]: m["has_prev"] for m in MRV_METERS})))
+                {m["id"]: m["has_prev"] for m in MRV_METERS + MRV_METERS_MANY})))
     # 가짜 fetch 를 화면 스크립트보다 먼저 심는다.
     device = page.replace("<script>", mock + "<script>", 1)
 
