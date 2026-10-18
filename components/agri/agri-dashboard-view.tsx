@@ -320,7 +320,7 @@ export function AgriDashboardView() {
       )}
 
       {/* 환경·기상 — 장비가 지그비·기상센서 값을 올린 베드만. 없으면 카드가 그려지지 않는다 */}
-      {selectedTank && <EnvironmentCard readings={visibleWq} tankName={selectedTank.name} now={lastRefreshed} />}
+      {selectedTank && <EnvironmentCard readings={visibleWq} tankId={selectedTank.id} tankName={selectedTank.name} now={lastRefreshed} mock={mock} />}
 
       {/* 전력 — 장비가 분전반 회로 값을 올린 베드만. 없으면 카드가 그려지지 않는다 */}
       {selectedTank && <PowerCard tankId={selectedTank.id} tankName={selectedTank.name} now={lastRefreshed} mock={mock} />}

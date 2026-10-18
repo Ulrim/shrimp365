@@ -33,6 +33,7 @@ ORDER=(
   agriculture_mode
   environment_readings
   power_readings
+  env_sensors
   push_subscriptions
 )
 

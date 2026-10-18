@@ -47,3 +47,41 @@ export const ENV_KEYS: readonly EnvParamKey[] = ENV_PARAMS.map(p => p.key)
 export function compassIndex(deg: number): number {
   return Math.round((((deg % 360) + 360) % 360) / 45) % 8
 }
+
+// ── 센서별 값 ────────────────────────────────────────────────────────────────
+// 같은 칸에 센서가 여러 대면 카드는 평균을 보이고, 칸을 누르면 한 대 한 대를 펼친다.
+// 장비(field_env.payload_each)가 env_each 로 올리고 서버가 water_quality_readings.env_sensors
+// (env_sensors.sql)에 그대로 둔다. 풍향·돌풍·강우강도는 다른 칸에 접혀 있어 따로 받지 않는다.
+
+/** 센서별 값을 받는 칸 — 장비 field_env.EACH_SLOTS 와 같다. */
+export const EACH_KEYS = ["air_temp", "humidity", "soil_moisture", "soil_temp", "wind_speed", "rain_day"] as const
+export type EachKey = (typeof EACH_KEYS)[number]
+export type EnvEach = Partial<Record<EachKey, { id: string; v: number }[]>>
+
+const EACH_MAX = 16
+const SENSOR_ID_RE = /^[A-Za-z0-9_.-]{1,32}$/
+
+/** 장비가 보낸 env_each 를 검증한다. 2대 이상 남은 칸만 돌려준다. 받을 것이 없으면 null. */
+export function parseEnvEach(raw: unknown): EnvEach | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null
+  const src = raw as Record<string, unknown>
+  const out: EnvEach = {}
+  for (const key of EACH_KEYS) {
+    const list = src[key]
+    if (!Array.isArray(list)) continue
+    const [min, max] = ENV_PARAMS.find(p => p.key === key)!.range
+    const seen = new Set<string>()
+    const rows: { id: string; v: number }[] = []
+    for (const item of list.slice(0, EACH_MAX)) {
+      if (!item || typeof item !== "object") continue
+      const r = item as Record<string, unknown>
+      const id = typeof r.id === "string" ? r.id.trim().toUpperCase() : ""
+      const v = Number(r.v)
+      if (!SENSOR_ID_RE.test(id) || seen.has(id) || r.v === null || !Number.isFinite(v) || v < min || v > max) continue
+      seen.add(id)
+      rows.push({ id, v })
+    }
+    if (rows.length >= 2) out[key] = rows
+  }
+  return Object.keys(out).length ? out : null
+}

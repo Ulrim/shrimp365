@@ -112,9 +112,14 @@ AGRI_VALUES = {"temperature": 21.6, "ph": 6.12, "do_level": 7.3, "conductivity":
 NUT_BASE = {"ec": 1.71, "target": 1.8, "percent": 94.0, "atc": True}
 # 환경·기상 — field_env.FieldEnv.read() 의 모양. 기상센서(WS90)까지 단 농장.
 ENV = {
-    "air_temp": {"value": 23.4, "var": "t_air", "sensors": 1, "age_min": 0},
-    "humidity": {"value": 71.5, "var": "rh", "sensors": 3, "age_min": 3},
-    "soil_moisture": {"value": 34.2, "var": "soil_moisture", "sensors": 2, "age_min": 4},
+    "air_temp": {"value": 23.4, "var": "t_air", "sensors": 3, "age_min": 2,
+                 "each": [{"id": "TH-01", "value": 22.6, "age_min": 1}, {"id": "TH-02", "value": 23.3, "age_min": 2},
+                          {"id": "TH-03", "value": 24.3, "age_min": 0}, {"id": "TH-04", "value": None, "age_min": 47}]},
+    "humidity": {"value": 71.5, "var": "rh", "sensors": 3, "age_min": 3,
+                 "each": [{"id": "TH-01", "value": 74.2, "age_min": 1}, {"id": "TH-02", "value": 71.0, "age_min": 3},
+                          {"id": "TH-03", "value": 69.3, "age_min": 0}]},
+    "soil_moisture": {"value": 34.2, "var": "soil_moisture", "sensors": 2, "age_min": 4,
+                      "each": [{"id": "SM-01", "value": 31.0, "age_min": 4}, {"id": "SM-02", "value": 37.4, "age_min": 2}]},
     "soil_temp": {"value": 19.8, "var": "soil_temp", "sensors": 2, "age_min": 4},
     "wind_speed": {"value": 3.2, "var": "wind_speed", "sensors": 1, "age_min": 0},
     "wind_gust": {"value": 6.8, "var": "wind_gust_window", "sensors": 1, "age_min": 0},

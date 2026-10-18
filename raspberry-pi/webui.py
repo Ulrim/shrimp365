@@ -160,6 +160,10 @@ PAGE = """<!doctype html>
   .grid.tight .v{font-size:42px}
   .grid.tight .v small{font-size:17px}
   .grid.tight .sub2{margin-top:2px}
+  .grid.tighter .cell{padding:4px 14px}
+  .grid.tighter .v{font-size:34px}
+  .grid.tighter .v small{font-size:15px}
+  .grid.tighter .sub2{display:none}
   .pwalert{flex:0 0 auto;margin-bottom:9px;padding:8px 13px;border-radius:12px;cursor:pointer;
     display:flex;align-items:center;gap:10px;font-size:14.5px;font-weight:800}
   .pwalert.warn{border:1px solid #D97706;background:#D9770618;color:#FBBF24}
@@ -240,6 +244,12 @@ PAGE = """<!doctype html>
   .env .ev small{font-size:13px;font-weight:600;color:#94A3B8;margin-left:3px}
   .env .em{font-size:11px;color:#64748B;font-weight:600}
   .env .e.old .em{color:#F59E0B}
+  .env .e.many{cursor:pointer;border-color:#2B3E63}
+  .env .e.many .ek::after{content:" \u203A";color:#64748B}
+  .eachrow .num{width:96px}
+  .eachrow .tag{font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px}
+  .eachrow .tag.hi{color:#FB923C;border:1px solid #9A3412}
+  .eachrow .tag.lo{color:#38BDF8;border:1px solid #075985}
   .env .e.none .ev{color:#475569}
   .env.empty{border:1px dashed #22304C;border-radius:12px;padding:9px 14px;
     font-size:13px;color:#94A3B8;font-weight:600}
@@ -505,6 +515,7 @@ PAGE = """<!doctype html>
 <div id="account"></div>
 <div id="aipanel"></div>
 <div id="powerpanel"></div>
+<div id="envpanel"></div>
 
 <script>
 // 값 칸의 표시 형식. **판정 숫자는 여기 없다** — limits.py 가 주입하는 BANDS 를
@@ -673,6 +684,13 @@ var I18N = {
   dir_E:{ko:"동",en:"E",vi:"Đông",id:"T"}, dir_SE:{ko:"남동",en:"SE",vi:"Đông Nam",id:"TG"},
   dir_S:{ko:"남",en:"S",vi:"Nam",id:"S"}, dir_SW:{ko:"남서",en:"SW",vi:"Tây Nam",id:"BD"},
   dir_W:{ko:"서",en:"W",vi:"Tây",id:"B"}, dir_NW:{ko:"북서",en:"NW",vi:"Tây Bắc",id:"BL"},
+  env_each_title:{ko:"{p} · 센서별",en:"{p} · by sensor",vi:"{p} · từng cảm biến",id:"{p} · per sensor"},
+  env_avg:{ko:"평균 ({n}대)",en:"Average ({n})",vi:"Trung bình ({n})",id:"Rata-rata ({n})"},
+  env_lost:{ko:"끊김",en:"No signal",vi:"Mất tín hiệu",id:"Terputus"},
+  env_hi:{ko:"최고",en:"Highest",vi:"Cao nhất",id:"Tertinggi"},
+  env_lo:{ko:"최저",en:"Lowest",vi:"Thấp nhất",id:"Terendah"},
+  env_just:{ko:"방금",en:"just now",vi:"vừa xong",id:"baru saja"},
+  env_ago:{ko:"{m}분 전",en:"{m} min ago",vi:"{m} phút trước",id:"{m} mnt lalu"},
   env_missing:{ko:"값 없음",en:"No data",vi:"Không có dữ liệu",id:"Tidak ada data"},
   env_empty:{ko:"환경·기상 센서 값이 들어오지 않습니다 — 수집기(zigbee_bridge·rtl433_bridge)와 센서 배터리를 확인하세요",en:"No environment or weather data — check the collectors (zigbee_bridge, rtl433_bridge) and sensor batteries",vi:"Không có dữ liệu môi trường/thời tiết — kiểm tra bộ thu (zigbee_bridge, rtl433_bridge) và pin cảm biến",id:"Tidak ada data lingkungan/cuaca — periksa kolektor (zigbee_bridge, rtl433_bridge) dan baterai sensor"},
   nut_off_hint:{ko:"양액 관리 꺼짐 — 눌러서 [양액 설정] 에서 켜세요",en:"Nutrient management off — tap to turn it on in [Nutrient solution]",vi:"Quản lý dinh dưỡng đang tắt — nhấn để bật trong [Dung dịch dinh dưỡng]",id:"Manajemen nutrisi mati — ketuk untuk menyalakan di [Larutan nutrisi]"},
@@ -929,7 +947,11 @@ function renderValues(d){
   // 양식장은 예전 순서 그대로(권고 → 양액).
   var hot = renderPowerAlert(d);
   // 경고 띠가 서면 값 칸을 조금 줄인다 — 띠가 값을 가리면 안 된다(800×480 은 여유가 없다).
-  var grid = '<div class="grid' + (hot ? " tight" : "") + '">' + cells + '</div>';
+  // 과열 띠나 환경·기상 줄이 함께 서면 값 칸 자리가 줄어든다 — 글자를 줄여 칸이 아래 줄을 덮지 않게.
+  var tight = hot || (isAgri() && d.env);
+  // 둘 다면(스마트팜에서 차단기 과열) 한 단계 더 — 보조 줄은 접고 숫자만.
+  var tighter = hot && isAgri() && d.env;
+  var grid = '<div class="grid' + (tight ? " tight" : "") + (tighter ? " tighter" : "") + '">' + cells + '</div>';
   if (isAgri()) return hot + grid + renderEnv(d) + renderNutrient(d) + renderAdvice(d);
   return hot + grid + renderAdvice(d) + renderNutrient(d);
 }
@@ -1099,12 +1121,46 @@ function renderEnv(d){
                '<span class="ev">--</span><span class="em">' + t("env_missing") + '</span></div>';
       }
       // 수집 주기(보통 5분)의 세 배를 넘기면 끊기고 있는 것 — 값은 두되 주황으로 알린다.
-      return '<div class="e' + (e.age_min >= 15 ? " old" : "") + '">' +
+      // 센서가 여러 대면 누를 수 있다 — 한 대 한 대의 값과 끊긴 센서를 펼쳐 본다.
+      var many = e.each && e.each.length >= 2;
+      return '<div class="e' + (e.age_min >= 15 ? " old" : "") + (many ? " many" : "") + '"' +
+             (many ? ' onclick="openEnvEach(&quot;' + s.k + '&quot;)"' : "") + '>' +
              '<span class="ek">' + envLabel(s.k, e) + '</span>' +
              '<span class="ev">' + e.value.toFixed(s.digits) + '<small>' + s.unit + '</small></span>' +
              '<span class="em">' + esc(envMeta(s.k, e, env)) + '</span></div>';
     }).join("");
   return '<div class="env">' + tiles + '</div>';
+}
+
+// 칸을 누르면 — 센서별 값. 평균은 지금 값이 있는 센서로만 낸다. 끊긴 센서는 회색으로 남겨
+// 평균에서 어느 것이 빠졌는지 보이게 한다. 가장 높은·낮은 센서에 표시를 붙인다.
+var envEachKey = null;
+function openEnvEach(k){ envEachKey = k; drawEnvEach(lastState || {}); }
+function closeEnvEach(){ envEachKey = null; document.getElementById("envpanel").innerHTML = ""; }
+function drawEnvEach(d){
+  var e = d.env && d.env[envEachKey];
+  var slot = ENV_SLOTS.filter(function(s){ return s.k === envEachKey; })[0];
+  if (!e || !e.each || !slot) { closeEnvEach(); return; }
+  var live = e.each.filter(function(x){ return x.value !== null; }).map(function(x){ return x.value; });
+  var hi = Math.max.apply(null, live), lo = Math.min.apply(null, live);
+  var spread = live.length >= 2 && hi !== lo;
+  var rows = e.each.map(function(x){
+    var dead = x.value === null;
+    var tag = dead ? '<span class="st">' + t("env_lost") + '</span>'
+            : spread && x.value === hi ? '<span class="tag hi">' + t("env_hi") + '</span>'
+            : spread && x.value === lo ? '<span class="tag lo">' + t("env_lo") + '</span>' : "";
+    var ago = x.age_min < 1 ? t("env_just") : t("env_ago", {m: x.age_min});
+    return '<div class="pwrow eachrow"><div class="nm">' + esc(x.id) + '<small>' + ago + '</small></div>' + tag +
+      '<span class="num' + (dead ? " dim" : "") + '">' + (dead ? "--" : x.value.toFixed(slot.digits)) +
+      '<small>' + slot.unit + '</small></span></div>';
+  }).join("");
+  document.getElementById("envpanel").innerHTML =
+    '<div class="overlay"><h1>' + t("env_each_title", {p: envLabel(envEachKey, e)}) + '</h1>' +
+      '<div class="pwtot"><span>' + t("env_avg", {n: e.sensors}) + ' <b>' + e.value.toFixed(slot.digits) + '</b>' +
+      slot.unit + '</span></div>' +
+      '<div class="pwbox">' + rows + '</div>' +
+      '<div class="ovbtns"><button class="act ghost" onclick="closeEnvEach()">' + t("close") + '</button></div>' +
+    '</div>';
 }
 
 // 설비 운전 권고 — "지금 무엇을 돌릴까" 한 줄.
@@ -1450,6 +1506,7 @@ function render(d){
   renderAi(d);
   renderPowerChip(d);
   if (powerOpen) drawPower(d);
+  if (envEachKey) drawEnvEach(d);
   // 그래프를 보고 있는 중에는 뒤 화면을 다시 그리지 않는다.
   // 3초마다 갱신하면 조작 중에 깜빡이고 눌림이 씹힌다.
   if (!chartKey) document.getElementById("main").innerHTML = renderValues(d);

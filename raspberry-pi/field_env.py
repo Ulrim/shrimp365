@@ -222,7 +222,11 @@ class FieldEnv:
         self._pw = {k: v for k, v in self._pw.items() if v[0] >= day_ago}
 
     def read(self, now: dt.datetime | None = None) -> dict:
-        """칸마다 {"value", "var", "sensors", "age_min"} 를 돌려준다. 값이 없는 칸은 빠진다.
+        """칸마다 {"value", "var", "sensors", "age_min", "each"} 를 돌려준다. 값이 없는 칸은 빠진다.
+
+        value 는 지금 값이 있는 센서의 평균이다. each 는 센서 하나하나 —
+        [{"id", "value", "age_min"}], 이름순. 24시간 안에 값을 보냈지만 지금은 끊긴 센서도
+        value=None 으로 남긴다(평균에서 빠진 센서가 어느 것인지 화면에서 찾게).
 
         stale_minutes 보다 오래된 값은 쓰지 않는다 — 배터리가 다 된 센서의 마지막
         값이 몇 시간째 화면·서버에 남아 있으면 지금 값으로 오해한다.
@@ -247,12 +251,23 @@ class FieldEnv:
                     value = math.degrees(math.atan2(y, x)) % 360
                 else:
                     value = sum(v for _, v in hits) / len(hits)
-                out[slot] = _slot(slot, value, var, hits, now)
+                each = [(sid, ts, v if lo <= ts <= hi else None)
+                        for (name, sid), (ts, v) in self._latest.items() if name == var]
+                out[slot] = _slot(slot, value, var, hits, now, each)
                 break
-        rain = [(ts, total) for (_src, day, _sid), (ts, total) in self._rain.items()
-                if day == now.date() and lo <= ts <= hi]
+        today = {k: v for k, v in self._rain.items() if k[1] == now.date()}
+        rain = [(ts, total) for (ts, total) in today.values() if lo <= ts <= hi]
         if rain:
-            out[RAIN_SLOT] = _slot(RAIN_SLOT, sum(t for _, t in rain) / len(rain), RAIN_VAR, rain, now)
+            # 같은 WS90 을 두 수집기가 받으면 파일이 둘이다 — 센서마다 평균 한 줄로.
+            per: dict[str, list[tuple[dt.datetime, float]]] = {}
+            for (_src, _day, sid), tv in today.items():
+                per.setdefault(sid, []).append(tv)
+            each = []
+            for sid, tvs in per.items():
+                ts = max(t for t, _ in tvs)
+                v = sum(x for _, x in tvs) / len(tvs)
+                each.append((sid, ts, v if lo <= ts <= hi else None))
+            out[RAIN_SLOT] = _slot(RAIN_SLOT, sum(t for _, t in rain) / len(rain), RAIN_VAR, rain, now, each)
         return out
 
     def read_power(self, types: dict[str, str] | None = None,
@@ -353,14 +368,42 @@ def payload_power(circuits: list[dict]) -> list[dict]:
     return out
 
 
-def _slot(slot: str, value: float, var: str, hits: list, now: dt.datetime) -> dict:
+def _age(now: dt.datetime, ts: dt.datetime) -> int:
+    return max(0, int((now - ts).total_seconds() // 60))
+
+
+def _slot(slot: str, value: float, var: str, hits: list, now: dt.datetime,
+          each: list[tuple[str, dt.datetime, float | None]]) -> dict:
     oldest = min(ts for ts, _ in hits)
     return {
         "value": round(value, DIGITS[slot]),
         "var": var,
         "sensors": len(hits),
-        "age_min": max(0, int((now - oldest).total_seconds() // 60)),
+        "age_min": _age(now, oldest),
+        "each": [{"id": sid, "value": None if v is None else round(v, DIGITS[slot]), "age_min": _age(now, ts)}
+                 for sid, ts, v in sorted(each)],
     }
+
+
+#: 서버로 센서별 값을 올릴 칸 — 웹 "환경·기상" 카드에서 칸을 누르면 펼쳐지는 것과 같다.
+#: 풍향·돌풍·강우강도는 웹에서 따로 칸이 아니라(다른 칸에 접힌다) 보내지 않는다.
+EACH_SLOTS = ("air_temp", "humidity", "soil_moisture", "soil_temp", "wind_speed", "rain_day")
+EACH_MAX = 16
+
+
+def payload_each(env: dict) -> dict:
+    """서버로 보낼 센서별 지금 값 — {"air_temp": [{"id": "TH-01", "v": 23.1}, ...], ...}.
+
+    끊긴 센서(value=None)는 보내지 않는다 — 서버는 지금 값만 저장한다.
+    서버 규칙(lib/env-params.ts parseEnvEach)과 같이 이름이 CIRCUIT_ID_RE 에 맞는 센서만, 칸마다 EACH_MAX 대까지.
+    """
+    out: dict[str, list[dict]] = {}
+    for k in EACH_SLOTS:
+        rows = [{"id": e["id"].upper(), "v": e["value"]} for e in ((env or {}).get(k) or {}).get("each", [])
+                if e["value"] is not None and CIRCUIT_ID_RE.match(e["id"])]
+        if len(rows) >= 2:           # 한 대뿐이면 평균이 곧 그 센서다 — 따로 보낼 것이 없다
+            out[k] = rows[:EACH_MAX]
+    return out
 
 
 def payload_values(env: dict) -> dict:

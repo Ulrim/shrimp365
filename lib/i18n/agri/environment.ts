@@ -25,6 +25,15 @@ export interface AgriEnvironmentDict {
   noRain: string
   /** 30분 넘게 새 값이 없을 때. */
   stale: string
+  /** 센서가 여러 대인 칸의 보조 줄 — `{{n}}` 대수. 누르면 센서별 값이 펼쳐진다. */
+  avgOf: string
+  /** 펼친 목록 제목 — `{{param}}` 칸 이름. */
+  eachTitle: string
+  /** 펼친 목록의 기준 시각 — `{{ago}}`. */
+  eachAt: string
+  highest: string
+  lowest: string
+  close: string
 }
 
 export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
@@ -43,6 +52,8 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     rainNow: "지금 {{v}} mm/h",
     noRain: "비 없음",
     stale: "30분 넘게 새 값이 없습니다 — 장비의 수집기·센서 배터리를 확인하세요.",
+    avgOf: "평균 · {{n}}대 ›", eachTitle: "{{param}} · 센서별", eachAt: "{{ago}} 값",
+    highest: "최고", lowest: "최저", close: "닫기",
   },
   en: {
     title: "Environment & weather · {{name}}",
@@ -59,6 +70,8 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     rainNow: "now {{v}} mm/h",
     noRain: "no rain",
     stale: "No new values for over 30 minutes — check the device's collectors and sensor batteries.",
+    avgOf: "avg of {{n}} sensors ›", eachTitle: "{{param}} · by sensor", eachAt: "as of {{ago}}",
+    highest: "highest", lowest: "lowest", close: "Close",
   },
   vi: {
     title: "Môi trường & thời tiết · {{name}}",
@@ -75,6 +88,8 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     rainNow: "hiện {{v}} mm/h",
     noRain: "không mưa",
     stale: "Hơn 30 phút không có giá trị mới — kiểm tra bộ thu và pin cảm biến của thiết bị.",
+    avgOf: "TB {{n}} cảm biến ›", eachTitle: "{{param}} · từng cảm biến", eachAt: "lúc {{ago}}",
+    highest: "cao nhất", lowest: "thấp nhất", close: "Đóng",
   },
   id: {
     title: "Lingkungan & cuaca · {{name}}",
@@ -91,5 +106,7 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     rainNow: "kini {{v}} mm/j",
     noRain: "tidak hujan",
     stale: "Tidak ada nilai baru lebih dari 30 menit — periksa kolektor dan baterai sensor perangkat.",
+    avgOf: "rata-rata {{n}} sensor ›", eachTitle: "{{param}} · per sensor", eachAt: "per {{ago}}",
+    highest: "tertinggi", lowest: "terendah", close: "Tutup",
   },
 }
