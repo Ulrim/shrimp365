@@ -28,7 +28,10 @@ from __future__ import annotations
 
 import datetime as dt
 import math
+import os
 from pathlib import Path
+
+import limits
 
 #: 수집기 파일 이름 앞부분. 뒤에 _YYYYMMDD.csv 가 붙는다.
 SOURCES = ("zigbee", "rtl433", "ecowitt")
@@ -66,6 +69,52 @@ WEATHER_SLOTS = frozenset({"wind_speed", "wind_gust", "wind_dir", "rain_rate",
 
 _WANTED = {v for _, vs in SLOTS for v in vs} | {RAIN_VAR}
 
+# ── 전력 회로 (Zigbee 계측 차단기·클램프 전력계) ──────────────────────────────
+# 회로는 센서(sensor_id) 하나다. 변수 이름은 devices.yaml 매핑이 장치마다 정해
+# (circuit_state·pump_power, aux_circuit_state·motor_current, circ_state·circ_power …)
+# 끝말로 뜻을 읽는다. 전력·전류·전력량 중 하나라도 보내는 센서만 회로로 본다 —
+# 밸브(valve_state)·누수 센서가 회로로 섞이지 않는다.
+
+#: 부하 종류 — 화면·서버·웹(lib/power-params.ts)이 같은 이름을 쓴다.
+#: 설계서 docs/plans/farm365-main-panel.md 4-1 카탈로그와 같다.
+POWER_TYPES = ("main", "aerator", "circulation_pump", "irrigation_pump", "heater",
+               "ventilation", "cooling", "lighting", "uv", "dosing", "feeder", "other")
+#: 처음 보는 회로의 종류를 센서 이름 앞부분으로 짐작한다. 틀리면 화면에서 바꾼다.
+_TYPE_GUESS = (("MAIN", "main"), ("PUMP", "irrigation_pump"), ("CIRC", "circulation_pump"),
+               ("AUX", "ventilation"), ("UV", "uv"), ("LIGHT", "lighting"),
+               ("AIR", "aerator"), ("HEAT", "heater"))
+
+
+def guess_type(sensor_id: str) -> str:
+    sid = sensor_id.upper()
+    for prefix, kind in _TYPE_GUESS:
+        if sid.startswith(prefix):
+            return kind
+    return "other"
+
+
+def _power_field(var: str) -> str | None:
+    if var == "line_voltage":
+        return "voltage"
+    if var == "device_temp":
+        return "temp"
+    for suffix, field in (("_state", "state"), ("_current", "current"),
+                          ("_power", "power"), ("_energy", "energy")):
+        if var.endswith(suffix):
+            return field
+    return None
+
+
+def breaker_level(temp: float | None) -> str:
+    """차단기 본체 온도 → "" · "warn" · "crit". 기준은 limits.BREAKER_TEMP 한 곳."""
+    if temp is None:
+        return ""
+    if temp >= limits.BREAKER_TEMP["crit"]:
+        return "crit"
+    if temp >= limits.BREAKER_TEMP["warn"]:
+        return "warn"
+    return ""
+
 
 class FieldEnv:
     """수집기 CSV 를 이어 읽으며 칸마다 최신값을 들고 있는다."""
@@ -81,6 +130,9 @@ class FieldEnv:
         # 안 그러면 이미 더한 비를 한 번 더 더한다. 같은 WS90 을 rtl433·에코윗 둘로 받아도
         # 파일이 달라 따로 쌓이고, 읽을 때 평균을 내므로 두 배가 되지 않는다.
         self._rain: dict[tuple[str, dt.date, str], tuple[dt.datetime, float]] = {}
+        # 전력 회로 — (센서, 뜻) → (시각, 값). 전력량은 강수와 같은 방식으로 오늘 것을 더한다.
+        self._pw: dict[tuple[str, str], tuple[dt.datetime, float]] = {}
+        self._energy: dict[tuple[str, dt.date, str], tuple[dt.datetime, float]] = {}
 
     # ── 읽기 ────────────────────────────────────────────────────────────────
     def _feed(self, path: Path) -> None:
@@ -92,6 +144,7 @@ class FieldEnv:
         if inode != st.st_ino or st.st_size < done:          # 갈아 끼웠거나 줄었다 → 처음부터
             done = 0
             self._rain = {k: v for k, v in self._rain.items() if k[0] != path.name}
+            self._energy = {k: v for k, v in self._energy.items() if k[0] != path.name}
         if st.st_size == done:
             self._offset[path] = (st.st_ino, done)
             return
@@ -115,9 +168,11 @@ class FieldEnv:
         if len(parts) < 7 or parts[0] == "ts":
             return
         ts_s, zone, sid, var, val_s, _unit, quality = parts[:7]
-        if var not in _WANTED or (quality or "ok").strip() != "ok":
+        pfield = _power_field(var)
+        if (var not in _WANTED and pfield is None) or (quality or "ok").strip() != "ok":
             return
-        if self.zone and zone not in (self.zone, ZONE_MAST):
+        # 전력 회로는 구간(zone)과 무관하다 — 분전반은 농장에 하나다.
+        if pfield is None and self.zone and zone not in (self.zone, ZONE_MAST):
             return
         try:
             ts = dt.datetime.fromisoformat(ts_s.strip())
@@ -128,6 +183,16 @@ class FieldEnv:
             return
         if ts.tzinfo is not None:
             ts = ts.astimezone().replace(tzinfo=None)
+        if pfield is not None:
+            if pfield == "energy":
+                ekey = (src, ts.date(), sid)
+                last, total = self._energy.get(ekey, (ts, 0.0))
+                self._energy[ekey] = (max(last, ts), total + value)
+                return
+            pkey = (sid, pfield)
+            if pkey not in self._pw or ts >= self._pw[pkey][0]:
+                self._pw[pkey] = (ts, value)
+            return
         if var == RAIN_VAR:
             rkey = (src, ts.date(), sid)
             last, total = self._rain.get(rkey, (ts, 0.0))
@@ -137,13 +202,7 @@ class FieldEnv:
         if key not in self._latest or ts >= self._latest[key][0]:
             self._latest[key] = (ts, value)
 
-    def read(self, now: dt.datetime | None = None) -> dict:
-        """칸마다 {"value", "var", "sensors", "age_min"} 를 돌려준다. 값이 없는 칸은 빠진다.
-
-        stale_minutes 보다 오래된 값은 쓰지 않는다 — 배터리가 다 된 센서의 마지막
-        값이 몇 시간째 화면·서버에 남아 있으면 지금 값으로 오해한다.
-        """
-        now = now or dt.datetime.now()
+    def _feed_all(self, now: dt.datetime) -> None:
         # 자정 직후에는 오늘 파일이 비어 있을 수 있어 어제 파일도 본다.
         for day in (now - dt.timedelta(days=1), now):
             for src in SOURCES:
@@ -152,6 +211,18 @@ class FieldEnv:
         keep = {f"{d:%Y%m%d}" for d in (now - dt.timedelta(days=1), now)}
         self._offset = {p: o for p, o in self._offset.items() if p.stem[-8:] in keep}
         self._rain = {k: v for k, v in self._rain.items() if k[1] == now.date()}
+        self._energy = {k: v for k, v in self._energy.items() if k[1] == now.date()}
+        day_ago = now - dt.timedelta(days=1)
+        self._pw = {k: v for k, v in self._pw.items() if v[0] >= day_ago}
+
+    def read(self, now: dt.datetime | None = None) -> dict:
+        """칸마다 {"value", "var", "sensors", "age_min"} 를 돌려준다. 값이 없는 칸은 빠진다.
+
+        stale_minutes 보다 오래된 값은 쓰지 않는다 — 배터리가 다 된 센서의 마지막
+        값이 몇 시간째 화면·서버에 남아 있으면 지금 값으로 오해한다.
+        """
+        now = now or dt.datetime.now()
+        self._feed_all(now)
 
         lo, hi = now - self.stale, now + dt.timedelta(minutes=5)
         fresh = {k: v for k, v in self._latest.items() if lo <= v[0] <= hi}
@@ -178,6 +249,101 @@ class FieldEnv:
             out[RAIN_SLOT] = _slot(RAIN_SLOT, sum(t for _, t in rain) / len(rain), RAIN_VAR, rain, now)
         return out
 
+    def read_power(self, types: dict[str, str] | None = None,
+                   now: dt.datetime | None = None) -> list[dict]:
+        """전력 회로 목록. 회로마다
+        {"id", "type", "state", "power", "current", "voltage", "energy_today", "temp", "level", "age_min"}.
+
+        types 는 화면에서 고른 종류(센서 이름 → 종류). 없으면 이름 앞부분으로 짐작한다.
+        stale_minutes 보다 오래된 값은 None 이다 — 끊긴 회로의 마지막 전력을 지금 값으로
+        보이면 안 된다. 오늘 전력량은 끊겨도 남긴다(그때까지 쓴 양은 사실이다).
+        24시간 넘게 아무 값도 없는 회로는 목록에서 빠진다.
+        """
+        now = now or dt.datetime.now()
+        self._feed_all(now)
+        types = {k.upper(): v for k, v in (types or {}).items()}
+        lo, hi = now - self.stale, now + dt.timedelta(minutes=5)
+
+        energy: dict[str, list[float]] = {}
+        energy_ts: dict[str, dt.datetime] = {}
+        for (_src, day, sid), (ts, total) in self._energy.items():
+            if day == now.date():
+                energy.setdefault(sid, []).append(total)
+                energy_ts[sid] = max(energy_ts.get(sid, ts), ts)
+
+        by_sid: dict[str, dict[str, tuple[dt.datetime, float]]] = {}
+        for (sid, field), tv in self._pw.items():
+            by_sid.setdefault(sid, {})[field] = tv
+        for sid in energy:
+            by_sid.setdefault(sid, {})
+
+        out: list[dict] = []
+        for sid, fields in sorted(by_sid.items()):
+            # 회로인가 — 전력·전류·전력량 중 하나는 있어야 한다.
+            if not ({"power", "current"} & fields.keys()) and sid not in energy:
+                continue
+            stamps = [ts for ts, _ in fields.values()] + ([energy_ts[sid]] if sid in energy_ts else [])
+            newest = max(stamps)
+
+            def fresh(field: str):
+                tv = fields.get(field)
+                return tv[1] if tv and lo <= tv[0] <= hi else None
+
+            state = fresh("state")
+            temp = fresh("temp")
+            kind = types.get(sid.upper())
+            if kind not in POWER_TYPES:
+                kind = guess_type(sid)
+            # 같은 회로를 두 수집기 파일이 적었다면(드묾) 평균 — 강수와 같은 규칙.
+            e = energy.get(sid)
+            out.append({
+                "id": sid,
+                "type": kind,
+                "state": None if state is None else (1 if state >= 0.5 else 0),
+                "power": _r(fresh("power"), 0),
+                "current": _r(fresh("current"), 2),
+                "voltage": _r(fresh("voltage"), 0),
+                "energy_today": round(sum(e) / len(e), 3) if e else None,
+                "temp": _r(temp, 1),
+                "level": breaker_level(temp),
+                "age_min": max(0, int((now - newest).total_seconds() // 60)),
+            })
+        return out
+
+
+def _r(v: float | None, digits: int):
+    return None if v is None else round(v, digits)
+
+
+def power_summary(circuits: list[dict]) -> dict:
+    """화면 머리 칩용 — 전체 전력(W)과 가장 급한 과열 단계.
+
+    인입(main) 계측이 살아 있으면 그 값이 전체다. 없으면 분기 회로의 합이다
+    (계측 안 되는 회로가 빠지므로 '적어도 이만큼'이다 — partial 로 알린다).
+    """
+    main = [c for c in circuits if c["type"] == "main" and c["power"] is not None]
+    branch = [c for c in circuits if c["type"] != "main" and c["power"] is not None]
+    if main:
+        total, partial = sum(c["power"] for c in main), False
+    elif branch:
+        total, partial = sum(c["power"] for c in branch), True
+    else:
+        total, partial = None, False
+    rank = {"": 0, "warn": 1, "crit": 2}
+    worst = max((c["level"] for c in circuits), key=lambda x: rank[x], default="")
+    return {"total_w": None if total is None else round(total), "partial": partial, "level": worst}
+
+
+def payload_power(circuits: list[dict]) -> list[dict]:
+    """서버로 보낼 회로 값 — 지금 값(state·power·current·voltage·temp)이 하나라도 있는 회로만."""
+    keys = ("state", "power", "current", "voltage", "temp")
+    out = []
+    for c in circuits:
+        if all(c[k] is None for k in keys):
+            continue
+        out.append({k: c[k] for k in ("id", "type", *keys, "energy_today")})
+    return out
+
 
 def _slot(slot: str, value: float, var: str, hits: list, now: dt.datetime) -> dict:
     oldest = min(ts for ts, _ in hits)
@@ -192,3 +358,45 @@ def _slot(slot: str, value: float, var: str, hits: list, now: dt.datetime) -> di
 def payload_values(env: dict) -> dict:
     """서버로 보낼 값만 뽑는다 — {"air_temp": 23.4, ...}. 칸 이름이 곧 서버 칸 이름이다."""
     return {k: e["value"] for k, e in (env or {}).items() if isinstance(e.get("value"), (int, float))}
+
+
+def save_power_type(config_path: Path, sensor_id: str, kind: str) -> bool:
+    """[power_circuits] 구간에 "센서이름 = 종류" 를 적는다. 주석과 다른 구간은 그대로 둔다.
+
+    키는 정확히 같은 이름만 바꾼다(앞부분이 같은 PUMP-01·PUMP-010 을 섞지 않게).
+    """
+    try:
+        lines = config_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    except OSError:
+        return False
+    target = sensor_id.upper()
+    in_sec, sec_end, done = False, None, False
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if in_sec and sec_end is None:
+                sec_end = i
+            in_sec = stripped.lower() == "[power_circuits]"
+            continue
+        if in_sec and "=" in stripped and not stripped.startswith((";", "#")):
+            if stripped.split("=", 1)[0].strip().upper() == target:
+                lines[i] = f"{target} = {kind}\n"
+                done = True
+    if not done:
+        new = f"{target} = {kind}\n"
+        if sec_end is not None:
+            lines.insert(sec_end, new)
+        elif in_sec:
+            if lines and not lines[-1].endswith("\n"):
+                lines[-1] += "\n"
+            lines.append(new)
+        else:
+            if lines and not lines[-1].endswith("\n"):
+                lines[-1] += "\n"
+            lines.extend(["\n[power_circuits]\n", new])
+    try:
+        config_path.write_text("".join(lines), encoding="utf-8")
+        os.chmod(config_path, 0o600)
+        return True
+    except OSError:
+        return False

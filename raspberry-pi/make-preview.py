@@ -35,6 +35,29 @@ NOW = 1770000000  # 고정 시각 — 돌릴 때마다 결과가 달라지면 �
 STAMP = "2026-08-06 14:32:05"
 
 
+def _c(cid, kind, state, w, a, kwh, temp, level=""):
+    return {"id": cid, "type": kind, "state": state, "power": w, "current": a, "voltage": 221,
+            "energy_today": kwh, "temp": temp, "level": level, "age_min": 0}
+
+
+# 전력 회로 — field_env.FieldEnv.read_power() 의 모양. 양식장 기본 구성.
+SHRIMP_POWER = [
+    _c("MAIN-01", "main", None, 3120, 14.2, 31.8, None),
+    _c("AIR-01", "aerator", 1, 1450, 7.6, 17.2, 46.0),
+    _c("CIRC-01", "circulation_pump", 1, 740, 3.9, 8.9, 41.0),
+    _c("HEAT-01", "heater", 0, 0, 0.0, 3.1, 38.0),
+    _c("UV-01", "uv", 1, 110, 0.6, 1.3, 35.0),
+]
+
+
+def power_of(circuits):
+    main = [c for c in circuits if c["type"] == "main"]
+    total = main[0]["power"] if main else sum(c["power"] or 0 for c in circuits)
+    rank = {"": 0, "warn": 1, "crit": 2}
+    level = max((c["level"] for c in circuits), key=lambda x: rank[x], default="")
+    return {"circuits": circuits, "total_w": total, "partial": not main, "level": level}
+
+
 def base_state(**over) -> dict:
     state = {
         "values": dict(VALUES), "status": "sent 14:32", "updated_at": STAMP,
@@ -44,6 +67,7 @@ def base_state(**over) -> dict:
         "advice": [], "anomalies": [],
         "ai": {"enabled": True, "window_h": 96, "interval_s": 300,
                "samples": 5742, "at": "14:30"},
+        "power": power_of(SHRIMP_POWER),
     }
     state.update(over)
     return state
@@ -100,8 +124,18 @@ ENV = {
 }
 
 
+AGRI_POWER = [
+    _c("MAIN-01", "main", None, 2380, 10.9, 19.6, None),
+    _c("CIRC-01", "circulation_pump", 1, 720, 3.8, 9.1, 43.0),
+    _c("PUMP-01", "irrigation_pump", 0, 0, 0.0, 1.4, 39.0),
+    _c("UV-01", "uv", 1, 105, 0.5, 1.2, 36.0),
+    _c("AUX-01", "ventilation", 1, 410, 2.1, 3.3, 41.0),
+    _c("LIGHT-01", "lighting", 0, 0, 0.0, 4.8, 37.0),
+]
+
+
 def agri_state(**over) -> dict:
-    state = base_state(values=dict(AGRI_VALUES), farm="1농장", tank="딸기 B-2베드",
+    state = base_state(values=dict(AGRI_VALUES), farm="1농장", tank="딸기 B-2베드", power=power_of(AGRI_POWER),
                        mode="agriculture", ec_mode="conductivity", ec_unit="ms", env=ENV,
                        nutrient={**NUT_BASE, "verdict": "low", "need_rise": 0.09,
                                  "dose_total": 180, "dose_a": 90, "dose_b": 90})
@@ -132,6 +166,11 @@ AGRI_STATES = [
         "soil_moisture": {"value": 33.9, "var": "soil_moisture", "sensors": 1, "age_min": 6},
     })),
     ("환경 값 없음", agri_state(env={})),
+    ("차단기 과열", agri_state(power=power_of([
+        *AGRI_POWER[:2],
+        _c("PUMP-01", "irrigation_pump", 1, 1490, 7.9, 2.6, 83.0, "crit"),
+        *AGRI_POWER[3:],
+    ]))),
     ("미연결 (측정만)", agri_state(
         linked=False, account=None, tank=None, farm=None,
         status="미연결 — 측정만 · 보관 12건", pending=12)),
@@ -253,6 +292,7 @@ window.fetch = function(url, opts){
   else if (url.indexOf("/api/sensors/save") === 0) body = {ok:true, saved:true};
   else if (url.indexOf("/api/sensors") === 0) body = JSON.parse(JSON.stringify(SENSORS));
   else if (url.indexOf("/api/nutrient/save") === 0) body = {ok:true, saved:true};
+  else if (url.indexOf("/api/power/type") === 0) body = {ok:true, saved:true};
   else if (url.indexOf("/api/nutrient") === 0) body = JSON.parse(JSON.stringify(NUTRIENT));
   else if (url.indexOf("/api/calibration") === 0 && !(opts && opts.method === "POST"))
     body = JSON.parse(JSON.stringify(CALIBRATION));
