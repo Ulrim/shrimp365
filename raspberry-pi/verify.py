@@ -362,6 +362,14 @@ check("회로 종류 저장: 정확한 이름만 바꾸고 주석·다른 구간
       ("PUMP-01 = aerator" in _txt, "PUMP-010 = heater" in _txt, "; 주석" in _txt, "[history]" in _txt,
        _txt.index("PUMP-01 = aerator") < _txt.index("[history]")),
       (True, True, True, True, True))
+_cfg.write_text("[power_circuits]\nHEAT-01: other\n", encoding="utf-8")
+field_env.save_power_type(_cfg, "HEAT-01", "heater")
+_txt = _cfg.read_text(encoding="utf-8")
+check("손으로 ':' 로 적은 키도 같은 키로 바꾼다(중복 키 → 기동 실패 방지)",
+      (_txt.count("HEAT-01"), "HEAT-01 = heater" in _txt, (pdir / "config.ini.tmp").exists()), (1, True, False))
+check("서버가 버릴 회로 이름(따옴표·공백)은 장비도 쓰지 않는다",
+      [bool(field_env.CIRCUIT_ID_RE.match(x)) for x in ("PUMP-01", 'A"B', "A B", "x" * 33)],
+      [True, False, False, False])
 
 check("스마트팜(양액 기준)에서는 새우 운전 권고를 내지 않는다",
       advice.recommend({"temperature": 21.6, "ph": 6.12, "do_level": 7.3}, nutrient_mode=True), [])

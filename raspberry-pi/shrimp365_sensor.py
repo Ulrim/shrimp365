@@ -2308,9 +2308,9 @@ def main() -> int:
         def ui_set_power_type(sensor_id: str, kind: str) -> dict:
             """화면에서 고른 회로 종류를 적용하고 [power_circuits] 에 남긴다."""
             sid = (sensor_id or "").strip().upper()
-            if not sid or len(sid) > 32 or any(ch in sid for ch in "=:[]\n\r;#"):
+            if field_env_mod is None or not field_env_mod.CIRCUIT_ID_RE.match(sid):
                 return {"ok": False, "error": "회로 이름이 올바르지 않습니다"}
-            if field_env_mod is None or kind not in field_env_mod.POWER_TYPES:
+            if kind not in field_env_mod.POWER_TYPES:
                 return {"ok": False, "error": "모르는 종류입니다"}
             power_types[sid] = kind          # 파일 저장이 실패해도 지금 화면은 따른다
             saved = field_env_mod.save_power_type(args.config, sid, kind)
@@ -2437,7 +2437,7 @@ def main() -> int:
         power = None
         if field_env is not None and power_on:
             try:
-                circuits = field_env.read_power(power_types)
+                circuits = field_env.read_power(dict(power_types))  # 화면 스레드가 고치는 중일 수 있어 복사본
             except Exception as exc:  # noqa: BLE001
                 log.warning("전력 회로 읽기 실패: %s", exc)
                 circuits = []

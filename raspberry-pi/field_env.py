@@ -29,6 +29,7 @@ from __future__ import annotations
 import datetime as dt
 import math
 import os
+import re
 from pathlib import Path
 
 import limits
@@ -83,6 +84,11 @@ POWER_TYPES = ("main", "aerator", "circulation_pump", "irrigation_pump", "heater
 _TYPE_GUESS = (("MAIN", "main"), ("PUMP", "irrigation_pump"), ("CIRC", "circulation_pump"),
                ("AUX", "ventilation"), ("UV", "uv"), ("LIGHT", "lighting"),
                ("AIR", "aerator"), ("HEAT", "heater"))
+
+
+#: 회로(센서) 이름 규칙 — 서버 lib/power.ts ID_RE 와 같다. 어긋난 이름은 서버가 버리므로
+#: 장비도 화면·업로드에서 뺀다(화면 HTML 에 그대로 들어가도 안전한 글자만 남는다).
+CIRCUIT_ID_RE = re.compile(r"^[A-Za-z0-9_.-]{1,32}$")
 
 
 def guess_type(sensor_id: str) -> str:
@@ -282,6 +288,8 @@ class FieldEnv:
             # 회로인가 — 전력·전류·전력량 중 하나는 있어야 한다.
             if not ({"power", "current"} & fields.keys()) and sid not in energy:
                 continue
+            if not CIRCUIT_ID_RE.match(sid):
+                continue
             stamps = [ts for ts, _ in fields.values()] + ([energy_ts[sid]] if sid in energy_ts else [])
             newest = max(stamps)
 
@@ -378,8 +386,9 @@ def save_power_type(config_path: Path, sensor_id: str, kind: str) -> bool:
                 sec_end = i
             in_sec = stripped.lower() == "[power_circuits]"
             continue
-        if in_sec and "=" in stripped and not stripped.startswith((";", "#")):
-            if stripped.split("=", 1)[0].strip().upper() == target:
+        if in_sec and ("=" in stripped or ":" in stripped) and not stripped.startswith((";", "#")):
+            # configparser 는 "=" 와 ":" 를 둘 다 구분자로 읽는다 — 손으로 ":" 를 쓴 줄도 같은 키다.
+            if re.split(r"[=:]", stripped, maxsplit=1)[0].strip().upper() == target:
                 lines[i] = f"{target} = {kind}\n"
                 done = True
     if not done:
@@ -395,8 +404,11 @@ def save_power_type(config_path: Path, sensor_id: str, kind: str) -> bool:
                 lines[-1] += "\n"
             lines.extend(["\n[power_circuits]\n", new])
     try:
-        config_path.write_text("".join(lines), encoding="utf-8")
-        os.chmod(config_path, 0o600)
+        # 임시 파일에 쓰고 바꿔 끼운다 — 쓰는 도중 전원이 나가도 설정 파일이 반쪽이 되지 않게.
+        tmp = config_path.with_name(config_path.name + ".tmp")
+        tmp.write_text("".join(lines), encoding="utf-8")
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, config_path)
         return True
     except OSError:
         return False

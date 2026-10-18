@@ -306,10 +306,10 @@ export async function getPowerReadings(tankId: string, hours = 24): Promise<Powe
     .select("tank_id, circuit_id, circuit_type, state, power_w, current_a, voltage_v, energy_today_kwh, device_temp, recorded_at")
     .eq("tank_id", tankId)
     .gte("recorded_at", since)
-    .order("recorded_at", { ascending: true })
-    .limit(5000)
+    .order("recorded_at", { ascending: false })
+    .limit(1000)   // API 상한 — 최신 순으로 받아야 회로가 많아도 지금 값이 잘리지 않는다(getWaterQuality ② 와 같은 이유)
   if (error) return []
-  return (data || []) as PowerReading[]
+  return ((data || []) as PowerReading[]).reverse()
 }
 
 export async function getLatestWaterQuality(tankId: string, deviceId?: string | null): Promise<WaterQualityReading | null> {
