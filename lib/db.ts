@@ -1,4 +1,4 @@
-import { ENV_KEYS, type EnvParamKey } from "@/lib/env-params"
+import { ENV_KEYS, type EnvParamKey, type EnvEach } from "@/lib/env-params"
 import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbSensorDevice, DbProductionCycle, DbGrowthSample, DbCycleCost, DbCycleHarvest, DbInventoryItem, DbInventoryTransaction } from "@/lib/supabase"
 import { Farm, Tank, WaterQualityReading, PowerReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction, FieldRiskJudgement } from "@/types"
 import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, planMissingInputAlerts, MISSING_INPUT_PARAMETER, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
@@ -310,6 +310,23 @@ export async function getPowerReadings(tankId: string, hours = 24): Promise<Powe
     .limit(1000)   // API 상한 — 최신 순으로 받아야 회로가 많아도 지금 값이 잘리지 않는다(getWaterQuality ② 와 같은 이유)
   if (error) return []
   return ((data || []) as PowerReading[]).reverse()
+}
+
+/** 베드의 가장 최근 센서별 환경 값(최근 hours 시간 안). 없거나 env_sensors.sql 전이면 null.
+ *  env_sensors 칸은 wq_series 가 돌려주지 않는다(구간 평균으로 묶을 수 없다) — 따로 한 줄만 읽는다. */
+export async function getLatestEnvSensors(tankId: string, hours = 24): Promise<{ each: EnvEach; recorded_at: string } | null> {
+  const since = new Date(Date.now() - hours * 3_600_000).toISOString()
+  const { data, error } = await supabase
+    .from("water_quality_readings")
+    .select("env_sensors, recorded_at")
+    .eq("tank_id", tankId)
+    .not("env_sensors", "is", null)
+    .gte("recorded_at", since)
+    .order("recorded_at", { ascending: false })
+    .limit(1)
+  if (error || !data?.length) return null
+  const r = data[0] as { env_sensors: EnvEach | null; recorded_at: string }
+  return r.env_sensors ? { each: r.env_sensors, recorded_at: r.recorded_at } : null
 }
 
 export async function getLatestWaterQuality(tankId: string, deviceId?: string | null): Promise<WaterQualityReading | null> {

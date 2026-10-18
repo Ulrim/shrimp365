@@ -8,10 +8,15 @@
 //
 // 판정 색은 없다. 작물·생육 단계마다 적정값이 달라 값과 추세만 보여 준다. 풍향·돌풍은
 // 풍속 칸에, 강우강도는 오늘 강수 칸에 접어 칸 수를 줄였다.
+//
+// 같은 칸에 센서가 2대 이상이면 칸에는 평균을 두고 "평균 · N대" 를 붙인다. 칸을 누르면
+// 한 대 한 대의 마지막 값을 펼친다(env_sensors — 장비 화면의 같은 칸을 눌렀을 때와 같다).
+import { useEffect, useState } from "react"
 import { LineChart, Line, ResponsiveContainer } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useT, useAgriT } from "@/lib/i18n-context"
-import { ENV_PARAMS, compassIndex, type EnvParam, type EnvParamKey } from "@/lib/env-params"
+import { ENV_PARAMS, compassIndex, type EnvParam, type EnvParamKey, type EnvEach } from "@/lib/env-params"
+import { getLatestEnvSensors } from "@/lib/db"
 import { agoLabel } from "@/components/agri/dashboard/time-ago"
 import type { WaterQualityReading } from "@/types"
 
@@ -36,13 +41,35 @@ function latestOf(readings: WaterQualityReading[], key: EnvParamKey): Latest | n
 }
 
 /** now — 대시보드가 마지막으로 다시 불러온 시각. 렌더 중에 시계를 읽지 않으려고 받는다(react-hooks/purity). */
-export function EnvironmentCard({ readings, tankName, now }: {
+export function EnvironmentCard({ readings, tankId, tankName, now, mock = false }: {
   readings: WaterQualityReading[]
+  tankId: string
   tankName: string
   now: Date | null
+  /** 데모 계정 — 센서별 값을 읽지 않는다. */
+  mock?: boolean
 }) {
   const { t } = useT()
   const { environment: ed } = useAgriT()
+  // 어느 베드의 값인지 같이 둔다 — 베드를 바꾼 직후 이전 베드의 센서 목록이 보이지 않게.
+  const [eachData, setEachData] = useState<{ tankId: string; each: EnvEach; at: string } | null>(null)
+  const [open, setOpen] = useState<{ tankId: string; key: EnvParamKey } | null>(null)
+
+  useEffect(() => {
+    if (mock || !tankId) return
+    let alive = true
+    getLatestEnvSensors(tankId).then(r => {
+      if (alive) setEachData(r ? { tankId, each: r.each, at: r.recorded_at } : null)
+    })
+    return () => { alive = false }
+  }, [tankId, now, mock])
+
+  const each = eachData && eachData.tankId === tankId ? eachData.each : {}
+  const eachOf = (k: EnvParamKey) => {
+    const list = (each as Record<string, { id: string; v: number }[] | undefined>)[k]
+    return list && list.length >= 2 ? list : null
+  }
+  const openKey = open && open.tankId === tankId && eachOf(open.key) ? open.key : null
 
   const latest = new Map<EnvParamKey, Latest>()
   for (const p of ENV_PARAMS) {
@@ -105,8 +132,18 @@ export function EnvironmentCard({ readings, tankName, now }: {
                     .filter((v): v is number => typeof v === "number")
                   const Icon = p.icon
                   const subText = sub(p, series)
+                  const many = eachOf(p.key)
+                  const Tile = many ? "button" : "div"
                   return (
-                    <div key={p.key} className="rounded-xl border border-border p-3 min-w-0">
+                    <Tile key={p.key}
+                      {...(many ? {
+                        type: "button" as const,
+                        "aria-expanded": openKey === p.key,
+                        onClick: () => setOpen(openKey === p.key ? null : { tankId, key: p.key }),
+                      } : {})}
+                      className={`rounded-xl border p-3 min-w-0 text-left ${
+                        openKey === p.key ? "border-primary ring-1 ring-primary/40" : "border-border"
+                      } ${many ? "hover:bg-muted/50 transition-colors cursor-pointer" : ""}`}>
                       <p className="text-xs text-muted-foreground flex items-center gap-1.5 truncate"
                         title={p.key === "air_temp" ? ed.airTempHint : undefined}>
                         <span className="inline-flex shrink-0" style={{ color: p.color }} aria-hidden="true">
@@ -118,6 +155,11 @@ export function EnvironmentCard({ readings, tankName, now }: {
                         {fmt(p, l.value)}
                         {p.unit && <span className="text-xs font-medium text-muted-foreground ml-1">{p.unit}</span>}
                       </p>
+                      {many && (
+                        <p className="text-xs font-medium text-primary tabular-nums truncate">
+                          {ed.avgOf.replace("{{n}}", String(many.length))}
+                        </p>
+                      )}
                       {subText && <p className="text-xs text-muted-foreground tabular-nums truncate">{subText}</p>}
                       {series.length >= 2 && (
                         <div aria-hidden="true">
@@ -128,12 +170,55 @@ export function EnvironmentCard({ readings, tankName, now }: {
                           </ResponsiveContainer>
                         </div>
                       )}
-                    </div>
+                    </Tile>
                   )
                 })}
               </div>
+              {openKey && eachData && (
+                <EachList param={param(openKey)} label={ed.param[openKey]} rows={eachOf(openKey)!}
+                  at={agoLabel(t.time, eachData.at)} ed={ed} onClose={() => setOpen(null)} />
+              )}
         </CardContent>
       </Card>
     </section>
+  )
+}
+
+/** 펼친 센서별 목록 — 이름순. 가장 높은·낮은 센서에 표시를 붙여 튀는 센서를 바로 찾게. */
+function EachList({ param, label, rows, at, ed, onClose }: {
+  param: EnvParam
+  label: string
+  rows: { id: string; v: number }[]
+  at: string
+  ed: ReturnType<typeof useAgriT>["environment"]
+  onClose: () => void
+}) {
+  const sorted = [...rows].sort((a, b) => a.id.localeCompare(b.id))
+  const hi = Math.max(...rows.map(r => r.v)), lo = Math.min(...rows.map(r => r.v))
+  const spread = hi !== lo
+  const fmt = (v: number) => v.toFixed(param.digits)
+  return (
+    <div className="mt-3 rounded-xl border border-border p-3" role="region"
+      aria-label={ed.eachTitle.replace("{{param}}", label)}>
+      <div className="flex items-baseline justify-between gap-2 mb-1">
+        <p className="text-sm font-medium text-foreground">{ed.eachTitle.replace("{{param}}", label)}</p>
+        <div className="flex items-baseline gap-3">
+          <p className="text-xs text-muted-foreground tabular-nums">{ed.eachAt.replace("{{ago}}", at)}</p>
+          <button type="button" onClick={onClose} className="text-xs text-primary hover:underline">{ed.close}</button>
+        </div>
+      </div>
+      <ul className="divide-y divide-border">
+        {sorted.map(r => (
+          <li key={r.id} className="flex items-center gap-2 py-1.5 text-sm">
+            <span className="flex-1 min-w-0 truncate text-foreground">{r.id}</span>
+            {spread && r.v === hi && <span className="text-xs text-orange-600 dark:text-orange-400">{ed.highest}</span>}
+            {spread && r.v === lo && <span className="text-xs text-sky-600 dark:text-sky-400">{ed.lowest}</span>}
+            <span className="tabular-nums font-semibold text-foreground w-20 text-right">
+              {fmt(r.v)}{param.unit && <span className="text-xs font-medium text-muted-foreground ml-1">{param.unit}</span>}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }

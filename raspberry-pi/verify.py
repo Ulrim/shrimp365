@@ -293,6 +293,12 @@ check("돌풍은 3초값이 없으면 28초 창 최댓값", (env["wind_gust"]["v
       (6.8, "wind_gust_window"))
 check("풍향 350°·10° 의 평균은 0°(180° 가 아니다)", env["wind_dir"]["value"] % 360, 0)
 check("에코윗 게이트웨이 파일도 읽는다(기압)", (env["pressure"]["value"], env["pressure"]["age_min"]), (1012.4, 2))
+check("센서별 값: 이름순·나이와 함께", env["air_temp"]["each"],
+      [{"id": "CN-T1", "value": 11.0, "age_min": 5}, {"id": "CN-T2", "value": 12.0, "age_min": 2}])
+check("센서별 값: 끊긴 센서는 값 없이 남긴다(평균에서 빠진 것을 찾게)", env["soil_moisture"]["each"],
+      [{"id": "SOIL-C1", "value": 40.0, "age_min": 1}, {"id": "SOIL-T1", "value": None, "age_min": 130}])
+check("서버로는 2대 이상 살아 있는 칸만, 끊긴 센서는 빼고",
+      field_env.payload_each(env), {"air_temp": [{"id": "CN-T1", "v": 11.0}, {"id": "CN-T2", "v": 12.0}]})
 with (zdir / "zigbee_20261017.csv").open("a", encoding="utf-8") as fh:
     fh.write("2026-10-17T00:10:00,treatment,CN-T1,rh,86.0,%,ok\n2026-10-17T00:10:00,treat")
 env = fe.read(now=znow)

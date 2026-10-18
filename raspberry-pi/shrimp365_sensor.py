@@ -2505,6 +2505,10 @@ def main() -> int:
                 # 수질 값과 같은 줄로 올려 웹 그래프가 한 시간축을 쓴다.
                 if env and env_upload:
                     payload.update(field_env_mod.payload_values(env))
+                    # 센서가 여러 대인 칸은 한 대 한 대의 값도 — 웹 카드에서 칸을 누르면 펼쳐 본다.
+                    each = field_env_mod.payload_each(env)
+                    if each:
+                        payload["env_each"] = each
                 # 전력 회로 — 5분마다. 차단기가 과열 중이면 매번(휴대폰 알림이 늦으면 안 된다).
                 if power and power_upload and power["circuits"]:
                     due = time.time() - power_sent["at"] >= power_every_s

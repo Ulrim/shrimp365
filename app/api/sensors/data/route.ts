@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase-server"
 import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, parseTrendAlerts, TREND_ALERT_PARAMETERS, MISSING_INPUT_PARAMETER, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
 import { sendAlertPush } from "@/lib/push-server"
-import { ENV_PARAMS, ENV_KEYS, type EnvParamKey } from "@/lib/env-params"
+import { ENV_PARAMS, ENV_KEYS, parseEnvEach, type EnvParamKey } from "@/lib/env-params"
 import { parsePowerPayload, breakerAlerts } from "@/lib/power"
 
 /** 환경·기상 칸별 수신 범위 — lib/env-params.ts 에서 만든다. */
@@ -199,6 +199,12 @@ export async function POST(req: NextRequest) {
     if (Number.isFinite(n) && n >= min && n <= max) envValues[field] = n
   }
 
+  // 같은 칸의 센서가 여러 대일 때 한 대 한 대의 값(웹 카드에서 칸을 누르면 펼친다).
+  // 평균(envValues)이 있는 칸만 둔다 — 평균 없이 센서별 값만 남으면 카드가 앞뒤가 안 맞는다.
+  const envEachRaw = parseEnvEach(body.env_each)
+  const envEach = envEachRaw && Object.fromEntries(Object.entries(envEachRaw).filter(([k]) => k in envValues))
+  const envSensors = envEach && Object.keys(envEach).length ? envEach : null
+
   // 분전반 전력 회로(장비 field_env.py) — 회로마다 한 줄. 모양이 틀린 회로는 버린다.
   const powerCircuits = parsePowerPayload(body.power)
 
@@ -221,7 +227,7 @@ export async function POST(req: NextRequest) {
   //    device_id 로 "어느 센서가 잰 값인지" 를 남긴다. 마이그레이션 전이라
   //    컬럼이 없으면 그 컬럼만 빼고 다시 저장한다(측정은 절대 멈추면 안 된다).
   // 마이그레이션이 아직 안 된 DB 를 만나도 측정이 멈춰서는 안 된다.
-  // 아직 없는 칸(device_id·conductivity·flow_rate·diff_pressure)은 하나씩 빼고
+  // 아직 없는 칸(device_id·conductivity·flow_rate·diff_pressure·env_sensors)은 하나씩 빼고
   // 다시 시도한다.
   //
   // **에러가 이름을 콕 집은 칸만 뗀다.** 예전에는 미정의 컬럼 코드
@@ -230,9 +236,10 @@ export async function POST(req: NextRequest) {
   // 걸려 멀쩡한 측정값 셋이 조용히 사라진다. 코드는 "칸이 없어서 난 오류인가"를
   // 확인하는 데만 쓰고, 뗄 대상은 메시지가 지목한 이름으로 고른다.
   // ('column' 문구만 보고 판단하면 tank_id NOT NULL 같은 엉뚱한 오류까지 삼킨다.)
-  const OPTIONAL_COLS = ["device_id", "conductivity", "flow_rate", "diff_pressure"] as const
+  const OPTIONAL_COLS = ["device_id", "conductivity", "flow_rate", "diff_pressure", "env_sensors"] as const
   let row: Record<string, unknown> = {
     tank_id: device.tank_id, ...values, ...envValues, recorded_at: recordedAt, device_id: device.id,
+    ...(envSensors ? { env_sensors: envSensors } : {}),
   }
   let reading: Record<string, unknown> | null = null
   let insertError: { message?: string; code?: string } | null = null
