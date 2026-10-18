@@ -1,6 +1,6 @@
 import { ENV_KEYS, type EnvParamKey } from "@/lib/env-params"
 import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbSensorDevice, DbProductionCycle, DbGrowthSample, DbCycleCost, DbCycleHarvest, DbInventoryItem, DbInventoryTransaction } from "@/lib/supabase"
-import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction, FieldRiskJudgement } from "@/types"
+import { Farm, Tank, WaterQualityReading, PowerReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction, FieldRiskJudgement } from "@/types"
 import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, planMissingInputAlerts, MISSING_INPUT_PARAMETER, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
 import { PLAN_LIMITS, type Plan } from "@/lib/plans"
 import { isTestAccount } from "@/lib/mock-data"
@@ -295,6 +295,21 @@ export async function getWaterQuality(tankId: string, hours = 168, deviceId?: st
 
   if (error) throw error
   return (data || []).map(toWaterQuality).reverse()
+}
+
+/** 베드의 분전반 전력 회로 기록(최근 hours 시간, 오래된 것부터).
+ *  power_readings.sql 을 아직 안 돌린 DB 면 빈 배열 — 카드가 안 뜰 뿐 화면은 멀쩡하다. */
+export async function getPowerReadings(tankId: string, hours = 24): Promise<PowerReading[]> {
+  const since = new Date(Date.now() - hours * 3_600_000).toISOString()
+  const { data, error } = await supabase
+    .from("power_readings")
+    .select("tank_id, circuit_id, circuit_type, state, power_w, current_a, voltage_v, energy_today_kwh, device_temp, recorded_at")
+    .eq("tank_id", tankId)
+    .gte("recorded_at", since)
+    .order("recorded_at", { ascending: true })
+    .limit(5000)
+  if (error) return []
+  return (data || []) as PowerReading[]
 }
 
 export async function getLatestWaterQuality(tankId: string, deviceId?: string | null): Promise<WaterQualityReading | null> {

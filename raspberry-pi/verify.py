@@ -315,6 +315,54 @@ z = field_env.FieldEnv(zdir, zone="treatment").read(now=znow)
 check("구간을 고르면 그 구간만 · 기상(mast)은 함께", ("soil_moisture" in z, "wind_speed" in z), (False, True))
 check("파일이 없으면 빈 값(오류 아님)", field_env.FieldEnv(zdir / "없음").read(now=znow), {})
 check("서버로는 칸 이름 그대로 값만", field_env.payload_values({"air_temp": {"value": 23.4}}), {"air_temp": 23.4})
+print("\n⑨ 전력 회로 — Zigbee 계측 차단기·클램프 전력계")
+pdir = Path(tempfile.mkdtemp(prefix="power-"))
+pnow = _dt.datetime(2026, 10, 18, 9, 0)
+(pdir / "zigbee_20261018.csv").write_text(
+    HEAD +
+    "2026-10-18T08:58:00,facility,PUMP-01,circuit_state,1,bool,ok\n"
+    "2026-10-18T08:58:00,facility,PUMP-01,pump_power,1480,W,ok\n"
+    "2026-10-18T08:58:00,facility,PUMP-01,pump_current,7.9,A,ok\n"
+    "2026-10-18T08:58:00,facility,PUMP-01,line_voltage,221,V,ok\n"
+    "2026-10-18T08:58:00,facility,PUMP-01,device_temp,71,degC,ok\n"
+    "2026-10-18T07:00:00,facility,PUMP-01,pump_energy,0.40,kWh,ok\n"
+    "2026-10-18T08:58:00,facility,PUMP-01,pump_energy,0.25,kWh,ok\n"
+    "2026-10-18T08:59:00,facility,AUX-01,aux_circuit_state,0,bool,ok\n"
+    "2026-10-18T08:59:00,facility,AUX-01,aux_power,0,W,ok\n"
+    "2026-10-18T08:59:00,facility,AUX-01,device_temp,82,degC,ok\n"
+    "2026-10-18T08:59:00,facility,MAIN-01,main_power,2350,W,ok\n"
+    "2026-10-18T08:00:00,facility,LIGHT-01,light_power,900,W,ok\n"
+    "2026-10-18T08:59:00,facility,VALVE-01,valve_state,1,bool,ok\n"
+    "2026-10-18T08:59:00,facility,VALVE-01,irrigation_flow,12,L/min,ok\n", encoding="utf-8")
+pe = field_env.FieldEnv(pdir, zone="treatment")
+circ = {c["id"]: c for c in pe.read_power({"aux-01": "heater"}, now=pnow)}
+check("밸브는 회로가 아니다(전력·전류·전력량이 없다)", "VALVE-01" in circ, False)
+check("구간을 골라도 분전반 회로는 모두 보인다", sorted(circ), ["AUX-01", "LIGHT-01", "MAIN-01", "PUMP-01"])
+check("변수 끝말로 상태·전력·전류·전압을 읽는다",
+      (circ["PUMP-01"]["state"], circ["PUMP-01"]["power"], circ["PUMP-01"]["current"], circ["PUMP-01"]["voltage"]),
+      (1, 1480, 7.9, 221))
+check("오늘 전력량은 구간값을 더한다", circ["PUMP-01"]["energy_today"], 0.65)
+check("화면에서 고른 종류가 짐작보다 먼저(대소문자 무관)", (circ["AUX-01"]["type"], circ["PUMP-01"]["type"]),
+      ("heater", "irrigation_pump"))
+check("차단기 온도 71℃ 주의 · 82℃ 위험", (circ["PUMP-01"]["level"], circ["AUX-01"]["level"]), ("warn", "crit"))
+check("30분 넘은 전력은 지금 값으로 보이지 않는다", circ["LIGHT-01"]["power"], None)
+summ = field_env.power_summary(list(circ.values()))
+check("인입 계측이 있으면 그것이 전체", (summ["total_w"], summ["partial"], summ["level"]), (2350, False, "crit"))
+summ2 = field_env.power_summary([c for c in circ.values() if c["type"] != "main"])
+check("인입이 없으면 분기 합(부분값으로 표시)", (summ2["total_w"], summ2["partial"]), (1480, True))
+sent = {c["id"] for c in field_env.payload_power(list(circ.values()))}
+check("서버로는 지금 값이 있는 회로만", sent, {"AUX-01", "MAIN-01", "PUMP-01"})
+_cfg = pdir / "config.ini"
+_cfg.write_text("[server]\nendpoint = x\n\n[power_circuits]\n; 주석\nPUMP-010 = other\n\n[history]\nenabled = true\n",
+                encoding="utf-8")
+field_env.save_power_type(_cfg, "pump-01", "aerator")
+field_env.save_power_type(_cfg, "PUMP-010", "heater")
+_txt = _cfg.read_text(encoding="utf-8")
+check("회로 종류 저장: 정확한 이름만 바꾸고 주석·다른 구간은 그대로",
+      ("PUMP-01 = aerator" in _txt, "PUMP-010 = heater" in _txt, "; 주석" in _txt, "[history]" in _txt,
+       _txt.index("PUMP-01 = aerator") < _txt.index("[history]")),
+      (True, True, True, True, True))
+
 check("스마트팜(양액 기준)에서는 새우 운전 권고를 내지 않는다",
       advice.recommend({"temperature": 21.6, "ph": 6.12, "do_level": 7.3}, nutrient_mode=True), [])
 

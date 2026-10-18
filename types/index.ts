@@ -113,6 +113,21 @@ export interface WaterQualityReading {
   created_at: string
 }
 
+/** 분전반 전력 회로 한 줄(supabase/migrations/power_readings.sql). 장비가 5분마다 올린다. */
+export interface PowerReading {
+  tank_id: string
+  circuit_id: string
+  /** lib/power.ts POWER_TYPES 중 하나 */
+  circuit_type: string
+  state: 0 | 1 | null
+  power_w: number | null
+  current_a: number | null
+  voltage_v: number | null
+  energy_today_kwh: number | null
+  device_temp: number | null
+  recorded_at: string
+}
+
 export interface JournalEntry {
   id: string
   tank_id: string

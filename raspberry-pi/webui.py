@@ -54,6 +54,7 @@ class State:
             "ec_unit": "us",       # 전도도 표시 단위(us|ms). 화면이 값을 바꿔 보여 준다.
             "nutrient": None,      # 양액 보충 안내(켜 둔 경우에만)
             "env": None,           # 환경·기상(field_env.py). 끄면 None, 켰는데 값이 없으면 {}
+            "power": None,         # 전력 회로 {circuits, total_w, partial, level}. 끄면 None
             "mode": "shrimp",      # 장비 모드(shrimp|agriculture). 화면 이름·라벨·색만 바꾼다.
 
             # 장비가 스스로 낸 판단. 통신과 무관하게 여기서 끝난다.
@@ -146,6 +147,43 @@ PAGE = """<!doctype html>
   .ai.on .bulb{background:var(--brand-hover);box-shadow:0 0 0 3px var(--brand-ring)}
 
   /* AI 모드 설명판 */
+  /* 전력 — 머리 칩(전체 kW), 과열 경고 띠, 회로판. 양식장·스마트팜 공통.
+     전력을 켜지 않은 장비(power=null)는 칩도 띠도 자리를 차지하지 않는다. */
+  .pw{display:flex;align-items:center;gap:5px;flex:0 0 auto;cursor:pointer;
+    font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;
+    border:1px solid #22304C;background:#0F1D33;color:#CBD5E1;font-variant-numeric:tabular-nums}
+  .pw:empty{display:none}
+  .pw .bolt{color:#FBBF24}
+  .pw.warn{border-color:#D97706;color:#FBBF24}
+  .pw.crit{border-color:#DC2626;color:#F87171;background:#DC262622}
+  .grid.tight .cell{padding:6px 16px}
+  .grid.tight .v{font-size:42px}
+  .grid.tight .v small{font-size:17px}
+  .grid.tight .sub2{margin-top:2px}
+  .pwalert{flex:0 0 auto;margin-bottom:9px;padding:8px 13px;border-radius:12px;cursor:pointer;
+    display:flex;align-items:center;gap:10px;font-size:14.5px;font-weight:800}
+  .pwalert.warn{border:1px solid #D97706;background:#D9770618;color:#FBBF24}
+  .pwalert.crit{border:1px solid #DC2626;background:#DC262622;color:#F87171}
+  .pwalert .why{margin-left:auto;font-size:12.5px;font-weight:600;color:#94A3B8}
+  .pwbox{max-width:720px;width:100%;margin-top:8px;background:#111A2E;border:1px solid #22304C;
+    border-radius:12px;padding:4px 14px;text-align:left;max-height:318px;overflow-y:auto}
+  .pwrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #1E293B}
+  .pwrow:first-child{border-top:0}
+  .pwrow .nm{flex:1;min-width:0;font-size:14.5px;font-weight:700;color:#E8EDF7}
+  .pwrow .nm small{display:block;font-size:11.5px;font-weight:600;color:#64748B}
+  .pwrow .st{font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;border:1px solid #22304C;color:#64748B}
+  .pwrow .st.on{border-color:#10B981;color:#34D399}
+  .pwrow .num{width:78px;text-align:right;font:800 15px/1.2 ui-monospace,monospace;color:#E8EDF7}
+  .pwrow .num small{display:block;font:600 10.5px/1.2 system-ui,sans-serif;color:#64748B}
+  .pwrow .num.warn{color:#FBBF24}
+  .pwrow .num.crit{color:#F87171}
+  .pwrow .num.dim{color:#475569}
+  .pwtot{display:flex;gap:18px;justify-content:center;margin-top:6px;font-size:13px;color:#94A3B8}
+  .pwtot b{font:800 20px/1 ui-monospace,monospace;color:#E8EDF7;margin-right:3px}
+  .typegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+  .typegrid button{min-height:46px;border-radius:10px;border:1px solid #22304C;background:#111A2E;
+    color:#E8EDF7;font-weight:700;font-size:14px;font-family:inherit;cursor:pointer}
+  .typegrid button.on{border-color:var(--brand-line);background:var(--brand-soft2);color:var(--brand-text2)}
   .aibox{max-width:520px;text-align:left;width:100%;margin-top:10px;
     background:#111A2E;border:1px solid #22304C;border-radius:12px;padding:4px 16px 14px}
   .aibox .layer{
@@ -446,6 +484,7 @@ PAGE = """<!doctype html>
   <span class="tag" id="tag"></span>
   <span class="ver" id="ver"></span>
   <span class="ai" id="ai" onclick="openAi()"><span class="bulb"></span><span id="ailabel"></span></span>
+  <span class="pw" id="pw" onclick="openPower()"></span>
   <span class="link" id="link"></span>
 </header>
 
@@ -465,6 +504,7 @@ PAGE = """<!doctype html>
 <div id="wifi"></div>
 <div id="account"></div>
 <div id="aipanel"></div>
+<div id="powerpanel"></div>
 
 <script>
 // 값 칸의 표시 형식. **판정 숫자는 여기 없다** — limits.py 가 주입하는 BANDS 를
@@ -757,6 +797,34 @@ var I18N = {
   lang_title:{ko:"언어 설정",en:"Language",vi:"Ngôn ngữ",id:"Bahasa"},
   lang_hint:{ko:"화면 언어를 고르세요",en:"Choose the display language",vi:"Chọn ngôn ngữ hiển thị",id:"Pilih bahasa tampilan"},
   // 재시작
+  menu_power:{ko:"전력 회로",en:"Power circuits",vi:"Mạch điện",id:"Sirkuit listrik"},
+  menu_power_sub:{ko:"차단기마다 연결된 기기 종류 고르기",en:"Choose what each breaker feeds",vi:"Chọn thiết bị cho từng aptomat",id:"Pilih perangkat tiap pemutus"},
+  pw_title:{ko:"전력 회로",en:"Power circuits",vi:"Mạch điện",id:"Sirkuit listrik"},
+  pw_total:{ko:"전체",en:"Total",vi:"Tổng",id:"Total"},
+  pw_total_partial:{ko:"계측 회로 합",en:"Metered sum",vi:"Tổng đo được",id:"Jumlah terukur"},
+  pw_today:{ko:"오늘",en:"Today",vi:"Hôm nay",id:"Hari ini"},
+  pw_on:{ko:"켜짐",en:"ON",vi:"BẬT",id:"NYALA"},
+  pw_off:{ko:"꺼짐",en:"OFF",vi:"TẮT",id:"MATI"},
+  pw_lost:{ko:"끊김",en:"No signal",vi:"Mất tín hiệu",id:"Terputus"},
+  pw_none:{ko:"계측 차단기 값이 들어오지 않습니다 — 지그비 수집기(zigbee_bridge)와 차단기 페어링을 확인하세요",en:"No breaker readings — check the Zigbee collector (zigbee_bridge) and breaker pairing",vi:"Không có dữ liệu aptomat — kiểm tra bộ thu Zigbee (zigbee_bridge) và ghép nối",id:"Tidak ada data pemutus — periksa kolektor Zigbee (zigbee_bridge) dan pairing"},
+  pw_hot_warn:{ko:"차단기 온도 높음 — {name} {t}℃",en:"Breaker running hot — {name} {t}℃",vi:"Aptomat nóng — {name} {t}℃",id:"Pemutus panas — {name} {t}℃"},
+  pw_hot_crit:{ko:"차단기 과열 — {name} {t}℃",en:"Breaker overheating — {name} {t}℃",vi:"Aptomat quá nhiệt — {name} {t}℃",id:"Pemutus terlalu panas — {name} {t}℃"},
+  pw_hot_do:{ko:"부하·단자 조임 점검",en:"Check load and terminals",vi:"Kiểm tra tải và đầu nối",id:"Periksa beban dan terminal"},
+  pw_pick:{ko:"이 차단기에 연결된 기기를 고르세요",en:"Choose what this breaker feeds",vi:"Chọn thiết bị nối với aptomat này",id:"Pilih perangkat pada pemutus ini"},
+  pw_change:{ko:"바꾸기",en:"Change",vi:"Đổi",id:"Ubah"},
+  pw_saved:{ko:"바꿨습니다.",en:"Changed.",vi:"Đã đổi.",id:"Diubah."},
+  pwt_main:{ko:"전체(인입)",en:"Main incomer",vi:"Tổng (đầu vào)",id:"Utama (masuk)"},
+  pwt_aerator:{ko:"산소공급기·브로워",en:"Aerator / blower",vi:"Máy sục khí",id:"Aerator / blower"},
+  pwt_circulation_pump:{ko:"순환펌프",en:"Circulation pump",vi:"Bơm tuần hoàn",id:"Pompa sirkulasi"},
+  pwt_irrigation_pump:{ko:"관수펌프",en:"Irrigation pump",vi:"Bơm tưới",id:"Pompa irigasi"},
+  pwt_heater:{ko:"히터·난방",en:"Heater",vi:"Máy sưởi",id:"Pemanas"},
+  pwt_ventilation:{ko:"환기팬",en:"Ventilation fan",vi:"Quạt thông gió",id:"Kipas ventilasi"},
+  pwt_cooling:{ko:"냉방·제습",en:"Cooling / dehumidifier",vi:"Làm mát / hút ẩm",id:"Pendingin / dehumidifier"},
+  pwt_lighting:{ko:"조명·보광",en:"Lighting",vi:"Chiếu sáng",id:"Pencahayaan"},
+  pwt_uv:{ko:"UV 살균기",en:"UV sterilizer",vi:"Đèn UV",id:"Sterilisator UV"},
+  pwt_dosing:{ko:"양액 도징펌프",en:"Dosing pump",vi:"Bơm định lượng",id:"Pompa dosis"},
+  pwt_feeder:{ko:"자동급이기",en:"Auto feeder",vi:"Máy cho ăn",id:"Pemberi pakan"},
+  pwt_other:{ko:"기타",en:"Other",vi:"Khác",id:"Lainnya"},
   menu_restart:{ko:"재시작",en:"Restart",vi:"Khởi động lại",id:"Mulai ulang"},
   menu_restart_sub:{ko:"프로그램 다시 시작 · 기기 재부팅",en:"Restart program · Reboot device",vi:"Khởi động lại chương trình · thiết bị",id:"Mulai ulang program · perangkat"},
   restart_app:{ko:"프로그램 다시 시작",en:"Restart program",vi:"Khởi động lại chương trình",id:"Mulai ulang program"},
@@ -859,8 +927,130 @@ function renderValues(d){
   }).join("");
   // 스마트팜은 양액 보충이 주 업무라 값 바로 아래에 크게 놓는다.
   // 양식장은 예전 순서 그대로(권고 → 양액).
-  if (isAgri()) return '<div class="grid">' + cells + '</div>' + renderEnv(d) + renderNutrient(d) + renderAdvice(d);
-  return '<div class="grid">' + cells + '</div>' + renderAdvice(d) + renderNutrient(d);
+  var hot = renderPowerAlert(d);
+  // 경고 띠가 서면 값 칸을 조금 줄인다 — 띠가 값을 가리면 안 된다(800×480 은 여유가 없다).
+  var grid = '<div class="grid' + (hot ? " tight" : "") + '">' + cells + '</div>';
+  if (isAgri()) return hot + grid + renderEnv(d) + renderNutrient(d) + renderAdvice(d);
+  return hot + grid + renderAdvice(d) + renderNutrient(d);
+}
+
+// ── 전력 ────────────────────────────────────────────────────────────────────
+// 머리 칩에 전체 kW, 차단기가 뜨거우면 값 격자 위에 경고 띠. 칩이나 띠를 누르면
+// 회로판이 열린다. 판정(65·80℃)은 수집기가 limits.BREAKER_TEMP 로 해서 level 로 준다.
+var PW_TYPES = ["main","aerator","circulation_pump","irrigation_pump","heater","ventilation",
+                "cooling","lighting","uv","dosing","feeder","other"];
+var powerOpen = false, pwTypesOpen = false, pwEdit = null, pwMsg = null;
+
+function pwName(c){ return t("pwt_" + c.type) + (c.type === "other" ? " " + c.id : ""); }
+function kw(w){ return (w / 1000).toFixed(w >= 10000 ? 1 : 2); }
+
+function renderPowerChip(d){
+  var el = document.getElementById("pw");
+  var p = d.power;
+  if (!p) { el.innerHTML = ""; el.className = "pw"; return; }
+  el.className = "pw" + (p.level ? " " + p.level : "");
+  el.innerHTML = '<span class="bolt">\u26A1</span>' +
+    (p.total_w === null || p.total_w === undefined ? "--" : kw(p.total_w)) + " kW";
+}
+
+function hottest(p){
+  var list = (p && p.circuits || []).filter(function(c){ return c.level; });
+  list.sort(function(a, b){ return (b.temp || 0) - (a.temp || 0); });
+  return list[0] || null;
+}
+
+function renderPowerAlert(d){
+  var c = hottest(d.power);
+  if (!c) return "";
+  var key = c.level === "crit" ? "pw_hot_crit" : "pw_hot_warn";
+  return '<div class="pwalert ' + c.level + '" onclick="openPower()">\u26A0 ' +
+    esc(t(key, {name: pwName(c), t: c.temp.toFixed(0)})) +
+    '<span class="why">' + t("pw_hot_do") + ' \u203A</span></div>';
+}
+
+function openPower(){ powerOpen = true; drawPower(lastState || {}); }
+function closePower(){ powerOpen = false; document.getElementById("powerpanel").innerHTML = ""; }
+
+function drawPower(d){
+  var p = d.power;
+  if (!p) { closePower(); return; }
+  var rows;
+  if (!p.circuits.length) {
+    rows = '<div class="pwrow"><div class="nm" style="color:#94A3B8;font-weight:600">' + t("pw_none") + '</div></div>';
+  } else {
+    rows = p.circuits.map(function(c){
+      var st = c.state === 1 ? '<span class="st on">' + t("pw_on") + '</span>'
+             : c.state === 0 ? '<span class="st">' + t("pw_off") + '</span>'
+             : (c.power === null ? '<span class="st">' + t("pw_lost") + '</span>' : "");
+      var num = function(v, unit, cls){
+        return '<span class="num' + (cls ? " " + cls : "") + (v === "--" ? " dim" : "") + '">' + v +
+               '<small>' + unit + '</small></span>';
+      };
+      return '<div class="pwrow"><div class="nm">' + esc(pwName(c)) + '<small>' + esc(c.id) + '</small></div>' + st +
+        num(c.power === null ? "--" : Math.round(c.power), "W") +
+        num(c.current === null ? "--" : c.current.toFixed(1), "A") +
+        num(c.energy_today === null ? "--" : c.energy_today.toFixed(2), "kWh " + t("pw_today")) +
+        num(c.temp === null ? "--" : c.temp.toFixed(0), "\u2103", c.level) + '</div>';
+    }).join("");
+  }
+  var tot = p.total_w === null || p.total_w === undefined ? "--" : kw(p.total_w);
+  document.getElementById("powerpanel").innerHTML =
+    '<div class="overlay"><h1>' + t("pw_title") + '</h1>' +
+      '<div class="pwtot"><span>' + t(p.partial ? "pw_total_partial" : "pw_total") + ' <b>' + tot + '</b>kW</span></div>' +
+      '<div class="pwbox">' + rows + '</div>' +
+      '<div class="ovbtns"><button class="act ghost" onclick="closePower()">' + t("close") + '</button></div>' +
+    '</div>';
+}
+
+// [설정] → [전력 회로] — 차단기마다 연결된 기기 종류를 고른다(설계서 4-1 카탈로그).
+function openPowerTypes(){ pwEdit = null; pwMsg = null; drawPowerTypes(); }
+
+function drawPowerTypes(){
+  var p = (lastState && lastState.power) || {circuits: []};
+  var msg = pwMsg ? '<div class="msg ' + pwMsg.kind + '">' + esc(pwMsg.text) + '</div>' : "";
+  var body;
+  if (pwEdit) {
+    var cur = (p.circuits.filter(function(c){ return c.id === pwEdit; })[0] || {}).type;
+    body = '<div class="sub" style="margin:2px 0 4px">' + esc(pwEdit) + ' \u2014 ' + t("pw_pick") + '</div>' +
+      '<div class="typegrid">' + PW_TYPES.map(function(k){
+        return '<button class="' + (k === cur ? "on" : "") + '" onclick="setPowerType(&quot;' + k + '&quot;)">' +
+               t("pwt_" + k) + '</button>';
+      }).join("") + '</div>';
+  } else if (!p.circuits.length) {
+    body = '<div class="sub">' + t("pw_none") + '</div>';
+  } else {
+    body = p.circuits.map(function(c){
+      return '<div class="srow" style="cursor:pointer" onclick="pwEdit=&quot;' + esc(c.id) + '&quot;;pwMsg=null;drawPowerTypes()">' +
+        '<div class="sname">' + esc(pwName(c)) + '<div class="sub">' + esc(c.id) + '</div></div>' +
+        '<button class="toggle">' + t("pw_change") + '</button></div>';
+    }).join("");
+  }
+  document.getElementById("setup").innerHTML =
+    '<div class="setup"><div class="chead">' +
+      '<span class="ctitle">' + t("menu_power") + '</span>' +
+      '<button style="margin-left:auto" onclick="' + (pwEdit ? "pwEdit=null;drawPowerTypes()" : "drawSettingsMenu()") + '">' +
+        (pwEdit ? t("back_list") : t("back_menu")) + '</button>' +
+    '</div><div class="sbody">' + msg + body + '</div></div>';
+}
+
+function setPowerType(k){
+  var id = pwEdit;
+  fetch("/api/power/type", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({id: id, type: k})})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d && d.ok) {
+        // 다음 갱신을 기다리지 않고 지금 화면에 반영한다.
+        (lastState.power.circuits || []).forEach(function(c){ if (c.id === id) c.type = k; });
+        pwMsg = {kind:"ok", text: d.saved ? t("pw_saved") : t("saved_mem")};
+        pwEdit = null;
+      } else {
+        pwMsg = {kind:"err", text:(d && d.error) || t("save_fail")};
+      }
+      drawPowerTypes();
+      if (lastState) render(lastState);
+    })
+    .catch(function(){ pwMsg = {kind:"err", text:t("save_fail")}; drawPowerTypes(); });
 }
 
 // 환경·기상 줄 — 스마트팜에서 [environment] 를 켠 장비만. 끈 장비(env=null)는
@@ -1258,6 +1448,8 @@ function render(d){
   document.getElementById("link").innerHTML = renderLink(d);
   document.getElementById("ver").textContent = d.version ? "v" + d.version : "";
   renderAi(d);
+  renderPowerChip(d);
+  if (powerOpen) drawPower(d);
   // 그래프를 보고 있는 중에는 뒤 화면을 다시 그리지 않는다.
   // 3초마다 갱신하면 조작 중에 깜빡이고 눌림이 씹힌다.
   if (!chartKey) document.getElementById("main").innerHTML = renderValues(d);
@@ -1419,6 +1611,10 @@ function drawSettingsMenu(){
     {t:"menu_nutrient", sub:"menu_nutrient_sub", fn:"openNutrient()"},
     {t:"menu_restart", sub:"menu_restart_sub", fn:"openRestart()"}
   ];
+  // 전력 회로는 [power] 를 켠 장비에만 — 꺼진 장비에 빈 메뉴를 두지 않는다.
+  if (lastState && lastState.power) {
+    items.splice(items.length - 1, 0, {t:"menu_power", sub:"menu_power_sub", fn:"openPowerTypes()"});
+  }
   var rows = items.map(function(it){
     return '<div class="srow" style="cursor:pointer" onclick="' + it.fn + '">' +
       '<div class="sname">' + t(it.t) +
@@ -2393,6 +2589,7 @@ def serve(
     mode="shrimp",
     get_mode=None,
     on_set_mode=None,
+    on_set_power_type=None,
 ) -> ThreadingHTTPServer | None:
     """상태 페이지를 띄운다. 실패해도 수집은 계속되어야 하므로 None 을 돌려준다."""
 
@@ -2535,6 +2732,15 @@ def serve(
                                "application/json")
                     return
                 self._send(200, json.dumps(on_set_mode(mode_sel)).encode(), "application/json")
+                return
+            if self.path == "/api/power/type" and on_set_power_type is not None:
+                body = self._body()
+                sid, kind = body.get("id"), body.get("type")
+                if not isinstance(sid, str) or not isinstance(kind, str):
+                    self._send(200, json.dumps({"ok": False, "error": "요청이 올바르지 않습니다."}).encode(),
+                               "application/json")
+                    return
+                self._send(200, json.dumps(on_set_power_type(sid, kind)).encode(), "application/json")
                 return
             if self.path == "/api/pair/start" and on_pair_start is not None:
                 on_pair_start()

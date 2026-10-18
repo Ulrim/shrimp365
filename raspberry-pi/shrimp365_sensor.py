@@ -1891,11 +1891,28 @@ def main() -> int:
     mode_holder = {"mode": _ui_mode if _ui_mode in ("shrimp", "agriculture") else "shrimp"}
     # 환경·기상 센서(지그비 온습도·토양수분, 기상센서 WS90). 노지 수집기가 쌓는 CSV 를
     # 이어 읽어 화면에 띄우고, upload 가 켜져 있으면 수질 값과 같은 줄로 서버에 올린다.
+    #
+    # 전력 회로(Zigbee 계측 차단기·클램프 전력계)도 같은 수집기 파일에서 읽는다 — 양식장·
+    # 스마트팜 공통. 회로 종류(순환펌프·히터…)는 화면 [설정] → [전력 회로] 에서 고르며
+    # [power_circuits] 구간에 "센서이름 = 종류" 로 남는다.
     field_env = None
+    env_on = cfg.getboolean("environment", "enabled", fallback=False)
     env_upload = False
-    if field_env_mod is not None and cfg.getboolean("environment", "enabled", fallback=False):
+    power_on = cfg.getboolean("power", "enabled", fallback=False)
+    power_upload = cfg.getboolean("power", "upload", fallback=True)
+    # 서버로는 5분마다(과열 중이면 매번) — 화면은 매 측정마다 갱신한다.
+    power_every_s = max(60, int(cfg.getfloat("power", "upload_minutes", fallback=5) * 60))
+    power_types: dict[str, str] = (
+        {k.upper(): v.strip() for k, v in cfg.items("power_circuits")}
+        if cfg.has_section("power_circuits") else {})
+    power_sent = {"at": 0.0}
+    if field_env_mod is not None and (env_on or power_on):
+        # 두 기능이 같은 수집기 폴더를 읽는다. 폴더는 [environment] dir 이 정하고,
+        # 전력만 켠 장비는 [power] dir(없으면 같은 기본값)을 쓴다.
+        _dir = (cfg.get("environment", "dir", fallback=None) if env_on else None) \
+            or cfg.get("power", "dir", fallback="/home/pi/openfield/data/field")
         field_env = field_env_mod.FieldEnv(
-            cfg.get("environment", "dir", fallback="/home/pi/openfield/data/field"),
+            _dir,
             cfg.get("environment", "zone", fallback=""),
             cfg.getfloat("environment", "stale_minutes", fallback=30),
         )
@@ -2288,6 +2305,18 @@ def main() -> int:
             return {"mode": mode_holder["mode"],
                     "ec_mode": ec_holder["mode"], "ec_unit": ec_holder["unit"]}
 
+        def ui_set_power_type(sensor_id: str, kind: str) -> dict:
+            """화면에서 고른 회로 종류를 적용하고 [power_circuits] 에 남긴다."""
+            sid = (sensor_id or "").strip().upper()
+            if not sid or len(sid) > 32 or any(ch in sid for ch in "=:[]\n\r;#"):
+                return {"ok": False, "error": "회로 이름이 올바르지 않습니다"}
+            if field_env_mod is None or kind not in field_env_mod.POWER_TYPES:
+                return {"ok": False, "error": "모르는 종류입니다"}
+            power_types[sid] = kind          # 파일 저장이 실패해도 지금 화면은 따른다
+            saved = field_env_mod.save_power_type(args.config, sid, kind)
+            log.info("화면에서 전력 회로 종류를 바꿨습니다: %s → %s (파일 저장 %s)", sid, kind, saved)
+            return {"ok": True, "saved": saved, "id": sid, "type": kind}
+
         def ui_set_mode(mode: str) -> dict:
             """장비 모드를 바꾼다. 화면은 다음 갱신(/api/state)에서 즉시 따라온다.
 
@@ -2342,6 +2371,7 @@ def main() -> int:
             mode=mode_holder["mode"],
             get_mode=ui_mode,
             on_set_mode=ui_set_mode,
+            on_set_power_type=ui_set_power_type,
         )
         state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중",
                      version=VERSION, ec_unit=ec_holder["unit"], mode=mode_holder["mode"])
@@ -2397,12 +2427,21 @@ def main() -> int:
         # 환경·기상 — 켜 둔 장비만. 수질 센서가 죽어도 화면에는 띄우고, 읽기가
         # 실패해도 수질 측정·전송은 그대로 간다.
         env = None
-        if field_env is not None:
+        if field_env is not None and env_on:
             try:
                 env = field_env.read()
             except Exception as exc:  # noqa: BLE001
                 log.warning("환경·기상 값 읽기 실패: %s", exc)
                 env = {}
+        # 전력 회로 — 켜 둔 장비만. 값이 없으면 빈 목록(화면이 점검 안내를 띄운다).
+        power = None
+        if field_env is not None and power_on:
+            try:
+                circuits = field_env.read_power(power_types)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("전력 회로 읽기 실패: %s", exc)
+                circuits = []
+            power = {"circuits": circuits, **field_env_mod.power_summary(circuits)}
 
         if not values:
             log.error("읽은 값이 없습니다. 배선·전원·슬레이브 ID를 확인하세요. %s", errors)
@@ -2466,6 +2505,14 @@ def main() -> int:
                 # 수질 값과 같은 줄로 올려 웹 그래프가 한 시간축을 쓴다.
                 if env and env_upload:
                     payload.update(field_env_mod.payload_values(env))
+                # 전력 회로 — 5분마다. 차단기가 과열 중이면 매번(휴대폰 알림이 늦으면 안 된다).
+                if power and power_upload and power["circuits"]:
+                    due = time.time() - power_sent["at"] >= power_every_s
+                    if due or power["level"]:
+                        circuits_out = field_env_mod.payload_power(power["circuits"])
+                        if circuits_out:
+                            payload["power"] = circuits_out
+                            power_sent["at"] = time.time()
 
                 # 추세 이상징후를 함께 올린다. 장비 화면에만 뜨면 새벽에 아무도
                 # 못 보므로, 서버가 이것으로 알림을 만들어 휴대폰까지 보낸다.
@@ -2530,6 +2577,7 @@ def main() -> int:
             state.update(
                 values=last_values,
                 env=env,
+                power=power,
                 nutrient=nutrient,
                 advice=advices,
                 anomalies=analysis["anomalies"],

@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase-server"
 import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, parseTrendAlerts, TREND_ALERT_PARAMETERS, MISSING_INPUT_PARAMETER, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
 import { sendAlertPush } from "@/lib/push-server"
 import { ENV_PARAMS, ENV_KEYS, type EnvParamKey } from "@/lib/env-params"
+import { parsePowerPayload, breakerAlerts } from "@/lib/power"
 
 /** 환경·기상 칸별 수신 범위 — lib/env-params.ts 에서 만든다. */
 const ENV_RANGE = Object.fromEntries(ENV_PARAMS.map(p => [p.key, p.range])) as Record<EnvParamKey, readonly [number, number]>
@@ -198,6 +199,9 @@ export async function POST(req: NextRequest) {
     if (Number.isFinite(n) && n >= min && n <= max) envValues[field] = n
   }
 
+  // 분전반 전력 회로(장비 field_env.py) — 회로마다 한 줄. 모양이 틀린 회로는 버린다.
+  const powerCircuits = parsePowerPayload(body.power)
+
   // 수질 값이 하나는 있어야 한다. 환경 값만으로는 받지 않는다 — 아래 수조 상태 갱신이
   // 수질 판정만 보고 status 를 active 로 덮어써, 진짜 경보 상태를 지워 버린다.
   if (Object.keys(values).length === 0) {
@@ -262,6 +266,26 @@ export async function POST(req: NextRequest) {
   if (insertError) {
     console.error("[sensors/data] insert error:", insertError)
     return NextResponse.json({ error: "데이터 저장에 실패했습니다." }, { status: 500 })
+  }
+
+  // 3-1. 전력 회로 기록 — 실패해도 수질 수신은 그대로 간다(마이그레이션 전 DB 등).
+  if (powerCircuits.length > 0) {
+    const { error: powerError } = await supabaseAdmin.from("power_readings").insert(
+      powerCircuits.map(c => ({
+        tank_id: device.tank_id,
+        device_id: device.id,
+        circuit_id: c.id,
+        circuit_type: c.type,
+        state: c.state,
+        power_w: c.power,
+        current_a: c.current,
+        voltage_v: c.voltage,
+        energy_today_kwh: c.energy_today,
+        device_temp: c.temp,
+        recorded_at: recordedAt,
+      })),
+    )
+    if (powerError) console.warn("[sensors/data] 전력 회로 저장 실패(power_readings.sql 필요?):", powerError.message)
   }
 
   // 4. 임계값 체크 → 알림 생성 + 수조 상태 갱신
@@ -338,7 +362,10 @@ export async function POST(req: NextRequest) {
     ...checkThresholds(globalValues as Parameters<typeof checkThresholds>[0], profile),
     ...checkRecipe(values, recipe),
   ]
-  const thresholdAlerts = [...statusAlerts, ...trendAlerts]
+  // 차단기 과열(본체 온도) — 화재 전조. 수조 색에는 넣지 않고(수질이 아니다) 알림·푸시만 태운다.
+  // 추세와 같이 밀린 값에는 반응하지 않는다 — 어제의 과열로 지금 휴대폰을 울리면 안 된다.
+  const breaker = fresh ? breakerAlerts(powerCircuits) : { alerts: [], recovered: [] }
+  const thresholdAlerts = [...statusAlerts, ...trendAlerts, ...breaker.alerts]
 
   // 같은 항목이 계속 범위 밖이면 알림을 새로 만들지 않는다.
   //
@@ -418,6 +445,8 @@ export async function POST(req: NextRequest) {
     const stillTrending = new Set(trendAlerts.map(a => a.parameter))
     recovered.push(...TREND_ALERT_PARAMETERS.filter(p => !stillTrending.has(p)))
   }
+  // 차단기가 식었으면(60℃ 아래) 과열 알림을 닫는다. 60~65℃ 사이는 열린 채 둔다(깜빡임 방지).
+  recovered.push(...breaker.recovered)
   // 레시피 알림은 parameter 가 값 키와 달라("EC"/"pH") 별도 매핑으로 복귀를 잡는다.
   // 0 은 전극이 물 밖일 때 나오는 값이라 checkRecipe 가 판정에서 제외한다 —
   // 판정을 안 했으면 복귀도 아니다(비대칭이면 이탈 알림이 0 수신에 닫혀 버린다).
