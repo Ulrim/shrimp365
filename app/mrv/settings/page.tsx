@@ -330,12 +330,28 @@ function EmissionFactorSection({ isOwner }: { isOwner: boolean }) {
   const yearId = useId()
   const versionId = useId()
   const effectiveId = useId()
+  const gasScopeId = useId()
+  const basisFromId = useId()
+  const basisToId = useId()
+  const documentNameId = useId()
+  const issuingBodyId = useId()
+  const publishedOnId = useId()
+  const sourceUrlId = useId()
 
   const [factor, setFactor] = useState("")
   const [source, setSource] = useState("")
   const [year, setYear] = useState(String(new Date().getUTCFullYear()))
   const [version, setVersion] = useState("")
   const [effectiveFrom, setEffectiveFrom] = useState("")
+  // 출처 칸. 전부 선택이다 — 추측으로 채우는 것보다 비는 쪽이 낫다(틀린 문서명은
+  // 산정 전체의 신뢰를 깬다). 대신 비어 있으면 아래에 무엇이 비었는지 알려 준다.
+  const [gasScope, setGasScope] = useState<"CO2e" | "CO2">("CO2e")
+  const [basisFrom, setBasisFrom] = useState("")
+  const [basisTo, setBasisTo] = useState("")
+  const [documentName, setDocumentName] = useState("")
+  const [issuingBody, setIssuingBody] = useState("")
+  const [publishedOn, setPublishedOn] = useState("")
+  const [sourceUrl, setSourceUrl] = useState("")
   const [fieldError, setFieldError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<string | null>(null)
 
@@ -392,6 +408,15 @@ function EmissionFactorSection({ isOwner }: { isOwner: boolean }) {
         year: yearNum,
         version: version.trim(),
         effective_from: effective.toISOString(),
+        gas_scope: gasScope,
+        // 빈 칸은 보내지 않는다(null). 빈 문자열을 보내면 서버가 "적었지만 비었다" 와
+        // "적지 않았다" 를 구분할 수 없다.
+        basis_from_year: basisFrom.trim() === "" ? null : Number(basisFrom),
+        basis_to_year: basisTo.trim() === "" ? null : Number(basisTo),
+        document_name: documentName.trim() || null,
+        issuing_body: issuingBody.trim() || null,
+        published_on: publishedOn.trim() || null,
+        source_url: sourceUrl.trim() || null,
       })
       setFactor("")
       setVersion("")
@@ -472,11 +497,52 @@ function EmissionFactorSection({ isOwner }: { isOwner: boolean }) {
                     <td className="py-2 pr-3 tabular-nums text-mrv-fg">
                       {formatNumber(ef.factor_tco2e_per_mwh, 4)}
                     </td>
-                    <td className="py-2 pr-3 tabular-nums text-mrv-muted">{ef.year}</td>
+                    <td className="py-2 pr-3 tabular-nums text-mrv-muted">
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        {ef.year}
+                        {/* 가스 범위는 숫자만큼 중요하다 — 같은 승인분이 CO2e 판과
+                            CO2 판으로 둘 다 공표되므로, 표에서 바로 보여야 한다. */}
+                        <span className="rounded bg-mrv-bg px-1.5 py-0.5 text-[11px] font-medium text-mrv-fg">
+                          {ef.gas_scope ?? "범위 미기재"}
+                        </span>
+                      </span>
+                      {ef.basis_from_year !== null && ef.basis_to_year !== null && (
+                        <span className="block text-[11px] text-mrv-muted">
+                          {ef.basis_from_year === ef.basis_to_year
+                            ? `${ef.basis_from_year}년 단년도`
+                            : `${ef.basis_from_year}~${ef.basis_to_year}년 평균`}
+                        </span>
+                      )}
+                    </td>
                     <td className="py-2 pr-3 text-mrv-muted">
                       {formatIsoLocal(ef.effective_from)}
                     </td>
-                    <td className="py-2 text-mrv-muted">{ef.source}</td>
+                    <td className="py-2 text-mrv-muted">
+                      {ef.source}
+                      {/* 구조화된 출처가 있으면 함께 보인다. 없으면 **무엇이 비었는지**
+                          적는다 — 빈 칸을 조용히 두면 검증 직전에야 발견한다. */}
+                      {(ef.issuing_body || ef.document_name || ef.published_on) && (
+                        <span className="mt-0.5 block text-[11px] text-mrv-fg">
+                          {[
+                            ef.issuing_body,
+                            ef.document_name,
+                            ef.published_on ? `${ef.published_on} 공표` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      )}
+                      {ef.source_url && (
+                        <span className="mt-0.5 block break-all text-[11px] text-mrv-muted">
+                          {ef.source_url}
+                        </span>
+                      )}
+                      {!ef.deprecated_at && !(ef.document_name && ef.source_url) && (
+                        <span className="mt-0.5 block text-[11px] text-mrv-amber">
+                          검증 대응 미비 — 공표 문서명·출처 주소가 비어 있습니다
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 )
               })}
@@ -591,6 +657,142 @@ function EmissionFactorSection({ isOwner }: { isOwner: boolean }) {
             그대로 실립니다.
           </p>
         </div>
+
+        {/* ── 출처(검증 대응) ───────────────────────────────────────────────
+            칸을 나눈 이유: 자유 문장 하나로는 **무엇을 제시해야 하는지** 운영자가
+            알 수 없다. 나눠 두면 비어 있는 칸이 곧 "아직 못 댄 근거" 가 된다.
+            전부 선택이다 — 추측으로 채우는 것보다 비는 쪽이 낫다. */}
+        <fieldset className="flex flex-col gap-3 rounded-md border border-mrv-border p-3">
+          <legend className="px-1 text-xs font-medium text-mrv-fg">
+            출처 상세 (검증 대응 · 선택)
+          </legend>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <label htmlFor={gasScopeId} className="text-sm font-medium text-mrv-fg">
+                온실가스 범위
+              </label>
+              <select
+                id={gasScopeId}
+                value={gasScope}
+                disabled={disabled}
+                onChange={(e) => setGasScope(e.target.value as "CO2e" | "CO2")}
+                className={`${INPUT_CLASS} py-2 disabled:opacity-60`}
+              >
+                <option value="CO2e">CO2e — CH4·N2O 포함</option>
+                <option value="CO2">CO2 — 이산화탄소만</option>
+              </select>
+              <p className="text-xs text-mrv-muted">
+                같은 승인분이 <strong>두 판으로 공표됩니다</strong>(2023년도: CO2e 0.4173 /
+                CO2 만 0.4149). 검증기관이 가장 먼저 묻는 칸입니다.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label htmlFor={publishedOnId} className="text-sm font-medium text-mrv-fg">
+                공표일
+              </label>
+              <input
+                id={publishedOnId}
+                type="date"
+                value={publishedOn}
+                disabled={disabled}
+                onChange={(e) => setPublishedOn(e.target.value)}
+                className={`${INPUT_CLASS} py-2 disabled:opacity-60`}
+              />
+              <p className="text-xs text-mrv-muted">
+                계수가 공표된 날입니다. 적용 시작일(위)과 다를 수 있습니다.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label htmlFor={basisFromId} className="text-sm font-medium text-mrv-fg">
+                기준 기간 시작 연도
+              </label>
+              <input
+                id={basisFromId}
+                type="number"
+                step="1"
+                value={basisFrom}
+                disabled={disabled}
+                placeholder="예: 2023"
+                onChange={(e) => setBasisFrom(e.target.value)}
+                className={`${INPUT_CLASS} py-2 disabled:opacity-60`}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label htmlFor={basisToId} className="text-sm font-medium text-mrv-fg">
+                기준 기간 끝 연도
+              </label>
+              <input
+                id={basisToId}
+                type="number"
+                step="1"
+                value={basisTo}
+                disabled={disabled}
+                placeholder="단년도면 시작 연도와 같게"
+                onChange={(e) => setBasisTo(e.target.value)}
+                className={`${INPUT_CLASS} py-2 disabled:opacity-60`}
+              />
+              <p className="text-xs text-mrv-muted">
+                <strong>단년도</strong> 계수는 두 칸을 같게, <strong>다년 평균</strong>은
+                범위로 적습니다(2024년 승인분 = 2020~2022 평균). 둘 다 적거나 둘 다 비웁니다.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor={issuingBodyId} className="text-sm font-medium text-mrv-fg">
+              발행기관
+            </label>
+            <input
+              id={issuingBodyId}
+              value={issuingBody}
+              disabled={disabled}
+              placeholder="예: 기후에너지환경부 국가 온실가스 통계 관리위원회"
+              onChange={(e) => setIssuingBody(e.target.value)}
+              className={`${INPUT_CLASS} py-2 disabled:opacity-60`}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor={documentNameId} className="text-sm font-medium text-mrv-fg">
+              공표 문서명
+            </label>
+            <input
+              id={documentNameId}
+              value={documentName}
+              disabled={disabled}
+              placeholder="예: 2025년 승인 국가 온실가스 배출·흡수계수"
+              onChange={(e) => setDocumentName(e.target.value)}
+              className={`${INPUT_CLASS} py-2 disabled:opacity-60`}
+            />
+            <p className="text-xs text-mrv-muted">
+              검증기관에 제시하는 것이 이 문서입니다. 추측으로 적지 말고, 원문을 확인한
+              뒤 그 제목을 그대로 적으세요.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor={sourceUrlId} className="text-sm font-medium text-mrv-fg">
+              출처 주소
+            </label>
+            <input
+              id={sourceUrlId}
+              type="url"
+              value={sourceUrl}
+              disabled={disabled}
+              placeholder="https://..."
+              onChange={(e) => setSourceUrl(e.target.value)}
+              className={`${INPUT_CLASS} py-2 disabled:opacity-60`}
+            />
+            <p className="text-xs text-mrv-muted">
+              리포트에 글자로 인쇄됩니다(인쇄물에서는 누를 수 없으므로). http:// 또는
+              https:// 로 시작해야 합니다.
+            </p>
+          </div>
+        </fieldset>
 
         {fieldError && (
           <p role="alert" className="text-sm text-mrv-red">

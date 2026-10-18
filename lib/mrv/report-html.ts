@@ -112,7 +112,85 @@ type Boundary = {
   included_quality_flags: string[]
   biomass_source_refs: { before: string[]; after: string[] }
   config_version: { before: string; after: string }
+  /**
+   * 생성 시점에 얼린 배출계수 출처. **옛 리포트에는 없다**(이 칸을 넣기 전에 발행된
+   * 것들). 그래서 optional 이고, 아래 렌더는 스냅샷 우선 · 활성 조인 폴백이다.
+   */
+  emission_factor?: {
+    version: string
+    source: string
+    year: number
+    factor_tco2e_per_mwh: number
+    gas_scope: string | null
+    basis_from_year: number | null
+    basis_to_year: number | null
+    document_name: string | null
+    issuing_body: string | null
+    published_on: string | null
+    source_url: string | null
+    method: string | null
+  }
   assumptions: string[]
+}
+
+/** 기준 기간을 사람이 읽는 한 줄로. 단년도와 다년 평균을 구분해 적는다. */
+function basisPeriodLabel(from: number | null, to: number | null): string | null {
+  if (from === null || to === null) return null
+  return from === to ? `${from}년 단년도` : `${from}~${to}년 평균`
+}
+
+/**
+ * 적용 배출계수의 출처 줄들.
+ *
+ * **스냅샷 우선, 활성 조인 폴백.** 리포트가 생성될 때 얼린 `boundary.emission_factor` 가
+ * 있으면 그것을 쓴다 — 나중에 계수 행의 문서명·URL 을 보강해도 **이미 발행된 리포트의
+ * 인용문이 바뀌지 않아야** 하기 때문이다. 그 칸이 없는 옛 리포트는 종전처럼 계수 행을
+ * 그대로 읽는다(그 리포트들에는 애초에 출처 칸이 없었다).
+ *
+ * 비어 있는 칸은 **줄을 만들지 않는다.** "—" 로 채우면 인쇄물에 빈 근거 줄이 늘어서
+ * 검증자가 무엇이 제시된 것인지 가려내기 어렵다 — 없는 것은 없는 대로 둔다.
+ */
+function emissionFactorRows(boundary: Boundary, ef: EmissionFactorRow): string {
+  const snap = boundary.emission_factor
+  const version = snap?.version ?? ef.version
+  const source = snap?.source ?? ef.source
+  const year = snap?.year ?? ef.year
+  const factor = snap?.factor_tco2e_per_mwh ?? ef.factor_tco2e_per_mwh
+  const gasScope = snap?.gas_scope ?? ef.gas_scope ?? null
+  const basis = basisPeriodLabel(
+    snap?.basis_from_year ?? ef.basis_from_year ?? null,
+    snap?.basis_to_year ?? ef.basis_to_year ?? null,
+  )
+  const documentName = snap?.document_name ?? ef.document_name ?? null
+  const issuingBody = snap?.issuing_body ?? ef.issuing_body ?? null
+  const publishedOn = snap?.published_on ?? ef.published_on ?? null
+  const sourceUrl = snap?.source_url ?? ef.source_url ?? null
+  const method = snap?.method ?? ef.method ?? null
+
+  const rows: string[] = [
+    `<tr><td>적용 배출계수</td><td colspan="2">${esc(version)} — ${esc(factor)} tCO2e/MWh` +
+      `${gasScope ? ` (${esc(gasScope)} 기준)` : ""}, ${esc(year)}년</td></tr>`,
+  ]
+  if (basis) rows.push(`<tr><td>계수 기준 기간</td><td colspan="2">${esc(basis)}</td></tr>`)
+  if (documentName || issuingBody || publishedOn) {
+    const parts = [issuingBody, documentName, publishedOn ? `${publishedOn} 공표` : null]
+      .filter(Boolean)
+      .map((x) => esc(x as string))
+    rows.push(`<tr><td>계수 공표 출처</td><td colspan="2">${parts.join(" · ")}</td></tr>`)
+  }
+  // URL 은 인쇄물에서 눌릴 수 없으므로 글자로 그대로 적는다(검증자가 타이핑해 따라간다).
+  if (sourceUrl) rows.push(`<tr><td>출처 주소</td><td colspan="2">${esc(sourceUrl)}</td></tr>`)
+  if (method) {
+    rows.push(
+      `<tr><td>Scope2 산정 방식</td><td colspan="2">` +
+        `${method === "location_based" ? "location-based (계통 평균 배출계수)" : esc(method)}` +
+        `</td></tr>`,
+    )
+  }
+  // source 자유 문자열은 마지막에 둔다 — 위 칸들이 비어 있을 때 유일한 근거이고,
+  // 채워져 있을 때는 보충 설명이다.
+  rows.push(`<tr><td>계수 비고</td><td colspan="2">${esc(source)}</td></tr>`)
+  return rows.join("\n      ")
 }
 
 /** 리포트 1건을 A4 인쇄용 HTML 문서로 그린다. */
@@ -244,7 +322,7 @@ export function renderMrvReportHtml(
     <tbody>
       <tr><td>Baseline(Before) ID</td><td colspan="2">${esc(report.baseline_id)}</td></tr>
       <tr><td>After KPI 스냅샷 ID</td><td colspan="2">${esc(after.kpi_snapshot_id)}</td></tr>
-      <tr><td>적용 배출계수</td><td colspan="2">${esc(ef.version)} (${esc(ef.source)}, ${esc(ef.year)}년)</td></tr>
+      ${emissionFactorRows(boundary, ef)}
       <tr><td>kpi_config 버전(Before / After)</td><td colspan="2">${esc(boundary.config_version?.before)} / ${esc(boundary.config_version?.after)}</td></tr>
     </tbody>
   </table>

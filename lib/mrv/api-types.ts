@@ -504,6 +504,46 @@ export interface EmissionFactor {
    * 지우면 그 리포트의 계수 근거가 사라진다.
    */
   deprecated_at: string | null;
+  /**
+   * 온실가스 범위. 같은 승인분이 **CO2e 판과 CO2 판으로 둘 다 공표된다**
+   * (2023년도분: CO2e 0.4173 / CO2 만 0.4149). 섞이면 되짚을 수 없다.
+   */
+  gas_scope: "CO2e" | "CO2";
+  /**
+   * 계수가 설명하는 기준 기간. 단년도는 두 값이 같고, 3년 평균은 다르다
+   * (2024년 승인분 = 2020~2022 평균). 둘 다 있거나 둘 다 없다.
+   * 사람이 읽는 대표 연도는 `year`, 기계가 읽는 기준 기간은 이 둘이다.
+   */
+  basis_from_year: number | null;
+  basis_to_year: number | null;
+  /** 공표 문서명. 검증기관에 제시하는 것이 이것이다. */
+  document_name: string | null;
+  issuing_body: string | null;
+  /** 공표일(YYYY-MM-DD). */
+  published_on: string | null;
+  source_url: string | null;
+  /**
+   * GHG Protocol Scope 2 산정 방식. 지금 플랫폼의 계수는 전부 location_based 다.
+   * ⚠ 이 값이 market-based 산정을 구현하지는 않는다(REC·PPA 테이블이 필요한 별건).
+   */
+  method: "location_based" | "market_based";
+}
+
+/** POST /emission-factors 요청 본문. 출처 칸은 전부 선택이지만 비면 검증에서 요구받는다. */
+export interface EmissionFactorCreateRequest {
+  factor_tco2e_per_mwh: number;
+  source: string;
+  year: number;
+  version: string;
+  effective_from: string;
+  gas_scope?: "CO2e" | "CO2";
+  basis_from_year?: number | null;
+  basis_to_year?: number | null;
+  document_name?: string | null;
+  issuing_body?: string | null;
+  published_on?: string | null;
+  source_url?: string | null;
+  method?: "location_based" | "market_based";
 }
 
 /**

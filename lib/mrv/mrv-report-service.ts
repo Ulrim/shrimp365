@@ -40,6 +40,16 @@ export type EmissionFactorRow = {
   effective_from: string
   /** 사용 중단 표시. 자동 선택에서만 빠지고, 명시 지정과 과거 리포트 렌더는 그대로다. */
   deprecated_at?: string | null
+  // ── 출처(마이그레이션 mrv_emission_factor_provenance.sql) ──
+  // 선택이다. 옛 행은 비어 있을 수 있으므로 전부 optional 로 둔다.
+  gas_scope?: string | null
+  basis_from_year?: number | null
+  basis_to_year?: number | null
+  document_name?: string | null
+  issuing_body?: string | null
+  published_on?: string | null
+  source_url?: string | null
+  method?: string | null
 }
 
 export type MrvReportRow = {
@@ -242,6 +252,32 @@ export async function generateMrvReport(params: {
       after: [...comp.ei.sourceBiomassRefs],
     },
     config_version: { before: bsl.config_version, after: comp.configVersion },
+    /**
+     * 적용 배출계수의 출처를 **생성 시점에 얼려 넣는다.**
+     *
+     * 왜 스냅샷인가: 인쇄 리포트는 `emission_factor_id` 로 계수 행을 활성 조인해 왔다.
+     * 그러면 나중에 운영자가 그 행의 문서명·URL 을 보강하는 순간 **이미 발행된 리포트의
+     * 인용문이 바뀐다.** 값이 바뀌는 건 아니지만, 발행된 증빙 문서가 사후에 달라지는 것
+     * 자체가 검증에서 문제가 된다. 산식 전문(`formula_text`)을 생성 시점에 얼리는 것과
+     * 같은 이유다.
+     *
+     * 옛 리포트에는 이 칸이 없으므로 인쇄 템플릿이 **스냅샷 우선 · 활성 조인 폴백** 으로
+     * 읽는다.
+     */
+    emission_factor: {
+      version: ef.version,
+      source: ef.source,
+      year: ef.year,
+      factor_tco2e_per_mwh: ef.factor_tco2e_per_mwh,
+      gas_scope: ef.gas_scope ?? null,
+      basis_from_year: ef.basis_from_year ?? null,
+      basis_to_year: ef.basis_to_year ?? null,
+      document_name: ef.document_name ?? null,
+      issuing_body: ef.issuing_body ?? null,
+      published_on: ef.published_on ?? null,
+      source_url: ef.source_url ?? null,
+      method: ef.method ?? null,
+    },
     assumptions: [...ASSUMPTIONS],
   }
 
