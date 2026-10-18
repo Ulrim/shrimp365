@@ -38,6 +38,8 @@ export type EmissionFactorRow = {
   year: number
   version: string
   effective_from: string
+  /** 사용 중단 표시. 자동 선택에서만 빠지고, 명시 지정과 과거 리포트 렌더는 그대로다. */
+  deprecated_at?: string | null
 }
 
 export type MrvReportRow = {
@@ -75,6 +77,11 @@ async function loadLockedBaseline(db: MrvDb, siteId: string): Promise<BaselineRo
  * 배출계수 로드. 지정하면 그것을, 아니면 활성(effective_from 최신) 값을 쓴다.
  * 어느 쪽도 없으면 404 다 — 배출계수 부재를 0 으로 처리하면 "감축량 0" 이라는
  * 그럴듯한 거짓 결과가 나온다.
+ *
+ * **자동 선택에서는 `deprecated_at` 이 찍힌 행을 뺀다.** 출처·연도 라벨이 틀린 것으로
+ * 밝혀진 계수가 새 리포트에 다시 쓰이면 안 된다. 다만 **명시 지정은 막지 않는다** —
+ * 과거 리포트를 그때 쓴 계수로 재생성하는 일이 있어야 하고, 그 행을 못 쓰게 만들면
+ * 재현성이 사라진다.
  */
 async function loadEmissionFactor(
   db: MrvDb,
@@ -93,6 +100,7 @@ async function loadEmissionFactor(
   const { data, error } = await db
     .from(T.emissionFactors)
     .select("*")
+    .is("deprecated_at", null)
     .order("effective_from", { ascending: false })
     .limit(1)
     .maybeSingle()

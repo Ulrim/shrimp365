@@ -349,8 +349,12 @@ function EmissionFactorSection({ isOwner }: { isOwner: boolean }) {
   )
   const disabled = !isOwner || mutation.isPending
 
-  // 활성 계수 = effective_from 이 가장 늦은 행. 서버가 그 순서로 주므로 첫 행이다.
-  const activeId = list.data?.items[0]?.id ?? null
+  // 활성 계수 = **사용 중단되지 않은** 행 중 effective_from 이 가장 늦은 것.
+  // 서버가 effective_from 내림차순으로 주므로 그 조건을 만족하는 첫 행이다.
+  // `items[0]` 을 그대로 쓰면 사용 중단된 행을 "적용 중" 으로 표시하게 된다 —
+  // 서버의 자동 선택(`mrv-report-service.loadEmissionFactor`)과 기준이 갈라지면
+  // 화면이 리포트와 다른 계수를 가리킨다.
+  const activeId = list.data?.items.find((ef) => !ef.deprecated_at)?.id ?? null
 
   /**
    * 적용 시작일이 오늘(UTC)보다 뒤인가 — 즉시 적용이라는 경고를 띄울 조건.
@@ -444,15 +448,23 @@ function EmissionFactorSection({ isOwner }: { isOwner: boolean }) {
               )}
               {list.data.items.map((ef) => {
                 const isActive = ef.id === activeId
+                const isDeprecated = Boolean(ef.deprecated_at)
                 return (
                   <tr key={ef.id} className="border-b border-mrv-border last:border-0">
                     <td className="py-2 pr-3 text-mrv-fg">
                       <span className="flex flex-wrap items-center gap-1.5">
                         {ef.version}
-                        {/* 활성 여부는 색이 아니라 글자로 적는다. */}
+                        {/* 활성·중단 여부는 색이 아니라 글자로 적는다. */}
                         {isActive && (
                           <span className="rounded-full bg-mrv-green-bg px-2 py-0.5 text-[11px] font-medium text-mrv-green">
                             적용 중
+                          </span>
+                        )}
+                        {/* 중단된 행도 숨기지 않는다. 과거 리포트가 이 계수를 근거로
+                            삼았으므로, 목록에서 사라지면 그 리포트를 되짚을 수 없다. */}
+                        {isDeprecated && (
+                          <span className="rounded-full bg-mrv-na-bg px-2 py-0.5 text-[11px] font-medium text-mrv-na">
+                            사용 중단
                           </span>
                         )}
                       </span>

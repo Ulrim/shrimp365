@@ -25,7 +25,7 @@ const UNIQUE_VIOLATION = "23505"
  * 화면이 `created_at` 을 읽으면 타입은 string 인데 런타임은 undefined 였다.
  */
 const EMISSION_FACTOR_COLUMNS =
-  "id, factor_tco2e_per_mwh, source, year, version, effective_from, created_at"
+  "id, factor_tco2e_per_mwh, source, year, version, effective_from, created_at, deprecated_at"
 
 export async function GET(req: NextRequest) {
   return handleRoute(async () => {
@@ -61,6 +61,18 @@ export async function POST(req: NextRequest) {
     if (!body.version) throw new HttpError(422, "version is required")
     if (!body.effective_from) throw new HttpError(422, "effective_from is required")
     const effectiveFrom = parseInstant(body.effective_from, "effective_from")
+    // year 와 effective_from 은 다른 것이다. year 는 계수가 **설명하는 데이터 연도**,
+    // effective_from 은 이 플랫폼이 **새 리포트에 쓰기 시작하는 시점**이다. 계수는 해당
+    // 연도가 끝난 뒤 집계·심의를 거쳐 공표되므로, 데이터 연도가 적용 시점보다 뒤일 수
+    // 없다. 이 검사가 없어서 `0.4594` 가 2024년 값으로 등록되는 사고가 났다.
+    if ((body.year as number) > effectiveFrom.getUTCFullYear()) {
+      throw new HttpError(
+        422,
+        `year (${body.year}) must not be later than the year of effective_from ` +
+          `(${effectiveFrom.getUTCFullYear()}) — year is the data year the factor describes, ` +
+          "effective_from is when this platform starts applying it",
+      )
+    }
 
     const row = {
       id: newId("ef"),

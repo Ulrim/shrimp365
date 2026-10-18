@@ -495,11 +495,22 @@ export interface EmissionFactor {
   source: string;
   year: number;
   version: string;
+  /** 이 플랫폼이 새 리포트에 이 계수를 쓰기 시작하는 시점(데이터 연도는 `year`). */
   effective_from: string;
   created_at: string;
+  /**
+   * 사용 중단 시점. 비어 있지 않으면 **활성 계수 자동 선택에서 제외**된다.
+   * 과거 리포트가 참조하는 행일 수 있어 삭제하지 않고 이 열로만 표시한다 —
+   * 지우면 그 리포트의 계수 근거가 사라진다.
+   */
+  deprecated_at: string | null;
 }
 
-/** GET /emission-factors 응답 — effective_from 내림차순(items[0]이 활성값). */
+/**
+ * GET /emission-factors 응답 — effective_from 내림차순.
+ * ⚠ `items[0]` 이 곧 활성값은 아니다. 사용 중단(`deprecated_at`) 행이 섞여 있으므로
+ * 활성값은 **그 열이 비어 있는 첫 행**이다(서버의 자동 선택과 같은 기준).
+ */
 export interface EmissionFactorListResponse {
   items: EmissionFactor[];
 }
