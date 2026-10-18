@@ -39,6 +39,8 @@ export const T = {
   alerts: "mrv_alerts",
   auditLogs: "mrv_audit_logs",
   apiKeys: "mrv_api_keys",
+  /** 현장 장비 페어링(6자리 코드 → mrv_api_keys 발급). */
+  devicePairings: "mrv_device_pairings",
 } as const
 
 export type MrvDb = ReturnType<typeof createAdminClient>

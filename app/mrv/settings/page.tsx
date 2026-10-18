@@ -899,6 +899,148 @@ function KpiConfigSection() {
 
 // ---------------------------------------------------------------------------
 
+/**
+ * 현장 장비 연결 — 장비 화면의 6자리 코드를 받아 수집 키를 발급한다.
+ *
+ * 이 카드가 **MRV 수집 API 키의 유일한 발급 경로다.** 지금까지 그 행은 SQL 로만 넣을 수
+ * 있어서, 전력계나 입력 단말을 붙이려면 매번 DB 를 직접 만져야 했다.
+ *
+ * 원문 키는 **이 화면에 나타나지 않는다.** 장비가 자기만 아는 값으로 따로 가져간다 —
+ * 승인한 사람의 브라우저나 화면 캡처에 장비 자격이 남을 이유가 없다.
+ */
+function DevicePairingSection({
+  siteId,
+  siteName,
+  canWrite,
+}: {
+  siteId: string | null
+  siteName: string | null
+  canWrite: boolean
+}) {
+  const codeId = useId()
+  const labelId = useId()
+  const [code, setCode] = useState("")
+  const [label, setLabel] = useState("")
+  const [fieldError, setFieldError] = useState<string | null>(null)
+  const [linked, setLinked] = useState<{ at: string; site: string } | null>(null)
+
+  const mutation = useApiMutation(async (body: unknown) =>
+    apiFetch<{ status: string; site_name: string }>("/pair/claim", {
+      method: "POST",
+      json: body,
+    }),
+  )
+  const disabled = !canWrite || !siteId || mutation.isPending
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (disabled) return
+    const digits = code.trim()
+    if (!/^[0-9]{6}$/.test(digits)) {
+      return setFieldError("장비 화면에 뜬 6자리 숫자를 그대로 적어 주세요.")
+    }
+    setFieldError(null)
+    try {
+      const res = await mutation.mutate({
+        code: digits,
+        site_id: siteId,
+        label: label.trim() || null,
+      })
+      setCode("")
+      setLabel("")
+      setLinked({ at: new Date().toLocaleTimeString("ko-KR"), site: res.site_name })
+    } catch {
+      /* 오류는 아래에 표시된다. */
+    }
+  }
+
+  return (
+    <Card className="flex flex-col gap-4">
+      <SectionHeader
+        title="현장 장비 연결"
+        note="기계실 터치스크린에서 전력 계량기 지침을 바로 넣을 수 있게 장비를 붙입니다. 장비 화면에 뜬 6자리 코드를 아래에 적으세요. 코드는 15분 뒤 만료됩니다."
+      />
+
+      <div className="rounded-md bg-mrv-bg px-3 py-2 text-xs text-mrv-muted">
+        연결될 사이트: <strong className="text-mrv-fg">{siteName ?? "사이트 미선택"}</strong>
+        {" — "}
+        장비가 넣는 전력은 <strong className="text-mrv-fg">이 사이트</strong>의 EI·Scope2·
+        기준선 근거가 됩니다. 사이트를 바꾸려면 위쪽 사이트 선택기에서 먼저 고르세요.
+      </div>
+
+      <form onSubmit={handleSubmit} aria-label="현장 장비 연결 폼" className="flex flex-col gap-3">
+        {!canWrite && (
+          <PermissionNote>
+            읽기 전용 권한(viewer)입니다. 장비 연결은 owner/operator 만 가능합니다.
+          </PermissionNote>
+        )}
+
+        <div className="flex flex-col gap-1">
+          <label htmlFor={codeId} className="text-sm font-medium text-mrv-fg">
+            장비 화면의 6자리 코드 <span className="text-mrv-red">*</span>
+          </label>
+          <input
+            id={codeId}
+            value={code}
+            disabled={disabled}
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={6}
+            placeholder="예: 043712"
+            // 숫자만 남긴다 — 작업자가 하이픈이나 공백을 섞어 적는 일이 흔하다.
+            onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ""))}
+            className={`${INPUT_CLASS} py-2 font-mono tracking-[0.3em] disabled:opacity-60`}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label htmlFor={labelId} className="text-sm font-medium text-mrv-fg">
+            장비 이름 (선택)
+          </label>
+          <input
+            id={labelId}
+            value={label}
+            disabled={disabled}
+            placeholder="예: 기계실 입력 단말"
+            onChange={(e) => setLabel(e.target.value)}
+            className={`${INPUT_CLASS} py-2 disabled:opacity-60`}
+          />
+          <p className="text-xs text-mrv-muted">
+            나중에 어느 장비인지 알아보려고 적습니다. 비우면 장비 일련번호로 채워집니다.
+          </p>
+        </div>
+
+        {fieldError && (
+          <p role="alert" className="text-sm text-mrv-red">
+            {fieldError}
+          </p>
+        )}
+        {mutation.error !== undefined && (
+          <p role="alert" className="text-sm text-mrv-red">
+            {errorMessage(mutation.error, "장비 연결에 실패했습니다.")}
+          </p>
+        )}
+        {linked && !mutation.isPending && mutation.error === undefined && (
+          <div role="status" className="flex flex-col gap-1 rounded-md border border-mrv-green bg-mrv-green-bg p-3 text-sm">
+            <p className="font-medium text-mrv-fg">
+              {linked.at} {linked.site} 에 장비를 연결했습니다.
+            </p>
+            <p className="text-xs text-mrv-muted">
+              장비 화면이 몇 초 안에 &ldquo;연결됨&rdquo; 으로 바뀝니다. 바뀌지 않으면 장비에서
+              코드를 새로 받아 다시 시도하세요 — 수집 키는 장비가 직접 가져가므로 이 화면에는
+              나타나지 않습니다.
+            </p>
+          </div>
+        )}
+
+        <button type="submit" disabled={disabled} className={`${PRIMARY_BUTTON} self-start`}>
+          {mutation.isPending ? "연결 중…" : "장비 연결"}
+        </button>
+      </form>
+    </Card>
+  )
+}
+
 export default function SettingsPage() {
   const { selectedSiteId, selectedSite } = useMrvSite()
   const { role } = useMrvSession()
@@ -928,6 +1070,11 @@ export default function SettingsPage() {
       </Card>
 
       <MeterSection siteId={selectedSiteId} canWrite={canWrite} />
+      <DevicePairingSection
+        siteId={selectedSiteId}
+        siteName={selectedSite?.name ?? null}
+        canWrite={canWrite}
+      />
       <EmissionFactorSection isOwner={isOwner} />
       <KpiConfigSection />
     </div>
