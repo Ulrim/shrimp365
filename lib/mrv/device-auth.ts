@@ -60,12 +60,30 @@ const LAST_USED_REFRESH_MS = 5 * 60 * 1000
  * **이 칸을 못 적는 것이 계측값을 못 받는 이유가 되어서는 안 된다.**
  * (그래서 throw 하지 않고 로그만 남긴다. 로그가 쌓이면 원인을 쫓을 수 있다.)
  */
-function touchLastUsedAt(db: MrvDb, apiKeyId: string, lastUsedAt: string | null): void {
-  if (lastUsedAt !== null) {
-    const age = Date.now() - new Date(lastUsedAt).getTime()
-    // NaN(값이 깨진 경우)은 비교가 모두 false 라 갱신 쪽으로 떨어진다 — 의도한 방향이다.
-    if (age < LAST_USED_REFRESH_MS) return
+/**
+ * 마지막으로 적은 시각. **프로세스 메모리**다.
+ *
+ * DB 의 `last_used_at` 을 읽어 비교하던 것을 여기로 옮겼다 — 인증 질의가 그 열에
+ * 의존하면 마이그레이션 전 배포에서 수집이 통째로 죽기 때문이다(위 주석).
+ * 인스턴스가 여러 개면 각자 세므로 **쓰기가 인스턴스 수만큼 늘 수 있다.** 그 대신
+ * 인증 경로가 새 열을 전혀 모른다. 이 열이 답하는 질문은 "이 장비가 아직 살아
+ * 있는가" 하나뿐이라, 쓰기가 몇 배 늘어도 답은 달라지지 않는다.
+ * 재시작하면 비므로 한 번 더 적는다 — 틀리는 방향이 '안 적는다' 가 아니라
+ * '한 번 더 적는다' 쪽이다.
+ */
+const lastTouchedAt = new Map<string, number>()
+
+function touchLastUsedAt(db: MrvDb, apiKeyId: string): void {
+  const now = Date.now()
+  const prev = lastTouchedAt.get(apiKeyId)
+  if (prev !== undefined && now - prev < LAST_USED_REFRESH_MS) return
+  // 장부가 무한히 자라지 않게 만료된 것만 걷어낸다.
+  if (lastTouchedAt.size > 2000) {
+    for (const [k, v] of lastTouchedAt) {
+      if (now - v >= LAST_USED_REFRESH_MS) lastTouchedAt.delete(k)
+    }
   }
+  lastTouchedAt.set(apiKeyId, now)
 
   after(async () => {
     try {
@@ -92,7 +110,13 @@ export async function authorizeDevice(req: NextRequest): Promise<DeviceAuth> {
   const db = mrvDb()
   const { data, error } = await db
     .from(T.apiKeys)
-    .select("id, org_id, site_id, revoked, last_used_at")
+    // ★ `last_used_at` 을 여기서 select 하지 않는다. 그 열은 마이그레이션이 추가하는
+    //   것이고 **실행은 사람 몫**이다. 배포가 SQL 보다 먼저 올라가는 순간 PostgREST 가
+    //   42703(모르는 열)을 돌려주고, 아래 `throw error` 가 그것을 500 으로 바꾼다.
+    //   이 함수는 `/ingest/readings`·`/ingest/meters` 의 첫 줄이므로 **그 창 동안 모든
+    //   현장 장비의 수집이 멈춘다.** 운영 편의용 열 하나 때문에 증빙 수집이 끊기는 것은
+    //   어떤 이유로도 맞바꿀 수 없다. 스로틀은 이 프로세스의 기억으로 한다(아래).
+    .select("id, org_id, site_id, revoked")
     .eq("key_hash", await hashApiKey(rawKey))
     .maybeSingle()
   if (error) throw error
@@ -102,7 +126,6 @@ export async function authorizeDevice(req: NextRequest): Promise<DeviceAuth> {
     org_id: string
     site_id: string
     revoked: boolean
-    last_used_at: string | null
   } | null
   // 폐기된 키와 없는 키를 구분해 알리지 않는다 — 구분해 주면 키 존재 여부를 캐낼 수 있다.
   if (!apiKey || apiKey.revoked) {
@@ -111,7 +134,7 @@ export async function authorizeDevice(req: NextRequest): Promise<DeviceAuth> {
 
   // 통과한 뒤에만 적는다. 폐기된 키의 시도까지 "마지막 사용" 으로 적으면, 운영자가
   // 끊어 둔 장비를 아직 살아 있는 것으로 읽는다.
-  touchLastUsedAt(db, apiKey.id, apiKey.last_used_at)
+  touchLastUsedAt(db, apiKey.id)
 
   return { db, orgId: apiKey.org_id, siteId: apiKey.site_id, apiKeyId: apiKey.id }
 }
