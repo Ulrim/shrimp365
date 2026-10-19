@@ -59,6 +59,16 @@ function makeFakeDb(tables) {
           rows = rows.filter((r) => String(r[col]) < String(value))
           return builder
         },
+        // PostgREST 의 `is.null` 은 "칸이 비어 있다" 다. 픽스처 행에는 그 칸 자체가
+        // 없을 수 있으므로 undefined 도 null 로 본다(DB 에서는 둘이 같은 상태다).
+        is(col, value) {
+          if (value === null) {
+            rows = rows.filter((r) => r[col] === null || r[col] === undefined)
+          } else {
+            rows = rows.filter((r) => r[col] === value)
+          }
+          return builder
+        },
         order(col, opts = {}) {
           const asc = opts.ascending !== false
           // 안정 정렬: 이미 적용된 정렬을 뒤엎지 않아야 다중 order 가 PostgREST 와 같다.
@@ -97,7 +107,7 @@ function makeFakeDb(tables) {
 try {
   // kpi-service.ts 는 db.ts(Supabase 클라이언트)를 import 한다. 원본 파일은 그대로 두고
   // 임시 디렉터리에 복사한 뒤 그 옆에 fetchAll 만 살린 db 모듈을 놓아 함께 컴파일한다.
-  for (const f of ["kpi-service.ts", "api-types.ts"]) {
+  for (const f of ["kpi-service.ts", "api-types.ts", "kpi-config-source.ts"]) {
     copyFileSync(join(ROOT, "lib/mrv", f), join(outDir, f))
   }
   writeFileSync(
@@ -214,11 +224,17 @@ try {
       kpi_config: r.kpi_config ? [r.kpi_config] : [],
     })
 
+    // org 는 픽스처에 없다. 픽스처의 kpi_config 행에는 org_id 가 없어 「플랫폼 기본값」
+    // 이고(org_id is null), 그래서 어느 org 로 조회해도 그 행이 활성 설정이다 —
+    // 원본 Python 과 같은 입력이라는 성질이 유지된다.
     const comp = await computeSiteKpiResults(
       db,
       "site-p",
+      "org-p",
       new Date(c.period.from),
       new Date(c.period.to),
+      // 활성 설정 선택의 기준 시각. 픽스처의 effective_from 보다 뒤여야 그 행이 고른다.
+      new Date("2099-01-01T00:00:00Z"),
     )
 
     const e = c.expected

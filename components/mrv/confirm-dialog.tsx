@@ -37,12 +37,28 @@ export function ConfirmDialog({
   onCancel: () => void
 }) {
   const confirmRef = useRef<HTMLButtonElement>(null)
+  const cancelRef = useRef<HTMLButtonElement>(null)
   const titleId = useId()
   const descId = useId()
 
+  /**
+   * 열릴 때 초점을 어디에 두는가.
+   *
+   * `tone="danger"` 에서는 **취소**에 둔다. 여기 오는 동작은 되돌릴 수 없고(장비 키 폐기가
+   * 처음 그 자리다 — 끊은 키를 되살리는 창구는 없다), 대화상자가 뜨자마자 Enter·Space 가
+   * 눌리면 확인이 그대로 실행된다. 키보드로 버튼을 눌러 이 대화상자를 연 사람은 그 키를
+   * 아직 떼지 않았을 수 있고, 화면 낭독으로 읽는 사람은 문구를 다 듣기 전에 초점이 놓인
+   * 버튼을 누른다. 초점이 취소에 있으면 그 오입력은 **아무 일도 일어나지 않는 쪽**으로
+   * 떨어진다.
+   *
+   * 되돌릴 수 있는 동작(`tone="primary"` — 리포트 생성 등)은 확인에 둔다. 매번 Tab 을
+   * 요구하면 자주 쓰는 흐름이 느려지고, 틀렸을 때 다시 하면 되는 동작이다.
+   */
   useEffect(() => {
-    if (open) confirmRef.current?.focus()
-  }, [open])
+    if (!open) return
+    if (tone === "danger") cancelRef.current?.focus()
+    else confirmRef.current?.focus()
+  }, [open, tone])
 
   useEffect(() => {
     if (!open) return
@@ -81,6 +97,7 @@ export function ConfirmDialog({
         )}
         <div className="flex justify-end gap-2">
           <button
+            ref={cancelRef}
             type="button"
             onClick={onCancel}
             disabled={pending}

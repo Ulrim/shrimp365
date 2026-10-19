@@ -452,7 +452,16 @@ export interface MrvReportBoundary {
   site_id: string;
   site_name: string;
   included_meter_ids: string[];
-  included_quality_flags: string[];
+  /**
+   * EI 의 산입 품질 플래그(`ei.included_quality_flags`). **옛 리포트에는 이 칸이 없다** —
+   * 그래서 optional 이다. `undefined`(기록 없음)와 `[]`(빈 목록으로 산출됨)는 다른
+   * 사실이므로 화면·인쇄물이 다르게 적는다(lib/mrv/quality-flags.ts 의
+   * REPORT_MISSING_FLAGS_NOTE / EMPTY_QUALITY_FLAG_LIST_REASON).
+   *
+   * ⚠ 이 칸은 **EI 의 목록만** 담는다. fcr/oei/recommend 의 산입 범위는 리포트에
+   * 들어가지 않는다(REPORT_COVERS_EI_FLAGS_ONLY).
+   */
+  included_quality_flags?: string[];
   biomass_source_refs: Record<string, string[]>;
   config_version: { before: string; after: string };
   assumptions: string[];
@@ -548,33 +557,49 @@ export interface EmissionFactorCreateRequest {
 
 /**
  * GET /emission-factors 응답 — effective_from 내림차순.
- * ⚠ `items[0]` 이 곧 활성값은 아니다. 사용 중단(`deprecated_at`) 행이 섞여 있으므로
- * 활성값은 **그 열이 비어 있는 첫 행**이다(서버의 자동 선택과 같은 기준).
+ * ⚠ `items[0]` 이 곧 활성값은 아니다. 활성값은 **사용 중단(`deprecated_at`)이 아니고
+ * 적용 시점(`effective_from`)이 이미 지난 첫 행**이다 — 서버의 자동 선택
+ * (`lib/mrv/mrv-report-service.ts::loadEmissionFactor`)과 같은 기준이어야 한다.
+ * 미래 날짜로 미리 등록해 둔 계수는 그 날짜가 되기 전까지 활성이 아니다.
  */
 export interface EmissionFactorListResponse {
   items: EmissionFactor[];
 }
 
 /**
- * GET /kpi-config 행. 조직 전역 설정이라 org_id가 없다(배출계수와 같은 자리).
+ * GET /kpi-config 행.
+ *
+ * `org_id`는 **nullable이고 null은 「플랫폼 기본값」**이다(조직 전용 행이 없을 때만
+ * 쓰인다 — supabase/migrations/mrv_kpi_config_org_scope.sql). 목록에는 내 조직의 행과
+ * 기본값 행만 온다.
+ *
  * `params_json`은 엔진이 해석하는 자유 JSON이라 구조를 타입으로 묶지 않는다 —
  * 묶으면 엔진이 키를 더하는 날 화면이 먼저 깨진다. 화면은 표시만 한다.
+ *
+ * `created_at`/`created_by`/`note`는 쓰기 창구(POST) 이전에 SQL로 들어간 행에서는
+ * null이다. 추정값으로 메우지 않는다 — 화면이 "등록 기록 없음"으로 적는다.
  */
 export interface KpiConfigEntry {
   id: string;
+  org_id: string | null;
   version: string;
   params_json: Record<string, unknown>;
   effective_from: string;
+  created_at: string | null;
+  created_by: string | null;
+  note: string | null;
 }
 
 /**
  * GET /kpi-config 응답 — effective_from 내림차순.
  * `active_version`은 지금 KPI 판정에 실제로 쓰이는 버전이다. 화면이 items[0]을 보고
  * 다시 고르지 않도록 서버가 못 박아 준다(정렬 규칙이 둘로 갈리면 화면이 거짓말을 한다).
+ * `active_scope`는 그 버전이 조직 전용 행인지 플랫폼 기본값인지다.
  */
 export interface KpiConfigListResponse {
   items: KpiConfigEntry[];
   active_version: string | null;
+  active_scope: "org" | "platform_default" | null;
 }
 
 /**
@@ -599,14 +624,25 @@ export interface KpiConfigCreateRequest {
 export interface QualityFlagRisk {
   /** 예: `"ei.included_quality_flags"`. */
   path: string;
+  /** 어느 지표의 목록인가. 경고 문장이 블록마다 다르다(거르는 대상이 다르다). */
+  block: "ei" | "fcr" | "oei" | "recommend";
   flags: ("suspect" | "bad")[];
   /** 사람이 읽는 결과 설명. */
   effect: string;
 }
 
-/** POST /kpi-config 응답. 저장된 행 + 위험 산입 기록. */
+/**
+ * POST /kpi-config 응답. 저장된 행 + 위험 산입 기록 + **무엇이 바뀌었는지**.
+ *
+ * `active`는 저장한 행이 지금 활성인가다(서버가 저장 뒤에 선택 규칙을 한 번 더 돌려
+ * 확인한 값이다 — 추측이 아니다). `audit_recorded: false`는 설정 행은 저장됐지만
+ * 감사 로그 한 줄이 남지 않았다는 뜻이다. 화면은 그 사실을 숨기지 말 것.
+ */
 export interface KpiConfigCreateResponse extends KpiConfigEntry {
   quality_flag_risks: QualityFlagRisk[];
+  active: boolean;
+  active_version: string | null;
+  audit_recorded: boolean;
 }
 
 /**
@@ -833,6 +869,17 @@ export interface MrvApiKeyListResponse {
 /** POST /api-keys/{id}/revoke 요청 본문. 사유는 선택이며 감사 로그의 note 로 남는다. */
 export interface MrvApiKeyRevokeRequest {
   reason?: string | null;
+}
+
+/**
+ * POST /api-keys/{id}/revoke 응답 — 끊긴 키 행 + 기록 여부.
+ *
+ * `audit_recorded: false`는 **키는 끊겼고 감사 로그 한 줄이 남지 않았다**는 뜻이다.
+ * 키 행이 `revoked_at`/`revoked_by`를 들고 있으므로 "누가 언제" 는 남는다.
+ * 화면은 이 사실을 숨기지 말 것 — 끊긴 것을 "실패"로 적는 것이 가장 나쁜 선택이다.
+ */
+export interface MrvApiKeyRevokeResponse extends MrvApiKey {
+  audit_recorded: boolean;
 }
 
 // ---------------------------------------------------------------------------

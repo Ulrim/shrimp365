@@ -14,7 +14,6 @@
  */
 
 import {
-  DEFAULT_CONFIG_VERSION,
   alertingConfigFromParams,
   classifyMetricStatus,
   computeEi,
@@ -46,30 +45,12 @@ import type {
   PowerReading,
 } from "./kpi"
 import { T, fetchAll, type MrvDb } from "./db"
+import { loadActiveKpiConfig } from "./kpi-config-source"
 import type { KpiMetric, KpiResponse } from "./api-types"
 
 // ---------------------------------------------------------------------------
 // 조립 헬퍼
 // ---------------------------------------------------------------------------
-
-/**
- * 활성 kpi_config = effective_from 이 가장 최근인 행.
- * 행이 없으면 엔진 기본값 + DEFAULT_CONFIG_VERSION 으로 동작한다(빈 DB 에서도 산출은 된다).
- */
-async function loadActiveKpiConfig(
-  db: MrvDb,
-): Promise<{ version: string; params: ParamsJson }> {
-  const { data, error } = await db
-    .from(T.kpiConfig)
-    .select("version, params_json")
-    .order("effective_from", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (error) throw error
-  const row = data as { version: string; params_json: ParamsJson } | null
-  if (!row) return { version: DEFAULT_CONFIG_VERSION, params: {} }
-  return { version: row.version, params: row.params_json ?? {} }
-}
 
 /** 지표 슬롯 생성. 신호등 판정은 엔진(classifyMetricStatus)에만 맡긴다. */
 function metric(
@@ -131,14 +112,23 @@ export type SiteKpiComputation = {
 /**
  * site 의 4종 KPI(EI/FCR/OEI/mortality)를 기간 [from, to) 로 산출한다.
  * ⚠ 호출 전에 resolveSiteForOrg 로 site 소유권이 검증되어 있어야 한다.
+ *
+ * `orgId` 는 **산식 파라미터를 고르는 데 쓴다.** 어느 조직의 KPI 설정으로 계산하는지가
+ * 이 인자로 정해지므로, site 를 확인한 그 org 를 그대로 넘겨야 한다 — 다른 org 를 넘기면
+ * 그 조직의 파라미터로 남의 사이트를 판정한다(lib/mrv/kpi-config-source.ts).
+ *
+ * `asOf` 는 「그 시점에 적용 중인 설정」을 고르는 기준 시각이다. 기본값은 현재이고,
+ * 알림 배치만 자기 평가 시각을 넘긴다(한 배치 안에서 설정이 바뀌지 않게).
  */
 export async function computeSiteKpiResults(
   db: MrvDb,
   siteId: string,
+  orgId: string,
   periodFrom: Date,
   periodTo: Date,
+  asOf?: Date,
 ): Promise<SiteKpiComputation> {
-  const { version: configVersion, params } = await loadActiveKpiConfig(db)
+  const { version: configVersion, params } = await loadActiveKpiConfig(db, orgId, asOf)
 
   const eiConfig = eiConfigFromParams(params)
   const fcrConfig = fcrConfigFromParams(params)
@@ -369,7 +359,7 @@ export async function computeSiteKpi(
   periodFrom: Date,
   periodTo: Date,
 ): Promise<KpiResponse> {
-  const comp = await computeSiteKpiResults(db, siteId, periodFrom, periodTo)
+  const comp = await computeSiteKpiResults(db, siteId, orgId, periodFrom, periodTo)
   return kpiComputationToResponse(comp, siteId, orgId, periodFrom, periodTo)
 }
 

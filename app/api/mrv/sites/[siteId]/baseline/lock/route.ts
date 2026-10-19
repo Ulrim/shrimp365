@@ -101,7 +101,7 @@ export async function POST(
       throw new HttpError(409, "a locked baseline already exists for this site")
     }
 
-    const comp = await computeSiteKpiResults(auth.db, siteId, periodFrom, periodTo)
+    const comp = await computeSiteKpiResults(auth.db, siteId, auth.orgId, periodFrom, periodTo)
 
     // 충분성 판정은 **스냅샷을 쓰기 전에** 한다. 거부할 기준선의 스냅샷을 남기면
     // append-only 기록에 쓰이지 않을 행이 쌓인다.

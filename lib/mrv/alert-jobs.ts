@@ -44,9 +44,9 @@ import {
   alertingConfigFromParams,
   classifyMetricStatus,
   type AlertingConfig,
-  type ParamsJson,
 } from "./kpi"
 import { computeSiteKpiResults } from "./kpi-service"
+import { loadActiveKpiConfig } from "./kpi-config-source"
 import { T, fetchAll, newId, type MrvDb } from "./db"
 
 /** alert type → 표시 심각도. 도메인 판정이 아니라 UI 라벨링 편의다(판정은 위 3종 트리거). */
@@ -81,18 +81,32 @@ export type CreatedAlert = {
   payload: Record<string, unknown>
 }
 
-/** 가장 최근 effective_from 의 kpi_config.alerting 을 활성 설정으로 쓴다(kpi-service 와 같은 규약). */
-async function loadActiveAlertingConfig(db: MrvDb): Promise<AlertingConfig> {
-  const { data, error } = await db
-    .from(T.kpiConfig)
-    .select("params_json")
-    .order("effective_from", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (error) throw error
-  const row = data as { params_json: ParamsJson | null } | null
-  if (!row) return DEFAULT_ALERTING_CONFIG
-  return alertingConfigFromParams(row.params_json ?? {})
+/**
+ * 사이트가 속한 org 의 활성 kpi_config.alerting 을 쓴다
+ * (선택 규칙은 lib/mrv/kpi-config-source.ts 한 곳에 있다).
+ *
+ * ★ 전에는 배치 시작에서 **설정 한 행을 읽어 모든 org 의 모든 사이트에 썼다.** org_id 가
+ *   없던 표라 그럴 수밖에 없었지만, 그 결과 A사가 넣은 알림 임계값으로 B사 양식장의
+ *   위험을 판정했다. 이제 org 마다 고른다.
+ *
+ * 같은 배치 안에서 같은 org 를 여러 번 읽지 않도록 캐시한다 — 사이트가 수백 개여도
+ * 설정 질의는 org 수만큼이고, **한 배치 안에서는 같은 설정을 쓴다**(도중에 설정이
+ * 바뀌어 앞 사이트와 뒤 사이트가 다른 임계값으로 판정되는 일이 없다).
+ */
+type AlertingConfigCache = Map<string, AlertingConfig>
+
+async function alertingConfigForOrg(
+  db: MrvDb,
+  orgId: string,
+  asOf: Date,
+  cache: AlertingConfigCache,
+): Promise<AlertingConfig> {
+  const cached = cache.get(orgId)
+  if (cached !== undefined) return cached
+  const { params, row } = await loadActiveKpiConfig(db, orgId, asOf)
+  const cfg = row === null ? DEFAULT_ALERTING_CONFIG : alertingConfigFromParams(params)
+  cache.set(orgId, cfg)
+  return cfg
 }
 
 function subscriptionEnabled(site: SiteRow, alertType: AlertJobType): boolean {
@@ -218,7 +232,14 @@ async function evaluateMortalitySpike(
   cfg: AlertingConfig,
 ): Promise<CreatedAlert | null> {
   const periodFrom = new Date(evaluatedAt.getTime() - (windowDays + 1) * 86_400_000)
-  const comp = await computeSiteKpiResults(db, site.id, periodFrom, evaluatedAt)
+  const comp = await computeSiteKpiResults(
+    db,
+    site.id,
+    site.org_id,
+    periodFrom,
+    evaluatedAt,
+    evaluatedAt,
+  )
   const daily = comp.mortality.daily
   if (daily.length === 0) return null
 
@@ -253,7 +274,14 @@ async function evaluateKpiRed(
   cfg: AlertingConfig,
 ): Promise<CreatedAlert[]> {
   const periodFrom = new Date(evaluatedAt.getTime() - periodDays * 86_400_000)
-  const comp = await computeSiteKpiResults(db, site.id, periodFrom, evaluatedAt)
+  const comp = await computeSiteKpiResults(
+    db,
+    site.id,
+    site.org_id,
+    periodFrom,
+    evaluatedAt,
+    evaluatedAt,
+  )
 
   const valueByMetric: Record<string, number | null> = {
     ei_total: comp.ei.eiTotal,
@@ -307,7 +335,9 @@ export async function jobEvaluateAlerts(
   const mortalityWindowDays = options.mortalityWindowDays ?? 7
   const kpiPeriodDays = options.kpiPeriodDays ?? 30
 
-  const cfg = await loadActiveAlertingConfig(db)
+  // org 마다 한 번만 읽는다. 설정 자체가 org 범위이므로 배치 시작에 한 행을 읽어
+  // 전부에 쓰는 것은 그대로 테넌트 경계 침범이었다.
+  const configCache: AlertingConfigCache = new Map()
 
   const sites = await fetchAll<SiteRow>((from, to) =>
     db
@@ -322,6 +352,8 @@ export async function jobEvaluateAlerts(
 
   for (const site of sites) {
     try {
+      const cfg = await alertingConfigForOrg(db, site.org_id, evaluatedAt, configCache)
+
       const doAlert = await evaluateDoLow(db, site, evaluatedAt, doLowLookbackHours, cfg)
       if (doAlert) created.push(doAlert)
 

@@ -31,7 +31,7 @@ export async function GET(
 
     await resolveSiteForOrg(auth.db, siteId, auth.orgId)
 
-    const comp = await computeSiteKpiResults(auth.db, siteId, from, to)
+    const comp = await computeSiteKpiResults(auth.db, siteId, auth.orgId, from, to)
     const readiness = assessBaselineReadiness(
       comp,
       { from, to },

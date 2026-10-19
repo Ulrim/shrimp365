@@ -93,27 +93,53 @@ export async function POST(
       console.error("[mrv] failed to purge issued_key after revoke", key.id, purgeError)
     }
 
-    await recordAudit(auth.db, {
-      orgId: auth.orgId,
-      actorId: auth.userId,
-      entity: "api_keys",
-      entityId: key.id,
-      action: "revoke",
-      diff: {
-        before: { revoked: false, last_used_at: key.last_used_at },
-        after: {
-          revoked: true,
-          revoked_at: revokedAt,
-          revoked_by: auth.userId,
-          site_id: site.id,
-          label: key.label,
-          // 원문 키도, 해시도 남기지 않는다(페어링 승인 로그와 같은 규약) — 감사 로그는
-          // 열람 범위가 넓고, 키는 그 자체가 자격이다.
+    /**
+     * 감사 로그.
+     *
+     * ── 기록 실패 시 무엇이 참인가 ──────────────────────────────────────────
+     * **키는 이미 끊겼다.** 위 조건부 UPDATE 가 커밋됐고 인증 게이트는 그 열 하나를
+     * 본다(lib/mrv/device-auth.ts). 그래서 감사 로그 실패를 그대로 던지면 응답은 500 이
+     * 되고 화면은 "해제 실패" 를 띄우는데, 다시 누르면 이미 끊긴 키라 409 가 난다 —
+     * 운영자는 분실한 단말이 아직 살아 있다고 믿게 된다. **그 거짓말이 이 기능을 만든
+     * 이유를 지운다.**
+     *
+     * 그래서 성공은 성공으로 돌려주고, 기록이 빠졌다는 사실은 숨기지 않는다.
+     *   (1) 서버 로그에 남긴다.
+     *   (2) 응답에 `audit_recorded: false` 를 실어 화면이 "폐기는 됐고 기록은 남지
+     *       않았다" 를 적을 수 있게 한다.
+     * 키 행 자체가 `revoked_at`/`revoked_by` 를 들고 있으므로 "누가 언제 끊었는가" 는
+     * 감사 로그 없이도 남는다 — 그 두 열을 행에 둔 이유가 여기서 값을 한다.
+     */
+    let auditRecorded = true
+    try {
+      await recordAudit(auth.db, {
+        orgId: auth.orgId,
+        actorId: auth.userId,
+        entity: "api_keys",
+        entityId: key.id,
+        action: "revoke",
+        diff: {
+          before: { revoked: false, last_used_at: key.last_used_at },
+          after: {
+            revoked: true,
+            revoked_at: revokedAt,
+            revoked_by: auth.userId,
+            site_id: site.id,
+            label: key.label,
+            // 원문 키도, 해시도 남기지 않는다(페어링 승인 로그와 같은 규약) — 감사 로그는
+            // 열람 범위가 넓고, 키는 그 자체가 자격이다.
+          },
         },
-      },
-      note: reason,
-    })
+        note: reason,
+      })
+    } catch (err) {
+      auditRecorded = false
+      console.error("[mrv] api key revoked but audit log failed", key.id, err)
+    }
 
-    return NextResponse.json(updated as ApiKeyRow)
+    return NextResponse.json({
+      ...(updated as ApiKeyRow),
+      audit_recorded: auditRecorded,
+    })
   })
 }

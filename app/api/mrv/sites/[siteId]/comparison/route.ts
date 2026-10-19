@@ -43,7 +43,7 @@ export async function GET(
     if (!data) throw new HttpError(404, "baseline not locked")
     const bsl = data as BaselineRow
 
-    const comp = await computeSiteKpiResults(auth.db, siteId, from, to)
+    const comp = await computeSiteKpiResults(auth.db, siteId, auth.orgId, from, to)
 
     const baselineMetrics: Record<string, number | null> = {
       ei_total: bsl.ei_total,

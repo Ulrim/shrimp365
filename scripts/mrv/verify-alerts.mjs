@@ -63,6 +63,16 @@ function makeFakeDb(tables) {
           rows = rows.filter((r) => String(r[col]) < String(value))
           return builder
         },
+        // PostgREST 의 `is.null` 은 "칸이 비어 있다" 다. 픽스처 행에는 그 칸 자체가
+        // 없을 수 있으므로 undefined 도 null 로 본다(DB 에서는 둘이 같은 상태다).
+        is(col, value) {
+          if (value === null) {
+            rows = rows.filter((r) => r[col] === null || r[col] === undefined)
+          } else {
+            rows = rows.filter((r) => r[col] === value)
+          }
+          return builder
+        },
         order(col, opts = {}) {
           const asc = opts.ascending !== false
           rows = rows
@@ -96,7 +106,7 @@ function makeFakeDb(tables) {
 }
 
 try {
-  for (const f of ["alert-jobs.ts", "kpi-service.ts", "api-types.ts"]) {
+  for (const f of ["alert-jobs.ts", "kpi-service.ts", "api-types.ts", "kpi-config-source.ts"]) {
     copyFileSync(join(ROOT, "lib/mrv", f), join(outDir, f))
   }
   writeFileSync(

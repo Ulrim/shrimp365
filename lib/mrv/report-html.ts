@@ -18,6 +18,8 @@
 import type { EmissionFactorRow, MrvReportRow } from "./mrv-report-service"
 import {
   EMPTY_QUALITY_FLAG_LIST_REASON,
+  REPORT_MISSING_FLAGS_NOTE,
+  REPORT_NON_DEFAULT_FLAGS_HEADLINE,
   RISKY_QUALITY_FLAGS,
   isDefaultQualityFlagList,
   qualityFlagRiskText,
@@ -115,7 +117,12 @@ type Boundary = {
   site_id: string
   site_name: string
   included_meter_ids: string[]
-  included_quality_flags: string[]
+  /**
+   * EI 의 산입 품질 플래그. **옛 리포트에는 이 칸이 없다**(이 칸을 넣기 전에 발행된
+   * 것들). 그래서 optional 이다 — 필수로 적으면 `undefined` 를 빈 배열로 뭉개는 코드가
+   * 타입 검사를 통과해 버리고, 그것이 옛 리포트에 거짓 주장을 인쇄한 원인이었다.
+   */
+  included_quality_flags?: string[]
   biomass_source_refs: { before: string[]; after: string[] }
   config_version: { before: string; after: string }
   /**
@@ -213,25 +220,43 @@ function emissionFactorRows(boundary: Boundary, ef: EmissionFactorRow): string {
  * 테두리는 보조이고 판단 근거는 글자다.
  */
 function qualityFlagRow(flags: unknown): string {
-  const list = Array.isArray(flags) ? flags : []
+  /**
+   * ★ **칸이 없는 것**과 **빈 배열**을 가르는 분기다.
+   *
+   * 전에는 `Array.isArray(flags) ? flags : []` 한 줄이라 둘이 같은 길로 갔다. 그래서
+   * `boundary_json` 에 그 칸이 **없는** 옛 리포트가 "포함 건이 0 건이라 EI 0 · Scope2 0 ·
+   * 감축량 기준선 전량" 이라는 **강한 거짓 주장**을 인쇄했다 — 종전에는 `-` 한 글자였다.
+   * 기록이 없는 것은 "비어 있었다" 가 아니다.
+   */
+  if (flags === undefined || flags === null || !Array.isArray(flags)) {
+    return (
+      `<tr><td>포함 품질 플래그</td><td colspan="2">-` +
+      `<div class="flag-note">${esc(REPORT_MISSING_FLAGS_NOTE)}</div></td></tr>`
+    )
+  }
+  const list = flags
   if (isDefaultQualityFlagList(list)) {
     return `<tr><td>포함 품질 플래그</td><td colspan="2">${joinOrDash(list)}</td></tr>`
   }
 
   // 설명 순서는 사전순이 아니라 RISKY_QUALITY_FLAGS 순서(suspect, bad)다 — 심사위원이
   // 먼저 봐야 하는 것은 수치를 키우는 suspect 쪽이다.
-  const notes = RISKY_QUALITY_FLAGS.filter((f) => list.includes(f)).map((f) =>
-    qualityFlagRiskText(f),
+  //
+  // 블록은 "ei" 로 고정이다. 이 줄이 담는 것은 생성 시점에 얼린
+  // `ei.included_quality_flags` 하나뿐이고(lib/mrv/mrv-report-service.ts), 경고 문장은
+  // (플래그 × 블록)으로 갈려 있으므로 어느 목록인지를 밝혀 넘겨야 한다 — EI 를 주어로
+  // 적은 문장을 다른 목록에 쓰면 틀린 수치 이름을 인쇄하게 된다.
+  const notes: string[] = RISKY_QUALITY_FLAGS.filter((f) => list.includes(f)).map((f) =>
+    qualityFlagRiskText(f, "ei"),
   )
-  // 목록이 비어 있는 옛 리포트도 기본값이 아니다 — 그 경우 분자가 0 으로 산출됐다는
-  // 사실 자체가 가장 중요한 단서이므로 같은 자리에 적는다.
+  // 빈 배열은 **기록된 사실**이다(SQL 로 그렇게 들어간 설정으로 산출된 리포트). 그 경우
+  // 분자가 0 으로 합산됐다는 것이 가장 중요한 단서이므로 같은 자리에 적는다.
   if (list.length === 0) notes.push(EMPTY_QUALITY_FLAG_LIST_REASON)
 
   return (
     `<tr class="flag-warn"><td>포함 품질 플래그</td><td colspan="2">` +
     `<strong>${joinOrDash(list)}</strong>` +
-    `<div class="flag-warn-note">★ 기본 설정(ok)이 아닙니다 — 이 리포트의 수치는 ` +
-    `기본값과 다른 산입 범위로 산출됐습니다.` +
+    `<div class="flag-warn-note">${esc(REPORT_NON_DEFAULT_FLAGS_HEADLINE)}` +
     (notes.length > 0 ? ` ${notes.map((n) => esc(n)).join(" ")}` : "") +
     `</div></td></tr>`
   )
@@ -299,6 +324,9 @@ export function renderMrvReportHtml(
      판단 근거는 색이 아니라 같은 칸의 문장이 담는다. */
   .flag-warn td { border: 2px solid #b45309; background: #fffbeb; }
   .flag-warn-note { margin-top: 1.5mm; font-size: 9pt; line-height: 1.45; color: #7c2d12; }
+  /* 기록이 없는 칸의 설명. 경고가 아니므로 테두리를 주지 않는다 — 옛 리포트에 없는
+     위험을 있는 것처럼 인쇄하지 않는다. */
+  .flag-note { margin-top: 1.5mm; font-size: 9pt; line-height: 1.45; color: #475569; }
   .print-hint { margin-bottom: 6mm; padding: 3mm 4mm; background: #eff6ff;
                 border: 1px solid #bfdbfe; border-radius: 4px; font-size: 9.5pt;
                 color: #1e40af; }

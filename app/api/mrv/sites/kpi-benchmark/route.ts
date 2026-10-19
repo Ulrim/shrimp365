@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
     const entries = []
     for (const site of sites) {
-      const comp = await computeSiteKpiResults(auth.db, site.id, from, to)
+      const comp = await computeSiteKpiResults(auth.db, site.id, auth.orgId, from, to)
       entries.push({
         site_id: site.id,
         site_name: site.name,

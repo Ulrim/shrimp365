@@ -29,7 +29,15 @@ import { useMrvSession } from "@/lib/mrv/ui/session"
 import { useMrvSite } from "@/lib/mrv/ui/site"
 import { READING_TYPE_META, READING_TYPE_ORDER } from "@/lib/mrv/ui/reading-meta"
 import { formatIsoLocal } from "@/lib/mrv/ui/datetime"
-import { collectQualityFlagRisks, qualityFlagRiskText } from "@/lib/mrv/quality-flags"
+import {
+  REPORT_COVERS_EI_FLAGS_ONLY,
+  collectQualityFlagRisks,
+  inspectQualityFlagLists,
+  kpiParamsShapeIssueText,
+  qualityFlagIssueText,
+  qualityFlagRiskText,
+} from "@/lib/mrv/quality-flags"
+import { inspectParamsShape } from "@/lib/mrv/kpi-params-shape"
 import {
   Card,
   INPUT_CLASS,
@@ -45,6 +53,7 @@ import type {
   MeterListResponse,
   MrvApiKey,
   MrvApiKeyListResponse,
+  MrvApiKeyRevokeResponse,
   ReadingMeterType,
 } from "@/lib/mrv/api-types"
 
@@ -369,21 +378,24 @@ function EmissionFactorSection({ isOwner }: { isOwner: boolean }) {
   )
   const disabled = !isOwner || mutation.isPending
 
-  // 활성 계수 = **사용 중단되지 않은** 행 중 effective_from 이 가장 늦은 것.
-  // 서버가 effective_from 내림차순으로 주므로 그 조건을 만족하는 첫 행이다.
-  // `items[0]` 을 그대로 쓰면 사용 중단된 행을 "적용 중" 으로 표시하게 된다 —
-  // 서버의 자동 선택(`mrv-report-service.loadEmissionFactor`)과 기준이 갈라지면
-  // 화면이 리포트와 다른 계수를 가리킨다.
-  const activeId = list.data?.items.find((ef) => !ef.deprecated_at)?.id ?? null
-
   /**
-   * 적용 시작일이 오늘(UTC)보다 뒤인가 — 즉시 적용이라는 경고를 띄울 조건.
-   *
-   * 오늘 날짜는 **마운트 때 한 번** 잡는다. 렌더 중에 `Date.now()` 를 부르면 같은 입력이
+   * 기준 시각은 **마운트 때 한 번** 잡는다. 렌더 중에 `Date.now()` 를 부르면 같은 입력이
    * 렌더마다 다른 결과를 낼 수 있어 순수성 규칙에 걸린다(React Compiler lint 가 잡는다).
    * `YYYY-MM-DD` 문자열끼리의 비교는 사전순이 곧 날짜순이라 그대로 쓸 수 있다.
    */
   const [todayUtc] = useState(() => new Date().toISOString().slice(0, 10))
+  const [nowMs] = useState(() => Date.now())
+
+  // 활성 계수 = **사용 중단되지 않았고 적용 시점이 지난** 행 중 effective_from 이 가장
+  // 늦은 것. 서버가 effective_from 내림차순으로 주므로 그 조건을 만족하는 첫 행이다.
+  // 두 조건 중 하나라도 빠지면 화면이 리포트와 다른 계수를 가리킨다 — 서버의 자동
+  // 선택(`mrv-report-service.loadEmissionFactor`)과 **같은 기준이어야 한다.**
+  const activeId =
+    list.data?.items.find(
+      (ef) => !ef.deprecated_at && new Date(ef.effective_from).getTime() <= nowMs,
+    )?.id ?? null
+
+  /** 적용 시작일이 오늘(UTC)보다 뒤인가 — 「그날부터 적용」이라는 안내를 띄울 조건. */
   const isFutureDate = effectiveFrom !== "" && effectiveFrom > todayUtc
 
   async function handleSubmit(e: React.FormEvent) {
@@ -631,14 +643,15 @@ function EmissionFactorSection({ isOwner }: { isOwner: boolean }) {
               곧바로 그 계수로 바뀐다. 배출계수는 append-only 라 되돌릴 수도 없다.
             */}
             {isFutureDate ? (
-              <p role="alert" className="text-xs text-mrv-red">
-                미래 날짜입니다. 예약 등록이 아니라 <strong>지금 즉시 적용</strong>됩니다 —
-                가장 늦은 적용 시작일을 가진 행이 활성 계수이기 때문입니다. 되돌릴 수 없으니
-                오늘 이전 날짜를 쓰거나, 정말 이 계수를 지금부터 쓰려는지 확인하세요.
+              <p className="text-xs text-mrv-fg">
+                미래 날짜입니다. <strong>그 날짜가 되기 전에는 활성 계수가 되지 않습니다</strong>
+                — 다음 해 공표분을 미리 등록해 두는 자리입니다. 그때까지는 지금 활성인 계수가
+                그대로 쓰입니다.
               </p>
             ) : (
               <p className="text-xs text-mrv-muted">
-                가장 늦은 적용 시작일을 가진 행이 활성 계수가 됩니다(미래 날짜도 즉시 적용).
+                적용 시점이 지난 행 중 적용 시작일이 가장 늦은 것이 활성 계수가 됩니다.
+                미래 날짜는 그 날짜부터 활성입니다.
               </p>
             )}
           </div>
@@ -850,12 +863,83 @@ function KpiConfigSection() {
     [active],
   )
 
+  /**
+   * 활성 설정이 **쓰기 창구가 거부할 모양**인가.
+   *
+   * 지금 쓰이는 설정이 꼭 이 창구를 거쳐 들어온 것은 아니다 — 이 표를 바꾸는 길이 오랫동안
+   * SQL 직접 수정뿐이었고, 그렇게 들어간 행에는 검증이 없다. 빈 산입 목록
+   * (`"included_quality_flags": []`)이 그중 가장 위험하다. 인쇄 리포트는 그 상태를
+   * "EI 0 · Scope2 0 · 감축량 기준선 전량" 이라고 설명하는데 **이 화면은 아무 설명도
+   * 붙이지 않았다** — suspect/bad 만 걸러 보고 있었기 때문이다. 같은 상태를 두 곳이
+   * 다르게 설명하면 안 되므로, 두 곳이 같은 함수의 문장을 쓴다
+   * (lib/mrv/quality-flags.ts::kpiParamsShapeIssueText).
+   */
+  const shapeIssues = useMemo(
+    () =>
+      active === null
+        ? []
+        : inspectParamsShape(active.params_json).filter(
+            // 지표명 목록이 비어 있는 것은 "kpi_red 알림을 쓰지 않는다" 는 선택이다
+            // (쓰기 창구도 거부하지 않는다 — app/api/mrv/kpi-config/route.ts).
+            (issue) => !(issue.kind === "empty_list" && issue.contents === "metric_names"),
+          ),
+    [active],
+  )
+
+  /** 모르는 플래그 값(`"OK"`, `"okay"` 같은 오탈자). 쓰기 창구는 422 로 거부한다. */
+  const unknownFlagIssues = useMemo(
+    () =>
+      active === null
+        ? []
+        : inspectQualityFlagLists(active.params_json).filter(
+            (issue) => issue.kind === "unknown_flags",
+          ),
+    [active],
+  )
+
+  /**
+   * 인쇄 리포트가 이 경고를 **대신 전달해 주는가.**
+   *
+   * 리포트의 「포함 품질 플래그」 줄에는 `ei.included_quality_flags` 만 들어간다. 그래서
+   * `fcr`/`oei`/`recommend` 에만 위험이 있으면 이 화면은 빨간 경고를 띄우는데 인쇄물은
+   * `ok` 를 평범하게 찍는다 — 전에는 그 경우에도 "리포트에 표시가 함께 인쇄됩니다" 라고
+   * 적고 있었고, 그것은 사실이 아닌 약속이었다.
+   */
+  const eiRisk = risks.some((risk) => risk.block === "ei")
+  const nonEiRisk = risks.some((risk) => risk.block !== "ei")
+
   return (
     <Card className="flex flex-col gap-4">
       <SectionHeader
         title="KPI 산식 설정"
         note="지금 신호등 판정에 쓰이는 파라미터입니다. 이 화면에서는 바꿀 수 없습니다 — 파라미터를 바꾸면 이미 지나간 기간의 판정까지 소급해서 달라지므로, 변경은 과제 책임자 승인 절차를 거쳐 새 version 으로 반영합니다."
       />
+
+      {(shapeIssues.length > 0 || unknownFlagIssues.length > 0) && (
+        <div
+          role="alert"
+          className="flex flex-col gap-2 rounded-md border border-mrv-red bg-mrv-red-bg p-3 text-sm"
+        >
+          <p className="font-semibold text-mrv-fg">
+            경고 — 지금 쓰이는 설정이 쓰기 창구가 거부하는 모양입니다
+          </p>
+          <p className="text-xs leading-relaxed text-mrv-fg">
+            이 행은 검증을 거치지 않은 경로(SQL 직접 수정)로 들어온 것입니다. 아래 내용을
+            읽고, 고칠 파라미터를 담아 <strong>새 version</strong> 으로 등록하십시오 —
+            이 표는 append-only 이므로 기존 행을 고치는 길은 없습니다.
+          </p>
+          <ul className="flex flex-col gap-2 text-xs leading-relaxed text-mrv-fg">
+            {shapeIssues.map((issue) => (
+              <li key={`shape-${issue.kind}-${"path" in issue ? issue.path : "top"}`}>
+                {kpiParamsShapeIssueText(issue)}
+              </li>
+            ))}
+            {unknownFlagIssues.map((issue) => (
+              <li key={`flag-${issue.path}`}>{qualityFlagIssueText(issue)}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {risks.length > 0 && (
         <div
@@ -873,17 +957,26 @@ function KpiConfigSection() {
                 <ul className="mt-1 flex flex-col gap-1 pl-4">
                   {risk.flags.map((flag) => (
                     <li key={flag} className="list-disc">
-                      {qualityFlagRiskText(flag)}
+                      {/* 문장은 (플래그 × 블록)으로 갈린다 — 블록마다 거르는 대상과
+                          틀어지는 수치가 다르다(oei 는 DO 와 폭기 전력, fcr·recommend 는
+                          급이 기록이다). 블록을 넘기지 않으면 EI 를 주어로 적은 문장이
+                          엉뚱한 목록에 붙는다. */}
+                      {qualityFlagRiskText(flag, risk.block)}
                     </li>
                   ))}
                 </ul>
               </li>
             ))}
           </ul>
-          <p className="text-xs text-mrv-muted">
-            기본 설정은 <code className="font-mono">[&quot;ok&quot;]</code> 입니다. 이 상태로
-            만든 MRV 리포트에는 「포함 품질 플래그」 줄에 기본값이 아니라는 표시가 함께
-            인쇄됩니다.
+          {/* 대비 4.5:1 미달이던 자리다(text-mrv-muted on bg-mrv-red-bg = 4.18:1).
+              12px 본문이라 AA 기준이 4.5:1 이고, 같은 박스의 다른 줄과 같은 text-mrv-fg
+              로 맞춘다. */}
+          <p className="text-xs leading-relaxed text-mrv-fg">
+            기본 설정은 <code className="font-mono">[&quot;ok&quot;]</code> 입니다.{" "}
+            {eiRisk
+              ? "이 상태로 만든 MRV 리포트에는 「포함 품질 플래그」 줄에 기본값이 아니라는 표시가 함께 인쇄됩니다."
+              : "이 위험은 MRV 리포트에 인쇄되지 않습니다."}{" "}
+            {nonEiRisk && REPORT_COVERS_EI_FLAGS_ONLY}
           </p>
         </div>
       )}
@@ -918,6 +1011,21 @@ function KpiConfigSection() {
             <span className="text-mrv-muted">
               {" "}· 적용 시작 {formatIsoLocal(active.effective_from)}
             </span>
+          </p>
+          {/* 조직 전용 설정인지 플랫폼 기본값인지를 글자로 적는다. 둘은 숫자만 보고
+              구분할 수 없는데, 기본값을 쓰고 있다는 것은 "우리 조직이 정한 값이 없다" 는
+              뜻이라 운영자가 알아야 하는 사실이다. 판정은 서버가 산출 경로와 같은 함수로
+              해서 내려 준다(active_scope) — 화면이 다시 고르면 거짓말할 자리가 생긴다. */}
+          <p className="text-xs text-mrv-fg">
+            {list.data?.active_scope === "platform_default"
+              ? "이 설정은 플랫폼 기본값입니다 — 이 조직 전용 파라미터가 아직 없습니다. 새 version 을 등록하면 이 조직에만 적용되고, 다른 조직의 판정은 바뀌지 않습니다."
+              : "이 설정은 이 조직 전용입니다."}
+          </p>
+          <p className="text-xs text-mrv-muted">
+            {active.created_at === null
+              ? "등록 기록 없음 — 쓰기 창구 이전에 SQL 직접 수정으로 들어간 행입니다(등록 시각을 아는 기록이 없어 추정값으로 메우지 않습니다)."
+              : `등록 ${formatIsoLocal(active.created_at)}`}
+            {active.note !== null && ` · 사유: ${active.note}`}
           </p>
           <pre className="max-h-80 overflow-auto rounded-md border border-mrv-border bg-mrv-bg p-3 text-xs leading-relaxed text-mrv-fg">
             {JSON.stringify(active.params_json, null, 2)}
@@ -1137,19 +1245,22 @@ function DeviceKeySection({
   /** 확인 대화상자에 올려 둔 대상. null 이면 닫혀 있다. */
   const [target, setTarget] = useState<MrvApiKey | null>(null)
   const [revokedAt, setRevokedAt] = useState<string | null>(null)
+  /** 끊기는 됐는데 감사 로그가 남지 않은 경우. 성공 문구에 그 사실을 덧붙인다. */
+  const [auditMissing, setAuditMissing] = useState(false)
 
   const mutation = useApiMutation(async (apiKeyId: string) =>
-    apiFetch<MrvApiKey>(`/api-keys/${encodeURIComponent(apiKeyId)}/revoke`, {
-      method: "POST",
-      json: {},
-    }),
+    apiFetch<MrvApiKeyRevokeResponse>(
+      `/api-keys/${encodeURIComponent(apiKeyId)}/revoke`,
+      { method: "POST", json: {} },
+    ),
   )
 
   async function handleConfirm() {
     if (target === null) return
     try {
-      await mutation.mutate(target.id)
+      const result = await mutation.mutate(target.id)
       setRevokedAt(new Date().toLocaleTimeString("ko-KR"))
+      setAuditMissing(result?.audit_recorded === false)
       setTarget(null)
       list.refetch()
     } catch {
@@ -1202,6 +1313,13 @@ function DeviceKeySection({
       {revokedAt && !mutation.isPending && mutation.error === undefined && (
         <p role="status" className="text-sm text-mrv-green">
           {revokedAt} 연결을 해제했습니다. 이 장비는 더 이상 계측값을 올릴 수 없습니다.
+          {auditMissing && (
+            <span className="text-mrv-fg">
+              {" "}
+              다만 감사 로그에 이 해제가 기록되지 않았습니다 — 해제 자체는 적용됐고(아래
+              목록의 「해제」 표시로 확인하십시오) 해제 시각·해제자는 키 행에 남아 있습니다.
+            </span>
+          )}
         </p>
       )}
 

@@ -12,12 +12,9 @@
  * 조립 메타데이터이지 산식 입력이 아니다.
  */
 
-import {
-  DEFAULT_CONFIG_VERSION,
-  computeRecommendation,
-  recommendConfigFromParams,
-} from "./kpi"
-import type { DoBand, DoReading, FeedReading, ParamsJson } from "./kpi"
+import { computeRecommendation, recommendConfigFromParams } from "./kpi"
+import type { DoBand, DoReading, FeedReading } from "./kpi"
+import { loadActiveKpiConfig } from "./kpi-config-source"
 import { T, fetchAll, newId, type MrvDb } from "./db"
 
 export const RECIPE_TYPES = ["feed", "oxygen", "circulation"] as const
@@ -31,22 +28,6 @@ const RATIONALE_MARKERS: readonly [string, RecipeType][] = [
   ["[산소]", "oxygen"],
   ["[순환]", "circulation"],
 ]
-
-async function loadActiveConfig(
-  db: MrvDb,
-): Promise<{ version: string; params: ParamsJson }> {
-  const { data, error } = await db
-    .from(T.kpiConfig)
-    .select("version, params_json")
-    .order("effective_from", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (error) throw error
-  const row = data as { version: string; params_json: ParamsJson } | null
-  return row
-    ? { version: row.version, params: row.params_json ?? {} }
-    : { version: DEFAULT_CONFIG_VERSION, params: {} }
-}
 
 /** 사이트의 특정 타입 계측기 id 목록. */
 async function meterIdsOfType(
@@ -369,7 +350,9 @@ export async function computeSiteRecommendations(
   orgId: string,
   actorId: string,
 ): Promise<RecommendationItemData[]> {
-  const { version: configVersion, params } = await loadActiveConfig(db)
+  // 추천 파라미터도 org 의 활성 설정에서 온다 — 선택 규칙은
+  // lib/mrv/kpi-config-source.ts 한 곳에 있다(화면·알림과 같은 행을 쓴다).
+  const { version: configVersion, params } = await loadActiveKpiConfig(db, orgId)
   const recommendConfig = recommendConfigFromParams(params)
 
   const generatedAt = new Date()

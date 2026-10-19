@@ -107,15 +107,41 @@ async function loadEmissionFactor(
     if (!data) throw new HttpError(404, "emission factor not found")
     return data as EmissionFactorRow
   }
+  /**
+   * ★ `effective_from <= now()` 와 2차 정렬 키가 여기 있는 이유 (2026-10-19 보강)
+   *
+   * 전에는 `effective_from desc limit 1` 뿐이었다. 그래서
+   *   · **아직 적용 시점이 오지 않은 계수가 지금 발행하는 리포트에 쓰였다.** 다음 해
+   *     계수를 미리 등록해 두는 것은 이 표에서 정상적인 일이다(값에 공표일이 붙어
+   *     있다 — mrv_emission_factor_2023.sql 의 「year 와 effective_from 은 다른 것이다」
+   *     절). 미리 등록한 값이 곧바로 활성이 되면 그 등록 자체를 할 수 없다.
+   *   · 같은 `effective_from` 으로 두 행이 있으면 **어느 것이 활성인지 실행 계획에
+   *     달렸다.** Scope2 배출량을 곱하는 수치가 날마다 달라질 수 있다는 뜻이다
+   *     (같은 승인분의 CO2e 판과 CO2 판이 같은 날짜로 들어오는 경우가 실제로 있다 —
+   *     mrv_emission_factor_source.sql 이 그 상황을 적어 두었다).
+   *
+   * 그래서 적용 시점이 지난 행만 보고, 동률은 `created_at desc` → `version desc` 로
+   * 깬다(두 열 모두 이 표에는 처음부터 있다). KPI 설정과 달리 미래 등록을 **거부하지
+   * 않는 이유**는 app/api/mrv/kpi-config/route.ts 의 `assertEffectiveFrom` 에 적어 두었다.
+   */
   const { data, error } = await db
     .from(T.emissionFactors)
     .select("*")
     .is("deprecated_at", null)
+    .lte("effective_from", new Date().toISOString())
     .order("effective_from", { ascending: false })
+    .order("created_at", { ascending: false, nullsFirst: false })
+    .order("version", { ascending: false })
     .limit(1)
     .maybeSingle()
   if (error) throw error
-  if (!data) throw new HttpError(404, "no emission factor configured")
+  if (!data) {
+    throw new HttpError(
+      404,
+      "no emission factor configured (적용 시점이 지난 계수가 없습니다 — 등록된 계수의 " +
+        "effective_from 이 모두 미래이면 이 오류가 납니다)",
+    )
+  }
   return data as EmissionFactorRow
 }
 
@@ -181,7 +207,7 @@ export async function generateMrvReport(params: {
   const bsl = await loadLockedBaseline(db, site.id)
   const ef = await loadEmissionFactor(db, emissionFactorId)
 
-  const comp = await computeSiteKpiResults(db, site.id, afterPeriodFrom, afterPeriodTo)
+  const comp = await computeSiteKpiResults(db, site.id, orgId, afterPeriodFrom, afterPeriodTo)
   const beforeInputs = await baselineEiInputs(db, bsl)
 
   const baselinePowerMwh =

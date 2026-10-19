@@ -15,7 +15,14 @@ import { ApiError, apiFetch, useApiQuery } from "@/lib/mrv/client"
 import { formatIsoLocal } from "@/lib/mrv/ui/datetime"
 import { isoDay } from "@/lib/mrv/ui/period"
 import { MRV_METRIC_ROWS, formatMrvNumber } from "@/lib/mrv/ui/mrv-meta"
-import { isDefaultQualityFlagList, qualityFlagRiskText } from "@/lib/mrv/quality-flags"
+import {
+  EMPTY_QUALITY_FLAG_LIST_REASON,
+  REPORT_MISSING_FLAGS_NOTE,
+  REPORT_NON_DEFAULT_FLAGS_HEADLINE,
+  RISKY_QUALITY_FLAGS,
+  isDefaultQualityFlagList,
+  qualityFlagRiskText,
+} from "@/lib/mrv/quality-flags"
 import {
   CenteredMessage,
   LoadError,
@@ -123,6 +130,14 @@ export default function MrvReportViewPage({
 
   const isUnauthorized = query.error instanceof ApiError && query.error.isUnauthorized
   const report = query.data
+
+  /**
+   * EI 의 산입 품질 플래그. **`undefined` 는 「기록 없음」이고 `[]` 는 「빈 목록으로
+   * 산출됨」이다** — 두 사실을 뭉개지 않기 위해 `?? []` 를 쓰지 않는다(옛 리포트에는
+   * 이 칸이 없고, 그것을 빈 배열로 읽으면 화면이 "EI 0 · 감축량 전량" 이라는 거짓
+   * 주장을 띄운다).
+   */
+  const flagList = report?.boundary.included_quality_flags
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
@@ -251,25 +266,33 @@ export default function MrvReportViewPage({
               </div>
               <div>
                 <dt className="text-xs text-mrv-muted">포함 품질 플래그</dt>
+                {/* 인쇄 리포트와 **같은 분기·같은 문구**를 쓴다
+                    (lib/mrv/report-html.ts::qualityFlagRow). 두 곳이 갈리면 화면으로 본
+                    사람과 인쇄물로 본 사람이 다른 사실을 알게 된다.
+
+                    ★ 경고는 `dd` 를 하나 더 두지 않고 같은 `dd` 안에 담는다. 전에는
+                    `<dd role="note">` 였는데, `role` 을 주면 `dd` 의 암묵 역할
+                    (definition)이 덮여 앞의 `<dt>` 와의 연결이 끊긴다 — 스크린리더가
+                    "포함 품질 플래그" 라는 이름 없이 경고 문장만 읽는다. */}
                 <dd className="text-mrv-fg">
-                  {report.boundary.included_quality_flags.join(", ") || "-"}
+                  {flagList === undefined ? "-" : flagList.join(", ") || "-"}
+                  {/* 12px 본문이라 AA 기준이 4.5:1 이다. text-mrv-muted on
+                      bg-mrv-na-bg 는 4.13:1 이므로 쓰지 않는다. */}
+                  {flagList === undefined && (
+                    <p className="mt-1 rounded-md border border-mrv-border bg-mrv-na-bg p-2 text-xs leading-relaxed text-mrv-fg">
+                      {REPORT_MISSING_FLAGS_NOTE}
+                    </p>
+                  )}
+                  {flagList !== undefined && !isDefaultQualityFlagList(flagList) && (
+                    <p className="mt-1 rounded-md border border-mrv-amber bg-mrv-amber-bg p-2 text-xs leading-relaxed text-mrv-fg">
+                      {REPORT_NON_DEFAULT_FLAGS_HEADLINE}{" "}
+                      {RISKY_QUALITY_FLAGS.filter((f) => flagList.includes(f))
+                        .map((f) => qualityFlagRiskText(f, "ei"))
+                        .join(" ")}{" "}
+                      {flagList.length === 0 && EMPTY_QUALITY_FLAG_LIST_REASON}
+                    </p>
+                  )}
                 </dd>
-                {/* 기본값이 아니면 인쇄 리포트와 같은 안내를 화면에도 띄운다
-                    (lib/mrv/report-html.ts::qualityFlagRow). 두 곳의 문구가 갈리면
-                    화면으로 본 사람과 인쇄물로 본 사람이 다른 사실을 알게 된다. */}
-                {!isDefaultQualityFlagList(report.boundary.included_quality_flags) && (
-                  <dd
-                    role="note"
-                    className="mt-1 rounded-md border border-mrv-amber bg-mrv-amber-bg p-2 text-xs leading-relaxed text-mrv-fg"
-                  >
-                    ★ 기본 설정(ok)이 아닙니다 — 이 리포트의 수치는 기본값과 다른 산입
-                    범위로 산출됐습니다.{" "}
-                    {report.boundary.included_quality_flags
-                      .filter((f): f is "suspect" | "bad" => f === "suspect" || f === "bad")
-                      .map((f) => qualityFlagRiskText(f))
-                      .join(" ")}
-                  </dd>
-                )}
               </div>
               <div>
                 <dt className="text-xs text-mrv-muted">생산량 근거(Before / After)</dt>
