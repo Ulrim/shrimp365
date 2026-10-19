@@ -14,7 +14,7 @@
 운전 모드, MRV 기본 화면 값, 그리고 ⑨ 「이 장비가 읽을 계측기」 거르개의
 설정 파일 왕복.
 """
-import json, sys, tempfile, threading, types
+import atexit, json, shutil, sys, tempfile, threading, types
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -39,6 +39,11 @@ LOG = []          # 서버가 받은 readings 배치
 STORED = set()    # (meter_id, ts) — 저장된 것. 서버의 멱등 판정을 흉내 낸다.
 PREV = {}         # meter_id → 마지막 적산 원값 (배치 경계 판정용)
 CLAIM = {"linked": False}
+# 가짜 서버가 본 규약 위반. **핸들러에서 assert 로 터뜨리지 않는다** — 핸들러는
+# 작업 스레드에서 돌므로 거기서 터지면 연결만 끊기고, 그 모습이 **엉뚱한 검사의
+# FAIL** 로 나타난다(키가 안 붙은 것이 "회선이 돌아오면 전부 올라간다" 의 실패로
+# 보인다). 여기에 적어 두고 끝에서 한 번에 판정한다.
+BAD = []
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -52,6 +57,14 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _keyed(self, path):
+        """수집 키가 붙었는가. 안 붙었으면 **서버처럼 401 로 답한다.**"""
+        if self.headers.get("X-API-Key") == "mrvk_secret":
+            return True
+        BAD.append(f"{path}: 수집 키가 안 붙었다")
+        self._json(401, {"error": "키가 안 붙었다"})
+        return False
+
     def do_GET(self):
         path = urlparse(self.path).path
         if path == "/api/mrv/pair":
@@ -60,7 +73,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"status": "linked", "api_key": "mrvk_secret",
                                     "site_id": "site_1", "org_id": "org_1"})
         if path == "/api/mrv/ingest/meters":
-            assert self.headers.get("X-API-Key") == "mrvk_secret", "키가 안 붙었다"
+            if not self._keyed(path):
+                return None
             return self._json(200, {"site_id": "site_1", "items": [
                 {"id": "m_total", "label": "총전력계", "unit": "kWh_interval", "is_aeration": False},
                 {"id": "m_blow", "label": "브로워", "unit": "kWh_interval", "is_aeration": True},
@@ -75,8 +89,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(201, {"code": "730412", "pairing_secret": "s" * 40,
                                     "expires_in_sec": 900})
         if path == "/api/mrv/ingest/readings":
-            assert self.headers.get("X-API-Key") == "mrvk_secret", "키가 안 붙었다"
-            assert body.get("source") == "manual", body
+            if not self._keyed(path):
+                return None
+            if body.get("source") != "manual":
+                BAD.append(f"{path}: source 가 manual 이 아니다 — {body.get('source')!r}")
+                return self._json(400, {"error": "source 가 manual 이 아니다"})
             LOG.append(body["readings"])
             # ADR 0001 의 배치 경계 규칙을 그대로 흉내 낸다.
             acc = ded = 0
@@ -111,14 +128,29 @@ srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 BASE = f"http://127.0.0.1:{srv.server_address[1]}"
 
-tmp = Path(tempfile.mkdtemp())
+tmp = Path(tempfile.mkdtemp(prefix="shrimp365-verify-mrv-"))
 fails = []
+
+
+@atexit.register
+def _clean_up():
+    """임시 디렉토리와 가짜 서버를 치운다. **실패로 sys.exit(1) 할 때도 치운다** —
+    자체점검은 몇 번이고 다시 돌리는 파일이다. shutdown() 만 하고 server_close()
+    를 빠뜨리면 듣던 소켓이 남는다."""
+    try:
+        srv.shutdown()
+        srv.server_close()
+    except Exception:          # noqa: BLE001 — 치우는 길에서 더 시끄러워질 이유가 없다
+        pass
+    shutil.rmtree(tmp, ignore_errors=True)
 
 
 def _cfg_get(path, section, key):
     """설정 파일에서 한 값을 읽는다. configparser 로 읽어야 "파일에 남았다" 가
     장비가 다음 부팅에 읽는 것과 같은 뜻이 된다."""
-    c = configparser.ConfigParser()
+    # interpolation=None — 장비의 load_config 와 같게 읽는다. 기본값으로 읽으면
+    # 값에 섞인 `%` 하나로 이 시험 자체가 터져, 무엇이 깨졌는지 가린다.
+    c = configparser.ConfigParser(interpolation=None)
     c.read(path, encoding="utf-8")
     return (c.get(section, key, fallback="") or "").strip()
 
@@ -348,7 +380,39 @@ check("다시 읽은 값으로 사라진 계측기를 알아낸다",
       S.mrv_missing_visible(S.mrv_fetch_meters(BASE, "mrvk_secret")["items"], reread),
       ["m_pump9"])
 
-store.close(); store_c.close(); srv.shutdown()
+# 손으로 적은 값. configparser 는 기본값에서 인라인 주석을 떼지 않으므로, 이 줄들이
+# 그대로 값으로 들어와 조각마다 "서버 목록에 없는 계측기" 가 된다. 그러면 빨간
+# 「고른 계측기 4대가 서버 목록에 없습니다」가 **상시** 뜨고, 거짓 경고가 뜨는 화면에서
+# 진짜 경고는 묻힌다. config.example.ini 가 손 편집을 권하므로 현실적인 입력이다.
+check("꼬리 주석(;)을 떼고 읽는다",
+      S.mrv_parse_visible("m_total  ; 매일 읽는 것"), ["m_total"])
+check("꼬리 주석(#)을 떼고 읽는다",
+      S.mrv_parse_visible("m_total  # 메모"), ["m_total"])
+check("따옴표를 떼고 읽는다",
+      S.mrv_parse_visible('"m_total", "m_blow"'), ["m_total", "m_blow"])
+check("홑따옴표도 뗀다", S.mrv_parse_visible("'m_total'"), ["m_total"])
+check("주석만 있는 값은 전부 보여 준다로 읽는다",
+      S.mrv_parse_visible("; 아직 안 골랐다"), [])
+check("손으로 적은 값이 거짓 경고를 만들지 않는다",
+      S.mrv_missing_visible(SERVER_METERS,
+                            S.mrv_parse_visible('"m_total", "m_blow"  ; 매일 읽는 것')), [])
+
+# 꼬리 주석이 붙은 [mrv] 머리글. 구간을 못 찾으면 파일 끝에 [mrv] 를 하나 더 만들어
+# 붙이고, 다음 부팅이 DuplicateSectionError 로 터져 장비가 15초마다 재시작한다.
+tail = tmp / "visible-tail.ini"
+tail.write_text("[mrv]   ; 탄소 MRV\napi_key = k\nvisible_meters_note = 매일 읽는 것\n",
+                encoding="utf-8")
+check("꼬리 주석이 붙은 [mrv] 안에 적는다 — 구간을 두 번 만들지 않는다",
+      (S.save_mrv_visible_meters(tail, ["m_total"]),
+       tail.read_text(encoding="utf-8").count("[mrv]"),
+       S.mrv_parse_visible(_cfg_get(tail, "mrv", "visible_meters"))),
+      (True, 1, ["m_total"]))
+check("사람이 적어 둔 옆 항목(visible_meters_note)을 지우지 않는다",
+      _cfg_get(tail, "mrv", "visible_meters_note"), "매일 읽는 것")
+
+check("가짜 서버가 본 규약 위반이 없다", BAD, [])
+
+store.close(); store_c.close()      # 가짜 서버와 임시 디렉토리는 _clean_up 이 치운다
 print()
 if fails:
     print(f"실패 {len(fails)}건:")

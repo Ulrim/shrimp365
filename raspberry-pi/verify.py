@@ -19,9 +19,12 @@
 
 from __future__ import annotations
 
+import atexit
 import configparser
 import math
 import os
+import re
+import shutil
 import sys
 import tempfile
 import time
@@ -46,6 +49,7 @@ if "serial" not in sys.modules:
     _stub.SerialException = type("SerialException", (OSError,), {})
     sys.modules["serial"] = _stub
 import shrimp365_sensor as sensor   # noqa: E402
+import webui          # noqa: E402
 
 fails: list[str] = []
 
@@ -57,9 +61,27 @@ def check(label: str, got, want) -> None:
         fails.append(label)
 
 
+_TMPS: list[str] = []
+
+
+def tmpdir() -> Path:
+    """시험용 임시 디렉토리. **끝에 치운다** — 자체점검은 현장 장비에서 몇 번이고
+    다시 돌리는 파일이고, 치우지 않으면 /tmp 에 디렉토리가 쌓인다."""
+    d = tempfile.mkdtemp(prefix="shrimp365-verify-")
+    _TMPS.append(d)
+    return Path(d)
+
+
+@atexit.register
+def _clean_tmps() -> None:
+    # atexit 로 둔다 — 실패로 sys.exit(1) 할 때도 치워야 한다.
+    for d in _TMPS:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 def store(points: list[tuple[int, dict]]) -> list[dict]:
     """시험 데이터를 실제 이력 DB 에 넣었다 다시 읽는다 — 저장 경로까지 함께 본다."""
-    h = history.History(os.path.join(tempfile.mkdtemp(), "history.db"))
+    h = history.History(str(tmpdir() / "history.db"))
     if not h.available:
         fails.append("이력 DB 를 열지 못했습니다")
         return []
@@ -262,7 +284,7 @@ print("\n⑨ 전력 입력 가드 — 시계가 밀린 뒤 처음 쓰는 계측�
 # 둔 며칠~몇 주 전 시각으로 올라오는 쪽이 흔하고, 그 값은 연도 검사를 통과한다.
 # 계측기별 가드는 그 계측기를 한 번이라도 쓴 뒤에만 들으므로 전역 최대 전송 시각을
 # 함께 본다.
-_lasts = sensor.MrvLastReadings(os.path.join(tempfile.mkdtemp(), "mrv-last.json"))
+_lasts = sensor.MrvLastReadings(str(tmpdir() / "mrv-last.json"))
 check("보낸 적이 없으면 막지 않는다", sensor.mrv_clock_regressed(_lasts, "2026-05-01T00:00:00+00:00"), False)
 _lasts.put("mtr_blower", "2026-05-01T00:00:00+00:00", 128450.6)
 check("같은 시각은 통과", sensor.mrv_clock_regressed(_lasts, "2026-05-01T00:00:00+00:00"), False)
@@ -274,7 +296,7 @@ check("한 달 밀린 시계는 처음 쓰는 계측기에서도 거부",
       sensor.mrv_clock_regressed(_lasts, "2026-04-01T09:00:00+00:00"), True)
 check("전역 최대 시각은 계측기와 무관하다", _lasts.max_ts(), "2026-05-01T00:00:00+00:00")
 # max_ts 를 적지 않던 옛 파일에서도 가드가 들어야 한다.
-_old = Path(tempfile.mkdtemp()) / "mrv-last.json"
+_old = tmpdir() / "mrv-last.json"
 _old.write_text('{"meters": {"m1": {"value": 10.0, "ts": "2026-05-01T00:00:00+00:00",'
                 ' "last_ts": "2026-05-01T00:00:00+00:00"}}}', encoding="utf-8")
 check("max_ts 가 없는 옛 파일은 계측기 시각에서 끌어낸다",
@@ -295,7 +317,7 @@ print("\n⑩ 설정 파일 쓰기 — 끝 개행이 없는 파일에 키를 잃�
 # [mrv] 가 마지막 구간이고 파일이 개행으로 끝나지 않으면, 적으려는 키가 마지막 줄에
 # 그대로 이어 붙어 **키가 사라지고 원래 값까지 깨진다**(함수는 True 를 돌려주므로
 # 화면은 "연결 완료" 를 적는다).
-_cfgdir = Path(tempfile.mkdtemp())
+_cfgdir = tmpdir()
 
 
 def _written(name: str, text: str, writer) -> configparser.ConfigParser:
@@ -331,6 +353,146 @@ check("같은 경로를 같다고 본다",
       sensor._same_path("/var/lib/shrimp365/queue.db", "/var/lib/shrimp365/./queue.db"), True)
 check("다른 경로는 다르다고 본다",
       sensor._same_path("/var/lib/shrimp365/queue.db", "/var/lib/shrimp365/mrv-power.db"), False)
+
+print("\n⑪ 설정 파일 판정 — 한 글자가 장비를 재시작 고리에 넣지 않는가")
+# 세 가지가 여기서 막힌다. 셋 다 "저장했습니다" 를 적으면서 다음 부팅을 깨뜨린다.
+#   · 구간 머리글에 꼬리 주석이 붙으면([mrv]   ; 탄소 MRV) 저장 코드가 구간을 못 찾고
+#     파일 끝에 [mrv] 를 하나 더 만들어 붙인다 → 다음 부팅의 load_config 가
+#     DuplicateSectionError 로 터지고, 서비스가 Restart=always / RestartSec=15 이므로
+#     장비가 15초마다 재시작하는 고리에 들어간다(수질 수집·전송까지 멈춘다).
+#   · 항목 이름을 startswith 로 보면 visible_meters_note 같은 사람이 적은 줄이
+#     통째로 사라진다.
+#   · 값에 섞인 `%` 는 기본 BasicInterpolation 이 치환 문법으로 보고 **꺼낼 때** 터진다.
+# 판정은 _cfg_section / _cfg_key 한 곳에만 있어야 한다. 이 칸이 그 약속을 지킨다.
+
+check("꼬리 주석이 붙은 머리글도 구간으로 본다",
+      [sensor._cfg_section("[mrv]   ; 탄소 MRV"), sensor._cfg_section("[MRV] # 메모"),
+       sensor._cfg_section("  [sensors]  ")], ["mrv", "mrv", "sensors"])
+check("주석·항목 줄은 머리글이 아니다",
+      [sensor._cfg_section("; [mrv] 아래는 탄소 MRV"), sensor._cfg_section("api_key = k"),
+       sensor._cfg_section("")], [None, None, None])
+check("항목 이름은 정확히 본다",
+      [sensor._cfg_key("visible_meters = a, b"),
+       sensor._cfg_key("visible_meters_note = 매일 읽는 것"),
+       sensor._cfg_key("  API_KEY  =  k  ")],
+      ["visible_meters", "visible_meters_note", "api_key"])
+check("주석·머리글·값 없는 줄은 항목이 아니다",
+      [sensor._cfg_key("; api_key = k"), sensor._cfg_key("# x = y"),
+       sensor._cfg_key("[mrv]"), sensor._cfg_key("api_key")], [None, None, None, None])
+
+# **configparser 와 같은 구간 집합을 보는가.** 두 판정이 어긋나는 것이 위 사고의 뿌리다.
+_SECT_SAMPLE = ("; 머리말\n[server]\nendpoint = x\n\n[mrv]   ; 탄소 MRV\n"
+                "api_key = k\n[webui] # 화면\nport = 8080\n")
+_cp = configparser.ConfigParser(interpolation=None)
+_cp.read_string(_SECT_SAMPLE)
+check("configparser 와 같은 구간을 본다",
+      [sensor._cfg_section(ln) for ln in _SECT_SAMPLE.splitlines()
+       if sensor._cfg_section(ln) is not None],
+      _cp.sections())
+
+# 꼬리 주석이 붙은 [mrv] 에 저장 → **[mrv] 가 두 번 생기지 않고**, 다시 읽힌다.
+for _name, _writer, _key, _want in (
+        ("visible-tail.ini", lambda q: sensor.save_mrv_visible_meters(q, ["m_total"]),
+         "visible_meters", "m_total"),
+        ("apikey-tail.ini", lambda q: sensor.save_mrv_api_key(q, "KEY9", "site_9"),
+         "api_key", "KEY9")):
+    _path = _cfgdir / _name
+    _path.write_text("[server]\ndevice_key = DK\n\n[mrv]   ; 탄소 MRV\n"
+                     "buffer_path = /x/y.db\n", encoding="utf-8")
+    _ok = _writer(_path)
+    _text = _path.read_text(encoding="utf-8")
+    check(f"{_name}: 꼬리 주석이 붙은 [mrv] 를 두 번 만들지 않는다",
+          (_ok, _text.count("[mrv]")), (True, 1))
+    # 다음 부팅과 **같은 길**로 읽는다. 중복 구간이면 여기서 DuplicateSectionError 다.
+    try:
+        _re = sensor.load_config(_path)
+        check(f"{_name}: 다음 부팅이 이 파일을 읽을 수 있다",
+              (_re.get("mrv", _key, fallback=None), _re.get("mrv", "buffer_path", fallback=None)),
+              (_want, "/x/y.db"))
+    except configparser.Error as exc:
+        check(f"{_name}: 다음 부팅이 이 파일을 읽을 수 있다", f"{type(exc).__name__}", "예외 없음")
+
+# 사람이 적어 둔 옆 항목을 덮지 않는가(startswith 로 보면 통째로 사라진다).
+_note = _cfgdir / "note.ini"
+_note.write_text("[mrv]\nvisible_meters = m_old\nvisible_meters_note = 매일 읽는 것\n"
+                 "api_key = K\napi_key_note = 2026-10 발급\n", encoding="utf-8")
+sensor.save_mrv_visible_meters(_note, ["m_total"])
+sensor.save_mrv_api_key(_note, "K2", "S2")
+_noted = sensor.load_config(_note)
+check("옆 항목(visible_meters_note)을 덮지 않는다",
+      _noted.get("mrv", "visible_meters_note", fallback=None), "매일 읽는 것")
+check("옆 항목(api_key_note)을 덮지 않는다",
+      _noted.get("mrv", "api_key_note", fallback=None), "2026-10 발급")
+check("고치려던 항목은 바뀌었다",
+      (_noted.get("mrv", "visible_meters", fallback=None),
+       _noted.get("mrv", "api_key", fallback=None)), ("m_total", "K2"))
+
+# 값에 섞인 `%` 한 글자. load_config 가 interpolation=None 으로 읽지 않으면
+# 여기서 InterpolationSyntaxError 가 나고, 그 자리가 main() 본문이라 재시작 고리가 된다.
+_pct = _cfgdir / "percent.ini"
+_pct.write_text("[mrv]\nvisible_meters = m%20total\napi_key = a%b%c\n", encoding="utf-8")
+try:
+    _pcfg = sensor.load_config(_pct)
+    check("값에 섞인 `%` 를 읽고도 터지지 않는다",
+          (_pcfg.get("mrv", "visible_meters"), _pcfg.get("mrv", "api_key")),
+          ("m%20total", "a%b%c"))
+except configparser.Error as exc:
+    check("값에 섞인 `%` 를 읽고도 터지지 않는다", type(exc).__name__, "예외 없음")
+
+
+print("\n⑫ 장비 화면 — 「이 장비가 읽을 계측기」 고르기 화면이 막다른 길이 아닌가")
+# 화면 쪽 판단은 webui.PAGE 안의 자바스크립트다. 돌려 볼 수 없으므로 **구조**를 본다.
+# 되돌아가기 쉬운 한 줄이 기능 전체를 막았던 자리들이다:
+#   · 저장된 목록을 통째로 들고 있으면(r.visible.slice()) 서버 목록에서 사라진 id 를
+#     끌 토글이 없는데 저장은 그 id 까지 보내고, 서버가 목록 밖 id 를 거부해
+#     **무엇을 눌러도 저장이 100% 실패한다.** 고치는 길은 root 로 설정 파일을
+#     손보는 것뿐인데, 경고문은 바로 그 화면에서 다시 고르라고 지시한다.
+#   · 거르개가 무력화된 상태에서 [전체 보기] 를 두면 눌러도 아무 일이 없다.
+_PAGE = webui.PAGE
+
+
+def _i18n_langs(key: str) -> list[str]:
+    """PAGE 안 I18N 표에서 그 키가 가진 언어들. 자바스크립트 리터럴이라 글자로 읽는다.
+    번역이 한 언어만 빠져도 그 언어 작업자에게는 키 이름이 그대로 뜬다."""
+    m = re.search(r"^  " + re.escape(key) + r":\{(.*)$", _PAGE, re.MULTILINE)
+    return re.findall(r'([a-z]{2}):"', m.group(1)) if m else []
+
+check("고른 목록을 지금 목록으로 거른다(mrvVisKeep)",
+      ("function mrvVisKeep(" in _PAGE,
+       "mrvVisSel = mrvVisKeep(" in _PAGE), (True, True))
+check("저장된 목록을 통째로 들고 있지 않다",
+      ("r.visible.slice()" in _PAGE, "mrv_visible || []).slice()" in _PAGE), (False, False))
+check("개수는 유령 id 를 세지 않는다(mrvVisPicked)",
+      ("function mrvVisPicked(" in _PAGE, "mrvVisPicked(d)" in _PAGE), (True, True))
+# 버튼과 안내문 **둘 다** 이 판정을 봐야 한다. 하나만 바꿔 두면 거르개가 무력화된
+# 화면에 눌러도 아무 일이 없는 [전체 보기] 가 남는다 — 그래서 자리 수를 함께 센다.
+check("[전체 보기] 와 안내문이 실제로 거르는 중일 때만 뜬다(pwrFiltering)",
+      ("function pwrFiltering(" in _PAGE, _PAGE.count("      (pwrFiltering()"),
+       "(pwrVis.length" in _PAGE), (True, 2, False))
+check("저장 실패 사유를 번역한다(errText)",
+      ("function errText(" in _PAGE, 'errText(r, "save_fail")' in _PAGE), (True, True))
+check("24대 상한 번역이 4언어로 있다",
+      sorted(_i18n_langs("pw_err_vis_max")), ["en", "id", "ko", "vi"])
+
+# 수집기가 돌려주는 사유(code)마다 4언어 번역이 있는가. **code 없이 한국어 원문만
+# 보내면** 화면은 그것을 그대로 찍고, 베트남어·인도네시아어 작업자는 왜 실패했는지
+# 읽을 수 없다(거르개 저장 실패가 한국어로만 뜨던 자리다). 새 사유를 넣는 사람이
+# 번역을 빠뜨리면 여기서 걸린다.
+_CODES = sorted(set(re.findall(r'"code":\s*"([a-z_]+)"',
+                               (_SRC / "shrimp365_sensor.py").read_text(encoding="utf-8"))))
+check("수집기가 돌려주는 사유를 4언어로 적어 두었다",
+      [c for c in _CODES if sorted(_i18n_langs("pw_err_" + c)) != ["en", "id", "ko", "vi"]],
+      [])
+
+# 「사라진 계측기」 판정. main() 안에 두면 자체점검이 손댈 수 없어 되돌려도 울지 않는다.
+_ITEMS = [{"id": "m_total"}]
+check("받은 적이 없으면 사라졌다고 말하지 않는다",
+      sensor.mrv_missing_for_screen(False, [], ["m_total", "m_gone"]), [])
+check("받았는데 0건이면 고른 것이 전부 사라진 것이다",
+      sensor.mrv_missing_for_screen(True, [], ["m_total"]), ["m_total"])
+check("받은 목록에 없는 것만 집어낸다",
+      sensor.mrv_missing_for_screen(True, _ITEMS, ["m_total", "m_gone"]), ["m_gone"])
+
 
 print()
 if fails:

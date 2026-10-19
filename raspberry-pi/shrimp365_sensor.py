@@ -1110,9 +1110,26 @@ def post(endpoint: str, device_key: str, payload: dict, timeout: float = 10.0) -
 # ── 실행 ──────────────────────────────────────────────────────────────────────
 
 def load_config(path: Path) -> configparser.ConfigParser:
+    """설정 파일을 읽는다.
+
+    **interpolation=None 으로 읽는다.** 기본값인 BasicInterpolation 은 값에 섞인
+    `%` 를 치환 문법으로 보고 읽는 순간 터진다:
+
+        visible_meters = m%20total
+        →  InterpolationSyntaxError: '%' must be followed by '%' or '('
+
+    이 예외는 `cfg.read()` 가 아니라 **값을 꺼낼 때** 난다. 꺼내는 자리가 main()
+    본문이라 잡히지 않고 그대로 올라가고, 서비스가 Restart=always /
+    RestartSec=15 이므로 장비가 15초마다 재시작하는 고리에 들어간다 — 전력뿐
+    아니라 수질 수집·전송까지 멈춘다. 계측기 id 에 `%` 가 올 수 있는지와
+    무관하게, **설정 파일의 한 글자로 장비가 멈춰서는 안 된다.**
+
+    치환을 쓰는 값은 이 저장소에 없다(config.example.ini 의 `%` 는 주석 안의
+    단위 표기 하나뿐이다). `%%` 로 적힌 값도 없으므로 뜻이 바뀌는 값도 없다.
+    """
     if not path.exists():
         sys.exit(f"설정 파일이 없습니다: {path}\nconfig.example.ini 를 복사해 만드세요.")
-    cfg = configparser.ConfigParser()
+    cfg = configparser.ConfigParser(interpolation=None)
     cfg.read(path, encoding="utf-8")
     return cfg
 
@@ -1200,6 +1217,44 @@ def _append_config_lines(lines: list[str], extra: list[str]) -> None:
     lines.extend(extra)
 
 
+def _cfg_section(line: str) -> str | None:
+    """구간 머리글이면 구간 이름(소문자)을, 아니면 None 을 돌려준다.
+
+    **configparser 와 같게 판정한다.** 그쪽의 SECTCRE 는 `\\[(?P<header>.+)\\]` 를
+    탐욕적으로 맞추므로 꼬리 주석이 붙은 머리글도 정상 구간으로 받는다:
+
+        [mrv]   ; 탄소 MRV      →  configparser 가 보는 구간: ['server', 'mrv']
+
+    `stripped.startswith("[") and stripped.endswith("]")` 로 보면 이 줄은 머리글이
+    아니다. 그러면 저장 코드는 [mrv] 를 **못 찾은 것으로 알고** 파일 끝에 [mrv] 를
+    하나 더 만들어 붙이고, 다음 부팅의 load_config 가 DuplicateSectionError 로
+    터진다. 서비스가 Restart=always / RestartSec=15 이므로 장비는 15초마다
+    재시작하는 고리에 들어가 전력뿐 아니라 **수질 수집·전송까지 멈춘다** —
+    그런데 화면은 그 순간 "저장했습니다" 를 적는다.
+
+    같은 판단을 쓰는 저장 함수가 일곱이라 한 곳에 둔다. 한쪽만 고치면 그쪽에서
+    같은 일이 다시 일어난다.
+    """
+    s = line.strip()
+    if not s.startswith("[") or "]" not in s:
+        return None
+    return s[1:s.rindex("]")].strip().lower()
+
+
+def _cfg_key(line: str) -> str | None:
+    """`이름 = 값` 줄의 이름(소문자). 주석·머리글·값 없는 줄은 None.
+
+    **이름은 정확히 비교해야 한다.** `startswith("visible_meters")` 로 보면
+    사람이 적어 둔 `visible_meters_note = 매일 읽는 것` 이 함께 걸려 그 줄이
+    통째로 사라진다. save_sensor_config 가 이미 쓰고 있던 올바른 방식을 여기로
+    모았다 — 이름 비교를 두 가지로 두지 않는다.
+    """
+    s = line.strip()
+    if not s or s.startswith((";", "#", "[")) or "=" not in s:
+        return None
+    return s.split("=", 1)[0].strip().lower()
+
+
 def save_sensor_config(config_path: Path, settings: dict[str, dict]) -> bool:
     """[sensors] 구간의 사용 여부와 슬레이브 ID 를 설정 파일에 적는다.
 
@@ -1221,24 +1276,23 @@ def save_sensor_config(config_path: Path, settings: dict[str, dict]) -> bool:
     seen: set[str] = set()
     out: list[str] = []
     for line in lines:
-        stripped = line.strip()
-        if stripped.startswith("["):
+        section = _cfg_section(line)
+        if section is not None:
             # [sensors] 를 막 벗어나는 참이면, 없던 항목을 여기서 채워 넣는다.
             if in_sensors:
                 for name, value in wanted.items():
                     if name not in seen:
                         out.append(f"{name} = {value}\n")
                 out.append("\n")
-            in_sensors = stripped.lower() == "[sensors]"
+            in_sensors = section == "sensors"
             out.append(line)
             continue
 
-        if in_sensors and "=" in stripped and not stripped.startswith((";", "#")):
-            name = stripped.split("=", 1)[0].strip().lower()
-            if name in wanted:
-                seen.add(name)
-                out.append(f"{name} = {wanted[name]}\n")
-                continue
+        name = _cfg_key(line) if in_sensors else None
+        if name in wanted:
+            seen.add(name)
+            out.append(f"{name} = {wanted[name]}\n")
+            continue
         out.append(line)
 
     if in_sensors:  # 파일이 [sensors] 로 끝난 경우
@@ -1261,7 +1315,7 @@ def save_interval(config_path: Path, seconds: int) -> bool:
     except OSError:
         return False
     for i, line in enumerate(lines):
-        if line.strip().lower().startswith("interval_seconds"):
+        if _cfg_key(line) == "interval_seconds":
             lines[i] = f"interval_seconds = {seconds}\n"
             break
     else:
@@ -1289,13 +1343,13 @@ def save_mode(config_path: Path, mode: str) -> bool:
     in_device = False
     insert_at = None
     for i, line in enumerate(lines):
-        stripped = line.strip().lower()
-        if stripped.startswith("[") and stripped.endswith("]"):
+        section = _cfg_section(line)
+        if section is not None:
             if in_device and insert_at is None:
                 insert_at = i          # [device] 를 막 벗어나는 참
-            in_device = stripped == "[device]"
+            in_device = section == "device"
             continue
-        if in_device and stripped.startswith("mode") and "=" in line:
+        if in_device and _cfg_key(line) == "mode":
             lines[i] = f"mode = {mode}\n"
             break
     else:
@@ -1308,7 +1362,7 @@ def save_mode(config_path: Path, mode: str) -> bool:
             # 구간 선언보다 앞에 키를 적으면 configparser 가 읽지 못하고, 머리말
             # 주석 앞에 끼우면 파일이 무엇인지 설명하는 줄이 가려진다.
             at = next((i for i, line in enumerate(lines)
-                       if line.strip().startswith("[") and line.strip().endswith("]")),
+                       if _cfg_section(line) is not None),
                       len(lines))
             lines.insert(at, f"[device]\nmode = {mode}\n\n")
 
@@ -1332,15 +1386,15 @@ def save_language(config_path: Path, lang: str) -> bool:
         return False
     in_webui = False
     for i, line in enumerate(lines):
-        s = line.strip().lower()
-        if s == "[webui]":
+        section = _cfg_section(line)
+        if section == "webui":
             in_webui = True
             continue
         if in_webui:
-            if s.startswith("language") and "=" in line:
+            if _cfg_key(line) == "language":
                 lines[i] = f"language = {lang}\n"   # 기존 값 교체
                 break
-            if s.startswith("[") and s.endswith("]"):
+            if section is not None:
                 lines.insert(i, f"language = {lang}\n")   # 다음 구간 직전에 삽입
                 break
     else:
@@ -1372,17 +1426,17 @@ def save_ec_mode(config_path: Path, mode: str, unit: str) -> bool:
     in_sensors = False
     insert_at = None
     for i, line in enumerate(lines):
-        stripped = line.strip().lower()
-        if stripped.startswith("[") and stripped.endswith("]"):
+        section = _cfg_section(line)
+        if section is not None:
             if in_sensors and insert_at is None:
                 insert_at = i          # [sensors] 를 막 벗어나는 참
-            in_sensors = stripped == "[sensors]"
+            in_sensors = section == "sensors"
             continue
         if in_sensors:
-            for key, val in wanted.items():
-                if stripped.startswith(key) and "=" in line:
-                    lines[i] = f"{key} = {val}\n"
-                    seen.add(key)
+            key = _cfg_key(line)
+            if key in wanted:
+                lines[i] = f"{key} = {wanted[key]}\n"
+                seen.add(key)
     missing = [f"{k} = {v}\n" for k, v in wanted.items() if k not in seen]
     if missing:
         if insert_at is not None:
@@ -1412,17 +1466,17 @@ def save_nutrient(config_path: Path, values: dict) -> bool:
     in_sec = False
     insert_at = None
     for i, line in enumerate(lines):
-        stripped = line.strip().lower()
-        if stripped.startswith("[") and stripped.endswith("]"):
+        section = _cfg_section(line)
+        if section is not None:
             if in_sec and insert_at is None:
                 insert_at = i
-            in_sec = stripped == "[nutrient]"
+            in_sec = section == "nutrient"
             continue
         if in_sec:
-            for key, val in wanted.items():
-                if stripped.startswith(key) and "=" in line:
-                    lines[i] = f"{key} = {val}\n"
-                    seen.add(key)
+            key = _cfg_key(line)
+            if key in wanted:
+                lines[i] = f"{key} = {wanted[key]}\n"
+                seen.add(key)
     missing = [f"{k} = {v}\n" for k, v in wanted.items() if k not in seen]
     if missing:
         if insert_at is not None:
@@ -1451,17 +1505,17 @@ def save_calibration(config_path: Path, offsets: dict[str, float]) -> bool:
     in_sec = False
     insert_at = None
     for i, line in enumerate(lines):
-        stripped = line.strip().lower()
-        if stripped.startswith("[") and stripped.endswith("]"):
+        section = _cfg_section(line)
+        if section is not None:
             if in_sec and insert_at is None:
                 insert_at = i
-            in_sec = stripped == "[calibration]"
+            in_sec = section == "calibration"
             continue
         if in_sec:
-            for key, val in wanted.items():
-                if stripped.startswith(key) and "=" in line:
-                    lines[i] = f"{key} = {val}\n"
-                    seen.add(key)
+            key = _cfg_key(line)
+            if key in wanted:
+                lines[i] = f"{key} = {wanted[key]}\n"
+                seen.add(key)
     missing = [f"{k} = {v}\n" for k, v in wanted.items() if k not in seen]
     if missing:
         if insert_at is not None:
@@ -1491,7 +1545,9 @@ def save_device_key(config_path: Path, key: str) -> bool:
 
     replaced = False
     for i, line in enumerate(lines):
-        if line.strip().lower().startswith("device_key"):
+        # 이름을 _cfg_key 로 정확히 본다 — 이름 비교를 이 파일에 두 가지로 두지
+        # 않는다(startswith 로 보면 device_key_note 같은 줄이 함께 걸린다).
+        if _cfg_key(line) == "device_key":
             lines[i] = f"device_key = {key}\n"
             replaced = True
             break
@@ -1515,6 +1571,9 @@ def save_mrv_api_key(config_path: Path, key: str, site_id: str = "") -> bool:
     다른 구간에도 생길 수 있어 줄 이름만 보고 바꾸면 엉뚱한 값을 덮는다.
     항목이 없으면 구간 안에 새로 끼워 넣는다(save_ec_mode 와 같은 방식).
     주석을 지우지 않으려고 configparser 로 통째로 다시 쓰지 않는다.
+
+    구간 머리글·항목 이름 판정은 _cfg_section / _cfg_key 한 곳에 모여 있다.
+    그 머리말이 두 판정을 왜 여기서 직접 하지 않는지를 적어 두었다.
     """
     try:
         lines = config_path.read_text(encoding="utf-8").splitlines(keepends=True)
@@ -1527,17 +1586,17 @@ def save_mrv_api_key(config_path: Path, key: str, site_id: str = "") -> bool:
     in_mrv = False
     insert_at = None
     for i, line in enumerate(lines):
-        stripped = line.strip().lower()
-        if stripped.startswith("[") and stripped.endswith("]"):
+        section = _cfg_section(line)
+        if section is not None:
             if in_mrv and insert_at is None:
                 insert_at = i          # [mrv] 를 막 벗어나는 참
-            in_mrv = stripped == "[mrv]"
+            in_mrv = section == "mrv"
             continue
         if in_mrv:
-            for name, val in wanted.items():
-                if stripped.startswith(name) and "=" in line:
-                    lines[i] = f"{name} = {val}\n"
-                    seen.add(name)
+            name = _cfg_key(line)
+            if name in wanted:
+                lines[i] = f"{name} = {wanted[name]}\n"
+                seen.add(name)
     missing = [f"{k} = {v}\n" for k, v in wanted.items() if k not in seen]
     if missing:
         if insert_at is not None:
@@ -1568,6 +1627,10 @@ def save_mrv_visible_meters(config_path: Path, picks: list[str]) -> bool:
 
     빈 목록은 **빈 값으로 적는다.** 항목을 지우지 않는 것은, 다음 사람이 설정
     파일만 보고도 "이 장비는 거르개를 꺼 두었다" 를 알 수 있어야 하기 때문이다.
+
+    구간 머리글은 _cfg_section, 항목 이름은 _cfg_key 로 판정한다 — 이름을
+    `startswith("visible_meters")` 로 보면 사람이 적어 둔
+    `visible_meters_note = …` 가 함께 걸려 그 줄이 통째로 사라진다.
     """
     try:
         lines = config_path.read_text(encoding="utf-8").splitlines(keepends=True)
@@ -1580,13 +1643,13 @@ def save_mrv_visible_meters(config_path: Path, picks: list[str]) -> bool:
     in_mrv = False
     insert_at = None
     for i, line in enumerate(lines):
-        stripped = line.strip().lower()
-        if stripped.startswith("[") and stripped.endswith("]"):
+        section = _cfg_section(line)
+        if section is not None:
             if in_mrv and insert_at is None:
                 insert_at = i          # [mrv] 를 막 벗어나는 참
-            in_mrv = stripped == "[mrv]"
+            in_mrv = section == "mrv"
             continue
-        if in_mrv and stripped.startswith("visible_meters") and "=" in line:
+        if in_mrv and _cfg_key(line) == "visible_meters":
             lines[i] = f"visible_meters = {value}\n"
             seen = True
     if not seen:
@@ -2063,10 +2126,26 @@ def mrv_parse_visible(raw: str) -> list[str]:
     **빈 값은 "전부 보여 준다" 다** — "아무것도 안 보여 준다" 가 아니다. 이
     항목이 없는 기존 설정 파일에서 기본값이 빈 목록이면, 업데이트 직후 작업자는
     계측기를 하나도 고를 수 없어 전력을 넣을 방법이 없어진다.
+
+    **꼬리 주석과 따옴표를 떼고 읽는다.** configparser 는 기본값에서 인라인
+    주석을 떼지 않으므로, 손으로 적은 다음 줄들이 그대로 값으로 들어온다
+    (config.example.ini 가 손 편집을 권하고 있어 현실적인 입력이다):
+
+        visible_meters = m_total  ; 매일 읽는 것   →  ['m_total', ';', '매일', …]
+        visible_meters = "m_total", "m_blow"      →  ['"m_total"', '"m_blow"']
+
+    그 조각들은 서버 목록에 없으므로 빨간 「고른 계측기 4대가 서버 목록에
+    없습니다」가 상시 뜬다. **거짓 경고가 뜨면 진짜 경고가 묻힌다** — 이 화면의
+    설계 의도가 바로 이 입력에서 깨지므로 읽는 쪽에서 떼어 낸다.
     """
+    text = str(raw or "")
+    for marker in (";", "#"):          # 꼬리 주석부터 자른다
+        at = text.find(marker)
+        if at >= 0:
+            text = text[:at]
     ids: list[str] = []
-    for token in str(raw or "").replace(",", " ").split():
-        token = token.strip()[:120]
+    for token in text.replace(",", " ").split():
+        token = token.strip().strip("\"'").strip()[:120]
         if token and token not in ids:
             ids.append(token)
         if len(ids) >= MRV_VISIBLE_MAX:
@@ -2085,6 +2164,23 @@ def mrv_missing_visible(items: list[dict], picks: list[str]) -> list[str]:
     return [p for p in picks if p not in known]
 
 
+def mrv_missing_for_screen(got: bool, items: list[dict], picks: list[str]) -> list[str]:
+    """화면에 빨간 줄로 알릴 "사라진 계측기". **판정의 축은 got 이다.**
+
+    got 은 "이 장비가 목록을 **한 번이라도 받았는가**" 다. 홀더가 비었는지로
+    대신 보면 두 가지가 섞인다:
+
+      · 받은 적이 없다(미연결·첫 부팅·조회 실패) → 지워진 것이 아니라 **모르는
+        것**이다. 연결하지 않은 장비가 매번 빨간 경고를 띄우면 진짜 경고가 묻힌다.
+      · 받았는데 0건이다(사이트에 계측기가 아직 없다) → 고른 id 는 **정말로**
+        전부 없다. 여기서 입을 닫으면 그 경고는 영영 뜨지 않는다.
+
+    main() 안의 _mrv_visible_state 가 쓰는 판정을 모듈 바깥에 둔다 — 그 안에
+    두면 자체점검이 손댈 수 없고, 되돌려도 아무 검사가 울지 않는다.
+    """
+    return mrv_missing_visible(items, picks) if got else []
+
+
 def mrv_fetch_meters(base: str, api_key: str) -> dict:
     """사이트의 전력 계측기 목록을 받아 온다.
 
@@ -2093,13 +2189,20 @@ def mrv_fetch_meters(base: str, api_key: str) -> dict:
     KPI 가 안 변한다" 를 겪는다. 폭기 여부(is_aeration)도 함께 받아 화면에 적는다
     — 폭기 EI 가 그 플래그로 갈린다.
     """
+    # code 는 화면이 번역하는 사유다(전력 패널의 pw_err_* 와 같은 규약). 이것이
+    # 없으면 화면은 한국어 원문을 그대로 찍고, 베트남어·인도네시아어 작업자는
+    # 왜 목록이 안 오는지 읽을 수 없다.
     if not api_key:
-        return {"ok": False, "error": "연결되지 않았습니다", "items": []}
+        return {"ok": False, "error": "연결되지 않았습니다", "code": "unlinked",
+                "items": []}
     status, data = _mrv_request(f"{base}/api/mrv/ingest/meters", api_key)
     if status != 200:
         reason = (data.get("error") if isinstance(data, dict) else None) or (
             "인터넷 연결을 확인하세요" if not status else f"서버 오류 {status}")
-        return {"ok": False, "error": str(reason)[:120], "items": []}
+        # 서버가 사유를 적어 보냈으면(HTTP 오류) 그 원문이 더 정확하다 — code 는
+        # 회선이 끊긴 경우에만 준다.
+        return {"ok": False, "error": str(reason)[:120], "items": [],
+                **({"code": "offline"} if not status else {})}
     items = data.get("items") if isinstance(data, dict) else None
     return {
         "ok": True,
@@ -2836,9 +2939,22 @@ def main() -> int:
     # 수질 경로와 **독립**이다 — 키도, 보관 파일도, 재전송 루프도 따로다.
     # 화면에서 페어링한 키를 페어링 스레드가 채우므로 홀더에 모아 둔다.
     def _mrv_cfg(key: str, default: str = "") -> str:
+        """[mrv] 의 한 값. **읽다 터져도 장비를 멈추지 않는다.**
+
+        load_config 가 interpolation=None 으로 읽으므로 `%` 때문에 터질 일은
+        없어졌다. 그래도 여기서 한 번 더 받는다 — 이 호출은 main() 본문에 있어
+        예외가 그대로 올라가면 서비스가 15초마다 재시작하는 고리가 되고, 그
+        고리에서는 수질 수집·전송까지 멈춘다. 값 하나를 못 읽는 것과 장비가
+        멈추는 것은 비교할 일이 아니다. 대신 **무엇을 못 읽었는지 로그에 남긴다.**
+        """
         if not cfg.has_section("mrv"):
             return default
-        return (cfg.get("mrv", key, fallback=default) or "").strip()
+        try:
+            return (cfg.get("mrv", key, fallback=default) or "").strip()
+        except configparser.Error as exc:
+            log.error("[mrv] %s 를 읽을 수 없습니다: %s — 기본값(%r)으로 갑니다. "
+                      "설정 파일의 그 줄을 고쳐 주세요.", key, exc, default)
+            return default
 
     mrv_auth = {"key": _mrv_cfg("api_key"), "site": _mrv_cfg("site_id")}
     mrv_lasts = MrvLastReadings(
@@ -2877,7 +2993,11 @@ def main() -> int:
     # 마지막으로 받은 계측기 목록. 성공했을 때만 갈아 끼운다 — 회선이 끊긴 사이에도
     # 직전 목록으로 입력할 수 있어야 하고, 실패했다고 목록을 비우면 작업자는
     # 멀쩡한 계측기를 고를 수 없게 된다.
-    mrv_meters_holder: dict = {"items": [], "error": None}
+    # got: **한 번이라도 조회에 성공했는가.** items 가 비어 있다는 것만으로는
+    # "받은 적이 없다" 와 "받았는데 0건이다" 를 구분할 수 없다 — 사이트에 계측기가
+    # 하나도 없으면 조회가 성공해도 items 는 빈다. 그 둘을 섞으면 _mrv_visible_state
+    # 가 "사라진 계측기" 를 말해야 하는 자리에서 입을 닫는다.
+    mrv_meters_holder: dict = {"items": [], "error": None, "got": False}
     # 화면에 띄울 계측기. 비어 있으면 **전부** 띄운다(mrv_parse_visible 머리말).
     mrv_visible: dict = {"ids": mrv_parse_visible(_mrv_cfg("visible_meters"))}
     mrv_base = _api_base(endpoint)
@@ -2889,16 +3009,22 @@ def main() -> int:
         적용한다 — 그래야 [전체 보기] 가 네트워크를 다시 타지 않고, 서버가 받는
         것과 화면이 보여 주는 것이 어긋났을 때 그 사실을 화면이 말할 수 있다.
         """
-        # 목록을 **한 번도 받지 못한** 상태(미연결·첫 부팅·조회 실패)에서는
+        # 목록을 **한 번도 받지 못한** 상태(미연결·첫 부팅·조회만 실패)에서는
         # "사라졌다" 고 말하지 않는다. 그것은 지워진 것이 아니라 모르는 것이고,
         # 연결하지 않은 장비가 매번 빨간 경고를 띄우면 진짜 경고가 묻힌다.
-        # (조회가 실패해도 홀더는 직전 목록을 그대로 들고 있으므로, 여기서
-        #  비어 있다는 것은 애초에 받은 적이 없다는 뜻이다.)
-        items = mrv_meters_holder["items"]
+        #
+        # 판정은 **holder["got"] 로 한다.** 홀더가 비어 있다는 것만으로는 "받은
+        # 적이 없다" 를 말할 수 없다 — 조회가 성공하면서 items 가 0건일 때도
+        # (사이트에 계측기가 아직 없을 때) 홀더는 빈다. 그때는 고른 id 가 정말로
+        # 전부 없는 것이므로 경고가 맞다.
         return {
             "mrv_visible": list(mrv_visible["ids"]),
-            "mrv_meters_missing": (mrv_missing_visible(items, mrv_visible["ids"])
-                                   if items else []),
+            # 상한의 정본은 이 상수 하나다. 화면이 토글 시점에 막을 수 있게 넘긴다 —
+            # 24대를 다 고른 뒤 [저장] 에서 처음 막으면 무엇을 빼야 하는지 알 수 없다.
+            "mrv_vis_max": MRV_VISIBLE_MAX,
+            "mrv_meters_missing": mrv_missing_for_screen(
+                mrv_meters_holder["got"], mrv_meters_holder["items"],
+                mrv_visible["ids"]),
         }
 
     # 터치스크린용 상태 페이지.
@@ -3245,6 +3371,9 @@ def main() -> int:
                     items.append(row)
                 mrv_meters_holder["items"] = items
                 mrv_meters_holder["error"] = None
+                # 0건을 받아도 "받았다" 다. 홀더가 비었는지로 이것을 대신 판정하면
+                # 계측기가 없는 사이트에서 "사라진 계측기" 경고가 영영 뜨지 않는다.
+                mrv_meters_holder["got"] = True
             else:
                 mrv_meters_holder["error"] = result.get("error")
             if state is not None:
@@ -3266,6 +3395,7 @@ def main() -> int:
             return {
                 "ok": bool(result.get("ok")),
                 "error": result.get("error"),
+                "code": result.get("code"),
                 # 거르개와 무관하게 **전부** 보낸다. 거르는 것은 화면의 일이다.
                 "items": list(mrv_meters_holder["items"]),
                 "visible": vis["mrv_visible"],
@@ -3286,20 +3416,29 @@ def main() -> int:
             ui_mrv_power 의 known). 목록이 아직 없을 때 저장을 받아 주면 낡은
             id 가 설정 파일에 굳어 "고른 계측기가 사라졌다" 경고가 영구히 뜬다.
             빈 목록은 정상 입력이고 **거르개를 끄는 것**을 뜻한다.
+
+            이 규칙은 그대로 둔다. 목록 밖 id 를 들고 있던 화면이 저장할 길이
+            없던 것은 이쪽이 느슨해서가 아니라 화면이 거르지 않고 보냈기
+            때문이다 — 지금은 화면이 받는 자리에서 거른다(webui.py mrvVisKeep).
             """
             raw = payload.get("ids")
             if not isinstance(raw, list):
-                return {"ok": False, "error": "계측기 목록이 아닙니다"}
+                return {"ok": False, "error": "계측기 목록이 아닙니다",
+                        "code": "vis_payload"}
             picks: list[str] = []
             for item in raw:
                 mid = str(item or "").strip()[:120]
                 if mid and mid not in picks:
                     picks.append(mid)
             if len(picks) > MRV_VISIBLE_MAX:
-                return {"ok": False,
+                # code 를 함께 준다 — 없으면 화면이 번역할 길이 없어 한국어
+                # 원문만 뜬다(전력 패널의 pw_err_* 와 같은 규약).
+                return {"ok": False, "code": "vis_max", "max": MRV_VISIBLE_MAX,
                         "error": f"한 번에 {MRV_VISIBLE_MAX}대까지만 고를 수 있습니다"}
             known = {m["id"] for m in mrv_meters_holder["items"]}
-            if picks and not known:
+            # 판정은 **"받은 적이 있는가"** 로 한다. known 이 비었는지로 보면
+            # 계측기가 0건인 사이트에서 "목록을 먼저 받아 주세요" 가 영영 뜬다.
+            if picks and not mrv_meters_holder["got"]:
                 return {"ok": False, "error": "계측기 목록을 먼저 받아 주세요",
                         "code": "no_meters"}
             unknown = [p for p in picks if p not in known]
@@ -3371,6 +3510,11 @@ def main() -> int:
             saved = save_mrv_api_key(args.config, "", "")
             mrv_meters_holder["items"] = []
             mrv_meters_holder["error"] = None
+            # 연결을 끊었으면 **목록을 모르는 상태로 되돌린다.** got 를 True 로
+            # 남겨 두면 고른 id 전부가 "사라졌다" 로 보여, 연결되지 않은 장비에
+            # 빨간 경고가 상시 뜬다(그 경고가 가리키는 고르기 화면은 연결되지
+            # 않은 동안 열 수도 없다).
+            mrv_meters_holder["got"] = False
             if state is not None:
                 # 고른 계측기는 지우지 않는다 — 같은 사이트에 다시 연결하면
                 # 그대로 쓰여야 한다. 다른 사이트로 연결했다면 그 id 들이

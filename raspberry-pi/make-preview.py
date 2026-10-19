@@ -30,6 +30,31 @@ NOW = 1770000000  # 고정 시각 — 돌릴 때마다 결과가 달라지면 �
 STAMP = "2026-08-06 14:32:05"
 
 
+def vis_max() -> int:
+    """shrimp365_sensor.MRV_VISIBLE_MAX — 한 번에 고를 수 있는 계측기 수의 상한.
+
+    **import 하지 않고 소스에서 읽는다.** 그 모듈은 pyserial 을 요구하고 PC 에는
+    없다(verify.py 가 release.py 의 PAYLOAD 를 읽는 것과 같은 방식). 숫자를 여기
+    베껴 두면 상한을 고친 날 미리보기만 옛 숫자로 남는다. 읽지 못하면 0 을 주고,
+    그때 화면은 상한을 막지 않는다(장비에서는 저장 때 서버가 막는다).
+    """
+    import ast
+    src = HERE / "shrimp365_sensor.py"
+    if not src.exists():
+        return 0
+    for node in ast.parse(src.read_text(encoding="utf-8")).body:
+        if isinstance(node, ast.Assign) and any(
+                isinstance(t, ast.Name) and t.id == "MRV_VISIBLE_MAX"
+                for t in node.targets):
+            value = node.value
+            if isinstance(value, ast.Constant) and isinstance(value.value, int):
+                return value.value
+    return 0
+
+
+MRV_VIS_MAX = vis_max()
+
+
 def base_state(**over) -> dict:
     """미리보기 한 장면.
 
@@ -52,7 +77,7 @@ def base_state(**over) -> dict:
         "mrv_meters": [], "mrv_pending": 0, "mrv_last": None, "mrv_clock_ok": True,
         "mrv_recent": [], "mrv_today": 0,
         # 화면에 띄울 계측기(거르개). 비어 있으면 전부 띄운다 — 기본은 거르지 않는다.
-        "mrv_visible": [], "mrv_meters_missing": [],
+        "mrv_visible": [], "mrv_meters_missing": [], "mrv_vis_max": MRV_VIS_MAX,
         "mrv_blocked": 0, "mrv_blocked_reason": None, "mrv_pair_url": "",
         # 운전 모드. 기본은 양식장이고, 센서를 켜 둔 장비로 본다.
         "mode": "aquaculture", "sensors_on": True,
@@ -229,6 +254,17 @@ STATES = [
         mode="mrv", sensors_on=False, values={}, status="14:32",
         mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS_MANY,
         mrv_visible=MRV_VISIBLE_PICK,
+        mrv_recent=MRV_RECENT, mrv_today=2)),
+    # 사라진 id 를 들고 고르기 화면을 연 그림. **여기가 막다른 길이 되면 안 된다** —
+    # 화면은 지금 목록 안의 id 만 켬/끔으로 들고 있어야 하고(사라진 id 를 끌 토글은
+    # 어차피 없다), [저장] 이 그 유령 id 를 함께 보내면 서버가 거부해 무엇을 눌러도
+    # 저장이 실패한다. 켜진 줄이 2개인데 머리에 「3대 표시」가 뜨지도 않아야 한다.
+    ("MRV · 읽을 계측기 고르기(사라진 것 포함)", base_state(
+        _open="mrv_visible",
+        mode="mrv", sensors_on=False, values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS_MANY,
+        mrv_visible=MRV_VISIBLE_PICK[:2] + ["mtr_pump9"],
+        mrv_meters_missing=["mtr_pump9"],
         mrv_recent=MRV_RECENT, mrv_today=2)),
     ("MRV · 미전송 보관분", base_state(
         mode="mrv", sensors_on=False, values={}, status="14:32",

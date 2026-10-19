@@ -71,6 +71,10 @@ class State:
             "mrv_visible": [],
             # 고른 계측기 가운데 서버 목록에 없는 것. 조용히 감추지 않고 알린다.
             "mrv_meters_missing": [],
+            # 한 번에 고를 수 있는 계측기 수의 상한(shrimp365_sensor.MRV_VISIBLE_MAX).
+            # **정본은 저쪽 상수 하나**다 — 화면이 토글 시점에 막기 위해 받아 둔다.
+            # 0 이면 화면은 막지 않고 저장 때 서버가 막는다(수집기가 안 넣어 준 경우).
+            "mrv_vis_max": 0,
             "mrv_pending": 0,       # 아직 못 올린 전력 입력 건수
             "mrv_last": None,       # 마지막 전송 결과 한 줄
             "mrv_clock_ok": True,   # 장비 시계를 믿을 수 있는가
@@ -860,6 +864,8 @@ var I18N = {
   pw_err_backlog:{ko:"먼저 보관된 입력이 올라간 뒤에 보냅니다 — 순서를 지켜야 지침의 차이가 맞습니다",en:"Held until earlier entries upload — the order must hold for readings to differ correctly",vi:"Giữ lại đến khi các mục trước được tải lên — phải đúng thứ tự để hiệu số chỉ đúng",id:"Ditahan sampai input sebelumnya terunggah — urutan harus benar agar selisih tepat"},
   pw_err_no_meters:{ko:"계측기 목록을 먼저 받아 주세요",en:"Load the meter list first",vi:"Hãy tải danh sách thiết bị đo trước",id:"Muat daftar meter dulu"},
   pw_err_unknown_meter:{ko:"목록에 없는 계측기입니다",en:"That meter is not in the list",vi:"Thiết bị đo không có trong danh sách",id:"Meter itu tidak ada di daftar"},
+  pw_err_vis_payload:{ko:"보낸 값이 계측기 목록이 아닙니다",en:"That is not a meter list",vi:"Giá trị gửi lên không phải danh sách thiết bị đo",id:"Nilai yang dikirim bukan daftar meter"},
+  pw_err_vis_max:{ko:"한 번에 {max}대까지만 고를 수 있습니다",en:"You can choose up to {max} meters",vi:"Chỉ có thể chọn tối đa {max} thiết bị đo",id:"Hanya bisa memilih maksimal {max} meter"},
   pw_err_kind:{ko:"알 수 없는 입력 종류입니다",en:"Unknown entry type",vi:"Loại nhập không xác định",id:"Jenis input tak dikenal"},
   // 200 을 받았어도 서버가 아무것도 저장하지 않은 경우. 초록 「전송했습니다」로
   // 적으면 사람은 들어가지 않은 값을 들어갔다고 믿는다.
@@ -1896,13 +1902,40 @@ function mrvUnlink(){
 //     업데이트 직후 작업자가 전력을 넣을 방법이 없다).
 //   · 고른 계측기가 서버 목록에서 사라졌으면 조용히 감추지 않고 알린다.
 var mrvVisOpen = false, mrvVisItems = [], mrvVisSel = [];
-var mrvVisMsg = null, mrvVisBusy = false;
+var mrvVisMsg = null, mrvVisBusy = false, mrvVisTouched = false;
+
+// 화면이 들고 있는 고른 목록은 **언제나 지금 목록 안의 id 뿐**이다.
+//
+// 저장된 목록을 통째로 들고 있으면, 서버 목록에서 사라진 id(장비를 다른 사이트로
+// 재페어링하면 옛 사이트 id 전부가 그렇게 된다)를 **끌 토글이 화면에 없다** —
+// 토글은 mrvVisItems 의 줄만 다룬다. 그런데 저장은 그 유령 id 까지 보내고 서버는
+// 목록 밖 id 를 거부하므로(그 규칙은 낡은 id 가 설정에 굳는 것을 막는다),
+// 무엇을 켜고 끄든 **저장이 100% 실패하고 경고는 영구히 남는다.** 그러면 고치는
+// 길은 root 로 설정 파일을 손보는 것뿐인데, 경고문은 바로 이 화면에서 다시 고르라고
+// 지시하고 있다. 그래서 거르개를 **보내기 전이 아니라 받는 자리에** 둔다 — 세는
+// 것(mrvVisCount)과 토글과 저장이 같은 목록을 보게 된다.
+//
+// 목록을 아직 받지 못했으면(mrvVisItems 가 빔) 거르지 않는다. 그 상태에서 비우면
+// [저장] 이 거르개를 통째로 꺼 버린다 — 그때는 저장 버튼 자체를 막는다.
+function mrvVisKeep(ids){
+  ids = ids || [];
+  if (!mrvVisItems.length) return ids.slice();
+  var known = mrvVisItems.map(function(m){ return m.id; });
+  return ids.filter(function(id){ return known.indexOf(id) >= 0; });
+}
+
+// 상한의 정본은 shrimp365_sensor.MRV_VISIBLE_MAX 다. 수집기가 안 넣어 주면 0 이고,
+// 그때는 화면에서 막지 않는다(저장 때 서버가 막는다 — 판정을 둘로 베끼지 않는다).
+function mrvVisMax(){
+  var n = (lastState || {}).mrv_vis_max;
+  return (typeof n === "number" && n > 0) ? n : 0;
+}
 
 function mrvVisStart(){
   var d = lastState || {};
-  mrvVisOpen = true; mrvVisMsg = null; mrvVisBusy = true;
+  mrvVisOpen = true; mrvVisMsg = null; mrvVisBusy = true; mrvVisTouched = false;
   mrvVisItems = d.mrv_meters || [];
-  mrvVisSel = (d.mrv_visible || []).slice();
+  mrvVisSel = mrvVisKeep(d.mrv_visible);
   drawMrv();
   // 열 때 목록을 다시 받는다. 낡은 목록으로 고르면 웹에서 방금 등록한 계측기를
   // 고를 수 없고, 저장은 목록에 있는 id 만 받으므로 그 자리에서 거부된다.
@@ -1911,8 +1944,11 @@ function mrvVisStart(){
     .then(function(r){
       mrvVisBusy = false;
       if (r.items) mrvVisItems = r.items;
-      if (r.visible) mrvVisSel = r.visible.slice();
-      if (!r.ok && r.error) mrvVisMsg = {kind:"err", text:r.error};
+      // 응답이 오기까지 최대 10초다. 회선이 느린 현장에서 그 사이 누른 토글을
+      // 저장된 값으로 덮으면, 작업자가 켠 것이 **아무 안내도 없이** 꺼진다.
+      // 한 번이라도 눌렀으면 누른 쪽을 남기고, 새 목록으로만 거른다.
+      mrvVisSel = mrvVisTouched ? mrvVisKeep(mrvVisSel) : mrvVisKeep(r.visible);
+      if (!r.ok) mrvVisMsg = {kind:"err", text:errText(r, "pw_failed")};
       drawMrv();
     })
     .catch(function(){
@@ -1928,12 +1964,29 @@ function mrvVisToggle(i){
   var m = mrvVisItems[i];
   if (!m) return;
   var at = mrvVisSel.indexOf(m.id);
-  if (at >= 0) mrvVisSel.splice(at, 1); else mrvVisSel.push(m.id);
+  if (at >= 0) {
+    mrvVisSel.splice(at, 1);
+  } else {
+    // 상한은 **켜는 순간** 막는다. [저장] 에서 처음 막으면 작업자는 스크롤도 없는
+    // 화면에서 무엇을 빼야 하는지 알 수 없고, 고른 것이 전부 날아간 것처럼 보인다.
+    var cap = mrvVisMax();
+    if (cap && mrvVisSel.length >= cap) {
+      mrvVisMsg = {kind:"err", text:t("pw_err_vis_max", {max:cap})};
+      drawMrv();
+      return;
+    }
+    mrvVisSel.push(m.id);
+  }
+  mrvVisTouched = true;
+  mrvVisMsg = null;
   drawMrv();
 }
 
 function mrvVisSave(){
-  if (mrvVisBusy) return;
+  // 목록을 모르는 상태에서는 저장하지 않는다. 그 상태의 빈 목록은 "거르개를
+  // 끈다" 와 구분되지 않아, 회선이 끊긴 사이에 누른 [저장] 이 고른 것을 통째로
+  // 지운다. 버튼도 함께 막아 두지만(drawMrvVisFoot) 여기서 한 번 더 받는다.
+  if (mrvVisBusy || !mrvVisItems.length) return;
   mrvVisBusy = true; drawMrv();
   fetch("/api/mrv/visible", {
     method:"POST", headers:{"Content-Type":"application/json"},
@@ -1944,11 +1997,17 @@ function mrvVisSave(){
       mrvVisBusy = false;
       if (r && r.ok) {
         mrvVisMsg = {kind:"ok", text: r.saved ? t("mrv_vis_saved") : t("saved_mem")};
+        mrvVisTouched = false;
         // 전력 패널이 아직 열려 있을 수 있다. 그쪽이 쓰는 값도 맞춰 둔다.
         pwrVis = (r.visible || []).slice();
         pwrShowAll = false;
+        // 유령 id 는 방금 설정에서 빠졌다. 경고를 들고 있는 값도 함께 비운다 —
+        // 다음 /api/state 가 올 때까지 "사라졌다" 가 남아 있으면, 작업자는
+        // 저장이 된 것인지 안 된 것인지 알 수 없다.
+        pwrGone = [];
+        if (lastState) lastState.mrv_meters_missing = [];
       } else {
-        mrvVisMsg = {kind:"err", text: (r && r.error) || t("save_fail")};
+        mrvVisMsg = {kind:"err", text: errText(r, "save_fail")};
       }
       drawMrv();
     })
@@ -1963,6 +2022,14 @@ function mrvVisSave(){
 function mrvVisCount(total, picked){
   return picked ? t("mrv_vis_some", {n:picked, total:total})
                 : t("mrv_vis_all", {n:total});
+}
+
+// 세는 것은 **지금 목록에 있는 것만**이다. 서버 목록에서 사라진 id 를 함께 세면
+// 「15대 중 3대」인데 켜진 줄은 2개가 되어, 세어 보는 작업자마다 어긋난다.
+// (거르개가 목록을 비우면 전력 화면은 거르지 않으므로 0 = 「전부 표시」가 맞다.)
+function mrvVisPicked(d){
+  var sel = d.mrv_visible || [], gone = d.mrv_meters_missing || [];
+  return sel.filter(function(id){ return gone.indexOf(id) < 0; }).length;
 }
 
 // 고른 계측기가 서버 목록에서 사라졌을 때. 운영자가 웹에서 지웠다는 뜻이고,
@@ -2004,9 +2071,12 @@ function drawMrvVis(){
 // 줄 아래로 밀려나는데, 키오스크에는 스크롤바가 없어 거기에 버튼이 있다는 것을
 // 아무도 모른다 — 센서 설정 화면(.sfoot)이 이미 그렇게 되어 있다.
 function drawMrvVisFoot(){
+  // 목록을 아직 모르면 [저장] 을 막는다 — 그 상태의 저장은 거르개를 끄는 것과
+  // 같아져, 고른 것이 조용히 전부 지워진다(mrvVisSave 머리말).
+  var block = mrvVisBusy || !mrvVisItems.length;
   return '<button onclick="mrvVisClose()">' + t("cancel") + '</button>' +
     '<button aria-pressed="true" onclick="mrvVisSave()"' +
-      (mrvVisBusy ? " disabled" : "") + '>' + t("save") + '</button>';
+      (block ? " disabled" : "") + '>' + t("save") + '</button>';
 }
 
 function drawMrv(){
@@ -2014,6 +2084,11 @@ function drawMrv(){
   document.getElementById("wifi").innerHTML = "";
   var d = lastState || {};
   var body, foot = "";
+  // 고르기 화면이 떠 있는 동안 연결이 풀릴 수 있다(다른 사람이 웹에서 해제, 또는
+  // 이 화면에서 해제). 그때 제목만 「이 장비가 읽을 계측기」로 남으면 본문은 연결
+  // 안내인데 제목은 고르기 화면이라 어느 화면인지 읽을 수 없다. **제목과 본문과
+  // 뒤로가기가 같은 값을 본다.**
+  var visOn = mrvVisOpen && d.mrv_linked;
 
   if (d.mrv_pairing && d.mrv_pair_error) {
     body = '<div class="sname">' + t("mrv_pair_fail") + '</div>' +
@@ -2040,7 +2115,7 @@ function drawMrv(){
       '</ol></div>' +
       '<div class="ranges" style="margin-top:8px">' +
         '<button onclick="mrvCancel()">' + t("cancel") + '</button></div>';
-  } else if (mrvVisOpen && d.mrv_linked) {
+  } else if (visOn) {
     body = drawMrvVis();
     foot = drawMrvVisFoot();
   } else if (mrvAsk) {
@@ -2057,7 +2132,7 @@ function drawMrv(){
         '<span class="chip on">' + t("connected") + '</span></div>' +
       '<div class="srow"><div class="sname">' + t("mrv_vis") +
         '<div class="sub">' +
-          mrvVisCount((d.mrv_meters || []).length, (d.mrv_visible || []).length) +
+          mrvVisCount((d.mrv_meters || []).length, mrvVisPicked(d)) +
         '</div></div>' +
         '<button class="toggle" onclick="mrvVisStart()">' + t("mrv_vis_open") + '</button>' +
       '</div>' +
@@ -2080,11 +2155,11 @@ function drawMrv(){
     '<div class="setup">' +
       '<div class="chead">' +
         '<span class="ctitle">' +
-          (mrvVisOpen ? t("mrv_vis") : t("mrv_title")) + '</span>' +
+          (visOn ? t("mrv_vis") : t("mrv_title")) + '</span>' +
         // 고르기 화면에서는 [‹ MRV 연결] 로 한 단계만 돌아간다.
         '<button style="margin-left:auto" onclick="' +
-          (mrvVisOpen ? 'mrvVisClose()' : 'mrvBack()') + '">' +
-          (mrvVisOpen ? '‹ ' + t("mrv_title") : t("back_menu")) + '</button>' +
+          (visOn ? 'mrvVisClose()' : 'mrvBack()') + '">' +
+          (visOn ? '‹ ' + t("mrv_title") : t("back_menu")) + '</button>' +
       '</div>' +
       '<div class="sbody">' + body + '</div>' +
       (foot ? '<div class="ranges sfoot">' + foot + '</div>' : '') +
@@ -2208,10 +2283,18 @@ function pwrSend(){
     });
 }
 
-function pwrErrText(res){
+// 서버가 준 사유(code)를 4언어로 옮긴다. **번역 키가 없을 때만** 서버의 한국어
+// 원문을 쓴다 — 원문을 그대로 찍으면 베트남어·인도네시아어 작업자는 왜 실패했는지
+// 읽을 수 없다. 응답 전체를 치환 변수로 넘기므로 {max} 같은 자리도 메워진다.
+// 전력 패널과 「이 장비가 읽을 계측기」가 같은 함수를 쓴다 — 규약을 둘로 두면
+// 한쪽에만 번역이 붙는다(거르개 저장 실패가 한국어로만 뜨던 것이 그 경우다).
+function errText(res, fallbackKey){
+  res = res || {};
   var key = "pw_err_" + (res.code || "");
-  return I18N[key] ? t(key) : (res.error || t("pw_failed"));
+  return I18N[key] ? t(key, res) : (res.error || t(fallbackKey));
 }
+
+function pwrErrText(res){ return errText(res, "pw_failed"); }
 
 function pwrHead(title, back){
   return '<div class="chead">' +
@@ -2298,13 +2381,21 @@ function pwrMeterLine(m){
 
 // 이 화면에 그릴 계측기. 거르개는 **화면에만** 적용한다 — 서버가 받는 것은
 // 달라지지 않는다(전송 가드는 여전히 서버 목록 전체를 본다).
-function pwrShown(){
-  if (pwrShowAll || !pwrVis.length) return pwrMeters;
+function pwrKeep(){
+  if (!pwrVis.length) return pwrMeters;
   var keep = pwrMeters.filter(function(m){ return pwrVis.indexOf(m.id) >= 0; });
   // 고른 계측기가 전부 지워진 뒤라면 거르개가 목록을 비워 버린다. 빈 목록은
   // 「웹에서 먼저 등록하세요」 와 구분되지 않으므로, 그때는 거르지 않는다.
   return keep.length ? keep : pwrMeters;
 }
+
+// 거르개가 지금 **목록을 실제로 줄이고 있는가.** 줄이지 않는 동안(고른 것이
+// 전부 지워져 무력화된 상태) [전체 보기] 를 두면, 눌러도 목록이 그대로이고
+// 라벨만 바뀌어 "버튼이 안 먹는다" 로 보인다. 그래서 버튼과 안내문을 이 값으로
+// 가린다 — pwrVis 가 비었는지로 보면 무력화된 상태를 가려내지 못한다.
+function pwrFiltering(){ return pwrKeep().length !== pwrMeters.length; }
+
+function pwrShown(){ return pwrShowAll ? pwrMeters : pwrKeep(); }
 
 function pwrToggleShowAll(){ pwrShowAll = !pwrShowAll; drawPower(); }
 
@@ -2327,14 +2418,15 @@ function drawPowerList(){
         return '<div class="prow" onclick="pwrPick(' + i + ')">' + pwrMeterLine(m) +
           '<span style="color:#64748B;font-size:20px;flex:0 0 auto">›</span></div>';
       }).join("") + '</div>' +
-      ((filtered || pwrShowAll)
+      (pwrFiltering()
         ? '<div class="pnote" style="margin-top:6px">' + t("pw_show_all_note") + '</div>' : '');
   }
   return pwrClockWarn() + pwrBlockWarn() + mrvVisGone(pwrGone) + body +
     (pwrPending ? '<div class="pnote" style="margin-top:6px">' + t("pw_pending_note") + '</div>' : '') +
     '<div class="pbtns">' +
-      // 거르개가 켜진 장비에만 둔다. 거르지 않는 화면에서 [전체 보기] 는 아무 뜻이 없다.
-      (pwrVis.length
+      // 거르개가 **실제로 줄이고 있을 때만** 둔다. 거르지 않는 화면에서
+      // [전체 보기] 는 아무 뜻이 없고, 눌러도 아무 일이 없는 버튼이 된다.
+      (pwrFiltering()
         ? '<button class="ghost" aria-pressed="' + pwrShowAll + '" onclick="pwrToggleShowAll()">' +
             (pwrShowAll ? t("pw_show_picked") : t("pw_show_all")) + '</button>' : '') +
       '<button class="ghost" onclick="loadMeters()"' + (pwrBusy ? " disabled" : "") + '>' +
