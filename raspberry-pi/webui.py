@@ -66,6 +66,11 @@ class State:
             "mrv_pair_code": None,
             "mrv_pair_error": None,
             "mrv_meters": [],       # 전력 계측기 목록(서버가 준 것만)
+            # 화면에 띄울 계측기 id. **비어 있으면 전부 띄운다**(빈 목록이
+            # "아무것도 안 띄운다" 면 업데이트 직후 작업자가 전력을 못 넣는다).
+            "mrv_visible": [],
+            # 고른 계측기 가운데 서버 목록에 없는 것. 조용히 감추지 않고 알린다.
+            "mrv_meters_missing": [],
             "mrv_pending": 0,       # 아직 못 올린 전력 입력 건수
             "mrv_last": None,       # 마지막 전송 결과 한 줄
             "mrv_clock_ok": True,   # 장비 시계를 믿을 수 있는가
@@ -793,11 +798,29 @@ var I18N = {
   mrv_step4:{ko:"위 6자리 코드 입력",en:"Enter the 6-digit code above",vi:"Nhập mã 6 số ở trên",id:"Masukkan kode 6 digit di atas"},
   mrv_getting:{ko:"연결 코드를 받는 중…",en:"Getting a pairing code…",vi:"Đang lấy mã kết nối…",id:"Mengambil kode…"},
   mrv_pair_fail:{ko:"연결 코드를 받지 못했습니다",en:"Couldn't get a pairing code",vi:"Không lấy được mã kết nối",id:"Gagal mendapatkan kode"},
+  // ── 이 장비가 읽을 계측기(화면 거르개) ────────────────────────────────────
+  // 전력 계측기가 15대인 현장에서 전부 띄우면 한 화면에 5대만 보이고, 키오스크에는
+  // 스크롤바가 없어 몇 대가 있는지 어디에도 적히지 않는다. 매일 읽는 1~3대만 띄운다.
+  mrv_vis:{ko:"이 장비가 읽을 계측기",en:"Meters this device reads",vi:"Thiết bị đo máy này đọc",id:"Meter yang dibaca perangkat ini"},
+  mrv_vis_all:{ko:"전부 표시 — {n}대",en:"Showing all — {n}",vi:"Hiện tất cả — {n}",id:"Tampil semua — {n}"},
+  mrv_vis_some:{ko:"{total}대 중 {n}대 표시",en:"Showing {n} of {total}",vi:"Hiện {n}/{total}",id:"Tampil {n} dari {total}"},
+  mrv_vis_open:{ko:"고르기",en:"Choose",vi:"Chọn",id:"Pilih"},
+  mrv_vis_hint:{ko:"매일 사람이 읽는 1~3대만 켜 두세요. 나머지 기기는 웹에서 CSV 로 월 1회 올립니다.",en:"Leave on only the 1–3 meters someone reads every day. Upload the rest once a month by CSV on the web.",vi:"Chỉ bật 1–3 thiết bị đo mà người đọc hằng ngày. Các máy còn lại tải lên bằng CSV mỗi tháng một lần trên web.",id:"Aktifkan hanya 1–3 meter yang dibaca orang setiap hari. Sisanya diunggah lewat CSV sekali sebulan di web."},
+  mrv_vis_why:{ko:"EI 계산에는 기기별 계측기가 필요하지 않습니다. 등록이 늘수록 기준선 잠금에 필요한 입력 횟수(계측기·일당 0.8건)를 맞추기 어려워집니다 — 15대면 7일에 84건입니다.",en:"The EI formula does not need per-equipment meters. The more meters registered, the harder the baseline lock's entry rate (0.8 per meter-day) gets — 15 meters means 84 entries in 7 days.",vi:"Công thức EI không cần thiết bị đo riêng cho từng máy. Càng đăng ký nhiều, càng khó đạt mật độ nhập của khoá đường cơ sở (0,8 lần/thiết bị/ngày) — 15 thiết bị là 84 lần trong 7 ngày.",id:"Rumus EI tidak memerlukan meter per peralatan. Makin banyak meter terdaftar, makin sulit memenuhi laju input kunci baseline (0,8 per meter per hari) — 15 meter berarti 84 input dalam 7 hari."},
+  mrv_vis_none:{ko:"아무것도 고르지 않으면 전부 보입니다.",en:"With nothing chosen, every meter is shown.",vi:"Nếu không chọn gì, tất cả đều hiện.",id:"Jika tidak ada yang dipilih, semua meter ditampilkan."},
+  mrv_vis_filter_note:{ko:"이것은 <b>이 장비 화면의 거르개</b>일 뿐입니다. 서버가 받는 값은 달라지지 않습니다.",en:"This filters <b>this device's screen</b> only. What the server accepts does not change.",vi:"Đây chỉ là bộ lọc cho <b>màn hình của thiết bị này</b>. Những gì máy chủ nhận không thay đổi.",id:"Ini hanya menyaring <b>layar perangkat ini</b>. Apa yang diterima server tidak berubah."},
+  mrv_vis_saved:{ko:"저장했습니다. 전력 화면에 바로 적용됩니다.",en:"Saved. It applies to the power screen right away.",vi:"Đã lưu. Áp dụng ngay cho màn hình nhập điện.",id:"Tersimpan. Langsung berlaku di layar input daya."},
+  mrv_vis_gone:{ko:"고른 계측기 {n}대가 서버 목록에 없습니다",en:"{n} chosen meter(s) are not in the server list",vi:"{n} thiết bị đo đã chọn không có trong danh sách máy chủ",id:"{n} meter pilihan tidak ada di daftar server"},
+  mrv_vis_gone_sub:{ko:"웹에서 지워졌을 수 있습니다. [설정] → [MRV 연결] → [이 장비가 읽을 계측기] 에서 다시 고르세요.",en:"They may have been deleted on the web. Choose again in Settings → MRV link → Meters this device reads.",vi:"Có thể đã bị xoá trên web. Hãy chọn lại ở Cài đặt → Kết nối MRV → Thiết bị đo máy này đọc.",id:"Mungkin sudah dihapus di web. Pilih ulang di Pengaturan → Koneksi MRV → Meter yang dibaca perangkat ini."},
   pw_btn:{ko:"전력 입력",en:"Power entry",vi:"Nhập điện",id:"Input daya"},
   pw_title:{ko:"전력 수기 입력",en:"Manual power entry",vi:"Nhập điện thủ công",id:"Input daya manual"},
   pw_pick:{ko:"계측기를 고르세요",en:"Choose a meter",vi:"Chọn thiết bị đo",id:"Pilih meter"},
   pw_aeration:{ko:"폭기",en:"Aeration",vi:"Sục khí",id:"Aerasi"},
   pw_none:{ko:"웹 설정에서 전력 계측기를 먼저 등록하세요",en:"Register a power meter in the web settings first",vi:"Hãy đăng ký thiết bị đo điện trong cài đặt web trước",id:"Daftarkan meter listrik di pengaturan web terlebih dahulu"},
+  pw_count:{ko:"{n}대",en:"{n} meters",vi:"{n} thiết bị",id:"{n} meter"},
+  pw_show_all:{ko:"전체 보기",en:"Show all",vi:"Xem tất cả",id:"Tampilkan semua"},
+  pw_show_picked:{ko:"고른 것만",en:"Chosen only",vi:"Chỉ mục đã chọn",id:"Hanya pilihan"},
+  pw_show_all_note:{ko:"[전체 보기] 는 이 화면에서만 적용됩니다 — 설정은 바뀌지 않습니다.",en:"“Show all” applies to this screen only — the setting is unchanged.",vi:"“Xem tất cả” chỉ áp dụng cho màn hình này — cài đặt không đổi.",id:"“Tampilkan semua” hanya untuk layar ini — pengaturan tidak berubah."},
   pw_reload:{ko:"목록 다시 받기",en:"Reload list",vi:"Tải lại danh sách",id:"Muat ulang daftar"},
   pw_meter:{ko:"계측기",en:"Meter",vi:"Thiết bị đo",id:"Meter"},
   pw_kind:{ko:"입력 종류",en:"Entry type",vi:"Loại nhập",id:"Jenis input"},
@@ -1837,10 +1860,10 @@ function openMrvSetup(){ settingsOpen = true; openMrv(); }
 // 둘을 섞지 않는다 — 여기서 하는 일은 탄소 MRV 수집 키를 받아 두는 것뿐이다.
 var mrvOpen = false, mrvAsk = false, mrvTimer = null;
 
-function openMrv(){ mrvOpen = true; mrvAsk = false; drawMrv(); mrvPoll(); }
+function openMrv(){ mrvOpen = true; mrvAsk = false; mrvVisOpen = false; drawMrv(); mrvPoll(); }
 
 function mrvBack(){
-  mrvOpen = false;
+  mrvOpen = false; mrvVisOpen = false;
   if (mrvTimer) { clearTimeout(mrvTimer); mrvTimer = null; }
   drawSettingsMenu();
 }
@@ -1865,11 +1888,132 @@ function mrvUnlink(){
   fetch("/api/mrv/unlink", {method:"POST"}).then(drawMrv).catch(drawMrv);
 }
 
+// ── 이 장비가 읽을 계측기 ────────────────────────────────────────────────────
+// 센서 토글 화면(drawSettings)과 **같은 모양**이다 — 작업자가 이미 아는 조작이다.
+// 고른 것만 전력 화면 목록에 뜬다. 지켜야 하는 것 셋:
+//   · 표시용 거르개일 뿐이다. 서버가 받는 것·거부하는 것은 하나도 달라지지 않는다.
+//   · 아무것도 고르지 않으면 **전부** 보인다(빈 목록이 "아무것도 안 보인다" 면
+//     업데이트 직후 작업자가 전력을 넣을 방법이 없다).
+//   · 고른 계측기가 서버 목록에서 사라졌으면 조용히 감추지 않고 알린다.
+var mrvVisOpen = false, mrvVisItems = [], mrvVisSel = [];
+var mrvVisMsg = null, mrvVisBusy = false;
+
+function mrvVisStart(){
+  var d = lastState || {};
+  mrvVisOpen = true; mrvVisMsg = null; mrvVisBusy = true;
+  mrvVisItems = d.mrv_meters || [];
+  mrvVisSel = (d.mrv_visible || []).slice();
+  drawMrv();
+  // 열 때 목록을 다시 받는다. 낡은 목록으로 고르면 웹에서 방금 등록한 계측기를
+  // 고를 수 없고, 저장은 목록에 있는 id 만 받으므로 그 자리에서 거부된다.
+  fetch("/api/mrv/meters", {method:"POST"})
+    .then(function(r){ return r.json(); })
+    .then(function(r){
+      mrvVisBusy = false;
+      if (r.items) mrvVisItems = r.items;
+      if (r.visible) mrvVisSel = r.visible.slice();
+      if (!r.ok && r.error) mrvVisMsg = {kind:"err", text:r.error};
+      drawMrv();
+    })
+    .catch(function(){
+      mrvVisBusy = false;
+      mrvVisMsg = {kind:"err", text:t("pw_err_offline")};
+      drawMrv();
+    });
+}
+
+function mrvVisClose(){ mrvVisOpen = false; mrvVisMsg = null; drawMrv(); }
+
+function mrvVisToggle(i){
+  var m = mrvVisItems[i];
+  if (!m) return;
+  var at = mrvVisSel.indexOf(m.id);
+  if (at >= 0) mrvVisSel.splice(at, 1); else mrvVisSel.push(m.id);
+  drawMrv();
+}
+
+function mrvVisSave(){
+  if (mrvVisBusy) return;
+  mrvVisBusy = true; drawMrv();
+  fetch("/api/mrv/visible", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ids: mrvVisSel})
+  })
+    .then(function(r){ return r.json(); })
+    .then(function(r){
+      mrvVisBusy = false;
+      if (r && r.ok) {
+        mrvVisMsg = {kind:"ok", text: r.saved ? t("mrv_vis_saved") : t("saved_mem")};
+        // 전력 패널이 아직 열려 있을 수 있다. 그쪽이 쓰는 값도 맞춰 둔다.
+        pwrVis = (r.visible || []).slice();
+        pwrShowAll = false;
+      } else {
+        mrvVisMsg = {kind:"err", text: (r && r.error) || t("save_fail")};
+      }
+      drawMrv();
+    })
+    .catch(function(){
+      mrvVisBusy = false;
+      mrvVisMsg = {kind:"err", text:t("save_fail")};
+      drawMrv();
+    });
+}
+
+// 「전체 15대 중 3대」. 거르개를 켜 두었는지 한 줄로 보이게 한다.
+function mrvVisCount(total, picked){
+  return picked ? t("mrv_vis_some", {n:picked, total:total})
+                : t("mrv_vis_all", {n:total});
+}
+
+// 고른 계측기가 서버 목록에서 사라졌을 때. 운영자가 웹에서 지웠다는 뜻이고,
+// 작업자는 "어제 넣던 것이 없어졌다" 를 알아야 한다 — 조용히 감추지 않는다.
+function mrvVisGone(ids){
+  if (!ids || !ids.length) return "";
+  return '<div class="pwarn">' + t("mrv_vis_gone", {n:ids.length}) +
+    '<div style="font-weight:500;font-size:12px;margin-top:4px;color:#FCA5A5">' +
+      esc(ids.join(", ")) + '</div>' +
+    '<div style="font-weight:500;font-size:12px;margin-top:4px;color:#FCA5A5">' +
+      t("mrv_vis_gone_sub") + '</div></div>';
+}
+
+function drawMrvVis(){
+  var d = lastState || {};
+  var rows = mrvVisItems.map(function(m, i){
+    var on = mrvVisSel.indexOf(m.id) >= 0;
+    return '<div class="srow">' +
+      '<div class="sname">' + esc(m.label) +
+        (m.is_aeration ? ' <span class="aer">' + t("pw_aeration") + '</span>' : '') +
+        '<div class="sub">' + esc(m.id) + '</div></div>' +
+      '<button class="toggle' + (on ? " on" : "") + '" ' +
+        'onclick="mrvVisToggle(' + i + ')">' + (on ? t("on") : t("off")) + '</button>' +
+    '</div>';
+  }).join("");
+  var msg = mrvVisMsg
+    ? '<div class="msg ' + mrvVisMsg.kind + '">' + esc(mrvVisMsg.text) + '</div>' : "";
+  var body = mrvVisItems.length
+    ? '<div class="sub" style="margin:2px 0 6px">' +
+        mrvVisCount(mrvVisItems.length, mrvVisSel.length) + ' · ' + t("mrv_vis_hint") +
+      '</div>' + rows +
+      '<div class="sub" style="margin:8px 0 0">' + t("mrv_vis_none") + '<br>' +
+        t("mrv_vis_filter_note") + '<br>' + t("mrv_vis_why") + '</div>'
+    : '<div class="sub">' + (mrvVisBusy ? t("wifi_loading") : t("pw_none")) + '</div>';
+  return mrvVisGone(d.mrv_meters_missing) + msg + body;
+}
+
+// [저장] 은 **고정 바닥**에 둔다. 계측기가 15대면 목록 안에 둔 버튼은 열다섯
+// 줄 아래로 밀려나는데, 키오스크에는 스크롤바가 없어 거기에 버튼이 있다는 것을
+// 아무도 모른다 — 센서 설정 화면(.sfoot)이 이미 그렇게 되어 있다.
+function drawMrvVisFoot(){
+  return '<button onclick="mrvVisClose()">' + t("cancel") + '</button>' +
+    '<button aria-pressed="true" onclick="mrvVisSave()"' +
+      (mrvVisBusy ? " disabled" : "") + '>' + t("save") + '</button>';
+}
+
 function drawMrv(){
   if (!mrvOpen) return;
   document.getElementById("wifi").innerHTML = "";
   var d = lastState || {};
-  var body;
+  var body, foot = "";
 
   if (d.mrv_pairing && d.mrv_pair_error) {
     body = '<div class="sname">' + t("mrv_pair_fail") + '</div>' +
@@ -1896,6 +2040,9 @@ function drawMrv(){
       '</ol></div>' +
       '<div class="ranges" style="margin-top:8px">' +
         '<button onclick="mrvCancel()">' + t("cancel") + '</button></div>';
+  } else if (mrvVisOpen && d.mrv_linked) {
+    body = drawMrvVis();
+    foot = drawMrvVisFoot();
   } else if (mrvAsk) {
     body = '<div class="wcur">' + t("mrv_unlink_ask") + '</div>' +
       '<div class="ranges" style="margin-top:8px">' +
@@ -1908,6 +2055,13 @@ function drawMrv(){
         '<div class="sub">' + t("mrv_site") + ' ' +
         esc(d.mrv_site_id || "--") + '</div></div>' +
         '<span class="chip on">' + t("connected") + '</span></div>' +
+      '<div class="srow"><div class="sname">' + t("mrv_vis") +
+        '<div class="sub">' +
+          mrvVisCount((d.mrv_meters || []).length, (d.mrv_visible || []).length) +
+        '</div></div>' +
+        '<button class="toggle" onclick="mrvVisStart()">' + t("mrv_vis_open") + '</button>' +
+      '</div>' +
+      mrvVisGone(d.mrv_meters_missing) +
       (d.mrv_pending ? '<div class="srow"><div class="sname">' +
         t("pw_pending", {n:d.mrv_pending}) +
         '<div class="sub">' + t("pw_pending_note") + '</div></div></div>' : '') +
@@ -1925,10 +2079,15 @@ function drawMrv(){
   document.getElementById("setup").innerHTML =
     '<div class="setup">' +
       '<div class="chead">' +
-        '<span class="ctitle">' + t("mrv_title") + '</span>' +
-        '<button style="margin-left:auto" onclick="mrvBack()">' + t("back_menu") + '</button>' +
+        '<span class="ctitle">' +
+          (mrvVisOpen ? t("mrv_vis") : t("mrv_title")) + '</span>' +
+        // 고르기 화면에서는 [‹ MRV 연결] 로 한 단계만 돌아간다.
+        '<button style="margin-left:auto" onclick="' +
+          (mrvVisOpen ? 'mrvVisClose()' : 'mrvBack()') + '">' +
+          (mrvVisOpen ? '‹ ' + t("mrv_title") : t("back_menu")) + '</button>' +
       '</div>' +
       '<div class="sbody">' + body + '</div>' +
+      (foot ? '<div class="ranges sfoot">' + foot + '</div>' : '') +
     '</div>';
 }
 
@@ -1940,6 +2099,10 @@ var pwrOpen = false, pwrStep = "list", pwrMeters = [], pwrMeter = null;
 var pwrKind = "cumulative_kwh", pwrBuf = "", pwrRes = null;
 var pwrBusy = false, pwrMsg = null, pwrClock = true, pwrPending = 0;
 var pwrBlocked = 0, pwrBlockedReason = null, pwrBlockAsk = false;
+// 「이 장비가 읽을 계측기」 거르개. pwrVis 가 비어 있으면 거르지 않는다.
+// pwrShowAll 은 **화면 상태일 뿐**이고 설정을 바꾸지 않는다 — 거르개 때문에
+// 영영 닿을 수 없는 계측기가 생기면 안 되므로 목록에 되돌리는 길을 둔다.
+var pwrVis = [], pwrShowAll = false, pwrGone = [];
 
 // 입력 종류의 기본값은 **계량기 지침**이다. 이 전역이 패널·계측기를 넘어 남으면,
 // 한 번 [구간 사용량] 을 쓴 뒤 다음에 계량기 누적 숫자(예: 128450.6)를 넣었을 때
@@ -1953,6 +2116,9 @@ function openPower(){
   pwrRes = null; pwrMsg = null; pwrBusy = false; pwrBlockAsk = false;
   pwrResetKind();
   pwrMeters = d.mrv_meters || [];
+  pwrVis = d.mrv_visible || [];
+  pwrGone = d.mrv_meters_missing || [];
+  pwrShowAll = false;
   pwrPending = d.mrv_pending || 0;
   pwrBlocked = d.mrv_blocked || 0;
   pwrBlockedReason = d.mrv_blocked_reason || null;
@@ -1970,6 +2136,8 @@ function loadMeters(){
     .then(function(d){
       pwrBusy = false;
       if (d.items) pwrMeters = d.items;
+      if (d.visible) pwrVis = d.visible;
+      pwrGone = d.missing || [];
       pwrPending = d.pending || 0;
       pwrBlocked = d.blocked || 0;
       pwrBlockedReason = d.blocked_reason || null;
@@ -1986,8 +2154,10 @@ function closePower(){
   tick();
 }
 
+// 목록에 그려진 순서로 받는다 — pwrMeters 로 세면 거르개가 켜진 화면에서
+// 누른 줄과 다른 계측기가 열린다.
 function pwrPick(i){
-  pwrMeter = pwrMeters[i] || null;
+  pwrMeter = pwrShown()[i] || null;
   if (!pwrMeter) return;
   // 다른 계측기를 고르면 앞 계측기에서 고른 종류를 끌고 가지 않는다.
   pwrResetKind();
@@ -2126,22 +2296,47 @@ function pwrMeterLine(m){
     '<span class="punit">' + esc(pwrUnitLabel(m.unit)) + '</span>';
 }
 
+// 이 화면에 그릴 계측기. 거르개는 **화면에만** 적용한다 — 서버가 받는 것은
+// 달라지지 않는다(전송 가드는 여전히 서버 목록 전체를 본다).
+function pwrShown(){
+  if (pwrShowAll || !pwrVis.length) return pwrMeters;
+  var keep = pwrMeters.filter(function(m){ return pwrVis.indexOf(m.id) >= 0; });
+  // 고른 계측기가 전부 지워진 뒤라면 거르개가 목록을 비워 버린다. 빈 목록은
+  // 「웹에서 먼저 등록하세요」 와 구분되지 않으므로, 그때는 거르지 않는다.
+  return keep.length ? keep : pwrMeters;
+}
+
+function pwrToggleShowAll(){ pwrShowAll = !pwrShowAll; drawPower(); }
+
 function drawPowerList(){
+  var shown = pwrShown();
+  var filtered = shown.length !== pwrMeters.length;   // 지금 거르고 있는가
   var body;
   if (!pwrMeters.length) {
     body = '<div class="pnote">' + (pwrBusy ? t("wifi_loading") : t("pw_none")) + '</div>' +
       (pwrMsg ? '<div class="msg err">' + esc(pwrMsg) + '</div>' : '');
   } else {
-    body = '<div class="pnote">' + t("pw_pick") + '</div>' +
+    // **목록에 몇 대가 있는지 적는다.** 한 화면에 5대만 보이고 키오스크에는
+    // 스크롤바가 없어, 적지 않으면 작업자는 보이는 것이 전부라고 믿는다.
+    // 거르는 중이면 둘(전체·표시)을 함께 적는다.
+    body = '<div class="pnote">' + t("pw_pick") + ' · ' +
+        (filtered ? t("mrv_vis_some", {n: shown.length, total: pwrMeters.length})
+                  : t("pw_count", {n: pwrMeters.length})) + '</div>' +
       (pwrMsg ? '<div class="msg err">' + esc(pwrMsg) + '</div>' : '') +
-      '<div class="plist">' + pwrMeters.map(function(m, i){
+      '<div class="plist">' + shown.map(function(m, i){
         return '<div class="prow" onclick="pwrPick(' + i + ')">' + pwrMeterLine(m) +
           '<span style="color:#64748B;font-size:20px;flex:0 0 auto">›</span></div>';
-      }).join("") + '</div>';
+      }).join("") + '</div>' +
+      ((filtered || pwrShowAll)
+        ? '<div class="pnote" style="margin-top:6px">' + t("pw_show_all_note") + '</div>' : '');
   }
-  return pwrClockWarn() + pwrBlockWarn() + body +
+  return pwrClockWarn() + pwrBlockWarn() + mrvVisGone(pwrGone) + body +
     (pwrPending ? '<div class="pnote" style="margin-top:6px">' + t("pw_pending_note") + '</div>' : '') +
     '<div class="pbtns">' +
+      // 거르개가 켜진 장비에만 둔다. 거르지 않는 화면에서 [전체 보기] 는 아무 뜻이 없다.
+      (pwrVis.length
+        ? '<button class="ghost" aria-pressed="' + pwrShowAll + '" onclick="pwrToggleShowAll()">' +
+            (pwrShowAll ? t("pw_show_picked") : t("pw_show_all")) + '</button>' : '') +
       '<button class="ghost" onclick="loadMeters()"' + (pwrBusy ? " disabled" : "") + '>' +
         t("pw_reload") + '</button>' +
       '<button class="ghost" onclick="closePower()">' + t("close") + '</button>' +
@@ -2787,6 +2982,9 @@ def serve(
     on_mrv_pair_cancel=None,
     on_mrv_unlink=None,
     get_mrv_meters=None,
+    # 이 장비 화면에 띄울 계측기를 고른다. **표시용 거르개일 뿐**이다 —
+    # 서버가 받는 것·거부하는 것은 달라지지 않는다.
+    on_mrv_visible=None,
     on_mrv_power=None,
     # 서버가 받지 않아 멈춘 보관분을 사람의 확인을 받아 치운다.
     on_mrv_discard=None,
@@ -2946,6 +3144,10 @@ def serve(
             if self.path == "/api/mrv/meters" and get_mrv_meters is not None:
                 # 서버에 물어보므로 몇 초 걸릴 수 있다.
                 self._send(200, json.dumps(get_mrv_meters()).encode(), "application/json")
+                return
+            if self.path == "/api/mrv/visible" and on_mrv_visible is not None:
+                self._send(200, json.dumps(on_mrv_visible(self._body())).encode(),
+                           "application/json")
                 return
             if self.path == "/api/mrv/discard" and on_mrv_discard is not None:
                 self._send(200, json.dumps(on_mrv_discard()).encode(), "application/json")

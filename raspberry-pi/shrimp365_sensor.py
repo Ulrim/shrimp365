@@ -1558,6 +1558,55 @@ def save_mrv_api_key(config_path: Path, key: str, site_id: str = "") -> bool:
         return False
 
 
+def save_mrv_visible_meters(config_path: Path, picks: list[str]) -> bool:
+    """이 장비 화면에 띄울 계측기 id 를 [mrv] visible_meters 에 적는다.
+
+    save_mrv_api_key 와 같은 길이다 — **구간을 가려** 고치고, 항목이 없으면
+    구간 안에 끼워 넣고, 구간이 파일 끝까지 이어졌으면 _append_config_lines()
+    로 붙인다(끝 개행 결함을 그 함수에 모아 두었다. 여기서 직접 append 하면
+    마지막 줄과 뭉쳐 buffer_path 까지 깨진다).
+
+    빈 목록은 **빈 값으로 적는다.** 항목을 지우지 않는 것은, 다음 사람이 설정
+    파일만 보고도 "이 장비는 거르개를 꺼 두었다" 를 알 수 있어야 하기 때문이다.
+    """
+    try:
+        lines = config_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    except OSError as exc:
+        log.error("설정 파일을 읽을 수 없습니다: %s", exc)
+        return False
+
+    value = ", ".join(picks)
+    seen = False
+    in_mrv = False
+    insert_at = None
+    for i, line in enumerate(lines):
+        stripped = line.strip().lower()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if in_mrv and insert_at is None:
+                insert_at = i          # [mrv] 를 막 벗어나는 참
+            in_mrv = stripped == "[mrv]"
+            continue
+        if in_mrv and stripped.startswith("visible_meters") and "=" in line:
+            lines[i] = f"visible_meters = {value}\n"
+            seen = True
+    if not seen:
+        new = [f"visible_meters = {value}\n"]
+        if insert_at is not None:
+            lines[insert_at:insert_at] = new
+        elif in_mrv:                   # [mrv] 가 파일 끝까지 이어졌다
+            _append_config_lines(lines, new)
+        else:
+            _append_config_lines(lines, ["\n[mrv]\n"] + new)
+
+    try:
+        config_path.write_text("".join(lines), encoding="utf-8")
+        os.chmod(config_path, 0o600)   # 같은 파일에 수집 키가 들어 있다
+        return True
+    except OSError as exc:
+        log.error("설정 파일을 쓸 수 없습니다: %s (권한을 확인하세요)", exc)
+        return False
+
+
 def fetch_device_info(endpoint: str, device_key: str) -> dict | None:
     """서버에 "나는 어느 계정·수조에 붙어 있나"를 묻는다.
     재부팅한 뒤에도 화면에 연결 정보를 띄우기 위한 것."""
@@ -1986,6 +2035,54 @@ def _mrv_request(url: str, api_key: str, payload: dict | None = None,
     except (urllib.error.URLError, TimeoutError, ValueError) as exc:
         log.info("MRV 요청 실패: %s", exc)
         return 0, {}
+
+
+# ── 이 장비가 읽을 계측기(화면 거르개) ──────────────────────────────────────
+# 펌프·모터가 여러 대인 현장은 사이트 전력 계측기가 15대가 되기도 한다. 그 전부를
+# 기계실 화면에 띄우면 한 화면에 5대만 보이고, 키오스크에는 스크롤바가 없어
+# (폭 0px) 몇 대가 있는지 화면 어디에도 적히지 않는다. 목록은 정상적으로 스크롤
+# 되므로 **이것은 고장이 아니다** — 매일 읽는 1~3대만 띄우자는 선택이다.
+#
+# **거르개는 화면에만 적용한다.** 서버가 받는 것·거부하는 것은 하나도 달라지지
+# 않는다. 전송 가드(ui_mrv_power 의 known)는 여전히 **서버가 준 목록 전체**를
+# 기준으로 판정한다 — 거르개를 전송 가드로 쓰면 화면의 [전체 보기] 로 고른
+# 계측기가 거부되는, 사람이 예상할 수 없는 실패가 생긴다.
+#
+# **왜 적게 고르는 것이 맞는가.** EI 산식은 기기별 계측기를 필요로 하지 않는다
+# (lib/mrv/kpi/energy.ts 는 산입된 값의 합과 폭기 부분합만 쓴다). 기기별 등록은
+# 진단용이고, 등록이 늘수록 기준선 잠금 가드의 **계측기·일당 0.8건**
+# (lib/mrv/baseline-readiness.ts 의 readingDensity) 을 맞추기 어려워진다 —
+# 15대면 7일에 84건을 사람이 손으로 넣어야 한다. 나머지 기기는 웹에서 CSV 로
+# 월 1회 올리는 쪽이 맞다.
+MRV_VISIBLE_MAX = 24
+
+
+def mrv_parse_visible(raw: str) -> list[str]:
+    """[mrv] visible_meters 를 계측기 id 목록으로 읽는다.
+
+    **빈 값은 "전부 보여 준다" 다** — "아무것도 안 보여 준다" 가 아니다. 이
+    항목이 없는 기존 설정 파일에서 기본값이 빈 목록이면, 업데이트 직후 작업자는
+    계측기를 하나도 고를 수 없어 전력을 넣을 방법이 없어진다.
+    """
+    ids: list[str] = []
+    for token in str(raw or "").replace(",", " ").split():
+        token = token.strip()[:120]
+        if token and token not in ids:
+            ids.append(token)
+        if len(ids) >= MRV_VISIBLE_MAX:
+            break
+    return ids
+
+
+def mrv_missing_visible(items: list[dict], picks: list[str]) -> list[str]:
+    """고른 계측기 가운데 **서버 목록에 없는** id.
+
+    조용히 감추지 않는다. 운영자가 웹에서 그 계측기를 지웠다는 뜻이고, 어제
+    넣던 계측기가 오늘 목록에 없다는 사실을 작업자가 알아야 한다 — 모르면 그
+    기기의 전력은 아무도 넣지 않은 채로 달이 넘어간다.
+    """
+    known = {str(m.get("id")) for m in items if isinstance(m, dict) and m.get("id")}
+    return [p for p in picks if p not in known]
 
 
 def mrv_fetch_meters(base: str, api_key: str) -> dict:
@@ -2781,7 +2878,28 @@ def main() -> int:
     # 직전 목록으로 입력할 수 있어야 하고, 실패했다고 목록을 비우면 작업자는
     # 멀쩡한 계측기를 고를 수 없게 된다.
     mrv_meters_holder: dict = {"items": [], "error": None}
+    # 화면에 띄울 계측기. 비어 있으면 **전부** 띄운다(mrv_parse_visible 머리말).
+    mrv_visible: dict = {"ids": mrv_parse_visible(_mrv_cfg("visible_meters"))}
     mrv_base = _api_base(endpoint)
+
+    def _mrv_visible_state() -> dict:
+        """거르개를 화면에 알릴 값.
+
+        목록 자체는 거르지 않고 **서버가 준 전부**를 보낸다. 거르개는 화면이
+        적용한다 — 그래야 [전체 보기] 가 네트워크를 다시 타지 않고, 서버가 받는
+        것과 화면이 보여 주는 것이 어긋났을 때 그 사실을 화면이 말할 수 있다.
+        """
+        # 목록을 **한 번도 받지 못한** 상태(미연결·첫 부팅·조회 실패)에서는
+        # "사라졌다" 고 말하지 않는다. 그것은 지워진 것이 아니라 모르는 것이고,
+        # 연결하지 않은 장비가 매번 빨간 경고를 띄우면 진짜 경고가 묻힌다.
+        # (조회가 실패해도 홀더는 직전 목록을 그대로 들고 있으므로, 여기서
+        #  비어 있다는 것은 애초에 받은 적이 없다는 뜻이다.)
+        items = mrv_meters_holder["items"]
+        return {
+            "mrv_visible": list(mrv_visible["ids"]),
+            "mrv_meters_missing": (mrv_missing_visible(items, mrv_visible["ids"])
+                                   if items else []),
+        }
 
     # 터치스크린용 상태 페이지.
     # 연결 화면은 사용자가 버튼을 눌렀을 때만 뜬다 — 연결하지 않은 장비도
@@ -3132,7 +3250,8 @@ def main() -> int:
             if state is not None:
                 state.update(mrv_meters=list(mrv_meters_holder["items"]),
                              mrv_recent=mrv_recent_rows(
-                                 mrv_meters_holder["items"], mrv_lasts))
+                                 mrv_meters_holder["items"], mrv_lasts),
+                             **_mrv_visible_state())
 
         def ui_mrv_meters() -> dict:
             """전력 화면을 열 때 목록을 갱신한다.
@@ -3143,15 +3262,59 @@ def main() -> int:
             """
             result = mrv_fetch_meters(mrv_base, mrv_auth["key"])
             _mrv_push_meters(result)
+            vis = _mrv_visible_state()
             return {
                 "ok": bool(result.get("ok")),
                 "error": result.get("error"),
+                # 거르개와 무관하게 **전부** 보낸다. 거르는 것은 화면의 일이다.
                 "items": list(mrv_meters_holder["items"]),
+                "visible": vis["mrv_visible"],
+                "missing": vis["mrv_meters_missing"],
                 "clock_ok": mrv_clock_ok(),
                 "pending": mrv_store.pending() if mrv_store is not None else 0,
                 "blocked": mrv_rejected.count_confirmed(),
                 "blocked_reason": mrv_rejected.reason() or None,
             }
+
+        def ui_mrv_visible(payload: dict) -> dict:
+            """화면에서 고른 "이 장비가 읽을 계측기" 를 적용하고 파일에 남긴다.
+
+            ui_save_sensors 와 같은 모양이다 — 화면이 보낸 것을 검사한 뒤 먼저
+            적용하고, 파일 저장 실패는 알리되 이번 세션은 살려 둔다.
+
+            **고를 수 있는 것은 서버가 준 목록 안의 id 뿐이다**(화면과 같은 규칙:
+            ui_mrv_power 의 known). 목록이 아직 없을 때 저장을 받아 주면 낡은
+            id 가 설정 파일에 굳어 "고른 계측기가 사라졌다" 경고가 영구히 뜬다.
+            빈 목록은 정상 입력이고 **거르개를 끄는 것**을 뜻한다.
+            """
+            raw = payload.get("ids")
+            if not isinstance(raw, list):
+                return {"ok": False, "error": "계측기 목록이 아닙니다"}
+            picks: list[str] = []
+            for item in raw:
+                mid = str(item or "").strip()[:120]
+                if mid and mid not in picks:
+                    picks.append(mid)
+            if len(picks) > MRV_VISIBLE_MAX:
+                return {"ok": False,
+                        "error": f"한 번에 {MRV_VISIBLE_MAX}대까지만 고를 수 있습니다"}
+            known = {m["id"] for m in mrv_meters_holder["items"]}
+            if picks and not known:
+                return {"ok": False, "error": "계측기 목록을 먼저 받아 주세요",
+                        "code": "no_meters"}
+            unknown = [p for p in picks if p not in known]
+            if unknown:
+                return {"ok": False, "error": "목록에 없는 계측기입니다",
+                        "code": "unknown_meter", "unknown": unknown}
+
+            mrv_visible["ids"] = picks
+            saved = save_mrv_visible_meters(args.config, picks)
+            if state is not None:
+                state.update(**_mrv_visible_state())
+            log.info("화면에 띄울 계측기를 %s (파일 저장 %s)",
+                     f"{len(picks)}대로 골랐습니다" if picks else "전부로 되돌렸습니다",
+                     saved)
+            return {"ok": True, "saved": saved, "visible": list(picks)}
 
         def ui_mrv_pair_start() -> dict:
             if mrv_pairing["active"]:
@@ -3209,8 +3372,12 @@ def main() -> int:
             mrv_meters_holder["items"] = []
             mrv_meters_holder["error"] = None
             if state is not None:
+                # 고른 계측기는 지우지 않는다 — 같은 사이트에 다시 연결하면
+                # 그대로 쓰여야 한다. 다른 사이트로 연결했다면 그 id 들이
+                # 목록에 없게 되고, 화면이 그 사실을 알린다.
                 state.update(mrv_linked=False, mrv_site_id=None, mrv_meters=[],
-                             mrv_pairing=False, mrv_pair_code=None, mrv_pair_error=None)
+                             mrv_pairing=False, mrv_pair_code=None, mrv_pair_error=None,
+                             **_mrv_visible_state())
             log.info("화면에서 MRV 연결을 해제했습니다(파일 저장 %s).", saved)
             return {"ok": True, "saved": saved}
 
@@ -3354,6 +3521,7 @@ def main() -> int:
             on_mrv_pair_cancel=ui_mrv_pair_cancel,
             on_mrv_unlink=ui_mrv_unlink,
             get_mrv_meters=ui_mrv_meters,
+            on_mrv_visible=ui_mrv_visible,
             on_mrv_power=ui_mrv_power,
             on_mrv_discard=ui_mrv_discard,
             mode=mode_holder["mode"],
@@ -3371,6 +3539,7 @@ def main() -> int:
                      # 안내한다 — MRV 창구의 호스트를 그대로 적는다.
                      mrv_pair_url=_host_of(mrv_base),
                      **_mrv_blocked_state(),
+                     **_mrv_visible_state(),
                      mode=mode_holder["mode"],
                      # MRV 모드 화면은 이 값으로 수질 칸을 보일지 정한다. 판정 기준은
                      # **설정에 켜 둔 센서가 있는가** 다 — 지금 값이 읽히는가가 아니다.

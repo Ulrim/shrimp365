@@ -51,6 +51,8 @@ def base_state(**over) -> dict:
         "mrv_pairing": False, "mrv_pair_code": None, "mrv_pair_error": None,
         "mrv_meters": [], "mrv_pending": 0, "mrv_last": None, "mrv_clock_ok": True,
         "mrv_recent": [], "mrv_today": 0,
+        # 화면에 띄울 계측기(거르개). 비어 있으면 전부 띄운다 — 기본은 거르지 않는다.
+        "mrv_visible": [], "mrv_meters_missing": [],
         "mrv_blocked": 0, "mrv_blocked_reason": None, "mrv_pair_url": "",
         # 운전 모드. 기본은 양식장이고, 센서를 켜 둔 장비로 본다.
         "mode": "aquaculture", "sensors_on": True,
@@ -113,6 +115,10 @@ MRV_METERS_MANY = [
     {"id": "mtr_light", "label": "조명 · 기타", "unit": "kWh_interval",
      "is_aeration": False, "has_prev": True},
 ]
+
+# 15대 가운데 사람이 매일 읽는 것만 고른 그림. 총전력계 + 폭기 2대.
+# EI 산식은 기기별 계측기를 필요로 하지 않으므로(위 주석) 이것으로 충분하다.
+MRV_VISIBLE_PICK = ["mtr_total", "mtr_blower1", "mtr_pump1"]
 
 # MRV 기본 화면의 "마지막 지침" 줄. 보낸 적 없는 계측기는 들어가지 않는다.
 MRV_RECENT = [
@@ -199,6 +205,30 @@ STATES = [
         _open="power",
         mode="mrv", sensors_on=False, values={}, status="14:32",
         mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS_MANY,
+        mrv_recent=MRV_RECENT, mrv_today=2)),
+    # 같은 15대 현장에 거르개를 켠 그림. 「15대 중 3대 표시」가 목록 머리에 뜨고,
+    # 아래 [전체 보기] 로 15대를 다시 볼 수 있다(화면 상태일 뿐 설정은 바뀌지 않는다).
+    ("MRV · 거르개 켜짐(3대)", base_state(
+        _open="power",
+        mode="mrv", sensors_on=False, values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS_MANY,
+        mrv_visible=MRV_VISIBLE_PICK,
+        mrv_recent=MRV_RECENT, mrv_today=2)),
+    # 고른 계측기가 웹에서 지워진 그림. **조용히 감추지 않고 알린다** — 작업자는
+    # "어제 넣던 것이 없어졌다" 를 알아야 한다.
+    ("MRV · 고른 계측기가 사라짐", base_state(
+        _open="power",
+        mode="mrv", sensors_on=False, values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS_MANY,
+        mrv_visible=MRV_VISIBLE_PICK[:2] + ["mtr_pump9"],
+        mrv_meters_missing=["mtr_pump9"],
+        mrv_recent=MRV_RECENT, mrv_today=2)),
+    # 고르는 화면 자체. 센서 토글과 같은 모양인지 여기서 본다.
+    ("MRV · 읽을 계측기 고르기", base_state(
+        _open="mrv_visible",
+        mode="mrv", sensors_on=False, values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS_MANY,
+        mrv_visible=MRV_VISIBLE_PICK,
         mrv_recent=MRV_RECENT, mrv_today=2)),
     ("MRV · 미전송 보관분", base_state(
         mode="mrv", sensors_on=False, values={}, status="14:32",
@@ -332,7 +362,15 @@ window.fetch = function(url, opts){
   else if (url.indexOf("/api/mrv/meters") === 0) {
     var st = STATES[current][1];
     body = {ok:true, items: st.mrv_meters || [], clock_ok: st.mrv_clock_ok !== false,
-            pending: st.mrv_pending || 0};
+            pending: st.mrv_pending || 0,
+            // 거르개는 **화면이** 적용한다. 서버는 목록 전체와 고른 id 를 함께 준다.
+            visible: st.mrv_visible || [], missing: st.mrv_meters_missing || []};
+  }
+  else if (url.indexOf("/api/mrv/visible") === 0) {
+    var s3 = {};
+    try { s3 = JSON.parse((opts && opts.body) || "{}"); } catch(e){}
+    STATES[current][1].mrv_visible = s3.ids || [];
+    body = {ok:true, saved:true, visible: s3.ids || []};
   }
   else if (url.indexOf("/api/mrv/power") === 0) {
     var s2 = STATES[current][1];
@@ -367,6 +405,12 @@ function openFor(i){
   var want = OPENERS[i];
   if (!want) return;
   if (want === "mrv" && typeof openMrv === "function") return openMrv();
+  // 「읽을 계측기 고르기」 — MRV 연결 화면을 열고 그 안의 고르기 화면까지 들어간다.
+  if (want === "mrv_visible" && typeof openMrv === "function") {
+    openMrv();
+    if (typeof mrvVisStart === "function") mrvVisStart();
+    return;
+  }
   if (typeof openPower !== "function") return;
   openPower();
   // 계측기를 고른 뒤라야 키패드와 2건 규칙 안내가 나온다. 목록 화면만 띄워 놓고
