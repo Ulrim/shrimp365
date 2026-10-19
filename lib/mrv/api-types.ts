@@ -578,6 +578,38 @@ export interface KpiConfigListResponse {
 }
 
 /**
+ * POST /kpi-config 요청 본문(owner 전용, append-only).
+ *
+ * 기존 행을 고치는 창구는 없다 — 과거 스냅샷이 어떤 파라미터로 산출됐는지
+ * (`mrv_kpi_snapshots.config_version`) 추적 가능해야 하므로 새 `version` 행만 더한다.
+ */
+export interface KpiConfigCreateRequest {
+  version: string;
+  params_json: Record<string, unknown>;
+  effective_from: string;
+  /** 왜 바꾸는지. 감사 로그의 note 로 남는다. */
+  note?: string | null;
+}
+
+/**
+ * 산입 품질 플래그 위험 기록 1건.
+ * `suspect`/`bad` 를 포함한 저장은 **거부되지 않는다**(정당한 이유가 있을 수 있다).
+ * 대신 감사 로그와 응답에 "무엇을 포함했고 그 결과 어느 수치가 어떻게 틀어지는가"가 남는다.
+ */
+export interface QualityFlagRisk {
+  /** 예: `"ei.included_quality_flags"`. */
+  path: string;
+  flags: ("suspect" | "bad")[];
+  /** 사람이 읽는 결과 설명. */
+  effect: string;
+}
+
+/** POST /kpi-config 응답. 저장된 행 + 위험 산입 기록. */
+export interface KpiConfigCreateResponse extends KpiConfigEntry {
+  quality_flag_risks: QualityFlagRisk[];
+}
+
+/**
  * GET /kpi-snapshots/{id} 응답(1.7절 drill-down 종착점) — kpi_snapshots 1행 그대로.
  * before.kpi_snapshot_id/after.kpi_snapshot_id를 클릭해 여기로 들어가면 스칼라 5종 +
  * inputs_json + provenance_json + config_version까지 원본 근거를 역추적할 수 있다.
@@ -756,6 +788,51 @@ export interface MeterCreateRequest {
 export interface MeterListResponse {
   items: Meter[];
   total: number;
+}
+
+// ---------------------------------------------------------------------------
+// 장비 수집 키 — GET /api-keys?site_id=, POST /api-keys/{id}/revoke
+// 원본에 없는 창구다. 발급(페어링 승인)만 있고 **끊는 경로가 없어서** 단말을 분실하면
+// DB 직접 수정이 유일한 방법이었다. 자세한 사정은 app/api/mrv/api-keys/route.ts.
+// ---------------------------------------------------------------------------
+
+/**
+ * 발급된 장비 수집 키 1건.
+ *
+ * ★ 원문 키도 해시도 들어 있지 않다(서버가 내보내지 않는다). 이 타입에 그런 칸을
+ *   더하려 하지 말 것 — 목록을 열 수 있는 사람이 장비가 될 수 있으면 폐기 기능에
+ *   의미가 없다.
+ */
+export interface MrvApiKey {
+  id: string;
+  site_id: string;
+  /** 사람이 알아보는 이름. 페어링 때 비웠으면 장비 일련번호로 채워져 있다. */
+  label: string | null;
+  revoked: boolean;
+  created_at: string;
+  /**
+   * 마지막으로 인증을 통과한 시각. **매 요청이 아니라 몇 분에 한 번만 갱신된다**
+   * (계측값이 올라올 때마다 UPDATE 를 치면 수집 경로의 쓰기가 헛돈다). 분 단위
+   * 정확도를 가정하지 말 것 — "이 장비가 아직 살아 있는가" 를 묻는 칸이다.
+   * null 은 한 번도 쓰이지 않았다는 뜻이다(페어링만 하고 장비가 아직 안 올라온 상태).
+   */
+  last_used_at: string | null;
+  /**
+   * 끊은 시각. `revoked` 가 true 인데 이 칸이 null 이면 폐기 창구가 생기기 전에
+   * SQL 직접 수정으로 끊긴 행이며, 끊긴 시각을 아는 기록이 없다는 뜻이다.
+   */
+  revoked_at: string | null;
+  revoked_by: string | null;
+}
+
+export interface MrvApiKeyListResponse {
+  items: MrvApiKey[];
+  total: number;
+}
+
+/** POST /api-keys/{id}/revoke 요청 본문. 사유는 선택이며 감사 로그의 note 로 남는다. */
+export interface MrvApiKeyRevokeRequest {
+  reason?: string | null;
 }
 
 // ---------------------------------------------------------------------------

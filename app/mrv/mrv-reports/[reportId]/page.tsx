@@ -15,6 +15,7 @@ import { ApiError, apiFetch, useApiQuery } from "@/lib/mrv/client"
 import { formatIsoLocal } from "@/lib/mrv/ui/datetime"
 import { isoDay } from "@/lib/mrv/ui/period"
 import { MRV_METRIC_ROWS, formatMrvNumber } from "@/lib/mrv/ui/mrv-meta"
+import { isDefaultQualityFlagList, qualityFlagRiskText } from "@/lib/mrv/quality-flags"
 import {
   CenteredMessage,
   LoadError,
@@ -253,6 +254,22 @@ export default function MrvReportViewPage({
                 <dd className="text-mrv-fg">
                   {report.boundary.included_quality_flags.join(", ") || "-"}
                 </dd>
+                {/* 기본값이 아니면 인쇄 리포트와 같은 안내를 화면에도 띄운다
+                    (lib/mrv/report-html.ts::qualityFlagRow). 두 곳의 문구가 갈리면
+                    화면으로 본 사람과 인쇄물로 본 사람이 다른 사실을 알게 된다. */}
+                {!isDefaultQualityFlagList(report.boundary.included_quality_flags) && (
+                  <dd
+                    role="note"
+                    className="mt-1 rounded-md border border-mrv-amber bg-mrv-amber-bg p-2 text-xs leading-relaxed text-mrv-fg"
+                  >
+                    ★ 기본 설정(ok)이 아닙니다 — 이 리포트의 수치는 기본값과 다른 산입
+                    범위로 산출됐습니다.{" "}
+                    {report.boundary.included_quality_flags
+                      .filter((f): f is "suspect" | "bad" => f === "suspect" || f === "bad")
+                      .map((f) => qualityFlagRiskText(f))
+                      .join(" ")}
+                  </dd>
+                )}
               </div>
               <div>
                 <dt className="text-xs text-mrv-muted">생산량 근거(Before / After)</dt>

@@ -16,6 +16,12 @@
  */
 
 import type { EmissionFactorRow, MrvReportRow } from "./mrv-report-service"
+import {
+  EMPTY_QUALITY_FLAG_LIST_REASON,
+  RISKY_QUALITY_FLAGS,
+  isDefaultQualityFlagList,
+  qualityFlagRiskText,
+} from "./quality-flags"
 
 function esc(value: unknown): string {
   return String(value ?? "")
@@ -193,6 +199,44 @@ function emissionFactorRows(boundary: Boundary, ef: EmissionFactorRow): string {
   return rows.join("\n      ")
 }
 
+/**
+ * 「포함 품질 플래그」 줄. 기본값(`["ok"]`)이면 값만, 아니면 **눈에 띄게** 그린다.
+ *
+ * ── 왜 이 줄만 다르게 그리는가 ───────────────────────────────────────────────
+ * 이 한 줄이 리포트의 모든 수치가 **어떤 계측값으로 산출됐는지**를 정하는 칸이다.
+ * 기본값을 넓히면(예: `ok, suspect`) 적산 원값이 EI 분자에 들어가 EI·Scope2·감축량이
+ * 전부 달라지는데, 지금까지 이 줄은 `ok, suspect` 라는 글자만 조용히 적고 있었다 —
+ * 심사위원이 그 차이를 알아보려면 ADR 0001 을 읽고 와야 했다.
+ *
+ * 그래서 기본값이 아닐 때는 (1) 줄에 테두리를 주고 (2) **무슨 일이 생기는지를 문장으로**
+ * 같은 칸에 적는다. 인쇄물이라 색만으로는 알릴 수 없다(흑백 인쇄·복사가 기본이다) —
+ * 테두리는 보조이고 판단 근거는 글자다.
+ */
+function qualityFlagRow(flags: unknown): string {
+  const list = Array.isArray(flags) ? flags : []
+  if (isDefaultQualityFlagList(list)) {
+    return `<tr><td>포함 품질 플래그</td><td colspan="2">${joinOrDash(list)}</td></tr>`
+  }
+
+  // 설명 순서는 사전순이 아니라 RISKY_QUALITY_FLAGS 순서(suspect, bad)다 — 심사위원이
+  // 먼저 봐야 하는 것은 수치를 키우는 suspect 쪽이다.
+  const notes = RISKY_QUALITY_FLAGS.filter((f) => list.includes(f)).map((f) =>
+    qualityFlagRiskText(f),
+  )
+  // 목록이 비어 있는 옛 리포트도 기본값이 아니다 — 그 경우 분자가 0 으로 산출됐다는
+  // 사실 자체가 가장 중요한 단서이므로 같은 자리에 적는다.
+  if (list.length === 0) notes.push(EMPTY_QUALITY_FLAG_LIST_REASON)
+
+  return (
+    `<tr class="flag-warn"><td>포함 품질 플래그</td><td colspan="2">` +
+    `<strong>${joinOrDash(list)}</strong>` +
+    `<div class="flag-warn-note">★ 기본 설정(ok)이 아닙니다 — 이 리포트의 수치는 ` +
+    `기본값과 다른 산입 범위로 산출됐습니다.` +
+    (notes.length > 0 ? ` ${notes.map((n) => esc(n)).join(" ")}` : "") +
+    `</div></td></tr>`
+  )
+}
+
 /** 리포트 1건을 A4 인쇄용 HTML 문서로 그린다. */
 export function renderMrvReportHtml(
   report: MrvReportRow,
@@ -251,6 +295,10 @@ export function renderMrvReportHtml(
   .chart-wrap { display: flex; align-items: center; gap: 8mm; margin-top: 3mm; }
   .chart-caption { font-size: 9.5pt; color: #475569; }
   .footer-note { margin-top: 8mm; font-size: 8.5pt; color: #64748b; }
+  /* 포함 품질 플래그가 기본값이 아닐 때. 흑백 인쇄에서도 보이게 테두리를 굵게 주고,
+     판단 근거는 색이 아니라 같은 칸의 문장이 담는다. */
+  .flag-warn td { border: 2px solid #b45309; background: #fffbeb; }
+  .flag-warn-note { margin-top: 1.5mm; font-size: 9pt; line-height: 1.45; color: #7c2d12; }
   .print-hint { margin-bottom: 6mm; padding: 3mm 4mm; background: #eff6ff;
                 border: 1px solid #bfdbfe; border-radius: 4px; font-size: 9.5pt;
                 color: #1e40af; }
@@ -299,7 +347,7 @@ export function renderMrvReportHtml(
     <tbody>
       <tr><td>사이트</td><td colspan="2">${esc(boundary.site_name)} (${esc(boundary.site_id)})</td></tr>
       <tr><td>포함 계측기(meter) ID</td><td colspan="2">${joinOrDash(boundary.included_meter_ids)}</td></tr>
-      <tr><td>포함 품질 플래그</td><td colspan="2">${joinOrDash(boundary.included_quality_flags)}</td></tr>
+      ${qualityFlagRow(boundary.included_quality_flags)}
       <tr><td>생산량 근거(Before)</td><td colspan="2">${joinOrDash(boundary.biomass_source_refs?.before)}</td></tr>
       <tr><td>생산량 근거(After)</td><td colspan="2">${joinOrDash(boundary.biomass_source_refs?.after)}</td></tr>
     </tbody>

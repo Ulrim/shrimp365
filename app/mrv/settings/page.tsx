@@ -29,6 +29,7 @@ import { useMrvSession } from "@/lib/mrv/ui/session"
 import { useMrvSite } from "@/lib/mrv/ui/site"
 import { READING_TYPE_META, READING_TYPE_ORDER } from "@/lib/mrv/ui/reading-meta"
 import { formatIsoLocal } from "@/lib/mrv/ui/datetime"
+import { collectQualityFlagRisks, qualityFlagRiskText } from "@/lib/mrv/quality-flags"
 import {
   Card,
   INPUT_CLASS,
@@ -37,10 +38,13 @@ import {
   PageHeader,
   formatNumber,
 } from "@/components/mrv/ui"
+import { ConfirmDialog } from "@/components/mrv/confirm-dialog"
 import type {
   EmissionFactorListResponse,
   KpiConfigListResponse,
   MeterListResponse,
+  MrvApiKey,
+  MrvApiKeyListResponse,
   ReadingMeterType,
 } from "@/lib/mrv/api-types"
 
@@ -833,12 +837,56 @@ function KpiConfigSection() {
     [list.data],
   )
 
+  /**
+   * 활성 설정이 오염된 계측값을 KPI 에 산입하고 있는가.
+   *
+   * 이 경고가 필요한 이유: `included_quality_flags` 를 넓히면 적산 원값이 EI 분자에
+   * 들어가지만, **화면의 어떤 숫자도 그 사실을 알려 주지 않는다** — EI 가 커졌다는 것만
+   * 보인다. JSON 전문은 아래에 그대로 찍히지만, 60줄짜리 블록에서 `"suspect"` 한 단어를
+   * 찾아내기를 기대할 수는 없다. 그래서 꺼내 놓고 글자로 적는다(색만으로 알리지 않는다).
+   */
+  const risks = useMemo(
+    () => (active === null ? [] : collectQualityFlagRisks(active.params_json)),
+    [active],
+  )
+
   return (
     <Card className="flex flex-col gap-4">
       <SectionHeader
         title="KPI 산식 설정"
         note="지금 신호등 판정에 쓰이는 파라미터입니다. 이 화면에서는 바꿀 수 없습니다 — 파라미터를 바꾸면 이미 지나간 기간의 판정까지 소급해서 달라지므로, 변경은 과제 책임자 승인 절차를 거쳐 새 version 으로 반영합니다."
       />
+
+      {risks.length > 0 && (
+        <div
+          role="alert"
+          className="flex flex-col gap-2 rounded-md border border-mrv-red bg-mrv-red-bg p-3 text-sm"
+        >
+          <p className="font-semibold text-mrv-fg">
+            경고 — 오염된 계측값이 KPI 에 산입되고 있습니다
+          </p>
+          <ul className="flex flex-col gap-2 text-xs leading-relaxed text-mrv-fg">
+            {risks.map((risk) => (
+              <li key={risk.path}>
+                <code className="font-mono">params_json.{risk.path}</code> 에{" "}
+                <strong>{risk.flags.join(", ")}</strong> 가 들어 있습니다.
+                <ul className="mt-1 flex flex-col gap-1 pl-4">
+                  {risk.flags.map((flag) => (
+                    <li key={flag} className="list-disc">
+                      {qualityFlagRiskText(flag)}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-mrv-muted">
+            기본 설정은 <code className="font-mono">[&quot;ok&quot;]</code> 입니다. 이 상태로
+            만든 MRV 리포트에는 「포함 품질 플래그」 줄에 기본값이 아니라는 표시가 함께
+            인쇄됩니다.
+          </p>
+        </div>
+      )}
 
       {list.isLoading && (
         <div
@@ -912,10 +960,13 @@ function DevicePairingSection({
   siteId,
   siteName,
   canWrite,
+  onLinked,
 }: {
   siteId: string | null
   siteName: string | null
   canWrite: boolean
+  /** 연결이 끝났음을 알린다. 아래 키 목록이 방금 발급된 키를 바로 보여 주게 하려는 것. */
+  onLinked: () => void
 }) {
   const codeId = useId()
   const labelId = useId()
@@ -949,6 +1000,7 @@ function DevicePairingSection({
       setCode("")
       setLabel("")
       setLinked({ at: new Date().toLocaleTimeString("ko-KR"), site: res.site_name })
+      onLinked()
     } catch {
       /* 오류는 아래에 표시된다. */
     }
@@ -1041,11 +1093,251 @@ function DevicePairingSection({
   )
 }
 
+// ---------------------------------------------------------------------------
+// 연결된 장비 · 연결 해제
+// ---------------------------------------------------------------------------
+
+/**
+ * 발급된 장비 수집 키 목록과 [연결 해제].
+ *
+ * 왜 필요한가: 키를 **발급**하는 길(위 카드)은 있었는데 **끊는** 길이 화면에도 API 에도
+ * 없었다. 기계실 터치스크린을 분실·교체·반납해도 끊는 방법이 DB 직접 수정뿐이었다.
+ * 그 키 하나로 이 사이트의 전력 계측값을 넣을 수 있고 그 전력이 EI·Scope2·기준선의
+ * 근거가 되므로, 상용화 전에 반드시 있어야 하는 창구다.
+ *
+ * 표시 규칙:
+ *   - 원문 키는 어디에도 나타나지 않는다(서버가 내보내지 않는다).
+ *   - 끊은 키도 목록에서 지우지 않는다. 그 장비가 넣은 계측값이 기준선의 근거로 남아
+ *     있으므로, 사라지면 그 데이터의 출처를 되짚을 수 없다.
+ *   - 상태는 **글자로** 구분한다(색만으로 구분하지 않는다) — 위 배출계수 표의
+ *     `적용 중`/`사용 중단` 배지와 같은 방식이다.
+ */
+function DeviceKeySection({
+  siteId,
+  siteName,
+  canWrite,
+  refreshToken,
+}: {
+  siteId: string | null
+  siteName: string | null
+  canWrite: boolean
+  /** 위 카드에서 장비를 연결하면 값이 바뀌어 목록을 다시 읽게 한다. */
+  refreshToken: number
+}) {
+  const list = useApiQuery<MrvApiKeyListResponse>(
+    (signal) =>
+      apiFetch<MrvApiKeyListResponse>("/api-keys", {
+        signal,
+        query: { site_id: siteId! },
+      }),
+    [siteId, refreshToken],
+    { enabled: siteId !== null },
+  )
+
+  /** 확인 대화상자에 올려 둔 대상. null 이면 닫혀 있다. */
+  const [target, setTarget] = useState<MrvApiKey | null>(null)
+  const [revokedAt, setRevokedAt] = useState<string | null>(null)
+
+  const mutation = useApiMutation(async (apiKeyId: string) =>
+    apiFetch<MrvApiKey>(`/api-keys/${encodeURIComponent(apiKeyId)}/revoke`, {
+      method: "POST",
+      json: {},
+    }),
+  )
+
+  async function handleConfirm() {
+    if (target === null) return
+    try {
+      await mutation.mutate(target.id)
+      setRevokedAt(new Date().toLocaleTimeString("ko-KR"))
+      setTarget(null)
+      list.refetch()
+    } catch {
+      /* 오류는 아래에 표시된다. 대화상자는 닫지 않는다 — 무엇이 실패했는지 보여야 한다. */
+    }
+  }
+
+  const activeCount = list.data?.items.filter((k) => !k.revoked).length ?? 0
+
+  return (
+    <Card className="flex flex-col gap-4">
+      <SectionHeader
+        title="연결된 장비"
+        note="이 사이트에 붙어 있는 전력 입력 장비입니다. 단말을 분실·교체·반납했으면 여기서 연결을 해제하세요. 수집 키는 이 화면에 나타나지 않습니다 — 장비만 들고 있습니다."
+      />
+
+      {siteId === null && (
+        <p className="text-sm text-mrv-muted">
+          사이트를 먼저 고르면 그 사이트에 연결된 장비를 보여 줍니다.
+        </p>
+      )}
+
+      {list.isLoading && (
+        <div
+          role="status"
+          className="h-20 animate-pulse rounded-md border border-mrv-border"
+          aria-label="연결된 장비 불러오는 중"
+        />
+      )}
+
+      {list.isError && !list.isLoading && (
+        <LoadError
+          message="연결된 장비를 불러오지 못했습니다."
+          isUnauthorized={list.error instanceof ApiError && list.error.isUnauthorized}
+          onRetry={list.refetch}
+        />
+      )}
+
+      {!canWrite && siteId !== null && (
+        <PermissionNote>
+          읽기 전용 권한(viewer)입니다. 연결 해제는 owner/operator 만 가능합니다.
+        </PermissionNote>
+      )}
+
+      {mutation.error !== undefined && (
+        <p role="alert" className="text-sm text-mrv-red">
+          {errorMessage(mutation.error, "연결 해제에 실패했습니다.")}
+        </p>
+      )}
+      {revokedAt && !mutation.isPending && mutation.error === undefined && (
+        <p role="status" className="text-sm text-mrv-green">
+          {revokedAt} 연결을 해제했습니다. 이 장비는 더 이상 계측값을 올릴 수 없습니다.
+        </p>
+      )}
+
+      {list.data && !list.isLoading && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <caption className="sr-only">
+              {siteName ?? "이 사이트"}에 연결된 장비 목록
+            </caption>
+            <thead>
+              <tr className="border-b border-mrv-border text-xs text-mrv-muted">
+                <th scope="col" className="py-2 pr-3 font-medium">장비</th>
+                <th scope="col" className="py-2 pr-3 font-medium">연결일</th>
+                <th scope="col" className="py-2 pr-3 font-medium">마지막 사용</th>
+                <th scope="col" className="py-2 font-medium">
+                  <span className="sr-only">연결 해제</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.data.items.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="py-4 text-mrv-muted">
+                    연결된 장비가 없습니다. 위 「현장 장비 연결」에서 붙일 수 있습니다.
+                  </td>
+                </tr>
+              )}
+              {list.data.items.map((key) => (
+                <tr key={key.id} className="border-b border-mrv-border last:border-0">
+                  <td className="py-2 pr-3 text-mrv-fg">
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      {key.label ?? "이름 없는 장비"}
+                      {/* 상태는 색이 아니라 글자로 적는다. */}
+                      {key.revoked ? (
+                        <span className="rounded-full bg-mrv-na-bg px-2 py-0.5 text-[11px] font-medium text-mrv-na">
+                          연결 해제됨
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-mrv-green-bg px-2 py-0.5 text-[11px] font-medium text-mrv-green">
+                          사용 중
+                        </span>
+                      )}
+                    </span>
+                    {key.revoked && (
+                      <span className="block text-[11px] text-mrv-muted">
+                        {key.revoked_at
+                          ? `${formatIsoLocal(key.revoked_at)} 해제`
+                          : "해제 시각 미기록 (이 기능이 생기기 전에 DB 에서 직접 끊긴 키)"}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-2 pr-3 text-mrv-muted">
+                    {formatIsoLocal(key.created_at)}
+                  </td>
+                  <td className="py-2 pr-3 text-mrv-muted">
+                    {key.last_used_at ? formatIsoLocal(key.last_used_at) : "사용 기록 없음"}
+                  </td>
+                  <td className="py-2">
+                    {!key.revoked && (
+                      <button
+                        type="button"
+                        disabled={!canWrite || mutation.isPending}
+                        onClick={() => {
+                          setRevokedAt(null)
+                          setTarget(key)
+                        }}
+                        className="rounded-md border border-mrv-red px-3 py-1 text-xs font-medium text-mrv-red hover:bg-mrv-red-bg disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        연결 해제
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {list.data && activeCount > 0 && (
+        <p className="text-xs text-mrv-muted">
+          「마지막 사용」은 몇 분에 한 번만 갱신됩니다(계측값이 올라올 때마다 기록하면
+          수집 쓰기가 헛돕니다). 방금 올라온 장비가 조금 전 시각으로 보일 수 있습니다.
+        </p>
+      )}
+
+      <ConfirmDialog
+        open={target !== null}
+        title="이 장비의 연결을 해제하시겠습니까?"
+        tone="danger"
+        confirmLabel="연결 해제"
+        pendingLabel="해제 중…"
+        pending={mutation.isPending}
+        onConfirm={handleConfirm}
+        onCancel={() => setTarget(null)}
+        description={
+          <>
+            해제하면 이 장비는 <strong className="text-mrv-red">더 이상 전력 입력을 올릴
+            수 없습니다.</strong> 장비가 아직 올리지 못해 <strong>보관하고 있는 입력이
+            있으면 그것도 올라오지 못하고 장비에 남습니다</strong> — 기계실 단말은 통신이
+            끊긴 동안의 입력을 들고 있다가 나중에 올립니다. 끊기 전에 그 장비가 보관분을
+            올렸는지 확인하세요.
+            <br />
+            <br />
+            되돌릴 수 없습니다. 같은 장비를 다시 쓰려면 장비에서 코드를 새로 받아 위
+            「현장 장비 연결」로 다시 붙여야 합니다.
+          </>
+        }
+        detail={
+          target && (
+            <>
+              <p>장비: {target.label ?? "이름 없는 장비"}</p>
+              <p className="mt-1">사이트: {siteName ?? target.site_id}</p>
+              <p className="mt-1">
+                마지막 사용:{" "}
+                {target.last_used_at
+                  ? formatIsoLocal(target.last_used_at)
+                  : "사용 기록 없음 (한 번도 계측값을 올리지 않은 장비)"}
+              </p>
+            </>
+          )
+        }
+      />
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------------------
+
 export default function SettingsPage() {
   const { selectedSiteId, selectedSite } = useMrvSite()
   const { role } = useMrvSession()
   const canWrite = role !== null && WRITER_ROLES.has(role)
   const isOwner = role === "owner"
+  /** 장비를 새로 연결하면 아래 키 목록이 다시 읽도록 올리는 값. */
+  const [keyListNonce, setKeyListNonce] = useState(0)
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
@@ -1074,6 +1366,13 @@ export default function SettingsPage() {
         siteId={selectedSiteId}
         siteName={selectedSite?.name ?? null}
         canWrite={canWrite}
+        onLinked={() => setKeyListNonce((n) => n + 1)}
+      />
+      <DeviceKeySection
+        siteId={selectedSiteId}
+        siteName={selectedSite?.name ?? null}
+        canWrite={canWrite}
+        refreshToken={keyListNonce}
       />
       <EmissionFactorSection isOwner={isOwner} />
       <KpiConfigSection />
