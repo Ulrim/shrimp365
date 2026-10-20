@@ -26,6 +26,7 @@ import re
 import socket
 import struct
 import subprocess
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -92,26 +93,44 @@ class Mqtt:
             self.sock = socket.create_connection((self.host, self.port), timeout=self.timeout)
         except OSError as exc:
             raise MqttError(f"MQTT 브로커에 연결하지 못했습니다({self.host}:{self.port})") from exc
-        cid = "farm365-ui-" + uuid.uuid4().hex[:8]
-        body = _str("MQTT") + bytes([4, 0x02]) + struct.pack("!H", 30) + _str(cid)
-        self._send(0x10, body)
-        kind, data = self._read(self.timeout)
+        try:
+            cid = "farm365-ui-" + uuid.uuid4().hex[:8]
+            body = _str("MQTT") + bytes([4, 0x02]) + struct.pack("!H", 30) + _str(cid)
+            self._send(0x10, body)
+            kind, data = self._read(self.timeout)
+        except TimeoutError as exc:
+            self._close()
+            raise MqttError("MQTT 브로커가 응답하지 않습니다") from exc
+        except MqttError:
+            self._close()
+            raise
         if kind != 0x20 or len(data) < 2 or data[1] != 0:
+            self._close()
             raise MqttError("MQTT 브로커가 연결을 거절했습니다")
         return self
 
-    def __exit__(self, *exc) -> None:
+    def _close(self) -> None:
         if self.sock:
             try:
-                self._send(0xE0, b"")
                 self.sock.close()
             except OSError:
                 pass
             self.sock = None
 
+    def __exit__(self, *exc) -> None:
+        if self.sock:
+            try:
+                self._send(0xE0, b"")
+            except MqttError:
+                pass
+            self._close()
+
     def _send(self, header: int, body: bytes) -> None:
         assert self.sock is not None
-        self.sock.sendall(bytes([header]) + _varint(len(body)) + body)
+        try:
+            self.sock.sendall(bytes([header]) + _varint(len(body)) + body)
+        except OSError as exc:
+            raise MqttError("MQTT 연결이 끊겼습니다") from exc
 
     def _recv_exact(self, n: int, deadline: float) -> bytes:
         assert self.sock is not None
@@ -122,8 +141,10 @@ class Mqtt:
             self.sock.settimeout(left)
             try:
                 chunk = self.sock.recv(4096)
-            except socket.timeout as exc:
+            except socket.timeout as exc:          # 시간 초과는 그대로(받을 것이 없다는 뜻)
                 raise TimeoutError from exc
+            except OSError as exc:                 # 끊김·재설정은 MQTT 오류로 — 호출자가 잡는다
+                raise MqttError("MQTT 연결이 끊겼습니다") from exc
             if not chunk:
                 raise MqttError("MQTT 연결이 끊겼습니다")
             self._buf += chunk
@@ -147,7 +168,10 @@ class Mqtt:
         self._send(0x82, body)
         deadline = time.monotonic() + self.timeout
         while True:   # SUBACK 전에 보존 메시지가 먼저 올 수 있다 — 버리지 않고 쌓아 둔다
-            kind, data = self._read(max(0.01, deadline - time.monotonic()))
+            try:
+                kind, data = self._read(max(0.01, deadline - time.monotonic()))
+            except TimeoutError as exc:
+                raise MqttError("MQTT 브로커가 구독에 응답하지 않습니다") from exc
             if kind == 0x90:
                 return
             if kind == 0x30:
@@ -246,6 +270,7 @@ def add_device(path: Path, name: str, kind_key: str, zone: str, sensor_id: str, 
     """devices: 칸 끝에 한 줄을 더한다. 주석과 다른 칸은 그대로 둔다."""
     k = KINDS[kind_key]
     fields = [f"kind: {k['kind']}", f"zone: {zone}", f"sensor_id: {sensor_id}"]
+    note = clean_note(note)
     if note:
         fields.append(f"note: {note}")
     if k.get("map"):
@@ -313,14 +338,24 @@ def save_section_value(config_path: Path, section: str, key: str, value: str) ->
             while at - 1 > start and not lines[at - 1].strip():
                 at -= 1                       # 다음 구간 앞 빈 줄 위에 넣는다
             lines.insert(at, f"{key} = {value}\n")
+    # 제자리에 덮어쓴다. 임시 파일로 바꿔 끼우면 (1) 서비스는 /etc/shrimp365 에 새 파일을 만들
+    # 권한이 없고 (2) root 가 돌린 설치 도구에서는 파일 주인이 root 로 바뀌어 서비스가 못 읽는다.
+    # 주인·권한은 그대로 둔다(기존 _save_webui_value 와 같은 방식).
     try:
-        tmp = config_path.with_name(config_path.name + ".tmp")
-        tmp.write_text("".join(lines), encoding="utf-8")
-        os.chmod(tmp, 0o600)
-        os.replace(tmp, config_path)
+        with config_path.open("r+", encoding="utf-8") as fh:
+            fh.seek(0)
+            fh.write("".join(lines))
+            fh.truncate()
         return True
     except OSError:
         return False
+
+
+def clean_note(note: str) -> str:
+    """메모는 devices.yaml 한 줄 { } 안에 그대로 들어간다. YAML 에서 뜻이 있는 글자(: # { } [ ] , " ' * & ! | > @ `
+    줄바꿈)가 섞이면 파일 전체가 안 읽혀 수집기가 멈춘다 — 한글·영숫자·공백·- . ( ) ~ 만 남긴다."""
+    text = re.sub(r"[^0-9A-Za-z가-힣ㄱ-ㅎㅏ-ㅣ \-.()~]", " ", str(note or ""))
+    return re.sub(r"\s+", " ", text).strip(" -.")[:40]
 
 
 def suggest_id(kind_key: str, zone: str, taken: set[str]) -> str:
@@ -343,6 +378,7 @@ class Wireless:
         self.data_dir = Path(data_dir)
         self.host, self.port, self.base = host, port, base_topic
         self.permit_until = 0.0
+        self._lock = threading.Lock()          # 등록·빼기가 겹치면 같은 이름을 두 번 줄 수 있다
 
     # 상태 ------------------------------------------------------------------
     @staticmethod
@@ -493,6 +529,10 @@ class Wireless:
         return {"ok": True, "seconds": seconds}
 
     def register(self, current: str, kind_key: str, zone: str, note: str = "") -> dict:
+        with self._lock:
+            return self._register(current, kind_key, zone, note)
+
+    def _register(self, current: str, kind_key: str, zone: str, note: str = "") -> dict:
         if kind_key not in KINDS or zone not in ZONES:
             return {"ok": False, "error": "종류나 구간이 올바르지 않습니다"}
         registered = read_registered(self.devices_path)
@@ -511,12 +551,16 @@ class Wireless:
             if r.get("status") != "ok":
                 return {"ok": False, "error": r.get("error") or "이름을 바꾸지 못했습니다"}
         try:
-            add_device(self.devices_path, name, kind_key, zone, sid, note[:40].replace(",", " ").replace("}", ""))
+            add_device(self.devices_path, name, kind_key, zone, sid, clean_note(note))
         except OSError as exc:
             return {"ok": False, "error": f"설정 파일에 쓰지 못했습니다: {exc}"}
         return {"ok": True, "name": name, "sensor_id": sid}
 
     def remove(self, name: str) -> dict:
+        with self._lock:
+            return self._remove(name)
+
+    def _remove(self, name: str) -> dict:
         try:
             removed = remove_device(self.devices_path, name)
         except OSError as exc:
