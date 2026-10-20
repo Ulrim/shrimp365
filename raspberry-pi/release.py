@@ -81,12 +81,26 @@ SETUP_PAYLOAD = PAYLOAD + [
     "requirements.txt", "README.md", "INSTALL.md",
 ]
 
+# 무선 센서 수집기(setup-wireless.sh 가 /opt/shrimp365/field 에 배치). 노지 프로젝트(openfield/)
+# 의 수집 코드 일부를 그대로 싣는다 — 복사본을 따로 두지 않아야 두 곳이 어긋나지 않는다.
+# 열쇠는 꾸러미 안 경로, 값은 저장소 경로. 스크립트가 parents[1]/"src" 를 path 에 넣으므로
+# field/src/ofdf 와 field/scripts 로 같은 구조를 지킨다.
+FIELD_FILES = {
+    f"field/src/ofdf/{m}": REPO / "openfield" / "src" / "ofdf" / m
+    for m in ("__init__.py", "data/__init__.py", "data/counter.py", "data/field.py",
+              "data/zigbee.py", "data/rtl433.py", "data/ecowitt.py")
+} | {
+    f"field/scripts/{m}": REPO / "openfield" / "scripts" / m
+    for m in ("zigbee_bridge.py", "rtl433_bridge.py", "ecowitt_receiver.py")
+}
+SETUP_PAYLOAD += ["setup-wireless.sh", "field/devices.template.yaml", *FIELD_FILES]
+
 # 풀었을 때 이 폴더가 생긴다. 홈 디렉터리에 파일이 흩어지지 않게 한다.
 SETUP_DIR_NAME = "shrimp365-setup"
 
 # 실행 권한이 필요한 파일. USB·Windows 를 거치면 권한이 날아가는데,
 # tar 안에 넣어 두면 풀자마자 바로 실행할 수 있다.
-EXECUTABLE = {"install.sh", "setup-kiosk.sh"}
+EXECUTABLE = {"install.sh", "setup-kiosk.sh", "setup-wireless.sh"}
 
 
 def cmd_init(args) -> int:
@@ -240,7 +254,7 @@ def cmd_build(args) -> int:
     def pack(out: Path, files: list[str], prefix: str = "") -> bytes:
         with tarfile.open(out, "w:gz", compresslevel=9) as tar:
             for fname in files:
-                src = HERE / fname
+                src = FIELD_FILES.get(fname, HERE / fname)
                 if not src.exists():
                     sys.exit(f"파일이 없습니다: {src}")
                 arc = f"{prefix}/{fname}" if prefix else fname

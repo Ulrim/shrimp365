@@ -185,6 +185,18 @@ PAGE = """<!doctype html>
   .pwtot{display:flex;gap:18px;justify-content:center;margin-top:6px;font-size:13px;color:#94A3B8}
   .pwtot b{font:800 20px/1 ui-monospace,monospace;color:#E8EDF7;margin-right:3px}
   .typegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+  .wlchips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
+  .wlchips span{font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;border:1px solid #22304C;color:#94A3B8}
+  .wlchips span.ok{border-color:#10B981;color:#34D399}
+  .wlchips span.bad{border-color:#B45309;color:#FBBF24}
+  .wlbig{width:100%;min-height:52px;border-radius:12px;border:1px solid var(--brand-line);background:var(--brand-soft2);
+    color:var(--brand-text2);font-weight:800;font-size:16px;font-family:inherit;cursor:pointer;margin:2px 0 8px}
+  .wlbig.on{background:#0E2A1F;border-color:#10B981;color:#6EE7B7}
+  .wlbig[disabled]{opacity:.45;cursor:default}
+  .wlhead{font-size:12.5px;font-weight:800;color:#94A3B8;margin:10px 0 2px}
+  .wlmeta{font-size:12px;color:#94A3B8;text-align:right;flex:0 0 auto;line-height:1.35}
+  .wlmeta.old{color:#FBBF24}
+  .typegrid.two{grid-template-columns:repeat(2,1fr)}
   .typegrid button{min-height:46px;border-radius:10px;border:1px solid #22304C;background:#111A2E;
     color:#E8EDF7;font-weight:700;font-size:14px;font-family:inherit;cursor:pointer}
   .typegrid button.on{border-color:var(--brand-line);background:var(--brand-soft2);color:var(--brand-text2)}
@@ -827,6 +839,47 @@ var I18N = {
   lang_title:{ko:"언어 설정",en:"Language",vi:"Ngôn ngữ",id:"Bahasa"},
   lang_hint:{ko:"화면 언어를 고르세요",en:"Choose the display language",vi:"Chọn ngôn ngữ hiển thị",id:"Pilih bahasa tampilan"},
   // 재시작
+  menu_wireless:{ko:"무선 센서",en:"Wireless sensors",vi:"Cảm biến không dây",id:"Sensor nirkabel"},
+  menu_wireless_sub:{ko:"지그비·433MHz 센서 찾기·등록·상태",en:"Find, add and check Zigbee/433MHz sensors",vi:"Tìm, thêm, kiểm tra cảm biến Zigbee/433MHz",id:"Cari, tambah, cek sensor Zigbee/433MHz"},
+  wl_dongle:{ko:"지그비 동글",en:"Zigbee dongle",vi:"USB Zigbee",id:"Dongle Zigbee"},
+  wl_z2m:{ko:"지그비 서버",en:"Zigbee2MQTT",vi:"Zigbee2MQTT",id:"Zigbee2MQTT"},
+  wl_collector:{ko:"수집기",en:"Collector",vi:"Bộ thu",id:"Kolektor"},
+  wl_rf:{ko:"433MHz 수신기",en:"433MHz receiver",vi:"Bộ thu 433MHz",id:"Penerima 433MHz"},
+  wl_not_installed:{ko:"무선 수집 프로그램이 아직 설치되지 않았습니다. 지그비 동글을 꽂고 PC에서 한 번만 실행하세요:",en:"The wireless collector isn't installed yet. Plug in the Zigbee dongle and run once from a PC:",vi:"Chưa cài chương trình thu không dây. Cắm USB Zigbee và chạy một lần từ máy tính:",id:"Kolektor nirkabel belum terpasang. Pasang dongle Zigbee lalu jalankan sekali dari PC:"},
+  wl_find:{ko:"＋ 새 센서 찾기 (2분)",en:"+ Find new sensors (2 min)",vi:"+ Tìm cảm biến mới (2 phút)",id:"+ Cari sensor baru (2 mnt)"},
+  wl_finding:{ko:"찾는 중 {m}:{s} — 센서의 버튼을 5초 길게 누르세요 (누르면 중지)",en:"Searching {m}:{s} — hold the sensor's button 5 s (tap to stop)",vi:"Đang tìm {m}:{s} — giữ nút cảm biến 5 giây (chạm để dừng)",id:"Mencari {m}:{s} — tahan tombol sensor 5 dtk (ketuk untuk berhenti)"},
+  wl_new:{ko:"새로 찾은 센서",en:"Newly found",vi:"Mới tìm thấy",id:"Baru ditemukan"},
+  wl_registered:{ko:"등록된 센서",en:"Registered",vi:"Đã đăng ký",id:"Terdaftar"},
+  wl_none:{ko:"등록된 센서가 없습니다. [새 센서 찾기]를 누르고 센서 버튼을 길게 누르세요.",en:"No sensors yet. Tap [Find new sensors] and hold the sensor's button.",vi:"Chưa có cảm biến. Chạm [Tìm cảm biến mới] rồi giữ nút cảm biến.",id:"Belum ada sensor. Ketuk [Cari sensor baru] lalu tahan tombol sensor."},
+  wl_add:{ko:"등록",en:"Add",vi:"Thêm",id:"Tambah"},
+  wl_remove:{ko:"빼기",en:"Remove",vi:"Gỡ",id:"Hapus"},
+  wl_remove_sure:{ko:"정말 빼기",en:"Really remove",vi:"Gỡ thật",id:"Yakin hapus"},
+  wl_pick_kind:{ko:"무엇을 재는 센서인가요?",en:"What does this sensor measure?",vi:"Cảm biến này đo gì?",id:"Sensor ini mengukur apa?"},
+  wl_pick_zone:{ko:"어디에 달았나요?",en:"Where is it installed?",vi:"Lắp ở đâu?",id:"Dipasang di mana?"},
+  wl_name_will:{ko:"이름: {n} — 장비·웹 화면에 이 이름으로 나옵니다",en:"Name: {n} — shown on the device and web",vi:"Tên: {n} — hiển thị trên thiết bị và web",id:"Nama: {n} — tampil di perangkat dan web"},
+  wl_added:{ko:"{n} 등록했습니다. 몇 초 안에 값이 들어옵니다.",en:"Added {n}. Values arrive within seconds.",vi:"Đã thêm {n}. Giá trị sẽ có sau vài giây.",id:"{n} ditambahkan. Nilai masuk dalam beberapa detik."},
+  wl_removed:{ko:"뺐습니다. 같은 센서를 다시 쓰려면 다시 찾기로 붙이세요.",en:"Removed. To reuse it, find it again.",vi:"Đã gỡ. Muốn dùng lại, hãy tìm lại.",id:"Dihapus. Untuk memakai lagi, cari ulang."},
+  wl_enable:{ko:"환경·기상 표시가 꺼져 있어 등록한 센서 값이 화면에 안 나옵니다.",en:"Environment display is off, so sensor values aren't shown.",vi:"Hiển thị môi trường đang tắt nên không thấy giá trị.",id:"Tampilan lingkungan mati, nilai sensor tidak tampil."},
+  wl_enable_btn:{ko:"켜기 (프로그램 다시 시작)",en:"Turn on (restart)",vi:"Bật (khởi động lại)",id:"Nyalakan (mulai ulang)"},
+  wl_never:{ko:"수신 없음",en:"no data yet",vi:"chưa có dữ liệu",id:"belum ada data"},
+  wl_ago:{ko:"{m}분 전",en:"{m} min ago",vi:"{m} phút trước",id:"{m} mnt lalu"},
+  wl_now:{ko:"방금",en:"just now",vi:"vừa xong",id:"baru saja"},
+  wl_batt:{ko:"배터리 {v}%",en:"battery {v}%",vi:"pin {v}%",id:"baterai {v}%"},
+  wl_lqi:{ko:"신호 {v}",en:"signal {v}",vi:"tín hiệu {v}",id:"sinyal {v}"},
+  wl_unpaired:{ko:"페어링 끊김 — 다시 찾기 필요",en:"not paired — find again",vi:"mất ghép đôi — tìm lại",id:"tidak terpasang — cari ulang"},
+  wl_interview:{ko:"정보 읽는 중…",en:"reading info…",vi:"đang đọc thông tin…",id:"membaca info…"},
+  wl_unsupported:{ko:"지원 목록에 없는 기기",en:"unsupported device",vi:"thiết bị chưa hỗ trợ",id:"perangkat tidak didukung"},
+  wlk_canopy:{ko:"초관부 온습도 (지상 10cm)",en:"Canopy temp/RH (10 cm)",vi:"Nhiệt/ẩm tán (10 cm)",id:"Suhu/RH kanopi (10 cm)"},
+  wlk_air:{ko:"기온 온습도 (2m 폴대)",en:"Air temp/RH (2 m mast)",vi:"Nhiệt/ẩm không khí (2 m)",id:"Suhu/RH udara (2 m)"},
+  wlk_soil:{ko:"토양 수분·온도",en:"Soil moisture/temp",vi:"Độ ẩm/nhiệt đất",id:"Kelembapan/suhu tanah"},
+  "wlk_breaker-pump":{ko:"차단기 — 관수펌프 회로",en:"Breaker — irrigation pump",vi:"Aptomat — bơm tưới",id:"Pemutus — pompa irigasi"},
+  "wlk_breaker-aux":{ko:"차단기 — 그 밖의 회로",en:"Breaker — other circuit",vi:"Aptomat — mạch khác",id:"Pemutus — sirkuit lain"},
+  wlk_leak:{ko:"누수 감지",en:"Water leak",vi:"Rò nước",id:"Kebocoran air"},
+  wlk_valve:{ko:"관수 밸브·유량",en:"Valve / flow",vi:"Van / lưu lượng",id:"Katup / aliran"},
+  wlz_treatment:{ko:"적용구간",en:"Treatment plot",vi:"Khu áp dụng",id:"Petak perlakuan"},
+  wlz_control:{ko:"비교구간",en:"Control plot",vi:"Khu đối chứng",id:"Petak kontrol"},
+  wlz_facility:{ko:"시설 (분전반·펌프실)",en:"Facility (panel/pump)",vi:"Cơ sở (tủ điện/bơm)",id:"Fasilitas (panel/pompa)"},
+  wlz_mast:{ko:"기상 폴대",en:"Weather mast",vi:"Cột khí tượng",id:"Tiang cuaca"},
   menu_power:{ko:"전력 회로",en:"Power circuits",vi:"Mạch điện",id:"Sirkuit listrik"},
   menu_power_sub:{ko:"차단기마다 연결된 기기 종류 고르기",en:"Choose what each breaker feeds",vi:"Chọn thiết bị cho từng aptomat",id:"Pilih perangkat tiap pemutus"},
   pw_title:{ko:"전력 회로",en:"Power circuits",vi:"Mạch điện",id:"Sirkuit listrik"},
@@ -1085,6 +1138,131 @@ function setPowerType(k){
       if (lastState) render(lastState);
     })
     .catch(function(){ pwMsg = {kind:"err", text:t("save_fail")}; drawPowerTypes(); });
+}
+
+// [설정] → [무선 센서] — 지그비 센서를 찾고(페어링 모드 2분), 종류·구간을 골라 등록한다.
+// 장비 프로그램이 Zigbee2MQTT 이름을 바꾸고 devices.yaml 에 한 줄을 더하면 수집기가 다시 읽는다.
+// 화면이 열려 있는 동안 5초(찾는 중에는 3초)마다 다시 읽는다.
+var WL_KINDS = ["canopy","air","soil","breaker-pump","breaker-aux","leak","valve"];
+var WL_ZONES = ["treatment","control","facility","mast"];
+var WL_PREFIX = {canopy:"CN",air:"AIR",soil:"SOIL","breaker-pump":"PUMP","breaker-aux":"AUX",leak:"LEAK",valve:"VALVE"};
+var WL_ZONED = {canopy:true, soil:true};
+var wl = null, wlTimer = null, wlMsg = null, wlEdit = null, wlKind = null, wlZone = null, wlSure = null, wlBusy = false;
+
+function openWireless(){ wl = null; wlMsg = null; wlEdit = null; wlSure = null; loadWireless(); }
+function closeWireless(){ if (wlTimer) clearTimeout(wlTimer); wlTimer = null; wl = null; drawSettingsMenu(); }
+function loadWireless(){
+  if (wlTimer) clearTimeout(wlTimer);
+  fetch("/api/wireless", {cache:"no-store"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ wl = d; drawWireless(); })
+    .catch(function(){ wlMsg = {kind:"err", text:t("load_fail")}; drawWireless(); })
+    .then(function(){
+      if (document.getElementById("wlroot")) wlTimer = setTimeout(loadWireless, wl && wl.permit_left ? 3000 : 5000);
+    });
+}
+function wlPost(action, body, done){
+  wlBusy = true; drawWireless();
+  fetch("/api/wireless/" + action, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body || {})})
+    .then(function(r){ return r.json(); })
+    .catch(function(){ return {ok:false, error:t("save_fail")}; })
+    .then(function(d){ wlBusy = false; done(d || {}); loadWireless(); });
+}
+function wlSuggest(kind, zone){
+  var taken = (wl && wl.taken) || [], p = WL_PREFIX[kind], z = WL_ZONED[kind] ? ({treatment:"T", control:"C"})[zone] || "" : "";
+  for (var n = 1; n < 100; n++) {
+    var id = z ? p + "-" + z + n : p + "-" + (n < 10 ? "0" : "") + n;
+    if (taken.indexOf(id) < 0) return id;
+  }
+  return p;
+}
+function wlFind(){
+  var on = !(wl && wl.permit_left);
+  wlPost("permit", {on: on}, function(d){ wlMsg = d.ok ? null : {kind:"err", text:d.error || t("save_fail")}; });
+}
+function wlStartAdd(i){ var n = wl.new[i]; wlEdit = n.name; wlKind = n.guess || null; wlZone = null; wlMsg = null; drawWireless(); }
+function wlAdd(){
+  var name = wlEdit;
+  wlPost("register", {name:name, kind:wlKind, zone:wlZone}, function(d){
+    if (d.ok) { wlEdit = null; wlMsg = {kind:"ok", text:t("wl_added", {n:d.sensor_id})}; }
+    else wlMsg = {kind:"err", text:d.error || t("save_fail")};
+  });
+}
+function wlRemove(name){
+  if (wlSure !== name) { wlSure = name; drawWireless(); return; }
+  wlSure = null;
+  wlPost("remove", {name:name}, function(d){ wlMsg = d.ok ? {kind:"ok", text:t("wl_removed")} : {kind:"err", text:d.error || t("save_fail")}; });
+}
+function wlEnable(){
+  var power = (wl.sensors || []).some(function(x){ return x.kind.indexOf("breaker") === 0; });
+  wlPost("enable", {power: power}, function(d){ wlMsg = d.ok ? {kind:"ok", text:t("restarting")} : {kind:"err", text:d.error || t("save_fail")}; });
+}
+function wlAgo(m){ return m === null || m === undefined ? t("wl_never") : m < 1 ? t("wl_now") : t("wl_ago", {m:m}); }
+
+function drawWireless(){
+  var box = document.getElementById("setup");
+  var msg = wlMsg ? '<div class="msg ' + wlMsg.kind + '">' + esc(wlMsg.text) + '</div>' : "";
+  var body = "";
+  if (!wl) {
+    body = '<div class="sub">' + t("checking") + '</div>';
+  } else if (wlEdit) {
+    // 등록 — 종류와 구간을 고르면 이름이 정해진다.
+    var name = wlKind && wlZone ? wlSuggest(wlKind, wlZone) : "";
+    body = '<div class="wlhead">' + t("wl_pick_kind") + '</div><div class="typegrid">' +
+      WL_KINDS.map(function(k){ return '<button class="' + (k === wlKind ? "on" : "") +
+        '" onclick="wlKind=&quot;' + k + '&quot;;drawWireless()">' + t("wlk_" + k) + '</button>'; }).join("") + '</div>' +
+      '<div class="wlhead">' + t("wl_pick_zone") + '</div><div class="typegrid two">' +
+      WL_ZONES.map(function(z){ return '<button class="' + (z === wlZone ? "on" : "") +
+        '" onclick="wlZone=&quot;' + z + '&quot;;drawWireless()">' + t("wlz_" + z) + '</button>'; }).join("") + '</div>' +
+      (name ? '<div class="sub" style="margin-top:10px">' + esc(t("wl_name_will", {n:name})) + '</div>' : "") +
+      '<button class="wlbig" style="margin-top:10px" ' + (name && !wlBusy ? "" : "disabled") + ' onclick="wlAdd()">' + t("wl_add") + '</button>';
+  } else {
+    var u = wl.units || {};
+    var chip = function(label, v){ return '<span class="' + (v ? "ok" : v === false ? "bad" : "") + '">' +
+      (v ? "✓ " : v === false ? "✕ " : "") + label + '</span>'; };
+    body += '<div class="wlchips">' + chip(t("wl_dongle"), !!wl.dongle) + chip(t("wl_z2m"), wl.z2m === true) +
+      chip(t("wl_collector"), u["farm365-zigbee"]) + chip(t("wl_rf"), wl.rtlsdr ? true : null) + '</div>';
+    if (!wl.installed) {
+      body += '<div class="msg err">' + t("wl_not_installed") +
+        '<br><b style="font-family:ui-monospace,monospace">sudo bash /opt/shrimp365/setup-wireless.sh</b></div>';
+    }
+    if (wl.sensors && wl.sensors.length && !wl.env_on) {
+      body += '<div class="msg err">' + t("wl_enable") +
+        ' <button class="toggle" style="margin-left:6px" onclick="wlEnable()">' + t("wl_enable_btn") + '</button></div>';
+    }
+    var left = wl.permit_left || 0;
+    body += '<button class="wlbig' + (left ? " on" : "") + '" ' + (wlBusy || !wl.mqtt ? "disabled" : "") + ' onclick="wlFind()">' +
+      (left ? t("wl_finding", {m: Math.floor(left / 60), s: ("0" + left % 60).slice(-2)}) : t("wl_find")) + '</button>';
+    if (wl.new && wl.new.length) {
+      body += '<div class="wlhead">' + t("wl_new") + ' (' + wl.new.length + ')</div>' +
+        wl.new.map(function(n, i){
+          var sub = [n.vendor, n.model].filter(Boolean).join(" ") || n.name;
+          var state = n.interviewing ? t("wl_interview") : !n.supported ? t("wl_unsupported") : "";
+          return '<div class="srow"><div class="sname">' + esc(n.description || n.model || n.name) +
+            '<div class="sub">' + esc(sub) + (state ? " · " + state : "") + '</div></div>' +
+            '<button class="toggle" ' + (n.interviewing ? "disabled" : "") + ' onclick="wlStartAdd(' + i + ')">' + t("wl_add") + '</button></div>';
+        }).join("");
+    }
+    body += '<div class="wlhead">' + t("wl_registered") + ' (' + (wl.sensors || []).length + ')</div>';
+    body += (wl.sensors || []).length ? wl.sensors.map(function(x){
+      var kindKey = x.kind === "canopy" && /^AIR/i.test(x.sensor_id) ? "air" : x.kind;
+      var bits = [];
+      if (x.battery !== null && x.battery !== undefined) bits.push(t("wl_batt", {v: Math.round(x.battery)}));
+      if (x.lqi !== null && x.lqi !== undefined) bits.push(t("wl_lqi", {v: Math.round(x.lqi)}));
+      var old = x.age_min === null || x.age_min === undefined || x.age_min >= 30;
+      return '<div class="srow"><div class="sname">' + esc(x.sensor_id) +
+        '<div class="sub">' + esc((t("wlk_" + kindKey) || x.kind) + " · " + (t("wlz_" + x.zone) || x.zone)) +
+        (x.paired === false ? ' · <span style="color:#FBBF24">' + t("wl_unpaired") + '</span>' : "") + '</div></div>' +
+        '<div class="wlmeta' + (old ? " old" : "") + '">' + wlAgo(x.age_min) + (bits.length ? "<br>" + bits.join(" · ") : "") + '</div>' +
+        '<button class="toggle" style="margin-left:8px" onclick="wlRemove(&quot;' + esc(x.name) + '&quot;)">' +
+          (wlSure === x.name ? t("wl_remove_sure") : t("wl_remove")) + '</button></div>';
+    }).join("") : '<div class="sub">' + t("wl_none") + '</div>';
+  }
+  box.innerHTML = '<div class="setup" id="wlroot"><div class="chead">' +
+      '<span class="ctitle">' + t("menu_wireless") + '</span>' +
+      '<button style="margin-left:auto" onclick="' + (wlEdit ? "wlEdit=null;drawWireless()" : "closeWireless()") + '">' +
+        (wlEdit ? t("back_list") : t("back_menu")) + '</button>' +
+    '</div><div class="sbody">' + msg + body + '</div></div>';
 }
 
 // 환경·기상 줄 — 스마트팜에서 [environment] 를 켠 장비만. 끈 장비(env=null)는
@@ -1752,6 +1930,7 @@ function drawSettingsMenu(){
     {t:"menu_mode",    sub:"menu_mode_sub",    fn:"openMode()"},
     {t:"menu_cal",      sub:"menu_cal_sub",      fn:"openCal()"},
     {t:"menu_nutrient", sub:"menu_nutrient_sub", fn:"openNutrient()"},
+    {t:"menu_wireless", sub:"menu_wireless_sub", fn:"openWireless()"},
     {t:"menu_restart", sub:"menu_restart_sub", fn:"openRestart()"}
   ];
   // 전력 회로는 [power] 를 켠 장비에만 — 꺼진 장비에 빈 메뉴를 두지 않는다.
@@ -2733,6 +2912,8 @@ def serve(
     get_mode=None,
     on_set_mode=None,
     on_set_power_type=None,
+    get_wireless=None,
+    on_wireless=None,
 ) -> ThreadingHTTPServer | None:
     """상태 페이지를 띄운다. 실패해도 수집은 계속되어야 하므로 None 을 돌려준다."""
 
@@ -2766,6 +2947,8 @@ def serve(
         def do_GET(self) -> None:
             if self.path.startswith("/api/state"):
                 self._send(200, json.dumps(state.snapshot()).encode(), "application/json")
+            elif self.path == "/api/wireless" and get_wireless is not None:
+                self._send(200, json.dumps(get_wireless()).encode(), "application/json")
             elif self.path.startswith("/api/env_history"):
                 self._env_history()
             elif self.path.startswith("/api/history"):
@@ -2891,6 +3074,15 @@ def serve(
                                "application/json")
                     return
                 self._send(200, json.dumps(on_set_mode(mode_sel)).encode(), "application/json")
+                return
+            if self.path.startswith("/api/wireless/") and on_wireless is not None:
+                action = self.path[len("/api/wireless/"):]
+                body = self._body()
+                if action not in ("permit", "register", "remove", "enable") or not isinstance(body, dict):
+                    self._send(200, json.dumps({"ok": False, "error": "요청이 올바르지 않습니다."}).encode(),
+                               "application/json")
+                    return
+                self._send(200, json.dumps(on_wireless(action, body)).encode(), "application/json")
                 return
             if self.path == "/api/power/type" and on_set_power_type is not None:
                 body = self._body()

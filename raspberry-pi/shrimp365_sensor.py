@@ -88,7 +88,15 @@ try:
 except ImportError:  # pragma: no cover
     field_env_mod = None
 
+try:
+    import wireless as wireless_mod
+except ImportError:  # pragma: no cover
+    wireless_mod = None
+
 VERSION = "1.9.1"
+
+#: 무선 센서 수집기가 쓰는 폴더(setup-wireless.sh). 서비스의 StateDirectory 아래라 읽고 쓸 수 있다.
+FIELD_DATA_DIR = "/var/lib/shrimp365/field/data"
 
 # 추세 판정을 몇 초마다 다시 돌릴지. 임계값 권고는 매 측정마다 즉시 나가고,
 # 추세는 몇 분 늦어도 되므로 나눠 둔다 — 라즈베리 제로에서 1분마다 나흘치를
@@ -1268,6 +1276,13 @@ def _save_webui_value(config_path: Path, key: str, value: str) -> bool:
         return False
 
 
+def save_section_value(config_path: Path, section: str, key: str, value: str) -> bool:
+    """[section] 의 key 하나를 적는다 — 무선 센서 모듈과 같은 함수(외부 패키지 없이 쓸 수 있게 거기 둔다)."""
+    if wireless_mod is None:
+        return False
+    return wireless_mod.save_section_value(config_path, section, key, value)
+
+
 def save_language(config_path: Path, lang: str) -> bool:
     """화면 언어를 [webui] 구간에 적는다."""
     return _save_webui_value(config_path, "language", lang)
@@ -1912,7 +1927,13 @@ def main() -> int:
         # 두 기능이 같은 수집기 폴더를 읽는다. 폴더는 [environment] dir 이 정하고,
         # 전력만 켠 장비는 [power] dir(없으면 같은 기본값)을 쓴다.
         _dir = (cfg.get("environment", "dir", fallback=None) if env_on else None) \
-            or cfg.get("power", "dir", fallback="/home/pi/openfield/data/field")
+            or cfg.get("power", "dir", fallback=FIELD_DATA_DIR)
+        # 이 서비스는 ProtectHome=yes 로 돈다 — /home 아래 폴더는 아예 보이지 않는다.
+        # 예전 기본값(/home/pi/openfield/...)을 그대로 둔 장비는 값이 영영 '없음'이었다.
+        if _dir.startswith("/home/"):
+            log.warning("수집기 폴더 %s 는 서비스가 읽을 수 없습니다(ProtectHome). %s 를 씁니다 — "
+                        "setup-wireless.sh 가 수집기를 그곳에 쓰게 설치합니다.", _dir, FIELD_DATA_DIR)
+            _dir = FIELD_DATA_DIR
         field_env = field_env_mod.FieldEnv(
             _dir,
             cfg.get("environment", "zone", fallback=""),
@@ -2307,6 +2328,58 @@ def main() -> int:
             return {"mode": mode_holder["mode"],
                     "ec_mode": ec_holder["mode"], "ec_unit": ec_holder["unit"]}
 
+        # ── 무선 센서 ([설정] → [무선 센서]) ─────────────────────────────────
+        wl = None
+        if wireless_mod is not None:
+            wl = wireless_mod.Wireless(
+                cfg.get("wireless", "devices", fallback=str(wireless_mod.DEFAULT_DEVICES)),
+                _wl_dir if not (_wl_dir := cfg.get("environment", "dir", fallback="") or FIELD_DATA_DIR)
+                .startswith("/home/") else FIELD_DATA_DIR,     # ProtectHome — 위 수집기 폴더와 같은 규칙
+                cfg.get("wireless", "mqtt_host", fallback="127.0.0.1"),
+                cfg.getint("wireless", "mqtt_port", fallback=1883),
+                cfg.get("wireless", "base_topic", fallback="zigbee2mqtt"),
+            )
+
+        def ui_wireless() -> dict:
+            if wl is None:
+                return {"ok": False, "error": "무선 센서 모듈이 없습니다"}
+            snap = wl.snapshot()
+            snap.update(ok=True, env_on=env_on, power_on=power_on)
+            return snap
+
+        def _wl_name_ok(name) -> bool:
+            return isinstance(name, str) and 0 < len(name) <= 64 and not any(c in name for c in "/#+")
+
+        def ui_wireless_action(action: str, body: dict) -> dict:
+            if wl is None:
+                return {"ok": False, "error": "무선 센서 모듈이 없습니다"}
+            if action == "permit":
+                return wl.permit(120 if body.get("on", True) else 0)
+            if action == "register":
+                name, kind, zone = body.get("name"), body.get("kind"), body.get("zone")
+                if not _wl_name_ok(name) or not isinstance(kind, str) or not isinstance(zone, str):
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.register(name, kind, zone, str(body.get("note") or ""))
+                log.info("화면에서 무선 센서를 등록했습니다: %s → %s", name, r)
+                return r
+            if action == "remove":
+                name = body.get("name")
+                if not _wl_name_ok(name):
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.remove(name)
+                log.info("화면에서 무선 센서를 뺐습니다: %s → %s", name, r)
+                return r
+            if action == "enable":
+                # 환경·기상(그리고 차단기가 있으면 전력) 표시를 켠다. 설정은 시작할 때만 읽으므로
+                # 저장한 뒤 프로그램을 다시 시작한다(약 15초).
+                ok = save_section_value(args.config, "environment", "enabled", "true")
+                if body.get("power"):
+                    ok = save_section_value(args.config, "power", "enabled", "true") and ok
+                if not ok:
+                    return {"ok": False, "error": "설정 파일에 쓰지 못했습니다"}
+                return ui_restart()
+            return {"ok": False, "error": "모르는 요청입니다"}
+
         def ui_set_power_type(sensor_id: str, kind: str) -> dict:
             """화면에서 고른 회로 종류를 적용하고 [power_circuits] 에 남긴다."""
             sid = (sensor_id or "").strip().upper()
@@ -2374,6 +2447,8 @@ def main() -> int:
             get_mode=ui_mode,
             on_set_mode=ui_set_mode,
             on_set_power_type=ui_set_power_type,
+            get_wireless=ui_wireless,
+            on_wireless=ui_wireless_action,
         )
         state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중",
                      version=VERSION, ec_unit=ec_holder["unit"], mode=mode_holder["mode"])

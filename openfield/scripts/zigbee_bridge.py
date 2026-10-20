@@ -111,6 +111,46 @@ def run_replay(args, devices, writer: Writer) -> int:
     return 0
 
 
+class DeviceTable:
+    """장치 설정을 들고 있다가 파일이 바뀌면 다시 읽는다.
+
+    장비 화면 [설정] → [무선 센서] 에서 센서를 등록하면 장비 프로그램이
+    devices.yaml 에 한 줄을 더한다. 브리지를 재시작하지 않아도 그 센서 값이
+    곧바로 들어오게, 메시지를 받을 때 파일 시각을 보고(최대 5초에 한 번) 바뀌었으면
+    다시 읽는다. 읽다가 틀리면(쓰는 도중 등) 이전 설정을 그대로 쓴다.
+    """
+
+    CHECK_EVERY_S = 5.0
+
+    def __init__(self, path: str, devices: dict) -> None:
+        self.path = Path(path)
+        self.devices = devices
+        self._mtime = self._stat()
+        self._checked = 0.0
+
+    def _stat(self) -> float:
+        try:
+            return self.path.stat().st_mtime
+        except OSError:
+            return 0.0
+
+    def current(self, now: float | None = None) -> dict:
+        import time
+        now = time.monotonic() if now is None else now
+        if now - self._checked < self.CHECK_EVERY_S:
+            return self.devices
+        self._checked = now
+        mtime = self._stat()
+        if mtime and mtime != self._mtime:
+            try:
+                self.devices = zigbee.load_devices(self.path)
+                self._mtime = mtime
+                print(f"[설정] 다시 읽음 — 장치 {len(self.devices)}대")
+            except Exception as exc:  # noqa: BLE001 — 틀린 설정으로 수집을 멈추지 않는다
+                print(f"[설정] 다시 읽기 실패, 이전 설정 유지: {exc}", file=sys.stderr)
+        return self.devices
+
+
 def run_subscribe(args, devices, writer: Writer) -> int:
     try:
         import paho.mqtt.client as mqtt
@@ -120,6 +160,7 @@ def run_subscribe(args, devices, writer: Writer) -> int:
         return 2
 
     unknown_seen: set[str] = set()
+    table = DeviceTable(args.devices, devices)
     # 적산값(전력량·관수량)은 메시지 사이에 이어서 세야 한다. 메시지마다
     # 새로 만들면 매번 '처음 본 값'이 되어 구간 증가분이 늘 0 이 된다.
     counter = CumulativeCounter()
@@ -133,6 +174,7 @@ def run_subscribe(args, devices, writer: Writer) -> int:
 
     def on_message(client, userdata, message):
         payload = message.payload.decode("utf-8", errors="replace")
+        devices = table.current()
         if message.topic == f"{args.base_topic}/bridge/devices":
             count = writer.devices(payload)
             missing = zigbee.unconfigured(
@@ -160,7 +202,9 @@ def run_subscribe(args, devices, writer: Writer) -> int:
                 unknown_seen.add(note)
                 print(f"[확인 필요] {note}", file=sys.stderr)
 
-    client = mqtt.Client()
+    # paho 2.x 는 콜백 형식을 밝혀야 만들어진다(안 밝히면 ValueError). 1.x 에는 그 인자가 없다.
+    api = getattr(mqtt, "CallbackAPIVersion", None)
+    client = mqtt.Client(api.VERSION1) if api else mqtt.Client()
     if args.username:
         client.username_pw_set(args.username, args.password or None)
     client.on_connect = on_connect
@@ -193,11 +237,16 @@ def main(argv: list[str] | None = None) -> int:
                    help="저장된 기록(JSON Lines)을 읽는다. MQTT 에 붙지 않는다")
     args = p.parse_args(argv)
 
-    devices = zigbee.load_devices(args.devices)
+    devices = zigbee.load_devices(args.devices) if Path(args.devices).exists() else {}
     if not devices:
-        print(f"{args.devices} 에 장치가 없다.", file=sys.stderr)
-        return 1
-    print(f"[설정] 장치 {len(devices)}대")
+        # 처음 설치한 장비는 아직 등록한 센서가 없다. 그래도 돌아야 페어링 목록
+        # (zigbee_devices.json)이 남아 화면에서 새 센서를 찾고 등록할 수 있다.
+        if args.replay:
+            print(f"{args.devices} 에 장치가 없다.", file=sys.stderr)
+            return 1
+        print("[설정] 장치 0대 — 장비 화면 [무선 센서] 에서 등록하면 바로 반영된다")
+    else:
+        print(f"[설정] 장치 {len(devices)}대")
 
     writer = Writer(Path(args.out), Path(args.capture) if args.capture else None)
     return (run_replay if args.replay else run_subscribe)(args, devices, writer)

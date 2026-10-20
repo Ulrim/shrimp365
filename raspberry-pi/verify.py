@@ -39,6 +39,7 @@ import buffer          # noqa: E402
 import anomaly         # noqa: E402
 import history         # noqa: E402
 import field_env       # noqa: E402
+import wireless        # noqa: E402
 import limits          # noqa: E402
 
 # --full 이면 72시간치(4,320건)를 실제로 적재한다. 기본값이 아닌 이유는 파이의
@@ -392,6 +393,62 @@ check("서버가 버릴 회로 이름(따옴표·공백)은 장비도 쓰지 않
 
 check("스마트팜(양액 기준)에서는 새우 운전 권고를 내지 않는다",
       advice.recommend({"temperature": 21.6, "ph": 6.12, "do_level": 7.3}, nutrient_mode=True), [])
+
+
+print("\n⑩ 무선 센서 — 화면에서 찾기·등록·빼기")
+_here = Path(__file__).resolve().parent
+_wdir = Path(tempfile.mkdtemp(prefix="wireless-"))
+_dev = _wdir / "devices.yaml"
+# 장비에는 /opt/shrimp365/field/devices.template.yaml 로, 저장소에는 raspberry-pi/field/ 에 있다.
+_tpl = next((p for p in (_here / "field" / "devices.template.yaml", Path("/opt/shrimp365/field/devices.template.yaml"))
+             if p.exists()), None)
+_dev.write_text(_tpl.read_text(encoding="utf-8") if _tpl else "kinds:\n\ndevices:\n\nrf:\n  Fineoffset-WS90:\n    zone: mast\n",
+                encoding="utf-8")
+check("새 장비 목록은 비어 있다", wireless.read_registered(_dev), {})
+check("이름 규칙: 구간 글자 + 번호(초관부·토양), 두 자리 번호(그 밖)",
+      (wireless.suggest_id("canopy", "treatment", set()), wireless.suggest_id("soil", "control", {"SOIL-C1"}),
+       wireless.suggest_id("breaker-pump", "facility", {"PUMP-01"}), wireless.suggest_id("air", "mast", set())),
+      ("CN-T1", "SOIL-C2", "PUMP-02", "AIR-01"))
+wireless.add_device(_dev, "cn-t1", "canopy", "treatment", "CN-T1", "이랑 동쪽")
+wireless.add_device(_dev, "air-01", "air", "mast", "AIR-01")
+_reg = wireless.read_registered(_dev)
+check("등록하면 devices: 칸에 한 줄씩(순서대로)", list(_reg), ["cn-t1", "air-01"])
+check("2m 기온은 온습도 종류에 temperature→t_air 를 덮는다", _reg["air-01"].get("map"), "{temperature: t_air}")
+_txt = _dev.read_text(encoding="utf-8")
+check("다른 칸(kinds·rf)은 그대로", ("kinds:" in _txt, "rf:" in _txt, "Fineoffset-WS90" in _txt,
+      _txt.index("cn-t1:") < _txt.index("rf:")), (True, True, True, True))
+check("빼면 그 줄만 지운다", (wireless.remove_device(_dev, "cn-t1"), list(wireless.read_registered(_dev))),
+      (True, ["air-01"]))
+_ofdf_src = _here.parent / "openfield" / "configs" / "devices.yaml"     # 저장소에서만 있다
+if _ofdf_src.exists():
+    _ofdf = _wdir / "ofdf.yaml"
+    _ofdf.write_text(_ofdf_src.read_text(encoding="utf-8"), encoding="utf-8")
+    _n0 = len(wireless.read_registered(_ofdf))
+    wireless.add_device(_ofdf, "soil-c3", "soil", "control", "SOIL-C3")
+    _r = wireless.read_registered(_ofdf)
+    check("손으로 쓴 기존 설정(주석 예시 포함)에도 마지막 장치 뒤에 붙는다",
+          (len(_r) - _n0, list(_r)[-1], _r["soil-c3"]["zone"]), (1, "soil-c3", "control"))
+check("찾은 센서의 종류 짐작", (
+      wireless.guess_kind("Temperature & humidity sensor", [{"property": "temperature"}, {"property": "humidity"}]),
+      wireless.guess_kind("Soil sensor", [{"property": "soil_moisture"}]),
+      wireless.guess_kind("Smart circuit breaker", [{"type": "switch", "features": [{"property": "state"}]},
+                                                   {"property": "power"}, {"property": "current"}]),
+      wireless.guess_kind("Water leak sensor", [{"property": "water_leak"}])),
+      ("canopy", "soil", "breaker-aux", "leak"))
+check("MQTT 길이 부호화(1·2바이트 경계)", (wireless._varint(0), wireless._varint(127), wireless._varint(128), wireless._varint(16383)),
+      (b"\x00", b"\x7f", b"\x80\x01", b"\xff\x7f"))
+_cfg2 = _wdir / "config.ini"
+_cfg2.write_text("[environment]\n; 주석\nenabled = false\nenabled_extra = 1\n\n[power]\ndir = /x\n", encoding="utf-8")
+_ssv = wireless.save_section_value
+if _ssv:
+    _ssv(_cfg2, "environment", "enabled", "true")
+    _ssv(_cfg2, "power", "enabled", "true")
+    _ssv(_cfg2, "wireless", "devices", "/d.yaml")
+    _c = _cfg2.read_text(encoding="utf-8")
+    check("설정 한 줄 바꾸기: 정확한 키만, 없으면 끼우고, 구간이 없으면 만든다",
+          ("enabled = true" in _c, "enabled_extra = 1" in _c, "; 주석" in _c,
+           _c.index("[power]") < _c.index("enabled = true", _c.index("[power]")), "[wireless]" in _c),
+          (True, True, True, True, True))
 
 print()
 if fails:

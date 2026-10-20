@@ -317,6 +317,18 @@ SHELL_CSS = """
 MOCK = """
 <script>
 var STATES = __STATES__, HIST = __HIST__, ENV_HIST = __ENV_HIST__, SENSORS = __SENSORS__;
+// 무선 센서 화면 — wireless.Wireless.snapshot() 의 모양.
+var WL = {ok:true, installed:true, mqtt:true, z2m:true, dongle:"usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2-if00",
+  rtlsdr:true, env_on:true, power_on:true, permit_left:0, new:[], added:false,
+  units:{"mosquitto":true, "zigbee2mqtt":true, "farm365-zigbee":true, "farm365-rtl433":true},
+  taken:["CN-T1","CN-T2","SOIL-T1","SOIL-T2","PUMP-01","AUX-01"],
+  sensors:[
+    {name:"cn-t1", sensor_id:"CN-T1", kind:"canopy", zone:"treatment", note:"", paired:true, model:"TS0201", age_min:2, battery:87, lqi:142},
+    {name:"cn-t2", sensor_id:"CN-T2", kind:"canopy", zone:"treatment", note:"", paired:true, model:"TS0201", age_min:4, battery:64, lqi:98},
+    {name:"soil-t1", sensor_id:"SOIL-T1", kind:"soil", zone:"treatment", note:"", paired:true, model:"TS0601", age_min:6, battery:91, lqi:120},
+    {name:"soil-t2", sensor_id:"SOIL-T2", kind:"soil", zone:"treatment", note:"", paired:true, model:"TS0601", age_min:47, battery:12, lqi:35},
+    {name:"pump-01", sensor_id:"PUMP-01", kind:"breaker-pump", zone:"facility", note:"", paired:true, model:"TS011F", age_min:0, battery:null, lqi:180},
+    {name:"aux-01", sensor_id:"AUX-01", kind:"breaker-aux", zone:"facility", note:"", paired:true, model:"TS011F", age_min:1, battery:null, lqi:165}]};
 var NUTRIENT = __NUTRIENT__, CALIBRATION = __CALIBRATION__;
 var SCAN = __SCAN__, AUTO = __AUTO__;
 var WIFI_NETWORKS = __WIFI_NETWORKS__, wifiCur = __WIFI_START__;
@@ -327,6 +339,28 @@ var current = 0;
 window.fetch = function(url, opts){
   var body = {};
   if (url.indexOf("/api/state") === 0) body = STATES[current][1];
+  else if (url === "/api/wireless") {
+    if (WL.permit_left > 0) {
+      WL.permit_left = Math.max(0, WL.permit_left - 3);
+      if (!WL.new.length && !WL.added) WL.new.push({name:"0xa4c1381f2b7e0091", ieee:"0xa4c1381f2b7e0091", model:"TS0201",
+        vendor:"Tuya", description:"Temperature & humidity sensor", supported:true, interviewing:false, guess:"canopy"});
+    }
+    body = JSON.parse(JSON.stringify(WL));
+  }
+  else if (url.indexOf("/api/wireless/") === 0) {
+    var a = url.split("/").pop(), rq = JSON.parse((opts && opts.body) || "{}");
+    if (a === "permit") { WL.permit_left = rq.on ? 120 : 0; body = {ok:true}; }
+    else if (a === "register") {
+      var pre = {canopy:"CN",air:"AIR",soil:"SOIL","breaker-pump":"PUMP","breaker-aux":"AUX",leak:"LEAK",valve:"VALVE"}[rq.kind];
+      var z = (rq.kind === "canopy" || rq.kind === "soil") ? ({treatment:"T",control:"C"})[rq.zone] || "" : "";
+      var id; for (var n = 1; n < 99; n++) { id = z ? pre + "-" + z + n : pre + "-" + (n < 10 ? "0" : "") + n; if (WL.taken.indexOf(id) < 0) break; }
+      WL.taken.push(id); WL.new = WL.new.filter(function(x){ return x.name !== rq.name; }); WL.added = true;
+      WL.sensors.push({name:id.toLowerCase(), sensor_id:id, kind: rq.kind === "air" ? "canopy" : rq.kind, zone:rq.zone, note:"", paired:true, model:"TS0201", age_min:null, battery:null, lqi:null});
+      body = {ok:true, name:id.toLowerCase(), sensor_id:id};
+    }
+    else if (a === "remove") { WL.sensors = WL.sensors.filter(function(x){ return x.name !== rq.name; }); body = {ok:true, removed:true, unpaired:true}; }
+    else body = {ok:true};
+  }
   else if (url.indexOf("/api/env_history") === 0) {
     var eq = new URLSearchParams(url.split("?")[1] || "");
     body = (ENV_HIST[eq.get("slot")] || {})[eq.get("hours") || "24"] || {sensors:[],avg:[],count:0};
