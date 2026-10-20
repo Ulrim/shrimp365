@@ -26,7 +26,20 @@ DEFAULT_RETENTION_DAYS = 8
 # 일주일치 10,000건을 그대로 그리면 라즈베리파이에서 눈에 띄게 버벅인다.
 MAX_POINTS = 160
 
-FIELDS = ("temperature", "ph", "do_level", "salinity")
+# 화면이 그래프로 그리는 항목. 화면(webui.py 의 openChart)이 요청하는 key 는
+# 반드시 여기 있어야 한다 — 없으면 series() 가 빈 결과를 돌려 그래프가 늘 빈다.
+# 1.9.1 까지 conductivity 가 빠져 스마트팜 전도도 그래프가 항상 비어 있었다.
+# 항목을 늘릴 때는 아래 _migrate() 가 기존 DB 에 칸을 덧붙이므로 이력은 남는다.
+FIELDS = ("temperature", "ph", "do_level", "salinity", "conductivity")
+
+
+# 같은 초에 두 번 기록되면 나중 것으로 덮어쓴다(재시작 직후 등).
+_INSERT_SQL = (
+    f"insert into samples (ts, {', '.join(FIELDS)}) "
+    f"values (?{', ?' * len(FIELDS)}) "
+    "on conflict(ts) do update set "
+    + ", ".join(f"{f}=excluded.{f}" for f in FIELDS)
+)
 
 # 환경 센서 한 대 한 대의 값(field_env.FieldEnv.read 의 each). 기온·습도·토양 센서가 여러 대인
 # 농장에서 칸을 누르면 센서별 그래프를 그린다. 수집기가 보통 5분마다 적으므로 그 간격으로만 남긴다
@@ -68,12 +81,35 @@ class History:
                      primary key (slot, ts, sid)
                    )"""
             )
+            # samples 의 새 칸(conductivity 등)은 기존 DB 에 덧붙인다. env_samples 는
+            # 따로 선 표라 위 create if not exists 로 충분하다 — 어느 쪽도 기존 행을 지우지 않는다.
+            self._migrate()
             self._conn.commit()
             os.chmod(self.path, 0o600)
         except (sqlite3.Error, OSError) as exc:
             # 이력을 못 써도 측정·전송은 계속되어야 한다. 그래프만 포기한다.
             log.error("이력 저장소를 열지 못했습니다(%s). 그래프 없이 계속합니다.", exc)
             self._conn = None
+
+    def _migrate(self) -> None:
+        """현장 장비의 기존 DB 에 새 항목 칸을 덧붙인다(시작할 때 한 번).
+
+        표를 새로 만들면 일주일치 이력이 사라지므로 ALTER TABLE ... ADD COLUMN 만
+        쓴다. 이미 있는 칸은 건너뛰고, 기존 행의 새 칸은 NULL 로 남는다(그래프는
+        NULL 을 건너뛴다). 칸 이름은 FIELDS 상수에서만 오므로 SQL 에 끼워도 안전하다.
+        """
+        assert self._conn is not None
+        have = {row[1] for row in self._conn.execute("pragma table_info(samples)")}
+        for name in FIELDS:
+            if name in have:
+                continue
+            try:
+                self._conn.execute(f"alter table samples add column {name} real")
+                log.info("이력 저장소에 %s 칸을 추가했습니다.", name)
+            except sqlite3.OperationalError as exc:
+                # 두 프로세스가 동시에 열어 한쪽이 먼저 붙인 경우 등 — 이미 있으면 그만이다.
+                if "duplicate column" not in str(exc).lower():
+                    raise
 
     @property
     def available(self) -> bool:
@@ -85,15 +121,7 @@ class History:
         ts = int(ts if ts is not None else time.time())
         with self._lock:
             try:
-                # 같은 초에 두 번 기록되면 나중 것으로 덮어쓴다(재시작 직후 등).
-                self._conn.execute(
-                    """insert into samples (ts, temperature, ph, do_level, salinity)
-                       values (?, ?, ?, ?, ?)
-                       on conflict(ts) do update set
-                         temperature=excluded.temperature, ph=excluded.ph,
-                         do_level=excluded.do_level, salinity=excluded.salinity""",
-                    (ts, *(values.get(f) for f in FIELDS)),
-                )
+                self._conn.execute(_INSERT_SQL, (ts, *(values.get(f) for f in FIELDS)))
                 self._conn.commit()
             except sqlite3.Error as exc:
                 log.warning("이력 저장 실패: %s", exc)
