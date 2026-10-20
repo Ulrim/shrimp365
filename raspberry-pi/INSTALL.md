@@ -797,15 +797,26 @@ sudo reboot
 웹 대시보드의 "환경·기상" 카드에 나옵니다. 장비가 센서를 직접 받지는 않고, 같은 파이에서
 도는 노지 수집기의 파일을 읽습니다.
 
-1. 지그비: SONOFF 동글 + Zigbee2MQTT 로 센서를 페어링하고, 이름을 `openfield/configs/devices.yaml`
-   의 장치 이름과 맞춘 뒤 수집기를 상주로 돌립니다:
-   `python3 openfield/scripts/zigbee_bridge.py --devices openfield/configs/devices.yaml --out /home/pi/openfield/data/field`
-2. 기상센서(WS90, 433MHz): RTL-SDR 동글이면
-   `rtl_433 -f 433.92M -F json | python3 openfield/scripts/rtl433_bridge.py --out /home/pi/openfield/data/field`,
-   에코윗 게이트웨이면 `python3 openfield/scripts/ecowitt_receiver.py --out /home/pi/openfield/data/field`.
-   **세 수집기의 `--out` 을 같은 디렉터리로** 둡니다.
-3. `config.ini` 의 `[environment]` 에서 `enabled = true`, `dir` 을 위 `--out` 과 같게 두고 재시작합니다.
-   화면에만 띄우고 서버로 보내지 않으려면 `upload = false`.
+**무선 센서 연결 — 장비 화면에서 합니다.**
+
+1. 지그비 동글(SONOFF)을 꽂고, 433MHz 기상센서(WS90)를 쓰면 RTL-SDR 동글도 꽂습니다.
+2. 처음 한 번만 수집 프로그램을 설치합니다(인터넷 필요, 10~20분):
+   ```bash
+   sudo bash /opt/shrimp365/setup-wireless.sh
+   ```
+   메시지 중계(mosquitto)·Zigbee2MQTT·수집기를 설치하고 서비스로 등록합니다. 동글이
+   SONOFF Dongle-P(CC2652P)면 `--adapter zstack`, 기상센서를 에코윗 게이트웨이로 받으면 `--ecowitt` 를
+   붙입니다. `config.ini` 의 `[environment]` 도 켜 줍니다.
+3. 장비 화면 **[설정] → [무선 센서]** 에서 **[새 센서 찾기]** 를 누르고, 센서의 버튼을 5초 길게 누릅니다.
+   찾은 센서가 목록에 뜨면 **[등록]** → 무엇을 재는 센서인지(초관부 온습도·2m 기온·토양·차단기·누수·밸브)와
+   어디에 달았는지(적용구간·비교구간·시설·기상 폴대)를 고릅니다. 이름(CN-T1, SOIL-C2, PUMP-01 …)은
+   장비가 정하고, 몇 초 안에 값이 들어옵니다. 서비스 재시작은 필요 없습니다.
+4. 같은 화면에서 센서마다 배터리·신호 세기·마지막 수신을 봅니다. 고장 난 센서는 **[빼기]** 로 지우고
+   새 센서를 다시 찾아 붙입니다.
+
+수집 파일은 `/var/lib/shrimp365/field/data`, 센서 목록은 `/var/lib/shrimp365/field/devices.yaml` 에 있습니다.
+장비 서비스는 보안 설정상 `/home` 아래를 읽지 못하므로 수집 폴더를 그곳에 두지 않습니다.
+화면에만 띄우고 서버로 보내지 않으려면 `config.ini` 의 `[environment]` 에서 `upload = false`.
 4. 웹에 보이려면 서버 DB 에 `supabase/migrations/environment_readings.sql` 을 한 번 실행합니다
    (실행 전에도 장비는 멈추지 않습니다 — 서버가 환경 칸만 빼고 저장합니다).
 
@@ -822,9 +833,9 @@ sudo reboot
 카드에 나옵니다. 값만 보여 줍니다 — 회로를 켜고 끄지는 않습니다. 배선·부품은
 `docs/plans/farm365-main-panel.md` 를 따릅니다(단상).
 
-1. Zigbee 계측 차단기를 위 1번처럼 페어링하고, 차단기마다 `devices.yaml` 에 명시 매핑을 둡니다
-   (이름 예: `MAIN-01`, `PUMP-01`, `HEAT-01`). 매핑이 없으면 값이 엉뚱한 칸으로 들어갑니다.
-2. `config.ini` 의 `[power]` 에서 `enabled = true`, `dir` 을 수집기 `--out` 과 같게 두고 재시작합니다.
+1. Zigbee 계측 차단기를 위 **[무선 센서]** 에서 찾아 '차단기 — 관수펌프 회로' 또는 '차단기 — 그 밖의 회로'
+   로 등록합니다(이름 PUMP-01, AUX-01 …).
+2. `config.ini` 의 `[power]` 에서 `enabled = true` 로 두고 재시작합니다.
 3. 화면 **[설정] → [전력 회로]** 에서 차단기마다 붙은 기기 종류(관수펌프·히터·환기팬…)를 고릅니다.
    고른 값은 `config.ini` 의 `[power_circuits]` 에 적힙니다. 기기를 바꾸면 여기서 다시 고르면 됩니다.
 4. 웹에 보이려면 서버 DB 에 `supabase/migrations/power_readings.sql` 을 한 번 실행합니다
