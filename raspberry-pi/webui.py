@@ -33,7 +33,12 @@ class State:
         self._lock = threading.Lock()
         self._data: dict = {
             "values": {},          # 측정값 — 연결 여부와 무관하게 항상 갱신
-            "status": "",          # 하단에 뜨는 한 줄
+            "status": "",          # 하단에 뜨는 한 줄(한국어). 아래 코드가 없을 때만 화면에 쓴다.
+            # 하단 줄의 뜻 — 화면이 이 코드와 숫자로 화면 언어 문장을 만든다(1.9.2).
+            #   send_fail · unlinked · sent · sensor_error · dry_run · checking ·
+            #   pair_wait · paired · unlinked_by_user · restarting · rebooting
+            "status_code": None,
+            "status_args": {},     # {"at": "07:42", "pending": 37, "sent": 3} 중 필요한 것
             "version": "",         # 지금 도는 프로그램 버전. 원격 업데이트로 바뀌면
                                    # 화면이 스스로 새로고침해 새 UI 를 띄운다.
             "updated_at": None,
@@ -64,6 +69,11 @@ class State:
         }
 
     def update(self, **kwargs) -> None:
+        # 상태 문장만 바꾸고 코드를 주지 않으면(예전 호출부) 이전 코드가 남아 화면이
+        # 옛 문장을 계속 그리게 된다. 그런 경우 코드를 지워 문자열을 그대로 쓰게 한다.
+        if "status" in kwargs and "status_code" not in kwargs:
+            kwargs["status_code"] = None
+            kwargs.setdefault("status_args", {})
         with self._lock:
             self._data.update(kwargs)
 
@@ -344,7 +354,8 @@ PAGE = """<!doctype html>
     background:#111A2E;border:1px solid #22304C;border-radius:11px;
     padding:9px 12px;margin-bottom:7px;
   }
-  .found b{color:var(--brand-text);font-family:ui-monospace,monospace}
+  /* 한글 이름까지 고정폭 글꼴로 그리면 자간이 벌어진다(1.9.1). 숫자만 폭을 맞춘다. */
+  .found b{color:var(--brand-text);font-variant-numeric:tabular-nums}
   /* 모드 고르기 — 두 칸 토글. 활성 칸은 강조색으로 찬다. */
   .seg{display:flex;gap:8px;margin:8px 0}
   .seg button{
@@ -438,14 +449,17 @@ PAGE = """<!doctype html>
   .ranges button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
   .ranges .close{margin-left:auto;border-color:#22304C}
   /* 설정·보정·양액 화면 머리의 [닫기]·[‹ 설정]. 클래스 없이 만든 버튼이라 예전에는
-     브라우저 기본 모양(흰 사각)으로 떠 혼자 튀었다. 그래프의 [닫기]와 같은 모양으로 둔다. */
+     브라우저 기본 모양(흰 사각)으로 떠 혼자 튀었다. 그래프의 [닫기]와 같은 모양으로 두되,
+     장갑 낀 손으로도 누르게 높이는 터치 최소 44px(1.9.2). */
   .chead > button{
-    font-weight:700;font-size:13px;line-height:1;font-family:inherit;padding:8px 14px;min-height:36px;border-radius:8px;
-    border:1px solid #22304C;background:transparent;color:#94A3B8;cursor:pointer;flex:0 0 auto;
+    font-weight:700;font-size:13px;line-height:1;font-family:inherit;padding:8px 16px;min-height:44px;border-radius:8px;
+    border:1px solid #22304C;background:transparent;color:#94A3B8;cursor:pointer;flex:0 0 auto;margin-left:auto;
   }
+  .chead .cstats + button{margin-left:12px}
   .chead > button:active{background:#16223C}
-  .plot{flex:1;min-height:0;background:#111A2E;border:1px solid #22304C;border-radius:12px}
-  .plot svg{display:block;width:100%;height:100%}
+  .plot{flex:1;min-height:0;background:#111A2E;border:1px solid #22304C;border-radius:12px;
+    position:relative;overflow:hidden}
+  .plot svg{display:block;position:absolute;inset:0;width:100%;height:100%}
   .nodata{
     flex:1;display:flex;align-items:center;justify-content:center;
     background:#111A2E;border:1px solid #22304C;border-radius:12px;color:#64748B;font-size:15px;
@@ -487,6 +501,8 @@ PAGE = """<!doctype html>
     text-align:left;display:inline-block;margin-top:6px;
     background:#111A2E;border:1px solid #22304C;border-radius:12px;padding:10px 20px;
   }
+  /* 맨 위 *{padding:0} 이 ol 의 들여쓰기까지 지워 번호가 테두리에 붙었다(1.9.1). */
+  .steps ol{padding-left:1.5em}
   .steps li{color:#CBD5E1;font-size:13.5px;margin:2px 0;line-height:1.45}
   .ovbtns{display:flex;gap:10px;margin-top:14px}
   .err{color:#F87171;font-size:14px;margin-top:10px}
@@ -559,8 +575,14 @@ function orderFor(d){
 // 보라는 뜻이 아니다 — 그렇게 보면 정상 양액(21℃, pH 6.1)이 온통 빨갛게 뜬다.
 var nutMode = false;   // 계기판이 매번 갱신할 때 함께 정한다
 
+// 이 항목에 쓰는 판정 밴드 — 값 칸의 색(level)과 그래프의 녹색 띠가 이 하나를 본다.
+// 농업 기준(NUT_BANDS = 웹 AGRI_THRESHOLDS 와 같은 값)에 없는 항목은 새우 표로 돌아가고,
+// 전도도처럼 어느 표에도 없는 항목은 밴드가 없다(전역 EC 기준선을 긋지 않는다).
+// isAgri() 도 직접 본다 — 그래프가 열려 있는 동안에는 renderValues 가 돌지 않아
+// nutMode 가 모드 전환을 늦게 따라올 수 있다.
 function bandFor(key){
-  return (nutMode && NUT_BANDS[key]) ? NUT_BANDS[key] : BANDS[key];
+  if ((nutMode || isAgri()) && NUT_BANDS[key]) return NUT_BANDS[key];
+  return BANDS[key] || null;
 }
 
 // 밴드의 한쪽 끝이 null 이면 그쪽은 보지 않는다 — 용존산소에 상한이 없는 것이
@@ -638,6 +660,20 @@ var I18N = {
   held:{ko:"보관 {n}건",en:"{n} held",vi:"Đã lưu {n}",id:"{n} tersimpan"},
   starting:{ko:"시작하는 중…",en:"Starting…",vi:"Đang khởi động…",id:"Memulai…"},
   no_collector:{ko:"수집기 응답 없음",en:"No response from collector",vi:"Bộ thu không phản hồi",id:"Kolektor tak merespons"},
+  // 하단 상태줄 — 수집기는 status_code + 숫자만 보내고 문장은 여기서 만든다(1.9.2).
+  // 1.9.1 은 수집기가 만든 한국어 문장을 그대로 띄워 영어 화면에도 "보관 37건" 이 떴다.
+  st_send_fail:{ko:"전송 실패",en:"Send failed",vi:"Gửi thất bại",id:"Gagal kirim"},
+  st_unlinked:{ko:"미연결 — 측정만",en:"Not linked — measuring only",vi:"Chưa kết nối — chỉ đo",id:"Belum ditautkan — hanya mengukur"},
+  st_sent:{ko:"전송 {at}",en:"Sent {at}",vi:"Đã gửi {at}",id:"Terkirim {at}"},
+  st_sent_more:{ko:"전송 {at} · 보관분 {sent}건 함께",en:"Sent {at} · +{sent} held",vi:"Đã gửi {at} · +{sent} đã lưu",id:"Terkirim {at} · +{sent} tersimpan"},
+  st_sensor_error:{ko:"센서 오류 — 읽은 값 없음",en:"Sensor error — no readings",vi:"Lỗi cảm biến — không có số liệu",id:"Kesalahan sensor — tanpa data"},
+  st_dry_run:{ko:"시험 실행(전송 안 함) {at}",en:"Dry run (not sent) {at}",vi:"Chạy thử (không gửi) {at}",id:"Uji coba (tidak dikirim) {at}"},
+  st_checking:{ko:"센서 확인 중",en:"Checking sensors",vi:"Đang kiểm tra cảm biến",id:"Memeriksa sensor"},
+  st_pair_wait:{ko:"연결 대기 중",en:"Waiting for link",vi:"Đang chờ kết nối",id:"Menunggu tautan"},
+  st_paired:{ko:"연결 완료",en:"Linked",vi:"Đã kết nối",id:"Tertaut"},
+  st_unlinked_by_user:{ko:"계정 연결 해제됨 — 새 코드로 연결하세요",en:"Account unlinked — link again with a new code",vi:"Đã ngắt tài khoản — kết nối lại bằng mã mới",id:"Akun diputus — tautkan lagi dengan kode baru"},
+  st_restarting:{ko:"다시 시작하는 중… 약 15초",en:"Restarting… about 15s",vi:"Đang khởi động lại… khoảng 15 giây",id:"Memulai ulang… sekitar 15 dtk"},
+  st_rebooting:{ko:"재부팅하는 중… 약 1분",en:"Rebooting… about 1 min",vi:"Đang khởi động lại thiết bị… khoảng 1 phút",id:"Memulai ulang perangkat… sekitar 1 menit"},
   // 그래프
   r_6h:{ko:"6시간",en:"6 h",vi:"6 giờ",id:"6 jam"},
   r_12h:{ko:"12시간",en:"12 h",vi:"12 giờ",id:"12 jam"},
@@ -736,6 +772,9 @@ var I18N = {
   n_do:{ko:"용존산소",en:"Dissolved O₂",vi:"Oxy hòa tan",id:"Oksigen"},
   n_ec:{ko:"전도도 / 염도",en:"Conductivity / Salinity",vi:"Độ dẫn / Độ mặn",id:"Konduktivitas / Salinitas"},
   n_ec_only:{ko:"전도도",en:"Conductivity",vi:"Độ dẫn",id:"Konduktivitas"},
+  n_flow:{ko:"유량",en:"Flow rate",vi:"Lưu lượng",id:"Laju aliran"},
+  n_dp:{ko:"차압",en:"Differential pressure",vi:"Chênh áp",id:"Tekanan diferensial"},
+  raw:{ko:"원시",en:"raw",vi:"thô",id:"mentah"},
   sen_noreply:{ko:"센서 응답 없음",en:"No sensor response",vi:"Cảm biến không phản hồi",id:"Sensor tak merespons"},
   sen_check:{ko:"설정 → 센서 설정 → 선 훑기",en:"Settings → Sensors → Scan bus",vi:"Cài đặt → Cảm biến → Quét",id:"Pengaturan → Sensor → Pindai"},
   sen_probe:{ko:"전극 확인 필요",en:"Check the probe",vi:"Kiểm tra đầu dò",id:"Periksa probe"},
@@ -1177,10 +1216,13 @@ function sensorColors(e){
   ids.forEach(function(id, i){ c[id] = SENSOR_COLORS[i % SENSOR_COLORS.length]; });
   return c;
 }
-function envPlot(slot, d, colors){
+// W·H 는 그릴 자리의 실제 픽셀 크기 — 수질 그래프(drawChart)와 같은 까닭으로 고정 viewBox 를
+// 늘리지 않는다(늘리면 축 글자가 퍼지고 점이 타원이 된다).
+function envPlot(slot, d, colors, W, H){
   if (!d) return '<div class="nodata">' + t("env_loading") + '</div>';
   if (!d.count) return '<div class="nodata">' + t("env_no_hist") + '</div>';
-  var W = 500, H = 300, padL = 44, padR = 10, padT = 10, padB = 24;
+  W = Math.max(240, W || 500); H = Math.max(120, H || 300);
+  var padL = 44, padR = 10, padT = 10, padB = 24;
   var all = [];
   d.sensors.forEach(function(s){ s.points.forEach(function(p){ all.push(p[0]); }); });
   var t0 = Math.min.apply(null, all), t1 = Math.max(Math.max.apply(null, all), t0 + 1);
@@ -1208,7 +1250,7 @@ function envPlot(slot, d, colors){
   };
   var lines = d.sensors.map(function(s){ return line(s.points, colors[s.id] || "#94A3B8", 2, false); }).join("");
   var avg = d.sensors.length >= 2 ? line(d.avg, "#E8EDF7", 1.5, true) : "";
-  return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' + grid + lines + avg + '</svg>';
+  return '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' + grid + lines + avg + '</svg>';
 }
 function drawEnvEach(d){
   var e = d.env && d.env[envEachKey];
@@ -1244,9 +1286,11 @@ function drawEnvEach(d){
         '<span class="avgkey">' + t("env_avg_line") + '</span></span></div>' +
       '<div class="ranges">' + buttons +
         '<button class="close" onclick="closeEnvEach()">' + t("close") + '</button></div>' +
-      '<div class="eachbody"><div class="plot">' + envPlot(slot, envSeries, colors) + '</div>' +
+      '<div class="eachbody"><div class="plot" id="envplot"></div>' +
         '<div class="eachlist">' + rows + '</div></div>' +
     '</div>';
+  var plot = document.getElementById("envplot");
+  plot.innerHTML = envPlot(slot, envSeries, colors, plot.clientWidth, plot.clientHeight);
 }
 
 // 설비 운전 권고 — "지금 무엇을 돌릴까" 한 줄.
@@ -1465,7 +1509,7 @@ function fmtTick(ts, hours){
 }
 
 function drawChart(key, hours, d){
-  var r = RANGES[key];
+  var r = RANGES[key] || {unit:"", digits:2};
   // 계기판이 전도도를 mS/cm 로 보여 주면 그래프도 같은 단위로 — 이력은 uS/cm 로 쌓인다.
   if (key === "conductivity" && lastState && lastState.ec_unit === "ms" && d.count) {
     var k = function(v){ return v / 1000; };
@@ -1473,10 +1517,6 @@ function drawChart(key, hours, d){
          points:d.points.map(function(p){ return [p[0], k(p[1]), k(p[2]), k(p[3])]; })};
     r = {unit:"mS/cm", digits:2};
   }
-  // 적정 범위 — 값 칸 색과 같은 밴드. 한쪽 끝이 null 이면(용존산소 상한) 그쪽은 데이터 끝까지.
-  var b = bandFor(key);
-  var ok = b && b.ok;
-  var W = 768, H = 250, padL = 52, padR = 12, padT = 12, padB = 26;
 
   var buttons = RANGE_OPTIONS.map(function(o){
     return '<button onclick="setRange(' + o.hours + ')" aria-pressed="' +
@@ -1498,78 +1538,114 @@ function drawChart(key, hours, d){
       '<button class="close" onclick="closeChart()">' + t("close") + '</button>' +
     '</div>';
 
+  var box = document.getElementById("chart");
   if (!d.count) {
-    document.getElementById("chart").innerHTML =
-      '<div class="chart">' + head +
+    box.innerHTML = '<div class="chart">' + head +
       '<div class="nodata">' + t("no_data") + '</div></div>';
     return;
   }
 
-  // 세로 범위 — 값이 화면을 채우되 적정 범위 경계도 보이게 잡는다.
-  // 적정 범위를 통째로 포함시키면(예: DO 상한 20) 실제 곡선이 아래에
-  // 눌려 붙어 변화를 읽을 수 없다. 그래서 데이터 폭의 25% 안에서만
-  // 경계 쪽으로 넓힌다.
-  var span = Math.max(d.max - d.min, Math.pow(10, -r.digits));
-  var margin = span * 0.25;
-  // 적정 범위가 없는 항목(염도)은 데이터 폭만 보고 잡는다.
-  var lo = (ok && ok[0] !== null) ? Math.min(d.min, Math.max(ok[0], d.min - margin)) : d.min - margin;
-  var hi = (ok && ok[1] !== null) ? Math.max(d.max, Math.min(ok[1], d.max + margin)) : d.max + margin;
-  var pad = Math.max((hi - lo) * 0.08, Math.pow(10, -r.digits));
-  lo -= pad; hi += pad;
+  // 그릴 자리를 먼저 깔고 **실제 픽셀 크기**로 좌표를 잡는다. 1.9.1 은 고정 viewBox 를
+  // preserveAspectRatio="none" 으로 늘려 축 숫자가 옆으로 퍼지고 끝점이 타원이 됐다.
+  box.innerHTML = '<div class="chart">' + head + '<div class="plot" id="plot"></div></div>';
+  var plot = document.getElementById("plot");
+  var W = Math.max(240, plot.clientWidth), H = Math.max(120, plot.clientHeight);
+  var padL = 52, padR = 14, padT = 12, padB = 26;
 
-  var t0 = d.points[0][0], t1 = Math.max(d.points[d.points.length-1][0], t0 + 1);
-  var x = function(t){ return padL + (t - t0) / (t1 - t0) * (W - padL - padR); };
-  var y = function(v){ return padT + (hi - v) / (hi - lo) * (H - padT - padB); };
+  var pts = d.points;
+  var step = Math.pow(10, -r.digits);
+  var span = Math.max(d.max - d.min, step * 5);
+  var lo = d.min - span * 0.12, hi = d.max + span * 0.12;
 
-  // 적정 범위 띠 — 범위를 정해 둔 항목에만 깐다.
+  // 적정 범위 — 값 칸의 색과 같은 밴드(bandFor → limits.py 가 주입한 BANDS/NUT_BANDS).
+  // 숫자를 여기 또 적지 않는다. 한쪽 끝이 null 이면(용존산소 상한) 그쪽은 데이터 끝까지.
+  var b = bandFor(key);
+  var ok = b && b.ok;
+  // 세로축이 기준 경계를 담게 넓힌다. 다만 경계가 너무 멀면(염도 15~35 에 실제 18.2)
+  // 곡선이 바닥에 눌려 변화를 읽을 수 없으므로, 전체 폭은 데이터 폭의 5배까지만
+  // 허용하고 그보다 먼 경계는 가장자리에 ▲/▼ 값으로 적는다.
+  // 가까운 경계부터 넣는다 — 먼 쪽을 먼저 넣으면 가까운 쪽이 밀려날 수 있다.
+  var maxRange = span * 5, edge = span * 0.06;
+  var offTop = null, offBottom = null;
+  var fitLow = function(){
+    if (ok[0] === null || ok[0] >= lo + edge) return;
+    if (hi - (ok[0] - edge) <= maxRange) lo = Math.min(lo, ok[0] - edge); else offBottom = ok[0];
+  };
+  var fitHigh = function(){
+    if (ok[1] === null || ok[1] <= hi - edge) return;
+    if ((ok[1] + edge) - lo <= maxRange) hi = Math.max(hi, ok[1] + edge); else offTop = ok[1];
+  };
+  if (ok) {
+    var gapLow = ok[0] === null ? Infinity : d.min - ok[0];
+    var gapHigh = ok[1] === null ? Infinity : ok[1] - d.max;
+    if (gapLow <= gapHigh) { fitLow(); fitHigh(); } else { fitHigh(); fitLow(); }
+  }
+
+  var r1 = function(v){ return Math.round(v * 10) / 10; };
+  var t0 = pts[0][0], t1 = Math.max(pts[pts.length-1][0], t0 + 1);
+  var x = function(tt){ return r1(padL + (tt - t0) / (t1 - t0) * (W - padL - padR)); };
+  var y = function(v){ return r1(padT + (hi - v) / (hi - lo) * (H - padT - padB)); };
+  var mono = 'font-size="11" font-family="ui-monospace,monospace"';
+
+  // 적정 범위 띠와 경계선
   var band = "";
   if (ok) {
-    var bandTop = y(ok[1] === null ? hi : Math.min(ok[1], hi));
-    var bandBottom = y(ok[0] === null ? lo : Math.max(ok[0], lo));
-    band = '<rect x="' + padL + '" y="' + bandTop + '" width="' + (W-padL-padR) +
-           '" height="' + Math.max(0, bandBottom - bandTop) +
-           '" fill="#10B981" opacity="0.10"/>';
+    var top = (ok[1] === null) ? hi : Math.min(ok[1], hi);
+    var bottom = (ok[0] === null) ? lo : Math.max(ok[0], lo);
+    if (top > bottom) {
+      band = '<rect x="' + padL + '" y="' + y(top) + '" width="' + (W - padL - padR) +
+             '" height="' + r1(y(bottom) - y(top)) + '" fill="#10B981" opacity="0.12"/>';
+    }
+    [ok[0], ok[1]].forEach(function(v){
+      if (v === null || v < lo || v > hi) return;
+      band += '<line x1="' + padL + '" y1="' + y(v) + '" x2="' + (W - padR) + '" y2="' + y(v) +
+              '" stroke="#10B981" stroke-width="1" stroke-dasharray="4 4" opacity="0.7"/>' +
+              '<text x="' + (W - padR - 4) + '" y="' + (y(v) - 4) + '" text-anchor="end" fill="#34D399" ' +
+              mono + '>' + v.toFixed(r.digits) + '</text>';
+    });
+    if (offTop !== null)
+      band += '<text x="' + (W - padR - 4) + '" y="' + (padT + 11) + '" text-anchor="end" fill="#34D399" ' +
+              mono + '>▲ ' + offTop.toFixed(r.digits) + '</text>';
+    if (offBottom !== null)
+      band += '<text x="' + (W - padR - 4) + '" y="' + (H - padB - 4) + '" text-anchor="end" fill="#34D399" ' +
+              mono + '>▼ ' + offBottom.toFixed(r.digits) + '</text>';
   }
 
   // 최저~최고 범위(칸마다)를 옅게 깔고 그 위에 평균선을 얹는다.
-  var top = d.points.map(function(p){ return x(p[0]) + "," + y(p[3]); });
-  var bot = d.points.map(function(p){ return x(p[0]) + "," + y(p[2]); }).reverse();
-  var spread = '<polygon points="' + top.concat(bot).join(" ") +
+  var upper = pts.map(function(p){ return x(p[0]) + "," + y(p[3]); });
+  var lower = pts.map(function(p){ return x(p[0]) + "," + y(p[2]); }).reverse();
+  var spread = '<polygon points="' + upper.concat(lower).join(" ") +
                '" fill="' + accent() + '" opacity="0.18"/>';
-
   var line = '<polyline fill="none" stroke="' + accent() + '" stroke-width="2" ' +
              'stroke-linejoin="round" stroke-linecap="round" points="' +
-             d.points.map(function(p){ return x(p[0]) + "," + y(p[1]); }).join(" ") + '"/>';
+             pts.map(function(p){ return x(p[0]) + "," + y(p[1]); }).join(" ") + '"/>';
 
   // 가로 눈금 4개
   var gridY = "", labelsY = "";
   for (var i = 0; i <= 3; i++) {
     var v = lo + (hi - lo) * i / 3, gy = y(v);
-    gridY += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (W-padR) + '" y2="' + gy +
+    gridY += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (W - padR) + '" y2="' + gy +
              '" stroke="#22304C" stroke-width="1"/>';
-    labelsY += '<text x="' + (padL-8) + '" y="' + (gy+4) + '" text-anchor="end" ' +
-               'fill="#64748B" font-size="11" font-family="ui-monospace,monospace">' +
-               v.toFixed(r.digits) + '</text>';
+    labelsY += '<text x="' + (padL - 8) + '" y="' + (gy + 4) + '" text-anchor="end" fill="#64748B" ' +
+               mono + '>' + v.toFixed(r.digits) + '</text>';
   }
 
   // 세로 눈금 — 시각
   var labelsX = "";
   [0, 0.5, 1].forEach(function(f){
-    var t = t0 + (t1 - t0) * f;
-    labelsX += '<text x="' + x(t) + '" y="' + (H-8) + '" text-anchor="' +
-      (f === 0 ? "start" : f === 1 ? "end" : "middle") +
-      '" fill="#64748B" font-size="11" font-family="ui-monospace,monospace">' +
-      fmtTick(t, hours) + '</text>';
+    var tt = t0 + (t1 - t0) * f;
+    labelsX += '<text x="' + x(tt) + '" y="' + (H - 8) + '" text-anchor="' +
+      (f === 0 ? "start" : f === 1 ? "end" : "middle") + '" fill="#64748B" ' + mono + '>' +
+      fmtTick(tt, hours) + '</text>';
   });
 
-  var last = d.points[d.points.length-1];
+  var last = pts[pts.length-1];
   var dot = '<circle cx="' + x(last[0]) + '" cy="' + y(last[1]) + '" r="4" fill="' + accent() + '"/>';
 
-  document.getElementById("chart").innerHTML =
-    '<div class="chart">' + head +
-    '<div class="plot"><svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
+  plot.innerHTML =
+    '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' +
       gridY + band + spread + line + dot + labelsY + labelsX +
-    '</svg></div></div>';
+    '</svg>';
 }
 
 // 이 페이지가 처음 붙었을 때의 프로그램 버전. 원격 업데이트로 서비스가
@@ -1598,8 +1674,9 @@ function render(d){
   if (!chartKey) document.getElementById("main").innerHTML = renderValues(d);
   document.getElementById("overlay").innerHTML = renderOverlay(d);
 
-  var st = d.status || "";
-  var bad = /FAIL|ERROR|실패|오류/i.test(st);
+  var st = statusText(d);
+  var bad = d.status_code ? (d.status_code === "send_fail" || d.status_code === "sensor_error")
+                          : /FAIL|ERROR|실패|오류/i.test(d.status || "");
   document.getElementById("dot").className = "dot" + (bad ? " bad" : (d.linked ? " ok" : ""));
   document.getElementById("status").textContent = st;
   document.getElementById("time").textContent = d.updated_at || "";
@@ -1609,6 +1686,22 @@ function render(d){
   btn.textContent = d.linked ? t("info") : t("link_device");
   btn.className = "act" + (d.linked ? " ghost" : "");
   btn.onclick = d.linked ? showInfo : startPair;
+}
+
+// 하단 상태줄 문장. 수집기가 status_code(+ status_args 의 숫자)를 주면 화면 언어로
+// 만들고, 코드가 없으면(예전 수집기·모르는 코드) 수집기가 준 문자열을 그대로 쓴다.
+function statusText(d){
+  var c = d.status_code, a = d.status_args || {};
+  if (!c || !I18N["st_" + c]) return d.status || "";
+  var key = (c === "sent" && a.sent) ? "st_sent_more" : "st_" + c;
+  // textContent 로 넣으므로 이스케이프하지 않는다.
+  var s = t(key, {at: a.at || "", sent: a.sent || 0});
+  // 못 올리고 쌓아 둔 건수와 그 시각 — "지금 안 올라가고 있다" 를 실감나게 한다.
+  if (c === "send_fail" || c === "unlinked") {
+    if (a.pending) s += " · " + t("held", {n: a.pending});
+    if (a.at) s += " (" + a.at + ")";
+  }
+  return s;
 }
 
 // ── AI 모드 ───────────────────────────────────────────────────────────────
@@ -2294,6 +2387,8 @@ function senName(key){
   if (key === "ph") return "pH / ORP";
   if (key === "do") return t("n_do");
   if (key === "ec") return t("n_ec");
+  if (key === "flow") return t("n_flow");
+  if (key === "dp") return t("n_dp");
   return key;
 }
 
@@ -2311,18 +2406,27 @@ function verdictText(f){
 function renderTest(list){
   if (!list.length) return '<div class="msg err">' + t("test_none") + '</div>';
   var blocks = list.map(function(sen){
-    var head = '<b>' + esc(sen.label || sen.key) + '</b> <span class="dim">ID ' + sen.slave_id + '</span> — ' +
+    // 서버가 준 한국어 label 대신 화면 언어 이름을 쓴다(1.9.1 은 영어 화면에도 "용존산소").
+    var head = '<b>' + esc(senName(sen.key)) + '</b> <span class="dim">ID ' + sen.slave_id + '</span> — ' +
       (sen.ok ? '<span class="okv">' + t("test_comm_ok") + '</span>'
               : '<span class="badv">' + t("test_no_reply") + '</span>');
     if (!sen.ok) return '<div class="trow">' + head + '</div>';
     var rows = (sen.fields || []).map(function(f){
       var v = verdictText(f);
       var shown = (f.value === null || f.value === undefined) ? "--" : f.value;
+      var unit = f.unit || "";
+      // 전도도는 수집기가 uS/cm 로 맞춰 보낸다. [센서 설정] 의 단위가 mS/cm 면
+      // 계기판과 같게 나눠 보여 준다(1.9.1 은 값 uS·단위 mS 로 1000배 틀렸다).
+      if (f.name === "conductivity" && unit === "uS/cm" && typeof f.value === "number" &&
+          setupData && setupData.ec_unit === "ms") {
+        shown = (f.value / 1000).toFixed(2); unit = "mS/cm";
+      }
+      if (unit === "C") unit = "\u00B0C";
       return '<div class="tfield">' +
         '<span class="tname">' + esc(f.name) + '</span>' +
-        '<span class="tval">' + esc(String(shown)) + ' <span class="dim">' + esc(f.unit || "") + '</span></span>' +
+        '<span class="tval">' + esc(String(shown)) + ' <span class="dim">' + esc(unit) + '</span></span>' +
         '<span class="' + v.cls + '">' + v.txt + '</span>' +
-        '<span class="dim traw">원시 ' + (f.raw === null ? "-" : f.raw) + '</span>' +
+        '<span class="dim traw">' + t("raw") + ' ' + (f.raw === null ? "-" : f.raw) + '</span>' +
       '</div>';
     }).join("");
     return '<div class="trow">' + head + rows + '</div>';
@@ -2733,22 +2837,47 @@ def serve(
     get_mode=None,
     on_set_mode=None,
     on_set_power_type=None,
+    get_lang=None,
 ) -> ThreadingHTTPServer | None:
-    """상태 페이지를 띄운다. 실패해도 수집은 계속되어야 하므로 None 을 돌려준다."""
+    """상태 페이지를 띄운다. 실패해도 수집은 계속되어야 하므로 None 을 돌려준다.
 
-    # 첫 화면 언어를 페이지에 새겨 둔다(웹페이지와 같은 4종). 화면에서 바꾸면
-    # JS 가 즉시 다시 그리고 서버에도 남기므로, 다음에 열 때 그 언어로 뜬다.
-    lang = language if language in ("ko", "en", "vi", "id") else "ko"
-    # 첫 모드도 같은 방식으로 새긴다 — 첫 페인트부터 올바른 이름·색이어야 한다.
-    # 그 뒤로는 /api/state 의 mode 를 따라가므로 여기 값은 첫 화면용이다.
-    first_mode = mode if mode in ("shrimp", "agriculture") else "shrimp"
+    language·mode 는 처음 값이다. get_lang()·get_mode() 를 주면 페이지를 줄 때마다
+    **지금** 언어·모드를 새긴다 — 1.9.1 은 serve() 시작 때 한 번만 새겨서, 화면에서
+    언어를 바꾼 뒤 페이지만 새로고침되면(버전 갱신·재시작 후 자동 새로고침 등)
+    부팅 때 언어로 돌아갔다.
+    """
+
     # 판정 숫자는 limits.py 한 곳에서만 온다 — 화면에 같은 값을 또 적어 두면
     # 한쪽만 고쳐져 수조 옆 색과 서버 알림이 어긋난다(실제로 수온이 그랬다).
-    page_bytes = (PAGE
-                  .replace("__LANG__", lang)
-                  .replace("__MODE__", first_mode)
-                  .replace("__BANDS__", json.dumps(limits.BANDS))
-                  .replace("__NUT_BANDS__", json.dumps(limits.NUTRIENT_BANDS))).encode()
+    page_base = (PAGE
+                 .replace("__BANDS__", json.dumps(limits.BANDS))
+                 .replace("__NUT_BANDS__", json.dumps(limits.NUTRIENT_BANDS)))
+    first = {"lang": language, "mode": mode}
+
+    def current_lang() -> str:
+        lang_now = first["lang"]
+        if get_lang is not None:
+            try:
+                lang_now = get_lang()
+            except Exception as exc:  # noqa: BLE001 — 화면이 언어 때문에 죽으면 안 된다
+                log.warning("화면 언어를 읽지 못했습니다: %s", exc)
+        return lang_now if lang_now in ("ko", "en", "vi", "id") else "ko"
+
+    def current_mode() -> str:
+        mode_now = first["mode"]
+        if get_mode is not None:
+            try:
+                mode_now = (get_mode() or {}).get("mode", mode_now)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("장비 모드를 읽지 못했습니다: %s", exc)
+        return mode_now if mode_now in ("shrimp", "agriculture") else "shrimp"
+
+    def page_bytes() -> bytes:
+        # 첫 페인트부터 올바른 언어·이름·색이어야 한다. 그 뒤로는 /api/state 의
+        # mode 를 따라가고, 언어는 화면이 바꿀 때 /api/lang 으로 수집기에 남긴다.
+        return (page_base
+                .replace("__LANG__", current_lang())
+                .replace("__MODE__", current_mode())).encode()
 
     class Handler(BaseHTTPRequestHandler):
         # 기본 로거는 요청마다 stderr 를 채운다. journald 가 지저분해지므로 끈다.
@@ -2781,7 +2910,7 @@ def serve(
             elif self.path == "/api/mode" and get_mode is not None:
                 self._send(200, json.dumps(get_mode()).encode(), "application/json")
             elif self.path in ("/", "/index.html"):
-                self._send(200, page_bytes, "text/html; charset=utf-8")
+                self._send(200, page_bytes(), "text/html; charset=utf-8")
             else:
                 self._send(404, b"not found", "text/plain")
 

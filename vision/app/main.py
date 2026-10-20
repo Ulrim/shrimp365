@@ -127,10 +127,11 @@ async def lifespan(app: FastAPI):
         logger.info(
             "끊김 없는 영상(MJPEG)은 꺼져 있습니다(터널 미설정). "
             "개체수 측정·기록·장비 화면은 그대로 돕니다.\n"
-            "  웹에서는 이 장비가 15초마다 올리는 수조 사진이 대신 보입니다 — "
+            "  웹에서는 이 장비가 %s초마다 올리는 수조 사진이 대신 보입니다 — "
             "대개 이것으로 충분하고, 깔 것이 없습니다.\n"
             "  초 단위 영상까지 필요하면 docs/VISION_DEPLOY.md §3-5 를 따라 "
-            "터널을 깔고 VISION_SERVICE_KEY·VISION_STREAM_SECRET 을 채우세요."
+            "터널을 깔고 VISION_SERVICE_KEY·VISION_STREAM_SECRET 을 채우세요.",
+            f"{settings.snapshot_interval_seconds:g}",
         )
     await init_db()
     await broadcaster.start()

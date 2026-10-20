@@ -21,11 +21,14 @@ from __future__ import annotations
 
 import argparse
 import configparser
+import http.client
 import json
 import logging
 import math
 import os
+import select
 import signal
+import ssl
 import struct
 import subprocess
 import sys
@@ -33,6 +36,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urljoin, urlsplit
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -88,7 +92,7 @@ try:
 except ImportError:  # pragma: no cover
     field_env_mod = None
 
-VERSION = "1.9.1"
+VERSION = "1.9.2"
 
 # 추세 판정을 몇 초마다 다시 돌릴지. 임계값 권고는 매 측정마다 즉시 나가고,
 # 추세는 몇 분 늦어도 되므로 나눠 둔다 — 라즈베리 제로에서 1분마다 나흘치를
@@ -493,7 +497,11 @@ def test_sensors(client: ModbusClient, enabled: dict[str, int],
                 entry["fields"].append(item)
                 continue
             raw_value, unit = decoded
-            item["unit"] = unit
+            # 값은 normalize() 가 서버 단위로 바꾸므로 단위도 바꾼 쪽을 적는다.
+            # 1.9.1 은 센서가 낸 단위(mS)를 그대로 두고 값만 uS 로 바꿔
+            # "31460 mS" 처럼 1000배 틀리게 보였다. 센서 원래 단위는 따로 남긴다.
+            item["unit"] = NORMALIZED_UNITS.get(name, unit)
+            item["raw_unit"] = unit
             value = normalize(name, raw_value, unit)
             if value is None:
                 item["verdict"] = "undecodable"
@@ -642,6 +650,18 @@ PLAUSIBLE = {
     "orp":           (-2000.0, 2000.0),
     "flow_rate":     (0.0, 1000.0),    # L/min — 서버 화이트리스트와 같은 범위
     "diff_pressure": (0.0, 1000.0),    # kPa
+}
+
+
+# normalize() 가 맞춰 주는 단위. 센서 테스트 화면이 값 옆에 적는다 — 값만
+# 바꾸고 단위를 센서 원래 것으로 두면 화면이 1000배 틀린다(1.9.1 의 "31460 mS").
+# 여기 없는 항목은 normalize() 가 단위를 바꾸지 않으므로 센서 단위 그대로다.
+NORMALIZED_UNITS = {
+    "temperature":   "C",
+    "conductivity":  "uS/cm",
+    "do_level":      "mg/L",
+    "diff_pressure": "kPa",
+    "flow_rate":     "L/min",
 }
 
 
@@ -1083,25 +1103,277 @@ def board_serial() -> str:
         return "unknown"
 
 
-def post(endpoint: str, device_key: str, payload: dict, timeout: float = 10.0) -> tuple[bool, str]:
-    body = json.dumps(payload).encode()
-    req = urllib.request.Request(
-        endpoint,
-        data=body,
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "X-Device-Key": device_key,
-            "User-Agent": f"shrimp365-pi/{VERSION}",
-        },
-    )
+# ── 서버 통신 ─────────────────────────────────────────────────────────────────
+#
+# 측정값은 1분마다 0.5 KB 남짓이다. 그런데 1.9.1 까지는 urllib 로 **매번 새 TCP +
+# TLS 연결**을 맺어, 보낼 것보다 연결을 맺는 데(인증서 체인·키 교환) 몇 배를 썼다.
+# LTE 에그처럼 용량이 정해진 회선에서는 이것이 한 달 사용량의 대부분이다.
+#
+# 그래서 호스트마다 연결 하나를 붙잡아 두고 다시 쓴다(HTTP keep-alive). 서버가
+# 쉬는 연결을 닫아 버렸으면 새로 맺되, 직전 TLS 세션을 이어 붙여(세션 재개)
+# 인증서 체인을 다시 받지 않는다.
+#
+# 다시 보내기 규칙 — 서버(app/api/sensors/data)는 같은 측정이 두 번 와도 걸러내지
+# 않는다(그냥 insert 한다). 그래서
+#   · 요청을 **보내기 전에** 끊김을 알아챈 경우(쉬던 연결이 닫혀 있었음, 또는 요청을
+#     다 써 넣지도 못하고 끊김)만 새 연결로 한 번 더 보낸다. 서버는 온전한 요청을
+#     받지 못했으므로 두 번 저장될 수 없다.
+#   · 요청을 다 보낸 뒤 응답을 못 받았으면 **POST 는 다시 보내지 않는다.** 서버가 이미
+#     저장했을 수 있다. 실패로 돌려주면 수집 루프가 기존처럼 보관함에 넣는다.
+#     GET(조회)은 몇 번 보내도 같으므로 한 번 더 보낸다.
+#
+# 프록시(HTTPS_PROXY 등)가 잡혀 있으면 예전 urllib 경로를 그대로 쓴다 — urllib 은
+# 환경변수 프록시를 따르는데, 연결 재사용 경로는 프록시 터널을 다루지 않는다.
+
+
+class NetError(OSError):
+    """회선 문제 — 연결·전송·응답 대기 중 어디선가 끊겼다."""
+
+
+def _uses_proxy(url: str) -> bool:
+    parts = urlsplit(url)
+    try:
+        proxies = urllib.request.getproxies()
+        if parts.scheme not in proxies:
+            return False
+        return not urllib.request.proxy_bypass(parts.hostname or "")
+    except Exception:  # noqa: BLE001 — 판단이 안 서면 예전 길로 간다
+        return True
+
+
+def _urllib_request(method: str, url: str, body: bytes | None,
+                    headers: dict, timeout: float) -> tuple[int, bytes]:
+    """1.9.1 과 같은 경로(urllib, 매번 새 연결). 프록시 환경에서만 쓴다."""
+    req = urllib.request.Request(url, data=body, method=method, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as res:
-            return True, res.read().decode()[:200]
+            return res.status, res.read(_HTTP_MAX_BODY)
     except urllib.error.HTTPError as exc:
-        return False, f"HTTP {exc.code}: {exc.read().decode()[:200]}"
-    except (urllib.error.URLError, TimeoutError) as exc:
+        try:
+            return exc.code, exc.read(_HTTP_MAX_BODY)
+        except OSError:
+            return exc.code, b""
+    except (urllib.error.URLError, OSError, http.client.HTTPException) as exc:
+        raise NetError(str(getattr(exc, "reason", exc))) from exc
+
+
+# 응답 본문 상한. 이 장비가 받는 응답은 몇백 바이트다.
+_HTTP_MAX_BODY = 1 << 20
+
+
+def _still_open(sock) -> bool:
+    """쉬던 연결이 아직 살아 있는가 — 요청을 보내기 **전에** 확인한다.
+
+    서버가 쉬는 연결을 닫으면 소켓이 '읽을 것 있음'(EOF) 상태가 된다. 다만 TLS 1.3 은
+    세션 티켓을 응답 뒤에 따로 보내기도 해서, 읽을 것이 있다고 다 닫힌 것은 아니다.
+    한 바이트를 비차단으로 읽어 보아 앱 데이터가 없으면(SSLWantRead) 살아 있다.
+    """
+    try:
+        readable, _, _ = select.select([sock], [], [], 0)
+    except (OSError, ValueError):
+        return False
+    if not readable:
+        return True
+    prev = sock.gettimeout()
+    try:
+        sock.setblocking(False)
+        sock.recv(1)           # b"" 든 바이트든 쉬던 연결로는 더 쓰지 않는다
+    except (ssl.SSLWantReadError, BlockingIOError):
+        return True            # 세션 티켓 같은 제어 기록만 와 있었다
+    except OSError:
+        return False
+    finally:
+        try:
+            sock.settimeout(prev)
+        except OSError:
+            pass
+    return False               # b"" = 서버가 닫음, 그 밖은 청하지 않은 바이트 — 버린다
+
+
+class _ResumingHTTPSConnection(http.client.HTTPSConnection):
+    """새로 맺을 때 직전 TLS 세션을 이어 붙이는 HTTPS 연결.
+
+    세션이 재개되면 서버가 인증서 체인(수 KB)을 다시 보내지 않는다. 세션이 만료됐거나
+    서버가 거절하면 OpenSSL 이 알아서 처음부터 맺으므로 실패하지 않는다.
+    """
+
+    def __init__(self, host: str, port: int, *, timeout: float,
+                 context: ssl.SSLContext, sessions: dict):
+        super().__init__(host, port, timeout=timeout, context=context)
+        self._sessions = sessions
+        self.resumed = False
+
+    def connect(self) -> None:
+        key = (self.host, self.port)
+        for session in (self._sessions.get(key), None):
+            http.client.HTTPConnection.connect(self)
+            try:
+                self.sock = self._context.wrap_socket(
+                    self.sock, server_hostname=self.host, session=session)
+            except ValueError:
+                # 세션이 다른 컨텍스트 것 등 — 세션 없이 처음부터 맺는다.
+                self._sessions.pop(key, None)
+                self.close()
+                if session is None:
+                    raise
+                continue
+            self.resumed = bool(getattr(self.sock, "session_reused", False))
+            return
+
+    def remember_session(self, sock) -> None:
+        """이어 붙일 수 있는 세션이면 챙긴다.
+
+        TLS 1.3 은 세션 티켓이 핸드셰이크 뒤에 따로 오므로 응답을 읽은 뒤에 본다.
+        티켓이 아직 없는 세션으로 덮으면 다음 재개가 안 되므로 그런 것은 버린다.
+        """
+        try:
+            session = sock.session if sock is not None else None
+        except (AttributeError, ValueError, OSError):
+            return
+        if session is not None and (session.has_ticket or session.id):
+            self._sessions[(self.host, self.port)] = session
+
+
+class _ApiClient:
+    """호스트별로 연결 하나를 붙잡아 두고 다시 쓰는 HTTP 클라이언트."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()      # 수집 루프와 페어링 스레드가 함께 쓴다
+        self._conns: dict[tuple[str, str, int], http.client.HTTPConnection] = {}
+        self._sessions: dict[tuple[str, int], ssl.SSLSession] = {}
+        self._ctx: ssl.SSLContext | None = None
+        # 새 연결·세션 재개·연결 재사용 횟수 — 로그와 실측용.
+        self.stats = {"connect": 0, "resumed": 0, "reused": 0, "retried": 0}
+
+    def _context(self) -> ssl.SSLContext:
+        if self._ctx is None:
+            self._ctx = ssl.create_default_context()   # 인증서·호스트 이름 검증은 urllib 과 같다
+        return self._ctx
+
+    def close(self) -> None:
+        with self._lock:
+            for conn in self._conns.values():
+                conn.close()
+            self._conns.clear()
+
+    def request(self, method: str, url: str, body: bytes | None = None,
+                headers: dict | None = None, timeout: float = 10.0) -> tuple[int, bytes]:
+        """(상태 코드, 본문). 회선 문제면 NetError.
+
+        조회(GET)는 urllib 처럼 리디렉션을 따라간다. POST 는 따라가지 않는다 —
+        urllib 은 301~303 에서 POST 를 GET 으로 바꿔 본문을 버린 채 성공으로 보았다.
+        """
+        with self._lock:
+            for _hop in range(6):
+                status, data, location = self._once(method, url, body, headers or {}, timeout)
+                if method == "GET" and status in (301, 302, 303, 307, 308) and location:
+                    url = urljoin(url, location)
+                    continue
+                return status, data
+        raise NetError("리디렉션이 너무 많습니다")
+
+    def _once(self, method: str, url: str, body: bytes | None,
+              headers: dict, timeout: float) -> tuple[int, bytes, str | None]:
+        parts = urlsplit(url)
+        scheme = (parts.scheme or "").lower()
+        if scheme not in ("http", "https") or not parts.hostname:
+            raise NetError(f"주소가 올바르지 않습니다: {url}")
+        port = parts.port or (443 if scheme == "https" else 80)
+        key = (scheme, parts.hostname, port)
+        path = (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
+        idempotent = method in ("GET", "HEAD")
+
+        for attempt in (0, 1):
+            conn = self._conns.get(key)
+            reused = conn is not None and conn.sock is not None
+            if reused and not _still_open(conn.sock):
+                # 서버가 쉬던 연결을 닫았다. 아직 아무것도 보내지 않았으니 새로 맺으면 된다.
+                conn.close()
+                reused = False
+            if conn is None:
+                if scheme == "https":
+                    conn = _ResumingHTTPSConnection(parts.hostname, port, timeout=timeout,
+                                                    context=self._context(), sessions=self._sessions)
+                else:
+                    conn = http.client.HTTPConnection(parts.hostname, port, timeout=timeout)
+                self._conns[key] = conn
+            conn.timeout = timeout
+            if conn.sock is not None:
+                conn.sock.settimeout(timeout)
+                self.stats["reused"] += 1
+
+            fresh = conn.sock is None
+            try:
+                conn.request(method, path, body=body, headers=headers)
+            except (OSError, http.client.HTTPException) as exc:
+                conn.close()
+                if reused and attempt == 0:
+                    # 요청을 다 써 넣기 전에 끊겼다 — 서버는 온전한 요청을 받지 못했다.
+                    self.stats["retried"] += 1
+                    log.debug("쉬던 연결이 끊겨 있어 새로 맺어 다시 보냅니다: %s", exc)
+                    continue
+                raise NetError(str(exc) or exc.__class__.__name__) from exc
+            if fresh:
+                self.stats["connect"] += 1
+                if getattr(conn, "resumed", False):
+                    self.stats["resumed"] += 1
+
+            sock = conn.sock   # 응답이 "Connection: close" 면 getresponse 가 conn.sock 을 비운다
+            try:
+                res = conn.getresponse()
+                if isinstance(conn, _ResumingHTTPSConnection):
+                    conn.remember_session(sock)
+                data = res.read(_HTTP_MAX_BODY + 1)
+            except (OSError, http.client.HTTPException) as exc:
+                conn.close()
+                if idempotent and attempt == 0:
+                    self.stats["retried"] += 1
+                    continue
+                # POST 는 서버가 이미 저장했을 수 있다 — 다시 보내지 않는다.
+                raise NetError(str(exc) or exc.__class__.__name__) from exc
+
+            if len(data) > _HTTP_MAX_BODY or res.will_close:
+                conn.close()
+            elif isinstance(conn, _ResumingHTTPSConnection):
+                conn.remember_session(conn.sock)   # 응답 뒤에 온 새 티켓
+            return res.status, data[:_HTTP_MAX_BODY], res.getheader("Location")
+        raise NetError("연결을 다시 맺지 못했습니다")
+
+
+_API = _ApiClient()
+
+
+def http_request(method: str, url: str, body: bytes | None = None,
+                 headers: dict | None = None, timeout: float = 10.0) -> tuple[int, bytes]:
+    """서버에 요청한다. (상태 코드, 본문) 을 돌려주고 회선 문제면 NetError."""
+    headers = {"User-Agent": f"shrimp365-pi/{VERSION}", **(headers or {})}
+    if _uses_proxy(url):
+        return _urllib_request(method, url, body, headers, timeout)
+    return _API.request(method, url, body, headers, timeout)
+
+
+def _json_or_empty(data: bytes) -> dict:
+    try:
+        parsed = json.loads(data.decode("utf-8", "replace") or "{}")
+    except ValueError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def post(endpoint: str, device_key: str, payload: dict, timeout: float = 10.0) -> tuple[bool, str]:
+    body = json.dumps(payload).encode()
+    try:
+        status, data = http_request("POST", endpoint, body, {
+            "Content-Type": "application/json",
+            "X-Device-Key": device_key,
+        }, timeout)
+    except NetError as exc:
+        # "연결 실패" 로 시작하는 문구는 수집 루프가 Wi‑Fi 재연결 판단에 쓴다.
         return False, f"연결 실패: {exc}"
+    text = data.decode("utf-8", "replace")[:200]
+    if 200 <= status < 300:
+        return True, text
+    return False, f"HTTP {status}: {text}"
 
 
 # ── 실행 ──────────────────────────────────────────────────────────────────────
@@ -1124,38 +1396,23 @@ def _api_base(endpoint: str) -> str:
 
 
 def _get_json(url: str, timeout: float = 10.0) -> tuple[int, dict]:
-    req = urllib.request.Request(url, headers={"User-Agent": f"shrimp365-pi/{VERSION}"})
+    """(상태 코드, JSON). 회선 문제면 (0, {}). 연결은 측정 전송과 함께 쓴다."""
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as res:
-            return res.status, json.loads(res.read().decode() or "{}")
-    except urllib.error.HTTPError as exc:
-        try:
-            return exc.code, json.loads(exc.read().decode() or "{}")
-        except (ValueError, OSError):
-            return exc.code, {}
-    except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+        status, data = http_request("GET", url, timeout=timeout)
+    except NetError as exc:
         log.warning("페어링 조회 실패: %s", exc)
         return 0, {}
+    return status, _json_or_empty(data)
 
 
 def _post_json(url: str, payload: dict, timeout: float = 10.0) -> tuple[int, dict]:
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode(),
-        method="POST",
-        headers={"Content-Type": "application/json", "User-Agent": f"shrimp365-pi/{VERSION}"},
-    )
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as res:
-            return res.status, json.loads(res.read().decode() or "{}")
-    except urllib.error.HTTPError as exc:
-        try:
-            return exc.code, json.loads(exc.read().decode() or "{}")
-        except (ValueError, OSError):
-            return exc.code, {}
-    except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+        status, data = http_request("POST", url, json.dumps(payload).encode(),
+                                    {"Content-Type": "application/json"}, timeout)
+    except NetError as exc:
         log.warning("페어링 요청 실패: %s", exc)
         return 0, {}
+    return status, _json_or_empty(data)
 
 
 def save_sensor_config(config_path: Path, settings: dict[str, dict]) -> bool:
@@ -1439,15 +1696,18 @@ def save_device_key(config_path: Path, key: str) -> bool:
 def fetch_device_info(endpoint: str, device_key: str) -> dict | None:
     """서버에 "나는 어느 계정·수조에 붙어 있나"를 묻는다.
     재부팅한 뒤에도 화면에 연결 정보를 띄우기 위한 것."""
-    req = urllib.request.Request(
-        endpoint,
-        headers={"X-Device-Key": device_key, "User-Agent": f"shrimp365-pi/{VERSION}"},
-    )
     try:
-        with urllib.request.urlopen(req, timeout=10) as res:
-            return json.loads(res.read().decode() or "{}")
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError) as exc:
+        status, data = http_request("GET", endpoint, headers={"X-Device-Key": device_key}, timeout=10)
+    except NetError as exc:
         # 인터넷이 없을 수도 있다. 측정·표시에는 영향을 주지 않는다.
+        log.info("연결 정보를 확인하지 못했습니다: %s", exc)
+        return None
+    if not 200 <= status < 300:
+        log.info("연결 정보를 확인하지 못했습니다: HTTP %s", status)
+        return None
+    try:
+        return json.loads(data.decode("utf-8", "replace") or "{}")
+    except ValueError as exc:
         log.info("연결 정보를 확인하지 못했습니다: %s", exc)
         return None
 
@@ -1486,7 +1746,8 @@ def run_pairing(
         code = str(data["code"])
         secret = data["pairing_secret"]
         if state is not None:
-            state.update(pair_code=code, pair_url=host, pair_error=None, status="연결 대기 중")
+            state.update(pair_code=code, pair_url=host, pair_error=None, status="연결 대기 중",
+                         status_code="pair_wait")
         spaced = " ".join(code)  # 화면에서 읽기 쉽게 자리마다 띄운다
         log.info("연결 코드: %s — Shrimp365 에 로그인해 이 코드를 입력하세요", code)
 
@@ -1521,7 +1782,7 @@ def run_pairing(
                     state.update(
                         pairing=False, pair_code=None, pair_error=None,
                         linked=True, tank=tank, account=info.get("account"),
-                        status="연결 완료",
+                        status="연결 완료", status_code="paired",
                     )
                 if key:
                     save_device_key(config_path, key)
@@ -1550,15 +1811,19 @@ def _show(screen, lines: list[str], rows: int) -> None:
 
 
 
-def _with_pending(base: str, store) -> str:
+def _with_pending(base: str, store) -> tuple[str, dict]:
     """상태 줄에 밀린 건수를 함께 보여 준다. 몇 건이 대기 중인지 알아야
-    '지금 안 올라가고 있다'는 사실이 실감난다."""
+    '지금 안 올라가고 있다'는 사실이 실감난다.
+
+    (문자열, 숫자) 를 돌려준다. 문자열은 문자 LCD·로그용이고(하위 호환), 터치
+    화면은 숫자({"at", "pending"})와 상태 코드로 화면 언어 문장을 직접 만든다.
+    """
     stamp = time.strftime("%H:%M")
-    if store is not None:
-        n = store.pending()
-        if n:
-            return f"{base} · 보관 {n}건 ({stamp})"
-    return f"{base} ({stamp})"
+    n = store.pending() if store is not None else 0
+    args = {"at": stamp, "pending": n}
+    if n:
+        return f"{base} · 보관 {n}건 ({stamp})", args
+    return f"{base} ({stamp})", args
 
 
 def flush_buffer(store, endpoint: str, device_key: str, batch: int, should_stop) -> int:
@@ -2032,7 +2297,8 @@ def main() -> int:
             save_device_key(args.config, "")
             if state is not None:
                 state.update(linked=False, account=None, tank=None, farm=None,
-                             status="계정 연결 해제됨 — 새 코드로 연결하세요")
+                             status="계정 연결 해제됨 — 새 코드로 연결하세요",
+                             status_code="unlinked_by_user")
             log.info("화면에서 계정 연결을 해제했습니다. 새 연결을 시작합니다.")
             start_pairing()
 
@@ -2271,7 +2537,7 @@ def main() -> int:
             nonlocal stop
             log.info("화면에서 프로그램 다시 시작을 요청했습니다.")
             if state is not None:
-                state.update(status="다시 시작하는 중… 약 15초")
+                state.update(status="다시 시작하는 중… 약 15초", status_code="restarting")
             stop = True          # 메인 루프가 정리하고 빠져나온다
             return {"ok": True, "seconds": 15}
 
@@ -2279,7 +2545,7 @@ def main() -> int:
             """기기를 재부팅한다. polkit 규칙으로 이 사용자에게만 열어 두었다."""
             log.info("화면에서 기기 재부팅을 요청했습니다.")
             if state is not None:
-                state.update(status="재부팅하는 중… 약 1분")
+                state.update(status="재부팅하는 중… 약 1분", status_code="rebooting")
             try:
                 res = subprocess.run(["systemctl", "reboot"],
                                      capture_output=True, text=True, timeout=15)
@@ -2363,6 +2629,7 @@ def main() -> int:
             on_wifi_scan=ui_wifi_scan,
             on_wifi_connect=ui_wifi_connect,
             language=lang_holder["lang"],
+            get_lang=lambda: lang_holder["lang"],
             on_set_lang=ui_set_lang,
             on_restart=ui_restart,
             on_reboot=ui_reboot,
@@ -2376,6 +2643,7 @@ def main() -> int:
             on_set_power_type=ui_set_power_type,
         )
         state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중",
+                     status_code="checking",
                      version=VERSION, ec_unit=ec_holder["unit"], mode=mode_holder["mode"])
 
     # 이미 연결된 기기라면 어느 계정·수조에 붙어 있는지 확인해 화면에 남긴다.
@@ -2411,6 +2679,9 @@ def main() -> int:
     client_holder["client"] = client
     last_values: dict[str, float] = {}
     status_line = ""
+    # 화면용 상태 코드와 숫자. 문장은 화면이 화면 언어로 만든다(webui.State 참고).
+    status_code: str | None = None
+    status_args: dict = {}
 
     # 추세 판정 결과를 들고 있는다. 매 측정마다 나흘치를 다시 훑지 않기 위함이고,
     # 그 사이에도 권고는 이 결과를 재료로 계속 나간다.
@@ -2451,6 +2722,7 @@ def main() -> int:
         if not values:
             log.error("읽은 값이 없습니다. 배선·전원·슬레이브 ID를 확인하세요. %s", errors)
             status_line = "SENSOR ERROR"
+            status_code, status_args = "sensor_error", {}
             nutrient = None          # 값이 없으면 양액 안내도 띄우지 않는다
             advices = []             # 못 잰 값으로 설비를 돌리라고 할 수는 없다
         else:
@@ -2483,7 +2755,8 @@ def main() -> int:
                         analysis["anomalies"] = []
                     analysis["at"] = now_s
                 try:
-                    # 스마트팜 모드면 양액 관리를 꺼 두었어도 새우 기준 권고(환수·히터)를 내지 않는다.
+                    # 스마트팜 모드면 양액 관리를 켜지 않았어도 농업 판정이다 — 화면의
+                    # 색(webui bandOf)도 같은 조건이다. 새우 설비 권고를 띄우지 않는다.
                     advices = advice_mod.recommend(
                         values, analysis["anomalies"], analysis["rows"],
                         nutrient is not None or mode_holder["mode"] == "agriculture")
@@ -2496,6 +2769,7 @@ def main() -> int:
             if args.dry_run:
                 print(json.dumps(values, ensure_ascii=False, indent=2))
                 status_line = "dry-run " + time.strftime("%H:%M")
+                status_code, status_args = "dry_run", {"at": time.strftime("%H:%M")}
             else:
                 recorded_at = time.strftime("%Y-%m-%dT%H:%M:%S%z") or None
                 payload = {**values, "serial": serial_no, "firmware": f"pi-{VERSION}"}
@@ -2537,25 +2811,29 @@ def main() -> int:
                     # 값은 모아 두었다가 연결되는 순간 한꺼번에 올린다.
                     if store is not None:
                         store.append(payload, recorded_at)
-                    status_line = _with_pending("미연결 — 측정만", store)
+                    status_line, status_args = _with_pending("미연결 — 측정만", store)
+                    status_code = "unlinked"
                 else:
                     ok, detail = post(endpoint, auth["key"], payload)
                     if ok:
                         log.info("전송 완료")
                         net_fail["count"] = 0
                         status_line = "sent " + time.strftime("%H:%M")
+                        status_code, status_args = "sent", {"at": time.strftime("%H:%M")}
                         # 회선이 살아 있는 지금이 밀린 것을 비울 기회다.
                         sent = flush_buffer(store, endpoint, auth["key"], flush_batch, _stopped_global)
                         if sent:
                             log.info("보관해 둔 %d건을 마저 전송했습니다.", sent)
                             status_line = f"sent +{sent} " + time.strftime("%H:%M")
+                            status_args = {"at": time.strftime("%H:%M"), "sent": sent}
                     else:
                         # 네트워크가 끊겨도 프로세스는 살아 있어야 한다.
                         # 값은 버리지 않고 저장해 두었다가 다음에 올린다.
                         log.error("전송 실패 — %s", detail)
                         if store is not None:
                             store.append(payload, recorded_at)
-                        status_line = _with_pending("SEND FAIL", store)
+                        status_line, status_args = _with_pending("SEND FAIL", store)
+                        status_code = "send_fail"
 
                         # 무인 복구 — 연달아 실패하면 무선이 끊긴 채 안 돌아온
                         # 것일 수 있다. 사람이 현장에 가지 않아도 되게 직접 깨운다.
@@ -2594,6 +2872,8 @@ def main() -> int:
                 anomalies=analysis["anomalies"],
                 ai=ai_state,
                 status=status_line,
+                status_code=status_code,
+                status_args=status_args,
                 errors=errors,
                 linked=bool(auth["key"]),
                 pending=store.pending() if store is not None else 0,
