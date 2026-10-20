@@ -428,6 +428,11 @@ if _ofdf_src.exists():
     _r = wireless.read_registered(_ofdf)
     check("손으로 쓴 기존 설정(주석 예시 포함)에도 마지막 장치 뒤에 붙는다",
           (len(_r) - _n0, list(_r)[-1], _r["soil-c3"]["zone"]), (1, "soil-c3", "control"))
+_bad = 'a: b #c {x} [y] "q" *r @s |t\n줄 깊이 10cm'
+wireless.add_device(_dev, "soil-c1", "soil", "control", "SOIL-C1", _bad)
+check("메모의 YAML 특수문자는 지워 파일이 깨지지 않는다",
+      (wireless.read_registered(_dev)["soil-c1"]["note"], all(c not in wireless.clean_note(_bad) for c in ':#{}[]"*@|\n')),
+      ("a b c x y q r s t 줄 깊이 10cm", True))
 check("찾은 센서의 종류 짐작", (
       wireless.guess_kind("Temperature & humidity sensor", [{"property": "temperature"}, {"property": "humidity"}]),
       wireless.guess_kind("Soil sensor", [{"property": "soil_moisture"}]),

@@ -1219,7 +1219,12 @@ function wlFind(){
   var on = !(wl && wl.permit_left);
   wlPost("permit", {on: on}, function(d){ wlMsg = d.ok ? null : {kind:"err", text:d.error || t("save_fail")}; });
 }
-function wlStartAdd(i){ var n = wl.new[i]; wlEdit = n.name; wlKind = n.guess || null; wlZone = null; wlMsg = null; drawWireless(); }
+// 이름으로 고른다 — 목록이 3초마다 다시 그려져 순서가 바뀌어도 누른 센서가 등록된다.
+function wlStartAdd(name){
+  var n = (wl.new || []).filter(function(x){ return x.name === name; })[0];
+  if (!n) return;
+  wlEdit = n.name; wlKind = n.guess || null; wlZone = null; wlMsg = null; drawWireless();
+}
 function wlAdd(){
   var name = wlEdit;
   wlPost("register", {name:name, kind:wlKind, zone:wlZone}, function(d){
@@ -1274,12 +1279,12 @@ function drawWireless(){
       (left ? t("wl_finding", {m: Math.floor(left / 60), s: ("0" + left % 60).slice(-2)}) : t("wl_find")) + '</button>';
     if (wl.new && wl.new.length) {
       body += '<div class="wlhead">' + t("wl_new") + ' (' + wl.new.length + ')</div>' +
-        wl.new.map(function(n, i){
+        wl.new.map(function(n){
           var sub = [n.vendor, n.model].filter(Boolean).join(" ") || n.name;
           var state = n.interviewing ? t("wl_interview") : !n.supported ? t("wl_unsupported") : "";
           return '<div class="srow"><div class="sname">' + esc(n.description || n.model || n.name) +
             '<div class="sub">' + esc(sub) + (state ? " · " + state : "") + '</div></div>' +
-            '<button class="toggle" ' + (n.interviewing ? "disabled" : "") + ' onclick="wlStartAdd(' + i + ')">' + t("wl_add") + '</button></div>';
+            '<button class="toggle" ' + (n.interviewing ? "disabled" : "") + ' onclick="wlStartAdd(decodeURIComponent(&quot;' + encodeURIComponent(n.name) + '&quot;))">' + t("wl_add") + '</button></div>';
         }).join("");
     }
     body += '<div class="wlhead">' + t("wl_registered") + ' (' + (wl.sensors || []).length + ')</div>';

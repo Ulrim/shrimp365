@@ -86,16 +86,24 @@ if [ "$(node_major)" -lt 20 ] 2>/dev/null || ! command -v node >/dev/null; then
 fi
 
 # ── 3. Zigbee2MQTT ──────────────────────────────────────────────────────────
+# 버전을 고정한다 — 개발 줄기(master)를 받으면 설치할 때마다 다른 것이 깔린다. Z2M_REF 로 정할 수
+# 있고, 비우면 내려받을 때의 최신 정식 판(x.y.z 태그)을 쓴다.
+Z2M_REPO=https://github.com/Koenkk/zigbee2mqtt.git
 if [ ! -f /opt/zigbee2mqtt/package.json ]; then
-  echo "==> Zigbee2MQTT 내려받기"
+  Z2M_REF="${Z2M_REF:-$(git ls-remote --tags --refs "$Z2M_REPO" | sed -nE 's#.*refs/tags/([0-9]+\.[0-9]+\.[0-9]+)$#\1#p' | sort -V | tail -1)}"
+  [ -n "$Z2M_REF" ] || { echo "Zigbee2MQTT 판을 찾지 못했습니다(인터넷 확인)." >&2; exit 1; }
+  echo "==> Zigbee2MQTT $Z2M_REF 내려받기"
   rm -rf /opt/zigbee2mqtt
-  git clone --depth 1 https://github.com/Koenkk/zigbee2mqtt.git /opt/zigbee2mqtt
+  git clone --depth 1 --branch "$Z2M_REF" "$Z2M_REPO" /opt/zigbee2mqtt
 fi
 echo "==> Zigbee2MQTT 준비(처음에는 몇 분 걸립니다)"
 ( cd /opt/zigbee2mqtt
   corepack enable >/dev/null 2>&1 || npm install -g pnpm >/dev/null
   COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm install --frozen-lockfile --silent
   COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm run build >/dev/null )
+# 서비스 사용자가 주인이어야 한다 — root 소유 저장소를 다른 사용자가 돌리면 git 이 'safe.directory'
+# 로 거절하고, Zigbee2MQTT 는 판 정보를 못 읽어 다시 빌드하려다 실패한다.
+chown -R "$USER_:$USER_" /opt/zigbee2mqtt
 
 install -d -o "$USER_" -g "$USER_" -m 755 "$FIELD" "$DATA" "$DATA/capture" "$Z2M_DATA"
 if [ ! -f "$Z2M_DATA/configuration.yaml" ]; then
@@ -120,7 +128,8 @@ serial:
   adapter: $ADAPTER
 frontend:
   enabled: true
-  port: 8081          # 8080 은 장비 화면이 쓴다
+  host: 127.0.0.1     # 장비 안에서만. 이 화면은 인증이 없어 같은 망 누구나 페어링·삭제·코드 실행까지 할 수 있다.
+  port: 8081          # 8080 은 장비 화면이 쓴다. PC 에서 보려면: ssh -L 8081:127.0.0.1:8081 pi@장비주소
 advanced:
   network_key: GENERATE
   pan_id: GENERATE
@@ -129,6 +138,10 @@ advanced:
   last_seen: ISO_8601
 EOF
   chown "$USER_:$USER_" "$Z2M_DATA/configuration.yaml"
+fi
+
+if ! grep -qE '^\s+host:' "$Z2M_DATA/configuration.yaml"; then
+  sed -i 's/^frontend:$/frontend:\n  host: 127.0.0.1/' "$Z2M_DATA/configuration.yaml"   # 예전 판이 만든 설정도 장비 안에서만
 fi
 
 # ── 4. 수집기 ────────────────────────────────────────────────────────────────
@@ -176,7 +189,9 @@ WantedBy=multi-user.target
 EOF
 }
 unit zigbee2mqtt "Zigbee2MQTT (Farm365 무선 센서)" "/usr/bin/node index.js" "" /opt/zigbee2mqtt \
-  "Environment=ZIGBEE2MQTT_DATA=$Z2M_DATA"
+  "Environment=ZIGBEE2MQTT_DATA=$Z2M_DATA
+Environment=HOME=$Z2M_DATA
+ReadWritePaths=/opt/zigbee2mqtt"
 unit farm365-zigbee "Farm365 지그비 수집기" \
   "/usr/bin/python3 $APP/scripts/zigbee_bridge.py --devices $FIELD/devices.yaml --out $DATA --capture $DATA/capture" \
   "zigbee2mqtt.service" "$APP" ""
