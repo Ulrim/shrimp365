@@ -39,6 +39,13 @@ import {
 } from "@/lib/mrv/quality-flags"
 import { inspectParamsShape } from "@/lib/mrv/kpi-params-shape"
 import {
+  KPI_THRESHOLD_ASSUMPTION_NOTE,
+  METRIC_PROVENANCE,
+  PROVISIONAL_METRIC_KEYS,
+  readKpiRedWatchlist,
+  provisionalMetricWatchlistNote,
+} from "@/lib/mrv/metric-provenance"
+import {
   Card,
   INPUT_CLASS,
   LoadError,
@@ -908,6 +915,23 @@ function KpiConfigSection() {
   const eiRisk = risks.some((risk) => risk.block === "ei")
   const nonEiRisk = risks.some((risk) => risk.block !== "ei")
 
+  /**
+   * kpi_red 알림 감시 목록 — **지금 적용 중인 설정이 적은 목록**이다.
+   *
+   * 엔진 기본값에는 `oei` 가 들어 있다(`lib/mrv/kpi/types.ts` 의 `DEFAULT_ALERTING_CONFIG`).
+   * 즉 조직이 아무 설정도 하지 않으면 **잠정 지표로 빨간 알림이 나간다.** 그 기본값은
+   * `lib/mrv/kpi/` 안이라 여기서 고칠 수 없고(원본 Python 과 차분검증 —
+   * scripts/mrv/verify-config.mjs), 고치는 것이 맞는지는 엔진 원본과 함께 다룰 별건이다.
+   * 이 화면이 할 일은 그 사실을 사실대로 적고 빠져나갈 경로를 보이게 하는 것이다.
+   *
+   * `active` 가 없으면(등록된 행이 하나도 없으면) 엔진 기본값으로 판정하므로, 그 경우도
+   * 같은 함수에 `null` 을 넘겨 "기본값을 쓰고 있다" 로 읽게 한다 — 그것이 사실이다.
+   */
+  const watchlist = useMemo(
+    () => readKpiRedWatchlist(active?.params_json ?? null),
+    [active],
+  )
+
   return (
     <Card className="flex flex-col gap-4">
       <SectionHeader
@@ -977,6 +1001,33 @@ function KpiConfigSection() {
               ? "이 상태로 만든 MRV 리포트에는 「포함 품질 플래그」 줄에 기본값이 아니라는 표시가 함께 인쇄됩니다."
               : "이 위험은 MRV 리포트에 인쇄되지 않습니다."}{" "}
             {nonEiRisk && REPORT_COVERS_EI_FLAGS_ONLY}
+          </p>
+        </div>
+      )}
+
+      {/* 지표 정의의 확정 여부 + 그 지표가 지금 알림 감시 목록에 들어 있는가.
+          위 두 상자와 다른 모양이다 — 그 둘은 "지금 설정이 잘못됐다" 는 경고이고 이것은
+          고칠 것이 아닌 사실이다. 같은 빨간 상자로 두면 운영자가 설정을 고쳐 없앨 수 있는
+          문제로 읽는다.
+          12px 본문이라 AA 기준이 4.5:1 이므로 글자색은 text-mrv-fg 로 둔다. */}
+      {PROVISIONAL_METRIC_KEYS.length > 0 && (
+        <div
+          role="note"
+          className="flex flex-col gap-2 rounded-md border border-mrv-border border-l-4 border-l-mrv-na bg-mrv-na-bg p-3 text-sm"
+        >
+          <p className="font-semibold text-mrv-fg">
+            이 표의 파라미터 중 일부는 정의가 확정되지 않은 지표의 것입니다
+          </p>
+          <ul className="flex flex-col gap-2 text-xs leading-relaxed text-mrv-fg">
+            {PROVISIONAL_METRIC_KEYS.map((key) => (
+              <li key={key}>
+                <strong>{key.toUpperCase()}</strong> — {METRIC_PROVENANCE[key].sourceText}
+                <p className="mt-1">{provisionalMetricWatchlistNote(key, watchlist)}</p>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs leading-relaxed text-mrv-fg">
+            {KPI_THRESHOLD_ASSUMPTION_NOTE}
           </p>
         </div>
       )}

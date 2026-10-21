@@ -9,6 +9,10 @@
  * 화면의 값이 갈렸을 것이다.
  *
  * 최고/최저 표시는 지표 방향을 보정한 결과다(OEI 만 높을수록 좋다).
+ *
+ * ★ 이 표의 OEI 열은 **사업장끼리의 순위로 읽힌다**(최고/최저 배지가 붙는다). 그런데 OEI 는
+ *   산식이 사업계획서에 없는 제안값이고 분자가 사업장마다 다른 DO 목표대역의 유지율이다 —
+ *   그 사실은 `lib/mrv/metric-provenance.ts` 에 있고 이 화면은 거기서 가져다 적는다.
  */
 
 import { useState } from "react"
@@ -23,6 +27,14 @@ import {
   type BenchmarkSortDirection,
   type SiteBenchmarkMetricKey,
 } from "@/lib/mrv/ui/multisite-meta"
+import {
+  KPI_THRESHOLD_ASSUMPTION_NOTE,
+  OEI_CROSS_SITE_RANKING_NOTE,
+  PROVISIONAL_METRIC_MARK,
+  PROVISIONAL_METRIC_KEYS,
+  isProvisionalMetric,
+  provisionalMetricShortNote,
+} from "@/lib/mrv/metric-provenance"
 import {
   Badge,
   CenteredMessage,
@@ -158,6 +170,13 @@ export default function MultisiteBenchmarkPage() {
                       {sortKey === meta.key && (
                         <span aria-hidden="true">{sortDir === "asc" ? " ▲" : " ▼"}</span>
                       )}
+                      {/* 열 제목에 글자로 적는다. 아래 설명 문단만 두면 표를 가로로
+                          스크롤해 OEI 열만 보고 있는 사람에게는 아무 표시도 없다. */}
+                      {isProvisionalMetric(meta.key) && (
+                        <span className="mt-0.5 block rounded border border-mrv-amber bg-mrv-amber-bg px-1 py-0.5 text-[10px] font-medium text-mrv-fg">
+                          {PROVISIONAL_METRIC_MARK}
+                        </span>
+                      )}
                     </button>
                   </th>
                 ))}
@@ -206,6 +225,23 @@ export default function MultisiteBenchmarkPage() {
           기간 {isoDay(query.data.period.from)} ~ {isoDay(query.data.period.to)} · 최고/최저는
           지표 방향(OEI 만 높을수록 좋음)을 보정해 표시합니다.
         </p>
+      )}
+
+      {/* 잠정 지표가 이 표에 섞여 있다는 사실. 표가 비어 있어도 적는다 — 열은 그대로
+          떠 있고, 사업장을 추가하면 곧 숫자가 들어온다.
+          12px 본문이라 AA 기준이 4.5:1 이므로 틴트 배경에는 text-mrv-fg 를 쓴다. */}
+      {PROVISIONAL_METRIC_KEYS.length > 0 && (
+        <div
+          role="note"
+          className="flex flex-col gap-2 rounded-xl border border-mrv-amber bg-mrv-amber-bg p-4 text-xs leading-relaxed text-mrv-fg"
+        >
+          {PROVISIONAL_METRIC_KEYS.map((key) => (
+            <p key={key}>{provisionalMetricShortNote(key)}</p>
+          ))}
+          {/* 사업장 간 비교 자체에 대한 사실이므로 OEI 열이 있을 때만 적는다. */}
+          {isProvisionalMetric("oei") && <p>{OEI_CROSS_SITE_RANKING_NOTE}</p>}
+          <p>{KPI_THRESHOLD_ASSUMPTION_NOTE}</p>
+        </div>
       )}
     </div>
   )

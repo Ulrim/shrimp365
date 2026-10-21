@@ -26,6 +26,10 @@ import {
   unrecordedBasisText,
 } from "./measurement-basis"
 import {
+  REPORT_PROVISIONAL_METRIC_HEADING,
+  REPORT_PROVISIONAL_METRIC_LINES,
+} from "./metric-provenance"
+import {
   EMPTY_QUALITY_FLAG_LIST_REASON,
   REPORT_MISSING_FLAGS_NOTE,
   REPORT_NON_DEFAULT_FLAGS_HEADLINE,
@@ -329,7 +333,24 @@ function measurementBasisRow(raw: unknown): string {
   )
 }
 
-/** 리포트 1건을 A4 인쇄용 HTML 문서로 그린다. */
+/**
+ * 리포트 1건을 A4 인쇄용 HTML 문서로 그린다.
+ *
+ * ── 「지표 정의의 확정 여부」 블록을 어디에 두는가 ─────────────────────────────
+ * 측정경계·가정(2절) 바로 뒤다. 심사위원이 "이 수치가 어떤 경계에서 어떤 가정으로
+ * 나왔는가" 를 읽는 자리가 거기이고, "OEI 의 산식이 애초에 사업계획서에 없다" 는 사실은
+ * 그 질문의 일부다.
+ *
+ * ★ `boundary.assumptions` 에 넣지 않는 이유: 그 배열은 리포트 생성 시점에 얼려
+ *   저장된다(lib/mrv/mrv-report-service.ts 의 `ASSUMPTIONS`). 거기에 넣으면 **이미
+ *   발행된 리포트에는 영원히 이 사실이 적히지 않는다.** 이것은 특정 기간의 가정이 아니라
+ *   지표 정의의 성질이고 옛 리포트에도 똑같이 해당하므로 렌더 시점에 적는 것이 맞다.
+ *   (가정 배열을 바꾸고 싶다면 그것은 새로 발행되는 리포트만을 위한 별건이다.)
+ *
+ * 문구는 `lib/mrv/metric-provenance.ts` 하나에서 가져온다 — 리포트 화면
+ * (app/mrv/mrv-reports/[reportId]/page.tsx)이 **같은 배열**을 돌린다. 두 곳이 각자
+ * 문장을 지으면 화면으로 본 사람과 인쇄물로 본 사람이 다른 사실을 알게 된다.
+ */
 export function renderMrvReportHtml(
   report: MrvReportRow,
   ef: EmissionFactorRow,
@@ -396,6 +417,15 @@ export function renderMrvReportHtml(
   /* 기록이 없는 칸의 설명. 경고가 아니므로 테두리를 주지 않는다 — 옛 리포트에 없는
      위험을 있는 것처럼 인쇄하지 않는다. */
   .flag-note { margin-top: 1.5mm; font-size: 9pt; line-height: 1.45; color: #475569; }
+  /* 지표 정의의 확정 여부. 위 두 경고와 **다른 모양**이다 — 그 둘은 "이 리포트의 수치가
+     기본 상태와 다르게 산출됐다" 는 리포트별 사실이고, 이 블록은 어느 리포트에나 해당하는
+     지표 정의의 성질이다. 같은 모양을 쓰면 읽는 사람이 이 리포트에만 생긴 이상으로
+     읽는다. 색이 아니라 글자가 전부다(흑백 복사가 기본). */
+  .provenance { margin-top: 4mm; border: 1px solid #334155; border-left: 3mm solid #334155;
+                padding: 3mm 4mm; font-size: 9.5pt; line-height: 1.5; }
+  .provenance h3 { font-size: 10.5pt; margin: 0 0 2mm 0; }
+  .provenance p { margin: 0 0 2mm 0; }
+  .provenance p:last-child { margin-bottom: 0; }
   .print-hint { margin-bottom: 6mm; padding: 3mm 4mm; background: #eff6ff;
                 border: 1px solid #bfdbfe; border-radius: 4px; font-size: 9.5pt;
                 color: #1e40af; }
@@ -453,6 +483,13 @@ export function renderMrvReportHtml(
   <ul class="assumptions">
     ${(boundary.assumptions ?? []).map((a) => `<li>${esc(a)}</li>`).join("\n    ")}
   </ul>
+
+  <!-- 지표 정의의 확정 여부. 측정경계·가정 바로 뒤에 둔다(이유는 renderMrvReportHtml
+       위의 주석). -->
+  <div class="provenance">
+    <h3>${esc(REPORT_PROVISIONAL_METRIC_HEADING)}</h3>
+    ${REPORT_PROVISIONAL_METRIC_LINES.map((line) => `<p>${esc(line)}</p>`).join("\n    ")}
+  </div>
 
   <h2>3. 산식 전문 (재현 가능)</h2>
   <div class="formula">${esc(report.formula_text)}</div>

@@ -8,6 +8,7 @@
  * 간다 — 지우는 경로가 없다. 확인 처리는 감사 로그에 남는다.
  */
 
+import Link from "next/link"
 import { useState } from "react"
 import { ApiError, apiFetch, errorMessage, useApiMutation, useApiQuery } from "@/lib/mrv/client"
 import { useMrvSession } from "@/lib/mrv/ui/session"
@@ -20,6 +21,10 @@ import {
   ALERT_TYPE_LABEL,
   summarizeAlertPayload,
 } from "@/lib/mrv/ui/alert-meta"
+import {
+  alertCenterKpiRedWatchlistPointer,
+  provisionalAlertNote,
+} from "@/lib/mrv/metric-provenance"
 import {
   Badge,
   CenteredMessage,
@@ -45,6 +50,31 @@ const STATUS_FILTERS: { value: AlertStatusFilter; label: string }[] = [
 ]
 
 const SUBSCRIPTION_TYPES: AlertType[] = ["do_low", "mortality_spike", "kpi_red"]
+
+/** 잠정 지표가 엔진 기본 감시 목록에 들어 있다는 사실(없으면 null). 결정론적 상수다. */
+const KPI_RED_WATCHLIST_POINTER = alertCenterKpiRedWatchlistPointer()
+
+/**
+ * 알림 한 건의 판정 지표가 **잠정 지표**일 때 그 사실을 적는다.
+ *
+ * 알림은 append-only 이고 `payload` 는 발생 시점에 얼린 것이므로 payload 를 고치지 않고
+ * **읽는 자리에서** 붙인다. 판정은 `lib/mrv/metric-provenance.ts` 가 하고, 모르는
+ * 지표명이면 아무것도 적지 않는다(payload 의 `metric` 은 자유 문자열이다).
+ *
+ * 이 화면이 목록이면서 상세다 — 알림을 따로 펼치는 경로가 없으므로 여기 한 번 적으면
+ * 알림을 보는 모든 자리에 적힌다.
+ */
+function ProvisionalMetricNote({ metric }: { metric: unknown }) {
+  const note = provisionalAlertNote(metric)
+  if (note === null) return null
+  // 12px 본문이라 AA 기준이 4.5:1 이다. 틴트 배경에는 text-mrv-fg 를 쓴다
+  // (text-mrv-muted on bg-mrv-amber-bg 는 그에 못 미친다).
+  return (
+    <p className="rounded-md border border-mrv-amber bg-mrv-amber-bg p-2 text-xs leading-relaxed text-mrv-fg">
+      {note}
+    </p>
+  )
+}
 
 export default function AlertCenterPage() {
   const { selectedSiteId, selectedSite } = useMrvSite()
@@ -117,6 +147,20 @@ export default function AlertCenterPage() {
         aria-label="알림 구독 설정"
       >
         <h2 className="text-base font-semibold text-mrv-fg">알림 구독</h2>
+        {/* kpi_red 스위치는 그 종류 전체를 끈다. 지표 하나만 빼는 길은 kpi_config 쪽이고,
+            이 화면에는 params_json 이 없어 "지금 무엇이 감시 중인가" 를 사실대로 말할 수
+            없다 — 그래서 추측해 적지 않고 그것을 아는 화면으로 보낸다. */}
+        {KPI_RED_WATCHLIST_POINTER !== null && (
+          <p
+            role="note"
+            className="rounded-md border border-mrv-border border-l-4 border-l-mrv-na bg-mrv-na-bg p-2 text-xs leading-relaxed text-mrv-fg"
+          >
+            {KPI_RED_WATCHLIST_POINTER}{" "}
+            <Link href="/mrv/settings" className="underline hover:no-underline">
+              설정 화면으로 이동
+            </Link>
+          </p>
+        )}
         {subscriptions.isLoading && (
           <div
             role="status"
@@ -227,6 +271,8 @@ export default function AlertCenterPage() {
               <p className="text-sm text-mrv-muted">
                 {summarizeAlertPayload(alert.type, alert.payload)}
               </p>
+
+              <ProvisionalMetricNote metric={alert.payload.metric} />
 
               {alert.status === "ack" ? (
                 <p className="text-xs text-mrv-muted">

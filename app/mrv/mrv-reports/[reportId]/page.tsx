@@ -24,6 +24,10 @@ import {
   qualityFlagRiskText,
 } from "@/lib/mrv/quality-flags"
 import {
+  REPORT_PROVISIONAL_METRIC_HEADING,
+  REPORT_PROVISIONAL_METRIC_LINES,
+} from "@/lib/mrv/metric-provenance"
+import {
   REPORT_MISSING_BASIS_NOTE,
   REPORT_NON_METERED_HEADLINE,
   formatMeasurementBasisTally,
@@ -366,6 +370,25 @@ export default function MrvReportViewPage({
                 <li key={a}>{a}</li>
               ))}
             </ul>
+
+            {/* 지표 정의의 확정 여부. 인쇄 리포트와 **같은 배열**을 돌린다
+                (lib/mrv/report-html.ts 의 `.provenance` 블록) — 두 곳이 각자 문장을 지으면
+                화면으로 본 사람과 인쇄물로 본 사람이 다른 사실을 알게 된다.
+
+                모양은 품질 플래그·전력 자료유형 경고와 **다르게** 둔다. 그 둘은 이 리포트의
+                수치가 기본 상태와 다르게 산출됐다는 리포트별 사실이고, 이 블록은 어느
+                리포트에나 해당하는 지표 정의의 성질이다. */}
+            <div
+              role="note"
+              className="flex flex-col gap-2 rounded-xl border border-mrv-border border-l-4 border-l-mrv-na bg-mrv-surface p-4 text-sm leading-relaxed text-mrv-fg"
+            >
+              <h3 className="text-sm font-semibold text-mrv-fg">
+                {REPORT_PROVISIONAL_METRIC_HEADING}
+              </h3>
+              {REPORT_PROVISIONAL_METRIC_LINES.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+            </div>
           </section>
 
           <section aria-label="산식 전문" className="flex flex-col gap-2">

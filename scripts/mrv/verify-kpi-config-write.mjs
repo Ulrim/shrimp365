@@ -25,6 +25,12 @@
  *
  *   ⑤ 활성 설정 선택 규칙(org 행 우선 · 없으면 플랫폼 기본값)이 성립한다.
  *
+ *   ⑦ 「잠정 지표」 정본(`lib/mrv/metric-provenance.ts`)이 사실을 말한다.
+ *      OEI 는 사업계획서에 산식이 없는 제안값인데 플랫폼은 그 값을 산출하고 신호등을 켜고
+ *      기본 설정으로 알림까지 보낸다 — 그 사실이 화면·인쇄 리포트·알림에 적히는가를
+ *      고정한다. 문구를 비우거나 OEI 를 조용히 '확정' 으로 돌리거나 감시 목록 읽기가
+ *      엔진 폴백 규약과 갈라지면 FAIL 한다.
+ *
  * 실행:
  *   node scripts/mrv/verify-kpi-config-write.mjs
  */
@@ -69,6 +75,10 @@ try {
     "quality-flags.ts",
     "kpi-config-source.ts",
     "kpi-config-validate.ts",
+    // ⑦ 가 보는 모듈. api-types 는 metric-provenance 가 타입만 가져오지만, tsc 가
+    // 컴파일하려면 파일이 있어야 한다.
+    "metric-provenance.ts",
+    "api-types.ts",
   ]) {
     copyFileSync(join(ROOT, "lib/mrv", f), join(outDir, f))
   }
@@ -116,6 +126,7 @@ try {
       join(outDir, "kpi-params-shape.ts"),
       join(outDir, "kpi-config-source.ts"),
       join(outDir, "kpi-config-validate.ts"),
+      join(outDir, "metric-provenance.ts"),
       "--outDir", join(outDir, "out"),
       "--module", "commonjs",
       "--target", "es2022",
@@ -132,6 +143,9 @@ try {
   const source = require(join(outDir, "out", "kpi-config-source.js"))
   const engine = require(join(outDir, "out", "kpi", "config.js"))
   const validate = require(join(outDir, "out", "kpi-config-validate.js"))
+  const prov = require(join(outDir, "out", "metric-provenance.js"))
+  const engineStatus = require(join(outDir, "out", "kpi", "status.js"))
+  const engineTypes = require(join(outDir, "out", "kpi", "types.js"))
 
   const engineSrc = readFileSync(join(ROOT, "lib/mrv/kpi/config.ts"), "utf8")
 
@@ -606,6 +620,252 @@ try {
     // 시계 오차 허용 폭 안쪽은 받는다.
     const skew = new Date(now.getTime() + 30_000).toISOString()
     return call(skew, null) === null ? null : "시계 오차 허용 폭 안쪽을 거부했다"
+  })
+
+  // ── ⑦ 「잠정 지표」 정본이 사실을 말하는가 ───────────────────────────────
+  //
+  // 고정하는 것: OEI 는 사업계획서에 산식이 없는 제안값이고, 플랫폼은 그 값을 산출하고
+  // 신호등을 켜고 기본 설정으로 알림까지 보낸다. 그 사실을 `lib/mrv/metric-provenance.ts`
+  // 가 담고, 화면 · 인쇄 리포트 · 알림이 거기서 가져다 적는다.
+  //
+  // ★ import 만 해 두고 단정이 없으면 "검사가 약속만 하고 비어 있어 판정을 망가뜨려도
+  //   통과" 한다. 아래 항목은 전부 실제로 값을 들여다본다 — 문장을 비우거나, OEI 를
+  //   조용히 '확정' 으로 돌리거나, 엔진 폴백 규약과 갈라지면 FAIL 한다.
+
+  check("⑦-a 지표 목록이 엔진의 METRIC_DIRECTIONS 와 같다", () => {
+    const want = Object.keys(engineStatus.METRIC_DIRECTIONS).slice().sort()
+    const got = [...prov.PROVENANCE_METRIC_KEYS].slice().sort()
+    if (JSON.stringify(want) !== JSON.stringify(got)) {
+      return (
+        `엔진 ${JSON.stringify(want)} ≠ 정본 ${JSON.stringify(got)} — 신호등 판정 대상이 ` +
+        "늘었으면 METRIC_PROVENANCE 에 그 지표의 정의 출처를 적을 것(적지 않으면 그 " +
+        "지표는 화면에 아무 출처 표시 없이 나간다)"
+      )
+    }
+    const missing = want.filter((k) => prov.METRIC_PROVENANCE[k] === undefined)
+    return missing.length === 0 ? null : `METRIC_PROVENANCE 에 ${JSON.stringify(missing)} 가 없다`
+  })
+
+  check("⑦-b OEI 는 제안 산식 · 잠정이고 미확정 셋을 적는다", () => {
+    const oei = prov.METRIC_PROVENANCE.oei
+    if (oei === undefined) return "METRIC_PROVENANCE.oei 가 없다"
+    if (oei.origin !== "proposed") return `origin 이 'proposed' 가 아니다: ${oei.origin}`
+    if (oei.status !== "provisional") return `status 가 'provisional' 이 아니다: ${oei.status}`
+    if (!prov.isProvisionalMetric("oei")) return "isProvisionalMetric('oei') 가 false 다"
+    // 「지표정의」 시트가 미확정으로 둔 것은 셋이다 — 산식 · 단위 · 승인 DO 임계치.
+    if (oei.unresolved.length !== 3) {
+      return `미확정 항목이 3건이 아니다: ${JSON.stringify(oei.unresolved)}`
+    }
+    for (const needle of ["산식", "단위", "임계치"]) {
+      if (!oei.unresolved.some((u) => u.includes(needle))) {
+        return `미확정 목록에 '${needle}' 가 없다: ${JSON.stringify(oei.unresolved)}`
+      }
+    }
+    if (!oei.sourceText.includes("사업계획서")) return "sourceText 가 정의 출처를 적지 않는다"
+    return null
+  })
+
+  check("⑦-c 확정 지표는 잠정으로 표시되지 않는다", () => {
+    for (const key of prov.PROVENANCE_METRIC_KEYS) {
+      const meta = prov.METRIC_PROVENANCE[key]
+      const isProv = meta.status === "provisional"
+      if (prov.isProvisionalMetric(key) !== isProv) return `${key}: isProvisionalMetric 불일치`
+      if (prov.PROVISIONAL_METRIC_KEYS.includes(key) !== isProv) {
+        return `${key}: PROVISIONAL_METRIC_KEYS 불일치`
+      }
+      if (!isProv && meta.unresolved.length !== 0) {
+        return `${key}: 확정인데 미확정 항목이 있다 ${JSON.stringify(meta.unresolved)}`
+      }
+      // 표시 문구는 잠정일 때만, 그리고 **빈 문자열이 아니게** 나와야 한다.
+      // 두 가지를 다 본다 — 배지가 없는 자리가 쓰는 쪽(표시가 앞에 붙은 것)과 배지 바로
+      // 옆이 쓰는 쪽(표시를 뗀 것). 한쪽만 보면 다른 쪽을 비워도 통과한다.
+      for (const fn of ["provisionalMetricShortNote", "provisionalMetricReason"]) {
+        const note = prov[fn](key)
+        if (isProv && (typeof note !== "string" || note.trim().length < 20)) {
+          return `${key}: 잠정인데 ${fn} 가 비었다/너무 짧다 ${JSON.stringify(note)}`
+        }
+        if (!isProv && note !== null) return `${key}: 확정인데 ${fn} 가 문구를 낸다`
+      }
+      // 표시가 중복되지 않아야 한다 — 배지 옆에 쓰는 쪽은 그 네 글자를 담지 않는다.
+      if (isProv && prov.provisionalMetricReason(key).includes(prov.PROVISIONAL_METRIC_MARK)) {
+        return `${key}: provisionalMetricReason 이 표시 문구를 다시 담는다`
+      }
+    }
+    return null
+  })
+
+  check("⑦-d 리포트 절이 비어 있지 않고 필요한 사실을 전부 적는다", () => {
+    const lines = prov.REPORT_PROVISIONAL_METRIC_LINES
+    if (!Array.isArray(lines) || lines.length === 0) return "리포트 절이 비어 있다"
+    const blank = lines.findIndex((l) => typeof l !== "string" || l.trim().length < 20)
+    if (blank !== -1) return `${blank}번째 줄이 비었다/너무 짧다`
+    if (prov.REPORT_PROVISIONAL_METRIC_HEADING.trim().length < 10) return "절 제목이 비었다"
+    const body = `${prov.REPORT_PROVISIONAL_METRIC_HEADING}\n${lines.join("\n")}`
+    /*
+     * 심사위원이 읽는 문서이므로 이 네 가지 사실이 **문장째로** 들어 있어야 한다.
+     *
+     * ★ 낱말(`"임계값"` 같은 것)로만 보면 안 된다. 실제로 그렇게 짰다가, 임계값 사실
+     *   한 줄을 배열에서 빼도 다른 줄에 그 낱말이 남아 있어 **통과했다.** 약속만 하고
+     *   비어 있는 검사가 되는 자리다 — 그래서 상수 자체를 찾는다.
+     */
+    const required = [
+      [prov.METRIC_PROVENANCE.oei.sourceText, "산식이 사업계획서에 없고 제안값이라는 사실"],
+      [prov.OEI_SCALE_FACTOR_NOTE, "스케일 계수가 보정 예정이라는 사실"],
+      [prov.OEI_HOW_TO_READ, "그래서 이 숫자를 어떻게 읽어야 하는가"],
+      [prov.KPI_THRESHOLD_ASSUMPTION_NOTE, "신호등 임계값이 실증 전 가정이라는 사실"],
+    ]
+    for (const [needle, why] of required) {
+      if (typeof needle !== "string" || needle.trim().length < 20) {
+        return `${why}: 가져다 쓸 문장 자체가 비어 있다`
+      }
+      if (!body.includes(needle)) return `리포트 절에 ${why}이 없다`
+    }
+    if (!body.includes("OEI")) return "어느 지표에 대한 말인지 적지 않는다"
+    for (const item of prov.METRIC_PROVENANCE.oei.unresolved) {
+      if (!body.includes(item)) return `미확정 항목 '${item}' 이 리포트 절에 없다`
+    }
+    return null
+  })
+
+  check("⑦-e 감시 목록 읽기가 엔진 폴백 규약과 같다", () => {
+    // 엔진(`alertingConfigFromParams`)이 오라클이다. 화면이 "감시 중" 이라고 적는 목록과
+    // 알림 작업이 실제로 쓰는 목록이 갈리면, 화면이 틀린 사실을 말한다.
+    const docs = [
+      {},
+      { alerting: {} },
+      { alerting: { kpi_red_metrics: [] } },
+      { alerting: { kpi_red_metrics: ["ei_total"] } },
+      { alerting: { kpi_red_metrics: ["ei_total", "oei"] } },
+      { ei: { included_quality_flags: ["ok"] } },
+    ]
+    for (const doc of docs) {
+      const want = engine.alertingConfigFromParams(doc).kpiRedMetrics
+      const got = prov.readKpiRedWatchlist(doc).metrics
+      if (JSON.stringify([...want]) !== JSON.stringify([...got])) {
+        return `${JSON.stringify(doc)}: 엔진 ${JSON.stringify(want)} ≠ 정본 ${JSON.stringify(got)}`
+      }
+    }
+    // 키가 없을 때만 fromDefault 다 — 빈 배열은 "쓰지 않겠다는 선택" 이고 기본값이 아니다.
+    if (!prov.readKpiRedWatchlist({}).fromDefault) return "키가 없는데 fromDefault 가 false 다"
+    if (prov.readKpiRedWatchlist({ alerting: { kpi_red_metrics: [] } }).fromDefault) {
+      return "빈 배열이 fromDefault 로 읽힌다"
+    }
+    // 배열이 아닌 값은 추측하지 않고 unreadable 로 돌려준다(엔진은 TypeError 를 던진다).
+    const bad = prov.readKpiRedWatchlist({ alerting: { kpi_red_metrics: "oei" } })
+    if (!bad.unreadable) return "배열이 아닌 값을 unreadable 로 표시하지 않는다"
+    return null
+  })
+
+  check("⑦-f 기본 감시 목록에 든 잠정 지표를 사실대로 적는다", () => {
+    const def = prov.DEFAULT_KPI_RED_METRICS
+    const engineDefault = engineTypes.DEFAULT_ALERTING_CONFIG.kpiRedMetrics
+    if (JSON.stringify([...def]) !== JSON.stringify([...engineDefault])) {
+      return `엔진 기본값 ${JSON.stringify(engineDefault)} ≠ 정본 ${JSON.stringify(def)}`
+    }
+    const provisionalByDefault = prov.PROVISIONAL_METRIC_KEYS.filter((k) => def.includes(k))
+    // 알림 센터의 안내는 "기본 목록에 잠정 지표가 있다" 와 **정확히 같은 조건**에서만 뜬다.
+    const pointer = prov.alertCenterKpiRedWatchlistPointer()
+    if (provisionalByDefault.length > 0) {
+      if (pointer === null) return "기본 목록에 잠정 지표가 있는데 알림 센터 안내가 없다"
+      if (!pointer.includes("kpi_red_metrics")) return "안내가 감시 목록의 자리를 적지 않는다"
+      for (const key of provisionalByDefault) {
+        if (!pointer.includes(key.toUpperCase())) return `안내가 ${key} 를 적지 않는다`
+      }
+    } else if (pointer !== null) {
+      return "기본 목록에 잠정 지표가 없는데 안내가 뜬다"
+    }
+
+    // 설정 화면 문구: 감시 중일 때는 빠져나갈 경로를, 아닐 때는 "없다" 를 적는다.
+    const watched = prov.provisionalMetricWatchlistNote("oei", {
+      metrics: ["ei_total", "oei"],
+      fromDefault: true,
+      unreadable: false,
+    })
+    if (watched === null) return "감시 중인데 설정 화면 문구가 없다"
+    if (!watched.includes("kpi_red_metrics")) return "빠져나갈 경로를 적지 않는다"
+    if (!watched.includes("/api/mrv/kpi-config")) return "쓰기 창구를 적지 않는다"
+
+    const unwatched = prov.provisionalMetricWatchlistNote("oei", {
+      metrics: ["ei_total"],
+      fromDefault: false,
+      unreadable: false,
+    })
+    if (unwatched === null) return "감시 중이 아닐 때도 문구가 필요하다"
+    if (unwatched.includes("kpi_red_metrics")) {
+      return "감시 중이 아닌데 빠져나갈 경로를 적는다(끄려고 들어온 사람이 끌 것을 못 찾는다)"
+    }
+    // 확정 지표에는 붙지 않는다.
+    return prov.provisionalMetricWatchlistNote("ei_total", {
+      metrics: ["ei_total"],
+      fromDefault: true,
+      unreadable: false,
+    }) === null
+      ? null
+      : "확정 지표에 잠정 문구가 붙는다"
+  })
+
+  check("⑦-g 알림 한 건의 문구는 잠정 지표에만, 모르는 이름에는 붙지 않는다", () => {
+    const note = prov.provisionalAlertNote("oei")
+    if (note === null || note.trim().length < 20) return "OEI 알림에 문구가 없다/너무 짧다"
+    if (!note.includes("OEI")) return "어느 지표인지 적지 않는다"
+    if (prov.provisionalAlertNote("ei_total") !== null) return "확정 지표에 문구가 붙는다"
+    // payload.metric 은 자유 문자열이다 — 모르는 값/문자열 아닌 값에서 죽지 않아야 한다.
+    for (const raw of ["ei_totla", "", undefined, null, 7, {}, []]) {
+      if (prov.provisionalAlertNote(raw) !== null) {
+        return `모르는 값에 문구가 붙는다: ${JSON.stringify(raw) ?? String(raw)}`
+      }
+      if (prov.asMetricKey(raw) !== null) return `asMetricKey 가 ${String(raw)} 를 통과시킨다`
+    }
+    return null
+  })
+
+  check("⑦-h OEI 를 내보내는 자리가 전부 정본을 읽는다", () => {
+    /*
+     * 직접 grep 해서 찾은 자리 전부다(명령은 이 작업 보고에 그대로 적었다):
+     *   grep -rniE "oei|산소효율|oxygen" --include=*.ts --include=*.tsx app/ lib/ components/
+     * 중 **사람 앞에 값·신호등·순위·알림·파라미터를 내보내는** 파일만 남긴 것이다.
+     * API 라우트와 서비스 계층(값을 만들어 넘기는 자리)은 화면이 아니므로 제외했다.
+     *
+     * 새 자리가 생기는 것은 이 검사가 잡지 못한다. 잡는 것은 **있던 자리에서 표시가
+     * 사라지는 것**이고, 그것이 이 작업에서 실제로 되돌아갈 수 있는 쪽이다.
+     */
+    const surfaces = [
+      ["components/mrv/kpi-card.tsx", "KPI 카드(개요 · 기준선 두 화면이 함께 쓴다)"],
+      ["app/mrv/multisite/page.tsx", "사이트 벤치마크 표(지표 방향 보정 · 최고/최저 배지)"],
+      ["app/mrv/comparison/page.tsx", "전후 비교표(개선율까지 적는다)"],
+      ["lib/mrv/report-html.ts", "인쇄 리포트"],
+      ["app/mrv/mrv-reports/[reportId]/page.tsx", "리포트 화면"],
+      ["app/mrv/settings/page.tsx", "KPI 파라미터 표"],
+      ["app/mrv/alerts/page.tsx", "알림 센터"],
+    ]
+    /*
+     * ★ 파일 안에 "metric-provenance" 라는 글자가 있는지로 보면 안 된다. 실제로 그렇게
+     *   짰다가, 화면의 import 를 다른 모듈로 바꿔도 **파일 머리 주석에 그 이름이 남아
+     *   있어 통과했다.** 보는 것은 import 문이다.
+     */
+    const IMPORT_RE = /from\s+"(?:@\/lib\/mrv|\.)\/metric-provenance"/
+    for (const [rel, what] of surfaces) {
+      const src = readFileSync(join(ROOT, rel), "utf8")
+      if (!IMPORT_RE.test(src)) {
+        return `${rel}(${what}) 가 lib/mrv/metric-provenance 를 import 하지 않는다`
+      }
+    }
+    // 인쇄과 화면이 **같은 배열**을 돌리는가. 한쪽만 자기 문장을 지으면 화면으로 본 사람과
+    // 인쇄물로 본 사람이 다른 사실을 알게 된다.
+    for (const rel of ["lib/mrv/report-html.ts", "app/mrv/mrv-reports/[reportId]/page.tsx"]) {
+      const src = readFileSync(join(ROOT, rel), "utf8")
+      for (const name of [
+        "REPORT_PROVISIONAL_METRIC_HEADING",
+        "REPORT_PROVISIONAL_METRIC_LINES",
+      ]) {
+        // 2회 이상 — import 와 실제 사용. 1회면 주석에만 이름이 남은 상태일 수 있다
+        // (⑦-h 위의 주석에 적은 함정이 그것이다).
+        if (src.split(name).length - 1 < 2) {
+          return `${rel} 가 리포트 공용 문구 ${name} 를 가져다 쓰지 않는다`
+        }
+      }
+    }
+    return null
   })
 
   check("⑤ 범위 표기", () => {

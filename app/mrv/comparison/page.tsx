@@ -18,6 +18,14 @@ import { useMrvSite } from "@/lib/mrv/ui/site"
 import { toComparisonViewModel } from "@/lib/mrv/ui/comparison-view-model"
 import { isoDay, recentPeriod } from "@/lib/mrv/ui/period"
 import {
+  OEI_HOW_TO_READ,
+  OEI_SCALE_FACTOR_NOTE,
+  PROVISIONAL_METRIC_KEYS,
+  PROVISIONAL_METRIC_MARK,
+  isProvisionalMetric,
+  provisionalMetricShortNote,
+} from "@/lib/mrv/metric-provenance"
+import {
   CenteredMessage,
   INPUT_CLASS,
   LoadError,
@@ -181,6 +189,13 @@ export default function ComparisonPage() {
                       <span className="ml-1 text-xs text-mrv-muted">
                         ({row.direction === "lower_is_better" ? "낮을수록 좋음" : "높을수록 좋음"})
                       </span>
+                      {/* 이 표의 OEI 행은 개선율까지 적는다 — 그 숫자가 무엇의 변화인지
+                          행 자리에서 글자로 밝힌다(설명은 표 아래 문단). */}
+                      {isProvisionalMetric(row.key) && (
+                        <span className="ml-1 rounded border border-mrv-amber bg-mrv-amber-bg px-1 py-0.5 text-[11px] font-medium text-mrv-fg">
+                          {PROVISIONAL_METRIC_MARK}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-2 text-right tabular-nums text-mrv-fg">
                       {formatNumber(row.baselineValue)}
@@ -208,6 +223,26 @@ export default function ComparisonPage() {
             개선율은 지표 방향을 보정한 값입니다 — 양수면 기준선보다 나아졌다는 뜻입니다.
             근거 추적: 기준선 {query.data?.provenance.baseline_id}
           </p>
+
+          {/* 잠정 지표의 개선율은 "무엇의 변화인가" 가 다르다. 이 화면은 두 기간의 산식
+              version 을 위에 적어 두므로, 그 둘이 다를 때 OEI 의 변화가 스케일 보정까지
+              섞은 값이라는 사실이 특히 중요하다. 문구는 한 곳에서 가져온다. */}
+          {PROVISIONAL_METRIC_KEYS.length > 0 && (
+            <div
+              role="note"
+              className="flex flex-col gap-2 rounded-xl border border-mrv-amber bg-mrv-amber-bg p-4 text-xs leading-relaxed text-mrv-fg"
+            >
+              {PROVISIONAL_METRIC_KEYS.map((key) => (
+                <p key={key}>{provisionalMetricShortNote(key)}</p>
+              ))}
+              {isProvisionalMetric("oei") && (
+                <>
+                  <p>{OEI_HOW_TO_READ}</p>
+                  <p>{OEI_SCALE_FACTOR_NOTE}</p>
+                </>
+              )}
+            </div>
+          )}
         </section>
       )}
     </div>
