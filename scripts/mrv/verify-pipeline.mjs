@@ -107,7 +107,16 @@ function makeFakeDb(tables) {
 try {
   // kpi-service.ts 는 db.ts(Supabase 클라이언트)를 import 한다. 원본 파일은 그대로 두고
   // 임시 디렉터리에 복사한 뒤 그 옆에 fetchAll 만 살린 db 모듈을 놓아 함께 컴파일한다.
-  for (const f of ["kpi-service.ts", "api-types.ts", "kpi-config-source.ts"]) {
+  for (const f of [
+    "kpi-service.ts",
+    "api-types.ts",
+    "kpi-config-source.ts",
+    // 자료유형 집계가 쓰는 두 모듈. 스텁으로 바꾸지 않는다 — 집계가 **실물 엔진에 다시
+    // 넣어** 산입 건수를 세는 것이라(kpi-service.ts 의 tallyIncludedMeasurementBasis)
+    // 스텁을 끼우면 정작 검증하려는 연결이 사라진다.
+    "measurement-basis.ts",
+    "measurement-basis-column.ts",
+  ]) {
     copyFileSync(join(ROOT, "lib/mrv", f), join(outDir, f))
   }
   writeFileSync(
@@ -298,6 +307,75 @@ try {
       })),
       sourceRefs: [...comp.mortality.sourceRefs],
     }, e.mortality)
+
+    // ── 자료유형 집계 — 원본에 없는 칸이므로 차분이 아니라 **불변식**으로 본다 ──────
+    //
+    // 집계는 산입 판정을 베껴 적지 않고 **자료유형별로 나눈 묶음을 같은 엔진에 다시
+    // 넣어** 센다(lib/mrv/kpi-service.ts). 그 방식이 성립하는 근거는 "산입 판정이 계측값
+    // 하나하나에 독립적으로 걸린다" 하나뿐이고, 그것이 깨지면 리포트가 "실측 N건" 을
+    // 틀리게 인쇄한다. 그래서 **합이 산입 건수와 같다**를 실물 엔진으로 확인한다.
+    const basisSum =
+      comp.eiMeasurementBasis.metered +
+      comp.eiMeasurementBasis.calculated +
+      comp.eiMeasurementBasis.estimated +
+      comp.eiMeasurementBasis.unrecorded
+    if (basisSum !== comp.ei.includedReadingCount) {
+      failures.push(
+        `${c.name}.eiMeasurementBasis: 합 ${basisSum} ≠ 산입 건수 ${comp.ei.includedReadingCount}`,
+      )
+    }
+    // 픽스처 행에는 measurement_basis 칸이 없다(원본 Python 이 모르는 열이다) →
+    // 산입된 건은 전부 '미기재' 로 세어야 한다. 'metered' 로 세면 **없는 사실을 만들어
+    // 내는 것**이고, 그 거짓이 그대로 리포트에 인쇄된다.
+    if (comp.eiMeasurementBasis.unrecorded !== comp.ei.includedReadingCount) {
+      failures.push(
+        `${c.name}.eiMeasurementBasis: 자료유형이 없는 행을 미기재로 세지 않았다 — ` +
+          JSON.stringify(comp.eiMeasurementBasis),
+      )
+    }
+
+    // 같은 입력에 자료유형만 'calculated' 로 적어 다시 돌린다. 두 가지를 본다:
+    //   · 그 건들이 calculated 버킷으로 정확히 센다(버킷팅이 실제로 동작한다).
+    //   · **KPI 수치는 한 글자도 달라지지 않는다** — 자료유형은 산출 입력이 아니라
+    //     그 산출이 무엇으로 만들어졌는지를 적는 메타데이터다. 이것이 흔들리면 EI 가
+    //     데이터의 성격에 따라 달라진다는 뜻이고, 그러면 리포트의 재현성이 깨진다.
+    const stampedDb = makeFakeDb({
+      meters: r.meters,
+      readings: r.readings.map((row) => ({ ...row, measurement_basis: "calculated" })),
+      harvest_logs: r.harvest_logs,
+      tanks: r.tanks,
+      batches: r.batches,
+      feed_logs: r.feed_logs,
+      mortality_logs: r.mortality_logs,
+      kpi_config: r.kpi_config ? [r.kpi_config] : [],
+    })
+    const stamped = await computeSiteKpiResults(
+      stampedDb,
+      "site-p",
+      "org-p",
+      new Date(c.period.from),
+      new Date(c.period.to),
+      new Date("2099-01-01T00:00:00Z"),
+    )
+    cmp(`${c.name}.stamped.eiMeasurementBasis`, stamped.eiMeasurementBasis, {
+      metered: 0,
+      calculated: comp.ei.includedReadingCount,
+      estimated: 0,
+      unrecorded: 0,
+    })
+    cmp(`${c.name}.stamped.ei`, {
+      eiTotal: stamped.ei.eiTotal,
+      eiAeration: stamped.ei.eiAeration,
+      totalPowerKwh: stamped.ei.totalPowerKwh,
+      includedReadingCount: stamped.ei.includedReadingCount,
+      excludedReadingCount: stamped.ei.excludedReadingCount,
+    }, {
+      eiTotal: comp.ei.eiTotal,
+      eiAeration: comp.ei.eiAeration,
+      totalPowerKwh: comp.ei.totalPowerKwh,
+      includedReadingCount: comp.ei.includedReadingCount,
+      excludedReadingCount: comp.ei.excludedReadingCount,
+    })
 
     checked += 1
   }

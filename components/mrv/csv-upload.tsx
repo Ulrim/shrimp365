@@ -77,6 +77,27 @@ export type CsvUploadProps<T> = {
    * 독립이라 줄마다 보내는 쪽이 "어디까지 들어갔나" 를 더 정확히 알려 주므로 그대로 둔다.
    */
   batchSubmit?: ((records: T[]) => Promise<{ savedCount: number; note?: string }>) | null
+  /**
+   * 파일 단위로 **사람이 골라야 하는 값**의 자리. 해석 결과를 받으므로, 파일이 그 값을
+   * 이미 담고 있으면 다르게 적을 수 있다.
+   *
+   * 전력이 이것을 필요로 한다. 같은 kWh 가 계량기 지침일 수도, 산식으로 계산한 값일
+   * 수도 있는데(mrv_readings.measurement_basis) 그 구분은 **파일 안에 없을 때가 많다** —
+   * 그러면 올리는 사람만 알고 있으므로 올릴 때 받아야 한다.
+   *
+   * 왜 이 컴포넌트가 그 선택을 직접 들고 있지 않은가: 보낼 때 그 값을 쓰는 것은
+   * `batchSubmit` 이고 그것은 호출부가 만든다. 선택을 여기 두면 그 값을 호출부로 되돌려
+   * 보내는 길이 또 필요해지고, 두 상태가 어긋나는 날이 온다.
+   */
+  controls?: ((parsed: CsvParseResult<T> | null) => React.ReactNode) | null
+  /**
+   * 보내기를 막는 **추가** 조건. 돌려준 문구가 그대로 화면에 뜨고, null 이면 막지 않는다.
+   *
+   * 형식 오류와 달리 이것은 "파일은 멀쩡한데 사람이 아직 고르지 않았다" 를 막는 자리다.
+   * 기본값을 몰래 정해 두고 보내는 쪽(예: 자료유형을 '실측' 으로 가정)이 가장 위험하므로,
+   * 고르지 않았으면 저장 자체를 막는다.
+   */
+  blockSendReason?: ((parsed: CsvParseResult<T> | null) => string | null) | null
 }
 
 export function CsvUpload<T>({
@@ -90,6 +111,8 @@ export function CsvUpload<T>({
   canWrite,
   successNote,
   batchSubmit = null,
+  controls = null,
+  blockSendReason = null,
 }: CsvUploadProps<T>) {
   const fileId = useId()
 
@@ -109,6 +132,8 @@ export function CsvUpload<T>({
   const isUploading = progress !== null
   const hasBlockingErrors = (parsed?.errors.length ?? 0) > 0
   const tooManyRows = (parsed?.records.length ?? 0) > MAX_ROWS
+  /** 호출부가 막는 사유(예: 자료유형을 고르지 않았다). 있으면 저장 버튼이 눌리지 않는다. */
+  const sendBlockedReason = blockSendReason ? blockSendReason(parsed) : null
   /**
    * `outcome !== null` 이면 보낼 수 없다 — **이 한 줄이 중복 저장을 막는다.**
    *
@@ -125,6 +150,7 @@ export function CsvUpload<T>({
     parsed !== null &&
     !hasBlockingErrors &&
     !tooManyRows &&
+    sendBlockedReason === null &&
     parsed.records.length > 0
 
   function reset() {
@@ -273,6 +299,10 @@ export function CsvUpload<T>({
         </button>
       </div>
 
+      {/* 파일 단위로 사람이 고르는 값(전력의 자료유형 등). 파일을 고르기 전에도 보인다 —
+          무엇을 함께 적어 내야 하는지 먼저 알 수 있어야 한다. */}
+      {controls && controls(parsed)}
+
       {readError && (
         <p role="alert" className="text-sm text-mrv-red">
           {readError}
@@ -358,6 +388,15 @@ export function CsvUpload<T>({
           한 번에 올릴 수 있는 줄은 {MAX_ROWS}건까지입니다(이 파일은{" "}
           {parsed.records.length}건). 파일을 나눠 올려 주세요 — 줄마다 한 번씩 저장하므로
           너무 많으면 중간에 멈췄을 때 되돌리기 어렵습니다.
+        </p>
+      )}
+
+      {/* ── 호출부가 막은 사유 ────────────────────────────────────────────── */}
+      {/* 파일은 멀쩡한데 아직 고르지 않은 값이 있을 때. 파일을 고른 뒤에만 띄운다 —
+          파일도 없는 상태에서 먼저 띄우면 고르라는 지시가 두 번 겹친다. */}
+      {parsed && !hasBlockingErrors && sendBlockedReason && !outcome && (
+        <p role="alert" className="text-sm text-mrv-red">
+          {sendBlockedReason}
         </p>
       )}
 

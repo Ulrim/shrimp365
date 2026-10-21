@@ -17,6 +17,15 @@
 
 import type { EmissionFactorRow, MrvReportRow } from "./mrv-report-service"
 import {
+  REPORT_MISSING_BASIS_NOTE,
+  REPORT_NON_METERED_HEADLINE,
+  formatMeasurementBasisTally,
+  nonMeteredCount,
+  nonMeteredPowerText,
+  readMeasurementBasisTally,
+  unrecordedBasisText,
+} from "./measurement-basis"
+import {
   EMPTY_QUALITY_FLAG_LIST_REASON,
   REPORT_MISSING_FLAGS_NOTE,
   REPORT_NON_DEFAULT_FLAGS_HEADLINE,
@@ -123,6 +132,12 @@ type Boundary = {
    * 타입 검사를 통과해 버리고, 그것이 옛 리포트에 거짓 주장을 인쇄한 원인이었다.
    */
   included_quality_flags?: string[]
+  /**
+   * After 기간에 **산입된** 전력의 자료유형 집계. **옛 리포트에는 이 칸이 없다**(이 칸을
+   * 넣기 전에 발행된 것들). 그래서 optional 이고, 없는 것은 "-" + 기록 없음 설명으로
+   * 적는다 — 0 으로 뭉개면 "전부 실측" 이라는 거짓을 인쇄하게 된다.
+   */
+  after_power_measurement_basis?: unknown
   biomass_source_refs: { before: string[]; after: string[] }
   config_version: { before: string; after: string }
   /**
@@ -262,6 +277,58 @@ function qualityFlagRow(flags: unknown): string {
   )
 }
 
+/**
+ * 「전력 자료유형(After)」 줄. 계량기 실측이 아닌 건이 산입돼 있으면 **눈에 띄게** 그린다.
+ *
+ * ── 왜 이 줄이 있는가 ───────────────────────────────────────────────────────
+ * 이 리포트의 Scope 2 배출량과 EI 는 **전력(kWh)을 분자로** 산출된다. 그 kWh 가 계량기
+ * 지침이 아니라 「정격 출력 × 가정 부하율 ÷ 가정 효율 × 가동시간」 같은 산식의 결과인
+ * 경우가 실제로 있고(실증 전 단계의 계산 샘플), 그 사실을 적지 않으면 **인쇄된 리포트가
+ * 계산값을 실측으로 제시한다.** 검증기관이 가장 먼저 무너뜨리는 자리다.
+ *
+ * 모양은 「포함 품질 플래그」 줄과 **같다** — 같은 `.flag-warn` 테두리, 같은 `.flag-note`,
+ * 색이 아니라 **글자가 판단 근거**다(흑백 복사가 기본이다). 두 경고가 다른 모양이면
+ * 하나는 덜 중요한 것으로 읽힌다.
+ */
+function measurementBasisRow(raw: unknown): string {
+  // ★ **칸이 없는 것**과 **0 건**을 가르는 분기다(품질 플래그 줄과 같은 이유).
+  //   기록이 없는 리포트에 "실측 0건 · 계산값 0건" 을 적으면 합이 0 인 집계를 증빙으로
+  //   인쇄하는 것이고, 읽는 사람은 그것을 "전력이 없었다" 로 읽는다.
+  if (raw === undefined) {
+    return (
+      `<tr><td>전력 자료유형(After)</td><td colspan="2">-` +
+      `<div class="flag-note">${esc(REPORT_MISSING_BASIS_NOTE)}</div></td></tr>`
+    )
+  }
+  const tally = readMeasurementBasisTally(raw)
+  if (tally === null) {
+    return (
+      `<tr><td>전력 자료유형(After)</td><td colspan="2">-` +
+      `<div class="flag-note">${esc(REPORT_MISSING_BASIS_NOTE)}</div></td></tr>`
+    )
+  }
+
+  const summary = formatMeasurementBasisTally(tally)
+  if (nonMeteredCount(tally) === 0) {
+    // 실측이 아닌 건이 없다. 그래도 **미기재가 있으면 그 사실을 적는다** — 경고는
+    // 아니지만(모른다는 것은 실측이 아니라는 뜻이 아니다) 숨길 사실도 아니다.
+    const note =
+      tally.unrecorded > 0
+        ? `<div class="flag-note">${esc(unrecordedBasisText(tally.unrecorded))}</div>`
+        : ""
+    return `<tr><td>전력 자료유형(After)</td><td colspan="2">${esc(summary)}${note}</td></tr>`
+  }
+
+  const notes = [nonMeteredPowerText(tally)]
+  if (tally.unrecorded > 0) notes.push(unrecordedBasisText(tally.unrecorded))
+  return (
+    `<tr class="flag-warn"><td>전력 자료유형(After)</td><td colspan="2">` +
+    `<strong>${esc(summary)}</strong>` +
+    `<div class="flag-warn-note">${esc(REPORT_NON_METERED_HEADLINE)} ` +
+    `${notes.map((n) => esc(n)).join(" ")}</div></td></tr>`
+  )
+}
+
 /** 리포트 1건을 A4 인쇄용 HTML 문서로 그린다. */
 export function renderMrvReportHtml(
   report: MrvReportRow,
@@ -320,8 +387,10 @@ export function renderMrvReportHtml(
   .chart-wrap { display: flex; align-items: center; gap: 8mm; margin-top: 3mm; }
   .chart-caption { font-size: 9.5pt; color: #475569; }
   .footer-note { margin-top: 8mm; font-size: 8.5pt; color: #64748b; }
-  /* 포함 품질 플래그가 기본값이 아닐 때. 흑백 인쇄에서도 보이게 테두리를 굵게 주고,
-     판단 근거는 색이 아니라 같은 칸의 문장이 담는다. */
+  /* 수치의 산출 범위가 기본 상태와 다를 때 쓰는 한 가지 모양. 지금 두 줄이 쓴다 —
+     포함 품질 플래그가 기본값이 아닐 때, 그리고 산입된 전력에 계량기 실측이 아닌 건이
+     섞여 있을 때. 흑백 인쇄에서도 보이게 테두리를 굵게 주고, 판단 근거는 색이 아니라
+     같은 칸의 문장이 담는다. 두 경고가 다른 모양이면 하나는 덜 중요한 것으로 읽힌다. */
   .flag-warn td { border: 2px solid #b45309; background: #fffbeb; }
   .flag-warn-note { margin-top: 1.5mm; font-size: 9pt; line-height: 1.45; color: #7c2d12; }
   /* 기록이 없는 칸의 설명. 경고가 아니므로 테두리를 주지 않는다 — 옛 리포트에 없는
@@ -376,6 +445,7 @@ export function renderMrvReportHtml(
       <tr><td>사이트</td><td colspan="2">${esc(boundary.site_name)} (${esc(boundary.site_id)})</td></tr>
       <tr><td>포함 계측기(meter) ID</td><td colspan="2">${joinOrDash(boundary.included_meter_ids)}</td></tr>
       ${qualityFlagRow(boundary.included_quality_flags)}
+      ${measurementBasisRow(boundary.after_power_measurement_basis)}
       <tr><td>생산량 근거(Before)</td><td colspan="2">${joinOrDash(boundary.biomass_source_refs?.before)}</td></tr>
       <tr><td>생산량 근거(After)</td><td colspan="2">${joinOrDash(boundary.biomass_source_refs?.after)}</td></tr>
     </tbody>

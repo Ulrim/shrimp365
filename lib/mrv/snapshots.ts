@@ -23,6 +23,15 @@ function eiInputs(comp: SiteKpiComputation) {
     biomass_delta_kg: ei.biomassDeltaKg,
     included_reading_count: ei.includedReadingCount,
     excluded_reading_count: ei.excludedReadingCount,
+    /**
+     * 산입된 전력이 **어떻게 얻어진 값인가**(실측/계산값/어림값/미기재).
+     *
+     * MRV 리포트는 이 집계를 `boundary_json` 에 따로 얼려 넣지만, **기준선 스냅샷에는
+     * 그 boundary 가 없다.** 잠긴 기준선은 불변이고 이후 모든 감축량의 원점이 되므로,
+     * "그 원점의 전력이 계량기 실측이었나" 를 되짚을 기록이 스냅샷에 남아야 한다 —
+     * 이 칸이 그 유일한 자리다. 옛 스냅샷에는 이 칸이 없다(없는 것은 없는 대로 둔다).
+     */
+    measurement_basis: comp.eiMeasurementBasis,
   }
 }
 

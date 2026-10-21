@@ -23,7 +23,7 @@
  * 메뉴가 사라지면 사용자는 기능이 없는 줄 안다.
  */
 
-import { useId, useMemo, useState } from "react"
+import { useId, useState } from "react"
 import { apiFetch, errorMessage, useApiMutation } from "@/lib/mrv/client"
 import { useMrvSession } from "@/lib/mrv/ui/session"
 import { useMrvSite } from "@/lib/mrv/ui/site"
@@ -32,6 +32,13 @@ import { BatchSelect } from "@/components/mrv/batch-select"
 import { CsvUpload } from "@/components/mrv/csv-upload"
 import { PowerMeterSelect } from "@/components/mrv/power-meter-select"
 import { INPUT_CLASS, PRIMARY_BUTTON, PageHeader } from "@/components/mrv/ui"
+import {
+  CSV_BASIS_PRECEDENCE_NOTE,
+  MEASUREMENT_BASES,
+  MEASUREMENT_BASIS_HINTS,
+  MEASUREMENT_BASIS_LABELS,
+  type MeasurementBasis,
+} from "@/lib/mrv/measurement-basis"
 import {
   FEED_CSV_TEMPLATE,
   MORTALITY_CSV_TEMPLATE,
@@ -42,9 +49,70 @@ import {
   parsePowerCsv,
   type PowerCsvRecord,
 } from "@/lib/mrv/csv-records"
+import type { CsvParseResult } from "@/lib/mrv/csv-records"
 import type { ReadingsIngestResult } from "@/lib/mrv/api-types"
 
 const WRITER_ROLES = new Set(["owner", "operator"])
+
+/** 아직 고르지 않은 상태. `MeasurementBasis` 에 'none' 같은 값을 더하지 않는다 —
+ *  저장될 수 있는 값과 "고르지 않았다" 는 같은 타입에 섞이면 안 된다. */
+type BasisChoice = MeasurementBasis | ""
+
+/**
+ * 전력 자료유형 선택칸 — **이 kWh 를 계량기가 쟀는가, 산식이 냈는가.**
+ *
+ * ★ **기본값을 두지 않는다.** 처음 상태는 빈 값이고, 고르지 않으면 저장이 막힌다.
+ *   'metered'(실측)를 기본값으로 두면 계산값을 올리는 사람이 아무 선택도 하지 않은 채
+ *   **계량기 실측으로 저장**하게 되고, 그 kWh 가 EI·Scope 2 배출량의 분자가 된 뒤
+ *   리포트가 그것을 실측으로 제시한다 — 이 열을 만든 이유가 정확히 그 사고를 막는 것이다.
+ *   `mrv_readings.measurement_basis` 가 기존 행을 'metered' 로 메우지 않은 것과 같은 판단
+ *   이다(없는 사실을 만들어 내지 않는다).
+ *
+ * 고른 값의 뜻을 선택칸 아래에 그대로 적는다. 선택지 이름만으로는 "계산값" 이 무엇을
+ * 말하는지 사람마다 달리 읽는다.
+ */
+function MeasurementBasisSelect({
+  id,
+  value,
+  onChange,
+  disabled,
+  label,
+}: {
+  id: string
+  value: BasisChoice
+  onChange: (next: BasisChoice) => void
+  disabled: boolean
+  label: string
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={id} className="text-sm font-medium text-mrv-fg">
+        {label} <span className="text-mrv-red">*</span>
+      </label>
+      <select
+        id={id}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value as BasisChoice)}
+        className={`${INPUT_CLASS} py-2 disabled:opacity-60`}
+      >
+        {/* 빈 선택지를 목록에 남겨 둔다 — 고르고 나서 "아직 안 골랐음" 으로 되돌릴 수
+            있어야 하고, 되돌릴 수 없으면 사람은 아무거나 고른 채 넘어간다. */}
+        <option value="">— 고르세요 —</option>
+        {MEASUREMENT_BASES.map((basis) => (
+          <option key={basis} value={basis}>
+            {MEASUREMENT_BASIS_LABELS[basis]}
+          </option>
+        ))}
+      </select>
+      <p className="text-xs text-mrv-muted">
+        {value === ""
+          ? "계량기가 잰 값과 산식으로 계산한 값은 같은 증빙이 아니므로 구분해 저장합니다. 고르지 않으면 저장할 수 없습니다 — 기본값을 두면 계산값이 실측으로 기록됩니다."
+          : MEASUREMENT_BASIS_HINTS[value]}
+      </p>
+    </div>
+  )
+}
 
 function ViewerNote() {
   return (
@@ -316,10 +384,19 @@ function MortalityLogForm({
 function PowerLogForm({ siteId, canWrite }: { siteId: string | null; canWrite: boolean }) {
   const tsId = useId()
   const kwhId = useId()
+  const basisId = useId()
 
   const [meterId, setMeterId] = useState("")
   const [ts, setTs] = useState(() => nowLocalInputValue())
   const [kwh, setKwh] = useState("")
+  /**
+   * 자료유형. **기본값 없이 시작한다**(MeasurementBasisSelect 의 머리말 참고).
+   * 저장 뒤에도 비우지 않는다 — 계측기·시각을 남겨 두는 것과 같은 이유로, 같은 종류의
+   * 기록을 연달아 넣을 때 매번 다시 고르게 하면 아무거나 고르고 넘어간다. 처음 한 번은
+   * 반드시 사람이 고른 값이고, 바꾸지 않은 채 다른 종류를 넣는 일은 **선택칸과 그 아래
+   * 설명이 계속 보이므로** 눈에 띈다.
+   */
+  const [basis, setBasis] = useState<BasisChoice>("")
   const [fieldError, setFieldError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<string | null>(null)
   /**
@@ -353,13 +430,26 @@ function PowerLogForm({ siteId, canWrite }: { siteId: string | null; canWrite: b
     if (!Number.isFinite(value) || value < 0 || kwh.trim() === "") {
       return setFieldError("구간 사용량(kWh)은 0 이상의 값이어야 합니다.")
     }
+    // 고르지 않았으면 저장하지 않는다. 서버도 이 칸을 요구하므로(라우트의 422) 화면이
+    // 빠른 피드백만 하고 최종 판정은 서버가 한다 — 이 폼의 다른 칸과 같은 구조다.
+    if (basis === "") {
+      return setFieldError(
+        "자료유형을 고르세요 — 이 kWh 가 계량기 지침인지, 산식으로 계산한 값인지 적어야 합니다.",
+      )
+    }
     setFieldError(null)
 
     try {
       const result = await mutation.mutate({
         source: "manual",
         readings: [
-          { meter_id: meterId.trim(), ts: iso, value, reading_kind: "interval_kwh" },
+          {
+            meter_id: meterId.trim(),
+            ts: iso,
+            value,
+            reading_kind: "interval_kwh",
+            measurement_basis: basis,
+          },
         ],
       })
       setLastResult(result)
@@ -431,6 +521,14 @@ function PowerLogForm({ siteId, canWrite }: { siteId: string | null; canWrite: b
         </p>
       </div>
 
+      <MeasurementBasisSelect
+        id={basisId}
+        label="자료유형 (이 값을 어떻게 얻었는가)"
+        value={basis}
+        onChange={setBasis}
+        disabled={disabled}
+      />
+
       {fieldError && (
         <p role="alert" className="text-sm text-mrv-red">
           {fieldError}
@@ -464,10 +562,97 @@ function parseCumulativePowerCsv(text: string) {
   return parsePowerCsv(text, "cumulative_kwh")
 }
 
+/**
+ * 자료유형이 비어 있어 **저장을 막아야 하는가.** 막을 이유가 없으면 null.
+ *
+ * 막는 조건을 "고르지 않았다" 가 아니라 **"고른 값이 필요한 줄이 있는데 고르지 않았다"**
+ * 로 둔다. 파일의 모든 줄이 자기 자료유형을 들고 있으면 여기서 고를 것이 없고, 그때도
+ * 고르라고 막으면 사람은 아무거나 골라 넘긴다 — 그 선택은 어디에도 쓰이지 않으므로
+ * 해롭지는 않지만, "아무거나 골라도 통과한다" 를 가르치는 것이 해롭다.
+ */
+function powerBasisBlockReason(
+  parsed: CsvParseResult<PowerCsvRecord> | null,
+  basis: BasisChoice,
+): string | null {
+  if (basis !== "" || parsed === null) return null
+  const missing = parsed.records.filter((r) => r.measurement_basis === undefined).length
+  if (missing === 0) return null
+  return (
+    `이 파일의 ${missing}건에 자료유형이 적혀 있지 않습니다. 위에서 「이 파일의 자료유형」을 ` +
+    "고르거나 파일의 measurement_basis 열을 채워 주세요 — 고르지 않은 채 저장하면 그 전력이 " +
+    "계량기 실측인지 계산값인지 아는 기록이 아무 데도 남지 않고, 리포트는 그 사실을 " +
+    "'미기재' 로 적습니다."
+  )
+}
+
+/** 미리보기의 자료유형 칸. 파일이 적은 값과 화면에서 고른 값을 **구별해** 보여 준다. */
+function basisPreviewCell(record: PowerCsvRecord, basis: BasisChoice): string {
+  if (record.measurement_basis !== undefined) {
+    return `${MEASUREMENT_BASIS_LABELS[record.measurement_basis]} (파일)`
+  }
+  return basis === ""
+    ? "— 고르지 않음 —"
+    : `${MEASUREMENT_BASIS_LABELS[basis]} (위에서 고른 값)`
+}
+
+/**
+ * 전력 기록지 업로드의 자료유형 칸 + 그 규칙.
+ *
+ * 선택은 **파일 단위 기본값**이다. 파일에 `measurement_basis` 열이 적힌 줄은 그 값이
+ * 이기고(CSV_BASIS_PRECEDENCE_NOTE), 그 규칙을 화면에 그대로 적는다 — 적지 않으면
+ * 운영자는 자기가 고른 값이 파일을 덮어쓴다고 믿는다.
+ *
+ * 해석 결과를 받아 **열이 없는 줄이 몇 건인지** 함께 알린다. 그 수가 "여기서 고른 값이
+ * 실제로 적용되는 건수" 이고, 0 이면 고르지 않아도 저장할 수 있다.
+ */
+function PowerCsvBasisControls({
+  parsed,
+  value,
+  onChange,
+  canWrite,
+}: {
+  parsed: CsvParseResult<PowerCsvRecord> | null
+  value: BasisChoice
+  onChange: (next: BasisChoice) => void
+  canWrite: boolean
+}) {
+  const id = useId()
+  const rowsNeedingFallback =
+    parsed?.records.filter((r) => r.measurement_basis === undefined).length ?? null
+  const rowsWithOwnBasis =
+    parsed === null ? null : parsed.records.length - (rowsNeedingFallback ?? 0)
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-mrv-border bg-mrv-bg p-3">
+      <MeasurementBasisSelect
+        id={id}
+        label="이 파일의 자료유형"
+        value={value}
+        onChange={onChange}
+        disabled={!canWrite}
+      />
+      <p className="text-xs text-mrv-muted">{CSV_BASIS_PRECEDENCE_NOTE}</p>
+      {parsed !== null && (
+        <p className="text-xs tabular-nums text-mrv-fg">
+          읽은 {parsed.records.length}건 중 파일에 자료유형이 적힌 줄 {rowsWithOwnBasis}건 ·
+          여기서 고른 값이 적용되는 줄 {rowsNeedingFallback}건.
+        </p>
+      )}
+    </div>
+  )
+}
+
 export default function InputPage() {
   const { selectedSiteId, selectedSite } = useMrvSite()
   const { role } = useMrvSession()
   const canWrite = role !== null && WRITER_ROLES.has(role)
+
+  /**
+   * 전력 기록지 두 칸의 **파일 단위 자료유형.** 칸마다 따로 들고 있다 — 한 상태를
+   * 공유하면 구간 사용량 파일에 고른 값이 적산 지침 파일에도 묻어 들어간다.
+   */
+  const [intervalBasis, setIntervalBasis] = useState<BasisChoice>("")
+  const [cumulativeBasis, setCumulativeBasis] = useState<BasisChoice>("")
 
   /**
    * 전력 기록지는 **파일 하나를 요청 하나로** 보낸다. 줄마다 보내면 적산 지침이 매번
@@ -477,12 +662,23 @@ export default function InputPage() {
    * 결과 문구에 **산입 가능 건수를 그대로 적는다.** 'suspect'/'bad' 는 KPI 산입 목록에서
    * 빠지므로, "30건 저장" 만 보여 주면 운영자는 EI 가 왜 그대로인지 알 수 없다.
    */
-  const powerSubmit = useMemo(() => {
+  const makePowerSubmit = (basis: BasisChoice) => {
     if (!selectedSiteId) return null
     return async (records: PowerCsvRecord[]) => {
       const result = await apiFetch<ReadingsIngestResult>(
         `/sites/${encodeURIComponent(selectedSiteId)}/readings`,
-        { method: "POST", json: { source: "csv", readings: records } },
+        {
+          method: "POST",
+          json: {
+            source: "csv",
+            // 파일 단위 기본값. 줄마다 적힌 값은 서버가 그것을 먼저 쓴다
+            // (lib/mrv/ingestion.ts 의 processBatch — 건별 > 배치 기본값).
+            // 고르지 않았다면 보내지 않는다 — 그 경우 모든 줄이 자기 값을 들고 있고
+            // (아니면 저장 자체가 막혀 있다), 빈 문자열을 보내면 서버가 422 로 거절한다.
+            ...(basis === "" ? {} : { measurement_basis: basis }),
+            readings: records,
+          },
+        },
       )
       const parts = [`KPI 산입 가능 ${result.quality.ok}건`]
       if (result.quality.suspect > 0) {
@@ -492,9 +688,25 @@ export default function InputPage() {
       }
       if (result.quality.bad > 0) parts.push(`산입 제외(불량) ${result.quality.bad}건`)
       if (result.deduped > 0) parts.push(`이미 있어 흡수 ${result.deduped}건`)
+      /**
+       * **어떤 자료유형으로 보냈는지 그대로 적는다.** 저장이 끝난 뒤 그 사실이 남는
+       * 자리는 화면의 이 문장과 감사 로그뿐이고, 여기에 적지 않으면 "실측으로 올린 줄
+       * 알았다" 를 아무도 되짚을 수 없다. 서버가 돌려주는 요약에는 이 칸이 없으므로
+       * (수락·중복·품질 분포만 돌려준다) 보낸 값을 그대로 센다.
+       */
+      const basisCounts = new Map<MeasurementBasis, number>()
+      for (const r of records) {
+        const effective = r.measurement_basis ?? basis
+        if (effective === "") continue
+        basisCounts.set(effective, (basisCounts.get(effective) ?? 0) + 1)
+      }
+      const basisNote = MEASUREMENT_BASES.filter((b) => basisCounts.has(b))
+        .map((b) => `${MEASUREMENT_BASIS_LABELS[b]} ${basisCounts.get(b)}건`)
+        .join(" · ")
+      if (basisNote) parts.push(`자료유형 — ${basisNote}`)
       return { savedCount: result.accepted, note: parts.join(" · ") }
     }
-  }, [selectedSiteId])
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
@@ -557,16 +769,26 @@ export default function InputPage() {
           title="전력 기록지 업로드 — 구간 사용량 (CSV)"
           parse={parseIntervalPowerCsv}
           endpoint={null}
-          batchSubmit={powerSubmit}
+          batchSubmit={makePowerSubmit(intervalBasis)}
           template={POWER_INTERVAL_CSV_TEMPLATE}
           templateFilename="전력기록지_구간사용량_견본.csv"
           successNote="EI·Scope2 에 반영됩니다."
-          columnsHint="필요한 열: meter_id(계측기) · ts(구간 끝 시각) · value(그 구간에 쓴 kWh). 한국어 머리글도 받습니다. 0 도 받습니다 — 돌리지 않은 날의 0 kWh 는 실제 계측이고, 줄을 비우면 계측이 끊긴 것과 구분되지 않습니다."
+          columnsHint="필요한 열: meter_id(계측기) · ts(구간 끝 시각) · value(그 구간에 쓴 kWh). measurement_basis(자료유형)는 선택입니다. 한국어 머리글도 받습니다. 0 도 받습니다 — 돌리지 않은 날의 0 kWh 는 실제 계측이고, 줄을 비우면 계측이 끊긴 것과 구분되지 않습니다."
           previewColumns={[
             { header: "계측기", cell: (r) => r.meter_id },
             { header: "구간 끝 시각", cell: (r) => formatIsoLocal(r.ts) },
             { header: "사용량(kWh)", cell: (r) => String(r.value) },
+            { header: "자료유형", cell: (r) => basisPreviewCell(r, intervalBasis) },
           ]}
+          controls={(parsed) => (
+            <PowerCsvBasisControls
+              parsed={parsed}
+              value={intervalBasis}
+              onChange={setIntervalBasis}
+              canWrite={canWrite}
+            />
+          )}
+          blockSendReason={(parsed) => powerBasisBlockReason(parsed, intervalBasis)}
           canWrite={canWrite}
         />
 
@@ -574,16 +796,26 @@ export default function InputPage() {
           title="전력 기록지 업로드 — 적산 지침 (CSV)"
           parse={parseCumulativePowerCsv}
           endpoint={null}
-          batchSubmit={powerSubmit}
+          batchSubmit={makePowerSubmit(cumulativeBasis)}
           template={POWER_CUMULATIVE_CSV_TEMPLATE}
           templateFilename="전력기록지_적산지침_견본.csv"
           successNote="지침 두 건의 차이가 구간 사용량으로 저장되어 EI·Scope2 에 반영됩니다."
-          columnsHint="필요한 열: meter_id(계측기) · ts(검침 시각) · value(계량기 표시값). 계측기당 2건 이상이어야 합니다 — 지침 두 건의 차이가 사용량이므로 1건만으로는 전력이 산출되지 않습니다. 이어서 올릴 때는 직전 지침을 같은 파일에 함께 넣으세요(중복은 흡수됩니다)."
+          columnsHint="필요한 열: meter_id(계측기) · ts(검침 시각) · value(계량기 표시값). measurement_basis(자료유형)는 선택입니다. 계측기당 2건 이상이어야 합니다 — 지침 두 건의 차이가 사용량이므로 1건만으로는 전력이 산출되지 않습니다. 이어서 올릴 때는 직전 지침을 같은 파일에 함께 넣으세요(중복은 흡수됩니다)."
           previewColumns={[
             { header: "계측기", cell: (r) => r.meter_id },
             { header: "검침 시각", cell: (r) => formatIsoLocal(r.ts) },
             { header: "계량기 표시값", cell: (r) => String(r.value) },
+            { header: "자료유형", cell: (r) => basisPreviewCell(r, cumulativeBasis) },
           ]}
+          controls={(parsed) => (
+            <PowerCsvBasisControls
+              parsed={parsed}
+              value={cumulativeBasis}
+              onChange={setCumulativeBasis}
+              canWrite={canWrite}
+            />
+          )}
+          blockSendReason={(parsed) => powerBasisBlockReason(parsed, cumulativeBasis)}
           canWrite={canWrite}
         />
       </div>

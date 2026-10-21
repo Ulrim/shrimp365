@@ -34,6 +34,7 @@ import type {
   BiomassPoint,
   DoBand,
   DoReading,
+  EiConfig,
   EiResult,
   FcrResult,
   FeedReading,
@@ -46,6 +47,17 @@ import type {
 } from "./kpi"
 import { T, fetchAll, type MrvDb } from "./db"
 import { loadActiveKpiConfig } from "./kpi-config-source"
+import {
+  isMissingMeasurementBasisColumnError,
+  noteMissingMeasurementBasisColumn,
+  shouldSendMeasurementBasisColumn,
+} from "./measurement-basis-column"
+import {
+  emptyMeasurementBasisTally,
+  isMeasurementBasis,
+  type MeasurementBasis,
+  type MeasurementBasisTally,
+} from "./measurement-basis"
 import type { KpiMetric, KpiResponse } from "./api-types"
 
 // ---------------------------------------------------------------------------
@@ -97,6 +109,52 @@ function pickBiomassBounds(harvests: HarvestRow[]): [BiomassPoint, BiomassPoint]
   return [empty, empty]
 }
 
+/** 자료유형 집계의 버킷 키. 미기재(null)는 따로 센다 — 실측이 아니라 「모른다」다. */
+type BasisBucket = MeasurementBasis | "unrecorded"
+
+/**
+ * **EI 에 산입된** 전력 계측값의 자료유형 분포를 센다.
+ *
+ * ★ 산입 판정(기간 반열림 + 품질 플래그 화이트리스트)을 **여기서 다시 쓰지 않는다.**
+ *   그 규칙은 `lib/mrv/kpi/energy.ts` 에 있고 그 모듈은 원본 Python 과 차분검증돼 있어
+ *   손댈 수 없다. 대신 자료유형별로 나눈 계측값 묶음을 **같은 엔진에 그대로 다시 넣어**
+ *   `includedReadingCount` 만 읽는다 — 산입 판정은 계측값 하나하나에 독립적으로
+ *   걸리므로(isIncluded 는 그 건의 시각과 플래그만 본다), 쪼개 넣은 건수의 합은 전체를
+ *   한 번에 넣은 건수와 **정의상 같다.** 판정을 베껴 적으면 나중에 한쪽만 바뀌는 날이
+ *   오고, 그때 리포트가 "실측 N건" 을 틀리게 적는다.
+ *
+ * 합이 `ei.includedReadingCount` 와 같아야 한다는 성질은
+ * `scripts/mrv/verify-pipeline.mjs` 가 실물 엔진으로 확인한다.
+ *
+ * 비유한(NaN) 값에 대한 KpiValueError 는 여기서 새로 생기지 않는다 — 호출부가 **먼저**
+ * 전체 묶음으로 computeEi 를 부르므로, 그런 입력이면 이 함수에 닿기 전에 던진다.
+ */
+function tallyIncludedMeasurementBasis(
+  byBasis: ReadonlyMap<BasisBucket, PowerReading[]>,
+  biomassStart: BiomassPoint,
+  biomassEnd: BiomassPoint,
+  periodFrom: Date,
+  periodTo: Date,
+  eiConfig: EiConfig,
+  configVersion: string,
+): MeasurementBasisTally {
+  const tally = emptyMeasurementBasisTally()
+  for (const [bucket, readings] of byBasis) {
+    if (readings.length === 0) continue
+    const part = computeEi(
+      readings,
+      biomassStart,
+      biomassEnd,
+      periodFrom,
+      periodTo,
+      eiConfig,
+      configVersion,
+    )
+    tally[bucket] = part.includedReadingCount
+  }
+  return tally
+}
+
 /** 4종 KPI 원본 산출 결과 묶음(응답/스냅샷 공용). */
 export type SiteKpiComputation = {
   ei: EiResult
@@ -104,6 +162,14 @@ export type SiteKpiComputation = {
   /** tank 의 DO 목표대역이 설정돼 있지 않으면 null(= OEI 산출 대상 아님). */
   oei: OeiResult | null
   mortality: MortalityResult
+  /**
+   * **EI 에 산입된** 전력 계측값의 자료유형 분포(실측/계산값/어림값/미기재).
+   *
+   * EI·Scope2 의 분자가 무엇으로 만들어졌는지를 말하는 수이고, MRV 리포트의
+   * `boundary_json` 과 기준선 잠금 판정이 이것을 읽는다. 산입되지 않은 건은 분자에 들어
+   * 가지 않으므로 세지 않는다 — 세면 "이 배출량이 무엇으로 산출됐는가" 를 틀리게 적는다.
+   */
+  eiMeasurementBasis: MeasurementBasisTally
   configVersion: string
   paramsOut: ParamsJson
   tankId: string | null
@@ -163,32 +229,83 @@ export async function computeSiteKpiResults(
 
   const powerReadings: PowerReading[] = []
   const doReadings: DoReading[] = []
+  /**
+   * 자료유형별로 나눈 전력 계측값. 아래에서 **같은 엔진에 다시 넣어** 산입 건수를 센다
+   * (tallyIncludedMeasurementBasis 의 머리말 참고). `PowerReading` 에 이 칸을 더하지
+   * 않는 이유: 그 타입은 차분검증된 엔진의 입력이라 손대지 않는다.
+   */
+  const powerByBasis = new Map<BasisBucket, PowerReading[]>()
   if (meterIds.length > 0) {
-    const rows = await fetchAll<{
+    /**
+     * ⚠ `measurement_basis` 는 마이그레이션
+     * (supabase/migrations/mrv_readings_measurement_basis.sql)이 더하는 열이고 **실행은
+     * 사람 몫**이다. 그 열이 없는 DB 에서 이 질의는 거절되는데(42703), 이것은 KPI·
+     * 리포트·알림·기준선 판정 **전부의 첫 질의**다 — 열 하나 때문에 증빙 산출이 통째로
+     * 멈추게 둘 수 없다. 그래서 그 칸 때문에 거절된 것이 확인되면 칸을 빼고 한 번 더
+     * 읽는다. 그 경우 자료유형은 전부 '미기재' 로 집계되고(없는 사실을 만들지 않는다),
+     * 로그가 그 상태를 알린다(./measurement-basis-column.ts, 선례 커밋 632b2a6).
+     */
+    type ReadingRow = {
       time: string
       meter_id: string
       value: number
       quality_flag: string
-    }>((f, t) =>
-      db
-        .from(T.readings)
-        .select("time, meter_id, value, quality_flag")
-        .in("meter_id", meterIds)
-        .gte("time", periodFrom.toISOString())
-        .lte("time", periodTo.toISOString())
-        .order("time", { ascending: true })
-        .range(f, t),
-    )
+      /** 열이 없는 DB 에서 읽었으면 이 칸이 아예 없다 → 미기재로 센다. */
+      measurement_basis?: string | null
+    }
+    // 질의 사슬을 두 번 적는다. `select()` 에 삼항 결과를 넘기면 Supabase 의 열 목록
+    // 타입 파서가 **문자열 리터럴 유니온**을 해석하지 못해 행 타입이 깨진다(실제로 깨졌다).
+    // 두 사슬의 차이는 열 목록 한 칸뿐이고, 나머지 조건은 같아야 하므로 함께 둔다.
+    const readRows = (withBasis: boolean) =>
+      fetchAll<ReadingRow>((f, t) =>
+        withBasis
+          ? db
+              .from(T.readings)
+              .select("time, meter_id, value, quality_flag, measurement_basis")
+              .in("meter_id", meterIds)
+              .gte("time", periodFrom.toISOString())
+              .lte("time", periodTo.toISOString())
+              .order("time", { ascending: true })
+              .range(f, t)
+          : db
+              .from(T.readings)
+              .select("time, meter_id, value, quality_flag")
+              .in("meter_id", meterIds)
+              .gte("time", periodFrom.toISOString())
+              .lte("time", periodTo.toISOString())
+              .order("time", { ascending: true })
+              .range(f, t),
+      )
+
+    const sendBasis = shouldSendMeasurementBasisColumn()
+    let rows: ReadingRow[]
+    try {
+      rows = await readRows(sendBasis)
+    } catch (err) {
+      if (!sendBasis || !isMissingMeasurementBasisColumnError(err)) throw err
+      noteMissingMeasurementBasisColumn("mrv_readings select")
+      rows = await readRows(false)
+    }
     for (const r of rows) {
       const mtype = meterType.get(r.meter_id)
       if (mtype === "power") {
-        powerReadings.push({
+        const reading: PowerReading = {
           meterId: r.meter_id,
           ts: new Date(r.time),
           kwh: r.value,
           isAeration: Boolean(aerationByMeter.get(r.meter_id)),
           qualityFlag: r.quality_flag,
-        })
+        }
+        powerReadings.push(reading)
+        // CHECK 제약이 집합 밖의 값을 막지만(마이그레이션), 그 제약이 붙기 전에 SQL 로
+        // 들어간 값이 있을 수 있다. 모르는 문자열은 **미기재로 센다** — 실측으로 세면
+        // 없는 사실을 만들어 내는 것이고, 미기재는 "아는 기록이 없다" 라는 참인 진술이다.
+        const bucket: BasisBucket = isMeasurementBasis(r.measurement_basis)
+          ? r.measurement_basis
+          : "unrecorded"
+        const bag = powerByBasis.get(bucket)
+        if (bag === undefined) powerByBasis.set(bucket, [reading])
+        else bag.push(reading)
       } else if (mtype === "do") {
         doReadings.push({
           meterId: r.meter_id,
@@ -344,7 +461,29 @@ export async function computeSiteKpiResults(
           configVersion,
         )
 
-  return { ei, fcr, oei, mortality, configVersion, paramsOut, tankId }
+  // 자료유형 집계는 **전체 묶음으로 EI 를 낸 뒤에** 센다 — 비유한 값 같은 거부 사유는
+  // 그 호출에서 먼저 드러나야 하고, 쪼갠 호출이 먼저 던지면 오류 문구가 어느 부분집합의
+  // 것인지 알 수 없게 된다.
+  const eiMeasurementBasis = tallyIncludedMeasurementBasis(
+    powerByBasis,
+    biomassStart,
+    biomassEnd,
+    periodFrom,
+    periodTo,
+    eiConfig,
+    configVersion,
+  )
+
+  return {
+    ei,
+    fcr,
+    oei,
+    mortality,
+    eiMeasurementBasis,
+    configVersion,
+    paramsOut,
+    tankId,
+  }
 }
 
 /**

@@ -63,6 +63,8 @@ function healthyComp(overrides = {}) {
     fcr: { fcr: 1.35, includedFeedCount: 28 },
     oei: { oei: 72.5, doTotalSamples: 2880, doInBandSamples: 2101 },
     mortality: { cumulativeRatePct: 4.2, stockedCount: 120000 },
+    // 산입된 전력의 자료유형. 기준 시나리오는 전부 계량기 실측이다(합 4321 = 산입 건수).
+    eiMeasurementBasis: { metered: 4321, calculated: 0, estimated: 0, unrecorded: 0 },
     configVersion: "2026.1.0",
     paramsOut: {},
     tankId: null,
@@ -71,6 +73,12 @@ function healthyComp(overrides = {}) {
     ...base,
     ...overrides,
     ei: { ...base.ei, ...(overrides.ei ?? {}) },
+    // `eiMeasurementBasis: undefined` 를 **명시적으로 넘기는 시험**이 있다(집계가 없는
+    // 입력에서도 판정이 죽지 않는가). 그래서 `?? {}` 로 뭉개지 않고 키의 존재를 본다.
+    eiMeasurementBasis:
+      "eiMeasurementBasis" in overrides && overrides.eiMeasurementBasis === undefined
+        ? undefined
+        : { ...base.eiMeasurementBasis, ...(overrides.eiMeasurementBasis ?? {}) },
     fcr: { ...base.fcr, ...(overrides.fcr ?? {}) },
     oei: overrides.oei === null ? null : { ...base.oei, ...(overrides.oei ?? {}) },
     mortality: { ...base.mortality, ...(overrides.mortality ?? {}) },
@@ -92,6 +100,12 @@ try {
   copyFileSync(
     join(ROOT, "lib/mrv/baseline-readiness.ts"),
     join(outDir, "baseline-readiness.ts"),
+  )
+  // 자료유형 판정·문구는 저 모듈에 있고 **인쇄 리포트·리포트 화면이 같은 함수를 쓴다.**
+  // 스텁으로 바꾸면 "같은 판정인가" 가 검증에서 사라진다.
+  copyFileSync(
+    join(ROOT, "lib/mrv/measurement-basis.ts"),
+    join(outDir, "measurement-basis.ts"),
   )
   // 타입 전용 스텁. 실행 코드가 없으므로 판정 로직에 영향을 주지 않는다.
   writeFileSync(
@@ -138,7 +152,7 @@ try {
   check("① 충분한 입력은 통과", healthy.ok, true)
   check("① fatal 아님", healthy.fatal, false)
   check("① 차단 미달 없음", failedBlockingIds(healthy), [])
-  check("① 검사 항목은 9개다", healthy.checks.length, 9)
+  check("① 검사 항목은 10개다", healthy.checks.length, 10)
   checkTrue(
     "① 모든 검사에 id·severity·message 가 있다",
     healthy.checks.every(
@@ -399,6 +413,98 @@ try {
     "⑦ oei_not_applicable 은 info 이고 언제나 passed",
     noOei.checks.find((c) => c.id === "oei_not_applicable").severity === "info" &&
       noOei.checks.find((c) => c.id === "oei_not_applicable").passed === true,
+  )
+
+  // ── ⑦-2 전력이 계량기 실측인가 — 경고로 알리고 막지는 않는다 ───────────
+  //
+  // 잠긴 기준선은 불변이고 이후 모든 감축량의 원점이 된다. 그 원점의 전력이 산식으로
+  // 계산한 값이었다는 사실이 **잠금 화면에 보여야** 하고, 동시에 **막아서는 안 된다** —
+  // 계량기가 붙기 전 단계에서는 계산값으로 기준선을 잡아야 하는 경우가 있고, 막으면
+  // 운영자가 강행 스위치를 습관적으로 켜게 되어 다른 가드까지 무력해진다.
+  const calculatedPower = assessBaselineReadiness(
+    healthyComp({
+      eiMeasurementBasis: { metered: 0, calculated: 4321, estimated: 0, unrecorded: 0 },
+    }),
+    PERIOD,
+    {},
+  )
+  check("⑦-2 계산값 전력은 잠금을 막지 않는다", calculatedPower.ok, true)
+  check("⑦-2 fatal 도 아니다", calculatedPower.fatal, false)
+  const basisCheck = calculatedPower.checks.find((c) => c.id === "power_basis_not_metered")
+  checkTrue("⑦-2 power_basis_not_metered 항목이 있다", basisCheck !== undefined)
+  check("⑦-2 severity 는 warning", basisCheck.severity, "warning")
+  check("⑦-2 미달로 잡힌다", basisCheck.passed, false)
+  check("⑦-2 관측값은 실측이 아닌 건수다", basisCheck.observed, 4321)
+  check("⑦-2 기준은 0 건이다", basisCheck.threshold, 0)
+  // 문구가 사실을 적는가. "위험합니다" 가 아니라 **어느 수치가 그 값을 분자로
+  // 산출됐는지**까지 적혀야 심사위원·운영자가 판단할 수 있다.
+  checkTrue(
+    "⑦-2 문구가 건수와 Scope 2·EI 를 함께 적는다",
+    basisCheck.message.includes("4321건") &&
+      basisCheck.message.includes("Scope 2") &&
+      basisCheck.message.includes("EI"),
+    basisCheck.message,
+  )
+  checkTrue(
+    "⑦-2 문구가 되돌릴 수 없다는 사실을 적는다",
+    basisCheck.message.includes("되돌릴 수 없"),
+    basisCheck.message,
+  )
+  // 어림값도 같은 항목으로 잡힌다.
+  const estimatedPower = assessBaselineReadiness(
+    healthyComp({
+      eiMeasurementBasis: { metered: 4300, calculated: 0, estimated: 21, unrecorded: 0 },
+    }),
+    PERIOD,
+    {},
+  )
+  check(
+    "⑦-2 어림값이 섞이면 경고한다",
+    estimatedPower.checks.find((c) => c.id === "power_basis_not_metered").observed,
+    21,
+  )
+  // 전부 실측이면 통과하고, 그때도 집계를 그대로 적는다(0 건도 쓰여 있어야 한다).
+  const meteredOnly = assessBaselineReadiness(healthyComp(), PERIOD, {})
+  const meteredCheck = meteredOnly.checks.find((c) => c.id === "power_basis_not_metered")
+  check("⑦-2 전부 실측이면 통과", meteredCheck.passed, true)
+  checkTrue(
+    "⑦-2 통과해도 집계를 적는다",
+    meteredCheck.message.includes("실측 4321건") && meteredCheck.message.includes("계산값 0건"),
+    meteredCheck.message,
+  )
+  // **미기재는 경고가 아니다.** 이 열이 생기기 전의 계측값은 전부 미기재이므로, 그것을
+  // 경고로 세면 모든 사이트가 영구히 경고 상태가 되고 아무도 읽지 않는다. 대신 건수는
+  // 문구에 적힌다 — "모른다" 와 "실측이 아니다" 는 다른 사실이다.
+  const unrecordedOnly = assessBaselineReadiness(
+    healthyComp({
+      eiMeasurementBasis: { metered: 0, calculated: 0, estimated: 0, unrecorded: 4321 },
+    }),
+    PERIOD,
+    {},
+  )
+  const unrecordedCheck = unrecordedOnly.checks.find(
+    (c) => c.id === "power_basis_not_metered",
+  )
+  check("⑦-2 미기재만이면 경고로 잡지 않는다", unrecordedCheck.passed, true)
+  check("⑦-2 관측값 0", unrecordedCheck.observed, 0)
+  checkTrue(
+    "⑦-2 그래도 미기재 건수와 그 뜻을 적는다",
+    unrecordedCheck.message.includes("미기재 4321건") &&
+      unrecordedCheck.message.includes("실측을 뜻하지 않"),
+    unrecordedCheck.message,
+  )
+  // 집계가 아예 없거나 깨져 있어도 **판정이 죽지 않는다**(잠금 창구가 500 이 되면
+  // 기준선을 아예 잠글 수 없다). 그 경우 빈 집계로 보고 통과시킨다.
+  const noBasisField = assessBaselineReadiness(
+    healthyComp({ eiMeasurementBasis: undefined }),
+    PERIOD,
+    {},
+  )
+  check("⑦-2 집계가 없어도 판정이 돌아간다", noBasisField.checks.length, 10)
+  check(
+    "⑦-2 그 경우 경고로 잡지 않는다",
+    noBasisField.checks.find((c) => c.id === "power_basis_not_metered").passed,
+    true,
   )
 
   // ── ⑧ 정책 출처와 덮어쓰기 ─────────────────────────────────────────────

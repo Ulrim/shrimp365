@@ -9,8 +9,8 @@
  *
  * **무엇을 보지 않는가.** 여기서는 **KPI 산식을 다시 계산하지 않는다.** 엔진이 이미 산출
  * 근거로 들고 있는 수(`includedReadingCount`, `excludedReadingCount`,
- * `includedFeedCount`, `biomassDeltaKg`, `aerationPowerKwh`, `stockedCount`)와 엔진이 이미
- * 내린 결론(`eiTotal === null` 등)만 읽는다. 기간 길이와 제외 비율은 여기서 계산하지만
+ * `includedFeedCount`, `biomassDeltaKg`, `aerationPowerKwh`, `stockedCount`,
+ * `eiMeasurementBasis`)와 엔진이 이미 내린 결론(`eiTotal === null` 등)만 읽는다. 기간 길이와 제외 비율은 여기서 계산하지만
  * 그 둘은 KPI 가 아니다. 산식은 KPI 엔진에만 둔다는 규칙을 그대로 지킨다 — 이 모듈은
  * **판정이지 산출이 아니다**.
  *
@@ -37,6 +37,14 @@
 import type { SiteKpiComputation } from "./kpi-service";
 import { eiConfigFromParams, fcrConfigFromParams, type ParamsJson } from "./kpi/config";
 import { KpiValueError } from "./kpi/status";
+import {
+  emptyMeasurementBasisTally,
+  formatMeasurementBasisTally,
+  nonMeteredCount,
+  nonMeteredPowerText,
+  readMeasurementBasisTally,
+  unrecordedBasisText,
+} from "./measurement-basis";
 
 /** 판정 임계값. 전부 선택이며, 없으면 DEFAULT_BASELINE_POLICY 가 쓰인다. */
 export interface BaselinePolicy {
@@ -384,7 +392,50 @@ export function assessBaselineReadiness(
     threshold: null,
   });
 
-  // ── ⑧ 폐사율 분모 — 경고 ────────────────────────────────────────────────
+  // ── ⑧ 전력이 계량기 실측인가 — 경고 ────────────────────────────────────
+  //
+  // **왜 차단이 아니라 경고인가.** 실증 전 단계에서는 계량기가 아직 붙지 않아 명판 정격
+  // 으로 계산한 전력으로 기준선을 잡아야 하는 경우가 실제로 있다. 그것이 틀린 운영은
+  // 아니고(계산 근거가 리포트에 적히기만 하면 심사에서 다룰 수 있는 사안이다), 막으면
+  // 운영자가 강행 스위치를 습관적으로 켜게 되어 다른 가드까지 무력해진다 — 이 모듈
+  // 머리말의 "막는 기준은 보수적으로, 보여 주는 숫자는 전부" 가 그 뜻이다.
+  //
+  // **그래도 반드시 보여야 하는 이유.** 잠긴 기준선은 불변이고(ADR 0002) 이후 모든
+  // 감축량의 원점이 된다. 그 원점의 전력이 계량기 실측이 아니었다는 사실은 되돌릴 수
+  // 없이 함께 박히는데, 지금까지 잠금 화면에는 그 사실이 **어디에도 나타나지 않았다.**
+  // 판단은 사람이 하되, 모르고 누르는 일은 없어야 한다.
+  //
+  // 미기재(null)는 경고로 세지 않는다 — "모른다" 와 "실측이 아니다" 는 다른 사실이고,
+  // 이 열이 생기기 전의 계측값은 전부 미기재라서 그것까지 경고하면 모든 사이트가 영구히
+  // 경고 상태가 된다(그러면 아무도 읽지 않는다). 대신 건수를 메시지에 그대로 적는다.
+  //
+  // `readMeasurementBasisTally` 로 읽는 것은 **화면·인쇄 리포트와 같은 판정**을 쓰기
+  // 위해서다. 집계가 없거나 깨져 있으면 빈 집계로 보고 통과시킨다 — 판정이 여기서
+  // TypeError 로 죽으면 잠금 창구가 통째로 500 이 된다(제품 경로에서는 엔진이 항상
+  // 채워 준다 — lib/mrv/kpi-service.ts).
+  const basisTally =
+    readMeasurementBasisTally(comp.eiMeasurementBasis) ?? emptyMeasurementBasisTally();
+  const notMetered = nonMeteredCount(basisTally);
+  checks.push({
+    id: "power_basis_not_metered",
+    severity: "warning",
+    passed: notMetered === 0,
+    message:
+      notMetered === 0
+        ? `산입된 전력의 자료유형 — ${formatMeasurementBasisTally(basisTally)}.` +
+          (basisTally.unrecorded > 0 ? ` ${unrecordedBasisText(basisTally.unrecorded)}` : "")
+        : `${nonMeteredPowerText(basisTally)} 자료유형 — ` +
+          `${formatMeasurementBasisTally(basisTally)}. ` +
+          "기준선은 한번 잠그면 되돌릴 수 없고 이후 모든 감축량의 원점이 되므로, 이 " +
+          "기준선의 EI 가 계량기 실측이 아닌 전력으로 산출됐다는 사실이 함께 박힙니다. " +
+          "계량기가 붙기 전이라 계산값으로 잡아야 하는 경우가 있어 막지는 않습니다 — " +
+          "그대로 잠글지는 사람이 판단하십시오." +
+          (basisTally.unrecorded > 0 ? ` ${unrecordedBasisText(basisTally.unrecorded)}` : ""),
+    observed: notMetered,
+    threshold: 0,
+  });
+
+  // ── ⑨ 폐사율 분모 — 경고 ────────────────────────────────────────────────
   // stockedCount 는 **사이트에 등록된 모든 배치의 합**이다(엔진이 기간으로 자르지 않는다).
   // 기간 단위 점검 패널에 뜨므로 "그 기간의 입식"으로 읽히지 않게 문구를 못박아 둔다.
   const stocked = comp.mortality.stockedCount;
@@ -400,7 +451,7 @@ export function assessBaselineReadiness(
     threshold: 1,
   });
 
-  // ── ⑨ OEI 적용 여부 — 정보 ──────────────────────────────────────────────
+  // ── ⑩ OEI 적용 여부 — 정보 ──────────────────────────────────────────────
   // 수조에 DO 목표대역(target_do_min/max)이 없으면 OEI 는 애초에 산출 대상이 아니다.
   // 결함이 아니라 설정 상태이므로 막지 않고 알리기만 한다.
   checks.push({

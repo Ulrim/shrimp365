@@ -41,6 +41,13 @@ function checkTrue(name, condition, detail = "") {
 
 try {
   copyFileSync(join(ROOT, "lib/mrv/csv-records.ts"), join(outDir, "csv-records.ts"))
+  // 자료유형 해석(`parseMeasurementBasis`)은 저 모듈에 있고 파서가 그것을 쓴다.
+  // 스텁으로 바꾸지 않는다 — "'실측 아님' 이 적힌 칸을 넘겨짚지 않는가" 가 이 검증의
+  // 항목이므로, 그 판정이 실물이어야 한다.
+  copyFileSync(
+    join(ROOT, "lib/mrv/measurement-basis.ts"),
+    join(outDir, "measurement-basis.ts"),
+  )
   execFileSync(
     "npx",
     [
@@ -380,11 +387,13 @@ try {
   check("⑩ 표현이 모든 행에 같게 붙는다", [...new Set(powerOk.records.map((r) => r.reading_kind))], [
     "interval_kwh",
   ])
+  // 견본 서식에는 자료유형 열이 들어 있으므로 그 칸까지 그대로 실린다(⑪ 참고).
   check("⑩ 계측기·값을 그대로 싣는다", powerOk.records[0], {
     meter_id: "meter-total",
     ts: "2026-10-01T00:00:00.000Z",
     value: 412.5,
     reading_kind: "interval_kwh",
+    measurement_basis: "metered",
   })
   check(
     "⑩ 한국어 머리글(계량기·지침)도 받는다",
@@ -465,6 +474,72 @@ try {
   check(
     "⑩ 구간 사용량은 1건도 정상",
     parsePowerCsv("meter_id,ts,value\nm1,2026-10-01 00:00,12.5", "interval_kwh").errors,
+    [],
+  )
+
+  // ── ⑪ 전력 기록지의 자료유형 열 ─────────────────────────────────────────
+  // 이 열이 없으면 **계량기 실측과 산식으로 계산한 값이 DB 에서 구분되지 않는다**
+  // (supabase/migrations/mrv_readings_measurement_basis.sql). 그래서 ① 읽을 수 있는 표기는
+  // 전부 읽고, ② 읽을 수 없는 값은 **넘겨짚지 않고 그 줄을 막고**, ③ 빈 칸은 「파일에
+  // 없음」으로 남겨 화면에서 고른 값이 쓰이게 한다 — 세 가지가 이 검증의 항목이다.
+  const basisMixed = parsePowerCsv(
+    "meter_id,ts,value,measurement_basis\n" +
+      "m1,2026-10-01 00:00,10,실측\n" +
+      "m1,2026-10-02 00:00,11,계산값\n" +
+      "m1,2026-10-03 00:00,12,어림값\n" +
+      "m1,2026-10-04 00:00,13,metered\n" +
+      "m1,2026-10-05 00:00,14,\n",
+    "interval_kwh",
+  )
+  check("⑪ 자료유형이 섞인 파일도 오류가 없다", basisMixed.errors, [])
+  check(
+    "⑪ 한국어·영문 표기를 모두 읽고, 빈 칸은 칸 자체를 넣지 않는다",
+    basisMixed.records.map((r) => r.measurement_basis ?? null),
+    ["metered", "calculated", "estimated", "metered", null],
+  )
+  // 모르는 값을 그럴듯한 쪽으로 넘겨짚으면 "실측 아님" 이 실측으로 저장된다.
+  const basisUnknown = parsePowerCsv(
+    "meter_id,ts,value,measurement_basis\nm1,2026-10-01 00:00,10,실측여부\n",
+    "interval_kwh",
+  )
+  check("⑪ 모르는 자료유형은 그 줄을 막는다", basisUnknown.errors.length, 1)
+  check("⑪ 막힌 줄은 레코드로 나가지 않는다", basisUnknown.records.length, 0)
+  checkTrue(
+    "⑪ 사유에 읽을 수 없던 값이 그대로 적힌다",
+    basisUnknown.errors[0].message.includes("실측여부"),
+    basisUnknown.errors[0]?.message,
+  )
+  // 열이 아예 없는 파일은 종전과 똑같이 해석된다(이 열은 선택이다).
+  const basisAbsent = parsePowerCsv(
+    "meter_id,ts,value\nm1,2026-10-01 00:00,10\n",
+    "interval_kwh",
+  )
+  check("⑪ 자료유형 열이 없어도 해석된다", basisAbsent.errors, [])
+  check(
+    "⑪ 열이 없으면 칸을 만들지 않는다(화면에서 고른 값이 쓰인다)",
+    basisAbsent.records[0].measurement_basis ?? null,
+    null,
+  )
+  // 한국어 머리글도 받는다(기존 별칭 방식 그대로).
+  const basisKoHeader = parsePowerCsv(
+    "계측기,시각,사용량,자료유형\nm1,2026-10-01 00:00,10,계산값\n",
+    "interval_kwh",
+  )
+  check("⑪ 한국어 머리글(자료유형)도 받는다", basisKoHeader.errors, [])
+  check(
+    "⑪ 그 값이 정규 값으로 들어온다",
+    basisKoHeader.records[0].measurement_basis,
+    "calculated",
+  )
+  // 견본 서식에 그 열이 들어 있어야 한다 — 없으면 쓸 수 있다는 사실을 아무도 모른다.
+  checkTrue(
+    "⑪ 두 전력 견본 서식이 자료유형 열을 담는다",
+    POWER_INTERVAL_CSV_TEMPLATE.includes("measurement_basis") &&
+      POWER_CUMULATIVE_CSV_TEMPLATE.includes("measurement_basis"),
+  )
+  check(
+    "⑪ 견본 서식이 그대로 해석된다(구간)",
+    parsePowerCsv(POWER_INTERVAL_CSV_TEMPLATE, "interval_kwh").errors,
     [],
   )
 

@@ -273,6 +273,24 @@ export async function generateMrvReport(params: {
     included_quality_flags: (eiParams.included_quality_flags as string[] | undefined) ?? [
       "ok",
     ],
+    /**
+     * **산입된 전력의 자료유형 집계** — 이 리포트의 EI·Scope2 배출량의 분자가 계량기
+     * 실측인지, 산식으로 계산한 값인지.
+     *
+     * 왜 리포트가 이것을 들고 있어야 하는가: `mrv_readings.measurement_basis` 는 행마다
+     * 적히지만, 그 행들은 나중에 보정·추가된다. 발행된 리포트가 **발행 시점의 집계**를
+     * 들고 있지 않으면, 반 년 뒤 그 리포트를 다시 열었을 때 "그때 이 수치가 무엇으로
+     * 산출됐는가" 가 달라져 있다. 배출계수 출처(`emission_factor`)와 산식 전문
+     * (`formula_text`)을 생성 시점에 얼리는 것과 같은 이유다.
+     *
+     * **After 기간만 담는다.** Before(기준선)의 전력은 잠긴 스냅샷에 들어 있고
+     * (`inputs_json.ei.measurement_basis` — lib/mrv/snapshots.ts), 그 스냅샷을 다시 읽어
+     * 여기 옮기면 이 칸이 '리포트가 산출한 것' 과 '옛 스냅샷에서 베낀 것' 을 섞어 담게
+     * 된다. 옛 기준선 스냅샷에는 그 칸이 아예 없으므로(이 집계를 넣기 전에 잠긴 것들)
+     * 베낄 값조차 없다 — 그 경우 0 으로 채우면 "기준선 전력은 전부 실측" 이라는 거짓이
+     * 된다. 그래서 이 칸의 주어를 After 로 한정하고, 화면·인쇄물이 그렇게 적는다.
+     */
+    after_power_measurement_basis: comp.eiMeasurementBasis,
     biomass_source_refs: {
       before: beforeInputs.source_biomass_refs,
       after: [...comp.ei.sourceBiomassRefs],

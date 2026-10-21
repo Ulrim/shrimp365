@@ -462,6 +462,19 @@ export interface MrvReportBoundary {
    * 들어가지 않는다(REPORT_COVERS_EI_FLAGS_ONLY).
    */
   included_quality_flags?: string[];
+  /**
+   * After 기간에 **산입된** 전력의 자료유형 집계 — 이 리포트의 EI·Scope2 배출량의 분자가
+   * 계량기 실측인지, 산식으로 계산한 값인지.
+   *
+   * **옛 리포트에는 이 칸이 없다**(이 집계를 넣기 전에 발행된 것들). 그래서 optional 이고
+   * `unknown` 이다 — `undefined`(기록 없음)를 0 집계로 뭉개면 "전부 실측" 이라는 거짓이
+   * 된다. 읽는 쪽은 `readMeasurementBasisTally`(lib/mrv/measurement-basis.ts) 하나를 써서
+   * 화면과 인쇄물이 같은 판정을 내린다.
+   *
+   * ⚠ **After 기간만** 담는다. Before(기준선)의 전력 자료유형은 잠긴 스냅샷의
+   * `inputs_json.ei.measurement_basis` 에 있다(lib/mrv/snapshots.ts).
+   */
+  after_power_measurement_basis?: unknown;
   biomass_source_refs: Record<string, string[]>;
   config_version: { before: string; after: string };
   assumptions: string[];

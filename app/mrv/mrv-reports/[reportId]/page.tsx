@@ -24,6 +24,15 @@ import {
   qualityFlagRiskText,
 } from "@/lib/mrv/quality-flags"
 import {
+  REPORT_MISSING_BASIS_NOTE,
+  REPORT_NON_METERED_HEADLINE,
+  formatMeasurementBasisTally,
+  nonMeteredCount,
+  nonMeteredPowerText,
+  readMeasurementBasisTally,
+  unrecordedBasisText,
+} from "@/lib/mrv/measurement-basis"
+import {
   CenteredMessage,
   LoadError,
   PageHeader,
@@ -108,6 +117,52 @@ function SnapshotDrilldown({
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+/**
+ * 「전력 자료유형(After)」 칸.
+ *
+ * 인쇄 리포트와 **같은 분기·같은 문구**를 쓴다(lib/mrv/report-html.ts::measurementBasisRow).
+ * 두 곳이 갈리면 화면으로 본 사람과 인쇄물로 본 사람이 다른 사실을 알게 된다 — 그래서
+ * 집계를 읽는 함수도, 문장도 `lib/mrv/measurement-basis.ts` 하나에서 가져온다.
+ *
+ * 경고 상자는 품질 플래그 경고와 **같은 모양**이다(같은 테두리·같은 배경·색이 아니라
+ * 글자로 사실을 적는다). 두 경고가 다른 모양이면 하나는 덜 중요한 것으로 읽힌다.
+ */
+function MeasurementBasisField({ raw }: { raw: unknown }) {
+  // `undefined`(칸 없음)와 읽을 수 없는 값은 같은 길로 간다 — 둘 다 "이 리포트는 그
+  // 사실을 모른다" 이고, 0 집계로 뭉개면 "전부 실측" 이라는 거짓 주장이 된다.
+  const tally = raw === undefined ? null : readMeasurementBasisTally(raw)
+
+  return (
+    <div>
+      <dt className="text-xs text-mrv-muted">전력 자료유형(After 기간 산입분)</dt>
+      {/* 경고를 `dd` 밖에 두지 않는다 — `dd` 를 하나 더 만들거나 role 을 주면 앞의
+          `dt` 와의 연결이 끊겨 스크린리더가 이름 없이 경고만 읽는다(품질 플래그 칸에
+          적어 둔 것과 같은 이유). */}
+      <dd className="text-mrv-fg">
+        {tally === null ? "-" : formatMeasurementBasisTally(tally)}
+        {tally === null && (
+          <p className="mt-1 rounded-md border border-mrv-border bg-mrv-na-bg p-2 text-xs leading-relaxed text-mrv-fg">
+            {REPORT_MISSING_BASIS_NOTE}
+          </p>
+        )}
+        {tally !== null && nonMeteredCount(tally) > 0 && (
+          <p className="mt-1 rounded-md border border-mrv-amber bg-mrv-amber-bg p-2 text-xs leading-relaxed text-mrv-fg">
+            {REPORT_NON_METERED_HEADLINE} {nonMeteredPowerText(tally)}
+            {tally.unrecorded > 0 && ` ${unrecordedBasisText(tally.unrecorded)}`}
+          </p>
+        )}
+        {/* 실측이 아닌 건이 없고 미기재만 있을 때. 경고가 아니라 **모른다는 기록**이므로
+            경고 상자를 쓰지 않는다 — 있지도 않은 위험을 있는 것처럼 띄우지 않는다. */}
+        {tally !== null && nonMeteredCount(tally) === 0 && tally.unrecorded > 0 && (
+          <p className="mt-1 rounded-md border border-mrv-border bg-mrv-na-bg p-2 text-xs leading-relaxed text-mrv-fg">
+            {unrecordedBasisText(tally.unrecorded)}
+          </p>
+        )}
+      </dd>
     </div>
   )
 }
@@ -294,6 +349,9 @@ export default function MrvReportViewPage({
                   )}
                 </dd>
               </div>
+              <MeasurementBasisField
+                raw={report.boundary.after_power_measurement_basis}
+              />
               <div>
                 <dt className="text-xs text-mrv-muted">생산량 근거(Before / After)</dt>
                 <dd className="break-all text-mrv-fg">

@@ -19,6 +19,12 @@
  */
 
 import { T, fetchAll, type MrvDb } from "./db"
+import type { MeasurementBasis } from "./measurement-basis"
+import {
+  isMissingMeasurementBasisColumnError,
+  noteMissingMeasurementBasisColumn,
+  shouldSendMeasurementBasisColumn,
+} from "./measurement-basis-column"
 
 /** 인식하는 계측 원표현. 목록에 없으면 그 건은 거부된다(조용히 저장하지 않는다). */
 export const RECOGNIZED_KINDS = new Set([
@@ -42,6 +48,10 @@ const SCOPE_REJECT_REASON = "unknown meter_id or not in the authorized site scop
  * **왜 필요한가.** 전력은 수기 입력으로 들어온다. 수기로 적은 kWh 와 게이트웨이가 올린
  * kWh 가 DB 에서 구분되지 않으면, 심사 때 "이 기준선의 전력 근거가 계측기 값인가 사람이
  * 적은 값인가" 에 답할 수 없다. 둘 다 유효한 증빙이지만 **같은 증빙은 아니다.**
+ *
+ * ★ 이 열은 「누가 넣었는가」만 답한다. 「어떻게 얻었는가」(계량기 실측인가 산식으로
+ *   계산한 값인가)는 직교하는 사실이고 `measurement_basis` 가 답한다 — 계산값도 CSV 로
+ *   들어오므로 `source` 로는 영원히 가려낼 수 없다(lib/mrv/measurement-basis.ts).
  */
 export type ReadingSource = "device" | "manual" | "csv"
 
@@ -53,6 +63,18 @@ export type RawReading = {
   value: number
   readingKind: string
   seq: number | null
+  /**
+   * 이 건의 자료유형(`mrv_readings.measurement_basis`) — **어떻게 얻은 값인가.**
+   *
+   * 적지 않으면 `processBatch` 의 배치 기본값이 쓰이고, 그것도 없으면 null(미기재)로
+   * 저장된다. **건별로 받는 이유**: 한 기록지에 계량기 지침과 계산값이 섞여 들어오는
+   * 일이 실제로 있다(계량기가 없는 설비만 산식으로 메운 표). **배치 기본값도 두는
+   * 이유**: 한 파일이 통째로 계산값인 경우가 더 흔하고, 그때 모든 줄에 같은 값을 적게
+   * 하면 사람이 한 줄만 빠뜨린다.
+   *
+   * `source`(device/manual/csv)와 직교한다 — 그쪽은 「누가 넣었는가」다.
+   */
+  measurementBasis?: MeasurementBasis | null
 }
 
 type NormalizedReading = {
@@ -181,9 +203,21 @@ export async function processBatch(
     raws: readonly RawReading[]
     /** 저장할 출처. 게이트웨이 수집이 기본이고, 사람이 넣은 값은 호출부가 바꿔 준다. */
     source?: ReadingSource
+    /**
+     * 배치 기본 자료유형. 건별로 `RawReading.measurementBasis` 가 적혀 있으면 **그것이
+     * 이기고**, 적히지 않은 건에 이 값이 쓰인다. 둘 다 없으면 null(미기재)로 저장된다 —
+     * 임의로 'metered' 를 채우지 않는다(없는 사실을 만들어 내는 것이다).
+     */
+    measurementBasis?: MeasurementBasis | null
   },
 ): Promise<ProcessResult> {
-  const { orgId, siteId, raws, source = "device" } = params
+  const {
+    orgId,
+    siteId,
+    raws,
+    source = "device",
+    measurementBasis: batchBasis = null,
+  } = params
   const result: ProcessResult = {
     accepted: 0,
     deduped: 0,
@@ -244,6 +278,21 @@ export async function processBatch(
 
   const normalized = normalizeReadings(valid, priorByMeter)
 
+  /**
+   * (계측기, 시각) → 자료유형. `normalizeReadings` 는 **차분검증된 함수라 손대지 않았고**,
+   * 그래서 정규화 결과에는 이 값이 실려 오지 않는다. 정규화가 시각과 계측기를 바꾸지
+   * 않으므로(값과 플래그만 정한다) 같은 키로 다시 붙일 수 있다.
+   *
+   * 같은 (계측기, 시각) 이 한 배치에 두 번 들어오면 **뒤에 적힌 자료유형이 남는다.**
+   * 값 쪽 중복 접기와 같은 방향이다(아래 `unique` 가 뒤엣것으로 덮는다). 애초에 그런
+   * 중복은 기록지 파서가 보내기 전에 오류로 막고(lib/mrv/csv-records.ts), 수기 폼은 한
+   * 건만 보낸다 — 같은 시각에 자료유형이 둘로 적힌 배치는 입력 오류다.
+   */
+  const basisByKey = new Map<string, MeasurementBasis | null>()
+  for (const r of valid) {
+    basisByKey.set(dedupeKey(r.meterId, r.ts), r.measurementBasis ?? batchBasis)
+  }
+
   // 배치 안 중복 접기.
   const unique = new Map<string, NormalizedReading>()
   for (const n of normalized) unique.set(dedupeKey(n.meterId, n.ts), n)
@@ -278,6 +327,19 @@ export async function processBatch(
     existingRows.map((r) => dedupeKey(r.meter_id, new Date(r.time))),
   )
 
+  /**
+   * 이번 insert 에 `measurement_basis` 칸을 넣는가.
+   *
+   * 그 열은 마이그레이션이 추가하고 **실행은 사람 몫**이라, 배포가 SQL 보다 먼저 올라가는
+   * 창이 반드시 있다. 그 창에서 이 칸이 섞인 insert 는 PostgREST 가 거절하고, 아래
+   * `throw error` 가 그것을 500 으로 바꾼다 — 그러면 **이 경로를 지나는 모든 계측값
+   * 쓰기**(장비 키·세션 수기 입력·기록지 CSV, 전력뿐 아니라 DO·수질까지)가 통째로 막힌다.
+   * 자료유형은 계측값에 **대한** 메타데이터이므로, 그것을 적을 칸이 없는 것이 증빙을
+   * 받지 못할 이유가 되어서는 안 된다. 판정·로그·기억은 ./measurement-basis-column.ts 에
+   * 모아 두었고(같은 사고의 선례: 커밋 632b2a6), 아래는 그 판정을 쓰는 자리다.
+   */
+  const sendBasis = shouldSendMeasurementBasisColumn()
+
   const newRows: Record<string, unknown>[] = []
   let dedupedFromDb = 0
   for (const [key, n] of unique) {
@@ -292,6 +354,9 @@ export async function processBatch(
       value: n.value,
       quality_flag: n.qualityFlag,
       source,
+      // null 이면 「미기재」로 저장된다. 그 뜻은 마이그레이션과
+      // lib/mrv/measurement-basis.ts 에 적혀 있다 — 실측으로 세지 않는다.
+      ...(sendBasis ? { measurement_basis: basisByKey.get(key) ?? null } : {}),
     })
     if (n.qualityFlag === "ok") result.quality.ok += 1
     else if (n.qualityFlag === "suspect") result.quality.suspect += 1
@@ -300,10 +365,24 @@ export async function processBatch(
 
   if (newRows.length > 0) {
     // PK 충돌은 무시한다 — 같은 배치가 동시에 두 번 들어와도 정확히 한 번만 남는다.
-    const { error } = await db
-      .from(T.readings)
-      .upsert(newRows, { onConflict: "time,meter_id", ignoreDuplicates: true })
-    if (error) throw error
+    const insert = (rows: Record<string, unknown>[]) =>
+      db.from(T.readings).upsert(rows, { onConflict: "time,meter_id", ignoreDuplicates: true })
+
+    const { error } = await insert(newRows)
+    if (error) {
+      // 이 열이 없어서 거절된 것이 **확인되면** 그 칸만 빼고 한 번 더 보낸다. 첫 요청은
+      // 통째로 거절됐으므로(부분 삽입이 아니다) 같은 배치를 다시 보내도 중복은 없고,
+      // 멱등 보호(onConflict ignoreDuplicates)도 그대로다.
+      if (!sendBasis || !isMissingMeasurementBasisColumnError(error)) throw error
+      noteMissingMeasurementBasisColumn("mrv_readings insert")
+      const withoutBasis = newRows.map((row) => {
+        const copy = { ...row }
+        delete copy.measurement_basis
+        return copy
+      })
+      const { error: retryError } = await insert(withoutBasis)
+      if (retryError) throw retryError
+    }
   }
 
   result.accepted = newRows.length

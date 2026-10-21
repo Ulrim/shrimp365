@@ -17,6 +17,12 @@
  * (KPI 기간 경계는 UTC 지만, 그 변환은 여기서 ISO UTC 로 만들어 보내므로 한 번만 일어난다.)
  */
 
+import {
+  MEASUREMENT_BASIS_ACCEPTED_NOTE,
+  parseMeasurementBasis,
+  type MeasurementBasis,
+} from "./measurement-basis";
+
 /** 해석된 급이 1건 — POST /sites/{id}/feed-logs 본문 그대로. */
 export interface FeedCsvRecord {
   batch_id: string;
@@ -64,6 +70,23 @@ export interface PowerCsvRecord {
   ts: string;
   value: number;
   reading_kind: PowerReadingKind;
+  /**
+   * 자료유형 — **이 kWh 를 계량기가 쟀는가, 산식이 냈는가**(mrv_readings.measurement_basis).
+   *
+   * **파일에 그 열이 적힌 줄에만 실린다.** 열이 없거나 칸이 빈 줄에는 이 칸을 넣지 않고,
+   * 화면에서 고른 **파일 단위 기본값**이 서버 요청의 배치 기본값으로 따라간다
+   * (lib/mrv/measurement-basis.ts 의 CSV_BASIS_PRECEDENCE_NOTE 가 그 규칙이고,
+   * lib/mrv/ingestion.ts 의 processBatch 가 「건별 > 배치 기본값」 순으로 적용한다).
+   *
+   * 여기서 기본값을 대신 채우지 않는 이유: 해석은 **파일이 담은 사실**만 담아야 한다.
+   * 화면에서 고른 값을 파서가 미리 박아 넣으면, 파일을 고른 뒤 선택을 바꾼 운영자의
+   * 미리보기와 실제로 저장되는 값이 어긋난다.
+   *
+   * 표현(reading_kind)과 달리 **행마다 섞일 수 있다.** 계량기가 붙은 설비는 지침으로,
+   * 붙지 않은 설비는 산식으로 메운 표가 실제로 들어온다 — 그 파일을 한 가지로 뭉개면
+   * 계량기 실측이 계산값으로, 또는 그 반대로 기록된다.
+   */
+  measurement_basis?: MeasurementBasis;
 }
 
 /** 줄 단위 오류. `line` 은 **파일의 실제 줄 번호**(헤더 포함, 1부터)다 — 운영자가 에디터에서 바로 찾아간다. */
@@ -246,6 +269,16 @@ const HEADER_ALIASES: Record<string, string> = {
   사용량_kwh: "value",
   지침: "value",
   계량기지침: "value",
+  // 자료유형 열. 받은 계산표가 이 칸을 「자료유형」으로 적어 두었으므로 그 이름을 받고,
+  // 「전력실측여부」 같은 불리언 꼴 이름은 받지 않는다 — true/false 는 계산값인지
+  // 어림값인지를 담지 못해서 뜻이 하나로 모이지 않는다(그 칸이 적힌 파일은 자료유형 열이
+  // 없는 파일로 읽히고, 화면에서 고른 값이 적용된다).
+  measurement_basis: "measurement_basis",
+  basis: "measurement_basis",
+  자료유형: "measurement_basis",
+  자료_유형: "measurement_basis",
+  전력자료유형: "measurement_basis",
+  측정근거: "measurement_basis",
 };
 
 function mapHeaders(cells: string[]): Map<string, number> {
@@ -520,6 +553,11 @@ export function parseMortalityCsv(text: string): CsvParseResult<MortalityCsvReco
  * 'suspect' 로 들어가 EI 산입에서 빠진다. 보내 놓고 "왜 EI 가 안 변하나" 가 되지 않게
  * **보내기 전에** 막고, 직전 지침을 같은 파일에 함께 넣으라고 알린다(이미 저장된 지침을
  * 다시 올려도 중복으로 흡수되므로 안전하다).
+ *
+ * **자료유형 열(`measurement_basis`)은 선택이다.** 적힌 줄은 그 값이 이기고, 비어 있거나
+ * 열이 없는 줄에는 화면에서 고른 파일 단위 값이 쓰인다(CSV_BASIS_PRECEDENCE_NOTE).
+ * 적혀 있는데 읽을 수 없는 값이면 그 줄이 오류이고, 그러면 파일 전체가 저장되지 않는다 —
+ * 자료유형을 넘겨짚는 것은 "실측 아님" 을 실측으로 저장하는 길이다.
  */
 export function parsePowerCsv(
   text: string,
@@ -556,6 +594,7 @@ export function parsePowerCsv(
     const meterId = cell(row.cells, header.index, "meter_id");
     const tsRaw = cell(row.cells, header.index, "ts");
     const valueRaw = cell(row.cells, header.index, "value");
+    const basisRaw = cell(row.cells, header.index, "measurement_basis");
 
     if (!meterId) {
       errors.push({ line: row.line, message: "계측기가 비어 있습니다." });
@@ -574,7 +613,32 @@ export function parsePowerCsv(
       errors.push({ line: row.line, message: numberFieldError(valueRaw, requirement) });
       continue;
     }
-    records.push({ meter_id: meterId, ts, value, reading_kind: readingKind });
+    /**
+     * 자료유형 칸. **빈 칸과 모르는 값을 가른다.**
+     *   · 빈 칸(또는 열이 없음) → 이 칸을 넣지 않는다. 화면에서 고른 파일 단위 값이 쓰인다.
+     *   · 읽을 수 없는 값      → 그 줄을 오류로 세운다(파일 전체가 저장되지 않는다).
+     * 못 읽은 값을 그럴듯한 쪽으로 넘겨짚지 않는 이유: 그 칸에 "실측 아님" 이 적혀 있는
+     * 파일을 넘겨짚으면 **계산값이 계량기 실측으로 저장된다.** 되돌릴 방법이 없다.
+     */
+    let basis: MeasurementBasis | undefined;
+    if (basisRaw) {
+      const parsedBasis = parseMeasurementBasis(basisRaw);
+      if (parsedBasis === null) {
+        errors.push({
+          line: row.line,
+          message: `자료유형을 읽을 수 없습니다: '${basisRaw}' — ${MEASUREMENT_BASIS_ACCEPTED_NOTE}`,
+        });
+        continue;
+      }
+      basis = parsedBasis;
+    }
+    records.push({
+      meter_id: meterId,
+      ts,
+      value,
+      reading_kind: readingKind,
+      ...(basis === undefined ? {} : { measurement_basis: basis }),
+    });
     lines.push(row.line);
   }
 
@@ -626,15 +690,21 @@ export const MORTALITY_CSV_TEMPLATE =
  * 전력 기록지 견본은 표현마다 다르다 — 같은 `value` 열에 적을 숫자의 뜻이 다르기 때문이다.
  * 견본의 숫자도 그 차이가 보이게 골랐다(지침은 늘어나는 누적값, 사용량은 하루치).
  */
+/**
+ * 견본에 `measurement_basis` 열을 넣어 둔다. **빈 칸으로 둬도 되는 열**이지만(그 줄에는
+ * 화면에서 고른 값이 쓰인다), 견본에 아예 없으면 그 열을 쓸 수 있다는 사실을 아무도 모른다 —
+ * 계량기가 붙은 설비와 산식으로 메운 설비가 한 표에 섞여 들어오는 것이 이 현장의 기본값이다.
+ * 값은 한국어로 적어 둔다(파서는 metered/calculated/estimated 도 받는다).
+ */
 export const POWER_INTERVAL_CSV_TEMPLATE =
-  "meter_id,ts,value\n" +
-  "meter-total,2026-10-01 00:00,412.5\n" +
-  "meter-total,2026-10-02 00:00,398.2\n" +
-  "meter-aeration,2026-10-01 00:00,240.1\n" +
-  "meter-aeration,2026-10-02 00:00,233.7\n";
+  "meter_id,ts,value,measurement_basis\n" +
+  "meter-total,2026-10-01 00:00,412.5,실측\n" +
+  "meter-total,2026-10-02 00:00,398.2,실측\n" +
+  "meter-aeration,2026-10-01 00:00,240.1,계산값\n" +
+  "meter-aeration,2026-10-02 00:00,233.7,계산값\n";
 
 export const POWER_CUMULATIVE_CSV_TEMPLATE =
-  "meter_id,ts,value\n" +
-  "meter-total,2026-10-01 00:00,128430.0\n" +
-  "meter-total,2026-10-02 00:00,128842.5\n" +
-  "meter-total,2026-10-03 00:00,129240.7\n";
+  "meter_id,ts,value,measurement_basis\n" +
+  "meter-total,2026-10-01 00:00,128430.0,실측\n" +
+  "meter-total,2026-10-02 00:00,128842.5,실측\n" +
+  "meter-total,2026-10-03 00:00,129240.7,실측\n";
