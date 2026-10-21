@@ -1844,6 +1844,21 @@ MRV_REJECT_RETRY_MAX = 3
 # 적산 지침(계량기 지침)과 구간 사용량(그 구간에 쓴 양). 서버가 아는 이름 그대로 쓴다.
 MRV_KINDS = ("cumulative_kwh", "interval_kwh")
 
+# 계측값의 **자료유형**(`mrv_readings.measurement_basis`). 서버가 아는 이름 그대로 쓴다.
+#   metered     계량기 지침·실측 — 계량기 눈금을 읽어 적은 값
+#   calculated  산식 계산 — 명판 정격 × 운전 시간 따위로 낸 값
+#   estimated   어림
+#
+# **왜 장비가 이것을 싣는가.** 실측과 계산값은 둘 다 유효한 증빙이지만 **같은 증빙이
+# 아니다.** 사용자가 준 MRV 계산표의 전력은 계량기가 잰 값이 아니라 명판 정격으로 낸
+# 값이었고(전력실측여부 = false), 그 구분이 DB 에 없으면 심사에서 "이 기준선의 전력이
+# 실측인가" 에 답할 수 없다. 그런데 장비가 적지 않으면 **서버가 "장비에서 왔으니
+# 실측이겠지" 하고 가정**하게 되고, 가정이 사실로 굳는 날 증빙이 무너진다. 그래서
+# 가정하게 두지 않고 **장비가 스스로 선언한다.**
+MRV_BASES = ("metered", "calculated", "estimated")
+# 이 단말의 기본값. **계량기 옆에 서서 눈금을 읽어 넣는 창구**이므로 실측이 맞다.
+MRV_BASIS_DEFAULT = "metered"
+
 # 장비 시계가 이 해보다 이르면 전송하지 않는다.
 #
 # 근거: 라즈베리파이에는 RTC(배터리 달린 시계)가 없다. 전원이 끊기면 시계가
@@ -2153,6 +2168,62 @@ def mrv_parse_visible(raw: str) -> list[str]:
     return ids
 
 
+def mrv_parse_basis(raw: str) -> str:
+    """[mrv] measurement_basis 를 자료유형 하나로 읽는다. 모르는 값은 기본값으로.
+
+    **왜 설정 항목으로 두는가(그리고 왜 화면 버튼으로 두지 않는가).** 이 단말의 입력은
+    계량기 지침이라 `metered` 가 맞다. 그런데 "맞다" 를 코드에 박아 두면, 계산값을 넣어야
+    하는 현장에서 그 값이 **실측으로 거짓 기록된다.** 반대로 화면에 고르개를 두면 장갑
+    낀 손이 한 번 잘못 눌러 실측이 계산값으로(또는 그 반대로) 기록되고, 그 오류는
+    화면에 흔적을 남기지 않는다. 그래서 **입력 한 건마다 고르는 것이 아니라 그 단말이
+    무엇을 받는 창구인지**를 설치할 때 한 번 적는다 — 손가락이 아니라 파일로.
+    그리고 그 값을 **화면이 그대로 적는다**(pw_basis_*) — 설정이 조용히 틀려 있어도
+    작업자가 자기가 넣는 값이 무엇으로 기록되는지 보고 알 수 있어야 한다.
+
+    꼬리 주석·따옴표를 떼고 읽는 이유는 mrv_parse_visible 과 같다 — config.example.ini
+    가 손 편집을 권하므로 `metered  ; 계량기 실측` 같은 값이 현실적으로 들어온다.
+    모르는 값에서 입을 닫지 않고 기본값으로 내려오는 이유: 자료유형을 못 읽었다고
+    전력 입력을 막으면, 오타 하나로 그 현장의 증빙 입력이 끊긴다.
+    """
+    text = str(raw or "")
+    for marker in (";", "#"):          # 꼬리 주석부터 자른다
+        at = text.find(marker)
+        if at >= 0:
+            text = text[:at]
+    token = text.strip().strip("\"'").strip().lower()
+    return token if token in MRV_BASES else MRV_BASIS_DEFAULT
+
+
+def mrv_fill_basis(payload: dict, basis: str = MRV_BASIS_DEFAULT) -> dict:
+    """보관된 payload 의 readings 에 자료유형이 없으면 채워 넣는다(재전송 경로).
+
+    **왜 필요한가.** 이 항목이 생기기 전에 보관함(mrv-power.db)에 쌓인 건이 남아
+    있을 수 있다. 회선이 몇 시간 끊긴 현장에서 업데이트가 올라가면 그런 행이 그대로
+    재전송되는데, 그 건들도 **작업자가 계량기를 읽어 넣은 값**이다. 비워 둔 채 올리면
+    서버에 '미기재(null)' 로 남아, 심사에서 근거를 댈 수 없는 행이 된다. 반대로
+    **이미 적혀 있는 값은 덮지 않는다** — 그 행이 선언한 것이 그 행의 진실이다.
+
+    모양이 깨진 행에서 터지지 않는다. 재전송 고리 안에서 예외가 나면 큐가 그 행에
+    영원히 막히고, 그 뒤에 쌓인 지침이 전부 올라가지 못한다.
+    """
+    if not isinstance(payload, dict):
+        return payload
+    rows = payload.get("readings")
+    if not isinstance(rows, list):
+        return payload
+    basis = basis if basis in MRV_BASES else MRV_BASIS_DEFAULT
+    out = []
+    for row in rows:
+        if not isinstance(row, dict):
+            out.append(row)
+            continue
+        if str(row.get("measurement_basis") or "") in MRV_BASES:
+            out.append(row)
+            continue
+        out.append({**row, "measurement_basis": basis})
+    return {**payload, "readings": out}
+
+
 def mrv_missing_visible(items: list[dict], picks: list[str]) -> list[str]:
     """고른 계측기 가운데 **서버 목록에 없는** id.
 
@@ -2267,13 +2338,21 @@ def _mrv_rejected(result: dict) -> tuple[int, str]:
 
 
 def mrv_submit_power(base: str, api_key: str, meter_id: str, value: float, kind: str,
-                     lasts: MrvLastReadings, store=None) -> dict:
+                     lasts: MrvLastReadings, store=None,
+                     basis: str = MRV_BASIS_DEFAULT) -> dict:
     """전력 수기 입력 한 건을 올린다. 화면이 결과를 그대로 보여 준다.
 
     적산 지침은 **[직전 지침, 지금 지침] 두 건을 한 요청으로** 보낸다. 직전 건은
     서버가 중복으로 흡수하므로(멱등) 안전하고, 그 덕에 지금 지침이 배치 안에서
     차분되어 ok 로 들어간다. 직전이 없는 첫 지침은 1건만 가고 기준점이 된다 —
     그 사실을 화면이 적는다.
+
+    `basis` 는 이 건의 **자료유형**(measurement_basis)이고 readings 의 모든 건에
+    실린다. 서버가 가정하지 않게 장비가 선언한다(MRV_BASES 머리말). 함께 싣는 직전
+    지침에도 같은 값을 적는다 — 그 건은 보통 서버가 중복으로 흡수하므로 이미 저장된
+    자기 자료유형을 지키고, 흡수되지 않는 경우(보관분이 쌍째로 처음 올라가는 때)에는
+    같은 입력에서 나온 값이라 같은 자료유형이 맞다. 그래서 직전 건의 자료유형을
+    MrvLastReadings 에 따로 적어 두지 않는다(파일 모양을 늘릴 값어치가 없다).
 
     돌려주는 것
       ok        서버가 **받아 저장했는가**. 200 을 받았어도 전부 거부됐으면 False 다.
@@ -2284,6 +2363,11 @@ def mrv_submit_power(base: str, api_key: str, meter_id: str, value: float, kind:
     """
     if kind not in MRV_KINDS:
         return {"ok": False, "error": "알 수 없는 입력 종류입니다", "code": "kind"}
+    # 모르는 자료유형에서 입을 닫지 않는다 — 설정 오타 하나로 그 현장의 증빙 입력이
+    # 끊기는 것이, 기본값(이 단말의 실제 성격)으로 적는 것보다 나쁘다.
+    if basis not in MRV_BASES:
+        log.warning("알 수 없는 자료유형 %r — %s 로 적습니다.", basis, MRV_BASIS_DEFAULT)
+        basis = MRV_BASIS_DEFAULT
     try:
         value = float(value)
     except (TypeError, ValueError):
@@ -2328,7 +2412,8 @@ def mrv_submit_power(base: str, api_key: str, meter_id: str, value: float, kind:
                         "code": "clock"}
             ts = bumped
 
-    readings = [{"meter_id": meter_id, "ts": ts, "value": value, "reading_kind": kind}]
+    readings = [{"meter_id": meter_id, "ts": ts, "value": value, "reading_kind": kind,
+                 "measurement_basis": basis}]
     baseline = False
     if kind == "cumulative_kwh":
         # 직전 지침을 함께 싣는다. 서버는 이 건을 중복으로 흡수하고, 그 덕에
@@ -2339,6 +2424,7 @@ def mrv_submit_power(base: str, api_key: str, meter_id: str, value: float, kind:
                 "ts": str(prev["ts"]),
                 "value": float(prev["value"]),
                 "reading_kind": kind,
+                "measurement_basis": basis,
             })
         else:
             baseline = True
@@ -2448,7 +2534,8 @@ class MrvRejected:
 
 def mrv_flush(store, base: str, api_key: str, batch: int, should_stop,
               lasts: MrvLastReadings | None = None,
-              rejected: MrvRejected | None = None) -> int:
+              rejected: MrvRejected | None = None,
+              basis: str = MRV_BASIS_DEFAULT) -> int:
     """보관해 둔 전력 입력을 오래된 것부터 올린다. 수질 flush 와 독립이다.
 
     한 건이라도 실패하면 멈춘다 — 적산 지침은 순서가 바뀌면 구간값이 어긋난다.
@@ -2458,6 +2545,11 @@ def mrv_flush(store, base: str, api_key: str, batch: int, should_stop,
     행을 지우면, 계측기가 지워졌거나 다른 사이트로 재페어링한 장비에서 **보관분이
     전부 거부됐는데 큐에서 사라지고 화면에는 「전송 완료」가 뜬다.** 전력은 되돌릴
     수 없는 기준선의 근거이므로, 보낸 건수가 전부 받아들여졌을 때만 행을 지운다.
+
+    **옛 보관분을 함께 다룬다.** measurement_basis 가 생기기 전에 쌓인 행에는 그 칸이
+    없다. 그 건들도 이 단말에서 사람이 계량기를 읽어 넣은 값이므로, 비워 둔 채 올려
+    서버에 '미기재' 로 남기지 않고 mrv_fill_basis 로 채워 보낸다 — 이미 적혀 있는
+    행은 덮지 않는다.
     """
     if store is None or not api_key:
         return 0
@@ -2471,7 +2563,8 @@ def mrv_flush(store, base: str, api_key: str, batch: int, should_stop,
             if rejected is not None:
                 rejected.forget(row_id)
             continue
-        ok, result, reason = _mrv_send_batch(base, api_key, payload)
+        ok, result, reason = _mrv_send_batch(base, api_key,
+                                             mrv_fill_basis(payload, basis))
         if not ok:
             log.info("전력 보관분 재전송 중단(%s) — 다음 기회에 이어서 보냅니다.", reason)
             break
@@ -3000,6 +3093,15 @@ def main() -> int:
     mrv_meters_holder: dict = {"items": [], "error": None, "got": False}
     # 화면에 띄울 계측기. 비어 있으면 **전부** 띄운다(mrv_parse_visible 머리말).
     mrv_visible: dict = {"ids": mrv_parse_visible(_mrv_cfg("visible_meters"))}
+    # 이 단말이 받는 값의 자료유형. 기본은 실측(계량기 옆 창구이므로). 적지 않은
+    # 기존 설정 파일도 그대로 실측이 된다 — 이 단말의 성격이 바뀐 적이 없기 때문이다.
+    mrv_basis = mrv_parse_basis(_mrv_cfg("measurement_basis", MRV_BASIS_DEFAULT))
+    if mrv_basis != MRV_BASIS_DEFAULT:
+        # 기본값이 아니면 **로그에 남긴다.** 이 한 줄이 "이 장비의 전력은 왜 실측이
+        # 아닌가" 에 답하는 유일한 흔적이다(화면은 지금 상태만 말한다).
+        log.warning("이 장비의 전력 자료유형: %s — 계량기 실측이 아닙니다.", mrv_basis)
+    else:
+        log.info("이 장비의 전력 자료유형: %s", mrv_basis)
     mrv_base = _api_base(endpoint)
 
     def _mrv_visible_state() -> dict:
@@ -3401,6 +3503,9 @@ def main() -> int:
                 "visible": vis["mrv_visible"],
                 "missing": vis["mrv_meters_missing"],
                 "clock_ok": mrv_clock_ok(),
+                # 작업자가 "지금 내가 넣는 값이 무엇으로 기록되는가" 를 보고 알도록
+                # 화면에 넘긴다. 화면은 이것을 **보여만** 주고 되돌려 보내지 않는다.
+                "basis": mrv_basis,
                 "pending": mrv_store.pending() if mrv_store is not None else 0,
                 "blocked": mrv_rejected.count_confirmed(),
                 "blocked_reason": mrv_rejected.reason() or None,
@@ -3565,9 +3670,12 @@ def main() -> int:
                 return {"ok": False, "error": "목록에 없는 계측기입니다",
                         "code": "unknown_meter"}
 
+            # 자료유형은 **화면이 보낸 값을 쓰지 않는다** — 이 단말이 무엇을 받는
+            # 창구인지는 설정 파일이 정한다(mrv_parse_basis 머리말). 화면이 고를 수
+            # 있게 하면 한 번의 오터치가 실측·계산값을 뒤바꾸고 흔적을 남기지 않는다.
             result = mrv_submit_power(
                 mrv_base, mrv_auth["key"], meter_id, payload.get("value"), kind,
-                mrv_lasts, mrv_store,
+                mrv_lasts, mrv_store, mrv_basis,
             )
             pending = mrv_store.pending() if mrv_store is not None else 0
             result["pending"] = pending
@@ -3678,6 +3786,8 @@ def main() -> int:
                      mrv_pending=mrv_store.pending() if mrv_store is not None else 0,
                      mrv_clock_ok=mrv_clock_ok(),
                      mrv_today=mrv_lasts.today(),
+                     # 이 단말이 넣는 값의 자료유형. 화면이 입력·확인·결과에 적는다.
+                     mrv_basis=mrv_basis,
                      # MRV 안내에 적을 주소. 수질 페어링만 채우는 pair_url 을 쓰면
                      # [server] endpoint 가 다른 호스트인 장비에서 틀린 주소를
                      # 안내한다 — MRV 창구의 호스트를 그대로 적는다.
@@ -3745,7 +3855,7 @@ def main() -> int:
             before = mrv_rejected.count_confirmed()
             sent = mrv_flush(mrv_store, mrv_base, mrv_auth["key"],
                              MRV_FLUSH_BATCH, _stopped_global, mrv_lasts,
-                             mrv_rejected)
+                             mrv_rejected, mrv_basis)
             blocked = mrv_rejected.count_confirmed()
             if state is not None and (sent or blocked != before):
                 # "전송 완료" 는 **서버가 받은 건수**만 적는다. 거부로 멈췄으면

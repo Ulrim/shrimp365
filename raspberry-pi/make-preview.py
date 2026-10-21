@@ -75,6 +75,8 @@ def base_state(**over) -> dict:
         "mrv_linked": False, "mrv_site_id": None,
         "mrv_pairing": False, "mrv_pair_code": None, "mrv_pair_error": None,
         "mrv_meters": [], "mrv_pending": 0, "mrv_last": None, "mrv_clock_ok": True,
+        # 이 단말이 넣는 값의 자료유형. 기본은 실측 — 계량기 옆 창구이므로.
+        "mrv_basis": "metered",
         "mrv_recent": [], "mrv_today": 0,
         # 화면에 띄울 계측기(거르개). 비어 있으면 전부 띄운다 — 기본은 거르지 않는다.
         "mrv_visible": [], "mrv_meters_missing": [], "mrv_vis_max": MRV_VIS_MAX,
@@ -224,6 +226,15 @@ STATES = [
     ("MRV · 첫 지침(기준점)", base_state(
         _open="power_entry_first",
         mode="mrv", sensors_on=False, values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_recent=MRV_RECENT, mrv_today=2)),
+    # 자료유형이 **실측이 아닌** 장비. 화면의 한 줄이 설정에서 끌어낸 값인지(= 설정이
+    # 틀리면 작업자가 보고 아는지), 아니면 "계량기 실측" 이라고 박혀 있는지를 여기서
+    # 본다. 박혀 있으면 이 장면이 거짓을 적게 되므로 눈으로 걸린다.
+    ("MRV · 계산값으로 설정된 단말", base_state(
+        _open="power_entry",
+        mode="mrv", sensors_on=False, values={}, status="14:32",
+        mrv_basis="calculated",
         mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
         mrv_recent=MRV_RECENT, mrv_today=2)),
     ("MRV · 계측기 많은 현장", base_state(
@@ -399,6 +410,8 @@ window.fetch = function(url, opts){
     var st = STATES[current][1];
     body = {ok:true, items: st.mrv_meters || [], clock_ok: st.mrv_clock_ok !== false,
             pending: st.mrv_pending || 0,
+            // 자료유형은 수집기가 정해서 내려 준다. 화면은 보여만 준다.
+            basis: st.mrv_basis || "metered",
             // 거르개는 **화면이** 적용한다. 서버는 목록 전체와 고른 id 를 함께 준다.
             visible: st.mrv_visible || [], missing: st.mrv_meters_missing || []};
   }
@@ -454,8 +467,21 @@ function openFor(i){
   // 봤다고 믿는다.
   //   power_entry        직전 지침이 있는 계측기 (사용량이 바로 계산된다)
   //   power_entry_first  직전 지침이 없는 계측기 (기준점으로만 쓰인다)
-  if (want === "power_entry" && typeof pwrPick === "function") pwrPick(0);
-  else if (want === "power_entry_first" && typeof pwrPick === "function") pwrPick(2);
+  // **계측기가 들어온 뒤에 고른다.** openPower() 는 lastState 에서 목록을 읽는데,
+  // 페이지를 열고 **처음** 장면을 고를 때는 그 값이 아직 없다(tick 의 조회가 끝나기
+  // 전이다). 그 때 pwrPick(0) 은 빈 목록을 집어 아무 일도 하지 않고, 탭 이름이
+  // 「지침 입력(키패드)」인데 목록 화면이 뜬다 — base_state 머리말이 말하는 바로 그
+  // 거짓 미리보기다(두 번째 클릭부터는 맞게 떠서 눈에 잘 띄지 않는다).
+  // loadMeters() 가 채워 줄 때까지 짧게 기다렸다가 고른다.
+  if (want !== "power_entry" && want !== "power_entry_first") return;
+  var at = (want === "power_entry") ? 0 : 2;
+  var tries = 0;
+  (function pickWhenReady(){
+    if (typeof pwrPick !== "function" || !pwrOpen) return;
+    if (pwrMeters && pwrMeters.length > at) return pwrPick(at);
+    if (++tries > 40) return;            // 2초쯤 기다리고 포기한다(화면은 목록으로 남는다)
+    setTimeout(pickWhenReady, 50);
+  })();
 }
 
 window.addEventListener("message", function(e){

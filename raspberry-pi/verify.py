@@ -494,6 +494,86 @@ check("받은 목록에 없는 것만 집어낸다",
       sensor.mrv_missing_for_screen(True, _ITEMS, ["m_total", "m_gone"]), ["m_gone"])
 
 
+print("\n⑬ 전력 자료유형 — 실측과 계산값이 DB 에서 구분되는가")
+# 사용자가 준 MRV 계산표의 전력은 계량기가 잰 값이 아니라 명판 정격으로 낸 값이었다
+# (전력실측여부 = false). 그 구분이 없으면 심사에서 "이 기준선의 전력이 실측인가" 에
+# 답할 수 없다. 이 단말은 계량기 옆 창구이므로 metered 를 **스스로 선언한다** —
+# 서버가 "장비에서 왔으니 실측이겠지" 하고 가정하게 두지 않는다.
+check("서버와 같은 세 값만 안다", sensor.MRV_BASES, ("metered", "calculated", "estimated"))
+check("이 단말의 기본값은 실측", sensor.MRV_BASIS_DEFAULT, "metered")
+
+# 설정 파일 읽기. **적지 않은 기존 설정 파일도 실측이 된다** — 이 단말의 성격이
+# 바뀐 적이 없으므로, 업데이트가 옛 장비의 자료유형을 미기재로 떨어뜨리면 안 된다.
+check("적지 않으면 실측", sensor.mrv_parse_basis(""), "metered")
+check("공백만 있어도 실측", sensor.mrv_parse_basis("   "), "metered")
+check("None 도 실측", sensor.mrv_parse_basis(None), "metered")
+check("적어 둔 값을 읽는다", sensor.mrv_parse_basis("calculated"), "calculated")
+check("어림값도 읽는다", sensor.mrv_parse_basis("estimated"), "estimated")
+check("대소문자·공백은 흘려 읽는다", sensor.mrv_parse_basis("  Calculated "), "calculated")
+# 꼬리 주석·따옴표는 mrv_parse_visible 과 같은 이유로 뗀다 — config.example.ini 가
+# 손 편집을 권하므로 이 모양이 현실적으로 들어온다. 떼지 않으면 값이 전부 모르는
+# 값으로 떨어져, 계산값으로 설정한 현장이 조용히 실측으로 기록된다.
+check("꼬리 주석(;)을 떼고 읽는다",
+      sensor.mrv_parse_basis("calculated  ; 명판 정격으로 계산"), "calculated")
+check("꼬리 주석(#)을 떼고 읽는다", sensor.mrv_parse_basis("estimated # 메모"), "estimated")
+check("따옴표를 떼고 읽는다", sensor.mrv_parse_basis('"calculated"'), "calculated")
+# 모르는 값에서 입을 닫지 않는 이유: 오타 하나로 그 현장의 증빙 입력이 끊기는 것이,
+# 이 단말의 실제 성격(실측)으로 적는 것보다 나쁘다. 대신 로그에 남는다.
+check("모르는 값은 기본값으로 내려온다", sensor.mrv_parse_basis("metered_ish"), "metered")
+check("서버의 출처(source) 값을 자료유형으로 쓰지 않는다",
+      sensor.mrv_parse_basis("manual"), "metered")
+
+# 옛 보관분(이 칸이 없는 payload)의 재전송. 그 건들도 작업자가 계량기를 읽어 넣은
+# 값이므로, 비워 둔 채 올려 서버에 '미기재(null)' 로 남기지 않는다.
+_old_row = {"source": "manual", "readings": [
+    {"meter_id": "m1", "ts": "2026-10-20T00:00:00+00:00", "value": 1000.0,
+     "reading_kind": "cumulative_kwh"},
+    {"meter_id": "m1", "ts": "2026-10-20T01:00:00+00:00", "value": 1010.0,
+     "reading_kind": "cumulative_kwh"}]}
+check("칸이 없는 옛 보관분을 채워 보낸다",
+      [r.get("measurement_basis") for r in sensor.mrv_fill_basis(_old_row)["readings"]],
+      ["metered", "metered"])
+check("채우면서 다른 칸을 잃지 않는다",
+      sorted(sensor.mrv_fill_basis(_old_row)["readings"][0]),
+      ["measurement_basis", "meter_id", "reading_kind", "ts", "value"])
+check("payload 의 source 를 건드리지 않는다",
+      sensor.mrv_fill_basis(_old_row)["source"], "manual")
+check("원본 payload 를 고쳐 쓰지 않는다(보관함 행은 그대로)",
+      "measurement_basis" in _old_row["readings"][0], False)
+# **이미 적혀 있는 행은 덮지 않는다** — 그 행이 선언한 것이 그 행의 진실이다.
+# 덮으면 계산값으로 쌓아 둔 보관분이 회선 복구와 함께 실측으로 바뀐다.
+check("이미 적힌 자료유형은 덮지 않는다",
+      sensor.mrv_fill_basis(
+          {"readings": [{"measurement_basis": "calculated"}]}, "metered"
+      )["readings"][0]["measurement_basis"], "calculated")
+check("모르는 값이 적힌 행은 고쳐 쓴다",
+      sensor.mrv_fill_basis(
+          {"readings": [{"measurement_basis": "guessed"}]}, "estimated"
+      )["readings"][0]["measurement_basis"], "estimated")
+check("채울 값이 모르는 값이면 기본값으로 적는다",
+      sensor.mrv_fill_basis({"readings": [{}]}, "nonsense"
+                            )["readings"][0]["measurement_basis"], "metered")
+# 모양이 깨진 행에서 터지지 않아야 한다. 재전송 고리 안에서 예외가 나면 큐가 그 행에
+# 영원히 막히고, 뒤에 쌓인 지침이 전부 올라가지 못한다(mrv_flush 는 그 행을 치운다).
+check("readings 가 없는 payload 도 그대로 돌려준다",
+      sensor.mrv_fill_basis({"source": "manual"}), {"source": "manual"})
+check("readings 가 목록이 아니어도 터지지 않는다",
+      sensor.mrv_fill_basis({"readings": "x"}), {"readings": "x"})
+check("dict 가 아닌 행은 손대지 않는다",
+      sensor.mrv_fill_basis({"readings": [None, 3]})["readings"], [None, 3])
+check("payload 가 dict 가 아니어도 터지지 않는다", sensor.mrv_fill_basis(None), None)
+
+# 화면이 자료유형을 4언어로 적는가. 한 언어가 빠지면 그 언어로 쓰는 현장에서만
+# "지금 넣는 값이 무엇으로 기록되는가" 가 사라진다 — 한국어로 보는 쪽은 모른다.
+check("세 자료유형을 4언어로 적어 두었다",
+      [b for b in sensor.MRV_BASES
+       if sorted(_i18n_langs("pw_basis_" + b)) != ["en", "id", "ko", "vi"]], [])
+check("짧은 이름도 4언어로 적어 두었다",
+      [b for b in sensor.MRV_BASES
+       if sorted(_i18n_langs("pw_basis_" + b + "_s")) != ["en", "id", "ko", "vi"]], [])
+check("자료유형 딱지도 4언어", sorted(_i18n_langs("pw_basis")), ["en", "id", "ko", "vi"])
+
+
 print()
 if fails:
     print(f"실패 {len(fails)}건:")

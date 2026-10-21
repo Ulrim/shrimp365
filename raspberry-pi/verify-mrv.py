@@ -94,6 +94,14 @@ class Handler(BaseHTTPRequestHandler):
             if body.get("source") != "manual":
                 BAD.append(f"{path}: source 가 manual 이 아니다 — {body.get('source')!r}")
                 return self._json(400, {"error": "source 가 manual 이 아니다"})
+            # ⑩ **모든 건이 자료유형을 선언해야 한다.** 장비가 적지 않으면 서버가
+            # "장비에서 왔으니 실측이겠지" 하고 가정하게 되고, 가정이 사실로 굳는 날
+            # 증빙이 무너진다. 그래서 여기서 규약으로 본다 — 전송 경로에서 이 칸을
+            # 빼면(또는 재전송이 옛 보관분을 채우지 않으면) 그 자리에서 FAIL 한다.
+            for i, r in enumerate(body["readings"]):
+                got = r.get("measurement_basis")
+                if got not in S.MRV_BASES:
+                    BAD.append(f"{path}: readings[{i}] 자료유형이 없거나 모르는 값 — {got!r}")
             LOG.append(body["readings"])
             # ADR 0001 의 배치 경계 규칙을 그대로 흉내 낸다.
             acc = ded = 0
@@ -410,9 +418,82 @@ check("꼬리 주석이 붙은 [mrv] 안에 적는다 — 구간을 두 번 만�
 check("사람이 적어 둔 옆 항목(visible_meters_note)을 지우지 않는다",
       _cfg_get(tail, "mrv", "visible_meters_note"), "매일 읽는 것")
 
+print("\n⑩ 전력 자료유형 — 보관→재전송 왕복에서 살아남는가")
+# 실측과 계산값은 둘 다 유효한 증빙이지만 같은 증빙이 아니다. 장비가 적지 않으면
+# 서버가 "장비에서 왔으니 실측이겠지" 하고 가정하게 되므로 장비가 선언한다.
+# 위 가짜 서버가 **모든 건**의 자료유형을 규약으로 보고 있으므로, ①~⑤ 가 통과한
+# 것 자체가 전송 경로에 이 칸이 실렸다는 뜻이다. 여기서는 그 값이 무엇인지와
+# **보관함을 거친 뒤에도 남는지**를 본다.
+# 계측기 id 를 이 절 전용으로 둔다. 위 절들이 m_total 로 쓴 (계측기, 시각)이 가짜
+# 서버에 남아 있어, 새 lasts 파일로 같은 id 를 다시 쓰면 그 시각이 겹쳐 **중복으로
+# 흡수된다** — 그러면 이 절의 FAIL 이 자료유형과 무관한 이유로 뜬다.
+lastsb = S.MrvLastReadings(tmp / "basis-last.json")
+rb1 = S.mrv_submit_power(BASE, "mrvk_secret", "m_bas_a", 2000.0, "cumulative_kwh", lastsb)
+check("이 단말은 실측으로 선언한다",
+      [r.get("measurement_basis") for r in LOG[-1]], ["metered"])
+rb2 = S.mrv_submit_power(BASE, "mrvk_secret", "m_bas_a", 2100.0, "cumulative_kwh", lastsb)
+check("함께 싣는 직전 지침에도 적힌다(2건 모두)",
+      [r.get("measurement_basis") for r in LOG[-1]], ["metered", "metered"])
+check("자료유형이 2건 규칙을 깨지 않는다", (len(LOG[-1]), rb2["countable"]), (2, True))
+
+# 설정으로 계산값 단말로 세운 경우. 화면이 그 사실을 적고(pw_basis_calculated),
+# 전송도 그 값으로 간다 — 계량기 옆이 아닌 자리에 놓인 단말이 거짓 실측을 쌓지
+# 않게 하는 길이 이것뿐이다(화면에서 건마다 고르게 하지 않는다 — 오터치가 흔적 없이
+# 실측과 계산값을 뒤바꾼다).
+rb3 = S.mrv_submit_power(BASE, "mrvk_secret", "m_bas_b", 70.0, "interval_kwh",
+                         lastsb, None, "calculated")
+check("설정이 계산값이면 계산값으로 간다",
+      [r.get("measurement_basis") for r in LOG[-1]], ["calculated"])
+check("계산값도 정상적으로 저장된다", (rb3["ok"], rb3["accepted"]), (True, 1))
+# 모르는 값에서 입을 닫지 않는다 — 오타 하나로 증빙 입력이 끊기는 쪽이 더 나쁘다.
+rb4 = S.mrv_submit_power(BASE, "mrvk_secret", "m_bas_b", 71.0, "interval_kwh",
+                         lastsb, None, "metered_ish")
+check("모르는 자료유형은 기본값으로 적고 보낸다",
+      (rb4["ok"], [r.get("measurement_basis") for r in LOG[-1]]), (True, ["metered"]))
+
+# **회선이 끊긴 동안 쌓인 건.** 보관함에 들어가는 payload 에 이 칸이 없으면, 회선이
+# 돌아온 뒤 올라가는 지침들만 조용히 미기재가 된다 — 끊긴 현장일수록 증빙이 비는
+# 쪽이 되므로 가장 나쁜 방향이다. 디스크에 적힌 것을 직접 본다.
+storeb = buffer_mod.Buffer(tmp / "basis-queue.db")
+qb = S.mrv_submit_power(DEAD, "mrvk_secret", "m_bas_a", 2200.0, "cumulative_kwh",
+                        lastsb, storeb)
+check("회선이 끊기면 보관된다", (qb["ok"], qb["queued"]), (False, True))
+check("보관함에 적힌 payload 에도 자료유형이 있다",
+      [r.get("measurement_basis")
+       for _i, _at, pay in storeb.take(10) for r in pay["readings"]],
+      ["metered", "metered"])
+sentb = S.mrv_flush(storeb, BASE, "mrvk_secret", 20, lambda: False)
+check("회선이 돌아오면 자료유형째로 올라간다",
+      (sentb, [r.get("measurement_basis") for r in LOG[-1]]), (1, ["metered", "metered"]))
+
+# **옛 보관분** — 이 칸이 생기기 전에 쌓인 행. 회선이 몇 시간 끊긴 현장에서
+# 업데이트가 올라가면 실제로 이 모양이 큐에 남아 있다. 그 건들도 작업자가 계량기를
+# 읽어 넣은 값이므로 채워 보낸다(미기재로 올리면 근거를 댈 수 없는 행이 된다).
+# 가짜 서버의 규약 검사가 채워지지 않은 건을 그대로 잡는다.
+storeo = buffer_mod.Buffer(tmp / "basis-old.db")
+storeo.append({"source": "manual", "readings": [
+    {"meter_id": "m_bas_a", "ts": "2026-10-20T03:00:00+00:00", "value": 2300.0,
+     "reading_kind": "cumulative_kwh"}]}, "2026-10-20T03:00:00+00:00")
+sento = S.mrv_flush(storeo, BASE, "mrvk_secret", 20, lambda: False)
+check("옛 보관분도 올라간다", (sento, storeo.pending()), (1, 0))
+check("옛 보관분에 자료유형을 채워 보낸다",
+      [r.get("measurement_basis") for r in LOG[-1]], ["metered"])
+
+# 계산값으로 쌓아 둔 보관분이 회선 복구와 함께 실측으로 바뀌면 안 된다 —
+# 이미 적힌 값이 그 행의 진실이다.
+storek = buffer_mod.Buffer(tmp / "basis-keep.db")
+storek.append({"source": "manual", "readings": [
+    {"meter_id": "m_bas_b", "ts": "2026-10-20T04:00:00+00:00", "value": 72.0,
+     "reading_kind": "interval_kwh", "measurement_basis": "calculated"}]},
+    "2026-10-20T04:00:00+00:00")
+S.mrv_flush(storek, BASE, "mrvk_secret", 20, lambda: False, None, None, "metered")
+check("이미 적힌 자료유형은 재전송이 덮지 않는다",
+      [r.get("measurement_basis") for r in LOG[-1]], ["calculated"])
+
 check("가짜 서버가 본 규약 위반이 없다", BAD, [])
 
 store.close(); store_c.close()      # 가짜 서버와 임시 디렉토리는 _clean_up 이 치운다
+storeb.close(); storeo.close(); storek.close()
 print()
 if fails:
     print(f"실패 {len(fails)}건:")

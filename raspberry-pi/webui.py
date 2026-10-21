@@ -78,6 +78,11 @@ class State:
             "mrv_pending": 0,       # 아직 못 올린 전력 입력 건수
             "mrv_last": None,       # 마지막 전송 결과 한 줄
             "mrv_clock_ok": True,   # 장비 시계를 믿을 수 있는가
+            # 이 단말이 넣는 값의 **자료유형**(measurement_basis). 화면이 그대로
+            # 적는다 — 작업자가 "지금 넣는 값이 실측으로 기록된다" 를 알아야,
+            # 계산한 값을 여기 넣으면 안 된다는 것도 안다.
+            # 수집기가 안 넣어 준 경우(옛 수집기)에도 이 단말의 성격은 실측이다.
+            "mrv_basis": "metered",
             "mrv_recent": [],       # 계측기별 마지막으로 보낸 지침(값·시각)
             "mrv_today": 0,         # 오늘 서버까지 올라간 건수
             # 재전송에서 서버가 **받지 않은** 보관 건수와 그 사유. 조용히 지우지
@@ -426,6 +431,10 @@ PAGE = """<!doctype html>
   .pseg button[aria-pressed="true"] .ssub{color:#C7D7FE}
   .pnote{font-size:12px;color:#94A3B8;line-height:1.55;margin-bottom:6px}
   .pnote b{color:#E8EDF7}
+  /* 자료유형이 계량기 실측이 **아닌** 장비. 그 전력은 심사에서 다르게 읽히므로
+     조용한 회색으로 두지 않는다(실측일 때는 평범한 .pnote 로 남는다). */
+  .pnote.bas{color:#FCD34D;border-left:3px solid #F59E0B;padding-left:8px}
+  .pnote.bas b{color:#FEF3C7}
   .pwarn{
     font-size:13px;font-weight:700;line-height:1.5;padding:9px 12px;border-radius:10px;
     margin-bottom:7px;background:#DC262618;color:#F87171;border:1px solid #DC2626;
@@ -837,6 +846,17 @@ var I18N = {
   pw_first_note:{ko:"첫 지침은 기준점으로만 쓰이고 사용량은 다음 입력부터 계산됩니다",en:"The first reading is only a reference point — usage is calculated from the next entry on",vi:"Chỉ số đầu tiên chỉ là điểm mốc — lượng dùng được tính từ lần nhập sau",id:"Angka pertama hanya titik acuan — pemakaian dihitung dari input berikutnya"},
   pw_zero_hint:{ko:"0 도 넣을 수 있습니다(돌리지 않은 구간). 음수는 받지 않습니다.",en:"0 is allowed (a span you did not run). Negative values are not.",vi:"Có thể nhập 0 (khoảng không chạy). Không nhận số âm.",id:"0 boleh (periode tanpa operasi). Nilai negatif tidak diterima."},
   pw_empty:{ko:"값을 넣으세요",en:"Enter a value",vi:"Hãy nhập giá trị",id:"Masukkan nilai"},
+  // 자료유형(measurement_basis) — 이 단말이 넣는 값이 **무엇으로 기록되는가.**
+  // 실측과 계산값은 둘 다 유효한 증빙이지만 같은 증빙이 아니다. 작업자가 자기가
+  // 넣는 값이 실측으로 기록된다는 것을 알아야, 계산한 값을 여기 넣으면 안 된다는
+  // 것도 안다. 세 문구는 MRV_BASES 세 값과 하나씩 맞물린다.
+  pw_basis:{ko:"자료유형",en:"Data basis",vi:"Loại dữ liệu",id:"Jenis data"},
+  pw_basis_metered:{ko:"이 값은 <b>계량기 실측</b>으로 기록됩니다 — 계산한 값은 넣지 마세요",en:"This value is recorded as a <b>metered reading</b> — do not enter calculated values here",vi:"Giá trị này được ghi là <b>số đo từ đồng hồ</b> — không nhập giá trị tính toán ở đây",id:"Nilai ini dicatat sebagai <b>hasil ukur meter</b> — jangan masukkan nilai hitungan di sini"},
+  pw_basis_calculated:{ko:"이 장비는 <b>산식 계산값</b>으로 기록하도록 설정되어 있습니다 — 계량기 실측이 아닙니다",en:"This device is configured to record <b>calculated values</b> — not metered readings",vi:"Thiết bị này được đặt để ghi <b>giá trị tính toán</b> — không phải số đo đồng hồ",id:"Perangkat ini disetel mencatat <b>nilai hitungan</b> — bukan hasil ukur meter"},
+  pw_basis_estimated:{ko:"이 장비는 <b>어림값</b>으로 기록하도록 설정되어 있습니다 — 계량기 실측이 아닙니다",en:"This device is configured to record <b>estimated values</b> — not metered readings",vi:"Thiết bị này được đặt để ghi <b>giá trị ước lượng</b> — không phải số đo đồng hồ",id:"Perangkat ini disetel mencatat <b>nilai perkiraan</b> — bukan hasil ukur meter"},
+  pw_basis_metered_s:{ko:"계량기 실측",en:"Metered",vi:"Số đo đồng hồ",id:"Hasil ukur meter"},
+  pw_basis_calculated_s:{ko:"산식 계산",en:"Calculated",vi:"Tính toán",id:"Hitungan"},
+  pw_basis_estimated_s:{ko:"어림",en:"Estimated",vi:"Ước lượng",id:"Perkiraan"},
   pw_check:{ko:"입력값 확인",en:"Check the value",vi:"Kiểm tra giá trị",id:"Periksa nilai"},
   pw_send:{ko:"전송",en:"Send",vi:"Gửi",id:"Kirim"},
   pw_send_now:{ko:"보내기",en:"Send it",vi:"Gửi đi",id:"Kirim"},
@@ -2173,6 +2193,9 @@ function drawMrv(){
 var pwrOpen = false, pwrStep = "list", pwrMeters = [], pwrMeter = null;
 var pwrKind = "cumulative_kwh", pwrBuf = "", pwrRes = null;
 var pwrBusy = false, pwrMsg = null, pwrClock = true, pwrPending = 0;
+// 이 단말이 넣는 값의 자료유형. 수집기가 정하고 화면은 **보여만** 준다 —
+// 화면이 고를 수 있으면 한 번의 오터치가 실측과 계산값을 뒤바꾼다.
+var pwrBasis = "metered";
 var pwrBlocked = 0, pwrBlockedReason = null, pwrBlockAsk = false;
 // 「이 장비가 읽을 계측기」 거르개. pwrVis 가 비어 있으면 거르지 않는다.
 // pwrShowAll 은 **화면 상태일 뿐**이고 설정을 바꾸지 않는다 — 거르개 때문에
@@ -2198,6 +2221,7 @@ function openPower(){
   pwrBlocked = d.mrv_blocked || 0;
   pwrBlockedReason = d.mrv_blocked_reason || null;
   pwrClock = d.mrv_clock_ok !== false;
+  pwrBasis = d.mrv_basis || "metered";
   drawPower();
   loadMeters();
 }
@@ -2217,6 +2241,9 @@ function loadMeters(){
       pwrBlocked = d.blocked || 0;
       pwrBlockedReason = d.blocked_reason || null;
       pwrClock = d.clock_ok !== false;
+      // 옛 수집기는 이 칸을 모른다. 그때는 직전 값을 지킨다(이 단말의 성격은
+      // 바뀌지 않았으므로, 모른다고 화면이 말을 바꾸면 안 된다).
+      if (d.basis) pwrBasis = d.basis;
       pwrMsg = d.ok ? null : (d.error || null);
       drawPower();
     })
@@ -2435,6 +2462,21 @@ function drawPowerList(){
     '</div>';
 }
 
+// 자료유형 한 줄. 입력·확인·결과 세 화면에 모두 선다 — 작업자가 값을 넣는 자리,
+// 보내기 직전, 그리고 기록된 뒤에 각각 같은 말을 본다.
+// 모르는 값이 와도 입을 닫지 않는다(실측으로 떨어진다 — 수집기의 기본값과 같다).
+function pwrBasisKey(){
+  return /^(metered|calculated|estimated)$/.test(pwrBasis) ? pwrBasis : "metered";
+}
+function pwrBasisName(){ return t("pw_basis_" + pwrBasisKey() + "_s"); }
+function pwrBasisNote(){
+  // 실측이 아닌 설정은 **눈에 띄게** 적는다. 그 장비의 전력은 심사에서 다르게
+  // 읽히는 값이고, 그 사실이 화면에서 조용하면 안 된다.
+  var warn = pwrBasisKey() !== "metered";
+  return '<div class="pnote' + (warn ? ' bas' : '') + '" style="margin-top:6px">' +
+    t("pw_basis_" + pwrBasisKey()) + '</div>';
+}
+
 function drawPowerEntry(){
   var cum = pwrKind === "cumulative_kwh";
   var hint = cum
@@ -2462,6 +2504,7 @@ function drawPowerEntry(){
           (k === "<" ? "⌫" : k) + '</button>';
       }).join("") + '</div>' +
     '</div>' +
+    pwrBasisNote() +
     '<div class="pbtns">' +
       '<button class="ghost" onclick="pwrToList()">' + t("back_list") + '</button>' +
       '<button onclick="pwrToCheck()"' +
@@ -2477,11 +2520,13 @@ function drawPowerCheck(){
         (pwrMeter.is_aeration ? ' <span class="aer">' + t("pw_aeration") + '</span>' : '') + '</div>' +
       '<div class="line">' + t("pw_kind") + ' <b>' +
         t(cum ? "pw_kind_cum" : "pw_kind_int") + '</b></div>' +
+      '<div class="line">' + t("pw_basis") + ' <b>' + pwrBasisName() + '</b></div>' +
       '<div class="line">' + t("pw_value") + '</div>' +
       '<div class="pbig" style="margin:0">' + esc(pwrBuf) + '<small>kWh</small></div>' +
       (cum && pwrMeter.has_prev === false
         ? '<div class="line">' + t("pw_first_note") + '</div>' : '') +
     '</div>' +
+    pwrBasisNote() +
     '<div class="pbtns">' +
       '<button class="ghost" onclick="pwrToEntry()">' + t("pw_fix") + '</button>' +
       '<button onclick="pwrSend()"' + ((pwrBusy || !pwrClock) ? " disabled" : "") + '>' +
@@ -2515,6 +2560,10 @@ function drawPowerResult(){
       '<h2>' + title + '</h2>' +
       '<div class="line">' + t("pw_meter") + ' <b>' + esc(pwrMeter ? pwrMeter.label : "") +
         '</b> · <b>' + esc(pwrBuf) + ' kWh</b></div>' +
+      // **무엇으로 기록되었는가.** 거부된 건(실측도 계산값도 아닌, 저장되지 않은
+      // 건)에는 적지 않는다 — 기록되지 않은 값의 자료유형을 적으면 거짓말이 된다.
+      ((r.ok || r.queued)
+        ? '<div class="line">' + t("pw_basis") + ' <b>' + pwrBasisName() + '</b></div>' : '') +
       lines.map(function(l){ return '<div class="line">' + l + '</div>'; }).join("") +
     '</div>' +
     '<div class="pbtns">' +
@@ -2543,6 +2592,11 @@ function setLang(l){
     body: JSON.stringify({lang:l})}).catch(function(){});
   if (lastState) render(lastState);   // 뒤 화면·푸터도 새 언어로
   drawLang();                          // 언어 화면을 새 언어로 다시 그린다(선택 표시)
+  // 전력 입력 패널이 열려 있으면 그것도 다시 그린다. render() 는 뒤 화면만 그리므로
+  // 패널은 **열렸을 때의 언어로 굳어 있었다.** 이 화면은 "지금 넣는 값이 무엇으로
+  // 기록되는가"(pw_basis_*)를 적는 자리라, 읽을 수 없는 언어로 남으면 그 한 줄이
+  // 있으나 마나다. 닫혀 있으면 drawPower() 가 바로 돌아온다.
+  drawPower();
 }
 
 function drawSettings(){
