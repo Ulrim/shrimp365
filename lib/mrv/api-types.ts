@@ -13,6 +13,11 @@
  * 백엔드 OpenAPI가 준비되면 생성 타입으로 교체한다.
  */
 
+import type {
+  MetricUnavailabilityEvidence,
+  MetricUnavailabilityReason,
+} from "./metric-unavailability";
+
 export type KpiMetricStatus = "green" | "amber" | "red" | "na";
 
 export interface KpiMetric {
@@ -43,6 +48,19 @@ export interface MovingAvgMortalityPoint {
   ma_rate_pct: number | null;
 }
 
+/**
+ * 지표별 「산출 불가」 사유. 값이 null 인 지표만 키로 들어온다 — 산출된 지표에 사유를
+ * 실으면 화면이 값 옆에 사유처럼 적는다.
+ *
+ * `evidence` 는 그 판정에 쓴 근거 수치다. 화면이 `reasons` 를 그대로 쓰든
+ * `metricUnavailabilityReasons(key, evidence)` 로 다시 만들든 **같은 모듈의 출력**이므로
+ * 화면 · 인쇄물 · API 가 갈릴 수 없다(lib/mrv/metric-unavailability.ts).
+ */
+export interface KpiUnavailability {
+  evidence: MetricUnavailabilityEvidence;
+  metrics: Partial<Record<KpiMetricKey, { reasons: MetricUnavailabilityReason[] }>>;
+}
+
 export interface KpiResponse {
   site_id: string;
   org_id: string;
@@ -66,6 +84,12 @@ export interface KpiResponse {
   /** 폐사율 확장 시계열(선택). 백엔드가 반환하면 채워진다. */
   mortality_daily?: DailyMortalityPoint[];
   mortality_moving_avg?: MovingAvgMortalityPoint[];
+  /**
+   * 지표별 '산출 불가' 사유(값이 null 인 지표만). **선택이다** — 이 칸을 넣기 전에
+   * 저장된 응답이나 이 칸을 모르는 호출자가 있을 수 있고, 없는 것을 빈 객체로 읽으면
+   * 화면이 "사유가 없다"(=조건을 다 만족했다)는 거짓을 적게 된다.
+   */
+  unavailability?: KpiUnavailability;
   generated_at: string;
 }
 
@@ -90,6 +114,19 @@ export interface KpiCardProps {
    * 값 해석의 맥락을 사용자에게 알려 준다(산식 재계산 아님, 단순 라벨).
    */
   betterWhen?: "lower" | "higher";
+  /**
+   * 값이 null 일 때 **왜 산출되지 않았는가**를 확정하는 근거(`KpiResponse.unavailability`
+   * 의 `evidence`). 카드가 사유를 지어내지 않고 이 근거에서 만든다.
+   *
+   * 없으면(`undefined`) 카드는 "근거가 실려 있지 않아 확정할 수 없다" 고 적는다 —
+   * 추측한 사유를 적지 않는다. 잠긴 기준선처럼 스칼라값만 있는 자리가 그렇다.
+   */
+  unavailabilityEvidence?: MetricUnavailabilityEvidence;
+  /**
+   * 근거가 없는 자리에서 "그 사유는 어디에 적혀 있는가" 를 알려 주는 한 줄.
+   * `lib/mrv/metric-unavailability.ts` 의 `UNAVAILABILITY_LOOKUP_*` 중 하나를 넘긴다.
+   */
+  unavailabilityLookupNote?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -298,6 +335,12 @@ export interface ComparisonPeriodMetrics {
   period: { from: string; to: string };
   config_version: string;
   metrics: Record<string, number | null>;
+  /**
+   * 지표별 '산출 불가' 사유(값이 null 인 지표만). **현재(After) 기간에만 실린다** —
+   * 기준선(Before)은 잠긴 스냅샷에서 복사한 스칼라값이라 그 기간의 근거 수치가 이
+   * 응답에 없다. 없는 것을 추측해 채우면 화면이 거짓 사유를 적는다.
+   */
+  unavailability?: KpiUnavailability;
 }
 
 export interface ComparisonRow {
@@ -329,6 +372,11 @@ export interface ComparisonMetricRow {
   deltaValue: number | null;
   improvementPct: number | null;
   direction: ComparisonDirection;
+  /**
+   * 현재(After) 값이 산출되지 않은 사유. 서버가 내려 준 것을 그대로 담는다(뷰모델은
+   * 사유를 짓지 않는다 — 산식도 문구도 재생산 금지라는 이 파일의 규약과 같은 이유다).
+   */
+  currentUnavailability?: MetricUnavailabilityReason[];
 }
 
 /** FE 표시용 뷰모델(phase-2 3.3절) — apiFetch 응답을 그대로 매핑(재계산 아님). */
@@ -475,6 +523,17 @@ export interface MrvReportBoundary {
    * `inputs_json.ei.measurement_basis` 에 있다(lib/mrv/snapshots.ts).
    */
   after_power_measurement_basis?: unknown;
+  /**
+   * After 기간의 '산출 불가' 사유를 확정하는 근거 수치(생성 시점에 얼린 것).
+   *
+   * **옛 리포트에는 이 칸이 없다**(이 칸을 넣기 전에 발행된 것들). 그래서 optional 이고,
+   * 없으면 화면·인쇄물이 "이 리포트는 그 근거를 담기 전에 발행됐다" 고 적는다
+   * (UNAVAILABILITY_LOOKUP_OLD_REPORT) — 지금 다시 계산해 채우면 발행된 증빙이 사후에
+   * 달라진다.
+   *
+   * ⚠ Before(기준선)의 근거는 여기 없다. 잠긴 스냅샷의 inputs_json 에 있다.
+   */
+  after_metric_evidence?: MetricUnavailabilityEvidence;
   biomass_source_refs: Record<string, string[]>;
   config_version: { before: string; after: string };
   assumptions: string[];
@@ -965,6 +1024,12 @@ export interface SiteBenchmarkRow {
   site_name: string;
   config_version: string;
   metrics: SiteBenchmarkMetrics;
+  /**
+   * 이 사업장에서 산출되지 않은 지표의 사유(값이 null 인 지표만). 표의 '산출 불가' 칸이
+   * 사업장마다 **다른 이유**일 수 있어 사업장별로 싣는다 — 표 아래에 한 문단으로
+   * 뭉개면 어느 사업장 이야기인지 알 수 없다.
+   */
+  unavailability?: KpiUnavailability;
 }
 
 /** GET /sites/kpi-benchmark 응답. */

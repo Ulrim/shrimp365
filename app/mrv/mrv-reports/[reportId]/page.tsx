@@ -28,6 +28,12 @@ import {
   REPORT_PROVISIONAL_METRIC_LINES,
 } from "@/lib/mrv/metric-provenance"
 import {
+  REPORT_UNAVAILABILITY_HEADING,
+  REPORT_UNAVAILABILITY_INTRO,
+  UNAVAILABILITY_REASON_KIND_PREFIX,
+  reportUnavailabilityEntries,
+} from "@/lib/mrv/metric-unavailability"
+import {
   REPORT_MISSING_BASIS_NOTE,
   REPORT_NON_METERED_HEADLINE,
   formatMeasurementBasisTally,
@@ -198,6 +204,29 @@ export default function MrvReportViewPage({
    */
   const flagList = report?.boundary.included_quality_flags
 
+  /**
+   * 어떤 값이 비었고 왜 비었는가. 항목을 고르는 일은 이 화면이 하지 않는다 —
+   * 인쇄 리포트(lib/mrv/report-html.ts::unavailabilitySection)와 **같은 함수**를 쓴다.
+   * 두 곳이 각자 고르면 화면으로 본 사람과 인쇄물로 본 사람이 다른 사실을 알게 된다.
+   */
+  const unavailable =
+    report === undefined
+      ? []
+      : reportUnavailabilityEntries({
+          reductionTco2e: report.reduction_tco2e,
+          before: {
+            eiTotal: report.before.ei_total,
+            eiAeration: report.before.ei_aeration,
+            scope2Tco2e: report.before.scope2_tco2e,
+            kpiSnapshotId: report.before.kpi_snapshot_id,
+          },
+          after: {
+            eiTotal: report.after.ei_total,
+            eiAeration: report.after.ei_aeration,
+          },
+          afterEvidence: report.boundary.after_metric_evidence,
+        })
+
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
       <PageHeader
@@ -254,6 +283,47 @@ export default function MrvReportViewPage({
               {report.emission_factor.source} · {report.emission_factor.year}년
             </p>
           </section>
+
+          {/* 어떤 칸이 비었고 왜 비었는가. 감축량과 비교표 사이에 둔다 — 인쇄 리포트와
+              같은 자리이고, 그 둘의 "산출 불가 / N/A" 를 설명하는 절이다.
+
+              모양은 품질 플래그 경고(테두리 amber)와도, 지표 정의 블록(왼쪽 굵은 선)과도
+              다르게 둔다. 셋은 서로 다른 종류의 사실이다 — 하나는 이 리포트의 수치가
+              기본 상태와 다르게 산출됐다는 것, 하나는 지표 정의의 성질, 이것은 이
+              리포트의 어떤 칸이 비었는가다. 12px 본문이 아니라 14px(text-sm)이지만
+              상자 안의 글자는 모두 text-mrv-fg 로 둔다. */}
+          {unavailable.length > 0 && (
+            <section
+              aria-label={REPORT_UNAVAILABILITY_HEADING}
+              className="flex flex-col gap-3 rounded-xl border border-mrv-na bg-mrv-surface p-4 text-sm leading-relaxed text-mrv-fg"
+            >
+              <h2 className="text-base font-semibold text-mrv-fg">
+                {REPORT_UNAVAILABILITY_HEADING}
+              </h2>
+              <p>{REPORT_UNAVAILABILITY_INTRO}</p>
+              {unavailable.map((entry) => (
+                <div key={entry.id} className="flex flex-col gap-1">
+                  <p className="font-semibold">{entry.label}</p>
+                  {entry.reasons.length > 0 && (
+                    <ul className="flex flex-col gap-2">
+                      {entry.reasons.map((reason) => (
+                        <li key={reason.id}>
+                          <span>
+                            {UNAVAILABILITY_REASON_KIND_PREFIX[reason.kind]}
+                            {reason.text}
+                          </span>
+                          {reason.action !== null && (
+                            <span className="mt-0.5 block">할 일 — {reason.action}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {entry.note !== null && <p>{entry.note}</p>}
+                </div>
+              ))}
+            </section>
+          )}
 
           <section aria-label="Before / After 비교표" className="flex flex-col gap-2">
             <h2 className="text-base font-semibold text-mrv-fg">

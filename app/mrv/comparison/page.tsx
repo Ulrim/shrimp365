@@ -26,6 +26,13 @@ import {
   provisionalMetricShortNote,
 } from "@/lib/mrv/metric-provenance"
 import {
+  UNAVAILABILITY_EVIDENCE_MISSING_TEXT,
+  UNAVAILABILITY_LOOKUP_LOCKED_BASELINE,
+  UNAVAILABILITY_REASON_KIND_PREFIX,
+  comparisonImprovementUnavailabilityText,
+  unavailabilityVsProvisionalNote,
+} from "@/lib/mrv/metric-unavailability"
+import {
   CenteredMessage,
   INPUT_CLASS,
   LoadError,
@@ -105,6 +112,16 @@ export default function ComparisonPage() {
   const noBaseline = query.error instanceof ApiError && query.error.status === 404
   const isUnauthorized = query.error instanceof ApiError && query.error.isUnauthorized
   const vm = query.data ? toComparisonViewModel(query.data) : null
+  /**
+   * 빈 칸을 모아 둔다. 세 가지가 서로 다른 사유를 갖는다 — 기준선 값, 현재 값, 그리고
+   * 개선율(두 값이 다 있어도 기준선이 0 이하면 개선율만 빈다 · lib/mrv/kpi/comparison.ts).
+   * 종전에는 셋을 같은 "산출 불가" 한 낱말로 적고 끝냈다.
+   */
+  const naRows = {
+    baseline: vm?.rows.filter((r) => r.baselineValue === null) ?? [],
+    current: vm?.rows.filter((r) => r.currentValue === null) ?? [],
+    improvement: vm?.rows.filter((r) => r.improvementPct === null) ?? [],
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
@@ -197,13 +214,22 @@ export default function ComparisonPage() {
                         </span>
                       )}
                     </td>
+                    {/* 빈 칸에는 "사유는 아래에 있다" 를 **글자로** 적는다. 표 아래
+                        문단만 두면 가로로 스크롤해 그 칸만 보고 있는 사람에게는 아무
+                        표시도 없다(잠정 지표 배지를 열 제목에 적는 것과 같은 이유). */}
                     <td className="px-4 py-2 text-right tabular-nums text-mrv-fg">
                       {formatNumber(row.baselineValue)}
+                      {row.baselineValue === null && (
+                        <span className="block text-[11px] font-normal">사유 아래</span>
+                      )}
                     </td>
                     <td className="px-4 py-2 text-right tabular-nums text-mrv-fg">
                       {formatNumber(row.currentValue)}
+                      {row.currentValue === null && (
+                        <span className="block text-[11px] font-normal">사유 아래</span>
+                      )}
                     </td>
-                    <td className="px-4 py-2 text-right tabular-nums text-mrv-muted">
+                    <td className="px-4 py-2 text-right tabular-nums text-mrv-fg">
                       {formatNumber(row.deltaValue)}
                     </td>
                     <td
@@ -212,6 +238,11 @@ export default function ComparisonPage() {
                       {row.improvementPct === null
                         ? "산출 불가"
                         : `${row.improvementPct > 0 ? "+" : ""}${row.improvementPct.toFixed(1)}%`}
+                      {row.improvementPct === null && (
+                        <span className="block text-[11px] font-normal text-mrv-fg">
+                          사유 아래
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -223,6 +254,74 @@ export default function ComparisonPage() {
             개선율은 지표 방향을 보정한 값입니다 — 양수면 기준선보다 나아졌다는 뜻입니다.
             근거 추적: 기준선 {query.data?.provenance.baseline_id}
           </p>
+
+          {/* 왜 산출되지 않았는가. 표 안에서는 자리가 없으므로 바로 아래에 지표별로
+              적는다 — 사유는 지표마다 다르고 여러 개가 겹칠 수 있다.
+
+              현재(After)의 사유는 **서버가 내려 준 것**을 그대로 쓴다. 기준선(Before)은
+              잠긴 스냅샷의 스칼라값이라 근거 수치가 이 응답에 없으므로, 추측하지 않고
+              어디에 적혀 있는지를 적는다.
+
+              12px 본문이라 AA 기준이 4.5:1 이다 — 이 상자 안은 전부 text-mrv-fg. */}
+          {(naRows.current.length > 0 ||
+            naRows.baseline.length > 0 ||
+            naRows.improvement.length > 0) && (
+            <section
+              aria-label="산출 불가 사유"
+              className="flex flex-col gap-3 rounded-xl border border-mrv-border bg-mrv-surface p-4 text-xs leading-relaxed text-mrv-fg"
+            >
+              <h3 className="text-sm font-semibold text-mrv-fg">산출 불가 사유</h3>
+
+              {naRows.current.map((row) => (
+                <div key={`cur-${row.key}`} className="flex flex-col gap-1">
+                  <p className="font-semibold">현재(After) · {row.label}</p>
+                  {row.currentUnavailability === undefined ? (
+                    <p>{UNAVAILABILITY_EVIDENCE_MISSING_TEXT}</p>
+                  ) : (
+                    <ul className="flex flex-col gap-2">
+                      {row.currentUnavailability.map((reason) => (
+                        <li key={reason.id}>
+                          <span>
+                            {UNAVAILABILITY_REASON_KIND_PREFIX[reason.kind]}
+                            {reason.text}
+                          </span>
+                          {reason.action !== null && (
+                            <span className="mt-0.5 block">할 일 — {reason.action}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {/* 산식 미확정은 이 기간의 산출 불가와 다른 층이다. */}
+                  {unavailabilityVsProvisionalNote(row.key) !== null && (
+                    <p>{unavailabilityVsProvisionalNote(row.key)}</p>
+                  )}
+                </div>
+              ))}
+
+              {naRows.baseline.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <p className="font-semibold">
+                    기준선(Before) · {naRows.baseline.map((r) => r.label).join(" · ")}
+                  </p>
+                  <p>{UNAVAILABILITY_LOOKUP_LOCKED_BASELINE}</p>
+                </div>
+              )}
+
+              {naRows.improvement.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <p className="font-semibold">개선율</p>
+                  <ul className="flex flex-col gap-1.5">
+                    {naRows.improvement.map((row) => (
+                      <li key={`imp-${row.key}`}>
+                        {row.label} — {comparisonImprovementUnavailabilityText(row)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </section>
+          )}
 
           {/* 잠정 지표의 개선율은 "무엇의 변화인가" 가 다르다. 이 화면은 두 기간의 산식
               version 을 위에 적어 두므로, 그 둘이 다를 때 OEI 의 변화가 스케일 보정까지

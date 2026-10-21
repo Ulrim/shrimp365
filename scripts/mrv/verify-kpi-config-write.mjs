@@ -37,7 +37,7 @@
 
 import { execFileSync } from "node:child_process"
 import { createRequire } from "node:module"
-import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { copyFileSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -78,6 +78,15 @@ try {
     // ⑦ 가 보는 모듈. api-types 는 metric-provenance 가 타입만 가져오지만, tsc 가
     // 컴파일하려면 파일이 있어야 한다.
     "metric-provenance.ts",
+    // ⑧ 이 보는 모듈. 실물을 컴파일해 쓴다 — 엔진을 오라클로 삼아 "엔진이 null 을 낸
+    // 조건과 이 모듈이 적는 사유가 같은가" 를 대조하기 때문에 스텁으로 바꾸면 정작
+    // 검증하려는 연결이 사라진다.
+    "metric-unavailability.ts",
+    // ⑧-q 가 **인쇄 리포트를 실제로 렌더해** 사유가 인쇄되는지 본다. 원문에서 이름만
+    // 찾는 검사는 함수 정의 자체에 걸려 통과해 버린다(역검증에서 실제로 그랬다) —
+    // 그래서 출력물을 본다. 이 파일은 순수 렌더러라 그대로 돌릴 수 있다.
+    "report-html.ts",
+    "measurement-basis.ts",
     "api-types.ts",
   ]) {
     copyFileSync(join(ROOT, "lib/mrv", f), join(outDir, f))
@@ -109,6 +118,18 @@ try {
       "",
     ].join("\n"),
   )
+  // report-html 은 리포트 행 타입만 가져온다(import type) — 실행 코드가 없으므로
+  // 타입 전용 스텁으로 둔다. 실제 타입이 어긋나는지는 tsc --noEmit 가 본다.
+  writeFileSync(
+    join(outDir, "mrv-report-service.ts"),
+    [
+      "// 검증용 타입 스텁(실제 타입 검사는 tsc --noEmit 가 한다).",
+      "/* eslint-disable @typescript-eslint/no-explicit-any */",
+      "export type MrvReportRow = any",
+      "export type EmissionFactorRow = any",
+      "",
+    ].join("\n"),
+  )
   execFileSync("mkdir", ["-p", join(outDir, "kpi")])
   for (const f of [
     "index.ts", "types.ts", "status.ts", "internal.ts", "config.ts",
@@ -127,6 +148,12 @@ try {
       join(outDir, "kpi-config-source.ts"),
       join(outDir, "kpi-config-validate.ts"),
       join(outDir, "metric-provenance.ts"),
+      join(outDir, "metric-unavailability.ts"),
+      // ⑧ 은 엔진 **실물**을 오라클로 쓴다(computeEi/computeFcr/computeOei/
+      // computeMortality/computeScope2Reduction/compareMetric). 배럴을 함께 컴파일해
+      // 두어야 그 함수들이 나온다.
+      join(outDir, "kpi", "index.ts"),
+      join(outDir, "report-html.ts"),
       "--outDir", join(outDir, "out"),
       "--module", "commonjs",
       "--target", "es2022",
@@ -146,6 +173,9 @@ try {
   const prov = require(join(outDir, "out", "metric-provenance.js"))
   const engineStatus = require(join(outDir, "out", "kpi", "status.js"))
   const engineTypes = require(join(outDir, "out", "kpi", "types.js"))
+  const na = require(join(outDir, "out", "metric-unavailability.js"))
+  const kpi = require(join(outDir, "out", "kpi", "index.js"))
+  const reportHtml = require(join(outDir, "out", "report-html.js"))
 
   const engineSrc = readFileSync(join(ROOT, "lib/mrv/kpi/config.ts"), "utf8")
 
@@ -864,6 +894,725 @@ try {
           return `${rel} 가 리포트 공용 문구 ${name} 를 가져다 쓰지 않는다`
         }
       }
+    }
+    return null
+  })
+
+
+  // ── ⑧ 「산출 불가」의 사유가 엔진의 결론과 같은 것을 가리키는가 ──────────
+  //
+  // 고정하는 것: KPI 카드는 값이 없는 지표 넷에 같은 추측 한 줄을 적고 있었다
+  // ("해당 기간에 산출 조건을 만족하지 못했습니다(예: 생산량 변화 부족)"). 지금은
+  // `lib/mrv/metric-unavailability.ts` 가 **엔진이 돌려준 근거**에서 사유를 확정한다.
+  //
+  // ★ 여기서 **엔진 실물이 오라클**이다. 시나리오마다 computeEi/computeFcr/computeOei/
+  //   computeMortality 를 실제로 돌려 "엔진이 null 을 냈는가" 를 먼저 확인하고, 그
+  //   다음에 모듈이 적는 사유 id 를 대조한다. 엔진의 null 조건이 바뀌면(또는 모듈이
+  //   엉뚱한 조건을 적으면) 두 쪽이 어긋나 FAIL 한다.
+  //
+  // ★ import 만 해 두고 단정이 없으면 "약속만 하고 비어 있는 검사" 가 된다. 아래는
+  //   전부 실제 값을 들여다보고, 마지막 두 항목은 **화면·인쇄 리포트 원문**을 읽어
+  //   공용 상수를 정말 가져다 쓰는지(그리고 옛 추측 문구가 되살아나지 않았는지)까지 본다.
+
+  const P_FROM = new Date("2026-08-01T00:00:00Z")
+  const P_TO = new Date("2026-08-31T00:00:00Z")
+  const VER = "2026.1.0"
+
+  /** 생산량 기록 n건을 개시/마감 시점으로 고른다 — kpi-service.pickBiomassBounds 와 같은 규약. */
+  function bounds(records, startKg, endKg) {
+    if (records === 0) {
+      const empty = { ts: new Date(0), biomassKg: 0.0, sourceRef: "none" }
+      return [empty, empty]
+    }
+    if (records === 1) {
+      const only = { ts: new Date("2026-08-02T00:00:00Z"), biomassKg: startKg, sourceRef: "h1" }
+      return [only, only]
+    }
+    return [
+      { ts: new Date("2026-08-02T00:00:00Z"), biomassKg: startKg, sourceRef: "h1" },
+      { ts: new Date("2026-08-20T00:00:00Z"), biomassKg: endKg, sourceRef: "h2" },
+    ]
+  }
+
+  function powerReading(kwh, isAeration) {
+    return {
+      meterId: isAeration ? "m-aer" : "m-main",
+      ts: new Date("2026-08-05T00:00:00Z"),
+      kwh,
+      isAeration,
+      qualityFlag: "ok",
+    }
+  }
+
+  /**
+   * 시나리오 하나를 **실물 엔진**으로 돌리고, kpi-service 와 같은 모양의 근거를 만든다.
+   * (조립 자체가 kpi-service 와 일치하는지는 verify-pipeline 이 실물로 본다 — 여기서
+   * 보는 것은 "그 근거로 모듈이 무엇을 적는가" 다.)
+   */
+  function scenario(opts) {
+    const params = opts.params ?? {}
+    const eiCfg = engine.eiConfigFromParams(params)
+    const fcrCfg = engine.fcrConfigFromParams(params)
+    const oeiCfg = engine.oeiConfigFromParams(params)
+    const mortCfg = engine.mortalityConfigFromParams(params)
+
+    const records = opts.records ?? 2
+    const [bStart, bEnd] = bounds(records, opts.startKg ?? 100, opts.endKg ?? 600)
+    const power = opts.power ?? [powerReading(900, false), powerReading(400, true)]
+    const feed = opts.feed ?? [
+      { sourceRef: "f1", batchId: "b1", ts: new Date("2026-08-06T00:00:00Z"), feedKg: 120, qualityFlag: "ok" },
+    ]
+    const doReadings = opts.doReadings ?? [
+      { meterId: "m-do", ts: new Date("2026-08-07T00:00:00Z"), doMgL: 6.5, qualityFlag: "ok" },
+    ]
+    const band = opts.band === undefined ? { doMin: 5.0, doMax: 8.0 } : opts.band
+    const mortRows = opts.mortality ?? [
+      { sourceRef: "d1", batchId: "b1", ts: new Date("2026-08-08T00:00:00Z"), deadCount: 10 },
+    ]
+    const stocked = opts.stocked === undefined ? 100000 : opts.stocked
+
+    const ei = kpi.computeEi(power, bStart, bEnd, P_FROM, P_TO, eiCfg, VER)
+    const fcr = kpi.computeFcr(feed, bStart, bEnd, P_FROM, P_TO, fcrCfg, VER)
+    const mort = kpi.computeMortality(mortRows, stocked, P_FROM, P_TO, mortCfg, VER)
+    const oei =
+      band === null
+        ? null
+        : kpi.computeOei(doReadings, power, bStart, bEnd, band, P_FROM, P_TO, oeiCfg, VER)
+
+    const evidence = {
+      biomass_delta_kg: ei.biomassDeltaKg,
+      biomass_record_count: records,
+      ei_min_biomass_delta_kg: eiCfg.minBiomassDeltaKg,
+      fcr_min_biomass_delta_kg: fcrCfg.minBiomassDeltaKg,
+      oei_min_biomass_kg: oeiCfg.minBiomassKg,
+      total_power_kwh: ei.totalPowerKwh,
+      aeration_power_kwh: ei.aerationPowerKwh,
+      oei_aeration_power_kwh: oei === null ? null : oei.aerationPowerKwh,
+      included_reading_count: ei.includedReadingCount,
+      excluded_reading_count: ei.excludedReadingCount,
+      included_feed_count: fcr.includedFeedCount,
+      excluded_feed_count: fcr.excludedFeedCount,
+      stocked_count: mort.stockedCount,
+      oei_applicable: oei !== null,
+      do_total_samples: oei === null ? null : oei.doTotalSamples,
+      do_excluded_samples: oei === null ? null : oei.doExcludedSamples,
+    }
+    const values = {
+      ei_total: ei.eiTotal,
+      ei_aeration: ei.eiAeration,
+      fcr: fcr.fcr,
+      oei: oei === null ? null : oei.oei,
+      mortality_rate: mort.cumulativeRatePct,
+    }
+    return { values, evidence }
+  }
+
+  function reasonIds(metricKey, evidence) {
+    return na.metricUnavailabilityReasons(metricKey, evidence).map((r) => r.id).sort()
+  }
+  function causeIds(metricKey, evidence) {
+    return na
+      .metricUnavailabilityReasons(metricKey, evidence)
+      .filter((r) => r.kind === "cause")
+      .map((r) => r.id)
+      .sort()
+  }
+
+  const ALL_METRIC_KEYS = ["ei_total", "ei_aeration", "fcr", "oei", "mortality_rate"]
+
+  check("⑧-a 산출된 지표에는 확정 사유가 하나도 없다", () => {
+    // 역방향 검사. 모듈이 아무 때나 "분모 부족" 을 적으면 여기서 걸린다.
+    const { values, evidence } = scenario({})
+    for (const key of ALL_METRIC_KEYS) {
+      if (values[key] === null) return `기준 시나리오에서 ${key} 가 산출되지 않았다`
+      const causes = causeIds(key, evidence)
+      if (causes.length > 0) return `${key}: 값이 있는데 확정 사유를 적는다 ${JSON.stringify(causes)}`
+    }
+    return null
+  })
+
+  check("⑧-b 생산량 기록 0건 · 1건 · 2건이 서로 다른 사유다", () => {
+    const cases = [
+      [{ records: 0 }, "biomass_no_record"],
+      [{ records: 1, startKg: 300 }, "biomass_single_record"],
+      [{ records: 2, startKg: 300, endKg: 300 }, "biomass_delta_below_threshold"],
+      [{ records: 2, startKg: 600, endKg: 400 }, "biomass_delta_negative"],
+    ]
+    for (const [opts, wantId] of cases) {
+      const { values, evidence } = scenario(opts)
+      // 엔진이 오라클이다 — 먼저 null 인지 확인한다.
+      for (const key of ["ei_total", "ei_aeration", "fcr"]) {
+        if (values[key] !== null) return `${JSON.stringify(opts)}: 엔진이 ${key} 를 산출했다`
+        if (!causeIds(key, evidence).includes(wantId)) {
+          return `${JSON.stringify(opts)} · ${key}: ${wantId} 가 사유에 없다 ${JSON.stringify(reasonIds(key, evidence))}`
+        }
+      }
+    }
+    return null
+  })
+
+  check("⑧-c 사유가 겹치면 전부 적는다", () => {
+    // 전력도 없고 생산량도 없는 기간. 하나만 적으면 운영자가 두 번 헛걸음한다.
+    const { values, evidence } = scenario({ records: 0, power: [], feed: [] })
+    if (values.ei_total !== null) return "엔진이 EI 를 산출했다"
+    const ids = reasonIds("ei_total", evidence)
+    for (const want of ["biomass_no_record", "power_readings_none"]) {
+      if (!ids.includes(want)) return `EI 사유에 ${want} 가 없다 ${JSON.stringify(ids)}`
+    }
+    const fcrIds = reasonIds("fcr", evidence)
+    for (const want of ["biomass_no_record", "feed_logs_none"]) {
+      if (!fcrIds.includes(want)) return `FCR 사유에 ${want} 가 없다 ${JSON.stringify(fcrIds)}`
+    }
+    // 폭기 EI: 전력이 한 건도 없으면 폭기 전력 0 은 그 결과다 — 같은 할 일을 두 번
+    // 적지 않고 한 문장이 둘을 말한다. 그 대신 폭기 전력이 0 이라는 **사실**은 빠지면
+    // 안 된다.
+    const aerIds = reasonIds("ei_aeration", evidence)
+    if (!aerIds.includes("power_readings_none")) {
+      return `폭기 EI 사유에 power_readings_none 가 없다 ${JSON.stringify(aerIds)}`
+    }
+    if (aerIds.includes("aeration_power_zero")) {
+      return `전력이 0건인데 폭기 전력 0 을 따로 또 적는다 ${JSON.stringify(aerIds)}`
+    }
+    const aerText = na
+      .metricUnavailabilityReasons("ei_aeration", evidence)
+      .map((r) => r.text)
+      .join(" ")
+    if (!aerText.includes("폭기 전력도 0 kWh")) {
+      return `폭기 전력이 0 이라는 사실이 빠졌다: ${aerText}`
+    }
+
+    // 전력은 있는데 폭기 계측기만 없는 기간은 **폭기 전력 0** 을 따로 적는다.
+    const noAerMeter = scenario({
+      records: 0,
+      power: [powerReading(900, false)],
+      feed: [],
+    })
+    const noAerIds = reasonIds("ei_aeration", noAerMeter.evidence)
+    if (!noAerIds.includes("aeration_power_zero")) {
+      return `폭기 계측기가 없는 기간에 그 사실을 적지 않는다 ${JSON.stringify(noAerIds)}`
+    }
+    return null
+  })
+
+  check("⑧-d 분모만 비어 있고 값이 0 인 경우를 사유로 적지 않는다", () => {
+    // 전력 0건 + 생산량 증가 → 엔진은 EI 를 **0 으로 산출한다**(null 이 아니다).
+    // 그 사실을 '함께 비어 있음' 으로만 적어야 한다 — 확정 사유로 적으면 거짓이다.
+    const { values, evidence } = scenario({ power: [], feed: [] })
+    if (values.ei_total !== 0) return `엔진 EI 가 0 이 아니다: ${values.ei_total}`
+    if (values.fcr !== 0) return `엔진 FCR 이 0 이 아니다: ${values.fcr}`
+    const reasons = na.metricUnavailabilityReasons("ei_total", evidence)
+    const power = reasons.find((r) => r.id === "power_readings_none")
+    if (power === undefined) return "전력 0건을 아예 적지 않는다"
+    if (power.kind !== "also_missing") return `전력 0건의 무게가 ${power.kind} 다`
+    if (causeIds("ei_total", evidence).length > 0) {
+      return `값이 0 으로 산출됐는데 확정 사유를 적는다 ${JSON.stringify(causeIds("ei_total", evidence))}`
+    }
+    return null
+  })
+
+  check("⑧-e 임계값을 문장에 박지 않고 적용 설정에서 읽는다", () => {
+    // 조직 설정이 임계값을 덮으면 사유 문장의 숫자도 따라가야 한다. 코드에 0 을 박아
+    // 두면 이 항목이 FAIL 한다.
+    const params = {
+      ei: { included_quality_flags: ["ok"], min_biomass_delta_kg: 250.0 },
+      fcr: { included_quality_flags: ["ok"], min_biomass_delta_kg: 250.0 },
+      oei: { included_quality_flags: ["ok"], min_biomass_kg: 250.0 },
+      mortality: { moving_avg_window_days: 7 },
+    }
+    // Δbiomass = 100 kg — 기본 임계값(0)이면 산출되고, 250 이면 산출되지 않는다.
+    const { values, evidence } = scenario({ params, startKg: 100, endKg: 200 })
+    if (values.ei_total !== null) return "엔진이 임계값을 보지 않았다(EI 가 산출됐다)"
+    const text = na
+      .metricUnavailabilityReasons("ei_total", evidence)
+      .map((r) => r.text)
+      .join(" ")
+    if (!text.includes("250.00 kg")) return `사유가 적용 임계값을 적지 않는다: ${text}`
+    if (!text.includes("100.00 kg")) return `사유가 실제 생산량 변화를 적지 않는다: ${text}`
+    // 기본값으로 돌리면 같은 기간이 산출된다 — 임계값이 실제로 판정을 가른다는 확인.
+    const base = scenario({ startKg: 100, endKg: 200 })
+    if (base.values.ei_total === null) return "기본 임계값에서도 산출되지 않는다(시나리오가 무의미)"
+    return null
+  })
+
+  check("⑧-f 임계값을 모르면 단정하지 않는다", () => {
+    const { evidence } = scenario({ startKg: 300, endKg: 300 })
+    const partial = { biomass_delta_kg: evidence.biomass_delta_kg, biomass_record_count: 2 }
+    const reasons = na.metricUnavailabilityReasons("ei_total", partial)
+    if (reasons.length !== 1) return `사유가 1건이 아니다 ${JSON.stringify(reasons.map((r) => r.id))}`
+    if (reasons[0].kind !== "unknown") return `임계값을 모르는데 ${reasons[0].kind} 로 단정한다`
+    if (!reasons[0].text.includes("0.00 kg")) return "아는 숫자(생산량 변화)를 적지 않는다"
+    // 근거가 아예 없으면 '모른다' 한 건.
+    for (const empty of [undefined, null]) {
+      const r = na.metricUnavailabilityReasons("ei_total", empty)
+      if (r.length !== 1 || r[0].id !== "evidence_missing" || r[0].kind !== "unknown") {
+        return `근거 없음에서 ${JSON.stringify(r)} 를 돌려준다`
+      }
+    }
+    return null
+  })
+
+  check("⑧-g OEI 의 세 경계 조건을 각각 · 겹쳐서 적는다", () => {
+    // 산식이 null 을 내는 자리는 셋이다(lib/mrv/kpi/oxygen.ts): 유효 DO 0 / 폭기 전력 0 /
+    // 생산량 정규화 불가. 화면은 넷을 같은 한 줄로 적고 있었다.
+    const noDo = scenario({ doReadings: [] })
+    if (noDo.values.oei !== null) return "엔진이 DO 0건에서 OEI 를 산출했다"
+    if (!causeIds("oei", noDo.evidence).includes("do_samples_none")) {
+      return `DO 0건 사유가 없다 ${JSON.stringify(reasonIds("oei", noDo.evidence))}`
+    }
+    const noAer = scenario({ power: [powerReading(900, false)] })
+    if (noAer.values.oei !== null) return "엔진이 폭기 전력 0 에서 OEI 를 산출했다"
+    if (!causeIds("oei", noAer.evidence).includes("aeration_power_zero")) {
+      return `폭기 전력 0 사유가 없다 ${JSON.stringify(reasonIds("oei", noAer.evidence))}`
+    }
+    const noDelta = scenario({ records: 2, startKg: 300, endKg: 300 })
+    if (noDelta.values.oei !== null) return "엔진이 Δbiomass 0 에서 OEI 를 산출했다"
+    if (causeIds("oei", noDelta.evidence).length === 0) return "Δbiomass 사유가 없다"
+    // 셋이 겹친 기간은 셋을 전부 적는다.
+    const all = scenario({ records: 0, doReadings: [], power: [] })
+    const ids = causeIds("oei", all.evidence)
+    for (const want of ["do_samples_none", "aeration_power_zero", "biomass_no_record"]) {
+      if (!ids.includes(want)) return `겹친 사유에 ${want} 가 없다 ${JSON.stringify(ids)}`
+    }
+    return null
+  })
+
+  check("⑧-h DO 목표대역이 없으면 그 사실만 적는다", () => {
+    // '산출 대상이 아니다' 와 '조건을 못 채웠다' 는 다른 사실이다. 입력 사유를 함께
+    // 적으면 운영자가 엉뚱한 곳(전력·생산량)을 먼저 손댄다.
+    const { values, evidence } = scenario({ band: null, records: 0, power: [], doReadings: [] })
+    if (values.oei !== null) return "대역이 없는데 OEI 가 산출됐다"
+    const ids = reasonIds("oei", evidence)
+    if (JSON.stringify(ids) !== JSON.stringify(["oei_not_applicable"])) {
+      return `사유가 oei_not_applicable 하나가 아니다 ${JSON.stringify(ids)}`
+    }
+    const only = na.metricUnavailabilityReasons("oei", evidence)[0]
+    if (only.action === null || !only.action.includes("target_do_min")) {
+      return "무엇을 하면 채워지는지(대역 등록)를 적지 않는다"
+    }
+    return null
+  })
+
+  check("⑧-i 폐사율은 입식 수를 분모로 적고, 기간과 무관함을 밝힌다", () => {
+    const { values, evidence } = scenario({ stocked: 0 })
+    if (values.mortality_rate !== null) return "입식 수 0 에서 폐사율이 산출됐다"
+    const reasons = na.metricUnavailabilityReasons("mortality_rate", evidence)
+    if (!reasons.some((r) => r.id === "stocked_count_zero" && r.kind === "cause")) {
+      return `사유가 없다 ${JSON.stringify(reasons.map((r) => r.id))}`
+    }
+    // 이 수는 사이트의 전 기간 배치 합이다 — 기간을 바꿔도 달라지지 않는다는 사실을
+    // 적지 않으면 운영자가 기간만 바꿔 보며 시간을 버린다.
+    if (!reasons[0].text.includes("기간")) return "기간과 무관하다는 사실을 적지 않는다"
+    return null
+  })
+
+  check("⑧-j 모든 사유가 추측이 아니고 · 할 일을 적는다", () => {
+    const seen = new Map()
+    const scenarios = [
+      scenario({}),
+      scenario({ records: 0, power: [], feed: [], doReadings: [], stocked: 0 }),
+      scenario({ records: 1 }),
+      scenario({ startKg: 600, endKg: 400 }),
+      scenario({ band: null }),
+      scenario({ power: [powerReading(900, false)] }),
+    ]
+    for (const sc of scenarios) {
+      for (const key of ALL_METRIC_KEYS) {
+        for (const r of na.metricUnavailabilityReasons(key, sc.evidence)) {
+          seen.set(r.id, r)
+        }
+      }
+    }
+    for (const empty of [undefined]) {
+      for (const r of na.metricUnavailabilityReasons("ei_total", empty)) seen.set(r.id, r)
+    }
+    if (seen.size < 8) return `둘러본 사유가 ${seen.size}종뿐이다(시나리오가 모자라다)`
+    for (const [id, r] of seen) {
+      if (typeof r.text !== "string" || r.text.trim().length < 20) return `${id}: 문장이 비었다/짧다`
+      // ★ 추측 금지. 종전 문구가 "(예: 생산량 변화 부족)" 이었다.
+      if (/예\s*:/.test(r.text)) return `${id}: 사유에 추측("예:")이 들어 있다 — ${r.text}`
+      // 사용자 문장에 마크다운을 쓰지 않는다(이 저장소는 그대로 렌더한다).
+      if (r.text.includes("**") || (r.action ?? "").includes("**")) return `${id}: 문장에 마크다운 ** 가 있다`
+      if (!["cause", "also_missing", "unknown"].includes(r.kind)) return `${id}: 모르는 kind ${r.kind}`
+      // 확정 사유에는 **무엇을 하면 채워지는지**가 반드시 붙는다.
+      if (r.kind === "cause" && (r.action === null || r.action.trim().length < 20)) {
+        return `${id}: 확정 사유인데 할 일을 적지 않는다`
+      }
+    }
+    // 무게를 색이 아니라 낱말로 구분한다.
+    for (const kind of ["cause", "also_missing", "unknown"]) {
+      const prefix = na.UNAVAILABILITY_REASON_KIND_PREFIX[kind]
+      if (typeof prefix !== "string" || prefix.trim().length === 0) {
+        return `${kind}: 무게를 적는 낱말이 비었다`
+      }
+    }
+    return null
+  })
+
+  check("⑧-k 숫자가 사유 문장에 들어간다", () => {
+    const { evidence } = scenario({ records: 0, power: [], feed: [] })
+    const text = na.metricUnavailabilityReasons("fcr", evidence).map((r) => r.text).join(" ")
+    // "급이 기록이 부족합니다" 가 아니라 건수를 적는다.
+    if (!/0 ?건/.test(text)) return `산입 건수를 적지 않는다: ${text}`
+    const excluded = scenario({
+      records: 0,
+      feed: [{ sourceRef: "f1", batchId: "b1", ts: new Date("2026-07-01T00:00:00Z"), feedKg: 12, qualityFlag: "ok" }],
+    })
+    const exText = na
+      .metricUnavailabilityReasons("fcr", excluded.evidence)
+      .map((r) => r.text)
+      .join(" ")
+    if (!exText.includes("제외 1건")) return `제외 건수를 적지 않는다: ${exText}`
+    return null
+  })
+
+  check("⑧-l 「산출 불가」와 「잠정 지표」가 다른 층임을 적는다", () => {
+    // 두 문장이 한 카드에 함께 뜬다. 연결이 없으면 "입력을 채우면 산식도 확정된다" 로
+    // 읽힌다. 판정은 metric-provenance 하나에서 와야 한다(사본 금지).
+    for (const key of prov.PROVENANCE_METRIC_KEYS) {
+      const note = na.unavailabilityVsProvisionalNote(key)
+      if (prov.isProvisionalMetric(key)) {
+        if (typeof note !== "string" || note.trim().length < 40) return `${key}: 연결 문장이 비었다`
+        if (!note.includes(prov.PROVISIONAL_METRIC_MARK)) {
+          return `${key}: 어느 칸을 보라는 말이 없다(「${prov.PROVISIONAL_METRIC_MARK}」)`
+        }
+        // 잠정 문구를 다시 베껴 쓰면 같은 자리에서 중복된다.
+        if (note.includes(prov.provisionalMetricReason(key))) {
+          return `${key}: 잠정 사유 문구를 그대로 다시 담는다(중복)`
+        }
+      } else if (note !== null) {
+        return `${key}: 확정 지표인데 연결 문장이 나온다`
+      }
+    }
+    return null
+  })
+
+  check("⑧-m 리포트 절이 산출되지 않은 값 전부를 고른다", () => {
+    // Scope2 엔진이 오라클이다 — 감축량 null 조건은 두 EI 중 하나라도 null 인 것이다.
+    const s2 = kpi.computeScope2Reduction({
+      baselineEiTotal: null,
+      afterEiTotal: 3.0,
+      afterBiomassDeltaKg: 500,
+      baselinePowerMwh: null,
+      afterPowerMwh: 1.5,
+      emissionFactorTco2ePerMwh: 0.4594,
+      emissionFactorSource: "src",
+      emissionFactorYear: 2023,
+      emissionFactorVersion: "v1",
+    })
+    if (s2.reductionTco2e !== null) return "엔진이 기준선 EI 없이 감축량을 냈다"
+    const { evidence } = scenario({})
+    const entries = na.reportUnavailabilityEntries({
+      reductionTco2e: s2.reductionTco2e,
+      before: { eiTotal: null, eiAeration: null, scope2Tco2e: s2.scope2TCo2eBaseline, kpiSnapshotId: null },
+      after: { eiTotal: 3.0, eiAeration: 1.2 },
+      afterEvidence: evidence,
+    })
+    const ids = entries.map((e) => e.id)
+    for (const want of ["reduction_tco2e", "before_ei", "before_scope2"]) {
+      if (!ids.includes(want)) return `${want} 항목이 없다 ${JSON.stringify(ids)}`
+    }
+    for (const e of entries) {
+      if (e.label.trim().length === 0) return `${e.id}: 어느 값인지 적지 않는다`
+      if (e.reasons.length === 0 && (e.note === null || e.note.trim().length < 20)) {
+        return `${e.id}: 사유도 안내도 없다`
+      }
+    }
+    // 기준선 쪽은 근거가 없으므로 되짚을 길(스냅샷)을 적는다.
+    const beforeEi = entries.find((e) => e.id === "before_ei")
+    if (!beforeEi.note.includes("kpi-snapshots")) return "기준선 사유를 되짚을 길을 적지 않는다"
+
+    // After 의 근거가 없는 옛 리포트는 '모른다' 로 적고, 그 사실도 밝힌다.
+    const old = na.reportUnavailabilityEntries({
+      reductionTco2e: null,
+      before: { eiTotal: 3.4, eiAeration: 1.1, scope2Tco2e: 2.0, kpiSnapshotId: "snap-1" },
+      after: { eiTotal: null, eiAeration: null },
+      afterEvidence: undefined,
+    })
+    const afterEntry = old.find((e) => e.id === "after_ei_total")
+    if (afterEntry === undefined) return "After EI 항목이 없다"
+    if (afterEntry.reasons[0].id !== "evidence_missing") return "옛 리포트에서 사유를 지어낸다"
+    if (afterEntry.note === null || afterEntry.note.trim().length < 20) {
+      return "옛 리포트라는 사실을 적지 않는다"
+    }
+    // 전부 산출됐으면 절을 만들지 않는다 — 없는 문제를 띄우지 않는다.
+    const none = na.reportUnavailabilityEntries({
+      reductionTco2e: 1.23,
+      before: { eiTotal: 3.4, eiAeration: 1.1, scope2Tco2e: 2.0, kpiSnapshotId: "snap-1" },
+      after: { eiTotal: 3.0, eiAeration: 1.0 },
+      afterEvidence: evidence,
+    })
+    return none.length === 0 ? null : `산출 불가가 없는데 항목이 ${none.length}건 생겼다`
+  })
+
+  check("⑧-n 개선율의 사유가 지표값의 사유와 구별된다", () => {
+    // compareMetric 이 오라클이다 — 기준선이 0 이하면 **변화량은 나오고 개선율만** 빈다.
+    const cases = [
+      [3.4, null],
+      [null, 3.0],
+      [0, 3.0],
+      [-1, 3.0],
+      [3.4, 3.0],
+    ]
+    for (const [baseline, current] of cases) {
+      const cmpResult = kpi.compareMetric(baseline, current, "lower_is_better")
+      const text = na.comparisonImprovementUnavailabilityText({
+        baselineValue: baseline,
+        currentValue: current,
+        improvementPct: cmpResult.improvementPct,
+      })
+      if (cmpResult.improvementPct === null) {
+        if (text === null) return `${baseline}/${current}: 개선율이 비었는데 사유가 없다`
+        if (text.trim().length < 20) return `${baseline}/${current}: 사유가 너무 짧다`
+        if (baseline !== null && current !== null && !text.includes("변화량")) {
+          return `${baseline}/${current}: 변화량은 산출됐다는 사실을 적지 않는다`
+        }
+      } else if (text !== null) {
+        return `${baseline}/${current}: 개선율이 있는데 사유를 적는다`
+      }
+    }
+    return null
+  })
+
+  check("⑧-o 사유가 나오는 자리 전부가 공용 모듈을 쓴다", () => {
+    /*
+     * 「화면으로 본 사람과 인쇄물로 본 사람이 다른 사실을 알게 되면 안 된다」를
+     * **원문으로** 확인한다. 이름이 2회 이상 나와야 한다 — 1회면 import 만 해 두고
+     * 쓰지 않은 상태일 수 있다(⑦-h 와 같은 함정).
+     */
+    const surfaces = [
+      ["components/mrv/kpi-card.tsx", ["metricUnavailabilityReasons", "UNAVAILABILITY_REASON_KIND_PREFIX"]],
+      ["app/mrv/overview/page.tsx", ["unavailability"]],
+      ["app/mrv/baseline/page.tsx", ["UNAVAILABILITY_LOOKUP_LOCKED_BASELINE", "unavailability"]],
+      ["app/mrv/comparison/page.tsx", ["UNAVAILABILITY_REASON_KIND_PREFIX", "comparisonImprovementUnavailabilityText"]],
+      ["app/mrv/multisite/page.tsx", ["UNAVAILABILITY_REASON_KIND_PREFIX", "unavailability"]],
+      ["app/mrv/mrv-reports/[reportId]/page.tsx", ["reportUnavailabilityEntries", "REPORT_UNAVAILABILITY_HEADING", "UNAVAILABILITY_REASON_KIND_PREFIX"]],
+      ["lib/mrv/report-html.ts", ["reportUnavailabilityEntries", "REPORT_UNAVAILABILITY_HEADING", "UNAVAILABILITY_REASON_KIND_PREFIX"]],
+      ["lib/mrv/kpi-service.ts", ["metricUnavailabilityReasons", "unavailabilityEvidence"]],
+      ["app/api/mrv/sites/[siteId]/comparison/route.ts", ["buildKpiUnavailability"]],
+      ["app/api/mrv/sites/kpi-benchmark/route.ts", ["buildKpiUnavailability"]],
+    ]
+    for (const [rel, names] of surfaces) {
+      const src = readFileSync(join(ROOT, rel), "utf8")
+      for (const name of names) {
+        if (src.split(name).length - 1 < 2) {
+          return `${rel} 가 ${name} 를 가져다 쓰지 않는다(이름이 2회 미만)`
+        }
+      }
+    }
+    // 리포트가 After 기간의 근거를 **생성 시점에 얼려** 담는지. 담지 않으면 발행된
+    // 리포트는 영원히 "근거가 없다" 로만 적힌다(사유를 지어내지 않는 것은 맞지만,
+    // 담을 수 있었던 사실을 버린 것이다).
+    const reportSrc = readFileSync(join(ROOT, "lib/mrv/mrv-report-service.ts"), "utf8")
+    if (!/after_metric_evidence:\s*comp\.unavailabilityEvidence/.test(reportSrc)) {
+      return "lib/mrv/mrv-report-service.ts 가 After 근거를 boundary_json 에 얼려 담지 않는다"
+    }
+    // 인쇄와 화면이 같은 **항목 선택 함수**를 호출하는지(이름만이 아니라 호출인지).
+    for (const rel of ["lib/mrv/report-html.ts", "app/mrv/mrv-reports/[reportId]/page.tsx"]) {
+      const src = readFileSync(join(ROOT, rel), "utf8")
+      if (!/reportUnavailabilityEntries\s*\(\s*\{/.test(src)) {
+        return `${rel} 가 reportUnavailabilityEntries 를 호출하지 않는다`
+      }
+    }
+    return null
+  })
+
+  check("⑧-p 옛 추측 문구가 되살아나지 않았다", () => {
+    /*
+     * 종전 문구가 사람 앞에 다시 나가는 일을 막는다.
+     *
+     * ★ **주석은 떼고 본다.** 이 작업의 주석들이 "전에는 이렇게 적었다" 며 그 문장을
+     *   인용하고 있어서, 원문을 그대로 훑으면 자기 설명에 걸려 영구히 FAIL 한다.
+     *   화면에 렌더되는 것은 주석이 아니라 문자열·JSX 본문이므로 그쪽만 본다.
+     */
+    const stripComments = (src) =>
+      src.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^[ \t]*\/\/.*$/gm, " ")
+    const roots = ["components/mrv", "app/mrv", "lib/mrv"]
+    const banned = "산출 조건을 만족하지 못했습니다"
+    const hits = []
+    const walk = (dir) => {
+      for (const entry of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+        const rel = `${dir}/${entry.name}`
+        if (entry.isDirectory()) {
+          walk(rel)
+          continue
+        }
+        if (!/\.(ts|tsx)$/.test(entry.name)) continue
+        if (stripComments(readFileSync(join(ROOT, rel), "utf8")).includes(banned)) {
+          hits.push(rel)
+        }
+      }
+    }
+    for (const r of roots) walk(r)
+    return hits.length === 0
+      ? null
+      : `추측 문구("${banned}")가 남아 있다: ${JSON.stringify(hits)}`
+  })
+
+
+  check("⑧-q 인쇄 리포트가 사유를 실제로 인쇄한다", () => {
+    /*
+     * ★ 원문에서 이름만 찾는 검사로는 모자란다. 역검증으로 인쇄 템플릿에서 절을 빼
+     *   보았더니 **그 검사가 통과했다** — 함수 정의 안에 이름이 그대로 남아 있었기
+     *   때문이다. 그래서 여기서는 렌더러를 실제로 돌려 **출력물**을 본다.
+     */
+    const { evidence } = scenario({ records: 0, power: [], feed: [] })
+    const makeReport = (over) => ({
+      id: "mrv-1",
+      site_id: "site-p",
+      org_id: "org-p",
+      baseline_id: "bsl-1",
+      period_start: "2026-08-01T00:00:00Z",
+      period_end: "2026-08-31T00:00:00Z",
+      emission_factor_id: "ef-1",
+      after_kpi_snapshot_id: "snap-2",
+      before_json: {
+        period: { from: "2026-07-01T00:00:00Z", to: "2026-07-31T00:00:00Z" },
+        config_version: VER,
+        ei_total: null,
+        ei_aeration: null,
+        total_power_kwh: 0,
+        aeration_power_kwh: 0,
+        biomass_delta_kg: 0,
+        scope2_tco2e: null,
+        kpi_snapshot_id: null,
+      },
+      after_json: {
+        period: { from: "2026-08-01T00:00:00Z", to: "2026-08-31T00:00:00Z" },
+        config_version: VER,
+        ei_total: null,
+        ei_aeration: null,
+        total_power_kwh: 0,
+        aeration_power_kwh: 0,
+        biomass_delta_kg: 0,
+        scope2_tco2e: 1.0,
+        kpi_snapshot_id: "snap-2",
+      },
+      reduction_tco2e: null,
+      formula_text: "감축량 = 산출 불가",
+      boundary_json: {
+        site_id: "site-p",
+        site_name: "검증 사이트",
+        included_meter_ids: ["m-main"],
+        included_quality_flags: ["ok"],
+        after_power_measurement_basis: { metered: 0, calculated: 0, estimated: 0, unrecorded: 0 },
+        after_metric_evidence: evidence,
+        biomass_source_refs: { before: [], after: [] },
+        config_version: { before: VER, after: VER },
+        assumptions: ["가정 하나"],
+        ...over,
+      },
+      pdf_path: null,
+      generated_by: "u-1",
+      generated_at: "2026-09-01T00:00:00Z",
+    })
+    const ef = {
+      id: "ef-1",
+      factor_tco2e_per_mwh: 0.4594,
+      source: "검증 출처",
+      year: 2023,
+      version: "v1",
+      effective_from: "2023-01-01T00:00:00Z",
+    }
+
+    const html = reportHtml.renderMrvReportHtml(makeReport({}), ef)
+    if (!html.includes(na.REPORT_UNAVAILABILITY_HEADING)) {
+      return "인쇄 리포트에 「산출 불가 사유」 절이 없다"
+    }
+    if (!html.includes(na.REPORT_UNAVAILABILITY_INTRO)) return "절의 머리말이 인쇄되지 않는다"
+    // 감축량 · 기준선 EI · After EI 세 가지가 전부 인쇄돼야 한다.
+    if (!html.includes("감축량")) return "감축량 사유가 인쇄되지 않는다"
+    if (!html.includes("kpi-snapshots")) return "기준선 사유를 되짚을 길이 인쇄되지 않는다"
+    // After 의 확정 사유(생산량 기록 0건)가 숫자·할 일과 함께 인쇄돼야 한다.
+    const afterReasons = na.metricUnavailabilityReasons("ei_total", evidence)
+    for (const r of afterReasons) {
+      if (!html.includes(r.text)) return `After 사유가 인쇄되지 않는다: ${r.text}`
+      if (r.action !== null && !html.includes(r.action)) return `할 일이 인쇄되지 않는다: ${r.id}`
+    }
+    if (!html.includes(na.UNAVAILABILITY_REASON_KIND_PREFIX.cause)) {
+      return "사유의 무게를 적는 낱말이 인쇄되지 않는다"
+    }
+
+    // 근거를 담기 전에 발행된 리포트는 **지어내지 않고** 그 사실을 인쇄한다.
+    const oldHtml = reportHtml.renderMrvReportHtml(
+      makeReport({ after_metric_evidence: undefined }),
+      ef,
+    )
+    if (!oldHtml.includes(na.UNAVAILABILITY_LOOKUP_OLD_REPORT)) {
+      return "옛 리포트에서 '근거가 없다'는 사실을 인쇄하지 않는다"
+    }
+    if (oldHtml.includes("생산량 기록이 한 건도 없습니다")) {
+      return "근거가 없는데 사유를 지어내 인쇄한다"
+    }
+
+    // 전부 산출된 리포트에는 절을 넣지 않는다 — 없는 문제를 인쇄하지 않는다.
+    const good = makeReport({})
+    good.before_json = { ...good.before_json, ei_total: 3.4, ei_aeration: 1.1, scope2_tco2e: 2.0, kpi_snapshot_id: "snap-1" }
+    good.after_json = { ...good.after_json, ei_total: 3.0, ei_aeration: 1.0 }
+    good.reduction_tco2e = 0.12
+    const goodHtml = reportHtml.renderMrvReportHtml(good, ef)
+    return goodHtml.includes(na.REPORT_UNAVAILABILITY_HEADING)
+      ? "산출 불가가 없는 리포트에도 절을 인쇄한다"
+      : null
+  })
+
+  check("⑧-r 리포트 화면이 같은 절을 **글자로** 렌더한다", () => {
+    /*
+     * 화면은 React 라 여기서 렌더할 수 없다. 그래서 JSX 를 본다 — 다만 이름이 **있는지**
+     * 가 아니라 **자식으로 보간되는지**를 본다.
+     *
+     * ★ 역검증에서 `<h2>{REPORT_UNAVAILABILITY_HEADING}</h2>` 를 한국어 리터럴로
+     *   바꿔 보았더니, 같은 상수가 `aria-label={...}` 에 남아 있어서 "이름이 있는가"
+     *   검사가 **통과했다.** 화면에 글자로 나가는 것은 속성이 아니라 자식이므로,
+     *   앞에 `>` 가 오는 꼴(`>{CONST}`)만 렌더로 인정한다.
+     */
+    const rel = "app/mrv/mrv-reports/[reportId]/page.tsx"
+    const src = readFileSync(join(ROOT, rel), "utf8")
+    const rendersAsChild = (name) =>
+      new RegExp(`>\\s*\\{${name}\\}`).test(src)
+    for (const name of ["REPORT_UNAVAILABILITY_HEADING", "REPORT_UNAVAILABILITY_INTRO"]) {
+      if (!rendersAsChild(name)) {
+        return `${rel} 가 ${name} 를 글자로 렌더하지 않는다(속성에만 쓰였거나 리터럴로 바뀌었다)`
+      }
+    }
+    if (!/reportUnavailabilityEntries\s*\(\s*\{/.test(src)) {
+      return `${rel} 가 공용 항목 선택 함수를 호출하지 않는다`
+    }
+    // 항목의 내용을 실제로 꺼내 쓰는지. 절을 지우면 이 접근들이 함께 사라진다.
+    for (const access of ["entry.label", "entry.note", "reason.text", "reason.action"]) {
+      if (!src.includes(`{${access}}`) && !src.includes(`${access} !== null`)) {
+        return `${rel} 가 ${access} 를 렌더하지 않는다`
+      }
+    }
+    if (!/UNAVAILABILITY_REASON_KIND_PREFIX\[/.test(src)) {
+      return `${rel} 가 사유의 무게를 적는 낱말을 쓰지 않는다`
+    }
+    return null
+  })
+
+  check("⑧-s 사유를 적는 화면들이 사유 문장과 할 일을 모두 렌더한다", () => {
+    /*
+     * 사유만 적고 **무엇을 하면 채워지는지**를 빼면 운영자는 여전히 무엇을 넣어야
+     * 하는지 모른다. 네 자리가 전부 `reason.text` 와 `reason.action` 을 꺼내 쓰는지
+     * 본다(이름이 아니라 접근 꼴을 본다 — import 만으로는 생기지 않는다).
+     */
+    const screens = [
+      "components/mrv/kpi-card.tsx",
+      "app/mrv/comparison/page.tsx",
+      "app/mrv/multisite/page.tsx",
+      "app/mrv/mrv-reports/[reportId]/page.tsx",
+    ]
+    for (const rel of screens) {
+      const src = readFileSync(join(ROOT, rel), "utf8")
+      if (!src.includes("{reason.text}")) return `${rel} 가 사유 문장을 렌더하지 않는다`
+      if (!src.includes("{reason.action}")) return `${rel} 가 할 일을 렌더하지 않는다`
+      if (!/UNAVAILABILITY_REASON_KIND_PREFIX\[reason\.kind\]/.test(src)) {
+        return `${rel} 가 사유의 무게를 적지 않는다`
+      }
+    }
+    // 인쇄 리포트는 문자열을 조립하므로 꼴이 다르다 — 출력물은 ⑧-q 가 본다.
+    const printSrc = readFileSync(join(ROOT, "lib/mrv/report-html.ts"), "utf8")
+    for (const access of ["reason.text", "reason.action", "entry.label", "entry.note"]) {
+      if (!printSrc.includes(access)) return `인쇄 리포트가 ${access} 를 쓰지 않는다`
     }
     return null
   })

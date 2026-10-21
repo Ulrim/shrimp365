@@ -36,6 +36,11 @@ import {
   provisionalMetricShortNote,
 } from "@/lib/mrv/metric-provenance"
 import {
+  UNAVAILABILITY_EVIDENCE_MISSING_TEXT,
+  UNAVAILABILITY_REASON_KIND_PREFIX,
+  unavailabilityVsProvisionalNote,
+} from "@/lib/mrv/metric-unavailability"
+import {
   Badge,
   CenteredMessage,
   INPUT_CLASS,
@@ -87,6 +92,19 @@ export default function MultisiteBenchmarkPage() {
   const isUnauthorized = query.error instanceof ApiError && query.error.isUnauthorized
   const rows = query.data?.sites ?? []
   const sorted = sortBenchmarkRows(rows, sortKey, sortDir)
+
+  /**
+   * 빈 칸이 있는 사업장과 그 지표. 표와 **같은 정렬**로 돌려 아래 사유 목록의 순서가
+   * 표의 행 순서와 어긋나지 않게 한다.
+   */
+  const naSites = sorted
+    .map((row) => ({
+      row,
+      keys: BENCHMARK_METRIC_META.map((m) => m.key).filter(
+        (key) => row.metrics[key] === null,
+      ),
+    }))
+    .filter((entry) => entry.keys.length > 0)
 
   function toggleSort(key: SiteBenchmarkMetricKey) {
     if (key === sortKey) {
@@ -204,6 +222,12 @@ export default function MultisiteBenchmarkPage() {
                         <span className="text-mrv-fg">
                           {formatBenchmarkNumber(row.metrics[meta.key])}
                         </span>
+                        {/* 빈 칸에는 "사유는 아래에 있다" 를 글자로 적는다. 표 아래
+                            문단만 두면 가로로 스크롤해 그 열만 보고 있는 사람에게는
+                            아무 표시도 없다. */}
+                        {row.metrics[meta.key] === null && (
+                          <span className="block text-[11px] text-mrv-fg">사유 아래</span>
+                        )}
                         {isBest && (
                           <Badge className="ml-1 bg-mrv-green-bg text-mrv-green">최고</Badge>
                         )}
@@ -225,6 +249,57 @@ export default function MultisiteBenchmarkPage() {
           기간 {isoDay(query.data.period.from)} ~ {isoDay(query.data.period.to)} · 최고/최저는
           지표 방향(OEI 만 높을수록 좋음)을 보정해 표시합니다.
         </p>
+      )}
+
+      {/* 왜 산출되지 않았는가 — **사업장별로** 적는다. 같은 '산출 불가' 칸이 사업장마다
+          다른 이유다(한 곳은 DO 목표대역이 없고, 다른 곳은 생산량 기록이 없다). 한 문단으로
+          뭉개면 어느 사업장 이야기인지 알 수 없다.
+
+          사유는 서버가 내려 준 것을 그대로 쓴다 — 이 화면이 지어내면 개요 화면의 KPI
+          카드와 다른 말을 하게 된다. 12px 본문이라 상자 안은 전부 text-mrv-fg. */}
+      {naSites.length > 0 && (
+        <section
+          aria-label="산출 불가 사유"
+          className="flex flex-col gap-4 rounded-xl border border-mrv-border bg-mrv-surface p-4 text-xs leading-relaxed text-mrv-fg"
+        >
+          <h3 className="text-sm font-semibold text-mrv-fg">산출 불가 사유 (사업장별)</h3>
+          {naSites.map(({ row, keys }) => (
+            <div key={row.site_id} className="flex flex-col gap-2">
+              <p className="font-semibold">
+                {row.site_name} · 산식 {row.config_version}
+              </p>
+              {keys.map((key) => {
+                const reasons = row.unavailability?.metrics[key]?.reasons
+                const layerNote = unavailabilityVsProvisionalNote(key)
+                return (
+                  <div key={key} className="flex flex-col gap-1">
+                    <p className="font-medium">
+                      {BENCHMARK_METRIC_META.find((m) => m.key === key)?.label ?? key}
+                    </p>
+                    {reasons === undefined ? (
+                      <p>{UNAVAILABILITY_EVIDENCE_MISSING_TEXT}</p>
+                    ) : (
+                      <ul className="flex flex-col gap-2">
+                        {reasons.map((reason) => (
+                          <li key={reason.id}>
+                            <span>
+                              {UNAVAILABILITY_REASON_KIND_PREFIX[reason.kind]}
+                              {reason.text}
+                            </span>
+                            {reason.action !== null && (
+                              <span className="mt-0.5 block">할 일 — {reason.action}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {layerNote !== null && <p>{layerNote}</p>}
+                  </div>
+                )
+              })}
+            </div>
+          ))}
+        </section>
       )}
 
       {/* 잠정 지표가 이 표에 섞여 있다는 사실. 표가 비어 있어도 적는다 — 열은 그대로

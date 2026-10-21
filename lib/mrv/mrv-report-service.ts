@@ -291,6 +291,23 @@ export async function generateMrvReport(params: {
      * 된다. 그래서 이 칸의 주어를 After 로 한정하고, 화면·인쇄물이 그렇게 적는다.
      */
     after_power_measurement_basis: comp.eiMeasurementBasis,
+    /**
+     * After 기간의 「산출 불가」 사유를 확정하는 **근거 수치** — 생산량 변화와 그
+     * 산출 임계값, 산입 건수, 폭기 전력, 입식 수 등(lib/mrv/metric-unavailability.ts).
+     *
+     * 왜 리포트가 이것을 들고 있어야 하는가: 원천 행은 나중에 보정·추가되고 조직의
+     * `kpi_config` 는 새 version 으로 임계값을 덮는다. 발행된 리포트가 **발행 시점의
+     * 근거**를 들고 있지 않으면, 반 년 뒤 그 리포트를 다시 열었을 때 "그때 왜 이 칸이
+     * 비었는가" 가 달라져 있다 — 배출계수 출처와 전력 자료유형을 얼리는 것과 같은
+     * 이유다.
+     *
+     * **문장은 얼리지 않는다.** 수치만 담고 사람이 읽는 문구는 공용 모듈이 만든다 —
+     * 품질 플래그·전력 자료유형과 같은 규약이고, 그래서 화면과 인쇄물이 갈릴 수 없다.
+     *
+     * **After 기간만 담는다.** Before 의 근거는 잠긴 스냅샷에 있고(inputs_json),
+     * 그것을 여기 베껴 오면 '리포트가 산출한 것' 과 '옛 스냅샷에서 베낀 것' 이 섞인다.
+     */
+    after_metric_evidence: comp.unavailabilityEvidence,
     biomass_source_refs: {
       before: beforeInputs.source_biomass_refs,
       after: [...comp.ei.sourceBiomassRefs],

@@ -23,6 +23,8 @@ import { useMrvSession } from "@/lib/mrv/ui/session"
 import { useMrvSite } from "@/lib/mrv/ui/site"
 import { formatIsoLocal } from "@/lib/mrv/ui/datetime"
 import { METRIC_META, METRIC_ORDER } from "@/lib/mrv/ui/metric-meta"
+import { UNAVAILABILITY_LOOKUP_LOCKED_BASELINE } from "@/lib/mrv/metric-unavailability"
+import type { MetricUnavailabilityEvidence } from "@/lib/mrv/metric-unavailability"
 import { KpiCard } from "@/components/mrv/kpi-card"
 import { ConfirmDialog } from "@/components/mrv/confirm-dialog"
 import { BaselineReadinessReport } from "@/components/mrv/baseline-readiness-report"
@@ -45,14 +47,25 @@ function dayToIsoUtc(day: string): string | null {
   return Number.isNaN(new Date(iso).getTime()) ? null : iso
 }
 
+/**
+ * 지표 카드 다섯 장.
+ *
+ * `unavailabilityEvidence` 는 **미리보기에만 있다.** 잠긴 기준선은 스냅샷에서 복사한
+ * 스칼라값만 들고 있어(lib/mrv/baseline.ts) 그 기간의 근거 수치가 응답에 없다 — 없는
+ * 것을 있는 것처럼 추측하지 않고, 대신 어디에 적혀 있는지(`lookupNote`)를 적는다.
+ */
 function MetricsGrid({
   metrics,
   configVersion,
   period,
+  evidence,
+  lookupNote,
 }: {
   metrics: KpiMetrics
   configVersion: string
   period: { from: string; to: string }
+  evidence?: MetricUnavailabilityEvidence
+  lookupNote?: string
 }) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -65,6 +78,8 @@ function MetricsGrid({
           configVersion={configVersion}
           period={period}
           betterWhen={METRIC_META[key].betterWhen}
+          unavailabilityEvidence={evidence}
+          unavailabilityLookupNote={lookupNote}
         />
       ))}
     </div>
@@ -250,6 +265,7 @@ export default function BaselineLockPage() {
           metrics={locked.metrics}
           configVersion={locked.kpi_config.version}
           period={{ from: locked.period.from, to: locked.period.to }}
+          lookupNote={UNAVAILABILITY_LOOKUP_LOCKED_BASELINE}
         />
 
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl border border-mrv-border bg-mrv-surface p-4 text-sm sm:grid-cols-4">
@@ -369,6 +385,7 @@ export default function BaselineLockPage() {
                 from: previewQuery.data.period.from,
                 to: previewQuery.data.period.to,
               }}
+              evidence={previewQuery.data.unavailability?.evidence}
             />
           )}
 

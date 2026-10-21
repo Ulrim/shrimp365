@@ -15,7 +15,7 @@ import { authorizeMrv, requirePlan } from "@/lib/mrv/auth"
 import { HttpError, handleRoute, parsePeriod } from "@/lib/mrv/http"
 import { T } from "@/lib/mrv/db"
 import { resolveSiteForOrg } from "@/lib/mrv/tenancy"
-import { computeSiteKpiResults } from "@/lib/mrv/kpi-service"
+import { buildKpiUnavailability, computeSiteKpiResults } from "@/lib/mrv/kpi-service"
 import { METRIC_DIRECTION, compareMetric } from "@/lib/mrv/kpi"
 import type { BaselineRow } from "@/lib/mrv/baseline"
 
@@ -89,6 +89,22 @@ export async function GET(
         },
         config_version: comp.configVersion,
         metrics: currentMetrics,
+        /**
+         * 현재(After) 기간에 산출되지 않은 지표의 사유. 화면이 지어내지 않도록 응답이
+         * 함께 내려 준다(기존 모양은 그대로 두고 칸만 더한 것이다).
+         *
+         * **기준선(Before) 쪽에는 싣지 않는다.** 그 값은 잠긴 스냅샷에서 복사한
+         * 스칼라값이고 이 라우트는 기준선을 다시 계산하지 않으므로(그러면 원점이
+         * 조용히 움직인다) 그 기간의 근거 수치가 여기 없다 — 없는 것을 추측해 채우면
+         * 거짓 사유가 된다.
+         */
+        unavailability: buildKpiUnavailability(comp, {
+          ei_total: comp.ei.eiTotal,
+          ei_aeration: comp.ei.eiAeration,
+          oei: comp.oei?.oei ?? null,
+          fcr: comp.fcr.fcr,
+          mortality_rate: comp.mortality.cumulativeRatePct,
+        }),
       },
       comparison,
       provenance: {

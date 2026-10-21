@@ -116,6 +116,11 @@ try {
     // 스텁을 끼우면 정작 검증하려는 연결이 사라진다.
     "measurement-basis.ts",
     "measurement-basis-column.ts",
+    // '산출 불가' 사유의 근거를 조립하는 쪽(kpi-service)과 그 근거로 문장을 만드는 쪽.
+    // 스텁으로 바꾸지 않는다 — 임계값을 **산출에 실제로 쓰인 설정 객체**에서 꺼내는
+    // 연결이 이 검증에서 사라지면, 그 칸이 비거나 0 으로 굳어도 통과한다.
+    "metric-unavailability.ts",
+    "metric-provenance.ts",
   ]) {
     copyFileSync(join(ROOT, "lib/mrv", f), join(outDir, f))
   }
@@ -173,7 +178,12 @@ try {
   )
 
   const require = createRequire(join(outDir, "x.cjs"))
-  const { computeSiteKpiResults } = require(join(outDir, "out", "kpi-service.js"))
+  const { computeSiteKpiResults, kpiComputationToResponse } = require(
+    join(outDir, "out", "kpi-service.js"),
+  )
+  // 사유의 근거가 **엔진에 넘긴 설정과 같은 값**인지 대조하는 데 쓴다(활성 설정 파서).
+  const kpiConfig = require(join(outDir, "out", "kpi", "config.js"))
+  const metricUnavailability = require(join(outDir, "out", "metric-unavailability.js"))
 
   const fixtures = JSON.parse(readFileSync(join(HERE, "pipeline-fixtures.json"), "utf8"))
   const failures = []
@@ -307,6 +317,105 @@ try {
       })),
       sourceRefs: [...comp.mortality.sourceRefs],
     }, e.mortality)
+
+    // ── '산출 불가' 사유의 근거 — 원본에 없는 칸이므로 **불변식**으로 본다 ─────────
+    //
+    // 이 묶음은 화면·인쇄 리포트·API 가 사유를 확정하는 **유일한 근거**다. 한 칸이라도
+    // 엔진 결과와 어긋나면 사람 앞에 틀린 사유가 나간다(그리고 그 쪽이 아무 말도 하지
+    // 않던 종전보다 나쁘다 — 틀린 사실을 자신 있게 적는 것이니까).
+    //
+    // ★ 임계값은 **산출에 실제로 쓰인 설정**에서 와야 한다. 조직이 min_biomass_delta_kg
+    //   를 덮으면 사유 문장의 숫자도 따라가야 하므로, 엔진에 넘긴 설정과 같은 값인지를
+    //   활성 설정 파서로 다시 읽어 대조한다.
+    {
+      const ev = comp.unavailabilityEvidence
+      const activeParams = comp.paramsOut
+      const want = {
+        biomass_delta_kg: comp.ei.biomassDeltaKg,
+        biomass_record_count: r.harvest_logs.filter(
+          (h) =>
+            h.site_id === "site-p" &&
+            String(h.ts) >= String(new Date(c.period.from).toISOString()) &&
+            String(h.ts) <= String(new Date(c.period.to).toISOString()),
+        ).length,
+        ei_min_biomass_delta_kg: kpiConfig.eiConfigFromParams(activeParams).minBiomassDeltaKg,
+        fcr_min_biomass_delta_kg: kpiConfig.fcrConfigFromParams(activeParams).minBiomassDeltaKg,
+        oei_min_biomass_kg: kpiConfig.oeiConfigFromParams(activeParams).minBiomassKg,
+        total_power_kwh: comp.ei.totalPowerKwh,
+        aeration_power_kwh: comp.ei.aerationPowerKwh,
+        oei_aeration_power_kwh: comp.oei === null ? null : comp.oei.aerationPowerKwh,
+        included_reading_count: comp.ei.includedReadingCount,
+        excluded_reading_count: comp.ei.excludedReadingCount,
+        included_feed_count: comp.fcr.includedFeedCount,
+        excluded_feed_count: comp.fcr.excludedFeedCount,
+        stocked_count: comp.mortality.stockedCount,
+        oei_applicable: comp.oei !== null,
+        do_total_samples: comp.oei === null ? null : comp.oei.doTotalSamples,
+        do_excluded_samples: comp.oei === null ? null : comp.oei.doExcludedSamples,
+      }
+      for (const k of Object.keys(want)) {
+        if (!(k in ev)) {
+          failures.push(`${c.name}.unavailabilityEvidence: ${k} 칸이 없다`)
+          continue
+        }
+        cmp(`${c.name}.unavailabilityEvidence.${k}`, ev[k], want[k])
+      }
+      // 값이 null 인 지표에는 사유가 하나 이상 나와야 한다. 빈 배열이면 화면이 사유 칸을
+      // 아예 그리지 않아 "이유 없는 산출 불가" 로 되돌아간다.
+      const values = {
+        ei_total: comp.ei.eiTotal,
+        ei_aeration: comp.ei.eiAeration,
+        fcr: comp.fcr.fcr,
+        oei: comp.oei === null ? null : comp.oei.oei,
+        mortality_rate: comp.mortality.cumulativeRatePct,
+      }
+      for (const key of Object.keys(values)) {
+        if (values[key] !== null) continue
+        const reasons = metricUnavailability.metricUnavailabilityReasons(key, ev)
+        if (!Array.isArray(reasons) || reasons.length === 0) {
+          failures.push(`${c.name}.${key}: 산출 불가인데 사유가 비어 있다`)
+          continue
+        }
+        if (reasons.some((x) => typeof x.text !== "string" || x.text.trim().length === 0)) {
+          failures.push(`${c.name}.${key}: 사유 문장이 비어 있다`)
+        }
+      }
+
+      /*
+       * GET /kpi 응답이 그 사유를 **실제로 싣는가.**
+       *
+       * ★ 원문에서 이름만 찾는 검사로는 모자란다 — 응답의 그 한 줄을 지워도
+       *   `unavailability` 라는 낱말이 타입·헬퍼 이름으로 파일에 남아 통과한다
+       *   (역검증에서 실제로 그랬다). 그래서 **응답 객체**를 만들어 들여다본다.
+       *   화면들이 사유를 각자 지어내지 않는 근거가 이 칸 하나다.
+       */
+      const res = kpiComputationToResponse(
+        comp,
+        "site-p",
+        "org-p",
+        new Date(c.period.from),
+        new Date(c.period.to),
+      )
+      if (res.unavailability === undefined || res.unavailability === null) {
+        failures.push(`${c.name}: /kpi 응답에 산출 불가 사유가 실리지 않는다`)
+      } else {
+        for (const key of Object.keys(values)) {
+          const slot = res.unavailability.metrics[key]
+          if (values[key] === null) {
+            if (slot === undefined || !Array.isArray(slot.reasons) || slot.reasons.length === 0) {
+              failures.push(`${c.name}: /kpi 응답의 ${key} 사유가 비어 있다`)
+            }
+          } else if (slot !== undefined) {
+            // 산출된 지표에 사유를 실으면 화면이 값 옆에 사유처럼 적는다.
+            failures.push(`${c.name}: /kpi 응답이 산출된 ${key} 에도 사유를 싣는다`)
+          }
+        }
+        cmp(`${c.name}.unavailability.evidence`, res.unavailability.evidence, {
+          biomass_delta_kg: comp.ei.biomassDeltaKg,
+          included_reading_count: comp.ei.includedReadingCount,
+        })
+      }
+    }
 
     // ── 자료유형 집계 — 원본에 없는 칸이므로 차분이 아니라 **불변식**으로 본다 ──────
     //

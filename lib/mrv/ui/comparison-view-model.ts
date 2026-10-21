@@ -29,6 +29,9 @@ export function toComparisonViewModel(
       deltaValue: row?.delta ?? null,
       improvementPct: row?.improvement_pct ?? null,
       direction: row?.direction ?? (meta.betterWhen === "lower" ? "lower_is_better" : "higher_is_better"),
+      // 현재(After) 값이 산출되지 않은 사유. 서버가 내려 준 것을 그대로 옮긴다 —
+      // 여기서 사유를 지으면 화면과 인쇄물이 다른 말을 하게 된다.
+      currentUnavailability: data.current.unavailability?.metrics[key]?.reasons,
     };
   });
 

@@ -58,7 +58,14 @@ import {
   type MeasurementBasis,
   type MeasurementBasisTally,
 } from "./measurement-basis"
-import type { KpiMetric, KpiResponse } from "./api-types"
+import { metricUnavailabilityReasons } from "./metric-unavailability"
+import type { MetricUnavailabilityEvidence } from "./metric-unavailability"
+import type {
+  KpiMetric,
+  KpiMetricKey,
+  KpiResponse,
+  KpiUnavailability,
+} from "./api-types"
 
 // ---------------------------------------------------------------------------
 // 조립 헬퍼
@@ -170,9 +177,48 @@ export type SiteKpiComputation = {
    * 가지 않으므로 세지 않는다 — 세면 "이 배출량이 무엇으로 산출됐는가" 를 틀리게 적는다.
    */
   eiMeasurementBasis: MeasurementBasisTally
+  /**
+   * 「산출 불가」의 사유를 **엔진 밖에서 확정하는 데 쓰는 근거.**
+   *
+   * 엔진 결과와 **그 산출에 실제로 쓰인 임계값**을 함께 묶은 것이다. 임계값을 여기서
+   * 같이 싣는 이유: 조직의 활성 `kpi_config` 가 덮을 수 있으므로 화면이나 리포트가
+   * 나중에 다시 추측할 수 없다 — 그때그때 읽어 둔 값만이 참이다
+   * (`lib/mrv/metric-unavailability.ts` 머리말).
+   *
+   * 새 산식이 아니다. 이미 산출된 결과의 수와 설정값을 한 자리에 모으기만 한다.
+   */
+  unavailabilityEvidence: MetricUnavailabilityEvidence
   configVersion: string
   paramsOut: ParamsJson
   tankId: string | null
+}
+
+/** KPI 응답·리포트가 함께 쓰는 지표 목록. 한 곳만 보면 되도록 여기 둔다. */
+const UNAVAILABILITY_METRIC_KEYS: readonly KpiMetricKey[] = [
+  "ei_total",
+  "ei_aeration",
+  "oei",
+  "fcr",
+  "mortality_rate",
+]
+
+/**
+ * 값이 null 인 지표에만 사유를 붙인다. 값이 있는 지표에 붙이면 「함께 비어 있음」 항목이
+ * 산출된 값 옆에 사유처럼 뜬다 — 그 자리에서 할 말은 사유가 아니다.
+ *
+ * 문장은 `lib/mrv/metric-unavailability.ts` 가 만든다. 응답에 실어 보내는 것과 화면이
+ * 직접 만드는 것이 **같은 모듈의 출력**이므로, 화면 · 인쇄물 · API 가 갈릴 수 없다.
+ */
+export function buildKpiUnavailability(
+  comp: SiteKpiComputation,
+  values: Readonly<Record<KpiMetricKey, number | null>>,
+): KpiUnavailability {
+  const metrics: KpiUnavailability["metrics"] = {}
+  for (const key of UNAVAILABILITY_METRIC_KEYS) {
+    if (values[key] !== null) continue
+    metrics[key] = { reasons: metricUnavailabilityReasons(key, comp.unavailabilityEvidence) }
+  }
+  return { evidence: comp.unavailabilityEvidence, metrics }
 }
 
 /**
@@ -474,12 +520,48 @@ export async function computeSiteKpiResults(
     configVersion,
   )
 
+  /**
+   * 「산출 불가」 사유의 근거. **산식이 아니다** — 엔진이 돌려준 수와 엔진에 넘긴 설정을
+   * 한 자리에 모으기만 한다(`lib/mrv/metric-unavailability.ts` 가 문장을 만든다).
+   *
+   * 임계값을 여기서 읽는 것이 핵심이다. 화면이나 리포트가 나중에 `min_biomass_delta_kg`
+   * 를 0 으로 가정하면, 그 값을 0 이 아니게 둔 조직에 거짓 사유를 적는다 — 그래서 **이
+   * 산출에 실제로 쓰인 설정 객체**에서 그대로 꺼낸다.
+   *
+   * 폭기 전력을 두 칸으로 나눠 싣는 이유는 그 타입의 주석에 적어 두었다(EI 와 OEI 의
+   * 산입 품질 플래그가 서로 다를 수 있다).
+   *
+   * `biomass_record_count` 는 기간 안 수확·계측 기록 건수다. 0 건 · 1 건 · 2 건 이상이
+   * 운영자가 할 일이 서로 다른 사유여서(기록이 없다 / 마감 기록이 없다 / 변화가 없거나
+   * 줄었다) 분모 값만으로는 가를 수 없다.
+   */
+  const unavailabilityEvidence: MetricUnavailabilityEvidence = {
+    biomass_delta_kg: ei.biomassDeltaKg,
+    biomass_record_count: harvests.length,
+    ei_min_biomass_delta_kg: eiConfig.minBiomassDeltaKg,
+    fcr_min_biomass_delta_kg: fcrConfig.minBiomassDeltaKg,
+    oei_min_biomass_kg: oeiConfig.minBiomassKg,
+    total_power_kwh: ei.totalPowerKwh,
+    aeration_power_kwh: ei.aerationPowerKwh,
+    oei_aeration_power_kwh: oei?.aerationPowerKwh ?? null,
+    included_reading_count: ei.includedReadingCount,
+    excluded_reading_count: ei.excludedReadingCount,
+    included_feed_count: fcr.includedFeedCount,
+    excluded_feed_count: fcr.excludedFeedCount,
+    stocked_count: mortality.stockedCount,
+    // `oei === null` 은 「수조에 DO 목표대역이 없다」 하나뿐이다(위 band 선택 참고).
+    oei_applicable: oei !== null,
+    do_total_samples: oei?.doTotalSamples ?? null,
+    do_excluded_samples: oei?.doExcludedSamples ?? null,
+  }
+
   return {
     ei,
     fcr,
     oei,
     mortality,
     eiMeasurementBasis,
+    unavailabilityEvidence,
     configVersion,
     paramsOut,
     tankId,
@@ -513,6 +595,14 @@ export function kpiComputationToResponse(
   const { ei, fcr, oei, mortality: mort } = comp
   const thresholds = alertingConfigFromParams(comp.paramsOut).thresholds
 
+  const values: Record<KpiMetricKey, number | null> = {
+    ei_total: ei.eiTotal,
+    ei_aeration: ei.eiAeration,
+    oei: oei?.oei ?? null,
+    fcr: fcr.fcr,
+    mortality_rate: mort.cumulativeRatePct,
+  }
+
   return {
     site_id: siteId,
     org_id: orgId,
@@ -523,12 +613,18 @@ export function kpiComputationToResponse(
     },
     kpi_config: { version: comp.configVersion, params: comp.paramsOut },
     metrics: {
-      ei_total: metric(ei.eiTotal, "kWh/kg", "ei_total", thresholds),
-      ei_aeration: metric(ei.eiAeration, "kWh/kg", "ei_aeration", thresholds),
-      oei: metric(oei?.oei ?? null, "index", "oei", thresholds),
-      fcr: metric(fcr.fcr, "kg/kg", "fcr", thresholds),
-      mortality_rate: metric(mort.cumulativeRatePct, "%", "mortality_rate", thresholds),
+      ei_total: metric(values.ei_total, "kWh/kg", "ei_total", thresholds),
+      ei_aeration: metric(values.ei_aeration, "kWh/kg", "ei_aeration", thresholds),
+      oei: metric(values.oei, "index", "oei", thresholds),
+      fcr: metric(values.fcr, "kg/kg", "fcr", thresholds),
+      mortality_rate: metric(values.mortality_rate, "%", "mortality_rate", thresholds),
     },
+    /**
+     * 지표마다 **왜 산출되지 않았는가.** 응답이 이것을 함께 내려 주므로 화면들이 각자
+     * 사유를 지어내지 않는다 — 전에는 KPI 카드가 넷에 같은 추측 한 줄("예: 생산량 변화
+     * 부족")을 적고 있었다. 기존 응답 모양은 그대로 두고 칸만 더한 것이다.
+     */
+    unavailability: buildKpiUnavailability(comp, values),
     inputs: {
       total_power_kwh: ei.totalPowerKwh,
       aeration_power_kwh: ei.aerationPowerKwh,

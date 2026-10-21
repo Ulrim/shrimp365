@@ -108,8 +108,10 @@ function makeFakeDb(tables) {
 try {
   // kpi-service 가 계측값을 읽을 때 `measurement_basis` 칸을 쓰므로 그 두 모듈도 함께
   // 옮긴다. 빠지면 이 하네스만 컴파일에 실패한다(본 빌드는 통과하므로 눈에 안 띈다).
+  // '산출 불가' 사유 모듈도 함께 옮긴다 — kpi-service 가 근거를 조립할 때 쓴다.
   for (const f of ["alert-jobs.ts", "kpi-service.ts", "api-types.ts", "kpi-config-source.ts",
-                   "measurement-basis.ts", "measurement-basis-column.ts"]) {
+                   "measurement-basis.ts", "measurement-basis-column.ts",
+                   "metric-unavailability.ts", "metric-provenance.ts"]) {
     copyFileSync(join(ROOT, "lib/mrv", f), join(outDir, f))
   }
   writeFileSync(

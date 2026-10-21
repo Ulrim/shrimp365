@@ -21,6 +21,7 @@ import {
   PageHeader,
   formatNumber,
 } from "@/components/mrv/ui"
+import { UNAVAILABILITY_LOOKUP_REPORT_DETAIL } from "@/lib/mrv/metric-unavailability"
 import type { MrvReportListResponse } from "@/lib/mrv/api-types"
 
 export default function MrvReportListPage() {
@@ -127,6 +128,13 @@ export default function MrvReportListPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* 이 목록은 감축량 한 칸만 싣는다 — 그 값이 '산출 불가' 인 이유를 확정할 근거가
+          여기 없다. 추측해 적지 않고 어디에 적혀 있는지를 적는다(문구는 공용 모듈에서
+          가져온다). 산출 불가인 행이 있을 때만 적는다 — 없는 위험을 띄우지 않는다. */}
+      {items.some((r) => r.reduction_tco2e === null) && (
+        <p className="text-xs text-mrv-muted">{UNAVAILABILITY_LOOKUP_REPORT_DETAIL}</p>
       )}
     </div>
   )

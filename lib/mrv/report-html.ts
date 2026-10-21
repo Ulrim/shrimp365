@@ -30,6 +30,13 @@ import {
   REPORT_PROVISIONAL_METRIC_LINES,
 } from "./metric-provenance"
 import {
+  REPORT_UNAVAILABILITY_HEADING,
+  REPORT_UNAVAILABILITY_INTRO,
+  UNAVAILABILITY_REASON_KIND_PREFIX,
+  reportUnavailabilityEntries,
+} from "./metric-unavailability"
+import type { MetricUnavailabilityEvidence } from "./metric-unavailability"
+import {
   EMPTY_QUALITY_FLAG_LIST_REASON,
   REPORT_MISSING_FLAGS_NOTE,
   REPORT_NON_DEFAULT_FLAGS_HEADLINE,
@@ -142,6 +149,12 @@ type Boundary = {
    * 적는다 — 0 으로 뭉개면 "전부 실측" 이라는 거짓을 인쇄하게 된다.
    */
   after_power_measurement_basis?: unknown
+  /**
+   * After 기간의 '산출 불가' 사유를 확정하는 근거 수치. **옛 리포트에는 이 칸이 없다**
+   * — 그래서 optional 이고, 없으면 아래 절이 그 사실을 적는다(없는 근거로 사유를
+   * 지어내지 않는다).
+   */
+  after_metric_evidence?: MetricUnavailabilityEvidence
   biomass_source_refs: { before: string[]; after: string[] }
   config_version: { before: string; after: string }
   /**
@@ -351,6 +364,66 @@ function measurementBasisRow(raw: unknown): string {
  * (app/mrv/mrv-reports/[reportId]/page.tsx)이 **같은 배열**을 돌린다. 두 곳이 각자
  * 문장을 지으면 화면으로 본 사람과 인쇄물로 본 사람이 다른 사실을 알게 된다.
  */
+/**
+ * 「산출 불가 사유」 절.
+ *
+ * 항목을 고르는 일은 **이 파일에서 하지 않는다** — `reportUnavailabilityEntries` 하나가
+ * 고르고, 리포트 화면(app/mrv/mrv-reports/[reportId]/page.tsx)이 같은 함수를 쓴다.
+ * 두 곳이 각자 고르면 화면으로 본 사람과 인쇄물로 본 사람이 다른 사실을 알게 된다.
+ *
+ * 산출되지 않은 값이 하나도 없으면 **빈 문자열을 돌려 절 자체를 넣지 않는다** — 그때는
+ * 적을 사실이 없고, "없습니다" 한 줄이 비교표 바로 아래에서 감축량 수치와 경쟁한다.
+ */
+function unavailabilitySection(
+  report: MrvReportRow,
+  before: Summary,
+  after: Summary,
+  boundary: Boundary,
+): string {
+  const entries = reportUnavailabilityEntries({
+    reductionTco2e: report.reduction_tco2e,
+    before: {
+      eiTotal: before.ei_total,
+      eiAeration: before.ei_aeration,
+      scope2Tco2e: before.scope2_tco2e,
+      kpiSnapshotId: before.kpi_snapshot_id,
+    },
+    after: { eiTotal: after.ei_total, eiAeration: after.ei_aeration },
+    afterEvidence: boundary.after_metric_evidence,
+  })
+  if (entries.length === 0) return ""
+
+  const items = entries
+    .map((entry) => {
+      const reasons = entry.reasons
+        .map(
+          (reason) =>
+            `<li>${esc(UNAVAILABILITY_REASON_KIND_PREFIX[reason.kind])}${esc(reason.text)}` +
+            (reason.action === null
+              ? ""
+              : `<div class="na-action">할 일 — ${esc(reason.action)}</div>`) +
+            "</li>",
+        )
+        .join("")
+      return [
+        '<div class="na-item">',
+        `<div class="na-label">${esc(entry.label)}</div>`,
+        reasons === "" ? "" : `<ul class="na-reasons">${reasons}</ul>`,
+        entry.note === null ? "" : `<p class="na-note">${esc(entry.note)}</p>`,
+        "</div>",
+      ].join("")
+    })
+    .join("\n    ")
+
+  return [
+    '<div class="unavailable">',
+    `<h3>${esc(REPORT_UNAVAILABILITY_HEADING)}</h3>`,
+    `<p class="na-intro">${esc(REPORT_UNAVAILABILITY_INTRO)}</p>`,
+    items,
+    "</div>",
+  ].join("\n    ")
+}
+
 export function renderMrvReportHtml(
   report: MrvReportRow,
   ef: EmissionFactorRow,
@@ -421,6 +494,21 @@ export function renderMrvReportHtml(
      기본 상태와 다르게 산출됐다" 는 리포트별 사실이고, 이 블록은 어느 리포트에나 해당하는
      지표 정의의 성질이다. 같은 모양을 쓰면 읽는 사람이 이 리포트에만 생긴 이상으로
      읽는다. 색이 아니라 글자가 전부다(흑백 복사가 기본). */
+  /* 산출 불가 사유. 위 두 경고(.flag-warn)와도, 지표 정의 블록(.provenance)과도 다른
+     모양이다 — 그 둘은 "이 리포트의 수치가 기본 상태와 다르게 산출됐다" 와 "지표 정의의
+     성질" 이고, 이 블록은 "이 리포트의 어떤 칸이 비었고 왜 비었는가" 다. 같은 모양을
+     쓰면 셋 중 하나가 덜 중요한 것으로 읽힌다. 색이 아니라 글자가 전부다(흑백 복사). */
+  .unavailable { margin-top: 4mm; border: 1px solid #64748b; border-radius: 4px;
+                 padding: 3mm 4mm; font-size: 9.5pt; line-height: 1.5; }
+  .unavailable h3 { font-size: 10.5pt; margin: 0 0 2mm 0; }
+  .na-intro { margin: 0 0 2.5mm 0; }
+  .na-item { margin-bottom: 2.5mm; }
+  .na-item:last-child { margin-bottom: 0; }
+  .na-label { font-weight: 700; }
+  .na-reasons { margin: 1mm 0 0 0; padding-left: 5mm; }
+  .na-reasons li { margin-bottom: 1.5mm; }
+  .na-action { margin-top: 0.8mm; }
+  .na-note { margin: 1mm 0 0 0; }
   .provenance { margin-top: 4mm; border: 1px solid #334155; border-left: 3mm solid #334155;
                 padding: 3mm 4mm; font-size: 9.5pt; line-height: 1.5; }
   .provenance h3 { font-size: 10.5pt; margin: 0 0 2mm 0; }
@@ -468,6 +556,12 @@ export function renderMrvReportHtml(
   <div class="headline">
     감축량(Scope2 Reduction): <span class="value">${esc(reduction)}</span>
   </div>
+
+  <!-- 어떤 칸이 비었고 왜 비었는가. 비교표와 감축량 바로 아래에 둔다 — 그 두 곳의
+       "N/A" 를 설명하는 절이므로, 멀리 떨어뜨리면 읽는 사람이 N/A 를 보고 사유를
+       찾다가 못 찾는다. 항목 선택은 lib/mrv/metric-unavailability.ts 가 하고, 리포트
+       화면이 같은 함수를 쓴다. -->
+  ${unavailabilitySection(report, before, after, boundary)}
 
   <h2>2. 기간 / 측정경계(Boundary) / 가정(Assumptions)</h2>
   <table>

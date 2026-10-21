@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { authorizeMrv, requirePlan } from "@/lib/mrv/auth"
 import { handleRoute, parsePeriod } from "@/lib/mrv/http"
 import { T, fetchAll } from "@/lib/mrv/db"
-import { computeSiteKpiResults } from "@/lib/mrv/kpi-service"
+import { buildKpiUnavailability, computeSiteKpiResults } from "@/lib/mrv/kpi-service"
 
 export async function GET(req: NextRequest) {
   return handleRoute(async () => {
@@ -29,17 +29,24 @@ export async function GET(req: NextRequest) {
     const entries = []
     for (const site of sites) {
       const comp = await computeSiteKpiResults(auth.db, site.id, auth.orgId, from, to)
+      const metrics = {
+        ei_total: comp.ei.eiTotal,
+        ei_aeration: comp.ei.eiAeration,
+        oei: comp.oei?.oei ?? null,
+        fcr: comp.fcr.fcr,
+        mortality_rate: comp.mortality.cumulativeRatePct,
+      }
       entries.push({
         site_id: site.id,
         site_name: site.name,
         config_version: comp.configVersion,
-        metrics: {
-          ei_total: comp.ei.eiTotal,
-          ei_aeration: comp.ei.eiAeration,
-          oei: comp.oei?.oei ?? null,
-          fcr: comp.fcr.fcr,
-          mortality_rate: comp.mortality.cumulativeRatePct,
-        },
+        metrics,
+        /**
+         * 이 사업장에서 산출되지 않은 지표의 사유. 사업장마다 사유가 다르므로(한 곳은
+         * DO 목표대역이 없고 다른 곳은 생산량 기록이 없다) 행마다 싣는다 — 새 산식이
+         * 아니고, 이미 산출된 결과의 근거를 모아 문장으로 만든 것이다.
+         */
+        unavailability: buildKpiUnavailability(comp, metrics),
       })
     }
 

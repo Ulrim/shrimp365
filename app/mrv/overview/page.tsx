@@ -233,6 +233,9 @@ export default function OverviewPage() {
                 configVersion: kpi.data!.kpi_config.version,
                 period: { from: kpi.data!.period.from, to: kpi.data!.period.to },
                 betterWhen: meta.betterWhen,
+                // '산출 불가' 의 사유는 카드가 지어내지 않는다 — 응답이 함께 내려 준
+                // 근거에서 확정한다(lib/mrv/metric-unavailability.ts).
+                unavailabilityEvidence: kpi.data!.unavailability?.evidence,
               }
               return <KpiCard key={key} {...props} />
             })}
