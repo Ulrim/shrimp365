@@ -155,6 +155,9 @@ node docs/result-03-bluestartup/src/capture-screens.mjs
 # 장비 화면 5장
 SHOT_SCALE=2 OUT_DIR=/tmp/kiosk node vision/tests/ui/check_kiosk_screens.js
 
+# PDF 한 권으로 다시 묶기
+node docs/result-03-bluestartup/src/build-pdf.mjs
+
 # 화면 점검이 .next 를 바꿔 두므로, 끝나면 평소 빌드로 되돌린다
 VERCEL=1 npx next build
 ```
@@ -165,10 +168,12 @@ VERCEL=1 npx next build
 
 ```
 docs/result-03-bluestartup/
+├── 03_블루스타트업_결과보고서_자료집.pdf   아래 자료를 묶은 인쇄용 한 권 (A4 16쪽)
 ├── README.md          이 문서 — 어느 자료를 어디에 쓰는지
 ├── assets/            그림 13장 (2배 배율 PNG)
 ├── evidence/          시험 결과 6종 (실행 기록)
 └── src/               그림·결과를 다시 만드는 스크립트
+    ├── build-pdf.mjs          자료집 PDF 묶기
     ├── collect-evidence.sh    시험 6종 실행·기록
     ├── capture-screens.mjs    웹 화면 캡처
     ├── render-diagrams.mjs    설계 그림 렌더
