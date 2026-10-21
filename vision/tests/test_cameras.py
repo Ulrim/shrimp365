@@ -57,6 +57,25 @@ async def test_camera_crud(client, auth_headers, tank):
     assert resp.status_code == 404
 
 
+async def _wait_for_first_count(client, auth_headers, camera_id, timeout: float = 15.0):
+    """개체수 기록이 한 건 생길 때까지 기다렸다가 그 값을 돌려준다.
+
+    돌 때까지 걸리는 시간은 기계 사정에 따라 수십 배 차이가 난다. 넉넉한
+    상한(15초)을 두되 **생기는 즉시** 넘어가므로, 평소 실행 시간은 예전의
+    고정 1초보다 오히려 짧다.
+    """
+    deadline = asyncio.get_running_loop().time() + timeout
+    while True:
+        resp = await client.get(f"/api/v1/counts/{camera_id}/latest", headers=auth_headers)
+        if resp.status_code == 200:
+            return resp.json()
+        if asyncio.get_running_loop().time() >= deadline:
+            raise AssertionError(
+                f"{timeout}초 안에 개체수 기록이 생기지 않았다 (마지막 응답 {resp.status_code})"
+            )
+        await asyncio.sleep(0.05)
+
+
 async def test_camera_start_stop_simulation(client, auth_headers, camera, tank):
     camera_id = camera["id"]
 
@@ -69,14 +88,19 @@ async def test_camera_start_stop_simulation(client, auth_headers, camera, tank):
     resp = await client.post(f"/api/v1/cameras/{camera_id}/start", headers=auth_headers)
     assert resp.status_code == 202
     try:
-        await asyncio.sleep(1.0)  # fps_target=5 -> several ticks
+        # 고정된 sleep 으로 기다리지 않는다.
+        #
+        # 전에는 `await asyncio.sleep(1.0)` 하나였다(fps_target=5 니 다섯 번쯤
+        # 돌 것이라는 계산). 평소에는 맞지만, 기계가 바쁜 첫 실행에서는 — .pyc
+        # 를 새로 굽고 디스크 캐시가 비어 있을 때 — 1초 안에 한 바퀴도 못 돌아
+        # **멀쩡한 코드가 시험에서 떨어진다.** 실제로 12회 중 1회 그렇게 떨어졌다.
+        # 시험이 재현되지 않으면 그 결과는 증빙이 되지 못하므로, 시간을 재는
+        # 대신 **결과가 나올 때까지 기다린다.**
+        latest = await _wait_for_first_count(client, auth_headers, camera_id)
 
         resp = await client.get(f"/api/v1/cameras/{camera_id}/status", headers=auth_headers)
         assert resp.json()["status"] == "running"
 
-        resp = await client.get(f"/api/v1/counts/{camera_id}/latest", headers=auth_headers)
-        assert resp.status_code == 200
-        latest = resp.json()
         assert latest["camera_id"] == camera_id
         # 수조·양식장이 개체수 기록에 함께 실린다 — 통합 조회의 조인 키다.
         assert latest["tank_id"] == tank["id"]

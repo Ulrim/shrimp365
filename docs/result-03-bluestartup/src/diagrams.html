@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<title>03 블루스타트업 — 결과보고서 첨부 그림</title>
+<style>
+  @font-face {
+    font-family: PretendardX;
+    src: url(__FONT__) format("woff2");
+    font-weight: 100 900;
+    font-display: block;
+  }
+  :root {
+    --ink:      #0F172A;
+    --muted:    #64748B;
+    --line:     #CBD5E1;
+    --ocean:    #1E40AF;
+    --ocean-bg: #EFF4FF;
+    --teal:     #0D9488;
+    --teal-bg:  #ECFDF8;
+    --amber:    #B45309;
+    --amber-bg: #FFFBEB;
+    --rose:     #BE123C;
+    --rose-bg:  #FFF1F2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: PretendardX, system-ui, sans-serif;
+    color: var(--ink);
+    background: #fff;
+    -webkit-font-smoothing: antialiased;
+  }
+  .sheet { width: 1180px; padding: 40px 44px 36px; background: #fff; }
+  .sheet + .sheet { margin-top: 60px; }
+  h2 { font-size: 27px; font-weight: 800; letter-spacing: -0.5px; }
+  .sub { margin-top: 7px; font-size: 15px; color: var(--muted); line-height: 1.55; }
+  .rule { height: 3px; width: 54px; background: var(--ocean); margin: 15px 0 26px; border-radius: 2px; }
+
+  /* 가로로 흐르는 단계 */
+  .flow { display: flex; align-items: stretch; gap: 0; }
+  .node {
+    flex: 1; border: 1.5px solid var(--line); border-radius: 13px;
+    padding: 15px 15px 16px; background: #fff; min-width: 0;
+  }
+  .node .tag {
+    display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .4px;
+    padding: 3px 8px; border-radius: 5px; margin-bottom: 9px;
+  }
+  .node h3 { font-size: 16.5px; font-weight: 750; line-height: 1.35; }
+  .node p  { margin-top: 7px; font-size: 13px; color: var(--muted); line-height: 1.62; }
+  code {
+    font-family: ui-monospace, Menlo, monospace; font-size: 11.5px;
+    background: #F1F5F9; padding: 1px 4px; border-radius: 4px; color: #334155;
+    /* 주소에는 끊을 자리가 없어 그냥 두면 옆 칸까지 뚫고 나간다. */
+    overflow-wrap: anywhere; word-break: break-all;
+  }
+  .arrow {
+    flex: 0 0 62px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 5px;
+  }
+  .arrow span { font-size: 24px; color: var(--ocean); line-height: 1; }
+  .arrow small { font-size: 10.5px; color: var(--muted); text-align: center; line-height: 1.3; }
+
+  .t-ocean { background: var(--ocean-bg); color: var(--ocean); }
+  .t-teal  { background: var(--teal-bg);  color: var(--teal); }
+  .t-amber { background: var(--amber-bg); color: var(--amber); }
+  .t-rose  { background: var(--rose-bg);  color: var(--rose); }
+  .b-ocean { border-color: #BFD3FF; }
+  .b-teal  { border-color: #9FE4D4; }
+  .b-amber { border-color: #FCD9A5; }
+  .b-rose  { border-color: #FBC3CE; }
+
+  .note {
+    margin-top: 26px; border-left: 4px solid var(--ocean); background: #F8FAFF;
+    padding: 14px 18px; border-radius: 0 9px 9px 0;
+    font-size: 13.5px; line-height: 1.72; color: #334155;
+  }
+  .note b { color: var(--ink); }
+
+  /* 2번 그림 — 두 방향 비교 */
+  .lanes { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .lane { border: 1.5px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .lane header { padding: 12px 17px; font-size: 15px; font-weight: 750; border-bottom: 1.5px solid var(--line); }
+  .lane.bad  header { background: var(--rose-bg); color: var(--rose); border-color: #FBC3CE; }
+  .lane.good header { background: var(--teal-bg); color: var(--teal); border-color: #9FE4D4; }
+  .lane.bad  { border-color: #FBC3CE; }
+  .lane.good { border-color: #9FE4D4; }
+  .lane .body { padding: 17px; }
+  .hop { display: flex; align-items: center; gap: 11px; font-size: 13.5px; }
+  .hop + .hop { margin-top: 11px; }
+  .pill {
+    border: 1.3px solid var(--line); border-radius: 8px; padding: 7px 11px;
+    font-weight: 650; white-space: nowrap; font-size: 13px; background: #fff;
+  }
+  .dir { font-size: 19px; color: var(--muted); }
+  .verdict { margin-top: 15px; padding-top: 14px; border-top: 1px dashed var(--line); font-size: 13.5px; line-height: 1.6; }
+  .verdict b { font-weight: 750; }
+  .x { color: var(--rose); } .o { color: var(--teal); }
+
+  /* 3번 그림 — 단계 + 실패 갈래 */
+  .steps { display: flex; gap: 0; align-items: stretch; }
+  .step {
+    flex: 1; border: 1.5px solid var(--line); border-radius: 12px;
+    padding: 13px 13px 14px; min-width: 0;
+  }
+  .step .n {
+    width: 23px; height: 23px; border-radius: 50%; background: var(--ocean); color: #fff;
+    font-size: 12.5px; font-weight: 750; display: flex; align-items: center;
+    justify-content: center; margin-bottom: 9px;
+  }
+  .step h4 { font-size: 15px; font-weight: 740; line-height: 1.3; }
+  .step p { margin-top: 6px; font-size: 12.3px; color: var(--muted); line-height: 1.58; }
+  .step .fail {
+    margin-top: 9px; font-size: 11.8px; color: var(--rose);
+    background: var(--rose-bg); border-radius: 6px; padding: 6px 8px; line-height: 1.5;
+  }
+  .gap { flex: 0 0 26px; display: flex; align-items: center; justify-content: center;
+         font-size: 21px; color: var(--ocean); }
+  .legend { margin-top: 20px; display: flex; gap: 26px; font-size: 12.5px; color: var(--muted); }
+  .legend i { font-style: normal; display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+</style>
+
+<!-- ══════════════ 1. 전체 구성 ══════════════ -->
+<section class="sheet" id="s1">
+  <h2>개체수 계측 시스템 구성</h2>
+  <p class="sub">수조에 달린 카메라가 흰다리새우를 세어 수조·수질과 함께 웹에서 보이기까지.
+    <b>세는 일은 양식장 안의 장비에서 끝난다</b> — 영상을 바깥으로 내보내지 않으므로 회선이 느려도 계측이 멈추지 않는다.</p>
+  <div class="rule"></div>
+
+  <div class="flow">
+    <div class="node b-ocean">
+      <span class="tag t-ocean">수조</span>
+      <h3>CSI 카메라</h3>
+      <p>라즈베리파이에 리본으로 직결(IMX708). 먹이망 격자(가로 8cm · 세로 7.5cm)가
+         같이 찍혀 <b>길이의 자</b>가 된다.</p>
+    </div>
+    <div class="arrow"><span>→</span><small>1280×720<br>초당 1장</small></div>
+
+    <div class="node b-ocean">
+      <span class="tag t-ocean">엣지 장비</span>
+      <h3>라즈베리파이 5<br>추론·판정</h3>
+      <p>YOLOv8n ONNX 416px 로 세고, 세는 범위(ROI) 밖은 버린다. 격자로 축척을 잡아
+         <b>체장</b>을 함께 잰다. 결과를 프레임에 구워 넣는다.</p>
+    </div>
+    <div class="arrow"><span>→</span><small>10초마다<br>한 줄</small></div>
+
+    <div class="node b-teal">
+      <span class="tag t-teal">서버</span>
+      <h3>Supabase<br><code>count_records</code></h3>
+      <p>개체수·신뢰도·추론시간·체장을 적는다. 장비는 <b>기기 키</b>만 들고 올리며
+         데이터베이스 비밀번호를 갖지 않는다.</p>
+    </div>
+    <div class="arrow"><span>→</span><small>RLS 로<br>내 농장만</small></div>
+
+    <div class="node b-teal">
+      <span class="tag t-teal">웹</span>
+      <h3>shrimp365.kr<br>/vision</h3>
+      <p>실시간·이력·수질 통합 분석·가동률. 수질(pH·DO·수온)과 같은 시간 버킷으로
+         맞춰 한 화면에서 견준다.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>영상이 아니라 숫자를 보낸다.</b> 24시간 영상을 올리면 카메라 한 대가 한 달에 수백 GB 를 쓰고,
+    농장 회선에서 그 비용은 공짜가 아니다. 추론을 장비에서 끝내면 <b>한 줄에 100바이트 남짓</b>이면 되고,
+    인터넷이 끊겨도 장비는 계속 세어 로컬에 쌓아 두었다가 회선이 돌아올 때 밀린 것을 올린다.
+  </div>
+</section>
+
+<!-- ══════════════ 2. 공유기 뒤 수조 보기 ══════════════ -->
+<section class="sheet" id="s2">
+  <h2>농장 공유기 뒤의 수조를 웹에서 보는 방법</h2>
+  <p class="sub">“개체수는 보이는데 수조가 안 보인다”의 원인과 해결. 장비가 멀쩡해도 생기는 일이며,
+    원인은 고장이 아니라 <b>연결의 방향</b>이다.</p>
+  <div class="rule"></div>
+
+  <div class="lanes">
+    <div class="lane bad">
+      <header>✕ 들어가는 연결 — 막힌다</header>
+      <div class="body">
+        <div class="hop">
+          <span class="pill">브라우저</span><span class="dir">→</span>
+          <span class="pill">농장 공유기</span><span class="dir">✕</span>
+          <span class="pill">장비</span>
+        </div>
+        <div class="verdict">
+          영상(MJPEG)과 실시간 연결(WebSocket)은 브라우저가 장비로 <b>들어가는</b> 연결이다.
+          공유기는 바깥에서 들어오는 연결을 막는다(NAT). <span class="x">그래서 열리지 않는다.</span><br>
+          포트를 열거나 터널을 깔면 되지만, 장비가 늘어나고 <b>남의 농장</b>에도 설치되는 상황에서
+          공유기를 하나하나 건드리는 것은 현실적이지 않다.
+        </div>
+      </div>
+    </div>
+
+    <div class="lane good">
+      <header>○ 나가는 연결 — 통한다</header>
+      <div class="body">
+        <div class="hop">
+          <span class="pill">장비</span><span class="dir">→</span>
+          <span class="pill">농장 공유기</span><span class="dir">→</span>
+          <span class="pill">서버</span>
+        </div>
+        <div class="hop">
+          <span class="pill">브라우저</span><span class="dir">→</span>
+          <span class="pill">서버에 쌓인 사진</span>
+        </div>
+        <div class="verdict">
+          개체수가 이미 이 방향으로 다닌다. <b>수조 사진도 같은 방향으로 내보낸다</b> —
+          15초마다 한 장(640px·20~40KB), 서버는 카메라당 한 줄을 덮어쓴다.
+          <span class="o">공유기를 그대로 두고 쓸 수 있다.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>진짜 실시간이 아니라는 것을 화면이 먼저 말한다.</b> 사진은 최대 15초 묵었으므로
+    화면에 “사진 9초 전”을 함께 띄운다. 멈춘 사진을 실시간이라고 보여 주는 것이 가장 나쁘다.<br>
+    바뀐 것이 없으면 보내지 않고(카메라가 멈춘 장비), 서버가 받지 못하면 간격을 5분까지 늘린다 —
+    끊긴 회선에 15초마다 던지는 것은 복구를 돕지 않는다.
+  </div>
+</section>
+
+<!-- ══════════════ 3. 원격 업데이트 ══════════════ -->
+<section class="sheet" id="s3">
+  <h2>현장 장비 원격 업데이트</h2>
+  <p class="sub">농장에 사람이 가지 않고 장비의 프로그램을 올린다. 부팅 5분 뒤, 이후 1시간마다 스스로 확인한다.
+    <b>올라가지 않는 것보다 나쁜 것은 올라가다 망가지는 것</b>이므로, 모든 단계에 되돌아갈 길을 둔다.</p>
+  <div class="rule"></div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="n">1</div>
+      <h4>목록 확인</h4>
+      <p>배포 목록 <code>/updates/vision/manifest.json</code> 을
+         <b>https 로만</b> 받는다. 지금 버전보다 높을 때만 다음으로 간다.</p>
+      <div class="fail">이미 최신이면 아무것도 하지 않는다</div>
+    </div>
+    <div class="gap">→</div>
+
+    <div class="step">
+      <div class="n">2</div>
+      <h4>받고 대조</h4>
+      <p>꾸러미를 받아 <b>sha256</b> 이 목록의 값과 같은지 본다. 크기 상한(4MB)과
+         허용된 경로만 들어 있는지도 본다.</p>
+      <div class="fail">한 바이트라도 다르면 버린다</div>
+    </div>
+    <div class="gap">→</div>
+
+    <div class="step">
+      <div class="n">3</div>
+      <h4>풀고 점검</h4>
+      <p>임시 자리에 풀어 프로그램이 뜨는지 먼저 시험한다. 설치본은 아직 건드리지 않는다.</p>
+      <div class="fail">안 뜨면 설치를 시작하지 않는다</div>
+    </div>
+    <div class="gap">→</div>
+
+    <div class="step">
+      <div class="n">4</div>
+      <h4>교체</h4>
+      <p>이름 바꾸기 <b>두 번</b>으로 갈아 끼운다. 도중에 전원이 나가도 다음 부팅에
+         스스로 수습한다. 옛 판은 그대로 보관한다.</p>
+      <div class="fail">중단되면 다음 부팅에 복구</div>
+    </div>
+    <div class="gap">→</div>
+
+    <div class="step">
+      <div class="n">5</div>
+      <h4>확인·되돌림</h4>
+      <p>서비스가 건강해질 때까지 지켜본다. 못 뜨면 <b>보관해 둔 옛 판으로 되돌리고</b>
+         그 버전을 다시 시도하지 않는다.</p>
+      <div class="fail">장비 화면에 “업데이트 되돌림”</div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>서명을 쓰지 않는다 — 그 이유.</b> 장비가 믿는 것은 https 로 받은 www.shrimp365.kr 의 파일이고,
+    그 파일을 바꿀 수 있는 사람은 곧 <b>저장소에 쓸 수 있는 사람</b>이다. 서명을 넣으려면 개인키를
+    저장소 밖 누군가의 PC 에 둬야 하고, 그러면 버전을 낼 수 있는 사람도 그 한 사람뿐이 된다.
+    키를 저장소나 CI 에 두는 절충은 지키려던 대상에게 열쇠를 맡기는 것이라 아무것도 막지 못한다.
+    그래서 <b>GitHub 계정의 2단계 인증이 이 장비들의 실질적인 자물쇠다.</b>
+  </div>
+
+  <div class="legend">
+    <i><span class="swatch" style="background:var(--ocean)"></span> 정상 경로</i>
+    <i><span class="swatch" style="background:var(--rose)"></span> 실패했을 때 가는 길</i>
+  </div>
+</section>
+</html>

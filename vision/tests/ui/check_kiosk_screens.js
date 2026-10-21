@@ -44,13 +44,24 @@ const HTML = execFileSync(PY, ['-c', 'from app.kiosk import PAGE_HTML; print(PAG
 }).toString();
 
 // 1×1 회색 JPEG — 영상 자리를 채우기만 하면 된다.
-const JPEG = Buffer.from(
+// 영상 칸에 넣을 그림. 장비와 같은 코드로 구운 수조 사진이 있으면 그것을 쓴다 —
+// 1×1 검정 점을 넣으면 화면이 "영상이 안 나온다"처럼 보여, 이 그림으로 화면을
+// 설명할 수 없다(보고서 첨부로도 못 쓴다).
+const FIXTURE = path.resolve(VISION, '../scripts/fixtures/vision-frame-640x360.jpg');
+const JPEG = fs.existsSync(FIXTURE) ? fs.readFileSync(FIXTURE) : Buffer.from(
   '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0a' +
   'HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAA' +
   'AAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==', 'base64');
 
+// 화면에 뜨는 버전은 저장소의 VERSION 을 따라간다 — 손으로 적어 두면 배포를
+// 올릴 때마다 어긋나고, 그 그림이 보고서에 들어간다.
+const VERSION = (() => {
+  try { return fs.readFileSync(path.join(VISION, 'VERSION'), 'utf8').trim() }
+  catch { return '0.0.0' }
+})();
+
 const base = {
-  version: '1.0.0', camera: null, count: null, count_age: null, confidence: null,
+  version: VERSION, camera: null, count: null, count_age: null, confidence: null,
   history: [], simulation: false, simulation_reason: null, server_ok: null, pending_uploads: 0,
   pairing: { status: 'idle', code: null, error: null, tank_name: null,
              camera_id: null, expires_in: null, serial: '100000001a2b3c4d', linked: false },
@@ -67,7 +78,7 @@ const scenes = {
     camera: { id: 'x', name: 'A-1조 수중 카메라', status: 'running', type: 'csi' },
     count: 131, count_age: 2, confidence: 0.55, history: hist(300, 131),
     server_ok: true, pairing: linked },
-    { want: ['#live'], text: ['131', '마리', 'A-1조', 'v1.0.0'] }],
+    { want: ['#live'], text: ['131', '마리', 'A-1조', `v${VERSION}`] }],
 
   // 원격 업데이트가 되돌려진 장비 — 농장에서 눈으로 알아볼 수 있어야 한다.
   // 서비스는 멀쩡히(이전 버전으로) 돌고 측정도 계속되므로, 이 표시가 없으면
@@ -78,7 +89,7 @@ const scenes = {
     server_ok: true, pairing: linked,
     update: { status: 'rolled_back', version: '1.0.0',
               message: '재시작 후 자리를 잡지 못했습니다', at: 1760000000 } },
-    { want: ['#live', '.warn'], text: ['v1.0.0', '업데이트 되돌림'] }],
+    { want: ['#live', '.warn'], text: [`v${VERSION}`, '업데이트 되돌림'] }],
 
   // 잘 올라간 경우에는 아무 말도 덧붙이지 않는다. 늘 무언가 떠 있으면
   // 정작 문제가 생겼을 때 눈에 띄지 않는다.
@@ -126,7 +137,12 @@ const scenes = {
   const b = await chromium.launch({ executablePath: CHROMIUM, args: ['--no-sandbox'] });
   let bad = 0;
   for (const [name, [state, check]] of Object.entries(scenes)) {
-    const p = await b.newPage({ viewport: { width: 800, height: 480 } });
+    // SHOT_SCALE=2 로 부르면 인쇄용으로 두 배 크게 찍는다(보고서 첨부).
+    // 점검 자체는 배율과 무관하므로 기본은 1 이다.
+    const p = await b.newPage({
+      viewport: { width: 800, height: 480 },
+      deviceScaleFactor: Number(process.env.SHOT_SCALE || 1),
+    });
     const errs = [];
     p.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
     p.on('pageerror', e => errs.push('pageerror: ' + e.message));
