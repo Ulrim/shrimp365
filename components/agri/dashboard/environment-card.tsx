@@ -16,7 +16,8 @@ import { useEffect, useState } from "react"
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useT, useAgriT } from "@/lib/i18n-context"
-import { ENV_PARAMS, compassIndex, type EnvParam, type EnvParamKey, type EnvEach } from "@/lib/env-params"
+import { Droplet } from "lucide-react"
+import { ENV_PARAMS, compassIndex, dewPoint, type EnvParam, type EnvParamKey, type EnvEach } from "@/lib/env-params"
 import { getEnvSensorSeries } from "@/lib/db"
 import { agoLabel } from "@/components/agri/dashboard/time-ago"
 import type { WaterQualityReading } from "@/types"
@@ -86,7 +87,15 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
   const shown = ENV_PARAMS.filter(p => latest.has(p.key) && !FOLDED.has(p.key))
   // 풍향·돌풍·강우강도만 왔으면(접어서 보이는 칸뿐) 그릴 칸이 없다 — 빈 카드를 띄우지 않는다.
   if (shown.length === 0) return null
-  const cols = COLS[Math.min(shown.length, COLS.length - 1)]
+  // 이슬점 — 기온·습도가 같은 줄에 있을 때 계산한다(DB 칸 없음). 2m 기온이 있으면 그것으로,
+  // 없으면 기온 칸(초관부 온도)으로. 같은 줄의 값끼리만 짝지어 24시간 추세도 그린다.
+  const dewSeries = readings
+    .map(r => (typeof r.air_temp === "number" && typeof r.humidity === "number") ? dewPoint(r.air_temp, r.humidity) : null)
+    .filter((v): v is number => v !== null)
+  const airNow = latest.get("air_temp")
+  const dewNow = dewSeries.length ? dewSeries[dewSeries.length - 1] : null
+  const dewGap = dewNow !== null && airNow ? airNow.value - dewNow : null
+  const cols = COLS[Math.min(shown.length + (dewNow !== null ? 1 : 0), COLS.length - 1)]
 
   const fmt = (p: EnvParam, v: number) => v.toFixed(p.digits)
   const param = (k: EnvParamKey) => ENV_PARAMS.find(p => p.key === k)!
@@ -174,6 +183,31 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
                     </Tile>
                   )
                 })}
+                {dewNow !== null && (
+                  <div className={`rounded-xl border p-3 min-w-0 ${dewGap !== null && dewGap < 2 ? "border-sky-500/50 bg-sky-500/5" : "border-border"}`}>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1.5 truncate">
+                      <span className="inline-flex shrink-0 text-sky-500" aria-hidden="true"><Droplet className="w-3.5 h-3.5" /></span>
+                      {ed.dewPoint}
+                    </p>
+                    <p className="text-xl font-bold text-foreground tabular-nums mt-1">
+                      {dewNow.toFixed(1)}<span className="text-xs font-medium text-muted-foreground ml-1">°C</span>
+                    </p>
+                    {dewGap !== null && (
+                      <p className={`text-xs tabular-nums truncate ${dewGap < 2 ? "text-sky-700 dark:text-sky-400 font-medium" : "text-muted-foreground"}`}>
+                        {(dewGap < 2 ? ed.dewNear : ed.dewGap).replace("{{v}}", Math.max(0, dewGap).toFixed(1))}
+                      </p>
+                    )}
+                    {dewSeries.length >= 2 && (
+                      <div aria-hidden="true">
+                        <ResponsiveContainer width="100%" height={32}>
+                          <LineChart data={dewSeries.map((v, i) => ({ i, v }))}>
+                            <Line type="monotone" dataKey="v" stroke="#0ea5e9" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               {openKey && lastEach && (
                 <EachList param={param(openKey)} label={ed.param[openKey]} rows={eachOf(openKey)!}

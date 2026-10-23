@@ -9,7 +9,7 @@ import { Thermometer, Droplets, Sprout, Layers, Wind, Navigation, CloudRain, Clo
 import type { IconComponent } from "@/types"
 
 export type EnvParamKey =
-  | "air_temp" | "humidity" | "soil_moisture" | "soil_temp"
+  | "air_temp" | "canopy_temp" | "humidity" | "soil_moisture" | "soil_temp"
   | "wind_speed" | "wind_gust" | "wind_dir" | "rain_day" | "rain_rate"
   | "solar" | "uv_index" | "pressure"
 
@@ -28,6 +28,8 @@ export interface EnvParam {
 /** 순서가 곧 카드의 칸 순서다 — 온습도·토양(지그비) → 기상(WS90 등). */
 export const ENV_PARAMS: readonly EnvParam[] = [
   { key: "air_temp",      unit: "°C",   digits: 1, range: [-50, 70], color: "#f97316", icon: Thermometer },
+  // 2m 기온과 초관부(지상 10cm)를 둘 다 잴 때만 따로 온다(canopy_temp.sql, 장비 1.9.4+).
+  { key: "canopy_temp",   unit: "°C",   digits: 1, range: [-50, 70], color: "#ea580c", icon: Thermometer },
   { key: "humidity",      unit: "%",    digits: 1, range: [0, 100], color: "#0ea5e9", icon: Droplets },
   { key: "soil_moisture", unit: "%",    digits: 1, range: [0, 100], color: "#a16207", icon: Sprout },
   { key: "soil_temp",     unit: "°C",   digits: 1, range: [-30, 70], color: "#b45309", icon: Layers },
@@ -43,6 +45,18 @@ export const ENV_PARAMS: readonly EnvParam[] = [
 
 export const ENV_KEYS: readonly EnvParamKey[] = ENV_PARAMS.map(p => p.key)
 
+/** 따로 마이그레이션(canopy_temp.sql)으로 생기는 칸 — 그 칸이 없는 DB 에서는 이것만 떼고 저장한다. */
+export const ENV_LATER_KEYS: readonly EnvParamKey[] = ["canopy_temp"]
+
+/** 이슬점(°C) — 마그누스 식. 기온·습도로 계산한다(장비 화면 '기상 상세'와 같은 식).
+ *  잎·과실 표면이 이 온도까지 식으면 이슬이 맺힌다 — 병 발생 조건을 볼 때 쓴다. */
+export function dewPoint(tempC: number, rh: number): number | null {
+  if (!Number.isFinite(tempC) || !Number.isFinite(rh) || rh <= 0 || rh > 100) return null
+  const a = 17.62, b = 243.12
+  const g = Math.log(rh / 100) + (a * tempC) / (b + tempC)
+  return (b * g) / (a - g)
+}
+
 /** 풍향(도) → 8방위 인덱스(0=북, 1=북동 … 7=북서). 사전의 방위 이름 배열을 이 순서로 둔다. */
 export function compassIndex(deg: number): number {
   return Math.round((((deg % 360) + 360) % 360) / 45) % 8
@@ -54,7 +68,7 @@ export function compassIndex(deg: number): number {
 // (env_sensors.sql)에 그대로 둔다. 풍향·돌풍·강우강도는 다른 칸에 접혀 있어 따로 받지 않는다.
 
 /** 센서별 값을 받는 칸 — 장비 field_env.EACH_SLOTS 와 같다. */
-export const EACH_KEYS = ["air_temp", "humidity", "soil_moisture", "soil_temp", "wind_speed", "rain_day"] as const
+export const EACH_KEYS = ["air_temp", "canopy_temp", "humidity", "soil_moisture", "soil_temp", "wind_speed", "rain_day"] as const
 export type EachKey = (typeof EACH_KEYS)[number]
 export type EnvEach = Partial<Record<EachKey, { id: string; v: number }[]>>
 
