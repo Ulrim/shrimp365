@@ -748,6 +748,8 @@ var I18N = {
   env_soil:{ko:"토양수분",en:"Soil moisture",vi:"Độ ẩm đất",id:"Kelembapan tanah"},
   env_soil_temp:{ko:"지온",en:"Soil temp",vi:"Nhiệt độ đất",id:"Suhu tanah"},
   env_meta:{ko:"{n}대 · {m}분 전",en:"{n} sensor(s) · {m} min ago",vi:"{n} cảm biến · {m} phút trước",id:"{n} sensor · {m} mnt lalu"},
+  env_one:{ko:"{id} · {m}분 전",en:"{id} · {m} min ago",vi:"{id} · {m} phút trước",id:"{id} · {m} mnt lalu"},
+  env_one_now:{ko:"{id} · 방금",en:"{id} · just now",vi:"{id} · vừa xong",id:"{id} · baru saja"},
   env_now:{ko:"{n}대 · 방금",en:"{n} sensor(s) · just now",vi:"{n} cảm biến · vừa xong",id:"{n} sensor · baru saja"},
   env_wind:{ko:"풍속",en:"Wind",vi:"Gió",id:"Angin"},
   env_rain_day:{ko:"오늘 강수",en:"Rain today",vi:"Mưa hôm nay",id:"Hujan hari ini"},
@@ -1560,6 +1562,11 @@ function envMeta(k, e, env){
   if (k === "rain_day" && env.rain_rate && env.rain_rate.value > 0) {
     return t("env_rate", {v:env.rain_rate.value.toFixed(1)});
   }
+  // 한 대뿐이면 대수 대신 그 센서 이름 — '1대'만으로는 어느 센서인지 모른다
+  // (예: 기상센서 WS90 이 기온·습도도 함께 재므로 온습도계가 없어도 칸이 찬다).
+  var live = (e.each || []).filter(function(x){ return x.value !== null && x.value !== undefined; });
+  var one = e.sensors === 1 && live.length === 1 && live[0].id;
+  if (one) return e.age_min < 1 ? t("env_one_now", {id:one}) : t("env_one", {id:one, m:e.age_min});
   return e.age_min < 1 ? t("env_now", {n:e.sensors}) : t("env_meta", {n:e.sensors, m:e.age_min});
 }
 function renderEnv(d){
