@@ -27,6 +27,7 @@ import { ChartCard, BOARD_CYCLE_MS } from "@/components/agri/charts/chart-card"
 import { ParamTrendChart, TrendEmpty, buildTrendData, type TrendRecipe } from "@/components/agri/charts/param-trend-chart"
 import { SensorCompareChart, buildCompareData, COMPARE_KEYS } from "@/components/agri/charts/sensor-compare-chart"
 import { getFarms, getAllTanks, getWaterQuality, getSensorDevices, getAlerts, resolveAlert } from "@/lib/db"
+import { metricOn, sensorsOnFrom } from "@/lib/sensors-on"
 import { AGRI_PARAMS, agriParam, agriFormat, agriScaled, type AgriParam, type AgriParamKey } from "@/lib/agri-params"
 import {
   AGRI_QUALITY_STANDARDS, AGRI_STATUS_STYLES, getAgriStatus,
@@ -46,7 +47,15 @@ import type { Alert, Farm, SensorDevice, Tank, WaterQualityReading } from "@/typ
 type Hours = 24 | 72 | 168
 const HOURS: readonly Hours[] = [24, 72, 168]
 const REFRESH_SEC = 60
-const PARAM_KEYS: readonly AgriParamKey[] = AGRI_PARAMS.map(p => p.key)
+// 최신값 카드 열 — 꺼 둔 센서를 빼고 남은 수에 맞춘다(빈 칸을 남기지 않는다).
+const LATEST_COLS: Record<number, string> = {
+  1: "grid-cols-1",
+  2: "grid-cols-2",
+  3: "grid-cols-3",
+  4: "grid-cols-2 lg:grid-cols-4",
+  5: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5",
+  6: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6",
+}
 
 // `?? []` 를 렌더마다 새로 만들면 useMemo 의존성이 매번 바뀐다 — 빈 배열은 모듈 상수로.
 const NO_TANKS: Tank[] = []
@@ -239,6 +248,15 @@ function NutrientInner() {
   const alerts = series?.alerts ?? NO_ALERTS
 
   const activeDevices = useMemo(() => devices.filter(dv => dv.active), [devices])
+  // 장비 [센서 설정]에서 꺼 둔 센서의 항목은 상태줄·최신값 카드·추세 탭에서 뺀다.
+  const shownParams = useMemo(() => {
+    const on = sensorsOnFrom(devices)
+    return AGRI_PARAMS.filter(p => metricOn(p.key, on))
+  }, [devices])
+  // 서명(문자열)으로 묶는다 — 장비 목록이 1분마다 새로 와도 같은 내용이면 같은 배열(전광판 박자가 안 틀어진다).
+  const shownSig = shownParams.map(p => p.key).join(",")
+  const shownKeys = useMemo(() => shownSig.split(",").filter(Boolean) as AgriParamKey[], [shownSig])
+  const shownCompare = useMemo(() => COMPARE_KEYS.filter(k => shownKeys.includes(k)), [shownKeys])
   const readings = useMemo(
     () => (deviceId ? allReadings.filter(r => (r.device_id ?? null) === deviceId) : allReadings),
     [allReadings, deviceId],
@@ -249,21 +267,24 @@ function NutrientInner() {
   // 항목별 데이터 유무 — 전광판 순환이 빈 탭을 건너뛰고, 빈 상태 판단에도 쓴다.
   const keysWithData = useMemo(() => {
     const set = new Set<AgriParamKey>()
-    for (const p of AGRI_PARAMS) {
+    for (const p of shownParams) {
       if (readings.some(r => agriScaled(p.key, r[p.key] as number | null | undefined) != null)) set.add(p.key)
     }
     return set
-  }, [readings])
-  const keysWithDataSig = PARAM_KEYS.filter(k => keysWithData.has(k)).join(",")
+  }, [readings, shownParams])
+  const keysWithDataSig = shownKeys.filter(k => keysWithData.has(k)).join(",")
 
   // 추세 차트
-  const [chartTab, setChartTab] = useState<AgriParamKey>("conductivity")
+  const [pickedTab, setChartTab] = useState<AgriParamKey>("conductivity")
+  // 고른 탭의 센서를 꺼 두었으면 남은 첫 항목으로 — 상태를 고쳐 쓰지 않고 파생시킨다.
+  const chartTab: AgriParamKey = shownKeys.includes(pickedTab) ? pickedTab : (shownKeys[0] ?? pickedTab)
   const trendParam = agriParam(chartTab)
   const trendData = useMemo(() => buildTrendData(readings, chartTab, locale), [readings, chartTab, locale])
   const trendHasData = keysWithData.has(chartTab)
 
   // 센서별 비교
-  const [compareKey, setCompareKey] = useState<AgriParamKey>("conductivity")
+  const [pickedCompare, setCompareKey] = useState<AgriParamKey>("conductivity")
+  const compareKey: AgriParamKey = shownCompare.includes(pickedCompare) ? pickedCompare : (shownCompare[0] ?? pickedCompare)
   const compareParam = agriParam(compareKey)
   const compareNames = useMemo(() => activeDevices.map(dv => dv.name), [activeDevices])
   const compareData = useMemo(() => {
@@ -284,12 +305,12 @@ function NutrientInner() {
     if (!board || !fullChart) return
     const withData = new Set(keysWithDataSig.split(",").filter(Boolean) as AgriParamKey[])
     const id = setInterval(() => {
-      if (fullChart === "main") setChartTab(cur => nextWithData(cur, PARAM_KEYS, withData))
-      else setCompareKey(cur => nextWithData(cur, COMPARE_KEYS, withData))
+      if (fullChart === "main") setChartTab(cur => nextWithData(cur, shownKeys, withData))
+      else setCompareKey(cur => nextWithData(cur, shownCompare, withData))
       setCycleTick(x => x + 1)
     }, BOARD_CYCLE_MS)
     return () => clearInterval(id)
-  }, [board, fullChart, keysWithDataSig])
+  }, [board, fullChart, keysWithDataSig, shownKeys, shownCompare])
 
   // 알림 처리
   const [resolving, setResolving] = useState<string | null>(null)
@@ -461,6 +482,10 @@ function NutrientInner() {
         </>
       ) : series?.error ? (
         <LoadError d={d} onRetry={() => setSeriesRetry(x => x + 1)} />
+      ) : shownParams.length === 0 ? (
+        <Card className="bg-card border-border">
+          <CardContent className="p-4 text-sm text-muted-foreground" role="status">{n.noWaterSensors}</CardContent>
+        </Card>
       ) : !latest ? (
         <AgriEmptyState icon={FlaskConical} title={n.noData} description={n.noDataHint} className="py-8">
           <div className="flex items-center gap-2 flex-wrap justify-center">
@@ -480,7 +505,7 @@ function NutrientInner() {
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground mb-2">{n.statusStripTitle}</p>
               <div className="flex flex-wrap gap-2" role="list">
-                {AGRI_PARAMS.map(p => {
+                {shownParams.map(p => {
                   const raw = latest[p.key] as number | null | undefined
                   const status = getAgriStatus(p.key, raw, recipe)
                   const style = AGRI_STATUS_STYLES[status]
@@ -502,8 +527,8 @@ function NutrientInner() {
             </CardContent>
           </Card>
 
-          <section aria-label={n.latestHeading} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {AGRI_PARAMS.map(p => {
+          <section aria-label={n.latestHeading} className={cn("grid gap-3", LATEST_COLS[shownParams.length] ?? LATEST_COLS[6])}>
+            {shownParams.map(p => {
               const raw = latest[p.key] as number | null | undefined
               const status = getAgriStatus(p.key, raw, recipe)
               return (
@@ -516,14 +541,15 @@ function NutrientInner() {
         </>
       )}
 
-      {/* ── 추세 차트 ── */}
+      {/* ── 추세 차트 ── 수질 센서를 모두 꺼 둔 베드에는 그리지 않는다 */}
+      {shownParams.length > 0 && (
       <ChartCard
         title={<><Activity className="w-4 h-4 text-brand-fg" aria-hidden="true" />{fmt(n.trendTitle, { range: periodLabel[hours] })}</>}
         meta={refreshNote}
         toolbar={
           <Tabs value={chartTab} onValueChange={v => setChartTab(v as AgriParamKey)}>
             <TabsList className="bg-muted border border-border flex-wrap gap-y-1 h-auto justify-start">
-              {AGRI_PARAMS.map(p => {
+              {shownParams.map(p => {
                 const Icon = p.icon
                 return (
                   <TabsTrigger key={p.key} value={p.key}
@@ -555,14 +581,15 @@ function NutrientInner() {
           )}
         </div>
       </ChartCard>
+      )}
 
       {/* ── 센서별 비교(센서 2대↑) ── */}
-      {activeDevices.length >= 2 && (
+      {activeDevices.length >= 2 && shownCompare.length > 0 && (
         <ChartCard
           title={<><Activity className="w-4 h-4 text-brand-fg" aria-hidden="true" />{n.compareTitle}</>}
           toolbar={
             <div role="group" aria-label={n.compareTitle} className="flex items-center gap-1.5 flex-wrap">
-              {COMPARE_KEYS.map(k => {
+              {shownCompare.map(k => {
                 const p = agriParam(k)
                 return (
                   <button key={k} type="button" onClick={() => setCompareKey(k)} aria-pressed={compareKey === k} className={chip(compareKey === k)}>

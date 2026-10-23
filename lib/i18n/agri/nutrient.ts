@@ -24,6 +24,8 @@ export interface AgriNutrientDict {
 
   /** 상태 스트립·최신값 카드 */
   statusStripTitle: string
+  /** 장비 [센서 설정]에서 수질 센서를 모두 끈 베드(환경·기상만 쓰는 노지) */
+  noWaterSensors: string
   statusLabel: string
   latestHeading: string
   /** `{{target}}`, `{{tol}}` — 단위는 호출부가 붙인다. */
@@ -96,6 +98,7 @@ export const agriNutrient: Record<Locale, AgriNutrientDict> = {
     period7d: "7일",
     autoRefresh: "자동 갱신 {{n}}분",
     statusStripTitle: "항목별 현재 양액 상태",
+    noWaterSensors: "이 베드의 장비는 수질 센서를 쓰지 않습니다(장비 [센서 설정]에서 모두 꺼 둠). 환경·기상 값은 대시보드에서 봅니다.",
     statusLabel: "상태",
     latestHeading: "최신 측정값",
     targetWithTol: "목표 {{target}} ±{{tol}}",
@@ -153,6 +156,7 @@ export const agriNutrient: Record<Locale, AgriNutrientDict> = {
     period7d: "7 days",
     autoRefresh: "Auto-refresh {{n}} min",
     statusStripTitle: "Current status by parameter",
+    noWaterSensors: "This bed's device has no water-quality sensors turned on (all off in the device's [Sensor settings]). See environment & weather on the dashboard.",
     statusLabel: "Status",
     latestHeading: "Latest readings",
     targetWithTol: "Target {{target}} ±{{tol}}",
@@ -210,6 +214,7 @@ export const agriNutrient: Record<Locale, AgriNutrientDict> = {
     period7d: "7 ngày",
     autoRefresh: "Tự làm mới mỗi {{n}} phút",
     statusStripTitle: "Trạng thái hiện tại theo chỉ số",
+    noWaterSensors: "Thiết bị của luống này không dùng cảm biến chất lượng nước (đã tắt hết trong [Cài đặt cảm biến]). Xem môi trường & thời tiết trên bảng điều khiển.",
     statusLabel: "Trạng thái",
     latestHeading: "Số đo mới nhất",
     targetWithTol: "Mục tiêu {{target}} ±{{tol}}",
@@ -267,6 +272,7 @@ export const agriNutrient: Record<Locale, AgriNutrientDict> = {
     period7d: "7 hari",
     autoRefresh: "Muat ulang otomatis {{n}} mnt",
     statusStripTitle: "Status saat ini per parameter",
+    noWaterSensors: "Perangkat bedengan ini tidak memakai sensor kualitas air (semua dimatikan di [Pengaturan sensor]). Lihat lingkungan & cuaca di dasbor.",
     statusLabel: "Status",
     latestHeading: "Pengukuran terbaru",
     targetWithTol: "Target {{target}} ±{{tol}}",

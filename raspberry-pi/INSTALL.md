@@ -186,6 +186,18 @@ cd shrimp365/raspberry-pi
 > 현장 장비에 남기신 적이 있다면 지금 지우세요 — `git credential-cache exit` 로
 > 캐시를 비우고, GitHub → Settings → Developer settings 에서 그 토큰을 폐기합니다.
 
+#### 저장소로 받은 장비를 스스로 업데이트하게 하기
+
+```bash
+cd ~/shrimp365/raspberry-pi
+sudo ./setup-autoupdate.sh --branch main --now   # main 을 따라가게 하고 지금 한 번 확인
+```
+
+매일 새벽 3시대와 부팅 10분 뒤에 GitHub 를 확인해 새 것이 있으면 받아 `install.sh` 로 바꿔 끼우고
+(설정·데이터는 그대로) 무선 수집기 코드도 바꾼 뒤 다시 시작합니다. 장비에서 손으로 고친 파일이
+있으면 덮어쓰지 않고 건너뜁니다. 기록은 `journalctl -u shrimp365-gitupdate -n 50`,
+끄려면 `sudo ./setup-autoupdate.sh --off`. 웹의 [업데이트] 버튼(서명된 꾸러미)과는 따로 돕니다.
+
 ### 방법 C — USB 메모리로 옮기기 (인터넷이 불안한 현장)
 
 PC에서 `raspberry-pi` 폴더 **전체**를 USB 메모리에 복사합니다.
