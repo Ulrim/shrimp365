@@ -2911,8 +2911,11 @@ def main() -> int:
                         log.info("운전 권고 %s", [a["code"] for a in advices])
             else:
                 # 수질 센서를 하나도 켜지 않은 장비(환경·기상만 쓰는 노지) — 잴 것이 없을 뿐 오류가 아니다.
+                # 실행 중에 모두 끈 경우 이전 수질 값·이상징후가 화면(LCD)과 전송에 남지 않게 비운다.
                 nutrient = None
                 advices = []
+                last_values = {}
+                analysis["anomalies"] = []
 
             if args.dry_run:
                 print(json.dumps(values, ensure_ascii=False, indent=2))
@@ -2943,7 +2946,10 @@ def main() -> int:
                 # 전력 회로 — 5분마다. 차단기가 과열 중이면 매번(휴대폰 알림이 늦으면 안 된다).
                 if power and power_upload and power["circuits"]:
                     due = time.time() - power_sent["at"] >= power_every_s
-                    if due or power["level"]:
+                    # 수질도 환경 값도 없는 장비(전력만)는 매번 — 아니면 그 사이 전송이 비어
+                    # 마지막 수신 시각이 5분을 넘겨 웹 관제에서 오프라인으로 깜빡인다.
+                    alone = not values and not (env and env_upload and field_env_mod.payload_values(env))
+                    if due or power["level"] or alone:
                         circuits_out = field_env_mod.payload_power(power["circuits"])
                         if circuits_out:
                             payload["power"] = circuits_out

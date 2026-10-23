@@ -701,7 +701,7 @@ var I18N = {
   st_unlinked:{ko:"미연결 — 측정만",en:"Not linked — measuring only",vi:"Chưa kết nối — chỉ đo",id:"Belum ditautkan — hanya mengukur"},
   st_sent:{ko:"전송 {at}",en:"Sent {at}",vi:"Đã gửi {at}",id:"Terkirim {at}"},
   st_sent_more:{ko:"전송 {at} · 보관분 {sent}건 함께",en:"Sent {at} · +{sent} held",vi:"Đã gửi {at} · +{sent} đã lưu",id:"Terkirim {at} · +{sent} tersimpan"},
-  st_waiting:{ko:"측정 대기 — 아직 들어온 환경·기상 값이 없습니다 ({at})",en:"Waiting — no environment readings yet ({at})",vi:"Đang chờ — chưa có số liệu môi trường ({at})",id:"Menunggu — belum ada data lingkungan ({at})"},
+  st_waiting:{ko:"측정 대기 — 아직 들어온 값이 없습니다 ({at})",en:"Waiting — no readings yet ({at})",vi:"Đang chờ — chưa có số liệu ({at})",id:"Menunggu — belum ada data ({at})"},
   st_sensor_error:{ko:"센서 오류 — 읽은 값 없음",en:"Sensor error — no readings",vi:"Lỗi cảm biến — không có số liệu",id:"Kesalahan sensor — tanpa data"},
   st_dry_run:{ko:"시험 실행(전송 안 함) {at}",en:"Dry run (not sent) {at}",vi:"Chạy thử (không gửi) {at}",id:"Uji coba (tidak dikirim) {at}"},
   st_checking:{ko:"센서 확인 중",en:"Checking sensors",vi:"Đang kiểm tra cảm biến",id:"Memeriksa sensor"},

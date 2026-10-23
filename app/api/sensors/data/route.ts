@@ -450,8 +450,10 @@ export async function POST(req: NextRequest) {
   const recovered = resolvableParameters(
     globalValues as Parameters<typeof resolvableParameters>[0], profile,
   ).filter(p => !stillBad.has(p))
-  // 값이 들어왔다는 사실 자체가 입력 누락의 해소다.
-  recovered.push(MISSING_INPUT_PARAMETER)
+  // 값이 들어왔다는 사실 자체가 입력 누락의 해소다 — 단, 수질 기록에 줄을 실제로 썼을 때만.
+  // 입력 누락 점검(planMissingInputAlerts)은 그 기록의 마지막 줄을 보므로, 전력만 온 줄로
+  // 닫으면 점검이 다시 열고 서버가 또 닫기를 되풀이한다.
+  if (reading) recovered.push(MISSING_INPUT_PARAMETER)
   // 추세 알림의 복귀 — 이번에 보고되지 않은 항목은 더 이상 이상징후가 아니다.
   // 장비가 매 측정마다 **전체 목록**을 보내므로 빠진 것이 곧 해소다.
   // 밀린 값(fresh 아님)으로는 닫지 않는다 — 사흘 전 payload 에 없다는 이유로

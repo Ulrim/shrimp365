@@ -68,6 +68,12 @@ function toTank(t: DbTank, farmType?: "shrimp" | "agriculture"): Tank {
   }
 }
 
+/** 수질 측정 칸 — 이 중 하나라도 있으면 '수질 기록' 이다(환경·기상만 든 줄과 가른다). */
+const WATER_COLS = [
+  "temperature", "ph", "do_level", "salinity", "conductivity", "flow_rate", "diff_pressure",
+  "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity",
+] as const
+
 function toWaterQuality(w: DbWaterQuality): WaterQualityReading {
   return {
     id: w.id,
@@ -333,10 +339,13 @@ export async function getEnvSensorSeries(tankId: string, hours = 24): Promise<{ 
 }
 
 export async function getLatestWaterQuality(tankId: string, deviceId?: string | null): Promise<WaterQualityReading | null> {
+  // 수질 칸이 하나라도 있는 줄만 — 수질 센서 없이 환경·기상만 올리는 장비(노지)의 줄이
+  // 마지막이면 최신 EC·pH 가 0·미측정으로 깜빡인다(같은 베드에 양액 장비가 함께 있을 때).
   let query = supabase
     .from("water_quality_readings")
     .select("*")
     .eq("tank_id", tankId)
+    .or(WATER_COLS.map(c => `${c}.not.is.null`).join(","))
   if (deviceId) query = query.eq("device_id", deviceId)
 
   const { data, error } = await query
