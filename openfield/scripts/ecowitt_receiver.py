@@ -43,6 +43,17 @@ CAPTURE_PATTERN = "ecowitt_%Y%m%d.jsonl"
 COLUMNS = ["ts", "zone", "sensor_id", "variable", "value", "unit", "quality"]
 
 
+HEARD_FILE = "ecowitt_heard.json"
+
+
+def load_passkey(path: str | Path) -> str:
+    """ecowitt.gateway.passkey — 등록한 게이트웨이만 받기 위한 열쇠(게이트웨이가 POST 에 싣는 값)."""
+    import yaml
+    raw = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    gw = (raw.get("ecowitt") or {}).get("gateway") or {}
+    return str(gw.get("passkey") or "")
+
+
 class State:
     def __init__(self, args) -> None:
         self.args = args
@@ -59,9 +70,72 @@ class State:
         self.seen_unknown: set[str] = set()
         self.reports = 0
         self.rows = 0
+        self.passkey = ""
+        self._mtime = self._stat()
+        self._checked = 0.0
+        if args.devices and Path(args.devices).exists():
+            try:
+                self.passkey = load_passkey(args.devices)
+            except Exception:  # noqa: BLE001
+                pass
+        # 들어온 게이트웨이 목록 — 장비 화면이 이것을 보고 등록한다(값은 담지 않는다).
+        self.heard: dict[str, dict] = {}
+        self._flushed = 0.0
 
-    def handle(self, body: str) -> int:
+    def _stat(self) -> float:
+        try:
+            return Path(self.args.devices).stat().st_mtime
+        except (OSError, TypeError):
+            return 0.0
+
+    def reload(self) -> None:
+        """devices.yaml 이 바뀌면(장비 화면에서 등록·빼기) 5초 안에 다시 읽는다."""
+        import time
+        now = time.monotonic()
+        if now - self._checked < 5.0:
+            return
+        self._checked = now
+        mtime = self._stat()
+        if not mtime or mtime == self._mtime:
+            return
+        try:
+            self.gateway, self.channels = ecowitt.load_channels(self.args.devices)
+            self.passkey = load_passkey(self.args.devices)
+            self._mtime = mtime
+            print(f"[설정] 다시 읽음 — 게이트웨이 {'있음' if self.gateway else '없음'} · 채널 {len(self.channels)}개")
+        except Exception as exc:  # noqa: BLE001 — 틀린 설정으로 수신을 멈추지 않는다
+            print(f"[설정] 다시 읽기 실패, 이전 설정 유지: {exc}", file=sys.stderr)
+
+    def note_heard(self, body: str, ip: str) -> str:
+        """들어온 게이트웨이를 목록에 적고, 그 게이트웨이의 PASSKEY 를 돌려준다."""
+        from urllib.parse import parse_qs
+        data = {k: v[0] for k, v in parse_qs(body).items() if v}
+        passkey = str(data.get("PASSKEY", ""))[:64]
+        key = passkey or ip
+        now = dt.datetime.now().isoformat(timespec="seconds")
+        item = self.heard.setdefault(key, {"passkey": passkey, "count": 0, "first": now})
+        item.update(ecowitt.report_summary(data))
+        item.update(count=item["count"] + 1, last=now, ip=ip,
+                    stationtype=str(data.get("stationtype", ""))[:40], model=str(data.get("model", ""))[:40])
+        import time
+        if self.capture_dir and time.monotonic() - self._flushed >= 15.0:
+            self._flushed = time.monotonic()
+            try:
+                self.capture_dir.mkdir(parents=True, exist_ok=True)
+                tmp = self.capture_dir / (HEARD_FILE + ".tmp")
+                tmp.write_text(json.dumps({"ts": now, "gateways": list(self.heard.values())},
+                                          ensure_ascii=False), encoding="utf-8")
+                tmp.replace(self.capture_dir / HEARD_FILE)
+            except OSError as exc:
+                print(f"[경고] 게이트웨이 목록을 쓰지 못했다: {exc}", file=sys.stderr)
+        return passkey
+
+    def handle(self, body: str, ip: str = "") -> int:
         now = dt.datetime.now()
+        self.reload()
+        passkey = self.note_heard(body, ip)
+        if self.args.registered_only and self.passkey and passkey.upper() != self.passkey.upper():
+            return 0                            # 등록한 게이트웨이가 아니다(같은 망의 다른 게이트웨이)
         if self.capture_dir:
             self.capture_dir.mkdir(parents=True, exist_ok=True)
             line = json.dumps({"ts": now.isoformat(), "body": body}, ensure_ascii=False)
@@ -75,6 +149,7 @@ class State:
             body, zone=self.args.zone, sensor_id=self.args.sensor_id,
             rain=self.rain, unknown=unknown,
             gateway=self.gateway, channels=self.channels,
+            strict=bool(self.args.registered_only),
         )
         for note in unknown:
             if note not in self.seen_unknown:
@@ -112,7 +187,7 @@ def make_handler(state: State):
             length = int(self.headers.get("Content-Length") or 0)
             body = self.rfile.read(length).decode("utf-8", errors="replace")
             try:
-                count = state.handle(body)
+                count = state.handle(body, self.client_address[0])
             except Exception as exc:              # 한 건 때문에 서버가 죽으면 안 된다
                 print(f"[오류] {type(exc).__name__}: {exc}", file=sys.stderr)
                 self._ok()
@@ -152,6 +227,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--zone", default=ZONE_MAST, help="설정에 없을 때의 기본 구간")
     p.add_argument("--sensor-id", default="WS90-01")
     p.add_argument("--replay", default=None, help="저장된 기록(JSON Lines)을 읽는다")
+    p.add_argument("--registered-only", action="store_true",
+                   help="설정(ecowitt:)에 등록한 게이트웨이·채널만 받는다 — Farm365 장비 화면에서 등록할 때")
     args = p.parse_args(argv)
 
     state = State(args)

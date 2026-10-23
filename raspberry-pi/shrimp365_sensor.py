@@ -2369,6 +2369,21 @@ def main() -> int:
                 r = wl.remove_rf(key)
                 log.info("화면에서 433MHz 센서를 뺐습니다: %s → %s", key, r)
                 return r
+            if action == "register" and body.get("eco"):
+                key, kind, zone = body.get("key"), body.get("kind", ""), body.get("zone")
+                passkey = body.get("passkey", "")
+                if not all(isinstance(v, str) for v in (key, kind, zone, passkey)) or not 0 < len(key) <= 20:
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.register_eco(key, kind, zone, passkey, str(body.get("note") or ""))
+                log.info("화면에서 에코윗 센서를 등록했습니다: %s → %s", key, r)
+                return r
+            if action == "remove" and body.get("eco"):
+                key = body.get("key")
+                if not isinstance(key, str) or not 0 < len(key) <= 20:
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.remove_eco(key)
+                log.info("화면에서 에코윗 센서를 뺐습니다: %s → %s", key, r)
+                return r
             if action == "register":
                 name, kind, zone = body.get("name"), body.get("kind"), body.get("zone")
                 if not _wl_name_ok(name) or not isinstance(kind, str) or not isinstance(zone, str):
