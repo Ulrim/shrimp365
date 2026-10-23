@@ -320,7 +320,7 @@ var STATES = __STATES__, HIST = __HIST__, ENV_HIST = __ENV_HIST__, SENSORS = __S
 // 무선 센서 화면 — wireless.Wireless.snapshot() 의 모양.
 var WL = {ok:true, installed:true, mqtt:true, z2m:true, dongle:"usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2-if00",
   rtlsdr:true, env_on:true, power_on:true, permit_left:0, new:[], added:false,
-  units:{"mosquitto":true, "zigbee2mqtt":true, "farm365-zigbee":true, "farm365-rtl433":true},
+  units:{"mosquitto":true, "zigbee2mqtt":true, "farm365-zigbee":true, "farm365-rtl433":true, "farm365-ecowitt":true},
   taken:["CN-T1","CN-T2","SOIL-T1","SOIL-T2","PUMP-01","AUX-01","WS90-01"],
   rf_heard_ok:true, rf_other:3,
   rf_sensors:[{key:"Fineoffset-WS90/12345", model:"Fineoffset-WS90", id:"12345", sensor_id:"WS90-01", zone:"mast", kind:"weather", rssi:-7, age_min:0, battery:null, lqi:null}],
@@ -328,6 +328,13 @@ var WL = {ok:true, installed:true, mqtt:true, z2m:true, dongle:"usb-ITead_Sonoff
     {key:"Fineoffset-WH51/0a3f21", model:"Fineoffset-WH51", id:"0a3f21", count:14, rssi:-11, age_min:0, guess:"soil", model_only:false},
     {key:"Fineoffset-WH31/118", model:"Fineoffset-WH31", id:"118", count:6, rssi:-15, age_min:1, guess:"air", model_only:false},
     {key:"Fineoffset-WS90/40711", model:"Fineoffset-WS90", id:"40711", count:3, rssi:-23, age_min:2, guess:"weather", model_only:false}],
+  ip:"192.168.0.42", eco_port:8088, eco_path:"/data/report/",
+  eco_sensors:[{key:"soil1", sensor_id:"SOIL-C1", kind:"soil", zone:"control", channel:1, age_min:1}],
+  eco_gateways:[{passkey:"A1B2C3D4E5F60718", ip:"192.168.0.31", model:"GW2000A_V3.1.4", age_min:0, registered:false}],
+  eco_new:[
+    {key:"gateway", passkey:"A1B2C3D4E5F60718", kind:"weather", model:"WS90", age_min:0},
+    {key:"th2", family:"th", channel:2, kind:"", age_min:0, passkey:"A1B2C3D4E5F60718"},
+    {key:"tf1", family:"tf", channel:1, kind:"soiltemp", age_min:0, passkey:"A1B2C3D4E5F60718"}],
   sensors:[
     {name:"cn-t1", sensor_id:"CN-T1", kind:"canopy", zone:"treatment", note:"", paired:true, model:"TS0201", age_min:2, battery:87, lqi:142},
     {name:"cn-t2", sensor_id:"CN-T2", kind:"canopy", zone:"treatment", note:"", paired:true, model:"TS0201", age_min:4, battery:64, lqi:98},
@@ -365,6 +372,24 @@ window.fetch = function(url, opts){
       WL.rf_sensors.push({key:key, model:rq.model, id:rq.id, sensor_id:rid, zone:rq.zone, kind:rq.kind, rssi:-11, age_min:0, battery:null, lqi:null});
       body = {ok:true, key:key, sensor_id:rid};
     }
+    else if (a === "register" && rq.eco) {
+      var eid = "WS90-01";
+      if (rq.key === "gateway") {
+        WL.rf_sensors = WL.rf_sensors.filter(function(x){ return x.kind !== "weather"; });   // 433MHz 칸을 걷고 이름을 이어받는다
+        WL.eco_gateways.forEach(function(g){ g.registered = true; });
+      } else {
+        var fam = rq.key.replace(/[0-9]/g, ""), ep = {soil:"SOIL", tf:"ST", leaf:"LW"}[fam] || (rq.kind === "canopy" ? "CN" : "AIR");
+        var ez = ep === "AIR" ? "" : ({treatment:"T",control:"C"})[rq.zone] || "";
+        for (var e = 1; e < 99; e++) { eid = ez ? ep + "-" + ez + e : ep + "-" + (e < 10 ? "0" : "") + e; if (WL.taken.indexOf(eid) < 0) break; }
+        WL.taken.push(eid);
+      }
+      var en = WL.eco_new.filter(function(x){ return x.key === rq.key; })[0] || {};
+      WL.eco_new = WL.eco_new.filter(function(x){ return x.key !== rq.key; });
+      WL.eco_sensors.push({key:rq.key, sensor_id:eid, kind: rq.key === "gateway" ? "weather" : (en.kind || rq.kind), zone:rq.zone,
+        channel: rq.key === "gateway" ? null : +rq.key.replace(/[^0-9]/g, ""), age_min:0});
+      body = {ok:true, key:rq.key, sensor_id:eid};
+    }
+    else if (a === "remove" && rq.eco) { WL.eco_sensors = WL.eco_sensors.filter(function(x){ return x.key !== rq.key; }); body = {ok:true}; }
     else if (a === "remove" && rq.rf) { WL.rf_sensors = WL.rf_sensors.filter(function(x){ return x.key !== rq.key; }); body = {ok:true}; }
     else if (a === "register") {
       var pre = {canopy:"CN",air:"AIR",soil:"SOIL","breaker-pump":"PUMP","breaker-aux":"AUX",leak:"LEAK",valve:"VALVE"}[rq.kind];

@@ -206,6 +206,9 @@ PAGE = """<!doctype html>
   .wlhead{font-size:12.5px;font-weight:800;color:#94A3B8;margin:10px 0 2px}
   .wlmeta{font-size:12px;color:#94A3B8;text-align:right;flex:0 0 auto;line-height:1.35}
   .wlmeta.old{color:#FBBF24}
+  .ecoset{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin-top:8px;font-size:14px}
+  .ecoset span{color:#94A3B8}
+  .ecoset b{font-family:ui-monospace,monospace;word-break:break-all}
   .typegrid.two{grid-template-columns:repeat(2,1fr)}
   .typegrid button{min-height:46px;border-radius:10px;border:1px solid #22304C;background:#111A2E;
     color:#E8EDF7;font-weight:700;font-size:14px;font-family:inherit;cursor:pointer}
@@ -391,6 +394,7 @@ PAGE = """<!doctype html>
   .msg{font-size:12px;padding:8px 12px;border-radius:9px;margin-bottom:7px}
   .msg.ok{background:#10B98118;color:#34D399}
   .msg.err{background:#DC262618;color:#F87171}
+  .msg.info{background:#3B82F618;color:#CBD5E1;font-size:13px;line-height:1.5}
 
   /* Wi‑Fi 화면 — 설정 화면과 같은 틀을 쓴다 */
   .wrow{
@@ -930,6 +934,27 @@ var I18N = {
   wlr_air:{ko:"기온 온습도 (2m)",en:"Air temp/RH (2 m)",vi:"Nhiệt/ẩm không khí (2 m)",id:"Suhu/RH udara (2 m)"},
   wlr_leaf:{ko:"엽면습윤 (WH35)",en:"Leaf wetness (WH35)",vi:"Độ ướt lá (WH35)",id:"Kebasahan daun (WH35)"},
   wlr_rain:{ko:"우량계 (WH40)",en:"Rain gauge (WH40)",vi:"Đo mưa (WH40)",id:"Penakar hujan (WH40)"},
+  wl_eco_title:{ko:"에코윗 게이트웨이 (와이파이)",en:"Ecowitt gateway (Wi-Fi)",vi:"Gateway Ecowitt (Wi-Fi)",id:"Gateway Ecowitt (Wi-Fi)"},
+  wl_eco_setup:{ko:"게이트웨이(GW1100·GW2000 등)를 농장 와이파이에 연결한 뒤 WS View Plus 앱 → 기기 → [Customized] 에서 '프로토콜: Ecowitt' 을 고르고 아래 값을 적어 저장하세요. 1~2분 안에 여기에 뜹니다.",en:"Connect the gateway (GW1100, GW2000 …) to the farm Wi-Fi, then in the WS View Plus app → device → [Customized] choose 'Protocol: Ecowitt', enter the values below and save. It appears here within 1–2 minutes.",vi:"Kết nối gateway (GW1100, GW2000 …) vào Wi-Fi, rồi trong ứng dụng WS View Plus → thiết bị → [Customized] chọn 'Protocol: Ecowitt', nhập các giá trị dưới đây và lưu. Sẽ hiện trong 1–2 phút.",id:"Hubungkan gateway (GW1100, GW2000 …) ke Wi-Fi, lalu di aplikasi WS View Plus → perangkat → [Customized] pilih 'Protocol: Ecowitt', isi nilai di bawah dan simpan. Muncul dalam 1–2 menit."},
+  wl_eco_server:{ko:"서버",en:"Server",vi:"Máy chủ",id:"Server"},
+  wl_eco_port:{ko:"포트",en:"Port",vi:"Cổng",id:"Port"},
+  wl_eco_path:{ko:"경로",en:"Path",vi:"Đường dẫn",id:"Path"},
+  wl_eco_interval:{ko:"간격",en:"Interval",vi:"Chu kỳ",id:"Interval"},
+  wl_eco_noip:{ko:"(망 연결 확인 필요)",en:"(check network)",vi:"(kiểm tra mạng)",id:"(periksa jaringan)"},
+  wl_eco_off:{ko:"에코윗 수신기가 꺼져 있습니다. 설치 명령을 다시 실행하세요.",en:"The Ecowitt receiver is off. Re-run the installer.",vi:"Bộ nhận Ecowitt đang tắt. Chạy lại cài đặt.",id:"Penerima Ecowitt mati. Jalankan ulang pemasang."},
+  wl_eco_heard:{ko:"들어온 게이트웨이",en:"Gateways reporting",vi:"Gateway đang gửi",id:"Gateway yang mengirim"},
+  wl_eco_mine:{ko:"등록됨",en:"registered",vi:"đã đăng ký",id:"terdaftar"},
+  wl_eco_notmine:{ko:"등록 안 됨 — 받지 않음",en:"not registered — ignored",vi:"chưa đăng ký — bỏ qua",id:"tidak terdaftar — diabaikan"},
+  wl_eco_new:{ko:"게이트웨이에 붙은 센서",en:"Sensors on the gateway",vi:"Cảm biến trên gateway",id:"Sensor di gateway"},
+  wl_eco_none:{ko:"등록된 에코윗 센서가 없습니다.",en:"No Ecowitt sensors registered.",vi:"Chưa có cảm biến Ecowitt.",id:"Belum ada sensor Ecowitt."},
+  wl_eco_gw:{ko:"게이트웨이 기상센서",en:"Gateway weather station",vi:"Trạm thời tiết của gateway",id:"Stasiun cuaca gateway"},
+  wl_eco_gw_tip:{ko:"433MHz 로 받던 같은 기상센서가 있으면 그 칸을 걷고 이름을 이어받습니다(비가 두 번 더해지지 않게).",en:"If the same weather station was received over 433MHz, that entry is replaced and its name kept (so rain isn't counted twice).",vi:"Nếu trạm này đang nhận qua 433MHz, mục đó được thay thế và giữ tên (tránh cộng mưa hai lần).",id:"Jika stasiun yang sama diterima lewat 433MHz, entri itu diganti dan namanya dipertahankan (hujan tidak dihitung dua kali)."},
+  wl_eco_ch:{ko:"채널 {n}",en:"channel {n}",vi:"kênh {n}",id:"kanal {n}"},
+  wlf_soil:{ko:"토양수분 (WH51)",en:"Soil moisture (WH51)",vi:"Độ ẩm đất (WH51)",id:"Kelembapan tanah (WH51)"},
+  wlf_tf:{ko:"지온 프로브 (WN34)",en:"Soil temp probe (WN34)",vi:"Đầu dò nhiệt đất (WN34)",id:"Probe suhu tanah (WN34)"},
+  wlf_leaf:{ko:"엽면습윤 (WH35)",en:"Leaf wetness (WH35)",vi:"Độ ướt lá (WH35)",id:"Kebasahan daun (WH35)"},
+  wlf_th:{ko:"온습도계 (WH31)",en:"Temp/RH (WH31)",vi:"Nhiệt/ẩm (WH31)",id:"Suhu/RH (WH31)"},
+  wlr_soiltemp:{ko:"지온 (WN34)",en:"Soil temp (WN34)",vi:"Nhiệt đất (WN34)",id:"Suhu tanah (WN34)"},
   wlz_treatment:{ko:"적용구간",en:"Treatment plot",vi:"Khu áp dụng",id:"Petak perlakuan"},
   wlz_control:{ko:"비교구간",en:"Control plot",vi:"Khu đối chứng",id:"Petak kontrol"},
   wlz_facility:{ko:"시설 (분전반·펌프실)",en:"Facility (panel/pump)",vi:"Cơ sở (tủ điện/bơm)",id:"Fasilitas (panel/pompa)"},
@@ -1206,8 +1231,10 @@ var WL_RF_PREFIX = {soil:"SOIL", canopy:"CN", air:"AIR", leaf:"LW", rain:"RAIN"}
 var WL_RF_ZONED = {soil:true, canopy:true, leaf:true};
 var wl = null, wlTimer = null, wlMsg = null, wlEdit = null, wlKind = null, wlZone = null, wlSure = null, wlBusy = false;
 var wlRf = null;   // 433MHz 등록 중이면 {model, id, key, model_only}
+var wlEco = null;  // 에코윗 등록 중이면 eco_new 의 한 항목 {key, family, channel, kind, passkey}
+var WL_ECO_PREFIX = {soil:"SOIL", tf:"ST", leaf:"LW"};
 
-function openWireless(){ wl = null; wlMsg = null; wlEdit = null; wlRf = null; wlSure = null; loadWireless(); }
+function openWireless(){ wl = null; wlMsg = null; wlEdit = null; wlRf = null; wlEco = null; wlSure = null; loadWireless(); }
 function closeWireless(){ if (wlTimer) clearTimeout(wlTimer); wlTimer = null; wl = null; drawSettingsMenu(); }
 function loadWireless(){
   if (wlTimer) clearTimeout(wlTimer);
@@ -1240,7 +1267,7 @@ function wlRfSuggest(kind, zone, model){
 function wlStartRf(key){
   var n = (wl.rf_new || []).filter(function(x){ return x.key === key; })[0];
   if (!n) return;
-  wlRf = n; wlEdit = null; wlKind = n.guess || null; wlZone = n.guess === "weather" ? "mast" : null; wlMsg = null; drawWireless();
+  wlRf = n; wlEdit = null; wlEco = null; wlKind = n.guess || null; wlZone = n.guess === "weather" ? "mast" : null; wlMsg = null; drawWireless();
 }
 function wlAddRf(){
   var r = wlRf;
@@ -1253,6 +1280,41 @@ function wlRemoveRf(key){
   if (wlSure !== key) { wlSure = key; drawWireless(); return; }
   wlSure = null;
   wlPost("remove", {rf:true, key:key}, function(d){ wlMsg = d.ok ? {kind:"ok", text:t("wl_removed")} : {kind:"err", text:d.error || t("save_fail")}; });
+}
+
+// 에코윗 — 이름 규칙은 wireless._eco_register 와 같다. 게이트웨이는 서버가 정한다(433MHz 이름을 이어받을 수 있다).
+function wlEcoSuggest(n, kind, zone){
+  if (n.key === "gateway") return "";
+  var taken = (wl && wl.taken) || [], p = WL_ECO_PREFIX[n.family], zoned = true;
+  if (n.family === "th") { if (!kind) return ""; p = kind === "canopy" ? "CN" : "AIR"; zoned = kind === "canopy"; }
+  var z = zoned ? ({treatment:"T", control:"C"})[zone] || "" : "";
+  for (var i = 1; i < 100; i++) {
+    var id = z ? p + "-" + z + i : p + "-" + (i < 10 ? "0" : "") + i;
+    if (taken.indexOf(id) < 0) return id;
+  }
+  return p;
+}
+function wlEcoLabel(n){
+  return n.key === "gateway" ? t("wl_eco_gw") + (n.model ? " (" + n.model + ")" : "")
+    : t("wlf_" + n.family) + " \u00B7 " + t("wl_eco_ch", {n: n.channel});
+}
+function wlStartEco(key){
+  var n = (wl.eco_new || []).filter(function(x){ return x.key === key; })[0];
+  if (!n) return;
+  wlEco = n; wlEdit = null; wlRf = null; wlMsg = null;
+  wlKind = n.family === "th" ? null : n.kind; wlZone = n.key === "gateway" ? "mast" : null; drawWireless();
+}
+function wlAddEco(){
+  var n = wlEco;
+  wlPost("register", {eco:true, key:n.key, kind:wlKind || "", zone:wlZone, passkey:n.passkey || ""}, function(d){
+    if (d.ok) { wlEco = null; wlMsg = {kind:"ok", text:t("wl_added", {n:d.sensor_id})}; }
+    else wlMsg = {kind:"err", text:d.error || t("save_fail")};
+  });
+}
+function wlRemoveEco(key){
+  if (wlSure !== "eco:" + key) { wlSure = "eco:" + key; drawWireless(); return; }
+  wlSure = null;
+  wlPost("remove", {eco:true, key:key}, function(d){ wlMsg = d.ok ? {kind:"ok", text:t("wl_removed")} : {kind:"err", text:d.error || t("save_fail")}; });
 }
 
 function wlSuggest(kind, zone){
@@ -1271,7 +1333,7 @@ function wlFind(){
 function wlStartAdd(name){
   var n = (wl.new || []).filter(function(x){ return x.name === name; })[0];
   if (!n) return;
-  wlEdit = n.name; wlKind = n.guess || null; wlZone = null; wlMsg = null; drawWireless();
+  wlEco = null; wlEdit = n.name; wlKind = n.guess || null; wlZone = null; wlMsg = null; drawWireless();
 }
 function wlAdd(){
   var name = wlEdit;
@@ -1297,6 +1359,19 @@ function drawWireless(){
   var body = "";
   if (!wl) {
     body = '<div class="sub">' + t("checking") + '</div>';
+  } else if (wlEco) {
+    var en = wlEco, th = en.family === "th", gw = en.key === "gateway";
+    var ename = wlZone && (!th || wlKind) ? wlEcoSuggest(en, wlKind, wlZone) : "";
+    body = '<div class="sub" style="margin:2px 0 2px">' + esc(wlEcoLabel(en)) + '</div>' +
+      (th ? '<div class="wlhead">' + t("wl_pick_kind") + '</div><div class="typegrid two">' +
+        ["canopy","air"].map(function(k){ return '<button class="' + (k === wlKind ? "on" : "") +
+          '" onclick="wlKind=&quot;' + k + '&quot;;drawWireless()">' + t("wlr_" + k) + '</button>'; }).join("") + '</div>' : "") +
+      '<div class="wlhead">' + t("wl_pick_zone") + '</div><div class="typegrid two">' +
+      (gw ? ["mast","facility"] : ["treatment","control","facility","mast"]).map(function(z){ return '<button class="' + (z === wlZone ? "on" : "") +
+        '" onclick="wlZone=&quot;' + z + '&quot;;drawWireless()">' + t("wlz_" + z) + '</button>'; }).join("") + '</div>' +
+      (ename ? '<div class="sub" style="margin-top:10px">' + esc(t("wl_name_will", {n:ename})) + '</div>' : "") +
+      (gw ? '<div class="sub" style="margin-top:10px">' + t("wl_eco_gw_tip") + '</div>' : "") +
+      '<button class="wlbig" style="margin-top:10px" ' + (wlZone && (!th || wlKind) && !wlBusy ? "" : "disabled") + ' onclick="wlAddEco()">' + t("wl_add") + '</button>';
   } else if (wlRf) {
     var rname = wlKind && wlZone ? wlRfSuggest(wlKind, wlZone, wlRf.model) : "";
     if (rname && wlRf.model_only && wlKind === "weather") rname = "";      // 서버가 기존 이름을 이어준다
@@ -1390,11 +1465,47 @@ function drawWireless(){
         }).join("") + '<div class="sub" style="margin-top:4px">' + t("wl_rf_tip") + '</div>';
     }
     if (wl.rf_other) body += '<div class="sub" style="margin-top:4px">' + t("wl_rf_other", {n: wl.rf_other}) + '</div>';
+
+    // ── 에코윗 — 게이트웨이가 이 장비로 보내 온다. 들어온 게이트웨이와 거기 붙은 센서 중에서 골라 등록한다.
+    body += '<div class="wlhead" style="margin-top:16px">' + t("wl_eco_title") + '</div>';
+    if ((wl.units || {})["farm365-ecowitt"] === false) body += '<div class="msg err">' + t("wl_eco_off") + '</div>';
+    var ecos = wl.eco_sensors || [], gws = wl.eco_gateways || [];
+    body += ecos.map(function(x){
+      var old = x.age_min === null || x.age_min === undefined || x.age_min >= 30;
+      var what = x.key === "gateway" ? t("wl_eco_gw") : (t("wlr_" + x.kind) || x.kind) + " \u00B7 " + t("wl_eco_ch", {n: x.channel});
+      return '<div class="srow"><div class="sname">' + esc(x.sensor_id) +
+        '<div class="sub">' + esc(what + " \u00B7 " + (t("wlz_" + x.zone) || x.zone)) + '</div></div>' +
+        '<div class="wlmeta' + (old ? " old" : "") + '">' + wlAgo(x.age_min) + '</div>' +
+        '<button class="toggle" style="margin-left:8px" onclick="wlRemoveEco(decodeURIComponent(&quot;' + encodeURIComponent(x.key) + '&quot;))">' +
+          (wlSure === "eco:" + x.key ? t("wl_remove_sure") : t("wl_remove")) + '</button></div>';
+    }).join("");
+    if (!gws.length) {
+      body += (ecos.length ? "" : '<div class="sub">' + t("wl_eco_none") + '</div>') +
+        '<div class="msg info" style="margin-top:6px">' + t("wl_eco_setup") +
+        '<div class="ecoset"><span>' + t("wl_eco_server") + '</span><b>' + esc(wl.ip || t("wl_eco_noip")) + '</b>' +
+        '<span>' + t("wl_eco_port") + '</span><b>' + esc(String(wl.eco_port || 8088)) + '</b>' +
+        '<span>' + t("wl_eco_path") + '</span><b>' + esc(wl.eco_path || "/data/report/") + '</b>' +
+        '<span>' + t("wl_eco_interval") + '</span><b>60s</b></div></div>';
+    } else {
+      body += '<div class="wlhead">' + t("wl_eco_heard") + ' (' + gws.length + ')</div>' + gws.map(function(g){
+        return '<div class="srow"><div class="sname">' + esc(g.model || "Ecowitt") +
+          '<div class="sub">' + esc(g.ip) + " \u00B7 " + (g.registered ? t("wl_eco_mine") : t("wl_eco_notmine")) + '</div></div>' +
+          '<div class="wlmeta' + (g.age_min >= 30 ? " old" : "") + '">' + wlAgo(g.age_min) + '</div></div>';
+      }).join("");
+    }
+    var enew = wl.eco_new || [];
+    if (enew.length) {
+      body += '<div class="wlhead">' + t("wl_eco_new") + ' (' + enew.length + ')</div>' + enew.map(function(n){
+        return '<div class="srow"><div class="sname">' + esc(wlEcoLabel(n)) +
+          '<div class="sub">' + wlAgo(n.age_min) + '</div></div>' +
+          '<button class="toggle" onclick="wlStartEco(decodeURIComponent(&quot;' + encodeURIComponent(n.key) + '&quot;))">' + t("wl_add") + '</button></div>';
+      }).join("");
+    }
   }
   box.innerHTML = '<div class="setup" id="wlroot"><div class="chead">' +
       '<span class="ctitle">' + t("menu_wireless") + '</span>' +
-      '<button style="margin-left:auto" onclick="' + (wlEdit || wlRf ? "wlEdit=null;wlRf=null;drawWireless()" : "closeWireless()") + '">' +
-        (wlEdit || wlRf ? t("back_list") : t("back_menu")) + '</button>' +
+      '<button style="margin-left:auto" onclick="' + (wlEdit || wlRf || wlEco ? "wlEdit=null;wlRf=null;wlEco=null;drawWireless()" : "closeWireless()") + '">' +
+        (wlEdit || wlRf || wlEco ? t("back_list") : t("back_menu")) + '</button>' +
     '</div><div class="sbody">' + msg + body + '</div></div>';
 }
 

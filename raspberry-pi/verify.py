@@ -476,6 +476,39 @@ if _ssv:
            _c.index("[power]") < _c.index("enabled = true", _c.index("[power]")), "[wireless]" in _c),
           (True, True, True, True, True))
 
+
+# 에코윗 — 기본 설정(주석 예시와 channels: {})에 게이트웨이·채널을 더하고 뺀다.
+_eco_dev = _wdir / "eco.yaml"
+_eco_dev.write_text(_tpl.read_text(encoding="utf-8") if _tpl else
+                    "devices:\n\nrf:\n  Fineoffset-WS90:\n    zone: mast\n    sensor_id: WS90-01\n\n"
+                    "ecowitt:\n  # gateway:\n  channels: {}\n", encoding="utf-8")
+_WE = wireless.Wireless(_eco_dev, _wdir / "data", port=1)
+check("새 장비에는 에코윗 등록이 없다", wireless.read_eco(_eco_dev), {"gateway": None, "channels": {}})
+_g = _WE.register_eco("gateway", "weather", "mast", "A1B2C3D4E5F60718")
+_s = _WE.register_eco("soil1", "soil", "control")
+_t = _WE.register_eco("th2", "canopy", "treatment")
+_e = wireless.read_eco(_eco_dev)
+check("게이트웨이는 433MHz WS90 칸을 걷고 이름을 이어받는다",
+      (_g.get("sensor_id"), _e["gateway"].get("passkey"), any(k.startswith("Fineoffset-WS90") for k in wireless.read_rf(_eco_dev))),
+      ("WS90-01", "A1B2C3D4E5F60718", False))
+check("채널 이름: 토양 SOIL-C1, 초관부 온습도 CN-T1 + 지상 10cm 매핑",
+      (_s.get("sensor_id"), _t.get("sensor_id"), _e["channels"].get("th2", {}).get("map")),
+      ("SOIL-C1", "CN-T1", "{t_air: canopy_temp}"))
+check("온습도계는 종류를 골라야, 같은 채널은 한 번만, 기상센서는 한 길로만",
+      (_WE.register_eco("th3", "", "control")["ok"], _WE.register_eco("soil1", "soil", "control")["ok"],
+       _WE.register_eco("bad9", "soil", "control")["ok"],
+       _WE.register_rf("Fineoffset-WS90", "1", "weather", "mast")["ok"]), (False, False, False, False))
+try:
+    sys.path.insert(0, str(_here.parent / "openfield" / "src"))
+    from ofdf.data.ecowitt import load_channels
+    _lg, _lc = load_channels(_eco_dev)
+    check("수신기가 등록 결과를 그대로 읽는다", (_lg.sensor_id, sorted(_lc), _lc["th2"].map),
+          ("WS90-01", ["soil1", "th2"], {"t_air": "canopy_temp"}))
+except ImportError:
+    print("  (건너뜀) ofdf 가 없어 수신기 읽기 확인은 하지 않았다")
+check("에코윗 빼기", (_WE.remove_eco("th2")["ok"], _WE.remove_eco("gateway")["ok"], wireless.read_eco(_eco_dev)["gateway"],
+      sorted(wireless.read_eco(_eco_dev)["channels"])), (True, True, None, ["soil1"]))
+
 print()
 if fails:
     print(f"실패 {len(fails)}건:")

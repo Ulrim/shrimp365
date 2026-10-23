@@ -1,30 +1,31 @@
 #!/usr/bin/env bash
 # Farm365 장비 — 무선 센서(Zigbee·433MHz) 수집 설치. 재실행해도 안전하다(멱등).
 #
-#   sudo bash setup-wireless.sh                  # 지그비 + (RTL-SDR 동글이 꽂혀 있으면) 433MHz 기상센서
+#   sudo bash setup-wireless.sh                  # 지그비 + 에코윗 + (RTL-SDR 동글이 꽂혀 있으면) 433MHz
 #   sudo bash setup-wireless.sh --adapter zstack # 동글이 SONOFF Dongle-P(CC2652P)일 때. 기본은 ember(MG24·Dongle-E)
-#   sudo bash setup-wireless.sh --ecowitt        # 기상센서를 RTL-SDR 대신 에코윗 게이트웨이로 받을 때
 #
 # 설치하는 것
 #   · mosquitto            장비 안에서만 쓰는 메시지 중계(127.0.0.1)
 #   · Zigbee2MQTT          지그비 동글과 센서를 붙여 주는 프로그램 (/opt/zigbee2mqtt, 웹 8081)
 #   · farm365-zigbee       지그비 값을 수집 파일로 쌓는 수집기
 #   · farm365-rtl433       433MHz 기상센서(WS90) 수집기 — RTL-SDR 동글이 있을 때
-#   · farm365-ecowitt      에코윗 게이트웨이 수신기 — --ecowitt 일 때만(둘을 함께 켜면 비가 두 번 든다)
+#   · farm365-ecowitt      에코윗 게이트웨이 수신기(와이파이, 포트 8088) — 늘 켠다
+#
+# 433MHz 와 에코윗은 둘 다 화면에서 '등록한 것만' 받는다. 같은 기상센서를 두 길로
+# 등록하는 것은 화면이 막으므로(비가 두 번 더해진다) 둘을 함께 켜 두어도 된다.
 #
 # 설치가 끝나면 센서 연결은 장비 화면 [설정] → [무선 센서] 에서 한다(SSH 필요 없음).
 # 인터넷이 필요하다(패키지·Zigbee2MQTT 내려받기). 10~20분 걸린다.
 set -euo pipefail
 
 ADAPTER=ember
-ECOWITT=0
 FORCE_RTL=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --adapter) ADAPTER="$2"; shift 2 ;;
-    --ecowitt) ECOWITT=1; shift ;;
+    --ecowitt) shift ;;   # 예전 옵션 — 이제 에코윗 수신기는 늘 켠다
     --rtl433)  FORCE_RTL=1; shift ;;
-    -h|--help) sed -n 2,16p "$0"; exit 0 ;;
+    -h|--help) sed -n 2,17p "$0"; exit 0 ;;
     *) echo "모르는 옵션: $1" >&2; exit 2 ;;
   esac
 done
@@ -199,7 +200,7 @@ unit farm365-rtl433 "Farm365 433MHz 기상센서 수집기" \
   "/usr/bin/python3 $APP/scripts/rtl433_bridge.py --spawn --devices $FIELD/devices.yaml --out $DATA --capture $DATA/capture" \
   "" "$APP" ""
 unit farm365-ecowitt "Farm365 에코윗 게이트웨이 수신기" \
-  "/usr/bin/python3 $APP/scripts/ecowitt_receiver.py --devices $FIELD/devices.yaml --out $DATA --capture $DATA/capture" \
+  "/usr/bin/python3 $APP/scripts/ecowitt_receiver.py --registered-only --devices $FIELD/devices.yaml --out $DATA --capture $DATA/capture" \
   "" "$APP" ""
 systemctl daemon-reload
 systemctl enable --now zigbee2mqtt farm365-zigbee >/dev/null
@@ -209,12 +210,9 @@ HAS_RTL=0
 for d in /sys/bus/usb/devices/*; do
   if [ "$(cat "$d/idVendor" 2>/dev/null)" = "0bda" ] && grep -qE '^(2838|2832)$' "$d/idProduct" 2>/dev/null; then HAS_RTL=1; fi
 done
-if [ "$ECOWITT" = 1 ]; then
-  systemctl disable --now farm365-rtl433 >/dev/null 2>&1 || true
-  systemctl enable --now farm365-ecowitt >/dev/null
-  echo "   에코윗: 게이트웨이 앱에서 Customized 업로드 → 이 장비 주소, 포트 8088, 경로 /data/report/"
-elif [ "$HAS_RTL" = 1 ] || [ "$FORCE_RTL" = 1 ]; then
-  systemctl disable --now farm365-ecowitt >/dev/null 2>&1 || true
+systemctl enable --now farm365-ecowitt >/dev/null
+systemctl restart farm365-ecowitt
+if [ "$HAS_RTL" = 1 ] || [ "$FORCE_RTL" = 1 ]; then
   systemctl enable --now farm365-rtl433 >/dev/null
 else
   echo "   RTL-SDR 동글이 없어 433MHz 수집기는 켜지 않았습니다(꽂은 뒤 다시 실행하면 켜집니다)."

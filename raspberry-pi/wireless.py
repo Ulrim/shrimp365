@@ -68,7 +68,7 @@ _RF_ID_RE = re.compile(r"^[A-Za-z0-9]{0,12}$")
 ZONES = {"treatment": "T", "control": "C", "facility": "", "mast": ""}
 
 #: 상태를 볼 서비스(setup-wireless.sh 가 만드는 이름).
-UNITS = ("mosquitto", "zigbee2mqtt", "farm365-zigbee", "farm365-rtl433")
+UNITS = ("mosquitto", "zigbee2mqtt", "farm365-zigbee", "farm365-rtl433", "farm365-ecowitt")
 
 _NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,31}$")
 _ENTRY_RE = re.compile(r"^  ([A-Za-z0-9_.-]+):\s*\{(.*)\}\s*(#.*)?$")
@@ -426,6 +426,129 @@ def suggest_rf_id(kind: str, zone: str, model: str, taken: set[str]) -> str:
     raise ValueError("이름이 가득 찼습니다")
 
 
+# ── 에코윗 게이트웨이(와이파이) ─────────────────────────────────────────────────
+#: 게이트웨이 채널 계열 → (화면 종류, 이름 앞부분, 구간 글자를 붙이나). th(범용 온습도)는 사람이 고른다.
+ECO_FAMILIES = {"soil": ("soil", "SOIL", True), "tf": ("soiltemp", "ST", True),
+                "leaf": ("leaf", "LW", True), "th": ("", "", True)}
+_ECO_KEY_RE = re.compile(r"^(soil|tf|leaf|th)([1-8])$")
+_PASSKEY_RE = re.compile(r"^[A-Fa-f0-9]{8,64}$")
+
+
+def read_eco(path: Path) -> dict:
+    """ecowitt: 칸 — {"gateway": 설정 또는 None, "channels": {"soil1": 설정, ...}}.
+    한 줄 { } 형식과 여러 줄 형식을 모두 읽는다. 주석 줄은 건너뛴다."""
+    out: dict = {"gateway": None, "channels": {}}
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return out
+    blk = _block(lines, "ecowitt")
+    if not blk:
+        return out
+    section, cur = None, None
+    for raw in lines[blk[0] + 1:blk[1]]:
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+        indent = len(raw) - len(raw.lstrip())
+        key, _, rest = raw.strip().partition(":")
+        rest = rest.split(" #", 1)[0].strip()
+        if indent == 2:
+            section, cur = key, None
+            if key == "gateway":
+                out["gateway"] = _flow_to_dict(rest[1:-1]) if rest.startswith("{") and rest != "{}" else {}
+                cur = out["gateway"]
+            continue
+        if section == "gateway" and indent >= 4 and cur is not None:
+            cur[key] = rest.strip("'\"")
+        elif section == "channels":
+            if indent == 4:
+                cur = _flow_to_dict(rest[1:-1]) if rest.startswith("{") else {}
+                out["channels"][key] = cur
+            elif indent >= 6 and cur is not None:
+                cur[key] = rest.strip("'\"")
+    if out["gateway"] == {}:
+        out["gateway"] = None if not any(l.strip() == "gateway:" for l in lines[blk[0]:blk[1]]) else {}
+    return out
+
+
+def _eco_entries(lines: list[str]) -> list[tuple[str, int, int]]:
+    """ecowitt: 칸에서 지울 수 있는 항목 — ("gateway"|"soil1", 시작 줄, 끝 줄)."""
+    blk = _block([line.rstrip("\n") for line in lines], "ecowitt")
+    if not blk:
+        return []
+    out, cur, section = [], None, None
+    for i in range(blk[0] + 1, blk[1]):
+        raw = lines[i].rstrip("\n")
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+        indent = len(raw) - len(raw.lstrip())
+        key = raw.strip().split(":", 1)[0]
+        if indent == 2:
+            if cur:
+                out.append(tuple(cur))
+            section = key
+            cur = [key, i, i + 1] if key == "gateway" else None
+        elif indent == 4 and section == "channels":
+            if cur:
+                out.append(tuple(cur))
+            cur = [key, i, i + 1]
+        elif cur and indent > (2 if cur[0] == "gateway" else 4):
+            cur[2] = i + 1
+    if cur:
+        out.append(tuple(cur))
+    return out
+
+
+def _eco_line(fields: dict) -> str:
+    return ", ".join(f"{k}: {v}" for k, v in fields.items() if v not in (None, ""))
+
+
+def add_eco(path: Path, key: str, fields: dict) -> None:
+    """게이트웨이(key="gateway") 또는 채널(soil1 …) 한 줄을 ecowitt: 칸에 더한다."""
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True) if path.exists() else []
+    if _block([line.rstrip("\n") for line in lines], "ecowitt") is None:
+        if lines and not lines[-1].endswith("\n"):
+            lines[-1] += "\n"
+        lines += ["\necowitt:\n"]
+    blk = _block([line.rstrip("\n") for line in lines], "ecowitt")
+    s, e = blk
+    if re.match(r"^ecowitt:\s*\{\s*\}", lines[s]):
+        lines[s] = "ecowitt:\n"
+    if key == "gateway":
+        lines.insert(s + 1, f"  gateway: {{{_eco_line(fields)}}}\n")
+    else:
+        ch = next((i for i in range(s + 1, e) if re.match(r"^  channels:", lines[i])), None)
+        if ch is None:
+            lines.insert(e, "  channels:\n")
+            ch = e
+        elif re.match(r"^  channels:\s*\{\s*\}", lines[ch]):
+            lines[ch] = "  channels:\n"
+        entries = [x for x in _eco_entries(lines) if x[0] != "gateway"]
+        at = entries[-1][2] if entries else ch + 1
+        lines.insert(at, f"    {key}: {{{_eco_line(fields)}}}\n")
+    _write_atomic(path, "".join(lines))
+
+
+def remove_eco(path: Path, key: str) -> bool:
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    for k, start, end in _eco_entries(lines):
+        if k == key:
+            del lines[start:end]
+            _write_atomic(path, "".join(lines))
+            return True
+    return False
+
+
+def local_ip() -> str:
+    """이 장비의 망 주소 — 게이트웨이 앱에 적을 값. 실제로 보내지 않는다(UDP 연결만 맺어 본다)."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as so:
+            so.connect(("10.255.255.255", 1))
+            return so.getsockname()[0]
+    except OSError:
+        return ""
+
+
 def save_section_value(config_path: Path, section: str, key: str, value: str) -> bool:
     """[section] 의 key 하나를 적는다. 항목이 없으면 끼워 넣고, 구간이 없으면 끝에 만든다.
 
@@ -636,6 +759,8 @@ class Wireless:
             rf_new.append({**h, "key": key, "guess": guess_rf_kind(h["model"]),
                            "model_only": h["model"] in rf_reg})
         rf_new.sort(key=lambda x: (x.get("rssi") is None, -(x.get("rssi") or -99)))
+        eco_reg = read_eco(self.devices_path)
+        eco = self._eco_snapshot(eco_reg, info)
         left = max(0, int(self.permit_until - time.time()))
         return {
             "dongle": self._dongle(), "rtlsdr": self._rtlsdr(), "units": units,
@@ -645,12 +770,63 @@ class Wireless:
             "taken": sorted(self._taken(registered, rf_reg)),
             "rf_sensors": rf_sensors, "rf_new": rf_new, "rf_other": rf_other,
             "rf_heard_ok": self._heard_path().exists(),
+            **eco,
         }
 
-    @staticmethod
-    def _taken(registered: dict, rf_reg: dict) -> set[str]:
+    def _eco_snapshot(self, eco_reg: dict, info) -> dict:
+        """에코윗 — 등록된 게이트웨이·채널, 들어온 게이트웨이와 거기 붙은 아직 등록 안 한 센서."""
+        gw = eco_reg.get("gateway")
+        sensors = []
+        if gw is not None:
+            sid = gw.get("sensor_id") or "WS90-01"
+            sensors.append({"key": "gateway", "sensor_id": sid, "kind": "weather", "zone": gw.get("zone", "mast"),
+                            "label": "", **info(sid)})
+        for key, cfg in eco_reg.get("channels", {}).items():
+            m = _ECO_KEY_RE.match(key)
+            fam = m.group(1) if m else ""
+            kind = ECO_FAMILIES.get(fam, ("",))[0] or ("canopy" if "canopy_temp" in str(cfg.get("map", "")) else "air")
+            sid = cfg.get("sensor_id") or key.upper()
+            sensors.append({"key": key, "sensor_id": sid, "kind": kind, "zone": cfg.get("zone", ""),
+                            "channel": int(m.group(2)) if m else None, **info(sid)})
+        try:
+            heard = json.loads((self.data_dir / "capture" / "ecowitt_heard.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            heard = {}
+        now = dt.datetime.now()
+        gateways, new = [], []
+        for g in heard.get("gateways") or []:
+            try:
+                age = int((now - dt.datetime.fromisoformat(g["last"])).total_seconds() // 60)
+            except (KeyError, ValueError, TypeError):
+                continue
+            passkey = str(g.get("passkey") or "")
+            if not _PASSKEY_RE.match(passkey):
+                passkey = ""
+            mine = gw is not None and (not gw.get("passkey") or gw.get("passkey") == passkey)
+            gateways.append({"passkey": passkey, "ip": str(g.get("ip", ""))[:45],
+                             "model": str(g.get("stationtype") or g.get("model") or "")[:40], "age_min": age,
+                             "registered": mine})
+            if age > 30:
+                continue
+            if g.get("outdoor") and gw is None:
+                new.append({"key": "gateway", "passkey": passkey, "kind": "weather",
+                            "model": "WS90" if g.get("ws90") else "", "age_min": age})
+            if gw is None or mine:
+                for ch in g.get("channels") or []:
+                    if ch in eco_reg.get("channels", {}) or not _ECO_KEY_RE.match(ch):
+                        continue
+                    fam = _ECO_KEY_RE.match(ch).group(1)
+                    new.append({"key": ch, "family": fam, "channel": int(ch[len(fam):]),
+                                "kind": ECO_FAMILIES[fam][0], "age_min": age, "passkey": passkey})
+        return {"eco_sensors": sensors, "eco_gateways": gateways, "eco_new": new, "ip": local_ip(),
+                "eco_port": 8088, "eco_path": "/data/report/"}
+
+    def _taken(self, registered: dict, rf_reg: dict) -> set[str]:
+        eco = read_eco(self.devices_path)
         return {(c.get("sensor_id") or n).upper() for n, c in registered.items()} | \
-               {(c.get("sensor_id") or k.split("/")[0]).upper() for k, c in rf_reg.items()}
+               {(c.get("sensor_id") or k.split("/")[0]).upper() for k, c in rf_reg.items()} | \
+               {(c.get("sensor_id") or k).upper() for k, c in eco["channels"].items()} | \
+               ({(eco["gateway"].get("sensor_id") or "WS90-01").upper()} if eco["gateway"] is not None else set())
 
     def _heard_path(self) -> Path:
         return self.data_dir / "capture" / "rtl433_heard.json"
@@ -742,6 +918,18 @@ class Wireless:
             except OSError as exc:
                 return {"ok": False, "error": f"설정 파일에 쓰지 못했습니다: {exc}"}
 
+    def register_eco(self, key: str, kind: str, zone: str, passkey: str = "", note: str = "") -> dict:
+        """에코윗 등록. key 가 "gateway" 면 게이트웨이 본체 센서(WS90 등), 아니면 채널(soil1·th2 …)."""
+        with self._lock:
+            return _eco_register(self, key, kind, zone, passkey, note)
+
+    def remove_eco(self, key: str) -> dict:
+        with self._lock:
+            try:
+                return {"ok": remove_eco(self.devices_path, key)}
+            except OSError as exc:
+                return {"ok": False, "error": f"설정 파일에 쓰지 못했습니다: {exc}"}
+
     def remove(self, name: str) -> dict:
         with self._lock:
             return self._remove(name)
@@ -765,6 +953,9 @@ def _rf_register(w: "Wireless", model: str, ident: str, kind: str, zone: str, no
     if not w.devices_path.exists():
         return {"ok": False, "error": f"설정 파일이 없습니다({w.devices_path}) — setup-wireless.sh 를 먼저 실행하세요"}
     rf_reg = read_rf(w.devices_path)
+    if kind == "weather" and read_eco(w.devices_path)["gateway"] is not None:
+        return {"ok": False, "error": "기상센서를 에코윗 게이트웨이로 받고 있습니다 — 같은 비가 두 번 더해지지 "
+                                      "않게, 게이트웨이 칸을 먼저 빼세요"}
     key = f"{model}/{ident}" if ident else model
     if key in rf_reg:
         return {"ok": False, "error": "이미 등록된 센서입니다"}
@@ -778,6 +969,59 @@ def _rf_register(w: "Wireless", model: str, ident: str, kind: str, zone: str, no
         sid = suggest_rf_id(kind, zone, model, w._taken(read_registered(w.devices_path), read_rf(w.devices_path)))
     try:
         add_rf(w.devices_path, key, zone, sid, note, RF_KINDS[kind].get("map"))
+    except OSError as exc:
+        return {"ok": False, "error": f"설정 파일에 쓰지 못했습니다: {exc}"}
+    return {"ok": True, "key": key, "sensor_id": sid}
+
+
+def _eco_register(w: "Wireless", key: str, kind: str, zone: str, passkey: str = "", note: str = "") -> dict:
+    if zone not in ZONES:
+        return {"ok": False, "error": "구간이 올바르지 않습니다"}
+    if not w.devices_path.exists():
+        return {"ok": False, "error": f"설정 파일이 없습니다({w.devices_path}) — setup-wireless.sh 를 먼저 실행하세요"}
+    eco = read_eco(w.devices_path)
+    taken = w._taken(read_registered(w.devices_path), read_rf(w.devices_path))
+    note = clean_note(note)
+    if key == "gateway":
+        if eco["gateway"] is not None:
+            return {"ok": False, "error": "게이트웨이가 이미 등록돼 있습니다"}
+        # 같은 WS90 을 433MHz(RTL-SDR)로도 받고 있으면 그 칸을 걷고 이름을 이어받는다 —
+        # 두 길로 받으면 같은 비가 두 번 더해진다(devices.yaml 머리말).
+        sid = None
+        for rkey, cfg in read_rf(w.devices_path).items():
+            if guess_rf_kind(rkey.split("/")[0]) == "weather":
+                sid = sid or cfg.get("sensor_id")
+                remove_rf(w.devices_path, rkey)
+        if not sid:
+            sid = suggest_rf_id("weather", "mast", "WS90", taken)
+        fields = {"zone": zone, "sensor_id": sid, "passkey": passkey if _PASSKEY_RE.match(passkey or "") else "",
+                  "note": note}
+        try:
+            add_eco(w.devices_path, "gateway", fields)
+        except OSError as exc:
+            return {"ok": False, "error": f"설정 파일에 쓰지 못했습니다: {exc}"}
+        return {"ok": True, "key": "gateway", "sensor_id": sid}
+    m = _ECO_KEY_RE.match(key or "")
+    if not m:
+        return {"ok": False, "error": "채널이 올바르지 않습니다"}
+    if key in eco["channels"]:
+        return {"ok": False, "error": "이미 등록된 채널입니다"}
+    fam = m.group(1)
+    fixed, prefix, zoned = ECO_FAMILIES[fam]
+    mapping = None
+    if fam == "th":
+        if kind not in ("canopy", "air"):
+            return {"ok": False, "error": "온습도계는 초관부(지상 10cm)인지 기온(2m)인지 골라야 합니다"}
+        prefix, zoned = ("CN", True) if kind == "canopy" else ("AIR", False)
+        mapping = {"t_air": "canopy_temp"} if kind == "canopy" else None
+    letter = ZONES.get(zone, "") if zoned else ""
+    sid = next(x for x in (f"{prefix}-{letter}{n}" if letter else f"{prefix}-{n:02d}" for n in range(1, 100))
+               if x not in taken)
+    fields = {"zone": zone, "sensor_id": sid, "note": note}
+    if mapping:
+        fields["map"] = "{" + ", ".join(f"{a}: {b}" for a, b in mapping.items()) + "}"
+    try:
+        add_eco(w.devices_path, key, fields)
     except OSError as exc:
         return {"ok": False, "error": f"설정 파일에 쓰지 못했습니다: {exc}"}
     return {"ok": True, "key": key, "sensor_id": sid}
