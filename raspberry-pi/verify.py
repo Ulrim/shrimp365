@@ -483,21 +483,26 @@ _eco_dev.write_text(_tpl.read_text(encoding="utf-8") if _tpl else
                     "devices:\n\nrf:\n  Fineoffset-WS90:\n    zone: mast\n    sensor_id: WS90-01\n\n"
                     "ecowitt:\n  # gateway:\n  channels: {}\n", encoding="utf-8")
 _WE = wireless.Wireless(_eco_dev, _wdir / "data", port=1)
-check("새 장비에는 에코윗 등록이 없다", wireless.read_eco(_eco_dev), {"gateway": None, "channels": {}})
+check("새 장비에는 에코윗 등록이 없다", wireless.read_eco(_eco_dev), {"gateway": None, "channels": {}, "passkey": ""})
 _g = _WE.register_eco("gateway", "weather", "mast", "A1B2C3D4E5F60718")
-_s = _WE.register_eco("soil1", "soil", "control")
-_t = _WE.register_eco("th2", "canopy", "treatment")
+_s = _WE.register_eco("soil1", "soil", "control", "a1b2c3d4e5f60718")
+_t = _WE.register_eco("th2", "canopy", "treatment", "A1B2C3D4E5F60718")
 _e = wireless.read_eco(_eco_dev)
 check("게이트웨이는 433MHz WS90 칸을 걷고 이름을 이어받는다",
-      (_g.get("sensor_id"), _e["gateway"].get("passkey"), any(k.startswith("Fineoffset-WS90") for k in wireless.read_rf(_eco_dev))),
+      (_g.get("sensor_id"), _e["passkey"], any(k.startswith("Fineoffset-WS90") for k in wireless.read_rf(_eco_dev))),
       ("WS90-01", "A1B2C3D4E5F60718", False))
 check("채널 이름: 토양 SOIL-C1, 초관부 온습도 CN-T1 + 지상 10cm 매핑",
       (_s.get("sensor_id"), _t.get("sensor_id"), _e["channels"].get("th2", {}).get("map")),
       ("SOIL-C1", "CN-T1", "{t_air: canopy_temp}"))
 check("온습도계는 종류를 골라야, 같은 채널은 한 번만, 기상센서는 한 길로만",
-      (_WE.register_eco("th3", "", "control")["ok"], _WE.register_eco("soil1", "soil", "control")["ok"],
-       _WE.register_eco("bad9", "soil", "control")["ok"],
-       _WE.register_rf("Fineoffset-WS90", "1", "weather", "mast")["ok"]), (False, False, False, False))
+      (_WE.register_eco("th3", "", "control", "A1B2C3D4E5F60718")["ok"],
+       _WE.register_eco("soil1", "soil", "control", "A1B2C3D4E5F60718")["ok"],
+       _WE.register_eco("bad9", "soil", "control", "A1B2C3D4E5F60718")["ok"],
+       _WE.register_rf("Fineoffset-WS90", "1", "weather", "mast")["ok"],
+       _WE.register_rf("Fineoffset-WS90", "1", "rain", "mast")["ok"]), (False, False, False, False, False))
+check("다른 게이트웨이(열쇠)는 등록하지 않는다, 열쇠 없이도 안 된다",
+      (_WE.register_eco("soil2", "soil", "control", "FFEE0011FFEE0011")["ok"],
+       _WE.register_eco("soil2", "soil", "control", "")["ok"]), (False, False))
 try:
     sys.path.insert(0, str(_here.parent / "openfield" / "src"))
     from ofdf.data.ecowitt import load_channels
@@ -508,6 +513,19 @@ except ImportError:
     print("  (건너뜀) ofdf 가 없어 수신기 읽기 확인은 하지 않았다")
 check("에코윗 빼기", (_WE.remove_eco("th2")["ok"], _WE.remove_eco("gateway")["ok"], wireless.read_eco(_eco_dev)["gateway"],
       sorted(wireless.read_eco(_eco_dev)["channels"])), (True, True, None, ["soil1"]))
+_WE.remove_eco("soil1")
+check("다 빼면 열쇠도 지워 다른 게이트웨이를 고를 수 있다", wireless.read_eco(_eco_dev)["passkey"], "")
+_bare = _wdir / "bare.yaml"
+_bare.write_text("devices:\nrs485:\n  enabled: false", encoding="utf-8")
+_WB = wireless.Wireless(_bare, _wdir / "data", port=1)
+_r = _WB.register_eco("soil1", "soil", "control", "01234567")
+check("ecowitt: 칸이 없는 파일에도 더하고, 숫자만인 열쇠도 글자로 남는다",
+      (_r["ok"], wireless.read_eco(_bare)["passkey"], "rs485:" in _bare.read_text(encoding="utf-8")), (True, "01234567", True))
+try:
+    import yaml as _yaml
+    check("  (YAML 로 읽어도 같다)", str(_yaml.safe_load(_bare.read_text(encoding="utf-8"))["ecowitt"]["passkey"]), "01234567")
+except ImportError:
+    pass
 
 print()
 if fails:

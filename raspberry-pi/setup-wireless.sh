@@ -20,10 +20,11 @@ set -euo pipefail
 
 ADAPTER=ember
 FORCE_RTL=0
+LEGACY_ECO=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --adapter) ADAPTER="$2"; shift 2 ;;
-    --ecowitt) shift ;;   # 예전 옵션 — 이제 에코윗 수신기는 늘 켠다
+    --ecowitt) LEGACY_ECO=1; shift ;;   # 예전 옵션 — 이제 에코윗 수신기는 늘 켜고, 화면에서 등록한 것만 받는다
     --rtl433)  FORCE_RTL=1; shift ;;
     -h|--help) sed -n 2,17p "$0"; exit 0 ;;
     *) echo "모르는 옵션: $1" >&2; exit 2 ;;
@@ -232,6 +233,26 @@ save_section_value(conf, "power", "dir", data)
 EOF
   systemctl restart shrimp365-sensor || true
 fi
+
+# ── 7. 예전 설정 점검: 같은 기상센서를 두 길로 받거나, 등록 없이 받던 에코윗 ─────────────
+python3 - "$FIELD/devices.yaml" "$LEGACY_ECO" <<'EOF' || true
+import sys
+sys.path.insert(0, "/opt/shrimp365")
+from pathlib import Path
+from wireless import guess_rf_kind, read_eco, read_rf
+dev, legacy = Path(sys.argv[1]), sys.argv[2] == "1"
+eco, rf = read_eco(dev), read_rf(dev)
+weather_rf = [k for k in rf if guess_rf_kind(k.split("/")[0]) == "weather"]
+if eco["gateway"] is not None and weather_rf:
+    print("   [주의] 기상센서를 에코윗 게이트웨이와 433MHz(" + ", ".join(weather_rf) + ") 두 길로 받게 돼 있습니다.")
+    print("          비가 두 번 더해집니다. 화면 [무선 센서]에서 한쪽을 빼세요.")
+if (eco["gateway"] is not None or eco["channels"]) and not eco["passkey"]:
+    print("   [주의] 에코윗 게이트웨이 열쇠(PASSKEY)가 없어 같은 망의 다른 게이트웨이 값도 받습니다.")
+    print("          화면에서 에코윗 칸을 모두 뺀 뒤 '들어온 게이트웨이' 목록에서 다시 등록하세요.")
+if legacy and eco["gateway"] is None:
+    print("   [알림] 이제 에코윗은 화면에서 등록한 것만 받습니다. 지금은 게이트웨이 등록이 없어 기상값이 들어오지 않습니다.")
+    print("          화면 [설정] → [무선 센서] → '에코윗 게이트웨이' 에서 게이트웨이와 센서를 등록하세요.")
+EOF
 
 echo
 echo "==> 상태"
