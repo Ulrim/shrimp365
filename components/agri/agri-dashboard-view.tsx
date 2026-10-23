@@ -12,8 +12,10 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { useT, useAgriT } from "@/lib/i18n-context"
-import { getFarms, getAllTanks, getAlerts, getLatestWaterQuality, getWaterQuality, getSensorDevices, getFieldRiskLatest, resolveAlert } from "@/lib/db"
+import { getFarms, getAllTanks, getAlerts, getLatestWaterQuality, getWaterQuality, getSensorDevices, getSensorDevicesForTanks, getFieldRiskLatest, resolveAlert } from "@/lib/db"
+import { sensorsOnFrom, metricOn, featureOn, type SensorsOn } from "@/lib/sensors-on"
 import { isTestAccount } from "@/lib/mock-data"
+import { cn } from "@/lib/utils"
 import { useAutoRefresh } from "@/lib/use-auto-refresh"
 import { Button } from "@/components/ui/button"
 import { AgriPageHeader } from "@/components/agri/agri-page-header"
@@ -46,9 +48,11 @@ interface BaseData {
   alerts: Alert[]
   /** 베드별 최신 측정. 베드가 MAX_LATEST_LOOKUPS 를 넘으면 null(조회 안 함). */
   latest: Record<string, WaterQualityReading | null> | null
+  /** 베드별로 장비 [센서 설정]에서 켜 둔 것. 없거나 옛 장비면 null(모두 그린다). */
+  sensorsOn: Record<string, SensorsOn>
 }
 
-const EMPTY: BaseData = { farms: [], tanks: [], alerts: [], latest: {} }
+const EMPTY: BaseData = { farms: [], tanks: [], alerts: [], latest: {}, sensorsOn: {} }
 
 // 테스트 계정은 목데이터가 전부 새우라 농업 화면에서는 빈 상태가 정상이다.
 async function loadBase(mock: boolean): Promise<BaseData> {
@@ -58,11 +62,16 @@ async function loadBase(mock: boolean): Promise<BaseData> {
   const tanks = tk.filter(isAgri)
   const alerts = al.filter(a => isAgri(a) && !a.resolved)
   let latest: BaseData["latest"] = null
+  let sensorsOn: BaseData["sensorsOn"] = {}
   if (tanks.length <= MAX_LATEST_LOOKUPS) {
-    const rows = await Promise.all(tanks.map(t => getLatestWaterQuality(t.id).catch(() => null)))
+    const [rows, devices] = await Promise.all([
+      Promise.all(tanks.map(t => getLatestWaterQuality(t.id).catch(() => null))),
+      getSensorDevicesForTanks(tanks.map(t => t.id)).catch(() => [] as SensorDevice[]),
+    ])
     latest = Object.fromEntries(tanks.map((t, i) => [t.id, rows[i]]))
+    sensorsOn = Object.fromEntries(tanks.map(t => [t.id, sensorsOnFrom(devices.filter(d => d.tank_id === t.id))]))
   }
-  return { farms, tanks, alerts, latest }
+  return { farms, tanks, alerts, latest, sensorsOn }
 }
 
 interface TankDetail {
@@ -246,8 +255,12 @@ export function AgriDashboardView() {
   }
   const ecDeviations = alerts.filter(a => a.parameter === "EC").length
   const bannerNames = Array.from(new Set(alerts.map(a => a.tank_name).filter(Boolean)))
-  const hasNutrient = visibleDevices.some(dv => dv.active && typeof dv.last_payload?.nut_percent === "number")
-  const hasDp = visibleWq.some(r => typeof r.diff_pressure === "number")
+  // 장비 [센서 설정]에서 꺼 둔 것은 카드째 그리지 않는다(남은 카드가 자리를 채운다).
+  const on = sensorsOnFrom(visibleDevices)
+  const nutrientOn = featureOn("nutrient", on)
+  const dpOn = metricOn("diff_pressure", on)
+  const hasNutrient = nutrientOn && visibleDevices.some(dv => dv.active && typeof dv.last_payload?.nut_percent === "number")
+  const hasDp = dpOn && visibleWq.some(r => typeof r.diff_pressure === "number")
   // 노지 재해위험 알림은 parameter 가 키("field:frost")라 alertDisplayLabel 이 모른다. 목록에 넘기기
   // 전에 **표시용 사본**의 parameter 만 농가 말로 바꾼다 — alertDisplayLabel 은 모르는 이름을
   // 그대로 돌려주므로 그 말이 이름표가 된다. 원본(처리 id·EC 집계)은 건드리지 않는다.
@@ -307,6 +320,7 @@ export function AgriDashboardView() {
               key={tk.id}
               tank={tk}
               latest={latest ? latest[tk.id] ?? null : undefined}
+              sensorsOn={base.sensorsOn[tk.id] ?? null}
               selected={tk.id === selectedTankId}
               onSelect={() => setPickedTankId(tk.id)}
             />
@@ -320,24 +334,26 @@ export function AgriDashboardView() {
       )}
 
       {/* 환경·기상 — 장비가 지그비·기상센서 값을 올린 베드만. 없으면 카드가 그려지지 않는다 */}
-      {selectedTank && <EnvironmentCard readings={visibleWq} tankId={selectedTank.id} tankName={selectedTank.name} now={lastRefreshed} mock={mock} />}
+      {selectedTank && featureOn("env", on) && <EnvironmentCard readings={visibleWq} tankId={selectedTank.id} tankName={selectedTank.name} now={lastRefreshed} mock={mock} />}
 
       {/* 전력 — 장비가 분전반 회로 값을 올린 베드만. 없으면 카드가 그려지지 않는다 */}
-      {selectedTank && <PowerCard tankId={selectedTank.id} tankName={selectedTank.name} now={lastRefreshed} mock={mock} />}
+      {selectedTank && featureOn("power", on) && <PowerCard tankId={selectedTank.id} tankName={selectedTank.name} now={lastRefreshed} mock={mock} />}
 
       {hasNutrient || hasDp ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {hasNutrient && selectedTank && (
-            <section className="lg:col-span-2 space-y-2" aria-label={dd.nutrientHeading.replace("{{name}}", selectedTank.name)}>
+            <section className={cn("space-y-2", dpOn ? "lg:col-span-2" : "lg:col-span-3")} aria-label={dd.nutrientHeading.replace("{{name}}", selectedTank.name)}>
               <h2 className="text-sm font-semibold text-foreground">{dd.nutrientHeading.replace("{{name}}", selectedTank.name)}</h2>
               <NutrientStatusCard devices={visibleDevices} tank={selectedTank} />
             </section>
           )}
-          <div className={hasNutrient ? "" : "lg:col-span-3"}>
-            <DpTrendCard readings={visibleWq} />
-          </div>
+          {dpOn && (
+            <div className={hasNutrient ? "" : "lg:col-span-3"}>
+              <DpTrendCard readings={visibleWq} />
+            </div>
+          )}
         </div>
-      ) : (
+      ) : (nutrientOn || dpOn) && (
         <AgriEmptyState
           icon={FlaskConical}
           title={common.noData}

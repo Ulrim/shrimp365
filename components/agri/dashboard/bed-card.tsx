@@ -16,6 +16,7 @@ import { AGRI_PARAMS, agriFormat, agriParamLabel, type AgriParamKey } from "@/li
 import { AGRI_STATUS_STYLES, getAgriStatus, type AgriStatusLevel } from "@/lib/agri-standards"
 import { BedStatusBadge, useAgriStatusLabel } from "@/components/agri/bed-status-badge"
 import { agoLabel } from "./time-ago"
+import { metricOn, type SensorsOn } from "@/lib/sensors-on"
 import type { Tank, WaterQualityReading } from "@/types"
 
 /** tank.status(DB) → 표시 레벨. 시안 3-1 변환표. */
@@ -34,9 +35,14 @@ interface BedCardProps {
   latest: WaterQualityReading | null | undefined
   selected: boolean
   onSelect: () => void
+  /** 장비 [센서 설정]에서 켜 둔 것. 꺼 둔 센서 칸은 그리지 않는다. null = 모름(모두 그린다). */
+  sensorsOn?: SensorsOn
 }
 
-export function BedCard({ tank, latest, selected, onSelect }: BedCardProps) {
+// 남은 칸 수에 맞춰 열을 나눈다 — 꺼 둔 칸 자리를 비워 두지 않는다.
+const TILE_COLS: Record<number, string> = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-3" }
+
+export function BedCard({ tank, latest, selected, onSelect, sensorsOn = null }: BedCardProps) {
   const { t } = useT()
   const d = useAgriT()
   const { dashboard: dd } = d
@@ -53,6 +59,8 @@ export function BedCard({ tank, latest, selected, onSelect }: BedCardProps) {
       .replace("{{ph}}", tank.target_ph.toFixed(1))
       .replace("{{phTol}}", String(tank.ph_tolerance ?? 0.5)))
   }
+
+  const tiles = AGRI_PARAMS.filter(p => TILE_KEYS.includes(p.key) && metricOn(p.key, sensorsOn))
 
   const footer: string[] = []
   if (tank.stocking_date) footer.push(dd.cropDayN.replace("{{n}}", String(computeCycleDay(tank.stocking_date))))
@@ -83,9 +91,9 @@ export function BedCard({ tank, latest, selected, onSelect }: BedCardProps) {
           <span className="truncate">{recipeParts.length ? recipeParts.join(" · ") : dd.recipeNotSet}</span>
         </p>
 
-        {latest !== undefined && (
-          <div className="grid grid-cols-3 gap-2">
-            {AGRI_PARAMS.filter(p => TILE_KEYS.includes(p.key)).map(p => {
+        {latest !== undefined && tiles.length > 0 && (
+          <div className={cn("grid gap-2", TILE_COLS[tiles.length])}>
+            {tiles.map(p => {
               const raw = latest ? latest[p.key] : null
               const status = getAgriStatus(p.key, raw, tank)
               const st = AGRI_STATUS_STYLES[status]
@@ -108,7 +116,7 @@ export function BedCard({ tank, latest, selected, onSelect }: BedCardProps) {
           </div>
         )}
 
-        {latest?.flow_rate === 0 && (
+        {latest?.flow_rate === 0 && metricOn("flow_rate", sensorsOn) && (
           <p className="text-[11px] text-red-600 dark:text-red-400 font-medium">{dd.flowStopped}</p>
         )}
       </button>

@@ -2208,6 +2208,13 @@ def main() -> int:
     # 연속 전송 실패 횟수. 회선이 끊긴 채 안 돌아올 때 무선을 다시 깨우는 기준.
     net_fail = {"count": 0}
 
+    def sensors_on_list() -> list[str]:
+        """[센서 설정]에서 켜 둔 것 — 수질 센서 키(ph·do·ec·flow·dp)와 env·power·nutrient.
+        화면과 웹이 꺼 둔 칸을 그리지 않는 근거다. 값이 없는 것(고장)과 꺼 둔 것을 가른다."""
+        return ([k for k in SENSOR_SPECS if k in enabled]
+                + (["env"] if env_on else []) + (["power"] if power_on else [])
+                + (["nutrient"] if nut_holder.get("enabled") else []))
+
     def handle_signal(signum, _frame):
         nonlocal stop
         log.info("종료 신호(%s) 수신 — 정리 중", signum)
@@ -2384,6 +2391,26 @@ def main() -> int:
                 save_interval(args.config, new_interval)
                 save_ec_mode(args.config, ec_holder["mode"], ec_holder["unit"])
             log.info("화면에서 센서 설정을 바꿨습니다: %s, 주기 %d초", on, new_interval)
+
+            # 환경·기상, 전력, 양액 켜고 끄기. 양액은 바로 적용되지만 환경·기상과 전력은
+            # 수집기 파일을 읽는 준비를 시작할 때만 하므로 저장한 뒤 프로그램을 다시 시작한다.
+            extras = payload.get("extras") if isinstance(payload.get("extras"), dict) else {}
+            if "nutrient" in extras and bool(extras["nutrient"]) != bool(nut_holder.get("enabled")):
+                nut_holder["enabled"] = bool(extras["nutrient"])
+                saved = save_nutrient(args.config, dict(nut_holder)) and saved
+            restart = False
+            for section, cur in (("environment", env_on), ("power", power_on)):
+                key = "env" if section == "environment" else "power"
+                if key in extras and bool(extras[key]) != cur:
+                    saved = save_section_value(args.config, section, "enabled",
+                                               "true" if extras[key] else "false") and saved
+                    restart = True
+            if state is not None:
+                state.update(sensors_on=sensors_on_list())
+            if restart:
+                log.info("환경·기상/전력 켜기·끄기를 바꿨습니다: %s — 다시 시작합니다", extras)
+                ui_restart()
+                return {"ok": True, "saved": saved, "restarting": True}
             return {"ok": True, "saved": saved}
 
         def ui_set_id(old_id: int, new_id: int) -> dict:
@@ -2431,6 +2458,8 @@ def main() -> int:
                 "port": port,
                 "ec_mode": ec_holder["mode"],
                 "ec_unit": ec_holder["unit"],
+                # 수질 센서 말고 켜고 끄는 것 — 끄면 장비·웹 대시보드에서 그 칸을 그리지 않는다.
+                "extras": {"env": env_on, "power": power_on, "nutrient": bool(nut_holder.get("enabled"))},
                 "sensors": [
                     {
                         "key": key,
@@ -2748,7 +2777,8 @@ def main() -> int:
         )
         state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중",
                      status_code="checking",
-                     version=VERSION, ec_unit=ec_holder["unit"], mode=mode_holder["mode"])
+                     version=VERSION, ec_unit=ec_holder["unit"], mode=mode_holder["mode"],
+                     sensors_on=sensors_on_list())
 
     # 이미 연결된 기기라면 어느 계정·수조에 붙어 있는지 확인해 화면에 남긴다.
     if auth["key"] and state is not None:
@@ -2876,7 +2906,9 @@ def main() -> int:
                 status_code, status_args = "dry_run", {"at": time.strftime("%H:%M")}
             else:
                 recorded_at = time.strftime("%Y-%m-%dT%H:%M:%S%z") or None
-                payload = {**values, "serial": serial_no, "firmware": f"pi-{VERSION}"}
+                # sensors_on 을 맨 앞에 — 서버는 마지막 수신값을 앞에서부터 48칸만 남긴다.
+                payload = {"sensors_on": ",".join(sensors_on_list()),
+                           **values, "serial": serial_no, "firmware": f"pi-{VERSION}"}
                 # 못 읽은 센서의 사유를 함께 보낸다. 값만 빼고 보내면 웹은
                 # "왜 없는지" 를 알 길이 없어, 현장에 가 봐야만 원인을 안다.
                 # 서버는 이 값을 기기 카드의 마지막 수신값에 그대로 남긴다.
@@ -2969,6 +3001,7 @@ def main() -> int:
             }
             state.update(
                 values=last_values,
+                sensors_on=sensors_on_list(),
                 env=env,
                 power=power,
                 nutrient=nutrient,

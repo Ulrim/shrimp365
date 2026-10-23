@@ -166,6 +166,10 @@ PAGE = """<!doctype html>
   .pw .bolt{color:#FBBF24}
   .pw.warn{border-color:#D97706;color:#FBBF24}
   .pw.crit{border-color:#DC2626;color:#F87171;background:#DC262622}
+  .grid.n1{grid-template-columns:1fr}
+  .grid.n2{grid-template-columns:1fr 1fr;grid-template-rows:1fr}
+  .grid.n3{grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr}
+  .grid.n3 .v{font-size:46px}
   .grid.tight .cell{padding:6px 16px}
   .grid.tight .v{font-size:42px}
   .grid.tight .v small{font-size:17px}
@@ -577,7 +581,15 @@ var NUT_BANDS = __NUT_BANDS__;
 function orderFor(d){
   var v = (d && d.values) || {};
   // 스마트팜에서는 염도를 보여 주지 않는다 — 양액에 염도 환산값은 뜻이 없다.
-  if (isAgri()) return ["temperature","ph","do_level","conductivity"];
+  if (isAgri()) {
+    // [센서 설정]에서 끈 센서는 칸을 그리지 않는다(값이 없는 '고장' 칸과 구분된다).
+    // 수온은 pH·DO·EC 센서 어느 것이든 잰다. sensors_on 이 없는 옛 상태면 4칸 그대로.
+    var on = d && d.sensors_on;
+    var all = ["temperature","ph","do_level","conductivity"];
+    if (!on) return all;
+    var need = {temperature:["ph","do","ec"], ph:["ph"], do_level:["do"], conductivity:["ec"]};
+    return all.filter(function(k){ return need[k].some(function(s){ return on.indexOf(s) >= 0; }); });
+  }
   var fourth = (typeof v.salinity === "number") ? "salinity"
              : (typeof v.conductivity === "number") ? "conductivity"
              : "salinity";
@@ -761,6 +773,11 @@ var I18N = {
   // 센서 설정
   version:{ko:"버전",en:"Version",vi:"Phiên bản",id:"Versi"},
   checking:{ko:"확인 중",en:"checking",vi:"đang kiểm tra",id:"memeriksa"},
+  ext_title:{ko:"그 밖의 표시",en:"Other displays",vi:"Hiển thị khác",id:"Tampilan lain"},
+  ext_hint:{ko:"끄면 장비 화면과 웹 대시보드에서 그 칸이 사라집니다. 환경·기상과 전력은 저장하면 프로그램이 다시 시작됩니다(약 15초).",en:"Turned-off items disappear from this screen and the web dashboard. Saving a change to environment or power restarts the program (~15 s).",vi:"Mục tắt sẽ ẩn trên màn hình này và bảng điều khiển web. Lưu thay đổi môi trường/điện sẽ khởi động lại (~15 giây).",id:"Item yang dimatikan hilang dari layar ini dan dasbor web. Menyimpan perubahan lingkungan/listrik memulai ulang program (~15 dtk)."},
+  ext_env:{ko:"환경·기상 (무선 온습도·토양·기상센서)",en:"Environment & weather (wireless)",vi:"Môi trường & thời tiết (không dây)",id:"Lingkungan & cuaca (nirkabel)"},
+  ext_nutrient:{ko:"양액 관리",en:"Nutrient management",vi:"Quản lý dinh dưỡng",id:"Manajemen nutrisi"},
+  ext_power:{ko:"전력 회로",en:"Power circuits",vi:"Mạch điện",id:"Sirkuit listrik"},
   in_use:{ko:"사용 중",en:"In use",vi:"Đang dùng",id:"Dipakai"},
   not_used:{ko:"사용 안 함",en:"Not used",vi:"Không dùng",id:"Tidak dipakai"},
   on:{ko:"켬",en:"On",vi:"Bật",id:"Nyala"},
@@ -1095,7 +1112,10 @@ function renderValues(d){
   var tight = hot || (isAgri() && d.env);
   // 둘 다면(스마트팜에서 차단기 과열) 한 단계 더 — 보조 줄은 접고 숫자만.
   var tighter = hot && isAgri() && d.env;
-  var grid = '<div class="grid' + (tight ? " tight" : "") + (tighter ? " tighter" : "") + '">' + cells + '</div>';
+  var n = orderFor(d).length;
+  // 칸 수에 맞춰 줄을 맞춘다 — 2칸은 나란히, 3칸은 한 줄 셋, 4칸은 2×2. 빈 자리를 남기지 않는다.
+  var grid = !n ? "" : '<div class="grid' + (n === 2 ? " n2" : n === 3 ? " n3" : n === 1 ? " n1" : "") +
+    (tight ? " tight" : "") + (tighter ? " tighter" : "") + '">' + cells + '</div>';
   if (isAgri()) return hot + grid + renderEnv(d) + renderNutrient(d) + renderAdvice(d);
   return hot + grid + renderAdvice(d) + renderNutrient(d);
 }
@@ -1773,6 +1793,8 @@ function renderNutrient(d){
   // 양식장에서는 예전처럼 아무것도 띄우지 않는다.
   if (!n) {
     if (!isAgri()) return "";
+    // [센서 설정]에서 일부러 끈 것이면 안내도 띄우지 않는다(sensors_on 이 있는 새 장비).
+    if (d.sensors_on && d.sensors_on.indexOf("nutrient") < 0) return "";
     return '<div class="nut front off" onclick="openSettings();openNutrient()">' +
       '<span class="head">' + t("nut_off_hint") + '</span></div>';
   }
@@ -2716,6 +2738,7 @@ function drawSettings(){
         msg + test + found +
         '<div class="sub" style="margin:2px 0 6px">' + t("slave_hint") + '</div>' +
         rows +
+        extrasRows(d) +
         ecRow(d) +
         '<div class="srow">' +
           '<div class="sname">' + t("interval") + '<div class="sub">' + t("interval_sub") + '</div></div>' +
@@ -2845,6 +2868,24 @@ function renderFound(found){
   return '<div class="found">' + t("found_on_bus") + '<br>' + list + '</div>';
 }
 
+// 스마트팜 — 수질 센서 말고 켜고 끄는 것(환경·기상, 양액, 전력). 끄면 그 칸을 그리지 않는다.
+function extrasRows(d){
+  if (!isAgri() || !d.extras) return "";
+  return '<div class="wlhead" style="margin-top:10px">' + t("ext_title") + '</div>' +
+    '<div class="sub" style="margin:2px 0 6px">' + t("ext_hint") + '</div>' +
+    ["env","nutrient","power"].map(function(k){
+      var on = !!d.extras[k];
+      return '<div class="srow"><div class="sname">' + t("ext_" + k) +
+        '<div class="sub">' + (on ? t("in_use") : t("not_used")) + '</div></div>' +
+        '<button class="toggle' + (on ? " on" : "") + '" onclick="toggleExtra(&quot;' + k + '&quot;)">' +
+        (on ? t("on") : t("off")) + '</button></div>';
+    }).join("");
+}
+function toggleExtra(k){
+  setupData.extras[k] = !setupData.extras[k];
+  drawSettings();
+}
+
 function toggleSensor(i){
   setupData.sensors[i].enabled = !setupData.sensors[i].enabled;
   drawSettings();
@@ -2936,6 +2977,7 @@ function saveSettings(){
   setupData.sensors.forEach(function(sn){
     payload[sn.key] = {enabled: sn.enabled, slave_id: sn.slave_id};
   });
+  if (isAgri() && setupData.extras) payload.extras = setupData.extras;
   fetch("/api/sensors/save", {
     method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify(payload)
@@ -2943,7 +2985,7 @@ function saveSettings(){
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (d.ok) {
-        setupMsg = {kind:"ok", text: d.saved ? t("saved_ok") : t("saved_mem")};
+        setupMsg = {kind:"ok", text: d.restarting ? t("restarting") : d.saved ? t("saved_ok") : t("saved_mem")};
       } else {
         setupMsg = {kind:"err", text: d.error || t("save_fail")};
       }

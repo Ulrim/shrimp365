@@ -985,6 +985,18 @@ export async function getSensorDevices(tankId: string): Promise<SensorDevice[]> 
   return (data || []).map(toSensorDevice)
 }
 
+/** 여러 베드의 장비를 한 번에 — 대시보드 베드 카드가 꺼 둔 센서 칸을 가릴 때 쓴다. */
+export async function getSensorDevicesForTanks(tankIds: string[]): Promise<SensorDevice[]> {
+  if (!tankIds.length) return []
+  const { data, error } = await supabase
+    .from("sensor_devices")
+    .select("*")
+    .in("tank_id", tankIds)
+
+  if (error) throw error
+  return (data || []).map(toSensorDevice)
+}
+
 export async function createSensorDevice(values: {
   tank_id: string
   name: string

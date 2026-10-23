@@ -177,6 +177,16 @@ AGRI_STATES = [
         _c("PUMP-01", "irrigation_pump", 1, 1490, 7.9, 2.6, 83.0, "crit"),
         *AGRI_POWER[3:],
     ]))),
+    # [센서 설정]에서 끈 것 — 칸이 사라지고 남은 칸이 자리를 채운다(sensors_on).
+    ("DO 센서 끔", agri_state(
+        values={k: v for k, v in AGRI_VALUES.items() if k != "do_level"},
+        sensors_on=["ph", "ec", "env", "power", "nutrient"])),
+    ("pH·EC만 · 전력·양액 끔", agri_state(
+        values={k: v for k, v in AGRI_VALUES.items() if k != "do_level"},
+        power=None, nutrient=None, sensors_on=["ph", "ec", "env"])),
+    ("EC만 · 환경 끔", agri_state(
+        values={"temperature": 21.6, "conductivity": 1640}, env=None, power=None, nutrient=None,
+        sensors_on=["ec"])),
     ("미연결 (측정만)", agri_state(
         linked=False, account=None, tank=None, farm=None,
         status="미연결 — 측정만 · 보관 12건", pending=12)),
@@ -202,6 +212,7 @@ SENSORS = {
     "interval": 60, "port": "/dev/ttyUSB0",
     # 스마트팜으로 바꾸면 장비가 EC 를 전도도(mS/cm)로 한 번 고쳐 준다(INSTALL.md).
     "ec_mode": "conductivity" if AGRI else "salinity", "ec_unit": "ms" if AGRI else "us",
+    "extras": {"env": True, "power": True, "nutrient": True},
     "sensors": [
         {"key": "ph", "label": "pH / ORP", "enabled": True, "slave_id": 1},
         {"key": "do", "label": "용존산소", "enabled": True, "slave_id": 3},
