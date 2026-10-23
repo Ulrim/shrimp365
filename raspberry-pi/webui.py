@@ -1572,7 +1572,15 @@ var ENV_SLOTS = [
   {k:"wind_speed",    unit:"m/s",     digits:1, opt:true},
   {k:"rain_day",      unit:"mm",      digits:1, opt:true}
 ];
-var ENV_LABEL = {canopy_temp:"env_canopy", humidity:"env_rh", soil_moisture:"env_soil", soil_temp:"env_soil_temp",
+// 기상 상세 칸 — 눌러서 그래프를 볼 때 단위·자리를 여기서 찾는다(화면 줄에는 따로 안 뜬다).
+var WX_SLOTS = [
+  {k:"wind_gust", unit:"m/s", digits:1}, {k:"wind_dir", unit:"\u00B0", digits:0},
+  {k:"rain_rate", unit:"mm/h", digits:1}, {k:"solar", unit:"W/m\u00B2", digits:0},
+  {k:"uv_index", unit:"", digits:1}, {k:"pressure", unit:"hPa", digits:1}
+];
+var ENV_LABEL = {wind_gust:"wx_gust", wind_dir:"wx_dir", rain_rate:"wx_rain_rate", solar:"wx_solar",
+                 uv_index:"wx_uv", pressure:"wx_pressure",
+                 canopy_temp:"env_canopy", humidity:"env_rh", soil_moisture:"env_soil", soil_temp:"env_soil_temp",
                  wind_speed:"env_wind", rain_day:"env_rain_day"};
 var COMPASS = ["N","NE","E","SE","S","SW","W","NW"];
 function envLabel(k, e){
@@ -1708,21 +1716,23 @@ function drawWeather(d){
   var env = d.env || {};
   var v = function(k){ return env[k] && typeof env[k].value === "number" ? env[k].value : null; };
   var items = [];
-  var add = function(label, val, digits, unit, sub){
+  var add = function(label, val, digits, unit, sub, key){
     if (val === null || val === undefined) return;
-    items.push('<div class="e"><span class="ek">' + label + '</span><span class="ev">' +
+    // 칸을 누르면 그 값의 그래프(장비 이력 — 5분 간격). 계산한 이슬점은 이력이 없어 누르지 않는다.
+    var tap = key ? ' many" onclick="wxOpen=false;openEnvEach(&quot;' + key + '&quot;)' : '';
+    items.push('<div class="e' + tap + '"><span class="ek">' + label + '</span><span class="ev">' +
       (typeof val === "number" ? val.toFixed(digits) : esc(val)) + '<small>' + unit + '</small></span>' +
       '<span class="em">' + (sub || "") + '</span></div>');
   };
-  add(t("wx_wind"), v("wind_speed"), 1, "m/s");
-  add(t("wx_gust"), v("wind_gust"), 1, "m/s");
+  add(t("wx_wind"), v("wind_speed"), 1, "m/s", "", "wind_speed");
+  add(t("wx_gust"), v("wind_gust"), 1, "m/s", "", "wind_gust");
   var dir = v("wind_dir");
-  add(t("wx_dir"), dir === null ? null : t("dir_" + COMPASS[Math.round(dir / 45) % 8]), 0, "", dir === null ? "" : Math.round(dir) + "\u00B0");
-  add(t("wx_rain_day"), v("rain_day"), 1, "mm");
-  add(t("wx_rain_rate"), v("rain_rate"), 1, "mm/h");
-  add(t("wx_solar"), v("solar"), 0, "W/m\u00B2", env.solar && env.solar.var === "illuminance" ? t("wx_solar_lux") : "");
-  add(t("wx_uv"), v("uv_index"), 1, "");
-  add(t("wx_pressure"), v("pressure"), 1, "hPa");
+  add(t("wx_dir"), dir === null ? null : t("dir_" + COMPASS[Math.round(dir / 45) % 8]), 0, "", dir === null ? "" : Math.round(dir) + "\u00B0", "wind_dir");
+  add(t("wx_rain_day"), v("rain_day"), 1, "mm", "", "rain_day");
+  add(t("wx_rain_rate"), v("rain_rate"), 1, "mm/h", "", "rain_rate");
+  add(t("wx_solar"), v("solar"), 0, "W/m\u00B2", env.solar && env.solar.var === "illuminance" ? t("wx_solar_lux") : "", "solar");
+  add(t("wx_uv"), v("uv_index"), 1, "", "", "uv_index");
+  add(t("wx_pressure"), v("pressure"), 1, "hPa", "", "pressure");
   var at = env.air_temp && env.air_temp.var === "t_air" ? v("air_temp") : null;
   add(t("wx_dew"), dewPoint(at, v("humidity")), 1, "\u00B0C", t("wx_dew_sub"));
   if (!items.length) { closeWeather(); return; }
@@ -1737,7 +1747,7 @@ function drawWeather(d){
 
 function drawEnvEach(d){
   var e = d.env && d.env[envEachKey];
-  var slot = ENV_SLOTS.filter(function(s){ return s.k === envEachKey; })[0];
+  var slot = ENV_SLOTS.concat(WX_SLOTS).filter(function(s){ return s.k === envEachKey; })[0];
   if (!e || !slot) { closeEnvEach(); return; }
   if (!e.each) e = Object.assign({}, e, {each: []});
   // 화면이 오래 열려 있으면 그래프도 따라간다(1분마다 다시 읽기).
@@ -1769,7 +1779,7 @@ function drawEnvEach(d){
         (e.each.length >= 2 ? '<span class="cstats"><span>' + t("env_avg", {n: e.sensors}) + '</span>' +
           '<span class="avgkey">' + t("env_avg_line") + '</span></span>' : "") + '</div>' +
       '<div class="ranges">' + buttons +
-        (envEachKey === "wind_speed" || envEachKey === "rain_day"
+        (envEachKey === "wind_speed" || envEachKey === "rain_day" || WX_SLOTS.some(function(w){ return w.k === envEachKey; })
           ? '<button onclick="openWeather()">' + t("wx_more") + '</button>' : "") +
         '<button class="close" onclick="closeEnvEach()">' + t("close") + '</button></div>' +
       '<div class="eachbody"><div class="plot" id="envplot"></div>' +
