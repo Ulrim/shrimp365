@@ -56,6 +56,7 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
   // 어느 베드의 값인지 같이 둔다 — 베드를 바꾼 직후 이전 베드의 센서 목록이 보이지 않게.
   const [eachData, setEachData] = useState<{ tankId: string; rows: { each: EnvEach; recorded_at: string }[] } | null>(null)
   const [open, setOpen] = useState<{ tankId: string; key: EnvParamKey } | null>(null)
+  const [dewOpenFor, setDewOpen] = useState<string | null>(null)
 
   useEffect(() => {
     if (mock || !tankId) return
@@ -71,7 +72,8 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
     const list = (each as Record<string, { id: string; v: number }[] | undefined>)[k]
     return list && list.length >= 2 ? list : null
   }
-  const openKey = open && open.tankId === tankId && eachOf(open.key) ? open.key : null
+  const openKey = open && open.tankId === tankId ? open.key : null
+  const dewOpen = dewOpenFor === tankId
 
   const latest = new Map<EnvParamKey, Latest>()
   for (const p of ENV_PARAMS) {
@@ -143,17 +145,19 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
                   const Icon = p.icon
                   const subText = sub(p, series)
                   const many = eachOf(p.key)
-                  const Tile = many ? "button" : "div"
+                  // 누르면 펼친다 — 센서가 여럿이면 센서별, 한 대면 24시간 추세 그래프(강수·풍속·토양수분 등).
+                  const tappable = !!many || series.length >= 2
+                  const Tile = tappable ? "button" : "div"
                   return (
                     <Tile key={p.key}
-                      {...(many ? {
+                      {...(tappable ? {
                         type: "button" as const,
                         "aria-expanded": openKey === p.key,
-                        onClick: () => setOpen(openKey === p.key ? null : { tankId, key: p.key }),
+                        onClick: () => { setDewOpen(null); setOpen(openKey === p.key ? null : { tankId, key: p.key }) },
                       } : {})}
                       className={`rounded-xl border p-3 min-w-0 text-left ${
                         openKey === p.key ? "border-primary ring-1 ring-primary/40" : "border-border"
-                      } ${many ? "hover:bg-muted/50 transition-colors cursor-pointer" : ""}`}>
+                      } ${tappable ? "hover:bg-muted/50 transition-colors cursor-pointer" : ""}`}>
                       <p className="text-xs text-muted-foreground flex items-center gap-1.5 truncate"
                         title={p.key === "air_temp" ? ed.airTempHint : undefined}>
                         <span className="inline-flex shrink-0" style={{ color: p.color }} aria-hidden="true">
@@ -184,7 +188,11 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
                   )
                 })}
                 {dewNow !== null && (
-                  <div className={`rounded-xl border p-3 min-w-0 ${dewGap !== null && dewGap < 2 ? "border-sky-500/50 bg-sky-500/5" : "border-border"}`}>
+                  <button type="button" aria-expanded={dewOpen}
+                    onClick={() => { setOpen(null); setDewOpen(dewOpen ? null : tankId) }}
+                    className={`rounded-xl border p-3 min-w-0 text-left hover:bg-muted/50 transition-colors cursor-pointer ${
+                      dewOpen ? "border-primary ring-1 ring-primary/40"
+                      : dewGap !== null && dewGap < 2 ? "border-sky-500/50 bg-sky-500/5" : "border-border"}`}>
                     <p className="text-xs text-muted-foreground flex items-center gap-1.5 truncate">
                       <span className="inline-flex shrink-0 text-sky-500" aria-hidden="true"><Droplet className="w-3.5 h-3.5" /></span>
                       {ed.dewPoint}
@@ -206,12 +214,26 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
                         </ResponsiveContainer>
                       </div>
                     )}
-                  </div>
+                  </button>
                 )}
               </div>
-              {openKey && lastEach && (
+              {openKey && lastEach && eachOf(openKey) ? (
                 <EachList param={param(openKey)} label={ed.param[openKey]} rows={eachOf(openKey)!}
                   history={eachRows} at={agoLabel(t.time, lastEach.recorded_at)} ed={ed} onClose={() => setOpen(null)} />
+              ) : openKey && (
+                <TrendPanel readings={readings} main={lineOf(param(openKey), ed.param[openKey])} ed={ed}
+                  step={openKey === "rain_day"} zeroBase={openKey === "rain_day" || openKey === "wind_speed"}
+                  overlay={openKey === "wind_speed" ? lineOf(param("wind_gust"), ed.param.wind_gust)
+                    : openKey === "air_temp" ? lineOf(param("canopy_temp"), ed.param.canopy_temp) : null}
+                  extra={openKey === "wind_speed" ? { ...lineOf(param("wind_dir"), ed.param.wind_dir), dots: true }
+                    : openKey === "rain_day" ? lineOf(param("rain_rate"), ed.param.rain_rate) : null}
+                  onClose={() => setOpen(null)} />
+              )}
+              {dewOpen && (
+                <TrendPanel readings={readings} ed={ed} onClose={() => setDewOpen(null)}
+                  main={{ label: ed.dewPoint, unit: "°C", digits: 1, color: "#0ea5e9",
+                    get: r => typeof r.air_temp === "number" && typeof r.humidity === "number" ? dewPoint(r.air_temp, r.humidity) : null }}
+                  overlay={lineOf(param("air_temp"), ed.param.air_temp)} />
               )}
         </CardContent>
       </Card>
@@ -219,6 +241,104 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
   )
 }
 
+/** 그래프 한 줄 — 읽을 값과 생김새. 칸 값(EnvParam)뿐 아니라 계산한 값(이슬점)도 같은 틀로 그린다. */
+interface TrendLine {
+  label: string
+  unit: string
+  digits: number
+  color: string
+  get: (r: WaterQualityReading) => number | null
+}
+const lineOf = (p: EnvParam, label: string): TrendLine => ({
+  label, unit: p.unit, digits: p.digits, color: p.color,
+  get: r => (typeof r[p.key] === "number" ? r[p.key] as number : null),
+})
+
+/** 한 칸의 24시간 추세(센서가 한 대일 때) — 강수는 누계라 계단, 풍속은 돌풍을 점선으로 겹친다.
+ *  extra 는 아래 작은 그래프(풍속 → 풍향, 강수 → 강우강도). */
+function TrendPanel({ readings, main, overlay, extra, step = false, zeroBase = false, ed, onClose }: {
+  readings: WaterQualityReading[]
+  main: TrendLine
+  overlay: TrendLine | null
+  extra?: (TrendLine & { dots?: boolean }) | null
+  step?: boolean
+  zeroBase?: boolean
+  ed: ReturnType<typeof useAgriT>["environment"]
+  onClose: () => void
+}) {
+  return (
+    <div className="mt-3 rounded-xl border border-border p-3" role="region" aria-label={ed.trendTitle.replace("{{param}}", main.label)}>
+      <TrendChart readings={readings} main={main} overlay={overlay} step={step} zeroBase={zeroBase} ed={ed} onClose={onClose} height="h-56" />
+      {extra && <TrendChart readings={readings} main={extra} overlay={null} dots={extra.dots} zeroBase={!extra.dots} ed={ed} height="h-28" />}
+    </div>
+  )
+}
+
+function TrendChart({ readings, main, overlay, step = false, zeroBase = false, dots = false, ed, onClose, height }: {
+  readings: WaterQualityReading[]
+  main: TrendLine
+  overlay: TrendLine | null
+  step?: boolean
+  zeroBase?: boolean
+  dots?: boolean
+  ed: ReturnType<typeof useAgriT>["environment"]
+  onClose?: () => void
+  height: string
+}) {
+  // 값이 있는 줄만 점으로 둔다(겹친 선은 같은 줄에 값이 있을 때만).
+  const data: { t: number; v: number; o?: number }[] = readings.flatMap(r => {
+    const v = main.get(r)
+    if (v === null) return []
+    const o = overlay ? overlay.get(r) : null
+    return [{ t: new Date(r.recorded_at).getTime(), v, ...(o !== null ? { o } : {}) }]
+  })
+  const hasOverlay = !!overlay && data.some(d => d.o !== undefined)
+  const hhmm = (ms: number) => {
+    const d = new Date(ms)
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+  }
+  const vals = data.map(d => d.v)
+  const fmt = (v: number) => v.toFixed(main.digits)
+  return (
+    <>
+      <div className="flex items-baseline justify-between gap-2 mb-2 mt-1">
+        <p className="text-sm font-medium text-foreground">{ed.trendTitle.replace("{{param}}", main.label)}</p>
+        <div className="flex items-baseline gap-3">
+          {vals.length > 0 && !dots && (
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {ed.range24h.replace("{{min}}", fmt(Math.min(...vals))).replace("{{max}}", fmt(Math.max(...vals)))} {main.unit}
+            </p>
+          )}
+          {onClose && <button type="button" onClick={onClose} className="text-xs text-primary hover:underline">{ed.close}</button>}
+        </div>
+      </div>
+      <div className={height} aria-hidden="true">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: -12 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border" />
+            <XAxis dataKey="t" type="number" scale="time" domain={["dataMin", "dataMax"]} tickFormatter={hhmm}
+              tick={{ fontSize: 11 }} stroke="currentColor" className="text-muted-foreground" minTickGap={40} />
+            <YAxis domain={dots ? [0, 360] : zeroBase ? [0, "auto"] : ["auto", "auto"]}
+              ticks={dots ? [0, 90, 180, 270, 360] : undefined}
+              tickFormatter={(v: number) => dots ? ed.compass[compassIndex(v)] : v.toFixed(main.digits)}
+              tick={{ fontSize: 11 }} width={44} stroke="currentColor" className="text-muted-foreground" />
+            <Tooltip labelFormatter={v => hhmm(Number(v))}
+              formatter={(v, name) => dots
+                ? [`${ed.compass[compassIndex(Number(v))]} (${Math.round(Number(v))}°)`, main.label]
+                : [`${Number(v).toFixed(main.digits)} ${main.unit}`, name === "o" && overlay ? overlay.label : main.label]} />
+            <Line type={step ? "stepAfter" : "monotone"} dataKey="v" stroke={main.color}
+              strokeWidth={dots ? 0 : 2} dot={dots ? { r: 2, fill: main.color, strokeWidth: 0 } : false} isAnimationActive={false} />
+            {hasOverlay && (
+              <Line type="monotone" dataKey="o" stroke={overlay!.color} strokeWidth={1.5} strokeDasharray="4 3"
+                dot={false} isAnimationActive={false} />
+            )}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      {hasOverlay && <p className="text-xs text-muted-foreground mt-1">{ed.overlayNote.replace("{{name}}", overlay!.label)}</p>}
+    </>
+  )
+}
 /** 센서 색 — 밝은·어두운 화면 모두에서 읽히는 진한 색. 이름순 자리로 고른다(장비 화면과 같은 규칙). */
 const SENSOR_COLORS = ["#0284c7", "#db2777", "#65a30d", "#d97706", "#9333ea", "#0d9488", "#ea580c", "#dc2626",
   "#2563eb", "#c026d3", "#16a34a", "#ca8a04"]

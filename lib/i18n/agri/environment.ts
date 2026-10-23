@@ -36,6 +36,10 @@ export interface AgriEnvironmentDict {
   /** 그래프에는 있지만 마지막 수신에 빠진 센서. */
   lost: string
   close: string
+  /** 한 칸 24시간 추세 제목 — `{{param}}`. */
+  trendTitle: string
+  /** 겹친 선 설명 — `{{name}}`(점선). */
+  overlayNote: string
   /** 이슬점 칸 — 기온·습도로 계산. */
   dewPoint: string
   /** 이슬점 칸 보조 줄 — `{{v}}` 기온과의 차이(°C). 작을수록 이슬·결로가 맺히기 쉽다. */
@@ -63,6 +67,7 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     avgOf: "평균 · {{n}}대 ›", eachTitle: "{{param}} · 센서별", eachAt: "{{ago}} 값",
     highest: "최고", lowest: "최저", close: "닫기",
     lost: "끊김",
+    trendTitle: "{{param}} · 24시간", overlayNote: "점선: {{name}}",
     dewPoint: "이슬점", dewGap: "기온보다 {{v}}°C 낮음", dewNear: "이슬 맺힐 수 있음 (기온과 {{v}}°C 차이)",
   },
   en: {
@@ -83,6 +88,7 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     avgOf: "avg of {{n}} sensors ›", eachTitle: "{{param}} · by sensor", eachAt: "as of {{ago}}",
     highest: "highest", lowest: "lowest", close: "Close",
     lost: "No signal",
+    trendTitle: "{{param}} · 24 h", overlayNote: "Dashed: {{name}}",
     dewPoint: "Dew point", dewGap: "{{v}}°C below air temp", dewNear: "Dew likely ({{v}}°C from air temp)",
   },
   vi: {
@@ -103,6 +109,7 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     avgOf: "TB {{n}} cảm biến ›", eachTitle: "{{param}} · từng cảm biến", eachAt: "lúc {{ago}}",
     highest: "cao nhất", lowest: "thấp nhất", close: "Đóng",
     lost: "Mất tín hiệu",
+    trendTitle: "{{param}} · 24 giờ", overlayNote: "Nét đứt: {{name}}",
     dewPoint: "Điểm sương", dewGap: "thấp hơn nhiệt độ {{v}}°C", dewNear: "Có thể đọng sương (cách {{v}}°C)",
   },
   id: {
@@ -123,6 +130,7 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     avgOf: "rata-rata {{n}} sensor ›", eachTitle: "{{param}} · per sensor", eachAt: "per {{ago}}",
     highest: "tertinggi", lowest: "terendah", close: "Tutup",
     lost: "Terputus",
+    trendTitle: "{{param}} · 24 jam", overlayNote: "Garis putus: {{name}}",
     dewPoint: "Titik embun", dewGap: "{{v}}°C di bawah suhu udara", dewNear: "Embun mungkin terbentuk (selisih {{v}}°C)",
   },
 }

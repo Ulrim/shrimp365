@@ -321,6 +321,15 @@
         "sha256": "59bfb741073c614cc26c37fcedc7870579c88356d2ed7eae8f3e08f557f3316d",
         "size": 249054
       }
+    },
+    "1.9.4": {
+      "notes": "환경·기상 전송(수질 센서 없이도), 센서 끄기·숨기기, 기상 상세·그래프, 초관부 온도, 무선 센서 등록, GitHub 자동 업데이트",
+      "released_at": "2026-10-23",
+      "setup": {
+        "file": "shrimp365-setup-1.9.4.tar.gz",
+        "sha256": "f13379eeddf566e76098435ba08712b807fcc28ff7ddee0fbe8bf4a38b271ac8",
+        "size": 255611
+      }
     }
   }
 }
