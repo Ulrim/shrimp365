@@ -2862,7 +2862,11 @@ def main() -> int:
                 circuits = []
             power = {"circuits": circuits, **field_env_mod.power_summary(circuits)}
 
-        if not values and enabled:
+        # 수질 센서가 하나도 안 읽혀도 환경·기상·전력 값이 있으면 그것은 보낸다 — 꽂지 않은 pH 센서
+        # 하나 때문에 기상값까지 서버에 안 가면 안 된다. 못 읽은 사유(err_*)는 함께 실려 간다.
+        side = bool((env and env_upload and field_env_mod.payload_values(env))
+                    or (power and power_upload and power["circuits"]))
+        if not values and enabled and not side:
             log.error("읽은 값이 없습니다. 배선·전원·슬레이브 ID를 확인하세요. %s", errors)
             status_line = "SENSOR ERROR"
             status_code, status_args = "sensor_error", {}
