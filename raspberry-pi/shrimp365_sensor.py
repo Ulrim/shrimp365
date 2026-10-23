@@ -2402,8 +2402,12 @@ def main() -> int:
             for section, cur in (("environment", env_on), ("power", power_on)):
                 key = "env" if section == "environment" else "power"
                 if key in extras and bool(extras[key]) != cur:
-                    saved = save_section_value(args.config, section, "enabled",
-                                               "true" if extras[key] else "false") and saved
+                    # 파일에 못 쓰면 다시 시작해도 옛 설정으로 돌아온다 — 그때는 알리고 멈춘다.
+                    # 수질 센서 변경도 파일에 남지 않았으면 재시작이 그것까지 되돌린다.
+                    if not saved or not save_section_value(args.config, section, "enabled",
+                                                           "true" if extras[key] else "false"):
+                        return {"ok": False, "error": "설정 파일에 쓰지 못해 환경·기상/전력 켜기·끄기를 "
+                                                      "적용하지 못했습니다"}
                     restart = True
             if state is not None:
                 state.update(sensors_on=sensors_on_list())

@@ -253,7 +253,9 @@ function NutrientInner() {
     const on = sensorsOnFrom(devices)
     return AGRI_PARAMS.filter(p => metricOn(p.key, on))
   }, [devices])
-  const shownKeys = useMemo(() => shownParams.map(p => p.key), [shownParams])
+  // 서명(문자열)으로 묶는다 — 장비 목록이 1분마다 새로 와도 같은 내용이면 같은 배열(전광판 박자가 안 틀어진다).
+  const shownSig = shownParams.map(p => p.key).join(",")
+  const shownKeys = useMemo(() => shownSig.split(",").filter(Boolean) as AgriParamKey[], [shownSig])
   const shownCompare = useMemo(() => COMPARE_KEYS.filter(k => shownKeys.includes(k)), [shownKeys])
   const readings = useMemo(
     () => (deviceId ? allReadings.filter(r => (r.device_id ?? null) === deviceId) : allReadings),
@@ -576,7 +578,7 @@ function NutrientInner() {
       </ChartCard>
 
       {/* ── 센서별 비교(센서 2대↑) ── */}
-      {activeDevices.length >= 2 && (
+      {activeDevices.length >= 2 && shownCompare.length > 0 && (
         <ChartCard
           title={<><Activity className="w-4 h-4 text-brand-fg" aria-hidden="true" />{n.compareTitle}</>}
           toolbar={
