@@ -49,6 +49,21 @@ KINDS: dict[str, dict] = {
     "leak":         {"kind": "leak",         "prefix": "LEAK",  "zoned": False},
     "valve":        {"kind": "valve",        "prefix": "VALVE", "zoned": False},
 }
+#: 433MHz 센서 종류. 페어링이 없어 '근처에서 들리는 장치' 중에서 골라 devices.yaml 의 rf: 칸에 적는다.
+#: map 은 rtl_433 필드 → 우리 변수(기본: temperature_C → t_air). 지상 10cm 온습도는 초관부 온도로 덮는다.
+RF_KINDS: dict[str, dict] = {
+    "weather": {"prefix": "",     "zoned": False},                                   # 이름은 모델에서(WS90-01)
+    "soil":    {"prefix": "SOIL", "zoned": True},
+    "canopy":  {"prefix": "CN",   "zoned": True, "map": {"temperature_C": "canopy_temp"}},
+    "air":     {"prefix": "AIR",  "zoned": False},
+    "leaf":    {"prefix": "LW",   "zoned": True},
+    "rain":    {"prefix": "RAIN", "zoned": False},
+}
+#: 화면에 '근처 센서' 로 띄울 모델 — 그 밖의 433MHz 신호(타이어 공기압계·이웃집 초인종 등)는 개수만 센다.
+_RF_SENSOR_RE = re.compile(r"fineoffset|ecowitt|ambient|froggit|misol|\bW[SHN]\d|-W[SHN]\d", re.I)
+_RF_MODEL_RE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
+_RF_ID_RE = re.compile(r"^[A-Za-z0-9]{0,12}$")
+
 #: 구간. 센서 이름의 가운데 글자(CN-T1 의 T)가 여기서 나온다.
 ZONES = {"treatment": "T", "control": "C", "facility": "", "mast": ""}
 
@@ -309,6 +324,108 @@ def remove_device(path: Path, name: str) -> bool:
     return False
 
 
+_RF_KEY_RE = re.compile(r"^  ([^\s#:][^:]*?):\s*(\{.*\})?\s*(#.*)?$")
+
+
+def _rf_entries(lines: list[str]) -> list[tuple[str, int, int, dict]]:
+    """rf: 칸의 장치들 — (열쇠, 시작 줄, 끝 줄(다음 장치 직전), 설정). 한 줄 { } 와 여러 줄 형식 모두."""
+    blk = _block([line.rstrip("\n") for line in lines], "rf")
+    if not blk:
+        return []
+    out = []
+    cur = None
+    for i in range(blk[0] + 1, blk[1]):
+        raw = lines[i].rstrip("\n")
+        m = _RF_KEY_RE.match(raw)
+        if m:
+            if cur:
+                out.append(cur)
+            cur = [m.group(1).strip(), i, i + 1, _flow_to_dict(m.group(2)[1:-1]) if m.group(2) else {}]
+            continue
+        if cur and (raw.startswith("    ") or not raw.strip()):
+            if raw.startswith("    ") and not raw.strip().startswith("#") and ":" in raw:
+                k, v = raw.strip().split(":", 1)
+                cur[3][k.strip()] = v.split("#", 1)[0].strip().strip("'\"")
+            if raw.strip():
+                cur[2] = i + 1                   # 빈 줄은 끝에 넣지 않는다 — 다음 장치 머리 주석을 지키게
+            continue
+        if cur and raw.startswith("  #"):
+            out.append(cur)
+            cur = None
+    if cur:
+        out.append(cur)
+    return [tuple(c) for c in out]
+
+
+def read_rf(path: Path) -> dict[str, dict]:
+    """rf: 칸 — {'Fineoffset-WS90/12345': {zone, sensor_id, note, ...}}."""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    except OSError:
+        return {}
+    return {key: cfg for key, _s, _e, cfg in _rf_entries(lines)}
+
+
+def add_rf(path: Path, key: str, zone: str, sensor_id: str, note: str = "", mapping: dict | None = None) -> None:
+    fields = [f"zone: {zone}", f"sensor_id: {sensor_id}"]
+    note = clean_note(note)
+    if note:
+        fields.append(f"note: {note}")
+    if mapping:
+        fields.append("map: {" + ", ".join(f"{a}: {b}" for a, b in mapping.items()) + "}")
+    entry = f"  {key}: {{{', '.join(fields)}}}\n"
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True) if path.exists() else []
+    blk = _block([line.rstrip("\n") for line in lines], "rf")
+    if blk is None:
+        if lines and not lines[-1].endswith("\n"):
+            lines[-1] += "\n"
+        lines += ["\nrf:\n", entry]
+    else:
+        if re.match(r"^rf:\s*\{\s*\}", lines[blk[0]]):
+            lines[blk[0]] = "rf:\n"
+        entries = _rf_entries(lines)
+        at = entries[-1][2] if entries else blk[0] + 1
+        lines.insert(at, entry)
+    _write_atomic(path, "".join(lines))
+
+
+def remove_rf(path: Path, key: str) -> bool:
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    for k, start, end, _cfg in _rf_entries(lines):
+        if k == key:
+            del lines[start:end]
+            _write_atomic(path, "".join(lines))
+            return True
+    return False
+
+
+def guess_rf_kind(model: str) -> str:
+    m = model.upper()
+    if re.search(r"WS\d|WH(24|25|65|80)|WN(67|68|69)|WS6[89]", m):
+        return "weather"
+    if "WH51" in m:
+        return "soil"
+    if "WH35" in m:
+        return "leaf"
+    if "WH40" in m:
+        return "rain"
+    if re.search(r"WH3[12]|WN3[012]", m):
+        return "air"
+    return ""
+
+
+def suggest_rf_id(kind: str, zone: str, model: str, taken: set[str]) -> str:
+    k = RF_KINDS[kind]
+    prefix = k["prefix"] or (re.sub(r"[^A-Z0-9]", "", model.split("-")[-1].upper())[:6] or "WX")
+    letter = ZONES.get(zone, "") if k["zoned"] else ""
+    taken = {t.upper() for t in taken}
+    for n in range(1, 100):
+        sid = f"{prefix}-{letter}{n}" if letter else f"{prefix}-{n:02d}"
+        if sid not in taken:
+            return sid
+    raise ValueError("이름이 가득 찼습니다")
+
+
 def save_section_value(config_path: Path, section: str, key: str, value: str) -> bool:
     """[section] 의 key 하나를 적는다. 항목이 없으면 끼워 넣고, 구간이 없으면 끝에 만든다.
 
@@ -433,7 +550,7 @@ class Wireless:
                     d = out.setdefault(row[2].upper(), {})
                     if ts >= d.get("ts", dt.datetime.min):
                         d["ts"] = ts
-                    if row[3] in ("battery_pct", "linkquality"):
+                    if row[3] in ("battery_pct", "linkquality", "rssi"):
                         try:
                             d[row[3]] = float(row[4])
                         except ValueError:
@@ -492,14 +609,71 @@ class Wireless:
                         "supported": bool(d.get("supported", True)),
                         "interviewing": bool(d.get("interviewing")),
                         "guess": guess_kind(definition.get("description") or "", definition.get("exposes"))})
+        rf_reg = read_rf(self.devices_path)
+        rf_sensors = []
+        for key, cfg in rf_reg.items():
+            model, _, ident = key.partition("/")
+            sid = cfg.get("sensor_id") or model
+            kind = guess_rf_kind(model)
+            if kind == "air" and "canopy_temp" in str(cfg.get("map", "")):
+                kind = "canopy"
+            rf_sensors.append({"key": key, "model": model, "id": ident, "sensor_id": sid,
+                               "zone": cfg.get("zone", ""), "kind": kind,
+                               "rssi": seen.get(sid.upper(), {}).get("rssi"), **info(sid)})
+        heard_all = self._heard()
+        rf_new, rf_other = [], 0
+        for h in heard_all:
+            key = f"{h['model']}/{h['id']}" if h.get("id") else h["model"]
+            if key in rf_reg:
+                continue                       # 이미 이 id 로 등록됨
+            # 모델만 적은 기본 칸(Fineoffset-WS90)으로 받고 있는 장치도 띄운다 — 등록하면 이 한 대로 좁혀
+            # 이웃집 같은 모델이 섞이지 않는다. 화면이 그 사정을 한 줄로 알린다(model_only).
+            if h["age_min"] > 15:
+                continue
+            if not _RF_SENSOR_RE.search(h["model"]):
+                rf_other += 1
+                continue
+            rf_new.append({**h, "key": key, "guess": guess_rf_kind(h["model"]),
+                           "model_only": h["model"] in rf_reg})
+        rf_new.sort(key=lambda x: (x.get("rssi") is None, -(x.get("rssi") or -99)))
         left = max(0, int(self.permit_until - time.time()))
         return {
             "dongle": self._dongle(), "rtlsdr": self._rtlsdr(), "units": units,
             "mqtt": err is None, "mqtt_error": err, "z2m": z2m_online,
             "installed": units.get("zigbee2mqtt") is not None and Path("/opt/zigbee2mqtt").exists(),
             "permit_left": left, "sensors": sensors, "new": new,
-            "taken": sorted({(c.get("sensor_id") or n).upper() for n, c in registered.items()}),
+            "taken": sorted(self._taken(registered, rf_reg)),
+            "rf_sensors": rf_sensors, "rf_new": rf_new, "rf_other": rf_other,
+            "rf_heard_ok": self._heard_path().exists(),
         }
+
+    @staticmethod
+    def _taken(registered: dict, rf_reg: dict) -> set[str]:
+        return {(c.get("sensor_id") or n).upper() for n, c in registered.items()} | \
+               {(c.get("sensor_id") or k.split("/")[0]).upper() for k, c in rf_reg.items()}
+
+    def _heard_path(self) -> Path:
+        return self.data_dir / "capture" / "rtl433_heard.json"
+
+    def _heard(self) -> list[dict]:
+        """433MHz 수집기가 남긴 '근처에서 들리는 장치' (rtl433_bridge.Heard)."""
+        try:
+            data = json.loads(self._heard_path().read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return []
+        now = dt.datetime.now()
+        out = []
+        for d in data.get("devices") or []:
+            try:
+                last = dt.datetime.fromisoformat(d["last"])
+            except (KeyError, ValueError, TypeError):
+                continue
+            model, ident = str(d.get("model", "")), str(d.get("id", ""))
+            if not _RF_MODEL_RE.match(model) or not _RF_ID_RE.match(ident):
+                continue                       # 열쇠로 그대로 쓰므로 이상한 글자는 받지 않는다
+            out.append({"model": model, "id": ident, "count": int(d.get("count") or 0),
+                        "rssi": d.get("rssi"), "age_min": int((now - last).total_seconds() // 60)})
+        return out
 
     # 동작 ------------------------------------------------------------------
     def _request(self, name: str, payload: dict, timeout: float = 6.0) -> dict:
@@ -536,7 +710,7 @@ class Wireless:
         if kind_key not in KINDS or zone not in ZONES:
             return {"ok": False, "error": "종류나 구간이 올바르지 않습니다"}
         registered = read_registered(self.devices_path)
-        taken = {(c.get("sensor_id") or n) for n, c in registered.items()}
+        taken = self._taken(registered, read_rf(self.devices_path))
         sid = suggest_id(kind_key, zone, taken)
         name = sid.lower()
         if name in registered or not _NAME_RE.match(name):
@@ -556,6 +730,18 @@ class Wireless:
             return {"ok": False, "error": f"설정 파일에 쓰지 못했습니다: {exc}"}
         return {"ok": True, "name": name, "sensor_id": sid}
 
+    def register_rf(self, model: str, ident: str, kind: str, zone: str, note: str = "") -> dict:
+        """433MHz 센서 등록 — rf: 칸에 '모델/id' 한 줄. 수집기가 몇 초 안에 다시 읽는다."""
+        with self._lock:
+            return _rf_register(self, model, ident, kind, zone, note)
+
+    def remove_rf(self, key: str) -> dict:
+        with self._lock:
+            try:
+                return {"ok": remove_rf(self.devices_path, key)}
+            except OSError as exc:
+                return {"ok": False, "error": f"설정 파일에 쓰지 못했습니다: {exc}"}
+
     def remove(self, name: str) -> dict:
         with self._lock:
             return self._remove(name)
@@ -571,6 +757,30 @@ class Wireless:
         except MqttError:
             pass
         return {"ok": removed or unpaired, "removed": removed, "unpaired": unpaired}
+
+
+def _rf_register(w: "Wireless", model: str, ident: str, kind: str, zone: str, note: str = "") -> dict:
+    if kind not in RF_KINDS or zone not in ZONES or not _RF_MODEL_RE.match(model) or not _RF_ID_RE.match(ident):
+        return {"ok": False, "error": "요청이 올바르지 않습니다"}
+    if not w.devices_path.exists():
+        return {"ok": False, "error": f"설정 파일이 없습니다({w.devices_path}) — setup-wireless.sh 를 먼저 실행하세요"}
+    rf_reg = read_rf(w.devices_path)
+    key = f"{model}/{ident}" if ident else model
+    if key in rf_reg:
+        return {"ok": False, "error": "이미 등록된 센서입니다"}
+    sid = None
+    # 기본 설정의 '모델만 적은' 칸(Fineoffset-WS90)은 그 모델이면 이웃집 것까지 받는다.
+    # 같은 모델을 id 로 등록하면 그 칸을 걷어 내고 이름(WS90-01)을 이어받는다 — 기록이 끊기지 않게.
+    if ident and model in rf_reg:
+        sid = rf_reg[model].get("sensor_id") or None
+        remove_rf(w.devices_path, model)
+    if not sid:
+        sid = suggest_rf_id(kind, zone, model, w._taken(read_registered(w.devices_path), read_rf(w.devices_path)))
+    try:
+        add_rf(w.devices_path, key, zone, sid, note, RF_KINDS[kind].get("map"))
+    except OSError as exc:
+        return {"ok": False, "error": f"설정 파일에 쓰지 못했습니다: {exc}"}
+    return {"ok": True, "key": key, "sensor_id": sid}
 
 
 def guess_kind(description: str, exposes=None) -> str:

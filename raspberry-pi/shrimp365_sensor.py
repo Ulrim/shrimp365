@@ -2621,6 +2621,20 @@ def main() -> int:
                 return {"ok": False, "error": "무선 센서 모듈이 없습니다"}
             if action == "permit":
                 return wl.permit(120 if body.get("on", True) else 0)
+            if action == "register" and body.get("rf"):
+                model, ident, kind, zone = body.get("model"), body.get("id", ""), body.get("kind"), body.get("zone")
+                if not all(isinstance(v, str) for v in (model, ident, kind, zone)):
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.register_rf(model, ident, kind, zone, str(body.get("note") or ""))
+                log.info("화면에서 433MHz 센서를 등록했습니다: %s/%s → %s", model, ident, r)
+                return r
+            if action == "remove" and body.get("rf"):
+                key = body.get("key")
+                if not isinstance(key, str) or not 0 < len(key) <= 60:
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.remove_rf(key)
+                log.info("화면에서 433MHz 센서를 뺐습니다: %s → %s", key, r)
+                return r
             if action == "register":
                 name, kind, zone = body.get("name"), body.get("kind"), body.get("zone")
                 if not _wl_name_ok(name) or not isinstance(kind, str) or not isinstance(zone, str):

@@ -187,6 +187,112 @@ def run_check(args) -> int:
     return 0 if ok else 1
 
 
+HEARD_FILE = "rtl433_heard.json"
+
+
+class Heard:
+    """근처에서 들리는 433MHz 장치 목록 — 장비 화면 [무선 센서] 가 이것을 보여 주고 등록한다.
+
+    433MHz 는 페어링이 없다. 받을 장치를 고르려면 '지금 무엇이 들리는가'를 사람이 봐야 한다.
+    설정에 없어 수집에서 버리는 장치(이웃집 온도계 등)도 여기에는 남긴다. 값은 남기지 않고
+    모델·id·횟수·마지막 시각·세기만 — 수집 파일에 섞이지 않는다. 15초마다 파일로 쓴다.
+    """
+
+    FLUSH_EVERY_S = 15.0
+    KEEP = dt.timedelta(hours=24)
+
+    def __init__(self, capture_dir: Path | None) -> None:
+        self.path = capture_dir / HEARD_FILE if capture_dir else None
+        self.items: dict[str, dict] = {}
+        self._flushed = 0.0
+
+    def add(self, record: dict) -> None:
+        if not self.path:
+            return
+        model = str(record.get("model", ""))
+        ident = str(record.get("id", ""))
+        if not model:
+            return
+        now = dt.datetime.now()
+        key = f"{model}/{ident}" if ident else model
+        item = self.items.setdefault(key, {"model": model, "id": ident, "count": 0,
+                                           "first": now.isoformat(timespec="seconds")})
+        item["count"] += 1
+        item["last"] = now.isoformat(timespec="seconds")
+        for field in ("rssi", "snr", "battery_ok"):
+            if isinstance(record.get(field), (int, float)):
+                item[field] = record[field]
+        item["fields"] = sorted(k for k in record if k not in ("time", "model", "id", "mic", "mod", "freq",
+                                                               "rssi", "snr", "noise", "channel"))[:20]
+
+    def flush(self, force: bool = False) -> None:
+        import time
+        if not self.path or (not force and time.monotonic() - self._flushed < self.FLUSH_EVERY_S):
+            return
+        self._flushed = time.monotonic()
+        cutoff = (dt.datetime.now() - self.KEEP).isoformat(timespec="seconds")
+        self.items = {k: v for k, v in self.items.items() if v.get("last", "") >= cutoff}
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self.path.with_name(HEARD_FILE + ".tmp")
+            tmp.write_text(json.dumps({"ts": dt.datetime.now().isoformat(timespec="seconds"),
+                                       "devices": list(self.items.values())}, ensure_ascii=False), encoding="utf-8")
+            tmp.replace(self.path)
+        except OSError as exc:
+            print(f"[경고] 들린 장치 목록을 쓰지 못했다: {exc}", file=sys.stderr)
+
+
+class RfTable:
+    """rf: 칸을 들고 있다가 devices.yaml 이 바뀌면(장비 화면에서 등록·빼기) 다시 읽는다."""
+
+    CHECK_EVERY_S = 5.0
+
+    def __init__(self, path: str, devices: dict) -> None:
+        self.path = Path(path)
+        self.devices = devices
+        self._mtime = self._stat()
+        self._checked = 0.0
+
+    def _stat(self) -> float:
+        try:
+            return self.path.stat().st_mtime
+        except OSError:
+            return 0.0
+
+    def current(self, now: float | None = None) -> dict:
+        import time
+        now = time.monotonic() if now is None else now
+        if now - self._checked < self.CHECK_EVERY_S:
+            return self.devices
+        self._checked = now
+        mtime = self._stat()
+        if mtime and mtime != self._mtime:
+            try:
+                self.devices = rtl433.load_rf_devices(self.path)
+                self._mtime = mtime
+                print(f"[설정] 다시 읽음 — 433MHz 장치 {len(self.devices)}대")
+            except Exception as exc:  # noqa: BLE001 — 틀린 설정으로 수집을 멈추지 않는다
+                print(f"[설정] 다시 읽기 실패, 이전 설정 유지: {exc}", file=sys.stderr)
+        return self.devices
+
+
+def accept(record: dict, devices: dict, models: set[str] | None) -> object | None | bool:
+    """이 줄을 수집할지 — 받을 장치면 그 설정(없으면 True), 버릴 것이면 False.
+
+    --models 를 주면 그 모델은 설정 없이도 받는다(점검·시험용). 아니면 **설정에 적힌 장치만**
+    받는다: 모델/id 로 적었으면 그 id 만, 모델만 적었으면 그 모델 전부. 설정이 비었으면 예전처럼
+    WS90 만 받는다. 같은 모델의 이웃집 센서가 엉뚱한 이름으로 섞이지 않게 하는 것이 요점이다.
+    """
+    model = str(record.get("model", ""))
+    if models is not None:
+        if model not in models:
+            return False
+        return rtl433.match_device(record, devices) or True
+    if devices:
+        return rtl433.match_device(record, devices) or False
+    return True if model in DEFAULT_MODELS else False
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--out", default="data/field")
@@ -222,16 +328,15 @@ def main(argv: list[str] | None = None) -> int:
             rf_devices = rtl433.load_rf_devices(args.devices)
         except Exception as exc:
             print(f"[경고] 설정을 읽지 못했다: {exc}", file=sys.stderr)
+    table = RfTable(args.devices, rf_devices)
+    # --models: 'all' 이면 모두, 목록이면 그 모델. 비우면 설정(rf:)이 정한다 — accept() 참고.
+    models = set(args.models.split(",")) if args.models and args.models != "all" else None
     if args.models == "all":
-        wanted = None
-    elif args.models:
-        wanted = set(args.models.split(","))
-    elif rf_devices:
-        wanted = {d.model for d in rf_devices.values()}
+        print("[대상] 모두")
+    elif models:
+        print(f"[대상] {', '.join(sorted(models))}")
     else:
-        wanted = set(DEFAULT_MODELS)
-    if wanted:
-        print(f"[대상] {', '.join(sorted(wanted))}")
+        print(f"[대상] 설정의 rf: 칸 — {', '.join(sorted(rf_devices)) or ', '.join(DEFAULT_MODELS)}")
 
     if args.replay:
         frame = rtl433.read_capture(args.replay, zone=args.zone,
@@ -262,6 +367,7 @@ def main(argv: list[str] | None = None) -> int:
     rain = rtl433.RainAccumulator()
     seen_unknown: set[str] = set()
     total = messages = 0
+    heard = Heard(capture_dir)
 
     try:
         for line in stream:
@@ -274,8 +380,13 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             if not isinstance(record, dict):
                 continue
-            model = str(record.get("model", ""))
-            if wanted is not None and model not in wanted:
+            heard.add(record)
+            heard.flush()
+            if args.models == "all":
+                device = rtl433.match_device(record, table.current()) or True
+            else:
+                device = accept(record, table.current(), models)
+            if device is False:
                 continue
 
             messages += 1
@@ -289,7 +400,7 @@ def main(argv: list[str] | None = None) -> int:
             rows = rtl433.message_to_rows(
                 record, zone=args.zone, sensor_id=args.sensor_id,
                 rain=rain, unknown=unknown,
-                device=rtl433.match_device(record, rf_devices),
+                device=device if device is not True else None,
             )
             total += append_rows(out_dir, rows)
             for note in unknown:
@@ -298,6 +409,7 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"[확인 필요] {note}", file=sys.stderr)
     except KeyboardInterrupt:
         pass
+    heard.flush(force=True)
 
     print(f"\n[종료] 메시지 {messages:,}건 / 수집 {total:,}행")
     return 0

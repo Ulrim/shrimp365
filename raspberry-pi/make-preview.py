@@ -321,7 +321,13 @@ var STATES = __STATES__, HIST = __HIST__, ENV_HIST = __ENV_HIST__, SENSORS = __S
 var WL = {ok:true, installed:true, mqtt:true, z2m:true, dongle:"usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2-if00",
   rtlsdr:true, env_on:true, power_on:true, permit_left:0, new:[], added:false,
   units:{"mosquitto":true, "zigbee2mqtt":true, "farm365-zigbee":true, "farm365-rtl433":true},
-  taken:["CN-T1","CN-T2","SOIL-T1","SOIL-T2","PUMP-01","AUX-01"],
+  taken:["CN-T1","CN-T2","SOIL-T1","SOIL-T2","PUMP-01","AUX-01","WS90-01"],
+  rf_heard_ok:true, rf_other:3,
+  rf_sensors:[{key:"Fineoffset-WS90/12345", model:"Fineoffset-WS90", id:"12345", sensor_id:"WS90-01", zone:"mast", kind:"weather", rssi:-7, age_min:0, battery:null, lqi:null}],
+  rf_new:[
+    {key:"Fineoffset-WH51/0a3f21", model:"Fineoffset-WH51", id:"0a3f21", count:14, rssi:-11, age_min:0, guess:"soil", model_only:false},
+    {key:"Fineoffset-WH31/118", model:"Fineoffset-WH31", id:"118", count:6, rssi:-15, age_min:1, guess:"air", model_only:false},
+    {key:"Fineoffset-WS90/40711", model:"Fineoffset-WS90", id:"40711", count:3, rssi:-23, age_min:2, guess:"weather", model_only:false}],
   sensors:[
     {name:"cn-t1", sensor_id:"CN-T1", kind:"canopy", zone:"treatment", note:"", paired:true, model:"TS0201", age_min:2, battery:87, lqi:142},
     {name:"cn-t2", sensor_id:"CN-T2", kind:"canopy", zone:"treatment", note:"", paired:true, model:"TS0201", age_min:4, battery:64, lqi:98},
@@ -350,6 +356,16 @@ window.fetch = function(url, opts){
   else if (url.indexOf("/api/wireless/") === 0) {
     var a = url.split("/").pop(), rq = JSON.parse((opts && opts.body) || "{}");
     if (a === "permit") { WL.permit_left = rq.on ? 120 : 0; body = {ok:true}; }
+    else if (a === "register" && rq.rf) {
+      var rp = {soil:"SOIL", canopy:"CN", air:"AIR", leaf:"LW", rain:"RAIN"}[rq.kind] || rq.model.split("-").pop().toUpperCase();
+      var rz = {soil:1, canopy:1, leaf:1}[rq.kind] ? ({treatment:"T",control:"C"})[rq.zone] || "" : "";
+      var rid; for (var m = 1; m < 99; m++) { rid = rz ? rp + "-" + rz + m : rp + "-" + (m < 10 ? "0" : "") + m; if (WL.taken.indexOf(rid) < 0) break; }
+      var key = rq.model + "/" + rq.id; WL.taken.push(rid);
+      WL.rf_new = WL.rf_new.filter(function(x){ return x.key !== key; });
+      WL.rf_sensors.push({key:key, model:rq.model, id:rq.id, sensor_id:rid, zone:rq.zone, kind:rq.kind, rssi:-11, age_min:0, battery:null, lqi:null});
+      body = {ok:true, key:key, sensor_id:rid};
+    }
+    else if (a === "remove" && rq.rf) { WL.rf_sensors = WL.rf_sensors.filter(function(x){ return x.key !== rq.key; }); body = {ok:true}; }
     else if (a === "register") {
       var pre = {canopy:"CN",air:"AIR",soil:"SOIL","breaker-pump":"PUMP","breaker-aux":"AUX",leak:"LEAK",valve:"VALVE"}[rq.kind];
       var z = (rq.kind === "canopy" || rq.kind === "soil") ? ({treatment:"T",control:"C"})[rq.zone] || "" : "";

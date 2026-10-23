@@ -915,6 +915,21 @@ var I18N = {
   "wlk_breaker-aux":{ko:"차단기 — 그 밖의 회로",en:"Breaker — other circuit",vi:"Aptomat — mạch khác",id:"Pemutus — sirkuit lain"},
   wlk_leak:{ko:"누수 감지",en:"Water leak",vi:"Rò nước",id:"Kebocoran air"},
   wlk_valve:{ko:"관수 밸브·유량",en:"Valve / flow",vi:"Van / lưu lượng",id:"Katup / aliran"},
+  wl_rf_title:{ko:"433MHz 센서 (기상센서·무선 토양센서 등)",en:"433MHz sensors (weather station, soil …)",vi:"Cảm biến 433MHz (trạm thời tiết, đất …)",id:"Sensor 433MHz (stasiun cuaca, tanah …)"},
+  wl_rf_heard:{ko:"근처에서 들리는 센서",en:"Heard nearby",vi:"Nghe thấy gần đây",id:"Terdengar di sekitar"},
+  wl_rf_none:{ko:"등록된 433MHz 센서가 없습니다. 센서 전원을 켜면 1분 안에 '근처에서 들리는 센서'에 뜹니다.",en:"No 433MHz sensors yet. Power the sensor on; it appears under 'Heard nearby' within a minute.",vi:"Chưa có cảm biến 433MHz. Bật nguồn cảm biến; sẽ hiện trong 1 phút.",id:"Belum ada sensor 433MHz. Nyalakan sensor; muncul dalam 1 menit."},
+  wl_rf_off:{ko:"433MHz 수신기(RTL-SDR 동글)가 없거나 수집기가 꺼져 있습니다. 동글을 꽂고 설치 명령을 다시 실행하세요.",en:"No 433MHz receiver (RTL-SDR) or the collector is off. Plug it in and re-run the installer.",vi:"Không có bộ thu 433MHz hoặc bộ thu đang tắt. Cắm vào rồi chạy lại cài đặt.",id:"Tidak ada penerima 433MHz atau kolektor mati. Pasang lalu jalankan ulang pemasang."},
+  wl_rf_seen:{ko:"{n}회 · {ago}",en:"{n}× · {ago}",vi:"{n} lần · {ago}",id:"{n}× · {ago}"},
+  wl_rf_rssi:{ko:"세기 {v}dB",en:"{v} dB",vi:"{v} dB",id:"{v} dB"},
+  wl_rf_default:{ko:"기본 설정으로 이 모델은 이미 받는 중 — 등록하면 이 센서만 받습니다(이웃집 같은 모델 제외)",en:"This model is already received by default — adding limits it to this unit",vi:"Mẫu này đã được nhận mặc định — thêm để chỉ nhận thiết bị này",id:"Model ini sudah diterima — menambah membatasi ke unit ini"},
+  wl_rf_other:{ko:"그 밖에 센서가 아닌 433MHz 신호 {n}개(타이어 공기압계·초인종 등)는 숨겼습니다.",en:"{n} other 433MHz signals (tyre sensors, doorbells …) hidden.",vi:"Đã ẩn {n} tín hiệu 433MHz khác.",id:"{n} sinyal 433MHz lain disembunyikan."},
+  wl_rf_tip:{ko:"433MHz 는 페어링이 없습니다. 같은 모델이 여러 대면 센서 뒷면 버튼으로 채널·전원을 껐다 켜서, 방금 '1회'로 새로 뜬 것을 고르세요.",en:"433MHz has no pairing. If several of the same model appear, power-cycle yours and pick the one that just appeared.",vi:"433MHz không ghép đôi. Nếu nhiều thiết bị cùng mẫu, tắt/bật thiết bị của bạn rồi chọn cái vừa hiện.",id:"433MHz tanpa pairing. Jika banyak model sama, nyalakan ulang milik Anda dan pilih yang baru muncul."},
+  wlr_weather:{ko:"기상센서 (WS90 등)",en:"Weather station (WS90 …)",vi:"Trạm thời tiết (WS90 …)",id:"Stasiun cuaca (WS90 …)"},
+  wlr_soil:{ko:"토양수분 (WH51)",en:"Soil moisture (WH51)",vi:"Độ ẩm đất (WH51)",id:"Kelembapan tanah (WH51)"},
+  wlr_canopy:{ko:"초관부 온습도 (지상 10cm)",en:"Canopy temp/RH (10 cm)",vi:"Nhiệt/ẩm tán (10 cm)",id:"Suhu/RH kanopi (10 cm)"},
+  wlr_air:{ko:"기온 온습도 (2m)",en:"Air temp/RH (2 m)",vi:"Nhiệt/ẩm không khí (2 m)",id:"Suhu/RH udara (2 m)"},
+  wlr_leaf:{ko:"엽면습윤 (WH35)",en:"Leaf wetness (WH35)",vi:"Độ ướt lá (WH35)",id:"Kebasahan daun (WH35)"},
+  wlr_rain:{ko:"우량계 (WH40)",en:"Rain gauge (WH40)",vi:"Đo mưa (WH40)",id:"Penakar hujan (WH40)"},
   wlz_treatment:{ko:"적용구간",en:"Treatment plot",vi:"Khu áp dụng",id:"Petak perlakuan"},
   wlz_control:{ko:"비교구간",en:"Control plot",vi:"Khu đối chứng",id:"Petak kontrol"},
   wlz_facility:{ko:"시설 (분전반·펌프실)",en:"Facility (panel/pump)",vi:"Cơ sở (tủ điện/bơm)",id:"Fasilitas (panel/pompa)"},
@@ -1186,9 +1201,13 @@ var WL_KINDS = ["canopy","air","soil","breaker-pump","breaker-aux","leak","valve
 var WL_ZONES = ["treatment","control","facility","mast"];
 var WL_PREFIX = {canopy:"CN",air:"AIR",soil:"SOIL","breaker-pump":"PUMP","breaker-aux":"AUX",leak:"LEAK",valve:"VALVE"};
 var WL_ZONED = {canopy:true, soil:true};
+var WL_RF_KINDS = ["weather","soil","canopy","air","leaf","rain"];
+var WL_RF_PREFIX = {soil:"SOIL", canopy:"CN", air:"AIR", leaf:"LW", rain:"RAIN"};
+var WL_RF_ZONED = {soil:true, canopy:true, leaf:true};
 var wl = null, wlTimer = null, wlMsg = null, wlEdit = null, wlKind = null, wlZone = null, wlSure = null, wlBusy = false;
+var wlRf = null;   // 433MHz 등록 중이면 {model, id, key, model_only}
 
-function openWireless(){ wl = null; wlMsg = null; wlEdit = null; wlSure = null; loadWireless(); }
+function openWireless(){ wl = null; wlMsg = null; wlEdit = null; wlRf = null; wlSure = null; loadWireless(); }
 function closeWireless(){ if (wlTimer) clearTimeout(wlTimer); wlTimer = null; wl = null; drawSettingsMenu(); }
 function loadWireless(){
   if (wlTimer) clearTimeout(wlTimer);
@@ -1207,6 +1226,35 @@ function wlPost(action, body, done){
     .catch(function(){ return {ok:false, error:t("save_fail")}; })
     .then(function(d){ wlBusy = false; done(d || {}); loadWireless(); });
 }
+function wlRfSuggest(kind, zone, model){
+  var taken = (wl && wl.taken) || [];
+  var p = WL_RF_PREFIX[kind] || (model.split("-").pop().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) || "WX");
+  var z = WL_RF_ZONED[kind] ? ({treatment:"T", control:"C"})[zone] || "" : "";
+  // 기본 설정의 모델 칸을 이어받는 경우(WS90-01)는 서버가 정한다 — 여기서는 새 이름만 보인다.
+  for (var n = 1; n < 100; n++) {
+    var id = z ? p + "-" + z + n : p + "-" + (n < 10 ? "0" : "") + n;
+    if (taken.indexOf(id) < 0) return id;
+  }
+  return p;
+}
+function wlStartRf(key){
+  var n = (wl.rf_new || []).filter(function(x){ return x.key === key; })[0];
+  if (!n) return;
+  wlRf = n; wlEdit = null; wlKind = n.guess || null; wlZone = n.guess === "weather" ? "mast" : null; wlMsg = null; drawWireless();
+}
+function wlAddRf(){
+  var r = wlRf;
+  wlPost("register", {rf:true, model:r.model, id:r.id, kind:wlKind, zone:wlZone}, function(d){
+    if (d.ok) { wlRf = null; wlMsg = {kind:"ok", text:t("wl_added", {n:d.sensor_id})}; }
+    else wlMsg = {kind:"err", text:d.error || t("save_fail")};
+  });
+}
+function wlRemoveRf(key){
+  if (wlSure !== key) { wlSure = key; drawWireless(); return; }
+  wlSure = null;
+  wlPost("remove", {rf:true, key:key}, function(d){ wlMsg = d.ok ? {kind:"ok", text:t("wl_removed")} : {kind:"err", text:d.error || t("save_fail")}; });
+}
+
 function wlSuggest(kind, zone){
   var taken = (wl && wl.taken) || [], p = WL_PREFIX[kind], z = WL_ZONED[kind] ? ({treatment:"T", control:"C"})[zone] || "" : "";
   for (var n = 1; n < 100; n++) {
@@ -1249,6 +1297,18 @@ function drawWireless(){
   var body = "";
   if (!wl) {
     body = '<div class="sub">' + t("checking") + '</div>';
+  } else if (wlRf) {
+    var rname = wlKind && wlZone ? wlRfSuggest(wlKind, wlZone, wlRf.model) : "";
+    if (rname && wlRf.model_only && wlKind === "weather") rname = "";      // 서버가 기존 이름을 이어준다
+    body = '<div class="sub" style="margin:2px 0 2px">' + esc(wlRf.model + (wlRf.id ? " \u00B7 id " + wlRf.id : "")) + '</div>' +
+      '<div class="wlhead">' + t("wl_pick_kind") + '</div><div class="typegrid">' +
+      WL_RF_KINDS.map(function(k){ return '<button class="' + (k === wlKind ? "on" : "") +
+        '" onclick="wlKind=&quot;' + k + '&quot;;drawWireless()">' + t("wlr_" + k) + '</button>'; }).join("") + '</div>' +
+      '<div class="wlhead">' + t("wl_pick_zone") + '</div><div class="typegrid two">' +
+      WL_ZONES.map(function(z){ return '<button class="' + (z === wlZone ? "on" : "") +
+        '" onclick="wlZone=&quot;' + z + '&quot;;drawWireless()">' + t("wlz_" + z) + '</button>'; }).join("") + '</div>' +
+      (rname ? '<div class="sub" style="margin-top:10px">' + esc(t("wl_name_will", {n:rname})) + '</div>' : "") +
+      '<button class="wlbig" style="margin-top:10px" ' + (wlKind && wlZone && !wlBusy ? "" : "disabled") + ' onclick="wlAddRf()">' + t("wl_add") + '</button>';
   } else if (wlEdit) {
     // 등록 — 종류와 구간을 고르면 이름이 정해진다.
     var name = wlKind && wlZone ? wlSuggest(wlKind, wlZone) : "";
@@ -1301,11 +1361,40 @@ function drawWireless(){
         '<button class="toggle" style="margin-left:8px" onclick="wlRemove(&quot;' + esc(x.name) + '&quot;)">' +
           (wlSure === x.name ? t("wl_remove_sure") : t("wl_remove")) + '</button></div>';
     }).join("") : '<div class="sub">' + t("wl_none") + '</div>';
+
+    // ── 433MHz — 페어링이 없다. 수집기가 들은 장치 중에서 골라 등록한다.
+    body += '<div class="wlhead" style="margin-top:16px">' + t("wl_rf_title") + '</div>';
+    if (!wl.rf_heard_ok && !(wl.units || {})["farm365-rtl433"]) body += '<div class="msg err">' + t("wl_rf_off") + '</div>';
+    var rfs = wl.rf_sensors || [];
+    body += rfs.length ? rfs.map(function(x){
+      var bits = [];
+      if (x.rssi !== null && x.rssi !== undefined) bits.push(t("wl_rf_rssi", {v: Math.round(x.rssi)}));
+      var old = x.age_min === null || x.age_min === undefined || x.age_min >= 30;
+      return '<div class="srow"><div class="sname">' + esc(x.sensor_id) +
+        '<div class="sub">' + esc((x.kind ? t("wlr_" + x.kind) : x.model) + " \u00B7 " + (t("wlz_" + x.zone) || x.zone) +
+          " \u00B7 " + x.model.replace(/^Fineoffset-/, "") + (x.id ? " #" + x.id : "")) + '</div></div>' +
+        '<div class="wlmeta' + (old ? " old" : "") + '">' + wlAgo(x.age_min) + (bits.length ? "<br>" + bits.join(" \u00B7 ") : "") + '</div>' +
+        '<button class="toggle" style="margin-left:8px" onclick="wlRemoveRf(decodeURIComponent(&quot;' + encodeURIComponent(x.key) + '&quot;))">' +
+          (wlSure === x.key ? t("wl_remove_sure") : t("wl_remove")) + '</button></div>';
+    }).join("") : '<div class="sub">' + t("wl_rf_none") + '</div>';
+    var heard = wl.rf_new || [];
+    if (heard.length) {
+      body += '<div class="wlhead">' + t("wl_rf_heard") + ' (' + heard.length + ')</div>' +
+        heard.map(function(h){
+          var bits = [t("wl_rf_seen", {n: h.count, ago: wlAgo(h.age_min)})];
+          if (h.rssi !== null && h.rssi !== undefined) bits.push(t("wl_rf_rssi", {v: Math.round(h.rssi)}));
+          return '<div class="srow"><div class="sname">' + esc(h.model.replace(/^Fineoffset-/, "") + (h.id ? " #" + h.id : "")) +
+            '<div class="sub">' + esc(h.guess ? t("wlr_" + h.guess) : h.model) + " \u00B7 " + bits.join(" \u00B7 ") +
+            (h.model_only ? '<br><span style="color:#94A3B8">' + t("wl_rf_default") + '</span>' : "") + '</div></div>' +
+            '<button class="toggle" onclick="wlStartRf(decodeURIComponent(&quot;' + encodeURIComponent(h.key) + '&quot;))">' + t("wl_add") + '</button></div>';
+        }).join("") + '<div class="sub" style="margin-top:4px">' + t("wl_rf_tip") + '</div>';
+    }
+    if (wl.rf_other) body += '<div class="sub" style="margin-top:4px">' + t("wl_rf_other", {n: wl.rf_other}) + '</div>';
   }
   box.innerHTML = '<div class="setup" id="wlroot"><div class="chead">' +
       '<span class="ctitle">' + t("menu_wireless") + '</span>' +
-      '<button style="margin-left:auto" onclick="' + (wlEdit ? "wlEdit=null;drawWireless()" : "closeWireless()") + '">' +
-        (wlEdit ? t("back_list") : t("back_menu")) + '</button>' +
+      '<button style="margin-left:auto" onclick="' + (wlEdit || wlRf ? "wlEdit=null;wlRf=null;drawWireless()" : "closeWireless()") + '">' +
+        (wlEdit || wlRf ? t("back_list") : t("back_menu")) + '</button>' +
     '</div><div class="sbody">' + msg + body + '</div></div>';
 }
 
