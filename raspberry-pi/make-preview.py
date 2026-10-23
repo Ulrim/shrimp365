@@ -190,6 +190,8 @@ AGRI_STATES = [
     # 기상센서(2m 기온) + 지그비 초관부 온습도계 2대 — 초관부 온도가 따로 뜨고 습도는 3대 평균.
     ("기상센서 + 초관부 2대", agri_state(env={
         **{k: v for k, v in ENV.items() if k not in ("air_temp", "humidity", "soil_temp")},
+        "solar": {"value": 412.0, "var": "illuminance", "sensors": 1, "age_min": 0},
+        "uv_index": {"value": 3.4, "var": "uv_index", "sensors": 1, "age_min": 0},
         "air_temp": {"value": 25.2, "var": "t_air", "sensors": 1, "age_min": 0,
                      "each": [{"id": "WS90-01", "value": 25.2, "age_min": 0}]},
         "canopy_temp": {"value": 23.9, "var": "canopy_temp", "sensors": 2, "age_min": 1,

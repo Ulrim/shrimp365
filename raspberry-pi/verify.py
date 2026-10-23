@@ -341,6 +341,10 @@ _ce = fe.read(now=znow)
 check("2m 기온과 초관부 온도가 둘 다 있으면 칸을 나눈다",
       (_ce["air_temp"]["var"], _ce["air_temp"]["sensors"], _ce["canopy_temp"]["value"], _ce["canopy_temp"]["sensors"]),
       ("t_air", 1, 11.5, 2))
+with (zdir / "rtl433_20261017.csv").open("a", encoding="utf-8") as fh:
+    fh.write("2026-10-17T00:09:00,mast,WS90-01,illuminance,50670,lux,ok\n")
+_se = fe.read(now=znow)["solar"]
+check("WS90 조도(lux)는 일사량(W/m²)으로 어림한다(÷126.7)", (round(_se["value"]), _se["var"]), (400, "illuminance"))
 check("서버로는 칸 이름 그대로 값만", field_env.payload_values({"air_temp": {"value": 23.4}}), {"air_temp": 23.4})
 print("\n⑨ 전력 회로 — Zigbee 계측 차단기·클램프 전력계")
 pdir = Path(tempfile.mkdtemp(prefix="power-"))

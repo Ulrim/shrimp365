@@ -280,6 +280,9 @@ PAGE = """<!doctype html>
   .env.big .ev{font-size:44px}
   .env.big .ev small{font-size:18px}
   .env.big .em{font-size:13px}
+  .env.big.wxgrid{margin-top:8px;grid-template-columns:repeat(4,1fr);grid-auto-rows:minmax(0,1fr)}
+  .env.big.wxgrid .ev{font-size:34px}
+  .env.big.wxgrid .e{padding:8px 14px}
   .env .e.many{cursor:pointer;border-color:#2B3E63}
   .env .e.many .ek::after{content:" \u203A";color:#64748B}
   .eachbody{flex:1;min-height:0;display:flex;gap:10px}
@@ -761,6 +764,19 @@ var I18N = {
   env_now:{ko:"{n}대 · 방금",en:"{n} sensor(s) · just now",vi:"{n} cảm biến · vừa xong",id:"{n} sensor · baru saja"},
   env_wind:{ko:"풍속",en:"Wind",vi:"Gió",id:"Angin"},
   env_rain_day:{ko:"오늘 강수",en:"Rain today",vi:"Mưa hôm nay",id:"Hujan hari ini"},
+  wx_title:{ko:"기상 상세",en:"Weather details",vi:"Chi tiết thời tiết",id:"Detail cuaca"},
+  wx_hint:{ko:"기상센서가 보내는 값 전부 — 1분마다 새로 고칩니다",en:"Everything the weather station sends — refreshed every minute",vi:"Mọi giá trị trạm thời tiết gửi — làm mới mỗi phút",id:"Semua nilai dari stasiun cuaca — diperbarui tiap menit"},
+  wx_wind:{ko:"풍속(평균)",en:"Wind (avg)",vi:"Gió (TB)",id:"Angin (rata)"},
+  wx_gust:{ko:"돌풍",en:"Gust",vi:"Gió giật",id:"Hembusan"},
+  wx_dir:{ko:"풍향",en:"Direction",vi:"Hướng gió",id:"Arah"},
+  wx_rain_day:{ko:"오늘 강수",en:"Rain today",vi:"Mưa hôm nay",id:"Hujan hari ini"},
+  wx_rain_rate:{ko:"강우강도",en:"Rain rate",vi:"Cường độ mưa",id:"Intensitas hujan"},
+  wx_solar:{ko:"일사량",en:"Solar radiation",vi:"Bức xạ mặt trời",id:"Radiasi matahari"},
+  wx_solar_lux:{ko:"조도로 어림",en:"estimated from lux",vi:"ước từ lux",id:"perkiraan dari lux"},
+  wx_uv:{ko:"자외선 지수",en:"UV index",vi:"Chỉ số UV",id:"Indeks UV"},
+  wx_pressure:{ko:"기압",en:"Pressure",vi:"Áp suất",id:"Tekanan"},
+  wx_dew:{ko:"이슬점",en:"Dew point",vi:"Điểm sương",id:"Titik embun"},
+  wx_dew_sub:{ko:"기온·습도로 계산",en:"from temp & humidity",vi:"tính từ nhiệt & ẩm",id:"dari suhu & RH"},
   env_gust:{ko:"돌풍 {v}",en:"gust {v}",vi:"giật {v}",id:"hembusan {v}"},
   env_rate:{ko:"지금 {v} mm/h",en:"now {v} mm/h",vi:"hiện {v} mm/h",id:"kini {v} mm/j"},
   dir_N:{ko:"북",en:"N",vi:"Bắc",id:"U"}, dir_NE:{ko:"북동",en:"NE",vi:"Đông Bắc",id:"TL"},
@@ -1595,8 +1611,11 @@ function renderEnv(d, big){
       // 수집 주기(보통 5분)의 세 배를 넘기면 끊기고 있는 것 — 값은 두되 주황으로 알린다.
       // 센서가 여러 대면 누를 수 있다 — 한 대 한 대의 값과 끊긴 센서를 펼쳐 본다.
       var many = e.each && e.each.length >= 2;
-      return '<div class="e' + (e.age_min >= 15 ? " old" : "") + (many ? " many" : "") + '"' +
-             (many ? ' onclick="openEnvEach(&quot;' + s.k + '&quot;)"' : "") + '>' +
+      // 풍속·강수 칸은 누르면 기상센서가 보내는 값 전부(돌풍·풍향·강우강도·일사·자외선·기압·이슬점).
+      var wx = s.k === "wind_speed" || s.k === "rain_day";
+      var tap = wx ? 'openWeather()' : many ? 'openEnvEach(&quot;' + s.k + '&quot;)' : "";
+      return '<div class="e' + (e.age_min >= 15 ? " old" : "") + (tap ? " many" : "") + '"' +
+             (tap ? ' onclick="' + tap + '"' : "") + '>' +
              '<span class="ek">' + envLabel(s.k, e) + '</span>' +
              '<span class="ev">' + e.value.toFixed(s.digits) + '<small>' + s.unit + '</small></span>' +
              '<span class="em">' + esc(envMeta(s.k, e, env)) + '</span></div>';
@@ -1612,6 +1631,7 @@ var SENSOR_COLORS = ["#38BDF8","#F472B6","#A3E635","#FBBF24","#C084FC","#2DD4BF"
                      "#60A5FA","#E879F9","#4ADE80","#FACC15"];
 var envEachKey = null, envEachHours = 24, envSeries = null, envSeriesAt = 0;
 function openEnvEach(k){
+  wxOpen = false;
   envEachKey = k; envEachHours = 24; envSeries = null;
   drawEnvEach(lastState || {}); loadEnvSeries();
 }
@@ -1673,6 +1693,47 @@ function envPlot(slot, d, colors, W, H){
   var avg = d.sensors.length >= 2 ? line(d.avg, "#E8EDF7", 1.5, true) : "";
   return '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' + grid + lines + avg + '</svg>';
 }
+// ── 기상 상세 ── 풍속·강수 칸을 누르면. 기상센서(WS90 등)가 보내는 값을 한 화면에 모은다.
+var wxOpen = false;
+function openWeather(){ envEachKey = null; wxOpen = true; drawWeather(lastState || {}); }
+function closeWeather(){ wxOpen = false; document.getElementById("envpanel").innerHTML = ""; }
+function dewPoint(tc, rh){
+  // 마그누스 식 — 이슬·결로가 생기는 온도. 기온이 이슬점에 가까우면 잎이 젖는다(병 발생 조건).
+  if (typeof tc !== "number" || typeof rh !== "number" || rh <= 0) return null;
+  var a = 17.62, b = 243.12, g = Math.log(rh / 100) + a * tc / (b + tc);
+  return b * g / (a - g);
+}
+function drawWeather(d){
+  var env = d.env || {};
+  var v = function(k){ return env[k] && typeof env[k].value === "number" ? env[k].value : null; };
+  var items = [];
+  var add = function(label, val, digits, unit, sub){
+    if (val === null || val === undefined) return;
+    items.push('<div class="e"><span class="ek">' + label + '</span><span class="ev">' +
+      (typeof val === "number" ? val.toFixed(digits) : esc(val)) + '<small>' + unit + '</small></span>' +
+      '<span class="em">' + (sub || "") + '</span></div>');
+  };
+  add(t("wx_wind"), v("wind_speed"), 1, "m/s");
+  add(t("wx_gust"), v("wind_gust"), 1, "m/s");
+  var dir = v("wind_dir");
+  add(t("wx_dir"), dir === null ? null : t("dir_" + COMPASS[Math.round(dir / 45) % 8]), 0, "", dir === null ? "" : Math.round(dir) + "\u00B0");
+  add(t("wx_rain_day"), v("rain_day"), 1, "mm");
+  add(t("wx_rain_rate"), v("rain_rate"), 1, "mm/h");
+  add(t("wx_solar"), v("solar"), 0, "W/m\u00B2", env.solar && env.solar.var === "illuminance" ? t("wx_solar_lux") : "");
+  add(t("wx_uv"), v("uv_index"), 1, "");
+  add(t("wx_pressure"), v("pressure"), 1, "hPa");
+  var at = env.air_temp && env.air_temp.var === "t_air" ? v("air_temp") : null;
+  add(t("wx_dew"), dewPoint(at, v("humidity")), 1, "\u00B0C", t("wx_dew_sub"));
+  if (!items.length) { closeWeather(); return; }
+  document.getElementById("envpanel").innerHTML =
+    '<div class="chart">' +
+      '<div class="chead"><span class="ctitle">' + t("wx_title") + '</span>' +
+        '<span class="cstats"><span>' + t("wx_hint") + '</span></span>' +
+        '<button style="margin-left:auto" onclick="closeWeather()">' + t("close") + '</button></div>' +
+      '<div class="env big wxgrid">' + items.join("") + '</div>' +
+    '</div>';
+}
+
 function drawEnvEach(d){
   var e = d.env && d.env[envEachKey];
   var slot = ENV_SLOTS.filter(function(s){ return s.k === envEachKey; })[0];
@@ -2092,6 +2153,7 @@ function render(d){
   renderPowerChip(d);
   if (powerOpen) drawPower(d);
   if (envEachKey) drawEnvEach(d);
+  else if (wxOpen) drawWeather(d);
   // 그래프를 보고 있는 중에는 뒤 화면을 다시 그리지 않는다.
   // 3초마다 갱신하면 조작 중에 깜빡이고 눌림이 씹힌다.
   if (!chartKey) document.getElementById("main").innerHTML = renderValues(d);
