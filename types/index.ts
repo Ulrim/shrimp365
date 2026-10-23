@@ -87,6 +87,8 @@ export interface WaterQualityReading {
   // 지그비 온습도·토양수분과 기상센서 값. 안 재는 장비·예전 기록은 null(또는 칸 자체가 없음).
   /** 기온(2m) 또는 초관부 온도(지상 10cm), °C */
   air_temp?: number | null
+  /** 초관부 온도(지상 10cm), °C — 2m 기온과 둘 다 잴 때만(canopy_temp.sql) */
+  canopy_temp?: number | null
   /** 상대습도, % */
   humidity?: number | null
   /** 토양 체적함수율, % */

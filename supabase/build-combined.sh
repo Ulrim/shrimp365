@@ -34,6 +34,7 @@ ORDER=(
   environment_readings
   power_readings
   env_sensors
+  canopy_temp
   push_subscriptions
 )
 

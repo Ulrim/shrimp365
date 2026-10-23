@@ -65,6 +65,7 @@ export type DbWaterQuality = {
   diff_pressure?: number | null
   // 환경·기상(environment_readings.sql). 마이그레이션 전 DB 에는 칸이 없다.
   air_temp?: number | null
+  canopy_temp?: number | null
   humidity?: number | null
   soil_moisture?: number | null
   soil_temp?: number | null

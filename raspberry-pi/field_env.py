@@ -403,7 +403,7 @@ def _slot(slot: str, value: float, var: str, hits: list, now: dt.datetime,
 
 #: 서버로 센서별 값을 올릴 칸 — 웹 "환경·기상" 카드에서 칸을 누르면 펼쳐지는 것과 같다.
 #: 풍향·돌풍·강우강도는 웹에서 따로 칸이 아니라(다른 칸에 접힌다) 보내지 않는다.
-EACH_SLOTS = ("air_temp", "humidity", "soil_moisture", "soil_temp", "wind_speed", "rain_day")
+EACH_SLOTS = ("air_temp", "canopy_temp", "humidity", "soil_moisture", "soil_temp", "wind_speed", "rain_day")
 EACH_MAX = 16
 
 

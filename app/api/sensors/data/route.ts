@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase-server"
 import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, parseTrendAlerts, TREND_ALERT_PARAMETERS, MISSING_INPUT_PARAMETER, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
 import { sendAlertPush } from "@/lib/push-server"
-import { ENV_PARAMS, ENV_KEYS, parseEnvEach, type EnvParamKey } from "@/lib/env-params"
+import { ENV_PARAMS, ENV_KEYS, ENV_LATER_KEYS, parseEnvEach, type EnvParamKey } from "@/lib/env-params"
 import { parsePowerPayload, breakerAlerts } from "@/lib/power"
 
 /** 환경·기상 칸별 수신 범위 — lib/env-params.ts 에서 만든다. */
@@ -264,11 +264,13 @@ export async function POST(req: NextRequest) {
     const named = [...OPTIONAL_COLS, ...ENV_COLS].find(col =>
       col in row && new RegExp(`(^|[^A-Za-z0-9_])${col}([^A-Za-z0-9_]|$)`, "i").test(msg))
     const missing = isMissingColumnError ? named : undefined
-    if (!missing || attempt > OPTIONAL_COLS.length) break
+    if (!missing || attempt > OPTIONAL_COLS.length + 2) break  // + 환경 묶음 + 따로 생기는 칸
 
     // 환경·기상 칸은 한 마이그레이션에서 같이 생기므로 하나가 없으면 다 없다.
     // 하나씩 떼면 매 수신마다 열두 번을 왕복하니 한꺼번에 뗀다.
-    const drop: readonly string[] = (ENV_COLS as readonly string[]).includes(missing) ? ENV_COLS : [missing]
+    // 따로 생기는 칸(canopy_temp.sql)은 그것만 뗀다 — 나머지 환경 값까지 잃지 않게.
+    const drop: readonly string[] = (ENV_LATER_KEYS as readonly string[]).includes(missing) ? [missing]
+      : (ENV_COLS as readonly string[]).includes(missing) ? ENV_COLS.filter(c => !ENV_LATER_KEYS.includes(c)) : [missing]
     console.warn(`[sensors/data] ${missing} 칸 없음 — ${drop.length > 1 ? "환경·기상 칸을" : "그 칸을"} 빼고 저장(마이그레이션 필요)`)
     row = Object.fromEntries(Object.entries(row).filter(([k]) => !drop.includes(k)))
     // 환경 칸을 뗐더니 수질 값도 없으면 남는 게 없다 — 빈 줄을 쓰지 않는다(마이그레이션 전 DB).

@@ -36,13 +36,19 @@ export interface AgriEnvironmentDict {
   /** 그래프에는 있지만 마지막 수신에 빠진 센서. */
   lost: string
   close: string
+  /** 이슬점 칸 — 기온·습도로 계산. */
+  dewPoint: string
+  /** 이슬점 칸 보조 줄 — `{{v}}` 기온과의 차이(°C). 작을수록 이슬·결로가 맺히기 쉽다. */
+  dewGap: string
+  /** 기온과 이슬점이 2°C 안으로 붙었을 때 — 잎 젖음·병 발생 주의. */
+  dewNear: string
 }
 
 export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
   ko: {
     title: "환경·기상 · {{name}}",
     param: {
-      air_temp: "기온", humidity: "습도", soil_moisture: "토양수분", soil_temp: "지온",
+      air_temp: "기온", canopy_temp: "초관부 온도", humidity: "습도", soil_moisture: "토양수분", soil_temp: "지온",
       wind_speed: "풍속", wind_gust: "돌풍", wind_dir: "풍향", rain_day: "오늘 강수",
       rain_rate: "강우강도", solar: "일사", uv_index: "자외선", pressure: "기압",
     },
@@ -57,11 +63,12 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     avgOf: "평균 · {{n}}대 ›", eachTitle: "{{param}} · 센서별", eachAt: "{{ago}} 값",
     highest: "최고", lowest: "최저", close: "닫기",
     lost: "끊김",
+    dewPoint: "이슬점", dewGap: "기온보다 {{v}}°C 낮음", dewNear: "이슬 맺힐 수 있음 (기온과 {{v}}°C 차이)",
   },
   en: {
     title: "Environment & weather · {{name}}",
     param: {
-      air_temp: "Air temp", humidity: "Humidity", soil_moisture: "Soil moisture", soil_temp: "Soil temp",
+      air_temp: "Air temp", canopy_temp: "Canopy temp", humidity: "Humidity", soil_moisture: "Soil moisture", soil_temp: "Soil temp",
       wind_speed: "Wind", wind_gust: "Gust", wind_dir: "Wind dir.", rain_day: "Rain today",
       rain_rate: "Rain rate", solar: "Solar", uv_index: "UV", pressure: "Pressure",
     },
@@ -76,11 +83,12 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     avgOf: "avg of {{n}} sensors ›", eachTitle: "{{param}} · by sensor", eachAt: "as of {{ago}}",
     highest: "highest", lowest: "lowest", close: "Close",
     lost: "No signal",
+    dewPoint: "Dew point", dewGap: "{{v}}°C below air temp", dewNear: "Dew likely ({{v}}°C from air temp)",
   },
   vi: {
     title: "Môi trường & thời tiết · {{name}}",
     param: {
-      air_temp: "Nhiệt độ KK", humidity: "Độ ẩm", soil_moisture: "Độ ẩm đất", soil_temp: "Nhiệt độ đất",
+      air_temp: "Nhiệt độ KK", canopy_temp: "Nhiệt độ tán", humidity: "Độ ẩm", soil_moisture: "Độ ẩm đất", soil_temp: "Nhiệt độ đất",
       wind_speed: "Gió", wind_gust: "Gió giật", wind_dir: "Hướng gió", rain_day: "Mưa hôm nay",
       rain_rate: "Cường độ mưa", solar: "Bức xạ", uv_index: "UV", pressure: "Áp suất",
     },
@@ -95,11 +103,12 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     avgOf: "TB {{n}} cảm biến ›", eachTitle: "{{param}} · từng cảm biến", eachAt: "lúc {{ago}}",
     highest: "cao nhất", lowest: "thấp nhất", close: "Đóng",
     lost: "Mất tín hiệu",
+    dewPoint: "Điểm sương", dewGap: "thấp hơn nhiệt độ {{v}}°C", dewNear: "Có thể đọng sương (cách {{v}}°C)",
   },
   id: {
     title: "Lingkungan & cuaca · {{name}}",
     param: {
-      air_temp: "Suhu udara", humidity: "Kelembapan", soil_moisture: "Kelembapan tanah", soil_temp: "Suhu tanah",
+      air_temp: "Suhu udara", canopy_temp: "Suhu kanopi", humidity: "Kelembapan", soil_moisture: "Kelembapan tanah", soil_temp: "Suhu tanah",
       wind_speed: "Angin", wind_gust: "Hembusan", wind_dir: "Arah angin", rain_day: "Hujan hari ini",
       rain_rate: "Intensitas hujan", solar: "Radiasi", uv_index: "UV", pressure: "Tekanan",
     },
@@ -114,5 +123,6 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     avgOf: "rata-rata {{n}} sensor ›", eachTitle: "{{param}} · per sensor", eachAt: "per {{ago}}",
     highest: "tertinggi", lowest: "terendah", close: "Tutup",
     lost: "Terputus",
+    dewPoint: "Titik embun", dewGap: "{{v}}°C di bawah suhu udara", dewNear: "Embun mungkin terbentuk (selisih {{v}}°C)",
   },
 }
