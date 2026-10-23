@@ -433,6 +433,27 @@ wireless.add_device(_dev, "soil-c1", "soil", "control", "SOIL-C1", _bad)
 check("메모의 YAML 특수문자는 지워 파일이 깨지지 않는다",
       (wireless.read_registered(_dev)["soil-c1"]["note"], all(c not in wireless.clean_note(_bad) for c in ':#{}[]"*@|\n')),
       ("a b c x y q r s t 줄 깊이 10cm", True))
+_rf_dev = _wdir / "rf.yaml"
+_rf_dev.write_text(_tpl.read_text(encoding="utf-8") if _tpl else
+                   "devices:\n\nrf:\n  Fineoffset-WS90:\n    zone: mast\n    sensor_id: WS90-01\n", encoding="utf-8")
+check("433MHz 기본 칸(여러 줄 형식)을 읽는다", wireless.read_rf(_rf_dev).get("Fineoffset-WS90", {}).get("sensor_id"), "WS90-01")
+_W = wireless.Wireless(_rf_dev, _wdir / "data")
+_a = _W.register_rf("Fineoffset-WS90", "12345", "weather", "mast")
+_b = _W.register_rf("Fineoffset-WH51", "0a3f21", "soil", "control")
+_c = _W.register_rf("Fineoffset-WH31", "7", "canopy", "treatment")
+_rf = wireless.read_rf(_rf_dev)
+check("WS90 을 id 로 등록하면 모델 칸을 걷고 이름(WS90-01)을 이어받는다",
+      (_a.get("sensor_id"), "Fineoffset-WS90" in _rf, "Fineoffset-WS90/12345" in _rf), ("WS90-01", False, True))
+check("433MHz 이름 규칙·지상 10cm 온습도는 초관부 온도로", (_b.get("sensor_id"), _c.get("sensor_id"),
+      _rf.get("Fineoffset-WH31/7", {}).get("map")), ("SOIL-C1", "CN-T1", "{temperature_C: canopy_temp}"))
+check("같은 센서를 두 번 등록하지 않는다", _W.register_rf("Fineoffset-WH51", "0a3f21", "soil", "control")["ok"], False)
+check("이상한 모델·id 는 받지 않는다", (_W.register_rf("x: y", "1", "soil", "control")["ok"],
+      _W.register_rf("Fineoffset-WH51", "1}#", "soil", "control")["ok"]), (False, False))
+check("433MHz 빼기", (_W.remove_rf("Fineoffset-WH51/0a3f21")["ok"], "Fineoffset-WH51/0a3f21" in wireless.read_rf(_rf_dev)),
+      (True, False))
+check("모델로 433MHz 종류 짐작", [wireless.guess_rf_kind(m) for m in
+      ("Fineoffset-WS90", "Fineoffset-WH51", "Fineoffset-WH31", "Fineoffset-WH35", "Fineoffset-WH40", "Toyota-TPMS")],
+      ["weather", "soil", "air", "leaf", "rain", ""])
 check("찾은 센서의 종류 짐작", (
       wireless.guess_kind("Temperature & humidity sensor", [{"property": "temperature"}, {"property": "humidity"}]),
       wireless.guess_kind("Soil sensor", [{"property": "soil_moisture"}]),
