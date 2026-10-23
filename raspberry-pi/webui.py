@@ -787,6 +787,8 @@ var I18N = {
   env_loading:{ko:"기록을 읽는 중…",en:"Loading history…",vi:"Đang tải…",id:"Memuat…"},
   env_avg_line:{ko:"평균",en:"Average",vi:"Trung bình",id:"Rata-rata"},
   env_each_title:{ko:"{p} · 센서별",en:"{p} · by sensor",vi:"{p} · từng cảm biến",id:"{p} · per sensor"},
+  env_trend_title:{ko:"{p} · 24시간",en:"{p} · 24 h",vi:"{p} · 24 giờ",id:"{p} · 24 jam"},
+  wx_more:{ko:"기상 상세",en:"Weather details",vi:"Chi tiết thời tiết",id:"Detail cuaca"},
   env_avg:{ko:"평균 ({n}대)",en:"Average ({n})",vi:"Trung bình ({n})",id:"Rata-rata ({n})"},
   env_lost:{ko:"끊김",en:"No signal",vi:"Mất tín hiệu",id:"Terputus"},
   env_hi:{ko:"최고",en:"Highest",vi:"Cao nhất",id:"Tertinggi"},
@@ -1611,9 +1613,8 @@ function renderEnv(d, big){
       // 수집 주기(보통 5분)의 세 배를 넘기면 끊기고 있는 것 — 값은 두되 주황으로 알린다.
       // 센서가 여러 대면 누를 수 있다 — 한 대 한 대의 값과 끊긴 센서를 펼쳐 본다.
       var many = e.each && e.each.length >= 2;
-      // 풍속·강수 칸은 누르면 기상센서가 보내는 값 전부(돌풍·풍향·강우강도·일사·자외선·기압·이슬점).
-      var wx = s.k === "wind_speed" || s.k === "rain_day";
-      var tap = wx ? 'openWeather()' : many ? 'openEnvEach(&quot;' + s.k + '&quot;)' : "";
+      // 누르면 그래프 — 센서가 한 대여도(강수·풍속·토양수분 …). 풍속·강수 그래프에는 '기상 상세' 단추가 있다.
+      var tap = 'openEnvEach(&quot;' + s.k + '&quot;)';
       return '<div class="e' + (e.age_min >= 15 ? " old" : "") + (tap ? " many" : "") + '"' +
              (tap ? ' onclick="' + tap + '"' : "") + '>' +
              '<span class="ek">' + envLabel(s.k, e) + '</span>' +
@@ -1737,7 +1738,8 @@ function drawWeather(d){
 function drawEnvEach(d){
   var e = d.env && d.env[envEachKey];
   var slot = ENV_SLOTS.filter(function(s){ return s.k === envEachKey; })[0];
-  if (!e || !e.each || !slot) { closeEnvEach(); return; }
+  if (!e || !slot) { closeEnvEach(); return; }
+  if (!e.each) e = Object.assign({}, e, {each: []});
   // 화면이 오래 열려 있으면 그래프도 따라간다(1분마다 다시 읽기).
   if (envSeries && Date.now() - envSeriesAt > 60000) loadEnvSeries();
   var colors = sensorColors(e);
@@ -1761,12 +1763,14 @@ function drawEnvEach(d){
   }).join("");
   document.getElementById("envpanel").innerHTML =
     '<div class="chart">' +
-      '<div class="chead"><span class="ctitle">' + t("env_each_title", {p: envLabel(envEachKey, e)}) + '</span>' +
+      '<div class="chead"><span class="ctitle">' + t(e.each.length >= 2 ? "env_each_title" : "env_trend_title", {p: envLabel(envEachKey, e)}) + '</span>' +
         '<span class="cnow">' + e.value.toFixed(slot.digits) + '<small style="font-size:13px;color:#94A3B8"> ' +
         slot.unit + '</small></span>' +
-        '<span class="cstats"><span>' + t("env_avg", {n: e.sensors}) + '</span>' +
-        '<span class="avgkey">' + t("env_avg_line") + '</span></span></div>' +
+        (e.each.length >= 2 ? '<span class="cstats"><span>' + t("env_avg", {n: e.sensors}) + '</span>' +
+          '<span class="avgkey">' + t("env_avg_line") + '</span></span>' : "") + '</div>' +
       '<div class="ranges">' + buttons +
+        (envEachKey === "wind_speed" || envEachKey === "rain_day"
+          ? '<button onclick="openWeather()">' + t("wx_more") + '</button>' : "") +
         '<button class="close" onclick="closeEnvEach()">' + t("close") + '</button></div>' +
       '<div class="eachbody"><div class="plot" id="envplot"></div>' +
         '<div class="eachlist">' + rows + '</div></div>' +

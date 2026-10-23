@@ -71,7 +71,7 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
     const list = (each as Record<string, { id: string; v: number }[] | undefined>)[k]
     return list && list.length >= 2 ? list : null
   }
-  const openKey = open && open.tankId === tankId && eachOf(open.key) ? open.key : null
+  const openKey = open && open.tankId === tankId ? open.key : null
 
   const latest = new Map<EnvParamKey, Latest>()
   for (const p of ENV_PARAMS) {
@@ -143,17 +143,19 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
                   const Icon = p.icon
                   const subText = sub(p, series)
                   const many = eachOf(p.key)
-                  const Tile = many ? "button" : "div"
+                  // 누르면 펼친다 — 센서가 여럿이면 센서별, 한 대면 24시간 추세 그래프(강수·풍속·토양수분 등).
+                  const tappable = !!many || series.length >= 2
+                  const Tile = tappable ? "button" : "div"
                   return (
                     <Tile key={p.key}
-                      {...(many ? {
+                      {...(tappable ? {
                         type: "button" as const,
                         "aria-expanded": openKey === p.key,
                         onClick: () => setOpen(openKey === p.key ? null : { tankId, key: p.key }),
                       } : {})}
                       className={`rounded-xl border p-3 min-w-0 text-left ${
                         openKey === p.key ? "border-primary ring-1 ring-primary/40" : "border-border"
-                      } ${many ? "hover:bg-muted/50 transition-colors cursor-pointer" : ""}`}>
+                      } ${tappable ? "hover:bg-muted/50 transition-colors cursor-pointer" : ""}`}>
                       <p className="text-xs text-muted-foreground flex items-center gap-1.5 truncate"
                         title={p.key === "air_temp" ? ed.airTempHint : undefined}>
                         <span className="inline-flex shrink-0" style={{ color: p.color }} aria-hidden="true">
@@ -209,13 +211,80 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
                   </div>
                 )}
               </div>
-              {openKey && lastEach && (
+              {openKey && lastEach && eachOf(openKey) ? (
                 <EachList param={param(openKey)} label={ed.param[openKey]} rows={eachOf(openKey)!}
                   history={eachRows} at={agoLabel(t.time, lastEach.recorded_at)} ed={ed} onClose={() => setOpen(null)} />
+              ) : openKey && (
+                <TrendPanel param={param(openKey)} label={ed.param[openKey]} readings={readings} ed={ed}
+                  overlay={openKey === "wind_speed" ? { param: param("wind_gust"), label: ed.param.wind_gust } : null}
+                  onClose={() => setOpen(null)} />
               )}
         </CardContent>
       </Card>
     </section>
+  )
+}
+
+/** 한 칸의 24시간 추세(센서가 한 대일 때) — 강수는 누계라 계단, 풍속은 돌풍을 점선으로 겹친다. */
+function TrendPanel({ param, label, readings, overlay, ed, onClose }: {
+  param: EnvParam
+  label: string
+  readings: WaterQualityReading[]
+  overlay: { param: EnvParam; label: string } | null
+  ed: ReturnType<typeof useAgriT>["environment"]
+  onClose: () => void
+}) {
+  const data = readings
+    .filter(r => typeof r[param.key] === "number")
+    .map(r => ({
+      t: new Date(r.recorded_at).getTime(),
+      v: r[param.key] as number,
+      ...(overlay && typeof r[overlay.param.key] === "number" ? { o: r[overlay.param.key] as number } : {}),
+    }))
+  const hasOverlay = !!overlay && data.some(d => "o" in d)
+  const hhmm = (ms: number) => {
+    const d = new Date(ms)
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+  }
+  const vals = data.map(d => d.v)
+  const fmt = (v: number) => v.toFixed(param.digits)
+  return (
+    <div className="mt-3 rounded-xl border border-border p-3" role="region" aria-label={ed.trendTitle.replace("{{param}}", label)}>
+      <div className="flex items-baseline justify-between gap-2 mb-2">
+        <p className="text-sm font-medium text-foreground">{ed.trendTitle.replace("{{param}}", label)}</p>
+        <div className="flex items-baseline gap-3">
+          {vals.length > 0 && (
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {ed.range24h.replace("{{min}}", fmt(Math.min(...vals))).replace("{{max}}", fmt(Math.max(...vals)))} {param.unit}
+            </p>
+          )}
+          <button type="button" onClick={onClose} className="text-xs text-primary hover:underline">{ed.close}</button>
+        </div>
+      </div>
+      <div className="h-56" aria-hidden="true">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: -12 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border" />
+            <XAxis dataKey="t" type="number" scale="time" domain={["dataMin", "dataMax"]} tickFormatter={hhmm}
+              tick={{ fontSize: 11 }} stroke="currentColor" className="text-muted-foreground" minTickGap={40} />
+            <YAxis domain={param.key === "rain_day" || param.key === "wind_speed" ? [0, "auto"] : ["auto", "auto"]}
+              tick={{ fontSize: 11 }} width={44} stroke="currentColor" className="text-muted-foreground"
+              tickFormatter={(v: number) => v.toFixed(param.digits)} />
+            <Tooltip labelFormatter={v => hhmm(Number(v))}
+              formatter={(v, name) => [`${Number(v).toFixed(param.digits)} ${param.unit}`, name === "o" && overlay ? overlay.label : label]} />
+            <Line type={param.key === "rain_day" ? "stepAfter" : "monotone"} dataKey="v" stroke={param.color}
+              strokeWidth={2} dot={false} isAnimationActive={false} />
+            {hasOverlay && (
+              <Line type="monotone" dataKey="o" stroke={overlay!.param.color} strokeWidth={1.5} strokeDasharray="4 3"
+                dot={false} isAnimationActive={false} />
+            )}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      {hasOverlay && (
+        <p className="text-xs text-muted-foreground mt-1">{ed.overlayNote.replace("{{name}}", overlay!.label)}</p>
+      )}
+    </div>
   )
 }
 
