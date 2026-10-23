@@ -29,6 +29,7 @@ import argparse
 import datetime as dt
 import json
 import sys
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -44,14 +45,17 @@ COLUMNS = ["ts", "zone", "sensor_id", "variable", "value", "unit", "quality"]
 
 
 HEARD_FILE = "ecowitt_heard.json"
+HEARD_MAX = 16
 
 
 def load_passkey(path: str | Path) -> str:
-    """ecowitt.gateway.passkey — 등록한 게이트웨이만 받기 위한 열쇠(게이트웨이가 POST 에 싣는 값)."""
+    """ecowitt.passkey(예전 형식은 ecowitt.gateway.passkey) — 등록한 게이트웨이만 받기 위한 열쇠
+    (게이트웨이가 POST 에 싣는 값). 장비 화면이 첫 등록 때 적는다."""
     import yaml
     raw = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
-    gw = (raw.get("ecowitt") or {}).get("gateway") or {}
-    return str(gw.get("passkey") or "")
+    section = raw.get("ecowitt") or {}
+    gw = section.get("gateway") or {}
+    return str(section.get("passkey") or gw.get("passkey") or "")
 
 
 class State:
@@ -81,6 +85,7 @@ class State:
         # 들어온 게이트웨이 목록 — 장비 화면이 이것을 보고 등록한다(값은 담지 않는다).
         self.heard: dict[str, dict] = {}
         self._flushed = 0.0
+        self._lock = threading.Lock()          # ThreadingHTTPServer — 보고가 겹쳐 와도 한 번에 하나씩
 
     def _stat(self) -> float:
         try:
@@ -113,6 +118,9 @@ class State:
         passkey = str(data.get("PASSKEY", ""))[:64]
         key = passkey or ip
         now = dt.datetime.now().isoformat(timespec="seconds")
+        if key not in self.heard and len(self.heard) >= HEARD_MAX:
+            # 망 안에서 열쇠를 바꿔 가며 보내도 목록이 끝없이 늘지 않게 — 가장 오래 조용한 것을 버린다
+            del self.heard[min(self.heard, key=lambda k: self.heard[k].get("last", ""))]
         item = self.heard.setdefault(key, {"passkey": passkey, "count": 0, "first": now})
         item.update(ecowitt.report_summary(data))
         item.update(count=item["count"] + 1, last=now, ip=ip,
@@ -131,6 +139,10 @@ class State:
         return passkey
 
     def handle(self, body: str, ip: str = "") -> int:
+        with self._lock:
+            return self._handle(body, ip)
+
+    def _handle(self, body: str, ip: str = "") -> int:
         now = dt.datetime.now()
         self.reload()
         passkey = self.note_heard(body, ip)

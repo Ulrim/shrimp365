@@ -332,9 +332,9 @@ var WL = {ok:true, installed:true, mqtt:true, z2m:true, dongle:"usb-ITead_Sonoff
   eco_sensors:[{key:"soil1", sensor_id:"SOIL-C1", kind:"soil", zone:"control", channel:1, age_min:1}],
   eco_gateways:[{passkey:"A1B2C3D4E5F60718", ip:"192.168.0.31", model:"GW2000A_V3.1.4", age_min:0, registered:false}],
   eco_new:[
-    {key:"gateway", passkey:"A1B2C3D4E5F60718", kind:"weather", model:"WS90", age_min:0},
-    {key:"th2", family:"th", channel:2, kind:"", age_min:0, passkey:"A1B2C3D4E5F60718"},
-    {key:"tf1", family:"tf", channel:1, kind:"soiltemp", age_min:0, passkey:"A1B2C3D4E5F60718"}],
+    {id:"A1B2C3D4E5F60718:gateway", key:"gateway", passkey:"A1B2C3D4E5F60718", kind:"weather", model:"WS90", age_min:0},
+    {id:"A1B2C3D4E5F60718:th2", key:"th2", family:"th", channel:2, kind:"", age_min:0, passkey:"A1B2C3D4E5F60718"},
+    {id:"A1B2C3D4E5F60718:tf1", key:"tf1", family:"tf", channel:1, kind:"soiltemp", age_min:0, passkey:"A1B2C3D4E5F60718"}],
   sensors:[
     {name:"cn-t1", sensor_id:"CN-T1", kind:"canopy", zone:"treatment", note:"", paired:true, model:"TS0201", age_min:2, battery:87, lqi:142},
     {name:"cn-t2", sensor_id:"CN-T2", kind:"canopy", zone:"treatment", note:"", paired:true, model:"TS0201", age_min:4, battery:64, lqi:98},

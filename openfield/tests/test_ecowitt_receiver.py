@@ -82,3 +82,22 @@ def test_report_summary():
                                 "tf_ch1": "50", "temp4f": "60", "dailyrainin": "0"})
     assert s["outdoor"] and s["ws90"]
     assert set(s["channels"]) == {"soil3", "leaf2", "tf1", "th4"}
+
+
+def test_채널만_등록해도_열쇠가_있으면_다른_게이트웨이는_버린다(tmp_path):
+    # 장비 화면은 첫 등록 때 ecowitt: 바로 아래에 열쇠를 적는다(숫자만이어도 글자로).
+    st, _, out = _state(tmp_path, f'  passkey: "{MINE}"\n  channels:\n    soil1: {{zone: control, sensor_id: SOIL-C1}}\n')
+    st.handle(_body(OTHER), "192.168.0.77")
+    assert _sensors(out) == set()
+    st.handle(_body(MINE.lower()), "192.168.0.31")      # 대소문자는 가리지 않는다
+    assert _sensors(out) == {"SOIL-C1"}
+
+
+def test_들어온_게이트웨이_목록은_상한이_있다(tmp_path):
+    mod = _receiver()
+    st, _, out = _state(tmp_path, "  channels: {}\n")
+    for i in range(mod.HEARD_MAX + 10):
+        st._flushed = 0.0
+        st.handle(_body(f"{i:016X}"), "192.168.0.31")
+    heard = json.loads((out / "capture" / "ecowitt_heard.json").read_text(encoding="utf-8"))
+    assert len(heard["gateways"]) == mod.HEARD_MAX

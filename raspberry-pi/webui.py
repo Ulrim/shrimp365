@@ -1298,8 +1298,8 @@ function wlEcoLabel(n){
   return n.key === "gateway" ? t("wl_eco_gw") + (n.model ? " (" + n.model + ")" : "")
     : t("wlf_" + n.family) + " \u00B7 " + t("wl_eco_ch", {n: n.channel});
 }
-function wlStartEco(key){
-  var n = (wl.eco_new || []).filter(function(x){ return x.key === key; })[0];
+function wlStartEco(id){
+  var n = (wl.eco_new || []).filter(function(x){ return x.id === id; })[0];
   if (!n) return;
   wlEco = n; wlEdit = null; wlRf = null; wlMsg = null;
   wlKind = n.family === "th" ? null : n.kind; wlZone = n.key === "gateway" ? "mast" : null; drawWireless();
@@ -1498,7 +1498,7 @@ function drawWireless(){
       body += '<div class="wlhead">' + t("wl_eco_new") + ' (' + enew.length + ')</div>' + enew.map(function(n){
         return '<div class="srow"><div class="sname">' + esc(wlEcoLabel(n)) +
           '<div class="sub">' + wlAgo(n.age_min) + '</div></div>' +
-          '<button class="toggle" onclick="wlStartEco(decodeURIComponent(&quot;' + encodeURIComponent(n.key) + '&quot;))">' + t("wl_add") + '</button></div>';
+          '<button class="toggle" onclick="wlStartEco(decodeURIComponent(&quot;' + encodeURIComponent(n.id) + '&quot;))">' + t("wl_add") + '</button></div>';
       }).join("");
     }
   }

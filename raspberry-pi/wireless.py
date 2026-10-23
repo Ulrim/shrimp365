@@ -435,9 +435,9 @@ _PASSKEY_RE = re.compile(r"^[A-Fa-f0-9]{8,64}$")
 
 
 def read_eco(path: Path) -> dict:
-    """ecowitt: 칸 — {"gateway": 설정 또는 None, "channels": {"soil1": 설정, ...}}.
+    """ecowitt: 칸 — {"gateway": 설정 또는 None, "channels": {"soil1": 설정, ...}, "passkey": 등록한 게이트웨이}.
     한 줄 { } 형식과 여러 줄 형식을 모두 읽는다. 주석 줄은 건너뛴다."""
-    out: dict = {"gateway": None, "channels": {}}
+    out: dict = {"gateway": None, "channels": {}, "passkey": ""}
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
     except OSError:
@@ -454,6 +454,8 @@ def read_eco(path: Path) -> dict:
         rest = rest.split(" #", 1)[0].strip()
         if indent == 2:
             section, cur = key, None
+            if key == "passkey":
+                out["passkey"] = rest.strip("'\"")
             if key == "gateway":
                 out["gateway"] = _flow_to_dict(rest[1:-1]) if rest.startswith("{") and rest != "{}" else {}
                 cur = out["gateway"]
@@ -464,8 +466,15 @@ def read_eco(path: Path) -> dict:
             if indent == 4:
                 cur = _flow_to_dict(rest[1:-1]) if rest.startswith("{") else {}
                 out["channels"][key] = cur
-            elif indent >= 6 and cur is not None:
+            elif indent == 6 and cur is not None:
                 cur[key] = rest.strip("'\"")
+            elif indent >= 8 and cur is not None and "map" in cur:
+                # 여러 줄 map: — 한 줄 형식과 같은 글로 모은다(화면이 종류를 가늠할 때 쓴다)
+                inner = cur["map"][1:-1] if cur["map"].startswith("{") else ""
+                cur["map"] = "{" + ", ".join(x for x in (inner, f"{key}: {rest}") if x) + "}"
+    gw = out["gateway"]
+    if not out["passkey"] and gw:
+        out["passkey"] = gw.get("passkey", "")         # 예전 형식: gateway 안에 적은 열쇠
     if out["gateway"] == {}:
         out["gateway"] = None if not any(l.strip() == "gateway:" for l in lines[blk[0]:blk[1]]) else {}
     return out
@@ -509,9 +518,8 @@ def add_eco(path: Path, key: str, fields: dict) -> None:
     if _block([line.rstrip("\n") for line in lines], "ecowitt") is None:
         if lines and not lines[-1].endswith("\n"):
             lines[-1] += "\n"
-        lines += ["\necowitt:\n"]
-    blk = _block([line.rstrip("\n") for line in lines], "ecowitt")
-    s, e = blk
+        lines += ["\n", "ecowitt:\n"]
+    s, e = _block([line.rstrip("\n") for line in lines], "ecowitt")
     if re.match(r"^ecowitt:\s*\{\s*\}", lines[s]):
         lines[s] = "ecowitt:\n"
     if key == "gateway":
@@ -537,6 +545,25 @@ def remove_eco(path: Path, key: str) -> bool:
             _write_atomic(path, "".join(lines))
             return True
     return False
+
+
+def set_eco_passkey(path: Path, passkey: str) -> None:
+    """등록한 게이트웨이의 PASSKEY 를 ecowitt: 바로 아래 한 줄로 둔다(없으면 지운다).
+    수신기는 이 열쇠의 게이트웨이만 받는다. 숫자만으로 된 열쇠가 YAML 수로 읽히지 않게 따옴표로 감싼다."""
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    blk = _block([line.rstrip("\n") for line in lines], "ecowitt")
+    if blk is None:
+        if not passkey:
+            return
+        if lines and not lines[-1].endswith("\n"):
+            lines[-1] += "\n"
+        lines += ["\n", "ecowitt:\n"]
+        blk = _block([line.rstrip("\n") for line in lines], "ecowitt")
+    s, e = blk
+    lines = [ln for i, ln in enumerate(lines) if not (s < i < e and re.match(r"^  passkey:", ln))]
+    if passkey:
+        lines.insert(s + 1, f'  passkey: "{passkey}"\n')
+    _write_atomic(path, "".join(lines))
 
 
 def local_ip() -> str:
@@ -776,6 +803,7 @@ class Wireless:
     def _eco_snapshot(self, eco_reg: dict, info) -> dict:
         """에코윗 — 등록된 게이트웨이·채널, 들어온 게이트웨이와 거기 붙은 아직 등록 안 한 센서."""
         gw = eco_reg.get("gateway")
+        mykey = eco_reg.get("passkey") or ""
         sensors = []
         if gw is not None:
             sid = gw.get("sensor_id") or "WS90-01"
@@ -802,22 +830,23 @@ class Wireless:
             passkey = str(g.get("passkey") or "")
             if not _PASSKEY_RE.match(passkey):
                 passkey = ""
-            mine = gw is not None and (not gw.get("passkey") or gw.get("passkey") == passkey)
+            # 열쇠를 정한 뒤로는 그 게이트웨이만 '내 것'이다. 아직 아무것도 등록 안 했으면 고를 수 있다.
+            mine = bool(mykey) and passkey.upper() == mykey.upper()
             gateways.append({"passkey": passkey, "ip": str(g.get("ip", ""))[:45],
                              "model": str(g.get("stationtype") or g.get("model") or "")[:40], "age_min": age,
                              "registered": mine})
-            if age > 30:
+            if age > 30 or not passkey or (mykey and not mine):
                 continue
+            # 같은 망에 게이트웨이가 여럿이면 같은 열쇠(gateway·soil1)가 겹친다 — id 에 열쇠를 붙여 구분한다.
             if g.get("outdoor") and gw is None:
-                new.append({"key": "gateway", "passkey": passkey, "kind": "weather",
+                new.append({"id": f"{passkey}:gateway", "key": "gateway", "passkey": passkey, "kind": "weather",
                             "model": "WS90" if g.get("ws90") else "", "age_min": age})
-            if gw is None or mine:
-                for ch in g.get("channels") or []:
-                    if ch in eco_reg.get("channels", {}) or not _ECO_KEY_RE.match(ch):
-                        continue
-                    fam = _ECO_KEY_RE.match(ch).group(1)
-                    new.append({"key": ch, "family": fam, "channel": int(ch[len(fam):]),
-                                "kind": ECO_FAMILIES[fam][0], "age_min": age, "passkey": passkey})
+            for ch in g.get("channels") or []:
+                if ch in eco_reg.get("channels", {}) or not _ECO_KEY_RE.match(ch):
+                    continue
+                fam = _ECO_KEY_RE.match(ch).group(1)
+                new.append({"id": f"{passkey}:{ch}", "key": ch, "family": fam, "channel": int(ch[len(fam):]),
+                            "kind": ECO_FAMILIES[fam][0], "age_min": age, "passkey": passkey})
         return {"eco_sensors": sensors, "eco_gateways": gateways, "eco_new": new, "ip": local_ip(),
                 "eco_port": 8088, "eco_path": "/data/report/"}
 
@@ -926,7 +955,11 @@ class Wireless:
     def remove_eco(self, key: str) -> dict:
         with self._lock:
             try:
-                return {"ok": remove_eco(self.devices_path, key)}
+                ok = remove_eco(self.devices_path, key)
+                eco = read_eco(self.devices_path)
+                if eco["gateway"] is None and not eco["channels"] and eco["passkey"]:
+                    set_eco_passkey(self.devices_path, "")   # 다 뺐으면 다른 게이트웨이를 고를 수 있게
+                return {"ok": ok}
             except OSError as exc:
                 return {"ok": False, "error": f"설정 파일에 쓰지 못했습니다: {exc}"}
 
@@ -953,7 +986,7 @@ def _rf_register(w: "Wireless", model: str, ident: str, kind: str, zone: str, no
     if not w.devices_path.exists():
         return {"ok": False, "error": f"설정 파일이 없습니다({w.devices_path}) — setup-wireless.sh 를 먼저 실행하세요"}
     rf_reg = read_rf(w.devices_path)
-    if kind == "weather" and read_eco(w.devices_path)["gateway"] is not None:
+    if (kind in ("weather", "rain") or guess_rf_kind(model) == "weather") and read_eco(w.devices_path)["gateway"] is not None:
         return {"ok": False, "error": "기상센서를 에코윗 게이트웨이로 받고 있습니다 — 같은 비가 두 번 더해지지 "
                                       "않게, 게이트웨이 칸을 먼저 빼세요"}
     key = f"{model}/{ident}" if ident else model
@@ -982,6 +1015,16 @@ def _eco_register(w: "Wireless", key: str, kind: str, zone: str, passkey: str = 
     eco = read_eco(w.devices_path)
     taken = w._taken(read_registered(w.devices_path), read_rf(w.devices_path))
     note = clean_note(note)
+    passkey = passkey if _PASSKEY_RE.match(passkey or "") else ""
+    if not passkey:
+        return {"ok": False, "error": "게이트웨이 열쇠(PASSKEY)를 읽지 못했습니다 — 게이트웨이가 다시 보낸 뒤 해 보세요"}
+    if eco["passkey"] and eco["passkey"].upper() != passkey.upper():
+        return {"ok": False, "error": "다른 게이트웨이가 이미 등록돼 있습니다 — 그쪽 센서를 먼저 모두 빼세요"}
+    try:
+        if not eco["passkey"]:
+            set_eco_passkey(w.devices_path, passkey)   # 이 게이트웨이만 받는다(채널만 등록해도)
+    except OSError as exc:
+        return {"ok": False, "error": f"설정 파일에 쓰지 못했습니다: {exc}"}
     if key == "gateway":
         if eco["gateway"] is not None:
             return {"ok": False, "error": "게이트웨이가 이미 등록돼 있습니다"}
@@ -994,8 +1037,7 @@ def _eco_register(w: "Wireless", key: str, kind: str, zone: str, passkey: str = 
                 remove_rf(w.devices_path, rkey)
         if not sid:
             sid = suggest_rf_id("weather", "mast", "WS90", taken)
-        fields = {"zone": zone, "sensor_id": sid, "passkey": passkey if _PASSKEY_RE.match(passkey or "") else "",
-                  "note": note}
+        fields = {"zone": zone, "sensor_id": sid, "note": note}
         try:
             add_eco(w.devices_path, "gateway", fields)
         except OSError as exc:
@@ -1015,8 +1057,10 @@ def _eco_register(w: "Wireless", key: str, kind: str, zone: str, passkey: str = 
         prefix, zoned = ("CN", True) if kind == "canopy" else ("AIR", False)
         mapping = {"t_air": "canopy_temp"} if kind == "canopy" else None
     letter = ZONES.get(zone, "") if zoned else ""
-    sid = next(x for x in (f"{prefix}-{letter}{n}" if letter else f"{prefix}-{n:02d}" for n in range(1, 100))
-               if x not in taken)
+    sid = next((x for x in (f"{prefix}-{letter}{n}" if letter else f"{prefix}-{n:02d}" for n in range(1, 100))
+                if x not in taken), None)
+    if sid is None:
+        return {"ok": False, "error": "이름이 가득 찼습니다"}
     fields = {"zone": zone, "sensor_id": sid, "note": note}
     if mapping:
         fields["map"] = "{" + ", ".join(f"{a}: {b}" for a, b in mapping.items()) + "}"
