@@ -273,6 +273,13 @@ PAGE = """<!doctype html>
   .env .ev small{font-size:13px;font-weight:600;color:#94A3B8;margin-left:3px}
   .env .em{font-size:11px;color:#64748B;font-weight:600}
   .env .e.old .em{color:#F59E0B}
+  /* 수질 센서 없이 쓰는 장비(노지) — 값 격자가 없으면 환경·기상 칸이 화면을 채운다. */
+  .env.big{flex:1;min-height:0;margin-top:0;display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr}
+  .env.big .e{padding:10px 18px;justify-content:center;gap:6px}
+  .env.big .ek{font-size:16px}
+  .env.big .ev{font-size:44px}
+  .env.big .ev small{font-size:18px}
+  .env.big .em{font-size:13px}
   .env .e.many{cursor:pointer;border-color:#2B3E63}
   .env .e.many .ek::after{content:" \u203A";color:#64748B}
   .eachbody{flex:1;min-height:0;display:flex;gap:10px}
@@ -694,6 +701,7 @@ var I18N = {
   st_unlinked:{ko:"미연결 — 측정만",en:"Not linked — measuring only",vi:"Chưa kết nối — chỉ đo",id:"Belum ditautkan — hanya mengukur"},
   st_sent:{ko:"전송 {at}",en:"Sent {at}",vi:"Đã gửi {at}",id:"Terkirim {at}"},
   st_sent_more:{ko:"전송 {at} · 보관분 {sent}건 함께",en:"Sent {at} · +{sent} held",vi:"Đã gửi {at} · +{sent} đã lưu",id:"Terkirim {at} · +{sent} tersimpan"},
+  st_waiting:{ko:"측정 대기 — 아직 들어온 환경·기상 값이 없습니다 ({at})",en:"Waiting — no environment readings yet ({at})",vi:"Đang chờ — chưa có số liệu môi trường ({at})",id:"Menunggu — belum ada data lingkungan ({at})"},
   st_sensor_error:{ko:"센서 오류 — 읽은 값 없음",en:"Sensor error — no readings",vi:"Lỗi cảm biến — không có số liệu",id:"Kesalahan sensor — tanpa data"},
   st_dry_run:{ko:"시험 실행(전송 안 함) {at}",en:"Dry run (not sent) {at}",vi:"Chạy thử (không gửi) {at}",id:"Uji coba (tidak dikirim) {at}"},
   st_checking:{ko:"센서 확인 중",en:"Checking sensors",vi:"Đang kiểm tra cảm biến",id:"Memeriksa sensor"},
@@ -1119,7 +1127,7 @@ function renderValues(d){
   // 칸 수에 맞춰 줄을 맞춘다 — 2칸은 나란히, 3칸은 한 줄 셋, 4칸은 2×2. 빈 자리를 남기지 않는다.
   var grid = !n ? "" : '<div class="grid' + (n === 2 ? " n2" : n === 3 ? " n3" : n === 1 ? " n1" : "") +
     (tight ? " tight" : "") + (tighter ? " tighter" : "") + '">' + cells + '</div>';
-  if (isAgri()) return hot + grid + renderEnv(d) + renderNutrient(d) + renderAdvice(d);
+  if (isAgri()) return hot + grid + renderEnv(d, !n) + renderNutrient(d) + renderAdvice(d);
   return hot + grid + renderAdvice(d) + renderNutrient(d);
 }
 
@@ -1538,13 +1546,15 @@ function drawWireless(){
 //   opt: 값이 있을 때만 띄운다 — 지온 센서나 기상센서가 없는 농장에 빈 칸을 늘 두지 않는다.
 var ENV_SLOTS = [
   {k:"air_temp",      unit:"\u00B0C",  digits:1},
+  // 2m 기온(기상센서)과 지상 10cm 초관부 온도(지그비 온습도계)가 둘 다 있을 때만 따로 뜬다.
+  {k:"canopy_temp",   unit:"\u00B0C",  digits:1, opt:true},
   {k:"humidity",      unit:"%",       digits:1},
   {k:"soil_moisture", unit:"%",       digits:1},
   {k:"soil_temp",     unit:"\u00B0C",  digits:1, opt:true},
   {k:"wind_speed",    unit:"m/s",     digits:1, opt:true},
   {k:"rain_day",      unit:"mm",      digits:1, opt:true}
 ];
-var ENV_LABEL = {humidity:"env_rh", soil_moisture:"env_soil", soil_temp:"env_soil_temp",
+var ENV_LABEL = {canopy_temp:"env_canopy", humidity:"env_rh", soil_moisture:"env_soil", soil_temp:"env_soil_temp",
                  wind_speed:"env_wind", rain_day:"env_rain_day"};
 var COMPASS = ["N","NE","E","SE","S","SW","W","NW"];
 function envLabel(k, e){
@@ -1570,7 +1580,7 @@ function envMeta(k, e, env){
   if (one) return e.age_min < 1 ? t("env_one_now", {id:one}) : t("env_one", {id:one, m:e.age_min});
   return e.age_min < 1 ? t("env_now", {n:e.sensors}) : t("env_meta", {n:e.sensors, m:e.age_min});
 }
-function renderEnv(d){
+function renderEnv(d, big){
   var env = d.env;
   if (!env) return "";
   var any = ENV_SLOTS.some(function(s){ return env[s.k]; });
@@ -1591,7 +1601,7 @@ function renderEnv(d){
              '<span class="ev">' + e.value.toFixed(s.digits) + '<small>' + s.unit + '</small></span>' +
              '<span class="em">' + esc(envMeta(s.k, e, env)) + '</span></div>';
     }).join("");
-  return '<div class="env">' + tiles + '</div>';
+  return '<div class="env' + (big ? " big" : "") + '">' + tiles + '</div>';
 }
 
 // 칸을 누르면 — 센서별 그래프와 목록. 평균은 지금 값이 있는 센서로만 낸다. 끊긴 센서는

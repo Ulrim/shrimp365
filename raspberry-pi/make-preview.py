@@ -187,6 +187,20 @@ AGRI_STATES = [
     ("EC만 · 환경 끔", agri_state(
         values={"temperature": 21.6, "conductivity": 1640}, env=None, power=None, nutrient=None,
         sensors_on=["ec"])),
+    # 기상센서(2m 기온) + 지그비 초관부 온습도계 2대 — 초관부 온도가 따로 뜨고 습도는 3대 평균.
+    ("기상센서 + 초관부 2대", agri_state(env={
+        **{k: v for k, v in ENV.items() if k not in ("air_temp", "humidity", "soil_temp")},
+        "air_temp": {"value": 25.2, "var": "t_air", "sensors": 1, "age_min": 0,
+                     "each": [{"id": "WS90-01", "value": 25.2, "age_min": 0}]},
+        "canopy_temp": {"value": 23.9, "var": "canopy_temp", "sensors": 2, "age_min": 1,
+                        "each": [{"id": "CN-T1", "value": 23.6, "age_min": 1}, {"id": "CN-T2", "value": 24.2, "age_min": 0}]},
+        "humidity": {"value": 52.3, "var": "rh", "sensors": 3, "age_min": 1,
+                     "each": [{"id": "CN-T1", "value": 58.0, "age_min": 1}, {"id": "CN-T2", "value": 55.0, "age_min": 0},
+                              {"id": "WS90-01", "value": 44.0, "age_min": 0}]},
+    })),
+    # 수질 센서 없이 환경·기상만(노지) — 값 격자 대신 환경 칸이 화면을 채운다.
+    ("수질 센서 없음 (노지)", agri_state(
+        values={}, nutrient=None, power=None, sensors_on=["env"], status_code="sent")),
     ("미연결 (측정만)", agri_state(
         linked=False, account=None, tank=None, farm=None,
         status="미연결 — 측정만 · 보관 12건", pending=12)),

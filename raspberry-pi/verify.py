@@ -334,6 +334,13 @@ check("두 수집기가 같은 비를 적어도 한 번만 센다", fe.read(now=
 z = field_env.FieldEnv(zdir, zone="treatment").read(now=znow)
 check("구간을 고르면 그 구간만 · 기상(mast)은 함께", ("soil_moisture" in z, "wind_speed" in z), (False, True))
 check("파일이 없으면 빈 값(오류 아님)", field_env.FieldEnv(zdir / "없음").read(now=znow), {})
+# 기상센서가 2m 기온을 재면 기온 칸은 그것, 지그비 초관부 센서는 '초관부 온도' 칸으로 따로 센다.
+with (zdir / "rtl433_20261017.csv").open("a", encoding="utf-8") as fh:
+    fh.write("2026-10-17T00:09:00,mast,WS90-01,t_air,13.0,degC,ok\n")
+_ce = fe.read(now=znow)
+check("2m 기온과 초관부 온도가 둘 다 있으면 칸을 나눈다",
+      (_ce["air_temp"]["var"], _ce["air_temp"]["sensors"], _ce["canopy_temp"]["value"], _ce["canopy_temp"]["sensors"]),
+      ("t_air", 1, 11.5, 2))
 check("서버로는 칸 이름 그대로 값만", field_env.payload_values({"air_temp": {"value": 23.4}}), {"air_temp": 23.4})
 print("\n⑨ 전력 회로 — Zigbee 계측 차단기·클램프 전력계")
 pdir = Path(tempfile.mkdtemp(prefix="power-"))

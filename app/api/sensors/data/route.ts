@@ -208,9 +208,11 @@ export async function POST(req: NextRequest) {
   // 분전반 전력 회로(장비 field_env.py) — 회로마다 한 줄. 모양이 틀린 회로는 버린다.
   const powerCircuits = parsePowerPayload(body.power)
 
-  // 수질 값이 하나는 있어야 한다. 환경 값만으로는 받지 않는다 — 아래 수조 상태 갱신이
-  // 수질 판정만 보고 status 를 active 로 덮어써, 진짜 경보 상태를 지워 버린다.
-  if (Object.keys(values).length === 0) {
+  // 수질 센서 없이 환경·기상(또는 전력)만 쓰는 장비(노지)도 받는다. 그때는 아래 수조 상태
+  // 갱신을 건너뛴다 — 수질 판정 없이 status 를 active 로 덮어쓰면 진짜 경보 상태를 지운다.
+  const hasWater = Object.keys(values).length > 0
+  const hasEnv = Object.keys(envValues).length > 0
+  if (!hasWater && !hasEnv && powerCircuits.length === 0) {
     return NextResponse.json({ error: "측정값이 하나도 없습니다." }, { status: 422 })
   }
 
@@ -244,7 +246,8 @@ export async function POST(req: NextRequest) {
   let reading: Record<string, unknown> | null = null
   let insertError: { message?: string; code?: string } | null = null
 
-  for (let attempt = 0; ; attempt++) {
+  // 전력 회로만 온 줄(수질·환경 값 없음)은 수질 기록에 빈 줄을 남기지 않는다.
+  for (let attempt = 0; hasWater || hasEnv; attempt++) {
     const res = await supabaseAdmin
       .from("water_quality_readings").insert(row).select().single()
     reading = res.data
@@ -268,6 +271,11 @@ export async function POST(req: NextRequest) {
     const drop: readonly string[] = (ENV_COLS as readonly string[]).includes(missing) ? ENV_COLS : [missing]
     console.warn(`[sensors/data] ${missing} 칸 없음 — ${drop.length > 1 ? "환경·기상 칸을" : "그 칸을"} 빼고 저장(마이그레이션 필요)`)
     row = Object.fromEntries(Object.entries(row).filter(([k]) => !drop.includes(k)))
+    // 환경 칸을 뗐더니 수질 값도 없으면 남는 게 없다 — 빈 줄을 쓰지 않는다(마이그레이션 전 DB).
+    if (!hasWater && !Object.keys(row).some(k => (ENV_COLS as readonly string[]).includes(k))) {
+      insertError = null
+      break
+    }
   }
 
   if (insertError) {
@@ -478,12 +486,14 @@ export async function POST(req: NextRequest) {
     : statusAlerts.some(a => a.type === "warning") ? "warning"
     : "active"
 
-  try {
-    await supabaseAdmin
-      .from("tanks")
-      .update({ status: newStatus })
-      .eq("id", device.tank_id)
-  } catch (e) { console.warn("[sensors/data] non-fatal:", e instanceof Error ? e.message : e) }
+  if (hasWater) {
+    try {
+      await supabaseAdmin
+        .from("tanks")
+        .update({ status: newStatus })
+        .eq("id", device.tank_id)
+    } catch (e) { console.warn("[sensors/data] non-fatal:", e instanceof Error ? e.message : e) }
+  }
 
   // 5. 기기 상태 갱신 — 마지막 수신 시각과 자기소개(시리얼·버전), 원본 측정값.
   //    원본을 통째로 남겨 두면 수질 기록에 저장하지 않는 값(전도도·TDS 등)도

@@ -60,7 +60,7 @@ RAIN_VAR = "rain"
 RAIN_SLOT = "rain_day"
 
 #: 칸별 소수 자리. 서버로 보낼 때도 이 자리로 자른다.
-DIGITS = {"air_temp": 1, "humidity": 1, "soil_moisture": 1, "soil_temp": 1,
+DIGITS = {"air_temp": 1, "canopy_temp": 1, "humidity": 1, "soil_moisture": 1, "soil_temp": 1,
           "wind_speed": 1, "wind_gust": 1, "wind_dir": 0, "rain_rate": 1,
           "rain_day": 1, "solar": 0, "uv_index": 1, "pressure": 1}
 
@@ -255,6 +255,15 @@ class FieldEnv:
                         for (name, sid), (ts, v) in self._latest.items() if name == var]
                 out[slot] = _slot(slot, value, var, hits, now, each)
                 break
+        # 기온(2m, 기상센서)과 초관부 온도(지상 10cm, 지그비 온습도계)가 둘 다 있으면 초관부를 따로 낸다.
+        # 기온 칸은 2m 를 먼저 쓰므로, 따로 내지 않으면 초관부 센서가 화면 어디에도 안 보인다.
+        if out.get("air_temp", {}).get("var") == "t_air":
+            hits = [(ts, v) for (name, _sid), (ts, v) in fresh.items() if name == "canopy_temp"]
+            if hits:
+                each = [(sid, ts, v if lo <= ts <= hi else None)
+                        for (name, sid), (ts, v) in self._latest.items() if name == "canopy_temp"]
+                out["canopy_temp"] = _slot("canopy_temp", sum(v for _, v in hits) / len(hits),
+                                           "canopy_temp", hits, now, each)
         today = {k: v for k, v in self._rain.items() if k[1] == now.date()}
         rain = [(ts, total) for (ts, total) in today.values() if lo <= ts <= hi]
         if rain:

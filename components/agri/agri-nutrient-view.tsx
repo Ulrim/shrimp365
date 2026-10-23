@@ -482,6 +482,10 @@ function NutrientInner() {
         </>
       ) : series?.error ? (
         <LoadError d={d} onRetry={() => setSeriesRetry(x => x + 1)} />
+      ) : shownParams.length === 0 ? (
+        <Card className="bg-card border-border">
+          <CardContent className="p-4 text-sm text-muted-foreground" role="status">{n.noWaterSensors}</CardContent>
+        </Card>
       ) : !latest ? (
         <AgriEmptyState icon={FlaskConical} title={n.noData} description={n.noDataHint} className="py-8">
           <div className="flex items-center gap-2 flex-wrap justify-center">
@@ -537,7 +541,8 @@ function NutrientInner() {
         </>
       )}
 
-      {/* ── 추세 차트 ── */}
+      {/* ── 추세 차트 ── 수질 센서를 모두 꺼 둔 베드에는 그리지 않는다 */}
+      {shownParams.length > 0 && (
       <ChartCard
         title={<><Activity className="w-4 h-4 text-brand-fg" aria-hidden="true" />{fmt(n.trendTitle, { range: periodLabel[hours] })}</>}
         meta={refreshNote}
@@ -576,6 +581,7 @@ function NutrientInner() {
           )}
         </div>
       </ChartCard>
+      )}
 
       {/* ── 센서별 비교(센서 2대↑) ── */}
       {activeDevices.length >= 2 && shownCompare.length > 0 && (

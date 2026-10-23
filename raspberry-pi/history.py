@@ -44,7 +44,7 @@ _INSERT_SQL = (
 # 환경 센서 한 대 한 대의 값(field_env.FieldEnv.read 의 each). 기온·습도·토양 센서가 여러 대인
 # 농장에서 칸을 누르면 센서별 그래프를 그린다. 수집기가 보통 5분마다 적으므로 그 간격으로만 남긴다
 # — 센서 20대 × 8일이어도 5만 줄 안쪽이다.
-ENV_SLOTS = ("air_temp", "humidity", "soil_moisture", "soil_temp", "wind_speed", "rain_day")
+ENV_SLOTS = ("air_temp", "canopy_temp", "humidity", "soil_moisture", "soil_temp", "wind_speed", "rain_day")
 ENV_EVERY_S = 300
 
 

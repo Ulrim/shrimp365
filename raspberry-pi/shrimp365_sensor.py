@@ -2132,7 +2132,9 @@ def main() -> int:
         if cfg.getboolean("sensors", f"{key}_enabled", fallback=spec.default_enabled):
             enabled[key] = cfg.getint("sensors", f"{key}_slave_id", fallback=spec.slave_id)
 
-    if not enabled:
+    # 수질 센서를 하나도 안 켠 장비는 환경·기상이나 전력을 켰을 때만 돈다(노지 — 수질 없이 기상·토양만).
+    if not enabled and not (cfg.getboolean("environment", "enabled", fallback=False)
+                            or cfg.getboolean("power", "enabled", fallback=False)):
         sys.exit("활성화된 센서가 없습니다. config.ini 의 [sensors] 를 확인하세요.")
 
     # 화면(LCD) — 없으면 조용히 넘어간다.
@@ -2359,8 +2361,9 @@ def main() -> int:
                 settings[key] = {"enabled": bool(item.get("enabled")), "slave_id": slave_id}
 
             on = {k: v["slave_id"] for k, v in settings.items() if v["enabled"]}
-            if not on:
-                return {"ok": False, "error": "센서를 하나 이상 켜 주세요."}
+            _ext = payload.get("extras") if isinstance(payload.get("extras"), dict) else {}
+            if not on and not (bool(_ext.get("env", env_on)) or bool(_ext.get("power", power_on))):
+                return {"ok": False, "error": "센서를 하나 이상 켜 주세요. (환경·기상이나 전력을 켜면 수질 센서 없이도 됩니다)"}
             dupes = [i for i in on.values() if list(on.values()).count(i) > 1]
             if dupes:
                 return {"ok": False, "error": f"슬레이브 ID {dupes[0]} 가 중복입니다."}
@@ -2830,7 +2833,9 @@ def main() -> int:
         started = time.monotonic()
 
         with serial_lock:
-            values, errors = read_all(client, dict(enabled), ec_to_ppm, ec_holder["mode"])
+            # 수질 센서를 모두 끈 장비는 RS-485 선을 열지 않는다(변환기가 아예 없을 수 있다).
+            values, errors = (read_all(client, dict(enabled), ec_to_ppm, ec_holder["mode"])
+                              if enabled else ({}, {}))
             raw_holder.clear()
             raw_holder.update(values)          # 보정 전 값을 화면이 볼 수 있게 남긴다
             values = apply_calibration(values, cal_holder)
@@ -2857,52 +2862,57 @@ def main() -> int:
                 circuits = []
             power = {"circuits": circuits, **field_env_mod.power_summary(circuits)}
 
-        if not values:
+        if not values and enabled:
             log.error("읽은 값이 없습니다. 배선·전원·슬레이브 ID를 확인하세요. %s", errors)
             status_line = "SENSOR ERROR"
             status_code, status_args = "sensor_error", {}
             nutrient = None          # 값이 없으면 양액 안내도 띄우지 않는다
             advices = []             # 못 잰 값으로 설비를 돌리라고 할 수는 없다
         else:
-            stored = {k: v for k, v in values.items() if k in STORED_FIELDS}
-            extra = {k: v for k, v in values.items() if k not in STORED_FIELDS}
-            log.info("측정 %s%s", stored, f" (참고 {extra})" if extra else "")
+            if values:
+                stored = {k: v for k, v in values.items() if k in STORED_FIELDS}
+                extra = {k: v for k, v in values.items() if k not in STORED_FIELDS}
+                log.info("측정 %s%s", stored, f" (참고 {extra})" if extra else "")
 
-            last_values = values
-            if hist is not None:
-                hist.record(values)
+                last_values = values
+                if hist is not None:
+                    hist.record(values)
 
-            # 양액 보충량 — 켜져 있고 전도도가 있을 때만. 화면이 이 값을 띄운다.
-            nutrient = nutrient_plan(values.get("conductivity"),
-                                     values.get("temperature"), nut_holder)
+                # 양액 보충량 — 켜져 있고 전도도가 있을 때만. 화면이 이 값을 띄운다.
+                nutrient = nutrient_plan(values.get("conductivity"),
+                                         values.get("temperature"), nut_holder)
 
-            # 이상징후와 설비 운전 권고 — 통신과 무관하게 장비 안에서 끝낸다.
-            #
-            # 둘의 주기를 나눈 이유: 용존산소가 기준을 깬 순간의 안내가 몇 분
-            # 늦으면 안내가 아니다. 반대로 "나흘째 하락" 은 1분마다 다시 셀 일이
-            # 아니다. 그래서 권고는 매 측정, 추세는 ANALYSIS_INTERVAL_S 마다 본다.
-            if advice_mod is not None:
-                now_s = time.time()
-                if (anomaly_mod is not None and hist is not None
-                        and now_s - analysis["at"] >= ANALYSIS_INTERVAL_S):
+                # 이상징후와 설비 운전 권고 — 통신과 무관하게 장비 안에서 끝낸다.
+                #
+                # 둘의 주기를 나눈 이유: 용존산소가 기준을 깬 순간의 안내가 몇 분
+                # 늦으면 안내가 아니다. 반대로 "나흘째 하락" 은 1분마다 다시 셀 일이
+                # 아니다. 그래서 권고는 매 측정, 추세는 ANALYSIS_INTERVAL_S 마다 본다.
+                if advice_mod is not None:
+                    now_s = time.time()
+                    if (anomaly_mod is not None and hist is not None
+                            and now_s - analysis["at"] >= ANALYSIS_INTERVAL_S):
+                        try:
+                            analysis["rows"] = hist.recent(ANALYSIS_WINDOW_H)
+                            analysis["anomalies"] = anomaly_mod.detect(analysis["rows"])
+                        except Exception as exc:  # noqa: BLE001 — 판정이 수집을 막으면 안 된다
+                            log.warning("이상탐지 실패: %s", exc)
+                            analysis["anomalies"] = []
+                        analysis["at"] = now_s
                     try:
-                        analysis["rows"] = hist.recent(ANALYSIS_WINDOW_H)
-                        analysis["anomalies"] = anomaly_mod.detect(analysis["rows"])
-                    except Exception as exc:  # noqa: BLE001 — 판정이 수집을 막으면 안 된다
-                        log.warning("이상탐지 실패: %s", exc)
-                        analysis["anomalies"] = []
-                    analysis["at"] = now_s
-                try:
-                    # 스마트팜 모드면 양액 관리를 켜지 않았어도 농업 판정이다 — 화면의
-                    # 색(webui bandOf)도 같은 조건이다. 새우 설비 권고를 띄우지 않는다.
-                    advices = advice_mod.recommend(
-                        values, analysis["anomalies"], analysis["rows"],
-                        nutrient is not None or mode_holder["mode"] == "agriculture")
-                except Exception as exc:  # noqa: BLE001
-                    log.warning("운전 권고 실패: %s", exc)
-                    advices = []
-                if advices:
-                    log.info("운전 권고 %s", [a["code"] for a in advices])
+                        # 스마트팜 모드면 양액 관리를 켜지 않았어도 농업 판정이다 — 화면의
+                        # 색(webui bandOf)도 같은 조건이다. 새우 설비 권고를 띄우지 않는다.
+                        advices = advice_mod.recommend(
+                            values, analysis["anomalies"], analysis["rows"],
+                            nutrient is not None or mode_holder["mode"] == "agriculture")
+                    except Exception as exc:  # noqa: BLE001
+                        log.warning("운전 권고 실패: %s", exc)
+                        advices = []
+                    if advices:
+                        log.info("운전 권고 %s", [a["code"] for a in advices])
+            else:
+                # 수질 센서를 하나도 켜지 않은 장비(환경·기상만 쓰는 노지) — 잴 것이 없을 뿐 오류가 아니다.
+                nutrient = None
+                advices = []
 
             if args.dry_run:
                 print(json.dumps(values, ensure_ascii=False, indent=2))
@@ -2946,7 +2956,14 @@ def main() -> int:
                 if anomaly_mod is not None and analysis["anomalies"]:
                     payload["ai_anomaly"] = anomaly_mod.payload_field(analysis["anomalies"])
 
-                if not auth["key"]:
+                # 수질 센서 없이 쓰는 장비인데 환경·전력 값도 아직 없으면 보낼 것이 없다
+                # (서버가 빈 줄을 거절하고, 보관함에 빈 줄이 쌓인다).
+                nothing = (not values and "power" not in payload
+                           and not (env and env_upload and field_env_mod.payload_values(env)))
+                if nothing:
+                    status_line = "waiting " + time.strftime("%H:%M")
+                    status_code, status_args = "waiting", {"at": time.strftime("%H:%M")}
+                elif not auth["key"]:
                     # 연결되지 않은 장비도 계측기로는 그대로 쓸 수 있어야 한다.
                     # 값은 모아 두었다가 연결되는 순간 한꺼번에 올린다.
                     if store is not None:
