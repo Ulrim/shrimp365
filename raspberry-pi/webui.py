@@ -919,6 +919,7 @@ var I18N = {
   wl_pick_kind:{ko:"무엇을 재는 센서인가요?",en:"What does this sensor measure?",vi:"Cảm biến này đo gì?",id:"Sensor ini mengukur apa?"},
   wl_pick_zone:{ko:"어디에 달았나요?",en:"Where is it installed?",vi:"Lắp ở đâu?",id:"Dipasang di mana?"},
   wl_name_will:{ko:"이름: {n} — 장비·웹 화면에 이 이름으로 나옵니다",en:"Name: {n} — shown on the device and web",vi:"Tên: {n} — hiển thị trên thiết bị và web",id:"Nama: {n} — tampil di perangkat dan web"},
+  wl_added_zb:{ko:"{n} 등록했습니다. 배터리 센서는 잠들어 있다가 값이 바뀔 때만 보냅니다 — 센서 버튼을 한 번 짧게 누르면 바로 들어옵니다.",en:"Added {n}. Battery sensors sleep and report only on change — tap the sensor's button once to send now.",vi:"Đã thêm {n}. Cảm biến pin chỉ gửi khi giá trị đổi — nhấn nút cảm biến một lần để gửi ngay.",id:"{n} ditambahkan. Sensor baterai hanya mengirim saat nilai berubah — tekan tombol sensor sekali untuk mengirim sekarang."},
   wl_added:{ko:"{n} 등록했습니다. 몇 초 안에 값이 들어옵니다.",en:"Added {n}. Values arrive within seconds.",vi:"Đã thêm {n}. Giá trị sẽ có sau vài giây.",id:"{n} ditambahkan. Nilai masuk dalam beberapa detik."},
   wl_removed:{ko:"뺐습니다. 같은 센서를 다시 쓰려면 다시 찾기로 붙이세요.",en:"Removed. To reuse it, find it again.",vi:"Đã gỡ. Muốn dùng lại, hãy tìm lại.",id:"Dihapus. Untuk memakai lagi, cari ulang."},
   wl_enable:{ko:"환경·기상 표시가 꺼져 있어 등록한 센서 값이 화면에 안 나옵니다.",en:"Environment display is off, so sensor values aren't shown.",vi:"Hiển thị môi trường đang tắt nên không thấy giá trị.",id:"Tampilan lingkungan mati, nilai sensor tidak tampil."},
@@ -929,7 +930,7 @@ var I18N = {
   wl_batt:{ko:"배터리 {v}%",en:"battery {v}%",vi:"pin {v}%",id:"baterai {v}%"},
   wl_lqi:{ko:"신호 {v}",en:"signal {v}",vi:"tín hiệu {v}",id:"sinyal {v}"},
   wl_unpaired:{ko:"페어링 끊김 — 다시 찾기 필요",en:"not paired — find again",vi:"mất ghép đôi — tìm lại",id:"tidak terpasang — cari ulang"},
-  wl_interview:{ko:"정보 읽는 중…",en:"reading info…",vi:"đang đọc thông tin…",id:"membaca info…"},
+  wl_interview:{ko:"정보 읽는 중 — 끝날 때까지 센서 버튼을 몇 초마다 짧게 눌러 깨워 두세요",en:"reading info — tap the sensor's button every few seconds to keep it awake",vi:"đang đọc thông tin — nhấn nút cảm biến vài giây một lần để giữ thức",id:"membaca info — tekan tombol sensor tiap beberapa detik agar tetap aktif"},
   wl_unsupported:{ko:"지원 목록에 없는 기기",en:"unsupported device",vi:"thiết bị chưa hỗ trợ",id:"perangkat tidak didukung"},
   wlk_canopy:{ko:"초관부 온습도 (지상 10cm)",en:"Canopy temp/RH (10 cm)",vi:"Nhiệt/ẩm tán (10 cm)",id:"Suhu/RH kanopi (10 cm)"},
   wlk_air:{ko:"기온 온습도 (2m 폴대)",en:"Air temp/RH (2 m mast)",vi:"Nhiệt/ẩm không khí (2 m)",id:"Suhu/RH udara (2 m)"},
@@ -1360,7 +1361,7 @@ function wlStartAdd(name){
 function wlAdd(){
   var name = wlEdit;
   wlPost("register", {name:name, kind:wlKind, zone:wlZone}, function(d){
-    if (d.ok) { wlEdit = null; wlMsg = {kind:"ok", text:t("wl_added", {n:d.sensor_id})}; }
+    if (d.ok) { wlEdit = null; wlMsg = {kind:"ok", text:t("wl_added_zb", {n:d.sensor_id})}; }
     else wlMsg = {kind:"err", text:d.error || t("save_fail")};
   });
 }
