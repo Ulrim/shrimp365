@@ -345,6 +345,11 @@ def _unit(variable: str) -> str:
     return spec[0] if spec else EXTRA_UNITS.get(variable, "")
 
 
+def utc_to_local(when: dt.datetime) -> dt.datetime:
+    """UTC 시각(시간대 없음) → 파이 현지 시각(시간대 없음). 다른 수집기 파일과 같은 꼴이다."""
+    return when.replace(tzinfo=dt.timezone.utc).astimezone().replace(tzinfo=None)
+
+
 def report_to_rows(
     body: str | dict[str, Any],
     *,
@@ -355,8 +360,14 @@ def report_to_rows(
     unknown: list[str] | None = None,
     gateway: Channel | None = None,
     channels: dict[str, Channel] | None = None,
+    strict: bool = False,
 ) -> list[dict[str, Any]]:
     """POST 본문 하나를 세로 형식 행들로 바꾼다.
+
+    ``strict`` 면 **설정에 적힌 것만** 받는다 — 게이트웨이 칸이 없으면 본체 센서(WS90 등)
+    값을 버리고, 설정에 없는 채널도 버린다. 장비 화면 [무선 센서] 에서 등록하는 Farm365
+    장비가 쓴다(같은 WS90 을 433MHz 로도 받는 장비에서 비를 두 번 세지 않게, 등록하지 않은
+    채널이 ECO-SOIL1 같은 임시 이름으로 섞이지 않게).
 
     ``body`` 는 ``application/x-www-form-urlencoded`` 문자열이거나 이미
     풀어 놓은 사전이다.
@@ -372,12 +383,16 @@ def report_to_rows(
 
     # 게이트웨이가 보내는 dateutc 가 있으면 그것을 쓴다. 파이 시계가 틀어져도
     # 관측 시각이 유지된다.
+    #
+    # dateutc 는 **UTC** 다. 다른 수집기(zigbee·rtl433)는 파이 현지 시각을 적으므로
+    # 그대로 적으면 한국에서는 에코윗 행만 9시간 앞선 시각으로 남아, 같은 시각의
+    # 지그비 초관부 온도·습도와 엇갈려 서리·강우 판단이 어긋난다. 현지 시각으로 바꿔 적는다.
     when = now
     if when is None:
         stamp = str(data.get("dateutc", ""))
         for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
             try:
-                when = dt.datetime.strptime(stamp[:19], fmt)
+                when = utc_to_local(dt.datetime.strptime(stamp[:19], fmt))
                 break
             except ValueError:
                 continue
@@ -414,6 +429,9 @@ def report_to_rows(
                 unknown.append(f"에코윗 {key}: 수치가 아니다({raw!r})")
             continue
 
+        if strict and gateway is None and (key in ECOWITT_MAP or key in CUMULATIVE_MAP or key in DIAGNOSTICS):
+            continue                            # 게이트웨이 본체 센서를 등록하지 않았다
+
         mapped = ECOWITT_MAP.get(key)
         if mapped:
             variable, convert = mapped
@@ -439,12 +457,31 @@ def report_to_rows(
             add(variable, round(convert(value) if convert else value, 3), unit)
             continue
 
-        if _add_channel(key, value, add, channels, unknown):
+        if _add_channel(key, value, add, channels, unknown, strict=strict):
             continue
 
         if unknown is not None:
             unknown.append(f"에코윗 {key}: 매핑 없음(값 {raw!r})")
     return rows
+
+
+def report_summary(data: dict[str, Any]) -> dict[str, Any]:
+    """POST 하나에 무엇이 들었나 — 장비 화면이 '게이트웨이에 붙은 센서' 로 띄운다.
+
+    본체 센서(실외 기온·풍속 등)가 오는지, WS90 인지(전용 필드), 티핑버킷(WH40)이 따로 붙었는지,
+    보조 채널은 어느 계열 몇 번인지. 값은 담지 않는다.
+    """
+    outdoor = any(k in data for k in ("tempf", "windspeedmph", "solarradiation", "humidity"))
+    ws90 = any(k in data for k in ("wh90batt", "ws90cap_volt", "drain_piezo", "ws90_ver"))
+    channels = set()
+    for key in data:
+        for pattern, family, *_ in CHANNEL_PATTERNS:
+            m = pattern.match(key)
+            if m:
+                channels.add(f"{family}{int(m.group(1))}")
+                break
+    return {"outdoor": outdoor, "ws90": ws90, "wh40": "wh40batt" in data or "dailyrainin" in data,
+            "channels": sorted(channels)}
 
 
 def _add_channel(
@@ -453,6 +490,7 @@ def _add_channel(
     add: Any,
     channels: dict[str, Channel],
     unknown: list[str] | None,
+    strict: bool = False,
 ) -> bool:
     """``soilmoisture3`` 처럼 번호가 붙은 채널 필드를 처리한다.
 
@@ -465,6 +503,8 @@ def _add_channel(
             continue
         number = int(match.group(1))
         channel = channels.get(f"{family}{number}")
+        if channel is None and strict:
+            return True                         # 등록하지 않은 채널 — 받지 않는다
         if channel is None:
             if ambiguous:
                 if unknown is not None:
@@ -487,8 +527,10 @@ def _add_channel(
         if not match:
             continue
         number = int(match.group(1))
-        channel = (channels.get(f"{family}{number}")
-                   or Channel(family=family, number=number))
+        channel = channels.get(f"{family}{number}")
+        if channel is None and strict:
+            return True
+        channel = channel or Channel(family=family, number=number)
         add(variable, value, unit,
             row_zone=channel.zone, row_sensor=channel.sensor_id)
         return True

@@ -38,6 +38,8 @@ import advice          # noqa: E402
 import buffer          # noqa: E402
 import anomaly         # noqa: E402
 import history         # noqa: E402
+import field_env       # noqa: E402
+import wireless        # noqa: E402
 import limits          # noqa: E402
 
 # --full 이면 72시간치(4,320건)를 실제로 적재한다. 기본값이 아닌 이유는 파이의
@@ -249,6 +251,281 @@ print("\n⑦ 전 구간 — 이력 DB → 이상탐지 → 운전 권고")
 rows = store(drop)
 last = {k: v for k, v in rows[-1].items() if k != "t"}
 check("급락한 수조에 권고가 선다", codes(last, anomaly.detect(rows), rows), [("warn", "do_low")])
+
+print("\n⑧ 환경·기상 센서 — 수집기 CSV 에서 화면·서버 값 고르기")
+import datetime as _dt  # noqa: E402
+zdir = Path(tempfile.mkdtemp(prefix="field-env-"))
+znow = _dt.datetime(2026, 10, 17, 0, 10)
+HEAD = "ts,zone,sensor_id,variable,value,unit,quality\n"
+(zdir / "zigbee_20261016.csv").write_text(
+    HEAD + "2026-10-16T23:58:00,treatment,CN-T1,rh,80.0,%,ok\n", encoding="utf-8")
+(zdir / "zigbee_20261017.csv").write_text(
+    HEAD +
+    "2026-10-17T00:05:00,treatment,CN-T1,canopy_temp,11.0,degC,ok\n"
+    "2026-10-17T00:08:00,treatment,CN-T2,canopy_temp,12.0,degC,ok\n"
+    "2026-10-17T00:09:00,treatment,CN-T1,rh,84.0,%,ok\n"
+    "2026-10-17T00:09:00,treatment,CN-T2,rh,150.0,%,range\n"
+    "2026-10-17T00:09:00,control,SOIL-C1,soil_moisture,40.0,%,ok\n"
+    "2026-10-16T22:00:00,treatment,SOIL-T1,soil_moisture,10.0,%,ok\n", encoding="utf-8")
+(zdir / "rtl433_20261016.csv").write_text(
+    HEAD + "2026-10-16T23:50:00,mast,WS90-01,rain,5.0,mm,ok\n", encoding="utf-8")
+(zdir / "rtl433_20261017.csv").write_text(
+    HEAD +
+    "2026-10-17T00:01:00,mast,WS90-01,rain,0.4,mm,ok\n"
+    "2026-10-17T00:06:00,mast,WS90-01,rain,0.2,mm,ok\n"
+    "2026-10-17T00:09:00,mast,WS90-01,wind_speed,3.2,m/s,ok\n"
+    "2026-10-17T00:09:00,mast,WS90-01,wind_gust_window,6.8,m/s,ok\n"
+    "2026-10-17T00:09:00,mast,WS90-01,wind_dir,350,deg,ok\n"
+    "2026-10-17T00:09:00,mast,WS90-02,wind_dir,10,deg,ok\n", encoding="utf-8")
+# 에코윗 게이트웨이 수집기도 다른 수집기처럼 현지 시각으로 적는다(openfield ecowitt.py 가
+# dateutc 를 바꿔 적는다). 그 파일도 같이 읽는지 본다.
+(zdir / "ecowitt_20261017.csv").write_text(
+    HEAD + "2026-10-17T00:08:00,mast,GW-01,pressure_hpa,1012.4,hPa,ok\n", encoding="utf-8")
+
+fe = field_env.FieldEnv(zdir)
+env = fe.read(now=znow)
+check("센서 둘의 초관부 온도를 평균한다", (env["air_temp"]["value"], env["air_temp"]["sensors"]), (11.5, 2))
+check("기온이 없으면 초관부 온도라고 밝힌다", env["air_temp"]["var"], "canopy_temp")
+check("같은 센서는 가장 최근 값 · 범위 밖 값은 뺀다", env["humidity"]["value"], 84.0)
+check("30분 넘은 값은 쓰지 않는다", env["soil_moisture"]["value"], 40.0)
+check("가장 오래된 값의 나이를 알린다", env["air_temp"]["age_min"], 5)
+check("오늘 강수는 오늘 것만 더한다(어제 5mm 제외)", env["rain_day"]["value"], 0.6)
+check("돌풍은 3초값이 없으면 28초 창 최댓값", (env["wind_gust"]["value"], env["wind_gust"]["var"]),
+      (6.8, "wind_gust_window"))
+check("풍향 350°·10° 의 평균은 0°(180° 가 아니다)", env["wind_dir"]["value"] % 360, 0)
+check("에코윗 게이트웨이 파일도 읽는다(기압)", (env["pressure"]["value"], env["pressure"]["age_min"]), (1012.4, 2))
+check("센서별 값: 이름순·나이와 함께", env["air_temp"]["each"],
+      [{"id": "CN-T1", "value": 11.0, "age_min": 5}, {"id": "CN-T2", "value": 12.0, "age_min": 2}])
+check("센서별 값: 끊긴 센서는 값 없이 남긴다(평균에서 빠진 것을 찾게)", env["soil_moisture"]["each"],
+      [{"id": "SOIL-C1", "value": 40.0, "age_min": 1}, {"id": "SOIL-T1", "value": None, "age_min": 130}])
+_eh = history.History(os.path.join(tempfile.mkdtemp(), "env.db"))
+_t = int(time.time()) - 3600
+_e1 = {"air_temp": {"each": [{"id": "TH-01", "value": 20.0}, {"id": "TH-02", "value": 22.0},
+                             {"id": "TH-03", "value": None}]}}
+check("센서별 이력: 끊긴 센서(None)는 남기지 않는다", _eh.record_env(_e1, ts=_t), True)
+check("센서별 이력: 5분 안에 다시 오면 건너뛴다", _eh.record_env(_e1, ts=_t + 60), False)
+_eh.record_env({"air_temp": {"each": [{"id": "TH-01", "value": 21.0}, {"id": "TH-02", "value": 23.0}]}}, ts=_t + 600)
+_es = _eh.env_series("air_temp", 6)
+check("센서별 그래프: 센서마다 선, 평균선, 최저·최고",
+      ([x["id"] for x in _es["sensors"]], [len(x["points"]) for x in _es["sensors"]],
+       [p[1] for p in _es["avg"]], _es["min"], _es["max"], _es["count"]),
+      (["TH-01", "TH-02"], [2, 2], [21.0, 22.0], 20.0, 23.0, 4))
+check("센서별 그래프: 모르는 칸은 빈 값", _eh.env_series("ph", 6)["count"], 0)
+check("서버로는 2대 이상 살아 있는 칸만, 끊긴 센서는 빼고",
+      field_env.payload_each(env), {"air_temp": [{"id": "CN-T1", "v": 11.0}, {"id": "CN-T2", "v": 12.0}]})
+with (zdir / "zigbee_20261017.csv").open("a", encoding="utf-8") as fh:
+    fh.write("2026-10-17T00:10:00,treatment,CN-T1,rh,86.0,%,ok\n2026-10-17T00:10:00,treat")
+env = fe.read(now=znow)
+check("새로 붙은 줄만 이어 읽는다", env["humidity"]["value"], 86.0)
+check("덜 쓰인 마지막 줄은 다음에 읽는다", fe._offset[zdir / "zigbee_20261017.csv"][1] <
+      (zdir / "zigbee_20261017.csv").stat().st_size, True)
+# 수집기가 파일을 새로 만들어 같은 줄을 다시 쓰면(재시작·잘라내기) 처음부터 다시 읽는다.
+# 이미 더한 비를 또 더하면 안 된다.
+_rtl = zdir / "rtl433_20261017.csv"
+_body = _rtl.read_text(encoding="utf-8")
+_rtl.write_text("", encoding="utf-8")        # 잘라냄(logrotate copytruncate 와 같다)
+fe.read(now=znow)
+_rtl.write_text(_body, encoding="utf-8")     # 수집기가 같은 줄을 다시 씀
+check("파일을 다시 읽어도 오늘 강수를 두 번 세지 않는다", fe.read(now=znow)["rain_day"]["value"], 0.6)
+# 같은 WS90 을 rtl433 과 에코윗 게이트웨이 둘로 받아도(같은 센서 이름) 비는 두 배가 되지 않는다.
+with (zdir / "ecowitt_20261017.csv").open("a", encoding="utf-8") as fh:
+    fh.write("2026-10-17T00:01:00,mast,WS90-01,rain,0.4,mm,ok\n2026-10-17T00:06:00,mast,WS90-01,rain,0.2,mm,ok\n")
+check("두 수집기가 같은 비를 적어도 한 번만 센다", fe.read(now=znow)["rain_day"]["value"], 0.6)
+z = field_env.FieldEnv(zdir, zone="treatment").read(now=znow)
+check("구간을 고르면 그 구간만 · 기상(mast)은 함께", ("soil_moisture" in z, "wind_speed" in z), (False, True))
+check("파일이 없으면 빈 값(오류 아님)", field_env.FieldEnv(zdir / "없음").read(now=znow), {})
+check("서버로는 칸 이름 그대로 값만", field_env.payload_values({"air_temp": {"value": 23.4}}), {"air_temp": 23.4})
+print("\n⑨ 전력 회로 — Zigbee 계측 차단기·클램프 전력계")
+pdir = Path(tempfile.mkdtemp(prefix="power-"))
+pnow = _dt.datetime(2026, 10, 18, 9, 0)
+(pdir / "zigbee_20261018.csv").write_text(
+    HEAD +
+    "2026-10-18T08:58:00,facility,PUMP-01,circuit_state,1,bool,ok\n"
+    "2026-10-18T08:58:00,facility,PUMP-01,pump_power,1480,W,ok\n"
+    "2026-10-18T08:58:00,facility,PUMP-01,pump_current,7.9,A,ok\n"
+    "2026-10-18T08:58:00,facility,PUMP-01,line_voltage,221,V,ok\n"
+    "2026-10-18T08:58:00,facility,PUMP-01,device_temp,71,degC,ok\n"
+    "2026-10-18T07:00:00,facility,PUMP-01,pump_energy,0.40,kWh,ok\n"
+    "2026-10-18T08:58:00,facility,PUMP-01,pump_energy,0.25,kWh,ok\n"
+    "2026-10-18T08:59:00,facility,AUX-01,aux_circuit_state,0,bool,ok\n"
+    "2026-10-18T08:59:00,facility,AUX-01,aux_power,0,W,ok\n"
+    "2026-10-18T08:59:00,facility,AUX-01,device_temp,82,degC,ok\n"
+    "2026-10-18T08:59:00,facility,MAIN-01,main_power,2350,W,ok\n"
+    "2026-10-18T08:00:00,facility,LIGHT-01,light_power,900,W,ok\n"
+    "2026-10-18T08:59:00,facility,VALVE-01,valve_state,1,bool,ok\n"
+    "2026-10-18T08:59:00,facility,VALVE-01,irrigation_flow,12,L/min,ok\n", encoding="utf-8")
+pe = field_env.FieldEnv(pdir, zone="treatment")
+circ = {c["id"]: c for c in pe.read_power({"aux-01": "heater"}, now=pnow)}
+check("밸브는 회로가 아니다(전력·전류·전력량이 없다)", "VALVE-01" in circ, False)
+check("구간을 골라도 분전반 회로는 모두 보인다", sorted(circ), ["AUX-01", "LIGHT-01", "MAIN-01", "PUMP-01"])
+check("변수 끝말로 상태·전력·전류·전압을 읽는다",
+      (circ["PUMP-01"]["state"], circ["PUMP-01"]["power"], circ["PUMP-01"]["current"], circ["PUMP-01"]["voltage"]),
+      (1, 1480, 7.9, 221))
+check("오늘 전력량은 구간값을 더한다", circ["PUMP-01"]["energy_today"], 0.65)
+check("화면에서 고른 종류가 짐작보다 먼저(대소문자 무관)", (circ["AUX-01"]["type"], circ["PUMP-01"]["type"]),
+      ("heater", "irrigation_pump"))
+check("차단기 온도 71℃ 주의 · 82℃ 위험", (circ["PUMP-01"]["level"], circ["AUX-01"]["level"]), ("warn", "crit"))
+check("30분 넘은 전력은 지금 값으로 보이지 않는다", circ["LIGHT-01"]["power"], None)
+summ = field_env.power_summary(list(circ.values()))
+check("인입 계측이 있으면 그것이 전체", (summ["total_w"], summ["partial"], summ["level"]), (2350, False, "crit"))
+summ2 = field_env.power_summary([c for c in circ.values() if c["type"] != "main"])
+check("인입이 없으면 분기 합(부분값으로 표시)", (summ2["total_w"], summ2["partial"]), (1480, True))
+sent = {c["id"] for c in field_env.payload_power(list(circ.values()))}
+check("서버로는 지금 값이 있는 회로만", sent, {"AUX-01", "MAIN-01", "PUMP-01"})
+_cfg = pdir / "config.ini"
+_cfg.write_text("[server]\nendpoint = x\n\n[power_circuits]\n; 주석\nPUMP-010 = other\n\n[history]\nenabled = true\n",
+                encoding="utf-8")
+field_env.save_power_type(_cfg, "pump-01", "aerator")
+field_env.save_power_type(_cfg, "PUMP-010", "heater")
+_txt = _cfg.read_text(encoding="utf-8")
+check("회로 종류 저장: 정확한 이름만 바꾸고 주석·다른 구간은 그대로",
+      ("PUMP-01 = aerator" in _txt, "PUMP-010 = heater" in _txt, "; 주석" in _txt, "[history]" in _txt,
+       _txt.index("PUMP-01 = aerator") < _txt.index("[history]")),
+      (True, True, True, True, True))
+_cfg.write_text("[power_circuits]\nHEAT-01: other\n", encoding="utf-8")
+field_env.save_power_type(_cfg, "HEAT-01", "heater")
+_txt = _cfg.read_text(encoding="utf-8")
+check("손으로 ':' 로 적은 키도 같은 키로 바꾼다(중복 키 → 기동 실패 방지)",
+      (_txt.count("HEAT-01"), "HEAT-01 = heater" in _txt, (pdir / "config.ini.tmp").exists()), (1, True, False))
+check("서버가 버릴 회로 이름(따옴표·공백)은 장비도 쓰지 않는다",
+      [bool(field_env.CIRCUIT_ID_RE.match(x)) for x in ("PUMP-01", 'A"B', "A B", "x" * 33)],
+      [True, False, False, False])
+
+check("스마트팜(양액 기준)에서는 새우 운전 권고를 내지 않는다",
+      advice.recommend({"temperature": 21.6, "ph": 6.12, "do_level": 7.3}, nutrient_mode=True), [])
+
+
+print("\n⑩ 무선 센서 — 화면에서 찾기·등록·빼기")
+_here = Path(__file__).resolve().parent
+_wdir = Path(tempfile.mkdtemp(prefix="wireless-"))
+_dev = _wdir / "devices.yaml"
+# 장비에는 /opt/shrimp365/field/devices.template.yaml 로, 저장소에는 raspberry-pi/field/ 에 있다.
+_tpl = next((p for p in (_here / "field" / "devices.template.yaml", Path("/opt/shrimp365/field/devices.template.yaml"))
+             if p.exists()), None)
+_dev.write_text(_tpl.read_text(encoding="utf-8") if _tpl else "kinds:\n\ndevices:\n\nrf:\n  Fineoffset-WS90:\n    zone: mast\n",
+                encoding="utf-8")
+check("새 장비 목록은 비어 있다", wireless.read_registered(_dev), {})
+check("이름 규칙: 구간 글자 + 번호(초관부·토양), 두 자리 번호(그 밖)",
+      (wireless.suggest_id("canopy", "treatment", set()), wireless.suggest_id("soil", "control", {"SOIL-C1"}),
+       wireless.suggest_id("breaker-pump", "facility", {"PUMP-01"}), wireless.suggest_id("air", "mast", set())),
+      ("CN-T1", "SOIL-C2", "PUMP-02", "AIR-01"))
+wireless.add_device(_dev, "cn-t1", "canopy", "treatment", "CN-T1", "이랑 동쪽")
+wireless.add_device(_dev, "air-01", "air", "mast", "AIR-01")
+_reg = wireless.read_registered(_dev)
+check("등록하면 devices: 칸에 한 줄씩(순서대로)", list(_reg), ["cn-t1", "air-01"])
+check("2m 기온은 온습도 종류에 temperature→t_air 를 덮는다", _reg["air-01"].get("map"), "{temperature: t_air}")
+_txt = _dev.read_text(encoding="utf-8")
+check("다른 칸(kinds·rf)은 그대로", ("kinds:" in _txt, "rf:" in _txt, "Fineoffset-WS90" in _txt,
+      _txt.index("cn-t1:") < _txt.index("rf:")), (True, True, True, True))
+check("빼면 그 줄만 지운다", (wireless.remove_device(_dev, "cn-t1"), list(wireless.read_registered(_dev))),
+      (True, ["air-01"]))
+_ofdf_src = _here.parent / "openfield" / "configs" / "devices.yaml"     # 저장소에서만 있다
+if _ofdf_src.exists():
+    _ofdf = _wdir / "ofdf.yaml"
+    _ofdf.write_text(_ofdf_src.read_text(encoding="utf-8"), encoding="utf-8")
+    _n0 = len(wireless.read_registered(_ofdf))
+    wireless.add_device(_ofdf, "soil-c3", "soil", "control", "SOIL-C3")
+    _r = wireless.read_registered(_ofdf)
+    check("손으로 쓴 기존 설정(주석 예시 포함)에도 마지막 장치 뒤에 붙는다",
+          (len(_r) - _n0, list(_r)[-1], _r["soil-c3"]["zone"]), (1, "soil-c3", "control"))
+_bad = 'a: b #c {x} [y] "q" *r @s |t\n줄 깊이 10cm'
+wireless.add_device(_dev, "soil-c1", "soil", "control", "SOIL-C1", _bad)
+check("메모의 YAML 특수문자는 지워 파일이 깨지지 않는다",
+      (wireless.read_registered(_dev)["soil-c1"]["note"], all(c not in wireless.clean_note(_bad) for c in ':#{}[]"*@|\n')),
+      ("a b c x y q r s t 줄 깊이 10cm", True))
+_rf_dev = _wdir / "rf.yaml"
+_rf_dev.write_text(_tpl.read_text(encoding="utf-8") if _tpl else
+                   "devices:\n\nrf:\n  Fineoffset-WS90:\n    zone: mast\n    sensor_id: WS90-01\n", encoding="utf-8")
+check("433MHz 기본 칸(여러 줄 형식)을 읽는다", wireless.read_rf(_rf_dev).get("Fineoffset-WS90", {}).get("sensor_id"), "WS90-01")
+_W = wireless.Wireless(_rf_dev, _wdir / "data")
+_a = _W.register_rf("Fineoffset-WS90", "12345", "weather", "mast")
+_b = _W.register_rf("Fineoffset-WH51", "0a3f21", "soil", "control")
+_c = _W.register_rf("Fineoffset-WH31", "7", "canopy", "treatment")
+_rf = wireless.read_rf(_rf_dev)
+check("WS90 을 id 로 등록하면 모델 칸을 걷고 이름(WS90-01)을 이어받는다",
+      (_a.get("sensor_id"), "Fineoffset-WS90" in _rf, "Fineoffset-WS90/12345" in _rf), ("WS90-01", False, True))
+check("433MHz 이름 규칙·지상 10cm 온습도는 초관부 온도로", (_b.get("sensor_id"), _c.get("sensor_id"),
+      _rf.get("Fineoffset-WH31/7", {}).get("map")), ("SOIL-C1", "CN-T1", "{temperature_C: canopy_temp}"))
+check("같은 센서를 두 번 등록하지 않는다", _W.register_rf("Fineoffset-WH51", "0a3f21", "soil", "control")["ok"], False)
+check("이상한 모델·id 는 받지 않는다", (_W.register_rf("x: y", "1", "soil", "control")["ok"],
+      _W.register_rf("Fineoffset-WH51", "1}#", "soil", "control")["ok"]), (False, False))
+check("433MHz 빼기", (_W.remove_rf("Fineoffset-WH51/0a3f21")["ok"], "Fineoffset-WH51/0a3f21" in wireless.read_rf(_rf_dev)),
+      (True, False))
+check("모델로 433MHz 종류 짐작", [wireless.guess_rf_kind(m) for m in
+      ("Fineoffset-WS90", "Fineoffset-WH51", "Fineoffset-WH31", "Fineoffset-WH35", "Fineoffset-WH40", "Toyota-TPMS")],
+      ["weather", "soil", "air", "leaf", "rain", ""])
+check("찾은 센서의 종류 짐작", (
+      wireless.guess_kind("Temperature & humidity sensor", [{"property": "temperature"}, {"property": "humidity"}]),
+      wireless.guess_kind("Soil sensor", [{"property": "soil_moisture"}]),
+      wireless.guess_kind("Smart circuit breaker", [{"type": "switch", "features": [{"property": "state"}]},
+                                                   {"property": "power"}, {"property": "current"}]),
+      wireless.guess_kind("Water leak sensor", [{"property": "water_leak"}])),
+      ("canopy", "soil", "breaker-aux", "leak"))
+check("MQTT 길이 부호화(1·2바이트 경계)", (wireless._varint(0), wireless._varint(127), wireless._varint(128), wireless._varint(16383)),
+      (b"\x00", b"\x7f", b"\x80\x01", b"\xff\x7f"))
+_cfg2 = _wdir / "config.ini"
+_cfg2.write_text("[environment]\n; 주석\nenabled = false\nenabled_extra = 1\n\n[power]\ndir = /x\n", encoding="utf-8")
+_ssv = wireless.save_section_value
+if _ssv:
+    _ssv(_cfg2, "environment", "enabled", "true")
+    _ssv(_cfg2, "power", "enabled", "true")
+    _ssv(_cfg2, "wireless", "devices", "/d.yaml")
+    _c = _cfg2.read_text(encoding="utf-8")
+    check("설정 한 줄 바꾸기: 정확한 키만, 없으면 끼우고, 구간이 없으면 만든다",
+          ("enabled = true" in _c, "enabled_extra = 1" in _c, "; 주석" in _c,
+           _c.index("[power]") < _c.index("enabled = true", _c.index("[power]")), "[wireless]" in _c),
+          (True, True, True, True, True))
+
+
+# 에코윗 — 기본 설정(주석 예시와 channels: {})에 게이트웨이·채널을 더하고 뺀다.
+_eco_dev = _wdir / "eco.yaml"
+_eco_dev.write_text(_tpl.read_text(encoding="utf-8") if _tpl else
+                    "devices:\n\nrf:\n  Fineoffset-WS90:\n    zone: mast\n    sensor_id: WS90-01\n\n"
+                    "ecowitt:\n  # gateway:\n  channels: {}\n", encoding="utf-8")
+_WE = wireless.Wireless(_eco_dev, _wdir / "data", port=1)
+check("새 장비에는 에코윗 등록이 없다", wireless.read_eco(_eco_dev), {"gateway": None, "channels": {}, "passkey": ""})
+_g = _WE.register_eco("gateway", "weather", "mast", "A1B2C3D4E5F60718")
+_s = _WE.register_eco("soil1", "soil", "control", "a1b2c3d4e5f60718")
+_t = _WE.register_eco("th2", "canopy", "treatment", "A1B2C3D4E5F60718")
+_e = wireless.read_eco(_eco_dev)
+check("게이트웨이는 433MHz WS90 칸을 걷고 이름을 이어받는다",
+      (_g.get("sensor_id"), _e["passkey"], any(k.startswith("Fineoffset-WS90") for k in wireless.read_rf(_eco_dev))),
+      ("WS90-01", "A1B2C3D4E5F60718", False))
+check("채널 이름: 토양 SOIL-C1, 초관부 온습도 CN-T1 + 지상 10cm 매핑",
+      (_s.get("sensor_id"), _t.get("sensor_id"), _e["channels"].get("th2", {}).get("map")),
+      ("SOIL-C1", "CN-T1", "{t_air: canopy_temp}"))
+check("온습도계는 종류를 골라야, 같은 채널은 한 번만, 기상센서는 한 길로만",
+      (_WE.register_eco("th3", "", "control", "A1B2C3D4E5F60718")["ok"],
+       _WE.register_eco("soil1", "soil", "control", "A1B2C3D4E5F60718")["ok"],
+       _WE.register_eco("bad9", "soil", "control", "A1B2C3D4E5F60718")["ok"],
+       _WE.register_rf("Fineoffset-WS90", "1", "weather", "mast")["ok"],
+       _WE.register_rf("Fineoffset-WS90", "1", "rain", "mast")["ok"]), (False, False, False, False, False))
+check("다른 게이트웨이(열쇠)는 등록하지 않는다, 열쇠 없이도 안 된다",
+      (_WE.register_eco("soil2", "soil", "control", "FFEE0011FFEE0011")["ok"],
+       _WE.register_eco("soil2", "soil", "control", "")["ok"]), (False, False))
+try:
+    sys.path.insert(0, str(_here.parent / "openfield" / "src"))
+    from ofdf.data.ecowitt import load_channels
+    _lg, _lc = load_channels(_eco_dev)
+    check("수신기가 등록 결과를 그대로 읽는다", (_lg.sensor_id, sorted(_lc), _lc["th2"].map),
+          ("WS90-01", ["soil1", "th2"], {"t_air": "canopy_temp"}))
+except ImportError:
+    print("  (건너뜀) ofdf 가 없어 수신기 읽기 확인은 하지 않았다")
+check("에코윗 빼기", (_WE.remove_eco("th2")["ok"], _WE.remove_eco("gateway")["ok"], wireless.read_eco(_eco_dev)["gateway"],
+      sorted(wireless.read_eco(_eco_dev)["channels"])), (True, True, None, ["soil1"]))
+_WE.remove_eco("soil1")
+check("다 빼면 열쇠도 지워 다른 게이트웨이를 고를 수 있다", wireless.read_eco(_eco_dev)["passkey"], "")
+_bare = _wdir / "bare.yaml"
+_bare.write_text("devices:\nrs485:\n  enabled: false", encoding="utf-8")
+_WB = wireless.Wireless(_bare, _wdir / "data", port=1)
+_r = _WB.register_eco("soil1", "soil", "control", "01234567")
+check("ecowitt: 칸이 없는 파일에도 더하고, 숫자만인 열쇠도 글자로 남는다",
+      (_r["ok"], wireless.read_eco(_bare)["passkey"], "rs485:" in _bare.read_text(encoding="utf-8")), (True, "01234567", True))
+try:
+    import yaml as _yaml
+    check("  (YAML 로 읽어도 같다)", str(_yaml.safe_load(_bare.read_text(encoding="utf-8"))["ecowitt"]["passkey"]), "01234567")
+except ImportError:
+    pass
 
 print()
 if fails:

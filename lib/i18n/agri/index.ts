@@ -14,6 +14,7 @@ import { agriNutrient, type AgriNutrientDict } from "./nutrient"
 import { agriJournal, type AgriJournalDict } from "./journal"
 import { agriFarms, type AgriFarmsDict } from "./farms"
 import { agriOpenfield, type AgriOpenfieldDict } from "./openfield"
+import { agriEnvironment, type AgriEnvironmentDict } from "./environment"
 
 export interface AgriDict {
   common: AgriCommonDict
@@ -26,6 +27,8 @@ export interface AgriDict {
   farms: AgriFarmsDict
   /** 노지 재해위험 카드(OFDF 병합) — docs/plans/openfield-merge.md */
   openfield: AgriOpenfieldDict
+  /** 환경·기상 카드(지그비 온습도·토양, 기상센서) — lib/env-params.ts */
+  environment: AgriEnvironmentDict
 }
 
 export function agriDict(locale: Locale): AgriDict {
@@ -39,5 +42,6 @@ export function agriDict(locale: Locale): AgriDict {
     journal: agriJournal[locale],
     farms: agriFarms[locale],
     openfield: agriOpenfield[locale],
+    environment: agriEnvironment[locale],
   }
 }

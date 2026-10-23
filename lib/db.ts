@@ -1,5 +1,6 @@
+import { ENV_KEYS, type EnvParamKey, type EnvEach } from "@/lib/env-params"
 import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbSensorDevice, DbProductionCycle, DbGrowthSample, DbCycleCost, DbCycleHarvest, DbInventoryItem, DbInventoryTransaction } from "@/lib/supabase"
-import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction, FieldRiskJudgement } from "@/types"
+import { Farm, Tank, WaterQualityReading, PowerReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction, FieldRiskJudgement } from "@/types"
 import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, planMissingInputAlerts, MISSING_INPUT_PARAMETER, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
 import { PLAN_LIMITS, type Plan } from "@/lib/plans"
 import { isTestAccount } from "@/lib/mock-data"
@@ -87,6 +88,8 @@ function toWaterQuality(w: DbWaterQuality): WaterQualityReading {
     // 유량·차압도 전도도와 같은 이유로 0 을 채우지 않는다.
     flow_rate: w.flow_rate ?? null,
     diff_pressure: w.diff_pressure ?? null,
+    // 환경·기상 — 안 재는 장비가 대부분이라 역시 0 을 채우지 않는다.
+    ...Object.fromEntries(ENV_KEYS.map(k => [k, w[k] ?? null])),
     recorded_at: w.recorded_at,
     created_at: w.created_at,
   }
@@ -252,7 +255,7 @@ type WqSeriesRow = {
   conductivity?: number | null
   flow_rate?: number | null
   diff_pressure?: number | null
-}
+} & Partial<Record<EnvParamKey, number | null>>  // environment_readings.sql 판부터 함께 온다
 
 export async function getWaterQuality(tankId: string, hours = 168, deviceId?: string | null): Promise<WaterQualityReading[]> {
   // ① 구간 평균 시리즈 (전 구간 커버, 행 수 상한 안전)
@@ -272,6 +275,8 @@ export async function getWaterQuality(tankId: string, hours = 168, deviceId?: st
       conductivity: r.conductivity ?? null,
       flow_rate: r.flow_rate ?? null,
       diff_pressure: r.diff_pressure ?? null,
+      // 환경·기상 — 이 칸을 빼먹으면 대시보드 "환경·기상" 카드가 늘 비어 보인다.
+      ...Object.fromEntries(ENV_KEYS.map(k => [k, r[k] ?? null])),
       recorded_at: r.recorded_at,
       created_at: r.recorded_at,
     }))
@@ -290,6 +295,41 @@ export async function getWaterQuality(tankId: string, hours = 168, deviceId?: st
 
   if (error) throw error
   return (data || []).map(toWaterQuality).reverse()
+}
+
+/** 베드의 분전반 전력 회로 기록(최근 hours 시간, 오래된 것부터).
+ *  power_readings.sql 을 아직 안 돌린 DB 면 빈 배열 — 카드가 안 뜰 뿐 화면은 멀쩡하다. */
+export async function getPowerReadings(tankId: string, hours = 24): Promise<PowerReading[]> {
+  const since = new Date(Date.now() - hours * 3_600_000).toISOString()
+  const { data, error } = await supabase
+    .from("power_readings")
+    .select("tank_id, circuit_id, circuit_type, state, power_w, current_a, voltage_v, energy_today_kwh, device_temp, recorded_at")
+    .eq("tank_id", tankId)
+    .gte("recorded_at", since)
+    .order("recorded_at", { ascending: false })
+    .limit(1000)   // API 상한 — 최신 순으로 받아야 회로가 많아도 지금 값이 잘리지 않는다(getWaterQuality ② 와 같은 이유)
+  if (error) return []
+  return ((data || []) as PowerReading[]).reverse()
+}
+
+/** 베드의 센서별 환경 값 기록(최근 hours 시간, 오래된 것부터). 없거나 env_sensors.sql 전이면 [].
+ *  env_sensors 칸은 wq_series 가 돌려주지 않는다(구간 평균으로 묶을 수 없다) — 따로 읽는다.
+ *  장비가 5분마다 올리므로 24시간이 288줄이다. API 상한(1,000행) 때문에 최신 순으로 받아 뒤집는다. */
+export async function getEnvSensorSeries(tankId: string, hours = 24): Promise<{ each: EnvEach; recorded_at: string }[]> {
+  const since = new Date(Date.now() - hours * 3_600_000).toISOString()
+  const { data, error } = await supabase
+    .from("water_quality_readings")
+    .select("env_sensors, recorded_at")
+    .eq("tank_id", tankId)
+    .not("env_sensors", "is", null)
+    .gte("recorded_at", since)
+    .order("recorded_at", { ascending: false })
+    .limit(1000)
+  if (error || !data) return []
+  return (data as { env_sensors: EnvEach | null; recorded_at: string }[])
+    .filter(r => r.env_sensors)
+    .map(r => ({ each: r.env_sensors as EnvEach, recorded_at: r.recorded_at }))
+    .reverse()
 }
 
 export async function getLatestWaterQuality(tankId: string, deviceId?: string | null): Promise<WaterQualityReading | null> {

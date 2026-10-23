@@ -83,7 +83,20 @@ try:
 except ImportError:  # pragma: no cover
     advice_mod = None
 
-VERSION = "1.9.1"
+try:
+    import field_env as field_env_mod
+except ImportError:  # pragma: no cover
+    field_env_mod = None
+
+try:
+    import wireless as wireless_mod
+except ImportError:  # pragma: no cover
+    wireless_mod = None
+
+VERSION = "1.9.3"
+
+#: 무선 센서 수집기가 쓰는 폴더(setup-wireless.sh). 서비스의 StateDirectory 아래라 읽고 쓸 수 있다.
+FIELD_DATA_DIR = "/var/lib/shrimp365/field/data"
 
 # 추세 판정을 몇 초마다 다시 돌릴지. 임계값 권고는 매 측정마다 즉시 나가고,
 # 추세는 몇 분 늦어도 되므로 나눠 둔다 — 라즈베리 제로에서 1분마다 나흘치를
@@ -1263,6 +1276,13 @@ def _save_webui_value(config_path: Path, key: str, value: str) -> bool:
         return False
 
 
+def save_section_value(config_path: Path, section: str, key: str, value: str) -> bool:
+    """[section] 의 key 하나를 적는다 — 무선 센서 모듈과 같은 함수(외부 패키지 없이 쓸 수 있게 거기 둔다)."""
+    if wireless_mod is None:
+        return False
+    return wireless_mod.save_section_value(config_path, section, key, value)
+
+
 def save_language(config_path: Path, lang: str) -> bool:
     """화면 언어를 [webui] 구간에 적는다."""
     return _save_webui_value(config_path, "language", lang)
@@ -1884,6 +1904,42 @@ def main() -> int:
     # 값이 없거나 모르는 값이면 양식장이다 — 기존 장비는 그대로 돌아야 한다.
     _ui_mode = cfg.get("webui", "mode", fallback="shrimp").strip().lower()
     mode_holder = {"mode": _ui_mode if _ui_mode in ("shrimp", "agriculture") else "shrimp"}
+    # 환경·기상 센서(지그비 온습도·토양수분, 기상센서 WS90). 노지 수집기가 쌓는 CSV 를
+    # 이어 읽어 화면에 띄우고, upload 가 켜져 있으면 수질 값과 같은 줄로 서버에 올린다.
+    #
+    # 전력 회로(Zigbee 계측 차단기·클램프 전력계)도 같은 수집기 파일에서 읽는다 — 양식장·
+    # 스마트팜 공통. 회로 종류(순환펌프·히터…)는 화면 [설정] → [전력 회로] 에서 고르며
+    # [power_circuits] 구간에 "센서이름 = 종류" 로 남는다.
+    field_env = None
+    env_on = cfg.getboolean("environment", "enabled", fallback=False)
+    env_upload = False
+    power_on = cfg.getboolean("power", "enabled", fallback=False)
+    power_upload = cfg.getboolean("power", "upload", fallback=True)
+    # 서버로는 5분마다(과열 중이면 매번) — 화면은 매 측정마다 갱신한다.
+    power_every_s = max(60, int(cfg.getfloat("power", "upload_minutes", fallback=5) * 60))
+    power_types: dict[str, str] = (
+        {k.upper(): v.strip() for k, v in cfg.items("power_circuits")}
+        if cfg.has_section("power_circuits") else {})
+    power_sent = {"at": 0.0}
+    # 센서별 환경 값(env_each)은 5분에 한 번 — 웹 그래프 24시간이 서버 1,000행 상한 안에 들게.
+    env_each_sent = {"at": 0.0}
+    if field_env_mod is not None and (env_on or power_on):
+        # 두 기능이 같은 수집기 폴더를 읽는다. 폴더는 [environment] dir 이 정하고,
+        # 전력만 켠 장비는 [power] dir(없으면 같은 기본값)을 쓴다.
+        _dir = (cfg.get("environment", "dir", fallback=None) if env_on else None) \
+            or cfg.get("power", "dir", fallback=FIELD_DATA_DIR)
+        # 이 서비스는 ProtectHome=yes 로 돈다 — /home 아래 폴더는 아예 보이지 않는다.
+        # 예전 기본값(/home/pi/openfield/...)을 그대로 둔 장비는 값이 영영 '없음'이었다.
+        if _dir.startswith("/home/"):
+            log.warning("수집기 폴더 %s 는 서비스가 읽을 수 없습니다(ProtectHome). %s 를 씁니다 — "
+                        "setup-wireless.sh 가 수집기를 그곳에 쓰게 설치합니다.", _dir, FIELD_DATA_DIR)
+            _dir = FIELD_DATA_DIR
+        field_env = field_env_mod.FieldEnv(
+            _dir,
+            cfg.get("environment", "zone", fallback=""),
+            cfg.getfloat("environment", "stale_minutes", fallback=30),
+        )
+        env_upload = cfg.getboolean("environment", "upload", fallback=True)
     # 연속 전송 실패 횟수. 회선이 끊긴 채 안 돌아올 때 무선을 다시 깨우는 기준.
     net_fail = {"count": 0}
 
@@ -2272,6 +2328,99 @@ def main() -> int:
             return {"mode": mode_holder["mode"],
                     "ec_mode": ec_holder["mode"], "ec_unit": ec_holder["unit"]}
 
+        # ── 무선 센서 ([설정] → [무선 센서]) ─────────────────────────────────
+        wl = None
+        if wireless_mod is not None:
+            wl = wireless_mod.Wireless(
+                cfg.get("wireless", "devices", fallback=str(wireless_mod.DEFAULT_DEVICES)),
+                _wl_dir if not (_wl_dir := cfg.get("environment", "dir", fallback="") or FIELD_DATA_DIR)
+                .startswith("/home/") else FIELD_DATA_DIR,     # ProtectHome — 위 수집기 폴더와 같은 규칙
+                cfg.get("wireless", "mqtt_host", fallback="127.0.0.1"),
+                cfg.getint("wireless", "mqtt_port", fallback=1883),
+                cfg.get("wireless", "base_topic", fallback="zigbee2mqtt"),
+            )
+
+        def ui_wireless() -> dict:
+            if wl is None:
+                return {"ok": False, "error": "무선 센서 모듈이 없습니다"}
+            snap = wl.snapshot()
+            snap.update(ok=True, env_on=env_on, power_on=power_on)
+            return snap
+
+        def _wl_name_ok(name) -> bool:
+            return isinstance(name, str) and 0 < len(name) <= 64 and not any(c in name for c in "/#+")
+
+        def ui_wireless_action(action: str, body: dict) -> dict:
+            if wl is None:
+                return {"ok": False, "error": "무선 센서 모듈이 없습니다"}
+            if action == "permit":
+                return wl.permit(120 if body.get("on", True) else 0)
+            if action == "register" and body.get("rf"):
+                model, ident, kind, zone = body.get("model"), body.get("id", ""), body.get("kind"), body.get("zone")
+                if not all(isinstance(v, str) for v in (model, ident, kind, zone)):
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.register_rf(model, ident, kind, zone, str(body.get("note") or ""))
+                log.info("화면에서 433MHz 센서를 등록했습니다: %s/%s → %s", model, ident, r)
+                return r
+            if action == "remove" and body.get("rf"):
+                key = body.get("key")
+                if not isinstance(key, str) or not 0 < len(key) <= 60:
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.remove_rf(key)
+                log.info("화면에서 433MHz 센서를 뺐습니다: %s → %s", key, r)
+                return r
+            if action == "register" and body.get("eco"):
+                key, kind, zone = body.get("key"), body.get("kind", ""), body.get("zone")
+                passkey = body.get("passkey", "")
+                if not all(isinstance(v, str) for v in (key, kind, zone, passkey)) or not 0 < len(key) <= 20:
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.register_eco(key, kind, zone, passkey, str(body.get("note") or ""))
+                log.info("화면에서 에코윗 센서를 등록했습니다: %s → %s", key, r)
+                return r
+            if action == "remove" and body.get("eco"):
+                key = body.get("key")
+                if not isinstance(key, str) or not 0 < len(key) <= 20:
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.remove_eco(key)
+                log.info("화면에서 에코윗 센서를 뺐습니다: %s → %s", key, r)
+                return r
+            if action == "register":
+                name, kind, zone = body.get("name"), body.get("kind"), body.get("zone")
+                if not _wl_name_ok(name) or not isinstance(kind, str) or not isinstance(zone, str):
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.register(name, kind, zone, str(body.get("note") or ""))
+                log.info("화면에서 무선 센서를 등록했습니다: %s → %s", name, r)
+                return r
+            if action == "remove":
+                name = body.get("name")
+                if not _wl_name_ok(name):
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.remove(name)
+                log.info("화면에서 무선 센서를 뺐습니다: %s → %s", name, r)
+                return r
+            if action == "enable":
+                # 환경·기상(그리고 차단기가 있으면 전력) 표시를 켠다. 설정은 시작할 때만 읽으므로
+                # 저장한 뒤 프로그램을 다시 시작한다(약 15초).
+                ok = save_section_value(args.config, "environment", "enabled", "true")
+                if body.get("power"):
+                    ok = save_section_value(args.config, "power", "enabled", "true") and ok
+                if not ok:
+                    return {"ok": False, "error": "설정 파일에 쓰지 못했습니다"}
+                return ui_restart()
+            return {"ok": False, "error": "모르는 요청입니다"}
+
+        def ui_set_power_type(sensor_id: str, kind: str) -> dict:
+            """화면에서 고른 회로 종류를 적용하고 [power_circuits] 에 남긴다."""
+            sid = (sensor_id or "").strip().upper()
+            if field_env_mod is None or not field_env_mod.CIRCUIT_ID_RE.match(sid):
+                return {"ok": False, "error": "회로 이름이 올바르지 않습니다"}
+            if kind not in field_env_mod.POWER_TYPES:
+                return {"ok": False, "error": "모르는 종류입니다"}
+            power_types[sid] = kind          # 파일 저장이 실패해도 지금 화면은 따른다
+            saved = field_env_mod.save_power_type(args.config, sid, kind)
+            log.info("화면에서 전력 회로 종류를 바꿨습니다: %s → %s (파일 저장 %s)", sid, kind, saved)
+            return {"ok": True, "saved": saved, "id": sid, "type": kind}
+
         def ui_set_mode(mode: str) -> dict:
             """장비 모드를 바꾼다. 화면은 다음 갱신(/api/state)에서 즉시 따라온다.
 
@@ -2326,6 +2475,9 @@ def main() -> int:
             mode=mode_holder["mode"],
             get_mode=ui_mode,
             on_set_mode=ui_set_mode,
+            on_set_power_type=ui_set_power_type,
+            get_wireless=ui_wireless,
+            on_wireless=ui_wireless_action,
         )
         state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중",
                      version=VERSION, ec_unit=ec_holder["unit"], mode=mode_holder["mode"])
@@ -2378,6 +2530,28 @@ def main() -> int:
             raw_holder.update(values)          # 보정 전 값을 화면이 볼 수 있게 남긴다
             values = apply_calibration(values, cal_holder)
 
+        # 환경·기상 — 켜 둔 장비만. 수질 센서가 죽어도 화면에는 띄우고, 읽기가
+        # 실패해도 수질 측정·전송은 그대로 간다.
+        env = None
+        if field_env is not None and env_on:
+            try:
+                env = field_env.read()
+            except Exception as exc:  # noqa: BLE001
+                log.warning("환경·기상 값 읽기 실패: %s", exc)
+                env = {}
+            # 센서별 그래프용 이력 — 수질 센서가 죽어도 남긴다(5분에 한 번, history.ENV_EVERY_S).
+            if hist is not None and env:
+                hist.record_env(env)
+        # 전력 회로 — 켜 둔 장비만. 값이 없으면 빈 목록(화면이 점검 안내를 띄운다).
+        power = None
+        if field_env is not None and power_on:
+            try:
+                circuits = field_env.read_power(dict(power_types))  # 화면 스레드가 고치는 중일 수 있어 복사본
+            except Exception as exc:  # noqa: BLE001
+                log.warning("전력 회로 읽기 실패: %s", exc)
+                circuits = []
+            power = {"circuits": circuits, **field_env_mod.power_summary(circuits)}
+
         if not values:
             log.error("읽은 값이 없습니다. 배선·전원·슬레이브 ID를 확인하세요. %s", errors)
             status_line = "SENSOR ERROR"
@@ -2413,8 +2587,10 @@ def main() -> int:
                         analysis["anomalies"] = []
                     analysis["at"] = now_s
                 try:
-                    advices = advice_mod.recommend(values, analysis["anomalies"],
-                                                   analysis["rows"], nutrient is not None)
+                    # 스마트팜 모드면 양액 관리를 꺼 두었어도 새우 기준 권고(환수·히터)를 내지 않는다.
+                    advices = advice_mod.recommend(
+                        values, analysis["anomalies"], analysis["rows"],
+                        nutrient is not None or mode_holder["mode"] == "agriculture")
                 except Exception as exc:  # noqa: BLE001
                     log.warning("운전 권고 실패: %s", exc)
                     advices = []
@@ -2434,6 +2610,24 @@ def main() -> int:
                     payload[f"err_{_k}"] = str(_why)[:60]
                 # 양액 요약(nut_*) — 계산이 있을 때만. 웹 양액 상태 카드가 쓴다.
                 payload.update(nutrient_payload(nutrient, nut_holder))
+                # 환경·기상 값 — 칸 이름이 곧 서버 칸 이름이다(air_temp, humidity, ...).
+                # 수질 값과 같은 줄로 올려 웹 그래프가 한 시간축을 쓴다.
+                if env and env_upload:
+                    payload.update(field_env_mod.payload_values(env))
+                    # 센서가 여러 대인 칸은 한 대 한 대의 값도 — 웹 카드에서 칸을 누르면 펼쳐 본다.
+                    if time.time() - env_each_sent["at"] >= 300:
+                        each = field_env_mod.payload_each(env)
+                        if each:
+                            payload["env_each"] = each
+                            env_each_sent["at"] = time.time()
+                # 전력 회로 — 5분마다. 차단기가 과열 중이면 매번(휴대폰 알림이 늦으면 안 된다).
+                if power and power_upload and power["circuits"]:
+                    due = time.time() - power_sent["at"] >= power_every_s
+                    if due or power["level"]:
+                        circuits_out = field_env_mod.payload_power(power["circuits"])
+                        if circuits_out:
+                            payload["power"] = circuits_out
+                            power_sent["at"] = time.time()
 
                 # 추세 이상징후를 함께 올린다. 장비 화면에만 뜨면 새벽에 아무도
                 # 못 보므로, 서버가 이것으로 알림을 만들어 휴대폰까지 보낸다.
@@ -2497,6 +2691,8 @@ def main() -> int:
             }
             state.update(
                 values=last_values,
+                env=env,
+                power=power,
                 nutrient=nutrient,
                 advice=advices,
                 anomalies=analysis["anomalies"],

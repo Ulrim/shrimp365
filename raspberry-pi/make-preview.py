@@ -7,6 +7,7 @@ fetch 만 가짜 데이터로 바꿔치기한다. 화면 코드를 고치면 이
 돌리는 것만으로 미리보기가 따라온다.
 
     python3 raspberry-pi/make-preview.py [내보낼경로.html]
+    python3 raspberry-pi/make-preview.py --agri [내보낼경로.html]   # 스마트팜(Farm365) 모드
 """
 
 from __future__ import annotations
@@ -23,11 +24,38 @@ sys.path.insert(0, str(HERE))
 import limits  # noqa: E402  — 경로를 넣은 뒤에 불러와야 한다
 import webui  # noqa: E402
 
-OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE.parent / "kiosk-preview.html"
+ARGS = [a for a in sys.argv[1:] if a != "--agri"]
+AGRI = "--agri" in sys.argv[1:]
+MODE = "agriculture" if AGRI else "shrimp"
+OUT = (Path(ARGS[0]) if ARGS
+       else HERE.parent / ("kiosk-preview-agri.html" if AGRI else "kiosk-preview.html"))
 
 VALUES = {"temperature": 28.4, "ph": 7.85, "do_level": 6.42, "salinity": 20.4}
 NOW = 1770000000  # 고정 시각 — 돌릴 때마다 결과가 달라지면 비교가 어렵다
 STAMP = "2026-08-06 14:32:05"
+
+
+def _c(cid, kind, state, w, a, kwh, temp, level=""):
+    return {"id": cid, "type": kind, "state": state, "power": w, "current": a, "voltage": 221,
+            "energy_today": kwh, "temp": temp, "level": level, "age_min": 0}
+
+
+# 전력 회로 — field_env.FieldEnv.read_power() 의 모양. 양식장 기본 구성.
+SHRIMP_POWER = [
+    _c("MAIN-01", "main", None, 3120, 14.2, 31.8, None),
+    _c("AIR-01", "aerator", 1, 1450, 7.6, 17.2, 46.0),
+    _c("CIRC-01", "circulation_pump", 1, 740, 3.9, 8.9, 41.0),
+    _c("HEAT-01", "heater", 0, 0, 0.0, 3.1, 38.0),
+    _c("UV-01", "uv", 1, 110, 0.6, 1.3, 35.0),
+]
+
+
+def power_of(circuits):
+    main = [c for c in circuits if c["type"] == "main"]
+    total = main[0]["power"] if main else sum(c["power"] or 0 for c in circuits)
+    rank = {"": 0, "warn": 1, "crit": 2}
+    level = max((c["level"] for c in circuits), key=lambda x: rank[x], default="")
+    return {"circuits": circuits, "total_w": total, "partial": not main, "level": level}
 
 
 def base_state(**over) -> dict:
@@ -39,6 +67,7 @@ def base_state(**over) -> dict:
         "advice": [], "anomalies": [],
         "ai": {"enabled": True, "window_h": 96, "interval_s": 300,
                "samples": 5742, "at": "14:30"},
+        "power": power_of(SHRIMP_POWER),
     }
     state.update(over)
     return state
@@ -77,8 +106,102 @@ STATES = [
         status="SENSOR ERROR")),
 ]
 
+# 스마트팜(양액 재배) — 값은 NUTRIENT_BANDS 적정 범위 안쪽, 전도도는 uS/cm 로 올라오고
+# 화면이 mS/cm 로 나눠 보여 준다(ec_unit=ms). nutrient 는 shrimp365_sensor.nutrient_plan() 의 모양.
+AGRI_VALUES = {"temperature": 21.6, "ph": 6.12, "do_level": 7.3, "conductivity": 1640}
+NUT_BASE = {"ec": 1.71, "target": 1.8, "percent": 94.0, "atc": True}
+# 환경·기상 — field_env.FieldEnv.read() 의 모양. 기상센서(WS90)까지 단 농장.
+ENV = {
+    "air_temp": {"value": 23.4, "var": "t_air", "sensors": 3, "age_min": 2,
+                 "each": [{"id": "TH-01", "value": 22.6, "age_min": 1}, {"id": "TH-02", "value": 23.3, "age_min": 2},
+                          {"id": "TH-03", "value": 24.3, "age_min": 0}, {"id": "TH-04", "value": None, "age_min": 47}]},
+    "humidity": {"value": 71.5, "var": "rh", "sensors": 3, "age_min": 3,
+                 "each": [{"id": "TH-01", "value": 74.2, "age_min": 1}, {"id": "TH-02", "value": 71.0, "age_min": 3},
+                          {"id": "TH-03", "value": 69.3, "age_min": 0}]},
+    "soil_moisture": {"value": 34.2, "var": "soil_moisture", "sensors": 2, "age_min": 4,
+                      "each": [{"id": "SM-01", "value": 31.0, "age_min": 4}, {"id": "SM-02", "value": 37.4, "age_min": 2}]},
+    "soil_temp": {"value": 19.8, "var": "soil_temp", "sensors": 2, "age_min": 4,
+                  "each": [{"id": "SM-01", "value": 19.1, "age_min": 4}, {"id": "SM-02", "value": 20.5, "age_min": 2}]},
+    "wind_speed": {"value": 3.2, "var": "wind_speed", "sensors": 1, "age_min": 0},
+    "wind_gust": {"value": 6.8, "var": "wind_gust_window", "sensors": 1, "age_min": 0},
+    "wind_dir": {"value": 315, "var": "wind_dir", "sensors": 1, "age_min": 0},
+    "rain_day": {"value": 4.6, "var": "rain", "sensors": 1, "age_min": 0},
+    "rain_rate": {"value": 1.2, "var": "rain_rate", "sensors": 1, "age_min": 0},
+}
+
+
+AGRI_POWER = [
+    _c("MAIN-01", "main", None, 2380, 10.9, 19.6, None),
+    _c("CIRC-01", "circulation_pump", 1, 720, 3.8, 9.1, 43.0),
+    _c("PUMP-01", "irrigation_pump", 0, 0, 0.0, 1.4, 39.0),
+    _c("UV-01", "uv", 1, 105, 0.5, 1.2, 36.0),
+    _c("AUX-01", "ventilation", 1, 410, 2.1, 3.3, 41.0),
+    _c("LIGHT-01", "lighting", 0, 0, 0.0, 4.8, 37.0),
+]
+
+
+def agri_state(**over) -> dict:
+    state = base_state(values=dict(AGRI_VALUES), farm="1농장", tank="딸기 B-2베드", power=power_of(AGRI_POWER),
+                       mode="agriculture", ec_mode="conductivity", ec_unit="ms", env=ENV,
+                       nutrient={**NUT_BASE, "verdict": "low", "need_rise": 0.09,
+                                 "dose_total": 180, "dose_a": 90, "dose_b": 90})
+    state.update(over)
+    return state
+
+
+AGRI_STATES = [
+    ("양액 보충 안내", agri_state()),
+    ("양액 농도 적정", agri_state(
+        values={**AGRI_VALUES, "conductivity": 1810},
+        nutrient={**NUT_BASE, "ec": 1.81, "percent": 100.7, "verdict": "ok"})),
+    ("농도 높음 · 원수 교환", agri_state(
+        values={**AGRI_VALUES, "conductivity": 2350},
+        nutrient={**NUT_BASE, "ec": 2.35, "percent": 136.7, "verdict": "high",
+                  "exchange_l": 268})),
+    # 스마트팜에서는 양액 관리를 꺼도 권고가 비고 값 칸은 NUTRIENT_BANDS 로 판정한다.
+    ("양액 관리 꺼짐", agri_state(nutrient=None)),
+    ("고온 · pH 이탈", agri_state(
+        values={**AGRI_VALUES, "temperature": 29.4, "ph": 7.2})),
+    ("지그비만 (기상센서 없음)", agri_state(env={
+        "air_temp": {"value": 22.8, "var": "canopy_temp", "sensors": 2, "age_min": 3},
+        "humidity": {"value": 74.0, "var": "rh", "sensors": 2, "age_min": 3},
+        "soil_moisture": {"value": 33.9, "var": "soil_moisture", "sensors": 2, "age_min": 4},
+    })),
+    ("센서 끊김", agri_state(env={
+        "air_temp": {"value": 23.1, "var": "t_air", "sensors": 1, "age_min": 22},
+        "soil_moisture": {"value": 33.9, "var": "soil_moisture", "sensors": 1, "age_min": 6},
+    })),
+    ("환경 값 없음", agri_state(env={})),
+    ("차단기 과열", agri_state(power=power_of([
+        *AGRI_POWER[:2],
+        _c("PUMP-01", "irrigation_pump", 1, 1490, 7.9, 2.6, 83.0, "crit"),
+        *AGRI_POWER[3:],
+    ]))),
+    ("미연결 (측정만)", agri_state(
+        linked=False, account=None, tank=None, farm=None,
+        status="미연결 — 측정만 · 보관 12건", pending=12)),
+    ("센서 오류", agri_state(
+        values={"temperature": 21.6, "ph": 6.12, "do_level": 7.3},
+        errors={"ec": "응답 없음 (배선·전원·슬레이브 ID 확인)"},
+        nutrient=None, status="SENSOR ERROR")),
+]
+if AGRI:
+    STATES = AGRI_STATES
+
+# 설정 화면 미리보기용 — shrimp365_sensor.py 의 ui_nutrient()·ui_calibration() 모양.
+# 없으면 양액·보정 화면 칸이 undefined 로 떠 실제 장비와 달라 보인다.
+NUTRIENT = {"enabled": AGRI, "target_ec": 1.8, "source_ec": 0.3, "tank_liters": 1000,
+            "cal_ml": 10, "cal_liters": 100, "cal_ec_rise": 0.05, "a_ratio": 50, "atc": True}
+CALIBRATION = {
+    "offsets": {"temperature": 0.0, "ph": -0.04, "do_level": 0.0, "conductivity": 0.0},
+    "raw": {"temperature": 21.6, "ph": 6.16, "do_level": 7.3, "conductivity": 1640},
+    "corrected": {"temperature": 21.6, "ph": 6.12, "do_level": 7.3, "conductivity": 1640},
+}
+
 SENSORS = {
     "interval": 60, "port": "/dev/ttyUSB0",
+    # 스마트팜으로 바꾸면 장비가 EC 를 전도도(mS/cm)로 한 번 고쳐 준다(INSTALL.md).
+    "ec_mode": "conductivity" if AGRI else "salinity", "ec_unit": "ms" if AGRI else "us",
     "sensors": [
         {"key": "ph", "label": "pH / ORP", "enabled": True, "slave_id": 1},
         {"key": "do", "label": "용존산소", "enabled": True, "slave_id": 3},
@@ -103,12 +226,50 @@ WIFI_NETWORKS = [
 WIFI_START = "CULIVER-FARM"  # 처음 연결돼 있는 곳. [연결] 을 누르면 바뀐다.
 
 
+# 센서별 환경 그래프 — history.History.env_series() 의 모양. 센서마다 하루 주기에 고유한 치우침을 준다.
+ENV_EACH_BASE = {
+    "air_temp": ({"TH-01": -0.8, "TH-02": -0.1, "TH-03": 0.9, "TH-04": 0.2}, 23.0, 4.5, 1),
+    "humidity": ({"TH-01": 2.7, "TH-02": -0.5, "TH-03": -2.2}, 72.0, 9.0, 1),
+    "soil_moisture": ({"SM-01": -3.2, "SM-02": 3.2}, 34.0, 1.2, 1),
+    "soil_temp": ({"SM-01": -0.7, "SM-02": 0.7}, 19.5, 1.4, 1),
+}
+
+
+def env_series(slot: str) -> dict:
+    offsets, base, swing, digits = ENV_EACH_BASE[slot]
+    random.seed(hash(slot) & 0xFFFF)
+    out = {}
+    for hours in (6, 12, 24, 168):
+        step = max(1, hours * 3600 // 160)
+        sensors = []
+        for sid, off in offsets.items():
+            pts = []
+            for i in range(160):
+                ts = NOW - hours * 3600 + i * step
+                if sid == "TH-04" and ts > NOW - 47 * 60:      # 끊긴 센서 — 47분 전에 멈췄다
+                    break
+                h = (ts % 86400) / 3600
+                v = base + off + math.sin((h - 9) / 3.8) * swing + random.uniform(-1, 1) * swing * 0.05
+                pts.append([ts, round(v, digits)])
+            sensors.append({"id": sid, "points": pts})
+        n = max(len(x["points"]) for x in sensors)
+        avg = []
+        for i in range(n):
+            vals = [x["points"][i][1] for x in sensors if i < len(x["points"])]
+            avg.append([sensors[0]["points"][i][0], round(sum(vals) / len(vals), 3)])
+        flat = [p[1] for x in sensors for p in x["points"]]
+        out[str(hours)] = {"sensors": sensors, "avg": avg, "min": min(flat), "max": max(flat), "count": len(flat)}
+    return out
+
+
 def series(field: str) -> dict:
     """그래프용 가짜 이력. 하루 주기로 오르내리게 만든다."""
     random.seed(hash(field) & 0xFFFF)
     base, swing = {
         "temperature": (28.4, 0.6), "ph": (7.85, 0.15),
         "do_level": (6.4, 2.2), "salinity": (20.4, 0.9),
+        "agri:temperature": (21.6, 1.8), "agri:ph": (6.1, 0.2),
+        "agri:do_level": (7.3, 0.9), "agri:conductivity": (1700, 120),
     }[field]
     out = {}
     for hours in (6, 12, 24, 168):
@@ -117,7 +278,7 @@ def series(field: str) -> dict:
             ts = NOW - hours * 3600 + i * step
             h = (ts % 86400) / 3600
             avg = base + math.sin((h - 6) / 3.8) * swing + random.uniform(-swing, swing) * 0.08
-            digits = 2
+            digits = 0 if field.endswith("conductivity") else 2
             points.append([ts, round(avg, digits),
                            round(avg - swing * 0.12, digits), round(avg + swing * 0.12, digits)])
         vals = [p[1] for p in points]
@@ -126,7 +287,12 @@ def series(field: str) -> dict:
     return out
 
 
-HIST = {f: series(f) for f in ("temperature", "ph", "do_level", "salinity")}
+if AGRI:
+    HIST = {f: series("agri:" + f) for f in ("temperature", "ph", "do_level", "conductivity")}
+    ENV_HIST = {k: env_series(k) for k in ENV_EACH_BASE}
+else:
+    HIST = {f: series(f) for f in ("temperature", "ph", "do_level", "salinity")}
+    ENV_HIST = {}
 
 SHELL_CSS = """
   body{margin:0;background:#F1F5F9;color:#0F172A;
@@ -134,7 +300,7 @@ SHELL_CSS = """
   h1{font-size:19px;margin:0 0 4px}
   .lead{color:#64748B;font-size:13px;margin:0 0 14px}
   .tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
-  .tabs button{font:600 12px/1 inherit;padding:8px 12px;border-radius:8px;
+  .tabs button{font-weight:600;font-size:12px;line-height:1;font-family:inherit;padding:8px 12px;border-radius:8px;
        border:1px solid #CBD5E1;background:#fff;color:#475569;cursor:pointer}
   .tabs button[aria-pressed="true"]{background:#1E40AF;border-color:#1E40AF;color:#fff}
   .bezel{width:800px;max-width:100%;border-radius:18px;background:#0B1120;
@@ -150,7 +316,33 @@ SHELL_CSS = """
 # 실제 800x480 과 같은 크기로 볼 수 있다.
 MOCK = """
 <script>
-var STATES = __STATES__, HIST = __HIST__, SENSORS = __SENSORS__;
+var STATES = __STATES__, HIST = __HIST__, ENV_HIST = __ENV_HIST__, SENSORS = __SENSORS__;
+// 무선 센서 화면 — wireless.Wireless.snapshot() 의 모양.
+var WL = {ok:true, installed:true, mqtt:true, z2m:true, dongle:"usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2-if00",
+  rtlsdr:true, env_on:true, power_on:true, permit_left:0, new:[], added:false,
+  units:{"mosquitto":true, "zigbee2mqtt":true, "farm365-zigbee":true, "farm365-rtl433":true, "farm365-ecowitt":true},
+  taken:["CN-T1","CN-T2","SOIL-T1","SOIL-T2","PUMP-01","AUX-01","WS90-01"],
+  rf_heard_ok:true, rf_other:3,
+  rf_sensors:[{key:"Fineoffset-WS90/12345", model:"Fineoffset-WS90", id:"12345", sensor_id:"WS90-01", zone:"mast", kind:"weather", rssi:-7, age_min:0, battery:null, lqi:null}],
+  rf_new:[
+    {key:"Fineoffset-WH51/0a3f21", model:"Fineoffset-WH51", id:"0a3f21", count:14, rssi:-11, age_min:0, guess:"soil", model_only:false},
+    {key:"Fineoffset-WH31/118", model:"Fineoffset-WH31", id:"118", count:6, rssi:-15, age_min:1, guess:"air", model_only:false},
+    {key:"Fineoffset-WS90/40711", model:"Fineoffset-WS90", id:"40711", count:3, rssi:-23, age_min:2, guess:"weather", model_only:false}],
+  ip:"192.168.0.42", eco_port:8088, eco_path:"/data/report/",
+  eco_sensors:[{key:"soil1", sensor_id:"SOIL-C1", kind:"soil", zone:"control", channel:1, age_min:1}],
+  eco_gateways:[{passkey:"A1B2C3D4E5F60718", ip:"192.168.0.31", model:"GW2000A_V3.1.4", age_min:0, registered:false}],
+  eco_new:[
+    {id:"A1B2C3D4E5F60718:gateway", key:"gateway", passkey:"A1B2C3D4E5F60718", kind:"weather", model:"WS90", age_min:0},
+    {id:"A1B2C3D4E5F60718:th2", key:"th2", family:"th", channel:2, kind:"", age_min:0, passkey:"A1B2C3D4E5F60718"},
+    {id:"A1B2C3D4E5F60718:tf1", key:"tf1", family:"tf", channel:1, kind:"soiltemp", age_min:0, passkey:"A1B2C3D4E5F60718"}],
+  sensors:[
+    {name:"cn-t1", sensor_id:"CN-T1", kind:"canopy", zone:"treatment", note:"", paired:true, model:"TS0201", age_min:2, battery:87, lqi:142},
+    {name:"cn-t2", sensor_id:"CN-T2", kind:"canopy", zone:"treatment", note:"", paired:true, model:"TS0201", age_min:4, battery:64, lqi:98},
+    {name:"soil-t1", sensor_id:"SOIL-T1", kind:"soil", zone:"treatment", note:"", paired:true, model:"TS0601", age_min:6, battery:91, lqi:120},
+    {name:"soil-t2", sensor_id:"SOIL-T2", kind:"soil", zone:"treatment", note:"", paired:true, model:"TS0601", age_min:47, battery:12, lqi:35},
+    {name:"pump-01", sensor_id:"PUMP-01", kind:"breaker-pump", zone:"facility", note:"", paired:true, model:"TS011F", age_min:0, battery:null, lqi:180},
+    {name:"aux-01", sensor_id:"AUX-01", kind:"breaker-aux", zone:"facility", note:"", paired:true, model:"TS011F", age_min:1, battery:null, lqi:165}]};
+var NUTRIENT = __NUTRIENT__, CALIBRATION = __CALIBRATION__;
 var SCAN = __SCAN__, AUTO = __AUTO__;
 var WIFI_NETWORKS = __WIFI_NETWORKS__, wifiCur = __WIFI_START__;
 var current = 0;
@@ -160,6 +352,60 @@ var current = 0;
 window.fetch = function(url, opts){
   var body = {};
   if (url.indexOf("/api/state") === 0) body = STATES[current][1];
+  else if (url === "/api/wireless") {
+    if (WL.permit_left > 0) {
+      WL.permit_left = Math.max(0, WL.permit_left - 3);
+      if (!WL.new.length && !WL.added) WL.new.push({name:"0xa4c1381f2b7e0091", ieee:"0xa4c1381f2b7e0091", model:"TS0201",
+        vendor:"Tuya", description:"Temperature & humidity sensor", supported:true, interviewing:false, guess:"canopy"});
+    }
+    body = JSON.parse(JSON.stringify(WL));
+  }
+  else if (url.indexOf("/api/wireless/") === 0) {
+    var a = url.split("/").pop(), rq = JSON.parse((opts && opts.body) || "{}");
+    if (a === "permit") { WL.permit_left = rq.on ? 120 : 0; body = {ok:true}; }
+    else if (a === "register" && rq.rf) {
+      var rp = {soil:"SOIL", canopy:"CN", air:"AIR", leaf:"LW", rain:"RAIN"}[rq.kind] || rq.model.split("-").pop().toUpperCase();
+      var rz = {soil:1, canopy:1, leaf:1}[rq.kind] ? ({treatment:"T",control:"C"})[rq.zone] || "" : "";
+      var rid; for (var m = 1; m < 99; m++) { rid = rz ? rp + "-" + rz + m : rp + "-" + (m < 10 ? "0" : "") + m; if (WL.taken.indexOf(rid) < 0) break; }
+      var key = rq.model + "/" + rq.id; WL.taken.push(rid);
+      WL.rf_new = WL.rf_new.filter(function(x){ return x.key !== key; });
+      WL.rf_sensors.push({key:key, model:rq.model, id:rq.id, sensor_id:rid, zone:rq.zone, kind:rq.kind, rssi:-11, age_min:0, battery:null, lqi:null});
+      body = {ok:true, key:key, sensor_id:rid};
+    }
+    else if (a === "register" && rq.eco) {
+      var eid = "WS90-01";
+      if (rq.key === "gateway") {
+        WL.rf_sensors = WL.rf_sensors.filter(function(x){ return x.kind !== "weather"; });   // 433MHz 칸을 걷고 이름을 이어받는다
+        WL.eco_gateways.forEach(function(g){ g.registered = true; });
+      } else {
+        var fam = rq.key.replace(/[0-9]/g, ""), ep = {soil:"SOIL", tf:"ST", leaf:"LW"}[fam] || (rq.kind === "canopy" ? "CN" : "AIR");
+        var ez = ep === "AIR" ? "" : ({treatment:"T",control:"C"})[rq.zone] || "";
+        for (var e = 1; e < 99; e++) { eid = ez ? ep + "-" + ez + e : ep + "-" + (e < 10 ? "0" : "") + e; if (WL.taken.indexOf(eid) < 0) break; }
+        WL.taken.push(eid);
+      }
+      var en = WL.eco_new.filter(function(x){ return x.key === rq.key; })[0] || {};
+      WL.eco_new = WL.eco_new.filter(function(x){ return x.key !== rq.key; });
+      WL.eco_sensors.push({key:rq.key, sensor_id:eid, kind: rq.key === "gateway" ? "weather" : (en.kind || rq.kind), zone:rq.zone,
+        channel: rq.key === "gateway" ? null : +rq.key.replace(/[^0-9]/g, ""), age_min:0});
+      body = {ok:true, key:rq.key, sensor_id:eid};
+    }
+    else if (a === "remove" && rq.eco) { WL.eco_sensors = WL.eco_sensors.filter(function(x){ return x.key !== rq.key; }); body = {ok:true}; }
+    else if (a === "remove" && rq.rf) { WL.rf_sensors = WL.rf_sensors.filter(function(x){ return x.key !== rq.key; }); body = {ok:true}; }
+    else if (a === "register") {
+      var pre = {canopy:"CN",air:"AIR",soil:"SOIL","breaker-pump":"PUMP","breaker-aux":"AUX",leak:"LEAK",valve:"VALVE"}[rq.kind];
+      var z = (rq.kind === "canopy" || rq.kind === "soil") ? ({treatment:"T",control:"C"})[rq.zone] || "" : "";
+      var id; for (var n = 1; n < 99; n++) { id = z ? pre + "-" + z + n : pre + "-" + (n < 10 ? "0" : "") + n; if (WL.taken.indexOf(id) < 0) break; }
+      WL.taken.push(id); WL.new = WL.new.filter(function(x){ return x.name !== rq.name; }); WL.added = true;
+      WL.sensors.push({name:id.toLowerCase(), sensor_id:id, kind: rq.kind === "air" ? "canopy" : rq.kind, zone:rq.zone, note:"", paired:true, model:"TS0201", age_min:null, battery:null, lqi:null});
+      body = {ok:true, name:id.toLowerCase(), sensor_id:id};
+    }
+    else if (a === "remove") { WL.sensors = WL.sensors.filter(function(x){ return x.name !== rq.name; }); body = {ok:true, removed:true, unpaired:true}; }
+    else body = {ok:true};
+  }
+  else if (url.indexOf("/api/env_history") === 0) {
+    var eq = new URLSearchParams(url.split("?")[1] || "");
+    body = (ENV_HIST[eq.get("slot")] || {})[eq.get("hours") || "24"] || {sensors:[],avg:[],count:0};
+  }
   else if (url.indexOf("/api/history") === 0) {
     var q = new URLSearchParams(url.split("?")[1] || "");
     body = (HIST[q.get("key")] || {})[q.get("hours") || "24"] || {points:[],count:0};
@@ -168,6 +414,11 @@ window.fetch = function(url, opts){
   else if (url.indexOf("/api/sensors/auto") === 0) body = AUTO;
   else if (url.indexOf("/api/sensors/save") === 0) body = {ok:true, saved:true};
   else if (url.indexOf("/api/sensors") === 0) body = JSON.parse(JSON.stringify(SENSORS));
+  else if (url.indexOf("/api/nutrient/save") === 0) body = {ok:true, saved:true};
+  else if (url.indexOf("/api/power/type") === 0) body = {ok:true, saved:true};
+  else if (url.indexOf("/api/nutrient") === 0) body = JSON.parse(JSON.stringify(NUTRIENT));
+  else if (url.indexOf("/api/calibration") === 0 && !(opts && opts.method === "POST"))
+    body = JSON.parse(JSON.stringify(CALIBRATION));
   // Wi‑Fi — 더 구체적인 경로(scan·connect)를 먼저 본다.
   else if (url.indexOf("/api/wifi/scan") === 0) {
     body = {available:true, networks: WIFI_NETWORKS.map(function(n){
@@ -205,12 +456,16 @@ def main() -> int:
     # `var BANDS = __BANDS__;` 에서 그대로 깨진다.
     page = (webui.PAGE
             .replace("__LANG__", "ko")
+            .replace("__MODE__", MODE)
             .replace("__BANDS__", json.dumps(limits.BANDS))
             .replace("__NUT_BANDS__", json.dumps(limits.NUTRIENT_BANDS)))
     mock = (MOCK
             .replace("__STATES__", json.dumps(STATES, ensure_ascii=False))
             .replace("__HIST__", json.dumps(HIST))
+            .replace("__ENV_HIST__", json.dumps(ENV_HIST))
             .replace("__SENSORS__", json.dumps(SENSORS, ensure_ascii=False))
+            .replace("__NUTRIENT__", json.dumps(NUTRIENT))
+            .replace("__CALIBRATION__", json.dumps(CALIBRATION))
             .replace("__SCAN__", json.dumps(SCAN, ensure_ascii=False))
             .replace("__AUTO__", json.dumps(AUTO, ensure_ascii=False))
             .replace("__WIFI_NETWORKS__", json.dumps(WIFI_NETWORKS, ensure_ascii=False))
@@ -229,7 +484,7 @@ def main() -> int:
     shell = f"""<!doctype html>
 <html lang="ko"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Shrimp365 터치스크린 미리보기</title>
+<title>{"Farm365" if AGRI else "Shrimp365"} 터치스크린 미리보기</title>
 <style>{SHELL_CSS}</style>
 <h1>라즈베리파이 7인치 터치스크린 화면</h1>
 <p class="lead">공식 디스플레이 실제 해상도(800×480). 실제 장비 화면 코드를 그대로 띄웁니다 — 눌러 보실 수 있습니다.</p>
@@ -237,7 +492,7 @@ def main() -> int:
 <div class="bezel"><iframe class="screen" id="dev" title="장비 화면"></iframe></div>
 <div class="note">
   <b>값 칸을 눌러 보세요.</b> 6시간·12시간·24시간·일주일 그래프가 열립니다.
-  녹색 띠가 적정 범위입니다(흰다리새우 기준).<br>
+  녹색 띠가 적정 범위입니다({"양액 재배 기준" if AGRI else "흰다리새우 기준"}).<br>
   <b>오른쪽 아래 [설정]</b> — 슬레이브 ID·측정 주기를 손가락으로 고칩니다.
   <b>[자동 배치]</b> 는 꽂아 둔 센서를 훑어 값이 나오는 자리를 그대로 배정합니다(이 미리보기에선 용존산소가 3→5로 바뀝니다).<br>
   <b>[Wi‑Fi]</b> — 주변 공유기를 검색해 화면 키보드로 비밀번호를 넣고 붙입니다(이 미리보기에서도 눌러 볼 수 있습니다. 잠긴 공유기를 고르면 화면 키보드가 뜨고, [연결] 하면 위쪽 연결 표시가 그 공유기로 바뀝니다).<br>

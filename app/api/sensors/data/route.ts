@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase-server"
 import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, parseTrendAlerts, TREND_ALERT_PARAMETERS, MISSING_INPUT_PARAMETER, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
 import { sendAlertPush } from "@/lib/push-server"
+import { ENV_PARAMS, ENV_KEYS, parseEnvEach, type EnvParamKey } from "@/lib/env-params"
+import { parsePowerPayload, breakerAlerts } from "@/lib/power"
+
+/** 환경·기상 칸별 수신 범위 — lib/env-params.ts 에서 만든다. */
+const ENV_RANGE = Object.fromEntries(ENV_PARAMS.map(p => [p.key, p.range])) as Record<EnvParamKey, readonly [number, number]>
 
 // In-memory rate limit: max 60 requests per device per minute
 const RATE_LIMIT_WINDOW_MS = 60_000
@@ -33,7 +38,8 @@ function sanitizePayload(body: Record<string, unknown>): Record<string, unknown>
   const out: Record<string, unknown> = {}
   let count = 0
   for (const [k, v] of Object.entries(body)) {
-    if (count >= 32) break
+    // 환경·기상 칸(최대 12)이 붙으면서 32 를 넘을 수 있어 늘렸다.
+    if (count >= 48) break
     if (typeof v === "number" && Number.isFinite(v)) out[k] = v
     else if (typeof v === "boolean") out[k] = v
     else if (typeof v === "string") out[k] = v.slice(0, 120)
@@ -178,6 +184,32 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // 환경·기상 — 스마트팜 장비가 지그비 온습도·토양수분과 기상센서 값을 같은 줄로 올린다
+  // (raspberry-pi/field_env.py, 마이그레이션 environment_readings.sql). 수질 판정·알림에는
+  // 넣지 않는다 — 작물·생육 단계마다 적정값이 달라 서버가 좋고 나쁨을 정하지 않는다.
+  // 칸 이름·범위는 lib/env-params.ts 한 곳에 있다(장비 field_env.py·DB CHECK 와 같은 값).
+  const ENV_COLS = ENV_KEYS
+
+  const envValues: Partial<Record<EnvParamKey, number>> = {}
+  for (const field of ENV_COLS) {
+    const raw = body[field]
+    if (raw === undefined || raw === null) continue
+    const n = Number(raw)
+    const [min, max] = ENV_RANGE[field]
+    if (Number.isFinite(n) && n >= min && n <= max) envValues[field] = n
+  }
+
+  // 같은 칸의 센서가 여러 대일 때 한 대 한 대의 값(웹 카드에서 칸을 누르면 펼친다).
+  // 평균(envValues)이 있는 칸만 둔다 — 평균 없이 센서별 값만 남으면 카드가 앞뒤가 안 맞는다.
+  const envEachRaw = parseEnvEach(body.env_each)
+  const envEach = envEachRaw && Object.fromEntries(Object.entries(envEachRaw).filter(([k]) => k in envValues))
+  const envSensors = envEach && Object.keys(envEach).length ? envEach : null
+
+  // 분전반 전력 회로(장비 field_env.py) — 회로마다 한 줄. 모양이 틀린 회로는 버린다.
+  const powerCircuits = parsePowerPayload(body.power)
+
+  // 수질 값이 하나는 있어야 한다. 환경 값만으로는 받지 않는다 — 아래 수조 상태 갱신이
+  // 수질 판정만 보고 status 를 active 로 덮어써, 진짜 경보 상태를 지워 버린다.
   if (Object.keys(values).length === 0) {
     return NextResponse.json({ error: "측정값이 하나도 없습니다." }, { status: 422 })
   }
@@ -195,7 +227,7 @@ export async function POST(req: NextRequest) {
   //    device_id 로 "어느 센서가 잰 값인지" 를 남긴다. 마이그레이션 전이라
   //    컬럼이 없으면 그 컬럼만 빼고 다시 저장한다(측정은 절대 멈추면 안 된다).
   // 마이그레이션이 아직 안 된 DB 를 만나도 측정이 멈춰서는 안 된다.
-  // 아직 없는 칸(device_id·conductivity·flow_rate·diff_pressure)은 하나씩 빼고
+  // 아직 없는 칸(device_id·conductivity·flow_rate·diff_pressure·env_sensors)은 하나씩 빼고
   // 다시 시도한다.
   //
   // **에러가 이름을 콕 집은 칸만 뗀다.** 예전에는 미정의 컬럼 코드
@@ -204,9 +236,10 @@ export async function POST(req: NextRequest) {
   // 걸려 멀쩡한 측정값 셋이 조용히 사라진다. 코드는 "칸이 없어서 난 오류인가"를
   // 확인하는 데만 쓰고, 뗄 대상은 메시지가 지목한 이름으로 고른다.
   // ('column' 문구만 보고 판단하면 tank_id NOT NULL 같은 엉뚱한 오류까지 삼킨다.)
-  const OPTIONAL_COLS = ["device_id", "conductivity", "flow_rate", "diff_pressure"] as const
+  const OPTIONAL_COLS = ["device_id", "conductivity", "flow_rate", "diff_pressure", "env_sensors"] as const
   let row: Record<string, unknown> = {
-    tank_id: device.tank_id, ...values, recorded_at: recordedAt, device_id: device.id,
+    tank_id: device.tank_id, ...values, ...envValues, recorded_at: recordedAt, device_id: device.id,
+    ...(envSensors ? { env_sensors: envSensors } : {}),
   }
   let reading: Record<string, unknown> | null = null
   let insertError: { message?: string; code?: string } | null = null
@@ -225,19 +258,41 @@ export async function POST(req: NextRequest) {
       /(column|schema cache|does not exist|not found)/i.test(msg)
     // 메시지가 이름을 집은 칸만 후보다. 앞뒤가 단어 문자면 다른 칸 이름의
     // 부분 문자열을 잘못 집을 수 있으므로 경계를 함께 본다.
-    const named = OPTIONAL_COLS.find(col =>
+    const named = [...OPTIONAL_COLS, ...ENV_COLS].find(col =>
       col in row && new RegExp(`(^|[^A-Za-z0-9_])${col}([^A-Za-z0-9_]|$)`, "i").test(msg))
     const missing = isMissingColumnError ? named : undefined
-    if (!missing || attempt >= OPTIONAL_COLS.length) break
+    if (!missing || attempt > OPTIONAL_COLS.length) break
 
-    console.warn(`[sensors/data] ${missing} 칸 없음 — 빼고 저장(마이그레이션 필요)`)
-    const { [missing]: _drop, ...rest } = row
-    row = rest
+    // 환경·기상 칸은 한 마이그레이션에서 같이 생기므로 하나가 없으면 다 없다.
+    // 하나씩 떼면 매 수신마다 열두 번을 왕복하니 한꺼번에 뗀다.
+    const drop: readonly string[] = (ENV_COLS as readonly string[]).includes(missing) ? ENV_COLS : [missing]
+    console.warn(`[sensors/data] ${missing} 칸 없음 — ${drop.length > 1 ? "환경·기상 칸을" : "그 칸을"} 빼고 저장(마이그레이션 필요)`)
+    row = Object.fromEntries(Object.entries(row).filter(([k]) => !drop.includes(k)))
   }
 
   if (insertError) {
     console.error("[sensors/data] insert error:", insertError)
     return NextResponse.json({ error: "데이터 저장에 실패했습니다." }, { status: 500 })
+  }
+
+  // 3-1. 전력 회로 기록 — 실패해도 수질 수신은 그대로 간다(마이그레이션 전 DB 등).
+  if (powerCircuits.length > 0) {
+    const { error: powerError } = await supabaseAdmin.from("power_readings").insert(
+      powerCircuits.map(c => ({
+        tank_id: device.tank_id,
+        device_id: device.id,
+        circuit_id: c.id,
+        circuit_type: c.type,
+        state: c.state,
+        power_w: c.power,
+        current_a: c.current,
+        voltage_v: c.voltage,
+        energy_today_kwh: c.energy_today,
+        device_temp: c.temp,
+        recorded_at: recordedAt,
+      })),
+    )
+    if (powerError) console.warn("[sensors/data] 전력 회로 저장 실패(power_readings.sql 필요?):", powerError.message)
   }
 
   // 4. 임계값 체크 → 알림 생성 + 수조 상태 갱신
@@ -314,7 +369,10 @@ export async function POST(req: NextRequest) {
     ...checkThresholds(globalValues as Parameters<typeof checkThresholds>[0], profile),
     ...checkRecipe(values, recipe),
   ]
-  const thresholdAlerts = [...statusAlerts, ...trendAlerts]
+  // 차단기 과열(본체 온도) — 화재 전조. 수조 색에는 넣지 않고(수질이 아니다) 알림·푸시만 태운다.
+  // 추세와 같이 밀린 값에는 반응하지 않는다 — 어제의 과열로 지금 휴대폰을 울리면 안 된다.
+  const breaker = fresh ? breakerAlerts(powerCircuits) : { alerts: [], recovered: [] }
+  const thresholdAlerts = [...statusAlerts, ...trendAlerts, ...breaker.alerts]
 
   // 같은 항목이 계속 범위 밖이면 알림을 새로 만들지 않는다.
   //
@@ -394,6 +452,8 @@ export async function POST(req: NextRequest) {
     const stillTrending = new Set(trendAlerts.map(a => a.parameter))
     recovered.push(...TREND_ALERT_PARAMETERS.filter(p => !stillTrending.has(p)))
   }
+  // 차단기가 식었으면(60℃ 아래) 과열 알림을 닫는다. 60~65℃ 사이는 열린 채 둔다(깜빡임 방지).
+  recovered.push(...breaker.recovered)
   // 레시피 알림은 parameter 가 값 키와 달라("EC"/"pH") 별도 매핑으로 복귀를 잡는다.
   // 0 은 전극이 물 밖일 때 나오는 값이라 checkRecipe 가 판정에서 제외한다 —
   // 판정을 안 했으면 복귀도 아니다(비대칭이면 이탈 알림이 0 수신에 닫혀 버린다).
