@@ -35,6 +35,7 @@ ORDER=(
   power_readings
   env_sensors
   canopy_temp
+  wq_series_year
   push_subscriptions
 )
 

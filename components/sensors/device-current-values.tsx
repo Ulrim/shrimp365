@@ -6,11 +6,12 @@
 
 import { Card, CardContent } from "@/components/ui/card"
 import { readSensorFaults } from "@/lib/sensor-faults"
-import { useT } from "@/lib/i18n-context"
+import { useT, useAgriT } from "@/lib/i18n-context"
+import { ENV_PARAMS } from "@/lib/env-params"
 import type { SensorDevice } from "@/types"
 import type { Dict } from "@/lib/i18n"
 
-function payloadLabels(t: Dict): Record<string, { label: string; unit?: string }> {
+function payloadLabels(t: Dict, envNames: Record<string, string>): Record<string, { label: string; unit?: string; digits?: number }> {
   return {
     temperature:   { label: t.waterQuality.temperature, unit: "°C" },
     ph:            { label: "pH" },
@@ -23,6 +24,8 @@ function payloadLabels(t: Dict): Record<string, { label: string; unit?: string }
     // 유량·차압 — 새우 모드에서도 무해(장비가 안 보내면 안 보임).
     flow_rate:     { label: t.waterQualityX.flowRate, unit: "L/min" },
     diff_pressure: { label: t.waterQualityX.diffPressure, unit: "kPa" },
+    // 환경·기상(스마트팜 장비) — 이름·단위·자리는 환경·기상 카드와 같은 곳(lib/env-params)에서.
+    ...Object.fromEntries(ENV_PARAMS.map(p => [p.key, { label: envNames[p.key], unit: p.unit || undefined, digits: p.digits }])),
   }
 }
 
@@ -38,9 +41,10 @@ function seenLabel(t: Dict, iso: string | null): string {
 
 export function DeviceCurrentValues({ devices }: { devices: SensorDevice[] }) {
   const { t } = useT()
+  const { environment: ed } = useAgriT()
   const active = devices.filter(d => d.active)
   if (active.length === 0) return null
-  const labels = payloadLabels(t)
+  const labels = payloadLabels(t, ed.param)
 
   return (
     <Card className="bg-card border-border">
@@ -66,7 +70,7 @@ export function DeviceCurrentValues({ devices }: { devices: SensorDevice[] }) {
                       const m = labels[k]
                       return (
                         <span key={k} className="text-xs text-muted-foreground tabular-nums">
-                          {m.label} <span className="text-foreground font-semibold">{v}</span>
+                          {m.label} <span className="text-foreground font-semibold">{m.digits !== undefined ? v.toFixed(m.digits) : v}</span>
                           {m.unit && <span className="opacity-70">{m.unit}</span>}
                         </span>
                       )

@@ -36,8 +36,14 @@ export interface AgriEnvironmentDict {
   /** 그래프에는 있지만 마지막 수신에 빠진 센서. */
   lost: string
   close: string
-  /** 한 칸 24시간 추세 제목 — `{{param}}`. */
+  /** 펼친 추세 제목 — `{{param}}`. */
   trendTitle: string
+  /** 기간 단추 이름 — 6시간·12시간·24시간·일주일·한 달·1년 순서. */
+  ranges: readonly [string, string, string, string, string, string]
+  rangeAria: string
+  /** 펼친 그래프 기간의 최소~최대 — `{{min}}` `{{max}}`. */
+  rangeMinMax: string
+  loading: string
   /** 겹친 선 설명 — `{{name}}`(점선). */
   overlayNote: string
   /** 이슬점 칸 — 기온·습도로 계산. */
@@ -67,7 +73,7 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     avgOf: "평균 · {{n}}대 ›", eachTitle: "{{param}} · 센서별", eachAt: "{{ago}} 값",
     highest: "최고", lowest: "최저", close: "닫기",
     lost: "끊김",
-    trendTitle: "{{param}} · 24시간", overlayNote: "점선: {{name}}",
+    trendTitle: "{{param}} 추세", ranges: ["6시간", "12시간", "24시간", "일주일", "한 달", "1년"], rangeAria: "기간", rangeMinMax: "{{min}}~{{max}}", loading: "불러오는 중…", overlayNote: "점선: {{name}}",
     dewPoint: "이슬점", dewGap: "기온보다 {{v}}°C 낮음", dewNear: "이슬 맺힐 수 있음 (기온과 {{v}}°C 차이)",
   },
   en: {
@@ -88,7 +94,7 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     avgOf: "avg of {{n}} sensors ›", eachTitle: "{{param}} · by sensor", eachAt: "as of {{ago}}",
     highest: "highest", lowest: "lowest", close: "Close",
     lost: "No signal",
-    trendTitle: "{{param}} · 24 h", overlayNote: "Dashed: {{name}}",
+    trendTitle: "{{param}} trend", ranges: ["6 h", "12 h", "24 h", "1 week", "1 month", "1 year"], rangeAria: "Period", rangeMinMax: "{{min}}–{{max}}", loading: "Loading…", overlayNote: "Dashed: {{name}}",
     dewPoint: "Dew point", dewGap: "{{v}}°C below air temp", dewNear: "Dew likely ({{v}}°C from air temp)",
   },
   vi: {
@@ -109,7 +115,7 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     avgOf: "TB {{n}} cảm biến ›", eachTitle: "{{param}} · từng cảm biến", eachAt: "lúc {{ago}}",
     highest: "cao nhất", lowest: "thấp nhất", close: "Đóng",
     lost: "Mất tín hiệu",
-    trendTitle: "{{param}} · 24 giờ", overlayNote: "Nét đứt: {{name}}",
+    trendTitle: "Xu hướng {{param}}", ranges: ["6 giờ", "12 giờ", "24 giờ", "1 tuần", "1 tháng", "1 năm"], rangeAria: "Khoảng thời gian", rangeMinMax: "{{min}}–{{max}}", loading: "Đang tải…", overlayNote: "Nét đứt: {{name}}",
     dewPoint: "Điểm sương", dewGap: "thấp hơn nhiệt độ {{v}}°C", dewNear: "Có thể đọng sương (cách {{v}}°C)",
   },
   id: {
@@ -130,7 +136,7 @@ export const agriEnvironment: Record<Locale, AgriEnvironmentDict> = {
     avgOf: "rata-rata {{n}} sensor ›", eachTitle: "{{param}} · per sensor", eachAt: "per {{ago}}",
     highest: "tertinggi", lowest: "terendah", close: "Tutup",
     lost: "Terputus",
-    trendTitle: "{{param}} · 24 jam", overlayNote: "Garis putus: {{name}}",
+    trendTitle: "Tren {{param}}", ranges: ["6 jam", "12 jam", "24 jam", "1 minggu", "1 bulan", "1 tahun"], rangeAria: "Periode", rangeMinMax: "{{min}}–{{max}}", loading: "Memuat…", overlayNote: "Garis putus: {{name}}",
     dewPoint: "Titik embun", dewGap: "{{v}}°C di bawah suhu udara", dewNear: "Embun mungkin terbentuk (selisih {{v}}°C)",
   },
 }
