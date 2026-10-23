@@ -16,16 +16,24 @@ TimescaleDB 하이퍼테이블 설정을 했지만, 통합판에서 그렇게 �
 """
 from __future__ import annotations
 
+import contextlib
 import logging
+import sys
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
+from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import NullPool
 
-from app.config import settings
+from app.config import (
+    config_problems,
+    explain_config_problems,
+    local_database_url,
+    settings,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +49,29 @@ REQUIRED_TABLES = (
 )
 
 
+#: 설정 파일 자리. 로그에서 바로 집어 고칠 수 있도록 메시지에 넣는다.
+ENV_PATH = "/etc/shrimp365-vision/env"
+
+
 def _make_engine():
+    # 엔진은 import 시점에 만들어진다. 설정이 비어 있으면 여기서
+    # sqlalchemy 가 "Could not parse SQLAlchemy URL" 을 던지고 서비스가
+    # 죽는데, 현장에서 그 문구로는 무엇을 해야 할지 알 수 없다.
+    # install.sh 가 만드는 env 는 세 줄이 비어 있으므로 **첫 기동은 반드시**
+    # 여기에 걸린다 — 그때 할 일이 보여야 한다.
+    problems = config_problems()
+    if problems:
+        print(explain_config_problems(problems, ENV_PATH), file=sys.stderr, flush=True)
+        raise SystemExit(1)
+
+    url = local_database_url()
     kwargs: dict = {"echo": settings.debug}
-    if settings.database_url.startswith("sqlite"):
+    if url.startswith("sqlite"):
+        # 로컬 파일은 디렉터리가 있어야 열린다. systemd 의 StateDirectory 가
+        # 만들어 주지만, 손으로 실행해 볼 때도 되어야 한다.
+        path = url.split("///", 1)[-1]
+        if path and path != ":memory:":
+            Path(path).parent.mkdir(parents=True, exist_ok=True)
         # NullPool keeps connections loop-agnostic (pytest spins up a fresh
         # event loop per test); SQLite connections are cheap to reopen.
         kwargs["poolclass"] = NullPool
@@ -54,7 +82,7 @@ def _make_engine():
         kwargs["connect_args"] = {"timeout": 10}
     else:
         kwargs["pool_pre_ping"] = True
-    return create_async_engine(settings.database_url, **kwargs)
+    return create_async_engine(url, **kwargs)
 
 
 engine = _make_engine()
@@ -84,6 +112,34 @@ def ensure_utc(dt: datetime | None) -> datetime | None:
     return dt
 
 
+#: 장비 안의 SQLite 에 나중에 생긴 열. create_all 은 **없는 표만** 만들고
+#: 이미 있는 표에는 열을 더하지 않는다 — 그래서 이미 돌고 있는 파이에서는
+#: 새 열이 영영 생기지 않고, 그 열을 쓰는 INSERT 가 통째로 실패해 개체수
+#: 기록이 멈춘다. 한 줄씩 확인해서 없으면 더한다.
+#:
+#: 운영 Postgres 는 여기로 오지 않는다 — 거기는 사람이 마이그레이션을 돌린다.
+_LATE_COLUMNS = {
+    "count_records": {"length_cm": "REAL"},
+}
+
+
+async def _add_missing_columns(conn) -> None:  # noqa: ANN001 - sync 커넥션
+    """SQLite 표에 빠진 열을 더한다. 있으면 아무것도 하지 않는다."""
+    for table, columns in _LATE_COLUMNS.items():
+        try:
+            rows = await conn.execute(text(f"PRAGMA table_info({table})"))
+            have = {r[1] for r in rows}
+        except Exception as exc:  # noqa: BLE001 - 표가 없으면 create_all 이 만든다
+            logger.debug("%s 의 열을 확인하지 못했습니다: %s", table, exc)
+            continue
+        for name, decl in columns.items():
+            if name in have:
+                continue
+            with contextlib.suppress(Exception):
+                await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {decl}"))
+                logger.info("장비 DB 의 %s 에 %s 열을 더했습니다.", table, name)
+
+
 async def init_db() -> None:
     """Prepare the database for this process.
 
@@ -98,6 +154,7 @@ async def init_db() -> None:
     if engine.dialect.name != "postgresql":
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            await _add_missing_columns(conn)
         return
 
     async with engine.connect() as conn:

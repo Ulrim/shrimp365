@@ -354,8 +354,8 @@ class AlertService:
                         "message": message,
                     },
                 )
-        except ImportError:
-            logger.info("[push] httpx 미설치 — 웹푸시를 건너뜁니다.")
+        except ImportError as exc:
+            logger.info("[push] httpx 를 불러오지 못해 웹푸시를 건너뜁니다: %s", exc)
         except Exception as exc:  # noqa: BLE001 - 알림은 best effort
             logger.warning("[push] 전달 실패: %s", exc)
 
@@ -392,8 +392,11 @@ class AlertService:
             async with httpx.AsyncClient(timeout=5) as client:
                 await client.post(url, json={"text": message})
             logger.info("[notify_webhook] delivered to %s", url)
-        except ImportError:
-            logger.info("[notify_webhook stub] httpx not installed; would POST to %s", url)
+        except ImportError as exc:
+            logger.info(
+                "[notify_webhook] httpx 를 불러오지 못했습니다(%s) — %s 로 보내지 않습니다",
+                exc, url,
+            )
         except Exception as exc:  # noqa: BLE001
             logger.warning("[notify_webhook] delivery to %s failed: %s", url, exc)
 

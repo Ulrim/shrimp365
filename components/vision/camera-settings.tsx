@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Camera as CameraIcon, Play, Plus, Square, Trash2 } from "lucide-react"
+import { Camera as CameraIcon, Play, Plus, SlidersHorizontal, Square, Trash2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,6 +15,7 @@ import {
 } from "@/lib/vision"
 import { PairCameraDialog } from "@/components/vision/pair-camera-dialog"
 import { formatDateTime } from "@/lib/utils"
+import { CameraEditDialog } from "@/components/vision/camera-edit-dialog"
 import type { Tank, VisionAlertConfig, VisionCamera, VisionCameraStatus } from "@/types"
 
 // 카메라 등록·시작/정지와 개체수 경보 설정.
@@ -49,6 +50,8 @@ interface Props {
 
 export function CameraSettings({ tanks, cameras, statuses, configs, onChanged }: Props) {
   const [busy, setBusy] = useState<string | null>(null)
+  /** 설정 창을 열어 둔 카메라. 등록된 카메라를 고치는 길이 없어 추가·삭제뿐이었다. */
+  const [editing, setEditing] = useState<VisionCamera | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   // 카메라 등록 폼
@@ -183,12 +186,23 @@ export function CameraSettings({ tanks, cameras, statuses, configs, onChanged }:
                   </Button>
                   <Button
                     size="sm"
+                    variant="outline"
+                    disabled={busy === camera.id}
+                    onClick={() => setEditing(camera)}
+                    aria-label={`${camera.name} 설정`}
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    설정
+                  </Button>
+                  <Button
+                    size="sm"
                     variant="ghost"
                     disabled={busy === camera.id}
                     onClick={() => {
                       if (!confirm(`'${camera.name}'을(를) 삭제할까요?\n\n지금까지 쌓인 개체수 기록도 함께 지워집니다.`)) return
                       run(camera.id, () => deleteCamera(camera.id))
                     }}
+                    aria-label={`${camera.name} 삭제`}
                   >
                     <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
                   </Button>
@@ -398,6 +412,13 @@ export function CameraSettings({ tanks, cameras, statuses, configs, onChanged }:
           </div>
         </CardContent>
       </Card>
+
+      <CameraEditDialog
+        camera={editing}
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        onSaved={onChanged}
+      />
     </div>
   )
 }

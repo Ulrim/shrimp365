@@ -1,3 +1,3 @@
-import { JournalView } from "@/components/journal/journal-view"
+import { AgriJournalView } from "@/components/agri/agri-journal-view"
 
-export default function Page() { return <JournalView /> }
+export default function Page() { return <AgriJournalView /> }

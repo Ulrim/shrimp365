@@ -1,0 +1,37 @@
+시험명   : 영상 두절 시 수조 사진 대체 화면 점검 (브라우저)
+실행일시 : 2026-10-21 00:15:46 UTC
+저장소   : ulrim/shrimp365  claude/camera-vision-migration-43d9xz @ 3d102fa837a10b01827b57e27780ac6395fc61b2
+실행환경 : Python 3.11.15, node v22.22.2, Linux 6.18.44-fc-v139
+실행명령 : node scripts/check-vision-frame-ui.mjs
+────────────────────────────────────────────────────────────────
+
+흉내 서버 주소로 다시 빌드합니다(1~2분)…
+[@sentry/nextjs] DEPRECATION WARNING: automaticVercelMonitors is deprecated and will be removed in a future version. Use webpack.automaticVercelMonitors instead. (Not supported with Turbopack.)
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+[@sentry/nextjs] DEPRECATION WARNING: automaticVercelMonitors is deprecated and will be removed in a future version. Use webpack.automaticVercelMonitors instead. (Not supported with Turbopack.)
+(node:11265) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/user/shrimp365/tailwind.config.ts?id=1792541753513 is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /home/user/shrimp365/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+⚠ Using edge runtime on a page currently disables static generation for that page
+[card-news] list TypeError: fetch failed
+[card-news] sitemap TypeError: fetch failed
+  ok  영상이 실패하면 수조 사진으로 내려앉는다
+  ok  사진을 실제로 받아 갔다
+  ok  사진이 눈에 보이는 크기로 그려졌다
+  ok  브라우저가 사진을 해독했다(blob 주소가 살아 있다)
+  ok  장비가 보낸 크기 그대로다
+  ok  개체수 배지가 구워진 글자를 가리지 않는다(아래쪽에 있다)
+  ok  상태 배지가 구워진 글자를 가리지 않는다(아래쪽에 있다)
+  ok  몇 초 전 사진인지 적혀 있다
+  ok  개체수가 사진과 함께 보인다
+  ok  터널 안내는 더 이상 뜨지 않는다
+  ok  "바깥에서 볼 수 없습니다" 라는 옛 문구가 없다
+  ok  사진을 주기적으로 다시 받아 온다
+  ok  콘솔에 오류가 없다
+  ok  찾지 못한 주소가 없다
+
+전부 통과했습니다.
+
+────────────────────────────────────────────────────────────────
+종료 코드: 0

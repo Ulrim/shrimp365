@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
@@ -9,7 +9,7 @@ import { MOCK_FARMS, MOCK_TANKS, MOCK_ALERTS, MOCK_DIAGNOSES, MOCK_WATER_QUALITY
 import { useAuth } from "@/lib/auth-context"
 import { Farm, Tank, Alert, DiagnosisResult, WaterQualityReading, InventoryItem, SensorDevice } from "@/types"
 import { DeviceCurrentValues } from "@/components/sensors/device-current-values"
-import { NutrientStatusCard } from "@/components/sensors/nutrient-status-card"
+import { PowerCard } from "@/components/power/power-card"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -21,9 +21,12 @@ import {
 } from "lucide-react"
 import { formatDateTime } from "@/lib/utils"
 import { useT } from "@/lib/i18n-context"
-import { useAgriRoute } from "@/lib/agri-route"
 import { useAutoRefresh, sinceLabel } from "@/lib/use-auto-refresh"
 import { WeatherCard } from "@/components/weather/weather-card"
+
+/** 이 대시보드는 새우 전용이다(농업은 components/agri/agri-dashboard-view.tsx).
+ *  혼합 계정의 수경재배 농장·베드·알림은 여기서 걸러 낸다. 값이 없으면 새우로 본다. */
+const isShrimp = (x: { farm_type?: "shrimp" | "agriculture" | null }) => (x.farm_type ?? "shrimp") !== "agriculture"
 
 function StatCard({ icon, label, value, sub, color, iconBg }: { icon: React.ReactNode; label: string; value: string | number; sub?: string; color: string; iconBg: string }) {
   // iconBg 는 정적 Tailwind 클래스로 받는다. 예전엔 color 문자열을 치환해
@@ -51,17 +54,44 @@ export function DashboardView() {
   const { user } = useAuth()
   const router = useRouter()
   const { t, locale } = useT()
-  const { isAgri, href: withAgri } = useAgriRoute()
-  const [farms, setFarms]       = useState<Farm[]>([])
-  const [tanks, setTanks]       = useState<Tank[]>([])
-  const [alerts, setAlerts]     = useState<Alert[]>([])
+  // 계정의 전체 농장·수조. 화면에 쓰는 것은 아래에서 새우 몫만 걸러 낸다.
+  const [allFarms, setAllFarms] = useState<Farm[]>([])
+  const [allTanks, setAllTanks] = useState<Tank[]>([])
+  const [allAlerts, setAllAlerts] = useState<Alert[]>([])
   const [diagnoses, setDiagnoses] = useState<DiagnosisResult[]>([])
   const [wqData, setWqData]         = useState<WaterQualityReading[]>([])
-  const [selectedTankId, setSelectedTankId] = useState<string>("")
+  // 사용자가 고른 수조. 실제로 쓰는 값은 아래 selectedTankId 로, 목록에서
+  // 파생시킨다 — 고른 수조가 목록에서 빠지면(삭제·유형 변경) 첫 수조로 돌아간다.
+  const [pickedTankId, setPickedTankId] = useState<string>("")
   // 선택한 수조의 센서(기기)들 — 센서별 마지막 수신값 요약에 쓴다.
   const [tankDevices, setTankDevices] = useState<SensorDevice[]>([])
   const [lowStockItems, setLowStockItems]   = useState<InventoryItem[]>([])
   const [loading, setLoading]       = useState(true)
+
+  // 혼합 계정(양식장+수경재배)에서 안 거르면 새우 대시보드에서 수경재배 베드를
+  // 골라 새우 기준으로 판정하게 되고(염도 0·22 ℃ 로 통째로 빨개진다), 농장 수·
+  // 수조 수도 남의 것까지 세게 된다.
+  const farms = useMemo(() => allFarms.filter(isShrimp), [allFarms])
+  const tanks = useMemo(() => allTanks.filter(isShrimp), [allTanks])
+  // 알림도 같이 거른다. 안 거르면 빨간 배너와 "오늘의 알림" 개수가 이 화면에서는
+  // 고를 수도 없는 베드를 지목한다. farm_type 은 알림이 조인으로 들고 온다(getAlerts).
+  const alerts = useMemo(() => allAlerts.filter(isShrimp), [allAlerts])
+
+  // 고른 수조가 이 화면 목록에 없으면 첫 수조로 떨어진다. 상태를 고쳐 쓰지
+  // 않고 파생시킨다 — 효과 안에서 setState 하면 렌더가 한 번 더 돈다.
+  const selectedTankId = useMemo(() => {
+    if (!tanks.length) return ""
+    return tanks.some(tk => tk.id === pickedTankId) ? pickedTankId : tanks[0].id
+  }, [tanks, pickedTankId])
+
+  // 새우 수조가 하나도 없으면(selectedTankId === "") 측정값·기기 로더가 아예 돌지
+  // 않는다 — 상태에 남은 값을 그대로 그리지 않도록 파생으로 비운다. 대시보드는
+  // 수조 말고도 농장·알림·재고를 그리므로 화면을 통째로 비울 수 없고, 효과 안에서
+  // setState 하면 렌더가 한 번 더 돈다.
+  //
+  // 수조가 있으면 값이 그대로 지나가므로 기존 동작은 바뀌지 않는다.
+  const visibleWq = selectedTankId ? wqData : []
+  const visibleDevices = selectedTankId ? tankDevices : []
 
   const TANK_STATUS_META = {
     active:   { label: t.dashboard.normal,  color: "text-emerald-500", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400" },
@@ -83,9 +113,9 @@ export function DashboardView() {
     const [f, tk, a, d, inv] = await Promise.all([
       getFarms(), getAllTanks(), getAlerts(true), getDiagnoses(), getInventoryItems()
     ])
-    setFarms(f)
-    setTanks(tk)
-    setAlerts(a.filter(x => !x.resolved))
+    setAllFarms(f)
+    setAllTanks(tk)
+    setAllAlerts(a.filter(x => !x.resolved))
     setDiagnoses(d)
     setLowStockItems(inv.filter(i => i.reorder_level > 0 && i.current_stock <= i.reorder_level))
     if (selectedTankId) {
@@ -100,12 +130,12 @@ export function DashboardView() {
     async function load() {
       const mock = isTestAccount(user?.email)
       if (mock) {
-        setFarms(MOCK_FARMS)
-        setTanks(MOCK_TANKS)
-        setAlerts(MOCK_ALERTS.filter(x => !x.resolved))
+        setAllFarms(MOCK_FARMS)
+        setAllTanks(MOCK_TANKS)
+        setAllAlerts(MOCK_ALERTS.filter(x => !x.resolved))
         setDiagnoses(MOCK_DIAGNOSES)
         setLowStockItems(MOCK_INVENTORY_ITEMS.filter(i => i.reorder_level > 0 && i.current_stock <= i.reorder_level))
-        setSelectedTankId("tank-1")
+        setPickedTankId("tank-1")
         setWqData(MOCK_WATER_QUALITY["tank-1"] || [])
         setLoading(false)
         return
@@ -114,15 +144,17 @@ export function DashboardView() {
         const [f, tk, a, d, inv] = await Promise.all([
           getFarms(), getAllTanks(), getAlerts(true), getDiagnoses(), getInventoryItems()
         ])
-        setFarms(f)
-        setTanks(tk)
-        setAlerts(a.filter(x => !x.resolved))
+        setAllFarms(f)
+        setAllTanks(tk)
+        setAllAlerts(a.filter(x => !x.resolved))
         setDiagnoses(d)
         setLowStockItems(inv.filter(i => i.reorder_level > 0 && i.current_stock <= i.reorder_level))
 
-        const firstTank = tk[0] ?? null
+        // 첫 수조도 새우 몫에서 고른다 — 수경재배 베드를 골라 두면 아래
+        // 보정 효과가 다시 고르면서 24시간 측정 조회가 한 번 헛돈다.
+        const firstTank = tk.find(isShrimp) ?? null
         if (firstTank) {
-          setSelectedTankId(firstTank.id)
+          setPickedTankId(firstTank.id)
           const wq = await getWaterQuality(firstTank.id, 24)
           setWqData(wq)
         }
@@ -161,7 +193,7 @@ export function DashboardView() {
 
   const localeStr = locale === "ko" ? "ko-KR" : locale === "vi" ? "vi-VN" : locale === "id" ? "id-ID" : "en-US"
 
-  const chartData = wqData
+  const chartData = visibleWq
     .filter((_, i) => i % 4 === 0)
     .slice(-24)
     .map(r => ({
@@ -171,7 +203,7 @@ export function DashboardView() {
       pH:   +r.ph.toFixed(2),
     }))
 
-  const latestWq = wqData[wqData.length - 1]
+  const latestWq = visibleWq[visibleWq.length - 1]
 
   if (loading) {
     return (
@@ -193,7 +225,7 @@ export function DashboardView() {
               {alerts.map(a => a.tank_name).join(", ")} — {t.dashboard.alertsNone}
             </p>
           </div>
-          <Link href={withAgri("/water-quality")} className="shrink-0">
+          <Link href="/water-quality" className="shrink-0">
             <Button size="sm" variant="outline" aria-label={t.dashboard.viewAllAlerts} className="border-red-500/40 text-red-700 hover:bg-red-500/20 text-xs h-8 min-h-[44px]">
               {t.dashboard.viewAllAlerts}
             </Button>
@@ -212,15 +244,11 @@ export function DashboardView() {
               {lowStockItems.length > 3 ? ` +${lowStockItems.length - 3}` : ""}
             </p>
           </div>
-          {/* /daumlabs 아래에 재고 페이지가 없다 — 접두사를 붙일 수 없어 죽은
-              링크가 되므로 농업 화면에서는 바로가기를 렌더하지 않는다(설계서 4-3). */}
-          {!isAgri && (
-            <Link href="/inventory" className="shrink-0">
-              <Button size="sm" variant="outline" aria-label={t.a11y.goToInventory} className="border-amber-500/40 text-amber-700 hover:bg-amber-500/20 text-xs h-8 min-h-[44px]">
-                {t.nav.inventory}
-              </Button>
-            </Link>
-          )}
+          <Link href="/inventory" className="shrink-0">
+            <Button size="sm" variant="outline" aria-label={t.a11y.goToInventory} className="border-amber-500/40 text-amber-700 hover:bg-amber-500/20 text-xs h-8 min-h-[44px]">
+              {t.nav.inventory}
+            </Button>
+          </Link>
         </div>
       )}
 
@@ -234,9 +262,8 @@ export function DashboardView() {
               { href: "/journal",       icon: <BookOpen  className="w-5 h-5 text-teal-500"  />, bg: "bg-teal-500/20",  label: t.nav.journal },
               { href: "/ai-advisor",    icon: <Bot       className="w-5 h-5 text-purple-400"/>, bg: "bg-purple-500/20",label: t.nav.aiAdvisor },
               { href: "/inventory",     icon: <Package   className="w-5 h-5 text-amber-500" />, bg: "bg-amber-500/20", label: t.nav.inventory },
-            // AI 어드바이저·재고는 /daumlabs 아래에 없다 — 위 저재고 바로가기와 같은 이유.
-            ].filter(item => !isAgri || !["/ai-advisor", "/inventory"].includes(item.href)).map(item => (
-              <Link key={item.href} href={withAgri(item.href)} aria-label={item.label}>
+            ].map(item => (
+              <Link key={item.href} href={item.href} aria-label={item.label}>
                 <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-muted border border-border hover:border-ocean-500/30 hover:bg-ocean-500/5 transition-all cursor-pointer w-32 sm:w-auto min-h-[44px]">
                   <div className={`w-10 h-10 rounded-xl ${item.bg} flex items-center justify-center`} aria-hidden="true">{item.icon}</div>
                   <span className="text-xs text-foreground/80 text-center font-medium">{item.label}</span>
@@ -272,7 +299,7 @@ export function DashboardView() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <select
                     value={selectedTankId}
-                    onChange={e => setSelectedTankId(e.target.value)}
+                    onChange={e => setPickedTankId(e.target.value)}
                     aria-label={t.reports.selectTank}
                     className="bg-muted border border-border rounded-lg px-2 py-1 text-foreground text-sm focus:outline-none focus:border-ocean-500 max-w-[180px] sm:max-w-none"
                   >
@@ -280,7 +307,7 @@ export function DashboardView() {
                   </select>
                   <span className="text-muted-foreground text-xs">({t.waterQuality?.period24h ?? "24h"})</span>
                 </div>
-                <Link href={withAgri("/water-quality")} aria-label={t.a11y.viewAllWaterQuality} className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center gap-1">
+                <Link href="/water-quality" aria-label={t.a11y.viewAllWaterQuality} className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center gap-1">
                   {t.dashboard.viewAll} <ArrowRight className="w-3 h-3" aria-hidden="true" />
                 </Link>
               </div>
@@ -335,7 +362,7 @@ export function DashboardView() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-foreground text-base">{t.dashboard.activeTanks}</CardTitle>
-                <Link href={withAgri("/farms")} aria-label={t.a11y.viewAllTanks} className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center gap-1">{t.dashboard.viewAll} <ArrowRight className="w-3 h-3" aria-hidden="true" /></Link>
+                <Link href="/farms" aria-label={t.a11y.viewAllTanks} className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center gap-1">{t.dashboard.viewAll} <ArrowRight className="w-3 h-3" aria-hidden="true" /></Link>
               </div>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -391,16 +418,16 @@ export function DashboardView() {
         </div>
       </div>
 
-      {/* 양액 상태 — "지금 뭘 해야 하나"가 원시 수치보다 먼저 온다.
-          농업 모드 + payload 에 nut_* 가 있을 때만 렌더(새우 모드 diff 없음). */}
-      <NutrientStatusCard devices={tankDevices} tank={tanks.find(tk => tk.id === selectedTankId) ?? null} />
-
       {/* 선택한 수조의 센서별 마지막 수신값 — 센서가 있을 때만 보인다 */}
-      <DeviceCurrentValues devices={tankDevices} />
+      <DeviceCurrentValues devices={visibleDevices} />
 
-      {/* Diagnoses table — 비브리오 진단은 새우 전용 내용이고 /daumlabs 아래에
-          진단 페이지가 없다. 농업 화면에서는 카드째 렌더하지 않는다(설계서 7-A 9). */}
-      {!isAgri && (
+      {/* 분전반 전력 — 장비가 회로 값을 올린 수조만. 없으면 카드가 그려지지 않는다 */}
+      {selectedTankId && (
+        <PowerCard tankId={selectedTankId} tankName={tanks.find(tk => tk.id === selectedTankId)?.name ?? ""}
+          now={lastRefreshed} mock={isTestAccount(user?.email)} />
+      )}
+
+      {/* Diagnoses table */}
       <Card className="bg-card border-border">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
@@ -445,7 +472,6 @@ export function DashboardView() {
           )}
         </CardContent>
       </Card>
-      )}
     </div>
   )
 }

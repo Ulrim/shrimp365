@@ -26,7 +26,26 @@ DEFAULT_RETENTION_DAYS = 8
 # 일주일치 10,000건을 그대로 그리면 라즈베리파이에서 눈에 띄게 버벅인다.
 MAX_POINTS = 160
 
-FIELDS = ("temperature", "ph", "do_level", "salinity")
+# 화면이 그래프로 그리는 항목. 화면(webui.py 의 openChart)이 요청하는 key 는
+# 반드시 여기 있어야 한다 — 없으면 series() 가 빈 결과를 돌려 그래프가 늘 빈다.
+# 1.9.1 까지 conductivity 가 빠져 스마트팜 전도도 그래프가 항상 비어 있었다.
+# 항목을 늘릴 때는 아래 _migrate() 가 기존 DB 에 칸을 덧붙이므로 이력은 남는다.
+FIELDS = ("temperature", "ph", "do_level", "salinity", "conductivity")
+
+
+# 같은 초에 두 번 기록되면 나중 것으로 덮어쓴다(재시작 직후 등).
+_INSERT_SQL = (
+    f"insert into samples (ts, {', '.join(FIELDS)}) "
+    f"values (?{', ?' * len(FIELDS)}) "
+    "on conflict(ts) do update set "
+    + ", ".join(f"{f}=excluded.{f}" for f in FIELDS)
+)
+
+# 환경 센서 한 대 한 대의 값(field_env.FieldEnv.read 의 each). 기온·습도·토양 센서가 여러 대인
+# 농장에서 칸을 누르면 센서별 그래프를 그린다. 수집기가 보통 5분마다 적으므로 그 간격으로만 남긴다
+# — 센서 20대 × 8일이어도 5만 줄 안쪽이다.
+ENV_SLOTS = ("air_temp", "humidity", "soil_moisture", "soil_temp", "wind_speed", "rain_day")
+ENV_EVERY_S = 300
 
 
 class History:
@@ -38,6 +57,7 @@ class History:
         self._lock = threading.Lock()
         self._conn: sqlite3.Connection | None = None
         self._last_prune = 0.0
+        self._last_env = 0
 
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -52,12 +72,44 @@ class History:
                      salinity real
                    )"""
             )
+            self._conn.execute(
+                """create table if not exists env_samples (
+                     ts integer not null,
+                     slot text not null,
+                     sid text not null,
+                     value real not null,
+                     primary key (slot, ts, sid)
+                   )"""
+            )
+            # samples 의 새 칸(conductivity 등)은 기존 DB 에 덧붙인다. env_samples 는
+            # 따로 선 표라 위 create if not exists 로 충분하다 — 어느 쪽도 기존 행을 지우지 않는다.
+            self._migrate()
             self._conn.commit()
             os.chmod(self.path, 0o600)
         except (sqlite3.Error, OSError) as exc:
             # 이력을 못 써도 측정·전송은 계속되어야 한다. 그래프만 포기한다.
             log.error("이력 저장소를 열지 못했습니다(%s). 그래프 없이 계속합니다.", exc)
             self._conn = None
+
+    def _migrate(self) -> None:
+        """현장 장비의 기존 DB 에 새 항목 칸을 덧붙인다(시작할 때 한 번).
+
+        표를 새로 만들면 일주일치 이력이 사라지므로 ALTER TABLE ... ADD COLUMN 만
+        쓴다. 이미 있는 칸은 건너뛰고, 기존 행의 새 칸은 NULL 로 남는다(그래프는
+        NULL 을 건너뛴다). 칸 이름은 FIELDS 상수에서만 오므로 SQL 에 끼워도 안전하다.
+        """
+        assert self._conn is not None
+        have = {row[1] for row in self._conn.execute("pragma table_info(samples)")}
+        for name in FIELDS:
+            if name in have:
+                continue
+            try:
+                self._conn.execute(f"alter table samples add column {name} real")
+                log.info("이력 저장소에 %s 칸을 추가했습니다.", name)
+            except sqlite3.OperationalError as exc:
+                # 두 프로세스가 동시에 열어 한쪽이 먼저 붙인 경우 등 — 이미 있으면 그만이다.
+                if "duplicate column" not in str(exc).lower():
+                    raise
 
     @property
     def available(self) -> bool:
@@ -69,15 +121,7 @@ class History:
         ts = int(ts if ts is not None else time.time())
         with self._lock:
             try:
-                # 같은 초에 두 번 기록되면 나중 것으로 덮어쓴다(재시작 직후 등).
-                self._conn.execute(
-                    """insert into samples (ts, temperature, ph, do_level, salinity)
-                       values (?, ?, ?, ?, ?)
-                       on conflict(ts) do update set
-                         temperature=excluded.temperature, ph=excluded.ph,
-                         do_level=excluded.do_level, salinity=excluded.salinity""",
-                    (ts, *(values.get(f) for f in FIELDS)),
-                )
+                self._conn.execute(_INSERT_SQL, (ts, *(values.get(f) for f in FIELDS)))
                 self._conn.commit()
             except sqlite3.Error as exc:
                 log.warning("이력 저장 실패: %s", exc)
@@ -85,6 +129,99 @@ class History:
         # 매번 정리하면 낭비다. 한 시간에 한 번이면 충분하다.
         if time.time() - self._last_prune > 3600:
             self._prune()
+
+    def record_env(self, env: dict | None, ts: int | None = None) -> bool:
+        """센서별 지금 값을 남긴다(ENV_EVERY_S 마다 한 번). 남겼으면 True."""
+        if self._conn is None or not env:
+            return False
+        ts = int(ts if ts is not None else time.time())
+        if ts - self._last_env < ENV_EVERY_S:
+            return False
+        rows = [(ts, slot, e["id"], float(e["value"]))
+                for slot in ENV_SLOTS
+                for e in ((env.get(slot) or {}).get("each") or [])
+                if isinstance(e.get("value"), (int, float))]
+        if not rows:
+            return False
+        with self._lock:
+            try:
+                self._conn.executemany(
+                    "insert or replace into env_samples (ts, slot, sid, value) values (?, ?, ?, ?)", rows)
+                self._conn.commit()
+            except sqlite3.Error as exc:
+                log.warning("환경 이력 저장 실패: %s", exc)
+                return False
+        self._last_env = ts
+        return True
+
+    def env_series(self, slot: str, hours: int) -> dict:
+        """칸 하나의 센서별 그래프 — {"sensors": [{"id", "points": [[t, 평균], ...]}], "avg": [[t, 평균]],
+        "min", "max", "count"}. 구간을 MAX_POINTS 칸으로 나누어 센서마다 평균을 낸다.
+        avg 는 같은 칸(시각)에 값이 있는 센서들의 평균 — 화면 칸의 평균과 같은 뜻이다."""
+        empty = {"sensors": [], "avg": [], "min": None, "max": None, "count": 0}
+        if self._conn is None or slot not in ENV_SLOTS:
+            return empty
+        now = int(time.time())
+        since = now - hours * 3600
+        with self._lock:
+            try:
+                rows = self._conn.execute(
+                    "select ts, sid, value from env_samples where slot = ? and ts >= ? order by ts",
+                    (slot, since),
+                ).fetchall()
+            except sqlite3.Error as exc:
+                log.warning("환경 이력 조회 실패: %s", exc)
+                return empty
+        if not rows:
+            return empty
+        bucket_seconds = max(1, (hours * 3600) // MAX_POINTS)
+        per: dict[str, dict[int, list[float]]] = {}
+        for ts, sid, value in rows:
+            per.setdefault(sid, {}).setdefault((ts - since) // bucket_seconds, []).append(float(value))
+        sensors = []
+        by_bucket: dict[int, list[float]] = {}
+        for sid in sorted(per):
+            pts = []
+            for index in sorted(per[sid]):
+                vals = per[sid][index]
+                v = round(sum(vals) / len(vals), 3)
+                pts.append([since + index * bucket_seconds, v])
+                by_bucket.setdefault(index, []).append(v)
+            sensors.append({"id": sid, "points": pts})
+        avg = [[since + i * bucket_seconds, round(sum(v) / len(v), 3)] for i, v in sorted(by_bucket.items())]
+        values = [float(v) for _, _, v in rows]
+        return {"sensors": sensors, "avg": avg, "min": round(min(values), 3),
+                "max": round(max(values), 3), "count": len(values)}
+
+    def recent(self, hours: int) -> list[dict]:
+        """지정 구간의 **원본** 측정점. 이상탐지(anomaly.py)가 쓴다.
+
+        series() 를 쓰지 않는 이유는 그쪽이 그래프용으로 칸마다 평균을 내기 때문이다.
+        평균을 내면 급변이 뭉개져, 정작 찾아야 할 "짧고 깊게 떨어진 구간" 이
+        평평해진다. 판정에는 잰 값 그대로가 필요하다.
+        """
+        if self._conn is None:
+            return []
+        since = int(time.time()) - hours * 3600
+        with self._lock:
+            try:
+                rows = self._conn.execute(
+                    f"select ts, {', '.join(FIELDS)} from samples "
+                    "where ts >= ? order by ts",
+                    (since,),
+                ).fetchall()
+            except sqlite3.Error as exc:
+                log.warning("이력 조회 실패: %s", exc)
+                return []
+
+        out = []
+        for row in rows:
+            point: dict = {"t": row[0]}
+            for name, value in zip(FIELDS, row[1:]):
+                if value is not None:
+                    point[name] = float(value)
+            out.append(point)
+        return out
 
     def series(self, field: str, hours: int) -> dict:
         """지정 구간의 값을 그래프용으로 줄여서 돌려준다.
@@ -144,6 +281,7 @@ class History:
         with self._lock:
             try:
                 self._conn.execute("delete from samples where ts < ?", (cutoff,))
+                self._conn.execute("delete from env_samples where ts < ?", (cutoff,))
                 self._conn.commit()
                 self._last_prune = time.time()
             except sqlite3.Error as exc:

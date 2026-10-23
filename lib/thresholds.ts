@@ -13,8 +13,54 @@ export const WQ_THRESHOLDS = {
   turbidity:   { warning: { min: null, max: 20 }, danger: { min: null, max: 30 } },
 } as const
 
-/** 컬럼 키 → 화면·알림에 쓰는 라벨.
- *  alerts 행의 parameter 에 저장되는 값이 이 라벨이라, 알림을 다시 찾을 때도 쓴다. */
+// ── 수경재배(엽채류 NFT) 양액 전역 기준 ──────────────────────────────────
+//
+// 위 WQ_THRESHOLDS 는 흰다리새우 해수 기준이다. 근권부 냉방 칠러로 일부러
+// 22~24 ℃ 를 유지하는 농업 베드에 그 기준을 그대로 대면, 정상 운전이 매 수신
+// 마다 "수온 주의" 알림이 된다. 그래서 프로필을 나눈다.
+//
+// 레시피(베드별 목표 EC/pH)가 우선이고, 이 상수는 레시피가 없을 때의 안전망이다.
+// EC 는 여기에 없다 — 전역 EC 기준선을 긋지 않는다는 원칙(설계서 3-5). EC 판정은
+// 레시피(checkRecipe)에만 맡긴다.
+//
+// **수치의 한계**: 아래 값은 엽채류 수경재배의 일반 통설이며 쪽파 전용 실증
+// 데이터가 아니다. 나주 시험포의 여름·겨울 각 1주기 데이터가 쌓이면 재교정해야
+// 한다. 특히 여름철 칠러 부하 한계에서의 실제 상한을 모른다.
+//   - 근권 양액 온도: 권장 18~22 ℃. 25 ℃ 를 넘으면 용존산소가 떨어지고
+//     피시움 등 근부병 위험이 오른다 → warning 상한 26, danger 상한 30.
+//     하한 16/12 는 칠러 과냉·겨울 외기 유입 감지용.
+//   - 양액 pH: 엽채류 권장 5.5~6.5. 벗어나면 미량요소 흡수가 막힌다.
+//   - 양액 DO: 4 ppm 이상. **상한은 두지 않는다** — 양액이 과포화(12 ppm 초과)
+//     라도 작물에 해가 되지 않는다. 전에는 화면 쪽 표시 기준에만 상한 12 가
+//     있어서 "카드는 위험인데 알림은 없음"이 나왔다. 상한을 알림에 새로 만드는
+//     대신 화면에서 없앴다(없는 위험을 알리는 쪽이 더 나쁘다).
+//
+// **이 표가 농업 판정의 유일한 숫자다.** 화면 표시 기준(lib/agri-standards.ts 의
+// AGRI_QUALITY_STANDARDS)은 여기서 파생된다 — warning 밴드 = 화면 "정상",
+// danger 밴드 = 화면 "주의"까지. 표시용 숫자를 따로 적지 않는다.
+export const AGRI_THRESHOLDS = {
+  temperature: { warning: { min: 16, max: 26 }, danger: { min: 12, max: 30 } },
+  ph:          { warning: { min: 5.5, max: 6.5 }, danger: { min: 5.0, max: 7.0 } },
+  do_level:    { warning: { min: 4.0, max: null }, danger: { min: 2.0, max: null } },
+} as const
+
+/** 판정 프로필. 기본값은 언제나 "shrimp" — 실패·불명 시에도 새우다. */
+export type FarmProfile = "shrimp" | "agriculture"
+
+// ── alerts.parameter 는 라벨이 아니라 **키**다 ────────────────────────────
+//
+// 이 문자열은 화면에 쓰이기 전에 먼저 DB 에 저장되고, 센서 라우트가 그 값으로
+//   (1) 이미 열린 알림을 찾아 중복을 억제하고
+//   (2) 범위로 돌아온 항목의 알림을 닫는다.
+// 즉 `parameter` 는 알림 행의 **식별자**다. 같은 항목이 상황에 따라 다른
+// 문자열로 저장되면 중복 행이 생기고 앞의 행은 영영 닫히지 않는다.
+//
+// 그래서 프로필(새우/농업)에 따라 이 표를 갈아 끼우지 않는다. 값이 한국어인
+// 것은 역사적 사정이고(운영 DB 에 이미 이 문자열로 열린 알림이 있다), 바꾸면
+// 마이그레이션 없이는 기존 행을 다시 찾지 못한다 — 한 글자도 바꾸지 않는다.
+//
+// 이름이 PARAM_LABELS 인 것도 같은 사정이다 — 이미 여러 곳에서 이 이름으로
+// import 한다. 뜻은 "저장 키 표"이고, 화면 문구는 alertDisplayLabel 이 만든다.
 export const PARAM_LABELS: Record<string, string> = {
   temperature: "수온",
   ph:          "pH",
@@ -35,7 +81,30 @@ export const PARAM_LABELS: Record<string, string> = {
   shrimp_count_do_critical: "개체수·용존산소 동시 이상",
 }
 
+/** 측정 항목 키 → 알림 행의 `parameter` 값(= 저장 키). 프로필과 무관하다. */
+export function alertParameterKey(field: string): string {
+  return PARAM_LABELS[field] ?? field
+}
+
+// 농업에서 뜻이 달라지는 항목의 **표시 라벨**. 키(위 표)가 아니라 사람이 읽는
+// 문구만 덮는다 — 저장 키 "수온" 은 그대로 두고 화면에서 "양액 온도"로 읽는다.
+const AGRI_DISPLAY_LABELS: Record<string, string> = {
+  [PARAM_LABELS.temperature]: "양액 온도",
+}
+
+/** 저장된 `parameter` 키를 화면 문구로 바꾼다. 표시 시점에만 부른다. */
+export function alertDisplayLabel(parameter: string, profile: FarmProfile = "shrimp"): string {
+  return profile === "agriculture" ? (AGRI_DISPLAY_LABELS[parameter] ?? parameter) : parameter
+}
+
 type ThresholdKey = keyof typeof WQ_THRESHOLDS
+
+/** 두 프로필 표가 공유하는 밴드 모양. 상수는 `as const` 라 각 값의 리터럴 타입이
+ *  달라지므로, 표를 하나의 변수에 담으려면 이 폭으로 넓혀야 한다. */
+type ThresholdBand = {
+  readonly warning: { readonly min: number | null; readonly max: number | null }
+  readonly danger:  { readonly min: number | null; readonly max: number | null }
+}
 
 export interface ThresholdAlert {
   parameter: string
@@ -45,13 +114,30 @@ export interface ThresholdAlert {
   message: string
 }
 
-export function checkThresholds(values: Partial<Record<ThresholdKey, number>>): ThresholdAlert[] {
+/** 전역 임계값 판정.
+ *
+ *  두 번째 인자의 기본값이 "shrimp" 다 — 기존 호출부는 한 글자도 고치지 않아도
+ *  이전과 완전히 같은 결과를 낸다(새우 회귀 0의 기계적 보증).
+ *
+ *  profile === "agriculture" 이면 판정 항목이 수온·pH·DO 3종으로 줄고 기준이
+ *  AGRI_THRESHOLDS 로 바뀐다. 염도·암모니아·아질산염·질산염·알칼리도·탁도는
+ *  판정 대상에서 아예 빠진다 — 농업 폼이 0 을 저장하므로 대개는 걸러지지만,
+ *  옛 데이터나 혼입 값이 새우 기준으로 판정되는 것을 구조적으로 막는다. */
+export function checkThresholds(
+  values: Partial<Record<ThresholdKey, number>>,
+  profile: FarmProfile = "shrimp",
+): ThresholdAlert[] {
   const alerts: ThresholdAlert[] = []
+  const agri = profile === "agriculture"
+  const table: Partial<Record<ThresholdKey, ThresholdBand>> =
+    agri ? AGRI_THRESHOLDS : WQ_THRESHOLDS
 
   for (const [param, value] of Object.entries(values) as [ThresholdKey, number][]) {
-    if (value === 0 || !(param in WQ_THRESHOLDS)) continue
-    const t = WQ_THRESHOLDS[param]
-    const label = PARAM_LABELS[param] ?? param
+    if (value === 0 || !(param in table)) continue
+    const t = table[param]!
+    // key 는 저장·조회용(프로필 무관), label 은 문구용(프로필별).
+    const key = alertParameterKey(param)
+    const label = alertDisplayLabel(key, profile)
 
     const { min: dMin, max: dMax } = t.danger as { min: number | null; max: number | null }
     const { min: wMin, max: wMax } = t.warning as { min: number | null; max: number | null }
@@ -72,7 +158,7 @@ export function checkThresholds(values: Partial<Record<ThresholdKey, number>>): 
         : ((wMin !== null && value < wMin) ? wMin : wMax ?? 0)
 
       alerts.push({
-        parameter: label,
+        parameter: key,
         value,
         threshold,
         type,
@@ -82,6 +168,28 @@ export function checkThresholds(values: Partial<Record<ThresholdKey, number>>): 
   }
 
   return alerts
+}
+
+/** 이번 수신에서 **실제로 판정한** 항목들의 알림 키.
+ *
+ *  알림 복귀(해결 처리)는 여기 있는 키에 대해서만 해야 한다. checkThresholds 가
+ *  건너뛴 값으로 알림을 닫으면 판정과 복귀가 비대칭이 되어, 전극이 물 밖으로
+ *  나온 순간(0) 진짜 이탈 알림이 닫혀 버린다.
+ *
+ *  건너뛰는 조건은 checkThresholds 의 첫 줄과 **같아야 한다** — 두 곳이 어긋나면
+ *  알림이 열린 채 굳거나 저 혼자 닫힌다. 그래서 같은 파일에 둔다. */
+export function resolvableParameters(
+  values: Partial<Record<ThresholdKey, number>>,
+  profile: FarmProfile = "shrimp",
+): string[] {
+  const table: Partial<Record<ThresholdKey, ThresholdBand>> =
+    profile === "agriculture" ? AGRI_THRESHOLDS : WQ_THRESHOLDS
+  return (Object.entries(values) as [ThresholdKey, number | undefined][])
+    .filter(([param, value]) =>
+      // NaN 은 지금 라우트가 걸러 내지만(route.ts 의 Number.isFinite 검사) 여기서도
+      // 막는다 — 새는 순간 그 항목의 열린 알림이 조용히 닫힌다.
+      typeof value === "number" && Number.isFinite(value) && value !== 0 && param in table)
+    .map(([param]) => alertParameterKey(param))
 }
 
 // ── 베드별 양액 레시피 이탈 판정 (농업 모드) ─────────────────────────────
@@ -434,6 +542,79 @@ export function detectTrendAnomalies(
     (a.type === b.type ? 0 : a.type === "danger" ? -1 : 1) || kindOrder[a.kind] - kindOrder[b.kind])
 }
 
+// ── 장비가 보낸 추세 이상징후 → 알림 ────────────────────────────────────
+//
+// detectTrendAnomalies 는 **브라우저**에서 돈다. 화면을 열어 둔 사람에게만 보이고
+// 알림함에도 휴대폰에도 남지 않는다는 뜻이다. 그런데 임계값을 깨기 전에 잡는 것이
+// 이 판정의 존재 이유라, 정작 그 결과가 관리자에게 닿지 않으면 반쪽이다.
+//
+// 그래서 **장비**(raspberry-pi/anomaly.py — 같은 판정의 파이썬 이식)가 찾은 것을
+// 측정값과 함께 올려 보내면, 수신 라우트가 그것으로 알림을 만든다.
+//
+// 장비가 보낸 것을 그대로 믿지는 않는다. 아래 파서가 **항목·종류·등급만** 받고
+// 문구는 서버가 짓는다 — 기기 키를 쥔 쪽이 알림함에 아무 글이나 띄우지 못하게.
+
+/** 추세 알림의 저장 키는 임계값 알림과 **달라야 한다.**
+ *  같으면 둘이 한 행을 두고 다투어, 추세 경고가 임계 경고를 덮거나 그 반대가 된다. */
+const TREND_SUFFIX = " 추세"
+
+/** 추세 알림이 쓸 수 있는 저장 키 전부. 복귀 처리에서 "보고되지 않은 것"을
+ *  고르려면 가능한 키를 알아야 한다. */
+export const TREND_ALERT_PARAMETERS: string[] =
+  Object.keys(TREND_RULES).map(k => alertParameterKey(k) + TREND_SUFFIX)
+
+const TREND_KINDS = new Set(["surge", "drift", "deviation"])
+
+const TREND_KIND_TEXT: Record<string, string> = {
+  surge:     "급변",
+  drift:     "연속 악화",
+  deviation: "평소 범위 이탈",
+}
+
+/** 추세 알림도 알림 행의 모양은 임계값 알림과 같다 — 수명 관리를 공유하므로
+ *  같은 타입이어야 한다. 다른 것은 저장 키(접미사)와 문구뿐이다. */
+export type TrendAlert = ThresholdAlert
+
+/**
+ * 장비가 보낸 추세 이상징후 문자열을 알림으로 바꾼다.
+ *
+ * 형식은 `항목:종류:등급:값` 을 쉼표로 이은 것이다. 중첩 JSON 이 아니라 한 줄짜리
+ * 문자열인 이유는, 기기 카드에 남는 `last_payload` 가 스칼라만 보관해서 — 배열로
+ * 보내면 나중에 "그때 장비가 뭘 보냈나" 를 볼 수 없다.
+ *
+ *     "do_level:surge:danger:3.10,ph:deviation:warning:7.42"
+ *
+ * 모르는 항목·종류·등급은 조용히 버린다. 기기 쪽이 먼저 올라가고 서버가 나중에
+ * 올라가는 순서가 흔해서, 모르는 값에 500 을 내면 그동안 측정까지 멈춘다.
+ */
+export function parseTrendAlerts(raw: unknown, max = 3): TrendAlert[] {
+  if (typeof raw !== "string" || !raw) return []
+  const out: TrendAlert[] = []
+  for (const part of raw.split(",")) {
+    if (out.length >= max) break
+    const [field, kind, type, valueText] = part.trim().split(":")
+    if (!(field in TREND_RULES) || !TREND_KINDS.has(kind)) continue
+    if (type !== "danger" && type !== "warning") continue
+    // Number("") 은 0 이다. 빈 자리를 그대로 두면 "DO 0.00 급변" 같은 알림이 선다.
+    // 0 은 이 저장소 규약상 "안 쟀다" 이고, 장비도 0 인 점은 판정에서 빼므로
+    // 추세 알림에 0 이 실려 오는 일은 없다 — 오면 깨진 것이라 버린다.
+    const value = Number(valueText)
+    if (!valueText || !Number.isFinite(value) || value === 0) continue
+
+    const label = PARAM_LABELS[field] ?? field
+    const digits = TREND_RULES[field as ThresholdKey].digits
+    out.push({
+      parameter: label + TREND_SUFFIX,
+      value,
+      // 추세 판정에는 넘어선 선이 없다. 0 은 이 표의 "기준 없음" 자리다.
+      threshold: 0,
+      type,
+      message: `${label} ${value.toFixed(digits)} — ${TREND_KIND_TEXT[kind]} 감지 (기준 이탈 전)`,
+    })
+  }
+  return out
+}
+
 // ── 입력 누락(기록 끊김) 판정 ───────────────────────────────────────────
 //
 // 위의 세 판정(임계값·레시피·추세)은 모두 "값이 들어온 다음"에만 돌아간다.
@@ -456,6 +637,19 @@ export const MISSING_INPUT_HOURS = 72
  *  자동 해소(기록이 다시 들어오면 닫기)가 tank_id + 이 값으로 같은 알림을 찾는다.
  *  임계값 항목 라벨(수온·pH·DO…)과 절대 겹치지 않아야 한다. */
 export const MISSING_INPUT_PARAMETER = "입력 누락"
+
+/** 이 알림에 「측정값 / 기준」 줄을 붙여도 되는가.
+ *
+ *  둘은 붙이면 안 된다.
+ *   · **입력 누락** — value 가 경과 시간이고 threshold 는 72시간이다. 그대로
+ *     찍으면 "측정값 96 / 기준 72" 가 되어 수질 수치로 읽힌다.
+ *   · **추세 알림** — 넘어선 선이 애초에 없다(threshold 0). "기준: 0" 은
+ *     기준이 0 이라는 말로 읽혀, 멀쩡한 값이 0 을 넘겨 경고가 난 것처럼 보인다.
+ *
+ *  화면마다 조건을 따로 적으면 한쪽만 고쳐져 어긋나므로 판정과 같은 파일에 둔다. */
+export function hasThresholdLine(parameter: string): boolean {
+  return parameter !== MISSING_INPUT_PARAMETER && !parameter.endsWith(TREND_SUFFIX)
+}
 
 export interface MissingInputAlert {
   parameter: typeof MISSING_INPUT_PARAMETER

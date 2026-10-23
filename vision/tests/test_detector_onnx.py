@@ -300,7 +300,7 @@ def test_onnx_model_does_not_force_simulation_mode(monkeypatch, tmp_path):
     model.write_bytes(b"not-a-real-model")
     monkeypatch.setattr(settings, "model_path", str(model))
     monkeypatch.setattr(settings, "simulation_mode", None)
-    config.simulation_mode_active.cache_clear()
+    config.reset_simulation_mode_cache()
     try:
         # onnxruntime 가 설치되어 있으면 실제 모드, 없으면 시뮬레이션.
         try:
@@ -311,7 +311,7 @@ def test_onnx_model_does_not_force_simulation_mode(monkeypatch, tmp_path):
             expected = True
         assert config.simulation_mode_active() is expected
     finally:
-        config.simulation_mode_active.cache_clear()
+        config.reset_simulation_mode_cache()
 
 
 # ---------------------------------------------------------------------------
@@ -372,3 +372,56 @@ def test_match_boxes_handles_empty_sides():
     assert cb.match_boxes(empty, boxes) == ([], 0, 1)
     assert cb.match_boxes(boxes, empty) == ([], 1, 0)
     assert cb.match_boxes(empty, empty) == ([], 0, 0)
+
+
+# ---------------------------------------------------------------------------
+# 시뮬레이션 모드 진단 (app/config.simulation_mode_reason)
+# ---------------------------------------------------------------------------
+
+
+def _reason(monkeypatch, model_path: str, simulation_mode=None):
+    import app.config as config
+
+    monkeypatch.setattr(settings, "model_path", model_path)
+    monkeypatch.setattr(settings, "simulation_mode", simulation_mode)
+    config.reset_simulation_mode_cache()
+    try:
+        return config.simulation_mode_reason(), config.simulation_mode_active()
+    finally:
+        config.reset_simulation_mode_cache()
+
+
+def test_missing_model_reason_names_the_path_and_the_knob(monkeypatch):
+    """파이에서 가장 흔한 실패 — MODEL_PATH 오타. 로그만 보고 고칠 수 있어야 한다."""
+    reason, active = _reason(monkeypatch, "/nonexistent/shrimp.onnx")
+    assert active is True
+    assert reason is not None
+    assert "/nonexistent/shrimp.onnx" in reason  # 어느 경로를 찾았는지
+    assert "MODEL_PATH" in reason  # 무엇을 고쳐야 하는지
+
+
+def test_explicit_simulation_mode_is_reported_as_deliberate(monkeypatch, tmp_path):
+    model = tmp_path / "m.onnx"
+    model.write_bytes(b"x")
+    reason, active = _reason(monkeypatch, str(model), simulation_mode=True)
+    assert active is True
+    assert reason is not None and "SIMULATION_MODE" in reason
+
+
+def test_reason_and_active_never_disagree(monkeypatch, tmp_path):
+    """active 는 reason 에서 파생된다 — 둘이 어긋나면 로그가 거짓말을 한다.
+
+    캐시가 양쪽에 걸려 있어, 한쪽만 비우는 실수를 하면 바로 어긋난다.
+    """
+    model = tmp_path / "m.onnx"
+    model.write_bytes(b"x")
+    cases = [
+        ("/nonexistent/x.onnx", None),
+        (str(model), None),
+        (str(tmp_path / "m.pt"), None),
+        (str(model), True),
+        ("/nonexistent/x.onnx", False),
+    ]
+    for path, sim in cases:
+        reason, active = _reason(monkeypatch, path, simulation_mode=sim)
+        assert active is (reason is not None), f"{path} sim={sim}: {active} vs {reason!r}"

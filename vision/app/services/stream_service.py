@@ -20,6 +20,7 @@ import numpy as np
 from app.config import settings, simulation_mode_active
 from app.database import SessionLocal, utcnow
 from app.models import Camera, CountRecord
+from app.services import tuning
 from app.services.broadcaster import broadcaster
 from app.services.camera_source import CameraSource, PiCameraSource, SimulatedCamera
 from app.services.detector import (
@@ -40,6 +41,8 @@ class LatestCount:
     timestamp: datetime
     count: int
     confidence_avg: float | None
+    #: 이 프레임에서 잰 몸길이의 가운뎃값(cm). 축척을 안 잡았으면 None.
+    length_cm: float | None = None
 
 
 class FrameStore:
@@ -117,6 +120,15 @@ class CameraSnapshot:
         )
 
 
+def _render_jpeg(frame, result, camera_name: str, when, roi=None) -> bytes:  # noqa: ANN001
+    """세는 범위와 박스를 그려 JPEG 로 굽는다 — 스레드에서 부르려고 묶었다.
+
+    두 번 나눠 부르면 스레드를 두 번 오가면서 큰 이미지를 그만큼 더 들고
+    다닌다. 하는 일이 이어져 있으니 한 번에 보낸다.
+    """
+    return encode_jpeg(annotate_frame(frame, result, camera_name, when, roi=roi))
+
+
 class CameraStreamProcessor:
     """Asyncio task processing one camera's stream."""
 
@@ -132,6 +144,8 @@ class CameraStreamProcessor:
         # raw count is what gets stored and broadcast (WS contract unchanged).
         self._count_ema: float | None = None
         self._tracking_fallback_logged = False
+        #: 마지막으로 DB 에 적은 시각(monotonic). None 이면 아직 안 적었다.
+        self._last_write_at: float | None = None
 
         if self.simulation_mode:
             sim = TankSimulation(seed=str(camera.id))
@@ -194,26 +208,53 @@ class CameraStreamProcessor:
         else:
             bgr = np.asarray(frame)[:, :, ::-1]
             result = await asyncio.to_thread(self._run_detection, bgr)
+
+        # 수조 바깥(철망·배관·수면 반사)까지 세지 않도록 거른다. 모델은 클래스가
+        # "새우" 하나뿐이라 무언가를 찾으면 무조건 새우라고 부른다 — 재학습
+        # 전까지는 이 보정이 현장에서 가장 효과가 크다. 장비 화면에서 네모를
+        # 긋는다(app/services/tuning.py).
+        tune = tuning.get(self.camera.id)
+        result = tuning.apply(result, tune)
         stable_count = self._update_stable_count(result.count)
+        # 먹이망 격자로 축척을 잡아 두었으면 몸길이도 잰다. 평균이 아니라
+        # 가운뎃값을 쓰는 이유는 겹쳐 잡힌 두 마리 때문이다(tuning.median).
+        length_cm = tuning.median(tuning.lengths_cm(result, tune))
 
         now = utcnow()
-        annotated = annotate_frame(frame, result, self.camera.name, now)
-        frame_store.push_frame(self.camera.id, encode_jpeg(annotated))
+        # 박스를 그리고 JPEG 로 굽는 일은 **이벤트 루프 밖**에서 한다. 파이에서
+        # 1280x720 한 장에 대략 37~73 ms 가 걸리는데(x86 에서 7.3 ms 를 재고
+        # 파이를 5~10배로 잡은 값), 그동안 루프가 멈추면 장비 화면과 API 가
+        # 그만큼 굳는다. 추론은 이미 to_thread 로 돌리고 있다 — 같은 이유다.
+        jpeg = await asyncio.to_thread(
+            _render_jpeg, frame, result, self.camera.name, now, tune.roi
+        )
+        frame_store.push_frame(self.camera.id, jpeg)
+
+        # 매 프레임을 적지 않는다(설정 주석 참고). 실시간 화면·경보는 아래에서
+        # 매 프레임 갱신되므로 이 간격은 저장 밀도에만 영향을 준다.
+        tick = time.monotonic()
+        should_write = (
+            self._last_write_at is None
+            or tick - self._last_write_at >= settings.count_write_interval_seconds
+        )
 
         async with SessionLocal() as session:
-            session.add(
-                CountRecord(
-                    time=now,
-                    camera_id=self.camera.id,
-                    tank_id=self.camera.tank_id,
-                    farm_id=self.camera.farm_id,
-                    count=result.count,
-                    confidence_avg=result.confidence_avg,
-                    model_version=result.model_version,
-                    inference_ms=result.inference_ms,
+            if should_write:
+                self._last_write_at = tick
+                session.add(
+                    CountRecord(
+                        time=now,
+                        camera_id=self.camera.id,
+                        tank_id=self.camera.tank_id,
+                        farm_id=self.camera.farm_id,
+                        count=result.count,
+                        confidence_avg=result.confidence_avg,
+                        model_version=result.model_version,
+                        inference_ms=result.inference_ms,
+                        length_cm=length_cm,
+                    )
                 )
-            )
-            await session.commit()
+                await session.commit()
 
             frame_store.set_latest_count(
                 LatestCount(
@@ -223,6 +264,7 @@ class CameraStreamProcessor:
                     timestamp=now,
                     count=result.count,
                     confidence_avg=result.confidence_avg,
+                    length_cm=length_cm,
                 )
             )
 
@@ -233,6 +275,7 @@ class CameraStreamProcessor:
                     "timestamp": now.isoformat(),
                     "count": result.count,
                     "confidence_avg": result.confidence_avg,
+                    "length_cm": length_cm,
                     "bbox_count": len(result.bboxes),
                     # Frame-pixel boxes for the frontend canvas overlay
                     # (payload capped to keep WS messages sane).

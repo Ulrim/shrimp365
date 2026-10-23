@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import {
-  Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts"
 import {
   Activity, AlertTriangle, Camera as CameraIcon, Download, Fish, Radio, Video,
@@ -171,6 +171,13 @@ export function VisionView() {
     [history, range.hours]
   )
 
+  /** 길이 기준을 잡은 장비만 체장을 올린다. 한 구간도 없으면 축과 선을 그리지
+   *  않는다 — 빈 축이 떠 있으면 "왜 값이 안 나오나" 를 묻게 된다. */
+  const hasLength = useMemo(
+    () => chartData.some(b => b.avg_length_cm != null),
+    [chartData]
+  )
+
   async function handleExport() {
     if (!selectedCamera) return
     setExporting(true)
@@ -188,6 +195,7 @@ export function VisionView() {
           카메라: selectedCamera.name,
           수조: selectedCamera.tank_name ?? "",
           개체수: r.count,
+          추정체장cm: r.length_cm ?? "",
           평균신뢰도: r.confidence_avg ?? "",
           모델: r.model_version ?? "",
           추론시간ms: r.inference_ms ?? "",
@@ -221,12 +229,16 @@ export function VisionView() {
             카메라 영상에서 흰다리새우를 세어 수질과 함께 봅니다.
           </p>
         </div>
+        {/* 이 배지는 **수조를 어떤 길로 보고 있는가**를 말한다. 예전에는 실시간
+            연결이 없으면 "연결 끊김"이라고 했는데, 농장 공유기 뒤에 있는 장비
+            에서는 그 연결이 애초에 열리지 않는 것이 정상이다 — 장비는 멀쩡히
+            돌고 개체수도 쌓이는 중인데 화면만 고장난 것처럼 보였다. 그 경우
+            화면은 장비가 올려 둔 사진을 띄우므로, 그렇게 적는다. */}
         <Badge variant={live.wsState === "open" ? "success" : live.wsState === "connecting" ? "warning" : "secondary"}>
           <Radio className="w-3 h-3 mr-1" />
           {live.wsState === "open" ? "실시간 연결됨"
             : live.wsState === "connecting" ? "연결 중…"
-            : live.wsState === "disabled" ? "실시간 꺼짐"
-            : "연결 끊김"}
+            : "사진으로 봅니다"}
         </Badge>
       </div>
 
@@ -448,16 +460,40 @@ export function VisionView() {
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
                       <XAxis dataKey="label" tick={{ fontSize: 11 }} className="text-muted-foreground" />
-                      <YAxis tick={{ fontSize: 11 }} className="text-muted-foreground" width={52} />
+                      <YAxis yAxisId="count" tick={{ fontSize: 11 }} className="text-muted-foreground" width={52} />
+                      {hasLength && (
+                        <YAxis
+                          yAxisId="len" orientation="right" width={44}
+                          tick={{ fontSize: 11 }} className="text-muted-foreground"
+                          tickFormatter={(v) => `${v}cm`}
+                        />
+                      )}
                       <Tooltip
                         contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                        formatter={(value) =>
-                          [typeof value === "number" ? `${value.toLocaleString()}마리` : String(value ?? "—"), "평균 개체수"]}
+                        formatter={(value, name) => {
+                          if (typeof value !== "number") return [String(value ?? "—"), String(name)]
+                          return name === "추정 체장"
+                            ? [`${value.toFixed(1)}cm`, "추정 체장"]
+                            : [`${value.toLocaleString()}마리`, "평균 개체수"]
+                        }}
                       />
+                      {hasLength && <Legend wrapperStyle={{ fontSize: 11 }} />}
                       <Area
+                        yAxisId="count"
                         type="monotone" dataKey="avg_count" name="평균 개체수"
                         stroke="#14b8a6" strokeWidth={2} fill="url(#countFill)"
                       />
+                      {hasLength && (
+                        /* 선만 그린다. 면으로 채우면 개체수와 겹쳐 둘 다 안 보인다.
+                           connectNulls 로 길이를 못 잰 구간을 건너뛴다 — 끊어 두면
+                           장비가 잠깐 쉰 자리마다 선이 토막 난다. */
+                        <Area
+                          yAxisId="len"
+                          type="monotone" dataKey="avg_length_cm" name="추정 체장"
+                          stroke="#f59e0b" strokeWidth={2} fill="none"
+                          dot={false} connectNulls
+                        />
+                      )}
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>

@@ -10,6 +10,7 @@ ShrimpVision 을 shrimp365 에 통합한 결과물입니다.
 | 구성 | 위치 | 설명 |
 |---|---|---|
 | 추론 서비스 | `vision/` | Python·FastAPI. YOLOv8 + ByteTrack, 카메라 스트림, 경보 판정 |
+| 원격 업데이트 | `vision/deploy/updater.py` ↔ `vision/deploy/release.py` | **짝을 이룹니다.** 허용 경로·해시 규칙이 어긋나면 현장 장비가 전부 거부합니다 |
 | DB 스키마 | `supabase/migrations/vision_monitoring.sql` | `vision_cameras` · `count_records` · `vision_alert_configs` + 집계 함수 |
 | 웹 API | `app/api/vision/*` | 로그인 확인 → 소유 확인 → 비전 서비스 중계 |
 | 화면 | `app/(dashboard)/vision`, `components/vision/*` | 개요·실시간·이력·통합 분석·설정 |
@@ -95,7 +96,7 @@ USB·IP(RTSP) 카메라라면 비전 호스트는 아무 상시 서버나 됩니
 
 > 비전 호스트를 인터넷에 두더라도 **`/api/v1` 은 절대 열지 마세요.** 서비스
 > 키를 가진 쪽은 모든 수조를 볼 수 있습니다. 프록시에서 `/stream` 과 `/ws`
-> 만 열고 나머지는 막습니다(§3-4·§3-6 참고).
+> 만 열고 나머지는 막습니다(§3-5·§3-7 참고).
 
 ### (B) 웹과 비전을 한 호스트에 — NAS·자체 서버
 
@@ -110,11 +111,19 @@ USB·IP(RTSP) 카메라라면 비전 호스트는 아무 상시 서버나 됩니
 
 ## 3-2. DB 마이그레이션 (사람이 실행 — 두 형태 공통)
 
-Supabase Dashboard → SQL Editor 에서 실행합니다.
+Supabase Dashboard → SQL Editor 에서 **위에서부터 차례로** 실행합니다.
 
-```
-supabase/migrations/vision_monitoring.sql
-```
+| 파일 | 무엇이 생기나 | 안 돌리면 |
+|---|---|---|
+| `vision_monitoring.sql` | `vision_cameras` · `count_records` · `vision_alert_configs` + 집계 함수 | 개체수 기능 자체가 안 됩니다 |
+| `vision_retention.sql` | 오래된 개체수 자동 정리(pg_cron) | 무료 구간 500 MB 가 몇 달 뒤 찹니다 |
+| `vision_length.sql` | `count_records.length_cm` + 이력 그래프의 체장 | 길이만 빠지고 개체수는 그대로 쌓입니다 |
+| `vision_snapshot.sql` | `vision_snapshots` — 장비가 올리는 수조 사진 | 웹에서 수조를 못 봅니다(개체수는 그대로) |
+
+마지막 세 개는 **나중에 돌려도 됩니다.** 라우트가 열·테이블이 없는 것을
+알아보고 그것만 빼고 저장하므로, 안 돌린 상태에서도 개체수는 끊기지 않습니다.
+돌리는 순간부터 저절로 들어가기 시작하고, 장비를 다시 깔거나 재시작할 필요가
+없습니다.
 
 > 이 저장소에는 service_role 키가 없으므로 에이전트가 실행할 수 없습니다.
 
@@ -137,23 +146,63 @@ supabase/migrations/vision_monitoring.sql
 
 ### 비전 호스트 (A) — 그 서버의 `.env`
 
+**라즈베리파이라면 넣을 것이 없습니다.** 설치만 하면 전원을 넣는 순간 연결 코드를
+받아 돕니다(`vision/deploy/README.md`). 아래는 브라우저에서 **영상까지** 볼 때만
+필요합니다.
+
 ```bash
+SHRIMP365_URL=https://www.shrimp365.kr            # 기본값. 페어링·보고에 쓰는 주소
+VISION_PUBLIC_URL=https://vision-1.shrimp365.kr   # 이 장비의 주소(파이마다 다르게)
 VISION_SERVICE_KEY=...        # Vercel 과 같은 값
 VISION_STREAM_SECRET=...      # Vercel 과 같은 값
-DATABASE_URL=postgresql+asyncpg://postgres.xxxx:비밀번호@aws-0-....pooler.supabase.com:5432/postgres
-SHRIMP365_URL=https://www.shrimp365.kr            # 페어링·경보 푸시에 쓰는 주소
 CORS_ORIGINS=https://www.shrimp365.kr
-VISION_PUBLIC_URL=https://vision-1.shrimp365.kr   # 이 장비의 주소(파이마다 다르게)
 ```
 
 > 기기 키(`VISION_DEVICE_KEY`)는 넣지 않습니다 — **페어링이 채웁니다**(§5-1).
+>
+> `DATABASE_URL` 도 넣지 않습니다. 개체수는 기기 키로 `/api/vision/device` 에
+> 올라가고, 서버가 service_role 로 기록합니다 — 장비에 데이터베이스 비밀번호를
+> 두지 않습니다(파이를 집어 가도 다른 농장의 자료에 닿지 못합니다). 서버를
+> 거치지 않고 Postgres 에 직접 쓰는 배포에서만 넣습니다.
 
 ### 한 호스트 (B) — `.env.local` 하나에 위 값을 모두 넣고
 
 `NEXT_PUBLIC_VISION_PUBLIC_URL` 은 **비우고**, `VISION_SERVICE_URL=http://vision:8000`,
 `NEXT_PUBLIC_VISION_WS_PATH=/vision-ws` 를 씁니다.
 
-## 3-4. 비전 호스트에 https 주소 붙이기 (A 방식)
+## 3-4. 수조를 눈으로 보는 두 가지 길 — 터널이 꼭 필요한가
+
+**아닙니다.** 먼저 방향을 구분해야 합니다. 이 하나가 전부입니다.
+
+| | 방향 | 농장 공유기(NAT) | 지연 |
+|---|---|---|---|
+| 개체수 기록 | 장비 → 서버 (**나감**) | 통과 | 30초 |
+| 수조 사진 | 장비 → 서버 (**나감**) | 통과 | 60초 |
+| 영상(MJPEG)·실시간 이벤트 | 브라우저 → 장비 (**들어옴**) | **막힘** | 즉시 |
+
+그래서 "개체수는 보이는데 영상이 안 보인다"가 됩니다. 장비는 멀쩡합니다.
+
+### 기본 — 수조 사진 (설치할 것 없음)
+
+장비가 60초마다 사진 한 장을 개체수와 **같은 길로** 올립니다. 공유기를 건드릴
+필요도, 도메인도, 인증서도 없습니다. `/vision` 의 실시간 탭이 그 사진을 띄우고
+"N초 전"을 함께 적습니다 — 멈춘 사진을 실시간으로 착각하지 않게.
+
+필요한 것은 `vision_snapshot.sql` 하나뿐입니다(3-2). 장비 쪽은 기본값으로 이미
+켜져 있습니다(`SNAPSHOT_INTERVAL_SECONDS=60`). 카메라당 한 줄을 덮어쓰므로
+용량은 늘지 않고, 회선은 카메라 한 대당 한 달 0.9~1.7 GB 쯤 씁니다(한 장 20~40 KB ×
+43,200장). LTE 에그처럼 용량이 정해진 회선이면 간격을 더 늘리세요. 예전 기본값 15초는
+그 네 배였습니다(예전 문서의 "150 MB" 는 계산이 틀렸습니다).
+
+끄려면 `SNAPSHOT_INTERVAL_SECONDS=0` 입니다(아래 터널을 깐 장비 등).
+
+### 끊김 없는 영상이 필요하면 — 터널 (3-5)
+
+사료 반응을 초 단위로 보는 것처럼 **진짜 실시간**이 필요할 때만 깝니다.
+장비마다 도메인과 터널을 하나씩 관리해야 하므로, 장비가 여러 대면 그만큼
+손이 갑니다.
+
+## 3-5. 비전 호스트에 https 주소 붙이기 (터널 — 선택)
 
 브라우저가 영상과 실시간 값을 직접 받으려면 비전 호스트에 **유효한 https 주소**가
 필요합니다. 웹이 https 인데 영상이 http 면 브라우저가 혼합 콘텐츠로 막습니다.
@@ -194,9 +243,39 @@ curl https://vision.shrimp365.kr/health     # {"status":"ok","mode":"simulation"
 ```
 
 > 공인 IP 와 공유기 설정을 직접 다룰 수 있다면 nginx + certbot 으로 같은 결과를
-> 낼 수 있습니다(설정은 §3-6).
+> 낼 수 있습니다(설정은 §3-7).
 
-## 3-5. 비전 서비스 기동
+## 3-5-1. 원격 업데이트 (장비가 여러 대면 사실상 필수)
+
+새 버전을 내면 장비들이 1시간 안에 스스로 받아 깝니다. 설치할 때 타이머가 함께
+등록되므로 **장비 쪽에도, 운영자 쪽에도 미리 할 일은 없습니다.**
+
+버전을 낼 때:
+
+```
+cd vision && python3 deploy/release.py build 1.1.0 --notes "변경 내용"
+```
+
+그리고 `public/updates/vision` 과 버전 파일들을 커밋·푸시하면 끝입니다.
+Vercel 이 저장소의 `public/` 를 그대로 서빙합니다.
+
+### 믿음의 경계는 GitHub 계정입니다
+
+장비가 믿는 것은 https 로 받은 `www.shrimp365.kr` 의 파일이고, 그것은 곧
+**저장소에 쓸 수 있는 사람**입니다. 받아 온 꾸러미는 목록의 해시와 한 바이트라도
+다르면 버리고, 풀 때도 허용한 모양의 파일만 받습니다 — 회선 중간에서 바뀌거나
+깨진 것은 막힙니다. 다만 저장소 자체를 쥔 쪽은 막지 못합니다.
+
+서명을 넣으면 그 선을 그을 수 있지만, 개인키가 저장소 밖에 있어야 하고 그러면
+버전을 낼 수 있는 사람도 그 키를 가진 한 사람뿐이 됩니다. 키를 저장소나 CI 에
+두는 절충은 지키려던 대상에게 열쇠를 맡기는 것이라 아무것도 막지 못합니다.
+
+> **GitHub 계정에 2단계 인증을 켜 두세요.** 그것이 모든 농장 파이의 자물쇠입니다.
+
+적용에 실패하면 이전 버전으로 되돌리고, 되돌린 꾸러미는 다시 받지 않습니다.
+자세한 것은 `vision/deploy/README.md` §8-1.
+
+## 3-6. 비전 서비스 기동
 
 한 호스트(B)에서는 저장소 루트에서:
 
@@ -219,7 +298,7 @@ docker run -d --name shrimp365-vision --restart unless-stopped \
 
 `127.0.0.1` 에만 묶어 두고 앞단에 nginx 를 세웁니다.
 
-## 3-6. 리버스 프록시 (직접 운영하는 경우)
+## 3-7. 리버스 프록시 (직접 운영하는 경우)
 
 ### (A) 비전 호스트의 nginx — `/stream` 과 `/ws` 만 연다
 
@@ -373,7 +452,7 @@ docker compose --profile vision restart vision
 | 화면이 "실시간 꺼짐" | `VISION_SERVICE_KEY` 미설정, 또는 등록된 카메라 없음 |
 | 영상 자리가 "연결할 수 없습니다" | 카메라를 시작했는지(설정 탭), `docker compose logs vision` |
 | 실시간만 계속 재접속 | 프록시 `/vision-ws` 설정, `VISION_STREAM_SECRET` 이 양쪽 같은 값인지 |
-| 개체수가 안 쌓임 | `DATABASE_URL` 이 asyncpg 인지, 마이그레이션을 실행했는지 |
+| 개체수가 안 쌓임 | 장비 화면의 "서버 끊김" 표시, Vercel 의 `SUPABASE_SERVICE_ROLE_KEY`, 마이그레이션 실행 여부 |
 | 경보가 안 옴 | 설정 탭에서 경보를 만들었는지(기본값 없음) |
 | 영상이 몇 초 뒤 끊김 (Vercel) | `NEXT_PUBLIC_VISION_PUBLIC_URL` 미설정 → 서버리스가 중계하다 시간 상한에 잘림 |
 | 영상 자리가 비고 콘솔에 mixed content | 비전 호스트가 http — https 인증서를 붙여야 합니다 |

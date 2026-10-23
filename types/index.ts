@@ -16,6 +16,9 @@ export interface User {
   role: "admin" | "manager" | "operator" | "viewer" | "farmer"
   plan?: "free" | "basic" | "pro" | "enterprise"
   farm_count?: number
+  /** 계정 기본 화면 모드(profiles.ui_mode). 마이그레이션 전 DB 는 값이 없어
+   *  선택 필드로 두고, 읽는 쪽에서 "shrimp" 으로 간주한다. */
+  ui_mode?: "shrimp" | "agriculture"
 }
 
 export interface Farm {
@@ -48,6 +51,10 @@ export interface Tank {
   stocking_date?: string | null
   harvest_date?: string | null
   tank_type?: "노지" | "실내" | "반실내"
+  /** 소속 농장의 유형. 수조 자신의 칸이 아니라 getAllTanks 의 farms 조인에서
+   *  파생한 값이다 — 그래서 선택 필드다(조인 없이 읽는 경로는 채우지 않는다).
+   *  화면이 "이 수조가 이 화면에 속하는가"를 판단하는 데만 쓴다. */
+  farm_type?: "shrimp" | "agriculture"
   /** 양액 레시피(농업 모드 베드 전용) — µS/cm 저장. null 이면 미설정. */
   target_ec?: number | null
   /** 허용 오차(±µS/cm). 사업 목표 ±0.1 dS/m = 100 µS/cm. */
@@ -76,8 +83,49 @@ export interface WaterQualityReading {
   flow_rate?: number | null
   /** 차압(kPa) — UV 살균기·필터 막힘 감시. 안 재는 곳은 null. */
   diff_pressure?: number | null
+  // ── 환경·기상(스마트팜 장비 · supabase/migrations/environment_readings.sql) ──
+  // 지그비 온습도·토양수분과 기상센서 값. 안 재는 장비·예전 기록은 null(또는 칸 자체가 없음).
+  /** 기온(2m) 또는 초관부 온도(지상 10cm), °C */
+  air_temp?: number | null
+  /** 상대습도, % */
+  humidity?: number | null
+  /** 토양 체적함수율, % */
+  soil_moisture?: number | null
+  /** 지온, °C */
+  soil_temp?: number | null
+  /** 평균 풍속, m/s */
+  wind_speed?: number | null
+  /** 돌풍, m/s */
+  wind_gust?: number | null
+  /** 풍향, 도(0=북) */
+  wind_dir?: number | null
+  /** 장비 현지 자정부터의 강수 누계, mm */
+  rain_day?: number | null
+  /** 강우강도, mm/h */
+  rain_rate?: number | null
+  /** 일사, W/m² */
+  solar?: number | null
+  /** 자외선 지수 */
+  uv_index?: number | null
+  /** 해면기압, hPa */
+  pressure?: number | null
   recorded_at: string
   created_at: string
+}
+
+/** 분전반 전력 회로 한 줄(supabase/migrations/power_readings.sql). 장비가 5분마다 올린다. */
+export interface PowerReading {
+  tank_id: string
+  circuit_id: string
+  /** lib/power.ts POWER_TYPES 중 하나 */
+  circuit_type: string
+  state: 0 | 1 | null
+  power_w: number | null
+  current_a: number | null
+  voltage_v: number | null
+  energy_today_kwh: number | null
+  device_temp: number | null
+  recorded_at: string
 }
 
 export interface JournalEntry {
@@ -102,6 +150,11 @@ export interface JournalEntry {
   notes?: string
   created_by: string
   created_at: string
+  /** 이 일지가 달린 수조가 속한 농장의 유형. 일지 자신의 칸이 아니라
+   *  getJournalEntries 의 tanks→farms 조인에서 파생한 값이다(조회는 늘지
+   *  않는다) — 그래서 선택 필드다. 화면이 "이 일지가 이 화면(URL)에
+   *  속하는가"를 판단하는 데만 쓴다. */
+  farm_type?: "shrimp" | "agriculture"
 }
 
 export interface DiagnosisResult {
@@ -130,6 +183,11 @@ export interface Alert {
   message: string
   created_at: string
   resolved: boolean
+  /** 이 알림이 달린 수조가 속한 농장의 유형. 알림 자신의 칸이 아니라
+   *  getAlerts 의 tanks→farms 조인에서 파생한 값이다(조회는 늘지 않는다) —
+   *  그래서 선택 필드다. 화면이 "이 알림이 이 화면(URL)에 속하는가"와
+   *  "어느 쪽 이름표를 붙일 것인가"를 판단하는 데 쓴다. */
+  farm_type?: "shrimp" | "agriculture"
 }
 
 export interface SensorDevice {
@@ -317,6 +375,8 @@ export interface CountRecord {
   confidence_avg: number | null
   model_version: string | null
   inference_ms: number | null
+  /** 추정 체장(cm). 먹이망 격자로 축척을 잡은 장비만 보낸다. */
+  length_cm?: number | null
 }
 
 /** vision_count_history() 가 돌려주는 한 칸. */
@@ -327,6 +387,8 @@ export interface CountBucket {
   min_count: number
   confidence_avg: number | null
   sample_count: number
+  /** 추정 체장의 평균(cm). 길이 기준을 안 잡은 장비는 NULL 이라 빠진다. */
+  avg_length_cm: number | null
 }
 
 /** vision_count_wq_series() 가 돌려주는 한 칸 — 개체수와 수질을 같은 시각에 맞춘 값.
@@ -386,3 +448,55 @@ export type VisionEvent =
       status: VisionCameraStatus
       message: string
     }
+
+// ─────────────────────────────────────────────
+// 노지 재해위험 판단(OFDF 병합) — docs/plans/openfield-merge.md 4장
+// ─────────────────────────────────────────────
+
+/** 판단 근거 하나 — 어떤 변수가 어느 값일 때 얼마나 기여했는가. 카드는 첫 항목의 label 만 쓴다. */
+export interface FieldRiskEvidence {
+  feature: string
+  /** 농가 말 라벨(엣지가 붙여 준 ko). 없으면 화면이 feature 를 env 사전으로 번역한다. */
+  label: string | null
+  value: number | null
+  contribution: number | null
+}
+
+/** 권고 조치 하나. OFDF 는 하드웨어를 직접 돌리지 않으므로 `executed` 는 "엣지가 실행으로
+ *  분류했다"는 뜻이고, 화면에는 모두 "할 일"로 보인다(advisory 는 권고). */
+export interface FieldRiskAction {
+  device: string
+  command: string
+  layer: number | null
+  reason: string | null
+  risk_type: string | null
+  executed: boolean
+  /** 현장 규칙·안전장치가 막은 조치. 있으면 회색으로 보인다. */
+  rejected_by: string | null
+  advisory: boolean
+}
+
+export type FieldRiskType = "heat_dry" | "rain_wet" | "disease" | "frost" | "compound"
+
+/** 판단 1건 = field_risk_judgements 1행. (risk × horizon_h) 가 한 시각에 최대 10건. */
+export interface FieldRiskJudgement {
+  id: string
+  tank_id: string
+  device_id: string | null
+  /** 판단 시각(ISO, tz 포함). */
+  ts: string
+  risk: FieldRiskType
+  horizon_h: 1 | 3
+  /** 0 정상 · 1 주의 · 2 경계 · 3 긴급(OFDF 등급 그대로). */
+  level: 0 | 1 | 2 | 3
+  /** OFDF 가 쓰는 한국어 등급명 — 참고용. 화면은 사전으로 번역한다. */
+  level_name: string | null
+  confidence: number | null
+  model_version: string | null
+  expected_onset: string | null
+  evidence: FieldRiskEvidence[]
+  actions: FieldRiskAction[]
+  /** 그때의 기상·토양 9항목(t_air, canopy_temp, rh, leaf_wetness, solar_w, rain, soil_moisture, soil_index, wind_speed). */
+  environment: Partial<Record<string, number>>
+  created_at: string
+}

@@ -214,8 +214,11 @@ class OnnxShrimpDetector:
             return self._session
         try:
             import onnxruntime as ort  # noqa: PLC0415 - 지연 임포트
-        except ImportError:
-            raise RuntimeError(MISSING_ORT_MSG) from None
+        except ImportError as exc:
+            # 원인을 버리지 않는다. onnxruntime 은 "없어서" 말고도 못 불러온다 —
+            # 보드에 안 맞는 wheel, libstdc++ 가 오래된 경우 등. 그때 "미설치"
+            # 라고만 적으면 재설치만 반복하게 된다.
+            raise RuntimeError(f"{MISSING_ORT_MSG}\n  (실제 오류: {exc})") from exc
 
         options = ort.SessionOptions()
         if settings.inference_threads > 0:

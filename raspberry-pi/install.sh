@@ -22,7 +22,7 @@ CONF_DIR=/etc/shrimp365
 CONF="$CONF_DIR/config.ini"
 SERVICE_USER=shrimp365
 
-MODULES=(shrimp365_sensor.py display.py webui.py wifi.py buffer.py history.py updater.py)
+MODULES=(shrimp365_sensor.py display.py webui.py wifi.py buffer.py history.py updater.py limits.py anomaly.py advice.py field_env.py wireless.py verify.py)
 
 # 시스템 파일 — 모듈과 달리 /opt 밖으로 간다. 없으면 설치를 멈춘다.
 POLKIT_RULE=50-shrimp365-nm.rules
@@ -76,6 +76,16 @@ for f in "${MODULES[@]}"; do
 done
 # 다시 설치했을 때 옛 바이트코드가 남아 헷갈리는 일을 막는다.
 rm -rf "$APP_DIR/__pycache__"
+# 무선 센서 수집기 설치 도구 — 화면 [설정] → [무선 센서] 가 이 경로를 안내한다.
+# 실제 설치(브로커·Zigbee2MQTT·수집기)는 동글을 꽂은 뒤 setup-wireless.sh 가 한다.
+if [ -f "$SRC/setup-wireless.sh" ]; then
+  install -m 755 "$SRC/setup-wireless.sh" "$APP_DIR/setup-wireless.sh"
+fi
+if [ -d "$SRC/field" ]; then
+  rm -rf "$APP_DIR/field"
+  cp -r "$SRC/field" "$APP_DIR/field"
+  chmod -R a+rX "$APP_DIR/field"
+fi
 
 # ── 3. 설정 파일 ─────────────────────────────────────────────────────────────
 install -d -m 755 "$CONF_DIR"

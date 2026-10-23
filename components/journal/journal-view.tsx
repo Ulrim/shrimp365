@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { MOCK_JOURNALS, MOCK_DIAGNOSES, MOCK_TANKS, MOCK_INVENTORY_ITEMS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
 import {
@@ -32,6 +32,10 @@ import {
 import { formatDate, formatDateTime } from "@/lib/utils"
 import { exportToCsv } from "@/lib/export"
 import { useT } from "@/lib/i18n-context"
+
+/** 이 화면은 새우 전용이다(농업 일지는 components/agri/agri-journal-view.tsx).
+ *  혼합 계정의 수경재배 베드·일지는 여기서 걸러 낸다. 값이 없으면 새우로 본다. */
+const isShrimp = (x: { farm_type?: "shrimp" | "agriculture" | null }) => (x.farm_type ?? "shrimp") !== "agriculture"
 
 // ── Diagnosis helpers ─────────────────────────────────────────────────────────
 
@@ -128,6 +132,8 @@ type JournalPersistedDefaults = {
   check_feeding_check?: boolean
 }
 
+// 새우 폼 기본값 키. 농업 폼은 자기 키를 따로 쓴다(lib/record-actions.ts) —
+// 한 계정이 두 폼을 오가도 "사료 종류"에 양액 이름이 뜨지 않는다.
 const JOURNAL_DEFAULTS_KEY = "journal_form_defaults"
 
 function loadJournalDefaults(): JournalPersistedDefaults {
@@ -193,8 +199,13 @@ function JournalCard({ entry, currentUserId, currentUserName, onEdit, onDelete }
             <p className="text-xs text-muted-foreground">{t.journal.catFeeding}</p>
           </div>
           <div className="bg-muted rounded-lg p-3 text-center">
-            <div className="flex items-center justify-center gap-1 text-amber-500 mb-1"><Skull className="w-3.5 h-3.5" /></div>
-            <p className="text-lg font-bold text-foreground">{entry.mortality_count.toLocaleString()}<span className="text-xs text-muted-foreground">{t.journalX.unitFish}</span></p>
+            <div className="flex items-center justify-center gap-1 text-amber-500 mb-1">
+              <Skull className="w-3.5 h-3.5" />
+            </div>
+            <p className="text-lg font-bold text-foreground">
+              {entry.mortality_count.toLocaleString()}
+              <span className="text-xs text-muted-foreground">{t.journalX.unitFish}</span>
+            </p>
             <p className="text-xs text-muted-foreground">{t.journalX.mortality}</p>
           </div>
           <div className="bg-muted rounded-lg p-3 text-center">
@@ -211,7 +222,7 @@ function JournalCard({ entry, currentUserId, currentUserName, onEdit, onDelete }
 
         <div className="text-xs text-foreground/80 bg-muted rounded-lg px-3 py-2 flex items-start gap-2">
           <p className="text-xs text-muted-foreground font-medium shrink-0">{t.journalX.feed}:</p>
-          <p>{entry.feed_type} · {entry.feeding_times}{t.common.unit.timesPerDay}</p>
+          <p>{`${entry.feed_type} · ${entry.feeding_times}${t.common.unit.timesPerDay}`}</p>
         </div>
         {entry.notes && (
           <div className="mt-2 text-xs text-foreground/80 bg-muted rounded-lg px-3 py-2 flex items-start gap-2">
@@ -301,13 +312,20 @@ export function JournalView() {
   }
   const mock = isTestAccount(user?.email)
 
-  const [pageTab, setPageTab] = useState<"journal" | "diagnosis">("journal")
+  const [tab, setTab] = useState<"journal" | "diagnosis">("journal")
 
   // Shared
-  const [tanks, setTanks] = useState<Tank[]>([])
+  const [allTanks, setAllTanks] = useState<Tank[]>([])
+  // 기록 대상은 새우 수조만. 혼합 계정에서 안 거르면 새우 일지 폼(급이 kg·폐사)
+  // 으로 수경재배 베드에 적을 수 있다.
+  const tanks = useMemo(() => allTanks.filter(isShrimp), [allTanks])
 
   // ── Journal state ──
   const [journals, setJournals] = useState<JournalEntry[]>([])
+  // 목록과 CSV 도 새우 일지만. 안 거르면 수경재배 베드의 "양액 40 L 보충" 이 여기서
+  // "사료 40 kg" 으로 읽힌다. farm_type 은 일지가 조인으로 들고 온다
+  // (getJournalEntries) — 수조 목록이 늦게 도착해도 첫 페인트가 흔들리지 않는다.
+  const visibleJournals = useMemo(() => journals.filter(isShrimp), [journals])
   const [jLoading, setJLoading] = useState(true)
   const [jLoadingMore, setJLoadingMore] = useState(false)
   const [jHasMore, setJHasMore] = useState(false)
@@ -390,7 +408,7 @@ export function JournalView() {
     if (mock) {
       setJournals(MOCK_JOURNALS)
       setDiagnoses(MOCK_DIAGNOSES)
-      setTanks(MOCK_TANKS)
+      setAllTanks(MOCK_TANKS)
       setInventoryItems(MOCK_INVENTORY_ITEMS)
       setJLoading(false)
       setDLoading(false)
@@ -398,7 +416,7 @@ export function JournalView() {
     }
     try {
       const [, tanksData, invData] = await Promise.all([loadJournals("", "", 0, true), getAllTanks(), getInventoryItems()])
-      setTanks(tanksData)
+      setAllTanks(tanksData)
       setInventoryItems(invData)
       await loadDiagnoses("", "", 0, true)
     } catch { } finally {
@@ -425,7 +443,7 @@ export function JournalView() {
   }
 
   const handleJCsvExport = () => {
-    exportToCsv(journals.map(j => ({
+    exportToCsv(visibleJournals.map(j => ({
       날짜: j.date, 수조: j.tank_name,
       급이량_kg: j.feeding_amount, 사료종류: j.feed_type, 급이횟수: j.feeding_times,
       폐사수: j.mortality_count, 환수율: j.water_exchange_rate,
@@ -446,8 +464,9 @@ export function JournalView() {
       if (!raw) continue
       const val = parseFloat(raw)
       if (!Number.isFinite(val)) { setJSaveError(`${WQ_BOUNDS[field].label}: ${t.journalX.errInvalidNumber}`); return }
-      if (val < WQ_BOUNDS[field].min || val > WQ_BOUNDS[field].max) {
-        setJSaveError(`${WQ_BOUNDS[field].label}: ${WQ_BOUNDS[field].min}~${WQ_BOUNDS[field].max}${WQ_BOUNDS[field].unit} ${t.journalX.errOutOfRange}`)
+      const bound = WQ_BOUNDS[field]
+      if (val < bound.min || val > bound.max) {
+        setJSaveError(`${bound.label}: ${bound.min}~${bound.max}${bound.unit} ${t.journalX.errOutOfRange}`)
         return
       }
     }
@@ -489,8 +508,8 @@ export function JournalView() {
         }
       } catch { /* 재고 차감 실패 시 일지 저장은 유지 */ }
 
-      const hasWq = jForm.temperature || jForm.ph || jForm.do_level || jForm.salinity ||
-        jForm.ammonia || jForm.nitrite || jForm.nitrate || jForm.alkalinity || jForm.turbidity
+      const hasWq = !!(jForm.temperature || jForm.ph || jForm.do_level || jForm.salinity ||
+             jForm.ammonia || jForm.nitrite || jForm.nitrate || jForm.alkalinity || jForm.turbidity)
       if (hasWq) {
         try {
           await insertWaterQuality(jForm.tank_id, {
@@ -508,6 +527,10 @@ export function JournalView() {
       setJournals(prev => [{
         id: "local-" + Date.now(), tank_id: jForm.tank_id,
         tank_name: selectedTank?.name || "",
+        // 로컬로 만드는 카드에도 farm_type 을 실어야 목록 필터(visibleJournals)에
+        // 걸리지 않는다. DB 가 안 되는 경로라 조인으로 받을 수 없다 — 수조는
+        // 이미 새우만 거른 목록에서 고른 것이다.
+        farm_type: selectedTank?.farm_type ?? "shrimp",
         date: jForm.date, feeding_amount: parseFloat(jForm.feeding_amount) || 0,
         feed_type: jForm.feed_type, feeding_times: parseInt(jForm.feeding_times) || 0,
         mortality_count: parseInt(jForm.mortality_count) || 0,
@@ -708,10 +731,10 @@ export function JournalView() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-xl font-bold text-foreground">
-            {pageTab === "journal" ? t.journal.title : t.diagnosis.title}
+            {tab === "journal" ? t.journal.title : t.diagnosis.title}
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {pageTab === "journal" ? t.journal.subtitle : t.diagnosis.subtitle}
+            {tab === "journal" ? t.journal.subtitle : t.diagnosis.subtitle}
           </p>
         </div>
 
@@ -719,9 +742,9 @@ export function JournalView() {
           {/* Tab switcher */}
           <div className="flex bg-muted border border-border rounded-xl p-1">
             <button
-              onClick={() => setPageTab("journal")}
+              onClick={() => setTab("journal")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                pageTab === "journal"
+                tab === "journal"
                   ? "bg-ocean-50 text-ocean-600 border border-ocean-200"
                   : "text-muted-foreground hover:text-foreground"
               }`}
@@ -729,9 +752,9 @@ export function JournalView() {
               <BookOpen className="w-3.5 h-3.5" />{t.journal.title}
             </button>
             <button
-              onClick={() => setPageTab("diagnosis")}
+              onClick={() => setTab("diagnosis")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                pageTab === "diagnosis"
+                tab === "diagnosis"
                   ? "bg-purple-50 text-purple-600 border border-purple-200"
                   : "text-muted-foreground hover:text-foreground"
               }`}
@@ -741,9 +764,9 @@ export function JournalView() {
           </div>
 
           {/* Journal actions */}
-          {pageTab === "journal" && (
+          {tab === "journal" && (
             <>
-              {journals.length > 0 && (
+              {visibleJournals.length > 0 && (
                 <Button
                   variant="outline"
                   onClick={handleJCsvExport}
@@ -762,7 +785,7 @@ export function JournalView() {
           )}
 
           {/* Diagnosis actions */}
-          {pageTab === "diagnosis" && (
+          {tab === "diagnosis" && (
             <>
               {diagnoses.length > 0 && (
                 <Button
@@ -868,7 +891,7 @@ export function JournalView() {
       </div>
 
       {/* ── Journal Tab ── */}
-      {pageTab === "journal" && (
+      {tab === "journal" && (
         <>
           <div className="flex flex-wrap items-center gap-3 bg-muted border border-border rounded-xl px-4 py-3">
             <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -887,7 +910,7 @@ export function JournalView() {
             <div className="flex items-center justify-center h-40"><div className="w-8 h-8 border-4 border-ocean-400 border-t-transparent rounded-full animate-spin" /></div>
           ) : (
             <>
-              {journals.length === 0 ? (
+              {visibleJournals.length === 0 ? (
                 <div className="col-span-2 flex flex-col items-center justify-center py-16 gap-4 text-center">
                   <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
                     <BookOpen className="w-8 h-8 text-muted-foreground opacity-50" />
@@ -902,7 +925,7 @@ export function JournalView() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {journals.map(entry => (
+                  {visibleJournals.map(entry => (
                     <JournalCard key={entry.id} entry={entry} currentUserId={user?.id} currentUserName={user?.name} onEdit={handleJEdit} onDelete={setJDeleteTarget} />
                   ))}
                 </div>
@@ -922,7 +945,7 @@ export function JournalView() {
       )}
 
       {/* ── Diagnosis Tab ── */}
-      {pageTab === "diagnosis" && (
+      {tab === "diagnosis" && (
         <>
           <div className="flex flex-wrap items-center gap-3 bg-muted border border-border rounded-xl px-4 py-3">
             <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />

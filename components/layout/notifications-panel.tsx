@@ -1,15 +1,15 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Bell, BellRing, X, CheckCircle2, AlertCircle, XCircle, Info, CheckCheck, RefreshCw, ArrowRight } from "lucide-react"
 import { getAlerts, resolveAlert } from "@/lib/db"
 import { MOCK_ALERTS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
 import { formatDateTime } from "@/lib/utils"
-import { useAgriRoute } from "@/lib/agri-route"
-import { MISSING_INPUT_PARAMETER } from "@/lib/thresholds"
+import { AGRI_PREFIX, isAgriPath } from "@/lib/agri-route"
+import { alertDisplayLabel, hasThresholdLine } from "@/lib/thresholds"
 import type { Alert } from "@/types"
 import type { AlertNotifyPermission } from "@/lib/use-alert-notifications"
 
@@ -41,7 +41,8 @@ const TYPE_BG: Record<Alert["type"], string> = {
 export function NotificationsPanel({ open, onClose, onCountChange, notifyPermission, notifyDeliverable = true, notifyPushActive = false, onEnableNotify }: NotificationsPanelProps) {
   const { user } = useAuth()
   const { t } = useT()
-  const { href: withAgri } = useAgriRoute()
+  // "더 보기"는 지금 보는 화면의 축을 따른다 — 농업 화면이면 양액 관리로.
+  const isAgri = isAgriPath(usePathname() ?? "")
   const router = useRouter()
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [loading, setLoading] = useState(false)
@@ -202,15 +203,23 @@ export function NotificationsPanel({ open, onClose, onCountChange, notifyPermiss
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className="text-sm text-foreground font-medium truncate">{alert.tank_name}</span>
                     {alert.parameter && (
-                      <span className="text-xs text-muted-foreground shrink-0">{alert.parameter}</span>
+                      // 저장 키를 그대로 찍지 않는다 — 농업에서는 "수온"이 아니라
+                      // "양액 온도"로 읽어야 한다(lib/thresholds.ts).
+                      //
+                      // 기준은 **그 알림이 달린 수조의 농장 유형**이지 지금 보고
+                      // 있는 주소가 아니다. 이 패널은 헤더에 붙어 두 축의 알림을
+                      // 함께 보여 주므로, 주소로 이름표를 정하면 새우 양식지의
+                      // "수온"이 농업 주소에서 "양액 온도"로 뒤바뀐다.
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {alertDisplayLabel(alert.parameter, alert.farm_type ?? "shrimp")}
+                      </span>
                     )}
                   </div>
                   <p className="text-xs text-foreground/80 leading-relaxed">{alert.message}</p>
-                  {/* 입력 누락은 "측정값"이 없는 알림이다 — value 는 마지막 기록 이후
-                      경과 **시간**이고 threshold 는 72시간이다. 이 줄을 그대로 붙이면
-                      "측정값 96 / 기준 72" 가 되어 수질 수치로 오해한다. 감추는 게 맞다.
-                      (water-quality-view.tsx 의 같은 가드와 짝) */}
-                  {alert.parameter !== MISSING_INPUT_PARAMETER && alert.value != null && alert.threshold != null && (
+                  {/* 넘어선 선이 없는 알림(입력 누락·추세)에는 이 줄을 붙이지 않는다.
+                      조건은 lib/thresholds.ts 의 hasThresholdLine 하나로 모아 두었다 —
+                      화면마다 적으면 한쪽만 고쳐져 어긋난다. */}
+                  {hasThresholdLine(alert.parameter) && alert.value != null && alert.threshold != null && (
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {t.notif.measured}: <span className="text-foreground">{alert.value}</span> / {t.notif.threshold}: {alert.threshold}
                     </p>
@@ -219,7 +228,16 @@ export function NotificationsPanel({ open, onClose, onCountChange, notifyPermiss
                 </div>
                 <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                   <button
-                    onClick={() => { router.push(withAgri(`/water-quality?tank=${alert.tank_id}`)); onClose() }}
+                    // 갈 곳도 그 알림이 속한 축이다. 주소를 기준으로 삼으면
+                    // 농업 주소에서 새우 알림을 눌렀을 때 /daumlabs/water-quality
+                    // 로 가고, 그 화면에는 그 수조가 없어 고를 수가 없다.
+                    // 순수 새우 계정에서는 모든 알림이 shrimp 라 결과가 지금과
+                    // 한 글자도 다르지 않다.
+                    onClick={() => {
+                      const prefix = alert.farm_type === "agriculture" ? AGRI_PREFIX : ""
+                      router.push(`${prefix}/water-quality?tank=${alert.tank_id}`)
+                      onClose()
+                    }}
                     className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-ocean-500 transition-colors"
                     title={t.notif.gotoTank}
                   >
@@ -245,7 +263,7 @@ export function NotificationsPanel({ open, onClose, onCountChange, notifyPermiss
 
       {/* Footer */}
       <div className="border-t border-border px-4 py-2">
-        <a href={withAgri("/water-quality")} onClick={onClose} className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center justify-center gap-1">
+        <a href={isAgri ? `${AGRI_PREFIX}/water-quality` : "/water-quality"} onClick={onClose} className="text-xs text-ocean-500 hover:text-ocean-600 flex items-center justify-center gap-1">
           {t.notif.viewMore} →
         </a>
       </div>

@@ -1,0 +1,68 @@
+<meta charset="utf-8">
+<style>
+  @font-face{font-family:Pretendard;src:url(__FONT__) format("woff2");font-weight:100 900;font-display:block}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Pretendard,sans-serif;background:#fff;color:#14202b;-webkit-font-smoothing:antialiased}
+  .sheet{width:1360px;padding:42px 46px 38px;background:#fff}
+  .head{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:3px solid #0e3a5c;padding-bottom:13px;margin-bottom:22px}
+  .head h1{font-size:31px;font-weight:800;letter-spacing:-.02em;color:#0e3a5c}
+  .head .sub{font-size:14.5px;color:#5b6b7a;margin-top:7px;font-weight:500}
+  .head .tag{font-size:13px;color:#0e3a5c;background:#e8f1f7;border:1px solid #c3dcec;border-radius:6px;padding:7px 12px;font-weight:700;line-height:1.5;text-align:right}
+  table{width:100%;border-collapse:collapse}
+  th,td{border:1px solid #cfdae3;padding:9px 11px;font-size:14px;line-height:1.5;vertical-align:middle}
+  thead th{background:#0e3a5c;color:#fff;font-weight:800;font-size:14.5px;text-align:center;border-color:#0e3a5c}
+  td.g{text-align:center;font-weight:800;color:#0e3a5c;background:#f4f8fa;width:96px}
+  td.i{font-weight:700;width:216px}
+  td.s{width:auto}
+  td.q{text-align:center;width:78px}
+  td.n{color:#4b5b6a;font-size:13.5px;width:300px}
+  tbody tr.ext td{background:#fffaf2}
+  tbody tr.ext td.g{background:#fdf1de}
+  .legend{margin-top:16px;display:flex;gap:14px}
+  .legend div{flex:1;border:1.5px solid #cfdae3;border-radius:9px;padding:11px 14px;background:#f7fafc}
+  .legend h3{font-size:14px;font-weight:800;color:#0e3a5c;margin-bottom:5px}
+  .legend p{font-size:13.5px;line-height:1.55;color:#3a4855}
+  .foot{margin-top:16px;font-size:12.5px;color:#7a8894;display:flex;justify-content:space-between;border-top:1px solid #e2e9ee;padding-top:10px}
+</style>
+<div class="sheet" id="sheet">
+  <div class="head">
+    <div>
+      <h1>수질센서 및 AI 엣지 수질진단 모듈 주요 부품 사양 검토·확정</h1>
+      <div class="sub">AI 엣지 수질진단 모듈 시제품 — 추진항목 2 「수질센서 및 주요 부품 사양 확정·조달」 근거자료</div>
+    </div>
+    <div class="tag">㈜컬리버 · Shrimp365<br>2026. 9. 기준</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>구분</th><th>품목</th><th>확정 사양</th><th>수량</th><th>선정 사유 · 현장 고려사항</th></tr>
+    </thead>
+    <tbody>
+      <tr><td rowspan="4" class="g">센서부</td><td class="i">수온</td><td class="s">측정범위 0~50 ℃ / pH·DO·EC 센서에 내장</td><td class="q">—</td><td class="n">DO 센서의 수온을 대표값으로 사용. DO 포화농도 보정에 쓰인 수온과 기록 수온을 일치시키기 위함</td></tr>
+      <tr><td class="i">pH · ORP 센서</td><td class="s">RS-485 MODBUS-RTU / pH 0~14 / 슬레이브 ID 1</td><td class="q">1식</td><td class="n">디지털 출력이라 장거리 배선에서 아날로그 대비 잡음에 강함</td></tr>
+      <tr><td class="i">용존산소(DO) 센서</td><td class="s">RS-485 / 0~20 ㎎/L / 포화도(%) 동시 출력</td><td class="q">1식</td><td class="n">흰다리새우 폐사의 최대 원인. 새벽 급락 감지를 위해 1분 주기 확보</td></tr>
+      <tr><td class="i">전기전도도 / TDS / 염도</td><td class="s">RS-485 / 염도는 전도도에서 환산(해수 구간 실용염분식)</td><td class="q">1식</td><td class="n">센서의 염도 레지스터 대신 실측값인 전도도에서 환산 — 수온까지 반영</td></tr>
+      <tr class="ext"><td class="g">확장</td><td class="i">탁도 · 암모니아 · 아질산 · 질산염</td><td class="s">동일 RS-485 계열, 슬레이브 ID 추가 배정</td><td class="q">검토</td><td class="n">동일 통신선에 병렬 증설 가능한 구조로 확정. 시제품 단계에서는 자동화 우선순위가 높은 항목부터 적용</td></tr>
+      <tr><td rowspan="2" class="g">제어부</td><td class="i">엣지 제어보드</td><td class="s">싱글보드컴퓨터(터치스크린 구성 시 상위 모델) / microSD 16 GB 이상</td><td class="q">1식</td><td class="n">현장 단독 판단·저장이 가능하고 국내 조달과 유지보수가 쉬운 계열로 선정</td></tr>
+      <tr><td class="i">USB-RS485 변환기</td><td class="s">9600 bps / 반이중 / FTDI 계열 칩셋</td><td class="q">1식</td><td class="n">GPIO UART 대비 배선이 단순해 현장 설치 시간이 짧음</td></tr>
+      <tr><td class="g">통신부</td><td class="i">무선랜 · 유선랜</td><td class="s">내장 무선랜 / 장비 화면에서 공유기 검색·연결</td><td class="q">1식</td><td class="n">양식장 통신 불안정을 전제로, 두절 시에도 측정·저장·경보가 계속되는 구조</td></tr>
+      <tr><td rowspan="2" class="g">전원부</td><td class="i">센서 전원</td><td class="s">DC 9~24V SMPS</td><td class="q">1식</td><td class="n">제어부 5V로는 센서가 구동되지 않음. 별도 전원 필수</td></tr>
+      <tr><td class="i">제어부 전원</td><td class="s">정격 전원 어댑터</td><td class="q">1식</td><td class="n">전압이 흔들리면 RS-485 통신 오류(CRC)가 잦아짐</td></tr>
+      <tr><td rowspan="2" class="g">경보부</td><td class="i">7인치 터치스크린</td><td class="s">800×480 / 키오스크 상시 표시</td><td class="q">1식</td><td class="n">기준 이탈 시 해당 값 칸이 주황·빨강으로 전환. 관리자가 수조 옆에서 즉시 확인</td></tr>
+      <tr><td class="i">문자 LCD (대체안)</td><td class="s">I2C 1602 / 2004</td><td class="q">옵션</td><td class="n">보급형 저가 구성용. 한글 표시가 불가해 영문 라벨 사용</td></tr>
+      <tr><td rowspan="2" class="g">배선 · 함체</td><td class="i">센서 케이블 · 종단저항</td><td class="s">4심(전원 2 + 통신 A/B 2) / 10 m 초과 시 양 끝 120 Ω</td><td class="q">—</td><td class="n">센서 0V와 제어부 GND를 공통 결선하지 않으면 통신이 불안정</td></tr>
+      <tr><td class="i">방수 하우징</td><td class="s">옥외 방수 함체 / 케이블 글랜드</td><td class="q">1식</td><td class="n">고습·염분·결로 환경. 센서 오염 시 세척·교정이 가능한 거치 방식으로 설치</td></tr>
+    </tbody>
+  </table>
+
+  <div class="legend">
+    <div><h3>확정된 것</h3><p>통신 규격(RS-485 MODBUS-RTU), 센서 4종 구성, 전원 계통 분리, 측정 주기, 함체·배선 요건</p></div>
+    <div><h3>조달 진행 중</h3><p>센서 모듈 3식, 방수 하우징, 터치스크린 — 공급기업 견적 비교 후 발주</p></div>
+    <div><h3>검토 중</h3><p>탁도·암모니아·아질산·질산염 센서의 시제품 단계 적용 범위, 현장 거치 브래킷 형상</p></div>
+  </div>
+
+  <div class="foot">
+    <span>※ 센서는 동일 통신선에 병렬 연결하며 슬레이브 ID가 중복되면 한쪽이 응답하지 않으므로, 설치 시 장비 화면의 「선 훑기」로 실제 배정을 확인함</span>
+    <span>㈜컬리버 · 2026년 전남 지역기업 성장사다리 지원사업</span>
+  </div>
+</div>

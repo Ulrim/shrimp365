@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceLine, ReferenceArea, Legend,
+  ResponsiveContainer, ReferenceLine, Legend,
 } from "recharts"
 import { MOCK_TANKS, MOCK_WATER_QUALITY, WATER_QUALITY_STANDARDS, MOCK_ALERTS, MOCK_SENSOR_DEVICES, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
@@ -21,18 +21,17 @@ import {
 import {
   Thermometer, Droplets, Wind, Waves, AlertTriangle,
   CheckCircle2, XCircle, AlertCircle, RefreshCw, Plus, Download, Wifi, Clock,
-  Maximize2, X, Activity, TrendingUp, TrendingDown, Gauge, ChevronRight,
+  Maximize2, X, Gauge, Activity, TrendingUp, TrendingDown, ChevronRight,
 } from "lucide-react"
 import {
   detectTrendAnomalies, TREND_MIN_SAMPLES, anomalyCauses, thresholdAlertCauses,
-  MISSING_INPUT_PARAMETER, type TrendAnomaly,
+  alertDisplayLabel, hasThresholdLine, type TrendAnomaly,
 } from "@/lib/thresholds"
 import { exportToCsv } from "@/lib/export"
 import { formatDateTime } from "@/lib/utils"
 import type { Tank, WaterQualityReading, Alert, SensorDevice } from "@/types"
 import type { Dict, Locale } from "@/lib/i18n"
 import { useT } from "@/lib/i18n-context"
-import { useAgriRoute } from "@/lib/agri-route"
 import { useAutoRefresh, sinceLabel } from "@/lib/use-auto-refresh"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -175,7 +174,10 @@ const SENSOR_COLORS = ["#0ea5e9", "#f59e0b", "#a78bfa", "#14b8a6", "#ec4899", "#
 function buildCompareData(
   readings: WaterQualityReading[],
   devNameById: Map<string, string>,
-  metricKey: typeof STD_KEYS[number],
+  // 새우 9항목은 non-null 이지만 conductivity·flow_rate·diff_pressure 는 이
+  // 저장소가 **일부러 nullable 로 둔** 컬럼이다("쟀는데 0"과 "안 쟀다"를 구분하려고 —
+  // lib/db.ts). 비교 항목에 그 컬럼이 들어오면 null 이 여기까지 온다.
+  metricKey: keyof WaterQualityReading,
   digits: number,
   locale: Locale,
 ) {
@@ -191,13 +193,17 @@ function buildCompareData(
         time: multiDay
           ? `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
           : d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }),
-        [devNameById.get(r.device_id!)!]: Number((r[metricKey] as number).toFixed(digits)),
-      } as Record<string, number | string>
+        // buildChartData 와 같은 가드. 없으면 null 에서 TypeError 가 나고
+        // useMemo 안이라 화면 전체가 죽는다(백스크린).
+        [devNameById.get(r.device_id!)!]: typeof r[metricKey] === "number"
+          ? Number((r[metricKey] as number).toFixed(digits))
+          : null,
+      } as Record<string, number | string | null>
     })
     .sort((a, b) => (a.t as number) - (b.t as number))
 }
 
-function SensorCompareChart({ data, names, fill = false, big = false }: { data: Record<string, number | string>[]; names: string[]; fill?: boolean; big?: boolean }) {
+function SensorCompareChart({ data, names, fill = false, big = false }: { data: Record<string, number | string | null>[]; names: string[]; fill?: boolean; big?: boolean }) {
   const fs = big ? 17 : 11
   return (
     <ResponsiveContainer width="100%" height={fill ? "100%" : 260}>
@@ -227,7 +233,7 @@ function devicePayloadLabels(t: Dict): Record<string, { label: string; unit?: st
     tds:           { label: "TDS", unit: "ppm" },
     do_saturation: { label: t.waterQualityX.doSaturation, unit: "%" },
     orp:           { label: "ORP", unit: "mV" },
-    // 유량·차압 — 새우 모드에서도 무해(장비가 안 보내면 안 보임).
+    // 유량·차압 — 장비가 안 보내면 안 보인다.
     flow_rate:     { label: t.waterQualityX.flowRate, unit: "L/min" },
     diff_pressure: { label: t.waterQualityX.diffPressure, unit: "kPa" },
   }
@@ -296,43 +302,47 @@ interface ChartPanelProps {
   unit: string
   fill?: boolean
   big?: boolean
-  /** 농업 모드 베드 레시피 — 있으면 std 기준선 대신 목표선+허용밴드를 그린다. */
-  recipe?: { target: number; tol: number } | null
-  /** 농업 모드에서 새우 해수 기준선(std)을 숨긴다(레시피 없어도 오탐 방지). */
-  hideStd?: boolean
 }
 
-function SingleParamChart({ chartData, stdKey, chartLabel, chartColor, unit, fill = false, big = false, recipe = null, hideStd = false }: ChartPanelProps) {
+function SingleParamChart({ chartData, stdKey, chartLabel, chartColor, unit, fill = false, big = false }: ChartPanelProps) {
   const { t } = useT()
   const std = WATER_QUALITY_STANDARDS[stdKey]
-  const yVals = chartData.map(d => d[stdKey as keyof typeof d] as number).filter(Boolean)
-  const padding = (std.max - std.min) * 0.5
-  const yMin = Math.min(std.warning_min - padding * 0.2, ...yVals)
-  const yMax = Math.max(std.warning_max + padding * 0.2, ...yVals)
+  const yVals = chartData
+    .map(d => d[stdKey as keyof typeof d] as number)
+    .filter(v => typeof v === "number" && Number.isFinite(v) && v !== 0)
   const fs = big ? 17 : 11
   const refFs = big ? 14 : 10
-  const showStd = !hideStd && !recipe
+
+  // Y 도메인은 기준선(경고 상·하한)과 실측값을 함께 품는다.
+  const padding = (std.max - std.min) * 0.5
+  const yDomain: [number, number] = [
+    Math.min(std.warning_min - padding * 0.2, ...yVals),
+    Math.max(std.warning_max + padding * 0.2, ...yVals),
+  ]
+
+  // `y != null` 이지 truthy 검사가 아니다 — 암모니아·질산염 등은 하한이
+  // **0** 이라 truthy 로 걸면 그 선이 사라진다.
+  const line = (y: number | null, stroke: string, opacity: number, label: string, top: boolean) =>
+    y != null
+      ? <ReferenceLine y={y} stroke={stroke} strokeDasharray="4 4" strokeOpacity={opacity}
+          label={{ value: label, fill: stroke, fontSize: refFs, position: top ? "insideTopRight" : "insideBottomRight" }} />
+      : null
 
   return (
     <ResponsiveContainer width="100%" height={fill ? "100%" : 260}>
       <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={big ? 140 : 100} />
-        <YAxis domain={[yMin, yMax]} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} width={big ? 70 : 42} tickFormatter={v => `${v}${unit}`} />
+        <YAxis domain={yDomain} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} width={big ? 70 : 42} tickFormatter={v => `${v}${unit}`} />
         <Tooltip
           contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px", fontSize: big ? 16 : 12 }}
           labelStyle={{ color: "hsl(var(--muted-foreground))" }}
           itemStyle={{ color: "hsl(var(--foreground))" }}
         />
-        {showStd && <ReferenceLine y={std.max} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: t.waterQualityX.chartMax, fill: "#34d399", fontSize: refFs, position: "insideTopRight" }} />}
-        {showStd && <ReferenceLine y={std.min} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.6} label={{ value: t.waterQualityX.chartMin, fill: "#34d399", fontSize: refFs, position: "insideBottomRight" }} />}
-        {showStd && <ReferenceLine y={std.warning_max} stroke="#fbbf24" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: t.waterQualityX.chartWarnHigh, fill: "#fbbf24", fontSize: refFs, position: "insideTopRight" }} />}
-        {showStd && <ReferenceLine y={std.warning_min} stroke="#fbbf24" strokeDasharray="4 4" strokeOpacity={0.5} label={{ value: t.waterQualityX.chartWarnLow, fill: "#fbbf24", fontSize: refFs, position: "insideBottomRight" }} />}
-        {/* 레시피 목표선+허용밴드 — 정상 범위 = emerald(기존 std 선과 같은 문법) */}
-        {recipe && <ReferenceArea y1={recipe.target - recipe.tol} y2={recipe.target + recipe.tol} fill="#34d399" fillOpacity={0.08} stroke="none" ifOverflow="extendDomain" />}
-        {recipe && <ReferenceLine y={recipe.target} stroke="#34d399" strokeDasharray="6 3" strokeOpacity={0.9} label={{ value: `${t.waterQualityX.targetLabel} ${recipe.target}`, fill: "#34d399", fontSize: refFs, position: "insideTopRight" }} />}
-        {recipe && <ReferenceLine y={recipe.target + recipe.tol} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.5} />}
-        {recipe && <ReferenceLine y={recipe.target - recipe.tol} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.5} />}
+        {line(std.max, "#34d399", 0.6, t.waterQualityX.chartMax, true)}
+        {line(std.min, "#34d399", 0.6, t.waterQualityX.chartMin, false)}
+        {line(std.warning_max, "#fbbf24", 0.5, t.waterQualityX.chartWarnHigh, true)}
+        {line(std.warning_min, "#fbbf24", 0.5, t.waterQualityX.chartWarnLow, false)}
         <Line type="monotone" dataKey={stdKey} name={chartLabel} stroke={chartColor} strokeWidth={big ? 3.5 : 2} dot={false} activeDot={{ r: big ? 6 : 4 }} />
       </LineChart>
     </ResponsiveContainer>
@@ -364,21 +374,14 @@ function NitrogenChart({ chartData, fill = false, big = false }: { chartData: Re
 }
 
 // 전도도(EC) — 해수 약 50,000 uS/cm, 양액 1~3 mS/cm 로 쓰는 곳마다 적정값이
-// 달라 "전역" 기준선은 긋지 않는다. 다만 농업 모드에서 베드별 레시피가 있으면
-// 그 베드의 목표 EC 선 + 허용밴드(±tolerance)를 그린다 — 전역 상수가 아니라
-// 농장별 설정이므로 기존 결정과 충돌하지 않는다(설계서 4-3).
-// recipe 의 target/tol 은 µS/cm — Y축이 µS/cm 이므로 환산 없이 그대로,
-// 라벨만 mS/cm(÷1000)로 적는다.
-function ConductivityChart({ chartData, fill = false, big = false, recipe = null, msCmHint = false }: {
+// 달라 "전역" 기준선은 긋지 않는다. 전도도 센서를 둔 새우 농장에서만 탭이 보인다.
+function ConductivityChart({ chartData, fill = false, big = false }: {
   chartData: ReturnType<typeof buildChartData>
   fill?: boolean
   big?: boolean
-  recipe?: { target: number; tol: number } | null
-  msCmHint?: boolean
 }) {
   const { t } = useT()
   const fs = big ? 17 : 11
-  const refFs = big ? 14 : 10
   return (
     <ResponsiveContainer width="100%" height={fill ? "100%" : 260}>
       <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
@@ -389,47 +392,10 @@ function ConductivityChart({ chartData, fill = false, big = false, recipe = null
           contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px", fontSize: big ? 16 : 12 }}
           labelStyle={{ color: "hsl(var(--muted-foreground))" }}
           itemStyle={{ color: "hsl(var(--foreground))" }}
-          formatter={(v) => [
-            msCmHint ? `${v} µS/cm (${(Number(v) / 1000).toFixed(2)} mS/cm)` : `${v} µS/cm`,
-            t.waterQualityX.conductivity,
-          ]}
+          formatter={(v) => [`${v} µS/cm`, t.waterQualityX.conductivity]}
         />
-        {recipe && <ReferenceArea y1={recipe.target - recipe.tol} y2={recipe.target + recipe.tol} fill="#34d399" fillOpacity={0.08} stroke="none" ifOverflow="extendDomain" />}
-        {recipe && <ReferenceLine y={recipe.target} stroke="#34d399" strokeDasharray="6 3" strokeOpacity={0.9} label={{ value: `${t.waterQualityX.targetLabel} ${(recipe.target / 1000).toFixed(2)}`, fill: "#34d399", fontSize: refFs, position: "insideTopRight" }} />}
-        {recipe && <ReferenceLine y={recipe.target + recipe.tol} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.5} />}
-        {recipe && <ReferenceLine y={recipe.target - recipe.tol} stroke="#34d399" strokeDasharray="4 4" strokeOpacity={0.5} />}
         <Line type="monotone" dataKey="conductivity" name={t.waterQualityX.conductivity}
           stroke="#22d3ee" strokeWidth={big ? 3.5 : 2} dot={false} connectNulls activeDot={{ r: big ? 6 : 4 }} />
-      </LineChart>
-    </ResponsiveContainer>
-  )
-}
-
-// 유량·차압(농업 모드) — 기준선 없는 단일 라인. ConductivityChart 와 같은 결.
-function AgriLineChart({ chartData, dataKey, name, color, unit, fill = false, big = false }: {
-  chartData: ReturnType<typeof buildChartData>
-  dataKey: "flow_rate" | "diff_pressure"
-  name: string
-  color: string
-  unit: string
-  fill?: boolean
-  big?: boolean
-}) {
-  const fs = big ? 17 : 11
-  return (
-    <ResponsiveContainer width="100%" height={fill ? "100%" : 260}>
-      <LineChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis dataKey="time" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={big ? 140 : 100} />
-        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: fs }} tickLine={false} axisLine={false} width={big ? 64 : 48} />
-        <Tooltip
-          contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "12px", fontSize: big ? 16 : 12 }}
-          labelStyle={{ color: "hsl(var(--muted-foreground))" }}
-          itemStyle={{ color: "hsl(var(--foreground))" }}
-          formatter={(v) => [`${v} ${unit}`, name]}
-        />
-        <Line type="monotone" dataKey={dataKey} name={name}
-          stroke={color} strokeWidth={big ? 3.5 : 2} dot={false} connectNulls activeDot={{ r: big ? 6 : 4 }} />
       </LineChart>
     </ResponsiveContainer>
   )
@@ -460,29 +426,49 @@ function OverviewChart({ chartData, fill = false, big = false }: { chartData: Re
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-// 농업 모드 기본 노출 탭 — 이 밖의 탭(새우 지표)은 "더보기"로 접는다(수아 시안 5-1).
-const AGRI_PRIMARY_TABS = new Set(["conductivity", "ph", "temperature", "do_level", "flow_rate", "diff_pressure"])
-
 export function WaterQualityView() {
   const { user } = useAuth()
   const { t, locale } = useT()
-  const { isAgri, href: withAgri } = useAgriRoute()
   const PARAM_META: ParamMeta[] = useMemo(
     () => PARAM_DEFS.map(m => ({ ...m, label: paramLabel(t, m.key as string) })),
     [t],
   )
-  const [tanks, setTanks] = useState<Tank[]>([])
-  const [selectedTankId, setSelectedTankId] = useState<string>("")
+  // 계정의 전체 수조. 화면에 뿌리는 목록은 아래에서 새우 수조만 걸러 낸다.
+  const [allTanks, setAllTanks] = useState<Tank[]>([])
+  // 사용자가 고른 수조. 실제로 쓰는 값은 아래 selectedTankId 로, 목록에서
+  // 파생시킨다 — 고른 수조가 목록에서 빠지면 ?tank= → 첫 수조 순으로 돌아간다.
+  const [pickedTankId, setPickedTankId] = useState<string>("")
   const initialTankIdFromUrl = useRef<string | null>(null)
+
+  // 이 화면은 새우 전용이다(농업은 components/agri/agri-nutrient-view.tsx). 혼합
+  // 계정(양식장+수경재배)에서 목록을 안 거르면 수경재배 베드를 골라 새우 기준으로
+  // 판정하게 되고, 카드가 통째로 빨개진다(염도 0·알칼리도 0·22℃). 값이 없으면
+  // 새우로 본다(마이그레이션 전 DB·목데이터).
+  const tanks = useMemo(
+    () => allTanks.filter(tk => (tk.farm_type ?? "shrimp") !== "agriculture"),
+    [allTanks],
+  )
+
+  // 고른 수조가 이 화면 목록에 없으면 ?tank= → 첫 수조 순으로 떨어진다.
+  // 상태를 효과로 고쳐 쓰지 않고 파생시킨다(렌더가 한 번 더 돌지 않는다).
+  const selectedTankId = useMemo(() => {
+    if (!tanks.length) return ""
+    if (pickedTankId && tanks.some(tk => tk.id === pickedTankId)) return pickedTankId
+    const paramId = initialTankIdFromUrl.current
+    return (paramId && tanks.find(tk => tk.id === paramId)?.id) || tanks[0].id
+  }, [tanks, pickedTankId])
 
   useEffect(() => {
     initialTankIdFromUrl.current = new URLSearchParams(window.location.search).get("tank")
   }, [])
   // 수조의 전체 기록(모든 센서 + 수기). 센서별 보기는 여기서 걸러 낸다.
   const [allReadings, setAllReadings] = useState<WaterQualityReading[]>([])
-  const [compareParam, setCompareParam] = useState<typeof STD_KEYS[number]>("temperature")
+  const [compareParam, setCompareParam] = useState<keyof WaterQualityReading>("temperature")
   const [tankAlerts, setTankAlerts] = useState<Alert[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  // 수조 목록을 한 번이라도 받아 왔는가. 필터 결과가 비었을 때 "아직 로딩 중"
+  // 과 "이 화면에 속한 수조가 없다"를 구분하는 데 쓴다.
+  const [tanksLoaded, setTanksLoaded] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [hours, setHours] = useState<24 | 72 | 168>(168)
 
@@ -499,20 +485,6 @@ export function WaterQualityView() {
   const [boardMode, setBoardMode] = useState(false)
   // 추세 그래프 탭 — 전광판 자동 순환을 위해 제어형으로 둔다.
   const [chartTab, setChartTab] = useState("overview")
-  // 농업 모드에서 새우 지표 탭(개요·질소·염도 등)을 펼쳤는지.
-  const [showAllTabs, setShowAllTabs] = useState(false)
-
-  // 농업 모드 기본 탭은 EC — 모드가 비동기로 파생되므로 초기값 대신 효과로 맞춘다.
-  // 사용자가 이미 다른 탭을 골랐다면(기본 "overview" 그대로가 아니면) 건드리지 않는다.
-  useEffect(() => {
-    if (isAgri) setChartTab(cur => (cur === "overview" ? "conductivity" : cur))
-  }, [isAgri])
-
-  // 접을 때 현재 탭이 접히는 탭이면 EC 로 복귀시킨다(수아 시안 5-1).
-  const toggleMoreTabs = () => {
-    if (showAllTabs && !AGRI_PRIMARY_TABS.has(chartTab)) setChartTab("conductivity")
-    setShowAllTabs(v => !v)
-  }
 
   useEffect(() => {
     if (!fullChart) { setBoardMode(false); return }   // 전체화면을 닫으면 전광판도 끈다
@@ -527,49 +499,44 @@ export function WaterQualityView() {
 
   // 전광판 자동 순환 — 15초마다 다음 항목으로. 추세 그래프는 탭을,
   // 센서별 비교는 비교 항목을 돌린다.
-  // 농업 모드는 농업 기본 탭 순서로 돈다 — 새우 고정 순서를 쓰면 conductivity 가
-  // indexOf === -1 이라 overview 로 튀고 접힌 새우 탭만 순환한다.
   useEffect(() => {
     if (!boardMode || !fullChart) return
-    const MAIN_ORDER = isAgri
-      ? ["conductivity", "ph", "temperature", "do_level", "flow_rate", "diff_pressure"]
-      : ["overview", "nitrogen", "temperature", "ph", "do_level", "salinity", "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity"]
-    const COMPARE_ORDER = ["temperature", "ph", "do_level", "salinity"] as const
+    const MAIN_ORDER = ["overview", "nitrogen", "temperature", "ph", "do_level", "salinity", "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity"]
+    // **아래 비교 버튼 목록과 같은 항목·같은 순서여야 한다.**
+    const COMPARE_ORDER: readonly (keyof WaterQualityReading)[] = ["temperature", "ph", "do_level", "salinity"]
     const id = setInterval(() => {
       if (fullChart === "main") {
         setChartTab(cur => MAIN_ORDER[(MAIN_ORDER.indexOf(cur) + 1) % MAIN_ORDER.length])
       } else {
         setCompareParam(cur => {
-          const i = COMPARE_ORDER.indexOf(cur as typeof COMPARE_ORDER[number])
+          const i = COMPARE_ORDER.indexOf(cur)
           return COMPARE_ORDER[(i + 1) % COMPARE_ORDER.length]
         })
       }
     }, 15_000)
     return () => clearInterval(id)
-  }, [boardMode, fullChart, isAgri])
+  }, [boardMode, fullChart])
 
   // Load tanks on mount
   useEffect(() => {
     async function loadTanks() {
       const mock = isTestAccount(user?.email)
       if (mock) {
-        setTanks(MOCK_TANKS)
-        const paramId = initialTankIdFromUrl.current
-        const target = paramId ? (MOCK_TANKS.find(t => t.id === paramId) ?? MOCK_TANKS[0]) : MOCK_TANKS[0]
-        setSelectedTankId(target.id)
+        setAllTanks(MOCK_TANKS)
+        setTanksLoaded(true)
         return
       }
       try {
         const dbTanks = await getAllTanks()
         if (dbTanks.length > 0) {
-          setTanks(dbTanks)
-          const paramId = initialTankIdFromUrl.current
-          const target = paramId ? (dbTanks.find(t => t.id === paramId) ?? dbTanks[0]) : dbTanks[0]
-          setSelectedTankId(target.id)
+          setAllTanks(dbTanks)
+          setTanksLoaded(true)
         } else {
+          setTanksLoaded(true)
           setIsLoading(false)
         }
       } catch {
+        setTanksLoaded(true)
         setIsLoading(false)
       }
     }
@@ -666,7 +633,7 @@ export function WaterQualityView() {
     }))
 
     setSummaryStatusCounts(counts)
-  }, [user?.email]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.email])
 
   useEffect(() => {
     computeSummary(tanks)
@@ -696,20 +663,13 @@ export function WaterQualityView() {
     if (activeDevices.length < 2) return []
     const nameById = new Map(activeDevices.map(d => [d.id, d.name]))
     const meta = PARAM_DEFS.find(m => m.key === compareParam)
-    const digits = meta?.unit === "" ? 2 : (compareParam === "ammonia" || compareParam === "nitrite" ? 3 : 1)
+    const digits = compareParam === "conductivity" ? 0
+      : meta?.unit === "" ? 2
+      : (compareParam === "ammonia" || compareParam === "nitrite" ? 3 : 1)
     return buildCompareData(allReadings, nameById, compareParam, digits, locale)
   }, [allReadings, activeDevices, compareParam, locale])
 
   const selectedTank = tanks.find(t => t.id === selectedTankId)
-
-  // 베드 레시피 목표선 — 농업 모드 + 해당 베드에 레시피가 있을 때만.
-  // target/tol 은 µS/cm 저장값 그대로(Y축이 µS/cm), 라벨만 차트가 ÷1000 한다.
-  const ecRecipe = isAgri && selectedTank?.target_ec != null
-    ? { target: selectedTank.target_ec, tol: selectedTank.ec_tolerance ?? 100 }
-    : null
-  const phRecipe = isAgri && selectedTank?.target_ph != null
-    ? { target: selectedTank.target_ph, tol: selectedTank.ph_tolerance ?? 0.5 }
-    : null
 
   function handleRefresh() {
     setIsRefreshing(true)
@@ -742,7 +702,9 @@ export function WaterQualityView() {
     return t.waterQuality.period7d
   }
 
-  if (!isLoading && tanks.length === 0) {
+  // 목록을 한 번이라도 받아 왔는데 새우 수조가 하나도 없으면 안내를 띄운다.
+  // (isLoading 은 수조를 고른 뒤의 측정값 로딩을 가리키므로 여기서 못 쓴다.)
+  if (tanksLoaded && tanks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-96 space-y-4 animate-fade-in">
         <div className="w-16 h-16 rounded-2xl bg-ocean-500/20 flex items-center justify-center">
@@ -754,7 +716,7 @@ export function WaterQualityView() {
             {t.waterQuality.noTanksMsg}
           </p>
         </div>
-        <Link href={withAgri("/farms")}>
+        <Link href="/farms">
           <Button className="bg-ocean-500 hover:bg-ocean-600 text-white gap-2 min-h-[44px]">
             <Plus className="w-4 h-4" /> {t.dashboard.goToFarms}
           </Button>
@@ -819,7 +781,7 @@ export function WaterQualityView() {
             <span className="hidden sm:inline">CSV</span>
           </Button>
 
-          <Link href={withAgri("/journal")} className="shrink-0">
+          <Link href="/journal" className="shrink-0">
             <Button
               variant="outline"
               size="sm"
@@ -852,7 +814,7 @@ export function WaterQualityView() {
             <div className="flex items-center gap-3 flex-1">
               <div>
                 <p className="text-xs text-muted-foreground mb-1.5">{t.waterQuality.tank}</p>
-                <Select value={selectedTankId} onValueChange={setSelectedTankId}>
+                <Select value={selectedTankId} onValueChange={setPickedTankId}>
                   <SelectTrigger
                     className="w-full sm:w-48 min-h-[44px] bg-muted border-border text-foreground focus:ring-ocean-500/30"
                     aria-label={t.waterQualityX.tankSelectAria}
@@ -948,10 +910,10 @@ export function WaterQualityView() {
                     <p className={`text-sm font-medium ${alert.type === "danger" ? "text-red-500" : "text-amber-500"}`}>
                       {alert.message}
                     </p>
-                    {/* 입력 누락은 "측정값"이 없는 알림이다(value 는 경과 시간).
-                        측정값/기준 줄을 그대로 붙이면 읽는 사람이 수질 수치로 오해한다. */}
+                    {/* 넘어선 선이 없는 알림(입력 누락·추세)에는 측정값/기준 줄을
+                        붙이지 않는다 — lib/thresholds.ts 의 hasThresholdLine 참고. */}
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {alert.parameter !== MISSING_INPUT_PARAMETER && (
+                      {hasThresholdLine(alert.parameter) && (
                         <>{t.waterQualityX.measured}: {alert.value} / {t.waterQualityX.threshold}: {alert.threshold} · </>
                       )}
                       {formatDateTime(alert.created_at)}
@@ -1167,7 +1129,7 @@ export function WaterQualityView() {
                     {PARAM_META.filter(m => ["temperature", "ph", "do_level", "salinity"].includes(m.key)).map(m => (
                       <button
                         key={m.key}
-                        onClick={() => setCompareParam(m.key as typeof STD_KEYS[number])}
+                        onClick={() => setCompareParam(m.key)}
                         className={"px-2.5 py-1 rounded-full border text-xs font-medium transition-colors " +
                           (compareParam === m.key ? "bg-ocean-600 text-white border-ocean-600" : "bg-card text-muted-foreground border-border hover:bg-accent")}
                       >
@@ -1253,7 +1215,6 @@ export function WaterQualityView() {
             </CardHeader>
             <CardContent className={fullChart === "main" ? "flex-1 min-h-0 overflow-auto" : undefined}>
               <Tabs value={chartTab} onValueChange={setChartTab}>
-                {!isAgri ? (
                   <TabsList className="bg-muted border border-border mb-4 flex-wrap gap-y-1 h-auto min-h-9">
                     <TabsTrigger value="overview"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.tabOverview}</TabsTrigger>
                     <TabsTrigger value="nitrogen"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.tabNitrogen}</TabsTrigger>
@@ -1268,37 +1229,6 @@ export function WaterQualityView() {
                     <TabsTrigger value="turbidity"  className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.turbidity}</TabsTrigger>
                     {hasConductivity && <TabsTrigger value="conductivity" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.conductivity}</TabsTrigger>}
                   </TabsList>
-                ) : (
-                  /* 농업 모드 — EC 가 첫 탭(데이터 없어도 노출), 새우 지표는 "더보기"로 접는다. */
-                  <TabsList className="bg-muted border border-border mb-4 flex-wrap gap-y-1 h-auto min-h-9">
-                    <TabsTrigger value="conductivity"  className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">EC</TabsTrigger>
-                    <TabsTrigger value="ph"            className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.ph}</TabsTrigger>
-                    <TabsTrigger value="temperature"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.temperature}</TabsTrigger>
-                    <TabsTrigger value="do_level"      className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">DO</TabsTrigger>
-                    <TabsTrigger value="flow_rate"     className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.flowRate}</TabsTrigger>
-                    <TabsTrigger value="diff_pressure" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.diffPressure}</TabsTrigger>
-                    {showAllTabs && (
-                      <>
-                        <TabsTrigger value="overview"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.tabOverview}</TabsTrigger>
-                        <TabsTrigger value="nitrogen"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQualityX.tabNitrogen}</TabsTrigger>
-                        <TabsTrigger value="salinity"   className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.salinity}</TabsTrigger>
-                        <TabsTrigger value="ammonia"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.ammonia}</TabsTrigger>
-                        <TabsTrigger value="nitrite"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.nitrite}</TabsTrigger>
-                        <TabsTrigger value="nitrate"    className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.nitrate}</TabsTrigger>
-                        <TabsTrigger value="alkalinity" className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.alkalinity}</TabsTrigger>
-                        <TabsTrigger value="turbidity"  className="text-xs data-[state=active]:bg-ocean-600 data-[state=active]:text-white">{t.waterQuality.turbidity}</TabsTrigger>
-                      </>
-                    )}
-                    <button
-                      type="button"
-                      onClick={toggleMoreTabs}
-                      className="text-xs text-muted-foreground hover:text-foreground px-2"
-                      aria-expanded={showAllTabs}
-                    >
-                      {showAllTabs ? t.waterQualityX.tabLess : t.waterQualityX.tabMore}
-                    </button>
-                  </TabsList>
-                )}
 
                 <TabsContent value="overview">
                   {chartData.length === 0 ? (
@@ -1362,10 +1292,6 @@ export function WaterQualityView() {
                           unit={unit}
                           fill={fullChart === "main"}
                           big={fullChart === "main" && boardMode}
-                          // 농업 모드 pH: 레시피가 있으면 목표선+밴드, 없어도 새우
-                          // 해수 기준선(std)은 숨긴다(오탐 방지 — 수아 시안 5-3).
-                          recipe={stdKey === "ph" ? phRecipe : null}
-                          hideStd={isAgri && stdKey === "ph"}
                         />
                       </div>
                     )}
@@ -1381,7 +1307,7 @@ export function WaterQualityView() {
                   )
                 })}
 
-                {(hasConductivity || isAgri) && (
+                {hasConductivity && (
                   <TabsContent value="conductivity">
                     {chartData.length === 0 ? (
                       <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground/60">
@@ -1392,54 +1318,11 @@ export function WaterQualityView() {
                       <div aria-label={t.waterQualityX.conductivity} role="img"
                         className={fullChart === "main" ? "h-[calc(100vh-280px)]" : undefined}>
                         <ConductivityChart chartData={chartData}
-                          fill={fullChart === "main"} big={fullChart === "main" && boardMode}
-                          recipe={ecRecipe} msCmHint={isAgri} />
+                          fill={fullChart === "main"} big={fullChart === "main" && boardMode} />
                       </div>
                     )}
                     <p className="text-xs text-muted-foreground mt-2 text-center">
                       {t.waterQualityX.conductivityCaption}
-                    </p>
-                  </TabsContent>
-                )}
-
-                {/* 유량·차압 (농업 모드 전용 탭) */}
-                {isAgri && (
-                  <TabsContent value="flow_rate">
-                    {chartData.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground/60">
-                        <Waves className="w-10 h-10" aria-hidden="true" />
-                        <p className="text-sm">{t.waterQualityX.noChartData}</p>
-                      </div>
-                    ) : (
-                      <div aria-label={t.waterQualityX.flowRate} role="img"
-                        className={fullChart === "main" ? "h-[calc(100vh-280px)]" : undefined}>
-                        <AgriLineChart chartData={chartData} dataKey="flow_rate"
-                          name={t.waterQualityX.flowRate} color="#6366f1" unit="L/min"
-                          fill={fullChart === "main"} big={fullChart === "main" && boardMode} />
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-2 text-center">
-                      {t.waterQualityX.flowCaption}
-                    </p>
-                  </TabsContent>
-                )}
-                {isAgri && (
-                  <TabsContent value="diff_pressure">
-                    {chartData.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground/60">
-                        <Waves className="w-10 h-10" aria-hidden="true" />
-                        <p className="text-sm">{t.waterQualityX.noChartData}</p>
-                      </div>
-                    ) : (
-                      <div aria-label={t.waterQualityX.diffPressure} role="img"
-                        className={fullChart === "main" ? "h-[calc(100vh-280px)]" : undefined}>
-                        <AgriLineChart chartData={chartData} dataKey="diff_pressure"
-                          name={t.waterQualityX.diffPressure} color="#f43f5e" unit="kPa"
-                          fill={fullChart === "main"} big={fullChart === "main" && boardMode} />
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-2 text-center">
-                      {t.waterQualityX.diffPressureCaption}
                     </p>
                   </TabsContent>
                 )}
@@ -1464,9 +1347,11 @@ export function WaterQualityView() {
               ) : (
                 <div className="space-y-2">
                   {tankAlerts.map(alert => {
+                    // alerts.parameter 는 저장 키다(프로필 무관) — 화면 문구는
+                    // 여기서 고른다(lib/thresholds.ts alertDisplayLabel).
                     const alertParamLabel = STD_KEYS.includes(alert.parameter as typeof STD_KEYS[number])
                       ? paramLabel(t, alert.parameter)
-                      : alert.parameter
+                      : alertDisplayLabel(alert.parameter, "shrimp")
                     const isDanger = alert.type === "danger"
                     return (
                       <div
@@ -1487,13 +1372,12 @@ export function WaterQualityView() {
                               {isDanger ? t.dashboard.danger : t.dashboard.warning}
                             </Badge>
                           </div>
-                          {/* 입력 누락은 "측정값"이 없는 알림이다(value 는 경과 시간,
-                              threshold 는 72시간). 측정값/기준을 그대로 붙이면
-                              "측정값 96 → 기준 72" 가 되어 수질 수치로 오해한다.
-                              항목 이름만 남긴다 — 위 배너의 가드와 같은 방식. */}
+                          {/* 넘어선 선이 없는 알림(입력 누락·추세)에는 측정값/기준을
+                              붙이지 않고 항목 이름만 남긴다 — 위 배너의 가드와 같은
+                              조건(lib/thresholds.ts 의 hasThresholdLine)을 쓴다. */}
                           <p className="text-xs text-muted-foreground mt-1">
                             {t.waterQualityX.item}: {alertParamLabel}
-                            {alert.parameter !== MISSING_INPUT_PARAMETER && (
+                            {hasThresholdLine(alert.parameter) && (
                               <> · {t.waterQualityX.measured} {alert.value} → {t.waterQualityX.threshold} {alert.threshold}</>
                             )}
                           </p>

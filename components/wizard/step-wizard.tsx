@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
-import { ChevronLeft, ChevronRight, Check } from "lucide-react"
+import { ChevronLeft, ChevronRight, Check, Info } from "lucide-react"
 import { Tank } from "@/types"
 
 export type StepField = {
@@ -28,6 +28,20 @@ export type WizardStep = {
   title?: string
 }
 
+/** 위저드 안에 박혀 있던 문구. 새우 폼은 넘기지 않아 기본값(기존 값 그대로)을 쓰고,
+ *  농업 폼(components/agri)은 농업 사전(4개 언어)에서 읽어 넘긴다. */
+export type WizardLabels = {
+  /** 수조(베드) 선택 Select 의 placeholder. 기본 `t.wizard.selectTank`. */
+  selectTank: string
+  /** 선택 입력 표시. 기본 "(선택)". */
+  optional: string
+  /** 스위치 켬/끔 텍스트. 기본 "예" / "아니오". */
+  yes: string
+  no: string
+  /** 진행바 aria-label. `{{n}}` = 현재 단계, `{{total}}` = 전체. 기본 "{{n}}단계 / {{total}}단계". */
+  stepAria: string
+}
+
 type Props = {
   title: string
   steps: WizardStep[]
@@ -38,13 +52,40 @@ type Props = {
   saving?: boolean
   saved?: boolean
   error?: string | null
+  /** 폼 전체에 대한 안내 한 줄. 첫 스텝에서만 뜬다.
+   *  새우 폼은 넘기지 않으므로 undefined — 렌더 결과가 이전과 완전히 같다. */
+  notice?: string
+  /** 문구 덮어쓰기(부분). 넘기지 않은 키는 기본값 그대로. */
+  labels?: Partial<WizardLabels>
+  /** 진행바 색. 기본 `bg-ocean-500`(새우). 농업 폼은 `bg-brand` 를 넘긴다. */
+  progressClass?: string
+  /** 안내(notice) 상자 색. 기본 ocean 결. 농업 폼은 `bg-brand-a5 border-brand-a20` 을 넘긴다. */
+  noticeClass?: string
+  /** 안내 상자 아이콘 색. 기본 `text-ocean-600`. 농업 폼은 `text-brand-fg`. */
+  noticeIconClass?: string
 }
 
-export function StepWizard({ title, steps, tanks, values, onChange, onComplete, saving, saved, error }: Props) {
+export function StepWizard({
+  title, steps, tanks, values, onChange, onComplete, saving, saved, error, notice,
+  labels,
+  progressClass = "bg-ocean-500",
+  noticeClass = "bg-ocean-500/5 border-ocean-500/20",
+  noticeIconClass = "text-ocean-600",
+}: Props) {
   const { t } = useT()
   const [step, setStep] = useState(0)
   const total = steps.length
   const current = steps[step]
+
+  // 기본값은 이 파일에 원래 박혀 있던 문구 그대로 — 새우 폼 회귀 0.
+  const L: WizardLabels = {
+    selectTank: t.wizard.selectTank,
+    optional: "(선택)",
+    yes: "예",
+    no: "아니오",
+    stepAria: "{{n}}단계 / {{total}}단계",
+    ...labels,
+  }
 
   const isLastStep = step === total - 1
 
@@ -86,13 +127,21 @@ export function StepWizard({ title, steps, tanks, values, onChange, onComplete, 
         aria-valuenow={step + 1}
         aria-valuemin={1}
         aria-valuemax={total}
-        aria-label={`${step + 1}단계 / ${total}단계`}
+        aria-label={L.stepAria.replace("{{n}}", String(step + 1)).replace("{{total}}", String(total))}
       >
         <div
-          className="h-full bg-ocean-500 rounded-full transition-all duration-300"
+          className={cn("h-full rounded-full transition-all duration-300", progressClass)}
           style={{ width: `${((step + 1) / total) * 100}%` }}
         />
       </div>
+
+      {/* 폼 전체 안내 — 필드에 딸린 힌트(bg-muted/50)와 다른 색·위치로 구분한다 */}
+      {notice && step === 0 && (
+        <p className={cn("text-xs text-muted-foreground leading-relaxed border rounded-xl px-3 py-2 mb-4 flex items-start gap-2", noticeClass)}>
+          <Info className={cn("w-3.5 h-3.5 shrink-0 mt-0.5", noticeIconClass)} aria-hidden="true" />
+          <span>{notice}</span>
+        </p>
+      )}
 
       {/* Step card */}
       <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-5">
@@ -112,7 +161,7 @@ export function StepWizard({ title, steps, tanks, values, onChange, onComplete, 
             <div key={field.key} className="space-y-2">
               <Label htmlFor={field.key} className="text-sm font-medium text-foreground">
                 {field.label}
-                {field.optional && <span className="text-muted-foreground ml-1 text-xs">(선택)</span>}
+                {field.optional && <span className="text-muted-foreground ml-1 text-xs">{L.optional}</span>}
                 {field.unit && <span className="text-muted-foreground ml-1 text-xs">({field.unit})</span>}
               </Label>
 
@@ -123,7 +172,7 @@ export function StepWizard({ title, steps, tanks, values, onChange, onComplete, 
                     aria-label={field.label}
                     aria-describedby={field.hint ? `hint-${field.key}` : undefined}
                   >
-                    <SelectValue placeholder={t.wizard.selectTank} />
+                    <SelectValue placeholder={L.selectTank} />
                   </SelectTrigger>
                   <SelectContent>
                     {tanks.map(tk => (
@@ -204,7 +253,7 @@ export function StepWizard({ title, steps, tanks, values, onChange, onComplete, 
                     checked={value as boolean}
                     onCheckedChange={v => onChange(field.key, v)}
                   />
-                  <span className="text-base text-foreground">{value ? "예" : "아니오"}</span>
+                  <span className="text-base text-foreground">{value ? L.yes : L.no}</span>
                 </div>
               )}
 

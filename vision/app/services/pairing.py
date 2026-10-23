@@ -12,21 +12,180 @@
 고치면 배포 도구가 덮어쓸 때 신원이 사라진다.
 
 승인 전까지 이 장비는 아무 카메라도 맡지 않는다(camera_manager.owns_camera).
+
+코드는 로그에만 띄우면 화면 있는 장비에서 쓸 수 없다(현장에서 journalctl 을
+칠 사람은 없다). 그래서 진행 상태를 `pairing_state` 에 남겨, 터치스크린이
+코드를 보여주고 [기기 연결] 버튼으로 다시 받을 수 있게 한다
+(app/kiosk.py). 수질 센서 파이의 webui.py 와 같은 방식이다.
 """
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
+import time
 from pathlib import Path
 
 from app.config import settings
+from app.version import VERSION
 
 logger = logging.getLogger(__name__)
+
+#: 재시도 깃발을 들여다보는 간격(초). 누른 손이 기다리는 시간이다.
+RETRY_POLL_SECONDS = 0.2
 
 # 코드 유효 시간(서버 기준 15분)에 맞춰 폴링한다.
 POLL_INTERVAL_SECONDS = 5
 POLL_DEADLINE_SECONDS = 15 * 60
+
+
+class PairingState:
+    """페어링 진행 상태. 화면이 읽고, run_pairing 이 쓴다.
+
+    한 장비에서 페어링은 한 번에 하나뿐이라 모듈 수준 단일 객체로 충분하다.
+    이벤트 루프 하나에서만 건드리므로 잠금을 두지 않는다 — 화면 서버도 같은
+    루프에서 돈다(app/main.py 가 같은 프로세스에 띄운다).
+    """
+
+    #: idle(아직 시작 안 함) · requesting(코드 요청 중) · waiting(승인 대기)
+    #: linked(완료) · failed(코드를 못 받음) · expired(15분 지남)
+    status: str = "idle"
+    code: str | None = None
+    error: str | None = None
+    tank_name: str | None = None
+    camera_id: str | None = None
+    #: 코드 만료까지 남은 초. 화면이 카운트다운을 그린다.
+    expires_in: int | None = None
+
+    def __init__(self) -> None:
+        self._task: asyncio.Task | None = None
+        self._deadline: float | None = None
+        #: 다음 시도를 기다리는 중에 "지금 해라"를 받는 깃발. 화면의 버튼과
+        #: 자동 재시도가 같은 고리를 쓰게 한다 — 길이 두 개면 코드가 두 개
+        #: 발급되고 화면에는 둘 중 아무 것이나 뜬다.
+        self._retry_requested = False
+        #: 마지막으로 남긴 실패 사유. begin_request 가 지우는 self.error 와
+        #: 달리 시도를 넘어 남는다 — 같은 말을 로그에 되풀이하지 않기 위해서다.
+        self._last_failure: str | None = None
+
+    # -- 화면이 읽는 쪽 -------------------------------------------------------
+    def snapshot(self) -> dict:
+        remaining = None
+        if self._deadline is not None and self.status == "waiting":
+            try:
+                remaining = max(0, int(self._deadline - asyncio.get_running_loop().time()))
+            except RuntimeError:  # 루프 밖에서 부르면(테스트 등) 남은 시간만 비운다
+                remaining = None
+        return {
+            "status": self.status,
+            "code": self.code,
+            "error": self.error,
+            "tank_name": self.tank_name,
+            "camera_id": self.camera_id,
+            "expires_in": remaining,
+            "serial": board_serial(),
+            "linked": load_device_key() is not None,
+        }
+
+    # -- run_pairing 이 쓰는 쪽 ----------------------------------------------
+    def begin_request(self) -> None:
+        self.status = "requesting"
+        self.code = self.error = None
+        self._deadline = None
+
+    def code_received(self, code: str, deadline: float) -> None:
+        self.status = "waiting"
+        self.code = code
+        self._deadline = deadline
+
+    def linked(self, camera_id: str | None, tank_name: str | None) -> None:
+        self._last_failure = None  # 다음에 실패하면 다시 크게 알려야 한다
+        self.status = "linked"
+        self.code = None
+        self._deadline = None
+        self.camera_id = camera_id
+        self.tank_name = tank_name
+
+    def failed(self, reason: str) -> bool:
+        """실패를 적는다. **같은 사유가 되풀이되면 True.**
+
+        부르는 쪽이 로그 수준을 낮추는 데 쓴다. 와이파이가 없는 장비는 5분마다
+        다시 시도하는데, 그때마다 빨간 ERROR 를 남기면 로그가 그것으로 가득 차
+        정작 봐야 할 줄이 묻힌다. 사유는 화면에 늘 떠 있다.
+        """
+        again = reason == self._last_failure
+        self._last_failure = reason
+        self.status = "failed"
+        self.code = None
+        self._deadline = None
+        self.error = reason
+        return again
+
+    def expired(self) -> None:
+        self.status = "expired"
+        self.code = None
+        self._deadline = None
+
+    # -- 버튼이 부르는 쪽 ----------------------------------------------------
+    def running(self) -> bool:
+        return self._task is not None and not self._task.done()
+
+    def adopt(self, task: asyncio.Task) -> None:
+        """기동할 때 뒤에서 도는 페어링을 이 상태에 묶는다.
+
+        묶어 두지 않으면 화면의 [기기 연결] 버튼이 "안 돌고 있다"고 보고
+        두 번째 페어링을 시작해, 서버가 코드를 두 개 내주고 화면에는 둘 중
+        아무 것이나 뜬다.
+        """
+        self._task = task
+
+    def request_retry(self) -> None:
+        """쉬고 있는 재시도 고리를 지금 깨운다."""
+        self._retry_requested = True
+
+    async def wait_before_retry(self, seconds: float) -> None:
+        """다음 시도까지 쉰다. 화면에서 버튼을 누르면 기다리지 않고 깨어난다.
+
+        asyncio.Event 가 아니라 깃발을 자주 들여다본다. Event 는 처음 쓰인
+        이벤트 루프에 묶여 다른 루프에서 건드리면 터지는데, 이 객체는 모듈
+        단일 객체라 그 사고가 나기 쉽다(테스트가 바로 잡아냈다). 5분을
+        0.2초로 쪼개 보는 값은 공짜고, 터치스크린에서 누른 손이 기다리는
+        시간이 그만큼 짧아진다.
+        """
+        self._retry_requested = False
+        deadline = time.monotonic() + seconds
+        while not self._retry_requested:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                break
+            await asyncio.sleep(min(RETRY_POLL_SECONDS, left))
+        self._retry_requested = False
+
+    def start(self, version: str) -> bool:
+        """화면의 [기기 연결] 버튼.
+
+        기동할 때 띄운 재시도 고리가 이미 돌고 있으면 **그것을 깨운다.**
+        예전에는 False 를 돌려주고 끝이었다 — 쉬는 중에 버튼을 누르면 아무
+        일도 일어나지 않아, 현장에서는 고장으로 보인다.
+        """
+        if self.running():
+            self.request_retry()
+            return True
+        self.begin_request()
+        self._task = asyncio.create_task(run_pairing(version))
+        return True
+
+    def cancel(self) -> bool:
+        if not self.running():
+            return False
+        self._task.cancel()  # type: ignore[union-attr]
+        self.status = "idle"
+        self.code = None
+        self._deadline = None
+        return True
+
+
+pairing_state = PairingState()
 
 
 def board_serial() -> str:
@@ -100,7 +259,7 @@ async def _get_json(client, url: str) -> tuple[int, dict]:
         return 0, {}
 
 
-async def run_pairing(version: str = "1.0.0") -> str | None:
+async def run_pairing(version: str = VERSION) -> str | None:
     """코드를 받아 로그에 띄우고, 승인될 때까지 기다린다.
 
     성공하면 기기 키를 돌려주고 상태 파일에도 저장한다. 실패하면 None —
@@ -113,16 +272,22 @@ async def run_pairing(version: str = "1.0.0") -> str | None:
             "SHRIMP365_URL 이 없어 페어링을 시작할 수 없습니다 — "
             "예: https://www.shrimp365.kr"
         )
+        pairing_state.failed("SHRIMP365_URL 이 설정되지 않았습니다")
         return None
 
     try:
         import httpx
-    except ImportError:
-        logger.error("httpx 가 없어 페어링을 할 수 없습니다.")
+    except ImportError as exc:
+        # exc 를 버리면 안 된다. httpx **안에서** 난 ImportError 도 여기 걸리는데
+        # (예: idna 가 빠진 경우) "httpx 가 없습니다" 라고만 적으면 엉뚱한 데를
+        # 뒤지게 된다 — 실제로 그렇게 한참 돌아갔다.
+        logger.error("페어링에 필요한 httpx 를 불러오지 못했습니다: %s", exc)
+        pairing_state.failed(f"httpx 를 불러오지 못했습니다 — {exc}")
         return None
 
     pair_url = f"{base}/api/vision/pair"
     serial = board_serial()
+    pairing_state.begin_request()
 
     async with httpx.AsyncClient(timeout=10) as client:
         status, data = await _post_json(
@@ -140,8 +305,20 @@ async def run_pairing(version: str = "1.0.0") -> str | None:
             reason = data.get("error") or (
                 "인터넷 연결을 확인하세요" if not status else f"서버 오류 {status}"
             )
-            # 여기서 자동으로 반복하면 요청 제한에 걸린다. 사유를 남기고 멈춘다.
-            logger.error("연결 코드를 받지 못했습니다: %s", reason)
+            # 여기서 반복하지 않는다 — 한 번만 해 보고 사유를 남긴다. 다시
+            # 시도하는 간격은 부르는 쪽(app/main.py 의 PAIR_RETRY_SECONDS)이
+            # 정한다. 그래야 "얼마나 자주 두드릴지" 가 한 곳에만 있다.
+            #
+            # 같은 사유가 되풀이될 때는 조용히 적는다. 와이파이가 없는 장비는
+            # 5분마다 다시 시도하는데, 그때마다 빨간 ERROR 를 남기면 로그가
+            # 그것으로 가득 차 정작 봐야 할 줄이 묻힌다. 사유는 화면에 늘
+            # 떠 있으므로 로그로 되풀이할 이유가 없다.
+            again = pairing_state.failed(str(reason))
+            logger.log(
+                logging.DEBUG if again else logging.ERROR,
+                "연결 코드를 받지 못했습니다: %s",
+                reason,
+            )
             return None
 
         code = str(data["code"])
@@ -158,6 +335,7 @@ async def run_pairing(version: str = "1.0.0") -> str | None:
 
         loop = asyncio.get_running_loop()
         deadline = loop.time() + POLL_DEADLINE_SECONDS
+        pairing_state.code_received(code, deadline)
         while loop.time() < deadline:
             await asyncio.sleep(POLL_INTERVAL_SECONDS)
             status, info = await _get_json(client, f"{pair_url}?secret={secret}")
@@ -169,18 +347,22 @@ async def run_pairing(version: str = "1.0.0") -> str | None:
                 logger.warning("연결 완료 — 수조: %s", tank)
                 if key:
                     save_device_key(key, info.get("camera_id"), info.get("tank_name"))
+                    pairing_state.linked(info.get("camera_id"), info.get("tank_name"))
                     return str(key)
+                pairing_state.failed("서버가 기기 키를 주지 않았습니다")
                 return None
 
             if state in ("expired", "not_found", "revoked"):
-                logger.info("코드가 만료되었습니다. 서비스를 다시 시작하면 새 코드를 받습니다.")
+                logger.info("코드가 만료되었습니다. 화면의 [기기 연결] 을 다시 누르세요.")
+                pairing_state.expired()
                 return None
 
-    logger.info("승인 대기 시간이 지났습니다. 서비스를 다시 시작하면 새 코드를 받습니다.")
+    logger.info("승인 대기 시간이 지났습니다. 화면의 [기기 연결] 을 다시 누르세요.")
+    pairing_state.expired()
     return None
 
 
-async def ensure_device_key(version: str = "1.0.0") -> str | None:
+async def ensure_device_key(version: str = VERSION) -> str | None:
     """기기 키를 확보한다. 이미 있으면 그대로, 없으면 페어링을 돌린다."""
     key = load_device_key()
     if key:

@@ -29,6 +29,15 @@ export function getStatusColor(value: number, normal: [number, number], warning:
   return "danger"
 }
 
+/** 정식일(새우: 입식일)로부터 오늘까지의 재배/사육 일차. 첫날이 1일차.
+ *  farms-view 에 있던 것을 화면 두 곳(양액 관리 요약 스트립)에서 함께 쓰려고
+ *  옮겼다. 계산은 한 글자도 바뀌지 않았다. */
+export function computeCycleDay(stockingDate: string | null | undefined): number {
+  if (!stockingDate) return 0
+  const ms = Date.now() - new Date(stockingDate).getTime()
+  return Math.max(1, Math.floor(ms / 86_400_000) + 1)
+}
+
 // 수질 파라미터 물리적 유효 범위
 export const WQ_BOUNDS = {
   temperature:    { min: 0,   max: 45,   label: "수온",      unit: "°C" },
@@ -40,6 +49,12 @@ export const WQ_BOUNDS = {
   nitrate:        { min: 0,   max: 200,  label: "질산염",    unit: "mg/L" },
   alkalinity:     { min: 0,   max: 500,  label: "알칼리도",  unit: "mg/L" },
   turbidity:      { min: 0,   max: 500,  label: "탁도",      unit: "NTU" },
+  // 농업(수경재배) 3종 — 기존 9항목의 값은 한 글자도 바꾸지 않는다.
+  // conductivity 는 **µS/cm** 다(DB 저장 단위). 사람에게 보이는 폼은 mS/cm 로
+  // 받으므로, 농업 폼은 이 경계를 ÷1000 해서 "0~20 mS/cm" 로 보여 준다.
+  conductivity:   { min: 0,   max: 20000, label: "EC",        unit: "µS/cm" },
+  flow_rate:      { min: 0,   max: 500,  label: "유량",      unit: "L/min" },
+  diff_pressure:  { min: 0,   max: 500,  label: "차압",      unit: "kPa" },
 } as const
 
 export type WqField = keyof typeof WQ_BOUNDS

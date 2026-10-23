@@ -1,10 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
-import { useAgriRoute } from "@/lib/agri-route"
 import { getAllTanks } from "@/lib/db"
 import { MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
 import { Tank } from "@/types"
@@ -17,12 +16,12 @@ const TODAY = new Date().toISOString().split("T")[0]
 
 export function JournalRecordView() {
   const router = useRouter()
-  const { href: withAgri } = useAgriRoute()
   const { user } = useAuth()
   const { t } = useT()
   const mock = isTestAccount(user?.email)
 
-  const [tanks, setTanks] = useState<Tank[]>([])
+  // 계정의 전체 수조. 폼에 뿌리는 목록은 아래에서 새우 수조만 걸러 낸다.
+  const [allTanks, setAllTanks] = useState<Tank[]>([])
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -58,11 +57,20 @@ export function JournalRecordView() {
   const [tankLoadError, setTankLoadError] = useState(false)
 
   useEffect(() => {
-    if (mock) { setTanks(MOCK_TANKS); return }
+    if (mock) { setAllTanks(MOCK_TANKS); return }
     getAllTanks()
-      .then(result => { setTanks(result); setLoadingTanks(false) })
+      .then(result => { setAllTanks(result); setLoadingTanks(false) })
       .catch(() => { setTankLoadError(true); setLoadingTanks(false) })
   }, [mock])
+
+  // 이 화면은 새우 전용이다(농업 일지 폼은 components/agri/agri-journal-record-view.tsx).
+  // **쓰기 화면이라 더 엄하게 지킨다** — 안 거르면 혼합 계정에서 새우 폼(급이 kg·
+  // 폐사 마리)이 수경재배 베드에 저장된다. 같은 컬럼을 두 뜻으로 쓰는 설계라
+  // 잘못 적힌 행은 나중에 구분할 방법도 없다. 고를 수 없으면 저장할 수도 없다.
+  const tanks = useMemo(
+    () => allTanks.filter(tk => (tk.farm_type ?? "shrimp") !== "agriculture"),
+    [allTanks],
+  )
 
   const handleChange = (key: string, value: unknown) => {
     setValues(prev => ({ ...prev, [key]: value }))
@@ -77,9 +85,9 @@ export function JournalRecordView() {
       }
       saveJournalDefaults(values)
       setSaved(true)
-      setTimeout(() => router.replace(withAgri("/home")), 1200)
+      setTimeout(() => router.replace("/home"), 1200)
     } catch {
-      setError("저장에 실패했습니다. 다시 시도해주세요.")
+      setError(t.recordX.saveFailed)
     } finally {
       setSaving(false)
     }
@@ -89,7 +97,7 @@ export function JournalRecordView() {
     {
       // Step 1: 수조 + 날짜
       fields: [
-        { key: "tank_id", label: "수조 선택", type: "tank" },
+        { key: "tank_id", label: t.wizard.tankLabel, type: "tank" },
         { key: "date", label: t.wizard.date, type: "date" },
       ],
     },
@@ -142,33 +150,36 @@ export function JournalRecordView() {
   if (tankLoadError) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center gap-4">
-        <p className="text-destructive font-medium">수조 목록을 불러오지 못했습니다.</p>
+        <p className="text-destructive font-medium">{t.recordX.tankLoadFailed}</p>
         <button
-          onClick={() => { setTankLoadError(false); setLoadingTanks(true); getAllTanks().then(r => { setTanks(r); setLoadingTanks(false) }).catch(() => { setTankLoadError(true); setLoadingTanks(false) }) }}
+          onClick={() => { setTankLoadError(false); setLoadingTanks(true); getAllTanks().then(r => { setAllTanks(r); setLoadingTanks(false) }).catch(() => { setTankLoadError(true); setLoadingTanks(false) }) }}
           className="text-sm text-emerald-600 underline"
         >
-          다시 시도
+          {t.homeHub.retry}
         </button>
       </div>
     )
   }
 
-  if (!mock && tanks.length === 0) {
+  // 새우 수조가 하나도 없을 때. `!mock` 조건을 뺐다 — 조건이 있으면 데모 계정은
+  // 빈 드롭다운짜리 마법사가 뜬다. 수경재배 베드만 있는 계정도 여기로 온다 —
+  // 그 베드는 스마트팜 화면(헤더 스위치)에서 다룬다.
+  if (tanks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center gap-6">
         <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 flex items-center justify-center">
           <Building2 className="w-8 h-8 text-emerald-500" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-foreground mb-2">등록된 수조가 없습니다</h2>
-          <p className="text-muted-foreground text-sm">양식 일지를 작성하려면 먼저 양식장과 수조를 등록해 주세요.</p>
+          <h2 className="text-xl font-bold text-foreground mb-2">{t.recordX.noTanksTitle}</h2>
+          <p className="text-muted-foreground text-sm">{t.recordX.noTanksJournalMsg}</p>
         </div>
         <Link
           href="/onboarding"
-          className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+          className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 min-h-[44px] py-3 rounded-xl transition-colors"
         >
           <Building2 className="w-4 h-4" />
-          양식장 등록하기
+          {t.recordX.registerFarmCta}
         </Link>
       </div>
     )

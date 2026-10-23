@@ -1,10 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
-import { useAgriRoute } from "@/lib/agri-route"
 import { getAllTanks, insertWaterQuality } from "@/lib/db"
 import { MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
 import { WQ_BOUNDS, WqField } from "@/lib/utils"
@@ -17,12 +16,12 @@ const TODAY = new Date().toISOString().split("T")[0]
 
 export function WaterQualityRecordView() {
   const router = useRouter()
-  const { href: withAgri } = useAgriRoute()
   const { user } = useAuth()
   const { t } = useT()
   const mock = isTestAccount(user?.email)
 
-  const [tanks, setTanks] = useState<Tank[]>([])
+  // 계정의 전체 수조. 폼에 뿌리는 목록은 아래에서 새우 수조만 걸러 낸다.
+  const [allTanks, setAllTanks] = useState<Tank[]>([])
   const [values, setValues] = useState<Record<string, unknown>>({
     tank_id: "",
     date: TODAY,
@@ -44,11 +43,21 @@ export function WaterQualityRecordView() {
   const [tankLoadError, setTankLoadError] = useState(false)
 
   useEffect(() => {
-    if (mock) { setTanks(MOCK_TANKS); return }
+    if (mock) { setAllTanks(MOCK_TANKS); return }
     getAllTanks()
-      .then(result => { setTanks(result); setLoadingTanks(false) })
+      .then(result => { setAllTanks(result); setLoadingTanks(false) })
       .catch(() => { setTankLoadError(true); setLoadingTanks(false) })
   }, [mock])
+
+  // 이 화면은 새우 전용이다(농업 측정 폼은 components/agri/agri-measure-record-view.tsx).
+  // **쓰기 화면이라 더 엄하게 지킨다** — 안 거르면 혼합 계정에서 새우 폼이
+  // 수경재배 베드에 염도·알칼리도를 적고, 그렇게 남은 행은 지워지지 않는다.
+  // 고를 수 없으면 저장할 수도 없다 — 목록이 유일한 관문이다(StepWizard 의
+  // 수조 칸은 optional 이 아니라 비어 있으면 다음 단계로 못 넘어간다).
+  const tanks = useMemo(
+    () => allTanks.filter(tk => (tk.farm_type ?? "shrimp") !== "agriculture"),
+    [allTanks],
+  )
 
   const handleChange = (key: string, value: unknown) => {
     setValues(prev => ({ ...prev, [key]: value }))
@@ -61,9 +70,10 @@ export function WaterQualityRecordView() {
       const raw = values[field] as string
       if (!raw) continue
       const val = parseFloat(raw)
-      if (!Number.isFinite(val)) { setError(`${WQ_BOUNDS[field].label}: 유효한 숫자를 입력해주세요.`); return }
-      if (val < WQ_BOUNDS[field].min || val > WQ_BOUNDS[field].max) {
-        setError(`${WQ_BOUNDS[field].label}: ${WQ_BOUNDS[field].min}~${WQ_BOUNDS[field].max}${WQ_BOUNDS[field].unit} 범위를 벗어났습니다.`)
+      if (!Number.isFinite(val)) { setError(`${WQ_BOUNDS[field].label}: ${t.journalX.errInvalidNumber}`); return }
+      const bound = WQ_BOUNDS[field]
+      if (val < bound.min || val > bound.max) {
+        setError(`${bound.label}: ${bound.min}~${bound.max}${bound.unit} ${t.journalX.errOutOfRange}`)
         return
       }
     }
@@ -85,9 +95,9 @@ export function WaterQualityRecordView() {
         })
       }
       setSaved(true)
-      setTimeout(() => router.replace(withAgri("/dashboard")), 1200)
+      setTimeout(() => router.replace("/dashboard"), 1200)
     } catch {
-      setError("저장에 실패했습니다. 다시 시도해주세요.")
+      setError(t.recordX.saveFailed)
     } finally {
       setSaving(false)
     }
@@ -95,7 +105,7 @@ export function WaterQualityRecordView() {
 
   const steps: WizardStep[] = [
     {
-      fields: [{ key: "tank_id", label: "수조 선택", type: "tank" }],
+      fields: [{ key: "tank_id", label: t.wizard.tankLabel, type: "tank" }],
     },
     {
       fields: [
@@ -137,33 +147,36 @@ export function WaterQualityRecordView() {
   if (tankLoadError) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center gap-4">
-        <p className="text-destructive font-medium">수조 목록을 불러오지 못했습니다.</p>
+        <p className="text-destructive font-medium">{t.recordX.tankLoadFailed}</p>
         <button
-          onClick={() => { setTankLoadError(false); setLoadingTanks(true); getAllTanks().then(r => { setTanks(r); setLoadingTanks(false) }).catch(() => { setTankLoadError(true); setLoadingTanks(false) }) }}
+          onClick={() => { setTankLoadError(false); setLoadingTanks(true); getAllTanks().then(r => { setAllTanks(r); setLoadingTanks(false) }).catch(() => { setTankLoadError(true); setLoadingTanks(false) }) }}
           className="text-sm text-ocean-600 underline"
         >
-          다시 시도
+          {t.homeHub.retry}
         </button>
       </div>
     )
   }
 
-  if (!mock && tanks.length === 0) {
+  // 새우 수조가 하나도 없을 때. `!mock` 조건을 뺐다 — 조건이 있으면 데모 계정은
+  // 빈 드롭다운짜리 마법사가 뜬다. 수경재배 베드만 있는 계정도 여기로 온다 —
+  // 그 베드는 스마트팜 화면(헤더 스위치)에서 다룬다.
+  if (tanks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center gap-6">
         <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
           <Building2 className="w-8 h-8 text-ocean-500" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-foreground mb-2">등록된 수조가 없습니다</h2>
-          <p className="text-muted-foreground text-sm">수질 기록을 시작하려면 먼저 양식장과 수조를 등록해 주세요.</p>
+          <h2 className="text-xl font-bold text-foreground mb-2">{t.recordX.noTanksTitle}</h2>
+          <p className="text-muted-foreground text-sm">{t.recordX.noTanksWqMsg}</p>
         </div>
         <Link
           href="/onboarding"
           className="inline-flex items-center gap-2 bg-ocean-500 hover:bg-ocean-600 text-white font-semibold px-6 min-h-[44px] py-3 rounded-xl transition-colors"
         >
           <Building2 className="w-4 h-4" aria-hidden="true" />
-          양식장 등록하기
+          {t.recordX.registerFarmCta}
         </Link>
       </div>
     )
