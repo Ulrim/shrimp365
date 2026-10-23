@@ -216,7 +216,8 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
                   history={eachRows} at={agoLabel(t.time, lastEach.recorded_at)} ed={ed} onClose={() => setOpen(null)} />
               ) : openKey && (
                 <TrendPanel param={param(openKey)} label={ed.param[openKey]} readings={readings} ed={ed}
-                  overlay={openKey === "wind_speed" ? { param: param("wind_gust"), label: ed.param.wind_gust } : null}
+                  overlay={openKey === "wind_speed" ? { param: param("wind_gust"), label: ed.param.wind_gust }
+                    : openKey === "air_temp" ? { param: param("canopy_temp"), label: ed.param.canopy_temp } : null}
                   onClose={() => setOpen(null)} />
               )}
         </CardContent>
