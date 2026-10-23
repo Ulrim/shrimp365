@@ -18,9 +18,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useT, useAgriT } from "@/lib/i18n-context"
 import { Droplet } from "lucide-react"
 import { ENV_PARAMS, compassIndex, dewPoint, type EnvParam, type EnvParamKey, type EnvEach } from "@/lib/env-params"
-import { getEnvSensorSeries } from "@/lib/db"
+import { getEnvSensorSeries, getWaterQuality } from "@/lib/db"
 import { agoLabel } from "@/components/agri/dashboard/time-ago"
 import type { WaterQualityReading } from "@/types"
+
+/** 펼친 그래프의 기간(시간) — 6시간·12시간·24시간·일주일·한 달·1년. 이름은 사전 ed.ranges 같은 순서. */
+const RANGES = [6, 12, 24, 168, 720, 8760] as const
+type RangeHours = (typeof RANGES)[number]
+/** 센서별 펼침(env_sensors)은 24시간까지 — 그보다 길면 평균 그래프로 보인다(행 상한 1,000). */
+const EACH_MAX_HOURS = 24
 
 /** 칸으로 따로 띄우지 않고 다른 칸의 보조 줄로 접는 항목. */
 const FOLDED: ReadonlySet<EnvParamKey> = new Set(["wind_gust", "wind_dir", "rain_rate"])
@@ -57,6 +63,9 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
   const [eachData, setEachData] = useState<{ tankId: string; rows: { each: EnvEach; recorded_at: string }[] } | null>(null)
   const [open, setOpen] = useState<{ tankId: string; key: EnvParamKey } | null>(null)
   const [dewOpenFor, setDewOpen] = useState<string | null>(null)
+  // 펼친 그래프의 기간. 24시간은 대시보드가 이미 읽은 값을 쓰고, 다른 기간은 여기서 따로 읽는다.
+  const [hours, setHours] = useState<RangeHours>(24)
+  const [rangeData, setRangeData] = useState<{ tankId: string; hours: number; rows: WaterQualityReading[] } | null>(null)
 
   useEffect(() => {
     if (mock || !tankId) return
@@ -74,6 +83,24 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
   }
   const openKey = open && open.tankId === tankId ? open.key : null
   const dewOpen = dewOpenFor === tankId
+  const panelOpen = !!openKey || dewOpen
+
+  useEffect(() => {
+    if (mock || !tankId || !panelOpen || hours === 24) return
+    let alive = true
+    getWaterQuality(tankId, hours)
+      .catch(() => [] as WaterQualityReading[])
+      .then(rows => { if (alive) setRangeData({ tankId, hours, rows }) })
+    return () => { alive = false }
+  }, [tankId, hours, now, mock, panelOpen])
+
+  const rangeReady = hours === 24 || (rangeData !== null && rangeData.tankId === tankId && rangeData.hours === hours)
+  const panelReadings = hours === 24 ? readings : rangeReady ? rangeData!.rows : []
+  // 6·12시간은 24시간 값에서 자른다(따로 읽지 않는다). 기준 시각은 대시보드의 마지막 새로고침.
+  const cutoff = now && hours < 24 ? now.getTime() - hours * 3_600_000 : null
+  const inRange = <T extends { recorded_at: string }>(rows: T[]) =>
+    cutoff === null ? rows : rows.filter(r => new Date(r.recorded_at).getTime() >= cutoff)
+  const range = { hours, set: setHours, loading: !rangeReady }
 
   const latest = new Map<EnvParamKey, Latest>()
   for (const p of ENV_PARAMS) {
@@ -217,11 +244,11 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
                   </button>
                 )}
               </div>
-              {openKey && lastEach && eachOf(openKey) ? (
-                <EachList param={param(openKey)} label={ed.param[openKey]} rows={eachOf(openKey)!}
-                  history={eachRows} at={agoLabel(t.time, lastEach.recorded_at)} ed={ed} onClose={() => setOpen(null)} />
+              {openKey && lastEach && eachOf(openKey) && hours <= EACH_MAX_HOURS ? (
+                <EachList param={param(openKey)} label={ed.param[openKey]} rows={eachOf(openKey)!} range={range}
+                  history={inRange(eachRows)} at={agoLabel(t.time, lastEach.recorded_at)} ed={ed} onClose={() => setOpen(null)} />
               ) : openKey && (
-                <TrendPanel readings={readings} main={lineOf(param(openKey), ed.param[openKey])} ed={ed}
+                <TrendPanel readings={inRange(panelReadings)} range={range} main={lineOf(param(openKey), ed.param[openKey])} ed={ed}
                   step={openKey === "rain_day"} zeroBase={openKey === "rain_day" || openKey === "wind_speed"}
                   overlay={openKey === "wind_speed" ? lineOf(param("wind_gust"), ed.param.wind_gust)
                     : openKey === "air_temp" ? lineOf(param("canopy_temp"), ed.param.canopy_temp) : null}
@@ -230,7 +257,7 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
                   onClose={() => setOpen(null)} />
               )}
               {dewOpen && (
-                <TrendPanel readings={readings} ed={ed} onClose={() => setDewOpen(null)}
+                <TrendPanel readings={inRange(panelReadings)} range={range} ed={ed} onClose={() => setDewOpen(null)}
                   main={{ label: ed.dewPoint, unit: "°C", digits: 1, color: "#0ea5e9",
                     get: r => typeof r.air_temp === "number" && typeof r.humidity === "number" ? dewPoint(r.air_temp, r.humidity) : null }}
                   overlay={lineOf(param("air_temp"), ed.param.air_temp)} />
@@ -256,8 +283,27 @@ const lineOf = (p: EnvParam, label: string): TrendLine => ({
 
 /** 한 칸의 24시간 추세(센서가 한 대일 때) — 강수는 누계라 계단, 풍속은 돌풍을 점선으로 겹친다.
  *  extra 는 아래 작은 그래프(풍속 → 풍향, 강수 → 강우강도). */
-function TrendPanel({ readings, main, overlay, extra, step = false, zeroBase = false, ed, onClose }: {
+interface RangeCtl { hours: RangeHours; set: (h: RangeHours) => void; loading: boolean }
+
+/** 기간 단추 — 6시간·12시간·24시간·일주일·한 달·1년. */
+function RangeButtons({ range, ed }: { range: RangeCtl; ed: ReturnType<typeof useAgriT>["environment"] }) {
+  return (
+    <div className="flex flex-wrap gap-1.5 mb-2" role="group" aria-label={ed.rangeAria}>
+      {RANGES.map((h, i) => (
+        <button key={h} type="button" onClick={() => range.set(h)} aria-pressed={range.hours === h}
+          className={`text-xs rounded-full border px-2.5 py-1 min-h-[32px] transition-colors ${
+            range.hours === h ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>
+          {ed.ranges[i]}
+        </button>
+      ))}
+      {range.loading && <span className="text-xs text-muted-foreground self-center" role="status">{ed.loading}</span>}
+    </div>
+  )
+}
+
+function TrendPanel({ readings, range, main, overlay, extra, step = false, zeroBase = false, ed, onClose }: {
   readings: WaterQualityReading[]
+  range: RangeCtl
   main: TrendLine
   overlay: TrendLine | null
   extra?: (TrendLine & { dots?: boolean }) | null
@@ -269,6 +315,7 @@ function TrendPanel({ readings, main, overlay, extra, step = false, zeroBase = f
   return (
     <div className="mt-3 rounded-xl border border-border p-3" role="region" aria-label={ed.trendTitle.replace("{{param}}", main.label)}>
       <TrendChart readings={readings} main={main} overlay={overlay} step={step} zeroBase={zeroBase} ed={ed} onClose={onClose} height="h-56" />
+      <RangeButtons range={range} ed={ed} />
       {extra && <TrendChart readings={readings} main={extra} overlay={null} dots={extra.dots} zeroBase={!extra.dots} ed={ed} height="h-28" />}
     </div>
   )
@@ -293,9 +340,16 @@ function TrendChart({ readings, main, overlay, step = false, zeroBase = false, d
     return [{ t: new Date(r.recorded_at).getTime(), v, ...(o !== null ? { o } : {}) }]
   })
   const hasOverlay = !!overlay && data.some(d => d.o !== undefined)
+  // 이틀이 넘으면 축에 날짜(월/일), 짧으면 시각. 도움말에는 둘 다.
+  const longSpan = data.length >= 2 && data[data.length - 1].t - data[0].t > 2 * 86_400_000
+  const two = (n: number) => String(n).padStart(2, "0")
   const hhmm = (ms: number) => {
     const d = new Date(ms)
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+    return longSpan ? `${d.getMonth() + 1}/${d.getDate()}` : `${two(d.getHours())}:${two(d.getMinutes())}`
+  }
+  const when = (ms: number) => {
+    const d = new Date(ms)
+    return `${d.getMonth() + 1}/${d.getDate()} ${two(d.getHours())}:${two(d.getMinutes())}`
   }
   const vals = data.map(d => d.v)
   const fmt = (v: number) => v.toFixed(main.digits)
@@ -306,7 +360,7 @@ function TrendChart({ readings, main, overlay, step = false, zeroBase = false, d
         <div className="flex items-baseline gap-3">
           {vals.length > 0 && !dots && (
             <p className="text-xs text-muted-foreground tabular-nums">
-              {ed.range24h.replace("{{min}}", fmt(Math.min(...vals))).replace("{{max}}", fmt(Math.max(...vals)))} {main.unit}
+              {ed.rangeMinMax.replace("{{min}}", fmt(Math.min(...vals))).replace("{{max}}", fmt(Math.max(...vals)))} {main.unit}
             </p>
           )}
           {onClose && <button type="button" onClick={onClose} className="text-xs text-primary hover:underline">{ed.close}</button>}
@@ -322,7 +376,7 @@ function TrendChart({ readings, main, overlay, step = false, zeroBase = false, d
               ticks={dots ? [0, 90, 180, 270, 360] : undefined}
               tickFormatter={(v: number) => dots ? ed.compass[compassIndex(v)] : v.toFixed(main.digits)}
               tick={{ fontSize: 11 }} width={44} stroke="currentColor" className="text-muted-foreground" />
-            <Tooltip labelFormatter={v => hhmm(Number(v))}
+            <Tooltip labelFormatter={v => when(Number(v))}
               formatter={(v, name) => dots
                 ? [`${ed.compass[compassIndex(Number(v))]} (${Math.round(Number(v))}°)`, main.label]
                 : [`${Number(v).toFixed(main.digits)} ${main.unit}`, name === "o" && overlay ? overlay.label : main.label]} />
@@ -344,7 +398,8 @@ const SENSOR_COLORS = ["#0284c7", "#db2777", "#65a30d", "#d97706", "#9333ea", "#
   "#2563eb", "#c026d3", "#16a34a", "#ca8a04"]
 
 /** 펼친 센서별 그래프와 목록 — 이름순. 가장 높은·낮은 센서에 표시를 붙여 튀는 센서를 바로 찾게. */
-function EachList({ param, label, rows, history, at, ed, onClose }: {
+function EachList({ param, label, rows, history, at, range, ed, onClose }: {
+  range: RangeCtl
   param: EnvParam
   label: string
   rows: { id: string; v: number }[]
@@ -380,6 +435,7 @@ function EachList({ param, label, rows, history, at, ed, onClose }: {
           <button type="button" onClick={onClose} className="text-xs text-primary hover:underline">{ed.close}</button>
         </div>
       </div>
+      <RangeButtons range={range} ed={ed} />
       <div className="flex flex-col md:flex-row gap-3">
         {data.length >= 2 && (
           <div className="md:flex-1 min-w-0 h-48" aria-hidden="true">
