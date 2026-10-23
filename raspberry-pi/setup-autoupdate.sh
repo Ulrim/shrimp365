@@ -95,21 +95,7 @@ g log --oneline "$OLD..$NEW" | head -20
 cd "$REPO/raspberry-pi"
 ./install.sh
 
-# 무선 수집기(setup-wireless.sh 로 깐 장비만) — 코드만 바꿔 끼운다. 패키지·Zigbee2MQTT 는 건드리지 않는다.
-APP=/opt/shrimp365/field
-if [ -d "$APP/scripts" ] && [ -d "$REPO/openfield/src/ofdf" ]; then
-  rm -rf "$APP/src/ofdf"
-  cp -r "$REPO/openfield/src/ofdf" "$APP/src/"
-  for s in zigbee_bridge.py rtl433_bridge.py ecowitt_receiver.py; do
-    install -m 644 "$REPO/openfield/scripts/$s" "$APP/scripts/$s"
-  done
-  install -m 644 "$REPO/raspberry-pi/field/devices.template.yaml" "$APP/devices.template.yaml"
-  find "$APP" -name __pycache__ -type d -prune -exec rm -rf {} +
-  chmod -R a+rX "$APP"
-  for u in farm365-zigbee farm365-rtl433 farm365-ecowitt; do
-    if systemctl is-active --quiet "$u"; then systemctl restart "$u"; fi
-  done
-fi
+# 무선 수집기 코드는 install.sh 가 저장소(openfield/)에서 바꿔 끼우고 다시 시작한다.
 
 systemctl restart shrimp365-sensor
 echo "끝 — 장비 프로그램을 다시 시작했습니다."
