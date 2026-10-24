@@ -312,3 +312,31 @@ def test_read_one_retries_connect(monkeypatch):
         asyncio.run(bridge.read_one(_Dev("x"), DEV_ID, cfg, False))
     assert len(tries) == bridge.CONNECT_TRIES and ei.value.stage == "connect"
     assert "3번 시도" in bridge.friendly_error(ei.value)
+
+
+def test_session_finds_protocol_version_by_retrying(monkeypatch):
+    """광고에서 규격판을 못 읽은 센서 — 규격판 2 로 물어야만 대답하는 경우."""
+    bridge = _bridge()
+    monkeypatch.setattr(bridge, "RESPONSE_WAIT_S", 1.0)
+    body = _dp(3, 2, (40).to_bytes(4, "big")) + _dp(5, 2, (190).to_bytes(4, "big"))
+    fake = FakeSensor(body)
+    orig = fake.write_gatt_char
+
+    async def only_v2(char, chunk, resp):
+        num, pos = tb.unpack_int(bytes(chunk), 0)
+        if num == 0:
+            _len, pos = tb.unpack_int(bytes(chunk), pos)
+            fake._v = chunk[pos] >> 4
+        if getattr(fake, "_v", 0) != 2:
+            return                                   # 다른 규격판은 못 알아듣는다
+        await orig(char, chunk, resp)
+
+    fake.write_gatt_char = only_v2
+    # 규격판 2 센서는 기기정보에도 2 라고 알린다.
+    monkeypatch.setitem(globals(), "_device_info", lambda: bytes([1, 0, 2, 0, 0, 1]) + SRAND + bytes([1, 0]) + b"A" * 32)
+    cfg = {"uuid": UUID, "local_key": LOCAL_KEY, "sensor_id": "SOIL-T1"}
+
+    async def go():
+        return await bridge.Session(fake, DEV_ID, cfg, False, None).run(collect_s=3)
+
+    assert asyncio.run(go()) == {3: 40, 5: 190}

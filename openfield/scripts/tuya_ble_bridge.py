@@ -82,22 +82,24 @@ class Session:
         if self.verbose:
             print(f"  [{self.cfg.get('sensor_id')}] {msg}")
 
-    async def send(self, code: int, data: bytes = b"", response_to: int = 0, wait: bool = True) -> tb.Message | None:
+    async def send(self, code: int, data: bytes = b"", response_to: int = 0, wait: bool = True,
+                   timeout: float | None = None, with_response: bool = False) -> tb.Message | None:
         seq = self.seq
         self.seq += 1
         fut = self.loop.create_future() if wait else None
         if fut:
             self.waiting[seq] = fut
         for chunk in tb.build_packets(self.keys, seq, code, data, response_to, self.proto):
-            await self.client.write_gatt_char(tb.CHAR_WRITE, chunk, False)
+            await self.client.write_gatt_char(tb.CHAR_WRITE, chunk, with_response)
         if not fut:
             return None
         try:
-            return await asyncio.wait_for(fut, RESPONSE_WAIT_S)
+            return await asyncio.wait_for(fut, timeout or RESPONSE_WAIT_S)
         finally:
             self.waiting.pop(seq, None)
 
     def on_notify(self, _sender, data: bytearray) -> None:
+        self.log(f"알림 원본 {bytes(data).hex()}")
         try:
             msg = self.reasm.feed(bytes(data))
         except tb.TuyaBLEError as exc:
@@ -127,12 +129,26 @@ class Session:
         elif msg.code in (tb.TIME1_REQ, tb.TIME2_REQ):
             asyncio.ensure_future(self.send(msg.code, tb.time_response(msg.code), msg.seq, wait=False))
 
+    async def device_info(self) -> tb.Message:
+        """기기정보 요청. 대답이 없으면 규격판(패킷 머리)과 쓰기 방식을 바꿔 가며 다시 묻는다 —
+        광고에서 규격판을 못 읽은 센서는 몇 번인지 모른다(참고 구현의 기본값은 2)."""
+        tries = [(self.proto, False)] + [(v, False) for v in (2, 3, 4) if v != self.proto] + [(self.proto, True)]
+        per = max(RESPONSE_WAIT_S / len(tries), min(8.0, RESPONSE_WAIT_S))
+        last: BaseException | None = None
+        for proto, with_resp in tries:
+            self.proto = proto
+            self.log(f"기기정보 요청(규격판 {proto}{', 쓰기 확인' if with_resp else ''})")
+            try:
+                return await self.send(tb.DEVICE_INFO, timeout=per, with_response=with_resp)
+            except (asyncio.TimeoutError, TimeoutError) as exc:
+                last = exc
+        raise last or TimeoutError()
+
     async def run(self, collect_s: float = 15.0) -> dict[int, object]:
         self.stage = "notify"
         await self.client.start_notify(tb.CHAR_NOTIFY, self.on_notify)
         self.stage = "info"
-        self.log("기기정보 요청")
-        info = await self.send(tb.DEVICE_INFO)
+        info = await self.device_info()
         meta = tb.apply_device_info(self.keys, info.data)
         self.proto = meta["protocol_version"] or self.proto
         self.log(f"기기정보 {meta}")
@@ -319,6 +335,54 @@ def _mtime(path: Path) -> float:
         return 0.0
 
 
+async def diagnose(mac: str, seconds: float = 30.0) -> int:
+    """센서가 무엇을 내보내는지 그대로 보인다 — 광고, 블루투스 서비스, 알림 원본.
+    투야 표준 규격이 아닌 센서를 맞출 때 쓴다(현장에서 화면을 찍어 보내면 된다)."""
+    from bleak import BleakClient, BleakScanner
+    mac = mac.upper()
+    seen: dict = {}
+
+    def cb(device, adv) -> None:
+        if str(device.address).upper() != mac:
+            return
+        if not seen:
+            print(f"[광고] 이름={adv.local_name!r} 신호={adv.rssi}")
+        seen["dev"] = device
+        key = (tuple(adv.service_uuids or []), tuple((k, bytes(v).hex()) for k, v in (adv.service_data or {}).items()),
+               tuple((k, bytes(v).hex()) for k, v in (adv.manufacturer_data or {}).items()))
+        if key not in seen.setdefault("ads", set()):
+            seen["ads"].add(key)
+            print(f"[광고] 서비스={list(key[0])}")
+            for k, v in key[1]:
+                print(f"       서비스데이터 {k}: {v}")
+            for k, v in key[2]:
+                print(f"       제조사데이터 0x{k:04X}: {v}")
+
+    print(f"[진단] {mac} 광고를 {seconds:.0f}초 듣습니다…")
+    async with BleakScanner(cb):
+        await asyncio.sleep(seconds)
+    if "dev" not in seen:
+        print("[진단] 이 주소의 광고가 안 들립니다 — 앱 종료·게이트웨이 끄기·버튼 눌러 깨우기 후 다시")
+        return 1
+    print("[진단] 연결합니다…")
+    async with BleakClient(seen["dev"], timeout=25) as client:
+        notif = []
+        for svc in client.services:
+            print(f"[서비스] {svc.uuid}")
+            for ch in svc.characteristics:
+                print(f"    [특성] {ch.uuid} {','.join(ch.properties)}")
+                if {"notify", "indicate"} & set(ch.properties):
+                    notif.append(ch)
+        for ch in notif:
+            try:
+                await client.start_notify(ch, lambda c, d, u=ch.uuid: print(f"[알림] {u}: {bytes(d).hex()}"))
+            except Exception as exc:  # noqa: BLE001
+                print(f"[알림] {ch.uuid} 켜기 실패: {exc}")
+        print("[진단] 20초 동안 들어오는 알림을 봅니다(센서 버튼을 한 번 눌러 보세요)…")
+        await asyncio.sleep(20)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--devices", default="configs/devices.yaml")
@@ -329,7 +393,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--timeout", type=float, default=180, help="센서 하나를 읽는 최대 시간(초, 연결 재시도 포함)")
     p.add_argument("--once", action="store_true", help="한 번만 읽고 끝낸다(현장 점검)")
     p.add_argument("-v", "--verbose", action="store_true")
+    p.add_argument("--diagnose", metavar="MAC", help="그 센서의 광고·서비스·알림 원본을 보인다(현장 진단)")
     args = p.parse_args(argv)
+    if args.diagnose:
+        return asyncio.run(diagnose(args.diagnose))
 
     heard: dict = {}
 
