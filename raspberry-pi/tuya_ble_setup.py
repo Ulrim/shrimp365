@@ -39,7 +39,9 @@ def _block(lines: list[str], key: str) -> tuple[int, int] | None:
         if re.match(rf"^{re.escape(key)}:\s*(#.*)?$", line) or re.match(rf"^{re.escape(key)}:\s*\{{\s*\}}", line):
             start = i
             continue
-        if start is not None and line and not line[0].isspace() and not line.startswith("#"):
+        # 맨 앞 칸에서 시작하는 줄이면(주석 포함) 이 칸은 끝났다 — 주석을 칸 안으로 치면 그 뒤 칸의
+        # 머리 주석(예: '# ── 433MHz ──')까지 이 칸과 함께 지워졌다. 이 칸은 우리가 쓰므로 안에 맨 앞 주석이 없다.
+        if start is not None and line and not line[0].isspace():
             return start, i
     return (start, len(lines)) if start is not None else None
 
@@ -57,16 +59,35 @@ def _q(v) -> str:
     return json.dumps(str(v), ensure_ascii=False)       # YAML 은 JSON 문자열을 그대로 읽는다
 
 
+_KEY_ORDER = ("sensor_id", "zone", "name", "uuid", "local_key", "mac", "category", "product_id")
+_PLAIN_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _scalar(v) -> str:
+    """숫자는 그대로, 나머지는 따옴표 — 손으로 적은 칸(key_variant 등)도 그대로 살린다."""
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, (int, float)):
+        return str(v)
+    return _q(v)
+
+
 def render_block(entries: dict[str, dict]) -> list[str]:
     out = ["tuya_ble:   # 투야 블루투스 센서 — tuya_ble_setup.py 가 적는다. local_key 는 남에게 보이지 마세요."]
     for dev_id, cfg in entries.items():
         out.append(f"  {_q(dev_id)}:")
-        for k in ("sensor_id", "zone", "name", "uuid", "local_key", "mac", "category", "product_id"):
-            if cfg.get(k) not in (None, ""):
-                out.append(f"    {k}: {_q(cfg[k])}")
+        # 아는 칸을 먼저, 그다음 손으로 더한 칸(key_variant 등)도 버리지 않는다 — 등록·빼기·열쇠 새로 받기 때마다
+        # 고정된 칸만 다시 쓰면 사람이 맞춰 둔 설정이 사라졌다.
+        keys = [k for k in _KEY_ORDER if k in cfg] + [k for k in cfg if k not in _KEY_ORDER and k != "dps"]
+        for k in keys:
+            if cfg.get(k) in (None, "") or not _PLAIN_KEY.match(str(k)) or isinstance(cfg[k], (dict, list)):
+                continue
+            out.append(f"    {k}: {_scalar(cfg[k])}")
         dps = cfg.get("dps")
         if isinstance(dps, dict) and dps:
-            out.append("    dps: {" + ", ".join(f"{k}: {v}" for k, v in dps.items()) + "}")
+            items = [f"{k}: {_scalar(v)}" for k, v in dps.items() if _PLAIN_KEY.match(str(k))]
+            if items:
+                out.append("    dps: {" + ", ".join(items) + "}")
     return out
 
 
@@ -84,7 +105,10 @@ def write_entries(path: Path, entries: dict[str, dict]) -> None:
         lines += [""] + render_block(entries)
     text = "\n".join(lines) + "\n"
     tmp = path.with_suffix(".yaml.tmp")
-    tmp.write_text(text, encoding="utf-8")
+    # 처음부터 640 으로 만든다 — 다 쓴 뒤 chmod 하면 그 사이 열쇠가 든 파일이 잠깐 644 다.
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o640)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(text)
     try:
         st = path.stat()
         os.chown(tmp, st.st_uid, st.st_gid)

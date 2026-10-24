@@ -401,3 +401,13 @@ def test_sight_connects_at_first_sighting(monkeypatch):
     dev, rssi, proto, nearby = asyncio.run(bridge.sight("DC:23:53:94:45:98", "", 30))
     assert dev.address == "dc:23:53:94:45:98" and rssi == -50 and nearby == 2
     assert _time.monotonic() - t0 < 2 and events == ["start", "stop"]
+
+
+def test_short_frames_and_empty_dp():
+    keys = tb.Keys.from_local_key(LOCAL_KEY)
+    for buf in (b"\x00\x00\x30", bytes(17)):
+        with pytest.raises(tb.TuyaBLEError):
+            tb.decrypt_message(keys, buf)
+    # 끝에 길이 0 인 DP 가 붙어도 앞의 값을 버리지 않는다
+    body = _dp(3, 2, (31).to_bytes(4, "big")) + bytes([9, 0, 0])
+    assert tb.parse_dps(tb.RECEIVE_DP, body) == {3: 31, 9: ""}

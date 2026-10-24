@@ -46,6 +46,7 @@ COLUMNS = ["ts", "zone", "sensor_id", "variable", "value", "unit", "quality"]
 
 HEARD_FILE = "ecowitt_heard.json"
 HEARD_MAX = 16
+MAX_BODY = 64 * 1024                 # 이보다 큰 보고는 받지 않는다
 
 
 def load_passkey(path: str | Path) -> str:
@@ -196,7 +197,13 @@ def make_handler(state: State):
             if state.args.path not in ("*", self.path.split("?")[0]):
                 self.send_error(404)
                 return
-            length = int(self.headers.get("Content-Length") or 0)
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                length = -1
+            if not 0 <= length <= MAX_BODY:     # 게이트웨이 보고는 1KB 남짓이다
+                self.send_error(413 if length > MAX_BODY else 400)
+                return
             body = self.rfile.read(length).decode("utf-8", errors="replace")
             try:
                 count = state.handle(body, self.client_address[0])

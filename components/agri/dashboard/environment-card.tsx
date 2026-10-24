@@ -48,8 +48,35 @@ function latestOf(readings: WaterQualityReading[], key: EnvParamKey): Latest | n
   return null
 }
 
+/** 같은 시간 칸의 줄을 하나로 — 한 베드에 환경값을 보내는 기기가 둘이면 기간 집계(wq_series)가 칸마다
+ *  기기별 줄을 따로 돌려줘, 그래프가 두 기기 값 사이를 오가는 톱니가 되고 최신값이 어느 기기 것인지 매번 바뀐다.
+ *  숫자는 평균, 풍향은 평균하면 틀리므로(350°·10° → 180°) 먼저 온 값. */
+function mergeByTime(rows: WaterQualityReading[]): WaterQualityReading[] {
+  if (rows.length < 2) return rows
+  const out: WaterQualityReading[] = []
+  const sums = new Map<string, Record<string, [number, number]>>()
+  for (const r of rows) {
+    const last = out[out.length - 1]
+    if (!last || last.recorded_at !== r.recorded_at) {
+      out.push({ ...r })
+      sums.set(r.recorded_at, {})
+    }
+    const acc = sums.get(r.recorded_at)!
+    const cur = out[out.length - 1] as unknown as Record<string, unknown>
+    for (const p of ENV_PARAMS) {
+      const v = (r as unknown as Record<string, unknown>)[p.key]
+      if (typeof v !== "number") continue
+      if (p.key === "wind_dir") { if (typeof cur[p.key] !== "number") cur[p.key] = v; continue }
+      const [s0, n0] = acc[p.key] ?? [0, 0]
+      acc[p.key] = [s0 + v, n0 + 1]
+      cur[p.key] = (s0 + v) / (n0 + 1)
+    }
+  }
+  return out
+}
+
 /** now — 대시보드가 마지막으로 다시 불러온 시각. 렌더 중에 시계를 읽지 않으려고 받는다(react-hooks/purity). */
-export function EnvironmentCard({ readings, tankId, tankName, now, mock = false }: {
+export function EnvironmentCard({ readings: rawReadings, tankId, tankName, now, mock = false }: {
   readings: WaterQualityReading[]
   tankId: string
   tankName: string
@@ -59,6 +86,7 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
 }) {
   const { t } = useT()
   const { environment: ed } = useAgriT()
+  const readings = mergeByTime(rawReadings)
   // 어느 베드의 값인지 같이 둔다 — 베드를 바꾼 직후 이전 베드의 센서 목록이 보이지 않게.
   const [eachData, setEachData] = useState<{ tankId: string; rows: { each: EnvEach; recorded_at: string }[] } | null>(null)
   const [open, setOpen] = useState<{ tankId: string; key: EnvParamKey } | null>(null)
@@ -95,7 +123,7 @@ export function EnvironmentCard({ readings, tankId, tankName, now, mock = false 
   }, [tankId, hours, now, mock, panelOpen])
 
   const rangeReady = hours === 24 || (rangeData !== null && rangeData.tankId === tankId && rangeData.hours === hours)
-  const panelReadings = hours === 24 ? readings : rangeReady ? rangeData!.rows : []
+  const panelReadings = hours === 24 ? readings : rangeReady ? mergeByTime(rangeData!.rows) : []
   // 6·12시간은 24시간 값에서 자른다(따로 읽지 않는다). 기준 시각은 대시보드의 마지막 새로고침.
   const cutoff = now && hours < 24 ? now.getTime() - hours * 3_600_000 : null
   const inRange = <T extends { recorded_at: string }>(rows: T[]) =>

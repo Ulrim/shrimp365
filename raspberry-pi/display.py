@@ -167,6 +167,7 @@ _LABELS = [
     ("temperature", "Temp", "C", 1),
     ("ph", "pH", "", 2),
     ("do_level", "DO", "mg/L", 2),
+    ("conductivity", "EC", "uS", 0),   # 전도도만 다는 장비(양액)도 화면에 값이 나오게
     ("salinity", "Sal", "ppt", 1),
 ]
 

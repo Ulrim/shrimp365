@@ -206,6 +206,9 @@ class Reassembler:
 
 
 def decrypt_message(keys: Keys, buf: bytes) -> Message:
+    # 보안표시(1) + IV(16) + 최소 한 블록(16). 짧은 조각이 IndexError·struct.error 로 새어 나가지 않게.
+    if len(buf) < 33:
+        raise TuyaBLEError(f"메시지가 짧습니다({len(buf)}바이트)")
     flag, iv, enc = buf[0], buf[1:17], buf[17:]
     if len(enc) % 16:
         raise TuyaBLEError("암호문 길이가 16의 배수가 아닙니다")
@@ -247,7 +250,7 @@ def _value(dtype: int, raw: bytes):
 
 def _parse_dp_list(data: bytes, pos: int, head: int) -> dict[int, object]:
     out: dict[int, object] = {}
-    while len(data) - pos >= head + 1:
+    while len(data) - pos >= head:            # 길이 0 인 DP 도 하나의 DP 다(끝에 오면 전에는 보고 전체를 버렸다)
         dp_id, dtype = data[pos], data[pos + 1]
         length = int.from_bytes(data[pos + 2:pos + head], "big")
         pos += head

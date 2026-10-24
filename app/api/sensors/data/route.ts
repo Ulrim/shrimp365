@@ -4,6 +4,7 @@ import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, parseTre
 import { sendAlertPush } from "@/lib/push-server"
 import { ENV_PARAMS, ENV_KEYS, ENV_LATER_KEYS, parseEnvEach, type EnvParamKey } from "@/lib/env-params"
 import { parsePowerPayload, breakerAlerts } from "@/lib/power"
+import { strictNumber } from "@/lib/strict-number"
 
 /** 환경·기상 칸별 수신 범위 — lib/env-params.ts 에서 만든다. */
 const ENV_RANGE = Object.fromEntries(ENV_PARAMS.map(p => [p.key, p.range])) as Record<EnvParamKey, readonly [number, number]>
@@ -15,6 +16,10 @@ const rateLimitMap = new Map<string, { count: number; windowStart: number }>()
 
 function checkRateLimit(key: string): boolean {
   const now = Date.now()
+  // 틀린 키로 마구 두드려도 표가 끝없이 커지지 않게 — 커지면 창이 지난 줄을 걷는다.
+  if (rateLimitMap.size > 5000) {
+    for (const [k, e] of rateLimitMap) if (now - e.windowStart > RATE_LIMIT_WINDOW_MS) rateLimitMap.delete(k)
+  }
   const entry = rateLimitMap.get(key)
   if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
     rateLimitMap.set(key, { count: 1, windowStart: now })
@@ -176,9 +181,9 @@ export async function POST(req: NextRequest) {
   for (const field of FIELDS) {
     const raw = body[field]
     if (raw !== undefined && raw !== null) {
-      const n = Number(raw)
+      const n = strictNumber(raw)
       const [min, max] = VALID_RANGE[field]
-      if (!Number.isNaN(n) && Number.isFinite(n) && n >= min && n <= max) {
+      if (n !== null && n >= min && n <= max) {
         values[field] = n
       }
     }
@@ -194,9 +199,9 @@ export async function POST(req: NextRequest) {
   for (const field of ENV_COLS) {
     const raw = body[field]
     if (raw === undefined || raw === null) continue
-    const n = Number(raw)
+    const n = strictNumber(raw)
     const [min, max] = ENV_RANGE[field]
-    if (Number.isFinite(n) && n >= min && n <= max) envValues[field] = n
+    if (n !== null && n >= min && n <= max) envValues[field] = n
   }
 
   // 같은 칸의 센서가 여러 대일 때 한 대 한 대의 값(웹 카드에서 칸을 누르면 펼친다).
@@ -368,20 +373,36 @@ export async function POST(req: NextRequest) {
   //    기준이라, 근권 냉방으로 일부러 흔드는 양액에 대면 정상 운전이 경고가 된다.
   const FRESH_MS = 15 * 60_000
   const fresh = Date.now() - new Date(recordedAt).getTime() <= FRESH_MS
-  const trendAlerts = (fresh && profile !== "agriculture")
+  // **지금 값인가.** 장비는 지금 값을 먼저 보내고 그 뒤에 밀린 값(buffer)을 최대 40줄씩 보낸다.
+  // 그래서 마지막으로 도착하는 요청이 옛 값인 경우가 흔하다. 그 옛 값으로 수조 색·알림 열고 닫기·
+  // 마지막 수신값을 정하면, 지금 산소가 낮은데도 옛 정상값이 알림을 닫고 1분 뒤 다시 열며 푸시가
+  // 매분 울린다. 같은 장비의 더 새 기록이 이미 있으면 이 줄은 **저장만** 한다.
+  let current = fresh
+  if (current) {
+    try {
+      const { data: newer, error } = await supabaseAdmin
+        .from("water_quality_readings")
+        .select("id")
+        .eq("device_id", device.id)
+        .gt("recorded_at", recordedAt)
+        .limit(1)
+      if (!error && newer && newer.length > 0) current = false
+    } catch { /* 확인 못 하면 15분 기준만 쓴다 */ }
+  }
+  const trendAlerts = (current && profile !== "agriculture")
     ? parseTrendAlerts(body.ai_anomaly)
     : []
 
   // 수조 색(초록·주황·빨강)을 정하는 것은 **지금 값의 판정**뿐이다. 추세 경고까지
   // 섞으면 기준 안에서 멀쩡히 도는 수조가 "위험" 으로 보여 진짜 이탈과 구분되지
   // 않는다. 그래서 둘을 나눠 두고, 알림 수명(중복 억제·복귀·푸시)만 함께 태운다.
-  const statusAlerts = [
+  const statusAlerts = current ? [
     ...checkThresholds(globalValues as Parameters<typeof checkThresholds>[0], profile),
     ...checkRecipe(values, recipe),
-  ]
+  ] : []
   // 차단기 과열(본체 온도) — 화재 전조. 수조 색에는 넣지 않고(수질이 아니다) 알림·푸시만 태운다.
   // 추세와 같이 밀린 값에는 반응하지 않는다 — 어제의 과열로 지금 휴대폰을 울리면 안 된다.
-  const breaker = fresh ? breakerAlerts(powerCircuits) : { alerts: [], recovered: [] }
+  const breaker = current ? breakerAlerts(powerCircuits) : { alerts: [], recovered: [] }
   const thresholdAlerts = [...statusAlerts, ...trendAlerts, ...breaker.alerts]
 
   // 같은 항목이 계속 범위 밖이면 알림을 새로 만들지 않는다.
@@ -414,7 +435,7 @@ export async function POST(req: NextRequest) {
           await sendAlertPush(device.tank_id, { type: alert.type, message: alert.message, parameter: alert.parameter })
         }
       } else {
-        await supabaseAdmin.from("alerts").insert({
+        const { error: insertError } = await supabaseAdmin.from("alerts").insert({
           tank_id: device.tank_id,
           type: alert.type,
           parameter: alert.parameter,
@@ -423,6 +444,11 @@ export async function POST(req: NextRequest) {
           message: alert.message,
           resolved: false,
         })
+        // 저장하지 못한 알림으로 휴대폰을 울리면 눌러도 없는 알림이다 — 다음 측정에서 다시 시도한다.
+        if (insertError) {
+          console.warn("[sensors/data] alert insert failed:", insertError.message)
+          continue
+        }
 
         // 새로 생긴 알림 — 앱이 닫혀 있어도 닿아야 한다.
         // 실패해도 sendAlertPush 가 전부 삼키므로 수집은 멈추지 않는다.
@@ -449,40 +475,42 @@ export async function POST(req: NextRequest) {
   // salinity·ph 를 뺐고, 그 두 항목의 복귀는 아래 target_ec/target_ph 분기가 따로
   // 잡는다. values 를 쓰면 판정하지도 않은 항목까지 복귀시킨다.
   const stillBad = new Set(thresholdAlerts.map(a => a.parameter))
-  const recovered = resolvableParameters(
+  // 옛 값으로는 아무것도 닫지 않는다(위 current 설명).
+  const recovered = current ? resolvableParameters(
     globalValues as Parameters<typeof resolvableParameters>[0], profile,
-  ).filter(p => !stillBad.has(p))
+  ).filter(p => !stillBad.has(p)) : []
   // 값이 들어왔다는 사실 자체가 입력 누락의 해소다 — 단, 수질 기록에 줄을 실제로 썼을 때만.
   // 입력 누락 점검(planMissingInputAlerts)은 그 기록의 마지막 줄을 보므로, 전력만 온 줄로
   // 닫으면 점검이 다시 열고 서버가 또 닫기를 되풀이한다.
-  if (reading) recovered.push(MISSING_INPUT_PARAMETER)
+  if (reading && current) recovered.push(MISSING_INPUT_PARAMETER)
   // 추세 알림의 복귀 — 이번에 보고되지 않은 항목은 더 이상 이상징후가 아니다.
   // 장비가 매 측정마다 **전체 목록**을 보내므로 빠진 것이 곧 해소다.
   // 밀린 값(fresh 아님)으로는 닫지 않는다 — 사흘 전 payload 에 없다는 이유로
   // 지금 열려 있는 경고를 닫으면, 정작 지금 벌어지는 일을 지워 버린다.
-  if (fresh && profile !== "agriculture") {
+  if (current && profile !== "agriculture") {
     const stillTrending = new Set(trendAlerts.map(a => a.parameter))
     recovered.push(...TREND_ALERT_PARAMETERS.filter(p => !stillTrending.has(p)))
   }
   // 차단기가 식었으면(60℃ 아래) 과열 알림을 닫는다. 60~65℃ 사이는 열린 채 둔다(깜빡임 방지).
-  recovered.push(...breaker.recovered)
+  if (current) recovered.push(...breaker.recovered)
   // 레시피 알림은 parameter 가 값 키와 달라("EC"/"pH") 별도 매핑으로 복귀를 잡는다.
   // 0 은 전극이 물 밖일 때 나오는 값이라 checkRecipe 가 판정에서 제외한다 —
   // 판정을 안 했으면 복귀도 아니다(비대칭이면 이탈 알림이 0 수신에 닫혀 버린다).
-  if (recipe?.target_ec != null && values.conductivity !== undefined && values.conductivity !== 0 && !stillBad.has("EC")) {
+  if (current && recipe?.target_ec != null && values.conductivity !== undefined && values.conductivity !== 0 && !stillBad.has("EC")) {
     recovered.push("EC")
   }
-  if (recipe?.target_ph != null && values.ph !== undefined && values.ph !== 0 && !stillBad.has("pH")) {
+  if (current && recipe?.target_ph != null && values.ph !== undefined && values.ph !== 0 && !stillBad.has("pH")) {
     recovered.push("pH")
   }
   if (recovered.length > 0) {
     try {
-      await supabaseAdmin
+      const { error: resolveError } = await supabaseAdmin
         .from("alerts")
         .update({ resolved: true })
         .eq("tank_id", device.tank_id)
         .eq("resolved", false)
         .in("parameter", recovered)
+      if (resolveError) console.warn("[sensors/data] alert resolve failed:", resolveError.message)
     } catch (e) { console.warn("[sensors/data] non-fatal:", e instanceof Error ? e.message : e) }
   }
 
@@ -490,7 +518,7 @@ export async function POST(req: NextRequest) {
     : statusAlerts.some(a => a.type === "warning") ? "warning"
     : "active"
 
-  if (hasWater) {
+  if (hasWater && current) {
     try {
       await supabaseAdmin
         .from("tanks")
@@ -503,10 +531,9 @@ export async function POST(req: NextRequest) {
   //    원본을 통째로 남겨 두면 수질 기록에 저장하지 않는 값(전도도·TDS 등)도
   //    화면에서 확인할 수 있어 현장에서 기기 상태를 파악하기 쉽다.
   try {
-    const deviceUpdate: Record<string, unknown> = {
-      last_seen_at: new Date().toISOString(),
-      last_payload: sanitizePayload(body),
-    }
+    // 기기가 살아 있다는 사실(last_seen_at)은 옛 값이 와도 맞다. 마지막 측정값은 지금 값으로만.
+    const deviceUpdate: Record<string, unknown> = { last_seen_at: new Date().toISOString() }
+    if (current) deviceUpdate.last_payload = sanitizePayload(body)
     const serial = readShortString(body.serial)
     const firmware = readShortString(body.firmware)
     if (serial) deviceUpdate.serial = serial

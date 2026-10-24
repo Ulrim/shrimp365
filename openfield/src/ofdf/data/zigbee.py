@@ -365,6 +365,11 @@ def message_to_rows(
         return []
 
     data = json.loads(payload) if isinstance(payload, str) else dict(payload)
+    if not isinstance(data, dict):
+        # null·숫자·배열·문자열 메시지(장치가 상태말만 보낼 때 등)는 측정값이 아니다.
+        if unknown is not None:
+            unknown.append(f"{name}: 객체가 아닌 메시지 {str(payload)[:40]!r}")
+        return []
     device = devices.get(name)
     if device is None:
         if unknown is not None:

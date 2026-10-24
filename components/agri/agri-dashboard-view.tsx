@@ -101,12 +101,17 @@ export function AgriDashboardView() {
   const [base, setBase] = useState<BaseData>(EMPTY)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
+  // 처음 불러온 시각 — 자동 새로고침(1분 뒤 첫 회)이 돌기 전에도 카드들이 기준 시각을 갖게.
+  // 없으면 첫 1분 동안 환경 카드의 6·12시간 단추가 24시간을 그대로 보이고 끊김 표시도 안 뜬다.
+  const [loadedAt, setLoadedAt] = useState<Date | null>(null)
   const [retry, setRetry] = useState(0)
 
   const [pickedTankId, setPickedTankId] = useState("")
-  const [tankWq, setTankWq] = useState<WaterQualityReading[]>([])
-  const [tankDevices, setTankDevices] = useState<SensorDevice[]>([])
-  const [tankFieldRisk, setTankFieldRisk] = useState<FieldRiskJudgement[]>([])
+  // 베드 상세는 **어느 베드 것인지와 함께** 둔다. 베드를 바꾸는 사이에 앞 베드의 불러오기(자동 새로고침
+  // 포함)가 늦게 끝나도, 꼬리표가 지금 베드와 다르면 그리지 않는다 — 다른 베드 값이 이 베드 이름으로 보이면 안 된다.
+  const [detail, setDetail] = useState<{
+    tankId: string; wq: WaterQualityReading[]; devices: SensorDevice[]; fieldRisk: FieldRiskJudgement[]
+  } | null>(null)
 
   const [resolvingId, setResolvingId] = useState<string | null>(null)
   const [resolveError, setResolveError] = useState<string | null>(null)
@@ -121,9 +126,10 @@ export function AgriDashboardView() {
   const selectedTank = tanks.find(tk => tk.id === selectedTankId) ?? null
   const selectedIsField = selectedTank?.tank_type === "노지"
   // 베드가 하나도 없으면 상세 상태에 남은 직전 값을 그리지 않는다.
-  const visibleWq = selectedTankId ? tankWq : []
-  const visibleDevices = selectedTankId ? tankDevices : []
-  const visibleFieldRisk = selectedTankId && selectedIsField ? tankFieldRisk : []
+  const mine = detail && selectedTankId && detail.tankId === selectedTankId ? detail : null
+  const visibleWq = mine ? mine.wq : []
+  const visibleDevices = mine ? mine.devices : []
+  const visibleFieldRisk = mine && selectedIsField ? mine.fieldRisk : []
 
   useEffect(() => {
     if (!ready) return
@@ -132,6 +138,7 @@ export function AgriDashboardView() {
       .then(d => {
         if (!alive) return
         setBase(d)
+        setLoadedAt(new Date())
         setLoading(false)
       })
       .catch(() => {
@@ -145,11 +152,10 @@ export function AgriDashboardView() {
   useEffect(() => {
     if (!selectedTankId || mock) return
     let alive = true
-    loadTankDetail(selectedTankId, selectedIsField).then(({ wq, devices, fieldRisk }) => {
+    const tankId = selectedTankId
+    loadTankDetail(tankId, selectedIsField).then(({ wq, devices, fieldRisk }) => {
       if (!alive) return
-      setTankWq(wq)
-      setTankDevices(devices)
-      setTankFieldRisk(fieldRisk)
+      setDetail({ tankId, wq, devices, fieldRisk })
     })
     return () => { alive = false }
   }, [selectedTankId, selectedIsField, mock])
@@ -161,13 +167,14 @@ export function AgriDashboardView() {
     const d = await loadBase(mock)
     setBase(d)
     if (selectedTankId) {
-      const { wq, devices, fieldRisk } = await loadTankDetail(selectedTankId, selectedIsField)
-      setTankWq(wq)
-      setTankDevices(devices)
-      setTankFieldRisk(fieldRisk)
+      const tankId = selectedTankId
+      const { wq, devices, fieldRisk } = await loadTankDetail(tankId, selectedIsField)
+      // 그사이 다른 베드를 골랐으면 버린다(위 detail 설명).
+      setDetail(prev => (prev && prev.tankId !== tankId) ? prev : { tankId, wq, devices, fieldRisk })
     }
   }, [mock, selectedTankId, selectedIsField])
   const { lastRefreshed } = useAutoRefresh(reload, 60, !loading && !loadError)
+  const now = lastRefreshed ?? loadedAt
 
   const handleResolve = async (id: string) => {
     setResolveError(null)
@@ -334,10 +341,10 @@ export function AgriDashboardView() {
       )}
 
       {/* 환경·기상 — 장비가 지그비·기상센서 값을 올린 베드만. 없으면 카드가 그려지지 않는다 */}
-      {selectedTank && featureOn("env", on) && <EnvironmentCard readings={visibleWq} tankId={selectedTank.id} tankName={selectedTank.name} now={lastRefreshed} mock={mock} />}
+      {selectedTank && featureOn("env", on) && <EnvironmentCard readings={visibleWq} tankId={selectedTank.id} tankName={selectedTank.name} now={now} mock={mock} />}
 
       {/* 전력 — 장비가 분전반 회로 값을 올린 베드만. 없으면 카드가 그려지지 않는다 */}
-      {selectedTank && featureOn("power", on) && <PowerCard tankId={selectedTank.id} tankName={selectedTank.name} now={lastRefreshed} mock={mock} />}
+      {selectedTank && featureOn("power", on) && <PowerCard tankId={selectedTank.id} tankName={selectedTank.name} now={now} mock={mock} />}
 
       {hasNutrient || hasDp ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

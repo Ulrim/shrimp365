@@ -315,7 +315,14 @@ export async function getPowerReadings(tankId: string, hours = 24): Promise<Powe
     .order("recorded_at", { ascending: false })
     .limit(1000)   // API 상한 — 최신 순으로 받아야 회로가 많아도 지금 값이 잘리지 않는다(getWaterQuality ② 와 같은 이유)
   if (error) return []
-  return ((data || []) as PowerReading[]).reverse()
+  const rows = ((data || []) as PowerReading[]).reverse()
+  // 상한에 걸렸으면 가장 오래된 시각의 묶음은 일부 회로만 들어왔을 수 있다(인입 없이 분기 몇 개만 등) —
+  // 그 점을 그래프 첫 점으로 쓰면 전체 전력이 뚝 떨어져 보인다. 그 시각 줄을 통째로 버린다.
+  if (rows.length >= 1000) {
+    const oldest = rows[0].recorded_at
+    return rows.filter(r => r.recorded_at !== oldest)
+  }
+  return rows
 }
 
 /** 베드의 센서별 환경 값 기록(최근 hours 시간, 오래된 것부터). 없거나 env_sensors.sql 전이면 [].

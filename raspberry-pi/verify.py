@@ -584,6 +584,9 @@ if _tbs:
                      encoding="utf-8")
     _wrap.chmod(0o755)
     _WBL.ble_py, _WBL.tuya_cred = _wrap, _bdir / "cred.json"
+    _WBL.ble_ready_flag = _bdir / ".ready"
+    check("블루투스 준비 표시가 없으면 준비 안 됨(꾸러미 설치 실패 장비)", _WBL.ble_ready(), False)
+    _WBL.ble_ready_flag.write_text("2")
     check("열쇠 형식이 틀리면 묻지도 않는다", _WBL.ble_fetch("a b", "c")["ok"], False)
     _r = _WBL.ble_fetch("abcdefgh12", "secretsecret99")
     check("투야에서 가져오기: 블루투스 기기만 · 지역은 us", (_r.get("ok"), _r.get("count"), _r.get("region")), (True, 1, "us"))
@@ -707,6 +710,44 @@ _Q.observe_do(5.1); _g.append(_Q.desired("AIR-02", _now["t"]))
 check("강제 켜기: 예약 밖·손으로 꺼도 3.8 이면 켜고, 5.0 넘게 회복하면 풀린다", _g, [False, True, True, False])
 _Q.do_at -= 700
 check("산소값을 모르면 강제 켜기는 관여하지 않는다", _Q.desired("AIR-02", _now["t"]), False)
+
+# 리뷰에서 찾은 것들
+_sent2: list = []
+_R = pc.PowerControl(Path(tempfile.mkdtemp()) / "pc.json", clock=lambda: _now["t"],
+                     names=lambda: {"AIR-01": "air-01"})
+_R._send_fn = lambda n, on: (_sent2.append((n, on)), _sent2.append(("lock_free", _R._lock.acquire(blocking=False)))
+                             and _R._lock.release())
+_now["t"] = _D(2026, 10, 26, 12, 0)
+_R.observe([{"id": "AIR-01", "type": "aerator", "state": 0, "level": ""}])
+_R.manual("AIR-01", False)
+_R.observe([{"id": "AIR-01", "type": "aerator", "state": 0, "level": ""}])
+_R.observe_do(3.0)
+_R.tick()
+_R.observe([{"id": "AIR-01", "type": "aerator", "state": 1, "level": ""}])
+_R.tick()
+check("강제 켜기 → 차단기가 따름", _R.last["AIR-01"].get("ok"), True)
+_R.observe([{"id": "AIR-01", "type": "aerator", "state": 0, "level": ""}])   # 정전·트립으로 꺼짐
+_R.observe_do(3.0)
+_R.tick()
+check("산소 부족 중 꺼지면 다시 켠다(손으로 바꾼 것과 다르게)", [x for x in _sent2 if x[0] == "air-01"][-1], ("air-01", True))
+check("MQTT 전송은 잠금 밖에서", all(ok for k, ok in _sent2 if k == "lock_free"), True)
+_R.set_interval(900)
+_R.do_at -= 700
+check("측정 간격 15분이면 11분 지난 산소값도 아직 유효", _R._do_now(), 3.0)
+_bad = Path(tempfile.mkdtemp()) / "pc.json"
+_bad.write_text(json.dumps({"rules": {}, "override": {"A-1": {"on": True, "until": "엉망"}, "B-1": {"x": 1},
+                                                     "C-1": {"on": False, "until": None, "sched": None}}}), encoding="utf-8")
+check("망가진 손 조작 기록은 들이지 않는다", sorted(pc.PowerControl(_bad).over), ["C-1"])
+_S = pc.PowerControl(Path(tempfile.mkdtemp()) / "pc.json", clock=lambda: _now["t"], names=lambda: {"PUMP-01": "p"})
+_S.observe([{"id": "PUMP-01", "type": "irrigation_pump", "state": 0, "level": ""}])
+_S.set_rule("PUMP-01", {"mode": "timer", "timers": [{"on": "06:00", "off": "07:00"}]})
+_now["t"] = _D(2000, 1, 1, 6, 30)
+_S.manual("PUMP-01", False)
+check("시계가 틀릴 때 한 손 조작은 예약 기준이 비어 있다", _S.over["PUMP-01"]["sched"], None)
+_now["t"] = _D(2026, 10, 27, 6, 30)
+_S.desired("PUMP-01", _now["t"])
+_now["t"] = _D(2026, 10, 27, 7, 1)
+check("시계가 맞으면 기준을 채워 다음 예약 전환에 풀린다", (_S.desired("PUMP-01", _now["t"]), "PUMP-01" in _S.over), (False, False))
 
 print()
 if fails:

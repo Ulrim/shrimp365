@@ -146,7 +146,7 @@ class FieldEnv:
         self._energy: dict[tuple[str, dt.date, str], tuple[dt.datetime, float]] = {}
 
     # ── 읽기 ────────────────────────────────────────────────────────────────
-    def _feed(self, path: Path) -> None:
+    def _feed(self, path: Path, now: dt.datetime | None = None) -> None:
         try:
             st = path.stat()
         except OSError:
@@ -172,9 +172,9 @@ class FieldEnv:
             return
         self._offset[path] = (st.st_ino, done + end + 1)
         for line in chunk[:end].decode("utf-8", errors="replace").splitlines():
-            self._row(line, path.name)
+            self._row(line, path.name, now)
 
-    def _row(self, line: str, src: str = "") -> None:
+    def _row(self, line: str, src: str = "", now: dt.datetime | None = None) -> None:
         parts = line.split(",")
         if len(parts) < 7 or parts[0] == "ts":
             return
@@ -194,6 +194,10 @@ class FieldEnv:
             return
         if ts.tzinfo is not None:
             ts = ts.astimezone().replace(tzinfo=None)
+        # 시계가 틀린 기기가 미래 시각으로 쓴 줄은 버린다 — '가장 최근 값' 자리를 그 시각이 올 때까지 차지해
+        # 진짜 지금 값(차단기 온도 포함 — 과열이면 켜기를 막는 근거)이 몇 시간 동안 '없음' 으로 보였다.
+        if now is not None and ts > now + dt.timedelta(minutes=5):
+            return
         if pfield is not None:
             if pfield == "energy":
                 ekey = (src, ts.date(), sid)
@@ -217,7 +221,7 @@ class FieldEnv:
         # 자정 직후에는 오늘 파일이 비어 있을 수 있어 어제 파일도 본다.
         for day in (now - dt.timedelta(days=1), now):
             for src in SOURCES:
-                self._feed(self.dir / f"{src}_{day:%Y%m%d}.csv")
+                self._feed(self.dir / f"{src}_{day:%Y%m%d}.csv", now)
         # 이틀 넘은 파일의 읽은 자리는 잊는다(장비가 몇 달 켜져 있어도 늘지 않게).
         keep = {f"{d:%Y%m%d}" for d in (now - dt.timedelta(days=1), now)}
         self._offset = {p: o for p, o in self._offset.items() if p.stem[-8:] in keep}

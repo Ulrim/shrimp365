@@ -9,7 +9,7 @@
 //
 // 0 의 뜻·판정·단위 환산은 전부 lib/agri-standards.ts · lib/agri-params.ts 에
 // 맡긴다 — 여기서 숫자 기준을 새로 적지 않는다(전역 EC 기준선 금지).
-import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
@@ -235,10 +235,15 @@ function NutrientInner() {
   }, [selectedTankId, hours, seriesKey])
 
   // 센서가 1분마다 올리므로 화면도 같은 주기로 따라간다(탭 복귀 시 즉시 갱신 포함).
+  // 새로고침 도중 베드·기간을 바꾸면 늦게 끝난 옛 결과가 새 키를 덮어써 "불러오는 중" 에 1분 갇힌다 —
+  // 끝났을 때 키가 그대로일 때만 반영한다.
+  const keyRef = useRef(seriesKey)
+  useEffect(() => { keyRef.current = seriesKey }, [seriesKey])
   const refresh = useCallback(async () => {
     if (!selectedTankId) return
+    const key = seriesKey
     const res = await loadSeries(selectedTankId, hours)
-    setSeries({ key: seriesKey, ...res, error: false })
+    if (keyRef.current === key) setSeries({ key, ...res, error: false })
   }, [selectedTankId, hours, seriesKey])
   const { lastRefreshed } = useAutoRefresh(refresh, REFRESH_SEC, !!selectedTankId)
 
@@ -261,7 +266,20 @@ function NutrientInner() {
     () => (deviceId ? allReadings.filter(r => (r.device_id ?? null) === deviceId) : allReadings),
     [allReadings, deviceId],
   )
-  const latest = readings.length ? readings[readings.length - 1] : null
+  // 최신값은 항목마다 **그 항목 값이 있는 가장 최근 줄**에서 — 베드 전체 보기에서는 기기마다 줄이 따로 오므로
+  // 마지막 줄이 환경 전용 기기 줄이면 EC·pH 가 비어 "미측정" 으로 보였다.
+  const latest = useMemo(() => {
+    if (!readings.length) return null
+    const out = { ...readings[readings.length - 1] }
+    for (const p of AGRI_PARAMS) {
+      if (agriScaled(p.key, out[p.key] as number | null | undefined) != null) continue
+      for (let i = readings.length - 2; i >= 0; i--) {
+        const v = readings[i][p.key] as number | null | undefined
+        if (agriScaled(p.key, v) != null) { (out as Record<string, unknown>)[p.key] = v; break }
+      }
+    }
+    return out
+  }, [readings])
   const recipe: AgriRecipe | null = selectedTank ?? null
 
   // 항목별 데이터 유무 — 전광판 순환이 빈 탭을 건너뛰고, 빈 상태 판단에도 쓴다.
