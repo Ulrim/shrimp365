@@ -24,6 +24,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 import os
@@ -537,6 +538,42 @@ try:
     check("  (YAML 로 읽어도 같다)", str(_yaml.safe_load(_bare.read_text(encoding="utf-8"))["ecowitt"]["passkey"]), "01234567")
 except ImportError:
     pass
+
+print("\n⑪ 투야 블루투스 토양센서 — 등록 칸, 화면 상태, 수집 파일")
+try:
+    import yaml as _yaml  # noqa: F811 — tuya_ble_setup 이 쓴다
+    import tuya_ble_setup as _tbs
+except ImportError:
+    _tbs = None
+if _tbs:
+    _bdir = Path(tempfile.mkdtemp(prefix="ble-"))
+    _bdev = _bdir / "devices.yaml"
+    _bdev.write_text(_bare.read_text(encoding="utf-8"), encoding="utf-8")
+    _tbs.write_entries(_bdev, {"bf01": {"sensor_id": "SOIL-T1", "zone": "treatment", "name": "토양 1",
+                                        "uuid": "tuyaab12", "local_key": "a'b\"c#d:e", "mac": "DC:23:4D:00:11:22"}})
+    check("등록 칸을 더해도 다른 칸(에코윗)은 그대로", (wireless.read_eco(_bdev)["passkey"],
+          _tbs.read_entries(_bdev)["bf01"]["local_key"]), ("01234567", "a'b\"c#d:e"))
+    check("화면용 읽기는 열쇠를 내보내지 않는다", wireless.read_tuya_ble(_bdev),
+          {"bf01": {"sensor_id": "SOIL-T1", "zone": "treatment", "name": "토양 1", "mac": "DC:23:4D:00:11:22"}})
+    _WBL = wireless.Wireless(_bdev, _bdir / "data", port=1)
+    check("블루투스 센서 이름도 '쓰는 이름' 에 든다", "SOIL-T1" in _WBL._taken({}, {}), True)
+    (_bdir / "data" / "capture").mkdir(parents=True)
+    (_bdir / "data" / "capture" / "tuyable_heard.json").write_text(
+        json.dumps({"sensors": [{"sensor_id": "SOIL-T1", "error": "광고가 안 들립니다", "rssi": -71}]}), encoding="utf-8")
+    _bs = _WBL._ble_snapshot(lambda sid: {"age_min": None, "battery": None, "lqi": None})
+    check("화면 상태: 마지막 오류·신호", (_bs[0]["sensor_id"], _bs[0]["error"], _bs[0]["rssi"]), ("SOIL-T1", "광고가 안 들립니다", -71))
+    _WBL.register_eco("soil2", "soil", "control", "01234567")
+    check("에코윗을 화면에서 더해도 블루투스 칸은 남는다", list(_tbs.read_entries(_bdev)), ["bf01"])
+    _tbs.write_entries(_bdev, {})
+    check("모두 빼면 칸이 없어진다", "tuya_ble" in _bdev.read_text(encoding="utf-8"), False)
+_tdir = Path(tempfile.mkdtemp(prefix="tuyable-"))
+(_tdir / "tuyable_20261017.csv").write_text(
+    HEAD + "2026-10-17T00:08:00,treatment,SOIL-T1,soil_moisture,31.0,%,ok\n"
+    "2026-10-17T00:08:00,treatment,SOIL-T1,soil_temp,18.7,degC,ok\n"
+    "2026-10-17T00:08:00,treatment,SOIL-T1,battery_pct,90,%,ok\n", encoding="utf-8")
+_te = field_env.FieldEnv(_tdir).read(now=znow)
+check("블루투스 수집 파일(tuyable_)도 토양수분·지온으로 읽는다",
+      (_te["soil_moisture"]["value"], _te["soil_temp"]["value"]), (31.0, 18.7))
 
 print()
 if fails:

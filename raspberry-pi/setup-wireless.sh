@@ -150,7 +150,8 @@ fi
 echo "==> 수집기 배치: $APP"
 install -d -m 755 "$APP" "$APP/src" "$APP/scripts"
 cp -r "$SRC_SRC/ofdf" "$APP/src/"
-for s in zigbee_bridge.py rtl433_bridge.py ecowitt_receiver.py; do
+for s in zigbee_bridge.py rtl433_bridge.py ecowitt_receiver.py tuya_ble_bridge.py; do
+  [ -f "$SRC_SCRIPTS/$s" ] || continue
   install -m 644 "$SRC_SCRIPTS/$s" "$APP/scripts/$s"
 done
 [ -f "$TEMPLATE" ] && install -m 644 "$TEMPLATE" "$APP/devices.template.yaml"

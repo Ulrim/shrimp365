@@ -81,6 +81,10 @@ rm -rf "$APP_DIR/__pycache__"
 if [ -f "$SRC/setup-wireless.sh" ]; then
   install -m 755 "$SRC/setup-wireless.sh" "$APP_DIR/setup-wireless.sh"
 fi
+# 투야 블루투스 토양센서 — 설치(setup-tuya-ble.sh)와 등록(tuya_ble_setup.py, 투야 클라우드 열쇠).
+for f in setup-tuya-ble.sh tuya_ble_setup.py; do
+  if [ -f "$SRC/$f" ]; then install -m 755 "$SRC/$f" "$APP_DIR/$f"; fi
+done
 # 무선 수집기 코드(/opt/shrimp365/field/{src,scripts}) — setup-wireless.sh 가 깐 서비스가 여기서 돈다.
 # 폴더를 통째로 지우고 바꾸면 안 된다: 저장소(git)에서 받은 판의 field/ 에는 설정 견본만 있어,
 # 예전에는 업데이트할 때마다 수집기가 지워져 지그비·기상 값이 끊겼다. 덮어쓰기만 하고,
@@ -98,14 +102,14 @@ if [ -d "$SRC/field" ]; then
     install -d -m 755 "$APP_DIR/field/src" "$APP_DIR/field/scripts"
     rm -rf "$APP_DIR/field/src/ofdf"
     cp -r "$COL_SRC/ofdf" "$APP_DIR/field/src/"
-    for s in zigbee_bridge.py rtl433_bridge.py ecowitt_receiver.py; do
+    for s in zigbee_bridge.py rtl433_bridge.py ecowitt_receiver.py tuya_ble_bridge.py; do
       [ -f "$COL_SCRIPTS/$s" ] && install -m 644 "$COL_SCRIPTS/$s" "$APP_DIR/field/scripts/$s"
     done
   fi
   find "$APP_DIR/field" -name __pycache__ -type d -prune -exec rm -rf {} +
   chmod -R a+rX "$APP_DIR/field"
   # 깔려 있는 수집기는 새 코드로 다시 시작한다(지워졌다 되살아난 경우 포함 — 멈춰 있어도 켜 둔 것이면).
-  for u in farm365-zigbee farm365-rtl433 farm365-ecowitt; do
+  for u in farm365-zigbee farm365-rtl433 farm365-ecowitt farm365-tuyable; do
     if systemctl is-enabled --quiet "$u" 2>/dev/null; then systemctl restart "$u" || true; fi
   done
 fi

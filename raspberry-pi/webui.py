@@ -980,6 +980,11 @@ var I18N = {
   wlr_air:{ko:"기온 온습도 (2m)",en:"Air temp/RH (2 m)",vi:"Nhiệt/ẩm không khí (2 m)",id:"Suhu/RH udara (2 m)"},
   wlr_leaf:{ko:"엽면습윤 (WH35)",en:"Leaf wetness (WH35)",vi:"Độ ướt lá (WH35)",id:"Kebasahan daun (WH35)"},
   wlr_rain:{ko:"우량계 (WH40)",en:"Rain gauge (WH40)",vi:"Đo mưa (WH40)",id:"Penakar hujan (WH40)"},
+  wl_ble_title:{ko:"블루투스 토양센서 (투야)",en:"Bluetooth soil sensors (Tuya)",vi:"Cảm biến đất Bluetooth (Tuya)",id:"Sensor tanah Bluetooth (Tuya)"},
+  wl_ble_soil:{ko:"토양수분·지온",en:"Soil moisture · soil temp",vi:"Độ ẩm đất · nhiệt độ đất",id:"Kelembapan tanah · suhu tanah"},
+  wl_ble_off:{ko:"블루투스 수집기가 꺼져 있습니다 — sudo bash setup-tuya-ble.sh",en:"Bluetooth collector is off — sudo bash setup-tuya-ble.sh",vi:"Bộ thu Bluetooth đang tắt — sudo bash setup-tuya-ble.sh",id:"Pengumpul Bluetooth mati — sudo bash setup-tuya-ble.sh"},
+  wl_ble_none:{ko:"등록된 블루투스 센서가 없습니다",en:"No Bluetooth sensors registered",vi:"Chưa đăng ký cảm biến Bluetooth",id:"Belum ada sensor Bluetooth terdaftar"},
+  wl_ble_tip:{ko:"등록·빼기는 터미널에서: python3 tuya_ble_setup.py (투야 앱에서 센서를 지우면 열쇠가 바뀝니다)",en:"Add/remove in a terminal: python3 tuya_ble_setup.py (removing the sensor from the Tuya app changes its key)",vi:"Thêm/xóa trong terminal: python3 tuya_ble_setup.py (xóa cảm biến khỏi app Tuya sẽ đổi khóa)",id:"Tambah/hapus di terminal: python3 tuya_ble_setup.py (menghapus sensor dari aplikasi Tuya mengubah kuncinya)"},
   wl_eco_title:{ko:"에코윗 게이트웨이 (와이파이)",en:"Ecowitt gateway (Wi-Fi)",vi:"Gateway Ecowitt (Wi-Fi)",id:"Gateway Ecowitt (Wi-Fi)"},
   wl_eco_setup:{ko:"게이트웨이(GW1100·GW2000 등)를 농장 와이파이에 연결한 뒤 WS View Plus 앱 → 기기 → [Customized] 에서 '프로토콜: Ecowitt' 을 고르고 아래 값을 적어 저장하세요. 1~2분 안에 여기에 뜹니다.",en:"Connect the gateway (GW1100, GW2000 …) to the farm Wi-Fi, then in the WS View Plus app → device → [Customized] choose 'Protocol: Ecowitt', enter the values below and save. It appears here within 1–2 minutes.",vi:"Kết nối gateway (GW1100, GW2000 …) vào Wi-Fi, rồi trong ứng dụng WS View Plus → thiết bị → [Customized] chọn 'Protocol: Ecowitt', nhập các giá trị dưới đây và lưu. Sẽ hiện trong 1–2 phút.",id:"Hubungkan gateway (GW1100, GW2000 …) ke Wi-Fi, lalu di aplikasi WS View Plus → perangkat → [Customized] pilih 'Protocol: Ecowitt', isi nilai di bawah dan simpan. Muncul dalam 1–2 menit."},
   wl_eco_server:{ko:"서버",en:"Server",vi:"Máy chủ",id:"Server"},
@@ -1514,6 +1519,24 @@ function drawWireless(){
         }).join("") + '<div class="sub" style="margin-top:4px">' + t("wl_rf_tip") + '</div>';
     }
     if (wl.rf_other) body += '<div class="sub" style="margin-top:4px">' + t("wl_rf_other", {n: wl.rf_other}) + '</div>';
+
+    // ── 투야 블루투스 — 등록은 tuya_ble_setup.py(투야 클라우드 열쇠)로 한다. 여기서는 상태만 본다.
+    var bles = wl.ble_sensors || [];
+    if (bles.length || (wl.units || {})["farm365-tuyable"] !== null && (wl.units || {})["farm365-tuyable"] !== undefined) {
+      body += '<div class="wlhead" style="margin-top:16px">' + t("wl_ble_title") + '</div>';
+      if ((wl.units || {})["farm365-tuyable"] === false) body += '<div class="msg err">' + t("wl_ble_off") + '</div>';
+      body += bles.length ? bles.map(function(x){
+        var bits = [];
+        if (x.battery !== null && x.battery !== undefined) bits.push(t("wl_batt", {v: Math.round(x.battery)}));
+        if (x.rssi !== null && x.rssi !== undefined) bits.push(t("wl_rf_rssi", {v: Math.round(x.rssi)}));
+        var old = x.age_min === null || x.age_min === undefined || x.age_min >= 30;
+        return '<div class="srow"><div class="sname">' + esc(x.sensor_id) +
+          '<div class="sub">' + esc(t("wl_ble_soil") + " \u00B7 " + (t("wlz_" + x.zone) || x.zone) + (x.name ? " \u00B7 " + x.name : "")) +
+          (x.error ? '<br><span style="color:#FBBF24">' + esc(x.error) + '</span>' : "") + '</div></div>' +
+          '<div class="wlmeta' + (old ? " old" : "") + '">' + wlAgo(x.age_min) + (bits.length ? "<br>" + bits.join(" \u00B7 ") : "") + '</div></div>';
+      }).join("") : '<div class="sub">' + t("wl_ble_none") + '</div>';
+      body += '<div class="sub" style="margin-top:4px">' + t("wl_ble_tip") + '</div>';
+    }
 
     // ── 에코윗 — 게이트웨이가 이 장비로 보내 온다. 들어온 게이트웨이와 거기 붙은 센서 중에서 골라 등록한다.
     body += '<div class="wlhead" style="margin-top:16px">' + t("wl_eco_title") + '</div>';
