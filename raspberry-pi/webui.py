@@ -996,7 +996,7 @@ var I18N = {
   wl_ble_soil:{ko:"토양수분·지온",en:"Soil moisture · soil temp",vi:"Độ ẩm đất · nhiệt độ đất",id:"Kelembapan tanah · suhu tanah"},
   wl_ble_off:{ko:"블루투스 수집기가 꺼져 있습니다 — 저장소 폴더에서 sudo bash setup-tuya-ble.sh",en:"Bluetooth collector is off — run sudo bash setup-tuya-ble.sh in the repo folder",vi:"Bộ thu Bluetooth đang tắt — chạy sudo bash setup-tuya-ble.sh",id:"Pengumpul Bluetooth mati — jalankan sudo bash setup-tuya-ble.sh"},
   wl_ble_none:{ko:"등록된 블루투스 센서가 없습니다",en:"No Bluetooth sensors registered",vi:"Chưa có cảm biến Bluetooth",id:"Belum ada sensor Bluetooth"},
-  wl_ble_tip:{ko:"센서는 먼저 휴대폰 투야 앱에 붙여 두세요. 앱에서 센서를 지우면 열쇠가 바뀌어 다시 가져와야 합니다.",en:"Pair the sensor in the Tuya phone app first. Removing it from the app changes its key — fetch again.",vi:"Ghép cảm biến trong app Tuya trước. Xóa khỏi app sẽ đổi khóa — cần lấy lại.",id:"Pasangkan sensor di aplikasi Tuya dulu. Menghapusnya mengubah kunci — ambil ulang."},
+  wl_ble_tip:{ko:"센서는 먼저 휴대폰 투야 앱에 붙여 두세요. 앱에서 다시 붙였으면 [투야에서 센서 가져오기] 를 한 번 누르세요 — 바뀐 열쇠를 새로 받습니다.",en:"Pair the sensor in the Tuya phone app first. Removing it from the app changes its key — fetch again.",vi:"Ghép cảm biến trong app Tuya trước. Xóa khỏi app sẽ đổi khóa — cần lấy lại.",id:"Pasangkan sensor di aplikasi Tuya dulu. Menghapusnya mengubah kunci — ambil ulang."},
   wl_ble_setup:{ko:"블루투스 준비가 아직 안 됐습니다. 터미널에서 한 번만 실행하세요(인터넷 필요):",en:"Bluetooth isn't set up yet. Run once in a terminal (needs internet):",vi:"Chưa cài Bluetooth. Chạy một lần trong terminal (cần internet):",id:"Bluetooth belum disiapkan. Jalankan sekali di terminal (perlu internet):"},
   wl_ble_fetch:{ko:"투야에서 센서 가져오기",en:"Fetch sensors from Tuya",vi:"Lấy cảm biến từ Tuya",id:"Ambil sensor dari Tuya"},
   wl_ble_change:{ko:"투야 열쇠 바꾸기",en:"Change Tuya keys",vi:"Đổi khóa Tuya",id:"Ganti kunci Tuya"},
@@ -1004,6 +1004,7 @@ var I18N = {
   wl_ble_forgot:{ko:"투야 열쇠를 지웠습니다.",en:"Tuya keys removed.",vi:"Đã xóa khóa Tuya.",id:"Kunci Tuya dihapus."},
   wl_ble_fetching:{ko:"투야 클라우드에서 받는 중… (최대 1분)",en:"Fetching from Tuya cloud… (up to 1 min)",vi:"Đang lấy từ Tuya… (tối đa 1 phút)",id:"Mengambil dari Tuya… (maks 1 menit)"},
   wl_ble_fetched:{ko:"블루투스 기기 {n}대를 받았습니다.",en:"Got {n} Bluetooth devices.",vi:"Đã nhận {n} thiết bị Bluetooth.",id:"Dapat {n} perangkat Bluetooth."},
+  wl_ble_updated:{ko:"{n} 의 열쇠를 새로 받았습니다(앱에서 다시 붙인 센서).",en:"New keys saved for {n} (re-paired in the app).",vi:"Đã cập nhật khóa cho {n}.",id:"Kunci baru disimpan untuk {n}."},
   wl_ble_new:{ko:"투야 앱에 있는 블루투스 센서",en:"Bluetooth sensors in the Tuya app",vi:"Cảm biến Bluetooth trong app Tuya",id:"Sensor Bluetooth di aplikasi Tuya"},
   wl_ble_all:{ko:"투야 앱의 블루투스 센서가 모두 등록돼 있습니다.",en:"All Bluetooth sensors from the Tuya app are registered.",vi:"Đã đăng ký tất cả cảm biến Bluetooth.",id:"Semua sensor Bluetooth sudah terdaftar."},
   wl_ble_cred_hint:{ko:"투야 개발자 사이트(platform.tuya.com) 프로젝트 Overview 의 Access ID·Access Secret 을 넣으세요. 한 번 넣으면 장비에 저장됩니다.",en:"Enter the Access ID and Secret from your project Overview at platform.tuya.com. They are saved on this device.",vi:"Nhập Access ID và Secret từ Overview dự án trên platform.tuya.com. Sẽ được lưu.",id:"Masukkan Access ID dan Secret dari Overview proyek di platform.tuya.com. Disimpan di perangkat."},
@@ -1582,7 +1583,11 @@ function bleFetch(useSaved){
   wlMsg = {kind:"ok", text:t("wl_ble_fetching")};
   var body = useSaved ? {} : {access_id: bleId, access_secret: bleSec, remember: true};
   wlPost("ble_fetch", body, function(d){
-    if (d.ok) { wlBle = null; bleSec = ""; wlMsg = {kind:"ok", text:t("wl_ble_fetched", {n:d.count})}; }
+    if (d.ok) {
+      wlBle = null; bleSec = "";
+      var up = (d.updated || []).length ? " " + t("wl_ble_updated", {n: d.updated.join(", ")}) : "";
+      wlMsg = {kind:"ok", text:t("wl_ble_fetched", {n:d.count}) + up};
+    }
     else wlMsg = {kind:"err", text:d.error || t("save_fail")};
   });
 }

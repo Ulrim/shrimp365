@@ -579,7 +579,9 @@ if _tbs:
         "                {'id': 'bf333', 'name': 'plug', 'key': 'x', 'uuid': 'u3', 'ip': '1.2.3.4'}]\n",
         encoding="utf-8")
     _wrap = _bdir / "py"
-    _wrap.write_text(f"#!/bin/sh\nPYTHONPATH={_fk} exec {sys.executable} \"$@\"\n", encoding="utf-8")
+    # 캐시(.pyc)를 쓰지 않는다 — 아래에서 가짜 클라우드를 같은 크기로 1초 안에 고쳐 쓰므로.
+    _wrap.write_text(f"#!/bin/sh\nPYTHONDONTWRITEBYTECODE=1 PYTHONPATH={_fk} exec {sys.executable} \"$@\"\n",
+                     encoding="utf-8")
     _wrap.chmod(0o755)
     _WBL.ble_py, _WBL.tuya_cred = _wrap, _bdir / "cred.json"
     check("열쇠 형식이 틀리면 묻지도 않는다", _WBL.ble_fetch("a b", "c")["ok"], False)
@@ -591,7 +593,13 @@ if _tbs:
     # 대조구 토양 이름은 에코윗 칸(SOIL-C1·C2)이 이미 쓰고 있다 — 겹치지 않게 다음 번호.
     check("화면에서 등록 → 쓰지 않은 다음 이름(SOIL-C3)", (_r.get("ok"), _r.get("sensor_id")), (True, "SOIL-C3"))
     check("등록하면 새 목록에서 빠진다", _WBL._ble_new(), [])
-    check("저장한 열쇠로 다시 가져오기", _WBL.ble_fetch()["ok"], True)
+    check("저장한 열쇠로 다시 가져오기 · 열쇠가 같으면 바꾸지 않는다", (_WBL.ble_fetch()["ok"], _WBL.ble_fetch()["updated"]), (True, []))
+    # 앱에서 다시 붙여 열쇠가 바뀌면, 가져오기만 해도 이름·구간은 두고 열쇠를 새로 적는다.
+    (_fk / "tinytuya.py").write_text((_fk / "tinytuya.py").read_text(encoding="utf-8").replace("'Kk1'", "'Kk2'"), encoding="utf-8")
+    _r = _WBL.ble_fetch()
+    check("다시 붙인 센서: 가져오기만 하면 열쇠가 바뀐다",
+          (_r["updated"], _tbs.read_entries(_bdev)["bf222"]["local_key"], _tbs.read_entries(_bdev)["bf222"]["sensor_id"]),
+          (["SOIL-C3"], "Kk2", "SOIL-C3"))
     check("화면에서 빼기", (_WBL.ble_remove("SOIL-C3")["ok"], "bf222" in wireless.read_tuya_ble(_bdev)), (True, False))
     check("열쇠 지우기", (_WBL.ble_forget()["ok"], _WBL.tuya_cred.exists()), (True, False))
 _tdir = Path(tempfile.mkdtemp(prefix="tuyable-"))
