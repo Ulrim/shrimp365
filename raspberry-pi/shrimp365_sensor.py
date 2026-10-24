@@ -102,7 +102,7 @@ try:
 except ImportError:  # pragma: no cover
     power_control_mod = None
 
-VERSION = "1.9.5"
+VERSION = "1.9.6"
 
 #: 무선 센서 수집기가 쓰는 폴더(setup-wireless.sh). 서비스의 StateDirectory 아래라 읽고 쓸 수 있다.
 FIELD_DATA_DIR = "/var/lib/shrimp365/field/data"

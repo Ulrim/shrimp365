@@ -40,6 +40,9 @@ RECEIVE_TIME_DP_V4 = 0x8007
 TIME1_REQ = 0x8011
 TIME2_REQ = 0x8012
 
+#: 열쇠 계산 방식 — 표준이 먼저, 나머지는 표준이 대답을 못 받을 때만.
+KEY_VARIANTS = ("std", "full", "raw")
+
 DP_RECEIVE_CODES = {RECEIVE_DP, RECEIVE_TIME_DP, RECEIVE_SIGN_DP, RECEIVE_SIGN_TIME_DP,
                     RECEIVE_DP_V4, RECEIVE_TIME_DP_V4}
 
@@ -101,9 +104,29 @@ class Keys:
     auth: bytes | None = None
 
     @classmethod
-    def from_local_key(cls, local_key: str) -> "Keys":
-        lk = local_key[:6].encode()
-        return cls(local_key=lk, login=hashlib.md5(lk).digest())
+    def from_local_key(cls, local_key: str, variant: str = "std") -> "Keys":
+        k = cls(local_key=b"", login=b"")
+        k.use_variant(local_key, variant)
+        return k
+
+    def use_variant(self, local_key: str, variant: str) -> None:
+        """열쇠 계산 방식을 고른다. 표준(std)은 공개 구현 둘(ha_tuya_ble·tuya-ble-sdk)이 쓰는 것:
+        로그인 = md5(local_key 앞 6글자), 세션 = md5(앞 6글자 + srand).
+        센서가 표준에 대답하지 않을 때만 다른 둘을 시험한다 — 틀린 열쇠의 요청은 센서가 조용히 버리므로
+        시험해도 해가 없다. full: local_key 전체로 md5, raw: local_key 16글자를 그대로 열쇠로."""
+        if variant == "full":
+            self.local_key = local_key.encode()
+            self.login = hashlib.md5(self.local_key).digest()
+        elif variant == "raw":
+            if len(local_key) != 16:
+                raise TuyaBLEError("raw 열쇠는 local_key 가 16글자일 때만")
+            self.local_key = local_key[:6].encode()
+            self.login = local_key.encode()
+        else:
+            self.local_key = local_key[:6].encode()
+            self.login = hashlib.md5(self.local_key).digest()
+        self.session = None
+        self.auth = None
 
     def for_flag(self, flag: int) -> bytes:
         key = {1: self.auth, 4: self.login, 5: self.session}.get(flag)

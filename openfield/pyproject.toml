@@ -41,6 +41,7 @@ edge = [
 # 투야 블루투스 센서(scripts/tuya_ble_bridge.py) — 장비에는 setup-tuya-ble.sh 가 따로 venv 에 깐다
 ble = [
     "bleak>=0.21",
+    "bleak-retry-connector>=3.0",
     "pycryptodome>=3.19",
     "tinytuya>=1.13",
 ]

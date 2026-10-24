@@ -135,8 +135,8 @@ def test_decode_advertisement():
 class FakeSensor:
     """bleak 클라이언트 흉내 — 투야 센서처럼 로그인을 받고 DP 를 보낸다."""
 
-    def __init__(self, dps_body: bytes, code: int = tb.RECEIVE_DP, pair_result: int = 0):
-        self.keys = tb.Keys.from_local_key(LOCAL_KEY)
+    def __init__(self, dps_body: bytes, code: int = tb.RECEIVE_DP, pair_result: int = 0, variant: str = "std"):
+        self.keys = tb.Keys.from_local_key(LOCAL_KEY, variant)
         self.inbox = tb.Reassembler(self.keys)
         self.notify = None
         self.seq = 100
@@ -153,7 +153,10 @@ class FakeSensor:
 
     async def write_gatt_char(self, char, chunk, _response):
         assert char == tb.CHAR_WRITE
-        msg = self.inbox.feed(bytes(chunk))
+        try:
+            msg = self.inbox.feed(bytes(chunk))
+        except tb.TuyaBLEError:
+            return                                   # 실제 센서처럼 못 읽은 요청은 대답 없이 버린다
         if msg is None:
             return
         self.received.append(msg)
@@ -228,14 +231,15 @@ def _cycle(tmp_path, monkeypatch, by_uuid, by_mac, nearby, dps=None):
         f"  {DEV_ID}:\n    uuid: {UUID}\n    local_key: \"{LOCAL_KEY}\"\n    mac: \"dc:23:53:94:45:98\"\n"
         "    zone: treatment\n    sensor_id: SOIL-T1\n", encoding="utf-8")
 
-    async def fake_scan(seconds, verbose):
-        return by_uuid, by_mac, nearby
+    async def fake_sight(mac, uuid, seconds):
+        item = by_mac.get(mac.upper()) or by_uuid.get(uuid) or (None, None, None)
+        return (*item, nearby)
 
     async def fake_read(device, dev_id, cfg, verbose, proto=None):
         assert device.address == "DC:23:53:94:45:98"
         return dps
 
-    monkeypatch.setattr(bridge, "scan", fake_scan)
+    monkeypatch.setattr(bridge, "sight", fake_sight)
     monkeypatch.setattr(bridge, "read_one", fake_read)
     args = type("A", (), {"devices": str(dev), "out": str(tmp_path), "capture": str(tmp_path / "cap"),
                           "scan_seconds": 1, "timeout": 5, "verbose": False})()
@@ -260,11 +264,11 @@ def test_cycle_not_heard_says_what_to_do(tmp_path, monkeypatch):
 class _SilentClient:
     """연결은 되지만 대답하지 않는 센서."""
 
-    async def __aenter__(self):
-        return self
+    async def connect(self):
+        return True
 
-    async def __aexit__(self, *a):
-        return False
+    async def disconnect(self):
+        return True
 
     async def start_notify(self, _c, _cb):
         pass
@@ -293,12 +297,12 @@ def test_read_one_retries_connect(monkeypatch):
     tries = []
 
     class _Fail:
-        async def __aenter__(self):
+        async def connect(self):
             tries.append(1)
             raise OSError("le-connection-abort-by-local")
 
-        async def __aexit__(self, *a):
-            return False
+        async def disconnect(self):
+            return True
 
     async def _nosleep(_s):
         return None
@@ -348,3 +352,52 @@ def test_session_finds_protocol_version_by_retrying(monkeypatch):
         return await bridge.Session(fake, DEV_ID, cfg, False, None).run(collect_s=3)
 
     assert asyncio.run(go()) == {3: 40, 5: 190}
+
+
+def test_session_tries_other_key_derivation(monkeypatch):
+    """표준 열쇠 계산에 대답하지 않는 센서 — local_key 전체로 만든 열쇠라야 읽는다."""
+    bridge = _bridge()
+    monkeypatch.setattr(bridge, "RESPONSE_WAIT_S", 2.0)
+    body = _dp(3, 2, (27).to_bytes(4, "big")) + _dp(5, 2, (205).to_bytes(4, "big"))
+    fake = FakeSensor(body, variant="full")
+    cfg = {"uuid": UUID, "local_key": LOCAL_KEY, "sensor_id": "SOIL-T1"}
+
+    async def go():
+        s = bridge.Session(fake, DEV_ID, cfg, False, None)
+        return await s.run(collect_s=3), s.variant
+
+    dps, variant = asyncio.run(go())
+    assert dps == {3: 27, 5: 205} and variant == "full"
+
+
+def test_sight_connects_at_first_sighting(monkeypatch):
+    """광고가 처음 들리는 순간 스캔을 멈춘다 — 끝까지 듣고 나서 붙으면 배터리 센서는 잠들어 있다."""
+    import sys as _sys
+    import time as _time
+    bridge = _bridge()
+    events = []
+
+    class _Adv:
+        def __init__(self):
+            self.rssi, self.service_data, self.manufacturer_data = -50, {}, {}
+
+    class _Scanner:
+        def __init__(self, cb):
+            self.cb = cb
+
+        async def start(self):
+            events.append("start")
+            loop = asyncio.get_running_loop()
+            loop.call_later(0.05, self.cb, _Dev("AA:AA:AA:AA:AA:AA"), _Adv())
+            loop.call_later(0.10, self.cb, _Dev("dc:23:53:94:45:98"), _Adv())
+
+        async def stop(self):
+            events.append("stop")
+
+    fake_bleak = type(_sys)("bleak")
+    fake_bleak.BleakScanner = _Scanner
+    monkeypatch.setitem(_sys.modules, "bleak", fake_bleak)
+    t0 = _time.monotonic()
+    dev, rssi, proto, nearby = asyncio.run(bridge.sight("DC:23:53:94:45:98", "", 30))
+    assert dev.address == "dc:23:53:94:45:98" and rssi == -50 and nearby == 2
+    assert _time.monotonic() - t0 < 2 and events == ["start", "stop"]
