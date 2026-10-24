@@ -847,9 +847,12 @@ sudo reboot
    1. 센서를 투야(또는 Smart Life) 앱에 붙여 둡니다(이미 붙었으면 그대로).
       **앱에서 센서를 지우고 다시 붙이면 열쇠가 바뀝니다** — 그때는 아래 iii 을 다시 합니다.
    2. 투야 IoT 개발자 계정(한 번만, 무료): <https://platform.tuya.com> 가입 → **Cloud → Development →
-      Create Cloud Project**(Development Method: Smart Home, 데이터센터는 앱 계정과 같은 곳 — 한국 계정은
-      보통 *Western America* 또는 *Central Europe*) → 프로젝트의 **Devices → Link App Account** 에서
-      QR 을 앱(나 → 오른쪽 위 스캔)으로 찍어 연결 → **Overview** 의 Access ID·Access Secret 을 적어 둡니다.
+      Create Cloud Project**(Industry·Development Method: Smart Home, **Data Center: Western America** —
+      한국 앱 계정은 미국 서부로 연결됩니다. 무료 판은 데이터센터를 하나만 고를 수 있고, 중국은 안 됩니다)
+      → **Overview** 의 Access ID·Access Secret 을 적어 둡니다 → 프로젝트의 **Devices → Link App Account →
+      Add App Account** 창에 뜬 QR 을 앱 **나(Me) → 오른쪽 위 스캔** 으로 찍어 연결합니다.
+      개발자 사이트 **로그인 화면의 QR** 을 찍으면 "QR 코드로 로그인 · 권한이 없습니다" 가 뜹니다 — 그 QR 이 아닙니다.
+      연결되면 Devices 목록에 센서가 보입니다.
    3. 파이에서(인터넷 필요):
       ```bash
       sudo bash /opt/shrimp365/setup-tuya-ble.sh --register

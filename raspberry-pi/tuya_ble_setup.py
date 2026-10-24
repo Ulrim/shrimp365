@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 DEVICES = Path("/var/lib/shrimp365/field/devices.yaml")
-REGIONS = ("us", "eu", "cn", "in", "sg", "us-e", "eu-w")
+REGIONS = ("us", "eu", "cn", "in", "sg", "us-e", "eu-w")   # 한국 앱 계정은 us(미국 서부)
 ZONES = {"1": ("treatment", "T"), "2": ("control", "C"), "3": ("facility", "")}
 #: 토양센서로 보이는 투야 분류(category) — 목록에서 앞에 띄운다.
 SOIL_CATEGORIES = {"zwjcy", "wsdcg", "ldcg"}
