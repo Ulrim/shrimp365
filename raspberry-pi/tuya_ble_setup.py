@@ -157,9 +157,14 @@ def fetch_devices(access_id: str, secret: str, region: str | None, any_device: s
                      "  · 지역을 직접 주려면 --region us (서아메리카) / eu (중부유럽) 등.")
 
 
+#: 게이트웨이 분류 — 센서가 아니다(G01Y 블루투스·지그비 게이트웨이는 wg2). 목록에서 뺀다.
+GATEWAY_CATEGORIES = {"wg", "wg2", "wfcon", "wgsxj", "alexa_yywg"}
+
+
 def is_ble(d: dict) -> bool:
-    """블루투스 기기로 보이는가 — 클라우드가 알려 주는 uuid 가 있고 와이파이 IP 가 없으면."""
-    return bool(d.get("uuid")) and not d.get("ip")
+    """블루투스 센서로 보이는가 — 클라우드가 알려 주는 uuid 가 있고, 와이파이 IP 가 없고, 게이트웨이가 아니면."""
+    cat = str(d.get("category") or "").lower()
+    return bool(d.get("uuid")) and not d.get("ip") and cat not in GATEWAY_CATEGORIES and not cat.startswith("wg")
 
 
 def describe(d: dict) -> str:

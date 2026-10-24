@@ -213,3 +213,45 @@ def test_bridge_config_and_rows(tmp_path):
     lines = files[0].read_text(encoding="utf-8").splitlines()
     assert lines[0] == "ts,zone,sensor_id,variable,value,unit,quality"
     assert lines[1] == "t,treatment,SOIL-T1,soil_moisture,31.0,%,ok"
+
+
+class _Dev:
+    def __init__(self, address):
+        self.address = address
+
+
+def _cycle(tmp_path, monkeypatch, by_uuid, by_mac, nearby, dps=None):
+    bridge = _bridge()
+    dev = tmp_path / "devices.yaml"
+    dev.write_text(
+        "tuya_ble:\n"
+        f"  {DEV_ID}:\n    uuid: {UUID}\n    local_key: \"{LOCAL_KEY}\"\n    mac: \"dc:23:53:94:45:98\"\n"
+        "    zone: treatment\n    sensor_id: SOIL-T1\n", encoding="utf-8")
+
+    async def fake_scan(seconds, verbose):
+        return by_uuid, by_mac, nearby
+
+    async def fake_read(device, dev_id, cfg, verbose, proto=None):
+        assert device.address == "DC:23:53:94:45:98"
+        return dps
+
+    monkeypatch.setattr(bridge, "scan", fake_scan)
+    monkeypatch.setattr(bridge, "read_one", fake_read)
+    args = type("A", (), {"devices": str(dev), "out": str(tmp_path), "capture": str(tmp_path / "cap"),
+                          "scan_seconds": 1, "timeout": 5, "verbose": False})()
+    heard: dict = {}
+    n = asyncio.run(bridge.cycle(args, heard))
+    return n, heard["SOIL-T1"]
+
+
+def test_cycle_finds_sensor_by_mac_when_uuid_unknown(tmp_path, monkeypatch):
+    item = (_Dev("DC:23:53:94:45:98"), -61, 3)
+    n, h = _cycle(tmp_path, monkeypatch, {}, {"DC:23:53:94:45:98": item}, 4, {3: 33, 5: 201, 15: 80})
+    assert n == 3 and h["error"] is None and h["address"] == "DC:23:53:94:45:98" and h["rssi"] == -61
+
+
+def test_cycle_not_heard_says_what_to_do(tmp_path, monkeypatch):
+    _, h = _cycle(tmp_path, monkeypatch, {}, {}, 7)
+    assert "게이트웨이" in h["error"] and "앱" in h["error"]
+    _, h = _cycle(tmp_path, monkeypatch, {}, {}, 0)
+    assert "블루투스가 꺼져" in h["error"]

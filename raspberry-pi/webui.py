@@ -1967,11 +1967,15 @@ function drawWireless(){
       }).join("");
     }
   }
+  // 5초마다 다시 그린다 — 보던 자리(스크롤)를 지킨다. 안 그러면 아래 칸을 보다가 맨 위로 튄다.
+  var oldBody = document.querySelector("#wlroot .sbody"), keepTop = oldBody ? oldBody.scrollTop : 0;
   box.innerHTML = '<div class="setup" id="wlroot"><div class="chead">' +
       '<span class="ctitle">' + t("menu_wireless") + '</span>' +
       '<button style="margin-left:auto" onclick="' + (wlEdit || wlRf || wlEco || wlBle ? "wlEdit=null;wlRf=null;wlEco=null;wlBle=null;drawWireless()" : "closeWireless()") + '">' +
         (wlEdit || wlRf || wlEco || wlBle ? t("back_list") : t("back_menu")) + '</button>' +
     '</div><div class="sbody">' + msg + body + '</div></div>';
+  var newBody = document.querySelector("#wlroot .sbody");
+  if (newBody && keepTop) newBody.scrollTop = keepTop;
 }
 
 // 환경·기상 줄 — 스마트팜에서 [environment] 를 켠 장비만. 끈 장비(env=null)는

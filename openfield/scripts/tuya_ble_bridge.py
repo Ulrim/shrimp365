@@ -138,30 +138,55 @@ class Session:
         return self.dps
 
 
-async def scan(seconds: float, verbose: bool) -> dict[str, tuple[str, int | None, int | None]]:
-    """광고를 듣고 uuid → (주소, 신호세기, 규격판)."""
+async def scan(seconds: float, verbose: bool) -> tuple[dict, dict, int]:
+    """광고를 듣는다. (uuid → (기기, 신호세기, 규격판), MAC → 같은 것, 들린 블루투스 기기 수).
+
+    투야 광고에서 uuid 를 못 풀어도(펌웨어마다 다르다) MAC 으로 찾을 수 있게 둘 다 모은다.
+    찾은 기기 객체를 그대로 연결에 쓴다 — 주소 글자로 연결하면 bleak 이 처음부터 다시 찾는다."""
     from bleak import BleakScanner
-    found: dict[str, tuple[str, int | None, int | None]] = {}
+    by_uuid: dict[str, tuple] = {}
+    by_mac: dict[str, tuple] = {}
 
     def cb(device, adv) -> None:
+        proto = None
         try:
+            proto = tb.advertised_protocol(adv.manufacturer_data)
             uuid = tb.decode_advertisement(adv.service_data, adv.manufacturer_data)
         except Exception:  # noqa: BLE001 — 남의 광고는 무엇이 와도 넘긴다
-            return
+            uuid = None
+        item = (device, adv.rssi, proto)
+        by_mac[str(device.address).upper()] = item
         if uuid:
-            found[uuid] = (device.address, adv.rssi, tb.advertised_protocol(adv.manufacturer_data))
+            by_uuid[uuid] = item
 
     async with BleakScanner(cb):
         await asyncio.sleep(seconds)
     if verbose:
-        print(f"[스캔] 투야 블루투스 기기 {len(found)}대: {found}")
-    return found
+        tuya = {u: (d.address, r) for u, (d, r, _p) in by_uuid.items()}
+        print(f"[스캔] {seconds:.0f}초 동안 블루투스 기기 {len(by_mac)}대, 그중 투야 {len(tuya)}대: {tuya}")
+    return by_uuid, by_mac, len(by_mac)
 
 
-async def read_one(address: str, dev_id: str, cfg: dict, verbose: bool, proto: int | None = None) -> dict[int, object]:
+async def read_one(device, dev_id: str, cfg: dict, verbose: bool, proto: int | None = None) -> dict[int, object]:
     from bleak import BleakClient
-    async with BleakClient(address, timeout=20) as client:
+    async with BleakClient(device, timeout=20) as client:
         return await Session(client, dev_id, cfg, verbose, proto).run()
+
+
+def friendly_error(exc: Exception) -> str:
+    """화면에 띄울 한 줄 — 무엇을 하면 되는지."""
+    text = str(exc) or exc.__class__.__name__
+    if isinstance(exc, (asyncio.TimeoutError, TimeoutError)) or "timeout" in text.lower() or "timed out" in text.lower():
+        return "센서에 붙다가 시간이 끝났습니다 — 휴대폰 투야 앱·게이트웨이가 센서를 잡고 있지 않은지 확인하세요"
+    if "not found" in text.lower():
+        return NOT_HEARD
+    if isinstance(exc, tb.TuyaBLEError):
+        return text[:160]
+    return f"연결 실패: {text[:140]}"
+
+
+NOT_HEARD = ("센서 신호가 안 들립니다 — ① 휴대폰 투야 앱 완전히 종료 ② 투야 게이트웨이 전원 끄기 "
+             "③ 센서 버튼을 한 번 눌러 깨우기 ④ 파이와 가까이(1~2m)")
 
 
 def write_rows(out_dir: Path, rows: list[dict]) -> None:
@@ -183,29 +208,31 @@ async def cycle(args, heard: dict) -> int:
         if args.verbose:
             print("[설정] tuya_ble: 칸에 등록된 센서가 없습니다")
         return 0
-    seen = await scan(args.scan_seconds, args.verbose)
+    seen, by_mac, nearby = await scan(args.scan_seconds, args.verbose)
     total = 0
     for dev_id, cfg in devices.items():
         sid = str(cfg["sensor_id"])
-        adv = seen.get(str(cfg["uuid"])) or (None, None, None)
-        address = adv[0] or cfg.get("mac")        # 광고로 찾은 주소 먼저, 없으면 클라우드가 알려 준 MAC
+        mac = str(cfg.get("mac") or "").upper()
+        adv = seen.get(str(cfg["uuid"])) or by_mac.get(mac) or (None, None, None)   # uuid 로, 못 풀면 MAC 으로
+        address = adv[0]
         now = dt.datetime.now().isoformat(timespec="seconds")
         item = heard.setdefault(sid, {"sensor_id": sid, "device_id": dev_id})
         if not address:
-            item.update(error="광고가 안 들립니다(거리·배터리 확인)", tried=now)
-            print(f"[{sid}] 광고가 안 들립니다 — 거리·배터리를 확인하세요", file=sys.stderr)
+            err = NOT_HEARD if nearby else "블루투스 기기가 하나도 안 들립니다 — 파이 블루투스가 꺼져 있습니다(재부팅 또는 rfkill unblock bluetooth)"
+            item.update(error=err, tried=now)
+            print(f"[{sid}] {err} (MAC {mac or '모름'}, 들린 기기 {nearby}대)", file=sys.stderr)
             continue
         try:
             dps = await asyncio.wait_for(read_one(address, dev_id, cfg, args.verbose, adv[2]), args.timeout)
         except Exception as exc:  # noqa: BLE001 — 한 센서가 실패해도 다음 센서는 읽는다
-            item.update(error=str(exc)[:160] or exc.__class__.__name__, tried=now, address=address)
+            item.update(error=friendly_error(exc), tried=now, address=str(address.address))
             print(f"[{sid}] 읽기 실패: {exc!r}", file=sys.stderr)
             continue
         mapping = tb.Mapping.from_config(cfg.get("dps")) or tb.guess_mapping(dps)
         rows = tb.to_rows(dps, mapping, zone=str(cfg.get("zone", "")), sensor_id=sid, ts=now) if mapping else []
         write_rows(Path(args.out), rows)
         total += len(rows)
-        item.update(address=address, last=now, dps={str(k): v for k, v in dps.items()}, error=None,
+        item.update(address=str(address.address), last=now, dps={str(k): v for k, v in dps.items()}, error=None,
                     mapping={k: list(v) for k, v in mapping.vars.items()} if mapping else None,
                     rssi=adv[1])
         if not mapping:
@@ -235,7 +262,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", default="data/field")
     p.add_argument("--capture", default="data/field/capture")
     p.add_argument("--interval", type=float, default=300, help="읽는 간격(초). 배터리를 아끼려고 5분")
-    p.add_argument("--scan-seconds", type=float, default=15)
+    p.add_argument("--scan-seconds", type=float, default=30, help="광고를 듣는 시간(초). 잠든 센서는 몇 초에 한 번 광고한다")
     p.add_argument("--timeout", type=float, default=60, help="센서 하나를 읽는 최대 시간(초)")
     p.add_argument("--once", action="store_true", help="한 번만 읽고 끝낸다(현장 점검)")
     p.add_argument("-v", "--verbose", action="store_true")
