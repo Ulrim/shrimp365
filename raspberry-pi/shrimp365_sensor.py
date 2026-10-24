@@ -2680,6 +2680,30 @@ def main() -> int:
                 return {"ok": False, "error": "무선 센서 모듈이 없습니다"}
             if action == "permit":
                 return wl.permit(120 if body.get("on", True) else 0)
+            # 투야 블루투스 — 화면에서 투야 IoT 열쇠를 넣어 센서를 가져오고 등록한다.
+            if action == "ble_fetch":
+                aid, sec = body.get("access_id", ""), body.get("access_secret", "")
+                if not isinstance(aid, str) or not isinstance(sec, str):
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.ble_fetch(aid, sec, bool(body.get("remember", True)))
+                log.info("화면에서 투야 블루투스 기기를 가져왔습니다: %s", {k: v for k, v in r.items() if k != "error"} or r)
+                return r
+            if action == "ble_add":
+                dev, zone = body.get("id"), body.get("zone")
+                if not isinstance(dev, str) or not isinstance(zone, str):
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.ble_add(dev, zone)
+                log.info("화면에서 블루투스 센서를 등록했습니다: %s → %s", dev, r)
+                return r
+            if action == "ble_remove":
+                sid = body.get("sensor_id")
+                if not isinstance(sid, str):
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.ble_remove(sid)
+                log.info("화면에서 블루투스 센서를 뺐습니다: %s → %s", sid, r)
+                return r
+            if action == "ble_forget":
+                return wl.ble_forget()
             if action == "register" and body.get("rf"):
                 model, ident, kind, zone = body.get("model"), body.get("id", ""), body.get("kind"), body.get("zone")
                 if not all(isinstance(v, str) for v in (model, ident, kind, zone)):

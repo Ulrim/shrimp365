@@ -222,6 +222,13 @@ async def cycle(args, heard: dict) -> int:
     return total
 
 
+def _mtime(path: Path) -> float:
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--devices", default="configs/devices.yaml")
@@ -246,7 +253,14 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"[오류] {exc!r}", file=sys.stderr)
             if args.once:
                 return
-            await asyncio.sleep(max(10.0, args.interval - (time.monotonic() - started)))
+            # 다음 읽기까지 기다리되, 화면에서 센서를 등록·빼면(devices.yaml 이 바뀌면) 바로 다시 읽는다.
+            mtime = _mtime(Path(args.devices))
+            wait_until = time.monotonic() + max(10.0, args.interval - (time.monotonic() - started))
+            while time.monotonic() < wait_until:
+                await asyncio.sleep(3)
+                if _mtime(Path(args.devices)) != mtime:
+                    print("[설정] 센서 목록이 바뀌어 바로 읽습니다")
+                    break
 
     asyncio.run(loop())
     return 0

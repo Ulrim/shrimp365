@@ -566,6 +566,34 @@ if _tbs:
     check("에코윗을 화면에서 더해도 블루투스 칸은 남는다", list(_tbs.read_entries(_bdev)), ["bf01"])
     _tbs.write_entries(_bdev, {})
     check("모두 빼면 칸이 없어진다", "tuya_ble" in _bdev.read_text(encoding="utf-8"), False)
+    # 화면에서 투야 클라우드로 가져와 등록 — 가짜 tinytuya 를 쓰는 파이썬으로 등록 도구를 부른다.
+    _fk = _bdir / "fake"
+    _fk.mkdir()
+    (_fk / "tinytuya.py").write_text(
+        "class Cloud:\n"
+        "    def __init__(self, apiRegion, apiKey, apiSecret, apiDeviceID=None):\n"
+        "        self.r = apiRegion; self.error = None\n"
+        "    def getdevices(self, verbose=False):\n"
+        "        if self.r != 'us': return {'Error': 'x'}\n"
+        "        return [{'id': 'bf222', 'name': 'soil', 'key': 'Kk1', 'uuid': 'tuya22', 'category': 'zwjcy'},\n"
+        "                {'id': 'bf333', 'name': 'plug', 'key': 'x', 'uuid': 'u3', 'ip': '1.2.3.4'}]\n",
+        encoding="utf-8")
+    _wrap = _bdir / "py"
+    _wrap.write_text(f"#!/bin/sh\nPYTHONPATH={_fk} exec {sys.executable} \"$@\"\n", encoding="utf-8")
+    _wrap.chmod(0o755)
+    _WBL.ble_py, _WBL.tuya_cred = _wrap, _bdir / "cred.json"
+    check("열쇠 형식이 틀리면 묻지도 않는다", _WBL.ble_fetch("a b", "c")["ok"], False)
+    _r = _WBL.ble_fetch("abcdefgh12", "secretsecret99")
+    check("투야에서 가져오기: 블루투스 기기만 · 지역은 us", (_r.get("ok"), _r.get("count"), _r.get("region")), (True, 1, "us"))
+    check("열쇠는 권한 600 으로 저장", oct(_WBL.tuya_cred.stat().st_mode & 0o777), "0o600")
+    check("화면에는 열쇠를 내보내지 않는다", _WBL._ble_new(), [{"id": "bf222", "name": "soil", "category": "zwjcy"}])
+    _r = _WBL.ble_add("bf222", "control")
+    # 대조구 토양 이름은 에코윗 칸(SOIL-C1·C2)이 이미 쓰고 있다 — 겹치지 않게 다음 번호.
+    check("화면에서 등록 → 쓰지 않은 다음 이름(SOIL-C3)", (_r.get("ok"), _r.get("sensor_id")), (True, "SOIL-C3"))
+    check("등록하면 새 목록에서 빠진다", _WBL._ble_new(), [])
+    check("저장한 열쇠로 다시 가져오기", _WBL.ble_fetch()["ok"], True)
+    check("화면에서 빼기", (_WBL.ble_remove("SOIL-C3")["ok"], "bf222" in wireless.read_tuya_ble(_bdev)), (True, False))
+    check("열쇠 지우기", (_WBL.ble_forget()["ok"], _WBL.tuya_cred.exists()), (True, False))
 _tdir = Path(tempfile.mkdtemp(prefix="tuyable-"))
 (_tdir / "tuyable_20261017.csv").write_text(
     HEAD + "2026-10-17T00:08:00,treatment,SOIL-T1,soil_moisture,31.0,%,ok\n"

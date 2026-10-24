@@ -853,14 +853,17 @@ sudo reboot
       Add App Account** 창에 뜬 QR 을 앱 **나(Me) → 오른쪽 위 스캔** 으로 찍어 연결합니다.
       개발자 사이트 **로그인 화면의 QR** 을 찍으면 "QR 코드로 로그인 · 권한이 없습니다" 가 뜹니다 — 그 QR 이 아닙니다.
       연결되면 Devices 목록에 센서가 보입니다.
-   3. 파이에서(인터넷 필요):
+   3. **장비 화면에서 등록**(인터넷 필요): **[설정] → [무선 센서]** 아래 '블루투스 토양센서' 칸 →
+      **[투야에서 센서 가져오기]** → 화면 글자판으로 Access ID·Access Secret 을 넣고 가져오기 → 목록에 뜬
+      센서 **[등록]** → 구간(처리구·대조구·시설)을 고르면 이름(SOIL-T1 …)이 붙습니다. 열쇠는 장비에
+      저장되므로(`/var/lib/shrimp365/tuya_cloud.json`, 권한 600) 다음부터는 [투야에서 센서 가져오기] 한 번이면
+      됩니다. [빼기] 로 지우고, [저장한 열쇠 지우기] 로 열쇠를 지웁니다.
+      블루투스 준비(전용 파이썬·수집기 서비스)는 업데이트(install.sh) 때 한 번 자동으로 깔립니다. 화면에
+      '블루투스 준비가 안 됐습니다' 가 뜨면 저장소 폴더에서 한 번 실행하세요:
       ```bash
-      sudo bash /opt/shrimp365/setup-tuya-ble.sh --register
+      cd ~/shrimp365/raspberry-pi && sudo bash setup-tuya-ble.sh
       ```
-      블루투스 수집기(farm365-tuyable)를 설치한 뒤 Access ID·Secret 을 묻고, 앱에 붙은 블루투스 기기를
-      보여 줍니다. 번호를 고르고 구간(처리구·대조구·시설)을 고르면 이름(SOIL-T1, SOIL-C1 …)이 붙어
-      `devices.yaml` 의 `tuya_ble:` 칸에 적힙니다(Access ID·Secret 은 저장하지 않습니다).
-      나중에 센서를 더하거나 뺄 때는 `sudo /opt/shrimp365/ble-venv/bin/python /opt/shrimp365/tuya_ble_setup.py`
+      터미널로 등록하려면 `sudo /opt/shrimp365/ble-venv/bin/python /opt/shrimp365/tuya_ble_setup.py`
       (보기 `--list`, 빼기 `--remove SOIL-T1`).
    4. 바로 읽히는지 확인:
       ```bash

@@ -250,6 +250,62 @@ def cmd_register(path: Path, args) -> int:
     return 0
 
 
+# ── 장비 화면에서 부르는 길(JSON) ─────────────────────────────────────────────
+# 장비 프로그램(shrimp365_sensor.py)은 bleak·tinytuya 가 없는 시스템 파이썬으로 돈다. 화면의
+# [무선 센서] → 블루투스 칸은 이 파일을 ble-venv 파이썬으로 불러 결과를 JSON 한 줄로 받는다.
+# Access ID·Secret 은 명령줄(ps 에 보인다)이 아니라 환경변수로 받는다.
+def json_fetch() -> dict:
+    access_id = os.environ.get("TUYA_ACCESS_ID", "").strip()
+    secret = os.environ.get("TUYA_ACCESS_SECRET", "").strip()
+    if not access_id or not secret:
+        return {"ok": False, "error": "Access ID 와 Secret 이 필요합니다"}
+    try:
+        devs, region = fetch_devices(access_id, secret, os.environ.get("TUYA_REGION") or None, None)
+    except SystemExit as exc:
+        return {"ok": False, "error": str(exc).splitlines()[0]}
+    except Exception as exc:  # noqa: BLE001 — 네트워크·라이브러리 오류를 화면에 그대로 알린다
+        return {"ok": False, "error": f"투야 클라우드 오류: {exc}"}
+    out = []
+    for d in devs:
+        if not is_ble(d) or not d.get("key"):
+            continue
+        if not _SAFE.match(str(d.get("id", ""))) or not _SAFE.match(str(d.get("uuid", ""))):
+            continue
+        out.append({k: str(d.get(k) or "") for k in ("id", "name", "key", "uuid", "mac", "category", "product_id")})
+    out.sort(key=lambda d: (d["category"] not in SOIL_CATEGORIES, d["name"]))
+    return {"ok": True, "region": region, "devices": out}
+
+
+def json_add(path: Path, req: dict) -> dict:
+    d, zone = req.get("device") or {}, req.get("zone")
+    letter = {"treatment": "T", "control": "C", "facility": ""}.get(zone)
+    if letter is None:
+        return {"ok": False, "error": "구간이 올바르지 않습니다"}
+    dev_id, key, uuid = str(d.get("id", "")), str(d.get("key", "")), str(d.get("uuid", ""))
+    if not key or not _SAFE.match(dev_id) or not _SAFE.match(uuid):
+        return {"ok": False, "error": "센서 정보가 올바르지 않습니다(열쇠·uuid)"}
+    entries = read_entries(path)
+    old = entries.get(dev_id, {})
+    taken = taken_names(path) | {str(x).upper() for x in req.get("taken") or []}
+    if old.get("sensor_id"):
+        taken.discard(str(old["sensor_id"]).upper())
+    sid = next_name(letter, taken)
+    entries[dev_id] = {**old, "sensor_id": sid, "zone": zone, "name": str(d.get("name") or ""), "uuid": uuid,
+                       "local_key": key, "mac": str(d.get("mac") or old.get("mac") or ""),
+                       "category": str(d.get("category") or ""), "product_id": str(d.get("product_id") or "")}
+    write_entries(path, entries)
+    return {"ok": True, "sensor_id": sid, "zone": zone}
+
+
+def json_remove(path: Path, sid: str) -> dict:
+    entries = read_entries(path)
+    keep = {k: v for k, v in entries.items() if str(v.get("sensor_id", "")).upper() != sid.upper()}
+    if len(keep) == len(entries):
+        return {"ok": False, "error": f"{sid} 를 찾지 못했습니다"}
+    write_entries(path, keep)
+    return {"ok": True}
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--devices", type=Path, default=DEVICES)
@@ -259,7 +315,25 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--any-device", help="(선택) 앱에 붙은 아무 기기 id — 기기 목록을 못 받을 때")
     p.add_argument("--list", action="store_true")
     p.add_argument("--remove", metavar="SENSOR_ID")
+    p.add_argument("--fetch-json", action="store_true", help="(장비 화면용) 블루투스 기기 목록을 JSON 으로")
+    p.add_argument("--add-json", action="store_true", help="(장비 화면용) 표준입력 JSON 의 기기를 등록")
+    p.add_argument("--remove-json", metavar="SENSOR_ID", help="(장비 화면용) 빼고 JSON 으로 알린다")
     args = p.parse_args(argv)
+    if args.fetch_json or args.add_json or args.remove_json:
+        if args.fetch_json:
+            r = json_fetch()
+        elif args.add_json:
+            try:
+                r = json_add(args.devices, json.loads(sys.stdin.read() or "{}"))
+            except (ValueError, OSError) as exc:
+                r = {"ok": False, "error": str(exc)}
+        else:
+            try:
+                r = json_remove(args.devices, args.remove_json)
+            except OSError as exc:
+                r = {"ok": False, "error": str(exc)}
+        print(json.dumps(r, ensure_ascii=False))
+        return 0
     if args.list:
         return cmd_list(args.devices)
     if args.remove:
