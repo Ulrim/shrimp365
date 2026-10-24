@@ -952,6 +952,10 @@ class Wireless:
             return {"ok": False, "error": r.get("error") or "기기 목록을 받지 못했습니다"}
         self._ble_found = [d for d in r.get("devices") or [] if isinstance(d, dict)]
         self._ble_region = str(r.get("region") or "")
+        # 앱에서 센서를 다시 붙였으면 열쇠가 바뀐다 — 등록된 센서는 이름·구간을 두고 열쇠만 새로 적는다.
+        with self._lock:
+            ref = self._ble_run(["--refresh-json"], stdin=json.dumps({"devices": self._ble_found}), timeout=30)
+        updated = ref.get("updated") or [] if ref.get("ok") else []
         if remember:
             try:
                 tmp = self.tuya_cred.with_suffix(".tmp")
@@ -961,7 +965,7 @@ class Wireless:
                 os.replace(tmp, self.tuya_cred)
             except OSError:
                 pass                                   # 저장 못 해도 이번 등록은 된다
-        return {"ok": True, "count": len(self._ble_found), "region": self._ble_region}
+        return {"ok": True, "count": len(self._ble_found), "region": self._ble_region, "updated": updated}
 
     def ble_add(self, dev_id: str, zone: str) -> dict:
         d = next((x for x in self._ble_found if x.get("id") == dev_id), None)

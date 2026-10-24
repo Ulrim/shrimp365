@@ -157,9 +157,14 @@ def fetch_devices(access_id: str, secret: str, region: str | None, any_device: s
                      "  · 지역을 직접 주려면 --region us (서아메리카) / eu (중부유럽) 등.")
 
 
+#: 게이트웨이 분류 — 센서가 아니다(G01Y 블루투스·지그비 게이트웨이는 wg2). 목록에서 뺀다.
+GATEWAY_CATEGORIES = {"wg", "wg2", "wfcon", "wgsxj", "alexa_yywg"}
+
+
 def is_ble(d: dict) -> bool:
-    """블루투스 기기로 보이는가 — 클라우드가 알려 주는 uuid 가 있고 와이파이 IP 가 없으면."""
-    return bool(d.get("uuid")) and not d.get("ip")
+    """블루투스 센서로 보이는가 — 클라우드가 알려 주는 uuid 가 있고, 와이파이 IP 가 없고, 게이트웨이가 아니면."""
+    cat = str(d.get("category") or "").lower()
+    return bool(d.get("uuid")) and not d.get("ip") and cat not in GATEWAY_CATEGORIES and not cat.startswith("wg")
 
 
 def describe(d: dict) -> str:
@@ -297,6 +302,27 @@ def json_add(path: Path, req: dict) -> dict:
     return {"ok": True, "sensor_id": sid, "zone": zone}
 
 
+def json_refresh(path: Path, req: dict) -> dict:
+    """이미 등록된 센서의 열쇠·uuid·MAC 을 새로 받은 값으로 바꾼다(앱에서 다시 붙이면 열쇠가 바뀐다).
+    이름·구간·dps 는 그대로 둔다. 바뀐 센서 이름 목록을 돌려준다."""
+    entries = read_entries(path)
+    changed = []
+    for d in req.get("devices") or []:
+        dev_id = str(d.get("id", ""))
+        old = entries.get(dev_id)
+        if not old or not d.get("key") or not _SAFE.match(str(d.get("uuid", ""))):
+            continue
+        new = {"local_key": str(d["key"]), "uuid": str(d["uuid"])}
+        if d.get("mac"):
+            new["mac"] = str(d["mac"])
+        if any(str(old.get(k, "")) != v for k, v in new.items()):
+            old.update(new)
+            changed.append(str(old.get("sensor_id") or dev_id))
+    if changed:
+        write_entries(path, entries)
+    return {"ok": True, "updated": changed}
+
+
 def json_remove(path: Path, sid: str) -> dict:
     entries = read_entries(path)
     keep = {k: v for k, v in entries.items() if str(v.get("sensor_id", "")).upper() != sid.upper()}
@@ -318,10 +344,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--fetch-json", action="store_true", help="(장비 화면용) 블루투스 기기 목록을 JSON 으로")
     p.add_argument("--add-json", action="store_true", help="(장비 화면용) 표준입력 JSON 의 기기를 등록")
     p.add_argument("--remove-json", metavar="SENSOR_ID", help="(장비 화면용) 빼고 JSON 으로 알린다")
+    p.add_argument("--refresh-json", action="store_true", help="(장비 화면용) 등록된 센서의 열쇠를 새 값으로")
     args = p.parse_args(argv)
-    if args.fetch_json or args.add_json or args.remove_json:
+    if args.fetch_json or args.add_json or args.remove_json or args.refresh_json:
         if args.fetch_json:
             r = json_fetch()
+        elif args.refresh_json:
+            try:
+                r = json_refresh(args.devices, json.loads(sys.stdin.read() or "{}"))
+            except (ValueError, OSError) as exc:
+                r = {"ok": False, "error": str(exc)}
         elif args.add_json:
             try:
                 r = json_add(args.devices, json.loads(sys.stdin.read() or "{}"))
