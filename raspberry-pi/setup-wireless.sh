@@ -149,12 +149,20 @@ fi
 # ── 4. 수집기 ────────────────────────────────────────────────────────────────
 echo "==> 수집기 배치: $APP"
 install -d -m 755 "$APP" "$APP/src" "$APP/scripts"
-cp -r "$SRC_SRC/ofdf" "$APP/src/"
-for s in zigbee_bridge.py rtl433_bridge.py ecowitt_receiver.py tuya_ble_bridge.py; do
-  [ -f "$SRC_SCRIPTS/$s" ] || continue
-  install -m 644 "$SRC_SCRIPTS/$s" "$APP/scripts/$s"
-done
-[ -f "$TEMPLATE" ] && install -m 644 "$TEMPLATE" "$APP/devices.template.yaml"
+# /opt/shrimp365 에서 실행하면 원본과 대상이 같은 폴더다 — 그때는 이미 깔린 것을 그대로 쓴다.
+if [ "$(realpath "$SRC_SRC")" != "$(realpath "$APP/src")" ]; then
+  rm -rf "$APP/src/ofdf.new"
+  cp -r "$SRC_SRC/ofdf" "$APP/src/ofdf.new"
+  rm -rf "$APP/src/ofdf"
+  mv "$APP/src/ofdf.new" "$APP/src/ofdf"
+  for s in zigbee_bridge.py rtl433_bridge.py ecowitt_receiver.py tuya_ble_bridge.py; do
+    [ -f "$SRC_SCRIPTS/$s" ] || continue
+    install -m 644 "$SRC_SCRIPTS/$s" "$APP/scripts/$s"
+  done
+fi
+if [ -f "$TEMPLATE" ] && [ "$(realpath "$TEMPLATE")" != "$(realpath -m "$APP/devices.template.yaml")" ]; then
+  install -m 644 "$TEMPLATE" "$APP/devices.template.yaml"
+fi
 find "$APP" -name __pycache__ -type d -prune -exec rm -rf {} +
 chmod -R a+rX "$APP"
 if [ ! -f "$FIELD/devices.yaml" ]; then

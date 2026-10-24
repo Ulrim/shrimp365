@@ -98,10 +98,16 @@ if [ -d "$SRC/field" ]; then
   elif [ -d "$SRC/../openfield/src/ofdf" ]; then
     COL_SRC="$SRC/../openfield/src"; COL_SCRIPTS="$SRC/../openfield/scripts"
   fi
+  # 원본과 대상이 같은 폴더면(설치된 곳에서 다시 돌림) 건드리지 않는다 — 지우면 원본도 사라진다.
+  if [ -n "$COL_SRC" ] && [ "$(realpath "$COL_SRC")" = "$(realpath -m "$APP_DIR/field/src")" ]; then
+    COL_SRC=""
+  fi
   if [ -n "$COL_SRC" ]; then
     install -d -m 755 "$APP_DIR/field/src" "$APP_DIR/field/scripts"
+    rm -rf "$APP_DIR/field/src/ofdf.new"
+    cp -r "$COL_SRC/ofdf" "$APP_DIR/field/src/ofdf.new"     # 다 복사한 뒤에 바꿔 끼운다
     rm -rf "$APP_DIR/field/src/ofdf"
-    cp -r "$COL_SRC/ofdf" "$APP_DIR/field/src/"
+    mv "$APP_DIR/field/src/ofdf.new" "$APP_DIR/field/src/ofdf"
     for s in zigbee_bridge.py rtl433_bridge.py ecowitt_receiver.py tuya_ble_bridge.py; do
       [ -f "$COL_SCRIPTS/$s" ] && install -m 644 "$COL_SCRIPTS/$s" "$APP_DIR/field/scripts/$s"
     done
