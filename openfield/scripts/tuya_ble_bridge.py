@@ -81,6 +81,7 @@ class Session:
         self.verbose = verbose
         self.loop = asyncio.get_running_loop()
         self.stage = "notify"
+        self._tasks: set = set()
 
     def log(self, msg: str) -> None:
         if self.verbose:
@@ -102,11 +103,23 @@ class Session:
         finally:
             self.waiting.pop(seq, None)
 
+    def _bg(self, coro) -> None:
+        """대답(ack·시각)은 기다리지 않고 보낸다. 참조를 쥐고, 연결이 끊긴 뒤의 쓰기 실패는 조용히 버린다
+        (참조 없이 띄우면 GC 될 수 있고 'Task exception was never retrieved' 가 찍힌다)."""
+        task = asyncio.ensure_future(coro)
+        self._tasks.add(task)
+
+        def done(t) -> None:
+            self._tasks.discard(t)
+            if not t.cancelled() and t.exception() is not None:
+                self.log(f"대답 보내기 실패: {t.exception()!r}")
+        task.add_done_callback(done)
+
     def on_notify(self, _sender, data: bytearray) -> None:
         self.log(f"알림 원본 {bytes(data).hex()}")
         try:
             msg = self.reasm.feed(bytes(data))
-        except tb.TuyaBLEError as exc:
+        except Exception as exc:  # noqa: BLE001 — 블루투스 콜백 밖으로 예외를 내보내지 않는다
             self.log(f"받은 조각 무시: {exc}")
             return
         if msg is None:
@@ -120,7 +133,7 @@ class Session:
         if msg.code in tb.DP_RECEIVE_CODES:
             try:
                 dps = tb.parse_dps(msg.code, msg.data)
-            except tb.TuyaBLEError as exc:
+            except Exception as exc:  # noqa: BLE001
                 self.log(f"DP 해석 실패({exc}) — 원본 {msg.data.hex()}")
                 dps = {}
             self.dps.update(dps)
@@ -129,9 +142,9 @@ class Session:
             ack = b""
             if msg.code in (tb.RECEIVE_SIGN_DP, tb.RECEIVE_SIGN_TIME_DP) and len(msg.data) >= 3:
                 ack = pack(">HBB", int.from_bytes(msg.data[:2], "big"), msg.data[2], 0)
-            asyncio.ensure_future(self.send(msg.code, ack, msg.seq, wait=False))
+            self._bg(self.send(msg.code, ack, msg.seq, wait=False))
         elif msg.code in (tb.TIME1_REQ, tb.TIME2_REQ):
-            asyncio.ensure_future(self.send(msg.code, tb.time_response(msg.code), msg.seq, wait=False))
+            self._bg(self.send(msg.code, tb.time_response(msg.code), msg.seq, wait=False))
 
     async def device_info(self) -> tb.Message:
         """기기정보 요청. 대답이 없으면 같은 연결 안에서 규격판·쓰기 방식·열쇠 계산을 바꿔 다시 묻는다.
@@ -177,7 +190,11 @@ class Session:
             raise tb.TuyaBLEError(f"로그인 거부({pair.data.hex()}) — 열쇠가 바뀌었을 수 있습니다(앱에서 다시 붙였나?)")
         self.stage = "status"
         self.log("로그인 성공 — 상태 요청")
-        await self.send(tb.DEVICE_STATUS)
+        try:
+            await self.send(tb.DEVICE_STATUS, timeout=12)
+        except (asyncio.TimeoutError, TimeoutError):
+            # 상태 요청에 답하지 않고 값(DP)만 밀어 보내는 센서도 있다 — 실패로 끝내면 이미 받은 값까지 버린다.
+            self.log("상태 요청에 대답 없음 — 받은 값으로 계속")
         self.stage = "dps"
         start = time.monotonic()
         # DP 는 상태 요청 뒤 곧 몰려온다. 마지막 DP 뒤 3초 조용하면 끝, 길어도 collect_s.
@@ -360,7 +377,11 @@ async def cycle(args, heard: dict) -> int:
             print(f"  [{sid}] 광고를 기다립니다(최대 {args.scan_seconds:.0f}초, MAC {mac or '모름'}) — 보이는 순간 붙습니다")
         if dev_id in LEARNED:
             cfg = {**cfg, "key_variant": LEARNED[dev_id]}
-        dev, rssi, proto, nearby = await sight(mac, str(cfg["uuid"]), args.scan_seconds)
+        try:
+            dev, rssi, proto, nearby = await sight(mac, str(cfg["uuid"]), args.scan_seconds)
+        except Exception as exc:  # noqa: BLE001 — 블루투스 장치가 꺼졌거나 바쁘면 스캔부터 실패한다
+            print(f"[{sid}] 스캔 실패: {exc!r}", file=sys.stderr)
+            dev, rssi, proto, nearby = None, None, None, 0
         adv = (dev, rssi, proto)
         address = dev
         now = dt.datetime.now().isoformat(timespec="seconds")
@@ -469,7 +490,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--capture", default="data/field/capture")
     p.add_argument("--interval", type=float, default=300, help="읽는 간격(초). 배터리를 아끼려고 5분")
     p.add_argument("--scan-seconds", type=float, default=60, help="센서 광고를 기다리는 최대 시간(초). 보이는 순간 붙는다")
-    p.add_argument("--timeout", type=float, default=240, help="센서 하나를 읽는 최대 시간(초, 다시 찾기·연결 재시도 포함)")
+    p.add_argument("--timeout", type=float, default=300, help="센서 하나를 읽는 최대 시간(초, 다시 찾기·연결 재시도 포함)")
     p.add_argument("--once", action="store_true", help="한 번만 읽고 끝낸다(현장 점검)")
     p.add_argument("-v", "--verbose", action="store_true")
     p.add_argument("--diagnose", metavar="MAC", help="그 센서의 광고·서비스·알림 원본을 보인다(현장 진단)")

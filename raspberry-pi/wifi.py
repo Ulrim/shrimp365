@@ -110,6 +110,16 @@ def status() -> dict:
                 ssid = value
             elif field.startswith("IP4.ADDRESS") and value and ip is None:
                 ip = value.split("/")[0]
+    if ssid:
+        # GENERAL.CONNECTION 은 접속 프로필 이름이다("preconfigured" 등). 실제 SSID 를 따로 읽는다.
+        code, out, _ = _run(
+            ["-t", "-f", "ACTIVE,SSID", "device", "wifi", "list", "ifname", dev, "--rescan", "no"], _QUICK)
+        if code == 0:
+            for line in out.splitlines():
+                parts = _split_terse(line)
+                if len(parts) >= 2 and parts[0].strip() == "yes" and parts[1].strip():
+                    ssid = parts[1].strip()
+                    break
 
     return {
         "available": True,
@@ -164,8 +174,11 @@ def scan(rescan: bool = True) -> dict:
                 "signal": signal,
                 "bars": _bars(signal),
                 "secure": bool(security and security != "--"),
-                "in_use": in_use,
+                # 같은 이름의 다른 공유기가 더 세게 잡혀도 '연결됨' 표시는 지킨다.
+                "in_use": in_use or bool(prev and prev["in_use"]),
             }
+        elif in_use:
+            prev["in_use"] = True
 
     networks = sorted(best.values(), key=lambda n: (not n["in_use"], -n["signal"]))
     return {"available": True, "networks": networks}
@@ -200,7 +213,9 @@ def connect(ssid: str, password: str = "") -> dict:
         code, _, err = _run(["--ask", *base], _CONNECT, stdin=password + "\n")
         # 일부 nmcli 버전은 --ask 에서 stdin 을 못 읽어 비밀번호 단계에서 막힌다.
         # 그때만 예전 방식(argv)으로 한 번 더 시도한다 — 기능을 먼저 지킨다.
-        if code != 0 and _looks_like_missing_secret(err):
+        # 시간이 다 됐거나 비밀번호 형식이 틀린 것은 다시 해도 같다 — 그때는 argv 로 흘리지 않는다.
+        if (code not in (0, 124) and _looks_like_missing_secret(err)
+                and "property is invalid" not in (err or "").lower()):
             code, _, err = _run([*base, "password", password], _CONNECT)
     else:
         code, _, err = _run(base, _CONNECT)

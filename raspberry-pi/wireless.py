@@ -282,8 +282,17 @@ def read_registered(path: Path) -> dict[str, dict]:
 
 
 def _write_atomic(path: Path, text: str) -> None:
+    """바꿔 끼우기 전에 다 쓴다. 권한은 원래 파일을 따르고, 없으면 640 — 투야 블루투스 열쇠(local_key)가
+    같은 파일에 있어, 기본 umask(644)로 새로 쓰면 장비의 아무 계정이나 열쇠를 읽게 된다."""
     tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
+    try:
+        mode = path.stat().st_mode & 0o777
+    except OSError:
+        mode = 0o640
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode & 0o770)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(text)
+    os.chmod(tmp, mode & 0o770)                 # umask 가 깎은 것을 되돌리되 '남(other)' 권한은 주지 않는다
     os.replace(tmp, path)
 
 
@@ -678,6 +687,7 @@ class Wireless:
         self.permit_until = 0.0
         self._lock = threading.Lock()          # 등록·빼기가 겹치면 같은 이름을 두 번 줄 수 있다
         self.ble_py, self.ble_tool, self.tuya_cred = BLE_PY, BLE_TOOL, TUYA_CRED
+        self.ble_ready_flag = BLE_PY.parent.parent / ".ready"
         self._ble_found: list[dict] = []       # 투야 클라우드에서 받은 블루투스 기기(열쇠 포함 — 화면에는 안 보낸다)
         self._ble_region = ""
 
@@ -915,7 +925,9 @@ class Wireless:
 
     # 투야 블루투스 — 화면에서 투야 클라우드 열쇠를 받아 등록 --------------------------
     def ble_ready(self) -> bool:
-        return self.ble_py.exists() and self.ble_tool.exists()
+        """전용 파이썬과 꾸러미가 끝까지 깔렸는가 — setup-tuya-ble.sh 가 마지막에 남기는 표시로 본다
+        (파이썬만 만들어지고 꾸러미 설치에서 실패한 장비를 '준비됨' 으로 보이면 등록이 영문 모를 오류로 끝난다)."""
+        return self.ble_py.exists() and self.ble_tool.exists() and self.ble_ready_flag.exists()
 
     def _ble_run(self, args: list[str], stdin: str = "", env_extra: dict | None = None, timeout: float = 150) -> dict:
         env = {"PATH": "/usr/bin:/bin", "HOME": "/tmp", "LANG": "C.UTF-8", **(env_extra or {})}
@@ -1163,14 +1175,20 @@ def _eco_register(w: "Wireless", key: str, kind: str, zone: str, passkey: str = 
         return {"ok": False, "error": "게이트웨이 열쇠(PASSKEY)를 읽지 못했습니다 — 게이트웨이가 다시 보낸 뒤 해 보세요"}
     if eco["passkey"] and eco["passkey"].upper() != passkey.upper():
         return {"ok": False, "error": "다른 게이트웨이가 이미 등록돼 있습니다 — 그쪽 센서를 먼저 모두 빼세요"}
-    try:
+
+    def claim() -> None:
+        # 이 게이트웨이만 받는다(채널만 등록해도). 검사를 다 통과한 뒤에만 적는다 —
+        # 먼저 적으면 등록이 거절돼도 열쇠가 남아 다른 게이트웨이를 막는다.
         if not eco["passkey"]:
-            set_eco_passkey(w.devices_path, passkey)   # 이 게이트웨이만 받는다(채널만 등록해도)
-    except OSError as exc:
-        return {"ok": False, "error": f"설정 파일에 쓰지 못했습니다: {exc}"}
+            set_eco_passkey(w.devices_path, passkey)
+
     if key == "gateway":
         if eco["gateway"] is not None:
             return {"ok": False, "error": "게이트웨이가 이미 등록돼 있습니다"}
+        try:
+            claim()
+        except OSError as exc:
+            return {"ok": False, "error": f"설정 파일에 쓰지 못했습니다: {exc}"}
         # 같은 WS90 을 433MHz(RTL-SDR)로도 받고 있으면 그 칸을 걷고 이름을 이어받는다 —
         # 두 길로 받으면 같은 비가 두 번 더해진다(devices.yaml 머리말).
         sid = None
@@ -1208,6 +1226,7 @@ def _eco_register(w: "Wireless", key: str, kind: str, zone: str, passkey: str = 
     if mapping:
         fields["map"] = "{" + ", ".join(f"{a}: {b}" for a, b in mapping.items()) + "}"
     try:
+        claim()
         add_eco(w.devices_path, key, fields)
     except OSError as exc:
         return {"ok": False, "error": f"설정 파일에 쓰지 못했습니다: {exc}"}

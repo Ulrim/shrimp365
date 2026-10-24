@@ -139,6 +139,8 @@ EOF
 systemctl daemon-reload
 systemctl enable --now farm365-tuyable >/dev/null
 systemctl restart farm365-tuyable
+# 여기까지 왔으면 준비 끝 — install.sh 와 장비 화면이 이 표시를 본다(꾸러미가 늘면 판 번호를 올린다).
+echo 2 > "$VENV/.ready"
 
 # 장비 화면이 환경 값을 같은 폴더에서 읽게(setup-wireless.sh 를 안 돌린 장비 대비).
 CONF=/etc/shrimp365/config.ini

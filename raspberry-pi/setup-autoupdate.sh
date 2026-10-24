@@ -74,23 +74,30 @@ if ! g fetch -q origin "$BR"; then
   echo "GitHub 에 닿지 못했습니다(인터넷 확인). 다음에 다시 봅니다."
   exit 0
 fi
+# 마지막으로 **설치까지 끝낸** 커밋. 저장소를 앞으로 감은 뒤 install.sh 가 실패하면(서비스 재시작 실패 등)
+# 다음 번에는 저장소가 이미 최신이라 "최신입니다" 로 끝나 영영 반만 업데이트된 채 남았다.
+# 저장소 HEAD 와 이 기록이 다르면 install.sh 를 다시 돌린다.
+STATE=/var/lib/shrimp365/installed-commit
 OLD="$(g rev-parse HEAD)"
 NEW="$(g rev-parse "origin/$BR")"
-if [ "$OLD" = "$NEW" ]; then
-  echo "최신입니다 ($BR ${OLD:0:7})."
+if [ "$OLD" != "$NEW" ]; then
+  if [ -n "$(g status --porcelain --untracked-files=no)" ]; then
+    echo "장비에서 고친 파일이 있어 덮어쓰지 않고 건너뜁니다:"
+    g status --short --untracked-files=no
+    exit 1
+  fi
+  if ! g merge -q --ff-only "origin/$BR"; then
+    echo "앞으로만 감을 수 없습니다(갈라진 기록). 손으로 확인하세요: cd $REPO && git status"
+    exit 1
+  fi
+  echo "업데이트: ${OLD:0:7} → ${NEW:0:7} ($BR)"
+  g log --oneline -20 "$OLD..$NEW" || true      # | head 로 자르면 기록이 길 때 SIGPIPE 로 여기서 끝났다
+fi
+HEAD_NOW="$(g rev-parse HEAD)"
+if [ "$(cat "$STATE" 2>/dev/null || true)" = "$HEAD_NOW" ]; then
+  echo "최신입니다 ($BR ${HEAD_NOW:0:7})."
   exit 0
 fi
-if [ -n "$(g status --porcelain --untracked-files=no)" ]; then
-  echo "장비에서 고친 파일이 있어 덮어쓰지 않고 건너뜁니다:"
-  g status --short --untracked-files=no
-  exit 1
-fi
-if ! g merge -q --ff-only "origin/$BR"; then
-  echo "앞으로만 감을 수 없습니다(갈라진 기록). 손으로 확인하세요: cd $REPO && git status"
-  exit 1
-fi
-echo "업데이트: ${OLD:0:7} → ${NEW:0:7} ($BR)"
-g log --oneline "$OLD..$NEW" | head -20
 
 cd "$REPO/raspberry-pi"
 ./install.sh
@@ -98,7 +105,9 @@ cd "$REPO/raspberry-pi"
 # 무선 수집기 코드는 install.sh 가 저장소(openfield/)에서 바꿔 끼우고 다시 시작한다.
 
 systemctl restart shrimp365-sensor
-echo "끝 — 장비 프로그램을 다시 시작했습니다."
+mkdir -p "$(dirname "$STATE")"
+echo "$HEAD_NOW" > "$STATE"
+echo "끝 — 장비 프로그램을 다시 시작했습니다 (${HEAD_NOW:0:7})."
 EOF
 chmod 755 "$RUNNER"
 

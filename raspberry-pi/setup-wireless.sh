@@ -166,7 +166,7 @@ fi
 find "$APP" -name __pycache__ -type d -prune -exec rm -rf {} +
 chmod -R a+rX "$APP"
 if [ ! -f "$FIELD/devices.yaml" ]; then
-  install -o "$USER_" -g "$USER_" -m 644 "$APP/devices.template.yaml" "$FIELD/devices.yaml"
+  install -o "$USER_" -g "$USER_" -m 640 "$APP/devices.template.yaml" "$FIELD/devices.yaml"
 fi
 
 # ── 5. 서비스 ────────────────────────────────────────────────────────────────

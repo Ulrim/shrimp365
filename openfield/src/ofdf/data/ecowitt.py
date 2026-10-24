@@ -53,6 +53,7 @@ WS90 은 티핑버킷이 아니라 **압전식**이다. 그래서 게이트웨�
 from __future__ import annotations
 
 import datetime as dt
+import math
 import re
 from dataclasses import dataclass, field as dc_field
 from pathlib import Path
@@ -424,6 +425,8 @@ def report_to_rows(
             continue
         try:
             value = float(raw)
+            if not math.isfinite(value):        # 'nan'·'inf' 도 float 로는 읽힌다
+                raise ValueError(raw)
         except (TypeError, ValueError):
             if unknown is not None:
                 unknown.append(f"에코윗 {key}: 수치가 아니다({raw!r})")

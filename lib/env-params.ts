@@ -7,6 +7,7 @@
 // 판정 색(정상/주의/위험)은 없다. 작물·생육 단계마다 적정값이 달라 값만 보여 준다.
 import { Thermometer, Droplets, Sprout, Layers, Wind, Navigation, CloudRain, CloudDrizzle, Sun, SunDim, Gauge } from "lucide-react"
 import type { IconComponent } from "@/types"
+import { strictNumber } from "@/lib/strict-number"
 
 export type EnvParamKey =
   | "air_temp" | "canopy_temp" | "humidity" | "soil_moisture" | "soil_temp"
@@ -90,8 +91,8 @@ export function parseEnvEach(raw: unknown): EnvEach | null {
       if (!item || typeof item !== "object") continue
       const r = item as Record<string, unknown>
       const id = typeof r.id === "string" ? r.id.trim().toUpperCase() : ""
-      const v = Number(r.v)
-      if (!SENSOR_ID_RE.test(id) || seen.has(id) || r.v === null || !Number.isFinite(v) || v < min || v > max) continue
+      const v = strictNumber(r.v)
+      if (!SENSOR_ID_RE.test(id) || seen.has(id) || v === null || v < min || v > max) continue
       seen.add(id)
       rows.push({ id, v })
     }

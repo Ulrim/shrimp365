@@ -114,6 +114,8 @@ if [ -d "$SRC/field" ]; then
   fi
   find "$APP_DIR/field" -name __pycache__ -type d -prune -exec rm -rf {} +
   chmod -R a+rX "$APP_DIR/field"
+  # 센서 목록에는 투야 블루투스 열쇠가 들어간다 — 예전 판이 644 로 만든 파일도 남이 못 읽게.
+  if [ -f /var/lib/shrimp365/field/devices.yaml ]; then chmod o-rwx /var/lib/shrimp365/field/devices.yaml; fi
   # 깔려 있는 수집기는 새 코드로 다시 시작한다(지워졌다 되살아난 경우 포함 — 멈춰 있어도 켜 둔 것이면).
   for u in farm365-zigbee farm365-rtl433 farm365-ecowitt farm365-tuyable; do
     if systemctl is-enabled --quiet "$u" 2>/dev/null; then systemctl restart "$u" || true; fi
@@ -208,16 +210,16 @@ fi
 # 장비 화면 [무선 센서] 에서 블루투스 토양센서를 등록하려면 전용 파이썬(bleak·tinytuya)이 있어야 한다.
 # 업데이트 때 한 번 깔아 두면 터미널을 쓸 일이 없다. 인터넷이 없거나 실패해도 설치는 계속한다.
 # 건너뛰려면 SHRIMP_SKIP_BLE=1.
-# 이미 깔린 장비는 빠진 꾸러미만 더한다(연결 보조 bleak-retry-connector — 1.9.6). 인터넷이 없으면 건너뛴다.
-if [ -x /opt/shrimp365/ble-venv/bin/python ] && ! /opt/shrimp365/ble-venv/bin/python -c "import bleak_retry_connector" 2>/dev/null; then
-  /opt/shrimp365/ble-venv/bin/pip install -q "bleak-retry-connector>=3.0" 2>/dev/null \
-    && echo "==> 블루투스 연결 보조(bleak-retry-connector)를 더했습니다" \
-    && { systemctl restart farm365-tuyable 2>/dev/null || true; } || true
-fi
-if [ -d /run/systemd/system ] && [ ! -x /opt/shrimp365/ble-venv/bin/python ] \
-   && [ -f "$SRC/setup-tuya-ble.sh" ] && [ "${SHRIMP_SKIP_BLE:-0}" != 1 ]; then
-  echo "==> 블루투스 센서 준비 (처음 한 번, 몇 분)"
-  bash "$SRC/setup-tuya-ble.sh" || echo "   (블루투스 준비를 못 했습니다 — 나중에: sudo bash setup-tuya-ble.sh)"
+# 준비가 끝까지 됐는지는 setup-tuya-ble.sh 가 마지막에 남기는 표시(.ready)로 본다 — 전용 파이썬만 만들어지고
+# 꾸러미 설치(인터넷)에서 실패한 장비도 다음 업데이트 때 다시 시도한다. 꾸러미가 늘면(1.9.6 bleak-retry-connector)
+# 표시의 판 번호가 달라 다시 깐다. 다시 돌려도 안전하다(멱등).
+BLE_READY=/opt/shrimp365/ble-venv/.ready
+BLE_READY_VER=2
+if [ -d /run/systemd/system ] && [ -f "$SRC/setup-tuya-ble.sh" ] && [ "${SHRIMP_SKIP_BLE:-0}" != 1 ] \
+   && { [ "$(cat "$BLE_READY" 2>/dev/null || true)" != "$BLE_READY_VER" ] \
+        || [ ! -f /etc/systemd/system/farm365-tuyable.service ]; }; then
+  echo "==> 블루투스 센서 준비 (몇 분 — 인터넷 필요)"
+  bash "$SRC/setup-tuya-ble.sh" || echo "   (블루투스 준비를 못 했습니다 — 다음 업데이트 때 다시 합니다. 손으로: sudo bash setup-tuya-ble.sh)"
 fi
 
 echo
