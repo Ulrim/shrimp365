@@ -284,7 +284,7 @@ def test_read_one_names_the_stage_that_timed_out(monkeypatch):
     with pytest.raises(bridge.StageError) as ei:
         asyncio.run(bridge.read_one(_Dev("DC:23:53:94:45:98"), DEV_ID, cfg, False))
     assert ei.value.stage == "info"
-    assert "대답하지 않습니다" in bridge.friendly_error(ei.value)
+    assert "대답하지 않습니다" in bridge.friendly_error(ei.value) and "열쇠" in bridge.friendly_error(ei.value)
 
 
 def test_read_one_retries_connect(monkeypatch):
