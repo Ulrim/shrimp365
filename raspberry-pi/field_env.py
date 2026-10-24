@@ -7,6 +7,7 @@
     zigbee_YYYYMMDD.csv    zigbee_bridge.py     온습도·토양수분·지온 (Zigbee2MQTT)
     rtl433_YYYYMMDD.csv    rtl433_bridge.py     기상센서 WS90 (433MHz 동글)
     ecowitt_YYYYMMDD.csv   ecowitt_receiver.py  기상센서 WS90 (에코윗 게이트웨이)
+    tuyable_YYYYMMDD.csv   tuya_ble_bridge.py   투야 블루투스 토양센서(수분·지온)
 
     ts,zone,sensor_id,variable,value,unit,quality
     2026-10-17T14:31:05,treatment,CN-T1,rh,78.0,%,ok
@@ -35,7 +36,7 @@ from pathlib import Path
 import limits
 
 #: 수집기 파일 이름 앞부분. 뒤에 _YYYYMMDD.csv 가 붙는다.
-SOURCES = ("zigbee", "rtl433", "ecowitt")
+SOURCES = ("zigbee", "rtl433", "ecowitt", "tuyable")
 #: 기상 마스트 — 구간(zone)을 골라도 기상센서는 함께 본다(두 구간 공통 기준이라).
 ZONE_MAST = "mast"
 

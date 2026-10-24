@@ -88,19 +88,20 @@ SETUP_PAYLOAD = PAYLOAD + [
 FIELD_FILES = {
     f"field/src/ofdf/{m}": REPO / "openfield" / "src" / "ofdf" / m
     for m in ("__init__.py", "data/__init__.py", "data/counter.py", "data/field.py",
-              "data/zigbee.py", "data/rtl433.py", "data/ecowitt.py")
+              "data/zigbee.py", "data/rtl433.py", "data/ecowitt.py", "data/tuya_ble.py")
 } | {
     f"field/scripts/{m}": REPO / "openfield" / "scripts" / m
-    for m in ("zigbee_bridge.py", "rtl433_bridge.py", "ecowitt_receiver.py")
+    for m in ("zigbee_bridge.py", "rtl433_bridge.py", "ecowitt_receiver.py", "tuya_ble_bridge.py")
 }
-SETUP_PAYLOAD += ["setup-wireless.sh", "field/devices.template.yaml", *FIELD_FILES]
+SETUP_PAYLOAD += ["setup-wireless.sh", "setup-tuya-ble.sh", "tuya_ble_setup.py",
+                  "field/devices.template.yaml", *FIELD_FILES]
 
 # 풀었을 때 이 폴더가 생긴다. 홈 디렉터리에 파일이 흩어지지 않게 한다.
 SETUP_DIR_NAME = "shrimp365-setup"
 
 # 실행 권한이 필요한 파일. USB·Windows 를 거치면 권한이 날아가는데,
 # tar 안에 넣어 두면 풀자마자 바로 실행할 수 있다.
-EXECUTABLE = {"install.sh", "setup-kiosk.sh", "setup-wireless.sh"}
+EXECUTABLE = {"install.sh", "setup-kiosk.sh", "setup-wireless.sh", "setup-tuya-ble.sh"}
 
 
 def cmd_init(args) -> int:

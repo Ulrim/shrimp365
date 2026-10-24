@@ -68,7 +68,7 @@ _RF_ID_RE = re.compile(r"^[A-Za-z0-9]{0,12}$")
 ZONES = {"treatment": "T", "control": "C", "facility": "", "mast": ""}
 
 #: 상태를 볼 서비스(setup-wireless.sh 가 만드는 이름).
-UNITS = ("mosquitto", "zigbee2mqtt", "farm365-zigbee", "farm365-rtl433", "farm365-ecowitt")
+UNITS = ("mosquitto", "zigbee2mqtt", "farm365-zigbee", "farm365-rtl433", "farm365-ecowitt", "farm365-tuyable")
 
 _NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,31}$")
 _ENTRY_RE = re.compile(r"^  ([A-Za-z0-9_.-]+):\s*\{(.*)\}\s*(#.*)?$")
@@ -434,6 +434,31 @@ _ECO_KEY_RE = re.compile(r"^(soil|tf|leaf|th)([1-8])$")
 _PASSKEY_RE = re.compile(r"^[A-Fa-f0-9]{8,64}$")
 
 
+def read_tuya_ble(path: Path) -> dict[str, dict]:
+    """tuya_ble: 칸 — {기기 id: {"sensor_id", "zone", ...}}. 열쇠(local_key)는 화면에 내보내지 않는다.
+    등록은 tuya_ble_setup.py 가 투야 클라우드에서 열쇠를 받아 한다(화면에서는 상태만 본다)."""
+    out: dict[str, dict] = {}
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return out
+    blk = _block(lines, "tuya_ble")
+    if not blk:
+        return out
+    cur = None
+    for raw in lines[blk[0] + 1:blk[1]]:
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+        indent = len(raw) - len(raw.lstrip())
+        key, _, rest = raw.strip().partition(":")
+        rest = rest.split(" #", 1)[0].strip()
+        if indent == 2:
+            cur = out.setdefault(key.strip("'\""), {})
+        elif indent == 4 and cur is not None and key in ("sensor_id", "zone", "name", "mac"):
+            cur[key] = rest.strip("'\"")
+    return out
+
+
 def read_eco(path: Path) -> dict:
     """ecowitt: 칸 — {"gateway": 설정 또는 None, "channels": {"soil1": 설정, ...}, "passkey": 등록한 게이트웨이}.
     한 줄 { } 형식과 여러 줄 형식을 모두 읽는다. 주석 줄은 건너뛴다."""
@@ -680,7 +705,7 @@ class Wireless:
         out: dict[str, dict] = {}
         now = dt.datetime.now()
         for day in (now - dt.timedelta(days=1), now):
-            for src in ("zigbee", "rtl433", "ecowitt"):
+            for src in ("zigbee", "rtl433", "ecowitt", "tuyable"):
                 f = self.data_dir / f"{src}_{day:%Y%m%d}.csv"
                 try:
                     with f.open("rb") as fh:
@@ -788,6 +813,7 @@ class Wireless:
         rf_new.sort(key=lambda x: (x.get("rssi") is None, -(x.get("rssi") or -99)))
         eco_reg = read_eco(self.devices_path)
         eco = self._eco_snapshot(eco_reg, info)
+        ble = self._ble_snapshot(info)
         left = max(0, int(self.permit_until - time.time()))
         return {
             "dongle": self._dongle(), "rtlsdr": self._rtlsdr(), "units": units,
@@ -797,6 +823,7 @@ class Wireless:
             "taken": sorted(self._taken(registered, rf_reg)),
             "rf_sensors": rf_sensors, "rf_new": rf_new, "rf_other": rf_other,
             "rf_heard_ok": self._heard_path().exists(),
+            "ble_sensors": ble,
             **eco,
         }
 
@@ -855,7 +882,26 @@ class Wireless:
         return {(c.get("sensor_id") or n).upper() for n, c in registered.items()} | \
                {(c.get("sensor_id") or k.split("/")[0]).upper() for k, c in rf_reg.items()} | \
                {(c.get("sensor_id") or k).upper() for k, c in eco["channels"].items()} | \
-               ({(eco["gateway"].get("sensor_id") or "WS90-01").upper()} if eco["gateway"] is not None else set())
+               ({(eco["gateway"].get("sensor_id") or "WS90-01").upper()} if eco["gateway"] is not None else set()) | \
+               {(c.get("sensor_id") or k).upper() for k, c in read_tuya_ble(self.devices_path).items()}
+
+    def _ble_snapshot(self, info) -> list[dict]:
+        """투야 블루투스 센서 — 등록(tuya_ble:)과 수집기가 남긴 마지막 시도(tuyable_heard.json)."""
+        reg = read_tuya_ble(self.devices_path)
+        if not reg:
+            return []
+        try:
+            heard = json.loads((self.data_dir / "capture" / "tuyable_heard.json").read_text(encoding="utf-8"))
+            tries = {str(s.get("sensor_id", "")).upper(): s for s in heard.get("sensors", [])}
+        except (OSError, ValueError, AttributeError):
+            tries = {}
+        out = []
+        for dev_id, cfg in reg.items():
+            sid = cfg.get("sensor_id") or dev_id
+            h = tries.get(sid.upper(), {})
+            out.append({"sensor_id": sid, "zone": cfg.get("zone", ""), "name": cfg.get("name", ""),
+                        "error": h.get("error") or "", "rssi": h.get("rssi"), **info(sid)})
+        return out
 
     def _heard_path(self) -> Path:
         return self.data_dir / "capture" / "rtl433_heard.json"

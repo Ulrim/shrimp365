@@ -841,6 +841,40 @@ sudo reboot
    돌리면 등록이 없거나 열쇠가 없는 경우 안내가 뜹니다 — 화면에서 다시 등록하면 됩니다.
 6. 같은 화면에서 센서마다 배터리·신호 세기·마지막 수신을 봅니다. 고장 난 센서는 **[빼기]** 로 지우고
    새 센서를 다시 찾아 붙입니다.
+7. **투야 블루투스 토양센서(SGS01B-JR 등, 투야·Smart Life 앱에 붙는 블루투스 모델)** 는 지그비 동글로
+   찾을 수 없습니다. 값을 암호로 보내므로 센서마다 열쇠를 투야 클라우드에서 **한 번** 받아야 하고,
+   그 뒤로는 인터넷 없이 파이가 5분마다 직접 붙어 토양수분·지온·배터리를 읽습니다.
+   1. 센서를 투야(또는 Smart Life) 앱에 붙여 둡니다(이미 붙었으면 그대로).
+      **앱에서 센서를 지우고 다시 붙이면 열쇠가 바뀝니다** — 그때는 아래 iii 을 다시 합니다.
+   2. 투야 IoT 개발자 계정(한 번만, 무료): <https://platform.tuya.com> 가입 → **Cloud → Development →
+      Create Cloud Project**(Development Method: Smart Home, 데이터센터는 앱 계정과 같은 곳 — 한국 계정은
+      보통 *Western America* 또는 *Central Europe*) → 프로젝트의 **Devices → Link App Account** 에서
+      QR 을 앱(나 → 오른쪽 위 스캔)으로 찍어 연결 → **Overview** 의 Access ID·Access Secret 을 적어 둡니다.
+   3. 파이에서(인터넷 필요):
+      ```bash
+      sudo bash /opt/shrimp365/setup-tuya-ble.sh --register
+      ```
+      블루투스 수집기(farm365-tuyable)를 설치한 뒤 Access ID·Secret 을 묻고, 앱에 붙은 블루투스 기기를
+      보여 줍니다. 번호를 고르고 구간(처리구·대조구·시설)을 고르면 이름(SOIL-T1, SOIL-C1 …)이 붙어
+      `devices.yaml` 의 `tuya_ble:` 칸에 적힙니다(Access ID·Secret 은 저장하지 않습니다).
+      나중에 센서를 더하거나 뺄 때는 `sudo /opt/shrimp365/ble-venv/bin/python /opt/shrimp365/tuya_ble_setup.py`
+      (보기 `--list`, 빼기 `--remove SOIL-T1`).
+   4. 바로 읽히는지 확인:
+      ```bash
+      sudo systemctl stop farm365-tuyable
+      sudo -u shrimp365 /opt/shrimp365/ble-venv/bin/python /opt/shrimp365/field/scripts/tuya_ble_bridge.py \
+        --devices /var/lib/shrimp365/field/devices.yaml --out /var/lib/shrimp365/field/data \
+        --capture /var/lib/shrimp365/field/data/capture --once -v
+      sudo systemctl start farm365-tuyable
+      ```
+      `[SOIL-T1] [{... 'variable': 'soil_moisture', 'value': 31.0 ...}]` 처럼 나오면 됩니다. 장비 화면
+      **[무선 센서]** 아래 '블루투스 토양센서' 칸에서도 마지막 수신·배터리·오류를 봅니다.
+   - **휴대폰 투야 앱을 열어 두면** 앱이 센서를 붙잡아 파이가 붙지 못할 수 있습니다. 앱을 닫아 두세요.
+   - 파이와 센서 사이는 블루투스라 **10m 안팎**(벽·흙·물에 약함)입니다. '광고가 안 들립니다' 가 뜨면
+     거리와 배터리를 봅니다.
+   - 제품마다 값 번호(DP)가 다를 수 있습니다. 알려진 두 배치는 스스로 맞추고, 모르면 '-v' 출력과
+     `capture/tuyable_heard.json` 에 받은 DP 전부가 남습니다. 그 값을 보고 `devices.yaml` 의 센서 칸에
+     `dps: {soil_moisture: 3, soil_temp: 5, soil_temp_scale: 10, battery_pct: 15}` 처럼 적으면 됩니다.
 
 수집 파일은 `/var/lib/shrimp365/field/data`, 센서 목록은 `/var/lib/shrimp365/field/devices.yaml` 에 있습니다.
 장비 서비스는 보안 설정상 `/home` 아래를 읽지 못하므로 수집 폴더를 그곳에 두지 않습니다.
