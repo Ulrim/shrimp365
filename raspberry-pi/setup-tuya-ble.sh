@@ -51,6 +51,7 @@ elif [ -d "$APP/src/ofdf" ]; then
   SRC_SRC="$APP/src"; SRC_SCRIPTS="$APP/scripts"
 else
   echo "수집기 코드를 찾지 못했습니다(field/src 또는 ../openfield)." >&2
+  echo "저장소 폴더에서 실행하세요:  cd ~/shrimp365/raspberry-pi && sudo ./install.sh && sudo bash setup-tuya-ble.sh --register" >&2
   exit 1
 fi
 
@@ -77,11 +78,21 @@ chmod -R a+rX "$VENV"
 # ── 3. 수집기 코드 ───────────────────────────────────────────────────────────
 echo "==> 수집기 배치: $APP"
 install -d -m 755 "$APP" "$APP/src" "$APP/scripts"
-rm -rf "$APP/src/ofdf"
-cp -r "$SRC_SRC/ofdf" "$APP/src/"
-for s in zigbee_bridge.py rtl433_bridge.py ecowitt_receiver.py tuya_ble_bridge.py; do
-  if [ -f "$SRC_SCRIPTS/$s" ]; then install -m 644 "$SRC_SCRIPTS/$s" "$APP/scripts/$s"; fi
-done
+# /opt/shrimp365 에서 실행하면 원본과 대상이 같은 폴더다 — 그때는 복사하지 않는다(지우면 원본도 사라진다).
+if [ "$(realpath "$SRC_SRC")" != "$(realpath "$APP/src")" ]; then
+  rm -rf "$APP/src/ofdf.new"
+  cp -r "$SRC_SRC/ofdf" "$APP/src/ofdf.new"       # 다 복사한 뒤에 바꿔 끼운다
+  rm -rf "$APP/src/ofdf"
+  mv "$APP/src/ofdf.new" "$APP/src/ofdf"
+  for s in zigbee_bridge.py rtl433_bridge.py ecowitt_receiver.py tuya_ble_bridge.py; do
+    if [ -f "$SRC_SCRIPTS/$s" ]; then install -m 644 "$SRC_SCRIPTS/$s" "$APP/scripts/$s"; fi
+  done
+fi
+if [ ! -f "$APP/scripts/tuya_ble_bridge.py" ] || [ ! -f "$APP/src/ofdf/data/tuya_ble.py" ]; then
+  echo "블루투스 수집기 코드가 없습니다. 저장소 폴더에서 실행하세요:" >&2
+  echo "   cd ~/shrimp365/raspberry-pi && sudo ./install.sh && sudo bash setup-tuya-ble.sh --register" >&2
+  exit 1
+fi
 if [ "$HERE" != /opt/shrimp365 ]; then
   install -m 755 "$HERE/tuya_ble_setup.py" /opt/shrimp365/tuya_ble_setup.py
   install -m 755 "$0" /opt/shrimp365/setup-tuya-ble.sh
