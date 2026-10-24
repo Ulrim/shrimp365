@@ -45,6 +45,15 @@ import {
   readMeasurementBasisTally,
   unrecordedBasisText,
 } from "./measurement-basis";
+import {
+  emptyBiomassBasisRecord,
+  formatBiomassBasis,
+  nonMeasuredBiomassCount,
+  nonMeasuredBiomassText,
+  readBiomassBasis,
+  unrecordedBiomassCount,
+  unrecordedBiomassText,
+} from "./production-basis";
 
 /** 판정 임계값. 전부 선택이며, 없으면 DEFAULT_BASELINE_POLICY 가 쓰인다. */
 export interface BaselinePolicy {
@@ -432,6 +441,48 @@ export function assessBaselineReadiness(
           "그대로 잠글지는 사람이 판단하십시오." +
           (basisTally.unrecorded > 0 ? ` ${unrecordedBasisText(basisTally.unrecorded)}` : ""),
     observed: notMetered,
+    threshold: 0,
+  });
+
+  // ── ⑧-2 생산량이 실측 출하·계측량인가 — 경고 ────────────────────────────
+  //
+  // ⑧ 이 **분자**(전력)를 보고, 이것이 **분모**(생산량)를 본다. 둘은 같은 무게다 —
+  // EI 가 낮게 나온 것이 전기를 덜 쓴 결과인지 생산량을 넉넉히 가정한 결과인지는 두 칸을
+  // 함께 읽어야만 갈린다.
+  //
+  // **왜 차단이 아니라 경고인가.** ⑧ 과 같은 이유다. 실증 전 단계에서는 출하 전이라
+  // 입식수 × 평균체중으로 계산한 생체량으로 기준선을 잡아야 하는 경우가 실제로 있고(받은
+  // MRV 계산표가 정확히 그렇다), 막으면 운영자가 강행 스위치를 습관적으로 켜게 되어 다른
+  // 가드까지 무력해진다.
+  //
+  // **그래도 반드시 보여야 하는 이유.** 잠긴 기준선은 불변이고(ADR 0002) 이후 모든 전·후
+  // 비교의 **원점**이 된다. 계산생체량으로 기준선을 잡으면 그 원점이 그 성질을 물려받고,
+  // 이후의 모든 감축량이 "그때 가정한 생산량" 을 기준으로 읽힌다 — 되돌릴 수 없이 함께
+  // 박히는 사실이다. 판단은 사람이 하되, 모르고 누르는 일은 없어야 한다.
+  //
+  // 미기재(null)는 경고로 세지 않는다 — ⑧ 과 같은 판단이다(이 열이 생기기 전의 수확
+  // 기록은 전부 미기재라서 그것까지 경고하면 모든 사이트가 영구히 경고 상태가 된다).
+  // 대신 건수를 메시지에 그대로 적는다.
+  const biomassBasis =
+    readBiomassBasis(comp.eiBiomassBasis) ?? emptyBiomassBasisRecord();
+  const notMeasured = nonMeasuredBiomassCount(biomassBasis);
+  const biomassUnrecorded = unrecordedBiomassCount(biomassBasis);
+  checks.push({
+    id: "production_basis_not_measured",
+    severity: "warning",
+    passed: notMeasured === 0,
+    message:
+      notMeasured === 0
+        ? `분모로 쓰인 생체량의 산정 근거 — ${formatBiomassBasis(biomassBasis)}.` +
+          (biomassUnrecorded > 0 ? ` ${unrecordedBiomassText(biomassUnrecorded)}` : "")
+        : `${nonMeasuredBiomassText(biomassBasis)} 산정 근거 — ` +
+          `${formatBiomassBasis(biomassBasis)}. ` +
+          "기준선은 한번 잠그면 되돌릴 수 없고 이후 모든 전·후 비교의 원점이 되므로, 이 " +
+          "기준선의 EI 가 실측 출하·계측량이 아닌 생산량으로 산출됐다는 사실이 함께 " +
+          "박힙니다. 출하 전이라 계산생체량으로 잡아야 하는 경우가 있어 막지는 않습니다 — " +
+          "그대로 잠글지는 사람이 판단하십시오." +
+          (biomassUnrecorded > 0 ? ` ${unrecordedBiomassText(biomassUnrecorded)}` : ""),
+    observed: notMeasured,
     threshold: 0,
   });
 

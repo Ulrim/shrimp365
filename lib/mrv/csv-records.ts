@@ -22,6 +22,14 @@ import {
   parseMeasurementBasis,
   type MeasurementBasis,
 } from "./measurement-basis";
+import {
+  PRODUCTION_BASIS_ACCEPTED_NOTE,
+  SURVIVAL_ADJUSTED_ACCEPTED_NOTE,
+  parseProductionBasis,
+  parseSurvivalAdjusted,
+  productionBasisNoteRequired,
+  type ProductionBasis,
+} from "./production-basis";
 
 /** 해석된 급이 1건 — POST /sites/{id}/feed-logs 본문 그대로. */
 export interface FeedCsvRecord {
@@ -51,6 +59,33 @@ export interface MortalityCsvRecord {
   ts: string;
   dead_count: number;
   cause_note: string | null;
+}
+
+/**
+ * 해석된 생산량(생체량) 1건 — POST /sites/{id}/harvests 본문 그대로.
+ *
+ * ── 왜 산정 근거를 **행마다** 받는가 ───────────────────────────────────────
+ * 이 표의 기간 양 끝 생체량 차이가 EI·폭기 EI·FCR·OEI 네 지표의 **분모**다. 그래서
+ * 전력의 `measurement_basis` 와 같은 자리의 칸이 필요하다
+ * (supabase/migrations/mrv_harvest_logs_production_basis.sql).
+ *
+ * 전력 기록지와 달리 **파일 단위 기본값을 두지 않는다.** 전력은 계량기가 붙은 설비와
+ * 붙지 않은 설비가 한 표에 섞여 들어오고 그 구분이 파일에 없을 때가 많아 화면에서
+ * 고르게 했다. 생산량은 그렇지 않다 — 한 기간의 개시·마감 두 점이 "하나는 출하 계량
+ * 전표, 하나는 입식수 × 평균체중" 인 것이 **정상적인 경우**이고, 그 둘을 한 값으로
+ * 뭉개면 분모의 성질을 틀리게 적는다. 그래서 열을 **필수**로 두고 행마다 받는다.
+ */
+export interface HarvestCsvRecord {
+  batch_id: string;
+  /** ISO8601 UTC */
+  ts: string;
+  biomass_kg: number;
+  /** 필수 — 라우트도 이 칸 없이는 422 로 거절한다. */
+  production_basis: ProductionBasis;
+  /** 계산·어림이면 필수(자유 기입). 실측이면 비어도 된다 → null. */
+  production_basis_note: string | null;
+  /** null = 미기재. false = 보정하지 않았다(참인 기록) — 둘은 다른 사실이다. */
+  survival_adjusted: boolean | null;
 }
 
 /** 전력 기록지가 쓸 수 있는 계측 원표현. 파일 하나에 한 가지만 쓴다(아래 설명 참고). */
@@ -279,6 +314,32 @@ const HEADER_ALIASES: Record<string, string> = {
   자료_유형: "measurement_basis",
   전력자료유형: "measurement_basis",
   측정근거: "measurement_basis",
+  // 생산량(생체량) 열. "수확량" 은 받지 않는다 — 기간 누적 출하량인지 그 시점의 현존량
+  // 인지 뜻이 모이지 않고, 이 표가 요구하는 것은 **그 시각의 생체량**이다. 뜻이 어긋난
+  // 이름이 붙으면 Δbiomass 가 틀린 값으로 조용히 저장된다.
+  biomass_kg: "biomass_kg",
+  biomass: "biomass_kg",
+  생체량: "biomass_kg",
+  생체량_kg: "biomass_kg",
+  생산량: "biomass_kg",
+  생산량_kg: "biomass_kg",
+  // 산정 근거 열. 받은 계산표가 이 칸을 「생산량_산정유형」으로 적어 두었으므로 그 이름을
+  // 받는다. 전력의 「자료유형」과 **다른 이름**을 쓰는 이유: 이 별칭 표는 모든 파서가
+  // 공유하는 한 장이라, 같은 이름을 두 뜻에 쓰면 한쪽이 다른 쪽의 열을 집어 간다.
+  production_basis: "production_basis",
+  산정근거: "production_basis",
+  산정유형: "production_basis",
+  생산량_산정유형: "production_basis",
+  생산량산정유형: "production_basis",
+  production_basis_note: "production_basis_note",
+  산정근거메모: "production_basis_note",
+  산정근거설명: "production_basis_note",
+  계산근거: "production_basis_note",
+  계산모델: "production_basis_note",
+  survival_adjusted: "survival_adjusted",
+  생존율보정: "survival_adjusted",
+  생존율보정여부: "survival_adjusted",
+  생존율보정_적용여부: "survival_adjusted",
 };
 
 function mapHeaders(cells: string[]): Map<string, number> {
@@ -541,6 +602,126 @@ export function parseMortalityCsv(text: string): CsvParseResult<MortalityCsvReco
 }
 
 /**
+ * 생산량 기록지 해석.
+ *
+ * **왜 0 을 받지 않는가.** 폐사 0 건과 다르다. 생체량 0 kg 인 행은 분모의 한쪽 끝으로
+ * 뽑혀 Δbiomass 가 전체 현존량과 같아지고, 그러면 **기간에 없던 생산량**이 산출된다
+ * (라우트도 같은 기준으로 422 를 낸다).
+ *
+ * **산정 근거 열은 필수다.** 전력 기록지의 `measurement_basis` 와 달리 선택이 아니다 —
+ * 이유는 `HarvestCsvRecord` 주석에 적었다(파일 단위 기본값으로 뭉갤 수 없는 칸이다).
+ * 계산·어림인 줄에는 **근거 메모까지** 요구한다. 근거 없는 '계산생체량' 딱지는 검산할 수
+ * 없는 주장이라 딱지가 없는 것보다 나쁘고, 그 줄을 통과시키면 파일 하나로 수십 건이
+ * 그렇게 들어온다.
+ */
+export function parseHarvestCsv(text: string): CsvParseResult<HarvestCsvRecord> {
+  const { rows, unterminatedAtLine } = splitCsvRows(text);
+  const header = readRequiredHeaders(rows, [
+    { canonical: "batch_id", label: "batch_id(배치)" },
+    { canonical: "ts", label: "ts(시각)" },
+    { canonical: "biomass_kg", label: "biomass_kg(생체량)" },
+    { canonical: "production_basis", label: "production_basis(산정 근거)" },
+  ]);
+  if ("message" in header) {
+    const first =
+      unterminatedAtLine !== null ? unterminatedError(unterminatedAtLine) : header;
+    return { records: [], lines: [], errors: [first], dataLineCount: 0 };
+  }
+
+  const records: HarvestCsvRecord[] = [];
+  const lines: number[] = [];
+  const errors: CsvRowError[] = [];
+  const dataRows = rows.slice(1);
+  if (unterminatedAtLine !== null) errors.push(unterminatedError(unterminatedAtLine));
+
+  for (const row of dataRows) {
+    const batchId = cell(row.cells, header.index, "batch_id");
+    const tsRaw = cell(row.cells, header.index, "ts");
+    const biomassRaw = cell(row.cells, header.index, "biomass_kg");
+    const basisRaw = cell(row.cells, header.index, "production_basis");
+    const noteRaw = cell(row.cells, header.index, "production_basis_note");
+    const survivalRaw = cell(row.cells, header.index, "survival_adjusted");
+
+    if (!batchId) {
+      errors.push({ line: row.line, message: "배치가 비어 있습니다." });
+      continue;
+    }
+    const ts = parseRecordTimestamp(tsRaw);
+    if (!ts) {
+      errors.push({
+        line: row.line,
+        message: `시각을 읽을 수 없습니다: '${tsRaw}' (예: 2026-10-01 14:30)`,
+      });
+      continue;
+    }
+    const biomassKg = parseDecimal(biomassRaw);
+    if (biomassKg === null || biomassKg <= 0) {
+      errors.push({
+        line: row.line,
+        message: numberFieldError(biomassRaw, "생체량(kg)은 0보다 큰 숫자여야 합니다"),
+      });
+      continue;
+    }
+    // 산정 근거는 **비어 있어도 오류**다(전력의 자료유형과 다른 점). 넘겨짚지 않는 이유는
+    // 같다 — 그 칸에 "실측 아님" 이 적힌 파일을 넘겨짚으면 계산값이 실측으로 저장된다.
+    if (!basisRaw) {
+      errors.push({
+        line: row.line,
+        message: `산정 근거가 비어 있습니다 — ${PRODUCTION_BASIS_ACCEPTED_NOTE}`,
+      });
+      continue;
+    }
+    const basis = parseProductionBasis(basisRaw);
+    if (basis === null) {
+      errors.push({
+        line: row.line,
+        message: `산정 근거를 읽을 수 없습니다: '${basisRaw}' — ${PRODUCTION_BASIS_ACCEPTED_NOTE}`,
+      });
+      continue;
+    }
+    if (productionBasisNoteRequired(basis) && !noteRaw) {
+      errors.push({
+        line: row.line,
+        message:
+          `산정 근거가 '${basisRaw}' 인데 무엇으로 계산했는지 적혀 있지 않습니다 — ` +
+          "production_basis_note(산정 근거) 열을 채워 주세요(예: 입식 100,000미 × " +
+          "최종평균 35g, 생존율 보정 미적용). 근거 없는 '계산생체량' 딱지는 검산할 수 " +
+          "없는 주장이라 딱지가 없는 것보다 나쁩니다.",
+      });
+      continue;
+    }
+    const survival = parseSurvivalAdjusted(survivalRaw);
+    if (survival === null) {
+      errors.push({
+        line: row.line,
+        message: `생존율 보정 여부를 읽을 수 없습니다: '${survivalRaw}' — ${SURVIVAL_ADJUSTED_ACCEPTED_NOTE}`,
+      });
+      continue;
+    }
+
+    records.push({
+      batch_id: batchId,
+      ts,
+      biomass_kg: biomassKg,
+      production_basis: basis,
+      production_basis_note: noteRaw || null,
+      // `undefined`(빈 칸)는 미기재 → null. false(미적용)와 **다른 사실**이므로 뭉개지 않는다.
+      survival_adjusted: survival === undefined ? null : survival,
+    });
+    lines.push(row.line);
+  }
+
+  errors.push(
+    ...findDuplicateKeys(
+      records.map((r, i) => ({ key: `${r.batch_id}\u0000${r.ts}`, line: lines[i] })),
+    ),
+  );
+  errors.sort((a, b) => a.line - b.line);
+
+  return { records, lines, errors, dataLineCount: dataRows.length };
+}
+
+/**
  * 전력 기록지 해석.
  *
  * **왜 값이 0 이어도 받는가.** 급이량과 달리 "이 구간에 0 kWh 를 썼다" 는 실제 계측이다
@@ -685,6 +866,19 @@ export const MORTALITY_CSV_TEMPLATE =
   "batch_id,ts,dead_count,cause_note\n" +
   "batch-001,2026-10-01 09:00,3,고수온 의심\n" +
   "batch-001,2026-10-02 09:00,0,\n";
+
+/**
+ * 생산량 기록지 견본.
+ *
+ * **두 줄의 산정 근거를 일부러 다르게 적어 두었다.** 기간 개시가 입식수 × 평균체중 계산,
+ * 마감이 출하 계량 전표인 것이 이 현장의 전형이고, 견본이 한 가지로만 적혀 있으면 운영자는
+ * 두 점을 같은 값으로 채운다 — 그러면 분모의 성질을 틀리게 적는다. 값은 한국어로 적어
+ * 둔다(파서는 measured/calculated/estimated 도 받는다).
+ */
+export const HARVEST_CSV_TEMPLATE =
+  "batch_id,ts,biomass_kg,production_basis,production_basis_note,survival_adjusted\n" +
+  "batch-001,2026-08-01 09:00,1200,계산생체량,입식 100000미 × 평균 12g,미적용\n" +
+  "batch-001,2026-10-16 09:00,3500,실측,출하 계량 전표 #2026-1016,\n";
 
 /**
  * 전력 기록지 견본은 표현마다 다르다 — 같은 `value` 열에 적을 숫자의 뜻이 다르기 때문이다.

@@ -524,6 +524,25 @@ export interface MrvReportBoundary {
    */
   after_power_measurement_basis?: unknown;
   /**
+   * After 기간의 **분모로 쓰인 생체량 두 점의 산정 근거** — 이 리포트의 EI·FCR 의 분모가
+   * 실측 출하·계측량인지, 입식수 × 최종평균개체중으로 계산한 값인지.
+   *
+   * 전력 자료유형(`after_power_measurement_basis`)이 **분자**에 대해 하는 일을 **분모**에
+   * 대해 한다. 둘을 함께 읽어야 "EI 가 낮은 것이 전기를 덜 쓴 결과인가, 생산량을 넉넉히
+   * 가정한 결과인가" 가 갈린다.
+   *
+   * **집계가 아니라 두 점이다** — 기간에 수확 기록이 50건 있어도 Δbiomass 를 만든 것은
+   * 양 끝 두 건뿐이다(lib/mrv/production-basis.ts).
+   *
+   * **옛 리포트에는 이 칸이 없다.** 그래서 optional 이고 `unknown` 이다 — `undefined`(기록
+   * 없음)를 'measured' 로 뭉개면 "분모는 전부 실측" 이라는 거짓이 된다. 읽는 쪽은
+   * `readBiomassBasis`(lib/mrv/production-basis.ts) 하나를 써서 화면과 인쇄물이 같은
+   * 판정을 내린다.
+   *
+   * ⚠ **After 기간만** 담는다(전력 자료유형과 같은 이유).
+   */
+  after_biomass_basis?: unknown;
+  /**
    * After 기간의 '산출 불가' 사유를 확정하는 근거 수치(생성 시점에 얼린 것).
    *
    * **옛 리포트에는 이 칸이 없다**(이 칸을 넣기 전에 발행된 것들). 그래서 optional 이고,

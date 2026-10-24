@@ -292,6 +292,24 @@ export async function generateMrvReport(params: {
      */
     after_power_measurement_basis: comp.eiMeasurementBasis,
     /**
+     * **분모로 쓰인 생체량의 산정 근거** — 이 리포트의 EI·FCR 의 분모가 실측 출하·계측량
+     * 인지, 입식수 × 최종평균개체중으로 계산한 값인지.
+     *
+     * 왜 리포트가 이것을 들고 있어야 하는가: `after_power_measurement_basis` 와 **같은
+     * 이유**다. 산정 근거는 수확 기록 행마다 적히지만 그 행들은 나중에 보정·추가된다.
+     * 발행된 리포트가 **발행 시점의 근거**를 들고 있지 않으면, 반 년 뒤 그 리포트를 다시
+     * 열었을 때 "그때 이 수치의 분모가 무엇이었는가" 가 달라져 있다.
+     *
+     * **집계가 아니라 두 점이다.** 기간에 수확 기록이 50건 있어도 Δbiomass 를 만든 것은
+     * 양 끝 두 건뿐이므로, 50건의 분포를 적으면 분모의 성질을 틀리게 적는다
+     * (lib/mrv/production-basis.ts 머리말).
+     *
+     * **After 기간만 담는다.** Before(기준선)의 생체량은 잠긴 스냅샷에 있고, 옛 스냅샷에는
+     * 이 칸이 아예 없으므로 베낄 값조차 없다 — 0 이나 'measured' 로 채우면 "기준선 생산량은
+     * 실측" 이라는 거짓이 된다. 전력 자료유형과 같은 판단이고, 화면·인쇄물이 그렇게 적는다.
+     */
+    after_biomass_basis: comp.eiBiomassBasis,
+    /**
      * After 기간의 「산출 불가」 사유를 확정하는 **근거 수치** — 생산량 변화와 그
      * 산출 임계값, 산입 건수, 폭기 전력, 입식 수 등(lib/mrv/metric-unavailability.ts).
      *

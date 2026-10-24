@@ -26,6 +26,16 @@ import {
   unrecordedBasisText,
 } from "./measurement-basis"
 import {
+  REPORT_MISSING_PRODUCTION_BASIS_NOTE,
+  REPORT_NON_MEASURED_BIOMASS_HEADLINE,
+  formatBiomassBasis,
+  nonMeasuredBiomassCount,
+  nonMeasuredBiomassText,
+  readBiomassBasis,
+  unrecordedBiomassCount,
+  unrecordedBiomassText,
+} from "./production-basis"
+import {
   REPORT_PROVISIONAL_METRIC_HEADING,
   REPORT_PROVISIONAL_METRIC_LINES,
 } from "./metric-provenance"
@@ -149,6 +159,7 @@ type Boundary = {
    * 적는다 — 0 으로 뭉개면 "전부 실측" 이라는 거짓을 인쇄하게 된다.
    */
   after_power_measurement_basis?: unknown
+  after_biomass_basis?: unknown
   /**
    * After 기간의 '산출 불가' 사유를 확정하는 근거 수치. **옛 리포트에는 이 칸이 없다**
    * — 그래서 optional 이고, 없으면 아래 절이 그 사실을 적는다(없는 근거로 사유를
@@ -342,6 +353,59 @@ function measurementBasisRow(raw: unknown): string {
     `<tr class="flag-warn"><td>전력 자료유형(After)</td><td colspan="2">` +
     `<strong>${esc(summary)}</strong>` +
     `<div class="flag-warn-note">${esc(REPORT_NON_METERED_HEADLINE)} ` +
+    `${notes.map((n) => esc(n)).join(" ")}</div></td></tr>`
+  )
+}
+
+/**
+ * 「생산량 산정 근거(After)」 줄. 실측 출하·계측량이 아닌 생체량이 분모로 쓰였으면
+ * **눈에 띄게** 그린다.
+ *
+ * ── 왜 이 줄이 있는가 ───────────────────────────────────────────────────────
+ * 이 리포트의 EI·폭기 EI·FCR·OEI 는 **생산량을 분모로** 산출된다. 그 kg 이 저울에 올린
+ * 출하량이 아니라 「입식수 × 최종평균개체중」 으로 계산한 값인 경우가 실제로 있고(받은
+ * MRV 계산표가 정확히 그렇다 — 생존율 보정도 미적용), 그 사실을 적지 않으면 **인쇄된
+ * 리포트가 계산생체량을 실측 생산량으로 제시한다.** EI 가 낮게 나온 것이 전기를 덜 쓴
+ * 결과인지 생산량을 넉넉히 가정한 결과인지 구분할 수 없다.
+ *
+ * 모양은 「전력 자료유형」 줄과 **같다** — 같은 `.flag-warn` 테두리, 같은 `.flag-note`,
+ * 색이 아니라 **글자가 판단 근거**다(흑백 복사가 기본이다). 분자의 경고와 분모의 경고가
+ * 다른 모양이면 하나는 덜 중요한 것으로 읽힌다.
+ */
+function productionBasisRow(raw: unknown): string {
+  // ★ **칸이 없는 것**과 **미기재**를 가르는 분기다(전력 자료유형 줄과 같은 이유).
+  if (raw === undefined) {
+    return (
+      `<tr><td>생산량 산정 근거(After)</td><td colspan="2">-` +
+      `<div class="flag-note">${esc(REPORT_MISSING_PRODUCTION_BASIS_NOTE)}</div></td></tr>`
+    )
+  }
+  const record = readBiomassBasis(raw)
+  if (record === null) {
+    return (
+      `<tr><td>생산량 산정 근거(After)</td><td colspan="2">-` +
+      `<div class="flag-note">${esc(REPORT_MISSING_PRODUCTION_BASIS_NOTE)}</div></td></tr>`
+    )
+  }
+
+  const summary = formatBiomassBasis(record)
+  const unrecorded = unrecordedBiomassCount(record)
+  if (nonMeasuredBiomassCount(record) === 0) {
+    // 실측이 아닌 점이 없다. 그래도 **미기재가 있으면 그 사실을 적는다** — 경고는
+    // 아니지만(모른다는 것은 실측이 아니라는 뜻이 아니다) 숨길 사실도 아니다.
+    const note =
+      unrecorded > 0
+        ? `<div class="flag-note">${esc(unrecordedBiomassText(unrecorded))}</div>`
+        : ""
+    return `<tr><td>생산량 산정 근거(After)</td><td colspan="2">${esc(summary)}${note}</td></tr>`
+  }
+
+  const notes = [nonMeasuredBiomassText(record)]
+  if (unrecorded > 0) notes.push(unrecordedBiomassText(unrecorded))
+  return (
+    `<tr class="flag-warn"><td>생산량 산정 근거(After)</td><td colspan="2">` +
+    `<strong>${esc(summary)}</strong>` +
+    `<div class="flag-warn-note">${esc(REPORT_NON_MEASURED_BIOMASS_HEADLINE)} ` +
     `${notes.map((n) => esc(n)).join(" ")}</div></td></tr>`
   )
 }
@@ -570,6 +634,7 @@ export function renderMrvReportHtml(
       <tr><td>포함 계측기(meter) ID</td><td colspan="2">${joinOrDash(boundary.included_meter_ids)}</td></tr>
       ${qualityFlagRow(boundary.included_quality_flags)}
       ${measurementBasisRow(boundary.after_power_measurement_basis)}
+      ${productionBasisRow(boundary.after_biomass_basis)}
       <tr><td>생산량 근거(Before)</td><td colspan="2">${joinOrDash(boundary.biomass_source_refs?.before)}</td></tr>
       <tr><td>생산량 근거(After)</td><td colspan="2">${joinOrDash(boundary.biomass_source_refs?.after)}</td></tr>
     </tbody>

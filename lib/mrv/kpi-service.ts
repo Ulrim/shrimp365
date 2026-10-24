@@ -58,6 +58,17 @@ import {
   type MeasurementBasis,
   type MeasurementBasisTally,
 } from "./measurement-basis"
+import {
+  isMissingProductionBasisColumnError,
+  noteMissingProductionBasisColumn,
+  shouldSendProductionBasisColumns,
+} from "./production-basis-column"
+import {
+  emptyProductionBasisPoint,
+  isProductionBasis,
+  type BiomassBasisRecord,
+  type ProductionBasisPoint,
+} from "./production-basis"
 import { metricUnavailabilityReasons } from "./metric-unavailability"
 import type { MetricUnavailabilityEvidence } from "./metric-unavailability"
 import type {
@@ -85,7 +96,20 @@ function metric(
   }
 }
 
-type HarvestRow = { id: string; ts: string; biomass_kg: number }
+/**
+ * 수확·계측 기록 한 행.
+ *
+ * 뒤의 세 칸은 **산정 근거**다(supabase/migrations/mrv_harvest_logs_production_basis.sql).
+ * 열이 없는 DB 에서 읽었으면 그 칸이 아예 없다 → 미기재로 다룬다.
+ */
+type HarvestRow = {
+  id: string
+  ts: string
+  biomass_kg: number
+  production_basis?: string | null
+  production_basis_note?: string | null
+  survival_adjusted?: boolean | null
+}
 
 /**
  * 기간 내 harvest_logs(시각 오름차순)에서 개시/마감 생체량 시점을 고른다.
@@ -114,6 +138,45 @@ function pickBiomassBounds(harvests: HarvestRow[]): [BiomassPoint, BiomassPoint]
   }
   const empty: BiomassPoint = { ts: new Date(0), biomassKg: 0.0, sourceRef: "none" }
   return [empty, empty]
+}
+
+/**
+ * 분모를 만든 **두 점의 산정 근거**를 그 행에서 그대로 꺼낸다.
+ *
+ * ★ 집계(건수 분포)가 아니라 **두 점**이다. 기간에 수확 기록이 50건 있어도 Δbiomass 를
+ *   만든 것은 양 끝 두 건뿐이므로(pickBiomassBounds), 50건의 분포를 적으면 "분모가
+ *   무엇으로 만들어졌는가" 를 틀리게 적는다. 전력 쪽(모든 산입 건이 분자에 더해진다)과
+ *   다른 모양인 이유가 그것이다 — lib/mrv/production-basis.ts 머리말.
+ *
+ * 기록이 없어 0 kg 더미가 쓰인 경우에는 **빈 점**을 돌려준다. `sourceRef: "none"` 을
+ * 그대로 적으면 "none 이라는 행을 실측했다" 로 읽힌다.
+ *
+ * 모르는 문자열은 **미기재로 둔다** — 실측으로 읽으면 없는 사실을 만들어 내는 것이고,
+ * 미기재는 "아는 기록이 없다" 라는 참인 진술이다(전력 쪽과 같은 판단).
+ */
+function pickBiomassBasis(
+  harvests: HarvestRow[],
+  start: BiomassPoint,
+  end: BiomassPoint,
+): BiomassBasisRecord {
+  const byId = new Map(harvests.map((h) => [h.id, h]))
+  const point = (p: BiomassPoint): ProductionBasisPoint => {
+    const row = byId.get(p.sourceRef)
+    if (row === undefined) return emptyProductionBasisPoint()
+    return {
+      source_ref: row.id,
+      ts: new Date(row.ts).toISOString(),
+      biomass_kg: row.biomass_kg,
+      basis: isProductionBasis(row.production_basis) ? row.production_basis : null,
+      basis_note:
+        typeof row.production_basis_note === "string" && row.production_basis_note !== ""
+          ? row.production_basis_note
+          : null,
+      survival_adjusted:
+        typeof row.survival_adjusted === "boolean" ? row.survival_adjusted : null,
+    }
+  }
+  return { start: point(start), end: point(end) }
 }
 
 /** 자료유형 집계의 버킷 키. 미기재(null)는 따로 센다 — 실측이 아니라 「모른다」다. */
@@ -177,6 +240,16 @@ export type SiteKpiComputation = {
    * 가지 않으므로 세지 않는다 — 세면 "이 배출량이 무엇으로 산출됐는가" 를 틀리게 적는다.
    */
   eiMeasurementBasis: MeasurementBasisTally
+  /**
+   * **분모로 쓰인 생체량 두 점의 산정 근거** — 실측 출하·계측량인지, 입식수 × 평균체중
+   * 으로 계산한 값인지, 어림값인지.
+   *
+   * EI·폭기 EI·FCR·OEI 의 **분모**가 무엇으로 만들어졌는지를 말하는 자료이고, MRV
+   * 리포트의 `boundary_json` 과 기준선 잠금 판정이 이것을 읽는다. `eiMeasurementBasis` 가
+   * 분자(전력)에 대해 하는 일을 분모에 대해 한다 — 둘을 함께 읽어야 "EI 가 낮은 것이
+   * 전기를 덜 쓴 결과인가, 생산량을 넉넉히 가정한 결과인가" 가 갈린다.
+   */
+  eiBiomassBasis: BiomassBasisRecord
   /**
    * 「산출 불가」의 사유를 **엔진 밖에서 확정하는 데 쓰는 근거.**
    *
@@ -364,17 +437,51 @@ export async function computeSiteKpiResults(
   }
 
   // --- 생체량(EI/FCR 분모) ---
-  const harvests = await fetchAll<HarvestRow>((f, t) =>
-    db
-      .from(T.harvestLogs)
-      .select("id, ts, biomass_kg")
-      .eq("site_id", siteId)
-      .gte("ts", periodFrom.toISOString())
-      .lte("ts", periodTo.toISOString())
-      .order("ts", { ascending: true })
-      .range(f, t),
-  )
+  /**
+   * ⚠ 산정 근거 세 열은 마이그레이션
+   * (supabase/migrations/mrv_harvest_logs_production_basis.sql)이 더하는 것이고 **실행은
+   * 사람 몫**이다. 그 열이 없는 DB 에서 이 질의는 거절되는데(42703), 분모를 읽는 이 질의는
+   * KPI·리포트·알림·기준선 판정 전부의 길목이다 — 메타데이터 칸 셋 때문에 증빙 산출이
+   * 통째로 멈추게 둘 수 없다. 그래서 그 칸 때문에 거절된 것이 확인되면 칸을 빼고 한 번 더
+   * 읽는다(./production-basis-column.ts, 선례: measurement-basis-column.ts · 커밋 632b2a6).
+   *
+   * 질의 사슬을 두 번 적는 이유도 그쪽과 같다 — `select()` 에 삼항 결과를 넘기면 Supabase
+   * 의 열 목록 타입 파서가 문자열 리터럴 유니온을 해석하지 못해 행 타입이 깨진다.
+   */
+  const readHarvests = (withBasis: boolean) =>
+    fetchAll<HarvestRow>((f, t) =>
+      withBasis
+        ? db
+            .from(T.harvestLogs)
+            .select(
+              "id, ts, biomass_kg, production_basis, production_basis_note, survival_adjusted",
+            )
+            .eq("site_id", siteId)
+            .gte("ts", periodFrom.toISOString())
+            .lte("ts", periodTo.toISOString())
+            .order("ts", { ascending: true })
+            .range(f, t)
+        : db
+            .from(T.harvestLogs)
+            .select("id, ts, biomass_kg")
+            .eq("site_id", siteId)
+            .gte("ts", periodFrom.toISOString())
+            .lte("ts", periodTo.toISOString())
+            .order("ts", { ascending: true })
+            .range(f, t),
+    )
+
+  const sendProductionBasis = shouldSendProductionBasisColumns()
+  let harvests: HarvestRow[]
+  try {
+    harvests = await readHarvests(sendProductionBasis)
+  } catch (err) {
+    if (!sendProductionBasis || !isMissingProductionBasisColumnError(err)) throw err
+    noteMissingProductionBasisColumn("mrv_harvest_logs select")
+    harvests = await readHarvests(false)
+  }
   const [biomassStart, biomassEnd] = pickBiomassBounds(harvests)
+  const eiBiomassBasis = pickBiomassBasis(harvests, biomassStart, biomassEnd)
 
   // --- 배치와 수기 기록 ---
   const tanks = await fetchAll<{
@@ -561,6 +668,7 @@ export async function computeSiteKpiResults(
     oei,
     mortality,
     eiMeasurementBasis,
+    eiBiomassBasis,
     unavailabilityEvidence,
     configVersion,
     paramsOut,

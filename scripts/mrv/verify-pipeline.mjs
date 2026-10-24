@@ -116,6 +116,11 @@ try {
     // 스텁을 끼우면 정작 검증하려는 연결이 사라진다.
     "measurement-basis.ts",
     "measurement-basis-column.ts",
+    // 분모(생산량)의 산정 근거. 위 두 모듈과 같은 이유로 실물을 쓴다 — kpi-service 가
+    // **분모를 만든 두 점을 그 행에서 그대로 꺼내는지**(pickBiomassBasis)가 이 검증에서
+    // 사라지면, 그 칸이 빈 채로 리포트에 얼려 들어가도 통과한다.
+    "production-basis.ts",
+    "production-basis-column.ts",
     // '산출 불가' 사유의 근거를 조립하는 쪽(kpi-service)과 그 근거로 문장을 만드는 쪽.
     // 스텁으로 바꾸지 않는다 — 임계값을 **산출에 실제로 쓰인 설정 객체**에서 꺼내는
     // 연결이 이 검증에서 사라지면, 그 칸이 비거나 0 으로 굳어도 통과한다.
@@ -484,6 +489,113 @@ try {
       totalPowerKwh: comp.ei.totalPowerKwh,
       includedReadingCount: comp.ei.includedReadingCount,
       excludedReadingCount: comp.ei.excludedReadingCount,
+    })
+
+    // ── 분모(생산량)의 산정 근거 — 같은 자리의 불변식 ────────────────────────
+    //
+    // 전력 자료유형이 **분자**에 대해 하는 일을 이것이 **분모**에 대해 한다. 다만 모양이
+    // 다르다: 분자는 산입된 모든 건이 더해지므로 분포(건수)를 세고, 분모는 기간 양 끝
+    // **두 점의 차이**이므로 그 두 점만 담는다. 기간에 수확 기록이 50건 있어도 분모를
+    // 만든 것은 두 건뿐이고, 50건의 분포를 적으면 분모의 성질을 틀리게 적는다.
+    //
+    // 그래서 보는 것은 **엔진이 실제로 쓴 두 점을 가리키는가**다. 엔진이 들고 있는
+    // `sourceBiomassRefs` 와 대조한다 — 이 값이 어긋나면 리포트가 분모로 쓰이지 않은
+    // 행의 산정 근거를 인쇄한다.
+    const harvestsInPeriod = r.harvest_logs.filter((h) => {
+      const t = Date.parse(h.ts)
+      return t >= Date.parse(c.period.from) && t <= Date.parse(c.period.to)
+    })
+    const sortedHarvests = [...harvestsInPeriod].sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts))
+    const expectedStartRef = sortedHarvests.length > 0 ? sortedHarvests[0].id : null
+    const expectedEndRef =
+      sortedHarvests.length > 0 ? sortedHarvests[sortedHarvests.length - 1].id : null
+    cmp(
+      `${c.name}.eiBiomassBasis.refs`,
+      {
+        start: comp.eiBiomassBasis.start.source_ref,
+        end: comp.eiBiomassBasis.end.source_ref,
+      },
+      { start: expectedStartRef, end: expectedEndRef },
+    )
+    // 기록이 없으면 **빈 점**이어야 한다. 엔진의 더미 `sourceRef: "none"` 을 그대로
+    // 적으면 "none 이라는 행을 실측했다" 로 읽힌다.
+    if (sortedHarvests.length === 0) {
+      if (
+        comp.eiBiomassBasis.start.biomass_kg !== null ||
+        comp.eiBiomassBasis.end.biomass_kg !== null
+      ) {
+        failures.push(
+          `${c.name}.eiBiomassBasis: 수확 기록이 없는데 0 kg 더미를 근거처럼 적었다 — ` +
+            JSON.stringify(comp.eiBiomassBasis),
+        )
+      }
+    }
+    // 픽스처 행에는 production_basis 칸이 없다(원본 Python 이 모르는 열이다) →
+    // 두 점 모두 **미기재(null)** 여야 한다. 'measured' 로 읽으면 없는 사실을 만들어
+    // 내는 것이고, 그 거짓이 그대로 리포트에 인쇄된다.
+    if (
+      comp.eiBiomassBasis.start.basis !== null ||
+      comp.eiBiomassBasis.end.basis !== null
+    ) {
+      failures.push(
+        `${c.name}.eiBiomassBasis: 산정 근거가 없는 행을 미기재로 두지 않았다 — ` +
+          JSON.stringify(comp.eiBiomassBasis),
+      )
+    }
+
+    // 같은 입력에 산정 근거만 적어 다시 돌린다. 자료유형 쪽과 같은 두 가지를 본다:
+    //   · 그 값이 두 점에 정확히 실린다(행에서 꺼내는 길이 실제로 동작한다).
+    //   · **KPI 수치는 한 글자도 달라지지 않는다** — 산정 근거는 산출 입력이 아니라
+    //     그 산출의 분모가 무엇으로 만들어졌는지를 적는 메타데이터다.
+    const basisHarvests = r.harvest_logs.map((row) => ({
+      ...row,
+      production_basis: "calculated",
+      production_basis_note: "입식수 × 최종평균개체중",
+      survival_adjusted: false,
+    }))
+    const harvestStampedDb = makeFakeDb({
+      meters: r.meters,
+      readings: r.readings,
+      harvest_logs: basisHarvests,
+      tanks: r.tanks,
+      batches: r.batches,
+      feed_logs: r.feed_logs,
+      mortality_logs: r.mortality_logs,
+      kpi_config: r.kpi_config ? [r.kpi_config] : [],
+    })
+    const harvestStamped = await computeSiteKpiResults(
+      harvestStampedDb,
+      "site-p",
+      "org-p",
+      new Date(c.period.from),
+      new Date(c.period.to),
+      new Date("2099-01-01T00:00:00Z"),
+    )
+    cmp(
+      `${c.name}.harvestStamped.eiBiomassBasis`,
+      {
+        startBasis: harvestStamped.eiBiomassBasis.start.basis,
+        endBasis: harvestStamped.eiBiomassBasis.end.basis,
+        startNote: harvestStamped.eiBiomassBasis.start.basis_note,
+        startSurvival: harvestStamped.eiBiomassBasis.start.survival_adjusted,
+      },
+      sortedHarvests.length > 0
+        ? {
+            startBasis: "calculated",
+            endBasis: "calculated",
+            startNote: "입식수 × 최종평균개체중",
+            startSurvival: false,
+          }
+        : { startBasis: null, endBasis: null, startNote: null, startSurvival: null },
+    )
+    cmp(`${c.name}.harvestStamped.ei`, {
+      eiTotal: harvestStamped.ei.eiTotal,
+      eiAeration: harvestStamped.ei.eiAeration,
+      biomassDeltaKg: harvestStamped.ei.biomassDeltaKg,
+    }, {
+      eiTotal: comp.ei.eiTotal,
+      eiAeration: comp.ei.eiAeration,
+      biomassDeltaKg: comp.ei.biomassDeltaKg,
     })
 
     checked += 1

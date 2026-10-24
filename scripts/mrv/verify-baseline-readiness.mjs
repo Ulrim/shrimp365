@@ -65,6 +65,25 @@ function healthyComp(overrides = {}) {
     mortality: { cumulativeRatePct: 4.2, stockedCount: 120000 },
     // 산입된 전력의 자료유형. 기준 시나리오는 전부 계량기 실측이다(합 4321 = 산입 건수).
     eiMeasurementBasis: { metered: 4321, calculated: 0, estimated: 0, unrecorded: 0 },
+    // 분모로 쓰인 생체량 두 점의 산정 근거. 기준 시나리오는 둘 다 실측 출하·계측량이다.
+    eiBiomassBasis: {
+      start: {
+        source_ref: "hrv-start",
+        ts: "2026-08-01T00:00:00.000Z",
+        biomass_kg: 1200,
+        basis: "measured",
+        basis_note: null,
+        survival_adjusted: null,
+      },
+      end: {
+        source_ref: "hrv-end",
+        ts: "2026-10-16T00:00:00.000Z",
+        biomass_kg: 1760,
+        basis: "measured",
+        basis_note: null,
+        survival_adjusted: null,
+      },
+    },
     configVersion: "2026.1.0",
     paramsOut: {},
     tankId: null,
@@ -75,6 +94,11 @@ function healthyComp(overrides = {}) {
     ei: { ...base.ei, ...(overrides.ei ?? {}) },
     // `eiMeasurementBasis: undefined` 를 **명시적으로 넘기는 시험**이 있다(집계가 없는
     // 입력에서도 판정이 죽지 않는가). 그래서 `?? {}` 로 뭉개지 않고 키의 존재를 본다.
+    // 같은 이유로 `eiBiomassBasis: undefined` 도 명시적으로 넘길 수 있어야 한다.
+    eiBiomassBasis:
+      "eiBiomassBasis" in overrides
+        ? overrides.eiBiomassBasis
+        : base.eiBiomassBasis,
     eiMeasurementBasis:
       "eiMeasurementBasis" in overrides && overrides.eiMeasurementBasis === undefined
         ? undefined
@@ -106,6 +130,12 @@ try {
   copyFileSync(
     join(ROOT, "lib/mrv/measurement-basis.ts"),
     join(outDir, "measurement-basis.ts"),
+  )
+  // 생산량 산정 근거 판정·문구도 같은 이유로 실물을 쓴다 — 이 모듈이 분모(생산량)에
+  // 대해 하는 일이 measurement-basis 가 분자(전력)에 대해 하는 일과 같다.
+  copyFileSync(
+    join(ROOT, "lib/mrv/production-basis.ts"),
+    join(outDir, "production-basis.ts"),
   )
   // 타입 전용 스텁. 실행 코드가 없으므로 판정 로직에 영향을 주지 않는다.
   writeFileSync(
@@ -152,7 +182,7 @@ try {
   check("① 충분한 입력은 통과", healthy.ok, true)
   check("① fatal 아님", healthy.fatal, false)
   check("① 차단 미달 없음", failedBlockingIds(healthy), [])
-  check("① 검사 항목은 10개다", healthy.checks.length, 10)
+  check("① 검사 항목은 11개다", healthy.checks.length, 11)
   checkTrue(
     "① 모든 검사에 id·severity·message 가 있다",
     healthy.checks.every(
@@ -500,10 +530,152 @@ try {
     PERIOD,
     {},
   )
-  check("⑦-2 집계가 없어도 판정이 돌아간다", noBasisField.checks.length, 10)
+  check("⑦-2 집계가 없어도 판정이 돌아간다", noBasisField.checks.length, 11)
   check(
     "⑦-2 그 경우 경고로 잡지 않는다",
     noBasisField.checks.find((c) => c.id === "power_basis_not_metered").passed,
+    true,
+  )
+
+  // ── ⑦-3 분모(생산량)가 실측 출하·계측량인가 — 경고이고 차단이 아니다 ──
+  //
+  // ⑦-2 와 **같은 무게로** 본다. EI 가 낮게 나온 것이 전기를 덜 쓴 결과인지 생산량을
+  // 넉넉히 가정한 결과인지는 분자·분모 두 칸을 함께 읽어야만 갈린다.
+  const calculatedBiomass = assessBaselineReadiness(
+    healthyComp({
+      eiBiomassBasis: {
+        start: {
+          source_ref: "hrv-start",
+          ts: "2026-08-01T00:00:00.000Z",
+          biomass_kg: 1200,
+          basis: "calculated",
+          basis_note: "입식 100000미 × 12g",
+          survival_adjusted: false,
+        },
+        end: {
+          source_ref: "hrv-end",
+          ts: "2026-10-16T00:00:00.000Z",
+          biomass_kg: 3500,
+          basis: "calculated",
+          basis_note: "입식 100000미 × 35g",
+          survival_adjusted: false,
+        },
+      },
+    }),
+    PERIOD,
+    {},
+  )
+  check("⑦-3 계산생체량은 잠금을 막지 않는다", calculatedBiomass.ok, true)
+  check("⑦-3 fatal 도 아니다", calculatedBiomass.fatal, false)
+  const prodCheck = calculatedBiomass.checks.find(
+    (c) => c.id === "production_basis_not_measured",
+  )
+  checkTrue("⑦-3 production_basis_not_measured 항목이 있다", prodCheck !== undefined)
+  check("⑦-3 severity 는 warning", prodCheck.severity, "warning")
+  check("⑦-3 미달로 잡힌다", prodCheck.passed, false)
+  check("⑦-3 관측값은 실측이 아닌 점의 수다", prodCheck.observed, 2)
+  check("⑦-3 기준은 0 건이다", prodCheck.threshold, 0)
+  // 문구가 사실을 적는가. **분모**라는 말과, 적힌 산정 근거가 그대로 나와야 한다 —
+  // 그것이 없으면 심사자는 "계산값이라는데 무엇을 곱한 값인가" 를 되짚을 수 없다.
+  checkTrue(
+    "⑦-3 문구가 분모와 네 지표를 적는다",
+    prodCheck.message.includes("분모") &&
+      prodCheck.message.includes("EI") &&
+      prodCheck.message.includes("FCR"),
+    prodCheck.message,
+  )
+  checkTrue(
+    "⑦-3 문구가 적힌 산정 근거를 그대로 싣는다",
+    prodCheck.message.includes("입식 100000미 × 35g"),
+    prodCheck.message,
+  )
+  checkTrue(
+    "⑦-3 문구가 생존율 보정 미적용의 결과를 적는다",
+    prodCheck.message.includes("과대") && prodCheck.message.includes("과소"),
+    prodCheck.message,
+  )
+  checkTrue(
+    "⑦-3 문구가 되돌릴 수 없다는 사실을 적는다",
+    prodCheck.message.includes("되돌릴 수 없"),
+    prodCheck.message,
+  )
+  // 개시·마감이 **같은 행**이면 1 로 센다 — 두 번 세면 "두 점이 다 계산값" 이라는
+  // 인상을 주는데, 그 경우 분모를 만든 행은 하나다.
+  const samePoint = {
+    source_ref: "hrv-only",
+    ts: "2026-08-01T00:00:00.000Z",
+    biomass_kg: 1200,
+    basis: "calculated",
+    basis_note: "입식 × 평균체중",
+    survival_adjusted: null,
+  }
+  check(
+    "⑦-3 개시·마감이 같은 행이면 1 건으로 센다",
+    assessBaselineReadiness(
+      healthyComp({ eiBiomassBasis: { start: samePoint, end: samePoint } }),
+      PERIOD,
+      {},
+    ).checks.find((c) => c.id === "production_basis_not_measured").observed,
+    1,
+  )
+  // 전부 실측이면 통과하고, 그때도 두 점을 그대로 적는다.
+  const measuredBiomass = assessBaselineReadiness(healthyComp(), PERIOD, {})
+  const measuredProd = measuredBiomass.checks.find(
+    (c) => c.id === "production_basis_not_measured",
+  )
+  check("⑦-3 전부 실측이면 통과", measuredProd.passed, true)
+  checkTrue(
+    "⑦-3 통과해도 두 점을 적는다",
+    measuredProd.message.includes("개시") && measuredProd.message.includes("마감"),
+    measuredProd.message,
+  )
+  // **미기재는 경고가 아니다**(⑦-2 와 같은 판단 — 이 열이 생기기 전의 수확 기록은 전부
+  // 미기재라서 경고로 세면 모든 사이트가 영구히 경고 상태가 된다).
+  const unrecordedBiomass = assessBaselineReadiness(
+    healthyComp({
+      eiBiomassBasis: {
+        start: {
+          source_ref: "hrv-start",
+          ts: "2026-08-01T00:00:00.000Z",
+          biomass_kg: 1200,
+          basis: null,
+          basis_note: null,
+          survival_adjusted: null,
+        },
+        end: {
+          source_ref: "hrv-end",
+          ts: "2026-10-16T00:00:00.000Z",
+          biomass_kg: 1760,
+          basis: null,
+          basis_note: null,
+          survival_adjusted: null,
+        },
+      },
+    }),
+    PERIOD,
+    {},
+  )
+  const unrecordedProd = unrecordedBiomass.checks.find(
+    (c) => c.id === "production_basis_not_measured",
+  )
+  check("⑦-3 미기재만이면 경고로 잡지 않는다", unrecordedProd.passed, true)
+  check("⑦-3 관측값 0", unrecordedProd.observed, 0)
+  checkTrue(
+    "⑦-3 그래도 미기재 건수와 그 뜻을 적는다",
+    unrecordedProd.message.includes("2건") &&
+      unrecordedProd.message.includes("실측을 뜻하지 않"),
+    unrecordedProd.message,
+  )
+  // 칸이 아예 없어도 판정이 죽지 않는다(잠금 창구가 500 이 되면 기준선을 못 잠근다).
+  const noProdField = assessBaselineReadiness(
+    healthyComp({ eiBiomassBasis: undefined }),
+    PERIOD,
+    {},
+  )
+  check("⑦-3 칸이 없어도 판정이 돌아간다", noProdField.checks.length, 11)
+  check(
+    "⑦-3 그 경우 경고로 잡지 않는다",
+    noProdField.checks.find((c) => c.id === "production_basis_not_measured").passed,
     true,
   )
 

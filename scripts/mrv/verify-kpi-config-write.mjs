@@ -87,6 +87,9 @@ try {
     // 그래서 출력물을 본다. 이 파일은 순수 렌더러라 그대로 돌릴 수 있다.
     "report-html.ts",
     "measurement-basis.ts",
+    // 인쇄 리포트가 분모(생산량)의 산정 근거 줄도 그린다 — 그 모듈이 없으면 렌더러가
+    // 컴파일되지 않는다.
+    "production-basis.ts",
     "api-types.ts",
   ]) {
     copyFileSync(join(ROOT, "lib/mrv", f), join(outDir, f))
@@ -176,6 +179,7 @@ try {
   const na = require(join(outDir, "out", "metric-unavailability.js"))
   const kpi = require(join(outDir, "out", "kpi", "index.js"))
   const reportHtml = require(join(outDir, "out", "report-html.js"))
+  const pb = require(join(outDir, "out", "production-basis.js"))
 
   const engineSrc = readFileSync(join(ROOT, "lib/mrv/kpi/config.ts"), "utf8")
 
@@ -1613,6 +1617,184 @@ try {
     const printSrc = readFileSync(join(ROOT, "lib/mrv/report-html.ts"), "utf8")
     for (const access of ["reason.text", "reason.action", "entry.label", "entry.note"]) {
       if (!printSrc.includes(access)) return `인쇄 리포트가 ${access} 를 쓰지 않는다`
+    }
+    return null
+  })
+
+  check("⑧-t 인쇄 리포트가 **분모(생산량)의 산정 근거**를 출력물에 적는다", () => {
+    /*
+     * 분자(전력)의 자료유형 줄과 같은 무게의 줄이다. EI 가 낮게 나온 것이 전기를 덜 쓴
+     * 결과인지 생산량을 넉넉히 가정한 결과인지는 두 줄을 함께 읽어야만 갈린다.
+     *
+     * ★ **출력물을 본다.** 원문에서 함수 이름이나 상수 이름을 찾는 검사는 그 함수의 정의
+     *   자체에 걸려 통과해 버린다(이 저장소의 역검증에서 실제로 그랬다) — 그래서 실물
+     *   렌더러를 돌려 HTML 문자열을 확인한다.
+     */
+    const make = (basis) => ({
+      id: "mrv-pb",
+      site_id: "site-p",
+      org_id: "org-p",
+      baseline_id: "bsl-1",
+      period_start: "2026-08-01T00:00:00Z",
+      period_end: "2026-10-16T00:00:00Z",
+      emission_factor_id: "ef-1",
+      after_kpi_snapshot_id: "snap-2",
+      before_json: {
+        period: { from: "2026-07-01T00:00:00Z", to: "2026-07-31T00:00:00Z" },
+        config_version: VER,
+        ei_total: 3.4,
+        ei_aeration: 1.1,
+        total_power_kwh: 100,
+        aeration_power_kwh: 40,
+        biomass_delta_kg: 30,
+        scope2_tco2e: 2.0,
+        kpi_snapshot_id: "snap-1",
+      },
+      after_json: {
+        period: { from: "2026-08-01T00:00:00Z", to: "2026-10-16T00:00:00Z" },
+        config_version: VER,
+        ei_total: 3.0,
+        ei_aeration: 1.0,
+        total_power_kwh: 10500,
+        aeration_power_kwh: 4000,
+        biomass_delta_kg: 2300,
+        scope2_tco2e: 1.88,
+        kpi_snapshot_id: "snap-2",
+      },
+      reduction_tco2e: 0.12,
+      formula_text: "감축량 = …",
+      boundary_json: {
+        site_id: "site-p",
+        site_name: "검증 사이트",
+        included_meter_ids: ["m-main"],
+        included_quality_flags: ["ok"],
+        after_power_measurement_basis: {
+          metered: 10,
+          calculated: 0,
+          estimated: 0,
+          unrecorded: 0,
+        },
+        biomass_source_refs: { before: ["hrv-b"], after: ["hrv-s", "hrv-e"] },
+        config_version: { before: VER, after: VER },
+        assumptions: ["가정 하나"],
+        ...(basis === "omit" ? {} : { after_biomass_basis: basis }),
+      },
+      pdf_path: null,
+      generated_by: "u-1",
+      generated_at: "2026-10-20T00:00:00Z",
+    })
+    const ef = {
+      id: "ef-1",
+      factor_tco2e_per_mwh: 0.4594,
+      source: "검증 출처",
+      year: 2023,
+      version: "v1",
+      effective_from: "2023-01-01T00:00:00Z",
+    }
+    const point = (over) => ({
+      source_ref: "hrv-s",
+      ts: "2026-08-01T00:00:00.000Z",
+      biomass_kg: 1200,
+      basis: "measured",
+      basis_note: null,
+      survival_adjusted: null,
+      ...over,
+    })
+
+    // ① 계산생체량이 분모면 **경고**가 인쇄된다 — 공용 머리말 · 적힌 산정 근거 · 생존율
+    //    보정 미적용의 결과까지.
+    const calcRecord = {
+      start: point({
+        basis: "calculated",
+        basis_note: "입식 100000미 × 12g",
+        survival_adjusted: false,
+      }),
+      end: point({
+        source_ref: "hrv-e",
+        ts: "2026-10-16T00:00:00.000Z",
+        biomass_kg: 3500,
+        basis: "calculated",
+        basis_note: "입식 100000미 × 35g",
+        survival_adjusted: false,
+      }),
+    }
+    const warned = reportHtml.renderMrvReportHtml(make(calcRecord), ef)
+    if (!warned.includes("생산량 산정 근거(After)")) {
+      return "인쇄 리포트에 「생산량 산정 근거(After)」 줄이 없다"
+    }
+    if (!warned.includes(pb.REPORT_NON_MEASURED_BIOMASS_HEADLINE)) {
+      return "실측이 아닌 분모인데 공용 경고 머리말이 인쇄되지 않는다"
+    }
+    if (!warned.includes("입식 100000미 × 35g")) {
+      return "적힌 산정 근거가 인쇄되지 않는다(검산할 수 없는 딱지만 남는다)"
+    }
+    if (!warned.includes("과대") || !warned.includes("과소")) {
+      return "생존율 보정 미적용의 결과가 인쇄되지 않는다"
+    }
+    // 색이 아니라 **글자**가 판단 근거여야 한다(흑백 복사가 기본이다).
+    if (!warned.includes("계산생체량(산식)")) {
+      return "산정 근거의 이름이 글자로 인쇄되지 않는다"
+    }
+
+    // ② 분모가 전부 실측이면 경고하지 않는다 — 없는 위험을 인쇄하지 않는다.
+    const ok = reportHtml.renderMrvReportHtml(
+      make({ start: point({}), end: point({ source_ref: "hrv-e", biomass_kg: 3500 }) }),
+      ef,
+    )
+    if (ok.includes(pb.REPORT_NON_MEASURED_BIOMASS_HEADLINE)) {
+      return "전부 실측인 분모에도 경고를 인쇄한다"
+    }
+    if (!ok.includes("실측(출하·계측량)")) return "통과해도 두 점을 적지 않는다"
+
+    // ③ 미기재만 있으면 경고가 아니라 **모른다는 기록**을 적는다.
+    const unrec = reportHtml.renderMrvReportHtml(
+      make({
+        start: point({ basis: null }),
+        end: point({ source_ref: "hrv-e", basis: null }),
+      }),
+      ef,
+    )
+    if (unrec.includes(pb.REPORT_NON_MEASURED_BIOMASS_HEADLINE)) {
+      return "미기재를 '실측이 아니다' 로 경고한다(다른 사실이다)"
+    }
+    if (!unrec.includes("실측을 뜻하지 않")) return "미기재의 뜻을 적지 않는다"
+
+    // ④ 칸이 아예 없는 옛 리포트는 **지어내지 않는다.**
+    const old = reportHtml.renderMrvReportHtml(make("omit"), ef)
+    if (!old.includes(pb.REPORT_MISSING_PRODUCTION_BASIS_NOTE)) {
+      return "옛 리포트에서 '그 사실을 모른다' 를 인쇄하지 않는다"
+    }
+    if (old.includes("실측(출하·계측량)")) {
+      return "칸이 없는데 분모를 실측으로 지어내 인쇄한다"
+    }
+    return null
+  })
+
+  check("⑧-u 리포트 화면이 같은 칸을 **글자로** 렌더한다", () => {
+    /*
+     * 화면은 React 라 여기서 렌더할 수 없다. 그래서 ⑧-r 과 같은 방식으로 본다 — 이름이
+     * 있는지가 아니라 **컴포넌트가 실제로 트리에 박히는지**와 **그 안이 공용 문장을
+     * 자식으로 보간하는지**를 본다.
+     */
+    const rel = "app/mrv/mrv-reports/[reportId]/page.tsx"
+    const src = readFileSync(join(ROOT, rel), "utf8")
+    if (!/<ProductionBasisField\s/.test(src)) {
+      return `${rel} 가 생산량 산정 근거 칸을 트리에 넣지 않는다`
+    }
+    if (!/raw=\{report\.boundary\.after_biomass_basis\}/.test(src)) {
+      return `${rel} 가 리포트에 얼려 둔 산정 근거를 그 칸에 넘기지 않는다`
+    }
+    for (const name of [
+      "REPORT_MISSING_PRODUCTION_BASIS_NOTE",
+      "REPORT_NON_MEASURED_BIOMASS_HEADLINE",
+    ]) {
+      if (!new RegExp(`>\\s*\\{${name}\\}|\\{${name}\\}`).test(src)) {
+        return `${rel} 가 ${name} 를 렌더하지 않는다`
+      }
+    }
+    // 두 점을 공용 함수로 적는가. 화면이 자기 문장을 지으면 인쇄물과 갈린다.
+    if (!src.includes("formatProductionBasisPoint(")) {
+      return `${rel} 가 공용 문장 함수를 쓰지 않는다(화면과 인쇄물이 갈린다)`
     }
     return null
   })

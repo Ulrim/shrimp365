@@ -40,13 +40,25 @@ import {
   type MeasurementBasis,
 } from "@/lib/mrv/measurement-basis"
 import {
+  PRODUCTION_BASES,
+  PRODUCTION_BASIS_HINTS,
+  PRODUCTION_BASIS_LABELS,
+  PRODUCTION_BASIS_NOTE_MAX,
+  PRODUCTION_BASIS_NOTE_REQUIRED_NOTE,
+  productionBasisNoteRequired,
+  type ProductionBasis,
+} from "@/lib/mrv/production-basis"
+import {
   FEED_CSV_TEMPLATE,
+  HARVEST_CSV_TEMPLATE,
   MORTALITY_CSV_TEMPLATE,
   POWER_CUMULATIVE_CSV_TEMPLATE,
   POWER_INTERVAL_CSV_TEMPLATE,
   parseFeedCsv,
+  parseHarvestCsv,
   parseMortalityCsv,
   parsePowerCsv,
+  type HarvestCsvRecord,
   type PowerCsvRecord,
 } from "@/lib/mrv/csv-records"
 import type { CsvParseResult } from "@/lib/mrv/csv-records"
@@ -57,6 +69,12 @@ const WRITER_ROLES = new Set(["owner", "operator"])
 /** 아직 고르지 않은 상태. `MeasurementBasis` 에 'none' 같은 값을 더하지 않는다 —
  *  저장될 수 있는 값과 "고르지 않았다" 는 같은 타입에 섞이면 안 된다. */
 type BasisChoice = MeasurementBasis | ""
+
+/** 생산량 산정 근거도 같은 모양으로 둔다(저장 가능한 값과 "고르지 않았다" 를 섞지 않는다). */
+type ProductionBasisChoice = ProductionBasis | ""
+
+/** 생존율 보정 선택칸의 상태. `""` 는 **미기재**이고 `"false"`(미적용)와 다른 사실이다. */
+type SurvivalChoice = "" | "true" | "false"
 
 /**
  * 전력 자료유형 선택칸 — **이 kWh 를 계량기가 쟀는가, 산식이 냈는가.**
@@ -114,11 +132,295 @@ function MeasurementBasisSelect({
   )
 }
 
+/**
+ * 생산량 산정 근거 선택칸 — **이 생체량을 저울이 쟀는가, 산식이 냈는가.**
+ *
+ * ★ **기본값을 두지 않는다.** 전력 자료유형과 같은 이유다(위 머리말) — 'measured' 를
+ *   기본값으로 두면 입식수 × 평균체중으로 계산한 값을 올리는 사람이 아무 선택도 하지
+ *   않은 채 **실측 출하량으로 저장**하게 되고, 그 kg 이 EI·FCR 의 **분모**가 된 뒤
+ *   리포트가 그것을 실측으로 제시한다.
+ */
+function ProductionBasisSelect({
+  id,
+  value,
+  onChange,
+  disabled,
+  label,
+}: {
+  id: string
+  value: ProductionBasisChoice
+  onChange: (next: ProductionBasisChoice) => void
+  disabled: boolean
+  label: string
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={id} className="text-sm font-medium text-mrv-fg">
+        {label} <span className="text-mrv-red">*</span>
+      </label>
+      <select
+        id={id}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value as ProductionBasisChoice)}
+        className={`${INPUT_CLASS} py-2 disabled:opacity-60`}
+      >
+        <option value="">— 고르세요 —</option>
+        {PRODUCTION_BASES.map((basis) => (
+          <option key={basis} value={basis}>
+            {PRODUCTION_BASIS_LABELS[basis]}
+          </option>
+        ))}
+      </select>
+      <p className="text-xs text-mrv-muted">
+        {value === ""
+          ? "저울에 올린 출하량과 입식수 × 평균체중으로 계산한 값은 같은 증빙이 아니므로 구분해 저장합니다. 이 생체량이 EI·FCR 의 분모가 되므로, 고르지 않으면 저장할 수 없습니다."
+          : PRODUCTION_BASIS_HINTS[value]}
+      </p>
+    </div>
+  )
+}
+
+/**
+ * 생존율 보정 적용 여부.
+ *
+ * **세 상태다.** 미기재(빈 값) · 적용 · 미적용. 빈 값을 '미적용' 으로 뭉개지 않는 이유:
+ * 받은 계산표가 적은 「미적용」은 **보정하지 않았다는 참인 기록**이고, 미기재는 그 기록이
+ * 없다는 뜻이다. 둘을 같게 저장하면 적지 않은 사람이 "보정 안 했다" 고 선언한 셈이 된다.
+ */
+function SurvivalAdjustedSelect({
+  id,
+  value,
+  onChange,
+  disabled,
+}: {
+  id: string
+  value: SurvivalChoice
+  onChange: (next: SurvivalChoice) => void
+  disabled: boolean
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={id} className="text-sm font-medium text-mrv-fg">
+        생존율 보정 적용 여부
+      </label>
+      <select
+        id={id}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value as SurvivalChoice)}
+        className={`${INPUT_CLASS} py-2 disabled:opacity-60`}
+      >
+        <option value="">— 미기재 —</option>
+        <option value="true">적용</option>
+        <option value="false">미적용</option>
+      </select>
+      <p className="text-xs text-mrv-muted">
+        폐사를 반영하지 않은 계산생체량은 생산량이 과대해지고, 그만큼 EI 는 과소해집니다.
+        <strong> 미기재는 「미적용」과 다른 사실</strong>로 저장됩니다 — 보정하지 않았다면
+        그렇게 골라 주세요.
+      </p>
+    </div>
+  )
+}
+
 function ViewerNote() {
   return (
     <p role="note" className="rounded-md bg-mrv-na-bg px-3 py-2 text-xs text-mrv-muted">
       읽기 전용 권한(viewer)입니다. 입력은 owner/operator 만 가능합니다.
     </p>
+  )
+}
+
+/**
+ * 생산량(생체량) 수기 입력 — **EI · 폭기 EI · FCR · OEI 네 지표의 분모.**
+ *
+ * **왜 이 폼이 새로 필요했는가.** `mrv_harvest_logs` 에는 쓰기 UI 도 API 도 없었다 —
+ * 기록지 CSV 는 급이·폐사·전력 3종뿐이었다. 전력을 아무리 잘 모아도 분모가 비어 EI 가
+ * 영원히 null 이었고, 개요 화면의 KPI 카드 넷이 전부 "생산량 기록이 한 건도 없습니다" 로
+ * 산출 불가였다. 그 사유 문장은 "이 플랫폼에는 아직 생산량 입력 화면이 없으므로 관리자에게
+ * 요청하십시오" 라고 적을 수밖에 없었다 — 이 폼이 그 문장을 거짓으로 만든다.
+ *
+ * **두 점이 필요하다는 사실을 폼이 말한다.** Δbiomass 는 기간 양 끝 두 기록의 차이이므로
+ * 한 건만 넣으면 개시=마감이 되어 분모가 0 이다. 저장은 되고 EI 는 그대로인 — 성공처럼
+ * 보이는 실패라서, 저장 뒤 문구가 그 사실을 적는다.
+ */
+function HarvestLogForm({ siteId, canWrite }: { siteId: string | null; canWrite: boolean }) {
+  const tsId = useId()
+  const biomassId = useId()
+  const basisId = useId()
+  const noteId = useId()
+  const survivalId = useId()
+
+  const [batchId, setBatchId] = useState("")
+  const [ts, setTs] = useState(() => nowLocalInputValue())
+  const [biomassKg, setBiomassKg] = useState("")
+  const [basis, setBasis] = useState<ProductionBasisChoice>("")
+  const [basisNote, setBasisNote] = useState("")
+  const [survival, setSurvival] = useState<SurvivalChoice>("")
+  const [fieldError, setFieldError] = useState<string | null>(null)
+  const [savedAt, setSavedAt] = useState<string | null>(null)
+
+  const mutation = useApiMutation(async (body: unknown) =>
+    apiFetch(`/sites/${encodeURIComponent(siteId as string)}/harvests`, {
+      method: "POST",
+      json: body,
+    }),
+  )
+  const disabled = !canWrite || !siteId || mutation.isPending
+  const noteRequired = basis !== "" && productionBasisNoteRequired(basis)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (disabled) return
+
+    if (!batchId.trim()) return setFieldError("배치를 선택하세요.")
+    const iso = localInputToIsoUtc(ts)
+    if (!iso) return setFieldError("기록 시각이 올바르지 않습니다.")
+    const kg = Number(biomassKg)
+    // 0 을 받지 않는다 — 0 kg 기록이 분모의 한쪽 끝으로 뽑히면 기간에 없던 생산량이
+    // 산출된다(라우트도 같은 기준으로 422 를 낸다).
+    if (!Number.isFinite(kg) || kg <= 0 || biomassKg.trim() === "") {
+      return setFieldError("생체량(kg)은 0보다 큰 값이어야 합니다.")
+    }
+    if (basis === "") {
+      return setFieldError(
+        "산정 근거를 고르세요 — 이 생체량이 실측 출하·계측량인지, 입식수 × 평균체중으로 계산한 값인지 적어야 합니다.",
+      )
+    }
+    // 계산·어림이면 근거가 필수다. 화면이 빠른 피드백을 하고 최종 판정은 서버가 한다.
+    if (productionBasisNoteRequired(basis) && basisNote.trim() === "") {
+      return setFieldError(
+        `산정 근거가 '${PRODUCTION_BASIS_LABELS[basis]}' 이면 무엇으로 계산했는지 적어야 합니다. ${PRODUCTION_BASIS_NOTE_REQUIRED_NOTE}`,
+      )
+    }
+    if (basisNote.trim().length > PRODUCTION_BASIS_NOTE_MAX) {
+      return setFieldError(`산정 근거는 ${PRODUCTION_BASIS_NOTE_MAX}자까지 적을 수 있습니다.`)
+    }
+    setFieldError(null)
+
+    try {
+      await mutation.mutate({
+        batch_id: batchId.trim(),
+        ts: iso,
+        biomass_kg: kg,
+        production_basis: basis,
+        production_basis_note: basisNote.trim() || null,
+        // 빈 값은 null(미기재)로 보낸다 — false(미적용)로 바꿔 보내지 않는다.
+        survival_adjusted: survival === "" ? null : survival === "true",
+      })
+      // 연속 입력 편의: 배치·시각·산정 근거는 남기고 생체량만 비운다(기간 양 끝 두 점을
+      // 연달아 넣는 것이 이 폼의 기본 사용법이다).
+      setBiomassKg("")
+      setSavedAt(new Date().toLocaleTimeString("ko-KR"))
+    } catch {
+      /* 오류는 mutation.error 로 아래에 표시된다. */
+    }
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      aria-label="생산량 입력 폼"
+      className="flex flex-col gap-4 rounded-xl border border-mrv-border bg-mrv-surface p-5 shadow-sm"
+    >
+      <h2 className="text-base font-semibold text-mrv-fg">생산량 입력 (생체량)</h2>
+      {!canWrite && <ViewerNote />}
+
+      <BatchSelect
+        siteId={siteId}
+        value={batchId}
+        onChange={setBatchId}
+        disabled={disabled}
+      />
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor={tsId} className="text-sm font-medium text-mrv-fg">
+          기록 시각 <span className="text-mrv-red">*</span>
+        </label>
+        <input
+          id={tsId}
+          type="datetime-local"
+          value={ts}
+          disabled={disabled}
+          onChange={(e) => setTs(e.target.value)}
+          className={`${INPUT_CLASS} py-2 disabled:opacity-60`}
+        />
+        <p className="text-xs text-mrv-muted">
+          생산량은 기간 <strong>양 끝 두 기록의 생체량 차이</strong>로 산출됩니다. 한 건만
+          넣으면 개시와 마감이 같은 기록이 되어 차이가 0 이고 EI·FCR 이 산출되지 않습니다 —
+          기간 시작 시점과 마감 시점을 각각 넣어 주세요.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor={biomassId} className="text-sm font-medium text-mrv-fg">
+          생체량 (kg) <span className="text-mrv-red">*</span>
+        </label>
+        <input
+          id={biomassId}
+          type="number"
+          step="0.01"
+          min="0"
+          value={biomassKg}
+          disabled={disabled}
+          onChange={(e) => setBiomassKg(e.target.value)}
+          className={`${INPUT_CLASS} py-2 disabled:opacity-60`}
+        />
+      </div>
+
+      <ProductionBasisSelect
+        id={basisId}
+        label="산정 근거 (이 생체량을 어떻게 얻었는가)"
+        value={basis}
+        onChange={setBasis}
+        disabled={disabled}
+      />
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor={noteId} className="text-sm font-medium text-mrv-fg">
+          산정 근거 상세 {noteRequired && <span className="text-mrv-red">*</span>}
+        </label>
+        <textarea
+          id={noteId}
+          rows={2}
+          value={basisNote}
+          disabled={disabled}
+          placeholder="예: 입식 100,000미 × 최종평균 35g, 생존율 보정 미적용"
+          onChange={(e) => setBasisNote(e.target.value)}
+          className={`${INPUT_CLASS} py-2 disabled:opacity-60`}
+        />
+        <p className="text-xs text-mrv-muted">{PRODUCTION_BASIS_NOTE_REQUIRED_NOTE}</p>
+      </div>
+
+      <SurvivalAdjustedSelect
+        id={survivalId}
+        value={survival}
+        onChange={setSurvival}
+        disabled={disabled}
+      />
+
+      {fieldError && (
+        <p role="alert" className="text-sm text-mrv-red">
+          {fieldError}
+        </p>
+      )}
+      {mutation.error !== undefined && (
+        <p role="alert" className="text-sm text-mrv-red">
+          {errorMessage(mutation.error, "생산량 기록 저장에 실패했습니다.")}
+        </p>
+      )}
+      {savedAt && !mutation.isPending && mutation.error === undefined && (
+        <p role="status" className="text-sm text-mrv-green">
+          {savedAt} 저장했습니다. 기간 양 끝에 두 건이 있으면 EI·폭기 EI·FCR·OEI 가
+          산출됩니다.
+        </p>
+      )}
+
+      <button type="submit" disabled={disabled} className={PRIMARY_BUTTON}>
+        {mutation.isPending ? "저장 중…" : "생산량 기록 저장"}
+      </button>
+    </form>
   )
 }
 
@@ -554,6 +856,15 @@ function PowerLogForm({ siteId, canWrite }: { siteId: string | null; canWrite: b
   )
 }
 
+/**
+ * 미리보기의 생존율 보정 칸. **미기재와 미적용을 구별해** 적는다 — 둘을 같게 보여 주면
+ * 운영자는 빈 칸을 '미적용' 으로 올렸다고 믿는다.
+ */
+function survivalPreviewCell(record: HarvestCsvRecord): string {
+  if (record.survival_adjusted === null) return "미기재"
+  return record.survival_adjusted ? "적용" : "미적용"
+}
+
 /** 표현을 고정한 파서. 컴포넌트 밖에 둬서 렌더마다 새 함수가 되지 않게 한다. */
 function parseIntervalPowerCsv(text: string) {
   return parsePowerCsv(text, "interval_kwh")
@@ -711,13 +1022,17 @@ export default function InputPage() {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
       <PageHeader
-        title="급이 · 폐사 · 전력 입력"
+        title="급이 · 폐사 · 전력 · 생산량 입력"
         description={`${selectedSite?.name ?? "사이트"} · 입력값은 검증 후 저장되며 KPI(EI·FCR·폐사율·Scope2)에 반영됩니다.`}
       />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <FeedLogForm siteId={selectedSiteId} canWrite={canWrite} />
         <MortalityLogForm siteId={selectedSiteId} canWrite={canWrite} />
         <PowerLogForm siteId={selectedSiteId} canWrite={canWrite} />
+        {/* 생산량은 EI·폭기 EI·FCR·OEI 네 지표의 **분모**다. 전력(분자) 바로 다음에
+            둔다 — 전력만 넣고 "왜 EI 가 안 나오나" 가 되는 것이 이 화면에 생산량 창구가
+            없던 동안 실제로 일어난 일이다. */}
+        <HarvestLogForm siteId={selectedSiteId} canWrite={canWrite} />
       </div>
 
       <div className="flex flex-col gap-6">
@@ -758,6 +1073,37 @@ export default function InputPage() {
             { header: "기록 시각", cell: (r) => formatIsoLocal(r.ts) },
             { header: "폐사 개체수", cell: (r) => String(r.dead_count) },
             { header: "원인 메모", cell: (r) => r.cause_note ?? "—" },
+          ]}
+          canWrite={canWrite}
+        />
+
+        {/* 생산량 기록지. 급이·폐사와 같이 **줄마다** 보낸다 — 줄이 서로 독립이고
+            (적산 지침처럼 직전 행과의 차이로 해석되는 값이 아니다) 줄 단위가 "어디까지
+            들어갔나" 를 더 정확히 알려 준다. 산정 근거는 파일 단위 기본값을 두지 않고
+            열을 필수로 받으므로 `controls` 도 `blockSendReason` 도 쓰지 않는다
+            (이유는 lib/mrv/csv-records.ts 의 HarvestCsvRecord 주석). */}
+        <CsvUpload
+          title="생산량 기록지 업로드 (CSV)"
+          parse={parseHarvestCsv}
+          endpoint={
+            selectedSiteId
+              ? `/sites/${encodeURIComponent(selectedSiteId)}/harvests`
+              : null
+          }
+          template={HARVEST_CSV_TEMPLATE}
+          templateFilename="생산량기록지_견본.csv"
+          successNote="기간 양 끝에 두 건이 있으면 EI·폭기 EI·FCR·OEI 가 산출됩니다."
+          columnsHint="필요한 열: batch_id(배치) · ts(시각) · biomass_kg(생체량) · production_basis(산정 근거 — 실측/계산생체량/어림값). production_basis_note(산정 근거 상세)는 계산생체량·어림값에 필수, survival_adjusted(생존율 보정 적용 여부)는 선택입니다(빈 칸은 미기재로 저장되며 '미적용' 과 다른 사실입니다). 한국어 머리글도 받습니다."
+          previewColumns={[
+            { header: "배치", cell: (r) => r.batch_id },
+            { header: "기록 시각", cell: (r) => formatIsoLocal(r.ts) },
+            { header: "생체량(kg)", cell: (r) => String(r.biomass_kg) },
+            {
+              header: "산정 근거",
+              cell: (r) => PRODUCTION_BASIS_LABELS[r.production_basis],
+            },
+            { header: "산정 근거 상세", cell: (r) => r.production_basis_note ?? "—" },
+            { header: "생존율 보정", cell: (r) => survivalPreviewCell(r) },
           ]}
           canWrite={canWrite}
         />

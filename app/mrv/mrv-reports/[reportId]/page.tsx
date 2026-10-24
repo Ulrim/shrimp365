@@ -43,6 +43,16 @@ import {
   unrecordedBasisText,
 } from "@/lib/mrv/measurement-basis"
 import {
+  REPORT_MISSING_PRODUCTION_BASIS_NOTE,
+  REPORT_NON_MEASURED_BIOMASS_HEADLINE,
+  formatProductionBasisPoint,
+  nonMeasuredBiomassCount,
+  nonMeasuredBiomassText,
+  readBiomassBasis,
+  unrecordedBiomassCount,
+  unrecordedBiomassText,
+} from "@/lib/mrv/production-basis"
+import {
   CenteredMessage,
   LoadError,
   PageHeader,
@@ -170,6 +180,60 @@ function MeasurementBasisField({ raw }: { raw: unknown }) {
         {tally !== null && nonMeteredCount(tally) === 0 && tally.unrecorded > 0 && (
           <p className="mt-1 rounded-md border border-mrv-border bg-mrv-na-bg p-2 text-xs leading-relaxed text-mrv-fg">
             {unrecordedBasisText(tally.unrecorded)}
+          </p>
+        )}
+      </dd>
+    </div>
+  )
+}
+
+/**
+ * 「생산량 산정 근거(After)」 칸.
+ *
+ * 인쇄 리포트와 **같은 분기·같은 문구**를 쓴다(lib/mrv/report-html.ts::productionBasisRow).
+ * 두 곳이 갈리면 화면으로 본 사람과 인쇄물로 본 사람이 다른 사실을 알게 된다 — 그래서
+ * 두 점을 읽는 함수도, 문장도 `lib/mrv/production-basis.ts` 하나에서 가져온다.
+ *
+ * 경고 상자는 전력 자료유형 경고와 **같은 모양**이다. 분자의 경고와 분모의 경고가 다른
+ * 모양이면 하나는 덜 중요한 것으로 읽힌다.
+ */
+function ProductionBasisField({ raw }: { raw: unknown }) {
+  // `undefined`(칸 없음)와 읽을 수 없는 값은 같은 길로 간다 — 둘 다 "이 리포트는 그
+  // 사실을 모른다" 이고, 'measured' 로 뭉개면 "분모는 전부 실측" 이라는 거짓이 된다.
+  const record = raw === undefined ? null : readBiomassBasis(raw)
+  const unrecorded = record === null ? 0 : unrecordedBiomassCount(record)
+
+  return (
+    <div>
+      <dt className="text-xs text-mrv-muted">생산량 산정 근거(After 기간 분모)</dt>
+      {/* 경고를 `dd` 밖에 두지 않는다 — 전력 자료유형 칸과 같은 이유(dt 와의 연결이
+          끊겨 스크린리더가 이름 없이 경고만 읽는다). */}
+      <dd className="text-mrv-fg">
+        {record === null ? (
+          "-"
+        ) : (
+          <>
+            {formatProductionBasisPoint("개시", record.start)}
+            <br />
+            {formatProductionBasisPoint("마감", record.end)}
+          </>
+        )}
+        {record === null && (
+          <p className="mt-1 rounded-md border border-mrv-border bg-mrv-na-bg p-2 text-xs leading-relaxed text-mrv-fg">
+            {REPORT_MISSING_PRODUCTION_BASIS_NOTE}
+          </p>
+        )}
+        {record !== null && nonMeasuredBiomassCount(record) > 0 && (
+          <p className="mt-1 rounded-md border border-mrv-amber bg-mrv-amber-bg p-2 text-xs leading-relaxed text-mrv-fg">
+            {REPORT_NON_MEASURED_BIOMASS_HEADLINE} {nonMeasuredBiomassText(record)}
+            {unrecorded > 0 && ` ${unrecordedBiomassText(unrecorded)}`}
+          </p>
+        )}
+        {/* 실측이 아닌 점이 없고 미기재만 있을 때. 경고가 아니라 **모른다는 기록**이므로
+            경고 상자를 쓰지 않는다. */}
+        {record !== null && nonMeasuredBiomassCount(record) === 0 && unrecorded > 0 && (
+          <p className="mt-1 rounded-md border border-mrv-border bg-mrv-na-bg p-2 text-xs leading-relaxed text-mrv-fg">
+            {unrecordedBiomassText(unrecorded)}
           </p>
         )}
       </dd>
@@ -426,6 +490,10 @@ export default function MrvReportViewPage({
               <MeasurementBasisField
                 raw={report.boundary.after_power_measurement_basis}
               />
+              {/* 분자(전력)의 자료유형 바로 아래에 분모(생산량)의 산정 근거를 둔다 —
+                  EI 가 낮은 것이 전기를 덜 쓴 결과인지 생산량을 넉넉히 가정한 결과인지는
+                  두 칸을 나란히 읽어야만 갈린다. */}
+              <ProductionBasisField raw={report.boundary.after_biomass_basis} />
               <div>
                 <dt className="text-xs text-mrv-muted">생산량 근거(Before / After)</dt>
                 <dd className="break-all text-mrv-fg">

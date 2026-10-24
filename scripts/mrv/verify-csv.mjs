@@ -48,6 +48,13 @@ try {
     join(ROOT, "lib/mrv/measurement-basis.ts"),
     join(outDir, "measurement-basis.ts"),
   )
+  // 생산량 산정 근거 해석(`parseProductionBasis`·`parseSurvivalAdjusted`)도 실물을 쓴다 —
+  // "'실측 아님' 이 적힌 칸을 넘겨짚지 않는가" 가 이 검증의 항목이므로 스텁으로 바꾸면
+  // 정작 봐야 하는 판정이 빠진다.
+  copyFileSync(
+    join(ROOT, "lib/mrv/production-basis.ts"),
+    join(outDir, "production-basis.ts"),
+  )
   execFileSync(
     "npx",
     [
@@ -69,6 +76,8 @@ try {
     parseMortalityCsv,
     parseRecordTimestamp,
     parsePowerCsv,
+    parseHarvestCsv,
+    HARVEST_CSV_TEMPLATE,
     FEED_CSV_TEMPLATE,
     MORTALITY_CSV_TEMPLATE,
     POWER_INTERVAL_CSV_TEMPLATE,
@@ -541,6 +550,140 @@ try {
     "⑪ 견본 서식이 그대로 해석된다(구간)",
     parsePowerCsv(POWER_INTERVAL_CSV_TEMPLATE, "interval_kwh").errors,
     [],
+  )
+
+  // ── ⑫ 생산량 기록지 — 산정 근거가 필수인 창구 ─────────────────────────
+  //
+  // 전력 기록지와 **다른 규칙**이라 따로 본다. 전력의 자료유형은 선택이고(파일에 없으면
+  // 화면에서 고른 값이 쓰인다) 생산량의 산정 근거는 **필수**다 — 개시·마감 두 점이
+  // "하나는 출하 전표, 하나는 입식수 × 평균체중" 인 것이 정상이라 한 값으로 뭉갤 수 없다.
+  const harvestOk = parseHarvestCsv(
+    "batch_id,ts,biomass_kg,production_basis,production_basis_note,survival_adjusted\n" +
+      "b1,2026-08-01 09:00,1200,계산생체량,입식 100000미 × 12g,미적용\n" +
+      "b1,2026-10-16 09:00,3500,실측,출하 전표,\n",
+  )
+  check("⑫ 정상 파일은 오류가 없다", harvestOk.errors, [])
+  check("⑫ 두 줄을 읽는다", harvestOk.records.length, 2)
+  check(
+    "⑫ 한국어 산정 근거가 정규 값으로 들어온다",
+    harvestOk.records.map((r) => r.production_basis),
+    ["calculated", "measured"],
+  )
+  check(
+    "⑫ '미적용' 은 false 로, 빈 칸은 null(미기재)로 — 둘은 다른 사실이다",
+    harvestOk.records.map((r) => r.survival_adjusted),
+    [false, null],
+  )
+  check(
+    "⑫ 산정 근거 상세가 그대로 실린다",
+    harvestOk.records[0].production_basis_note,
+    "입식 100000미 × 12g",
+  )
+
+  // 산정 근거 열이 없으면 **머리글 오류**다(전력과 다른 점).
+  const harvestNoBasisCol = parseHarvestCsv(
+    "batch_id,ts,biomass_kg\nb1,2026-08-01 09:00,1200\n",
+  )
+  checkTrue(
+    "⑫ 산정 근거 열이 없으면 머리글 오류이고 아무것도 내보내지 않는다",
+    harvestNoBasisCol.errors.length === 1 && harvestNoBasisCol.records.length === 0,
+    JSON.stringify(harvestNoBasisCol.errors),
+  )
+
+  // 칸이 비어 있어도 넘겨짚지 않는다 — 넘겨짚으면 계산생체량이 실측으로 저장된다.
+  const harvestEmptyBasis = parseHarvestCsv(
+    "batch_id,ts,biomass_kg,production_basis\nb1,2026-08-01 09:00,1200,\n",
+  )
+  checkTrue(
+    "⑫ 산정 근거 칸이 비면 그 줄이 오류다(기본값으로 메우지 않는다)",
+    harvestEmptyBasis.records.length === 0 && harvestEmptyBasis.errors.length === 1,
+    JSON.stringify(harvestEmptyBasis.errors),
+  )
+
+  // 모르는 값도 넘겨짚지 않는다.
+  const harvestBadBasis = parseHarvestCsv(
+    "batch_id,ts,biomass_kg,production_basis\nb1,2026-08-01 09:00,1200,아마도 실측\n",
+  )
+  checkTrue(
+    "⑫ 읽을 수 없는 산정 근거는 그 줄을 오류로 센다",
+    harvestBadBasis.records.length === 0 && harvestBadBasis.errors.length === 1,
+    JSON.stringify(harvestBadBasis.errors),
+  )
+
+  // 계산·어림인데 근거가 없으면 거절한다 — 근거 없는 딱지는 검산할 수 없는 주장이다.
+  const harvestNoNote = parseHarvestCsv(
+    "batch_id,ts,biomass_kg,production_basis\nb1,2026-08-01 09:00,1200,계산생체량\n",
+  )
+  checkTrue(
+    "⑫ 계산생체량에 근거가 없으면 그 줄을 거절한다",
+    harvestNoNote.records.length === 0 && harvestNoNote.errors.length === 1,
+    JSON.stringify(harvestNoNote.errors),
+  )
+  // 실측은 근거 없이도 통과한다(저울에 올린 값에 '무엇으로 계산했나' 는 없다).
+  const harvestMeasuredNoNote = parseHarvestCsv(
+    "batch_id,ts,biomass_kg,production_basis\nb1,2026-08-01 09:00,1200,실측\n",
+  )
+  check("⑫ 실측은 근거 없이도 통과한다", harvestMeasuredNoNote.errors, [])
+  check(
+    "⑫ 그때 근거는 null 이다",
+    harvestMeasuredNoNote.records[0].production_basis_note,
+    null,
+  )
+
+  // 생체량 0 은 받지 않는다 — 폐사 0 건과 다르다(분모의 한쪽 끝으로 뽑히면 기간에 없던
+  // 생산량이 산출된다).
+  const harvestZero = parseHarvestCsv(
+    "batch_id,ts,biomass_kg,production_basis\nb1,2026-08-01 09:00,0,실측\n",
+  )
+  checkTrue(
+    "⑫ 생체량 0 은 거절한다(전력의 0 kWh 와 다르다)",
+    harvestZero.records.length === 0 && harvestZero.errors.length === 1,
+    JSON.stringify(harvestZero.errors),
+  )
+
+  // 생존율 보정 칸을 읽을 수 없으면 그 줄이 오류다.
+  const harvestBadSurvival = parseHarvestCsv(
+    "batch_id,ts,biomass_kg,production_basis,survival_adjusted\nb1,2026-08-01 09:00,1200,실측,아마도\n",
+  )
+  checkTrue(
+    "⑫ 읽을 수 없는 생존율 보정 값은 그 줄을 오류로 센다",
+    harvestBadSurvival.records.length === 0 && harvestBadSurvival.errors.length === 1,
+    JSON.stringify(harvestBadSurvival.errors),
+  )
+
+  // 한국어 머리글(받은 계산표의 칸 이름 그대로).
+  const harvestKoHeader = parseHarvestCsv(
+    "배치,시각,생산량,생산량_산정유형,계산근거,생존율보정_적용여부\n" +
+      "b1,2026-08-01 09:00,3500,입식수×최종체중,입식 100000미 × 35g,미적용\n",
+  )
+  check("⑫ 한국어 머리글도 받는다", harvestKoHeader.errors, [])
+  check(
+    "⑫ 받은 계산표의 표기가 calculated 로 들어온다",
+    harvestKoHeader.records[0].production_basis,
+    "calculated",
+  )
+  check("⑫ 생체량도 같은 줄에서 읽힌다", harvestKoHeader.records[0].biomass_kg, 3500)
+
+  // 같은 파일 안의 (배치, 시각) 중복은 급이·폐사와 같은 기준으로 막는다.
+  const harvestDup = parseHarvestCsv(
+    "batch_id,ts,biomass_kg,production_basis\n" +
+      "b1,2026-08-01 09:00,1200,실측\n" +
+      "b1,2026-08-01 09:00,1300,실측\n",
+  )
+  checkTrue(
+    "⑫ 같은 배치·시각의 중복 줄을 막는다",
+    harvestDup.errors.length === 1 && harvestDup.errors[0].line === 3,
+    JSON.stringify(harvestDup.errors),
+  )
+
+  // 견본 서식이 그대로 해석돼야 한다 — 안 되면 내려 준 견본이 올리면 오류가 되는 파일이다.
+  check("⑫ 견본 서식이 그대로 해석된다", parseHarvestCsv(HARVEST_CSV_TEMPLATE).errors, [])
+  checkTrue(
+    "⑫ 견본 서식이 두 점의 산정 근거를 다르게 적어 둔다(개시 계산 · 마감 실측)",
+    (() => {
+      const r = parseHarvestCsv(HARVEST_CSV_TEMPLATE).records
+      return r.length === 2 && r[0].production_basis !== r[1].production_basis
+    })(),
   )
 
   if (failures.length > 0) {
