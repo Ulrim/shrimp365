@@ -55,7 +55,29 @@ def power_of(circuits):
     total = main[0]["power"] if main else sum(c["power"] or 0 for c in circuits)
     rank = {"": 0, "warn": 1, "crit": 2}
     level = max((c["level"] for c in circuits), key=lambda x: rank[x], default="")
-    return {"circuits": circuits, "total_w": total, "partial": not main, "level": level}
+    return {"circuits": circuits, "total_w": total, "partial": not main, "level": level,
+            "control": control_of(circuits)}
+
+
+#: power_control.PowerControl.snapshot() 의 모양 — 회로마다 규칙 하나씩 보기로.
+_RULES = {
+    "PUMP-01": {"mode": "timer", "auto_off_min": 30,
+                "timers": [{"on": "06:00", "off": "06:30", "days": [0, 1, 2, 3, 4, 5, 6]},
+                           {"on": "17:00", "off": "17:20", "days": [0, 2, 4]}]},
+    "AUX-01": {"mode": "cycle", "auto_off_min": 0,
+               "cycle": {"on_min": 15, "off_min": 45, "from": "08:00", "to": "18:00", "days": [0, 1, 2, 3, 4, 5, 6]}},
+    "UV-01": {"mode": "manual", "auto_off_min": 60},
+}
+
+
+def control_of(circuits):
+    out = {}
+    for c in circuits:
+        out[c["id"]] = {"rule": _RULES.get(c["id"], {"mode": "manual", "auto_off_min": 0}),
+                        "can": c["type"] != "main", "manual_only": c["type"] == "aerator",
+                        "override": {"on": False, "until": None} if c["id"] == "AUX-01" else None,
+                        "scheduled": None, "error": "", "pending": False}
+    return {"circuits": out, "clock_ok": True, "now": "14:32"}
 
 
 def base_state(**over) -> dict:
@@ -436,6 +458,13 @@ window.fetch = function(url, opts){
   else if (url.indexOf("/api/history") === 0) {
     var q = new URLSearchParams(url.split("?")[1] || "");
     body = (HIST[q.get("key")] || {})[q.get("hours") || "24"] || {points:[],count:0};
+  }
+  else if (url.indexOf("/api/power/control") === 0) {
+    var rq = JSON.parse(opts.body), pw = STATES[current][1].power, k = pw.control.circuits[rq.id];
+    if (rq.action === "rule") k.rule = rq.rule;
+    if (rq.action === "set") k.override = {on: rq.on, until: rq.minutes ? "2026-08-06T15:02:00" : null};
+    if (rq.action === "auto") k.override = null;
+    body = {ok: true, control: pw.control};
   }
   else if (url.indexOf("/api/sensors/scan") === 0) body = {found: SCAN};
   else if (url.indexOf("/api/sensors/auto") === 0) body = AUTO;

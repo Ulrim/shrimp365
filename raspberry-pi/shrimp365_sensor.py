@@ -97,7 +97,12 @@ try:
 except ImportError:  # pragma: no cover
     wireless_mod = None
 
-VERSION = "1.9.4"
+try:
+    import power_control as power_control_mod
+except ImportError:  # pragma: no cover
+    power_control_mod = None
+
+VERSION = "1.9.5"
 
 #: 무선 센서 수집기가 쓰는 폴더(setup-wireless.sh). 서비스의 StateDirectory 아래라 읽고 쓸 수 있다.
 FIELD_DATA_DIR = "/var/lib/shrimp365/field/data"
@@ -2188,6 +2193,24 @@ def main() -> int:
         {k.upper(): v.strip() for k, v in cfg.items("power_circuits")}
         if cfg.has_section("power_circuits") else {})
     power_sent = {"at": 0.0}
+    # 전력 회로 켜고 끄기(수동·시간 예약·반복 간격) — 지그비 차단기에 Zigbee2MQTT 로 명령한다.
+    # [power] control = false 로 끌 수 있다. 규칙은 상태 폴더의 power_control.json 에 남는다.
+    pctl = None
+    if (power_on and power_control_mod is not None and wireless_mod is not None
+            and cfg.getboolean("power", "control", fallback=True)):
+        _pc_devices = Path(cfg.get("wireless", "devices", fallback=str(wireless_mod.DEFAULT_DEVICES)))
+        _pc_host = cfg.get("wireless", "mqtt_host", fallback="127.0.0.1")
+        _pc_port = cfg.getint("wireless", "mqtt_port", fallback=1883)
+
+        def _pc_names() -> dict[str, str]:
+            return {(c.get("sensor_id") or n).upper(): n
+                    for n, c in wireless_mod.read_registered(_pc_devices).items()}
+
+        pctl = power_control_mod.PowerControl(
+            Path(cfg.get("power", "control_file", fallback=str(power_control_mod.DEFAULT_PATH))),
+            send=power_control_mod.mqtt_sender(lambda: wireless_mod._mqtt(_pc_host, _pc_port, 3.0),
+                                               cfg.get("wireless", "base_topic", fallback="zigbee2mqtt")),
+            names=_pc_names)
     # 센서별 환경 값(env_each)은 5분에 한 번 — 웹 그래프 24시간이 서버 1,000행 상한 안에 들게.
     env_each_sent = {"at": 0.0}
     if field_env_mod is not None and (env_on or power_on):
@@ -2723,6 +2746,27 @@ def main() -> int:
             log.info("화면에서 전력 회로 종류를 바꿨습니다: %s → %s (파일 저장 %s)", sid, kind, saved)
             return {"ok": True, "saved": saved, "id": sid, "type": kind}
 
+        def ui_power_control(body: dict) -> dict:
+            """[켜기]/[끄기]·시간 지정·예약 규칙. 응답에 새 제어 상태를 실어 화면이 바로 그린다."""
+            if pctl is None:
+                return {"ok": False, "error": "전력 제어가 꺼져 있습니다([power] enabled·control)"}
+            sid, action = body.get("id"), body.get("action")
+            if not isinstance(sid, str) or not field_env_mod or not field_env_mod.CIRCUIT_ID_RE.match(sid):
+                return {"ok": False, "error": "회로 이름이 올바르지 않습니다"}
+            if action == "set":
+                mins = body.get("minutes")
+                if mins is not None and (not isinstance(mins, int) or isinstance(mins, bool)):
+                    return {"ok": False, "error": "시간이 올바르지 않습니다"}
+                r = pctl.manual(sid, bool(body.get("on")), mins)
+            elif action == "rule":
+                r = pctl.set_rule(sid, body.get("rule"))
+            elif action == "auto":
+                r = pctl.clear_override(sid)
+            else:
+                return {"ok": False, "error": "모르는 요청입니다"}
+            r["control"] = pctl.snapshot()
+            return r
+
         def ui_set_mode(mode: str) -> dict:
             """장비 모드를 바꾼다. 화면은 다음 갱신(/api/state)에서 즉시 따라온다.
 
@@ -2779,6 +2823,7 @@ def main() -> int:
             get_mode=ui_mode,
             on_set_mode=ui_set_mode,
             on_set_power_type=ui_set_power_type,
+            on_power_control=ui_power_control,
             get_wireless=ui_wireless,
             on_wireless=ui_wireless_action,
         )
@@ -2829,6 +2874,8 @@ def main() -> int:
     analysis: dict = {"at": 0.0, "rows": [], "anomalies": []}
     advices: list[dict] = []
 
+    if pctl is not None:
+        pctl.start()
     while not stop:
         started = time.monotonic()
 
@@ -2861,6 +2908,9 @@ def main() -> int:
                 log.warning("전력 회로 읽기 실패: %s", exc)
                 circuits = []
             power = {"circuits": circuits, **field_env_mod.power_summary(circuits)}
+            if pctl is not None:
+                pctl.observe(circuits)
+                power["control"] = pctl.snapshot()
 
         # 수질 센서가 하나도 안 읽혀도 환경·기상·전력 값이 있으면 그것은 보낸다 — 꽂지 않은 pH 센서
         # 하나 때문에 기상값까지 서버에 안 가면 안 된다. 못 읽은 사유(err_*)는 함께 실려 간다.

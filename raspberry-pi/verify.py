@@ -575,6 +575,70 @@ _te = field_env.FieldEnv(_tdir).read(now=znow)
 check("블루투스 수집 파일(tuyable_)도 토양수분·지온으로 읽는다",
       (_te["soil_moisture"]["value"], _te["soil_temp"]["value"]), (31.0, 18.7))
 
+
+print("\n⑫ 전력 회로 켜고 끄기 — 수동·시간 예약·반복 간격·안전")
+import power_control as pc  # noqa: E402
+check("인입 회로는 규칙을 걸 수 없다", pc.clean_rule({"mode": "manual"}, "main")[0], None)
+check("산소공급기는 예약을 걸 수 없다", pc.clean_rule({"mode": "cycle", "cycle": {"on_min": 5, "off_min": 5}}, "aerator")[0], None)
+check("시각 형식 검사", pc.clean_rule({"mode": "timer", "timers": [{"on": "6:00", "off": "07:00"}]}, "irrigation_pump")[0], None)
+_tr, _ = pc.clean_rule({"mode": "timer", "timers": [{"on": "22:00", "off": "02:00", "days": [4]}]}, "heater")
+_D = _dt.datetime
+check("자정을 넘는 예약: 금 23시 켜짐 · 토 01시 켜짐 · 토 03시 꺼짐 · 목 23시 꺼짐",
+      [pc.scheduled(_tr, x) for x in (_D(2026, 10, 23, 23), _D(2026, 10, 24, 1), _D(2026, 10, 24, 3), _D(2026, 10, 22, 23))],
+      [True, True, False, False])
+_cr, _ = pc.clean_rule({"mode": "cycle", "cycle": {"on_min": 15, "off_min": 45, "from": "06:00", "to": "18:00"}},
+                       "irrigation_pump")
+check("반복 간격: 06:05 켜짐 · 06:20 꺼짐 · 07:10 켜짐 · 19:00 꺼짐",
+      [pc.scheduled(_cr, _D(2026, 10, 24, h, m)) for h, m in ((6, 5), (6, 20), (7, 10), (19, 0))],
+      [True, False, True, False])
+
+_now = {"t": _D(2026, 10, 24, 5, 50)}
+_sent: list = []
+_pcf = Path(tempfile.mkdtemp()) / "pc.json"
+_P = pc.PowerControl(_pcf, send=lambda n, on: _sent.append((n, on)), clock=lambda: _now["t"],
+                     names=lambda: {"PUMP-01": "pump-01", "MAIN-01": "main-01", "AIR-01": "air-01"})
+_P.observe([{"id": "PUMP-01", "type": "irrigation_pump", "state": 0, "level": ""},
+            {"id": "MAIN-01", "type": "main", "state": 1, "level": ""},
+            {"id": "AIR-01", "type": "aerator", "state": 1, "level": ""}])
+_r = _P.set_rule("PUMP-01", {"mode": "timer", "timers": [{"on": "06:00", "off": "06:30"}]})
+check("예약 저장 · 아직 시간 전이면 끄기 명령 한 번", (_r["ok"], _sent), (True, [("pump-01", False)]))
+_P.observe([{"id": "PUMP-01", "type": "irrigation_pump", "state": 0, "level": ""}])
+_now["t"] = _D(2026, 10, 24, 6, 0)
+_P.tick(); _P.tick()
+check("06:00 에 켜기를 한 번만 보낸다", _sent[1:], [("pump-01", True)])
+_P.observe([{"id": "PUMP-01", "type": "irrigation_pump", "state": 1, "level": ""}])
+_r = _P.manual("PUMP-01", False)
+check("손으로 끄면 예약보다 앞선다", (_r["ok"], _sent[-1]), (True, ("pump-01", False)))
+_P.observe([{"id": "PUMP-01", "type": "irrigation_pump", "state": 0, "level": ""}])
+_now["t"] = _D(2026, 10, 24, 6, 10)
+_P.tick()
+check("손 조작은 예약이 바뀔 때까지 유지", len(_sent), 3)
+_now["t"] = _D(2026, 10, 24, 6, 30)
+_P.tick()
+check("예약이 끄기로 바뀌면 손 조작이 풀린다", ("PUMP-01" in _P.over, len(_sent)), (False, 3))
+_now["t"] = _D(2026, 10, 24, 7, 0)
+_r = _P.manual("PUMP-01", True, 20)
+_P.observe([{"id": "PUMP-01", "type": "irrigation_pump", "state": 1, "level": ""}])
+_now["t"] = _D(2026, 10, 24, 7, 21)
+_P.tick()
+check("20분만 켜기: 시간이 지나면 끈다", (_sent[-2:], "PUMP-01" in _P.over), ([("pump-01", True), ("pump-01", False)], False))
+check("인입 회로는 켜고 끌 수 없다", _P.manual("MAIN-01", False)["ok"], False)
+check("산소공급기 시간 지정 끄기는 안 된다", _P.manual("AIR-01", False, 10)["ok"], False)
+_P.observe([{"id": "PUMP-01", "type": "irrigation_pump", "state": 0, "level": "crit"}])
+check("과열 중에는 켜지 않는다", _P.manual("PUMP-01", True)["ok"], False)
+check("등록 안 된 차단기", _P.manual("PUMP-09", True)["ok"], False)
+_P2 = pc.PowerControl(_pcf, clock=lambda: _now["t"])
+check("규칙은 파일에 남아 다시 켜도 그대로", _P2.rules["PUMP-01"]["timers"][0]["on"], "06:00")
+_n = len(_sent)
+_P.observe([{"id": "PUMP-01", "type": "irrigation_pump", "state": 0, "level": ""}])
+_now["t"] = _D(2026, 10, 25, 6, 1)
+_P.tick()
+_P.last["PUMP-01"]["at"] -= 100
+_P.tick()
+check("차단기가 따라오지 않으면 다시 보낸다", _sent[_n:], [("pump-01", True), ("pump-01", True)])
+_now["t"] = _D(2000, 1, 1, 6, 1)
+check("시계가 틀리면 예약을 멈춘다", _P.desired("PUMP-01", _now["t"]), None)
+
 print()
 if fails:
     print(f"실패 {len(fails)}건:")
