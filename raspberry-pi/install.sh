@@ -208,6 +208,12 @@ fi
 # 장비 화면 [무선 센서] 에서 블루투스 토양센서를 등록하려면 전용 파이썬(bleak·tinytuya)이 있어야 한다.
 # 업데이트 때 한 번 깔아 두면 터미널을 쓸 일이 없다. 인터넷이 없거나 실패해도 설치는 계속한다.
 # 건너뛰려면 SHRIMP_SKIP_BLE=1.
+# 이미 깔린 장비는 빠진 꾸러미만 더한다(연결 보조 bleak-retry-connector — 1.9.6). 인터넷이 없으면 건너뛴다.
+if [ -x /opt/shrimp365/ble-venv/bin/python ] && ! /opt/shrimp365/ble-venv/bin/python -c "import bleak_retry_connector" 2>/dev/null; then
+  /opt/shrimp365/ble-venv/bin/pip install -q "bleak-retry-connector>=3.0" 2>/dev/null \
+    && echo "==> 블루투스 연결 보조(bleak-retry-connector)를 더했습니다" \
+    && { systemctl restart farm365-tuyable 2>/dev/null || true; } || true
+fi
 if [ -d /run/systemd/system ] && [ ! -x /opt/shrimp365/ble-venv/bin/python ] \
    && [ -f "$SRC/setup-tuya-ble.sh" ] && [ "${SHRIMP_SKIP_BLE:-0}" != 1 ]; then
   echo "==> 블루투스 센서 준비 (처음 한 번, 몇 분)"

@@ -72,7 +72,7 @@ if [ ! -x "$VENV/bin/python" ]; then
   python3 -m venv --system-site-packages "$VENV"
 fi
 "$VENV/bin/pip" install -q --upgrade pip
-"$VENV/bin/pip" install -q "bleak>=0.21" "pycryptodome>=3.19" "tinytuya>=1.13" "pyyaml>=6.0"
+"$VENV/bin/pip" install -q "bleak>=0.21" "bleak-retry-connector>=3.0" "pycryptodome>=3.19" "tinytuya>=1.13" "pyyaml>=6.0"
 chmod -R a+rX "$VENV"
 
 # ── 3. 수집기 코드 ───────────────────────────────────────────────────────────
