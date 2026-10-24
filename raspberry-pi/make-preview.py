@@ -372,7 +372,7 @@ var STATES = __STATES__, HIST = __HIST__, ENV_HIST = __ENV_HIST__, SENSORS = __S
 var WL = {ok:true, installed:true, mqtt:true, z2m:true, dongle:"usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2-if00",
   rtlsdr:true, env_on:true, power_on:true, permit_left:0, new:[], added:false,
   units:{"mosquitto":true, "zigbee2mqtt":true, "farm365-zigbee":true, "farm365-rtl433":true, "farm365-ecowitt":true},
-  taken:["CN-T1","CN-T2","SOIL-T1","SOIL-T2","PUMP-01","AUX-01","WS90-01"],
+  taken:["CN-T1","CN-T2","SOIL-T1","SOIL-T2","SOIL-T3","SOIL-C1","PUMP-01","AUX-01","WS90-01"],
   rf_heard_ok:true, rf_other:3,
   rf_sensors:[{key:"Fineoffset-WS90/12345", model:"Fineoffset-WS90", id:"12345", sensor_id:"WS90-01", zone:"mast", kind:"weather", rssi:-7, age_min:0, battery:null, lqi:null}],
   rf_new:[
@@ -381,6 +381,8 @@ var WL = {ok:true, installed:true, mqtt:true, z2m:true, dongle:"usb-ITead_Sonoff
     {key:"Fineoffset-WS90/40711", model:"Fineoffset-WS90", id:"40711", count:3, rssi:-23, age_min:2, guess:"weather", model_only:false}],
   ip:"192.168.0.42", eco_port:8088, eco_path:"/data/report/",
   eco_sensors:[{key:"soil1", sensor_id:"SOIL-C1", kind:"soil", zone:"control", channel:1, age_min:1}],
+  ble_ready:true, ble_saved:false, ble_fetched:false, ble_new:[],
+  ble_sensors:[{sensor_id:"SOIL-T3", zone:"treatment", name:"SGS01B 1", error:"", rssi:-68, age_min:3, battery:92, lqi:null}],
   eco_gateways:[{passkey:"A1B2C3D4E5F60718", ip:"192.168.0.31", model:"GW2000A_V3.1.4", age_min:0, registered:false}],
   eco_new:[
     {id:"A1B2C3D4E5F60718:gateway", key:"gateway", passkey:"A1B2C3D4E5F60718", kind:"weather", model:"WS90", age_min:0},
@@ -440,6 +442,22 @@ window.fetch = function(url, opts){
         channel: rq.key === "gateway" ? null : +rq.key.replace(/[^0-9]/g, ""), age_min:0});
       body = {ok:true, key:rq.key, sensor_id:eid};
     }
+    else if (a === "ble_fetch") {
+      WL.ble_saved = true; WL.ble_fetched = true;
+      WL.ble_new = [{id:"bf7a11c0", name:"SGS01B 2", category:"zwjcy"}, {id:"bf7a11c1", name:"SGS01B 3", category:"zwjcy"}];
+      body = {ok:true, count:3, region:"us"};
+    }
+    else if (a === "ble_add") {
+      var bz = ({treatment:"T",control:"C"})[rq.zone] || "", bid;
+      for (var b = 1; b < 99; b++) { bid = "SOIL-" + bz + b; if (WL.taken.indexOf(bid) < 0) break; }
+      WL.taken.push(bid);
+      var bn = WL.ble_new.filter(function(x){ return x.id === rq.id; })[0] || {};
+      WL.ble_new = WL.ble_new.filter(function(x){ return x.id !== rq.id; });
+      WL.ble_sensors.push({sensor_id:bid, zone:rq.zone, name:bn.name, error:"", rssi:null, age_min:null, battery:null, lqi:null});
+      body = {ok:true, sensor_id:bid};
+    }
+    else if (a === "ble_remove") { WL.ble_sensors = WL.ble_sensors.filter(function(x){ return x.sensor_id !== rq.sensor_id; }); body = {ok:true}; }
+    else if (a === "ble_forget") { WL.ble_saved = false; body = {ok:true}; }
     else if (a === "remove" && rq.eco) { WL.eco_sensors = WL.eco_sensors.filter(function(x){ return x.key !== rq.key; }); body = {ok:true}; }
     else if (a === "remove" && rq.rf) { WL.rf_sensors = WL.rf_sensors.filter(function(x){ return x.key !== rq.key; }); body = {ok:true}; }
     else if (a === "register") {

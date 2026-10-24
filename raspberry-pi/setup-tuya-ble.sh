@@ -157,8 +157,8 @@ fi
 echo
 echo "   farm365-tuyable  $(systemctl is-active farm365-tuyable 2>/dev/null || true)"
 echo
-echo "다음: 센서 등록(투야 클라우드에서 열쇠 받기)"
-echo "   sudo $VENV/bin/python /opt/shrimp365/tuya_ble_setup.py"
+echo "다음: 센서 등록 — 장비 화면 [설정] → [무선 센서] → '블루투스 토양센서' → [투야에서 센서 가져오기]"
+echo "   (터미널로 하려면: sudo $VENV/bin/python /opt/shrimp365/tuya_ble_setup.py)"
 echo "확인: sudo -u $USER_ $VENV/bin/python $APP/scripts/tuya_ble_bridge.py --devices $FIELD/devices.yaml --once -v --out /tmp --capture ''"
 
 if [ "$REGISTER" = 1 ]; then

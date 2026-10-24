@@ -67,6 +67,12 @@ _RF_ID_RE = re.compile(r"^[A-Za-z0-9]{0,12}$")
 #: 구간. 센서 이름의 가운데 글자(CN-T1 의 T)가 여기서 나온다.
 ZONES = {"treatment": "T", "control": "C", "facility": "", "mast": ""}
 
+#: 투야 블루투스 — setup-tuya-ble.sh 가 까는 전용 파이썬과 등록 도구, 화면에서 넣은 투야 IoT 열쇠.
+BLE_PY = Path("/opt/shrimp365/ble-venv/bin/python")
+BLE_TOOL = Path(__file__).resolve().parent / "tuya_ble_setup.py"
+TUYA_CRED = Path("/var/lib/shrimp365/tuya_cloud.json")
+_TUYA_ID_RE = re.compile(r"^[A-Za-z0-9]{8,64}$")
+
 #: 상태를 볼 서비스(setup-wireless.sh 가 만드는 이름).
 UNITS = ("mosquitto", "zigbee2mqtt", "farm365-zigbee", "farm365-rtl433", "farm365-ecowitt", "farm365-tuyable")
 
@@ -671,6 +677,9 @@ class Wireless:
         self.host, self.port, self.base = host, port, base_topic
         self.permit_until = 0.0
         self._lock = threading.Lock()          # 등록·빼기가 겹치면 같은 이름을 두 번 줄 수 있다
+        self.ble_py, self.ble_tool, self.tuya_cred = BLE_PY, BLE_TOOL, TUYA_CRED
+        self._ble_found: list[dict] = []       # 투야 클라우드에서 받은 블루투스 기기(열쇠 포함 — 화면에는 안 보낸다)
+        self._ble_region = ""
 
     # 상태 ------------------------------------------------------------------
     @staticmethod
@@ -823,7 +832,8 @@ class Wireless:
             "taken": sorted(self._taken(registered, rf_reg)),
             "rf_sensors": rf_sensors, "rf_new": rf_new, "rf_other": rf_other,
             "rf_heard_ok": self._heard_path().exists(),
-            "ble_sensors": ble,
+            "ble_sensors": ble, "ble_ready": self.ble_ready(), "ble_saved": self.tuya_cred.exists(),
+            "ble_new": self._ble_new(), "ble_fetched": bool(self._ble_region),
             **eco,
         }
 
@@ -902,6 +912,89 @@ class Wireless:
             out.append({"sensor_id": sid, "zone": cfg.get("zone", ""), "name": cfg.get("name", ""),
                         "error": h.get("error") or "", "rssi": h.get("rssi"), **info(sid)})
         return out
+
+    # 투야 블루투스 — 화면에서 투야 클라우드 열쇠를 받아 등록 --------------------------
+    def ble_ready(self) -> bool:
+        return self.ble_py.exists() and self.ble_tool.exists()
+
+    def _ble_run(self, args: list[str], stdin: str = "", env_extra: dict | None = None, timeout: float = 150) -> dict:
+        env = {"PATH": "/usr/bin:/bin", "HOME": "/tmp", "LANG": "C.UTF-8", **(env_extra or {})}
+        try:
+            r = subprocess.run([str(self.ble_py), str(self.ble_tool), "--devices", str(self.devices_path), *args],
+                               input=stdin, capture_output=True, text=True, timeout=timeout, env=env, cwd="/tmp")
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return {"ok": False, "error": f"블루투스 등록 도구를 돌리지 못했습니다: {exc}"}
+        for line in reversed(r.stdout.strip().splitlines()):
+            try:
+                return json.loads(line)
+            except ValueError:
+                continue
+        return {"ok": False, "error": (r.stderr.strip().splitlines() or ["알 수 없는 오류"])[-1][:200]}
+
+    def _ble_creds(self) -> tuple[str, str]:
+        try:
+            d = json.loads(self.tuya_cred.read_text(encoding="utf-8"))
+            return str(d.get("access_id", "")), str(d.get("access_secret", ""))
+        except (OSError, ValueError, AttributeError):
+            return "", ""
+
+    def ble_fetch(self, access_id: str = "", secret: str = "", remember: bool = True) -> dict:
+        """투야 클라우드에서 블루투스 기기 목록(열쇠 포함)을 받아 둔다. 비우면 저장해 둔 열쇠로."""
+        if not self.ble_ready():
+            return {"ok": False, "error": "블루투스 준비가 안 됐습니다 — 터미널에서 setup-tuya-ble.sh 를 한 번 실행하세요"}
+        access_id, secret = access_id.strip(), secret.strip()
+        if not access_id and not secret:
+            access_id, secret = self._ble_creds()
+        if not _TUYA_ID_RE.match(access_id) or not _TUYA_ID_RE.match(secret):
+            return {"ok": False, "error": "Access ID·Secret 은 영문·숫자 8~64자입니다"}
+        r = self._ble_run(["--fetch-json"], env_extra={"TUYA_ACCESS_ID": access_id, "TUYA_ACCESS_SECRET": secret})
+        if not r.get("ok"):
+            return {"ok": False, "error": r.get("error") or "기기 목록을 받지 못했습니다"}
+        self._ble_found = [d for d in r.get("devices") or [] if isinstance(d, dict)]
+        self._ble_region = str(r.get("region") or "")
+        if remember:
+            try:
+                tmp = self.tuya_cred.with_suffix(".tmp")
+                fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    json.dump({"access_id": access_id, "access_secret": secret}, fh)
+                os.replace(tmp, self.tuya_cred)
+            except OSError:
+                pass                                   # 저장 못 해도 이번 등록은 된다
+        return {"ok": True, "count": len(self._ble_found), "region": self._ble_region}
+
+    def ble_add(self, dev_id: str, zone: str) -> dict:
+        d = next((x for x in self._ble_found if x.get("id") == dev_id), None)
+        if d is None:
+            return {"ok": False, "error": "목록에 없는 기기입니다 — [투야에서 가져오기] 를 다시 누르세요"}
+        if zone not in ("treatment", "control", "facility"):
+            return {"ok": False, "error": "구간이 올바르지 않습니다"}
+        with self._lock:
+            taken = sorted(self._taken(read_registered(self.devices_path), read_rf(self.devices_path)))
+            return self._ble_run(["--add-json"], stdin=json.dumps({"device": d, "zone": zone, "taken": taken}))
+
+    def ble_remove(self, sensor_id: str) -> dict:
+        if not re.match(r"^[A-Za-z0-9_.-]{1,32}$", sensor_id or ""):
+            return {"ok": False, "error": "센서 이름이 올바르지 않습니다"}
+        if not self.ble_ready():
+            return {"ok": False, "error": "블루투스 등록 도구가 없습니다"}
+        with self._lock:
+            return self._ble_run(["--remove-json", sensor_id], timeout=30)
+
+    def ble_forget(self) -> dict:
+        try:
+            self.tuya_cred.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            return {"ok": False, "error": str(exc)}
+        self._ble_found = []
+        return {"ok": True}
+
+    def _ble_new(self) -> list[dict]:
+        have = set(read_tuya_ble(self.devices_path))
+        return [{"id": d["id"], "name": d.get("name", ""), "category": d.get("category", "")}
+                for d in self._ble_found if d.get("id") not in have]
 
     def _heard_path(self) -> Path:
         return self.data_dir / "capture" / "rtl433_heard.json"

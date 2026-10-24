@@ -994,9 +994,23 @@ var I18N = {
   wlr_rain:{ko:"우량계 (WH40)",en:"Rain gauge (WH40)",vi:"Đo mưa (WH40)",id:"Penakar hujan (WH40)"},
   wl_ble_title:{ko:"블루투스 토양센서 (투야)",en:"Bluetooth soil sensors (Tuya)",vi:"Cảm biến đất Bluetooth (Tuya)",id:"Sensor tanah Bluetooth (Tuya)"},
   wl_ble_soil:{ko:"토양수분·지온",en:"Soil moisture · soil temp",vi:"Độ ẩm đất · nhiệt độ đất",id:"Kelembapan tanah · suhu tanah"},
-  wl_ble_off:{ko:"블루투스 수집기가 꺼져 있습니다 — sudo bash setup-tuya-ble.sh",en:"Bluetooth collector is off — sudo bash setup-tuya-ble.sh",vi:"Bộ thu Bluetooth đang tắt — sudo bash setup-tuya-ble.sh",id:"Pengumpul Bluetooth mati — sudo bash setup-tuya-ble.sh"},
-  wl_ble_none:{ko:"등록된 블루투스 센서가 없습니다",en:"No Bluetooth sensors registered",vi:"Chưa đăng ký cảm biến Bluetooth",id:"Belum ada sensor Bluetooth terdaftar"},
-  wl_ble_tip:{ko:"등록·빼기는 터미널에서: python3 tuya_ble_setup.py (투야 앱에서 센서를 지우면 열쇠가 바뀝니다)",en:"Add/remove in a terminal: python3 tuya_ble_setup.py (removing the sensor from the Tuya app changes its key)",vi:"Thêm/xóa trong terminal: python3 tuya_ble_setup.py (xóa cảm biến khỏi app Tuya sẽ đổi khóa)",id:"Tambah/hapus di terminal: python3 tuya_ble_setup.py (menghapus sensor dari aplikasi Tuya mengubah kuncinya)"},
+  wl_ble_off:{ko:"블루투스 수집기가 꺼져 있습니다 — 저장소 폴더에서 sudo bash setup-tuya-ble.sh",en:"Bluetooth collector is off — run sudo bash setup-tuya-ble.sh in the repo folder",vi:"Bộ thu Bluetooth đang tắt — chạy sudo bash setup-tuya-ble.sh",id:"Pengumpul Bluetooth mati — jalankan sudo bash setup-tuya-ble.sh"},
+  wl_ble_none:{ko:"등록된 블루투스 센서가 없습니다",en:"No Bluetooth sensors registered",vi:"Chưa có cảm biến Bluetooth",id:"Belum ada sensor Bluetooth"},
+  wl_ble_tip:{ko:"센서는 먼저 휴대폰 투야 앱에 붙여 두세요. 앱에서 센서를 지우면 열쇠가 바뀌어 다시 가져와야 합니다.",en:"Pair the sensor in the Tuya phone app first. Removing it from the app changes its key — fetch again.",vi:"Ghép cảm biến trong app Tuya trước. Xóa khỏi app sẽ đổi khóa — cần lấy lại.",id:"Pasangkan sensor di aplikasi Tuya dulu. Menghapusnya mengubah kunci — ambil ulang."},
+  wl_ble_setup:{ko:"블루투스 준비가 아직 안 됐습니다. 터미널에서 한 번만 실행하세요(인터넷 필요):",en:"Bluetooth isn't set up yet. Run once in a terminal (needs internet):",vi:"Chưa cài Bluetooth. Chạy một lần trong terminal (cần internet):",id:"Bluetooth belum disiapkan. Jalankan sekali di terminal (perlu internet):"},
+  wl_ble_fetch:{ko:"투야에서 센서 가져오기",en:"Fetch sensors from Tuya",vi:"Lấy cảm biến từ Tuya",id:"Ambil sensor dari Tuya"},
+  wl_ble_change:{ko:"투야 열쇠 바꾸기",en:"Change Tuya keys",vi:"Đổi khóa Tuya",id:"Ganti kunci Tuya"},
+  wl_ble_forget:{ko:"저장한 열쇠 지우기",en:"Forget saved keys",vi:"Xóa khóa đã lưu",id:"Hapus kunci tersimpan"},
+  wl_ble_forgot:{ko:"투야 열쇠를 지웠습니다.",en:"Tuya keys removed.",vi:"Đã xóa khóa Tuya.",id:"Kunci Tuya dihapus."},
+  wl_ble_fetching:{ko:"투야 클라우드에서 받는 중… (최대 1분)",en:"Fetching from Tuya cloud… (up to 1 min)",vi:"Đang lấy từ Tuya… (tối đa 1 phút)",id:"Mengambil dari Tuya… (maks 1 menit)"},
+  wl_ble_fetched:{ko:"블루투스 기기 {n}대를 받았습니다.",en:"Got {n} Bluetooth devices.",vi:"Đã nhận {n} thiết bị Bluetooth.",id:"Dapat {n} perangkat Bluetooth."},
+  wl_ble_new:{ko:"투야 앱에 있는 블루투스 센서",en:"Bluetooth sensors in the Tuya app",vi:"Cảm biến Bluetooth trong app Tuya",id:"Sensor Bluetooth di aplikasi Tuya"},
+  wl_ble_all:{ko:"투야 앱의 블루투스 센서가 모두 등록돼 있습니다.",en:"All Bluetooth sensors from the Tuya app are registered.",vi:"Đã đăng ký tất cả cảm biến Bluetooth.",id:"Semua sensor Bluetooth sudah terdaftar."},
+  wl_ble_cred_hint:{ko:"투야 개발자 사이트(platform.tuya.com) 프로젝트 Overview 의 Access ID·Access Secret 을 넣으세요. 한 번 넣으면 장비에 저장됩니다.",en:"Enter the Access ID and Secret from your project Overview at platform.tuya.com. They are saved on this device.",vi:"Nhập Access ID và Secret từ Overview dự án trên platform.tuya.com. Sẽ được lưu.",id:"Masukkan Access ID dan Secret dari Overview proyek di platform.tuya.com. Disimpan di perangkat."},
+  wl_ble_id:{ko:"Access ID (Client ID)",en:"Access ID (Client ID)",vi:"Access ID (Client ID)",id:"Access ID (Client ID)"},
+  wl_ble_sec:{ko:"Access Secret (Client Secret)",en:"Access Secret (Client Secret)",vi:"Access Secret (Client Secret)",id:"Access Secret (Client Secret)"},
+  wl_ble_next:{ko:"다음 칸 ↓",en:"Next ↓",vi:"Tiếp ↓",id:"Berikut ↓"},
+  wl_ble_prev:{ko:"위 칸 ↑",en:"Back ↑",vi:"Lên ↑",id:"Atas ↑"},
   wl_eco_title:{ko:"에코윗 게이트웨이 (와이파이)",en:"Ecowitt gateway (Wi-Fi)",vi:"Gateway Ecowitt (Wi-Fi)",id:"Gateway Ecowitt (Wi-Fi)"},
   wl_eco_setup:{ko:"게이트웨이(GW1100·GW2000 등)를 농장 와이파이에 연결한 뒤 WS View Plus 앱 → 기기 → [Customized] 에서 '프로토콜: Ecowitt' 을 고르고 아래 값을 적어 저장하세요. 1~2분 안에 여기에 뜹니다.",en:"Connect the gateway (GW1100, GW2000 …) to the farm Wi-Fi, then in the WS View Plus app → device → [Customized] choose 'Protocol: Ecowitt', enter the values below and save. It appears here within 1–2 minutes.",vi:"Kết nối gateway (GW1100, GW2000 …) vào Wi-Fi, rồi trong ứng dụng WS View Plus → thiết bị → [Customized] chọn 'Protocol: Ecowitt', nhập các giá trị dưới đây và lưu. Sẽ hiện trong 1–2 phút.",id:"Hubungkan gateway (GW1100, GW2000 …) ke Wi-Fi, lalu di aplikasi WS View Plus → perangkat → [Customized] pilih 'Protocol: Ecowitt', isi nilai di bawah dan simpan. Muncul dalam 1–2 menit."},
   wl_eco_server:{ko:"서버",en:"Server",vi:"Máy chủ",id:"Server"},
@@ -1560,8 +1574,75 @@ var wl = null, wlTimer = null, wlMsg = null, wlEdit = null, wlKind = null, wlZon
 var wlRf = null;   // 433MHz 등록 중이면 {model, id, key, model_only}
 var wlEco = null;  // 에코윗 등록 중이면 eco_new 의 한 항목 {key, family, channel, kind, passkey}
 var WL_ECO_PREFIX = {soil:"SOIL", tf:"ST", leaf:"LW"};
+// 투야 블루투스 — wlBle: null | "cred"(열쇠 넣기) | {id, name}(구간 골라 등록)
+var wlBle = null, bleField = "id", bleId = "", bleSec = "", bleShift = false, bleLayer = "abc";
 
-function openWireless(){ wl = null; wlMsg = null; wlEdit = null; wlRf = null; wlEco = null; wlSure = null; loadWireless(); }
+function bleStartCred(){ wlBle = "cred"; bleField = "id"; bleId = ""; bleSec = ""; wlMsg = null; drawWireless(); }
+function bleFetch(useSaved){
+  wlMsg = {kind:"ok", text:t("wl_ble_fetching")};
+  var body = useSaved ? {} : {access_id: bleId, access_secret: bleSec, remember: true};
+  wlPost("ble_fetch", body, function(d){
+    if (d.ok) { wlBle = null; bleSec = ""; wlMsg = {kind:"ok", text:t("wl_ble_fetched", {n:d.count})}; }
+    else wlMsg = {kind:"err", text:d.error || t("save_fail")};
+  });
+}
+function bleStartAdd(id){
+  var n = (wl.ble_new || []).filter(function(x){ return x.id === id; })[0];
+  if (!n) return;
+  wlBle = n; wlZone = null; wlMsg = null; drawWireless();
+}
+function bleAdd(){
+  var n = wlBle;
+  wlPost("ble_add", {id: n.id, zone: wlZone}, function(d){
+    if (d.ok) { wlBle = null; wlMsg = {kind:"ok", text:t("wl_added", {n:d.sensor_id})}; }
+    else wlMsg = {kind:"err", text:d.error || t("save_fail")};
+  });
+}
+function bleRemove(sid){
+  if (wlSure !== "ble:" + sid) { wlSure = "ble:" + sid; drawWireless(); return; }
+  wlSure = null;
+  wlPost("ble_remove", {sensor_id: sid}, function(d){
+    wlMsg = d.ok ? {kind:"ok", text:t("wl_removed")} : {kind:"err", text:d.error || t("save_fail")};
+  });
+}
+function bleForget(){ wlPost("ble_forget", {}, function(d){ wlMsg = d.ok ? {kind:"ok", text:t("wl_ble_forgot")} : {kind:"err", text:d.error}; }); }
+function bleTap(ri, ci){
+  var set = bleLayer === "sym" ? K_SYM : K_ABC, ch = set[ri][ci];
+  if (bleLayer === "abc" && bleShift) ch = ch.toUpperCase();
+  if (bleField === "id") bleId += ch; else bleSec += ch;
+  drawWireless();
+}
+function bleBack(){ if (bleField === "id") bleId = bleId.slice(0, -1); else bleSec = bleSec.slice(0, -1); drawWireless(); }
+function bleCredBody(){
+  var fld = function(key, val, ph){
+    var on = bleField === key;
+    return '<div class="pwbox" style="margin-top:6px" onclick="bleField=&quot;' + key + '&quot;;drawWireless()">' +
+      '<div class="pwf" style="' + (on ? "border-color:var(--brand)" : "") + '"><div style="flex:1;min-width:0;' +
+      'font:600 15px/1 ui-monospace,monospace;padding:10px 0;word-break:break-all;color:' + (val ? "#E8EDF7" : "#475569") + '">' +
+      (val ? esc(val) : ph) + '</div></div></div>';
+  };
+  var rows = (bleLayer === "sym" ? K_SYM : K_ABC).map(function(row, ri){
+    var keys = row.map(function(ch, ci){
+      var label = (bleLayer === "abc" && bleShift) ? ch.toUpperCase() : ch;
+      return '<button onclick="bleTap(' + ri + ',' + ci + ')">' + esc(label) + '</button>';
+    }).join("");
+    if (ri === 3) {
+      var sh = bleLayer === "abc" ? '<button class="k-shift wide' + (bleShift ? " on" : "") + '" onclick="bleShift=!bleShift;drawWireless()">⇧</button>' : "";
+      return '<div class="krow">' + sh + keys + '<button class="wide" onclick="bleBack()">⌫</button></div>';
+    }
+    return '<div class="krow">' + keys + '</div>';
+  }).join("");
+  var ok = bleId.length >= 8 && bleSec.length >= 8;
+  return '<div class="sub">' + t("wl_ble_cred_hint") + '</div>' +
+    fld("id", bleId, t("wl_ble_id")) + fld("sec", bleSec, t("wl_ble_sec")) +
+    '<div class="kbd">' + rows + '<div class="krow">' +
+      '<button class="wide" onclick="bleLayer=bleLayer===&quot;sym&quot;?&quot;abc&quot;:&quot;sym&quot;;drawWireless()">' + (bleLayer === "sym" ? "ABC" : "?123") + '</button>' +
+      '<button class="wide" onclick="bleField=bleField===&quot;id&quot;?&quot;sec&quot;:&quot;id&quot;;drawWireless()">' + t(bleField === "id" ? "wl_ble_next" : "wl_ble_prev") + '</button>' +
+      '<button class="go" ' + (ok && !wlBusy ? "" : "disabled") + ' onclick="bleFetch(false)">' + (wlBusy ? t("wl_ble_fetching") : t("wl_ble_fetch")) + '</button>' +
+    '</div></div>';
+}
+
+function openWireless(){ wl = null; wlMsg = null; wlEdit = null; wlRf = null; wlEco = null; wlBle = null; wlSure = null; loadWireless(); }
 function closeWireless(){ if (wlTimer) clearTimeout(wlTimer); wlTimer = null; wl = null; drawSettingsMenu(); }
 function loadWireless(){
   if (wlTimer) clearTimeout(wlTimer);
@@ -1686,6 +1767,20 @@ function drawWireless(){
   var body = "";
   if (!wl) {
     body = '<div class="sub">' + t("checking") + '</div>';
+  } else if (wlBle === "cred") {
+    body = bleCredBody();
+  } else if (wlBle) {
+    var bz = wlZone ? (function(){
+      var z = ({treatment:"T", control:"C"})[wlZone] || "", taken = wl.taken || [];
+      for (var n = 1; n < 100; n++) { var id = "SOIL-" + z + n; if (taken.indexOf(id) < 0) return id; }
+      return "";
+    })() : "";
+    body = '<div class="sub" style="margin:2px 0 2px">' + esc(wlBle.name || wlBle.id) + ' \u00B7 ' + t("wl_ble_soil") + '</div>' +
+      '<div class="wlhead">' + t("wl_pick_zone") + '</div><div class="typegrid two">' +
+      ["treatment","control","facility"].map(function(z){ return '<button class="' + (z === wlZone ? "on" : "") +
+        '" onclick="wlZone=&quot;' + z + '&quot;;drawWireless()">' + t("wlz_" + z) + '</button>'; }).join("") + '</div>' +
+      (bz ? '<div class="sub" style="margin-top:10px">' + esc(t("wl_name_will", {n:bz})) + '</div>' : "") +
+      '<button class="wlbig" style="margin-top:10px" ' + (wlZone && !wlBusy ? "" : "disabled") + ' onclick="bleAdd()">' + t("wl_add") + '</button>';
   } else if (wlEco) {
     var en = wlEco, th = en.family === "th", gw = en.key === "gateway";
     var ename = wlZone && (!th || wlKind) ? wlEcoSuggest(en, wlKind, wlZone) : "";
@@ -1793,23 +1888,43 @@ function drawWireless(){
     }
     if (wl.rf_other) body += '<div class="sub" style="margin-top:4px">' + t("wl_rf_other", {n: wl.rf_other}) + '</div>';
 
-    // ── 투야 블루투스 — 등록은 tuya_ble_setup.py(투야 클라우드 열쇠)로 한다. 여기서는 상태만 본다.
-    var bles = wl.ble_sensors || [];
-    if (bles.length || (wl.units || {})["farm365-tuyable"] !== null && (wl.units || {})["farm365-tuyable"] !== undefined) {
-      body += '<div class="wlhead" style="margin-top:16px">' + t("wl_ble_title") + '</div>';
-      if ((wl.units || {})["farm365-tuyable"] === false) body += '<div class="msg err">' + t("wl_ble_off") + '</div>';
-      body += bles.length ? bles.map(function(x){
-        var bits = [];
-        if (x.battery !== null && x.battery !== undefined) bits.push(t("wl_batt", {v: Math.round(x.battery)}));
-        if (x.rssi !== null && x.rssi !== undefined) bits.push(t("wl_rf_rssi", {v: Math.round(x.rssi)}));
-        var old = x.age_min === null || x.age_min === undefined || x.age_min >= 30;
-        return '<div class="srow"><div class="sname">' + esc(x.sensor_id) +
-          '<div class="sub">' + esc(t("wl_ble_soil") + " \u00B7 " + (t("wlz_" + x.zone) || x.zone) + (x.name ? " \u00B7 " + x.name : "")) +
-          (x.error ? '<br><span style="color:#FBBF24">' + esc(x.error) + '</span>' : "") + '</div></div>' +
-          '<div class="wlmeta' + (old ? " old" : "") + '">' + wlAgo(x.age_min) + (bits.length ? "<br>" + bits.join(" \u00B7 ") : "") + '</div></div>';
-      }).join("") : '<div class="sub">' + t("wl_ble_none") + '</div>';
-      body += '<div class="sub" style="margin-top:4px">' + t("wl_ble_tip") + '</div>';
+    // ── 투야 블루투스 — 투야 IoT 열쇠(Access ID·Secret)로 센서 열쇠를 받아 등록한다(처음 한 번 인터넷).
+    var bles = wl.ble_sensors || [], bnew = wl.ble_new || [];
+    body += '<div class="wlhead" style="margin-top:16px">' + t("wl_ble_title") + '</div>';
+    if (!wl.ble_ready) {
+      body += '<div class="msg info">' + t("wl_ble_setup") +
+        '<br><b style="font-family:ui-monospace,monospace">cd ~/shrimp365/raspberry-pi && sudo bash setup-tuya-ble.sh</b></div>';
+    } else if ((wl.units || {})["farm365-tuyable"] === false) {
+      body += '<div class="msg err">' + t("wl_ble_off") + '</div>';
     }
+    body += bles.map(function(x){
+      var bits = [];
+      if (x.battery !== null && x.battery !== undefined) bits.push(t("wl_batt", {v: Math.round(x.battery)}));
+      if (x.rssi !== null && x.rssi !== undefined) bits.push(t("wl_rf_rssi", {v: Math.round(x.rssi)}));
+      var old = x.age_min === null || x.age_min === undefined || x.age_min >= 30;
+      return '<div class="srow"><div class="sname">' + esc(x.sensor_id) +
+        '<div class="sub">' + esc(t("wl_ble_soil") + " \u00B7 " + (t("wlz_" + x.zone) || x.zone) + (x.name ? " \u00B7 " + x.name : "")) +
+        (x.error ? '<br><span style="color:#FBBF24">' + esc(x.error) + '</span>' : "") + '</div></div>' +
+        '<div class="wlmeta' + (old ? " old" : "") + '">' + wlAgo(x.age_min) + (bits.length ? "<br>" + bits.join(" \u00B7 ") : "") + '</div>' +
+        '<button class="toggle" style="margin-left:8px" onclick="bleRemove(decodeURIComponent(&quot;' + encodeURIComponent(x.sensor_id) + '&quot;))">' +
+          (wlSure === "ble:" + x.sensor_id ? t("wl_remove_sure") : t("wl_remove")) + '</button></div>';
+    }).join("");
+    if (!bles.length && !bnew.length) body += '<div class="sub">' + t("wl_ble_none") + '</div>';
+    if (bnew.length) {
+      body += '<div class="wlhead">' + t("wl_ble_new") + ' (' + bnew.length + ')</div>' + bnew.map(function(n){
+        return '<div class="srow"><div class="sname">' + esc(n.name || n.id) + '<div class="sub">' + esc(n.category) + '</div></div>' +
+          '<button class="toggle" onclick="bleStartAdd(decodeURIComponent(&quot;' + encodeURIComponent(n.id) + '&quot;))">' + t("wl_add") + '</button></div>';
+      }).join("");
+    } else if (wl.ble_fetched) {
+      body += '<div class="sub" style="margin-top:4px">' + t("wl_ble_all") + '</div>';
+    }
+    if (wl.ble_ready) {
+      body += '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">' +
+        (wl.ble_saved ? '<button class="toggle" ' + (wlBusy ? "disabled" : "") + ' onclick="bleFetch(true)">' + t("wl_ble_fetch") + '</button>' : "") +
+        '<button class="toggle" onclick="bleStartCred()">' + t(wl.ble_saved ? "wl_ble_change" : "wl_ble_fetch") + '</button>' +
+        (wl.ble_saved ? '<button class="toggle" onclick="bleForget()">' + t("wl_ble_forget") + '</button>' : "") + '</div>';
+    }
+    body += '<div class="sub" style="margin-top:4px">' + t("wl_ble_tip") + '</div>';
 
     // ── 에코윗 — 게이트웨이가 이 장비로 보내 온다. 들어온 게이트웨이와 거기 붙은 센서 중에서 골라 등록한다.
     body += '<div class="wlhead" style="margin-top:16px">' + t("wl_eco_title") + '</div>';
@@ -1849,8 +1964,8 @@ function drawWireless(){
   }
   box.innerHTML = '<div class="setup" id="wlroot"><div class="chead">' +
       '<span class="ctitle">' + t("menu_wireless") + '</span>' +
-      '<button style="margin-left:auto" onclick="' + (wlEdit || wlRf || wlEco ? "wlEdit=null;wlRf=null;wlEco=null;drawWireless()" : "closeWireless()") + '">' +
-        (wlEdit || wlRf || wlEco ? t("back_list") : t("back_menu")) + '</button>' +
+      '<button style="margin-left:auto" onclick="' + (wlEdit || wlRf || wlEco || wlBle ? "wlEdit=null;wlRf=null;wlEco=null;wlBle=null;drawWireless()" : "closeWireless()") + '">' +
+        (wlEdit || wlRf || wlEco || wlBle ? t("back_list") : t("back_menu")) + '</button>' +
     '</div><div class="sbody">' + msg + body + '</div></div>';
 }
 
@@ -3845,7 +3960,8 @@ def serve(
             if self.path.startswith("/api/wireless/") and on_wireless is not None:
                 action = self.path[len("/api/wireless/"):]
                 body = self._body()
-                if action not in ("permit", "register", "remove", "enable") or not isinstance(body, dict):
+                if action not in ("permit", "register", "remove", "enable", "ble_fetch", "ble_add", "ble_remove",
+                                  "ble_forget") or not isinstance(body, dict):
                     self._send(200, json.dumps({"ok": False, "error": "요청이 올바르지 않습니다."}).encode(),
                                "application/json")
                     return

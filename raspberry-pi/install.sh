@@ -204,6 +204,16 @@ else
   RUNNING=no
 fi
 
+# ── 6. 투야 블루투스 준비 (처음 한 번) ───────────────────────────────────────
+# 장비 화면 [무선 센서] 에서 블루투스 토양센서를 등록하려면 전용 파이썬(bleak·tinytuya)이 있어야 한다.
+# 업데이트 때 한 번 깔아 두면 터미널을 쓸 일이 없다. 인터넷이 없거나 실패해도 설치는 계속한다.
+# 건너뛰려면 SHRIMP_SKIP_BLE=1.
+if [ -d /run/systemd/system ] && [ ! -x /opt/shrimp365/ble-venv/bin/python ] \
+   && [ -f "$SRC/setup-tuya-ble.sh" ] && [ "${SHRIMP_SKIP_BLE:-0}" != 1 ]; then
+  echo "==> 블루투스 센서 준비 (처음 한 번, 몇 분)"
+  bash "$SRC/setup-tuya-ble.sh" || echo "   (블루투스 준비를 못 했습니다 — 나중에: sudo bash setup-tuya-ble.sh)"
+fi
+
 echo
 echo "==> 설치 완료"
 echo
