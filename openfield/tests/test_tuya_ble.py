@@ -307,10 +307,18 @@ def test_read_one_retries_connect(monkeypatch):
     fake_bleak.BleakClient = lambda device, timeout=0: _Fail()
     monkeypatch.setitem(_sys.modules, "bleak", fake_bleak)
     monkeypatch.setattr(bridge.asyncio, "sleep", _nosleep)
+    found = []
+
+    async def _again(addr, seconds=20.0):
+        found.append(addr)
+        return _Dev(addr)
+
+    monkeypatch.setattr(bridge, "find_again", _again)
     cfg = {"uuid": UUID, "local_key": LOCAL_KEY, "sensor_id": "SOIL-T1"}
     with pytest.raises(bridge.StageError) as ei:
         asyncio.run(bridge.read_one(_Dev("x"), DEV_ID, cfg, False))
     assert len(tries) == bridge.CONNECT_TRIES and ei.value.stage == "connect"
+    assert found == ["x"] * (bridge.CONNECT_TRIES - 1)          # 다시 붙기 전마다 다시 찾는다
     assert "3번 시도" in bridge.friendly_error(ei.value)
 
 
