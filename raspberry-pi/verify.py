@@ -579,7 +579,9 @@ check("블루투스 수집 파일(tuyable_)도 토양수분·지온으로 읽는
 print("\n⑫ 전력 회로 켜고 끄기 — 수동·시간 예약·반복 간격·안전")
 import power_control as pc  # noqa: E402
 check("인입 회로는 규칙을 걸 수 없다", pc.clean_rule({"mode": "manual"}, "main")[0], None)
-check("산소공급기는 예약을 걸 수 없다", pc.clean_rule({"mode": "cycle", "cycle": {"on_min": 5, "off_min": 5}}, "aerator")[0], None)
+check("산소공급기도 예약·자동 끄기를 걸 수 있다",
+      pc.clean_rule({"mode": "cycle", "auto_off_min": 30, "cycle": {"on_min": 5, "off_min": 5}}, "aerator")[0]["mode"], "cycle")
+check("산소량 연동: 끄는 기준이 켜는 기준보다 높아야", pc.clean_rule({"mode": "do", "do": {"on_below": 5, "off_above": 5}}, "aerator")[0], None)
 check("시각 형식 검사", pc.clean_rule({"mode": "timer", "timers": [{"on": "6:00", "off": "07:00"}]}, "irrigation_pump")[0], None)
 _tr, _ = pc.clean_rule({"mode": "timer", "timers": [{"on": "22:00", "off": "02:00", "days": [4]}]}, "heater")
 _D = _dt.datetime
@@ -623,7 +625,8 @@ _now["t"] = _D(2026, 10, 24, 7, 21)
 _P.tick()
 check("20분만 켜기: 시간이 지나면 끈다", (_sent[-2:], "PUMP-01" in _P.over), ([("pump-01", True), ("pump-01", False)], False))
 check("인입 회로는 켜고 끌 수 없다", _P.manual("MAIN-01", False)["ok"], False)
-check("산소공급기 시간 지정 끄기는 안 된다", _P.manual("AIR-01", False, 10)["ok"], False)
+check("산소공급기도 시간 지정 켜기가 된다", _P.manual("AIR-01", True, 10)["ok"], True)
+_P.clear_override("AIR-01")
 _P.observe([{"id": "PUMP-01", "type": "irrigation_pump", "state": 0, "level": "crit"}])
 check("과열 중에는 켜지 않는다", _P.manual("PUMP-01", True)["ok"], False)
 check("등록 안 된 차단기", _P.manual("PUMP-09", True)["ok"], False)
@@ -638,6 +641,36 @@ _P.tick()
 check("차단기가 따라오지 않으면 다시 보낸다", _sent[_n:], [("pump-01", True), ("pump-01", True)])
 _now["t"] = _D(2000, 1, 1, 6, 1)
 check("시계가 틀리면 예약을 멈춘다", _P.desired("PUMP-01", _now["t"]), None)
+
+# 산소량 연동 · 산소 부족 강제 켜기
+_now["t"] = _D(2026, 10, 26, 12, 0)
+_Q = pc.PowerControl(Path(tempfile.mkdtemp()) / "pc.json", send=lambda n, on: None, clock=lambda: _now["t"],
+                     names=lambda: {"AIR-01": "air-01", "AIR-02": "air-02"})
+_Q.observe([{"id": "AIR-01", "type": "aerator", "state": 0, "level": ""},
+            {"id": "AIR-02", "type": "aerator", "state": 0, "level": ""}])
+_Q.set_rule("AIR-01", {"mode": "do", "do": {"on_below": 5.0, "off_above": 6.0, "min_on_min": 0}})
+_seq = []
+for _v in (6.5, 5.5, 4.9, 5.5, 6.1, 5.5):
+    _Q.observe_do(_v)
+    _seq.append(_Q.desired("AIR-01", _now["t"]))
+check("산소량 연동: 4.9 에서 켜고 6.1 까지 유지, 사이 구간은 그대로", _seq, [False, False, True, True, False, False])
+_Q.set_rule("AIR-01", {"mode": "do", "do": {"on_below": 5.0, "off_above": 6.0, "min_on_min": 10}})
+_Q.observe_do(4.0); _Q.desired("AIR-01", _now["t"])
+_Q.observe_do(7.0)
+check("산소량 연동: 켜면 최소 가동 시간은 끄지 않는다", _Q.desired("AIR-01", _now["t"]), True)
+_Q.do_at -= 700
+check("산소값이 10분 넘게 없으면 켠다", _Q.desired("AIR-01", _now["t"]), True)
+check("새 산소공급기 규칙에는 산소 부족 강제 켜기(4.0)가 기본", _Q.snapshot()["circuits"]["AIR-02"]["rule"].get("do_guard_below"), 4.0)
+_Q.set_rule("AIR-02", {"mode": "timer", "do_guard_below": 4.0, "timers": [{"on": "06:00", "off": "07:00"}]})
+_Q.observe_do(6.0)
+_g = [_Q.desired("AIR-02", _now["t"])]
+_Q.manual("AIR-02", False)
+_Q.observe_do(3.8); _g.append(_Q.desired("AIR-02", _now["t"]))
+_Q.observe_do(4.5); _g.append(_Q.desired("AIR-02", _now["t"]))
+_Q.observe_do(5.1); _g.append(_Q.desired("AIR-02", _now["t"]))
+check("강제 켜기: 예약 밖·손으로 꺼도 3.8 이면 켜고, 5.0 넘게 회복하면 풀린다", _g, [False, True, True, False])
+_Q.do_at -= 700
+check("산소값을 모르면 강제 켜기는 관여하지 않는다", _Q.desired("AIR-02", _now["t"]), False)
 
 print()
 if fails:

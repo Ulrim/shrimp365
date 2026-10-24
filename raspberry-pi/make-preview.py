@@ -67,17 +67,19 @@ _RULES = {
     "AUX-01": {"mode": "cycle", "auto_off_min": 0,
                "cycle": {"on_min": 15, "off_min": 45, "from": "08:00", "to": "18:00", "days": [0, 1, 2, 3, 4, 5, 6]}},
     "UV-01": {"mode": "manual", "auto_off_min": 60},
+    "AIR-01": {"mode": "do", "auto_off_min": 0, "do": {"on_below": 5.0, "off_above": 6.5, "min_on_min": 10}},
 }
 
 
 def control_of(circuits):
     out = {}
     for c in circuits:
-        out[c["id"]] = {"rule": _RULES.get(c["id"], {"mode": "manual", "auto_off_min": 0}),
-                        "can": c["type"] != "main", "manual_only": c["type"] == "aerator",
+        dflt = {"mode": "manual", "auto_off_min": 0, **({"do_guard_below": 4.0} if c["type"] == "aerator" else {})}
+        out[c["id"]] = {"rule": _RULES.get(c["id"], dflt),
+                        "can": c["type"] != "main", "confirm_off": c["type"] == "aerator", "do_forced": False,
                         "override": {"on": False, "until": None} if c["id"] == "AUX-01" else None,
                         "scheduled": None, "error": "", "pending": False}
-    return {"circuits": out, "clock_ok": True, "now": "14:32"}
+    return {"circuits": out, "clock_ok": True, "now": "14:32", "do": 6.42}
 
 
 def base_state(**over) -> dict:

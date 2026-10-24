@@ -2886,6 +2886,8 @@ def main() -> int:
             raw_holder.clear()
             raw_holder.update(values)          # 보정 전 값을 화면이 볼 수 있게 남긴다
             values = apply_calibration(values, cal_holder)
+        if pctl is not None:
+            pctl.observe_do(values.get("do_level"))     # 산소량 연동·산소 부족 강제 켜기 (보정한 값)
 
         # 환경·기상 — 켜 둔 장비만. 수질 센서가 죽어도 화면에는 띄우고, 읽기가
         # 실패해도 수질 측정·전송은 그대로 간다.

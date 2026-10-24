@@ -196,6 +196,7 @@ PAGE = """<!doctype html>
   .pwrow .num.warn{color:#FBBF24}
   .pwrow .num.crit{color:#F87171}
   .pwrow .num.dim{color:#475569}
+  .typegrid.four{grid-template-columns:repeat(4,1fr)}
   .pcline{display:flex;align-items:center;gap:6px;padding:0 0 8px;flex-wrap:wrap}
   .pcline .pcinfo{flex:1;min-width:180px;font-size:12px;color:#94A3B8}
   .pcline .pcbig{min-width:72px;font-weight:800}
@@ -1077,9 +1078,21 @@ var I18N = {
   pc_autooff_hint:{ko:"관수펌프를 켜 두고 잊어도 정한 시간 뒤 꺼집니다.",en:"A pump left on is switched off after this time.",vi:"Bơm quên tắt sẽ tự tắt sau thời gian này.",id:"Pompa yang lupa dimatikan akan mati setelah waktu ini."},
   pc_quick:{ko:"지금 잠깐 켜기",en:"Run now for",vi:"Chạy ngay trong",id:"Nyalakan sekarang selama"},
   pc_saved:{ko:"예약을 저장했습니다.",en:"Schedule saved.",vi:"Đã lưu lịch.",id:"Jadwal disimpan."},
-  pc_aerator:{ko:"산소공급기는 꺼지면 위험해 예약·자동 끄기를 걸 수 없습니다.",en:"Aerators can't be scheduled or auto-off — stopping them is dangerous.",vi:"Không thể hẹn giờ máy sục khí — tắt nguy hiểm.",id:"Aerator tak bisa dijadwalkan — mematikannya berbahaya."},
   pc_aerator_sure:{ko:"산소공급기를 끕니다. 정말 끄려면 [끄기]를 한 번 더 누르세요.",en:"This turns the aerator off. Tap [Turn off] again to confirm.",vi:"Sẽ tắt máy sục khí. Nhấn [Tắt] lần nữa để xác nhận.",id:"Aerator akan dimatikan. Tekan [Matikan] lagi untuk konfirmasi."},
   pc_clock:{ko:"장비 시계가 맞지 않아 예약이 멈춰 있습니다 — 인터넷에 연결하면 시계가 맞춰집니다.",en:"Device clock is wrong, schedules paused — connect to the internet to sync.",vi:"Đồng hồ sai, lịch tạm dừng — kết nối internet để đồng bộ.",id:"Jam perangkat salah, jadwal berhenti — sambungkan internet."},
+  pc_do:{ko:"산소량 연동",en:"By oxygen (DO)",vi:"Theo oxy (DO)",id:"Sesuai oksigen (DO)"},
+  pc_do_s:{ko:"산소 {lo} 이하 켜기 · {hi} 이상 끄기",en:"On ≤ {lo} · off ≥ {hi} mg/L",vi:"Bật ≤ {lo} · tắt ≥ {hi} mg/L",id:"Nyala ≤ {lo} · mati ≥ {hi} mg/L"},
+  pc_do_hint:{ko:"용존산소가 낮아지면 켜고 충분히 오르면 끕니다. 산소값이 10분 넘게 없으면 켜 둡니다.",en:"Turns on when DO drops and off when it recovers. If DO is missing for 10 min it stays on.",vi:"Bật khi DO giảm, tắt khi phục hồi. Mất DO 10 phút thì giữ bật.",id:"Nyala saat DO turun, mati saat pulih. Jika DO hilang 10 mnt tetap nyala."},
+  pc_do_on:{ko:"이 값 이하이면 켜기",en:"Turn on at or below",vi:"Bật khi ≤",id:"Nyala jika ≤"},
+  pc_do_off:{ko:"이 값 이상이면 끄기",en:"Turn off at or above",vi:"Tắt khi ≥",id:"Mati jika ≥"},
+  pc_do_minon:{ko:"켜면 최소 가동",en:"Minimum run",vi:"Chạy tối thiểu",id:"Minimal nyala"},
+  pc_do_bad:{ko:"끄는 기준은 켜는 기준보다 높아야 합니다.",en:"The off level must be above the on level.",vi:"Mức tắt phải cao hơn mức bật.",id:"Batas mati harus di atas batas nyala."},
+  pc_do_now:{ko:"산소 {v} mg/L",en:"DO {v} mg/L",vi:"DO {v} mg/L",id:"DO {v} mg/L"},
+  pc_do_none:{ko:"지금 산소값이 없습니다 — DO 센서를 켜야 연동됩니다(없으면 계속 켜 둡니다).",en:"No DO reading now — enable the DO sensor (without it the circuit stays on).",vi:"Chưa có DO — bật cảm biến DO (không có thì giữ bật).",id:"Belum ada DO — aktifkan sensor DO (tanpa itu tetap nyala)."},
+  pc_guard:{ko:"산소 부족 시 강제 켜기",en:"Force on when DO is low",vi:"Bắt buộc bật khi DO thấp",id:"Paksa nyala saat DO rendah"},
+  pc_guard_hint:{ko:"예약·손 조작과 관계없이, 산소가 이 값 이하로 떨어지면 켭니다(1 mg/L 회복하면 풀림).",en:"Regardless of schedule or manual off, turns on when DO falls to this level (released after +1 mg/L).",vi:"Bất kể lịch, bật khi DO xuống mức này (+1 mg/L thì bỏ).",id:"Abaikan jadwal, nyala saat DO turun ke batas ini (lepas setelah +1 mg/L)."},
+  pc_guard_s:{ko:"산소 {v}↓ 강제 켜기",en:"force on at DO ≤ {v}",vi:"bật khi DO ≤ {v}",id:"paksa nyala DO ≤ {v}"},
+  pc_forced:{ko:"산소 부족 — 강제로 켬",en:"Low DO — forced on",vi:"DO thấp — đã bật",id:"DO rendah — dipaksa nyala"},
   pc_now:{ko:"지금 {t}",en:"Now {t}",vi:"Bây giờ {t}",id:"Sekarang {t}"},
   pwt_main:{ko:"전체(인입)",en:"Main incomer",vi:"Tổng (đầu vào)",id:"Utama (masuk)"},
   pwt_aerator:{ko:"산소공급기·브로워",en:"Aerator / blower",vi:"Máy sục khí",id:"Aerator / blower"},
@@ -1284,7 +1297,9 @@ function drawPower(d){
   document.getElementById("powerpanel").innerHTML =
     '<div class="overlay"><h1>' + t("pw_title") + '</h1>' +
       '<div class="pwtot"><span>' + t(p.partial ? "pw_total_partial" : "pw_total") + ' <b>' + tot + '</b>kW</span>' +
-      (p.control ? '<span>' + t("pc_now", {t: p.control.now}) + '</span>' : "") + '</div>' + cmsg +
+      (p.control ? '<span>' + t("pc_now", {t: p.control.now}) + '</span>' : "") +
+      (p.control && p.control.do !== null && p.control.do !== undefined ? '<span>' + t("pc_do_now", {v: p.control.do.toFixed(2)}) + '</span>' : "") +
+      '</div>' + cmsg +
       '<div class="pwbox">' + rows + '</div>' +
       '<div class="ovbtns"><button class="act ghost" onclick="closePower()">' + t("close") + '</button></div>' +
     '</div>';
@@ -1295,6 +1310,9 @@ var pwCtl = null, pwDraft = null, pwCtlMsg = null, pwBusy = false, pwSure = null
 var PW_DAYS = [0,1,2,3,4,5,6];
 var PW_MIN_STEPS = [1,2,3,5,10,15,20,30,45,60,90,120,180,240,360,480,720];
 var PW_OFF_STEPS = [0,5,10,15,20,30,45,60,90,120,180,240,360,480,720];
+var PW_DO_STEPS = [1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,9,10];
+var PW_GUARD_STEPS = [0,2,2.5,3,3.5,4,4.5,5,5.5,6];
+var PW_MINON_STEPS = [0,5,10,15,20,30,45,60,90,120];
 
 function pwCtlOf(id){ var p = lastState && lastState.power; return p && p.control && p.control.circuits ? p.control.circuits[id] : null; }
 function pwFmtMin(m){ return m >= 60 && m % 60 === 0 ? t("pc_h", {n: m / 60}) : t("pc_m", {n: m}); }
@@ -1303,7 +1321,12 @@ function pwDaysTxt(ds){
   return ds.map(function(d){ return t("pc_d" + d); }).join("·");
 }
 function pwRuleTxt(r){
+  var g = r && r.do_guard_below ? " · " + t("pc_guard_s", {v: r.do_guard_below.toFixed(1)}) : "";
+  return pwRuleBase(r) + g;
+}
+function pwRuleBase(r){
   if (!r || r.mode === "manual") return t("pc_manual") + (r && r.auto_off_min ? " · " + t("pc_autooff_s", {m: pwFmtMin(r.auto_off_min)}) : "");
+  if (r.mode === "do") return t("pc_do_s", {lo: r.do.on_below.toFixed(1), hi: r.do.off_above.toFixed(1)});
   if (r.mode === "timer") return t("pc_timer") + " " + r.timers.map(function(x){ return x.on + "–" + x.off; }).join(", ") +
     " · " + pwDaysTxt(r.timers[0].days);
   var c = r.cycle;
@@ -1316,6 +1339,7 @@ function pwCtlLine(c){
   var bits = [esc(pwRuleTxt(k.rule))];
   if (k.override) bits.push('<span style="color:#FBBF24">' + t(k.override.on ? "pc_held_on" : "pc_held_off") +
     (k.override.until ? " " + t("pc_until", {t: k.override.until.slice(11, 16)}) : "") + '</span>');
+  if (k.do_forced) bits.push('<span style="color:#F87171">' + t("pc_forced") + '</span>');
   if (k.error) bits.push('<span style="color:#F87171">' + esc(k.error) + '</span>');
   else if (k.pending) bits.push('<span style="color:#94A3B8">' + t("pc_pending") + '</span>');
   return '<div class="pcline"><div class="pcinfo">' + bits.join(" · ") + '</div>' +
@@ -1329,7 +1353,7 @@ function pwToggle(id){
   var c = ((lastState.power || {}).circuits || []).filter(function(x){ return x.id === id; })[0] || {};
   var k = pwCtlOf(id) || {};
   var on = c.state !== 1;
-  if (!on && k.manual_only && pwSure !== id) {
+  if (!on && k.confirm_off && pwSure !== id) {
     pwSure = id; drawPower(lastState);
     return;
   }
@@ -1359,7 +1383,11 @@ function pwOpenCtl(id){
   pwDraft = JSON.parse(JSON.stringify(k.rule));
   if (!pwDraft.timers) pwDraft.timers = [{on: "06:00", off: "07:00", days: PW_DAYS.slice()}];
   if (!pwDraft.cycle) pwDraft.cycle = {on_min: 15, off_min: 45, from: "06:00", to: "18:00", days: PW_DAYS.slice()};
+  if (!pwDraft.do) pwDraft.do = {on_below: 5, off_above: 6, min_on_min: 10};
   if (!pwDraft.auto_off_min) pwDraft.auto_off_min = 0;
+  // 산소공급기는 강제 켜기를 4.0 으로 제안한다(화면에 보이므로 '안 함' 으로 내릴 수 있다).
+  if (pwDraft.do_guard_below === undefined && k.confirm_off) pwDraft.do_guard_below = 4;
+  if (!pwDraft.do_guard_below) pwDraft.do_guard_below = 0;
   drawPower(lastState);
 }
 function pwStepList(list, v, dir){
@@ -1393,8 +1421,9 @@ function pwStepper(label, path, kind){
       btn("+10m", "pwSet(" + q + ",pwTimeStep(pwGet(" + q + "),&quot;m&quot;,1))") +
       btn("+1h", "pwSet(" + q + ",pwTimeStep(pwGet(" + q + "),&quot;h&quot;,1))") + '</div>';
   }
-  var list = kind === "off" ? "PW_OFF_STEPS" : "PW_MIN_STEPS";
-  show = kind === "off" && !v ? t("pc_none") : pwFmtMin(v);
+  var list = {off: "PW_OFF_STEPS", min: "PW_MIN_STEPS", "do": "PW_DO_STEPS", guard: "PW_GUARD_STEPS", minon: "PW_MINON_STEPS"}[kind];
+  show = (kind === "off" || kind === "guard" || kind === "minon") && !v ? t("pc_none")
+       : (kind === "do" || kind === "guard") ? v.toFixed(1) + " mg/L" : pwFmtMin(v);
   return '<div class="pcstep"><span>' + label + '</span>' +
     btn("−", "pwSet(" + q + ",pwStepList(" + list + ",pwGet(" + q + "),-1))") + '<b>' + show + '</b>' +
     btn("+", "pwSet(" + q + ",pwStepList(" + list + ",pwGet(" + q + "),1))") + '</div>';
@@ -1416,16 +1445,20 @@ function pwSaveRule(){
   var r = {mode: pwDraft.mode, auto_off_min: pwDraft.auto_off_min};
   if (r.mode === "timer") r.timers = pwDraft.timers;
   if (r.mode === "cycle") r.cycle = pwDraft.cycle;
+  if (r.mode === "do") {
+    if (pwDraft.do.off_above <= pwDraft.do.on_below) { pwCtlMsg = {kind:"err", text:t("pc_do_bad")}; drawPower(lastState); return; }
+    r.do = pwDraft.do;
+  } else if (pwDraft.do_guard_below) r.do_guard_below = pwDraft.do_guard_below;
   pwAct(pwCtl, {action: "rule", rule: r});
 }
 function drawPowerCtl(){
   var id = pwCtl, k = pwCtlOf(id) || {}, d = pwDraft;
-  var modes = k.manual_only ? ["manual"] : ["manual","timer","cycle"];
+  var modes = ["manual","timer","cycle","do"];
   var h = '<div class="sub" style="margin:2px 0 6px">' + esc(id) + ' — ' + t("pc_pick_mode") + '</div>' +
-    '<div class="typegrid">' + modes.map(function(m){
+    '<div class="typegrid four">' + modes.map(function(m){
       return '<button class="' + (d.mode === m ? "on" : "") + '" onclick="pwSet(&quot;mode&quot;,&quot;' + m + '&quot;)">' + t("pc_" + m) + '</button>';
     }).join("") + '</div>';
-  if (k.manual_only) h += '<div class="sub" style="margin-top:6px;color:#FBBF24">' + t("pc_aerator") + '</div>';
+  var cur = lastState && lastState.power && lastState.power.control ? lastState.power.control.do : null;
   if (d.mode === "timer") {
     h += '<div class="sub" style="margin-top:10px">' + t("pc_timer_hint") + '</div>';
     d.timers.forEach(function(x, i){
@@ -1440,8 +1473,18 @@ function drawPowerCtl(){
       pwStepper(t("pc_run"), "cycle.on_min", "min") + pwStepper(t("pc_rest"), "cycle.off_min", "min") +
       pwStepper(t("pc_from"), "cycle.from", "time") + pwStepper(t("pc_to"), "cycle.to", "time") +
       pwDayChips("cycle.days") + '</div>';
+  } else if (d.mode === "do") {
+    h += '<div class="sub" style="margin-top:10px">' + t("pc_do_hint") + '</div><div class="pcbox">' +
+      pwStepper(t("pc_do_on"), "do.on_below", "do") + pwStepper(t("pc_do_off"), "do.off_above", "do") +
+      pwStepper(t("pc_do_minon"), "do.min_on_min", "minon") +
+      '<div class="sub">' + (cur === null || cur === undefined ? '<span style="color:#FBBF24">' + t("pc_do_none") + '</span>'
+                             : t("pc_do_now", {v: cur.toFixed(2)})) + '</div></div>';
   }
-  if (!k.manual_only) {
+  if (d.mode !== "do") {
+    h += '<div class="pcbox">' + pwStepper(t("pc_guard"), "do_guard_below", "guard") +
+      '<div class="sub">' + t("pc_guard_hint") + '</div></div>';
+  }
+  {
     h += '<div class="pcbox">' + pwStepper(t("pc_autooff"), "auto_off_min", "off") +
       '<div class="sub">' + t("pc_autooff_hint") + '</div></div>' +
       '<div class="sub" style="margin-top:8px">' + t("pc_quick") + '</div><div class="pcdays">' +

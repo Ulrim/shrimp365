@@ -1,4 +1,4 @@
-"""전력 회로 켜고 끄기 — 수동 · 시간 예약 · 반복 간격.
+"""전력 회로 켜고 끄기 — 수동 · 시간 예약 · 반복 간격 · 산소량 연동.
 
 계측 차단기(지그비)는 Zigbee2MQTT 로 켜고 끌 수 있다(`zigbee2mqtt/<이름>/set {"state":"ON"}`).
 이 모듈은 회로마다 규칙을 두고 15초마다 '지금 켜져 있어야 하는가' 를 계산해, 바뀔 때만 명령을 보낸다.
@@ -9,7 +9,16 @@
     {"mode": "timer", "timers": [{"on": "06:00", "off": "06:30", "days": [0,1,2,3,4,5,6]}]}
     {"mode": "cycle", "cycle": {"on_min": 15, "off_min": 45, "from": "06:00", "to": "18:00",
                                 "days": [0,1,2,3,4,5,6]}}
+    {"mode": "do", "do": {"on_below": 5.0, "off_above": 6.0, "min_on_min": 10}}   # 산소량 연동
     "auto_off_min": 30                                   # (어느 모드든) 손으로 켜면 30분 뒤 끈다. 0 = 안 함
+    "do_guard_below": 4.0                                # (예약·간격·수동) 산소가 이 아래면 무조건 켠다. 0 = 안 함
+
+산소량 연동(do): 용존산소가 on_below 이하로 떨어지면 켜고, off_above 이상으로 오르면 끈다(그 사이는
+그대로 — 켜고 끄기를 반복하지 않게). 한 번 켜면 min_on_min 동안은 끄지 않는다. 산소값이 10분 넘게
+없으면(센서 고장·배선) 켠다 — 모르면 켜 두는 쪽이 안전하다.
+
+산소 부족 강제 켜기(do_guard_below): 예약·간격·수동 어느 모드든, 산소가 그 값 이하이면 예약과 손 조작을
+무시하고 켠다. 산소가 그 값 + 1 mg/L 이상으로 회복되면 풀린다. 산소값을 모르면 관여하지 않는다.
 
 요일은 월=0 … 일=6. 켜는 시각이 끄는 시각보다 늦으면 자정을 넘긴다(22:00→02:00 는 켠 날 기준).
 
@@ -19,7 +28,8 @@
 
 안전:
   · 인입(main) 회로는 제어하지 않는다.
-  · 산소공급기(aerator)는 예약·간격·자동 끄기를 걸 수 없다 — 꺼지면 생물이 죽는다. 손으로만.
+  · 산소공급기(aerator)는 새 규칙의 '산소 부족 강제 켜기' 가 기본 4.0 mg/L 로 걸린다(끌 수 있다).
+    화면에서 손으로 끌 때는 한 번 더 묻는다.
   · 차단기가 과열(crit)이면 켜기 명령을 보내지 않는다.
   · 시계가 맞지 않으면(인터넷 없이 부팅해 2024년 이전) 예약을 돌리지 않는다.
   · 보낸 뒤 차단기 상태가 따라오지 않으면 90초 간격으로 두 번 더 보내고, 그래도 안 되면 화면에 알린다.
@@ -39,9 +49,13 @@ from pathlib import Path
 log = logging.getLogger("shrimp365.power")
 
 DEFAULT_PATH = Path("/var/lib/shrimp365/power_control.json")
-MODES = ("manual", "timer", "cycle")
+MODES = ("manual", "timer", "cycle", "do")
 NO_CONTROL = {"main"}
-MANUAL_ONLY = {"aerator"}
+#: 끌 때 화면이 한 번 더 묻는 회로, 새 규칙에 산소 부족 강제 켜기를 기본으로 거는 회로.
+CONFIRM_OFF = {"aerator"}
+DO_GUARD_DEFAULT = 4.0
+DO_STALE_S = 600
+GUARD_RELEASE = 1.0
 MAX_TIMERS = 6
 TICK_S = 15
 RETRY_S = 90
@@ -76,9 +90,15 @@ def clean_rule(rule: dict, kind: str) -> tuple[dict | None, str]:
         return None, "자동 끄기 시간이 올바르지 않습니다"
     if not 0 <= auto_off <= 24 * 60:
         return None, "자동 끄기는 0~1440분입니다"
-    if kind in MANUAL_ONLY and (mode != "manual" or auto_off):
-        return None, "산소공급기는 예약·자동 끄기를 걸 수 없습니다(꺼지면 위험)"
+    try:
+        guard = float(rule.get("do_guard_below") or 0)
+    except (TypeError, ValueError):
+        return None, "산소 부족 기준이 올바르지 않습니다"
+    if guard and not 0.5 <= guard <= 15:
+        return None, "산소 부족 기준은 0.5~15 mg/L 입니다"
     out: dict = {"mode": mode, "auto_off_min": auto_off}
+    if guard and mode != "do":
+        out["do_guard_below"] = round(guard, 1)
     if mode == "timer":
         timers = []
         for t in rule.get("timers") or []:
@@ -110,6 +130,17 @@ def clean_rule(rule: dict, kind: str) -> tuple[dict | None, str]:
         if not days:
             return None, "요일을 하나 이상 고르세요"
         out["cycle"] = {"on_min": on_m, "off_min": off_m, "from": frm, "to": to, "days": days}
+    elif mode == "do":
+        c = rule.get("do") or {}
+        try:
+            lo, hi, mn = float(c.get("on_below", 0)), float(c.get("off_above", 0)), int(c.get("min_on_min", 10))
+        except (TypeError, ValueError):
+            return None, "산소 기준이 올바르지 않습니다"
+        if not (0.5 <= lo <= 15 and lo < hi <= 20):
+            return None, "켜는 기준은 0.5~15, 끄는 기준은 그보다 높게(20 이하) 적습니다"
+        if not 0 <= mn <= 240:
+            return None, "최소 가동 시간은 0~240분입니다"
+        out["do"] = {"on_below": round(lo, 1), "off_above": round(hi, 1), "min_on_min": mn}
     return out, ""
 
 
@@ -159,6 +190,10 @@ class PowerControl:
         self.over: dict[str, dict] = {}      # 손 조작 {"on", "until", "sched"}
         self.last: dict[str, dict] = {}      # 마지막 명령 {"on", "at", "tries", "error"}
         self.circuits: dict[str, dict] = {}  # 주 루프가 알려 주는 회로 {"type", "state", "level"}
+        self.do_value: float | None = None   # 마지막 용존산소(mg/L)와 받은 때(monotonic)
+        self.do_at = 0.0
+        self.do_on: dict[str, float] = {}    # 산소량 연동으로 켠 회로 → 켠 때(time.time)
+        self.guard_on: set[str] = set()      # 산소 부족으로 강제로 켠 회로
         self._thread: threading.Thread | None = None
         self._load()
 
@@ -192,6 +227,17 @@ class PowerControl:
                 self.circuits[c["id"].upper()] = {"type": c.get("type"), "state": c.get("state"),
                                                   "level": c.get("level", "")}
 
+    def observe_do(self, value) -> None:
+        """주 루프가 읽은 용존산소. 못 읽었으면 None — 예전 값은 10분 뒤 '모름' 이 된다."""
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            with self._lock:
+                self.do_value, self.do_at = float(value), time.monotonic()
+
+    def _do_now(self) -> float | None:
+        if self.do_value is None or time.monotonic() - self.do_at > DO_STALE_S:
+            return None
+        return self.do_value
+
     def _kind(self, sid: str) -> str:
         return (self.circuits.get(sid) or {}).get("type") or "other"
 
@@ -213,19 +259,29 @@ class PowerControl:
             out = {}
             for sid in sorted(set(self.circuits) | set(self.rules)):
                 kind = self._kind(sid)
-                rule = self.rules.get(sid, {"mode": "manual", "auto_off_min": 0})
+                rule = self.rules.get(sid) or self.default_rule(kind)
                 o = self.over.get(sid)
                 last = self.last.get(sid, {})
                 out[sid] = {
                     "rule": rule,
                     "can": kind not in NO_CONTROL and sid in names,
-                    "manual_only": kind in MANUAL_ONLY,
+                    "confirm_off": kind in CONFIRM_OFF,
                     "override": None if not o else {"on": o["on"], "until": o.get("until")},
-                    "scheduled": scheduled(rule, now) if self._clock_ok(now) else None,
+                    "scheduled": self._sched(sid, rule, now, peek=True),
+                    "do_forced": sid in self.guard_on,
                     "error": last.get("error") or "",
                     "pending": bool(last and last.get("tries", 0) and not last.get("ok")),
                 }
-            return {"circuits": out, "clock_ok": self._clock_ok(now), "now": now.strftime("%H:%M")}
+            do = self._do_now()
+            return {"circuits": out, "clock_ok": self._clock_ok(now), "now": now.strftime("%H:%M"),
+                    "do": None if do is None else round(do, 2)}
+
+    @staticmethod
+    def default_rule(kind: str) -> dict:
+        r: dict = {"mode": "manual", "auto_off_min": 0}
+        if kind in CONFIRM_OFF:
+            r["do_guard_below"] = DO_GUARD_DEFAULT
+        return r
 
     def set_rule(self, sid: str, rule: dict) -> dict:
         sid = sid.upper()
@@ -254,16 +310,14 @@ class PowerControl:
                 return {"ok": False, "error": "이 회로의 차단기를 [무선 센서]에서 찾지 못했습니다"}
             if on and (self.circuits.get(sid) or {}).get("level") == "crit":
                 return {"ok": False, "error": "차단기 과열 중에는 켤 수 없습니다 — 부하·단자를 점검하세요"}
-            rule = self.rules.get(sid, {"mode": "manual", "auto_off_min": 0})
+            rule = self.rules.get(sid) or self.default_rule(kind)
             if minutes is None and on and rule.get("auto_off_min"):
                 minutes = int(rule["auto_off_min"])
             if minutes is not None:
-                if kind in MANUAL_ONLY:
-                    return {"ok": False, "error": "산소공급기는 시간 지정 켜기·끄기를 걸 수 없습니다"}
                 if not 1 <= int(minutes) <= 24 * 60:
                     return {"ok": False, "error": "시간은 1~1440분입니다"}
             now = self._clock()
-            self.over[sid] = {"on": bool(on), "sched": scheduled(rule, now) if self._clock_ok(now) else None,
+            self.over[sid] = {"on": bool(on), "sched": self._sched(sid, rule, now, peek=True),
                               "until": (now + dt.timedelta(minutes=int(minutes))).isoformat(timespec="seconds")
                               if minutes else None}
             self.last.pop(sid, None)
@@ -286,10 +340,48 @@ class PowerControl:
     def _clock_ok(now: dt.datetime) -> bool:
         return now.year >= 2024
 
+    def _sched(self, sid: str, rule: dict, now: dt.datetime, peek: bool = False) -> bool | None:
+        """규칙상 지금 켜져야 하는가 — 시각 예약·간격은 시계로, 산소량 연동은 용존산소로."""
+        if rule.get("mode") != "do":
+            return scheduled(rule, now) if self._clock_ok(now) else None
+        c, do = rule["do"], self._do_now()
+        was = sid in self.do_on
+        if do is None:
+            want = True                                  # 산소를 모르면 켜 둔다
+        elif do <= c["on_below"]:
+            want = True
+        elif do >= c["off_above"]:
+            want = was and time.time() - self.do_on[sid] < c.get("min_on_min", 0) * 60
+        else:
+            want = was                                   # 사이 구간은 그대로
+        if not peek:
+            if want and not was:
+                self.do_on[sid] = time.time()
+            elif not want:
+                self.do_on.pop(sid, None)
+        return want
+
+    def _guard(self, sid: str, rule: dict) -> bool:
+        """산소 부족 강제 켜기 — 걸렸는가(이번 판단에서 켜야 하는가)."""
+        below = rule.get("do_guard_below") or 0
+        do = self._do_now()
+        if not below or rule.get("mode") == "do" or do is None:
+            self.guard_on.discard(sid)
+            return False
+        if do <= below:
+            if sid not in self.guard_on:
+                log.warning("산소 부족(%.2f mg/L ≤ %.1f) — %s 를 강제로 켭니다", do, below, sid)
+            self.guard_on.add(sid)
+        elif do >= below + GUARD_RELEASE:
+            self.guard_on.discard(sid)
+        return sid in self.guard_on
+
     def desired(self, sid: str, now: dt.datetime) -> bool | None:
         """지금 켜져 있어야 하는가. None 이면 아무것도 하지 않는다."""
-        rule = self.rules.get(sid, {"mode": "manual"})
-        sched = scheduled(rule, now) if self._clock_ok(now) else None
+        rule = self.rules.get(sid) or self.default_rule(self._kind(sid))
+        sched = self._sched(sid, rule, now)
+        if self._guard(sid, rule):
+            return True                       # 산소 부족 — 예약·손 조작보다 앞선다
         o = self.over.get(sid)
         if o:
             until = o.get("until")
@@ -313,7 +405,8 @@ class PowerControl:
                 return out                      # 회로 종류를 알기 전(시작 직후)에는 명령하지 않는다
             now = self._clock()
             names = self._zname_map()
-            for sid in sorted(set(self.rules) | set(self.over)):
+            guarded = {sid for sid, c in self.circuits.items() if c.get("type") in CONFIRM_OFF}
+            for sid in sorted(set(self.rules) | set(self.over) | guarded):
                 want = self.desired(sid, now)
                 if want is None or sid not in names or self._kind(sid) in NO_CONTROL:
                     continue
