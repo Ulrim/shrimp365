@@ -196,6 +196,18 @@ PAGE = """<!doctype html>
   .pwrow .num.warn{color:#FBBF24}
   .pwrow .num.crit{color:#F87171}
   .pwrow .num.dim{color:#475569}
+  .typegrid.four{grid-template-columns:repeat(4,1fr)}
+  .pcline{display:flex;align-items:center;gap:6px;padding:0 0 8px;flex-wrap:wrap}
+  .pcline .pcinfo{flex:1;min-width:180px;font-size:12px;color:#94A3B8}
+  .pcline .pcbig{min-width:72px;font-weight:800}
+  .pcline .pcbig.on{border-color:#F87171;color:#FCA5A5}
+  .pcbox{margin-top:8px;padding:8px;border:1px solid #22304C;border-radius:10px;display:flex;flex-direction:column;gap:6px}
+  .pcstep{display:flex;align-items:center;gap:6px}
+  .pcstep span{flex:1;font-size:13px;color:#CBD5E1}
+  .pcstep b{min-width:74px;text-align:center;font:800 16px/1 ui-monospace,monospace;color:#E8EDF7}
+  .pcdays{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
+  .pcdays button{min-width:42px;padding:8px 6px;border-radius:8px;border:1px solid #22304C;background:#0B1324;color:#94A3B8;font-weight:700}
+  .pcdays button.on{border-color:var(--brand);color:#E8EDF7;background:#13233F}
   .pwtot{display:flex;gap:18px;justify-content:center;margin-top:6px;font-size:13px;color:#94A3B8}
   .pwtot b{font:800 20px/1 ui-monospace,monospace;color:#E8EDF7;margin-right:3px}
   .typegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
@@ -1026,6 +1038,62 @@ var I18N = {
   pw_pick:{ko:"이 차단기에 연결된 기기를 고르세요",en:"Choose what this breaker feeds",vi:"Chọn thiết bị nối với aptomat này",id:"Pilih perangkat pada pemutus ini"},
   pw_change:{ko:"바꾸기",en:"Change",vi:"Đổi",id:"Ubah"},
   pw_saved:{ko:"바꿨습니다.",en:"Changed.",vi:"Đã đổi.",id:"Diubah."},
+  pc_title:{ko:"켜고 끄기 · 예약",en:"On/off · schedule",vi:"Bật/tắt · hẹn giờ",id:"Nyala/mati · jadwal"},
+  pc_turn_on:{ko:"켜기",en:"Turn on",vi:"Bật",id:"Nyalakan"},
+  pc_turn_off:{ko:"끄기",en:"Turn off",vi:"Tắt",id:"Matikan"},
+  pc_setup:{ko:"예약",en:"Schedule",vi:"Hẹn giờ",id:"Jadwal"},
+  pc_back_auto:{ko:"예약대로",en:"Back to schedule",vi:"Theo lịch",id:"Ikuti jadwal"},
+  pc_manual:{ko:"수동",en:"Manual",vi:"Thủ công",id:"Manual"},
+  pc_timer:{ko:"시간 예약",en:"Timer",vi:"Hẹn giờ",id:"Timer"},
+  pc_cycle:{ko:"반복 간격",en:"Repeat interval",vi:"Lặp chu kỳ",id:"Interval berulang"},
+  pc_cycle_s:{ko:"{on} 켜고 {off} 쉬기",en:"{on} on / {off} off",vi:"Bật {on} / nghỉ {off}",id:"{on} nyala / {off} mati"},
+  pc_h:{ko:"{n}시간",en:"{n} h",vi:"{n} giờ",id:"{n} jam"},
+  pc_m:{ko:"{n}분",en:"{n} min",vi:"{n} phút",id:"{n} mnt"},
+  pc_none:{ko:"안 함",en:"Off",vi:"Không",id:"Tidak"},
+  pc_everyday:{ko:"매일",en:"Every day",vi:"Hằng ngày",id:"Setiap hari"},
+  pc_d0:{ko:"월",en:"Mon",vi:"T2",id:"Sen"},
+  pc_d1:{ko:"화",en:"Tue",vi:"T3",id:"Sel"},
+  pc_d2:{ko:"수",en:"Wed",vi:"T4",id:"Rab"},
+  pc_d3:{ko:"목",en:"Thu",vi:"T5",id:"Kam"},
+  pc_d4:{ko:"금",en:"Fri",vi:"T6",id:"Jum"},
+  pc_d5:{ko:"토",en:"Sat",vi:"T7",id:"Sab"},
+  pc_d6:{ko:"일",en:"Sun",vi:"CN",id:"Min"},
+  pc_held_on:{ko:"손으로 켬",en:"Held on",vi:"Đang giữ bật",id:"Ditahan nyala"},
+  pc_held_off:{ko:"손으로 끔",en:"Held off",vi:"Đang giữ tắt",id:"Ditahan mati"},
+  pc_until:{ko:"{t}까지",en:"until {t}",vi:"đến {t}",id:"sampai {t}"},
+  pc_pending:{ko:"차단기 응답 기다리는 중",en:"Waiting for breaker",vi:"Đang chờ aptomat",id:"Menunggu pemutus"},
+  pc_pick_mode:{ko:"어떻게 켜고 끌까요?",en:"How should it switch?",vi:"Bật/tắt thế nào?",id:"Bagaimana menyalakan?"},
+  pc_timer_hint:{ko:"정한 시각에 켜고 끕니다. 끄는 시각이 더 이르면 다음 날 끕니다.",en:"Turns on and off at set times. An off time earlier than on means next day.",vi:"Bật/tắt theo giờ. Giờ tắt sớm hơn nghĩa là ngày hôm sau.",id:"Nyala/mati pada jam tertentu. Jam mati lebih awal berarti besoknya."},
+  pc_cycle_hint:{ko:"가동 시간대 안에서 켜기·쉬기를 되풀이합니다.",en:"Repeats on/off within the active hours.",vi:"Lặp bật/nghỉ trong khung giờ.",id:"Mengulang nyala/mati dalam jam aktif."},
+  pc_on_at:{ko:"켜는 시각",en:"On at",vi:"Giờ bật",id:"Jam nyala"},
+  pc_off_at:{ko:"끄는 시각",en:"Off at",vi:"Giờ tắt",id:"Jam mati"},
+  pc_run:{ko:"켜 두는 시간",en:"Run for",vi:"Chạy trong",id:"Nyala selama"},
+  pc_rest:{ko:"쉬는 시간",en:"Rest for",vi:"Nghỉ trong",id:"Mati selama"},
+  pc_from:{ko:"시작",en:"From",vi:"Từ",id:"Dari"},
+  pc_to:{ko:"끝",en:"To",vi:"Đến",id:"Sampai"},
+  pc_add:{ko:"예약 더하기",en:"Add time",vi:"Thêm giờ",id:"Tambah jadwal"},
+  pc_del:{ko:"빼기",en:"Remove",vi:"Xóa",id:"Hapus"},
+  pc_autooff:{ko:"손으로 켜면 자동 끄기",en:"Auto-off after manual on",vi:"Tự tắt sau khi bật tay",id:"Mati otomatis setelah dinyalakan manual"},
+  pc_autooff_s:{ko:"켜면 {m} 뒤 끔",en:"auto-off {m}",vi:"tự tắt sau {m}",id:"mati setelah {m}"},
+  pc_autooff_hint:{ko:"관수펌프를 켜 두고 잊어도 정한 시간 뒤 꺼집니다.",en:"A pump left on is switched off after this time.",vi:"Bơm quên tắt sẽ tự tắt sau thời gian này.",id:"Pompa yang lupa dimatikan akan mati setelah waktu ini."},
+  pc_quick:{ko:"지금 잠깐 켜기",en:"Run now for",vi:"Chạy ngay trong",id:"Nyalakan sekarang selama"},
+  pc_saved:{ko:"예약을 저장했습니다.",en:"Schedule saved.",vi:"Đã lưu lịch.",id:"Jadwal disimpan."},
+  pc_aerator_sure:{ko:"산소공급기를 끕니다. 정말 끄려면 [끄기]를 한 번 더 누르세요.",en:"This turns the aerator off. Tap [Turn off] again to confirm.",vi:"Sẽ tắt máy sục khí. Nhấn [Tắt] lần nữa để xác nhận.",id:"Aerator akan dimatikan. Tekan [Matikan] lagi untuk konfirmasi."},
+  pc_clock:{ko:"장비 시계가 맞지 않아 예약이 멈춰 있습니다 — 인터넷에 연결하면 시계가 맞춰집니다.",en:"Device clock is wrong, schedules paused — connect to the internet to sync.",vi:"Đồng hồ sai, lịch tạm dừng — kết nối internet để đồng bộ.",id:"Jam perangkat salah, jadwal berhenti — sambungkan internet."},
+  pc_do:{ko:"산소량 연동",en:"By oxygen (DO)",vi:"Theo oxy (DO)",id:"Sesuai oksigen (DO)"},
+  pc_do_s:{ko:"산소 {lo} 이하 켜기 · {hi} 이상 끄기",en:"On ≤ {lo} · off ≥ {hi} mg/L",vi:"Bật ≤ {lo} · tắt ≥ {hi} mg/L",id:"Nyala ≤ {lo} · mati ≥ {hi} mg/L"},
+  pc_do_hint:{ko:"용존산소가 낮아지면 켜고 충분히 오르면 끕니다. 산소값이 10분 넘게 없으면 켜 둡니다.",en:"Turns on when DO drops and off when it recovers. If DO is missing for 10 min it stays on.",vi:"Bật khi DO giảm, tắt khi phục hồi. Mất DO 10 phút thì giữ bật.",id:"Nyala saat DO turun, mati saat pulih. Jika DO hilang 10 mnt tetap nyala."},
+  pc_do_on:{ko:"이 값 이하이면 켜기",en:"Turn on at or below",vi:"Bật khi ≤",id:"Nyala jika ≤"},
+  pc_do_off:{ko:"이 값 이상이면 끄기",en:"Turn off at or above",vi:"Tắt khi ≥",id:"Mati jika ≥"},
+  pc_do_minon:{ko:"켜면 최소 가동",en:"Minimum run",vi:"Chạy tối thiểu",id:"Minimal nyala"},
+  pc_do_bad:{ko:"끄는 기준은 켜는 기준보다 높아야 합니다.",en:"The off level must be above the on level.",vi:"Mức tắt phải cao hơn mức bật.",id:"Batas mati harus di atas batas nyala."},
+  pc_do_now:{ko:"산소 {v} mg/L",en:"DO {v} mg/L",vi:"DO {v} mg/L",id:"DO {v} mg/L"},
+  pc_do_none:{ko:"지금 산소값이 없습니다 — DO 센서를 켜야 연동됩니다(없으면 계속 켜 둡니다).",en:"No DO reading now — enable the DO sensor (without it the circuit stays on).",vi:"Chưa có DO — bật cảm biến DO (không có thì giữ bật).",id:"Belum ada DO — aktifkan sensor DO (tanpa itu tetap nyala)."},
+  pc_guard:{ko:"산소 부족 시 강제 켜기",en:"Force on when DO is low",vi:"Bắt buộc bật khi DO thấp",id:"Paksa nyala saat DO rendah"},
+  pc_guard_hint:{ko:"예약·손 조작과 관계없이, 산소가 이 값 이하로 떨어지면 켭니다(1 mg/L 회복하면 풀림).",en:"Regardless of schedule or manual off, turns on when DO falls to this level (released after +1 mg/L).",vi:"Bất kể lịch, bật khi DO xuống mức này (+1 mg/L thì bỏ).",id:"Abaikan jadwal, nyala saat DO turun ke batas ini (lepas setelah +1 mg/L)."},
+  pc_guard_s:{ko:"산소 {v}↓ 강제 켜기",en:"force on at DO ≤ {v}",vi:"bật khi DO ≤ {v}",id:"paksa nyala DO ≤ {v}"},
+  pc_forced:{ko:"산소 부족 — 강제로 켬",en:"Low DO — forced on",vi:"DO thấp — đã bật",id:"DO rendah — dipaksa nyala"},
+  pc_now:{ko:"지금 {t}",en:"Now {t}",vi:"Bây giờ {t}",id:"Sekarang {t}"},
   pwt_main:{ko:"전체(인입)",en:"Main incomer",vi:"Tổng (đầu vào)",id:"Utama (masuk)"},
   pwt_aerator:{ko:"산소공급기·브로워",en:"Aerator / blower",vi:"Máy sục khí",id:"Aerator / blower"},
   pwt_circulation_pump:{ko:"순환펌프",en:"Circulation pump",vi:"Bơm tuần hoàn",id:"Pompa sirkulasi"},
@@ -1189,7 +1257,7 @@ function renderPowerAlert(d){
 }
 
 function openPower(){ powerOpen = true; drawPower(lastState || {}); }
-function closePower(){ powerOpen = false; document.getElementById("powerpanel").innerHTML = ""; }
+function closePower(){ powerOpen = false; pwCtl = null; pwDraft = null; pwCtlMsg = null; pwSure = null; document.getElementById("powerpanel").innerHTML = ""; }
 
 function drawPower(d){
   var p = d.power;
@@ -1210,16 +1278,221 @@ function drawPower(d){
         num(c.power === null ? "--" : Math.round(c.power), "W") +
         num(c.current === null ? "--" : c.current.toFixed(1), "A") +
         num(c.energy_today === null ? "--" : c.energy_today.toFixed(2), "kWh " + t("pw_today")) +
-        num(c.temp === null ? "--" : c.temp.toFixed(0), "\u2103", c.level) + '</div>';
+        num(c.temp === null ? "--" : c.temp.toFixed(0), "\u2103", c.level) + '</div>' + pwCtlLine(c) +
+        (pwSure === c.id ? '<div class="msg err">' + t("pc_aerator_sure") + '</div>' : "");
     }).join("");
   }
   var tot = p.total_w === null || p.total_w === undefined ? "--" : kw(p.total_w);
+  var cmsg = pwCtlMsg ? '<div class="msg ' + pwCtlMsg.kind + '">' + esc(pwCtlMsg.text) + '</div>' : "";
+  if (p.control && p.control.clock_ok === false) cmsg += '<div class="msg err">' + t("pc_clock") + '</div>';
+  if (pwCtl) {
+    document.getElementById("powerpanel").innerHTML =
+      '<div class="overlay"><h1>' + t("pc_title") + '</h1>' + cmsg +
+        '<div class="pwbox">' + drawPowerCtl() + '</div>' +
+        '<div class="ovbtns"><button class="act ghost" onclick="pwCtl=null;pwDraft=null;pwCtlMsg=null;drawPower(lastState)">' + t("cancel") + '</button>' +
+        '<button class="act" ' + (pwBusy ? "disabled" : "") + ' onclick="pwSaveRule()">' + t("save") + '</button></div>' +
+      '</div>';
+    return;
+  }
   document.getElementById("powerpanel").innerHTML =
     '<div class="overlay"><h1>' + t("pw_title") + '</h1>' +
-      '<div class="pwtot"><span>' + t(p.partial ? "pw_total_partial" : "pw_total") + ' <b>' + tot + '</b>kW</span></div>' +
+      '<div class="pwtot"><span>' + t(p.partial ? "pw_total_partial" : "pw_total") + ' <b>' + tot + '</b>kW</span>' +
+      (p.control ? '<span>' + t("pc_now", {t: p.control.now}) + '</span>' : "") +
+      (p.control && p.control.do !== null && p.control.do !== undefined ? '<span>' + t("pc_do_now", {v: p.control.do.toFixed(2)}) + '</span>' : "") +
+      '</div>' + cmsg +
       '<div class="pwbox">' + rows + '</div>' +
       '<div class="ovbtns"><button class="act ghost" onclick="closePower()">' + t("close") + '</button></div>' +
     '</div>';
+}
+
+// ── 전력 회로 켜고 끄기 · 예약 — power_control.py. 숫자는 키보드 없이 −/+ 로 고른다.
+var pwCtl = null, pwDraft = null, pwCtlMsg = null, pwBusy = false, pwSure = null;
+var PW_DAYS = [0,1,2,3,4,5,6];
+var PW_MIN_STEPS = [1,2,3,5,10,15,20,30,45,60,90,120,180,240,360,480,720];
+var PW_OFF_STEPS = [0,5,10,15,20,30,45,60,90,120,180,240,360,480,720];
+var PW_DO_STEPS = [1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,9,10];
+var PW_GUARD_STEPS = [0,2,2.5,3,3.5,4,4.5,5,5.5,6];
+var PW_MINON_STEPS = [0,5,10,15,20,30,45,60,90,120];
+
+function pwCtlOf(id){ var p = lastState && lastState.power; return p && p.control && p.control.circuits ? p.control.circuits[id] : null; }
+function pwFmtMin(m){ return m >= 60 && m % 60 === 0 ? t("pc_h", {n: m / 60}) : t("pc_m", {n: m}); }
+function pwDaysTxt(ds){
+  if (!ds || ds.length === 7) return t("pc_everyday");
+  return ds.map(function(d){ return t("pc_d" + d); }).join("·");
+}
+function pwRuleTxt(r){
+  var g = r && r.do_guard_below ? " · " + t("pc_guard_s", {v: r.do_guard_below.toFixed(1)}) : "";
+  return pwRuleBase(r) + g;
+}
+function pwRuleBase(r){
+  if (!r || r.mode === "manual") return t("pc_manual") + (r && r.auto_off_min ? " · " + t("pc_autooff_s", {m: pwFmtMin(r.auto_off_min)}) : "");
+  if (r.mode === "do") return t("pc_do_s", {lo: r.do.on_below.toFixed(1), hi: r.do.off_above.toFixed(1)});
+  if (r.mode === "timer") return t("pc_timer") + " " + r.timers.map(function(x){ return x.on + "–" + x.off; }).join(", ") +
+    " · " + pwDaysTxt(r.timers[0].days);
+  var c = r.cycle;
+  return t("pc_cycle_s", {on: pwFmtMin(c.on_min), off: pwFmtMin(c.off_min)}) + " · " + c.from + "–" + c.to + " · " + pwDaysTxt(c.days);
+}
+function pwCtlLine(c){
+  var k = pwCtlOf(c.id);
+  if (!k || !k.can) return "";
+  var on = c.state === 1;
+  var bits = [esc(pwRuleTxt(k.rule))];
+  if (k.override) bits.push('<span style="color:#FBBF24">' + t(k.override.on ? "pc_held_on" : "pc_held_off") +
+    (k.override.until ? " " + t("pc_until", {t: k.override.until.slice(11, 16)}) : "") + '</span>');
+  if (k.do_forced) bits.push('<span style="color:#F87171">' + t("pc_forced") + '</span>');
+  if (k.error) bits.push('<span style="color:#F87171">' + esc(k.error) + '</span>');
+  else if (k.pending) bits.push('<span style="color:#94A3B8">' + t("pc_pending") + '</span>');
+  return '<div class="pcline"><div class="pcinfo">' + bits.join(" · ") + '</div>' +
+    (k.override && k.rule.mode !== "manual" ? '<button class="toggle" ' + (pwBusy ? "disabled" : "") +
+      ' onclick="pwAct(&quot;' + esc(c.id) + '&quot;,{action:&quot;auto&quot;})">' + t("pc_back_auto") + '</button>' : "") +
+    '<button class="toggle" onclick="pwOpenCtl(&quot;' + esc(c.id) + '&quot;)">' + t("pc_setup") + '</button>' +
+    '<button class="toggle pcbig' + (on ? " on" : "") + '" ' + (pwBusy ? "disabled" : "") +
+      ' onclick="pwToggle(&quot;' + esc(c.id) + '&quot;)">' + t(on ? "pc_turn_off" : "pc_turn_on") + '</button></div>';
+}
+function pwToggle(id){
+  var c = ((lastState.power || {}).circuits || []).filter(function(x){ return x.id === id; })[0] || {};
+  var k = pwCtlOf(id) || {};
+  var on = c.state !== 1;
+  if (!on && k.confirm_off && pwSure !== id) {
+    pwSure = id; drawPower(lastState);
+    return;
+  }
+  pwSure = null;
+  pwAct(id, {action: "set", on: on});
+}
+function pwAct(id, body){
+  pwBusy = true; body.id = id;
+  fetch("/api/power/control", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      pwBusy = false;
+      if (d && d.control && lastState.power) lastState.power.control = d.control;
+      if (d && d.ok && body.action === "set") {
+        (lastState.power.circuits || []).forEach(function(c){ if (c.id === id) c.state = body.on ? 1 : 0; });
+      }
+      pwCtlMsg = d && d.ok ? (body.action === "rule" ? {kind:"ok", text:t("pc_saved")} : null)
+                           : {kind:"err", text:(d && d.error) || t("save_fail")};
+      if (d && d.ok && body.action === "rule") { pwCtl = null; pwDraft = null; }
+      drawPower(lastState);
+    })
+    .catch(function(){ pwBusy = false; pwCtlMsg = {kind:"err", text:t("save_fail")}; drawPower(lastState); });
+}
+function pwOpenCtl(id){
+  var k = pwCtlOf(id) || {rule: {mode: "manual", auto_off_min: 0}};
+  pwCtl = id; pwCtlMsg = null;
+  pwDraft = JSON.parse(JSON.stringify(k.rule));
+  if (!pwDraft.timers) pwDraft.timers = [{on: "06:00", off: "07:00", days: PW_DAYS.slice()}];
+  if (!pwDraft.cycle) pwDraft.cycle = {on_min: 15, off_min: 45, from: "06:00", to: "18:00", days: PW_DAYS.slice()};
+  if (!pwDraft.do) pwDraft.do = {on_below: 5, off_above: 6, min_on_min: 10};
+  if (!pwDraft.auto_off_min) pwDraft.auto_off_min = 0;
+  // 산소공급기는 강제 켜기를 4.0 으로 제안한다(화면에 보이므로 '안 함' 으로 내릴 수 있다).
+  if (pwDraft.do_guard_below === undefined && k.confirm_off) pwDraft.do_guard_below = 4;
+  if (!pwDraft.do_guard_below) pwDraft.do_guard_below = 0;
+  drawPower(lastState);
+}
+function pwStepList(list, v, dir){
+  var i = list.indexOf(v);
+  if (i < 0) { i = 0; while (i < list.length - 1 && list[i] < v) i++; }
+  return list[Math.max(0, Math.min(list.length - 1, i + dir))];
+}
+function pwTimeStep(s, part, dir){
+  var h = +s.slice(0, 2), m = +s.slice(3, 5);
+  if (s === "24:00") { h = 24; m = 0; }
+  var tot = h * 60 + m + (part === "h" ? 60 : 10) * dir;
+  tot = ((tot % 1440) + 1440) % 1440;
+  return ("0" + Math.floor(tot / 60)).slice(-2) + ":" + ("0" + tot % 60).slice(-2);
+}
+function pwSet(path, val){
+  var o = pwDraft, ks = path.split(".");
+  for (var i = 0; i < ks.length - 1; i++) o = o[ks[i]];
+  o[ks[ks.length - 1]] = val;
+  drawPower(lastState);
+}
+function pwGet(path){ var o = pwDraft; path.split(".").forEach(function(k){ o = o[k]; }); return o; }
+function pwStepper(label, path, kind){
+  var v = pwGet(path), show, btn = function(txt, js){ return '<button class="toggle" onclick="' + js + '">' + txt + '</button>'; };
+  var q = "&quot;" + path + "&quot;";
+  if (kind === "time") {
+    show = v;
+    return '<div class="pcstep"><span>' + label + '</span>' +
+      btn("−1h", "pwSet(" + q + ",pwTimeStep(pwGet(" + q + "),&quot;h&quot;,-1))") +
+      btn("−10m", "pwSet(" + q + ",pwTimeStep(pwGet(" + q + "),&quot;m&quot;,-1))") +
+      '<b>' + show + '</b>' +
+      btn("+10m", "pwSet(" + q + ",pwTimeStep(pwGet(" + q + "),&quot;m&quot;,1))") +
+      btn("+1h", "pwSet(" + q + ",pwTimeStep(pwGet(" + q + "),&quot;h&quot;,1))") + '</div>';
+  }
+  var list = {off: "PW_OFF_STEPS", min: "PW_MIN_STEPS", "do": "PW_DO_STEPS", guard: "PW_GUARD_STEPS", minon: "PW_MINON_STEPS"}[kind];
+  show = (kind === "off" || kind === "guard" || kind === "minon") && !v ? t("pc_none")
+       : (kind === "do" || kind === "guard") ? v.toFixed(1) + " mg/L" : pwFmtMin(v);
+  return '<div class="pcstep"><span>' + label + '</span>' +
+    btn("−", "pwSet(" + q + ",pwStepList(" + list + ",pwGet(" + q + "),-1))") + '<b>' + show + '</b>' +
+    btn("+", "pwSet(" + q + ",pwStepList(" + list + ",pwGet(" + q + "),1))") + '</div>';
+}
+function pwDayChips(path){
+  var ds = pwGet(path);
+  return '<div class="pcdays">' + PW_DAYS.map(function(d){
+    var on = ds.indexOf(d) >= 0;
+    return '<button class="' + (on ? "on" : "") + '" onclick="pwDay(&quot;' + path + '&quot;,' + d + ')">' + t("pc_d" + d) + '</button>';
+  }).join("") + '</div>';
+}
+function pwDay(path, d){
+  var ds = pwGet(path).slice(), i = ds.indexOf(d);
+  if (i >= 0) ds.splice(i, 1); else ds.push(d);
+  ds.sort();
+  pwSet(path, ds);
+}
+function pwSaveRule(){
+  var r = {mode: pwDraft.mode, auto_off_min: pwDraft.auto_off_min};
+  if (r.mode === "timer") r.timers = pwDraft.timers;
+  if (r.mode === "cycle") r.cycle = pwDraft.cycle;
+  if (r.mode === "do") {
+    if (pwDraft.do.off_above <= pwDraft.do.on_below) { pwCtlMsg = {kind:"err", text:t("pc_do_bad")}; drawPower(lastState); return; }
+    r.do = pwDraft.do;
+  } else if (pwDraft.do_guard_below) r.do_guard_below = pwDraft.do_guard_below;
+  pwAct(pwCtl, {action: "rule", rule: r});
+}
+function drawPowerCtl(){
+  var id = pwCtl, k = pwCtlOf(id) || {}, d = pwDraft;
+  var modes = ["manual","timer","cycle","do"];
+  var h = '<div class="sub" style="margin:2px 0 6px">' + esc(id) + ' — ' + t("pc_pick_mode") + '</div>' +
+    '<div class="typegrid four">' + modes.map(function(m){
+      return '<button class="' + (d.mode === m ? "on" : "") + '" onclick="pwSet(&quot;mode&quot;,&quot;' + m + '&quot;)">' + t("pc_" + m) + '</button>';
+    }).join("") + '</div>';
+  var cur = lastState && lastState.power && lastState.power.control ? lastState.power.control.do : null;
+  if (d.mode === "timer") {
+    h += '<div class="sub" style="margin-top:10px">' + t("pc_timer_hint") + '</div>';
+    d.timers.forEach(function(x, i){
+      h += '<div class="pcbox">' + pwStepper(t("pc_on_at"), "timers." + i + ".on", "time") +
+        pwStepper(t("pc_off_at"), "timers." + i + ".off", "time") + pwDayChips("timers." + i + ".days") +
+        (d.timers.length > 1 ? '<button class="toggle" onclick="pwDraft.timers.splice(' + i + ',1);drawPower(lastState)">' + t("pc_del") + '</button>' : "") +
+        '</div>';
+    });
+    if (d.timers.length < 6) h += '<button class="toggle" style="margin-top:6px" onclick="pwDraft.timers.push({on:&quot;18:00&quot;,off:&quot;19:00&quot;,days:PW_DAYS.slice()});drawPower(lastState)">+ ' + t("pc_add") + '</button>';
+  } else if (d.mode === "cycle") {
+    h += '<div class="sub" style="margin-top:10px">' + t("pc_cycle_hint") + '</div><div class="pcbox">' +
+      pwStepper(t("pc_run"), "cycle.on_min", "min") + pwStepper(t("pc_rest"), "cycle.off_min", "min") +
+      pwStepper(t("pc_from"), "cycle.from", "time") + pwStepper(t("pc_to"), "cycle.to", "time") +
+      pwDayChips("cycle.days") + '</div>';
+  } else if (d.mode === "do") {
+    h += '<div class="sub" style="margin-top:10px">' + t("pc_do_hint") + '</div><div class="pcbox">' +
+      pwStepper(t("pc_do_on"), "do.on_below", "do") + pwStepper(t("pc_do_off"), "do.off_above", "do") +
+      pwStepper(t("pc_do_minon"), "do.min_on_min", "minon") +
+      '<div class="sub">' + (cur === null || cur === undefined ? '<span style="color:#FBBF24">' + t("pc_do_none") + '</span>'
+                             : t("pc_do_now", {v: cur.toFixed(2)})) + '</div></div>';
+  }
+  if (d.mode !== "do") {
+    h += '<div class="pcbox">' + pwStepper(t("pc_guard"), "do_guard_below", "guard") +
+      '<div class="sub">' + t("pc_guard_hint") + '</div></div>';
+  }
+  {
+    h += '<div class="pcbox">' + pwStepper(t("pc_autooff"), "auto_off_min", "off") +
+      '<div class="sub">' + t("pc_autooff_hint") + '</div></div>' +
+      '<div class="sub" style="margin-top:8px">' + t("pc_quick") + '</div><div class="pcdays">' +
+      [10, 30, 60, 120].map(function(m){
+        return '<button ' + (pwBusy ? "disabled" : "") + ' onclick="pwAct(&quot;' + esc(id) + '&quot;,{action:&quot;set&quot;,on:true,minutes:' + m + '})">' + pwFmtMin(m) + '</button>';
+      }).join("") + '</div>';
+  }
+  return h;
 }
 
 // [설정] → [전력 회로] — 차단기마다 연결된 기기 종류를 고른다(설계서 4-1 카탈로그).
@@ -3380,6 +3653,7 @@ def serve(
     get_mode=None,
     on_set_mode=None,
     on_set_power_type=None,
+    on_power_control=None,
     get_wireless=None,
     on_wireless=None,
     get_lang=None,
@@ -3576,6 +3850,14 @@ def serve(
                                "application/json")
                     return
                 self._send(200, json.dumps(on_wireless(action, body)).encode(), "application/json")
+                return
+            if self.path == "/api/power/control" and on_power_control is not None:
+                body = self._body()
+                if not isinstance(body, dict):
+                    self._send(200, json.dumps({"ok": False, "error": "요청이 올바르지 않습니다."}).encode(),
+                               "application/json")
+                    return
+                self._send(200, json.dumps(on_power_control(body), ensure_ascii=False).encode(), "application/json")
                 return
             if self.path == "/api/power/type" and on_set_power_type is not None:
                 body = self._body()
