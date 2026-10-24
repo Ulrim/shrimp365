@@ -207,15 +207,32 @@ class StageError(Exception):
         self.stage, self.cause = stage, cause
 
 
+async def find_again(address: str, seconds: float = 20.0):
+    """연결이 한 번 실패하면 BlueZ 가 기기를 목록에서 지운다 — 다시 붙기 전에 광고를 다시 듣는다."""
+    from bleak import BleakScanner
+    try:
+        return await BleakScanner.find_device_by_address(address, timeout=seconds)
+    except Exception:  # noqa: BLE001
+        return None
+
+
 async def read_one(device, dev_id: str, cfg: dict, verbose: bool, proto: int | None = None) -> dict[int, object]:
     from bleak import BleakClient
     last: BaseException | None = None
+    address = str(getattr(device, "address", device))
     for attempt in range(1, CONNECT_TRIES + 1):
         stage = "connect"
         try:
+            if attempt > 1:
+                if verbose:
+                    print(f"  [{cfg.get('sensor_id')}] 센서를 다시 찾는 중…")
+                again = await find_again(address)
+                if again is None:
+                    raise TimeoutError("다시 찾기에서 광고가 안 들림")
+                device = again
             if verbose:
                 print(f"  [{cfg.get('sensor_id')}] 연결 시도 {attempt}/{CONNECT_TRIES}")
-            async with BleakClient(device, timeout=25) as client:
+            async with BleakClient(device, timeout=30) as client:
                 session = Session(client, dev_id, cfg, verbose, proto)
                 try:
                     return await session.run()
@@ -246,7 +263,9 @@ def friendly_error(exc: Exception) -> str:
             return ("센서에 연결하지 못했습니다(3번 시도) — 휴대폰 투야 앱·게이트웨이가 센서를 잡고 있지 않은지, "
                     "센서가 가까운지 확인하세요")
         if exc.stage in ("info", "notify"):
-            return "연결은 됐지만 센서가 대답하지 않습니다 — 센서 버튼을 눌러 깨운 뒤 다시 기다려 보세요"
+            # 투야 센서는 열쇠가 틀린 요청을 대답 없이 버린다 — 앱에서 다시 붙인 뒤가 가장 흔하다.
+            return ("연결은 됐지만 센서가 대답하지 않습니다 — 열쇠가 틀렸을 수 있습니다: 화면 [투야에서 센서 가져오기] 로 "
+                    "열쇠를 새로 받으세요(앱에서 다시 붙였다면 반드시)")
         if exc.stage == "pair":
             return "로그인 응답이 없습니다 — 앱에서 다시 붙였다면 [투야에서 센서 가져오기] 를 눌러 열쇠를 새로 받으세요"
         return f"{STAGES.get(exc.stage, exc.stage)} 단계에서 멈췄습니다: {cause.__class__.__name__}"
@@ -390,7 +409,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--capture", default="data/field/capture")
     p.add_argument("--interval", type=float, default=300, help="읽는 간격(초). 배터리를 아끼려고 5분")
     p.add_argument("--scan-seconds", type=float, default=30, help="광고를 듣는 시간(초). 잠든 센서는 몇 초에 한 번 광고한다")
-    p.add_argument("--timeout", type=float, default=180, help="센서 하나를 읽는 최대 시간(초, 연결 재시도 포함)")
+    p.add_argument("--timeout", type=float, default=240, help="센서 하나를 읽는 최대 시간(초, 다시 찾기·연결 재시도 포함)")
     p.add_argument("--once", action="store_true", help="한 번만 읽고 끝낸다(현장 점검)")
     p.add_argument("-v", "--verbose", action="store_true")
     p.add_argument("--diagnose", metavar="MAC", help="그 센서의 광고·서비스·알림 원본을 보인다(현장 진단)")
