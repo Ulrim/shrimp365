@@ -35,6 +35,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from ofdf.data import tuya_ble as tb  # noqa: E402
 
 COLUMNS = ["ts", "zone", "sensor_id", "variable", "value", "unit", "quality"]
+#: 센서 응답을 기다리는 시간(초). 참고 구현(ha_tuya_ble)은 60초 — 잠든 센서는 연결 간격이 길다.
+RESPONSE_WAIT_S = 40
+#: 연결을 몇 번까지 다시 시도할지. 라즈베리파이 블루투스는 첫 연결이 자주 실패한다.
+CONNECT_TRIES = 3
+#: 단계 이름 — 실패하면 어디서 멈췄는지 화면에 알린다.
+STAGES = {"connect": "연결", "notify": "알림 켜기", "info": "기기정보 응답", "pair": "로그인 응답",
+          "status": "상태 요청", "dps": "값 받기"}
 FILE_PATTERN = "tuyable_%Y%m%d.csv"
 HEARD_FILE = "tuyable_heard.json"
 
@@ -69,6 +76,7 @@ class Session:
         self.last_dp = 0.0
         self.verbose = verbose
         self.loop = asyncio.get_running_loop()
+        self.stage = "notify"
 
     def log(self, msg: str) -> None:
         if self.verbose:
@@ -85,7 +93,7 @@ class Session:
         if not fut:
             return None
         try:
-            return await asyncio.wait_for(fut, 15)
+            return await asyncio.wait_for(fut, RESPONSE_WAIT_S)
         finally:
             self.waiting.pop(seq, None)
 
@@ -119,16 +127,24 @@ class Session:
         elif msg.code in (tb.TIME1_REQ, tb.TIME2_REQ):
             asyncio.ensure_future(self.send(msg.code, tb.time_response(msg.code), msg.seq, wait=False))
 
-    async def run(self, collect_s: float = 12.0) -> dict[int, object]:
+    async def run(self, collect_s: float = 15.0) -> dict[int, object]:
+        self.stage = "notify"
         await self.client.start_notify(tb.CHAR_NOTIFY, self.on_notify)
+        self.stage = "info"
+        self.log("기기정보 요청")
         info = await self.send(tb.DEVICE_INFO)
         meta = tb.apply_device_info(self.keys, info.data)
         self.proto = meta["protocol_version"] or self.proto
         self.log(f"기기정보 {meta}")
+        self.stage = "pair"
+        self.log("로그인 요청")
         pair = await self.send(tb.PAIR, tb.pairing_request(str(self.cfg["uuid"]), str(self.cfg["local_key"]), self.dev_id))
         if pair.data[:1] not in (b"\x00", b"\x02"):
             raise tb.TuyaBLEError(f"로그인 거부({pair.data.hex()}) — 열쇠가 바뀌었을 수 있습니다(앱에서 다시 붙였나?)")
+        self.stage = "status"
+        self.log("로그인 성공 — 상태 요청")
         await self.send(tb.DEVICE_STATUS)
+        self.stage = "dps"
         start = time.monotonic()
         # DP 는 상태 요청 뒤 곧 몰려온다. 마지막 DP 뒤 3초 조용하면 끝, 길어도 collect_s.
         while time.monotonic() - start < collect_s:
@@ -167,14 +183,57 @@ async def scan(seconds: float, verbose: bool) -> tuple[dict, dict, int]:
     return by_uuid, by_mac, len(by_mac)
 
 
+class StageError(Exception):
+    """어느 단계에서 실패했는지 담는다."""
+
+    def __init__(self, stage: str, cause: BaseException) -> None:
+        super().__init__(f"{STAGES.get(stage, stage)} 단계: {cause!r}")
+        self.stage, self.cause = stage, cause
+
+
 async def read_one(device, dev_id: str, cfg: dict, verbose: bool, proto: int | None = None) -> dict[int, object]:
     from bleak import BleakClient
-    async with BleakClient(device, timeout=20) as client:
-        return await Session(client, dev_id, cfg, verbose, proto).run()
+    last: BaseException | None = None
+    for attempt in range(1, CONNECT_TRIES + 1):
+        stage = "connect"
+        try:
+            if verbose:
+                print(f"  [{cfg.get('sensor_id')}] 연결 시도 {attempt}/{CONNECT_TRIES}")
+            async with BleakClient(device, timeout=25) as client:
+                session = Session(client, dev_id, cfg, verbose, proto)
+                try:
+                    return await session.run()
+                except BaseException:
+                    stage = session.stage
+                    raise
+        except tb.TuyaBLEError as exc:
+            raise StageError(stage, exc) from exc        # 열쇠·형식 문제 — 다시 해도 같다
+        except (asyncio.CancelledError, KeyboardInterrupt):
+            raise
+        except Exception as exc:  # noqa: BLE001 — 블루투스 오류는 종류가 많다
+            last = StageError(stage, exc)
+            if verbose:
+                print(f"  [{cfg.get('sensor_id')}] {last}")
+            if stage != "connect":
+                break                                       # 붙은 뒤 응답이 없으면 다시 붙어도 같다
+            await asyncio.sleep(2 * attempt)
+    raise last or StageError("connect", TimeoutError())
 
 
 def friendly_error(exc: Exception) -> str:
-    """화면에 띄울 한 줄 — 무엇을 하면 되는지."""
+    """화면에 띄울 한 줄 — 어느 단계에서 멈췄고 무엇을 하면 되는지."""
+    if isinstance(exc, StageError):
+        cause = exc.cause
+        if isinstance(cause, tb.TuyaBLEError):
+            return str(cause)[:160]
+        if exc.stage == "connect":
+            return ("센서에 연결하지 못했습니다(3번 시도) — 휴대폰 투야 앱·게이트웨이가 센서를 잡고 있지 않은지, "
+                    "센서가 가까운지 확인하세요")
+        if exc.stage in ("info", "notify"):
+            return "연결은 됐지만 센서가 대답하지 않습니다 — 센서 버튼을 눌러 깨운 뒤 다시 기다려 보세요"
+        if exc.stage == "pair":
+            return "로그인 응답이 없습니다 — 앱에서 다시 붙였다면 [투야에서 센서 가져오기] 를 눌러 열쇠를 새로 받으세요"
+        return f"{STAGES.get(exc.stage, exc.stage)} 단계에서 멈췄습니다: {cause.__class__.__name__}"
     text = str(exc) or exc.__class__.__name__
     if isinstance(exc, (asyncio.TimeoutError, TimeoutError)) or "timeout" in text.lower() or "timed out" in text.lower():
         return "센서에 붙다가 시간이 끝났습니다 — 휴대폰 투야 앱·게이트웨이가 센서를 잡고 있지 않은지 확인하세요"
@@ -235,7 +294,11 @@ async def cycle(args, heard: dict) -> int:
         item.update(address=str(address.address), last=now, dps={str(k): v for k, v in dps.items()}, error=None,
                     mapping={k: list(v) for k, v in mapping.vars.items()} if mapping else None,
                     rssi=adv[1])
-        if not mapping:
+        if not dps:
+            item.update(error="로그인은 됐지만 센서가 값을 보내지 않았습니다 — 다음 읽기를 기다려 보세요")
+            print(f"[{sid}] 로그인 성공, 값 없음", file=sys.stderr)
+        elif not mapping:
+            item.update(error=f"값은 받았지만 칸 배치를 모릅니다 — 받은 값 {dps}")
             print(f"[{sid}] DP 배치를 모릅니다 — 받은 값 {dps}. devices.yaml 의 dps: 를 적으세요", file=sys.stderr)
         elif args.verbose:
             print(f"[{sid}] {rows}")
@@ -263,7 +326,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--capture", default="data/field/capture")
     p.add_argument("--interval", type=float, default=300, help="읽는 간격(초). 배터리를 아끼려고 5분")
     p.add_argument("--scan-seconds", type=float, default=30, help="광고를 듣는 시간(초). 잠든 센서는 몇 초에 한 번 광고한다")
-    p.add_argument("--timeout", type=float, default=60, help="센서 하나를 읽는 최대 시간(초)")
+    p.add_argument("--timeout", type=float, default=180, help="센서 하나를 읽는 최대 시간(초, 연결 재시도 포함)")
     p.add_argument("--once", action="store_true", help="한 번만 읽고 끝낸다(현장 점검)")
     p.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args(argv)

@@ -255,3 +255,60 @@ def test_cycle_not_heard_says_what_to_do(tmp_path, monkeypatch):
     assert "게이트웨이" in h["error"] and "앱" in h["error"]
     _, h = _cycle(tmp_path, monkeypatch, {}, {}, 0)
     assert "블루투스가 꺼져" in h["error"]
+
+
+class _SilentClient:
+    """연결은 되지만 대답하지 않는 센서."""
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return False
+
+    async def start_notify(self, _c, _cb):
+        pass
+
+    async def write_gatt_char(self, *_a):
+        pass
+
+
+def test_read_one_names_the_stage_that_timed_out(monkeypatch):
+    import sys as _sys
+    bridge = _bridge()
+    monkeypatch.setattr(bridge, "RESPONSE_WAIT_S", 0.2)
+    fake_bleak = type(_sys)("bleak")
+    fake_bleak.BleakClient = lambda device, timeout=0: _SilentClient()
+    monkeypatch.setitem(_sys.modules, "bleak", fake_bleak)
+    cfg = {"uuid": UUID, "local_key": LOCAL_KEY, "sensor_id": "SOIL-T1"}
+    with pytest.raises(bridge.StageError) as ei:
+        asyncio.run(bridge.read_one(_Dev("DC:23:53:94:45:98"), DEV_ID, cfg, False))
+    assert ei.value.stage == "info"
+    assert "대답하지 않습니다" in bridge.friendly_error(ei.value)
+
+
+def test_read_one_retries_connect(monkeypatch):
+    import sys as _sys
+    bridge = _bridge()
+    tries = []
+
+    class _Fail:
+        async def __aenter__(self):
+            tries.append(1)
+            raise OSError("le-connection-abort-by-local")
+
+        async def __aexit__(self, *a):
+            return False
+
+    async def _nosleep(_s):
+        return None
+
+    fake_bleak = type(_sys)("bleak")
+    fake_bleak.BleakClient = lambda device, timeout=0: _Fail()
+    monkeypatch.setitem(_sys.modules, "bleak", fake_bleak)
+    monkeypatch.setattr(bridge.asyncio, "sleep", _nosleep)
+    cfg = {"uuid": UUID, "local_key": LOCAL_KEY, "sensor_id": "SOIL-T1"}
+    with pytest.raises(bridge.StageError) as ei:
+        asyncio.run(bridge.read_one(_Dev("x"), DEV_ID, cfg, False))
+    assert len(tries) == bridge.CONNECT_TRIES and ei.value.stage == "connect"
+    assert "3번 시도" in bridge.friendly_error(ei.value)
