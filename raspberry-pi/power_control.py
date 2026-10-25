@@ -346,6 +346,24 @@ class PowerControl:
         res = self.tick()
         return {"ok": True, **(res.get(sid) or {})}
 
+    def command(self, sid, action, body: dict) -> dict:
+        """장비 화면·웹(서버 명령함)이 함께 쓰는 입구 — set(켜기/끄기·시간)·rule(규칙)·auto(예약대로).
+        안전 검사(인입·과열·차단기 유무·규칙 범위)는 아래 함수들이 한다 — 웹 명령도 똑같이 걸린다."""
+        if not isinstance(sid, str) or not _ID.match(sid):
+            return {"ok": False, "error": "회로 이름이 올바르지 않습니다"}
+        if action == "set":
+            mins = body.get("minutes")
+            if mins is not None and (not isinstance(mins, int) or isinstance(mins, bool)):
+                return {"ok": False, "error": "시간이 올바르지 않습니다"}
+            if not isinstance(body.get("on"), bool):
+                return {"ok": False, "error": "켜기·끄기가 올바르지 않습니다"}
+            return self.manual(sid, body["on"], mins)
+        if action == "rule":
+            return self.set_rule(sid, body.get("rule"))
+        if action == "auto":
+            return self.clear_override(sid)
+        return {"ok": False, "error": "모르는 요청입니다"}
+
     def clear_override(self, sid: str) -> dict:
         sid = sid.upper()
         with self._lock:
