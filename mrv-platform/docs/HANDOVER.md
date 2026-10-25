@@ -1,6 +1,6 @@
 # MRV 플랫폼 — 인계 문서
 
-작성 2026-10-24 · 브랜치 `claude/mrv-platform-github-merge-zqhf88`
+작성 2026-10-24 · 개정 2026-10-25(마이그레이션 목록 정정) · 브랜치 `claude/mrv-platform-github-merge-zqhf88`
 
 이 문서는 **사람이 해야 하는 일**과 **지금 무엇이 되고 무엇이 안 되는지**를 적는다.
 기능 설명서가 아니라 인계장이다. 결과보고서에 그대로 옮기지 말고, 여기서 사실만
@@ -8,26 +8,84 @@
 
 ---
 
-## 1. 먼저 — 사람이 실행해야 하는 SQL 다섯
+## 1. 먼저 — 사람이 실행해야 하는 SQL (전부 10개)
 
-**이 저장소에는 service_role 키가 없다.** 마이그레이션 실행은 사람 몫이고, 돌리기
-전에는 아래 기능이 동작하지 않는다. Supabase SQL Editor 에서 실행한다. 모두 멱등이라
-여러 번 돌려도 안전하다.
+**이 저장소에는 service_role 키가 없다.** 마이그레이션 실행은 사람 몫이다.
+Supabase SQL Editor 에서 실행한다. 모두 멱등이라 여러 번 돌려도 안전하다.
 
-| 순서 | 파일 | 안 돌리면 |
-|---|---|---|
-| **1** | `supabase/migrations/mrv_kpi_config_org_scope.sql` | **`/kpi`·리포트·알림·추천이 전부 실패한다.** 배포 전에 반드시 먼저. |
-| 2 | `supabase/migrations/mrv_api_key_revocation.sql` | 장비 키 목록·폐기 화면이 실패한다. 수집은 정상. |
-| 3 | `supabase/migrations/mrv_readings_measurement_basis.sql` | 수집은 멈추지 않는다(폴백이 있다). 다만 그동안 쌓인 전력이 전부 「미기재」가 되고, 리포트가 "산입된 전력이 실측인지 알 수 없다" 를 인쇄한다. |
-| 4 | `supabase/migrations/mrv_emission_factor_source.sql` | 배출계수 출처(GIR 문서명·URL)가 리포트에 인쇄되지 않는다. |
-| 5 | `supabase/migrations/mrv_harvest_logs_production_basis.sql` | **생산량 입력이 503 으로 거절된다**(의도 — 적어 넣은 산정 근거가 조용히 사라지는 것보다 낫다). KPI 조회는 산정 근거를 미기재로 둔 채 정상 동작한다. |
+### 1-1. 무엇이 빠졌는지 먼저 확인한다
 
-순서가 중요한 것은 **1번뿐**이다. 나머지 넷은 순서 무관.
+DB 에 어디까지 적용됐는지는 **조회해 보지 않으면 알 수 없다.** 이 문서의 초판이
+"다섯 개" 라고 적은 것은 이번 작업에서 만든 것만 세고 그 앞의 것들이 이미 적용돼
+있다고 **확인 없이 가정**했기 때문이다. 실제 DB 에서는 10개 중 6개가 미적용이었고,
+`mrv_emission_factor_source.sql` 이 `column "source_url" does not exist` 로 실패했다.
 
-> 3번에 폴백이 있는 이유: 계측값은 증빙이고 자료유형은 그 증빙에 대한 메타데이터다.
+```sql
+select '1. mrv_readings.source' as 항목, to_char(count(*), 'FM0') as 있음
+  from information_schema.columns
+ where table_schema='public' and table_name='mrv_readings' and column_name='source'
+union all select '2. mrv_emission_factors.source_url', to_char(count(*), 'FM0')
+  from information_schema.columns
+ where table_schema='public' and table_name='mrv_emission_factors' and column_name='source_url'
+union all select '3. mrv_emission_factors.deprecated_at', to_char(count(*), 'FM0')
+  from information_schema.columns
+ where table_schema='public' and table_name='mrv_emission_factors' and column_name='deprecated_at'
+union all select '3b. KR-GRID-2023 계수 행', to_char(count(*), 'FM0')
+  from public.mrv_emission_factors where version='KR-GRID-2023'
+union all select '4. mrv_device_pairings 표', to_char(count(*), 'FM0')
+  from information_schema.tables
+ where table_schema='public' and table_name='mrv_device_pairings'
+union all select '5. mrv_kpi_config.org_id', to_char(count(*), 'FM0')
+  from information_schema.columns
+ where table_schema='public' and table_name='mrv_kpi_config' and column_name='org_id'
+union all select '6. mrv_harvest_logs.production_basis', to_char(count(*), 'FM0')
+  from information_schema.columns
+ where table_schema='public' and table_name='mrv_harvest_logs' and column_name='production_basis'
+union all select '7. mrv_api_keys.revoked_at', to_char(count(*), 'FM0')
+  from information_schema.columns
+ where table_schema='public' and table_name='mrv_api_keys' and column_name='revoked_at'
+union all select '8. mrv_readings.measurement_basis', to_char(count(*), 'FM0')
+  from information_schema.columns
+ where table_schema='public' and table_name='mrv_readings' and column_name='measurement_basis';
+```
+
+`1` 이면 적용됨, `0` 이면 빠진 것이다. **끝난 뒤 다시 돌려 여덟 줄이 전부 `1` 인지
+확인한다.**
+
+### 1-2. 실행 순서
+
+파일은 전부 `supabase/migrations/` 에 있다.
+
+| 순서 | 파일 | 안 돌리면 | 점검 항목 |
+|---|---|---|---|
+| ① | `mrv_platform.sql` | 아무것도 동작하지 않는다(기반 스키마) | — |
+| ② | `mrv_readings_source.sql` | 계측값 출처(device/manual/csv)를 저장할 수 없다 | 1 |
+| ③ | `mrv_emission_factor_provenance.sql` | **⑩이 `source_url does not exist` 로 실패한다** | 2 |
+| ④ | `mrv_emission_factor_2023.sql` | 0.4173 계수 행이 없다 | 3 · 3b |
+| ⑤ | `mrv_device_pairing.sql` | 현장 장비 페어링이 실패한다 | 4 |
+| **⑥** | **`mrv_kpi_config_org_scope.sql`** | **`/kpi`·리포트·알림·추천이 전부 실패한다. 배포 전 필수.** | 5 |
+| ⑦ | `mrv_harvest_logs_production_basis.sql` | 생산량 입력이 503 으로 거절된다(의도 — 적어 넣은 산정 근거가 조용히 사라지는 것보다 낫다). KPI 조회는 미기재로 둔 채 정상 동작 | 6 |
+| ⑧ | `mrv_api_key_revocation.sql` | 장비 키 목록·폐기 화면이 실패한다. 수집은 정상 | 7 |
+| ⑨ | `mrv_readings_measurement_basis.sql` | 수집은 멈추지 않는다(폴백). 전력이 전부 「미기재」로 남고 리포트가 "실측인지 알 수 없다" 를 인쇄한다 | 8 |
+| ⑩ | `mrv_emission_factor_source.sql` | 배출계수 출처(GIR 문서명·URL)가 리포트에 인쇄되지 않는다 | — |
+
+**의존 관계는 둘뿐이다.** ⑩은 ③·④ 뒤에만 돌아간다(③이 만드는 열을 갱신하고 ④가 넣는
+행을 찾는다). 나머지는 서로 독립이지만, 위 순서대로 돌리면 틀릴 일이 없다.
+
+**⑥은 배포 전에 반드시** 돌려야 한다. 코드가 먼저 올라가면 그 열이 없어 KPI 산출
+경로가 통째로 멈춘다.
+
+> ⑨에 폴백이 있는 이유: 계측값은 증빙이고 자료유형은 그 증빙에 대한 메타데이터다.
 > 메타데이터를 적을 칸이 없는 것이 증빙을 받지 못할 이유가 되어서는 안 된다. 열이
 > 없으면 그 칸을 빼고 저장하고, 로그에 크게 남기며, SQL 을 돌리면 **추가 조치 없이**
-> 정상 경로로 돌아온다(10분 안에).
+> 정상 경로로 돌아온다(10분 안에). ⑦은 반대로 **거절**한다 — 칸만 빼고 저장하면
+> 사람이 적어 넣은 "계산생체량" 이 조용히 사라진 채 생산량만 들어가고 되돌릴 수 없다.
+
+### 1-3. 끝난 뒤 눈으로 확인할 것
+
+- 설정 화면 — 배출계수에 출처(GIR 문서명·URL)가 보이는가
+- `/mrv/input` — 생산량이 저장되는가
+- 개요 화면 — EI 가 「산출 불가」에서 값으로 바뀌는가
 
 ---
 
