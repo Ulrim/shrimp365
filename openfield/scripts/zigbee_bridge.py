@@ -173,6 +173,14 @@ def run_subscribe(args, devices, writer: Writer) -> int:
         print(f"[연결] {args.host}:{args.port}  구독 {topic}")
 
     def on_message(client, userdata, message):
+        # 메시지 하나가 무엇이든 수집기는 죽지 않는다 — paho 2.x 는 콜백 예외를 loop_forever 밖으로 다시 던져,
+        # 빈 retained 'bridge/devices' 같은 메시지 하나로 재연결마다 서비스가 죽었다 살아나기를 되풀이했다.
+        try:
+            _on_message(message)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[무시] {message.topic}: {exc!r}", file=sys.stderr)
+
+    def _on_message(message):
         payload = message.payload.decode("utf-8", errors="replace")
         devices = table.current()
         if message.topic == f"{args.base_topic}/bridge/devices":

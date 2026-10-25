@@ -24,6 +24,7 @@ import argparse
 import base64
 import hashlib
 import json
+import os
 import sys
 import tarfile
 import time
@@ -113,11 +114,15 @@ def cmd_init(args) -> int:
 
     KEY_PATH.parent.mkdir(parents=True, exist_ok=True)
     private = Ed25519PrivateKey.generate()
-    KEY_PATH.write_bytes(private.private_bytes(
+    pem = private.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.PKCS8,
         encryption_algorithm=serialization.NoEncryption(),
-    ))
+    )
+    # 처음부터 600 으로 만든다 — 쓰고 나서 chmod 하면 그 사이 남이 읽을 수 있다.
+    fd = os.open(KEY_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as f:
+        f.write(pem)
     KEY_PATH.chmod(0o600)
 
     pub = base64.b64encode(private.public_key().public_bytes(

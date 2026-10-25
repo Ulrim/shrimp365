@@ -21,17 +21,20 @@ from __future__ import annotations
 
 import argparse
 import configparser
+import contextlib
 import http.client
 import json
 import logging
 import math
 import os
+import re
 import select
 import signal
 import ssl
 import struct
 import subprocess
 import sys
+import termios
 import threading
 import time
 import urllib.error
@@ -102,7 +105,7 @@ try:
 except ImportError:  # pragma: no cover
     power_control_mod = None
 
-VERSION = "1.9.6"
+VERSION = "1.9.7"
 
 #: 무선 센서 수집기가 쓰는 폴더(setup-wireless.sh). 서비스의 StateDirectory 아래라 읽고 쓸 수 있다.
 FIELD_DATA_DIR = "/var/lib/shrimp365/field/data"
@@ -224,6 +227,21 @@ class ModbusClient:
             self._ser.close()
         self._ser = None
 
+    @contextlib.contextmanager
+    def _port_errors(self):
+        """USB-RS485 변환기가 빠지면 pyserial 이 termios.error(OSError 아님)를 그대로 던져 수집 루프가 죽었다.
+        포트 오류는 닫고 SerialException 으로 바꿔 올린다 — 부르는 쪽이 이미 잡고, 다음 측정에서 다시 연다."""
+        try:
+            yield
+        except (OSError, termios.error) as exc:
+            try:
+                self.close()
+            except Exception:  # noqa: BLE001 — 죽은 포트는 닫기도 실패한다
+                self._ser = None
+            if isinstance(exc, serial.SerialException):
+                raise
+            raise serial.SerialException(f"직렬 포트 오류: {exc}") from exc
+
     def read_input_registers(self, slave_id: int, start: int, count: int) -> list[int]:
         """기능코드 04. 반환은 부호 있는 16비트 정수 목록."""
         if self._ser is None or not self._ser.is_open:
@@ -235,14 +253,13 @@ class ModbusClient:
 
         # 앞 프레임이 끝난 뒤 충분히 조용해질 때까지 기다렸다가 버퍼를 비운다.
         # 순서가 중요하다 — 먼저 비우면 그 뒤에 도착하는 꼬리를 못 걸러 낸다.
-        self._await_gap(slave_id)
-        self._ser.reset_input_buffer()
-        self._ser.write(frame)
-        self._last_slave = slave_id
-
-        # 응답: ID(1) 기능코드(1) 바이트수(1) 데이터(2*count) CRC(2)
-        expected = 5 + count * 2
-        response = self._ser.read(expected)
+        expected = 5 + count * 2      # 응답: ID(1) 기능코드(1) 바이트수(1) 데이터(2*count) CRC(2)
+        with self._port_errors():
+            self._await_gap(slave_id)
+            self._ser.reset_input_buffer()
+            self._ser.write(frame)
+            self._last_slave = slave_id
+            response = self._ser.read(expected)
         self._last_use = time.monotonic()
 
         # 어긋난 프레임을 그대로 두면 다음 센서 차례를 망친다.
@@ -277,11 +294,11 @@ class ModbusClient:
         request = struct.pack(">BBHH", slave_id, 0x06, register, value)
         frame = request + crc16(request)
 
-        self._await_gap()
-        self._ser.reset_input_buffer()
-        self._ser.write(frame)
-
-        response = self._ser.read(8)
+        with self._port_errors():
+            self._await_gap()
+            self._ser.reset_input_buffer()
+            self._ser.write(frame)
+            response = self._ser.read(8)
         self._last_use = time.monotonic()
         if len(response) < 8:
             raise ModbusError(f"ID {slave_id}: 응답 없음 (배선·전원·슬레이브 ID 확인)")
@@ -1389,6 +1406,14 @@ def post(endpoint: str, device_key: str, payload: dict, timeout: float = 10.0) -
     return False, f"HTTP {status}: {text}"
 
 
+def rejected_for_good(detail: str) -> bool:
+    """서버가 이 줄을 **영영** 받지 않을 응답인가 — 400·413·422 등 4xx.
+    다시 보내도 같다. 보관해 두면 재전송 맨 앞에서 매번 막혀 그 뒤의 밀린 값이 한 달 동안 안 올라간다.
+    401(키)·403·408·429(잠시 제한)는 사정이 바뀌면 받으므로 아니다."""
+    m = re.match(r"HTTP (\d{3})", detail or "")
+    return bool(m) and 400 <= int(m.group(1)) < 500 and int(m.group(1)) not in (401, 403, 408, 429)
+
+
 # ── 실행 ──────────────────────────────────────────────────────────────────────
 
 def load_config(path: Path) -> configparser.ConfigParser:
@@ -1865,6 +1890,10 @@ def flush_buffer(store, endpoint: str, device_key: str, batch: int, should_stop)
         if recorded_at:
             body["recorded_at"] = recorded_at
         ok, detail = post(endpoint, device_key, body)
+        if not ok and rejected_for_good(detail):
+            log.warning("보관분 한 건을 서버가 받지 않아 버립니다(%s) — 뒤의 값은 이어서 보냅니다.", detail)
+            store.drop([row_id])
+            continue
         if not ok:
             log.info("보관분 재전송 중단(%s) — 다음 기회에 이어서 보냅니다.", detail)
             break
@@ -2911,6 +2940,7 @@ def main() -> int:
             raw_holder.update(values)          # 보정 전 값을 화면이 볼 수 있게 남긴다
             values = apply_calibration(values, cal_holder)
         if pctl is not None:
+            pctl.set_interval(interval_holder["seconds"])  # 화면에서 측정 간격을 바꿀 수 있다
             pctl.observe_do(values.get("do_level"))     # 산소량 연동·산소 부족 강제 켜기 (보정한 값)
 
         # 환경·기상 — 켜 둔 장비만. 수질 센서가 죽어도 화면에는 띄우고, 읽기가
@@ -3073,7 +3103,7 @@ def main() -> int:
                         # 네트워크가 끊겨도 프로세스는 살아 있어야 한다.
                         # 값은 버리지 않고 저장해 두었다가 다음에 올린다.
                         log.error("전송 실패 — %s", detail)
-                        if store is not None:
+                        if store is not None and not rejected_for_good(detail):
                             store.append(payload, recorded_at)
                         status_line, status_args = _with_pending("SEND FAIL", store)
                         status_code = "send_fail"

@@ -5,6 +5,8 @@
 // 종류 목록·과열 기준은 장비(field_env.POWER_TYPES, limits.BREAKER_TEMP)·설계서
 // docs/plans/farm365-main-panel.md 4-1·4-4 와 같은 값이다. 바꾸면 셋 다 바꾼다.
 
+import { strictNumber } from "@/lib/strict-number"
+
 /** 부하 종류 — 회로마다 현장에서 하나를 고른다. */
 export const POWER_TYPES = [
   "main", "aerator", "circulation_pump", "irrigation_pump", "heater",
@@ -41,9 +43,8 @@ const MAX_CIRCUITS = 24
 const ID_RE = /^[A-Za-z0-9_.-]{1,32}$/
 
 function num(v: unknown, min: number, max: number): number | null {
-  if (v === null || v === undefined || v === "") return null
-  const n = Number(v)
-  return Number.isFinite(n) && n >= min && n <= max ? n : null
+  const n = strictNumber(v)
+  return n !== null && n >= min && n <= max ? n : null
 }
 
 /** 장비가 보낸 power 배열을 검증한다. 모양이 틀린 회로는 버리고, 범위 밖 값은 null 로. */

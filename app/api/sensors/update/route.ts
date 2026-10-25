@@ -8,6 +8,10 @@ const rateLimitMap = new Map<string, { count: number; windowStart: number }>()
 
 function checkRateLimit(key: string): boolean {
   const now = Date.now()
+  // 틀린 키로 마구 두드려도 표가 끝없이 커지지 않게 — 커지면 창이 지난 줄을 걷는다.
+  if (rateLimitMap.size > 5000) {
+    for (const [k, e] of rateLimitMap) if (now - e.windowStart > RATE_LIMIT_WINDOW_MS) rateLimitMap.delete(k)
+  }
   const entry = rateLimitMap.get(key)
   if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
     rateLimitMap.set(key, { count: 1, windowStart: now })

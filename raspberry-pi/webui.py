@@ -1300,6 +1300,12 @@ function drawPower(d){
   var tot = p.total_w === null || p.total_w === undefined ? "--" : kw(p.total_w);
   var cmsg = pwCtlMsg ? '<div class="msg ' + pwCtlMsg.kind + '">' + esc(pwCtlMsg.text) + '</div>' : "";
   if (p.control && p.control.clock_ok === false) cmsg += '<div class="msg err">' + t("pc_clock") + '</div>';
+  // 몇 초마다 다시 그린다 — 내려 보던 목록이 맨 위로 튀지 않게 스크롤을 지킨다.
+  var oldBox = document.querySelector("#powerpanel .pwbox"), keepTop = oldBox ? oldBox.scrollTop : 0;
+  var keepMode = pwCtl ? "ctl" : "list";
+  if (drawPower.mode !== keepMode) keepTop = 0;
+  drawPower.mode = keepMode;
+  var restore = function(){ var b = document.querySelector("#powerpanel .pwbox"); if (b) b.scrollTop = keepTop; };
   if (pwCtl) {
     document.getElementById("powerpanel").innerHTML =
       '<div class="overlay"><h1>' + t("pc_title") + '</h1>' + cmsg +
@@ -1307,6 +1313,7 @@ function drawPower(d){
         '<div class="ovbtns"><button class="act ghost" onclick="pwCtl=null;pwDraft=null;pwCtlMsg=null;drawPower(lastState)">' + t("cancel") + '</button>' +
         '<button class="act" ' + (pwBusy ? "disabled" : "") + ' onclick="pwSaveRule()">' + t("save") + '</button></div>' +
       '</div>';
+    restore();
     return;
   }
   document.getElementById("powerpanel").innerHTML =
@@ -1318,6 +1325,7 @@ function drawPower(d){
       '<div class="pwbox">' + rows + '</div>' +
       '<div class="ovbtns"><button class="act ghost" onclick="closePower()">' + t("close") + '</button></div>' +
     '</div>';
+  restore();
 }
 
 // ── 전력 회로 켜고 끄기 · 예약 — power_control.py. 숫자는 키보드 없이 −/+ 로 고른다.
@@ -1571,6 +1579,7 @@ var WL_ZONED = {canopy:true, soil:true};
 var WL_RF_KINDS = ["weather","soil","canopy","air","leaf","rain"];
 var WL_RF_PREFIX = {soil:"SOIL", canopy:"CN", air:"AIR", leaf:"LW", rain:"RAIN"};
 var WL_RF_ZONED = {soil:true, canopy:true, leaf:true};
+var wlOpen = false;   // 무선 센서 화면이 떠 있는가 — 늦게 온 응답이 다른 화면을 덮지 않게
 var wl = null, wlTimer = null, wlMsg = null, wlEdit = null, wlKind = null, wlZone = null, wlSure = null, wlBusy = false;
 var wlRf = null;   // 433MHz 등록 중이면 {model, id, key, model_only}
 var wlEco = null;  // 에코윗 등록 중이면 eco_new 의 한 항목 {key, family, channel, kind, passkey}
@@ -1647,16 +1656,17 @@ function bleCredBody(){
     '</div></div>';
 }
 
-function openWireless(){ wl = null; wlMsg = null; wlEdit = null; wlRf = null; wlEco = null; wlBle = null; wlSure = null; loadWireless(); }
-function closeWireless(){ if (wlTimer) clearTimeout(wlTimer); wlTimer = null; wl = null; drawSettingsMenu(); }
+function openWireless(){ wlOpen = true; wl = null; wlMsg = null; wlEdit = null; wlRf = null; wlEco = null; wlBle = null; wlSure = null; loadWireless(); }
+function wlStop(){ wlOpen = false; if (wlTimer) clearTimeout(wlTimer); wlTimer = null; }
+function closeWireless(){ wlStop(); wl = null; drawSettingsMenu(); }
 function loadWireless(){
   if (wlTimer) clearTimeout(wlTimer);
   fetch("/api/wireless", {cache:"no-store"})
     .then(function(r){ return r.json(); })
-    .then(function(d){ wl = d; drawWireless(); })
-    .catch(function(){ wlMsg = {kind:"err", text:t("load_fail")}; drawWireless(); })
+    .then(function(d){ if (wlOpen) { wl = d; drawWireless(); } })
+    .catch(function(){ if (wlOpen) { wlMsg = {kind:"err", text:t("load_fail")}; drawWireless(); } })
     .then(function(){
-      if (document.getElementById("wlroot")) wlTimer = setTimeout(loadWireless, wl && wl.permit_left ? 3000 : 5000);
+      if (wlOpen && document.getElementById("wlroot")) wlTimer = setTimeout(loadWireless, wl && wl.permit_left ? 3000 : 5000);
     });
 }
 function wlPost(action, body, done){
@@ -1664,7 +1674,7 @@ function wlPost(action, body, done){
   fetch("/api/wireless/" + action, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body || {})})
     .then(function(r){ return r.json(); })
     .catch(function(){ return {ok:false, error:t("save_fail")}; })
-    .then(function(d){ wlBusy = false; done(d || {}); loadWireless(); });
+    .then(function(d){ wlBusy = false; if (!wlOpen) return; done(d || {}); loadWireless(); });
 }
 function wlRfSuggest(kind, zone, model){
   var taken = (wl && wl.taken) || [];
@@ -2749,6 +2759,7 @@ function openSettings(){ settingsOpen = true; drawSettingsMenu(); }
 
 function closeSettings(){
   settingsOpen = false;
+  wlStop();
   setupData = null;
   document.getElementById("setup").innerHTML = "";
   document.getElementById("wifi").innerHTML = "";
@@ -2756,6 +2767,7 @@ function closeSettings(){
 }
 
 function drawSettingsMenu(){
+  wlStop();
   document.getElementById("wifi").innerHTML = "";
   var items = [
     {t:"menu_sensors", sub:"menu_sensors_sub", fn:"openSensors()"},
@@ -3200,12 +3212,21 @@ function doRestart(kind){
         return;
       }
       // 되살아나면 화면을 새로 읽는다. 프로그램 재시작은 약 15초, 재부팅은 약 1분.
-      setTimeout(function(){ location.reload(); }, dev ? 60000 : 18000);
+      reloadWhenBack(dev ? 45000 : 12000);
     })
     .catch(function(){
       // 응답을 못 받은 것은 대개 프로그램이 이미 끝났다는 뜻이다 — 정상이다.
-      setTimeout(function(){ location.reload(); }, dev ? 60000 : 18000);
+      reloadWhenBack(dev ? 45000 : 12000);
     });
+}
+
+// 프로그램이 다시 응답할 때까지 기다렸다가 새로 읽는다. 일찍 읽으면 빈 오류 화면에 머문다.
+function reloadWhenBack(wait){
+  setTimeout(function poll(){
+    fetch("/api/state", {cache:"no-store"})
+      .then(function(r){ if (!r.ok) throw 0; location.reload(); })
+      .catch(function(){ setTimeout(poll, 4000); });
+  }, wait);
 }
 
 function setLang(l){
@@ -3236,7 +3257,7 @@ function drawSettings(){
   }).join("");
 
   var msg = setupMsg
-    ? '<div class="msg ' + setupMsg.kind + '">' + setupMsg.text + '</div>' : "";
+    ? '<div class="msg ' + setupMsg.kind + '">' + esc(setupMsg.text) + '</div>' : "";
 
   var found = d.found ? renderFound(d.found) : "";
   var test = d.test ? renderTest(d.test) : "";
@@ -3375,9 +3396,9 @@ function testSensors(){
 
 function renderFound(found){
   if (!found.length) return '<div class="msg err">' + t("none_responding") + '</div>';
-  if (found[0].error) return '<div class="msg err">' + found[0].error + '</div>';
+  if (found[0].error) return '<div class="msg err">' + esc(found[0].error) + '</div>';
   var list = found.map(function(f){
-    return 'ID <b>' + f.id + '</b> — ' + f.kind + ' (' + f.note + ')';
+    return 'ID <b>' + esc(f.id) + '</b> — ' + esc(f.kind) + ' (' + esc(f.note) + ')';
   }).join("<br>");
   return '<div class="found">' + t("found_on_bus") + '<br>' + list + '</div>';
 }
@@ -3704,7 +3725,7 @@ function wifiTogglePw(){ wifiShowPw = !wifiShowPw; drawWifi(); }
 function doConnect(){
   if (!wifiSel) return;
   wifiBusy = true;
-  wifiMsg = {kind:"ok", text: t("wifi_connecting_to", {ssid: esc(wifiSel.ssid)})};
+  wifiMsg = {kind:"ok", text: t("wifi_connecting_to", {ssid: wifiSel.ssid})};
   drawWifi();
   fetch("/api/wifi/connect", {
     method:"POST", headers:{"Content-Type":"application/json"},
@@ -3835,7 +3856,7 @@ def serve(
             self.end_headers()
             self.wfile.write(body)
 
-        def do_GET(self) -> None:
+        def _do_get(self) -> None:
             if self.path.startswith("/api/state"):
                 self._send(200, json.dumps(state.snapshot()).encode(), "application/json")
             elif self.path == "/api/wireless" and get_wireless is not None:
@@ -3891,11 +3912,34 @@ def serve(
         def _body(self) -> dict:
             try:
                 length = int(self.headers.get("Content-Length") or 0)
-                return json.loads(self.rfile.read(length) or b"{}")
+                if not 0 <= length <= 1 << 20:
+                    return {}
+                body = json.loads(self.rfile.read(length) or b"{}")
             except (ValueError, TypeError):
                 return {}
+            return body if isinstance(body, dict) else {}   # [] 나 "x" 가 와도 .get 에서 죽지 않게
 
         def do_POST(self) -> None:
+            self._guard(self._do_post)
+
+        def do_GET(self) -> None:
+            self._guard(self._do_get)
+
+        def _guard(self, handle) -> None:
+            # 한 요청의 예외가 화면에 빈 응답으로 남지 않게 — JSON 오류로 답한다.
+            try:
+                handle()
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            except Exception as exc:
+                log.exception("화면 요청 처리 실패: %s %s", self.command, self.path)
+                try:
+                    self._send(500, json.dumps({"ok": False, "error": f"장비 내부 오류: {type(exc).__name__}"}).encode(),
+                               "application/json")
+                except Exception:
+                    pass
+
+        def _do_post(self) -> None:
             if self.path == "/api/sensors/scan" and on_scan is not None:
                 # 선을 훑는 동안 측정 차례가 오면 기다린다. 몇 초 걸릴 수 있다.
                 self._send(200, json.dumps({"found": on_scan()}).encode(), "application/json")

@@ -185,6 +185,9 @@ class PowerControl:
         self._send_fn = send            # (회로 이름, 켜기 bool) → None, 실패하면 예외
         self._names = names             # () → {회로 이름(대문자): Zigbee2MQTT 이름}
         self._clock = clock or dt.datetime.now
+        # 산소값을 '모름' 으로 볼 나이. 주 루프가 측정 간격에 맞춰 늘린다(set_interval) — 간격이 10분을 넘으면
+        # 매 주기 몇 분씩 '모름' 이 되어 산소량 연동이 켰다 껐다를 되풀이하고 강제 켜기가 풀렸다.
+        self.do_stale_s = DO_STALE_S
         self._lock = threading.RLock()
         self.rules: dict[str, dict] = {}
         self.over: dict[str, dict] = {}      # 손 조작 {"on", "until", "sched"}
@@ -204,7 +207,20 @@ class PowerControl:
         except (OSError, ValueError):
             return
         self.rules = {k: v for k, v in (data.get("rules") or {}).items() if _ID.match(k) and isinstance(v, dict)}
-        self.over = {k: v for k, v in (data.get("override") or {}).items() if _ID.match(k) and isinstance(v, dict)}
+        # 손 조작 기록은 형식을 검사해 들인다 — 잘린·손으로 고친 한 줄이 판단 때마다 예외를 내면
+        # 모든 회로의 예약이 멈추고 화면 상태 읽기에서 장비 프로그램이 죽었다.
+        self.over = {}
+        for k, v in (data.get("override") or {}).items():
+            if not (_ID.match(k) and isinstance(v, dict) and isinstance(v.get("on"), bool)):
+                continue
+            until = v.get("until")
+            if until is not None:
+                try:
+                    dt.datetime.fromisoformat(str(until))
+                except ValueError:
+                    continue
+            sched = v.get("sched")
+            self.over[k] = {"on": v["on"], "until": until, "sched": sched if isinstance(sched, bool) else None}
 
     def _save(self) -> bool:
         tmp = self.path.with_suffix(".tmp")
@@ -227,6 +243,10 @@ class PowerControl:
                 self.circuits[c["id"].upper()] = {"type": c.get("type"), "state": c.get("state"),
                                                   "level": c.get("level", "")}
 
+    def set_interval(self, seconds: float) -> None:
+        """측정 간격(초). 산소값은 측정마다 한 번 오므로 두 간격 + 여유까지는 유효하다."""
+        self.do_stale_s = max(DO_STALE_S, 2 * float(seconds) + 120)
+
     def observe_do(self, value) -> None:
         """주 루프가 읽은 용존산소. 못 읽었으면 None — 예전 값은 10분 뒤 '모름' 이 된다."""
         if isinstance(value, (int, float)) and not isinstance(value, bool):
@@ -234,7 +254,7 @@ class PowerControl:
                 self.do_value, self.do_at = float(value), time.monotonic()
 
     def _do_now(self) -> float | None:
-        if self.do_value is None or time.monotonic() - self.do_at > DO_STALE_S:
+        if self.do_value is None or time.monotonic() - self.do_at > self.do_stale_s:
             return None
         return self.do_value
 
@@ -390,6 +410,11 @@ class PowerControl:
                 self._save()
                 # 시간 지정이 끝났다: 예약이 있으면 예약을, 없으면 반대로 되돌린다.
                 return sched if sched is not None else (not o["on"])
+            if sched is not None and o.get("sched") is None:
+                # 시계가 맞기 전(인터넷 없이 부팅)에 한 손 조작은 예약 기준이 비어 있다 — 그대로 두면
+                # 예약이 바뀌어도 영영 풀리지 않는다. 시계가 맞은 지금의 예약을 기준으로 채운다.
+                o["sched"] = sched
+                self._save()
             if sched is not None and o.get("sched") is not None and sched != o["sched"]:
                 self.over.pop(sid, None)      # 예약이 바뀌는 순간 손 조작이 풀린다
                 self._save()
@@ -397,9 +422,20 @@ class PowerControl:
             return bool(o["on"])
         return sched
 
+    def _forced(self, sid: str, want: bool) -> bool:
+        """산소 때문에 켜야 하는 경우(산소 부족 강제 켜기·산소량 연동) — 꺼져 있으면 다투어서라도 다시 켠다."""
+        if not want:
+            return False
+        rule = self.rules.get(sid) or self.default_rule(self._kind(sid))
+        return sid in self.guard_on or rule.get("mode") == "do"
+
     def tick(self) -> dict:
-        """한 번 판단해 필요한 명령을 보낸다. {회로: {"sent": bool, "on", "error"}}."""
+        """한 번 판단해 필요한 명령을 보낸다. {회로: {"sent": bool, "on", "error"}}.
+
+        판단은 잠금 안에서, MQTT 전송은 **잠금 밖에서** 한다 — 브로커가 응답하지 않으면 회로마다 몇 초씩
+        걸리는데, 그동안 주 루프(observe)·화면(snapshot)이 같은 잠금에 막혀 측정·전송이 늦어진다."""
         out: dict[str, dict] = {}
+        todo: list[tuple[str, str, bool, int]] = []
         with self._lock:
             if not self.circuits:
                 return out                      # 회로 종류를 알기 전(시작 직후)에는 명령하지 않는다
@@ -407,47 +443,67 @@ class PowerControl:
             names = self._zname_map()
             guarded = {sid for sid, c in self.circuits.items() if c.get("type") in CONFIRM_OFF}
             for sid in sorted(set(self.rules) | set(self.over) | guarded):
-                want = self.desired(sid, now)
-                if want is None or sid not in names or self._kind(sid) in NO_CONTROL:
+                try:
+                    cmd = self._decide(sid, now, names)
+                except Exception:  # noqa: BLE001 — 회로 하나의 잘못된 기록이 나머지 회로의 예약을 멈추면 안 된다
+                    log.exception("전력 회로 %s 판단 실패", sid)
                     continue
-                c = self.circuits.get(sid) or {}
-                if want and c.get("level") == "crit":
-                    self.last[sid] = {"on": want, "at": time.time(), "tries": 0, "ok": False,
-                                      "error": "과열 중이라 켜지 않았습니다"}
-                    continue
-                last = self.last.get(sid)
-                state = c.get("state")
-                if last and last["on"] == want:
-                    if state is not None and bool(state) == want:
-                        last.update(ok=True, error="")
-                        continue
-                    if last.get("ok") is True:
-                        continue                    # 한 번 따른 뒤 차단기에서 손으로 바꾼 것은 다투지 않는다
-                    if last.get("ok") is not False and state is None:
-                        continue                    # 상태를 모르는 차단기 — 한 번 보냈으면 됐다
-                    if time.time() - last["at"] < RETRY_S:
-                        continue
-                    if last["tries"] > RETRIES:
-                        last["error"] = "차단기가 명령을 따르지 않습니다 — 연결·수동 스위치 확인"
-                        continue
-                r = self._send(sid, names[sid], want, (last or {}).get("tries", 0) if last and last["on"] == want else 0)
-                out[sid] = r
+                if cmd:
+                    todo.append(cmd)
+        for sid, name, want, tries in todo:
+            err = self._send_raw(sid, name, want)
+            with self._lock:
+                self.last[sid] = {"on": want, "at": time.time(), "tries": tries + 1,
+                                  "ok": None if not err else False, "error": err}
+            out[sid] = {"sent": not err, "on": want, "error": err}
         return out
 
-    def _send(self, sid: str, name: str, on: bool, tries: int) -> dict:
-        err = ""
+    def _decide(self, sid: str, now: dt.datetime, names: dict) -> tuple[str, str, bool, int] | None:
+        """이 회로에 지금 명령을 보내야 하면 (회로, 이름, 켜기, 지금까지 시도 수). 잠금 안에서 부른다."""
+        want = self.desired(sid, now)
+        if want is None or sid not in names or self._kind(sid) in NO_CONTROL:
+            return None
+        c = self.circuits.get(sid) or {}
+        if want and c.get("level") == "crit":
+            self.last[sid] = {"on": want, "at": time.time(), "tries": 0, "ok": False,
+                              "error": "과열 중이라 켜지 않았습니다"}
+            return None
+        last = self.last.get(sid)
+        state = c.get("state")
+        if last and last["on"] == want:
+            if state is not None and bool(state) == want:
+                last.update(ok=True, error="")
+                return None
+            if last.get("ok") is True:
+                if not self._forced(sid, want):
+                    return None                 # 한 번 따른 뒤 차단기에서 손으로 바꾼 것은 다투지 않는다
+                # 산소 때문에 켜 둔 회로가 꺼졌다(정전·트립·손) — 산소가 낮은 동안은 다시 켠다.
+                log.warning("전력 회로 %s: 산소 때문에 켜야 하는데 꺼져 있어 다시 켭니다", sid)
+                last.update(ok=None, tries=0, at=0.0)
+            if last.get("ok") is not False and state is None:
+                return None                     # 상태를 모르는 차단기 — 한 번 보냈으면 됐다
+            if time.time() - last["at"] < RETRY_S:
+                return None
+            if last["tries"] > RETRIES:
+                if self._forced(sid, want):
+                    last["tries"] = 0           # 산소 때문이면 포기하지 않는다(90초마다 다시)
+                else:
+                    last["error"] = "차단기가 명령을 따르지 않습니다 — 연결·수동 스위치 확인"
+                    return None
+        tries = (last or {}).get("tries", 0) if last and last["on"] == want else 0
+        return sid, names[sid], want, tries
+
+    def _send_raw(self, sid: str, name: str, on: bool) -> str:
+        """명령 하나를 보낸다(잠금 밖). 실패하면 오류 문구."""
         try:
             if self._send_fn is None:
                 raise RuntimeError("명령 통로가 없습니다")
             self._send_fn(name, on)
         except Exception as exc:  # noqa: BLE001
-            err = f"명령을 보내지 못했습니다: {exc}"
             log.warning("전력 회로 %s %s 실패: %s", sid, "켜기" if on else "끄기", exc)
-        else:
-            log.info("전력 회로 %s → %s", sid, "ON" if on else "OFF")
-        self.last[sid] = {"on": on, "at": time.time(), "tries": tries + 1, "ok": None if not err else False,
-                          "error": err}
-        return {"sent": not err, "on": on, "error": err}
+            return f"명령을 보내지 못했습니다: {exc}"
+        log.info("전력 회로 %s → %s", sid, "ON" if on else "OFF")
+        return ""
 
     def start(self) -> None:
         if self._thread:

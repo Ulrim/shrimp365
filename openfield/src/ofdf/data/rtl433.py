@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import math
 from dataclasses import dataclass, field as dc_field
 from pathlib import Path
 from typing import Any, Iterable
@@ -183,8 +184,8 @@ def message_to_rows(
     for key, value in record.items():
         if isinstance(value, bool):
             value = 1.0 if value else 0.0      # battery_ok 가 참·거짓으로 올 때
-        if not isinstance(value, (int, float)):
-            continue
+        if not isinstance(value, (int, float)) or not math.isfinite(value):
+            continue                            # NaN·inf 는 좋은 값으로 남기지 않는다
 
         variable = (device.variable_for(key) if device is not None
                     else RTL433_MAP.get(key))
