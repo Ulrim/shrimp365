@@ -130,7 +130,7 @@ function NavBar() {
             >
               {item.label}
               {ENTERPRISE_PATHS.has(item.to) && (
-                <span className="rounded-full bg-mrv-na-bg px-1.5 py-0.5 text-[10px] font-semibold text-mrv-muted">
+                <span className="rounded-full bg-mrv-na-bg px-1.5 py-0.5 text-[10px] font-semibold text-mrv-na">
                   ENTERPRISE
                 </span>
               )}

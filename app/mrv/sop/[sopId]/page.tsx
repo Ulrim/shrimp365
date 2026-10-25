@@ -146,7 +146,7 @@ export default function SopDetailPage({
             <h2 className="text-base font-semibold text-mrv-fg">점검 체크리스트</h2>
 
             {!canWrite && (
-              <p role="note" className="rounded-md bg-mrv-na-bg px-3 py-2 text-xs text-mrv-muted">
+              <p role="note" className="rounded-md bg-mrv-na-bg px-3 py-2 text-xs text-mrv-na">
                 읽기 전용 권한(viewer)입니다. 점검 기록은 owner/operator 만 남길 수 있습니다.
               </p>
             )}

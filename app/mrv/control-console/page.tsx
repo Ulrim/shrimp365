@@ -133,7 +133,7 @@ export default function ControlConsolePage() {
 
       <div
         role="note"
-        className="rounded-xl border border-mrv-border bg-mrv-na-bg p-4 text-sm text-mrv-muted"
+        className="rounded-xl border border-mrv-border bg-mrv-na-bg p-4 text-sm text-mrv-na"
       >
         이 화면은 설비를 직접 제어하지 않습니다. 승인된 값을 운영자가 현장에서 반영한 뒤,
         그 사실과 결과를 여기에 기록합니다.

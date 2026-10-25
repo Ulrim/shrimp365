@@ -275,7 +275,7 @@ export function CsvUpload<T>({
       </div>
 
       {!canWrite && (
-        <p role="note" className="rounded-md bg-mrv-na-bg px-3 py-2 text-xs text-mrv-muted">
+        <p role="note" className="rounded-md bg-mrv-na-bg px-3 py-2 text-xs text-mrv-na">
           읽기 전용 권한(viewer)입니다. 업로드는 owner/operator 만 가능합니다.
         </p>
       )}

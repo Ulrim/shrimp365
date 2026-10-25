@@ -243,7 +243,7 @@ export default function OnboardingPage() {
                         ? "bg-mrv-green-bg text-mrv-green"
                         : isCurrent
                           ? "bg-mrv-amber-bg text-mrv-amber"
-                          : "bg-mrv-na-bg text-mrv-muted"
+                          : "bg-mrv-na-bg text-mrv-na"
                     }
                   >
                     {step.done ? "완료" : isCurrent ? "진행할 차례" : "대기"}
@@ -252,7 +252,7 @@ export default function OnboardingPage() {
                 <p className="text-xs text-mrv-muted">{step.detail}</p>
 
                 {key === "install_kit" && !step.done && (
-                  <p className="rounded-md bg-mrv-na-bg px-3 py-2 text-xs text-mrv-muted">
+                  <p className="rounded-md bg-mrv-na-bg px-3 py-2 text-xs text-mrv-na">
                     수집용 API 키는 보안상 화면에서 발급하지 않습니다. 컬리버 운영진에게
                     게이트웨이 등록을 요청하면 사이트별 키가 발급됩니다.
                   </p>

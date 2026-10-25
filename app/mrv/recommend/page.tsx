@@ -186,7 +186,7 @@ export default function RecommendationBoardPage() {
 
       <div
         role="note"
-        className="rounded-xl border border-mrv-border bg-mrv-na-bg p-4 text-sm text-mrv-muted"
+        className="rounded-xl border border-mrv-border bg-mrv-na-bg p-4 text-sm text-mrv-na"
       >
         이 값은 <strong className="text-mrv-fg">추천</strong>이며 설비에 자동 적용되지 않습니다.
         실제 반영은 운영자가 판단해 수행하고, ENTERPRISE 요금제에서는 제어 콘솔의 승인 절차를
@@ -231,7 +231,7 @@ export default function RecommendationBoardPage() {
                 <h2 className="text-sm font-semibold text-mrv-fg">
                   {RECIPE_TYPE_LABEL[item.type]}
                 </h2>
-                <Badge className="bg-mrv-na-bg text-mrv-muted">
+                <Badge className="bg-mrv-na-bg text-mrv-na">
                   v{item.current_version}
                 </Badge>
               </header>

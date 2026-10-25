@@ -68,7 +68,7 @@ const WRITER_ROLES = new Set(["owner", "operator"])
 
 function PermissionNote({ children }: { children: React.ReactNode }) {
   return (
-    <p role="note" className="rounded-md bg-mrv-na-bg px-3 py-2 text-xs text-mrv-muted">
+    <p role="note" className="rounded-md bg-mrv-na-bg px-3 py-2 text-xs text-mrv-na">
       {children}
     </p>
   )

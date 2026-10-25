@@ -260,7 +260,7 @@ export default function AlertCenterPage() {
                 <span className="text-sm font-semibold text-mrv-fg">
                   {ALERT_TYPE_LABEL[alert.type]}
                 </span>
-                <Badge className="bg-mrv-na-bg text-mrv-muted">
+                <Badge className="bg-mrv-na-bg text-mrv-na">
                   {ALERT_STATUS_LABEL[alert.status]}
                 </Badge>
                 <span className="ml-auto text-xs text-mrv-muted">
