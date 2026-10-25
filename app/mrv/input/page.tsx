@@ -24,7 +24,7 @@
  */
 
 import { useId, useState } from "react"
-import { apiFetch, errorMessage, useApiMutation } from "@/lib/mrv/client"
+import { apiFetch, errorMessage, useApiMutation, useApiQuery } from "@/lib/mrv/client"
 import { useMrvSession } from "@/lib/mrv/ui/session"
 import { useMrvSite } from "@/lib/mrv/ui/site"
 import { formatIsoLocal, localInputToIsoUtc, nowLocalInputValue } from "@/lib/mrv/ui/datetime"
@@ -62,7 +62,7 @@ import {
   type PowerCsvRecord,
 } from "@/lib/mrv/csv-records"
 import type { CsvParseResult } from "@/lib/mrv/csv-records"
-import type { ReadingsIngestResult } from "@/lib/mrv/api-types"
+import type { ReadingsIngestResult, TankListResponse } from "@/lib/mrv/api-types"
 
 const WRITER_ROLES = new Set(["owner", "operator"])
 
@@ -419,6 +419,181 @@ function HarvestLogForm({ siteId, canWrite }: { siteId: string | null; canWrite:
 
       <button type="submit" disabled={disabled} className={PRIMARY_BUTTON}>
         {mutation.isPending ? "저장 중…" : "생산량 기록 저장"}
+      </button>
+    </form>
+  )
+}
+
+/**
+ * 입식 등록 — 배치(입식 사이클)를 만든다.
+ *
+ * `stocked_count` 가 **폐사율의 분모**다. 그리고 배치가 하나도 없으면 아래 급이·폐사·
+ * 생산량 폼의 배치 선택이 비어 있어 **이 화면 전체가 쓰이지 않는다.** 그래서 맨 앞에 둔다.
+ *
+ * 수정 창구는 두지 않는다 — 입식 수를 나중에 고치면 이미 발행된 폐사율이 소급해서
+ * 달라진다(서버도 POST 만 둔다).
+ */
+function StockingForm({ siteId, canWrite }: { siteId: string | null; canWrite: boolean }) {
+  const tankFieldId = useId()
+  const speciesId = useId()
+  const countId = useId()
+  const atId = useId()
+
+  const [tankId, setTankId] = useState("")
+  const [species, setSpecies] = useState("whiteleg")
+  const [count, setCount] = useState("")
+  const [at, setAt] = useState(() => nowLocalInputValue())
+  const [fieldError, setFieldError] = useState<string | null>(null)
+  const [savedAt, setSavedAt] = useState<string | null>(null)
+
+  const tanks = useApiQuery<TankListResponse>(
+    (signal) =>
+      apiFetch<TankListResponse>(`/sites/${encodeURIComponent(siteId as string)}/tanks`, {
+        signal,
+      }),
+    [siteId],
+    { enabled: Boolean(siteId) },
+  )
+
+  const mutation = useApiMutation(async (body: unknown) =>
+    apiFetch(`/sites/${encodeURIComponent(siteId as string)}/batches`, {
+      method: "POST",
+      json: body,
+    }),
+  )
+  const disabled = !canWrite || !siteId || mutation.isPending
+  const tankItems = tanks.data?.items ?? []
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (disabled) return
+
+    if (!tankId.trim()) return setFieldError("수조를 선택하세요.")
+    if (!species.trim()) return setFieldError("품종을 적으세요.")
+    const n = Number(count)
+    if (!Number.isInteger(n) || n <= 0) {
+      return setFieldError("입식 수는 0보다 큰 정수여야 합니다 — 폐사율의 분모입니다.")
+    }
+    const iso = localInputToIsoUtc(at)
+    if (!iso) return setFieldError("입식 시각이 올바르지 않습니다.")
+    setFieldError(null)
+
+    try {
+      await mutation.mutate({
+        tank_id: tankId.trim(),
+        species: species.trim(),
+        stocked_count: n,
+        stocked_at: iso,
+      })
+      setCount("")
+      setSavedAt(new Date().toLocaleTimeString("ko-KR"))
+    } catch {
+      /* 오류는 mutation.error 로 아래에 표시된다. */
+    }
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      aria-label="입식 등록 폼"
+      className="flex flex-col gap-4 rounded-xl border border-mrv-border bg-mrv-surface p-5 shadow-sm"
+    >
+      <h2 className="text-base font-semibold text-mrv-fg">입식 등록 (배치)</h2>
+      <p className="text-xs leading-relaxed text-mrv-muted">
+        입식 수가 폐사율의 분모입니다. 배치가 있어야 아래 급이 · 폐사 · 생산량을 적을 수
+        있습니다. 수정 창구는 두지 않습니다 — 입식 수를 고치면 이미 발행된 폐사율이 소급해서
+        달라집니다.
+      </p>
+      {!canWrite && <ViewerNote />}
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor={tankFieldId} className="text-sm font-medium text-mrv-fg">
+          수조 <span className="text-mrv-red">*</span>
+        </label>
+        <select
+          id={tankFieldId}
+          value={tankId}
+          disabled={disabled || tankItems.length === 0}
+          onChange={(e) => setTankId(e.target.value)}
+          className={`${INPUT_CLASS} py-2 disabled:opacity-60`}
+        >
+          <option value="">선택하세요</option>
+          {tankItems.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+        {!tanks.isLoading && tankItems.length === 0 && (
+          <p role="note" className="text-xs leading-relaxed text-mrv-amber">
+            등록된 수조가 없습니다. 설정 화면의 「수조 · DO 목표대역」에서 수조를 먼저
+            등록하십시오.
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor={speciesId} className="text-sm font-medium text-mrv-fg">
+          품종 <span className="text-mrv-red">*</span>
+        </label>
+        <input
+          id={speciesId}
+          value={species}
+          disabled={disabled}
+          onChange={(e) => setSpecies(e.target.value)}
+          placeholder="예: whiteleg"
+          className={`${INPUT_CLASS} py-2 disabled:opacity-60`}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor={countId} className="text-sm font-medium text-mrv-fg">
+          입식 수 (마리) <span className="text-mrv-red">*</span>
+        </label>
+        <input
+          id={countId}
+          type="number"
+          step="1"
+          min="1"
+          value={count}
+          disabled={disabled}
+          onChange={(e) => setCount(e.target.value)}
+          className={`${INPUT_CLASS} py-2 disabled:opacity-60`}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor={atId} className="text-sm font-medium text-mrv-fg">
+          입식 시각 <span className="text-mrv-red">*</span>
+        </label>
+        <input
+          id={atId}
+          type="datetime-local"
+          value={at}
+          disabled={disabled}
+          onChange={(e) => setAt(e.target.value)}
+          className={`${INPUT_CLASS} py-2 disabled:opacity-60`}
+        />
+      </div>
+
+      {fieldError && (
+        <p role="alert" className="text-sm text-mrv-red">
+          {fieldError}
+        </p>
+      )}
+      {mutation.error !== undefined && (
+        <p role="alert" className="text-sm text-mrv-red">
+          {errorMessage(mutation.error, "입식 등록에 실패했습니다.")}
+        </p>
+      )}
+      {savedAt && !mutation.isPending && mutation.error === undefined && (
+        <p role="status" className="text-sm text-mrv-green">
+          {savedAt} 등록했습니다. 이제 아래 배치 선택에 나타납니다.
+        </p>
+      )}
+
+      <button type="submit" disabled={disabled} className={PRIMARY_BUTTON}>
+        {mutation.isPending ? "등록 중…" : "입식 등록"}
       </button>
     </form>
   )
@@ -1026,6 +1201,9 @@ export default function InputPage() {
         description={`${selectedSite?.name ?? "사이트"} · 입력값은 검증 후 저장되며 KPI(EI·FCR·폐사율·Scope2)에 반영됩니다.`}
       />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* 입식이 맨 앞이다 — 배치가 없으면 아래 세 폼의 배치 선택이 비어 있어
+            이 화면 전체가 쓰이지 않는다. */}
+        <StockingForm siteId={selectedSiteId} canWrite={canWrite} />
         <FeedLogForm siteId={selectedSiteId} canWrite={canWrite} />
         <MortalityLogForm siteId={selectedSiteId} canWrite={canWrite} />
         <PowerLogForm siteId={selectedSiteId} canWrite={canWrite} />

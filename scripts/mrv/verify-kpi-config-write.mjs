@@ -1190,8 +1190,15 @@ try {
       return `사유가 oei_not_applicable 하나가 아니다 ${JSON.stringify(ids)}`
     }
     const only = na.metricUnavailabilityReasons("oei", evidence)[0]
-    if (only.action === null || !only.action.includes("target_do_min")) {
-      return "무엇을 하면 채워지는지(대역 등록)를 적지 않는다"
+    // **할 일은 운영자가 갈 수 있는 자리를 가리켜야 한다.** 예전에는 열 이름
+    // (`target_do_min`)만 적었는데, 그때는 화면이 없어 그것이 할 수 있는 최선이었다.
+    // 이제 설정 화면에 창구가 있으므로 경로와 섹션 이름을 적는지 본다 — 열 이름은
+    // 운영자가 가서 누를 수 있는 것이 아니다.
+    if (only.action === null) return "할 일을 적지 않는다"
+    for (const want of ["/mrv/settings", "DO 목표대역"]) {
+      if (!only.action.includes(want)) {
+        return `할 일이 '${want}' 를 가리키지 않는다: ${only.action}`
+      }
     }
     return null
   })

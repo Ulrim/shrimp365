@@ -918,6 +918,28 @@ export interface MeterListResponse {
 }
 
 // ---------------------------------------------------------------------------
+// 수조 — GET/POST /sites/{siteId}/tanks, PATCH /sites/{siteId}/tanks/{tankId}
+// 원본에 없는 창구다. `target_do_min`/`target_do_max` 가 OEI 의 유일한 산출 조건인데
+// 그 둘을 넣을 길이 DB 직접 수정뿐이었다. 사정은 app/api/mrv/sites/[siteId]/tanks/route.ts.
+// ---------------------------------------------------------------------------
+
+/** 수조. `target_do_*` 가 둘 다 있어야 그 수조가 OEI 의 기준 대역이 된다. */
+export interface Tank {
+  id: string;
+  site_id: string;
+  org_id: string;
+  name: string;
+  volume_m3: number | null;
+  target_do_min: number | null;
+  target_do_max: number | null;
+}
+
+export interface TankListResponse {
+  items: Tank[];
+  total: number;
+}
+
+// ---------------------------------------------------------------------------
 // 장비 수집 키 — GET /api-keys?site_id=, POST /api-keys/{id}/revoke
 // 원본에 없는 창구다. 발급(페어링 승인)만 있고 **끊는 경로가 없어서** 단말을 분실하면
 // DB 직접 수정이 유일한 방법이었다. 자세한 사정은 app/api/mrv/api-keys/route.ts.

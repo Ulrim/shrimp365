@@ -39,6 +39,11 @@ import {
 } from "@/lib/mrv/quality-flags"
 import { inspectParamsShape } from "@/lib/mrv/kpi-params-shape"
 import {
+  DO_BAND_MAX_MG_L,
+  DO_BAND_MIN_MG_L,
+  DO_BAND_MIN_WIDTH_MG_L,
+} from "@/lib/mrv/do-band"
+import {
   KPI_THRESHOLD_ASSUMPTION_NOTE,
   METRIC_PROVENANCE,
   PROVISIONAL_METRIC_KEYS,
@@ -58,6 +63,7 @@ import type {
   EmissionFactorListResponse,
   KpiConfigListResponse,
   MeterListResponse,
+  TankListResponse,
   MrvApiKey,
   MrvApiKeyListResponse,
   MrvApiKeyRevokeResponse,
@@ -81,6 +87,393 @@ function SectionHeader({ title, note }: { title: string; note: string }) {
       <h2 className="text-base font-semibold text-mrv-fg">{title}</h2>
       <p className="text-xs text-mrv-muted">{note}</p>
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// 수조 · DO 목표대역
+// ---------------------------------------------------------------------------
+
+/**
+ * 수조 목록과 DO 목표대역 설정.
+ *
+ * **이 섹션이 OEI 를 켜고 끈다.** 수조에 `target_do_min`/`target_do_max` 가 없으면
+ * OEI 는 그 기간의 데이터와 무관하게 산출 대상이 아니다. 그 사실을 화면이 먼저 적는다 —
+ * 개요의 OEI 카드가 「산출 불가」인 이유를 여기서 찾을 수 있어야 하기 때문이다.
+ *
+ * 폼을 둘로 나눈다. 대부분의 작업은 **이미 있는 수조에 대역을 넣는 것**이라 그 폼을 위에
+ * 두고, 수조 자체를 만드는 폼은 아래에 접어 둔다.
+ */
+function TankSection({ siteId, canWrite }: { siteId: string | null; canWrite: boolean }) {
+  const pickId = useId()
+  const minId = useId()
+  const maxId = useId()
+  const newNameId = useId()
+  const newVolumeId = useId()
+
+  const [pick, setPick] = useState("")
+  const [min, setMin] = useState("")
+  const [max, setMax] = useState("")
+  const [bandError, setBandError] = useState<string | null>(null)
+  const [bandSavedAt, setBandSavedAt] = useState<string | null>(null)
+
+  const [newName, setNewName] = useState("")
+  const [newVolume, setNewVolume] = useState("")
+  const [newError, setNewError] = useState<string | null>(null)
+  const [newSavedAt, setNewSavedAt] = useState<string | null>(null)
+
+  const list = useApiQuery<TankListResponse>(
+    (signal) =>
+      apiFetch<TankListResponse>(`/sites/${encodeURIComponent(siteId as string)}/tanks`, {
+        signal,
+      }),
+    [siteId],
+    { enabled: Boolean(siteId) },
+  )
+
+  const bandMutation = useApiMutation(async (arg: unknown) => {
+    const { tankId, body } = arg as { tankId: string; body: unknown }
+    return apiFetch(
+      `/sites/${encodeURIComponent(siteId as string)}/tanks/${encodeURIComponent(tankId)}`,
+      { method: "PATCH", json: body },
+    )
+  })
+  const createMutation = useApiMutation(async (body: unknown) =>
+    apiFetch(`/sites/${encodeURIComponent(siteId as string)}/tanks`, {
+      method: "POST",
+      json: body,
+    }),
+  )
+
+  const tanks = list.data?.items ?? []
+  /** OEI 가 실제로 쓰는 수조 — id 오름차순 첫 번째 '대역이 있는' 수조(서버와 같은 규칙). */
+  const oeiTank = tanks.find((t) => t.target_do_min !== null && t.target_do_max !== null) ?? null
+  const banded = tanks.filter((t) => t.target_do_min !== null && t.target_do_max !== null).length
+
+  const disabled = !canWrite || !siteId || bandMutation.isPending
+  const createDisabled = !canWrite || !siteId || createMutation.isPending
+
+  /** 수조를 고르면 그 수조의 현재 대역을 칸에 올린다 — 무엇을 고치는지 보이게. */
+  function choose(id: string) {
+    setPick(id)
+    setBandError(null)
+    const t = tanks.find((x) => x.id === id)
+    setMin(t?.target_do_min !== null && t?.target_do_min !== undefined ? String(t.target_do_min) : "")
+    setMax(t?.target_do_max !== null && t?.target_do_max !== undefined ? String(t.target_do_max) : "")
+  }
+
+  async function saveBand(e: React.FormEvent) {
+    e.preventDefault()
+    if (disabled) return
+    if (!pick) return setBandError("수조를 고르세요.")
+    const bothEmpty = min.trim() === "" && max.trim() === ""
+    if (!bothEmpty && (min.trim() === "" || max.trim() === "")) {
+      return setBandError(
+        "하한과 상한을 함께 적어야 합니다 — 한쪽만 저장되면 OEI 는 여전히 산출되지 않습니다. " +
+          "대역을 없애려면 두 칸을 모두 비우십시오.",
+      )
+    }
+    setBandError(null)
+    try {
+      await bandMutation.mutate({
+        tankId: pick,
+        body: {
+          target_do_min: min.trim() === "" ? null : Number(min),
+          target_do_max: max.trim() === "" ? null : Number(max),
+        },
+      })
+      setBandSavedAt(new Date().toLocaleTimeString("ko-KR"))
+      list.refetch()
+    } catch {
+      /* 오류는 bandMutation.error 로 아래에 표시된다. */
+    }
+  }
+
+  async function createTank(e: React.FormEvent) {
+    e.preventDefault()
+    if (createDisabled) return
+    if (newName.trim() === "") return setNewError("수조 이름을 적으세요.")
+    setNewError(null)
+    try {
+      await createMutation.mutate({
+        name: newName.trim(),
+        volume_m3: newVolume.trim() === "" ? null : Number(newVolume),
+      })
+      setNewName("")
+      setNewVolume("")
+      setNewSavedAt(new Date().toLocaleTimeString("ko-KR"))
+      list.refetch()
+    } catch {
+      /* 오류는 createMutation.error 로 아래에 표시된다. */
+    }
+  }
+
+  return (
+    <Card className="flex flex-col gap-4">
+      <SectionHeader
+        title="수조 · DO 목표대역"
+        note="DO 목표대역(하한·상한)이 있어야 OEI(산소효율지수)가 산출됩니다. 대역이 없는 사이트에서는 OEI 가 기간과 무관하게 「산출 불가」입니다."
+      />
+
+      {list.isLoading && (
+        <div
+          role="status"
+          className="h-20 animate-pulse rounded-md border border-mrv-border"
+          aria-label="수조 목록 불러오는 중"
+        />
+      )}
+
+      {list.isError && !list.isLoading && (
+        <LoadError
+          message="수조 목록을 불러오지 못했습니다."
+          isUnauthorized={list.error instanceof ApiError && list.error.isUnauthorized}
+          onRetry={list.refetch}
+        />
+      )}
+
+      {list.data && (
+        <>
+          {/* 어느 수조의 대역이 실제로 OEI 에 쓰이는지 적는다. 수조가 여럿이면 화면을
+              보고도 알 수 없는 사실이라, 적지 않으면 "대역을 넣었는데 OEI 가 안 변한다"
+              는 혼란이 생긴다. */}
+          <p
+            role="note"
+            className={`rounded-md px-3 py-2 text-xs leading-relaxed ${
+              oeiTank === null ? "bg-mrv-amber-bg text-mrv-fg" : "bg-mrv-na-bg text-mrv-fg"
+            }`}
+          >
+            {oeiTank === null ? (
+              <>
+                대역이 설정된 수조가 없어 <b>OEI 가 산출되지 않습니다.</b> 아래에서 수조 하나에
+                하한·상한을 넣으면 그 기간부터 OEI 가 나옵니다.
+              </>
+            ) : (
+              <>
+                OEI 는 <b>{oeiTank.name}</b> 의 대역({formatNumber(oeiTank.target_do_min, 2)} ~{" "}
+                {formatNumber(oeiTank.target_do_max, 2)} mg/L)으로 산출됩니다 — 대역이 설정된
+                수조 가운데 id 가 가장 앞선 하나입니다(대역 설정 수조 {banded}개).
+              </>
+            )}
+          </p>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <caption className="sr-only">수조 목록과 DO 목표대역</caption>
+              <thead>
+                <tr className="border-b border-mrv-border text-xs text-mrv-muted">
+                  <th scope="col" className="py-2 pr-3 font-medium">이름</th>
+                  <th scope="col" className="py-2 pr-3 font-medium">용량(m³)</th>
+                  <th scope="col" className="py-2 pr-3 font-medium">DO 목표대역(mg/L)</th>
+                  <th scope="col" className="py-2 font-medium">OEI 기준</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tanks.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-4 text-mrv-muted">
+                      등록된 수조가 없습니다.
+                    </td>
+                  </tr>
+                )}
+                {tanks.map((t) => {
+                  const hasBand = t.target_do_min !== null && t.target_do_max !== null
+                  return (
+                    <tr key={t.id} className="border-b border-mrv-border last:border-0">
+                      <td className="py-2 pr-3 text-mrv-fg">{t.name}</td>
+                      <td className="py-2 pr-3 tabular-nums text-mrv-muted">
+                        {t.volume_m3 === null ? "—" : formatNumber(t.volume_m3, 1)}
+                      </td>
+                      <td className="py-2 pr-3 tabular-nums text-mrv-fg">
+                        {hasBand ? (
+                          `${formatNumber(t.target_do_min, 2)} ~ ${formatNumber(t.target_do_max, 2)}`
+                        ) : (
+                          <span className="rounded-full bg-mrv-amber-bg px-2 py-0.5 text-[11px] font-medium text-mrv-amber">
+                            미설정
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 text-mrv-muted">
+                        {oeiTank !== null && oeiTank.id === t.id ? "이 수조" : "—"}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      <form
+        onSubmit={saveBand}
+        aria-label="DO 목표대역 설정 폼"
+        className="flex flex-col gap-3 border-t border-mrv-border pt-4"
+      >
+        <h3 className="text-sm font-semibold text-mrv-fg">DO 목표대역 설정</h3>
+        {!canWrite && (
+          <PermissionNote>
+            읽기 전용 권한(viewer)입니다. 대역 설정은 owner/operator 만 가능합니다.
+          </PermissionNote>
+        )}
+        {canWrite && !siteId && (
+          <PermissionNote>
+            등록된 사이트가 없어 수조를 다룰 수 없습니다. 관리자에게 사이트 등록을 요청해
+            주세요.
+          </PermissionNote>
+        )}
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="flex flex-col gap-1">
+            <label htmlFor={pickId} className="text-sm font-medium text-mrv-fg">
+              수조 <span className="text-mrv-red">*</span>
+            </label>
+            <select
+              id={pickId}
+              value={pick}
+              disabled={disabled || tanks.length === 0}
+              onChange={(e) => choose(e.target.value)}
+              className={INPUT_CLASS}
+            >
+              <option value="">선택하세요</option>
+              {tanks.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                  {t.target_do_min !== null && t.target_do_max !== null
+                    ? ` (현재 ${t.target_do_min} ~ ${t.target_do_max})`
+                    : " (대역 미설정)"}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor={minId} className="text-sm font-medium text-mrv-fg">
+              하한 (mg/L)
+            </label>
+            <input
+              id={minId}
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              min={DO_BAND_MIN_MG_L}
+              max={DO_BAND_MAX_MG_L}
+              value={min}
+              disabled={disabled}
+              onChange={(e) => setMin(e.target.value)}
+              placeholder="예: 5.0"
+              className={INPUT_CLASS}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor={maxId} className="text-sm font-medium text-mrv-fg">
+              상한 (mg/L)
+            </label>
+            <input
+              id={maxId}
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              min={DO_BAND_MIN_MG_L}
+              max={DO_BAND_MAX_MG_L}
+              value={max}
+              disabled={disabled}
+              onChange={(e) => setMax(e.target.value)}
+              placeholder="예: 7.0"
+              className={INPUT_CLASS}
+            />
+          </div>
+        </div>
+
+        <p className="text-xs leading-relaxed text-mrv-muted">
+          {DO_BAND_MIN_MG_L}~{DO_BAND_MAX_MG_L} mg/L 안이어야 하고, 상한이 하한보다 최소{" "}
+          {DO_BAND_MIN_WIDTH_MG_L} mg/L 높아야 합니다. <b>대역을 넓게 잡으면 유지율이 올라가
+          OEI 가 좋아집니다</b> — 운영 목표에 맞는 값을 넣으십시오. 변경은 감사 로그에
+          남습니다. 두 칸을 모두 비우고 저장하면 대역이 해제되고 그 수조는 OEI 기준에서
+          빠집니다.
+        </p>
+
+        {bandError !== null && (
+          <p role="alert" className="text-xs text-mrv-red">
+            {bandError}
+          </p>
+        )}
+        {bandMutation.error !== undefined && (
+          <p role="alert" className="text-xs text-mrv-red">
+            {errorMessage(bandMutation.error, "대역 설정에 실패했습니다.")}
+          </p>
+        )}
+        {bandSavedAt !== null && bandMutation.error === undefined && (
+          <p role="status" className="text-xs text-mrv-green">
+            {bandSavedAt} 저장했습니다. 다음 KPI 조회부터 반영됩니다.
+          </p>
+        )}
+
+        <button type="submit" disabled={disabled} className={PRIMARY_BUTTON}>
+          {bandMutation.isPending ? "저장 중…" : "대역 저장"}
+        </button>
+      </form>
+
+      <form
+        onSubmit={createTank}
+        aria-label="수조 등록 폼"
+        className="flex flex-col gap-3 border-t border-mrv-border pt-4"
+      >
+        <h3 className="text-sm font-semibold text-mrv-fg">수조 등록</h3>
+        <p className="text-xs leading-relaxed text-mrv-muted">
+          계측기·배치·측정값이 모두 수조에 매달리므로 수조가 먼저 있어야 합니다. 삭제 창구는
+          두지 않습니다 — 수조를 지우면 거기 달린 과거 기록이 함께 사라집니다.
+        </p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1">
+            <label htmlFor={newNameId} className="text-sm font-medium text-mrv-fg">
+              이름 <span className="text-mrv-red">*</span>
+            </label>
+            <input
+              id={newNameId}
+              value={newName}
+              disabled={createDisabled}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="예: 1번 수조"
+              className={INPUT_CLASS}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor={newVolumeId} className="text-sm font-medium text-mrv-fg">
+              용량 (m³)
+            </label>
+            <input
+              id={newVolumeId}
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              min="0"
+              value={newVolume}
+              disabled={createDisabled}
+              onChange={(e) => setNewVolume(e.target.value)}
+              placeholder="비워도 됩니다"
+              className={INPUT_CLASS}
+            />
+          </div>
+        </div>
+        {newError !== null && (
+          <p role="alert" className="text-xs text-mrv-red">
+            {newError}
+          </p>
+        )}
+        {createMutation.error !== undefined && (
+          <p role="alert" className="text-xs text-mrv-red">
+            {errorMessage(createMutation.error, "수조 등록에 실패했습니다.")}
+          </p>
+        )}
+        {newSavedAt !== null && createMutation.error === undefined && (
+          <p role="status" className="text-xs text-mrv-green">
+            {newSavedAt} 수조를 등록했습니다. 위에서 DO 목표대역을 넣으십시오.
+          </p>
+        )}
+        <button type="submit" disabled={createDisabled} className={PRIMARY_BUTTON}>
+          {createMutation.isPending ? "등록 중…" : "수조 등록"}
+        </button>
+      </form>
+    </Card>
   )
 }
 
@@ -1530,6 +1923,7 @@ export default function SettingsPage() {
         </Link>
       </Card>
 
+      <TankSection siteId={selectedSiteId} canWrite={canWrite} />
       <MeterSection siteId={selectedSiteId} canWrite={canWrite} />
       <DevicePairingSection
         siteId={selectedSiteId}

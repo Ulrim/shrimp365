@@ -497,7 +497,8 @@ export function assessBaselineReadiness(
     message:
       stocked > 0
         ? `등록된 입식 수 ${stocked.toLocaleString("ko-KR")}마리(전 기간 배치 합).`
-        : "등록된 입식 수가 0 이라 폐사율이 산출되지 않습니다. 배치 등록을 확인하세요.",
+        : "등록된 입식 수가 0 이라 폐사율이 산출되지 않습니다 — 입력 화면(/mrv/input)의 "
+          + "「입식 등록 (배치)」 에서 등록하십시오.",
     observed: stocked,
     threshold: 1,
   });
@@ -511,7 +512,8 @@ export function assessBaselineReadiness(
     passed: true,
     message:
       comp.oei === null
-        ? "OEI 는 산출 대상이 아닙니다 — 수조에 DO 목표대역(target_do_min/max)이 설정되어 있지 않습니다."
+        ? "OEI 는 산출 대상이 아닙니다 — 수조에 DO 목표대역이 설정되어 있지 않습니다. "
+          + "설정 화면(/mrv/settings)의 「수조 · DO 목표대역」 에서 넣을 수 있습니다."
         : `OEI DO 표본 ${comp.oei.doTotalSamples}건 중 대역 내 ${comp.oei.doInBandSamples}건.`,
     observed: comp.oei?.doTotalSamples ?? null,
     threshold: null,
