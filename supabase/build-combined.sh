@@ -33,6 +33,7 @@ ORDER=(
   agriculture_mode
   environment_readings
   power_readings
+  power_remote
   env_sensors
   canopy_temp
   wq_series_year

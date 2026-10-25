@@ -5,6 +5,7 @@ import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, planMiss
 import { PLAN_LIMITS, type Plan } from "@/lib/plans"
 import { isTestAccount } from "@/lib/mock-data"
 import { isMissingColumnError } from "@/lib/wq-source"
+import type { ControlStateRow } from "@/lib/power-remote"
 
 // ─────────────────────────────────────────────
 // 타입 변환 헬퍼
@@ -323,6 +324,16 @@ export async function getPowerReadings(tankId: string, hours = 24): Promise<Powe
     return rows.filter(r => r.recorded_at !== oldest)
   }
   return rows
+}
+
+/** 수조·베드에 붙은 장비들의 전력 제어 상태(power_remote.sql). 없거나 SQL 전이면 [] — 카드는 버튼 없이 그린다. */
+export async function getPowerControl(tankId: string): Promise<ControlStateRow[]> {
+  const { data, error } = await supabase
+    .from("power_control_state")
+    .select("device_id, control, updated_at")
+    .eq("tank_id", tankId)
+  if (error) return []
+  return (data || []) as ControlStateRow[]
 }
 
 /** 베드의 센서별 환경 값 기록(최근 hours 시간, 오래된 것부터). 없거나 env_sensors.sql 전이면 [].

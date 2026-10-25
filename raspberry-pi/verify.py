@@ -749,6 +749,58 @@ _S.desired("PUMP-01", _now["t"])
 _now["t"] = _D(2026, 10, 27, 7, 1)
 check("시계가 맞으면 기준을 채워 다음 예약 전환에 풀린다", (_S.desired("PUMP-01", _now["t"]), "PUMP-01" in _S.over), (False, False))
 
+print("\n⑬ 웹에서 켜고 끄기 — 서버 명령함(power_remote.py)")
+import power_remote as prm   # noqa: E402
+_now["t"] = _D(2026, 10, 27, 12, 0)
+_sent3: list = []
+_W = pc.PowerControl(Path(tempfile.mkdtemp()) / "pc.json", clock=lambda: _now["t"],
+                     names=lambda: {"PUMP-01": "p1", "AIR-01": "a1"}, send=lambda n, on: _sent3.append((n, on)))
+_W.observe([{"id": "PUMP-01", "type": "irrigation_pump", "state": 0, "level": ""},
+            {"id": "AIR-01", "type": "aerator", "state": 1, "level": ""},
+            {"id": "MAIN", "type": "main", "state": 1, "level": ""}])
+_calls: list = []
+_replies: list = []
+
+
+def _fake(url, key, payload):
+    _calls.append(payload)
+    return _replies.pop(0) if _replies else (200, {"commands": []})
+
+
+_RP = prm.RemotePower(_W, lambda: "https://x/api/sensors/power", lambda: "k", _fake)
+_replies.append((200, {"commands": [
+    {"id": "c1", "circuit": "PUMP-01", "action": "set", "on": True, "minutes": 30},
+    {"id": "c2", "circuit": "MAIN", "action": "set", "on": False},
+    {"id": "c3", "circuit": "PUMP-01", "action": "rule", "rule": {"mode": "timer", "timers": [{"on": "06:00", "off": "06:00"}]}},
+    {"id": "c4", "circuit": "../x", "action": "set", "on": True},
+]}))
+_wait = _RP.once()
+check("처음 물을 때 제어 상태를 싣는다", "control" in _calls[0] and "PUMP-01" in _calls[0]["control"]["circuits"], True)
+check("웹 명령 실행 → 차단기에 켜기", ("p1", True) in _sent3, True)
+check("웹 명령에도 안전 규칙: 인입 금지·규칙 검사·이름 검사",
+      [(r["id"], r["ok"]) for r in _RP.results], [("c1", True), ("c2", False), ("c3", False), ("c4", False)])
+check("명령을 실행하면 결과를 바로 알린다", _wait, 1.0)
+_RP.once()
+check("결과를 보낸 뒤 비운다", (_calls[1]["results"][0]["id"], _RP.results), ("c1", []))
+check("시간 지정 켜기가 손 조작으로 남는다", bool(_W.over["PUMP-01"]["until"]), True)
+_RP.once()
+check("상태가 그대로면 1분 안에는 다시 싣지 않는다", "control" in _calls[2], False)
+_replies.append((0, {}))
+_RP.results.append({"id": "c9", "ok": True, "error": ""})
+_RP.once()
+check("인터넷이 끊기면 결과를 들고 있다가 다음에", [r["id"] for r in _RP.results], ["c9"])
+_replies.append((404, {}))
+check("옛 서버(경로 없음)면 5분 뒤 다시", _RP.once(), prm.IDLE_S)
+_replies.append((200, {"commands": [], "disabled": True}))
+check("서버에 표가 없으면 5분 뒤 다시", _RP.once(), prm.IDLE_S)
+check("기기 키가 없으면 묻지 않는다", prm.RemotePower(_W, lambda: "", lambda: "", _fake).once(), prm.IDLE_S)
+_W.observe([{"id": "AIR-01", "type": "aerator", "state": 1, "level": ""}])
+_W.observe_do(3.0)
+_n = len(_calls)
+_replies.append((200, {"commands": [{"id": "d1", "circuit": "AIR-01", "action": "set", "on": False}]}))
+_RP.once()
+check("웹에서 산소공급기를 꺼도 산소가 낮으면 장비가 다시 켠다", _W.desired("AIR-01", _now["t"]), True)
+
 print()
 if fails:
     print(f"실패 {len(fails)}건:")

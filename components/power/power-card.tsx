@@ -7,8 +7,9 @@
 // power_readings.sql 을 아직 안 돌린 DB 에서도 다른 카드가 그대로 뜬다.
 // 24시간 동안 한 줄도 없으면 카드 자체를 그리지 않는다(분전반 계측을 안 단 곳은 화면이 그대로다).
 //
-// 켜고 끄는 단추는 없다 — 원격 조작은 설계서(farm365-main-panel.md 10) 결정대로 하지 않는다.
-import { useEffect, useState } from "react"
+// 켜고 끄기·예약(2026-10-25 결정) — 장비가 제어 상태를 올린 회로에만 단추가 나온다(circuit-control.tsx).
+// 명령은 장비가 15초마다 가져가 실행한다. power_remote.sql 전이거나 장비가 옛 판이면 단추 없이 그린다.
+import { useEffect, useRef, useState } from "react"
 import { LineChart, Line, ResponsiveContainer } from "recharts"
 import {
   Zap, Wind, RefreshCw, Droplets, Flame, Fan, Snowflake, Lightbulb, Sparkles, FlaskConical, Fish, Plug,
@@ -17,8 +18,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useT } from "@/lib/i18n-context"
 import { powerDict } from "@/lib/i18n/power"
+import { powerControlDict } from "@/lib/i18n/power-control"
 import { POWER_TYPES, breakerLevel, summarizePower, type PowerType } from "@/lib/power"
-import { getPowerReadings } from "@/lib/db"
+import { getPowerReadings, getPowerControl } from "@/lib/db"
+import { CONTROL_STALE_MS, type ControlStateRow } from "@/lib/power-remote"
+import { CircuitControlBar } from "@/components/power/circuit-control"
 import { agoLabel } from "@/components/agri/dashboard/time-ago"
 import type { PowerReading } from "@/types"
 
@@ -47,17 +51,41 @@ export function PowerCard({ tankId, tankName, now, mock = false }: {
 }) {
   const { t, locale } = useT()
   const pd = powerDict[locale]
+  const pcd = powerControlDict[locale]
   // 어느 수조의 값인지 같이 둔다 — 수조를 바꾼 직후 이전 수조 값이 잠깐 보이지 않게.
-  const [data, setData] = useState<{ tankId: string; rows: PowerReading[] } | null>(null)
+  const [data, setData] = useState<{ tankId: string; rows: PowerReading[]; control: ControlStateRow[]; at: number } | null>(null)
+  // 명령이 실행되면 올린다 — 제어 상태와 값을 바로 다시 읽는다.
+  const [bump, setBump] = useState(0)
 
   useEffect(() => {
     if (mock || !tankId) return
     let alive = true
-    getPowerReadings(tankId, 24).then(rows => { if (alive) setData({ tankId, rows }) })
+    Promise.all([getPowerReadings(tankId, 24), getPowerControl(tankId)]).then(([rows, control]) => {
+      if (alive) setData({ tankId, rows, control, at: Date.now() })
+    })
     return () => { alive = false }
-  }, [tankId, now, mock])
+  }, [tankId, now, mock, bump])
+
+  // 실행 직후 차단기 상태가 값에 실리기까지 한 측정이 걸린다 — 20초 뒤 한 번 더 읽는다.
+  const later = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (later.current) clearTimeout(later.current) }, [])
+  const changed = () => {
+    setBump(b => b + 1)
+    if (later.current) clearTimeout(later.current)
+    later.current = setTimeout(() => setBump(b => b + 1), 20_000)
+  }
 
   const rows = data && data.tankId === tankId ? data.rows : []
+  // 회로 이름(대문자) → 그 회로를 제어하는 장비의 상태. 장비가 여럿이면 가장 최근 것.
+  const controls = new Map<string, { deviceId: string; online: boolean; clockOk: boolean; ctl: ControlStateRow["control"]["circuits"][string] }>()
+  if (data && data.tankId === tankId) {
+    for (const st of [...data.control].sort((a, b) => a.updated_at.localeCompare(b.updated_at))) {
+      const online = data.at - new Date(st.updated_at).getTime() < CONTROL_STALE_MS
+      for (const [cid, ctl] of Object.entries(st.control?.circuits ?? {})) {
+        controls.set(cid.toUpperCase(), { deviceId: st.device_id, online, clockOk: st.control.clock_ok !== false, ctl })
+      }
+    }
+  }
   if (mock || rows.length === 0) return null
   const s = summarizePower(rows)
   if (s.circuits.length === 0) return null
@@ -137,8 +165,10 @@ export function PowerCard({ tankId, tankName, now, mock = false }: {
               const lvl = c.lost ? "" : breakerLevel(c.device_temp)
               const state = c.lost ? null : c.state
               const st = state === 1 ? pd.on : state === 0 ? pd.off : pd.lost
+              const cc = controls.get(c.circuit_id.toUpperCase())
               return (
-                <li key={c.circuit_id} className={`flex items-center gap-2 px-3 py-2 text-sm min-w-0 ${c.lost ? "opacity-60" : ""}`}>
+                <li key={c.circuit_id}>
+                <div className={`flex items-center gap-2 px-3 py-2 text-sm min-w-0 ${c.lost ? "opacity-60" : ""}`}>
                   <Icon className="w-4 h-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                   <div className="min-w-0 flex-1">
                     <p className="text-foreground truncate">{label(type)}</p>
@@ -162,6 +192,14 @@ export function PowerCard({ tankId, tankName, now, mock = false }: {
                   }`}>
                     {c.device_temp != null ? `${c.device_temp.toFixed(0)}℃` : ""}
                   </span>
+                </div>
+                {cc && cc.ctl.can && (
+                  <>
+                    {!cc.online && <p className="px-3 pb-1 text-xs text-amber-600 dark:text-amber-400">{pcd.offline}</p>}
+                    <CircuitControlBar tankId={tankId} deviceId={cc.deviceId} circuitId={c.circuit_id.toUpperCase()}
+                      ctl={cc.ctl} online={cc.online} clockOk={cc.clockOk} onChanged={changed} />
+                  </>
+                )}
                 </li>
               )
             })}

@@ -104,8 +104,12 @@ try:
     import power_control as power_control_mod
 except ImportError:  # pragma: no cover
     power_control_mod = None
+try:
+    import power_remote as power_remote_mod
+except ImportError:  # pragma: no cover
+    power_remote_mod = None
 
-VERSION = "1.9.7"
+VERSION = "1.9.8"
 
 #: 무선 센서 수집기가 쓰는 폴더(setup-wireless.sh). 서비스의 StateDirectory 아래라 읽고 쓸 수 있다.
 FIELD_DATA_DIR = "/var/lib/shrimp365/field/data"
@@ -2929,6 +2933,20 @@ def main() -> int:
 
     if pctl is not None:
         pctl.start()
+        # 웹에서 켜고 끄기·예약 — 서버 명령함을 15초마다 묻는다(power_remote.py). [power] remote = false 로 끈다.
+        if (power_remote_mod is not None and not args.dry_run
+                and cfg.getboolean("power", "remote", fallback=True)):
+            def _remote_req(url: str, key: str, payload: dict) -> tuple[int, dict]:
+                try:
+                    status, data = http_request("POST", url, json.dumps(payload).encode(), {
+                        "Content-Type": "application/json", "X-Device-Key": key}, 8.0)
+                except NetError:
+                    return 0, {}
+                return status, _json_or_empty(data)
+
+            power_remote_mod.RemotePower(
+                pctl, lambda: _api_base(endpoint) + "/api/sensors/power", lambda: auth["key"], _remote_req,
+            ).start()
     while not stop:
         started = time.monotonic()
 
