@@ -69,6 +69,11 @@ export type MrvSiteContext = {
   selectedSiteId: string | null
   selectedSite: SiteSummary | null
   setSelectedSiteId: (siteId: string) => void
+  /**
+   * 사이트 목록을 다시 읽는다. 사이트를 새로 등록한 직후에 쓴다 — 부르지 않으면
+   * 방금 만든 사이트가 선택 드롭다운에 없어서 "저장은 됐는데 쓸 수가 없는" 상태가 된다.
+   */
+  refresh: () => void
   isLoading: boolean
   isError: boolean
   error: unknown
@@ -101,6 +106,7 @@ export function MrvSiteProvider({ children }: { children: ReactNode }) {
     selectedSiteId,
     selectedSite: sites.find((s) => s.id === selectedSiteId) ?? null,
     setSelectedSiteId,
+    refresh: query.refetch,
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

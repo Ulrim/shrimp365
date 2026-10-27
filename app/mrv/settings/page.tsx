@@ -63,6 +63,7 @@ import type {
   EmissionFactorListResponse,
   KpiConfigListResponse,
   MeterListResponse,
+  SiteSummary,
   TankListResponse,
   MrvApiKey,
   MrvApiKeyListResponse,
@@ -87,6 +88,217 @@ function SectionHeader({ title, note }: { title: string; note: string }) {
       <h2 className="text-base font-semibold text-mrv-fg">{title}</h2>
       <p className="text-xs text-mrv-muted">{note}</p>
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// 사이트 등록
+// ---------------------------------------------------------------------------
+
+/**
+ * 조직의 사이트 목록과 등록 폼.
+ *
+ * **이 화면에서 유일하게 사이트가 없어도 쓸모가 있는 칸이다.** 사이트가 하나도 없으면
+ * 아래 모든 섹션(수조·계측기·장비)이 "사이트가 없어 …" 로 죽으므로 맨 위에 둔다.
+ *
+ * owner 단독이다. 사이트는 요금이 매겨지는 단위라 늘리는 것이 운영 작업이 아니라 계약에
+ * 관한 결정이다(서버도 `requireOwner` 로 같은 선을 긋는다).
+ */
+function SiteSection({ isOwner }: { isOwner: boolean }) {
+  const nameId = useId()
+  const regionId = useId()
+  const rasId = useId()
+
+  const { sites, selectedSiteId, setSelectedSiteId, refresh, isLoading, isError, error } =
+    useMrvSite()
+  const { plan } = useMrvSession()
+
+  const [name, setName] = useState("")
+  const [region, setRegion] = useState("")
+  const [rasType, setRasType] = useState("")
+  const [fieldError, setFieldError] = useState<string | null>(null)
+  const [savedName, setSavedName] = useState<string | null>(null)
+
+  const mutation = useApiMutation(async (body: unknown) =>
+    apiFetch<SiteSummary>("/sites", { method: "POST", json: body }),
+  )
+
+  /**
+   * 첫 사이트는 플랜과 무관하게 만들 수 있고, 두 번째부터 ENTERPRISE 다(서버와 같은 규칙).
+   * 화면이 막는 것은 안내일 뿐이고 최종 판정은 서버가 한다.
+   */
+  const needsEnterprise = sites.length >= 1 && plan !== "ENTERPRISE"
+  const disabled = !isOwner || needsEnterprise || mutation.isPending
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (disabled) return
+    if (name.trim() === "") return setFieldError("사이트 이름을 적으세요.")
+    setFieldError(null)
+    try {
+      const created = await mutation.mutate({
+        name: name.trim(),
+        region: region.trim() || null,
+        ras_type: rasType.trim() || null,
+      })
+      setName("")
+      setRegion("")
+      setRasType("")
+      setSavedName(created.name)
+      // 목록을 다시 읽고 **방금 만든 사이트를 고른다** — 그래야 아래 수조·계측기 칸이
+      // 곧바로 그 사이트를 향한다. 부르지 않으면 저장은 됐는데 쓸 수가 없다.
+      refresh()
+      setSelectedSiteId(created.id)
+    } catch {
+      /* 오류는 mutation.error 로 아래에 표시된다. */
+    }
+  }
+
+  return (
+    <Card className="flex flex-col gap-4">
+      <SectionHeader
+        title="사이트"
+        note="사이트가 있어야 수조·계측기·장비를 둘 수 있습니다. 삭제·개명 창구는 두지 않습니다 — 사이트를 지우면 거기 달린 수조·측정값·리포트가 함께 사라지고, 이름을 바꾸면 이미 발행한 리포트와 대조가 어긋납니다."
+      />
+
+      {isLoading && (
+        <div
+          role="status"
+          className="h-16 animate-pulse rounded-md border border-mrv-border"
+          aria-label="사이트 목록 불러오는 중"
+        />
+      )}
+
+      {isError && !isLoading && (
+        <LoadError
+          message="사이트 목록을 불러오지 못했습니다."
+          isUnauthorized={error instanceof ApiError && error.isUnauthorized}
+          onRetry={refresh}
+        />
+      )}
+
+      {!isLoading && !isError && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <caption className="sr-only">조직의 사이트 목록</caption>
+            <thead>
+              <tr className="border-b border-mrv-border text-xs text-mrv-muted">
+                <th scope="col" className="py-2 pr-3 font-medium">이름</th>
+                <th scope="col" className="py-2 pr-3 font-medium">지역</th>
+                <th scope="col" className="py-2 pr-3 font-medium">RAS 방식</th>
+                <th scope="col" className="py-2 font-medium">지금 보는 중</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sites.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="py-4 text-mrv-fg">
+                    등록된 사이트가 없습니다. 아래에서 하나 만들면 이 화면의 나머지 칸이
+                    열립니다.
+                  </td>
+                </tr>
+              )}
+              {sites.map((s) => (
+                <tr key={s.id} className="border-b border-mrv-border last:border-0">
+                  <td className="py-2 pr-3 text-mrv-fg">{s.name}</td>
+                  <td className="py-2 pr-3 text-mrv-muted">{s.region ?? "—"}</td>
+                  <td className="py-2 pr-3 text-mrv-muted">{s.ras_type ?? "—"}</td>
+                  <td className="py-2 text-mrv-muted">
+                    {s.id === selectedSiteId ? "이 사이트" : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <form
+        onSubmit={handleSubmit}
+        aria-label="사이트 등록 폼"
+        className="flex flex-col gap-3 border-t border-mrv-border pt-4"
+      >
+        {!isOwner && (
+          <PermissionNote>
+            사이트 등록은 owner 전용입니다. 사이트는 요금이 매겨지는 단위라 늘리는 것이
+            계약에 관한 결정이기 때문입니다.
+          </PermissionNote>
+        )}
+        {isOwner && needsEnterprise && (
+          <p
+            role="note"
+            className="rounded-md bg-mrv-amber-bg px-3 py-2 text-xs leading-relaxed text-mrv-fg"
+          >
+            사이트를 둘 이상 두려면 <b>ENTERPRISE</b> 플랜이 필요합니다(현재 {plan} · 등록된
+            사이트 {sites.length}개). 멀티사이트 관리와 사이트 횡단 벤치마크가 ENTERPRISE
+            기능입니다. 플랜은 온보딩 화면에서 바꿀 수 있습니다.
+          </p>
+        )}
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="flex flex-col gap-1">
+            <label htmlFor={nameId} className="text-sm font-medium text-mrv-fg">
+              이름 <span className="text-mrv-red">*</span>
+            </label>
+            <input
+              id={nameId}
+              value={name}
+              disabled={disabled}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="예: 무안 양식장"
+              className={INPUT_CLASS}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor={regionId} className="text-sm font-medium text-mrv-fg">
+              지역
+            </label>
+            <input
+              id={regionId}
+              value={region}
+              disabled={disabled}
+              onChange={(e) => setRegion(e.target.value)}
+              placeholder="예: 전남 무안"
+              className={INPUT_CLASS}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor={rasId} className="text-sm font-medium text-mrv-fg">
+              RAS 방식
+            </label>
+            <input
+              id={rasId}
+              value={rasType}
+              disabled={disabled}
+              onChange={(e) => setRasType(e.target.value)}
+              placeholder="예: 바이오플락"
+              className={INPUT_CLASS}
+            />
+          </div>
+        </div>
+
+        {fieldError !== null && (
+          <p role="alert" className="text-xs text-mrv-red">
+            {fieldError}
+          </p>
+        )}
+        {mutation.error !== undefined && (
+          <p role="alert" className="text-xs text-mrv-red">
+            {errorMessage(mutation.error, "사이트 등록에 실패했습니다.")}
+          </p>
+        )}
+        {savedName !== null && mutation.error === undefined && (
+          <p role="status" className="text-xs text-mrv-green">
+            「{savedName}」 을(를) 등록하고 이 화면의 대상 사이트로 골랐습니다. 이어서 아래에서
+            수조와 계측기를 등록하십시오.
+          </p>
+        )}
+
+        <button type="submit" disabled={disabled} className={PRIMARY_BUTTON}>
+          {mutation.isPending ? "등록 중…" : "사이트 등록"}
+        </button>
+      </form>
+    </Card>
   )
 }
 
@@ -317,8 +529,8 @@ function TankSection({ siteId, canWrite }: { siteId: string | null; canWrite: bo
         )}
         {canWrite && !siteId && (
           <PermissionNote>
-            등록된 사이트가 없어 수조를 다룰 수 없습니다. 관리자에게 사이트 등록을 요청해
-            주세요.
+            등록된 사이트가 없어 수조를 다룰 수 없습니다. 이 화면 맨 위의 「사이트」 에서
+            먼저 하나 등록하십시오(owner 전용).
           </PermissionNote>
         )}
 
@@ -607,7 +819,7 @@ function MeterSection({ siteId, canWrite }: { siteId: string | null; canWrite: b
         {canWrite && !siteId && (
           <PermissionNote>
             등록된 사이트가 없어 계측기를 넣을 수 없습니다. 사이트가 먼저 있어야 합니다 —
-            관리자에게 사이트 등록을 요청해 주세요.
+            이 화면 맨 위의 「사이트」 에서 등록하십시오(owner 전용).
           </PermissionNote>
         )}
 
@@ -1923,6 +2135,7 @@ export default function SettingsPage() {
         </Link>
       </Card>
 
+      <SiteSection isOwner={isOwner} />
       <TankSection siteId={selectedSiteId} canWrite={canWrite} />
       <MeterSection siteId={selectedSiteId} canWrite={canWrite} />
       <DevicePairingSection

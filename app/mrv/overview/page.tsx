@@ -162,7 +162,8 @@ export default function OverviewPage() {
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
         <PageHeader title="사이트 개요" />
         <CenteredMessage>
-          이 조직에 등록된 사이트가 없습니다. 관리자에게 사이트 등록을 요청해 주세요.
+          이 조직에 등록된 사이트가 없습니다. 설정 화면(/mrv/settings)의 「사이트」 에서
+          등록할 수 있습니다 — owner 전용입니다.
         </CenteredMessage>
       </div>
     )
