@@ -104,7 +104,15 @@ def guess_type(sensor_id: str) -> str:
     return "other"
 
 
+#: 전력계의 마지막 값을 '지금 값' 으로 보는 시간(분). 지그비 전력계는 값이 바뀔 때만 보내고,
+#: 바뀌지 않으면 최대 1시간에 한 번 보낸다(Zigbee2MQTT 기본 보고 설정). 부하가 없어 0 W 로
+#: 가만히 있는 회로를 30분 뒤 '끊김' 으로 보면 화면·웹에서 회로가 사라졌다.
+POWER_STALE_MIN = 75
+
+
 def _power_field(var: str) -> str | None:
+    if var == "valve_state":
+        return None                     # 밸브 열림·닫힘 — 전력 회로가 아니다
     if var == "line_voltage":
         return "voltage"
     if var == "device_temp":
@@ -292,7 +300,7 @@ class FieldEnv:
         return out
 
     def read_power(self, types: dict[str, str] | None = None,
-                   now: dt.datetime | None = None) -> list[dict]:
+                   now: dt.datetime | None = None, expected=()) -> list[dict]:
         """전력 회로 목록. 회로마다
         {"id", "type", "state", "power", "current", "voltage", "energy_today", "temp", "level", "age_min"}.
 
@@ -300,11 +308,14 @@ class FieldEnv:
         stale_minutes 보다 오래된 값은 None 이다 — 끊긴 회로의 마지막 전력을 지금 값으로
         보이면 안 된다. 오늘 전력량은 끊겨도 남긴다(그때까지 쓴 양은 사실이다).
         24시간 넘게 아무 값도 없는 회로는 목록에서 빠진다.
+
+        expected 는 [무선 센서] 에 차단기로 등록한 센서 이름들 — 아직 아무것도 보내지 않았어도
+        '수신 대기' 로 목록에 둔다(age_min None). 등록했는데 화면에 아예 없으면 어디가 문제인지 모른다.
         """
         now = now or dt.datetime.now()
         self._feed_all(now)
         types = {k.upper(): v for k, v in (types or {}).items()}
-        lo, hi = now - self.stale, now + dt.timedelta(minutes=5)
+        lo, hi = now - max(self.stale, dt.timedelta(minutes=POWER_STALE_MIN)), now + dt.timedelta(minutes=5)
 
         energy: dict[str, list[float]] = {}
         energy_ts: dict[str, dt.datetime] = {}
@@ -321,8 +332,9 @@ class FieldEnv:
 
         out: list[dict] = []
         for sid, fields in sorted(by_sid.items()):
-            # 회로인가 — 전력·전류·전력량 중 하나는 있어야 한다.
-            if not ({"power", "current"} & fields.keys()) and sid not in energy:
+            # 회로인가 — 전력·전류·전력량·통전 상태·선간전압 중 하나는 있어야 한다. 부하가 없는 차단기는
+            # 전력을 한 번도 안 보내고 상태(state)만 보내기도 한다 — 그것도 회로다(밸브는 _power_field 가 뺐다).
+            if not ({"power", "current", "state", "voltage"} & fields.keys()) and sid not in energy:
                 continue
             if not CIRCUIT_ID_RE.match(sid):
                 continue
@@ -352,6 +364,15 @@ class FieldEnv:
                 "level": breaker_level(temp),
                 "age_min": max(0, int((now - newest).total_seconds() // 60)),
             })
+        have = {c["id"].upper() for c in out}
+        for sid in sorted({str(x) for x in expected or ()}):
+            if sid.upper() in have or not CIRCUIT_ID_RE.match(sid):
+                continue
+            kind = types.get(sid.upper())
+            out.append({"id": sid, "type": kind if kind in POWER_TYPES else guess_type(sid),
+                        "state": None, "power": None, "current": None, "voltage": None,
+                        "energy_today": None, "temp": None, "level": "", "age_min": None})
+            have.add(sid.upper())
         return out
 
 

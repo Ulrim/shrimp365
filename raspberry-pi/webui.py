@@ -1046,6 +1046,7 @@ var I18N = {
   pw_on:{ko:"켜짐",en:"ON",vi:"BẬT",id:"NYALA"},
   pw_off:{ko:"꺼짐",en:"OFF",vi:"TẮT",id:"MATI"},
   pw_lost:{ko:"끊김",en:"No signal",vi:"Mất tín hiệu",id:"Terputus"},
+  pw_wait:{ko:"수신 대기",en:"Waiting",vi:"Đang chờ",id:"Menunggu"},
   pw_none:{ko:"계측 차단기 값이 들어오지 않습니다 — 지그비 수집기(zigbee_bridge)와 차단기 페어링을 확인하세요",en:"No breaker readings — check the Zigbee collector (zigbee_bridge) and breaker pairing",vi:"Không có dữ liệu aptomat — kiểm tra bộ thu Zigbee (zigbee_bridge) và ghép nối",id:"Tidak ada data pemutus — periksa kolektor Zigbee (zigbee_bridge) dan pairing"},
   pw_hot_warn:{ko:"차단기 온도 높음 — {name} {t}℃",en:"Breaker running hot — {name} {t}℃",vi:"Aptomat nóng — {name} {t}℃",id:"Pemutus panas — {name} {t}℃"},
   pw_hot_crit:{ko:"차단기 과열 — {name} {t}℃",en:"Breaker overheating — {name} {t}℃",vi:"Aptomat quá nhiệt — {name} {t}℃",id:"Pemutus terlalu panas — {name} {t}℃"},
@@ -1284,7 +1285,8 @@ function drawPower(d){
     rows = p.circuits.map(function(c){
       var st = c.state === 1 ? '<span class="st on">' + t("pw_on") + '</span>'
              : c.state === 0 ? '<span class="st">' + t("pw_off") + '</span>'
-             : (c.power === null ? '<span class="st">' + t("pw_lost") + '</span>' : "");
+             : (c.age_min === null || c.age_min === undefined ? '<span class="st">' + t("pw_wait") + '</span>'
+             : c.power === null ? '<span class="st">' + t("pw_lost") + '</span>' : "");
       var num = function(v, unit, cls){
         return '<span class="num' + (cls ? " " + cls : "") + (v === "--" ? " dim" : "") + '">' + v +
                '<small>' + unit + '</small></span>';

@@ -363,13 +363,14 @@ pnow = _dt.datetime(2026, 10, 18, 9, 0)
     "2026-10-18T08:59:00,facility,AUX-01,aux_power,0,W,ok\n"
     "2026-10-18T08:59:00,facility,AUX-01,device_temp,82,degC,ok\n"
     "2026-10-18T08:59:00,facility,MAIN-01,main_power,2350,W,ok\n"
-    "2026-10-18T08:00:00,facility,LIGHT-01,light_power,900,W,ok\n"
+    "2026-10-18T07:30:00,facility,LIGHT-01,light_power,900,W,ok\n"
+    "2026-10-18T08:20:00,facility,IDLE-01,idle_state,0,bool,ok\n"
     "2026-10-18T08:59:00,facility,VALVE-01,valve_state,1,bool,ok\n"
     "2026-10-18T08:59:00,facility,VALVE-01,irrigation_flow,12,L/min,ok\n", encoding="utf-8")
 pe = field_env.FieldEnv(pdir, zone="treatment")
 circ = {c["id"]: c for c in pe.read_power({"aux-01": "heater"}, now=pnow)}
 check("밸브는 회로가 아니다(전력·전류·전력량이 없다)", "VALVE-01" in circ, False)
-check("구간을 골라도 분전반 회로는 모두 보인다", sorted(circ), ["AUX-01", "LIGHT-01", "MAIN-01", "PUMP-01"])
+check("구간을 골라도 분전반 회로는 모두 보인다", sorted(circ), ["AUX-01", "IDLE-01", "LIGHT-01", "MAIN-01", "PUMP-01"])
 check("변수 끝말로 상태·전력·전류·전압을 읽는다",
       (circ["PUMP-01"]["state"], circ["PUMP-01"]["power"], circ["PUMP-01"]["current"], circ["PUMP-01"]["voltage"]),
       (1, 1480, 7.9, 221))
@@ -377,13 +378,18 @@ check("오늘 전력량은 구간값을 더한다", circ["PUMP-01"]["energy_toda
 check("화면에서 고른 종류가 짐작보다 먼저(대소문자 무관)", (circ["AUX-01"]["type"], circ["PUMP-01"]["type"]),
       ("heater", "irrigation_pump"))
 check("차단기 온도 71℃ 주의 · 82℃ 위험", (circ["PUMP-01"]["level"], circ["AUX-01"]["level"]), ("warn", "crit"))
-check("30분 넘은 전력은 지금 값으로 보이지 않는다", circ["LIGHT-01"]["power"], None)
+check("75분 넘은 전력은 지금 값으로 보이지 않는다", circ["LIGHT-01"]["power"], None)
+check("부하 없이 상태만 보내는 차단기도 회로다(40분 전 값도 유효)", (circ["IDLE-01"]["state"], circ["IDLE-01"]["power"]), (0, None))
+_ex = {c["id"]: c for c in pe.read_power({}, now=pnow, expected=["NEW-01", "PUMP-01", "../x"])}
+check("등록했지만 아직 안 보낸 차단기는 수신 대기로 남긴다",
+      ("NEW-01" in _ex, _ex["NEW-01"]["age_min"], "../x" in _ex, _ex["PUMP-01"]["power"]), (True, None, False, 1480))
+check("수신 대기 회로는 서버로 보내지 않는다", "NEW-01" in {c["id"] for c in field_env.payload_power(list(_ex.values()))}, False)
 summ = field_env.power_summary(list(circ.values()))
 check("인입 계측이 있으면 그것이 전체", (summ["total_w"], summ["partial"], summ["level"]), (2350, False, "crit"))
 summ2 = field_env.power_summary([c for c in circ.values() if c["type"] != "main"])
 check("인입이 없으면 분기 합(부분값으로 표시)", (summ2["total_w"], summ2["partial"]), (1480, True))
 sent = {c["id"] for c in field_env.payload_power(list(circ.values()))}
-check("서버로는 지금 값이 있는 회로만", sent, {"AUX-01", "MAIN-01", "PUMP-01"})
+check("서버로는 지금 값이 있는 회로만", sent, {"AUX-01", "IDLE-01", "MAIN-01", "PUMP-01"})
 _cfg = pdir / "config.ini"
 _cfg.write_text("[server]\nendpoint = x\n\n[power_circuits]\n; 주석\nPUMP-010 = other\n\n[history]\nenabled = true\n",
                 encoding="utf-8")

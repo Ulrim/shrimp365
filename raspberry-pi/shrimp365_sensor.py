@@ -109,7 +109,7 @@ try:
 except ImportError:  # pragma: no cover
     power_remote_mod = None
 
-VERSION = "1.9.8"
+VERSION = "1.9.9"
 
 #: 무선 센서 수집기가 쓰는 폴더(setup-wireless.sh). 서비스의 StateDirectory 아래라 읽고 쓸 수 있다.
 FIELD_DATA_DIR = "/var/lib/shrimp365/field/data"
@@ -2977,7 +2977,16 @@ def main() -> int:
         power = None
         if field_env is not None and power_on:
             try:
-                circuits = field_env.read_power(dict(power_types))  # 화면 스레드가 고치는 중일 수 있어 복사본
+                # [무선 센서] 에 차단기로 등록한 것 — 아직 아무것도 안 보냈어도 '수신 대기' 로 화면에 둔다.
+                expected = []
+                if wireless_mod is not None:
+                    try:
+                        expected = [c.get("sensor_id") or n for n, c in wireless_mod.read_registered(
+                            Path(cfg.get("wireless", "devices", fallback=str(wireless_mod.DEFAULT_DEVICES)))).items()
+                            if str(c.get("kind", "")).startswith("breaker")]
+                    except Exception as exc:  # noqa: BLE001 — 등록 목록을 못 읽어도 전력값은 띄운다
+                        log.debug("차단기 등록 목록을 읽지 못했습니다: %s", exc)
+                circuits = field_env.read_power(dict(power_types), expected=expected)  # 화면 스레드가 고치는 중일 수 있어 복사본
             except Exception as exc:  # noqa: BLE001
                 log.warning("전력 회로 읽기 실패: %s", exc)
                 circuits = []
