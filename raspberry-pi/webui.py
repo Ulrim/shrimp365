@@ -60,6 +60,7 @@ class State:
             "nutrient": None,      # 양액 보충 안내(켜 둔 경우에만)
             "env": None,           # 환경·기상(field_env.py). 끄면 None, 켰는데 값이 없으면 {}
             "power": None,         # 전력 회로 {circuits, total_w, partial, level}. 끄면 None
+            "irrigation": None,    # 관수 밸브 [{id, state, flow, volume_today, age_min}]. 없으면 None
             "mode": "shrimp",      # 장비 모드(shrimp|agriculture). 화면 이름·라벨·색만 바꾼다.
 
             # 장비가 스스로 낸 판단. 통신과 무관하게 여기서 끝난다.
@@ -164,6 +165,8 @@ PAGE = """<!doctype html>
     border:1px solid #22304C;background:#0F1D33;color:#CBD5E1;font-variant-numeric:tabular-nums}
   .pw:empty{display:none}
   .pw .bolt{color:#FBBF24}
+  .pw .drop{color:#38BDF8}
+  .pw.open{border-color:#0EA5E9;color:#7DD3FC}
   .pw.warn{border-color:#D97706;color:#FBBF24}
   .pw.crit{border-color:#DC2626;color:#F87171;background:#DC262622}
   .grid.n1{grid-template-columns:1fr}
@@ -562,6 +565,7 @@ PAGE = """<!doctype html>
   <span class="ver" id="ver"></span>
   <span class="ai" id="ai" onclick="openAi()"><span class="bulb"></span><span id="ailabel"></span></span>
   <span class="pw" id="pw" onclick="openPower()"></span>
+  <span class="pw" id="irr" onclick="openIrr()"></span>
   <span class="link" id="link"></span>
 </header>
 
@@ -582,6 +586,7 @@ PAGE = """<!doctype html>
 <div id="account"></div>
 <div id="aipanel"></div>
 <div id="powerpanel"></div>
+<div id="irrpanel"></div>
 <div id="envpanel"></div>
 
 <script>
@@ -1047,6 +1052,9 @@ var I18N = {
   pw_off:{ko:"꺼짐",en:"OFF",vi:"TẮT",id:"MATI"},
   pw_lost:{ko:"끊김",en:"No signal",vi:"Mất tín hiệu",id:"Terputus"},
   pw_wait:{ko:"수신 대기",en:"Waiting",vi:"Đang chờ",id:"Menunggu"},
+  irr_title:{ko:"관수 밸브",en:"Irrigation valves",vi:"Van tưới",id:"Katup irigasi"},
+  irr_open:{ko:"열림",en:"Open",vi:"Mở",id:"Buka"},
+  irr_closed:{ko:"닫힘",en:"Closed",vi:"Đóng",id:"Tutup"},
   pw_none:{ko:"계측 차단기 값이 들어오지 않습니다 — 지그비 수집기(zigbee_bridge)와 차단기 페어링을 확인하세요",en:"No breaker readings — check the Zigbee collector (zigbee_bridge) and breaker pairing",vi:"Không có dữ liệu aptomat — kiểm tra bộ thu Zigbee (zigbee_bridge) và ghép nối",id:"Tidak ada data pemutus — periksa kolektor Zigbee (zigbee_bridge) dan pairing"},
   pw_hot_warn:{ko:"차단기 온도 높음 — {name} {t}℃",en:"Breaker running hot — {name} {t}℃",vi:"Aptomat nóng — {name} {t}℃",id:"Pemutus panas — {name} {t}℃"},
   pw_hot_crit:{ko:"차단기 과열 — {name} {t}℃",en:"Breaker overheating — {name} {t}℃",vi:"Aptomat quá nhiệt — {name} {t}℃",id:"Pemutus terlalu panas — {name} {t}℃"},
@@ -1270,6 +1278,46 @@ function renderPowerAlert(d){
   return '<div class="pwalert ' + c.level + '" onclick="openPower()">\u26A0 ' +
     esc(t(key, {name: pwName(c), t: c.temp.toFixed(0)})) +
     '<span class="why">' + t("pw_hot_do") + ' \u203A</span></div>';
+}
+
+// ── 관수 밸브(지그비 밸브 + 유량계) — 켤 때만 흐른다. 유량 0 은 고장이 아니라 닫힘이다.
+// 머리 칩에 오늘 쓴 물(L), 열린 밸브가 있으면 파란 테두리. 누르면 밸브마다 상태·유량·오늘 사용량.
+var irrOpen = false;
+function liters(v){ return v >= 1000 ? (v / 1000).toFixed(2) + " m\u00B3" : Math.round(v) + " L"; }
+function renderIrrChip(d){
+  var el = document.getElementById("irr");
+  var list = d.irrigation || [];
+  if (!list.length) { el.innerHTML = ""; el.className = "pw"; return; }
+  var total = 0, any = false, open = false;
+  list.forEach(function(v){
+    if (typeof v.volume_today === "number") { total += v.volume_today; any = true; }
+    if (v.state === 1 || (typeof v.flow === "number" && v.flow > 0)) open = true;
+  });
+  el.className = "pw" + (open ? " open" : "");
+  el.innerHTML = '<span class="drop">\\uD83D\\uDCA7</span>' + (any ? liters(total) : "--");
+}
+function openIrr(){ irrOpen = true; drawIrr(lastState || {}); }
+function closeIrr(){ irrOpen = false; document.getElementById("irrpanel").innerHTML = ""; }
+function drawIrr(d){
+  var list = d.irrigation || [];
+  if (!list.length) { closeIrr(); return; }
+  var rows = list.map(function(v){
+    var wait = v.age_min === null || v.age_min === undefined;
+    var st = wait ? '<span class="st">' + t("pw_wait") + '</span>'
+           : v.state === 1 ? '<span class="st on">' + t("irr_open") + '</span>'
+           : v.state === 0 ? '<span class="st">' + t("irr_closed") + '</span>' : "";
+    var num = function(x, unit){
+      return '<span class="num' + (x === "--" ? " dim" : "") + '">' + x + '<small>' + unit + '</small></span>';
+    };
+    return '<div class="pwrow"><div class="nm">' + esc(v.id) + '</div>' + st +
+      num(typeof v.flow === "number" ? v.flow.toFixed(1) : "--", "L/min") +
+      num(typeof v.volume_today === "number" ? Math.round(v.volume_today) : "--", "L " + t("pw_today")) + '</div>';
+  }).join("");
+  document.getElementById("irrpanel").innerHTML =
+    '<div class="overlay"><h1>' + t("irr_title") + '</h1>' +
+      '<div class="pwbox">' + rows + '</div>' +
+      '<div class="ovbtns"><button class="act ghost" onclick="closeIrr()">' + t("close") + '</button></div>' +
+    '</div>';
 }
 
 function openPower(){ powerOpen = true; drawPower(lastState || {}); }
@@ -2598,6 +2646,8 @@ function render(d){
   renderAi(d);
   renderPowerChip(d);
   if (powerOpen) drawPower(d);
+  renderIrrChip(d);
+  if (irrOpen) drawIrr(d);
   if (envEachKey) drawEnvEach(d);
   else if (wxOpen) drawWeather(d);
   // 그래프를 보고 있는 중에는 뒤 화면을 다시 그리지 않는다.

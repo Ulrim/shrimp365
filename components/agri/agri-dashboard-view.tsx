@@ -28,6 +28,7 @@ import { BedCard } from "@/components/agri/dashboard/bed-card"
 import { DpTrendCard } from "@/components/agri/dashboard/dp-trend-card"
 import { EnvironmentCard } from "@/components/agri/dashboard/environment-card"
 import { PowerCard } from "@/components/power/power-card"
+import { IrrigationCard } from "@/components/irrigation/irrigation-card"
 import { RecentAlerts } from "@/components/agri/dashboard/recent-alerts"
 import { agoLabel } from "@/components/agri/dashboard/time-ago"
 import { FieldRiskCard } from "@/components/agri/openfield/field-risk-card"
@@ -345,6 +346,9 @@ export function AgriDashboardView() {
 
       {/* 전력 — 장비가 분전반 회로 값을 올린 베드만. 없으면 카드가 그려지지 않는다 */}
       {selectedTank && featureOn("power", on) && <PowerCard tankId={selectedTank.id} tankName={selectedTank.name} now={now} mock={mock} />}
+
+      {/* 관수 밸브(지그비 밸브 + 유량계) — 장비가 밸브 값을 올린 베드만. 없으면 카드가 그려지지 않는다 */}
+      {selectedTank && <IrrigationCard tankId={selectedTank.id} tankName={selectedTank.name} now={now} mock={mock} />}
 
       {hasNutrient || hasDp ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

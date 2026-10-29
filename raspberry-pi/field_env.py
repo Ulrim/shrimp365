@@ -104,6 +104,13 @@ def guess_type(sensor_id: str) -> str:
     return "other"
 
 
+# ── 관수 밸브·유량계 (Zigbee 투야 스마트 워터밸브 + 유량계) ─────────────────────
+# 켤 때만 흐르는 관수 라인이다 — 유량 0 은 고장이 아니라 '닫힘' 이다. 그래서 수질의 유량(flow_rate,
+# 0 이면 순환 멈춤 경보) 칸에 넣지 않고 밸브마다 따로 둔다. 수집기(zigbee.py)가 water_consumed 적산값을
+# 구간 증가분(irrigation_volume, L)으로 바꿔 적으므로 오늘 것을 더하면 오늘 사용량이다.
+IRR_FLOW, IRR_VOLUME, IRR_STATE = "irrigation_flow", "irrigation_volume", "valve_state"
+_IRR_VARS = frozenset({IRR_FLOW, IRR_VOLUME, IRR_STATE})
+
 #: 전력계의 마지막 값을 '지금 값' 으로 보는 시간(분). 지그비 전력계는 값이 바뀔 때만 보내고,
 #: 바뀌지 않으면 최대 1시간에 한 번 보낸다(Zigbee2MQTT 기본 보고 설정). 부하가 없어 0 W 로
 #: 가만히 있는 회로를 30분 뒤 '끊김' 으로 보면 화면·웹에서 회로가 사라졌다.
@@ -152,6 +159,9 @@ class FieldEnv:
         # 전력 회로 — (센서, 뜻) → (시각, 값). 전력량은 강수와 같은 방식으로 오늘 것을 더한다.
         self._pw: dict[tuple[str, str], tuple[dt.datetime, float]] = {}
         self._energy: dict[tuple[str, dt.date, str], tuple[dt.datetime, float]] = {}
+        # 관수 밸브 — (센서, 변수) → (시각, 값), 사용량은 (파일, 날짜, 센서) → (시각, 오늘 합).
+        self._irr: dict[tuple[str, str], tuple[dt.datetime, float]] = {}
+        self._irr_vol: dict[tuple[str, dt.date, str], tuple[dt.datetime, float]] = {}
 
     # ── 읽기 ────────────────────────────────────────────────────────────────
     def _feed(self, path: Path, now: dt.datetime | None = None) -> None:
@@ -188,10 +198,11 @@ class FieldEnv:
             return
         ts_s, zone, sid, var, val_s, _unit, quality = parts[:7]
         pfield = _power_field(var)
-        if (var not in _WANTED and pfield is None) or (quality or "ok").strip() != "ok":
+        irr = var in _IRR_VARS
+        if (var not in _WANTED and pfield is None and not irr) or (quality or "ok").strip() != "ok":
             return
-        # 전력 회로는 구간(zone)과 무관하다 — 분전반은 농장에 하나다.
-        if pfield is None and self.zone and zone not in (self.zone, ZONE_MAST):
+        # 전력 회로·관수 밸브는 구간(zone)과 무관하다 — 분전반·관수 라인은 농장 설비다.
+        if pfield is None and not irr and self.zone and zone not in (self.zone, ZONE_MAST):
             return
         try:
             ts = dt.datetime.fromisoformat(ts_s.strip())
@@ -205,6 +216,16 @@ class FieldEnv:
         # 시계가 틀린 기기가 미래 시각으로 쓴 줄은 버린다 — '가장 최근 값' 자리를 그 시각이 올 때까지 차지해
         # 진짜 지금 값(차단기 온도 포함 — 과열이면 켜기를 막는 근거)이 몇 시간 동안 '없음' 으로 보였다.
         if now is not None and ts > now + dt.timedelta(minutes=5):
+            return
+        if irr:
+            if var == IRR_VOLUME:
+                vkey = (src, ts.date(), sid)
+                last, total = self._irr_vol.get(vkey, (ts, 0.0))
+                self._irr_vol[vkey] = (max(last, ts), total + value)
+                return
+            ikey = (sid, var)
+            if ikey not in self._irr or ts >= self._irr[ikey][0]:
+                self._irr[ikey] = (ts, value)
             return
         if pfield is not None:
             if pfield == "energy":
@@ -235,8 +256,10 @@ class FieldEnv:
         self._offset = {p: o for p, o in self._offset.items() if p.stem[-8:] in keep}
         self._rain = {k: v for k, v in self._rain.items() if k[1] == now.date()}
         self._energy = {k: v for k, v in self._energy.items() if k[1] == now.date()}
+        self._irr_vol = {k: v for k, v in self._irr_vol.items() if k[1] == now.date()}
         day_ago = now - dt.timedelta(days=1)
         self._pw = {k: v for k, v in self._pw.items() if v[0] >= day_ago}
+        self._irr = {k: v for k, v in self._irr.items() if v[0] >= day_ago}
 
     def read(self, now: dt.datetime | None = None) -> dict:
         """칸마다 {"value", "var", "sensors", "age_min", "each"} 를 돌려준다. 값이 없는 칸은 빠진다.
@@ -374,6 +397,55 @@ class FieldEnv:
                         "energy_today": None, "temp": None, "level": "", "age_min": None})
             have.add(sid.upper())
         return out
+
+
+def read_irrigation(fe: "FieldEnv", now: dt.datetime | None = None, expected=()) -> list[dict]:
+    """관수 밸브 목록 — 밸브마다 {"id", "state", "flow", "volume_today", "age_min"}.
+
+    flow 는 L/min, volume_today 는 오늘 흘러간 L. 유량계는 값이 바뀔 때만 보내므로 전력계와 같은
+    75분까지 지금 값으로 본다. 오늘 사용량은 끊겨도 남긴다. expected 는 [무선 센서] 에 밸브로 등록한
+    센서 이름 — 아직 아무것도 보내지 않았으면 age_min None(수신 대기)으로 둔다.
+    """
+    now = now or dt.datetime.now()
+    fe._feed_all(now)
+    lo, hi = now - max(fe.stale, dt.timedelta(minutes=POWER_STALE_MIN)), now + dt.timedelta(minutes=5)
+    vol: dict[str, list[float]] = {}
+    stamps: dict[str, list[dt.datetime]] = {}
+    for (_src, day, sid), (ts, total) in fe._irr_vol.items():
+        if day == now.date():
+            vol.setdefault(sid, []).append(total)
+            stamps.setdefault(sid, []).append(ts)
+    fields: dict[str, dict[str, tuple[dt.datetime, float]]] = {}
+    for (sid, var), tv in fe._irr.items():
+        fields.setdefault(sid, {})[var] = tv
+        stamps.setdefault(sid, []).append(tv[0])
+    out = []
+    for sid in sorted(set(fields) | set(vol)):
+        if not CIRCUIT_ID_RE.match(sid):
+            continue
+        f = fields.get(sid, {})
+
+        def fresh(var: str):
+            tv = f.get(var)
+            return tv[1] if tv and lo <= tv[0] <= hi else None
+
+        st, fl = fresh(IRR_STATE), fresh(IRR_FLOW)
+        v = vol.get(sid)
+        out.append({"id": sid, "state": None if st is None else (1 if st >= 0.5 else 0),
+                    "flow": _r(fl, 1), "volume_today": round(sum(v) / len(v), 1) if v else None,
+                    "age_min": _age(now, max(stamps[sid]))})
+    have = {x["id"].upper() for x in out}
+    for sid in sorted({str(x) for x in expected or ()}):
+        if sid.upper() not in have and CIRCUIT_ID_RE.match(sid):
+            out.append({"id": sid, "state": None, "flow": None, "volume_today": None, "age_min": None})
+            have.add(sid.upper())
+    return out
+
+
+def payload_irrigation(valves: list[dict]) -> list[dict]:
+    """서버로 보낼 밸브 값 — 상태·유량·오늘 사용량 중 하나라도 있는 밸브만."""
+    return [{k: v[k] for k in ("id", "state", "flow", "volume_today")} for v in valves
+            if any(v[k] is not None for k in ("state", "flow", "volume_today"))]
 
 
 def _r(v: float | None, digits: int):

@@ -380,6 +380,25 @@ check("화면에서 고른 종류가 짐작보다 먼저(대소문자 무관)", 
 check("차단기 온도 71℃ 주의 · 82℃ 위험", (circ["PUMP-01"]["level"], circ["AUX-01"]["level"]), ("warn", "crit"))
 check("75분 넘은 전력은 지금 값으로 보이지 않는다", circ["LIGHT-01"]["power"], None)
 check("부하 없이 상태만 보내는 차단기도 회로다(40분 전 값도 유효)", (circ["IDLE-01"]["state"], circ["IDLE-01"]["power"]), (0, None))
+_iv = {v["id"]: v for v in field_env.read_irrigation(pe, now=pnow, expected=["VALVE-02"])}
+check("관수 밸브: 열림·유량, 등록만 한 밸브는 수신 대기",
+      (_iv["VALVE-01"]["state"], _iv["VALVE-01"]["flow"], _iv["VALVE-02"]["age_min"]), (1, 12.0, None))
+check("밸브는 전력 회로 목록에 섞이지 않는다", "VALVE-01" in circ, False)
+_idir = Path(tempfile.mkdtemp())
+(_idir / f"zigbee_{pnow:%Y%m%d}.csv").write_text(
+    "ts,zone,sensor_id,variable,value,unit,quality\n"
+    "2026-10-18T06:00:00,facility,VALVE-01,valve_state,1,bool,ok\n"
+    "2026-10-18T06:00:00,facility,VALVE-01,irrigation_flow,15,L/min,ok\n"
+    "2026-10-18T06:10:00,facility,VALVE-01,irrigation_volume,150,L,ok\n"
+    "2026-10-18T06:20:00,facility,VALVE-01,irrigation_volume,140,L,ok\n"
+    "2026-10-18T06:20:00,facility,VALVE-01,valve_state,0,bool,ok\n"
+    "2026-10-18T06:20:00,facility,VALVE-01,irrigation_flow,0,L/min,ok\n", encoding="utf-8")
+_ie = field_env.FieldEnv(_idir, zone="treatment")
+_v = field_env.read_irrigation(_ie, now=_dt.datetime(2026, 10, 18, 7, 0))[0]
+check("닫힌 밸브: 유량 0 · 오늘 사용량은 구간을 더한다(구간과 무관)", (_v["state"], _v["flow"], _v["volume_today"]), (0, 0.0, 290.0))
+check("서버로 보낼 밸브 값", field_env.payload_irrigation([_v]), [{"id": "VALVE-01", "state": 0, "flow": 0.0, "volume_today": 290.0}])
+check("수신 대기 밸브는 보내지 않는다",
+      field_env.payload_irrigation([{"id": "V", "state": None, "flow": None, "volume_today": None, "age_min": None}]), [])
 _ex = {c["id"]: c for c in pe.read_power({}, now=pnow, expected=["NEW-01", "PUMP-01", "../x"])}
 check("등록했지만 아직 안 보낸 차단기는 수신 대기로 남긴다",
       ("NEW-01" in _ex, _ex["NEW-01"]["age_min"], "../x" in _ex, _ex["PUMP-01"]["power"]), (True, None, False, 1480))

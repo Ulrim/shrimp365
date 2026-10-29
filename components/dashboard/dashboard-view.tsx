@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth-context"
 import { Farm, Tank, Alert, DiagnosisResult, WaterQualityReading, InventoryItem, SensorDevice } from "@/types"
 import { DeviceCurrentValues } from "@/components/sensors/device-current-values"
 import { PowerCard } from "@/components/power/power-card"
+import { IrrigationCard } from "@/components/irrigation/irrigation-card"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -424,6 +425,11 @@ export function DashboardView() {
       {/* 분전반 전력 — 장비가 회로 값을 올린 수조만. 없으면 카드가 그려지지 않는다 */}
       {selectedTankId && (
         <PowerCard tankId={selectedTankId} tankName={tanks.find(tk => tk.id === selectedTankId)?.name ?? ""}
+          now={lastRefreshed} mock={isTestAccount(user?.email)} />
+      )}
+      {/* 관수 밸브(지그비 밸브 + 유량계) — 장비가 밸브 값을 올린 수조만 */}
+      {selectedTankId && (
+        <IrrigationCard tankId={selectedTankId} tankName={tanks.find(tk => tk.id === selectedTankId)?.name ?? ""}
           now={lastRefreshed} mock={isTestAccount(user?.email)} />
       )}
 

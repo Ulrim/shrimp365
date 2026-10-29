@@ -34,6 +34,7 @@ ORDER=(
   environment_readings
   power_readings
   power_remote
+  irrigation_readings
   env_sensors
   canopy_temp
   wq_series_year

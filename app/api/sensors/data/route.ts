@@ -4,6 +4,7 @@ import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, parseTre
 import { sendAlertPush } from "@/lib/push-server"
 import { ENV_PARAMS, ENV_KEYS, ENV_LATER_KEYS, parseEnvEach, type EnvParamKey } from "@/lib/env-params"
 import { parsePowerPayload, breakerAlerts } from "@/lib/power"
+import { parseIrrigationPayload } from "@/lib/irrigation"
 import { strictNumber } from "@/lib/strict-number"
 
 /** 환경·기상 칸별 수신 범위 — lib/env-params.ts 에서 만든다. */
@@ -212,12 +213,14 @@ export async function POST(req: NextRequest) {
 
   // 분전반 전력 회로(장비 field_env.py) — 회로마다 한 줄. 모양이 틀린 회로는 버린다.
   const powerCircuits = parsePowerPayload(body.power)
+  // 관수 밸브(지그비 밸브 + 유량계) — 밸브마다 한 줄. 경보는 만들지 않는다(켤 때만 흐른다).
+  const valves = parseIrrigationPayload(body.irrigation)
 
   // 수질 센서 없이 환경·기상(또는 전력)만 쓰는 장비(노지)도 받는다. 그때는 아래 수조 상태
   // 갱신을 건너뛴다 — 수질 판정 없이 status 를 active 로 덮어쓰면 진짜 경보 상태를 지운다.
   const hasWater = Object.keys(values).length > 0
   const hasEnv = Object.keys(envValues).length > 0
-  if (!hasWater && !hasEnv && powerCircuits.length === 0) {
+  if (!hasWater && !hasEnv && powerCircuits.length === 0 && valves.length === 0) {
     return NextResponse.json({ error: "측정값이 하나도 없습니다." }, { status: 422 })
   }
 
@@ -308,6 +311,22 @@ export async function POST(req: NextRequest) {
       })),
     )
     if (powerError) console.warn("[sensors/data] 전력 회로 저장 실패(power_readings.sql 필요?):", powerError.message)
+  }
+
+  // 3-2. 관수 밸브 기록 — 실패해도 수질 수신은 그대로 간다(irrigation_readings.sql 전 DB 등).
+  if (valves.length > 0) {
+    const { error: irrError } = await supabaseAdmin.from("irrigation_readings").insert(
+      valves.map(v => ({
+        tank_id: device.tank_id,
+        device_id: device.id,
+        valve_id: v.id,
+        state: v.state,
+        flow_lpm: v.flow,
+        volume_today_l: v.volume_today,
+        recorded_at: recordedAt,
+      })),
+    )
+    if (irrError) console.warn("[sensors/data] 관수 밸브 저장 실패(irrigation_readings.sql 필요?):", irrError.message)
   }
 
   // 4. 임계값 체크 → 알림 생성 + 수조 상태 갱신
