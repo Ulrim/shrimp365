@@ -52,7 +52,7 @@ KEY_PATH = HERE / "secrets" / "release-key.pem"
 # 그래서 1.9.0 앞에 updater.py 만 바꾼 1.8.1 을 한 번 내보내야 했다(README 참고).
 # 1.8.1 부터는 이름의 모양으로 검사하므로 이 과정은 다시 필요하지 않다.
 PAYLOAD = [
-    "shrimp365_sensor.py", "display.py", "webui.py", "wifi.py",
+    "shrimp365_sensor.py", "display.py", "webui.py", "webui_amp.py", "wifi.py",
     "buffer.py", "history.py", "updater.py",
     "limits.py", "anomaly.py", "advice.py", "field_env.py", "wireless.py", "power_control.py", "power_remote.py",
     # 판정 자체점검. 장비에서 바로 돌려 보일 수 있어야 성능검증 자리에서 쓸모가 있다.

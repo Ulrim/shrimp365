@@ -247,6 +247,7 @@ ls
 | `history.py` | 화면 그래프에 쓸 측정 이력 | `/opt/shrimp365/` |
 | `display.py` | 문자 LCD 출력 (LCD 안 달면 안 씁니다) | `/opt/shrimp365/` |
 | `webui.py` | 터치스크린에 띄우는 상태 화면 | `/opt/shrimp365/` |
+| `webui_amp.py` | 에이엠피(AMP) 전용판 화면 — `[brand] edition = amp` 일 때만 씀 | `/opt/shrimp365/` |
 | `updater.py` | 원격 업데이트를 받아 서명을 확인하고 적용 | `/opt/shrimp365/` |
 | `config.example.ini` | **설정 견본.** 포트·센서·주기를 여기서 정합니다 | `/etc/shrimp365/config.ini` |
 | `shrimp365-sensor.service` | 부팅하면 자동 시작하게 하는 등록 파일 | `/etc/systemd/system/` |
@@ -259,7 +260,7 @@ ls
 
 ```bash
 for f in install.sh shrimp365_sensor.py buffer.py history.py display.py \
-         webui.py updater.py config.example.ini shrimp365-sensor.service \
+         webui.py webui_amp.py updater.py config.example.ini shrimp365-sensor.service \
          shrimp365-update.service shrimp365-update.timer; do
   [ -f "$f" ] && echo "  OK   $f" || echo "  없음 $f"
 done
@@ -361,6 +362,11 @@ ec_slave_id = 4
 제한하므로 60초보다 짧게는 권하지 않습니다.
 
 `device_key` 는 **비워 두세요.** 9번에서 코드로 연결하면 자동으로 채워집니다.
+
+> **에이엠피(AMP) 납품 장비라면** 여기서 `[brand]` 구간도 채웁니다 — `edition = amp`
+> 한 줄이면 화면이 **AMP AquaPilot** 으로 뜹니다. 기본값(`shrimp365`, 또는 구간 없음)이면
+> 지금까지와 똑같습니다. 절차와 고객센터·앱 이름 키는
+> [`docs/amp/INSTALL-AMP.md`](../docs/amp/INSTALL-AMP.md) 를 보세요.
 
 저장은 `Ctrl+O` → `Enter`, 닫기는 `Ctrl+X` 입니다.
 
@@ -656,7 +662,7 @@ sudo apt update && sudo apt install -y python3-serial
 
 # 2) 프로그램 배치
 sudo install -d -m 755 /opt/shrimp365 /etc/shrimp365
-sudo install -m 644 shrimp365_sensor.py display.py webui.py buffer.py history.py \
+sudo install -m 644 shrimp365_sensor.py display.py webui.py webui_amp.py buffer.py history.py \
   /opt/shrimp365/
 
 # 3) 설정 파일 (권한 600 — 기기 키가 들어갑니다)

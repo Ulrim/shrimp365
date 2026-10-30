@@ -826,6 +826,116 @@ _replies.append((200, {"commands": [{"id": "d1", "circuit": "AIR-01", "action": 
 _RP.once()
 check("웹에서 산소공급기를 꺼도 산소가 낮으면 장비가 다시 켠다", _W.desired("AIR-01", _now["t"]), True)
 
+print("\n⑭ 에디션 — 기본(Shrimp365) 화면은 그대로, AMP AquaPilot 은 페이지만 갈아 끼운다")
+import ast as _ast                     # noqa: E402
+import configparser as _cp             # noqa: E402
+import re as _re                       # noqa: E402
+import socket as _socket               # noqa: E402
+import urllib.error as _uerr           # noqa: E402
+import urllib.request as _ureq         # noqa: E402
+import display                         # noqa: E402
+import updater                         # noqa: E402
+import webui                           # noqa: E402
+import webui_amp                       # noqa: E402
+
+
+def _brand(text: str) -> dict:
+    c = _cp.ConfigParser()
+    c.read_string(text)
+    return webui_amp.read_brand(c)
+
+
+check("[brand] 가 없으면 기본 에디션", (_brand("[server]\nendpoint = x\n")["edition"], _brand("")["name"]),
+      ("shrimp365", "Shrimp365"))
+check("edition = amp → AMP판, 이름은 webui_amp.PRODUCT_NAME",
+      (_brand("[brand]\nedition = AMP \n")["edition"], _brand("[brand]\nedition = amp\n")["name"]),
+      ("amp", webui_amp.PRODUCT_NAME))
+check("모르는 값이면 기본 에디션", _brand("[brand]\nedition = amp2\n")["edition"], "shrimp365")
+check("[brand] 키는 앞뒤 공백을 걷고, 비어 있으면 빈 값(화면이 그 줄을 숨긴다)",
+      (_brand("[brand]\nedition = amp\nsupport_phone =  1588-0000 \n")["support_phone"],
+       _brand("[brand]\nedition = amp\n")["app_name"]), ("1588-0000", ""))
+check("값에 % 가 있어도 설정 읽기가 죽지 않는다", _brand("[brand]\nedition = amp\napp_name = 100%\n")["app_name"], "100%")
+check("문자 LCD 첫 줄 — 기본은 예전 그대로, AMP판은 제품명",
+      (display.compose({}, 16, 2, 0), display.compose({}, 16, 2, 0, brand=webui_amp.PRODUCT_NAME)[0].strip()),
+      (["Shrimp365".center(16), "No sensor data"], webui_amp.PRODUCT_NAME))
+_base = webui_amp._base_i18n()
+check("webui.py 의 번역(하단줄·운전 권고·센서 진단)을 그대로 꺼내 쓴다",
+      all(k + ":" in _base for k in ("st_send_fail", "st_sent", "adv_do_critical", "adv_do_falling", "sen_probe", "v_ok")), True)
+check("AMP 페이지에 외부 리소스(CDN·웹폰트·외부 주소)가 없다",
+      _re.findall(r"(?:https?:)?//[A-Za-z0-9.-]+\.[A-Za-z]{2,}", webui_amp.PAGE), [])
+_rel = Path(__file__).resolve().parent / "release.py"
+if _rel.exists():   # 개발 PC 에만 있다(장비 꾸러미에는 없음)
+    _payload = next(_ast.literal_eval(n.value) for n in _ast.parse(_rel.read_text(encoding="utf-8")).body
+                    if isinstance(n, _ast.Assign) and getattr(n.targets[0], "id", "") == "PAYLOAD")
+    check("업데이트 꾸러미에 webui_amp.py 가 들어가고 업데이터가 받는 이름이다",
+          ("webui_amp.py" in _payload, updater.allowed_name("webui_amp.py")), (True, True))
+
+
+def _port() -> int:
+    so = _socket.socket()
+    so.bind(("127.0.0.1", 0))
+    n = so.getsockname()[1]
+    so.close()
+    return n
+
+
+def _get(port: int, path: str, body=None) -> tuple[int, bytes]:
+    req = _ureq.Request(f"http://127.0.0.1:{port}{path}", data=None if body is None else json.dumps(body).encode(),
+                        method="GET" if body is None else "POST", headers={"Content-Type": "application/json"})
+    try:
+        with _ureq.urlopen(req, timeout=5) as r:
+            return r.status, r.read()
+    except _uerr.HTTPError as e:
+        return e.code, e.read()
+
+
+_called: list = []
+_cb = dict(
+    on_pair_start=lambda: _called.append("pair"), on_pair_cancel=lambda: None, on_unlink=lambda: None,
+    get_sensors=lambda: {"sensors": [], "interval": 60}, get_lang=lambda: "vi", on_set_lang=lambda l: True,
+    get_mode=lambda: {"mode": "agriculture"}, on_set_mode=lambda m: _called.append("mode") or {"ok": True},
+    get_nutrient=lambda: {"enabled": True}, on_power_control=lambda b: _called.append("power") or {"ok": True},
+    get_wireless=lambda: {}, on_wireless=lambda a, b: _called.append("wireless") or {"ok": True},
+)
+logging.getLogger("shrimp365.webui").setLevel(logging.ERROR)
+
+# 기본 에디션 — 페이지가 예전 계산(PAGE + 판정 밴드 + 언어 + 모드)과 바이트 단위로 같은가
+_st = webui.State()
+_pb = _port()
+_srv = webui.serve(_st, _pb, language="ko", mode="shrimp")
+_code, _html = _get(_pb, "/")
+_want = (webui.PAGE.replace("__BANDS__", json.dumps(limits.BANDS)).replace("__NUT_BANDS__", json.dumps(limits.NUTRIENT_BANDS))
+         .replace("__LANG__", "ko").replace("__MODE__", "shrimp")).encode()
+check("기본 에디션 화면은 예전과 한 글자도 다르지 않다", (_code, _html == _want), (200, True))
+_srv.shutdown()
+_srv.server_close()
+
+# AMP판 — 같은 엔드포인트·State, 페이지만 다르다. 안 쓰는 콜백(모드·양액·무선·전력 제어)은 404.
+_st = webui.State()
+_st.update(version="9.9.9", values={"do_level": 5.6})
+_pa = _port()
+_srv = webui_amp.serve(_st, _pa, brand={"support_phone": "</script>__LANG__", "app_name": "", "pair_url": ""}, **_cb)
+check("AMP판 serve 가 뜬다", _srv is not None, True)
+_code, _html = _get(_pa, "/")
+_page = _html.decode()
+check("AMP 페이지 — 창 제목은 제품명, 자리표시가 남지 않는다",
+      (_code, f"<title>{webui_amp.PRODUCT_NAME}</title>" in _page, _re.findall(r"__[A-Z_]+__", _page)), (200, True, []))
+check("AMP 페이지 — 저장된 화면 언어(get_lang)로 뜬다", '<html lang="vi"' in _page, True)
+check("설정값에 </script> 가 들어 있어도 스크립트가 깨지지 않는다", _page.count("</script>"), 1)
+check("Shrimp365 표기는 기기 정보의 'Powered by' 한 곳뿐(화면 문구)",
+      _page.replace(_base, "").count("Shrimp365"), 1)
+check("AMP판 /api/state 는 같은 State 를 준다", json.loads(_get(_pa, "/api/state")[1])["values"], {"do_level": 5.6})
+check("AMP판도 같은 엔드포인트로 센서 설정을 읽는다", json.loads(_get(_pa, "/api/sensors")[1])["interval"], 60)
+_get(_pa, "/api/pair/start", {})
+check("기기 연결 시작이 수집기 콜백에 닿는다", "pair" in _called, True)
+check("양식장 고정 — 모드·양액·무선 센서·전력 켜고 끄기 엔드포인트는 열지 않는다",
+      [_get(_pa, "/api/mode")[0], _get(_pa, "/api/nutrient")[0], _get(_pa, "/api/mode", {"mode": "agriculture"})[0],
+       _get(_pa, "/api/power/control", {"id": "AIR-01"})[0], _get(_pa, "/api/wireless/permit", {})[0]],
+      [404, 404, 404, 404, 404])
+check("막힌 콜백은 한 번도 불리지 않았다", [c for c in _called if c != "pair"], [])
+_srv.shutdown()
+_srv.server_close()
+
 print()
 if fails:
     print(f"실패 {len(fails)}건:")

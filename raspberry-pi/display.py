@@ -185,6 +185,7 @@ def compose(
     rows: int,
     page: int,
     status: str = "",
+    brand: str = "Shrimp365",
 ) -> list[str]:
     """측정값을 LCD 줄 목록으로 만든다.
 
@@ -193,7 +194,8 @@ def compose(
     available = [(key, label, unit, digits) for key, label, unit, digits in _LABELS if key in values]
 
     if not available:
-        return ["Shrimp365".center(columns), "No sensor data"[:columns]]
+        # 이름은 에디션을 따른다(기본 Shrimp365, AMP판은 AMP AquaPilot — shrimp365_sensor.LCD_BRAND).
+        return [brand.center(columns), "No sensor data"[:columns]]
 
     # 상태 줄은 자리가 남을 때만 넣는다. 다만 문제가 생겼을 때는 값 한 줄을
     # 밀어내고서라도 반드시 띄운다 — 현장에서는 "안 올라가고 있다"는 사실이

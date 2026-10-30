@@ -3854,6 +3854,8 @@ def serve(
     get_wireless=None,
     on_wireless=None,
     get_lang=None,
+    *,
+    _page=None,
 ) -> ThreadingHTTPServer | None:
     """상태 페이지를 띄운다. 실패해도 수집은 계속되어야 하므로 None 을 돌려준다.
 
@@ -3861,6 +3863,10 @@ def serve(
     **지금** 언어·모드를 새긴다 — 1.9.1 은 serve() 시작 때 한 번만 새겨서, 화면에서
     언어를 바꾼 뒤 페이지만 새로고침되면(버전 갱신·재시작 후 자동 새로고침 등)
     부팅 때 언어로 돌아갔다.
+
+    _page 는 다른 에디션 화면(webui_amp.py)이 **페이지만** 갈아 끼울 때 쓴다 —
+    callable(lang, mode) -> bytes. 엔드포인트·State 계약은 이 함수 하나가 그대로 맡는다.
+    주지 않으면(기본) 이 파일의 PAGE 를 예전과 똑같이 낸다.
     """
 
     # 판정 숫자는 limits.py 한 곳에서만 온다 — 화면에 같은 값을 또 적어 두면
@@ -3889,6 +3895,8 @@ def serve(
         return mode_now if mode_now in ("shrimp", "agriculture") else "shrimp"
 
     def page_bytes() -> bytes:
+        if _page is not None:
+            return _page(current_lang(), current_mode())
         # 첫 페인트부터 올바른 언어·이름·색이어야 한다. 그 뒤로는 /api/state 의
         # mode 를 따라가고, 언어는 화면이 바꿀 때 /api/lang 으로 수집기에 남긴다.
         return (page_base
