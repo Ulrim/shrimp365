@@ -1,0 +1,1489 @@
+<!doctype html>
+<!--
+  AMP 양식장 수질 모니터 — 장비 화면 프로토타입 시안
+  단일 파일 · 외부 리소스 0(CDN·웹폰트·이미지 링크 없음) · 바닐라 JS
+
+  ★ 임시 브랜드 — 에이엠피 실제 로고·색 받으면 :root 토큰만 교체.
+     · 색   : <style> 맨 앞 "BRAND TOKENS" 블록(:root …)만 바꾼다. 화면 CSS 는 토큰만 참조한다.
+              상태색(--ok/--warn/--crit)은 브랜드와 무관 — 바꾸지 않는다.
+     · 로고 : <svg> 스프라이트 안 <symbol id="amp-mark"> 하나만 바꾼다(모든 자리가 <use> 로 참조).
+     · 제품명: <script> 맨 앞 PRODUCT_NAMES 의 [0] 이 기본(1안).
+  설계서  : docs/amp/design.md
+  판정 기준: raspberry-pi/limits.py BANDS 와 같은 숫자
+            (수온 25–32 / 22–35 ℃, pH 7.5–8.5 / 7.0–9.0, DO ≥5.0 / ≥4.0 mg/L, 염도 15–35 / 10–40 ‰)
+  다국어  : 기기 화면 문구는 I18N(key → {ko,en,vi,id}) — webui.py 의 I18N 과 같은 모양이라 그대로 옮길 수 있다.
+-->
+<html lang="ko" data-scheme="a" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AMP 수질 모니터 — 장비 화면 시안</title>
+<style>
+/* ======================================================================
+   BRAND TOKENS — 임시. 에이엠피 확정 색이 오면 이 블록만 바꾼다.
+   구조: :root = ①안 다크(기본) / [data-theme=light] = ①안 라이트 /
+         [data-scheme=b|c] = ②·③안. 상태색은 다크·라이트 두 벌만 있고 세 안 공통.
+   ====================================================================== */
+:root{
+  --font: system-ui, "Noto Sans CJK KR", "Noto Sans KR", sans-serif;
+  --press: brightness(1.15);
+
+  /* ① 딥네이비 + 시안 · 다크 */
+  --logo-tile:#1E4FA8; --logo-line:#FFFFFF; --logo-dot:#22C3E6;
+  --brand:#22C3E6; --on-brand:#03222B; --brand-text:#22C3E6; --brand-soft:#22C3E61F; --focus:#7FE3F7;
+  --bg:#0A1324; --surface:#111D33; --surface-2:#18263F; --line:#26375A; --line-strong:#3A4E77;
+  --text:#EAF0FA; --text-2:#A9B6CC; --text-3:#7D8BA3;
+
+  /* 상태색 — 세 안 공통 · 다크 */
+  --ok:#3DD68C; --warn:#FFB020; --crit:#FF6B6B;
+  --ok-soft:#3DD68C1A; --warn-soft:#FFB0201F; --crit-soft:#FF6B6B24;
+  --crit-fill:#B3261E; --on-crit:#FFFFFF; --band:#3DD68C1F; --scrim:#000000A6;
+}
+:root[data-theme="light"]{
+  --press: brightness(.93);
+  /* ① 라이트 */
+  --logo-tile:#0F3B78; --logo-line:#FFFFFF; --logo-dot:#22C3E6;
+  --brand:#0F3B78; --on-brand:#FFFFFF; --brand-text:#0A5F86; --brand-soft:#0F3B7814; --focus:#0A5F86;
+  --bg:#F2F5FA; --surface:#FFFFFF; --surface-2:#E8EDF5; --line:#C9D3E3; --line-strong:#9AA8BF;
+  --text:#0B1A33; --text-2:#42526B; --text-3:#5F6E86;
+  /* 상태색 — 세 안 공통 · 라이트 */
+  --ok:#0E7A45; --warn:#9A5B00; --crit:#C42B2B;
+  --ok-soft:#0E7A4514; --warn-soft:#F5A5241F; --crit-soft:#C42B2B14;
+  --crit-fill:#B3261E; --on-crit:#FFFFFF; --band:#0E7A4517; --scrim:#0B1A3380;
+}
+/* ② 딥 틸 + 샌드 */
+:root[data-scheme="b"]{
+  --logo-tile:#0B6E66; --logo-line:#FFFFFF; --logo-dot:#E6D3A8;
+  --brand:#2CC5B0; --on-brand:#04211D; --brand-text:#2CC5B0; --brand-soft:#2CC5B01F; --focus:#8FE8DA;
+  --bg:#0B1716; --surface:#12211F; --surface-2:#192D2A; --line:#2A433F; --line-strong:#3E5D58;
+  --text:#EEF4F1; --text-2:#AFC2BC; --text-3:#84998F;
+}
+:root[data-scheme="b"][data-theme="light"]{
+  --logo-tile:#0B6E66; --logo-line:#FFFFFF; --logo-dot:#C9A869;
+  --brand:#0B6E66; --on-brand:#FFFFFF; --brand-text:#0B6E66; --brand-soft:#0B6E6614; --focus:#0B6E66;
+  --bg:#F5F1E8; --surface:#FFFDF8; --surface-2:#ECE5D6; --line:#D3C8B2; --line-strong:#A89C84;
+  --text:#10241F; --text-2:#45574F; --text-3:#5E6E66;
+}
+/* ③ 그래파이트 + 라임 */
+:root[data-scheme="c"]{
+  --logo-tile:#2A2E31; --logo-line:#B8E62E; --logo-dot:#FFFFFF;
+  --brand:#B8E62E; --on-brand:#1A2600; --brand-text:#B8E62E; --brand-soft:#B8E62E1A; --focus:#D6F57A;
+  --bg:#111213; --surface:#1A1C1E; --surface-2:#232629; --line:#34383C; --line-strong:#4A5056;
+  --text:#F0F2F0; --text-2:#B4BAB6; --text-3:#8A918C;
+}
+:root[data-scheme="c"][data-theme="light"]{
+  --logo-tile:#26292B; --logo-line:#B8E62E; --logo-dot:#FFFFFF;
+  --brand:#3D5A0A; --on-brand:#FFFFFF; --brand-text:#3D5A0A; --brand-soft:#3D5A0A14; --focus:#3D5A0A;
+  --bg:#F3F4F2; --surface:#FFFFFF; --surface-2:#E7E9E6; --line:#CDD1CC; --line-strong:#9AA19C;
+  --text:#16191A; --text-2:#474D4A; --text-3:#646B67;
+}
+/* ====================== BRAND TOKENS 끝 ====================== */
+
+/* ---------- 바깥 제안 페이지(기기 화면과 별개의 고정 팔레트) ---------- */
+:root{
+  --p-bg:#E8EBF0; --p-stage:#D9DEE6; --p-surface:#FFFFFF; --p-line:#C9D0DB;
+  --p-text:#121821; --p-text-2:#4A5566; --p-ink:#1A2230; --p-focus:#2F6FEB;
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--p-bg);color:var(--p-text);font:400 15px/1.5 var(--font)}
+.p-wrap{max-width:1380px;margin:0 auto;padding:20px 20px 56px}
+.p-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;margin-bottom:16px}
+.p-head h1{font-size:22px;line-height:1.3;margin:0 0 4px;letter-spacing:-.01em}
+.p-head p{margin:0;color:var(--p-text-2);max-width:720px}
+.p-demo{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.cap{margin:0;min-height:1.5em;font-size:13px;color:var(--p-text-2);text-align:right}
+.p-main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
+.stage{background:var(--p-stage);border-radius:16px;padding:20px;min-width:0}
+.fit{position:relative;width:100%}
+.stage-note{margin:12px 0 0;font-size:13px;color:var(--p-text-2);text-align:center}
+.panel{display:flex;flex-direction:column;gap:12px}
+.grp{background:var(--p-surface);border:1px solid var(--p-line);border-radius:14px;padding:14px}
+.grp h2{font-size:13px;letter-spacing:.02em;color:var(--p-text-2);margin:0 0 10px;font-weight:700}
+.grp h3{font-size:12px;color:var(--p-text-2);margin:12px 0 6px;font-weight:600}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opts.col{flex-direction:column}
+.opt{min-height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--p-line);background:var(--p-surface);
+  color:var(--p-text);font:600 14px/1.2 var(--font);cursor:pointer;display:inline-flex;align-items:center;gap:8px;text-align:left}
+.opt:hover{border-color:var(--p-ink)}
+.opt[aria-pressed="true"],.opt[aria-current="true"]{background:var(--p-ink);border-color:var(--p-ink);color:#FFFFFF}
+.opt:focus-visible{outline:3px solid var(--p-focus);outline-offset:2px}
+.opt.primary{background:var(--p-ink);border-color:var(--p-ink);color:#FFFFFF;min-height:44px;padding:0 16px}
+.opt .pic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.opt.primary .pic{fill:currentColor;stroke:none}
+.sw{display:inline-flex;border-radius:5px;overflow:hidden;box-shadow:0 0 0 1px #0000001F;flex:none}
+.sw i{display:block;width:14px;height:20px}
+.hint{margin:10px 0 0;font-size:12.5px;color:var(--p-text-2)}
+.p-foot{margin-top:16px;font-size:13px;color:var(--p-text-2)}
+.tmp-badge{position:fixed;left:12px;bottom:12px;z-index:50;pointer-events:none;padding:4px 10px;border-radius:8px;
+  border:1px dashed #8A6D00;background:#FFF7D6;color:#5C4700;font-size:12px;font-weight:700}
+@media (max-width:1040px){ .p-main{grid-template-columns:1fr} }
+@media (max-width:560px){ .p-wrap{padding:12px 12px 56px} .stage{padding:10px} .p-head h1{font-size:19px} .p-demo{align-items:stretch;width:100%} .cap{text-align:left} }
+@media (pointer:coarse){ .opt{min-height:44px} }
+
+/* ---------- 7인치 베젤(하드웨어 색 — 토큰 아님). 공식 7" 터치: 외형 약 194×110 mm, 표시부 약 155×86 mm 비율 근사 ---------- */
+.device{position:absolute;left:0;top:0;width:980px;height:600px;padding:60px 90px;border-radius:26px;
+  background:#0E0F11;box-shadow:inset 0 0 0 2px #2A2C30,0 24px 48px -24px #00000080;transform-origin:0 0}
+
+/* ======================================================================
+   기기 화면 800×480 — 이 아래는 토큰만 쓴다(직접 hex 금지)
+   ====================================================================== */
+.screen{position:relative;width:800px;height:480px;overflow:hidden;background:var(--bg);color:var(--text);
+  font:500 16px/1.35 var(--font);font-variant-numeric:tabular-nums;-webkit-user-select:none;user-select:none}
+:where(.screen button){font:inherit;color:inherit;-webkit-tap-highlight-color:transparent;cursor:pointer;margin:0}
+.screen h1,.screen h2,.screen p{margin:0}
+.screen button:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.screen h1[tabindex]:focus{outline:none}
+.screen button:active:not(:disabled){filter:var(--press)}
+.scr{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg)}
+.enter{animation:scrIn .18s ease-out}
+@keyframes scrIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.ic{width:24px;height:24px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ic.s{width:20px;height:20px}
+.ic.l{width:28px;height:28px}
+.ic.dim{color:var(--text-3)}
+
+/* 워드마크 — 크기는 font-size 하나로 */
+.wm{display:inline-flex;align-items:center;gap:.45em;font-size:17px;line-height:1;white-space:nowrap;color:var(--text)}
+.wm svg{width:1.65em;height:1.65em;flex:none}
+.wm-amp{font-weight:800;letter-spacing:.06em}
+.wm-prod{font-weight:600;color:var(--brand-text);margin-left:-.1em}
+.wm.md{font-size:24px}
+.wm.lg{font-size:40px}
+
+/* 상단 바(모든 화면 공통 높이 56) */
+.bar{height:56px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--surface);border-bottom:1px solid var(--line)}
+.bar h1{font-size:20px;font-weight:700;white-space:nowrap}
+.sp{flex:1 1 0;min-width:0}
+.meta{font-size:14px;color:var(--text-3);white-space:nowrap}
+.who{display:flex;flex-direction:column;gap:3px;flex:0 0 auto;min-width:0}
+.site{font-size:13px;color:var(--text-2);padding-left:36px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+
+/* 버튼 */
+.btn{min-height:48px;min-width:48px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;
+  border-radius:12px;border:1px solid var(--line-strong);background:var(--surface);color:var(--text);font-weight:600;font-size:16px;white-space:nowrap}
+.btn.ghost{background:transparent}
+.btn.back{padding:0 14px 0 8px}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+.btn.danger{background:var(--crit-fill);border-color:var(--crit-fill);color:var(--on-crit)}
+.btn.on-crit{background:transparent;border-color:var(--on-crit);color:var(--on-crit)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* 칩(상단 상태) */
+.chip{min-height:48px;display:inline-flex;align-items:center;gap:8px;padding:0 14px;border-radius:24px;flex:0 1 auto;min-width:0;
+  border:1px solid var(--line-strong);background:transparent;color:var(--text-2);font-weight:600;font-size:15px;white-space:nowrap}
+.chip .lbl{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.chip b{font-weight:700}
+.chip.ai{border-color:transparent;background:var(--brand-soft);color:var(--brand-text)}
+.chip.ai b{color:var(--text)}
+.chip.ai.alarm{background:var(--crit-fill);color:var(--on-crit)}
+.chip.ai.alarm b{color:var(--on-crit)}
+.chip.ai.hold{background:var(--surface-2);color:var(--text-2)}
+.chip.net.fail{border-color:var(--warn);background:var(--warn-soft);color:var(--warn)}
+
+/* 상태 표지 — 색 + 아이콘 모양 + 글자 3중 */
+.pill{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px 0 8px;border-radius:16px;font-size:15px;font-weight:700;white-space:nowrap;flex:none}
+.pill.ok{color:var(--ok)}
+.pill.warn{color:var(--warn);background:var(--warn-soft);box-shadow:inset 0 0 0 1px var(--warn)}
+.pill.crit{color:var(--on-crit);background:var(--crit-fill)}
+.pill.fault{color:var(--text-2);box-shadow:inset 0 0 0 1px var(--line-strong)}
+
+/* 대시보드 — 값 칸 */
+.grid{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;padding:10px 12px 0}
+.card{display:flex;flex-direction:column;justify-content:space-between;min-width:0;text-align:left;padding:12px 18px 12px;
+  border-radius:16px;border:2px solid var(--line);background:var(--surface);color:var(--text)}
+.card-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.card-k{font-size:18px;font-weight:600;color:var(--text-2)}
+.card-v{display:flex;align-items:baseline;gap:8px;line-height:1}
+.num{font-size:72px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.unit{font-size:22px;font-weight:600;color:var(--text-2)}
+.card-f{display:flex;align-items:center;gap:14px;font-size:14px;color:var(--text-3);white-space:nowrap;overflow:hidden}
+.card-f .tr{display:inline-flex;align-items:center;gap:4px}
+.card.warn{border-color:var(--warn);background:linear-gradient(var(--warn-soft),var(--warn-soft)),var(--surface)}
+.card.crit{border-color:var(--crit);box-shadow:inset 0 0 0 1px var(--crit);background:linear-gradient(var(--crit-soft),var(--crit-soft)),var(--surface)}
+.card.fault{border-style:dashed;border-color:var(--line-strong)}
+.card.fault .num{font-size:48px;color:var(--text-3)}
+.card-err{display:flex;flex-direction:column;gap:2px;min-width:0}
+.card-err b{display:inline-flex;align-items:center;gap:6px;font-size:16px;color:var(--text)}
+.card-err small{font-size:13px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* 권고 띠 / 경보 띠 */
+.strip{flex:none;height:64px;margin:10px 12px 12px;display:flex;align-items:center;gap:12px;padding:0 8px 0 12px;
+  border-radius:14px;border:1px solid var(--line);background:var(--surface);color:var(--text);text-align:left}
+button.strip{width:calc(100% - 24px)}
+.strip .ico{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex:none;background:var(--brand-soft);color:var(--brand-text)}
+.strip .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.strip .lbl{font-size:13px;font-weight:600;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.strip .msg{font-size:18px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.strip .more{display:inline-flex;align-items:center;gap:4px;padding:0 8px;color:var(--brand-text);font-weight:600;font-size:15px;white-space:nowrap}
+.strip.alarm{background:var(--crit-fill);border-color:var(--crit-fill);color:var(--on-crit)}
+.strip.alarm .ico{background:transparent;color:var(--on-crit);box-shadow:inset 0 0 0 2px var(--on-crit)}
+.strip.alarm .lbl{color:var(--on-crit)}
+.strip.alarm .acked{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;padding:0 8px;white-space:nowrap}
+.strip.pulse{animation:alarmPulse 1.5s ease-in-out 4}
+@keyframes alarmPulse{50%{box-shadow:0 0 0 5px var(--crit-soft);filter:brightness(1.18)}}
+.strip.fault .ico,.strip.unl .ico{background:var(--surface-2);color:var(--text-2)}
+.strip.fault{border-style:dashed;border-color:var(--line-strong)}
+
+/* 공통 본문 */
+.body{flex:1;min-height:0;padding:12px;display:flex;flex-direction:column;gap:10px}
+
+/* 그래프 */
+.cnow{display:inline-flex;align-items:baseline;gap:4px;font-size:28px;font-weight:700;margin-left:4px}
+.cnow small{font-size:15px;color:var(--text-2);font-weight:600}
+.seg{display:inline-flex;gap:6px}
+.seg button{min-height:48px;min-width:76px;padding:0 14px;border-radius:12px;border:1px solid var(--line-strong);background:transparent;color:var(--text-2);font-weight:600;font-size:16px}
+.seg button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+.stats{display:flex;align-items:baseline;gap:20px;font-size:14px;color:var(--text-2);white-space:nowrap}
+.stats b{font-size:20px;font-weight:700;color:var(--text);margin-left:6px}
+.lg{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-2)}
+.lg-band{width:18px;height:12px;border-radius:3px;background:var(--band);box-shadow:inset 0 0 0 1px var(--ok)}
+.lg-warn{width:18px;height:0;border-top:2px dashed var(--warn)}
+.plot{flex:1;min-height:0;border-radius:14px;border:1px solid var(--line);background:var(--surface);padding:6px}
+.plot svg{display:block;width:100%;height:100%}
+.c-band{fill:var(--band)}
+.c-grid{stroke:var(--line);stroke-width:1}
+.c-lab{fill:var(--text-3);font-size:13px}
+.c-warn{stroke:var(--warn);stroke-width:1.5;stroke-dasharray:6 5}
+.c-wl{fill:var(--warn);font-size:13px;font-weight:700}
+.c-line{fill:none;stroke:var(--brand-text);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+.c-dot{fill:var(--brand-text);stroke:var(--surface);stroke-width:3}
+
+/* AI 판단 */
+.ai-wrap{flex:1;min-height:0;display:grid;grid-template-columns:1fr 272px;gap:12px}
+.finds{display:flex;flex-direction:column;gap:8px;min-height:0}
+.find{display:grid;grid-template-columns:40px 1fr auto;column-gap:12px;row-gap:3px;align-items:center;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--surface)}
+.find .fi{grid-row:span 2;align-self:start;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--brand-soft);color:var(--brand-text)}
+.find .ft{font-size:17px;font-weight:700;min-width:0}
+.find .tm{font-size:13px;color:var(--text-3);white-space:nowrap}
+.find .fw{grid-column:2 / 4;font-size:14px;line-height:1.4;color:var(--text-2)}
+.find .fw b{color:var(--text);margin-right:6px}
+.find.crit{border-color:var(--crit);box-shadow:inset 0 0 0 1px var(--crit)}
+.find.crit .fi{background:var(--crit-fill);color:var(--on-crit)}
+.find.ok .fi{background:var(--ok-soft);color:var(--ok)}
+.find.fault{border-style:dashed;border-color:var(--line-strong)}
+.find.fault .fi{background:var(--surface-2);color:var(--text-2)}
+.eng{display:flex;flex-direction:column;padding:4px 14px 12px;border-radius:14px;border:1px solid var(--line);background:var(--surface)}
+.eng-row{display:grid;grid-template-columns:28px 1fr auto;column-gap:10px;row-gap:2px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.eng-row .n{grid-row:span 2;align-self:start;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:14px;font-weight:700;background:var(--brand-soft);color:var(--brand-text)}
+.eng-row b{font-size:15px}
+.eng-row .c{font-size:15px;font-weight:700;color:var(--brand-text);text-align:right;white-space:nowrap}
+.eng-row small{grid-column:2 / 4;font-size:12.5px;color:var(--text-2)}
+.eng-note{display:flex;gap:8px;align-items:flex-start;margin-top:10px!important;font-size:13px;color:var(--text-2)}
+
+/* 기기 정보 */
+.info{flex:1;min-height:0;display:grid;grid-template-columns:300px 1fr;gap:12px}
+.info-l{display:flex;flex-direction:column;gap:12px}
+.box{border-radius:14px;border:1px solid var(--line);background:var(--surface);padding:4px 16px}
+.dl{margin:0}
+.dl div{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:15px}
+.dl div:last-child{border-bottom:0}
+.dl dt{color:var(--text-2);white-space:nowrap}
+.dl dd{margin:0;font-weight:600;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.powered{flex:none;text-align:center;font-size:12px;color:var(--text-3);padding-bottom:2px}
+
+/* 설정 타일 */
+.tiles{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(4,1fr);gap:10px}
+.tile{display:grid;grid-template-columns:44px 1fr 20px;align-items:center;gap:12px;padding:0 14px;min-height:72px;text-align:left;
+  border-radius:14px;border:1px solid var(--line);background:var(--surface);color:var(--text)}
+.tile .ti{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--brand-soft);color:var(--brand-text)}
+.tile b{display:block;font-size:18px;font-weight:700}
+.tile small{display:block;font-size:13px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile.danger .ti{background:var(--crit-soft);color:var(--crit)}
+
+/* 목록 행 */
+.list{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;align-items:center;gap:12px;min-height:60px;padding:6px 8px 6px 16px;border-radius:14px;border:1px solid var(--line);background:var(--surface);color:var(--text);text-align:left}
+.rowbtn{width:100%;min-height:56px;padding-right:16px}
+.row.cur{border-color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand)}
+.rn{flex:1;min-width:0}
+.rn b{display:block;font-size:17px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rn small{display:block;font-size:13px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.okt{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:var(--ok);white-space:nowrap}
+.toggle{min-height:48px;min-width:108px;display:inline-flex;align-items:center;gap:10px;padding:0 16px 0 8px;border-radius:24px;
+  border:1px solid var(--line-strong);background:var(--surface-2);color:var(--text-2);font-weight:700;font-size:15px}
+.toggle .knob{width:32px;height:32px;border-radius:50%;background:var(--text-3);flex:none}
+.toggle[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+.toggle[aria-pressed="true"] .knob{background:var(--on-brand)}
+.off{min-width:72px;text-align:right;font-size:20px;font-weight:700}
+.btn-ph{display:inline-block;width:88px;flex:none}
+.calr{min-width:88px}
+.note{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;background:var(--warn-soft);font-size:14px;color:var(--text)}
+.note .ic{color:var(--warn)}
+.cur-net{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 16px;border-radius:12px;background:var(--surface-2);font-size:15px}
+.cur-net.warn{background:var(--warn-soft);box-shadow:inset 0 0 0 1px var(--warn)}
+.cur-net .st{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+.bars{display:inline-flex;align-items:flex-end;gap:3px;height:20px;flex:none}
+.bars i{display:block;width:5px;border-radius:1.5px;background:var(--line-strong)}
+.bars i:nth-child(1){height:6px}.bars i:nth-child(2){height:10px}.bars i:nth-child(3){height:15px}.bars i:nth-child(4){height:20px}
+.bars i.on{background:var(--text)}
+.empty{flex:1;display:grid;place-items:center;color:var(--text-2);font-size:16px}
+
+/* 센서 테스트 */
+.tgrid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tcard{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--surface);min-width:0}
+.tcard.fault{border-style:dashed;border-color:var(--line-strong)}
+.th{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.th h2{font-size:16px;font-weight:700}
+.addr{font-size:13px;color:var(--text-3);white-space:nowrap}
+.tstat{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:700}
+.tstat.good{color:var(--ok)}
+.tsub{font-size:13px;color:var(--text-2)}
+.tline{display:grid;grid-template-columns:1fr auto;gap:0 8px;padding:7px 0 0;border-top:1px solid var(--line)}
+.tline .tn{font-size:14px;color:var(--text-2)}
+.tline .tv{font-size:18px;font-weight:700;text-align:right}
+.tline .tv small{font-size:13px;color:var(--text-2);font-weight:600;margin-left:3px}
+.tline .tr{grid-column:1 / 3;font-size:12px;color:var(--text-3)}
+.prog{width:240px;height:4px;border-radius:2px;background:var(--surface-2);overflow:hidden}
+.prog.sm{width:100%}
+.prog i{display:block;width:100%;height:100%;background:var(--brand);transform-origin:left;animation:prog 1.5s linear forwards}
+@keyframes prog{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+
+/* 언어 */
+.langs{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px}
+.lang{position:relative;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:0 22px;text-align:left;border-radius:16px;border:1px solid var(--line);background:var(--surface);color:var(--text)}
+.lang b{font-size:24px;font-weight:700}
+.lang small{font-size:14px;color:var(--text-2)}
+.lang[aria-pressed="true"]{border:2px solid var(--brand);background:linear-gradient(var(--brand-soft),var(--brand-soft)),var(--surface)}
+.lang .ic{position:absolute;right:18px;top:50%;margin-top:-12px;color:var(--brand-text)}
+
+/* 전력 회로 */
+.ptable{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden}
+.ptable th,.ptable td{padding:9px 14px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.ptable tr:last-child td{border-bottom:0}
+.ptable th:first-child,.ptable td:first-child{text-align:left}
+.ptable th{font-size:13px;font-weight:600;color:var(--text-2)}
+.ptable td{font-size:17px;font-weight:700}
+.ptable td small{display:block;font-size:12px;font-weight:500;color:var(--text-3)}
+.ptable tr.tot td{background:var(--surface-2)}
+.onoff{display:inline-flex;align-items:center;height:28px;padding:0 10px;border-radius:14px;font-size:13px;font-weight:700;box-shadow:inset 0 0 0 1px var(--line-strong);color:var(--text-2)}
+.onoff.on{background:var(--brand-soft);box-shadow:none;color:var(--brand-text)}
+
+/* 기기 연결 */
+.pair{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:center;padding:0 8px}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.steps li{display:grid;grid-template-columns:36px 1fr;gap:12px;align-items:center;font-size:17px}
+.steps .n{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--brand-soft);color:var(--brand-text)}
+.pnote{display:flex;gap:8px;align-items:flex-start;margin-top:16px!important;font-size:13px;color:var(--text-2)}
+.pcode{display:flex;flex-direction:column;align-items:center;gap:14px}
+.code{display:flex;gap:8px}
+.code span{width:52px;height:76px;border-radius:12px;display:grid;place-items:center;font-size:44px;font-weight:700;
+  border:2px solid var(--line-strong);background:var(--surface);color:var(--brand-text)}
+.code .gap{width:6px;border:0;background:none}
+.exp{font-size:15px;color:var(--text-2)}
+.wait{display:inline-flex;align-items:center;gap:6px;font-size:15px;color:var(--text-2)}
+.wait i{width:8px;height:8px;border-radius:50%;background:var(--brand-text);animation:blink 1.2s infinite}
+.wait i:nth-child(2){animation-delay:.2s}.wait i:nth-child(3){animation-delay:.4s;margin-right:6px}
+@keyframes blink{0%,100%{opacity:.25}50%{opacity:1}}
+
+/* 부팅 */
+.boot{align-items:center;justify-content:center;gap:24px}
+.boot small{font-size:13px;color:var(--text-3)}
+
+/* 모달 */
+.modal{position:absolute;inset:0;z-index:10;display:grid;place-items:center;background:var(--scrim)}
+.dialog{width:460px;display:flex;flex-direction:column;gap:12px;padding:20px;border-radius:18px;border:1px solid var(--line-strong);background:var(--surface)}
+.dialog h2{font-size:20px;font-weight:700}
+.dsub{font-size:14px;color:var(--text-2)}
+.dlg-btns{display:flex;justify-content:flex-end;gap:10px}
+.kp-disp{height:56px;display:flex;align-items:baseline;justify-content:flex-end;gap:6px;padding:10px 16px 0;border-radius:12px;background:var(--surface-2);font-size:32px;font-weight:700}
+.kp-disp .ph{color:var(--text-3)}
+.kp-disp small{font-size:15px;color:var(--text-2)}
+.kp{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.kp .btn{min-height:52px;font-size:22px}
+
+/* 토스트 */
+.toast{position:absolute;left:50%;bottom:16px;z-index:20;transform:translateX(-50%);max-width:640px;padding:12px 18px;border-radius:12px;background:var(--text);color:var(--bg);font-size:15px;font-weight:600;white-space:nowrap}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+  .wait i{opacity:1}
+}
+@media (max-width:720px){
+  /* 휴대폰: 아래 고정이면 패널 버튼 위에 떠서 가린다 — 맨 위 오른쪽 구석으로 */
+  .tmp-badge{top:8px;right:8px;left:auto;bottom:auto;opacity:.92}
+}
+</style>
+</head>
+<body>
+
+<!-- 아이콘 스프라이트 — 24px 격자, 선 2px, 끝 둥글게(한 계열). 로고 심볼은 맨 위 하나. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <!-- ★ 임시 AMP 심볼: 둥근 정사각 + 'A'(두 획) + 물결 가로획(수조의 수면) + 꼭짓점 점(측정점). 실제 로고 오면 이 symbol 만 교체 -->
+  <symbol id="amp-mark" viewBox="0 0 32 32">
+    <rect width="32" height="32" rx="8" style="fill:var(--logo-tile)"/>
+    <path d="M7 24 16 8 25 24" style="fill:none;stroke:var(--logo-line);stroke-width:2.75;stroke-linecap:round;stroke-linejoin:round"/>
+    <path d="M10.8 18.6q2.6-2.2 5.2 0t5.2 0" style="fill:none;stroke:var(--logo-line);stroke-width:2.4;stroke-linecap:round"/>
+    <circle cx="16" cy="8" r="2.6" style="fill:var(--logo-dot)"/>
+  </symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8 5.4-5.7"/></symbol>
+  <symbol id="i-tick" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3.6 21.4 20H2.6Z"/><path d="M12 9.8v4.4M12 17.2v.01"/></symbol>
+  <symbol id="i-crit" viewBox="0 0 24 24"><path d="M8.2 2.8h7.6l5.4 5.4v7.6l-5.4 5.4H8.2l-5.4-5.4V8.2Z"/><path d="M12 7.6v5.2M12 16.4v.01"/></symbol>
+  <symbol id="i-unplug" viewBox="0 0 24 24"><path d="M9 3v4M15 3v4M6.5 7h11v4a5.5 5.5 0 0 1-11 0ZM12 16.5V21"/><path d="M3 3l18 18"/></symbol>
+  <symbol id="i-ai" viewBox="0 0 24 24"><path d="M11 3.5l1.7 4.8 4.8 1.7-4.8 1.7L11 16.5l-1.7-4.8L4.5 10l4.8-1.7Z"/><path d="M18 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8Z"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 19h10.5a4.5 4.5 0 0 0 .4-8.98A6.5 6.5 0 0 0 5.4 11.6 3.8 3.8 0 0 0 7 19Z"/></symbol>
+  <symbol id="i-cloudoff" viewBox="0 0 24 24"><path d="M7 19h10.5a4.5 4.5 0 0 0 .4-8.98A6.5 6.5 0 0 0 5.4 11.6 3.8 3.8 0 0 0 7 19Z"/><path d="M3 3l18 18"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4L12 5.6"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/></symbol>
+  <symbol id="i-linkoff" viewBox="0 0 24 24"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4L12 5.6"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/><path d="M3 3l18 18"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.8v.01"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h3M11 6h9M4 12h9M17 12h3M4 18h1M9 18h11"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="7" cy="18" r="2"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M3 7l6.5 6.5 4-4L21 17"/><path d="M15 17h6v-6"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M3 17l6.5-6.5 4 4L21 7"/><path d="M15 7h6v6"/></symbol>
+  <symbol id="i-flat" viewBox="0 0 24 24"><path d="M3 12h15"/><path d="M15 8l4 4-4 4"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2.5 9a13.5 13.5 0 0 1 19 0M5.5 12.5a9 9 0 0 1 13 0M8.6 16a4.6 4.6 0 0 1 6.8 0M12 19.5v.01"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 3.9 5.6 3.9 9s-1.3 6.4-3.9 9c-2.6-2.6-3.9-5.6-3.9-9s1.3-6.4 3.9-9Z"/></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v8M6.3 6.8a8 8 0 1 0 11.4 0"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2.5 4.5 13.5H11l-1 8 8.5-11H12Z"/></symbol>
+  <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="2.5"/><path d="M12 1.8v3M12 19.2v3M1.8 12h3M19.2 12h3"/></symbol>
+  <symbol id="i-probe" viewBox="0 0 24 24"><path d="M9.5 2.5h5v8l2 3v6a2 2 0 0 1-2 2h-5a2 2 0 0 1-2-2v-6l2-3Z"/><path d="M7.5 16h9"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 6.5 2.5 8.5 2.5 8.5h-17S6 15.5 6 9Z"/><path d="M10.2 20.5a2 2 0 0 0 3.6 0"/></symbol>
+  <symbol id="i-del" viewBox="0 0 24 24"><path d="M9 5h11a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9l-6-7Z"/><path d="M12 9.5l5 5M17 9.5l-5 5"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 3.5V8h4.5M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20.5V16h-4.5"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5Z"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+</svg>
+
+<div class="p-wrap">
+  <header class="p-head">
+    <div>
+      <h1 data-ui="title">AMP 양식장 수질 모니터 — 장비 화면 시안</h1>
+      <p data-ui="intro"></p>
+    </div>
+    <div class="p-demo">
+      <button id="demoBtn" class="opt primary" type="button"><svg class="pic" aria-hidden="true"><use id="demoIc" href="#i-play"/></svg><span id="demoTx" data-ui="demo_play"></span></button>
+      <p id="demoCap" class="cap" aria-live="polite"></p>
+    </div>
+  </header>
+
+  <main class="p-main">
+    <section class="stage" id="stage" data-ui-label="stage_label">
+      <div class="fit" id="fit">
+        <div class="device" id="device">
+          <div class="screen" id="screen">
+            <div id="view"></div>
+            <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+          </div>
+        </div>
+      </div>
+      <p class="stage-note" data-ui="stage_note"></p>
+    </section>
+
+    <aside class="panel">
+      <section class="grp">
+        <h2 data-ui="g_scen"></h2>
+        <div class="opts">
+          <button class="opt" type="button" data-p="scen:normal" data-ui="sc_normal"></button>
+          <button class="opt" type="button" data-p="scen:alarm" data-ui="sc_alarm"></button>
+          <button class="opt" type="button" data-p="scen:offline" data-ui="sc_offline"></button>
+          <button class="opt" type="button" data-p="scen:sensor" data-ui="sc_sensor"></button>
+          <button class="opt" type="button" data-p="scen:unlinked" data-ui="sc_unlinked"></button>
+        </div>
+      </section>
+
+      <section class="grp">
+        <h2 data-ui="g_screens"></h2>
+        <nav class="opts" id="navOpts">
+          <button class="opt" type="button" data-p="nav:boot" data-ui="nv_boot"></button>
+          <button class="opt" type="button" data-p="nav:main" data-ui="nv_main"></button>
+          <button class="opt" type="button" data-p="nav:chart" data-ui="nv_chart"></button>
+          <button class="opt" type="button" data-p="nav:ai" data-ui="nv_ai"></button>
+          <button class="opt" type="button" data-p="nav:info" data-ui="nv_info"></button>
+          <button class="opt" type="button" data-p="nav:settings" data-ui="nv_settings"></button>
+          <button class="opt" type="button" data-p="nav:sensors" data-ui="nv_sensors"></button>
+          <button class="opt" type="button" data-p="nav:test" data-ui="nv_test"></button>
+          <button class="opt" type="button" data-p="nav:cal" data-ui="nv_cal"></button>
+          <button class="opt" type="button" data-p="nav:wifi" data-ui="nv_wifi"></button>
+          <button class="opt" type="button" data-p="nav:lang" data-ui="nv_lang"></button>
+          <button class="opt" type="button" data-p="nav:power" data-ui="nv_power"></button>
+          <button class="opt" type="button" data-p="nav:restart" data-ui="nv_restart"></button>
+          <button class="opt" type="button" data-p="nav:pair" data-ui="nv_pair"></button>
+        </nav>
+      </section>
+
+      <section class="grp">
+        <h2 data-ui="g_color"></h2>
+        <div class="opts col">
+          <!-- 견본 색은 미리보기용(바깥 패널) — 기기 화면은 :root 토큰만 쓴다 -->
+          <button class="opt" type="button" data-p="scheme:a"><span class="sw" aria-hidden="true"><i style="background:#0A1324"></i><i style="background:#1E4FA8"></i><i style="background:#22C3E6"></i></span><span data-ui="sch_a"></span></button>
+          <button class="opt" type="button" data-p="scheme:b"><span class="sw" aria-hidden="true"><i style="background:#0B1716"></i><i style="background:#0B6E66"></i><i style="background:#E6D3A8"></i></span><span data-ui="sch_b"></span></button>
+          <button class="opt" type="button" data-p="scheme:c"><span class="sw" aria-hidden="true"><i style="background:#111213"></i><i style="background:#2A2E31"></i><i style="background:#B8E62E"></i></span><span data-ui="sch_c"></span></button>
+        </div>
+        <p class="hint" data-ui="color_hint"></p>
+      </section>
+
+      <section class="grp">
+        <h2 data-ui="g_view"></h2>
+        <h3 data-ui="g_theme"></h3>
+        <div class="opts">
+          <button class="opt" type="button" data-p="theme:dark" data-ui="th_dark"></button>
+          <button class="opt" type="button" data-p="theme:light" data-ui="th_light"></button>
+        </div>
+        <h3 data-ui="g_lang"></h3>
+        <div class="opts">
+          <button class="opt" type="button" data-p="lang:ko" lang="ko">한국어</button>
+          <button class="opt" type="button" data-p="lang:en" lang="en">English</button>
+          <button class="opt" type="button" data-p="lang:vi" lang="vi">Tiếng Việt</button>
+          <button class="opt" type="button" data-p="lang:id" lang="id">Bahasa Indonesia</button>
+        </div>
+        <h3 data-ui="g_name"></h3>
+        <div class="opts">
+          <button class="opt" type="button" data-p="name:0">AMP AquaPilot</button>
+          <button class="opt" type="button" data-p="name:1">AMP AquaGuard</button>
+          <button class="opt" type="button" data-p="name:2">AMP TankSense</button>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <p class="p-foot" data-ui="foot"></p>
+</div>
+
+<div class="tmp-badge" data-ui="tmp">임시 브랜드 시안</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- 제품명 후보 — [0] 이 기본(1안). 확정되면 [0] 만 남긴다 ---------- */
+var PRODUCT_NAMES = [
+  {name:'AquaPilot', model:'AP-400'},
+  {name:'AquaGuard', model:'AG-400'},
+  {name:'TankSense', model:'TS-400'}
+];
+
+/* ---------- 판정 기준 — raspberry-pi/limits.py BANDS 와 같은 숫자 ---------- */
+var BANDS = {
+  temp:{ok:[25,32],    warn:[22,35]},
+  ph:  {ok:[7.5,8.5],  warn:[7.0,9.0]},
+  oxy: {ok:[5.0,null], warn:[4.0,null]},
+  sal: {ok:[15,35],    warn:[10,40]},
+  ec:  {ok:[24,56],    warn:[16,64]}   /* 시안용: 염도 밴드 × 1.6 근사. 실제 환산은 design.md §8 참고 */
+};
+var EC_PER_SAL = 1.6;
+function level(k, v){
+  var b = BANDS[k]; if(!b || v == null) return '';
+  function inside(p){ return !((p[0] != null && v < p[0]) || (p[1] != null && v > p[1])); }
+  if(inside(b.ok)) return 'ok';
+  return inside(b.warn) ? 'warn' : 'crit';
+}
+var METRICS = {
+  temp:{label:'m_temp', unit:'°C',    d:1, rd:0, minSpan:0.6,  mean:28.7, amp:0.55, phase:10,   noise:0.04},
+  ph:  {label:'m_ph',   unit:'',      d:2, rd:1, minSpan:0.12, mean:7.98, amp:0.12, phase:11.5, noise:0.01},
+  oxy: {label:'m_do',   unit:'mg/L',  d:1, rd:1, minSpan:0.5,  mean:6.7,  amp:1.25, phase:11.5, noise:0.05},
+  sal: {label:'m_sal',  unit:'‰',     d:1, rd:0, minSpan:0.4,  mean:18.2, amp:0.05, phase:12,   noise:0.03},
+  ec:  {label:'m_ec',   unit:'mS/cm', d:1, rd:0, minSpan:0.6,  mean:29.1, amp:0.08, phase:12,   noise:0.05}
+};
+var TARGET = {temp:28.4, ph:7.92, oxy:5.6, sal:18.2};
+
+/* ---------- 기기 화면 문구 — webui.py I18N 과 같은 모양(key → {ko,en,vi,id}) ---------- */
+var I18N = {
+  farm:{ko:"수호수산",en:"Suho Aquafarm",vi:"Trại Suho",id:"Tambak Suho"},
+  tank:{ko:"1번 수조",en:"Tank 1",vi:"Ao số 1",id:"Kolam 1"},
+  m_temp:{ko:"수온",en:"Water temp",vi:"Nhiệt độ nước",id:"Suhu air"},
+  m_ph:{ko:"pH",en:"pH",vi:"pH",id:"pH"},
+  m_do:{ko:"용존산소",en:"Dissolved O₂",vi:"Oxy hòa tan",id:"Oksigen terlarut"},
+  m_sal:{ko:"염도",en:"Salinity",vi:"Độ mặn",id:"Salinitas"},
+  m_ec:{ko:"전도도",en:"Conductivity",vi:"Độ dẫn điện",id:"Konduktivitas"},
+  s_ok:{ko:"정상",en:"Normal",vi:"Bình thường",id:"Normal"},
+  s_warn:{ko:"주의",en:"Caution",vi:"Chú ý",id:"Waspada"},
+  s_crit:{ko:"위험",en:"Danger",vi:"Nguy hiểm",id:"Bahaya"},
+  s_fault:{ko:"센서 오류",en:"Sensor fault",vi:"Lỗi cảm biến",id:"Sensor error"},
+  target:{ko:"적정",en:"Target",vi:"Tối ưu",id:"Ideal"},
+  atleast:{ko:"{v} 이상",en:"≥ {v}",vi:"≥ {v}",id:"≥ {v}"},
+  per1h:{ko:"1시간",en:"1 h",vi:"1 giờ",id:"1 jam"},
+  open_chart:{ko:"그래프 열기",en:"Open chart",vi:"Mở biểu đồ",id:"Buka grafik"},
+  e_electrode:{ko:"전극 확인 필요",en:"Check electrode",vi:"Kiểm tra điện cực",id:"Periksa elektroda"},
+  e_electrode_sub:{ko:"센서는 응답하지만 값을 내지 못합니다",en:"Sensor answers but gives no reading",vi:"Cảm biến phản hồi nhưng không có giá trị",id:"Sensor merespons tetapi tanpa nilai"},
+  e_noresp:{ko:"센서 응답 없음",en:"Sensor not responding",vi:"Cảm biến không phản hồi",id:"Sensor tidak merespons"},
+  e_noresp_sub:{ko:"설정 › 센서 테스트",en:"Settings › Sensor test",vi:"Cài đặt › Kiểm tra cảm biến",id:"Pengaturan › Tes sensor"},
+  e_off:{ko:"센서 꺼짐",en:"Sensor off",vi:"Cảm biến đang tắt",id:"Sensor mati"},
+  e_off_sub:{ko:"설정 › 센서 설정에서 켜기",en:"Turn on in Settings › Sensors",vi:"Bật trong Cài đặt › Cảm biến",id:"Nyalakan di Pengaturan › Sensor"},
+  ai_adv:{ko:"권고 {n}",en:"{n} advice",vi:"{n} gợi ý",id:"{n} saran"},
+  ai_alarm:{ko:"경보 {n}",en:"{n} alarm",vi:"{n} cảnh báo",id:"{n} alarm"},
+  ai_hold:{ko:"일부 보류",en:"Partly paused",vi:"Tạm dừng một phần",id:"Sebagian ditunda"},
+  net_ok:{ko:"동기화 {t}",en:"Synced {t}",vi:"Đồng bộ {t}",id:"Sinkron {t}"},
+  net_fail:{ko:"전송 실패 · 보관 {n}건",en:"Offline · {n} queued",vi:"Gửi lỗi · lưu {n}",id:"Gagal · {n} antre"},
+  net_unl:{ko:"미연결 · 보관 {n}건",en:"Unlinked · {n} queued",vi:"Chưa liên kết · lưu {n}",id:"Belum tertaut · {n}"},
+  nav_info:{ko:"정보",en:"Info",vi:"Thông tin",id:"Info"},
+  nav_set:{ko:"설정",en:"Settings",vi:"Cài đặt",id:"Setelan"},
+  adv_label:{ko:"AI 권고",en:"AI advice",vi:"Khuyến nghị AI",id:"Saran AI"},
+  adv_do_drop:{ko:"용존산소 하락 중 — 폭기 증대 준비",en:"DO falling — get ready to increase aeration",vi:"Oxy đang giảm — chuẩn bị tăng sục khí",id:"DO menurun — siapkan penambahan aerasi"},
+  adv_more:{ko:"근거 보기",en:"Why?",vi:"Lý do",id:"Alasan"},
+  alarm_do:{ko:"위험 · 용존산소 {v} mg/L — 기준 {lim} 미만",en:"Danger · DO {v} mg/L — below {lim}",vi:"Nguy hiểm · Oxy {v} mg/L — dưới {lim}",id:"Bahaya · DO {v} mg/L — di bawah {lim}"},
+  alarm_act:{ko:"지금 폭기기를 최대로 돌리세요",en:"Run aerators at full power now",vi:"Bật sục khí tối đa ngay",id:"Nyalakan aerator penuh sekarang"},
+  alarm_ack:{ko:"확인",en:"Acknowledge",vi:"Xác nhận",id:"Konfirmasi"},
+  alarm_acked:{ko:"확인됨 · 해소될 때까지 유지",en:"Acknowledged · stays until cleared",vi:"Đã xác nhận · giữ đến khi hết",id:"Dikonfirmasi · tetap hingga pulih"},
+  unl_title:{ko:"계정에 연결되지 않은 장비입니다",en:"This device is not linked to an account",vi:"Thiết bị chưa liên kết tài khoản",id:"Perangkat belum terhubung ke akun"},
+  unl_sub:{ko:"측정과 보관은 계속됩니다",en:"Measuring and storing continue",vi:"Vẫn đo và lưu dữ liệu",id:"Pengukuran & penyimpanan tetap berjalan"},
+  unl_btn:{ko:"기기 연결",en:"Link device",vi:"Liên kết",id:"Hubungkan"},
+  fault_strip:{ko:"센서 2개 확인 필요 — 해당 항목은 판단을 보류합니다",en:"2 sensors need attention — those readings are not assessed",vi:"2 cảm biến cần kiểm tra — tạm không đánh giá",id:"2 sensor perlu dicek — penilaian ditunda"},
+  back:{ko:"뒤로",en:"Back",vi:"Quay lại",id:"Kembali"},
+  period:{ko:"기간",en:"Period",vi:"Khoảng thời gian",id:"Periode"},
+  r24:{ko:"24시간",en:"24 h",vi:"24 giờ",id:"24 jam"},
+  r7d:{ko:"7일",en:"7 days",vi:"7 ngày",id:"7 hari"},
+  st_min:{ko:"최저",en:"Min",vi:"Thấp nhất",id:"Min"},
+  st_avg:{ko:"평균",en:"Avg",vi:"Trung bình",id:"Rata-rata"},
+  st_max:{ko:"최고",en:"Max",vi:"Cao nhất",id:"Maks"},
+  band:{ko:"적정 범위",en:"Target range",vi:"Khoảng tối ưu",id:"Rentang ideal"},
+  warnline:{ko:"주의 경계",en:"Caution limit",vi:"Ngưỡng chú ý",id:"Batas waspada"},
+  chart_aria:{ko:"{m} {r} 그래프. 최저 {min}, 평균 {avg}, 최고 {max}. 적정 {band}.",en:"{m} {r} chart. Min {min}, avg {avg}, max {max}. Target {band}.",vi:"Biểu đồ {m} {r}. Thấp nhất {min}, trung bình {avg}, cao nhất {max}. Tối ưu {band}.",id:"Grafik {m} {r}. Min {min}, rata-rata {avg}, maks {max}. Ideal {band}."},
+  ai_title:{ko:"AI 판단",en:"AI assessment",vi:"Đánh giá AI",id:"Penilaian AI"},
+  last_run:{ko:"마지막 분석 {t}",en:"Last run {t}",vi:"Lần chạy cuối {t}",id:"Terakhir {t}"},
+  every5:{ko:"5분마다",en:"every 5 min",vi:"mỗi 5 phút",id:"tiap 5 menit"},
+  why:{ko:"근거",en:"Why",vi:"Lý do",id:"Alasan"},
+  k_anom:{ko:"추세 이상징후",en:"Trend anomaly",vi:"Xu hướng bất thường",id:"Anomali tren"},
+  k_adv:{ko:"운전 권고",en:"Advice",vi:"Khuyến nghị",id:"Saran"},
+  k_limit:{ko:"기준 이탈",en:"Limit breach",vi:"Vượt ngưỡng",id:"Lewat batas"},
+  k_sensor:{ko:"센서",en:"Sensor",vi:"Cảm biến",id:"Sensor"},
+  k_stable:{ko:"안정",en:"Stable",vi:"Ổn định",id:"Stabil"},
+  f_do_trend_t:{ko:"용존산소 하락 추세",en:"DO downward trend",vi:"Oxy giảm dần",id:"Tren DO menurun"},
+  f_do_trend_why:{ko:"최근 3시간 −0.6 mg/L, 평소 같은 시각보다 2배 빠름",en:"−0.6 mg/L in 3 h, twice as fast as usual for this hour",vi:"−0,6 mg/L trong 3 giờ, nhanh gấp đôi thường lệ",id:"−0,6 mg/L dalam 3 jam, 2× lebih cepat dari biasanya"},
+  f_do_adv_t:{ko:"폭기 증대 준비",en:"Prepare to increase aeration",vi:"Chuẩn bị tăng sục khí",id:"Siapkan penambahan aerasi"},
+  f_do_adv_why:{ko:"이 속도면 약 2시간 뒤 5.0 아래 — 새벽 최저 시간대(05~06시)와 겹침",en:"At this rate below 5.0 in ~2 h — overlaps the pre-dawn low (05–06)",vi:"Với tốc độ này dưới 5,0 sau ~2 giờ — trùng giờ thấp nhất rạng sáng (05–06)",id:"Dengan laju ini di bawah 5,0 dalam ~2 jam — bertepatan titik terendah dini hari (05–06)"},
+  f_ph_ok_t:{ko:"pH 안정",en:"pH stable",vi:"pH ổn định",id:"pH stabil"},
+  f_ph_ok_why:{ko:"24시간 변동 0.21 — 평소 범위 안",en:"24 h swing 0.21 — within the usual range",vi:"Biến động 24 giờ 0,21 — trong mức thường",id:"Fluktuasi 24 jam 0,21 — dalam kisaran biasa"},
+  f_do_crit_t:{ko:"용존산소 위험 수준",en:"DO at danger level",vi:"Oxy ở mức nguy hiểm",id:"DO level bahaya"},
+  f_do_crit_why:{ko:"40분 사이 5.1 → 3.6 mg/L 급락, 기준 4.0 미만",en:"Fell 5.1 → 3.6 mg/L in 40 min, below 4.0",vi:"Giảm 5,1 → 3,6 mg/L trong 40 phút, dưới 4,0",id:"Turun 5,1 → 3,6 mg/L dalam 40 menit, di bawah 4,0"},
+  f_do_crit_adv_t:{ko:"폭기기 전체 가동 · 급이 중단",en:"Run all aerators · pause feeding",vi:"Bật toàn bộ sục khí · ngừng cho ăn",id:"Nyalakan semua aerator · hentikan pakan"},
+  f_do_crit_adv_why:{ko:"산소 소비를 줄이고 공급을 최대로 — 30분 뒤 다시 확인",en:"Cut oxygen demand, maximise supply — recheck in 30 min",vi:"Giảm tiêu thụ, tăng cấp oxy tối đa — kiểm tra lại sau 30 phút",id:"Kurangi konsumsi, maksimalkan suplai oksigen — cek lagi 30 menit"},
+  f_sensor_do_t:{ko:"용존산소 판단 보류",en:"DO assessment paused",vi:"Tạm dừng đánh giá oxy",id:"Penilaian DO ditunda"},
+  f_sensor_do_why:{ko:"전극은 응답하지만 값이 없음 — 전극 케이블·막 상태 확인",en:"Probe answers but reads nothing — check cable and membrane",vi:"Đầu dò phản hồi nhưng không có giá trị — kiểm tra dây và màng",id:"Probe merespons tanpa nilai — cek kabel dan membran"},
+  f_sensor_sal_t:{ko:"염도 센서 응답 없음",en:"Salinity sensor not responding",vi:"Cảm biến độ mặn không phản hồi",id:"Sensor salinitas tidak merespons"},
+  f_sensor_sal_why:{ko:"주소 4에서 3회 연속 무응답 — 배선·전원 확인",en:"No reply from address 4, three times — check wiring and power",vi:"Địa chỉ 4 không phản hồi 3 lần — kiểm tra dây và nguồn",id:"Alamat 4 tidak merespons 3 kali — cek kabel dan daya"},
+  e1_t:{ko:"기준 이탈 판정",en:"Limit check",vi:"Kiểm tra ngưỡng",id:"Cek batas"},
+  e1_d:{ko:"매 측정마다 적정 범위와 비교",en:"Every reading vs the target range",vi:"So mỗi lần đo với khoảng tối ưu",id:"Tiap pengukuran vs rentang ideal"},
+  e2_t:{ko:"추세 이상탐지",en:"Trend anomaly detection",vi:"Phát hiện bất thường",id:"Deteksi anomali tren"},
+  e2_d:{ko:"최근 96시간 · 5,761개 점 기준",en:"Last 96 h · 5,761 points",vi:"96 giờ gần nhất · 5.761 điểm",id:"96 jam terakhir · 5.761 titik"},
+  e3_t:{ko:"설비 운전 권고",en:"Equipment advice",vi:"Khuyến nghị vận hành",id:"Saran operasi"},
+  e3_d:{ko:"판정을 '지금 무엇을 돌릴까'로",en:"Turns findings into what to run now",vi:"Chuyển nhận định thành việc cần làm",id:"Mengubah temuan jadi tindakan"},
+  cnt_none:{ko:"없음",en:"None",vi:"Không",id:"Tidak ada"},
+  cnt:{ko:"{n}건",en:"{n}",vi:"{n}",id:"{n}"},
+  cnt_hold:{ko:"보류",en:"Paused",vi:"Tạm dừng",id:"Ditunda"},
+  ai_offline:{ko:"인터넷 없이 장비 안에서 계산합니다",en:"Computed on the device — no internet needed",vi:"Tính ngay trên thiết bị — không cần Internet",id:"Dihitung di perangkat — tanpa internet"},
+  ai_advice_only:{ko:"권고만 합니다 — 설비를 직접 켜고 끄지 않습니다",en:"Advice only — it never switches equipment",vi:"Chỉ khuyến nghị — không tự bật/tắt thiết bị",id:"Hanya saran — tidak menyalakan/mematikan peralatan"},
+  info_title:{ko:"기기 정보",en:"Device info",vi:"Thông tin thiết bị",id:"Info perangkat"},
+  i_account:{ko:"연결 계정",en:"Account",vi:"Tài khoản",id:"Akun"},
+  i_farm:{ko:"양식장",en:"Farm",vi:"Trại nuôi",id:"Tambak"},
+  i_tank:{ko:"수조",en:"Tank",vi:"Ao",id:"Kolam"},
+  i_model:{ko:"모델",en:"Model",vi:"Model",id:"Model"},
+  i_serial:{ko:"일련번호",en:"Serial",vi:"Số sê-ri",id:"Nomor seri"},
+  i_ver:{ko:"소프트웨어",en:"Software",vi:"Phần mềm",id:"Perangkat lunak"},
+  i_net:{ko:"네트워크",en:"Network",vi:"Mạng",id:"Jaringan"},
+  i_sync:{ko:"서버 전송",en:"Upload",vi:"Gửi dữ liệu",id:"Unggah"},
+  i_uptime:{ko:"가동 시간",en:"Uptime",vi:"Thời gian chạy",id:"Waktu aktif"},
+  i_support:{ko:"고객센터",en:"Support",vi:"Hỗ trợ",id:"Dukungan"},
+  uptime_v:{ko:"12일 4시간",en:"12 d 4 h",vi:"12 ngày 4 giờ",id:"12 hari 4 jam"},
+  change_acct:{ko:"계정 변경",en:"Change account",vi:"Đổi tài khoản",id:"Ganti akun"},
+  not_linked:{ko:"연결 안 됨",en:"Not linked",vi:"Chưa liên kết",id:"Belum terhubung"},
+  set_title:{ko:"설정",en:"Settings",vi:"Cài đặt",id:"Pengaturan"},
+  set_sensors:{ko:"센서 설정",en:"Sensors",vi:"Cảm biến",id:"Sensor"},
+  set_sensors_s:{ko:"켜기·끄기, 측정 주기, 염도/전도도",en:"On/off, interval, salinity/EC",vi:"Bật/tắt, chu kỳ, độ mặn/EC",id:"Aktif/mati, interval, salinitas/EC"},
+  set_test:{ko:"센서 테스트",en:"Sensor test",vi:"Kiểm tra cảm biến",id:"Tes sensor"},
+  set_test_s:{ko:"통신·값 확인",en:"Check link and readings",vi:"Kiểm tra kết nối và giá trị",id:"Cek koneksi dan nilai"},
+  set_cal:{ko:"보정",en:"Calibration",vi:"Hiệu chuẩn",id:"Kalibrasi"},
+  set_cal_s:{ko:"휴대용 측정기 값에 맞추기",en:"Match a handheld meter",vi:"Khớp với máy đo cầm tay",id:"Samakan dengan alat genggam"},
+  set_wifi:{ko:"Wi‑Fi",en:"Wi‑Fi",vi:"Wi‑Fi",id:"Wi‑Fi"},
+  set_wifi_s:{ko:"공유기에 연결",en:"Connect to a router",vi:"Kết nối bộ phát",id:"Sambung ke router"},
+  set_lang:{ko:"언어",en:"Language",vi:"Ngôn ngữ",id:"Bahasa"},
+  set_power:{ko:"전력 회로",en:"Power circuits",vi:"Mạch điện",id:"Sirkuit daya"},
+  set_power_s:{ko:"산소공급기·펌프 전력",en:"Aerator and pump power",vi:"Công suất sục khí, bơm",id:"Daya aerator dan pompa"},
+  set_pair:{ko:"기기 연결",en:"Link device",vi:"Liên kết thiết bị",id:"Hubungkan perangkat"},
+  set_pair_s:{ko:"6자리 코드로 계정에 연결",en:"Link to an account with a 6-digit code",vi:"Liên kết tài khoản bằng mã 6 số",id:"Tautkan akun dengan kode 6 digit"},
+  set_restart:{ko:"재시작",en:"Restart",vi:"Khởi động lại",id:"Mulai ulang"},
+  set_restart_s:{ko:"장비 다시 시작",en:"Restart the device",vi:"Khởi động lại thiết bị",id:"Mulai ulang perangkat"},
+  sn_ph:{ko:"pH · ORP",en:"pH · ORP",vi:"pH · ORP",id:"pH · ORP"},
+  sn_ec:{ko:"전도도 · 염도",en:"Conductivity · Salinity",vi:"Độ dẫn · Độ mặn",id:"Konduktivitas · Salinitas"},
+  addr:{ko:"주소 {n}",en:"Address {n}",vi:"Địa chỉ {n}",id:"Alamat {n}"},
+  interval:{ko:"측정 주기",en:"Reading interval",vi:"Chu kỳ đo",id:"Interval baca"},
+  interval_s:{ko:"짧을수록 그래프가 촘촘합니다",en:"Shorter means a denser chart",vi:"Ngắn hơn, biểu đồ dày hơn",id:"Lebih pendek, grafik lebih rapat"},
+  sec:{ko:"{n}초",en:"{n} s",vi:"{n} giây",id:"{n} dtk"},
+  show4:{ko:"네 번째 칸",en:"Fourth tile",vi:"Ô thứ tư",id:"Kotak keempat"},
+  show4_s:{ko:"염도 또는 전도도로 표시",en:"Show salinity or conductivity",vi:"Hiển thị độ mặn hoặc độ dẫn",id:"Tampilkan salinitas atau konduktivitas"},
+  on:{ko:"켜짐",en:"On",vi:"Bật",id:"Nyala"},
+  off:{ko:"꺼짐",en:"Off",vi:"Tắt",id:"Mati"},
+  saved:{ko:"저장했습니다",en:"Saved",vi:"Đã lưu",id:"Tersimpan"},
+  retest:{ko:"다시 테스트",en:"Run again",vi:"Chạy lại",id:"Uji lagi"},
+  testing:{ko:"테스트 중…",en:"Testing…",vi:"Đang kiểm tra…",id:"Menguji…"},
+  comm_ok:{ko:"통신 정상",en:"Link OK",vi:"Kết nối tốt",id:"Koneksi OK"},
+  comm_fail:{ko:"응답 없음",en:"No response",vi:"Không phản hồi",id:"Tidak merespons"},
+  comm_fail_s:{ko:"3회 연속 무응답 — 배선·전원 확인",en:"No reply 3 times — check wiring and power",vi:"Không phản hồi 3 lần — kiểm tra dây và nguồn",id:"Tak ada balasan 3× — cek kabel dan daya"},
+  noval:{ko:"값 없음 — 전극 확인",en:"No reading — check electrode",vi:"Không có giá trị — kiểm tra điện cực",id:"Tanpa nilai — cek elektroda"},
+  raw:{ko:"원시값",en:"Raw",vi:"Thô",id:"Mentah"},
+  f_sat:{ko:"포화도",en:"Saturation",vi:"Độ bão hòa",id:"Saturasi"},
+  cal_sensor:{ko:"센서값",en:"Sensor",vi:"Cảm biến",id:"Sensor"},
+  cal_after:{ko:"보정 후",en:"after",vi:"sau hiệu chuẩn",id:"setelah"},
+  cal_enter:{ko:"실측값 입력",en:"Enter reading",vi:"Nhập giá trị đo",id:"Masukkan nilai"},
+  cal_reset:{ko:"해제",en:"Reset",vi:"Bỏ",id:"Reset"},
+  cal_note:{ko:"1점 보정입니다 — 입력한 지점 근처에서만 정확합니다. 차이가 크면 보정으로 덮지 말고 전극부터 점검하세요.",en:"Single-point offset — accurate only near that point. If the gap is large, service the electrode instead of covering it with an offset.",vi:"Hiệu chuẩn 1 điểm — chỉ chính xác gần điểm đó. Nếu lệch nhiều, hãy bảo dưỡng điện cực thay vì bù.",id:"Kalibrasi 1 titik — akurat hanya di sekitar titik itu. Jika selisih besar, rawat elektroda, jangan ditutup dengan offset."},
+  cal_kp_t:{ko:"{m} 실측값 입력",en:"Enter {m} reading",vi:"Nhập giá trị đo {m}",id:"Masukkan nilai {m}"},
+  cal_kp_hint:{ko:"휴대용 측정기로 잰 값을 입력하세요",en:"Enter the value from your handheld meter",vi:"Nhập giá trị đo bằng máy cầm tay",id:"Masukkan nilai dari alat ukur genggam"},
+  apply:{ko:"적용",en:"Apply",vi:"Áp dụng",id:"Terapkan"},
+  cancel:{ko:"취소",en:"Cancel",vi:"Hủy",id:"Batal"},
+  del:{ko:"지우기",en:"Delete",vi:"Xóa",id:"Hapus"},
+  wifi_now:{ko:"연결됨",en:"Connected",vi:"Đã kết nối",id:"Terhubung"},
+  wifi_noinet:{ko:"인터넷 응답 없음",en:"No internet",vi:"Không có Internet",id:"Tanpa internet"},
+  wifi_pw:{ko:"{s} — 비밀번호가 필요합니다",en:"{s} — password required",vi:"{s} — cần mật khẩu",id:"{s} — perlu kata sandi"},
+  rescan:{ko:"다시 검색",en:"Scan again",vi:"Quét lại",id:"Pindai ulang"},
+  scanning:{ko:"검색 중…",en:"Scanning…",vi:"Đang quét…",id:"Memindai…"},
+  secured:{ko:"잠금",en:"Secured",vi:"Có mật khẩu",id:"Terkunci"},
+  signal:{ko:"신호 {n}/4",en:"Signal {n}/4",vi:"Tín hiệu {n}/4",id:"Sinyal {n}/4"},
+  col_circuit:{ko:"회로",en:"Circuit",vi:"Mạch",id:"Sirkuit"},
+  col_state:{ko:"상태",en:"State",vi:"Trạng thái",id:"Status"},
+  col_w:{ko:"전력 W",en:"Power W",vi:"Công suất W",id:"Daya W"},
+  col_a:{ko:"전류 A",en:"Current A",vi:"Dòng A",id:"Arus A"},
+  col_kwh:{ko:"오늘 kWh",en:"Today kWh",vi:"Hôm nay kWh",id:"Hari ini kWh"},
+  col_tc:{ko:"단자 ℃",en:"Terminal °C",vi:"Đầu cực °C",id:"Terminal °C"},
+  total_in:{ko:"전체(인입)",en:"Total (main)",vi:"Tổng (đầu vào)",id:"Total (masuk)"},
+  c_air:{ko:"산소공급기·브로워",en:"Aerator blower",vi:"Máy thổi khí",id:"Blower aerator"},
+  c_pump:{ko:"순환펌프",en:"Circulation pump",vi:"Bơm tuần hoàn",id:"Pompa sirkulasi"},
+  c_heat:{ko:"히터",en:"Heater",vi:"Máy sưởi",id:"Pemanas"},
+  c_uv:{ko:"UV 살균기",en:"UV sterilizer",vi:"Đèn UV diệt khuẩn",id:"Sterilisasi UV"},
+  rs_title:{ko:"장비를 다시 시작할까요?",en:"Restart the device?",vi:"Khởi động lại thiết bị?",id:"Mulai ulang perangkat?"},
+  rs_body:{ko:"측정이 약 40초 멈춥니다. 보관된 데이터는 지워지지 않습니다.",en:"Measuring pauses for about 40 s. Stored data is kept.",vi:"Việc đo tạm dừng khoảng 40 giây. Dữ liệu đã lưu vẫn được giữ.",id:"Pengukuran berhenti sekitar 40 detik. Data tersimpan tetap aman."},
+  rs_btn:{ko:"재시작",en:"Restart",vi:"Khởi động lại",id:"Mulai ulang"},
+  pair_title:{ko:"기기 연결",en:"Link this device",vi:"Liên kết thiết bị",id:"Hubungkan perangkat"},
+  pair_s1:{ko:"휴대폰에서 AMP 앱을 열고 로그인",en:"Open the AMP app on your phone and sign in",vi:"Mở ứng dụng AMP trên điện thoại và đăng nhập",id:"Buka aplikasi AMP di ponsel dan masuk"},
+  pair_s2:{ko:"양식장 › 수조 선택",en:"Choose farm › tank",vi:"Chọn trại › ao",id:"Pilih tambak › kolam"},
+  pair_s3:{ko:"기기 추가 › 코드로 연결",en:"Add device › Link with code",vi:"Thêm thiết bị › Liên kết bằng mã",id:"Tambah perangkat › Hubungkan dengan kode"},
+  pair_s4:{ko:"오른쪽 6자리 코드 입력",en:"Enter the 6-digit code shown here",vi:"Nhập mã 6 số bên cạnh",id:"Masukkan kode 6 digit di samping"},
+  pair_code:{ko:"연결 코드",en:"Link code",vi:"Mã liên kết",id:"Kode tautan"},
+  pair_exp:{ko:"{t} 뒤 새 코드",en:"New code in {t}",vi:"Mã mới sau {t}",id:"Kode baru dalam {t}"},
+  pair_wait:{ko:"앱 입력을 기다리는 중",en:"Waiting for the app",vi:"Đang chờ ứng dụng",id:"Menunggu aplikasi"},
+  pair_note:{ko:"연결 전 측정값도 보관했다가 함께 올립니다",en:"Readings taken before linking are kept and uploaded too",vi:"Dữ liệu đo trước khi liên kết cũng được lưu và tải lên",id:"Data sebelum terhubung disimpan lalu ikut diunggah"},
+  boot_msg:{ko:"센서 확인 중…",en:"Checking sensors…",vi:"Đang kiểm tra cảm biến…",id:"Memeriksa sensor…"}
+};
+
+/* ---------- 바깥 제안 페이지 문구(기기 화면 아님) — vi/id 가 없으면 en ---------- */
+var UI = {
+  title:{ko:"AMP 양식장 수질 모니터 — 장비 화면 시안",en:"AMP Aquaculture Water Monitor — Device Screen Concept",vi:"AMP giám sát nước ao nuôi — Bản mẫu màn hình thiết bị",id:"AMP Monitor Air Tambak — Konsep Layar Perangkat"},
+  intro:{ko:"라즈베리파이 공식 7인치 터치(800×480)에서 그대로 도는 장비 화면을 미리 눌러 보는 시안입니다. 양식장 전용 — 수온 · pH · 용존산소 · 염도.",en:"A clickable concept of the on-device screen for the official Raspberry Pi 7-inch touch display (800×480). Aquaculture only — water temp, pH, dissolved oxygen, salinity.",vi:"Bản mẫu bấm thử màn hình thiết bị trên màn cảm ứng 7 inch (800×480). Chỉ dành cho ao nuôi — nhiệt độ, pH, oxy hòa tan, độ mặn.",id:"Konsep layar perangkat yang bisa diklik untuk layar sentuh 7 inci (800×480). Khusus tambak — suhu, pH, oksigen terlarut, salinitas."},
+  stage_label:{ko:"7인치 장비 화면 미리보기",en:"7-inch device screen preview",vi:"Xem trước màn hình 7 inch",id:"Pratinjau layar 7 inci"},
+  stage_note:{ko:"실물 비율 근사 · 창 크기에 맞춰 축소 · 화면 안은 손가락으로 누르는 실제 동작",en:"Approximate real proportions · scaled to fit · everything on the screen is tappable",vi:"Tỷ lệ gần thực tế · thu nhỏ vừa cửa sổ · mọi thứ trên màn hình đều bấm được",id:"Proporsi mendekati asli · diskalakan · semua di layar bisa disentuh"},
+  g_scen:{ko:"상태 시나리오",en:"Scenario",vi:"Kịch bản",id:"Skenario"},
+  g_screens:{ko:"화면 목록",en:"Screens",vi:"Màn hình",id:"Layar"},
+  g_color:{ko:"색 방향 3안 (임시)",en:"Three color directions (placeholder)",vi:"3 hướng màu (tạm)",id:"3 arah warna (sementara)"},
+  color_hint:{ko:"상태색(정상·주의·위험)은 세 안 공통입니다. 색만이 아니라 아이콘 모양(원·삼각·팔각)과 글자로도 구별됩니다.",en:"Status colors (normal · caution · danger) are shared by all three. Icon shapes (circle · triangle · octagon) and words also tell them apart.",vi:"Màu trạng thái dùng chung cho cả ba; hình biểu tượng và chữ cũng phân biệt được.",id:"Warna status sama di ketiganya; bentuk ikon dan teks juga membedakannya."},
+  g_view:{ko:"표시",en:"Display",vi:"Hiển thị",id:"Tampilan"},
+  g_theme:{ko:"밝기",en:"Theme",vi:"Chế độ",id:"Tema"},
+  th_dark:{ko:"다크 (기본·밤)",en:"Dark (default · night)",vi:"Tối (mặc định)",id:"Gelap (bawaan)"},
+  th_light:{ko:"라이트 (햇빛)",en:"Light (sunlight)",vi:"Sáng (nắng)",id:"Terang (siang)"},
+  g_lang:{ko:"언어",en:"Language",vi:"Ngôn ngữ",id:"Bahasa"},
+  g_name:{ko:"제품명 후보",en:"Product name candidates",vi:"Tên sản phẩm",id:"Kandidat nama"},
+  demo_play:{ko:"자동 데모 재생",en:"Play auto demo",vi:"Chạy demo tự động",id:"Putar demo otomatis"},
+  demo_stop:{ko:"데모 정지",en:"Stop demo",vi:"Dừng demo",id:"Hentikan demo"},
+  sc_normal:{ko:"정상",en:"Normal",vi:"Bình thường",id:"Normal"},
+  sc_alarm:{ko:"DO 경보",en:"DO alarm",vi:"Cảnh báo DO",id:"Alarm DO"},
+  sc_offline:{ko:"인터넷 끊김",en:"Offline",vi:"Mất Internet",id:"Offline"},
+  sc_sensor:{ko:"센서 오류",en:"Sensor fault",vi:"Lỗi cảm biến",id:"Sensor error"},
+  sc_unlinked:{ko:"미연결",en:"Not linked",vi:"Chưa liên kết",id:"Belum terhubung"},
+  nv_boot:{ko:"부팅",en:"Boot"}, nv_main:{ko:"대시보드",en:"Dashboard"}, nv_chart:{ko:"그래프",en:"Chart"},
+  nv_ai:{ko:"AI 판단",en:"AI"}, nv_info:{ko:"기기 정보",en:"Device info"}, nv_settings:{ko:"설정",en:"Settings"},
+  nv_sensors:{ko:"센서 설정",en:"Sensors"}, nv_test:{ko:"센서 테스트",en:"Sensor test"}, nv_cal:{ko:"보정",en:"Calibration"},
+  nv_wifi:{ko:"Wi‑Fi",en:"Wi‑Fi"}, nv_lang:{ko:"언어",en:"Language"}, nv_power:{ko:"전력 회로",en:"Power"},
+  nv_restart:{ko:"재시작 확인",en:"Restart"}, nv_pair:{ko:"기기 연결",en:"Pairing"},
+  sch_a:{ko:"① 딥네이비 + 시안 — 산업 계측기",en:"① Deep navy + cyan — industrial instrument"},
+  sch_b:{ko:"② 딥 틸 + 샌드 — 바다·연안",en:"② Deep teal + sand — coastal"},
+  sch_c:{ko:"③ 그래파이트 + 라임 — 공구·현장 장비",en:"③ Graphite + lime — rugged field tool"},
+  foot:{ko:"판정 기준은 장비 limits.py 와 같은 숫자입니다. 화면 속 값·계정·주소·전화번호는 예시입니다. 설계 근거: docs/amp/design.md",en:"Thresholds match the device's limits.py. Values, accounts, addresses and phone numbers on screen are examples. Rationale: docs/amp/design.md"},
+  tmp:{ko:"임시 브랜드 시안",en:"Placeholder branding",vi:"Thương hiệu tạm",id:"Merek sementara"},
+  d_boot:{ko:"부팅 — AMP 로고 1.5초",en:"Boot — AMP logo for 1.5 s"},
+  d_main:{ko:"대시보드 — 4개 값 · AI 배지 · 권고 띠",en:"Dashboard — 4 values · AI badge · advice strip"},
+  d_chart:{ko:"용존산소 칸을 눌러 24시간 그래프",en:"Tap DO → 24 h chart"},
+  d_chart7:{ko:"7일 탭 — 적정 범위 띠·주의 경계",en:"7-day tab — target band and caution line"},
+  d_ai:{ko:"AI 판단 — 이상징후·권고와 근거",en:"AI — findings, advice and why"},
+  d_alarm:{ko:"DO 경보 — 위험 띠, 처음 6초만 맥동",en:"DO alarm — danger strip, pulses only for 6 s"},
+  d_ack:{ko:"경보 확인 — 해소될 때까지 붉은 띠 유지",en:"Acknowledge — strip stays until cleared"},
+  d_offline:{ko:"인터넷 끊김 — 보관 건수 증가",en:"Offline — stored count rises"},
+  d_sensor:{ko:"센서 오류 — 전극 확인 / 응답 없음",en:"Sensor fault — electrode / no response"},
+  d_test:{ko:"센서 테스트 결과",en:"Sensor test results"},
+  d_unlinked:{ko:"미연결 — 측정·보관은 계속",en:"Not linked — still measuring and storing"},
+  d_pair:{ko:"기기 연결 — 6자리 코드",en:"Link device — 6-digit code"},
+  d_settings:{ko:"설정 메뉴",en:"Settings menu"},
+  d_cal:{ko:"보정 — 1점 보정",en:"Calibration — single point"},
+  d_info:{ko:"기기 정보 — 하단 Powered by Shrimp365",en:"Device info — Powered by Shrimp365 at the bottom"},
+  d_end:{ko:"데모 끝 — 직접 눌러 보세요",en:"Demo finished — try it yourself"}
+};
+
+/* ---------- 상태 ---------- */
+var S = {
+  screen:'boot', prev:{}, scenario:'normal', lang:'ko', scheme:'a', theme:'dark', nameIx:0,
+  v:{temp:28.4, ph:7.92, oxy:5.6, sal:18.2},
+  show4:'sal', on:{ph:true, oxy:true, ec:true}, interval:30,
+  cal:{temp:0, ph:0.04, oxy:0, sal:0},
+  queued:37, acked:false, alarmAt:0, chartKey:'oxy', range:'24h',
+  modal:null, focusModal:false, kp:{key:null, buf:''}, testing:false, scanning:false,
+  pairLeft:600, wifi:'SUHO_FARM'
+};
+var SCEN = {
+  normal:{linked:true}, alarm:{linked:true}, offline:{linked:true}, sensor:{linked:true}, unlinked:{linked:false}
+};
+/* 시연 시계 — 새벽 02:40 에서 시작해 실제 시간만큼 흐른다(야간 DO 하락 상황) */
+var T0 = Date.now(), BASE = new Date(2026, 9, 30, 2, 40, 0).getTime();
+function now(){ return new Date(BASE + (Date.now() - T0)); }
+function minusMin(d, m){ return new Date(d.getTime() - m * 60000); }
+function pad2(n){ return (n < 10 ? '0' : '') + n; }
+function hhmm(d){ return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
+function mmss(s){ return Math.floor(s / 60) + ':' + pad2(s % 60); }
+function dlabel(d){ var m = d.getMonth() + 1, day = d.getDate(); return (S.lang === 'ko' || S.lang === 'en') ? m + '/' + day : day + '/' + m; }
+function lastSync(){ var d = now(); d.setSeconds(d.getSeconds() - d.getSeconds() % 30); return d; }
+
+/* ---------- 도우미 ---------- */
+var LOC = {ko:'ko-KR', en:'en-US', vi:'vi-VN', id:'id-ID'};
+function t(k, vars){
+  var e = I18N[k], s = e ? (e[S.lang] || e.en || e.ko) : k;
+  if(vars){ for(var x in vars){ s = s.split('{' + x + '}').join(String(vars[x])); } }
+  return s;
+}
+function ui(k){ var e = UI[k]; return e ? (e[S.lang] || e.en || e.ko) : k; }
+function fmt(v, d){ return new Intl.NumberFormat(LOC[S.lang], {minimumFractionDigits:d, maximumFractionDigits:d}).format(v); }
+function fmtSigned(v, d){
+  var r = Number(v.toFixed(d));
+  return (r > 0 ? '+' : r < 0 ? '−' : '±') + fmt(Math.abs(r), d);
+}
+function decSep(){ return fmt(1.5, 1).charAt(1); }
+function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function ic(id, cls){ return '<svg class="ic' + (cls ? ' ' + cls : '') + '" aria-hidden="true" focusable="false"><use href="#i-' + id + '"/></svg>'; }
+function wm(cls){
+  var n = PRODUCT_NAMES[S.nameIx].name;
+  return '<span class="wm' + (cls ? ' ' + cls : '') + '" role="img" aria-label="AMP ' + n + '">' +
+    '<svg aria-hidden="true" focusable="false" viewBox="0 0 32 32"><use href="#amp-mark"/></svg>' +
+    '<span class="wm-amp" aria-hidden="true">AMP</span><span class="wm-prod" aria-hidden="true">' + n + '</span></span>';
+}
+var LV = {ok:{ic:'check', k:'s_ok'}, warn:{ic:'warn', k:'s_warn'}, crit:{ic:'crit', k:'s_crit'}, fault:{ic:'unplug', k:'s_fault'}};
+function pill(lv){ var d = LV[lv]; return '<span class="pill ' + lv + '">' + ic(d.ic, 's') + t(d.k) + '</span>'; }
+
+/* 센서 꺼짐 / 시나리오 고장 → 값 대신 오류 */
+function faultOf(k){
+  var sk = k === 'ph' ? 'ph' : k === 'oxy' ? 'oxy' : (k === 'sal' || k === 'ec') ? 'ec' : null;
+  if(sk && !S.on[sk]) return 'off';
+  if(S.scenario === 'sensor'){ if(k === 'oxy') return 'electrode'; if(k === 'sal' || k === 'ec') return 'noresp'; }
+  return null;
+}
+function val(k){ if(faultOf(k)) return null; return k === 'ec' ? S.v.sal * EC_PER_SAL : S.v[k]; }
+function trend(k){
+  if(val(k) == null) return null;
+  if(k === 'oxy' && S.scenario === 'alarm') return -1.5;
+  return {temp:0.1, ph:-0.03, oxy:-0.2, sal:0, ec:0}[k];
+}
+function rangeTxt(k){
+  var b = BANDS[k].ok, d = METRICS[k].rd;
+  return b[1] == null ? t('atleast', {v:fmt(b[0], d)}) : fmt(b[0], d) + '–' + fmt(b[1], d);
+}
+
+/* ======================= 화면들 ======================= */
+function subBar(title, right, backKey){
+  return '<header class="bar"><button class="btn ghost back" data-a="back" data-fid="back">' + ic('back') + '<span>' + t(backKey || 'back') + '</span></button>' +
+    '<h1 tabindex="-1">' + title + '</h1><span class="sp"></span>' + (right || '') + '</header>';
+}
+
+function aiState(){
+  if(S.scenario === 'alarm') return {cls:'alarm', txt:t('ai_alarm', {n:1})};
+  if(S.scenario === 'sensor') return {cls:'hold', txt:t('ai_hold')};
+  return {cls:'', txt:t('ai_adv', {n:1})};
+}
+function netState(){
+  if(S.scenario === 'offline') return {cls:'fail', ic:'cloudoff', txt:t('net_fail', {n:S.queued})};
+  if(S.scenario === 'unlinked') return {cls:'', ic:'linkoff', txt:t('net_unl', {n:S.queued})};
+  return {cls:'', ic:'cloud', txt:t('net_ok', {t:hhmm(lastSync())})};
+}
+
+function vBoot(){
+  return '<div class="scr boot">' + wm('lg') + '<div class="prog" role="progressbar" aria-label="' + t('boot_msg') + '"><i></i></div>' +
+    '<small>' + t('boot_msg') + ' · v2.0.0</small></div>';
+}
+
+function vMain(){
+  var ai = aiState(), net = netState(), linked = SCEN[S.scenario].linked;
+  var bar = '<header class="bar">' +
+    '<div class="who">' + wm() + '<span class="site">' + (linked ? t('farm') + ' · ' + t('tank') : t('not_linked')) + '</span></div>' +
+    '<span class="sp"></span>' +
+    '<button class="chip ai ' + ai.cls + '" data-a="go" data-arg="ai" data-fid="ai">' + ic(S.scenario === 'alarm' ? 'crit' : 'ai', 's') + '<span class="lbl">AI <b>' + ai.txt + '</b></span></button>' +
+    '<button class="chip net ' + net.cls + '" data-a="go" data-arg="info" data-fid="net">' + ic(net.ic, 's') + '<span class="lbl">' + net.txt + '</span></button>' +
+    // 정보는 아이콘만 — 연결 칩도 같은 화면으로 가고, 긴 언어(vi·id·en)에서 상단 칩이 잘리지 않게 자리를 비운다.
+    '<button class="btn ghost" data-a="go" data-arg="info" data-fid="info" aria-label="' + t('nav_info') + '" title="' + t('nav_info') + '">' + ic('info') + '</button>' +
+    '<button class="btn ghost" data-a="go" data-arg="settings" data-fid="set">' + ic('sliders') + '<span>' + t('nav_set') + '</span></button>' +
+    '</header>';
+  var cards = ['temp', 'ph', 'oxy', S.show4].map(card).join('');
+  return '<div class="scr">' + bar + '<div class="grid">' + cards + '</div>' + strip() + '</div>';
+}
+
+function card(k){
+  var m = METRICS[k], v = val(k), f = faultOf(k), lv = f ? 'fault' : level(k, v);
+  var label = t(m.label), body, foot;
+  if(f){
+    body = '<span class="card-v"><span class="num">— —</span><span class="unit">' + m.unit + '</span></span>';
+    foot = '<span class="card-err"><b>' + ic('unplug', 's') + t('e_' + f) + '</b><small>' + t('e_' + f + '_sub') + '</small></span>';
+  } else {
+    var tr = trend(k);
+    body = '<span class="card-v"><span class="num">' + fmt(v, m.d) + '</span><span class="unit">' + m.unit + '</span></span>';
+    foot = '<span class="card-f"><span>' + t('target') + ' ' + rangeTxt(k) + '</span>' +
+      (tr == null ? '' : '<span class="tr">' + ic(tr < -0.001 ? 'down' : tr > 0.001 ? 'up' : 'flat', 's') + t('per1h') + ' ' + fmtSigned(tr, m.d) + '</span>') + '</span>';
+  }
+  var aria = label + ' ' + (f ? t('e_' + f) : fmt(v, m.d) + ' ' + m.unit) + ', ' + t(LV[lv].k) + '. ' + t('open_chart');
+  return '<button class="card ' + lv + '" data-a="chart" data-arg="' + k + '" data-fid="c-' + k + '" aria-label="' + esc(aria) + '">' +
+    '<span class="card-top"><span class="card-k">' + label + '</span>' + pill(lv) + '</span>' + body + foot + '</button>';
+}
+
+function strip(){
+  var sc = S.scenario;
+  if(sc === 'alarm'){
+    var pulse = !S.acked && (Date.now() - S.alarmAt < 6000);
+    /* role=alert 는 처음 몇 초만 — 3초 갱신마다 다시 읽히지 않게 */
+    return '<div class="strip alarm' + (pulse ? ' pulse' : '') + '"' + (pulse ? ' role="alert"' : '') + '>' +
+      '<span class="ico">' + ic('crit', 'l') + '</span>' +
+      '<span class="txt"><span class="lbl">' + t('alarm_do', {v:fmt(S.v.oxy, 1), lim:fmt(4, 1)}) + '</span><span class="msg">' + t('alarm_act') + '</span></span>' +
+      (S.acked ? '<span class="acked">' + ic('tick', 's') + t('alarm_acked') + '</span>'
+               : '<button class="btn on-crit" data-a="ack" data-fid="ack">' + ic('bell') + t('alarm_ack') + '</button>') +
+      '</div>';
+  }
+  if(sc === 'unlinked'){
+    return '<div class="strip unl"><span class="ico">' + ic('linkoff', 'l') + '</span>' +
+      '<span class="txt"><span class="msg">' + t('unl_title') + '</span><span class="lbl">' + t('unl_sub') + '</span></span>' +
+      '<button class="btn primary" data-a="go" data-arg="pair" data-fid="pairbtn">' + ic('link') + t('unl_btn') + '</button></div>';
+  }
+  if(sc === 'sensor'){
+    return '<button class="strip fault" data-a="go" data-arg="test" data-fid="strip"><span class="ico">' + ic('unplug', 'l') + '</span>' +
+      '<span class="txt"><span class="lbl">' + t('adv_label') + '</span><span class="msg">' + t('fault_strip') + '</span></span>' +
+      '<span class="more">' + t('set_test') + ic('next', 's') + '</span></button>';
+  }
+  return '<button class="strip" data-a="go" data-arg="ai" data-fid="strip"><span class="ico">' + ic('ai', 'l') + '</span>' +
+    '<span class="txt"><span class="lbl">' + t('adv_label') + '</span><span class="msg">' + t('adv_do_drop') + '</span></span>' +
+    '<span class="more">' + t('adv_more') + ic('next', 's') + '</span></button>';
+}
+
+/* ---------- 그래프 ---------- */
+function rng(seed){
+  return function(){
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    var x = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x;
+    return ((x ^ x >>> 14) >>> 0) / 4294967296;
+  };
+}
+function series(k, range){
+  var m = METRICS[k], is7 = range === '7d', N = is7 ? 169 : 145, stepH = is7 ? 1 : 1 / 6;
+  var r = rng((k.charCodeAt(0) * 7919 + k.length * 131 + (is7 ? 13 : 3)) * 104729);
+  var end = now(), endH = end.getHours() + end.getMinutes() / 60, out = [], n = 0, i, j;
+  for(i = 0; i < N; i++){
+    var hAgo = (N - 1 - i) * stepH, h = endH - hAgo, day = Math.floor(h / 24);
+    n = n * 0.85 + (r() - 0.5) * m.noise * 4;
+    var amp = m.amp * (1 + 0.18 * Math.sin(day * 1.7));
+    out.push({v: m.mean + amp * Math.sin(2 * Math.PI * (h - m.phase) / 24) + n});
+  }
+  var cur = k === 'ec' ? S.v.sal * EC_PER_SAL : S.v[k];
+  if(S.scenario === 'alarm' && k === 'oxy'){
+    var steps = is7 ? 2 : 5, from = out[N - 1 - steps].v;
+    for(j = 1; j <= steps; j++){ out[N - 1 - steps + j].v = from + (cur - from) * (j / steps); }
+  } else {
+    var A = 12, d = cur - out[N - 1].v;
+    for(j = 0; j < A; j++){ out[N - A + j].v += d * ((j + 1) / A); }
+  }
+  if(faultOf(k)){ out[N - 1].v = null; out[N - 2].v = null; if(!is7) out[N - 3].v = null; }
+  return out;
+}
+function stats(data){
+  var vs = data.filter(function(p){ return p.v != null; }).map(function(p){ return p.v; });
+  var sum = vs.reduce(function(a, b){ return a + b; }, 0);
+  return {min:Math.min.apply(null, vs), max:Math.max.apply(null, vs), avg:sum / vs.length};
+}
+function nice(x){ var e = Math.pow(10, Math.floor(Math.log(x) / Math.LN10)), f = x / e; return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * e; }
+function decOf(step){ return Math.max(0, -Math.floor(Math.log(step) / Math.LN10 + 1e-9)); }
+
+function chartSvg(k, data, st){
+  var W = 762, H = 330, L = 52, R = 14, T = 12, B = 30, m = METRICS[k], b = BANDS[k];
+  var lo = st.min, hi = st.max, span = Math.max(hi - lo, m.minSpan);
+  if(hi - lo < m.minSpan){ var c = (hi + lo) / 2; lo = c - span / 2; hi = c + span / 2; }
+  [b.ok[0], b.ok[1], b.warn[0], b.warn[1]].forEach(function(x){
+    if(x != null && x >= lo - 1.5 * span && x <= hi + 1.5 * span){ lo = Math.min(lo, x); hi = Math.max(hi, x); }
+  });
+  var padv = (hi - lo) * 0.08; lo -= padv; hi += padv;
+  var pw = W - L - R, ph = H - T - B;
+  function X(i){ return L + i * pw / (data.length - 1); }
+  function Y(v){ return T + (hi - v) * ph / (hi - lo); }
+  var s = '';
+  var bl = b.ok[0] == null ? lo : Math.max(lo, b.ok[0]), bh = b.ok[1] == null ? hi : Math.min(hi, b.ok[1]);
+  if(bh > bl) s += '<rect class="c-band" x="' + L + '" y="' + Y(bh).toFixed(1) + '" width="' + pw + '" height="' + (Y(bl) - Y(bh)).toFixed(1) + '"/>';
+  var step = nice((hi - lo) / 4), dd = decOf(step), g = 0;
+  for(var yv = Math.ceil(lo / step) * step; yv <= hi + 1e-9 && g < 12; yv += step, g++){
+    var yy = Y(yv).toFixed(1);
+    s += '<line class="c-grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '"/>' +
+         '<text class="c-lab" x="' + (L - 8) + '" y="' + (Y(yv) + 4).toFixed(1) + '" text-anchor="end">' + fmt(yv, dd) + '</text>';
+  }
+  [b.warn[0], b.warn[1]].forEach(function(x){
+    if(x != null && x > lo && x < hi){
+      var wy = Y(x).toFixed(1);
+      s += '<line class="c-warn" x1="' + L + '" x2="' + (W - R) + '" y1="' + wy + '" y2="' + wy + '"/>' +
+           '<text class="c-wl" x="' + (W - R - 4) + '" y="' + (Y(x) - 6).toFixed(1) + '" text-anchor="end">' + fmt(x, 1) + '</text>';
+    }
+  });
+  var d = '', pen = false, last = -1;
+  data.forEach(function(p, i){
+    if(p.v == null){ pen = false; return; }
+    d += (pen ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(p.v).toFixed(1); pen = true; last = i;
+  });
+  s += '<path class="c-line" d="' + d + '"/>';
+  if(last >= 0) s += '<circle class="c-dot" cx="' + X(last).toFixed(1) + '" cy="' + Y(data[last].v).toFixed(1) + '" r="5"/>';
+  var e = now(), labs = S.range === '24h'
+    ? [hhmm(minusMin(e, 1440)), hhmm(minusMin(e, 720)), hhmm(e)]
+    : [dlabel(minusMin(e, 10080)), dlabel(minusMin(e, 5040)), dlabel(e)];
+  s += '<text class="c-lab" x="' + L + '" y="' + (H - 8) + '" text-anchor="start">' + labs[0] + '</text>' +
+       '<text class="c-lab" x="' + (L + pw / 2) + '" y="' + (H - 8) + '" text-anchor="middle">' + labs[1] + '</text>' +
+       '<text class="c-lab" x="' + (W - R) + '" y="' + (H - 8) + '" text-anchor="end">' + labs[2] + '</text>';
+  var aria = t('chart_aria', {m:t(m.label), r:t(S.range === '24h' ? 'r24' : 'r7d'), min:fmt(st.min, m.d), avg:fmt(st.avg, m.d), max:fmt(st.max, m.d), band:rangeTxt(k)});
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="' + esc(aria) + '">' + s + '</svg>';
+}
+
+function vChart(){
+  var k = S.chartKey, m = METRICS[k], v = val(k), f = faultOf(k), lv = f ? 'fault' : level(k, v);
+  var data = series(k, S.range), st = stats(data);
+  function seg(r, key){ return '<button data-a="range" data-arg="' + r + '" data-fid="r-' + r + '" aria-pressed="' + (S.range === r) + '">' + t(key) + '</button>'; }
+  return '<div class="scr">' +
+    '<header class="bar"><button class="btn ghost back" data-a="back" data-fid="back">' + ic('back') + '<span>' + t('back') + '</span></button>' +
+      '<h1 tabindex="-1">' + t(m.label) + '</h1>' +
+      '<span class="cnow">' + (f ? '— —' : fmt(v, m.d)) + '<small>' + m.unit + '</small></span>' + pill(lv) +
+      '<span class="sp"></span>' +
+      '<span class="seg" role="group" aria-label="' + t('period') + '">' + seg('24h', 'r24') + seg('7d', 'r7d') + '</span>' +
+    '</header>' +
+    '<div class="body">' +
+      '<div class="stats"><span>' + t('st_min') + '<b>' + fmt(st.min, m.d) + '</b></span><span>' + t('st_avg') + '<b>' + fmt(st.avg, m.d) + '</b></span><span>' + t('st_max') + '<b>' + fmt(st.max, m.d) + '</b></span>' +
+        '<span class="sp"></span><span class="lg"><i class="lg-band"></i>' + t('band') + ' ' + rangeTxt(k) + '</span><span class="lg"><i class="lg-warn"></i>' + t('warnline') + '</span></div>' +
+      '<div class="plot">' + chartSvg(k, data, st) + '</div>' +
+    '</div></div>';
+}
+
+/* ---------- AI 판단 ---------- */
+function findings(){
+  if(S.scenario === 'alarm') return [
+    {lv:'crit', ic:'crit', k:'k_limit', t:'f_do_crit_t', w:'f_do_crit_why'},
+    {lv:'crit', ic:'ai', k:'k_adv', t:'f_do_crit_adv_t', w:'f_do_crit_adv_why'},
+    {lv:'ok', ic:'check', k:'k_stable', t:'f_ph_ok_t', w:'f_ph_ok_why'}];
+  if(S.scenario === 'sensor') return [
+    {lv:'fault', ic:'unplug', k:'k_sensor', t:'f_sensor_do_t', w:'f_sensor_do_why'},
+    {lv:'fault', ic:'unplug', k:'k_sensor', t:'f_sensor_sal_t', w:'f_sensor_sal_why'},
+    {lv:'ok', ic:'check', k:'k_stable', t:'f_ph_ok_t', w:'f_ph_ok_why'}];
+  return [
+    {lv:'notice', ic:'down', k:'k_anom', t:'f_do_trend_t', w:'f_do_trend_why'},
+    {lv:'notice', ic:'ai', k:'k_adv', t:'f_do_adv_t', w:'f_do_adv_why'},
+    {lv:'ok', ic:'check', k:'k_stable', t:'f_ph_ok_t', w:'f_ph_ok_why'}];
+}
+function vAI(){
+  var run = hhmm(minusMin(now(), 2));
+  var c = S.scenario === 'alarm' ? [1, 1, 1] : S.scenario === 'sensor' ? [0, -1, 0] : [0, 1, 1];
+  function cnt(n){ return n < 0 ? t('cnt_hold') : n === 0 ? t('cnt_none') : t('cnt', {n:n}); }
+  var finds = findings().map(function(f){
+    return '<div class="find ' + f.lv + '"><span class="fi">' + ic(f.ic) + '</span><span class="ft">' + t(f.t) + '</span>' +
+      '<span class="tm">' + t(f.k) + ' · ' + run + '</span><span class="fw"><b>' + t('why') + '</b>' + t(f.w) + '</span></div>';
+  }).join('');
+  var eng = [['e1_t', 'e1_d'], ['e2_t', 'e2_d'], ['e3_t', 'e3_d']].map(function(e, i){
+    return '<div class="eng-row"><span class="n">' + (i + 1) + '</span><b>' + t(e[0]) + '</b><span class="c">' + cnt(c[i]) + '</span><small>' + t(e[1]) + '</small></div>';
+  }).join('');
+  return '<div class="scr">' + subBar(t('ai_title'), '<span class="meta">' + t('last_run', {t:run}) + ' · ' + t('every5') + '</span>') +
+    '<div class="body"><div class="ai-wrap"><div class="finds">' + finds + '</div>' +
+    '<aside class="eng">' + eng +
+      '<p class="eng-note">' + ic('cloudoff', 's') + '<span>' + t('ai_offline') + '</span></p>' +
+      '<p class="eng-note">' + ic('info', 's') + '<span>' + t('ai_advice_only') + '</span></p>' +
+    '</aside></div></div></div>';
+}
+
+/* ---------- 기기 정보 ---------- */
+function dl(rows){ return '<dl class="dl">' + rows.map(function(r){ return '<div><dt>' + r[0] + '</dt><dd>' + r[1] + '</dd></div>'; }).join('') + '</dl>'; }
+function vInfo(){
+  var lk = SCEN[S.scenario].linked, P = PRODUCT_NAMES[S.nameIx];
+  var acct = lk ? [[t('i_account'), 'su****m@naver.com'], [t('i_farm'), t('farm')], [t('i_tank'), t('tank')]]
+                : [[t('i_account'), t('not_linked')]];
+  var dev = [
+    [t('i_model'), 'AMP ' + P.name + ' · ' + P.model],
+    [t('i_serial'), 'AMP-7F3A-2C91'],
+    [t('i_ver'), '2.0.0'],
+    [t('i_net'), esc(S.wifi) + ' · 192.168.0.37'],
+    [t('i_sync'), netState().txt],
+    [t('i_uptime'), t('uptime_v')],
+    [t('i_support'), '1588-XXXX']
+  ];
+  var btn = lk ? '<button class="btn" data-a="go" data-arg="pair" data-fid="acct">' + ic('link') + t('change_acct') + '</button>'
+               : '<button class="btn primary" data-a="go" data-arg="pair" data-fid="acct">' + ic('link') + t('unl_btn') + '</button>';
+  return '<div class="scr">' + subBar(t('info_title')) +
+    '<div class="body"><div class="info">' +
+      '<div class="info-l"><div style="padding:6px 2px 2px">' + wm('md') + '</div><div class="box">' + dl(acct) + '</div>' + btn + '</div>' +
+      '<div class="box">' + dl(dev) + '</div>' +
+    '</div><p class="powered">Powered by Shrimp365</p></div></div>';
+}
+
+/* ---------- 설정 ---------- */
+var LANGS = [['ko', '한국어', 'Korean'], ['en', 'English', 'English'], ['vi', 'Tiếng Việt', 'Vietnamese'], ['id', 'Bahasa Indonesia', 'Indonesian']];
+function langName(c){ for(var i = 0; i < LANGS.length; i++){ if(LANGS[i][0] === c) return LANGS[i][1]; } return c; }
+var TILES = [
+  ['sensors', 'probe', 'set_sensors', 'set_sensors_s'], ['test', 'activity', 'set_test', 'set_test_s'],
+  ['cal', 'target', 'set_cal', 'set_cal_s'], ['wifi', 'wifi', 'set_wifi', 'set_wifi_s'],
+  ['lang', 'globe', 'set_lang', null], ['power', 'zap', 'set_power', 'set_power_s'],
+  ['pair', 'link', 'set_pair', 'set_pair_s'], ['restart', 'power', 'set_restart', 'set_restart_s']
+];
+function vSettings(){
+  var tiles = TILES.map(function(x){
+    var act = x[0] === 'restart' ? 'data-a="modal" data-arg="restart"' : 'data-a="go" data-arg="' + x[0] + '"';
+    var sub = x[0] === 'lang' ? langName(S.lang) : t(x[3]);
+    return '<button class="tile' + (x[0] === 'restart' ? ' danger' : '') + '" ' + act + ' data-fid="t-' + x[0] + '">' +
+      '<span class="ti">' + ic(x[1]) + '</span><span><b>' + t(x[2]) + '</b><small>' + sub + '</small></span>' + ic('next', 's dim') + '</button>';
+  }).join('');
+  return '<div class="scr">' + subBar(t('set_title'), '<span class="meta">AMP ' + PRODUCT_NAMES[S.nameIx].name + ' · v2.0.0</span>') +
+    '<div class="body"><div class="tiles">' + tiles + '</div></div></div>';
+}
+
+function toggleBtn(k){
+  var on = S.on[k];
+  return '<button class="toggle" data-a="toggle" data-arg="' + k + '" data-fid="tg-' + k + '" aria-pressed="' + on + '"><span class="knob"></span>' + t(on ? 'on' : 'off') + '</button>';
+}
+function segGroup(name, opts){
+  return '<span class="seg" role="group">' + opts.map(function(o){
+    return '<button data-a="' + name + '" data-arg="' + o[0] + '" data-fid="' + name + '-' + o[0] + '" aria-pressed="' + o[2] + '">' + o[1] + '</button>';
+  }).join('') + '</span>';
+}
+function vSensors(){
+  var rows = [
+    ['ph', t('sn_ph'), t('addr', {n:1}) + ' · pH, ORP, ' + t('m_temp')],
+    ['oxy', t('m_do'), t('addr', {n:3}) + ' · DO, ' + t('f_sat') + ', ' + t('m_temp')],
+    ['ec', t('sn_ec'), t('addr', {n:4}) + ' · EC, ' + t('m_sal') + ', ' + t('m_temp')]
+  ].map(function(r){ return '<div class="row"><div class="rn"><b>' + r[1] + '</b><small>' + r[2] + '</small></div>' + toggleBtn(r[0]) + '</div>'; }).join('');
+  var iv = segGroup('interval', [10, 30, 60].map(function(n){ return [n, t('sec', {n:n}), S.interval === n]; }));
+  var s4 = segGroup('show4', [['sal', t('m_sal') + ' ‰', S.show4 === 'sal'], ['ec', t('m_ec') + ' mS/cm', S.show4 === 'ec']]);
+  return '<div class="scr">' + subBar(t('set_sensors'), '<span class="meta">/dev/ttyUSB0</span>') +
+    '<div class="body"><div class="list">' + rows +
+      '<div class="row"><div class="rn"><b>' + t('interval') + '</b><small>' + t('interval_s') + '</small></div>' + iv + '</div>' +
+      '<div class="row"><div class="rn"><b>' + t('show4') + '</b><small>' + t('show4_s') + '</small></div>' + s4 + '</div>' +
+    '</div></div></div>';
+}
+
+var TESTS = [
+  {name:'sn_ph', addr:1, sensor:'ph', rows:[['pH', 'ph', 2, '', 788], ['ORP', 186, 0, 'mV', 186], ['m_temp', 28.5, 1, '°C', 285]]},
+  {name:'m_do', addr:3, sensor:'oxy', rows:[['m_do', 'oxy', 1, 'mg/L', 560], ['f_sat', 72, 0, '%', 720], ['m_temp', 28.4, 1, '°C', 284]]},
+  {name:'sn_ec', addr:4, sensor:'ec', rows:[['m_ec', 'ec', 1, 'mS/cm', 2912], ['m_sal', 'sal', 1, '‰', 182], ['m_temp', 28.6, 1, '°C', 286]]}
+];
+function vTest(){
+  var cards = TESTS.map(function(g){
+    var f = S.testing ? 'run' : (!S.on[g.sensor] ? 'off' : (S.scenario === 'sensor' && g.sensor === 'oxy') ? 'electrode' : (S.scenario === 'sensor' && g.sensor === 'ec') ? 'noresp' : null);
+    var head = '<div class="th"><h2>' + t(g.name) + '</h2><span class="addr">' + t('addr', {n:g.addr}) + '</span></div>', body = '';
+    if(f === 'run'){
+      body = '<p class="tstat">' + t('testing') + '</p><div class="prog sm"><i></i></div>';
+    } else if(f === 'off'){
+      body = '<p class="tstat">' + ic('power', 's') + t('off') + '</p><p class="tsub">' + t('e_off_sub') + '</p>';
+    } else if(f === 'noresp'){
+      body = '<p class="tstat">' + ic('unplug', 's') + t('comm_fail') + '</p><p class="tsub">' + t('comm_fail_s') + '</p>';
+    } else {
+      body = '<p class="tstat good">' + ic('check', 's') + t('comm_ok') + '</p>' + g.rows.map(function(r){
+        var v = typeof r[1] === 'string' ? (f === 'electrode' ? null : (r[1] === 'ec' ? S.v.sal * EC_PER_SAL : S.v[r[1]] - (S.cal[r[1]] || 0))) : (f === 'electrode' ? null : r[1]);
+        return '<div class="tline"><span class="tn">' + t(r[0]) + '</span><span class="tv">' + (v == null ? '— —' : fmt(v, r[2])) + '<small>' + r[3] + '</small></span>' +
+          '<span class="tr">' + (v == null ? t('noval') : t('raw') + ' ' + r[4] + ' · ' + t('s_ok')) + '</span></div>';
+      }).join('');
+    }
+    return '<div class="tcard' + (f && f !== 'run' ? ' fault' : '') + '">' + head + body + '</div>';
+  }).join('');
+  return '<div class="scr">' + subBar(t('set_test'), '<button class="btn" data-a="runtest" data-fid="runtest"' + (S.testing ? ' disabled' : '') + '>' + ic('refresh') + t('retest') + '</button>') +
+    '<div class="body"><div class="tgrid">' + cards + '</div></div></div>';
+}
+
+var CALS = ['temp', 'ph', 'oxy', 'sal'];
+function vCal(){
+  var rows = CALS.map(function(k){
+    var m = METRICS[k], f = faultOf(k), off = S.cal[k], raw = S.v[k] - off;
+    var sub = f ? t('e_' + f) : t('cal_sensor') + ' ' + fmt(raw, m.d) + ' ' + m.unit + (off ? ' → ' + t('cal_after') + ' ' + fmt(raw + off, m.d) : '');
+    return '<div class="row"><div class="rn"><b>' + t(m.label) + '</b><small>' + sub + '</small></div>' +
+      '<span class="off">' + (off ? fmtSigned(off, m.d) : '0') + '</span>' +
+      '<button class="btn" data-a="calOpen" data-arg="' + k + '" data-fid="cal-' + k + '"' + (f ? ' disabled' : '') + '>' + t('cal_enter') + '</button>' +
+      (off ? '<button class="btn ghost calr" data-a="calReset" data-arg="' + k + '" data-fid="calr-' + k + '">' + t('cal_reset') + '</button>' : '<span class="btn-ph"></span>') +
+      '</div>';
+  }).join('');
+  return '<div class="scr">' + subBar(t('set_cal')) +
+    '<div class="body"><div class="list">' + rows + '</div><p class="note">' + ic('warn', 's') + '<span>' + t('cal_note') + '</span></p></div></div>';
+}
+
+var NETS = [['SUHO_FARM', 4, true], ['iptime_N604', 3, true], ['KT_GiGA_5G_3F2A', 2, true], ['Muan_Free_WiFi', 1, false]];
+function bars(n){ var s = ''; for(var i = 1; i <= 4; i++){ s += '<i' + (i <= n ? ' class="on"' : '') + '></i>'; } return '<span class="bars" aria-hidden="true">' + s + '</span>'; }
+function vWifi(){
+  var offl = S.scenario === 'offline';
+  var cur = '<div class="cur-net' + (offl ? ' warn' : '') + '">' + ic('wifi') + '<span><b>' + esc(S.wifi) + '</b> · 192.168.0.37</span><span class="sp"></span>' +
+    (offl ? '<span class="st" style="color:var(--warn)">' + ic('cloudoff', 's') + t('wifi_noinet') + '</span>' : '<span class="st okt">' + ic('check', 's') + t('wifi_now') + '</span>') + '</div>';
+  var list = S.scanning ? '<p class="empty">' + t('scanning') + '</p>' : '<div class="list">' + NETS.map(function(nw, i){
+    var isCur = nw[0] === S.wifi;
+    var aria = nw[0] + ', ' + t('signal', {n:nw[1]}) + (nw[2] ? ', ' + t('secured') : '') + (isCur ? ', ' + t('wifi_now') : '');
+    return '<button class="row rowbtn' + (isCur ? ' cur' : '') + '" data-a="wifi" data-arg="' + esc(nw[0]) + '" data-fid="w-' + i + '" aria-label="' + esc(aria) + '">' +
+      '<span class="rn"><b>' + esc(nw[0]) + '</b></span>' + (isCur ? '<span class="okt">' + ic('tick', 's') + t('wifi_now') + '</span>' : '') +
+      (nw[2] ? ic('lock', 's dim') : '') + bars(nw[1]) + '</button>';
+  }).join('') + '</div>';
+  return '<div class="scr">' + subBar(t('set_wifi'), '<button class="btn" data-a="rescan" data-fid="rescan">' + ic('refresh') + t('rescan') + '</button>') +
+    '<div class="body">' + cur + list + '</div></div>';
+}
+
+function vLang(){
+  var b = LANGS.map(function(l){
+    var on = S.lang === l[0];
+    return '<button class="lang" data-a="lang" data-arg="' + l[0] + '" data-fid="l-' + l[0] + '" aria-pressed="' + on + '" lang="' + l[0] + '"><b>' + l[1] + '</b><small>' + l[2] + '</small>' + (on ? ic('check') : '') + '</button>';
+  }).join('');
+  return '<div class="scr">' + subBar(t('set_lang')) + '<div class="body"><div class="langs">' + b + '</div></div></div>';
+}
+
+var CIRCUITS = [['c_air', 'AIR-01', 1450, 7.6, 17.2, 46, true], ['c_pump', 'CIRC-01', 740, 3.9, 8.9, 41, true], ['c_heat', 'HEAT-01', 0, 0, 3.1, 38, false], ['c_uv', 'UV-01', 110, 0.6, 1.3, 35, true]];
+function vPower(){
+  var tw = 0, ta = 0, tk = 0;
+  var rows = CIRCUITS.map(function(c){
+    tw += c[2]; ta += c[3]; tk += c[4];
+    return '<tr><td>' + t(c[0]) + '<small>' + c[1] + '</small></td><td><span class="onoff' + (c[6] ? ' on' : '') + '">' + t(c[6] ? 'on' : 'off') + '</span></td>' +
+      '<td>' + fmt(c[2], 0) + '</td><td>' + fmt(c[3], 1) + '</td><td>' + fmt(c[4], 2) + '</td><td>' + fmt(c[5], 0) + '</td></tr>';
+  }).join('');
+  var head = '<tr><th scope="col">' + t('col_circuit') + '</th><th scope="col">' + t('col_state') + '</th><th scope="col">' + t('col_w') + '</th><th scope="col">' + t('col_a') + '</th><th scope="col">' + t('col_kwh') + '</th><th scope="col">' + t('col_tc') + '</th></tr>';
+  var tot = '<tr class="tot"><td>' + t('total_in') + '<small>MAIN-01</small></td><td></td><td>' + fmt(tw, 0) + '</td><td>' + fmt(ta, 1) + '</td><td>' + fmt(tk, 2) + '</td><td>—</td></tr>';
+  return '<div class="scr">' + subBar(t('set_power')) + '<div class="body"><table class="ptable"><thead>' + head + '</thead><tbody>' + tot + rows + '</tbody></table></div></div>';
+}
+
+function vPair(){
+  var code = '482193', boxes = '';
+  for(var i = 0; i < 6; i++){ boxes += '<span>' + code.charAt(i) + '</span>' + (i === 2 ? '<span class="gap"></span>' : ''); }
+  var steps = ['pair_s1', 'pair_s2', 'pair_s3', 'pair_s4'].map(function(k, i){ return '<li><span class="n">' + (i + 1) + '</span><span>' + t(k) + '</span></li>'; }).join('');
+  return '<div class="scr">' + subBar(t('pair_title'), '', 'cancel') +
+    '<div class="body"><div class="pair">' +
+      '<div><ol class="steps">' + steps + '</ol><p class="pnote">' + ic('info', 's') + '<span>' + t('pair_note') + '</span></p></div>' +
+      '<div class="pcode"><div class="code" role="img" aria-label="' + esc(t('pair_code') + ' 4 8 2 1 9 3') + '">' + boxes + '</div>' +
+        '<p class="exp" id="pairExp">' + t('pair_exp', {t:mmss(S.pairLeft)}) + '</p>' +
+        '<p class="wait"><i></i><i></i><i></i>' + t('pair_wait') + '</p></div>' +
+    '</div></div></div>';
+}
+
+/* ---------- 모달 ---------- */
+function mRestart(){
+  return '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="dlg-t"><div class="dialog">' +
+    '<h2 id="dlg-t">' + t('rs_title') + '</h2><p class="dsub">' + t('rs_body') + '</p>' +
+    '<div class="dlg-btns"><button class="btn" data-a="modalClose" data-fid="m-cancel">' + t('cancel') + '</button>' +
+    '<button class="btn danger" data-a="restartYes" data-fid="m-ok">' + ic('power') + t('rs_btn') + '</button></div></div></div>';
+}
+function mKp(){
+  var k = S.kp.key, m = METRICS[k], buf = S.kp.buf;
+  var keys = ['1', '2', '3', 'DEL', '4', '5', '6', '.', '7', '8', '9', '0'];
+  var kp = keys.map(function(x, i){
+    return x === 'DEL' ? '<button class="btn" data-a="keyDel" data-fid="kp-del" aria-label="' + t('del') + '">' + ic('del') + '</button>'
+                       : '<button class="btn" data-a="key" data-arg="' + x + '" data-fid="kp-' + i + '">' + (x === '.' ? decSep() : x) + '</button>';
+  }).join('');
+  return '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="dlg-t"><div class="dialog">' +
+    '<h2 id="dlg-t">' + t('cal_kp_t', {m:t(m.label)}) + '</h2><p class="dsub">' + t('cal_kp_hint') + '</p>' +
+    '<div class="kp-disp" aria-live="polite">' + (buf ? esc(buf.replace('.', decSep())) : '<span class="ph">' + fmt(S.v[k], m.d) + '</span>') + '<small>' + m.unit + '</small></div>' +
+    '<div class="kp">' + kp + '</div>' +
+    '<div class="dlg-btns"><button class="btn" data-a="modalClose" data-fid="m-cancel">' + t('cancel') + '</button>' +
+    '<button class="btn primary" data-a="keyOk" data-fid="m-ok">' + t('apply') + '</button></div></div></div>';
+}
+
+var VIEWS = {boot:vBoot, main:vMain, chart:vChart, ai:vAI, info:vInfo, settings:vSettings, sensors:vSensors, test:vTest, cal:vCal, wifi:vWifi, lang:vLang, power:vPower, pair:vPair};
+var MODALS = {restart:mRestart, kp:mKp};
+var PARENT = {chart:'main', ai:'main', info:'main', settings:'main', sensors:'settings', test:'settings', cal:'settings', wifi:'settings', lang:'settings', power:'settings', pair:'settings'};
+var LIVE = {main:1, chart:1, info:1, cal:1};
+
+/* ======================= 렌더·이동 ======================= */
+var view = document.getElementById('view'), lastScreen = null, kbd = false;
+function render(isTick){
+  if(isTick && (!LIVE[S.screen] || S.modal)) return;
+  var a = document.activeElement, fid = a && view.contains(a) ? a.getAttribute('data-fid') : null;
+  view.innerHTML = VIEWS[S.screen]() + (S.modal ? MODALS[S.modal]() : '');
+  var first = view.firstElementChild, changed = S.screen !== lastScreen;
+  if(changed && first) first.classList.add('enter');
+  if(S.focusModal){
+    S.focusModal = false;
+    var mb = view.querySelector('.modal [data-fid="m-cancel"]'); if(mb) mb.focus({preventScroll:true});
+  } else if(fid){
+    var el = view.querySelector('[data-fid="' + fid + '"]'); if(el) el.focus({preventScroll:true});
+  } else if(changed && kbd){
+    var h = view.querySelector('h1[tabindex]'); if(h) h.focus({preventScroll:true});
+  }
+  lastScreen = S.screen;
+  syncPanel();
+}
+function go(s){
+  if(s === 'pair' || s === 'test') S.prev[s] = S.screen;
+  if(s === 'pair') S.pairLeft = 600;
+  S.screen = s; S.modal = null; render();
+}
+function jump(s){ S.prev = {}; clearTimeout(bootTimer); go(s); }
+function back(){
+  var cur = S.screen, p = S.prev[cur]; S.prev[cur] = null;
+  S.screen = (p && p !== 'boot' && p !== cur) ? p : (PARENT[cur] || 'main'); S.modal = null; render();
+}
+var bootTimer;
+function boot(){
+  clearTimeout(bootTimer); S.modal = null; S.prev = {}; S.screen = 'boot'; render();
+  bootTimer = setTimeout(function(){ S.screen = 'main'; render(); }, 1500);
+}
+function setScenario(k){
+  S.scenario = k; S.acked = false; S.queued = k === 'unlinked' ? 18 : 37;
+  if(k === 'alarm'){ S.v.oxy = 3.6; S.alarmAt = Date.now(); } else if(S.v.oxy < 4.5){ S.v.oxy = 5.6; }
+  render();
+}
+function setLang(l){ S.lang = l; document.documentElement.lang = l; applyPanelText(); render(); }
+
+var toastTimer;
+function toast(msg){
+  var el = document.getElementById('toast'); el.textContent = msg; el.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(function(){ el.hidden = true; }, 2000);
+}
+
+var ACT = {
+  go:function(s){ go(s); },
+  back:function(){ back(); },
+  chart:function(k){ S.chartKey = k; go('chart'); },
+  range:function(r){ S.range = r; render(); },
+  ack:function(){ S.acked = true; render(); },
+  lang:function(l){ setLang(l); },
+  toggle:function(k){ S.on[k] = !S.on[k]; toast(t('saved')); render(); },
+  interval:function(n){ S.interval = +n; toast(t('saved')); render(); },
+  show4:function(k){ S.show4 = k; toast(t('saved')); render(); },
+  runtest:function(){ S.testing = true; render(); setTimeout(function(){ S.testing = false; render(); }, 1300); },
+  modal:function(m){ S.modal = m; S.focusModal = true; render(); },
+  modalClose:function(){ S.modal = null; render(); },
+  restartYes:function(){ S.modal = null; boot(); },
+  calOpen:function(k){ S.kp = {key:k, buf:''}; S.modal = 'kp'; S.focusModal = true; render(); },
+  calReset:function(k){ S.v[k] -= S.cal[k]; S.cal[k] = 0; toast(t('saved')); render(); },
+  key:function(d){
+    var b = S.kp.buf;
+    if(d === '.' && b.indexOf('.') >= 0) return;
+    if(b.length >= 6) return;
+    S.kp.buf = (b === '' && d === '.') ? '0.' : b + d; render();
+  },
+  keyDel:function(){ S.kp.buf = S.kp.buf.slice(0, -1); render(); },
+  keyOk:function(){
+    var x = parseFloat(S.kp.buf), k = S.kp.key;
+    S.modal = null;
+    if(!isNaN(x)){ var d = METRICS[k].d, raw = S.v[k] - S.cal[k]; S.cal[k] = Number((x - raw).toFixed(d)); S.v[k] = raw + S.cal[k]; toast(t('saved')); }
+    render();
+  },
+  wifi:function(s){ if(s !== S.wifi) toast(t('wifi_pw', {s:s})); },
+  rescan:function(){ S.scanning = true; render(); setTimeout(function(){ S.scanning = false; render(); }, 1000); }
+};
+
+view.addEventListener('click', function(e){
+  if(demoTimer) stopDemo();
+  var el = e.target.closest('[data-a]');
+  if(!el || !view.contains(el) || el.disabled) return;
+  var fn = ACT[el.getAttribute('data-a')];
+  if(fn) fn(el.getAttribute('data-arg'));
+});
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Tab') kbd = true;
+  if(e.key === 'Escape' && S.modal){ S.modal = null; render(); }
+});
+document.addEventListener('pointerdown', function(){ kbd = false; });
+
+/* 값은 3초마다 조금씩(평균 회귀 + 잡음). 오프라인·미연결이면 보관 건수가 늘어난다 */
+setInterval(function(){
+  ['temp', 'ph', 'oxy', 'sal'].forEach(function(k){
+    var m = METRICS[k], tg = (k === 'oxy' && S.scenario === 'alarm') ? 3.6 : TARGET[k] + (S.cal[k] - (k === 'ph' ? 0.04 : 0));
+    S.v[k] += (tg - S.v[k]) * 0.2 + (Math.random() - 0.5) * m.noise * 2;
+  });
+  if((S.scenario === 'offline' || S.scenario === 'unlinked') && Math.random() < 0.4) S.queued++;
+  render(true);
+}, 3000);
+setInterval(function(){
+  if(S.screen !== 'pair') return;
+  S.pairLeft = S.pairLeft > 0 ? S.pairLeft - 1 : 600;
+  var el = document.getElementById('pairExp'); if(el) el.textContent = t('pair_exp', {t:mmss(S.pairLeft)});
+}, 1000);
+
+/* ======================= 바깥 패널 ======================= */
+function applyPanelText(){
+  document.querySelectorAll('[data-ui]').forEach(function(el){ el.textContent = ui(el.getAttribute('data-ui')); });
+  document.querySelectorAll('[data-ui-label]').forEach(function(el){ el.setAttribute('aria-label', ui(el.getAttribute('data-ui-label'))); });
+  document.getElementById('navOpts').setAttribute('aria-label', ui('g_screens'));
+  document.title = ui('title');
+  updDemoBtn();
+}
+function setPressed(k, v){
+  document.querySelectorAll('[data-p^="' + k + ':"]').forEach(function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-p') === k + ':' + v ? 'true' : 'false'); });
+}
+function syncPanel(){
+  setPressed('scen', S.scenario); setPressed('scheme', S.scheme); setPressed('theme', S.theme);
+  setPressed('lang', S.lang); setPressed('name', String(S.nameIx));
+  var cur = S.modal === 'restart' ? 'restart' : S.screen;
+  document.querySelectorAll('[data-p^="nav:"]').forEach(function(b){
+    if(b.getAttribute('data-p') === 'nav:' + cur) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+  });
+}
+var STAY = {main:1, chart:1, ai:1, info:1, test:1, wifi:1};
+document.querySelector('.panel').addEventListener('click', function(e){
+  var b = e.target.closest('[data-p]'); if(!b) return;
+  var p = b.getAttribute('data-p').split(':'), k = p[0], v = p[1], root = document.documentElement;
+  stopDemo();
+  if(k === 'scen'){ setScenario(v); if(!STAY[S.screen]) jump('main'); }
+  else if(k === 'nav'){
+    if(v === 'boot') boot();
+    else if(v === 'restart'){ jump('settings'); S.modal = 'restart'; S.focusModal = true; render(); }
+    else jump(v);
+  }
+  else if(k === 'scheme'){ S.scheme = v; root.setAttribute('data-scheme', v); syncPanel(); }
+  else if(k === 'theme'){ S.theme = v; root.setAttribute('data-theme', v); syncPanel(); }
+  else if(k === 'lang'){ setLang(v); }
+  else if(k === 'name'){ S.nameIx = +v; render(); }
+});
+
+/* ---------- 자동 데모 ---------- */
+var DEMO = [
+  {cap:'d_boot', ms:2200, run:function(){ setScenario('normal'); boot(); }},
+  {cap:'d_main', ms:3200, run:function(){ jump('main'); }},
+  {cap:'d_chart', ms:2800, run:function(){ S.range = '24h'; S.chartKey = 'oxy'; jump('chart'); }},
+  {cap:'d_chart7', ms:2600, run:function(){ S.range = '7d'; render(); }},
+  {cap:'d_ai', ms:3400, run:function(){ S.range = '24h'; jump('ai'); }},
+  {cap:'d_alarm', ms:3800, run:function(){ setScenario('alarm'); jump('main'); }},
+  {cap:'d_ack', ms:2400, run:function(){ ACT.ack(); }},
+  {cap:'d_offline', ms:3000, run:function(){ setScenario('offline'); jump('main'); }},
+  {cap:'d_sensor', ms:3000, run:function(){ setScenario('sensor'); jump('main'); }},
+  {cap:'d_test', ms:2800, run:function(){ jump('test'); }},
+  {cap:'d_unlinked', ms:3000, run:function(){ setScenario('unlinked'); jump('main'); }},
+  {cap:'d_pair', ms:3200, run:function(){ jump('pair'); }},
+  {cap:'d_settings', ms:2600, run:function(){ setScenario('normal'); jump('settings'); }},
+  {cap:'d_cal', ms:2600, run:function(){ jump('cal'); }},
+  {cap:'d_info', ms:3200, run:function(){ jump('info'); }},
+  {cap:'d_end', ms:0, run:function(){ jump('main'); }}
+];
+var demoIx = -1, demoTimer = null;
+var cap = document.getElementById('demoCap');
+function stepDemo(){
+  var st = DEMO[demoIx]; if(!st){ stopDemo(); return; }
+  st.run();
+  cap.textContent = (demoIx + 1) + '/' + DEMO.length + ' · ' + ui(st.cap);
+  if(!st.ms){ stopDemo(true); return; }
+  demoTimer = setTimeout(function(){ demoIx++; stepDemo(); }, st.ms);
+}
+function startDemo(){ stopDemo(); demoIx = 0; demoTimer = -1; updDemoBtn(); stepDemo(); updDemoBtn(); }
+function stopDemo(keepCap){
+  if(demoTimer && demoTimer !== -1) clearTimeout(demoTimer);
+  var was = demoTimer !== null; demoTimer = null; demoIx = -1;
+  if(was && !keepCap) cap.textContent = '';
+  updDemoBtn();
+}
+function updDemoBtn(){
+  var on = demoTimer !== null;
+  document.getElementById('demoIc').setAttribute('href', on ? '#i-stop' : '#i-play');
+  var tx = document.getElementById('demoTx'); tx.setAttribute('data-ui', on ? 'demo_stop' : 'demo_play'); tx.textContent = ui(on ? 'demo_stop' : 'demo_play');
+}
+document.getElementById('demoBtn').addEventListener('click', function(){ if(demoTimer !== null) stopDemo(); else startDemo(); });
+
+/* ---------- 창 크기에 맞춰 기기 프레임 축소 ---------- */
+function fit(){
+  var stage = document.getElementById('stage'), fitEl = document.getElementById('fit'), dev = document.getElementById('device');
+  var cs = getComputedStyle(stage);
+  var w = stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  var maxH = Math.max(260, window.innerHeight - 160);
+  var s = Math.min(1, w / 980, maxH / 600);
+  dev.style.transform = 'scale(' + s + ')';
+  dev.style.left = Math.max(0, (w - 980 * s) / 2) + 'px';
+  fitEl.style.height = (600 * s) + 'px';
+}
+window.addEventListener('resize', fit);
+
+applyPanelText();
+fit();
+boot();
+})();
+</script>
+</body>
+</html>
