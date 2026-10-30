@@ -109,7 +109,7 @@ try:
 except ImportError:  # pragma: no cover
     power_remote_mod = None
 
-VERSION = "1.9.8"
+VERSION = "1.10.0"
 
 #: 무선 센서 수집기가 쓰는 폴더(setup-wireless.sh). 서비스의 StateDirectory 아래라 읽고 쓸 수 있다.
 FIELD_DATA_DIR = "/var/lib/shrimp365/field/data"
@@ -2226,6 +2226,8 @@ def main() -> int:
         {k.upper(): v.strip() for k, v in cfg.items("power_circuits")}
         if cfg.has_section("power_circuits") else {})
     power_sent = {"at": 0.0}
+    # 관수 밸브(지그비 밸브 + 유량계) — 5분마다, 열림·닫힘이 바뀌면 바로 올린다.
+    irr_sent: dict = {"at": 0.0, "states": {}}
     # 전력 회로 켜고 끄기(수동·시간 예약·반복 간격) — 지그비 차단기에 Zigbee2MQTT 로 명령한다.
     # [power] control = false 로 끌 수 있다. 규칙은 상태 폴더의 power_control.json 에 남는다.
     pctl = None
@@ -2246,7 +2248,10 @@ def main() -> int:
             names=_pc_names)
     # 센서별 환경 값(env_each)은 5분에 한 번 — 웹 그래프 24시간이 서버 1,000행 상한 안에 들게.
     env_each_sent = {"at": 0.0}
-    if field_env_mod is not None and (env_on or power_on):
+    _wl_devices = (Path(cfg.get("wireless", "devices", fallback=str(wireless_mod.DEFAULT_DEVICES)))
+                   if wireless_mod is not None else None)
+    # 무선 센서를 설치한 장비(devices.yaml 이 있다)는 환경·전력을 꺼 두어도 관수 밸브를 읽는다.
+    if field_env_mod is not None and (env_on or power_on or (_wl_devices is not None and _wl_devices.exists())):
         # 두 기능이 같은 수집기 폴더를 읽는다. 폴더는 [environment] dir 이 정하고,
         # 전력만 켠 장비는 [power] dir(없으면 같은 기본값)을 쓴다.
         _dir = (cfg.get("environment", "dir", fallback=None) if env_on else None) \
@@ -2973,11 +2978,30 @@ def main() -> int:
             # 센서별 그래프용 이력 — 수질 센서가 죽어도 남긴다(5분에 한 번, history.ENV_EVERY_S).
             if hist is not None and env:
                 hist.record_env(env)
+        # [무선 센서] 에 등록한 것 — 아직 아무것도 안 보낸 차단기·밸브도 '수신 대기' 로 화면에 둔다.
+        registered: dict = {}
+        if field_env is not None and _wl_devices is not None:
+            try:
+                registered = wireless_mod.read_registered(_wl_devices)
+            except Exception as exc:  # noqa: BLE001 — 등록 목록을 못 읽어도 값은 띄운다
+                log.debug("무선 센서 등록 목록을 읽지 못했습니다: %s", exc)
+
+        def _registered(prefix: str) -> list[str]:
+            return [c.get("sensor_id") or n for n, c in registered.items() if str(c.get("kind", "")).startswith(prefix)]
+
+        # 관수 밸브 — 밸브로 등록했거나 수집 파일에 밸브 값이 있을 때만(없으면 None, 화면·전송 모두 건너뛴다).
+        irrigation = None
+        if field_env is not None:
+            try:
+                irrigation = field_env_mod.read_irrigation(field_env, expected=_registered("valve")) or None
+            except Exception as exc:  # noqa: BLE001
+                log.warning("관수 밸브 읽기 실패: %s", exc)
+
         # 전력 회로 — 켜 둔 장비만. 값이 없으면 빈 목록(화면이 점검 안내를 띄운다).
         power = None
         if field_env is not None and power_on:
             try:
-                circuits = field_env.read_power(dict(power_types))  # 화면 스레드가 고치는 중일 수 있어 복사본
+                circuits = field_env.read_power(dict(power_types), expected=_registered("breaker"))  # 화면 스레드가 고치는 중일 수 있어 복사본
             except Exception as exc:  # noqa: BLE001
                 log.warning("전력 회로 읽기 실패: %s", exc)
                 circuits = []
@@ -2989,7 +3013,8 @@ def main() -> int:
         # 수질 센서가 하나도 안 읽혀도 환경·기상·전력 값이 있으면 그것은 보낸다 — 꽂지 않은 pH 센서
         # 하나 때문에 기상값까지 서버에 안 가면 안 된다. 못 읽은 사유(err_*)는 함께 실려 간다.
         side = bool((env and env_upload and field_env_mod.payload_values(env))
-                    or (power and power_upload and power["circuits"]))
+                    or (power and power_upload and power["circuits"])
+                    or (irrigation and field_env_mod.payload_irrigation(irrigation)))
         if not values and enabled and not side:
             log.error("읽은 값이 없습니다. 배선·전원·슬레이브 ID를 확인하세요. %s", errors)
             status_line = "SENSOR ERROR"
@@ -3083,6 +3108,14 @@ def main() -> int:
                             payload["power"] = circuits_out
                             power_sent["at"] = time.time()
 
+                # 관수 밸브 — 5분마다, 또는 열림·닫힘이 바뀌었을 때 바로.
+                if irrigation:
+                    irr_out = field_env_mod.payload_irrigation(irrigation)
+                    states = {v["id"]: v["state"] for v in irr_out}
+                    if irr_out and (time.time() - irr_sent["at"] >= power_every_s or states != irr_sent["states"]):
+                        payload["irrigation"] = irr_out
+                        irr_sent.update(at=time.time(), states=states)
+
                 # 추세 이상징후를 함께 올린다. 장비 화면에만 뜨면 새벽에 아무도
                 # 못 보므로, 서버가 이것으로 알림을 만들어 휴대폰까지 보낸다.
                 # 임계값을 깨기 전에 잡는 것이 이 판정의 존재 이유인데, 그 결과가
@@ -3092,7 +3125,7 @@ def main() -> int:
 
                 # 수질 센서 없이 쓰는 장비인데 환경·전력 값도 아직 없으면 보낼 것이 없다
                 # (서버가 빈 줄을 거절하고, 보관함에 빈 줄이 쌓인다).
-                nothing = (not values and "power" not in payload
+                nothing = (not values and "power" not in payload and "irrigation" not in payload
                            and not (env and env_upload and field_env_mod.payload_values(env)))
                 if nothing:
                     status_line = "waiting " + time.strftime("%H:%M")
@@ -3159,6 +3192,7 @@ def main() -> int:
                 sensors_on=sensors_on_list(),
                 env=env,
                 power=power,
+                irrigation=irrigation,
                 nutrient=nutrient,
                 advice=advices,
                 anomalies=analysis["anomalies"],

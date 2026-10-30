@@ -6,6 +6,7 @@ import { PLAN_LIMITS, type Plan } from "@/lib/plans"
 import { isTestAccount } from "@/lib/mock-data"
 import { isMissingColumnError } from "@/lib/wq-source"
 import type { ControlStateRow } from "@/lib/power-remote"
+import type { IrrigationReading } from "@/lib/irrigation"
 
 // ─────────────────────────────────────────────
 // 타입 변환 헬퍼
@@ -324,6 +325,20 @@ export async function getPowerReadings(tankId: string, hours = 24): Promise<Powe
     return rows.filter(r => r.recorded_at !== oldest)
   }
   return rows
+}
+
+/** 수조·베드의 관수 밸브 기록(최근 hours 시간, 오래된 것부터). 없거나 irrigation_readings.sql 전이면 []. */
+export async function getIrrigationReadings(tankId: string, hours = 24): Promise<IrrigationReading[]> {
+  const since = new Date(Date.now() - hours * 3_600_000).toISOString()
+  const { data, error } = await supabase
+    .from("irrigation_readings")
+    .select("valve_id, state, flow_lpm, volume_today_l, recorded_at")
+    .eq("tank_id", tankId)
+    .gte("recorded_at", since)
+    .order("recorded_at", { ascending: false })
+    .limit(1000)   // 최신 순으로 받아야 밸브가 많아도 지금 값이 잘리지 않는다
+  if (error) return []
+  return ((data || []) as IrrigationReading[]).reverse()
 }
 
 /** 수조·베드에 붙은 장비들의 전력 제어 상태(power_remote.sql). 없거나 SQL 전이면 [] — 카드는 버튼 없이 그린다. */
