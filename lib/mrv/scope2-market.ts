@@ -168,7 +168,7 @@ export function computeScope2MarketBased(params: {
       `location-based 계통 계수(${locationFactor} tCO2e/MWh)를 그대로 적용했습니다. ` +
       "잔여 전력의 실제 배출은 계통 평균보다 높을 수 있으므로 이 값은 과소 산정일 수 " +
       "있습니다.",
-    "증서는 유효기간과 리포트 기간이 겹치는 만큼 **시간 비례**로 배분했습니다. " +
+    "증서는 유효기간과 리포트 기간이 겹치는 만큼 시간 비례로 배분했습니다. " +
       "월별 배분표가 있는 증서라면 실제 배분과 다를 수 있습니다.",
   ]
   if (applied.length === 0) {
