@@ -114,7 +114,9 @@ try {
                    // 분모(생산량)의 산정 근거 모듈도 kpi-service 가 쓴다. 빠지면 이
                    // 하네스만 컴파일에 실패한다(본 빌드는 통과하므로 눈에 안 띈다).
                    "production-basis.ts", "production-basis-column.ts",
-                   "metric-unavailability.ts", "metric-provenance.ts"]) {
+                   "metric-unavailability.ts", "metric-provenance.ts",
+                   // 열 없음 폴백의 뼈대와 생산량 정정(kpi-service 가 분모 조회에서 쓴다).
+                   "missing-column-fallback.ts", "harvest-void.ts"]) {
     copyFileSync(join(ROOT, "lib/mrv", f), join(outDir, f))
   }
   writeFileSync(

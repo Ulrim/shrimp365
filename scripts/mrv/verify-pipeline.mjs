@@ -126,6 +126,10 @@ try {
     // 연결이 이 검증에서 사라지면, 그 칸이 비거나 0 으로 굳어도 통과한다.
     "metric-unavailability.ts",
     "metric-provenance.ts",
+    // 열 없음 폴백의 뼈대와 생산량 정정. kpi-service 가 분모 조회에서 무효 처리된
+    // 기록을 거를 때 쓴다 — 빠지면 이 하네스만 컴파일에 실패한다.
+    "missing-column-fallback.ts",
+    "harvest-void.ts",
   ]) {
     copyFileSync(join(ROOT, "lib/mrv", f), join(outDir, f))
   }
