@@ -81,6 +81,29 @@ union all select '8. mrv_readings.measurement_basis', to_char(count(*), 'FM0')
 > 정상 경로로 돌아온다(10분 안에). ⑦은 반대로 **거절**한다 — 칸만 빼고 저장하면
 > 사람이 적어 넣은 "계산생체량" 이 조용히 사라진 채 생산량만 들어가고 되돌릴 수 없다.
 
+### 1-2b. 열한 번째 — `mrv_remaining_scope.sql` (2026-11-05 추가)
+
+남은 사양 범위를 한 파일로 묶었다(리포트 자동 생성 일정·발송 기록·맞춤 서식·A/B 실험·
+수확 기록 정정·계약 전력 증서). **이 하나만 실행하면 된다** — 다섯으로 쪼개면 실행
+순서와 누락을 사람이 관리해야 하고, 이 문서는 이미 그 실수를 한 번 겪었다. 멱등이다.
+
+실행 전에는 어떻게 되나: 리포트는 location-based 만 담고 서식 없이 발행되며, 수확 정정·
+실험·일정·증서 화면은 "표가 없다" 고 알린다. 수집·KPI·기준선·리포트 발행 자체는
+막히지 않는다(열 없음 폴백이 로그를 남기고 계속 간다).
+
+확인 질의:
+```sql
+select
+  (select count(*) from information_schema.tables where table_schema='public'
+     and table_name in ('mrv_report_schedules','mrv_report_deliveries','mrv_report_templates',
+                        'mrv_experiments','mrv_contractual_instruments')) as new_tables_5,
+  (select count(*) from information_schema.columns where table_name='mrv_harvest_logs'
+     and column_name in ('voided_at','voided_by','void_reason')) as harvest_void_cols_3,
+  (select count(*) from information_schema.columns where table_name='mrv_reports'
+     and column_name in ('template_id','template_json','market_based_json')) as report_cols_3;
+-- 5 · 3 · 3 이어야 한다.
+```
+
 ### 1-3. 끝난 뒤 눈으로 확인할 것
 
 - 설정 화면 — 배출계수에 출처(GIR 문서명·URL)가 보이는가
@@ -88,12 +111,29 @@ union all select '8. mrv_readings.measurement_basis', to_char(count(*), 'FM0')
 - 개요 화면 — EI 가 「산출 불가」에서 값으로 바뀌는가
 - `/mrv/settings` 의 「수조 · DO 목표대역」 — 대역을 넣으면 개요의 OEI 가 값으로 바뀌는가
 - `/mrv/input` 의 「입식 등록 (배치)」 — 등록하면 급이·폐사 폼의 배치 선택에 나타나는가
+- `/mrv/input` 의 「생산량 기록 · 정정」 — 한 건을 무효 처리하면 개요의 EI 가 달라지고, 되돌리면 돌아오는가
+- 설정의 「계약 전력 증서」 — 증서를 넣고 리포트를 새로 발행하면 「3-1. Scope 2 market-based」 에 두 숫자가 나란히 찍히는가
+- 설정의 「맞춤 리포트 서식」(ENTERPRISE) — 서식을 만들고 생성 화면에서 고르면 리포트와 인쇄물에서 뺀 절이 빠지는가
+- 전·후 비교의 「비교실험」 — 두 구간을 만들면 결과 표가 기준선 비교와 같은 모양으로 나오는가
+- 설정의 「리포트 자동 생성」 — 일정을 만들고 `POST /api/mrv/jobs/generate-reports` 를 CRON_SECRET 으로 치면 `not_due` 또는 `generated` 가 돌아오는가(월요일/1일이 아니면 not_due 가 맞다)
 
 > **수조 · 입식 창구에는 새 SQL 이 필요 없다.** `mrv_tanks.target_do_min/max` 와
 > `mrv_batches.stocked_count` 는 처음부터 있던 열이고, 없던 것은 그 열에 쓰는 길뿐이었다.
 > 위 10개 외에 더 실행할 것은 없다.
 
 ---
+
+## 1-4. 배포 환경변수 (새로 생긴 것)
+
+| 변수 | 뜻 |
+|---|---|
+| `MRV_MAIL_PROVIDER` | 리포트 메일 발송기. 기본 `log` = 보내지 않고 발송 기록에 '보내지 않음' 으로 남긴다. `resend` 로 두면 Resend HTTPS API 로 보낸다 |
+| `MRV_MAIL_FROM` · `RESEND_API_KEY` | `resend` 일 때 필요. 비어 있으면 log 로 내려가고 서버 로그에 이유를 남긴다 |
+| `NEXT_PUBLIC_SITE_URL` | 메일 본문의 리포트 링크. 비우면 리포트 ID 만 적는다 |
+| `CRON_SECRET` | (기존) `/api/mrv/jobs/generate-reports` 도 이것으로 닫힌다. 없으면 503 |
+
+`vercel.json` 에 cron 이 둘이다(알림 23:00 · 리포트 00:30 UTC). Hobby 플랜 상한이 2개라
+셋째를 더하면 배포가 실패한다.
 
 ## 2. 사람이 해야 하는 나머지
 
@@ -136,6 +176,31 @@ union all select '8. mrv_readings.measurement_basis', to_char(count(*), 'FM0')
   이 선을 긋지 않으면 플랜 경계가 무의미해진다. 삭제·개명 창구는 두지 않는다.
   이것으로 **새 고객을 SQL 없이 받을 수 있다.**
 
+### 2026-11-05 에 더한 것 (사양서의 남은 범위)
+- **생산량 기록 정정** — `/mrv/input` 의 「생산량 기록 · 정정」. 지우지 않고 **무효로
+  표시**한다. 행은 남고 KPI 산입에서만 빠지며 누가 언제 왜 뺐는지가 감사 로그에 남는다.
+  되돌릴 수 있다. 사유는 필수다 — 사유 없이 빠진 생산량은 분모를 임의로 줄인 것과 구분되지
+  않는다.
+- **Scope 2 market-based** — 설정의 「계약 전력 증서」(REC·PPA·녹색프리미엄, owner).
+  리포트가 location-based **옆에** market-based 를 나란히 인쇄한다(dual reporting). 산식
+  모듈 바깥의 배분 규칙이라 차분검증을 건드리지 않는다. **한국에는 공표된 residual mix 가
+  없어** 잔여 전력에 계통 계수를 그대로 쓰고 그 대체를 리포트가 명시한다 — 과소 산정일 수
+  있다는 사실을 적지 않는 것이 가장 나쁘다.
+- **맞춤 리포트 서식 (ENTERPRISE)** — 설정의 「맞춤 리포트 서식」, 생성 화면의 「리포트
+  서식」. 절·지표·표지만 바꾼다. 요약·산식 전문은 뺄 수 없고, 리포트가 들고 있는 지표만
+  고를 수 있다(FCR·OEI·폐사율은 리포트 표에 없다). 발행 시점의 서식이 리포트에 얼려
+  들어간다. 화면과 인쇄물이 같은 판정 함수를 쓴다.
+- **비교실험(A/B)** — 전·후 비교 화면의 「비교실험」. 대조군·처리군 두 구간을 실험이
+  직접 들고 있고 결과는 조회 때마다 라이브 산출(발행물이 아니다). 기준선 비교와 같은
+  표로 그린다. 구간은 겹칠 수 없고 결론(concluded)은 사유가 필수다.
+- **리포트 주간/월간 자동 생성** — 설정의 「리포트 자동 생성 · 이메일 발송」(owner).
+  같은 기간을 두 번 만들지 않는다(`last_period_end` 에서 이어짐). 잠긴 기준선이 없으면
+  실패가 아니라 "아직 조건이 안 됨" 으로 적는다.
+- **이메일 발송** — 공급자는 `MRV_MAIL_PROVIDER` 로 고른다(기본 log = 안 보냄). 수신자마다
+  발송 기록 한 줄(성공·실패·보내지 않음). 보냈다는 사실이 증빙이다.
+- **OEI 가 기본 알림 감시 목록에서 빠졌다** — 원본 Python 과 함께 고쳐 차분검증 유지
+  (알림 128 → 104건).
+
 ### 산출 (증빙 생성)
 - KPI 5종(EI 총/폭기 · FCR · OEI · 폐사율) + Scope 2 + 전·후 비교
 - **기준선 잠금** — 잠그기 전에 입력 충분성을 판정해 모자라면 막는다. 잠근 뒤에는
@@ -154,22 +219,28 @@ union all select '8. mrv_readings.measurement_basis', to_char(count(*), 'FM0')
 
 ## 4. 지금 안 되는 것 — 결과보고에 반영할 것
 
+사양서 16화면의 기능 항목은 전부 들어갔다. 남은 것은 기능이 아니라 **한계와 전제**다.
+
 | | 내용 |
 |---|---|
-| **수확 기록 수정·삭제 경로 없음** | 잘못 넣은 생산량을 지우려면 DB 를 직접 고쳐야 한다. `app/api/mrv` 전체에 DELETE 라우트가 없는 기존 상태 그대로다. |
-| **Scope 2 market-based 미구현** | 현재는 location-based 만. REC·PPA·녹색프리미엄은 다루지 않는다. 한국에는 공표된 residual mix 가 없다. |
-| **OEI 가 기본 알림 감시 목록에 있다** | 산식이 미확정인 지표로 빨간 알림이 나간다. 빼는 것이 맞다고 보지만, 그 기본값은 원본 Python 과 차분검증된 자리라 원본·픽스처와 함께 다뤄야 한다. |
+| **market-based 의 residual mix 대체** | 한국에 공표값이 없어 잔여 전력에 계통 계수를 쓴다. 리포트가 명시하지만 값 자체는 과소 산정일 수 있다. 공표되면 `scope2-market.ts` 의 잔여분 계수만 바꾸면 된다. |
+| **조직 전체 증서의 사이트 간 배분** | 조직 전체 계약(site_id null)을 여러 사이트 리포트에 쓰면 같은 증서가 중복 계상된다. 배분표를 받지 않으므로 사람이 운영으로 막아야 한다(사이트별로 적거나 한 사이트에서만 쓰거나). |
+| **증서의 월별 배분** | 연 단위 증서를 월 리포트에 시간 비례로 자른다. 월별 배분표가 있는 계약이면 실제와 다를 수 있다. |
+| **메일 공급자 미선정** | 기본이 log(안 보냄)다. 업체를 정해 `MRV_MAIL_PROVIDER=resend` 와 키를 넣기 전까지 메일은 나가지 않는다 — 다만 그 사실은 발송 기록에 남는다. |
+| **새 화면의 브라우저 통합 확인 미수행** | 2026-11-05 추가분(정정·증서·서식·실험·일정)은 tsc · 13종 검증 · 프로덕션 빌드로 확인했다. 실물 서버를 띄운 브라우저 확인은 로컬 스텁이 컨테이너 교체로 유실되어 하지 못했다. 마이그레이션 실행 후 1-3 절 항목으로 사람이 눈으로 확인해야 한다. |
 
 ---
 
 ## 5. 검증 상태
 
 ```
-npm run mrv:verify     10종
+npm run mrv:verify     14종
   KPI 차분 250 시나리오 · config 매핑 102 문서 · 계측값 정규화 44배치/372건
   조립 25 시나리오 · 알림 60시나리오/128건
   CSV 121 · 기준선 충분성 127 · KPI 쓰기 경계 58 · 화면 대비 88쌍 · 스키마 방어선
-  (그 밖에 실물 서버 확인: 수조·입식 33항목 · 사이트 등록 22항목)
+  Scope2 market-based 9 · 리포트 서식 13 · 자동 생성 19 · 비교실험 12   (2026-11-05 추가)
+  알림 차분은 OEI 제거로 128 → 104건
+  (그 밖에 실물 서버 확인: 수조·입식 33항목 · 사이트 등록 22항목 · 빈 조직→KPI 전 과정)
 npx tsc --noEmit       통과
 npm run build          통과
 ```
