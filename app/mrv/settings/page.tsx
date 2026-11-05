@@ -62,6 +62,8 @@ import { ConfirmDialog } from "@/components/mrv/confirm-dialog"
 import type {
   EmissionFactorListResponse,
   KpiConfigListResponse,
+  ContractualInstrument,
+  ContractualInstrumentListResponse,
   MeterListResponse,
   SiteSummary,
   TankListResponse,
@@ -684,6 +686,194 @@ function TankSection({ siteId, canWrite }: { siteId: string | null; canWrite: bo
         <button type="submit" disabled={createDisabled} className={PRIMARY_BUTTON}>
           {createMutation.isPending ? "등록 중…" : "수조 등록"}
         </button>
+      </form>
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Scope 2 market-based — 계약 전력 증서 (REC · PPA · 녹색프리미엄)
+// ---------------------------------------------------------------------------
+
+const INSTRUMENT_KINDS: { value: ContractualInstrument["kind"]; label: string }[] = [
+  { value: "rec", label: "REC (재생에너지 공급인증서)" },
+  { value: "ppa", label: "PPA (전력구매계약)" },
+  { value: "green_premium", label: "녹색프리미엄" },
+]
+
+/**
+ * 계약 전력 증서 등록. owner 전용(배출계수와 같은 기준 — 배출량을 직접 낮추는 값이다).
+ *
+ * 등록된 증서는 다음 리포트 발행부터 기간이 겹치는 만큼 적용되어 market-based 를 만든다.
+ * location-based 는 그대로 함께 인쇄된다. 수정·삭제 창구는 없다 — 이미 발행된 리포트가
+ * 그 증서로 계산됐다.
+ */
+function InstrumentSection({ siteId, isOwner }: { siteId: string | null; isOwner: boolean }) {
+  const kindId = useId()
+  const mwhId = useId()
+  const factorId = useId()
+  const fromId = useId()
+  const toId = useId()
+  const certId = useId()
+  const docId = useId()
+  const scopeId = useId()
+
+  const [kind, setKind] = useState<ContractualInstrument["kind"]>("rec")
+  const [mwh, setMwh] = useState("")
+  const [factor, setFactor] = useState("0")
+  const [from, setFrom] = useState("")
+  const [to, setTo] = useState("")
+  const [cert, setCert] = useState("")
+  const [doc, setDoc] = useState("")
+  const [orgWide, setOrgWide] = useState(false)
+  const [fieldError, setFieldError] = useState<string | null>(null)
+  const [savedAt, setSavedAt] = useState<string | null>(null)
+
+  const list = useApiQuery<ContractualInstrumentListResponse>(
+    (signal) =>
+      apiFetch<ContractualInstrumentListResponse>("/contractual-instruments", {
+        query: { site_id: siteId ?? undefined },
+        signal,
+      }),
+    [siteId],
+  )
+  const mutation = useApiMutation(async (body: unknown) =>
+    apiFetch("/contractual-instruments", { method: "POST", json: body }),
+  )
+  const disabled = !isOwner || mutation.isPending
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (disabled) return
+    if (mwh.trim() === "") return setFieldError("전력량(MWh)을 적으세요.")
+    if (factor.trim() === "") {
+      return setFieldError("배출계수를 적으세요 — 재생에너지 증서는 보통 0 이지만 계약서의 값을 확인하십시오.")
+    }
+    if (!from || !to) return setFieldError("증서 유효기간을 적으세요.")
+    if (!orgWide && !siteId) return setFieldError("사이트가 없습니다. 조직 전체 계약으로 등록하거나 사이트를 먼저 만드십시오.")
+    setFieldError(null)
+    try {
+      await mutation.mutate({
+        site_id: orgWide ? null : siteId,
+        kind,
+        mwh: Number(mwh),
+        factor_tco2e_per_mwh: Number(factor),
+        period_start: `${from}T00:00:00.000Z`,
+        period_end: `${to}T00:00:00.000Z`,
+        certificate_id: cert.trim() || null,
+        document_name: doc.trim() || null,
+      })
+      setMwh("")
+      setCert("")
+      setDoc("")
+      setSavedAt(new Date().toLocaleTimeString("ko-KR"))
+      list.refetch()
+    } catch {
+      /* 오류는 mutation.error 로 아래에 표시된다. */
+    }
+  }
+
+  const items = list.data?.items ?? []
+
+  return (
+    <Card className="flex flex-col gap-4">
+      <SectionHeader
+        title="계약 전력 증서 (Scope 2 market-based)"
+        note="REC · PPA · 녹색프리미엄을 등록하면 다음 리포트부터 location-based 와 market-based 가 나란히 인쇄됩니다. 한국에는 공표된 residual mix 가 없어 잔여 전력에는 계통 계수를 그대로 쓰고, 리포트가 그 대체를 명시합니다."
+      />
+
+      {list.isLoading && (
+        <div role="status" className="h-16 animate-pulse rounded-md border border-mrv-border" aria-label="증서 목록 불러오는 중" />
+      )}
+      {list.isError && !list.isLoading && (
+        <LoadError
+          message="증서 목록을 불러오지 못했습니다. 표가 아직 없다면 mrv_remaining_scope.sql 을 실행하십시오."
+          isUnauthorized={list.error instanceof ApiError && list.error.isUnauthorized}
+          onRetry={list.refetch}
+        />
+      )}
+      {list.data && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <caption className="sr-only">계약 전력 증서 목록</caption>
+            <thead>
+              <tr className="border-b border-mrv-border text-xs text-mrv-muted">
+                <th scope="col" className="py-2 pr-3 font-medium">종류</th>
+                <th scope="col" className="py-2 pr-3 font-medium">MWh</th>
+                <th scope="col" className="py-2 pr-3 font-medium">계수</th>
+                <th scope="col" className="py-2 pr-3 font-medium">유효기간</th>
+                <th scope="col" className="py-2 pr-3 font-medium">범위</th>
+                <th scope="col" className="py-2 font-medium">증서번호</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.length === 0 && (
+                <tr><td colSpan={6} className="py-4 text-mrv-muted">등록된 증서가 없습니다 — 리포트는 location-based 만 담습니다.</td></tr>
+              )}
+              {items.map((it) => (
+                <tr key={it.id} className="border-b border-mrv-border last:border-0">
+                  <td className="py-2 pr-3 text-mrv-fg">{INSTRUMENT_KINDS.find((k) => k.value === it.kind)?.label ?? it.kind}</td>
+                  <td className="py-2 pr-3 tabular-nums text-mrv-fg">{formatNumber(it.mwh, 2)}</td>
+                  <td className="py-2 pr-3 tabular-nums text-mrv-muted">{it.factor_tco2e_per_mwh}</td>
+                  <td className="py-2 pr-3 text-mrv-muted">{it.period_start.slice(0, 10)} ~ {it.period_end.slice(0, 10)}</td>
+                  <td className="py-2 pr-3 text-mrv-muted">{it.site_id === null ? "조직 전체" : "이 사이트"}</td>
+                  <td className="py-2 text-mrv-muted">{it.certificate_id ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} aria-label="계약 전력 증서 등록 폼" className="flex flex-col gap-3 border-t border-mrv-border pt-4">
+        {!isOwner && (
+          <PermissionNote>증서 등록은 owner 전용입니다. 배출량을 직접 낮추는 값이라 배출계수 등록과 같은 기준입니다.</PermissionNote>
+        )}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="flex flex-col gap-1">
+            <label htmlFor={kindId} className="text-sm font-medium text-mrv-fg">종류 <span className="text-mrv-red">*</span></label>
+            <select id={kindId} value={kind} disabled={disabled} onChange={(e) => setKind(e.target.value as ContractualInstrument["kind"])} className={INPUT_CLASS}>
+              {INSTRUMENT_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor={mwhId} className="text-sm font-medium text-mrv-fg">전력량 (MWh) <span className="text-mrv-red">*</span></label>
+            <input id={mwhId} type="number" inputMode="decimal" step="0.001" min="0" value={mwh} disabled={disabled} onChange={(e) => setMwh(e.target.value)} placeholder="예: 120" className={INPUT_CLASS} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor={factorId} className="text-sm font-medium text-mrv-fg">배출계수 (tCO2e/MWh) <span className="text-mrv-red">*</span></label>
+            <input id={factorId} type="number" inputMode="decimal" step="0.0001" min="0" max="1" value={factor} disabled={disabled} onChange={(e) => setFactor(e.target.value)} className={INPUT_CLASS} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor={fromId} className="text-sm font-medium text-mrv-fg">유효기간 시작 <span className="text-mrv-red">*</span></label>
+            <input id={fromId} type="date" value={from} disabled={disabled} onChange={(e) => setFrom(e.target.value)} className={INPUT_CLASS} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor={toId} className="text-sm font-medium text-mrv-fg">유효기간 끝 <span className="text-mrv-red">*</span></label>
+            <input id={toId} type="date" value={to} disabled={disabled} onChange={(e) => setTo(e.target.value)} className={INPUT_CLASS} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor={certId} className="text-sm font-medium text-mrv-fg">증서번호</label>
+            <input id={certId} value={cert} disabled={disabled} onChange={(e) => setCert(e.target.value)} placeholder="예: K-REC-2026-0001" className={INPUT_CLASS} />
+          </div>
+          <div className="flex flex-col gap-1 sm:col-span-2">
+            <label htmlFor={docId} className="text-sm font-medium text-mrv-fg">근거 문서</label>
+            <input id={docId} value={doc} disabled={disabled} onChange={(e) => setDoc(e.target.value)} placeholder="예: 2026년 REC 거래 확인서" className={INPUT_CLASS} />
+          </div>
+          <label htmlFor={scopeId} className="flex items-center gap-2 text-sm text-mrv-fg">
+            <input id={scopeId} type="checkbox" checked={orgWide} disabled={disabled} onChange={(e) => setOrgWide(e.target.checked)} className="h-4 w-4 rounded border-mrv-border" />
+            조직 전체 계약 (사이트에 매지 않음)
+          </label>
+        </div>
+        <p className="text-xs leading-relaxed text-mrv-muted">
+          배출계수는 계약서의 값을 적으십시오 — 재생에너지 증서는 보통 0 이지만 기본값으로 가정하지 않습니다. 계통 평균(0.4173)보다 높은 계수는 받지 않습니다. 조직 전체 계약을 여러 사이트 리포트에 쓰면 같은 증서가 중복 계상됩니다 — 그 배분은 사람이 관리해야 합니다.
+        </p>
+        {fieldError !== null && <p role="alert" className="text-xs text-mrv-red">{fieldError}</p>}
+        {mutation.error !== undefined && <p role="alert" className="text-xs text-mrv-red">{errorMessage(mutation.error, "증서 등록에 실패했습니다.")}</p>}
+        {savedAt !== null && mutation.error === undefined && (
+          <p role="status" className="text-xs text-mrv-green">{savedAt} 등록했습니다. 다음 리포트 발행부터 반영됩니다.</p>
+        )}
+        <button type="submit" disabled={disabled} className={PRIMARY_BUTTON}>{mutation.isPending ? "등록 중…" : "증서 등록"}</button>
       </form>
     </Card>
   )
@@ -2151,6 +2341,7 @@ export default function SettingsPage() {
         refreshToken={keyListNonce}
       />
       <EmissionFactorSection isOwner={isOwner} />
+      <InstrumentSection siteId={selectedSiteId} isOwner={isOwner} />
       <KpiConfigSection />
     </div>
   )

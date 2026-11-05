@@ -17,7 +17,9 @@
 import { computeScope2Reduction } from "./kpi"
 import type { Scope2Input } from "./kpi"
 import { HttpError } from "./http"
-import { T, newId, type MrvDb } from "./db"
+import { T, fetchAll, newId, type MrvDb } from "./db"
+import { computeScope2MarketBased, type ContractualInstrument } from "./scope2-market"
+import { createMissingColumnFallback } from "./missing-column-fallback"
 import { computeSiteKpiResults } from "./kpi-service"
 import { persistKpiSnapshot } from "./snapshots"
 import { recordAudit } from "./audit"
@@ -69,7 +71,30 @@ export type MrvReportRow = {
   pdf_path: string | null
   generated_by: string
   generated_at: string
+  /**
+   * 아래 셋은 supabase/migrations/mrv_remaining_scope.sql 이 더하는 열이다. 옛 리포트에는
+   * 없다(null). 마이그레이션 전 DB 에는 열 자체가 없으므로 insert 가 그 칸을 빼고
+   * 재시도한다(reportExtraColumns).
+   */
+  market_based_json?: Record<string, unknown> | null
+  template_id?: string | null
+  template_json?: Record<string, unknown> | null
 }
+
+/**
+ * 리포트 표의 새 열 셋(market_based_json · template_id · template_json)이 아직 없는 DB.
+ * 리포트 발행이 그 칸 때문에 막히면 안 된다 — location-based 증빙은 그 칸 없이도 완결된다.
+ * 그 창에서 발행된 리포트는 market-based 와 서식 스냅샷이 비어 있고, 로그가 그 사실을 남긴다.
+ */
+const reportExtraColumns = createMissingColumnFallback({
+  columns: ["market_based_json", "template_id", "template_json"],
+  message: (where) =>
+    "[mrv] mrv_reports 의 새 열(market_based_json / template_id / template_json)이 " +
+    `없습니다 — ${where} 에서 그 칸들을 빼고 발행합니다. 리포트는 location-based 만 ` +
+    "담고 맞춤 서식은 적용되지 않습니다. supabase/migrations/mrv_remaining_scope.sql 을 " +
+    "실행하십시오(실행하면 추가 조치 없이 정상 경로로 돌아옵니다). 이 메시지는 열이 없는 " +
+    "동안 10분마다 다시 남습니다.",
+})
 
 async function loadLockedBaseline(db: MrvDb, siteId: string): Promise<BaselineRow> {
   const { data, error } = await db
@@ -200,9 +225,12 @@ export async function generateMrvReport(params: {
   afterPeriodFrom: Date
   afterPeriodTo: Date
   emissionFactorId: string | null
+  /** 맞춤 서식(ENTERPRISE). null 이면 기본 서식. 서식은 보여 주기만 바꾼다. */
+  templateId?: string | null
 }): Promise<GeneratedMrvReport> {
   const { db, site, orgId, userId, afterPeriodFrom, afterPeriodTo, emissionFactorId } =
     params
+  const templateId = params.templateId ?? null
 
   const bsl = await loadLockedBaseline(db, site.id)
   const ef = await loadEmissionFactor(db, emissionFactorId)
@@ -229,6 +257,22 @@ export async function generateMrvReport(params: {
   // 이면 여기서 멈추므로, 리포트 없이 스냅샷만 남는 고아 행이 생기지 않는다.
   // 엔진의 KpiValueError 는 handleRoute 가 422 로 옮긴다(원본과 같은 상태 코드).
   const scope2 = computeScope2Reduction(scope2Inputs)
+
+  /**
+   * Scope 2 market-based — 계약 전력 증서를 이 기간과 겹치는 만큼 적용한다.
+   * location-based 를 대체하지 않고 **옆에** 붙는다(dual reporting). 산식 모듈 바깥의
+   * 배분 규칙이고, 증서 표가 없는 DB(마이그레이션 전)에서는 조용히 넘어가지 않고 로그를
+   * 남긴 채 location-based 만 담는다. 사정은 lib/mrv/scope2-market.ts.
+   */
+  const marketBased = await computeMarketBasedForReport(db, orgId, site.id, {
+    totalMwh: afterPowerMwh,
+    locationFactor: ef.factor_tco2e_per_mwh,
+    periodFrom: afterPeriodFrom,
+    periodTo: afterPeriodTo,
+  })
+
+  /** 맞춤 서식 — 발행 시점에 얼려 넣는다. 서식을 나중에 고쳐도 이 리포트의 모양은 그대로다. */
+  const template = await loadReportTemplate(db, orgId, templateId)
 
   const afterSnapshotId = await persistKpiSnapshot(db, {
     siteId: site.id,
@@ -379,9 +423,30 @@ export async function generateMrvReport(params: {
     pdf_path: null,
     generated_by: userId,
     generated_at: new Date().toISOString(),
+    market_based_json: marketBased,
+    template_id: template?.id ?? null,
+    template_json: template ? templateSnapshot(template) : null,
   }
 
-  const { error } = await db.from(T.reports).insert(report)
+  const sendExtra = reportExtraColumns.shouldSend()
+  const toInsert: Record<string, unknown> = { ...report }
+  if (!sendExtra) {
+    delete toInsert.market_based_json
+    delete toInsert.template_id
+    delete toInsert.template_json
+  }
+  let { error } = await db.from(T.reports).insert(toInsert)
+  if (error && sendExtra && reportExtraColumns.isMissingError(error)) {
+    reportExtraColumns.note("mrv_reports insert")
+    delete toInsert.market_based_json
+    delete toInsert.template_id
+    delete toInsert.template_json
+    ;({ error } = await db.from(T.reports).insert(toInsert))
+    // 저장되지 않은 칸은 응답에서도 비운다 — 돌려준 것과 저장된 것이 달라서는 안 된다.
+    report.market_based_json = null
+    report.template_id = null
+    report.template_json = null
+  }
   if (error) throw error
 
   await recordAudit(db, {
@@ -447,9 +512,133 @@ export function mrvReportToResponse(
     formula_text: report.formula_text,
     emission_factor: { version: ef.version, source: ef.source, year: ef.year },
     boundary,
+    /** Scope 2 market-based. null 이면 location-based 만 담은 리포트다. */
+    market_based: report.market_based_json ?? null,
+    /** 발행 시점에 얼린 맞춤 서식. null 이면 기본 서식. */
+    template: report.template_json ?? null,
     // 인쇄용 문서는 언제든 그려 낼 수 있으므로 항상 사용 가능하다.
     pdf_available: true,
     generated_by: report.generated_by,
     generated_at: report.generated_at,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Scope 2 market-based — 증서 조회와 산출을 리포트 생성에 잇는다
+// ---------------------------------------------------------------------------
+
+/** 증서 표가 아직 없는 DB. 표 자체가 없으면 PostgREST 는 PGRST205(relation 없음)를 낸다. */
+function isMissingRelationError(error: unknown, relation: string): boolean {
+  if (error === null || typeof error !== "object") return false
+  const e = error as { code?: unknown; message?: unknown }
+  const text = typeof e.message === "string" ? e.message : ""
+  return (e.code === "PGRST205" || e.code === "42P01") && text.includes(relation)
+}
+
+let instrumentsTableMissingSince: number | null = null
+
+async function computeMarketBasedForReport(
+  db: MrvDb,
+  orgId: string,
+  siteId: string,
+  p: { totalMwh: number; locationFactor: number; periodFrom: Date; periodTo: Date },
+): Promise<Record<string, unknown> | null> {
+  if (
+    instrumentsTableMissingSince !== null &&
+    Date.now() - instrumentsTableMissingSince < 10 * 60_000
+  ) {
+    return null
+  }
+  let rows: ContractualInstrument[]
+  try {
+    rows = await fetchAll<ContractualInstrument>((f, t) =>
+      db
+        .from(T.contractualInstruments)
+        .select("id, kind, mwh, factor_tco2e_per_mwh, period_start, period_end, document_name, certificate_id")
+        .eq("org_id", orgId)
+        // 이 사이트 증서 + 조직 전체 증서. 겹침은 산출 쪽이 기간으로 다시 거른다.
+        .or(`site_id.eq.${siteId},site_id.is.null`)
+        .lt("period_start", p.periodTo.toISOString())
+        .gt("period_end", p.periodFrom.toISOString())
+        .order("id", { ascending: true })
+        .range(f, t),
+    )
+  } catch (err) {
+    if (isMissingRelationError(err, T.contractualInstruments)) {
+      if (instrumentsTableMissingSince === null) {
+        console.error(
+          "[mrv] mrv_contractual_instruments 표가 없습니다 — 리포트는 location-based 만 " +
+            "담습니다. supabase/migrations/mrv_remaining_scope.sql 을 실행하십시오. " +
+            "이 메시지는 10분마다 다시 남습니다.",
+        )
+      }
+      instrumentsTableMissingSince = Date.now()
+      return null
+    }
+    throw err
+  }
+  instrumentsTableMissingSince = null
+  const result = computeScope2MarketBased({
+    totalMwh: p.totalMwh,
+    locationFactor: p.locationFactor,
+    periodFrom: p.periodFrom,
+    periodTo: p.periodTo,
+    instruments: rows,
+  })
+  return result as unknown as Record<string, unknown>
+}
+
+// ---------------------------------------------------------------------------
+// 맞춤 리포트 서식 — 조회와 스냅샷
+// ---------------------------------------------------------------------------
+
+export type ReportTemplateRow = {
+  id: string
+  org_id: string
+  name: string
+  sections: string[]
+  metrics: string[]
+  cover_title: string | null
+  cover_note: string | null
+  is_default: boolean
+}
+
+/** 서식 표가 없거나(마이그레이션 전) 서식을 고르지 않았으면 null = 기본 서식. */
+async function loadReportTemplate(
+  db: MrvDb,
+  orgId: string,
+  templateId: string | null,
+): Promise<ReportTemplateRow | null> {
+  if (templateId === null) return null
+  const { data, error } = await db
+    .from(T.reportTemplates)
+    .select("id, org_id, name, sections, metrics, cover_title, cover_note, is_default")
+    .eq("id", templateId)
+    .maybeSingle()
+  if (error) {
+    if (isMissingRelationError(error, T.reportTemplates)) {
+      throw new HttpError(
+        503,
+        "맞춤 서식 표(mrv_report_templates)가 아직 없습니다. " +
+          "supabase/migrations/mrv_remaining_scope.sql 을 실행하거나 서식 없이 발행하십시오.",
+      )
+    }
+    throw error
+  }
+  const row = data as ReportTemplateRow | null
+  if (!row) throw new HttpError(404, `report template not found: ${templateId}`)
+  if (row.org_id !== orgId) throw new HttpError(403, "template does not belong to your organization")
+  return row
+}
+
+/** 발행 시점에 얼리는 서식 내용. id 는 참조용으로만 남기고 내용을 통째로 복사한다. */
+function templateSnapshot(t: ReportTemplateRow): Record<string, unknown> {
+  return {
+    id: t.id,
+    name: t.name,
+    sections: [...t.sections],
+    metrics: [...t.metrics],
+    cover_title: t.cover_title,
+    cover_note: t.cover_note,
   }
 }

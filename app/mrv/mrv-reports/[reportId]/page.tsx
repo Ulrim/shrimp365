@@ -536,6 +536,86 @@ export default function MrvReportViewPage({
             </pre>
           </section>
 
+          {/* Scope 2 market-based — location-based 와 **나란히** 보고한다(GHG Protocol dual
+              reporting). null 이면 그 리포트가 location-based 만 담은 것이고, 그 사실을
+              감추지 않고 적는다. 한계(residual mix 미공표)는 값 옆에서 반드시 함께 읽혀야
+              하므로 접지 않는다. */}
+          <section aria-label="Scope 2 market-based" className="flex flex-col gap-2">
+            <h2 className="text-base font-semibold text-mrv-fg">3-1. Scope 2 market-based</h2>
+            {report.market_based === null ? (
+              <p className="rounded-xl border border-mrv-border bg-mrv-na-bg p-4 text-sm leading-relaxed text-mrv-fg">
+                이 리포트는 <b>location-based</b> 만 담고 있습니다. 발행 당시 계약 전력 증서
+                표가 없었거나 기능 도입 전에 발행된 리포트입니다. 증서를 등록한 뒤 다시 발행하면
+                두 방식이 함께 인쇄됩니다.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-3 rounded-xl border border-mrv-border bg-mrv-surface p-4 text-sm">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs text-mrv-muted">location-based (계통 평균)</span>
+                    <span className="text-lg font-semibold tabular-nums text-mrv-fg">
+                      {report.market_based.locationBasedTco2e} tCO2e
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs text-mrv-muted">market-based (계약 전력 반영)</span>
+                    <span className="text-lg font-semibold tabular-nums text-mrv-fg">
+                      {report.market_based.marketBasedTco2e} tCO2e
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-mrv-muted">
+                  총 {report.market_based.totalMwh} MWh = 계약 {report.market_based.contractualMwh} MWh
+                  + 잔여 {report.market_based.residualMwh} MWh
+                  {report.market_based.applied.length > 0 &&
+                    ` · 적용 증서 ${report.market_based.applied.length}건`}
+                </p>
+                {report.market_based.applied.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <caption className="sr-only">적용된 계약 전력 증서</caption>
+                      <thead>
+                        <tr className="border-b border-mrv-border text-mrv-muted">
+                          <th scope="col" className="py-1 pr-3 font-medium">종류</th>
+                          <th scope="col" className="py-1 pr-3 font-medium">적용 MWh</th>
+                          <th scope="col" className="py-1 pr-3 font-medium">계수</th>
+                          <th scope="col" className="py-1 pr-3 font-medium">tCO2e</th>
+                          <th scope="col" className="py-1 font-medium">증서번호 · 문서</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {report.market_based.applied.map((a) => (
+                          <tr key={a.id} className="border-b border-mrv-border last:border-0">
+                            <td className="py-1 pr-3 text-mrv-fg">{a.label}</td>
+                            <td className="py-1 pr-3 tabular-nums text-mrv-fg">
+                              {a.appliedMwh}
+                              {a.overlapRatio < 1 && (
+                                <span className="text-mrv-muted"> (증서 {a.totalMwh} × {a.overlapRatio})</span>
+                              )}
+                            </td>
+                            <td className="py-1 pr-3 tabular-nums text-mrv-fg">{a.factorTco2ePerMwh}</td>
+                            <td className="py-1 pr-3 tabular-nums text-mrv-fg">{a.tco2e}</td>
+                            <td className="py-1 text-mrv-muted">
+                              {a.certificateId ?? "—"}{a.documentName ? ` · ${a.documentName}` : ""}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <ul className="flex list-disc flex-col gap-1 pl-5 text-xs leading-relaxed text-mrv-fg">
+                  {report.market_based.caveats.map((c, i) => (
+                    <li key={i}>{c}</li>
+                  ))}
+                </ul>
+                <pre className="whitespace-pre-line rounded-md border border-mrv-border bg-mrv-bg p-3 text-xs leading-relaxed text-mrv-fg">
+                  {report.market_based.formulaText}
+                </pre>
+              </div>
+            )}
+          </section>
+
           <section aria-label="근거 참조" className="flex flex-col gap-2">
             <h2 className="text-base font-semibold text-mrv-fg">
               4. 적용 로직 · 버전 · 근거 참조

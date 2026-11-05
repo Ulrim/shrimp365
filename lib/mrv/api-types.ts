@@ -577,9 +577,94 @@ export interface MrvReportResponse {
   formula_text: string;
   emission_factor: MrvReportEmissionFactor;
   boundary: MrvReportBoundary;
+  /**
+   * Scope 2 market-based(lib/mrv/scope2-market.ts 의 결과를 발행 시점에 얼린 것).
+   * null 이면 location-based 만 담은 리포트다(증서 표가 없었거나 기능 도입 전).
+   */
+  market_based: MrvReportMarketBased | null;
+  /** 발행 시점에 얼린 맞춤 서식. null 이면 기본 서식. */
+  template: MrvReportTemplateSnapshot | null;
   pdf_available: boolean;
   generated_by: string;
   generated_at: string;
+}
+
+export interface MrvReportMarketBasedInstrument {
+  id: string;
+  kind: "rec" | "ppa" | "green_premium";
+  label: string;
+  totalMwh: number;
+  appliedMwh: number;
+  factorTco2ePerMwh: number;
+  tco2e: number;
+  overlapRatio: number;
+  documentName: string | null;
+  certificateId: string | null;
+}
+
+export interface MrvReportMarketBased {
+  totalMwh: number;
+  contractualMwh: number;
+  residualMwh: number;
+  contractualTco2e: number;
+  residualTco2e: number;
+  marketBasedTco2e: number;
+  locationBasedTco2e: number;
+  applied: MrvReportMarketBasedInstrument[];
+  oversuppliedMwh: number;
+  formulaText: string;
+  caveats: string[];
+}
+
+/** 리포트 서식의 절 이름. 순서가 곧 인쇄 순서다. */
+export type ReportSectionKey =
+  | "summary"
+  | "kpi_table"
+  | "formula"
+  | "boundary"
+  | "provenance"
+  | "unavailability"
+  | "market_based";
+
+export interface MrvReportTemplateSnapshot {
+  id: string;
+  name: string;
+  sections: ReportSectionKey[];
+  metrics: string[];
+  cover_title: string | null;
+  cover_note: string | null;
+}
+
+/** GET/POST /report-templates 행. */
+export interface ReportTemplate extends MrvReportTemplateSnapshot {
+  org_id: string;
+  is_default: boolean;
+  created_at: string;
+}
+export interface ReportTemplateListResponse {
+  items: ReportTemplate[];
+  total: number;
+}
+
+/** GET/POST /contractual-instruments 행 — Scope 2 market-based 의 계약 전력 증서. */
+export interface ContractualInstrument {
+  id: string;
+  org_id: string;
+  site_id: string | null;
+  kind: "rec" | "ppa" | "green_premium";
+  mwh: number;
+  factor_tco2e_per_mwh: number;
+  period_start: string;
+  period_end: string;
+  document_name: string | null;
+  certificate_id: string | null;
+  source_url: string | null;
+  note: string | null;
+  created_at: string;
+}
+export interface ContractualInstrumentListResponse {
+  items: ContractualInstrument[];
+  total: number;
 }
 
 /** GET /sites/{siteId}/mrv-reports 응답(화면10 이력 목록). */

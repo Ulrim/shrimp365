@@ -24,6 +24,8 @@ export async function POST(
     const body = (await req.json()) as {
       after_period?: { from?: string; to?: string }
       emission_factor_id?: string | null
+      /** 맞춤 서식(ENTERPRISE). 서식은 보여 주기만 바꾼다 — 산식·계수·기간은 못 건드린다. */
+      template_id?: string | null
     }
     if (!body.after_period?.from || !body.after_period?.to) {
       throw new HttpError(422, "after_period.from and after_period.to are required")
@@ -34,6 +36,9 @@ export async function POST(
       throw new HttpError(422, "'from' must be strictly before 'to'")
     }
 
+    // 맞춤 서식은 ENTERPRISE 기능(사양서 화면 13번). 고르지 않으면 PRO 도 기본 서식으로 발행한다.
+    if (body.template_id) requirePlan(auth, "ENTERPRISE")
+
     const site = await resolveSiteForOrg(auth.db, siteId, auth.orgId)
     const result = await generateMrvReport({
       db: auth.db,
@@ -43,6 +48,7 @@ export async function POST(
       afterPeriodFrom: from,
       afterPeriodTo: to,
       emissionFactorId: body.emission_factor_id ?? null,
+      templateId: body.template_id ?? null,
     })
 
     return NextResponse.json(

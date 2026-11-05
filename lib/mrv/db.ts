@@ -41,6 +41,17 @@ export const T = {
   apiKeys: "mrv_api_keys",
   /** 현장 장비 페어링(6자리 코드 → mrv_api_keys 발급). */
   devicePairings: "mrv_device_pairings",
+  // --- supabase/migrations/mrv_remaining_scope.sql 이 더하는 것들 ---
+  /** 리포트 주간/월간 자동 생성 일정(사이트별). */
+  reportSchedules: "mrv_report_schedules",
+  /** 리포트 발송 기록. 보냈다는 사실 자체가 증빙이다. */
+  reportDeliveries: "mrv_report_deliveries",
+  /** 맞춤 리포트 서식. 보여 주기만 바꾸고 숫자는 건드리지 못한다. */
+  reportTemplates: "mrv_report_templates",
+  /** 비교실험(A/B) 구성. */
+  experiments: "mrv_experiments",
+  /** Scope 2 market-based 의 계약 전력 증서(REC·PPA·녹색프리미엄). */
+  contractualInstruments: "mrv_contractual_instruments",
 } as const
 
 export type MrvDb = ReturnType<typeof createAdminClient>
