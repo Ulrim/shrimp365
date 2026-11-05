@@ -15,6 +15,7 @@ import { ApiError, apiFetch, useApiQuery } from "@/lib/mrv/client"
 import { formatIsoLocal } from "@/lib/mrv/ui/datetime"
 import { isoDay } from "@/lib/mrv/ui/period"
 import { MRV_METRIC_ROWS, formatMrvNumber } from "@/lib/mrv/ui/mrv-meta"
+import { templateShowsMetric, templateShowsSection } from "@/lib/mrv/report-template"
 import {
   EMPTY_QUALITY_FLAG_LIST_REASON,
   REPORT_MISSING_FLAGS_NOTE,
@@ -332,6 +333,25 @@ export default function MrvReportViewPage({
 
       {report && (
         <>
+          {/* 맞춤 서식의 표지. 서식은 **보여 주기만** 바꾼다 — 아래 숫자는 서식과 무관하다.
+              발행 시점에 얼린 서식이라 지금 설정 화면의 서식을 고쳐도 이 리포트는 그대로다. */}
+          {report.template && (report.template.cover_title || report.template.cover_note) && (
+            <section
+              aria-label="표지"
+              className="flex flex-col gap-1 rounded-xl border border-mrv-border bg-mrv-surface p-5"
+            >
+              {report.template.cover_title && (
+                <p className="text-xl font-semibold text-mrv-fg">{report.template.cover_title}</p>
+              )}
+              {report.template.cover_note && (
+                <p className="whitespace-pre-line text-sm leading-relaxed text-mrv-fg">
+                  {report.template.cover_note}
+                </p>
+              )}
+              <p className="text-xs text-mrv-muted">서식 「{report.template.name}」 · 발행 시점에 얼린 서식</p>
+            </section>
+          )}
+
           <section
             className="rounded-xl border border-mrv-green bg-mrv-green-bg p-5"
             aria-label="감축량"
@@ -356,7 +376,7 @@ export default function MrvReportViewPage({
               기본 상태와 다르게 산출됐다는 것, 하나는 지표 정의의 성질, 이것은 이
               리포트의 어떤 칸이 비었는가다. 12px 본문이 아니라 14px(text-sm)이지만
               상자 안의 글자는 모두 text-mrv-fg 로 둔다. */}
-          {unavailable.length > 0 && (
+          {unavailable.length > 0 && templateShowsSection(report.template, "unavailability") && (
             <section
               aria-label={REPORT_UNAVAILABILITY_HEADING}
               className="flex flex-col gap-3 rounded-xl border border-mrv-na bg-mrv-surface p-4 text-sm leading-relaxed text-mrv-fg"
@@ -389,6 +409,7 @@ export default function MrvReportViewPage({
             </section>
           )}
 
+          {templateShowsSection(report.template, "kpi_table") && (
           <section aria-label="Before / After 비교표" className="flex flex-col gap-2">
             <h2 className="text-base font-semibold text-mrv-fg">
               1. Before / After 비교
@@ -421,7 +442,7 @@ export default function MrvReportViewPage({
                       {report.after.config_version}
                     </td>
                   </tr>
-                  {MRV_METRIC_ROWS.map((row) => (
+                  {MRV_METRIC_ROWS.filter((row) => templateShowsMetric(report.template, row.key)).map((row) => (
                     <tr key={row.key} className="border-b border-mrv-border last:border-0">
                       <td className="px-4 py-2 text-mrv-fg">
                         {row.label}
@@ -439,7 +460,9 @@ export default function MrvReportViewPage({
               </table>
             </div>
           </section>
+          )}
 
+          {templateShowsSection(report.template, "boundary") && (
           <section aria-label="측정경계와 가정" className="flex flex-col gap-2">
             <h2 className="text-base font-semibold text-mrv-fg">
               2. 측정경계(Boundary) · 가정(Assumptions)
@@ -487,13 +510,17 @@ export default function MrvReportViewPage({
                   )}
                 </dd>
               </div>
+              {templateShowsSection(report.template, "provenance") && (
               <MeasurementBasisField
                 raw={report.boundary.after_power_measurement_basis}
               />
+              )}
               {/* 분자(전력)의 자료유형 바로 아래에 분모(생산량)의 산정 근거를 둔다 —
                   EI 가 낮은 것이 전기를 덜 쓴 결과인지 생산량을 넉넉히 가정한 결과인지는
                   두 칸을 나란히 읽어야만 갈린다. */}
+              {templateShowsSection(report.template, "provenance") && (
               <ProductionBasisField raw={report.boundary.after_biomass_basis} />
+              )}
               <div>
                 <dt className="text-xs text-mrv-muted">생산량 근거(Before / After)</dt>
                 <dd className="break-all text-mrv-fg">
@@ -516,6 +543,7 @@ export default function MrvReportViewPage({
                 모양은 품질 플래그·전력 자료유형 경고와 **다르게** 둔다. 그 둘은 이 리포트의
                 수치가 기본 상태와 다르게 산출됐다는 리포트별 사실이고, 이 블록은 어느
                 리포트에나 해당하는 지표 정의의 성질이다. */}
+            {templateShowsSection(report.template, "provenance") && (
             <div
               role="note"
               className="flex flex-col gap-2 rounded-xl border border-mrv-border border-l-4 border-l-mrv-na bg-mrv-surface p-4 text-sm leading-relaxed text-mrv-fg"
@@ -527,7 +555,9 @@ export default function MrvReportViewPage({
                 <p key={line}>{line}</p>
               ))}
             </div>
+            )}
           </section>
+          )}
 
           <section aria-label="산식 전문" className="flex flex-col gap-2">
             <h2 className="text-base font-semibold text-mrv-fg">3. 산식 전문 (재현 가능)</h2>
@@ -540,6 +570,7 @@ export default function MrvReportViewPage({
               reporting). null 이면 그 리포트가 location-based 만 담은 것이고, 그 사실을
               감추지 않고 적는다. 한계(residual mix 미공표)는 값 옆에서 반드시 함께 읽혀야
               하므로 접지 않는다. */}
+          {templateShowsSection(report.template, "market_based") && (
           <section aria-label="Scope 2 market-based" className="flex flex-col gap-2">
             <h2 className="text-base font-semibold text-mrv-fg">3-1. Scope 2 market-based</h2>
             {report.market_based === null ? (
@@ -615,6 +646,7 @@ export default function MrvReportViewPage({
               </div>
             )}
           </section>
+          )}
 
           <section aria-label="근거 참조" className="flex flex-col gap-2">
             <h2 className="text-base font-semibold text-mrv-fg">

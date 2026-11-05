@@ -25,6 +25,7 @@ import {
 import type {
   EmissionFactorListResponse,
   MrvReportResponse,
+  ReportTemplateListResponse,
 } from "@/lib/mrv/api-types"
 
 const WRITER_ROLES = new Set(["owner", "operator"])
@@ -32,13 +33,20 @@ const WRITER_ROLES = new Set(["owner", "operator"])
 export default function MrvReportGeneratePage() {
   const router = useRouter()
   const { selectedSiteId, selectedSite } = useMrvSite()
-  const { isPro, role, isLoading: sessionLoading } = useMrvSession()
+  const { isPro, isEnterprise, role, isLoading: sessionLoading } = useMrvSession()
   const canWrite = role !== null && WRITER_ROLES.has(role)
 
   const initial = recentPeriod(30)
   const [fromDay, setFromDay] = useState(isoDay(initial.from))
   const [toDay, setToDay] = useState(isoDay(initial.to))
   const [emissionFactorId, setEmissionFactorId] = useState("")
+  /** 맞춤 서식(ENTERPRISE). 빈 값이면 기본 서식 — 지금까지의 리포트와 같은 모양이다. */
+  const [templateId, setTemplateId] = useState("")
+  const templates = useApiQuery<ReportTemplateListResponse>(
+    (signal) => apiFetch<ReportTemplateListResponse>("/report-templates", { signal }),
+    [],
+    { enabled: isEnterprise },
+  )
   const [fieldError, setFieldError] = useState<string | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
@@ -91,6 +99,7 @@ export default function MrvReportGeneratePage() {
       const report = await mutation.mutate({
         after_period: { from: `${fromDay}T00:00:00Z`, to: `${toDay}T23:59:59Z` },
         emission_factor_id: emissionFactorId || null,
+        template_id: templateId || null,
       })
       setConfirmOpen(false)
       router.push(`/mrv/mrv-reports/${encodeURIComponent(report.id)}`)
@@ -146,6 +155,31 @@ export default function MrvReportGeneratePage() {
           <span className="text-xs text-mrv-muted">
             계수가 달라지면 같은 데이터로도 감축량이 달라집니다. 리포트에는 적용한 계수의
             출처·연도·버전이 함께 기록됩니다.
+          </span>
+        </label>
+
+        {/* 맞춤 서식은 ENTERPRISE 기능(사양서 화면 13번). PRO 에게는 칸을 감추지 않고
+            잠근 채 이유를 적는다 — 메뉴가 사라지면 사용자는 기능이 없는 줄 안다. */}
+        <label className="flex flex-col gap-1 text-sm text-mrv-fg">
+          리포트 서식
+          <select
+            value={templateId}
+            disabled={!isEnterprise}
+            onChange={(e) => setTemplateId(e.target.value)}
+            className={`${INPUT_CLASS} py-2 disabled:opacity-60`}
+          >
+            <option value="">기본 서식 (모든 절 · 모든 지표)</option>
+            {(templates.data?.items ?? []).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+                {t.is_default ? " (조직 기본)" : ""} · 절 {t.sections.length} · 지표 {t.metrics.length}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs text-mrv-muted">
+            {isEnterprise
+              ? "서식은 보여 주기만 바꿉니다 — 어떤 절을 넣고 표에 어떤 지표를 올릴지. 산식·배출계수·기간은 서식이 건드리지 못하고, 발행 시점의 서식이 리포트에 얼려 들어갑니다. 서식은 설정 화면에서 만듭니다."
+              : "맞춤 서식은 ENTERPRISE 플랜 기능입니다. 지금 플랜에서는 기본 서식으로 발행됩니다."}
           </span>
         </label>
 

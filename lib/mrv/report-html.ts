@@ -143,6 +143,37 @@ type Summary = {
   kpi_snapshot_id: string | null
 }
 
+/** 발행 시점에 얼린 맞춤 서식. 옛 리포트와 기본 서식 리포트에는 없다(null). */
+type TemplateSnapshot = {
+  id: string
+  name: string
+  sections: string[]
+  metrics: string[]
+  cover_title: string | null
+  cover_note: string | null
+}
+
+/** 발행 시점에 얼린 Scope 2 market-based(lib/mrv/scope2-market.ts). 없으면 location 만. */
+type MarketBased = {
+  totalMwh: number
+  contractualMwh: number
+  residualMwh: number
+  marketBasedTco2e: number
+  locationBasedTco2e: number
+  applied: {
+    label: string
+    appliedMwh: number
+    totalMwh: number
+    overlapRatio: number
+    factorTco2ePerMwh: number
+    tco2e: number
+    certificateId: string | null
+    documentName: string | null
+  }[]
+  formulaText: string
+  caveats: string[]
+}
+
 type Boundary = {
   site_id: string
   site_name: string
@@ -495,6 +526,15 @@ export function renderMrvReportHtml(
   const before = report.before_json as unknown as Summary
   const after = report.after_json as unknown as Summary
   const boundary = report.boundary_json as unknown as Boundary
+  /**
+   * 서식은 **보여 주기만** 바꾼다. 아래 어느 숫자도 서식에 좌우되지 않는다. 서식이 없으면
+   * (옛 리포트·기본 서식) 전부 그린다 — 화면(app/mrv/mrv-reports/[reportId])과 같은 규칙,
+   * 같은 절 이름이다. 두 곳이 갈리면 화면으로 본 사람과 인쇄물로 본 사람이 다른 문서를 본다.
+   */
+  const template = (report.template_json ?? null) as TemplateSnapshot | null
+  const show = (key: string) => template === null || template.sections.includes(key)
+  const showMetric = (key: string) => template === null || template.metrics.includes(key)
+  const market = (report.market_based_json ?? null) as MarketBased | null
 
   const chart = comparisonBarSvg({
     labelBefore: "Before",
@@ -573,6 +613,11 @@ export function renderMrvReportHtml(
   .na-reasons li { margin-bottom: 1.5mm; }
   .na-action { margin-top: 0.8mm; }
   .na-note { margin: 1mm 0 0 0; }
+  .cover { border: 1px solid #334155; padding: 6mm; margin-bottom: 6mm; }
+  .cover-title { font-size: 18pt; font-weight: 700; margin-bottom: 2mm; }
+  .cover-note { font-size: 10.5pt; white-space: pre-line; margin-bottom: 2mm; }
+  .cover-meta { font-size: 8.5pt; color: #475569; }
+  .note { border: 1px solid #94a3b8; padding: 3mm; font-size: 9.5pt; margin: 2mm 0 4mm 0; }
   .provenance { margin-top: 4mm; border: 1px solid #334155; border-left: 3mm solid #334155;
                 padding: 3mm 4mm; font-size: 9.5pt; line-height: 1.5; }
   .provenance h3 { font-size: 10.5pt; margin: 0 0 2mm 0; }
@@ -590,6 +635,15 @@ export function renderMrvReportHtml(
     선택하십시오. 용지 A4, 여백 기본값 기준으로 배치돼 있습니다.
   </div>
 
+  ${
+    template && (template.cover_title || template.cover_note)
+      ? `<div class="cover">
+    ${template.cover_title ? `<div class="cover-title">${esc(template.cover_title)}</div>` : ""}
+    ${template.cover_note ? `<div class="cover-note">${esc(template.cover_note)}</div>` : ""}
+    <div class="cover-meta">서식 「${esc(template.name)}」 · 발행 시점에 얼린 서식</div>
+  </div>`
+      : ""
+  }
   <h1>MRV 리포트 (탄소저감 성과: Scope2)</h1>
   <div class="meta">
     <div>리포트 ID: ${esc(report.id)}</div>
@@ -600,7 +654,7 @@ export function renderMrvReportHtml(
     <div>생성자: ${esc(report.generated_by)} / 생성 시각: ${esc(report.generated_at)}</div>
   </div>
 
-  <h2>1. Before / After 비교표</h2>
+  ${show("kpi_table") ? `<h2>1. Before / After 비교표</h2>
   <table>
     <thead>
       <tr><th>지표</th><th>Before(기준선)</th><th>After(현재)</th></tr>
@@ -608,14 +662,14 @@ export function renderMrvReportHtml(
     <tbody>
       <tr><td>기간</td><td>${esc(before.period.from)} ~ ${esc(before.period.to)}</td><td>${esc(after.period.from)} ~ ${esc(after.period.to)}</td></tr>
       <tr><td>적용 kpi_config 버전</td><td>${esc(before.config_version)}</td><td>${esc(after.config_version)}</td></tr>
-      <tr><td>EI_total (kWh/kg)</td><td>${esc(before.ei_total ?? "N/A")}</td><td>${esc(after.ei_total ?? "N/A")}</td></tr>
-      <tr><td>EI_aeration (kWh/kg)</td><td>${esc(before.ei_aeration ?? "N/A")}</td><td>${esc(after.ei_aeration ?? "N/A")}</td></tr>
-      <tr><td>총 전력사용량 (kWh)</td><td>${num(before.total_power_kwh, 2)}</td><td>${num(after.total_power_kwh, 2)}</td></tr>
-      <tr><td>폭기 전력사용량 (kWh)</td><td>${num(before.aeration_power_kwh, 2)}</td><td>${num(after.aeration_power_kwh, 2)}</td></tr>
-      <tr><td>생산량 Δbiomass (kg)</td><td>${num(before.biomass_delta_kg, 2)}</td><td>${num(after.biomass_delta_kg, 2)}</td></tr>
-      <tr><td>Scope2 배출량 (tCO2e)</td><td>${num(before.scope2_tco2e, 4)}</td><td>${num(after.scope2_tco2e, 4)}</td></tr>
+      ${showMetric("ei_total") ? `<tr><td>EI_total (kWh/kg)</td><td>${esc(before.ei_total ?? "N/A")}</td><td>${esc(after.ei_total ?? "N/A")}</td></tr>` : ""}
+      ${showMetric("ei_aeration") ? `<tr><td>EI_aeration (kWh/kg)</td><td>${esc(before.ei_aeration ?? "N/A")}</td><td>${esc(after.ei_aeration ?? "N/A")}</td></tr>` : ""}
+      ${showMetric("total_power_kwh") ? `<tr><td>총 전력사용량 (kWh)</td><td>${num(before.total_power_kwh, 2)}</td><td>${num(after.total_power_kwh, 2)}</td></tr>
+      <tr><td>폭기 전력사용량 (kWh)</td><td>${num(before.aeration_power_kwh, 2)}</td><td>${num(after.aeration_power_kwh, 2)}</td></tr>` : ""}
+      ${showMetric("biomass_delta_kg") ? `<tr><td>생산량 Δbiomass (kg)</td><td>${num(before.biomass_delta_kg, 2)}</td><td>${num(after.biomass_delta_kg, 2)}</td></tr>` : ""}
+      ${showMetric("scope2_tco2e") ? `<tr><td>Scope2 배출량 (tCO2e)</td><td>${num(before.scope2_tco2e, 4)}</td><td>${num(after.scope2_tco2e, 4)}</td></tr>` : ""}
     </tbody>
-  </table>
+  </table>` : ""}
 
   <div class="headline">
     감축량(Scope2 Reduction): <span class="value">${esc(reduction)}</span>
@@ -625,16 +679,16 @@ export function renderMrvReportHtml(
        "N/A" 를 설명하는 절이므로, 멀리 떨어뜨리면 읽는 사람이 N/A 를 보고 사유를
        찾다가 못 찾는다. 항목 선택은 lib/mrv/metric-unavailability.ts 가 하고, 리포트
        화면이 같은 함수를 쓴다. -->
-  ${unavailabilitySection(report, before, after, boundary)}
+  ${show("unavailability") ? unavailabilitySection(report, before, after, boundary) : ""}
 
-  <h2>2. 기간 / 측정경계(Boundary) / 가정(Assumptions)</h2>
+  ${show("boundary") ? `<h2>2. 기간 / 측정경계(Boundary) / 가정(Assumptions)</h2>
   <table>
     <tbody>
       <tr><td>사이트</td><td colspan="2">${esc(boundary.site_name)} (${esc(boundary.site_id)})</td></tr>
       <tr><td>포함 계측기(meter) ID</td><td colspan="2">${joinOrDash(boundary.included_meter_ids)}</td></tr>
       ${qualityFlagRow(boundary.included_quality_flags)}
-      ${measurementBasisRow(boundary.after_power_measurement_basis)}
-      ${productionBasisRow(boundary.after_biomass_basis)}
+      ${show("provenance") ? measurementBasisRow(boundary.after_power_measurement_basis) : ""}
+      ${show("provenance") ? productionBasisRow(boundary.after_biomass_basis) : ""}
       <tr><td>생산량 근거(Before)</td><td colspan="2">${joinOrDash(boundary.biomass_source_refs?.before)}</td></tr>
       <tr><td>생산량 근거(After)</td><td colspan="2">${joinOrDash(boundary.biomass_source_refs?.after)}</td></tr>
     </tbody>
@@ -645,13 +699,31 @@ export function renderMrvReportHtml(
 
   <!-- 지표 정의의 확정 여부. 측정경계·가정 바로 뒤에 둔다(이유는 renderMrvReportHtml
        위의 주석). -->
-  <div class="provenance">
+  ${show("provenance") ? `<div class="provenance">
     <h3>${esc(REPORT_PROVISIONAL_METRIC_HEADING)}</h3>
     ${REPORT_PROVISIONAL_METRIC_LINES.map((line) => `<p>${esc(line)}</p>`).join("\n    ")}
-  </div>
+  </div>` : ""}` : ""}
 
   <h2>3. 산식 전문 (재현 가능)</h2>
   <div class="formula">${esc(report.formula_text)}</div>
+
+  ${show("market_based") ? `<h2>3-1. Scope 2 market-based</h2>
+  ${
+    market === null
+      ? `<div class="note">이 리포트는 location-based 만 담고 있습니다. 발행 당시 계약 전력 증서 표가 없었거나 기능 도입 전에 발행된 리포트입니다.</div>`
+      : `<table>
+    <tbody>
+      <tr><td>location-based (계통 평균)</td><td colspan="2">${num(market.locationBasedTco2e, 3)} tCO2e</td></tr>
+      <tr><td>market-based (계약 전력 반영)</td><td colspan="2">${num(market.marketBasedTco2e, 3)} tCO2e</td></tr>
+      <tr><td>전력 배분</td><td colspan="2">총 ${num(market.totalMwh, 3)} MWh = 계약 ${num(market.contractualMwh, 3)} + 잔여 ${num(market.residualMwh, 3)} MWh</td></tr>
+      ${market.applied.map((a) => `<tr><td>${esc(a.label)}</td><td colspan="2">${num(a.appliedMwh, 3)} MWh × ${a.factorTco2ePerMwh} = ${num(a.tco2e, 3)} tCO2e${a.overlapRatio < 1 ? ` (증서 ${num(a.totalMwh, 3)} MWh 중 기간 겹침 ${a.overlapRatio})` : ""}${a.certificateId ? ` · 증서번호 ${esc(a.certificateId)}` : ""}${a.documentName ? ` · ${esc(a.documentName)}` : ""}</td></tr>`).join("\n      ")}
+    </tbody>
+  </table>
+  <ul class="assumptions">
+    ${market.caveats.map((c) => `<li>${esc(c)}</li>`).join("\n    ")}
+  </ul>
+  <div class="formula">${esc(market.formulaText)}</div>`
+  }` : ""}
 
   <h2>4. 전 / 후 그래프</h2>
   <div class="chart-wrap">

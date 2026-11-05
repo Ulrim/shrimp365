@@ -39,6 +39,12 @@ import {
 } from "@/lib/mrv/quality-flags"
 import { inspectParamsShape } from "@/lib/mrv/kpi-params-shape"
 import {
+  DEFAULT_TEMPLATE,
+  REPORT_METRICS,
+  REPORT_SECTIONS,
+  checkTemplate,
+} from "@/lib/mrv/report-template"
+import {
   DO_BAND_MAX_MG_L,
   DO_BAND_MIN_MG_L,
   DO_BAND_MIN_WIDTH_MG_L,
@@ -65,6 +71,7 @@ import type {
   ContractualInstrument,
   ContractualInstrumentListResponse,
   MeterListResponse,
+  ReportTemplateListResponse,
   SiteSummary,
   TankListResponse,
   MrvApiKey,
@@ -874,6 +881,177 @@ function InstrumentSection({ siteId, isOwner }: { siteId: string | null; isOwner
           <p role="status" className="text-xs text-mrv-green">{savedAt} 등록했습니다. 다음 리포트 발행부터 반영됩니다.</p>
         )}
         <button type="submit" disabled={disabled} className={PRIMARY_BUTTON}>{mutation.isPending ? "등록 중…" : "증서 등록"}</button>
+      </form>
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// 맞춤 리포트 서식 (ENTERPRISE)
+// ---------------------------------------------------------------------------
+
+/**
+ * 서식은 **보여 주기만** 바꾼다 — 어떤 절을 넣고, 표에 어떤 지표를 올리고, 표지에 무엇을
+ * 적을지. 산식·배출계수·기간은 서식이 건드리지 못한다. 요약과 산식 전문은 뺄 수 없다.
+ * 발행된 리포트는 그때의 서식을 얼려 들고 있으므로, 여기서 서식을 새로 만들어도 옛
+ * 리포트는 그대로다. 수정·삭제 창구는 없다(새 서식을 만든다).
+ */
+function TemplateSection({ isOwner, isEnterprise }: { isOwner: boolean; isEnterprise: boolean }) {
+  const nameId = useId()
+  const titleId = useId()
+  const noteId = useId()
+
+  const [name, setName] = useState("")
+  const [sections, setSections] = useState<string[]>(() => [...DEFAULT_TEMPLATE.sections])
+  const [metrics, setMetrics] = useState<string[]>(() => [...DEFAULT_TEMPLATE.metrics])
+  const [coverTitle, setCoverTitle] = useState("")
+  const [coverNote, setCoverNote] = useState("")
+  const [isDefault, setIsDefault] = useState(false)
+  const [fieldError, setFieldError] = useState<string | null>(null)
+  const [savedAt, setSavedAt] = useState<string | null>(null)
+
+  const list = useApiQuery<ReportTemplateListResponse>(
+    (signal) => apiFetch<ReportTemplateListResponse>("/report-templates", { signal }),
+    [],
+  )
+  const mutation = useApiMutation(async (body: unknown) =>
+    apiFetch("/report-templates", { method: "POST", json: body }),
+  )
+  const disabled = !isOwner || !isEnterprise || mutation.isPending
+
+  const toggle = (list: string[], set: (v: string[]) => void, key: string) =>
+    set(list.includes(key) ? list.filter((k) => k !== key) : [...list, key])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (disabled) return
+    // 화면은 빠른 안내만 하고 최종 판정은 서버(checkTemplate)가 한다.
+    const checked = checkTemplate({
+      name, sections, metrics, cover_title: coverTitle, cover_note: coverNote,
+    })
+    if (!checked.ok) return setFieldError(checked.detail)
+    setFieldError(null)
+    try {
+      await mutation.mutate({ ...checked.value, is_default: isDefault })
+      setName("")
+      setCoverTitle("")
+      setCoverNote("")
+      setIsDefault(false)
+      setSavedAt(new Date().toLocaleTimeString("ko-KR"))
+      list.refetch()
+    } catch {
+      /* 오류는 mutation.error 로 아래에 표시된다. */
+    }
+  }
+
+  const items = list.data?.items ?? []
+
+  return (
+    <Card className="flex flex-col gap-4">
+      <SectionHeader
+        title="맞춤 리포트 서식 (ENTERPRISE)"
+        note="서식은 보여 주기만 바꿉니다 — 어떤 절을 넣고, 표에 어떤 지표를 올리고, 표지에 무엇을 적을지. 산식·배출계수·기간은 서식이 건드리지 못하고, 요약과 산식 전문은 뺄 수 없습니다. 발행된 리포트는 그때의 서식을 얼려 들고 있습니다."
+      />
+
+      {list.isLoading && (
+        <div role="status" className="h-16 animate-pulse rounded-md border border-mrv-border" aria-label="서식 목록 불러오는 중" />
+      )}
+      {list.isError && !list.isLoading && (
+        <LoadError
+          message="서식 목록을 불러오지 못했습니다. 표가 아직 없다면 mrv_remaining_scope.sql 을 실행하십시오."
+          isUnauthorized={list.error instanceof ApiError && list.error.isUnauthorized}
+          onRetry={list.refetch}
+        />
+      )}
+      {list.data && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <caption className="sr-only">리포트 서식 목록</caption>
+            <thead>
+              <tr className="border-b border-mrv-border text-xs text-mrv-muted">
+                <th scope="col" className="py-2 pr-3 font-medium">이름</th>
+                <th scope="col" className="py-2 pr-3 font-medium">절</th>
+                <th scope="col" className="py-2 pr-3 font-medium">지표</th>
+                <th scope="col" className="py-2 font-medium">기본</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.length === 0 && (
+                <tr><td colSpan={4} className="py-4 text-mrv-muted">만든 서식이 없습니다 — 리포트는 기본 서식(모든 절 · 모든 지표)으로 발행됩니다.</td></tr>
+              )}
+              {items.map((t) => (
+                <tr key={t.id} className="border-b border-mrv-border last:border-0">
+                  <td className="py-2 pr-3 text-mrv-fg">{t.name}{t.cover_title ? <span className="ml-2 text-xs text-mrv-muted">표지 「{t.cover_title}」</span> : null}</td>
+                  <td className="py-2 pr-3 text-mrv-muted">{t.sections.length} / {REPORT_SECTIONS.length}</td>
+                  <td className="py-2 pr-3 text-mrv-muted">{t.metrics.length} / {REPORT_METRICS.length}</td>
+                  <td className="py-2 text-mrv-muted">{t.is_default ? "기본" : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} aria-label="리포트 서식 만들기 폼" className="flex flex-col gap-3 border-t border-mrv-border pt-4">
+        {!isEnterprise && (
+          <PermissionNote>맞춤 서식은 ENTERPRISE 플랜 기능입니다(사양서 화면 13번). 지금 플랜에서는 기본 서식으로 발행됩니다.</PermissionNote>
+        )}
+        {isEnterprise && !isOwner && (
+          <PermissionNote>서식 만들기는 owner 전용입니다 — 조직의 보고 형식을 정하는 일입니다.</PermissionNote>
+        )}
+        <div className="flex flex-col gap-1">
+          <label htmlFor={nameId} className="text-sm font-medium text-mrv-fg">서식 이름 <span className="text-mrv-red">*</span></label>
+          <input id={nameId} value={name} disabled={disabled} onChange={(e) => setName(e.target.value)} placeholder="예: 심사위원 제출용 (요약 중심)" className={INPUT_CLASS} />
+        </div>
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-sm font-medium text-mrv-fg">넣을 절</legend>
+          <div className="flex flex-wrap gap-3">
+            {REPORT_SECTIONS.map((sec) => (
+              <label key={sec.key} className="flex items-center gap-1.5 text-sm text-mrv-fg">
+                <input
+                  type="checkbox"
+                  checked={sections.includes(sec.key)}
+                  disabled={disabled || Boolean(sec.locked)}
+                  onChange={() => toggle(sections, setSections, sec.key)}
+                  className="h-4 w-4 rounded border-mrv-border"
+                />
+                {sec.label}{sec.locked ? <span className="text-xs text-mrv-muted">(뺄 수 없음)</span> : null}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-sm font-medium text-mrv-fg">표에 올릴 지표</legend>
+          <div className="flex flex-wrap gap-3">
+            {REPORT_METRICS.map((m) => (
+              <label key={m.key} className="flex items-center gap-1.5 text-sm text-mrv-fg">
+                <input type="checkbox" checked={metrics.includes(m.key)} disabled={disabled} onChange={() => toggle(metrics, setMetrics, m.key)} className="h-4 w-4 rounded border-mrv-border" />
+                {m.label}
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-mrv-muted">리포트가 실제로 들고 있는 지표만 고를 수 있습니다. FCR·OEI·폐사율은 KPI 스냅샷(drill-down)에 있고 리포트 표에는 들어가지 않습니다.</p>
+        </fieldset>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1">
+            <label htmlFor={titleId} className="text-sm font-medium text-mrv-fg">표지 제목</label>
+            <input id={titleId} value={coverTitle} disabled={disabled} onChange={(e) => setCoverTitle(e.target.value)} placeholder="예: 2026년 하반기 탄소저감 성과" className={INPUT_CLASS} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor={noteId} className="text-sm font-medium text-mrv-fg">표지 머리말</label>
+            <textarea id={noteId} rows={2} value={coverNote} disabled={disabled} onChange={(e) => setCoverNote(e.target.value)} placeholder="숫자를 적는 칸이 아닙니다 — 보고 맥락만 적으십시오." className={INPUT_CLASS} />
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-mrv-fg">
+          <input type="checkbox" checked={isDefault} disabled={disabled} onChange={(e) => setIsDefault(e.target.checked)} className="h-4 w-4 rounded border-mrv-border" />
+          이 서식을 조직 기본으로 둔다 (자동 생성 리포트가 이 서식을 씁니다)
+        </label>
+        {fieldError !== null && <p role="alert" className="text-xs text-mrv-red">{fieldError}</p>}
+        {mutation.error !== undefined && <p role="alert" className="text-xs text-mrv-red">{errorMessage(mutation.error, "서식 만들기에 실패했습니다.")}</p>}
+        {savedAt !== null && mutation.error === undefined && (
+          <p role="status" className="text-xs text-mrv-green">{savedAt} 만들었습니다. 리포트 생성 화면의 「리포트 서식」에서 고를 수 있습니다.</p>
+        )}
+        <button type="submit" disabled={disabled} className={PRIMARY_BUTTON}>{mutation.isPending ? "만드는 중…" : "서식 만들기"}</button>
       </form>
     </Card>
   )
@@ -2297,7 +2475,7 @@ function DeviceKeySection({
 
 export default function SettingsPage() {
   const { selectedSiteId, selectedSite } = useMrvSite()
-  const { role } = useMrvSession()
+  const { role, isEnterprise } = useMrvSession()
   const canWrite = role !== null && WRITER_ROLES.has(role)
   const isOwner = role === "owner"
   /** 장비를 새로 연결하면 아래 키 목록이 다시 읽도록 올리는 값. */
@@ -2342,6 +2520,7 @@ export default function SettingsPage() {
       />
       <EmissionFactorSection isOwner={isOwner} />
       <InstrumentSection siteId={selectedSiteId} isOwner={isOwner} />
+      <TemplateSection isOwner={isOwner} isEnterprise={isEnterprise} />
       <KpiConfigSection />
     </div>
   )

@@ -18,7 +18,8 @@
     "mrv:verify-kpi-config-write": "node scripts/mrv/verify-kpi-config-write.mjs",
     "mrv:verify-contrast": "node scripts/mrv/verify-contrast.mjs",
     "mrv:verify-scope2-market": "node scripts/mrv/verify-scope2-market.mjs",
-    "mrv:verify": "npm run mrv:verify-kpi && npm run mrv:verify-config && npm run mrv:verify-ingestion && npm run mrv:verify-pipeline && npm run mrv:verify-alerts && npm run mrv:verify-csv && npm run mrv:verify-baseline && npm run mrv:verify-kpi-config-write && npm run mrv:verify-contrast && npm run mrv:verify-scope2-market && npm run mrv:verify-rls",
+    "mrv:verify-report-template": "node scripts/mrv/verify-report-template.mjs",
+    "mrv:verify": "npm run mrv:verify-kpi && npm run mrv:verify-config && npm run mrv:verify-ingestion && npm run mrv:verify-pipeline && npm run mrv:verify-alerts && npm run mrv:verify-csv && npm run mrv:verify-baseline && npm run mrv:verify-kpi-config-write && npm run mrv:verify-contrast && npm run mrv:verify-scope2-market && npm run mrv:verify-report-template && npm run mrv:verify-rls",
     "cardnews": "node scripts/cardnews/render.mjs"
   },
   "dependencies": {
