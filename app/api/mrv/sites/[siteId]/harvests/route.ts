@@ -39,7 +39,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { authorizeMrv, requireWriter } from "@/lib/mrv/auth"
 import { HttpError, handleRoute, parseInstant } from "@/lib/mrv/http"
-import { T, newId } from "@/lib/mrv/db"
+import { T, fetchAll, newId } from "@/lib/mrv/db"
+import { harvestVoidColumns } from "@/lib/mrv/harvest-void"
 import { resolveBatchForSite, resolveSiteForOrg } from "@/lib/mrv/tenancy"
 import { recordAudit } from "@/lib/mrv/audit"
 import { isMissingProductionBasisColumnError } from "@/lib/mrv/production-basis-column"
@@ -198,5 +199,57 @@ export async function POST(
     })
 
     return NextResponse.json(row, { status: 201 })
+  })
+}
+
+/**
+ * GET /api/mrv/sites/{siteId}/harvests — 기간 안의 생산량 기록 목록.
+ *
+ * 정정 창구를 쓰려면 **무엇이 들어 있는지 먼저 보여야** 한다. 무효 처리된 기록도 함께
+ * 돌려준다(가려서 보여 주면 "내가 무효로 만든 그 줄" 을 되돌릴 수가 없다). KPI 산입에서
+ * 빠진다는 사실은 `voided_at` 으로 드러난다.
+ *
+ * 읽기이므로 역할 제한은 없다.
+ */
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ siteId: string }> },
+) {
+  return handleRoute(async () => {
+    const { siteId } = await params
+    const auth = await authorizeMrv(req)
+    await resolveSiteForOrg(auth.db, siteId, auth.orgId)
+
+    const url = new URL(req.url)
+    const from = url.searchParams.get("from")
+    const to = url.searchParams.get("to")
+
+    const read = (withVoid: boolean) =>
+      fetchAll((f, t) => {
+        const cols = withVoid
+          ? "id, batch_id, ts, biomass_kg, production_basis, production_basis_note, " +
+            "survival_adjusted, voided_at, voided_by, void_reason"
+          : "id, batch_id, ts, biomass_kg, production_basis, production_basis_note, " +
+            "survival_adjusted"
+        let q = auth.db.from(T.harvestLogs).select(cols).eq("site_id", siteId)
+        if (from) q = q.gte("ts", parseInstant(from, "from").toISOString())
+        if (to) q = q.lte("ts", parseInstant(to, "to").toISOString())
+        return q.order("ts", { ascending: true }).range(f, t)
+      })
+
+    const withVoid = harvestVoidColumns.shouldSend()
+    let rows: unknown[]
+    try {
+      rows = await read(withVoid)
+    } catch (err) {
+      // 정정 열이 없으면 그 칸만 빼고 읽는다 — 목록 자체가 막히면 생산량을 확인할 길이
+      // 사라진다. 산정 근거 열은 이 창구에서 폴백하지 않는다(쓰기 창구가 이미 그 열을
+      // 요구하므로, 없는 DB 라면 애초에 기록이 없다).
+      if (!withVoid || !harvestVoidColumns.isMissingError(err)) throw err
+      harvestVoidColumns.note("mrv_harvest_logs select (목록 조회)")
+      rows = await read(false)
+    }
+
+    return NextResponse.json({ items: rows, total: rows.length })
   })
 }

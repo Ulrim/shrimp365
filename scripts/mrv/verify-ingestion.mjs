@@ -29,7 +29,13 @@ try {
   copyFileSync(join(ROOT, "lib/mrv/ingestion.ts"), join(outDir, "ingestion.ts"))
   // ingestion.ts 가 쓰는 두 모듈. **실물을 컴파일한다** — ② 절이 검증하는 것이
   // 「열이 없는 DB 를 어떻게 알아보고 무엇을 하는가」이고, 그 판정이 저 모듈에 있다.
-  for (const f of ["measurement-basis.ts", "measurement-basis-column.ts"]) {
+  // `missing-column-fallback.ts` 는 열 없음 판정의 **뼈대**다(세 모듈이 공유한다).
+  // 빼면 ② 절이 컴파일되지 않는다 — 실제로 빼먹어 한 번 잡혔다.
+  for (const f of [
+    "measurement-basis.ts",
+    "measurement-basis-column.ts",
+    "missing-column-fallback.ts",
+  ]) {
     copyFileSync(join(ROOT, "lib/mrv", f), join(outDir, f))
   }
   writeFileSync(

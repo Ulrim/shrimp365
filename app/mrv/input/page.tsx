@@ -30,6 +30,7 @@ import { useMrvSite } from "@/lib/mrv/ui/site"
 import { formatIsoLocal, localInputToIsoUtc, nowLocalInputValue } from "@/lib/mrv/ui/datetime"
 import { BatchSelect } from "@/components/mrv/batch-select"
 import { CsvUpload } from "@/components/mrv/csv-upload"
+import { HarvestLogList } from "@/components/mrv/harvest-log-list"
 import { PowerMeterSelect } from "@/components/mrv/power-meter-select"
 import { INPUT_CLASS, PRIMARY_BUTTON, PageHeader } from "@/components/mrv/ui"
 import {
@@ -245,7 +246,16 @@ function ViewerNote() {
  * 한 건만 넣으면 개시=마감이 되어 분모가 0 이다. 저장은 되고 EI 는 그대로인 — 성공처럼
  * 보이는 실패라서, 저장 뒤 문구가 그 사실을 적는다.
  */
-function HarvestLogForm({ siteId, canWrite }: { siteId: string | null; canWrite: boolean }) {
+function HarvestLogForm({
+  siteId,
+  canWrite,
+  onSaved,
+}: {
+  siteId: string | null
+  canWrite: boolean
+  /** 저장이 끝나면 아래 기록 목록이 다시 읽도록 올린다. */
+  onSaved: () => void
+}) {
   const tsId = useId()
   const biomassId = useId()
   const basisId = useId()
@@ -313,6 +323,7 @@ function HarvestLogForm({ siteId, canWrite }: { siteId: string | null; canWrite:
       // 연달아 넣는 것이 이 폼의 기본 사용법이다).
       setBiomassKg("")
       setSavedAt(new Date().toLocaleTimeString("ko-KR"))
+      onSaved()
     } catch {
       /* 오류는 mutation.error 로 아래에 표시된다. */
     }
@@ -1137,6 +1148,9 @@ export default function InputPage() {
    * 전력 기록지 두 칸의 **파일 단위 자료유형.** 칸마다 따로 들고 있다 — 한 상태를
    * 공유하면 구간 사용량 파일에 고른 값이 적산 지침 파일에도 묻어 들어간다.
    */
+  /** 생산량을 저장하면 올라간다 — 아래 기록 목록이 그때 다시 읽는다. */
+  const [harvestNonce, setHarvestNonce] = useState(0)
+
   const [intervalBasis, setIntervalBasis] = useState<BasisChoice>("")
   const [cumulativeBasis, setCumulativeBasis] = useState<BasisChoice>("")
 
@@ -1210,8 +1224,20 @@ export default function InputPage() {
         {/* 생산량은 EI·폭기 EI·FCR·OEI 네 지표의 **분모**다. 전력(분자) 바로 다음에
             둔다 — 전력만 넣고 "왜 EI 가 안 나오나" 가 되는 것이 이 화면에 생산량 창구가
             없던 동안 실제로 일어난 일이다. */}
-        <HarvestLogForm siteId={selectedSiteId} canWrite={canWrite} />
+        <HarvestLogForm
+          siteId={selectedSiteId}
+          canWrite={canWrite}
+          onSaved={() => setHarvestNonce((n) => n + 1)}
+        />
       </div>
+
+      {/* 입력 창구만 있고 되돌릴 길이 없으면 오타 하나가 EI 의 분모를 영구히 흔든다.
+          목록과 정정 창구를 입력 바로 아래에 둔다. */}
+      <HarvestLogList
+        siteId={selectedSiteId}
+        canWrite={canWrite}
+        refreshToken={harvestNonce}
+      />
 
       <div className="flex flex-col gap-6">
         <CsvUpload

@@ -63,6 +63,7 @@ import {
   noteMissingProductionBasisColumn,
   shouldSendProductionBasisColumns,
 } from "./production-basis-column"
+import { harvestVoidColumns } from "./harvest-void"
 import {
   emptyProductionBasisPoint,
   isProductionBasis,
@@ -448,37 +449,83 @@ export async function computeSiteKpiResults(
    * 질의 사슬을 두 번 적는 이유도 그쪽과 같다 — `select()` 에 삼항 결과를 넘기면 Supabase
    * 의 열 목록 타입 파서가 문자열 리터럴 유니온을 해석하지 못해 행 타입이 깨진다.
    */
-  const readHarvests = (withBasis: boolean) =>
-    fetchAll<HarvestRow>((f, t) =>
-      withBasis
-        ? db
-            .from(T.harvestLogs)
-            .select(
-              "id, ts, biomass_kg, production_basis, production_basis_note, survival_adjusted",
-            )
-            .eq("site_id", siteId)
-            .gte("ts", periodFrom.toISOString())
-            .lte("ts", periodTo.toISOString())
-            .order("ts", { ascending: true })
-            .range(f, t)
-        : db
-            .from(T.harvestLogs)
-            .select("id, ts, biomass_kg")
-            .eq("site_id", siteId)
-            .gte("ts", periodFrom.toISOString())
-            .lte("ts", periodTo.toISOString())
-            .order("ts", { ascending: true })
-            .range(f, t),
-    )
+  /**
+   * ⚠ 정정 열(voided_at)도 마이그레이션(supabase/migrations/mrv_remaining_scope.sql)이
+   * 더하는 것이라 같은 창이 있다. **무효 처리된 기록은 분모에서 빠져야 한다** — 사람이
+   * 잘못 넣었다고 표시한 생체량이 EI 의 분모로 계속 쓰이면 정정 창구가 무의미하다.
+   * 열이 없는 동안에는 무효 처리 자체가 불가능하므로 거르지 않아도 결과가 같다.
+   */
+  const readHarvests = (withBasis: boolean, withVoid: boolean) =>
+    fetchAll<HarvestRow>((f, t) => {
+      const cols = withBasis
+        ? "id, ts, biomass_kg, production_basis, production_basis_note, survival_adjusted"
+        : "id, ts, biomass_kg"
+      // `select()` 에 삼항 결과를 넘기면 열 목록 타입 파서가 깨지므로 네 갈래를 편다.
+      if (withBasis && withVoid) {
+        return db
+          .from(T.harvestLogs)
+          .select(
+            "id, ts, biomass_kg, production_basis, production_basis_note, survival_adjusted",
+          )
+          .eq("site_id", siteId)
+          .is("voided_at", null)
+          .gte("ts", periodFrom.toISOString())
+          .lte("ts", periodTo.toISOString())
+          .order("ts", { ascending: true })
+          .range(f, t)
+      }
+      if (withBasis) {
+        return db
+          .from(T.harvestLogs)
+          .select(
+            "id, ts, biomass_kg, production_basis, production_basis_note, survival_adjusted",
+          )
+          .eq("site_id", siteId)
+          .gte("ts", periodFrom.toISOString())
+          .lte("ts", periodTo.toISOString())
+          .order("ts", { ascending: true })
+          .range(f, t)
+      }
+      if (withVoid) {
+        return db
+          .from(T.harvestLogs)
+          .select("id, ts, biomass_kg")
+          .eq("site_id", siteId)
+          .is("voided_at", null)
+          .gte("ts", periodFrom.toISOString())
+          .lte("ts", periodTo.toISOString())
+          .order("ts", { ascending: true })
+          .range(f, t)
+      }
+      void cols
+      return db
+        .from(T.harvestLogs)
+        .select("id, ts, biomass_kg")
+        .eq("site_id", siteId)
+        .gte("ts", periodFrom.toISOString())
+        .lte("ts", periodTo.toISOString())
+        .order("ts", { ascending: true })
+        .range(f, t)
+    })
 
   const sendProductionBasis = shouldSendProductionBasisColumns()
+  const filterVoided = harvestVoidColumns.shouldSend()
   let harvests: HarvestRow[]
   try {
-    harvests = await readHarvests(sendProductionBasis)
+    harvests = await readHarvests(sendProductionBasis, filterVoided)
   } catch (err) {
-    if (!sendProductionBasis || !isMissingProductionBasisColumnError(err)) throw err
-    noteMissingProductionBasisColumn("mrv_harvest_logs select")
-    harvests = await readHarvests(false)
+    // 정정 열이 없어서 난 거절이면 **그 조건만** 빼고 한 번 더 읽는다. 산정 근거 쪽은
+    // 건드리지 않는다 — 둘은 서로 다른 마이그레이션이라 한쪽만 없을 수 있다.
+    if (filterVoided && harvestVoidColumns.isMissingError(err)) {
+      harvestVoidColumns.note("mrv_harvest_logs select")
+      harvests = await readHarvests(sendProductionBasis, false)
+    } else if (sendProductionBasis && isMissingProductionBasisColumnError(err)) {
+      noteMissingProductionBasisColumn("mrv_harvest_logs select")
+      // 산정 근거를 뺄 때도 정정 조건은 유지한다.
+      harvests = await readHarvests(false, filterVoided)
+    } else {
+      throw err
+    }
   }
   const [biomassStart, biomassEnd] = pickBiomassBounds(harvests)
   const eiBiomassBasis = pickBiomassBasis(harvests, biomassStart, biomassEnd)
