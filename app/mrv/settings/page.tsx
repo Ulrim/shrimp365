@@ -38,6 +38,7 @@ import {
   qualityFlagRiskText,
 } from "@/lib/mrv/quality-flags"
 import { inspectParamsShape } from "@/lib/mrv/kpi-params-shape"
+import { checkRecipients } from "@/lib/mrv/mailer"
 import {
   DEFAULT_TEMPLATE,
   REPORT_METRICS,
@@ -71,6 +72,8 @@ import type {
   ContractualInstrument,
   ContractualInstrumentListResponse,
   MeterListResponse,
+  ReportCadence,
+  ReportScheduleListResponse,
   ReportTemplateListResponse,
   SiteSummary,
   TankListResponse,
@@ -1052,6 +1055,150 @@ function TemplateSection({ isOwner, isEnterprise }: { isOwner: boolean; isEnterp
           <p role="status" className="text-xs text-mrv-green">{savedAt} 만들었습니다. 리포트 생성 화면의 「리포트 서식」에서 고를 수 있습니다.</p>
         )}
         <button type="submit" disabled={disabled} className={PRIMARY_BUTTON}>{mutation.isPending ? "만드는 중…" : "서식 만들기"}</button>
+      </form>
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// 리포트 자동 생성 (주간/월간) + 이메일 발송
+// ---------------------------------------------------------------------------
+
+const CADENCE_LABEL: Record<ReportCadence, string> = { weekly: "주간 (매주 월요일, 직전 7일)", monthly: "월간 (매월 1일, 직전 달)" }
+const STATUS_TEXT: Record<string, string> = {
+  generated: "생성됨",
+  not_due: "아직 때가 아님",
+  no_baseline: "기준선 없음 — 잠그면 다음 실행부터 만들어집니다",
+  failed: "실패",
+}
+
+/**
+ * owner 전용. 리포트는 발행물이고 메일은 조직 바깥으로 나간다 — 누구에게 무엇을 자동으로
+ * 보낼지는 조직의 결정이다. 주기는 바꿀 수 없다(바꾸면 기간 경계가 어긋나 중복·공백이
+ * 생긴다). 바꾸려면 끄고 새로 만든다.
+ */
+function ReportScheduleSection({ siteId, isOwner, isPro, isEnterprise }: { siteId: string | null; isOwner: boolean; isPro: boolean; isEnterprise: boolean }) {
+  const cadId = useId()
+  const recId = useId()
+  const tplId = useId()
+  const [cadence, setCadence] = useState<ReportCadence>("weekly")
+  const [recipients, setRecipients] = useState("")
+  const [templateId, setTemplateId] = useState("")
+  const [fieldError, setFieldError] = useState<string | null>(null)
+  const [savedAt, setSavedAt] = useState<string | null>(null)
+
+  const list = useApiQuery<ReportScheduleListResponse>(
+    (signal) => apiFetch<ReportScheduleListResponse>(`/sites/${encodeURIComponent(siteId as string)}/report-schedules`, { signal }),
+    [siteId],
+    { enabled: Boolean(siteId) },
+  )
+  const templates = useApiQuery<ReportTemplateListResponse>(
+    (signal) => apiFetch<ReportTemplateListResponse>("/report-templates", { signal }),
+    [],
+    { enabled: isEnterprise },
+  )
+  const create = useApiMutation(async (body: unknown) =>
+    apiFetch(`/sites/${encodeURIComponent(siteId as string)}/report-schedules`, { method: "POST", json: body }),
+  )
+  const patch = useApiMutation(async (body: unknown) =>
+    apiFetch(`/sites/${encodeURIComponent(siteId as string)}/report-schedules`, { method: "PATCH", json: body }),
+  )
+  const disabled = !isOwner || !isPro || !siteId || create.isPending
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    if (disabled) return
+    const recs = recipients.split(/[,\s]+/).map((r) => r.trim()).filter(Boolean)
+    const checked = checkRecipients(recs)
+    if (!checked.ok) return setFieldError(checked.detail)
+    setFieldError(null)
+    try {
+      await create.mutate({ cadence, recipients: checked.recipients, template_id: templateId || null, enabled: true })
+      setRecipients("")
+      setSavedAt(new Date().toLocaleTimeString("ko-KR"))
+      list.refetch()
+    } catch { /* create.error 로 표시 */ }
+  }
+  async function toggle(id: string, enabled: boolean) {
+    if (patch.isPending) return
+    try { await patch.mutate({ id, enabled }); list.refetch() } catch { /* patch.error 로 표시 */ }
+  }
+
+  const items = list.data?.items ?? []
+  return (
+    <Card className="flex flex-col gap-4">
+      <SectionHeader
+        title="리포트 자동 생성 · 이메일 발송"
+        note="주간/월간으로 MRV 리포트를 자동 생성하고 수신자에게 보냅니다. 같은 기간을 두 번 만들지 않습니다 — 같은 기간에 리포트가 둘이면 어느 쪽이 근거인지 사람이 고르게 됩니다. 잠긴 기준선이 있어야 만들어집니다."
+      />
+      {list.isLoading && <div role="status" className="h-16 animate-pulse rounded-md border border-mrv-border" aria-label="일정 불러오는 중" />}
+      {list.isError && !list.isLoading && (
+        <LoadError message="일정을 불러오지 못했습니다. 표가 아직 없다면 mrv_remaining_scope.sql 을 실행하십시오." isUnauthorized={list.error instanceof ApiError && list.error.isUnauthorized} onRetry={list.refetch} />
+      )}
+      {list.data && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <caption className="sr-only">리포트 자동 생성 일정</caption>
+            <thead>
+              <tr className="border-b border-mrv-border text-xs text-mrv-muted">
+                <th scope="col" className="py-2 pr-3 font-medium">주기</th>
+                <th scope="col" className="py-2 pr-3 font-medium">수신자</th>
+                <th scope="col" className="py-2 pr-3 font-medium">마지막 실행</th>
+                <th scope="col" className="py-2 pr-3 font-medium">상태</th>
+                <th scope="col" className="py-2 font-medium">켜짐</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.length === 0 && <tr><td colSpan={5} className="py-4 text-mrv-muted">일정이 없습니다 — 리포트는 사람이 생성 화면에서 만들 때만 발행됩니다.</td></tr>}
+              {items.map((s) => (
+                <tr key={s.id} className="border-b border-mrv-border last:border-0">
+                  <td className="py-2 pr-3 text-mrv-fg">{CADENCE_LABEL[s.cadence]}</td>
+                  <td className="py-2 pr-3 text-mrv-muted">{s.recipients.length === 0 ? "없음 (생성만)" : s.recipients.join(", ")}</td>
+                  <td className="py-2 pr-3 text-mrv-muted">{s.last_run_at ? formatIsoLocal(s.last_run_at) : "아직 안 돌았음"}{s.last_period_end ? <span className="block text-xs">마지막 기간 끝 {s.last_period_end.slice(0, 10)}</span> : null}</td>
+                  <td className="py-2 pr-3 text-mrv-fg">{s.last_status ? (STATUS_TEXT[s.last_status] ?? s.last_status) : "—"}{s.last_error && <span className="block text-xs text-mrv-red">{s.last_error}</span>}</td>
+                  <td className="py-2">
+                    <button type="button" disabled={!isOwner || patch.isPending} onClick={() => toggle(s.id, !s.enabled)} className="rounded-md border border-mrv-border bg-mrv-surface px-2 py-1 text-xs font-medium text-mrv-fg hover:bg-mrv-bg disabled:opacity-60">
+                      {s.enabled ? "켜짐 → 끄기" : "꺼짐 → 켜기"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {patch.error !== undefined && <p role="alert" className="text-xs text-mrv-red">{errorMessage(patch.error, "일정을 바꾸지 못했습니다.")}</p>}
+
+      <form onSubmit={handleCreate} aria-label="리포트 일정 만들기 폼" className="flex flex-col gap-3 border-t border-mrv-border pt-4">
+        {!isPro && <PermissionNote>리포트 자동 생성은 PRO 이상 기능입니다(리포트 생성 자체가 PRO 이상).</PermissionNote>}
+        {isPro && !isOwner && <PermissionNote>일정 만들기는 owner 전용입니다 — 메일이 조직 바깥으로 나갑니다.</PermissionNote>}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="flex flex-col gap-1">
+            <label htmlFor={cadId} className="text-sm font-medium text-mrv-fg">주기 <span className="text-mrv-red">*</span></label>
+            <select id={cadId} value={cadence} disabled={disabled} onChange={(e) => setCadence(e.target.value as ReportCadence)} className={INPUT_CLASS}>
+              <option value="weekly">{CADENCE_LABEL.weekly}</option>
+              <option value="monthly">{CADENCE_LABEL.monthly}</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1 sm:col-span-2">
+            <label htmlFor={recId} className="text-sm font-medium text-mrv-fg">수신자 (쉼표로 구분 · 비우면 생성만)</label>
+            <input id={recId} value={recipients} disabled={disabled} onChange={(e) => setRecipients(e.target.value)} placeholder="예: owner@example.com, auditor@example.com" className={INPUT_CLASS} />
+          </div>
+          <div className="flex flex-col gap-1 sm:col-span-3">
+            <label htmlFor={tplId} className="text-sm font-medium text-mrv-fg">서식 (ENTERPRISE)</label>
+            <select id={tplId} value={templateId} disabled={disabled || !isEnterprise} onChange={(e) => setTemplateId(e.target.value)} className={`${INPUT_CLASS} disabled:opacity-60`}>
+              <option value="">기본 서식</option>
+              {(templates.data?.items ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}{t.is_default ? " (조직 기본)" : ""}</option>)}
+            </select>
+          </div>
+        </div>
+        <p className="text-xs leading-relaxed text-mrv-muted">
+          메일 발송기는 배포 환경의 <code className="font-mono">MRV_MAIL_PROVIDER</code> 로 정합니다. 설정이 없으면(기본 log) 리포트는 만들어지되 메일은 나가지 않고, 그 사실이 발송 기록에 「보내지 않음」으로 남습니다.
+        </p>
+        {fieldError !== null && <p role="alert" className="text-xs text-mrv-red">{fieldError}</p>}
+        {create.error !== undefined && <p role="alert" className="text-xs text-mrv-red">{errorMessage(create.error, "일정을 만들지 못했습니다.")}</p>}
+        {savedAt !== null && create.error === undefined && <p role="status" className="text-xs text-mrv-green">{savedAt} 만들었습니다. 다음 실행(매일 00:30 UTC)부터 때가 된 기간을 만듭니다.</p>}
+        <button type="submit" disabled={disabled} className={PRIMARY_BUTTON}>{create.isPending ? "만드는 중…" : "일정 만들기"}</button>
       </form>
     </Card>
   )
@@ -2475,7 +2622,7 @@ function DeviceKeySection({
 
 export default function SettingsPage() {
   const { selectedSiteId, selectedSite } = useMrvSite()
-  const { role, isEnterprise } = useMrvSession()
+  const { role, isPro, isEnterprise } = useMrvSession()
   const canWrite = role !== null && WRITER_ROLES.has(role)
   const isOwner = role === "owner"
   /** 장비를 새로 연결하면 아래 키 목록이 다시 읽도록 올리는 값. */
@@ -2521,6 +2668,7 @@ export default function SettingsPage() {
       <EmissionFactorSection isOwner={isOwner} />
       <InstrumentSection siteId={selectedSiteId} isOwner={isOwner} />
       <TemplateSection isOwner={isOwner} isEnterprise={isEnterprise} />
+      <ReportScheduleSection siteId={selectedSiteId} isOwner={isOwner} isPro={isPro} isEnterprise={isEnterprise} />
       <KpiConfigSection />
     </div>
   )

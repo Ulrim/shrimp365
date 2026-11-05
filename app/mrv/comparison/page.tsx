@@ -16,6 +16,7 @@ import { ApiError, apiFetch, useApiQuery } from "@/lib/mrv/client"
 import { useMrvSession } from "@/lib/mrv/ui/session"
 import { useMrvSite } from "@/lib/mrv/ui/site"
 import { toComparisonViewModel } from "@/lib/mrv/ui/comparison-view-model"
+import { ExperimentPanel } from "@/components/mrv/experiment-panel"
 import { isoDay, recentPeriod } from "@/lib/mrv/ui/period"
 import {
   OEI_HOW_TO_READ,
@@ -344,6 +345,10 @@ export default function ComparisonPage() {
           )}
         </section>
       )}
+      {/* 비교실험(A/B) — 사양서 화면 9번의 "비교실험 구성·결과". 기준선 비교 아래에 둔다:
+          기준선 비교가 "전체 운영의 전·후" 라면 실험은 "한 가지를 바꾼 전·후" 다. */}
+      <ExperimentPanel siteId={selectedSiteId} canWrite={role === "owner" || role === "operator"} />
+
     </div>
   )
 }

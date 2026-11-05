@@ -667,6 +667,67 @@ export interface ContractualInstrumentListResponse {
   total: number;
 }
 
+// ---------------------------------------------------------------------------
+// 비교실험(A/B) — GET/POST /sites/{siteId}/experiments, GET/PATCH .../{experimentId}
+// 원본에 없는 창구다. 사정은 lib/mrv/experiments.ts.
+// ---------------------------------------------------------------------------
+
+export type ExperimentStatus = "running" | "concluded" | "abandoned";
+
+export interface Experiment {
+  id: string;
+  site_id: string;
+  org_id: string;
+  name: string;
+  hypothesis: string | null;
+  control_from: string;
+  control_to: string;
+  treatment_from: string;
+  treatment_to: string;
+  status: ExperimentStatus;
+  conclusion: string | null;
+  concluded_at: string | null;
+  created_by: string;
+  created_at: string;
+}
+export interface ExperimentListResponse {
+  items: Experiment[];
+  total: number;
+}
+/**
+ * 실험 + 지금 산출한 결과. `result` 는 기준선 비교와 같은 모양이라 같은 뷰모델로 그린다 —
+ * `baseline` 자리에 대조군, `current` 자리에 처리군.
+ */
+export interface ExperimentResultResponse extends Experiment {
+  result: ComparisonResponse;
+}
+
+// ---------------------------------------------------------------------------
+// 리포트 자동 생성 일정 — GET/POST/PATCH /sites/{siteId}/report-schedules
+// ---------------------------------------------------------------------------
+
+export type ReportCadence = "weekly" | "monthly";
+
+export interface ReportSchedule {
+  id: string;
+  site_id: string;
+  org_id: string;
+  cadence: ReportCadence;
+  enabled: boolean;
+  recipients: string[];
+  template_id: string | null;
+  last_period_end: string | null;
+  last_run_at: string | null;
+  /** generated | not_due | no_baseline | failed | null(아직 안 돌았음) */
+  last_status: string | null;
+  last_error: string | null;
+  created_at: string;
+}
+export interface ReportScheduleListResponse {
+  items: ReportSchedule[];
+  total: number;
+}
+
 /** GET /sites/{siteId}/mrv-reports 응답(화면10 이력 목록). */
 export interface MrvReportListResponse {
   items: MrvReportResponse[];
