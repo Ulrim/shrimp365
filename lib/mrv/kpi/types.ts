@@ -263,7 +263,10 @@ export const DEFAULT_ALERTING_CONFIG: AlertingConfig = {
   doLowMgL: 3.0,
   mortalitySpikeRatio: 2.0,
   mortalitySpikeMinCount: 5,
-  kpiRedMetrics: ["ei_total", "fcr", "mortality_rate", "oei"],
+  // OEI 를 뺀다 — 원본 Python 의 같은 자리와 맞춘 변경이다(culiver_kpi/types.py).
+  // 산식이 미확정인 지표로 빨간 알림이 나가면 "승인된 기준에 미달" 로 읽힌다.
+  // 값과 신호등은 그대로 산출되고, 감시하려는 조직은 설정에 "oei" 를 적으면 된다.
+  kpiRedMetrics: ["ei_total", "fcr", "mortality_rate"],
   thresholds: DEFAULT_KPI_THRESHOLDS,
 }
 

@@ -275,8 +275,13 @@ class AlertingConfig:
     do_low_mg_l: float = 3.0
     mortality_spike_ratio: float = 2.0
     mortality_spike_min_count: int = 5
+    # OEI 를 뺀다. 산식이 사업계획서에 없는 제안값이고 신호등 임계값도 실증 전
+    # 가정이라, 아무 설정도 하지 않은 조직에서 **미확정 지표로 빨간 알림이 나간다.**
+    # 알림은 "승인된 기준에 미달했다" 로 읽히므로 그 자리에 둘 수 없다. 값과 신호등은
+    # 그대로 산출되고 화면에 보이며, 감시 목록에 넣고 싶은 조직은
+    # kpi_config 의 alerting.kpi_red_metrics 에 "oei" 를 적어 넣으면 된다.
     kpi_red_metrics: tuple[str, ...] = (
-        "ei_total", "fcr", "mortality_rate", "oei",
+        "ei_total", "fcr", "mortality_rate",
     )
     thresholds: KpiThresholds = field(default=DEFAULT_KPI_THRESHOLDS)
 

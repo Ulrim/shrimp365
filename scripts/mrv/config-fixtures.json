@@ -85,8 +85,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {
@@ -118,8 +117,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {
@@ -380,8 +378,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {
@@ -413,8 +410,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {
@@ -1181,8 +1177,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {
@@ -1214,8 +1209,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {
@@ -1390,8 +1384,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {
@@ -1423,8 +1416,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {
@@ -1687,8 +1679,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {
@@ -1720,8 +1711,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {
@@ -1906,8 +1896,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {
@@ -1939,8 +1928,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {
@@ -2105,8 +2093,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {
@@ -2138,8 +2125,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {
@@ -2292,8 +2278,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {
@@ -2325,8 +2310,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {
@@ -2469,8 +2453,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {
@@ -2502,8 +2485,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {
@@ -2791,8 +2773,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {
@@ -2824,8 +2805,7 @@
     "kpiRedMetrics": [
      "ei_total",
      "fcr",
-     "mortality_rate",
-     "oei"
+     "mortality_rate"
     ],
     "thresholds": {
      "ei_total": {

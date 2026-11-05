@@ -163,7 +163,12 @@ def build() -> dict:
             for j in range(n)
         ]
         prior = {}
-        for mid in {r.meter_id for r in raws}:
+        # ★ `sorted(...)` 가 없으면 집합 순회 순서가 실행마다 달라진다(문자열 해시가
+        #   PYTHONHASHSEED 로 무작위화된다). 그러면 `rng.random()` 이 소비되는 순서가
+        #   달라져 **같은 시드로도 다른 픽스처가 나온다** — 실제로 그랬고, 어떤 건의
+        #   qualityFlag 가 bad ↔ suspect 로 뒤집혔다. 픽스처가 재현되지 않으면
+        #   차분 검증이 "과거의 한 번"에만 매인다(AGENTS.md 절대규칙 6 — 결정론).
+        for mid in sorted({r.meter_id for r in raws}):
             if rng.random() < 0.5:
                 prior[mid] = (T0 - timedelta(hours=1), round(rng.uniform(0, 400), 3))
         case(f"random-{i}", raws, prior)
