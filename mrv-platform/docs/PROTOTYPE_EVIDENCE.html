@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<title>컬리버 통합관리 + 탄소 MRV 플랫폼 — 시제품 개발 증빙 자료</title>
+<style>
+@font-face{font-family:"Noto Sans KR";src:local("Noto Sans KR"),url("fonts/NotoSansKR.ttf");font-weight:100 900}
+@page{size:A4;margin:18mm 16mm 20mm 16mm}
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{font-family:"Noto Sans KR",sans-serif;font-size:10.4pt;line-height:1.62;color:#111827}
+h1{font-size:22pt;margin:0 0 4mm;line-height:1.3}
+h2{font-size:14.5pt;margin:8mm 0 3mm;padding-bottom:1.5mm;border-bottom:1.5px solid #1e3a8a;color:#1e3a8a;break-after:avoid}
+h3{font-size:11.5pt;margin:5mm 0 2mm;break-after:avoid}
+p{margin:0 0 2.6mm}ul,ol{margin:0 0 3mm 5mm;padding:0}li{margin:0 0 1.2mm}
+table{width:100%;border-collapse:collapse;margin:2mm 0 4mm;font-size:9.5pt}tr{break-inside:avoid}
+th,td{border:1px solid #cbd5e1;padding:1.6mm 2.4mm;vertical-align:top;text-align:left}th{background:#eef2ff;font-weight:700}
+code{background:#f1f5f9;padding:0 1.2mm;border-radius:2px;font-size:9.3pt}
+pre{background:#f8fafc;border:1px solid #e2e8f0;padding:3mm;border-radius:3px;font-size:8.8pt;white-space:pre-wrap;line-height:1.5;margin:2mm 0 4mm}
+.cover{height:245mm;display:flex;flex-direction:column;justify-content:center;break-after:page}
+.cover .kicker{color:#1e3a8a;font-weight:700;letter-spacing:.08em;font-size:10.5pt;margin-bottom:6mm}
+.cover h1{font-size:27pt;margin-bottom:5mm}.cover .sub{font-size:12.5pt;color:#475569;margin-bottom:12mm}
+.cover table{width:auto;min-width:120mm;font-size:10.5pt}.cover th{width:34mm}
+.qrrow{display:grid;grid-template-columns:1fr 1fr;gap:6mm;margin:4mm 0 2mm}
+.qr{display:flex;gap:4mm;align-items:center;border:1px solid #cbd5e1;border-radius:3px;padding:3mm;break-inside:avoid}
+.qr img{width:34mm;height:34mm}.qr b{display:block;color:#1e3a8a}.qr small{color:#475569;font-size:9pt}
+.callout{border-left:3px solid #1e3a8a;background:#f8fafc;padding:3mm 4mm;margin:3mm 0 4mm;break-inside:avoid}
+.callout.key{border-color:#15803d;background:#f0fdf4}
+figure{margin:2.5mm 0 4.5mm;break-inside:avoid}figure img{width:100%;display:block;border:1px solid #cbd5e1;border-radius:2px}
+figcaption{font-size:8.9pt;color:#475569;margin-top:1.4mm}figcaption b{color:#1e3a8a}
+.crop{overflow:hidden;border:1px solid #cbd5e1;border-radius:2px;width:100%}.crop img{width:100%;display:block;border:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:3.5mm 4mm}.grid2 figure{margin:0}
+.small{font-size:9pt;color:#475569}.break{break-before:page}
+.ok{color:#15803d;font-weight:700}
+</style></head><body>
+
+<section class="cover">
+  <div class="kicker">2026 스프링캠프 · 시제품 개발 증빙 자료</div>
+  <h1>컬리버 통합관리 +<br>탄소 MRV 플랫폼</h1>
+  <div class="sub">실내 흰다리새우(RAS) 양식장용 B2B 구독 웹앱 · 현장 장비 · 탄소 MRV 증빙<br>동작하는 시제품을 지금 바로 확인할 수 있는 주소와 증적</div>
+  <table>
+    <tr><th>시제품</th><td>웹 플랫폼(18화면 · API 55개) + 현장 장비(라즈베리파이 키오스크 1.11.1) + 검증 체계(16종)</td></tr>
+    <tr><th>개발 기간</th><td>2026-08-29 ~ 2026-11-06</td></tr>
+    <tr><th>운영 배포</th><td>2026-11-06 · www.shrimp365.kr (Vercel Production, 커밋 6d860d9)</td></tr>
+    <tr><th>저장소</th><td>github.com/Ulrim/shrimp365 (main bc66ced · c67608b)</td></tr>
+    <tr><th>첨부</th><td>시연 영상(mp4 32초) · 결과보고서 최종본(PDF 38쪽)</td></tr>
+  </table>
+  <div class="qrrow">
+    <div class="qr"><img src="prototype-evidence/qr-demo.png" alt="QR 공개 데모"><div><b>공개 데모 — 로그인 없이</b><small>https://www.shrimp365.kr/mrv/demo</small></div></div>
+    <div class="qr"><img src="prototype-evidence/qr-platform.png" alt="QR 운영 플랫폼"><div><b>운영 플랫폼 — 초대 계정 로그인</b><small>https://www.shrimp365.kr/mrv</small></div></div>
+  </div>
+</section>
+
+<h2>1. 시제품이 무엇인가</h2>
+<p>단순 모니터링이 아니라 <b>기준선 → 추천/제어 → 로그 → 전후비교 → MRV 증빙</b>이 한 줄로 이어지는 시스템이다. 양식장의 전력·용존산소·급이·폐사·생산량 기록에서 KPI 5종을 산출하고, 잠긴 기준선 대비 전력 절감을 Scope 2 탄소저감 성과로 환산해 산식 전문과 배출계수 출처를 함께 인쇄하는 MRV 리포트까지 제품 안에서 닫힌다.</p>
+<table>
+<tr><th style="width:30mm">구성 요소</th><th>내용</th><th style="width:38mm">상태</th></tr>
+<tr><td>웹 플랫폼</td><td>사양서 16화면 전부 + 리포트 상세/생성 + 공개 데모 · API 라우트 55개 · DB 마이그레이션 11개(적용 완료) · 조직 단위 멀티테넌시(RLS) · 감사 로그</td><td class="ok">운영 배포 완료</td></tr>
+<tr><td>현장 장비</td><td>라즈베리파이 7″ 터치 키오스크(800×480) · 운전 모드 3종(양식장 · 스마트팜 · 탄소 MRV) · 4개 국어 · 전력 지침 수기 입력 · 오프라인 보관 · 6자리 코드 페어링</td><td class="ok">1.11.1 꾸러미 완성</td></tr>
+<tr><td>검증 체계</td><td>원본 Python 엔진과의 차분검증 5종 · 사양 기반 10종 · RLS 1종 · tsc · 빌드 · 장비 verify 2종</td><td class="ok">전부 통과 (11-06)</td></tr>
+</table>
+
+<h2>2. 지금 바로 확인하는 방법</h2>
+<ol>
+<li><b>공개 데모</b> — 표지 QR 또는 <code>www.shrimp365.kr/mrv/demo</code> 를 연다. 로그인 없이 KPI · 시계열 · 전후비교 · 승인형 제어 · 알림 · A/B 실험 · MRV 리포트 6개 절이 한 화면에 나온다. 숫자는 가상 양식장 30일 자료로 실제 산식 엔진이 낸 값이다.</li>
+<li><b>운영 플랫폼</b> — <code>www.shrimp365.kr/mrv</code> 로 가면 로그인 화면으로 넘어간다(비로그인 차단이 동작한다는 증거). 조직에 초대된 계정으로 로그인하면 16화면 전부를 실제로 조작할 수 있다.</li>
+<li><b>시연 영상</b> — 첨부 mp4(32초)는 2026-11-06 운영 사이트를 브라우저로 녹화한 것이다. 데모 전체를 스크롤한 뒤 보호된 주소가 로그인으로 넘어가는 것까지 담았다.</li>
+</ol>
+<table>
+<tr><th>주소 (2026-11-06 12:34 UTC 확인)</th><th style="width:28mm">응답</th><th>뜻</th></tr>
+<tr><td>https://www.shrimp365.kr/mrv/demo</td><td class="ok">200</td><td>로그인 없이 열린다 — 공개 데모</td></tr>
+<tr><td>https://www.shrimp365.kr/mrv</td><td>307 → /login</td><td>보호된 플랫폼. 비로그인은 로그인으로</td></tr>
+<tr><td>https://www.shrimp365.kr/mrv/overview</td><td>307 → /login</td><td>같은 보호 규칙</td></tr>
+</table>
+
+<h2 class="break">3. 운영 사이트 동작 화면 (2026-11-06 녹화분에서)</h2>
+<figure><img src="prototype-evidence/prod-demo-top.png"><figcaption><b>그림 3-1</b> www.shrimp365.kr/mrv/demo 첫 화면 — 상단에 "공개 데모 · 시연 자료" 표시, KPI 5종 카드. 브라우저에 로그인 세션 없음.</figcaption></figure>
+<figure><div class="crop" data-src="prototype-evidence/prod-demo-full.jpg" data-w="1280" data-y="1180,2330"></div><figcaption><b>그림 3-2</b> 같은 페이지의 전·후 비교표와 추천·승인형 제어 이력, 알림.</figcaption></figure>
+<figure><div class="crop" data-src="prototype-evidence/prod-demo-full.jpg" data-w="1280" data-y="3120,4273"></div><figcaption><b>그림 3-3</b> MRV 리포트 절 — 감축량, 산식 전문, Scope 2 location/market-based 병기와 residual mix 한계 문구.</figcaption></figure>
+<figure><img src="prototype-evidence/prod-mrv-redirect.png"><figcaption><b>그림 3-4</b> www.shrimp365.kr/mrv 를 비로그인으로 열면 로그인 화면으로 넘어간다 — 보호 규칙이 운영에서 동작한다.</figcaption></figure>
+
+<h2 class="break">4. 플랫폼 핵심 기능 화면 (로그인 후 · 프로덕션 빌드 캡처)</h2>
+<p class="small">아래는 결과보고서 최종본 4장에서 뽑은 6장면이다. 전체 16화면은 보고서에 있다.</p>
+<figure><div class="crop" data-src="result-report/shots/02-overview.jpg" data-w="1280" data-y="0,760"></div><figcaption><b>그림 4-1</b> 사이트 개요 — KPI 5종, 신호등은 색과 글자를 함께, OEI 는 「잠정 지표」.</figcaption></figure>
+<figure><div class="crop" data-src="result-report/shots/04-input.jpg" data-w="1280" data-y="1240,2380"></div><figcaption><b>그림 4-2</b> 입력 — 생산량(EI·FCR 분모)과 산정 근거, 생산량 기록 정정(삭제 대신 무효 처리).</figcaption></figure>
+<figure><div class="crop" data-src="result-report/shots/10-comparison.jpg" data-w="1280" data-y="0,740"></div><figcaption><b>그림 4-3</b> 잠긴 기준선 대비 전·후 비교.</figcaption></figure>
+<figure><div class="crop" data-src="result-report/shots/07-report-detail.jpg" data-w="1280" data-y="0,760"></div><figcaption><b>그림 4-4</b> MRV 리포트 — 감축량, Before/After 표, 산식 전문(대입값 포함).</figcaption></figure>
+<figure><div class="crop" data-src="result-report/shots/11-control-console.jpg" data-w="1280" data-y="0,540"></div><figcaption><b>그림 4-5</b> 승인형 제어 콘솔 — 제안 → 승인 → 적용, 전이마다 감사 로그.</figcaption></figure>
+<figure><div class="crop" data-src="result-report/shots/15-settings.jpg" data-w="1280" data-y="2460,3650"></div><figcaption><b>그림 4-6</b> 설정 — 전력 배출계수(2023년 국가 계수 0.4173, 출처 포함, append-only).</figcaption></figure>
+
+<h2 class="break">5. 현장 장비 시제품 (라즈베리파이 키오스크)</h2>
+<p>기계실 계량기 옆에 두는 7인치 터치스크린 장비다. 수질 센서를 읽어 올리고, MRV 모드에서는 전력 지침 입력 단말이 된다. 아래 화면은 실제 장비 화면 코드를 그대로 띄운 것이다(<code>raspberry-pi/make-preview.py</code>, 상태 27종 중 4종). 장비 소프트웨어는 서명된 꾸러미로 원격 자동 업데이트된다.</p>
+<div class="grid2">
+<figure><img src="result-report/shots/k-00-farm.jpg"><figcaption><b>그림 5-1</b> 양식장 모드 — 수온·pH·DO·염도.</figcaption></figure>
+<figure><img src="result-report/shots/k-05-do-danger.jpg"><figcaption><b>그림 5-2</b> DO 위험 — 설비 운전 권고.</figcaption></figure>
+<figure><img src="result-report/shots/k-12-mrv-home.jpg"><figcaption><b>그림 5-3</b> 탄소 MRV 모드 — 전력 지침 입력 단말.</figcaption></figure>
+<figure><img src="result-report/shots/k-14-mrv-keypad.jpg"><figcaption><b>그림 5-4</b> 지침 키패드 — 실측과 계산값 구분.</figcaption></figure>
+</div>
+<p class="small">실물 장비 사진은 이 자료에 포함하지 않았다. 설치 절차는 <code>raspberry-pi/INSTALL.md</code>, 꾸러미 구성은 <code>raspberry-pi/release.py</code> 에 있다.</p>
+
+<h2>6. 개발·배포 증적</h2>
+<h3>6-1. 저장소와 배포</h3>
+<table>
+<tr><th style="width:38mm">항목</th><th>증적</th></tr>
+<tr><td>커밋</td><td>main 기준 2026-08-29 이후 196건 (저장소 전체 2026-05-05 시작)</td></tr>
+<tr><td>병합 PR</td><td>#48 (11-06) 플랫폼 전체 → main · #80 (11-06) 공개 데모 + 보고서 최종본 → main</td></tr>
+<tr><td>운영 배포 (Vercel Production)</td><td>11-06 08:24 dd17a45 (플랫폼) · 11-06 12:33 6d860d9 (공개 데모) · 그 전 10-30 11e7242 (장비 1.11.0)</td></tr>
+<tr><td>변경 규모 (MRV 범위)</td><td>263개 파일 · 약 136,000줄 추가 · 마이그레이션 11개 · ADR 7건</td></tr>
+<tr><td>문서</td><td>mrv-platform/docs/ — HANDOVER.md · RESULT_REPORT.md · RESULT_REPORT_FINAL.pdf · adr/</td></tr>
+</table>
+<h3>6-2. 검증 실행 기록 (2026-11-06 재실행, 원문 발췌)</h3>
+<pre>$ npm run mrv:verify   (scripts/mrv/verify-*.mjs 13종 + RLS)
+verify-kpi                  OK
+verify-config               OK
+verify-ingestion            OK
+verify-pipeline             OK
+verify-alerts               OK
+verify-csv                  OK
+verify-baseline-readiness   OK
+verify-kpi-config-write     OK
+verify-contrast             OK
+verify-scope2-market        OK
+verify-report-template      OK
+verify-report-jobs          OK
+verify-experiments          OK
+── 전체 통과
+
+$ npx tsc --noEmit
+(오류 0)
+
+$ python3 raspberry-pi/verify.py
+모두 통과
+$ python3 raspberry-pi/verify-mrv.py
+모두 통과</pre>
+<p class="small">차분검증은 원본 Python 엔진(culiver_kpi)이 만든 기대값과 TypeScript 이식본의 출력을 기계적으로 대조한다(KPI 250 시나리오 · config 102 · 정규화 372 · 조립 25 · 알림 60/113/104). 사양 기반 검증은 원본에 없던 기능의 규칙을 항목별로 확인한다.</p>
+
+<h2>7. 심사용 시연 시나리오 (5분)</h2>
+<ol>
+<li><b>공개 데모 열기 (1분)</b> — QR 로 <code>/mrv/demo</code>. 상단 안내(시연 자료, API 호출 없음)와 사슬 6단계 목차를 보인다.</li>
+<li><b>KPI 와 시계열 (1분)</b> — EI·폭기 EI·FCR·OEI·폐사율. OEI 의 「잠정 지표」 배지와 산식 버전 표기를 짚는다.</li>
+<li><b>전·후 비교와 A/B (1분)</b> — 개선율이 지표 방향을 보정한 값임을, 대조군의 「산출 불가」가 0 으로 바뀌지 않음을 보인다.</li>
+<li><b>MRV 리포트 (1분)</b> — 감축량, 산식 전문, 배출계수 출처, location/market-based 병기, residual mix 한계 문구.</li>
+<li><b>보호 확인 (30초)</b> — <code>/mrv</code> 로 가면 로그인 화면. 초대 계정으로 로그인하면 실제 16화면이 열린다(시간이 있으면 설정 → 사이트·수조·계측기 등록 → 입력 → 기준선 잠금 → 리포트 생성 흐름).</li>
+</ol>
+<div class="callout key">이 자료의 모든 주소는 2026-11-06 에 실제로 응답을 확인했고, 영상은 같은 날 운영 사이트를 녹화한 것이다. 숫자는 시연용 가상 자료이며 그 사실을 화면이 스스로 적는다.</div>
+
+<script>
+for (const box of document.querySelectorAll(".crop")) {
+  const [y0, y1] = box.dataset.y.split(",").map(Number); const w = Number(box.dataset.w)
+  const img = document.createElement("img"); img.src = box.dataset.src
+  box.style.aspectRatio = `${w} / ${y1 - y0}`; img.style.marginTop = `-${(y0 / w) * 100}%`; box.appendChild(img)
+}
+</script>
+</body></html>
