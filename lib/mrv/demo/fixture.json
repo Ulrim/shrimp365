@@ -1,0 +1,1292 @@
+{
+  "generated_at": "2026-11-06T00:00:00Z",
+  "note": "로컬 Supabase 스텁(무안 양식장 · 수조 2 · 계측기 3 · 30일 시계열)에 프로덕션 빌드를 띄워 실제 API 응답을 그대로 담았다. 숫자는 산식 엔진(lib/mrv/kpi)이 낸 값이며 화면에서 다시 계산하지 않는다.",
+  "site": {
+    "id": "site-muan",
+    "name": "무안 양식장",
+    "region": "전남 무안",
+    "ras_type": "RAS"
+  },
+  "period": {
+    "from": "2026-10-06T00:00:00Z",
+    "to": "2026-11-05T00:00:00Z"
+  },
+  "kpi": {
+    "site_id": "site-muan",
+    "org_id": "org-culiver",
+    "period": {
+      "from": "2026-10-06T00:00:00.000Z",
+      "to": "2026-11-05T00:00:00.000Z",
+      "granularity": "period"
+    },
+    "kpi_config": {
+      "version": "2026.1.0",
+      "params": {
+        "ei": {
+          "included_quality_flags": [
+            "ok"
+          ],
+          "min_biomass_delta_kg": 0
+        },
+        "fcr": {
+          "included_quality_flags": [
+            "ok"
+          ],
+          "min_biomass_delta_kg": 0
+        },
+        "oei": {
+          "included_quality_flags": [
+            "ok"
+          ],
+          "min_biomass_kg": 0,
+          "do_band_method": "sample_count",
+          "oei_scale_factor": 1,
+          "clamp_max": 100
+        },
+        "mortality": {
+          "moving_avg_window_days": 7
+        }
+      }
+    },
+    "metrics": {
+      "ei_total": {
+        "value": 0.242086956521739,
+        "unit": "kWh/kg",
+        "status": "green"
+      },
+      "ei_aeration": {
+        "value": 0.16695652173913045,
+        "unit": "kWh/kg",
+        "status": "green"
+      },
+      "oei": {
+        "value": 5.789930555555556,
+        "unit": "index",
+        "status": "red"
+      },
+      "fcr": {
+        "value": 0.06260869565217392,
+        "unit": "kg/kg",
+        "status": "green"
+      },
+      "mortality_rate": {
+        "value": 0.09347826086956522,
+        "unit": "%",
+        "status": "green"
+      }
+    },
+    "unavailability": {
+      "evidence": {
+        "biomass_delta_kg": 2300,
+        "biomass_record_count": 3,
+        "ei_min_biomass_delta_kg": 0,
+        "fcr_min_biomass_delta_kg": 0,
+        "oei_min_biomass_kg": 0,
+        "total_power_kwh": 556.7999999999997,
+        "aeration_power_kwh": 384,
+        "oei_aeration_power_kwh": 384,
+        "included_reading_count": 240,
+        "excluded_reading_count": 0,
+        "included_feed_count": 3,
+        "excluded_feed_count": 0,
+        "stocked_count": 230000,
+        "oei_applicable": true,
+        "do_total_samples": 120,
+        "do_excluded_samples": 0
+      },
+      "metrics": {}
+    },
+    "inputs": {
+      "total_power_kwh": 556.7999999999997,
+      "aeration_power_kwh": 384,
+      "biomass_start_kg": 1200,
+      "biomass_end_kg": 3500,
+      "biomass_delta_kg": 2300,
+      "included_reading_count": 240,
+      "excluded_reading_count": 0
+    },
+    "provenance": {
+      "source_meter_ids": [
+        "mtr-power-1",
+        "mtr-power-2"
+      ],
+      "source_biomass_refs": [
+        "hv-1",
+        "hv-2"
+      ],
+      "kpi_snapshot_id": null
+    },
+    "mortality_daily": [
+      {
+        "date": "2026-10-11",
+        "dead_count": 120,
+        "daily_rate_pct": 0.05217391304347826
+      },
+      {
+        "date": "2026-10-24",
+        "dead_count": 95,
+        "daily_rate_pct": 0.04130434782608696
+      }
+    ],
+    "mortality_moving_avg": [
+      {
+        "date": "2026-10-11",
+        "ma_rate_pct": 0.007453416149068323
+      },
+      {
+        "date": "2026-10-24",
+        "ma_rate_pct": 0.005900621118012423
+      }
+    ],
+    "generated_at": "2026-11-06T09:31:53.375Z"
+  },
+  "meters": {
+    "items": [
+      {
+        "id": "mtr-do-1",
+        "site_id": "site-muan",
+        "org_id": "org-culiver",
+        "type": "do",
+        "unit": "mg/L",
+        "is_aeration": false,
+        "tank_id": "tank-1",
+        "label": "1번 DO",
+        "certification_info": null
+      },
+      {
+        "id": "mtr-power-1",
+        "site_id": "site-muan",
+        "org_id": "org-culiver",
+        "type": "power",
+        "unit": "kWh",
+        "is_aeration": true,
+        "tank_id": "tank-1",
+        "label": "1번 폭기 전력",
+        "certification_info": null
+      },
+      {
+        "id": "mtr-power-2",
+        "site_id": "site-muan",
+        "org_id": "org-culiver",
+        "type": "power",
+        "unit": "kWh",
+        "is_aeration": false,
+        "tank_id": "tank-2",
+        "label": "2번 순환 전력",
+        "certification_info": null
+      }
+    ],
+    "total": 3
+  },
+  "readings": {
+    "mtr-do-1": {
+      "site_id": "site-muan",
+      "meter_id": "mtr-do-1",
+      "type": "do",
+      "granularity": "daily",
+      "unit": "mg/L",
+      "points": [
+        {
+          "ts": "2026-10-06T00:00:00.000Z",
+          "value": 5.999999999999999,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-07T00:00:00.000Z",
+          "value": 6.1,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-08T00:00:00.000Z",
+          "value": 5.949999999999999,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-09T00:00:00.000Z",
+          "value": 6.05,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-10T00:00:00.000Z",
+          "value": 5.6,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-11T00:00:00.000Z",
+          "value": 5.999999999999999,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-12T00:00:00.000Z",
+          "value": 6.1,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-13T00:00:00.000Z",
+          "value": 6.199999999999999,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-14T00:00:00.000Z",
+          "value": 6.05,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-15T00:00:00.000Z",
+          "value": 6.1499999999999995,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-16T00:00:00.000Z",
+          "value": 5.999999999999999,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-17T00:00:00.000Z",
+          "value": 5.625,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-18T00:00:00.000Z",
+          "value": 5.949999999999999,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-19T00:00:00.000Z",
+          "value": 6.05,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-20T00:00:00.000Z",
+          "value": 5.8999999999999995,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-21T00:00:00.000Z",
+          "value": 5.999999999999999,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-22T00:00:00.000Z",
+          "value": 6.1,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-23T00:00:00.000Z",
+          "value": 6.199999999999999,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-24T00:00:00.000Z",
+          "value": 5.65,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-25T00:00:00.000Z",
+          "value": 6.1499999999999995,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-26T00:00:00.000Z",
+          "value": 5.999999999999999,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-27T00:00:00.000Z",
+          "value": 6.1,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-28T00:00:00.000Z",
+          "value": 5.949999999999999,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-29T00:00:00.000Z",
+          "value": 6.05,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-30T00:00:00.000Z",
+          "value": 5.8999999999999995,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-10-31T00:00:00.000Z",
+          "value": 5.674999999999999,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-11-01T00:00:00.000Z",
+          "value": 6.1,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-11-02T00:00:00.000Z",
+          "value": 6.199999999999999,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-11-03T00:00:00.000Z",
+          "value": 6.05,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        },
+        {
+          "ts": "2026-11-04T00:00:00.000Z",
+          "value": 6.1499999999999995,
+          "quality_flag": "ok",
+          "meter_id": "mtr-do-1"
+        }
+      ]
+    },
+    "mtr-power-1": {
+      "site_id": "site-muan",
+      "meter_id": "mtr-power-1",
+      "type": "power",
+      "granularity": "daily",
+      "unit": "kWh",
+      "points": [
+        {
+          "ts": "2026-10-06T00:00:00.000Z",
+          "value": 12.7,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-07T00:00:00.000Z",
+          "value": 12.9,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-08T00:00:00.000Z",
+          "value": 12.85,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-09T00:00:00.000Z",
+          "value": 12.8,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-10T00:00:00.000Z",
+          "value": 12.75,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-11T00:00:00.000Z",
+          "value": 12.7,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-12T00:00:00.000Z",
+          "value": 12.9,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-13T00:00:00.000Z",
+          "value": 12.85,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-14T00:00:00.000Z",
+          "value": 12.8,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-15T00:00:00.000Z",
+          "value": 12.75,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-16T00:00:00.000Z",
+          "value": 12.7,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-17T00:00:00.000Z",
+          "value": 12.9,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-18T00:00:00.000Z",
+          "value": 12.85,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-19T00:00:00.000Z",
+          "value": 12.8,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-20T00:00:00.000Z",
+          "value": 12.75,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-21T00:00:00.000Z",
+          "value": 12.7,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-22T00:00:00.000Z",
+          "value": 12.9,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-23T00:00:00.000Z",
+          "value": 12.85,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-24T00:00:00.000Z",
+          "value": 12.8,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-25T00:00:00.000Z",
+          "value": 12.75,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-26T00:00:00.000Z",
+          "value": 12.7,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-27T00:00:00.000Z",
+          "value": 12.9,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-28T00:00:00.000Z",
+          "value": 12.85,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-29T00:00:00.000Z",
+          "value": 12.8,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-30T00:00:00.000Z",
+          "value": 12.75,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-10-31T00:00:00.000Z",
+          "value": 12.7,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-11-01T00:00:00.000Z",
+          "value": 12.9,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-11-02T00:00:00.000Z",
+          "value": 12.85,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-11-03T00:00:00.000Z",
+          "value": 12.8,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        },
+        {
+          "ts": "2026-11-04T00:00:00.000Z",
+          "value": 12.75,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-1"
+        }
+      ]
+    },
+    "mtr-power-2": {
+      "site_id": "site-muan",
+      "meter_id": "mtr-power-2",
+      "type": "power",
+      "granularity": "daily",
+      "unit": "kWh",
+      "points": [
+        {
+          "ts": "2026-10-06T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-07T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-08T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-09T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-10T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-11T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-12T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-13T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-14T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-15T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-16T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-17T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-18T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-19T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-20T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-21T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-22T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-23T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-24T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-25T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-26T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-27T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-28T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-29T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-30T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-10-31T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-11-01T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-11-02T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-11-03T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        },
+        {
+          "ts": "2026-11-04T00:00:00.000Z",
+          "value": 5.76,
+          "quality_flag": "ok",
+          "meter_id": "mtr-power-2"
+        }
+      ]
+    }
+  },
+  "comparison": {
+    "site_id": "site-muan",
+    "baseline": {
+      "period": {
+        "from": "2026-08-27T00:00:00.000Z",
+        "to": "2026-09-26T00:00:00.000Z",
+        "granularity": "period"
+      },
+      "config_version": "2026.1.0",
+      "metrics": {
+        "ei_total": 0.21,
+        "ei_aeration": 0.14,
+        "oei": 8.1,
+        "fcr": 0.12,
+        "mortality_rate": 0.3
+      }
+    },
+    "current": {
+      "period": {
+        "from": "2026-10-06T00:00:00.000Z",
+        "to": "2026-11-05T00:00:00.000Z",
+        "granularity": "period"
+      },
+      "config_version": "2026.1.0",
+      "metrics": {
+        "ei_total": 0.242086956521739,
+        "ei_aeration": 0.16695652173913045,
+        "oei": 5.789930555555556,
+        "fcr": 0.06260869565217392,
+        "mortality_rate": 0.09347826086956522
+      },
+      "unavailability": {
+        "evidence": {
+          "biomass_delta_kg": 2300,
+          "biomass_record_count": 3,
+          "ei_min_biomass_delta_kg": 0,
+          "fcr_min_biomass_delta_kg": 0,
+          "oei_min_biomass_kg": 0,
+          "total_power_kwh": 556.7999999999997,
+          "aeration_power_kwh": 384,
+          "oei_aeration_power_kwh": 384,
+          "included_reading_count": 240,
+          "excluded_reading_count": 0,
+          "included_feed_count": 3,
+          "excluded_feed_count": 0,
+          "stocked_count": 230000,
+          "oei_applicable": true,
+          "do_total_samples": 120,
+          "do_excluded_samples": 0
+        },
+        "metrics": {}
+      }
+    },
+    "comparison": {
+      "ei_total": {
+        "delta": 0.03208695652173901,
+        "improvement_pct": -15.279503105590006,
+        "direction": "lower_is_better"
+      },
+      "ei_aeration": {
+        "delta": 0.026956521739130435,
+        "improvement_pct": -19.254658385093165,
+        "direction": "lower_is_better"
+      },
+      "oei": {
+        "delta": -2.3100694444444434,
+        "improvement_pct": -28.519375857338808,
+        "direction": "higher_is_better"
+      },
+      "fcr": {
+        "delta": -0.05739130434782608,
+        "improvement_pct": 47.826086956521735,
+        "direction": "lower_is_better"
+      },
+      "mortality_rate": {
+        "delta": -0.20652173913043476,
+        "improvement_pct": 68.84057971014492,
+        "direction": "lower_is_better"
+      }
+    },
+    "provenance": {
+      "baseline_id": "bsl-1",
+      "current_kpi_snapshot_id": null
+    }
+  },
+  "report": {
+    "id": "mrv-a1eb152e-72ba-4a3b-9564-14ea0d6df135",
+    "site_id": "site-muan",
+    "org_id": "org-culiver",
+    "baseline_id": "bsl-1",
+    "period": {
+      "from": "2026-10-06T00:00:00.000Z",
+      "to": "2026-11-05T00:00:00.000Z",
+      "granularity": "period"
+    },
+    "before": {
+      "period": {
+        "from": "2026-08-27T00:00:00.000Z",
+        "to": "2026-09-26T00:00:00.000Z",
+        "granularity": "period"
+      },
+      "config_version": "2026.1.0",
+      "ei_total": 0.21,
+      "ei_aeration": 0.14,
+      "total_power_kwh": 0,
+      "aeration_power_kwh": 0,
+      "biomass_delta_kg": 0,
+      "scope2_tco2e": null,
+      "kpi_snapshot_id": "snap-bsl-1"
+    },
+    "after": {
+      "period": {
+        "from": "2026-10-06T00:00:00.000Z",
+        "to": "2026-11-05T00:00:00.000Z",
+        "granularity": "period"
+      },
+      "config_version": "2026.1.0",
+      "ei_total": 0.242086956521739,
+      "ei_aeration": 0.16695652173913045,
+      "total_power_kwh": 556.7999999999997,
+      "aeration_power_kwh": 384,
+      "biomass_delta_kg": 2300,
+      "scope2_tco2e": 0.2323526399999999,
+      "kpi_snapshot_id": "snap-5f015b69-6bbd-4de2-8e2c-d51577a69b17"
+    },
+    "reduction_tco2e": -0.030796739999999885,
+    "formula_text": "적용 배출계수: KR-GRID-2023 (기후에너지환경부 국가 온실가스 통계 관리위원회 확정 2023년도 국가 전력배출계수 (2025-12-17 확정 · 2025-12-18 공표) · CO2e 기준 · 단년도 평균, 2023년, 0.4173 tCO2e/MWh)\nScope2 배출량(after) = 0.5568 MWh × 0.4173 tCO2e/MWh = 0.2324 tCO2e\n감축량 = (0.21 - 0.2421) kWh/kg × 2300 kg / 1000 × 0.4173 tCO2e/MWh = -0.0308 tCO2e",
+    "emission_factor": {
+      "version": "KR-GRID-2023",
+      "source": "기후에너지환경부 국가 온실가스 통계 관리위원회 확정 2023년도 국가 전력배출계수 (2025-12-17 확정 · 2025-12-18 공표) · CO2e 기준 · 단년도 평균",
+      "year": 2023
+    },
+    "boundary": {
+      "site_id": "site-muan",
+      "site_name": "무안 양식장",
+      "included_meter_ids": [
+        "mtr-power-1",
+        "mtr-power-2"
+      ],
+      "included_quality_flags": [
+        "ok"
+      ],
+      "after_power_measurement_basis": {
+        "metered": 240,
+        "calculated": 0,
+        "estimated": 0,
+        "unrecorded": 0
+      },
+      "after_biomass_basis": {
+        "start": {
+          "source_ref": "hv-1",
+          "ts": "2026-10-08T00:00:00.000Z",
+          "biomass_kg": 1200,
+          "basis": "calculated",
+          "basis_note": "입식 120,000미 × 평균 10g",
+          "survival_adjusted": false
+        },
+        "end": {
+          "source_ref": "hv-2",
+          "ts": "2026-11-02T00:00:00.000Z",
+          "biomass_kg": 3500,
+          "basis": "measured",
+          "basis_note": "출하 계량 전표 #2026-1102",
+          "survival_adjusted": null
+        }
+      },
+      "after_metric_evidence": {
+        "biomass_delta_kg": 2300,
+        "biomass_record_count": 3,
+        "ei_min_biomass_delta_kg": 0,
+        "fcr_min_biomass_delta_kg": 0,
+        "oei_min_biomass_kg": 0,
+        "total_power_kwh": 556.7999999999997,
+        "aeration_power_kwh": 384,
+        "oei_aeration_power_kwh": 384,
+        "included_reading_count": 240,
+        "excluded_reading_count": 0,
+        "included_feed_count": 3,
+        "excluded_feed_count": 0,
+        "stocked_count": 230000,
+        "oei_applicable": true,
+        "do_total_samples": 120,
+        "do_excluded_samples": 0
+      },
+      "biomass_source_refs": {
+        "before": [],
+        "after": [
+          "hv-1",
+          "hv-2"
+        ]
+      },
+      "config_version": {
+        "before": "2026.1.0",
+        "after": "2026.1.0"
+      },
+      "emission_factor": {
+        "version": "KR-GRID-2023",
+        "source": "기후에너지환경부 국가 온실가스 통계 관리위원회 확정 2023년도 국가 전력배출계수 (2025-12-17 확정 · 2025-12-18 공표) · CO2e 기준 · 단년도 평균",
+        "year": 2023,
+        "factor_tco2e_per_mwh": 0.4173,
+        "gas_scope": "CO2e",
+        "basis_from_year": 2023,
+        "basis_to_year": 2023,
+        "document_name": "2025년 승인 국가 온실가스 배출·흡수계수",
+        "issuing_body": "온실가스종합정보센터(GIR)",
+        "published_on": "2025-12-18",
+        "source_url": "https://www.gir.go.kr/home/board/read.do?boardId=86&boardMasterId=2&menuId=36",
+        "method": "location_based"
+      },
+      "assumptions": [
+        "전력사용량은 site 전체 전력계(main+blower 서브미터) 합산 기준이다.",
+        "생산량은 harvest_logs 개시/마감 시점 biomass_kg 차이로 정의한다(Δbiomass).",
+        "감축량은 After 기간 실제 생산량을 기준으로 정규화했다(생산량 증가 효과 배제)."
+      ]
+    },
+    "market_based": {
+      "totalMwh": 0.557,
+      "contractualMwh": 0.557,
+      "residualMwh": 0,
+      "contractualTco2e": 0,
+      "residualTco2e": 0,
+      "marketBasedTco2e": 0,
+      "locationBasedTco2e": 0.232,
+      "applied": [
+        {
+          "id": "ci-4f043371-8a4a-4c10-960d-b5e1c3eb648e",
+          "kind": "rec",
+          "label": "REC(재생에너지 공급인증서)",
+          "totalMwh": 12,
+          "appliedMwh": 0.557,
+          "factorTco2ePerMwh": 0,
+          "tco2e": 0,
+          "overlapRatio": 0.082,
+          "documentName": "2026년 REC 거래 확인서",
+          "certificateId": "K-REC-2026-0001"
+        }
+      ],
+      "oversuppliedMwh": 0.43,
+      "formulaText": "Scope 2 market-based\n  총 전력 0.557 MWh = 계약 0.557 MWh + 잔여 0 MWh\n  계약 REC(재생에너지 공급인증서) 0.557 MWh × 0 tCO2e/MWh = 0 tCO2e (증서 12 MWh 중 기간 겹침 0.082) [증서번호 K-REC-2026-0001]\n  잔여 0 MWh × 0.4173 tCO2e/MWh = 0 tCO2e  ※ residual mix 미공표로 계통 계수 대체\n  market-based 합계 = 0 tCO2e\n  location-based 대조 = 0.557 MWh × 0.4173 = 0.232 tCO2e",
+      "caveats": [
+        "한국에는 공표된 residual mix 가 없어, 계약으로 덮이지 않은 잔여 전력에 location-based 계통 계수(0.4173 tCO2e/MWh)를 그대로 적용했습니다. 잔여 전력의 실제 배출은 계통 평균보다 높을 수 있으므로 이 값은 과소 산정일 수 있습니다.",
+        "증서는 유효기간과 리포트 기간이 겹치는 만큼 시간 비례로 배분했습니다. 월별 배분표가 있는 증서라면 실제 배분과 다를 수 있습니다.",
+        "증서 0.43 MWh 는 이 기간 소비량을 넘어 적용되지 않았습니다 (소비하지 않은 전력에 증서를 쓸 수 없습니다)."
+      ]
+    },
+    "template": {
+      "id": "rpt-tpl-dca6ebc9-94fe-4b69-915f-c9e5cf280d3f",
+      "name": "경영진 요약판",
+      "sections": [
+        "summary",
+        "kpi_table",
+        "formula",
+        "market_based",
+        "provenance"
+      ],
+      "metrics": [
+        "ei_total",
+        "total_power_kwh",
+        "scope2_tco2e"
+      ],
+      "cover_title": null,
+      "cover_note": null
+    },
+    "pdf_available": true,
+    "generated_by": "usr-owner",
+    "generated_at": "2026-11-06T09:31:53.315Z"
+  },
+  "experiment": {
+    "id": "exp-4d10b303-d38a-47ca-b5e7-ed955fa1c28a",
+    "site_id": "site-muan",
+    "org_id": "org-culiver",
+    "name": "폭기 간헐 운전(야간 30% 감속)",
+    "hypothesis": "야간 DO 여유가 있어 폭기를 30% 줄여도 폐사율이 늘지 않고 EI 가 내려간다.",
+    "control_from": "2026-10-06T00:00:00.000Z",
+    "control_to": "2026-10-20T00:00:00.000Z",
+    "treatment_from": "2026-10-21T00:00:00.000Z",
+    "treatment_to": "2026-11-04T00:00:00.000Z",
+    "status": "running",
+    "conclusion": null,
+    "concluded_at": null,
+    "created_by": "usr-owner",
+    "created_at": null,
+    "result": {
+      "site_id": "site-muan",
+      "baseline": {
+        "period": {
+          "from": "2026-10-06T00:00:00.000Z",
+          "to": "2026-10-20T00:00:00.000Z",
+          "granularity": "period"
+        },
+        "config_version": "2026.1.0",
+        "metrics": {
+          "ei_total": null,
+          "ei_aeration": null,
+          "oei": null,
+          "fcr": null,
+          "mortality_rate": 0.05217391304347826
+        },
+        "unavailability": {
+          "evidence": {
+            "biomass_delta_kg": 0,
+            "biomass_record_count": 1,
+            "ei_min_biomass_delta_kg": 0,
+            "fcr_min_biomass_delta_kg": 0,
+            "oei_min_biomass_kg": 0,
+            "total_power_kwh": 259.88999999999993,
+            "aeration_power_kwh": 179.25,
+            "oei_aeration_power_kwh": 179.25,
+            "included_reading_count": 112,
+            "excluded_reading_count": 2,
+            "included_feed_count": 2,
+            "excluded_feed_count": 1,
+            "stocked_count": 230000,
+            "oei_applicable": true,
+            "do_total_samples": 56,
+            "do_excluded_samples": 1
+          },
+          "metrics": {
+            "ei_total": {
+              "reasons": [
+                {
+                  "id": "biomass_single_record",
+                  "kind": "cause",
+                  "text": "이 기간의 생산량 기록이 한 건뿐입니다 — 개시와 마감이 같은 기록이라 생산량 변화가 0.00 kg 로 잡히고, EI(전력집약도) 의 분모가 되지 못합니다.",
+                  "action": "기간 양 끝에 각각 생체량 기록이 있어야 차이를 낼 수 있습니다. 기간을 넓혀 다시 조회하거나 마감 시점의 기록을 등록하십시오. 생산량은 수확·계측 기록(mrv_harvest_logs)의 기간 양 끝 생체량 차이로 정의됩니다. 「급이 · 폐사 · 전력 · 생산량 입력」 화면(/mrv/input)의 '생산량 입력' 폼이나 '생산량 기록지 업로드(CSV)' 로 기간 양 끝 두 시점의 생체량을 등록하거나, 기록이 들어 있는 기간으로 다시 조회하십시오. 등록에는 쓰기 권한(owner/operator)이 필요하고, 기록마다 산정 근거(실측 출하·계측량 / 계산생체량 / 어림값)를 함께 적어야 합니다."
+                }
+              ]
+            },
+            "ei_aeration": {
+              "reasons": [
+                {
+                  "id": "biomass_single_record",
+                  "kind": "cause",
+                  "text": "이 기간의 생산량 기록이 한 건뿐입니다 — 개시와 마감이 같은 기록이라 생산량 변화가 0.00 kg 로 잡히고, 폭기 EI 의 분모가 되지 못합니다.",
+                  "action": "기간 양 끝에 각각 생체량 기록이 있어야 차이를 낼 수 있습니다. 기간을 넓혀 다시 조회하거나 마감 시점의 기록을 등록하십시오. 생산량은 수확·계측 기록(mrv_harvest_logs)의 기간 양 끝 생체량 차이로 정의됩니다. 「급이 · 폐사 · 전력 · 생산량 입력」 화면(/mrv/input)의 '생산량 입력' 폼이나 '생산량 기록지 업로드(CSV)' 로 기간 양 끝 두 시점의 생체량을 등록하거나, 기록이 들어 있는 기간으로 다시 조회하십시오. 등록에는 쓰기 권한(owner/operator)이 필요하고, 기록마다 산정 근거(실측 출하·계측량 / 계산생체량 / 어림값)를 함께 적어야 합니다."
+                }
+              ]
+            },
+            "oei": {
+              "reasons": [
+                {
+                  "id": "biomass_single_record",
+                  "kind": "cause",
+                  "text": "이 기간의 생산량 기록이 한 건뿐입니다 — 개시와 마감이 같은 기록이라 생산량 변화가 0.00 kg 로 잡히고, OEI(산소효율지수) 의 분모가 되지 못합니다.",
+                  "action": "기간 양 끝에 각각 생체량 기록이 있어야 차이를 낼 수 있습니다. 기간을 넓혀 다시 조회하거나 마감 시점의 기록을 등록하십시오. 생산량은 수확·계측 기록(mrv_harvest_logs)의 기간 양 끝 생체량 차이로 정의됩니다. 「급이 · 폐사 · 전력 · 생산량 입력」 화면(/mrv/input)의 '생산량 입력' 폼이나 '생산량 기록지 업로드(CSV)' 로 기간 양 끝 두 시점의 생체량을 등록하거나, 기록이 들어 있는 기간으로 다시 조회하십시오. 등록에는 쓰기 권한(owner/operator)이 필요하고, 기록마다 산정 근거(실측 출하·계측량 / 계산생체량 / 어림값)를 함께 적어야 합니다."
+                }
+              ]
+            },
+            "fcr": {
+              "reasons": [
+                {
+                  "id": "biomass_single_record",
+                  "kind": "cause",
+                  "text": "이 기간의 생산량 기록이 한 건뿐입니다 — 개시와 마감이 같은 기록이라 생산량 변화가 0.00 kg 로 잡히고, FCR(사료요구율) 의 분모가 되지 못합니다.",
+                  "action": "기간 양 끝에 각각 생체량 기록이 있어야 차이를 낼 수 있습니다. 기간을 넓혀 다시 조회하거나 마감 시점의 기록을 등록하십시오. 생산량은 수확·계측 기록(mrv_harvest_logs)의 기간 양 끝 생체량 차이로 정의됩니다. 「급이 · 폐사 · 전력 · 생산량 입력」 화면(/mrv/input)의 '생산량 입력' 폼이나 '생산량 기록지 업로드(CSV)' 로 기간 양 끝 두 시점의 생체량을 등록하거나, 기록이 들어 있는 기간으로 다시 조회하십시오. 등록에는 쓰기 권한(owner/operator)이 필요하고, 기록마다 산정 근거(실측 출하·계측량 / 계산생체량 / 어림값)를 함께 적어야 합니다."
+                }
+              ]
+            }
+          }
+        }
+      },
+      "current": {
+        "period": {
+          "from": "2026-10-21T00:00:00.000Z",
+          "to": "2026-11-04T00:00:00.000Z",
+          "granularity": "period"
+        },
+        "config_version": "2026.1.0",
+        "metrics": {
+          "ei_total": 0.37127142857142864,
+          "ei_aeration": 0.25607142857142856,
+          "oei": 3.7656903765690375,
+          "fcr": 0.07714285714285714,
+          "mortality_rate": 0.04130434782608696
+        },
+        "unavailability": {
+          "evidence": {
+            "biomass_delta_kg": 700,
+            "biomass_record_count": 2,
+            "ei_min_biomass_delta_kg": 0,
+            "fcr_min_biomass_delta_kg": 0,
+            "oei_min_biomass_kg": 0,
+            "total_power_kwh": 259.89000000000004,
+            "aeration_power_kwh": 179.25,
+            "oei_aeration_power_kwh": 179.25,
+            "included_reading_count": 112,
+            "excluded_reading_count": 2,
+            "included_feed_count": 1,
+            "excluded_feed_count": 2,
+            "stocked_count": 230000,
+            "oei_applicable": true,
+            "do_total_samples": 56,
+            "do_excluded_samples": 1
+          },
+          "metrics": {}
+        }
+      },
+      "comparison": {
+        "ei_total": {
+          "delta": null,
+          "improvement_pct": null,
+          "direction": "lower_is_better"
+        },
+        "ei_aeration": {
+          "delta": null,
+          "improvement_pct": null,
+          "direction": "lower_is_better"
+        },
+        "oei": {
+          "delta": null,
+          "improvement_pct": null,
+          "direction": "higher_is_better"
+        },
+        "fcr": {
+          "delta": null,
+          "improvement_pct": null,
+          "direction": "lower_is_better"
+        },
+        "mortality_rate": {
+          "delta": -0.010869565217391297,
+          "improvement_pct": 20.83333333333332,
+          "direction": "lower_is_better"
+        }
+      },
+      "provenance": {
+        "baseline_id": null,
+        "current_kpi_snapshot_id": null,
+        "experiment_id": "exp-4d10b303-d38a-47ca-b5e7-ed955fa1c28a"
+      }
+    }
+  },
+  "alerts": {
+    "site_id": "site-muan",
+    "org_id": "org-culiver",
+    "items": [
+      {
+        "id": "alert-8409cf49-63cb-4736-83b3-23c348dd9cdc",
+        "type": "do_low",
+        "severity": "critical",
+        "payload": {
+          "metric": "do",
+          "value": 2.4,
+          "threshold": 3,
+          "meter_id": "mtr-do-1",
+          "ts": "2026-11-06T08:31:53.335Z"
+        },
+        "status": "open"
+      }
+    ],
+    "total": 1
+  },
+  "recommendations": {
+    "site_id": "site-muan",
+    "items": [
+      {
+        "type": "feed",
+        "recipe_id": "recipe-eb230024-5284-486b-af04-2d248fe1e3cc",
+        "current_version": 1,
+        "params": {
+          "feed_kg_per_day": 56.7
+        },
+        "source_refs": [
+          "feed-3"
+        ],
+        "rationale": "[급이] 최근 1일 평균 급이량 54.00kg/일, 생체량 3500.00kg 기준 목표 급이율 3.0%(=105.00kg/일) 대비 1회 조정폭 상한 5.0%를 적용해 56.70kg/일을 권장합니다.",
+        "config_version": "2026.1.0",
+        "generated_at": "2026-11-06T09:31:53.046Z"
+      },
+      {
+        "type": "oxygen",
+        "recipe_id": "recipe-b7aa70ce-be8e-429c-a0c5-175d3e26b56b",
+        "current_version": 1,
+        "params": {
+          "oxygen_target_do_mg_l": 5
+        },
+        "source_refs": [
+          "mtr-do-1"
+        ],
+        "rationale": "[산소] 현재 DO 6.30mg/L 가 목표대역 중앙권이므로 불필요한 과폭기를 방지하기 위해 목표를 대역 하한 5.00mg/L 로 유지합니다.",
+        "config_version": "2026.1.0",
+        "generated_at": "2026-11-06T09:31:53.046Z"
+      },
+      {
+        "type": "circulation",
+        "recipe_id": "recipe-586a98bc-90be-4345-9082-792bf2e8c99f",
+        "current_version": 1,
+        "params": {
+          "circulation_setting": "normal"
+        },
+        "source_refs": [
+          "mtr-do-1"
+        ],
+        "rationale": "[순환] 현재 수온/DO 가 안정 범위이므로 순환 설정을 유지합니다.",
+        "config_version": "2026.1.0",
+        "generated_at": "2026-11-06T09:31:53.046Z"
+      }
+    ],
+    "status": "recommend_only"
+  },
+  "control_actions": {
+    "items": [
+      {
+        "id": "ca-bc18fc23-c568-4717-9f94-b234ec1f8ea7",
+        "tank_id": "tank-2",
+        "recipe_version_id": "recipever-7b072cae-3409-4bf3-bb1f-fb08eff1b10f",
+        "site_id": "site-muan",
+        "org_id": "org-culiver",
+        "recommended_json": {
+          "oxygen_target_do_mg_l": 5,
+          "source_refs": [
+            "mtr-do-1"
+          ]
+        },
+        "status": "pending",
+        "approved_by": null,
+        "approved_at": null,
+        "applied_at": null,
+        "result_json": null,
+        "created_at": "2026-11-06T09:31:53.259Z"
+      },
+      {
+        "id": "ca-dfdc6a5c-d58f-4389-8bfc-bb4842b11fa1",
+        "tank_id": "tank-1",
+        "recipe_version_id": "recipever-e40ad5ff-c2bb-4d6d-a57e-a68267565d02",
+        "site_id": "site-muan",
+        "org_id": "org-culiver",
+        "recommended_json": {
+          "feed_kg_per_day": 56.7,
+          "source_refs": [
+            "feed-3"
+          ]
+        },
+        "status": "applied",
+        "approved_by": "usr-owner",
+        "approved_at": "2026-11-06T09:31:53.229Z",
+        "applied_at": "2026-11-06T09:31:53.244Z",
+        "result_json": null,
+        "created_at": "2026-11-06T09:31:53.217Z"
+      }
+    ],
+    "total": 2
+  }
+}

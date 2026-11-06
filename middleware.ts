@@ -118,6 +118,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request: { headers: requestHeaders } })
   }
 
+  // 컬리버 MRV 공개 데모. 로그인 없이 열리는 읽기 전용 시연 화면이라 /mrv 보호에서 뺀다 —
+  // 데이터는 저장소에 든 픽스처(lib/mrv/demo)뿐이고 어떤 API 도 부르지 않는다.
+  if (pathname === "/mrv/demo" || pathname.startsWith("/mrv/demo/")) return NextResponse.next()
+
   const isProtected = PROTECTED_PATHS.some(p => pathname === p || pathname.startsWith(p + "/"))
   const isAuthPage = pathname === "/login" || pathname === "/signup" || pathname === "/verify-email" || pathname === "/forgot-password" || pathname === "/reset-password"
 

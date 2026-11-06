@@ -20,14 +20,14 @@ import type {
   ReadingsResponse,
 } from "@/lib/mrv/api-types"
 
-/** 서버 원본(wire) 응답 형태 — snake_case. 이 파일 밖으로 내보내지 않는다. */
-type WireReadingPoint = {
+/** 서버 원본(wire) 응답 형태 — snake_case. 공개 데모 픽스처가 같은 모양이라 함께 내보낸다. */
+export type WireReadingPoint = {
   ts: string
   value: number
   quality_flag: ReadingQualityFlag
   meter_id?: string | null
 }
-type WireReadingsResponse = {
+export type WireReadingsResponse = {
   site_id: string
   meter_id: string | null
   type: string
@@ -36,7 +36,7 @@ type WireReadingsResponse = {
   points: WireReadingPoint[]
 }
 
-function mapWire(wire: WireReadingsResponse): ReadingsResponse {
+export function mapWireReadings(wire: WireReadingsResponse): ReadingsResponse {
   return {
     siteId: wire.site_id,
     meterId: wire.meter_id,
@@ -150,7 +150,7 @@ export function useSiteReadings(params: {
           if (cancelled) return
           setResults((prev) => ({
             ...prev,
-            [target.key]: { key: requestKey, data: mapWire(wire) },
+            [target.key]: { key: requestKey, data: mapWireReadings(wire) },
           }))
         })
         .catch((error) => {

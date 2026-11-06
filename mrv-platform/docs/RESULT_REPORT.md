@@ -293,3 +293,14 @@ python3 raspberry-pi/verify-mrv.py
 
 DB 마이그레이션 11개는 Supabase SQL Editor 에서 사람이 실행한다(전부 적용 완료).
 상세는 `mrv-platform/docs/HANDOVER.md`.
+
+---
+
+## 12. 2026-11-06 추가 — 배포와 운영 반영 · 공개 데모 (최종본 반영)
+
+- **main 병합(PR #48)**: 10월 1일 동기화 지점 기준 3-way 병합으로 충돌 12개 파일을 풀었다. 웹 셸은 main 의 새 구조 위에 MRV 진입 항목만 얹고, 라즈베리파이는 main 1.10.0 기능과 MRV 모드를 모두 유지하며 운전 모드를 `[webui] mode = shrimp | agriculture | mrv` 로 통일했다(옛 `[device] mode` 별칭 유지). 병합 후 검증 전부 통과.
+- **운영 반영**: Vercel Production 이 main 이 아닌 작업 브랜치(`claude/shrimp-water-quality-monitoring-aZ4EY`)에 묶여 있어 그 브랜치에 main 을 병합했다(충돌 2개, AMP 전용판의 MRV 콜백 수용 보강, 장비 1.11.1). www.shrimp365.kr/mrv 가 운영에 올라갔다(비로그인은 로그인 화면으로 307). 첫 조직·owner 초대 행 SQL 등록 완료.
+- **공개 데모 `/mrv/demo`**: 로그인 없이 보는 읽기 전용 시연. 시연 자료(`lib/mrv/demo/fixture.json`, 실제 API 응답 캡처)로 앱과 같은 컴포넌트를 그리고 어떤 API 도 부르지 않는다. 미들웨어는 이 경로만 보호에서 뺀다. 2026-11-06 운영 반영 — www.shrimp365.kr/mrv/demo.
+- **결함 #13**: AMP 전용판 화면이 본판 수집기가 넘기는 MRV 콜백을 받지 못해 1.11.1 업데이트 시 시작 시 TypeError 로 정지할 결함 — 운영 병합에서 발견해 수정.
+- **새 한계**: 운영 배포 브랜치가 main 이 아님(Vercel Production Branch 변경 권장).
+- 최종본 PDF: `mrv-platform/docs/RESULT_REPORT_FINAL.pdf` (39쪽, 캡처 29장).
