@@ -448,7 +448,7 @@ figcaption b{color:#1e3a8a}
 <figure><div class="crop" data-src="result-report/shots/demo-full.jpg" data-w="1280" data-y="0,1180"></div><figcaption><b>그림 9-1</b> 공개 데모 윗부분 — 시연 자료 안내, 사슬 6단계 목차, KPI 5종, 시계열. 로그인 없이 연 상태다.</figcaption></figure>
 <figure><div class="crop" data-src="result-report/shots/demo-full.jpg" data-w="1280" data-y="1620,2760"></div><figcaption><b>그림 9-2</b> 전·후 비교, 추천과 승인형 제어 이력, 알림, 비교실험(A/B). 대조군의 「산출 불가」는 0 으로 바꾸지 않고 사유를 적는다.</figcaption></figure>
 <figure><div class="crop" data-src="result-report/shots/demo-full.jpg" data-w="1280" data-y="3120,4273"></div><figcaption><b>그림 9-3</b> MRV 리포트 — 감축량, 서식이 고른 지표, 산식 전문, Scope 2 market-based 와 residual mix 한계 문구.</figcaption></figure>
-<p class="small">보고서 작성 시점(11/06)에 공개 데모는 작업 브랜치 커밋 41b8545 에 있고 운영 반영 전이다. 운영에 올리려면 8장과 같은 경로(main 병합 → 운영 브랜치 병합)를 한 번 더 밟는다.</p>
+<p class="small">공개 데모는 2026-11-06 에 8장과 같은 경로(main 병합 → 운영 브랜치 병합)로 운영에 반영됐다 — <b>www.shrimp365.kr/mrv/demo</b> 에서 로그인 없이 열린다.</p>
 
 <h2>10. 대표 확인 흐름 — "빈 조직에서 KPI 까지, SQL 한 줄 없이"</h2>
 <pre>사이트 등록 → 수조 등록 → DO 목표대역 → 계측기 3대 → 입식 100,000마리
@@ -496,7 +496,6 @@ OEI(산소효율)    9.04 index   ※ 잠정 지표</pre>
 <li><b>Vercel 환경변수</b> — CRON_SECRET(없으면 알림 배치와 리포트 자동 생성이 돌지 않는다) · MRV_MAIL_PROVIDER · MRV_MAIL_FROM · RESEND_API_KEY · NEXT_PUBLIC_SITE_URL</li>
 <li><b>Vercel Production Branch 를 main 으로 변경</b> — 운영 브랜치 수동 병합을 없앤다</li>
 <li><b>현장 장비 1.11.1 꾸러미 서명·배포</b> — 장비 쪽 MRV 모드는 이 배포 뒤에 올라간다</li>
-<li><b>공개 데모 운영 반영</b> — main 병합 → 운영 브랜치 병합</li>
 <li><b>배출계수 1차 대조</b> — 0.4173 의 원문 PDF 쪽수까지 확정하려면 한 번 더 대조</li>
 <li><b>외부 대시보드 0.4663 과의 값 불일치 정리</b> — 이 플랫폼 안에는 그 값이 없다. 함께 제출할 때 어느 쪽을 쓸지 정해야 한다(섞으면 같은 기간에 두 배출량이 나온다)</li>
 <li><b>owner 로그인 후 온보딩 4단계 완주</b> — 사이트 · 수조 · 계측기 등록은 설정 화면에서, 수집 API 키 발급은 운영진 게이트웨이를 거친다</li>
