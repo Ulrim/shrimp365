@@ -451,7 +451,10 @@ def apply_update(blob: bytes, version: str, port: int) -> tuple[bool, str]:
 # ── 설정 ─────────────────────────────────────────────────────────────────────
 
 def read_settings(path: Path) -> dict:
-    cfg = configparser.ConfigParser()
+    # interpolation=None — 장비 본체(shrimp365_sensor.load_config)와 같게 읽는다.
+    # 기본값은 값에 섞인 `%` 를 치환 문법으로 보고 꺼낼 때 터지는데, 여기서 터지면
+    # 업데이트 타이머가 매번 실패한다(그쪽 머리말에 자세히 적어 두었다).
+    cfg = configparser.ConfigParser(interpolation=None)
     cfg.read(path, encoding="utf-8")
     endpoint = cfg.get("server", "endpoint", fallback="https://www.shrimp365.kr/api/sensors/data")
     base = endpoint.split("/api/")[0].rstrip("/")

@@ -121,8 +121,11 @@ def serve(
     get_lang=None,
     *,
     brand: dict | None = None,
+    **_unused,
 ):
     """webui.serve() 와 같은 시그니처. AMP판이 쓰지 않는 콜백은 받아도 넘기지 않는다.
+    (탄소 MRV 전력 입력 콜백 on_mrv_* · get_mrv_meters 등은 **_unused 로 받아 버린다 —
+    본판 수집기가 그 인자를 넘겨도 AMP판이 시작 시 TypeError 로 죽지 않아야 한다.)
 
     brand 는 read_brand() 의 결과(support_phone·app_name·pair_url). 없으면 빈 값.
     """

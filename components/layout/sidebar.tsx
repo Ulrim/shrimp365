@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { SHOW_BOARD, showCardNews } from "@/lib/features"
+import { MRV_PLATFORM_IS_INTERNAL, MRV_PLATFORM_URL, SHOW_BOARD, showCardNews } from "@/lib/features"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils"
 import {
   Home, LayoutDashboard, Droplets, BookOpen, Building2,
   BrainCircuit, BarChart3, Settings, LogOut,
-  ChevronLeft, ChevronRight, Zap, FlaskConical, Package, ShieldCheck,
+  ChevronLeft, ChevronRight, Leaf, FlaskConical, Package, ShieldCheck,
   ClipboardList, HelpCircle, MessageSquare, Layers, Video, Beaker,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -42,6 +42,19 @@ export function Sidebar() {
   // role 은 프로필이 도착한 뒤에 채워지므로 링크가 조금 늦게 나타날 수 있다(사라지지는 않는다).
   // 노출은 편의일 뿐이고 실제 차단은 서버 API 가 한다.
   const showConsole = adminAccess(user).console
+  /**
+   * 탄소 MRV 플랫폼 진입을 보여 줄 대상 — 관리자 콘솔 권한자와 매니저.
+   *
+   * 관리자 콘솔(`showConsole`)과 비슷한 집합이지만 **변수를 따로 둔다** — 이유가 다르기
+   * 때문이다. 콘솔은 권한이 없으면 서버가 막는 기능이고, MRV 는 조직 초대제인 **별도
+   * 플랫폼**이다. 초대되지 않은 계정이 들어가면 "초대되지 않음" 안내만 보게 되므로, 그
+   * 화면을 대부분 사용자에게 들이밀지 않으려고 좁힌다. 한쪽 기준이 바뀔 때 다른 쪽이
+   * 조용히 따라가면 안 된다.
+   *
+   * 노출은 편의일 뿐이고 실제 접근 판정은 MRV 쪽 세션·조직 조회가 한다 — 이 메뉴가
+   * 없어도 주소를 직접 치면 들어갈 수 있고, 그래야 초대받은 작업자가 막히지 않는다.
+   */
+  const canSeeMrv = showConsole || user?.role === "manager"
 
   // 두 모드가 함께 보는 항목(게시판·카드뉴스) — 조건은 예전 그대로.
   // 관제센터·시스템 모니터링은 관리자 콘솔(/admin)로 옮겼다 — 하단 링크 하나로 들어간다.
@@ -68,6 +81,12 @@ export function Sidebar() {
     { href: "/inventory",    icon: Package,         label: t.nav.inventory },
     { href: "/ai-advisor",   icon: BrainCircuit,    label: t.nav.aiAdvisor },
     { href: "/reports",      icon: BarChart3,       label: t.nav.reports },
+    // 컬리버 탄소 MRV 플랫폼. 이 앱 안(/mrv)이면 내부 이동, 별도 도메인으로 배포했으면
+    // 새 탭으로 연다(공개 헤더와 같은 규약). 주소를 비워 두면 항목 자체가 없다.
+    // 새우 모드 메뉴에만 둔다 — 새우 RAS 탄소 MRV 라 수경재배 문맥에 놓을 메뉴가 아니다.
+    ...(canSeeMrv && MRV_PLATFORM_URL
+      ? [{ href: MRV_PLATFORM_URL, icon: Leaf, label: t.nav.mrvPlatform, external: !MRV_PLATFORM_IS_INTERNAL }]
+      : []),
     ...SHARED_NAV,
   ]
 
@@ -100,23 +119,22 @@ export function Sidebar() {
     router.replace("/")
   }
 
-  const NavItem = ({ href, icon: Icon, label, badge }: { href: string; icon: IconComponent; label: string; badge?: string }) => {
+  const NavItem = ({ href, icon: Icon, label, badge, external }: { href: string; icon: IconComponent; label: string; badge?: string; external?: boolean }) => {
     // 언어 접두사를 뗀 뒤 견준다. /en/cardnews 를 보고 있어도 카드뉴스가
     // 눌린 것으로 표시되어야 한다.
+    // 외부 주소는 활성 표시에 해당되지 않는다 — 이 앱의 경로가 아니다.
     const here = stripLocalePrefix(pathname).path
     const target = stripLocalePrefix(href).path
-    const isActive = here === target || here.startsWith(target + "/")
-    return (
-      <Link
-        href={href}
-        className={cn(
-          "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative",
-          isActive
-            ? "bg-brand-a10 text-brand-fg border border-brand-a25"
-            : "text-muted-foreground hover:text-foreground hover:bg-accent",
-          collapsed && "justify-center px-2"
-        )}
-      >
+    const isActive = !external && (here === target || here.startsWith(target + "/"))
+    const className = cn(
+      "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative",
+      isActive
+        ? "bg-brand-a10 text-brand-fg border border-brand-a25"
+        : "text-muted-foreground hover:text-foreground hover:bg-accent",
+      collapsed && "justify-center px-2"
+    )
+    const inner = (
+      <>
         <Icon className={cn("w-5 h-5 shrink-0", isActive ? "text-brand-fg" : "text-muted-foreground group-hover:text-foreground")} />
         {!collapsed && <span className="flex-1">{label}</span>}
         {!collapsed && badge && (
@@ -125,6 +143,20 @@ export function Sidebar() {
           </span>
         )}
         {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-brand rounded-r-full" />}
+      </>
+    )
+    // 접혔을 때는 글자가 없으므로 아이콘만 남는다 — 외부든 내부든 title 로 이름을 준다.
+    const titleAttr = collapsed ? label : undefined
+    if (external) {
+      return (
+        <a href={href} target="_blank" rel="noopener noreferrer" title={titleAttr} className={className}>
+          {inner}
+        </a>
+      )
+    }
+    return (
+      <Link href={href} title={titleAttr} className={className}>
+        {inner}
       </Link>
     )
   }

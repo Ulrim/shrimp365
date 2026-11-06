@@ -51,10 +51,23 @@ KEY_PATH = HERE / "secrets" / "release-key.pem"
 # 이름을 하나하나 적어 두어, 목록에 없는 새 파일이 보이면 꾸러미 전체를 거부했다.
 # 그래서 1.9.0 앞에 updater.py 만 바꾼 1.8.1 을 한 번 내보내야 했다(README 참고).
 # 1.8.1 부터는 이름의 모양으로 검사하므로 이 과정은 다시 필요하지 않다.
+# **모듈을 새로 만들면 이 목록과 install.sh 의 MODULES 에 함께 넣어라.** 수집기는
+# 선택 import 로 모듈을 받으므로, 꾸러미에서 빠져도 조용히 None 이 되어 그 기능만
+# 사라진다 — modes.py 가 빠져 현장 장비의 모드가 양식장으로 굳고 MRV 연결 메뉴가
+# 아예 뜨지 않은 일이 실제로 있었다. verify.py 의 ⑧ 이 두 목록을 대조한다.
+#
+# **verify-mrv.py 는 일부러 넣지 않는다.** 그것은 127.0.0.1 에 가짜 서버를 세워
+# 전력 입력 경로를 왕복해 보는 저장소 전용 시험이다 — 현장 장비에서 돌려도 그
+# 장비와 실제 서버 사이에 대해 알려 주는 것이 없고, 장비에서 돌리라고 꾸러미에
+# 넣어 둔 verify.py 는 반대로 네트워크를 전혀 쓰지 않아야 한다. make-preview.py ·
+# prune-releases.py 와 같은 자리다. 이름에 하이픈이 있어 import 될 수 없으므로
+# ⑧ 의 대조("수집기·자체점검이 import 하는 모듈")에도 걸리지 않는다.
 PAYLOAD = [
     "shrimp365_sensor.py", "display.py", "webui.py", "webui_amp.py", "wifi.py",
     "buffer.py", "history.py", "updater.py",
     "limits.py", "anomaly.py", "advice.py", "field_env.py", "wireless.py", "power_control.py", "power_remote.py",
+    # 운전 모드 판단. 빠지면 모드가 양식장으로 굳어 MRV 전력 입력에 닿을 길이 없다.
+    "modes.py",
     # 판정 자체점검. 장비에서 바로 돌려 보일 수 있어야 성능검증 자리에서 쓸모가 있다.
     "verify.py",
 ]

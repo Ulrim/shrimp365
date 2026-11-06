@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>MRV 리포트 — {{ report.id }}</title>
+<style>
+  {% if font_embedded %}
+  @font-face {
+    font-family: "Pretendard";
+    src: url("{{ font_dir_uri }}/Pretendard-Regular.subset.woff2") format("woff2");
+    font-weight: 400;
+  }
+  @font-face {
+    font-family: "Pretendard";
+    src: url("{{ font_dir_uri }}/Pretendard-Medium.subset.woff2") format("woff2");
+    font-weight: 500;
+  }
+  @font-face {
+    font-family: "Pretendard";
+    src: url("{{ font_dir_uri }}/Pretendard-Bold.subset.woff2") format("woff2");
+    font-weight: 700;
+  }
+  body { font-family: "Pretendard", "Malgun Gothic", "Noto Sans KR", sans-serif; }
+  {% else %}
+  /* 폰트 파일 미구성 환경 폴백: 시스템 폰트에 의존한다(1.8절 사용자 지시 — 과설계 회피). */
+  body { font-family: "Noto Sans KR", "Malgun Gothic", sans-serif; }
+  {% endif %}
+
+  @page { size: A4; margin: 20mm 16mm; }
+  body { font-size: 11pt; color: #111827; line-height: 1.5; }
+  h1 { font-size: 18pt; margin-bottom: 2mm; }
+  h2 { font-size: 13pt; margin-top: 8mm; margin-bottom: 3mm; border-bottom: 1px solid #cbd5e1; padding-bottom: 1mm; }
+  .meta { color: #475569; font-size: 9.5pt; margin-bottom: 6mm; }
+  .meta div { margin-bottom: 1mm; }
+  table { width: 100%; border-collapse: collapse; margin-top: 2mm; }
+  th, td { border: 1px solid #cbd5e1; padding: 2mm 3mm; text-align: right; font-size: 10pt; }
+  th { background: #f1f5f9; text-align: center; }
+  td:first-child, th:first-child { text-align: left; }
+  .headline { background: #ecfdf5; border: 1px solid #16a34a; border-radius: 4px; padding: 4mm; margin-top: 4mm; }
+  .headline .value { font-size: 20pt; font-weight: 700; color: #15803d; }
+  /* 한글 산식 전문(formula_text)이 포함되므로 monospace 대신 임베드 폰트를 우선한다
+     (모노스페이스만 지정하면 한글 글리프가 없어 시스템 CJK 폴백 폰트에 의존하게 되어
+     재현성이 깨진다 — ADR 0004 "배포 환경에 독립적인 렌더링" 원칙). */
+  .formula { white-space: pre-line; background: #f8fafc; border: 1px solid #e2e8f0; padding: 4mm; font-size: 9.5pt; }
+  .assumptions li { margin-bottom: 1.5mm; }
+  .chart-wrap { display: flex; align-items: center; gap: 8mm; margin-top: 3mm; }
+  .chart-caption { font-size: 9.5pt; color: #475569; }
+  .footer-note { margin-top: 8mm; font-size: 8.5pt; color: #64748b; }
+</style>
+</head>
+<body>
+  <h1>MRV 리포트 (탄소저감 성과: Scope2)</h1>
+  <div class="meta">
+    <div>리포트 ID: {{ report.id }}</div>
+    <div>사이트: {{ boundary.site_name }} ({{ report.site_id }})</div>
+    <div>기간(After): {{ report.period['from'] }} ~ {{ report.period.to }}</div>
+    <div>Baseline(Before) 참조 ID: {{ report.baseline_id }}</div>
+    <div>After KPI 스냅샷 참조 ID: {{ after.kpi_snapshot_id }}</div>
+    <div>생성자: {{ report.generated_by }} / 생성 시각: {{ report.generated_at }}</div>
+  </div>
+
+  <h2>1. Before / After 비교표</h2>
+  <table>
+    <thead>
+      <tr><th>지표</th><th>Before(기준선)</th><th>After(현재)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>기간</td><td>{{ before.period['from'] }} ~ {{ before.period.to }}</td><td>{{ after.period['from'] }} ~ {{ after.period.to }}</td></tr>
+      <tr><td>적용 kpi_config 버전</td><td>{{ before.config_version }}</td><td>{{ after.config_version }}</td></tr>
+      <tr><td>EI_total (kWh/kg)</td><td>{{ before.ei_total if before.ei_total is not none else "N/A" }}</td><td>{{ after.ei_total if after.ei_total is not none else "N/A" }}</td></tr>
+      <tr><td>EI_aeration (kWh/kg)</td><td>{{ before.ei_aeration if before.ei_aeration is not none else "N/A" }}</td><td>{{ after.ei_aeration if after.ei_aeration is not none else "N/A" }}</td></tr>
+      <tr><td>총 전력사용량 (kWh)</td><td>{{ "%.2f"|format(before.total_power_kwh) }}</td><td>{{ "%.2f"|format(after.total_power_kwh) }}</td></tr>
+      <tr><td>폭기 전력사용량 (kWh)</td><td>{{ "%.2f"|format(before.aeration_power_kwh) }}</td><td>{{ "%.2f"|format(after.aeration_power_kwh) }}</td></tr>
+      <tr><td>생산량 Δbiomass (kg)</td><td>{{ "%.2f"|format(before.biomass_delta_kg) }}</td><td>{{ "%.2f"|format(after.biomass_delta_kg) }}</td></tr>
+      <tr><td>Scope2 배출량 (tCO2e)</td><td>{{ "%.4f"|format(before.scope2_tco2e) if before.scope2_tco2e is not none else "N/A" }}</td><td>{{ "%.4f"|format(after.scope2_tco2e) if after.scope2_tco2e is not none else "N/A" }}</td></tr>
+    </tbody>
+  </table>
+
+  <div class="headline">
+    감축량(Scope2 Reduction):
+    <span class="value">{{ "%.4f"|format(report.reduction_tco2e) if report.reduction_tco2e is not none else "산출 불가(N/A)" }}</span>
+    {% if report.reduction_tco2e is not none %} tCO2e{% endif %}
+  </div>
+
+  <h2>2. 기간 / 측정경계(Boundary) / 가정(Assumptions)</h2>
+  <table>
+    <tbody>
+      <tr><td>사이트</td><td colspan="2">{{ boundary.site_name }} ({{ boundary.site_id }})</td></tr>
+      <tr><td>포함 계측기(meter) ID</td><td colspan="2">{{ boundary.included_meter_ids | join(', ') if boundary.included_meter_ids else '-' }}</td></tr>
+      <tr><td>포함 품질 플래그</td><td colspan="2">{{ boundary.included_quality_flags | join(', ') if boundary.included_quality_flags else '-' }}</td></tr>
+      <tr><td>생산량 근거(Before)</td><td colspan="2">{{ boundary.biomass_source_refs.before | join(', ') if boundary.biomass_source_refs.before else '-' }}</td></tr>
+      <tr><td>생산량 근거(After)</td><td colspan="2">{{ boundary.biomass_source_refs.after | join(', ') if boundary.biomass_source_refs.after else '-' }}</td></tr>
+    </tbody>
+  </table>
+  <ul class="assumptions">
+    {% for a in boundary.assumptions %}
+    <li>{{ a }}</li>
+    {% endfor %}
+  </ul>
+
+  <h2>3. 산식 전문 (재현 가능)</h2>
+  <div class="formula">{{ report.formula_text }}</div>
+
+  <h2>4. 전 / 후 그래프</h2>
+  <div class="chart-wrap">
+    {{ ei_chart_svg | safe }}
+    <div class="chart-caption">EI_total(kWh/kg) Before(회색) vs After(녹색)</div>
+  </div>
+
+  <h2>5. 적용 로직 / 버전 / 적용 로그 참조</h2>
+  <table>
+    <tbody>
+      <tr><td>Baseline(Before) ID</td><td colspan="2">{{ report.baseline_id }}</td></tr>
+      <tr><td>After KPI 스냅샷 ID</td><td colspan="2">{{ after.kpi_snapshot_id }}</td></tr>
+      <tr><td>적용 배출계수</td><td colspan="2">{{ emission_factor.version }} ({{ emission_factor.source }}, {{ emission_factor.year }}년)</td></tr>
+      <tr><td>kpi_config 버전(Before / After)</td><td colspan="2">{{ boundary.config_version.before }} / {{ boundary.config_version.after }}</td></tr>
+    </tbody>
+  </table>
+
+  <div class="footer-note">
+    본 리포트의 모든 수치는 원천 Reading 까지 역추적 가능합니다(GET /kpi-snapshots/&#123;id&#125;,
+    GET /sites/&#123;id&#125;/readings). 생성 후 본 리포트는 append-only 이며 재생성 시 새 리포트가 발급됩니다.
+  </div>
+</body>
+</html>

@@ -1,0 +1,904 @@
+/**
+ * 표준 기록지(CSV) 해석 — MASTER 4장 화면 #4 「수동 입력 폼 + 표준 기록지(CSV 업로드)
+ * + 입력 검증」의 해석·검증 부분.
+ *
+ * 순수 함수만 둔다(네트워크·DOM 없음). 그래서 이 규칙을 화면 밖에서도 그대로 돌려 볼 수
+ * 있다 — `scripts/mrv/verify-csv.mjs` 가 이 파일을 직접 불러 검증한다.
+ *
+ * **왜 보내기 전에 전부 검사하는가.** 급이·폐사는 FCR 과 폐사율의 분자다. 80번째 줄에
+ * 오타가 있는 파일을 한 줄씩 보내면 79줄이 들어간 뒤 멈추고, 운영자는 어디까지 들어갔는지
+ * 모르는 채 같은 파일을 다시 올려 중복을 만든다. 그래서 **한 줄이라도 틀리면 아무것도
+ * 보내지 않는다**(all-or-nothing on validation). 서버 검증을 대신하는 것이 아니라,
+ * 서버에 보내기 전에 사람이 고칠 수 있게 하는 것이다 — 최종 판정은 서버가 한다.
+ *
+ * **시각 규약.** 시간대를 적지 않은 값은 **브라우저 로컬 시각**으로 읽는다. 수기 입력
+ * 폼(`datetime-local`)과 같은 규약이어서, 같은 "2026-10-01 14:30" 을 폼으로 넣든 CSV 로
+ * 넣든 같은 순간이 저장된다. `Z` 나 `+09:00` 이 붙어 있으면 그대로 존중한다.
+ * (KPI 기간 경계는 UTC 지만, 그 변환은 여기서 ISO UTC 로 만들어 보내므로 한 번만 일어난다.)
+ */
+
+import {
+  MEASUREMENT_BASIS_ACCEPTED_NOTE,
+  parseMeasurementBasis,
+  type MeasurementBasis,
+} from "./measurement-basis";
+import {
+  PRODUCTION_BASIS_ACCEPTED_NOTE,
+  SURVIVAL_ADJUSTED_ACCEPTED_NOTE,
+  parseProductionBasis,
+  parseSurvivalAdjusted,
+  productionBasisNoteRequired,
+  type ProductionBasis,
+} from "./production-basis";
+
+/** 해석된 급이 1건 — POST /sites/{id}/feed-logs 본문 그대로. */
+export interface FeedCsvRecord {
+  batch_id: string;
+  /** ISO8601 UTC */
+  ts: string;
+  feed_kg: number;
+  /**
+   * 출처. 스키마가 `check (source in ('manual','csv','device'))` 로 구분을 못 박아 두었고
+   * (`mrv_feed_logs`), 라우트는 안 주면 'manual' 로 채운다. 기록지에서 일괄 들어온 값을
+   * 수기 입력과 같은 출처로 적으면 **증빙에서 "누가 어떻게 넣은 값인가" 가 사라진다.**
+   * 감사 로그에도 이 값이 실린다.
+   */
+  source: "csv";
+}
+
+/**
+ * 해석된 폐사 1건 — POST /sites/{id}/mortality-logs 본문 그대로.
+ *
+ * 급이와 달리 `source` 가 없다. `mrv_mortality_logs` 에 그 열이 없기 때문이고
+ * (`mrv_feed_logs` 에만 있다), 열을 새로 뚫는 것은 마이그레이션이 필요한 별건이다.
+ * 없는 열을 보내면 PostgREST 가 그 요청을 거절한다.
+ */
+export interface MortalityCsvRecord {
+  batch_id: string;
+  /** ISO8601 UTC */
+  ts: string;
+  dead_count: number;
+  cause_note: string | null;
+}
+
+/**
+ * 해석된 생산량(생체량) 1건 — POST /sites/{id}/harvests 본문 그대로.
+ *
+ * ── 왜 산정 근거를 **행마다** 받는가 ───────────────────────────────────────
+ * 이 표의 기간 양 끝 생체량 차이가 EI·폭기 EI·FCR·OEI 네 지표의 **분모**다. 그래서
+ * 전력의 `measurement_basis` 와 같은 자리의 칸이 필요하다
+ * (supabase/migrations/mrv_harvest_logs_production_basis.sql).
+ *
+ * 전력 기록지와 달리 **파일 단위 기본값을 두지 않는다.** 전력은 계량기가 붙은 설비와
+ * 붙지 않은 설비가 한 표에 섞여 들어오고 그 구분이 파일에 없을 때가 많아 화면에서
+ * 고르게 했다. 생산량은 그렇지 않다 — 한 기간의 개시·마감 두 점이 "하나는 출하 계량
+ * 전표, 하나는 입식수 × 평균체중" 인 것이 **정상적인 경우**이고, 그 둘을 한 값으로
+ * 뭉개면 분모의 성질을 틀리게 적는다. 그래서 열을 **필수**로 두고 행마다 받는다.
+ */
+export interface HarvestCsvRecord {
+  batch_id: string;
+  /** ISO8601 UTC */
+  ts: string;
+  biomass_kg: number;
+  /** 필수 — 라우트도 이 칸 없이는 422 로 거절한다. */
+  production_basis: ProductionBasis;
+  /** 계산·어림이면 필수(자유 기입). 실측이면 비어도 된다 → null. */
+  production_basis_note: string | null;
+  /** null = 미기재. false = 보정하지 않았다(참인 기록) — 둘은 다른 사실이다. */
+  survival_adjusted: boolean | null;
+}
+
+/** 전력 기록지가 쓸 수 있는 계측 원표현. 파일 하나에 한 가지만 쓴다(아래 설명 참고). */
+export type PowerReadingKind = "interval_kwh" | "cumulative_kwh";
+
+/**
+ * 해석된 전력 계측값 1건 — POST /sites/{id}/readings 의 `readings[]` 원소 그대로.
+ *
+ * **표현을 행마다 섞지 않는 이유.** 적산 지침과 구간 사용량은 같은 숫자가 전혀 다른 뜻이다
+ * (12,345 는 "계량기가 12,345 를 가리킨다" 이거나 "12,345 kWh 를 썼다" 이다). 기록지는
+ * 사람이 손으로 채우는 종이에 가까우므로, 한 파일 안에서 행마다 뜻이 바뀌면 틀린 해석이
+ * 조용히 저장된다. 그래서 표현은 **업로드 단위로 한 번** 고르고 모든 행에 같게 적는다.
+ */
+export interface PowerCsvRecord {
+  meter_id: string;
+  /** ISO8601 UTC */
+  ts: string;
+  value: number;
+  reading_kind: PowerReadingKind;
+  /**
+   * 자료유형 — **이 kWh 를 계량기가 쟀는가, 산식이 냈는가**(mrv_readings.measurement_basis).
+   *
+   * **파일에 그 열이 적힌 줄에만 실린다.** 열이 없거나 칸이 빈 줄에는 이 칸을 넣지 않고,
+   * 화면에서 고른 **파일 단위 기본값**이 서버 요청의 배치 기본값으로 따라간다
+   * (lib/mrv/measurement-basis.ts 의 CSV_BASIS_PRECEDENCE_NOTE 가 그 규칙이고,
+   * lib/mrv/ingestion.ts 의 processBatch 가 「건별 > 배치 기본값」 순으로 적용한다).
+   *
+   * 여기서 기본값을 대신 채우지 않는 이유: 해석은 **파일이 담은 사실**만 담아야 한다.
+   * 화면에서 고른 값을 파서가 미리 박아 넣으면, 파일을 고른 뒤 선택을 바꾼 운영자의
+   * 미리보기와 실제로 저장되는 값이 어긋난다.
+   *
+   * 표현(reading_kind)과 달리 **행마다 섞일 수 있다.** 계량기가 붙은 설비는 지침으로,
+   * 붙지 않은 설비는 산식으로 메운 표가 실제로 들어온다 — 그 파일을 한 가지로 뭉개면
+   * 계량기 실측이 계산값으로, 또는 그 반대로 기록된다.
+   */
+  measurement_basis?: MeasurementBasis;
+}
+
+/** 줄 단위 오류. `line` 은 **파일의 실제 줄 번호**(헤더 포함, 1부터)다 — 운영자가 에디터에서 바로 찾아간다. */
+export interface CsvRowError {
+  line: number;
+  message: string;
+}
+
+export interface CsvParseResult<T> {
+  records: T[];
+  /**
+   * `records[i]` 가 온 **파일의 실제 줄 번호**. 레코드와 같은 순서·같은 길이다.
+   *
+   * 레코드 객체 안에 넣지 않는 이유: 레코드는 POST 본문으로 그대로 나가므로 화면용 필드를
+   * 섞으면 서버에 쓸데없는 값을 보낸다. 번호를 따로 들고 다니는 이유: 업로드가 중간에
+   * 멈췄을 때 "몇 번째 줄에서 멈췄는가" 를 `index + 2` 로 **추정**하면 따옴표 안 개행이
+   * 있는 파일에서 어긋난 줄을 가리킨다 — 운영자가 엉뚱한 줄을 고치게 된다.
+   */
+  lines: number[];
+  errors: CsvRowError[];
+  /** 해석을 시도한 데이터 줄 수(헤더·빈 줄 제외). */
+  dataLineCount: number;
+}
+
+/** 분해 결과. 따옴표가 끝까지 닫히지 않았다는 사실을 셀 값이 아니라 **별도 필드**로 알린다. */
+export interface CsvSplitResult {
+  rows: { cells: string[]; line: number }[];
+  /**
+   * 닫히지 않은 따옴표가 시작된 줄. null 이면 정상이다.
+   *
+   * 예전에는 이것을 `cells[0] === "__UNTERMINATED_QUOTE__"` 라는 **대역 내 신호**로
+   * 알렸다. 그러면 첫 셀에 그 문자열이 실제로 적힌 데이터 줄이 따옴표 오류로 보고된다 —
+   * 현실성은 낮지만 공짜로 없앨 수 있는 함정이다.
+   */
+  unterminatedAtLine: number | null;
+}
+
+/**
+ * RFC4180 계열 CSV 분해. 따옴표 안의 쉼표·개행·이중따옴표(`""`)를 처리한다.
+ * 결과는 "줄별 셀 배열 + 그 줄이 시작한 파일 줄 번호" 다 — 따옴표 안 개행 때문에
+ * 레코드 번호와 파일 줄 번호가 어긋나므로 줄 번호를 따로 들고 다녀야 한다.
+ */
+export function splitCsvRows(text: string): CsvSplitResult {
+  // Excel(한국어 환경)이 저장한 UTF-8 CSV 앞에는 BOM 이 붙는다. 그대로 두면 첫 헤더가
+  // "﻿batch_id" 가 되어 어떤 헤더도 못 찾는다.
+  const src = text.replace(/^﻿/, "");
+
+  const rows: { cells: string[]; line: number }[] = [];
+  let cells: string[] = [];
+  let field = "";
+  let inQuotes = false;
+  let line = 1;
+  let rowStartLine = 1;
+  let rowHasContent = false;
+
+  const endField = () => {
+    cells.push(field);
+    field = "";
+  };
+  const endRow = () => {
+    endField();
+    // 완전히 빈 줄은 레코드로 세지 않는다(파일 끝 개행, 중간 공백 줄).
+    if (rowHasContent) rows.push({ cells, line: rowStartLine });
+    cells = [];
+    rowHasContent = false;
+  };
+
+  for (let i = 0; i < src.length; i += 1) {
+    const ch = src[i];
+
+    if (inQuotes) {
+      if (ch === '"') {
+        if (src[i + 1] === '"') {
+          field += '"';
+          i += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else if (ch === "\r") {
+        // 따옴표 안의 CRLF. CR 을 값에 남기면 `cause_note` 안에 \r 이 섞인 채 DB 로 간다.
+        // 줄바꿈 자체는 보존해야 하므로(메모를 여러 줄로 적었을 수 있다) \n 하나로 모은다.
+        if (src[i + 1] === "\n") i += 1;
+        line += 1;
+        field += "\n";
+      } else {
+        if (ch === "\n") line += 1;
+        field += ch;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inQuotes = true;
+      rowHasContent = true;
+      continue;
+    }
+    if (ch === ",") {
+      endField();
+      rowHasContent = true;
+      continue;
+    }
+    if (ch === "\r") {
+      // CRLF 의 CR 은 버린다. 단독 CR 개행은 다루지 않는다(현실에서 나오지 않는다).
+      continue;
+    }
+    if (ch === "\n") {
+      endRow();
+      line += 1;
+      rowStartLine = line;
+      continue;
+    }
+    if (ch.trim() !== "") rowHasContent = true;
+    field += ch;
+  }
+  // 마지막 줄이 개행 없이 끝난 경우.
+  if (inQuotes) {
+    // 따옴표가 닫히지 않았다. **그 줄은 레코드로 내보내지 않는다** — 어디서 끝나야 했는지
+    // 알 수 없는 줄을 그럴듯한 값으로 내보내면, 잘려 나간 뒷부분이 조용히 사라진 채
+    // 저장된다. 지금까지 온전히 닫힌 줄만 남기고(머리글은 그 안에 있다) 오류를 알린다.
+    //
+    // 중요: 따옴표가 **파일 중간**에서 열렸다면 그 뒤 모든 줄이 한 필드로 삼켜져 여기 온다.
+    // 그래서 "이 줄 이후는 해석하지 못했다" 를 호출 측이 말할 수 있어야 한다.
+    return { rows, unterminatedAtLine: rowStartLine };
+  }
+  endRow();
+  return { rows, unterminatedAtLine: null };
+}
+
+/** 헤더 이름 정규화 — 공백·대소문자·하이픈 차이를 흡수한다. */
+function normalizeHeader(name: string): string {
+  return name.trim().toLowerCase().replace(/[\s-]+/g, "_");
+}
+
+/**
+ * 헤더 별칭. 운영자가 받는 기록지가 한국어일 수도 있고, 영문 컬럼명을 쓸 수도 있다.
+ * 둘 다 받되 **뜻이 하나로 모이는 이름만** 받는다(예: "수량" 처럼 급이량인지 개체수인지
+ * 알 수 없는 이름은 받지 않는다 — 잘못 붙으면 틀린 값이 조용히 저장된다).
+ */
+const HEADER_ALIASES: Record<string, string> = {
+  batch_id: "batch_id",
+  batch: "batch_id",
+  배치: "batch_id",
+  배치id: "batch_id",
+  배치_id: "batch_id",
+  ts: "ts",
+  time: "ts",
+  timestamp: "ts",
+  datetime: "ts",
+  시각: "ts",
+  일시: "ts",
+  기록시각: "ts",
+  feed_kg: "feed_kg",
+  급이량: "feed_kg",
+  급이량_kg: "feed_kg",
+  사료량: "feed_kg",
+  사료량_kg: "feed_kg",
+  dead_count: "dead_count",
+  폐사: "dead_count",
+  폐사수: "dead_count",
+  폐사개체수: "dead_count",
+  cause_note: "cause_note",
+  note: "cause_note",
+  메모: "cause_note",
+  원인: "cause_note",
+  원인메모: "cause_note",
+  meter_id: "meter_id",
+  meter: "meter_id",
+  계측기: "meter_id",
+  계측기id: "meter_id",
+  계측기_id: "meter_id",
+  계량기: "meter_id",
+  // 전력값 열. "값"·"수치" 처럼 뜻이 모이지 않는 이름은 받지 않는다 — 적산 지침인지
+  // 구간 사용량인지 알 수 없는 이름이 붙으면 틀린 해석이 조용히 저장된다. 표현은
+  // 업로드 단위로 고르므로, 열 이름은 둘 중 어느 표현에서도 읽히는 것만 받는다.
+  value: "value",
+  kwh: "value",
+  전력량: "value",
+  전력량_kwh: "value",
+  사용량: "value",
+  사용량_kwh: "value",
+  지침: "value",
+  계량기지침: "value",
+  // 자료유형 열. 받은 계산표가 이 칸을 「자료유형」으로 적어 두었으므로 그 이름을 받고,
+  // 「전력실측여부」 같은 불리언 꼴 이름은 받지 않는다 — true/false 는 계산값인지
+  // 어림값인지를 담지 못해서 뜻이 하나로 모이지 않는다(그 칸이 적힌 파일은 자료유형 열이
+  // 없는 파일로 읽히고, 화면에서 고른 값이 적용된다).
+  measurement_basis: "measurement_basis",
+  basis: "measurement_basis",
+  자료유형: "measurement_basis",
+  자료_유형: "measurement_basis",
+  전력자료유형: "measurement_basis",
+  측정근거: "measurement_basis",
+  // 생산량(생체량) 열. "수확량" 은 받지 않는다 — 기간 누적 출하량인지 그 시점의 현존량
+  // 인지 뜻이 모이지 않고, 이 표가 요구하는 것은 **그 시각의 생체량**이다. 뜻이 어긋난
+  // 이름이 붙으면 Δbiomass 가 틀린 값으로 조용히 저장된다.
+  biomass_kg: "biomass_kg",
+  biomass: "biomass_kg",
+  생체량: "biomass_kg",
+  생체량_kg: "biomass_kg",
+  생산량: "biomass_kg",
+  생산량_kg: "biomass_kg",
+  // 산정 근거 열. 받은 계산표가 이 칸을 「생산량_산정유형」으로 적어 두었으므로 그 이름을
+  // 받는다. 전력의 「자료유형」과 **다른 이름**을 쓰는 이유: 이 별칭 표는 모든 파서가
+  // 공유하는 한 장이라, 같은 이름을 두 뜻에 쓰면 한쪽이 다른 쪽의 열을 집어 간다.
+  production_basis: "production_basis",
+  산정근거: "production_basis",
+  산정유형: "production_basis",
+  생산량_산정유형: "production_basis",
+  생산량산정유형: "production_basis",
+  production_basis_note: "production_basis_note",
+  산정근거메모: "production_basis_note",
+  산정근거설명: "production_basis_note",
+  계산근거: "production_basis_note",
+  계산모델: "production_basis_note",
+  survival_adjusted: "survival_adjusted",
+  생존율보정: "survival_adjusted",
+  생존율보정여부: "survival_adjusted",
+  생존율보정_적용여부: "survival_adjusted",
+};
+
+function mapHeaders(cells: string[]): Map<string, number> {
+  const index = new Map<string, number>();
+  cells.forEach((raw, i) => {
+    const canonical = HEADER_ALIASES[normalizeHeader(raw)];
+    // 같은 뜻의 열이 두 번 나오면 첫 번째만 쓴다(뒤엣것을 쓰면 왼쪽을 읽은 사람의
+    // 기대와 어긋난다). 알 수 없는 열은 무시한다 — 기록지에 메모 열이 더 있을 수 있다.
+    if (canonical && !index.has(canonical)) index.set(canonical, i);
+  });
+  return index;
+}
+
+/** (y, m, d) 가 달력에 실제로 있는 날짜인가. 윤년까지 본다. */
+function isRealCalendarDate(y: number, m: number, d: number): boolean {
+  if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) return false;
+  if (m < 1 || m > 12 || d < 1) return false;
+  // Date.UTC 로 만든 뒤 되읽어 비교한다 — 시간대와 무관하게 달력만 본다.
+  const probe = new Date(Date.UTC(y, m - 1, d));
+  return (
+    probe.getUTCFullYear() === y && probe.getUTCMonth() + 1 === m && probe.getUTCDate() === d
+  );
+}
+
+/**
+ * 시각 해석. 시간대 표기가 없으면 로컬로 읽는다(수기 폼과 같은 규약).
+ * 받아들이는 모양: `YYYY-MM-DD HH:MM[:SS]`, `YYYY-MM-DDTHH:MM[:SS]`, 그리고 뒤에
+ * `Z` 또는 `±HH:MM` 이 붙은 형태.
+ */
+export function parseRecordTimestamp(raw: string): string | null {
+  const value = raw.trim();
+  if (!value) return null;
+
+  const normalized = value.replace(" ", "T");
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?/.test(normalized)) return null;
+
+  // 존재하지 않는 날짜(예: 2026-02-30)를 JS 가 다음 달로 굴려 버리는 것을 막는다.
+  // **시간대가 붙어 있든 없든 똑같이 본다** — 날짜 부분은 어느 경우에도 그 표기의
+  // 달력 날짜이므로, 한쪽만 느슨하게 보면 `2026-02-30T09:00:00Z` 가 3월 2일로 저장된다.
+  const [datePart] = normalized.split("T");
+  const [y, m, day] = datePart.split("-").map(Number);
+  if (!isRealCalendarDate(y, m, day)) return null;
+
+  // 시간대가 없으면 `new Date("2026-10-01T14:30")` 가 로컬로 해석한다(ES2015 이후 규약).
+  // 날짜만 있는 문자열은 UTC 로 해석되므로 위 정규식으로 미리 걸러 뒀다.
+  const d = new Date(normalized);
+  if (Number.isNaN(d.getTime())) return null;
+
+  return d.toISOString();
+}
+
+type FieldSpec = { canonical: string; label: string };
+
+function readRequiredHeaders(
+  rows: { cells: string[]; line: number }[],
+  required: FieldSpec[],
+): { index: Map<string, number>; headerLine: number } | CsvRowError {
+  if (rows.length === 0) return { line: 1, message: "빈 파일입니다." };
+
+  const index = mapHeaders(rows[0].cells);
+  const missing = required.filter((f) => !index.has(f.canonical));
+  if (missing.length > 0) {
+    return {
+      line: rows[0].line,
+      message: `머리글에 ${missing.map((f) => `'${f.label}'`).join(", ")} 열이 없습니다.`,
+    };
+  }
+  return { index, headerLine: rows[0].line };
+}
+
+function cell(cells: string[], index: Map<string, number>, key: string): string {
+  const i = index.get(key);
+  return i === undefined ? "" : (cells[i] ?? "").trim();
+}
+
+/**
+ * 십진수만 받는다. `Number()` 를 그냥 쓰면 `0x10` 이 **16 kg 으로 통과**하고 `1e-9` 도
+ * 통과한다 — 기록지에 그런 값이 적힐 이유가 없으므로, 적혀 있다면 다른 것을 잘못 붙인
+ * 것이고 통과시키면 틀린 급이량이 저장된다.
+ */
+function parseDecimal(raw: string): number | null {
+  if (!/^[+-]?\d+(?:\.\d+)?$/.test(raw)) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** 숫자 칸 오류 문구 — Excel 이 흔히 넣는 천단위 쉼표를 따로 짚어 준다. */
+function numberFieldError(raw: string, requirement: string): string {
+  const hint = /^\s*[+-]?[\d,]+(?:\.\d+)?\s*$/.test(raw) && raw.includes(",")
+    ? " 천단위 쉼표(,)는 빼고 적어 주세요."
+    : "";
+  return `${requirement}: '${raw}'${hint}`;
+}
+
+/**
+ * 같은 파일 안에서 (배치, 시각) 이 겹치는 줄을 찾는다.
+ *
+ * **이것을 오류로 다루는 이유.** 같은 배치의 같은 시각에 급이가 두 번 기록될 일은 없다 —
+ * 기록지를 복사·붙여넣다 생긴 중복이 거의 전부다. 그런데 서버에는 이 두 창구에 중복
+ * 방지가 없으므로(계측값 적재와 달리), 그대로 보내면 **FCR 의 분자가 조용히 두 배가 된다.**
+ * 틀린 KPI 를 만드는 쪽이 올리지 못하게 막는 쪽보다 훨씬 나쁘므로 거절한다.
+ */
+function findDuplicateKeys(
+  entries: { key: string; line: number }[],
+): CsvRowError[] {
+  const firstSeen = new Map<string, number>();
+  const errors: CsvRowError[] = [];
+  for (const { key, line } of entries) {
+    const prev = firstSeen.get(key);
+    if (prev === undefined) {
+      firstSeen.set(key, line);
+    } else {
+      errors.push({
+        line,
+        message: `${prev}번째 줄과 배치·시각이 같습니다(같은 파일 안의 중복).`,
+      });
+    }
+  }
+  return errors;
+}
+
+/**
+ * 닫히지 않은 따옴표 오류 문구. 그 줄 **이후가 통째로 해석되지 않았다**는 사실을 함께
+ * 적는다 — 적지 않으면 "데이터가 몇 줄뿐인 파일" 로 오해한다.
+ */
+function unterminatedError(line: number): CsvRowError {
+  return {
+    line,
+    message:
+      '따옴표(")가 닫히지 않았습니다. 이 줄과 그 이후는 해석하지 못했습니다.',
+  };
+}
+
+/** 급이 기록지 해석. */
+export function parseFeedCsv(text: string): CsvParseResult<FeedCsvRecord> {
+  const { rows, unterminatedAtLine } = splitCsvRows(text);
+  const header = readRequiredHeaders(rows, [
+    { canonical: "batch_id", label: "batch_id(배치)" },
+    { canonical: "ts", label: "ts(시각)" },
+    { canonical: "feed_kg", label: "feed_kg(급이량)" },
+  ]);
+  if ("message" in header) {
+    const first =
+      unterminatedAtLine !== null ? unterminatedError(unterminatedAtLine) : header;
+    return { records: [], lines: [], errors: [first], dataLineCount: 0 };
+  }
+
+  const records: FeedCsvRecord[] = [];
+  const lines: number[] = [];
+  const errors: CsvRowError[] = [];
+  const dataRows = rows.slice(1);
+  if (unterminatedAtLine !== null) errors.push(unterminatedError(unterminatedAtLine));
+
+  for (const row of dataRows) {
+    const batchId = cell(row.cells, header.index, "batch_id");
+    const tsRaw = cell(row.cells, header.index, "ts");
+    const feedRaw = cell(row.cells, header.index, "feed_kg");
+
+    if (!batchId) {
+      errors.push({ line: row.line, message: "배치가 비어 있습니다." });
+      continue;
+    }
+    const ts = parseRecordTimestamp(tsRaw);
+    if (!ts) {
+      errors.push({
+        line: row.line,
+        message: `시각을 읽을 수 없습니다: '${tsRaw}' (예: 2026-10-01 14:30)`,
+      });
+      continue;
+    }
+    const feedKg = parseDecimal(feedRaw);
+    // 수기 폼과 같은 기준: 급이량은 0 보다 커야 한다(0 은 급이하지 않았다는 뜻이고,
+    // 그것은 기록할 사건이 아니다 — 폐사 0 건과 달리 FCR 분자에 들어갈 값이 없다).
+    if (feedKg === null || feedKg <= 0) {
+      errors.push({
+        line: row.line,
+        message: numberFieldError(feedRaw, "급이량(kg)은 0보다 큰 숫자여야 합니다"),
+      });
+      continue;
+    }
+    records.push({ batch_id: batchId, ts, feed_kg: feedKg, source: "csv" });
+    lines.push(row.line);
+  }
+
+  errors.push(
+    ...findDuplicateKeys(
+      records.map((r, i) => ({ key: `${r.batch_id}\u0000${r.ts}`, line: lines[i] })),
+    ),
+  );
+  // 오류 목록은 줄 번호 순으로 보여 준다(중복 검사가 뒤에 붙어 순서가 섞인다).
+  errors.sort((a, b) => a.line - b.line);
+
+  return { records, lines, errors, dataLineCount: dataRows.length };
+}
+
+/** 폐사 기록지 해석. */
+export function parseMortalityCsv(text: string): CsvParseResult<MortalityCsvRecord> {
+  const { rows, unterminatedAtLine } = splitCsvRows(text);
+  const header = readRequiredHeaders(rows, [
+    { canonical: "batch_id", label: "batch_id(배치)" },
+    { canonical: "ts", label: "ts(시각)" },
+    { canonical: "dead_count", label: "dead_count(폐사 개체수)" },
+  ]);
+  if ("message" in header) {
+    const first =
+      unterminatedAtLine !== null ? unterminatedError(unterminatedAtLine) : header;
+    return { records: [], lines: [], errors: [first], dataLineCount: 0 };
+  }
+
+  const records: MortalityCsvRecord[] = [];
+  const lines: number[] = [];
+  const errors: CsvRowError[] = [];
+  const dataRows = rows.slice(1);
+  if (unterminatedAtLine !== null) errors.push(unterminatedError(unterminatedAtLine));
+
+  for (const row of dataRows) {
+    const batchId = cell(row.cells, header.index, "batch_id");
+    const tsRaw = cell(row.cells, header.index, "ts");
+    const countRaw = cell(row.cells, header.index, "dead_count");
+    const note = cell(row.cells, header.index, "cause_note");
+
+    if (!batchId) {
+      errors.push({ line: row.line, message: "배치가 비어 있습니다." });
+      continue;
+    }
+    const ts = parseRecordTimestamp(tsRaw);
+    if (!ts) {
+      errors.push({
+        line: row.line,
+        message: `시각을 읽을 수 없습니다: '${tsRaw}' (예: 2026-10-01 14:30)`,
+      });
+      continue;
+    }
+    const deadCount = parseDecimal(countRaw);
+    // 수기 폼과 같은 기준: 0 을 허용한다 — "그날 폐사가 없었다" 는 기록도 증빙이다.
+    if (deadCount === null || !Number.isInteger(deadCount) || deadCount < 0) {
+      errors.push({
+        line: row.line,
+        message: numberFieldError(countRaw, "폐사 개체수는 0 이상의 정수여야 합니다"),
+      });
+      continue;
+    }
+    records.push({
+      batch_id: batchId,
+      ts,
+      dead_count: deadCount,
+      cause_note: note || null,
+    });
+    lines.push(row.line);
+  }
+
+  errors.push(
+    ...findDuplicateKeys(
+      records.map((r, i) => ({ key: `${r.batch_id}\u0000${r.ts}`, line: lines[i] })),
+    ),
+  );
+  errors.sort((a, b) => a.line - b.line);
+
+  return { records, lines, errors, dataLineCount: dataRows.length };
+}
+
+/**
+ * 생산량 기록지 해석.
+ *
+ * **왜 0 을 받지 않는가.** 폐사 0 건과 다르다. 생체량 0 kg 인 행은 분모의 한쪽 끝으로
+ * 뽑혀 Δbiomass 가 전체 현존량과 같아지고, 그러면 **기간에 없던 생산량**이 산출된다
+ * (라우트도 같은 기준으로 422 를 낸다).
+ *
+ * **산정 근거 열은 필수다.** 전력 기록지의 `measurement_basis` 와 달리 선택이 아니다 —
+ * 이유는 `HarvestCsvRecord` 주석에 적었다(파일 단위 기본값으로 뭉갤 수 없는 칸이다).
+ * 계산·어림인 줄에는 **근거 메모까지** 요구한다. 근거 없는 '계산생체량' 딱지는 검산할 수
+ * 없는 주장이라 딱지가 없는 것보다 나쁘고, 그 줄을 통과시키면 파일 하나로 수십 건이
+ * 그렇게 들어온다.
+ */
+export function parseHarvestCsv(text: string): CsvParseResult<HarvestCsvRecord> {
+  const { rows, unterminatedAtLine } = splitCsvRows(text);
+  const header = readRequiredHeaders(rows, [
+    { canonical: "batch_id", label: "batch_id(배치)" },
+    { canonical: "ts", label: "ts(시각)" },
+    { canonical: "biomass_kg", label: "biomass_kg(생체량)" },
+    { canonical: "production_basis", label: "production_basis(산정 근거)" },
+  ]);
+  if ("message" in header) {
+    const first =
+      unterminatedAtLine !== null ? unterminatedError(unterminatedAtLine) : header;
+    return { records: [], lines: [], errors: [first], dataLineCount: 0 };
+  }
+
+  const records: HarvestCsvRecord[] = [];
+  const lines: number[] = [];
+  const errors: CsvRowError[] = [];
+  const dataRows = rows.slice(1);
+  if (unterminatedAtLine !== null) errors.push(unterminatedError(unterminatedAtLine));
+
+  for (const row of dataRows) {
+    const batchId = cell(row.cells, header.index, "batch_id");
+    const tsRaw = cell(row.cells, header.index, "ts");
+    const biomassRaw = cell(row.cells, header.index, "biomass_kg");
+    const basisRaw = cell(row.cells, header.index, "production_basis");
+    const noteRaw = cell(row.cells, header.index, "production_basis_note");
+    const survivalRaw = cell(row.cells, header.index, "survival_adjusted");
+
+    if (!batchId) {
+      errors.push({ line: row.line, message: "배치가 비어 있습니다." });
+      continue;
+    }
+    const ts = parseRecordTimestamp(tsRaw);
+    if (!ts) {
+      errors.push({
+        line: row.line,
+        message: `시각을 읽을 수 없습니다: '${tsRaw}' (예: 2026-10-01 14:30)`,
+      });
+      continue;
+    }
+    const biomassKg = parseDecimal(biomassRaw);
+    if (biomassKg === null || biomassKg <= 0) {
+      errors.push({
+        line: row.line,
+        message: numberFieldError(biomassRaw, "생체량(kg)은 0보다 큰 숫자여야 합니다"),
+      });
+      continue;
+    }
+    // 산정 근거는 **비어 있어도 오류**다(전력의 자료유형과 다른 점). 넘겨짚지 않는 이유는
+    // 같다 — 그 칸에 "실측 아님" 이 적힌 파일을 넘겨짚으면 계산값이 실측으로 저장된다.
+    if (!basisRaw) {
+      errors.push({
+        line: row.line,
+        message: `산정 근거가 비어 있습니다 — ${PRODUCTION_BASIS_ACCEPTED_NOTE}`,
+      });
+      continue;
+    }
+    const basis = parseProductionBasis(basisRaw);
+    if (basis === null) {
+      errors.push({
+        line: row.line,
+        message: `산정 근거를 읽을 수 없습니다: '${basisRaw}' — ${PRODUCTION_BASIS_ACCEPTED_NOTE}`,
+      });
+      continue;
+    }
+    if (productionBasisNoteRequired(basis) && !noteRaw) {
+      errors.push({
+        line: row.line,
+        message:
+          `산정 근거가 '${basisRaw}' 인데 무엇으로 계산했는지 적혀 있지 않습니다 — ` +
+          "production_basis_note(산정 근거) 열을 채워 주세요(예: 입식 100,000미 × " +
+          "최종평균 35g, 생존율 보정 미적용). 근거 없는 '계산생체량' 딱지는 검산할 수 " +
+          "없는 주장이라 딱지가 없는 것보다 나쁩니다.",
+      });
+      continue;
+    }
+    const survival = parseSurvivalAdjusted(survivalRaw);
+    if (survival === null) {
+      errors.push({
+        line: row.line,
+        message: `생존율 보정 여부를 읽을 수 없습니다: '${survivalRaw}' — ${SURVIVAL_ADJUSTED_ACCEPTED_NOTE}`,
+      });
+      continue;
+    }
+
+    records.push({
+      batch_id: batchId,
+      ts,
+      biomass_kg: biomassKg,
+      production_basis: basis,
+      production_basis_note: noteRaw || null,
+      // `undefined`(빈 칸)는 미기재 → null. false(미적용)와 **다른 사실**이므로 뭉개지 않는다.
+      survival_adjusted: survival === undefined ? null : survival,
+    });
+    lines.push(row.line);
+  }
+
+  errors.push(
+    ...findDuplicateKeys(
+      records.map((r, i) => ({ key: `${r.batch_id}\u0000${r.ts}`, line: lines[i] })),
+    ),
+  );
+  errors.sort((a, b) => a.line - b.line);
+
+  return { records, lines, errors, dataLineCount: dataRows.length };
+}
+
+/**
+ * 전력 기록지 해석.
+ *
+ * **왜 값이 0 이어도 받는가.** 급이량과 달리 "이 구간에 0 kWh 를 썼다" 는 실제 계측이다
+ * (블로어를 돌리지 않은 날). 0 을 거부하면 운영자는 그 줄을 지우게 되고, 그러면 기간에
+ * 구멍이 생겨 **계측이 끊긴 것과 구분되지 않는다.** 음수만 거부한다.
+ *
+ * **적산 지침을 올릴 때의 제약(ADR 0001 의 귀결).** 저장되는 값은 구간 kWh 뿐이고 원
+ * 카운터는 되살릴 수 없다. 그래서 구간 사용량은 **한 배치 안에서 직전 지침과의 차이**로만
+ * 계산된다 — 계측기당 지침이 한 건뿐인 파일은 구간값을 하나도 만들지 못하고, 그 건은
+ * 'suspect' 로 들어가 EI 산입에서 빠진다. 보내 놓고 "왜 EI 가 안 변하나" 가 되지 않게
+ * **보내기 전에** 막고, 직전 지침을 같은 파일에 함께 넣으라고 알린다(이미 저장된 지침을
+ * 다시 올려도 중복으로 흡수되므로 안전하다).
+ *
+ * **자료유형 열(`measurement_basis`)은 선택이다.** 적힌 줄은 그 값이 이기고, 비어 있거나
+ * 열이 없는 줄에는 화면에서 고른 파일 단위 값이 쓰인다(CSV_BASIS_PRECEDENCE_NOTE).
+ * 적혀 있는데 읽을 수 없는 값이면 그 줄이 오류이고, 그러면 파일 전체가 저장되지 않는다 —
+ * 자료유형을 넘겨짚는 것은 "실측 아님" 을 실측으로 저장하는 길이다.
+ */
+export function parsePowerCsv(
+  text: string,
+  readingKind: PowerReadingKind,
+): CsvParseResult<PowerCsvRecord> {
+  const { rows, unterminatedAtLine } = splitCsvRows(text);
+  const header = readRequiredHeaders(rows, [
+    { canonical: "meter_id", label: "meter_id(계측기)" },
+    { canonical: "ts", label: "ts(시각)" },
+    {
+      canonical: "value",
+      label:
+        readingKind === "cumulative_kwh" ? "value(계량기 지침)" : "value(구간 사용량 kWh)",
+    },
+  ]);
+  if ("message" in header) {
+    const first =
+      unterminatedAtLine !== null ? unterminatedError(unterminatedAtLine) : header;
+    return { records: [], lines: [], errors: [first], dataLineCount: 0 };
+  }
+
+  const records: PowerCsvRecord[] = [];
+  const lines: number[] = [];
+  const errors: CsvRowError[] = [];
+  const dataRows = rows.slice(1);
+  if (unterminatedAtLine !== null) errors.push(unterminatedError(unterminatedAtLine));
+
+  const requirement =
+    readingKind === "cumulative_kwh"
+      ? "계량기 지침은 0 이상의 숫자여야 합니다"
+      : "구간 사용량(kWh)은 0 이상의 숫자여야 합니다";
+
+  for (const row of dataRows) {
+    const meterId = cell(row.cells, header.index, "meter_id");
+    const tsRaw = cell(row.cells, header.index, "ts");
+    const valueRaw = cell(row.cells, header.index, "value");
+    const basisRaw = cell(row.cells, header.index, "measurement_basis");
+
+    if (!meterId) {
+      errors.push({ line: row.line, message: "계측기가 비어 있습니다." });
+      continue;
+    }
+    const ts = parseRecordTimestamp(tsRaw);
+    if (!ts) {
+      errors.push({
+        line: row.line,
+        message: `시각을 읽을 수 없습니다: '${tsRaw}' (예: 2026-10-01 14:30)`,
+      });
+      continue;
+    }
+    const value = parseDecimal(valueRaw);
+    if (value === null || value < 0) {
+      errors.push({ line: row.line, message: numberFieldError(valueRaw, requirement) });
+      continue;
+    }
+    /**
+     * 자료유형 칸. **빈 칸과 모르는 값을 가른다.**
+     *   · 빈 칸(또는 열이 없음) → 이 칸을 넣지 않는다. 화면에서 고른 파일 단위 값이 쓰인다.
+     *   · 읽을 수 없는 값      → 그 줄을 오류로 세운다(파일 전체가 저장되지 않는다).
+     * 못 읽은 값을 그럴듯한 쪽으로 넘겨짚지 않는 이유: 그 칸에 "실측 아님" 이 적혀 있는
+     * 파일을 넘겨짚으면 **계산값이 계량기 실측으로 저장된다.** 되돌릴 방법이 없다.
+     */
+    let basis: MeasurementBasis | undefined;
+    if (basisRaw) {
+      const parsedBasis = parseMeasurementBasis(basisRaw);
+      if (parsedBasis === null) {
+        errors.push({
+          line: row.line,
+          message: `자료유형을 읽을 수 없습니다: '${basisRaw}' — ${MEASUREMENT_BASIS_ACCEPTED_NOTE}`,
+        });
+        continue;
+      }
+      basis = parsedBasis;
+    }
+    records.push({
+      meter_id: meterId,
+      ts,
+      value,
+      reading_kind: readingKind,
+      ...(basis === undefined ? {} : { measurement_basis: basis }),
+    });
+    lines.push(row.line);
+  }
+
+  errors.push(
+    ...findDuplicateKeys(
+      records.map((r, i) => ({ key: `${r.meter_id}\u0000${r.ts}`, line: lines[i] })),
+    ),
+  );
+
+  // 적산 지침은 계측기당 2건 이상이어야 구간값이 나온다. 1건만 든 계측기를 그냥 보내면
+  // 저장은 되지만 산입은 0 이다 — 성공처럼 보이는 실패라 보내기 전에 막는다.
+  if (readingKind === "cumulative_kwh") {
+    const countByMeter = new Map<string, number>();
+    const firstLineByMeter = new Map<string, number>();
+    records.forEach((r, i) => {
+      countByMeter.set(r.meter_id, (countByMeter.get(r.meter_id) ?? 0) + 1);
+      if (!firstLineByMeter.has(r.meter_id)) firstLineByMeter.set(r.meter_id, lines[i]);
+    });
+    for (const [meterId, count] of countByMeter) {
+      if (count >= 2) continue;
+      errors.push({
+        line: firstLineByMeter.get(meterId) as number,
+        message:
+          `계측기 '${meterId}' 의 지침이 1건뿐입니다. 지침 두 건의 차이가 구간 사용량이므로 ` +
+          "1건만으로는 전력이 산출되지 않습니다. 직전 지침을 같은 파일에 함께 넣어 주세요 " +
+          "(이미 올린 지침을 다시 넣어도 중복으로 흡수됩니다).",
+      });
+    }
+  }
+
+  // 오류 목록은 줄 번호 순으로 보여 준다(중복·건수 검사가 뒤에 붙어 순서가 섞인다).
+  errors.sort((a, b) => a.line - b.line);
+
+  return { records, lines, errors, dataLineCount: dataRows.length };
+}
+
+/** 화면이 내려 주는 기록지 서식 견본. 헤더 이름은 영문 정식 이름으로 둔다. */
+export const FEED_CSV_TEMPLATE =
+  "batch_id,ts,feed_kg\n" +
+  "batch-001,2026-10-01 08:00,12.5\n" +
+  "batch-001,2026-10-01 18:00,13\n";
+
+export const MORTALITY_CSV_TEMPLATE =
+  "batch_id,ts,dead_count,cause_note\n" +
+  "batch-001,2026-10-01 09:00,3,고수온 의심\n" +
+  "batch-001,2026-10-02 09:00,0,\n";
+
+/**
+ * 생산량 기록지 견본.
+ *
+ * **두 줄의 산정 근거를 일부러 다르게 적어 두었다.** 기간 개시가 입식수 × 평균체중 계산,
+ * 마감이 출하 계량 전표인 것이 이 현장의 전형이고, 견본이 한 가지로만 적혀 있으면 운영자는
+ * 두 점을 같은 값으로 채운다 — 그러면 분모의 성질을 틀리게 적는다. 값은 한국어로 적어
+ * 둔다(파서는 measured/calculated/estimated 도 받는다).
+ */
+export const HARVEST_CSV_TEMPLATE =
+  "batch_id,ts,biomass_kg,production_basis,production_basis_note,survival_adjusted\n" +
+  "batch-001,2026-08-01 09:00,1200,계산생체량,입식 100000미 × 평균 12g,미적용\n" +
+  "batch-001,2026-10-16 09:00,3500,실측,출하 계량 전표 #2026-1016,\n";
+
+/**
+ * 전력 기록지 견본은 표현마다 다르다 — 같은 `value` 열에 적을 숫자의 뜻이 다르기 때문이다.
+ * 견본의 숫자도 그 차이가 보이게 골랐다(지침은 늘어나는 누적값, 사용량은 하루치).
+ */
+/**
+ * 견본에 `measurement_basis` 열을 넣어 둔다. **빈 칸으로 둬도 되는 열**이지만(그 줄에는
+ * 화면에서 고른 값이 쓰인다), 견본에 아예 없으면 그 열을 쓸 수 있다는 사실을 아무도 모른다 —
+ * 계량기가 붙은 설비와 산식으로 메운 설비가 한 표에 섞여 들어오는 것이 이 현장의 기본값이다.
+ * 값은 한국어로 적어 둔다(파서는 metered/calculated/estimated 도 받는다).
+ */
+export const POWER_INTERVAL_CSV_TEMPLATE =
+  "meter_id,ts,value,measurement_basis\n" +
+  "meter-total,2026-10-01 00:00,412.5,실측\n" +
+  "meter-total,2026-10-02 00:00,398.2,실측\n" +
+  "meter-aeration,2026-10-01 00:00,240.1,계산값\n" +
+  "meter-aeration,2026-10-02 00:00,233.7,계산값\n";
+
+export const POWER_CUMULATIVE_CSV_TEMPLATE =
+  "meter_id,ts,value,measurement_basis\n" +
+  "meter-total,2026-10-01 00:00,128430.0,실측\n" +
+  "meter-total,2026-10-02 00:00,128842.5,실측\n" +
+  "meter-total,2026-10-03 00:00,129240.7,실측\n";
