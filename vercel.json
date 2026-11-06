@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/mrv/jobs/evaluate-alerts",
+      "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/mrv/jobs/generate-reports",
+      "schedule": "30 0 * * *"
+    }
+  ]
+}

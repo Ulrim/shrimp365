@@ -1,0 +1,704 @@
+"use client"
+
+/**
+ * MRV 리포트 상세.
+ * 원본: mrv-platform/apps/web/src/features/mrv/MrvReportViewPage.tsx
+ *       + SnapshotDrilldownDialog.tsx
+ *
+ * 이 화면이 곧 증빙이다. 그래서 값만이 아니라 산식 전문·측정경계·가정·근거 참조를 모두
+ * 드러내고, 숫자에서 근거 스냅샷으로 내려갈 수 있게 한다 — 리포트의 모든 수치는 원천
+ * 계측값까지 역추적 가능해야 한다는 요구가 이 배치의 이유다.
+ */
+
+import { use, useState } from "react"
+import { ApiError, apiFetch, useApiQuery } from "@/lib/mrv/client"
+import { formatIsoLocal } from "@/lib/mrv/ui/datetime"
+import { isoDay } from "@/lib/mrv/ui/period"
+import { MRV_METRIC_ROWS, formatMrvNumber } from "@/lib/mrv/ui/mrv-meta"
+import { templateShowsMetric, templateShowsSection } from "@/lib/mrv/report-template"
+import {
+  EMPTY_QUALITY_FLAG_LIST_REASON,
+  REPORT_MISSING_FLAGS_NOTE,
+  REPORT_NON_DEFAULT_FLAGS_HEADLINE,
+  RISKY_QUALITY_FLAGS,
+  isDefaultQualityFlagList,
+  qualityFlagRiskText,
+} from "@/lib/mrv/quality-flags"
+import {
+  REPORT_PROVISIONAL_METRIC_HEADING,
+  REPORT_PROVISIONAL_METRIC_LINES,
+} from "@/lib/mrv/metric-provenance"
+import {
+  REPORT_UNAVAILABILITY_HEADING,
+  REPORT_UNAVAILABILITY_INTRO,
+  UNAVAILABILITY_REASON_KIND_PREFIX,
+  reportUnavailabilityEntries,
+} from "@/lib/mrv/metric-unavailability"
+import {
+  REPORT_MISSING_BASIS_NOTE,
+  REPORT_NON_METERED_HEADLINE,
+  formatMeasurementBasisTally,
+  nonMeteredCount,
+  nonMeteredPowerText,
+  readMeasurementBasisTally,
+  unrecordedBasisText,
+} from "@/lib/mrv/measurement-basis"
+import {
+  REPORT_MISSING_PRODUCTION_BASIS_NOTE,
+  REPORT_NON_MEASURED_BIOMASS_HEADLINE,
+  formatProductionBasisPoint,
+  nonMeasuredBiomassCount,
+  nonMeasuredBiomassText,
+  readBiomassBasis,
+  unrecordedBiomassCount,
+  unrecordedBiomassText,
+} from "@/lib/mrv/production-basis"
+import {
+  CenteredMessage,
+  LoadError,
+  PageHeader,
+  SECONDARY_BUTTON,
+  formatNumber,
+} from "@/components/mrv/ui"
+import type { KpiSnapshotDetail, MrvReportResponse } from "@/lib/mrv/api-types"
+
+/** 근거 스냅샷 드릴다운. 저장된 inputs/provenance 를 있는 그대로 펼쳐 보여 준다. */
+function SnapshotDrilldown({
+  snapshotId,
+  onClose,
+}: {
+  snapshotId: string
+  onClose: () => void
+}) {
+  const query = useApiQuery<KpiSnapshotDetail>(
+    (signal) =>
+      apiFetch<KpiSnapshotDetail>(
+        `/kpi-snapshots/${encodeURIComponent(snapshotId)}`,
+        { signal },
+      ),
+    [snapshotId],
+  )
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="KPI 스냅샷 근거"
+        className="flex max-h-[80vh] w-full max-w-2xl flex-col gap-3 overflow-auto rounded-xl border border-mrv-border bg-mrv-surface p-6 shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <h2 className="text-base font-bold text-mrv-fg">KPI 스냅샷 근거</h2>
+          <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>
+            닫기
+          </button>
+        </div>
+        <p className="break-all text-xs text-mrv-muted">{snapshotId}</p>
+
+        {query.isLoading && (
+          <div role="status" className="h-24 animate-pulse rounded-md bg-mrv-bg" />
+        )}
+        {query.isError && (
+          <p role="alert" className="text-sm text-mrv-red">
+            스냅샷을 불러오지 못했습니다.
+          </p>
+        )}
+        {query.data && (
+          <>
+            <dl className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <dt className="text-xs text-mrv-muted">기간</dt>
+                <dd className="text-mrv-fg">
+                  {isoDay(query.data.period.from)} ~ {isoDay(query.data.period.to)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-mrv-muted">산식 버전</dt>
+                <dd className="text-mrv-fg">{query.data.config_version}</dd>
+              </div>
+            </dl>
+            <section>
+              <h3 className="mb-1 text-sm font-semibold text-mrv-fg">산출 근거(inputs)</h3>
+              <pre className="overflow-auto rounded-md bg-mrv-bg p-3 text-[11px] leading-relaxed text-mrv-fg">
+                {JSON.stringify(query.data.inputs_json, null, 2)}
+              </pre>
+            </section>
+            <section>
+              <h3 className="mb-1 text-sm font-semibold text-mrv-fg">
+                근거 참조(provenance)
+              </h3>
+              <pre className="overflow-auto rounded-md bg-mrv-bg p-3 text-[11px] leading-relaxed text-mrv-fg">
+                {JSON.stringify(query.data.provenance_json, null, 2)}
+              </pre>
+            </section>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 「전력 자료유형(After)」 칸.
+ *
+ * 인쇄 리포트와 **같은 분기·같은 문구**를 쓴다(lib/mrv/report-html.ts::measurementBasisRow).
+ * 두 곳이 갈리면 화면으로 본 사람과 인쇄물로 본 사람이 다른 사실을 알게 된다 — 그래서
+ * 집계를 읽는 함수도, 문장도 `lib/mrv/measurement-basis.ts` 하나에서 가져온다.
+ *
+ * 경고 상자는 품질 플래그 경고와 **같은 모양**이다(같은 테두리·같은 배경·색이 아니라
+ * 글자로 사실을 적는다). 두 경고가 다른 모양이면 하나는 덜 중요한 것으로 읽힌다.
+ */
+function MeasurementBasisField({ raw }: { raw: unknown }) {
+  // `undefined`(칸 없음)와 읽을 수 없는 값은 같은 길로 간다 — 둘 다 "이 리포트는 그
+  // 사실을 모른다" 이고, 0 집계로 뭉개면 "전부 실측" 이라는 거짓 주장이 된다.
+  const tally = raw === undefined ? null : readMeasurementBasisTally(raw)
+
+  return (
+    <div>
+      <dt className="text-xs text-mrv-muted">전력 자료유형(After 기간 산입분)</dt>
+      {/* 경고를 `dd` 밖에 두지 않는다 — `dd` 를 하나 더 만들거나 role 을 주면 앞의
+          `dt` 와의 연결이 끊겨 스크린리더가 이름 없이 경고만 읽는다(품질 플래그 칸에
+          적어 둔 것과 같은 이유). */}
+      <dd className="text-mrv-fg">
+        {tally === null ? "-" : formatMeasurementBasisTally(tally)}
+        {tally === null && (
+          <p className="mt-1 rounded-md border border-mrv-border bg-mrv-na-bg p-2 text-xs leading-relaxed text-mrv-fg">
+            {REPORT_MISSING_BASIS_NOTE}
+          </p>
+        )}
+        {tally !== null && nonMeteredCount(tally) > 0 && (
+          <p className="mt-1 rounded-md border border-mrv-amber bg-mrv-amber-bg p-2 text-xs leading-relaxed text-mrv-fg">
+            {REPORT_NON_METERED_HEADLINE} {nonMeteredPowerText(tally)}
+            {tally.unrecorded > 0 && ` ${unrecordedBasisText(tally.unrecorded)}`}
+          </p>
+        )}
+        {/* 실측이 아닌 건이 없고 미기재만 있을 때. 경고가 아니라 **모른다는 기록**이므로
+            경고 상자를 쓰지 않는다 — 있지도 않은 위험을 있는 것처럼 띄우지 않는다. */}
+        {tally !== null && nonMeteredCount(tally) === 0 && tally.unrecorded > 0 && (
+          <p className="mt-1 rounded-md border border-mrv-border bg-mrv-na-bg p-2 text-xs leading-relaxed text-mrv-fg">
+            {unrecordedBasisText(tally.unrecorded)}
+          </p>
+        )}
+      </dd>
+    </div>
+  )
+}
+
+/**
+ * 「생산량 산정 근거(After)」 칸.
+ *
+ * 인쇄 리포트와 **같은 분기·같은 문구**를 쓴다(lib/mrv/report-html.ts::productionBasisRow).
+ * 두 곳이 갈리면 화면으로 본 사람과 인쇄물로 본 사람이 다른 사실을 알게 된다 — 그래서
+ * 두 점을 읽는 함수도, 문장도 `lib/mrv/production-basis.ts` 하나에서 가져온다.
+ *
+ * 경고 상자는 전력 자료유형 경고와 **같은 모양**이다. 분자의 경고와 분모의 경고가 다른
+ * 모양이면 하나는 덜 중요한 것으로 읽힌다.
+ */
+function ProductionBasisField({ raw }: { raw: unknown }) {
+  // `undefined`(칸 없음)와 읽을 수 없는 값은 같은 길로 간다 — 둘 다 "이 리포트는 그
+  // 사실을 모른다" 이고, 'measured' 로 뭉개면 "분모는 전부 실측" 이라는 거짓이 된다.
+  const record = raw === undefined ? null : readBiomassBasis(raw)
+  const unrecorded = record === null ? 0 : unrecordedBiomassCount(record)
+
+  return (
+    <div>
+      <dt className="text-xs text-mrv-muted">생산량 산정 근거(After 기간 분모)</dt>
+      {/* 경고를 `dd` 밖에 두지 않는다 — 전력 자료유형 칸과 같은 이유(dt 와의 연결이
+          끊겨 스크린리더가 이름 없이 경고만 읽는다). */}
+      <dd className="text-mrv-fg">
+        {record === null ? (
+          "-"
+        ) : (
+          <>
+            {formatProductionBasisPoint("개시", record.start)}
+            <br />
+            {formatProductionBasisPoint("마감", record.end)}
+          </>
+        )}
+        {record === null && (
+          <p className="mt-1 rounded-md border border-mrv-border bg-mrv-na-bg p-2 text-xs leading-relaxed text-mrv-fg">
+            {REPORT_MISSING_PRODUCTION_BASIS_NOTE}
+          </p>
+        )}
+        {record !== null && nonMeasuredBiomassCount(record) > 0 && (
+          <p className="mt-1 rounded-md border border-mrv-amber bg-mrv-amber-bg p-2 text-xs leading-relaxed text-mrv-fg">
+            {REPORT_NON_MEASURED_BIOMASS_HEADLINE} {nonMeasuredBiomassText(record)}
+            {unrecorded > 0 && ` ${unrecordedBiomassText(unrecorded)}`}
+          </p>
+        )}
+        {/* 실측이 아닌 점이 없고 미기재만 있을 때. 경고가 아니라 **모른다는 기록**이므로
+            경고 상자를 쓰지 않는다. */}
+        {record !== null && nonMeasuredBiomassCount(record) === 0 && unrecorded > 0 && (
+          <p className="mt-1 rounded-md border border-mrv-border bg-mrv-na-bg p-2 text-xs leading-relaxed text-mrv-fg">
+            {unrecordedBiomassText(unrecorded)}
+          </p>
+        )}
+      </dd>
+    </div>
+  )
+}
+
+export default function MrvReportViewPage({
+  params,
+}: {
+  params: Promise<{ reportId: string }>
+}) {
+  const { reportId } = use(params)
+  const [drilldownId, setDrilldownId] = useState<string | null>(null)
+
+  const query = useApiQuery<MrvReportResponse>(
+    (signal) =>
+      apiFetch<MrvReportResponse>(`/mrv-reports/${encodeURIComponent(reportId)}`, {
+        signal,
+      }),
+    [reportId],
+  )
+
+  const isUnauthorized = query.error instanceof ApiError && query.error.isUnauthorized
+  const report = query.data
+
+  /**
+   * EI 의 산입 품질 플래그. **`undefined` 는 「기록 없음」이고 `[]` 는 「빈 목록으로
+   * 산출됨」이다** — 두 사실을 뭉개지 않기 위해 `?? []` 를 쓰지 않는다(옛 리포트에는
+   * 이 칸이 없고, 그것을 빈 배열로 읽으면 화면이 "EI 0 · 감축량 전량" 이라는 거짓
+   * 주장을 띄운다).
+   */
+  const flagList = report?.boundary.included_quality_flags
+
+  /**
+   * 어떤 값이 비었고 왜 비었는가. 항목을 고르는 일은 이 화면이 하지 않는다 —
+   * 인쇄 리포트(lib/mrv/report-html.ts::unavailabilitySection)와 **같은 함수**를 쓴다.
+   * 두 곳이 각자 고르면 화면으로 본 사람과 인쇄물로 본 사람이 다른 사실을 알게 된다.
+   */
+  const unavailable =
+    report === undefined
+      ? []
+      : reportUnavailabilityEntries({
+          reductionTco2e: report.reduction_tco2e,
+          before: {
+            eiTotal: report.before.ei_total,
+            eiAeration: report.before.ei_aeration,
+            scope2Tco2e: report.before.scope2_tco2e,
+            kpiSnapshotId: report.before.kpi_snapshot_id,
+          },
+          after: {
+            eiTotal: report.after.ei_total,
+            eiAeration: report.after.ei_aeration,
+          },
+          afterEvidence: report.boundary.after_metric_evidence,
+        })
+
+  return (
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
+      <PageHeader
+        title="MRV 리포트"
+        description={report ? `리포트 ID ${report.id}` : undefined}
+        actions={
+          report && (
+            <a
+              href={`/api/mrv/mrv-reports/${encodeURIComponent(report.id)}/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={SECONDARY_BUTTON}
+            >
+              인쇄용 문서 열기
+            </a>
+          )
+        }
+      />
+
+      {query.isLoading && (
+        <div
+          role="status"
+          aria-label="리포트 불러오는 중"
+          className="h-64 animate-pulse rounded-xl border border-mrv-border bg-mrv-surface"
+        />
+      )}
+
+      {query.isError && !query.isLoading && (
+        <LoadError
+          message="리포트를 불러오지 못했습니다."
+          isUnauthorized={isUnauthorized}
+          onRetry={query.refetch}
+        />
+      )}
+
+      {!query.isLoading && !query.isError && !report && (
+        <CenteredMessage>리포트를 찾을 수 없습니다.</CenteredMessage>
+      )}
+
+      {report && (
+        <>
+          {/* 맞춤 서식의 표지. 서식은 **보여 주기만** 바꾼다 — 아래 숫자는 서식과 무관하다.
+              발행 시점에 얼린 서식이라 지금 설정 화면의 서식을 고쳐도 이 리포트는 그대로다. */}
+          {report.template && (report.template.cover_title || report.template.cover_note) && (
+            <section
+              aria-label="표지"
+              className="flex flex-col gap-1 rounded-xl border border-mrv-border bg-mrv-surface p-5"
+            >
+              {report.template.cover_title && (
+                <p className="text-xl font-semibold text-mrv-fg">{report.template.cover_title}</p>
+              )}
+              {report.template.cover_note && (
+                <p className="whitespace-pre-line text-sm leading-relaxed text-mrv-fg">
+                  {report.template.cover_note}
+                </p>
+              )}
+              <p className="text-xs text-mrv-muted">서식 「{report.template.name}」 · 발행 시점에 얼린 서식</p>
+            </section>
+          )}
+
+          <section
+            className="rounded-xl border border-mrv-green bg-mrv-green-bg p-5"
+            aria-label="감축량"
+          >
+            <p className="text-sm text-mrv-fg">감축량 (Scope2 Reduction)</p>
+            <p className="text-3xl font-bold text-mrv-green">
+              {report.reduction_tco2e === null
+                ? "산출 불가"
+                : `${formatNumber(report.reduction_tco2e, 4)} tCO2e`}
+            </p>
+            <p className="mt-1 text-xs text-mrv-muted">
+              적용 배출계수 {report.emission_factor.version} ·{" "}
+              {report.emission_factor.source} · {report.emission_factor.year}년
+            </p>
+          </section>
+
+          {/* 어떤 칸이 비었고 왜 비었는가. 감축량과 비교표 사이에 둔다 — 인쇄 리포트와
+              같은 자리이고, 그 둘의 "산출 불가 / N/A" 를 설명하는 절이다.
+
+              모양은 품질 플래그 경고(테두리 amber)와도, 지표 정의 블록(왼쪽 굵은 선)과도
+              다르게 둔다. 셋은 서로 다른 종류의 사실이다 — 하나는 이 리포트의 수치가
+              기본 상태와 다르게 산출됐다는 것, 하나는 지표 정의의 성질, 이것은 이
+              리포트의 어떤 칸이 비었는가다. 12px 본문이 아니라 14px(text-sm)이지만
+              상자 안의 글자는 모두 text-mrv-fg 로 둔다. */}
+          {unavailable.length > 0 && templateShowsSection(report.template, "unavailability") && (
+            <section
+              aria-label={REPORT_UNAVAILABILITY_HEADING}
+              className="flex flex-col gap-3 rounded-xl border border-mrv-na bg-mrv-surface p-4 text-sm leading-relaxed text-mrv-fg"
+            >
+              <h2 className="text-base font-semibold text-mrv-fg">
+                {REPORT_UNAVAILABILITY_HEADING}
+              </h2>
+              <p>{REPORT_UNAVAILABILITY_INTRO}</p>
+              {unavailable.map((entry) => (
+                <div key={entry.id} className="flex flex-col gap-1">
+                  <p className="font-semibold">{entry.label}</p>
+                  {entry.reasons.length > 0 && (
+                    <ul className="flex flex-col gap-2">
+                      {entry.reasons.map((reason) => (
+                        <li key={reason.id}>
+                          <span>
+                            {UNAVAILABILITY_REASON_KIND_PREFIX[reason.kind]}
+                            {reason.text}
+                          </span>
+                          {reason.action !== null && (
+                            <span className="mt-0.5 block">할 일 — {reason.action}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {entry.note !== null && <p>{entry.note}</p>}
+                </div>
+              ))}
+            </section>
+          )}
+
+          {templateShowsSection(report.template, "kpi_table") && (
+          <section aria-label="Before / After 비교표" className="flex flex-col gap-2">
+            <h2 className="text-base font-semibold text-mrv-fg">
+              1. Before / After 비교
+            </h2>
+            <div className="overflow-x-auto rounded-xl border border-mrv-border bg-mrv-surface">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-mrv-border bg-mrv-bg text-mrv-muted">
+                    <th className="px-4 py-2 text-left font-medium">지표</th>
+                    <th className="px-4 py-2 text-right font-medium">Before(기준선)</th>
+                    <th className="px-4 py-2 text-right font-medium">After(현재)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-mrv-border">
+                    <td className="px-4 py-2 text-mrv-fg">기간</td>
+                    <td className="px-4 py-2 text-right text-mrv-fg">
+                      {isoDay(report.before.period.from)} ~ {isoDay(report.before.period.to)}
+                    </td>
+                    <td className="px-4 py-2 text-right text-mrv-fg">
+                      {isoDay(report.after.period.from)} ~ {isoDay(report.after.period.to)}
+                    </td>
+                  </tr>
+                  <tr className="border-b border-mrv-border">
+                    <td className="px-4 py-2 text-mrv-fg">산식 버전</td>
+                    <td className="px-4 py-2 text-right text-mrv-fg">
+                      {report.before.config_version}
+                    </td>
+                    <td className="px-4 py-2 text-right text-mrv-fg">
+                      {report.after.config_version}
+                    </td>
+                  </tr>
+                  {MRV_METRIC_ROWS.filter((row) => templateShowsMetric(report.template, row.key)).map((row) => (
+                    <tr key={row.key} className="border-b border-mrv-border last:border-0">
+                      <td className="px-4 py-2 text-mrv-fg">
+                        {row.label}
+                        <span className="ml-1 text-xs text-mrv-muted">({row.unit})</span>
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums text-mrv-fg">
+                        {formatMrvNumber(row.getValue(report.before), 4)}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums text-mrv-fg">
+                        {formatMrvNumber(row.getValue(report.after), 4)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+          )}
+
+          {templateShowsSection(report.template, "boundary") && (
+          <section aria-label="측정경계와 가정" className="flex flex-col gap-2">
+            <h2 className="text-base font-semibold text-mrv-fg">
+              2. 측정경계(Boundary) · 가정(Assumptions)
+            </h2>
+            <dl className="grid grid-cols-1 gap-3 rounded-xl border border-mrv-border bg-mrv-surface p-4 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="text-xs text-mrv-muted">사이트</dt>
+                <dd className="text-mrv-fg">
+                  {report.boundary.site_name} ({report.boundary.site_id})
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-mrv-muted">포함 계측기</dt>
+                <dd className="break-all text-mrv-fg">
+                  {report.boundary.included_meter_ids.join(", ") || "-"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-mrv-muted">포함 품질 플래그</dt>
+                {/* 인쇄 리포트와 **같은 분기·같은 문구**를 쓴다
+                    (lib/mrv/report-html.ts::qualityFlagRow). 두 곳이 갈리면 화면으로 본
+                    사람과 인쇄물로 본 사람이 다른 사실을 알게 된다.
+
+                    ★ 경고는 `dd` 를 하나 더 두지 않고 같은 `dd` 안에 담는다. 전에는
+                    `<dd role="note">` 였는데, `role` 을 주면 `dd` 의 암묵 역할
+                    (definition)이 덮여 앞의 `<dt>` 와의 연결이 끊긴다 — 스크린리더가
+                    "포함 품질 플래그" 라는 이름 없이 경고 문장만 읽는다. */}
+                <dd className="text-mrv-fg">
+                  {flagList === undefined ? "-" : flagList.join(", ") || "-"}
+                  {/* 12px 본문이라 AA 기준이 4.5:1 이다. text-mrv-muted on
+                      bg-mrv-na-bg 는 4.13:1 이므로 쓰지 않는다. */}
+                  {flagList === undefined && (
+                    <p className="mt-1 rounded-md border border-mrv-border bg-mrv-na-bg p-2 text-xs leading-relaxed text-mrv-fg">
+                      {REPORT_MISSING_FLAGS_NOTE}
+                    </p>
+                  )}
+                  {flagList !== undefined && !isDefaultQualityFlagList(flagList) && (
+                    <p className="mt-1 rounded-md border border-mrv-amber bg-mrv-amber-bg p-2 text-xs leading-relaxed text-mrv-fg">
+                      {REPORT_NON_DEFAULT_FLAGS_HEADLINE}{" "}
+                      {RISKY_QUALITY_FLAGS.filter((f) => flagList.includes(f))
+                        .map((f) => qualityFlagRiskText(f, "ei"))
+                        .join(" ")}{" "}
+                      {flagList.length === 0 && EMPTY_QUALITY_FLAG_LIST_REASON}
+                    </p>
+                  )}
+                </dd>
+              </div>
+              {templateShowsSection(report.template, "provenance") && (
+              <MeasurementBasisField
+                raw={report.boundary.after_power_measurement_basis}
+              />
+              )}
+              {/* 분자(전력)의 자료유형 바로 아래에 분모(생산량)의 산정 근거를 둔다 —
+                  EI 가 낮은 것이 전기를 덜 쓴 결과인지 생산량을 넉넉히 가정한 결과인지는
+                  두 칸을 나란히 읽어야만 갈린다. */}
+              {templateShowsSection(report.template, "provenance") && (
+              <ProductionBasisField raw={report.boundary.after_biomass_basis} />
+              )}
+              <div>
+                <dt className="text-xs text-mrv-muted">생산량 근거(Before / After)</dt>
+                <dd className="break-all text-mrv-fg">
+                  {(report.boundary.biomass_source_refs.before ?? []).join(", ") || "-"}
+                  {" / "}
+                  {(report.boundary.biomass_source_refs.after ?? []).join(", ") || "-"}
+                </dd>
+              </div>
+            </dl>
+            <ul className="list-disc pl-5 text-sm text-mrv-muted">
+              {report.boundary.assumptions.map((a) => (
+                <li key={a}>{a}</li>
+              ))}
+            </ul>
+
+            {/* 지표 정의의 확정 여부. 인쇄 리포트와 **같은 배열**을 돌린다
+                (lib/mrv/report-html.ts 의 `.provenance` 블록) — 두 곳이 각자 문장을 지으면
+                화면으로 본 사람과 인쇄물로 본 사람이 다른 사실을 알게 된다.
+
+                모양은 품질 플래그·전력 자료유형 경고와 **다르게** 둔다. 그 둘은 이 리포트의
+                수치가 기본 상태와 다르게 산출됐다는 리포트별 사실이고, 이 블록은 어느
+                리포트에나 해당하는 지표 정의의 성질이다. */}
+            {templateShowsSection(report.template, "provenance") && (
+            <div
+              role="note"
+              className="flex flex-col gap-2 rounded-xl border border-mrv-border border-l-4 border-l-mrv-na bg-mrv-surface p-4 text-sm leading-relaxed text-mrv-fg"
+            >
+              <h3 className="text-sm font-semibold text-mrv-fg">
+                {REPORT_PROVISIONAL_METRIC_HEADING}
+              </h3>
+              {REPORT_PROVISIONAL_METRIC_LINES.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+            </div>
+            )}
+          </section>
+          )}
+
+          <section aria-label="산식 전문" className="flex flex-col gap-2">
+            <h2 className="text-base font-semibold text-mrv-fg">3. 산식 전문 (재현 가능)</h2>
+            <pre className="whitespace-pre-line rounded-xl border border-mrv-border bg-mrv-surface p-4 text-sm leading-relaxed text-mrv-fg">
+              {report.formula_text}
+            </pre>
+          </section>
+
+          {/* Scope 2 market-based — location-based 와 **나란히** 보고한다(GHG Protocol dual
+              reporting). null 이면 그 리포트가 location-based 만 담은 것이고, 그 사실을
+              감추지 않고 적는다. 한계(residual mix 미공표)는 값 옆에서 반드시 함께 읽혀야
+              하므로 접지 않는다. */}
+          {templateShowsSection(report.template, "market_based") && (
+          <section aria-label="Scope 2 market-based" className="flex flex-col gap-2">
+            <h2 className="text-base font-semibold text-mrv-fg">3-1. Scope 2 market-based</h2>
+            {report.market_based === null ? (
+              <p className="rounded-xl border border-mrv-border bg-mrv-na-bg p-4 text-sm leading-relaxed text-mrv-fg">
+                이 리포트는 <b>location-based</b> 만 담고 있습니다. 발행 당시 계약 전력 증서
+                표가 없었거나 기능 도입 전에 발행된 리포트입니다. 증서를 등록한 뒤 다시 발행하면
+                두 방식이 함께 인쇄됩니다.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-3 rounded-xl border border-mrv-border bg-mrv-surface p-4 text-sm">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs text-mrv-muted">location-based (계통 평균)</span>
+                    <span className="text-lg font-semibold tabular-nums text-mrv-fg">
+                      {report.market_based.locationBasedTco2e} tCO2e
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs text-mrv-muted">market-based (계약 전력 반영)</span>
+                    <span className="text-lg font-semibold tabular-nums text-mrv-fg">
+                      {report.market_based.marketBasedTco2e} tCO2e
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-mrv-muted">
+                  총 {report.market_based.totalMwh} MWh = 계약 {report.market_based.contractualMwh} MWh
+                  + 잔여 {report.market_based.residualMwh} MWh
+                  {report.market_based.applied.length > 0 &&
+                    ` · 적용 증서 ${report.market_based.applied.length}건`}
+                </p>
+                {report.market_based.applied.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <caption className="sr-only">적용된 계약 전력 증서</caption>
+                      <thead>
+                        <tr className="border-b border-mrv-border text-mrv-muted">
+                          <th scope="col" className="py-1 pr-3 font-medium">종류</th>
+                          <th scope="col" className="py-1 pr-3 font-medium">적용 MWh</th>
+                          <th scope="col" className="py-1 pr-3 font-medium">계수</th>
+                          <th scope="col" className="py-1 pr-3 font-medium">tCO2e</th>
+                          <th scope="col" className="py-1 font-medium">증서번호 · 문서</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {report.market_based.applied.map((a) => (
+                          <tr key={a.id} className="border-b border-mrv-border last:border-0">
+                            <td className="py-1 pr-3 text-mrv-fg">{a.label}</td>
+                            <td className="py-1 pr-3 tabular-nums text-mrv-fg">
+                              {a.appliedMwh}
+                              {a.overlapRatio < 1 && (
+                                <span className="text-mrv-muted"> (증서 {a.totalMwh} × {a.overlapRatio})</span>
+                              )}
+                            </td>
+                            <td className="py-1 pr-3 tabular-nums text-mrv-fg">{a.factorTco2ePerMwh}</td>
+                            <td className="py-1 pr-3 tabular-nums text-mrv-fg">{a.tco2e}</td>
+                            <td className="py-1 text-mrv-muted">
+                              {a.certificateId ?? "—"}{a.documentName ? ` · ${a.documentName}` : ""}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <ul className="flex list-disc flex-col gap-1 pl-5 text-xs leading-relaxed text-mrv-fg">
+                  {report.market_based.caveats.map((c, i) => (
+                    <li key={i}>{c}</li>
+                  ))}
+                </ul>
+                <pre className="whitespace-pre-line rounded-md border border-mrv-border bg-mrv-bg p-3 text-xs leading-relaxed text-mrv-fg">
+                  {report.market_based.formulaText}
+                </pre>
+              </div>
+            )}
+          </section>
+          )}
+
+          <section aria-label="근거 참조" className="flex flex-col gap-2">
+            <h2 className="text-base font-semibold text-mrv-fg">
+              4. 적용 로직 · 버전 · 근거 참조
+            </h2>
+            <div className="flex flex-col gap-2 rounded-xl border border-mrv-border bg-mrv-surface p-4 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-mrv-muted">기준선 ID</span>
+                <span className="break-all text-mrv-fg">{report.baseline_id}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-mrv-muted">Before 스냅샷</span>
+                {report.before.kpi_snapshot_id ? (
+                  <button
+                    type="button"
+                    onClick={() => setDrilldownId(report.before.kpi_snapshot_id!)}
+                    className="break-all text-mrv-primary hover:underline"
+                  >
+                    {report.before.kpi_snapshot_id}
+                  </button>
+                ) : (
+                  <span className="text-mrv-muted">-</span>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-mrv-muted">After 스냅샷</span>
+                {report.after.kpi_snapshot_id ? (
+                  <button
+                    type="button"
+                    onClick={() => setDrilldownId(report.after.kpi_snapshot_id!)}
+                    className="break-all text-mrv-primary hover:underline"
+                  >
+                    {report.after.kpi_snapshot_id}
+                  </button>
+                ) : (
+                  <span className="text-mrv-muted">-</span>
+                )}
+              </div>
+              <p className="text-xs text-mrv-muted">
+                생성 {report.generated_by} · {formatIsoLocal(report.generated_at)}
+              </p>
+            </div>
+          </section>
+        </>
+      )}
+
+      {drilldownId && (
+        <SnapshotDrilldown
+          snapshotId={drilldownId}
+          onClose={() => setDrilldownId(null)}
+        />
+      )}
+    </div>
+  )
+}

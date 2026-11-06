@@ -33,6 +33,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // 이식 원본(FastAPI + Vite SPA) — 자체 툴체인을 갖는 참조 소스이므로
+    // shrimp365 의 lint 대상이 아니다. 실행 코드는 lib/mrv, app/mrv, app/api/mrv 에 있다.
+    "mrv-platform/**",
     // openfield/ 는 Python 하위 프로젝트(OFDF). dashboard/*.js 는 키오스크의 <script> 전용이다.
     "openfield/**",
     // vision/ 도 Python 하위 프로젝트(카메라 개체수). tests/ui/*.js 는 node 로 바로 돌리는 CommonJS 점검 스크립트다.

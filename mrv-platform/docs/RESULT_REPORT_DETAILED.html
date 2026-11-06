@@ -1,0 +1,551 @@
+<!doctype html>
+<!-- RESULT_REPORT_DETAILED.pdf 의 원본. 재생성: 같은 폴더에 shots/ 와 fonts/NotoSansKR.ttf 를 두고 Playwright page.pdf(A4) 로 인쇄한다. -->
+<html lang="ko"><head><meta charset="utf-8">
+<title>컬리버 통합관리 + 탄소 MRV 플랫폼 — 상세 결과보고서</title>
+<style>
+@font-face{font-family:"Noto Sans KR";src:local("Noto Sans KR"),url("fonts/NotoSansKR.ttf");font-weight:100 900}
+@page{size:A4;margin:18mm 16mm 20mm 16mm}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:"Noto Sans KR","WenQuanYi Zen Hei",sans-serif;font-size:10.3pt;line-height:1.62;color:#111827}
+h1{font-size:22pt;margin:0 0 4mm;line-height:1.3}
+h2{font-size:14.5pt;margin:9mm 0 3mm;padding-bottom:1.5mm;border-bottom:1.5px solid #1e3a8a;color:#1e3a8a;break-after:avoid}
+h3{font-size:11.5pt;margin:5.5mm 0 2mm;color:#111827;break-after:avoid}
+h4{font-size:10.3pt;margin:3.5mm 0 1.5mm;color:#1e3a8a;break-after:avoid}
+p{margin:0 0 2.6mm}
+ul,ol{margin:0 0 3mm 5mm;padding:0}li{margin:0 0 1.2mm}
+table{width:100%;border-collapse:collapse;margin:2mm 0 4mm;font-size:9.4pt;break-inside:auto}
+tr{break-inside:avoid}
+th,td{border:1px solid #cbd5e1;padding:1.5mm 2.3mm;vertical-align:top;text-align:left}
+th{background:#eef2ff;font-weight:700}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+code,pre{font-family:"Noto Sans KR",ui-monospace,Menlo,monospace}
+code{background:#f1f5f9;padding:0 1.2mm;border-radius:2px;font-size:9.2pt}
+pre{background:#f8fafc;border:1px solid #e2e8f0;padding:3mm;border-radius:3px;font-size:9pt;white-space:pre-wrap;line-height:1.55;margin:2mm 0 4mm}
+.cover{height:245mm;display:flex;flex-direction:column;justify-content:center;break-after:page}
+.cover .kicker{color:#1e3a8a;font-weight:700;letter-spacing:.08em;font-size:10.5pt;margin-bottom:6mm}
+.cover h1{font-size:28pt;margin-bottom:6mm}
+.cover .sub{font-size:13pt;color:#475569;margin-bottom:16mm}
+.cover table{width:auto;min-width:120mm;font-size:10.5pt}
+.cover th{width:34mm}
+.toc{columns:2;column-gap:8mm;font-size:9.8pt}
+.toc li{break-inside:avoid}
+.callout{border-left:3px solid #1e3a8a;background:#f8fafc;padding:3mm 4mm;margin:3mm 0 4mm;break-inside:avoid}
+.callout.key{border-color:#15803d;background:#f0fdf4}
+.callout.warn{border-color:#b45309;background:#fffbeb}
+.small{font-size:9pt;color:#475569}
+.badge{display:inline-block;background:#eef2ff;color:#1e3a8a;font-weight:700;font-size:8.4pt;padding:0 1.6mm;border-radius:2px;margin-left:1.5mm;vertical-align:middle}
+.break{break-before:page}
+figure{margin:2.5mm 0 4.5mm;break-inside:avoid}
+figure img{width:100%;display:block;border:1px solid #cbd5e1;border-radius:2px}
+figcaption{font-size:8.9pt;color:#475569;margin-top:1.4mm;line-height:1.5}
+figcaption b{color:#1e3a8a}
+.crop{overflow:hidden;border:1px solid #cbd5e1;border-radius:2px;background:#fff;width:100%}
+.crop img{width:100%;display:block;border:0;border-radius:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:3.5mm 4mm}
+.grid2 figure{margin:0}
+.kv{display:grid;grid-template-columns:34mm 1fr;gap:1mm 3mm;font-size:9.6pt;margin:0 0 3mm}
+.kv b{color:#1e3a8a}
+.diagram{margin:3mm 0 4mm;break-inside:avoid}
+.diagram svg{width:100%;height:auto;display:block}
+.pill{display:inline-block;border:1px solid #cbd5e1;border-radius:9px;padding:0 2mm;font-size:8.6pt;color:#475569;margin-right:1mm}
+</style></head><body>
+
+<section class="cover">
+  <div class="kicker">2026 스프링캠프 과제 결과보고서 · 상세판</div>
+  <h1>컬리버 통합관리 +<br>탄소 MRV 플랫폼</h1>
+  <div class="sub">실내 흰다리새우(RAS) 양식장용 B2B 구독 웹앱 · 현장 장비 · 탄소 MRV 증빙<br>화면 캡처 · 시스템 구성 · 검증 결과 포함</div>
+  <table>
+    <tr><th>저장소</th><td>Ulrim/shrimp365</td></tr>
+    <tr><th>브랜치</th><td>claude/mrv-platform-github-merge-zqhf88</td></tr>
+    <tr><th>기준 커밋</th><td>9af36e2 (2026-11-05)</td></tr>
+    <tr><th>작업 기간</th><td>2026-08-29 ~ 2026-11-05 · 이 기간 커밋 68건</td></tr>
+    <tr><th>화면 캡처</th><td>실제 프로덕션 빌드를 로컬에서 띄워 브라우저로 찍은 것 (2026-11-05)</td></tr>
+    <tr><th>상세 문서</th><td>mrv-platform/docs/HANDOVER.md · RESULT_REPORT.md · adr/</td></tr>
+  </table>
+</section>
+
+<h2>목차</h2>
+<ol class="toc">
+<li>과제 개요와 한 줄 요약</li>
+<li>시스템 구성</li>
+<li>산출물 규모</li>
+<li>화면별 구현 상세 (16화면)</li>
+<li>증빙으로서의 정직성 — 집중한 14가지</li>
+<li>현장 장비 (라즈베리파이 키오스크)</li>
+<li>검증 결과</li>
+<li>대표 확인 흐름</li>
+<li>개발 중 발견해 막은 결함 12건</li>
+<li>한계와 전제</li>
+<li>사람이 해야 하는 나머지</li>
+<li>재현 방법</li>
+<li>부록 A. DB 테이블 · 마이그레이션</li>
+<li>부록 B. API 라우트 55개</li>
+<li>부록 C. 환경변수 · 스케줄</li>
+<li>부록 D. 설계 결정 기록(ADR)</li>
+</ol>
+<p class="small">캡처에 보이는 숫자는 로컬 시연용 자료(무안 양식장 · 수조 2 · 계측기 3 · 30일 시계열)에서 나온 값이다. 실제 고객 자료가 아니며 값의 크기 자체에는 의미가 없다. 캡처는 기능과 화면 구성을 보이기 위한 것이다.</p>
+
+<h2>1. 과제 개요와 한 줄 요약</h2>
+<div class="kv">
+<b>과제</b><span>실내 흰다리새우(RAS) 양식장용 통합관리 + 탄소 MRV(Measurement · Reporting · Verification) 플랫폼</span>
+<b>고객 형태</b><span>B2B 구독 웹앱 (START · PRO · ENTERPRISE 3단계 요금제)</span>
+<b>핵심 가치</b><span>단순 모니터링이 아니라 <b>기준선 → 추천/제어 → 로그 → 전후비교 → MRV 증빙</b>이 한 줄로 이어지는 시스템</span>
+<b>범위</b><span>사양서(00_개발의뢰서_MASTER 4장) 16화면 전부 + 기계실 현장 장비(라즈베리파이 키오스크) + 검증 체계</span>
+</div>
+<div class="callout key">
+사양서 16화면의 기능 항목은 <b>전부</b> 들어갔고, 그 사슬이 <b>제품 안에서 닫히는지</b>를 실물 빌드에서 브라우저로 확인했다. 사람이 DB 를 직접 만져야 끝나는 자리가 남아 있지 않다. 남은 것은 기능이 아니라 <b>한계와 전제</b>(10장)이며, 그 한계는 리포트가 스스로 인쇄한다.
+</div>
+<p>이번 과제가 다른 모니터링 제품과 갈리는 지점은 <b>"이 숫자를 믿어도 되는가"</b> 에 답하도록 설계했다는 것이다. 산출 불가를 0 으로 바꾸지 않고, 배출계수 출처를 발행 시점에 얼리고, 잘못 넣은 기록을 지우지 않고 무효로 표시하고, 같은 입력이면 같은 출력이 나오는 것을 기계적으로 대조한다. 5장이 그 내용이다.</p>
+
+<h2>2. 시스템 구성</h2>
+<h3>2-1. 전체 구성도</h3>
+<div class="diagram">
+<svg viewBox="0 0 980 420" xmlns="http://www.w3.org/2000/svg" font-family="Noto Sans KR, sans-serif" font-size="13">
+  <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#475569"/></marker></defs>
+  <!-- 현장 -->
+  <rect x="20" y="30" width="250" height="360" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="145" y="55" text-anchor="middle" font-weight="700" fill="#1e3a8a">현장 (양식장 기계실)</text>
+  <rect x="40" y="75" width="210" height="70" rx="6" fill="#fff" stroke="#94a3b8"/>
+  <text x="145" y="100" text-anchor="middle" font-weight="700">라즈베리파이 키오스크</text>
+  <text x="145" y="120" text-anchor="middle" fill="#475569">800×480 · 4개 국어 · 3 운전 모드</text>
+  <text x="145" y="137" text-anchor="middle" fill="#475569">오프라인 보관 → 복구 시 재전송</text>
+  <rect x="40" y="160" width="100" height="60" rx="6" fill="#fff" stroke="#94a3b8"/>
+  <text x="90" y="185" text-anchor="middle" font-weight="700">전력계</text>
+  <text x="90" y="205" text-anchor="middle" fill="#475569">적산 지침</text>
+  <rect x="150" y="160" width="100" height="60" rx="6" fill="#fff" stroke="#94a3b8"/>
+  <text x="200" y="185" text-anchor="middle" font-weight="700">수질 센서</text>
+  <text x="200" y="205" text-anchor="middle" fill="#475569">DO · 수온 · pH</text>
+  <rect x="40" y="240" width="210" height="60" rx="6" fill="#fff" stroke="#94a3b8"/>
+  <text x="145" y="265" text-anchor="middle" font-weight="700">운영자 (웹 브라우저)</text>
+  <text x="145" y="285" text-anchor="middle" fill="#475569">수기 입력 · 기록지 CSV · 승인</text>
+  <rect x="40" y="315" width="210" height="55" rx="6" fill="#fff" stroke="#94a3b8"/>
+  <text x="145" y="338" text-anchor="middle" font-weight="700">증서 · 계수 문서</text>
+  <text x="145" y="357" text-anchor="middle" fill="#475569">REC · PPA · GIR 공표 계수</text>
+  <line x1="90" y1="160" x2="110" y2="145" stroke="#475569" marker-end="url(#ar)"/>
+  <line x1="200" y1="160" x2="180" y2="145" stroke="#475569" marker-end="url(#ar)"/>
+  <!-- 화살표 현장→플랫폼 -->
+  <line x1="250" y1="110" x2="330" y2="110" stroke="#475569" stroke-width="1.5" marker-end="url(#ar)"/>
+  <text x="290" y="100" text-anchor="middle" fill="#475569" font-size="11">API 키 (해시 보관)</text>
+  <line x1="250" y1="270" x2="330" y2="270" stroke="#475569" stroke-width="1.5" marker-end="url(#ar)"/>
+  <text x="290" y="260" text-anchor="middle" fill="#475569" font-size="11">세션(JWT)</text>
+  <!-- 플랫폼 -->
+  <rect x="330" y="30" width="410" height="360" rx="8" fill="#eef2ff" stroke="#c7d2fe"/>
+  <text x="535" y="55" text-anchor="middle" font-weight="700" fill="#1e3a8a">플랫폼 (Next.js 16 · Vercel)</text>
+  <rect x="350" y="75" width="370" height="60" rx="6" fill="#fff" stroke="#94a3b8"/>
+  <text x="535" y="98" text-anchor="middle" font-weight="700">API 라우트 55개 (/api/mrv/…)</text>
+  <text x="535" y="118" text-anchor="middle" fill="#475569">인증 · 플랜 게이트 · org 스코프 · 쓰기 경계 검증 · 감사 로그</text>
+  <rect x="350" y="150" width="175" height="80" rx="6" fill="#fff" stroke="#1e3a8a" stroke-width="1.5"/>
+  <text x="437" y="173" text-anchor="middle" font-weight="700" fill="#1e3a8a">KPI/MRV 산식 엔진</text>
+  <text x="437" y="192" text-anchor="middle" fill="#475569">lib/mrv/kpi (TS 이식본)</text>
+  <text x="437" y="210" text-anchor="middle" fill="#475569">순수 함수 · 결정론적</text>
+  <rect x="545" y="150" width="175" height="80" rx="6" fill="#fff" stroke="#94a3b8"/>
+  <text x="632" y="173" text-anchor="middle" font-weight="700">증빙 계층</text>
+  <text x="632" y="192" text-anchor="middle" fill="#475569">기준선 잠금 · 리포트 발행</text>
+  <text x="632" y="210" text-anchor="middle" fill="#475569">market-based 배분 · 서식</text>
+  <rect x="350" y="245" width="370" height="55" rx="6" fill="#fff" stroke="#94a3b8"/>
+  <text x="535" y="267" text-anchor="middle" font-weight="700">화면 17개 (/mrv/…)</text>
+  <text x="535" y="287" text-anchor="middle" fill="#475569">React 19 · 접근성 AA · 신호등은 색 + 글자</text>
+  <rect x="350" y="315" width="175" height="55" rx="6" fill="#fff" stroke="#94a3b8"/>
+  <text x="437" y="338" text-anchor="middle" font-weight="700">일일 배치 (Cron)</text>
+  <text x="437" y="357" text-anchor="middle" fill="#475569">알림 평가 · 리포트 자동 생성</text>
+  <rect x="545" y="315" width="175" height="55" rx="6" fill="#fff" stroke="#94a3b8"/>
+  <text x="632" y="338" text-anchor="middle" font-weight="700">메일 발송기</text>
+  <text x="632" y="357" text-anchor="middle" fill="#475569">log(기본) · Resend</text>
+  <!-- DB -->
+  <line x1="740" y1="190" x2="800" y2="190" stroke="#475569" stroke-width="1.5" marker-end="url(#ar)"/>
+  <rect x="800" y="30" width="160" height="360" rx="8" fill="#f0fdf4" stroke="#bbf7d0"/>
+  <text x="880" y="55" text-anchor="middle" font-weight="700" fill="#15803d">Supabase (Postgres)</text>
+  <text x="880" y="90" text-anchor="middle" fill="#334155">mrv_* 테이블 30여 개</text>
+  <text x="880" y="112" text-anchor="middle" fill="#334155">RLS org 격리</text>
+  <text x="880" y="134" text-anchor="middle" fill="#334155">기준선 불변 트리거</text>
+  <text x="880" y="156" text-anchor="middle" fill="#334155">배출계수 append-only</text>
+  <text x="880" y="178" text-anchor="middle" fill="#334155">audit_logs (before/after)</text>
+  <text x="880" y="200" text-anchor="middle" fill="#334155">마이그레이션 11개</text>
+  <text x="880" y="240" text-anchor="middle" fill="#334155" font-weight="700">GoTrue 인증</text>
+  <text x="880" y="262" text-anchor="middle" fill="#334155">Shrimp365 계정 연동</text>
+  <!-- 차분검증 -->
+  <rect x="350" y="395" width="370" height="20" fill="none"/>
+  <text x="437" y="243" text-anchor="middle" fill="#b45309" font-size="10.5">▲ 원본 Python(culiver_kpi)과 차분검증</text>
+</svg>
+</div>
+<h3>2-2. 증빙 사슬 — 제품 안에서 닫히는 흐름</h3>
+<div class="diagram">
+<svg viewBox="0 0 980 150" xmlns="http://www.w3.org/2000/svg" font-family="Noto Sans KR, sans-serif" font-size="12.5">
+  <defs><marker id="ar2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#1e3a8a"/></marker></defs>
+  <g>
+    <rect x="10" y="20" width="140" height="58" rx="7" fill="#eef2ff" stroke="#1e3a8a"/><text x="80" y="44" text-anchor="middle" font-weight="700">① 수집 · 입력</text><text x="80" y="64" text-anchor="middle" fill="#475569" font-size="10.5">장비 · 수기 · CSV</text>
+    <rect x="175" y="20" width="140" height="58" rx="7" fill="#eef2ff" stroke="#1e3a8a"/><text x="245" y="44" text-anchor="middle" font-weight="700">② 기준선 잠금</text><text x="245" y="64" text-anchor="middle" fill="#475569" font-size="10.5">충분성 판정 → 불변</text>
+    <rect x="340" y="20" width="140" height="58" rx="7" fill="#eef2ff" stroke="#1e3a8a"/><text x="410" y="44" text-anchor="middle" font-weight="700">③ 추천 → 승인 제어</text><text x="410" y="64" text-anchor="middle" fill="#475569" font-size="10.5">레시피 버전 · 승인 · 적용</text>
+    <rect x="505" y="20" width="140" height="58" rx="7" fill="#eef2ff" stroke="#1e3a8a"/><text x="575" y="44" text-anchor="middle" font-weight="700">④ 로그 · 감사</text><text x="575" y="64" text-anchor="middle" fill="#475569" font-size="10.5">모든 변경 diff</text>
+    <rect x="670" y="20" width="140" height="58" rx="7" fill="#eef2ff" stroke="#1e3a8a"/><text x="740" y="44" text-anchor="middle" font-weight="700">⑤ 전·후 비교 · A/B</text><text x="740" y="64" text-anchor="middle" fill="#475569" font-size="10.5">같은 산식 버전 대조</text>
+    <rect x="835" y="20" width="135" height="58" rx="7" fill="#f0fdf4" stroke="#15803d"/><text x="902" y="44" text-anchor="middle" font-weight="700" fill="#15803d">⑥ MRV 리포트</text><text x="902" y="64" text-anchor="middle" fill="#475569" font-size="10.5">Scope 2 · 산식 전문</text>
+    <line x1="150" y1="49" x2="173" y2="49" stroke="#1e3a8a" stroke-width="1.5" marker-end="url(#ar2)"/>
+    <line x1="315" y1="49" x2="338" y2="49" stroke="#1e3a8a" stroke-width="1.5" marker-end="url(#ar2)"/>
+    <line x1="480" y1="49" x2="503" y2="49" stroke="#1e3a8a" stroke-width="1.5" marker-end="url(#ar2)"/>
+    <line x1="645" y1="49" x2="668" y2="49" stroke="#1e3a8a" stroke-width="1.5" marker-end="url(#ar2)"/>
+    <line x1="810" y1="49" x2="833" y2="49" stroke="#1e3a8a" stroke-width="1.5" marker-end="url(#ar2)"/>
+  </g>
+  <text x="490" y="110" text-anchor="middle" fill="#334155">각 단계가 다음 단계의 <tspan font-weight="700">근거 ID</tspan> 를 들고 있다 — 리포트는 기준선 ID · KPI 스냅샷 ID · 배출계수 version · 서식 ID 를 인쇄한다.</text>
+  <text x="490" y="132" text-anchor="middle" fill="#334155">그래서 어느 숫자든 원천 계측값까지 역추적할 수 있다(GET /api/mrv/kpi-snapshots/{id} → /readings).</text>
+</svg>
+</div>
+<h3>2-3. 기술 스택</h3>
+<table>
+<tr><th style="width:30mm">계층</th><th>선택</th><th>비고</th></tr>
+<tr><td>프런트 · 서버</td><td>Next.js 16 (App Router) · React 19 · TypeScript</td><td>Shrimp365 본체 안의 <code>/mrv</code> 영역으로 통합 배포 — 별도 서버 없음</td></tr>
+<tr><td>데이터</td><td>Supabase Postgres · RLS · GoTrue</td><td>모든 쿼리 org_id 스코프, 새 테이블도 같은 RLS 정책 루프로 격리</td></tr>
+<tr><td>산식 엔진</td><td>TypeScript 이식본 (lib/mrv/kpi, 2,060줄)</td><td>원본 Python(culiver_kpi)과 픽스처 차분검증으로 묶임</td></tr>
+<tr><td>현장 장비</td><td>Raspberry Pi · Python · 7″ 터치(800×480)</td><td>systemd 서비스, 오프라인 버퍼, 6자리 코드 페어링</td></tr>
+<tr><td>배치</td><td>Vercel Cron 2개</td><td>알림 평가 23:00 UTC · 리포트 자동 생성 00:30 UTC (Hobby 한도 2/일)</td></tr>
+<tr><td>리포트</td><td>HTML 인쇄용 문서 + 브라우저 PDF</td><td>ADR 0004 — 서버 렌더러 의존성 없이 산식 전문·출처를 인쇄</td></tr>
+<tr><td>검증</td><td>node 검증 스크립트 16종 · tsc · build · RLS SQL</td><td><code>npm run mrv:verify</code> 한 줄</td></tr>
+</table>
+
+<h2>3. 산출물 규모</h2>
+<table>
+<tr><th>항목</th><th>수량</th><th>비고</th></tr>
+<tr><td>화면(페이지)</td><td class="n"><b>17</b></td><td>사양서 16화면 전부 + 리포트 상세/생성</td></tr>
+<tr><td>API 라우트</td><td class="n"><b>55</b></td><td>부록 B</td></tr>
+<tr><td>DB 마이그레이션</td><td class="n"><b>11</b></td><td>전부 적용 완료 (부록 A)</td></tr>
+<tr><td>검증 스크립트</td><td class="n"><b>16</b></td><td>차분 5 · 사양 기반 10 · RLS 1</td></tr>
+<tr><td>설계 결정 기록(ADR)</td><td class="n"><b>7</b></td><td>부록 D</td></tr>
+<tr><td>변경 규모(MRV 범위)</td><td class="n">263 파일</td><td>약 136,000줄 추가</td></tr>
+<tr><td>현장 장비</td><td class="n">상태 27종</td><td>운전 모드 3종 · 4개 국어 · 800×480</td></tr>
+</table>
+
+<h2 class="break">4. 화면별 구현 상세 (16화면)</h2>
+<p>사양서 4장의 순서를 따른다. 각 화면은 실제 빌드본에서 찍었다. 캡처는 화면의 윗부분을 보이고, 긴 화면은 핵심 구간을 잘라 실었다.</p>
+
+<h3>4-1. 로그인 · 멀티테넌시 <span class="pill">START</span></h3>
+<p>Shrimp365 계정으로 로그인하면(ADR 0005·0006) 초대된 조직(Organization)에 들어간다. 역할은 Owner · Operator · Viewer 세 가지이고, 쓰기 창구마다 서버가 역할과 요금제를 검사한다. 초대되지 않은 계정은 안내 문구만 본다.</p>
+<figure><div class="crop" data-src="result-report/shots/01-login.jpg" data-w="1280" data-y="0,860"></div><figcaption><b>그림 4-1</b> 로그인. 소셜 로그인(Google · Kakao)은 본체의 Supabase Auth 를 그대로 쓴다.</figcaption></figure>
+
+<h3>4-2. 사이트 개요 <span class="pill">START</span></h3>
+<p>KPI 5종(전력집약도 EI · 폭기 EI · 사료요구율 FCR · 산소효율지수 OEI · 폐사율)을 카드로 보이고, 신호등(정상·주의·경고)은 색과 글자를 함께 쓴다. 산출 불가일 때는 0 이 아니라 <b>어느 입력이 비어서 못 냈는지</b>를 카드가 적는다. OEI 는 「잠정 지표」 배지를 달고 산식이 미확정이라는 사실을 값 옆에서 말한다. 온보딩이 덜 끝났으면 상단 띠가 다음 할 일을 가리킨다.</p>
+<figure><div class="crop" data-src="result-report/shots/02-overview.jpg" data-w="1280" data-y="0,760"></div><figcaption><b>그림 4-2</b> 사이트 개요. 각 카드에 산식 버전(2026.1.0)과 산출 기간이 붙는다.</figcaption></figure>
+
+<h3>4-3. 통합 대시보드 <span class="pill">START</span></h3>
+<p>전력 · 용존산소 · 수온 · pH · ORP · EC 시계열을 일별/시간별로 집계해 그리고, 수조별 비교를 켤 수 있다. 계측기가 없는 지표는 체크박스가 비활성이고 「계측기 없음」이라고 적는다. 범례는 계측기 id 를 그대로 보여 어느 계량기인지 현장에서 대조할 수 있게 했다.</p>
+<figure><div class="crop" data-src="result-report/shots/02-overview.jpg" data-w="1280" data-y="770,1711"></div><figcaption><b>그림 4-3</b> 시계열 차트(전력 사용량 일별 합계 · DO 일별 평균). 수조별 비교는 배치가 아니라 수조 목록에서 뽑는다(9장 결함 10).</figcaption></figure>
+
+<h3>4-4. 급이 · 폐사 · 전력 · 생산량 입력 <span class="pill">START</span></h3>
+<p>KPI 의 분자와 분모를 모두 제품 안에서 받는다. 입식 등록(폐사율 분모) · 급이 · 폐사 · 전력(구간 사용량, 자료유형 필수) · 생산량(EI·FCR 분모, 산정 근거 필수)의 수기 폼과, 같은 다섯 가지의 기록지 CSV 업로드(견본 서식 내려받기 포함)가 있다. 잘못 넣은 생산량은 삭제가 아니라 <b>무효 처리</b>한다(5-3).</p>
+<figure><div class="crop" data-src="result-report/shots/04-input.jpg" data-w="1280" data-y="0,1240"></div><figcaption><b>그림 4-4a</b> 수기 입력 폼. 전력에는 「자료유형(실측·계산·어림)」이, 생산량에는 「산정 근거」와 「생존율 보정 여부」가 필수다.</figcaption></figure>
+<figure><div class="crop" data-src="result-report/shots/04-input.jpg" data-w="1280" data-y="1240,2380"></div><figcaption><b>그림 4-4b</b> 생산량 입력과 「생산량 기록 · 정정」 목록. 각 행에 산정 근거와 상태가 보이고 무효 처리 버튼이 있다.</figcaption></figure>
+<figure><div class="crop" data-src="result-report/shots/rp-1-void.jpg" data-w="1440" data-y="2150,2700"></div><figcaption><b>그림 4-4c</b> 무효 처리 폼 — 사유가 필수다. 사유 없이 빠진 생산량은 분모를 임의로 줄인 것과 구분되지 않는다.</figcaption></figure>
+<figure><div class="crop" data-src="result-report/shots/rp-1b-voided.jpg" data-w="1440" data-y="2050,2480"></div><figcaption><b>그림 4-4d</b> 무효 처리된 줄은 감추지 않는다 — 흐리게·취소선으로 남고 사유가 옆에 적히며 「되돌리기」가 있다. 이 상태에서 EI 는 0.2421 → 0.3480 으로 움직였고 되돌리면 0.2421 로 복귀했다.</figcaption></figure>
+
+<h3>4-5. 알림 센터 <span class="pill">START</span></h3>
+<p>DO 저하(critical) · 폐사 급증(warning) · KPI 위험(red) 세 종류를 일일 배치가 평가해 만든다. 구독은 사이트별 체크박스이고, 확인 처리하면 누가 언제 확인했는지가 남는다. OEI 는 미확정 지표라 기본 감시 목록에서 뺐다(5-9). 아래 캡처는 DO 2.4 mg/L 수기값과 폐사 2,400마리를 넣고 배치를 돌린 결과다.</p>
+<figure><div class="crop" data-src="result-report/shots/05-alerts.jpg" data-w="1280" data-y="0,620"></div><figcaption><b>그림 4-5</b> 알림 센터. 측정값과 임계값(3 mg/L)이 함께 보인다.</figcaption></figure>
+
+<h3>4-6. 리포트 — 주간/월간 자동 생성 · PDF · 이메일 <span class="pill">START</span></h3>
+<p>리포트는 사람이 생성 화면에서 만들거나, 설정의 「리포트 자동 생성 · 이메일 발송」 일정이 매일 00:30(UTC) 배치에서 만든다. 자동 생성은 같은 기간을 두 번 만들지 않고(<code>last_period_end</code> 에서 이어짐), 수신자마다 발송 기록 한 줄을 남긴다. 인쇄용 문서는 브라우저 인쇄로 PDF 가 된다.</p>
+<figure><div class="crop" data-src="result-report/shots/07b-report-new.jpg" data-w="1280" data-y="0,540"></div><figcaption><b>그림 4-6a</b> 리포트 생성. 배출계수와 서식을 고르고, 서식이 숫자를 바꾸지 못한다는 사실을 화면이 적는다.</figcaption></figure>
+<figure><div class="crop" data-src="result-report/shots/rp-4-schedule.jpg" data-w="1440" data-y="4800,5420"></div><figcaption><b>그림 4-6b</b> 설정 — 리포트 자동 생성 일정과 발송 기록. 공급자가 log 이면 「보내지 않음(skipped)」으로 남는다.</figcaption></figure>
+
+<h3>4-7. 추천(운전 레시피) 보드 <span class="pill">PRO</span></h3>
+<p>급이 · 산소 · 순환 세 추천값과 근거 문장을 보인다. 추천은 설비에 자동 적용되지 않는다. 같은 입력이면 같은 추천이 나오므로 값이 바뀔 때만 레시피 버전이 늘고, 운영자는 「다른 값으로 버전 남기기」로 자기 판단을 사유와 함께 기록할 수 있다.</p>
+<figure><div class="crop" data-src="result-report/shots/08-recommend.jpg" data-w="1280" data-y="0,580"></div><figcaption><b>그림 4-7</b> 추천 보드. 각 카드에 산식 버전과 산출 시각이 붙는다.</figcaption></figure>
+
+<h3>4-8. SOP 라이브러리 <span class="pill">PRO</span></h3>
+<p>정상 운영 일일 점검 · 수질 악화 · DO 저하 · 폐사 급증 네 시나리오의 표준 절차와 체크리스트. 체크리스트 실행 기록은 수조와 항목별로 남는다.</p>
+<figure><div class="crop" data-src="result-report/shots/09-sop.jpg" data-w="1280" data-y="0,400"></div><figcaption><b>그림 4-8</b> SOP 라이브러리.</figcaption></figure>
+
+<h3>4-9. 전·후 비교 + 비교실험(A/B) <span class="pill">PRO</span></h3>
+<p>잠긴 기준선(Before)과 지정 기간(After)을 같은 산식 버전으로 대조한다. 개선율은 지표 방향을 보정한 값이라 양수면 나아진 것이다. 같은 화면 아래에 비교실험이 있다 — 대조군·처리군 두 구간을 실험이 직접 들고 있고 결과는 조회 때마다 라이브로 산출되며 기준선 비교와 같은 표로 그린다. 구간은 겹칠 수 없고 결론에는 사유가 필수다.</p>
+<figure><div class="crop" data-src="result-report/shots/10-comparison.jpg" data-w="1280" data-y="0,740"></div><figcaption><b>그림 4-9a</b> 전·후 비교표. OEI 는 잠정 지표 안내가 함께 인쇄된다.</figcaption></figure>
+<figure><div class="crop" data-src="result-report/shots/10-comparison.jpg" data-w="1280" data-y="740,1407"></div><figcaption><b>그림 4-9b</b> 비교실험 목록과 구성 폼. 「결과 보기」가 두 구간의 KPI 를 지금 산출해 보여 준다.</figcaption></figure>
+
+<h3>4-10. MRV 리포트 — Scope 2 location · market-based 병기 <span class="pill">PRO</span></h3>
+<p>리포트는 감축량 · Before/After 표 · <b>산식 전문(대입값 포함)</b> · Scope 2 market-based · 근거 참조(기준선 ID · 스냅샷 ID · 배출계수 version · 출처) 순서다. 배출계수와 출처는 발행 시점에 얼려 저장되므로 계수 표가 나중에 바뀌어도 옛 리포트는 그대로다. 계약 전력 증서가 있으면 market-based 가 location-based 옆에 인쇄되고, residual mix 미공표라는 한계를 리포트가 항상 적는다.</p>
+<figure><div class="crop" data-src="result-report/shots/07-report-detail.jpg" data-w="1280" data-y="0,760"></div><figcaption><b>그림 4-10a</b> 리포트 상세 — 감축량과 Before/After 표, 산식 전문.</figcaption></figure>
+<figure><div class="crop" data-src="result-report/shots/07-report-detail.jpg" data-w="1280" data-y="760,1427"></div><figcaption><b>그림 4-10b</b> Scope 2 market-based 절. 증서 12 MWh 중 기간 겹침 비율만큼만 적용되고, 소비량을 넘는 0.43 MWh 는 적용하지 않았다고 적는다.</figcaption></figure>
+<figure><div class="crop" data-src="result-report/shots/07c-report-print.jpg" data-w="1280" data-y="0,1050"></div><figcaption><b>그림 4-10c</b> 인쇄용 문서(브라우저 인쇄 → PDF). 화면과 같은 판정 함수로 절과 지표를 가린다.</figcaption></figure>
+<figure><div class="crop" data-src="result-report/shots/07c-report-print.jpg" data-w="1280" data-y="1050,2446"></div><figcaption><b>그림 4-10d</b> 인쇄용 문서 뒷부분 — 전·후 그래프와 근거 참조(출처 주소 · 계수 기준 기간 · kpi_config 버전).</figcaption></figure>
+
+<h3>4-11. 승인형 제어 콘솔 <span class="pill">ENTERPRISE</span></h3>
+<p>추천 레시피 버전을 수조에 제안하면 pending → approved → applied 로만 간다. 승인 없이 적용하면 서버가 409 를 낸다. 이 화면은 설비를 직접 제어하지 않는다 — 승인된 값을 운영자가 현장에서 반영한 뒤 그 사실과 결과를 기록한다. 모든 전이는 감사 로그에 남는다.</p>
+<figure><div class="crop" data-src="result-report/shots/11-control-console.jpg" data-w="1280" data-y="0,540"></div><figcaption><b>그림 4-11</b> 제어 콘솔. 제안된 파라미터(JSON)와 근거 계측기가 보인다.</figcaption></figure>
+
+<h3>4-12. 멀티사이트 관리 <span class="pill">ENTERPRISE</span></h3>
+<p>조직의 모든 사이트를 같은 기간·같은 산식으로 벤치마크한다. 최고/최저 배지는 지표 방향을 보정한 것이고, OEI 열은 사업장마다 DO 목표대역이 다르므로 같은 척도가 아니라는 사실을 표 아래에 적는다. 두 번째 사이트부터 ENTERPRISE 를 요구한다.</p>
+<figure><div class="crop" data-src="result-report/shots/12-multisite.jpg" data-w="1280" data-y="0,620"></div><figcaption><b>그림 4-12</b> 멀티사이트 벤치마크.</figcaption></figure>
+
+<h3>4-13. 맞춤 리포트 빌더 <span class="pill">ENTERPRISE</span></h3>
+<p>절(섹션) · 지표 · 표지 문구만 정하는 서식이다. 요약과 산식 전문은 뺄 수 없고, 리포트가 실제로 들고 있는 지표만 고를 수 있다. 서식은 발행 시점에 리포트 안에 얼려 들어간다.</p>
+<figure><div class="crop" data-src="result-report/shots/15-settings.jpg" data-w="1280" data-y="4190,4830"></div><figcaption><b>그림 4-13</b> 설정 — 맞춤 리포트 서식. 잠긴 절은 체크를 풀 수 없다.</figcaption></figure>
+
+<h3>4-14. 감사 로그 뷰어 <span class="pill">ENTERPRISE</span></h3>
+<p>모든 제어·설정 변경이 대상(entity) · 동작(action) · 행위자 · before/after diff 로 남는다. 기준선 잠금, 무효 처리, 증서·서식·일정 생성, 제어 액션 전이가 전부 여기에 있다.</p>
+<figure><div class="crop" data-src="result-report/shots/14-audit-logs.jpg" data-w="1280" data-y="0,1130"></div><figcaption><b>그림 4-14</b> 감사 로그. 이 캡처의 9건은 4장 캡처를 만들며 생긴 것이다.</figcaption></figure>
+
+<h3>4-15. 설정 <span class="pill">공통</span></h3>
+<p>사이트 등록(Owner) · 수조와 DO 목표대역(OEI 의 유일한 산출 조건) · 계측기 · 현장 장비 페어링 · 전력 배출계수(append-only, 출처 필수) · 계약 전력 증서 · 리포트 서식 · 자동 생성 일정 · KPI 산식 설정(쓰기 경계 검증)이 한 화면에 있다. 사이트 · 수조 · 계측기 등록이 제품 안에 들어오면서 <b>새 고객을 SQL 없이 받을 수 있게</b> 됐다.</p>
+<figure><div class="crop" data-src="result-report/shots/15-settings.jpg" data-w="1280" data-y="60,1340"></div><figcaption><b>그림 4-15a</b> 설정 윗부분 — 기준선 잠금 · 사이트 · 수조/DO 목표대역.</figcaption></figure>
+<figure><div class="crop" data-src="result-report/shots/15-settings.jpg" data-w="1280" data-y="2460,3650"></div><figcaption><b>그림 4-15b</b> 전력 배출계수 — 2023년 국가 계수 0.4173 tCO2eq/MWh 와 출처(GIR 2025-12-18 공표). 새 version 추가만 있고 수정은 없다.</figcaption></figure>
+<figure><div class="crop" data-src="result-report/shots/15-settings.jpg" data-w="1280" data-y="3650,4200"></div><figcaption><b>그림 4-15c</b> 계약 전력 증서(REC · PPA · 녹색프리미엄). 계통 평균보다 높은 계수는 등록 단계에서 거절한다.</figcaption></figure>
+
+<h3>4-16. 온보딩 마법사 <span class="pill">공통</span></h3>
+<p>설치키트(수집 API 키) → 센서 매핑(계측기 등록) → 기준선 수집·잠금 → 유료 전환의 4단계. 각 단계의 완료 조건을 서버가 실제 데이터로 판정하므로 "완료" 표시가 거짓이 될 수 없다.</p>
+<figure><div class="crop" data-src="result-report/shots/16-onboarding.jpg" data-w="1280" data-y="0,973"></div><figcaption><b>그림 4-16</b> 온보딩. 수집 API 키는 보안상 화면에서 발급하지 않고 운영진 게이트웨이 등록을 거친다.</figcaption></figure>
+
+<h2 class="break">5. 증빙으로서의 정직성 — 집중한 14가지</h2>
+<p>심사·검증 대응에서 차별점이 되는 부분이다. 기능 목록이 아니라 <b>"이 숫자를 믿어도 되는가"</b> 에 답하는 설계다.</p>
+
+<h3>5-1. 산출 불가는 0 이 아니라 null 로 남기고, 왜인지 말한다</h3>
+<p>지표를 못 내면 0 으로 치환하지 않는다. 0 은 "아주 좋음" 으로 읽혀 거짓 증빙이 된다. 대신 지표마다 다른 사유와 할 일을 화면이 적는다 — 어느 입력이 비었는지, 어느 화면에 가서 무엇을 넣으면 채워지는지까지. 리포트에도 「산출 불가 사유」 절이 있다.</p>
+
+<h3>5-2. 지표를 켜는 입력을 전부 제품 안으로 들였다</h3>
+<p>증빙 플랫폼인데 핵심 분모·조건을 사람이 SQL 로 넣어야 하는 자리가 네 곳 있었다. 전부 메웠고, 새 SQL 없이 동작한다.</p>
+<table>
+<tr><th>값</th><th>무엇이 걸려 있었나</th><th>넣는 곳</th></tr>
+<tr><td>생산량(생체량)</td><td>EI · 폭기 EI · FCR · OEI 네 지표의 <b>분모</b></td><td>입력 화면 (그림 4-4b)</td></tr>
+<tr><td>DO 목표대역</td><td>OEI 의 <b>유일한 산출 조건</b></td><td>설정 화면 (그림 4-15a)</td></tr>
+<tr><td>입식 수</td><td>폐사율의 <b>분모</b></td><td>입력 화면 (그림 4-4a)</td></tr>
+<tr><td>사이트</td><td>신규 고객 자체</td><td>설정 화면 (그림 4-15a)</td></tr>
+</table>
+
+<h3>5-3. 잘못 넣은 생산량은 지우지 않고 무효로 표시한다 <span class="badge">11/05</span></h3>
+<p>삭제하면 이미 발행된 리포트가 참조한 근거가 흔적 없이 사라진다. 그래서 행은 남기고 KPI 산입에서만 빼며, 누가 언제 왜 뺐는지가 감사 로그에 남는다. 되돌릴 수 있다. 사유는 필수다. 무효 처리된 줄은 화면에서 감추지 않는다(그림 4-4c·d).</p>
+
+<h3>5-4. 생산량의 산정 근거를 함께 받는다</h3>
+<p>실측 출하·계측량인지, 입식수 × 평균체중으로 계산한 값인지, 어림인지를 필수로 적게 한다. 계산·어림이면 무엇으로 계산했는지 근거 메모를 요구한다. 생존율 보정 여부도 3상태로 받는다 — 미기재와 미적용은 다른 사실이다. 리포트가 EI 분모를 만든 두 점의 근거를 인쇄하고, 실측이 아니면 경고한다.</p>
+
+<h3>5-5. 전력이 실측인지 계산값인지 구분해 저장한다</h3>
+<p>계량기 실측 / 계산 / 어림을 건별로 저장하고 리포트가 밝힌다. 사람이 넣는 창구에서는 필수다. 현장 장비는 자기 자료유형을 스스로 선언하고(그림 6-3), 이 칸을 모르는 구형 장비를 위해 수집 창구만 미기재를 허용한다.</p>
+
+<h3>5-6. 배출계수는 하드코딩하지 않고, 출처를 얼려서 인쇄한다</h3>
+<ul>
+<li>2023년도 국가 전력배출계수 <b>0.4173 tCO2eq/MWh</b> (CO2e 기준 · 단년도 평균)</li>
+<li>출처: GIR 「2025년 승인 국가 온실가스 배출·흡수계수」 (2025-12-17 확정 · 2025-12-18 공표), 한국에너지공단 계수표 및 공표 보도자료로 교차 확인</li>
+<li><code>emission_factors</code> 테이블에 append-only 로 관리. 기존 행을 고치면 과거 리포트의 근거가 사후에 바뀌므로 '수정' 이 아니라 '새 version 추가' 만 둔다(그림 4-15b)</li>
+<li>리포트는 발행 시점의 계수와 출처를 얼려서 들고 있다. 출처가 빈 version 에는 「검증 대응 미비」 표시</li>
+<li>CO2 단독 계수(0.4149)는 일부러 넣지 않았다 — 자동 선택이 gas_scope 를 보지 않아 CO2 단독값을 CO2e 로 집어 쓸 수 있다</li>
+</ul>
+
+<h3>5-7. Scope 2 는 location-based 와 market-based 를 나란히 보고한다 <span class="badge">11/05</span></h3>
+<p>GHG Protocol Scope 2 Guidance 는 둘 중 하나를 고르라고 하지 않고 둘 다 보고(dual reporting)하라고 한다. REC·PPA·녹색프리미엄 증서를 등록하면 리포트 기간과 겹치는 만큼 시간 비례로 적용되어 market-based 가 location-based 옆에 인쇄된다(그림 4-10b). 증서는 배출계수가 낮은 순으로 적용해 입력 순서와 무관하게 같은 결과가 나온다.</p>
+<div class="callout warn"><b>한국에는 공표된 residual mix 가 없다.</b> 정석은 계약 전력을 뺀 잔여 전력에 residual mix 를 쓰는 것인데 그 값이 없다. 그래서 잔여분에 계통 계수를 그대로 쓰고 그 대체를 리포트가 항상 명시한다 — 과소 산정일 수 있다는 사실을 적지 않는 것이 가장 나쁘다. 계통 평균보다 높은 계약 계수는 등록 단계에서 거절한다.</div>
+<p>이 계층은 차분검증된 산식 모듈 바깥에 있다. market-based 는 산식이 아니라 배분 규칙이고, Scope 2 산식은 다시 쓰지 않는다(절대규칙 1 — 산식 중복 금지).</p>
+
+<h3>5-8. 기준선은 잠그기 전에 입력 충분성을 판정한다</h3>
+<p>잠긴 기준선은 불변이고(DB 트리거가 UPDATE/DELETE 거부, ADR 0002) 이후 모든 전·후 비교와 Scope 2 감축량의 원점이 된다. 원본은 기간 유효성만 보고 잠갔다 — 계측값 세 건으로 계산된 기준선도 영구히 박혔다. 되돌릴 수 없는 결정에 입력 가드(127 항목 검증)를 세웠다. 강행 경로는 남기되 사유 문자열을 요구하고 판정 결과 전체를 감사 로그에 남긴다.</p>
+
+<h3>5-9. OEI 는 「잠정 지표」로 표시하고, 기본 알림에서 뺐다 <span class="badge">11/05</span></h3>
+<p>산소효율지수는 사업계획서에 산식이 없는 제안값이고(ADR 0003), 스케일 계수와 신호등 임계값은 실증 전 가정이다. 그 사실을 값 옆에서 말한다(그림 4-2 · 4-9a · 4-12). 아무 설정도 하지 않은 조직에서 미확정 지표로 빨간 알림이 나가지 않도록 기본 감시 목록에서 뺐다. 원본 Python 과 함께 고쳐 차분검증을 유지했다(알림 128 → 104건).</p>
+
+<h3>5-10. 맞춤 리포트 서식은 보여 주기만 바꾼다 <span class="badge">11/05</span></h3>
+<p>절·지표·표지만 정한다. 산식·배출계수·기간은 서식이 건드리지 못한다 — 서식으로 숫자가 달라질 수 있으면 "어느 서식으로 뽑았느냐" 가 감축량을 바꾸는 변수가 된다. 요약과 산식 전문은 뺄 수 없다. 발행 시점의 서식이 리포트에 얼려 들어가므로 서식을 나중에 고쳐도 옛 리포트는 그대로다. 화면과 인쇄물이 같은 판정 함수를 쓴다.</p>
+
+<h3>5-11. 리포트 자동 생성은 같은 기간을 두 번 만들지 않는다 <span class="badge">11/05</span></h3>
+<p>주간(직전 월~일)·월간(직전 달) 일정이 마지막 기간 끝에서 이어지므로 cron 이 하루 한 번 두드려도 월요일/1일에만 새 기간이 생긴다. 같은 기간에 리포트가 둘이면 어느 쪽이 근거인지 사람이 고르게 된다. 잠긴 기준선이 없는 사이트는 실패가 아니라 "아직 조건이 안 됨" 으로 적는다. 보냈다는 사실이 증빙이다 — 수신자마다 발송 기록 한 줄(성공·실패·보내지 않음).</p>
+
+<h3>5-12. 비교실험(A/B)은 "무엇을 바꿔 보았는가" 를 기록으로 남긴다 <span class="badge">11/05</span></h3>
+<p>대조군·처리군 두 구간을 실험이 직접 들고 있고, 결과는 조회 때마다 라이브로 산출한다(발행물이 아니다). 기준선 비교와 같은 표로 그린다(그림 4-9b). 두 구간은 겹칠 수 없고 결론은 사유가 필수다.</p>
+
+<h3>5-13. 쓰기 경계에서 오염을 막는다</h3>
+<p><code>included_quality_flags</code> 를 빈 목록으로 두면 EI 가 0 이 되어 「감축률 100%」가 나온다. 적산 원값이 EI 분자로 새는 길도 있었다. 쓰기 경계에서 422 로 거부하고, 목록을 넓히면 경고한다(58 항목 검증).</p>
+
+<h3>5-14. 멀티테넌시 · 감사 · 접근성</h3>
+<p>모든 쿼리 org 스코프, RLS 정책으로 조직 격리(새 표 5개도 같은 정책, ADR 0007). 모든 제어·설정 변경은 audit_logs 에 before/after diff 로 남는다(그림 4-14). 신호등은 색만으로 전달하지 않고, 본문 대비 AA 4.5:1 을 CSS 토큰에서 직접 계산해 검사한다(88쌍).</p>
+
+<h2 class="break">6. 현장 장비 (라즈베리파이 키오스크)</h2>
+<p>기계실 계량기 옆에 두는 7인치 터치스크린(800×480) 장비다. 수질 센서를 읽어 올리고, MRV 모드에서는 전력 지침 입력 단말이 된다. 아래 화면은 실제 장비 화면 코드(webui.py)를 그대로 띄운 미리보기(<code>raspberry-pi/make-preview.py</code>)에서 찍었다.</p>
+<ul>
+<li>운전 모드 3종을 1급 개념으로 분리: <b>양식장 · 스마트팜 · 탄소 MRV</b>. 모드는 무엇을 먼저 보여 줄지를 가르고, 수질 수집·전송은 모드와 무관하게 계속된다</li>
+<li><b>4개 국어</b>(한국어 · 영어 · 베트남어 · 인도네시아어) — 현장 인력 구성을 반영</li>
+<li>회선이 끊기면 보관했다가 복구 시 전송. 서버가 거부한 보관분은 삭제하지 않고 사유와 함께 남긴다(9장 결함 8)</li>
+<li>적산 지침 2건 규칙 — 장비가 직전 지침을 함께 보내 한 건만 넣어도 구간값이 나온다</li>
+<li>장비가 전력 자료유형(실측/계산)을 스스로 선언한다 — 계산값으로 설정된 단말은 그 사실을 화면에 적는다</li>
+<li>6자리 코드 페어링으로 수집 키 발급 — 원문 키는 장비가 한 번만 가져가고 DB 에는 해시만. 끊는 화면도 있다</li>
+<li>계측기가 많은 현장: 키오스크에는 매일 읽는 1~3대만 고르고, 나머지는 월 단위 웹 CSV</li>
+<li>장비 시계가 틀리면 지침 시각이 틀리므로 전송을 막고 화면에 알린다</li>
+</ul>
+<div class="grid2">
+<figure><img src="result-report/shots/k-00-farm.jpg"><figcaption><b>그림 6-1</b> 양식장 모드 기본 화면 — 수온 · pH · DO · 염도. 값을 누르면 6h/12h/24h/1주 그래프.</figcaption></figure>
+<figure><img src="result-report/shots/k-05-do-danger.jpg"><figcaption><b>그림 6-2</b> DO 위험 — 운전 권고(산소공급기 최대 가동 · 급이 중단)가 화면 아래 뜬다.</figcaption></figure>
+<figure><img src="result-report/shots/k-12-mrv-home.jpg"><figcaption><b>그림 6-3</b> MRV 모드 기본 화면 — 마지막 지침과 오늘 전송 건수. 큰 버튼 하나가 전력 입력이다.</figcaption></figure>
+<figure><img src="result-report/shots/k-14-mrv-keypad.jpg"><figcaption><b>그림 6-4</b> 지침 키패드 — 「계량기 지침」과 「구간 사용량」을 구분하고, 계산값을 넣지 말라고 적는다.</figcaption></figure>
+<figure><img src="result-report/shots/k-22-mrv-buffer.jpg"><figcaption><b>그림 6-5</b> 미전송 보관분 — 회선 복구 시 전송. 상단 배지가 건수를 보인다.</figcaption></figure>
+<figure><img src="result-report/shots/k-24-clock.jpg"><figcaption><b>그림 6-6</b> 장비 시계 이상 — 시각이 틀린 지침은 올리지 않는다.</figcaption></figure>
+<figure><img src="result-report/shots/k-10-mrv-pair.jpg"><figcaption><b>그림 6-7</b> MRV 연결 코드 — 설정 화면의 「현장 장비 연결」에 이 6자리를 넣는다.</figcaption></figure>
+<figure><img src="result-report/shots/k-07-over-aeration.jpg"><figcaption><b>그림 6-8</b> 과잉 폭기 — DO 가 목표대역 위로 올라가면 전력 절감 권고.</figcaption></figure>
+</div>
+
+<h2 class="break">7. 검증 결과 (전부 재현 가능 · 2026-11-05 재실행 확인)</h2>
+<h3>7-1. 원본 Python 엔진과의 차분 검증</h3>
+<p>이식본이 원본과 같은 입력에 같은 출력을 내는지 기계적으로 대조한다. 픽스처는 원본 Python 으로 생성하고(<code>scripts/mrv/gen_*_fixtures.py</code>), TypeScript 가 같은 입력을 계산해 값이 같은지 본다. 산식을 고치면 양쪽을 함께 고치고 픽스처를 다시 만든다.</p>
+<table>
+<tr><th>대상</th><th>규모</th><th>스크립트</th></tr>
+<tr><td>KPI 산식 (EI · FCR · OEI · 폐사율 · 추천)</td><td>250 시나리오</td><td>verify-kpi</td></tr>
+<tr><td>config 매핑</td><td>102 문서</td><td>verify-config</td></tr>
+<tr><td>계측값 정규화 (적산 → 구간)</td><td>44 배치 / 372 계측값</td><td>verify-ingestion</td></tr>
+<tr><td>조립 계층 (KPI 서비스)</td><td>25 시나리오</td><td>verify-pipeline</td></tr>
+<tr><td>알림 배치</td><td>60 시나리오 / 113 사이트 / 알림 104건</td><td>verify-alerts</td></tr>
+</table>
+<h3>7-2. 사양 기반 단위 검증 (원본에 없던 기능)</h3>
+<table>
+<tr><th>대상</th><th>규모</th><th>스크립트</th></tr>
+<tr><td>기록지 CSV 해석</td><td>121 항목</td><td>verify-csv</td></tr>
+<tr><td>기준선 충분성 판정</td><td>127 항목</td><td>verify-baseline-readiness</td></tr>
+<tr><td>KPI 설정 쓰기 경계</td><td>58 항목</td><td>verify-kpi-config-write</td></tr>
+<tr><td>화면 대비(WCAG AA)</td><td>88쌍</td><td>verify-contrast</td></tr>
+<tr><td>Scope 2 market-based 배분 <span class="badge">11/05</span></td><td>9 항목</td><td>verify-scope2-market</td></tr>
+<tr><td>리포트 서식 규칙 <span class="badge">11/05</span></td><td>13 항목</td><td>verify-report-template</td></tr>
+<tr><td>리포트 자동 생성 기간 규칙 · 발송기 <span class="badge">11/05</span></td><td>19 항목</td><td>verify-report-jobs</td></tr>
+<tr><td>비교실험 입력 규칙 <span class="badge">11/05</span></td><td>12 항목</td><td>verify-experiments</td></tr>
+<tr><td>RLS 조직 격리</td><td>SQL 시나리오</td><td>verify-rls.sh</td></tr>
+</table>
+<h3>7-3. 실물 서버 통합 확인</h3>
+<p>프로덕션 빌드를 로컬 Supabase 스텁 위에 띄워 브라우저로 조작하며 지표가 실제로 움직이는지 확인했다. 4장의 캡처가 그 결과물이다.</p>
+<table>
+<tr><th>대상</th><th>내용</th></tr>
+<tr><td>수조 DO 목표대역 · 입식 등록</td><td>33 항목 — 대역을 지우면 OEI null, 넣으면 같은 값으로 복귀</td></tr>
+<tr><td>사이트 등록</td><td>22 항목 — 빈 조직에서 첫 사이트, 둘째는 ENTERPRISE 게이트</td></tr>
+<tr><td>빈 조직 → KPI 5종</td><td>SQL 한 줄 없이 전 과정 (8장)</td></tr>
+<tr><td>11/05 추가 7건</td><td>생산량 정정(EI 0.2421 → 0.3480 → 0.2421 복귀) · 증서 등록 · 서식 · 자동 생성(weekly generated, 발송 기록) · 서식 + market-based 리포트 · A/B 실험</td></tr>
+<tr><td>알림 배치</td><td>DO 2.4 mg/L 수기값 → do_low(critical), 폐사 2,400 → mortality_spike(warning) 생성 (그림 4-5)</td></tr>
+<tr><td>제어 콘솔</td><td>제안 → 승인 → 적용 전이와 감사 로그 4건 (그림 4-11 · 4-14)</td></tr>
+<tr><td>장비 통합</td><td>48 항목 · 800×480 키오스크 27상태 × 4국어</td></tr>
+</table>
+<p class="small">그 밖에 <code>npx tsc --noEmit</code> · <code>npm run build</code> · ESLint · 라즈베리파이 <code>verify.py</code> / <code>verify-mrv.py</code> 통과.</p>
+
+<h2>8. 대표 확인 흐름 — "빈 조직에서 KPI 까지, SQL 한 줄 없이"</h2>
+<pre>사이트 등록 → 수조 등록 → DO 목표대역 → 계측기 3대 → 입식 100,000마리
+  → 전력·DO 240건 수집 → 급이 5건 · 폐사 3건 · 생산량 2건
+
+EI(전력집약도)   0.1565 kWh/kg      FCR(사료요구율)  0.1043 kg/kg
+폭기 EI          0.1078 kWh/kg      폐사율           0.3550 %
+OEI(산소효율)    9.04 index   ※ 잠정 지표</pre>
+<p>그리고 11/05 — 자동 생성된 주간 리포트 한 장에 서식 표지 · 지표 2행 · location-based 0.054 tCO2e / market-based 0 tCO2e(REC 적용) · residual mix 한계가 한 화면에 인쇄됐다. 이 보고서의 4장 캡처는 같은 흐름을 한 번 더 밟은 것이다: 기준선 잠금 → 추천 → 제어 제안·승인·적용 → 증서·서식·일정 → 리포트 발행 → A/B 실험 → 알림 → 감사 로그.</p>
+
+<h2>9. 개발 중 발견해 막은 결함 (증빙 신뢰성 관련)</h2>
+<table>
+<tr><th style="width:8mm">#</th><th>결함</th><th>영향</th><th style="width:30mm">막은 방법</th></tr>
+<tr><td>1</td><td>KPI 설정이 조직 범위로 갇혀 있지 않았다</td><td>한 조직 owner 가 <b>전 조직</b>의 KPI 파라미터 변경</td><td>org_id 열 + RLS</td></tr>
+<tr><td>2</td><td>인증 경로가 마이그레이션 전에 500 을 냈다</td><td>배포가 SQL 보다 앞서는 순간 <b>모든 현장 장비 수집 중단</b></td><td>열 없음 폴백</td></tr>
+<tr><td>3</td><td>included_quality_flags 빈 목록을 허용</td><td>EI 가 0 이 되어 <b>「감축률 100%」</b></td><td>쓰기 경계 422</td></tr>
+<tr><td>4</td><td>적산 원값이 EI 분자로 새는 길</td><td>전력 사용량이 계량기 누적값으로 둔갑</td><td>reading_kind 분리</td></tr>
+<tr><td>5</td><td>기준선 잠금에 입력 가드 없음</td><td>계측값 3건짜리 기준선이 <b>영구히</b> 박힘</td><td>충분성 판정</td></tr>
+<tr><td>6</td><td>장비 키를 발급만 하고 끊을 수 없음</td><td>단말 분실 시 DB 직접 수정이 유일한 방법</td><td>revoke 창구</td></tr>
+<tr><td>7</td><td>장비 설정 파일의 주석 처리 오류</td><td>15초 주기 <b>재시작 루프</b> — 수질 수집까지 중단</td><td>파서 수정 + 검증</td></tr>
+<tr><td>8</td><td>미전송 보관분이 전량 거부돼도 삭제됨</td><td>서버가 200 을 주므로 <b>기록이 조용히 유실</b></td><td>거부분 보존</td></tr>
+<tr><td>9</td><td>본문 대비 4.13:1 (기준 4.5:1) 11곳</td><td>접근성 미달</td><td>토큰 수정 + 검사</td></tr>
+<tr><td>10</td><td>수조별 비교가 배치에서 수조를 뽑음</td><td>입식 전 수조가 비교에 <b>아예 안 나타남</b></td><td>수조 목록 사용</td></tr>
+<tr><td>11</td><td>OEI 가 기본 알림 감시 목록에 있음</td><td>미확정 지표로 <b>빨간 알림</b> 발송</td><td>기본값에서 제거</td></tr>
+<tr><td>12</td><td>검증 픽스처 생성기의 비결정성</td><td>같은 시드로 다른 픽스처 — <b>차분검증이 재현 불가</b></td><td>정렬 순회</td></tr>
+</table>
+
+<h2>10. 한계와 전제</h2>
+<p>사양서 16화면의 기능 항목은 전부 들어갔다. 아래는 기능이 아니라 한계로 적는다. 리포트가 스스로 인쇄하는 것은 ✓ 표시.</p>
+<table>
+<tr><th style="width:42mm">항목</th><th>내용</th><th style="width:14mm">인쇄</th></tr>
+<tr><td>market-based 의 residual mix 대체</td><td>한국에 공표값이 없어 잔여 전력에 계통 계수를 쓴다. 값 자체는 과소 산정일 수 있다. 공표되면 계수 하나만 바꾸면 된다.</td><td>✓</td></tr>
+<tr><td>조직 전체 증서의 사이트 간 배분</td><td>조직 전체 계약을 여러 사이트 리포트에 쓰면 같은 증서가 중복 계상된다. 배분표를 받지 않으므로 사람이 운영으로 막아야 한다.</td><td>—</td></tr>
+<tr><td>증서의 월별 배분</td><td>연 단위 증서를 월 리포트에 시간 비례로 자른다. 월별 배분표가 있는 계약이면 실제와 다를 수 있다.</td><td>✓</td></tr>
+<tr><td>OEI 산식·임계값</td><td>사업계획서에 없는 제안값. 실증 후 kpi_config 새 version 으로 보정한다. 보정 전 리포트의 값은 그 version 안에서만 같다.</td><td>✓</td></tr>
+<tr><td>메일 공급자 미선정</td><td>기본이 log(안 보냄)다. 업체를 정해 키를 넣기 전까지 메일은 나가지 않는다 — 그 사실은 발송 기록에 남는다.</td><td>기록</td></tr>
+<tr><td>제어 콘솔은 설비를 직접 제어하지 않는다</td><td>승인된 값을 운영자가 현장에서 반영하고 결과를 기록한다. 설비 직결은 과제 범위 밖이다.</td><td>화면</td></tr>
+</table>
+
+<h2>11. 사람이 해야 하는 나머지</h2>
+<ul>
+<li><b>메일 공급자 선정과 환경변수 설정</b> — MRV_MAIL_PROVIDER · MRV_MAIL_FROM · RESEND_API_KEY · NEXT_PUBLIC_SITE_URL</li>
+<li><b>배출계수 1차 대조</b> — 0.4173 의 원문 PDF 쪽수까지 확정하려면 한 번 더 대조</li>
+<li><b>외부 대시보드 0.4663 과의 값 불일치 정리</b> — 이 플랫폼 안에는 그 값이 없다. 함께 제출할 때 어느 쪽을 쓸지 정해야 한다(섞으면 같은 기간에 두 배출량이 나온다)</li>
+<li><b>실제 고객 사이트에서 온보딩 4단계 완주</b> — 수집 API 키 발급은 운영진 게이트웨이를 거친다</li>
+<li><b>SNS·외부 제출물 업로드</b> — 저장소가 하지 않는다</li>
+</ul>
+
+<h2>12. 재현 방법</h2>
+<pre>npm install
+npm run mrv:verify          # 차분·사양 기반·RLS 검증 16종
+npx tsc --noEmit
+npm run build
+python3 raspberry-pi/verify.py        # 현장 장비(망 없이)
+python3 raspberry-pi/verify-mrv.py
+python3 raspberry-pi/make-preview.py  # 키오스크 화면 미리보기(HTML)</pre>
+<p class="small">DB 마이그레이션 11개는 Supabase SQL Editor 에서 사람이 실행한다(전부 적용 완료). 상세는 mrv-platform/docs/HANDOVER.md. 이 보고서의 캡처는 로컬 Supabase 스텁 위의 프로덕션 빌드에서 Playwright 로 찍었다.</p>
+
+<h2 class="break">부록 A. DB 테이블 · 마이그레이션</h2>
+<h3>A-1. 마이그레이션 11개 (실행 순서)</h3>
+<table>
+<tr><th style="width:8mm">#</th><th>파일</th><th>내용</th></tr>
+<tr><td>1</td><td>mrv_platform.sql</td><td>기본 스키마 — 조직 · 사용자 · 사이트 · 수조 · 계측기 · 계측값 · 배치 · 급이/폐사/생산량 · 기준선 · KPI 스냅샷 · 리포트 · 레시피 · 제어 액션 · 알림 · 감사 로그 · RLS · 기준선 불변 트리거</td></tr>
+<tr><td>2</td><td>mrv_kpi_config_org_scope.sql</td><td>KPI 설정 org 격리 (결함 1)</td></tr>
+<tr><td>3</td><td>mrv_readings_source.sql</td><td>계측값 출처(장비 · 수기 · CSV)</td></tr>
+<tr><td>4</td><td>mrv_api_key_revocation.sql</td><td>수집 키 회수 (결함 6)</td></tr>
+<tr><td>5</td><td>mrv_device_pairing.sql</td><td>6자리 코드 페어링, 키 해시 보관</td></tr>
+<tr><td>6</td><td>mrv_emission_factor_source.sql</td><td>배출계수 출처 열</td></tr>
+<tr><td>7</td><td>mrv_emission_factor_provenance.sql</td><td>계수 기준 기간 · 공표일 · 가스 범위</td></tr>
+<tr><td>8</td><td>mrv_emission_factor_2023.sql</td><td>2023년 국가 계수 0.4173 등록</td></tr>
+<tr><td>9</td><td>mrv_readings_measurement_basis.sql</td><td>전력 자료유형(실측 · 계산 · 어림)</td></tr>
+<tr><td>10</td><td>mrv_harvest_logs_production_basis.sql</td><td>생산량 산정 근거 · 생존율 보정</td></tr>
+<tr><td>11</td><td>mrv_remaining_scope.sql</td><td>리포트 일정 · 발송 기록 · 서식 · 실험 · 계약 전력 증서 (표 5) + 생산량 무효 처리 열 + 리포트 서식/market-based 열 + RLS</td></tr>
+</table>
+<h3>A-2. 주요 테이블 (접두사 mrv_)</h3>
+<table>
+<tr><th style="width:34mm">영역</th><th>테이블</th></tr>
+<tr><td>테넌시</td><td>organizations · users · sites · tanks · meters · api_keys · device_pairings</td></tr>
+<tr><td>수집</td><td>readings(출처 · 자료유형 · 품질) · batches · feed_logs · mortality_logs · harvest_logs(산정 근거 · 무효 처리)</td></tr>
+<tr><td>산출</td><td>kpi_configs(org 범위 · version) · kpi_snapshots · baselines(잠금 불변) · emission_factors(append-only)</td></tr>
+<tr><td>증빙</td><td>mrv_reports(계수 · 서식 · market-based 동결) · report_templates · report_schedules · report_deliveries · contractual_instruments · experiments</td></tr>
+<tr><td>운영</td><td>recipes · recipe_versions · control_actions · alerts · alert_subscriptions · sop · sop_checklist_runs · audit_logs</td></tr>
+</table>
+
+<h2>부록 B. API 라우트 55개 (/api/mrv/…)</h2>
+<table>
+<tr><th style="width:30mm">영역</th><th>라우트</th></tr>
+<tr><td>인증 · 조직</td><td>auth/me · organizations/{id}/plan · organizations/{id}/users · api-keys · api-keys/{id}/revoke · pair · pair/claim</td></tr>
+<tr><td>사이트 구성</td><td>sites · sites/{id}/tanks · sites/{id}/tanks/{tankId} · sites/{id}/meters · sites/{id}/onboarding-status · sites/kpi-benchmark</td></tr>
+<tr><td>수집</td><td>ingest/meters · ingest/readings (장비) · sites/{id}/readings (GET 시계열 · POST 수기/CSV) · sites/{id}/batches · sites/{id}/feed-logs · sites/{id}/mortality-logs · sites/{id}/harvests · sites/{id}/harvests/{hid}/void</td></tr>
+<tr><td>산출</td><td>sites/{id}/kpi · kpi-config · kpi-snapshots/{id} · emission-factors · sites/{id}/baseline · baseline/lock · baseline/readiness · sites/{id}/comparison · sites/{id}/recommendations · recipes/{id}/versions</td></tr>
+<tr><td>증빙</td><td>sites/{id}/mrv-reports · mrv-reports/generate · mrv-reports/{id} · mrv-reports/{id}/pdf · report-templates · sites/{id}/report-schedules · contractual-instruments · sites/{id}/experiments · experiments/{id}</td></tr>
+<tr><td>운영</td><td>control-actions · control-actions/{id} · /approve · /reject · /apply · sites/{id}/alerts · alerts/{id}/ack · sites/{id}/alert-subscriptions · sop · sop/{id} · sites/{id}/sop/checklist-runs · sop/{id}/checklist-runs · audit-logs</td></tr>
+<tr><td>배치</td><td>jobs/evaluate-alerts · jobs/generate-reports (CRON_SECRET 인증)</td></tr>
+</table>
+<p class="small">모든 라우트는 세션 인증 → 플랜 게이트(START/PRO/ENTERPRISE) → 역할(viewer/operator/owner) → org 스코프 순으로 검사한다. 장비 수집 라우트만 API 키(해시 대조), 배치 라우트만 CRON_SECRET 을 쓴다.</p>
+
+<h2>부록 C. 환경변수 · 스케줄</h2>
+<table>
+<tr><th style="width:52mm">변수</th><th>용도</th></tr>
+<tr><td>NEXT_PUBLIC_SUPABASE_URL · ANON_KEY</td><td>본체와 공유하는 Supabase 접속</td></tr>
+<tr><td>SUPABASE_SERVICE_ROLE_KEY</td><td>서버 라우트의 DB 접근 (브라우저 노출 금지)</td></tr>
+<tr><td>CRON_SECRET</td><td>배치 창구 인증. 비우면 창구가 503 으로 닫힌 채다 — 설정을 깜빡한 배포에서 인증 없는 창구가 열리는 것보다 낫다</td></tr>
+<tr><td>MRV_MAIL_PROVIDER · MRV_MAIL_FROM · RESEND_API_KEY</td><td>리포트 메일 발송기. 기본 log(보내지 않고 기록만)</td></tr>
+<tr><td>NEXT_PUBLIC_SITE_URL</td><td>메일 본문의 리포트 링크</td></tr>
+<tr><td>NEXT_PUBLIC_MRV_PLATFORM_URL</td><td>진입 버튼 주소. 빈 문자열이면 버튼이 사라진다(운영 스위치)</td></tr>
+<tr><td>NEXT_PUBLIC_MRV_SUPPORT_CONTACT</td><td>초대되지 않은 계정에게 보여 줄 문의 경로</td></tr>
+</table>
+<table>
+<tr><th style="width:52mm">스케줄 (vercel.json)</th><th>내용</th></tr>
+<tr><td>0 23 * * * → /api/mrv/jobs/evaluate-alerts</td><td>전 조직 사이트의 DO 저하 · 폐사 급증 · KPI 위험 평가</td></tr>
+<tr><td>30 0 * * * → /api/mrv/jobs/generate-reports</td><td>주간/월간 리포트 자동 생성 + 발송 (기간이 새로 생긴 일정만)</td></tr>
+</table>
+
+<h2>부록 D. 설계 결정 기록(ADR)</h2>
+<table>
+<tr><th style="width:12mm">번호</th><th>제목</th><th>요지</th></tr>
+<tr><td>0001</td><td>전력 readings 저장 규약</td><td>readings.value 에는 계측 간격당 증분 전력량(kWh)만 저장한다. 적산값·순시전력은 수집 단계에서 정규화한다</td></tr>
+<tr><td>0002</td><td>기준선 잠금 불변성 강제 전략</td><td>3중 방어 — 수정 엔드포인트 부재 + DB 트리거 + 부분 유니크 인덱스</td></tr>
+<tr><td>0003</td><td>OEI 의 DO 목표대역 유지율 산정 규약</td><td>유지율 = 대역 내 유효 샘플 수 / 전체 유효 샘플 수 (v1 기본). 잠정 지표</td></tr>
+<tr><td>0004</td><td>MRV 리포트 PDF 생성 엔진 선택</td><td>ADR 은 WeasyPrint 채택(FastAPI 구조 기준). Next.js 통합 구현에서는 인쇄용 HTML + 브라우저 PDF 로 같은 내용을 인쇄한다 — 서버 의존성 없음</td></tr>
+<tr><td>0005</td><td>Supabase Auth 통합</td><td>JWT 검증은 HS256 공유 비밀 방식, JWKS 는 범위 밖</td></tr>
+<tr><td>0006</td><td>shrimp365 계정 연계</td><td>인증 평면만 공유하고 데이터 평면은 완전 분리. 조직 초대로 권한을 받는다</td></tr>
+<tr><td>0007</td><td>Postgres RLS 운영 정합성 교정</td><td>users/api_keys 는 명령 분할 정책, 트랜잭션 컨텍스트 · 배치 순회 · DB 역할 교정</td></tr>
+</table>
+
+<script>
+// data-y="y0,y1" 구간만 보이도록 자르기. 폭 기준 백분율로 적어 화면·인쇄 어느 폭에서도 같은 구간이 보인다.
+for (const box of document.querySelectorAll(".crop")) {
+  const [y0, y1] = box.dataset.y.split(",").map(Number)
+  const w = Number(box.dataset.w)
+  const img = document.createElement("img"); img.src = box.dataset.src
+  box.style.aspectRatio = `${w} / ${y1 - y0}`
+  img.style.marginTop = `-${(y0 / w) * 100}%`
+  box.appendChild(img)
+}
+</script>
+</body></html>

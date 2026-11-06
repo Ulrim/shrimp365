@@ -35,6 +35,31 @@ NOW = 1770000000  # 고정 시각 — 돌릴 때마다 결과가 달라지면 �
 STAMP = "2026-08-06 14:32:05"
 
 
+def vis_max() -> int:
+    """shrimp365_sensor.MRV_VISIBLE_MAX — 한 번에 고를 수 있는 계측기 수의 상한.
+
+    **import 하지 않고 소스에서 읽는다.** 그 모듈은 pyserial 을 요구하고 PC 에는
+    없다(verify.py 가 release.py 의 PAYLOAD 를 읽는 것과 같은 방식). 숫자를 여기
+    베껴 두면 상한을 고친 날 미리보기만 옛 숫자로 남는다. 읽지 못하면 0 을 주고,
+    그때 화면은 상한을 막지 않는다(장비에서는 저장 때 서버가 막는다).
+    """
+    import ast
+    src = HERE / "shrimp365_sensor.py"
+    if not src.exists():
+        return 0
+    for node in ast.parse(src.read_text(encoding="utf-8")).body:
+        if isinstance(node, ast.Assign) and any(
+                isinstance(t, ast.Name) and t.id == "MRV_VISIBLE_MAX"
+                for t in node.targets):
+            value = node.value
+            if isinstance(value, ast.Constant) and isinstance(value.value, int):
+                return value.value
+    return 0
+
+
+MRV_VIS_MAX = vis_max()
+
+
 def _c(cid, kind, state, w, a, kwh, temp, level=""):
     return {"id": cid, "type": kind, "state": state, "power": w, "current": a, "voltage": 221,
             "energy_today": kwh, "temp": temp, "level": level, "age_min": 0}
@@ -83,12 +108,33 @@ def control_of(circuits):
 
 
 def base_state(**over) -> dict:
+    """미리보기 한 장면.
+
+    `_open` 은 **그 장면에서 열어 둘 패널**이다("power" 또는 "mrv"). 패널은 화면
+    코드가 사람 손가락으로 여는 것이라 상태만 바꿔서는 열리지 않는다 — 그런데
+    탭 이름은 「전력 입력 패널」, 「연결 코드」라고 적혀 있었다. **이름이 말하는
+    화면과 보이는 화면이 다른 미리보기는 없는 것만 못하다**(사람이 그것을 보고
+    "되는구나" 라고 판단한다). `main()` 이 이 키를 떼어 `__OPENERS__` 로 넘기므로
+    장비가 받는 상태에는 남지 않는다.
+    """
     state = {
         "values": dict(VALUES), "status": "sent 14:32", "updated_at": STAMP,
         "errors": {}, "serial": "10000000c0ffee01", "pending": 0,
         "linked": True, "account": "ky****4@gmail.com", "tank": "A-1조", "farm": "1양식장",
         "pairing": False, "pair_code": None, "pair_url": "", "pair_error": None,
         "advice": [], "anomalies": [],
+        # 탄소 MRV 전력 수기 입력. 수질 연결과 별개라 기본값은 미연결이다.
+        "mrv_linked": False, "mrv_site_id": None,
+        "mrv_pairing": False, "mrv_pair_code": None, "mrv_pair_error": None,
+        "mrv_meters": [], "mrv_pending": 0, "mrv_last": None, "mrv_clock_ok": True,
+        # 이 단말이 넣는 값의 자료유형. 기본은 실측 — 계량기 옆 창구이므로.
+        "mrv_basis": "metered",
+        "mrv_recent": [], "mrv_today": 0,
+        # 화면에 띄울 계측기(거르개). 비어 있으면 전부 띄운다 — 기본은 거르지 않는다.
+        "mrv_visible": [], "mrv_meters_missing": [], "mrv_vis_max": MRV_VIS_MAX,
+        "mrv_blocked": 0, "mrv_blocked_reason": None, "mrv_pair_url": "",
+        # 운전 모드. 기본은 양식장이고, 센서를 켜 둔 장비로 본다.
+        "mode": "shrimp", "sensors_on": ["ph", "do", "ec"],
         "ai": {"enabled": True, "window_h": 96, "interval_s": 300,
                "samples": 5742, "at": "14:30"},
         "power": power_of(SHRIMP_POWER),
@@ -97,9 +143,76 @@ def base_state(**over) -> dict:
     return state
 
 
+# 전력 계측기 — 실제 장비는 서버에서 받아 온다(목록에 없는 id 로는 보낼 수 없다).
+# 미리보기에서는 고정 목록으로 화면 흐름(선택 → 종류 → 키패드 → 확인 → 결과)을
+# 그대로 눌러 볼 수 있게 한다. 폭기 여부가 보이는지도 여기서 확인한다.
+MRV_METERS = [
+    {"id": "mtr_total", "label": "총전력계 (수전반)", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": True},
+    {"id": "mtr_blower", "label": "브로워 분전반", "unit": "kWh_interval",
+     "is_aeration": True, "has_prev": True},
+    {"id": "mtr_pump", "label": "순환펌프", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": False},
+]
+
+# 계측기가 많은 현장. 펌프·모터가 여러 대인 양식장은 흔하다.
+#
+# **왜 장면을 따로 두는가.** 기본 장면은 계측기가 3대뿐이라 목록이 한 화면에 다 들어간다.
+# 그래서 "한 화면에 몇 대까지 보이는가", "더 있다는 것을 작업자가 아는가" 를 아무도 보지
+# 못했다. 15대면 한 번에 5대가 보이고 여섯째 줄이 반쯤 잘린다 — 목록은 정상적으로
+# 스크롤되지만(창 327px / 내용 885px), 몇 대가 있는지는 화면 어디에도 적혀 있지 않다.
+#
+# 덧붙여: EI 산식은 기기별 계측기를 필요로 하지 않는다(에너지 모듈은 산입된 값의 합과
+# 폭기 부분합만 쓴다). 기기별 등록은 진단용이고, 등록이 늘수록 기준선 잠금 가드의
+# **계측기·일당 건수**(0.8건) 를 맞추기가 어려워진다 — 15대면 7일에 84건이다.
+MRV_METERS_MANY = [
+    {"id": "mtr_total", "label": "총전력계 (수전반)", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": True},
+    {"id": "mtr_blower1", "label": "브로워 1호", "unit": "kWh_interval",
+     "is_aeration": True, "has_prev": True},
+    {"id": "mtr_blower2", "label": "브로워 2호", "unit": "kWh_interval",
+     "is_aeration": True, "has_prev": True},
+    {"id": "mtr_blower3", "label": "브로워 3호", "unit": "kWh_interval",
+     "is_aeration": True, "has_prev": False},
+    {"id": "mtr_pump1", "label": "순환펌프 1호", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": True},
+    {"id": "mtr_pump2", "label": "순환펌프 2호", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": True},
+    {"id": "mtr_pump3", "label": "순환펌프 3호", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": False},
+    {"id": "mtr_pump4", "label": "순환펌프 4호", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": False},
+    {"id": "mtr_drum", "label": "드럼필터 모터", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": True},
+    {"id": "mtr_skimmer", "label": "단백질 스키머", "unit": "kWh_interval",
+     "is_aeration": True, "has_prev": True},
+    {"id": "mtr_uv", "label": "UV 살균기", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": True},
+    {"id": "mtr_heat1", "label": "히터 1호", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": True},
+    {"id": "mtr_heat2", "label": "히터 2호", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": False},
+    {"id": "mtr_feeder", "label": "자동급이기", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": True},
+    {"id": "mtr_light", "label": "조명 · 기타", "unit": "kWh_interval",
+     "is_aeration": False, "has_prev": True},
+]
+
+# 15대 가운데 사람이 매일 읽는 것만 고른 그림. 총전력계 + 폭기 2대.
+# EI 산식은 기기별 계측기를 필요로 하지 않으므로(위 주석) 이것으로 충분하다.
+MRV_VISIBLE_PICK = ["mtr_total", "mtr_blower1", "mtr_pump1"]
+
+# MRV 기본 화면의 "마지막 지침" 줄. 보낸 적 없는 계측기는 들어가지 않는다.
+MRV_RECENT = [
+    {"id": "mtr_total", "label": "총전력계 (수전반)", "is_aeration": False,
+     "value": 128450.6, "at": "10-18 09:12"},
+    {"id": "mtr_blower", "label": "브로워 분전반", "is_aeration": True,
+     "value": 41280.0, "at": "10-18 09:13"},
+]
+
 STATES = [
-    ("연결됨 · 정상", base_state()),
-    ("미연결 (측정만)", base_state(
+    ("양식장 · 정상", base_state()),
+    ("양식장 · 미연결(측정만)", base_state(
         linked=False, account=None, tank=None, farm=None,
         status="미연결 — 측정만 · 보관 12건", pending=12)),
     ("연결 코드", base_state(
@@ -124,6 +237,120 @@ STATES = [
     ("과잉 폭기 (전력 절감)", base_state(
         values={**VALUES, "do_level": 8.7}, status="sent 14:32",
         advice=[{"code": "do_surplus", "level": "save", "value": 8.7, "digits": 2}])),
+    # ── 스마트팜(수경재배) ───────────────────────────────────────────────────
+    ("스마트팜 · 양액 보충", base_state(
+        mode="agriculture",
+        values={"temperature": 24.1, "ph": 6.2, "do_level": 7.1, "conductivity": 1250},
+        ec_unit="ms", status="sent 14:32",
+        nutrient={"ec": 1.25, "target": 1.8, "percent": 63.3, "atc": True,
+                  "verdict": "low", "need_rise": 0.55, "dose_total": 1100,
+                  "dose_a": 550, "dose_b": 550})),
+    # ── 탄소 MRV ─────────────────────────────────────────────────────────────
+    ("MRV · 미연결", base_state(
+        mode="mrv", sensors_on=[], values={}, status="14:32",
+        linked=False, account=None, tank=None, farm=None)),
+    ("MRV · 연결 코드", base_state(
+        _open="mrv",
+        mode="mrv", sensors_on=[], values={}, status="14:32",
+        linked=False, account=None, tank=None, farm=None,
+        # 안내 주소는 MRV 창구의 호스트다. 수질 페어링만 채우는 pair_url 을 쓰면
+        # endpoint 가 다른 호스트인 장비에서 틀린 주소를 안내한다.
+        mrv_pairing=True, mrv_pair_code="730412",
+        mrv_pair_url="www.shrimp365.kr")),
+    ("MRV · 연결 코드 실패", base_state(
+        _open="mrv",
+        mode="mrv", sensors_on=[], values={}, status="14:32",
+        linked=False, account=None, tank=None, farm=None,
+        mrv_pairing=True, mrv_pair_code=None,
+        mrv_pair_error="인터넷 연결을 확인하세요")),
+    ("MRV · 기본 화면(연결됨)", base_state(
+        mode="mrv", sensors_on=[], values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_recent=MRV_RECENT, mrv_today=2,
+        mrv_last="브로워 분전반 전송 완료 (14:30)")),
+    ("MRV · 전력 입력 패널", base_state(
+        _open="power",
+        mode="mrv", sensors_on=[], values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_recent=MRV_RECENT, mrv_today=2)),
+    ("MRV · 지침 입력(키패드)", base_state(
+        _open="power_entry",
+        mode="mrv", sensors_on=[], values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_recent=MRV_RECENT, mrv_today=2)),
+    ("MRV · 첫 지침(기준점)", base_state(
+        _open="power_entry_first",
+        mode="mrv", sensors_on=[], values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_recent=MRV_RECENT, mrv_today=2)),
+    # 자료유형이 **실측이 아닌** 장비. 화면의 한 줄이 설정에서 끌어낸 값인지(= 설정이
+    # 틀리면 작업자가 보고 아는지), 아니면 "계량기 실측" 이라고 박혀 있는지를 여기서
+    # 본다. 박혀 있으면 이 장면이 거짓을 적게 되므로 눈으로 걸린다.
+    ("MRV · 계산값으로 설정된 단말", base_state(
+        _open="power_entry",
+        mode="mrv", sensors_on=[], values={}, status="14:32",
+        mrv_basis="calculated",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_recent=MRV_RECENT, mrv_today=2)),
+    ("MRV · 계측기 많은 현장", base_state(
+        _open="power",
+        mode="mrv", sensors_on=[], values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS_MANY,
+        mrv_recent=MRV_RECENT, mrv_today=2)),
+    # 같은 15대 현장에 거르개를 켠 그림. 「15대 중 3대 표시」가 목록 머리에 뜨고,
+    # 아래 [전체 보기] 로 15대를 다시 볼 수 있다(화면 상태일 뿐 설정은 바뀌지 않는다).
+    ("MRV · 거르개 켜짐(3대)", base_state(
+        _open="power",
+        mode="mrv", sensors_on=[], values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS_MANY,
+        mrv_visible=MRV_VISIBLE_PICK,
+        mrv_recent=MRV_RECENT, mrv_today=2)),
+    # 고른 계측기가 웹에서 지워진 그림. **조용히 감추지 않고 알린다** — 작업자는
+    # "어제 넣던 것이 없어졌다" 를 알아야 한다.
+    ("MRV · 고른 계측기가 사라짐", base_state(
+        _open="power",
+        mode="mrv", sensors_on=[], values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS_MANY,
+        mrv_visible=MRV_VISIBLE_PICK[:2] + ["mtr_pump9"],
+        mrv_meters_missing=["mtr_pump9"],
+        mrv_recent=MRV_RECENT, mrv_today=2)),
+    # 고르는 화면 자체. 센서 토글과 같은 모양인지 여기서 본다.
+    ("MRV · 읽을 계측기 고르기", base_state(
+        _open="mrv_visible",
+        mode="mrv", sensors_on=[], values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS_MANY,
+        mrv_visible=MRV_VISIBLE_PICK,
+        mrv_recent=MRV_RECENT, mrv_today=2)),
+    # 사라진 id 를 들고 고르기 화면을 연 그림. **여기가 막다른 길이 되면 안 된다** —
+    # 화면은 지금 목록 안의 id 만 켬/끔으로 들고 있어야 하고(사라진 id 를 끌 토글은
+    # 어차피 없다), [저장] 이 그 유령 id 를 함께 보내면 서버가 거부해 무엇을 눌러도
+    # 저장이 실패한다. 켜진 줄이 2개인데 머리에 「3대 표시」가 뜨지도 않아야 한다.
+    ("MRV · 읽을 계측기 고르기(사라진 것 포함)", base_state(
+        _open="mrv_visible",
+        mode="mrv", sensors_on=[], values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS_MANY,
+        mrv_visible=MRV_VISIBLE_PICK[:2] + ["mtr_pump9"],
+        mrv_meters_missing=["mtr_pump9"],
+        mrv_recent=MRV_RECENT, mrv_today=2)),
+    ("MRV · 미전송 보관분", base_state(
+        mode="mrv", sensors_on=[], values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_recent=MRV_RECENT, mrv_today=1, mrv_pending=3,
+        mrv_last="순환펌프 보관 — 회선 복구 시 전송 (14:28)")),
+    ("MRV · 서버가 받지 않은 보관분", base_state(
+        mode="mrv", sensors_on=[], values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_recent=MRV_RECENT, mrv_today=0, mrv_pending=3, mrv_blocked=2,
+        mrv_blocked_reason="meter mtr_pump is out of scope for this api key",
+        mrv_last="보관분 전송 중단 — meter mtr_pump is out of scope for this api key")),
+    ("MRV · 장비 시계 이상", base_state(
+        mode="mrv", sensors_on=[], values={}, status="14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_recent=MRV_RECENT, mrv_clock_ok=False)),
+    ("MRV · 수질 센서도 붙인 장비", base_state(
+        mode="mrv", sensors_on=["ph", "do", "ec"], status="sent 14:32",
+        mrv_linked=True, mrv_site_id="site_culiver_01", mrv_meters=MRV_METERS,
+        mrv_recent=MRV_RECENT, mrv_today=2)),
     ("센서 오류", base_state(
         values={"temperature": 28.4, "ph": 7.85},
         errors={"ec": "응답 없음 (배선·전원·슬레이브 ID 확인)"},
@@ -368,6 +595,7 @@ SHELL_CSS = """
 MOCK = """
 <script>
 var STATES = __STATES__, HIST = __HIST__, ENV_HIST = __ENV_HIST__, SENSORS = __SENSORS__;
+var OPENERS = __OPENERS__;
 // 무선 센서 화면 — wireless.Wireless.snapshot() 의 모양.
 var WL = {ok:true, installed:true, mqtt:true, z2m:true, dongle:"usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2-if00",
   rtlsdr:true, env_on:true, power_on:true, permit_left:0, new:[], added:false,
@@ -398,6 +626,7 @@ var WL = {ok:true, installed:true, mqtt:true, z2m:true, dongle:"usb-ITead_Sonoff
 var NUTRIENT = __NUTRIENT__, CALIBRATION = __CALIBRATION__;
 var SCAN = __SCAN__, AUTO = __AUTO__;
 var WIFI_NETWORKS = __WIFI_NETWORKS__, wifiCur = __WIFI_START__;
+var MRV_HAS_PREV = __MRV_HAS_PREV__;
 var current = 0;
 
 // 장비의 화면 코드는 그대로 두고 fetch 만 가로챈다.
@@ -505,6 +734,41 @@ window.fetch = function(url, opts){
     try { var b = JSON.parse((opts && opts.body) || "{}"); if (b.ssid) wifiCur = b.ssid; } catch(e){}
     body = {ok:true};
   }
+  // MRV — 전력 계측기 목록과 전송 결과. 서버가 돌려주는 모양 그대로 흉내 낸다.
+  else if (url.indexOf("/api/mrv/meters") === 0) {
+    var st = STATES[current][1];
+    body = {ok:true, items: st.mrv_meters || [], clock_ok: st.mrv_clock_ok !== false,
+            pending: st.mrv_pending || 0,
+            // 자료유형은 수집기가 정해서 내려 준다. 화면은 보여만 준다.
+            basis: st.mrv_basis || "metered",
+            // 거르개는 **화면이** 적용한다. 서버는 목록 전체와 고른 id 를 함께 준다.
+            visible: st.mrv_visible || [], missing: st.mrv_meters_missing || []};
+  }
+  else if (url.indexOf("/api/mrv/visible") === 0) {
+    var s3 = {};
+    try { s3 = JSON.parse((opts && opts.body) || "{}"); } catch(e){}
+    STATES[current][1].mrv_visible = s3.ids || [];
+    body = {ok:true, saved:true, visible: s3.ids || []};
+  }
+  else if (url.indexOf("/api/mrv/power") === 0) {
+    var s2 = STATES[current][1];
+    var sent = {};
+    try { sent = JSON.parse((opts && opts.body) || "{}"); } catch(e){}
+    if (s2.mrv_clock_ok === false) {
+      body = {ok:false, queued:false, code:"clock", pending:(s2.mrv_pending || 0)};
+    } else if (s2.mrv_pending) {
+      body = {ok:false, queued:true, code:"offline", pending:(s2.mrv_pending || 0) + 1};
+    } else {
+      // 지침이면 직전 1건이 중복으로 흡수되고, 새 건은 구간값이 되어 산입된다.
+      var cum = sent.kind === "cumulative_kwh";
+      var first = cum && (MRV_HAS_PREV[sent.meter_id] === false);
+      body = {ok:true, queued:false, baseline:first,
+              accepted:1, deduped:(cum && !first) ? 1 : 0, rejected:0,
+              quality:{ok:first ? 0 : 1, suspect:0, bad:first ? 1 : 0},
+              countable:!first, pending:0};
+    }
+  }
+  else if (url.indexOf("/api/mrv/") === 0) body = {ok:true};
   else if (url.indexOf("/api/wifi") === 0) {
     body = {available:true, device:"wlan0", radio:true,
             connected:!!wifiCur, ssid:wifiCur, ip: wifiCur ? "192.168.0.42" : null};
@@ -513,15 +777,56 @@ window.fetch = function(url, opts){
   return Promise.resolve({ ok:true, json: function(){ return Promise.resolve(body); } });
 };
 
+// 그 장면에서 열어 둘 패널을 연다. 탭 이름이 「전력 입력 패널」인데 기본 화면이
+// 보이면, 보는 사람은 없는 화면을 있다고 믿게 된다.
+function openFor(i){
+  var want = OPENERS[i];
+  if (!want) return;
+  if (want === "mrv" && typeof openMrv === "function") return openMrv();
+  // 「읽을 계측기 고르기」 — MRV 연결 화면을 열고 그 안의 고르기 화면까지 들어간다.
+  if (want === "mrv_visible" && typeof openMrv === "function") {
+    openMrv();
+    if (typeof mrvVisStart === "function") mrvVisStart();
+    return;
+  }
+  if (typeof openPower !== "function") return;
+  openPower();
+  // 계측기를 고른 뒤라야 키패드와 2건 규칙 안내가 나온다. 목록 화면만 띄워 놓고
+  // 「전력 입력 패널」이라고 적어 두면, 보는 사람은 입력 화면을 본 적이 없으면서
+  // 봤다고 믿는다.
+  //   power_entry        직전 지침이 있는 계측기 (사용량이 바로 계산된다)
+  //   power_entry_first  직전 지침이 없는 계측기 (기준점으로만 쓰인다)
+  // **계측기가 들어온 뒤에 고른다.** openPower() 는 lastState 에서 목록을 읽는데,
+  // 페이지를 열고 **처음** 장면을 고를 때는 그 값이 아직 없다(tick 의 조회가 끝나기
+  // 전이다). 그 때 pwrPick(0) 은 빈 목록을 집어 아무 일도 하지 않고, 탭 이름이
+  // 「지침 입력(키패드)」인데 목록 화면이 뜬다 — base_state 머리말이 말하는 바로 그
+  // 거짓 미리보기다(두 번째 클릭부터는 맞게 떠서 눈에 잘 띄지 않는다).
+  // loadMeters() 가 채워 줄 때까지 짧게 기다렸다가 고른다.
+  if (want !== "power_entry" && want !== "power_entry_first") return;
+  var at = (want === "power_entry") ? 0 : 2;
+  var tries = 0;
+  (function pickWhenReady(){
+    if (typeof pwrPick !== "function" || !pwrOpen) return;
+    if (pwrMeters && pwrMeters.length > at) return pwrPick(at);
+    if (++tries > 40) return;            // 2초쯤 기다리고 포기한다(화면은 목록으로 남는다)
+    setTimeout(pickWhenReady, 50);
+  })();
+}
+
 window.addEventListener("message", function(e){
   if (e.data && typeof e.data.state === "number") {
     current = e.data.state;
     if (typeof closeSettings === "function") closeSettings();
     if (typeof closeChart === "function") closeChart();
     if (typeof closeWifi === "function") closeWifi();
+    if (typeof closePower === "function") closePower();
     tick();
+    openFor(current);
   }
 });
+
+// 첫 장면도 똑같이 — 0번 탭이 패널 탭일 수 있다.
+setTimeout(function(){ openFor(current); }, 0);
 </script>
 """
 
@@ -535,7 +840,10 @@ def main() -> int:
             .replace("__MODE__", MODE)
             .replace("__BANDS__", json.dumps(limits.BANDS))
             .replace("__NUT_BANDS__", json.dumps(limits.NUTRIENT_BANDS)))
+    # `_open` 은 미리보기만의 것이다. 장비가 받는 상태에 남기지 않는다.
+    openers = [st.pop("_open", None) for _, st in STATES]
     mock = (MOCK
+            .replace("__OPENERS__", json.dumps(openers))
             .replace("__STATES__", json.dumps(STATES, ensure_ascii=False))
             .replace("__HIST__", json.dumps(HIST))
             .replace("__ENV_HIST__", json.dumps(ENV_HIST))
@@ -545,7 +853,9 @@ def main() -> int:
             .replace("__SCAN__", json.dumps(SCAN, ensure_ascii=False))
             .replace("__AUTO__", json.dumps(AUTO, ensure_ascii=False))
             .replace("__WIFI_NETWORKS__", json.dumps(WIFI_NETWORKS, ensure_ascii=False))
-            .replace("__WIFI_START__", json.dumps(WIFI_START, ensure_ascii=False)))
+            .replace("__WIFI_START__", json.dumps(WIFI_START, ensure_ascii=False))
+            .replace("__MRV_HAS_PREV__", json.dumps(
+                {m["id"]: m["has_prev"] for m in MRV_METERS + MRV_METERS_MANY})))
     # 가짜 fetch 를 화면 스크립트보다 먼저 심는다.
     device = page.replace("<script>", mock + "<script>", 1)
 
@@ -572,7 +882,12 @@ def main() -> int:
   <b>오른쪽 아래 [설정]</b> — 슬레이브 ID·측정 주기를 손가락으로 고칩니다.
   <b>[자동 배치]</b> 는 꽂아 둔 센서를 훑어 값이 나오는 자리를 그대로 배정합니다(이 미리보기에선 용존산소가 3→5로 바뀝니다).<br>
   <b>[Wi‑Fi]</b> — 주변 공유기를 검색해 화면 키보드로 비밀번호를 넣고 붙입니다(이 미리보기에서도 눌러 볼 수 있습니다. 잠긴 공유기를 고르면 화면 키보드가 뜨고, [연결] 하면 위쪽 연결 표시가 그 공유기로 바뀝니다).<br>
-  단위는 <b>용존산소 ppm · 염도 ‰ · 전도도 µS/cm · pH</b> 입니다.
+  <b>[운전 모드]</b> — 설정 → 운전 모드에서 양식장·스마트팜·탄소 MRV 를 고릅니다. 모드는 상호
+  배타이고, 무엇을 <b>먼저 보여 줄지</b>를 가릅니다(수질 수집·전송은 모드와 무관하게 계속됩니다).<br>
+  <b>[전력 입력]</b> — MRV 모드의 기본 화면이 전력 입력 단말입니다. 큰 버튼을 누르면 계측기를 고르고
+  지침(계량기 누적 숫자)이나 구간 사용량을 큰 키패드로 넣습니다. 지침은 직전 지침과 함께
+  두 건으로 올라가 그 차이가 구간 사용량이 됩니다(한 건씩 보내면 KPI 에서 빠집니다).<br>
+  단위는 <b>용존산소 ppm · 염도 ‰ · 전도도 µS/cm · pH · 전력 kWh</b> 입니다.
 </div>
 <script>
 var DEVICE_HTML = {device_js};

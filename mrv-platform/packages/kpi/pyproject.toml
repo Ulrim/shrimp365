@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+# 배포 패키지명(distribution) = culiver-kpi, import 이름 = culiver_kpi
+# 백엔드(apps/api)는 로컬 경로 의존성으로 설치한다:
+#   [tool.uv.sources] 또는 pip install -e ../../packages/kpi
+name = "culiver-kpi"
+version = "0.1.0"
+description = "Culiver KPI/MRV domain engine — pure, deterministic KPI formulas (EI, OEI, FCR, mortality, Scope2 MRV). 컬리버 KPI/MRV 산식 엔진(순수·결정론)."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+authors = [{ name = "Culiver" }]
+# 런타임 의존성 없음: 표준 라이브러리(dataclasses, datetime, math)만 사용해
+# 순수·결정론(Rule 6)을 강제하고 공급망 리스크를 최소화한다.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["culiver_kpi*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { SHOW_BOARD, showCardNews } from "@/lib/features"
+import { MRV_PLATFORM_IS_INTERNAL, MRV_PLATFORM_URL, SHOW_BOARD, showCardNews } from "@/lib/features"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils"
 import {
   Home, LayoutDashboard, Droplets, ClipboardList,
   MoreHorizontal, Building2, FlaskConical, Package,
-  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight, BookOpen, BrainCircuit, MessageSquare, Layers, Video, HelpCircle, Beaker,
+  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight, BookOpen, BrainCircuit, MessageSquare, Layers, Video, HelpCircle, Beaker, Leaf, ExternalLink,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
@@ -33,6 +33,19 @@ export function BottomNav() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   // 관리자 콘솔 링크 — 콘솔 가드와 같은 판정(lib/admin-access.ts, 총관리자 이메일 포함).
   const showConsole = adminAccess(user).console
+  /**
+   * 탄소 MRV 플랫폼 진입을 보여 줄 대상 — 관리자 콘솔 권한자와 매니저.
+   *
+   * 관리자 콘솔(`showConsole`)과 비슷한 집합이지만 **변수를 따로 둔다** — 이유가 다르기
+   * 때문이다. 콘솔은 권한이 없으면 서버가 막는 기능이고, MRV 는 조직 초대제인 **별도
+   * 플랫폼**이다. 초대되지 않은 계정이 들어가면 "초대되지 않음" 안내만 보게 되므로, 그
+   * 화면을 대부분 사용자에게 들이밀지 않으려고 좁힌다. 한쪽 기준이 바뀔 때 다른 쪽이
+   * 조용히 따라가면 안 된다.
+   *
+   * 노출은 편의일 뿐이고 실제 접근 판정은 MRV 쪽 세션·조직 조회가 한다 — 이 메뉴가
+   * 없어도 주소를 직접 치면 들어갈 수 있고, 그래야 초대받은 작업자가 막히지 않는다.
+   */
+  const canSeeMrv = showConsole || user?.role === "manager"
 
   // 두 모드가 함께 보는 항목(게시판·카드뉴스) — 조건은 예전 그대로.
   // 관제센터·시스템 모니터링은 관리자 콘솔(/admin)로 옮겼다 — 아래 동작 목록의 링크 하나로 들어간다.
@@ -60,6 +73,11 @@ export function BottomNav() {
     { href: "/inventory",     icon: Package,       label: t.nav.inventory },
     { href: "/ai-advisor",    icon: BrainCircuit,  label: t.nav.aiAdvisor },
     { href: "/reports",       icon: BarChart3,     label: t.nav.reports },
+    // 컬리버 탄소 MRV 플랫폼. 사이드바는 lg 이상에서만 보이므로, 휴대폰에서 같은
+    // 자리는 이 '더보기' 목록이다. 새우 모드에만 둔다(사이드바와 같은 이유).
+    ...(canSeeMrv && MRV_PLATFORM_URL
+      ? [{ href: MRV_PLATFORM_URL, icon: Leaf, label: t.nav.mrvPlatform, external: !MRV_PLATFORM_IS_INTERNAL }]
+      : []),
     ...SHARED_MORE,
   ]
 
@@ -85,6 +103,8 @@ export function BottomNav() {
   // 언어 접두사를 뗀 뒤 견준다. /en/cardnews 도 "더보기" 안의 항목이다.
   const here = stripLocalePrefix(pathname).path
   const isMoreActive = more.some((item) => {
+    // 외부 주소는 이 앱의 경로가 아니므로 활성 판정에 넣지 않는다.
+    if ("external" in item && item.external) return false
     const target = stripLocalePrefix(item.href).path
     return here === target || here.startsWith(target + "/")
   })
@@ -173,23 +193,50 @@ export function BottomNav() {
             {/* Nav items */}
             <div className="px-4 space-y-1">
               {more.map((item) => {
+                const external = "external" in item && item.external === true
                 const to = item.href
-                const active = pathname === to || pathname.startsWith(to + "/")
+                const active = !external && (pathname === to || pathname.startsWith(to + "/"))
+                const className = cn(
+                  "flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all",
+                  active
+                    ? "bg-brand-a10 text-brand-fg border border-brand-a25"
+                    : "text-foreground active:bg-accent"
+                )
+                const inner = (
+                  <>
+                    <item.icon className={cn("w-5 h-5", active ? "text-brand-fg" : "text-muted-foreground")} />
+                    <span className="flex-1 font-medium text-[15px]">{item.label}</span>
+                    {/* 새 탭으로 열리는 항목은 꺾쇠(이 앱 안에서 이동) 대신 그 사실을
+                        아이콘으로 알린다 — 같은 모양이면 뒤로 가기가 되는 줄 안다. */}
+                    {external ? (
+                      <ExternalLink className="w-4 h-4 text-muted-foreground" aria-label="새 탭에서 열림" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </>
+                )
+                if (external) {
+                  return (
+                    <a
+                      key={item.href}
+                      href={to}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setMoreOpen(false)}
+                      className={className}
+                    >
+                      {inner}
+                    </a>
+                  )
+                }
                 return (
                   <Link
                     key={item.href}
                     href={to}
                     onClick={() => setMoreOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all",
-                      active
-                        ? "bg-brand-a10 text-brand-fg border border-brand-a25"
-                        : "text-foreground active:bg-accent"
-                    )}
+                    className={className}
                   >
-                    <item.icon className={cn("w-5 h-5", active ? "text-brand-fg" : "text-muted-foreground")} />
-                    <span className="flex-1 font-medium text-[15px]">{item.label}</span>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    {inner}
                   </Link>
                 )
               })}
