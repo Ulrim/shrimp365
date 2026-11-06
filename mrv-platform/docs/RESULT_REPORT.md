@@ -303,4 +303,6 @@ DB 마이그레이션 11개는 Supabase SQL Editor 에서 사람이 실행한다
 - **공개 데모 `/mrv/demo`**: 로그인 없이 보는 읽기 전용 시연. 시연 자료(`lib/mrv/demo/fixture.json`, 실제 API 응답 캡처)로 앱과 같은 컴포넌트를 그리고 어떤 API 도 부르지 않는다. 미들웨어는 이 경로만 보호에서 뺀다. 2026-11-06 운영 반영 — www.shrimp365.kr/mrv/demo.
 - **결함 #13**: AMP 전용판 화면이 본판 수집기가 넘기는 MRV 콜백을 받지 못해 1.11.1 업데이트 시 시작 시 TypeError 로 정지할 결함 — 운영 병합에서 발견해 수정.
 - **새 한계**: 운영 배포 브랜치가 main 이 아님(Vercel Production Branch 변경 권장).
-- 최종본 PDF: `mrv-platform/docs/RESULT_REPORT_FINAL.pdf` (39쪽, 캡처 29장).
+- **시제품 동작 증빙(10장)**: 접속 QR(공개 데모 · 운영 플랫폼), 운영 주소 응답 확인표(demo 200 · /mrv 307→login), 운영 사이트 녹화 화면, 커밋·PR·배포 증적, 검증 실행 기록 원문, 5분 시연 시나리오. 별도 첨부 `PROTOTYPE_EVIDENCE.pdf` 와 `prototype-evidence/demo-walkthrough.mp4`.
+- **결함 #14**: 화면 폴더 이동 뒤 검증 스크립트 하나가 옛 경로를 읽어 5항목 실패 — 경로 수정 후 재실행 통과(PR #81).
+- 최종본 PDF: `mrv-platform/docs/RESULT_REPORT_FINAL.pdf` (42쪽, 캡처 31장).

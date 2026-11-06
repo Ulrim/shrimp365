@@ -48,6 +48,10 @@ figcaption b{color:#1e3a8a}
 .kv b{color:#1e3a8a}
 .diagram{margin:3mm 0 4mm;break-inside:avoid}
 .diagram svg{width:100%;height:auto;display:block}
+.qrrow{display:grid;grid-template-columns:1fr 1fr;gap:6mm;margin:3mm 0 4mm}
+.qr{display:flex;gap:4mm;align-items:center;border:1px solid #cbd5e1;border-radius:3px;padding:3mm;break-inside:avoid}
+.qr img{width:30mm;height:30mm;border:0}.qr b{display:block;color:#1e3a8a}.qr small{color:#475569;font-size:9pt}
+.ok{color:#15803d;font-weight:700}
 .pill{display:inline-block;border:1px solid #cbd5e1;border-radius:9px;padding:0 2mm;font-size:8.6pt;color:#475569;margin-right:1mm}
 </style></head><body>
 
@@ -62,7 +66,8 @@ figcaption b{color:#1e3a8a}
     <tr><th>작업 기간</th><td>2026-08-29 ~ 2026-11-06 · 이 기간 커밋 72건</td></tr>
     <tr><th>화면 캡처</th><td>실제 프로덕션 빌드를 로컬에서 띄워 브라우저로 찍은 것 (2026-11-05 · 11-06)</td></tr>
     <tr><th>운영 반영</th><td>www.shrimp365.kr/mrv — 2026-11-06 Vercel Production 배포 완료</td></tr>
-    <tr><th>상세 문서</th><td>mrv-platform/docs/HANDOVER.md · RESULT_REPORT.md · adr/ · PR #48</td></tr>
+    <tr><th>상세 문서</th><td>mrv-platform/docs/HANDOVER.md · RESULT_REPORT.md · adr/ · PR #48 · #80 · #81</td></tr>
+    <tr><th>첨부</th><td>시제품 개발 증빙 자료(PROTOTYPE_EVIDENCE.pdf) · 운영 데모 시연 영상(mp4 32초)</td></tr>
   </table>
 </section>
 
@@ -77,8 +82,9 @@ figcaption b{color:#1e3a8a}
 <li>검증 결과</li>
 <li>배포와 운영 반영</li>
 <li>공개 데모 (로그인 없이 보는 시연)</li>
+<li>시제품 동작 증빙 — 접속 주소 · 운영 확인 · 시연 시나리오</li>
 <li>대표 확인 흐름</li>
-<li>개발 중 발견해 막은 결함 13건</li>
+<li>개발 중 발견해 막은 결함 14건</li>
 <li>한계와 전제</li>
 <li>사람이 해야 하는 나머지</li>
 <li>재현 방법</li>
@@ -97,7 +103,7 @@ figcaption b{color:#1e3a8a}
 <b>범위</b><span>사양서(00_개발의뢰서_MASTER 4장) 16화면 전부 + 기계실 현장 장비(라즈베리파이 키오스크) + 검증 체계</span>
 </div>
 <div class="callout key">
-사양서 16화면의 기능 항목은 <b>전부</b> 들어갔고, 그 사슬이 <b>제품 안에서 닫히는지</b>를 실물 빌드에서 브라우저로 확인했다. 2026-11-06 에 <b>main 에 병합되고 운영 사이트(www.shrimp365.kr/mrv)에 배포</b>됐으며, 첫 조직과 owner 가 등록됐다. 로그인 없이 보는 <b>공개 데모(/mrv/demo)</b>도 만들었다. 사람이 DB 를 직접 만져야 끝나는 자리가 남아 있지 않다. 남은 것은 기능이 아니라 <b>한계와 전제</b>(12장)이며, 그 한계는 리포트가 스스로 인쇄한다.
+사양서 16화면의 기능 항목은 <b>전부</b> 들어갔고, 그 사슬이 <b>제품 안에서 닫히는지</b>를 실물 빌드에서 브라우저로 확인했다. 2026-11-06 에 <b>main 에 병합되고 운영 사이트(www.shrimp365.kr/mrv)에 배포</b>됐으며, 첫 조직과 owner 가 등록됐다. 로그인 없이 보는 <b>공개 데모(/mrv/demo)</b>도 만들었다. 사람이 DB 를 직접 만져야 끝나는 자리가 남아 있지 않다. 남은 것은 기능이 아니라 <b>한계와 전제</b>(13장)이며, 그 한계는 리포트가 스스로 인쇄한다.
 </div>
 <p>이번 과제가 다른 모니터링 제품과 갈리는 지점은 <b>"이 숫자를 믿어도 되는가"</b> 에 답하도록 설계했다는 것이다. 산출 불가를 0 으로 바꾸지 않고, 배출계수 출처를 발행 시점에 얼리고, 잘못 넣은 기록을 지우지 않고 무효로 표시하고, 같은 입력이면 같은 출력이 나오는 것을 기계적으로 대조한다. 5장이 그 내용이다. 외부에 보여 줄 때도 같은 태도를 지켰다 — 공개 데모는 앱 화면을 익명에 여는 대신 시연 자료로 같은 컴포넌트를 그리고, 어떤 API 도 부르지 않는다(9장).</p>
 
@@ -230,7 +236,7 @@ figcaption b{color:#1e3a8a}
 
 <h3>4-3. 통합 대시보드 <span class="pill">START</span></h3>
 <p>전력 · 용존산소 · 수온 · pH · ORP · EC 시계열을 일별/시간별로 집계해 그리고, 수조별 비교를 켤 수 있다. 계측기가 없는 지표는 체크박스가 비활성이고 「계측기 없음」이라고 적는다. 범례는 계측기 id 를 그대로 보여 어느 계량기인지 현장에서 대조할 수 있게 했다.</p>
-<figure><div class="crop" data-src="result-report/shots/02-overview.jpg" data-w="1280" data-y="770,1711"></div><figcaption><b>그림 4-3</b> 시계열 차트(전력 사용량 일별 합계 · DO 일별 평균). 수조별 비교는 배치가 아니라 수조 목록에서 뽑는다(11장 결함 10).</figcaption></figure>
+<figure><div class="crop" data-src="result-report/shots/02-overview.jpg" data-w="1280" data-y="770,1711"></div><figcaption><b>그림 4-3</b> 시계열 차트(전력 사용량 일별 합계 · DO 일별 평균). 수조별 비교는 배치가 아니라 수조 목록에서 뽑는다(12장 결함 10).</figcaption></figure>
 
 <h3>4-4. 급이 · 폐사 · 전력 · 생산량 입력 <span class="pill">START</span></h3>
 <p>KPI 의 분자와 분모를 모두 제품 안에서 받는다. 입식 등록(폐사율 분모) · 급이 · 폐사 · 전력(구간 사용량, 자료유형 필수) · 생산량(EI·FCR 분모, 산정 근거 필수)의 수기 폼과, 같은 다섯 가지의 기록지 CSV 업로드(견본 서식 내려받기 포함)가 있다. 잘못 넣은 생산량은 삭제가 아니라 <b>무효 처리</b>한다(5-3).</p>
@@ -359,7 +365,7 @@ figcaption b{color:#1e3a8a}
 <ul>
 <li>운전 모드 3종을 1급 개념으로 분리: <b>양식장 · 스마트팜 · 탄소 MRV</b>. 모드는 무엇을 먼저 보여 줄지를 가르고, 수질 수집·전송은 모드와 무관하게 계속된다</li>
 <li><b>4개 국어</b>(한국어 · 영어 · 베트남어 · 인도네시아어) — 현장 인력 구성을 반영</li>
-<li>회선이 끊기면 보관했다가 복구 시 전송. 서버가 거부한 보관분은 삭제하지 않고 사유와 함께 남긴다(11장 결함 8)</li>
+<li>회선이 끊기면 보관했다가 복구 시 전송. 서버가 거부한 보관분은 삭제하지 않고 사유와 함께 남긴다(12장 결함 8)</li>
 <li>적산 지침 2건 규칙 — 장비가 직전 지침을 함께 보내 한 건만 넣어도 구간값이 나온다</li>
 <li>장비가 전력 자료유형(실측/계산)을 스스로 선언한다 — 계산값으로 설정된 단말은 그 사실을 화면에 적는다</li>
 <li>6자리 코드 페어링으로 수집 키 발급 — 원문 키는 장비가 한 번만 가져가고 DB 에는 해시만. 끊는 화면도 있다</li>
@@ -408,7 +414,7 @@ figcaption b{color:#1e3a8a}
 <tr><th>대상</th><th>내용</th></tr>
 <tr><td>수조 DO 목표대역 · 입식 등록</td><td>33 항목 — 대역을 지우면 OEI null, 넣으면 같은 값으로 복귀</td></tr>
 <tr><td>사이트 등록</td><td>22 항목 — 빈 조직에서 첫 사이트, 둘째는 ENTERPRISE 게이트</td></tr>
-<tr><td>빈 조직 → KPI 5종</td><td>SQL 한 줄 없이 전 과정 (10장)</td></tr>
+<tr><td>빈 조직 → KPI 5종</td><td>SQL 한 줄 없이 전 과정 (11장)</td></tr>
 <tr><td>11/05 추가 7건</td><td>생산량 정정(EI 0.2421 → 0.3480 → 0.2421 복귀) · 증서 등록 · 서식 · 자동 생성(weekly generated, 발송 기록) · 서식 + market-based 리포트 · A/B 실험</td></tr>
 <tr><td>알림 배치</td><td>DO 2.4 mg/L 수기값 → do_low(critical), 폐사 2,400 → mortality_spike(warning) 생성 (그림 4-5)</td></tr>
 <tr><td>제어 콘솔</td><td>제안 → 승인 → 적용 전이와 감사 로그 4건 (그림 4-11 · 4-14)</td></tr>
@@ -430,11 +436,11 @@ figcaption b{color:#1e3a8a}
 <h3>8-2. 운영 반영</h3>
 <ul>
 <li>Vercel 의 Production 브랜치가 <code>main</code> 이 아니라 작업 브랜치 <code>claude/shrimp-water-quality-monitoring-aZ4EY</code> 로 설정되어 있어, <code>main</code> 머지만으로는 운영에 반영되지 않았다(Preview 환경으로만 배포됨).</li>
-<li>그 운영 브랜치에 <code>main</code> 을 병합했다. 충돌 2개(설치 모듈 목록, 장비 버전) 해결, AMP 전용판이 MRV 콜백을 받으면 시작 시 죽던 결함을 함께 수정(11장 #13). 장비 1.11.1.</li>
+<li>그 운영 브랜치에 <code>main</code> 을 병합했다. 충돌 2개(설치 모듈 목록, 장비 버전) 해결, AMP 전용판이 MRV 콜백을 받으면 시작 시 죽던 결함을 함께 수정(12장 #13). 장비 1.11.1.</li>
 <li>Vercel Production 배포 완료(08:24 UTC). <b>www.shrimp365.kr/mrv</b> 가 404 에서 로그인 화면으로의 307 로 바뀌었다 — MRV 가 운영에 올라갔고 미들웨어가 비로그인 접근을 막고 있다는 뜻이다.</li>
 <li>첫 조직(컬리버 · ENTERPRISE)과 owner 초대 행을 SQL 로 등록했다. 이 이메일로 처음 <code>/mrv</code> 에 들어오는 순간 서버가 로그인 계정과 연결하고 감사 로그에 남긴다.</li>
 </ul>
-<div class="callout warn"><b>구조상 한계.</b> 운영이 <code>main</code> 이 아닌 작업 브랜치에서 배포되는 구조가 그대로다. 앞으로도 <code>main</code> 머지마다 운영 브랜치 병합이 한 번 더 필요하다. Vercel 프로젝트 설정의 Production Branch 를 <code>main</code> 으로 바꾸면 없어진다(13장).</div>
+<div class="callout warn"><b>구조상 한계.</b> 운영이 <code>main</code> 이 아닌 작업 브랜치에서 배포되는 구조가 그대로다. 앞으로도 <code>main</code> 머지마다 운영 브랜치 병합이 한 번 더 필요하다. Vercel 프로젝트 설정의 Production Branch 를 <code>main</code> 으로 바꾸면 없어진다(14장).</div>
 
 <h2>9. 공개 데모 — 로그인 없이 보는 시연</h2>
 <p>외부에 플랫폼을 보여 줄 때 "로그인 없이 열어 달라" 는 요청이 있었다. 앱 화면을 익명에 열면 조직 격리와 감사 로그의 행위자가 사라지므로, 대신 <b>저장소에 든 시연 자료만으로 같은 화면을 그리는 읽기 전용 페이지</b>를 만들었다(<code>/mrv/demo</code>).</p>
@@ -450,7 +456,66 @@ figcaption b{color:#1e3a8a}
 <figure><div class="crop" data-src="result-report/shots/demo-full.jpg" data-w="1280" data-y="3120,4273"></div><figcaption><b>그림 9-3</b> MRV 리포트 — 감축량, 서식이 고른 지표, 산식 전문, Scope 2 market-based 와 residual mix 한계 문구.</figcaption></figure>
 <p class="small">공개 데모는 2026-11-06 에 8장과 같은 경로(main 병합 → 운영 브랜치 병합)로 운영에 반영됐다 — <b>www.shrimp365.kr/mrv/demo</b> 에서 로그인 없이 열린다.</p>
 
-<h2>10. 대표 확인 흐름 — "빈 조직에서 KPI 까지, SQL 한 줄 없이"</h2>
+<h2 class="break">10. 시제품 동작 증빙 — 접속 주소 · 운영 확인 · 시연 시나리오</h2>
+<p>"시제품을 개발했다" 를 문서가 아니라 <b>지금 열리는 주소</b>로 보인다. 아래 주소는 2026-11-06 에 실제 응답을 확인했고, 녹화 영상은 같은 날 운영 사이트를 브라우저로 찍은 것이다(첨부 mp4 32초). 별도 첨부 「시제품 개발 증빙 자료」(PROTOTYPE_EVIDENCE.pdf, 12쪽)에 같은 내용이 QR 과 함께 있다.</p>
+<div class="qrrow">
+  <div class="qr"><img src="prototype-evidence/qr-demo.png" alt="QR 공개 데모"><div><b>공개 데모 — 로그인 없이</b><small>https://www.shrimp365.kr/mrv/demo</small></div></div>
+  <div class="qr"><img src="prototype-evidence/qr-platform.png" alt="QR 운영 플랫폼"><div><b>운영 플랫폼 — 초대 계정 로그인</b><small>https://www.shrimp365.kr/mrv</small></div></div>
+</div>
+<h3>10-1. 운영 주소 응답 확인 (2026-11-06 12:34 UTC)</h3>
+<table>
+<tr><th>주소</th><th style="width:28mm">응답</th><th>뜻</th></tr>
+<tr><td>https://www.shrimp365.kr/mrv/demo</td><td class="ok">200</td><td>로그인 없이 열린다 — 공개 데모</td></tr>
+<tr><td>https://www.shrimp365.kr/mrv</td><td>307 → /login</td><td>보호된 플랫폼. 비로그인은 로그인으로</td></tr>
+<tr><td>https://www.shrimp365.kr/mrv/overview</td><td>307 → /login</td><td>같은 보호 규칙</td></tr>
+<tr><td>Vercel Production 배포</td><td class="ok">success</td><td>11-06 08:24 dd17a45(플랫폼) · 12:33 6d860d9(공개 데모)</td></tr>
+</table>
+<h3>10-2. 운영 사이트 녹화 화면</h3>
+<figure><img src="prototype-evidence/prod-demo-top.png"><figcaption><b>그림 10-1</b> www.shrimp365.kr/mrv/demo 첫 화면 — 브라우저에 로그인 세션 없음. 상단에 "공개 데모 · 시연 자료" 표시.</figcaption></figure>
+<figure><img src="prototype-evidence/prod-mrv-redirect.png"><figcaption><b>그림 10-2</b> www.shrimp365.kr/mrv 를 비로그인으로 열면 로그인 화면으로 넘어간다 — 보호 규칙이 운영에서 동작한다.</figcaption></figure>
+<h3>10-3. 개발·배포 증적</h3>
+<table>
+<tr><th style="width:38mm">항목</th><th>증적</th></tr>
+<tr><td>커밋</td><td>main 기준 2026-08-29 이후 196건 (저장소 전체는 2026-05-05 시작)</td></tr>
+<tr><td>병합 PR</td><td>#48 (11-06) 플랫폼 전체 → main · #80 (11-06) 공개 데모 + 보고서 최종본 → main · #81 (11-06) 검증 경로 수정 + 증빙 자료 → main</td></tr>
+<tr><td>운영 배포 (Vercel Production)</td><td>10-30 11e7242 (장비 1.11.0) · 11-06 08:24 dd17a45 (플랫폼) · 11-06 12:33 6d860d9 (공개 데모)</td></tr>
+<tr><td>변경 규모 (MRV 범위)</td><td>263개 파일 · 약 136,000줄 추가 · 마이그레이션 11개 · ADR 7건</td></tr>
+<tr><td>첨부 자료</td><td>PROTOTYPE_EVIDENCE.pdf · prototype-evidence/demo-walkthrough.mp4 · QR · 캡처 · 검증 로그 원문</td></tr>
+</table>
+<h3>10-4. 검증 실행 기록 (2026-11-06 재실행, 원문 발췌)</h3>
+<pre>$ npm run mrv:verify   (scripts/mrv/verify-*.mjs 13종 + RLS)
+verify-kpi                  OK
+verify-config               OK
+verify-ingestion            OK
+verify-pipeline             OK
+verify-alerts               OK
+verify-csv                  OK
+verify-baseline-readiness   OK
+verify-kpi-config-write     OK
+verify-contrast             OK
+verify-scope2-market        OK
+verify-report-template      OK
+verify-report-jobs          OK
+verify-experiments          OK
+── 전체 통과
+
+$ npx tsc --noEmit
+(오류 0)
+
+$ python3 raspberry-pi/verify.py
+모두 통과
+$ python3 raspberry-pi/verify-mrv.py
+모두 통과</pre>
+<h3>10-5. 심사용 시연 시나리오 (5분)</h3>
+<ol>
+<li><b>공개 데모 열기 (1분)</b> — QR 로 <code>/mrv/demo</code>. 상단 안내(시연 자료, API 호출 없음)와 사슬 6단계 목차를 보인다.</li>
+<li><b>KPI 와 시계열 (1분)</b> — EI · 폭기 EI · FCR · OEI · 폐사율. OEI 의 「잠정 지표」 배지와 산식 버전 표기를 짚는다.</li>
+<li><b>전·후 비교와 A/B (1분)</b> — 개선율이 지표 방향을 보정한 값임을, 대조군의 「산출 불가」가 0 으로 바뀌지 않음을 보인다.</li>
+<li><b>MRV 리포트 (1분)</b> — 감축량, 산식 전문, 배출계수 출처, location/market-based 병기, residual mix 한계 문구.</li>
+<li><b>보호 확인 (30초)</b> — <code>/mrv</code> 로 가면 로그인 화면. 초대 계정으로 로그인하면 실제 16화면이 열린다(시간이 있으면 설정 → 사이트 · 수조 · 계측기 등록 → 입력 → 기준선 잠금 → 리포트 생성 흐름).</li>
+</ol>
+
+<h2>11. 대표 확인 흐름 — "빈 조직에서 KPI 까지, SQL 한 줄 없이"</h2>
 <pre>사이트 등록 → 수조 등록 → DO 목표대역 → 계측기 3대 → 입식 100,000마리
   → 전력·DO 240건 수집 → 급이 5건 · 폐사 3건 · 생산량 2건
 
@@ -459,7 +524,7 @@ EI(전력집약도)   0.1565 kWh/kg      FCR(사료요구율)  0.1043 kg/kg
 OEI(산소효율)    9.04 index   ※ 잠정 지표</pre>
 <p>그리고 11/05 — 자동 생성된 주간 리포트 한 장에 서식 표지 · 지표 2행 · location-based 0.054 tCO2e / market-based 0 tCO2e(REC 적용) · residual mix 한계가 한 화면에 인쇄됐다. 이 보고서의 4장 캡처는 같은 흐름을 한 번 더 밟은 것이다: 기준선 잠금 → 추천 → 제어 제안·승인·적용 → 증서·서식·일정 → 리포트 발행 → A/B 실험 → 알림 → 감사 로그.</p>
 
-<h2>11. 개발 중 발견해 막은 결함 (증빙 신뢰성 관련)</h2>
+<h2>12. 개발 중 발견해 막은 결함 (증빙 신뢰성 관련)</h2>
 <table>
 <tr><th style="width:8mm">#</th><th>결함</th><th>영향</th><th style="width:30mm">막은 방법</th></tr>
 <tr><td>1</td><td>KPI 설정이 조직 범위로 갇혀 있지 않았다</td><td>한 조직 owner 가 <b>전 조직</b>의 KPI 파라미터 변경</td><td>org_id 열 + RLS</td></tr>
@@ -475,9 +540,10 @@ OEI(산소효율)    9.04 index   ※ 잠정 지표</pre>
 <tr><td>11</td><td>OEI 가 기본 알림 감시 목록에 있음</td><td>미확정 지표로 <b>빨간 알림</b> 발송</td><td>기본값에서 제거</td></tr>
 <tr><td>12</td><td>검증 픽스처 생성기의 비결정성</td><td>같은 시드로 다른 픽스처 — <b>차분검증이 재현 불가</b></td><td>정렬 순회</td></tr>
 <tr><td>13</td><td>AMP 전용판 화면이 MRV 콜백을 받지 못함 (운영 병합에서 발견)</td><td>1.11.1 로 업데이트되는 순간 AMP 장비가 <b>시작 시 TypeError 로 정지</b></td><td>콜백 수용(**_unused)</td></tr>
+<tr><td>14</td><td>공개 데모 작업으로 화면 폴더를 옮기자 검증 스크립트 하나가 옛 경로를 읽음</td><td>검증 5항목 ENOENT 실패 — <b>통과 보고가 거짓이 될 뻔</b></td><td>경로 수정 · 재실행(PR #81)</td></tr>
 </table>
 
-<h2>12. 한계와 전제</h2>
+<h2>13. 한계와 전제</h2>
 <p>사양서 16화면의 기능 항목은 전부 들어갔다. 아래는 기능이 아니라 한계로 적는다. 리포트가 스스로 인쇄하는 것은 ✓ 표시.</p>
 <table>
 <tr><th style="width:42mm">항목</th><th>내용</th><th style="width:14mm">인쇄</th></tr>
@@ -491,7 +557,7 @@ OEI(산소효율)    9.04 index   ※ 잠정 지표</pre>
 <tr><td>공개 데모의 자료</td><td>가상 양식장 30일치다. 실제 고객 자료로 바꾸려면 픽스처만 다시 캡처하면 되고 화면 코드는 그대로다.</td><td>화면</td></tr>
 </table>
 
-<h2>13. 사람이 해야 하는 나머지</h2>
+<h2>14. 사람이 해야 하는 나머지</h2>
 <ul>
 <li><b>Vercel 환경변수</b> — CRON_SECRET(없으면 알림 배치와 리포트 자동 생성이 돌지 않는다) · MRV_MAIL_PROVIDER · MRV_MAIL_FROM · RESEND_API_KEY · NEXT_PUBLIC_SITE_URL</li>
 <li><b>Vercel Production Branch 를 main 으로 변경</b> — 운영 브랜치 수동 병합을 없앤다</li>
@@ -502,7 +568,7 @@ OEI(산소효율)    9.04 index   ※ 잠정 지표</pre>
 <li><b>SNS·외부 제출물 업로드</b> — 저장소가 하지 않는다</li>
 </ul>
 
-<h2>14. 재현 방법</h2>
+<h2>15. 재현 방법</h2>
 <pre>npm install
 npm run mrv:verify          # 차분·사양 기반·RLS 검증 16종
 npx tsc --noEmit
