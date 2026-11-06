@@ -18,7 +18,7 @@ const HIDDEN_CARDNEWS = CARDNEWS_PATHS.filter(c => !showCardNews(c.locale)).map(
 const HIDDEN_PATHS = [...(SHOW_BOARD ? [] : ["/board"]), ...HIDDEN_CARDNEWS]
 const PUBLIC_PATHS = ["/", "/en", "/vi", "/id", "/demo", "/board", ...SHOWN_CARDNEWS, "/guide", "/login", "/signup", "/pricing", "/privacy", "/terms", "/opengraph-image", "/sitemap.xml"]
   .filter(p => !HIDDEN_PATHS.includes(p))
-const PRIVATE_PATHS = [...HIDDEN_PATHS, "/home", "/daumlabs", "/dashboard", "/water-quality", "/journal", "/farms", "/diagnosis", "/production", "/inventory", "/ai-advisor", "/reports", "/admin", "/help", "/record", "/onboarding", "/api/", "/_next/"]
+const PRIVATE_PATHS = [...HIDDEN_PATHS, "/home", "/daumlabs", "/dashboard", "/water-quality", "/journal", "/farms", "/diagnosis", "/production", "/inventory", "/ai-advisor", "/reports", "/admin", "/control", "/help", "/record", "/onboarding", "/api/", "/_next/"]
 
 export default function robots(): MetadataRoute.Robots {
   return {

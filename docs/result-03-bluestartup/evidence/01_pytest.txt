@@ -1,0 +1,22 @@
+시험명   : 비전 서비스 단위·통합 시험 (pytest)
+실행일시 : 2026-10-21 00:15:19 UTC
+저장소   : ulrim/shrimp365  claude/camera-vision-migration-43d9xz @ 3d102fa837a10b01827b57e27780ac6395fc61b2
+실행환경 : Python 3.11.15, node v22.22.2, Linux 6.18.44-fc-v139
+실행명령 : /home/user/shrimp365/vision/.venv/bin/python -m pytest vision -q
+────────────────────────────────────────────────────────────────
+
+........................................................................ [ 21%]
+........................................................................ [ 42%]
+........................................................................ [ 63%]
+........................................................................ [ 84%]
+...................................................                      [100%]
+=============================== warnings summary ===============================
+vision/tests/test_kiosk.py:18
+  /home/user/shrimp365/vision/tests/test_kiosk.py:18: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+339 passed, 1 warning in 18.73s
+
+────────────────────────────────────────────────────────────────
+종료 코드: 0

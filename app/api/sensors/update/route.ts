@@ -8,6 +8,10 @@ const rateLimitMap = new Map<string, { count: number; windowStart: number }>()
 
 function checkRateLimit(key: string): boolean {
   const now = Date.now()
+  // 틀린 키로 마구 두드려도 표가 끝없이 커지지 않게 — 커지면 창이 지난 줄을 걷는다.
+  if (rateLimitMap.size > 5000) {
+    for (const [k, e] of rateLimitMap) if (now - e.windowStart > RATE_LIMIT_WINDOW_MS) rateLimitMap.delete(k)
+  }
   const entry = rateLimitMap.get(key)
   if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
     rateLimitMap.set(key, { count: 1, windowStart: now })
@@ -21,6 +25,14 @@ function checkRateLimit(key: string): boolean {
 /** 1.2.3 형태만 통과시킨다. 이 값이 기기가 내려받을 주소의 일부가 되므로
  *  DB 제약과 별개로 여기서도 막는다. */
 const VERSION_RE = /^\d{1,3}\.\d{1,3}\.\d{1,3}$/
+
+/** a 가 b 보다 높은 버전인가(둘 다 1.2.3 형태). */
+function isNewer(a: string, b: string): boolean {
+  if (!VERSION_RE.test(a) || !VERSION_RE.test(b)) return false
+  const x = a.split(".").map(Number), y = b.split(".").map(Number)
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i]
+  return false
+}
 
 async function authenticate(req: NextRequest) {
   const apiKey = req.headers.get("X-Device-Key")?.trim()
@@ -70,12 +82,19 @@ export async function GET(req: NextRequest) {
       patch.update_to = null
       patch.update_status = "applied"
       patch.update_status_at = new Date().toISOString()
+    } else if (typeof device.update_to === "string" && !isNewer(device.update_to, reported)) {
+      // 장비가 이미 더 높은 버전이다(저장소에서 직접 설치 등). 장비는 낮은 버전을 거부하므로
+      // 승인이 영영 소비되지 않고 웹에 "업데이트 예정 → 옛 버전" 으로 남는다. 여기서 거둔다.
+      patch.update_to = null
+      patch.update_status = null
     }
     await admin.from("sensor_devices").update(patch).eq("id", device.id)
   }
 
+  const stale = typeof device.update_to === "string" && !!reported && VERSION_RE.test(reported)
+    && !isNewer(device.update_to, reported)
   return NextResponse.json({
-    approved: device.update_to === reported ? null : device.update_to,
+    approved: device.update_to === reported || stale ? null : device.update_to,
     active: device.active,
   })
 }

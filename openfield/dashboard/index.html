@@ -1,0 +1,839 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>노지 대파 재해위험 관제</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>◉</text></svg>">
+
+<!-- 글꼴은 있으면 쓰고 없으면 넘어간다.
+     제어기는 통신이 끊긴 채 72시간을 돌아야 한다. 원격 글꼴을 렌더링
+     차단으로 걸어 두면 인터넷이 없는 포장에서 화면이 뜨기까지 네트워크
+     시간초과만큼 멈춰 있는다. 글꼴 하나 때문에 위험 알림이 늦는다.
+     그래서 비차단으로 받고, 못 받으면 시스템 글꼴로 그대로 간다.
+     라즈베리파이에는 `sudo apt install fonts-noto-cjk` 로 한글을 깔아 둔다. -->
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" media="print" onload="this.media='all'"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"></noscript>
+<style>
+/* 레이아웃: 제어반 계기판 — 고정 상태바 / 위험카드 격자 / 판단·조치 2열 / 24시간 추이 / 제어 이력 */
+:root {
+  --plane:        #f2f3ef;   /* 페이지 바탕 — 작물 녹색 쪽으로 아주 조금 기운 중립 */
+  --surface:      #fcfcfb;   /* 카드·차트 면 */
+  --surface-sunk: #e9ebe5;
+  --line:         #d6d9d0;
+  --line-soft:    #e4e7de;
+  --ink:          #14160f;
+  --ink-2:        #52554a;
+  --ink-3:        #7c8072;
+
+  --series-air:    #2a78d6;  /* 기온 — 검증된 계열 1 */
+  --series-canopy: #eb6834;  /* 초관부 온도 — 검증된 계열 2 */
+
+  --good:     #0ca30c;       /* 상태색: 고정, 테마 불변. 반드시 라벨과 함께 쓴다 */
+  --warning:  #fab219;
+  --critical: #d03b3b;
+  --good-ink:     #076b07;
+  --warning-ink:  #7a5200;
+  --critical-ink: #a32a2a;
+
+  --font-ui:  "IBM Plex Sans KR", system-ui, -apple-system, "Noto Sans CJK KR",
+              "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --r: 6px;
+  --gap: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --plane: #0d0e0c; --surface: #1a1a19; --surface-sunk: #242520;
+    --line: #35372f; --line-soft: #2a2b26;
+    --ink: #f3f4ee; --ink-2: #b9bcae; --ink-3: #888b7d;
+    --series-air: #3987e5; --series-canopy: #d95926;
+    --good-ink: #4cc24c; --warning-ink: #e5b445; --critical-ink: #e87878;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --plane: #0d0e0c; --surface: #1a1a19; --surface-sunk: #242520;
+  --line: #35372f; --line-soft: #2a2b26;
+  --ink: #f3f4ee; --ink-2: #b9bcae; --ink-3: #888b7d;
+  --series-air: #3987e5; --series-canopy: #d95926;
+  --good-ink: #4cc24c; --warning-ink: #e5b445; --critical-ink: #e87878;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--plane); color: var(--ink);
+  font-family: var(--font-ui); font-size: 14px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1100px; margin: 0 auto; padding-inline: 16px; padding-block: 0 48px; }
+
+/* ── 상태바 ── */
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  background: var(--surface); border-bottom: 1px solid var(--line);
+  margin-inline: -16px; padding: 10px 16px;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px;
+}
+.bar h1 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+.bar .site { font-size: 13px; color: var(--ink-2); }
+.bar .clock { font-family: var(--font-num); font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.bar .spacer { flex: 1 1 auto; min-width: 0; }
+.mode {
+  font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 99px;
+  border: 1px solid currentColor;
+}
+.mode.auto { color: var(--good-ink); }
+.mode.advisory { color: var(--warning-ink); }
+.mode.halt { color: var(--critical-ink); }
+
+/* ── 모드 전환 ── */
+.modes { display: inline-flex; border: 1px solid var(--line); border-radius: 99px; overflow: hidden; background: var(--surface-sunk); }
+/* 제어함 패널은 장갑 낀 손으로 누른다. 44px 는 맨손 기준 최솟값이라
+   현장 기준으로 48px 를 쓴다. 휴대폰에서는 더 키운다. */
+.modes button {
+  appearance: none; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 14px; font-weight: 600; color: var(--ink-3);
+  padding: 7px 18px; min-height: 48px; min-width: 64px;
+}
+.modes button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
+
+/* ── 농가 화면 — 팔 뻗은 거리에서, 장갑 낀 손으로 ── */
+.farm { margin-top: 20px; display: flex; flex-direction: column; gap: 16px; }
+.alarm {
+  background: var(--surface); border: 2px solid var(--line); border-radius: 10px; padding: 20px;
+}
+.alarm.lv1 { border-color: var(--warning); }
+.alarm.lv2 { border-color: var(--critical); }
+.alarm .when { font-size: 14px; font-weight: 600; color: var(--ink-3); margin-bottom: 6px; }
+.alarm .what { font-size: clamp(24px, 6vw, 34px); font-weight: 700; line-height: 1.25; letter-spacing: -0.02em; text-wrap: balance; }
+.alarm .why { margin-top: 12px; font-size: clamp(15px, 3.4vw, 17px); line-height: 1.6; color: var(--ink-2); }
+.alarm .why b { color: var(--ink); font-weight: 600; }
+
+.todo { list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.todo li {
+  display: grid; grid-template-columns: 30px 1fr; gap: 12px; align-items: start;
+  background: var(--surface-sunk); border-radius: 8px; padding: 14px 16px; min-height: 56px;
+}
+.todo .no {
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--surface); border: 1px solid var(--line);
+  font-family: var(--font-num); font-size: 14px; font-weight: 600;
+}
+.todo .act-text { font-size: clamp(16px, 3.6vw, 18px); font-weight: 600; line-height: 1.4; }
+/* span 이라 블록으로 바꿔야 제목 아래로 내려간다 */
+.todo .act-text, .todo .act-note { display: block; }
+.todo .act-note { font-size: 14px; color: var(--ink-3); margin-top: 3px; }
+/* 기계가 못 하는 것. 색만으로 알리지 않고 글자로 적는다. */
+.todo .byhand {
+  display: inline-block; margin-left: 8px; vertical-align: 2px;
+  font-size: 12px; font-weight: 700; font-style: normal; letter-spacing: .02em;
+  padding: 2px 8px; border-radius: 99px;
+  color: var(--warning-ink); border: 1px solid currentColor;
+}
+
+/* 휴대폰에서는 한 줄에 하나씩 — '병 생기기 쉬움' 같은 이름이 잘려 읽히지 않는다 */
+.ok-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+@media (max-width: 480px) {
+  .ok-row { grid-template-columns: 1fr; }
+  /* 휴대폰은 걸어다니며 한 손으로 누른다. 전환 버튼을 더 키우고 폭을 나눠 쓴다. */
+  .modes { width: 100%; }
+  .modes button { flex: 1; min-height: 56px; font-size: 15px; }
+}
+.ok {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  padding: 13px 15px; display: flex; align-items: center; gap: 9px; min-height: 52px;
+}
+.ok .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--good); flex: none; }
+.ok.lv1 .dot { background: var(--warning); } .ok.lv2 .dot { background: var(--critical); }
+.ok .nm { font-size: 15px; font-weight: 500; min-width: 0; }
+.ok .st { margin-left: auto; font-size: 14px; color: var(--ink-3); white-space: nowrap; }
+
+.now-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.now {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 13px 15px;
+}
+.now dt { font-size: 14px; color: var(--ink-3); margin: 0 0 4px; }
+.now dd { margin: 0; font-family: var(--font-num); font-size: 24px; font-weight: 500;
+          font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.now dd span { font-size: 14px; color: var(--ink-3); margin-left: 2px; font-weight: 400; }
+.farm-note { font-size: 14px; color: var(--ink-3); line-height: 1.6; }
+
+/* ── 센서 상태 ── 자료가 끊기기 전에 보여야 하는 칸 ── */
+.sensors { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+@media (max-width: 480px) { .sensors { grid-template-columns: 1fr; } }
+/* 구간 머리. 카드 격자를 가로로 다 차지한다. */
+.zone-head { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 10px;
+  margin-top: 6px; padding-bottom: 2px; border-bottom: 1px solid var(--line); }
+.zone-head:first-child { margin-top: 0; }
+.zone-head b { font-size: 13px; }
+.zone-head span { font-size: 12px; color: var(--ink-3); }
+.zone-head.short span { color: var(--critical-ink); font-weight: 600; }
+.sensor {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  padding: 12px 14px; border-left: 3px solid var(--good); min-width: 0;
+}
+.sensor.s-warn { border-left-color: var(--warning); }
+.sensor.s-dead { border-left-color: var(--critical); }
+.sensor .top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.sensor .nm, .sensor .zone { white-space: nowrap; }
+.sensor .nm { font-size: 14px; font-weight: 600; }
+.sensor .zone { font-size: 11.5px; color: var(--ink-3); }
+.sensor .note { font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
+.sensor .bars { display: flex; gap: 14px; margin-top: 8px; flex-wrap: wrap; }
+.sensor .bars b { font-family: var(--font-num); font-size: 13px; font-weight: 600;
+  font-variant-numeric: tabular-nums; }
+.sensor .bars span { font-size: 11.5px; color: var(--ink-3); display: block; }
+/* 구동부 되읽기 값. '열어라'를 보냈는데 정말 열렸는지는 이것으로만
+   확인된다 — 지시와 달리 장치가 스스로 보고한 사실이다. */
+.sensor .states { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.sensor .st {
+  font-size: 11.5px; font-weight: 600; border-radius: 999px;
+  padding: 2px 8px; border: 1px solid var(--line); color: var(--ink-3);
+  white-space: nowrap;
+}
+/* 색만으로 구분하지 않는다. 켜짐·꺼짐은 '열림'·'닫힘' 이라는 말로 적고,
+   테두리는 그것을 거드는 역할만 한다 — 색약이거나 햇빛에 화면이 씻겨도
+   읽혀야 한다. */
+.sensor .st.on { border-color: var(--good); color: var(--good-ink); font-weight: 700; }
+.sensor .state { font-size: 12.5px; font-weight: 600; margin-top: 7px; }
+.sensor.s-dead .state { color: var(--critical-ink); }
+.sensor.s-warn .state { color: var(--warning-ink); }
+.sensor.s-ok .state { color: var(--ink-3); font-weight: 400; }
+
+section { margin-top: 28px; }
+.head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.head h2 { font-size: 14px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+.screen {
+  font-family: var(--font-num); font-size: 11px; font-weight: 600;
+  color: var(--ink-3); border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px;
+}
+.head p { margin: 0; font-size: 12.5px; color: var(--ink-3); }
+
+/* ── 위험카드 ── */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(188px, 1fr)); gap: var(--gap); }
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 12px 13px; min-width: 0; display: flex; flex-direction: column; gap: 10px;
+}
+.card.lv2 { border-color: var(--critical); }
+.card.lv1 { border-color: var(--warning); }
+.card > .name { font-weight: 600; font-size: 13.5px; }
+.rows { display: flex; flex-direction: column; gap: 7px; }
+.row { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 8px; }
+.row .h { font-family: var(--font-num); font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px;
+  background: var(--surface-sunk);
+}
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--good); flex: none; }
+.pill.lv1 { color: var(--warning-ink); } .pill.lv1::before { background: var(--warning); }
+.pill.lv2 { color: var(--critical-ink); } .pill.lv2::before { background: var(--critical); }
+.pill.lv0 { color: var(--good-ink); }
+.conf { font-family: var(--font-num); font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.verdict { font-size: 11.5px; color: var(--ink-3); border-top: 1px solid var(--line-soft); padding-top: 8px; }
+.verdict b { color: var(--good-ink); font-weight: 600; }
+
+/* ── 환경 계기 ── */
+/* 항목이 8개라 4열·2열에서만 빈 칸 없이 떨어진다 */
+.gauges { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px;
+          background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+@media (max-width: 640px) { .gauges { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.gauge { background: var(--surface); padding: 10px 12px; min-width: 0; }
+.gauge dt { font-size: 11.5px; color: var(--ink-3); margin: 0 0 3px; }
+.gauge dd { margin: 0; font-family: var(--font-num); font-size: 19px; font-weight: 500;
+            font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.gauge dd span { font-size: 12px; color: var(--ink-3); margin-left: 2px; font-weight: 400; }
+
+/* ── 2열 ── */
+.split { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: var(--gap); }
+@media (max-width: 720px) { .split { grid-template-columns: 1fr; } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 13px 14px; min-width: 0; }
+.panel > h3 { margin: 0 0 3px; font-size: 13.5px; font-weight: 600; }
+.panel > .sub { margin: 0 0 11px; font-size: 12px; color: var(--ink-3); }
+
+.ev { display: flex; flex-direction: column; gap: 9px; }
+.ev-item { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: baseline; }
+.ev-item .k { font-size: 12.5px; }
+.ev-item .v { font-family: var(--font-num); font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.ev-bar { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: var(--surface-sunk); overflow: hidden; }
+.ev-bar i { display: block; height: 100%; border-radius: 3px; background: var(--good); }
+.ev.lv1 .ev-bar i { background: var(--warning); }
+.ev.lv2 .ev-bar i { background: var(--critical); }
+
+.acts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.act { display: grid; grid-template-columns: auto 1fr; gap: 9px; align-items: start; }
+.tag {
+  font-family: var(--font-num); font-size: 10.5px; font-weight: 600; letter-spacing: .02em;
+  padding: 2px 6px; border-radius: 3px; white-space: nowrap;
+  background: var(--surface-sunk); color: var(--ink-2); border: 1px solid var(--line);
+}
+.tag.run { color: var(--good-ink); border-color: currentColor; }
+.tag.adv { color: var(--warning-ink); border-color: currentColor; }
+.tag.no  { color: var(--critical-ink); border-color: currentColor; }
+.act .cmd { font-size: 13px; font-weight: 500; }
+.act .why { font-size: 12px; color: var(--ink-3); }
+
+/* ── 차트 ── */
+.chart { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 13px 14px 6px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 8px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-2); }
+.legend i { width: 14px; height: 2px; border-radius: 1px; flex: none; }
+.legend i.dash { background: none; border-top: 2px dashed var(--ink-3); height: 0; }
+svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+.tip {
+  position: absolute; pointer-events: none; opacity: 0; transition: opacity .1s;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 7px 10px; font-size: 12px; box-shadow: 0 3px 14px rgb(0 0 0 / .14); z-index: 10;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.tip b { font-family: var(--font-num); font-weight: 600; }
+.chart-wrap { position: relative; }
+
+/* ── 이력 표 ── */
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; min-width: 560px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+th { font-size: 11.5px; font-weight: 600; color: var(--ink-3); background: var(--surface-sunk); position: sticky; top: 0; }
+tbody tr:last-child td { border-bottom: 0; }
+td.t, td.l { font-family: var(--font-num); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+footer { margin-top: 30px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12px; color: var(--ink-3); }
+footer p { margin: 0 0 5px; }
+:focus-visible { outline: 2px solid var(--series-air); outline-offset: 2px; }
+
+/* 화면이 멈췄을 때 띄우는 띠. 벽패널은 아무도 새로고침하지 않으므로,
+   낡은 값을 멀쩡한 값처럼 보여주는 것이 가장 위험하다. 색만으로 알리지
+   않고 글로도 적는다. */
+#stale {
+  display: none; align-items: center; gap: 10px;
+  padding: 14px 16px; margin-bottom: var(--gap);
+  border: 2px solid var(--critical); border-radius: 10px;
+  background: var(--surface);
+  font-size: clamp(15px, 3.2vw, 17px); font-weight: 600; color: var(--critical-ink);
+}
+#stale[data-shown] { display: flex; }
+#stale .dot {
+  flex: none; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--critical);
+}
+#stale .detail { font-weight: 400; color: var(--ink-2); font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <div class="bar">
+    <h1>노지 대파 재해위험 관제</h1>
+    <span class="site" id="site">—</span>
+    <span class="clock" id="clock">—</span>
+    <span class="spacer"></span>
+    <span class="mode auto" id="mode">—</span>
+    <div class="modes" role="group" aria-label="화면 전환">
+      <button type="button" id="btn-farm" aria-pressed="true">농가</button>
+      <button type="button" id="btn-ops" aria-pressed="false">운영자</button>
+    </div>
+  </div>
+
+  <div id="stale" role="alert" aria-live="assertive">
+    <span class="dot" aria-hidden="true"></span>
+    <span><span id="stale-msg"></span><br><span class="detail" id="stale-detail"></span></span>
+  </div>
+
+  <div id="farm-view" class="farm">
+    <div class="alarm" id="alarm"></div>
+    <div>
+      <h2 style="font-size:15px;margin:0 0 9px">지금 포장 상태</h2>
+      <dl class="now-row" id="now-row"></dl>
+    </div>
+    <div>
+      <h2 style="font-size:15px;margin:0 0 9px">나머지 항목</h2>
+      <div class="ok-row" id="ok-row"></div>
+    </div>
+    <p class="farm-note" id="farm-note"></p>
+    <div id="sensor-block" hidden>
+      <h2 style="font-size:15px;margin:0 0 9px">센서 상태</h2>
+      <div class="sensors" id="sensors"></div>
+    </div>
+  </div>
+
+  <div id="ops-view" hidden>
+
+  <section>
+    <div class="head">
+      <h2>위험 판단</h2><span class="screen">M1</span>
+      <p id="cards-note">1시간·3시간 뒤 도달할 위험등급</p>
+    </div>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section>
+    <div class="head"><h2>현장 환경</h2><span class="screen">M1</span></div>
+    <dl class="gauges" id="gauges"></dl>
+  </section>
+
+  <section>
+    <div class="split">
+      <div class="panel">
+        <h3 id="ev-title">판단근거</h3>
+        <p class="sub" id="ev-sub">AI가 이 등급을 매긴 상위 3개 변수</p>
+        <div class="ev" id="evidence"></div>
+      </div>
+      <div class="panel">
+        <h3>조치 <span class="screen">M2</span></h3>
+        <p class="sub">제어 계층 우선순위를 적용한 결과</p>
+        <ul class="acts" id="actions"></ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head">
+      <h2>24시간 추이</h2><span class="screen">M1</span>
+      <p>대파 서리피해는 기온이 아니라 초관부(지상 10cm) 온도로 결정된다</p>
+    </div>
+    <div class="chart">
+      <div class="legend">
+        <span><i style="background:var(--series-air)"></i>기온</span>
+        <span><i style="background:var(--series-canopy)"></i>초관부 온도</span>
+        <span><i class="dash"></i>서리 기준 (주의 2℃ · 경계 0℃)</span>
+      </div>
+      <div class="chart-wrap">
+        <svg id="plot" viewBox="0 0 760 260" role="img" aria-label="24시간 기온과 초관부 온도 추이"></svg>
+        <div class="tip" id="tip"></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head">
+      <h2>제어 이력</h2><span class="screen">M3</span>
+      <p>L0 하드웨어 안전 · L1 현장 즉응 · L2 AI 선행판단 · L3 사용자</p>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>시각</th><th>계층</th><th>장치</th><th>명령</th><th>결과</th></tr></thead>
+        <tbody id="history"></tbody>
+      </table>
+    </div>
+  </section>
+
+  </div>
+
+  <footer id="foot"></footer>
+</div>
+
+<script src="plain.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const fmt = (iso, withDate) => {
+  const d = new Date(iso);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  if (!withDate) return `${hh}:${mm}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${hh}:${mm}`;
+};
+
+function render(d) {
+  $("site").textContent = d.station;
+  $("clock").textContent = fmt(d.now, true);
+  const mode = $("mode");
+  mode.textContent = d.mode;
+  mode.className = "mode " + (d.mode === "자동" ? "auto" : d.mode === "안전정지" ? "halt" : "advisory");
+
+  // 위험카드
+  $("cards").innerHTML = d.cards.map((c) => {
+    const top = Math.max(...Object.values(c.horizons).map((h) => h.level));
+    const rows = Object.entries(c.horizons).map(([h, v]) => `
+      <div class="row">
+        <span class="h">${h}시간</span>
+        <span><span class="pill lv${v.level}">${v.levelName}</span></span>
+        <span class="conf">${v.confidence.toFixed(2)}</span>
+      </div>`).join("");
+    const checked = Object.values(c.horizons).filter((v) => "correct" in v);
+    const hit = checked.filter((v) => v.correct).length;
+    const note = c.horizons["3"] && c.horizons["3"].composed
+      ? `구성 위험 조합${c.horizons["3"].reasons.length ? " — " + c.horizons["3"].reasons[0] : ""}`
+      : checked.length ? `실측 대조 <b>${hit}/${checked.length} 적중</b>` : "";
+    return `<article class="card lv${top}">
+      <div class="name">${c.name}</div>
+      <div class="rows">${rows}</div>
+      ${note ? `<div class="verdict">${note}</div>` : ""}
+    </article>`;
+  }).join("");
+
+  // 환경 계기
+  $("gauges").innerHTML = d.environment.map((e) => `
+    <div class="gauge">
+      <dt>${e.name}</dt>
+      <dd>${e.value === null ? "—" : e.value}${e.unit ? `<span>${e.unit}</span>` : ""}</dd>
+    </div>`).join("");
+
+  // 판단근거
+  const j = d.judgements[0];
+  if (j) {
+    $("ev-title").innerHTML = `판단근거 — ${j.name} <span class="pill lv${j.level}">${j.levelName}</span>`;
+    $("ev-sub").textContent =
+      `신뢰도 ${j.confidence.toFixed(2)} · 예상 ${fmt(j.expectedOnset)} · ${j.modelVersion}`;
+    const max = Math.max(...j.evidence.map((e) => Math.abs(e.contribution)));
+    $("evidence").className = "ev lv" + j.level;
+    $("evidence").innerHTML = j.evidence.map((e) => `
+      <div class="ev-item">
+        <span class="k">${e.label}</span>
+        <span class="v">${e.value} · 기여 ${e.contribution > 0 ? "+" : ""}${e.contribution.toFixed(2)}</span>
+        <span class="ev-bar"><i style="width:${(Math.abs(e.contribution) / max * 100).toFixed(1)}%"></i></span>
+      </div>`).join("");
+  } else {
+    $("ev-title").textContent = "판단근거";
+    $("ev-sub").textContent = "현재 주의 이상 위험이 없다";
+    $("evidence").innerHTML = `<p style="margin:0;font-size:13px;color:var(--ink-3)">전 위험유형 정상</p>`;
+  }
+
+  // 조치
+  $("actions").innerHTML = d.actions.length ? d.actions.map((a) => {
+    const state = a.rejectedBy ? ["no", "거부"] : a.advisory ? ["adv", "권고"] : ["run", "실행"];
+    return `<li class="act">
+      <span class="tag ${state[0]}">L${a.layer} ${state[1]}</span>
+      <span><span class="cmd">${a.device} · ${a.command}</span><br>
+      <span class="why">${a.rejectedBy || a.reason}</span></span>
+    </li>`;
+  }).join("") : `<li style="font-size:13px;color:var(--ink-3)">조치 없음</li>`;
+
+  // 제어 이력
+  $("history").innerHTML = d.history.slice().reverse().slice(0, 14).map((h) => {
+    const state = h.rejectedBy ? ["no", "거부"] : h.advisory ? ["adv", "권고"] : ["run", "실행"];
+    return `<tr>
+      <td class="t">${fmt(h.time)}</td><td class="l">L${h.layer}</td>
+      <td>${h.device}</td><td>${h.command}</td>
+      <td><span class="tag ${state[0]}">${state[1]}</span></td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="5" style="color:var(--ink-3)">기록 없음</td></tr>`;
+
+  $("foot").innerHTML =
+    `<p>나주 농업기상 관측자료에 학습된 모델을 돌리고 조치 엔진을 거친 실제 결과다. 꾸며 낸 숫자가 아니다.</p>
+     <p>모델 ${d.modelVersion} · 산출 ${fmt(d.generated, true)}</p>`;
+
+  renderFarm(d);
+  lastSeries = d.series;
+  drawPlot(d.series);
+}
+
+function renderFarm(d) {
+  let byHandShown = 0;      // 화면에 '직접'으로 표시된 줄 수
+  const levelOf = (c) => Math.max(...Object.values(c.horizons).map((h) => h.level));
+  const ranked = d.cards.slice().sort((a, b) => levelOf(b) - levelOf(a));
+  const top = ranked[0];
+  const level = levelOf(top);
+  const judgement = d.judgements.find((j) => j.risk === top.risk);
+
+  const alarm = $("alarm");
+  alarm.className = "alarm lv" + level;
+
+  if (level === 0) {
+    alarm.innerHTML = `
+      <div class="when">${fmt(d.now, true)} 기준</div>
+      <div class="what">지금 조치할 일이 없습니다</div>
+      <div class="why">앞으로 3시간 안에 올 위험이 없습니다. 평소대로 하시면 됩니다.</div>`;
+  } else {
+    const when = judgement
+      ? `${fmt(judgement.expectedOnset)}쯤`
+      : "앞으로 3시간 안";
+    /* 구동부가 없는 조치는 기계가 못 한다. 할 일은 그대로지만 손이
+       바뀌므로, 농가가 '내가 나가서 해야 하는 것'을 한눈에 알아야 한다. */
+    const todo = d.actions.filter((a) => !a.rejectedBy).map((a) => {
+      const plain = plainAction(a);
+      return plain && { ...plain, byHand: /구동부 미설치/.test(a.reason || "") };
+    }).filter(Boolean);
+    const seen = new Set();
+    const unique = todo.filter((t) => !seen.has(t.what) && seen.add(t.what));
+    byHandShown = unique.filter((t) => t.byHand).length;
+    alarm.innerHTML = `
+      <div class="when">${when} · ${PLAIN_RISK[top.risk] || top.name}</div>
+      <div class="what">${(HEADLINE[top.risk] || ["", "위험이 예상됩니다", "위험합니다"])[level]}</div>
+      <div class="why">${plainWhy(top.risk, d.environment, judgement)}</div>
+      <ol class="todo">${unique.map((t, i) => `
+        <li><span class="no">${i + 1}</span>
+          <span><span class="act-text">${t.what}${
+            t.byHand ? '<em class="byhand">직접</em>' : ""}</span>
+          <span class="act-note">${t.why}</span></span></li>`).join("")}</ol>`;
+  }
+
+  const value = (k) => (d.environment.find((e) => e.key === k) || {}).value;
+  /* 'a|b' 는 a 가 있으면 a, 없으면 b 다. 센서 실측(soil_moisture)이
+     있으면 그것을 쓰고, 없을 때만 대리지표(soil_index)로 간다 —
+     센서를 달아 놓고 추정값을 보여주면 안 된다. */
+  $("now-row").innerHTML = PLAIN_NOW.map(([k, name, unit]) => {
+    const v = k.split("|").map(value).find((x) => x !== undefined && x !== null);
+    if (v === undefined || v === null) return "";
+    return `<div class="now"><dt>${name}</dt><dd>${v}${unit ? `<span>${unit}</span>` : ""}</dd></div>`;
+  }).join("");
+
+  $("ok-row").innerHTML = ranked.slice(1).map((c) => {
+    const lv = levelOf(c);
+    return `<div class="ok lv${lv}">
+      <span class="dot"></span>
+      <span class="nm">${PLAIN_RISK[c.risk] || c.name}</span>
+      <span class="st">${LV[lv]}</span></div>`;
+  }).join("");
+
+  renderSensors(d.sensors || []);
+
+  $("farm-note").textContent =
+    byHandShown
+      ? `'직접' 표시된 ${byHandShown}가지는 기계가 못 합니다. 나가셔서 해 주세요. `
+        + "나머지는 자동으로 실행됩니다."
+      : d.mode === "자동"
+        ? "자동으로 실행됩니다. 직접 하시려면 제어함에서 수동으로 바꾸세요."
+        : `${d.mode} — 농가가 확인해야 실행됩니다.`;
+}
+
+/* 센서 상태.
+   배터리와 전파세기는 작물 위험과 무관하지만, 자료가 끊기기 전에 알려 주는
+   유일한 신호다. 값이 사라진 뒤에 알면 그 사이 판단은 이미 비어 있었던
+   것이므로, 농가 화면에 함께 둔다. */
+const SENSOR_STALE_MIN = 30;     // 이만큼 소식이 없으면 끊긴 것으로 본다
+const BATTERY_LOW = 20;          // 교체를 알릴 잔량(%)
+/* WS90 은 태양광 슈퍼캡으로 돈다. 흐린 날이 이어지면 전압이 떨어지면서
+   송신이 끊긴다. 끊긴 뒤가 아니라 떨어지는 중에 보여야 한다. */
+const SUPERCAP_LOW = 2.6;
+
+function renderSensors(list) {
+  const block = $("sensor-block");
+  if (!list.length) { block.hidden = true; return; }
+  block.hidden = false;
+
+  /* 센서가 여러 대라 구간별로 묶는다. 구간마다 '몇 대 중 몇 대가 살아
+     있는가'를 머리에 적어, 카드를 다 읽지 않아도 어느 구간이 비어 가는지
+     보이게 한다. */
+  const order = ["mast", "treatment", "control", "facility"];
+  const groups = new Map();
+  for (const s of list) {
+    if (!groups.has(s.zone)) groups.set(s.zone, []);
+    groups.get(s.zone).push(s);
+  }
+  const zones = [...groups.keys()].sort((a, b) =>
+    (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+
+  $("sensors").innerHTML = zones.map((zone) => {
+    const items = groups.get(zone);
+    const alive = items.filter((s) => s.minutesAgo < SENSOR_STALE_MIN).length;
+    const head = `<div class="zone-head${alive < items.length ? " short" : ""}">
+      <b>${PLAIN_ZONE[zone] || zone}</b>
+      <span>${alive}/${items.length}대 수신 중</span></div>`;
+    return head + items.map(renderSensorCard).join("");
+  }).join("");
+}
+
+function renderSensorCard(s) {
+  {
+    const dead = s.minutesAgo >= SENSOR_STALE_MIN;
+    const low = (s.battery !== null && s.battery <= BATTERY_LOW)
+      || (s.supercap != null && s.supercap <= SUPERCAP_LOW);
+    const cls = dead ? "s-dead" : low ? "s-warn" : "s-ok";
+    const state = dead
+      ? `${Math.round(s.minutesAgo)}분째 소식 없음 — 확인 필요`
+      : low ? (s.supercap != null ? "충전 부족 — 일조 확인" : "배터리 곧 교체")
+      : "정상";
+    /* 배터리 표시가 장치마다 다르다. Zigbee 센서는 %, WS90 은 전압으로
+       준다. 태양광 슈퍼캡이 비어 가는 것이 송신이 끊기기 전의 신호라
+       그쪽도 보여야 한다. */
+    const power =
+      s.battery !== null ? `<div><b>${Math.round(s.battery)}%</b><span>배터리</span></div>`
+      : s.supercap != null ? `<div><b>${s.supercap.toFixed(1)}V</b><span>슈퍼캡</span></div>`
+      : s.batteryMv != null ? `<div><b>${(s.batteryMv/1000).toFixed(2)}V</b><span>배터리</span></div>`
+      : s.batteryV != null ? `<div><b>${s.batteryV.toFixed(2)}V</b><span>배터리</span></div>`
+      : "";
+    /* 전파세기 표시도 경로마다 다르다. Zigbee 는 linkquality(0~255),
+       433MHz 는 RSSI(dB, 음수)로 온다. 둘을 한 칸에 섞으면 숫자의 뜻이
+       달라지므로 단위를 붙여 구분한다. */
+    const signal =
+      s.link !== null ? `<div><b>${Math.round(s.link)}</b><span>전파</span></div>`
+      : s.rssi != null ? `<div><b>${s.rssi.toFixed(0)}dB</b><span>수신세기</span></div>`
+      : "";
+    const bars = [
+      power,
+      signal,
+      `<div><b>${fmt(s.lastSeen)}</b><span>마지막 수신</span></div>`,
+    ].join("");
+    /* 밸브 열림·회로 통전·침수 같은 값은 평균이 뜻을 잃는다. 지금 어떤
+       상태인지를 묻는 자리이므로 마지막 값을 말로 보여 준다. */
+    const states = (s.states || []).map((t) =>
+      `<span class="st${t.on ? " on" : ""}">${t.name} ${t.text}</span>`).join("");
+    return `<div class="sensor ${cls}">
+      <div class="top"><span class="nm">${s.sensorId}</span>
+      <span class="zone">${PLAIN_ZONE[s.zone] || s.zone}</span></div>
+      ${s.note ? `<div class="note">${s.note}</div>` : ""}
+      <div class="bars">${bars}</div>
+      ${states ? `<div class="states">${states}</div>` : ""}
+      <div class="state">${state}</div>
+    </div>`;
+  }
+}
+
+// 농가 / 운영자 화면 전환
+const views = { farm: [$("btn-farm"), $("farm-view")], ops: [$("btn-ops"), $("ops-view")] };
+function showView(which) {
+  for (const [key, [button, panel]] of Object.entries(views)) {
+    const on = key === which;
+    button.setAttribute("aria-pressed", String(on));
+    panel.hidden = !on;
+  }
+  try { localStorage.setItem("ofdf-view", which); } catch { /* 비공개 창 등 */ }
+  if (which === "ops" && lastSeries) drawPlot(lastSeries);
+}
+views.farm[0].addEventListener("click", () => showView("farm"));
+views.ops[0].addEventListener("click", () => showView("ops"));
+try {
+  const saved = localStorage.getItem("ofdf-view");
+  if (saved === "ops") showView("ops");
+} catch { /* 저장소를 못 쓰면 농가 화면으로 둔다 */ }
+
+function drawPlot(s) {
+  const svg = $("plot"), tip = $("tip");
+  // 좁은 화면에서는 가로로 납작해져 눈금이 뭉개진다. 비율을 세로로 키운다.
+  const narrow = svg.clientWidth > 0 && svg.clientWidth < 560;
+  const W = narrow ? 440 : 760, H = narrow ? 330 : 260;
+  const L = narrow ? 34 : 42, R = narrow ? 14 : 20, T = 14, B = narrow ? 34 : 30;
+  const fs = narrow ? 13 : 11;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const n = s.time.length;
+  const air = s.t_air, canopy = s.canopy_temp;
+
+  const vals = [...air, ...canopy].filter((v) => v !== null);
+  let lo = Math.min(...vals, 0), hi = Math.max(...vals);
+  const pad = (hi - lo) * 0.12 || 1;
+  lo = Math.floor(lo - pad); hi = Math.ceil(hi + pad);
+
+  const x = (i) => L + (i / (n - 1)) * (W - L - R);
+  const y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+
+  const step = Math.max(1, Math.ceil((hi - lo) / 5));
+  let ticks = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ticks.push(v);
+
+  const path = (a) => a.map((v, i) => (v === null ? null : `${i === 0 || a[i - 1] === null ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`))
+    .filter(Boolean).join(" ");
+
+  const grid = ticks.map((v) => `
+    <line x1="${L}" y1="${y(v).toFixed(1)}" x2="${W - R}" y2="${y(v).toFixed(1)}" stroke="var(--line-soft)" stroke-width="1"/>
+    <text x="${L - 7}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end" font-size="${fs}" fill="var(--ink-3)" font-family="var(--font-num)">${v}</text>`).join("");
+
+  const thresholds = [[2, "주의 2℃"], [0, "경계 0℃"]]
+    .filter(([v]) => v >= lo && v <= hi)
+    .map(([v, label]) => `
+      <line x1="${L}" y1="${y(v).toFixed(1)}" x2="${W - R}" y2="${y(v).toFixed(1)}"
+            stroke="var(--ink-3)" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <text x="${L + 4}" y="${(y(v) - 5).toFixed(1)}" text-anchor="start" font-size="${fs}" fill="var(--ink-3)">${label}</text>`).join("");
+
+  // 마지막 라벨은 축 끝에 붙으므로 끝맞춤해야 잘리지 않는다
+  const every = narrow ? 6 : (n > 16 ? 4 : 2);
+  const xlab = s.time.map((t, i) => {
+    const last = i === n - 1;
+    if (!last && i % every !== 0) return "";
+    if (!last && i > n - 1 - every / 2) return "";
+    return `<text x="${x(i).toFixed(1)}" y="${H - (narrow ? 11 : 9)}" text-anchor="${last ? "end" : i === 0 ? "start" : "middle"}"
+      font-size="${fs}" fill="var(--ink-3)" font-family="var(--font-num)">${fmt(t)}</text>`;
+  }).join("");
+
+  const last = (a) => { for (let i = a.length - 1; i >= 0; i--) if (a[i] !== null) return i; return -1; };
+  const ia = last(air), ic = last(canopy);
+
+  svg.innerHTML = `
+    ${grid}${thresholds}
+    <line x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}" stroke="var(--line)" stroke-width="1"/>
+    ${xlab}
+    <path d="${path(air)}" fill="none" stroke="var(--series-air)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="${path(canopy)}" fill="none" stroke="var(--series-canopy)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${ia >= 0 ? `<circle cx="${x(ia).toFixed(1)}" cy="${y(air[ia]).toFixed(1)}" r="4.5" fill="var(--series-air)" stroke="var(--surface)" stroke-width="2"/>` : ""}
+    ${ic >= 0 ? `<circle cx="${x(ic).toFixed(1)}" cy="${y(canopy[ic]).toFixed(1)}" r="4.5" fill="var(--series-canopy)" stroke="var(--surface)" stroke-width="2"/>` : ""}
+    <line id="cross" x1="0" y1="${T}" x2="0" y2="${H - B}" stroke="var(--ink-3)" stroke-width="1" opacity="0"/>`;
+
+  const cross = svg.querySelector("#cross");
+  const move = (ev) => {
+    const box = svg.getBoundingClientRect();
+    const px = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - box.left) / box.width * W;
+    let i = Math.round((px - L) / (W - L - R) * (n - 1));
+    i = Math.max(0, Math.min(n - 1, i));
+    cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i)); cross.setAttribute("opacity", "0.5");
+    tip.style.opacity = "1";
+    tip.innerHTML = `${fmt(s.time[i])} &nbsp; 기온 <b>${air[i] ?? "—"}</b>℃ &nbsp; 초관부 <b>${canopy[i] ?? "—"}</b>℃`;
+    const w = tip.offsetWidth;
+    tip.style.left = Math.max(0, Math.min(box.width - w, x(i) / W * box.width - w / 2)) + "px";
+    tip.style.top = "0px";
+  };
+  svg.addEventListener("pointermove", move);
+  svg.addEventListener("touchmove", move, { passive: true });
+  svg.addEventListener("pointerleave", () => { cross.setAttribute("opacity", "0"); tip.style.opacity = "0"; });
+}
+
+// 화면 폭이 바뀌면 차트 비율을 다시 잡는다
+let redrawTimer, lastSeries;
+addEventListener("resize", () => {
+  clearTimeout(redrawTimer);
+  redrawTimer = setTimeout(() => lastSeries && drawPlot(lastSeries), 180);
+});
+
+/* 자동 갱신.
+   제어함 벽패널은 24시간 켜져 있고 아무도 새로고침하지 않는다. 1회만
+   읽으면 부팅 때 값에서 영원히 멈춘다. 서리가 내리는 밤에 사흘 전
+   '정상' 을 띄우는 것이 이 화면이 할 수 있는 가장 나쁜 일이다. */
+const REFRESH_MS = 30 * 1000;        // 파일 하나 읽기라 부담이 없다
+const STALE_MS = 15 * 60 * 1000;     // 판단 주기 5분 × 3회 연속 놓침
+
+let lastGood = null;
+
+function freshness(data, error) {
+  const bar = $("stale");
+  const age = data && data.generated
+    ? Date.now() - new Date(data.generated).getTime() : Infinity;
+
+  if (!error && age <= STALE_MS) {
+    bar.removeAttribute("data-shown");
+    return;
+  }
+
+  let msg, detail;
+  if (!data) {
+    msg = "화면에 띄울 자료가 없습니다";
+    detail = "제어기가 아직 판단을 기록하지 않았거나 data.json 을 읽지 못했습니다.";
+  } else if (error) {
+    msg = "제어기와 연결이 끊겼습니다";
+    detail = `아래 값은 ${fmt(data.generated, true)} 기준입니다. 지금 상태가 아닙니다.`;
+  } else {
+    const mins = Math.floor(age / 60000);
+    msg = "화면이 멈췄습니다 — 제어기를 확인해 주세요";
+    detail = `마지막 판단이 ${mins}분 전입니다(${fmt(data.generated, true)}). `
+           + "아래 값은 지금 상태가 아닙니다.";
+  }
+  $("stale-msg").textContent = msg;
+  $("stale-detail").textContent = detail;
+  bar.setAttribute("data-shown", "");
+}
+
+function load() {
+  return fetch("data.json", { cache: "no-store" })
+    .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then((d) => {
+      lastGood = d;
+      render(d);
+      freshness(d, null);
+    })
+    .catch((err) => {
+      // 마지막으로 읽은 값을 지우지 않는다. 빈 화면보다 '낡았다'고 적힌
+      // 화면이 낫다. 지우면 농가가 무엇을 봐야 할지 알 수 없다.
+      if (!lastGood) {
+        $("site").textContent = "데이터를 불러오지 못했습니다";
+        $("foot").innerHTML = "<p>data.json 을 함께 배포해야 화면이 채워진다.</p>";
+      }
+      freshness(lastGood, err);
+    });
+}
+
+load();
+setInterval(load, REFRESH_MS);
+
+// 절전에서 깨어나거나 농가가 화면을 다시 켰을 때 즉시 맞춘다.
+addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
+</script>

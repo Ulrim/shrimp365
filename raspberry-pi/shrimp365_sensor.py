@@ -21,18 +21,25 @@ from __future__ import annotations
 
 import argparse
 import configparser
+import contextlib
+import http.client
 import json
 import logging
 import math
 import os
+import re
+import select
 import signal
+import ssl
 import struct
 import subprocess
 import sys
+import termios
 import threading
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urljoin, urlsplit
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -91,7 +98,29 @@ try:
 except ImportError:  # pragma: no cover
     modes_mod = None
 
-VERSION = "1.9.0"
+try:
+    import field_env as field_env_mod
+except ImportError:  # pragma: no cover
+    field_env_mod = None
+
+try:
+    import wireless as wireless_mod
+except ImportError:  # pragma: no cover
+    wireless_mod = None
+
+try:
+    import power_control as power_control_mod
+except ImportError:  # pragma: no cover
+    power_control_mod = None
+try:
+    import power_remote as power_remote_mod
+except ImportError:  # pragma: no cover
+    power_remote_mod = None
+
+VERSION = "1.10.1"
+
+#: 무선 센서 수집기가 쓰는 폴더(setup-wireless.sh). 서비스의 StateDirectory 아래라 읽고 쓸 수 있다.
+FIELD_DATA_DIR = "/var/lib/shrimp365/field/data"
 
 # 추세 판정을 몇 초마다 다시 돌릴지. 임계값 권고는 매 측정마다 즉시 나가고,
 # 추세는 몇 분 늦어도 되므로 나눠 둔다 — 라즈베리 제로에서 1분마다 나흘치를
@@ -210,6 +239,21 @@ class ModbusClient:
             self._ser.close()
         self._ser = None
 
+    @contextlib.contextmanager
+    def _port_errors(self):
+        """USB-RS485 변환기가 빠지면 pyserial 이 termios.error(OSError 아님)를 그대로 던져 수집 루프가 죽었다.
+        포트 오류는 닫고 SerialException 으로 바꿔 올린다 — 부르는 쪽이 이미 잡고, 다음 측정에서 다시 연다."""
+        try:
+            yield
+        except (OSError, termios.error) as exc:
+            try:
+                self.close()
+            except Exception:  # noqa: BLE001 — 죽은 포트는 닫기도 실패한다
+                self._ser = None
+            if isinstance(exc, serial.SerialException):
+                raise
+            raise serial.SerialException(f"직렬 포트 오류: {exc}") from exc
+
     def read_input_registers(self, slave_id: int, start: int, count: int) -> list[int]:
         """기능코드 04. 반환은 부호 있는 16비트 정수 목록."""
         if self._ser is None or not self._ser.is_open:
@@ -221,14 +265,13 @@ class ModbusClient:
 
         # 앞 프레임이 끝난 뒤 충분히 조용해질 때까지 기다렸다가 버퍼를 비운다.
         # 순서가 중요하다 — 먼저 비우면 그 뒤에 도착하는 꼬리를 못 걸러 낸다.
-        self._await_gap(slave_id)
-        self._ser.reset_input_buffer()
-        self._ser.write(frame)
-        self._last_slave = slave_id
-
-        # 응답: ID(1) 기능코드(1) 바이트수(1) 데이터(2*count) CRC(2)
-        expected = 5 + count * 2
-        response = self._ser.read(expected)
+        expected = 5 + count * 2      # 응답: ID(1) 기능코드(1) 바이트수(1) 데이터(2*count) CRC(2)
+        with self._port_errors():
+            self._await_gap(slave_id)
+            self._ser.reset_input_buffer()
+            self._ser.write(frame)
+            self._last_slave = slave_id
+            response = self._ser.read(expected)
         self._last_use = time.monotonic()
 
         # 어긋난 프레임을 그대로 두면 다음 센서 차례를 망친다.
@@ -263,11 +306,11 @@ class ModbusClient:
         request = struct.pack(">BBHH", slave_id, 0x06, register, value)
         frame = request + crc16(request)
 
-        self._await_gap()
-        self._ser.reset_input_buffer()
-        self._ser.write(frame)
-
-        response = self._ser.read(8)
+        with self._port_errors():
+            self._await_gap()
+            self._ser.reset_input_buffer()
+            self._ser.write(frame)
+            response = self._ser.read(8)
         self._last_use = time.monotonic()
         if len(response) < 8:
             raise ModbusError(f"ID {slave_id}: 응답 없음 (배선·전원·슬레이브 ID 확인)")
@@ -496,7 +539,11 @@ def test_sensors(client: ModbusClient, enabled: dict[str, int],
                 entry["fields"].append(item)
                 continue
             raw_value, unit = decoded
-            item["unit"] = unit
+            # 값은 normalize() 가 서버 단위로 바꾸므로 단위도 바꾼 쪽을 적는다.
+            # 1.9.1 은 센서가 낸 단위(mS)를 그대로 두고 값만 uS 로 바꿔
+            # "31460 mS" 처럼 1000배 틀리게 보였다. 센서 원래 단위는 따로 남긴다.
+            item["unit"] = NORMALIZED_UNITS.get(name, unit)
+            item["raw_unit"] = unit
             value = normalize(name, raw_value, unit)
             if value is None:
                 item["verdict"] = "undecodable"
@@ -645,6 +692,18 @@ PLAUSIBLE = {
     "orp":           (-2000.0, 2000.0),
     "flow_rate":     (0.0, 1000.0),    # L/min — 서버 화이트리스트와 같은 범위
     "diff_pressure": (0.0, 1000.0),    # kPa
+}
+
+
+# normalize() 가 맞춰 주는 단위. 센서 테스트 화면이 값 옆에 적는다 — 값만
+# 바꾸고 단위를 센서 원래 것으로 두면 화면이 1000배 틀린다(1.9.1 의 "31460 mS").
+# 여기 없는 항목은 normalize() 가 단위를 바꾸지 않으므로 센서 단위 그대로다.
+NORMALIZED_UNITS = {
+    "temperature":   "C",
+    "conductivity":  "uS/cm",
+    "do_level":      "mg/L",
+    "diff_pressure": "kPa",
+    "flow_rate":     "L/min",
 }
 
 
@@ -1086,25 +1145,285 @@ def board_serial() -> str:
         return "unknown"
 
 
-def post(endpoint: str, device_key: str, payload: dict, timeout: float = 10.0) -> tuple[bool, str]:
-    body = json.dumps(payload).encode()
-    req = urllib.request.Request(
-        endpoint,
-        data=body,
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "X-Device-Key": device_key,
-            "User-Agent": f"shrimp365-pi/{VERSION}",
-        },
-    )
+# ── 서버 통신 ─────────────────────────────────────────────────────────────────
+#
+# 측정값은 1분마다 0.5 KB 남짓이다. 그런데 1.9.1 까지는 urllib 로 **매번 새 TCP +
+# TLS 연결**을 맺어, 보낼 것보다 연결을 맺는 데(인증서 체인·키 교환) 몇 배를 썼다.
+# LTE 에그처럼 용량이 정해진 회선에서는 이것이 한 달 사용량의 대부분이다.
+#
+# 그래서 호스트마다 연결 하나를 붙잡아 두고 다시 쓴다(HTTP keep-alive). 서버가
+# 쉬는 연결을 닫아 버렸으면 새로 맺되, 직전 TLS 세션을 이어 붙여(세션 재개)
+# 인증서 체인을 다시 받지 않는다.
+#
+# 다시 보내기 규칙 — 서버(app/api/sensors/data)는 같은 측정이 두 번 와도 걸러내지
+# 않는다(그냥 insert 한다). 그래서
+#   · 요청을 **보내기 전에** 끊김을 알아챈 경우(쉬던 연결이 닫혀 있었음, 또는 요청을
+#     다 써 넣지도 못하고 끊김)만 새 연결로 한 번 더 보낸다. 서버는 온전한 요청을
+#     받지 못했으므로 두 번 저장될 수 없다.
+#   · 요청을 다 보낸 뒤 응답을 못 받았으면 **POST 는 다시 보내지 않는다.** 서버가 이미
+#     저장했을 수 있다. 실패로 돌려주면 수집 루프가 기존처럼 보관함에 넣는다.
+#     GET(조회)은 몇 번 보내도 같으므로 한 번 더 보낸다.
+#
+# 프록시(HTTPS_PROXY 등)가 잡혀 있으면 예전 urllib 경로를 그대로 쓴다 — urllib 은
+# 환경변수 프록시를 따르는데, 연결 재사용 경로는 프록시 터널을 다루지 않는다.
+
+
+class NetError(OSError):
+    """회선 문제 — 연결·전송·응답 대기 중 어디선가 끊겼다."""
+
+
+def _uses_proxy(url: str) -> bool:
+    parts = urlsplit(url)
+    try:
+        proxies = urllib.request.getproxies()
+        if parts.scheme not in proxies:
+            return False
+        return not urllib.request.proxy_bypass(parts.hostname or "")
+    except Exception:  # noqa: BLE001 — 판단이 안 서면 예전 길로 간다
+        return True
+
+
+def _urllib_request(method: str, url: str, body: bytes | None,
+                    headers: dict, timeout: float) -> tuple[int, bytes]:
+    """1.9.1 과 같은 경로(urllib, 매번 새 연결). 프록시 환경에서만 쓴다."""
+    req = urllib.request.Request(url, data=body, method=method, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as res:
-            return True, res.read().decode()[:200]
+            return res.status, res.read(_HTTP_MAX_BODY)
     except urllib.error.HTTPError as exc:
-        return False, f"HTTP {exc.code}: {exc.read().decode()[:200]}"
-    except (urllib.error.URLError, TimeoutError) as exc:
+        try:
+            return exc.code, exc.read(_HTTP_MAX_BODY)
+        except OSError:
+            return exc.code, b""
+    except (urllib.error.URLError, OSError, http.client.HTTPException) as exc:
+        raise NetError(str(getattr(exc, "reason", exc))) from exc
+
+
+# 응답 본문 상한. 이 장비가 받는 응답은 몇백 바이트다.
+_HTTP_MAX_BODY = 1 << 20
+
+
+def _still_open(sock) -> bool:
+    """쉬던 연결이 아직 살아 있는가 — 요청을 보내기 **전에** 확인한다.
+
+    서버가 쉬는 연결을 닫으면 소켓이 '읽을 것 있음'(EOF) 상태가 된다. 다만 TLS 1.3 은
+    세션 티켓을 응답 뒤에 따로 보내기도 해서, 읽을 것이 있다고 다 닫힌 것은 아니다.
+    한 바이트를 비차단으로 읽어 보아 앱 데이터가 없으면(SSLWantRead) 살아 있다.
+    """
+    try:
+        readable, _, _ = select.select([sock], [], [], 0)
+    except (OSError, ValueError):
+        return False
+    if not readable:
+        return True
+    prev = sock.gettimeout()
+    try:
+        sock.setblocking(False)
+        sock.recv(1)           # b"" 든 바이트든 쉬던 연결로는 더 쓰지 않는다
+    except (ssl.SSLWantReadError, BlockingIOError):
+        return True            # 세션 티켓 같은 제어 기록만 와 있었다
+    except OSError:
+        return False
+    finally:
+        try:
+            sock.settimeout(prev)
+        except OSError:
+            pass
+    return False               # b"" = 서버가 닫음, 그 밖은 청하지 않은 바이트 — 버린다
+
+
+class _ResumingHTTPSConnection(http.client.HTTPSConnection):
+    """새로 맺을 때 직전 TLS 세션을 이어 붙이는 HTTPS 연결.
+
+    세션이 재개되면 서버가 인증서 체인(수 KB)을 다시 보내지 않는다. 세션이 만료됐거나
+    서버가 거절하면 OpenSSL 이 알아서 처음부터 맺으므로 실패하지 않는다.
+    """
+
+    def __init__(self, host: str, port: int, *, timeout: float,
+                 context: ssl.SSLContext, sessions: dict):
+        super().__init__(host, port, timeout=timeout, context=context)
+        self._sessions = sessions
+        self.resumed = False
+
+    def connect(self) -> None:
+        key = (self.host, self.port)
+        for session in (self._sessions.get(key), None):
+            http.client.HTTPConnection.connect(self)
+            try:
+                self.sock = self._context.wrap_socket(
+                    self.sock, server_hostname=self.host, session=session)
+            except ValueError:
+                # 세션이 다른 컨텍스트 것 등 — 세션 없이 처음부터 맺는다.
+                self._sessions.pop(key, None)
+                self.close()
+                if session is None:
+                    raise
+                continue
+            self.resumed = bool(getattr(self.sock, "session_reused", False))
+            return
+
+    def remember_session(self, sock) -> None:
+        """이어 붙일 수 있는 세션이면 챙긴다.
+
+        TLS 1.3 은 세션 티켓이 핸드셰이크 뒤에 따로 오므로 응답을 읽은 뒤에 본다.
+        티켓이 아직 없는 세션으로 덮으면 다음 재개가 안 되므로 그런 것은 버린다.
+        """
+        try:
+            session = sock.session if sock is not None else None
+        except (AttributeError, ValueError, OSError):
+            return
+        if session is not None and (session.has_ticket or session.id):
+            self._sessions[(self.host, self.port)] = session
+
+
+class _ApiClient:
+    """호스트별로 연결 하나를 붙잡아 두고 다시 쓰는 HTTP 클라이언트."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()      # 수집 루프와 페어링 스레드가 함께 쓴다
+        self._conns: dict[tuple[str, str, int], http.client.HTTPConnection] = {}
+        self._sessions: dict[tuple[str, int], ssl.SSLSession] = {}
+        self._ctx: ssl.SSLContext | None = None
+        # 새 연결·세션 재개·연결 재사용 횟수 — 로그와 실측용.
+        self.stats = {"connect": 0, "resumed": 0, "reused": 0, "retried": 0}
+
+    def _context(self) -> ssl.SSLContext:
+        if self._ctx is None:
+            self._ctx = ssl.create_default_context()   # 인증서·호스트 이름 검증은 urllib 과 같다
+        return self._ctx
+
+    def close(self) -> None:
+        with self._lock:
+            for conn in self._conns.values():
+                conn.close()
+            self._conns.clear()
+
+    def request(self, method: str, url: str, body: bytes | None = None,
+                headers: dict | None = None, timeout: float = 10.0) -> tuple[int, bytes]:
+        """(상태 코드, 본문). 회선 문제면 NetError.
+
+        조회(GET)는 urllib 처럼 리디렉션을 따라간다. POST 는 따라가지 않는다 —
+        urllib 은 301~303 에서 POST 를 GET 으로 바꿔 본문을 버린 채 성공으로 보았다.
+        """
+        with self._lock:
+            for _hop in range(6):
+                status, data, location = self._once(method, url, body, headers or {}, timeout)
+                if method == "GET" and status in (301, 302, 303, 307, 308) and location:
+                    url = urljoin(url, location)
+                    continue
+                return status, data
+        raise NetError("리디렉션이 너무 많습니다")
+
+    def _once(self, method: str, url: str, body: bytes | None,
+              headers: dict, timeout: float) -> tuple[int, bytes, str | None]:
+        parts = urlsplit(url)
+        scheme = (parts.scheme or "").lower()
+        if scheme not in ("http", "https") or not parts.hostname:
+            raise NetError(f"주소가 올바르지 않습니다: {url}")
+        port = parts.port or (443 if scheme == "https" else 80)
+        key = (scheme, parts.hostname, port)
+        path = (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
+        idempotent = method in ("GET", "HEAD")
+
+        for attempt in (0, 1):
+            conn = self._conns.get(key)
+            reused = conn is not None and conn.sock is not None
+            if reused and not _still_open(conn.sock):
+                # 서버가 쉬던 연결을 닫았다. 아직 아무것도 보내지 않았으니 새로 맺으면 된다.
+                conn.close()
+                reused = False
+            if conn is None:
+                if scheme == "https":
+                    conn = _ResumingHTTPSConnection(parts.hostname, port, timeout=timeout,
+                                                    context=self._context(), sessions=self._sessions)
+                else:
+                    conn = http.client.HTTPConnection(parts.hostname, port, timeout=timeout)
+                self._conns[key] = conn
+            conn.timeout = timeout
+            if conn.sock is not None:
+                conn.sock.settimeout(timeout)
+                self.stats["reused"] += 1
+
+            fresh = conn.sock is None
+            try:
+                conn.request(method, path, body=body, headers=headers)
+            except (OSError, http.client.HTTPException) as exc:
+                conn.close()
+                if reused and attempt == 0:
+                    # 요청을 다 써 넣기 전에 끊겼다 — 서버는 온전한 요청을 받지 못했다.
+                    self.stats["retried"] += 1
+                    log.debug("쉬던 연결이 끊겨 있어 새로 맺어 다시 보냅니다: %s", exc)
+                    continue
+                raise NetError(str(exc) or exc.__class__.__name__) from exc
+            if fresh:
+                self.stats["connect"] += 1
+                if getattr(conn, "resumed", False):
+                    self.stats["resumed"] += 1
+
+            sock = conn.sock   # 응답이 "Connection: close" 면 getresponse 가 conn.sock 을 비운다
+            try:
+                res = conn.getresponse()
+                if isinstance(conn, _ResumingHTTPSConnection):
+                    conn.remember_session(sock)
+                data = res.read(_HTTP_MAX_BODY + 1)
+            except (OSError, http.client.HTTPException) as exc:
+                conn.close()
+                if idempotent and attempt == 0:
+                    self.stats["retried"] += 1
+                    continue
+                # POST 는 서버가 이미 저장했을 수 있다 — 다시 보내지 않는다.
+                raise NetError(str(exc) or exc.__class__.__name__) from exc
+
+            if len(data) > _HTTP_MAX_BODY or res.will_close:
+                conn.close()
+            elif isinstance(conn, _ResumingHTTPSConnection):
+                conn.remember_session(conn.sock)   # 응답 뒤에 온 새 티켓
+            return res.status, data[:_HTTP_MAX_BODY], res.getheader("Location")
+        raise NetError("연결을 다시 맺지 못했습니다")
+
+
+_API = _ApiClient()
+
+
+def http_request(method: str, url: str, body: bytes | None = None,
+                 headers: dict | None = None, timeout: float = 10.0) -> tuple[int, bytes]:
+    """서버에 요청한다. (상태 코드, 본문) 을 돌려주고 회선 문제면 NetError."""
+    headers = {"User-Agent": f"shrimp365-pi/{VERSION}", **(headers or {})}
+    if _uses_proxy(url):
+        return _urllib_request(method, url, body, headers, timeout)
+    return _API.request(method, url, body, headers, timeout)
+
+
+def _json_or_empty(data: bytes) -> dict:
+    try:
+        parsed = json.loads(data.decode("utf-8", "replace") or "{}")
+    except ValueError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def post(endpoint: str, device_key: str, payload: dict, timeout: float = 10.0) -> tuple[bool, str]:
+    body = json.dumps(payload).encode()
+    try:
+        status, data = http_request("POST", endpoint, body, {
+            "Content-Type": "application/json",
+            "X-Device-Key": device_key,
+        }, timeout)
+    except NetError as exc:
+        # "연결 실패" 로 시작하는 문구는 수집 루프가 Wi‑Fi 재연결 판단에 쓴다.
         return False, f"연결 실패: {exc}"
+    text = data.decode("utf-8", "replace")[:200]
+    if 200 <= status < 300:
+        return True, text
+    return False, f"HTTP {status}: {text}"
+
+
+def rejected_for_good(detail: str) -> bool:
+    """서버가 이 줄을 **영영** 받지 않을 응답인가 — 400·413·422 등 4xx.
+    다시 보내도 같다. 보관해 두면 재전송 맨 앞에서 매번 막혀 그 뒤의 밀린 값이 한 달 동안 안 올라간다.
+    401(키)·403·408·429(잠시 제한)는 사정이 바뀌면 받으므로 아니다."""
+    m = re.match(r"HTTP (\d{3})", detail or "")
+    return bool(m) and 400 <= int(m.group(1)) < 500 and int(m.group(1)) not in (401, 403, 408, 429)
 
 
 # ── 실행 ──────────────────────────────────────────────────────────────────────
@@ -1149,38 +1468,23 @@ def _host_of(base: str) -> str:
 
 
 def _get_json(url: str, timeout: float = 10.0) -> tuple[int, dict]:
-    req = urllib.request.Request(url, headers={"User-Agent": f"shrimp365-pi/{VERSION}"})
+    """(상태 코드, JSON). 회선 문제면 (0, {}). 연결은 측정 전송과 함께 쓴다."""
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as res:
-            return res.status, json.loads(res.read().decode() or "{}")
-    except urllib.error.HTTPError as exc:
-        try:
-            return exc.code, json.loads(exc.read().decode() or "{}")
-        except (ValueError, OSError):
-            return exc.code, {}
-    except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+        status, data = http_request("GET", url, timeout=timeout)
+    except NetError as exc:
         log.warning("페어링 조회 실패: %s", exc)
         return 0, {}
+    return status, _json_or_empty(data)
 
 
 def _post_json(url: str, payload: dict, timeout: float = 10.0) -> tuple[int, dict]:
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode(),
-        method="POST",
-        headers={"Content-Type": "application/json", "User-Agent": f"shrimp365-pi/{VERSION}"},
-    )
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as res:
-            return res.status, json.loads(res.read().decode() or "{}")
-    except urllib.error.HTTPError as exc:
-        try:
-            return exc.code, json.loads(exc.read().decode() or "{}")
-        except (ValueError, OSError):
-            return exc.code, {}
-    except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+        status, data = http_request("POST", url, json.dumps(payload).encode(),
+                                    {"Content-Type": "application/json"}, timeout)
+    except NetError as exc:
         log.warning("페어링 요청 실패: %s", exc)
         return 0, {}
+    return status, _json_or_empty(data)
 
 
 def _same_path(a: str, b: str) -> bool:
@@ -1328,56 +1632,10 @@ def save_interval(config_path: Path, seconds: int) -> bool:
         return False
 
 
-def save_mode(config_path: Path, mode: str) -> bool:
-    """운전 모드를 [device] 구간에 적는다.
+def _save_webui_value(config_path: Path, key: str, value: str) -> bool:
+    """[webui] 구간의 항목 하나를 적는다. 재부팅 후에도 고른 값이 남아야 한다.
 
-    구간이 없는 기존 설정 파일에는 만들어 붙인다 — 여기서 포기하면 화면에서 고른
-    모드가 재부팅과 함께 사라지고, 추론 규칙이 다시 옛 모드를 돌려준다.
-    주석을 지우지 않으려고 configparser 로 통째로 다시 쓰지 않는다.
-    """
-    try:
-        lines = config_path.read_text(encoding="utf-8").splitlines(keepends=True)
-    except OSError:
-        return False
-
-    in_device = False
-    insert_at = None
-    for i, line in enumerate(lines):
-        section = _cfg_section(line)
-        if section is not None:
-            if in_device and insert_at is None:
-                insert_at = i          # [device] 를 막 벗어나는 참
-            in_device = section == "device"
-            continue
-        if in_device and _cfg_key(line) == "mode":
-            lines[i] = f"mode = {mode}\n"
-            break
-    else:
-        if insert_at is not None:
-            lines.insert(insert_at, f"mode = {mode}\n")
-        elif in_device:                # [device] 가 파일 끝까지 이어졌다
-            _append_config_lines(lines, [f"mode = {mode}\n"])
-        else:
-            # [device] 구간이 없는 옛 설정 파일. 첫 구간 바로 앞에 만들어 넣는다 —
-            # 구간 선언보다 앞에 키를 적으면 configparser 가 읽지 못하고, 머리말
-            # 주석 앞에 끼우면 파일이 무엇인지 설명하는 줄이 가려진다.
-            at = next((i for i, line in enumerate(lines)
-                       if _cfg_section(line) is not None),
-                      len(lines))
-            lines.insert(at, f"[device]\nmode = {mode}\n\n")
-
-    try:
-        config_path.write_text("".join(lines), encoding="utf-8")
-        os.chmod(config_path, 0o600)
-        return True
-    except OSError:
-        return False
-
-
-def save_language(config_path: Path, lang: str) -> bool:
-    """화면 언어를 [webui] 구간에 적는다. 재부팅 후에도 고른 언어가 남아야 한다.
-
-    language 항목이 없으면 [webui] 안에 새로 끼워 넣는다. 주석을 지우지 않으려고
+    항목이 없으면 [webui] 안에 새로 끼워 넣는다. 주석을 지우지 않으려고
     configparser 로 통째로 다시 쓰지 않고 줄 단위로 손본다(save_interval 과 같은 방식).
     """
     try:
@@ -1391,23 +1649,48 @@ def save_language(config_path: Path, lang: str) -> bool:
             in_webui = True
             continue
         if in_webui:
-            if _cfg_key(line) == "language":
-                lines[i] = f"language = {lang}\n"   # 기존 값 교체
+            if _cfg_key(line) == key:
+                lines[i] = f"{key} = {value}\n"   # 기존 값 교체
                 break
             if section is not None:
-                lines.insert(i, f"language = {lang}\n")   # 다음 구간 직전에 삽입
+                lines.insert(i, f"{key} = {value}\n")   # 다음 구간 직전에 삽입
                 break
     else:
         if not in_webui:
-            return False   # [webui] 구간이 없다
-        # [webui] 가 파일 끝까지 이어졌다
-        _append_config_lines(lines, [f"language = {lang}\n"])
+            # [webui] 구간이 없는 옛 설정 파일. 끝에 만들어 붙인다 — 여기서 포기하면 화면에서
+            # 고른 모드·언어가 재부팅과 함께 사라진다.
+            _append_config_lines(lines, [f"\n[webui]\n{key} = {value}\n"])
+        else:
+            # [webui] 가 파일 끝까지 이어졌다
+            _append_config_lines(lines, [f"{key} = {value}\n"])
     try:
         config_path.write_text("".join(lines), encoding="utf-8")
         os.chmod(config_path, 0o600)
         return True
     except OSError:
         return False
+
+
+def save_section_value(config_path: Path, section: str, key: str, value: str) -> bool:
+    """[section] 의 key 하나를 적는다 — 무선 센서 모듈과 같은 함수(외부 패키지 없이 쓸 수 있게 거기 둔다)."""
+    if wireless_mod is None:
+        return False
+    return wireless_mod.save_section_value(config_path, section, key, value)
+
+
+def save_language(config_path: Path, lang: str) -> bool:
+    """화면 언어를 [webui] 구간에 적는다."""
+    return _save_webui_value(config_path, "language", lang)
+
+
+def save_mode(config_path: Path, mode: str) -> bool:
+    """운전 모드(shrimp|agriculture|mrv)를 [webui] 구간에 적는다.
+
+    모드는 장비 화면이 무엇을 먼저 보여 주는가의 설정이다 — 이름·라벨·강조색이
+    바뀌고(MRV 는 기본 화면이 전력 입력 단말이 된다) 서버 통신·payload 는 그대로다.
+    그래서 [sensors] 가 아니라 [webui] 에 둔다. 무엇을 켜고 끄는지는 modes.py 가 답한다.
+    """
+    return _save_webui_value(config_path, "mode", mode)
 
 
 def save_ec_mode(config_path: Path, mode: str, unit: str) -> bool:
@@ -1673,15 +1956,18 @@ def save_mrv_visible_meters(config_path: Path, picks: list[str]) -> bool:
 def fetch_device_info(endpoint: str, device_key: str) -> dict | None:
     """서버에 "나는 어느 계정·수조에 붙어 있나"를 묻는다.
     재부팅한 뒤에도 화면에 연결 정보를 띄우기 위한 것."""
-    req = urllib.request.Request(
-        endpoint,
-        headers={"X-Device-Key": device_key, "User-Agent": f"shrimp365-pi/{VERSION}"},
-    )
     try:
-        with urllib.request.urlopen(req, timeout=10) as res:
-            return json.loads(res.read().decode() or "{}")
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError) as exc:
+        status, data = http_request("GET", endpoint, headers={"X-Device-Key": device_key}, timeout=10)
+    except NetError as exc:
         # 인터넷이 없을 수도 있다. 측정·표시에는 영향을 주지 않는다.
+        log.info("연결 정보를 확인하지 못했습니다: %s", exc)
+        return None
+    if not 200 <= status < 300:
+        log.info("연결 정보를 확인하지 못했습니다: HTTP %s", status)
+        return None
+    try:
+        return json.loads(data.decode("utf-8", "replace") or "{}")
+    except ValueError as exc:
         log.info("연결 정보를 확인하지 못했습니다: %s", exc)
         return None
 
@@ -1720,7 +2006,8 @@ def run_pairing(
         code = str(data["code"])
         secret = data["pairing_secret"]
         if state is not None:
-            state.update(pair_code=code, pair_url=host, pair_error=None, status="연결 대기 중")
+            state.update(pair_code=code, pair_url=host, pair_error=None, status="연결 대기 중",
+                         status_code="pair_wait")
         spaced = " ".join(code)  # 화면에서 읽기 쉽게 자리마다 띄운다
         log.info("연결 코드: %s — Shrimp365 에 로그인해 이 코드를 입력하세요", code)
 
@@ -1755,7 +2042,7 @@ def run_pairing(
                     state.update(
                         pairing=False, pair_code=None, pair_error=None,
                         linked=True, tank=tank, account=info.get("account"),
-                        status="연결 완료",
+                        status="연결 완료", status_code="paired",
                     )
                 if key:
                     save_device_key(config_path, key)
@@ -1784,15 +2071,19 @@ def _show(screen, lines: list[str], rows: int) -> None:
 
 
 
-def _with_pending(base: str, store) -> str:
+def _with_pending(base: str, store) -> tuple[str, dict]:
     """상태 줄에 밀린 건수를 함께 보여 준다. 몇 건이 대기 중인지 알아야
-    '지금 안 올라가고 있다'는 사실이 실감난다."""
+    '지금 안 올라가고 있다'는 사실이 실감난다.
+
+    (문자열, 숫자) 를 돌려준다. 문자열은 문자 LCD·로그용이고(하위 호환), 터치
+    화면은 숫자({"at", "pending"})와 상태 코드로 화면 언어 문장을 직접 만든다.
+    """
     stamp = time.strftime("%H:%M")
-    if store is not None:
-        n = store.pending()
-        if n:
-            return f"{base} · 보관 {n}건 ({stamp})"
-    return f"{base} ({stamp})"
+    n = store.pending() if store is not None else 0
+    args = {"at": stamp, "pending": n}
+    if n:
+        return f"{base} · 보관 {n}건 ({stamp})", args
+    return f"{base} ({stamp})", args
 
 
 def flush_buffer(store, endpoint: str, device_key: str, batch: int, should_stop) -> int:
@@ -1814,6 +2105,10 @@ def flush_buffer(store, endpoint: str, device_key: str, batch: int, should_stop)
         if recorded_at:
             body["recorded_at"] = recorded_at
         ok, detail = post(endpoint, device_key, body)
+        if not ok and rejected_for_good(detail):
+            log.warning("보관분 한 건을 서버가 받지 않아 버립니다(%s) — 뒤의 값은 이어서 보냅니다.", detail)
+            store.drop([row_id])
+            continue
         if not ok:
             log.info("보관분 재전송 중단(%s) — 다음 기회에 이어서 보냅니다.", detail)
             break
@@ -2736,20 +3031,17 @@ def main() -> int:
         "atc": cfg.getboolean("nutrient", "atc", fallback=True),
     }
 
-    # 운전 모드. 적혀 있지 않으면 기존 설치이므로 [nutrient] enabled 로 추론한다
-    # (modes.resolve 의 주석에 근거를 적었다). 화면에서 바꿀 수 있어 홀더에 든다.
-    _declared_mode = (cfg.get("device", "mode", fallback="")
-                      if cfg.has_section("device") else "")
+    # 운전 모드 — shrimp(양식장) | agriculture(스마트팜) | mrv(탄소 MRV 전력 입력 단말).
+    # 무엇을 켜고 끄는지는 modes.py 한 곳에서만 답한다. [webui] mode 에 적히고, 옛 설정의
+    # [device] mode 도 읽는다(이름이 다르면 modes.resolve 가 맞춘다). 값이 없거나 모르는
+    # 값이면 양식장이다 — 기존 장비는 그대로 돌아야 한다. 화면에서 바꿀 수 있어 홀더에 든다.
+    _declared_mode = cfg.get("webui", "mode", fallback="").strip() or (
+        cfg.get("device", "mode", fallback="") if cfg.has_section("device") else "")
     mode_holder = {
-        "mode": (modes_mod.resolve(_declared_mode, nut_holder["enabled"])
-                 if modes_mod is not None else "aquaculture"),
+        "mode": modes_mod.resolve(_declared_mode) if modes_mod is not None else "shrimp",
     }
-    # 모드와 [nutrient] enabled 는 **같은 사실의 두 표현**이다. 추론 규칙이 앞으로도
-    # 맞으려면 둘이 어긋나 있어서는 안 된다 — 모드를 적어 둔 장비에서는 모드가 이긴다.
-    nut_holder["enabled"] = modes_mod.shows_nutrient(mode_holder["mode"]) \
-        if modes_mod is not None else nut_holder["enabled"]
     log.info("운전 모드: %s%s", mode_holder["mode"],
-             "" if _declared_mode.strip() else " (설정에 적혀 있지 않아 추론)")
+             "" if _declared_mode.strip() else " (설정에 적혀 있지 않아 양식장)")
 
     # 슬레이브 ID 변경. 같은 ID 를 쓰는 센서가 둘일 때 쓴다.
     if args.set_id:
@@ -2936,7 +3228,9 @@ def main() -> int:
         if cfg.getboolean("sensors", f"{key}_enabled", fallback=spec.default_enabled):
             enabled[key] = cfg.getint("sensors", f"{key}_slave_id", fallback=spec.slave_id)
 
-    if not enabled:
+    # 수질 센서를 하나도 안 켠 장비는 환경·기상이나 전력을 켰을 때만 돈다(노지 — 수질 없이 기상·토양만).
+    if not enabled and not (cfg.getboolean("environment", "enabled", fallback=False)
+                            or cfg.getboolean("power", "enabled", fallback=False)):
         sys.exit("활성화된 센서가 없습니다. config.ini 의 [sensors] 를 확인하세요.")
 
     # 화면(LCD) — 없으면 조용히 넘어간다.
@@ -2969,8 +3263,75 @@ def main() -> int:
     interval_holder = {"seconds": interval}
     # 화면 언어(ko/en/vi/id). 화면에서 고르면 config 에도 남긴다.
     lang_holder = {"lang": cfg.get("webui", "language", fallback="ko")}
+    # 운전 모드(mode_holder)는 위 설정 읽기에서 이미 정했다 — 화면에서 바꾸면 ui_set_mode 가 고친다.
+    # 환경·기상 센서(지그비 온습도·토양수분, 기상센서 WS90). 노지 수집기가 쌓는 CSV 를
+    # 이어 읽어 화면에 띄우고, upload 가 켜져 있으면 수질 값과 같은 줄로 서버에 올린다.
+    #
+    # 전력 회로(Zigbee 계측 차단기·클램프 전력계)도 같은 수집기 파일에서 읽는다 — 양식장·
+    # 스마트팜 공통. 회로 종류(순환펌프·히터…)는 화면 [설정] → [전력 회로] 에서 고르며
+    # [power_circuits] 구간에 "센서이름 = 종류" 로 남는다.
+    field_env = None
+    env_on = cfg.getboolean("environment", "enabled", fallback=False)
+    env_upload = False
+    power_on = cfg.getboolean("power", "enabled", fallback=False)
+    power_upload = cfg.getboolean("power", "upload", fallback=True)
+    # 서버로는 5분마다(과열 중이면 매번) — 화면은 매 측정마다 갱신한다.
+    power_every_s = max(60, int(cfg.getfloat("power", "upload_minutes", fallback=5) * 60))
+    power_types: dict[str, str] = (
+        {k.upper(): v.strip() for k, v in cfg.items("power_circuits")}
+        if cfg.has_section("power_circuits") else {})
+    power_sent = {"at": 0.0}
+    # 관수 밸브(지그비 밸브 + 유량계) — 5분마다, 열림·닫힘이 바뀌면 바로 올린다.
+    irr_sent: dict = {"at": 0.0, "states": {}}
+    # 전력 회로 켜고 끄기(수동·시간 예약·반복 간격) — 지그비 차단기에 Zigbee2MQTT 로 명령한다.
+    # [power] control = false 로 끌 수 있다. 규칙은 상태 폴더의 power_control.json 에 남는다.
+    pctl = None
+    if (power_on and power_control_mod is not None and wireless_mod is not None
+            and cfg.getboolean("power", "control", fallback=True)):
+        _pc_devices = Path(cfg.get("wireless", "devices", fallback=str(wireless_mod.DEFAULT_DEVICES)))
+        _pc_host = cfg.get("wireless", "mqtt_host", fallback="127.0.0.1")
+        _pc_port = cfg.getint("wireless", "mqtt_port", fallback=1883)
+
+        def _pc_names() -> dict[str, str]:
+            return {(c.get("sensor_id") or n).upper(): n
+                    for n, c in wireless_mod.read_registered(_pc_devices).items()}
+
+        pctl = power_control_mod.PowerControl(
+            Path(cfg.get("power", "control_file", fallback=str(power_control_mod.DEFAULT_PATH))),
+            send=power_control_mod.mqtt_sender(lambda: wireless_mod._mqtt(_pc_host, _pc_port, 3.0),
+                                               cfg.get("wireless", "base_topic", fallback="zigbee2mqtt")),
+            names=_pc_names)
+    # 센서별 환경 값(env_each)은 5분에 한 번 — 웹 그래프 24시간이 서버 1,000행 상한 안에 들게.
+    env_each_sent = {"at": 0.0}
+    _wl_devices = (Path(cfg.get("wireless", "devices", fallback=str(wireless_mod.DEFAULT_DEVICES)))
+                   if wireless_mod is not None else None)
+    # 무선 센서를 설치한 장비(devices.yaml 이 있다)는 환경·전력을 꺼 두어도 관수 밸브를 읽는다.
+    if field_env_mod is not None and (env_on or power_on or (_wl_devices is not None and _wl_devices.exists())):
+        # 두 기능이 같은 수집기 폴더를 읽는다. 폴더는 [environment] dir 이 정하고,
+        # 전력만 켠 장비는 [power] dir(없으면 같은 기본값)을 쓴다.
+        _dir = (cfg.get("environment", "dir", fallback=None) if env_on else None) \
+            or cfg.get("power", "dir", fallback=FIELD_DATA_DIR)
+        # 이 서비스는 ProtectHome=yes 로 돈다 — /home 아래 폴더는 아예 보이지 않는다.
+        # 예전 기본값(/home/pi/openfield/...)을 그대로 둔 장비는 값이 영영 '없음'이었다.
+        if _dir.startswith("/home/"):
+            log.warning("수집기 폴더 %s 는 서비스가 읽을 수 없습니다(ProtectHome). %s 를 씁니다 — "
+                        "setup-wireless.sh 가 수집기를 그곳에 쓰게 설치합니다.", _dir, FIELD_DATA_DIR)
+            _dir = FIELD_DATA_DIR
+        field_env = field_env_mod.FieldEnv(
+            _dir,
+            cfg.get("environment", "zone", fallback=""),
+            cfg.getfloat("environment", "stale_minutes", fallback=30),
+        )
+        env_upload = cfg.getboolean("environment", "upload", fallback=True)
     # 연속 전송 실패 횟수. 회선이 끊긴 채 안 돌아올 때 무선을 다시 깨우는 기준.
     net_fail = {"count": 0}
+
+    def sensors_on_list() -> list[str]:
+        """[센서 설정]에서 켜 둔 것 — 수질 센서 키(ph·do·ec·flow·dp)와 env·power·nutrient.
+        화면과 웹이 꺼 둔 칸을 그리지 않는 근거다. 값이 없는 것(고장)과 꺼 둔 것을 가른다."""
+        return ([k for k in SENSOR_SPECS if k in enabled]
+                + (["env"] if env_on else []) + (["power"] if power_on else [])
+                + (["nutrient"] if nut_holder.get("enabled") else []))
 
     def handle_signal(signum, _frame):
         nonlocal stop
@@ -3183,7 +3544,8 @@ def main() -> int:
             save_device_key(args.config, "")
             if state is not None:
                 state.update(linked=False, account=None, tank=None, farm=None,
-                             status="계정 연결 해제됨 — 새 코드로 연결하세요")
+                             status="계정 연결 해제됨 — 새 코드로 연결하세요",
+                             status_code="unlinked_by_user")
             log.info("화면에서 계정 연결을 해제했습니다. 새 연결을 시작합니다.")
             start_pairing()
 
@@ -3216,12 +3578,13 @@ def main() -> int:
                 settings[key] = {"enabled": bool(item.get("enabled")), "slave_id": slave_id}
 
             on = {k: v["slave_id"] for k, v in settings.items() if v["enabled"]}
-            if not on and not (modes_mod is not None
-                               and mode_holder["mode"] == "mrv"):
-                # MRV 단말은 기계실 계량기 옆에 놓여 수질 센서가 아예 없을 수 있다.
-                # 그 모드에서만 전부 끌 수 있게 한다 — 다른 모드에서 센서를 다 끄면
-                # 그 장비는 아무것도 재지 않는 채로 조용히 돌게 된다.
-                return {"ok": False, "error": "센서를 하나 이상 켜 주세요."}
+            _ext = payload.get("extras") if isinstance(payload.get("extras"), dict) else {}
+            # MRV 단말은 기계실 계량기 옆에 놓여 수질 센서가 아예 없을 수 있다. 그 모드와
+            # 환경·기상/전력을 켠 장비만 전부 끌 수 있다 — 그 밖에서 센서를 다 끄면
+            # 그 장비는 아무것도 재지 않는 채로 조용히 돌게 된다.
+            _mrv_terminal = modes_mod is not None and mode_holder["mode"] == "mrv"
+            if not on and not (_mrv_terminal or bool(_ext.get("env", env_on)) or bool(_ext.get("power", power_on))):
+                return {"ok": False, "error": "센서를 하나 이상 켜 주세요. (환경·기상이나 전력을 켜면 수질 센서 없이도 됩니다)"}
             dupes = [i for i in on.values() if list(on.values()).count(i) > 1]
             if dupes:
                 return {"ok": False, "error": f"슬레이브 ID {dupes[0]} 가 중복입니다."}
@@ -3247,14 +3610,35 @@ def main() -> int:
             enabled.clear()
             enabled.update(on)
             interval_holder["seconds"] = new_interval
-            if state is not None:
-                # MRV 모드 화면은 "센서가 설정돼 있는가" 로 수질 칸을 보일지 정한다.
-                state.update(sensors_on=bool(on))
             saved = save_sensor_config(args.config, settings)
             if saved:
                 save_interval(args.config, new_interval)
                 save_ec_mode(args.config, ec_holder["mode"], ec_holder["unit"])
             log.info("화면에서 센서 설정을 바꿨습니다: %s, 주기 %d초", on, new_interval)
+
+            # 환경·기상, 전력, 양액 켜고 끄기. 양액은 바로 적용되지만 환경·기상과 전력은
+            # 수집기 파일을 읽는 준비를 시작할 때만 하므로 저장한 뒤 프로그램을 다시 시작한다.
+            extras = payload.get("extras") if isinstance(payload.get("extras"), dict) else {}
+            if "nutrient" in extras and bool(extras["nutrient"]) != bool(nut_holder.get("enabled")):
+                nut_holder["enabled"] = bool(extras["nutrient"])
+                saved = save_nutrient(args.config, dict(nut_holder)) and saved
+            restart = False
+            for section, cur in (("environment", env_on), ("power", power_on)):
+                key = "env" if section == "environment" else "power"
+                if key in extras and bool(extras[key]) != cur:
+                    # 파일에 못 쓰면 다시 시작해도 옛 설정으로 돌아온다 — 그때는 알리고 멈춘다.
+                    # 수질 센서 변경도 파일에 남지 않았으면 재시작이 그것까지 되돌린다.
+                    if not saved or not save_section_value(args.config, section, "enabled",
+                                                           "true" if extras[key] else "false"):
+                        return {"ok": False, "error": "설정 파일에 쓰지 못해 환경·기상/전력 켜기·끄기를 "
+                                                      "적용하지 못했습니다"}
+                    restart = True
+            if state is not None:
+                state.update(sensors_on=sensors_on_list())
+            if restart:
+                log.info("환경·기상/전력 켜기·끄기를 바꿨습니다: %s — 다시 시작합니다", extras)
+                ui_restart()
+                return {"ok": True, "saved": saved, "restarting": True}
             return {"ok": True, "saved": saved}
 
         def ui_set_id(old_id: int, new_id: int) -> dict:
@@ -3302,6 +3686,8 @@ def main() -> int:
                 "port": port,
                 "ec_mode": ec_holder["mode"],
                 "ec_unit": ec_holder["unit"],
+                # 수질 센서 말고 켜고 끄는 것 — 끄면 장비·웹 대시보드에서 그 칸을 그리지 않는다.
+                "extras": {"env": env_on, "power": power_on, "nutrient": bool(nut_holder.get("enabled"))},
                 "sensors": [
                     {
                         "key": key,
@@ -3416,12 +3802,6 @@ def main() -> int:
 
             nut_holder.update(new_vals)
             saved = save_nutrient(args.config, dict(nut_holder))
-            # [양액 관리 사용] 은 결국 "이 장비는 스마트팜인가" 와 같은 말이다.
-            # 한쪽만 바뀌면 다음 부팅의 모드 추론이 어긋나므로 함께 옮긴다.
-            # MRV 모드에서는 이 화면을 열 수 없으니 모드를 끌고 가지 않는다.
-            if ("enabled" in new_vals and modes_mod is not None
-                    and mode_holder["mode"] != "mrv"):
-                _apply_mode("smartfarm" if new_vals["enabled"] else "aquaculture")
             log.info("화면에서 양액 설정을 바꿨습니다: %s (파일 저장 %s)", new_vals, saved)
             return {"ok": True, "saved": saved}
 
@@ -3435,7 +3815,7 @@ def main() -> int:
             nonlocal stop
             log.info("화면에서 프로그램 다시 시작을 요청했습니다.")
             if state is not None:
-                state.update(status="다시 시작하는 중… 약 15초")
+                state.update(status="다시 시작하는 중… 약 15초", status_code="restarting")
             stop = True          # 메인 루프가 정리하고 빠져나온다
             return {"ok": True, "seconds": 15}
 
@@ -3443,7 +3823,7 @@ def main() -> int:
             """기기를 재부팅한다. polkit 규칙으로 이 사용자에게만 열어 두었다."""
             log.info("화면에서 기기 재부팅을 요청했습니다.")
             if state is not None:
-                state.update(status="재부팅하는 중… 약 1분")
+                state.update(status="재부팅하는 중… 약 1분", status_code="rebooting")
             try:
                 res = subprocess.run(["systemctl", "reboot"],
                                      capture_output=True, text=True, timeout=15)
@@ -3707,33 +4087,6 @@ def main() -> int:
                      ("보관" if result.get("queued") else "거부"))
             return result
 
-        def _apply_mode(mode: str) -> bool:
-            """모드를 적용하고 파일에 남긴다. 양액 플래그도 함께 맞춘다.
-
-            모드와 [nutrient] enabled 는 같은 사실의 두 표현이다(모드 결정부 주석
-            참고). 둘이 어긋나면 다음 부팅의 추론이 틀린 모드를 돌려준다.
-            """
-            if modes_mod is None or mode not in modes_mod.MODES:
-                return False
-            mode_holder["mode"] = mode
-            nut_holder["enabled"] = modes_mod.shows_nutrient(mode)
-            saved = save_mode(args.config, mode) and save_nutrient(
-                args.config, dict(nut_holder))
-            if state is not None:
-                state.update(mode=mode)
-            log.info("운전 모드를 바꿨습니다: %s (파일 저장 %s)", mode, saved)
-            return True
-
-        def ui_set_mode(mode: str) -> dict:
-            """화면에서 운전 모드를 고른다.
-
-            수질 수집은 모드와 무관하게 계속된다 — 끄는 것은 화면이지 수집이 아니다.
-            양액 안내·운전 권고는 다음 측정 주기부터 모드를 따른다.
-            """
-            if not _apply_mode(mode):
-                return {"ok": False, "error": "알 수 없는 모드입니다"}
-            return {"ok": True, "mode": mode}
-
         def ui_set_lang(lang: str) -> bool:
             """화면 언어를 바꾼다. 화면은 이미 즉시 반영하므로, 여기선 파일에
             남겨 재부팅 후에도 유지되게 한다. 파일 저장이 실패해도 이번 세션은
@@ -3744,6 +4097,176 @@ def main() -> int:
             saved = save_language(args.config, lang)
             log.info("화면 언어를 바꿨습니다: %s (파일 저장 %s)", lang, saved)
             return True
+
+        def ui_mode() -> dict:
+            return {"mode": mode_holder["mode"],
+                    "ec_mode": ec_holder["mode"], "ec_unit": ec_holder["unit"]}
+
+        # ── 무선 센서 ([설정] → [무선 센서]) ─────────────────────────────────
+        wl = None
+        if wireless_mod is not None:
+            wl = wireless_mod.Wireless(
+                cfg.get("wireless", "devices", fallback=str(wireless_mod.DEFAULT_DEVICES)),
+                _wl_dir if not (_wl_dir := cfg.get("environment", "dir", fallback="") or FIELD_DATA_DIR)
+                .startswith("/home/") else FIELD_DATA_DIR,     # ProtectHome — 위 수집기 폴더와 같은 규칙
+                cfg.get("wireless", "mqtt_host", fallback="127.0.0.1"),
+                cfg.getint("wireless", "mqtt_port", fallback=1883),
+                cfg.get("wireless", "base_topic", fallback="zigbee2mqtt"),
+            )
+
+        def ui_wireless() -> dict:
+            if wl is None:
+                return {"ok": False, "error": "무선 센서 모듈이 없습니다"}
+            snap = wl.snapshot()
+            snap.update(ok=True, env_on=env_on, power_on=power_on)
+            return snap
+
+        def _wl_name_ok(name) -> bool:
+            return isinstance(name, str) and 0 < len(name) <= 64 and not any(c in name for c in "/#+")
+
+        def ui_wireless_action(action: str, body: dict) -> dict:
+            if wl is None:
+                return {"ok": False, "error": "무선 센서 모듈이 없습니다"}
+            if action == "permit":
+                return wl.permit(120 if body.get("on", True) else 0)
+            # 투야 블루투스 — 화면에서 투야 IoT 열쇠를 넣어 센서를 가져오고 등록한다.
+            if action == "ble_fetch":
+                aid, sec = body.get("access_id", ""), body.get("access_secret", "")
+                if not isinstance(aid, str) or not isinstance(sec, str):
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.ble_fetch(aid, sec, bool(body.get("remember", True)))
+                log.info("화면에서 투야 블루투스 기기를 가져왔습니다: %s", {k: v for k, v in r.items() if k != "error"} or r)
+                return r
+            if action == "ble_add":
+                dev, zone = body.get("id"), body.get("zone")
+                if not isinstance(dev, str) or not isinstance(zone, str):
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.ble_add(dev, zone)
+                log.info("화면에서 블루투스 센서를 등록했습니다: %s → %s", dev, r)
+                return r
+            if action == "ble_remove":
+                sid = body.get("sensor_id")
+                if not isinstance(sid, str):
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.ble_remove(sid)
+                log.info("화면에서 블루투스 센서를 뺐습니다: %s → %s", sid, r)
+                return r
+            if action == "ble_forget":
+                return wl.ble_forget()
+            if action == "register" and body.get("rf"):
+                model, ident, kind, zone = body.get("model"), body.get("id", ""), body.get("kind"), body.get("zone")
+                if not all(isinstance(v, str) for v in (model, ident, kind, zone)):
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.register_rf(model, ident, kind, zone, str(body.get("note") or ""))
+                log.info("화면에서 433MHz 센서를 등록했습니다: %s/%s → %s", model, ident, r)
+                return r
+            if action == "remove" and body.get("rf"):
+                key = body.get("key")
+                if not isinstance(key, str) or not 0 < len(key) <= 60:
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.remove_rf(key)
+                log.info("화면에서 433MHz 센서를 뺐습니다: %s → %s", key, r)
+                return r
+            if action == "register" and body.get("eco"):
+                key, kind, zone = body.get("key"), body.get("kind", ""), body.get("zone")
+                passkey = body.get("passkey", "")
+                if not all(isinstance(v, str) for v in (key, kind, zone, passkey)) or not 0 < len(key) <= 20:
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.register_eco(key, kind, zone, passkey, str(body.get("note") or ""))
+                log.info("화면에서 에코윗 센서를 등록했습니다: %s → %s", key, r)
+                return r
+            if action == "remove" and body.get("eco"):
+                key = body.get("key")
+                if not isinstance(key, str) or not 0 < len(key) <= 20:
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.remove_eco(key)
+                log.info("화면에서 에코윗 센서를 뺐습니다: %s → %s", key, r)
+                return r
+            if action == "register":
+                name, kind, zone = body.get("name"), body.get("kind"), body.get("zone")
+                if not _wl_name_ok(name) or not isinstance(kind, str) or not isinstance(zone, str):
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.register(name, kind, zone, str(body.get("note") or ""))
+                log.info("화면에서 무선 센서를 등록했습니다: %s → %s", name, r)
+                return r
+            if action == "remove":
+                name = body.get("name")
+                if not _wl_name_ok(name):
+                    return {"ok": False, "error": "요청이 올바르지 않습니다"}
+                r = wl.remove(name)
+                log.info("화면에서 무선 센서를 뺐습니다: %s → %s", name, r)
+                return r
+            if action == "enable":
+                # 환경·기상(그리고 차단기가 있으면 전력) 표시를 켠다. 설정은 시작할 때만 읽으므로
+                # 저장한 뒤 프로그램을 다시 시작한다(약 15초).
+                ok = save_section_value(args.config, "environment", "enabled", "true")
+                if body.get("power"):
+                    ok = save_section_value(args.config, "power", "enabled", "true") and ok
+                if not ok:
+                    return {"ok": False, "error": "설정 파일에 쓰지 못했습니다"}
+                return ui_restart()
+            return {"ok": False, "error": "모르는 요청입니다"}
+
+        def ui_set_power_type(sensor_id: str, kind: str) -> dict:
+            """화면에서 고른 회로 종류를 적용하고 [power_circuits] 에 남긴다."""
+            sid = (sensor_id or "").strip().upper()
+            if field_env_mod is None or not field_env_mod.CIRCUIT_ID_RE.match(sid):
+                return {"ok": False, "error": "회로 이름이 올바르지 않습니다"}
+            if kind not in field_env_mod.POWER_TYPES:
+                return {"ok": False, "error": "모르는 종류입니다"}
+            power_types[sid] = kind          # 파일 저장이 실패해도 지금 화면은 따른다
+            saved = field_env_mod.save_power_type(args.config, sid, kind)
+            log.info("화면에서 전력 회로 종류를 바꿨습니다: %s → %s (파일 저장 %s)", sid, kind, saved)
+            return {"ok": True, "saved": saved, "id": sid, "type": kind}
+
+        def ui_power_control(body: dict) -> dict:
+            """[켜기]/[끄기]·시간 지정·예약 규칙. 응답에 새 제어 상태를 실어 화면이 바로 그린다."""
+            if pctl is None:
+                return {"ok": False, "error": "전력 제어가 꺼져 있습니다([power] enabled·control)"}
+            sid, action = body.get("id"), body.get("action")
+            if not isinstance(sid, str) or not field_env_mod or not field_env_mod.CIRCUIT_ID_RE.match(sid):
+                return {"ok": False, "error": "회로 이름이 올바르지 않습니다"}
+            if action == "set":
+                mins = body.get("minutes")
+                if mins is not None and (not isinstance(mins, int) or isinstance(mins, bool)):
+                    return {"ok": False, "error": "시간이 올바르지 않습니다"}
+                r = pctl.manual(sid, bool(body.get("on")), mins)
+            elif action == "rule":
+                r = pctl.set_rule(sid, body.get("rule"))
+            elif action == "auto":
+                r = pctl.clear_override(sid)
+            else:
+                return {"ok": False, "error": "모르는 요청입니다"}
+            r["control"] = pctl.snapshot()
+            return r
+
+        def ui_set_mode(mode: str) -> dict:
+            """장비 모드를 바꾼다. 화면은 다음 갱신(/api/state)에서 즉시 따라온다.
+
+            스마트팜으로 바꿀 때 EC 센서가 염도를 재고 있으면 전도도(mS/cm)로
+            돌린다 — 양액에서 염도 환산값은 뜻이 없다. 사람이 [센서 설정] 에서
+            다시 바꿀 수 있으므로 강제가 아니라 기본값 교정이다. 양식장으로
+            돌아갈 때는 손대지 않는다(민물·기수에서 전도도로 쓰는 양식장도 있다).
+            """
+            _modes = modes_mod.MODES if modes_mod is not None else ("shrimp", "agriculture")
+            if mode not in _modes:
+                return {"ok": False, "error": "모드는 " + " · ".join(_modes) + " 가운데 하나입니다"}
+            mode_holder["mode"] = mode
+            ec_changed = False
+            if mode == "agriculture" and ec_holder["mode"] == "salinity":
+                ec_holder["mode"] = "conductivity"
+                ec_holder["unit"] = "ms"
+                ec_changed = True
+            # 파일 저장이 실패해도 지금 화면에서는 동작해야 하므로 먼저 적용한다.
+            if state is not None:
+                state.update(mode=mode, ec_unit=ec_holder["unit"])
+            saved = save_mode(args.config, mode)
+            if saved and ec_changed:
+                save_ec_mode(args.config, ec_holder["mode"], ec_holder["unit"])
+            log.info("화면에서 장비 모드를 바꿨습니다: %s (EC %s/%s, 파일 저장 %s)",
+                     mode, ec_holder["mode"], ec_holder["unit"], saved)
+            return {"ok": True, "saved": saved, "mode": mode,
+                    "ec_mode": ec_holder["mode"], "ec_unit": ec_holder["unit"]}
 
         webui.serve(
             state,
@@ -3762,6 +4285,7 @@ def main() -> int:
             on_wifi_scan=ui_wifi_scan,
             on_wifi_connect=ui_wifi_connect,
             language=lang_holder["lang"],
+            get_lang=lambda: lang_holder["lang"],
             on_set_lang=ui_set_lang,
             on_restart=ui_restart,
             on_reboot=ui_reboot,
@@ -3777,9 +4301,15 @@ def main() -> int:
             on_mrv_power=ui_mrv_power,
             on_mrv_discard=ui_mrv_discard,
             mode=mode_holder["mode"],
+            get_mode=ui_mode,
             on_set_mode=ui_set_mode,
+            on_set_power_type=ui_set_power_type,
+            on_power_control=ui_power_control,
+            get_wireless=ui_wireless,
+            on_wireless=ui_wireless_action,
         )
         state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중",
+                     status_code="checking",
                      version=VERSION, ec_unit=ec_holder["unit"],
                      mrv_linked=bool(mrv_auth["key"]),
                      mrv_site_id=mrv_auth["site"] or None,
@@ -3795,11 +4325,11 @@ def main() -> int:
                      **_mrv_blocked_state(),
                      **_mrv_visible_state(),
                      mode=mode_holder["mode"],
-                     # MRV 모드 화면은 이 값으로 수질 칸을 보일지 정한다. 판정 기준은
-                     # **설정에 켜 둔 센서가 있는가** 다 — 지금 값이 읽히는가가 아니다.
-                     # 값으로 정하면 센서가 고장난 순간 칸이 사라져, 고장이 화면에서
-                     # 사라지는 것으로 보인다.
-                     sensors_on=bool(enabled))
+                     # [센서 설정]에서 켜 둔 것의 목록. MRV 모드 화면은 이 목록에 수질 센서가
+                     # 있는지로 수질 칸을 보일지 정한다. 판정 기준은 **설정에 켜 둔 센서가
+                     # 있는가** 다 — 지금 값이 읽히는가가 아니다. 값으로 정하면 센서가
+                     # 고장난 순간 칸이 사라져, 고장이 화면에서 사라지는 것으로 보인다.
+                     sensors_on=sensors_on_list())
 
         # 이미 연결된 장비라면 계측기 목록을 미리 받아 둔다. 시작을 네트워크에
         # 매달 수 없으므로 뒤에서 받는다 — 목록이 늦게 와도 측정은 이미 돈다.
@@ -3873,83 +4403,169 @@ def main() -> int:
     client_holder["client"] = client
     last_values: dict[str, float] = {}
     status_line = ""
+    # 화면용 상태 코드와 숫자. 문장은 화면이 화면 언어로 만든다(webui.State 참고).
+    status_code: str | None = None
+    status_args: dict = {}
 
     # 추세 판정 결과를 들고 있는다. 매 측정마다 나흘치를 다시 훑지 않기 위함이고,
     # 그 사이에도 권고는 이 결과를 재료로 계속 나간다.
     analysis: dict = {"at": 0.0, "rows": [], "anomalies": []}
     advices: list[dict] = []
 
+    if pctl is not None:
+        pctl.start()
+        # 웹에서 켜고 끄기·예약 — 서버 명령함을 15초마다 묻는다(power_remote.py). [power] remote = false 로 끈다.
+        if (power_remote_mod is not None and not args.dry_run
+                and cfg.getboolean("power", "remote", fallback=True)):
+            def _remote_req(url: str, key: str, payload: dict) -> tuple[int, dict]:
+                try:
+                    status, data = http_request("POST", url, json.dumps(payload).encode(), {
+                        "Content-Type": "application/json", "X-Device-Key": key}, 8.0)
+                except NetError:
+                    return 0, {}
+                return status, _json_or_empty(data)
+
+            power_remote_mod.RemotePower(
+                pctl, lambda: _api_base(endpoint) + "/api/sensors/power", lambda: auth["key"], _remote_req,
+            ).start()
     while not stop:
         started = time.monotonic()
 
         with serial_lock:
-            values, errors = read_all(client, dict(enabled), ec_to_ppm, ec_holder["mode"])
+            # 수질 센서를 모두 끈 장비는 RS-485 선을 열지 않는다(변환기가 아예 없을 수 있다).
+            values, errors = (read_all(client, dict(enabled), ec_to_ppm, ec_holder["mode"])
+                              if enabled else ({}, {}))
             raw_holder.clear()
             raw_holder.update(values)          # 보정 전 값을 화면이 볼 수 있게 남긴다
             values = apply_calibration(values, cal_holder)
+        if pctl is not None:
+            pctl.set_interval(interval_holder["seconds"])  # 화면에서 측정 간격을 바꿀 수 있다
+            pctl.observe_do(values.get("do_level"))     # 산소량 연동·산소 부족 강제 켜기 (보정한 값)
 
-        if not values:
+        # 환경·기상 — 켜 둔 장비만. 수질 센서가 죽어도 화면에는 띄우고, 읽기가
+        # 실패해도 수질 측정·전송은 그대로 간다.
+        env = None
+        if field_env is not None and env_on:
+            try:
+                env = field_env.read()
+            except Exception as exc:  # noqa: BLE001
+                log.warning("환경·기상 값 읽기 실패: %s", exc)
+                env = {}
+            # 센서별 그래프용 이력 — 수질 센서가 죽어도 남긴다(5분에 한 번, history.ENV_EVERY_S).
+            if hist is not None and env:
+                hist.record_env(env)
+        # [무선 센서] 에 등록한 것 — 아직 아무것도 안 보낸 차단기·밸브도 '수신 대기' 로 화면에 둔다.
+        registered: dict = {}
+        if field_env is not None and _wl_devices is not None:
+            try:
+                registered = wireless_mod.read_registered(_wl_devices)
+            except Exception as exc:  # noqa: BLE001 — 등록 목록을 못 읽어도 값은 띄운다
+                log.debug("무선 센서 등록 목록을 읽지 못했습니다: %s", exc)
+
+        def _registered(prefix: str) -> list[str]:
+            return [c.get("sensor_id") or n for n, c in registered.items() if str(c.get("kind", "")).startswith(prefix)]
+
+        # 관수 밸브 — 밸브로 등록했거나 수집 파일에 밸브 값이 있을 때만(없으면 None, 화면·전송 모두 건너뛴다).
+        irrigation = None
+        if field_env is not None:
+            try:
+                irrigation = field_env_mod.read_irrigation(field_env, expected=_registered("valve")) or None
+            except Exception as exc:  # noqa: BLE001
+                log.warning("관수 밸브 읽기 실패: %s", exc)
+
+        # 전력 회로 — 켜 둔 장비만. 값이 없으면 빈 목록(화면이 점검 안내를 띄운다).
+        power = None
+        if field_env is not None and power_on:
+            try:
+                circuits = field_env.read_power(dict(power_types), expected=_registered("breaker"))  # 화면 스레드가 고치는 중일 수 있어 복사본
+            except Exception as exc:  # noqa: BLE001
+                log.warning("전력 회로 읽기 실패: %s", exc)
+                circuits = []
+            power = {"circuits": circuits, **field_env_mod.power_summary(circuits)}
+            if pctl is not None:
+                pctl.observe(circuits)
+                power["control"] = pctl.snapshot()
+
+        # 수질 센서가 하나도 안 읽혀도 환경·기상·전력 값이 있으면 그것은 보낸다 — 꽂지 않은 pH 센서
+        # 하나 때문에 기상값까지 서버에 안 가면 안 된다. 못 읽은 사유(err_*)는 함께 실려 간다.
+        side = bool((env and env_upload and field_env_mod.payload_values(env))
+                    or (power and power_upload and power["circuits"])
+                    or (irrigation and field_env_mod.payload_irrigation(irrigation)))
+        if not values and enabled and not side:
+            log.error("읽은 값이 없습니다. 배선·전원·슬레이브 ID를 확인하세요. %s", errors)
+            status_line = "SENSOR ERROR"
+            status_code, status_args = "sensor_error", {}
             nutrient = None          # 값이 없으면 양액 안내도 띄우지 않는다
             advices = []             # 못 잰 값으로 설비를 돌리라고 할 수는 없다
-            if not enabled:
-                # 켜 둔 센서가 하나도 없다. 기계실 계량기 옆 MRV 단말이 그렇다 —
-                # 센서가 안 붙어 있는 것이 정상 상태이므로 오류로 적지 않는다.
-                # 1분마다 "SENSOR ERROR" 를 남기면 정작 봐야 할 로그가 묻힌다.
-                status_line = time.strftime("%H:%M")
-            else:
-                log.error("읽은 값이 없습니다. 배선·전원·슬레이브 ID를 확인하세요. %s", errors)
-                status_line = "SENSOR ERROR"
         else:
-            stored = {k: v for k, v in values.items() if k in STORED_FIELDS}
-            extra = {k: v for k, v in values.items() if k not in STORED_FIELDS}
-            log.info("측정 %s%s", stored, f" (참고 {extra})" if extra else "")
+            if values:
+                stored = {k: v for k, v in values.items() if k in STORED_FIELDS}
+                extra = {k: v for k, v in values.items() if k not in STORED_FIELDS}
+                log.info("측정 %s%s", stored, f" (참고 {extra})" if extra else "")
 
-            last_values = values
-            if hist is not None:
-                hist.record(values)
+                last_values = values
+                if hist is not None:
+                    hist.record(values)
 
-            # 양액 보충량 — 켜져 있고 전도도가 있을 때만. 화면이 이 값을 띄운다.
-            # nut_holder["enabled"] 가 모드를 따라가므로(위 참고) 스마트팜에서만 선다.
-            nutrient = nutrient_plan(values.get("conductivity"),
-                                     values.get("temperature"), nut_holder)
+                # 양액 보충량 — 켜져 있고 전도도가 있을 때만. 화면이 이 값을 띄운다.
+                # MRV 단말에서는 띄우지 않는다 — 그 화면 앞에 선 사람은 계량기를 읽으러
+                # 온 사람이다(modes.shows_nutrient).
+                nutrient = (nutrient_plan(values.get("conductivity"),
+                                          values.get("temperature"), nut_holder)
+                            if modes_mod is None or modes_mod.shows_nutrient(mode_holder["mode"])
+                            else None)
 
-            # 이상징후와 설비 운전 권고 — 통신과 무관하게 장비 안에서 끝낸다.
-            #
-            # 둘의 주기를 나눈 이유: 용존산소가 기준을 깬 순간의 안내가 몇 분
-            # 늦으면 안내가 아니다. 반대로 "나흘째 하락" 은 1분마다 다시 셀 일이
-            # 아니다. 그래서 권고는 매 측정, 추세는 ANALYSIS_INTERVAL_S 마다 본다.
-            # 설비 운전 권고 — MRV 단말에서는 끈다. 그 화면 앞에 선 사람은 계량기를
-            # 읽으러 온 사람이고, 수질을 보고 설비를 돌릴 사람이 아니다.
-            # (스마트팜에서 비우는 판단은 advice.py 안에 있다 — 여기서 또 끄지 않는다.)
-            if advice_mod is not None and (modes_mod is None
-                                           or modes_mod.shows_advice(mode_holder["mode"])):
-                now_s = time.time()
-                if (anomaly_mod is not None and hist is not None
-                        and now_s - analysis["at"] >= ANALYSIS_INTERVAL_S):
+                # 이상징후와 설비 운전 권고 — 통신과 무관하게 장비 안에서 끝낸다.
+                #
+                # 둘의 주기를 나눈 이유: 용존산소가 기준을 깬 순간의 안내가 몇 분
+                # 늦으면 안내가 아니다. 반대로 "나흘째 하락" 은 1분마다 다시 셀 일이
+                # 아니다. 그래서 권고는 매 측정, 추세는 ANALYSIS_INTERVAL_S 마다 본다.
+                # 설비 운전 권고 — MRV 단말에서는 끈다. 수질을 보고 설비를 돌릴 사람이
+                # 그 화면 앞에 없다(modes.shows_advice). 스마트팜에서 비우는 판단은
+                # advice.py 안에 있다 — 여기서 또 끄지 않는다.
+                if advice_mod is not None and (modes_mod is None
+                                               or modes_mod.shows_advice(mode_holder["mode"])):
+                    now_s = time.time()
+                    if (anomaly_mod is not None and hist is not None
+                            and now_s - analysis["at"] >= ANALYSIS_INTERVAL_S):
+                        try:
+                            analysis["rows"] = hist.recent(ANALYSIS_WINDOW_H)
+                            analysis["anomalies"] = anomaly_mod.detect(analysis["rows"])
+                        except Exception as exc:  # noqa: BLE001 — 판정이 수집을 막으면 안 된다
+                            log.warning("이상탐지 실패: %s", exc)
+                            analysis["anomalies"] = []
+                        analysis["at"] = now_s
                     try:
-                        analysis["rows"] = hist.recent(ANALYSIS_WINDOW_H)
-                        analysis["anomalies"] = anomaly_mod.detect(analysis["rows"])
-                    except Exception as exc:  # noqa: BLE001 — 판정이 수집을 막으면 안 된다
-                        log.warning("이상탐지 실패: %s", exc)
-                        analysis["anomalies"] = []
-                    analysis["at"] = now_s
-                try:
-                    advices = advice_mod.recommend(values, analysis["anomalies"],
-                                                   analysis["rows"], nutrient is not None)
-                except Exception as exc:  # noqa: BLE001
-                    log.warning("운전 권고 실패: %s", exc)
+                        # 스마트팜 모드면 양액 관리를 켜지 않았어도 농업 판정이다 — 화면의
+                        # 색(webui bandOf)도 같은 조건이다. 새우 설비 권고를 띄우지 않는다.
+                        advices = advice_mod.recommend(
+                            values, analysis["anomalies"], analysis["rows"],
+                            nutrient is not None or mode_holder["mode"] == "agriculture")
+                    except Exception as exc:  # noqa: BLE001
+                        log.warning("운전 권고 실패: %s", exc)
+                        advices = []
+                    if advices:
+                        log.info("운전 권고 %s", [a["code"] for a in advices])
+                else:
                     advices = []
-                if advices:
-                    log.info("운전 권고 %s", [a["code"] for a in advices])
             else:
+                # 수질 센서를 하나도 켜지 않은 장비(환경·기상만 쓰는 노지, 기계실 MRV 단말) —
+                # 잴 것이 없을 뿐 오류가 아니다. 실행 중에 모두 끈 경우 이전 수질 값·이상징후가
+                # 화면(LCD)과 전송에 남지 않게 비운다.
+                nutrient = None
                 advices = []
+                last_values = {}
+                analysis["anomalies"] = []
 
             if args.dry_run:
                 print(json.dumps(values, ensure_ascii=False, indent=2))
                 status_line = "dry-run " + time.strftime("%H:%M")
+                status_code, status_args = "dry_run", {"at": time.strftime("%H:%M")}
             else:
                 recorded_at = time.strftime("%Y-%m-%dT%H:%M:%S%z") or None
-                payload = {**values, "serial": serial_no, "firmware": f"pi-{VERSION}"}
+                # sensors_on 을 맨 앞에 — 서버는 마지막 수신값을 앞에서부터 48칸만 남긴다.
+                payload = {"sensors_on": ",".join(sensors_on_list()),
+                           **values, "serial": serial_no, "firmware": f"pi-{VERSION}"}
                 # 못 읽은 센서의 사유를 함께 보낸다. 값만 빼고 보내면 웹은
                 # "왜 없는지" 를 알 길이 없어, 현장에 가 봐야만 원인을 안다.
                 # 서버는 이 값을 기기 카드의 마지막 수신값에 그대로 남긴다.
@@ -3957,31 +4573,78 @@ def main() -> int:
                     payload[f"err_{_k}"] = str(_why)[:60]
                 # 양액 요약(nut_*) — 계산이 있을 때만. 웹 양액 상태 카드가 쓴다.
                 payload.update(nutrient_payload(nutrient, nut_holder))
+                # 환경·기상 값 — 칸 이름이 곧 서버 칸 이름이다(air_temp, humidity, ...).
+                # 수질 값과 같은 줄로 올려 웹 그래프가 한 시간축을 쓴다.
+                if env and env_upload:
+                    payload.update(field_env_mod.payload_values(env))
+                    # 센서가 여러 대인 칸은 한 대 한 대의 값도 — 웹 카드에서 칸을 누르면 펼쳐 본다.
+                    if time.time() - env_each_sent["at"] >= 300:
+                        each = field_env_mod.payload_each(env)
+                        if each:
+                            payload["env_each"] = each
+                            env_each_sent["at"] = time.time()
+                # 전력 회로 — 5분마다. 차단기가 과열 중이면 매번(휴대폰 알림이 늦으면 안 된다).
+                if power and power_upload and power["circuits"]:
+                    due = time.time() - power_sent["at"] >= power_every_s
+                    # 수질도 환경 값도 없는 장비(전력만)는 매번 — 아니면 그 사이 전송이 비어
+                    # 마지막 수신 시각이 5분을 넘겨 웹 관제에서 오프라인으로 깜빡인다.
+                    alone = not values and not (env and env_upload and field_env_mod.payload_values(env))
+                    if due or power["level"] or alone:
+                        circuits_out = field_env_mod.payload_power(power["circuits"])
+                        if circuits_out:
+                            payload["power"] = circuits_out
+                            power_sent["at"] = time.time()
 
-                if not auth["key"]:
+                # 관수 밸브 — 5분마다, 또는 열림·닫힘이 바뀌었을 때 바로.
+                if irrigation:
+                    irr_out = field_env_mod.payload_irrigation(irrigation)
+                    states = {v["id"]: v["state"] for v in irr_out}
+                    if irr_out and (time.time() - irr_sent["at"] >= power_every_s or states != irr_sent["states"]):
+                        payload["irrigation"] = irr_out
+                        irr_sent.update(at=time.time(), states=states)
+
+                # 추세 이상징후를 함께 올린다. 장비 화면에만 뜨면 새벽에 아무도
+                # 못 보므로, 서버가 이것으로 알림을 만들어 휴대폰까지 보낸다.
+                # 임계값을 깨기 전에 잡는 것이 이 판정의 존재 이유인데, 그 결과가
+                # 관리자에게 닿지 않으면 반쪽이다.
+                if anomaly_mod is not None and analysis["anomalies"]:
+                    payload["ai_anomaly"] = anomaly_mod.payload_field(analysis["anomalies"])
+
+                # 수질 센서 없이 쓰는 장비인데 환경·전력 값도 아직 없으면 보낼 것이 없다
+                # (서버가 빈 줄을 거절하고, 보관함에 빈 줄이 쌓인다).
+                nothing = (not values and "power" not in payload and "irrigation" not in payload
+                           and not (env and env_upload and field_env_mod.payload_values(env)))
+                if nothing:
+                    status_line = "waiting " + time.strftime("%H:%M")
+                    status_code, status_args = "waiting", {"at": time.strftime("%H:%M")}
+                elif not auth["key"]:
                     # 연결되지 않은 장비도 계측기로는 그대로 쓸 수 있어야 한다.
                     # 값은 모아 두었다가 연결되는 순간 한꺼번에 올린다.
                     if store is not None:
                         store.append(payload, recorded_at)
-                    status_line = _with_pending("미연결 — 측정만", store)
+                    status_line, status_args = _with_pending("미연결 — 측정만", store)
+                    status_code = "unlinked"
                 else:
                     ok, detail = post(endpoint, auth["key"], payload)
                     if ok:
                         log.info("전송 완료")
                         net_fail["count"] = 0
                         status_line = "sent " + time.strftime("%H:%M")
+                        status_code, status_args = "sent", {"at": time.strftime("%H:%M")}
                         # 회선이 살아 있는 지금이 밀린 것을 비울 기회다.
                         sent = flush_buffer(store, endpoint, auth["key"], flush_batch, _stopped_global)
                         if sent:
                             log.info("보관해 둔 %d건을 마저 전송했습니다.", sent)
                             status_line = f"sent +{sent} " + time.strftime("%H:%M")
+                            status_args = {"at": time.strftime("%H:%M"), "sent": sent}
                     else:
                         # 네트워크가 끊겨도 프로세스는 살아 있어야 한다.
                         # 값은 버리지 않고 저장해 두었다가 다음에 올린다.
                         log.error("전송 실패 — %s", detail)
-                        if store is not None:
+                        if store is not None and not rejected_for_good(detail):
                             store.append(payload, recorded_at)
-                        status_line = _with_pending("SEND FAIL", store)
+                        status_line, status_args = _with_pending("SEND FAIL", store)
+                        status_code = "send_fail"
 
                         # 무인 복구 — 연달아 실패하면 무선이 끊긴 채 안 돌아온
                         # 것일 수 있다. 사람이 현장에 가지 않아도 되게 직접 깨운다.
@@ -4000,12 +4663,30 @@ def main() -> int:
                                 log.warning("Wi‑Fi 재연결 시도 실패: %s", exc)
 
         if state is not None:
+            # 화면의 "AI 모드" 표시가 기대는 근거. 켜졌다고 쓰려면 실제로 돌고 있어야
+            # 하므로, 모듈 셋이 다 있고 이력까지 읽히는 경우에만 켜진 것으로 본다.
+            ai_state = {
+                "enabled": (advice_mod is not None and anomaly_mod is not None
+                            and hist is not None),
+                "window_h": ANALYSIS_WINDOW_H,
+                "interval_s": ANALYSIS_INTERVAL_S,
+                "samples": len(analysis["rows"]),
+                "at": (time.strftime("%H:%M", time.localtime(analysis["at"]))
+                       if analysis["at"] else None),
+            }
             state.update(
                 values=last_values,
+                sensors_on=sensors_on_list(),
+                env=env,
+                power=power,
+                irrigation=irrigation,
                 nutrient=nutrient,
                 advice=advices,
                 anomalies=analysis["anomalies"],
+                ai=ai_state,
                 status=status_line,
+                status_code=status_code,
+                status_args=status_args,
                 errors=errors,
                 linked=bool(auth["key"]),
                 pending=store.pending() if store is not None else 0,
@@ -4020,7 +4701,6 @@ def main() -> int:
                 mrv_today=mrv_lasts.today(),
                 mrv_recent=mrv_recent_rows(mrv_meters_holder["items"], mrv_lasts),
                 mode=mode_holder["mode"],
-                sensors_on=bool(enabled),
             )
 
         if screen is not None:

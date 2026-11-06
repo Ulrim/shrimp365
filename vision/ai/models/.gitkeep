@@ -1,0 +1,2 @@
+# Trained model weights (e.g. shrimp_yolov8n.pt) live here.
+# Large binaries are gitignored — distribute via release artifacts or DVC.

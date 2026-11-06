@@ -1,9 +1,12 @@
 """새 장비 버전을 만들고 서명하는 도구. **오너 PC 에서만** 실행한다.
 
-원격 업데이트의 안전은 개인키 관리에 달려 있다. 이 프로젝트는 단일 운영자·
-비공개 저장소를 전제로, 개인키를 저장소 안(raspberry-pi/secrets/)에 함께 둔다.
-세션마다 저장소를 새로 clone 하는 자동화 환경에서도 빌드가 되게 하려는 것이다.
-저장소를 공개(public)로 바꾸면 이 키는 반드시 폐기하고 새로 만들어야 한다.
+원격 업데이트의 안전은 개인키 관리에 달려 있다. 개인키는 **오너 PC 에만** 둔다 —
+`raspberry-pi/secrets/` 는 .gitignore 에 걸려 있어 저장소에 올라가지 않는다.
+
+한때 비공개 저장소를 전제로 이 키를 저장소 안에 함께 두었다. 자동화 환경에서도
+빌드가 되게 하려는 것이었는데, 저장소가 공개로 바뀌면서 그 키가 그대로 노출됐다.
+공개된 키는 되돌릴 수 없다(git 기록에 남는다) — 폐기하고 새로 만드는 길뿐이다.
+그래서 지금은 예외 없이 저장소 밖에 둔다.
 
     # 처음 한 번 — 열쇠 만들기
     python3 release.py init
@@ -21,6 +24,7 @@ import argparse
 import base64
 import hashlib
 import json
+import os
 import sys
 import tarfile
 import time
@@ -61,7 +65,7 @@ KEY_PATH = HERE / "secrets" / "release-key.pem"
 PAYLOAD = [
     "shrimp365_sensor.py", "display.py", "webui.py", "wifi.py",
     "buffer.py", "history.py", "updater.py",
-    "limits.py", "anomaly.py", "advice.py",
+    "limits.py", "anomaly.py", "advice.py", "field_env.py", "wireless.py", "power_control.py", "power_remote.py",
     # 운전 모드 판단. 빠지면 모드가 양식장으로 굳어 MRV 전력 입력에 닿을 길이 없다.
     "modes.py",
     # 판정 자체점검. 장비에서 바로 돌려 보일 수 있어야 성능검증 자리에서 쓸모가 있다.
@@ -91,12 +95,27 @@ SETUP_PAYLOAD = PAYLOAD + [
     "requirements.txt", "README.md", "INSTALL.md",
 ]
 
+# 무선 센서 수집기(setup-wireless.sh 가 /opt/shrimp365/field 에 배치). 노지 프로젝트(openfield/)
+# 의 수집 코드 일부를 그대로 싣는다 — 복사본을 따로 두지 않아야 두 곳이 어긋나지 않는다.
+# 열쇠는 꾸러미 안 경로, 값은 저장소 경로. 스크립트가 parents[1]/"src" 를 path 에 넣으므로
+# field/src/ofdf 와 field/scripts 로 같은 구조를 지킨다.
+FIELD_FILES = {
+    f"field/src/ofdf/{m}": REPO / "openfield" / "src" / "ofdf" / m
+    for m in ("__init__.py", "data/__init__.py", "data/counter.py", "data/field.py",
+              "data/zigbee.py", "data/rtl433.py", "data/ecowitt.py", "data/tuya_ble.py")
+} | {
+    f"field/scripts/{m}": REPO / "openfield" / "scripts" / m
+    for m in ("zigbee_bridge.py", "rtl433_bridge.py", "ecowitt_receiver.py", "tuya_ble_bridge.py")
+}
+SETUP_PAYLOAD += ["setup-wireless.sh", "setup-tuya-ble.sh", "tuya_ble_setup.py",
+                  "field/devices.template.yaml", *FIELD_FILES]
+
 # 풀었을 때 이 폴더가 생긴다. 홈 디렉터리에 파일이 흩어지지 않게 한다.
 SETUP_DIR_NAME = "shrimp365-setup"
 
 # 실행 권한이 필요한 파일. USB·Windows 를 거치면 권한이 날아가는데,
 # tar 안에 넣어 두면 풀자마자 바로 실행할 수 있다.
-EXECUTABLE = {"install.sh", "setup-kiosk.sh"}
+EXECUTABLE = {"install.sh", "setup-kiosk.sh", "setup-wireless.sh", "setup-tuya-ble.sh"}
 
 
 def cmd_init(args) -> int:
@@ -108,11 +127,15 @@ def cmd_init(args) -> int:
 
     KEY_PATH.parent.mkdir(parents=True, exist_ok=True)
     private = Ed25519PrivateKey.generate()
-    KEY_PATH.write_bytes(private.private_bytes(
+    pem = private.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.PKCS8,
         encryption_algorithm=serialization.NoEncryption(),
-    ))
+    )
+    # 처음부터 600 으로 만든다 — 쓰고 나서 chmod 하면 그 사이 남이 읽을 수 있다.
+    fd = os.open(KEY_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as f:
+        f.write(pem)
     KEY_PATH.chmod(0o600)
 
     pub = base64.b64encode(private.public_key().public_bytes(
@@ -122,9 +145,10 @@ def cmd_init(args) -> int:
 
     print(f"개인키를 만들었습니다: {KEY_PATH}  (권한 600)")
     print()
-    print("이 키는 비공개 저장소 안(raspberry-pi/secrets/)에 함께 보관됩니다.")
-    print("저장소를 공개로 바꾸면 반드시 새 키로 교체하세요. 키를 잃으면")
-    print("현장 장비들은 더 이상 새 업데이트를 받지 못합니다(측정은 계속됩니다).")
+    print("이 키는 이 PC 에만 있습니다 — 저장소에 올라가지 않습니다(.gitignore).")
+    print("백업해 두세요. 잃으면 현장 장비들은 더 이상 새 업데이트를 받지")
+    print("못합니다(측정은 계속됩니다). 새로 만들려면 모든 장비가 한 번은")
+    print("사람 손을 거쳐야 합니다.")
     print()
     print("아래 공개키를 raspberry-pi/updater.py 의 RELEASE_PUBLIC_KEY 에 붙여 넣으세요.")
     print()
@@ -249,7 +273,7 @@ def cmd_build(args) -> int:
     def pack(out: Path, files: list[str], prefix: str = "") -> bytes:
         with tarfile.open(out, "w:gz", compresslevel=9) as tar:
             for fname in files:
-                src = HERE / fname
+                src = FIELD_FILES.get(fname, HERE / fname)
                 if not src.exists():
                     sys.exit(f"파일이 없습니다: {src}")
                 arc = f"{prefix}/{fname}" if prefix else fname
@@ -305,7 +329,15 @@ def cmd_build(args) -> int:
             "signature": sign("agent", agent_digest),
         })
     manifest["releases"][version] = entry
-    manifest["latest"] = version
+    # `latest` 는 **현장 장비가 받을 수 있는 가장 높은 버전**이다. 웹의 기기 카드가
+    # 이 값으로 「업데이트」 버튼을 띄우므로, 업데이트 꾸러미가 없는 버전을 가리키면
+    # 누른 사람에게는 "파일 이름이 이상합니다" 만 돌아온다.
+    #
+    # 그래서 설치 꾸러미만 만든 경우(--setup-only, 서명 열쇠 없음)에는 건드리지
+    # 않는다. 새로 설치하는 사람은 고정 이름(shrimp365-setup-latest.tar.gz)으로
+    # 받으므로 이 값과 상관없다.
+    if private is not None:
+        manifest["latest"] = version
     manifest_path.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 

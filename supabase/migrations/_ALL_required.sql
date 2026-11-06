@@ -6,7 +6,7 @@
 --
 -- Supabase SQL Editor 에 전체를 붙여넣고 한 번 실행하세요.
 -- 모두 재실행 안전(멱등)이라 이미 실행한 것이 섞여 있어도 됩니다.
--- 순서: 카드뉴스 → 게시판 → 센서 → 좌표 → 관제센터 → 농업 모드 → 웹푸시
+-- 순서: 카드뉴스 → 게시판 → 센서 → 좌표 → 관제센터 → 농업 모드 → 환경·기상 → 전력 회로 → 웹푸시
 -- ============================================================
 
 
@@ -770,6 +770,604 @@ REVOKE ALL ON FUNCTION public.wq_series(uuid, int, uuid, int) FROM public, anon;
 GRANT EXECUTE ON FUNCTION public.wq_series(uuid, int, uuid, int) TO authenticated;
 
 -- API 스키마 캐시 갱신 (이걸 빼먹으면 웹이 새 칸을 못 본다)
+NOTIFY pgrst, 'reload schema';
+
+
+-- ==================== environment_readings.sql ====================
+-- ============================================================
+-- 환경·기상 측정 칸 — 스마트팜 장비가 수질 값과 같은 줄로 올린다
+--
+-- 장비(raspberry-pi/field_env.py)가 같은 파이의 노지 수집기 파일을 읽어
+-- 지그비 온습도·토양수분과 기상센서(WS90) 값을 /api/sensors/data 로 함께 보낸다.
+-- 따로 테이블을 두지 않고 water_quality_readings 에 칸을 더한 이유:
+--   · 장비는 한 번에 한 줄을 보낸다. 줄을 둘로 나누면 재전송 큐·중복 처리를 두 벌 둬야 한다.
+--   · 웹 그래프가 수질과 환경을 같은 시간축으로 겹쳐 볼 수 있다.
+-- 안 재는 장비는 모두 null 이다(새우 장비 포함 — 화면·알림은 그대로).
+--
+-- 실행 전에도 장비는 멈추지 않는다 — 서버가 환경 칸만 빼고 수질 값을 저장한다.
+-- 재실행 안전(멱등).
+--
+-- 실행 위치: Supabase Dashboard → SQL Editor
+-- ============================================================
+
+ALTER TABLE public.water_quality_readings
+  ADD COLUMN IF NOT EXISTS air_temp      double precision,  -- 기온(2m) 또는 초관부 온도(지상 10cm), °C
+  ADD COLUMN IF NOT EXISTS humidity      double precision,  -- 상대습도, %
+  ADD COLUMN IF NOT EXISTS soil_moisture double precision,  -- 토양 체적함수율, %
+  ADD COLUMN IF NOT EXISTS soil_temp     double precision,  -- 지온, °C
+  ADD COLUMN IF NOT EXISTS wind_speed    double precision,  -- 평균 풍속, m/s
+  ADD COLUMN IF NOT EXISTS wind_gust     double precision,  -- 돌풍(WS90 은 28초 창 최댓값), m/s
+  ADD COLUMN IF NOT EXISTS wind_dir      double precision,  -- 풍향, 도(0=북, 시계방향)
+  ADD COLUMN IF NOT EXISTS rain_day      double precision,  -- 장비 현지 자정부터의 강수 누계, mm
+  ADD COLUMN IF NOT EXISTS rain_rate     double precision,  -- 강우강도, mm/h
+  ADD COLUMN IF NOT EXISTS solar         double precision,  -- 일사, W/m²
+  ADD COLUMN IF NOT EXISTS uv_index      double precision,  -- 자외선 지수
+  ADD COLUMN IF NOT EXISTS pressure      double precision;  -- 해면기압, hPa
+
+-- 값 범위 — 서버 수신 화이트리스트(route.ts ENV_RANGE)와 같은 값.
+DO $$ BEGIN
+  ALTER TABLE public.water_quality_readings ADD CONSTRAINT wqr_env_range CHECK (
+        (air_temp      IS NULL OR air_temp      BETWEEN -50  AND 70)
+    AND (humidity      IS NULL OR humidity      BETWEEN 0    AND 100)
+    AND (soil_moisture IS NULL OR soil_moisture BETWEEN 0    AND 100)
+    AND (soil_temp     IS NULL OR soil_temp     BETWEEN -30  AND 70)
+    AND (wind_speed    IS NULL OR wind_speed    BETWEEN 0    AND 80)
+    AND (wind_gust     IS NULL OR wind_gust     BETWEEN 0    AND 100)
+    AND (wind_dir      IS NULL OR wind_dir      BETWEEN 0    AND 360)
+    AND (rain_day      IS NULL OR rain_day      BETWEEN 0    AND 1000)
+    AND (rain_rate     IS NULL OR rain_rate     BETWEEN 0    AND 500)
+    AND (solar         IS NULL OR solar         BETWEEN 0    AND 2000)
+    AND (uv_index      IS NULL OR uv_index      BETWEEN 0    AND 20)
+    AND (pressure      IS NULL OR pressure      BETWEEN 800  AND 1100)
+  );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- ── wq_series 재정의 ─────────────────────────────────────────
+-- 웹 그래프·대시보드는 원본 행이 아니라 이 구간 평균 함수로 읽는다(lib/db.ts
+-- getWaterQuality). 환경 칸을 돌려주지 않으면 값이 저장돼도 웹 "환경·기상" 카드가
+-- 영영 비어 보인다. agriculture_mode.sql 판에 환경 칸 12개를 더한다.
+--   · 풍향은 각도라 산술평균이 틀린다(350°·10° → 180°). 단위벡터 평균으로 낸다.
+--   · 오늘 강수(rain_day)는 자정에 0 으로 돌아가는 누계라 평균·최대가 아니라
+--     구간의 마지막 값을 쓴다.
+-- 돌려주는 칸이 늘었으므로 CREATE OR REPLACE 로는 안 된다(42P13). 지우고 새로 만든다.
+DROP FUNCTION IF EXISTS public.wq_series(uuid, int, uuid, int);
+
+CREATE FUNCTION public.wq_series(
+  p_tank uuid,
+  p_hours int,
+  p_device uuid DEFAULT NULL,
+  p_max_points int DEFAULT 240
+)
+RETURNS TABLE (
+  recorded_at timestamptz,
+  device_id uuid,
+  temperature float8, ph float8, do_level float8, salinity float8,
+  ammonia float8, nitrite float8, nitrate float8, alkalinity float8, turbidity float8,
+  conductivity float8,
+  flow_rate float8,
+  diff_pressure float8,
+  air_temp float8, humidity float8, soil_moisture float8, soil_temp float8,
+  wind_speed float8, wind_gust float8, wind_dir float8,
+  rain_day float8, rain_rate float8, solar float8, uv_index float8, pressure float8,
+  sample_count int
+)
+LANGUAGE sql STABLE AS $$
+  WITH w AS (
+    SELECT GREATEST(60, CEIL(p_hours * 3600.0 / GREATEST(LEAST(p_max_points, 500), 50))::int) AS sec
+  )
+  SELECT
+    to_timestamp(FLOOR(EXTRACT(epoch FROM r.recorded_at) / w.sec) * w.sec) AS recorded_at,
+    r.device_id,
+    AVG(r.temperature)::float8, AVG(r.ph)::float8, AVG(r.do_level)::float8, AVG(r.salinity)::float8,
+    AVG(r.ammonia)::float8, AVG(r.nitrite)::float8, AVG(r.nitrate)::float8,
+    AVG(r.alkalinity)::float8, AVG(r.turbidity)::float8,
+    AVG(r.conductivity)::float8,
+    AVG(r.flow_rate)::float8,
+    AVG(r.diff_pressure)::float8,
+    AVG(r.air_temp)::float8, AVG(r.humidity)::float8,
+    AVG(r.soil_moisture)::float8, AVG(r.soil_temp)::float8,
+    AVG(r.wind_speed)::float8, AVG(r.wind_gust)::float8,
+    CASE WHEN COUNT(r.wind_dir) = 0 THEN NULL ELSE
+      (DEGREES(ATAN2(AVG(SIN(RADIANS(r.wind_dir))), AVG(COS(RADIANS(r.wind_dir))))) + 360)::numeric % 360
+    END::float8,
+    (ARRAY_AGG(r.rain_day ORDER BY r.recorded_at DESC) FILTER (WHERE r.rain_day IS NOT NULL))[1]::float8,
+    AVG(r.rain_rate)::float8, AVG(r.solar)::float8, AVG(r.uv_index)::float8, AVG(r.pressure)::float8,
+    COUNT(*)::int
+  FROM public.water_quality_readings r, w
+  WHERE r.tank_id = p_tank
+    AND r.recorded_at > now() - make_interval(hours => LEAST(GREATEST(p_hours, 1), 24 * 60))
+    AND (p_device IS NULL OR r.device_id = p_device)
+  GROUP BY 1, 2, w.sec
+  ORDER BY 1 ASC
+$$;
+
+REVOKE ALL ON FUNCTION public.wq_series(uuid, int, uuid, int) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.wq_series(uuid, int, uuid, int) TO authenticated;
+
+-- API 스키마 캐시 갱신 (이걸 빼먹으면 서버가 새 칸을 못 본다)
+NOTIFY pgrst, 'reload schema';
+
+
+-- ==================== power_readings.sql ====================
+-- ============================================================
+-- 분전반 전력 회로 기록 — 양식장(Shrimp365)·스마트팜(Farm365) 공통
+--
+-- 장비(raspberry-pi/field_env.py)가 Zigbee 계측 차단기·클램프 전력계 값을 회로마다
+-- /api/sensors/data 의 power 배열로 올린다(5분마다, 차단기 과열 중에는 매 측정).
+-- 회로 수가 농장마다 달라(현장에서 고른다 — 설계서 farm365-main-panel.md 4-1)
+-- 수질 기록의 칸으로 두지 않고 회로 한 줄 = 한 행으로 둔다.
+--
+-- 쓰기는 서버(service_role)만 한다. 읽기는 농장 주인과 열람자(farm_viewers)만.
+-- 실행 전에도 장비·수질 수신은 멈추지 않는다 — 서버가 전력 기록만 건너뛴다.
+-- 재실행 안전(멱등).
+--
+-- 실행 위치: Supabase Dashboard → SQL Editor
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.power_readings (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tank_id          uuid NOT NULL REFERENCES public.tanks(id) ON DELETE CASCADE,
+  device_id        uuid REFERENCES public.sensor_devices(id) ON DELETE SET NULL,
+  circuit_id       text NOT NULL CHECK (circuit_id ~ '^[A-Za-z0-9_.-]{1,32}$'),
+  circuit_type     text NOT NULL DEFAULT 'other' CHECK (circuit_type IN (
+                     'main','aerator','circulation_pump','irrigation_pump','heater','ventilation',
+                     'cooling','lighting','uv','dosing','feeder','other')),
+  state            smallint CHECK (state IS NULL OR state IN (0, 1)),
+  power_w          double precision CHECK (power_w IS NULL OR power_w BETWEEN 0 AND 100000),
+  current_a        double precision CHECK (current_a IS NULL OR current_a BETWEEN 0 AND 1000),
+  voltage_v        double precision CHECK (voltage_v IS NULL OR voltage_v BETWEEN 0 AND 500),
+  energy_today_kwh double precision CHECK (energy_today_kwh IS NULL OR energy_today_kwh BETWEEN 0 AND 10000),
+  device_temp      double precision CHECK (device_temp IS NULL OR device_temp BETWEEN -40 AND 150),
+  recorded_at      timestamptz NOT NULL DEFAULT now(),
+  created_at       timestamptz NOT NULL DEFAULT now()
+);
+
+-- 웹 카드는 "베드의 최근 24시간" 을 읽는다.
+CREATE INDEX IF NOT EXISTS power_readings_tank_time ON public.power_readings (tank_id, recorded_at DESC);
+
+ALTER TABLE public.power_readings ENABLE ROW LEVEL SECURITY;
+
+-- 주인: 자기 농장의 베드만 읽는다. 쓰기 정책은 두지 않는다(service_role 만 쓴다).
+DROP POLICY IF EXISTS "pwr_select_owner" ON public.power_readings;
+CREATE POLICY "pwr_select_owner" ON public.power_readings FOR SELECT
+  USING (tank_id IN (
+    SELECT t.id FROM public.tanks t
+    JOIN public.farms f ON f.id = t.farm_id
+    WHERE f.user_id = auth.uid()
+  ));
+
+-- 열람자(farm_viewers): 연결된 농장의 베드만. farm_viewers 가 없는 DB 에서도 오류 없이 지나간다.
+DROP POLICY IF EXISTS "pwr_select_viewer" ON public.power_readings;
+DO $$ BEGIN
+  IF to_regclass('public.farm_viewers') IS NOT NULL THEN
+    EXECUTE $p$
+      CREATE POLICY "pwr_select_viewer" ON public.power_readings FOR SELECT
+        USING (tank_id IN (
+          SELECT t.id FROM public.tanks t
+          JOIN public.farm_viewers v ON v.farm_id = t.farm_id
+          WHERE v.user_id = auth.uid()
+        ))
+    $p$;
+  END IF;
+END $$;
+
+GRANT SELECT ON public.power_readings TO authenticated;
+
+-- API 스키마 캐시 갱신
+NOTIFY pgrst, 'reload schema';
+
+
+-- ==================== power_remote.sql ====================
+-- ============================================================
+-- 웹에서 전력 회로 켜고 끄기·예약 — 명령함과 장비 제어 상태
+--
+-- 웹은 장비에 직접 닿지 못한다(장비는 농장 공유기 뒤에 있다). 그래서
+--   1) 웹이 명령을 power_commands 에 넣고(/api/power/command — 농장 주인만)
+--   2) 장비가 15초마다 /api/sensors/power 로 가져가 실행한 뒤 결과를 돌려준다.
+-- 장비는 같은 길로 회로 규칙·손 조작 상태(power_control.py snapshot)를
+-- power_control_state 에 올린다 — 웹 카드가 이것으로 버튼과 예약을 그린다.
+--
+-- 안전 규칙은 장비가 지킨다: 인입 회로 제어 금지, 과열 중 켜기 금지,
+-- 산소 부족 강제 켜기(산소공급기) — 웹에서 꺼도 산소가 낮으면 장비가 다시 켠다.
+-- 2분 안에 장비가 가져가지 않은 명령은 버린다(늦게 도착한 '켜기' 가 엉뚱한 때 실행되지 않게).
+--
+-- 쓰기는 서버(service_role)만 한다. 읽기는 농장 주인과 열람자(farm_viewers)만.
+-- 재실행 안전(멱등). 실행 전에는 웹 카드에 버튼이 나오지 않을 뿐 다른 기능은 그대로다.
+--
+-- 실행 위치: Supabase Dashboard → SQL Editor
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.power_control_state (
+  device_id   uuid PRIMARY KEY REFERENCES public.sensor_devices(id) ON DELETE CASCADE,
+  tank_id     uuid NOT NULL REFERENCES public.tanks(id) ON DELETE CASCADE,
+  control     jsonb NOT NULL DEFAULT '{}'::jsonb,
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS power_control_state_tank ON public.power_control_state (tank_id);
+
+CREATE TABLE IF NOT EXISTS public.power_commands (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  device_id   uuid NOT NULL REFERENCES public.sensor_devices(id) ON DELETE CASCADE,
+  tank_id     uuid NOT NULL REFERENCES public.tanks(id) ON DELETE CASCADE,
+  circuit_id  text NOT NULL CHECK (circuit_id ~ '^[A-Za-z0-9_.-]{1,32}$'),
+  action      text NOT NULL CHECK (action IN ('set', 'auto', 'rule')),
+  body        jsonb NOT NULL DEFAULT '{}'::jsonb,
+  status      text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'done', 'failed', 'expired')),
+  result      text,
+  created_by  uuid,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  picked_at   timestamptz,
+  done_at     timestamptz
+);
+CREATE INDEX IF NOT EXISTS power_commands_device_pending ON public.power_commands (device_id, created_at)
+  WHERE status IN ('pending', 'sent');
+CREATE INDEX IF NOT EXISTS power_commands_tank_time ON public.power_commands (tank_id, created_at DESC);
+
+ALTER TABLE public.power_control_state ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.power_commands ENABLE ROW LEVEL SECURITY;
+
+-- 주인: 자기 농장의 수조·베드만 읽는다. 쓰기 정책은 두지 않는다(service_role 만 쓴다).
+DROP POLICY IF EXISTS "pcs_select_owner" ON public.power_control_state;
+CREATE POLICY "pcs_select_owner" ON public.power_control_state FOR SELECT
+  USING (tank_id IN (
+    SELECT t.id FROM public.tanks t
+    JOIN public.farms f ON f.id = t.farm_id
+    WHERE f.user_id = auth.uid()
+  ));
+DROP POLICY IF EXISTS "pcmd_select_owner" ON public.power_commands;
+CREATE POLICY "pcmd_select_owner" ON public.power_commands FOR SELECT
+  USING (tank_id IN (
+    SELECT t.id FROM public.tanks t
+    JOIN public.farms f ON f.id = t.farm_id
+    WHERE f.user_id = auth.uid()
+  ));
+
+-- 열람자(farm_viewers): 상태만 본다(버튼은 서버가 주인에게만 허락한다).
+DROP POLICY IF EXISTS "pcs_select_viewer" ON public.power_control_state;
+DO $$ BEGIN
+  IF to_regclass('public.farm_viewers') IS NOT NULL THEN
+    EXECUTE $p$
+      CREATE POLICY "pcs_select_viewer" ON public.power_control_state FOR SELECT
+        USING (tank_id IN (
+          SELECT t.id FROM public.tanks t
+          JOIN public.farm_viewers v ON v.farm_id = t.farm_id
+          WHERE v.user_id = auth.uid()
+        ))
+    $p$;
+  END IF;
+END $$;
+
+GRANT SELECT ON public.power_control_state TO authenticated;
+GRANT SELECT ON public.power_commands TO authenticated;
+
+-- API 스키마 캐시 갱신
+NOTIFY pgrst, 'reload schema';
+
+
+-- ==================== irrigation_readings.sql ====================
+-- ============================================================
+-- 관수 밸브·유량계 기록 — 지그비 투야 스마트 워터밸브 + 유량계
+--
+-- 장비(raspberry-pi/field_env.py read_irrigation)가 밸브마다 열림·닫힘, 순간 유량(L/min),
+-- 오늘 사용량(L)을 /api/sensors/data 의 irrigation 배열로 올린다(5분마다, 열고 닫힐 때 바로).
+-- 켤 때만 흐르는 관수 라인이라 유량 0 은 고장이 아니다 — 수질의 유량(flow_rate, 0 이면 순환 멈춤
+-- 경보) 칸에 넣지 않고 밸브 한 개 = 한 행으로 따로 둔다. 경보는 만들지 않는다.
+--
+-- 쓰기는 서버(service_role)만 한다. 읽기는 농장 주인과 열람자(farm_viewers)만.
+-- 실행 전에도 장비·수질 수신은 멈추지 않는다 — 서버가 관수 기록만 건너뛴다. 재실행 안전(멱등).
+--
+-- 실행 위치: Supabase Dashboard → SQL Editor
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.irrigation_readings (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tank_id          uuid NOT NULL REFERENCES public.tanks(id) ON DELETE CASCADE,
+  device_id        uuid REFERENCES public.sensor_devices(id) ON DELETE SET NULL,
+  valve_id         text NOT NULL CHECK (valve_id ~ '^[A-Za-z0-9_.-]{1,32}$'),
+  state            smallint CHECK (state IS NULL OR state IN (0, 1)),
+  flow_lpm         double precision CHECK (flow_lpm IS NULL OR flow_lpm BETWEEN 0 AND 1000),
+  volume_today_l   double precision CHECK (volume_today_l IS NULL OR volume_today_l BETWEEN 0 AND 1000000),
+  recorded_at      timestamptz NOT NULL DEFAULT now(),
+  created_at       timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS irrigation_readings_tank_time ON public.irrigation_readings (tank_id, recorded_at DESC);
+
+ALTER TABLE public.irrigation_readings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "irr_select_owner" ON public.irrigation_readings;
+CREATE POLICY "irr_select_owner" ON public.irrigation_readings FOR SELECT
+  USING (tank_id IN (
+    SELECT t.id FROM public.tanks t
+    JOIN public.farms f ON f.id = t.farm_id
+    WHERE f.user_id = auth.uid()
+  ));
+
+DROP POLICY IF EXISTS "irr_select_viewer" ON public.irrigation_readings;
+DO $$ BEGIN
+  IF to_regclass('public.farm_viewers') IS NOT NULL THEN
+    EXECUTE $p$
+      CREATE POLICY "irr_select_viewer" ON public.irrigation_readings FOR SELECT
+        USING (tank_id IN (
+          SELECT t.id FROM public.tanks t
+          JOIN public.farm_viewers v ON v.farm_id = t.farm_id
+          WHERE v.user_id = auth.uid()
+        ))
+    $p$;
+  END IF;
+END $$;
+
+GRANT SELECT ON public.irrigation_readings TO authenticated;
+
+-- API 스키마 캐시 갱신
+NOTIFY pgrst, 'reload schema';
+
+
+-- ==================== env_sensors.sql ====================
+-- ============================================================
+-- 환경 센서별 값 — 같은 칸에 센서가 여러 대일 때 한 대 한 대의 값
+--
+-- 스마트팜 장비(raspberry-pi/field_env.py payload_each)는 기온·습도·토양수분 등 칸마다
+-- 센서 평균을 수질 값과 같은 줄로 올린다(environment_readings.sql). 같은 칸에 센서가
+-- 2대 이상이면 센서별 지금 값도 함께 올린다. 웹 "환경·기상" 카드는 평균을 보이고,
+-- 칸을 누르면 이 값을 펼친다. 모양:
+--   {"air_temp": [{"id": "TH-01", "v": 23.1}, {"id": "TH-02", "v": 24.0}], ...}
+-- 서버(lib/env-params.ts parseEnvEach)가 칸 이름·센서 이름·값 범위를 검증한 뒤에만 쓴다.
+--
+-- 읽기 권한은 water_quality_readings 의 기존 정책을 그대로 따른다(새 정책 없음).
+-- 실행 전에도 장비는 멈추지 않는다 — 서버가 이 칸만 빼고 저장한다.
+-- 재실행 안전(멱등). environment_readings.sql 다음에 실행한다.
+--
+-- 실행 위치: Supabase Dashboard → SQL Editor
+-- ============================================================
+
+ALTER TABLE public.water_quality_readings
+  ADD COLUMN IF NOT EXISTS env_sensors jsonb;  -- 칸 → [{id, v}] (2대 이상인 칸만)
+
+-- 모양과 크기 상한 — 칸 6개 × 16대면 넉넉히 4KB 안쪽이다.
+DO $$ BEGIN
+  ALTER TABLE public.water_quality_readings ADD CONSTRAINT wqr_env_sensors_shape CHECK (
+    env_sensors IS NULL
+    OR (jsonb_typeof(env_sensors) = 'object' AND pg_column_size(env_sensors) <= 8192)
+  );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- API 스키마 캐시 갱신 (이걸 빼먹으면 서버가 새 칸을 못 본다)
+NOTIFY pgrst, 'reload schema';
+
+
+-- ==================== canopy_temp.sql ====================
+-- ============================================================
+-- 초관부 온도 칸 — 2m 기온(기상센서)과 지상 10cm 초관부 온도(지그비 온습도계)를 따로 둔다
+--
+-- environment_readings.sql 의 air_temp 는 "2m 기온, 없으면 초관부 온도" 한 칸이었다.
+-- 기상센서와 초관부 센서를 함께 단 농장에서는 air_temp 가 2m 를 쓰므로 초관부 값이
+-- 웹 어디에도 남지 않았다. 장비(raspberry-pi/field_env.py)는 둘 다 있을 때
+-- canopy_temp 를 따로 올린다(1.9.4+). 둘 중 하나만 있으면 지금처럼 air_temp 한 칸이다.
+--
+-- 실행 전에도 장비는 멈추지 않는다 — 서버가 canopy_temp 칸만 빼고 저장한다.
+-- environment_readings.sql 다음에 실행한다(wq_series 를 그 판 위에 다시 만든다). 재실행 안전.
+--
+-- 실행 위치: Supabase Dashboard → SQL Editor
+-- ============================================================
+
+ALTER TABLE public.water_quality_readings
+  ADD COLUMN IF NOT EXISTS canopy_temp double precision;  -- 초관부 온도(지상 10cm), °C
+
+-- 값 범위 — 서버 수신(lib/env-params.ts ENV_PARAMS)과 같은 값.
+DO $$ BEGIN
+  ALTER TABLE public.water_quality_readings ADD CONSTRAINT wqr_canopy_range CHECK (
+    canopy_temp IS NULL OR canopy_temp BETWEEN -50 AND 70
+  );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- ── wq_series 재정의 ── environment_readings.sql 판에 canopy_temp 한 칸을 더한다.
+DROP FUNCTION IF EXISTS public.wq_series(uuid, int, uuid, int);
+
+CREATE FUNCTION public.wq_series(
+  p_tank uuid,
+  p_hours int,
+  p_device uuid DEFAULT NULL,
+  p_max_points int DEFAULT 240
+)
+RETURNS TABLE (
+  recorded_at timestamptz,
+  device_id uuid,
+  temperature float8, ph float8, do_level float8, salinity float8,
+  ammonia float8, nitrite float8, nitrate float8, alkalinity float8, turbidity float8,
+  conductivity float8,
+  flow_rate float8,
+  diff_pressure float8,
+  air_temp float8, humidity float8, soil_moisture float8, soil_temp float8,
+  wind_speed float8, wind_gust float8, wind_dir float8,
+  rain_day float8, rain_rate float8, solar float8, uv_index float8, pressure float8,
+  canopy_temp float8,
+  sample_count int
+)
+LANGUAGE sql STABLE AS $$
+  WITH w AS (
+    SELECT GREATEST(60, CEIL(p_hours * 3600.0 / GREATEST(LEAST(p_max_points, 500), 50))::int) AS sec
+  )
+  SELECT
+    to_timestamp(FLOOR(EXTRACT(epoch FROM r.recorded_at) / w.sec) * w.sec) AS recorded_at,
+    r.device_id,
+    AVG(r.temperature)::float8, AVG(r.ph)::float8, AVG(r.do_level)::float8, AVG(r.salinity)::float8,
+    AVG(r.ammonia)::float8, AVG(r.nitrite)::float8, AVG(r.nitrate)::float8,
+    AVG(r.alkalinity)::float8, AVG(r.turbidity)::float8,
+    AVG(r.conductivity)::float8,
+    AVG(r.flow_rate)::float8,
+    AVG(r.diff_pressure)::float8,
+    AVG(r.air_temp)::float8, AVG(r.humidity)::float8,
+    AVG(r.soil_moisture)::float8, AVG(r.soil_temp)::float8,
+    AVG(r.wind_speed)::float8, AVG(r.wind_gust)::float8,
+    CASE WHEN COUNT(r.wind_dir) = 0 THEN NULL ELSE
+      (DEGREES(ATAN2(AVG(SIN(RADIANS(r.wind_dir))), AVG(COS(RADIANS(r.wind_dir))))) + 360)::numeric % 360
+    END::float8,
+    (ARRAY_AGG(r.rain_day ORDER BY r.recorded_at DESC) FILTER (WHERE r.rain_day IS NOT NULL))[1]::float8,
+    AVG(r.rain_rate)::float8, AVG(r.solar)::float8, AVG(r.uv_index)::float8, AVG(r.pressure)::float8,
+    AVG(r.canopy_temp)::float8,
+    COUNT(*)::int
+  FROM public.water_quality_readings r, w
+  WHERE r.tank_id = p_tank
+    AND r.recorded_at > now() - make_interval(hours => LEAST(GREATEST(p_hours, 1), 24 * 60))
+    AND (p_device IS NULL OR r.device_id = p_device)
+  GROUP BY 1, 2, w.sec
+  ORDER BY 1 ASC
+$$;
+
+REVOKE ALL ON FUNCTION public.wq_series(uuid, int, uuid, int) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.wq_series(uuid, int, uuid, int) TO authenticated;
+
+-- API 스키마 캐시 갱신 (이걸 빼먹으면 서버가 새 칸을 못 본다)
+-- API 스키마 캐시 갱신
+NOTIFY pgrst, 'reload schema';
+
+
+-- ==================== wq_series_year.sql ====================
+-- ============================================================
+-- 그래프 기간을 1년까지 — wq_series 의 최대 기간 60일 → 366일
+--
+-- 웹 환경·기상 카드의 기간 단추(6시간·12시간·24시간·일주일·한 달·1년) 중 1년이
+-- 60일에서 잘리지 않게 한다. 점 수는 그대로(p_max_points, 기본 240)라 기간이 길수록
+-- 구간 평균의 칸이 넓어질 뿐 화면으로 오는 행 수는 같다.
+--
+-- canopy_temp.sql 다음에 실행한다(같은 함수를 그 판 위에 다시 만든다). 재실행 안전.
+-- 실행 전에도 웹은 멈추지 않는다 — 1년을 고르면 60일까지만 보일 뿐이다.
+--
+-- 실행 위치: Supabase Dashboard → SQL Editor
+-- ============================================================
+
+DROP FUNCTION IF EXISTS public.wq_series(uuid, int, uuid, int);
+
+CREATE FUNCTION public.wq_series(
+  p_tank uuid,
+  p_hours int,
+  p_device uuid DEFAULT NULL,
+  p_max_points int DEFAULT 240
+)
+RETURNS TABLE (
+  recorded_at timestamptz,
+  device_id uuid,
+  temperature float8, ph float8, do_level float8, salinity float8,
+  ammonia float8, nitrite float8, nitrate float8, alkalinity float8, turbidity float8,
+  conductivity float8,
+  flow_rate float8,
+  diff_pressure float8,
+  air_temp float8, humidity float8, soil_moisture float8, soil_temp float8,
+  wind_speed float8, wind_gust float8, wind_dir float8,
+  rain_day float8, rain_rate float8, solar float8, uv_index float8, pressure float8,
+  canopy_temp float8,
+  sample_count int
+)
+LANGUAGE sql STABLE AS $$
+  WITH w AS (
+    SELECT GREATEST(60, CEIL(p_hours * 3600.0 / GREATEST(LEAST(p_max_points, 500), 50))::int) AS sec
+  )
+  SELECT
+    to_timestamp(FLOOR(EXTRACT(epoch FROM r.recorded_at) / w.sec) * w.sec) AS recorded_at,
+    r.device_id,
+    AVG(r.temperature)::float8, AVG(r.ph)::float8, AVG(r.do_level)::float8, AVG(r.salinity)::float8,
+    AVG(r.ammonia)::float8, AVG(r.nitrite)::float8, AVG(r.nitrate)::float8,
+    AVG(r.alkalinity)::float8, AVG(r.turbidity)::float8,
+    AVG(r.conductivity)::float8,
+    AVG(r.flow_rate)::float8,
+    AVG(r.diff_pressure)::float8,
+    AVG(r.air_temp)::float8, AVG(r.humidity)::float8,
+    AVG(r.soil_moisture)::float8, AVG(r.soil_temp)::float8,
+    AVG(r.wind_speed)::float8, AVG(r.wind_gust)::float8,
+    CASE WHEN COUNT(r.wind_dir) = 0 THEN NULL ELSE
+      (DEGREES(ATAN2(AVG(SIN(RADIANS(r.wind_dir))), AVG(COS(RADIANS(r.wind_dir))))) + 360)::numeric % 360
+    END::float8,
+    (ARRAY_AGG(r.rain_day ORDER BY r.recorded_at DESC) FILTER (WHERE r.rain_day IS NOT NULL))[1]::float8,
+    AVG(r.rain_rate)::float8, AVG(r.solar)::float8, AVG(r.uv_index)::float8, AVG(r.pressure)::float8,
+    AVG(r.canopy_temp)::float8,
+    COUNT(*)::int
+  FROM public.water_quality_readings r, w
+  WHERE r.tank_id = p_tank
+    AND r.recorded_at > now() - make_interval(hours => LEAST(GREATEST(p_hours, 1), 24 * 366))
+    AND (p_device IS NULL OR r.device_id = p_device)
+  GROUP BY 1, 2, w.sec
+  ORDER BY 1 ASC
+$$;
+
+REVOKE ALL ON FUNCTION public.wq_series(uuid, int, uuid, int) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.wq_series(uuid, int, uuid, int) TO authenticated;
+
+-- API 스키마 캐시 갱신
+NOTIFY pgrst, 'reload schema';
+
+
+-- ==================== wq_series_nonzero.sql ====================
+-- ============================================================
+-- 그래프 평균에서 "미측정 0" 빼기 — wq_series 의 수온·pH·DO·전도도 평균
+--
+-- 이 저장소 규약상 수온·pH·DO·전도도의 0 은 "전극이 물 밖 / 못 읽음" 이다(서버 판정·화면 모두
+-- 0 을 미측정으로 본다). 그런데 구간 평균(AVG)은 0 을 그대로 넣어, 일주일 그래프(42분 칸)에서
+-- pH 가 30분 0·12분 6.0 이면 1.7 로 그려졌다. NULLIF(값, 0) 로 평균에서 뺀다.
+--
+-- wq_series_year.sql 다음에 실행한다(같은 함수를 그 판 위에 다시 만든다). 재실행 안전.
+-- 실행 전에도 웹은 멈추지 않는다 — 평균이 예전처럼 계산될 뿐이다.
+--
+-- 실행 위치: Supabase Dashboard → SQL Editor
+-- ============================================================
+
+DROP FUNCTION IF EXISTS public.wq_series(uuid, int, uuid, int);
+
+CREATE FUNCTION public.wq_series(
+  p_tank uuid,
+  p_hours int,
+  p_device uuid DEFAULT NULL,
+  p_max_points int DEFAULT 240
+)
+RETURNS TABLE (
+  recorded_at timestamptz,
+  device_id uuid,
+  temperature float8, ph float8, do_level float8, salinity float8,
+  ammonia float8, nitrite float8, nitrate float8, alkalinity float8, turbidity float8,
+  conductivity float8,
+  flow_rate float8,
+  diff_pressure float8,
+  air_temp float8, humidity float8, soil_moisture float8, soil_temp float8,
+  wind_speed float8, wind_gust float8, wind_dir float8,
+  rain_day float8, rain_rate float8, solar float8, uv_index float8, pressure float8,
+  canopy_temp float8,
+  sample_count int
+)
+LANGUAGE sql STABLE AS $$
+  WITH w AS (
+    SELECT GREATEST(60, CEIL(p_hours * 3600.0 / GREATEST(LEAST(p_max_points, 500), 50))::int) AS sec
+  )
+  SELECT
+    to_timestamp(FLOOR(EXTRACT(epoch FROM r.recorded_at) / w.sec) * w.sec) AS recorded_at,
+    r.device_id,
+    AVG(NULLIF(r.temperature, 0))::float8, AVG(NULLIF(r.ph, 0))::float8, AVG(NULLIF(r.do_level, 0))::float8, AVG(r.salinity)::float8,
+    AVG(r.ammonia)::float8, AVG(r.nitrite)::float8, AVG(r.nitrate)::float8,
+    AVG(r.alkalinity)::float8, AVG(r.turbidity)::float8,
+    AVG(NULLIF(r.conductivity, 0))::float8,
+    AVG(r.flow_rate)::float8,
+    AVG(r.diff_pressure)::float8,
+    AVG(r.air_temp)::float8, AVG(r.humidity)::float8,
+    AVG(r.soil_moisture)::float8, AVG(r.soil_temp)::float8,
+    AVG(r.wind_speed)::float8, AVG(r.wind_gust)::float8,
+    CASE WHEN COUNT(r.wind_dir) = 0 THEN NULL ELSE
+      (DEGREES(ATAN2(AVG(SIN(RADIANS(r.wind_dir))), AVG(COS(RADIANS(r.wind_dir))))) + 360)::numeric % 360
+    END::float8,
+    (ARRAY_AGG(r.rain_day ORDER BY r.recorded_at DESC) FILTER (WHERE r.rain_day IS NOT NULL))[1]::float8,
+    AVG(r.rain_rate)::float8, AVG(r.solar)::float8, AVG(r.uv_index)::float8, AVG(r.pressure)::float8,
+    AVG(r.canopy_temp)::float8,
+    COUNT(*)::int
+  FROM public.water_quality_readings r, w
+  WHERE r.tank_id = p_tank
+    AND r.recorded_at > now() - make_interval(hours => LEAST(GREATEST(p_hours, 1), 24 * 366))
+    AND (p_device IS NULL OR r.device_id = p_device)
+  GROUP BY 1, 2, w.sec
+  ORDER BY 1 ASC
+$$;
+
+REVOKE ALL ON FUNCTION public.wq_series(uuid, int, uuid, int) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.wq_series(uuid, int, uuid, int) TO authenticated;
+
+-- API 스키마 캐시 갱신
 NOTIFY pgrst, 'reload schema';
 
 

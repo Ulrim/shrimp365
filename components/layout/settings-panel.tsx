@@ -2,7 +2,8 @@
 
 import { BrandMark } from "@/components/ui/brand-mark"
 import { useState, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
+import { BRAND_NAME, modeOfPath } from "@/lib/agri-route"
 import {
   X, Settings, User, Lock, Bell, Info, Save, Eye, EyeOff,
   CheckCircle2, AlertCircle, CreditCard, Mail, Trash2, ExternalLink, RefreshCw,
@@ -15,6 +16,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { PLAN_LABELS, PLAN_COLORS, PLAN_PRICES, PLAN_LIMITS, isPaidPlan } from "@/lib/plans"
 import type { Plan } from "@/lib/plans"
+import { ModeSwitch } from "@/components/layout/mode-switch"
 
 type Tab = "account" | "subscription" | "notifications" | "info"
 
@@ -53,6 +55,8 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const { user, updateProfile, updatePassword, updateEmail, logout } = useAuth()
   const { t, locale } = useT()
   const router = useRouter()
+  // 정보 탭의 제품 이름은 지금 보는 화면의 모드를 따른다(Shrimp365 / Farm365).
+  const brandName = BRAND_NAME[modeOfPath(usePathname() ?? "")]
   const panelRef = useRef<HTMLDivElement>(null)
   const [tab, setTab] = useState<Tab>("account")
 
@@ -247,6 +251,12 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
           {/* ── Account tab ── */}
           {tab === "account" && (
             <>
+              {/* 기본 화면(양식장 / 스마트팜) — 설계서 mode-split.md 3장. 계정 설정이므로
+                  계정 탭 맨 위에 둔다. 누르면 저장하고 그 화면으로 이동한다. */}
+              <ModeSwitch variant="settings" onSwitched={onClose} />
+
+              <div className="border-t border-border" />
+
               {/* Name */}
               <form onSubmit={handleSaveName} className="space-y-3">
                 <div className="flex items-center gap-2 mb-1">
@@ -393,7 +403,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               <div className="p-4 bg-muted border border-border rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">{t.settings.currentPlan}</span>
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#1E40AF]/10 text-[#1E40AF] border border-[#1E40AF]/25">
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-brand-a10 text-brand-fg border border-brand-a25">
                     Free
                   </span>
                 </div>
@@ -444,7 +454,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               <div className="flex flex-col items-center gap-3 py-4 text-center">
                 <BrandMark size={56} icon={28} />
                 <div>
-                  <p className="text-foreground font-bold text-lg">Shrimp365</p>
+                  <p className="text-foreground font-bold text-lg">{brandName}</p>
                   <p className="text-muted-foreground text-sm">{t.dashboard.subtitle}</p>
                   <p className="text-muted-foreground text-xs mt-1">v1.0.0</p>
                 </div>

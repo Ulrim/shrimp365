@@ -2,18 +2,16 @@
 
 import Link from "next/link"
 import { useT } from "@/lib/i18n-context"
-import { useAgriRoute } from "@/lib/agri-route"
 import { Droplets, BookOpen, ArrowLeft } from "lucide-react"
 
 export function RecordHubView() {
   const { t } = useT()
-  const { href: withAgri } = useAgriRoute()
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] py-10 px-4">
       <div className="w-full max-w-lg space-y-8">
         <div className="flex items-center gap-3">
-          <Link href={withAgri("/home")} aria-label={t.recordX.backToHomeAria} className="text-muted-foreground hover:text-foreground transition-colors p-2 -ml-2 min-h-[44px] flex items-center">
+          <Link href="/home" aria-label={t.recordX.backToHomeAria} className="text-muted-foreground hover:text-foreground transition-colors p-2 -ml-2 min-h-[44px] flex items-center">
             <ArrowLeft className="w-5 h-5" aria-hidden="true" />
           </Link>
           <h1 className="text-2xl font-bold text-foreground">{t.record.chooseTitle}</h1>
@@ -21,7 +19,7 @@ export function RecordHubView() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Link
-            href={withAgri("/record/water-quality")}
+            href="/record/water-quality"
             aria-label={`${t.recordX.waterQualityAria} - ${t.recordX.waterQualitySub}`}
             className="group flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-ocean-200 bg-ocean-50 hover:bg-ocean-100 hover:border-ocean-400 transition-all duration-200 py-12 px-6 text-center shadow-sm hover:shadow-md min-h-[44px]"
           >
@@ -35,7 +33,7 @@ export function RecordHubView() {
           </Link>
 
           <Link
-            href={withAgri("/record/journal")}
+            href="/record/journal"
             aria-label={`${t.recordX.journalAria} - ${t.recordX.journalSub}`}
             className="group flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-400 transition-all duration-200 py-12 px-6 text-center shadow-sm hover:shadow-md min-h-[44px]"
           >

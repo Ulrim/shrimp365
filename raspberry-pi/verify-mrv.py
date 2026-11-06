@@ -263,37 +263,44 @@ check("수질 device_key 를 건드리지 않는다",
       "device_key = x" in (tmp / "old.ini").read_text(encoding="utf-8"), True)
 
 print("\n⑦ 운전 모드 — 설정 파일 왕복")
-# main() 이 하는 것과 같은 길: [device] mode 를 읽고, 없으면 [nutrient] enabled 로 추론.
+# main() 이 하는 것과 같은 길: [webui] mode 를 읽고, 없으면 옛 파일의 [device] mode 를 본다.
+# 양액 플래그로 추론하지 않는다(modes.resolve 의 주석).
 def resolve_from(text):
     cfg = configparser.ConfigParser()
     cfg.read_string(text)
-    declared = cfg.get("device", "mode", fallback="") if cfg.has_section("device") else ""
+    declared = cfg.get("webui", "mode", fallback="").strip() or (
+        cfg.get("device", "mode", fallback="") if cfg.has_section("device") else "")
     nut = cfg.getboolean("nutrient", "enabled", fallback=False) \
         if cfg.has_section("nutrient") else False
     return modes.resolve(declared, nut)
 
 check("기존 양식장 설치(모드 없음·양액 끔)",
-      resolve_from("[nutrient]\nenabled = false\n"), "aquaculture")
-check("기존 수경재배 설치(모드 없음·양액 켬)",
-      resolve_from("[nutrient]\nenabled = true\n"), "smartfarm")
-check("[nutrient] 구간조차 없는 설치", resolve_from("[server]\nendpoint = x\n"), "aquaculture")
-check("모드가 적혀 있으면 양액 플래그를 이긴다",
-      resolve_from("[device]\nmode = mrv\n[nutrient]\nenabled = true\n"), "mrv")
+      resolve_from("[nutrient]\nenabled = false\n"), "shrimp")
+check("양액만 켠 설치(모드 없음)는 그대로 양식장 화면",
+      resolve_from("[nutrient]\nenabled = true\n"), "shrimp")
+check("[nutrient] 구간조차 없는 설치", resolve_from("[server]\nendpoint = x\n"), "shrimp")
+check("모드가 적혀 있으면 양액 플래그와 무관하다",
+      resolve_from("[webui]\nmode = mrv\n[nutrient]\nenabled = true\n"), "mrv")
+check("옛 파일의 [device] mode 도 읽는다(옛 이름 포함)",
+      (resolve_from("[device]\nmode = mrv\n"), resolve_from("[device]\nmode = smartfarm\n")),
+      ("mrv", "agriculture"))
+check("[webui] 가 [device] 보다 앞선다",
+      resolve_from("[device]\nmode = mrv\n[webui]\nmode = shrimp\n"), "shrimp")
 
 cfg2 = tmp / "mode.ini"
 cfg2.write_text("; 머리말\n[server]\nendpoint = x\n[nutrient]\nenabled = false\n",
                 encoding="utf-8")
-check("[device] 가 없으면 만들어 붙인다",
+check("[webui] 가 없으면 만들어 붙인다",
       (S.save_mode(cfg2, "mrv"), resolve_from(cfg2.read_text(encoding="utf-8"))),
       (True, "mrv"))
 check("머리말 주석을 가리지 않는다",
       cfg2.read_text(encoding="utf-8").startswith("; 머리말"), True)
 check("두 번째 변경은 그 줄만 고친다",
-      (S.save_mode(cfg2, "smartfarm"),
+      (S.save_mode(cfg2, "agriculture"),
        cfg2.read_text(encoding="utf-8").count("mode ="),
-       resolve_from(cfg2.read_text(encoding="utf-8"))), (True, 1, "smartfarm"))
+       resolve_from(cfg2.read_text(encoding="utf-8"))), (True, 1, "agriculture"))
 check("예시 설정 파일은 양식장으로 읽힌다",
-      resolve_from((HERE / "config.example.ini").read_text(encoding="utf-8")), "aquaculture")
+      resolve_from((HERE / "config.example.ini").read_text(encoding="utf-8")), "shrimp")
 
 print("\n⑧ MRV 기본 화면이 쓸 값")
 lasts2 = S.MrvLastReadings(tmp / "home.json")

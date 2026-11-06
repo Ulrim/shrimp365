@@ -14,10 +14,13 @@ import { useT } from "@/lib/i18n-context"
 type Result = { device_name: string; tank_name: string; serial: string | null }
 
 /**
- * 기기 화면에 뜬 6자리 코드를 입력해 이 수조에 연결한다.
+ * 기기 화면에 뜬 6자리 코드를 입력해 이 수조(베드)에 연결한다.
  *
  * 긴 API 키를 장비에 옮겨 적는 대신, 로그인한 계정 주인이 코드를 승인하는 방식.
  * 승인 전까지 장비는 아무 데이터도 올릴 수 없다.
+ *
+ * 버튼은 셸 강조색 토큰(`bg-brand`)을 따른다 — 새우 화면에서는 #1E40AF, 농업
+ * 화면(/daumlabs)에서는 녹색. 새우·농업 농장 화면이 함께 쓰는 조각이라서다.
  */
 export function PairDeviceDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void }) {
   const { t } = useT()
@@ -106,7 +109,7 @@ export function PairDeviceDialog({ tank, onSuccess }: { tank: Tank; onSuccess: (
               </p>
             </div>
             <DialogFooter>
-              <Button onClick={close} className="bg-ocean-500 hover:bg-ocean-600 text-white w-full">
+              <Button onClick={close} className="bg-brand hover:bg-brand-hover text-white w-full">
                 {t.common.close}
               </Button>
             </DialogFooter>
@@ -159,7 +162,7 @@ export function PairDeviceDialog({ tank, onSuccess }: { tank: Tank; onSuccess: (
               <Button
                 type="submit"
                 disabled={saving || code.length !== 6}
-                className="bg-ocean-500 hover:bg-ocean-600 text-white w-full min-h-[44px]"
+                className="bg-brand hover:bg-brand-hover text-white w-full min-h-[44px]"
               >
                 {saving && <Loader2 className="w-4 h-4 animate-spin mr-1.5" />}
                 {saving ? t.pairDevice.connecting : t.pairDevice.connect}

@@ -36,8 +36,15 @@ SURPLUS_MIN_SAMPLES = 10
 
 
 def _num(values: dict, key: str):
+    """판정에 쓸 값. 0 은 이 저장소 규약상 '미측정'(전극이 물 밖)이라 뺀다 — 단 **용존산소는 예외**.
+    DO 0.0 mg/L 는 실제로 일어나는 가장 위험한 값이고(0.005 아래는 소수 둘째 자리 반올림으로 0.0),
+    빼면 바로 그때 '즉시 최대 폭기' 권고가 사라진다. 전극이 물 밖이어도 산소공급기를 켜라는 쪽이 안전하다."""
     v = values.get(key)
-    return float(v) if isinstance(v, (int, float)) and v != 0 else None
+    if not isinstance(v, (int, float)) or isinstance(v, bool):
+        return None
+    if v == 0 and key != "do_level":
+        return None
+    return float(v)
 
 
 def _find(anomalies: list[dict], field: str, *kinds: str):

@@ -1,8 +1,12 @@
+import { ENV_KEYS, type EnvParamKey, type EnvEach } from "@/lib/env-params"
 import { supabase, DbFarm, DbTank, DbWaterQuality, DbJournalEntry, DbSensorDevice, DbProductionCycle, DbGrowthSample, DbCycleCost, DbCycleHarvest, DbInventoryItem, DbInventoryTransaction } from "@/lib/supabase"
-import { Farm, Tank, WaterQualityReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction } from "@/types"
+import { Farm, Tank, WaterQualityReading, PowerReading, JournalEntry, DiagnosisResult, Alert, SensorDevice, ProductionCycle, GrowthSample, CycleCost, CycleHarvest, InventoryItem, InventoryTransaction, FieldRiskJudgement } from "@/types"
 import { checkThresholds, checkRecipe, hasRecipe, resolvableParameters, planMissingInputAlerts, MISSING_INPUT_PARAMETER, type TankRecipe, type FarmProfile } from "@/lib/thresholds"
 import { PLAN_LIMITS, type Plan } from "@/lib/plans"
 import { isTestAccount } from "@/lib/mock-data"
+import { isMissingColumnError } from "@/lib/wq-source"
+import type { ControlStateRow } from "@/lib/power-remote"
+import type { IrrigationReading } from "@/lib/irrigation"
 
 // ─────────────────────────────────────────────
 // 타입 변환 헬퍼
@@ -42,7 +46,7 @@ function joinedFarmType(row: { farms?: unknown }): "shrimp" | "agriculture" {
  *  farm_type 칸이 없어 이름으로 집으면 쿼리 전체가 400 으로 죽는다.
  *
  *  조인이 비면(수조가 지워진 알림 등) undefined 를 준다. "모르는 것"과
- *  "새우인 것"을 구분해 두고, 읽는 쪽(belongsToAgriScreen)이 새우로 본다. */
+ *  "새우인 것"을 구분해 두고, 읽는 쪽(각 뷰의 farm_type 필터)이 새우로 본다. */
 function joinedTankFarmType(joined: unknown): "shrimp" | "agriculture" | undefined {
   const tank = Array.isArray(joined) ? joined[0] : joined
   if (!tank) return undefined
@@ -66,6 +70,12 @@ function toTank(t: DbTank, farmType?: "shrimp" | "agriculture"): Tank {
   }
 }
 
+/** 수질 측정 칸 — 이 중 하나라도 있으면 '수질 기록' 이다(환경·기상만 든 줄과 가른다). */
+const WATER_COLS = [
+  "temperature", "ph", "do_level", "salinity", "conductivity", "flow_rate", "diff_pressure",
+  "ammonia", "nitrite", "nitrate", "alkalinity", "turbidity",
+] as const
+
 function toWaterQuality(w: DbWaterQuality): WaterQualityReading {
   return {
     id: w.id,
@@ -86,6 +96,8 @@ function toWaterQuality(w: DbWaterQuality): WaterQualityReading {
     // 유량·차압도 전도도와 같은 이유로 0 을 채우지 않는다.
     flow_rate: w.flow_rate ?? null,
     diff_pressure: w.diff_pressure ?? null,
+    // 환경·기상 — 안 재는 장비가 대부분이라 역시 0 을 채우지 않는다.
+    ...Object.fromEntries(ENV_KEYS.map(k => [k, w[k] ?? null])),
     recorded_at: w.recorded_at,
     created_at: w.created_at,
   }
@@ -251,7 +263,7 @@ type WqSeriesRow = {
   conductivity?: number | null
   flow_rate?: number | null
   diff_pressure?: number | null
-}
+} & Partial<Record<EnvParamKey, number | null>>  // environment_readings.sql 판부터 함께 온다
 
 export async function getWaterQuality(tankId: string, hours = 168, deviceId?: string | null): Promise<WaterQualityReading[]> {
   // ① 구간 평균 시리즈 (전 구간 커버, 행 수 상한 안전)
@@ -271,6 +283,8 @@ export async function getWaterQuality(tankId: string, hours = 168, deviceId?: st
       conductivity: r.conductivity ?? null,
       flow_rate: r.flow_rate ?? null,
       diff_pressure: r.diff_pressure ?? null,
+      // 환경·기상 — 이 칸을 빼먹으면 대시보드 "환경·기상" 카드가 늘 비어 보인다.
+      ...Object.fromEntries(ENV_KEYS.map(k => [k, r[k] ?? null])),
       recorded_at: r.recorded_at,
       created_at: r.recorded_at,
     }))
@@ -291,11 +305,80 @@ export async function getWaterQuality(tankId: string, hours = 168, deviceId?: st
   return (data || []).map(toWaterQuality).reverse()
 }
 
+/** 베드의 분전반 전력 회로 기록(최근 hours 시간, 오래된 것부터).
+ *  power_readings.sql 을 아직 안 돌린 DB 면 빈 배열 — 카드가 안 뜰 뿐 화면은 멀쩡하다. */
+export async function getPowerReadings(tankId: string, hours = 24): Promise<PowerReading[]> {
+  const since = new Date(Date.now() - hours * 3_600_000).toISOString()
+  const { data, error } = await supabase
+    .from("power_readings")
+    .select("tank_id, circuit_id, circuit_type, state, power_w, current_a, voltage_v, energy_today_kwh, device_temp, recorded_at")
+    .eq("tank_id", tankId)
+    .gte("recorded_at", since)
+    .order("recorded_at", { ascending: false })
+    .limit(1000)   // API 상한 — 최신 순으로 받아야 회로가 많아도 지금 값이 잘리지 않는다(getWaterQuality ② 와 같은 이유)
+  if (error) return []
+  const rows = ((data || []) as PowerReading[]).reverse()
+  // 상한에 걸렸으면 가장 오래된 시각의 묶음은 일부 회로만 들어왔을 수 있다(인입 없이 분기 몇 개만 등) —
+  // 그 점을 그래프 첫 점으로 쓰면 전체 전력이 뚝 떨어져 보인다. 그 시각 줄을 통째로 버린다.
+  if (rows.length >= 1000) {
+    const oldest = rows[0].recorded_at
+    return rows.filter(r => r.recorded_at !== oldest)
+  }
+  return rows
+}
+
+/** 수조·베드의 관수 밸브 기록(최근 hours 시간, 오래된 것부터). 없거나 irrigation_readings.sql 전이면 []. */
+export async function getIrrigationReadings(tankId: string, hours = 24): Promise<IrrigationReading[]> {
+  const since = new Date(Date.now() - hours * 3_600_000).toISOString()
+  const { data, error } = await supabase
+    .from("irrigation_readings")
+    .select("valve_id, state, flow_lpm, volume_today_l, recorded_at")
+    .eq("tank_id", tankId)
+    .gte("recorded_at", since)
+    .order("recorded_at", { ascending: false })
+    .limit(1000)   // 최신 순으로 받아야 밸브가 많아도 지금 값이 잘리지 않는다
+  if (error) return []
+  return ((data || []) as IrrigationReading[]).reverse()
+}
+
+/** 수조·베드에 붙은 장비들의 전력 제어 상태(power_remote.sql). 없거나 SQL 전이면 [] — 카드는 버튼 없이 그린다. */
+export async function getPowerControl(tankId: string): Promise<ControlStateRow[]> {
+  const { data, error } = await supabase
+    .from("power_control_state")
+    .select("device_id, control, updated_at")
+    .eq("tank_id", tankId)
+  if (error) return []
+  return (data || []) as ControlStateRow[]
+}
+
+/** 베드의 센서별 환경 값 기록(최근 hours 시간, 오래된 것부터). 없거나 env_sensors.sql 전이면 [].
+ *  env_sensors 칸은 wq_series 가 돌려주지 않는다(구간 평균으로 묶을 수 없다) — 따로 읽는다.
+ *  장비가 5분마다 올리므로 24시간이 288줄이다. API 상한(1,000행) 때문에 최신 순으로 받아 뒤집는다. */
+export async function getEnvSensorSeries(tankId: string, hours = 24): Promise<{ each: EnvEach; recorded_at: string }[]> {
+  const since = new Date(Date.now() - hours * 3_600_000).toISOString()
+  const { data, error } = await supabase
+    .from("water_quality_readings")
+    .select("env_sensors, recorded_at")
+    .eq("tank_id", tankId)
+    .not("env_sensors", "is", null)
+    .gte("recorded_at", since)
+    .order("recorded_at", { ascending: false })
+    .limit(1000)
+  if (error || !data) return []
+  return (data as { env_sensors: EnvEach | null; recorded_at: string }[])
+    .filter(r => r.env_sensors)
+    .map(r => ({ each: r.env_sensors as EnvEach, recorded_at: r.recorded_at }))
+    .reverse()
+}
+
 export async function getLatestWaterQuality(tankId: string, deviceId?: string | null): Promise<WaterQualityReading | null> {
+  // 수질 칸이 하나라도 있는 줄만 — 수질 센서 없이 환경·기상만 올리는 장비(노지)의 줄이
+  // 마지막이면 최신 EC·pH 가 0·미측정으로 깜빡인다(같은 베드에 양액 장비가 함께 있을 때).
   let query = supabase
     .from("water_quality_readings")
     .select("*")
     .eq("tank_id", tankId)
+    .or(WATER_COLS.map(c => `${c}.not.is.null`).join(","))
   if (deviceId) query = query.eq("device_id", deviceId)
 
   const { data, error } = await query
@@ -311,11 +394,22 @@ export async function insertWaterQuality(
   tankId: string,
   values: Omit<WaterQualityReading, "id" | "tank_id" | "created_at">
 ) {
-  const { data, error } = await supabase
+  // 손으로 적은 기록이라는 표시(source='manual') — 관리자 콘솔이 수기 기록을 가려 본다.
+  // source 칸은 supabase/migrations/wq_source.sql 로 생긴다. 실행 전 DB 에서는 칸이
+  // 없어 insert 가 실패하므로, 그때만 source 를 빼고 한 번 더 넣는다(수기 입력이 깨지지 않게).
+  const row = { ...values, tank_id: tankId }
+  let { data, error } = await supabase
     .from("water_quality_readings")
-    .insert({ ...values, tank_id: tankId })
+    .insert({ ...row, source: "manual" })
     .select()
     .single()
+  if (error && isMissingColumnError(error, "source")) {
+    ;({ data, error } = await supabase
+      .from("water_quality_readings")
+      .insert(row)
+      .select()
+      .single())
+  }
 
   if (error) throw error
 
@@ -466,9 +560,9 @@ export async function insertWaterQuality(
 /** journal_entries 행 → JournalEntry.
  *
  *  조회·생성·수정 세 경로가 **같은 매핑**을 쓰게 한군데로 모은다. 같은
- *  타입인데 경로마다 필드가 있다 없다 하면, 화면의 축 필터
- *  (belongsToAgriScreen)가 방금 저장한 일지를 남의 축으로 보고 목록에서
- *  지워 버린다 — 저장은 됐는데 카드가 사라지니 농가는 다시 쓴다.
+ *  타입인데 경로마다 필드가 있다 없다 하면, 화면의 farm_type 필터가 방금
+ *  저장한 일지를 남의 화면 몫으로 보고 목록에서 지워 버린다 — 저장은 됐는데
+ *  카드가 사라지니 농가는 다시 쓴다.
  *
  *  farm_type 은 일지 자신의 칸이 아니라 tanks→farms 조인에서 파생한다.
  *  그래서 세 경로 모두 select 에 `tanks(name, farms(*))` 를 실어야 한다.
@@ -933,6 +1027,18 @@ export async function getSensorDevices(tankId: string): Promise<SensorDevice[]> 
   return (data || []).map(toSensorDevice)
 }
 
+/** 여러 베드의 장비를 한 번에 — 대시보드 베드 카드가 꺼 둔 센서 칸을 가릴 때 쓴다. */
+export async function getSensorDevicesForTanks(tankIds: string[]): Promise<SensorDevice[]> {
+  if (!tankIds.length) return []
+  const { data, error } = await supabase
+    .from("sensor_devices")
+    .select("*")
+    .in("tank_id", tankIds)
+
+  if (error) throw error
+  return (data || []).map(toSensorDevice)
+}
+
 export async function createSensorDevice(values: {
   tank_id: string
   name: string
@@ -1232,4 +1338,59 @@ export async function deleteInventoryTransaction(id: string, itemId: string, typ
     const delta = type === "in" ? -quantity : quantity
     await supabase.from("inventory_items").update({ current_stock: Math.max(0, item.current_stock + delta), updated_at: new Date().toISOString() }).eq("id", itemId)
   }
+}
+
+// ─────────────────────────────────────────────
+// 노지 재해위험 판단 (OFDF) — docs/plans/openfield-merge.md 6장
+// ─────────────────────────────────────────────
+
+/** jsonb 칸은 모양을 믿지 않는다 — 배열이 아니면 빈 배열, 객체가 아니면 빈 객체. */
+function toFieldRisk(r: Record<string, unknown>): FieldRiskJudgement {
+  const env = r.environment
+  return {
+    id: String(r.id),
+    tank_id: String(r.tank_id),
+    device_id: (r.device_id as string | null) ?? null,
+    ts: String(r.ts),
+    risk: r.risk as FieldRiskJudgement["risk"],
+    horizon_h: (Number(r.horizon_h) === 1 ? 1 : 3),
+    level: Math.min(3, Math.max(0, Number(r.level) || 0)) as FieldRiskJudgement["level"],
+    level_name: (r.level_name as string | null) ?? null,
+    confidence: typeof r.confidence === "number" ? r.confidence : null,
+    model_version: (r.model_version as string | null) ?? null,
+    expected_onset: (r.expected_onset as string | null) ?? null,
+    evidence: Array.isArray(r.evidence) ? (r.evidence as FieldRiskJudgement["evidence"]) : [],
+    actions: Array.isArray(r.actions) ? (r.actions as FieldRiskJudgement["actions"]) : [],
+    environment: env && typeof env === "object" && !Array.isArray(env) ? (env as FieldRiskJudgement["environment"]) : {},
+    created_at: String(r.created_at),
+  }
+}
+
+/** 이 베드의 risk × horizon 별 **최신 1건**(최대 5 × 2 = 10건). RLS 적용(소유자·열람자).
+ *
+ *  최근 50건을 받아 클라이언트에서 그룹별 첫 행만 남긴다 — 한 주기(5분)에 최대 10행이
+ *  들어오므로 50건이면 다섯 주기치, 어느 위험이 한 주기 빠져도 그 전 값이 잡힌다.
+ *  테이블이 아직 없으면(field_risk.sql 미실행) 빈 배열 — 노지 카드가 조용히 숨는다. */
+export async function getFieldRiskLatest(tankId: string): Promise<FieldRiskJudgement[]> {
+  const { data, error } = await supabase
+    .from("field_risk_judgements")
+    .select("*")
+    .eq("tank_id", tankId)
+    .order("ts", { ascending: false })
+    .limit(50)
+  if (error) {
+    const missing = error.code === "42P01" || error.code === "PGRST205"
+      || (/field_risk_judgements/.test(error.message ?? "") && /(does not exist|not find|schema cache)/i.test(error.message ?? ""))
+    if (missing) return []
+    throw error
+  }
+  const seen = new Set<string>()
+  const out: FieldRiskJudgement[] = []
+  for (const row of (data ?? []) as Record<string, unknown>[]) {
+    const key = `${row.risk}:${row.horizon_h}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(toFieldRisk(row))
+  }
+  return out
 }

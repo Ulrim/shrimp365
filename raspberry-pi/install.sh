@@ -24,8 +24,8 @@ SERVICE_USER=shrimp365
 
 # 모듈을 새로 만들면 여기와 release.py 의 PAYLOAD 에 **함께** 넣는다. 한쪽에만
 # 넣으면 새로 설치한 장비와 업데이트한 장비가 서로 다른 파일 집합으로 돈다.
-# verify.py 의 ⑧ 이 두 목록을 대조한다.
-MODULES=(shrimp365_sensor.py display.py webui.py wifi.py buffer.py history.py updater.py limits.py anomaly.py advice.py modes.py verify.py)
+# verify.py 가 두 목록을 대조한다.
+MODULES=(shrimp365_sensor.py display.py webui.py wifi.py buffer.py history.py updater.py limits.py anomaly.py advice.py field_env.py wireless.py power_control.py power_remote.py modes.py verify.py)
 
 # 시스템 파일 — 모듈과 달리 /opt 밖으로 간다. 없으면 설치를 멈춘다.
 POLKIT_RULE=50-shrimp365-nm.rules
@@ -79,6 +79,51 @@ for f in "${MODULES[@]}"; do
 done
 # 다시 설치했을 때 옛 바이트코드가 남아 헷갈리는 일을 막는다.
 rm -rf "$APP_DIR/__pycache__"
+# 무선 센서 수집기 설치 도구 — 화면 [설정] → [무선 센서] 가 이 경로를 안내한다.
+# 실제 설치(브로커·Zigbee2MQTT·수집기)는 동글을 꽂은 뒤 setup-wireless.sh 가 한다.
+if [ -f "$SRC/setup-wireless.sh" ]; then
+  install -m 755 "$SRC/setup-wireless.sh" "$APP_DIR/setup-wireless.sh"
+fi
+# 투야 블루투스 토양센서 — 설치(setup-tuya-ble.sh)와 등록(tuya_ble_setup.py, 투야 클라우드 열쇠).
+for f in setup-tuya-ble.sh tuya_ble_setup.py; do
+  if [ -f "$SRC/$f" ]; then install -m 755 "$SRC/$f" "$APP_DIR/$f"; fi
+done
+# 무선 수집기 코드(/opt/shrimp365/field/{src,scripts}) — setup-wireless.sh 가 깐 서비스가 여기서 돈다.
+# 폴더를 통째로 지우고 바꾸면 안 된다: 저장소(git)에서 받은 판의 field/ 에는 설정 견본만 있어,
+# 예전에는 업데이트할 때마다 수집기가 지워져 지그비·기상 값이 끊겼다. 덮어쓰기만 하고,
+# 수집기 코드는 설치 꾸러미(field/src) 또는 저장소(../openfield) 에서 새 것으로 바꿔 끼운다.
+if [ -d "$SRC/field" ]; then
+  install -d -m 755 "$APP_DIR/field"
+  cp -r "$SRC/field/." "$APP_DIR/field/"
+  COL_SRC=""; COL_SCRIPTS=""
+  if [ -d "$SRC/field/src/ofdf" ]; then
+    COL_SRC="$SRC/field/src"; COL_SCRIPTS="$SRC/field/scripts"
+  elif [ -d "$SRC/../openfield/src/ofdf" ]; then
+    COL_SRC="$SRC/../openfield/src"; COL_SCRIPTS="$SRC/../openfield/scripts"
+  fi
+  # 원본과 대상이 같은 폴더면(설치된 곳에서 다시 돌림) 건드리지 않는다 — 지우면 원본도 사라진다.
+  if [ -n "$COL_SRC" ] && [ "$(realpath "$COL_SRC")" = "$(realpath -m "$APP_DIR/field/src")" ]; then
+    COL_SRC=""
+  fi
+  if [ -n "$COL_SRC" ]; then
+    install -d -m 755 "$APP_DIR/field/src" "$APP_DIR/field/scripts"
+    rm -rf "$APP_DIR/field/src/ofdf.new"
+    cp -r "$COL_SRC/ofdf" "$APP_DIR/field/src/ofdf.new"     # 다 복사한 뒤에 바꿔 끼운다
+    rm -rf "$APP_DIR/field/src/ofdf"
+    mv "$APP_DIR/field/src/ofdf.new" "$APP_DIR/field/src/ofdf"
+    for s in zigbee_bridge.py rtl433_bridge.py ecowitt_receiver.py tuya_ble_bridge.py; do
+      [ -f "$COL_SCRIPTS/$s" ] && install -m 644 "$COL_SCRIPTS/$s" "$APP_DIR/field/scripts/$s"
+    done
+  fi
+  find "$APP_DIR/field" -name __pycache__ -type d -prune -exec rm -rf {} +
+  chmod -R a+rX "$APP_DIR/field"
+  # 센서 목록에는 투야 블루투스 열쇠가 들어간다 — 예전 판이 644 로 만든 파일도 남이 못 읽게.
+  if [ -f /var/lib/shrimp365/field/devices.yaml ]; then chmod o-rwx /var/lib/shrimp365/field/devices.yaml; fi
+  # 깔려 있는 수집기는 새 코드로 다시 시작한다(지워졌다 되살아난 경우 포함 — 멈춰 있어도 켜 둔 것이면).
+  for u in farm365-zigbee farm365-rtl433 farm365-ecowitt farm365-tuyable; do
+    if systemctl is-enabled --quiet "$u" 2>/dev/null; then systemctl restart "$u" || true; fi
+  done
+fi
 
 # ── 3. 설정 파일 ─────────────────────────────────────────────────────────────
 install -d -m 755 "$CONF_DIR"
@@ -162,6 +207,22 @@ if [ -d /run/systemd/system ]; then
 else
   echo "==> systemd 가 없어 서비스 등록을 건너뜁니다."
   RUNNING=no
+fi
+
+# ── 6. 투야 블루투스 준비 (처음 한 번) ───────────────────────────────────────
+# 장비 화면 [무선 센서] 에서 블루투스 토양센서를 등록하려면 전용 파이썬(bleak·tinytuya)이 있어야 한다.
+# 업데이트 때 한 번 깔아 두면 터미널을 쓸 일이 없다. 인터넷이 없거나 실패해도 설치는 계속한다.
+# 건너뛰려면 SHRIMP_SKIP_BLE=1.
+# 준비가 끝까지 됐는지는 setup-tuya-ble.sh 가 마지막에 남기는 표시(.ready)로 본다 — 전용 파이썬만 만들어지고
+# 꾸러미 설치(인터넷)에서 실패한 장비도 다음 업데이트 때 다시 시도한다. 꾸러미가 늘면(1.9.6 bleak-retry-connector)
+# 표시의 판 번호가 달라 다시 깐다. 다시 돌려도 안전하다(멱등).
+BLE_READY=/opt/shrimp365/ble-venv/.ready
+BLE_READY_VER=2
+if [ -d /run/systemd/system ] && [ -f "$SRC/setup-tuya-ble.sh" ] && [ "${SHRIMP_SKIP_BLE:-0}" != 1 ] \
+   && { [ "$(cat "$BLE_READY" 2>/dev/null || true)" != "$BLE_READY_VER" ] \
+        || [ ! -f /etc/systemd/system/farm365-tuyable.service ]; }; then
+  echo "==> 블루투스 센서 준비 (몇 분 — 인터넷 필요)"
+  bash "$SRC/setup-tuya-ble.sh" || echo "   (블루투스 준비를 못 했습니다 — 다음 업데이트 때 다시 합니다. 손으로: sudo bash setup-tuya-ble.sh)"
 fi
 
 echo

@@ -5,25 +5,21 @@ import { MRV_PLATFORM_IS_INTERNAL, MRV_PLATFORM_URL, SHOW_BOARD, showCardNews } 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { useT } from "@/lib/i18n-context"
-import { useAgriRoute } from "@/lib/agri-route"
+import { useT, useAgriT } from "@/lib/i18n-context"
+import { BRAND_NAME, isAgriPath } from "@/lib/agri-route"
 import { cn } from "@/lib/utils"
 import {
   Home, LayoutDashboard, Droplets, BookOpen, Building2,
   BrainCircuit, BarChart3, Settings, LogOut,
   ChevronLeft, ChevronRight, Leaf, FlaskConical, Package, ShieldCheck,
-  ClipboardList, HelpCircle, MessageSquare, Layers, Radar,
+  ClipboardList, HelpCircle, MessageSquare, Layers, Video, Beaker,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
 import { LanguageSwitcher } from "@/components/ui/language-switcher"
-import { isMonitorAccount } from "@/lib/mock-data"
+import { adminAccess } from "@/lib/admin-access"
 import { localizedHref, stripLocalePrefix } from "@/lib/marketing-locale"
 import type { IconComponent } from "@/types"
-
-// 농업 화면(/daumlabs)에 없는 메뉴 — 새우 전용 문맥(설계서 4-3). "숨김"이 아니라
-// `/daumlabs` 아래에 페이지 자체가 없어 접두사를 붙일 수 없는 항목이다.
-const AGRI_HIDDEN = new Set(["/production", "/inventory", "/ai-advisor", "/reports"])
 
 const DropMark = ({ size = 17 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -36,18 +32,21 @@ export function Sidebar() {
   const router = useRouter()
   const { user, logout } = useAuth()
   const { t, locale } = useT()
-  // 농업 화면 판정은 주소로 한다. withAgri()는 새우 화면에서 문자열을 그대로 돌려준다.
-  const { isAgri, href: withAgri } = useAgriRoute()
+  const agri = useAgriT()
+  // 농업 화면 판정은 주소로 한다(설계서 mode-split.md 2장). 메뉴는 모드별로
+  // **명시 배열**을 둔다 — 새우 배열은 예전 그대로고, 농업 배열은 /daumlabs 리터럴이다.
+  const isAgri = isAgriPath(pathname ?? "")
   const [collapsed, setCollapsed] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const isAdmin = user?.role === "admin" || isMonitorAccount(user?.email)
-  // 관제센터는 관리자·매니저만. 노출은 편의일 뿐이고 실제 차단은 서버 API 가 한다.
-  const canControl = isAdmin || user?.role === "manager"
+  // 관리자 콘솔 링크 — 콘솔 가드와 같은 판정(lib/admin-access.ts, 총관리자 이메일 포함).
+  // role 은 프로필이 도착한 뒤에 채워지므로 링크가 조금 늦게 나타날 수 있다(사라지지는 않는다).
+  // 노출은 편의일 뿐이고 실제 차단은 서버 API 가 한다.
+  const showConsole = adminAccess(user).console
   /**
-   * 탄소 MRV 플랫폼 진입을 보여 줄 대상.
+   * 탄소 MRV 플랫폼 진입을 보여 줄 대상 — 관리자 콘솔 권한자와 매니저.
    *
-   * 지금은 관제센터(`canControl`)와 같은 집합이지만 **변수를 따로 둔다** — 이유가 다르기
-   * 때문이다. 관제센터는 권한이 없으면 서버가 막는 기능이고, MRV 는 조직 초대제인 **별도
+   * 관리자 콘솔(`showConsole`)과 비슷한 집합이지만 **변수를 따로 둔다** — 이유가 다르기
+   * 때문이다. 콘솔은 권한이 없으면 서버가 막는 기능이고, MRV 는 조직 초대제인 **별도
    * 플랫폼**이다. 초대되지 않은 계정이 들어가면 "초대되지 않음" 안내만 보게 되므로, 그
    * 화면을 대부분 사용자에게 들이밀지 않으려고 좁힌다. 한쪽 기준이 바뀔 때 다른 쪽이
    * 조용히 따라가면 안 된다.
@@ -55,8 +54,18 @@ export function Sidebar() {
    * 노출은 편의일 뿐이고 실제 접근 판정은 MRV 쪽 세션·조직 조회가 한다 — 이 메뉴가
    * 없어도 주소를 직접 치면 들어갈 수 있고, 그래야 초대받은 작업자가 막히지 않는다.
    */
-  const canSeeMrv = isAdmin || user?.role === "manager"
+  const canSeeMrv = showConsole || user?.role === "manager"
 
+  // 두 모드가 함께 보는 항목(게시판·카드뉴스) — 조건은 예전 그대로.
+  // 관제센터·시스템 모니터링은 관리자 콘솔(/admin)로 옮겼다 — 하단 링크 하나로 들어간다.
+  // 공개 콘텐츠는 언어별 주소가 따로 있다. 접두사 없는 주소는 한국어로
+  // 고정되므로, 로그인한 사용자의 언어에 맞는 주소로 보낸다.
+  const SHARED_NAV = [
+    ...(SHOW_BOARD ? [{ href: localizedHref("/board", locale),    icon: MessageSquare, label: t.board.title }] : []),
+    ...(showCardNews(locale) ? [{ href: localizedHref("/cardnews", locale), icon: Layers,        label: t.cardNews.title }] : []),
+  ]
+
+  // ── 새우 모드 메뉴(기존 그대로) ──
   const RECORD_NAV = [
     { href: "/record/water-quality", icon: Droplets,       label: t.record.waterQuality },
     { href: "/record/journal",       icon: ClipboardList,  label: t.record.journal },
@@ -65,6 +74,7 @@ export function Sidebar() {
   const MONITOR_NAV = [
     { href: "/dashboard",    icon: LayoutDashboard, label: t.nav.dashboard },
     { href: "/water-quality", icon: Droplets,       label: t.nav.waterQuality },
+    { href: "/vision",       icon: Video,          label: t.nav.vision },
     { href: "/journal",      icon: BookOpen,        label: t.nav.journal },
     { href: "/farms",        icon: Building2,       label: t.nav.farms },
     { href: "/production",   icon: FlaskConical,    label: t.nav.production },
@@ -73,30 +83,35 @@ export function Sidebar() {
     { href: "/reports",      icon: BarChart3,       label: t.nav.reports },
     // 컬리버 탄소 MRV 플랫폼. 이 앱 안(/mrv)이면 내부 이동, 별도 도메인으로 배포했으면
     // 새 탭으로 연다(공개 헤더와 같은 규약). 주소를 비워 두면 항목 자체가 없다.
-    //
-    // 농업 화면(/daumlabs)에서는 숨긴다. AGRI_HIDDEN 으로 걸러지지 않기 때문이다 —
-    // 그 집합은 href 로 견주는데 이 항목의 href 는 환경변수에 따라 절대 URL 이 될 수
-    // 있다. 그리고 이건 새우 RAS 탄소 MRV 라 수경재배 문맥에 놓을 메뉴가 아니다.
-    ...(canSeeMrv && !isAgri && MRV_PLATFORM_URL
-      ? [
-          {
-            href: MRV_PLATFORM_URL,
-            icon: Leaf,
-            label: t.nav.mrvPlatform,
-            external: !MRV_PLATFORM_IS_INTERNAL,
-          },
-        ]
+    // 새우 모드 메뉴에만 둔다 — 새우 RAS 탄소 MRV 라 수경재배 문맥에 놓을 메뉴가 아니다.
+    ...(canSeeMrv && MRV_PLATFORM_URL
+      ? [{ href: MRV_PLATFORM_URL, icon: Leaf, label: t.nav.mrvPlatform, external: !MRV_PLATFORM_IS_INTERNAL }]
       : []),
-    // 공개 콘텐츠는 언어별 주소가 따로 있다. 접두사 없는 주소는 한국어로
-    // 고정되므로, 로그인한 사용자의 언어에 맞는 주소로 보낸다.
-    ...(SHOW_BOARD ? [{ href: localizedHref("/board", locale),    icon: MessageSquare, label: t.board.title }] : []),
-    ...(showCardNews(locale) ? [{ href: localizedHref("/cardnews", locale), icon: Layers,        label: t.cardNews.title }] : []),
-    ...(canControl ? [{ href: "/control", icon: Radar, label: "관제센터" }] : []),
-    ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
+    ...SHARED_NAV,
   ]
 
-  // 배열을 복제하지 않는다 — 라벨은 i18n merge 가 치환하므로 필터 한 줄이 전부다.
-  const monitorNav = isAgri ? MONITOR_NAV.filter(i => !AGRI_HIDDEN.has(i.href)) : MONITOR_NAV
+  // ── 농업 모드 메뉴 — 라벨은 농업 사전(4개 언어), 주소는 /daumlabs 리터럴 ──
+  const AGRI_RECORD_NAV = [
+    { href: "/daumlabs/record/water-quality", icon: Beaker,        label: agri.nav.recordMeasure },
+    { href: "/daumlabs/record/journal",       icon: ClipboardList, label: agri.nav.recordJournal },
+  ]
+
+  const AGRI_MONITOR_NAV = [
+    { href: "/daumlabs/dashboard",     icon: LayoutDashboard, label: agri.nav.dashboard },
+    { href: "/daumlabs/water-quality", icon: Droplets,        label: agri.nav.nutrient },
+    { href: "/daumlabs/journal",       icon: BookOpen,        label: agri.nav.journal },
+    { href: "/daumlabs/farms",         icon: Building2,       label: agri.nav.farms },
+    ...SHARED_NAV,
+  ]
+
+  const homeHref = isAgri ? "/daumlabs/home" : "/home"
+  // 농업 모드는 Farm365, 새우 모드는 Shrimp365(설계서 1장 결정 3). 마크는 공용.
+  const brandName = BRAND_NAME[isAgri ? "agriculture" : "shrimp"]
+  const recordNav = isAgri ? AGRI_RECORD_NAV : RECORD_NAV
+  const monitorNav = isAgri ? AGRI_MONITOR_NAV : MONITOR_NAV
+  const labels = isAgri
+    ? { home: agri.nav.home, sectionRecord: agri.nav.sectionRecord, sectionMonitor: agri.nav.sectionMonitor, tagline: agri.nav.brandTagline }
+    : { home: t.nav.home, sectionRecord: t.nav.sectionRecord, sectionMonitor: t.nav.sectionMonitor, tagline: t.nav.brandTagline }
 
   const handleLogout = async () => {
     // logout()이 홈("/")으로 하드 리다이렉트하므로 아래는 fallback.
@@ -105,45 +120,42 @@ export function Sidebar() {
   }
 
   const NavItem = ({ href, icon: Icon, label, badge, external }: { href: string; icon: IconComponent; label: string; badge?: string; external?: boolean }) => {
-    // 농업 화면이면 /daumlabs 를 먹인다. 이미 접두사가 붙은 주소와 pathname 을
-    // 그대로 견주므로 활성 표시 로직은 손대지 않는다(설계서 4-4).
-    // 외부 주소는 접두사도 활성 표시도 해당되지 않는다 — 이 앱의 경로가 아니다.
-    const to = external ? href : withAgri(href)
     // 언어 접두사를 뗀 뒤 견준다. /en/cardnews 를 보고 있어도 카드뉴스가
     // 눌린 것으로 표시되어야 한다.
+    // 외부 주소는 활성 표시에 해당되지 않는다 — 이 앱의 경로가 아니다.
     const here = stripLocalePrefix(pathname).path
-    const target = stripLocalePrefix(to).path
+    const target = stripLocalePrefix(href).path
     const isActive = !external && (here === target || here.startsWith(target + "/"))
     const className = cn(
       "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group relative",
       isActive
-        ? "bg-[#1E40AF]/10 text-[#1E40AF] border border-[#1E40AF]/25"
+        ? "bg-brand-a10 text-brand-fg border border-brand-a25"
         : "text-muted-foreground hover:text-foreground hover:bg-accent",
       collapsed && "justify-center px-2"
     )
     const inner = (
       <>
-        <Icon className={cn("w-5 h-5 shrink-0", isActive ? "text-[#1E40AF]" : "text-muted-foreground group-hover:text-foreground")} />
+        <Icon className={cn("w-5 h-5 shrink-0", isActive ? "text-brand-fg" : "text-muted-foreground group-hover:text-foreground")} />
         {!collapsed && <span className="flex-1">{label}</span>}
         {!collapsed && badge && (
           <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-full bg-[#D97706]/12 text-[#B45309] border border-[#D97706]/30 shrink-0">
             {badge}
           </span>
         )}
-        {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#1E40AF] rounded-r-full" />}
+        {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-brand rounded-r-full" />}
       </>
     )
     // 접혔을 때는 글자가 없으므로 아이콘만 남는다 — 외부든 내부든 title 로 이름을 준다.
     const titleAttr = collapsed ? label : undefined
     if (external) {
       return (
-        <a href={to} target="_blank" rel="noopener noreferrer" title={titleAttr} className={className}>
+        <a href={href} target="_blank" rel="noopener noreferrer" title={titleAttr} className={className}>
           {inner}
         </a>
       )
     }
     return (
-      <Link href={to} title={titleAttr} className={className}>
+      <Link href={href} title={titleAttr} className={className}>
         {inner}
       </Link>
     )
@@ -159,14 +171,14 @@ export function Sidebar() {
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className={cn("flex items-center gap-3 px-4 py-5 border-b border-border", collapsed && "justify-center px-2")}>
-        <Link href={withAgri("/home")} className="flex items-center gap-3">
-          <div className="w-9 h-9 border-[1.5px] border-[#1E40AF] text-[#1E40AF] rounded-xl flex items-center justify-center shrink-0">
+        <Link href={homeHref} className="flex items-center gap-3">
+          <div className="w-9 h-9 border-[1.5px] border-brand text-brand-fg rounded-xl flex items-center justify-center shrink-0">
             <DropMark />
           </div>
           {!collapsed && (
             <div>
-              <span className="text-foreground font-bold text-lg tracking-tight">Shrimp365</span>
-              <p className="text-[#1E40AF] text-[10px] font-mono tracking-[0.15em]">{t.nav.brandTagline}</p>
+              <span className="text-foreground font-bold text-lg tracking-tight">{brandName}</span>
+              <p className="text-brand-fg text-[10px] font-mono tracking-[0.15em]">{labels.tagline}</p>
             </div>
           )}
         </Link>
@@ -175,14 +187,14 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 px-3 py-3 overflow-y-auto space-y-0.5">
         {/* Home */}
-        <NavItem href="/home" icon={Home} label={t.nav.home} />
+        <NavItem href={homeHref} icon={Home} label={labels.home} />
 
         {/* Record section */}
-        <SectionLabel label={t.nav.sectionRecord} />
-        {RECORD_NAV.map(item => <NavItem key={item.href} {...item} />)}
+        <SectionLabel label={labels.sectionRecord} />
+        {recordNav.map(item => <NavItem key={item.href} {...item} />)}
 
         {/* Monitor section */}
-        <SectionLabel label={t.nav.sectionMonitor} />
+        <SectionLabel label={labels.sectionMonitor} />
         {monitorNav.map(item => <NavItem key={item.href} {...item} />)}
       </nav>
 
@@ -190,11 +202,24 @@ export function Sidebar() {
       <div className="px-3 pb-4 space-y-1 border-t border-border pt-3">
         <LanguageSwitcher collapsed={collapsed} />
 
+        {showConsole && (
+          <Link
+            href="/admin"
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all",
+              collapsed && "justify-center"
+            )}
+          >
+            <ShieldCheck className="w-5 h-5 shrink-0" />
+            {!collapsed && <span>{isAgri ? agri.nav.adminConsole : t.nav.adminConsole}</span>}
+          </Link>
+        )}
+
         <Link
           href="/help"
           className={cn(
             "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all",
-            pathname === "/help" && "bg-[#1E40AF]/10 text-[#1E40AF] border border-[#1E40AF]/25",
+            pathname === "/help" && "bg-brand-a10 text-brand-fg border border-brand-a25",
             collapsed && "justify-center"
           )}
         >
@@ -216,7 +241,7 @@ export function Sidebar() {
         {/* Free badge */}
         {!collapsed && (
           <div className="px-3 py-2">
-            <span className="text-[10px] font-mono font-semibold tracking-wider px-2 py-0.5 rounded-full bg-[#1E40AF]/10 text-[#1E40AF] border border-[#1E40AF]/25">
+            <span className="text-[10px] font-mono font-semibold tracking-wider px-2 py-0.5 rounded-full bg-brand-a10 text-brand-fg border border-brand-a25">
               FREE
             </span>
           </div>
@@ -224,7 +249,7 @@ export function Sidebar() {
 
         <div className={cn("flex items-center gap-3 px-3 py-2.5", collapsed && "justify-center")}>
           <Avatar className="w-8 h-8 shrink-0">
-            <AvatarFallback className="bg-[#1E40AF] text-white text-xs font-semibold">
+            <AvatarFallback className="bg-brand text-white text-xs font-semibold">
               {user?.name?.[0] || "U"}
             </AvatarFallback>
           </Avatar>

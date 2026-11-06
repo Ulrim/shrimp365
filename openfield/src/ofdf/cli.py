@@ -1,0 +1,746 @@
+"""엣지 제어기 실행 진입점.
+
+현장 제어함의 라즈베리파이에서 도는 실행 루프다. 사업계획서의 핵심 작동구조
+다섯 단계를 5분 주기로 되풀이한다.
+
+    ① 데이터 입력 → ② 데이터 정리 → ③ AI 위험판단 → ④ 조치 결정 → ⑤ 현장 실행·기록
+
+통신이 끊겨도 혼자 돌아야 하므로, 서버를 부르지 않고 로컬에 쌓는다. 판단
+이력은 JSON Lines 로 한 줄에 하나씩 적어 두었다가 복구되면 시간순으로 올린다.
+
+사용 예::
+
+    python -m ofdf.cli edge  --config configs/weather.yaml      # 상주 실행
+    python -m ofdf.cli once  --config configs/weather.yaml      # 한 번만
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime
+import logging
+import os
+import signal
+import sys
+import time
+from dataclasses import dataclass
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+from ofdf import __version__
+from ofdf.action.journal import Journal, RiskJudgement, record_from_decision
+from ofdf.action.recommend import SensorState, decide
+from ofdf.data import field as field_data
+from ofdf.features.derived import add_derived
+from ofdf.features.weather import build_features
+from ofdf.models import weather_risk
+from ofdf.labels.risk import RISK_LABELS_KO, compose_compound, compound_reasons
+from ofdf import upload as upload_mod
+
+LOG = logging.getLogger("ofdf.edge")
+
+BASE_RISKS = ["heat_dry", "rain_wet", "disease", "frost"]
+LEVEL_NAMES = {0: "정상", 1: "주의", 2: "경계"}
+
+#: 추론 주기(초). 사업계획서의 'AI 선행판단 L2 5분 주기'.
+DEFAULT_PERIOD = 300
+
+#: 피처 계산에 필요한 과거 시간. 구간 통계가 최대 24시간이라 여유를 둔다.
+WINDOW_HOURS = 48
+
+#: 예측 시계
+#: 엣지가 쓰는 예측시계(시간). 짧은 것부터 적는다 — 예상시점을 '위험이
+#: 처음 넘어서는 시계'로 잡기 때문에 순서가 뜻을 가진다.
+#:
+#: 전에는 3시간 하나만 읽었다. 1시간 모델을 학습해 놓고 엣지가 쓰지 않아,
+#: 화면이 1·3시간 두 칸을 보여주게 돼 있는데도 3시간만 채워졌고 예상시점은
+#: 언제나 '지금+3시간' 이었다.
+HORIZONS = (1, 3)
+HORIZON = HORIZONS[-1]      # 조치 판단에 쓰는 대표 시계
+
+#: 경로·구간 기본값. 명령행에 적지 않고 설정 YAML 에도 없을 때 쓴다.
+#: (명령행 → YAML → 이 값. load_config 참조)
+DEFAULTS = {
+    "field_dir": "data/field",
+    "model_dir": "artifacts/weather",
+    "journal_path": "logs/journal.jsonl",
+    "dashboard_path": "dashboard/data.json",
+    "devices_path": "configs/devices.yaml",
+    "zone": "treatment",
+    "station": "실증포장",
+}
+
+
+@dataclass
+class EdgeConfig:
+    """엣지 실행 설정."""
+
+    field_dir: Path
+    model_dir: Path
+    journal_path: Path
+    dashboard_path: Path | None = None
+    zone: str = "treatment"
+    period: int = DEFAULT_PERIOD
+    station: str = "실증포장"
+    #: 구동부가 실제로 달린 장치. ``None`` 이면 전부 달린 것으로 본다.
+    #:
+    #: 1차 구매분은 관수밸브와 전원차단(스마트 차단기)만 덮는다. 차광막·
+    #: 야간피복·살수 구동부는 별도 발주다. 이것을 적어 두지 않으면 엔진이
+    #: '차광막 차광 한정 전개'를 **실행**으로 기록한다. 실행된 것은 없는데
+    #: 제어 이력에는 남고, 그 이력이 그대로 성능평가의 제어응답 측정
+    #: 대상이 된다. 구동부가 들어오면 설정에 이름을 더하면 된다.
+    installed_devices: frozenset[str] | None = None
+    #: 기상청 단기예보 인증키. 저장소에 두지 않는다 — 환경변수
+    #: ``OFDF_KMA_SERVICE_KEY`` 나 설정파일에서 받는다. 없으면 예보 없이
+    #: 관측만으로 판단한다(판단이 멈추지는 않는다).
+    kma_service_key: str | None = None
+    #: Zigbee 장치 설치 정보. 화면의 '센서 상태' 칸이 쓴다.
+    devices_path: Path | None = None
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    p = argparse.ArgumentParser(prog="ofdf.cli", description=__doc__)
+    sub = p.add_subparsers(dest="command", required=True)
+
+    # 경로·구간 인자의 기본값은 argparse 가 아니라 load_config 의 DEFAULTS 가
+    # 쥔다. argparse 에 기본값을 두면 '명시하지 않았다'와 '기본값을 적었다'가
+    # 구별되지 않아 설정 YAML(data.field_dir 등)이 언제나 덮였다 — 설정 파일에
+    # 수집 경로를 적어도 엣지는 data/field 만 읽었다.
+    for name, help_text in (("edge", "5분 주기로 상주 실행"), ("once", "한 번만 실행")):
+        s = sub.add_parser(name, help=help_text)
+        s.add_argument("--config", default=None, help="설정 YAML (없으면 아래 인자를 쓴다)")
+        s.add_argument("--field", default=None,
+                       help=f"현장 수집 디렉터리 (기본 {DEFAULTS['field_dir']}, "
+                            "YAML data.field_dir)")
+        s.add_argument("--models", default=None,
+                       help=f"모델 디렉터리 (기본 {DEFAULTS['model_dir']}, YAML edge.model_dir)")
+        s.add_argument("--journal", default=None,
+                       help=f"판단 이력 (기본 {DEFAULTS['journal_path']}, YAML edge.journal_path)")
+        s.add_argument("--dashboard", default=None,
+                       help=f"화면 데이터 출력 경로 (기본 {DEFAULTS['dashboard_path']}, "
+                            "YAML edge.dashboard_path). 빈 문자열이면 쓰지 않는다")
+        s.add_argument("--zone", default=None, help=f"판단 구간 (기본 {DEFAULTS['zone']})")
+        s.add_argument("--period", type=int, default=None,
+                       help=f"주기(초) (기본 {DEFAULT_PERIOD})")
+        s.add_argument("--station", default=None, help=f"지점 이름 (기본 {DEFAULTS['station']})")
+        s.add_argument("--devices", default=None,
+                       help=f"Zigbee 장치 설치 정보 YAML (기본 {DEFAULTS['devices_path']})")
+        s.add_argument("--installed-devices", default=None,
+                       help="구동부가 달린 장치를 쉼표로. 생략하면 설정파일, "
+                            "그것도 없으면 전부 달린 것으로 본다")
+        s.add_argument("--verbose", action="store_true")
+
+    # 모델 없이도 돌아야 한다. 센서를 달고 처음 확인하는 명령이기 때문이다.
+    chk = sub.add_parser("sensors", help="수집 범위 점검 — 어느 변수가 어느 경로로 들어오는지")
+    chk.add_argument("--devices", default="configs/devices.yaml")
+    chk.add_argument("--field", default="data/field",
+                     help="수집 디렉터리. 실제로 들어온 값을 '수신확인'으로 올린다")
+    chk.add_argument("--json", action="store_true", help="표 대신 JSON 으로")
+    chk.add_argument("--strict", action="store_true",
+                     help="장비없음 변수가 있으면 1 을 돌려준다(CI 용)")
+    chk.add_argument("--verbose", action="store_true")
+    return p.parse_args(argv)
+
+
+def _pick(cli_value, yaml_value, default):
+    """명령행에 **명시된** 값 → 설정 YAML → 기본값 순서로 고른다.
+
+    원본은 ``args.field or data.get("field_dir", ...)`` 이었는데 argparse 기본값
+    ``"data/field"`` 가 항상 참이라 YAML 의 ``data.field_dir`` 는 읽히지 않았다.
+    """
+    if cli_value is not None:
+        return cli_value
+    if yaml_value is not None:
+        return yaml_value
+    return default
+
+
+def load_config(args: argparse.Namespace) -> EdgeConfig:
+    """명령행 인자와 설정 파일을 합친다. **명시된** 명령행 인자가 이기고,
+    적지 않은 것은 설정 YAML(``data.field_dir``, ``edge.*``), 그것도 없으면
+    :data:`DEFAULTS` 를 쓴다."""
+    settings: dict = {}
+    if args.config and Path(args.config).exists():
+        try:
+            import yaml
+            settings = yaml.safe_load(Path(args.config).read_text(encoding="utf-8")) or {}
+        except ImportError:
+            LOG.warning("pyyaml 이 없어 설정 파일을 건너뛴다")
+
+    data = settings.get("data") or {}
+    edge = settings.get("edge") or {}
+
+    dashboard = _pick(args.dashboard, edge.get("dashboard_path"), DEFAULTS["dashboard_path"])
+    devices = _pick(args.devices, edge.get("devices_path"), DEFAULTS["devices_path"])
+    return EdgeConfig(
+        field_dir=Path(_pick(args.field, data.get("field_dir"), DEFAULTS["field_dir"])),
+        model_dir=Path(_pick(args.models, edge.get("model_dir"), DEFAULTS["model_dir"])),
+        journal_path=Path(_pick(args.journal, edge.get("journal_path"), DEFAULTS["journal_path"])),
+        dashboard_path=Path(dashboard) if dashboard else None,
+        zone=str(_pick(args.zone, edge.get("zone"), DEFAULTS["zone"])),
+        period=int(_pick(args.period, edge.get("period"), DEFAULT_PERIOD)),
+        station=str(_pick(args.station, edge.get("station"), DEFAULTS["station"])),
+        installed_devices=_installed_devices(args, settings),
+        kma_service_key=(
+            os.environ.get("OFDF_KMA_SERVICE_KEY")
+            or edge.get("kma_service_key")
+        ),
+        devices_path=Path(devices) if devices else None,
+    )
+
+
+def _installed_devices(
+    args: argparse.Namespace, settings: dict
+) -> frozenset[str] | None:
+    """구동부가 달린 장치 목록을 정한다. 명령행이 설정파일을 이긴다.
+
+    아무 데도 적혀 있지 않으면 ``None`` 을 돌려 전부 달린 것으로 본다.
+    현장에 내보낼 때는 반드시 적어야 하는 값이지만, 기본값을 '아무것도
+    없다'로 두면 설정을 깜빡한 제어기가 조용히 아무것도 실행하지 않는다.
+    그쪽이 더 위험하므로 기본은 '다 있다'로 두고 문서에서 못을 박는다.
+    """
+    raw = getattr(args, "installed_devices", None)
+    if raw is None:
+        raw = settings.get("edge", {}).get("installed_devices")
+    if raw is None:
+        return None
+    names = raw.split(",") if isinstance(raw, str) else list(raw)
+    return frozenset(n.strip() for n in names if n.strip())
+
+
+def load_models(model_dir: Path, horizons: tuple[int, ...] = HORIZONS) -> dict:
+    """위험유형별 모델을 예측시계마다 읽는다. ``{시계: {위험: 모델}}``."""
+    import lightgbm as lgb
+
+    models: dict[int, dict] = {}
+    for horizon in horizons:
+        bucket = {}
+        for risk in BASE_RISKS:
+            path = model_dir / f"model_{risk}_h{horizon}.txt"
+            if path.exists():
+                # 판정 가중치를 함께 싣는다. 이것이 빠지면 제어기가 argmax 로
+                # 판정해 공인시험에서 잰 것과 다르게 동작한다.
+                bucket[risk] = (
+                    lgb.Booster(model_file=str(path)),
+                    weather_risk.load_decision_weight(path),
+                )
+            else:
+                LOG.warning("모델 없음: %s", path)
+        if bucket:
+            models[horizon] = bucket
+    return models
+
+
+def sensor_status(config: EdgeConfig) -> list[dict]:
+    """장치별 최근 상태를 화면용으로 만든다.
+
+    배터리와 전파세기는 작물 위험과 무관하지만, **자료가 끊기기 전에 알려
+    주는 유일한 신호**다. 값이 사라진 뒤에 알면 그 사이 판단은 이미 비어
+    있었던 것이다.
+    """
+    if not config.devices_path or not Path(config.devices_path).exists():
+        return []
+    try:
+        from ofdf.data import zigbee
+
+        devices = zigbee.load_devices(config.devices_path)
+        raw = read_field_long(config.field_dir)
+        if raw is None or raw.empty:
+            return []
+        status = zigbee.device_status(
+            raw, devices, extra=non_zigbee_devices(config.devices_path))
+    except Exception as exc:                 # 화면 한 칸 때문에 판단이 멈추면 안 된다
+        LOG.warning("센서 상태를 만들지 못했다: %s", exc)
+        return []
+
+    now = pd.Timestamp.now()
+    out = []
+    for _, row in status.iterrows():
+        last = pd.Timestamp(row["last_seen"])
+        minutes = (now - last).total_seconds() / 60.0
+        out.append({
+            "sensorId": row["sensor_id"],
+            "zone": row["zone"],
+            "note": row["note"],
+            "lastSeen": last.isoformat(),
+            "minutesAgo": round(minutes, 1),
+            "battery": None if pd.isna(row["battery_pct"]) else float(row["battery_pct"]),
+            # WS90 은 배터리를 % 가 아니라 전압으로 준다. 태양광 슈퍼캡이
+            # 비어 가는 것이 송신이 끊기기 전의 신호다.
+            "batteryMv": None if pd.isna(row.get("battery_mv", float("nan")))
+                         else float(row["battery_mv"]),
+            "supercap": None if pd.isna(row.get("supercap_v", float("nan")))
+                        else float(row["supercap_v"]),
+            "batteryV": None if pd.isna(row.get("battery_v", float("nan")))
+                        else float(row["battery_v"]),
+            "link": None if pd.isna(row["linkquality"]) else float(row["linkquality"]),
+            "rssi": None if pd.isna(row.get("rssi", float("nan")))
+                    else float(row["rssi"]),
+            "variables": list(row["variables"]),
+            # 구동부 되읽기 값. '열어라'를 보냈는데 정말 열렸는지는 이것으로만
+            # 확인된다 — 지시(actions)와 달리 장치가 스스로 보고한 사실이다.
+            "states": list(row["states"]),
+        })
+    return out
+
+
+def non_zigbee_devices(devices_path: Path) -> dict[str, tuple[str, str]]:
+    """433MHz·에코윗 장치의 ``{센서이름: (구간, 메모)}``.
+
+    이 장치들은 Zigbee 목록에 없다. 화면의 센서 상태 칸이 Zigbee 만 보면
+    기상 마스트가 조용히 죽어도 아무도 모른다.
+    """
+    from ofdf.data import ecowitt, rtl433
+
+    out: dict[str, tuple[str, str]] = {}
+    try:
+        for device in rtl433.load_rf_devices(devices_path).values():
+            out[device.sensor_id] = (device.zone, device.note)
+        gateway, channels = ecowitt.load_channels(devices_path)
+        if gateway is not None:
+            out.setdefault(gateway.sensor_id, (gateway.zone, gateway.note))
+        for channel in channels.values():
+            out[channel.sensor_id] = (channel.zone, channel.note)
+        from ofdf.data import modbus
+        rs = modbus.load_rs485(devices_path)
+        if rs.enabled:
+            out[rs.sensor_id] = (rs.zone, rs.note)
+    except Exception as exc:                 # 설정이 깨져도 화면은 떠야 한다
+        LOG.warning("비 Zigbee 장치 목록을 읽지 못했다: %s", exc)
+    return out
+
+
+def read_field_long(field_dir: Path) -> pd.DataFrame | None:
+    """수집 디렉터리의 세로 형식 자료를 그대로 읽는다(집계 전)."""
+    from ofdf.data import field as field_mod
+
+    files = sorted(Path(field_dir).glob("*.csv"))
+    if not files:
+        return None
+    parts = []
+    for path in files:
+        try:
+            parts.append(field_mod.read_field(path))
+        except (ValueError, KeyError):
+            continue
+    if not parts:
+        return None
+    return pd.concat(parts, ignore_index=True)
+
+
+def read_window(config: EdgeConfig) -> pd.DataFrame | None:
+    """현장 수집에서 최근 관측창을 만든다."""
+    try:
+        hourly = field_data.load(config.field_dir, freq="h")
+    except FileNotFoundError:
+        LOG.error("수집 파일이 없다: %s", config.field_dir)
+        return None
+
+    zone = field_data.zone_frame(hourly, config.zone)
+    if zone.empty:
+        LOG.error("구간 '%s' 자료가 비었다", config.zone)
+        return None
+
+    # 일사 단위는 add_derived 가 solar_w / solar_mj / solar 중에서 고른다
+    for required in ("t_air", "rh", "rain", "wind_speed"):
+        if required not in zone.columns:
+            zone[required] = np.nan
+
+    window = zone.tail(WINDOW_HOURS + 1)
+    return add_derived(window)
+
+
+def judge_all(models: dict, features: pd.DataFrame) -> dict[int, tuple[dict, dict, dict]]:
+    """예측시계마다 판단한다. ``{시계: (등급, 신뢰도, 판단근거)}``."""
+    return {h: judge(bucket, features) for h, bucket in sorted(models.items())}
+
+
+def earliest_onset(
+    by_horizon: dict[int, tuple[dict, dict, dict]], risk: str, now: pd.Timestamp
+) -> str | None:
+    """위험이 처음 주의 이상으로 올라오는 시계를 예상시점으로 돌려준다.
+
+    1시간 모델이 이미 주의라면 한 시간 안의 일이고, 1시간은 정상인데
+    3시간이 경계라면 그 사이에 온다. 전에는 시계와 무관하게 '지금+3시간'
+    을 적었다 — 예상이 아니라 상수였다.
+    """
+    for horizon in sorted(by_horizon):
+        levels, _, _ = by_horizon[horizon]
+        if levels.get(risk, 0) > 0:
+            return (now + pd.Timedelta(hours=horizon)).isoformat()
+    return None
+
+
+def judge(models: dict, features: pd.DataFrame) -> tuple[dict, dict, dict]:
+    """위험등급·신뢰도·판단근거를 낸다."""
+    row = features.iloc[[-1]]
+    levels, confidences, evidence = {}, {}, {}
+
+    for risk, entry in models.items():
+        model, weight = entry if isinstance(entry, tuple) else (entry, None)
+        columns = model.feature_name()
+        proba = model.predict(row.reindex(columns=columns))[0]
+        level = int(weather_risk.decide_levels(proba.reshape(1, -1), weight)[0])
+        levels[risk] = level
+        # 신뢰도는 가중치를 적용하지 않은 원래 확률로 적는다 — 농가와
+        # 운영자가 보는 값은 모델이 그 등급을 얼마나 확신하는가이지,
+        # 판정 규칙이 얼마나 보수적인가가 아니다.
+        confidences[risk] = float(proba[level])
+
+        if level > 0:
+            contrib = model.predict(row.reindex(columns=columns), pred_contrib=True)[0]
+            n = len(columns)
+            values = np.asarray(contrib)[level * (n + 1) : level * (n + 1) + n]
+            order = np.argsort(-np.abs(values))[:3]
+            evidence[risk] = [
+                {
+                    "feature": columns[i],
+                    "value": float(row.iloc[0].get(columns[i], float("nan"))),
+                    "contribution": float(values[i]),
+                }
+                for i in order
+            ]
+
+    levels["compound"] = int(compose_compound(
+        [levels.get("rain_wet", 0)], [levels.get("disease", 0)], [levels.get("frost", 0)]
+    )[0])
+    return levels, confidences, evidence
+
+
+def sensors_from(features: pd.DataFrame, now: pd.Timestamp) -> SensorState:
+    """현장 즉응규칙(L1)이 보는 실측값을 모은다."""
+    last = features.iloc[-1]
+
+    def value(name: str, default: float = 0.0) -> float:
+        got = last.get(name)
+        return default if got is None or pd.isna(got) else float(got)
+
+    # 강풍 판정은 순간최대풍속으로만 한다. 평균 풍속으로는 판정할 수 없다.
+    #
+    # 참 3초 계측값이 있으면 그것을 쓰고, 없으면 WS90 의 28초 창 최댓값으로
+    # 물러선다. 둘은 **다른 통계량**이라 — 28초 창 값이 참 순간최대보다
+    # 낮게 나올 수 있다 — 어느 쪽을 썼는지 조치 사유에 적는다. 농가 화면이
+    # '3초 순간최대'라고 적는데 실제로는 28초 창 값인 상태를 막는다.
+    gust = last.get("wind_gust_3s")
+    gust_source = "3초 순간최대"
+    if gust is None or pd.isna(gust):
+        gust = last.get("wind_gust_window")
+        gust_source = "순간최대(28초 창)"
+    return SensorState(
+        gust_3s=None if gust is None or pd.isna(gust) else float(gust),
+        gust_source=gust_source,
+        rain_detected=value("rain") > 0 or value("rain_detect") > 0.5,
+        soil_above_limit=value("soil_moisture", -1) >= 0 and value("soil_moisture") >= 90,
+        hour=int(now.hour),
+        shade_deployed_minutes=value("shade_deployed_minutes"),
+        shade_open=value("shade_position") > 0.5,
+    )
+
+
+def write_dashboard(path: Path, payload: dict) -> None:
+    """화면이 읽을 파일을 통째로 바꿔 쓴다(읽는 중 깨지지 않게 임시파일 경유)."""
+    import json
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(path.suffix + ".tmp")
+    temp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    temp.replace(path)
+
+
+def upload_judgements(
+    uploader: "upload_mod.Uploader", now: pd.Timestamp, by_horizon: dict,
+    observations: pd.DataFrame, decision,
+) -> str:
+    """이번 주기의 판단을 큐에 넣고 보낸다. 돌려주는 값은 화면 바닥줄 문구.
+
+    어떤 예외도 밖으로 내지 않는다 — 업로드는 부가 기능이고, 그것 때문에
+    제어기의 주기가 깨지면 안 된다.
+    """
+    try:
+        items = upload_mod.build_judgements(
+            now, by_horizon,
+            model_version=f"ofdf-weather-{__version__}",
+            level_names=LEVEL_NAMES,
+            environment=observations.iloc[-1],
+            decision=decision,
+            expected_onset=lambda risk: earliest_onset(by_horizon, risk, now),
+        )
+        uploader.enqueue(items)
+        result = uploader.flush()
+        if result.error:
+            LOG.warning("서버 업로드 실패: %s · 대기 %d건", result.error, result.pending)
+        elif result.sent:
+            LOG.info("서버 업로드 %d건 · 대기 %d건", result.sent, result.pending)
+        return uploader.status()
+    except Exception as exc:                            # noqa: BLE001
+        LOG.warning("서버 업로드 중 오류 — 다음 주기에 재시도: %s", exc)
+        return f"업로드 오류 · {exc.__class__.__name__}"
+
+
+def run_once(
+    config: EdgeConfig, models: dict, journal: Journal,
+    forecast_gate: "ForecastGateway | None" = None,
+    uploader: "upload_mod.Uploader | None" = None,
+) -> bool:
+    """한 주기를 수행한다. 성공하면 True.
+
+    ``uploader`` 가 있으면 끝에서 판단을 Farm365 서버로 올린다(``ofdf.upload``).
+    없으면(환경변수 미설정) 원본과 똑같이 로컬 기록만 한다.
+    """
+    observations = read_window(config)
+    if observations is None or observations.empty:
+        return False
+
+    features = build_features(observations)
+    now = pd.Timestamp(features.index[-1])
+
+    # 예보는 보조 입력이다. 못 받아도 판단을 멈추지 않는다 — 제어기는
+    # 통신이 끊긴 채로도 돌아야 하고, 예보를 못 받아 서리 판단이 멈추면
+    # 그것이 더 큰 사고다.
+    forecast_status = "미연동"
+    if forecast_gate is not None:
+        forecast_gate.fetch(now, tuple(sorted(models)) or HORIZONS)
+        forecast_status = forecast_gate.status
+        if forecast_gate.last_error:
+            LOG.warning("예보 실패: %s (%s)", forecast_gate.last_error, forecast_status)
+
+    by_horizon = judge_all(models, features)
+    # 조치는 대표 시계(가장 먼 것)로 정한다. 더 멀리 보는 쪽이 선행시간을
+    # 확보하고, 짧은 시계는 예상시점을 좁히는 데 쓴다.
+    levels, confidences, evidence = by_horizon[max(by_horizon)]
+    reasons = compound_reasons(
+        levels.get("rain_wet", 0), levels.get("disease", 0), levels.get("frost", 0)
+    )
+    sensors = sensors_from(observations, now)
+    decision = decide(levels, sensors, confidence=confidences, compound_reasons=reasons,
+                      installed_devices=config.installed_devices)
+
+    judgements = [
+        RiskJudgement(
+            risk_type=risk, horizon_hours=HORIZON, level=level,
+            level_name=LEVEL_NAMES[level], confidence=confidences.get(risk, 1.0),
+            expected_onset=earliest_onset(by_horizon, risk, now),
+            evidence=evidence.get(risk, []),
+        )
+        for risk, level in levels.items() if level > 0
+    ]
+    journal.append(record_from_decision(
+        now.to_pydatetime(), config.station, f"ofdf-weather-{__version__}",
+        {k: float(observations.iloc[-1][k])
+         for k in ("t_air", "rh", "canopy_temp", "soil_moisture", "soil_index")
+         if k in observations.columns and pd.notna(observations.iloc[-1][k])},
+        judgements, decision,
+    ))
+
+    active = [f"{RISK_LABELS_KO[r]} {LEVEL_NAMES[l]}" for r, l in levels.items() if l > 0]
+    LOG.info(
+        "%s · %s · 조치 %d건(거부 %d) · %s",
+        now.strftime("%m-%d %H시"), ", ".join(active) or "전 유형 정상",
+        len(decision.executable()),
+        sum(1 for a in decision.actions if a.rejected_by), decision.mode,
+    )
+
+    # 서버 업로드 — 저널에 적은 뒤에, 화면을 쓰기 전에. 업로드가 실패해도
+    # 판단·기록·화면은 끝난 뒤라 영향이 없고, 실패 사실만 화면 바닥줄에 남는다.
+    upload_status = upload_mod.STATUS_DISABLED
+    if uploader is not None:
+        upload_status = upload_judgements(
+            uploader, now, by_horizon, observations, decision,
+        )
+
+    if config.dashboard_path:
+        write_dashboard(config.dashboard_path, {
+            "generated": datetime.datetime.now().isoformat(),
+            "station": config.station, "now": now.isoformat(),
+            "modelVersion": f"ofdf-weather-{__version__}", "mode": decision.mode,
+            "forecastStatus": forecast_status,
+            "uploadStatus": upload_status,
+            "sensors": sensor_status(config),
+            "environment": [
+                {"key": k, "name": k, "unit": "",
+                 "value": round(float(observations.iloc[-1][k]), 2)}
+                # soil_moisture 는 센서 실측, soil_index 는 물수지 대리지표다.
+                # 둘 다 보내고 화면이 실측을 먼저 쓴다 — 센서를 달아 놓고
+                # 추정값을 보여주면 안 된다.
+                for k in ("t_air", "canopy_temp", "rh", "leaf_wetness",
+                          "solar_w", "rain", "soil_moisture", "soil_index",
+                          "wind_speed")
+                if k in observations.columns and pd.notna(observations.iloc[-1][k])
+            ],
+            "cards": [
+                {"risk": r, "name": RISK_LABELS_KO[r],
+                 "horizons": {
+                     str(h): {
+                         "level": by_horizon[h][0].get(r, 0),
+                         "levelName": LEVEL_NAMES[by_horizon[h][0].get(r, 0)],
+                         "confidence": round(by_horizon[h][1].get(r, 1.0), 3),
+                     }
+                     for h in sorted(by_horizon) if r in by_horizon[h][0]
+                 }}
+                for r, l in levels.items()
+            ],
+            "judgements": [], "actions": [
+                {"device": a.device, "command": a.command, "layer": int(a.layer),
+                 "reason": a.reason, "riskType": a.risk_type,
+                 "executed": not a.rejected_by and not a.advisory,
+                 "rejectedBy": a.rejected_by, "advisory": a.advisory}
+                for a in decision.actions
+            ],
+            "history": [], "series": {"time": [], "t_air": [], "canopy_temp": []},
+        })
+    return True
+
+
+def run_sensors(args: argparse.Namespace) -> int:
+    """수집 범위를 점검해 보여 준다.
+
+    '모든 센서 데이터를 받는다'는 말은 확인할 수 있어야 한다. 센서를 달고
+    화면에 뭔가 나오는 것을 보고 끝내면, 빠진 변수는 비가 오는 날이나 서리가
+    내리는 날에야 드러난다. 그때는 이미 늦다.
+    """
+    import json as json_mod
+
+    from ofdf.data import coverage as coverage_mod
+
+    observed = None
+    field_dir = Path(args.field)
+    if field_dir.exists():
+        observed = read_field_long(field_dir)
+
+    frame = coverage_mod.coverage(args.devices, observed=observed)
+
+    if args.json:
+        records = []
+        for _, row in frame.iterrows():
+            last = row["last_seen"]
+            records.append({
+                "variable": row["variable"], "unit": row["unit"],
+                "status": row["status"], "paths": list(row["paths"]),
+                "note": row["note"], "rows": int(row["rows"]),
+                "lastSeen": None if pd.isna(last) else pd.Timestamp(last).isoformat(),
+            })
+        points = coverage_mod.points_per_zone(args.devices)
+        print(json_mod.dumps(
+            {"summary": coverage_mod.summary(frame), "variables": records,
+             "conflicts": coverage_mod.conflicts(args.devices),
+             "unconfigured": coverage_mod.unconfigured_devices(
+                 args.devices, field_dir / "capture"),
+             "points": [
+                 {"zone": r["zone"], "variable": r["variable"],
+                  "points": int(r["points"]), "sensors": list(r["sensors"])}
+                 for _, r in points.iterrows()]},
+            ensure_ascii=False, indent=2))
+    else:
+        print(coverage_mod.format_report(frame))
+        if observed is None:
+            print("수집 디렉터리가 비어 있다. 브리지를 띄우면 '수신확인'이 채워진다.")
+
+    problems = coverage_mod.conflicts(args.devices)
+    capture_dir = field_dir / "capture"
+    missing = coverage_mod.unconfigured_devices(args.devices, capture_dir)
+    if not args.json:
+        points = coverage_mod.points_per_zone(args.devices)
+        single = points[points["points"] < 2]
+        if not points.empty:
+            print("[측정점] 구간·변수별 센서 수 — 1점은 그 센서가 죽으면 판단이 빈다")
+            for _, row in points.iterrows():
+                mark = "  " if row["points"] >= 2 else "▲ "
+                print(f"  {mark}{row['zone']:<10} {row['variable']:<16} "
+                      f"{row['points']}점  {', '.join(row['sensors'])}")
+            if not single.empty:
+                print(f"  ▲ 외줄 {len(single)}곳")
+            print()
+        if missing:
+            print(f"[미설정 장치] 페어링은 됐는데 설정에 없다 — 값이 버려지고 있다")
+            for d in missing:
+                print(f"  · {d['friendly_name']}  {d['vendor']} {d['model']}  "
+                      f"{d['description']}")
+            print(f"  configs/devices.yaml 의 devices: 에 한 줄씩 적는다 "
+                  f"(kind·zone·sensor_id)")
+            print()
+        if problems:
+            print("[설정 확인]")
+            for note in problems:
+                print(f"  · {note}")
+            print()
+
+    if args.strict and ((frame["status"] == "장비없음").any() or problems or missing):
+        return 1
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+    )
+    if args.command == "sensors":
+        return run_sensors(args)
+
+    config = load_config(args)
+
+    models = load_models(config.model_dir)
+
+    from ofdf.data.forecast import ForecastGateway, build_provider
+    gate = ForecastGateway(build_provider(config.kma_service_key))
+    if config.kma_service_key:
+        LOG.info("기상청 단기예보 연동 (격자 %s)", "나주 남평")
+    else:
+        LOG.info("예보 인증키 없음 — 관측만으로 판단한다")
+    if not models:
+        LOG.error("모델이 하나도 없다: %s", config.model_dir)
+        return 1
+    # models 는 {시계: {위험유형: 모델}} 이라 len() 은 시계 수다. 모델 수를
+    # 묻는 자리이므로 실제 개수를 센다.
+    LOG.info("ofdf %s · 모델 %d개(시계 %s) · 구간 '%s' · 주기 %d초",
+             __version__, sum(len(b) for b in models.values()),
+             "·".join(f"{h}h" for h in sorted(models)),
+             config.zone, config.period)
+
+    journal = Journal(config.journal_path)
+
+    # Farm365 서버 업로드 — OFDF_UPLOAD_URL / OFDF_DEVICE_KEY_FILE 둘이 다
+    # 있을 때만 켜진다. 큐는 저널 옆(logs/upload_queue.jsonl)에 둔다.
+    uploader = upload_mod.Uploader.from_env(
+        config.journal_path.parent / "upload_queue.jsonl",
+        agent_version=f"ofdf-{__version__}",
+    )
+    if uploader is not None:
+        LOG.info("서버 업로드 연동: %s (큐 %s)", uploader.url, uploader.queue_path)
+    else:
+        LOG.info("서버 업로드 미설정 — 로컬 기록만 한다")
+
+    if args.command == "once":
+        return 0 if run_once(config, models, journal, gate, uploader) else 1
+
+    stopping = False
+
+    def stop(signum, _frame):
+        nonlocal stopping
+        LOG.info("신호 %d 수신 — 이번 주기를 마치고 멈춘다", signum)
+        stopping = True
+
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
+
+    while not stopping:
+        started = time.monotonic()
+        try:
+            run_once(config, models, journal, gate, uploader)
+        except Exception:                                  # noqa: BLE001
+            # 한 주기가 실패해도 멈추지 않는다. 통신이 끊겨도 혼자 돌아야 한다.
+            LOG.exception("주기 수행 실패 — 다음 주기에 다시 시도한다")
+
+        remaining = config.period - (time.monotonic() - started)
+        while remaining > 0 and not stopping:
+            time.sleep(min(1.0, remaining))
+            remaining -= 1.0
+    LOG.info("정지")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

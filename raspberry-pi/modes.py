@@ -1,8 +1,12 @@
 """장비의 운전 모드 — 이 장비가 무엇을 하는 기계인가.
 
-    aquaculture  양식장   수질 측정이 본업. 지금까지의 기본 동작.
-    smartfarm    스마트팜 수경재배. EC 로 양액 농도를 보고 보충량을 띄운다.
+    shrimp       양식장   수질 측정이 본업. 지금까지의 기본 동작.
+    agriculture  스마트팜 Farm365 화면(이름·라벨·강조색)과 농업 판정. 양액 관리는 [nutrient] 가 따로 켠다.
     mrv          탄소 MRV 기계실 계량기 옆 전력 입력 단말.
+
+이름은 수집기 1.10 의 `[webui] mode` 값(shrimp|agriculture)을 그대로 쓴다 — 현장 장비의
+설정 파일에 이미 그 이름이 적혀 있다. 이 모듈이 먼저 쓰던 aquaculture·smartfarm 은
+읽을 때 같은 뜻으로 맞춘다(resolve).
 
 **상호 배타**다. 한 장비는 한 모드로만 돈다.
 
@@ -22,33 +26,38 @@
 
 from __future__ import annotations
 
-MODES = ("aquaculture", "smartfarm", "mrv")
-DEFAULT = "aquaculture"
+MODES = ("shrimp", "agriculture", "mrv")
+DEFAULT = "shrimp"
+#: 이 모듈이 먼저 쓰던 이름. 설정 파일에 적혀 있으면 운영 이름으로 읽는다.
+ALIASES = {"aquaculture": "shrimp", "smartfarm": "agriculture"}
 
 
-def resolve(declared: str | None, nutrient_enabled: bool) -> str:
+def resolve(declared: str | None, nutrient_enabled: bool = False) -> str:
     """설정 파일이 말하는 모드를 정한다.
 
-    `[device] mode` 가 적혀 있으면 그대로 쓴다. **적혀 있지 않으면 기존 설치다** —
-    그 장비들은 `[nutrient] enabled` 로 수경재배 여부를 말해 왔으므로 그것으로
-    추론한다. 마이그레이션 없이 조용히 동작이 바뀌면 현장이 깨진다.
+    `[webui] mode`(옛 파일은 `[device] mode`)가 적혀 있으면 그대로 쓴다. 옛 이름
+    (aquaculture·smartfarm)은 같은 뜻의 운영 이름으로 읽는다. **적혀 있지 않거나 모르는
+    값이면 양식장**이다 — 기존 장비는 그대로 돌아야 한다.
 
-        적힌 값 없음 + 양액 켬  → smartfarm
-        적힌 값 없음 + 양액 끔  → aquaculture
+    `nutrient_enabled` 는 더 쓰지 않는다. 수집기 1.10 이 스마트팜을 양액 플래그와
+    무관한 화면 모드로 두었으므로(양식장 화면에서도 양액 관리를 켤 수 있다), 양액
+    플래그로 모드를 추론하면 그 장비들의 화면 이름·색이 바뀐다. 인자는 옛 호출을
+    깨지 않으려고 남겨 둔다.
 
     **추론으로 mrv 가 되는 길은 없다.** MRV 수집 키를 들고 있다는 사실만으로 모드를
     옮기면, 수질을 보던 장비의 기본 화면이 어느 날 전력 입력 단말로 바뀐다. MRV 는
     사람이 설정 화면에서 고를 때만 된다.
     """
+    del nutrient_enabled
     value = (declared or "").strip().lower()
-    if value in MODES:
-        return value
-    return "smartfarm" if nutrient_enabled else DEFAULT
+    value = ALIASES.get(value, value)
+    return value if value in MODES else DEFAULT
 
 
 def shows_nutrient(mode: str) -> bool:
-    """양액 보충 안내와 수경재배 판정 밴드를 쓰는가."""
-    return mode == "smartfarm"
+    """양액 보충 안내를 띄울 수 있는가. 켜고 끄는 것은 [nutrient] enabled 이고, 여기서는
+    MRV 단말만 막는다 — 그 화면 앞에 선 사람은 계량기를 읽으러 온 사람이다."""
+    return mode != "mrv"
 
 
 def shows_advice(mode: str) -> bool:

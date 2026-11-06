@@ -33,7 +33,12 @@ class State:
         self._lock = threading.Lock()
         self._data: dict = {
             "values": {},          # 측정값 — 연결 여부와 무관하게 항상 갱신
-            "status": "",          # 하단에 뜨는 한 줄
+            "status": "",          # 하단에 뜨는 한 줄(한국어). 아래 코드가 없을 때만 화면에 쓴다.
+            # 하단 줄의 뜻 — 화면이 이 코드와 숫자로 화면 언어 문장을 만든다(1.9.2).
+            #   send_fail · unlinked · sent · sensor_error · dry_run · checking ·
+            #   pair_wait · paired · unlinked_by_user · restarting · rebooting
+            "status_code": None,
+            "status_args": {},     # {"at": "07:42", "pending": 37, "sent": 3} 중 필요한 것
             "version": "",         # 지금 도는 프로그램 버전. 원격 업데이트로 바뀌면
                                    # 화면이 스스로 새로고침해 새 UI 를 띄운다.
             "updated_at": None,
@@ -53,6 +58,10 @@ class State:
 
             "ec_unit": "us",       # 전도도 표시 단위(us|ms). 화면이 값을 바꿔 보여 준다.
             "nutrient": None,      # 양액 보충 안내(켜 둔 경우에만)
+            "env": None,           # 환경·기상(field_env.py). 끄면 None, 켰는데 값이 없으면 {}
+            "power": None,         # 전력 회로 {circuits, total_w, partial, level}. 끄면 None
+            "irrigation": None,    # 관수 밸브 [{id, state, flow, volume_today, age_min}]. 없으면 None
+            "mode": "shrimp",      # 장비 모드(shrimp|agriculture). 화면 이름·라벨·색만 바꾼다.
 
             # 장비가 스스로 낸 판단. 통신과 무관하게 여기서 끝난다.
             "advice": [],          # 설비 운전 권고 (advice.py)
@@ -93,17 +102,15 @@ class State:
             # [server] endpoint 가 다른 호스트인 장비에서 틀린 주소를 안내하지 않도록
             # MRV 창구의 호스트를 따로 둔다.
             "mrv_pair_url": "",
-
-            # 운전 모드 — 이 장비가 무엇을 하는 기계인가(modes.py).
-            # mrv 모드에서는 **기본 화면이 전력 입력 단말**이 된다.
-            "mode": "aquaculture",
-            # 설정에 켜 둔 수질 센서가 있는가. MRV 모드에서 수질 칸을 보일지 정한다 —
-            # 기계실 단말에는 센서가 아예 안 붙어 있을 수 있고, 그 때 '--' 로 채운
-            # 칸을 기본 화면에 두면 보여 줄 것이 없는 화면이 된다.
-            "sensors_on": True,
+            "ai": {},              # 위 둘이 실제로 돌고 있는지 — 화면의 "AI 모드" 표시
         }
 
     def update(self, **kwargs) -> None:
+        # 상태 문장만 바꾸고 코드를 주지 않으면(예전 호출부) 이전 코드가 남아 화면이
+        # 옛 문장을 계속 그리게 된다. 그런 경우 코드를 지워 문자열을 그대로 쓰게 한다.
+        if "status" in kwargs and "status_code" not in kwargs:
+            kwargs["status_code"] = None
+            kwargs.setdefault("status_args", {})
         with self._lock:
             self._data.update(kwargs)
 
@@ -113,11 +120,33 @@ class State:
 
 
 PAGE = """<!doctype html>
-<html lang="__LANG__">
+<html lang="__LANG__" data-mode="__MODE__">
 <meta charset="utf-8">
 <meta name="viewport" content="width=800,initial-scale=1">
 <title>Shrimp365</title>
 <style>
+  /* 강조색 — 모드가 정한다. 양식장은 파랑(기존 값 그대로), 스마트팜은 녹색.
+     색을 쓰는 자리는 전부 이 변수만 보므로 모드 전환은 data-mode 하나로 끝난다. */
+  :root{
+    --brand:#1E40AF;          /* 버튼·마크·활성 칸 */
+    --brand-hover:#3B82F6;    /* 보관 칩 테두리·AI 불빛 */
+    --brand-line:#2563EB;     /* AI 켜짐 테두리 */
+    --brand-text:#60A5FA;     /* 밝은 강조 글자(연결 코드·그래프 현재값) */
+    --brand-text2:#93C5FD;    /* AI 켜짐 글자 */
+    --brand-soft:#1E40AF18;   /* 양액 보충 띠 바탕 */
+    --brand-soft2:#1E40AF22;  /* AI 켜짐 바탕 */
+    --brand-ring:#3B82F633;   /* AI 불빛 테 */
+  }
+  :root[data-mode="agriculture"]{
+    --brand:#15803D;
+    --brand-hover:#16A34A;
+    --brand-line:#16A34A;
+    --brand-text:#4ADE80;
+    --brand-text2:#86EFAC;
+    --brand-soft:#15803D18;
+    --brand-soft2:#15803D22;
+    --brand-ring:#16A34A33;
+  }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;overflow:hidden}
   body{
@@ -130,9 +159,14 @@ PAGE = """<!doctype html>
     display:flex;align-items:center;gap:10px;
     padding:9px 16px;border-bottom:1px solid #22304C;background:#111A2E;
   }
-  .mark{width:24px;height:24px;border-radius:6px;background:#1E40AF;
+  .mark{width:24px;height:24px;border-radius:6px;background:var(--brand);
     display:flex;align-items:center;justify-content:center;flex:0 0 auto}
   .brand{font-weight:800;letter-spacing:-.02em;font-size:16px}
+  /* 부제 — 스마트팜 모드에서만 채워진다. 비어 있으면 자리도 차지하지 않아
+     양식장 화면은 예전과 한 픽셀도 다르지 않다. */
+  .tag{font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--brand-text);
+    flex:0 0 auto;margin-left:-4px}
+  .tag:empty{display:none}
   .ver{font-size:11px;color:#64748B;font-weight:600;flex:0 0 auto}
   .link{
     margin-left:auto;display:flex;align-items:center;gap:7px;
@@ -153,7 +187,112 @@ PAGE = """<!doctype html>
   }
   .chip.on{border-color:#10B981;color:#10B981}
   .chip.off{border-color:#D97706;color:#F59E0B}
-  .chip.hold{border-color:#3B82F6;color:#60A5FA}
+  .chip.hold{border-color:var(--brand-hover);color:var(--brand-text)}
+
+  /* AI 모드 표시 — 이 장비가 값만 보여 주는 계측기가 아니라는 것을 머리에 박아 둔다.
+     눌러서 "무엇을 하고 있는지" 를 열 수 있으므로 누를 수 있게 보이도록 한다. */
+  .ai{
+    display:flex;align-items:center;gap:6px;flex:0 0 auto;cursor:pointer;
+    font-size:11.5px;font-weight:800;letter-spacing:.02em;
+    padding:3px 9px;border-radius:999px;
+    border:1px solid #1E3A5F;background:#0F1D33;color:#64748B;
+  }
+  .ai.on{border-color:var(--brand-line);background:var(--brand-soft2);color:var(--brand-text2)}
+  .ai .bulb{width:7px;height:7px;border-radius:50%;background:#475569;flex:0 0 auto}
+  .ai.on .bulb{background:var(--brand-hover);box-shadow:0 0 0 3px var(--brand-ring)}
+
+  /* AI 모드 설명판 */
+  /* 전력 — 머리 칩(전체 kW), 과열 경고 띠, 회로판. 양식장·스마트팜 공통.
+     전력을 켜지 않은 장비(power=null)는 칩도 띠도 자리를 차지하지 않는다. */
+  .pw{display:flex;align-items:center;gap:5px;flex:0 0 auto;cursor:pointer;
+    font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;
+    border:1px solid #22304C;background:#0F1D33;color:#CBD5E1;font-variant-numeric:tabular-nums}
+  .pw:empty{display:none}
+  .pw .bolt{color:#FBBF24}
+  .pw .drop{color:#38BDF8}
+  .pw.open{border-color:#0EA5E9;color:#7DD3FC}
+  .pw.warn{border-color:#D97706;color:#FBBF24}
+  .pw.crit{border-color:#DC2626;color:#F87171;background:#DC262622}
+  .grid.n1{grid-template-columns:1fr}
+  .grid.n2{grid-template-columns:1fr 1fr;grid-template-rows:1fr}
+  .grid.n3{grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr}
+  .grid.n3 .v{font-size:46px}
+  .grid.tight .cell{padding:6px 16px}
+  .grid.tight .v{font-size:42px}
+  .grid.tight .v small{font-size:17px}
+  .grid.tight .sub2{margin-top:2px}
+  .grid.tighter .cell{padding:4px 14px}
+  .grid.tighter .v{font-size:34px}
+  .grid.tighter .v small{font-size:15px}
+  .grid.tighter .sub2{display:none}
+  .pwalert{flex:0 0 auto;margin-bottom:9px;padding:8px 13px;border-radius:12px;cursor:pointer;
+    display:flex;align-items:center;gap:10px;font-size:14.5px;font-weight:800}
+  .pwalert.warn{border:1px solid #D97706;background:#D9770618;color:#FBBF24}
+  .pwalert.crit{border:1px solid #DC2626;background:#DC262622;color:#F87171}
+  .pwalert .why{margin-left:auto;font-size:12.5px;font-weight:600;color:#94A3B8}
+  .pwbox{max-width:720px;width:100%;margin-top:8px;background:#111A2E;border:1px solid #22304C;
+    border-radius:12px;padding:4px 14px;text-align:left;max-height:318px;overflow-y:auto}
+  .pwrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #1E293B}
+  .pwrow:first-child{border-top:0}
+  .pwrow .nm{flex:1;min-width:0;font-size:14.5px;font-weight:700;color:#E8EDF7}
+  .pwrow .nm small{display:block;font-size:11.5px;font-weight:600;color:#64748B}
+  .pwrow .st{font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;border:1px solid #22304C;color:#64748B}
+  .pwrow .st.on{border-color:#10B981;color:#34D399}
+  .pwrow .num{width:78px;text-align:right;font:800 15px/1.2 ui-monospace,monospace;color:#E8EDF7}
+  .pwrow .num small{display:block;font:600 10.5px/1.2 system-ui,sans-serif;color:#64748B}
+  .pwrow .num.warn{color:#FBBF24}
+  .pwrow .num.crit{color:#F87171}
+  .pwrow .num.dim{color:#475569}
+  .typegrid.four{grid-template-columns:repeat(4,1fr)}
+  .pcline{display:flex;align-items:center;gap:6px;padding:0 0 8px;flex-wrap:wrap}
+  .pcline .pcinfo{flex:1;min-width:180px;font-size:12px;color:#94A3B8}
+  .pcline .pcbig{min-width:72px;font-weight:800}
+  .pcline .pcbig.on{border-color:#F87171;color:#FCA5A5}
+  .pcbox{margin-top:8px;padding:8px;border:1px solid #22304C;border-radius:10px;display:flex;flex-direction:column;gap:6px}
+  .pcstep{display:flex;align-items:center;gap:6px}
+  .pcstep span{flex:1;font-size:13px;color:#CBD5E1}
+  .pcstep b{min-width:74px;text-align:center;font:800 16px/1 ui-monospace,monospace;color:#E8EDF7}
+  .pcdays{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
+  .pcdays button{min-width:42px;padding:8px 6px;border-radius:8px;border:1px solid #22304C;background:#0B1324;color:#94A3B8;font-weight:700}
+  .pcdays button.on{border-color:var(--brand);color:#E8EDF7;background:#13233F}
+  .pwtot{display:flex;gap:18px;justify-content:center;margin-top:6px;font-size:13px;color:#94A3B8}
+  .pwtot b{font:800 20px/1 ui-monospace,monospace;color:#E8EDF7;margin-right:3px}
+  .typegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+  .wlchips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
+  .wlchips span{font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;border:1px solid #22304C;color:#94A3B8}
+  .wlchips span.ok{border-color:#10B981;color:#34D399}
+  .wlchips span.bad{border-color:#B45309;color:#FBBF24}
+  .wlbig{width:100%;min-height:52px;border-radius:12px;border:1px solid var(--brand-line);background:var(--brand-soft2);
+    color:var(--brand-text2);font-weight:800;font-size:16px;font-family:inherit;cursor:pointer;margin:2px 0 8px}
+  .wlbig.on{background:#0E2A1F;border-color:#10B981;color:#6EE7B7}
+  .wlbig[disabled]{opacity:.45;cursor:default}
+  .wlhead{font-size:12.5px;font-weight:800;color:#94A3B8;margin:10px 0 2px}
+  .wlmeta{font-size:12px;color:#94A3B8;text-align:right;flex:0 0 auto;line-height:1.35}
+  .wlmeta.old{color:#FBBF24}
+  .ecoset{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin-top:8px;font-size:14px}
+  .ecoset span{color:#94A3B8}
+  .ecoset b{font-family:ui-monospace,monospace;word-break:break-all}
+  .typegrid.two{grid-template-columns:repeat(2,1fr)}
+  .typegrid button{min-height:46px;border-radius:10px;border:1px solid #22304C;background:#111A2E;
+    color:#E8EDF7;font-weight:700;font-size:14px;font-family:inherit;cursor:pointer}
+  .typegrid button.on{border-color:var(--brand-line);background:var(--brand-soft2);color:var(--brand-text2)}
+  .aibox{max-width:520px;text-align:left;width:100%;margin-top:10px;
+    background:#111A2E;border:1px solid #22304C;border-radius:12px;padding:4px 16px 14px}
+  .aibox .layer{
+    display:flex;gap:11px;align-items:flex-start;
+    padding:10px 0;border-top:1px solid #1E293B;
+  }
+  .aibox .layer:first-of-type{border-top:0}
+  .aibox .n{
+    flex:0 0 auto;width:21px;height:21px;border-radius:50%;margin-top:1px;
+    background:var(--brand);color:#fff;font-size:11px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .aibox .ttl{font-size:14.5px;font-weight:700;color:#E8EDF7}
+  .aibox .dsc{font-size:12.5px;color:#94A3B8;line-height:1.5;margin-top:2px}
+  .aibox .now{margin-left:auto;flex:0 0 auto;font-size:12px;font-weight:700;color:var(--brand-text);text-align:right}
+  .aibox .foot{margin-top:11px;padding-top:10px;border-top:1px solid #1E293B;
+    font-size:12px;color:#64748B;line-height:1.55}
 
   main{flex:1;display:flex;flex-direction:column;justify-content:center;padding:10px 16px;min-height:0}
 
@@ -183,19 +322,66 @@ PAGE = """<!doctype html>
   .sub2.bad{color:#F87171}
   .sub2.bad .dim{color:#94A3B8;display:block;margin-top:2px}
 
+  /* 환경·기상 줄 (스마트팜 · 지그비 온습도·토양수분, 기상센서) — 값 격자와 양액 띠 사이.
+     수질 값보다 작게 둔다. 판정 색은 없다(작물·생육 단계마다 적정값이 달라서). */
+  .env{flex:0 0 auto;margin-top:9px;display:flex;gap:11px}
+  .env .e{flex:1;min-width:0;background:#111A2E;border:1px solid #22304C;border-radius:12px;
+    padding:7px 13px;display:flex;flex-direction:column;gap:2px}
+  .env .ek{font-size:12.5px;color:#94A3B8;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .env .ev{font:800 25px/1 ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .env .ev small{font-size:13px;font-weight:600;color:#94A3B8;margin-left:3px}
+  .env .em{font-size:11px;color:#64748B;font-weight:600}
+  .env .e.old .em{color:#F59E0B}
+  /* 수질 센서 없이 쓰는 장비(노지) — 값 격자가 없으면 환경·기상 칸이 화면을 채운다. */
+  .env.big{flex:1;min-height:0;margin-top:0;display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr}
+  .env.big .e{padding:10px 18px;justify-content:center;gap:6px}
+  .env.big .ek{font-size:16px}
+  .env.big .ev{font-size:44px}
+  .env.big .ev small{font-size:18px}
+  .env.big .em{font-size:13px}
+  .env.big.wxgrid{margin-top:8px;grid-template-columns:repeat(4,1fr);grid-auto-rows:minmax(0,1fr)}
+  .env.big.wxgrid .ev{font-size:34px}
+  .env.big.wxgrid .e{padding:8px 14px}
+  .env .e.many{cursor:pointer;border-color:#2B3E63}
+  .env .e.many .ek::after{content:" \u203A";color:#64748B}
+  .eachbody{flex:1;min-height:0;display:flex;gap:10px}
+  .eachbody .plot{flex:1 1 0;display:flex;align-items:center;justify-content:center}
+  .eachlist{width:270px;flex:0 0 auto;overflow-y:auto;background:#111A2E;border:1px solid #22304C;
+    border-radius:12px;padding:2px 12px}
+  .eachrow{gap:8px}
+  .eachrow .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .eachrow .nm{font-size:14px}
+  .eachrow .num{width:74px}
+  .avgkey::before{content:"";display:inline-block;width:16px;border-top:2px dashed #E8EDF7;
+    vertical-align:middle;margin-right:5px}
+  .eachrow .tag{font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px}
+  .eachrow .tag.hi{color:#FB923C;border:1px solid #9A3412}
+  .eachrow .tag.lo{color:#38BDF8;border:1px solid #075985}
+  .env .e.none .ev{color:#475569}
+  .env.empty{border:1px dashed #22304C;border-radius:12px;padding:9px 14px;
+    font-size:13px;color:#94A3B8;font-weight:600}
+
   /* 양액 안내 띠 — 계기판 아래 한 줄 */
   .nut{
     flex:0 0 auto;margin-top:9px;padding:9px 14px;border-radius:12px;
     display:flex;align-items:center;gap:12px;
     background:#111A2E;border:1px solid #22304C;
   }
-  .nut.low{border-color:#1E40AF;background:#1E40AF18}
+  .nut.low{border-color:var(--brand);background:var(--brand-soft)}
   .nut.high{border-color:#D97706;background:#D9770618}
   .nut.ok{border-color:#10B981;background:#10B98112}
   .nut .head{font-size:14px;font-weight:800;flex:0 0 auto}
   .nut .dose{font:800 26px/1 ui-monospace,monospace;letter-spacing:-.01em}
   .nut .dose small{font-size:13px;font-weight:600;color:#94A3B8;margin-left:3px}
   .nut .meta{margin-left:auto;font-size:12px;color:#94A3B8;text-align:right;line-height:1.5}
+  /* 스마트팜 모드 — 양액 보충이 이 장비의 주 업무라 값 격자 바로 아래, 권고보다
+     앞에 크게 놓는다. 양식장 모드는 예전 자리(맨 아래, 작게) 그대로다. */
+  .nut.front{padding:12px 16px;border-width:2px;gap:16px}
+  .nut.front .head{font-size:17px}
+  .nut.front .dose{font-size:34px}
+  .nut.front .meta{font-size:13px}
+  .nut.off{border-style:dashed;color:#94A3B8;cursor:pointer}
+  .nut.off .head{font-size:13.5px;font-weight:600}
 
   /* 설비 운전 권고 — 값 격자 바로 아래. "무엇을 돌릴까" 가 값보다 아래이되
      양액 안내보다는 위다(폐사까지의 시간이 짧은 쪽을 먼저 읽게 한다). */
@@ -234,18 +420,18 @@ PAGE = """<!doctype html>
   .sname{font-size:15px;font-weight:700;flex:1;min-width:0}
   .sub{font-size:11px;color:#64748B;font-weight:500}
   .toggle{
-    font:700 12px/1 inherit;padding:9px 13px;min-height:38px;border-radius:8px;
+    font-weight:700;font-size:12px;line-height:1;font-family:inherit;padding:9px 13px;min-height:38px;border-radius:8px;
     border:1px solid #22304C;background:transparent;color:#64748B;cursor:pointer;
   }
   .toggle.on{border-color:#10B981;color:#10B981;background:#10B98115}
   .step{display:flex;align-items:center;gap:0}
   .step button{
-    width:40px;height:38px;font:800 18px/1 inherit;
+    width:40px;height:38px;font-weight:800;font-size:18px;line-height:1;font-family:inherit;
     background:#16223C;color:#93A4BF;border:1px solid #22304C;cursor:pointer;
   }
   .step button:first-child{border-radius:8px 0 0 8px}
   .step button:last-child{border-radius:0 8px 8px 0}
-  .step button:active{background:#1E40AF;color:#fff}
+  .step button:active{background:var(--brand);color:#fff}
   .step .num{
     width:46px;height:38px;display:flex;align-items:center;justify-content:center;
     background:#0B1120;border-top:1px solid #22304C;border-bottom:1px solid #22304C;
@@ -256,7 +442,18 @@ PAGE = """<!doctype html>
     background:#111A2E;border:1px solid #22304C;border-radius:11px;
     padding:9px 12px;margin-bottom:7px;
   }
-  .found b{color:#60A5FA;font-family:ui-monospace,monospace}
+  /* 한글 이름까지 고정폭 글꼴로 그리면 자간이 벌어진다(1.9.1). 숫자만 폭을 맞춘다. */
+  .found b{color:var(--brand-text);font-variant-numeric:tabular-nums}
+  /* 모드 고르기 — 두 칸 토글. 활성 칸은 강조색으로 찬다. */
+  .seg{display:flex;gap:8px;margin:8px 0}
+  .seg button{
+    flex:1 1 0;min-width:0;min-height:68px;padding:10px 12px;border-radius:12px;
+    border:1px solid #22304C;background:#111A2E;color:#94A3B8;cursor:pointer;
+    font-weight:700;font-size:16px;line-height:1.3;font-family:inherit;text-align:left;
+  }
+  .seg button small{display:block;font-size:11.5px;font-weight:600;color:#64748B;margin-top:3px}
+  .seg button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+  .seg button[aria-pressed="true"] small{color:#fff;opacity:.8}
   /* 센서 테스트 결과 */
   .trow{margin-top:8px;padding-top:7px;border-top:1px solid #22304C;line-height:1.7}
   .trow:first-of-type{border-top:0;margin-top:4px}
@@ -270,6 +467,7 @@ PAGE = """<!doctype html>
   .msg{font-size:12px;padding:8px 12px;border-radius:9px;margin-bottom:7px}
   .msg.ok{background:#10B98118;color:#34D399}
   .msg.err{background:#DC262618;color:#F87171}
+  .msg.info{background:#3B82F618;color:#CBD5E1;font-size:13px;line-height:1.5}
 
   /* Wi‑Fi 화면 — 설정 화면과 같은 틀을 쓴다 */
   .wrow{
@@ -285,7 +483,7 @@ PAGE = """<!doctype html>
   /* 신호 막대 4칸 */
   .bars{display:flex;align-items:flex-end;gap:2px;height:18px;flex:0 0 auto}
   .bars i{width:4px;background:#334155;border-radius:1px}
-  .bars i.on{background:#60A5FA}
+  .bars i.on{background:var(--brand-text)}
   .bars i:nth-child(1){height:6px}
   .bars i:nth-child(2){height:10px}
   .bars i:nth-child(3){height:14px}
@@ -307,19 +505,19 @@ PAGE = """<!doctype html>
     font:600 18px/1 ui-monospace,monospace;letter-spacing:2px;padding:10px 0;
   }
   .pwf .eye{
-    font:600 12px/1 inherit;padding:9px 11px;border-radius:8px;
+    font-weight:600;font-size:12px;line-height:1;font-family:inherit;padding:9px 11px;border-radius:8px;
     border:1px solid #22304C;background:transparent;color:#94A3B8;cursor:pointer;flex:0 0 auto;
   }
   .kbd{margin-top:8px;display:flex;flex-direction:column;gap:5px}
   .krow{display:flex;gap:5px;justify-content:center}
   .kbd button{
     flex:1 1 0;min-width:0;height:44px;
-    font:700 16px/1 inherit;color:#E8EDF7;
+    font-weight:700;font-size:16px;line-height:1;font-family:inherit;color:#E8EDF7;
     background:#16223C;border:1px solid #22304C;border-radius:8px;cursor:pointer;
   }
-  .kbd button:active{background:#1E40AF}
+  .kbd button:active{background:var(--brand)}
   .kbd button.wide{flex:1.6 1 0}
-  .kbd button.go{flex:2 1 0;background:#1E40AF;border-color:#1E40AF;color:#fff}
+  .kbd button.go{flex:2 1 0;background:var(--brand);border-color:var(--brand);color:#fff}
   .kbd button.k-shift.on{background:#334155;border-color:#475569}
 
   /* 그래프 화면 */
@@ -337,18 +535,28 @@ PAGE = """<!doctype html>
   }
   .chead button:active{background:#1E40AF;border-color:#1E40AF;color:#fff}
   .ctitle{font-size:18px;font-weight:800}
-  .cnow{font:800 22px/1 ui-monospace,monospace;color:#60A5FA}
+  .cnow{font:800 22px/1 ui-monospace,monospace;color:var(--brand-text)}
   .cstats{margin-left:auto;display:flex;gap:12px;font-size:12px;color:#94A3B8}
   .cstats b{color:#E8EDF7;font-weight:700;font-family:ui-monospace,monospace}
   .ranges{display:flex;gap:6px;margin-bottom:6px}
   .ranges button{
-    font:700 13px/1 inherit;padding:8px 14px;min-height:36px;border-radius:8px;
+    font-weight:700;font-size:13px;line-height:1;font-family:inherit;padding:8px 14px;min-height:36px;border-radius:8px;
     border:1px solid #22304C;background:transparent;color:#94A3B8;cursor:pointer;
   }
-  .ranges button[aria-pressed="true"]{background:#1E40AF;border-color:#1E40AF;color:#fff}
+  .ranges button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
   .ranges .close{margin-left:auto;border-color:#22304C}
-  .plot{flex:1;min-height:0;background:#111A2E;border:1px solid #22304C;border-radius:12px}
-  .plot svg{display:block;width:100%;height:100%}
+  /* 설정·보정·양액 화면 머리의 [닫기]·[‹ 설정]. 클래스 없이 만든 버튼이라 예전에는
+     브라우저 기본 모양(흰 사각)으로 떠 혼자 튀었다. 그래프의 [닫기]와 같은 모양으로 두되,
+     장갑 낀 손으로도 누르게 높이는 터치 최소 44px(1.9.2). */
+  .chead > button{
+    font-weight:700;font-size:13px;line-height:1;font-family:inherit;padding:8px 16px;min-height:44px;border-radius:8px;
+    border:1px solid #22304C;background:transparent;color:#94A3B8;cursor:pointer;flex:0 0 auto;margin-left:auto;
+  }
+  .chead .cstats + button{margin-left:12px}
+  .chead > button:active{background:#16223C}
+  .plot{flex:1;min-height:0;background:#111A2E;border:1px solid #22304C;border-radius:12px;
+    position:relative;overflow:hidden}
+  .plot svg{display:block;position:absolute;inset:0;width:100%;height:100%}
   .nodata{
     flex:1;display:flex;align-items:center;justify-content:center;
     background:#111A2E;border:1px solid #22304C;border-radius:12px;color:#64748B;font-size:15px;
@@ -365,8 +573,8 @@ PAGE = """<!doctype html>
   .time{color:#64748B;font:500 13px ui-monospace,monospace;flex:0 0 auto}
   button.act{
     margin-left:auto;flex:0 0 auto;
-    font:700 13px/1 inherit;padding:9px 16px;min-height:38px;border-radius:8px;
-    background:#1E40AF;color:#fff;border:0;cursor:pointer;
+    font-weight:700;font-size:13px;line-height:1;font-family:inherit;padding:9px 16px;min-height:38px;border-radius:8px;
+    background:var(--brand);color:#fff;border:0;cursor:pointer;
   }
   button.act.ghost{background:transparent;border:1px solid #22304C;color:#94A3B8}
   button.act:active{opacity:.75}
@@ -490,12 +698,14 @@ PAGE = """<!doctype html>
   .overlay p{color:#94A3B8;font-size:14px;line-height:1.5}
   .code{
     font:800 74px/1 ui-monospace,monospace;letter-spacing:18px;
-    color:#60A5FA;margin:12px 0 8px;padding-left:18px;white-space:nowrap;
+    color:var(--brand-text);margin:12px 0 8px;padding-left:18px;white-space:nowrap;
   }
   .steps{
     text-align:left;display:inline-block;margin-top:6px;
     background:#111A2E;border:1px solid #22304C;border-radius:12px;padding:10px 20px;
   }
+  /* 맨 위 *{padding:0} 이 ol 의 들여쓰기까지 지워 번호가 테두리에 붙었다(1.9.1). */
+  .steps ol{padding-left:1.5em}
   .steps li{color:#CBD5E1;font-size:13.5px;margin:2px 0;line-height:1.45}
   .ovbtns{display:flex;gap:10px;margin-top:14px}
   .err{color:#F87171;font-size:14px;margin-top:10px}
@@ -508,8 +718,12 @@ PAGE = """<!doctype html>
       <path d="M23.2 8.6L29.0 5.8L27.2 11.0L29.2 14.8L20.6 13.4Z"/>
     </svg>
   </span>
-  <span class="brand">Shrimp365</span>
+  <span class="brand" id="brand">Shrimp365</span>
+  <span class="tag" id="tag"></span>
   <span class="ver" id="ver"></span>
+  <span class="ai" id="ai" onclick="openAi()"><span class="bulb"></span><span id="ailabel"></span></span>
+  <span class="pw" id="pw" onclick="openPower()"></span>
+  <span class="pw" id="irr" onclick="openIrr()"></span>
   <span class="link" id="link"></span>
 </header>
 
@@ -529,6 +743,10 @@ PAGE = """<!doctype html>
 <div id="wifi"></div>
 <div id="account"></div>
 <div id="power"></div>
+<div id="aipanel"></div>
+<div id="powerpanel"></div>
+<div id="irrpanel"></div>
+<div id="envpanel"></div>
 
 <script>
 // 값 칸의 표시 형식. **판정 숫자는 여기 없다** — limits.py 가 주입하는 BANDS 를
@@ -548,6 +766,16 @@ var NUT_BANDS = __NUT_BANDS__;
 // 전도도 모드면 전도도가 올라오므로 값이 있는 쪽을 보여 준다.
 function orderFor(d){
   var v = (d && d.values) || {};
+  // 스마트팜에서는 염도를 보여 주지 않는다 — 양액에 염도 환산값은 뜻이 없다.
+  if (isAgri()) {
+    // [센서 설정]에서 끈 센서는 칸을 그리지 않는다(값이 없는 '고장' 칸과 구분된다).
+    // 수온은 pH·DO·EC 센서 어느 것이든 잰다. sensors_on 이 없는 옛 상태면 4칸 그대로.
+    var on = d && d.sensors_on;
+    var all = ["temperature","ph","do_level","conductivity"];
+    if (!on) return all;
+    var need = {temperature:["ph","do","ec"], ph:["ph"], do_level:["do"], conductivity:["ec"]};
+    return all.filter(function(k){ return need[k].some(function(s){ return on.indexOf(s) >= 0; }); });
+  }
   var fourth = (typeof v.salinity === "number") ? "salinity"
              : (typeof v.conductivity === "number") ? "conductivity"
              : "salinity";
@@ -556,8 +784,20 @@ function orderFor(d){
 
 // 양액(수경재배)에서는 적정 범위가 새우와 전혀 다르다. 새우 기준을 그대로
 // 쓰면 정상값(수온 24℃, pH 6.2)이 온통 빨갛게 떠 경고가 무의미해진다.
-// 양액 관리를 켠 장비에서는 NUT_BANDS 로 바꿔 본다(둘 다 limits.py 가 준다).
+// 양액 관리를 켠 장비와 스마트팜 모드에서는 NUT_BANDS 로 바꿔 본다(둘 다 limits.py 가 준다).
+// 스마트팜에서 양액 관리를 꺼 둔 것은 "보충량 계산을 안 쓴다" 는 뜻이지 새우 기준으로
+// 보라는 뜻이 아니다 — 그렇게 보면 정상 양액(21℃, pH 6.1)이 온통 빨갛게 뜬다.
 var nutMode = false;   // 계기판이 매번 갱신할 때 함께 정한다
+
+// 이 항목에 쓰는 판정 밴드 — 값 칸의 색(level)과 그래프의 녹색 띠가 이 하나를 본다.
+// 농업 기준(NUT_BANDS = 웹 AGRI_THRESHOLDS 와 같은 값)에 없는 항목은 새우 표로 돌아가고,
+// 전도도처럼 어느 표에도 없는 항목은 밴드가 없다(전역 EC 기준선을 긋지 않는다).
+// isAgri() 도 직접 본다 — 그래프가 열려 있는 동안에는 renderValues 가 돌지 않아
+// nutMode 가 모드 전환을 늦게 따라올 수 있다.
+function bandFor(key){
+  if ((nutMode || isAgri()) && NUT_BANDS[key]) return NUT_BANDS[key];
+  return BANDS[key] || null;
+}
 
 // 밴드의 한쪽 끝이 null 이면 그쪽은 보지 않는다 — 용존산소에 상한이 없는 것이
 // 그 예다. 예전에는 상한 자리에 20 을 박아 두어, 과포화를 "위험"으로 찍었다.
@@ -569,14 +809,14 @@ function within(pair, v){
 }
 
 function level(key, v){
-  var b = (nutMode && NUT_BANDS[key]) ? NUT_BANDS[key] : BANDS[key];
+  var b = bandFor(key);
   if(!b) return "";
   if(within(b.ok, v)) return "";
   return within(b.warn, v) ? "warn" : "crit";
 }
 
-function esc(s){ return String(s).replace(/[&<>]/g, function(c){
-  return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c]; }); }
+function esc(s){ return String(s).replace(/[&<>"']/g, function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","'":"&#39;"}[c]; }); }
 
 // ── 화면 언어 ────────────────────────────────────────────────────────────────
 // 웹페이지와 같은 4종(ko/en/vi/id). 서버가 첫 언어를 __LANG__ 자리에 새겨 준다.
@@ -587,6 +827,32 @@ if (!/^(ko|en|vi|id)$/.test(LANG)) LANG = "ko";
 // 언어 이름은 어느 언어에서 보든 그 언어 그대로 적는다(현지 표기).
 var LANG_NAMES = {ko:"한국어", en:"English", vi:"Tiếng Việt", id:"Bahasa Indonesia"};
 var LANG_ORDER = ["ko","en","vi","id"];
+
+// ── 장비 모드 ────────────────────────────────────────────────────────────────
+// shrimp(양식장) | agriculture(스마트팜). 서버가 첫 모드를 __MODE__ 자리에 새겨 주고,
+// 그 뒤로는 /api/state 의 mode 를 따라간다. 바뀌는 것은 화면 이름·라벨·강조색뿐이다 —
+// 측정·전송은 모드를 모른다.
+var MODE = "__MODE__";
+if (MODE !== "agriculture" && MODE !== "mrv") MODE = "shrimp";
+// mrv(탄소 MRV 전력 입력 단말)는 새우 양식장의 기계실에 놓이므로 이름·색은 양식장과 같다.
+// 다른 것은 **기본 화면**이다 — renderMain 이 전력 입력 단말을 먼저 보여 준다(modes.py).
+var BRAND = {
+  shrimp:      {name:"Shrimp365", tag:"",                   accent:"#60A5FA"},
+  agriculture: {name:"Farm365",   tag:"SMART FARMING",      accent:"#4ADE80"},
+  mrv:         {name:"Shrimp365", tag:"CARBON MRV",         accent:"#60A5FA"}
+};
+function isAgri(){ return MODE === "agriculture"; }
+// 그래프 SVG 는 속성에 CSS 변수를 못 쓰므로 색을 직접 준다(--brand-text 와 같은 값).
+function accent(){ return BRAND[MODE].accent; }
+
+function applyMode(m){
+  MODE = (m === "agriculture" || m === "mrv") ? m : "shrimp";
+  try { document.documentElement.setAttribute("data-mode", MODE); } catch(e){}
+  var b = BRAND[MODE];
+  document.title = b.name;
+  document.getElementById("brand").textContent = b.name;
+  document.getElementById("tag").textContent = b.tag;
+}
 
 var I18N = {
   // 측정 항목
@@ -611,6 +877,21 @@ var I18N = {
   held:{ko:"보관 {n}건",en:"{n} held",vi:"Đã lưu {n}",id:"{n} tersimpan"},
   starting:{ko:"시작하는 중…",en:"Starting…",vi:"Đang khởi động…",id:"Memulai…"},
   no_collector:{ko:"수집기 응답 없음",en:"No response from collector",vi:"Bộ thu không phản hồi",id:"Kolektor tak merespons"},
+  // 하단 상태줄 — 수집기는 status_code + 숫자만 보내고 문장은 여기서 만든다(1.9.2).
+  // 1.9.1 은 수집기가 만든 한국어 문장을 그대로 띄워 영어 화면에도 "보관 37건" 이 떴다.
+  st_send_fail:{ko:"전송 실패",en:"Send failed",vi:"Gửi thất bại",id:"Gagal kirim"},
+  st_unlinked:{ko:"미연결 — 측정만",en:"Not linked — measuring only",vi:"Chưa kết nối — chỉ đo",id:"Belum ditautkan — hanya mengukur"},
+  st_sent:{ko:"전송 {at}",en:"Sent {at}",vi:"Đã gửi {at}",id:"Terkirim {at}"},
+  st_sent_more:{ko:"전송 {at} · 보관분 {sent}건 함께",en:"Sent {at} · +{sent} held",vi:"Đã gửi {at} · +{sent} đã lưu",id:"Terkirim {at} · +{sent} tersimpan"},
+  st_waiting:{ko:"측정 대기 — 아직 들어온 값이 없습니다 ({at})",en:"Waiting — no readings yet ({at})",vi:"Đang chờ — chưa có số liệu ({at})",id:"Menunggu — belum ada data ({at})"},
+  st_sensor_error:{ko:"센서 오류 — 읽은 값 없음",en:"Sensor error — no readings",vi:"Lỗi cảm biến — không có số liệu",id:"Kesalahan sensor — tanpa data"},
+  st_dry_run:{ko:"시험 실행(전송 안 함) {at}",en:"Dry run (not sent) {at}",vi:"Chạy thử (không gửi) {at}",id:"Uji coba (tidak dikirim) {at}"},
+  st_checking:{ko:"센서 확인 중",en:"Checking sensors",vi:"Đang kiểm tra cảm biến",id:"Memeriksa sensor"},
+  st_pair_wait:{ko:"연결 대기 중",en:"Waiting for link",vi:"Đang chờ kết nối",id:"Menunggu tautan"},
+  st_paired:{ko:"연결 완료",en:"Linked",vi:"Đã kết nối",id:"Tertaut"},
+  st_unlinked_by_user:{ko:"계정 연결 해제됨 — 새 코드로 연결하세요",en:"Account unlinked — link again with a new code",vi:"Đã ngắt tài khoản — kết nối lại bằng mã mới",id:"Akun diputus — tautkan lagi dengan kode baru"},
+  st_restarting:{ko:"다시 시작하는 중… 약 15초",en:"Restarting… about 15s",vi:"Đang khởi động lại… khoảng 15 giây",id:"Memulai ulang… sekitar 15 dtk"},
+  st_rebooting:{ko:"재부팅하는 중… 약 1분",en:"Rebooting… about 1 min",vi:"Đang khởi động lại thiết bị… khoảng 1 phút",id:"Memulai ulang perangkat… sekitar 1 menit"},
   // 그래프
   r_6h:{ko:"6시간",en:"6 h",vi:"6 giờ",id:"6 jam"},
   r_12h:{ko:"12시간",en:"12 h",vi:"12 giờ",id:"12 jam"},
@@ -641,9 +922,69 @@ var I18N = {
   menu_sensors_sub:{ko:"센서 켜기·끄기, 슬레이브 ID, 측정 주기",en:"Sensors on/off, slave IDs, interval",vi:"Bật/tắt cảm biến, ID, chu kỳ đo",id:"Sensor on/off, ID, interval"},
   menu_wifi_sub:{ko:"공유기에 붙이기",en:"Connect to a router",vi:"Kết nối router",id:"Sambungkan ke router"},
   menu_lang_sub:{ko:"화면 언어 고르기",en:"Choose display language",vi:"Chọn ngôn ngữ hiển thị",id:"Pilih bahasa tampilan"},
+  // 모드
+  menu_mode:{ko:"모드",en:"Mode",vi:"Chế độ",id:"Mode"},
+  menu_mode_sub:{ko:"양식장 / 스마트팜",en:"Shrimp farm / Smart farm",vi:"Trại tôm / Nông trại thông minh",id:"Tambak / Smart farm"},
+  mode_hint:{ko:"이 장비를 어디에 쓰는지 고르세요. 화면 이름·라벨·강조색이 바뀌고, 측정과 서버 전송은 그대로입니다.",en:"Choose where this device is used. The name, labels and accent colour change; measuring and uploading stay the same.",vi:"Chọn nơi dùng thiết bị này. Tên, nhãn và màu nhấn thay đổi; việc đo và gửi dữ liệu giữ nguyên.",id:"Pilih tempat perangkat ini dipakai. Nama, label dan warna aksen berubah; pengukuran dan pengiriman tetap sama."},
+  mode_shrimp:{ko:"양식장",en:"Shrimp farm",vi:"Trại tôm",id:"Tambak"},
+  mode_shrimp_sub:{ko:"수조 · 염도 · 새우 양식 기준",en:"Tanks · salinity · shrimp ranges",vi:"Bể · độ mặn · ngưỡng nuôi tôm",id:"Kolam · salinitas · rentang udang"},
+  mode_agri:{ko:"스마트팜",en:"Smart farm",vi:"Nông trại thông minh",id:"Smart farm"},
+  mode_agri_sub:{ko:"베드 · 전도도(mS/cm) · 양액 보충 안내",en:"Beds · conductivity (mS/cm) · nutrient dosing",vi:"Luống · độ dẫn (mS/cm) · bổ sung dinh dưỡng",id:"Bedeng · konduktivitas (mS/cm) · dosis nutrisi"},
+  mode_ec_note:{ko:"스마트팜으로 바꾸면 EC 센서가 염도 대신 전도도(mS/cm)를 보여 줍니다. [센서 설정] 에서 다시 바꿀 수 있습니다.",en:"Switching to Smart farm shows conductivity (mS/cm) instead of salinity. You can change it back in [Sensor settings].",vi:"Chuyển sang Nông trại thông minh sẽ hiện độ dẫn (mS/cm) thay cho độ mặn. Có thể đổi lại trong [Cài đặt cảm biến].",id:"Beralih ke Smart farm menampilkan konduktivitas (mS/cm) alih-alih salinitas. Bisa diubah kembali di [Pengaturan sensor]."},
+  mode_saved:{ko:"바꿨습니다.",en:"Changed.",vi:"Đã đổi.",id:"Diubah."},
+  env_air:{ko:"기온",en:"Air temp",vi:"Nhiệt độ không khí",id:"Suhu udara"},
+  env_canopy:{ko:"초관부 온도",en:"Canopy temp",vi:"Nhiệt độ tán",id:"Suhu kanopi"},
+  env_rh:{ko:"습도",en:"Humidity",vi:"Độ ẩm",id:"Kelembapan"},
+  env_soil:{ko:"토양수분",en:"Soil moisture",vi:"Độ ẩm đất",id:"Kelembapan tanah"},
+  env_soil_temp:{ko:"지온",en:"Soil temp",vi:"Nhiệt độ đất",id:"Suhu tanah"},
+  env_meta:{ko:"{n}대 · {m}분 전",en:"{n} sensor(s) · {m} min ago",vi:"{n} cảm biến · {m} phút trước",id:"{n} sensor · {m} mnt lalu"},
+  env_one:{ko:"{id} · {m}분 전",en:"{id} · {m} min ago",vi:"{id} · {m} phút trước",id:"{id} · {m} mnt lalu"},
+  env_one_now:{ko:"{id} · 방금",en:"{id} · just now",vi:"{id} · vừa xong",id:"{id} · baru saja"},
+  env_now:{ko:"{n}대 · 방금",en:"{n} sensor(s) · just now",vi:"{n} cảm biến · vừa xong",id:"{n} sensor · baru saja"},
+  env_wind:{ko:"풍속",en:"Wind",vi:"Gió",id:"Angin"},
+  env_rain_day:{ko:"오늘 강수",en:"Rain today",vi:"Mưa hôm nay",id:"Hujan hari ini"},
+  wx_title:{ko:"기상 상세",en:"Weather details",vi:"Chi tiết thời tiết",id:"Detail cuaca"},
+  wx_hint:{ko:"기상센서가 보내는 값 전부 — 1분마다 새로 고칩니다",en:"Everything the weather station sends — refreshed every minute",vi:"Mọi giá trị trạm thời tiết gửi — làm mới mỗi phút",id:"Semua nilai dari stasiun cuaca — diperbarui tiap menit"},
+  wx_wind:{ko:"풍속(평균)",en:"Wind (avg)",vi:"Gió (TB)",id:"Angin (rata)"},
+  wx_gust:{ko:"돌풍",en:"Gust",vi:"Gió giật",id:"Hembusan"},
+  wx_dir:{ko:"풍향",en:"Direction",vi:"Hướng gió",id:"Arah"},
+  wx_rain_day:{ko:"오늘 강수",en:"Rain today",vi:"Mưa hôm nay",id:"Hujan hari ini"},
+  wx_rain_rate:{ko:"강우강도",en:"Rain rate",vi:"Cường độ mưa",id:"Intensitas hujan"},
+  wx_solar:{ko:"일사량",en:"Solar radiation",vi:"Bức xạ mặt trời",id:"Radiasi matahari"},
+  wx_solar_lux:{ko:"조도로 어림",en:"estimated from lux",vi:"ước từ lux",id:"perkiraan dari lux"},
+  wx_uv:{ko:"자외선 지수",en:"UV index",vi:"Chỉ số UV",id:"Indeks UV"},
+  wx_pressure:{ko:"기압",en:"Pressure",vi:"Áp suất",id:"Tekanan"},
+  wx_dew:{ko:"이슬점",en:"Dew point",vi:"Điểm sương",id:"Titik embun"},
+  wx_dew_sub:{ko:"기온·습도로 계산",en:"from temp & humidity",vi:"tính từ nhiệt & ẩm",id:"dari suhu & RH"},
+  env_gust:{ko:"돌풍 {v}",en:"gust {v}",vi:"giật {v}",id:"hembusan {v}"},
+  env_rate:{ko:"지금 {v} mm/h",en:"now {v} mm/h",vi:"hiện {v} mm/h",id:"kini {v} mm/j"},
+  dir_N:{ko:"북",en:"N",vi:"Bắc",id:"U"}, dir_NE:{ko:"북동",en:"NE",vi:"Đông Bắc",id:"TL"},
+  dir_E:{ko:"동",en:"E",vi:"Đông",id:"T"}, dir_SE:{ko:"남동",en:"SE",vi:"Đông Nam",id:"TG"},
+  dir_S:{ko:"남",en:"S",vi:"Nam",id:"S"}, dir_SW:{ko:"남서",en:"SW",vi:"Tây Nam",id:"BD"},
+  dir_W:{ko:"서",en:"W",vi:"Tây",id:"B"}, dir_NW:{ko:"북서",en:"NW",vi:"Tây Bắc",id:"BL"},
+  env_no_hist:{ko:"아직 쌓인 기록이 없습니다 — 5분마다 남깁니다",en:"No history yet — recorded every 5 minutes",vi:"Chưa có lịch sử — ghi mỗi 5 phút",id:"Belum ada riwayat — dicatat tiap 5 menit"},
+  env_loading:{ko:"기록을 읽는 중…",en:"Loading history…",vi:"Đang tải…",id:"Memuat…"},
+  env_avg_line:{ko:"평균",en:"Average",vi:"Trung bình",id:"Rata-rata"},
+  env_each_title:{ko:"{p} · 센서별",en:"{p} · by sensor",vi:"{p} · từng cảm biến",id:"{p} · per sensor"},
+  env_trend_title:{ko:"{p} · 24시간",en:"{p} · 24 h",vi:"{p} · 24 giờ",id:"{p} · 24 jam"},
+  wx_more:{ko:"기상 상세",en:"Weather details",vi:"Chi tiết thời tiết",id:"Detail cuaca"},
+  env_avg:{ko:"평균 ({n}대)",en:"Average ({n})",vi:"Trung bình ({n})",id:"Rata-rata ({n})"},
+  env_lost:{ko:"끊김",en:"No signal",vi:"Mất tín hiệu",id:"Terputus"},
+  env_hi:{ko:"최고",en:"Highest",vi:"Cao nhất",id:"Tertinggi"},
+  env_lo:{ko:"최저",en:"Lowest",vi:"Thấp nhất",id:"Terendah"},
+  env_just:{ko:"방금",en:"just now",vi:"vừa xong",id:"baru saja"},
+  env_ago:{ko:"{m}분 전",en:"{m} min ago",vi:"{m} phút trước",id:"{m} mnt lalu"},
+  env_missing:{ko:"값 없음",en:"No data",vi:"Không có dữ liệu",id:"Tidak ada data"},
+  env_empty:{ko:"환경·기상 센서 값이 들어오지 않습니다 — 수집기(zigbee_bridge·rtl433_bridge)와 센서 배터리를 확인하세요",en:"No environment or weather data — check the collectors (zigbee_bridge, rtl433_bridge) and sensor batteries",vi:"Không có dữ liệu môi trường/thời tiết — kiểm tra bộ thu (zigbee_bridge, rtl433_bridge) và pin cảm biến",id:"Tidak ada data lingkungan/cuaca — periksa kolektor (zigbee_bridge, rtl433_bridge) dan baterai sensor"},
+  nut_off_hint:{ko:"양액 관리 꺼짐 — 눌러서 [양액 설정] 에서 켜세요",en:"Nutrient management off — tap to turn it on in [Nutrient solution]",vi:"Quản lý dinh dưỡng đang tắt — nhấn để bật trong [Dung dịch dinh dưỡng]",id:"Manajemen nutrisi mati — ketuk untuk menyalakan di [Larutan nutrisi]"},
   // 센서 설정
   version:{ko:"버전",en:"Version",vi:"Phiên bản",id:"Versi"},
   checking:{ko:"확인 중",en:"checking",vi:"đang kiểm tra",id:"memeriksa"},
+  ext_title:{ko:"그 밖의 표시",en:"Other displays",vi:"Hiển thị khác",id:"Tampilan lain"},
+  ext_hint:{ko:"끄면 장비 화면과 웹 대시보드에서 그 칸이 사라집니다. 환경·기상과 전력은 저장하면 프로그램이 다시 시작됩니다(약 15초).",en:"Turned-off items disappear from this screen and the web dashboard. Saving a change to environment or power restarts the program (~15 s).",vi:"Mục tắt sẽ ẩn trên màn hình này và bảng điều khiển web. Lưu thay đổi môi trường/điện sẽ khởi động lại (~15 giây).",id:"Item yang dimatikan hilang dari layar ini dan dasbor web. Menyimpan perubahan lingkungan/listrik memulai ulang program (~15 dtk)."},
+  ext_env:{ko:"환경·기상 (무선 온습도·토양·기상센서)",en:"Environment & weather (wireless)",vi:"Môi trường & thời tiết (không dây)",id:"Lingkungan & cuaca (nirkabel)"},
+  ext_nutrient:{ko:"양액 관리",en:"Nutrient management",vi:"Quản lý dinh dưỡng",id:"Manajemen nutrisi"},
+  ext_power:{ko:"전력 회로",en:"Power circuits",vi:"Mạch điện",id:"Sirkuit listrik"},
   in_use:{ko:"사용 중",en:"In use",vi:"Đang dùng",id:"Dipakai"},
   not_used:{ko:"사용 안 함",en:"Not used",vi:"Không dùng",id:"Tidak dipakai"},
   on:{ko:"켬",en:"On",vi:"Bật",id:"Nyala"},
@@ -671,6 +1012,9 @@ var I18N = {
   n_do:{ko:"용존산소",en:"Dissolved O₂",vi:"Oxy hòa tan",id:"Oksigen"},
   n_ec:{ko:"전도도 / 염도",en:"Conductivity / Salinity",vi:"Độ dẫn / Độ mặn",id:"Konduktivitas / Salinitas"},
   n_ec_only:{ko:"전도도",en:"Conductivity",vi:"Độ dẫn",id:"Konduktivitas"},
+  n_flow:{ko:"유량",en:"Flow rate",vi:"Lưu lượng",id:"Laju aliran"},
+  n_dp:{ko:"차압",en:"Differential pressure",vi:"Chênh áp",id:"Tekanan diferensial"},
+  raw:{ko:"원시",en:"raw",vi:"thô",id:"mentah"},
   sen_noreply:{ko:"센서 응답 없음",en:"No sensor response",vi:"Cảm biến không phản hồi",id:"Sensor tak merespons"},
   sen_check:{ko:"설정 → 센서 설정 → 선 훑기",en:"Settings → Sensors → Scan bus",vi:"Cài đặt → Cảm biến → Quét",id:"Pengaturan → Sensor → Pindai"},
   sen_probe:{ko:"전극 확인 필요",en:"Check the probe",vi:"Kiểm tra đầu dò",id:"Periksa probe"},
@@ -762,6 +1106,192 @@ var I18N = {
   lang_title:{ko:"언어 설정",en:"Language",vi:"Ngôn ngữ",id:"Bahasa"},
   lang_hint:{ko:"화면 언어를 고르세요",en:"Choose the display language",vi:"Chọn ngôn ngữ hiển thị",id:"Pilih bahasa tampilan"},
   // 재시작
+  menu_wireless:{ko:"무선 센서",en:"Wireless sensors",vi:"Cảm biến không dây",id:"Sensor nirkabel"},
+  menu_wireless_sub:{ko:"지그비·433MHz 센서 찾기·등록·상태",en:"Find, add and check Zigbee/433MHz sensors",vi:"Tìm, thêm, kiểm tra cảm biến Zigbee/433MHz",id:"Cari, tambah, cek sensor Zigbee/433MHz"},
+  wl_dongle:{ko:"지그비 동글",en:"Zigbee dongle",vi:"USB Zigbee",id:"Dongle Zigbee"},
+  wl_z2m:{ko:"지그비 서버",en:"Zigbee2MQTT",vi:"Zigbee2MQTT",id:"Zigbee2MQTT"},
+  wl_collector:{ko:"수집기",en:"Collector",vi:"Bộ thu",id:"Kolektor"},
+  wl_rf:{ko:"433MHz 수신기",en:"433MHz receiver",vi:"Bộ thu 433MHz",id:"Penerima 433MHz"},
+  wl_not_installed:{ko:"무선 수집 프로그램이 아직 설치되지 않았습니다. 지그비 동글을 꽂고 PC에서 한 번만 실행하세요:",en:"The wireless collector isn't installed yet. Plug in the Zigbee dongle and run once from a PC:",vi:"Chưa cài chương trình thu không dây. Cắm USB Zigbee và chạy một lần từ máy tính:",id:"Kolektor nirkabel belum terpasang. Pasang dongle Zigbee lalu jalankan sekali dari PC:"},
+  wl_find:{ko:"＋ 새 센서 찾기 (2분)",en:"+ Find new sensors (2 min)",vi:"+ Tìm cảm biến mới (2 phút)",id:"+ Cari sensor baru (2 mnt)"},
+  wl_finding:{ko:"찾는 중 {m}:{s} — 센서의 버튼을 5초 길게 누르세요 (누르면 중지)",en:"Searching {m}:{s} — hold the sensor's button 5 s (tap to stop)",vi:"Đang tìm {m}:{s} — giữ nút cảm biến 5 giây (chạm để dừng)",id:"Mencari {m}:{s} — tahan tombol sensor 5 dtk (ketuk untuk berhenti)"},
+  wl_new:{ko:"새로 찾은 센서",en:"Newly found",vi:"Mới tìm thấy",id:"Baru ditemukan"},
+  wl_registered:{ko:"등록된 센서",en:"Registered",vi:"Đã đăng ký",id:"Terdaftar"},
+  wl_none:{ko:"등록된 센서가 없습니다. [새 센서 찾기]를 누르고 센서 버튼을 길게 누르세요.",en:"No sensors yet. Tap [Find new sensors] and hold the sensor's button.",vi:"Chưa có cảm biến. Chạm [Tìm cảm biến mới] rồi giữ nút cảm biến.",id:"Belum ada sensor. Ketuk [Cari sensor baru] lalu tahan tombol sensor."},
+  wl_add:{ko:"등록",en:"Add",vi:"Thêm",id:"Tambah"},
+  wl_remove:{ko:"빼기",en:"Remove",vi:"Gỡ",id:"Hapus"},
+  wl_remove_sure:{ko:"정말 빼기",en:"Really remove",vi:"Gỡ thật",id:"Yakin hapus"},
+  wl_pick_kind:{ko:"무엇을 재는 센서인가요?",en:"What does this sensor measure?",vi:"Cảm biến này đo gì?",id:"Sensor ini mengukur apa?"},
+  wl_pick_zone:{ko:"어디에 달았나요?",en:"Where is it installed?",vi:"Lắp ở đâu?",id:"Dipasang di mana?"},
+  wl_name_will:{ko:"이름: {n} — 장비·웹 화면에 이 이름으로 나옵니다",en:"Name: {n} — shown on the device and web",vi:"Tên: {n} — hiển thị trên thiết bị và web",id:"Nama: {n} — tampil di perangkat dan web"},
+  wl_added_zb:{ko:"{n} 등록했습니다. 배터리 센서는 잠들어 있다가 값이 바뀔 때만 보냅니다 — 센서 버튼을 한 번 짧게 누르면 바로 들어옵니다.",en:"Added {n}. Battery sensors sleep and report only on change — tap the sensor's button once to send now.",vi:"Đã thêm {n}. Cảm biến pin chỉ gửi khi giá trị đổi — nhấn nút cảm biến một lần để gửi ngay.",id:"{n} ditambahkan. Sensor baterai hanya mengirim saat nilai berubah — tekan tombol sensor sekali untuk mengirim sekarang."},
+  wl_added:{ko:"{n} 등록했습니다. 몇 초 안에 값이 들어옵니다.",en:"Added {n}. Values arrive within seconds.",vi:"Đã thêm {n}. Giá trị sẽ có sau vài giây.",id:"{n} ditambahkan. Nilai masuk dalam beberapa detik."},
+  wl_removed:{ko:"뺐습니다. 같은 센서를 다시 쓰려면 다시 찾기로 붙이세요.",en:"Removed. To reuse it, find it again.",vi:"Đã gỡ. Muốn dùng lại, hãy tìm lại.",id:"Dihapus. Untuk memakai lagi, cari ulang."},
+  wl_enable:{ko:"환경·기상 표시가 꺼져 있어 등록한 센서 값이 화면에 안 나옵니다.",en:"Environment display is off, so sensor values aren't shown.",vi:"Hiển thị môi trường đang tắt nên không thấy giá trị.",id:"Tampilan lingkungan mati, nilai sensor tidak tampil."},
+  wl_enable_btn:{ko:"켜기 (프로그램 다시 시작)",en:"Turn on (restart)",vi:"Bật (khởi động lại)",id:"Nyalakan (mulai ulang)"},
+  wl_never:{ko:"수신 없음",en:"no data yet",vi:"chưa có dữ liệu",id:"belum ada data"},
+  wl_ago:{ko:"{m}분 전",en:"{m} min ago",vi:"{m} phút trước",id:"{m} mnt lalu"},
+  wl_now:{ko:"방금",en:"just now",vi:"vừa xong",id:"baru saja"},
+  wl_batt:{ko:"배터리 {v}%",en:"battery {v}%",vi:"pin {v}%",id:"baterai {v}%"},
+  wl_lqi:{ko:"신호 {v}",en:"signal {v}",vi:"tín hiệu {v}",id:"sinyal {v}"},
+  wl_unpaired:{ko:"페어링 끊김 — 다시 찾기 필요",en:"not paired — find again",vi:"mất ghép đôi — tìm lại",id:"tidak terpasang — cari ulang"},
+  wl_interview:{ko:"정보 읽는 중 — 끝날 때까지 센서 버튼을 몇 초마다 짧게 눌러 깨워 두세요",en:"reading info — tap the sensor's button every few seconds to keep it awake",vi:"đang đọc thông tin — nhấn nút cảm biến vài giây một lần để giữ thức",id:"membaca info — tekan tombol sensor tiap beberapa detik agar tetap aktif"},
+  wl_unsupported:{ko:"지원 목록에 없는 기기",en:"unsupported device",vi:"thiết bị chưa hỗ trợ",id:"perangkat tidak didukung"},
+  wlk_canopy:{ko:"초관부 온습도 (지상 10cm)",en:"Canopy temp/RH (10 cm)",vi:"Nhiệt/ẩm tán (10 cm)",id:"Suhu/RH kanopi (10 cm)"},
+  wlk_air:{ko:"기온 온습도 (2m 폴대)",en:"Air temp/RH (2 m mast)",vi:"Nhiệt/ẩm không khí (2 m)",id:"Suhu/RH udara (2 m)"},
+  wlk_soil:{ko:"토양 수분·온도",en:"Soil moisture/temp",vi:"Độ ẩm/nhiệt đất",id:"Kelembapan/suhu tanah"},
+  "wlk_breaker-pump":{ko:"차단기 — 관수펌프 회로",en:"Breaker — irrigation pump",vi:"Aptomat — bơm tưới",id:"Pemutus — pompa irigasi"},
+  "wlk_breaker-aux":{ko:"차단기 — 그 밖의 회로",en:"Breaker — other circuit",vi:"Aptomat — mạch khác",id:"Pemutus — sirkuit lain"},
+  wlk_leak:{ko:"누수 감지",en:"Water leak",vi:"Rò nước",id:"Kebocoran air"},
+  wlk_valve:{ko:"관수 밸브·유량",en:"Valve / flow",vi:"Van / lưu lượng",id:"Katup / aliran"},
+  wl_rf_title:{ko:"433MHz 센서 (기상센서·무선 토양센서 등)",en:"433MHz sensors (weather station, soil …)",vi:"Cảm biến 433MHz (trạm thời tiết, đất …)",id:"Sensor 433MHz (stasiun cuaca, tanah …)"},
+  wl_rf_heard:{ko:"근처에서 들리는 센서",en:"Heard nearby",vi:"Nghe thấy gần đây",id:"Terdengar di sekitar"},
+  wl_rf_none:{ko:"등록된 433MHz 센서가 없습니다. 센서 전원을 켜면 1분 안에 '근처에서 들리는 센서'에 뜹니다.",en:"No 433MHz sensors yet. Power the sensor on; it appears under 'Heard nearby' within a minute.",vi:"Chưa có cảm biến 433MHz. Bật nguồn cảm biến; sẽ hiện trong 1 phút.",id:"Belum ada sensor 433MHz. Nyalakan sensor; muncul dalam 1 menit."},
+  wl_rf_off:{ko:"433MHz 수신기(RTL-SDR 동글)가 없거나 수집기가 꺼져 있습니다. 동글을 꽂고 설치 명령을 다시 실행하세요.",en:"No 433MHz receiver (RTL-SDR) or the collector is off. Plug it in and re-run the installer.",vi:"Không có bộ thu 433MHz hoặc bộ thu đang tắt. Cắm vào rồi chạy lại cài đặt.",id:"Tidak ada penerima 433MHz atau kolektor mati. Pasang lalu jalankan ulang pemasang."},
+  wl_rf_seen:{ko:"{n}회 · {ago}",en:"{n}× · {ago}",vi:"{n} lần · {ago}",id:"{n}× · {ago}"},
+  wl_rf_rssi:{ko:"세기 {v}dB",en:"{v} dB",vi:"{v} dB",id:"{v} dB"},
+  wl_rf_default:{ko:"기본 설정으로 이 모델은 이미 받는 중 — 등록하면 이 센서만 받습니다(이웃집 같은 모델 제외)",en:"This model is already received by default — adding limits it to this unit",vi:"Mẫu này đã được nhận mặc định — thêm để chỉ nhận thiết bị này",id:"Model ini sudah diterima — menambah membatasi ke unit ini"},
+  wl_rf_other:{ko:"그 밖에 센서가 아닌 433MHz 신호 {n}개(타이어 공기압계·초인종 등)는 숨겼습니다.",en:"{n} other 433MHz signals (tyre sensors, doorbells …) hidden.",vi:"Đã ẩn {n} tín hiệu 433MHz khác.",id:"{n} sinyal 433MHz lain disembunyikan."},
+  wl_rf_tip:{ko:"433MHz 는 페어링이 없습니다. 같은 모델이 여러 대면 센서 뒷면 버튼으로 채널·전원을 껐다 켜서, 방금 '1회'로 새로 뜬 것을 고르세요.",en:"433MHz has no pairing. If several of the same model appear, power-cycle yours and pick the one that just appeared.",vi:"433MHz không ghép đôi. Nếu nhiều thiết bị cùng mẫu, tắt/bật thiết bị của bạn rồi chọn cái vừa hiện.",id:"433MHz tanpa pairing. Jika banyak model sama, nyalakan ulang milik Anda dan pilih yang baru muncul."},
+  wlr_weather:{ko:"기상센서 (WS90 등)",en:"Weather station (WS90 …)",vi:"Trạm thời tiết (WS90 …)",id:"Stasiun cuaca (WS90 …)"},
+  wlr_soil:{ko:"토양수분 (WH51)",en:"Soil moisture (WH51)",vi:"Độ ẩm đất (WH51)",id:"Kelembapan tanah (WH51)"},
+  wlr_canopy:{ko:"초관부 온습도 (지상 10cm)",en:"Canopy temp/RH (10 cm)",vi:"Nhiệt/ẩm tán (10 cm)",id:"Suhu/RH kanopi (10 cm)"},
+  wlr_air:{ko:"기온 온습도 (2m)",en:"Air temp/RH (2 m)",vi:"Nhiệt/ẩm không khí (2 m)",id:"Suhu/RH udara (2 m)"},
+  wlr_leaf:{ko:"엽면습윤 (WH35)",en:"Leaf wetness (WH35)",vi:"Độ ướt lá (WH35)",id:"Kebasahan daun (WH35)"},
+  wlr_rain:{ko:"우량계 (WH40)",en:"Rain gauge (WH40)",vi:"Đo mưa (WH40)",id:"Penakar hujan (WH40)"},
+  wl_ble_title:{ko:"블루투스 토양센서 (투야)",en:"Bluetooth soil sensors (Tuya)",vi:"Cảm biến đất Bluetooth (Tuya)",id:"Sensor tanah Bluetooth (Tuya)"},
+  wl_ble_soil:{ko:"토양수분·지온",en:"Soil moisture · soil temp",vi:"Độ ẩm đất · nhiệt độ đất",id:"Kelembapan tanah · suhu tanah"},
+  wl_ble_off:{ko:"블루투스 수집기가 꺼져 있습니다 — 저장소 폴더에서 sudo bash setup-tuya-ble.sh",en:"Bluetooth collector is off — run sudo bash setup-tuya-ble.sh in the repo folder",vi:"Bộ thu Bluetooth đang tắt — chạy sudo bash setup-tuya-ble.sh",id:"Pengumpul Bluetooth mati — jalankan sudo bash setup-tuya-ble.sh"},
+  wl_ble_none:{ko:"등록된 블루투스 센서가 없습니다",en:"No Bluetooth sensors registered",vi:"Chưa có cảm biến Bluetooth",id:"Belum ada sensor Bluetooth"},
+  wl_ble_tip:{ko:"센서는 먼저 휴대폰 투야 앱에 붙여 두세요. 앱에서 다시 붙였으면 [투야에서 센서 가져오기] 를 한 번 누르세요 — 바뀐 열쇠를 새로 받습니다.",en:"Pair the sensor in the Tuya phone app first. Removing it from the app changes its key — fetch again.",vi:"Ghép cảm biến trong app Tuya trước. Xóa khỏi app sẽ đổi khóa — cần lấy lại.",id:"Pasangkan sensor di aplikasi Tuya dulu. Menghapusnya mengubah kunci — ambil ulang."},
+  wl_ble_setup:{ko:"블루투스 준비가 아직 안 됐습니다. 터미널에서 한 번만 실행하세요(인터넷 필요):",en:"Bluetooth isn't set up yet. Run once in a terminal (needs internet):",vi:"Chưa cài Bluetooth. Chạy một lần trong terminal (cần internet):",id:"Bluetooth belum disiapkan. Jalankan sekali di terminal (perlu internet):"},
+  wl_ble_fetch:{ko:"투야에서 센서 가져오기",en:"Fetch sensors from Tuya",vi:"Lấy cảm biến từ Tuya",id:"Ambil sensor dari Tuya"},
+  wl_ble_change:{ko:"투야 열쇠 바꾸기",en:"Change Tuya keys",vi:"Đổi khóa Tuya",id:"Ganti kunci Tuya"},
+  wl_ble_forget:{ko:"저장한 열쇠 지우기",en:"Forget saved keys",vi:"Xóa khóa đã lưu",id:"Hapus kunci tersimpan"},
+  wl_ble_forgot:{ko:"투야 열쇠를 지웠습니다.",en:"Tuya keys removed.",vi:"Đã xóa khóa Tuya.",id:"Kunci Tuya dihapus."},
+  wl_ble_fetching:{ko:"투야 클라우드에서 받는 중… (최대 1분)",en:"Fetching from Tuya cloud… (up to 1 min)",vi:"Đang lấy từ Tuya… (tối đa 1 phút)",id:"Mengambil dari Tuya… (maks 1 menit)"},
+  wl_ble_fetched:{ko:"블루투스 기기 {n}대를 받았습니다.",en:"Got {n} Bluetooth devices.",vi:"Đã nhận {n} thiết bị Bluetooth.",id:"Dapat {n} perangkat Bluetooth."},
+  wl_ble_updated:{ko:"{n} 의 열쇠를 새로 받았습니다(앱에서 다시 붙인 센서).",en:"New keys saved for {n} (re-paired in the app).",vi:"Đã cập nhật khóa cho {n}.",id:"Kunci baru disimpan untuk {n}."},
+  wl_ble_new:{ko:"투야 앱에 있는 블루투스 센서",en:"Bluetooth sensors in the Tuya app",vi:"Cảm biến Bluetooth trong app Tuya",id:"Sensor Bluetooth di aplikasi Tuya"},
+  wl_ble_all:{ko:"투야 앱의 블루투스 센서가 모두 등록돼 있습니다.",en:"All Bluetooth sensors from the Tuya app are registered.",vi:"Đã đăng ký tất cả cảm biến Bluetooth.",id:"Semua sensor Bluetooth sudah terdaftar."},
+  wl_ble_cred_hint:{ko:"투야 개발자 사이트(platform.tuya.com) 프로젝트 Overview 의 Access ID·Access Secret 을 넣으세요. 한 번 넣으면 장비에 저장됩니다.",en:"Enter the Access ID and Secret from your project Overview at platform.tuya.com. They are saved on this device.",vi:"Nhập Access ID và Secret từ Overview dự án trên platform.tuya.com. Sẽ được lưu.",id:"Masukkan Access ID dan Secret dari Overview proyek di platform.tuya.com. Disimpan di perangkat."},
+  wl_ble_id:{ko:"Access ID (Client ID)",en:"Access ID (Client ID)",vi:"Access ID (Client ID)",id:"Access ID (Client ID)"},
+  wl_ble_sec:{ko:"Access Secret (Client Secret)",en:"Access Secret (Client Secret)",vi:"Access Secret (Client Secret)",id:"Access Secret (Client Secret)"},
+  wl_ble_next:{ko:"다음 칸 ↓",en:"Next ↓",vi:"Tiếp ↓",id:"Berikut ↓"},
+  wl_ble_prev:{ko:"위 칸 ↑",en:"Back ↑",vi:"Lên ↑",id:"Atas ↑"},
+  wl_eco_title:{ko:"에코윗 게이트웨이 (와이파이)",en:"Ecowitt gateway (Wi-Fi)",vi:"Gateway Ecowitt (Wi-Fi)",id:"Gateway Ecowitt (Wi-Fi)"},
+  wl_eco_setup:{ko:"게이트웨이(GW1100·GW2000 등)를 농장 와이파이에 연결한 뒤 WS View Plus 앱 → 기기 → [Customized] 에서 '프로토콜: Ecowitt' 을 고르고 아래 값을 적어 저장하세요. 1~2분 안에 여기에 뜹니다.",en:"Connect the gateway (GW1100, GW2000 …) to the farm Wi-Fi, then in the WS View Plus app → device → [Customized] choose 'Protocol: Ecowitt', enter the values below and save. It appears here within 1–2 minutes.",vi:"Kết nối gateway (GW1100, GW2000 …) vào Wi-Fi, rồi trong ứng dụng WS View Plus → thiết bị → [Customized] chọn 'Protocol: Ecowitt', nhập các giá trị dưới đây và lưu. Sẽ hiện trong 1–2 phút.",id:"Hubungkan gateway (GW1100, GW2000 …) ke Wi-Fi, lalu di aplikasi WS View Plus → perangkat → [Customized] pilih 'Protocol: Ecowitt', isi nilai di bawah dan simpan. Muncul dalam 1–2 menit."},
+  wl_eco_server:{ko:"서버",en:"Server",vi:"Máy chủ",id:"Server"},
+  wl_eco_port:{ko:"포트",en:"Port",vi:"Cổng",id:"Port"},
+  wl_eco_path:{ko:"경로",en:"Path",vi:"Đường dẫn",id:"Path"},
+  wl_eco_interval:{ko:"간격",en:"Interval",vi:"Chu kỳ",id:"Interval"},
+  wl_eco_noip:{ko:"(망 연결 확인 필요)",en:"(check network)",vi:"(kiểm tra mạng)",id:"(periksa jaringan)"},
+  wl_eco_off:{ko:"에코윗 수신기가 꺼져 있습니다. 설치 명령을 다시 실행하세요.",en:"The Ecowitt receiver is off. Re-run the installer.",vi:"Bộ nhận Ecowitt đang tắt. Chạy lại cài đặt.",id:"Penerima Ecowitt mati. Jalankan ulang pemasang."},
+  wl_eco_heard:{ko:"들어온 게이트웨이",en:"Gateways reporting",vi:"Gateway đang gửi",id:"Gateway yang mengirim"},
+  wl_eco_mine:{ko:"등록됨",en:"registered",vi:"đã đăng ký",id:"terdaftar"},
+  wl_eco_notmine:{ko:"등록 안 됨 — 받지 않음",en:"not registered — ignored",vi:"chưa đăng ký — bỏ qua",id:"tidak terdaftar — diabaikan"},
+  wl_eco_new:{ko:"게이트웨이에 붙은 센서",en:"Sensors on the gateway",vi:"Cảm biến trên gateway",id:"Sensor di gateway"},
+  wl_eco_none:{ko:"등록된 에코윗 센서가 없습니다.",en:"No Ecowitt sensors registered.",vi:"Chưa có cảm biến Ecowitt.",id:"Belum ada sensor Ecowitt."},
+  wl_eco_gw:{ko:"게이트웨이 기상센서",en:"Gateway weather station",vi:"Trạm thời tiết của gateway",id:"Stasiun cuaca gateway"},
+  wl_eco_gw_tip:{ko:"433MHz 로 받던 같은 기상센서가 있으면 그 칸을 걷고 이름을 이어받습니다(비가 두 번 더해지지 않게).",en:"If the same weather station was received over 433MHz, that entry is replaced and its name kept (so rain isn't counted twice).",vi:"Nếu trạm này đang nhận qua 433MHz, mục đó được thay thế và giữ tên (tránh cộng mưa hai lần).",id:"Jika stasiun yang sama diterima lewat 433MHz, entri itu diganti dan namanya dipertahankan (hujan tidak dihitung dua kali)."},
+  wl_eco_ch:{ko:"채널 {n}",en:"channel {n}",vi:"kênh {n}",id:"kanal {n}"},
+  wlf_soil:{ko:"토양수분 (WH51)",en:"Soil moisture (WH51)",vi:"Độ ẩm đất (WH51)",id:"Kelembapan tanah (WH51)"},
+  wlf_tf:{ko:"지온 프로브 (WN34)",en:"Soil temp probe (WN34)",vi:"Đầu dò nhiệt đất (WN34)",id:"Probe suhu tanah (WN34)"},
+  wlf_leaf:{ko:"엽면습윤 (WH35)",en:"Leaf wetness (WH35)",vi:"Độ ướt lá (WH35)",id:"Kebasahan daun (WH35)"},
+  wlf_th:{ko:"온습도계 (WH31)",en:"Temp/RH (WH31)",vi:"Nhiệt/ẩm (WH31)",id:"Suhu/RH (WH31)"},
+  wlr_soiltemp:{ko:"지온 (WN34)",en:"Soil temp (WN34)",vi:"Nhiệt đất (WN34)",id:"Suhu tanah (WN34)"},
+  wlz_treatment:{ko:"적용구간",en:"Treatment plot",vi:"Khu áp dụng",id:"Petak perlakuan"},
+  wlz_control:{ko:"비교구간",en:"Control plot",vi:"Khu đối chứng",id:"Petak kontrol"},
+  wlz_facility:{ko:"시설 (분전반·펌프실)",en:"Facility (panel/pump)",vi:"Cơ sở (tủ điện/bơm)",id:"Fasilitas (panel/pompa)"},
+  wlz_mast:{ko:"기상 폴대",en:"Weather mast",vi:"Cột khí tượng",id:"Tiang cuaca"},
+  menu_power:{ko:"전력 회로",en:"Power circuits",vi:"Mạch điện",id:"Sirkuit listrik"},
+  menu_power_sub:{ko:"차단기마다 연결된 기기 종류 고르기",en:"Choose what each breaker feeds",vi:"Chọn thiết bị cho từng aptomat",id:"Pilih perangkat tiap pemutus"},
+  pw_title:{ko:"전력 회로",en:"Power circuits",vi:"Mạch điện",id:"Sirkuit listrik"},
+  pw_total:{ko:"전체",en:"Total",vi:"Tổng",id:"Total"},
+  pw_total_partial:{ko:"계측 회로 합",en:"Metered sum",vi:"Tổng đo được",id:"Jumlah terukur"},
+  pw_today:{ko:"오늘",en:"Today",vi:"Hôm nay",id:"Hari ini"},
+  pw_on:{ko:"켜짐",en:"ON",vi:"BẬT",id:"NYALA"},
+  pw_off:{ko:"꺼짐",en:"OFF",vi:"TẮT",id:"MATI"},
+  pw_lost:{ko:"끊김",en:"No signal",vi:"Mất tín hiệu",id:"Terputus"},
+  pw_wait:{ko:"수신 대기",en:"Waiting",vi:"Đang chờ",id:"Menunggu"},
+  irr_title:{ko:"관수 밸브",en:"Irrigation valves",vi:"Van tưới",id:"Katup irigasi"},
+  irr_open:{ko:"열림",en:"Open",vi:"Mở",id:"Buka"},
+  irr_closed:{ko:"닫힘",en:"Closed",vi:"Đóng",id:"Tutup"},
+  pw_none:{ko:"계측 차단기 값이 들어오지 않습니다 — 지그비 수집기(zigbee_bridge)와 차단기 페어링을 확인하세요",en:"No breaker readings — check the Zigbee collector (zigbee_bridge) and breaker pairing",vi:"Không có dữ liệu aptomat — kiểm tra bộ thu Zigbee (zigbee_bridge) và ghép nối",id:"Tidak ada data pemutus — periksa kolektor Zigbee (zigbee_bridge) dan pairing"},
+  pw_hot_warn:{ko:"차단기 온도 높음 — {name} {t}℃",en:"Breaker running hot — {name} {t}℃",vi:"Aptomat nóng — {name} {t}℃",id:"Pemutus panas — {name} {t}℃"},
+  pw_hot_crit:{ko:"차단기 과열 — {name} {t}℃",en:"Breaker overheating — {name} {t}℃",vi:"Aptomat quá nhiệt — {name} {t}℃",id:"Pemutus terlalu panas — {name} {t}℃"},
+  pw_hot_do:{ko:"부하·단자 조임 점검",en:"Check load and terminals",vi:"Kiểm tra tải và đầu nối",id:"Periksa beban dan terminal"},
+  pw_pick:{ko:"이 차단기에 연결된 기기를 고르세요",en:"Choose what this breaker feeds",vi:"Chọn thiết bị nối với aptomat này",id:"Pilih perangkat pada pemutus ini"},
+  pw_change:{ko:"바꾸기",en:"Change",vi:"Đổi",id:"Ubah"},
+  pw_saved:{ko:"바꿨습니다.",en:"Changed.",vi:"Đã đổi.",id:"Diubah."},
+  pc_title:{ko:"켜고 끄기 · 예약",en:"On/off · schedule",vi:"Bật/tắt · hẹn giờ",id:"Nyala/mati · jadwal"},
+  pc_turn_on:{ko:"켜기",en:"Turn on",vi:"Bật",id:"Nyalakan"},
+  pc_turn_off:{ko:"끄기",en:"Turn off",vi:"Tắt",id:"Matikan"},
+  pc_setup:{ko:"예약",en:"Schedule",vi:"Hẹn giờ",id:"Jadwal"},
+  pc_back_auto:{ko:"예약대로",en:"Back to schedule",vi:"Theo lịch",id:"Ikuti jadwal"},
+  pc_manual:{ko:"수동",en:"Manual",vi:"Thủ công",id:"Manual"},
+  pc_timer:{ko:"시간 예약",en:"Timer",vi:"Hẹn giờ",id:"Timer"},
+  pc_cycle:{ko:"반복 간격",en:"Repeat interval",vi:"Lặp chu kỳ",id:"Interval berulang"},
+  pc_cycle_s:{ko:"{on} 켜고 {off} 쉬기",en:"{on} on / {off} off",vi:"Bật {on} / nghỉ {off}",id:"{on} nyala / {off} mati"},
+  pc_h:{ko:"{n}시간",en:"{n} h",vi:"{n} giờ",id:"{n} jam"},
+  pc_m:{ko:"{n}분",en:"{n} min",vi:"{n} phút",id:"{n} mnt"},
+  pc_none:{ko:"안 함",en:"Off",vi:"Không",id:"Tidak"},
+  pc_everyday:{ko:"매일",en:"Every day",vi:"Hằng ngày",id:"Setiap hari"},
+  pc_d0:{ko:"월",en:"Mon",vi:"T2",id:"Sen"},
+  pc_d1:{ko:"화",en:"Tue",vi:"T3",id:"Sel"},
+  pc_d2:{ko:"수",en:"Wed",vi:"T4",id:"Rab"},
+  pc_d3:{ko:"목",en:"Thu",vi:"T5",id:"Kam"},
+  pc_d4:{ko:"금",en:"Fri",vi:"T6",id:"Jum"},
+  pc_d5:{ko:"토",en:"Sat",vi:"T7",id:"Sab"},
+  pc_d6:{ko:"일",en:"Sun",vi:"CN",id:"Min"},
+  pc_held_on:{ko:"손으로 켬",en:"Held on",vi:"Đang giữ bật",id:"Ditahan nyala"},
+  pc_held_off:{ko:"손으로 끔",en:"Held off",vi:"Đang giữ tắt",id:"Ditahan mati"},
+  pc_until:{ko:"{t}까지",en:"until {t}",vi:"đến {t}",id:"sampai {t}"},
+  pc_pending:{ko:"차단기 응답 기다리는 중",en:"Waiting for breaker",vi:"Đang chờ aptomat",id:"Menunggu pemutus"},
+  pc_pick_mode:{ko:"어떻게 켜고 끌까요?",en:"How should it switch?",vi:"Bật/tắt thế nào?",id:"Bagaimana menyalakan?"},
+  pc_timer_hint:{ko:"정한 시각에 켜고 끕니다. 끄는 시각이 더 이르면 다음 날 끕니다.",en:"Turns on and off at set times. An off time earlier than on means next day.",vi:"Bật/tắt theo giờ. Giờ tắt sớm hơn nghĩa là ngày hôm sau.",id:"Nyala/mati pada jam tertentu. Jam mati lebih awal berarti besoknya."},
+  pc_cycle_hint:{ko:"가동 시간대 안에서 켜기·쉬기를 되풀이합니다.",en:"Repeats on/off within the active hours.",vi:"Lặp bật/nghỉ trong khung giờ.",id:"Mengulang nyala/mati dalam jam aktif."},
+  pc_on_at:{ko:"켜는 시각",en:"On at",vi:"Giờ bật",id:"Jam nyala"},
+  pc_off_at:{ko:"끄는 시각",en:"Off at",vi:"Giờ tắt",id:"Jam mati"},
+  pc_run:{ko:"켜 두는 시간",en:"Run for",vi:"Chạy trong",id:"Nyala selama"},
+  pc_rest:{ko:"쉬는 시간",en:"Rest for",vi:"Nghỉ trong",id:"Mati selama"},
+  pc_from:{ko:"시작",en:"From",vi:"Từ",id:"Dari"},
+  pc_to:{ko:"끝",en:"To",vi:"Đến",id:"Sampai"},
+  pc_add:{ko:"예약 더하기",en:"Add time",vi:"Thêm giờ",id:"Tambah jadwal"},
+  pc_del:{ko:"빼기",en:"Remove",vi:"Xóa",id:"Hapus"},
+  pc_autooff:{ko:"손으로 켜면 자동 끄기",en:"Auto-off after manual on",vi:"Tự tắt sau khi bật tay",id:"Mati otomatis setelah dinyalakan manual"},
+  pc_autooff_s:{ko:"켜면 {m} 뒤 끔",en:"auto-off {m}",vi:"tự tắt sau {m}",id:"mati setelah {m}"},
+  pc_autooff_hint:{ko:"관수펌프를 켜 두고 잊어도 정한 시간 뒤 꺼집니다.",en:"A pump left on is switched off after this time.",vi:"Bơm quên tắt sẽ tự tắt sau thời gian này.",id:"Pompa yang lupa dimatikan akan mati setelah waktu ini."},
+  pc_quick:{ko:"지금 잠깐 켜기",en:"Run now for",vi:"Chạy ngay trong",id:"Nyalakan sekarang selama"},
+  pc_saved:{ko:"예약을 저장했습니다.",en:"Schedule saved.",vi:"Đã lưu lịch.",id:"Jadwal disimpan."},
+  pc_aerator_sure:{ko:"산소공급기를 끕니다. 정말 끄려면 [끄기]를 한 번 더 누르세요.",en:"This turns the aerator off. Tap [Turn off] again to confirm.",vi:"Sẽ tắt máy sục khí. Nhấn [Tắt] lần nữa để xác nhận.",id:"Aerator akan dimatikan. Tekan [Matikan] lagi untuk konfirmasi."},
+  pc_clock:{ko:"장비 시계가 맞지 않아 예약이 멈춰 있습니다 — 인터넷에 연결하면 시계가 맞춰집니다.",en:"Device clock is wrong, schedules paused — connect to the internet to sync.",vi:"Đồng hồ sai, lịch tạm dừng — kết nối internet để đồng bộ.",id:"Jam perangkat salah, jadwal berhenti — sambungkan internet."},
+  pc_do:{ko:"산소량 연동",en:"By oxygen (DO)",vi:"Theo oxy (DO)",id:"Sesuai oksigen (DO)"},
+  pc_do_s:{ko:"산소 {lo} 이하 켜기 · {hi} 이상 끄기",en:"On ≤ {lo} · off ≥ {hi} mg/L",vi:"Bật ≤ {lo} · tắt ≥ {hi} mg/L",id:"Nyala ≤ {lo} · mati ≥ {hi} mg/L"},
+  pc_do_hint:{ko:"용존산소가 낮아지면 켜고 충분히 오르면 끕니다. 산소값이 10분 넘게 없으면 켜 둡니다.",en:"Turns on when DO drops and off when it recovers. If DO is missing for 10 min it stays on.",vi:"Bật khi DO giảm, tắt khi phục hồi. Mất DO 10 phút thì giữ bật.",id:"Nyala saat DO turun, mati saat pulih. Jika DO hilang 10 mnt tetap nyala."},
+  pc_do_on:{ko:"이 값 이하이면 켜기",en:"Turn on at or below",vi:"Bật khi ≤",id:"Nyala jika ≤"},
+  pc_do_off:{ko:"이 값 이상이면 끄기",en:"Turn off at or above",vi:"Tắt khi ≥",id:"Mati jika ≥"},
+  pc_do_minon:{ko:"켜면 최소 가동",en:"Minimum run",vi:"Chạy tối thiểu",id:"Minimal nyala"},
+  pc_do_bad:{ko:"끄는 기준은 켜는 기준보다 높아야 합니다.",en:"The off level must be above the on level.",vi:"Mức tắt phải cao hơn mức bật.",id:"Batas mati harus di atas batas nyala."},
+  pc_do_now:{ko:"산소 {v} mg/L",en:"DO {v} mg/L",vi:"DO {v} mg/L",id:"DO {v} mg/L"},
+  pc_do_none:{ko:"지금 산소값이 없습니다 — DO 센서를 켜야 연동됩니다(없으면 계속 켜 둡니다).",en:"No DO reading now — enable the DO sensor (without it the circuit stays on).",vi:"Chưa có DO — bật cảm biến DO (không có thì giữ bật).",id:"Belum ada DO — aktifkan sensor DO (tanpa itu tetap nyala)."},
+  pc_guard:{ko:"산소 부족 시 강제 켜기",en:"Force on when DO is low",vi:"Bắt buộc bật khi DO thấp",id:"Paksa nyala saat DO rendah"},
+  pc_guard_hint:{ko:"예약·손 조작과 관계없이, 산소가 이 값 이하로 떨어지면 켭니다(1 mg/L 회복하면 풀림).",en:"Regardless of schedule or manual off, turns on when DO falls to this level (released after +1 mg/L).",vi:"Bất kể lịch, bật khi DO xuống mức này (+1 mg/L thì bỏ).",id:"Abaikan jadwal, nyala saat DO turun ke batas ini (lepas setelah +1 mg/L)."},
+  pc_guard_s:{ko:"산소 {v}↓ 강제 켜기",en:"force on at DO ≤ {v}",vi:"bật khi DO ≤ {v}",id:"paksa nyala DO ≤ {v}"},
+  pc_forced:{ko:"산소 부족 — 강제로 켬",en:"Low DO — forced on",vi:"DO thấp — đã bật",id:"DO rendah — dipaksa nyala"},
+  pc_now:{ko:"지금 {t}",en:"Now {t}",vi:"Bây giờ {t}",id:"Sekarang {t}"},
+  pwt_main:{ko:"전체(인입)",en:"Main incomer",vi:"Tổng (đầu vào)",id:"Utama (masuk)"},
+  pwt_aerator:{ko:"산소공급기·브로워",en:"Aerator / blower",vi:"Máy sục khí",id:"Aerator / blower"},
+  pwt_circulation_pump:{ko:"순환펌프",en:"Circulation pump",vi:"Bơm tuần hoàn",id:"Pompa sirkulasi"},
+  pwt_irrigation_pump:{ko:"관수펌프",en:"Irrigation pump",vi:"Bơm tưới",id:"Pompa irigasi"},
+  pwt_heater:{ko:"히터·난방",en:"Heater",vi:"Máy sưởi",id:"Pemanas"},
+  pwt_ventilation:{ko:"환기팬",en:"Ventilation fan",vi:"Quạt thông gió",id:"Kipas ventilasi"},
+  pwt_cooling:{ko:"냉방·제습",en:"Cooling / dehumidifier",vi:"Làm mát / hút ẩm",id:"Pendingin / dehumidifier"},
+  pwt_lighting:{ko:"조명·보광",en:"Lighting",vi:"Chiếu sáng",id:"Pencahayaan"},
+  pwt_uv:{ko:"UV 살균기",en:"UV sterilizer",vi:"Đèn UV",id:"Sterilisator UV"},
+  pwt_dosing:{ko:"양액 도징펌프",en:"Dosing pump",vi:"Bơm định lượng",id:"Pompa dosis"},
+  pwt_feeder:{ko:"자동급이기",en:"Auto feeder",vi:"Máy cho ăn",id:"Pemberi pakan"},
+  pwt_other:{ko:"기타",en:"Other",vi:"Khác",id:"Lainnya"},
   menu_restart:{ko:"재시작",en:"Restart",vi:"Khởi động lại",id:"Mulai ulang"},
   menu_restart_sub:{ko:"프로그램 다시 시작 · 기기 재부팅",en:"Restart program · Reboot device",vi:"Khởi động lại chương trình · thiết bị",id:"Mulai ulang program · perangkat"},
   restart_app:{ko:"프로그램 다시 시작",en:"Restart program",vi:"Khởi động lại chương trình",id:"Mulai ulang program"},
@@ -902,10 +1432,6 @@ var I18N = {
   menu_mode_sub:{ko:"양식장 · 스마트팜 · 탄소 MRV",en:"Aquaculture · Smart farm · Carbon MRV",vi:"Nuôi tôm · Nông trại thông minh · MRV carbon",id:"Budidaya · Smart farm · MRV karbon"},
   mode_title:{ko:"운전 모드",en:"Operating mode",vi:"Chế độ vận hành",id:"Mode operasi"},
   mode_hint:{ko:"이 장비가 무엇을 하는 기계인지 고르세요. 한 번에 하나만 고를 수 있습니다.",en:"Choose what this device is for. Only one at a time.",vi:"Chọn thiết bị này dùng để làm gì. Mỗi lần chỉ một chế độ.",id:"Pilih fungsi perangkat ini. Hanya satu sekaligus."},
-  mode_aquaculture:{ko:"양식장",en:"Aquaculture",vi:"Nuôi tôm",id:"Budidaya"},
-  mode_aquaculture_sub:{ko:"수질 측정이 본업 · 기본 화면은 수온·pH·용존산소·염도",en:"Water quality first · dashboard shows temp, pH, DO, salinity",vi:"Ưu tiên chất lượng nước · hiển thị nhiệt độ, pH, DO, độ mặn",id:"Utamakan kualitas air · tampilkan suhu, pH, DO, salinitas"},
-  mode_smartfarm:{ko:"스마트팜",en:"Smart farm",vi:"Nông trại thông minh",id:"Smart farm"},
-  mode_smartfarm_sub:{ko:"수경재배 · EC 로 양액 농도를 보고 보충량을 띄웁니다",en:"Hydroponics · shows nutrient dosing from EC",vi:"Thuỷ canh · hiện lượng bổ sung dinh dưỡng theo EC",id:"Hidroponik · tampilkan dosis nutrisi dari EC"},
   mode_mrv:{ko:"탄소 MRV",en:"Carbon MRV",vi:"MRV carbon",id:"MRV karbon"},
   mode_mrv_sub:{ko:"기계실 전력 입력 단말 · 기본 화면이 전력 입력이 됩니다",en:"Power entry terminal · the dashboard becomes power entry",vi:"Thiết bị nhập điện · màn hình chính thành nhập điện",id:"Terminal input daya · dasbor menjadi input daya"},
   mode_water_note:{ko:"수질 수집과 전송은 모드와 무관하게 계속됩니다. 모드가 바꾸는 것은 화면입니다.",en:"Water readings keep being collected and uploaded in every mode. The mode changes the screen, not the collection.",vi:"Dữ liệu nước vẫn được thu và tải lên ở mọi chế độ. Chế độ chỉ đổi màn hình.",id:"Data air tetap dikumpulkan dan diunggah di semua mode. Mode hanya mengubah tampilan."},
@@ -915,11 +1441,46 @@ var I18N = {
   mrv_home_last:{ko:"마지막 지침",en:"Last readings",vi:"Chỉ số gần nhất",id:"Angka terakhir"},
   mrv_home_none:{ko:"아직 보낸 지침이 없습니다",en:"No readings sent yet",vi:"Chưa gửi chỉ số nào",id:"Belum ada angka terkirim"},
   mrv_home_today:{ko:"오늘 {n}건 보냄",en:"{n} sent today",vi:"Hôm nay đã gửi {n}",id:"{n} terkirim hari ini"},
-  mrv_home_link:{ko:"먼저 MRV 에 연결하세요",en:"Link to MRV first",vi:"Hãy kết nối MRV trước",id:"Tautkan ke MRV dulu"}
+  mrv_home_link:{ko:"먼저 MRV 에 연결하세요",en:"Link to MRV first",vi:"Hãy kết nối MRV trước",id:"Tautkan ke MRV dulu"},
+  // AI 모드 — 머리의 표시와, 눌렀을 때 열리는 설명판
+  ai_mode:{ko:"AI 모드",en:"AI mode",vi:"Chế độ AI",id:"Mode AI"},
+  ai_off:{ko:"AI 모드 꺼짐",en:"AI mode off",vi:"Chế độ AI tắt",id:"Mode AI mati"},
+  ai_title:{ko:"AI 모드 — 장비가 스스로 하는 일",en:"AI mode — what the device decides on its own",vi:"Chế độ AI — thiết bị tự quyết định gì",id:"Mode AI — apa yang diputuskan perangkat sendiri"},
+  ai_l1:{ko:"기준 이탈 판정",en:"Threshold judgement",vi:"Đánh giá ngưỡng",id:"Penilaian ambang"},
+  ai_l1d:{ko:"지금 값이 흰다리새우 적정 범위를 벗어났는지. 매 측정마다.",en:"Whether the current value is outside the range for whiteleg shrimp. Every reading.",vi:"Giá trị hiện tại có ngoài ngưỡng tôm thẻ không. Mỗi lần đo.",id:"Apakah nilai saat ini di luar rentang udang vaname. Setiap pengukuran."},
+  ai_l2:{ko:"경량 이상탐지",en:"Lightweight anomaly detection",vi:"Phát hiện bất thường nhẹ",id:"Deteksi anomali ringan"},
+  ai_l2d:{ko:"급변 · 연속 악화 · 평소 범위 이탈. 기준을 깨기 전에 찾는다.",en:"Surge, sustained drift, deviation from the usual range — found before a limit is crossed.",vi:"Đột biến, xấu đi liên tục, lệch khỏi mức thường — trước khi vượt ngưỡng.",id:"Lonjakan, perburukan terus-menerus, simpangan dari biasanya — sebelum ambang terlampaui."},
+  ai_nut_low:{ko:"보충 필요",en:"Dose needed",vi:"Cần bổ sung",id:"Perlu dosis"},
+  ai_nut_high:{ko:"교환 필요",en:"Exchange needed",vi:"Cần thay nước",id:"Perlu ganti air"},
+  ai_nut_ok:{ko:"적정",en:"OK",vi:"Đạt",id:"Pas"},
+  ai_nut_off:{ko:"꺼짐",en:"Off",vi:"Tắt",id:"Mati"},
+  ai_l3:{ko:"설비 운전 권고",en:"Equipment action advice",vi:"Khuyến nghị vận hành",id:"Rekomendasi operasi"},
+  ai_l3d:{ko:"판정을 「지금 무엇을 돌릴까」 로 바꾼다. 설비를 직접 돌리지는 않는다.",en:"Turns a judgement into what to run now. It does not switch equipment itself.",vi:"Biến đánh giá thành việc cần chạy ngay. Không tự bật thiết bị.",id:"Mengubah penilaian jadi apa yang harus dijalankan. Tidak menyalakan alat sendiri."},
+  ai_none:{ko:"없음",en:"none",vi:"không",id:"tidak ada"},
+  ai_cases:{ko:"{n}건",en:"{n}",vi:"{n}",id:"{n}"},
+  ai_watching:{ko:"{h}시간 · {n}개 점",en:"{h} h · {n} points",vi:"{h} giờ · {n} điểm",id:"{h} jam · {n} titik"},
+  ai_local:{ko:"모두 장비 안에서 계산합니다. 서버도 인터넷도 쓰지 않으므로 회선이 끊겨도 그대로 돕니다.",en:"All of this runs inside the device — no server, no internet, so it keeps working when the line drops.",vi:"Tất cả chạy trong thiết bị — không cần máy chủ hay internet, vẫn chạy khi mất mạng.",id:"Semua berjalan di dalam perangkat — tanpa server atau internet, tetap jalan saat koneksi putus."},
+  ai_offd:{ko:"판정 모듈이나 측정 이력이 없어 꺼져 있습니다. 측정과 전송은 그대로 됩니다.",en:"Off — the judgement modules or the history store are missing. Measuring and sending still work.",vi:"Đang tắt — thiếu mô-đun đánh giá hoặc lịch sử đo. Vẫn đo và gửi bình thường.",id:"Mati — modul penilaian atau riwayat tidak ada. Pengukuran dan pengiriman tetap jalan."},
+  ai_last:{ko:"마지막 추세 분석 {t} · {m}분마다",en:"Last trend pass {t} · every {m} min",vi:"Phân tích xu hướng {t} · mỗi {m} phút",id:"Analisis tren {t} · tiap {m} menit"}
+};
+
+// 스마트팜 모드 사전 — 기본 사전 위에 얕게 얹는다. **바뀌는 키만** 적는다.
+// 수조→베드, 양식장→농장, 새우 기준→양액 기준. 네 언어 모두 채운다(parity).
+var I18N_AGRI = {
+  m_temperature:{ko:"양액 온도",en:"Solution temp.",vi:"Nhiệt độ dung dịch",id:"Suhu larutan"},
+  pair_step2:{ko:"로그인 → 농장·베드 관리",en:"Log in → Farm & bed management",vi:"Đăng nhập → Quản lý nông trại & luống",id:"Masuk → Kelola kebun & bedeng"},
+  pair_step3:{ko:"베드의 <b>센서 기기</b> → <b>코드로 기기 연결</b>",en:"Bed's <b>Sensor devices</b> → <b>Link by code</b>",vi:"<b>Thiết bị cảm biến</b> của luống → <b>Kết nối bằng mã</b>",id:"<b>Perangkat sensor</b> bedeng → <b>Hubungkan via kode</b>"},
+  pair_desc:{ko:"Farm365에 로그인한 뒤 아래 코드를 입력하세요<br>연결 전 측정값도 저장해 두었다가 함께 올립니다",en:"Log in to Farm365 and enter the code below<br>Readings taken before linking are stored and uploaded too",vi:"Đăng nhập Farm365 và nhập mã bên dưới<br>Số liệu trước khi kết nối cũng được lưu và tải lên cùng",id:"Masuk ke Farm365 lalu masukkan kode di bawah<br>Data sebelum ditautkan disimpan dan diunggah bersama"},
+  nut_atc:{ko:"온도 보정(25℃)",en:"Temp. compensation (25℃)",vi:"Bù nhiệt (25℃)",id:"Kompensasi suhu (25℃)"},
+  nut_cal_hint:{ko:"교정값은 실제 원액·원수로 재서 넣어야 보충량이 맞습니다. 시험 통에 원수를 담고 원액을 정량 투입해 오른 EC 를 재세요.",en:"Calibration must be measured with your own stock solution and source water, or the dose will be off. Dose a test bucket and measure the EC rise.",vi:"Phải hiệu chuẩn bằng dung dịch và nước thực tế, nếu không lượng bổ sung sẽ sai. Đo mức tăng EC trong thùng thử.",id:"Kalibrasi harus diukur dengan larutan dan air Anda sendiri, jika tidak dosis akan meleset. Ukur kenaikan EC di ember uji."},
+  // 스마트팜에서는 설비 운전 권고(환수·폭기)를 내지 않고 그 자리를 양액 보충 계산이 맡는다.
+  ai_l3:{ko:"양액 보충 계산",en:"Nutrient dosing",vi:"Tính bổ sung dinh dưỡng",id:"Perhitungan dosis nutrisi"},
+  ai_l3d:{ko:"EC 로 A·B 원액 보충량이나 원수 교환량을 계산한다. 펌프를 직접 돌리지는 않는다.",en:"Works out A/B stock doses or a source-water exchange from EC. It does not run pumps itself.",vi:"Tính lượng A/B cần bổ sung hoặc lượng nước thay từ EC. Không tự chạy bơm.",id:"Menghitung dosis A/B atau penggantian air dari EC. Tidak menjalankan pompa sendiri."},
+  ai_l1d:{ko:"지금 값이 양액 재배 적정 범위를 벗어났는지. 매 측정마다.",en:"Whether the current value is outside the range for nutrient solution. Every reading.",vi:"Giá trị hiện tại có ngoài ngưỡng dung dịch dinh dưỡng không. Mỗi lần đo.",id:"Apakah nilai saat ini di luar rentang larutan nutrisi. Setiap pengukuran."}
 };
 
 function t(key, vars){
-  var e = I18N[key];
+  var e = (isAgri() && I18N_AGRI[key]) || I18N[key];
   var s = (e && (e[LANG] || e.ko)) || key;
   if (vars) for (var k in vars) s = s.split("{" + k + "}").join(vars[k]);
   return s;
@@ -938,11 +1499,17 @@ function mlabel(key){
 // 측정값은 언제나 이 화면이다. 연결 여부와 무관하다.
 // (MRV 모드에서는 격자만 떼어 쓰므로 renderGrid 로 나눠 두었다.)
 function renderValues(d){
-  return renderGrid(d) + renderAdvice(d) + renderNutrient(d);
+  var hot = renderPowerAlert(d);
+  var grid = renderGrid(d);
+  var n = orderFor(d).length;
+  // 스마트팜은 양액 보충이 주 업무라 값 바로 아래에 크게 놓는다.
+  // 양식장은 예전 순서 그대로(권고 → 양액).
+  if (isAgri()) return hot + grid + renderEnv(d, !n) + renderNutrient(d) + renderAdvice(d);
+  return hot + grid + renderAdvice(d) + renderNutrient(d);
 }
 
 function renderGrid(d){
-  nutMode = !!d.nutrient;
+  nutMode = isAgri() || !!d.nutrient;
   var cells = orderFor(d).map(function(key){
     var r = RANGES[key];
     var has = d.values && typeof d.values[key] === "number";
@@ -958,7 +1525,1041 @@ function renderGrid(d){
            '<div class="v">' + v + (r.unit ? '<small>' + (ms ? "mS/cm" : r.unit) + '</small>' : '') + '</div>' +
            subLine(key, d) + '</div>';
   }).join("");
-  return '<div class="grid">' + cells + '</div>';
+  var hot = renderPowerAlert(d);
+  // 경고 띠가 서면 값 칸을 조금 줄인다 — 띠가 값을 가리면 안 된다(800×480 은 여유가 없다).
+  // 과열 띠나 환경·기상 줄이 함께 서면 값 칸 자리가 줄어든다 — 글자를 줄여 칸이 아래 줄을 덮지 않게.
+  var tight = hot || (isAgri() && d.env);
+  // 둘 다면(스마트팜에서 차단기 과열) 한 단계 더 — 보조 줄은 접고 숫자만.
+  var tighter = hot && isAgri() && d.env;
+  var n = orderFor(d).length;
+  // 칸 수에 맞춰 줄을 맞춘다 — 2칸은 나란히, 3칸은 한 줄 셋, 4칸은 2×2. 빈 자리를 남기지 않는다.
+  var grid = !n ? "" : '<div class="grid' + (n === 2 ? " n2" : n === 3 ? " n3" : n === 1 ? " n1" : "") +
+    (tight ? " tight" : "") + (tighter ? " tighter" : "") + '">' + cells + '</div>';
+  return grid;
+}
+
+// ── 전력 ────────────────────────────────────────────────────────────────────
+// 머리 칩에 전체 kW, 차단기가 뜨거우면 값 격자 위에 경고 띠. 칩이나 띠를 누르면
+// 회로판이 열린다. 판정(65·80℃)은 수집기가 limits.BREAKER_TEMP 로 해서 level 로 준다.
+var PW_TYPES = ["main","aerator","circulation_pump","irrigation_pump","heater","ventilation",
+                "cooling","lighting","uv","dosing","feeder","other"];
+var powerOpen = false, pwTypesOpen = false, pwEdit = null, pwMsg = null;
+
+function pwName(c){ return t("pwt_" + c.type) + (c.type === "other" ? " " + c.id : ""); }
+function kw(w){ return (w / 1000).toFixed(w >= 10000 ? 1 : 2); }
+
+function renderPowerChip(d){
+  var el = document.getElementById("pw");
+  var p = d.power;
+  if (!p) { el.innerHTML = ""; el.className = "pw"; return; }
+  el.className = "pw" + (p.level ? " " + p.level : "");
+  el.innerHTML = '<span class="bolt">\u26A1</span>' +
+    (p.total_w === null || p.total_w === undefined ? "--" : kw(p.total_w)) + " kW";
+}
+
+function hottest(p){
+  var list = (p && p.circuits || []).filter(function(c){ return c.level; });
+  list.sort(function(a, b){ return (b.temp || 0) - (a.temp || 0); });
+  return list[0] || null;
+}
+
+function renderPowerAlert(d){
+  var c = hottest(d.power);
+  if (!c) return "";
+  var key = c.level === "crit" ? "pw_hot_crit" : "pw_hot_warn";
+  return '<div class="pwalert ' + c.level + '" onclick="openPower()">\u26A0 ' +
+    esc(t(key, {name: pwName(c), t: c.temp.toFixed(0)})) +
+    '<span class="why">' + t("pw_hot_do") + ' \u203A</span></div>';
+}
+
+// ── 관수 밸브(지그비 밸브 + 유량계) — 켤 때만 흐른다. 유량 0 은 고장이 아니라 닫힘이다.
+// 머리 칩에 오늘 쓴 물(L), 열린 밸브가 있으면 파란 테두리. 누르면 밸브마다 상태·유량·오늘 사용량.
+var irrOpen = false;
+function liters(v){ return v >= 1000 ? (v / 1000).toFixed(2) + " m\u00B3" : Math.round(v) + " L"; }
+function renderIrrChip(d){
+  var el = document.getElementById("irr");
+  var list = d.irrigation || [];
+  if (!list.length) { el.innerHTML = ""; el.className = "pw"; return; }
+  var total = 0, any = false, open = false;
+  list.forEach(function(v){
+    if (typeof v.volume_today === "number") { total += v.volume_today; any = true; }
+    if (v.state === 1 || (typeof v.flow === "number" && v.flow > 0)) open = true;
+  });
+  el.className = "pw" + (open ? " open" : "");
+  el.innerHTML = '<span class="drop">\\uD83D\\uDCA7</span>' + (any ? liters(total) : "--");
+}
+function openIrr(){ irrOpen = true; drawIrr(lastState || {}); }
+function closeIrr(){ irrOpen = false; document.getElementById("irrpanel").innerHTML = ""; }
+function drawIrr(d){
+  var list = d.irrigation || [];
+  if (!list.length) { closeIrr(); return; }
+  var rows = list.map(function(v){
+    var wait = v.age_min === null || v.age_min === undefined;
+    var st = wait ? '<span class="st">' + t("pw_wait") + '</span>'
+           : v.state === 1 ? '<span class="st on">' + t("irr_open") + '</span>'
+           : v.state === 0 ? '<span class="st">' + t("irr_closed") + '</span>' : "";
+    var num = function(x, unit){
+      return '<span class="num' + (x === "--" ? " dim" : "") + '">' + x + '<small>' + unit + '</small></span>';
+    };
+    return '<div class="pwrow"><div class="nm">' + esc(v.id) + '</div>' + st +
+      num(typeof v.flow === "number" ? v.flow.toFixed(1) : "--", "L/min") +
+      num(typeof v.volume_today === "number" ? Math.round(v.volume_today) : "--", "L " + t("pw_today")) + '</div>';
+  }).join("");
+  document.getElementById("irrpanel").innerHTML =
+    '<div class="overlay"><h1>' + t("irr_title") + '</h1>' +
+      '<div class="pwbox">' + rows + '</div>' +
+      '<div class="ovbtns"><button class="act ghost" onclick="closeIrr()">' + t("close") + '</button></div>' +
+    '</div>';
+}
+
+function openPower(){ powerOpen = true; drawPower(lastState || {}); }
+function closePower(){ powerOpen = false; pwCtl = null; pwDraft = null; pwCtlMsg = null; pwSure = null; document.getElementById("powerpanel").innerHTML = ""; }
+
+function drawPower(d){
+  var p = d.power;
+  if (!p) { closePower(); return; }
+  var rows;
+  if (!p.circuits.length) {
+    rows = '<div class="pwrow"><div class="nm" style="color:#94A3B8;font-weight:600">' + t("pw_none") + '</div></div>';
+  } else {
+    rows = p.circuits.map(function(c){
+      var st = c.state === 1 ? '<span class="st on">' + t("pw_on") + '</span>'
+             : c.state === 0 ? '<span class="st">' + t("pw_off") + '</span>'
+             : (c.age_min === null || c.age_min === undefined ? '<span class="st">' + t("pw_wait") + '</span>'
+             : c.power === null ? '<span class="st">' + t("pw_lost") + '</span>' : "");
+      var num = function(v, unit, cls){
+        return '<span class="num' + (cls ? " " + cls : "") + (v === "--" ? " dim" : "") + '">' + v +
+               '<small>' + unit + '</small></span>';
+      };
+      return '<div class="pwrow"><div class="nm">' + esc(pwName(c)) + '<small>' + esc(c.id) + '</small></div>' + st +
+        num(c.power === null ? "--" : Math.round(c.power), "W") +
+        num(c.current === null ? "--" : c.current.toFixed(1), "A") +
+        num(c.energy_today === null ? "--" : c.energy_today.toFixed(2), "kWh " + t("pw_today")) +
+        num(c.temp === null ? "--" : c.temp.toFixed(0), "\u2103", c.level) + '</div>' + pwCtlLine(c) +
+        (pwSure === c.id ? '<div class="msg err">' + t("pc_aerator_sure") + '</div>' : "");
+    }).join("");
+  }
+  var tot = p.total_w === null || p.total_w === undefined ? "--" : kw(p.total_w);
+  var cmsg = pwCtlMsg ? '<div class="msg ' + pwCtlMsg.kind + '">' + esc(pwCtlMsg.text) + '</div>' : "";
+  if (p.control && p.control.clock_ok === false) cmsg += '<div class="msg err">' + t("pc_clock") + '</div>';
+  // 몇 초마다 다시 그린다 — 내려 보던 목록이 맨 위로 튀지 않게 스크롤을 지킨다.
+  var oldBox = document.querySelector("#powerpanel .pwbox"), keepTop = oldBox ? oldBox.scrollTop : 0;
+  var keepMode = pwCtl ? "ctl" : "list";
+  if (drawPower.mode !== keepMode) keepTop = 0;
+  drawPower.mode = keepMode;
+  var restore = function(){ var b = document.querySelector("#powerpanel .pwbox"); if (b) b.scrollTop = keepTop; };
+  if (pwCtl) {
+    document.getElementById("powerpanel").innerHTML =
+      '<div class="overlay"><h1>' + t("pc_title") + '</h1>' + cmsg +
+        '<div class="pwbox">' + drawPowerCtl() + '</div>' +
+        '<div class="ovbtns"><button class="act ghost" onclick="pwCtl=null;pwDraft=null;pwCtlMsg=null;drawPower(lastState)">' + t("cancel") + '</button>' +
+        '<button class="act" ' + (pwBusy ? "disabled" : "") + ' onclick="pwSaveRule()">' + t("save") + '</button></div>' +
+      '</div>';
+    restore();
+    return;
+  }
+  document.getElementById("powerpanel").innerHTML =
+    '<div class="overlay"><h1>' + t("pw_title") + '</h1>' +
+      '<div class="pwtot"><span>' + t(p.partial ? "pw_total_partial" : "pw_total") + ' <b>' + tot + '</b>kW</span>' +
+      (p.control ? '<span>' + t("pc_now", {t: p.control.now}) + '</span>' : "") +
+      (p.control && p.control.do !== null && p.control.do !== undefined ? '<span>' + t("pc_do_now", {v: p.control.do.toFixed(2)}) + '</span>' : "") +
+      '</div>' + cmsg +
+      '<div class="pwbox">' + rows + '</div>' +
+      '<div class="ovbtns"><button class="act ghost" onclick="closePower()">' + t("close") + '</button></div>' +
+    '</div>';
+  restore();
+}
+
+// ── 전력 회로 켜고 끄기 · 예약 — power_control.py. 숫자는 키보드 없이 −/+ 로 고른다.
+var pwCtl = null, pwDraft = null, pwCtlMsg = null, pwBusy = false, pwSure = null;
+var PW_DAYS = [0,1,2,3,4,5,6];
+var PW_MIN_STEPS = [1,2,3,5,10,15,20,30,45,60,90,120,180,240,360,480,720];
+var PW_OFF_STEPS = [0,5,10,15,20,30,45,60,90,120,180,240,360,480,720];
+var PW_DO_STEPS = [1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,9,10];
+var PW_GUARD_STEPS = [0,2,2.5,3,3.5,4,4.5,5,5.5,6];
+var PW_MINON_STEPS = [0,5,10,15,20,30,45,60,90,120];
+
+function pwCtlOf(id){ var p = lastState && lastState.power; return p && p.control && p.control.circuits ? p.control.circuits[id] : null; }
+function pwFmtMin(m){ return m >= 60 && m % 60 === 0 ? t("pc_h", {n: m / 60}) : t("pc_m", {n: m}); }
+function pwDaysTxt(ds){
+  if (!ds || ds.length === 7) return t("pc_everyday");
+  return ds.map(function(d){ return t("pc_d" + d); }).join("·");
+}
+function pwRuleTxt(r){
+  var g = r && r.do_guard_below ? " · " + t("pc_guard_s", {v: r.do_guard_below.toFixed(1)}) : "";
+  return pwRuleBase(r) + g;
+}
+function pwRuleBase(r){
+  if (!r || r.mode === "manual") return t("pc_manual") + (r && r.auto_off_min ? " · " + t("pc_autooff_s", {m: pwFmtMin(r.auto_off_min)}) : "");
+  if (r.mode === "do") return t("pc_do_s", {lo: r.do.on_below.toFixed(1), hi: r.do.off_above.toFixed(1)});
+  if (r.mode === "timer") return t("pc_timer") + " " + r.timers.map(function(x){ return x.on + "–" + x.off; }).join(", ") +
+    " · " + pwDaysTxt(r.timers[0].days);
+  var c = r.cycle;
+  return t("pc_cycle_s", {on: pwFmtMin(c.on_min), off: pwFmtMin(c.off_min)}) + " · " + c.from + "–" + c.to + " · " + pwDaysTxt(c.days);
+}
+function pwCtlLine(c){
+  var k = pwCtlOf(c.id);
+  if (!k || !k.can) return "";
+  var on = c.state === 1;
+  var bits = [esc(pwRuleTxt(k.rule))];
+  if (k.override) bits.push('<span style="color:#FBBF24">' + t(k.override.on ? "pc_held_on" : "pc_held_off") +
+    (k.override.until ? " " + t("pc_until", {t: k.override.until.slice(11, 16)}) : "") + '</span>');
+  if (k.do_forced) bits.push('<span style="color:#F87171">' + t("pc_forced") + '</span>');
+  if (k.error) bits.push('<span style="color:#F87171">' + esc(k.error) + '</span>');
+  else if (k.pending) bits.push('<span style="color:#94A3B8">' + t("pc_pending") + '</span>');
+  return '<div class="pcline"><div class="pcinfo">' + bits.join(" · ") + '</div>' +
+    (k.override && k.rule.mode !== "manual" ? '<button class="toggle" ' + (pwBusy ? "disabled" : "") +
+      ' onclick="pwAct(&quot;' + esc(c.id) + '&quot;,{action:&quot;auto&quot;})">' + t("pc_back_auto") + '</button>' : "") +
+    '<button class="toggle" onclick="pwOpenCtl(&quot;' + esc(c.id) + '&quot;)">' + t("pc_setup") + '</button>' +
+    '<button class="toggle pcbig' + (on ? " on" : "") + '" ' + (pwBusy ? "disabled" : "") +
+      ' onclick="pwToggle(&quot;' + esc(c.id) + '&quot;)">' + t(on ? "pc_turn_off" : "pc_turn_on") + '</button></div>';
+}
+function pwToggle(id){
+  var c = ((lastState.power || {}).circuits || []).filter(function(x){ return x.id === id; })[0] || {};
+  var k = pwCtlOf(id) || {};
+  var on = c.state !== 1;
+  if (!on && k.confirm_off && pwSure !== id) {
+    pwSure = id; drawPower(lastState);
+    return;
+  }
+  pwSure = null;
+  pwAct(id, {action: "set", on: on});
+}
+function pwAct(id, body){
+  pwBusy = true; body.id = id;
+  fetch("/api/power/control", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      pwBusy = false;
+      if (d && d.control && lastState.power) lastState.power.control = d.control;
+      if (d && d.ok && body.action === "set") {
+        (lastState.power.circuits || []).forEach(function(c){ if (c.id === id) c.state = body.on ? 1 : 0; });
+      }
+      pwCtlMsg = d && d.ok ? (body.action === "rule" ? {kind:"ok", text:t("pc_saved")} : null)
+                           : {kind:"err", text:(d && d.error) || t("save_fail")};
+      if (d && d.ok && body.action === "rule") { pwCtl = null; pwDraft = null; }
+      drawPower(lastState);
+    })
+    .catch(function(){ pwBusy = false; pwCtlMsg = {kind:"err", text:t("save_fail")}; drawPower(lastState); });
+}
+function pwOpenCtl(id){
+  var k = pwCtlOf(id) || {rule: {mode: "manual", auto_off_min: 0}};
+  pwCtl = id; pwCtlMsg = null;
+  pwDraft = JSON.parse(JSON.stringify(k.rule));
+  if (!pwDraft.timers) pwDraft.timers = [{on: "06:00", off: "07:00", days: PW_DAYS.slice()}];
+  if (!pwDraft.cycle) pwDraft.cycle = {on_min: 15, off_min: 45, from: "06:00", to: "18:00", days: PW_DAYS.slice()};
+  if (!pwDraft.do) pwDraft.do = {on_below: 5, off_above: 6, min_on_min: 10};
+  if (!pwDraft.auto_off_min) pwDraft.auto_off_min = 0;
+  // 산소공급기는 강제 켜기를 4.0 으로 제안한다(화면에 보이므로 '안 함' 으로 내릴 수 있다).
+  if (pwDraft.do_guard_below === undefined && k.confirm_off) pwDraft.do_guard_below = 4;
+  if (!pwDraft.do_guard_below) pwDraft.do_guard_below = 0;
+  drawPower(lastState);
+}
+function pwStepList(list, v, dir){
+  var i = list.indexOf(v);
+  if (i < 0) { i = 0; while (i < list.length - 1 && list[i] < v) i++; }
+  return list[Math.max(0, Math.min(list.length - 1, i + dir))];
+}
+function pwTimeStep(s, part, dir){
+  var h = +s.slice(0, 2), m = +s.slice(3, 5);
+  if (s === "24:00") { h = 24; m = 0; }
+  var tot = h * 60 + m + (part === "h" ? 60 : 10) * dir;
+  tot = ((tot % 1440) + 1440) % 1440;
+  return ("0" + Math.floor(tot / 60)).slice(-2) + ":" + ("0" + tot % 60).slice(-2);
+}
+function pwSet(path, val){
+  var o = pwDraft, ks = path.split(".");
+  for (var i = 0; i < ks.length - 1; i++) o = o[ks[i]];
+  o[ks[ks.length - 1]] = val;
+  drawPower(lastState);
+}
+function pwGet(path){ var o = pwDraft; path.split(".").forEach(function(k){ o = o[k]; }); return o; }
+function pwStepper(label, path, kind){
+  var v = pwGet(path), show, btn = function(txt, js){ return '<button class="toggle" onclick="' + js + '">' + txt + '</button>'; };
+  var q = "&quot;" + path + "&quot;";
+  if (kind === "time") {
+    show = v;
+    return '<div class="pcstep"><span>' + label + '</span>' +
+      btn("−1h", "pwSet(" + q + ",pwTimeStep(pwGet(" + q + "),&quot;h&quot;,-1))") +
+      btn("−10m", "pwSet(" + q + ",pwTimeStep(pwGet(" + q + "),&quot;m&quot;,-1))") +
+      '<b>' + show + '</b>' +
+      btn("+10m", "pwSet(" + q + ",pwTimeStep(pwGet(" + q + "),&quot;m&quot;,1))") +
+      btn("+1h", "pwSet(" + q + ",pwTimeStep(pwGet(" + q + "),&quot;h&quot;,1))") + '</div>';
+  }
+  var list = {off: "PW_OFF_STEPS", min: "PW_MIN_STEPS", "do": "PW_DO_STEPS", guard: "PW_GUARD_STEPS", minon: "PW_MINON_STEPS"}[kind];
+  show = (kind === "off" || kind === "guard" || kind === "minon") && !v ? t("pc_none")
+       : (kind === "do" || kind === "guard") ? v.toFixed(1) + " mg/L" : pwFmtMin(v);
+  return '<div class="pcstep"><span>' + label + '</span>' +
+    btn("−", "pwSet(" + q + ",pwStepList(" + list + ",pwGet(" + q + "),-1))") + '<b>' + show + '</b>' +
+    btn("+", "pwSet(" + q + ",pwStepList(" + list + ",pwGet(" + q + "),1))") + '</div>';
+}
+function pwDayChips(path){
+  var ds = pwGet(path);
+  return '<div class="pcdays">' + PW_DAYS.map(function(d){
+    var on = ds.indexOf(d) >= 0;
+    return '<button class="' + (on ? "on" : "") + '" onclick="pwDay(&quot;' + path + '&quot;,' + d + ')">' + t("pc_d" + d) + '</button>';
+  }).join("") + '</div>';
+}
+function pwDay(path, d){
+  var ds = pwGet(path).slice(), i = ds.indexOf(d);
+  if (i >= 0) ds.splice(i, 1); else ds.push(d);
+  ds.sort();
+  pwSet(path, ds);
+}
+function pwSaveRule(){
+  var r = {mode: pwDraft.mode, auto_off_min: pwDraft.auto_off_min};
+  if (r.mode === "timer") r.timers = pwDraft.timers;
+  if (r.mode === "cycle") r.cycle = pwDraft.cycle;
+  if (r.mode === "do") {
+    if (pwDraft.do.off_above <= pwDraft.do.on_below) { pwCtlMsg = {kind:"err", text:t("pc_do_bad")}; drawPower(lastState); return; }
+    r.do = pwDraft.do;
+  } else if (pwDraft.do_guard_below) r.do_guard_below = pwDraft.do_guard_below;
+  pwAct(pwCtl, {action: "rule", rule: r});
+}
+function drawPowerCtl(){
+  var id = pwCtl, k = pwCtlOf(id) || {}, d = pwDraft;
+  var modes = ["manual","timer","cycle","do"];
+  var h = '<div class="sub" style="margin:2px 0 6px">' + esc(id) + ' — ' + t("pc_pick_mode") + '</div>' +
+    '<div class="typegrid four">' + modes.map(function(m){
+      return '<button class="' + (d.mode === m ? "on" : "") + '" onclick="pwSet(&quot;mode&quot;,&quot;' + m + '&quot;)">' + t("pc_" + m) + '</button>';
+    }).join("") + '</div>';
+  var cur = lastState && lastState.power && lastState.power.control ? lastState.power.control.do : null;
+  if (d.mode === "timer") {
+    h += '<div class="sub" style="margin-top:10px">' + t("pc_timer_hint") + '</div>';
+    d.timers.forEach(function(x, i){
+      h += '<div class="pcbox">' + pwStepper(t("pc_on_at"), "timers." + i + ".on", "time") +
+        pwStepper(t("pc_off_at"), "timers." + i + ".off", "time") + pwDayChips("timers." + i + ".days") +
+        (d.timers.length > 1 ? '<button class="toggle" onclick="pwDraft.timers.splice(' + i + ',1);drawPower(lastState)">' + t("pc_del") + '</button>' : "") +
+        '</div>';
+    });
+    if (d.timers.length < 6) h += '<button class="toggle" style="margin-top:6px" onclick="pwDraft.timers.push({on:&quot;18:00&quot;,off:&quot;19:00&quot;,days:PW_DAYS.slice()});drawPower(lastState)">+ ' + t("pc_add") + '</button>';
+  } else if (d.mode === "cycle") {
+    h += '<div class="sub" style="margin-top:10px">' + t("pc_cycle_hint") + '</div><div class="pcbox">' +
+      pwStepper(t("pc_run"), "cycle.on_min", "min") + pwStepper(t("pc_rest"), "cycle.off_min", "min") +
+      pwStepper(t("pc_from"), "cycle.from", "time") + pwStepper(t("pc_to"), "cycle.to", "time") +
+      pwDayChips("cycle.days") + '</div>';
+  } else if (d.mode === "do") {
+    h += '<div class="sub" style="margin-top:10px">' + t("pc_do_hint") + '</div><div class="pcbox">' +
+      pwStepper(t("pc_do_on"), "do.on_below", "do") + pwStepper(t("pc_do_off"), "do.off_above", "do") +
+      pwStepper(t("pc_do_minon"), "do.min_on_min", "minon") +
+      '<div class="sub">' + (cur === null || cur === undefined ? '<span style="color:#FBBF24">' + t("pc_do_none") + '</span>'
+                             : t("pc_do_now", {v: cur.toFixed(2)})) + '</div></div>';
+  }
+  if (d.mode !== "do") {
+    h += '<div class="pcbox">' + pwStepper(t("pc_guard"), "do_guard_below", "guard") +
+      '<div class="sub">' + t("pc_guard_hint") + '</div></div>';
+  }
+  {
+    h += '<div class="pcbox">' + pwStepper(t("pc_autooff"), "auto_off_min", "off") +
+      '<div class="sub">' + t("pc_autooff_hint") + '</div></div>' +
+      '<div class="sub" style="margin-top:8px">' + t("pc_quick") + '</div><div class="pcdays">' +
+      [10, 30, 60, 120].map(function(m){
+        return '<button ' + (pwBusy ? "disabled" : "") + ' onclick="pwAct(&quot;' + esc(id) + '&quot;,{action:&quot;set&quot;,on:true,minutes:' + m + '})">' + pwFmtMin(m) + '</button>';
+      }).join("") + '</div>';
+  }
+  return h;
+}
+
+// [설정] → [전력 회로] — 차단기마다 연결된 기기 종류를 고른다(설계서 4-1 카탈로그).
+function openPowerTypes(){ pwEdit = null; pwMsg = null; drawPowerTypes(); }
+
+function drawPowerTypes(){
+  var p = (lastState && lastState.power) || {circuits: []};
+  var msg = pwMsg ? '<div class="msg ' + pwMsg.kind + '">' + esc(pwMsg.text) + '</div>' : "";
+  var body;
+  if (pwEdit) {
+    var cur = (p.circuits.filter(function(c){ return c.id === pwEdit; })[0] || {}).type;
+    body = '<div class="sub" style="margin:2px 0 4px">' + esc(pwEdit) + ' \u2014 ' + t("pw_pick") + '</div>' +
+      '<div class="typegrid">' + PW_TYPES.map(function(k){
+        return '<button class="' + (k === cur ? "on" : "") + '" onclick="setPowerType(&quot;' + k + '&quot;)">' +
+               t("pwt_" + k) + '</button>';
+      }).join("") + '</div>';
+  } else if (!p.circuits.length) {
+    body = '<div class="sub">' + t("pw_none") + '</div>';
+  } else {
+    body = p.circuits.map(function(c){
+      return '<div class="srow" style="cursor:pointer" onclick="pwEdit=&quot;' + esc(c.id) + '&quot;;pwMsg=null;drawPowerTypes()">' +
+        '<div class="sname">' + esc(pwName(c)) + '<div class="sub">' + esc(c.id) + '</div></div>' +
+        '<button class="toggle">' + t("pw_change") + '</button></div>';
+    }).join("");
+  }
+  document.getElementById("setup").innerHTML =
+    '<div class="setup"><div class="chead">' +
+      '<span class="ctitle">' + t("menu_power") + '</span>' +
+      '<button style="margin-left:auto" onclick="' + (pwEdit ? "pwEdit=null;drawPowerTypes()" : "drawSettingsMenu()") + '">' +
+        (pwEdit ? t("back_list") : t("back_menu")) + '</button>' +
+    '</div><div class="sbody">' + msg + body + '</div></div>';
+}
+
+function setPowerType(k){
+  var id = pwEdit;
+  fetch("/api/power/type", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({id: id, type: k})})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d && d.ok) {
+        // 다음 갱신을 기다리지 않고 지금 화면에 반영한다.
+        (lastState.power.circuits || []).forEach(function(c){ if (c.id === id) c.type = k; });
+        pwMsg = {kind:"ok", text: d.saved ? t("pw_saved") : t("saved_mem")};
+        pwEdit = null;
+      } else {
+        pwMsg = {kind:"err", text:(d && d.error) || t("save_fail")};
+      }
+      drawPowerTypes();
+      if (lastState) render(lastState);
+    })
+    .catch(function(){ pwMsg = {kind:"err", text:t("save_fail")}; drawPowerTypes(); });
+}
+
+// [설정] → [무선 센서] — 지그비 센서를 찾고(페어링 모드 2분), 종류·구간을 골라 등록한다.
+// 장비 프로그램이 Zigbee2MQTT 이름을 바꾸고 devices.yaml 에 한 줄을 더하면 수집기가 다시 읽는다.
+// 화면이 열려 있는 동안 5초(찾는 중에는 3초)마다 다시 읽는다.
+var WL_KINDS = ["canopy","air","soil","breaker-pump","breaker-aux","leak","valve"];
+var WL_ZONES = ["treatment","control","facility","mast"];
+var WL_PREFIX = {canopy:"CN",air:"AIR",soil:"SOIL","breaker-pump":"PUMP","breaker-aux":"AUX",leak:"LEAK",valve:"VALVE"};
+var WL_ZONED = {canopy:true, soil:true};
+var WL_RF_KINDS = ["weather","soil","canopy","air","leaf","rain"];
+var WL_RF_PREFIX = {soil:"SOIL", canopy:"CN", air:"AIR", leaf:"LW", rain:"RAIN"};
+var WL_RF_ZONED = {soil:true, canopy:true, leaf:true};
+var wlOpen = false;   // 무선 센서 화면이 떠 있는가 — 늦게 온 응답이 다른 화면을 덮지 않게
+var wl = null, wlTimer = null, wlMsg = null, wlEdit = null, wlKind = null, wlZone = null, wlSure = null, wlBusy = false;
+var wlRf = null;   // 433MHz 등록 중이면 {model, id, key, model_only}
+var wlEco = null;  // 에코윗 등록 중이면 eco_new 의 한 항목 {key, family, channel, kind, passkey}
+var WL_ECO_PREFIX = {soil:"SOIL", tf:"ST", leaf:"LW"};
+// 투야 블루투스 — wlBle: null | "cred"(열쇠 넣기) | {id, name}(구간 골라 등록)
+var wlBle = null, bleField = "id", bleId = "", bleSec = "", bleShift = false, bleLayer = "abc";
+
+function bleStartCred(){ wlBle = "cred"; bleField = "id"; bleId = ""; bleSec = ""; wlMsg = null; drawWireless(); }
+function bleFetch(useSaved){
+  wlMsg = {kind:"ok", text:t("wl_ble_fetching")};
+  var body = useSaved ? {} : {access_id: bleId, access_secret: bleSec, remember: true};
+  wlPost("ble_fetch", body, function(d){
+    if (d.ok) {
+      wlBle = null; bleSec = "";
+      var up = (d.updated || []).length ? " " + t("wl_ble_updated", {n: d.updated.join(", ")}) : "";
+      wlMsg = {kind:"ok", text:t("wl_ble_fetched", {n:d.count}) + up};
+    }
+    else wlMsg = {kind:"err", text:d.error || t("save_fail")};
+  });
+}
+function bleStartAdd(id){
+  var n = (wl.ble_new || []).filter(function(x){ return x.id === id; })[0];
+  if (!n) return;
+  wlBle = n; wlZone = null; wlMsg = null; drawWireless();
+}
+function bleAdd(){
+  var n = wlBle;
+  wlPost("ble_add", {id: n.id, zone: wlZone}, function(d){
+    if (d.ok) { wlBle = null; wlMsg = {kind:"ok", text:t("wl_added", {n:d.sensor_id})}; }
+    else wlMsg = {kind:"err", text:d.error || t("save_fail")};
+  });
+}
+function bleRemove(sid){
+  if (wlSure !== "ble:" + sid) { wlSure = "ble:" + sid; drawWireless(); return; }
+  wlSure = null;
+  wlPost("ble_remove", {sensor_id: sid}, function(d){
+    wlMsg = d.ok ? {kind:"ok", text:t("wl_removed")} : {kind:"err", text:d.error || t("save_fail")};
+  });
+}
+function bleForget(){ wlPost("ble_forget", {}, function(d){ wlMsg = d.ok ? {kind:"ok", text:t("wl_ble_forgot")} : {kind:"err", text:d.error}; }); }
+function bleTap(ri, ci){
+  var set = bleLayer === "sym" ? K_SYM : K_ABC, ch = set[ri][ci];
+  if (bleLayer === "abc" && bleShift) ch = ch.toUpperCase();
+  if (bleField === "id") bleId += ch; else bleSec += ch;
+  drawWireless();
+}
+function bleBack(){ if (bleField === "id") bleId = bleId.slice(0, -1); else bleSec = bleSec.slice(0, -1); drawWireless(); }
+function bleCredBody(){
+  var fld = function(key, val, ph){
+    var on = bleField === key;
+    return '<div class="pwbox" style="margin-top:6px" onclick="bleField=&quot;' + key + '&quot;;drawWireless()">' +
+      '<div class="pwf" style="' + (on ? "border-color:var(--brand)" : "") + '"><div style="flex:1;min-width:0;' +
+      'font:600 15px/1 ui-monospace,monospace;padding:10px 0;word-break:break-all;color:' + (val ? "#E8EDF7" : "#475569") + '">' +
+      (val ? esc(val) : ph) + '</div></div></div>';
+  };
+  var rows = (bleLayer === "sym" ? K_SYM : K_ABC).map(function(row, ri){
+    var keys = row.map(function(ch, ci){
+      var label = (bleLayer === "abc" && bleShift) ? ch.toUpperCase() : ch;
+      return '<button onclick="bleTap(' + ri + ',' + ci + ')">' + esc(label) + '</button>';
+    }).join("");
+    if (ri === 3) {
+      var sh = bleLayer === "abc" ? '<button class="k-shift wide' + (bleShift ? " on" : "") + '" onclick="bleShift=!bleShift;drawWireless()">⇧</button>' : "";
+      return '<div class="krow">' + sh + keys + '<button class="wide" onclick="bleBack()">⌫</button></div>';
+    }
+    return '<div class="krow">' + keys + '</div>';
+  }).join("");
+  var ok = bleId.length >= 8 && bleSec.length >= 8;
+  return '<div class="sub">' + t("wl_ble_cred_hint") + '</div>' +
+    fld("id", bleId, t("wl_ble_id")) + fld("sec", bleSec, t("wl_ble_sec")) +
+    '<div class="kbd">' + rows + '<div class="krow">' +
+      '<button class="wide" onclick="bleLayer=bleLayer===&quot;sym&quot;?&quot;abc&quot;:&quot;sym&quot;;drawWireless()">' + (bleLayer === "sym" ? "ABC" : "?123") + '</button>' +
+      '<button class="wide" onclick="bleField=bleField===&quot;id&quot;?&quot;sec&quot;:&quot;id&quot;;drawWireless()">' + t(bleField === "id" ? "wl_ble_next" : "wl_ble_prev") + '</button>' +
+      '<button class="go" ' + (ok && !wlBusy ? "" : "disabled") + ' onclick="bleFetch(false)">' + (wlBusy ? t("wl_ble_fetching") : t("wl_ble_fetch")) + '</button>' +
+    '</div></div>';
+}
+
+function openWireless(){ wlOpen = true; wl = null; wlMsg = null; wlEdit = null; wlRf = null; wlEco = null; wlBle = null; wlSure = null; loadWireless(); }
+function wlStop(){ wlOpen = false; if (wlTimer) clearTimeout(wlTimer); wlTimer = null; }
+function closeWireless(){ wlStop(); wl = null; drawSettingsMenu(); }
+function loadWireless(){
+  if (wlTimer) clearTimeout(wlTimer);
+  fetch("/api/wireless", {cache:"no-store"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ if (wlOpen) { wl = d; drawWireless(); } })
+    .catch(function(){ if (wlOpen) { wlMsg = {kind:"err", text:t("load_fail")}; drawWireless(); } })
+    .then(function(){
+      if (wlOpen && document.getElementById("wlroot")) wlTimer = setTimeout(loadWireless, wl && wl.permit_left ? 3000 : 5000);
+    });
+}
+function wlPost(action, body, done){
+  wlBusy = true; drawWireless();
+  fetch("/api/wireless/" + action, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body || {})})
+    .then(function(r){ return r.json(); })
+    .catch(function(){ return {ok:false, error:t("save_fail")}; })
+    .then(function(d){ wlBusy = false; if (!wlOpen) return; done(d || {}); loadWireless(); });
+}
+function wlRfSuggest(kind, zone, model){
+  var taken = (wl && wl.taken) || [];
+  var p = WL_RF_PREFIX[kind] || (model.split("-").pop().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) || "WX");
+  var z = WL_RF_ZONED[kind] ? ({treatment:"T", control:"C"})[zone] || "" : "";
+  // 기본 설정의 모델 칸을 이어받는 경우(WS90-01)는 서버가 정한다 — 여기서는 새 이름만 보인다.
+  for (var n = 1; n < 100; n++) {
+    var id = z ? p + "-" + z + n : p + "-" + (n < 10 ? "0" : "") + n;
+    if (taken.indexOf(id) < 0) return id;
+  }
+  return p;
+}
+function wlStartRf(key){
+  var n = (wl.rf_new || []).filter(function(x){ return x.key === key; })[0];
+  if (!n) return;
+  wlRf = n; wlEdit = null; wlEco = null; wlKind = n.guess || null; wlZone = n.guess === "weather" ? "mast" : null; wlMsg = null; drawWireless();
+}
+function wlAddRf(){
+  var r = wlRf;
+  wlPost("register", {rf:true, model:r.model, id:r.id, kind:wlKind, zone:wlZone}, function(d){
+    if (d.ok) { wlRf = null; wlMsg = {kind:"ok", text:t("wl_added", {n:d.sensor_id})}; }
+    else wlMsg = {kind:"err", text:d.error || t("save_fail")};
+  });
+}
+function wlRemoveRf(key){
+  if (wlSure !== key) { wlSure = key; drawWireless(); return; }
+  wlSure = null;
+  wlPost("remove", {rf:true, key:key}, function(d){ wlMsg = d.ok ? {kind:"ok", text:t("wl_removed")} : {kind:"err", text:d.error || t("save_fail")}; });
+}
+
+// 에코윗 — 이름 규칙은 wireless._eco_register 와 같다. 게이트웨이는 서버가 정한다(433MHz 이름을 이어받을 수 있다).
+function wlEcoSuggest(n, kind, zone){
+  if (n.key === "gateway") return "";
+  var taken = (wl && wl.taken) || [], p = WL_ECO_PREFIX[n.family], zoned = true;
+  if (n.family === "th") { if (!kind) return ""; p = kind === "canopy" ? "CN" : "AIR"; zoned = kind === "canopy"; }
+  var z = zoned ? ({treatment:"T", control:"C"})[zone] || "" : "";
+  for (var i = 1; i < 100; i++) {
+    var id = z ? p + "-" + z + i : p + "-" + (i < 10 ? "0" : "") + i;
+    if (taken.indexOf(id) < 0) return id;
+  }
+  return p;
+}
+function wlEcoLabel(n){
+  return n.key === "gateway" ? t("wl_eco_gw") + (n.model ? " (" + n.model + ")" : "")
+    : t("wlf_" + n.family) + " \u00B7 " + t("wl_eco_ch", {n: n.channel});
+}
+function wlStartEco(id){
+  var n = (wl.eco_new || []).filter(function(x){ return x.id === id; })[0];
+  if (!n) return;
+  wlEco = n; wlEdit = null; wlRf = null; wlMsg = null;
+  wlKind = n.family === "th" ? null : n.kind; wlZone = n.key === "gateway" ? "mast" : null; drawWireless();
+}
+function wlAddEco(){
+  var n = wlEco;
+  wlPost("register", {eco:true, key:n.key, kind:wlKind || "", zone:wlZone, passkey:n.passkey || ""}, function(d){
+    if (d.ok) { wlEco = null; wlMsg = {kind:"ok", text:t("wl_added", {n:d.sensor_id})}; }
+    else wlMsg = {kind:"err", text:d.error || t("save_fail")};
+  });
+}
+function wlRemoveEco(key){
+  if (wlSure !== "eco:" + key) { wlSure = "eco:" + key; drawWireless(); return; }
+  wlSure = null;
+  wlPost("remove", {eco:true, key:key}, function(d){ wlMsg = d.ok ? {kind:"ok", text:t("wl_removed")} : {kind:"err", text:d.error || t("save_fail")}; });
+}
+
+function wlSuggest(kind, zone){
+  var taken = (wl && wl.taken) || [], p = WL_PREFIX[kind], z = WL_ZONED[kind] ? ({treatment:"T", control:"C"})[zone] || "" : "";
+  for (var n = 1; n < 100; n++) {
+    var id = z ? p + "-" + z + n : p + "-" + (n < 10 ? "0" : "") + n;
+    if (taken.indexOf(id) < 0) return id;
+  }
+  return p;
+}
+function wlFind(){
+  var on = !(wl && wl.permit_left);
+  wlPost("permit", {on: on}, function(d){ wlMsg = d.ok ? null : {kind:"err", text:d.error || t("save_fail")}; });
+}
+// 이름으로 고른다 — 목록이 3초마다 다시 그려져 순서가 바뀌어도 누른 센서가 등록된다.
+function wlStartAdd(name){
+  var n = (wl.new || []).filter(function(x){ return x.name === name; })[0];
+  if (!n) return;
+  wlEco = null; wlEdit = n.name; wlKind = n.guess || null; wlZone = null; wlMsg = null; drawWireless();
+}
+function wlAdd(){
+  var name = wlEdit;
+  wlPost("register", {name:name, kind:wlKind, zone:wlZone}, function(d){
+    if (d.ok) { wlEdit = null; wlMsg = {kind:"ok", text:t("wl_added_zb", {n:d.sensor_id})}; }
+    else wlMsg = {kind:"err", text:d.error || t("save_fail")};
+  });
+}
+function wlRemove(name){
+  if (wlSure !== name) { wlSure = name; drawWireless(); return; }
+  wlSure = null;
+  wlPost("remove", {name:name}, function(d){ wlMsg = d.ok ? {kind:"ok", text:t("wl_removed")} : {kind:"err", text:d.error || t("save_fail")}; });
+}
+function wlEnable(){
+  var power = (wl.sensors || []).some(function(x){ return x.kind.indexOf("breaker") === 0; });
+  wlPost("enable", {power: power}, function(d){ wlMsg = d.ok ? {kind:"ok", text:t("restarting")} : {kind:"err", text:d.error || t("save_fail")}; });
+}
+function wlAgo(m){ return m === null || m === undefined ? t("wl_never") : m < 1 ? t("wl_now") : t("wl_ago", {m:m}); }
+
+function drawWireless(){
+  var box = document.getElementById("setup");
+  var msg = wlMsg ? '<div class="msg ' + wlMsg.kind + '">' + esc(wlMsg.text) + '</div>' : "";
+  var body = "";
+  if (!wl) {
+    body = '<div class="sub">' + t("checking") + '</div>';
+  } else if (wlBle === "cred") {
+    body = bleCredBody();
+  } else if (wlBle) {
+    var bz = wlZone ? (function(){
+      var z = ({treatment:"T", control:"C"})[wlZone] || "", taken = wl.taken || [];
+      for (var n = 1; n < 100; n++) { var id = "SOIL-" + z + n; if (taken.indexOf(id) < 0) return id; }
+      return "";
+    })() : "";
+    body = '<div class="sub" style="margin:2px 0 2px">' + esc(wlBle.name || wlBle.id) + ' \u00B7 ' + t("wl_ble_soil") + '</div>' +
+      '<div class="wlhead">' + t("wl_pick_zone") + '</div><div class="typegrid two">' +
+      ["treatment","control","facility"].map(function(z){ return '<button class="' + (z === wlZone ? "on" : "") +
+        '" onclick="wlZone=&quot;' + z + '&quot;;drawWireless()">' + t("wlz_" + z) + '</button>'; }).join("") + '</div>' +
+      (bz ? '<div class="sub" style="margin-top:10px">' + esc(t("wl_name_will", {n:bz})) + '</div>' : "") +
+      '<button class="wlbig" style="margin-top:10px" ' + (wlZone && !wlBusy ? "" : "disabled") + ' onclick="bleAdd()">' + t("wl_add") + '</button>';
+  } else if (wlEco) {
+    var en = wlEco, th = en.family === "th", gw = en.key === "gateway";
+    var ename = wlZone && (!th || wlKind) ? wlEcoSuggest(en, wlKind, wlZone) : "";
+    body = '<div class="sub" style="margin:2px 0 2px">' + esc(wlEcoLabel(en)) + '</div>' +
+      (th ? '<div class="wlhead">' + t("wl_pick_kind") + '</div><div class="typegrid two">' +
+        ["canopy","air"].map(function(k){ return '<button class="' + (k === wlKind ? "on" : "") +
+          '" onclick="wlKind=&quot;' + k + '&quot;;drawWireless()">' + t("wlr_" + k) + '</button>'; }).join("") + '</div>' : "") +
+      '<div class="wlhead">' + t("wl_pick_zone") + '</div><div class="typegrid two">' +
+      (gw ? ["mast","facility"] : ["treatment","control","facility","mast"]).map(function(z){ return '<button class="' + (z === wlZone ? "on" : "") +
+        '" onclick="wlZone=&quot;' + z + '&quot;;drawWireless()">' + t("wlz_" + z) + '</button>'; }).join("") + '</div>' +
+      (ename ? '<div class="sub" style="margin-top:10px">' + esc(t("wl_name_will", {n:ename})) + '</div>' : "") +
+      (gw ? '<div class="sub" style="margin-top:10px">' + t("wl_eco_gw_tip") + '</div>' : "") +
+      '<button class="wlbig" style="margin-top:10px" ' + (wlZone && (!th || wlKind) && !wlBusy ? "" : "disabled") + ' onclick="wlAddEco()">' + t("wl_add") + '</button>';
+  } else if (wlRf) {
+    var rname = wlKind && wlZone ? wlRfSuggest(wlKind, wlZone, wlRf.model) : "";
+    if (rname && wlRf.model_only && wlKind === "weather") rname = "";      // 서버가 기존 이름을 이어준다
+    body = '<div class="sub" style="margin:2px 0 2px">' + esc(wlRf.model + (wlRf.id ? " \u00B7 id " + wlRf.id : "")) + '</div>' +
+      '<div class="wlhead">' + t("wl_pick_kind") + '</div><div class="typegrid">' +
+      WL_RF_KINDS.map(function(k){ return '<button class="' + (k === wlKind ? "on" : "") +
+        '" onclick="wlKind=&quot;' + k + '&quot;;drawWireless()">' + t("wlr_" + k) + '</button>'; }).join("") + '</div>' +
+      '<div class="wlhead">' + t("wl_pick_zone") + '</div><div class="typegrid two">' +
+      WL_ZONES.map(function(z){ return '<button class="' + (z === wlZone ? "on" : "") +
+        '" onclick="wlZone=&quot;' + z + '&quot;;drawWireless()">' + t("wlz_" + z) + '</button>'; }).join("") + '</div>' +
+      (rname ? '<div class="sub" style="margin-top:10px">' + esc(t("wl_name_will", {n:rname})) + '</div>' : "") +
+      '<button class="wlbig" style="margin-top:10px" ' + (wlKind && wlZone && !wlBusy ? "" : "disabled") + ' onclick="wlAddRf()">' + t("wl_add") + '</button>';
+  } else if (wlEdit) {
+    // 등록 — 종류와 구간을 고르면 이름이 정해진다.
+    var name = wlKind && wlZone ? wlSuggest(wlKind, wlZone) : "";
+    body = '<div class="wlhead">' + t("wl_pick_kind") + '</div><div class="typegrid">' +
+      WL_KINDS.map(function(k){ return '<button class="' + (k === wlKind ? "on" : "") +
+        '" onclick="wlKind=&quot;' + k + '&quot;;drawWireless()">' + t("wlk_" + k) + '</button>'; }).join("") + '</div>' +
+      '<div class="wlhead">' + t("wl_pick_zone") + '</div><div class="typegrid two">' +
+      WL_ZONES.map(function(z){ return '<button class="' + (z === wlZone ? "on" : "") +
+        '" onclick="wlZone=&quot;' + z + '&quot;;drawWireless()">' + t("wlz_" + z) + '</button>'; }).join("") + '</div>' +
+      (name ? '<div class="sub" style="margin-top:10px">' + esc(t("wl_name_will", {n:name})) + '</div>' : "") +
+      '<button class="wlbig" style="margin-top:10px" ' + (name && !wlBusy ? "" : "disabled") + ' onclick="wlAdd()">' + t("wl_add") + '</button>';
+  } else {
+    var u = wl.units || {};
+    var chip = function(label, v){ return '<span class="' + (v ? "ok" : v === false ? "bad" : "") + '">' +
+      (v ? "✓ " : v === false ? "✕ " : "") + label + '</span>'; };
+    body += '<div class="wlchips">' + chip(t("wl_dongle"), !!wl.dongle) + chip(t("wl_z2m"), wl.z2m === true) +
+      chip(t("wl_collector"), u["farm365-zigbee"]) + chip(t("wl_rf"), wl.rtlsdr ? true : null) + '</div>';
+    if (!wl.installed) {
+      body += '<div class="msg err">' + t("wl_not_installed") +
+        '<br><b style="font-family:ui-monospace,monospace">sudo bash /opt/shrimp365/setup-wireless.sh</b></div>';
+    }
+    if (wl.sensors && wl.sensors.length && !wl.env_on) {
+      body += '<div class="msg err">' + t("wl_enable") +
+        ' <button class="toggle" style="margin-left:6px" onclick="wlEnable()">' + t("wl_enable_btn") + '</button></div>';
+    }
+    var left = wl.permit_left || 0;
+    body += '<button class="wlbig' + (left ? " on" : "") + '" ' + (wlBusy || !wl.mqtt ? "disabled" : "") + ' onclick="wlFind()">' +
+      (left ? t("wl_finding", {m: Math.floor(left / 60), s: ("0" + left % 60).slice(-2)}) : t("wl_find")) + '</button>';
+    if (wl.new && wl.new.length) {
+      body += '<div class="wlhead">' + t("wl_new") + ' (' + wl.new.length + ')</div>' +
+        wl.new.map(function(n){
+          var sub = [n.vendor, n.model].filter(Boolean).join(" ") || n.name;
+          var state = n.interviewing ? t("wl_interview") : !n.supported ? t("wl_unsupported") : "";
+          return '<div class="srow"><div class="sname">' + esc(n.description || n.model || n.name) +
+            '<div class="sub">' + esc(sub) + (state ? " · " + state : "") + '</div></div>' +
+            '<button class="toggle" ' + (n.interviewing ? "disabled" : "") + ' onclick="wlStartAdd(decodeURIComponent(&quot;' + encodeURIComponent(n.name) + '&quot;))">' + t("wl_add") + '</button></div>';
+        }).join("");
+    }
+    body += '<div class="wlhead">' + t("wl_registered") + ' (' + (wl.sensors || []).length + ')</div>';
+    body += (wl.sensors || []).length ? wl.sensors.map(function(x){
+      var kindKey = x.kind === "canopy" && /^AIR/i.test(x.sensor_id) ? "air" : x.kind;
+      var bits = [];
+      if (x.battery !== null && x.battery !== undefined) bits.push(t("wl_batt", {v: Math.round(x.battery)}));
+      if (x.lqi !== null && x.lqi !== undefined) bits.push(t("wl_lqi", {v: Math.round(x.lqi)}));
+      var old = x.age_min === null || x.age_min === undefined || x.age_min >= 30;
+      return '<div class="srow"><div class="sname">' + esc(x.sensor_id) +
+        '<div class="sub">' + esc((t("wlk_" + kindKey) || x.kind) + " · " + (t("wlz_" + x.zone) || x.zone)) +
+        (x.paired === false ? ' · <span style="color:#FBBF24">' + t("wl_unpaired") + '</span>' : "") + '</div></div>' +
+        '<div class="wlmeta' + (old ? " old" : "") + '">' + wlAgo(x.age_min) + (bits.length ? "<br>" + bits.join(" · ") : "") + '</div>' +
+        '<button class="toggle" style="margin-left:8px" onclick="wlRemove(&quot;' + esc(x.name) + '&quot;)">' +
+          (wlSure === x.name ? t("wl_remove_sure") : t("wl_remove")) + '</button></div>';
+    }).join("") : '<div class="sub">' + t("wl_none") + '</div>';
+
+    // ── 433MHz — 페어링이 없다. 수집기가 들은 장치 중에서 골라 등록한다.
+    body += '<div class="wlhead" style="margin-top:16px">' + t("wl_rf_title") + '</div>';
+    if (!wl.rf_heard_ok && !(wl.units || {})["farm365-rtl433"]) body += '<div class="msg err">' + t("wl_rf_off") + '</div>';
+    var rfs = wl.rf_sensors || [];
+    body += rfs.length ? rfs.map(function(x){
+      var bits = [];
+      if (x.rssi !== null && x.rssi !== undefined) bits.push(t("wl_rf_rssi", {v: Math.round(x.rssi)}));
+      var old = x.age_min === null || x.age_min === undefined || x.age_min >= 30;
+      return '<div class="srow"><div class="sname">' + esc(x.sensor_id) +
+        '<div class="sub">' + esc((x.kind ? t("wlr_" + x.kind) : x.model) + " \u00B7 " + (t("wlz_" + x.zone) || x.zone) +
+          " \u00B7 " + x.model.replace(/^Fineoffset-/, "") + (x.id ? " #" + x.id : "")) + '</div></div>' +
+        '<div class="wlmeta' + (old ? " old" : "") + '">' + wlAgo(x.age_min) + (bits.length ? "<br>" + bits.join(" \u00B7 ") : "") + '</div>' +
+        '<button class="toggle" style="margin-left:8px" onclick="wlRemoveRf(decodeURIComponent(&quot;' + encodeURIComponent(x.key) + '&quot;))">' +
+          (wlSure === x.key ? t("wl_remove_sure") : t("wl_remove")) + '</button></div>';
+    }).join("") : '<div class="sub">' + t("wl_rf_none") + '</div>';
+    var heard = wl.rf_new || [];
+    if (heard.length) {
+      body += '<div class="wlhead">' + t("wl_rf_heard") + ' (' + heard.length + ')</div>' +
+        heard.map(function(h){
+          var bits = [t("wl_rf_seen", {n: h.count, ago: wlAgo(h.age_min)})];
+          if (h.rssi !== null && h.rssi !== undefined) bits.push(t("wl_rf_rssi", {v: Math.round(h.rssi)}));
+          return '<div class="srow"><div class="sname">' + esc(h.model.replace(/^Fineoffset-/, "") + (h.id ? " #" + h.id : "")) +
+            '<div class="sub">' + esc(h.guess ? t("wlr_" + h.guess) : h.model) + " \u00B7 " + bits.join(" \u00B7 ") +
+            (h.model_only ? '<br><span style="color:#94A3B8">' + t("wl_rf_default") + '</span>' : "") + '</div></div>' +
+            '<button class="toggle" onclick="wlStartRf(decodeURIComponent(&quot;' + encodeURIComponent(h.key) + '&quot;))">' + t("wl_add") + '</button></div>';
+        }).join("") + '<div class="sub" style="margin-top:4px">' + t("wl_rf_tip") + '</div>';
+    }
+    if (wl.rf_other) body += '<div class="sub" style="margin-top:4px">' + t("wl_rf_other", {n: wl.rf_other}) + '</div>';
+
+    // ── 투야 블루투스 — 투야 IoT 열쇠(Access ID·Secret)로 센서 열쇠를 받아 등록한다(처음 한 번 인터넷).
+    var bles = wl.ble_sensors || [], bnew = wl.ble_new || [];
+    body += '<div class="wlhead" style="margin-top:16px">' + t("wl_ble_title") + '</div>';
+    if (!wl.ble_ready) {
+      body += '<div class="msg info">' + t("wl_ble_setup") +
+        '<br><b style="font-family:ui-monospace,monospace">cd ~/shrimp365/raspberry-pi && sudo bash setup-tuya-ble.sh</b></div>';
+    } else if ((wl.units || {})["farm365-tuyable"] === false) {
+      body += '<div class="msg err">' + t("wl_ble_off") + '</div>';
+    }
+    body += bles.map(function(x){
+      var bits = [];
+      if (x.battery !== null && x.battery !== undefined) bits.push(t("wl_batt", {v: Math.round(x.battery)}));
+      if (x.rssi !== null && x.rssi !== undefined) bits.push(t("wl_rf_rssi", {v: Math.round(x.rssi)}));
+      var old = x.age_min === null || x.age_min === undefined || x.age_min >= 30;
+      return '<div class="srow"><div class="sname">' + esc(x.sensor_id) +
+        '<div class="sub">' + esc(t("wl_ble_soil") + " \u00B7 " + (t("wlz_" + x.zone) || x.zone) + (x.name ? " \u00B7 " + x.name : "")) +
+        (x.error ? '<br><span style="color:#FBBF24">' + esc(x.error) + '</span>' : "") + '</div></div>' +
+        '<div class="wlmeta' + (old ? " old" : "") + '">' + wlAgo(x.age_min) + (bits.length ? "<br>" + bits.join(" \u00B7 ") : "") + '</div>' +
+        '<button class="toggle" style="margin-left:8px" onclick="bleRemove(decodeURIComponent(&quot;' + encodeURIComponent(x.sensor_id) + '&quot;))">' +
+          (wlSure === "ble:" + x.sensor_id ? t("wl_remove_sure") : t("wl_remove")) + '</button></div>';
+    }).join("");
+    if (!bles.length && !bnew.length) body += '<div class="sub">' + t("wl_ble_none") + '</div>';
+    if (bnew.length) {
+      body += '<div class="wlhead">' + t("wl_ble_new") + ' (' + bnew.length + ')</div>' + bnew.map(function(n){
+        return '<div class="srow"><div class="sname">' + esc(n.name || n.id) + '<div class="sub">' + esc(n.category) + '</div></div>' +
+          '<button class="toggle" onclick="bleStartAdd(decodeURIComponent(&quot;' + encodeURIComponent(n.id) + '&quot;))">' + t("wl_add") + '</button></div>';
+      }).join("");
+    } else if (wl.ble_fetched) {
+      body += '<div class="sub" style="margin-top:4px">' + t("wl_ble_all") + '</div>';
+    }
+    if (wl.ble_ready) {
+      body += '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">' +
+        (wl.ble_saved ? '<button class="toggle" ' + (wlBusy ? "disabled" : "") + ' onclick="bleFetch(true)">' + t("wl_ble_fetch") + '</button>' : "") +
+        '<button class="toggle" onclick="bleStartCred()">' + t(wl.ble_saved ? "wl_ble_change" : "wl_ble_fetch") + '</button>' +
+        (wl.ble_saved ? '<button class="toggle" onclick="bleForget()">' + t("wl_ble_forget") + '</button>' : "") + '</div>';
+    }
+    body += '<div class="sub" style="margin-top:4px">' + t("wl_ble_tip") + '</div>';
+
+    // ── 에코윗 — 게이트웨이가 이 장비로 보내 온다. 들어온 게이트웨이와 거기 붙은 센서 중에서 골라 등록한다.
+    body += '<div class="wlhead" style="margin-top:16px">' + t("wl_eco_title") + '</div>';
+    if ((wl.units || {})["farm365-ecowitt"] === false) body += '<div class="msg err">' + t("wl_eco_off") + '</div>';
+    var ecos = wl.eco_sensors || [], gws = wl.eco_gateways || [];
+    body += ecos.map(function(x){
+      var old = x.age_min === null || x.age_min === undefined || x.age_min >= 30;
+      var what = x.key === "gateway" ? t("wl_eco_gw") : (t("wlr_" + x.kind) || x.kind) + " \u00B7 " + t("wl_eco_ch", {n: x.channel});
+      return '<div class="srow"><div class="sname">' + esc(x.sensor_id) +
+        '<div class="sub">' + esc(what + " \u00B7 " + (t("wlz_" + x.zone) || x.zone)) + '</div></div>' +
+        '<div class="wlmeta' + (old ? " old" : "") + '">' + wlAgo(x.age_min) + '</div>' +
+        '<button class="toggle" style="margin-left:8px" onclick="wlRemoveEco(decodeURIComponent(&quot;' + encodeURIComponent(x.key) + '&quot;))">' +
+          (wlSure === "eco:" + x.key ? t("wl_remove_sure") : t("wl_remove")) + '</button></div>';
+    }).join("");
+    if (!gws.length) {
+      body += (ecos.length ? "" : '<div class="sub">' + t("wl_eco_none") + '</div>') +
+        '<div class="msg info" style="margin-top:6px">' + t("wl_eco_setup") +
+        '<div class="ecoset"><span>' + t("wl_eco_server") + '</span><b>' + esc(wl.ip || t("wl_eco_noip")) + '</b>' +
+        '<span>' + t("wl_eco_port") + '</span><b>' + esc(String(wl.eco_port || 8088)) + '</b>' +
+        '<span>' + t("wl_eco_path") + '</span><b>' + esc(wl.eco_path || "/data/report/") + '</b>' +
+        '<span>' + t("wl_eco_interval") + '</span><b>60s</b></div></div>';
+    } else {
+      body += '<div class="wlhead">' + t("wl_eco_heard") + ' (' + gws.length + ')</div>' + gws.map(function(g){
+        return '<div class="srow"><div class="sname">' + esc(g.model || "Ecowitt") +
+          '<div class="sub">' + esc(g.ip) + " \u00B7 " + (g.registered ? t("wl_eco_mine") : t("wl_eco_notmine")) + '</div></div>' +
+          '<div class="wlmeta' + (g.age_min >= 30 ? " old" : "") + '">' + wlAgo(g.age_min) + '</div></div>';
+      }).join("");
+    }
+    var enew = wl.eco_new || [];
+    if (enew.length) {
+      body += '<div class="wlhead">' + t("wl_eco_new") + ' (' + enew.length + ')</div>' + enew.map(function(n){
+        return '<div class="srow"><div class="sname">' + esc(wlEcoLabel(n)) +
+          '<div class="sub">' + wlAgo(n.age_min) + '</div></div>' +
+          '<button class="toggle" onclick="wlStartEco(decodeURIComponent(&quot;' + encodeURIComponent(n.id) + '&quot;))">' + t("wl_add") + '</button></div>';
+      }).join("");
+    }
+  }
+  // 5초마다 다시 그린다 — 보던 자리(스크롤)를 지킨다. 안 그러면 아래 칸을 보다가 맨 위로 튄다.
+  var oldBody = document.querySelector("#wlroot .sbody"), keepTop = oldBody ? oldBody.scrollTop : 0;
+  box.innerHTML = '<div class="setup" id="wlroot"><div class="chead">' +
+      '<span class="ctitle">' + t("menu_wireless") + '</span>' +
+      '<button style="margin-left:auto" onclick="' + (wlEdit || wlRf || wlEco || wlBle ? "wlEdit=null;wlRf=null;wlEco=null;wlBle=null;drawWireless()" : "closeWireless()") + '">' +
+        (wlEdit || wlRf || wlEco || wlBle ? t("back_list") : t("back_menu")) + '</button>' +
+    '</div><div class="sbody">' + msg + body + '</div></div>';
+  var newBody = document.querySelector("#wlroot .sbody");
+  if (newBody && keepTop) newBody.scrollTop = keepTop;
+}
+
+// 환경·기상 줄 — 스마트팜에서 [environment] 를 켠 장비만. 끈 장비(env=null)는
+// 자리도 차지하지 않는다. 켰는데 값이 하나도 없으면 비워 두지 않고 점검할 곳을 알린다.
+// 칸 이름은 field_env.py 와 서버 수신 칸이 같다.
+//   opt: 값이 있을 때만 띄운다 — 지온 센서나 기상센서가 없는 농장에 빈 칸을 늘 두지 않는다.
+var ENV_SLOTS = [
+  {k:"air_temp",      unit:"\u00B0C",  digits:1},
+  // 2m 기온(기상센서)과 지상 10cm 초관부 온도(지그비 온습도계)가 둘 다 있을 때만 따로 뜬다.
+  {k:"canopy_temp",   unit:"\u00B0C",  digits:1, opt:true},
+  {k:"humidity",      unit:"%",       digits:1},
+  {k:"soil_moisture", unit:"%",       digits:1},
+  {k:"soil_temp",     unit:"\u00B0C",  digits:1, opt:true},
+  {k:"wind_speed",    unit:"m/s",     digits:1, opt:true},
+  {k:"rain_day",      unit:"mm",      digits:1, opt:true}
+];
+// 기상 상세 칸 — 눌러서 그래프를 볼 때 단위·자리를 여기서 찾는다(화면 줄에는 따로 안 뜬다).
+var WX_SLOTS = [
+  {k:"wind_gust", unit:"m/s", digits:1}, {k:"wind_dir", unit:"\u00B0", digits:0},
+  {k:"rain_rate", unit:"mm/h", digits:1}, {k:"solar", unit:"W/m\u00B2", digits:0},
+  {k:"uv_index", unit:"", digits:1}, {k:"pressure", unit:"hPa", digits:1}
+];
+var ENV_LABEL = {wind_gust:"wx_gust", wind_dir:"wx_dir", rain_rate:"wx_rain_rate", solar:"wx_solar",
+                 uv_index:"wx_uv", pressure:"wx_pressure",
+                 canopy_temp:"env_canopy", humidity:"env_rh", soil_moisture:"env_soil", soil_temp:"env_soil_temp",
+                 wind_speed:"env_wind", rain_day:"env_rain_day"};
+var COMPASS = ["N","NE","E","SE","S","SW","W","NW"];
+function envLabel(k, e){
+  if (k === "air_temp") return t(e && e.var === "canopy_temp" ? "env_canopy" : "env_air");
+  return t(ENV_LABEL[k]);
+}
+// 칸 아래 작은 줄 — 바람은 돌풍·풍향, 비는 지금 강우강도를 먼저 보여 준다.
+// 그것이 없으면 센서 대수와 마지막 값의 나이.
+function envMeta(k, e, env){
+  if (k === "wind_speed") {
+    var bits = [];
+    if (env.wind_gust) bits.push(t("env_gust", {v:env.wind_gust.value.toFixed(1)}));
+    if (env.wind_dir) bits.push(t("dir_" + COMPASS[Math.round(env.wind_dir.value / 45) % 8]));
+    if (bits.length) return bits.join(" \u00B7 ");
+  }
+  if (k === "rain_day" && env.rain_rate && env.rain_rate.value > 0) {
+    return t("env_rate", {v:env.rain_rate.value.toFixed(1)});
+  }
+  // 한 대뿐이면 대수 대신 그 센서 이름 — '1대'만으로는 어느 센서인지 모른다
+  // (예: 기상센서 WS90 이 기온·습도도 함께 재므로 온습도계가 없어도 칸이 찬다).
+  var live = (e.each || []).filter(function(x){ return x.value !== null && x.value !== undefined; });
+  var one = e.sensors === 1 && live.length === 1 && live[0].id;
+  if (one) return e.age_min < 1 ? t("env_one_now", {id:one}) : t("env_one", {id:one, m:e.age_min});
+  return e.age_min < 1 ? t("env_now", {n:e.sensors}) : t("env_meta", {n:e.sensors, m:e.age_min});
+}
+function renderEnv(d, big){
+  var env = d.env;
+  if (!env) return "";
+  var any = ENV_SLOTS.some(function(s){ return env[s.k]; });
+  if (!any) return '<div class="env empty">' + t("env_empty") + '</div>';
+  var tiles = ENV_SLOTS.filter(function(s){ return !s.opt || env[s.k]; })
+    .map(function(s){
+      var e = env[s.k];
+      if (!e) {
+        return '<div class="e none"><span class="ek">' + envLabel(s.k, null) + '</span>' +
+               '<span class="ev">--</span><span class="em">' + t("env_missing") + '</span></div>';
+      }
+      // 수집 주기(보통 5분)의 세 배를 넘기면 끊기고 있는 것 — 값은 두되 주황으로 알린다.
+      // 센서가 여러 대면 누를 수 있다 — 한 대 한 대의 값과 끊긴 센서를 펼쳐 본다.
+      var many = e.each && e.each.length >= 2;
+      // 누르면 그래프 — 센서가 한 대여도(강수·풍속·토양수분 …). 풍속·강수 그래프에는 '기상 상세' 단추가 있다.
+      var tap = 'openEnvEach(&quot;' + s.k + '&quot;)';
+      return '<div class="e' + (e.age_min >= 15 ? " old" : "") + (tap ? " many" : "") + '"' +
+             (tap ? ' onclick="' + tap + '"' : "") + '>' +
+             '<span class="ek">' + envLabel(s.k, e) + '</span>' +
+             '<span class="ev">' + e.value.toFixed(s.digits) + '<small>' + s.unit + '</small></span>' +
+             '<span class="em">' + esc(envMeta(s.k, e, env)) + '</span></div>';
+    }).join("");
+  return '<div class="env' + (big ? " big" : "") + '">' + tiles + '</div>';
+}
+
+// 칸을 누르면 — 센서별 그래프와 목록. 평균은 지금 값이 있는 센서로만 낸다. 끊긴 센서는
+// 회색 '끊김'으로 남겨 평균에서 어느 것이 빠졌는지 보이게 하고, 가장 높은·낮은 센서에 표시를 붙인다.
+// 그래프는 장비 이력(history.env_samples, 5분 간격)에서 — 인터넷이 끊겨도 그린다.
+// 센서 색은 이름순 자리로 정한다. 목록의 점 색과 선 색이 같다.
+var SENSOR_COLORS = ["#38BDF8","#F472B6","#A3E635","#FBBF24","#C084FC","#2DD4BF","#FB923C","#F87171",
+                     "#60A5FA","#E879F9","#4ADE80","#FACC15"];
+var envEachKey = null, envEachHours = 24, envSeries = null, envSeriesAt = 0;
+function openEnvEach(k){
+  wxOpen = false;
+  envEachKey = k; envEachHours = 24; envSeries = null;
+  drawEnvEach(lastState || {}); loadEnvSeries();
+}
+function closeEnvEach(){ envEachKey = null; envSeries = null; document.getElementById("envpanel").innerHTML = ""; }
+function setEnvRange(h){ envEachHours = h; envSeries = null; drawEnvEach(lastState || {}); loadEnvSeries(); }
+function loadEnvSeries(){
+  var k = envEachKey, h = envEachHours;
+  if (!k) return;
+  envSeriesAt = Date.now();
+  fetch("/api/env_history?slot=" + k + "&hours=" + h, {cache:"no-store"})
+    .then(function(r){ return r.json(); })
+    .catch(function(){ return {sensors:[], avg:[], count:0}; })
+    .then(function(d){
+      if (envEachKey !== k || envEachHours !== h) return;   // 그새 닫았거나 구간을 바꿨다
+      envSeries = d; drawEnvEach(lastState || {});
+    });
+}
+function sensorColors(e){
+  var ids = (e.each || []).map(function(x){ return x.id; });
+  ((envSeries && envSeries.sensors) || []).forEach(function(s){ if (ids.indexOf(s.id) < 0) ids.push(s.id); });
+  ids.sort();
+  var c = {};
+  ids.forEach(function(id, i){ c[id] = SENSOR_COLORS[i % SENSOR_COLORS.length]; });
+  return c;
+}
+// W·H 는 그릴 자리의 실제 픽셀 크기 — 수질 그래프(drawChart)와 같은 까닭으로 고정 viewBox 를
+// 늘리지 않는다(늘리면 축 글자가 퍼지고 점이 타원이 된다).
+function envPlot(slot, d, colors, W, H){
+  if (!d) return '<div class="nodata">' + t("env_loading") + '</div>';
+  if (!d.count) return '<div class="nodata">' + t("env_no_hist") + '</div>';
+  W = Math.max(240, W || 500); H = Math.max(120, H || 300);
+  var padL = 44, padR = 10, padT = 10, padB = 24;
+  var all = [];
+  d.sensors.forEach(function(s){ s.points.forEach(function(p){ all.push(p[0]); }); });
+  var t0 = Math.min.apply(null, all), t1 = Math.max(Math.max.apply(null, all), t0 + 1);
+  var span = Math.max(d.max - d.min, Math.pow(10, -slot.digits));
+  var lo = d.min - span * 0.1, hi = d.max + span * 0.1;
+  var x = function(t){ return padL + (t - t0) / (t1 - t0) * (W - padL - padR); };
+  var y = function(v){ return padT + (hi - v) / (hi - lo) * (H - padT - padB); };
+  var grid = "";
+  for (var i = 0; i <= 3; i++) {
+    var v = lo + (hi - lo) * i / 3, gy = y(v);
+    grid += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (W-padR) + '" y2="' + gy + '" stroke="#22304C" stroke-width="1"/>' +
+            '<text x="' + (padL-6) + '" y="' + (gy+4) + '" text-anchor="end" fill="#64748B" font-size="11" ' +
+            'font-family="ui-monospace,monospace">' + v.toFixed(slot.digits) + '</text>';
+  }
+  [0, 0.5, 1].forEach(function(f){
+    var tt = t0 + (t1 - t0) * f;
+    grid += '<text x="' + x(tt) + '" y="' + (H-7) + '" text-anchor="' + (f === 0 ? "start" : f === 1 ? "end" : "middle") +
+            '" fill="#64748B" font-size="11" font-family="ui-monospace,monospace">' + fmtTick(tt, envEachHours) + '</text>';
+  });
+  var line = function(pts, color, w, dash){
+    if (pts.length === 1) return '<circle cx="' + x(pts[0][0]) + '" cy="' + y(pts[0][1]) + '" r="3" fill="' + color + '"/>';
+    return '<polyline fill="none" stroke="' + color + '" stroke-width="' + w + '"' + (dash ? ' stroke-dasharray="6 5"' : "") +
+      ' stroke-linejoin="round" stroke-linecap="round" points="' +
+      pts.map(function(p){ return x(p[0]) + "," + y(p[1]); }).join(" ") + '"/>';
+  };
+  var lines = d.sensors.map(function(s){ return line(s.points, colors[s.id] || "#94A3B8", 2, false); }).join("");
+  var avg = d.sensors.length >= 2 ? line(d.avg, "#E8EDF7", 1.5, true) : "";
+  return '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' + grid + lines + avg + '</svg>';
+}
+// ── 기상 상세 ── 풍속·강수 칸을 누르면. 기상센서(WS90 등)가 보내는 값을 한 화면에 모은다.
+var wxOpen = false;
+function openWeather(){ envEachKey = null; wxOpen = true; drawWeather(lastState || {}); }
+function closeWeather(){ wxOpen = false; document.getElementById("envpanel").innerHTML = ""; }
+function dewPoint(tc, rh){
+  // 마그누스 식 — 이슬·결로가 생기는 온도. 기온이 이슬점에 가까우면 잎이 젖는다(병 발생 조건).
+  if (typeof tc !== "number" || typeof rh !== "number" || rh <= 0) return null;
+  var a = 17.62, b = 243.12, g = Math.log(rh / 100) + a * tc / (b + tc);
+  return b * g / (a - g);
+}
+function drawWeather(d){
+  var env = d.env || {};
+  var v = function(k){ return env[k] && typeof env[k].value === "number" ? env[k].value : null; };
+  var items = [];
+  var add = function(label, val, digits, unit, sub, key){
+    if (val === null || val === undefined) return;
+    // 칸을 누르면 그 값의 그래프(장비 이력 — 5분 간격). 계산한 이슬점은 이력이 없어 누르지 않는다.
+    var tap = key ? ' many" onclick="wxOpen=false;openEnvEach(&quot;' + key + '&quot;)' : '';
+    items.push('<div class="e' + tap + '"><span class="ek">' + label + '</span><span class="ev">' +
+      (typeof val === "number" ? val.toFixed(digits) : esc(val)) + '<small>' + unit + '</small></span>' +
+      '<span class="em">' + (sub || "") + '</span></div>');
+  };
+  add(t("wx_wind"), v("wind_speed"), 1, "m/s", "", "wind_speed");
+  add(t("wx_gust"), v("wind_gust"), 1, "m/s", "", "wind_gust");
+  var dir = v("wind_dir");
+  add(t("wx_dir"), dir === null ? null : t("dir_" + COMPASS[Math.round(dir / 45) % 8]), 0, "", dir === null ? "" : Math.round(dir) + "\u00B0", "wind_dir");
+  add(t("wx_rain_day"), v("rain_day"), 1, "mm", "", "rain_day");
+  add(t("wx_rain_rate"), v("rain_rate"), 1, "mm/h", "", "rain_rate");
+  add(t("wx_solar"), v("solar"), 0, "W/m\u00B2", env.solar && env.solar.var === "illuminance" ? t("wx_solar_lux") : "", "solar");
+  add(t("wx_uv"), v("uv_index"), 1, "", "", "uv_index");
+  add(t("wx_pressure"), v("pressure"), 1, "hPa", "", "pressure");
+  var at = env.air_temp && env.air_temp.var === "t_air" ? v("air_temp") : null;
+  add(t("wx_dew"), dewPoint(at, v("humidity")), 1, "\u00B0C", t("wx_dew_sub"));
+  if (!items.length) { closeWeather(); return; }
+  document.getElementById("envpanel").innerHTML =
+    '<div class="chart">' +
+      '<div class="chead"><span class="ctitle">' + t("wx_title") + '</span>' +
+        '<span class="cstats"><span>' + t("wx_hint") + '</span></span>' +
+        '<button style="margin-left:auto" onclick="closeWeather()">' + t("close") + '</button></div>' +
+      '<div class="env big wxgrid">' + items.join("") + '</div>' +
+    '</div>';
+}
+
+function drawEnvEach(d){
+  var e = d.env && d.env[envEachKey];
+  var slot = ENV_SLOTS.concat(WX_SLOTS).filter(function(s){ return s.k === envEachKey; })[0];
+  if (!e || !slot) { closeEnvEach(); return; }
+  if (!e.each) e = Object.assign({}, e, {each: []});
+  // 화면이 오래 열려 있으면 그래프도 따라간다(1분마다 다시 읽기).
+  if (envSeries && Date.now() - envSeriesAt > 60000) loadEnvSeries();
+  var colors = sensorColors(e);
+  var live = e.each.filter(function(x){ return x.value !== null; }).map(function(x){ return x.value; });
+  var hi = Math.max.apply(null, live), lo = Math.min.apply(null, live);
+  var spread = live.length >= 2 && hi !== lo;
+  var rows = e.each.map(function(x){
+    var dead = x.value === null;
+    var tag = dead ? '<span class="st">' + t("env_lost") + '</span>'
+            : spread && x.value === hi ? '<span class="tag hi">' + t("env_hi") + '</span>'
+            : spread && x.value === lo ? '<span class="tag lo">' + t("env_lo") + '</span>' : "";
+    var ago = x.age_min < 1 ? t("env_just") : t("env_ago", {m: x.age_min});
+    return '<div class="pwrow eachrow"><span class="dot" style="background:' + colors[x.id] + '"></span>' +
+      '<div class="nm">' + esc(x.id) + '<small>' + ago + '</small></div>' + tag +
+      '<span class="num' + (dead ? " dim" : "") + '">' + (dead ? "--" : x.value.toFixed(slot.digits)) +
+      '<small>' + slot.unit + '</small></span></div>';
+  }).join("");
+  var buttons = RANGE_OPTIONS.map(function(o){
+    return '<button onclick="setEnvRange(' + o.hours + ')" aria-pressed="' + (o.hours === envEachHours) + '">' +
+      t(o.k) + '</button>';
+  }).join("");
+  document.getElementById("envpanel").innerHTML =
+    '<div class="chart">' +
+      '<div class="chead"><span class="ctitle">' + t(e.each.length >= 2 ? "env_each_title" : "env_trend_title", {p: envLabel(envEachKey, e)}) + '</span>' +
+        '<span class="cnow">' + e.value.toFixed(slot.digits) + '<small style="font-size:13px;color:#94A3B8"> ' +
+        slot.unit + '</small></span>' +
+        (e.each.length >= 2 ? '<span class="cstats"><span>' + t("env_avg", {n: e.sensors}) + '</span>' +
+          '<span class="avgkey">' + t("env_avg_line") + '</span></span>' : "") + '</div>' +
+      '<div class="ranges">' + buttons +
+        (envEachKey === "wind_speed" || envEachKey === "rain_day" || WX_SLOTS.some(function(w){ return w.k === envEachKey; })
+          ? '<button onclick="openWeather()">' + t("wx_more") + '</button>' : "") +
+        '<button class="close" onclick="closeEnvEach()">' + t("close") + '</button></div>' +
+      '<div class="eachbody"><div class="plot" id="envplot"></div>' +
+        '<div class="eachlist">' + rows + '</div></div>' +
+    '</div>';
+  var plot = document.getElementById("envplot");
+  plot.innerHTML = envPlot(slot, envSeries, colors, plot.clientWidth, plot.clientHeight);
+  return grid;
 }
 
 // 설비 운전 권고 — "지금 무엇을 돌릴까" 한 줄.
@@ -1054,29 +2655,38 @@ function subLine(key, d){
 // 양액 안내 — 켜 두었을 때만. "지금 얼마를 넣어야 하는가" 를 한 줄로 답한다.
 function renderNutrient(d){
   var n = d.nutrient;
-  if (!n) return "";
+  // 스마트팜인데 양액 관리가 꺼져 있으면 그 자리에 켜는 길을 둔다 — 빈칸보다 낫다.
+  // 양식장에서는 예전처럼 아무것도 띄우지 않는다.
+  if (!n) {
+    if (!isAgri()) return "";
+    // [센서 설정]에서 일부러 끈 것이면 안내도 띄우지 않는다(sensors_on 이 있는 새 장비).
+    if (d.sensors_on && d.sensors_on.indexOf("nutrient") < 0) return "";
+    return '<div class="nut front off" onclick="openSettings();openNutrient()">' +
+      '<span class="head">' + t("nut_off_hint") + '</span></div>';
+  }
+  var cls = isAgri() ? "nut front" : "nut";
   if (n.error === "target_lte_source") {
-    return '<div class="nut high"><span class="head">' + t("nut_bad_cfg") + '</span></div>';
+    return '<div class="' + cls + ' high"><span class="head">' + t("nut_bad_cfg") + '</span></div>';
   }
   var meta = '<span class="meta">EC ' + n.ec + ' / ' + n.target + ' mS/cm<br>' +
              t("nut_conc") + ' ' + n.percent + '%</span>';
   if (n.verdict === "low") {
     if (n.error === "bad_calibration") {
-      return '<div class="nut high"><span class="head">' + t("nut_need_cal") + '</span>' + meta + '</div>';
+      return '<div class="' + cls + ' high"><span class="head">' + t("nut_need_cal") + '</span>' + meta + '</div>';
     }
-    return '<div class="nut low">' +
+    return '<div class="' + cls + ' low">' +
       '<span class="head">' + t("nut_low") + '</span>' +
       '<span class="dose">A ' + n.dose_a + '<small>mL</small></span>' +
       '<span class="dose">B ' + n.dose_b + '<small>mL</small></span>' +
       meta + '</div>';
   }
   if (n.verdict === "high") {
-    return '<div class="nut high">' +
+    return '<div class="' + cls + ' high">' +
       '<span class="head">' + t("nut_high") + '</span>' +
       '<span class="dose">' + (n.exchange_l !== undefined ? n.exchange_l : "--") + '<small>L</small></span>' +
       meta + '</div>';
   }
-  return '<div class="nut ok"><span class="head">' + t("nut_ok") + '</span>' + meta + '</div>';
+  return '<div class="' + cls + ' ok"><span class="head">' + t("nut_ok") + '</span>' + meta + '</div>';
 }
 
 // 연결 상태 — 어느 계정·수조에 붙어 있는지
@@ -1179,8 +2789,14 @@ function fmtTick(ts, hours){
 }
 
 function drawChart(key, hours, d){
-  var r = RANGES[key];
-  var W = 768, H = 250, padL = 52, padR = 12, padT = 12, padB = 26;
+  var r = RANGES[key] || {unit:"", digits:2};
+  // 계기판이 전도도를 mS/cm 로 보여 주면 그래프도 같은 단위로 — 이력은 uS/cm 로 쌓인다.
+  if (key === "conductivity" && lastState && lastState.ec_unit === "ms" && d.count) {
+    var k = function(v){ return v / 1000; };
+    d = {count:d.count, min:k(d.min), max:k(d.max), avg:k(d.avg),
+         points:d.points.map(function(p){ return [p[0], k(p[1]), k(p[2]), k(p[3])]; })};
+    r = {unit:"mS/cm", digits:2};
+  }
 
   var buttons = RANGE_OPTIONS.map(function(o){
     return '<button onclick="setRange(' + o.hours + ')" aria-pressed="' +
@@ -1202,77 +2818,114 @@ function drawChart(key, hours, d){
       '<button class="close" onclick="closeChart()">' + t("close") + '</button>' +
     '</div>';
 
+  var box = document.getElementById("chart");
   if (!d.count) {
-    document.getElementById("chart").innerHTML =
-      '<div class="chart">' + head +
+    box.innerHTML = '<div class="chart">' + head +
       '<div class="nodata">' + t("no_data") + '</div></div>';
     return;
   }
 
-  // 세로 범위 — 값이 화면을 채우되 적정 범위 경계도 보이게 잡는다.
-  // 적정 범위를 통째로 포함시키면(예: DO 상한 20) 실제 곡선이 아래에
-  // 눌려 붙어 변화를 읽을 수 없다. 그래서 데이터 폭의 25% 안에서만
-  // 경계 쪽으로 넓힌다.
-  var span = Math.max(d.max - d.min, Math.pow(10, -r.digits));
-  var margin = span * 0.25;
-  // 적정 범위가 없는 항목(염도)은 데이터 폭만 보고 잡는다.
-  var lo = r.ok ? Math.min(d.min, Math.max(r.ok[0], d.min - margin)) : d.min - margin;
-  var hi = r.ok ? Math.max(d.max, Math.min(r.ok[1], d.max + margin)) : d.max + margin;
-  var pad = Math.max((hi - lo) * 0.08, Math.pow(10, -r.digits));
-  lo -= pad; hi += pad;
+  // 그릴 자리를 먼저 깔고 **실제 픽셀 크기**로 좌표를 잡는다. 1.9.1 은 고정 viewBox 를
+  // preserveAspectRatio="none" 으로 늘려 축 숫자가 옆으로 퍼지고 끝점이 타원이 됐다.
+  box.innerHTML = '<div class="chart">' + head + '<div class="plot" id="plot"></div></div>';
+  var plot = document.getElementById("plot");
+  var W = Math.max(240, plot.clientWidth), H = Math.max(120, plot.clientHeight);
+  var padL = 52, padR = 14, padT = 12, padB = 26;
 
-  var t0 = d.points[0][0], t1 = Math.max(d.points[d.points.length-1][0], t0 + 1);
-  var x = function(t){ return padL + (t - t0) / (t1 - t0) * (W - padL - padR); };
-  var y = function(v){ return padT + (hi - v) / (hi - lo) * (H - padT - padB); };
+  var pts = d.points;
+  var step = Math.pow(10, -r.digits);
+  var span = Math.max(d.max - d.min, step * 5);
+  var lo = d.min - span * 0.12, hi = d.max + span * 0.12;
 
-  // 적정 범위 띠 — 범위를 정해 둔 항목에만 깐다.
+  // 적정 범위 — 값 칸의 색과 같은 밴드(bandFor → limits.py 가 주입한 BANDS/NUT_BANDS).
+  // 숫자를 여기 또 적지 않는다. 한쪽 끝이 null 이면(용존산소 상한) 그쪽은 데이터 끝까지.
+  var b = bandFor(key);
+  var ok = b && b.ok;
+  // 세로축이 기준 경계를 담게 넓힌다. 다만 경계가 너무 멀면(염도 15~35 에 실제 18.2)
+  // 곡선이 바닥에 눌려 변화를 읽을 수 없으므로, 전체 폭은 데이터 폭의 5배까지만
+  // 허용하고 그보다 먼 경계는 가장자리에 ▲/▼ 값으로 적는다.
+  // 가까운 경계부터 넣는다 — 먼 쪽을 먼저 넣으면 가까운 쪽이 밀려날 수 있다.
+  var maxRange = span * 5, edge = span * 0.06;
+  var offTop = null, offBottom = null;
+  var fitLow = function(){
+    if (ok[0] === null || ok[0] >= lo + edge) return;
+    if (hi - (ok[0] - edge) <= maxRange) lo = Math.min(lo, ok[0] - edge); else offBottom = ok[0];
+  };
+  var fitHigh = function(){
+    if (ok[1] === null || ok[1] <= hi - edge) return;
+    if ((ok[1] + edge) - lo <= maxRange) hi = Math.max(hi, ok[1] + edge); else offTop = ok[1];
+  };
+  if (ok) {
+    var gapLow = ok[0] === null ? Infinity : d.min - ok[0];
+    var gapHigh = ok[1] === null ? Infinity : ok[1] - d.max;
+    if (gapLow <= gapHigh) { fitLow(); fitHigh(); } else { fitHigh(); fitLow(); }
+  }
+
+  var r1 = function(v){ return Math.round(v * 10) / 10; };
+  var t0 = pts[0][0], t1 = Math.max(pts[pts.length-1][0], t0 + 1);
+  var x = function(tt){ return r1(padL + (tt - t0) / (t1 - t0) * (W - padL - padR)); };
+  var y = function(v){ return r1(padT + (hi - v) / (hi - lo) * (H - padT - padB)); };
+  var mono = 'font-size="11" font-family="ui-monospace,monospace"';
+
+  // 적정 범위 띠와 경계선
   var band = "";
-  if (r.ok) {
-    var bandTop = y(Math.min(r.ok[1], hi)), bandBottom = y(Math.max(r.ok[0], lo));
-    band = '<rect x="' + padL + '" y="' + bandTop + '" width="' + (W-padL-padR) +
-           '" height="' + Math.max(0, bandBottom - bandTop) +
-           '" fill="#10B981" opacity="0.10"/>';
+  if (ok) {
+    var top = (ok[1] === null) ? hi : Math.min(ok[1], hi);
+    var bottom = (ok[0] === null) ? lo : Math.max(ok[0], lo);
+    if (top > bottom) {
+      band = '<rect x="' + padL + '" y="' + y(top) + '" width="' + (W - padL - padR) +
+             '" height="' + r1(y(bottom) - y(top)) + '" fill="#10B981" opacity="0.12"/>';
+    }
+    [ok[0], ok[1]].forEach(function(v){
+      if (v === null || v < lo || v > hi) return;
+      band += '<line x1="' + padL + '" y1="' + y(v) + '" x2="' + (W - padR) + '" y2="' + y(v) +
+              '" stroke="#10B981" stroke-width="1" stroke-dasharray="4 4" opacity="0.7"/>' +
+              '<text x="' + (W - padR - 4) + '" y="' + (y(v) - 4) + '" text-anchor="end" fill="#34D399" ' +
+              mono + '>' + v.toFixed(r.digits) + '</text>';
+    });
+    if (offTop !== null)
+      band += '<text x="' + (W - padR - 4) + '" y="' + (padT + 11) + '" text-anchor="end" fill="#34D399" ' +
+              mono + '>▲ ' + offTop.toFixed(r.digits) + '</text>';
+    if (offBottom !== null)
+      band += '<text x="' + (W - padR - 4) + '" y="' + (H - padB - 4) + '" text-anchor="end" fill="#34D399" ' +
+              mono + '>▼ ' + offBottom.toFixed(r.digits) + '</text>';
   }
 
   // 최저~최고 범위(칸마다)를 옅게 깔고 그 위에 평균선을 얹는다.
-  var top = d.points.map(function(p){ return x(p[0]) + "," + y(p[3]); });
-  var bot = d.points.map(function(p){ return x(p[0]) + "," + y(p[2]); }).reverse();
-  var spread = '<polygon points="' + top.concat(bot).join(" ") +
-               '" fill="#60A5FA" opacity="0.18"/>';
-
-  var line = '<polyline fill="none" stroke="#60A5FA" stroke-width="2" ' +
+  var upper = pts.map(function(p){ return x(p[0]) + "," + y(p[3]); });
+  var lower = pts.map(function(p){ return x(p[0]) + "," + y(p[2]); }).reverse();
+  var spread = '<polygon points="' + upper.concat(lower).join(" ") +
+               '" fill="' + accent() + '" opacity="0.18"/>';
+  var line = '<polyline fill="none" stroke="' + accent() + '" stroke-width="2" ' +
              'stroke-linejoin="round" stroke-linecap="round" points="' +
-             d.points.map(function(p){ return x(p[0]) + "," + y(p[1]); }).join(" ") + '"/>';
+             pts.map(function(p){ return x(p[0]) + "," + y(p[1]); }).join(" ") + '"/>';
 
   // 가로 눈금 4개
   var gridY = "", labelsY = "";
   for (var i = 0; i <= 3; i++) {
     var v = lo + (hi - lo) * i / 3, gy = y(v);
-    gridY += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (W-padR) + '" y2="' + gy +
+    gridY += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (W - padR) + '" y2="' + gy +
              '" stroke="#22304C" stroke-width="1"/>';
-    labelsY += '<text x="' + (padL-8) + '" y="' + (gy+4) + '" text-anchor="end" ' +
-               'fill="#64748B" font-size="11" font-family="ui-monospace,monospace">' +
-               v.toFixed(r.digits) + '</text>';
+    labelsY += '<text x="' + (padL - 8) + '" y="' + (gy + 4) + '" text-anchor="end" fill="#64748B" ' +
+               mono + '>' + v.toFixed(r.digits) + '</text>';
   }
 
   // 세로 눈금 — 시각
   var labelsX = "";
   [0, 0.5, 1].forEach(function(f){
-    var t = t0 + (t1 - t0) * f;
-    labelsX += '<text x="' + x(t) + '" y="' + (H-8) + '" text-anchor="' +
-      (f === 0 ? "start" : f === 1 ? "end" : "middle") +
-      '" fill="#64748B" font-size="11" font-family="ui-monospace,monospace">' +
-      fmtTick(t, hours) + '</text>';
+    var tt = t0 + (t1 - t0) * f;
+    labelsX += '<text x="' + x(tt) + '" y="' + (H - 8) + '" text-anchor="' +
+      (f === 0 ? "start" : f === 1 ? "end" : "middle") + '" fill="#64748B" ' + mono + '>' +
+      fmtTick(tt, hours) + '</text>';
   });
 
-  var last = d.points[d.points.length-1];
-  var dot = '<circle cx="' + x(last[0]) + '" cy="' + y(last[1]) + '" r="4" fill="#60A5FA"/>';
+  var last = pts[pts.length-1];
+  var dot = '<circle cx="' + x(last[0]) + '" cy="' + y(last[1]) + '" r="4" fill="' + accent() + '"/>';
 
-  document.getElementById("chart").innerHTML =
-    '<div class="chart">' + head +
-    '<div class="plot"><svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
+  plot.innerHTML =
+    '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' +
       gridY + band + spread + line + dot + labelsY + labelsX +
-    '</svg></div></div>';
+    '</svg>';
 }
 
 // 이 페이지가 처음 붙었을 때의 프로그램 버전. 원격 업데이트로 서비스가
@@ -1289,15 +2942,25 @@ function render(d){
     if (bootVersion === null) bootVersion = d.version;
     else if (d.version !== bootVersion) { location.reload(); return; }
   }
+  // 모드는 수집기가 정본이다. 화면이 바꾼 뒤에도, SSH 로 설정을 고친 뒤에도 따라간다.
+  if (d.mode && d.mode !== MODE) applyMode(d.mode);
   document.getElementById("link").innerHTML = renderLink(d);
   document.getElementById("ver").textContent = d.version ? "v" + d.version : "";
+  renderAi(d);
+  renderPowerChip(d);
+  if (powerOpen) drawPower(d);
+  renderIrrChip(d);
+  if (irrOpen) drawIrr(d);
+  if (envEachKey) drawEnvEach(d);
+  else if (wxOpen) drawWeather(d);
   // 그래프를 보고 있는 중에는 뒤 화면을 다시 그리지 않는다.
   // 3초마다 갱신하면 조작 중에 깜빡이고 눌림이 씹힌다.
   if (!chartKey) document.getElementById("main").innerHTML = renderMain(d);
   document.getElementById("overlay").innerHTML = renderOverlay(d);
 
-  var st = d.status || "";
-  var bad = /FAIL|ERROR|실패|오류/i.test(st);
+  var st = statusText(d);
+  var bad = d.status_code ? (d.status_code === "send_fail" || d.status_code === "sensor_error")
+                          : /FAIL|ERROR|실패|오류/i.test(d.status || "");
   document.getElementById("dot").className = "dot" + (bad ? " bad" : (d.linked ? " ok" : ""));
   document.getElementById("status").textContent = st;
   document.getElementById("time").textContent = d.updated_at || "";
@@ -1307,6 +2970,89 @@ function render(d){
   btn.textContent = d.linked ? t("info") : t("link_device");
   btn.className = "act" + (d.linked ? " ghost" : "");
   btn.onclick = d.linked ? showInfo : startPair;
+}
+
+// 하단 상태줄 문장. 수집기가 status_code(+ status_args 의 숫자)를 주면 화면 언어로
+// 만들고, 코드가 없으면(예전 수집기·모르는 코드) 수집기가 준 문자열을 그대로 쓴다.
+function statusText(d){
+  var c = d.status_code, a = d.status_args || {};
+  if (!c || !I18N["st_" + c]) return d.status || "";
+  var key = (c === "sent" && a.sent) ? "st_sent_more" : "st_" + c;
+  // textContent 로 넣으므로 이스케이프하지 않는다.
+  var s = t(key, {at: a.at || "", sent: a.sent || 0});
+  // 못 올리고 쌓아 둔 건수와 그 시각 — "지금 안 올라가고 있다" 를 실감나게 한다.
+  if (c === "send_fail" || c === "unlinked") {
+    if (a.pending) s += " · " + t("held", {n: a.pending});
+    if (a.at) s += " (" + a.at + ")";
+  }
+  return s;
+}
+
+// ── AI 모드 ───────────────────────────────────────────────────────────────
+//
+// 이 장비는 값을 띄우는 계측기가 아니라 스스로 판정하고 권고한다. 그런데 평소
+// 화면은 숫자 넉 장뿐이라 그 사실이 보이지 않는다. 머리에 표시를 두어 켜져 있음을
+// 늘 알리고, 누르면 **무엇을 하고 있는지**를 연다 — 현장에서도 점검 자리에서도
+// "AI 가 뭘 한다는 거냐" 는 질문에 화면이 직접 답하게 하려는 것이다.
+//
+// 켜졌다고 쓰는 근거는 수집기가 보내 준다(판정 모듈 + 측정 이력이 다 있을 때만).
+// 화면이 제멋대로 켜졌다고 하면 그 표시는 거짓말이 된다.
+var aiOpen = false;
+
+function renderAi(d){
+  var ai = d.ai || {};
+  var on = !!ai.enabled;
+  var el = document.getElementById("ai");
+  el.className = "ai" + (on ? " on" : "");
+  document.getElementById("ailabel").textContent = on ? t("ai_mode") : t("ai_off");
+  if (aiOpen) drawAi(d);
+}
+
+function openAi(){ aiOpen = true; drawAi(lastState || {}); }
+function closeAi(){ aiOpen = false; document.getElementById("aipanel").innerHTML = ""; }
+
+function drawAi(d){
+  var ai = d.ai || {}, on = !!ai.enabled;
+  var anomalies = (d.anomalies || []).length;
+  var advice = (d.advice || []).length;
+
+  // 기준 이탈은 지금 값으로 바로 센다 — 화면의 색과 같은 판정이다.
+  var out = 0;
+  var vals = d.values || {};
+  for (var k in vals) { if (typeof vals[k] === "number" && level(k, vals[k])) out++; }
+
+  var cnt = function(n){ return n ? t("ai_cases", {n:n}) : t("ai_none"); };
+  var layer = function(n, ttl, dsc, now){
+    return '<div class="layer"><span class="n">' + n + '</span>' +
+           '<div><div class="ttl">' + t(ttl) + '</div>' +
+           '<div class="dsc">' + t(dsc) + '</div></div>' +
+           '<span class="now">' + now + '</span></div>';
+  };
+
+  var foot = on
+    ? (ai.at ? t("ai_last", {t:esc(ai.at), m:Math.round((ai.interval_s||300)/60)}) + '<br>' : '')
+      + t("ai_local")
+    : t("ai_offd");
+
+  document.getElementById("aipanel").innerHTML =
+    '<div class="overlay"><h1>' + t("ai_title") + '</h1>' +
+      '<div class="aibox">' +
+        layer(1, "ai_l1", "ai_l1d", cnt(out)) +
+        layer(2, "ai_l2", "ai_l2d",
+              (on && ai.samples ? t("ai_watching", {h:ai.window_h||96, n:ai.samples}) + '<br>' : '') + cnt(anomalies)) +
+        layer(3, "ai_l3", "ai_l3d", isAgri() ? nutState(d.nutrient) : cnt(advice)) +
+        '<div class="foot">' + foot + '</div>' +
+      '</div>' +
+      '<div class="ovbtns"><button class="act ghost" onclick="closeAi()">' + t("close") + '</button></div>' +
+    '</div>';
+}
+
+// AI 설명판 3번 칸(스마트팜) — 권고 건수 대신 지금 양액 판정을 한 단어로.
+function nutState(n){
+  if (!n) return t("ai_nut_off");
+  if (n.verdict === "low") return t("ai_nut_low");
+  if (n.verdict === "high") return t("ai_nut_high");
+  return n.verdict === "ok" ? t("ai_nut_ok") : t("ai_none");
 }
 
 // 연결된 계정을 보여 주고, 화면에서 바로 다른 계정으로 옮길 수 있게 한다.
@@ -1370,6 +3116,7 @@ function closeSettings(){
   settingsOpen = false;
   mrvOpen = false;
   if (mrvTimer) { clearTimeout(mrvTimer); mrvTimer = null; }
+  wlStop();
   setupData = null;
   document.getElementById("setup").innerHTML = "";
   document.getElementById("wifi").innerHTML = "";
@@ -1377,10 +3124,11 @@ function closeSettings(){
 }
 
 function drawSettingsMenu(){
+  wlStop();
   document.getElementById("wifi").innerHTML = "";
   // 모드가 항목을 가른다. 세 모드는 상호 배타이므로, 지금 모드에서 쓰지 않는
   // 항목은 아예 두지 않는다 — 열어서 고쳐도 아무 일이 없는 화면이 가장 나쁘다.
-  var mode = (lastState && lastState.mode) || "aquaculture";
+  var mode = (lastState && lastState.mode) || "shrimp";
   var items = [
     {t:"menu_mode",    sub:"menu_mode_sub",    fn:"openMode()"},
     {t:"menu_sensors", sub:"menu_sensors_sub", fn:"openSensors()"},
@@ -1388,9 +3136,11 @@ function drawSettingsMenu(){
     {t:"menu_lang",    sub:"menu_lang_sub",    fn:"openLang()"},
     {t:"menu_cal",      sub:"menu_cal_sub",      fn:"openCal()"}
   ];
-  // 양액 설정은 MRV 단말에 둘 이유가 없다. 양식장 모드에서는 남겨 둔다 —
-  // [양액 관리 사용] 을 켜는 것이 스마트팜으로 넘어가는 길이기도 하다.
+  // 양액 설정은 MRV 단말에 둘 이유가 없다 — 그 화면 앞에 선 사람은 계량기를 읽으러 온 사람이다.
   if (mode !== "mrv") items.push({t:"menu_nutrient", sub:"menu_nutrient_sub", fn:"openNutrient()"});
+  items.push({t:"menu_wireless", sub:"menu_wireless_sub", fn:"openWireless()"});
+  // 전력 회로는 [power] 를 켠 장비에만 — 꺼진 장비에 빈 메뉴를 두지 않는다.
+  if (lastState && lastState.power) items.push({t:"menu_power", sub:"menu_power_sub", fn:"openPowerTypes()"});
   // MRV 페어링은 그 모드의 주요 항목이다. 다른 모드에서 연결해 두어도 전력 입력
   // 창구가 열리지 않으므로(모드가 가른다) 그 모드에서만 보여 준다.
   if (mode === "mrv") items.push({t:"menu_mrv", sub:"menu_mrv_sub", fn:"openMrv()"});
@@ -1444,6 +3194,65 @@ function drawLang(){
     '</div>';
 }
 
+// ── 모드 설정 ────────────────────────────────────────────────────────────────
+// 양식장(Shrimp365) / 스마트팜(Farm365) 두 칸 토글. 누르는 즉시 수집기에 저장하고
+// 화면도 바로 갈아입는다 — 재시작이 필요 없다(이름·라벨·색만 바뀌므로).
+var modeMsg = null;
+
+function openMode(){ modeMsg = null; drawMode(); }
+
+function drawMode(){
+  document.getElementById("wifi").innerHTML = "";
+  var cell = function(val, label, sub, brand){
+    return '<button aria-pressed="' + (MODE === val ? "true" : "false") + '" ' +
+      'onclick="setMode(&quot;' + val + '&quot;)">' +
+      t(label) + ' <span style="font-weight:600;opacity:.8">· ' + brand + '</span>' +
+      '<small>' + t(sub) + '</small></button>';
+  };
+  var msg = modeMsg ? '<div class="msg ' + modeMsg.kind + '">' + esc(modeMsg.text) + '</div>' : "";
+  document.getElementById("setup").innerHTML =
+    '<div class="setup">' +
+      '<div class="chead">' +
+        '<span class="ctitle">' + t("menu_mode") + '</span>' +
+        '<button style="margin-left:auto" onclick="drawSettingsMenu()">' + t("back_menu") + '</button>' +
+      '</div>' +
+      '<div class="sbody">' +
+        msg +
+        '<div class="sub" style="margin:2px 0 8px">' + t("mode_hint") + '</div>' +
+        '<div class="seg">' +
+          cell("shrimp", "mode_shrimp", "mode_shrimp_sub", BRAND.shrimp.name) +
+          cell("agriculture", "mode_agri", "mode_agri_sub", BRAND.agriculture.name) +
+          cell("mrv", "mode_mrv", "mode_mrv_sub", BRAND.mrv.name) +
+        '</div>' +
+        '<div class="sub">' + t("mode_ec_note") + '</div>' +
+        '<div class="sub">' + t("mode_water_note") + ' ' + t("mode_mrv_note") + '</div>' +
+      '</div>' +
+    '</div>';
+}
+
+function setMode(m){
+  if (m !== "shrimp" && m !== "agriculture" && m !== "mrv") return;
+  if (m === MODE) return;
+  fetch("/api/mode", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({mode:m})})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d && d.ok){
+        applyMode(d.mode || m);
+        if (lastState) {   // 뒤 화면도 새 모드(와 바뀐 EC 단위)로 — 다음 갱신을 기다리지 않는다
+          lastState.mode = MODE;
+          if (d.ec_unit) lastState.ec_unit = d.ec_unit;
+          render(lastState);
+        }
+        modeMsg = {kind:"ok", text: d.saved ? t("mode_saved") : t("saved_mem")};
+      } else {
+        modeMsg = {kind:"err", text:(d && d.error) || t("save_fail")};
+      }
+      drawMode();
+    })
+    .catch(function(){ modeMsg = {kind:"err", text:t("save_fail")}; drawMode(); });
+}
+
 // ── 보정 설정 ────────────────────────────────────────────────────────────────
 // 사람이 오프셋을 계산하게 하지 않는다. 휴대용 측정기로 잰 값을 넣으면
 // 장비가 지금 센서값과의 차이를 구해 저장한다.
@@ -1466,6 +3275,19 @@ function openCal(){
 
 function fmt(v){ return (v === null || v === undefined) ? "--" : v; }
 
+// 전도도를 mS/cm 로 보는 장비(스마트팜 기본)는 보정 화면도 mS/cm 로 보이고 받는다.
+// 계기판·그래프가 1.64 mS/cm 인데 여기만 1640 uS/cm 이면 휴대용 측정기 값을 옮겨
+// 적을 때 단위를 사람이 바꿔야 한다. 서버·설정 파일에는 uS/cm 그대로 보낸다.
+function calDiv(k){
+  return (k === "conductivity" && lastState && lastState.ec_unit === "ms") ? 1000 : 1;
+}
+function calUnit(it){ return calDiv(it.k) === 1000 ? "mS/cm" : it.unit; }
+function calShow(k, v){
+  if (v === null || v === undefined) return v;
+  var d = calDiv(k);
+  return d === 1 ? v : Math.round(v / d * 1000) / 1000;
+}
+
 function drawCal(){
   if (!calData) return;
   document.getElementById("wifi").innerHTML = "";
@@ -1481,8 +3303,8 @@ function drawCal(){
     for (var i = 0; i < 4; i++) rows += '<div class="krow">' + pad.slice(i*3, i*3+3).join("") + '</div>';
     body =
       '<div class="wcur">' + t(it.t) + ' — ' + t("cal_ask") + '<br>' +
-        '<span class="sub">' + t("cal_now") + ' ' + fmt(calData.raw[it.k]) + ' ' + it.unit + '</span><br>' +
-        '<b style="font-size:24px;font-family:ui-monospace,monospace">' + (calBuf || "0") + '</b> ' + it.unit +
+        '<span class="sub">' + t("cal_now") + ' ' + fmt(calShow(it.k, calData.raw[it.k])) + ' ' + calUnit(it) + '</span><br>' +
+        '<b style="font-size:24px;font-family:ui-monospace,monospace">' + (calBuf || "0") + '</b> ' + calUnit(it) +
       '</div>' +
       '<div class="kbd" style="max-width:330px">' + rows +
         '<div class="krow">' +
@@ -1492,11 +3314,12 @@ function drawCal(){
   } else {
     var msg = calMsg ? '<div class="msg ' + calMsg.kind + '">' + esc(calMsg.text) + '</div>' : "";
     var list = CAL_ITEMS.map(function(it){
-      var raw = calData.raw[it.k], off = calData.offsets[it.k] || 0, cor = calData.corrected[it.k];
+      var raw = calShow(it.k, calData.raw[it.k]), off = calShow(it.k, calData.offsets[it.k] || 0),
+          cor = calShow(it.k, calData.corrected[it.k]);
       var offTxt = off ? (off > 0 ? "+" + off : String(off)) : "0";
       return '<div class="srow">' +
         '<div class="sname">' + t(it.t) +
-          '<div class="sub">' + t("cal_now") + ' ' + fmt(raw) + ' ' + it.unit +
+          '<div class="sub">' + t("cal_now") + ' ' + fmt(raw) + ' ' + calUnit(it) +
             (off ? '  \u2192  ' + t("cal_result") + ' <b>' + fmt(cor) + '</b>' : '') +
           '</div></div>' +
         '<div class="num" style="width:auto;padding:0 10px">' + offTxt + '</div>' +
@@ -1523,7 +3346,7 @@ function calOpen(k){
   if (calData.raw[k] === null || calData.raw[k] === undefined){
     calMsg = {kind:"err", text:t("cal_none")}; drawCal(); return;
   }
-  calEdit = k; calBuf = String(calData.raw[k]); drawCal();
+  calEdit = k; calBuf = String(calShow(k, calData.raw[k])); drawCal();
 }
 function calCancel(){ calEdit = null; calBuf = ""; drawCal(); }
 function calKey(k){
@@ -1533,7 +3356,12 @@ function calKey(k){
   if (calBuf.length > 9) calBuf = calBuf.slice(0, 9);
   drawCal();
 }
-function calApply(){ calSend({name: calEdit, actual: parseFloat(calBuf || "0")}); }
+// mS/cm → uS/cm 곱셈은 부동소수 오차를 남긴다(1.64*1000 = 1639.9999999999998).
+// 그대로 보내면 보정값이 -2e-13 처럼 0 이 아니게 저장되므로 소수 셋째 자리에서 자른다.
+function calApply(){
+  var v = parseFloat(calBuf || "0") * calDiv(calEdit);
+  calSend({name: calEdit, actual: Math.round(v * 1000) / 1000});
+}
 function calClear(k){ calSend({name: k, offset: 0}); }
 
 function calSend(payload){
@@ -1748,11 +3576,11 @@ function doRestart(kind){
         return;
       }
       // 되살아나면 화면을 새로 읽는다. 프로그램 재시작은 약 15초, 재부팅은 약 1분.
-      setTimeout(function(){ location.reload(); }, dev ? 60000 : 18000);
+      reloadWhenBack(dev ? 45000 : 12000);
     })
     .catch(function(){
       // 응답을 못 받은 것은 대개 프로그램이 이미 끝났다는 뜻이다 — 정상이다.
-      setTimeout(function(){ location.reload(); }, dev ? 60000 : 18000);
+      reloadWhenBack(dev ? 45000 : 12000);
     });
 }
 
@@ -1782,7 +3610,7 @@ function renderMrvButton(d){
     return '<button class="mbig ghost" onclick="openMrvSetup()">' +
       t("mrv_home_link") + ' ›</button>';
   }
-  return '<button class="mbig" onclick="openPower()">' + t("pw_btn") + '</button>';
+  return '<button class="mbig" onclick="openMrvPower()">' + t("pw_btn") + '</button>';
 }
 
 // 서버가 받지 않아 멈춘 보관분. 치우는 버튼은 전력 입력 패널 한 곳에만 두고(같은
@@ -1796,12 +3624,21 @@ function renderMrvBlocked(d){
       : '') + '</div>';
 }
 
+// 수질 센서를 하나라도 켜 두었는가. 수집기 1.10 부터 sensors_on 은 켜 둔 것의 이름 목록이고
+// (ph·do·ec·env·power·nutrient), 그 전 수집기는 참/거짓 하나였다 — 둘 다 읽는다.
+function hasWaterSensors(d){
+  var on = d && d.sensors_on;
+  if (on === undefined || on === null) return true;
+  if (typeof on === "boolean") return on;
+  return ["ph", "do", "ec", "flow", "dp"].some(function(s){ return on.indexOf(s) >= 0; });
+}
+
 function renderMrvHome(d){
   var warn = ((d.mrv_clock_ok === false)
     ? '<div class="pwarn">' + t("pw_clock_bad") + '</div>' : "") + renderMrvBlocked(d);
   // 센서를 켜 둔 장비에서는 수질 값이 먼저다. 800×480 에 목록까지 넣으면 값 격자가
   // 눌리므로, 그 때는 마지막 지침 목록을 접고 건수와 버튼만 남긴다.
-  if (d.sensors_on) {
+  if (hasWaterSensors(d)) {
     return renderGrid(d) + '<div class="mhome" style="flex:0 0 auto;margin-top:9px">' +
       warn + renderMrvCounts(d) + renderMrvButton(d) + '</div>';
   }
@@ -1831,52 +3668,6 @@ function renderMain(d){
 
 
 // ── 운전 모드 설정 ──────────────────────────────────────────────────────────
-var modeBusy = false;
-
-function openMode(){ modeBusy = false; drawMode(); }
-
-function drawMode(){
-  document.getElementById("wifi").innerHTML = "";
-  var cur = (lastState && lastState.mode) || "aquaculture";
-  var rows = ["aquaculture", "smartfarm", "mrv"].map(function(m){
-    return '<div class="wrow' + (m === cur ? " cur" : "") + '"' +
-      ' onclick="setMode(&quot;' + m + '&quot;)">' +
-      '<div class="sname">' + t("mode_" + m) +
-        '<div class="sub">' + t("mode_" + m + "_sub") + '</div></div>' +
-      (m === cur ? '<span class="wlock" style="color:#10B981">✓</span>' : '') +
-    '</div>';
-  }).join("");
-  document.getElementById("setup").innerHTML =
-    '<div class="setup">' +
-      '<div class="chead">' +
-        '<span class="ctitle">' + t("mode_title") + '</span>' +
-        '<button style="margin-left:auto" onclick="drawSettingsMenu()">' + t("back_menu") + '</button>' +
-      '</div>' +
-      '<div class="sbody">' +
-        '<div class="sub" style="margin:2px 0 8px">' + t("mode_hint") + '</div>' +
-        rows +
-        '<div class="pnote" style="margin-top:8px">' + t("mode_water_note") + '<br>' +
-          t("mode_mrv_note") + '</div>' +
-      '</div>' +
-    '</div>';
-}
-
-function setMode(m){
-  if (modeBusy) return;
-  modeBusy = true;
-  fetch("/api/mode", {method:"POST", headers:{"Content-Type":"application/json"},
-                      body: JSON.stringify({mode:m})})
-    .then(function(r){ return r.json(); })
-    .then(function(d){
-      modeBusy = false;
-      if (!d || !d.ok) { alert(t("mode_fail")); return; }
-      if (lastState) lastState.mode = m;
-      // 메뉴 구성이 모드에 따라 달라지므로(전력·양액 항목) 메뉴로 돌아간다.
-      drawSettingsMenu();
-    })
-    .catch(function(){ modeBusy = false; alert(t("mode_fail")); });
-}
-
 // MRV 기본 화면에서 연결 화면으로 바로 들어가는 길. 이 모드의 장비는 연결하지
 // 않으면 아무것도 못 하므로, 설정 메뉴를 거치게 하지 않는다.
 function openMrvSetup(){ settingsOpen = true; openMrv(); }
@@ -2208,7 +3999,7 @@ var pwrVis = [], pwrShowAll = false, pwrGone = [];
 // 경고 없이 EI 분자에 들어간다. 그래서 패널을 열 때와 계측기를 고를 때 되돌린다.
 function pwrResetKind(){ pwrKind = "cumulative_kwh"; }
 
-function openPower(){
+function openMrvPower(){
   var d = lastState || {};
   pwrOpen = true; pwrStep = "list"; pwrMeter = null; pwrBuf = "";
   pwrRes = null; pwrMsg = null; pwrBusy = false; pwrBlockAsk = false;
@@ -2222,14 +4013,14 @@ function openPower(){
   pwrBlockedReason = d.mrv_blocked_reason || null;
   pwrClock = d.mrv_clock_ok !== false;
   pwrBasis = d.mrv_basis || "metered";
-  drawPower();
+  drawMrvPower();
   loadMeters();
 }
 
 // 열 때마다 목록을 다시 받는다. 웹에서 방금 등록한 계측기가 보이지 않으면
 // 작업자는 그 계측기의 전력을 넣을 방법이 없다.
 function loadMeters(){
-  pwrBusy = true; drawPower();
+  pwrBusy = true; drawMrvPower();
   fetch("/api/mrv/meters", {method:"POST"})
     .then(function(r){ return r.json(); })
     .then(function(d){
@@ -2245,12 +4036,12 @@ function loadMeters(){
       // 바뀌지 않았으므로, 모른다고 화면이 말을 바꾸면 안 된다).
       if (d.basis) pwrBasis = d.basis;
       pwrMsg = d.ok ? null : (d.error || null);
-      drawPower();
+      drawMrvPower();
     })
-    .catch(function(){ pwrBusy = false; pwrMsg = t("pw_err_offline"); drawPower(); });
+    .catch(function(){ pwrBusy = false; pwrMsg = t("pw_err_offline"); drawMrvPower(); });
 }
 
-function closePower(){
+function closeMrvPower(){
   pwrOpen = false;
   document.getElementById("power").innerHTML = "";
   tick();
@@ -2263,19 +4054,19 @@ function pwrPick(i){
   if (!pwrMeter) return;
   // 다른 계측기를 고르면 앞 계측기에서 고른 종류를 끌고 가지 않는다.
   pwrResetKind();
-  pwrBuf = ""; pwrStep = "entry"; drawPower();
+  pwrBuf = ""; pwrStep = "entry"; drawMrvPower();
 }
-function pwrSetKind(k){ pwrKind = k; drawPower(); }
-function pwrToList(){ pwrStep = "list"; pwrMeter = null; pwrBuf = ""; pwrRes = null; drawPower(); }
-function pwrToEntry(){ pwrStep = "entry"; pwrRes = null; drawPower(); }
-function pwrToCheck(){ if (pwrNum() === null) return; pwrStep = "check"; drawPower(); }
+function pwrSetKind(k){ pwrKind = k; drawMrvPower(); }
+function pwrToList(){ pwrStep = "list"; pwrMeter = null; pwrBuf = ""; pwrRes = null; drawMrvPower(); }
+function pwrToEntry(){ pwrStep = "entry"; pwrRes = null; drawMrvPower(); }
+function pwrToCheck(){ if (pwrNum() === null) return; pwrStep = "check"; drawMrvPower(); }
 
 // 키패드 입력. 숫자와 소수점만 들어온다 — 음수 기호 키는 두지 않는다(③).
 function pwrKey(c){
   if (c === "<") pwrBuf = pwrBuf.slice(0, -1);
   else if (c === ".") { if (pwrBuf.indexOf(".") < 0) pwrBuf = (pwrBuf || "0") + "."; }
   else if (pwrBuf.replace(".", "").length < 10) pwrBuf = (pwrBuf === "0" ? "" : pwrBuf) + c;
-  drawPower();
+  drawMrvPower();
 }
 
 function pwrNum(){
@@ -2287,7 +4078,7 @@ function pwrNum(){
 function pwrSend(){
   var v = pwrNum();
   if (v === null || !pwrMeter || pwrBusy) return;
-  pwrBusy = true; drawPower();
+  pwrBusy = true; drawMrvPower();
   fetch("/api/mrv/power", {
     method:"POST",
     headers:{"Content-Type":"application/json"},
@@ -2300,13 +4091,13 @@ function pwrSend(){
       if (typeof d.blocked === "number") pwrBlocked = d.blocked;
       // 지침이 들어갔으면 이 계측기는 더 이상 "첫 지침" 이 아니다.
       if (pwrKind === "cumulative_kwh" && (d.ok || d.queued) && pwrMeter) pwrMeter.has_prev = true;
-      pwrStep = "result"; drawPower();
+      pwrStep = "result"; drawMrvPower();
     })
     .catch(function(){
       // 응답을 못 받았다. 장비가 보냈는지 아닌지 화면이 단정하면 안 된다.
       pwrBusy = false;
       pwrRes = {ok:false, queued:false, error:t("pw_err_offline")};
-      pwrStep = "result"; drawPower();
+      pwrStep = "result"; drawMrvPower();
     });
 }
 
@@ -2355,11 +4146,11 @@ function pwrBlockWarn(){
     '</div></div>';
 }
 
-function pwrBlockAskOn(){ pwrBlockAsk = true; drawPower(); }
-function pwrBlockCancel(){ pwrBlockAsk = false; drawPower(); }
+function pwrBlockAskOn(){ pwrBlockAsk = true; drawMrvPower(); }
+function pwrBlockCancel(){ pwrBlockAsk = false; drawMrvPower(); }
 
 function pwrDiscard(){
-  pwrBlockAsk = false; pwrBusy = true; drawPower();
+  pwrBlockAsk = false; pwrBusy = true; drawMrvPower();
   fetch("/api/mrv/discard", {method:"POST"})
     .then(function(r){ return r.json(); })
     .then(function(d){
@@ -2369,9 +4160,9 @@ function pwrDiscard(){
         pwrMsg = t("pw_blocked_done");
         if (typeof d.pending === "number") pwrPending = d.pending;
       }
-      drawPower();
+      drawMrvPower();
     })
-    .catch(function(){ pwrBusy = false; pwrMsg = t("pw_err_offline"); drawPower(); });
+    .catch(function(){ pwrBusy = false; pwrMsg = t("pw_err_offline"); drawMrvPower(); });
 }
 
 // 시계가 틀어진 장비는 아무 단계에서도 보낼 수 없다. 누르고 나서 알게 하지 않고
@@ -2424,7 +4215,7 @@ function pwrFiltering(){ return pwrKeep().length !== pwrMeters.length; }
 
 function pwrShown(){ return pwrShowAll ? pwrMeters : pwrKeep(); }
 
-function pwrToggleShowAll(){ pwrShowAll = !pwrShowAll; drawPower(); }
+function pwrToggleShowAll(){ pwrShowAll = !pwrShowAll; drawMrvPower(); }
 
 function drawPowerList(){
   var shown = pwrShown();
@@ -2458,7 +4249,7 @@ function drawPowerList(){
             (pwrShowAll ? t("pw_show_picked") : t("pw_show_all")) + '</button>' : '') +
       '<button class="ghost" onclick="loadMeters()"' + (pwrBusy ? " disabled" : "") + '>' +
         t("pw_reload") + '</button>' +
-      '<button class="ghost" onclick="closePower()">' + t("close") + '</button>' +
+      '<button class="ghost" onclick="closeMrvPower()">' + t("close") + '</button>' +
     '</div>';
 }
 
@@ -2568,11 +4359,11 @@ function drawPowerResult(){
     '</div>' +
     '<div class="pbtns">' +
       '<button onclick="pwrToList()">' + t("pw_more") + '</button>' +
-      '<button class="ghost" onclick="closePower()">' + t("close") + '</button>' +
+      '<button class="ghost" onclick="closeMrvPower()">' + t("close") + '</button>' +
     '</div>';
 }
 
-function drawPower(){
+function drawMrvPower(){
   if (!pwrOpen) return;
   var body;
   if (pwrStep === "entry" && pwrMeter) body = drawPowerEntry();
@@ -2581,7 +4372,16 @@ function drawPower(){
   else body = drawPowerList();
   var title = pwrStep === "check" ? t("pw_check") : t("pw_title");
   document.getElementById("power").innerHTML =
-    '<div class="power">' + pwrHead(title, "closePower()") + body + '</div>';
+    '<div class="power">' + pwrHead(title, "closeMrvPower()") + body + '</div>';
+}
+
+// 프로그램이 다시 응답할 때까지 기다렸다가 새로 읽는다. 일찍 읽으면 빈 오류 화면에 머문다.
+function reloadWhenBack(wait){
+  setTimeout(function poll(){
+    fetch("/api/state", {cache:"no-store"})
+      .then(function(r){ if (!r.ok) throw 0; location.reload(); })
+      .catch(function(){ setTimeout(poll, 4000); });
+  }, wait);
 }
 
 function setLang(l){
@@ -2595,8 +4395,8 @@ function setLang(l){
   // 전력 입력 패널이 열려 있으면 그것도 다시 그린다. render() 는 뒤 화면만 그리므로
   // 패널은 **열렸을 때의 언어로 굳어 있었다.** 이 화면은 "지금 넣는 값이 무엇으로
   // 기록되는가"(pw_basis_*)를 적는 자리라, 읽을 수 없는 언어로 남으면 그 한 줄이
-  // 있으나 마나다. 닫혀 있으면 drawPower() 가 바로 돌아온다.
-  drawPower();
+  // 있으나 마나다. 닫혀 있으면 drawMrvPower() 가 바로 돌아온다.
+  drawMrvPower();
 }
 
 function drawSettings(){
@@ -2617,7 +4417,7 @@ function drawSettings(){
   }).join("");
 
   var msg = setupMsg
-    ? '<div class="msg ' + setupMsg.kind + '">' + setupMsg.text + '</div>' : "";
+    ? '<div class="msg ' + setupMsg.kind + '">' + esc(setupMsg.text) + '</div>' : "";
 
   var found = d.found ? renderFound(d.found) : "";
   var test = d.test ? renderTest(d.test) : "";
@@ -2633,6 +4433,7 @@ function drawSettings(){
         msg + test + found +
         '<div class="sub" style="margin:2px 0 6px">' + t("slave_hint") + '</div>' +
         rows +
+        extrasRows(d) +
         ecRow(d) +
         '<div class="srow">' +
           '<div class="sname">' + t("interval") + '<div class="sub">' + t("interval_sub") + '</div></div>' +
@@ -2688,6 +4489,8 @@ function senName(key){
   if (key === "ph") return "pH / ORP";
   if (key === "do") return t("n_do");
   if (key === "ec") return t("n_ec");
+  if (key === "flow") return t("n_flow");
+  if (key === "dp") return t("n_dp");
   return key;
 }
 
@@ -2705,18 +4508,27 @@ function verdictText(f){
 function renderTest(list){
   if (!list.length) return '<div class="msg err">' + t("test_none") + '</div>';
   var blocks = list.map(function(sen){
-    var head = '<b>' + esc(sen.label || sen.key) + '</b> <span class="dim">ID ' + sen.slave_id + '</span> — ' +
+    // 서버가 준 한국어 label 대신 화면 언어 이름을 쓴다(1.9.1 은 영어 화면에도 "용존산소").
+    var head = '<b>' + esc(senName(sen.key)) + '</b> <span class="dim">ID ' + sen.slave_id + '</span> — ' +
       (sen.ok ? '<span class="okv">' + t("test_comm_ok") + '</span>'
               : '<span class="badv">' + t("test_no_reply") + '</span>');
     if (!sen.ok) return '<div class="trow">' + head + '</div>';
     var rows = (sen.fields || []).map(function(f){
       var v = verdictText(f);
       var shown = (f.value === null || f.value === undefined) ? "--" : f.value;
+      var unit = f.unit || "";
+      // 전도도는 수집기가 uS/cm 로 맞춰 보낸다. [센서 설정] 의 단위가 mS/cm 면
+      // 계기판과 같게 나눠 보여 준다(1.9.1 은 값 uS·단위 mS 로 1000배 틀렸다).
+      if (f.name === "conductivity" && unit === "uS/cm" && typeof f.value === "number" &&
+          setupData && setupData.ec_unit === "ms") {
+        shown = (f.value / 1000).toFixed(2); unit = "mS/cm";
+      }
+      if (unit === "C") unit = "\u00B0C";
       return '<div class="tfield">' +
         '<span class="tname">' + esc(f.name) + '</span>' +
-        '<span class="tval">' + esc(String(shown)) + ' <span class="dim">' + esc(f.unit || "") + '</span></span>' +
+        '<span class="tval">' + esc(String(shown)) + ' <span class="dim">' + esc(unit) + '</span></span>' +
         '<span class="' + v.cls + '">' + v.txt + '</span>' +
-        '<span class="dim traw">원시 ' + (f.raw === null ? "-" : f.raw) + '</span>' +
+        '<span class="dim traw">' + t("raw") + ' ' + (f.raw === null ? "-" : f.raw) + '</span>' +
       '</div>';
     }).join("");
     return '<div class="trow">' + head + rows + '</div>';
@@ -2744,11 +4556,29 @@ function testSensors(){
 
 function renderFound(found){
   if (!found.length) return '<div class="msg err">' + t("none_responding") + '</div>';
-  if (found[0].error) return '<div class="msg err">' + found[0].error + '</div>';
+  if (found[0].error) return '<div class="msg err">' + esc(found[0].error) + '</div>';
   var list = found.map(function(f){
-    return 'ID <b>' + f.id + '</b> — ' + f.kind + ' (' + f.note + ')';
+    return 'ID <b>' + esc(f.id) + '</b> — ' + esc(f.kind) + ' (' + esc(f.note) + ')';
   }).join("<br>");
   return '<div class="found">' + t("found_on_bus") + '<br>' + list + '</div>';
+}
+
+// 스마트팜 — 수질 센서 말고 켜고 끄는 것(환경·기상, 양액, 전력). 끄면 그 칸을 그리지 않는다.
+function extrasRows(d){
+  if (!isAgri() || !d.extras) return "";
+  return '<div class="wlhead" style="margin-top:10px">' + t("ext_title") + '</div>' +
+    '<div class="sub" style="margin:2px 0 6px">' + t("ext_hint") + '</div>' +
+    ["env","nutrient","power"].map(function(k){
+      var on = !!d.extras[k];
+      return '<div class="srow"><div class="sname">' + t("ext_" + k) +
+        '<div class="sub">' + (on ? t("in_use") : t("not_used")) + '</div></div>' +
+        '<button class="toggle' + (on ? " on" : "") + '" onclick="toggleExtra(&quot;' + k + '&quot;)">' +
+        (on ? t("on") : t("off")) + '</button></div>';
+    }).join("");
+}
+function toggleExtra(k){
+  setupData.extras[k] = !setupData.extras[k];
+  drawSettings();
 }
 
 function toggleSensor(i){
@@ -2842,6 +4672,7 @@ function saveSettings(){
   setupData.sensors.forEach(function(sn){
     payload[sn.key] = {enabled: sn.enabled, slave_id: sn.slave_id};
   });
+  if (isAgri() && setupData.extras) payload.extras = setupData.extras;
   fetch("/api/sensors/save", {
     method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify(payload)
@@ -2849,7 +4680,7 @@ function saveSettings(){
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (d.ok) {
-        setupMsg = {kind:"ok", text: d.saved ? t("saved_ok") : t("saved_mem")};
+        setupMsg = {kind:"ok", text: d.restarting ? t("restarting") : d.saved ? t("saved_ok") : t("saved_mem")};
       } else {
         setupMsg = {kind:"err", text: d.error || t("save_fail")};
       }
@@ -3054,7 +4885,7 @@ function wifiTogglePw(){ wifiShowPw = !wifiShowPw; drawWifi(); }
 function doConnect(){
   if (!wifiSel) return;
   wifiBusy = true;
-  wifiMsg = {kind:"ok", text: t("wifi_connecting_to", {ssid: esc(wifiSel.ssid)})};
+  wifiMsg = {kind:"ok", text: t("wifi_connecting_to", {ssid: wifiSel.ssid})};
   drawWifi();
   fetch("/api/wifi/connect", {
     method:"POST", headers:{"Content-Type":"application/json"},
@@ -3093,6 +4924,7 @@ function tick(){
       document.getElementById("dot").className = "dot bad";
     });
 }
+applyMode(MODE);   // 서버가 새겨 준 첫 모드로 이름·부제를 맞춘다
 tick();
 setInterval(tick, 3000);
 </script>
@@ -3134,22 +4966,54 @@ def serve(
     on_mrv_power=None,
     # 서버가 받지 않아 멈춘 보관분을 사람의 확인을 받아 치운다.
     on_mrv_discard=None,
-    mode="aquaculture",
+    mode="shrimp",
+    get_mode=None,
     on_set_mode=None,
+    on_set_power_type=None,
+    on_power_control=None,
+    get_wireless=None,
+    on_wireless=None,
+    get_lang=None,
 ) -> ThreadingHTTPServer | None:
-    """상태 페이지를 띄운다. 실패해도 수집은 계속되어야 하므로 None 을 돌려준다."""
+    """상태 페이지를 띄운다. 실패해도 수집은 계속되어야 하므로 None 을 돌려준다.
 
-    # 첫 화면 언어를 페이지에 새겨 둔다(웹페이지와 같은 4종). 화면에서 바꾸면
-    # JS 가 즉시 다시 그리고 서버에도 남기므로, 다음에 열 때 그 언어로 뜬다.
-    lang = language if language in ("ko", "en", "vi", "id") else "ko"
+    language·mode 는 처음 값이다. get_lang()·get_mode() 를 주면 페이지를 줄 때마다
+    **지금** 언어·모드를 새긴다 — 1.9.1 은 serve() 시작 때 한 번만 새겨서, 화면에서
+    언어를 바꾼 뒤 페이지만 새로고침되면(버전 갱신·재시작 후 자동 새로고침 등)
+    부팅 때 언어로 돌아갔다.
+    """
+
     # 판정 숫자는 limits.py 한 곳에서만 온다 — 화면에 같은 값을 또 적어 두면
     # 한쪽만 고쳐져 수조 옆 색과 서버 알림이 어긋난다(실제로 수온이 그랬다).
-    page_bytes = (PAGE
-                  .replace("__MODE__", mode if mode in ("aquaculture", "smartfarm", "mrv")
-                           else "aquaculture")
-                  .replace("__LANG__", lang)
-                  .replace("__BANDS__", json.dumps(limits.BANDS))
-                  .replace("__NUT_BANDS__", json.dumps(limits.NUTRIENT_BANDS))).encode()
+    page_base = (PAGE
+                 .replace("__BANDS__", json.dumps(limits.BANDS))
+                 .replace("__NUT_BANDS__", json.dumps(limits.NUTRIENT_BANDS)))
+    first = {"lang": language, "mode": mode}
+
+    def current_lang() -> str:
+        lang_now = first["lang"]
+        if get_lang is not None:
+            try:
+                lang_now = get_lang()
+            except Exception as exc:  # noqa: BLE001 — 화면이 언어 때문에 죽으면 안 된다
+                log.warning("화면 언어를 읽지 못했습니다: %s", exc)
+        return lang_now if lang_now in ("ko", "en", "vi", "id") else "ko"
+
+    def current_mode() -> str:
+        mode_now = first["mode"]
+        if get_mode is not None:
+            try:
+                mode_now = (get_mode() or {}).get("mode", mode_now)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("장비 모드를 읽지 못했습니다: %s", exc)
+        return mode_now if mode_now in ("shrimp", "agriculture", "mrv") else "shrimp"
+
+    def page_bytes() -> bytes:
+        # 첫 페인트부터 올바른 언어·이름·색이어야 한다. 그 뒤로는 /api/state 의
+        # mode 를 따라가고, 언어는 화면이 바꿀 때 /api/lang 으로 수집기에 남긴다.
+        return (page_base
+                .replace("__LANG__", current_lang())
+                .replace("__MODE__", current_mode())).encode()
 
     class Handler(BaseHTTPRequestHandler):
         # 기본 로거는 요청마다 stderr 를 채운다. journald 가 지저분해지므로 끈다.
@@ -3164,9 +5028,13 @@ def serve(
             self.end_headers()
             self.wfile.write(body)
 
-        def do_GET(self) -> None:
+        def _do_get(self) -> None:
             if self.path.startswith("/api/state"):
                 self._send(200, json.dumps(state.snapshot()).encode(), "application/json")
+            elif self.path == "/api/wireless" and get_wireless is not None:
+                self._send(200, json.dumps(get_wireless()).encode(), "application/json")
+            elif self.path.startswith("/api/env_history"):
+                self._env_history()
             elif self.path.startswith("/api/history"):
                 self._history()
             elif self.path == "/api/sensors" and get_sensors is not None:
@@ -3177,8 +5045,10 @@ def serve(
                 self._send(200, json.dumps(get_nutrient()).encode(), "application/json")
             elif self.path == "/api/wifi" and get_wifi is not None:
                 self._send(200, json.dumps(get_wifi()).encode(), "application/json")
+            elif self.path == "/api/mode" and get_mode is not None:
+                self._send(200, json.dumps(get_mode()).encode(), "application/json")
             elif self.path in ("/", "/index.html"):
-                self._send(200, page_bytes, "text/html; charset=utf-8")
+                self._send(200, page_bytes(), "text/html; charset=utf-8")
             else:
                 self._send(404, b"not found", "text/plain")
 
@@ -3197,14 +5067,51 @@ def serve(
                 hours = 24
             self._send(200, json.dumps(history.series(key, hours)).encode(), "application/json")
 
+        def _env_history(self) -> None:
+            if history is None:
+                self._send(200, b'{"sensors":[],"avg":[],"count":0}', "application/json")
+                return
+            query = parse_qs(urlparse(self.path).query)
+            slot = (query.get("slot") or [""])[0]
+            try:
+                hours = int((query.get("hours") or ["24"])[0])
+            except ValueError:
+                hours = 24
+            if hours not in (6, 12, 24, 168):
+                hours = 24
+            self._send(200, json.dumps(history.env_series(slot, hours)).encode(), "application/json")
+
         def _body(self) -> dict:
             try:
                 length = int(self.headers.get("Content-Length") or 0)
-                return json.loads(self.rfile.read(length) or b"{}")
+                if not 0 <= length <= 1 << 20:
+                    return {}
+                body = json.loads(self.rfile.read(length) or b"{}")
             except (ValueError, TypeError):
                 return {}
+            return body if isinstance(body, dict) else {}   # [] 나 "x" 가 와도 .get 에서 죽지 않게
 
         def do_POST(self) -> None:
+            self._guard(self._do_post)
+
+        def do_GET(self) -> None:
+            self._guard(self._do_get)
+
+        def _guard(self, handle) -> None:
+            # 한 요청의 예외가 화면에 빈 응답으로 남지 않게 — JSON 오류로 답한다.
+            try:
+                handle()
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            except Exception as exc:
+                log.exception("화면 요청 처리 실패: %s %s", self.command, self.path)
+                try:
+                    self._send(500, json.dumps({"ok": False, "error": f"장비 내부 오류: {type(exc).__name__}"}).encode(),
+                               "application/json")
+                except Exception:
+                    pass
+
+        def _do_post(self) -> None:
             if self.path == "/api/sensors/scan" and on_scan is not None:
                 # 선을 훑는 동안 측정 차례가 오면 기다린다. 몇 초 걸릴 수 있다.
                 self._send(200, json.dumps({"found": on_scan()}).encode(), "application/json")
@@ -3269,15 +5176,6 @@ def serve(
             # ── MRV 전력 수기 입력 ──────────────────────────────────────
             # 수질 경로(/api/pair/*, /api/unlink)와 **별개**다. 한 창구로 합치면
             # 전력 입력이 수질 연결을 끊는 일이 생긴다.
-            if self.path == "/api/mode" and on_set_mode is not None:
-                body = self._body()
-                picked = body.get("mode")
-                if not isinstance(picked, str):
-                    self._send(200, json.dumps({"ok": False, "error": "모드가 없습니다"}).encode(),
-                               "application/json")
-                    return
-                self._send(200, json.dumps(on_set_mode(picked)).encode(), "application/json")
-                return
             if self.path == "/api/mrv/pair/start" and on_mrv_pair_start is not None:
                 self._send(200, json.dumps(on_mrv_pair_start()).encode(), "application/json")
                 return
@@ -3306,6 +5204,41 @@ def serve(
                     ).encode(), "application/json")
                     return
                 self._send(200, json.dumps(on_mrv_power(body)).encode(), "application/json")
+            if self.path == "/api/mode" and on_set_mode is not None:
+                body = self._body()
+                mode_sel = body.get("mode")
+                if not isinstance(mode_sel, str):
+                    self._send(200, json.dumps({"ok": False, "error": "요청이 올바르지 않습니다."}).encode(),
+                               "application/json")
+                    return
+                self._send(200, json.dumps(on_set_mode(mode_sel)).encode(), "application/json")
+                return
+            if self.path.startswith("/api/wireless/") and on_wireless is not None:
+                action = self.path[len("/api/wireless/"):]
+                body = self._body()
+                if action not in ("permit", "register", "remove", "enable", "ble_fetch", "ble_add", "ble_remove",
+                                  "ble_forget") or not isinstance(body, dict):
+                    self._send(200, json.dumps({"ok": False, "error": "요청이 올바르지 않습니다."}).encode(),
+                               "application/json")
+                    return
+                self._send(200, json.dumps(on_wireless(action, body)).encode(), "application/json")
+                return
+            if self.path == "/api/power/control" and on_power_control is not None:
+                body = self._body()
+                if not isinstance(body, dict):
+                    self._send(200, json.dumps({"ok": False, "error": "요청이 올바르지 않습니다."}).encode(),
+                               "application/json")
+                    return
+                self._send(200, json.dumps(on_power_control(body), ensure_ascii=False).encode(), "application/json")
+                return
+            if self.path == "/api/power/type" and on_set_power_type is not None:
+                body = self._body()
+                sid, kind = body.get("id"), body.get("type")
+                if not isinstance(sid, str) or not isinstance(kind, str):
+                    self._send(200, json.dumps({"ok": False, "error": "요청이 올바르지 않습니다."}).encode(),
+                               "application/json")
+                    return
+                self._send(200, json.dumps(on_set_power_type(sid, kind)).encode(), "application/json")
                 return
             if self.path == "/api/pair/start" and on_pair_start is not None:
                 on_pair_start()

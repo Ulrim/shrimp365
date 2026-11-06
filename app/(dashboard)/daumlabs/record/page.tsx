@@ -1,3 +1,3 @@
-import { RecordHubView } from "@/components/record/record-hub-view"
+import { AgriRecordHubView } from "@/components/agri/agri-record-hub-view"
 
-export default function Page() { return <RecordHubView /> }
+export default function Page() { return <AgriRecordHubView /> }

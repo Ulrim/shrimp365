@@ -1,18 +1,19 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Search, X, Building2, Droplets, BookOpen, FlaskConical, BarChart3, BrainCircuit, LayoutDashboard, ArrowRight, HelpCircle, ClipboardList } from "lucide-react"
 import { getFarms, getAllTanks } from "@/lib/db"
 import { MOCK_FARMS, MOCK_TANKS, isTestAccount } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
 import { useT } from "@/lib/i18n-context"
-import { useAgriRoute } from "@/lib/agri-route"
+import { AGRI_PREFIX, AGRI_ROUTES, isAgriPath } from "@/lib/agri-route"
 import type { Farm, Tank, IconComponent } from "@/types"
 
 // 농업 화면(/daumlabs)에 없는 페이지 — 접두사를 붙일 수 없어 누르면 문맥 밖으로
 // 나가 버린다. sidebar·bottom-nav 와 같은 원칙(설계서 4-3).
 const AGRI_HIDDEN = new Set(["/diagnosis", "/ai-advisor", "/reports"])
+const AGRI_ROUTE_SET: ReadonlySet<string> = new Set(AGRI_ROUTES)
 
 interface SearchPanelProps {
   open: boolean
@@ -22,7 +23,13 @@ interface SearchPanelProps {
 export function SearchPanel({ open, onClose }: SearchPanelProps) {
   const { user } = useAuth()
   const { t } = useT()
-  const { isAgri, href: withAgri } = useAgriRoute()
+  // 농업 화면에서는 농업 쪽 페이지가 있는 주소(AGRI_ROUTES)에만 접두사를 붙인다.
+  // /help 처럼 공용인 주소는 그대로 — 붙이면 404 다.
+  const isAgri = isAgriPath(usePathname() ?? "")
+  const withAgri = useCallback(
+    (p: string) => (isAgri && AGRI_ROUTE_SET.has(p) ? `${AGRI_PREFIX}${p}` : p),
+    [isAgri],
+  )
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState("")

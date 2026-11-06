@@ -1,0 +1,28 @@
+# /etc/default/ofdf — ofdf-edge.service 가 EnvironmentFile 로 읽는 환경변수
+#
+#   sudo cp deploy/ofdf.default.example /etc/default/ofdf
+#   sudo chmod 600 /etc/default/ofdf      # 예보 인증키가 들어가므로
+#   sudo systemctl restart ofdf-edge
+#
+# 셸 스크립트가 아니다. `KEY=값` 한 줄씩이고 따옴표·export 는 쓰지 않는다.
+
+# 1코어에 묶는다. 스레드를 늘려도 빨라지지 않고 전력만 쓴다.
+OMP_NUM_THREADS=1
+OPENBLAS_NUM_THREADS=1
+
+# ── Shrimp365/Farm365 연동 ─────────────────────────────────────────────
+# 둘 다 있어야 업로드가 켜진다. 하나라도 비우면 원본과 똑같이 로컬 기록만 한다.
+#
+# OFDF_UPLOAD_URL      Farm365 판단 수신 엔드포인트
+# OFDF_DEVICE_KEY_FILE 노지 베드에 6자리 코드로 기기를 연결했을 때 발급된
+#                      api_key 를 담은 파일. 키 자체를 여기 적지 않는다 — 이
+#                      파일은 systemd 가 읽어 로그·status 에 드러날 수 있다.
+#                      파일은 ofdf 사용자만 읽게 한다:
+#                        sudo install -d -o ofdf -g ofdf -m 700 /etc/ofdf
+#                        echo '<api_key>' | sudo tee /etc/ofdf/device.key >/dev/null
+#                        sudo chown ofdf:ofdf /etc/ofdf/device.key && sudo chmod 600 /etc/ofdf/device.key
+OFDF_UPLOAD_URL=https://www.shrimp365.kr/api/field/device/judgements
+OFDF_DEVICE_KEY_FILE=/etc/ofdf/device.key
+
+# 기상청 단기예보 인증키 (선택). 비우면 예보 없이 관측만으로 판단한다.
+#OFDF_KMA_SERVICE_KEY=

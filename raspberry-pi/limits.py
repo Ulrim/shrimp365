@@ -38,6 +38,13 @@ NUTRIENT_BANDS: dict[str, dict[str, list]] = {
 }
 
 
+# 차단기 본체 온도(℃) — Zigbee 계측 차단기의 device_temperature. 접점이 닳거나
+# 단자가 풀리면 먼저 뜨거워지므로 화재 전조로 본다(설계서 farm365-main-panel.md 4-4).
+# 비닐하우스 한여름 함 내부가 50 ℃ 를 넘을 수 있어 첫 단계를 65 ℃ 로 잡았다.
+# clear 아래로 내려와야 알림이 풀린다(경계에서 깜빡이지 않게). 서버(lib/power-params.ts)와 같은 값.
+BREAKER_TEMP = {"warn": 65.0, "crit": 80.0, "clear": 60.0}
+
+
 def level(field: str, value: float, nutrient: bool = False) -> str:
     """"" (정상) · "warn" (주의) · "crit" (위험). 화면 JS 의 level() 과 같은 판정이다."""
     table = NUTRIENT_BANDS if nutrient else BANDS

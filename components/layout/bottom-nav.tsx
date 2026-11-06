@@ -5,39 +5,39 @@ import { MRV_PLATFORM_IS_INTERNAL, MRV_PLATFORM_URL, SHOW_BOARD, showCardNews } 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { useT } from "@/lib/i18n-context"
-import { useAgriRoute } from "@/lib/agri-route"
+import { useT, useAgriT } from "@/lib/i18n-context"
+import { isAgriPath } from "@/lib/agri-route"
 import { cn } from "@/lib/utils"
 import {
   Home, LayoutDashboard, Droplets, ClipboardList,
   MoreHorizontal, Building2, FlaskConical, Package,
-  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight, BookOpen, BrainCircuit, MessageSquare, Layers, Radar, Leaf, ExternalLink,
+  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight, BookOpen, BrainCircuit, MessageSquare, Layers, Video, HelpCircle, Beaker, Leaf, ExternalLink,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
+import { ModeSwitch } from "@/components/layout/mode-switch"
 import { PLAN_LABELS, PLAN_COLORS } from "@/lib/plans"
-import { isMonitorAccount } from "@/lib/mock-data"
+import { adminAccess } from "@/lib/admin-access"
 import { localizedHref, stripLocalePrefix } from "@/lib/marketing-locale"
-
-// 농업 화면(/daumlabs)에 없는 메뉴 — sidebar 와 같은 집합(설계서 4-3).
-const AGRI_HIDDEN = new Set(["/production", "/inventory", "/ai-advisor", "/reports"])
 
 export function BottomNav() {
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuth()
   const { t, locale } = useT()
-  // 농업 화면 판정은 주소로 한다. withAgri()는 새우 화면에서 문자열을 그대로 돌려준다.
-  const { isAgri, href: withAgri } = useAgriRoute()
+  const agri = useAgriT()
+  // 농업 화면 판정은 주소로 한다(설계서 mode-split.md 2장). 메뉴는 모드별로
+  // **명시 배열**을 둔다 — 새우 배열은 예전 그대로고, 농업 배열은 /daumlabs 리터럴이다.
+  const isAgri = isAgriPath(pathname ?? "")
   const [moreOpen, setMoreOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const isAdmin = user?.role === "admin" || isMonitorAccount(user?.email)
-  const canControl = isAdmin || user?.role === "manager"
+  // 관리자 콘솔 링크 — 콘솔 가드와 같은 판정(lib/admin-access.ts, 총관리자 이메일 포함).
+  const showConsole = adminAccess(user).console
   /**
-   * 탄소 MRV 플랫폼 진입을 보여 줄 대상.
+   * 탄소 MRV 플랫폼 진입을 보여 줄 대상 — 관리자 콘솔 권한자와 매니저.
    *
-   * 지금은 관제센터(`canControl`)와 같은 집합이지만 **변수를 따로 둔다** — 이유가 다르기
-   * 때문이다. 관제센터는 권한이 없으면 서버가 막는 기능이고, MRV 는 조직 초대제인 **별도
+   * 관리자 콘솔(`showConsole`)과 비슷한 집합이지만 **변수를 따로 둔다** — 이유가 다르기
+   * 때문이다. 콘솔은 권한이 없으면 서버가 막는 기능이고, MRV 는 조직 초대제인 **별도
    * 플랫폼**이다. 초대되지 않은 계정이 들어가면 "초대되지 않음" 안내만 보게 되므로, 그
    * 화면을 대부분 사용자에게 들이밀지 않으려고 좁힌다. 한쪽 기준이 바뀔 때 다른 쪽이
    * 조용히 따라가면 안 된다.
@@ -45,8 +45,18 @@ export function BottomNav() {
    * 노출은 편의일 뿐이고 실제 접근 판정은 MRV 쪽 세션·조직 조회가 한다 — 이 메뉴가
    * 없어도 주소를 직접 치면 들어갈 수 있고, 그래야 초대받은 작업자가 막히지 않는다.
    */
-  const canSeeMrv = isAdmin || user?.role === "manager"
+  const canSeeMrv = showConsole || user?.role === "manager"
 
+  // 두 모드가 함께 보는 항목(게시판·카드뉴스) — 조건은 예전 그대로.
+  // 관제센터·시스템 모니터링은 관리자 콘솔(/admin)로 옮겼다 — 아래 동작 목록의 링크 하나로 들어간다.
+  // 공개 콘텐츠는 언어별 주소가 따로 있다. 접두사 없는 주소는 한국어로
+  // 고정되므로, 로그인한 사용자의 언어에 맞는 주소로 보낸다.
+  const SHARED_MORE = [
+    ...(SHOW_BOARD ? [{ href: localizedHref("/board", locale),    icon: MessageSquare, label: t.board.title }] : []),
+    ...(showCardNews(locale) ? [{ href: localizedHref("/cardnews", locale), icon: Layers,        label: t.cardNews.title }] : []),
+  ]
+
+  // ── 새우 모드(기존 그대로) ──
   const PRIMARY = [
     { href: "/home",               icon: Home,          label: t.nav.home },
     { href: "/record/water-quality", icon: Droplets,    label: t.record.waterQuality },
@@ -56,6 +66,7 @@ export function BottomNav() {
 
   const MORE = [
     { href: "/water-quality", icon: Droplets,      label: t.nav.waterQuality },
+    { href: "/vision",        icon: Video,         label: t.nav.vision },
     { href: "/journal",       icon: BookOpen,      label: t.nav.journal },
     { href: "/farms",         icon: Building2,     label: t.nav.farms },
     { href: "/production",    icon: FlaskConical,  label: t.nav.production },
@@ -63,33 +74,38 @@ export function BottomNav() {
     { href: "/ai-advisor",    icon: BrainCircuit,  label: t.nav.aiAdvisor },
     { href: "/reports",       icon: BarChart3,     label: t.nav.reports },
     // 컬리버 탄소 MRV 플랫폼. 사이드바는 lg 이상에서만 보이므로, 휴대폰에서 같은
-    // 자리는 이 '더보기' 목록이다. 농업 화면에서 숨기는 이유는 sidebar 와 같다 —
-    // 아래 AGRI_HIDDEN 필터는 href 로 견주는데 이 항목의 href 는 환경변수에 따라
-    // 절대 URL 이 될 수 있고, 새우 RAS 탄소 MRV 는 수경재배 문맥의 메뉴가 아니다.
-    ...(canSeeMrv && !isAgri && MRV_PLATFORM_URL
-      ? [
-          {
-            href: MRV_PLATFORM_URL,
-            icon: Leaf,
-            label: t.nav.mrvPlatform,
-            external: !MRV_PLATFORM_IS_INTERNAL,
-          },
-        ]
+    // 자리는 이 '더보기' 목록이다. 새우 모드에만 둔다(사이드바와 같은 이유).
+    ...(canSeeMrv && MRV_PLATFORM_URL
+      ? [{ href: MRV_PLATFORM_URL, icon: Leaf, label: t.nav.mrvPlatform, external: !MRV_PLATFORM_IS_INTERNAL }]
       : []),
-    // 공개 콘텐츠는 언어별 주소가 따로 있다. 접두사 없는 주소는 한국어로
-    // 고정되므로, 로그인한 사용자의 언어에 맞는 주소로 보낸다.
-    ...(SHOW_BOARD ? [{ href: localizedHref("/board", locale),    icon: MessageSquare, label: t.board.title }] : []),
-    ...(showCardNews(locale) ? [{ href: localizedHref("/cardnews", locale), icon: Layers,        label: t.cardNews.title }] : []),
-    ...(canControl ? [{ href: "/control", icon: Radar, label: "관제센터" }] : []),
-    ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: t.nav.admin }] : []),
-  ].filter(item => !isAgri || !AGRI_HIDDEN.has(item.href))
+    ...SHARED_MORE,
+  ]
+
+  // ── 농업 모드 — 라벨은 농업 사전(4개 언어), 주소는 /daumlabs 리터럴 ──
+  const AGRI_PRIMARY = [
+    { href: "/daumlabs/home",                 icon: Home,            label: agri.nav.home },
+    { href: "/daumlabs/record/water-quality", icon: Beaker,          label: agri.nav.recordMeasure },
+    { href: "/daumlabs/record/journal",       icon: ClipboardList,   label: agri.nav.recordJournal },
+    { href: "/daumlabs/dashboard",            icon: LayoutDashboard, label: agri.nav.dashboard },
+  ]
+
+  const AGRI_MORE = [
+    { href: "/daumlabs/water-quality", icon: Droplets,  label: agri.nav.nutrient },
+    { href: "/daumlabs/journal",       icon: BookOpen,  label: agri.nav.journal },
+    { href: "/daumlabs/farms",         icon: Building2, label: agri.nav.farms },
+    ...SHARED_MORE,
+  ]
+
+  const primary = isAgri ? AGRI_PRIMARY : PRIMARY
+  const more = isAgri ? AGRI_MORE : MORE
+  const moreLabel = isAgri ? agri.nav.more : "더보기"
 
   // 언어 접두사를 뗀 뒤 견준다. /en/cardnews 도 "더보기" 안의 항목이다.
   const here = stripLocalePrefix(pathname).path
-  const isMoreActive = MORE.some((item) => {
+  const isMoreActive = more.some((item) => {
     // 외부 주소는 이 앱의 경로가 아니므로 활성 판정에 넣지 않는다.
     if ("external" in item && item.external) return false
-    const target = stripLocalePrefix(withAgri(item.href)).path
+    const target = stripLocalePrefix(item.href).path
     return here === target || here.startsWith(target + "/")
   })
 
@@ -105,8 +121,8 @@ export function BottomNav() {
       {/* ── Bottom Tab Bar ───────────────────────────────────── */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-xl border-t border-border">
         <div className="flex items-stretch h-16 pb-safe">
-          {PRIMARY.map((item) => {
-            const to = withAgri(item.href)
+          {primary.map((item) => {
+            const to = item.href
             const active = pathname === to || pathname.startsWith(to + "/")
             return (
               <Link
@@ -115,10 +131,10 @@ export function BottomNav() {
                 className="relative flex-1 flex flex-col items-center justify-center gap-1 min-h-[44px] transition-colors px-1"
               >
                 {active && (
-                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#1E40AF] rounded-b-full" />
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-brand rounded-b-full" />
                 )}
-                <item.icon className={cn("w-5 h-5 shrink-0 transition-transform", active ? "text-[#1E40AF] scale-110" : "text-muted-foreground")} />
-                <span className={cn("text-[10px] font-medium leading-none truncate w-full text-center", active ? "text-[#1E40AF]" : "text-muted-foreground")}>
+                <item.icon className={cn("w-5 h-5 shrink-0 transition-transform", active ? "text-brand-fg scale-110" : "text-muted-foreground")} />
+                <span className={cn("text-[10px] font-medium leading-none truncate w-full text-center", active ? "text-brand-fg" : "text-muted-foreground")}>
                   {item.label}
                 </span>
               </Link>
@@ -131,11 +147,11 @@ export function BottomNav() {
             className="relative flex-1 flex flex-col items-center justify-center gap-1 min-h-[44px] px-1"
           >
             {isMoreActive && (
-              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#1E40AF] rounded-b-full" />
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-brand rounded-b-full" />
             )}
-            <MoreHorizontal className={cn("w-5 h-5 shrink-0", isMoreActive ? "text-[#1E40AF]" : "text-muted-foreground")} />
-            <span className={cn("text-[10px] font-medium leading-none truncate w-full text-center", isMoreActive ? "text-[#1E40AF]" : "text-muted-foreground")}>
-              더보기
+            <MoreHorizontal className={cn("w-5 h-5 shrink-0", isMoreActive ? "text-brand-fg" : "text-muted-foreground")} />
+            <span className={cn("text-[10px] font-medium leading-none truncate w-full text-center", isMoreActive ? "text-brand-fg" : "text-muted-foreground")}>
+              {moreLabel}
             </span>
           </button>
         </div>
@@ -157,7 +173,7 @@ export function BottomNav() {
             {/* Profile row */}
             <div className="flex items-center gap-3 px-5 py-3 mb-1">
               <Avatar className="w-11 h-11 shrink-0">
-                <AvatarFallback className="bg-[#1E40AF] text-white font-semibold">
+                <AvatarFallback className="bg-brand text-white font-semibold">
                   {user?.name?.[0] || "U"}
                 </AvatarFallback>
               </Avatar>
@@ -170,21 +186,25 @@ export function BottomNav() {
               </span>
             </div>
 
+            {/* 양식장 ↔ 스마트팜 전환(설계서 mode-split.md 3장). 헤더 스위치는
+                sm 미만에서 숨기므로 휴대폰에서는 이 자리가 유일한 전환 수단이다. */}
+            <ModeSwitch variant="sheet" onSwitched={() => setMoreOpen(false)} />
+
             {/* Nav items */}
             <div className="px-4 space-y-1">
-              {MORE.map((item) => {
+              {more.map((item) => {
                 const external = "external" in item && item.external === true
-                const to = external ? item.href : withAgri(item.href)
+                const to = item.href
                 const active = !external && (pathname === to || pathname.startsWith(to + "/"))
                 const className = cn(
                   "flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all",
                   active
-                    ? "bg-[#1E40AF]/10 text-[#1E40AF] border border-[#1E40AF]/25"
+                    ? "bg-brand-a10 text-brand-fg border border-brand-a25"
                     : "text-foreground active:bg-accent"
                 )
                 const inner = (
                   <>
-                    <item.icon className={cn("w-5 h-5", active ? "text-[#1E40AF]" : "text-muted-foreground")} />
+                    <item.icon className={cn("w-5 h-5", active ? "text-brand-fg" : "text-muted-foreground")} />
                     <span className="flex-1 font-medium text-[15px]">{item.label}</span>
                     {/* 새 탭으로 열리는 항목은 꺾쇠(이 앱 안에서 이동) 대신 그 사실을
                         아이콘으로 알린다 — 같은 모양이면 뒤로 가기가 되는 줄 안다. */}
@@ -224,6 +244,29 @@ export function BottomNav() {
 
             {/* Bottom actions */}
             <div className="px-4 pt-2 pb-6 mt-2 border-t border-border space-y-1">
+              {/* 관리자 콘솔 — 관리자·매니저만(사이드바와 같은 자리: 도움말 위). */}
+              {showConsole && (
+                <Link
+                  href="/admin"
+                  onClick={() => setMoreOpen(false)}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-foreground active:bg-accent transition-all"
+                >
+                  <ShieldCheck className="w-5 h-5 text-muted-foreground" />
+                  <span className="flex-1 font-medium text-[15px] text-left">{isAgri ? agri.nav.adminConsole : t.nav.adminConsole}</span>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                </Link>
+              )}
+              {/* 도움말은 사이드바에만 있어 휴대폰에서는 갈 길이 없었다.
+                  사이드바와 같은 자리(설정 위)에 둔다. */}
+              <Link
+                href="/help"
+                onClick={() => setMoreOpen(false)}
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-foreground active:bg-accent transition-all"
+              >
+                <HelpCircle className="w-5 h-5 text-muted-foreground" />
+                <span className="flex-1 font-medium text-[15px] text-left">{t.headerX.help}</span>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </Link>
               <button
                 onClick={() => { setMoreOpen(false); setSettingsOpen(true) }}
                 className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-foreground active:bg-accent transition-all"

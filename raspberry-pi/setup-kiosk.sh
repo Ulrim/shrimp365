@@ -33,9 +33,12 @@ if [ -f "$CONF" ]; then
   else
     echo "==> 상태 페이지를 켭니다 ([webui] enabled = true)"
     # [webui] 구간 안의 enabled 만 바꾼다. 다른 구간에도 같은 이름이 있다.
-    awk '/^\[webui\]/{s=1} /^\[/&&!/^\[webui\]/{s=0}
-         s&&/^[[:space:]]*enabled[[:space:]]*=/{print "enabled = true";next}
-         {print}' "$CONF" > "$CONF.tmp"
+    # enabled 줄이 없으면 [webui] 바로 밑에, [webui] 가 없으면 끝에 붙인다.
+    awk '/^\[webui\]/{print; s=1; w=1; if(!d){print "enabled = true"; d=1}; next}
+         /^\[/{s=0}
+         s&&/^[[:space:]]*enabled[[:space:]]*=/{next}
+         {print}
+         END{if(!w){print ""; print "[webui]"; print "enabled = true"}}' "$CONF" > "$CONF.tmp"
     # 권한과 소유자를 원본 그대로 유지한 채 바꿔치기한다.
     chown --reference="$CONF" "$CONF.tmp"
     chmod --reference="$CONF" "$CONF.tmp"

@@ -5,7 +5,6 @@ import { CloudRain, Wind, AlertTriangle, MapPin, Sun, Cloud, CloudDrizzle, Cloud
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import { useT } from "@/lib/i18n-context"
-import { useAgriRoute } from "@/lib/agri-route"
 import type { Dict, Locale } from "@/lib/i18n"
 
 type Day = {
@@ -53,7 +52,6 @@ export function WeatherCard({
   farmName?: string
 }) {
   const { t, locale } = useT()
-  const { href: withAgri } = useAgriRoute()
   const [data, setData] = useState<Weather | null>(null)
   const [failed, setFailed] = useState(false)
 
@@ -81,7 +79,7 @@ export function WeatherCard({
             {t.weather.noCoordsMsg}
           </p>
           <Link
-            href={withAgri("/farms")}
+            href="/farms"
             className="inline-flex items-center gap-1.5 mt-3 text-sm text-ocean-500 hover:underline"
           >
             <MapPin className="w-3.5 h-3.5" /> {t.weather.setCoordsLink}

@@ -1,0 +1,56 @@
+# 노지 대파 재해위험 판단 엣지 서비스 (라즈베리파이)
+#
+#   /opt/ofdf/venv/bin/pip install -e /opt/ofdf          # ① 패키지 설치 (pyproject.toml)
+#   sudo cp deploy/ofdf.default.example /etc/default/ofdf  # ② 환경변수 (아래 참조)
+#   sudo cp deploy/ofdf-edge.service /etc/systemd/system/
+#   sudo systemctl enable --now ofdf-edge
+#
+# ①이 빠지면 ExecStart 의 `python -m ofdf.cli` 가 ModuleNotFoundError 로 죽는다.
+# 원본은 PYTHONPATH=src 로만 돌았고 유닛에는 그 변수가 없어서, 그대로 깔면
+# 재시작 루프에 빠졌다. 지금은 venv 에 **설치된** ofdf 를 쓴다 — 작업 디렉터리나
+# PYTHONPATH 에 기대지 않는다.
+#
+# /etc/default/ofdf 가 쥐는 것 (deploy/ofdf.default.example):
+#   OMP_NUM_THREADS / OPENBLAS_NUM_THREADS   스레드 1개 고정
+#   OFDF_UPLOAD_URL, OFDF_DEVICE_KEY_FILE    Farm365 판단 업로드 — 둘 다 있을 때만 켜짐
+#   OFDF_KMA_SERVICE_KEY                     기상청 단기예보 (선택)
+#
+# 단일 스레드 바운드 작업이라 스레드를 늘려도 빨라지지 않는다(1코어 34ms,
+# 4코어 38ms). 전력과 발열만 늘기 때문에 1로 묶는다.
+
+[Unit]
+Description=노지 대파 재해위험 판단·조치추천 엣지 서비스
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ofdf
+WorkingDirectory=/opt/ofdf
+# 업로드·예보 키 등 현장마다 다른 값. 파일이 없어도('-') 기동한다 — 그때는
+# 업로드 없이 로컬 기록만 한다.
+EnvironmentFile=-/etc/default/ofdf
+Environment=PYTHONUNBUFFERED=1
+Environment=OMP_NUM_THREADS=1
+Environment=OPENBLAS_NUM_THREADS=1
+# venv 에 pip install -e . 로 설치된 ofdf 패키지를 부른다 (PYTHONPATH 불필요)
+ExecStart=/opt/ofdf/venv/bin/python -m ofdf.cli edge --config configs/weather.yaml
+
+# 통신이 끊겨도 혼자 돌아야 한다. 죽으면 즉시 되살린다.
+Restart=always
+RestartSec=5
+# 메모리 실측 181MB. 2GB 모델에서도 OS 를 밀어내지 않도록 상한을 둔다.
+MemoryMax=512M
+# 과열 시 다른 작업에 양보한다
+Nice=5
+
+# 쓰기는 작업 디렉터리와 로그에만 허용한다. 업로드 큐(logs/upload_queue.jsonl)도
+# logs/ 안이다. 기기 키 파일(/etc/ofdf/device.key)은 읽기만 하므로 열 필요 없다.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/ofdf/artifacts /opt/ofdf/logs /opt/ofdf/dashboard
+
+[Install]
+WantedBy=multi-user.target

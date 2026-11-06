@@ -234,3 +234,21 @@ def detect(rows: list[dict]) -> list[dict]:
     kind_order = {"surge": 0, "drift": 1, "deviation": 2}
     found.sort(key=lambda a: (0 if a["type"] == "danger" else 1, kind_order[a["kind"]]))
     return found
+
+
+def payload_field(found: list[dict], max_items: int = 3) -> str:
+    """서버로 보낼 한 줄 요약. `항목:종류:등급:값` 을 쉼표로 잇는다.
+
+    중첩 JSON 이 아니라 문자열인 이유는 서버가 기기 카드에 남기는 `last_payload`
+    가 스칼라만 보관하기 때문이다 — 배열로 보내면 나중에 "그때 장비가 뭘
+    보냈나" 를 볼 수 없다.
+
+    심한 것부터 최대 세 개만 보낸다. detect() 가 이미 그 순서로 돌려준다.
+    """
+    parts = []
+    for a in found[:max_items]:
+        parts.append("{}:{}:{}:{}".format(
+            a["parameter"], a["kind"], a["type"],
+            round(float(a["value"]), int(a.get("digits", 2))),
+        ))
+    return ",".join(parts)

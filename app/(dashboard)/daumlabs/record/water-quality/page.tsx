@@ -1,3 +1,3 @@
-import { WaterQualityRecordView } from "@/components/record/water-quality-record-view"
+import { AgriMeasureRecordView } from "@/components/agri/agri-measure-record-view"
 
-export default function Page() { return <WaterQualityRecordView /> }
+export default function Page() { return <AgriMeasureRecordView /> }
