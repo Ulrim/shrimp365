@@ -43,6 +43,7 @@ import {
 } from "recharts"
 import {
   useSiteReadings,
+  type SiteReadingsSeriesResult,
   type UseSiteReadingsTarget,
 } from "@/lib/mrv/ui/use-site-readings"
 import { READING_TYPE_META, describeAggregation } from "@/lib/mrv/ui/reading-meta"
@@ -106,7 +107,53 @@ export function ReadingTimeSeriesChart({
     to,
     granularity,
   })
+  return (
+    <ReadingTimeSeriesChartView
+      type={type}
+      from={from}
+      to={to}
+      granularity={granularity}
+      series={series}
+      isLoading={isLoading}
+      isError={isError}
+      isEmpty={isEmpty}
+      // 조회할 대상이 아예 없는 것(계측기 미등록)과 조회했더니 비어 있는 것은 다르게 안내한다.
+      hasNoTarget={targets.length === 0}
+      noMeterNotice={noMeterNotice}
+    />
+  )
+}
 
+/** 표시 전용 부분의 입력 — 조회 결과를 밖에서 넣는다(앱 화면은 useSiteReadings, 공개 데모는 픽스처). */
+export type ReadingTimeSeriesChartViewProps = {
+  type: ReadingMeterType
+  from: string
+  to: string
+  granularity: "hourly" | "daily"
+  series: SiteReadingsSeriesResult[]
+  isLoading: boolean
+  isError: boolean
+  isEmpty: boolean
+  hasNoTarget: boolean
+  noMeterNotice?: string
+}
+
+/**
+ * 차트 본체. 데이터 조회를 모른다 — 같은 그림을 앱 화면(/mrv/overview)과 공개 데모(/mrv/demo)가
+ * 함께 쓴다. 두 화면이 다른 차트를 그리면 데모가 "실제보다 좋아 보이는" 그림이 될 수 있어 하나로 둔다.
+ */
+export function ReadingTimeSeriesChartView({
+  type,
+  from,
+  to,
+  granularity,
+  series,
+  isLoading,
+  isError,
+  isEmpty,
+  hasNoTarget,
+  noMeterNotice,
+}: ReadingTimeSeriesChartViewProps) {
   const meta = READING_TYPE_META[type]
 
   const { rows, seriesKeys, unit } = useMemo(() => {
@@ -158,8 +205,6 @@ export function ReadingTimeSeriesChart({
   }, [series])
 
   const hasAnyData = seriesKeys.length > 0
-  // 조회할 대상이 아예 없는 것(계측기 미등록)과 조회했더니 비어 있는 것은 다르게 안내한다.
-  const hasNoTarget = targets.length === 0
   // 점진적 렌더: 일부가 아직 로딩 중이어도 이미 도착한 데이터는 바로 보여 준다.
   const showSkeleton = isLoading && !hasAnyData
   const showError = isError && !hasAnyData

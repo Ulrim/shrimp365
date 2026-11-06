@@ -1,14 +1,13 @@
 import type { Metadata } from "next"
 import type { ReactNode } from "react"
-import { MrvSessionProvider } from "@/lib/mrv/ui/session"
-import { MrvShell } from "@/components/mrv/shell"
 
 /*
- * /mrv 하위 전체의 셸.
+ * /mrv 의 뿌리 레이아웃 — 메타데이터만 둔다.
  *
- * 이 구역은 shrimp365(B2C)와 다른 제품이다 — 조직 단위 멀티테넌시에 초대 기반이고,
- * 화면도 별도 디자인 토큰(mrv-*)을 쓴다. 그래서 대시보드 사이드바 대신 자체 내비를
- * 두고, 세션 컨텍스트도 따로 잡는다. 공유하는 것은 로그인 계정 하나뿐이다.
+ * 세션 컨텍스트와 셸(내비)은 `(app)/layout.tsx` 에 있다. 둘을 나눈 이유는 `/mrv/demo`
+ * (로그인 없이 열리는 공개 데모)가 같은 주소 밑에 있으면서도 세션·조직 조회를 **하지 않아야**
+ * 하기 때문이다. 세션 provider 가 여기 있으면 데모 페이지도 /auth/me 를 두드려 "초대되지 않음"
+ * 으로 떨어진다.
  */
 
 export const metadata: Metadata = {
@@ -19,10 +18,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-export default function MrvLayout({ children }: { children: ReactNode }) {
-  return (
-    <MrvSessionProvider>
-      <MrvShell>{children}</MrvShell>
-    </MrvSessionProvider>
-  )
+export default function MrvRootLayout({ children }: { children: ReactNode }) {
+  return children
 }
