@@ -56,6 +56,14 @@ export function NotInvited({ status = 403 }: { status?: NotInvitedReasonStatus }
       <p className="text-sm text-mrv-muted">{BODY_BY_STATUS[status]}</p>
 
       <p className="text-xs text-mrv-muted">
+        초대 전이라도 플랫폼이 무엇인지 보려면{" "}
+        <Link href="/mrv/demo" className="underline text-mrv-primary">
+          공개 데모
+        </Link>
+        를 열 수 있습니다 — 시연 자료로 같은 화면을 로그인 없이 보여 줍니다.
+      </p>
+
+      <p className="text-xs text-mrv-muted">
         카카오 계정처럼 이메일이 제공되지 않는 경우에도 관리자가 직접 연결할 수 있습니다. 문의 시
         사용 중인 로그인 방식을 함께 알려 주세요.
       </p>
