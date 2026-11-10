@@ -51,9 +51,16 @@ class TrainedRisk:
     class_weight: dict[int, float] = field(default_factory=dict)
     #: 판정 시 등급별 확률에 곱하는 값. 검증셋에서 고른다.
     decision_weight: list[float] = field(default_factory=lambda: [1.0, 1.0, 1.0])
+    #: 2등급 전용학습 모델의 위험 판정 경계(P(위험) >= 경계 이면 위험).
+    #: 학습+검증 교차검증 예측에서 고른다(:func:`tune_risk_threshold`).
+    #: 있으면 ``decision_weight`` 대신 이것으로 판정한다.
+    risk_threshold: float | None = None
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
-        return decide_levels(self.predict_proba(X), self.decision_weight)
+        proba = self.predict_proba(X)
+        if self.risk_threshold is not None:
+            return decide_risk(proba, self.risk_threshold)
+        return decide_levels(proba, self.decision_weight)
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         return self.booster.predict(
@@ -140,6 +147,121 @@ def decide_levels(proba: np.ndarray, weight: Sequence[float] | None = None) -> n
         return proba.argmax(axis=1)
     w = np.asarray(weight, dtype=float)[: proba.shape[1]]
     return (proba * w).argmax(axis=1)
+
+
+def risk_probability(proba: np.ndarray) -> np.ndarray:
+    """등급별 확률에서 '주의 이상'일 확률을 낸다."""
+    proba = np.asarray(proba, dtype=float)
+    return proba[:, 1:].sum(axis=1)
+
+
+def decide_risk(proba: np.ndarray, threshold: float) -> np.ndarray:
+    """P(주의 이상) 이 경계 이상이면 1(위험), 아니면 0."""
+    return (risk_probability(proba) >= threshold).astype(int)
+
+
+def wilson_lower(hits: int, total: int, z: float = 1.96) -> float:
+    """비율의 95% 윌슨 신뢰하한."""
+    if total <= 0:
+        return 0.0
+    p = hits / total
+    denom = 1 + z * z / total
+    centre = p + z * z / (2 * total)
+    margin = z * np.sqrt(p * (1 - p) / total + z * z / (4 * total * total))
+    return float((centre - margin) / denom)
+
+
+def tune_risk_threshold(
+    score: np.ndarray,
+    y_risk: np.ndarray,
+    *,
+    recall_floor: float = RISK_RECALL_FLOOR,
+) -> float:
+    """위험 판정 경계를 고른다 — 놓침 방지율 **신뢰하한**이 하한 이상인 것 중
+    Macro F1 이 가장 높은 경계.
+
+    점추정 재현율을 0.85 에 맞추면 시험셋에서 표본 오차만큼 아래로 떨어진다
+    (강우·과습 3시간이 교차검증 0.850 → 시험 0.842 였다). 재해 경보에서
+    놓침 방지율은 1순위 지표이므로, 표본 크기를 반영한 95% 하한으로 지킨다.
+    ``score`` 는 **시험셋이 아닌** 예측(교차검증 등)이어야 한다.
+    """
+    from sklearn.metrics import f1_score
+
+    y_risk = np.asarray(y_risk, dtype=int)
+    score = np.asarray(score, dtype=float)
+    total = int(y_risk.sum())
+    best_t, best_f = None, -1.0
+    for t in np.linspace(0.02, 0.98, 97):
+        pred = (score >= t).astype(int)
+        if pred.sum() == 0:
+            continue
+        if wilson_lower(int(pred[y_risk == 1].sum()), total) < recall_floor:
+            continue
+        f = f1_score(y_risk, pred, average="macro", zero_division=0)
+        if f > best_f:
+            best_t, best_f = float(t), f
+    # 하한을 지키는 경계가 없으면 가장 민감한 경계를 쓴다(놓침 방지 우선)
+    return best_t if best_t is not None else 0.02
+
+
+def compound_score(p_wet: np.ndarray, p_disease: np.ndarray, p_frost: np.ndarray) -> np.ndarray:
+    """복합위험 점수 — P(과습) x max(P(병해 유리), P(서리)).
+
+    복합위험은 '강우·과습 + 병해 유리환경' 또는 '과습 + 저온·서리'가 겹친
+    상태다(:func:`ofdf.labels.risk.compose_compound`). 구성 위험의 **등급**을
+    AND 로 묶으면 각 구성의 놓침이 곱해져 복합의 놓침 방지율이 떨어진다.
+    확률로 묶고 경계를 따로 고르면 그 손실을 되찾는다.
+    """
+    return np.asarray(p_wet) * np.maximum(np.asarray(p_disease), np.asarray(p_frost))
+
+
+def compound_level(
+    score: np.ndarray, threshold: float,
+    wet: np.ndarray, disease: np.ndarray, frost: np.ndarray,
+) -> np.ndarray:
+    """복합위험 등급 — 점수가 경계 이상이면 주의, 구성 중 경계가 있으면 경계."""
+    from ofdf.labels.risk import CAUTION, WARNING
+
+    hit = np.asarray(score) >= threshold
+    escalate = (
+        (np.asarray(wet) >= WARNING) | (np.asarray(disease) >= WARNING) | (np.asarray(frost) >= WARNING)
+    )
+    out = np.zeros(len(hit), dtype=int)
+    out[hit] = CAUTION
+    out[hit & escalate] = WARNING
+    return out
+
+
+def oof_risk_proba(
+    X: pd.DataFrame,
+    y: np.ndarray,
+    dev_idx: np.ndarray,
+    groups: np.ndarray,
+    *,
+    risk: str,
+    horizon: int,
+    params: dict | None = None,
+    n_splits: int = 5,
+) -> np.ndarray:
+    """학습+검증(``dev_idx``) 안에서 기상사례 블록 단위 교차검증 예측을 낸다.
+
+    판정 경계를 고를 표본을 늘리려는 것이다. 검증셋 하나는 위험 사례가 수십
+    건뿐이라 경계가 흔들린다. **시험셋은 쓰지 않는다.** 각 접힘 모델의
+    조기종료도 접힘 학습분 안에서 다시 나눈 검증분으로 한다.
+    반환값은 ``len(X)`` 길이이고 ``dev_idx`` 밖은 NaN 이다.
+    """
+    from sklearn.model_selection import GroupKFold, GroupShuffleSplit
+
+    out = np.full(len(X), np.nan)
+    g = np.asarray(groups)
+    folds = GroupKFold(n_splits=n_splits).split(dev_idx, groups=g[dev_idx])
+    for k, (fit_rel, hold_rel) in enumerate(folds):
+        fit, hold = dev_idx[fit_rel], dev_idx[hold_rel]
+        inner = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=k)
+        f_tr, f_va = next(inner.split(fit, groups=g[fit]))
+        model = train_one(X, y, fit[f_tr], fit[f_va], risk=risk, horizon=horizon, params=params)
+        out[hold] = risk_probability(model.predict_proba(X.iloc[hold]))
+    return out
 
 
 def combine_binary(binary: np.ndarray, levels: np.ndarray) -> np.ndarray:
@@ -320,9 +442,10 @@ def save(model: TrainedRisk, path: str | Path) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     model.booster.save_model(str(path), num_iteration=model.best_iteration or None)
-    path.with_suffix(".weights.json").write_text(
-        json.dumps({"decision_weight": list(model.decision_weight)}), encoding="utf-8"
-    )
+    side = {"decision_weight": list(model.decision_weight)}
+    if model.risk_threshold is not None:
+        side["risk_threshold"] = float(model.risk_threshold)
+    path.with_suffix(".weights.json").write_text(json.dumps(side), encoding="utf-8")
 
 
 def load_decision_weight(path: str | Path) -> list[float] | None:
@@ -337,3 +460,41 @@ def load_decision_weight(path: str | Path) -> list[float] | None:
     except (ValueError, KeyError):
         return None
     return [float(v) for v in got] or None
+
+
+def load_risk_threshold(path: str | Path) -> float | None:
+    """모델 파일 경로에 딸린 위험 판정 경계를 읽는다. 없으면 ``None``."""
+    import json
+
+    side = Path(path).with_suffix(".weights.json")
+    if not side.exists():
+        return None
+    try:
+        got = json.loads(side.read_text(encoding="utf-8")).get("risk_threshold")
+    except ValueError:
+        return None
+    return None if got is None else float(got)
+
+
+def compound_threshold_path(model_dir: str | Path, horizon: int) -> Path:
+    return Path(model_dir) / f"compound_h{horizon}.json"
+
+
+def save_compound_threshold(model_dir: str | Path, horizon: int, threshold: float) -> None:
+    import json
+
+    compound_threshold_path(model_dir, horizon).write_text(
+        json.dumps({"threshold": float(threshold)}), encoding="utf-8"
+    )
+
+
+def load_compound_threshold(model_dir: str | Path, horizon: int) -> float | None:
+    import json
+
+    path = compound_threshold_path(model_dir, horizon)
+    if not path.exists():
+        return None
+    try:
+        return float(json.loads(path.read_text(encoding="utf-8"))["threshold"])
+    except (ValueError, KeyError):
+        return None

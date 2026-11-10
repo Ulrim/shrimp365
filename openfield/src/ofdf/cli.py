@@ -44,6 +44,8 @@ LOG = logging.getLogger("ofdf.edge")
 BASE_RISKS = ["heat_dry", "rain_wet", "disease", "frost"]
 #: 2등급 유형 전용학습 모델을 모델 묶음에 실을 때 쓰는 열쇠 꼬리
 BINARY_SUFFIX = "__binary"
+#: 복합위험 점수 경계를 모델 묶음에 실을 때 쓰는 열쇠
+COMPOUND_THRESHOLD_KEY = "compound__threshold"
 LEVEL_NAMES = {0: "정상", 1: "주의", 2: "경계"}
 
 #: 추론 주기(초). 사업계획서의 'AI 선행판단 L2 5분 주기'.
@@ -236,10 +238,15 @@ def load_models(model_dir: Path, horizons: tuple[int, ...] = HORIZONS) -> dict:
                     bucket[f"{risk}{BINARY_SUFFIX}"] = (
                         lgb.Booster(model_file=str(binary)),
                         weather_risk.load_decision_weight(binary),
+                        weather_risk.load_risk_threshold(binary),
                     )
             else:
                 LOG.warning("모델 없음: %s", path)
         if bucket:
+            # 복합위험 점수 경계 — 학습 때 교차검증에서 고른 값(train_weather)
+            threshold = weather_risk.load_compound_threshold(model_dir, horizon)
+            if threshold is not None:
+                bucket[COMPOUND_THRESHOLD_KEY] = threshold
             models[horizon] = bucket
     return models
 
@@ -388,20 +395,26 @@ def judge(models: dict, features: pd.DataFrame) -> tuple[dict, dict, dict]:
     """위험등급·신뢰도·판단근거를 낸다."""
     row = features.iloc[[-1]]
     levels, confidences, evidence = {}, {}, {}
+    risk_proba: dict[str, float] = {}
 
     for risk, entry in models.items():
-        if risk.endswith(BINARY_SUFFIX):
+        if risk.endswith(BINARY_SUFFIX) or risk == COMPOUND_THRESHOLD_KEY:
             continue
         model, weight = entry if isinstance(entry, tuple) else (entry, None)
         columns = model.feature_name()
         proba = model.predict(row.reindex(columns=columns))[0]
         level = int(weather_risk.decide_levels(proba.reshape(1, -1), weight)[0])
+        risk_proba[risk] = float(weather_risk.risk_probability(proba.reshape(1, -1))[0])
         binary_entry = models.get(f"{risk}{BINARY_SUFFIX}")
         if binary_entry is not None:
-            b_model, b_weight = binary_entry
-            b_proba = b_model.predict(row.reindex(columns=b_model.feature_name()))[0]
-            b_level = weather_risk.decide_levels(b_proba.reshape(1, -1), b_weight)
+            b_model, b_weight, b_threshold = (tuple(binary_entry) + (None,))[:3]
+            b_proba = b_model.predict(row.reindex(columns=b_model.feature_name()))[0].reshape(1, -1)
+            if b_threshold is not None:
+                b_level = weather_risk.decide_risk(b_proba, b_threshold)
+            else:
+                b_level = weather_risk.decide_levels(b_proba, b_weight)
             level = int(weather_risk.combine_binary(b_level, [level])[0])
+            risk_proba[risk] = float(weather_risk.risk_probability(b_proba)[0])
         levels[risk] = level
         # 신뢰도는 가중치를 적용하지 않은 원래 확률로 적는다 — 농가와
         # 운영자가 보는 값은 모델이 그 등급을 얼마나 확신하는가이지,
@@ -422,9 +435,26 @@ def judge(models: dict, features: pd.DataFrame) -> tuple[dict, dict, dict]:
                 for i in order
             ]
 
-    levels["compound"] = int(compose_compound(
-        [levels.get("rain_wet", 0)], [levels.get("disease", 0)], [levels.get("frost", 0)]
-    )[0])
+    threshold = models.get(COMPOUND_THRESHOLD_KEY)
+    if threshold is not None and {"rain_wet", "disease", "frost"} <= risk_proba.keys():
+        # 학습 평가(train_weather)와 같은 규칙 — 구성 위험 확률로 점수를 내고
+        # 교차검증에서 고른 경계와 비교한다.
+        score = weather_risk.compound_score(
+            [risk_proba["rain_wet"]], [risk_proba["disease"]], [risk_proba["frost"]]
+        )
+        levels["compound"] = int(weather_risk.compound_level(
+            score, threshold,
+            [levels.get("rain_wet", 0)], [levels.get("disease", 0)], [levels.get("frost", 0)],
+        )[0])
+        # 점수는 신뢰도(자동 실행 0.70 기준)에 넣지 않는다 — 뜻이 다르다.
+        # 판단근거로만 남긴다.
+        evidence["compound"] = [
+            {"feature": "compound_score", "value": float(score[0]), "contribution": float(threshold)}
+        ]
+    else:
+        levels["compound"] = int(compose_compound(
+            [levels.get("rain_wet", 0)], [levels.get("disease", 0)], [levels.get("frost", 0)]
+        )[0])
     return levels, confidences, evidence
 
 
@@ -532,6 +562,13 @@ def run_once(
     reasons = compound_reasons(
         levels.get("rain_wet", 0), levels.get("disease", 0), levels.get("frost", 0)
     )
+    if levels.get("compound", 0) > 0 and not reasons:
+        # 점수 판정은 구성 위험이 각각 주의 경계를 넘기 전에도 복합을 부를 수
+        # 있다. 그때도 근거 없이 알리지 않도록 확률 조합을 근거로 적는다.
+        reasons = [
+            f"강우·과습과 병해 유리환경·저온·서리 위험이 함께 높아지는 중"
+            f" (복합 점수 {evidence.get('compound', [{}])[0].get('value', 0):.2f})"
+        ]
     sensors = sensors_from(observations, now)
     decision = decide(levels, sensors, confidence=confidences, compound_reasons=reasons,
                       installed_devices=config.installed_devices)
@@ -715,7 +752,7 @@ def main(argv: list[str] | None = None) -> int:
     # models 는 {시계: {위험유형: 모델}} 이라 len() 은 시계 수다. 모델 수를
     # 묻는 자리이므로 실제 개수를 센다.
     LOG.info("ofdf %s · 모델 %d개(시계 %s) · 구간 '%s' · 주기 %d초",
-             __version__, sum(len(b) for b in models.values()),
+             __version__, sum(sum(1 for k in b if k != COMPOUND_THRESHOLD_KEY) for b in models.values()),
              "·".join(f"{h}h" for h in sorted(models)),
              config.zone, config.period)
 

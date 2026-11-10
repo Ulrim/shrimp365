@@ -90,6 +90,13 @@ def main() -> int:
     train_idx, valid_idx, test_idx = weather_risk.split_by_event(shared_groups, seed=args.seed)
     print(f"[분할] 학습 {len(train_idx):,} / 검증 {len(valid_idx):,} / 시험 {len(test_idx):,} "
           f"(기상사례 블록 {shared_groups.nunique():,}개 단위)")
+    # 판정 경계를 고를 표본 — 학습+검증 전체의 교차검증 예측. 시험셋은 쓰지 않는다.
+    dev_idx = np.sort(np.concatenate([train_idx, valid_idx]))
+    group_arr = shared_groups.to_numpy()
+    # 복합위험 점수용 구성 위험 확률 — 교차검증(oof)과 시험(test)
+    compound_parts: dict[int, dict[str, dict[str, np.ndarray]]] = {
+        h: {"oof": {}, "test": {}} for h in horizons
+    }
 
     for risk in base_risks:
         events = ds.events[f"{risk}_event"].reset_index(drop=True)
@@ -136,21 +143,39 @@ def main() -> int:
                     X, binary_y, train_idx, valid_idx,
                     risk=risk, horizon=horizon, params={"num_class": 2},
                 )
+                oof = weather_risk.oof_risk_proba(
+                    X, binary_y, dev_idx, group_arr,
+                    risk=risk, horizon=horizon, params={"num_class": 2},
+                )
+                direct.risk_threshold = weather_risk.tune_risk_threshold(
+                    oof[dev_idx], binary_y[dev_idx]
+                )
+                print(f"    [경계] {tag} 전용학습 P(위험) >= {direct.risk_threshold:.2f} "
+                      f"(교차검증 {len(dev_idx):,}시간에서 선택)")
                 pred_direct = direct.predict(X.iloc[test_idx])
+                if risk in ("rain_wet", "frost"):
+                    compound_parts[horizon]["oof"][risk] = oof
+                    compound_parts[horizon]["test"][risk] = weather_risk.risk_probability(
+                        direct.predict_proba(X.iloc[test_idx])
+                    )
                 op_direct = metrics.binary_score(binary_y[test_idx], pred_direct)
                 weather_risk.save(direct, out_dir / f"model_{key}_binary.txt")
                 # 현장 판정(cli.judge)과 같은 규칙 — 위험 여부는 전용학습,
                 # 주의·경계 구분은 3등급 모델. 복합위험 조합도 이 등급을 쓴다.
                 level_ai = weather_risk.combine_binary(pred_direct, pred_ai)
 
+            # 놓침방지·오경보·사전알림은 **현장이 실제로 내는 판정**(level_ai)으로
+            # 잰다. 전용학습이 있는 유형에서 3등급 모델 값을 쓰면 F1 과 재현율이
+            # 서로 다른 모델의 수치가 된다.
+            s_dep = metrics.score(y_test, level_ai)
             results["단순 기준값 규칙"][tag] = s_rule
             results["로지스틱 회귀(현재값)"][tag] = s_logit
-            results["LightGBM(AI)"][tag] = s_ai
+            results["LightGBM(AI)"][tag] = s_dep
 
-            gain = metrics.improvement(s_rule, s_ai)
-            detection = metrics.event_detection(y_test, pred_ai, events.iloc[test_idx])
+            gain = metrics.improvement(s_rule, s_dep)
+            detection = metrics.event_detection(y_test, level_ai, events.iloc[test_idx])
             lead = metrics.lead_time_minutes(
-                meta.iloc[test_idx]["ts"], y_test, pred_ai, events.iloc[test_idx]
+                meta.iloc[test_idx]["ts"], y_test, level_ai, events.iloc[test_idx]
             )
 
             rows.append(
@@ -169,9 +194,9 @@ def main() -> int:
                     "조치단위 개선(%p)": round(
                         ((op_direct or op_ai).macro_f1 - op_rule.macro_f1) * 100, 1
                     ),
-                    "AI 놓침방지율": round(s_ai.risk_recall, 3),
+                    "AI 놓침방지율": round(s_dep.risk_recall, 3),
                     "규칙 놓침방지율": round(s_rule.risk_recall, 3),
-                    "AI 오경보율": round(s_ai.false_alarm_rate, 3),
+                    "AI 오경보율": round(s_dep.false_alarm_rate, 3),
                     "MacroF1 개선(%p)": round(gain["macro_f1_gain_pp"], 1),
                     "놓침방지 개선(%p)": round(gain["risk_recall_gain_pp"], 1),
                     "이벤트 탐지율": round(detection["detection_rate"], 3),
@@ -180,13 +205,20 @@ def main() -> int:
             )
 
             component_preds[horizon][risk] = level_ai
+            if risk == "disease":
+                compound_parts[horizon]["oof"][risk] = weather_risk.oof_risk_proba(
+                    X, y, dev_idx, group_arr, risk=risk, horizon=horizon,
+                )
+                compound_parts[horizon]["test"][risk] = weather_risk.risk_probability(
+                    model.predict_proba(X.iloc[test_idx])
+                )
 
             weather_risk.save(model, out_dir / f"model_{key}.txt")
             explanations[key] = weather_risk.feature_importance(model).to_dict("records")
             direct_text = f" / 전용학습 {op_direct.macro_f1:.3f}" if op_direct else ""
             print(f"  [완료] {tag}: 3등급 F1 {s_ai.macro_f1:.3f} / "
                   f"조치단위 F1 {op_ai.macro_f1:.3f}{direct_text} "
-                  f"({unit.split('(')[0].strip()}) / 놓침방지 {s_ai.risk_recall:.3f}")
+                  f"({unit.split('(')[0].strip()}) / 놓침방지 {s_dep.risk_recall:.3f}")
 
     # ---- 복합위험: 구성 위험 예측 조합 ----
     for horizon in horizons:
@@ -197,7 +229,25 @@ def main() -> int:
         if (y_test >= 1).sum() == 0:
             continue
 
-        pred_ai = compose_compound(parts["rain_wet"], parts["disease"], parts["frost"])
+        probs = compound_parts[horizon]
+        if {"rain_wet", "disease", "frost"} <= probs["oof"].keys():
+            y_all = ds.labels[f"compound_h{horizon}"].reset_index(drop=True).fillna(0).astype(int).to_numpy()
+            oof_score = weather_risk.compound_score(
+                probs["oof"]["rain_wet"], probs["oof"]["disease"], probs["oof"]["frost"]
+            )
+            threshold = weather_risk.tune_risk_threshold(
+                oof_score[dev_idx], (y_all[dev_idx] >= 1).astype(int)
+            )
+            weather_risk.save_compound_threshold(out_dir, horizon, threshold)
+            print(f"    [경계] 복합위험 {horizon}시간 점수 >= {threshold:.2f} (교차검증에서 선택)")
+            test_score = weather_risk.compound_score(
+                probs["test"]["rain_wet"], probs["test"]["disease"], probs["test"]["frost"]
+            )
+            pred_ai = weather_risk.compound_level(
+                test_score, threshold, parts["rain_wet"], parts["disease"], parts["frost"]
+            )
+        else:
+            pred_ai = compose_compound(parts["rain_wet"], parts["disease"], parts["frost"])
         pred_rule = states["compound"].iloc[test_idx].to_numpy()
 
         s_rule = metrics.score(y_test, pred_rule)
