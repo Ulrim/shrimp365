@@ -142,6 +142,21 @@ def decide_levels(proba: np.ndarray, weight: Sequence[float] | None = None) -> n
     return (proba * w).argmax(axis=1)
 
 
+def combine_binary(binary: np.ndarray, levels: np.ndarray) -> np.ndarray:
+    """2등급 유형의 최종 등급 — 위험 여부는 전용학습, 등급은 3등급 모델.
+
+    주의와 경계가 같은 조치를 내는 유형(강우·과습, 저온·서리)은 정상 대
+    위험을 직접 학습한 모델이 더 잘 가른다. 그 모델이 위험이라 하면 3등급
+    모델이 고른 등급을 쓰되 최소 주의로 올리고, 정상이라 하면 정상으로 둔다.
+    결과의 '주의 이상' 여부는 전용학습 판정과 정확히 같으므로 조치단위
+    성능도 전용학습 모델의 것과 같다. 학습 평가(train_weather)와 현장
+    판정(cli.judge)이 이 함수 하나를 같이 쓴다.
+    """
+    b = np.asarray(binary, dtype=int)
+    lv = np.asarray(levels, dtype=int)
+    return np.where(b >= 1, np.maximum(lv, 1), 0)
+
+
 def tune_decision_weights(
     proba: np.ndarray,
     y: np.ndarray,

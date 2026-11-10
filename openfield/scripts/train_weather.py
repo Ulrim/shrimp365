@@ -129,16 +129,19 @@ def main() -> int:
             # 3등급 모델의 예측을 접는 것과 다르다 — 맞혀야 할 대상이 다르면
             # 학습도 그 대상으로 해야 한다.
             op_direct = None
+            level_ai = pred_ai
             if unit.startswith("2등급"):
                 binary_y = (y >= 1).astype(int)
                 direct = weather_risk.train_one(
                     X, binary_y, train_idx, valid_idx,
                     risk=risk, horizon=horizon, params={"num_class": 2},
                 )
-                op_direct = metrics.binary_score(
-                    binary_y[test_idx], direct.predict(X.iloc[test_idx])
-                )
+                pred_direct = direct.predict(X.iloc[test_idx])
+                op_direct = metrics.binary_score(binary_y[test_idx], pred_direct)
                 weather_risk.save(direct, out_dir / f"model_{key}_binary.txt")
+                # 현장 판정(cli.judge)과 같은 규칙 — 위험 여부는 전용학습,
+                # 주의·경계 구분은 3등급 모델. 복합위험 조합도 이 등급을 쓴다.
+                level_ai = weather_risk.combine_binary(pred_direct, pred_ai)
 
             results["단순 기준값 규칙"][tag] = s_rule
             results["로지스틱 회귀(현재값)"][tag] = s_logit
@@ -176,7 +179,7 @@ def main() -> int:
                 }
             )
 
-            component_preds[horizon][risk] = pred_ai
+            component_preds[horizon][risk] = level_ai
 
             weather_risk.save(model, out_dir / f"model_{key}.txt")
             explanations[key] = weather_risk.feature_importance(model).to_dict("records")

@@ -41,6 +41,7 @@ from ofdf.action.recommend import SensorState, decide  # noqa: E402
 from ofdf.features.derived import add_derived  # noqa: E402
 from ofdf.features.weather import build_features  # noqa: E402
 from ofdf.labels.risk import compose_compound, compound_reasons  # noqa: E402
+from ofdf.models.weather_risk import combine_binary  # noqa: E402
 
 BASE_RISKS = ["heat_dry", "rain_wet", "disease", "frost"]
 
@@ -83,6 +84,10 @@ def load_models(model_dir: Path, horizons: list[int]) -> dict:
             path = model_dir / f"model_{risk}_h{horizon}.txt"
             if path.exists():
                 models[(risk, horizon)] = lgb.Booster(model_file=str(path))
+            # 현장 판정(cli.judge)처럼 2등급 전용학습 모델도 함께 잰다
+            binary = model_dir / f"model_{risk}_h{horizon}_binary.txt"
+            if binary.exists():
+                models[(f"{risk}_binary", horizon)] = lgb.Booster(model_file=str(binary))
     return models
 
 
@@ -288,6 +293,9 @@ def main() -> int:
                 continue
             proba = model.predict(row[model.feature_name()])[0]
             predicted[risk] = int(np.argmax(proba))
+        for risk in [r for r in list(predicted) if r.endswith("_binary")]:
+            base = risk[: -len("_binary")]
+            predicted[base] = int(combine_binary([predicted.pop(risk)], [predicted.get(base, 0)])[0])
         predicted["compound"] = int(compose_compound(
             [predicted.get("rain_wet", 0)], [predicted.get("disease", 0)],
             [predicted.get("frost", 0)])[0])

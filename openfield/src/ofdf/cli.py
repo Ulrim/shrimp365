@@ -42,6 +42,8 @@ from ofdf import upload as upload_mod
 LOG = logging.getLogger("ofdf.edge")
 
 BASE_RISKS = ["heat_dry", "rain_wet", "disease", "frost"]
+#: 2등급 유형 전용학습 모델을 모델 묶음에 실을 때 쓰는 열쇠 꼬리
+BINARY_SUFFIX = "__binary"
 LEVEL_NAMES = {0: "정상", 1: "주의", 2: "경계"}
 
 #: 추론 주기(초). 사업계획서의 'AI 선행판단 L2 5분 주기'.
@@ -226,6 +228,15 @@ def load_models(model_dir: Path, horizons: tuple[int, ...] = HORIZONS) -> dict:
                     lgb.Booster(model_file=str(path)),
                     weather_risk.load_decision_weight(path),
                 )
+                # 2등급 유형의 전용학습 모델 — 있으면 위험 여부를 이것으로
+                # 판정한다(weather_risk.combine_binary). 성능평가서의 목표
+                # 판정이 이 모델로 잰 값이므로 현장도 같은 모델을 써야 한다.
+                binary = path.with_name(f"model_{risk}_h{horizon}_binary.txt")
+                if binary.exists():
+                    bucket[f"{risk}{BINARY_SUFFIX}"] = (
+                        lgb.Booster(model_file=str(binary)),
+                        weather_risk.load_decision_weight(binary),
+                    )
             else:
                 LOG.warning("모델 없음: %s", path)
         if bucket:
@@ -379,10 +390,18 @@ def judge(models: dict, features: pd.DataFrame) -> tuple[dict, dict, dict]:
     levels, confidences, evidence = {}, {}, {}
 
     for risk, entry in models.items():
+        if risk.endswith(BINARY_SUFFIX):
+            continue
         model, weight = entry if isinstance(entry, tuple) else (entry, None)
         columns = model.feature_name()
         proba = model.predict(row.reindex(columns=columns))[0]
         level = int(weather_risk.decide_levels(proba.reshape(1, -1), weight)[0])
+        binary_entry = models.get(f"{risk}{BINARY_SUFFIX}")
+        if binary_entry is not None:
+            b_model, b_weight = binary_entry
+            b_proba = b_model.predict(row.reindex(columns=b_model.feature_name()))[0]
+            b_level = weather_risk.decide_levels(b_proba.reshape(1, -1), b_weight)
+            level = int(weather_risk.combine_binary(b_level, [level])[0])
         levels[risk] = level
         # 신뢰도는 가중치를 적용하지 않은 원래 확률로 적는다 — 농가와
         # 운영자가 보는 값은 모델이 그 등급을 얼마나 확신하는가이지,
