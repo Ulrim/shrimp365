@@ -419,7 +419,14 @@ def judge(models: dict, features: pd.DataFrame) -> tuple[dict, dict, dict]:
         # 신뢰도는 가중치를 적용하지 않은 원래 확률로 적는다 — 농가와
         # 운영자가 보는 값은 모델이 그 등급을 얼마나 확신하는가이지,
         # 판정 규칙이 얼마나 보수적인가가 아니다.
-        confidences[risk] = float(proba[level])
+        if binary_entry is not None:
+            # 위험 여부를 정한 모델은 전용학습 모델이다. 신뢰도도 그 모델의
+            # 확률로 적어야 판정과 신뢰도가 같은 모델에서 나온다. 2등급 유형은
+            # 주의와 경계가 같은 조치이므로 '위험일 확률'이 곧 조치의 확신이다.
+            p_risk = risk_proba[risk]
+            confidences[risk] = p_risk if level > 0 else 1.0 - p_risk
+        else:
+            confidences[risk] = float(proba[level])
 
         if level > 0:
             contrib = model.predict(row.reindex(columns=columns), pred_contrib=True)[0]
@@ -436,6 +443,13 @@ def judge(models: dict, features: pd.DataFrame) -> tuple[dict, dict, dict]:
             ]
 
     threshold = models.get(COMPOUND_THRESHOLD_KEY)
+    if threshold is not None and not all(
+        f"{r}{BINARY_SUFFIX}" in models for r in ("rain_wet", "frost")
+    ):
+        # 경계는 전용학습 확률로 고른 값이다. 전용학습 모델이 빠진 부분 배포에서
+        # 3등급 확률과 비교하면 시험한 규칙이 아니므로 등급 조합으로 물러난다.
+        LOG.warning("복합위험 경계가 있으나 전용학습 모델이 없어 등급 조합으로 판정한다")
+        threshold = None
     if threshold is not None and {"rain_wet", "disease", "frost"} <= risk_proba.keys():
         # 학습 평가(train_weather)와 같은 규칙 — 구성 위험 확률로 점수를 내고
         # 교차검증에서 고른 경계와 비교한다.

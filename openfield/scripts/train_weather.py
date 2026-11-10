@@ -139,13 +139,15 @@ def main() -> int:
             level_ai = pred_ai
             if unit.startswith("2등급"):
                 binary_y = (y >= 1).astype(int)
+                # train_one 은 num_class 를 3 으로 고정한다. 라벨이 0/1 뿐이라
+                # 2번 등급 확률은 0 에 가깝고, 판정은 P(주의 이상)=p1+p2 로 한다.
                 direct = weather_risk.train_one(
                     X, binary_y, train_idx, valid_idx,
-                    risk=risk, horizon=horizon, params={"num_class": 2},
+                    risk=risk, horizon=horizon,
                 )
                 oof = weather_risk.oof_risk_proba(
                     X, binary_y, dev_idx, group_arr,
-                    risk=risk, horizon=horizon, params={"num_class": 2},
+                    risk=risk, horizon=horizon,
                 )
                 direct.risk_threshold = weather_risk.tune_risk_threshold(
                     oof[dev_idx], binary_y[dev_idx]
@@ -186,11 +188,14 @@ def main() -> int:
                     "위험 표본": s_ai.n_risk,
                     "규칙 MacroF1": round(s_rule.macro_f1, 3),
                     "로지스틱 MacroF1": round(s_logit.macro_f1, 3),
-                    "AI MacroF1": round(s_ai.macro_f1, 3),
+                    "3등급 MacroF1": round(s_ai.macro_f1, 3),
+                    "AI MacroF1": round(s_dep.macro_f1, 3),
                     "평가단위": unit.split("(")[0],
                     "규칙 조치단위F1": round(op_rule.macro_f1, 3),
                     "AI 조치단위F1": round(op_ai.macro_f1, 3),
                     "전용학습 조치단위F1": round(op_direct.macro_f1, 3) if op_direct else None,
+                    # 목표 판정에 쓰는 값 — 현장 판정(level_ai)의 조치단위 F1
+                    "판정 조치단위F1": round((op_direct or op_ai).macro_f1, 3),
                     "조치단위 개선(%p)": round(
                         ((op_direct or op_ai).macro_f1 - op_rule.macro_f1) * 100, 1
                     ),
@@ -230,7 +235,8 @@ def main() -> int:
             continue
 
         probs = compound_parts[horizon]
-        if {"rain_wet", "disease", "frost"} <= probs["oof"].keys():
+        scored = {"rain_wet", "disease", "frost"} <= probs["oof"].keys()
+        if scored:
             y_all = ds.labels[f"compound_h{horizon}"].reset_index(drop=True).fillna(0).astype(int).to_numpy()
             oof_score = weather_risk.compound_score(
                 probs["oof"]["rain_wet"], probs["oof"]["disease"], probs["oof"]["frost"]
@@ -263,14 +269,17 @@ def main() -> int:
         detection = metrics.event_detection(y_test, pred_ai, events.iloc[test_idx])
         lead = metrics.lead_time_minutes(meta.iloc[test_idx]["ts"], y_test, pred_ai, events.iloc[test_idx])
         rows.append({
-            "위험유형": RISK_LABELS_KO["compound"] + "(조합)", "시계(h)": horizon,
+            "위험유형": RISK_LABELS_KO["compound"] + ("(점수)" if scored else "(조합)"),
+            "시계(h)": horizon,
             "시험 표본": s_ai.n_samples, "위험 표본": s_ai.n_risk,
             "규칙 MacroF1": round(s_rule.macro_f1, 3), "로지스틱 MacroF1": None,
+            "3등급 MacroF1": None,
             "AI MacroF1": round(s_ai.macro_f1, 3),
             "평가단위": unit.split("(")[0],
             "규칙 조치단위F1": round(op_rule.macro_f1, 3),
             "AI 조치단위F1": round(op_ai.macro_f1, 3),
             "전용학습 조치단위F1": None,
+            "판정 조치단위F1": round(op_ai.macro_f1, 3),
             "조치단위 개선(%p)": round((op_ai.macro_f1 - op_rule.macro_f1) * 100, 1),
             "AI 놓침방지율": round(s_ai.risk_recall, 3), "규칙 놓침방지율": round(s_rule.risk_recall, 3),
             "AI 오경보율": round(s_ai.false_alarm_rate, 3),

@@ -28,6 +28,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from ofdf.models.weather_risk import wilson_lower  # noqa: E402
 from ofdf import __version__  # noqa: E402
 from ofdf.action.recommend import (  # noqa: E402
     CONFIDENCE_THRESHOLD, SHADE_MAX_MINUTES, action_distinct_levels,
@@ -151,6 +152,15 @@ def performance_report(args, data: dict) -> str:
         "목표에 맞추면 표본 오차만큼 시험셋에서 목표 아래로 떨어지기 때문이다.",
         "놓침 방지율·오경보율·사전알림은 이 판정으로 잰 값이다.",
         "",
+        "> **선택 규칙의 경위** — 2026-11 개정에서 경계 선택 규칙을 바꿨다. 처음에는",
+        "> 놓침 방지율 점추정이 85% 이상인 경계를 골랐는데, 그 규칙으로는 시험셋에서",
+        "> 강우·과습 3시간 0.842, 복합위험 3시간 0.808 로 목표에 못 미쳤다. 이 결과를",
+        "> **본 뒤에** 95% 신뢰하한 규칙으로 바꿨다. 경계 값 자체는 교차검증에서만",
+        "> 골랐지만 규칙은 시험셋 결과를 보고 정한 것이다. 신뢰하한이 지키는 것은",
+        "> 교차검증 표본에서의 재현율이며, 시험셋 결과를 보증하지는 않는다(§2.1 의",
+        "> 시험셋 신뢰구간 참고). 이 규칙을 고정한 채 새 작기 자료로 다시 재는 것이",
+        "> 가장 깨끗한 확인이다.",
+        "",
         "## 2. 기상 기반 위험판단 성능",
         "",
     ]
@@ -160,7 +170,7 @@ def performance_report(args, data: dict) -> str:
     else:
         cols = [c for c in [
             "위험유형", "시계(h)", "시험 표본", "위험 표본", "평가단위",
-            "규칙 조치단위F1", "AI 조치단위F1", "전용학습 조치단위F1",
+            "규칙 조치단위F1", "AI 조치단위F1", "전용학습 조치단위F1", "판정 조치단위F1",
             "AI 놓침방지율", "규칙 놓침방지율", "AI 오경보율", "사전알림(분)",
         ] if c in weather.columns]
         lines += [table(weather, cols), ""]
@@ -175,6 +185,9 @@ def performance_report(args, data: dict) -> str:
             )
 
         def best(row) -> float:
+            judged = row.get("판정 조치단위F1")
+            if judged is not None and pd.notna(judged):
+                return float(judged)
             direct = row.get("전용학습 조치단위F1")
             return float(direct) if pd.notna(direct) else float(row["AI 조치단위F1"])
 
@@ -195,13 +208,35 @@ def performance_report(args, data: dict) -> str:
             },
         ])
         lines += ["### 2.1 성능목표 대조", "", table(summary), ""]
+        if "판정 조치단위F1" in weather.columns:
+            lines += [
+                "목표 판정은 `판정 조치단위F1`(현장 제어기가 내는 판정으로 잰 값)과",
+                "`AI 놓침방지율`(같은 판정)로 한다. `AI 조치단위F1` 은 3등급 모델을 접은",
+                "참고값, `전용학습 조치단위F1` 은 2등급 전용학습 모델 단독 값이다.",
+                "",
+            ]
+        n_risk = weather["위험 표본"].astype(int)
+        hits = (recalls * n_risk).round().astype(int)
+        ci = pd.DataFrame({
+            "위험유형": weather["위험유형"], "시계(h)": weather["시계(h)"],
+            "탐지/위험": [f"{h}/{n}" for h, n in zip(hits, n_risk)],
+            "놓침방지율": recalls.round(3),
+            "95% 하한": [round(wilson_lower(int(h), int(n)), 3) for h, n in zip(hits, n_risk)],
+        })
+        lines += [
+            "**시험셋 놓침방지율의 95% 신뢰구간 하한** — 위험 표본이 적은 항목은 점추정이",
+            "목표를 넘어도 하한은 목표 아래일 수 있다. 숨기지 않고 싣는다.",
+            "",
+            table(ci),
+            "",
+        ]
 
         short = weather[scores < TARGETS["macro_f1"]]
         if not short.empty:
             lines += [
                 "미달 항목:",
                 "",
-                table(short, ["위험유형", "시계(h)", "AI 조치단위F1", "AI 놓침방지율"]),
+                table(short, [c for c in ["위험유형", "시계(h)", "판정 조치단위F1", "AI 조치단위F1", "AI 놓침방지율"] if c in short.columns]),
                 "",
             ]
 
@@ -452,7 +487,15 @@ def model_card(args, data: dict) -> str:
         "- **관측소 센서 고장**이 지점·연도마다 다르다. 기준 관측소를 고르기 전에",
         "  `quality.station_health` 로 건전성을 확인해야 한다.",
         "- **복합위험·강우·과습은 위험표본이 적다**. 시험 이벤트가 적은 유형은",
-        "  성능 신뢰구간이 넓다.",
+        "  성능 신뢰구간이 넓다. 복합위험 3시간은 시험 위험표본 104건으로, 놓침",
+        "  방지율 점추정은 목표를 넘지만 95% 하한은 목표 아래다(성능평가서 §2.1).",
+        "- **판정 경계는 교차검증 접힘 모델로 고르고 배포 모델에 적용한다**. 접힘",
+        "  모델(학습+검증의 약 64%로 학습)과 배포 모델(학습분으로 학습, 검증분으로",
+        "  조기종료)의 확률 눈금이 같다고 가정한다. 누설은 아니나 가정이다.",
+        "- **복합위험 조치는 신뢰도 기준(0.70)을 거치지 않는다**. 복합위험에는",
+        "  신뢰도가 없어 조치 엔진이 1.0 으로 본다(개정 전과 같은 동작). 점수 판정은",
+        "  구성 위험이 각각 주의에 이르기 전에도 복합을 부를 수 있으므로(시험셋",
+        "  1시간 83회 중 10회), 자동 실행 여부는 운영 정책으로 확정해야 한다.",
         "- **ONNX 변환본은 원본과 다른 등급을 낸다**. 네이티브 LightGBM 을 쓴다.",
         "",
         "## 9. 재현",

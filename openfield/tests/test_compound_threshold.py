@@ -83,3 +83,23 @@ def test_judge_without_compound_threshold_falls_back_to_level_rule():
     assert levels["compound"] == 1          # 과습 주의 + 병해 주의
     levels_hi, _, _ = cli.judge(_models(threshold=0.9), features)
     assert levels_hi["compound"] == 0       # 점수 0.48 < 0.9
+
+
+def test_judge_confidence_comes_from_the_model_that_decided():
+    features = pd.DataFrame({"x": [1.0]})
+    _, confidences, _ = cli.judge(_models(threshold=0.3), features)
+    # 강우·과습은 전용학습 P(위험) 0.6 으로 위험 판정 → 신뢰도 0.6 (3등급 p1 0.2 아님)
+    assert abs(confidences["rain_wet"] - 0.6) < 1e-9
+    # 저온·서리는 전용학습 P(위험) 0.1 로 정상 판정 → 신뢰도 0.9
+    assert abs(confidences["frost"] - 0.9) < 1e-9
+    # 전용학습이 없는 유형은 3등급 모델 확률 그대로
+    assert abs(confidences["disease"] - 0.7) < 1e-9
+
+
+def test_partial_deploy_without_binary_models_does_not_use_score_threshold():
+    features = pd.DataFrame({"x": [1.0]})
+    bucket = _models(threshold=0.9)
+    del bucket[f"frost{cli.BINARY_SUFFIX}"]
+    levels, _, _ = cli.judge(bucket, features)
+    # 경계 0.9 를 3등급 확률에 쓰지 않고 등급 조합으로 물러난다(과습 주의+병해 주의)
+    assert levels["compound"] == 1
