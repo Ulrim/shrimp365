@@ -42,6 +42,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--season", default="9,10,11", help="대상 월. 'all' 이면 연중 전체"
     )
+    p.add_argument(
+        "--year-round-train", default="",
+        help="작기 밖(연중) 자료를 **학습에만** 더할 위험유형(쉼표 구분). "
+             "검증·시험·판정 경계 선택은 작기 자료만 쓴다",
+    )
+    p.add_argument("--year-round-cache", default=None, help="연중 데이터셋 캐시 pickle 경로")
     return p.parse_args()
 
 
@@ -58,6 +64,33 @@ def load_dataset(args: argparse.Namespace):
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_bytes(pickle.dumps(ds))
     return ds
+
+
+def load_off_season(args: argparse.Namespace, season: tuple[int, ...]):
+    """작기 밖 행(피처·라벨)을 읽는다 — 학습 보강용.
+
+    고온·건조처럼 작기 밖에 위험 사례가 훨씬 많은 유형은 같은 물리 현상의
+    표본을 더 보여 주면 등급 경계를 더 잘 배운다(시각 블록 교차검증에서
+    고온·건조 3등급 F1 이 1시간 0.859 → 0.890, 3시간 0.754 → 0.791).
+    작기 경계 3일(8월 29~31일, 12월 1~3일)은 뺀다 — 작기 시험 블록과 이어진
+    기상사례가 학습으로 새지 않게 하려는 것이다.
+    """
+    cache = Path(args.year_round_cache) if args.year_round_cache else None
+    if cache and cache.exists():
+        al = pickle.loads(cache.read_bytes())
+    else:
+        print("[데이터] 연중 자료 생성 중 ...")
+        al = build(args.aaos_dir, args.agera5, season_months=None)
+        if cache:
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_bytes(pickle.dumps(al))
+    ts = al.meta["ts"].reset_index(drop=True)
+    mon, day = ts.dt.month, ts.dt.day
+    lo, hi = min(season), max(season)
+    off = ~mon.isin(season)
+    edge = ((mon == lo - 1) & (day >= 29)) | ((mon == hi + 1) & (day <= 3))
+    keep = (off & ~edge).to_numpy()
+    return al.features.reset_index(drop=True)[keep], al.labels.reset_index(drop=True)[keep]
 
 
 def main() -> int:
@@ -98,6 +131,14 @@ def main() -> int:
         h: {"oof": {}, "test": {}} for h in horizons
     }
 
+    year_round = {r.strip() for r in args.year_round_train.split(",") if r.strip()}
+    off_X = off_labels = None
+    if year_round:
+        season = (9, 10, 11) if args.season == "all" else tuple(int(m) for m in args.season.split(","))
+        off_X, off_labels = load_off_season(args, season)
+        off_X = off_X[list(X.columns)]
+        print(f"[학습 보강] 작기 밖 {len(off_X):,} 시간을 학습에만 추가: {sorted(year_round)}")
+
     for risk in base_risks:
         events = ds.events[f"{risk}_event"].reset_index(drop=True)
 
@@ -118,9 +159,21 @@ def main() -> int:
             pred_logit = logistic.predict(X.iloc[test_idx])
 
             # 3) LightGBM — 변화추세·지속시간 포함 전체 피처
-            model = weather_risk.train_one(
-                X, y, train_idx, valid_idx, risk=risk, horizon=horizon
-            )
+            if risk in year_round:
+                # 학습 행에만 작기 밖 자료를 덧붙인다. 조기종료·판정 가중치는
+                # 작기 검증셋으로, 평가는 작기 시험셋으로 한다.
+                X_fit = pd.concat([X, off_X], ignore_index=True)
+                y_fit = np.concatenate([
+                    y, off_labels[key].fillna(0).astype(int).to_numpy()
+                ])
+                fit_idx = np.concatenate([train_idx, len(X) + np.arange(len(off_X))])
+                model = weather_risk.train_one(
+                    X_fit, y_fit, fit_idx, valid_idx, risk=risk, horizon=horizon
+                )
+            else:
+                model = weather_risk.train_one(
+                    X, y, train_idx, valid_idx, risk=risk, horizon=horizon
+                )
             pred_ai = model.predict(X.iloc[test_idx])
 
             y_test = y[test_idx]
