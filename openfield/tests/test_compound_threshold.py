@@ -124,3 +124,31 @@ def test_shared_groups_put_all_stations_of_one_event_in_the_same_block():
     for t in np.unique(meta["ts"].to_numpy()):
         rows = np.where(meta["ts"].to_numpy() == t)[0]
         assert sum(np.isin(rows, part).all() for part in (tr, va, te)) == 1
+
+
+def test_threshold_with_events_counts_recall_per_event():
+    """사례 단위로 세면 사례당 한 번만 맞혀도 놓치지 않은 것 — 경계가 더 높게 잡힌다."""
+    rng = np.random.default_rng(1)
+    n_ev, per = 60, 10
+    y = np.r_[np.ones(n_ev * per, int), np.zeros(6000, int)]
+    ev = np.r_[np.repeat([f"e{i}" for i in range(n_ev)], per), np.full(6000, None, dtype=object)]
+    # 사례마다 한 시각만 점수가 높고 나머지는 낮다
+    s = rng.uniform(0.0, 0.3, len(y))
+    s[np.arange(n_ev) * per] = rng.uniform(0.8, 1.0, n_ev)
+    hourly = wr.tune_risk_threshold(s, y)
+    by_event = wr.tune_risk_threshold(s, y, events=ev)
+    assert by_event > hourly
+    hit = pd.Series((s >= by_event).astype(int)[: n_ev * per]).groupby(ev[: n_ev * per]).max()
+    assert wr.wilson_lower(int(hit.sum()), n_ev) >= wr.RISK_RECALL_FLOOR
+
+
+def test_pre_onset_detection_ignores_alerts_after_start():
+    from ofdf.evaluation import metrics
+    ts = pd.Series(pd.date_range("2024-10-01", periods=10, freq="h"))
+    st = pd.Series(["A"] * 10)
+    ev = pd.Series([None] * 5 + ["e1"] * 3 + [None] * 2, dtype=object)
+    late = np.array([0, 0, 0, 0, 0, 1, 1, 1, 0, 0])      # 시작한 뒤에만 경보
+    early = np.array([0, 0, 0, 1, 0, 0, 0, 0, 0, 0])     # 시작 2시간 전 경보
+    assert metrics.pre_onset_detection(ts, st, late, ev, 3)["rate"] == 0.0
+    assert metrics.pre_onset_detection(ts, st, early, ev, 3)["rate"] == 1.0
+    assert metrics.pre_onset_detection(ts, st, early, ev, 1)["rate"] == 0.0

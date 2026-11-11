@@ -180,27 +180,44 @@ def tune_risk_threshold(
     score: np.ndarray,
     y_risk: np.ndarray,
     *,
+    events: np.ndarray | None = None,
     recall_floor: float = RISK_RECALL_FLOOR,
 ) -> float:
     """위험 판정 경계를 고른다 — 놓침 방지율 **신뢰하한**이 하한 이상인 것 중
     Macro F1 이 가장 높은 경계.
 
-    점추정 재현율을 0.85 에 맞추면 시험셋에서 표본 오차만큼 아래로 떨어진다
-    (강우·과습 3시간이 교차검증 0.850 → 시험 0.842 였다). 재해 경보에서
-    놓침 방지율은 1순위 지표이므로, 표본 크기를 반영한 95% 하한으로 지킨다.
-    ``score`` 는 **시험셋이 아닌** 예측(교차검증 등)이어야 한다.
+    ``events`` 를 주면 놓침 방지율을 **사례 단위**로 센다. 사례 번호가 붙은
+    행(위험이 걸려 있는 시각)들 가운데 한 번이라도 위험으로 판정하면 그 사례를
+    놓치지 않은 것으로 본다. 사업수행계획서가 놓침 방지율을 '독립 이벤트
+    단위로 산출', '사례별 탐지 여부'로 정의하기 때문이다
+    (:func:`ofdf.evaluation.metrics.event_detection` 과 같은 셈법).
+    ``events`` 가 없으면 시간 단위 재현율로 센다.
+
+    점추정을 0.85 에 맞추면 표본 오차만큼 아래로 떨어질 수 있어, 표본(사례 수
+    또는 위험 시각 수)을 반영한 95% 하한으로 지킨다. ``score`` 는 **시험셋이
+    아닌** 예측(교차검증 등)이어야 한다.
     """
     from sklearn.metrics import f1_score
 
     y_risk = np.asarray(y_risk, dtype=int)
     score = np.asarray(score, dtype=float)
     total = int(y_risk.sum())
+    if events is not None:
+        ev = pd.Series(np.asarray(events, dtype=object))
+        in_event = ev.notna().to_numpy()
+        ev_ids = ev[in_event].to_numpy()
+        n_events = len(pd.unique(ev_ids))
     best_t, best_f = None, -1.0
     for t in np.linspace(0.02, 0.98, 97):
         pred = (score >= t).astype(int)
         if pred.sum() == 0:
             continue
-        if wilson_lower(int(pred[y_risk == 1].sum()), total) < recall_floor:
+        if events is not None and n_events > 0:
+            hit = pd.Series(pred[in_event]).groupby(ev_ids).max()
+            ok = wilson_lower(int(hit.sum()), n_events) >= recall_floor
+        else:
+            ok = wilson_lower(int(pred[y_risk == 1].sum()), total) >= recall_floor
+        if not ok:
             continue
         f = f1_score(y_risk, pred, average="macro", zero_division=0)
         if f > best_f:

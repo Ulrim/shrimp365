@@ -148,7 +148,10 @@ def main() -> int:
                     X, binary_y, dev_idx, group_arr,
                     risk=risk, horizon=horizon, return_models=True,
                 )
-                threshold = weather_risk.tune_risk_threshold(oof[dev_idx], binary_y[dev_idx])
+                # 놓침 방지율은 사업계획서 정의대로 사례 단위로 지킨다
+                threshold = weather_risk.tune_risk_threshold(
+                    oof[dev_idx], binary_y[dev_idx], events=events.iloc[dev_idx].to_numpy()
+                )
                 print(f"    [경계] {tag} 전용학습 P(위험) >= {threshold:.2f} "
                       f"(교차검증 {len(dev_idx):,}시간에서 선택)")
                 p_test = weather_risk.ensemble_risk_probability(members, X.iloc[test_idx])
@@ -179,6 +182,10 @@ def main() -> int:
             lead = metrics.lead_time_minutes(
                 meta.iloc[test_idx]["ts"], y_test, level_ai, events.iloc[test_idx]
             )
+            pre = metrics.pre_onset_detection(
+                meta.iloc[test_idx]["ts"], meta.iloc[test_idx]["station"], level_ai,
+                events.iloc[test_idx], horizon,
+            )
 
             rows.append(
                 {
@@ -205,6 +212,10 @@ def main() -> int:
                     "MacroF1 개선(%p)": round(gain["macro_f1_gain_pp"], 1),
                     "놓침방지 개선(%p)": round(gain["risk_recall_gain_pp"], 1),
                     "이벤트 탐지율": round(detection["detection_rate"], 3),
+                    "사례 수": detection["n_events"], "탐지 사례": detection["detected"],
+                    "규칙 이벤트 탐지율": round(metrics.event_detection(
+                        y_test, pred_rule, events.iloc[test_idx])["detection_rate"], 3),
+                    "시작 전 탐지율": round(pre["rate"], 3), "시작 전 평가 사례": pre["n_events"],
                     "사전알림(분)": round(lead["mean_minutes"], 0) if lead["n"] else None,
                 }
             )
@@ -244,8 +255,10 @@ def main() -> int:
             oof_score = weather_risk.compound_score(
                 probs["oof"]["rain_wet"], probs["oof"]["disease"], probs["oof"]["frost"]
             )
+            c_events = ds.events["compound_event"].reset_index(drop=True)
             threshold = weather_risk.tune_risk_threshold(
-                oof_score[dev_idx], (y_all[dev_idx] >= 1).astype(int)
+                oof_score[dev_idx], (y_all[dev_idx] >= 1).astype(int),
+                events=c_events.iloc[dev_idx].to_numpy(),
             )
             weather_risk.save_compound_threshold(out_dir, horizon, threshold)
             print(f"    [경계] 복합위험 {horizon}시간 점수 >= {threshold:.2f} (교차검증에서 선택)")
@@ -271,6 +284,10 @@ def main() -> int:
         gain = metrics.improvement(s_rule, s_ai)
         detection = metrics.event_detection(y_test, pred_ai, events.iloc[test_idx])
         lead = metrics.lead_time_minutes(meta.iloc[test_idx]["ts"], y_test, pred_ai, events.iloc[test_idx])
+        pre = metrics.pre_onset_detection(
+            meta.iloc[test_idx]["ts"], meta.iloc[test_idx]["station"], pred_ai,
+            events.iloc[test_idx], horizon,
+        )
         rows.append({
             "위험유형": RISK_LABELS_KO["compound"] + ("(점수)" if scored else "(조합)"),
             "시계(h)": horizon,
@@ -289,6 +306,10 @@ def main() -> int:
             "MacroF1 개선(%p)": round(gain["macro_f1_gain_pp"], 1),
             "놓침방지 개선(%p)": round(gain["risk_recall_gain_pp"], 1),
             "이벤트 탐지율": round(detection["detection_rate"], 3),
+            "사례 수": detection["n_events"], "탐지 사례": detection["detected"],
+            "규칙 이벤트 탐지율": round(metrics.event_detection(
+                y_test, pred_rule, events.iloc[test_idx])["detection_rate"], 3),
+            "시작 전 탐지율": round(pre["rate"], 3), "시작 전 평가 사례": pre["n_events"],
             "사전알림(분)": round(lead["mean_minutes"], 0) if lead["n"] else None,
         })
         print(f"  [완료] {tag}(조합): AI MacroF1 {s_ai.macro_f1:.3f} (규칙 {s_rule.macro_f1:.3f})")
