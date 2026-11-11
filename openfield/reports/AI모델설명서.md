@@ -1,7 +1,7 @@
 # AI 모델 설명서
 
 - 모델명 : 노지 대파 농지위험 판단모델 (ofdf-weather)
-- 버전 : 0.1.0 (87bd250)
+- 버전 : 0.1.0 (0ed4853)
 - 작성일 : 2026-11-11
 - 수행기관 : 주식회사 컬리버
 
@@ -71,8 +71,8 @@
 
 ## 6. 주요 영향변수
 
-- **고온·건조 1시간** : run_dry_warm, t_air, soil_index_max3, solar_w_delta3, canopy_temp
-- **고온·건조 3시간** : run_dry_warm, soil_index, t_air, canopy_temp, canopy_temp_delta3
+- **고온·건조 1시간** : run_dry_warm, t_air, solar_w_delta6, canopy_temp, soil_index
+- **고온·건조 3시간** : run_dry_warm, canopy_temp_max24, soil_index, solar_w_delta6, t_air
 - **강우·과습 1시간** : rain_sum6, rain_mean6, rain_delta3, soil_index_delta1, rain_sum12
 - **강우·과습 3시간** : rain_mean6, rain_sum6, soil_index_min6, rain_sum24, soil_index_mean12
 
@@ -126,14 +126,15 @@
 
 ```bash
 python scripts/train_weather.py --aaos-dir <농업기상> --agera5 <AgERA5> \
-    --cache artifacts/dataset.pkl --out artifacts/weather
+    --cache artifacts/dataset.pkl --out artifacts/weather \
+    --year-round-train heat_dry,disease,frost
 python scripts/run_scenarios.py --out artifacts/scenarios
 python scripts/benchmark_inference.py --cache artifacts/dataset.pkl \
     --models artifacts/weather --out artifacts/benchmark
 python scripts/build_report.py --artifacts artifacts --out reports
 ```
 
-- 분할 씨앗 고정(기본 42), 소프트웨어 0.1.0 (87bd250)
+- 분할 씨앗 고정(기본 42), 소프트웨어 0.1.0 (0ed4853)
 - 실행 환경 : Python 3.13.18 / x86_64
 - 물리 유효범위 등 품질 기준은 `ofdf.data.quality` 에 상수로 둔다 (8개 항목)
 - 차광 제한 : 120분/일
