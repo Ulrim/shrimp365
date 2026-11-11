@@ -56,8 +56,11 @@ def _models(threshold=None):
         "rain_wet": (_Booster([0.7, 0.2, 0.1]), None),          # 3등급만 보면 정상
         "disease": (_Booster([0.2, 0.7, 0.1]), None),
         "frost": (_Booster([0.95, 0.04, 0.01]), None),
-        f"rain_wet{cli.BINARY_SUFFIX}": (_Booster([0.4, 0.6, 0.0]), None, 0.5),
-        f"frost{cli.BINARY_SUFFIX}": (_Booster([0.9, 0.1, 0.0]), None, 0.5),
+        # 접힘 앙상블 — 평균 P(위험) 0.6 / 0.1
+        f"rain_wet{cli.BINARY_SUFFIX}": (
+            [_Booster([0.5, 0.5, 0.0]), _Booster([0.3, 0.7, 0.0])], None, 0.5),
+        f"frost{cli.BINARY_SUFFIX}": ([_Booster([0.9, 0.1, 0.0])], None, 0.5),
+        f"disease{cli.RISKCV_SUFFIX}": [_Booster([0.2, 0.7, 0.1])],
     }
     if threshold is not None:
         bucket[cli.COMPOUND_THRESHOLD_KEY] = threshold
@@ -103,3 +106,21 @@ def test_partial_deploy_without_binary_models_does_not_use_score_threshold():
     levels, _, _ = cli.judge(bucket, features)
     # 경계 0.9 를 3등급 확률에 쓰지 않고 등급 조합으로 물러난다(과습 주의+병해 주의)
     assert levels["compound"] == 1
+
+
+def test_shared_groups_put_all_stations_of_one_event_in_the_same_block():
+    """같은 시각의 기상사례는 지점이 달라도 한 블록 — 학습·시험에 쪼개지지 않는다."""
+    ts = pd.date_range("2024-10-01", periods=96, freq="h")
+    meta = pd.concat([pd.DataFrame({"station": s, "ts": ts}) for s in ("A", "B")], ignore_index=True)
+    rain = np.zeros(len(meta), dtype=int)
+    rain[40:44] = 1                      # A 지점만 40~43시에 위험
+    states = pd.DataFrame({"rain_wet": rain, "heat_dry": 0, "disease": 0, "frost": 0, "compound": 0})
+    g = wr.shared_group_keys(meta, states)
+    a, b = g[meta["station"] == "A"].to_numpy(), g[meta["station"] == "B"].to_numpy()
+    assert (a == b).all()                # 지점이 달라도 같은 시각은 같은 키
+    assert a[40] == a[28] == a[55]       # 앞뒤 12시간은 같은 블록
+    assert a[40] != a[27] and a[40] != a[56]
+    tr, va, te = wr.split_by_event(g, seed=0)
+    for t in np.unique(meta["ts"].to_numpy()):
+        rows = np.where(meta["ts"].to_numpy() == t)[0]
+        assert sum(np.isin(rows, part).all() for part in (tr, va, te)) == 1

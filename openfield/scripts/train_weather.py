@@ -141,27 +141,27 @@ def main() -> int:
                 binary_y = (y >= 1).astype(int)
                 # train_one 은 num_class 를 3 으로 고정한다. 라벨이 0/1 뿐이라
                 # 2번 등급 확률은 0 에 가깝고, 판정은 P(주의 이상)=p1+p2 로 한다.
-                direct = weather_risk.train_one(
-                    X, binary_y, train_idx, valid_idx,
-                    risk=risk, horizon=horizon,
-                )
-                oof = weather_risk.oof_risk_proba(
+                # 전용학습 = 학습+검증 5겹 교차검증의 접힘 모델 앙상블.
+                # 경계를 교차검증 예측에서 고르므로, 판정도 그 접힘 모델들의
+                # 평균으로 한다(weather_risk.ensemble_risk_probability).
+                oof, members = weather_risk.oof_risk_proba(
                     X, binary_y, dev_idx, group_arr,
-                    risk=risk, horizon=horizon,
+                    risk=risk, horizon=horizon, return_models=True,
                 )
-                direct.risk_threshold = weather_risk.tune_risk_threshold(
-                    oof[dev_idx], binary_y[dev_idx]
-                )
-                print(f"    [경계] {tag} 전용학습 P(위험) >= {direct.risk_threshold:.2f} "
+                threshold = weather_risk.tune_risk_threshold(oof[dev_idx], binary_y[dev_idx])
+                print(f"    [경계] {tag} 전용학습 P(위험) >= {threshold:.2f} "
                       f"(교차검증 {len(dev_idx):,}시간에서 선택)")
-                pred_direct = direct.predict(X.iloc[test_idx])
+                p_test = weather_risk.ensemble_risk_probability(members, X.iloc[test_idx])
+                pred_direct = (p_test >= threshold).astype(int)
                 if risk in ("rain_wet", "frost"):
                     compound_parts[horizon]["oof"][risk] = oof
-                    compound_parts[horizon]["test"][risk] = weather_risk.risk_probability(
-                        direct.predict_proba(X.iloc[test_idx])
-                    )
+                    compound_parts[horizon]["test"][risk] = p_test
                 op_direct = metrics.binary_score(binary_y[test_idx], pred_direct)
-                weather_risk.save(direct, out_dir / f"model_{key}_binary.txt")
+                for stale in out_dir.glob(f"model_{key}_binary.txt"):
+                    stale.unlink()
+                weather_risk.save_ensemble(
+                    members, out_dir, f"model_{key}_binary", risk_threshold=threshold
+                )
                 # 현장 판정(cli.judge)과 같은 규칙 — 위험 여부는 전용학습,
                 # 주의·경계 구분은 3등급 모델. 복합위험 조합도 이 등급을 쓴다.
                 level_ai = weather_risk.combine_binary(pred_direct, pred_ai)
@@ -211,12 +211,15 @@ def main() -> int:
 
             component_preds[horizon][risk] = level_ai
             if risk == "disease":
-                compound_parts[horizon]["oof"][risk] = weather_risk.oof_risk_proba(
-                    X, y, dev_idx, group_arr, risk=risk, horizon=horizon,
+                # 복합위험 점수에 들어가는 병해 확률도 같은 이유로 접힘 앙상블을 쓴다.
+                d_oof, d_members = weather_risk.oof_risk_proba(
+                    X, y, dev_idx, group_arr, risk=risk, horizon=horizon, return_models=True,
                 )
-                compound_parts[horizon]["test"][risk] = weather_risk.risk_probability(
-                    model.predict_proba(X.iloc[test_idx])
+                compound_parts[horizon]["oof"][risk] = d_oof
+                compound_parts[horizon]["test"][risk] = weather_risk.ensemble_risk_probability(
+                    d_members, X.iloc[test_idx]
                 )
+                weather_risk.save_ensemble(d_members, out_dir, f"model_{key}_risk")
 
             weather_risk.save(model, out_dir / f"model_{key}.txt")
             explanations[key] = weather_risk.feature_importance(model).to_dict("records")

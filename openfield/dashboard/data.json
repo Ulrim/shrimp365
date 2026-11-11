@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-10T13:58:50.356290",
+  "generated": "2026-11-11T14:06:16.217742",
   "station": "나주시 산포면",
   "now": "2021-11-25T00:00:00",
   "modelVersion": "ofdf-weather-0.1.0",
@@ -68,11 +68,11 @@
         "1": {
           "level": 0,
           "levelName": "정상",
-          "confidence": 0.991,
+          "confidence": 0.981,
           "probabilities": [
-            0.991,
-            0.004,
-            0.004
+            0.981,
+            0.01,
+            0.01
           ],
           "actual": 0,
           "actualName": "정상",
@@ -81,11 +81,11 @@
         "3": {
           "level": 0,
           "levelName": "정상",
-          "confidence": 0.985,
+          "confidence": 0.976,
           "probabilities": [
-            0.985,
-            0.008,
-            0.008
+            0.976,
+            0.012,
+            0.012
           ],
           "actual": 0,
           "actualName": "정상",
@@ -100,11 +100,11 @@
         "1": {
           "level": 0,
           "levelName": "정상",
-          "confidence": 0.99,
+          "confidence": 0.981,
           "probabilities": [
-            0.944,
-            0.028,
-            0.028
+            0.936,
+            0.032,
+            0.032
           ],
           "actual": 0,
           "actualName": "정상",
@@ -113,11 +113,11 @@
         "3": {
           "level": 0,
           "levelName": "정상",
-          "confidence": 0.961,
+          "confidence": 0.934,
           "probabilities": [
-            0.573,
-            0.214,
-            0.213
+            0.782,
+            0.109,
+            0.109
           ],
           "actual": 0,
           "actualName": "정상",
@@ -135,8 +135,8 @@
           "confidence": 0.999,
           "probabilities": [
             0.999,
-            0.001,
-            0.001
+            0.0,
+            0.0
           ],
           "actual": 0,
           "actualName": "정상",
@@ -145,9 +145,9 @@
         "3": {
           "level": 0,
           "levelName": "정상",
-          "confidence": 0.999,
+          "confidence": 0.997,
           "probabilities": [
-            0.999,
+            0.997,
             0.001,
             0.001
           ],
@@ -162,26 +162,26 @@
       "name": "저온·서리",
       "horizons": {
         "1": {
-          "level": 1,
-          "levelName": "주의",
-          "confidence": 0.95,
+          "level": 0,
+          "levelName": "정상",
+          "confidence": 0.265,
           "probabilities": [
-            0.024,
-            0.971,
-            0.005
+            0.046,
+            0.943,
+            0.01
           ],
           "actual": 1,
           "actualName": "주의",
-          "correct": true
+          "correct": false
         },
         "3": {
           "level": 1,
           "levelName": "주의",
-          "confidence": 0.971,
+          "confidence": 0.88,
           "probabilities": [
-            0.018,
-            0.959,
-            0.022
+            0.024,
+            0.937,
+            0.039
           ],
           "actual": 1,
           "actualName": "주의",
@@ -196,7 +196,7 @@
         "3": {
           "level": 0,
           "levelName": "정상",
-          "confidence": 0.961,
+          "confidence": 0.88,
           "composed": true,
           "reasons": []
         }
@@ -209,7 +209,7 @@
       "name": "저온·서리",
       "level": 1,
       "levelName": "주의",
-      "confidence": 0.971,
+      "confidence": 0.88,
       "modelVersion": "ofdf-weather-0.1.0",
       "expectedOnset": "2021-11-25T03:00:00",
       "evidence": [
@@ -217,19 +217,19 @@
           "feature": "t_air",
           "label": "기온",
           "value": 4.0,
-          "contribution": 1.315
+          "contribution": 1.168
         },
         {
-          "feature": "t_air_min24",
-          "label": "기온 24시간 최저",
-          "value": 2.3,
-          "contribution": 0.516
+          "feature": "dew_point",
+          "label": "이슬점",
+          "value": 1.01,
+          "contribution": 0.539
         },
         {
           "feature": "t_air_min12",
           "label": "기온 12시간 최저",
           "value": 3.0,
-          "contribution": 0.382
+          "contribution": 0.33
         }
       ]
     }
@@ -274,39 +274,6 @@
       "command": "전개 금지",
       "reason": "3초 순간최대풍속 8.5m/s",
       "riskType": "",
-      "executed": true,
-      "rejectedBy": "",
-      "advisory": false
-    },
-    {
-      "time": "2021-11-24T21:00:00",
-      "layer": 2,
-      "device": "야간피복",
-      "command": "야간 피복 전개",
-      "reason": "초관부 복사냉각으로 서리 예상",
-      "riskType": "frost",
-      "executed": true,
-      "rejectedBy": "",
-      "advisory": false
-    },
-    {
-      "time": "2021-11-24T21:00:00",
-      "layer": 2,
-      "device": "관수밸브",
-      "command": "야간·새벽 관수 금지",
-      "reason": "관수가 동결피해를 키움",
-      "riskType": "frost",
-      "executed": true,
-      "rejectedBy": "",
-      "advisory": false
-    },
-    {
-      "time": "2021-11-24T21:00:00",
-      "layer": 2,
-      "device": "알림",
-      "command": "서리 경보 — 익일 동해 예찰",
-      "reason": "잎 끝 황화·동해 확인",
-      "riskType": "frost",
       "executed": true,
       "rejectedBy": "",
       "advisory": false

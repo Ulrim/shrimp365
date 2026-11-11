@@ -87,37 +87,42 @@ def shared_group_keys(
     risks: list[str] | None = None,
     gap_hours: int = 12,
 ) -> pd.Series:
-    """위험유형 전체에 공통으로 쓸 그룹 키를 만든다.
+    """위험유형·**지점** 전체에 공통으로 쓸 그룹 키를 만든다.
 
-    위험유형마다 따로 분할하면 유형별 시험셋이 서로 달라서, 복합위험처럼
-    여러 유형의 예측을 조합해야 하는 산출을 만들 수 없다. 그래서 어느
-    유형이든 위험이 걸린 구간을 **합집합**으로 묶어 하나의 기상사례
-    블록으로 보고, 그 블록 단위로 나눈다.
+    어느 유형이든, **어느 지점이든** 위험이 걸린 시각을 합집합으로 묶어
+    하나의 기상사례 블록으로 보고, 그 블록 단위로 나눈다. 키에 지점 이름이
+    들어가지 않는다 — 같은 시각의 모든 지점 행이 같은 블록에 들어간다.
+
+    예전에는 지점별로 블록을 만들었다. 그런데 관측 지점들이 서로 가까워
+    (나주 5개 지점) 같은 비가 거의 동시에 내린다. 지점별로 나누면 같은
+    강우의 A지점 기록이 학습에, B지점 기록이 시험에 들어가 성능이 부풀려진다.
+    학습+검증 교차검증으로 재면 강우·과습 3시간 F1 이 지점 블록 0.840,
+    시간 블록 0.733 이었다(다른 유형은 차이 0.012 이하). 사업계획서의
+    '동일 강우·폭염 구간이 서로 다른 분석용 데이터에 중복되는 것을 방지'
+    하려면 시간으로 나눠야 한다.
 
     블록 앞뒤 ``gap_hours`` 시간은 같은 블록에 포함시킨다. 사건 직전·직후의
     평상 시간이 다른 분할로 새어 나가면 선행 신호가 누수되기 때문이다.
+    평상 구간은 날짜 단위로 묶는다(지점 구분 없음).
     """
     from ofdf.labels.risk import RISK_TYPES
 
     targets = risks or [r for r in RISK_TYPES if r in states.columns]
-    keys = pd.Series(index=meta.index, dtype=object)
+    ts = pd.to_datetime(meta["ts"])
 
-    for station, rows in meta.groupby("station", sort=False).groups.items():
-        active = (states.loc[rows, targets] > 0).any(axis=1)
+    # 시각별로 '어느 지점이든 위험' 여부를 모은 뒤 빈 시각을 메운다
+    active = (states[targets] > 0).any(axis=1).groupby(ts.to_numpy()).any().sort_index()
+    grid = pd.date_range(active.index.min(), active.index.max(), freq="h")
+    active = active.reindex(grid, fill_value=False)
 
-        # 사건 전후 gap_hours 를 같은 블록으로 끌어들인다(팽창)
-        padded = (
-            active.rolling(2 * gap_hours + 1, center=True, min_periods=1).max().astype(bool)
-        )
-        block = (padded & ~padded.shift(fill_value=False)).cumsum()
-
-        dates = meta.loc[rows, "ts"].dt.date.astype(str)
-        keys.loc[rows] = np.where(
-            padded.to_numpy(),
-            station + "#사례" + block.astype(str),
-            station + "#평상" + dates,
-        )
-    return keys
+    # 사건 전후 gap_hours 를 같은 블록으로 끌어들인다(팽창)
+    padded = active.rolling(2 * gap_hours + 1, center=True, min_periods=1).max().astype(bool)
+    block = (padded & ~padded.shift(fill_value=False)).cumsum()
+    key = pd.Series(
+        np.where(padded.to_numpy(), "사례" + block.astype(str), "평상" + grid.strftime("%Y-%m-%d")),
+        index=grid,
+    )
+    return pd.Series(key.reindex(ts.to_numpy()).to_numpy(), index=meta.index, dtype=object)
 
 
 def split_by_event(
@@ -242,7 +247,8 @@ def oof_risk_proba(
     horizon: int,
     params: dict | None = None,
     n_splits: int = 5,
-) -> np.ndarray:
+    return_models: bool = False,
+):
     """학습+검증(``dev_idx``) 안에서 기상사례 블록 단위 교차검증 예측을 낸다.
 
     판정 경계를 고를 표본을 늘리려는 것이다. 검증셋 하나는 위험 사례가 수십
@@ -254,6 +260,7 @@ def oof_risk_proba(
 
     out = np.full(len(X), np.nan)
     g = np.asarray(groups)
+    members: list[TrainedRisk] = []
     folds = GroupKFold(n_splits=n_splits).split(dev_idx, groups=g[dev_idx])
     for k, (fit_rel, hold_rel) in enumerate(folds):
         fit, hold = dev_idx[fit_rel], dev_idx[hold_rel]
@@ -261,7 +268,46 @@ def oof_risk_proba(
         f_tr, f_va = next(inner.split(fit, groups=g[fit]))
         model = train_one(X, y, fit[f_tr], fit[f_va], risk=risk, horizon=horizon, params=params)
         out[hold] = risk_probability(model.predict_proba(X.iloc[hold]))
-    return out
+        members.append(model)
+    return (out, members) if return_models else out
+
+
+def ensemble_risk_probability(members: Sequence[TrainedRisk], X: pd.DataFrame) -> np.ndarray:
+    """접힘 모델들의 P(주의 이상) 평균 — 교차검증 앙상블.
+
+    판정 경계는 접힘 모델의 교차검증 예측에서 고른다. 그 경계를 **다른**
+    모델(전체 학습분으로 따로 학습한 모델)에 쓰면 확률 눈금이 달라 판정이
+    무너질 수 있다 — 실제로 강우·과습 3시간에서 따로 학습한 모델이 23그루에서
+    조기종료해 확률 최솟값(0.091)이 경계(0.09)보다 높았고, 모든 시각을
+    위험으로 불렀다. 그래서 경계를 고른 바로 그 접힘 모델들을 배포하고
+    평균으로 판정한다.
+    """
+    return np.mean([risk_probability(m.predict_proba(X)) for m in members], axis=0)
+
+
+def save_ensemble(
+    members: Sequence[TrainedRisk], model_dir: str | Path, stem: str,
+    *, risk_threshold: float | None = None,
+) -> None:
+    """접힘 모델을 ``{stem}_cv{k}.txt`` 로, 경계를 ``{stem}.weights.json`` 으로 저장한다."""
+    import json
+
+    model_dir = Path(model_dir)
+    model_dir.mkdir(parents=True, exist_ok=True)
+    for old in model_dir.glob(f"{stem}_cv*.txt"):
+        old.unlink()
+    for k, m in enumerate(members):
+        m.booster.save_model(
+            str(model_dir / f"{stem}_cv{k}.txt"), num_iteration=m.best_iteration or None
+        )
+    side: dict = {"members": len(members)}
+    if risk_threshold is not None:
+        side["risk_threshold"] = float(risk_threshold)
+    (model_dir / f"{stem}.weights.json").write_text(json.dumps(side), encoding="utf-8")
+
+
+def ensemble_paths(model_dir: str | Path, stem: str) -> list[Path]:
+    return sorted(Path(model_dir).glob(f"{stem}_cv*.txt"))
 
 
 def combine_binary(binary: np.ndarray, levels: np.ndarray) -> np.ndarray:

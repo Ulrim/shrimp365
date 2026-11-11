@@ -44,6 +44,8 @@ LOG = logging.getLogger("ofdf.edge")
 BASE_RISKS = ["heat_dry", "rain_wet", "disease", "frost"]
 #: 2등급 유형 전용학습 모델을 모델 묶음에 실을 때 쓰는 열쇠 꼬리
 BINARY_SUFFIX = "__binary"
+#: 복합위험 점수용 위험 확률 앙상블(3등급 유형)을 실을 때 쓰는 열쇠 꼬리
+RISKCV_SUFFIX = "__riskcv"
 #: 복합위험 점수 경계를 모델 묶음에 실을 때 쓰는 열쇠
 COMPOUND_THRESHOLD_KEY = "compound__threshold"
 LEVEL_NAMES = {0: "정상", 1: "주의", 2: "경계"}
@@ -230,16 +232,23 @@ def load_models(model_dir: Path, horizons: tuple[int, ...] = HORIZONS) -> dict:
                     lgb.Booster(model_file=str(path)),
                     weather_risk.load_decision_weight(path),
                 )
-                # 2등급 유형의 전용학습 모델 — 있으면 위험 여부를 이것으로
-                # 판정한다(weather_risk.combine_binary). 성능평가서의 목표
-                # 판정이 이 모델로 잰 값이므로 현장도 같은 모델을 써야 한다.
-                binary = path.with_name(f"model_{risk}_h{horizon}_binary.txt")
-                if binary.exists():
+                # 2등급 유형의 전용학습 모델(교차검증 접힘 앙상블) — 있으면 위험
+                # 여부를 이것으로 판정한다(weather_risk.combine_binary). 성능평가서의
+                # 목표 판정이 이 앙상블로 잰 값이므로 현장도 같은 모델을 써야 한다.
+                stem = f"model_{risk}_h{horizon}_binary"
+                members = weather_risk.ensemble_paths(model_dir, stem)
+                if members:
                     bucket[f"{risk}{BINARY_SUFFIX}"] = (
-                        lgb.Booster(model_file=str(binary)),
-                        weather_risk.load_decision_weight(binary),
-                        weather_risk.load_risk_threshold(binary),
+                        [lgb.Booster(model_file=str(m)) for m in members],
+                        None,
+                        weather_risk.load_risk_threshold(model_dir / f"{stem}.txt"),
                     )
+                # 복합위험 점수용 위험 확률 앙상블(병해)
+                members = weather_risk.ensemble_paths(model_dir, f"model_{risk}_h{horizon}_risk")
+                if members:
+                    bucket[f"{risk}{RISKCV_SUFFIX}"] = [
+                        lgb.Booster(model_file=str(m)) for m in members
+                    ]
             else:
                 LOG.warning("모델 없음: %s", path)
         if bucket:
@@ -391,6 +400,16 @@ def earliest_onset(
     return None
 
 
+def _mean_risk(boosters, row: pd.DataFrame) -> float:
+    """접힘 모델들의 P(주의 이상) 평균(weather_risk.ensemble_risk_probability 와 같은 값)."""
+    if not isinstance(boosters, (list, tuple)):
+        boosters = [boosters]
+    return float(np.mean([
+        weather_risk.risk_probability(b.predict(row.reindex(columns=b.feature_name())))[0]
+        for b in boosters
+    ]))
+
+
 def judge(models: dict, features: pd.DataFrame) -> tuple[dict, dict, dict]:
     """위험등급·신뢰도·판단근거를 낸다."""
     row = features.iloc[[-1]]
@@ -398,7 +417,7 @@ def judge(models: dict, features: pd.DataFrame) -> tuple[dict, dict, dict]:
     risk_proba: dict[str, float] = {}
 
     for risk, entry in models.items():
-        if risk.endswith(BINARY_SUFFIX) or risk == COMPOUND_THRESHOLD_KEY:
+        if risk.endswith((BINARY_SUFFIX, RISKCV_SUFFIX)) or risk == COMPOUND_THRESHOLD_KEY:
             continue
         model, weight = entry if isinstance(entry, tuple) else (entry, None)
         columns = model.feature_name()
@@ -407,14 +426,14 @@ def judge(models: dict, features: pd.DataFrame) -> tuple[dict, dict, dict]:
         risk_proba[risk] = float(weather_risk.risk_probability(proba.reshape(1, -1))[0])
         binary_entry = models.get(f"{risk}{BINARY_SUFFIX}")
         if binary_entry is not None:
-            b_model, b_weight, b_threshold = (tuple(binary_entry) + (None,))[:3]
-            b_proba = b_model.predict(row.reindex(columns=b_model.feature_name()))[0].reshape(1, -1)
-            if b_threshold is not None:
-                b_level = weather_risk.decide_risk(b_proba, b_threshold)
-            else:
-                b_level = weather_risk.decide_levels(b_proba, b_weight)
-            level = int(weather_risk.combine_binary(b_level, [level])[0])
-            risk_proba[risk] = float(weather_risk.risk_probability(b_proba)[0])
+            b_models, _, b_threshold = (tuple(binary_entry) + (None,))[:3]
+            p_risk = _mean_risk(b_models, row)
+            if b_threshold is None:
+                b_threshold = 0.5
+            level = int(weather_risk.combine_binary([int(p_risk >= b_threshold)], [level])[0])
+            risk_proba[risk] = p_risk
+        elif f"{risk}{RISKCV_SUFFIX}" in models:
+            risk_proba[risk] = _mean_risk(models[f"{risk}{RISKCV_SUFFIX}"], row)
         levels[risk] = level
         # 신뢰도는 가중치를 적용하지 않은 원래 확률로 적는다 — 농가와
         # 운영자가 보는 값은 모델이 그 등급을 얼마나 확신하는가이지,
@@ -443,8 +462,9 @@ def judge(models: dict, features: pd.DataFrame) -> tuple[dict, dict, dict]:
             ]
 
     threshold = models.get(COMPOUND_THRESHOLD_KEY)
-    if threshold is not None and not all(
-        f"{r}{BINARY_SUFFIX}" in models for r in ("rain_wet", "frost")
+    if threshold is not None and not (
+        all(f"{r}{BINARY_SUFFIX}" in models for r in ("rain_wet", "frost"))
+        and f"disease{RISKCV_SUFFIX}" in models
     ):
         # 경계는 전용학습 확률로 고른 값이다. 전용학습 모델이 빠진 부분 배포에서
         # 3등급 확률과 비교하면 시험한 규칙이 아니므로 등급 조합으로 물러난다.
@@ -766,7 +786,10 @@ def main(argv: list[str] | None = None) -> int:
     # models 는 {시계: {위험유형: 모델}} 이라 len() 은 시계 수다. 모델 수를
     # 묻는 자리이므로 실제 개수를 센다.
     LOG.info("ofdf %s · 모델 %d개(시계 %s) · 구간 '%s' · 주기 %d초",
-             __version__, sum(sum(1 for k in b if k != COMPOUND_THRESHOLD_KEY) for b in models.values()),
+             __version__, sum(
+                 sum(len(v[0]) if k.endswith(BINARY_SUFFIX) else len(v) if k.endswith(RISKCV_SUFFIX) else 1
+                     for k, v in b.items() if k != COMPOUND_THRESHOLD_KEY)
+                 for b in models.values()),
              "·".join(f"{h}h" for h in sorted(models)),
              config.zone, config.period)
 
