@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>홉플로우 수질 모니터링</title>
-<meta name="description" content="홉플로우 수질 모니터링 시스템 — 실시간 수질 감시·이상징후 판정·설비 운전 권고 UI 미리보기와 기능 설명">
+<title>홉플로우 바이오가스 진단 노드</title>
+<meta name="description" content="홉플로우 바이오가스화 진단 노드 — 소화조·바이오가스 연속 측정, 산 축적·과부하 조기 진단, 운전 권고 UI 미리보기와 기능 설명">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
@@ -123,7 +123,7 @@ h2{font-size:clamp(24px,3.2vw,32px);font-weight:900;letter-spacing:-.02em}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px}
 .card h4{margin:0 0 10px;font-size:14px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 
-.tanks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tanks{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 @media (max-width:520px){.tanks{grid-template-columns:repeat(2,1fr)}}
 .tank{border:1px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;background:var(--surface);text-align:left;font:inherit;color:inherit;transition:transform .15s}
 .tank:hover{transform:translateY(-2px)}
@@ -146,8 +146,8 @@ h2{font-size:clamp(24px,3.2vw,32px);font-weight:900;letter-spacing:-.02em}
 .alerts .t{font-size:11px;color:var(--muted)}
 .empty{font-size:13px;color:var(--muted);text-align:center;padding:24px 0}
 
-.params{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
-@media (max-width:900px){.params{grid-template-columns:repeat(3,1fr)}}
+.params{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+@media (max-width:900px){.params{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:520px){.params{grid-template-columns:repeat(2,1fr)}}
 .param{border:1px solid var(--border);border-radius:10px;padding:10px;background:var(--surface);cursor:pointer;text-align:left;font:inherit;color:inherit}
 .param.sel{outline:2px solid var(--brand);outline-offset:-1px}
@@ -239,14 +239,14 @@ footer{border-top:1px solid var(--border);padding:28px 0 40px;font-size:13px;col
 <nav class="nav">
   <div class="wrap">
     <a class="logo" href="#top" aria-label="홉플로우 홈">
-      <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a7cff"/><stop offset="1" stop-color="#00b8c8"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><path d="M6 19c3-4 6-4 9 0s6 4 9 0" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M6 13c3-4 6-4 9 0s6 4 9 0" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round" opacity=".55"/></svg>
-      홉플로우 <small>Water Monitor</small>
+      <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a7cff"/><stop offset="1" stop-color="#00b8c8"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><path d="M16 5.5c1 3.6 6.5 6.6 6.5 12.3a6.5 6.5 0 0 1-13 0c0-3 1.6-5 2.8-6.6.4 1.8 1.4 3 2.6 3.2-.4-3.4.2-6.2 1.1-8.9z" fill="#fff"/><circle cx="16" cy="19.5" r="2.6" fill="url(#lg)"/></svg>
+      홉플로우 <small>Biogas Diagnostic Node</small>
     </a>
     <div class="nav-links">
       <a href="#arch">시스템 구성</a>
       <a href="#demo">UI 미리보기</a>
       <a href="#guide">화면 설명</a>
-      <a href="#params">측정 항목</a>
+      <a href="#params">진단 항목</a>
       <a href="#ai">이상징후 판정</a>
       <a href="#adopt">도입 절차</a>
     </div>
@@ -257,11 +257,11 @@ footer{border-top:1px solid var(--border);padding:28px 0 40px;font-size:13px;col
 <!-- ===== HERO ===== -->
 <header class="hero" id="top">
   <div class="wrap">
-    <span class="eyebrow">HOPFLOW · 수질 모니터링 시스템 제안</span>
-    <h1>수조의 물을 <span class="grad">24시간 대신 지켜보는</span><br>홉플로우 수질 모니터링</h1>
-    <p class="lead">센서가 수온·pH·용존산소(DO)·염도를 1분 단위로 측정하고, 기준 이탈과 <b>추세 이상징후</b>를 현장 단말에서 스스로 판정합니다. 이상이 보이면 「산소공급기 즉시 최대 가동」처럼 <b>무엇을 해야 하는지 한 줄</b>로 알려 드립니다.</p>
+    <span class="eyebrow">HOPFLOW · 바이오가스화 진단 노드 제안</span>
+    <h1>소화조가 멈추기 전에<br><span class="grad">먼저 알려 주는</span> 바이오가스 진단 노드</h1>
+    <p class="lead">진단 노드가 소화액의 pH·온도·ORP와 바이오가스의 메탄(CH₄)·황화수소(H₂S)·발생량을 연속 측정합니다. 산 축적과 과부하를 <b>기준선을 넘기 전 추세로</b> 잡아내고, 「원료 투입 30% 감량」처럼 <b>지금 무엇을 해야 하는지 한 줄</b>로 알려 드립니다.</p>
     <div class="badge-row">
-      <span class="chip">📡 RS-485 / MODBUS 디지털 센서</span>
+      <span class="chip">📡 RS-485 / MODBUS 센서·가스 분석기</span>
       <span class="chip">🧠 엣지 판정 — 인터넷이 끊겨도 동작</span>
       <span class="chip">📱 웹·모바일·현장 화면 동시 지원</span>
       <span class="chip">🔔 휴대폰 푸시 알림</span>
@@ -271,11 +271,11 @@ footer{border-top:1px solid var(--border);padding:28px 0 40px;font-size:13px;col
       <a class="btn btn-ghost" href="#guide">화면별 설명 보기</a>
     </div>
     <div class="notice">
-      <b>안내</b> — 이 문서는 영업 제안용 <b>미리보기(Preview)</b>입니다. 아래 대시보드의 수치는 브라우저에서 생성한 <b>시뮬레이션 데이터</b>이며 실제 현장 값이 아닙니다. 화면 구성·판정 기준·알림 문구는 실제 운영 중인 시스템과 같은 규칙으로 동작하도록 만들었습니다.
+      <b>안내</b> — 이 문서는 영업 제안용 <b>미리보기(Preview)</b>입니다. 아래 대시보드의 수치는 브라우저에서 생성한 <b>시뮬레이션 데이터</b>이며 실제 플랜트 값이 아닙니다. 진단 기준은 중온 습식 소화의 일반 운전 범위를 예시로 넣었으며, 현장 원료와 공정에 맞춰 조정합니다.
     </div>
     <div class="stats">
-      <div class="stat"><b>1분</b><span>측정·전송 주기</span></div>
-      <div class="stat"><b>9종</b><span>판정 가능한 수질 항목</span></div>
+      <div class="stat"><b>8종</b><span>진단 항목 (소화액 · 가스)</span></div>
+      <div class="stat"><b>FOS/TAC</b><span>산 축적 조기 지표 추적</span></div>
       <div class="stat"><b>3단계</b><span>기준 이탈 · 추세 · 운전 권고</span></div>
       <div class="stat"><b>오프라인</b><span>회선 단절 시 보관 후 재전송</span></div>
     </div>
@@ -286,36 +286,41 @@ footer{border-top:1px solid var(--border);padding:28px 0 40px;font-size:13px;col
 <section id="arch">
   <div class="wrap">
     <span class="eyebrow">01 · 시스템 구성</span>
-    <h2>센서에서 휴대폰까지, 한 줄로 이어집니다</h2>
-    <p class="lead">현장 단말(라즈베리파이 기반 게이트웨이)이 센서 값을 읽고 판정까지 끝낸 뒤 클라우드로 올립니다. 판정이 현장에서 이루어지므로 통신이 끊긴 밤에도 경고와 권고가 그대로 뜹니다.</p>
+    <h2>소화조에서 휴대폰까지, 한 줄로 이어집니다</h2>
+    <p class="lead">진단 노드가 소화조 센서와 가스 라인 분석기 값을 읽고, 판정까지 끝낸 뒤 클라우드로 올립니다. 판정이 현장에서 이루어지므로 통신이 끊긴 밤에도 경고와 권고가 그대로 뜹니다.</p>
 
-    <div class="arch" role="img" aria-label="시스템 구성도: 수조 센서 → 현장 게이트웨이 → 홉플로우 클라우드 → 웹 대시보드와 모바일 알림">
+    <div class="arch" role="img" aria-label="시스템 구성도: 소화조·가스 라인 센서 → 현장 진단 노드 → 홉플로우 클라우드 → 웹 대시보드와 모바일 알림">
       <svg viewBox="0 0 1100 300" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>
-          <linearGradient id="water" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5ab8ff" stop-opacity=".55"/><stop offset="1" stop-color="#0a7cff" stop-opacity=".75"/></linearGradient>
+          <linearGradient id="slurry" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9b7a4a" stop-opacity=".55"/><stop offset="1" stop-color="#6b4f2a" stop-opacity=".85"/></linearGradient>
         </defs>
         <g font-family="Noto Sans KR, sans-serif" style="color:var(--muted)">
-          <!-- tank -->
-          <rect x="20" y="90" width="200" height="150" rx="14" fill="var(--surface-2)" stroke="var(--border)"/>
-          <rect x="34" y="140" width="172" height="86" rx="8" fill="url(#water)"/>
-          <path d="M34 146 q22 -10 43 0 t43 0 t43 0 t43 0" stroke="#fff" stroke-opacity=".7" fill="none" stroke-width="2"/>
-          <g fill="var(--text)"><rect x="70" y="104" width="10" height="100" rx="3"/><rect x="110" y="104" width="10" height="100" rx="3"/><rect x="150" y="104" width="10" height="100" rx="3"/></g>
-          <circle cx="75" cy="208" r="6" fill="#00e0c6"/><circle cx="115" cy="208" r="6" fill="#ffd34d"/><circle cx="155" cy="208" r="6" fill="#ff7a8a"/>
-          <text x="120" y="70" text-anchor="middle" font-size="17" font-weight="700" fill="var(--text)">① 수조 센서</text>
-          <text x="120" y="268" text-anchor="middle" font-size="13" fill="var(--muted)">DO · pH/ORP · EC/염도 · 수온</text>
+          <!-- digester -->
+          <path d="M40 130 Q110 78 180 130 V236 H40 Z" fill="var(--surface-2)" stroke="var(--border)" stroke-width="2"/>
+          <rect x="44" y="160" width="132" height="72" fill="url(#slurry)"/>
+          <g fill="#fff" opacity=".75"><circle cx="70" cy="150" r="4"/><circle cx="96" cy="140" r="3"/><circle cx="128" cy="148" r="5"/><circle cx="150" cy="138" r="3"/></g>
+          <g fill="var(--text)"><rect x="70" y="150" width="8" height="70" rx="3"/><rect x="104" y="150" width="8" height="70" rx="3"/></g>
+          <circle cx="74" cy="222" r="5" fill="#00e0c6"/><circle cx="108" cy="222" r="5" fill="#ffd34d"/>
+          <!-- gas line + analyzer -->
+          <path d="M110 92 V70 H200" fill="none" stroke="var(--text)" stroke-width="4"/>
+          <rect x="196" y="56" width="34" height="28" rx="5" fill="var(--surface)" stroke="var(--brand)" stroke-width="2"/>
+          <text x="213" y="75" text-anchor="middle" font-size="11" font-weight="700" fill="var(--brand)">GAS</text>
+          <text x="110" y="40" text-anchor="middle" font-size="17" font-weight="700" fill="var(--text)">① 소화조 · 가스 라인</text>
+          <text x="125" y="262" text-anchor="middle" font-size="13" fill="var(--muted)">pH · 온도 · ORP</text>
+          <text x="125" y="282" text-anchor="middle" font-size="13" fill="var(--muted)">CH₄ · H₂S · 가스 유량</text>
 
-          <line x1="228" y1="165" x2="318" y2="165" stroke="currentColor" stroke-width="2.5" marker-end="url(#arr)" stroke-dasharray="6 5"/>
-          <text x="273" y="152" text-anchor="middle" font-size="12" fill="var(--muted)">RS-485</text>
+          <line x1="240" y1="165" x2="318" y2="165" stroke="currentColor" stroke-width="2.5" marker-end="url(#arr)" stroke-dasharray="6 5"/>
+          <text x="279" y="152" text-anchor="middle" font-size="12" fill="var(--muted)">RS-485</text>
 
-          <!-- gateway -->
+          <!-- node -->
           <rect x="326" y="100" width="200" height="130" rx="14" fill="var(--surface)" stroke="var(--brand)" stroke-width="2"/>
           <rect x="346" y="118" width="160" height="58" rx="6" fill="#05101f"/>
           <text x="358" y="140" font-size="12" fill="#6ef0a8" font-weight="700">⬤ AI 모드</text>
-          <text x="358" y="164" font-size="18" fill="#e6f0ff" font-weight="900">DO 6.4  pH 7.9</text>
+          <text x="358" y="164" font-size="16" fill="#e6f0ff" font-weight="900">CH₄ 61%  pH 7.3</text>
           <text x="426" y="200" text-anchor="middle" font-size="12" fill="var(--muted)">판정 · 권고 · 오프라인 버퍼</text>
-          <text x="426" y="70" text-anchor="middle" font-size="17" font-weight="700" fill="var(--text)">② 현장 게이트웨이</text>
-          <text x="426" y="268" text-anchor="middle" font-size="13" fill="var(--muted)">7인치 터치 화면 · LTE/Wi-Fi</text>
+          <text x="426" y="70" text-anchor="middle" font-size="17" font-weight="700" fill="var(--text)">② 현장 진단 노드</text>
+          <text x="426" y="268" text-anchor="middle" font-size="13" fill="var(--muted)">현장 터치 화면 · LTE/Wi-Fi</text>
 
           <line x1="534" y1="165" x2="624" y2="165" stroke="currentColor" stroke-width="2.5" marker-end="url(#arr)"/>
           <text x="579" y="152" text-anchor="middle" font-size="12" fill="var(--muted)">HTTPS</text>
@@ -329,22 +334,20 @@ footer{border-top:1px solid var(--border);padding:28px 0 40px;font-size:13px;col
           <line x1="872" y1="140" x2="938" y2="112" stroke="currentColor" stroke-width="2.5" marker-end="url(#arr)"/>
           <line x1="872" y1="190" x2="938" y2="218" stroke="currentColor" stroke-width="2.5" marker-end="url(#arr)"/>
 
-          <!-- web -->
           <rect x="944" y="70" width="136" height="84" rx="8" fill="var(--surface)" stroke="var(--border)"/>
           <rect x="944" y="70" width="136" height="16" rx="8" fill="var(--surface-2)"/>
-          <polyline points="956,138 980,120 1000,128 1022,104 1046,112 1068,96" fill="none" stroke="var(--brand)" stroke-width="2.5"/>
-          <!-- phone -->
+          <polyline points="956,104 980,108 1000,100 1022,112 1046,128 1068,140" fill="none" stroke="var(--bad)" stroke-width="2.5"/>
           <rect x="986" y="178" width="52" height="90" rx="10" fill="var(--surface)" stroke="var(--border)"/>
           <rect x="992" y="196" width="40" height="16" rx="4" fill="var(--bad)" opacity=".85"/>
-          <text x="1012" y="58" text-anchor="middle" font-size="17" font-weight="700" fill="var(--text)">④ 사용자</text>
+          <text x="1012" y="58" text-anchor="middle" font-size="17" font-weight="700" fill="var(--text)">④ 운영자</text>
           <text x="1012" y="290" text-anchor="middle" font-size="13" fill="var(--muted)">웹 대시보드 · 푸시</text>
         </g>
       </svg>
     </div>
 
     <div class="steps">
-      <div class="step"><span class="n">1</span><h3>측정</h3><p>산업용 디지털 센서가 수온·pH·DO·염도를 1분 간격으로 측정합니다.</p></div>
-      <div class="step"><span class="n">2</span><h3>현장 판정</h3><p>게이트웨이가 기준 이탈·추세 이상을 판정하고 설비 운전 권고를 화면에 띄웁니다.</p></div>
+      <div class="step"><span class="n">1</span><h3>측정</h3><p>소화액 pH·온도·ORP와 가스 CH₄·H₂S·발생량을 연속 측정하고, FOS/TAC·암모니아성 질소는 자동 적정 또는 분석값 입력으로 받습니다.</p></div>
+      <div class="step"><span class="n">2</span><h3>현장 판정</h3><p>진단 노드가 기준 이탈과 추세 이상을 판정하고 운전 권고를 현장 화면에 띄웁니다.</p></div>
       <div class="step"><span class="n">3</span><h3>저장·전송</h3><p>모든 기록은 클라우드에 쌓이고, 회선이 끊기면 보관했다가 이어서 올립니다.</p></div>
       <div class="step"><span class="n">4</span><h3>알림·조치</h3><p>담당자 휴대폰으로 푸시가 가고, 웹에서 원인 후보와 이력을 확인합니다.</p></div>
     </div>
@@ -356,39 +359,38 @@ footer{border-top:1px solid var(--border);padding:28px 0 40px;font-size:13px;col
   <div class="wrap">
     <span class="eyebrow">02 · UI 미리보기 (실시간 동작)</span>
     <h2>직접 눌러 보세요 — 실제 화면처럼 움직입니다</h2>
-    <p class="lead">왼쪽 메뉴로 화면을 바꾸고, 수조·항목을 눌러 보세요. 오른쪽 <b>시나리오 버튼</b>을 누르면 이상 상황이 재현되면서 대시보드 경보, 설비 운전 권고, 휴대폰 푸시가 함께 바뀝니다.</p>
+    <p class="lead">왼쪽 메뉴로 화면을 바꾸고, 소화조·항목을 눌러 보세요. 오른쪽 <b>시나리오 버튼</b>을 누르면 이상 상황이 재현되면서 대시보드 경보, 운전 권고, 휴대폰 푸시가 함께 바뀝니다. (시연을 위해 시간을 빠르게 흘려 1시간 단위로 갱신합니다.)</p>
 
     <div class="demo-shell">
       <div class="browser">
         <div class="browser-bar">
           <div class="dots"><i></i><i></i><i></i></div>
-          <div class="url">https://monitor.hopflow.example/dashboard</div>
+          <div class="url">https://node.hopflow.example/dashboard</div>
           <span class="live" id="liveClock">LIVE</span>
         </div>
         <div class="app">
           <nav class="side" aria-label="데모 메뉴">
             <div class="brand">
-              <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="url(#lg)"/><path d="M6 19c3-4 6-4 9 0s6 4 9 0" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round"/></svg>
+              <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="url(#lg)"/><path d="M16 5.5c1 3.6 6.5 6.6 6.5 12.3a6.5 6.5 0 0 1-13 0c0-3 1.6-5 2.8-6.6.4 1.8 1.4 3 2.6 3.2-.4-3.4.2-6.2 1.1-8.9z" fill="#fff"/></svg>
               홉플로우
             </div>
             <button class="on" data-view="dash">📊 대시보드</button>
-            <button data-view="wq">💧 수질 상세</button>
+            <button data-view="wq">🔬 진단 상세</button>
             <button data-view="alert">🔔 알림 <span class="cnt" id="alertCnt">0</span></button>
-            <button data-view="kiosk">🖥️ 현장 단말</button>
+            <button data-view="kiosk">🖥️ 현장 노드</button>
           </nav>
           <main class="main">
-            <!-- dashboard -->
             <div class="view on" id="v-dash">
-              <div class="vh"><div><h3>운영 현황</h3><p>홉플로우 시범 양식장 · 수조 6개</p></div><span class="muted" style="font-size:12px" id="updated"></span></div>
+              <div class="vh"><div><h3>운영 현황</h3><p>홉플로우 시범 바이오가스 플랜트 · 소화조 4기</p></div><span class="muted" style="font-size:12px" id="updated"></span></div>
               <div class="kpis">
-                <div class="kpi"><span>가동 수조</span><b id="kTotal">6</b></div>
-                <div class="kpi"><span>정상</span><b class="s-ok" id="kOk">6</b></div>
+                <div class="kpi"><span>가동 소화조</span><b id="kTotal">4</b></div>
+                <div class="kpi"><span>정상</span><b class="s-ok" id="kOk">4</b></div>
                 <div class="kpi"><span>주의</span><b class="s-warn" id="kWarn">0</b></div>
                 <div class="kpi"><span>위험</span><b class="s-bad" id="kBad">0</b></div>
               </div>
               <div class="grid2">
                 <div class="card">
-                  <h4>수조 상태 <span class="muted" style="font-weight:400;font-size:12px">눌러서 선택</span></h4>
+                  <h4>소화조 상태 <span class="muted" style="font-weight:400;font-size:12px">눌러서 선택</span></h4>
                   <div class="tanks" id="tankGrid"></div>
                   <div style="margin-top:12px" id="dashAdvice"></div>
                 </div>
@@ -398,36 +400,33 @@ footer{border-top:1px solid var(--border);padding:28px 0 40px;font-size:13px;col
                 </div>
               </div>
               <div class="card" style="margin-top:12px">
-                <h4><span id="dashChartTitle">수온·DO 추이</span><span class="muted" style="font-weight:400;font-size:12px">최근 8시간 · 10분 간격</span></h4>
-                <svg class="chart" id="dashChart" role="img" aria-label="선택 수조의 DO 추이 그래프"></svg>
+                <h4><span id="dashChartTitle">메탄 추이</span><span class="muted" style="font-weight:400;font-size:12px">최근 48시간 · 1시간 간격</span></h4>
+                <svg class="chart" id="dashChart" role="img" aria-label="선택 소화조의 진단 항목 추이 그래프"></svg>
               </div>
             </div>
 
-            <!-- water quality -->
             <div class="view" id="v-wq">
               <div class="vh">
-                <div><h3>수질 상세</h3><p>항목을 누르면 아래 그래프가 바뀝니다. 점선은 주의·위험 기준선입니다.</p></div>
-                <select id="tankSel" aria-label="수조 선택"></select>
+                <div><h3>진단 상세</h3><p>항목을 누르면 아래 그래프가 바뀝니다. 점선은 주의·위험 기준선입니다.</p></div>
+                <select id="tankSel" aria-label="소화조 선택"></select>
               </div>
               <div class="params" id="paramGrid"></div>
               <div class="card" style="margin-top:12px">
                 <h4><span id="wqChartTitle"></span>
-                  <span class="seg" id="rangeSeg"><button data-n="24">4시간</button><button class="on" data-n="48">8시간</button><button data-n="96">16시간</button></span>
+                  <span class="seg" id="rangeSeg"><button data-n="24">24시간</button><button class="on" data-n="48">48시간</button><button data-n="96">4일</button></span>
                 </h4>
-                <svg class="chart" id="wqChart" role="img" aria-label="수질 항목 추이 그래프"></svg>
+                <svg class="chart" id="wqChart" role="img" aria-label="진단 항목 추이 그래프"></svg>
               </div>
               <div style="margin-top:12px" id="wqAdvice"></div>
             </div>
 
-            <!-- alerts -->
             <div class="view" id="v-alert">
               <div class="vh"><div><h3>알림 센터</h3><p>기준 이탈(위험·주의)과 추세 이상징후가 시간순으로 쌓입니다.</p></div></div>
               <ul class="alerts" id="allAlerts" style="max-height:none"></ul>
             </div>
 
-            <!-- kiosk -->
             <div class="view" id="v-kiosk">
-              <div class="vh"><div><h3>현장 단말 화면</h3><p>수조 옆 7인치 터치스크린에 표시되는 화면입니다. 인터넷 없이도 판정·권고가 동작합니다.</p></div></div>
+              <div class="vh"><div><h3>현장 진단 노드 화면</h3><p>소화조 옆 터치스크린에 표시되는 화면입니다. 인터넷 없이도 판정·권고가 동작합니다.</p></div></div>
               <div class="kiosk" id="kiosk"></div>
             </div>
           </main>
@@ -437,21 +436,21 @@ footer{border-top:1px solid var(--border);padding:28px 0 40px;font-size:13px;col
       <div class="side-col">
         <div class="scen">
           <h4>🎬 시나리오 재현</h4>
-          <p>버튼을 누르면 선택한 이상 상황이 <b>B-2 수조</b>에서 시작됩니다.</p>
+          <p>버튼을 누르면 선택한 이상 상황이 <b>D-2 소화조</b>에서 시작됩니다.</p>
           <div class="btns">
-            <button data-scn="do">🫧 새벽 용존산소(DO) 급락</button>
-            <button data-scn="nh3">🧪 암모니아 누적</button>
-            <button data-scn="ph">⚗️ pH 상승</button>
-            <button data-scn="temp">🌡️ 한낮 수온 상승</button>
+            <button data-scn="acid">🧪 유기물 과부하 · 산 축적</button>
+            <button data-scn="temp">🌡️ 가온 설비 고장 · 온도 저하</button>
+            <button data-scn="h2s">💨 황화수소(H₂S) 급증</button>
+            <button data-scn="nh3">⚗️ 암모니아 저해</button>
             <button class="reset" data-scn="reset">↺ 정상 상태로 되돌리기</button>
           </div>
         </div>
         <div class="phone" aria-label="휴대폰 알림 미리보기">
           <div class="screen">
             <div class="notch"></div>
-            <div class="clock" id="phClock">04:12</div>
+            <div class="clock" id="phClock">09:00</div>
             <div class="date" id="phDate"></div>
-            <div id="pushList"><div class="push"><div class="ph"><i></i>홉플로우 · 지금</div><b>모든 수조 정상</b>이상이 생기면 이곳으로 바로 알려 드립니다.</div></div>
+            <div id="pushList"><div class="push"><div class="ph"><i></i>홉플로우 · 지금</div><b>모든 소화조 정상</b>이상이 생기면 이곳으로 바로 알려 드립니다.</div></div>
           </div>
         </div>
       </div>
@@ -466,20 +465,20 @@ footer{border-top:1px solid var(--border);padding:28px 0 40px;font-size:13px;col
     <h2>각 화면이 무엇을 보여 주나요?</h2>
     <p class="lead">미리보기의 네 화면과 휴대폰 알림이 현장에서 어떤 질문에 답하는지 정리했습니다.</p>
     <div class="explain">
-      <div class="ex"><h3><span class="n">1</span>대시보드 — "지금 괜찮은가?"</h3>
-        <p>모든 수조의 상태를 정상·주의·위험 세 가지 색으로 한눈에 보여 줍니다. 상단 숫자 카드로 몇 개 수조에 문제가 있는지, 오른쪽 목록으로 최근 무슨 일이 있었는지 즉시 파악합니다.</p>
-        <ul><li>수조 카드를 누르면 아래 그래프와 운전 권고가 해당 수조로 바뀝니다.</li><li>상태 판정은 아래 '측정 항목' 표의 기준을 그대로 씁니다.</li></ul></div>
-      <div class="ex"><h3><span class="n">2</span>수질 상세 — "언제부터, 얼마나?"</h3>
-        <p>항목별 현재값과 추이 그래프를 기준선과 함께 보여 줍니다. 값이 기준선에 얼마나 가까워지고 있는지, 언제부터 나빠졌는지 시간 축으로 확인합니다.</p>
-        <ul><li>4·8·16시간 범위 전환</li><li>주의(노랑)·위험(빨강) 기준선 표시</li></ul></div>
+      <div class="ex"><h3><span class="n">1</span>대시보드 — "지금 소화가 잘 되고 있나?"</h3>
+        <p>모든 소화조의 상태를 정상·주의·위험 세 가지 색으로 한눈에 보여 줍니다. 상단 숫자 카드로 문제가 있는 소화조 수를, 오른쪽 목록으로 최근 무슨 일이 있었는지를 바로 파악합니다.</p>
+        <ul><li>소화조 카드를 누르면 아래 그래프와 운전 권고가 해당 소화조로 바뀝니다.</li><li>상태 판정은 아래 '진단 항목' 표의 기준을 그대로 씁니다.</li></ul></div>
+      <div class="ex"><h3><span class="n">2</span>진단 상세 — "언제부터, 얼마나?"</h3>
+        <p>FOS/TAC·pH·메탄 농도 등 항목별 현재값과 추이 그래프를 기준선과 함께 보여 줍니다. 산 축적이 언제 시작됐는지, 기준선에 얼마나 가까워지고 있는지를 시간 축으로 확인합니다.</p>
+        <ul><li>24시간·48시간·4일 범위 전환</li><li>주의(노랑)·위험(빨강) 기준선 표시</li></ul></div>
       <div class="ex"><h3><span class="n">3</span>알림 센터 — "무엇을 해야 하나?"</h3>
-        <p>기준 이탈과 추세 이상징후를 시간순으로 기록합니다. 알림마다 원인 후보와 권장 조치를 함께 적어, 경험이 적은 직원도 바로 대응할 수 있습니다.</p></div>
-      <div class="ex"><h3><span class="n">4</span>현장 단말 — "인터넷이 끊겨도"</h3>
-        <p>수조 옆 터치스크린에 큰 숫자 네 개와 운전 권고 한 줄이 뜹니다. 판정이 단말 안에서 이루어지므로 통신이 끊긴 밤에도 경고가 멈추지 않고, 끊긴 동안의 기록은 회선이 돌아오면 이어서 올라갑니다.</p></div>
+        <p>기준 이탈과 추세 이상징후를 시간순으로 기록합니다. 알림마다 원인 후보와 권장 조치를 함께 적어, 경험이 적은 운전원도 바로 대응할 수 있습니다.</p></div>
+      <div class="ex"><h3><span class="n">4</span>현장 진단 노드 — "인터넷이 끊겨도"</h3>
+        <p>소화조 옆 터치스크린에 핵심 지표 네 개와 운전 권고 한 줄이 뜹니다. 판정이 노드 안에서 이루어지므로 통신이 끊긴 밤에도 경고가 멈추지 않고, 끊긴 동안의 기록은 회선이 돌아오면 이어서 올라갑니다.</p></div>
       <div class="ex"><h3><span class="n">5</span>휴대폰 푸시 — "자리에 없어도"</h3>
         <p>위험 수준 이탈이나 추세 악화가 감지되면 담당자 휴대폰으로 즉시 알림이 갑니다. 같은 경보가 반복해서 울리지 않도록 묶어서 보냅니다.</p></div>
-      <div class="ex"><h3><span class="n">6</span>맞춤 설정 — "우리 현장 기준으로"</h3>
-        <p>어종·사육 방식에 따라 기준값을 바꿀 수 있습니다. 미리보기는 흰다리새우 해수 양식 기준이며, 홉플로우 고객사의 대상 수종·공정에 맞춰 기준표를 바꿔 납품합니다.</p></div>
+      <div class="ex"><h3><span class="n">6</span>맞춤 설정 — "우리 플랜트 기준으로"</h3>
+        <p>원료 구성(음식물·가축분뇨·하수 슬러지 등)과 운전 온도대(중온·고온)에 따라 기준값을 바꿀 수 있습니다. 미리보기는 중온 습식 소화의 일반 범위이며, 홉플로우 현장 데이터에 맞춰 기준표를 다시 맞춥니다.</p></div>
     </div>
   </div>
 </section>
@@ -487,26 +486,25 @@ footer{border-top:1px solid var(--border);padding:28px 0 40px;font-size:13px;col
 <!-- ===== PARAMS ===== -->
 <section id="params" style="background:var(--surface-2)">
   <div class="wrap">
-    <span class="eyebrow">04 · 측정 항목과 판정 기준</span>
-    <h2>무엇을, 어떤 기준으로 판정하나요?</h2>
-    <p class="lead">미리보기에 적용된 기본 기준표입니다(흰다리새우 해수 양식 기준). 범위 안이면 <span class="s-ok"><b>정상</b></span>, 주의 범위를 벗어나면 <span class="s-warn"><b>주의</b></span>, 위험 범위를 벗어나면 <span class="s-bad"><b>위험</b></span>입니다.</p>
+    <span class="eyebrow">04 · 진단 항목과 판정 기준</span>
+    <h2>무엇을, 어떤 기준으로 진단하나요?</h2>
+    <p class="lead">미리보기에 적용된 기본 기준표입니다(중온 습식 소화의 일반 운전 범위 예시). 범위 안이면 <span class="s-ok"><b>정상</b></span>, 주의 범위를 벗어나면 <span class="s-warn"><b>주의</b></span>, 위험 범위를 벗어나면 <span class="s-bad"><b>위험</b></span>입니다.</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>항목</th><th>측정 방식</th><th>정상 범위</th><th>위험 기준</th><th>벗어나면 생기는 일</th></tr></thead>
+        <thead><tr><th>항목</th><th>측정 방식</th><th>정상 범위</th><th>위험 기준</th><th>벗어나면 의심할 것</th></tr></thead>
         <tbody>
-          <tr><td><b>용존산소(DO)</b></td><td>상시 센서</td><td>5.0 mg/L 이상</td><td>4.0 mg/L 미만</td><td>호흡 곤란·집단 폐사. 새벽 시간대 가장 위험</td></tr>
-          <tr><td><b>수온</b></td><td>상시 센서</td><td>25 ~ 32 ℃</td><td>22 ℃ 미만 / 35 ℃ 초과</td><td>섭이 저하, 용존산소 포화량 감소</td></tr>
-          <tr><td><b>pH</b></td><td>상시 센서</td><td>7.5 ~ 8.5</td><td>7.0 미만 / 9.0 초과</td><td>암모니아 독성 증가, 탈피 장애</td></tr>
-          <tr><td><b>염도</b></td><td>상시 센서</td><td>15 ~ 35 ‰</td><td>10 ‰ 미만 / 40 ‰ 초과</td><td>삼투압 스트레스</td></tr>
-          <tr><td><b>암모니아</b></td><td>수기·키트 입력</td><td>0.5 mg/L 이하</td><td>1.0 mg/L 초과</td><td>아가미 손상, 면역 저하</td></tr>
-          <tr><td><b>아질산</b></td><td>수기·키트 입력</td><td>0.2 mg/L 이하</td><td>0.5 mg/L 초과</td><td>산소 운반 능력 저하</td></tr>
-          <tr><td><b>질산</b></td><td>수기·키트 입력</td><td>20 mg/L 이하</td><td>40 mg/L 초과</td><td>장기 누적 시 성장 저하</td></tr>
-          <tr><td><b>알칼리도</b></td><td>수기·키트 입력</td><td>80 ~ 180 mg/L</td><td>60 미만 / 200 초과</td><td>pH 완충력 저하</td></tr>
-          <tr><td><b>탁도</b></td><td>수기·센서</td><td>20 NTU 이하</td><td>30 NTU 초과</td><td>유기물 과다, 산소 소모 증가</td></tr>
+          <tr><td><b>FOS/TAC</b><br><span class="muted" style="font-size:12px">휘발성 유기산 / 알칼리도</span></td><td>자동 적정 · 분석값 입력</td><td>0.15 ~ 0.40</td><td>0.50 초과</td><td>유기물 과부하·산 축적. 0.15 미만이면 투입 부족</td></tr>
+          <tr><td><b>pH</b></td><td>상시 센서</td><td>6.8 ~ 7.8</td><td>6.5 미만 / 8.2 초과</td><td>낮으면 산 축적(산패), 높으면 암모니아 축적</td></tr>
+          <tr><td><b>메탄(CH₄)</b></td><td>가스 분석기</td><td>55 % 이상</td><td>50 % 미만</td><td>메탄균 활성 저하, 공기 유입</td></tr>
+          <tr><td><b>소화 온도</b></td><td>상시 센서</td><td>35 ~ 39 ℃</td><td>32 ℃ 미만 / 42 ℃ 초과</td><td>가온 설비 이상, 저온 원료 다량 투입</td></tr>
+          <tr><td><b>가스 발생량</b></td><td>가스 유량계</td><td>35 m³/h 이상 (플랜트별 설정)</td><td>28 m³/h 미만</td><td>소화 효율 저하, 배관 누설</td></tr>
+          <tr><td><b>황화수소(H₂S)</b></td><td>가스 분석기</td><td>1,000 ppm 이하</td><td>2,000 ppm 초과</td><td>고황 원료 유입, 탈황 설비 포화 — 가스엔진 부식</td></tr>
+          <tr><td><b>암모니아성 질소</b></td><td>분석값 입력</td><td>2,500 mg/L 이하</td><td>3,500 mg/L 초과</td><td>고질소 원료 비율 증가, 메탄균 저해</td></tr>
+          <tr><td><b>ORP</b></td><td>상시 센서</td><td>-250 mV 이하</td><td>-200 mV 초과</td><td>혐기 조건 약화, 산소 유입</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="muted" style="font-size:13px;margin-top:10px">※ 기준값은 고객사 현장(어종·공정)에 맞춰 조정합니다. 센서 구성: DO 센서, pH/ORP 센서, EC/TDS/염도 센서 (RS-485, DC 9~24V).</p>
+    <p class="muted" style="font-size:13px;margin-top:10px">※ 위 기준값은 일반 문헌 범위를 바탕으로 한 <b>예시</b>이며, 원료 구성·운전 온도·설비 사양에 맞춰 홉플로우 현장과 함께 확정합니다. 가스 발생량 기준은 플랜트 용량에 따라 개별 설정합니다.</p>
   </div>
 </section>
 
@@ -515,11 +513,11 @@ footer{border-top:1px solid var(--border);padding:28px 0 40px;font-size:13px;col
   <div class="wrap">
     <span class="eyebrow">05 · 이상징후 판정</span>
     <h2>기준선을 넘기 전에 먼저 알립니다</h2>
-    <p class="lead">임계값만 보면 늦습니다. DO가 7.0에서 5.2로 떨어지는 동안은 어느 기준도 넘지 않지만, 그 기울기가 그대로면 두 시간 뒤는 폐사 구간입니다. 그래서 값 하나가 아니라 <b>값의 움직임</b>을 봅니다.</p>
+    <p class="lead">임계값만 보면 늦습니다. FOS/TAC가 0.25에서 0.38로 오르는 동안은 어느 기준도 넘지 않지만, 그 기울기가 그대로면 곧 pH가 무너지고 메탄 생성이 멈추는 <b>산패</b> 구간입니다. 한 번 산패된 소화조는 정상화에 오랜 시간이 걸리므로, 값 하나가 아니라 <b>값의 움직임</b>을 봅니다.</p>
     <div class="layers">
       <div class="layer"><span class="lv">LAYER 1</span><h3>기준 이탈</h3><p>지금 값이 정상 범위 밖인가를 매 측정마다 판정합니다. 주의·위험 2단계.</p></div>
-      <div class="layer"><span class="lv">LAYER 2</span><h3>추세 이상징후</h3><p><b>급변</b>(짧은 간격에 크게 튐), <b>연속 악화</b>(한 방향으로 계속 감), <b>범위 이탈</b>(평소 분포 3σ 밖)을 5분마다 분석합니다. 낮밤 정상 주기는 경보로 잡지 않습니다.</p></div>
-      <div class="layer"><span class="lv">LAYER 3</span><h3>설비 운전 권고</h3><p>판정 결과를 「산소공급기·브로워 즉시 최대 가동」처럼 바로 실행할 수 있는 한 줄로 바꿔 화면과 휴대폰에 띄웁니다.</p></div>
+      <div class="layer"><span class="lv">LAYER 2</span><h3>추세 이상징후</h3><p><b>급변</b>(짧은 간격에 크게 튐), <b>연속 악화</b>(한 방향으로 계속 감), <b>범위 이탈</b>(이 소화조의 평소 분포 밖)을 분석합니다. 투입 주기에 따른 정상 변동은 현장 데이터로 걸러 냅니다.</p></div>
+      <div class="layer"><span class="lv">LAYER 3</span><h3>운전 권고</h3><p>판정 결과를 「원료 투입 즉시 중단, 알칼리제 투입 검토」처럼 바로 실행할 수 있는 한 줄로 바꿔 현장 화면과 휴대폰에 띄웁니다.</p></div>
     </div>
     <p class="muted" style="font-size:13px;margin-top:14px">※ 규칙 기반 위험판정과 통계적 이상탐지로 동작하므로 소형 단말에서도 가볍게 돌아가며, 판정 근거를 사람이 설명할 수 있습니다.</p>
   </div>
@@ -529,26 +527,25 @@ footer{border-top:1px solid var(--border);padding:28px 0 40px;font-size:13px;col
 <section id="adopt" style="background:var(--surface-2)">
   <div class="wrap">
     <span class="eyebrow">06 · 도입 절차</span>
-    <h2>홉플로우 현장에 이렇게 적용합니다</h2>
+    <h2>홉플로우 플랜트에 이렇게 적용합니다</h2>
     <div class="flow">
-      <div><h3>현장 진단</h3><p>수조 수·배관·전원·통신 환경을 확인하고 필요한 센서 구성을 정합니다.</p></div>
-      <div><h3>기준 설정</h3><p>대상 어종·공정에 맞는 판정 기준과 알림 수신자를 정합니다.</p></div>
-      <div><h3>설치·연결</h3><p>센서와 게이트웨이를 설치하고 코드 한 번으로 계정에 연결합니다.</p></div>
+      <div><h3>현장 진단</h3><p>소화조 수·시료 채취 지점·가스 라인·전원·통신 환경을 확인하고 센서 구성을 정합니다.</p></div>
+      <div><h3>기준 설정</h3><p>원료 구성과 운전 온도대에 맞는 판정 기준과 알림 수신자를 정합니다.</p></div>
+      <div><h3>설치·연결</h3><p>센서·가스 분석기와 진단 노드를 설치하고 코드 한 번으로 계정에 연결합니다.</p></div>
       <div><h3>운영·고도화</h3><p>운영 데이터로 기준을 재교정하고, 원격 업데이트로 기능을 넓힙니다.</p></div>
     </div>
     <div class="notice" style="margin-top:24px">
-      <b>다음 단계 제안</b> — 시범 수조 1~2개에 먼저 설치해 2~4주간 실제 데이터를 함께 확인한 뒤 확대 적용 범위를 정하는 방식을 권합니다. 화면 로고·색상·도메인은 홉플로우 브랜드로 제공됩니다.
+      <b>다음 단계 제안</b> — 소화조 1기에 진단 노드를 먼저 설치해 2~4주간 실제 데이터를 함께 확인한 뒤 확대 적용 범위를 정하는 방식을 권합니다. 화면 로고·색상·도메인은 홉플로우 브랜드로 제공됩니다.
     </div>
   </div>
 </section>
 
 <footer>
-  <div class="wrap">홉플로우 수질 모니터링 시스템 · UI 미리보기 문서 — 표시된 수치는 모두 시뮬레이션 데이터입니다.</div>
+  <div class="wrap">홉플로우 바이오가스화 진단 노드 · UI 미리보기 문서 — 표시된 수치는 모두 시뮬레이션 데이터이며, 판정 기준은 예시입니다.</div>
 </footer>
 
 <script>
 (() => {
-  /* ---------- theme ---------- */
   const root = document.documentElement;
   const tb = document.getElementById('themeBtn');
   try { const s = localStorage.getItem('hf-theme'); if (s) root.dataset.theme = s; } catch(e) {}
@@ -559,13 +556,16 @@ footer{border-top:1px solid var(--border);padding:28px 0 40px;font-size:13px;col
     renderAll();
   });
 
-  /* ---------- thresholds (흰다리새우 해수 기준) ---------- */
+  /* ---------- 진단 기준 (중온 습식 소화 예시) ---------- */
   const P = {
-    do_level:    { label:'용존산소', unit:'mg/L', dp:1, w:[5.0,null], d:[4.0,null] },
-    temperature: { label:'수온',     unit:'℃',   dp:1, w:[25,32],    d:[22,35] },
-    ph:          { label:'pH',       unit:'',    dp:2, w:[7.5,8.5],  d:[7.0,9.0] },
-    salinity:    { label:'염도',     unit:'‰',   dp:1, w:[15,35],    d:[10,40] },
-    ammonia:     { label:'암모니아', unit:'mg/L', dp:2, w:[null,0.5], d:[null,1.0] },
+    fos_tac:     { label:'FOS/TAC',  unit:'',      dp:2, w:[0.15,0.40], d:[null,0.50], noise:.008 },
+    ph:          { label:'pH',       unit:'',      dp:2, w:[6.8,7.8],   d:[6.5,8.2],   noise:.02 },
+    ch4:         { label:'메탄',      unit:'%',     dp:1, w:[55,null],   d:[50,null],   noise:.35 },
+    temperature: { label:'소화 온도', unit:'℃',     dp:1, w:[35,39],     d:[32,42],     noise:.08 },
+    gas_flow:    { label:'가스 발생량', unit:'m³/h', dp:1, w:[35,null],   d:[28,null],   noise:.9 },
+    h2s:         { label:'황화수소',  unit:'ppm',   dp:0, w:[null,1000], d:[null,2000], noise:30 },
+    nh4:         { label:'암모니아성 질소', unit:'mg/L', dp:0, w:[null,2500], d:[null,3500], noise:25 },
+    orp:         { label:'ORP',      unit:'mV',    dp:0, w:[null,-250], d:[null,-200], noise:5 },
   };
   const KEYS = Object.keys(P);
   function status(k, v){
@@ -576,136 +576,108 @@ footer{border-top:1px solid var(--border);padding:28px 0 40px;font-size:13px;col
   }
   const LABEL = { ok:'정상', warn:'주의', bad:'위험' };
   const RANK = { ok:0, warn:1, bad:2 };
+  const fmt = (k,v) => (k==='h2s'||k==='nh4') ? Math.round(v).toLocaleString('ko-KR') : v.toFixed(P[k].dp);
 
-  /* ---------- tanks & sim ---------- */
+  /* ---------- 소화조 & 시뮬레이션 ---------- */
   const BASE = [
-    { id:'A-1', do_level:6.6, temperature:28.4, ph:7.95, salinity:24.5, ammonia:0.18 },
-    { id:'A-2', do_level:6.9, temperature:28.1, ph:8.02, salinity:25.1, ammonia:0.15 },
-    { id:'B-1', do_level:6.3, temperature:28.9, ph:7.88, salinity:23.8, ammonia:0.22 },
-    { id:'B-2', do_level:6.5, temperature:28.6, ph:7.92, salinity:24.2, ammonia:0.2 },
-    { id:'C-1', do_level:7.1, temperature:27.8, ph:8.08, salinity:26.0, ammonia:0.12 },
-    { id:'C-2', do_level:6.7, temperature:28.2, ph:8.0,  salinity:24.9, ammonia:0.17 },
+    { id:'D-1', fos_tac:.27, ph:7.35, ch4:61.5, temperature:37.8, gas_flow:42, h2s:650, nh4:1800, orp:-340 },
+    { id:'D-2', fos_tac:.29, ph:7.30, ch4:60.8, temperature:38.1, gas_flow:46, h2s:720, nh4:1950, orp:-330 },
+    { id:'D-3', fos_tac:.25, ph:7.40, ch4:62.0, temperature:37.5, gas_flow:39, h2s:580, nh4:1700, orp:-350 },
+    { id:'D-4', fos_tac:.30, ph:7.28, ch4:60.2, temperature:38.4, gas_flow:48, h2s:800, nh4:2100, orp:-325 },
   ];
-  const N = 96;
-  const STEP_MIN = 10;
-  let now = new Date(); now.setHours(4, 12, 0, 0);
+  const N = 96, STEP_MIN = 60;
+  let now = new Date(); now.setHours(9, 0, 0, 0);
   const rnd = (a) => (Math.random() - .5) * 2 * a;
   const tanks = BASE.map(b => {
     const hist = {};
-    KEYS.forEach(k => {
-      const arr = []; let v = b[k];
-      for (let i = 0; i < N; i++) {
-        const diurnal = k==='do_level' ? Math.sin((i/N)*Math.PI*1.2)*0.35 : k==='temperature' ? Math.sin((i/N)*Math.PI*1.2)*0.4 : 0;
-        v = b[k] + diurnal + rnd(noise(k));
-        arr.push(+v.toFixed(3));
-      }
-      hist[k] = arr;
-    });
-    return { id:b.id, base:b, hist, scn:null, scnStep:0 };
+    KEYS.forEach(k => { const arr = []; for (let i=0;i<N;i++) arr.push(+(b[k] + rnd(P[k].noise)).toFixed(4)); hist[k] = arr; });
+    return { id:b.id, base:b, hist, scn:null };
   });
-  function noise(k){ return { do_level:.12, temperature:.12, ph:.03, salinity:.25, ammonia:.015 }[k]; }
   const cur = (t,k) => t.hist[k][t.hist[k].length-1];
 
+  // 시나리오: 여러 항목이 함께 움직인다 [목표값, 시간당 변화량]
   const SCN = {
-    do:   { key:'do_level',    target:3.4,  rate:.28, title:'새벽 용존산소 급락' },
-    nh3:  { key:'ammonia',     target:1.25, rate:.09, title:'암모니아 누적' },
-    ph:   { key:'ph',          target:9.2,  rate:.11, title:'pH 상승' },
-    temp: { key:'temperature', target:35.6, rate:.6,  title:'한낮 수온 상승' },
+    acid: { main:'fos_tac',     move:{ fos_tac:[.62,.035], ph:[6.35,.07], ch4:[46,.9], gas_flow:[30,1.4], orp:[-215,8] } },
+    temp: { main:'temperature', move:{ temperature:[31.4,.55], gas_flow:[33,1.0], ch4:[56.5,.35] } },
+    h2s:  { main:'h2s',         move:{ h2s:[2700,170] } },
+    nh3:  { main:'nh4',         move:{ nh4:[3900,160], ch4:[52,.55], ph:[7.95,.05] } },
   };
   const ADVICE = {
-    do_level:   { bad:'산소공급기·브로워 즉시 최대 가동, 사료 급이 중단', warn:'폭기량 증대, 다음 급이량 20% 감량', cause:'야간 광합성 정지·고밀도 사육·폭기 효율 저하' },
-    ammonia:    { bad:'즉시 30% 환수, 급이 중단, 미생물제 투입', warn:'환수 및 미생물제 투입 권장, 급이량 점검', cause:'사료 잔여물·배설물 축적, 여과 능력 부족' },
-    ph:         { bad:'환수로 pH 희석, 석회 투입 중단', warn:'환수량 늘리고 조류 번성 여부 확인', cause:'주간 조류 광합성 과다, 알칼리 약품 과투입' },
-    temperature:{ bad:'차광막 전개, 냉각수 환수, 급이 감량', warn:'차광·순환 강화, 오후 급이 시간 조정', cause:'외기 고온·일사량 증가, 순환 부족' },
-    salinity:   { bad:'담수/해수 보충으로 염도 조정', warn:'증발량 확인 후 보충수 조정', cause:'증발·강우 유입' },
+    fos_tac:     { bad:'원료 투입 즉시 중단(또는 50% 이상 감량), 알칼리제(중탄산나트륨) 투입 검토', warn:'원료 투입량 20~30% 감량, FOS/TAC 분석 주기 단축', cause:'유기물 과부하 · 원료 성상 급변 · 체류시간 부족' },
+    ph:          { bad:'원료 투입 중단, 알칼리도 보강 후 FOS/TAC 재분석', warn:'투입량 감량, FOS/TAC·암모니아 동시 확인', cause:'휘발성 유기산 축적(pH↓) 또는 암모니아 축적(pH↑)' },
+    ch4:         { bad:'투입 감량, 산 축적·공기 유입 동시 점검, 가스엔진 출력 하향', warn:'메탄균 활성 저하 의심 — FOS/TAC·온도 확인', cause:'산 축적 · 저해물질 유입 · 온도 변동 · 공기 유입' },
+    temperature: { bad:'가온 설비(보일러·열교환기) 즉시 점검, 원료 예열 후 투입', warn:'가온 순환 점검, 저온 원료 대량 투입 자제', cause:'가온 설비 고장 · 외기 저온 · 저온 원료 다량 투입' },
+    gas_flow:    { bad:'투입·교반·가온 상태 일괄 점검, 가스 배관 누설 확인', warn:'발생량 저하 — 원료 투입 기록과 대조', cause:'소화 효율 저하 · 배관 누설 · 교반 불량' },
+    h2s:         { bad:'탈황 설비 즉시 점검, 철염 투입 검토, 가스엔진 보호 운전', warn:'탈황제 교체 주기 확인, 고황 원료 투입 조정', cause:'고단백·고황 원료 유입 · 탈황제 포화' },
+    nh4:         { bad:'고질소 원료(가축분뇨 등) 투입 비율 즉시 감량, 희석수 투입 검토', warn:'원료 C/N비 조정, 암모니아 분석 주기 단축', cause:'고질소 원료 비율 증가 · 단백질 분해 과다' },
+    orp:         { bad:'밀폐 상태·교반기 실링 점검, 공기 유입 경로 확인', warn:'혐기 조건 약화 — 투입구·배관 점검', cause:'공기 유입 · 산화성 물질 유입' },
   };
+  // 추세(최근 5시간) 경고 기준
+  const DRIFT = { fos_tac:v=>v>.08, ph:v=>v<-.25, ch4:v=>v<-3, temperature:v=>v<-1.5, gas_flow:v=>v<-6, h2s:v=>v>500, nh4:v=>v>500, orp:v=>v>40 };
 
-  let selTank = 3;   // B-2
-  let selParam = 'do_level';
-  let range = 48;
-  const alerts = [];
-  const pushes = [];
-  const lastStatus = {};
-
-  function fmtTime(d){ return d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false}); }
+  let selTank = 1, selParam = 'fos_tac', range = 48;
+  const alerts = [], pushes = [], lastStatus = {};
+  const fmtTime = d => d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false});
+  const fmtDT = d => `${d.getMonth()+1}/${d.getDate()} ${fmtTime(d)}`;
 
   function tick(){
     now = new Date(now.getTime() + STEP_MIN*60000);
     tanks.forEach(t => {
+      const s = t.scn && SCN[t.scn];
       KEYS.forEach(k => {
-        const arr = t.hist[k];
-        let v = arr[arr.length-1];
-        const s = t.scn && SCN[t.scn];
-        if (s && s.key === k) {
-          const dir = Math.sign(s.target - v);
-          v = Math.abs(s.target - v) < s.rate ? s.target + rnd(s.rate*.2) : v + dir*s.rate*(0.7+Math.random()*.6);
+        const arr = t.hist[k]; let v = arr[arr.length-1];
+        const m = s && s.move[k];
+        if (m) {
+          const [target, rate] = m, dir = Math.sign(target - v);
+          v = Math.abs(target - v) < rate ? target + rnd(rate*.2) : v + dir*rate*(0.7+Math.random()*.6);
         } else {
-          v = v + (t.base[k] - v)*0.25 + rnd(noise(k));
+          v = v + (t.base[k] - v)*0.25 + rnd(P[k].noise);
         }
-        if (k==='ammonia') v = Math.max(0.02, v);
-        arr.push(+v.toFixed(3)); if (arr.length > N) arr.shift();
+        arr.push(+v.toFixed(4)); if (arr.length > N) arr.shift();
       });
-      if (t.scn) t.scnStep++;
       evaluate(t);
     });
     renderAll();
   }
-
-  function trendOf(t,k){
-    const a = t.hist[k]; const n = a.length;
-    return a[n-1] - a[n-6];
-  }
+  const trendOf = (t,k) => { const a=t.hist[k], n=a.length; return a[n-1]-a[n-6]; };
 
   function evaluate(t){
     KEYS.forEach(k => {
-      const v = cur(t,k), s = status(k,v), key = t.id+':'+k;
-      const prev = lastStatus[key] || 'ok';
+      const v = cur(t,k), s = status(k,v), key = t.id+':'+k, prev = lastStatus[key] || 'ok';
       if (RANK[s] > RANK[prev]) {
-        const a = ADVICE[k] || {};
-        addAlert({ lvl:s, tank:t.id, k, v,
-          msg:`${t.id} 수조 ${P[k].label} ${LABEL[s]} — ${v.toFixed(P[k].dp)}${P[k].unit}`,
-          act: s==='bad' ? a.bad : a.warn, cause:a.cause });
-      } else if (s === 'ok' && prev !== 'ok') {
-        addAlert({ lvl:'info', tank:t.id, k, v, msg:`${t.id} 수조 ${P[k].label} 정상 복귀 — ${v.toFixed(P[k].dp)}${P[k].unit}` });
+        const a = ADVICE[k];
+        addAlert({ lvl:s, tank:t.id, k, msg:`${t.id} 소화조 ${P[k].label} ${LABEL[s]} — ${fmt(k,v)}${P[k].unit?' '+P[k].unit:''}`, act: s==='bad'?a.bad:a.warn, cause:a.cause });
+      } else if (s==='ok' && prev!=='ok') {
+        addAlert({ lvl:'info', tank:t.id, k, msg:`${t.id} 소화조 ${P[k].label} 정상 복귀 — ${fmt(k,v)}${P[k].unit?' '+P[k].unit:''}` });
       }
       lastStatus[key] = s;
-      // trend (drift) warning before threshold
-      const tr = trendOf(t,k), tk = key+':trend';
-      const driftBad = (k==='do_level' && tr < -0.8) || (k==='ammonia' && tr > 0.25) || (k==='ph' && tr > 0.35) || (k==='temperature' && tr > 2.0);
-      if (driftBad && s==='ok' && !lastStatus[tk]) {
+      const tr = trendOf(t,k), tk = key+':trend', drift = DRIFT[k](tr);
+      if (drift && s==='ok' && !lastStatus[tk]) {
         lastStatus[tk] = true;
-        addAlert({ lvl:'warn', trend:true, tank:t.id, k, v,
-          msg:`${t.id} 수조 ${P[k].label} 연속 악화 감지 (최근 50분 ${tr>0?'+':''}${tr.toFixed(P[k].dp)}${P[k].unit})`,
-          act:'기준선 도달 전 선제 조치 권장 — ' + (ADVICE[k]?.warn || ''), cause:ADVICE[k]?.cause });
+        addAlert({ lvl:'warn', trend:true, tank:t.id, k, msg:`${t.id} 소화조 ${P[k].label} 연속 악화 감지 (최근 5시간 ${tr>0?'+':''}${fmt(k,tr)}${P[k].unit?' '+P[k].unit:''})`, act:'기준선 도달 전 선제 조치 권장 — ' + ADVICE[k].warn, cause:ADVICE[k].cause });
       }
-      if (!driftBad && s==='ok') lastStatus[tk] = false;
+      if (!drift && s==='ok') lastStatus[tk] = false;
     });
   }
-
   function addAlert(a){
     a.time = new Date(now);
     alerts.unshift(a); if (alerts.length > 40) alerts.pop();
-    if (a.lvl !== 'info') {
-      pushes.unshift(a); if (pushes.length > 4) pushes.pop();
-    }
+    if (a.lvl !== 'info') { pushes.unshift(a); if (pushes.length > 4) pushes.pop(); }
   }
 
   /* ---------- rendering ---------- */
   const $ = id => document.getElementById(id);
-  function tankStatus(t){
-    let w = 'ok'; KEYS.forEach(k => { const s = status(k,cur(t,k)); if (RANK[s] > RANK[w]) w = s; }); return w;
-  }
-  function worstParam(t){
-    let best=null, r=-1; KEYS.forEach(k => { const s=RANK[status(k,cur(t,k))]; if (s>r){r=s;best=k;} }); return r>0?best:null;
-  }
+  const tankStatus = t => { let w='ok'; KEYS.forEach(k=>{const s=status(k,cur(t,k)); if(RANK[s]>RANK[w]) w=s;}); return w; };
+  const worstParam = t => { let best=null, r=0; KEYS.forEach(k=>{const s=RANK[status(k,cur(t,k))]; if(s>r){r=s;best=k;}}); return best; };
 
   function renderTanks(){
-    let c={ok:0,warn:0,bad:0};
+    const c={ok:0,warn:0,bad:0};
     $('tankGrid').innerHTML = tanks.map((t,i) => {
       const s = tankStatus(t); c[s]++;
       return `<button class="tank ${i===selTank?'sel':''}" data-i="${i}" aria-pressed="${i===selTank}">
-        <div class="tn">${t.id} 수조<span class="tag ${s}">${LABEL[s]}</span></div>
-        <div class="tv">DO ${cur(t,'do_level').toFixed(1)} · ${cur(t,'temperature').toFixed(1)}℃ · pH ${cur(t,'ph').toFixed(2)}</div>
+        <div class="tn">${t.id} 소화조<span class="tag ${s}">${LABEL[s]}</span></div>
+        <div class="tv">CH₄ ${cur(t,'ch4').toFixed(1)}% · pH ${cur(t,'ph').toFixed(2)} · FOS/TAC ${cur(t,'fos_tac').toFixed(2)}</div>
+        <div class="tv">${cur(t,'temperature').toFixed(1)}℃ · 가스 ${cur(t,'gas_flow').toFixed(1)} m³/h</div>
       </button>`;
     }).join('');
     $('kOk').textContent=c.ok; $('kWarn').textContent=c.warn; $('kBad').textContent=c.bad;
@@ -713,15 +685,15 @@ footer{border-top:1px solid var(--border);padding:28px 0 40px;font-size:13px;col
   }
 
   function alertLi(a){
-    const ic = a.lvl==='bad'?'!':a.lvl==='warn'?(a.trend?'↘':'!'):'✓';
+    const ic = a.lvl==='bad'?'!':a.lvl==='warn'?(a.trend?'↗':'!'):'✓';
     return `<li class="${a.lvl}"><span class="ic">${ic}</span><div><div>${a.msg}</div>
       ${a.act?`<div style="margin-top:3px"><b>권장 조치</b> · ${a.act}</div>`:''}
       ${a.cause?`<div class="t">원인 후보: ${a.cause}</div>`:''}
-      <div class="t">${fmtTime(a.time)}${a.trend?' · 추세 이상징후':''}</div></div></li>`;
+      <div class="t">${fmtDT(a.time)}${a.trend?' · 추세 이상징후':''}</div></div></li>`;
   }
   function renderAlerts(){
     const live = alerts.filter(a=>a.lvl!=='info').length;
-    $('alertCnt').textContent = live; $('alertCnt').style.display = live? '':'none';
+    $('alertCnt').textContent = live; $('alertCnt').style.display = live?'':'none';
     const empty = '<li class="empty" style="border:0;justify-content:center">새 알림이 없습니다. 오른쪽 시나리오 버튼으로 이상 상황을 재현해 보세요.</li>';
     $('dashAlerts').innerHTML = alerts.slice(0,6).map(alertLi).join('') || empty;
     $('allAlerts').innerHTML = alerts.map(alertLi).join('') || empty;
@@ -729,116 +701,97 @@ footer{border-top:1px solid var(--border);padding:28px 0 40px;font-size:13px;col
 
   function adviceHtml(t){
     const k = worstParam(t);
-    if (!k) return `<div class="advice"><span class="big">✅</span><div><b>${t.id} 수조 — 모든 항목 정상</b><small>현재 필요한 설비 조작이 없습니다.</small></div></div>`;
+    if (!k) return `<div class="advice"><span class="big">✅</span><div><b>${t.id} 소화조 — 모든 항목 정상</b><small>현재 필요한 운전 조정이 없습니다.</small></div></div>`;
     const s = status(k,cur(t,k)), a = ADVICE[k];
-    return `<div class="advice ${s}"><span class="big">${s==='bad'?'🚨':'⚠️'}</span><div><b>설비 운전 권고 · ${t.id} 수조</b>${s==='bad'?a.bad:a.warn}<br><small>근거: ${P[k].label} ${cur(t,k).toFixed(P[k].dp)}${P[k].unit} (${LABEL[s]}) · 원인 후보: ${a.cause}</small></div></div>`;
+    return `<div class="advice ${s}"><span class="big">${s==='bad'?'🚨':'⚠️'}</span><div><b>운전 권고 · ${t.id} 소화조</b>${s==='bad'?a.bad:a.warn}<br><small>근거: ${P[k].label} ${fmt(k,cur(t,k))}${P[k].unit?' '+P[k].unit:''} (${LABEL[s]}) · 원인 후보: ${a.cause}</small></div></div>`;
   }
 
-  function css(v){ return getComputedStyle(root).getPropertyValue(v).trim(); }
-
+  const css = v => getComputedStyle(root).getPropertyValue(v).trim();
   function drawChart(svg, t, k, n){
     const W = svg.clientWidth || 700, H = svg.clientHeight || 260;
     svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
-    const data = t.hist[k].slice(-n);
-    const th = P[k];
+    const data = t.hist[k].slice(-n), th = P[k];
     const lines = [th.w[0],th.w[1],th.d[0],th.d[1]].filter(x=>x!=null);
     let lo = Math.min(...data, ...lines), hi = Math.max(...data, ...lines);
     const pad = (hi-lo)*0.12 || 1; lo -= pad; hi += pad;
-    const L=44,R=12,T=12,B=26;
+    const L=52,R=12,T=12,B=26;
     const x = i => L + (W-L-R) * i/(data.length-1);
     const y = v => T + (H-T-B) * (1-(v-lo)/(hi-lo));
-    const grid = css('--chart-grid'), muted = css('--muted'), brand = css('--brand'), warn = css('--warn'), bad = css('--bad');
+    const grid=css('--chart-grid'), muted=css('--muted'), brand=css('--brand'), warn=css('--warn'), bad=css('--bad');
     let g = '';
-    for (let i=0;i<=4;i++){ const v = lo + (hi-lo)*i/4; g += `<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="${grid}"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="${muted}">${v.toFixed(th.dp>1?1:1)}</text>`; }
-    const startT = new Date(now.getTime() - (data.length-1)*STEP_MIN*60000);
-    const ticks = 4;
-    for (let i=0;i<=ticks;i++){ const idx = Math.round((data.length-1)*i/ticks); const d = new Date(startT.getTime()+idx*STEP_MIN*60000); g += `<text x="${x(idx)}" y="${H-6}" text-anchor="${i===0?'start':i===ticks?'end':'middle'}" font-size="11" fill="${muted}">${fmtTime(d)}</text>`; }
-    const ref = (v,c,lab) => v==null?'':`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="${c}" stroke-dasharray="5 4" stroke-width="1.4"/><text x="${L+6}" y="${y(v)-4}" text-anchor="start" font-size="11" fill="${c}">${lab} ${v}</text>`;
+    for (let i=0;i<=4;i++){ const v = lo+(hi-lo)*i/4; g += `<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="${grid}"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="${muted}">${fmt(k,v)}</text>`; }
+    const startT = new Date(now.getTime() - (data.length-1)*STEP_MIN*60000), ticks = 4;
+    for (let i=0;i<=ticks;i++){ const idx=Math.round((data.length-1)*i/ticks); const d=new Date(startT.getTime()+idx*STEP_MIN*60000); g += `<text x="${x(idx)}" y="${H-6}" text-anchor="${i===0?'start':i===ticks?'end':'middle'}" font-size="11" fill="${muted}">${fmtDT(d)}</text>`; }
+    const ref = (v,c,lab) => v==null?'':`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="${c}" stroke-dasharray="5 4" stroke-width="1.4"/><text x="${L+6}" y="${y(v)-4}" font-size="11" fill="${c}">${lab} ${fmt(k,v)}</text>`;
     g += ref(th.w[0],warn,'주의') + ref(th.w[1],warn,'주의') + ref(th.d[0],bad,'위험') + ref(th.d[1],bad,'위험');
     const pts = data.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-    const area = `${L},${H-B} ${pts} ${W-R},${H-B}`;
-    const s = status(k, data[data.length-1]);
-    const lc = s==='bad'?bad:s==='warn'?warn:brand;
-    g += `<polygon points="${area}" fill="${lc}" opacity=".10"/><polyline points="${pts}" fill="none" stroke="${lc}" stroke-width="2.4" stroke-linejoin="round"/>`;
+    const s = status(k, data[data.length-1]), lc = s==='bad'?bad:s==='warn'?warn:brand;
+    g += `<polygon points="${L},${H-B} ${pts} ${W-R},${H-B}" fill="${lc}" opacity=".10"/><polyline points="${pts}" fill="none" stroke="${lc}" stroke-width="2.4" stroke-linejoin="round"/>`;
     const lx = x(data.length-1), ly = y(data[data.length-1]);
-    g += `<circle cx="${lx}" cy="${ly}" r="4.5" fill="${lc}"/><text x="${lx-8}" y="${ly-10}" text-anchor="end" font-size="12" font-weight="700" fill="${lc}">${data[data.length-1].toFixed(th.dp)}${th.unit}</text>`;
+    g += `<circle cx="${lx}" cy="${ly}" r="4.5" fill="${lc}"/><text x="${lx-8}" y="${ly-10}" text-anchor="end" font-size="12" font-weight="700" fill="${lc}">${fmt(k,data[data.length-1])}${th.unit?' '+th.unit:''}</text>`;
     svg.innerHTML = g;
   }
 
   function renderDash(){
-    const t = tanks[selTank];
-    const k = worstParam(t) || 'do_level';
-    $('dashChartTitle').textContent = `${t.id} 수조 · ${P[k].label} 추이`;
+    const t = tanks[selTank], k = worstParam(t) || 'ch4';
+    $('dashChartTitle').textContent = `${t.id} 소화조 · ${P[k].label} 추이`;
     drawChart($('dashChart'), t, k, 48);
     $('dashAdvice').innerHTML = adviceHtml(t);
-    $('updated').textContent = `마지막 수신 ${fmtTime(now)}`;
+    $('updated').textContent = `마지막 수신 ${fmtDT(now)}`;
   }
-
   function renderWQ(){
     const sel = $('tankSel');
-    if (!sel.options.length) {
-      sel.innerHTML = tanks.map((t,i)=>`<option value="${i}">${t.id} 수조</option>`).join('');
-      sel.onchange = () => { selTank = +sel.value; renderAll(); };
-    }
+    if (!sel.options.length) { sel.innerHTML = tanks.map((t,i)=>`<option value="${i}">${t.id} 소화조</option>`).join(''); sel.onchange = () => { selTank=+sel.value; renderAll(); }; }
     sel.value = selTank;
     const t = tanks[selTank];
     $('paramGrid').innerHTML = KEYS.map(k => {
-      const v = cur(t,k), s = status(k,v), tr = trendOf(t,k);
-      const arrow = Math.abs(tr) < noise(k)*1.5 ? '→' : tr>0 ? '↗' : '↘';
-      return `<button class="param ${k===selParam?'sel':''}" data-k="${k}"><span>${P[k].label}<i class="dot bg-${s}"></i></span><b class="s-${s}">${v.toFixed(P[k].dp)}<em> ${P[k].unit}</em></b><em>${arrow} ${LABEL[s]}</em></button>`;
+      const v=cur(t,k), s=status(k,v), tr=trendOf(t,k);
+      const arrow = Math.abs(tr) < P[k].noise*1.5 ? '→' : tr>0 ? '↗' : '↘';
+      return `<button class="param ${k===selParam?'sel':''}" data-k="${k}"><span>${P[k].label}<i class="dot bg-${s}"></i></span><b class="s-${s}">${fmt(k,v)}<em> ${P[k].unit}</em></b><em>${arrow} ${LABEL[s]}</em></button>`;
     }).join('');
-    $('paramGrid').querySelectorAll('.param').forEach(b => b.onclick = () => { selParam = b.dataset.k; renderAll(); });
-    $('wqChartTitle').textContent = `${t.id} 수조 · ${P[selParam].label}${P[selParam].unit?' ('+P[selParam].unit+')':''}`;
+    $('paramGrid').querySelectorAll('.param').forEach(b => b.onclick = () => { selParam=b.dataset.k; renderAll(); });
+    $('wqChartTitle').textContent = `${t.id} 소화조 · ${P[selParam].label}${P[selParam].unit?' ('+P[selParam].unit+')':''}`;
     drawChart($('wqChart'), t, selParam, range);
     $('wqAdvice').innerHTML = adviceHtml(t);
   }
-
   function renderKiosk(){
     const t = tanks[selTank];
-    const cell = (k) => { const v=cur(t,k), s=status(k,v); return `<div class="kcell ${s}"><span>${P[k].label}${P[k].unit?' '+P[k].unit:''}</span><b>${v.toFixed(P[k].dp)}</b></div>`; };
+    const cell = k => { const v=cur(t,k), s=status(k,v); return `<div class="kcell ${s}"><span>${P[k].label}${P[k].unit?' '+P[k].unit:''}</span><b>${fmt(k,v)}</b></div>`; };
     const k = worstParam(t);
     const adv = k ? `<div class="kadv ${status(k,cur(t,k))}">▶ ${status(k,cur(t,k))==='bad'?ADVICE[k].bad:ADVICE[k].warn}</div>` : `<div class="kadv">▶ 정상 운전 중 — 조치 필요 없음</div>`;
     const off = alerts.filter(a=>a.tank===t.id && a.lvl!=='info').length;
-    $('kiosk').innerHTML = `<div class="khead"><span>HOPFLOW · ${t.id} 수조</span><span class="ai">⬤ AI 모드</span><span>${fmtTime(now)}</span></div>
-      <div class="kgrid">${cell('do_level')}${cell('temperature')}${cell('ph')}${cell('salinity')}</div>${adv}
-      <div style="font-size:12px;color:#8fa6c8;margin-top:8px">기준 이탈·이상징후 ${off}건 · 미전송 0건 · 통신 정상</div>`;
+    $('kiosk').innerHTML = `<div class="khead"><span>HOPFLOW 진단 노드 · ${t.id} 소화조</span><span class="ai">⬤ AI 모드</span><span>${fmtTime(now)}</span></div>
+      <div class="kgrid">${cell('fos_tac')}${cell('ph')}${cell('ch4')}${cell('temperature')}</div>${adv}
+      <div style="font-size:12px;color:#8fa6c8;margin-top:8px">기준 이탈·이상징후 ${off}건 · 미전송 0건 · 통신 정상 · H₂S ${fmt('h2s',cur(t,'h2s'))} ppm · 가스 ${cur(t,'gas_flow').toFixed(1)} m³/h</div>`;
   }
-
   function renderPhone(){
     $('phClock').textContent = fmtTime(now);
     $('phDate').textContent = now.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'long'});
     if (!pushes.length) return;
-    $('pushList').innerHTML = pushes.map((a,i)=>`<div class="push"><div class="ph"><i></i>홉플로우 · ${i===0?'지금':fmtTime(a.time)}</div><b>${a.lvl==='bad'?'🚨 위험':'⚠️ '+(a.trend?'추세 경고':'주의')} · ${a.tank} 수조</b>${a.act || a.msg}</div>`).join('');
+    $('pushList').innerHTML = pushes.map((a,i)=>`<div class="push"><div class="ph"><i></i>홉플로우 · ${i===0?'지금':fmtDT(a.time)}</div><b>${a.lvl==='bad'?'🚨 위험':'⚠️ '+(a.trend?'추세 경고':'주의')} · ${a.tank} 소화조</b>${a.act || a.msg}</div>`).join('');
   }
-
   function renderAll(){ renderTanks(); renderAlerts(); renderDash(); renderWQ(); renderKiosk(); renderPhone(); }
 
-  /* ---------- interactions ---------- */
   function goView(v){
     document.querySelectorAll('.side button').forEach(b=>b.classList.toggle('on', b.dataset.view===v));
     document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on', x.id==='v-'+v));
     renderAll();
   }
   document.querySelectorAll('.side button').forEach(b => b.onclick = () => goView(b.dataset.view));
-  document.querySelectorAll('[data-goto]').forEach(a => a.onclick = (e) => { e.preventDefault(); goView(a.dataset.goto); });
-  document.querySelectorAll('#rangeSeg button').forEach(b => b.onclick = () => {
-    range = +b.dataset.n; document.querySelectorAll('#rangeSeg button').forEach(x=>x.classList.toggle('on',x===b)); renderWQ();
-  });
+  document.querySelectorAll('[data-goto]').forEach(a => a.onclick = e => { e.preventDefault(); goView(a.dataset.goto); });
+  document.querySelectorAll('#rangeSeg button').forEach(b => b.onclick = () => { range=+b.dataset.n; document.querySelectorAll('#rangeSeg button').forEach(x=>x.classList.toggle('on',x===b)); renderWQ(); });
   document.querySelectorAll('[data-scn]').forEach(b => b.onclick = () => {
-    const sc = b.dataset.scn, t = tanks[3];
-    if (sc==='reset') { tanks.forEach(x=>{x.scn=null;}); }
-    else { t.scn = sc; t.scnStep = 0; selTank = 3; selParam = SCN[sc].key; }
-    // fast-forward a few steps so the effect is visible immediately
+    const sc = b.dataset.scn, t = tanks[1];
+    if (sc==='reset') tanks.forEach(x=>{x.scn=null;});
+    else { t.scn = sc; selTank = 1; selParam = SCN[sc].main; }
     for (let i=0;i<(sc==='reset'?8:5);i++) tick();
   });
   window.addEventListener('resize', () => { renderDash(); renderWQ(); });
 
-  // initial evaluation (silent)
   tanks.forEach(t => KEYS.forEach(k => { lastStatus[t.id+':'+k] = status(k,cur(t,k)); }));
   renderAll();
   setInterval(tick, 2500);
-  // expose for screenshot automation
-  window.__hf = { scenario:(s)=>document.querySelector(`[data-scn="${s}"]`).click(), goView, tick };
+  window.__hf = { scenario:s=>document.querySelector(`[data-scn="${s}"]`).click(), goView, tick };
 })();
 </script>
 </body>
