@@ -13,6 +13,7 @@ from ai.trainer.eval_detect import (
     average_precision,
     bootstrap_ci,
     count_error,
+    exact_lower_bound,
     iou_matrix,
     match_one_image,
     read_gt,
@@ -250,3 +251,34 @@ def test_bootstrap_is_reproducible():
 
 def test_bootstrap_needs_at_least_two_images():
     assert bootstrap_ci([np.ones(1, np.float32)], [np.asarray([0.9], np.float32)], [1]) is None
+
+
+# ── 표본이 작을 때의 하한 ──────────────────────────────────────────────────
+def test_perfect_small_sample_is_not_certainty():
+    """16개를 모두 맞혀도 '100%' 라고 말할 수는 없다 — 하한은 0.79 다.
+
+    부트스트랩 구간은 이 경우 1.000~1.000 으로 붙어 버려 확신을 과장한다.
+    이 하한이 그 자리를 메운다. 0.025^(1/16) = 0.7941.
+    """
+    assert exact_lower_bound(16, 16) == pytest.approx(0.025 ** (1 / 16), abs=1e-6)
+    assert exact_lower_bound(16, 16) < 0.80
+
+
+def test_more_samples_raise_the_floor():
+    """같은 100% 라도 표본이 크면 더 강하게 말할 수 있다."""
+    assert exact_lower_bound(16, 16) < exact_lower_bound(100, 100)
+    assert exact_lower_bound(100, 100) < exact_lower_bound(445, 445)
+
+
+def test_missing_everything_has_zero_floor():
+    assert exact_lower_bound(0, 5) == 0.0
+
+
+def test_bound_sits_below_the_observed_rate():
+    for k, n in [(8, 10), (45, 50), (1, 3)]:
+        assert 0.0 < exact_lower_bound(k, n) < k / n
+
+
+def test_bound_is_undefined_without_trials():
+    assert exact_lower_bound(0, 0) is None
+    assert exact_lower_bound(5, 3) is None

@@ -190,6 +190,42 @@ def bootstrap_ci(per_image_tp: list[np.ndarray], per_image_scores: list[np.ndarr
     }
 
 
+def exact_lower_bound(successes: int, trials: int, alpha: float = 0.05) -> float | None:
+    """맞힌 비율의 95% 하한 — 표본이 작을 때 부트스트랩이 못 하는 일을 한다.
+
+    16개 중 16개를 맞히면 부트스트랩 구간은 1.000~1.000 으로 붙어 버린다. 어떻게
+    다시 뽑아도 전부 정답이기 때문이다. 그러면 "100% 이고 오차도 없다"로 읽히는데,
+    16개로는 그렇게 말할 수 없다. 실제로는 참값이 0.8 인 모델도 16번 연속 맞힐
+    확률이 2.8% 나 된다.
+
+    그래서 이항분포로 직접 센다(Clopper–Pearson 하한). 16/16 이면 약 0.79 다 —
+    "적어도 0.79 라고 말할 수 있다"가 이 표본이 허용하는 정직한 최대치다.
+    표본이 커지면 하한이 올라간다.
+    """
+    if trials <= 0 or successes < 0 or successes > trials:
+        return None
+    if successes == 0:
+        return 0.0
+    if successes == trials:
+        return float((alpha / 2) ** (1.0 / trials))
+    lo, hi = 0.0, float(successes) / trials
+    for _ in range(200):                      # 이분법 — scipy 를 끌어오지 않는다
+        mid = (lo + hi) / 2
+        # P(X >= successes | p=mid) 를 누적이항으로 구한다
+        tail = 0.0
+        term = (1 - mid) ** trials
+        for k in range(trials + 1):
+            if k >= successes:
+                tail += term
+            if k < trials and mid < 1.0:
+                term *= (trials - k) / (k + 1) * mid / (1 - mid)
+        if tail > alpha / 2:
+            hi = mid
+        else:
+            lo = mid
+    return float(lo)
+
+
 def frame_for_detector(image):  # noqa: ANN001, ANN201 - PIL.Image in/out
     """배포 검출기에 넘길 프레임을 만든다 — **채널 순서를 틀리면 안 된다.**
 
@@ -344,6 +380,8 @@ def evaluate(args: argparse.Namespace) -> dict:
         "TP": op_tp, "FP": op_fp, "FN": op_fn,
         "mAP@0.5_신뢰구간": bootstrap_ci(all_tp[0.5], all_scores, per_image_gt,
                                        rounds=args.bootstrap) if args.bootstrap else None,
+        "탐지율_95%_하한": (round(exact_lower_bound(op_tp, op_tp + op_fn), 4)
+                            if (op_tp + op_fn) else None),
         "계수_오차율": count_error([(r.gt, r.pred_at_conf) for r in rows], args.count_tolerance),
         "추론시간_ms": {
             "중앙값": round(float(np.median(times)), 1),
@@ -392,6 +430,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  이미지 {out['이미지_수']:,}장 · 정답 박스 {out['정답_박스_수']:,}개")
     print(f"  추론 해상도 {out['추론_해상도']} · 신뢰도 임계값 {out['신뢰도_임계값']}")
     print("-" * 62)
+    lb = out.get("탐지율_95%_하한")
+    if lb is not None:
+        print(f"  탐지율 하한     {lb:.4f}   (정답 {out['TP'] + out['FN']:,}개 기준,"
+              f" 95% 신뢰)")
     ci = out.get("mAP@0.5_신뢰구간")
     if ci:
         print(f"  mAP@0.5        {out['mAP@0.5']:.4f}"
