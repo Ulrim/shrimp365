@@ -198,3 +198,23 @@ def test_count_error_without_any_labelled_object_reports_no_rate():
 def test_count_tolerance_is_configurable():
     assert count_error([(10, 11)], tolerance=0.05)["±5%_이내_비율"] == 0.0
     assert count_error([(10, 11)], tolerance=0.10)["±10%_이내_비율"] == 1.0
+
+
+# ── 채널 순서 ──────────────────────────────────────────────────────────────
+def test_frame_we_hand_the_detector_stays_rgb():
+    """배포 검출기를 거친 뒤에도 R 과 B 가 맞바뀌지 않아야 한다.
+
+    `detect()` 는 ndarray 를 BGR 로 간주해 뒤집는다(현장 스트림이 BGR 이다).
+    그래서 RGB ndarray 를 넘기면 채널이 맞바뀐 그림이 모델에 들어가고, 성적서에
+    실제보다 낮은 수치가 올라간다. 눈에 띄는 오류가 없어 놓치기 쉬운 종류다.
+    """
+    from PIL import Image
+
+    from ai.trainer.eval_detect import frame_for_detector
+    from app.services.detector_onnx import _as_rgb
+
+    # 빨강과 파랑이 분명히 다른 그림 — 뒤집히면 값이 바뀐다
+    src = Image.new("RGB", (4, 3), (200, 50, 10))
+    seen_by_model = _as_rgb(frame_for_detector(src))
+    assert seen_by_model.shape == (3, 4, 3)
+    assert tuple(seen_by_model[0, 0]) == (200, 50, 10), "채널이 뒤집혔습니다"

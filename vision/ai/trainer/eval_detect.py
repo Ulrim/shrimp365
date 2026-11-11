@@ -157,6 +157,21 @@ def average_precision(tp: np.ndarray, scores: np.ndarray, n_gt: int) -> float:
     return float(interp.mean())
 
 
+def frame_for_detector(image):  # noqa: ANN001, ANN201 - PIL.Image in/out
+    """배포 검출기에 넘길 프레임을 만든다 — **채널 순서를 틀리면 안 된다.**
+
+    `OnnxShrimpDetector.detect()` 는 들어온 것이 ndarray 면 **BGR 로 간주해**
+    뒤집는다(현장에서는 스트림이 BGR 을 주기 때문이다). 그래서 여기서 RGB
+    ndarray 를 넘기면 R 과 B 가 맞바뀐 그림이 모델에 들어간다. 모델은 RGB 로
+    학습했으므로 탐지가 크게 망가지고, **성적서에는 실제보다 훨씬 낮은 수치가
+    올라간다.** 눈에 보이는 오류가 없어서 알아차리기도 어렵다.
+
+    PIL 이미지로 넘기면 `detect()` 가 뒤집지 않고 그대로 RGB 로 읽는다.
+    그 경로를 쓴다.
+    """
+    return image.convert("RGB")
+
+
 @dataclass
 class PerImage:
     name: str
@@ -232,9 +247,8 @@ def evaluate(args: argparse.Namespace) -> dict:
 
     for n, image_path in enumerate(images, 1):
         with Image.open(image_path) as im:
-            im = im.convert("RGB")
-            width, height = im.size
-            frame = np.asarray(im, dtype=np.uint8)
+            frame = frame_for_detector(im)
+            width, height = frame.size
 
         start = time.perf_counter()
         result = detector.detect(frame)
