@@ -11,6 +11,7 @@ import pytest
 
 from ai.trainer.eval_detect import (
     average_precision,
+    bootstrap_ci,
     count_error,
     iou_matrix,
     match_one_image,
@@ -218,3 +219,34 @@ def test_frame_we_hand_the_detector_stays_rgb():
     seen_by_model = _as_rgb(frame_for_detector(src))
     assert seen_by_model.shape == (3, 4, 3)
     assert tuple(seen_by_model[0, 0]) == (200, 50, 10), "채널이 뒤집혔습니다"
+
+
+# ── 신뢰구간 ───────────────────────────────────────────────────────────────
+def test_bootstrap_interval_contains_the_point_estimate():
+    """완벽한 탐지 10장이면 구간도 1.0 에 붙어 있어야 한다."""
+    tp = [np.ones(2, np.float32)] * 10
+    sc = [np.asarray([0.9, 0.8], np.float32)] * 10
+    got = bootstrap_ci(tp, sc, [2] * 10, rounds=200)
+    assert got["하한_2.5%"] == pytest.approx(1.0, abs=1e-6)
+    assert got["상한_97.5%"] == pytest.approx(1.0, abs=1e-6)
+
+
+def test_bootstrap_interval_widens_when_images_disagree():
+    """절반은 다 맞고 절반은 다 놓쳤다면 구간이 넓어야 한다 — 좁으면 거짓 정밀도다."""
+    tp = [np.ones(2, np.float32)] * 5 + [np.zeros(0, np.float32)] * 5
+    sc = [np.asarray([0.9, 0.8], np.float32)] * 5 + [np.zeros(0, np.float32)] * 5
+    got = bootstrap_ci(tp, sc, [2] * 10, rounds=500)
+    assert got["상한_97.5%"] - got["하한_2.5%"] > 0.2
+
+
+def test_bootstrap_is_reproducible():
+    """같은 입력이면 같은 구간이 나와야 한다 — 보고서 숫자가 실행마다 바뀌면 안 된다."""
+    tp = [np.ones(1, np.float32), np.zeros(1, np.float32), np.ones(1, np.float32)]
+    sc = [np.asarray([0.9], np.float32)] * 3
+    a = bootstrap_ci(tp, sc, [1, 1, 1], rounds=100)
+    b = bootstrap_ci(tp, sc, [1, 1, 1], rounds=100)
+    assert a == b
+
+
+def test_bootstrap_needs_at_least_two_images():
+    assert bootstrap_ci([np.ones(1, np.float32)], [np.asarray([0.9], np.float32)], [1]) is None

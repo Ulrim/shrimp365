@@ -157,6 +157,39 @@ def average_precision(tp: np.ndarray, scores: np.ndarray, n_gt: int) -> float:
     return float(interp.mean())
 
 
+def bootstrap_ci(per_image_tp: list[np.ndarray], per_image_scores: list[np.ndarray],
+                 per_image_gt: list[int], rounds: int = 2000,
+                 seed: int = 20261111) -> dict | None:
+    """표본이 작을 때 mAP 가 어디까지 흔들리는지 — 이미지 단위 부트스트랩.
+
+    시험 이미지가 수십 장뿐이면 mAP 0.81 이라는 한 숫자는 과장이다. 같은 모델도
+    어떤 50장을 뽑느냐에 따라 0.7 과 0.9 사이를 오간다. 그 폭을 함께 적지 않으면
+    읽는 사람이 정밀도를 실제보다 높게 믿는다.
+
+    이미지를 **통째로** 복원추출해 다시 계산한다. 박스 단위로 섞으면 한 이미지
+    안의 상관관계가 깨져 구간이 실제보다 좁게 나온다.
+    """
+    n = len(per_image_tp)
+    if n < 2:
+        return None
+    rng = np.random.default_rng(seed)
+    aps = np.empty(rounds, dtype=np.float64)
+    for b in range(rounds):
+        pick = rng.integers(0, n, size=n)
+        tp = np.concatenate([per_image_tp[i] for i in pick]) if n else np.zeros(0)
+        sc = np.concatenate([per_image_scores[i] for i in pick]) if n else np.zeros(0)
+        aps[b] = average_precision(tp, sc, sum(per_image_gt[i] for i in pick))
+    aps = aps[~np.isnan(aps)]
+    if aps.size == 0:
+        return None
+    return {
+        "반복": rounds,
+        "하한_2.5%": round(float(np.percentile(aps, 2.5)), 4),
+        "상한_97.5%": round(float(np.percentile(aps, 97.5)), 4),
+        "표준오차": round(float(np.std(aps, ddof=1)), 4),
+    }
+
+
 def frame_for_detector(image):  # noqa: ANN001, ANN201 - PIL.Image in/out
     """배포 검출기에 넘길 프레임을 만든다 — **채널 순서를 틀리면 안 된다.**
 
@@ -240,6 +273,7 @@ def evaluate(args: argparse.Namespace) -> dict:
 
     all_scores: list[np.ndarray] = []
     all_tp: dict[float, list[np.ndarray]] = {float(t): [] for t in IOU_THRESHOLDS}
+    per_image_gt: list[int] = []
     total_gt = 0
     rows: list[PerImage] = []
     op_tp = op_fp = op_fn = 0
@@ -259,6 +293,7 @@ def evaluate(args: argparse.Namespace) -> dict:
         scores = np.asarray([b.confidence for b in result.bboxes], dtype=np.float32)
         gt = read_gt(label_for(image_path, images_dir, labels_dir), width, height)
         total_gt += len(gt)
+        per_image_gt.append(len(gt))
 
         all_scores.append(scores)
         for t in IOU_THRESHOLDS:
@@ -307,6 +342,8 @@ def evaluate(args: argparse.Namespace) -> dict:
         "Recall": round(recall, 4),
         "F1": round(f1, 4),
         "TP": op_tp, "FP": op_fp, "FN": op_fn,
+        "mAP@0.5_신뢰구간": bootstrap_ci(all_tp[0.5], all_scores, per_image_gt,
+                                       rounds=args.bootstrap) if args.bootstrap else None,
         "계수_오차율": count_error([(r.gt, r.pred_at_conf) for r in rows], args.count_tolerance),
         "추론시간_ms": {
             "중앙값": round(float(np.median(times)), 1),
@@ -333,6 +370,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--map-conf", type=float, default=0.001,
                    help="mAP 곡선용 최저 신뢰도. 낮을수록 곡선이 완전해진다")
     p.add_argument("--iou", type=float, default=0.7, help="NMS IoU")
+    p.add_argument("--bootstrap", type=int, default=0,
+                   help="mAP@0.5 신뢰구간 부트스트랩 반복 수(0=끄기, 권장 2000)")
     p.add_argument("--count-tolerance", type=float, default=0.20,
                    help="계수 오차 허용 범위(기본 0.20 = ±20%%)")
     p.add_argument("--imgsz", type=int, default=None, help="추론 해상도(미지정=모델값)")
@@ -353,7 +392,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  이미지 {out['이미지_수']:,}장 · 정답 박스 {out['정답_박스_수']:,}개")
     print(f"  추론 해상도 {out['추론_해상도']} · 신뢰도 임계값 {out['신뢰도_임계값']}")
     print("-" * 62)
-    print(f"  mAP@0.5        {out['mAP@0.5']:.4f}")
+    ci = out.get("mAP@0.5_신뢰구간")
+    if ci:
+        print(f"  mAP@0.5        {out['mAP@0.5']:.4f}"
+              f"   (95% 구간 {ci['하한_2.5%']:.4f} ~ {ci['상한_97.5%']:.4f})")
+    else:
+        print(f"  mAP@0.5        {out['mAP@0.5']:.4f}")
     print(f"  mAP@0.5:0.95   {out['mAP@0.5:0.95']:.4f}")
     print(f"  Precision      {out['Precision']:.4f}")
     print(f"  Recall         {out['Recall']:.4f}")
