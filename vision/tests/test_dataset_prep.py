@@ -382,3 +382,52 @@ def test_end_to_end_regroup_writes_all_images(tmp_path):
         len(list((out / split / "images").iterdir())) for split in ("train", "valid", "test")
     )
     assert written == 8  # 8장 전부 살아 있다
+
+
+# ── 수조 영상 회차 단위 분할 ───────────────────────────────────────────────
+def _tank_items(sessions: int, per_session: int) -> list:
+    """수조 영상에서 뽑은 프레임을 흉내 낸다 — 회차마다 분할을 일부러 흩뿌린다."""
+    splits = ("train", "valid", "test")
+    items = []
+    for s in range(sessions):
+        prefix = f"tank1-2026111{s}-093000"
+        for i in range(per_session):
+            name = f"{prefix}.rf.{i:06d}.jpg"
+            items.append(prep.Item(
+                source="tank",
+                split=splits[i % 3],          # 흩어진 상태에서 시작
+                image=Path(name),
+                label=None,
+                out_name=name,
+                stem=prep.frame_stem(name),
+                digest=f"{s}-{i}",            # 내용은 서로 다르다
+            ))
+    return items
+
+
+def test_one_recording_session_stays_in_one_split():
+    """같은 회차 프레임은 통째로 한 분할에 들어가야 한다.
+
+    5분 간격으로 찍어도 한 회차 안은 물 색·조명·개체 배치가 거의 같다. 흩어지면
+    학습에서 본 장면을 평가에서 다시 보게 되어 점수가 부풀려진다.
+    """
+    items = _tank_items(sessions=9, per_session=12)
+    prep.regroup_splits(items)
+    by_session: dict[str, set[str]] = {}
+    for it in items:
+        by_session.setdefault(it.stem, set()).add(it.split)
+    assert all(len(v) == 1 for v in by_session.values()), by_session
+
+
+def test_too_few_sessions_cannot_hit_the_ratios():
+    """회차가 적으면 비율을 맞출 수 없다 — 길게 한 번보다 여러 번 나눠 찍어야 한다."""
+    items = _tank_items(sessions=2, per_session=30)
+    prep.regroup_splits(items)
+    used = {it.split for it in items}
+    assert len(used) < 3
+
+
+def test_sessions_are_not_merged_with_each_other():
+    """회차가 다르면 다른 묶음이어야 한다 — 이름이 겹치면 남남을 한 묶음으로 본다."""
+    items = _tank_items(sessions=3, per_session=4)
+    assert len({it.stem for it in items}) == 3

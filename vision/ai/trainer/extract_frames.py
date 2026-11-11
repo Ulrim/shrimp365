@@ -9,11 +9,25 @@ Usage (ml extra required for OpenCV: `pip install -e ".[ml]"`):
     python ai/trainer/extract_frames.py --source tank1.mp4 --out datasets/raw
     python ai/trainer/extract_frames.py --source rtsp://cam/stream \
         --out datasets/raw --every-seconds 5 --limit 500
+
+파일 이름은 `<회차>.rf.<번호>.jpg` 다 (`stream-20261112-093000.rf.000001.jpg`).
+
+두 가지를 동시에 노린 이름이다.
+
+* **회차**가 들어가므로 다른 날 찍은 프레임끼리 이름이 겹치지 않는다.
+* `.rf.` 앞부분이 같으면 `prepare_dataset.py` 가 **한 묶음**으로 보고 train/valid/
+  test 중 한 곳에 통째로 넣는다. 5분 간격으로 찍어도 같은 회차 프레임은 물 색·
+  조명·개체 배치가 거의 같아서, 흩어지면 학습 데이터가 평가 쪽으로 샌다.
+
+그래서 **한 번 길게 찍는 것보다 여러 회차로 나눠 찍는 편이 낫다.** 회차가
+묶음의 단위이므로, 회차가 서너 개뿐이면 분할 비율을 맞출 수 없다.
+회차 이름을 직접 정하려면 `--prefix tank1-야간` 처럼 준다.
 """
 from __future__ import annotations
 
 import argparse
 import sys
+from datetime import datetime
 from pathlib import Path
 
 MISSING_CV2_MSG = (
@@ -42,7 +56,34 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--limit", type=int, default=0, help="max frames to save (0 = unlimited)"
     )
+    parser.add_argument(
+        "--prefix",
+        default=None,
+        help=(
+            "파일 이름 앞에 붙일 촬영 회차 이름. 생략하면 <소스이름>-<날짜시각> 이 붙는다. "
+            "회차가 섞이면 분할이 망가지므로 비워 두지 말 것(아래 설명 참고)"
+        ),
+    )
     return parser.parse_args(argv)
+
+
+def session_prefix(source: str, now: datetime | None = None) -> str:
+    """촬영 회차를 파일 이름에 박는다 — 이게 없으면 분할이 조용히 망가진다.
+
+    RTSP 로 받으면 소스 이름이 늘 같다(`rtsp://cam/stream` -> `stream`). 그대로
+    두면 어제 찍은 `stream_000000.jpg` 와 오늘 찍은 `stream_000000.jpg` 가
+    같은 이름이 된다. 덮어써서 자료를 잃는 것도 문제지만, 더 나쁜 일이 뒤에서
+    일어난다 — `prepare_dataset.py` 는 파일 이름 앞부분으로 "같은 원본 프레임"을
+    묶으므로, **다른 날 찍은 남남을 한 묶음으로 보고** train/valid 에 함께 넣지
+    않으려 애쓴다. 그 결과 분할 비율이 틀어지고, 반대로 1초 간격으로 찍어 거의
+    같은 두 장은 묶이지 않아 학습 데이터가 평가 쪽으로 샌다.
+
+    그래서 회차마다 다른 이름을 준다: `stream-20261112-0930`.
+    """
+    base = Path(source).stem or "frame"
+    base = "".join(c if c.isalnum() or c in "-_" else "-" for c in base).strip("-") or "frame"
+    stamp = (now or datetime.now()).strftime("%Y%m%d-%H%M%S")
+    return f"{base}-{stamp}"
 
 
 def _load_cv2():
@@ -74,7 +115,7 @@ def main(argv: list[str] | None = None) -> int:
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    stem = Path(str(args.source)).stem or "frame"
+    stem = args.prefix or session_prefix(str(args.source))
 
     saved = 0
     index = 0
@@ -84,7 +125,8 @@ def main(argv: list[str] | None = None) -> int:
             if not ok:
                 break
             if index % frame_step == 0:
-                path = out_dir / f"{stem}_{saved:06d}.jpg"
+                # `.rf.` 앞을 한 묶음으로 보는 규칙에 맞춘다(아래 설명).
+                path = out_dir / f"{stem}.rf.{saved:06d}.jpg"
                 cv2.imwrite(str(path), frame)
                 saved += 1
                 if saved % 50 == 0:

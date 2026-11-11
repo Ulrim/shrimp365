@@ -46,7 +46,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--conf",
         type=float,
         default=0.4,
-        help="신뢰도 임계값. 평가 때보다 높게 — 지우는 쪽이 그리는 쪽보다 쉽다",
+        help=(
+            "신뢰도 임계값. 쓰임새에 따라 반대로 간다. "
+            "학습 데이터를 많이 만들 때는 높게(기본 0.4) — 확실한 것만 올려 손이 덜 간다. "
+            "**평가용 정답**을 만들 때는 낮게(0.1 안팎) — 모델이 놓친 개체는 사람도 "
+            "그냥 넘기기 쉬운데, 그러면 정답에서도 빠져 평가가 모델에게 유리해진다. "
+            "과하게 찍게 해 두고 지우는 편이 안전하다"
+        ),
     )
     parser.add_argument("--iou", type=float, default=0.7, help="NMS IoU")
     parser.add_argument("--max-det", type=int, default=1000, help="한 장 최대 개체 수")

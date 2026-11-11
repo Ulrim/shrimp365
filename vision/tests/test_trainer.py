@@ -140,3 +140,38 @@ def test_train_exposes_resume_for_interrupted_runs():
     )
     assert proc.returncode == 0
     assert "--resume" in proc.stdout
+
+
+# ── 프레임 추출 회차 이름 ──────────────────────────────────────────────────
+def test_session_prefix_differs_between_runs():
+    """같은 RTSP 주소라도 회차가 다르면 파일 이름이 달라야 한다.
+
+    같으면 (1) 덮어써서 자료를 잃고 (2) prepare_dataset 이 다른 날 찍은 남남을
+    한 프레임으로 묶어 분할이 망가진다.
+    """
+    from datetime import datetime
+
+    from ai.trainer.extract_frames import session_prefix
+
+    a = session_prefix("rtsp://cam/stream", datetime(2026, 11, 12, 9, 30, 0))
+    b = session_prefix("rtsp://cam/stream", datetime(2026, 11, 12, 14, 5, 0))
+    assert a != b
+    assert a.startswith("stream-")
+
+
+def test_session_prefix_strips_awkward_characters():
+    from datetime import datetime
+
+    from ai.trainer.extract_frames import session_prefix
+
+    got = session_prefix("/tmp/수조 1번!.mp4", datetime(2026, 11, 12, 9, 30, 0))
+    assert " " not in got and "!" not in got
+    assert got.endswith("20261112-093000")
+
+
+def test_session_prefix_never_empty():
+    from datetime import datetime
+
+    from ai.trainer.extract_frames import session_prefix
+
+    assert session_prefix("///", datetime(2026, 1, 1)).startswith("frame-")
