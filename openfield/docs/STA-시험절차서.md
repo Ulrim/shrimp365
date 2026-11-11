@@ -145,6 +145,7 @@ python -c "from ofdf import __version__; print(__version__)"
 python scripts/train_weather.py \
     --aaos-dir data/raw/aaos \
     --agera5 data/raw/agera5_naju_daily_2015_2026.csv \
+    --year-round-train heat_dry,disease,frost \
     --out artifacts/weather --seed 42
 ```
 
@@ -157,12 +158,12 @@ python scripts/train_weather.py \
 
 | 위험유형 | 시계 | 단위 | F1 | 판정 |
 |---|---|---|---|---|
-| 고온·건조 | 1h | 3등급 | 0.910 | 달성 |
-| 고온·건조 | 3h | 3등급 | 0.811 | 달성 |
+| 고온·건조 | 1h | 3등급 | 0.907 | 달성 |
+| 고온·건조 | 3h | 3등급 | 0.825 | 달성 |
 | 강우·과습 | 1h | 2등급 | 0.914 | 달성 |
 | 강우·과습 | 3h | 2등급 | 0.856 | 달성 |
-| 병해 유리환경 | 1h | 3등급 | 0.930 | 달성 |
-| 병해 유리환경 | 3h | 3등급 | 0.907 | 달성 |
+| 병해 유리환경 | 1h | 3등급 | 0.937 | 달성 |
+| 병해 유리환경 | 3h | 3등급 | 0.911 | 달성 |
 | 저온·서리 | 1h | 2등급 | 0.957 | 달성 |
 | 저온·서리 | 3h | 2등급 | 0.940 | 달성 |
 | 복합위험(점수) | 1h | 2등급 | 0.903 | 달성 |
@@ -454,6 +455,7 @@ PYTHONPATH=src python -m pytest tests/ -q
 # 4. T-01 / T-02 / T-03
 python scripts/train_weather.py --aaos-dir data/raw/aaos \
     --agera5 data/raw/agera5_naju_daily_2015_2026.csv \
+    --year-round-train heat_dry,disease,frost \
     --out artifacts/weather --seed 42
 
 # 5. T-05

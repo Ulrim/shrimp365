@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-11T22:17:55.497474",
+  "generated": "2026-11-11T23:28:22.215902",
   "station": "나주시 산포면",
   "now": "2021-11-25T00:00:00",
   "modelVersion": "ofdf-weather-0.1.0",
@@ -68,11 +68,11 @@
         "1": {
           "level": 0,
           "levelName": "정상",
-          "confidence": 0.981,
+          "confidence": 0.994,
           "probabilities": [
-            0.981,
-            0.01,
-            0.01
+            0.994,
+            0.003,
+            0.003
           ],
           "actual": 0,
           "actualName": "정상",
@@ -81,11 +81,11 @@
         "3": {
           "level": 0,
           "levelName": "정상",
-          "confidence": 0.976,
+          "confidence": 0.996,
           "probabilities": [
-            0.976,
-            0.012,
-            0.012
+            0.996,
+            0.002,
+            0.002
           ],
           "actual": 0,
           "actualName": "정상",
@@ -135,8 +135,8 @@
           "confidence": 0.999,
           "probabilities": [
             0.999,
-            0.0,
-            0.0
+            0.001,
+            0.001
           ],
           "actual": 0,
           "actualName": "정상",
@@ -145,11 +145,11 @@
         "3": {
           "level": 0,
           "levelName": "정상",
-          "confidence": 0.997,
+          "confidence": 1.0,
           "probabilities": [
-            0.997,
-            0.001,
-            0.001
+            1.0,
+            0.0,
+            0.0
           ],
           "actual": 0,
           "actualName": "정상",
@@ -166,9 +166,9 @@
           "levelName": "정상",
           "confidence": 0.265,
           "probabilities": [
-            0.046,
-            0.943,
-            0.01
+            0.026,
+            0.971,
+            0.003
           ],
           "actual": 1,
           "actualName": "주의",
@@ -179,9 +179,9 @@
           "levelName": "주의",
           "confidence": 0.88,
           "probabilities": [
-            0.024,
-            0.937,
-            0.039
+            0.028,
+            0.916,
+            0.056
           ],
           "actual": 1,
           "actualName": "주의",
@@ -217,19 +217,19 @@
           "feature": "t_air",
           "label": "기온",
           "value": 4.0,
-          "contribution": 1.168
+          "contribution": 1.502
         },
         {
           "feature": "dew_point",
           "label": "이슬점",
           "value": 1.01,
-          "contribution": 0.539
+          "contribution": 0.678
         },
         {
-          "feature": "t_air_min12",
-          "label": "기온 12시간 최저",
-          "value": 3.0,
-          "contribution": 0.33
+          "feature": "hour_cos",
+          "label": "시각(주기)",
+          "value": 1.0,
+          "contribution": 0.534
         }
       ]
     }
