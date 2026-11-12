@@ -147,6 +147,39 @@ def event_detection(
     }
 
 
+def pre_onset_detection(
+    timestamps: pd.Series,
+    stations: pd.Series,
+    y_pred: np.ndarray,
+    event_id: pd.Series,
+    horizon_hours: int,
+) -> dict:
+    """사례가 **시작되기 전**에 알렸는가 — 시작 직전 ``horizon_hours`` 시간 안의 경보.
+
+    :func:`event_detection` 은 위험이 이미 걸린 뒤의 경보도 탐지로 센다(현재
+    상태를 그대로 부르는 규칙도 100% 가 된다). 선행 경보의 가치는 시작 전에
+    있으므로 이 값을 따로 싣는다. 시작 전 구간이 평가 자료에 없는 사례는
+    분모에서 뺀다.
+    """
+    frame = pd.DataFrame({
+        "ts": pd.to_datetime(timestamps).to_numpy(), "st": np.asarray(stations),
+        "pred": np.asarray(y_pred), "event": event_id.to_numpy(),
+    })
+    look = frame.set_index(["st", "ts"])["pred"]
+    look = look[~look.index.duplicated()]
+    active = frame.dropna(subset=["event"])
+    n = hit = 0
+    for _, rows in active.groupby("event"):
+        t0 = rows["ts"].min(); st = rows.loc[rows["ts"].idxmin(), "st"]
+        before = [look.get((st, t0 - pd.Timedelta(hours=k))) for k in range(1, horizon_hours + 1)]
+        before = [v for v in before if v is not None]
+        if not before:
+            continue
+        n += 1
+        hit += int(max(before) >= 1)
+    return {"n_events": n, "detected": hit, "rate": float(hit / n) if n else float("nan")}
+
+
 def lead_time_minutes(
     timestamps: pd.Series,
     y_true: np.ndarray,

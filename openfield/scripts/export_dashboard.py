@@ -32,7 +32,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from ofdf.action.recommend import SensorState, decide  # noqa: E402
 from ofdf.labels.risk import (  # noqa: E402
     RISK_LABELS_KO,
-    compose_compound,
     compound_reasons,
 )
 
@@ -108,19 +107,28 @@ def pick_moment(dataset, risk: str, hours: int) -> int:
 
 def main() -> int:
     args = parse_args()
-    import lightgbm as lgb
 
     dataset = pickle.loads(Path(args.cache).read_bytes())
     features = dataset.features.reset_index(drop=True)
     meta = dataset.meta.reset_index(drop=True)
     labels = dataset.labels.reset_index(drop=True)
 
-    models = {}
-    for risk in BASE_RISKS:
-        for horizon in (1, 3):
-            path = Path(args.models) / f"model_{risk}_h{horizon}.txt"
-            if path.exists():
-                models[(risk, horizon)] = lgb.Booster(model_file=str(path))
+    # 현장 제어기와 **같은 로더·같은 판정**(cli.load_models / cli.judge)을 쓴다.
+    # 화면의 등급이 장비가 내리는 판정과 달라서는 안 된다 — 판정 가중치,
+    # 2등급 전용학습 경계, 복합위험 점수가 모두 여기서 적용된다.
+    from ofdf import cli
+
+    by_horizon = cli.load_models(Path(args.models))
+    models = {
+        (risk, horizon): entry[0]
+        for horizon, bucket in by_horizon.items()
+        for risk, entry in bucket.items()
+        if risk in BASE_RISKS
+    }
+
+    def judged_at(index: int, horizon: int):
+        return cli.judge(by_horizon[horizon], features.iloc[[index]])
+
     if not models:
         print(f"[오류] {args.models} 에 모델이 없습니다")
         return 1
@@ -144,12 +152,13 @@ def main() -> int:
                 continue
             row = features.iloc[[now]][model.feature_name()]
             proba = model.predict(row)[0]
-            level = int(np.argmax(proba))
+            j_levels, j_conf, _ = judged_at(now, horizon)
+            level = int(j_levels[risk])
             truth = int(labels.loc[now, f"{risk}_h{horizon}"] or 0)
 
             entry["horizons"][str(horizon)] = {
                 "level": level, "levelName": LEVEL_NAMES[level],
-                "confidence": round(float(proba[level]), 3),
+                "confidence": round(float(j_conf[risk]), 3),
                 "probabilities": [round(float(p), 3) for p in proba],
                 "actual": truth, "actualName": LEVEL_NAMES[truth],
                 "correct": level == truth,
@@ -163,7 +172,7 @@ def main() -> int:
                 judgements.append({
                     "risk": risk, "name": RISK_LABELS_KO[risk],
                     "level": level, "levelName": LEVEL_NAMES[level],
-                    "confidence": round(float(proba[level]), 3),
+                    "confidence": round(float(j_conf[risk]), 3),
                     "modelVersion": MODEL_VERSION,
                     "expectedOnset": (timestamp + pd.Timedelta(hours=horizon)).isoformat(),
                     "evidence": [
@@ -185,9 +194,7 @@ def main() -> int:
     confidences = {
         c["risk"]: c["horizons"].get("3", {}).get("confidence", 1.0) for c in cards
     }
-    compound = int(compose_compound(
-        [levels.get("rain_wet", 0)], [levels.get("disease", 0)], [levels.get("frost", 0)]
-    )[0])
+    compound = int(judged_at(now, max(by_horizon))[0]["compound"])
     reasons = compound_reasons(
         levels.get("rain_wet", 0), levels.get("disease", 0), levels.get("frost", 0)
     )
@@ -214,13 +221,7 @@ def main() -> int:
     history = []
     for index in window[-12:]:
         row_time = pd.Timestamp(meta.loc[index, "ts"])
-        step_levels = {}
-        for risk in BASE_RISKS:
-            model = models.get((risk, 3))
-            if model is None:
-                continue
-            proba = model.predict(features.iloc[[index]][model.feature_name()])[0]
-            step_levels[risk] = int(np.argmax(proba))
+        step_levels = dict(judged_at(index, max(by_horizon))[0])
         step_sensors = SensorState(
             gust_3s=round(float(features.loc[index, "wind_speed"]) * 1.8, 1),
             rain_detected=bool(features.loc[index, "rain"] > 0),

@@ -83,6 +83,13 @@ def load_models(model_dir: Path, horizons: list[int]) -> dict:
             path = model_dir / f"model_{risk}_h{horizon}.txt"
             if path.exists():
                 models[(risk, horizon)] = lgb.Booster(model_file=str(path))
+            # 현장 판정(cli.judge)처럼 2등급 전용학습 모델도 함께 잰다
+            # 접힘 앙상블(2등급 전용학습, 복합 점수용 병해)도 같은 수만큼 추론한다
+            for stem in (f"model_{risk}_h{horizon}_binary", f"model_{risk}_h{horizon}_risk"):
+                for k, member in enumerate(sorted(model_dir.glob(f"{stem}_cv*.txt"))):
+                    models[(f"{risk}_{stem.rsplit('_', 1)[1]}cv{k}_binary", horizon)] = (
+                        lgb.Booster(model_file=str(member))
+                    )
     return models
 
 
@@ -288,6 +295,8 @@ def main() -> int:
                 continue
             proba = model.predict(row[model.feature_name()])[0]
             predicted[risk] = int(np.argmax(proba))
+        for risk in [r for r in list(predicted) if r.endswith("_binary")]:
+            predicted.pop(risk)          # 앙상블 구성원 — 추론 시간만 잰다
         predicted["compound"] = int(compose_compound(
             [predicted.get("rain_wet", 0)], [predicted.get("disease", 0)],
             [predicted.get("frost", 0)])[0])

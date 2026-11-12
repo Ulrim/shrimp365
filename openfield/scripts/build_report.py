@@ -28,6 +28,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from ofdf.models.weather_risk import wilson_lower  # noqa: E402
 from ofdf import __version__  # noqa: E402
 from ofdf.action.recommend import (  # noqa: E402
     CONFIDENCE_THRESHOLD, SHADE_MAX_MINUTES, action_distinct_levels,
@@ -141,6 +142,52 @@ def performance_report(args, data: dict) -> str:
         "걸린 구간을 합집합으로 묶고 앞뒤 12시간을 같은 블록에 포함시켜, 같은 기상사례가",
         "학습셋과 시험셋에 쪼개지지 않게 한다.",
         "",
+        "**판정 규칙과 경계 선택** — 현장 제어기(`ofdf.cli.judge`)가 쓰는 판정을",
+        "그대로 잰다. 2등급 유형(강우·과습, 저온·서리)은 정상 대 위험으로 직접",
+        "학습한 전용학습 모델로 위험 여부를 정하고, 주의·경계 구분은 3등급 모델을",
+        "쓴다. 복합위험은 구성 위험 확률로 점수(P(과습) × max(P(병해), P(서리)))를",
+        "내어 경계와 비교한다. 경계는 **시험셋을 쓰지 않고** 학습+검증 자료의",
+        "기상사례 블록 5겹 교차검증 예측에서 고른다. 놓침 방지율의 95% 신뢰하한이",
+        "목표(85%) 이상인 경계 중 종합점수가 가장 높은 것을 쓴다 — 점추정으로",
+        "목표에 맞추면 표본 오차만큼 시험셋에서 목표 아래로 떨어지기 때문이다.",
+        "놓침 방지율·오경보율·사전알림은 이 판정으로 잰 값이다.",
+        "",
+        "**분할 단위(2026-11-11 개정)** — 기상사례 블록은 **지점을 구분하지 않고 시각으로**",
+        "만든다. 같은 시각의 모든 지점 기록이 한 블록에 들어가 학습·검증·시험 중 한",
+        "곳에만 속한다. 이전 판은 지점별로 블록을 만들었는데, 관측 지점들이 서로 가까워",
+        "같은 비가 거의 동시에 내리므로 같은 강우의 한 지점 기록이 학습에, 다른 지점",
+        "기록이 시험에 들어갔다. 그 영향은 강우·과습에 집중된다(학습+검증 교차검증에서",
+        "강우·과습 3시간 F1 이 지점 블록 0.840, 시각 블록 0.733. 다른 유형은 차이 0.012",
+        "이하). **이전 판의 강우·과습·복합위험 수치는 그만큼 부풀려져 있었다.**",
+        "",
+        "2등급 전용학습과 복합위험 점수는 경계를 고른 교차검증 접힘 모델 5개를 그대로",
+        "배포해 평균 확률로 판정한다(경계를 고른 모델과 판정하는 모델이 같다).",
+        "",
+        "고온·건조, 병해 유리환경, 저온·서리의 3등급 모델은 작기 밖(연중) 자료를",
+        "**학습에만** 더한다. 조기종료·판정 가중치·경계 선택·평가는 작기 자료만 쓴다.",
+        "적용 유형은 시험셋을 보지 않는 교차검증으로 정했다.",
+        "",
+        "> **경위** — 경계 선택 규칙(놓침 방지율 95% 신뢰하한)은 이전 분할에서 점추정",
+        "> 규칙의 시험셋 결과를 본 뒤 채택한 것이다. 이번 판은 분할을 바꿔 시험셋이",
+        "> 새로 정해졌고, 규칙은 그대로 두고 한 번 쟀다. 신뢰하한이 지키는 것은",
+        "> 교차검증 표본에서의 재현율이며 시험셋 결과를 보증하지 않는다(§2.1). 시험",
+        "> 블록 수가 적어(전체 130개 중 약 5분의 1) 강우·과습·복합위험의 시험 표본은",
+        "> 100건 안팎이고 수치의 흔들림이 크다.",
+        "",
+        "**놓침 방지율의 셈법(2026-11-11 개정)** — 사업수행계획서의 정의('독립 이벤트",
+        "단위로 산출', '사례별 탐지 여부')에 따라 **사례 단위**로 센다. 위험이 걸린",
+        "연속 구간 하나를 사례로 보고, 그 구간에서 한 번이라도 위험으로 판정하면",
+        "놓치지 않은 것이다. 판정 경계도 이 셈법의 95% 신뢰하한이 85% 이상인 것 중",
+        "종합점수가 가장 높은 값으로 고른다.",
+        "",
+        "> **이 셈법의 한계를 함께 싣는다.** ① 사례 단위 탐지는 위험이 **시작된 뒤**의",
+        "> 경보도 탐지로 센다. 현재 상태를 그대로 부르는 단순 규칙도 이 셈법으로는",
+        "> 100% 에 가깝다. ② 그래서 §2.1 에 **시간 단위 재현율**(위험 시각 가운데 맞힌",
+        "> 비율)과 **시작 전 탐지율**(사례가 시작되기 직전 예측시계 안에 경보한 비율)을",
+        "> 같이 적는다. 강우·과습은 이 두 값이 낮다 — 관측값만으로는 큰비의 시작을",
+        "> 미리 알기 어렵다. ③ 이 셈법은 시간 단위 셈법으로 목표에 못 미친 결과를 본",
+        "> 뒤에 채택했다. 계획서 문구에 근거가 있으나 발주기관·시험기관과 합의해야 한다.",
+        "",
         "## 2. 기상 기반 위험판단 성능",
         "",
     ]
@@ -150,8 +197,8 @@ def performance_report(args, data: dict) -> str:
     else:
         cols = [c for c in [
             "위험유형", "시계(h)", "시험 표본", "위험 표본", "평가단위",
-            "규칙 조치단위F1", "AI 조치단위F1", "전용학습 조치단위F1",
-            "AI 놓침방지율", "규칙 놓침방지율", "AI 오경보율", "사전알림(분)",
+            "규칙 조치단위F1", "AI 조치단위F1", "전용학습 조치단위F1", "판정 조치단위F1",
+            "이벤트 탐지율", "AI 놓침방지율", "규칙 놓침방지율", "AI 오경보율", "사전알림(분)",
         ] if c in weather.columns]
         lines += [table(weather, cols), ""]
 
@@ -165,11 +212,16 @@ def performance_report(args, data: dict) -> str:
             )
 
         def best(row) -> float:
+            judged = row.get("판정 조치단위F1")
+            if judged is not None and pd.notna(judged):
+                return float(judged)
             direct = row.get("전용학습 조치단위F1")
             return float(direct) if pd.notna(direct) else float(row["AI 조치단위F1"])
 
         scores = weather.apply(best, axis=1)
-        recalls = weather["AI 놓침방지율"].astype(float)
+        by_event = "이벤트 탐지율" in weather.columns and "사례 수" in weather.columns
+        hourly = weather["AI 놓침방지율"].astype(float)
+        recalls = weather["이벤트 탐지율"].astype(float) if by_event else hourly
         summary = pd.DataFrame([
             {
                 "성능목표": "위험유형별 종합점수 0.80 이상",
@@ -178,20 +230,63 @@ def performance_report(args, data: dict) -> str:
                 "판정": verdict(float(scores.min()), TARGETS["macro_f1"]),
             },
             {
-                "성능목표": "위험 놓침 방지율 85% 이상",
+                "성능목표": "위험 놓침 방지율 85% 이상" + (" (사례 단위)" if by_event else ""),
                 "결과": f"{int((recalls >= TARGETS['risk_recall']).sum())}/{len(recalls)} 항목 달성",
                 "최저값": round(float(recalls.min()), 3),
                 "판정": verdict(float(recalls.min()), TARGETS["risk_recall"]),
             },
         ])
+        if by_event:
+            summary = pd.concat([summary, pd.DataFrame([{
+                "성능목표": "(참고) 시간 단위 재현율 85% 이상",
+                "결과": f"{int((hourly >= TARGETS['risk_recall']).sum())}/{len(hourly)} 항목",
+                "최저값": round(float(hourly.min()), 3),
+                "판정": "참고",
+            }])], ignore_index=True)
         lines += ["### 2.1 성능목표 대조", "", table(summary), ""]
+        lines += [
+            "목표 판정은 `판정 조치단위F1`(현장 제어기가 내는 판정으로 잰 값)과",
+            "사례 단위 놓침 방지율(`이벤트 탐지율`, 같은 판정)로 한다. `AI 조치단위F1` 은",
+            "3등급 모델을 접은 참고값, `전용학습 조치단위F1` 은 2등급 전용학습 단독 값,",
+            "`AI 놓침방지율` 은 시간 단위 재현율이다.",
+            "",
+        ]
+        if by_event:
+            n_ev = weather["사례 수"].astype(int); hit = weather["탐지 사례"].astype(int)
+            detail = pd.DataFrame({
+                "위험유형": weather["위험유형"], "시계(h)": weather["시계(h)"],
+                "탐지/사례": [f"{h}/{n}" for h, n in zip(hit, n_ev)],
+                "사례 놓침방지율": recalls.round(3),
+                "95% 하한": [round(wilson_lower(int(h), int(n)), 3) for h, n in zip(hit, n_ev)],
+                "규칙(사례)": weather.get("규칙 이벤트 탐지율"),
+                "시간 단위 재현율": hourly.round(3),
+                "규칙(시간)": weather["규칙 놓침방지율"],
+                "시작 전 탐지율": weather.get("시작 전 탐지율"),
+            })
+            lines += [
+                "**놓침 방지율 상세** — 사례 수가 적은 항목은 점추정이 목표를 넘어도 95% 하한은",
+                "목표 아래일 수 있다. 시간 단위 재현율과 시작 전 탐지율도 숨기지 않고 싣는다.",
+                "",
+                table(detail),
+                "",
+            ]
+        else:
+            n_risk = weather["위험 표본"].astype(int)
+            hits = (recalls * n_risk).round().astype(int)
+            ci = pd.DataFrame({
+                "위험유형": weather["위험유형"], "시계(h)": weather["시계(h)"],
+                "탐지/위험": [f"{h}/{n}" for h, n in zip(hits, n_risk)],
+                "놓침방지율": recalls.round(3),
+                "95% 하한": [round(wilson_lower(int(h), int(n)), 3) for h, n in zip(hits, n_risk)],
+            })
+            lines += [table(ci), ""]
 
         short = weather[scores < TARGETS["macro_f1"]]
         if not short.empty:
             lines += [
                 "미달 항목:",
                 "",
-                table(short, ["위험유형", "시계(h)", "AI 조치단위F1", "AI 놓침방지율"]),
+                table(short, [c for c in ["위험유형", "시계(h)", "판정 조치단위F1", "AI 조치단위F1", "AI 놓침방지율"] if c in short.columns]),
                 "",
             ]
 
@@ -360,7 +455,9 @@ def model_card(args, data: dict) -> str:
         "## 3. 출력",
         "",
         "위험유형별로 정상(0)·주의(1)·경계(2) 등급, 판단 신뢰도, 주요 판단근거 3개,",
-        "추천조치를 낸다. 복합위험은 따로 학습하지 않고 구성 위험의 예측을 조합한다.",
+        "추천조치를 낸다. 복합위험은 따로 학습하지 않고 구성 위험의 확률을 조합한 "
+        "점수(P(과습) × max(P(병해), P(서리)))를 교차검증에서 고른 경계와 비교한다. "
+        "강우·과습·저온·서리는 정상 대 위험 전용학습 모델로 위험 여부를 정한다.",
         "",
         f"판단 신뢰도가 {CONFIDENCE_THRESHOLD:.2f} 미만이면 자동 실행하지 않고 농가 승인을 받는다.",
         "",
@@ -440,14 +537,29 @@ def model_card(args, data: dict) -> str:
         "- **관측소 센서 고장**이 지점·연도마다 다르다. 기준 관측소를 고르기 전에",
         "  `quality.station_health` 로 건전성을 확인해야 한다.",
         "- **복합위험·강우·과습은 위험표본이 적다**. 시험 이벤트가 적은 유형은",
-        "  성능 신뢰구간이 넓다.",
+        "  성능 신뢰구간이 넓다. 시험 위험표본이 100건 안팎이라 점추정이 목표",
+        "  근처일 때 95% 하한은 목표 아래일 수 있다(성능평가서 §2.1).",
+        "- **강우·과습·복합위험은 큰비의 시작을 미리 알리는 힘이 약하다**. 사례 단위",
+        "  놓침 방지율은 목표를 넘지만 시간 단위 재현율과 시작 전 탐지율은 낮다",
+        "  (성능평가서 §2.1). 관측값만으로 1~3시간 뒤 강우를 맞히기 어렵기 때문이다.",
+        "  전지구 예보(GFS)와 서쪽 종관 관측소 자료를 넣어 보았으나 효과가 없었고,",
+        "  미래 강수를 정확히 알면 종합점수가 0.96 까지 오른다(진단). 기상청 초단기",
+        "  예보(레이더 기반) 연계가 남은 개선 경로다.",
+        "- **2등급 전용학습과 복합 점수는 교차검증 접힘 모델 5개의 평균으로 판정한다**.",
+        "  경계를 고른 모델을 그대로 배포한다. 각 접힘 모델은 학습+검증의 약 64%로",
+        "  학습한 것이라, 전체로 다시 학습한 단일 모델보다 자료를 덜 쓴다.",
+        "- **복합위험 조치는 신뢰도 기준(0.70)을 거치지 않는다**. 복합위험에는",
+        "  신뢰도가 없어 조치 엔진이 1.0 으로 본다(개정 전과 같은 동작). 점수 판정은",
+        "  구성 위험이 각각 주의에 이르기 전에도 복합을 부를 수 있으므로, 자동",
+        "  실행 여부는 운영 정책으로 확정해야 한다.",
         "- **ONNX 변환본은 원본과 다른 등급을 낸다**. 네이티브 LightGBM 을 쓴다.",
         "",
         "## 9. 재현",
         "",
         "```bash",
         "python scripts/train_weather.py --aaos-dir <농업기상> --agera5 <AgERA5> \\",
-        "    --cache artifacts/dataset.pkl --out artifacts/weather",
+        "    --cache artifacts/dataset.pkl --out artifacts/weather \\",
+        "    --year-round-train heat_dry,disease,frost",
         "python scripts/run_scenarios.py --out artifacts/scenarios",
         "python scripts/benchmark_inference.py --cache artifacts/dataset.pkl \\",
         "    --models artifacts/weather --out artifacts/benchmark",

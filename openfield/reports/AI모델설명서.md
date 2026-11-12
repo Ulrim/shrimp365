@@ -1,8 +1,8 @@
 # AI 모델 설명서
 
 - 모델명 : 노지 대파 농지위험 판단모델 (ofdf-weather)
-- 버전 : 0.1.0 (907f9a4)
-- 작성일 : 2026-10-11
+- 버전 : 0.1.0 (0ed4853)
+- 작성일 : 2026-11-11
 - 수행기관 : 주식회사 컬리버
 
 ## 1. 용도
@@ -41,7 +41,7 @@
 ## 3. 출력
 
 위험유형별로 정상(0)·주의(1)·경계(2) 등급, 판단 신뢰도, 주요 판단근거 3개,
-추천조치를 낸다. 복합위험은 따로 학습하지 않고 구성 위험의 예측을 조합한다.
+추천조치를 낸다. 복합위험은 따로 학습하지 않고 구성 위험의 확률을 조합한 점수(P(과습) × max(P(병해), P(서리)))를 교차검증에서 고른 경계와 비교한다. 강우·과습·저온·서리는 정상 대 위험 전용학습 모델로 위험 여부를 정한다.
 
 판단 신뢰도가 0.70 미만이면 자동 실행하지 않고 농가 승인을 받는다.
 
@@ -71,10 +71,10 @@
 
 ## 6. 주요 영향변수
 
-- **고온·건조 1시간** : run_dry_warm, t_air, soil_index, solar_w_delta3, canopy_temp
-- **고온·건조 3시간** : run_dry_warm, soil_index, t_air, canopy_temp, hour_sin
-- **강우·과습 1시간** : rain_sum6, rain_mean6, rain_delta3, rain_sum12, soil_index_delta3
-- **강우·과습 3시간** : rain_mean6, rain_sum6, rh_min24, rain_sum12, soil_index_max24
+- **고온·건조 1시간** : run_dry_warm, t_air, solar_w_delta6, canopy_temp, soil_index
+- **고온·건조 3시간** : run_dry_warm, canopy_temp_max24, soil_index, solar_w_delta6, t_air
+- **강우·과습 1시간** : rain_sum6, rain_mean6, rain_delta3, soil_index_delta1, rain_sum12
+- **강우·과습 3시간** : rain_mean6, rain_sum6, soil_index_min6, rain_sum24, soil_index_mean12
 
 개별 판단의 근거는 전역 중요도가 아니라 그 판단의 기여도(SHAP)로 뽑아
 화면과 로그에 상위 3개를 남긴다.
@@ -105,21 +105,36 @@
 - **관측소 센서 고장**이 지점·연도마다 다르다. 기준 관측소를 고르기 전에
   `quality.station_health` 로 건전성을 확인해야 한다.
 - **복합위험·강우·과습은 위험표본이 적다**. 시험 이벤트가 적은 유형은
-  성능 신뢰구간이 넓다.
+  성능 신뢰구간이 넓다. 시험 위험표본이 100건 안팎이라 점추정이 목표
+  근처일 때 95% 하한은 목표 아래일 수 있다(성능평가서 §2.1).
+- **강우·과습·복합위험은 큰비의 시작을 미리 알리는 힘이 약하다**. 사례 단위
+  놓침 방지율은 목표를 넘지만 시간 단위 재현율과 시작 전 탐지율은 낮다
+  (성능평가서 §2.1). 관측값만으로 1~3시간 뒤 강우를 맞히기 어렵기 때문이다.
+  전지구 예보(GFS)와 서쪽 종관 관측소 자료를 넣어 보았으나 효과가 없었고,
+  미래 강수를 정확히 알면 종합점수가 0.96 까지 오른다(진단). 기상청 초단기
+  예보(레이더 기반) 연계가 남은 개선 경로다.
+- **2등급 전용학습과 복합 점수는 교차검증 접힘 모델 5개의 평균으로 판정한다**.
+  경계를 고른 모델을 그대로 배포한다. 각 접힘 모델은 학습+검증의 약 64%로
+  학습한 것이라, 전체로 다시 학습한 단일 모델보다 자료를 덜 쓴다.
+- **복합위험 조치는 신뢰도 기준(0.70)을 거치지 않는다**. 복합위험에는
+  신뢰도가 없어 조치 엔진이 1.0 으로 본다(개정 전과 같은 동작). 점수 판정은
+  구성 위험이 각각 주의에 이르기 전에도 복합을 부를 수 있으므로, 자동
+  실행 여부는 운영 정책으로 확정해야 한다.
 - **ONNX 변환본은 원본과 다른 등급을 낸다**. 네이티브 LightGBM 을 쓴다.
 
 ## 9. 재현
 
 ```bash
 python scripts/train_weather.py --aaos-dir <농업기상> --agera5 <AgERA5> \
-    --cache artifacts/dataset.pkl --out artifacts/weather
+    --cache artifacts/dataset.pkl --out artifacts/weather \
+    --year-round-train heat_dry,disease,frost
 python scripts/run_scenarios.py --out artifacts/scenarios
 python scripts/benchmark_inference.py --cache artifacts/dataset.pkl \
     --models artifacts/weather --out artifacts/benchmark
 python scripts/build_report.py --artifacts artifacts --out reports
 ```
 
-- 분할 씨앗 고정(기본 42), 소프트웨어 0.1.0 (907f9a4)
-- 실행 환경 : Python 3.11.15 / x86_64
+- 분할 씨앗 고정(기본 42), 소프트웨어 0.1.0 (0ed4853)
+- 실행 환경 : Python 3.13.18 / x86_64
 - 물리 유효범위 등 품질 기준은 `ofdf.data.quality` 에 상수로 둔다 (8개 항목)
 - 차광 제한 : 120분/일
