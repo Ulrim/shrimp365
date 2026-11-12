@@ -80,6 +80,18 @@ def main() -> int:
             shutil.copy(src, reference / f"{name}.md")
             hwpx(src, reference / f"{name}.hwpx")
 
+        # 자료집 — 그림 13장이 든 문서. 마크다운을 **참고/ 안에** 만들어야
+        # 그림 상대경로가 맞는다(만들어지는 위치 기준으로 계산되므로).
+        jaryojip = reference / "03_결과보고서_자료집.md"
+        subprocess.run([sys.executable,
+                        str(DOCS / "src" / "make-jaryojip-md.py"),
+                        "-o", str(jaryojip)], check=True, stdout=subprocess.DEVNULL)
+        hwpx(jaryojip, reference / "03_결과보고서_자료집.hwpx")
+        jaryojip.unlink()                       # 그림 경로가 꾸러미 밖을 가리킨다
+        pdf = DOCS / "03_블루스타트업_결과보고서_자료집.pdf"
+        if pdf.exists():
+            shutil.copy(pdf, reference / "03_결과보고서_자료집.pdf")
+
         if args.samples:
             sample = Path(args.samples)
             shutil.copytree(sample, pkg / "예제_15장",

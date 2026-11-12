@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 from pathlib import Path
 
@@ -41,6 +42,11 @@ def main() -> int:
     ap.add_argument("-o", "--out", required=True)
     args = ap.parse_args()
 
+    # 그림 경로는 **만들어지는 .md 위치 기준**으로 계산한다. 경로를 박아 두면
+    # 다른 폴더에 만들 때 조용히 깨져 그림 없는 문서가 나온다.
+    out_dir = Path(args.out).resolve().parent
+    assets = os.path.relpath(BASE / "assets", out_dir).replace(os.sep, "/")
+
     src = (HERE / "build-pdf.mjs").read_text(encoding="utf-8")
     out: list[str] = [
         "# 03 블루스타트업 — 결과보고서 자료집",
@@ -62,7 +68,7 @@ def main() -> int:
                           ("3. 현장 장비 화면 (7인치 터치스크린)", "DEVICE")):
         out += [f"## {heading}", ""]
         for file, title, caption in group(src, name):
-            out += [f"![{title} — {caption}](../docs/result-03-bluestartup/assets/{file})", ""]
+            out += [f"![{title} — {caption}]({assets}/{file})", ""]
         out += ["---", ""]
 
     out += ["## 4. 시험 결과", "",
