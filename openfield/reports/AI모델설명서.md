@@ -1,8 +1,8 @@
 # AI 모델 설명서
 
 - 모델명 : 노지 대파 농지위험 판단모델 (ofdf-weather)
-- 버전 : 0.1.0 (0ed4853)
-- 작성일 : 2026-11-11
+- 버전 : 0.1.0 (5ff054f)
+- 작성일 : 2026-11-12
 - 수행기관 : 주식회사 컬리버
 
 ## 1. 용도
@@ -134,7 +134,7 @@ python scripts/benchmark_inference.py --cache artifacts/dataset.pkl \
 python scripts/build_report.py --artifacts artifacts --out reports
 ```
 
-- 분할 씨앗 고정(기본 42), 소프트웨어 0.1.0 (0ed4853)
+- 분할 씨앗 고정(기본 42), 소프트웨어 0.1.0 (5ff054f)
 - 실행 환경 : Python 3.13.18 / x86_64
 - 물리 유효범위 등 품질 기준은 `ofdf.data.quality` 에 상수로 둔다 (8개 항목)
 - 차광 제한 : 120분/일
