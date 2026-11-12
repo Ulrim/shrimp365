@@ -154,3 +154,24 @@ def test_strikethrough_is_actually_struck_through(tmp_path):
     assert f'charPrIDRef="{conv.STRIKE}"' in sec
     assert "<hh:strikeout" in head
     assert "~~" not in "".join(body_texts(zf))
+
+
+def test_quote_blank_lines_split_paragraphs(tmp_path):
+    """인용문 안의 빈 줄은 문단 경계다 — 편지 초안이 한 덩어리가 되면 못 읽는다."""
+    md = "> 머리말\n>\n> 본문 첫째\n>\n> 본문 둘째\n"
+    zf = build(md, tmp_path)
+    sec = zf.read("Contents/section0.xml").decode()
+    assert sec.count(f'paraPrIDRef="{conv.P_QUOTE}"') == 3
+    joined = "".join(body_texts(zf))
+    assert "머리말" in joined and "본문 첫째" in joined and "본문 둘째" in joined
+
+
+def test_bullets_inside_a_quote_stand_alone(tmp_path):
+    """인용 안의 글머리는 한 줄씩 서야 한다 — 편지의 문의 항목이 붙으면 안 읽힌다."""
+    md = "> 문의 사항\n>\n> - 첫째 항목\n> - 둘째 항목\n"
+    zf = build(md, tmp_path)
+    sec = zf.read("Contents/section0.xml").decode()
+    assert sec.count(f'paraPrIDRef="{conv.P_QUOTE}"') == 3
+    joined = "".join(body_texts(zf))
+    assert "· 첫째 항목" in joined.replace("  ", " ") or "첫째 항목" in joined
+    assert "- 첫째" not in joined

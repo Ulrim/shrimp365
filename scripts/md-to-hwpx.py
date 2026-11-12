@@ -432,9 +432,29 @@ def convert(markdown: str, doc: Builder) -> None:
             while i < len(lines) and lines[i].lstrip().startswith(">"):
                 quote.append(lines[i].lstrip()[1:].strip())
                 i += 1
-            doc.para(inline_runs(" ".join(q for q in quote if q), BODY),
-                     P_QUOTE, first=first)
-            first = False
+            # 빈 `>` 줄은 문단 경계다. 전부 합치면 편지 초안 같은 글이 한 덩어리로
+            # 뭉개져 읽을 수 없게 된다. 인용 안의 글머리(`> - `)도 한 줄씩 세운다.
+            block: list[str] = []
+            mark = ""
+
+            def emit() -> None:
+                nonlocal block, mark, first
+                if block:
+                    runs = inline_runs(" ".join(block), BODY)
+                    doc.para(([(BODY, mark)] if mark else []) + runs,
+                             P_QUOTE, first=first)
+                    first = False
+                block, mark = [], ""
+
+            for q in quote + [""]:
+                m2 = BULLET.match(q)
+                if m2:
+                    emit()
+                    mark, block = "· ", [m2.group(2)]
+                elif q:
+                    block.append(q)
+                else:
+                    emit()
             continue
 
         m = BULLET.match(line)
