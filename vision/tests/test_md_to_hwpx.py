@@ -175,3 +175,77 @@ def test_bullets_inside_a_quote_stand_alone(tmp_path):
     joined = "".join(body_texts(zf))
     assert "· 첫째 항목" in joined.replace("  ", " ") or "첫째 항목" in joined
     assert "- 첫째" not in joined
+
+
+# ── 그림 ───────────────────────────────────────────────────────────────────
+def _png(width: int, height: int) -> bytes:
+    """작은 PNG 를 직접 만든다 — 시험에 외부 패키지를 끌어오지 않는다."""
+    import struct
+    import zlib
+
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        return (struct.pack(">I", len(data)) + tag + data
+                + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
+
+    raw = b"".join(b"\x00" + b"\xff\x00\x00" * width for _ in range(height))
+    return (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw))
+            + chunk(b"IEND", b""))
+
+
+def test_png_size_is_read_from_the_header():
+    assert conv.image_size(_png(40, 25)) == (40, 25)
+
+
+def test_image_is_embedded_and_referenced(tmp_path):
+    """그림은 BinData 에 들어가고, 본문·목록이 같은 id 를 가리켜야 한다.
+
+    한 곳이라도 어긋나면 한글이 그림을 못 찾아 빈 칸으로 열리거나 파일을 거부한다.
+    """
+    (tmp_path / "그림.png").write_bytes(_png(300, 200))
+    doc = conv.Builder()
+    conv.convert("# 제목\n\n![그림 1. 설명](그림.png)\n", doc, tmp_path)
+    dest = tmp_path / "out.hwpx"
+    conv.package(doc, "시험", dest)
+    zf = zipfile.ZipFile(dest)
+
+    assert any(n.startswith("BinData/") for n in zf.namelist())
+    sec = zf.read("Contents/section0.xml").decode()
+    assert sec.count("<hp:pic ") == 1
+    used = set(re.findall(r'binaryItemIDRef="([^"]+)"', sec))
+    hpf = zf.read("Contents/content.hpf").decode()
+    declared = set(re.findall(r'<opf:item id="(image\d+)"', hpf))
+    assert used == declared and used
+    assert "BinData/" in zf.read("META-INF/manifest.xml").decode()
+    assert "그림 1. 설명" in "".join(body_texts(zf))
+
+
+def test_image_is_not_stretched_beyond_the_text_width(tmp_path):
+    """원본이 본문 폭보다 크면 줄이고, 작으면 그대로 둔다(늘리면 흐려진다)."""
+    (tmp_path / "큰.png").write_bytes(_png(4000, 2000))
+    (tmp_path / "작은.png").write_bytes(_png(100, 50))
+    doc = conv.Builder()
+    conv.convert("![a](큰.png)\n\n![b](작은.png)\n", doc, tmp_path)
+    widths = [int(w) for w in re.findall(r'<hp:sz width="(\d+)"', "".join(doc.body))]
+    assert max(widths) <= conv.TEXT_W
+    assert min(widths) < conv.TEXT_W
+
+
+def test_no_images_mode_leaves_a_placeholder(tmp_path):
+    (tmp_path / "그림.png").write_bytes(_png(10, 10))
+    doc = conv.Builder()
+    conv.convert("![그림 1. 설명](그림.png)\n", doc, tmp_path, images=False)
+    dest = tmp_path / "out.hwpx"
+    conv.package(doc, "시험", dest)
+    zf = zipfile.ZipFile(dest)
+    assert not any(n.startswith("BinData/") for n in zf.namelist())
+    assert "그림 1. 설명" in "".join(body_texts(zf))
+
+
+def test_missing_image_does_not_break_the_document(tmp_path):
+    doc = conv.Builder()
+    conv.convert("![없는 그림](없음.png)\n", doc, tmp_path)
+    dest = tmp_path / "out.hwpx"
+    conv.package(doc, "시험", dest)
+    assert "없는 그림" in "".join(body_texts(zipfile.ZipFile(dest)))

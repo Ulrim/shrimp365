@@ -36,10 +36,28 @@ TEXT_W = PAGE_W - MARGIN * 2
 # charPr id
 BODY, BOLD, CODE, H1, H2, H3, SMALL, TH, STRIKE = range(9)
 # paraPr id
-P_BODY, P_HEAD, P_LIST, P_CODE, P_CELL, P_QUOTE = range(6)
+P_BODY, P_HEAD, P_LIST, P_CODE, P_CELL, P_QUOTE, P_FIG = range(7)
 
 FONTS = ("함초롬바탕", "함초롬돋움", "D2Coding")
 LANGS = ("HANGUL", "LATIN", "HANJA", "JAPANESE", "OTHER", "SYMBOL", "USER")
+
+
+def image_size(raw: bytes) -> tuple[int, int]:
+    """PNG·JPEG 의 픽셀 크기를 헤더에서 직접 읽는다 — 외부 패키지를 쓰지 않는다."""
+    if raw[:8] == b"\x89PNG\r\n\x1a\n":
+        return int.from_bytes(raw[16:20], "big"), int.from_bytes(raw[20:24], "big")
+    if raw[:2] == b"\xff\xd8":                       # JPEG: SOF 조각을 찾는다
+        i = 2
+        while i + 9 < len(raw):
+            if raw[i] != 0xFF:
+                i += 1
+                continue
+            marker, size = raw[i + 1], int.from_bytes(raw[i + 2:i + 4], "big")
+            if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
+                return (int.from_bytes(raw[i + 7:i + 9], "big"),
+                        int.from_bytes(raw[i + 5:i + 7], "big"))
+            i += 2 + size
+    raise ValueError("PNG 또는 JPEG 만 넣을 수 있습니다")
 
 
 def xml_header() -> str:
@@ -79,6 +97,8 @@ class Builder:
         self.body: list[str] = []
         self._pid = 0
         self._tbl = 0
+        self._shape = 0
+        self.images: dict[str, tuple[str, bytes]] = {}   # id -> (파일이름, 내용)
         self.plain: list[str] = []
 
     # 한 문단
@@ -140,6 +160,56 @@ class Builder:
                 '</hp:pageBorderFill>' for t in ("BOTH", "EVEN", "ODD"))
             + "</hp:secPr>"
         )
+
+    # 그림
+    def picture(self, path: Path, caption: str) -> None:
+        raw = path.read_bytes()
+        px_w, px_h = image_size(raw)
+        # 본문 폭에 맞춰 줄인다. 원본이 더 작으면 그대로 둔다(늘리면 흐려진다).
+        width = min(TEXT_W, round(px_w * 7200 / 96))
+        height = round(width * px_h / px_w)
+        self._shape += 1
+        img_id = f"image{self._shape}"
+        self.images[img_id] = (f"{img_id}{path.suffix.lower()}", raw)
+        pic = (
+            f'<hp:pic id="{self._shape}" zOrder="{self._shape - 1}"'
+            ' numberingType="PICTURE" textWrap="TOP_AND_BOTTOM" textFlow="BOTH_SIDES"'
+            f' lock="0" dropcapstyle="None" href="" groupLevel="0" instid="{self._shape}"'
+            ' reverse="0">'
+            f'<hp:sz width="{width}" widthRelTo="ABSOLUTE" height="{height}"'
+            ' heightRelTo="ABSOLUTE" protect="0"/>'
+            '<hp:pos treatAsChar="1" affectLSpacing="0" flowWithText="1" allowOverlap="0"'
+            ' holdAnchorAndSO="0" vertRelTo="PARA" horzRelTo="COLUMN" vertAlign="TOP"'
+            ' horzAlign="CENTER" vertOffset="0" horzOffset="0"/>'
+            '<hp:outMargin left="0" right="0" top="0" bottom="0"/>'
+            '<hp:offset x="0" y="0"/>'
+            f'<hp:orgSz width="{width}" height="{height}"/>'
+            f'<hp:curSz width="{width}" height="{height}"/>'
+            '<hp:flip horizontal="0" vertical="0"/>'
+            '<hp:rotationInfo angle="0" centerX="0" centerY="0" rotateimage="1"/>'
+            '<hp:renderingInfo>'
+            '<hc:transMatrix e1="1" e2="0" e3="0" e4="0" e5="1" e6="0"/>'
+            '<hc:scaMatrix e1="1" e2="0" e3="0" e4="0" e5="1" e6="0"/>'
+            '<hc:rotMatrix e1="1" e2="0" e3="0" e4="0" e5="1" e6="0"/>'
+            '</hp:renderingInfo>'
+            f'<hc:img binaryItemIDRef="{img_id}" bright="0" contrast="0"'
+            ' effect="REAL_PIC" alpha="0.0"/>'
+            '<hp:imgRect><hc:pt0 x="0" y="0"/>'
+            f'<hc:pt1 x="{width}" y="0"/><hc:pt2 x="{width}" y="{height}"/>'
+            f'<hc:pt3 x="0" y="{height}"/></hp:imgRect>'
+            f'<hp:imgClip left="0" right="{px_w}" top="0" bottom="{px_h}"/>'
+            '<hp:inMargin left="0" right="0" top="0" bottom="0"/>'
+            f'<hp:imgDim dimwidth="{px_w}" dimheight="{px_h}"/>'
+            "</hp:pic>")
+        self._pid += 1
+        self.body.append(
+            f'<hp:p id="{self._pid}" paraPrIDRef="{P_FIG}" styleIDRef="0"'
+            ' pageBreak="0" columnBreak="0" merged="0">'
+            f'<hp:run charPrIDRef="{BODY}">{pic}</hp:run>'
+            + self._lineseg() + "</hp:p>")
+        self.plain.append(f"[그림] {caption}")
+        if caption:
+            self.para(inline_runs(caption, SMALL), P_FIG)
 
     # 표
     def table(self, rows: list[list[str]]) -> None:
@@ -280,6 +350,7 @@ def header_xml() -> str:
         para_pr(P_CODE, left=800, after=0, spacing=130, align="LEFT"),
         para_pr(P_CELL, after=0, spacing=140, align="LEFT"),
         para_pr(P_QUOTE, left=1000, after=300),
+        para_pr(P_FIG, before=200, after=300, align="CENTER"),
     ])
 
     def border_fill(idx: int, *, line: bool, fill: str | None) -> str:
@@ -316,7 +387,7 @@ def header_xml() -> str:
         '<hh:charProperties itemCnt="9">' + chars + "</hh:charProperties>"
         '<hh:tabProperties itemCnt="1"><hh:tabPr id="0" autoTabLeft="0" autoTabRight="0"/>'
         "</hh:tabProperties>"
-        '<hh:paraProperties itemCnt="6">' + paras + "</hh:paraProperties>"
+        '<hh:paraProperties itemCnt="7">' + paras + "</hh:paraProperties>"
         '<hh:styles itemCnt="1"><hh:style id="0" type="PARA" name="바탕글"'
         ' engName="Normal" paraPrIDRef="0" charPrIDRef="0" nextStyleIDRef="0"'
         ' langID="1042" lockForm="0"/></hh:styles>'
@@ -358,7 +429,11 @@ def _item_text(lines: list[str], i: int, head: str) -> tuple[str, int]:
     return " ".join(p for p in parts if p), i
 
 
-def convert(markdown: str, doc: Builder) -> None:
+IMAGE = re.compile(r"^!\[([^\]]*)\]\(([^)]+)\)\s*$")
+
+
+def convert(markdown: str, doc: Builder, base: Path | None = None,
+            *, images: bool = True) -> None:
     lines = markdown.splitlines()
     i, first = 0, True
     buf: list[str] = []
@@ -401,6 +476,22 @@ def convert(markdown: str, doc: Builder) -> None:
                 first = False
             doc.table(rows)
             doc.para([(BODY, "")], P_BODY)
+            continue
+
+        m = IMAGE.match(line.strip())
+        if m:
+            flush()
+            src = (base or Path(".")) / m.group(2)
+            if images and src.exists():
+                if first:            # 그림이 맨 앞이면 구역 설정 자리를 먼저 만든다
+                    doc.para([(BODY, "")], P_BODY, first=True)
+                    first = False
+                doc.picture(src, m.group(1))
+            else:
+                doc.para(inline_runs(f"[그림 자리] {m.group(1)}", SMALL), P_FIG,
+                         first=first)
+                first = False
+            i += 1
             continue
 
         if not line.strip():
@@ -510,6 +601,10 @@ def package(doc: Builder, title: str, dest: Path) -> None:
                     ' odf:media-type="application/xml"/>'
                     for path in ("Contents/content.hpf", "Contents/header.xml",
                                  "Contents/section0.xml", "settings.xml"))
+                + "".join(
+                    f'<odf:file-entry odf:full-path="BinData/{name}"'
+                    f' odf:media-type="image/{"png" if name.endswith(".png") else "jpeg"}"/>'
+                    for name, _ in doc.images.values())
                 + "</odf:manifest>")
 
     content = (xml_header()
@@ -522,7 +617,12 @@ def package(doc: Builder, title: str, dest: Path) -> None:
                '<opf:item id="header" href="Contents/header.xml" media-type="application/xml"/>'
                '<opf:item id="section0" href="Contents/section0.xml" media-type="application/xml"/>'
                '<opf:item id="settings" href="settings.xml" media-type="application/xml"/>'
-               "</opf:manifest><opf:spine>"
+               + "".join(
+                   f'<opf:item id="{iid}" href="BinData/{name}"'
+                   f' media-type="image/{"png" if name.endswith(".png") else "jpeg"}"'
+                   ' isEmbeded="1"/>'
+                   for iid, (name, _) in doc.images.items())
+               + "</opf:manifest><opf:spine>"
                '<opf:itemref idref="header" linear="yes"/>'
                '<opf:itemref idref="section0" linear="yes"/></opf:spine></opf:package>')
 
@@ -561,6 +661,8 @@ def package(doc: Builder, title: str, dest: Path) -> None:
                     compress_type=zipfile.ZIP_STORED)
         for name, text in parts.items():
             zf.writestr(name, text.encode("utf-8"))
+        for name, raw in doc.images.values():
+            zf.writestr(f"BinData/{name}", raw)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -568,6 +670,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("source", help="입력 .md")
     ap.add_argument("-o", "--out", required=True, help="출력 .hwpx")
     ap.add_argument("--title", default=None, help="문서 제목(생략하면 첫 제목 줄)")
+    ap.add_argument("--no-images", action="store_true",
+                    help="그림을 넣지 않고 자리만 표시한다(그림 때문에 안 열릴 때)")
     args = ap.parse_args(argv)
 
     text = Path(args.source).read_text(encoding="utf-8")
@@ -576,10 +680,11 @@ def main(argv: list[str] | None = None) -> int:
         Path(args.source).stem)
 
     doc = Builder()
-    convert(text, doc)
+    convert(text, doc, Path(args.source).parent, images=not args.no_images)
     dest = Path(args.out)
     package(doc, title, dest)
-    print(f"만들었습니다: {dest}  ({dest.stat().st_size:,} 바이트, 문단 {len(doc.body)}개)")
+    print(f"만들었습니다: {dest}  ({dest.stat().st_size:,} 바이트,"
+          f" 문단 {len(doc.body)}개, 그림 {len(doc.images)}장)")
     return 0
 
 
