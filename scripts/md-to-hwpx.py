@@ -34,7 +34,7 @@ HEADER_FOOTER = round(10 * MM)
 TEXT_W = PAGE_W - MARGIN * 2
 
 # charPr id
-BODY, BOLD, CODE, H1, H2, H3, SMALL, TH = range(8)
+BODY, BOLD, CODE, H1, H2, H3, SMALL, TH, STRIKE = range(9)
 # paraPr id
 P_BODY, P_HEAD, P_LIST, P_CODE, P_CELL, P_QUOTE = range(6)
 
@@ -62,7 +62,8 @@ def inline_runs(text: str, base: int) -> list[tuple[int, str]]:
         elif piece.startswith("`") and piece.endswith("`"):
             out.append((CODE, piece[1:-1]))
         elif piece.startswith("~~") and piece.endswith("~~"):
-            out.append((base, piece[2:-2]))
+            # 취소선을 평범한 글자로 떨구면 '끝난 일'이 아직 남은 일처럼 읽힌다.
+            out.append((STRIKE, "".join(t for _, t in inline_runs(piece[2:-2], base))))
         elif piece.startswith("["):
             m = re.match(r"\[([^\]]+)\]\(([^)]*)\)", piece)
             # 링크 글자 안에 코드가 들어 있을 수 있다(`[`파일.md`](파일.md)`).
@@ -213,7 +214,8 @@ def header_xml() -> str:
         faces.append(f'<hh:fontface lang="{lang}" fontCnt="{len(FONTS)}">{fonts}</hh:fontface>')
 
     def char_pr(idx: int, height: int, *, bold: bool = False, font: int = 0,
-                color: str = "#000000", shade: str = "none") -> str:
+                color: str = "#000000", shade: str = "none",
+                strike: bool = False) -> str:
         ref = (f'<hh:fontRef hangul="{font}" latin="{font}" hanja="{font}"'
                f' japanese="{font}" other="{font}" symbol="{font}" user="{font}"/>')
         ratio = ('<hh:ratio hangul="100" latin="100" hanja="100" japanese="100"'
@@ -227,7 +229,10 @@ def header_xml() -> str:
         return (f'<hh:charPr id="{idx}" height="{height}" textColor="{color}"'
                 f' shadeColor="{shade}" useFontSpace="0" useKerning="0" symMark="NONE"'
                 ' borderFillIDRef="2">' + ref + ratio + spacing + rel + off
-                + ("<hh:bold/>" if bold else "") + "</hh:charPr>")
+                + ("<hh:bold/>" if bold else "")
+                + ('<hh:strikeout type="SOLID" shape="SOLID" color="#000000"/>'
+                   if strike else "")
+                + "</hh:charPr>")
 
     chars = "".join([
         char_pr(BODY, 1000),
@@ -238,6 +243,7 @@ def header_xml() -> str:
         char_pr(H3, 1150, bold=True, font=1),
         char_pr(SMALL, 900, color="#555555"),
         char_pr(TH, 1000, bold=True, font=1),
+        char_pr(STRIKE, 1000, color="#777777", strike=True),
     ])
 
     def para_pr(idx: int, *, left: int = 0, indent: int = 0, before: int = 0,
@@ -307,7 +313,7 @@ def header_xml() -> str:
         '<hh:refList>'
         f'<hh:fontfaces itemCnt="{len(LANGS)}">' + "".join(faces) + "</hh:fontfaces>"
         '<hh:borderFills itemCnt="4">' + fills + "</hh:borderFills>"
-        '<hh:charProperties itemCnt="8">' + chars + "</hh:charProperties>"
+        '<hh:charProperties itemCnt="9">' + chars + "</hh:charProperties>"
         '<hh:tabProperties itemCnt="1"><hh:tabPr id="0" autoTabLeft="0" autoTabRight="0"/>'
         "</hh:tabProperties>"
         '<hh:paraProperties itemCnt="6">' + paras + "</hh:paraProperties>"

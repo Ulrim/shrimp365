@@ -144,3 +144,13 @@ def test_heading_levels_use_different_sizes(tmp_path):
         "Contents/section0.xml").decode()
     for char_pr in (conv.H1, conv.H2, conv.H3):
         assert f'charPrIDRef="{char_pr}"' in sec
+
+
+def test_strikethrough_is_actually_struck_through(tmp_path):
+    """취소선을 평범한 글자로 떨구면 '끝난 일'이 남은 일처럼 읽힌다."""
+    zf = build("| 날짜 | 할 일 |\n|---|---|\n| ~~11/13~~ | ~~기준 정리~~ 완료 |\n", tmp_path)
+    sec = zf.read("Contents/section0.xml").decode()
+    head = zf.read("Contents/header.xml").decode()
+    assert f'charPrIDRef="{conv.STRIKE}"' in sec
+    assert "<hh:strikeout" in head
+    assert "~~" not in "".join(body_texts(zf))
