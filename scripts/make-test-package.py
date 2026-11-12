@@ -71,6 +71,15 @@ def main() -> int:
             shutil.copy(src, pkg / f"{name}.md")
             hwpx(src, pkg / f"{name}.hwpx")
 
+        # 참고 문서 — 라벨을 어떤 기준으로 그렸는지는 시험기관이 **반드시** 봐야
+        # 한다. 정답의 성격이 달라지면 지표의 뜻도 달라진다.
+        reference = pkg / "참고"
+        reference.mkdir()
+        for name in ("라벨링_기준", "수조데이터_확보계획"):
+            src = ROOT / "docs" / f"{name}.md"
+            shutil.copy(src, reference / f"{name}.md")
+            hwpx(src, reference / f"{name}.hwpx")
+
         if args.samples:
             sample = Path(args.samples)
             shutil.copytree(sample, pkg / "예제_15장",
