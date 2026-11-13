@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 BACKEND = Path(__file__).resolve().parents[1]
 TRAIN = BACKEND / "ai" / "trainer" / "train.py"
@@ -15,7 +18,13 @@ EVAL = BACKEND / "ai" / "trainer" / "eval_count.py"
 PSEUDO = BACKEND / "ai" / "trainer" / "pseudo_label.py"
 COMPARE = BACKEND / "ai" / "trainer" / "compare_backends.py"
 NOTEBOOK = BACKEND / "ai" / "trainer" / "colab_train_shrimp.ipynb"
-ALL_SCRIPTS = (TRAIN, EXTRACT, PREPARE, EXPORT, EVAL, PSEUDO, COMPARE)
+TILES = BACKEND / "ai" / "trainer" / "make_tiles.py"
+ALL_SCRIPTS = (TRAIN, EXTRACT, PREPARE, EXPORT, EVAL, PSEUDO, COMPARE, TILES)
+
+# "ml extra 가 없을 때 친절히 안내하는가"는 정말 없을 때만 잴 수 있다.
+# 학습용 PC 처럼 ultralytics·opencv 를 깐 환경에서는 건너뛴다.
+HAS_ULTRALYTICS = importlib.util.find_spec("ultralytics") is not None
+HAS_CV2 = importlib.util.find_spec("cv2") is not None
 
 
 def test_trainer_scripts_parse():
@@ -55,6 +64,7 @@ def test_export_edge_without_ultralytics_exits_with_friendly_message():
     assert "ultralytics" in proc.stderr
 
 
+@pytest.mark.skipif(HAS_ULTRALYTICS, reason="ultralytics 가 설치된 환경")
 def test_train_without_ultralytics_exits_with_friendly_message(tmp_path):
     # The test venv has no ml extra -> ultralytics import must fail cleanly.
     proc = subprocess.run(
@@ -69,6 +79,7 @@ def test_train_without_ultralytics_exits_with_friendly_message(tmp_path):
     assert "pip install" in proc.stderr
 
 
+@pytest.mark.skipif(HAS_CV2, reason="opencv 가 설치된 환경")
 def test_extract_frames_without_cv2_exits_with_friendly_message(tmp_path):
     proc = subprocess.run(
         [
