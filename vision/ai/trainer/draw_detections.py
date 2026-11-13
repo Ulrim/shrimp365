@@ -44,11 +44,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", required=True)
     p.add_argument("--conf", type=float, default=0.25)
     p.add_argument("--limit", type=int, default=0, help="앞에서 N장만(0=전부)")
+    p.add_argument("--tile", type=int, default=0, help="조각 추론 크기(px). 0=통째로")
+    p.add_argument("--tile-overlap", type=float, default=0.25)
     args = p.parse_args(argv)
 
     from PIL import Image, ImageDraw
 
     from app.services.detector_onnx import OnnxShrimpDetector
+    from app.services.tiling import detect_tiled
 
     images_dir = Path(args.images).resolve()
     labels_dir = Path(args.labels).resolve() if args.labels else images_dir.parent / "labels"
@@ -64,7 +67,10 @@ def main(argv: list[str] | None = None) -> int:
     for path in paths:
         with Image.open(path) as im:
             frame = frame_for_detector(im)
-        result = detector.detect(frame)
+        if args.tile:
+            result = detect_tiled(detector, frame, tile=args.tile, overlap=args.tile_overlap)
+        else:
+            result = detector.detect(frame)
         gt = read_gt(label_for(path, images_dir, labels_dir), frame.width, frame.height)
 
         canvas = frame.copy()
