@@ -304,6 +304,7 @@ def evaluate(args: argparse.Namespace) -> dict:
         iou_threshold=args.iou,
         imgsz=args.imgsz,
         max_det=args.max_det,
+        tile=0,                           # 조각은 아래에서 --tile 로 직접 나눈다
     )
 
     from PIL import Image  # noqa: PLC0415

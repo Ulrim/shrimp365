@@ -59,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     detector = OnnxShrimpDetector(model_path=str(Path(args.weights).resolve()),
-                                  conf_threshold=args.conf)
+                                  conf_threshold=args.conf, tile=0)
     paths = find_images(images_dir)
     if args.limit:
         paths = paths[: args.limit]

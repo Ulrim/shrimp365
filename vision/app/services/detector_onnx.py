@@ -195,8 +195,15 @@ class OnnxShrimpDetector:
         iou_threshold: float | None = None,
         imgsz: int | None = None,
         max_det: int | None = None,
+        tile: int | None = None,
+        tile_overlap: float | None = None,
     ) -> None:
         self.model_path = model_path or settings.model_path
+        # 조각 추론 크기(px). 0 이면 통째로. None 이면 설정(TILE_SIZE)을 따른다.
+        self.tile = tile if tile is not None else settings.tile_size
+        self.tile_overlap = (
+            tile_overlap if tile_overlap is not None else settings.tile_overlap
+        )
         self.conf_threshold = (
             conf_threshold if conf_threshold is not None else settings.confidence_threshold
         )
@@ -253,8 +260,23 @@ class OnnxShrimpDetector:
 
     # -- 추론 ------------------------------------------------------------------
     def detect(self, frame) -> DetectionResult:  # noqa: ANN001 - np.ndarray(BGR) | PIL
-        session = self._load()
         rgb = _as_rgb(frame)
+        orig_h, orig_w = rgb.shape[:2]
+        if self.tile and max(orig_w, orig_h) > self.tile:
+            from app.services.tiling import detect_tiled  # noqa: PLC0415
+
+            return detect_tiled(
+                _WholeFrame(self),
+                Image.fromarray(rgb),
+                tile=self.tile,
+                overlap=self.tile_overlap,
+                max_det=self.max_det,
+            )
+        return self._detect_rgb(rgb)
+
+    def _detect_rgb(self, rgb: np.ndarray) -> DetectionResult:
+        """RGB 배열 한 장을 모델 입력 크기로 줄여 한 번 추론한다(조각 나누기 없음)."""
+        session = self._load()
         orig_h, orig_w = rgb.shape[:2]
         start = time.perf_counter()
         canvas, gain, pad_x, pad_y = letterbox(rgb, self.imgsz)
@@ -286,6 +308,16 @@ class OnnxShrimpDetector:
     def detect_with_tracking(self, frame) -> DetectionResult:  # noqa: ANN001
         """ONNX 경로에는 트래커가 없다. 계수 방식이 같으므로 그대로 위임한다."""
         return self.detect(frame)
+
+
+class _WholeFrame:
+    """조각 추론이 조각 하나를 넘길 때 쓰는 어댑터 — 다시 조각내지 않고 한 번만 추론한다."""
+
+    def __init__(self, detector: OnnxShrimpDetector) -> None:
+        self._detector = detector
+
+    def detect(self, frame) -> DetectionResult:  # noqa: ANN001 - PIL (RGB)
+        return self._detector._detect_rgb(_as_rgb(frame))
 
 
 def _as_rgb(frame) -> np.ndarray:  # noqa: ANN001

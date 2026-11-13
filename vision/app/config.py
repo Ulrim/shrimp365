@@ -105,6 +105,13 @@ class Settings(BaseSettings):
     # 밀식 수조는 한 화면에 그보다 많이 잡힐 수 있어 그대로 두면 **조용히
     # 300 에서 잘린다**(과소 계수인데 오류가 없어 알아채기 어렵다).
     max_detections: int = Field(default=1000)
+    # 조각(타일) 추론. 0 이면 끈다(프레임을 통째로 모델 입력 크기로 줄인다).
+    # 급이대 전체를 담은 큰 프레임은 통째로 줄이면 새우가 너무 작아져 놓친다.
+    # 이 값을 주면 프레임을 이 크기(px)의 겹치는 조각으로 나눠 조각마다 추론하고
+    # 합친다(app/services/tiling.py). **추론 횟수가 조각 수만큼 늘어난다** —
+    # 1512x2016 에 768 이면 12번이다. 조각 학습을 한 모델에서만 켠다.
+    tile_size: int = Field(default=0)
+    tile_overlap: float = Field(default=0.25)
     # ONNX Runtime 스레드 수. 0 이면 런타임 기본값(코어 수 전부). 파이 4 에서
     # 다른 작업과 코어를 나눠 써야 하면 2~3 으로 제한한다.
     inference_threads: int = Field(default=0)

@@ -156,3 +156,55 @@ def test_real_runtime_reuses_one_session(tmp_path):
     session = detector._session
     detector.detect(frame)
     assert detector._session is session
+
+
+# -- 조각(타일) 추론 배선 ------------------------------------------------------
+# 가짜 모델은 입력과 상관없이 같은 상자를 내므로, 조각마다 한 개씩 나온다.
+# "조각 수만큼 추론했고 조각 좌표를 프레임 좌표로 옮겼는가"를 그것으로 잰다.
+
+
+def test_tile_setting_runs_once_per_tile_and_shifts_coordinates(tmp_path):
+    model_path = tmp_path / "tiny.onnx"
+    _write_model(model_path, _detection_tensor([(100, 200, 300, 400)], [0.9]))
+    detector = OnnxShrimpDetector(
+        model_path=str(model_path), conf_threshold=0.25, tile=640, tile_overlap=0.0
+    )
+    frame = np.zeros((720, 1280, 3), dtype=np.uint8)[:, :, ::-1]  # 스트림과 같은 BGR 뷰
+
+    result = detector.detect(frame)
+
+    # 1280x720 을 640 조각으로: x 시작 0·640, y 시작 0·80 → 4조각
+    assert result.count == 4
+    assert (result.frame_width, result.frame_height) == (1280, 720)
+    corners = sorted((round(b.x1), round(b.y1)) for b in result.bboxes)
+    assert corners == [(100, 200), (100, 280), (740, 200), (740, 280)]
+    assert result.model_version == "tiny.onnx"
+
+
+def test_tile_zero_keeps_the_whole_frame_path(tmp_path):
+    model_path = tmp_path / "tiny.onnx"
+    _write_model(model_path, _detection_tensor([(50, 240, 150, 340)], [0.9]))
+    detector = OnnxShrimpDetector(model_path=str(model_path), conf_threshold=0.25, tile=0)
+
+    result = detector.detect(np.zeros((720, 1280, 3), dtype=np.uint8))
+
+    assert result.count == 1
+    box = result.bboxes[0]
+    assert (box.x1, box.y1, box.x2, box.y2) == pytest.approx((100.0, 200.0, 300.0, 400.0), abs=0.01)
+
+
+def test_frame_not_larger_than_tile_is_not_split(tmp_path):
+    model_path = tmp_path / "tiny.onnx"
+    _write_model(model_path, _detection_tensor([(100, 200, 300, 400)], [0.9]))
+    detector = OnnxShrimpDetector(model_path=str(model_path), conf_threshold=0.25, tile=1280)
+
+    result = detector.detect(np.zeros((720, 1280, 3), dtype=np.uint8))
+
+    assert result.count == 1
+
+
+def test_tiling_is_off_by_default():
+    from app.config import settings
+
+    assert settings.tile_size == 0
+    assert OnnxShrimpDetector(model_path="x.onnx").tile == 0
