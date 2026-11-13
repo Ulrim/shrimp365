@@ -360,6 +360,27 @@ NMS_IOU_THRESHOLD=0.7
 INFERENCE_FPS=1
 ```
 
+### 수조 전용 모델과 조각 추론 (2026-11-13 추가)
+
+위 모델은 쟁반·흰 배경 사진으로 학습해서, 급이대를 위에서 찍은 현장 사진에서는
+한 장에 0~5마리만 찾았습니다. 현장 사진 12장으로 따로 학습한 모델이
+`ai/models/shrimp_tank_yolov8n_416.onnx` 이고, **조각 추론**과 함께 씁니다.
+
+```bash
+MODEL_PATH=./ai/models/shrimp_tank_yolov8n_416.onnx
+TILE_SIZE=1008            # 0 이면 꺼짐(기본). 프레임을 이 크기의 겹치는 조각으로 나눠 추론
+TILE_OVERLAP=0.25
+CONFIDENCE_THRESHOLD=0.25
+```
+
+- `TILE_SIZE=1008` 은 1512×2016 사진 기준입니다(한 장에 6번 추론). 카메라 해상도나
+  설치 높이가 다르면 다시 정합니다 — 416 으로 줄인 조각에서 새우 한 마리가 60px
+  이상이 되게 합니다.
+- 처리 시간이 조각 수만큼 늘어납니다. 파이에서는 반드시 실측하십시오(§6-3).
+- 이 모델은 쟁반 사진을 보지 못합니다. 두 모델은 용도가 다르며 서로 대체하지 않습니다.
+- 성능·한계: `docs/result-03-bluestartup/evidence/10_현장수조_재학습_교차검증.txt`
+- 다시 학습: `ai/trainer/train_tank.py` (`vision/data/tank/labeled/README.md`)
+
 ### 아직 확인 못 한 것
 
 - **라즈베리파이 실물의 처리 시간.** 위 숫자는 x86 CPU 기준입니다. ARM 실측은

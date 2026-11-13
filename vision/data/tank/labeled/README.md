@@ -36,13 +36,30 @@
 `index.tsv` 의 장면 묶음 단위로 나눠 교차검증합니다(같은 묶음을 학습·평가 양쪽에
 두지 않는다).
 
-## 조각 자료 만들기
+## 학습과 평가
 
 ```bash
 cd vision
-python ai/trainer/make_tiles.py \
-  --images data/tank/labeled/images --labels data/tank/labeled/labels \
-  --out data/tank/tiles/train --tile 768 --overlap 0.25 --keep-full
+# 묶음 A 를 빼고 학습 → 뺀 묶음으로 평가 (B, C, D 도 같은 방식)
+python ai/trainer/train_tank.py --holdout A --out data/tank/tiles/cvA
+python ai/trainer/export_edge.py --weights ai/trainer/runs/tank_A/weights/last.pt --format onnx --imgsz 416
+python ai/trainer/eval_detect.py --weights ai/trainer/runs/tank_A/weights/last.onnx \
+  --images data/tank/tiles/cvA/heldout/images --labels data/tank/tiles/cvA/heldout/labels \
+  --tile 1008 --conf 0.25
+
+# 전부 학습 (배포용)
+python ai/trainer/train_tank.py --holdout none --out data/tank/tiles/all
 ```
 
-조각(`data/tank/tiles/`)과 학습 산출물은 저장소에 넣지 않습니다.
+조각(`data/tank/tiles/`)과 학습 산출물(`ai/trainer/runs/`)은 저장소에 넣지 않습니다.
+
+## 이 자료로 얻은 결과 (2026-11-13)
+
+장면 묶음 4-겹 교차검증, 조각 1008px → 모델 입력 416, conf 0.25:
+**mAP@0.5 평균 0.871(묶음별 0.799~0.955), 정밀도 0.771, 재현율 0.839,
+계수 오차율 평균 14.5%.** 같은 사진에서 기존 배포 모델은 0~5마리만 찾았습니다.
+
+12장 전부로 학습한 모델이 `vision/ai/models/shrimp_tank_yolov8n_416.onnx` 입니다.
+이 모델은 **수조 사진 전용**이고 쟁반·흰 배경 사진은 보지 못합니다(기존 모델과
+반대). 전체 수치와 한계는
+`docs/result-03-bluestartup/evidence/10_현장수조_재학습_교차검증.txt` 에 있습니다.

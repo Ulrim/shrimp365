@@ -97,5 +97,6 @@ __pycache__/
 /vision/ai/models/*
 !/vision/ai/models/.gitkeep
 !/vision/ai/models/shrimp_yolov8n_416.onnx
+!/vision/ai/models/shrimp_tank_yolov8n_416.onnx
 /vision/.venv/
 .venv/

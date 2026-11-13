@@ -109,7 +109,8 @@ class Settings(BaseSettings):
     # 급이대 전체를 담은 큰 프레임은 통째로 줄이면 새우가 너무 작아져 놓친다.
     # 이 값을 주면 프레임을 이 크기(px)의 겹치는 조각으로 나눠 조각마다 추론하고
     # 합친다(app/services/tiling.py). **추론 횟수가 조각 수만큼 늘어난다** —
-    # 1512x2016 에 768 이면 12번이다. 조각 학습을 한 모델에서만 켠다.
+    # 1512x2016 에 768 이면 12번, 1008 이면 6번이다. 조각 학습을 한 모델
+    # (ai/models/shrimp_tank_yolov8n_416.onnx)에서만 켠다.
     tile_size: int = Field(default=0)
     tile_overlap: float = Field(default=0.25)
     # ONNX Runtime 스레드 수. 0 이면 런타임 기본값(코어 수 전부). 파이 4 에서

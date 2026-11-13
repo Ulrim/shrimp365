@@ -19,7 +19,8 @@ PSEUDO = BACKEND / "ai" / "trainer" / "pseudo_label.py"
 COMPARE = BACKEND / "ai" / "trainer" / "compare_backends.py"
 NOTEBOOK = BACKEND / "ai" / "trainer" / "colab_train_shrimp.ipynb"
 TILES = BACKEND / "ai" / "trainer" / "make_tiles.py"
-ALL_SCRIPTS = (TRAIN, EXTRACT, PREPARE, EXPORT, EVAL, PSEUDO, COMPARE, TILES)
+TANK = BACKEND / "ai" / "trainer" / "train_tank.py"
+ALL_SCRIPTS = (TRAIN, EXTRACT, PREPARE, EXPORT, EVAL, PSEUDO, COMPARE, TILES, TANK)
 
 # "ml extra 가 없을 때 친절히 안내하는가"는 정말 없을 때만 잴 수 있다.
 # 학습용 PC 처럼 ultralytics·opencv 를 깐 환경에서는 건너뛴다.
