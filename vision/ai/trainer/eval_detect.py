@@ -290,6 +290,7 @@ def count_error(pairs: list[tuple[int, int]], tolerance: float = 0.20) -> dict:
 # ── 본체 ───────────────────────────────────────────────────────────────────
 def evaluate(args: argparse.Namespace) -> dict:
     from app.services.detector_onnx import OnnxShrimpDetector  # noqa: PLC0415
+    from app.services.tiling import detect_tiled  # noqa: PLC0415
 
     images_dir = Path(args.images).resolve()
     labels_dir = Path(args.labels).resolve() if args.labels else images_dir.parent / "labels"
@@ -321,7 +322,11 @@ def evaluate(args: argparse.Namespace) -> dict:
             width, height = frame.size
 
         start = time.perf_counter()
-        result = detector.detect(frame)
+        if args.tile:
+            result = detect_tiled(detector, frame, tile=args.tile,
+                                  overlap=args.tile_overlap, max_det=args.max_det)
+        else:
+            result = detector.detect(frame)
         times.append((time.perf_counter() - start) * 1000)
 
         boxes = np.asarray([[b.x1, b.y1, b.x2, b.y2] for b in result.bboxes],
@@ -369,6 +374,7 @@ def evaluate(args: argparse.Namespace) -> dict:
         "이미지_수": len(images),
         "정답_박스_수": total_gt,
         "추론_해상도": detector.imgsz,
+        "조각_추론": ({"조각_px": args.tile, "겹침": args.tile_overlap} if args.tile else None),
         "신뢰도_임계값": args.conf,
         "NMS_IoU": args.iou,
         "mAP@0.5": round(aps["0.50"], 4),
@@ -414,6 +420,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                    help="계수 오차 허용 범위(기본 0.20 = ±20%%)")
     p.add_argument("--imgsz", type=int, default=None, help="추론 해상도(미지정=모델값)")
     p.add_argument("--max-det", type=int, default=1000, help="이미지당 최대 검출 수")
+    p.add_argument("--tile", type=int, default=0,
+                   help="조각 추론: 프레임을 이 크기(px) 조각으로 나눠 조각마다 추론(0=끄기). "
+                        "추론시간은 조각 전체를 합친 값으로 잰다")
+    p.add_argument("--tile-overlap", type=float, default=0.25, help="조각끼리 겹치는 비율")
     p.add_argument("--json", default=None, help="결과 JSON 저장 경로")
     p.add_argument("--csv", default=None, help="이미지별 결과 CSV 저장 경로")
     p.add_argument("--progress", type=int, default=50, help="N장마다 진행 표시(0=끄기)")

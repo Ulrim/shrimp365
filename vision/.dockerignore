@@ -1,0 +1,5 @@
+# 학습·평가 자료와 가상환경은 서비스 이미지에 넣지 않는다(Dockerfile 의 COPY . .).
+data/
+.venv/
+ai/trainer/runs/
+**/__pycache__/
