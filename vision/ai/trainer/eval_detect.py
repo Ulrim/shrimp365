@@ -287,10 +287,17 @@ def count_error(pairs: list[tuple[int, int]], tolerance: float = 0.20) -> dict:
     return out
 
 
+def _as_arrays(bboxes) -> tuple[np.ndarray, np.ndarray]:  # noqa: ANN001
+    boxes = np.asarray([[b.x1, b.y1, b.x2, b.y2] for b in bboxes],
+                       dtype=np.float32).reshape(-1, 4)
+    scores = np.asarray([b.confidence for b in bboxes], dtype=np.float32)
+    return boxes, scores
+
+
 # ── 본체 ───────────────────────────────────────────────────────────────────
 def evaluate(args: argparse.Namespace) -> dict:
     from app.services.detector_onnx import OnnxShrimpDetector  # noqa: PLC0415
-    from app.services.tiling import detect_tiled  # noqa: PLC0415
+    from app.services.tiling import collect_tile_boxes, merge_candidates  # noqa: PLC0415
 
     images_dir = Path(args.images).resolve()
     labels_dir = Path(args.labels).resolve() if args.labels else images_dir.parent / "labels"
@@ -324,15 +331,19 @@ def evaluate(args: argparse.Namespace) -> dict:
 
         start = time.perf_counter()
         if args.tile:
-            result = detect_tiled(detector, frame, tile=args.tile,
-                                  overlap=args.tile_overlap, max_det=args.max_det)
+            candidates = collect_tile_boxes(detector, frame, tile=args.tile,
+                                            overlap=args.tile_overlap)
+            bboxes = merge_candidates(candidates, max_det=args.max_det)
+            # 운영 임계값의 결과는 서비스와 같은 순서(거른 뒤 합치기)로 따로 만든다.
+            # 합친 뒤에 거르면 임계값 아래의 상자가 반쪽 상자를 지워 수가 달라진다.
+            op_bboxes = merge_candidates(candidates, min_confidence=args.conf,
+                                         max_det=args.max_det)
         else:
-            result = detector.detect(frame)
+            bboxes = detector.detect(frame).bboxes
+            op_bboxes = [b for b in bboxes if b.confidence >= args.conf]
         times.append((time.perf_counter() - start) * 1000)
 
-        boxes = np.asarray([[b.x1, b.y1, b.x2, b.y2] for b in result.bboxes],
-                           dtype=np.float32).reshape(-1, 4)
-        scores = np.asarray([b.confidence for b in result.bboxes], dtype=np.float32)
+        boxes, scores = _as_arrays(bboxes)
         gt = read_gt(label_for(image_path, images_dir, labels_dir), width, height)
         total_gt += len(gt)
         per_image_gt.append(len(gt))
@@ -342,8 +353,8 @@ def evaluate(args: argparse.Namespace) -> dict:
             all_tp[float(t)].append(match_one_image(boxes, scores, gt, float(t)))
 
         # 운영 임계값에서의 P/R/F1
-        keep = scores >= args.conf
-        tp_op = match_one_image(boxes[keep], scores[keep], gt, 0.5)
+        op_boxes, op_scores = _as_arrays(op_bboxes)
+        tp_op = match_one_image(op_boxes, op_scores, gt, 0.5)
         tp_n = int(tp_op.sum())
         fp_n = int(len(tp_op) - tp_n)
         fn_n = int(len(gt) - tp_n)
@@ -351,7 +362,7 @@ def evaluate(args: argparse.Namespace) -> dict:
         op_fp += fp_n
         op_fn += fn_n
         rows.append(PerImage(str(image_path.relative_to(images_dir)), width, height,
-                             len(gt), int(keep.sum()), tp_n, fp_n, fn_n,
+                             len(gt), len(op_bboxes), tp_n, fp_n, fn_n,
                              round(times[-1], 1)))
 
         if args.progress and (n % args.progress == 0 or n == len(images)):

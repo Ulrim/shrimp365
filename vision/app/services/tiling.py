@@ -143,34 +143,38 @@ def merge_tile_boxes(
     return keep
 
 
-def detect_tiled(
-    detector,  # noqa: ANN001 - OnnxShrimpDetector 등 detect(PIL) -> DetectionResult
+class TileCandidates(NamedTuple):
+    """조각별 탐지를 프레임 좌표로 모은 것(아직 합치기 전)."""
+
+    boxes: np.ndarray       # (N, 4) xyxy
+    scores: np.ndarray      # (N,)
+    tile_index: np.ndarray  # (N,)
+    cut: np.ndarray         # (N,) 조각 안쪽 경계에 닿았는지
+    width: int
+    height: int
+    model_version: str
+
+
+def collect_tile_boxes(
+    detector,  # noqa: ANN001 - detect(PIL) -> DetectionResult
     frame,  # noqa: ANN001 - PIL.Image (RGB)
     *,
     tile: int,
     overlap: float = 0.25,
-    iou_threshold: float = 0.5,
-    contain_threshold: float = 0.6,
-    max_det: int = 1000,
-):
-    """프레임을 조각내 조각마다 `detector.detect` 를 부르고 결과를 합친다.
+) -> TileCandidates:
+    """프레임을 조각내 조각마다 `detector.detect` 를 부르고 결과를 모은다(합치지 않는다).
 
     `frame` 은 **PIL 이미지**여야 한다. ndarray 를 넘기면 detect() 가 BGR 로 보고
     채널을 뒤집는데, 조각으로 자른 뒤에는 그 구분을 되살릴 수 없다.
     """
-    from app.services.detector import BBox, DetectionResult  # noqa: PLC0415
-
     image = frame.convert("RGB")
     width, height = image.size
-    tiles = plan_tiles(width, height, tile, overlap)
-
-    start = time.perf_counter()
     boxes: list[list[float]] = []
     scores: list[float] = []
     tile_index: list[int] = []
     cut: list[bool] = []
     model_version = "unknown"
-    for index, rect in enumerate(tiles):
+    for index, rect in enumerate(plan_tiles(width, height, tile, overlap)):
         result = detector.detect(image.crop(rect))
         model_version = result.model_version
         local = np.asarray(
@@ -182,25 +186,80 @@ def detect_tiled(
         scores.extend(b.confidence for b in result.bboxes)
         tile_index.extend([index] * len(local))
         cut.extend(touches_cut_edge(local, rect, width, height).tolist())
-
-    keep = merge_tile_boxes(
+    return TileCandidates(
         np.asarray(boxes, dtype=np.float64).reshape(-1, 4),
         np.asarray(scores, dtype=np.float64),
         np.asarray(tile_index, dtype=np.int64),
         np.asarray(cut, dtype=bool),
+        width,
+        height,
+        model_version,
+    )
+
+
+def merge_candidates(
+    candidates: TileCandidates,
+    *,
+    min_confidence: float = 0.0,
+    iou_threshold: float = 0.5,
+    contain_threshold: float = 0.6,
+    max_det: int = 1000,
+):
+    """모은 탐지를 합쳐 `BBox` 목록(신뢰도 내림차순)으로 돌려준다.
+
+    `min_confidence` 미만은 **합치기 전에** 버린다. 합친 뒤에 거르는 것과 결과가
+    다르다 — 규칙 1 에서는 신뢰도가 낮은 온전한 상자가 신뢰도 높은 반쪽을 지울 수
+    있기 때문이다. 서비스는 탐지기가 임계값으로 거른 뒤 합치므로, 평가에서 운영
+    임계값의 P·R·마릿수를 잴 때도 이 인자로 같은 순서를 지켜야 한다.
+    """
+    from app.services.detector import BBox  # noqa: PLC0415
+
+    mask = candidates.scores >= min_confidence
+    boxes = candidates.boxes[mask]
+    scores = candidates.scores[mask]
+    keep = merge_tile_boxes(
+        boxes,
+        scores,
+        candidates.tile_index[mask],
+        candidates.cut[mask],
         iou_threshold=iou_threshold,
         contain_threshold=contain_threshold,
     )[:max_det]
-    merged = [
+    return [
         BBox(
-            x1=round(boxes[i][0], 1),
-            y1=round(boxes[i][1], 1),
-            x2=round(boxes[i][2], 1),
-            y2=round(boxes[i][3], 1),
+            x1=round(float(boxes[i][0]), 1),
+            y1=round(float(boxes[i][1]), 1),
+            x2=round(float(boxes[i][2]), 1),
+            y2=round(float(boxes[i][3]), 1),
             confidence=round(float(scores[i]), 4),
         )
         for i in keep
     ]
+
+
+def detect_tiled(
+    detector,  # noqa: ANN001 - OnnxShrimpDetector 등 detect(PIL) -> DetectionResult
+    frame,  # noqa: ANN001 - PIL.Image (RGB)
+    *,
+    tile: int,
+    overlap: float = 0.25,
+    iou_threshold: float = 0.5,
+    contain_threshold: float = 0.6,
+    max_det: int = 1000,
+    min_confidence: float = 0.0,
+):
+    """프레임을 조각내 조각마다 `detector.detect` 를 부르고 결과를 합친다."""
+    from app.services.detector import DetectionResult  # noqa: PLC0415
+
+    start = time.perf_counter()
+    candidates = collect_tile_boxes(detector, frame, tile=tile, overlap=overlap)
+    merged = merge_candidates(
+        candidates,
+        min_confidence=min_confidence,
+        iou_threshold=iou_threshold,
+        contain_threshold=contain_threshold,
+        max_det=max_det,
+    )
     inference_ms = int((time.perf_counter() - start) * 1000)
     conf_avg = round(sum(b.confidence for b in merged) / len(merged), 3) if merged else 0.0
     return DetectionResult(
@@ -208,8 +267,8 @@ def detect_tiled(
         bboxes=merged,
         confidence_avg=conf_avg,
         inference_ms=inference_ms,
-        frame_width=width,
-        frame_height=height,
-        model_version=model_version,
+        frame_width=candidates.width,
+        frame_height=candidates.height,
+        model_version=candidates.model_version,
         track_ids=None,
     )

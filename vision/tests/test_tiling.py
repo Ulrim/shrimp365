@@ -147,3 +147,41 @@ class TestDetectTiled:
             detector, Image.new("RGB", (1000, 600)), tile=500, overlap=0.2
         )
         assert result.count == 0 and result.bboxes == [] and result.confidence_avg == 0.0
+
+
+class TestMinConfidence:
+    """임계값은 합치기 **전에** 걸어야 서비스(거른 뒤 합치기)와 같은 결과가 난다."""
+
+    def _candidates(self):
+        # 조각0: 신뢰도 낮은 온전한 상자 / 조각1: 신뢰도 높은 잘린 반쪽
+        return tiling.TileCandidates(
+            boxes=np.array([[100.0, 100, 300, 160], [200.0, 102, 300, 158]]),
+            scores=np.array([0.10, 0.90]),
+            tile_index=np.array([0, 1]),
+            cut=np.array([False, True]),
+            width=1512,
+            height=2016,
+            model_version="fake.onnx",
+        )
+
+    def test_임계값_없이는_낮은_신뢰도_상자가_반쪽을_지운다(self):
+        merged = tiling.merge_candidates(self._candidates())
+        assert [b.confidence for b in merged] == [0.10]
+
+    def test_임계값을_먼저_걸면_반쪽이_남는다(self):
+        merged = tiling.merge_candidates(self._candidates(), min_confidence=0.25)
+        assert [b.confidence for b in merged] == [0.90]
+        assert (merged[0].x1, merged[0].x2) == (200.0, 300.0)
+
+    def test_detect_tiled_는_모으기와_합치기를_이은_것(self):
+        shrimp = [(700.0, 300, 900, 360), (400.0, 1100, 460, 1300)]
+        frame = Image.new("RGB", (1512, 2016))
+        first, second = _FakeDetector(shrimp), _FakeDetector(shrimp)
+        first.plan(1512, 2016, 768, 0.25)
+        second.plan(1512, 2016, 768, 0.25)
+        whole = tiling.detect_tiled(first, frame, tile=768, min_confidence=0.6)
+        parts = tiling.merge_candidates(
+            tiling.collect_tile_boxes(second, frame, tile=768), min_confidence=0.6
+        )
+        assert whole.bboxes == parts
+        assert all(b.confidence >= 0.6 for b in parts)
