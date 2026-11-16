@@ -35,7 +35,7 @@ STA_블루스타트업_시험꾸러미/
     ai/models/shrimp_yolov8n_416.onnx   시험 대상 모델
     app/                                현장 장비와 같은 추론 코드
     data/tank/labeled/                  리허설용 수조 사진 12장 (성적과 무관)
-    tests/test_eval_detect.py           지표 계산 시험 46건
+    tests/test_eval_detect.py           지표 계산 시험 48건
     requirements-sta.txt · GIT_COMMIT
   원본데이터/                         3단계에서 받은 폴더 2개를 여기에 둔다
   sha256sums.txt                      꾸러미 파일의 sha256
@@ -70,7 +70,7 @@ python3 -m venv .venv
 아래부터는 파이썬을 `PY` 로 줄여 적는다 — 윈도우는 `.venv\Scripts\python`, 맥·리눅스는 `.venv/bin/python` 이다.
 모든 명령은 **`프로그램/` 폴더에서** 친다.
 
-설치 확인(선택): `PY -m pytest tests/test_eval_detect.py -q --noconftest` → `46 passed`
+설치 확인(선택): `PY -m pytest tests/test_eval_detect.py -q --noconftest` → `48 passed`
 
 ## 2. 리허설 (2분) — 원본 데이터셋 없이
 
