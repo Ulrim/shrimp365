@@ -46,6 +46,22 @@ yolov11·coco 판이 아니라 yolov8 판이다. 순서는 00_절차서 3·4단�
 """
 
 
+# 윈도우용 실행 파일. 한글 경로가 들어가므로 cp949 + CRLF 로 쓴다(cmd 가 그렇게 읽는다).
+BAT_HEAD = '@echo off\r\ncd /d "%~dp0프로그램"\r\n'
+BAT_PY = ".venv\\Scripts\\python"
+BATS = {
+    "1_설치.bat": (
+        "py -3 -m venv .venv || python -m venv .venv\r\n"
+        f"{BAT_PY} -m pip install -r requirements-sta.txt\r\n"
+        f"{BAT_PY} -m pytest tests/test_eval_detect.py -q --noconftest\r\n"),
+    "2_리허설.bat": f"{BAT_PY} ai/trainer/sta_run.py rehearsal\r\n",
+    "3_사전측정.bat": (
+        f'{BAT_PY} ai/trainer/sta_run.py prepare "..\\원본데이터\\shrimp_cf.v1i.yolov8" '
+        '"..\\원본데이터\\Counting PL.v1i.yolov8"\r\n'),
+    "4_시험당일.bat": f"{BAT_PY} ai/trainer/sta_run.py rerun\r\n",
+}
+
+
 def sha256_of(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -99,6 +115,9 @@ def main() -> int:
                             "-o", str(pkg / "00_절차서.docx")], check=True)
         else:
             print("  (pandoc 이 없어 00_절차서.docx 는 넣지 않았습니다)")
+
+        for name, body in BATS.items():
+            (pkg / name).write_bytes((BAT_HEAD + body + "echo.\r\npause\r\n").encode("cp949"))
 
         files = sorted(p for p in pkg.rglob("*") if p.is_file())
         (pkg / "sha256sums.txt").write_text(

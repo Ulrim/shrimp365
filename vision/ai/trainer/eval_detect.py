@@ -766,7 +766,8 @@ def write_logs(log_dir: Path, out: dict, rows: list[PerImage], details: list[dic
     data_dir = log_dir / LOG_DATA_DIR
     data_dir.mkdir(exist_ok=True)
     sums_text = "\n".join(sums) + "\n"
-    (data_dir / LOG_SUMS).write_text(sums_text, encoding="utf-8")
+    # 줄바꿈을 \n 으로 못박는다 — 윈도우에서도 파일의 sha256 이 JSON 에 적는 값과 같아야 한다.
+    (data_dir / LOG_SUMS).write_text(sums_text, encoding="utf-8", newline="\n")
     counts = [r.gt for r in rows]
     bins = [("0", 0, 0), ("1", 1, 1), ("2~5", 2, 5), ("6~10", 6, 10), ("11~20", 11, 20),
             ("21~50", 21, 50), ("51 이상", 51, 10**9)]
