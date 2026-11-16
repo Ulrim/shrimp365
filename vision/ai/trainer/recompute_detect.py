@@ -22,7 +22,9 @@ F1 · 계수 오차율을 처음부터 다시 계산하고, `03_최종결과.jso
 ---------
     02_예측별_결과.csv   계산의 재료 ①  — 예측 박스 1개 = 1줄
     02_정답별_결과.csv   계산의 재료 ②  — 정답 박스 1개 = 1줄
-    02_이미지별_결과.csv 교차 확인용     — 위 둘에서 센 이미지별 값과 같은지 본다
+    02_이미지별_결과.csv 교차 확인용     — 위 둘에서 센 이미지별 값과 같은지 본다.
+                         예측도 정답도 없는 이미지는 위 둘에 줄이 없으므로,
+                         이미지 **이름 목록**만은 여기서 가져온다(값은 쓰지 않는다)
     03_최종결과.json     견줄 상대       — 측정 프로그램이 낸 최종값
 
 계산식
@@ -56,6 +58,9 @@ F1 · 계수 오차율을 처음부터 다시 계산하고, `03_최종결과.jso
 
 다시 계산하지 않는 것
 ---------------------
+예측과 정답의 짝짓기(IoU 매칭) 자체는 다시 하지 않는다. 좌표에서 IoU 를 새로
+구하지 않고, 로그에 적힌 예측별 TP(0/1)·정답별 탐지(0/1)에서 출발해 그 뒤의
+집계(누적·곡선·보간·평균·비율)를 모두 다시 한다.
 부트스트랩 신뢰구간, 탐지율 95% 하한, 추론시간은 시험 기준이 아닌 참고값이라
 여기서 다시 내지 않는다.
 
@@ -231,9 +236,13 @@ def compare(result: dict, final: dict, log_dir: Path) -> tuple[list[tuple], list
     problems: list[str] = []
 
     def add(label: str, mine, theirs, exact: bool = False) -> None:  # noqa: ANN001
-        if mine is None or theirs is None or mine != mine:
+        if mine is not None and mine != mine:          # nan = 정의되지 않음
+            mine = None
+        if theirs is not None and theirs != theirs:
+            theirs = None
+        if mine is None or theirs is None:
             same = mine is None and theirs is None
-            shown = "-" if mine is None or mine != mine else mine
+            shown = "-" if mine is None else mine
         elif exact:
             same, shown = mine == theirs, mine
         else:

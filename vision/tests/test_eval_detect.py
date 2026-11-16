@@ -547,3 +547,46 @@ def test_pass_criteria_are_settings_not_constants(synthetic_run):
     assert [v["판정"] for v in verdicts] == ["부적합", "부적합"]
     with pytest.raises(SystemExit):
         run("--count-judge", "within")                # 기준값 없이 판정하지 않는다
+
+
+def test_changed_test_data_stops_before_measuring(synthetic_run, capsys):
+    """바뀐 데이터로 잰 수치가 화면에 나오면 안 된다 — 재기 전에 멈춘다."""
+    run, log_dir, _, labels_dir = synthetic_run
+    assert run() == 0
+    before = (log_dir / "03_최종결과.json").read_bytes()
+    capsys.readouterr()
+    (labels_dir / "img_00.txt").write_text("0 0.5 0.5 0.1 0.1\n")
+    with pytest.raises(SystemExit):
+        run()
+    assert "mAP@0.5" not in capsys.readouterr().out
+    assert (log_dir / "03_최종결과.json").read_bytes() == before
+
+
+def test_recompute_agrees_when_there_is_nothing_to_find(tmp_path, monkeypatch):
+    """정답이 하나도 없으면 AP 는 양쪽 다 '정의되지 않음' — 그것도 일치다."""
+    from PIL import Image
+
+    images_dir = tmp_path / "test" / "images"
+    images_dir.mkdir(parents=True)
+    (tmp_path / "test" / "labels").mkdir()
+    for i in range(3):
+        Image.new("RGB", (SIZE, SIZE), (i, 0, 0)).save(images_dir / f"bg_{i}.png")
+    (tmp_path / "m.onnx").write_bytes(b"x")
+
+    class FakeDetector:
+        imgsz = 416
+
+        def __init__(self, **_kwargs):
+            pass
+
+        def detect(self, frame):
+            boxes = [BBox(1, 1, 20, 20, 0.6)] if frame.getpixel((0, 0))[0] == 1 else []
+            return DetectionResult(count=len(boxes), bboxes=boxes)
+
+    monkeypatch.setattr("app.services.detector_onnx.OnnxShrimpDetector", FakeDetector)
+    log_dir = tmp_path / "log"
+    with pytest.warns(RuntimeWarning):                 # 기존 동작: nan 들의 평균
+        assert eval_detect.main(["--weights", str(tmp_path / "m.onnx"), "--images",
+                                 str(images_dir), "--progress", "0",
+                                 "--log-dir", str(log_dir)]) == 0
+    assert recompute_detect.main(["--dir", str(log_dir)]) == 0

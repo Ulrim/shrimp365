@@ -53,6 +53,7 @@ WEIGHTS="${WEIGHTS:-$VISION/ai/models/shrimp_yolov8n_416.onnx}"
 WORK="${WORK:-$VISION/datasets/shrimp}"
 EVID="${EVID:-$ROOT/docs/result-03-bluestartup/evidence}"
 STA="${STA:-$VISION/sta_블루스타트업}"
+case "$STA" in /*) ;; *) STA="$PWD/$STA" ;; esac     # 아래에서 cd 하므로 절대경로로 굳힌다
 CONF="${CONF:-0.25}"
 EVAL_ARGS="${EVAL_ARGS:-}"
 # 학습 기록의 test 분할 크기. 연습(다른 자료로 흐름만 확인)할 때만 바꾼다.
@@ -90,7 +91,8 @@ from pathlib import Path
 base = Path(sys.argv[1])
 ext = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 images = [p for p in (base / "images").rglob("*") if p.suffix.lower() in ext]
-boxes = sum(1 for p in (base / "labels").rglob("*.txt")
+labels = [(base / "labels" / p.relative_to(base / "images")).with_suffix(".txt") for p in images]
+boxes = sum(1 for p in labels if p.exists()          # 이미지와 짝이 맞는 라벨만 센다
             for line in p.read_text().splitlines() if len(line.split()) >= 5)
 print(len(images), boxes)
 PYEOF
@@ -134,7 +136,8 @@ else
   [ -d "$TEST/images" ] && [ -f "$SUMS" ] || {
     echo "[오류] 고정해 둔 시험 데이터가 없습니다: $TEST" >&2
     echo "       먼저 원본 데이터셋으로 묶음을 만드세요(쓰는 법 (가))." >&2; exit 1; }
-  rm -f "$LOG"
+  # 전날 결과가 오늘 결과와 섞이지 않게 지운다(시험 데이터와 고정 목록은 그대로 둔다).
+  rm -f "$STA"/00_* "$STA"/02_* "$STA"/03_* "$STA"/04_* "$LOG"
 fi
 
 mkdir -p "$STA"
@@ -146,7 +149,11 @@ mkdir -p "$STA"
   require_expected "$TEST"
   if [ "$RERUN" = "1" ] && command -v sha256sum >/dev/null; then
     echo "  시험 데이터 sha256 대조 (sha256sum -c)"
-    (cd "$TEST" && sha256sum -c --quiet "$SUMS") && echo "  → 모두 일치"
+    if ! (cd "$TEST" && sha256sum -c --quiet "$SUMS"); then
+      echo "[중단] 시험 데이터가 고정된 목록과 다릅니다. 측정하지 않습니다." >&2
+      exit 1
+    fi
+    echo "  → 모두 일치"
   fi
 
   echo
@@ -161,7 +168,7 @@ mkdir -p "$STA"
     --weights "$WEIGHTS" \
     --images "$TEST/images" --labels "$TEST/labels" \
     --conf "$CONF" --bootstrap 2000 \
-    --log-dir "$STA" "${EXTRA[@]}" $EVAL_ARGS
+    --log-dir "$STA" ${EXTRA[@]+"${EXTRA[@]}"} $EVAL_ARGS
 
   echo
   echo "== 4/4  로그만으로 다시 계산 ======================================="

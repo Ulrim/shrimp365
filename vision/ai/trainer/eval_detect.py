@@ -497,7 +497,9 @@ LOG_EXPLAIN = {
         "이미지별 |검출 마리 수 − 정답 마리 수| ÷ 정답 마리 수. 검출 마리 수는 "
         "운영 임계값 이상인 예측 수다. 정답이 0마리인 이미지는 분모가 0이라 평균에서 "
         "빼고, 헛검출 수를 따로 적는다."),
-    "번호": "예측번호·정답번호는 이미지 안에서 1부터 센다(정답은 라벨 파일의 줄 순서).",
+    "번호": ("예측번호·정답번호는 이미지 안에서 1부터 센다. 정답번호는 라벨 파일에서 "
+             "유효한 줄(값이 5개 이상인 줄)만 센 순서다 — 빈 줄은 건너뛴다."),
+    "판정": "판정은 이 파일에 적힌 값(소수 넷째 자리로 반올림한 값)을 기준과 견준다.",
     "재계산": "python ai/trainer/recompute_detect.py --dir <이 폴더>",
 }
 
@@ -821,12 +823,19 @@ def main(argv: list[str] | None = None) -> int:
         sys.exit("--log-dir 는 조각 추론(--tile)과 함께 쓸 수 없습니다. 조각 추론에서는 "
                  "운영 임계값의 결과가 mAP 용 예측의 부분집합이 아니어서 예측별 로그로 "
                  "나타낼 수 없습니다.")
+    sums: list[str] = []
+    if args.log_dir:
+        # 시험 데이터가 고정한 목록과 같은지 **재기 전에** 본다 — 다르면 수치를 내지 않는다.
+        images_dir = Path(args.images).resolve()
+        labels_dir = Path(args.labels).resolve() if args.labels else images_dir.parent / "labels"
+        sums = dataset_sha256_lines(images_dir, labels_dir, find_images(images_dir))
+        check_fixed_dataset(Path(args.log_dir), sums)
     print("객체탐지 성능 측정 — 배포 경로(detector_onnx)로 추론합니다.\n")
     out = evaluate(args)
     rows: list[PerImage] = out.pop("_per_image")
     details: list[dict] = out.pop("_details")
     order: np.ndarray = out.pop("_score_order")
-    data: dict = out.pop("_data")
+    out.pop("_data")
 
     print("=" * 62)
     print(f"  이미지 {out['이미지_수']:,}장 · 정답 박스 {out['정답_박스_수']:,}개")
@@ -884,8 +893,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"CSV 저장: {path}")
     if args.log_dir:
         log_dir = Path(args.log_dir)
-        sums = dataset_sha256_lines(data["images_dir"], data["labels_dir"], data["images"])
-        check_fixed_dataset(log_dir, sums)
         out.update(write_logs(log_dir, out, rows, details, order, sums, args))
         (log_dir / LOG_JSON).write_text(json.dumps(out, ensure_ascii=False, indent=2),
                                         encoding="utf-8")

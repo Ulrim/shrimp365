@@ -20,6 +20,7 @@
 
 ```bash
 cd vision
+set -o pipefail                                       # tee 뒤에서도 실패가 보이게 한다
 git rev-parse HEAD                                    # 실행 코드의 커밋
 git status --short -- .                               # 아무것도 안 나와야 한다(추적 파일 변경 없음)
 sha256sum ai/models/shrimp_yolov8n_416.onnx           # ae95071c7e53df7e828e0faf51a54e0f7c5bb3010312b1d305949af12d533804
@@ -33,13 +34,14 @@ cat sta_블루스타트업/01_시험데이터/통계.txt             # 445장 ·
 ## 2. 측정 (약 1~3분)
 
 ```bash
-STA=sta_블루스타트업
-rm -f $STA/05_실행로그.txt
+STA="$PWD/sta_블루스타트업"
+rm -f $STA/00_* $STA/02_* $STA/03_* $STA/04_* $STA/05_*    # 전날 결과를 지운다(01_시험데이터 는 그대로)
 .venv/bin/python ai/trainer/eval_detect.py \
   --weights ai/models/shrimp_yolov8n_416.onnx \
   --images $STA/01_시험데이터/test/images --labels $STA/01_시험데이터/test/labels \
   --conf 0.25 --bootstrap 2000 \
   --log-dir $STA 2>&1 | tee -a $STA/05_실행로그.txt
+echo "종료 코드 ${PIPESTATUS[0]}"
 ```
 
 화면에서 확인할 것
@@ -48,16 +50,19 @@ rm -f $STA/05_실행로그.txt
 - `mAP@0.5`, `Precision`, `Recall`, `F1`, `계수 오차율 평균`
 - 맨 아래 `판정` 두 줄(시험 항목 1·2)
 
-시험 데이터가 고정한 목록과 한 파일이라도 다르면 `[중단]` 으로 끝나고 결과를 쓰지 않는다.
+시험 데이터가 고정한 목록과 한 파일이라도 다르면 **재기 전에** `[중단]` 으로 끝난다(수치가 나오지 않는다).
+`[중단]` 이 나온 묶음은 보내지 않는다.
 
 ## 3. 로그만으로 다시 계산 (약 10초)
 
 ```bash
 .venv/bin/python ai/trainer/recompute_detect.py --dir $STA 2>&1 | tee -a $STA/05_실행로그.txt
-echo "종료 코드 $?"
+echo "종료 코드 ${PIPESTATUS[0]}"
 ```
 
-- 모델·이미지를 읽지 않고 `02_예측별_결과.csv` 와 `02_정답별_결과.csv` 로만 계산한다.
+- 모델·이미지를 읽지 않고 `02_예측별_결과.csv` 와 `02_정답별_결과.csv` 로 계산한다
+  (`02_이미지별_결과.csv` 는 교차 확인과 이미지 이름 목록에만 쓴다).
+- 예측과 정답의 짝짓기(IoU 매칭)는 다시 하지 않는다. 로그의 TP(0/1) 열에서 출발해 그 뒤 집계를 모두 다시 한다.
 - 모든 줄이 `일치`, 마지막 줄이 「결과: 모두 일치」 여야 한다. 하나라도 다르면 종료 코드 1.
 
 ### 시험원에게 설명할 내용 — 데이터별 결과에서 최종값이 나오는 길
@@ -115,7 +120,14 @@ zip -r "sta_블루스타트업_$(date +%Y%m%d).zip" $STA
 | `--pass-count-within` | 없음 | ±20% 이내 비율이 이 값 이상이면 적합(`within`·`both` 일 때 반드시 지정) |
 | `--count-tolerance` | 0.20 | 「이내」로 볼 허용오차 |
 
+판정은 `03_최종결과.json` 에 적힌 값(소수 넷째 자리 반올림)을 기준과 견준다.
 측정값은 판정 기준과 무관하게 모두 기록된다. 기준에 못 미쳐도 임계값(`--conf`)·설정을 바꾸지 않는다.
+
+## 시험 PC 조건
+
+명령은 **bash + GNU `sha256sum`** 기준이다(Linux, 또는 Windows 의 WSL). macOS 는 `sha256sum` 대신
+`shasum -a 256` 을 쓴다. `run_test_eval.sh --rerun` 은 `sha256sum` 이 없으면 그 대조를 건너뛰지만,
+`eval_detect.py` 가 같은 대조를 스스로 한 번 더 하므로 고정 여부는 어느 쪽에서든 확인된다.
 
 ## 막혔을 때
 
