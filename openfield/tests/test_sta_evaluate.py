@@ -340,9 +340,24 @@ def test_run_all_runs_every_step_and_writes_prerun_log(bundle):
     code = run_all.main([
         "--cache", str(bundle["cache"]), "--models", str(bundle["models"]), "--out", str(out),
         "--hash-list", str(bundle["hash_list"]), "--prerun-log", str(log),
+        "--seal-file", str(bundle["work"] / "seal.sha256"),
         "--skip-benchmark",          # 합성 자료에는 판단시간 측정에 쓸 원시 관측 열이 없다
     ])
     assert code == 0
+    sealed = (bundle["work"] / "seal.sha256").read_text(encoding="utf-8").split()[0]
+    assert sealed == sta_common.sha256_file(out / "01_시험데이터" / "시험셋.csv")
+
+    # 시험 당일 — 봉인 파일의 해시와 대조하며 같은 순서로 돈다
+    day = bundle["work"] / "run_day"
+    common = ["--mode", "testday", "--cache", str(bundle["cache"]), "--models", str(bundle["models"]),
+              "--hash-list", str(bundle["hash_list"]), "--skip-benchmark", "--no-zip"]
+    assert run_all.main([*common, "--out", str(day), "--prerun-log", str(bundle["work"] / "당일.md"),
+                         "--seal-file", str(bundle["work"] / "seal.sha256")]) == 0
+    final = json.loads((day / "03_최종결과.json").read_text(encoding="utf-8"))
+    assert final["봉인 시험셋 대조"]["결과"] == "일치"
+    # 봉인 파일이 없으면 시작하지 않는다
+    assert run_all.main([*common, "--out", str(bundle["work"] / "run_day2"), "--prerun-log", "",
+                         "--seal-file", str(bundle["work"] / "없는봉인")]) == 2
     text = log.read_text(encoding="utf-8")
     assert "전 단계 통과" in text and "시험셋.csv sha256" in text and "복합위험 3시간" in text
     assert (out / "04_재계산_결과.txt").exists()
@@ -356,11 +371,56 @@ def test_run_all_stops_at_first_failure(bundle):
         "--cache", str(bundle["cache"]), "--models", str(bundle["work"] / "없는폴더"),
         "--out", str(bundle["work"] / "run_fail"), "--hash-list", str(bundle["hash_list"]),
         "--prerun-log", str(log), "--skip-benchmark",
+        "--seal-file", str(bundle["work"] / "seal_fail.sha256"),
     ])
     assert code == 1
+    assert not (bundle["work"] / "seal_fail.sha256").exists()
     assert "실패" in log.read_text(encoding="utf-8")
     assert not (bundle["work"] / "run_fail" / "02_시점별_결과.csv").exists()
 
 
 def test_cpu_name_is_not_a_bare_number():
     assert not str(sta_common.environment()["CPU"]).isdigit()
+
+
+# --------------------------------------------------------------------------- 준비 점검
+
+def test_judgement_code_matches_committed_hash_list(tmp_path):
+    checked = sta_common.verify_code_hashes()
+    assert checked is not None and checked[0] >= 30 and checked[1] == []
+
+    listing = sta_common.CODE_HASH_LIST.read_text(encoding="utf-8").splitlines()
+    broken = tmp_path / "bad.txt"
+    broken.write_text("\n".join(listing[:-1] + ["0" * 64 + "  " + listing[-1].split("  ", 1)[1]]),
+                      encoding="utf-8")
+    assert sta_common.verify_code_hashes(broken)[1] == ["해시 다름: " + listing[-1].split("  ", 1)[1]]
+    assert sta_common.verify_code_hashes(tmp_path / "없음.txt") is None
+
+
+def test_prepare_reports_ready_and_missing_items(bundle, capsys):
+    prepare = _load("sta_prepare")
+    ready = ["--cache", str(bundle["cache"]), "--models", str(bundle["models"]),
+             "--hash-list", str(bundle["hash_list"]), "--aaos-dir", str(bundle["work"] / "없는원천")]
+    assert prepare.main(ready) == 0                      # 캐시가 있으면 원천자료는 없어도 된다
+    assert "모두 준비됐습니다" in capsys.readouterr().out
+
+    empty = bundle["work"] / "prep_empty"
+    code = prepare.main(["--cache", str(empty / "dataset.pkl"), "--models", str(empty / "weather"),
+                         "--hash-list", str(bundle["hash_list"]), "--aaos-dir", str(empty / "aaos"),
+                         "--agera5", str(empty / "agera5.csv")])
+    out = capsys.readouterr().out
+    assert code == 1 and "남은 일 4건" in out and "다시 학습하지 말고" in out
+
+
+def test_prepare_extracts_model_zip_by_file_name(bundle):
+    import zipfile
+
+    prepare = _load("sta_prepare")
+    archive = bundle["work"] / "OFDF_묶음.zip"
+    with zipfile.ZipFile(archive, "w") as z:
+        for f in sorted(bundle["models"].iterdir()):
+            z.write(f, f"artifacts/weather/{f.name}")       # 폴더가 한 겹 더 있어도 푼다
+    target = bundle["work"] / "prep_zip" / "weather"
+    assert prepare.main(["--cache", str(bundle["cache"]), "--models", str(target),
+                         "--hash-list", str(bundle["hash_list"]), "--model-zip", str(archive)]) == 0
+    assert len(list(target.iterdir())) == len(list(bundle["models"].iterdir()))

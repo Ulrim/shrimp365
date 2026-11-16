@@ -568,10 +568,16 @@ def run(args: argparse.Namespace) -> int:
     # 1) 시험 대상 고정 — 코드, 모델
     git = sta_common.git_state()
     print(f"[코드] 현재 커밋 {git['현재 커밋']} / 시험 대상 커밋 {git['시험 대상 커밋']}")
-    if git["판단코드_동일"] is False:
+    if git["판단코드_동일"] is False or git["판단코드_해시대조"] is False:
+        for line in git.get("판단코드_해시대조_문제", []):
+            print(f"  [코드] {line}")
         raise StopTest(f"판단 코드(src/ofdf)가 시험 대상 커밋 {git['시험 대상 커밋']} 과 다릅니다")
-    print("[코드] 판단 코드(src/ofdf) = 시험 대상 커밋과 "
-          + ("같음" if git["판단코드_동일"] else "비교 불가(git 정보 없음) — 수동 확인 필요"))
+    print("[코드] 판단 코드(src/ofdf) git 비교: "
+          + ("시험 대상 커밋과 같음" if git["판단코드_동일"] else "비교 불가(git 저장소가 아니거나 커밋 없음)"))
+    print("[코드] 판단 코드(src/ofdf) 해시 목록 대조: "
+          + {True: f"일치 ({sta_common.CODE_HASH_LIST.name})", None: "목록 없음"}[git["판단코드_해시대조"]])
+    if git["판단코드_동일"] is None and git["판단코드_해시대조"] is None:
+        raise StopTest("판단 코드가 시험 대상 커밋과 같은지 확인할 방법이 없습니다(git 도 해시 목록도 없음)")
 
     model_hashes, problems = sta_common.verify_model_hashes(model_dir, args.hash_list)
     if problems:

@@ -42,7 +42,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--cache", default="artifacts/dataset.pkl")
     p.add_argument("--models", default="artifacts/weather")
-    p.add_argument("--out", default="sta_ai노지")
+    p.add_argument("--mode", choices=("rehearsal", "testday"), default="rehearsal",
+                   help="rehearsal: 예행연습 — 끝나면 시험셋 sha256 을 봉인 파일에 적는다. "
+                        "testday: 시험 당일 — 봉인 파일의 sha256 과 다르면 멈춘다")
+    p.add_argument("--out", default=None, help="결과 묶음 디렉터리. 기본: 예행 sta_ai노지_예행 / 당일 sta_ai노지")
+    p.add_argument("--seal-file", default="artifacts/sta_봉인_시험셋.sha256")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--miss-unit", choices=("case", "hour"), default="case")
     p.add_argument("--hash-list", default=str(sta_common.DEFAULT_HASH_LIST))
@@ -51,9 +55,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--agera5", default=None, help="캐시가 없을 때만: AgERA5 일자료 CSV")
     p.add_argument("--skip-benchmark", action="store_true", help="판단시간 측정을 건너뛴다")
     p.add_argument("--no-zip", action="store_true")
-    p.add_argument("--prerun-log", default=str(DEFAULT_LOG),
-                   help="사전실행로그(.md) 경로. 빈 문자열이면 쓰지 않는다")
-    return p.parse_args(argv)
+    p.add_argument("--prerun-log", default=None,
+                   help="실행 기록(.md) 경로. 기본: 예행 STA평가_사전실행로그.md / 당일 STA평가_당일실행로그.md. "
+                        "빈 문자열이면 쓰지 않는다")
+    args = p.parse_args(argv)
+    if args.out is None:
+        args.out = "sta_ai노지_예행" if args.mode == "rehearsal" else "sta_ai노지"
+    if args.prerun_log is None:
+        args.prerun_log = str(DEFAULT_LOG if args.mode == "rehearsal"
+                              else DEFAULT_LOG.with_name("STA평가_당일실행로그.md"))
+    return args
 
 
 def run_step(name: str, command: list[str], steps: list[dict], env: dict | None = None) -> bool:
@@ -82,9 +93,9 @@ def write_log(path: Path, args: argparse.Namespace, steps: list[dict], ok: bool,
     git = sta_common.git_state()
     total = sum(s["소요(초)"] for s in steps)
     lines = [
-        "# STA 평가 사전실행 로그 — AI 노지",
+        f"# STA 평가 {'사전실행' if args.mode == 'rehearsal' else '당일실행'} 로그 — AI 노지",
         "",
-        "`scripts/sta_run_all.py` 가 자동으로 쓴 파일이다. 실제 자료로 당일 실행 순서를 끝까지 돌린 기록.",
+        "`scripts/sta_run_all.py` 가 자동으로 쓴 파일이다. 당일 실행 순서를 끝까지 돌린 기록.",
         "",
         f"- 실행 시각 : {started:%Y-%m-%d %H:%M:%S %z}",
         f"- 결과 : **{'전 단계 통과' if ok else '실패 — 아래 단계에서 멈춤'}**",
@@ -157,6 +168,14 @@ def main(argv: list[str] | None = None) -> int:
     py = sys.executable
     out = Path(args.out)
     steps: list[dict] = []
+    seal = Path(args.seal_file)
+    seal = seal if seal.is_absolute() else ROOT / seal
+    if args.mode == "testday" and not args.expect_testset_sha256:
+        if not seal.exists():
+            print(f"[중단] 봉인 파일이 없습니다: {seal}\n       예행연습(--mode rehearsal)을 먼저 끝내야 합니다")
+            return 2
+        args.expect_testset_sha256 = seal.read_text(encoding="utf-8").split()[0]
+        print(f"[봉인] 시험셋 sha256 {args.expect_testset_sha256} ({seal.name})")
     common = ["--cache", args.cache, "--models", args.models, "--hash-list", args.hash_list]
     evaluate = [py, str(SCRIPTS / "sta_evaluate.py"), *common, "--out", args.out,
                 "--seed", str(args.seed), "--miss-unit", args.miss_unit]
@@ -167,10 +186,15 @@ def main(argv: list[str] | None = None) -> int:
     recompute = [py, str(SCRIPTS / "sta_recompute.py"), "--dir", args.out]
     one_thread = {**os.environ, "OMP_NUM_THREADS": "1"}
 
-    plan = [
-        ("코드 확인 (git diff 5ff054f -- src/ofdf)",
-         ["git", "diff", "--exit-code", "--stat", sta_common.TARGET_COMMIT, "--", "src/ofdf"], None),
-        ("모델 해시 확인", [py, str(SCRIPTS / "sta_evaluate.py"), *common, "--check-only"], None),
+    plan = []
+    if sta_common.git_state()["판단코드_동일"] is not None:
+        plan.append(("코드 확인 (git diff 5ff054f -- src/ofdf)",
+                     ["git", "diff", "--exit-code", "--stat", sta_common.TARGET_COMMIT, "--", "src/ofdf"],
+                     None))
+    else:
+        print("[안내] git 저장소가 아니어서 git diff 는 건너뛴다 — 판단 코드는 해시 목록으로 대조한다")
+    plan += [
+        ("코드·모델 해시 확인", [py, str(SCRIPTS / "sta_evaluate.py"), *common, "--check-only"], None),
         ("고정 모델 평가", evaluate, None),
         ("로그만으로 재계산", recompute, None),
     ]
@@ -188,6 +212,14 @@ def main(argv: list[str] | None = None) -> int:
         if not run_step(name, command, steps, env):
             ok = False
             break
+
+    if ok and args.mode == "rehearsal":
+        base = ROOT / out if not out.is_absolute() else out
+        final = json.loads((base / "03_최종결과.json").read_text(encoding="utf-8"))
+        digest = final["sha256"]["시험데이터"]["01_시험데이터/시험셋.csv"]
+        seal.parent.mkdir(parents=True, exist_ok=True)
+        seal.write_text(f"{digest}  01_시험데이터/시험셋.csv\n", encoding="utf-8")
+        print(f"\n[봉인] 시험셋 sha256 을 적었다: {seal}")
 
     archive = None
     if ok and not args.no_zip:

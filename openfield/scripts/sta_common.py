@@ -24,6 +24,9 @@ TARGET_COMMIT = "5ff054f"
 #: 모델·판정 경계 파일 해시 목록
 DEFAULT_HASH_LIST = ROOT / "reports" / "시험의뢰" / "모델해시.md"
 
+#: 시험 대상 커밋의 판단 코드(src/ofdf) sha256 목록 — git 이 없는 사본(압축 묶음)에서도 대조한다
+CODE_HASH_LIST = ROOT / "reports" / "시험의뢰" / "판단코드해시_5ff054f.txt"
+
 _HASH_LINE = re.compile(r"^([0-9a-f]{64})\s+(\S.*?)\s*$")
 
 
@@ -33,6 +36,31 @@ def sha256_file(path: str | Path) -> str:
         for chunk in iter(lambda: handle.read(1 << 20), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def sha256_text(path: str | Path) -> str:
+    """줄바꿈을 LF 로 맞춘 내용의 sha256 — Windows 에서 CRLF 로 받아도 같은 값이 나온다."""
+    return hashlib.sha256(Path(path).read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
+def code_files() -> list[Path]:
+    return sorted(p for p in (ROOT / "src" / "ofdf").rglob("*.py"))
+
+
+def verify_code_hashes(hash_list: str | Path = CODE_HASH_LIST) -> tuple[int, list[str]] | None:
+    """판단 코드(src/ofdf/**/*.py)를 시험 대상 커밋의 해시 목록과 대조한다.
+
+    ``(대조한 파일 수, 문제 목록)`` 을 돌려준다. 목록 파일이 없으면 ``None``.
+    """
+    if not Path(hash_list).exists():
+        return None
+    expected = read_hash_list(hash_list)
+    actual = {p.relative_to(ROOT).as_posix(): sha256_text(p) for p in code_files()}
+    problems = [f"없음: {name}" for name in sorted(expected.keys() - actual.keys())]
+    problems += [f"목록에 없는 파일: {name}" for name in sorted(actual.keys() - expected.keys())]
+    problems += [f"해시 다름: {name}" for name in sorted(expected.keys() & actual.keys())
+                 if expected[name] != actual[name]]
+    return len(expected), problems
 
 
 def read_hash_list(path: str | Path) -> dict[str, str]:
@@ -98,7 +126,11 @@ def git_state(target_commit: str = TARGET_COMMIT) -> dict:
     """
     code, head = _git("rev-parse", "HEAD")
     state = {"현재 커밋": head if code == 0 else None, "시험 대상 커밋": target_commit,
-             "판단코드_동일": None, "작업본_변경": None}
+             "판단코드_동일": None, "작업본_변경": None, "판단코드_해시대조": None}
+    checked = verify_code_hashes()
+    if checked is not None:
+        state["판단코드_해시대조"] = not checked[1]
+        state["판단코드_해시대조_문제"] = checked[1][:10]
     if code != 0:
         return state
     code, _ = _git("cat-file", "-e", f"{target_commit}^{{commit}}")
