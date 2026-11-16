@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 성적서용 수치를 **명령 하나로** 낸다 — test 445장, 배포본, 재현 가능.
+# 성적서용 수치와 **시험기관 제출 묶음**을 명령 하나로 낸다 — test 445장, 배포본, 재현 가능.
 #
 # 왜 스크립트인가
 # ---------------
@@ -10,20 +10,35 @@
 # 하는 일
 #   1. 원본 두 데이터셋을 합치고 **학습 때와 같은 방식으로 다시 나눈다**
 #      (--on-leakage regroup, 씨앗 20260101 → train 3,927 / valid 873 / test 445)
-#   2. 그 test 445장으로 배포본(416 ONNX)의 mAP·P·R·F1·계수 오차율을 잰다
-#   3. 출력 JSON·CSV 를 docs/result-03-bluestartup/evidence/ 에 떨어뜨린다
+#      test 가 445장·정답 3,699개가 아니면 **멈춘다**(다른 장수로 재지 않는다).
+#   2. test 분할을 제출 묶음에 복사하고 sha256 목록으로 고정한다
+#   3. 배포본(416 ONNX)의 mAP·P·R·F1·계수 오차율을 재고 데이터별 로그를 남긴다
+#   4. 로그만으로 최종값을 다시 계산해 일치하는지 본다(recompute_detect.py)
+#
+# 만들어지는 묶음 (기본 vision/sta_블루스타트업/ — 저장소에 커밋하지 않는다)
+#   00_시험대상_해시.txt            모델 sha256, git 커밋, 코드 sha256
+#   01_시험데이터/test/images, labels   시험 이미지·라벨
+#   01_시험데이터/sha256sums.txt, 통계.txt
+#   02_예측별_결과.csv  02_정답별_결과.csv  02_이미지별_결과.csv
+#   03_최종결과.json   04_재계산_결과.txt   05_실행로그.txt
 #
 # 쓰는 법 (저장소의 vision/ 에서)
 #
-#   # (가) 원본을 이미 풀어 둔 경우 — 가장 확실하다
+#   # (가) 전날 — 원본을 풀어 둔 폴더로 묶음을 만들고 사전 측정한다
 #   ./ai/trainer/run_test_eval.sh <shrimp_cf 폴더> <Counting PL 폴더>
 #
-#   # (나) shrimp_cf 를 Roboflow 에서 바로 받는 경우
+#   # (나) shrimp_cf 를 Roboflow 에서 바로 받는 경우 (키는 환경변수로만)
 #   export ROBOFLOW_API_KEY='...'
 #   ./ai/trainer/run_test_eval.sh --from-roboflow <Counting PL 폴더>
 #
+#   # (다) 시험 당일 — 고정해 둔 시험 데이터로 다시 재고 다시 계산한다
+#   ./ai/trainer/run_test_eval.sh --rerun
+#
 # 폴더는 Roboflow 'YOLOv8' 내보내기를 푼 것이어야 한다(안에 data.yaml 과
 # train/valid/test 가 있다).
+#
+# 설정(환경변수): STA=<묶음 폴더>  WEIGHTS=<모델>  CONF=0.25
+#   판정 기준은 EVAL_ARGS 로 넘긴다. 예) EVAL_ARGS="--count-judge both --pass-count-within 0.8"
 #
 # 필요한 것: python 3.11+, numpy, onnxruntime, pillow, pydantic, pydantic-settings
 #   pip install -e ".[edge]"
@@ -37,12 +52,21 @@ PY="${PYTHON:-python3}"
 WEIGHTS="${WEIGHTS:-$VISION/ai/models/shrimp_yolov8n_416.onnx}"
 WORK="${WORK:-$VISION/datasets/shrimp}"
 EVID="${EVID:-$ROOT/docs/result-03-bluestartup/evidence}"
+STA="${STA:-$VISION/sta_블루스타트업}"
 CONF="${CONF:-0.25}"
+EVAL_ARGS="${EVAL_ARGS:-}"
+# 학습 기록의 test 분할 크기. 연습(다른 자료로 흐름만 확인)할 때만 바꾼다.
+EXPECT_IMAGES="${EXPECT_IMAGES:-445}"
+EXPECT_BOXES="${EXPECT_BOXES:-3699}"
 
-usage() { sed -n '2,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 1; }
+usage() { sed -n '2,45p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 1; }
 [ $# -ge 1 ] || usage
 
-if [ "$1" = "--from-roboflow" ]; then
+RERUN=0
+if [ "$1" = "--rerun" ]; then
+  [ $# -eq 1 ] || usage
+  RERUN=1
+elif [ "$1" = "--from-roboflow" ]; then
   shift
   [ $# -eq 1 ] || usage
   CF="$VISION/data/shrimp_cf"
@@ -52,48 +76,108 @@ else
   [ $# -eq 2 ] || usage
   CF="$1"; PL="$2"
 fi
-
-for d in "$CF" "$PL"; do
-  [ -f "$d/data.yaml" ] || { echo "[오류] $d 안에 data.yaml 이 없습니다 (Roboflow YOLOv8 내보내기 폴더를 주세요)." >&2; exit 1; }
-done
 [ -f "$WEIGHTS" ] || { echo "[오류] 모델이 없습니다: $WEIGHTS" >&2; exit 1; }
 
-echo "== 1/3  분할 재현 =================================================="
-echo "  shrimp_cf    $CF"
-echo "  counting_pl  $PL"
-cd "$VISION"
-"$PY" ai/trainer/prepare_dataset.py \
-  --source "shrimp_cf=$CF" \
-  --source "counting_pl=$PL" \
-  --out "$WORK" --on-leakage regroup \
-  --report "$WORK/준비보고.json"
+TEST="$STA/01_시험데이터/test"
+SUMS="$STA/01_시험데이터/sha256sums.txt"
+LOG="$STA/05_실행로그.txt"
 
-COUNT_TEST="$(find "$WORK/test/images" -type f | wc -l | tr -d ' ')"
-echo
-echo "  test 분할 $COUNT_TEST 장"
-if [ "$COUNT_TEST" != "445" ]; then
-  echo "  ⚠ 학습 기록의 445장과 다릅니다. 원본 데이터셋이 그때와 같은지 확인하세요."
-  echo "    (다르면 성적서의 '학습에 쓰지 않은 이미지'라는 설명이 어긋납니다.)"
+# 이미지 장수와 정답 박스 수를 센다(측정 프로그램과 같은 규칙: 값이 5개 이상인 줄).
+count_split() {  # $1 = images, labels 를 담은 폴더 → "장수 박스수"
+  "$PY" -I - "$1" <<'PYEOF'
+import sys
+from pathlib import Path
+base = Path(sys.argv[1])
+ext = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+images = [p for p in (base / "images").rglob("*") if p.suffix.lower() in ext]
+boxes = sum(1 for p in (base / "labels").rglob("*.txt")
+            for line in p.read_text().splitlines() if len(line.split()) >= 5)
+print(len(images), boxes)
+PYEOF
+}
+
+require_expected() {  # $1 = 폴더. 445장·3,699개가 아니면 멈춘다.
+  read -r n_img n_box <<<"$(count_split "$1")"
+  echo "  test 분할  이미지 $n_img 장 · 정답 박스 $n_box 개"
+  if [ "$n_img" != "$EXPECT_IMAGES" ] || [ "$n_box" != "$EXPECT_BOXES" ]; then
+    echo "[중단] 학습 기록의 test 분할(이미지 $EXPECT_IMAGES 장 · 정답 $EXPECT_BOXES 개)과 다릅니다." >&2
+    echo "       받은 원본 데이터셋의 판(version)이 그때와 같은지 확인하세요. 측정하지 않습니다." >&2
+    exit 1
+  fi
+}
+
+cd "$VISION"
+if [ "$RERUN" = "0" ]; then
+  for d in "$CF" "$PL"; do
+    [ -f "$d/data.yaml" ] || { echo "[오류] $d 안에 data.yaml 이 없습니다 (Roboflow YOLOv8 내보내기 폴더를 주세요)." >&2; exit 1; }
+  done
+  echo "== 1/4  분할 재현 =================================================="
+  echo "  shrimp_cf    $CF"
+  echo "  counting_pl  $PL"
+  "$PY" ai/trainer/prepare_dataset.py \
+    --source "shrimp_cf=$CF" \
+    --source "counting_pl=$PL" \
+    --out "$WORK" --on-leakage regroup \
+    --report "$WORK/준비보고.json"
+  echo
+  require_expected "$WORK/test"
+
+  echo
+  echo "== 2/4  시험 데이터 고정 ==========================================="
+  # 새로 나눴으므로 이전 묶음의 시험 데이터·목록·결과는 지우고 다시 만든다.
+  rm -rf "$STA/01_시험데이터"
+  rm -f "$STA"/0[02345]_*
+  mkdir -p "$TEST"
+  cp -R "$WORK/test/images" "$WORK/test/labels" "$TEST/"
+  echo "  복사  $TEST"
+else
+  [ -d "$TEST/images" ] && [ -f "$SUMS" ] || {
+    echo "[오류] 고정해 둔 시험 데이터가 없습니다: $TEST" >&2
+    echo "       먼저 원본 데이터셋으로 묶음을 만드세요(쓰는 법 (가))." >&2; exit 1; }
+  rm -f "$LOG"
 fi
 
-echo
-echo "== 2/3  배포본 성능 측정 ==========================================="
-mkdir -p "$EVID"
-"$PY" ai/trainer/eval_detect.py \
-  --weights "$WEIGHTS" \
-  --images "$WORK/test/images" --labels "$WORK/test/labels" \
-  --conf "$CONF" --bootstrap 2000 \
-  --json "$EVID/08_탐지성능_test분할.json" \
-  --csv  "$EVID/08_탐지성능_test분할_이미지별.csv"
+mkdir -p "$STA"
+{
+  echo "== 시험 대상 확인 ================================================="
+  echo "  실행 시각   $(date '+%Y-%m-%d %H:%M:%S %Z')"
+  echo "  git 커밋    $(git -C "$VISION" rev-parse HEAD 2>/dev/null || echo '확인 불가')"
+  echo "  모델 sha256 $("$PY" -I -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$WEIGHTS")"
+  require_expected "$TEST"
+  if [ "$RERUN" = "1" ] && command -v sha256sum >/dev/null; then
+    echo "  시험 데이터 sha256 대조 (sha256sum -c)"
+    (cd "$TEST" && sha256sum -c --quiet "$SUMS") && echo "  → 모두 일치"
+  fi
+
+  echo
+  echo "== 3/4  배포본 성능 측정 ==========================================="
+  EXTRA=()
+  if [ "$RERUN" = "0" ]; then          # 사전 측정은 증빙 폴더에도 남긴다
+    mkdir -p "$EVID"
+    EXTRA=(--json "$EVID/08_탐지성능_test분할.json" --csv "$EVID/08_탐지성능_test분할_이미지별.csv")
+  fi
+  # shellcheck disable=SC2086  # EVAL_ARGS 는 일부러 낱말로 쪼갠다
+  "$PY" ai/trainer/eval_detect.py \
+    --weights "$WEIGHTS" \
+    --images "$TEST/images" --labels "$TEST/labels" \
+    --conf "$CONF" --bootstrap 2000 \
+    --log-dir "$STA" "${EXTRA[@]}" $EVAL_ARGS
+
+  echo
+  echo "== 4/4  로그만으로 다시 계산 ======================================="
+  "$PY" ai/trainer/recompute_detect.py --dir "$STA"
+} 2>&1 | tee -a "$LOG"
 
 echo
-echo "== 3/3  끝났습니다 ================================================="
-echo "  증빙  $EVID/08_탐지성능_test분할.json"
-echo "        $EVID/08_탐지성능_test분할_이미지별.csv"
+echo "== 끝났습니다 ======================================================"
+echo "  제출 묶음  $STA"
+echo "  실행 로그  $LOG"
 echo
 echo "  다음에 할 일"
-echo "   1) 위 두 파일을 커밋하세요 — 그래야 수치가 '문서 기재값'이 아니라 자료가 됩니다."
-echo "   2) 엣지 처리시간(③)은 라즈베리파이에서 따로 잽니다:"
-echo "        python ai/trainer/export_edge.py --bench --runs 30 \\"
-echo "          --weights ai/models/shrimp_yolov8n_416.onnx --image <실제 수조 사진>.jpg"
-echo "   3) 시험기관에 보낼 것은 docs/result-03-bluestartup/시험의뢰_패키지.md 에 정리되어 있습니다."
+if [ "$RERUN" = "0" ]; then
+  echo "   1) 03_최종결과.json 의 판정과 04_재계산_결과.txt 의 '모두 일치'를 확인하세요."
+  echo "   2) 시험 당일에는 같은 묶음으로:  ./ai/trainer/run_test_eval.sh --rerun"
+  echo "      (순서는 docs/STA-시험당일-실행순서.md)"
+else
+  echo "   1) 묶음 폴더를 압축해 당일 오후 시험기관에 보냅니다."
+fi
