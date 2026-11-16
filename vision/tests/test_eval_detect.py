@@ -428,6 +428,7 @@ def test_log_has_one_row_per_prediction_ground_truth_and_image(synthetic_run):
     assert set(final["로그_sha256"]) == {"02_예측별_결과.csv", "02_정답별_결과.csv",
                                          "02_이미지별_결과.csv"}
     assert (log_dir / "00_시험대상_해시.txt").exists()
+    assert "전체순위" in (log_dir / "README_읽는법.txt").read_text(encoding="utf-8")
     assert (log_dir / "01_시험데이터" / "통계.txt").exists()
     sums = (log_dir / "01_시험데이터" / "sha256sums.txt").read_text().splitlines()
     assert len(sums) == len(scenes) + sum(1 for g, _ in scenes.values() if g)

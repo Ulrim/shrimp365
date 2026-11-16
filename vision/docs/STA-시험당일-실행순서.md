@@ -5,6 +5,8 @@
 
 ## 0. 전날까지 끝내 둘 것
 
+자세한 순서와 확인 항목은 [STA-시험준비-체크리스트.md](STA-시험준비-체크리스트.md). 원본 데이터셋 없이 설치만 확인하려면 `./ai/trainer/run_test_eval.sh --rehearsal`.
+
 | 할 일 | 명령·확인 |
 |---|---|
 | 파이썬 환경 | `python3 -m venv .venv && .venv/bin/pip install -e ".[edge]"` |
@@ -81,7 +83,7 @@ echo "종료 코드 ${PIPESTATUS[0]}"
 ## 4. 묶음 압축 → 당일 오후 STA 송부
 
 ```bash
-ls $STA          # 00_시험대상_해시.txt 01_시험데이터 02_*.csv(3개) 03_최종결과.json 04_재계산_결과.txt 05_실행로그.txt
+ls $STA          # README_읽는법.txt 00_시험대상_해시.txt 01_시험데이터 02_*.csv(3개) 03_최종결과.json 04_재계산_결과.txt 05_실행로그.txt
 zip -r "sta_블루스타트업_$(date +%Y%m%d).zip" $STA
 ```
 

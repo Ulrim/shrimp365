@@ -34,6 +34,10 @@
 #   # (다) 시험 당일 — 고정해 둔 시험 데이터로 다시 재고 다시 계산한다
 #   ./ai/trainer/run_test_eval.sh --rerun
 #
+#   # (라) 리허설 — 원본 데이터셋 없이 시험 PC 설치와 흐름만 확인한다
+#   #      저장소의 수조 사진 12장을 쓴다. **수치는 성적이 아니다.** (묶음: sta_리허설/)
+#   ./ai/trainer/run_test_eval.sh --rehearsal
+#
 # 폴더는 Roboflow 'YOLOv8' 내보내기를 푼 것이어야 한다(안에 data.yaml 과
 # train/valid/test 가 있다).
 #
@@ -60,13 +64,18 @@ EVAL_ARGS="${EVAL_ARGS:-}"
 EXPECT_IMAGES="${EXPECT_IMAGES:-445}"
 EXPECT_BOXES="${EXPECT_BOXES:-3699}"
 
-usage() { sed -n '2,45p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 1; }
+usage() { sed -n '2,49p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 1; }
 [ $# -ge 1 ] || usage
 
 RERUN=0
+REHEARSAL=0
 if [ "$1" = "--rerun" ]; then
   [ $# -eq 1 ] || usage
   RERUN=1
+elif [ "$1" = "--rehearsal" ]; then
+  [ $# -eq 1 ] || usage
+  REHEARSAL=1
+  STA="$VISION/sta_리허설"            # 진짜 묶음을 건드리지 않는다
 elif [ "$1" = "--from-roboflow" ]; then
   shift
   [ $# -eq 1 ] || usage
@@ -101,6 +110,7 @@ PYEOF
 require_expected() {  # $1 = 폴더. 445장·3,699개가 아니면 멈춘다.
   read -r n_img n_box <<<"$(count_split "$1")"
   echo "  test 분할  이미지 $n_img 장 · 정답 박스 $n_box 개"
+  [ "$REHEARSAL" = "0" ] || return 0     # 리허설 자료는 445장이 아니다
   if [ "$n_img" != "$EXPECT_IMAGES" ] || [ "$n_box" != "$EXPECT_BOXES" ]; then
     echo "[중단] 학습 기록의 test 분할(이미지 $EXPECT_IMAGES 장 · 정답 $EXPECT_BOXES 개)과 다릅니다." >&2
     echo "       받은 원본 데이터셋의 판(version)이 그때와 같은지 확인하세요. 측정하지 않습니다." >&2
@@ -109,7 +119,14 @@ require_expected() {  # $1 = 폴더. 445장·3,699개가 아니면 멈춘다.
 }
 
 cd "$VISION"
-if [ "$RERUN" = "0" ]; then
+if [ "$REHEARSAL" = "1" ]; then
+  echo "== 리허설 — 설치와 흐름 확인용. 여기서 나온 수치는 성적이 아닙니다 =="
+  SRC="$VISION/data/tank/labeled"
+  [ -d "$SRC/images" ] || { echo "[오류] 리허설 자료가 없습니다: $SRC" >&2; exit 1; }
+  rm -rf "$STA"
+  mkdir -p "$TEST"
+  cp -R "$SRC/images" "$SRC/labels" "$TEST/"
+elif [ "$RERUN" = "0" ]; then
   for d in "$CF" "$PL"; do
     [ -f "$d/data.yaml" ] || { echo "[오류] $d 안에 data.yaml 이 없습니다 (Roboflow YOLOv8 내보내기 폴더를 주세요)." >&2; exit 1; }
   done
@@ -142,6 +159,7 @@ fi
 
 mkdir -p "$STA"
 {
+  [ "$REHEARSAL" = "0" ] || echo "※ 리허설 — 수조 사진 12장. 이 로그의 수치와 판정은 성적이 아닙니다."
   echo "== 시험 대상 확인 ================================================="
   echo "  실행 시각   $(date '+%Y-%m-%d %H:%M:%S %Z')"
   echo "  git 커밋    $(git -C "$VISION" rev-parse HEAD 2>/dev/null || echo '확인 불가')"
@@ -159,7 +177,7 @@ mkdir -p "$STA"
   echo
   echo "== 3/4  배포본 성능 측정 ==========================================="
   EXTRA=()
-  if [ "$RERUN" = "0" ]; then          # 사전 측정은 증빙 폴더에도 남긴다
+  if [ "$RERUN" = "0" ] && [ "$REHEARSAL" = "0" ]; then   # 사전 측정은 증빙 폴더에도 남긴다
     mkdir -p "$EVID"
     EXTRA=(--json "$EVID/08_탐지성능_test분할.json" --csv "$EVID/08_탐지성능_test분할_이미지별.csv")
   fi
@@ -181,7 +199,10 @@ echo "  제출 묶음  $STA"
 echo "  실행 로그  $LOG"
 echo
 echo "  다음에 할 일"
-if [ "$RERUN" = "0" ]; then
+if [ "$REHEARSAL" = "1" ]; then
+  echo "   리허설이 끝까지 돌았습니다 — 이 PC 에서 측정·재계산이 됩니다."
+  echo "   위 수치와 판정은 수조 사진 12장의 것이라 성적이 아닙니다. 이 묶음은 보내지 마세요."
+elif [ "$RERUN" = "0" ]; then
   echo "   1) 03_최종결과.json 의 판정과 04_재계산_결과.txt 의 '모두 일치'를 확인하세요."
   echo "   2) 시험 당일에는 같은 묶음으로:  ./ai/trainer/run_test_eval.sh --rerun"
   echo "      (순서는 docs/STA-시험당일-실행순서.md)"

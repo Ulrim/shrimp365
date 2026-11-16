@@ -479,6 +479,56 @@ LOG_TARGET = "00_시험대상_해시.txt"
 LOG_DATA_DIR = "01_시험데이터"
 LOG_SUMS = "sha256sums.txt"
 LOG_STATS = "통계.txt"
+LOG_README = "README_읽는법.txt"
+
+LOG_README_TEXT = """이 폴더 읽는 법 — 쉬림프365 새우 탐지 AI 모델 시험 결과 묶음
+
+파일
+  00_시험대상_해시.txt       시험 대상 고정값: 모델 sha256, git 커밋, 코드 sha256
+  01_시험데이터/             시험 이미지·라벨의 sha256 목록(sha256sums.txt), 건수 통계(통계.txt)
+  02_예측별_결과.csv         예측 박스 1개 = 1줄  (모델이 낸 모든 예측)
+  02_정답별_결과.csv         정답 박스 1개 = 1줄  (라벨의 모든 정답)
+  02_이미지별_결과.csv       이미지 1장 = 1줄
+  03_최종결과.json           시험 항목별 최종값·기준·판정, 실행 환경
+  04_재계산_결과.txt         위 CSV 만으로 다시 계산한 값과 최종값의 비교
+  05_실행로그.txt            시험 당일 콘솔 출력 그대로
+
+CSV 는 UTF-8(BOM) 이라 엑셀에서 바로 열린다. 열어 본 뒤 저장하지 않는다
+(저장하면 파일이 바뀌어 03_최종결과.json 의 '로그_sha256' 과 어긋난다).
+
+02_예측별_결과.csv 의 열
+  이미지, 예측번호        어느 이미지의 몇 번째 예측인가(1부터)
+  신뢰도                  모델이 낸 점수(0~1)
+  전체순위                모든 이미지의 예측을 신뢰도 내림차순으로 세웠을 때의 순번.
+                          신뢰도가 같은 예측끼리의 순서도 이 값이 정한다
+  x1,y1,x2,y2(px)         예측 박스 좌표(원본 이미지 픽셀)
+  운영임계값_이상(0/1)    신뢰도가 운영 임계값 이상이면 1 — 마릿수와 P·R·F1 에 쓰인다
+  TP@0.50(0/1)            IoU 0.50 기준으로 정답과 맞으면 1(TP), 아니면 0(FP)
+  매칭정답번호@0.50       맞은 정답의 번호(02_정답별_결과.csv 의 정답번호). FP 면 빈칸
+  IoU@0.50                그 정답과의 IoU. FP 면 빈칸
+  TP@0.55 … TP@0.95       IoU 기준을 0.05 씩 올렸을 때의 TP(1)/FP(0)
+
+02_정답별_결과.csv 의 열
+  이미지, 정답번호        라벨 파일에서 유효한 줄(값 5개 이상)만 센 순서(1부터)
+  x1,y1,x2,y2(px)         정답 박스 좌표(폴리곤 라벨은 외접 박스)
+  운영임계값에서_탐지(0/1) 운영 임계값 이상인 예측이 IoU 0.5 이상으로 맞혔으면 1
+  탐지한_예측번호         그 예측의 예측번호. 못 찾았으면 빈칸
+
+02_이미지별_결과.csv 의 열
+  정답수, 검출수          정답 마리 수, 운영 임계값 이상인 예측 수
+  계수오차율              |검출수 − 정답수| ÷ 정답수. 정답 0마리 이미지는 빈칸
+  TP, FP, FN              운영 임계값·IoU 0.5 기준
+  AP@0.5(이미지 단독)     그 이미지만으로 낸 AP — 참고값. 정답 0마리 이미지는 빈칸
+  헛검출(정답 0마리 이미지) 정답이 없는 이미지에서 나온 검출 수
+
+최종값이 나오는 길
+  mAP@0.5 는 이미지별 AP 의 평균이 **아니다.** 모든 이미지의 예측을 '전체순위' 로
+  한 줄로 세우고 'TP@0.50' 열로 누적 TP·FP 를 세어 정밀도-재현율 곡선을 그린 뒤
+  101점 보간(COCO 방식)으로 낸다. 식은 recompute_detect.py 머리말에 번호를 붙여
+  적어 두었고, 그 스크립트가 CSV 만 읽어 같은 값을 다시 낸다.
+
+    python ai/trainer/recompute_detect.py --dir <이 폴더>
+"""
 
 LOG_EXPLAIN = {
     "최종값_계산": (
@@ -773,6 +823,7 @@ def write_logs(log_dir: Path, out: dict, rows: list[PerImage], details: list[dic
         f"  ({LOG_DATA_DIR}/{LOG_SUMS})",
     ]
     (log_dir / LOG_TARGET).write_text("\n".join(target) + "\n", encoding="utf-8")
+    (log_dir / LOG_README).write_text(LOG_README_TEXT, encoding="utf-8")
     return extra
 
 
@@ -897,7 +948,8 @@ def main(argv: list[str] | None = None) -> int:
         (log_dir / LOG_JSON).write_text(json.dumps(out, ensure_ascii=False, indent=2),
                                         encoding="utf-8")
         print(f"\n시험기관 제출용 로그: {log_dir}")
-        for name in (LOG_TARGET, f"{LOG_DATA_DIR}/{LOG_SUMS}", f"{LOG_DATA_DIR}/{LOG_STATS}",
+        for name in (LOG_README, LOG_TARGET,
+                     f"{LOG_DATA_DIR}/{LOG_SUMS}", f"{LOG_DATA_DIR}/{LOG_STATS}",
                      LOG_PRED, LOG_GT, LOG_IMAGE, LOG_JSON):
             print(f"  {name}")
         print("\n판정")
