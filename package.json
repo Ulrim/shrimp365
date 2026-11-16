@@ -22,7 +22,10 @@
     "mrv:verify-report-jobs": "node scripts/mrv/verify-report-jobs.mjs",
     "mrv:verify-experiments": "node scripts/mrv/verify-experiments.mjs",
     "mrv:verify": "npm run mrv:verify-kpi && npm run mrv:verify-config && npm run mrv:verify-ingestion && npm run mrv:verify-pipeline && npm run mrv:verify-alerts && npm run mrv:verify-csv && npm run mrv:verify-baseline && npm run mrv:verify-kpi-config-write && npm run mrv:verify-contrast && npm run mrv:verify-scope2-market && npm run mrv:verify-report-template && npm run mrv:verify-report-jobs && npm run mrv:verify-experiments && npm run mrv:verify-rls",
-    "cardnews": "node scripts/cardnews/render.mjs"
+    "cardnews": "node scripts/cardnews/render.mjs",
+    "sta:eval": "node scripts/sta/eval-anomaly.mjs",
+    "sta:recompute": "node scripts/sta/recompute.mjs",
+    "sta:test": "node --test scripts/sta/test/sta.test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

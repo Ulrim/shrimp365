@@ -92,3 +92,6 @@ __pycache__/
 !/vision/ai/models/shrimp_yolov8n_416.onnx
 /vision/.venv/
 .venv/
+
+# STA 시험 결과 묶음 — 제출 산출물이라 저장소에 두지 않는다(사례 원자료 포함)
+/sta_AI데이터/
