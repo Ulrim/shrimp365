@@ -54,6 +54,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import os
 import platform
 import subprocess
@@ -242,17 +243,20 @@ def exact_lower_bound(successes: int, trials: int, alpha: float = 0.05) -> float
         return 0.0
     if successes == trials:
         return float((alpha / 2) ** (1.0 / trials))
+    # 이항계수의 로그. 항을 로그로 계산해야 한다 — (1-p)^n 에서 출발해 곱해 나가면
+    # n 이 수천일 때 첫 항이 0 으로 꺼져(언더플로) 꼬리 확률이 통째로 0 이 되고,
+    # 하한이 관측 비율과 똑같이 나온다(3,403/3,699 → 0.92). 그건 하한이 아니다.
+    log_comb = [math.lgamma(trials + 1) - math.lgamma(k + 1) - math.lgamma(trials - k + 1)
+                for k in range(successes, trials + 1)]
     lo, hi = 0.0, float(successes) / trials
     for _ in range(200):                      # 이분법 — scipy 를 끌어오지 않는다
         mid = (lo + hi) / 2
+        if mid <= 0.0:
+            break
         # P(X >= successes | p=mid) 를 누적이항으로 구한다
-        tail = 0.0
-        term = (1 - mid) ** trials
-        for k in range(trials + 1):
-            if k >= successes:
-                tail += term
-            if k < trials and mid < 1.0:
-                term *= (trials - k) / (k + 1) * mid / (1 - mid)
+        log_p, log_q = math.log(mid), math.log1p(-mid)
+        tail = sum(math.exp(c + k * log_p + (trials - k) * log_q)
+                   for k, c in zip(range(successes, trials + 1), log_comb, strict=True))
         if tail > alpha / 2:
             hi = mid
         else:
@@ -606,6 +610,27 @@ def code_hashes() -> dict[str, str]:
     return {f: sha256_of(VISION / f) for f in files if (VISION / f).exists()}
 
 
+def _windows_ram_gb() -> float | None:
+    """윈도우에는 os.sysconf 가 없다. 커널에 직접 묻는다. 안 되면 None."""
+    try:
+        import ctypes  # noqa: PLC0415
+
+        class MemoryStatus(ctypes.Structure):
+            _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
+                        *((name, ctypes.c_ulonglong) for name in (
+                            "ullTotalPhys", "ullAvailPhys", "ullTotalPageFile",
+                            "ullAvailPageFile", "ullTotalVirtual", "ullAvailVirtual",
+                            "ullAvailExtendedVirtual"))]
+
+        status = MemoryStatus()
+        status.dwLength = ctypes.sizeof(MemoryStatus)
+        if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+            return None
+        return round(status.ullTotalPhys / 2**30, 1)
+    except Exception:  # noqa: BLE001 - 사양 기록 때문에 측정이 죽으면 안 된다
+        return None
+
+
 def runtime_info() -> dict:
     import PIL  # noqa: PLC0415
     cpu = platform.processor()
@@ -619,7 +644,7 @@ def runtime_info() -> dict:
     try:
         ram_gb = round(os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 2**30, 1)
     except (AttributeError, ValueError, OSError):
-        ram_gb = None
+        ram_gb = _windows_ram_gb()
     try:
         import onnxruntime  # noqa: PLC0415
         ort_version = onnxruntime.__version__

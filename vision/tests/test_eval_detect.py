@@ -591,3 +591,26 @@ def test_recompute_agrees_when_there_is_nothing_to_find(tmp_path, monkeypatch):
                                  str(images_dir), "--progress", "0",
                                  "--log-dir", str(log_dir)]) == 0
     assert recompute_detect.main(["--dir", str(log_dir)]) == 0
+
+
+def test_lower_bound_stays_below_the_rate_with_thousands_of_samples():
+    """정답이 수천 개여도 하한은 관측 비율보다 낮아야 한다.
+
+    예전 구현은 (1-p)^n 에서 출발해 곱해 나갔는데, n 이 수천이면 그 첫 항이 0 으로
+    꺼져 하한이 관측 비율과 똑같이 나왔다(3,403/3,699 → 0.9200). 445장 사전
+    측정에서 드러난 값이다.
+    """
+    rate = 3403 / 3699
+    bound = exact_lower_bound(3403, 3699)
+    assert bound < rate - 0.005
+    # 표본이 크면 정규근사(rate − 1.96·표준오차)와 가깝다
+    approx = rate - 1.96 * (rate * (1 - rate) / 3699) ** 0.5
+    assert bound == pytest.approx(approx, abs=0.002)
+    assert exact_lower_bound(900, 1000) < 0.9
+
+
+def test_lower_bound_small_sample_values_are_unchanged():
+    """고치기 전에도 맞던 작은 표본의 값은 그대로다."""
+    assert exact_lower_bound(90, 100) == pytest.approx(0.8237774022599773, abs=1e-9)
+    assert exact_lower_bound(16, 16) == pytest.approx(0.7940927857921772, abs=1e-12)
+    assert exact_lower_bound(1, 100) == pytest.approx(0.000253146, abs=1e-8)
