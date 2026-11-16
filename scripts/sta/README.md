@@ -9,6 +9,7 @@
 | `eval-anomaly.mjs` | 사례마다 플랫폼 함수를 불러 `02_사례별_결과.csv` · `03_최종결과.json` 을 쓴다 |
 | `recompute.mjs` | `02_사례별_결과.csv` 만 읽어 최종값을 다시 계산·대조한다(불일치면 종료 코드 1) |
 | `build-cases.mjs` | 원본(정규화 CSV) + `사례계획.json` → 사례 묶음(cases.csv · series/ · sha256sums.txt · 통계.txt) |
+| `normalize-log.py` | 수기 수질일지(xlsx, 「…_수온_pH_DO_사료량」 시트)를 정규화 CSV 로 옮긴다(파이썬 표준 라이브러리만) |
 | `source-stats.mjs` | 받은 원본 자료의 수조 수·기간·측정 간격·결측률 정리 |
 | `cases/라벨기준.md` | 정답을 붙이는 기준표(확인 전 초안) |
 | `../../raspberry-pi/sta_eval.py` | 참고: 같은 사례를 장비 판정(`anomaly.detect`)에 넣는다 |

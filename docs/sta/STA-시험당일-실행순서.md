@@ -10,6 +10,13 @@
       (`npm install` 은 필요 없다 — 시험 스크립트는 외부 패키지를 쓰지 않는다.)
 - [ ] `scripts/sta/sta.config.json` 의 `기준_재현율` 이 신청서의 기준값과 같은지 확인
 - [ ] 사례 묶음(`scripts/sta/cases/`: cases.csv · series/ · sha256sums.txt · 통계.txt · 라벨기준.md) 준비 완료
+      만드는 순서(원본은 저장소 밖 `~/sta_data/ai데이터/` 에 둔다):
+      ```
+      python3 scripts/sta/normalize-log.py "~/sta_data/ai데이터/천황수산 수질일지_240312~.xlsx" ~/sta_data/ai데이터/천황수산.csv --prefix 천황-
+      python3 scripts/sta/normalize-log.py "~/sta_data/ai데이터/고성아쿠아비즈 수질일지.xlsx" ~/sta_data/ai데이터/고성아쿠아비즈.csv --prefix 고성-
+      node scripts/sta/build-cases.mjs --source 천황수산=~/sta_data/ai데이터/천황수산.csv --source 고성아쿠아비즈=~/sta_data/ai데이터/고성아쿠아비즈.csv
+      ```
+      (`scripts/sta/cases/` 에 확정한 `사례계획.json` · `라벨기준.md` 가 있어야 한다. `~` 는 실제 경로로 바꿔 친다.)
 - [ ] 아래 1~3 을 한 번 미리 돌려 보고 결과 폴더(`sta_AI데이터/`)를 지워 둔다
 - [ ] 화면 녹화 준비, 시험 PC 사양(OS·CPU·RAM·HDD)을 신청서 「시험환경」 칸에 기재
 
