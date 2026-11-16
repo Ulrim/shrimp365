@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>상황별 시연 — 노지 대파 재해위험</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>◉</text></svg>">
+<!-- 상황별 시연 화면. `ofdf demo` 가 쓴 demo.json 을 읽는다.
+     현장 화면(index.html·kiosk.html)의 data.json 과는 다른 파일이고, 이 화면에는
+     '시연' 띠가 항상 떠 있다 — 지나가던 사람이 지금 서리가 온다고 읽으면 안 된다.
+     글꼴은 현장 화면과 같은 이유로 원격에서 받지 않는다(시스템 글꼴). -->
+<style>
+:root {
+  --plane: #f2f3ef; --surface: #fcfcfb; --surface-sunk: #e9ebe5;
+  --line: #d6d9d0; --line-soft: #e4e7de;
+  --ink: #14160f; --ink-2: #52554a; --ink-3: #6c7062;
+  --good: #0ca30c; --warning: #fab219; --critical: #d03b3b;
+  --good-ink: #076b07; --warning-ink: #7a5200; --critical-ink: #a32a2a;
+  --demo: #3d3a8c; --demo-ink: #ffffff; --demo-soft: #e8e7f6; --demo-text: #2e2b78;
+  --font-ui: "IBM Plex Sans KR", system-ui, -apple-system, "Noto Sans CJK KR",
+             "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 6px; --gap: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --plane: #0d0e0c; --surface: #1a1a19; --surface-sunk: #242520;
+    --line: #35372f; --line-soft: #2a2b26;
+    --ink: #f3f4ee; --ink-2: #b9bcae; --ink-3: #9a9d8f;
+    --good-ink: #4cc24c; --warning-ink: #e5b445; --critical-ink: #e87878;
+    --demo: #5b57c4; --demo-soft: #26254a; --demo-text: #c9c7ff;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--plane); color: var(--ink);
+  font-family: var(--font-ui); font-size: 16px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1100px; margin: 0 auto; padding: 0 16px 48px; }
+h1, h2, h3, p { margin: 0; }
+
+/* 시연 띠 — 스크롤해도 남는다 */
+.demo-bar {
+  position: sticky; top: 0; z-index: 5;
+  background: var(--demo); color: var(--demo-ink);
+  padding: 10px 16px; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap;
+}
+.demo-bar strong { font-size: 18px; letter-spacing: .04em; }
+.demo-bar span { font-size: 14px; }
+.demo-bar a { color: inherit; margin-left: auto; font-size: 14px; }
+
+.head { padding: 20px 0 12px; }
+.head h1 { font-size: 22px; font-weight: 700; }
+.head p { color: var(--ink-2); font-size: 14px; margin-top: 4px; }
+
+/* 사례 고르기 */
+.cases { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.case-btn {
+  min-height: 64px; padding: 10px 12px; text-align: left; cursor: pointer;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--line);
+  border-radius: var(--r); font: inherit; font-size: 15px; font-weight: 600;
+  transition: border-color .15s, background .15s;
+}
+.case-btn small { display: block; font-weight: 400; font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+.case-btn:hover { border-color: var(--ink-3); }
+.case-btn[aria-pressed="true"] { border-color: var(--demo); border-width: 2px; padding: 9px 11px; background: var(--demo-soft); }
+button:focus-visible, a:focus-visible { outline: 3px solid var(--demo); outline-offset: 2px; }
+
+.panel {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 16px; margin-top: var(--gap);
+}
+.panel h2 { font-size: 18px; }
+.panel h3 { font-size: 14px; color: var(--ink-2); font-weight: 600; margin-bottom: 8px; }
+.meta { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin-top: 10px; font-size: 14px; }
+.meta dt { color: var(--ink-2); } .meta dd { margin: 0; }
+.kind { display: inline-block; font-size: 13px; font-weight: 600; padding: 2px 8px;
+        border-radius: 99px; background: var(--demo-soft); color: var(--demo-text); margin-left: 8px; vertical-align: 2px; }
+.lead { margin-top: 12px; padding: 10px 12px; background: var(--surface-sunk); border-radius: var(--r); font-size: 15px; }
+
+/* 시점 이동 */
+.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.controls button {
+  min-height: 44px; min-width: 88px; padding: 8px 14px; cursor: pointer;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--line);
+  border-radius: var(--r); font: inherit; font-weight: 600;
+}
+.controls button:disabled { opacity: .45; cursor: default; }
+.controls .play { background: var(--demo); color: var(--demo-ink); border-color: var(--demo); }
+.pos { font-family: var(--font-num); font-size: 15px; color: var(--ink-2); margin-left: 4px; }
+.track { display: flex; gap: 4px; margin-top: 12px; }
+.tick {
+  flex: 1; min-width: 0; height: 44px; padding: 0; cursor: pointer; border-radius: 4px;
+  background: var(--surface-sunk); border: 1px solid var(--line-soft); color: var(--ink-2);
+  font-family: var(--font-num); font-size: 12px;
+}
+.tick.lv1 { border-bottom: 5px solid var(--warning); }
+.tick.lv2 { border-bottom: 5px solid var(--critical); }
+.tick.sim { border-top: 5px solid var(--demo); }
+.tick[aria-current="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.legend { font-size: 13px; color: var(--ink-2); margin-top: 6px; }
+
+.now { font-size: 24px; font-weight: 700; font-family: var(--font-num); }
+.actual { font-size: 14px; color: var(--ink-2); margin-left: 10px; font-family: var(--font-ui); font-weight: 400; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+@media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+
+.readings { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 10px; }
+.readings div { font-size: 14px; color: var(--ink-2); }
+.readings b { display: block; font-family: var(--font-num); font-size: 18px; color: var(--ink); font-weight: 600; }
+
+.sim-note { margin-top: 12px; padding: 10px 12px; border: 2px dashed var(--demo); border-radius: var(--r); font-size: 15px; }
+.sim-note b { color: var(--demo-text); }
+
+.risk { border: 1px solid var(--line); border-left-width: 6px; border-radius: var(--r); padding: 10px 12px; margin-bottom: 8px; }
+.risk.lv0 { border-left-color: var(--good); }
+.risk.lv1 { border-left-color: var(--warning); }
+.risk.lv2 { border-left-color: var(--critical); }
+.risk-name { font-weight: 700; }
+.pills { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 4px; font-size: 15px; }
+.pill b { font-weight: 700; }
+.pill.lv0 b { color: var(--good-ink); } .pill.lv1 b { color: var(--warning-ink); } .pill.lv2 b { color: var(--critical-ink); }
+.pill i { font-style: normal; font-family: var(--font-num); font-size: 13px; color: var(--ink-2); }
+.evidence { font-size: 13px; color: var(--ink-2); margin-top: 4px; }
+.quiet { color: var(--ink-2); font-size: 15px; }
+
+.acts { list-style: none; margin: 0; padding: 0; }
+.acts li { padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
+.acts li:last-child { border-bottom: 0; }
+.tag { display: inline-block; font-size: 13px; font-weight: 700; padding: 1px 8px; border-radius: 4px; margin-right: 8px; border: 1px solid; }
+.tag.run { color: var(--good-ink); } .tag.advise { color: var(--warning-ink); } .tag.held { color: var(--ink-2); }
+.acts .cmd { font-weight: 600; }
+.acts .why { display: block; font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+.mode { margin-top: 10px; font-size: 14px; font-weight: 600; color: var(--critical-ink); }
+
+.empty { padding: 40px 16px; text-align: center; color: var(--ink-2); }
+.empty code { font-family: var(--font-num); background: var(--surface-sunk); padding: 2px 6px; border-radius: 4px; }
+footer { margin-top: 20px; font-size: 13px; color: var(--ink-2); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="demo-bar" role="status">
+  <strong>시연</strong>
+  <span id="notice">과거 실제 관측 사례를 다시 흘려 넣은 결과입니다. 지금 현장 상황이 아니며 장치는 움직이지 않습니다.</span>
+  <a href="index.html">현장 화면으로</a>
+</div>
+
+<div class="wrap">
+  <header class="head">
+    <h1>상황별 시연 — 이런 상황이 오면 이렇게 판단하고 조치합니다</h1>
+    <p>아래에서 상황을 고르고 시점을 넘겨 보세요. 판단은 이 제어기에 실린 실제 AI 모델이 계산한 것입니다.</p>
+  </header>
+
+  <nav class="cases" id="cases" aria-label="시연할 상황"></nav>
+  <main id="main"><div class="panel empty" id="empty">시연 자료를 읽는 중입니다.</div></main>
+  <footer id="foot"></footer>
+</div>
+
+<script>
+"use strict";
+const LEVELS = ["정상", "주의", "경계"];
+const PLAY_MS = 2500;
+const $ = (id) => document.getElementById(id);
+let doc = null, current = null, index = 0, timer = null;
+
+function el(tag, attrs, ...children) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs || {})) {
+    if (key === "class") node.className = value;
+    else if (key === "text") node.textContent = value;
+    else node.setAttribute(key, value);
+  }
+  for (const child of children) if (child) node.append(child);
+  return node;
+}
+function clock(iso) {
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${String(d.getHours()).padStart(2, "0")}시`;
+}
+function maxLevel(step, risk) {
+  let level = 0;
+  for (const item of step.risks) {
+    if (risk && item.risk !== risk) continue;
+    for (const h of Object.values(item.horizons)) level = Math.max(level, h.level);
+  }
+  return level;
+}
+
+function renderCases() {
+  const nav = $("cases");
+  nav.replaceChildren();
+  for (const item of doc.cases) {
+    const button = el("button", { type: "button", class: "case-btn",
+                                  "aria-pressed": String(current && current.id === item.id) },
+      document.createTextNode(item.title.split(" — ")[0]),
+      el("small", { text: item.title.split(" — ")[1] || item.riskName }));
+    button.addEventListener("click", () => choose(item.id));
+    nav.append(button);
+  }
+}
+
+function choose(id) {
+  stop();
+  current = doc.cases.find((c) => c.id === id);
+  index = 0;
+  renderCases();
+  render();
+}
+
+function stop() { if (timer) { clearInterval(timer); timer = null; } }
+function toggle() {
+  if (timer) { stop(); render(); return; }
+  if (index >= current.steps.length - 1) index = 0;
+  timer = setInterval(() => {
+    if (index >= current.steps.length - 1) { stop(); render(); return; }
+    index += 1; render();
+  }, PLAY_MS);
+  render();
+}
+function go(to) { stop(); index = Math.max(0, Math.min(current.steps.length - 1, to)); render(); }
+
+function render() {
+  const main = $("main");
+  const step = current.steps[index];
+  const total = current.steps.length;
+
+  // 사례 설명
+  const about = el("section", { class: "panel" },
+    el("h2", {}, document.createTextNode(current.title), el("span", { class: "kind", text: current.kind })),
+    el("dl", { class: "meta" },
+      el("dt", { text: "상황" }), el("dd", { text: current.summary }),
+      el("dt", { text: "자료" }), el("dd", { text: current.source }),
+      current.onset ? el("dt", { text: "실제" }) : null,
+      current.onset ? el("dd", { text: `${clock(current.onset)}부터 ${current.riskName} 조건이 관측됨` }) : null),
+    el("p", { class: "lead", text: current.lead }));
+
+  // 시점 이동
+  const prev = el("button", { type: "button", text: "◀ 이전" });
+  const next = el("button", { type: "button", text: "다음 ▶" });
+  const play = el("button", { type: "button", class: "play", text: timer ? "■ 멈춤" : "▶ 자동 재생" });
+  prev.disabled = index === 0; next.disabled = index === total - 1;
+  prev.addEventListener("click", () => go(index - 1));
+  next.addEventListener("click", () => go(index + 1));
+  play.addEventListener("click", toggle);
+  const track = el("div", { class: "track", role: "group", "aria-label": "시점" });
+  current.steps.forEach((s, i) => {
+    const level = maxLevel(s, current.risk);
+    const tick = el("button", { type: "button",
+      class: `tick lv${level}${s.simulated.length ? " sim" : ""}`,
+      "aria-current": String(i === index),
+      "aria-label": `${clock(s.time)} ${LEVELS[level]}${s.simulated.length ? " 입력모사" : ""}`,
+      text: String(new Date(s.time).getHours()).padStart(2, "0") });
+    tick.addEventListener("click", () => go(i));
+    track.append(tick);
+  });
+  const mover = el("section", { class: "panel" },
+    el("div", { class: "controls" }, prev, play, next,
+      el("span", { class: "pos", text: `${index + 1} / ${total} 시점` })),
+    track,
+    el("p", { class: "legend",
+      text: `숫자는 시각(시). 아래 노란 줄 = ${current.riskName} 주의, 빨간 줄 = 경계, 위 보라 줄 = 입력모사가 들어간 시점.` }));
+
+  // 이 시점
+  const actual = step.actual[current.risk];
+  const readings = el("div", { class: "readings" });
+  for (const e of step.environment) {
+    readings.append(el("div", {}, el("b", { text: `${e.value}${e.unit}` }), document.createTextNode(e.name)));
+  }
+  const moment = el("section", { class: "panel" },
+    el("p", { class: "now" }, document.createTextNode(clock(step.time)),
+      el("span", { class: "actual",
+        text: actual ? `이 시각 실제 상태: ${current.riskName} ${LEVELS[actual]}` : "" })),
+    readings);
+  if (step.simulated.length) {
+    const note = el("p", { class: "sim-note" }, el("b", { text: "입력모사 " }));
+    note.append(step.simulated.map((s) => `${s.name} = ${s.value === true ? "발생" : s.value}`).join(", ")
+      + " — 관측 기록에 없는 값을 넣은 것입니다.");
+    moment.append(note);
+  }
+
+  // AI 판단
+  const judge = el("section", { class: "panel" }, el("h3", { text: "AI 판단 — 1시간 뒤 · 3시간 뒤에 도달할 위험등급" }));
+  const active = step.risks.filter((r) => Object.values(r.horizons).some((h) => h.level > 0));
+  if (!active.length) judge.append(el("p", { class: "quiet", text: "전 유형 정상" }));
+  for (const item of active) {
+    const pills = el("div", { class: "pills" });
+    for (const [h, v] of Object.entries(item.horizons)) {
+      pills.append(el("span", { class: `pill lv${v.level}` },
+        document.createTextNode(`${h}시간 뒤 `), el("b", { text: v.levelName }),
+        v.level ? el("i", { text: ` 신뢰도 ${v.confidence.toFixed(2)}` }) : null));
+    }
+    const card = el("div", { class: `risk lv${maxLevel(step, item.risk)}` },
+      el("div", { class: "risk-name", text: item.name }), pills);
+    if (item.evidence.length) {
+      card.append(el("div", { class: "evidence",
+        text: "근거: " + item.evidence.map((e) => `${e.label} ${e.value}`).join(", ") }));
+    }
+    judge.append(card);
+  }
+
+  // 조치
+  const acts = el("section", { class: "panel" }, el("h3", { text: "이때 내리는 조치" }));
+  if (!step.actions.length) acts.append(el("p", { class: "quiet", text: "조치 없음" }));
+  else {
+    const list = el("ul", { class: "acts" });
+    for (const a of step.actions) {
+      const [cls, label] = a.rejectedBy ? ["held", "보류"] : a.advisory ? ["advise", "권고"] : ["run", "실행"];
+      list.append(el("li", {},
+        el("span", { class: `tag ${cls}`, text: label }),
+        el("span", { class: "cmd", text: `${a.device} · ${a.command}` }),
+        el("span", { class: "why", text: a.rejectedBy ? `${a.reason} — 보류 사유: ${a.rejectedBy}` : a.reason })));
+    }
+    acts.append(list);
+  }
+  if (step.mode !== "자동") acts.append(el("p", { class: "mode", text: `운전모드: ${step.mode}` }));
+
+  main.replaceChildren(about, mover, moment, el("div", { class: "grid2" }, judge, acts));
+}
+
+function fail(message) {
+  $("main").replaceChildren(el("div", { class: "panel empty" },
+    el("p", { text: message }),
+    el("p", {}, document.createTextNode("제어기에서 "), el("code", { text: "ofdf demo" }),
+      document.createTextNode(" 를 한 번 실행하면 이 화면이 채워집니다."))));
+}
+
+fetch("demo.json?t=" + Date.now(), { cache: "no-store" })
+  .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then((data) => {
+    if (!data.demo || !Array.isArray(data.cases) || !data.cases.length) throw new Error("형식");
+    doc = data;
+    $("notice").textContent = data.notice;
+    $("foot").textContent = `시연 자료 생성 ${data.generated.replace("T", " ")} · 모델 ${data.modelVersion} (${data.modelDir})`;
+    choose(data.cases[0].id);
+  })
+  .catch(() => fail("시연 자료(demo.json)를 읽지 못했습니다."));
+
+document.addEventListener("keydown", (event) => {
+  if (!current || event.target.closest("nav")) return;
+  if (event.key === "ArrowRight") go(index + 1);
+  if (event.key === "ArrowLeft") go(index - 1);
+});
+</script>
+</html>
