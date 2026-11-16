@@ -20,6 +20,9 @@
   "시간대": "Asia/Seoul",
   "프로필": "shrimp",
 
+  "시험대상_기준_커밋": "a43d9c1292c4f52128cf368f1c92372d6a37f8d0",
+  "_시험대상_기준_커밋": "시험 대상 파일(lib/thresholds.ts, raspberry-pi/anomaly.py)이 들어 있는 main 커밋. 아래 sha256 은 이 커밋의 파일 해시다.",
+
   "시험대상_sha256": {
     "lib/thresholds.ts": "00093a844a8b22a63800031e6714a21ff201c06f966d4b2aecf3a8e9e16811bf",
     "raspberry-pi/anomaly.py": "138923bf5a3a1aae763e04f52e5f53bb88795fbd6a14ba2b9efe82ce20046485"

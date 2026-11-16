@@ -98,8 +98,9 @@ async function main() {
     if (!ok) log(`        기대값 ${want}`)
   }
   const dirty = git(["status", "--porcelain", "--", ...Object.keys(config["시험대상_sha256"])])
-  log(`  git 커밋: ${commit ?? "확인 불가(git 없음)"}`)
-  log(`  시험 대상 파일의 미커밋 변경: ${dirty === null ? "확인 불가" : dirty === "" ? "없음" : "있음"}`)
+  log(`  시험 대상 기준 커밋(main): ${config["시험대상_기준_커밋"] ?? "미기재"}`)
+  log(`  실행 폴더의 git 커밋: ${commit ?? "git 저장소 아님(배포 묶음에서 실행)"}`)
+  log(`  시험 대상 파일의 미커밋 변경: ${dirty === null ? "해당 없음(sha256 으로 확인)" : dirty === "" ? "없음" : "있음"}`)
   if (!targetOk) {
     log("\n시험 대상 파일이 고정한 해시와 다릅니다. 중단합니다.")
     return 3
@@ -259,7 +260,8 @@ async function main() {
   const hashText = [
     `시험 항목: ${config["시험항목"]}`,
     `시험 대상: ${config["시험대상_SW"]}`,
-    `git 커밋: ${commit ?? "확인 불가"}`,
+    `시험 대상 기준 커밋(main): ${config["시험대상_기준_커밋"] ?? "미기재"}`,
+    `실행 폴더의 git 커밋: ${commit ?? "git 저장소 아님(배포 묶음에서 실행)"}`,
     `시험 대상 파일의 미커밋 변경: ${dirty === null ? "확인 불가" : dirty === "" ? "없음" : "있음"}`,
     "",
     "[시험 대상 코드 sha256]",
@@ -297,7 +299,7 @@ async function main() {
       "판정_함수": "lib/thresholds.ts — checkThresholds(마지막 시각의 측정값) + detectTrendAnomalies(구간 시계열)",
     },
     "시험대상": {
-      "git_커밋": commit, "미커밋_변경": dirty === null ? "확인 불가" : dirty === "" ? "없음" : "있음",
+      "기준_커밋": config["시험대상_기준_커밋"] ?? null, "실행폴더_git_커밋": commit, "미커밋_변경": dirty === null ? "확인 불가" : dirty === "" ? "없음" : "있음",
       "sha256": targetHashes,
     },
     "시험도구_sha256": { ...toolHashes, [path.relative(ROOT, configFile).split(path.sep).join("/")]: configHash },
