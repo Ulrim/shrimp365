@@ -50,7 +50,11 @@ function runDevice(requests, tz) {
   for (const exe of ["python3", "python"]) {
     const r = spawnSync(exe, [script], {
       input, encoding: "utf8", maxBuffer: 1 << 28,
-      env: { ...process.env, TZ: tz, PYTHONIOENCODING: "utf-8", PYTHONDONTWRITEBYTECODE: "1" },
+      // 윈도우 C 런타임은 "Asia/Seoul" 같은 이름을 못 읽어 UTC 로 떨어진다 — 거기서는 시스템 시간대를 쓴다.
+      env: {
+        ...process.env, PYTHONIOENCODING: "utf-8", PYTHONDONTWRITEBYTECODE: "1",
+        ...(process.platform === "win32" ? {} : { TZ: tz }),
+      },
     })
     if (r.error || r.status !== 0) continue
     try { return { exe, ...JSON.parse(r.stdout) } } catch { /* 다음 후보 */ }
@@ -130,6 +134,8 @@ async function main() {
   log("[3/4] 사례별 판정 (플랫폼 함수 checkThresholds + detectTrendAnomalies 호출)")
   const platform = await loadPlatform(ROOT)
   const mode = config["판정_방식"]
+  const longest = Math.max(...cases.map(c => c.series.length))
+  if (mode === "순차" && longest > 1500) log(`  ⚠ 순차 판정은 행 수의 제곱으로 느려집니다 — 가장 긴 사례가 ${longest}행입니다`)
   const grades = config["이상으로_세는_등급"]
   log(`  판정 방식: ${mode} · 이상으로 세는 등급: ${grades.join(", ")} · 조회 구간: ${config["조회구간_시간"]}시간 · 시간대: ${config["시간대"]}`)
   const labelToKey = Object.fromEntries(
@@ -167,7 +173,10 @@ async function main() {
       targetHit = j.근거.some(a => targetKeys.has(labelToKey[a.항목] ?? a.항목)) ? 1 : 0
     }
     let deviceText = "미실행", deviceSame = ""
-    if (device) {
+    // 웹은 장치별로 나눠 보고 장비 판정은 한 줄로 본다 — 장치가 여럿인 사례는 입력이 달라 비교하지 않는다.
+    const multiDevice = new Set(j.rows.map(r => r.device ?? "")).size > 1
+    if (device && multiDevice) deviceText = "비교 제외(장치 여럿)"
+    else if (device) {
       const fields = new Set(device["판정_항목"])
       const dev = (device["결과"][c.id] ?? []).map(a => `${a.parameter}:${a.kind}:${a.type}`).sort()
       const web = j.전체.filter(a => a.종류 !== "임계")
@@ -271,7 +280,10 @@ async function main() {
   const summary = {
     "시험항목": config["시험항목"],
     "시험대상_SW": config["시험대상_SW"],
-    "판정기준": { "지표": "재현율", "기준값": threshold, "비교": "기준값 이상이면 적합" },
+    "판정기준": {
+      "지표": "재현율", "기준값": threshold, "비교": "기준값 이상이면 적합",
+      "최소_사례수": { "이상": min.이상 ?? 0, "정상": min.정상 ?? 0 },
+    },
     "판정": result,
     "최종값": final,
     "참고": reference,

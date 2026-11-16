@@ -16,7 +16,7 @@
 //     { "사례ID": "S-A01", "출처": "모사", ..., "정답": "이상", "이상 유형": "급변", "대상 항목": "DO",
 //       "주입": [ { "항목": "DO", "종류": "계단", "시각": "2024-07-04T22:00", "크기": -1.8 } ] } ] }
 //
-// 주입 종류 — 값이 있는 자리에만 더한다(결측은 결측 그대로).
+// 주입 종류 — 값이 있는 자리에만 더한다(빈 칸과 0 은 미측정이라 그대로 둔다).
 //   계단  「시각」부터 끝까지 「크기」를 더한다.
 //   경사  「시작」~「끝」 사이에 0 → 「크기」로 곧게 늘리고, 그 뒤는 「크기」를 유지한다.
 //   구간  「시작」~「끝」 사이에만 「크기」를 더한다.
@@ -29,6 +29,7 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { parseArgs } from "./lib/args.mjs"
 import { parseCsv, toCsv } from "./lib/csv.mjs"
+import { injectionOffset } from "./lib/inject.mjs"
 import {
   FIELD_COLUMNS, SERIES_HEADER, CASES_HEADER, SOURCES, LABELS,
   parseTime, formatTime, sha256File,
@@ -45,18 +46,6 @@ function columnOf(name) {
 }
 
 const round3 = (v) => Math.round(v * 1000) / 1000
-
-/** 주입 한 건이 시각 t 에 더하는 값. */
-export function injectionOffset(inj, t) {
-  const size = Number(inj["크기"])
-  if (!Number.isFinite(size)) throw new Error(`주입 크기가 숫자가 아닙니다: ${JSON.stringify(inj)}`)
-  if (inj["종류"] === "계단") return t >= parseTime(inj["시각"]) ? size : 0
-  const a = parseTime(inj["시작"]), b = parseTime(inj["끝"])
-  if (!(b > a)) throw new Error(`주입 구간의 끝이 시작보다 뒤여야 합니다: ${JSON.stringify(inj)}`)
-  if (inj["종류"] === "경사") return t <= a ? 0 : t >= b ? size : size * (t - a) / (b - a)
-  if (inj["종류"] === "구간") return t >= a && t <= b ? size : 0
-  throw new Error(`주입 종류는 계단/경사/구간 중 하나여야 합니다: ${JSON.stringify(inj["종류"])}`)
-}
 
 function describeInjection(inj) {
   const where = inj["종류"] === "계단" ? inj["시각"] : `${inj["시작"]}~${inj["끝"]}`
@@ -130,9 +119,12 @@ function main() {
         let v = Number(raw)
         if (!Number.isFinite(v)) throw new Error(`${id}: ${col} 값이 숫자가 아닙니다 (${raw})`)
         // 주입이 닿지 않은 열은 원본 표기를 그대로 둔다(28.00 을 28 로 바꾸지 않는다).
-        if (!cols.includes(col)) { out[col] = raw; continue }
+        // 0 은 플랫폼 규약상 "안 쟀다" 다 — 결측과 같이 주입하지 않고 그대로 둔다.
+        if (!cols.includes(col) || v === 0) { out[col] = raw; continue }
         inj.forEach((j, k) => { if (cols[k] === col) v += injectionOffset(j, x.t) })
         out[col] = round3(v)
+        // 주입 결과가 0 이 되면 그 점이 "안 쟀다" 로 사라진다 — 계획을 고치게 멈춘다.
+        if (out[col] === 0) throw new Error(`${id}: ${col} 주입 결과가 0 입니다(${out["시각"]}). 0 은 미측정으로 읽히므로 주입 크기를 바꾸십시오`)
       }
       return out
     })
@@ -201,9 +193,7 @@ function main() {
   console.log(`  cases.csv · series/ ${list.length}개 · 통계.txt · sha256sums.txt`)
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try { main() } catch (err) {
-    console.error(`\n실행 오류: ${err.message}`)
-    process.exitCode = 3
-  }
+try { main() } catch (err) {
+  console.error(`\n실행 오류: ${err.message}`)
+  process.exitCode = 3
 }

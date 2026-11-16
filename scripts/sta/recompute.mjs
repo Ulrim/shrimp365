@@ -79,8 +79,11 @@ function main() {
   const threshold = reported["판정기준"]?.["기준값"] ?? null
   log(`  기준: 재현율 ${threshold === null ? "【미설정】" : threshold + " 이상"}`)
   let result = verdict(again["전체"]["혼동행렬"], threshold)
-  // 사례 수 부족 보류는 측정 단계의 설정(최소 사례수)에 따른 것이라 그대로 따른다.
-  if (reported["판정"] === "보류(사례 수 부족)") result = reported["판정"]
+  // 사례 수 부족 보류도 CSV 의 건수와 최종결과에 적힌 최소 사례수로 다시 따진다.
+  const min = reported["판정기준"]?.["최소_사례수"] ?? {}
+  const n = again["전체"]["사례수"]
+  if (threshold !== null && (n["이상"] < (min["이상"] ?? 0) || n["정상"] < (min["정상"] ?? 0))) result = "보류(사례 수 부족)"
+  log(`  최소 사례수: 이상 ${min["이상"] ?? 0}건 · 정상 ${min["정상"] ?? 0}건 / 실제 이상 ${n["이상"]}건 · 정상 ${n["정상"]}건`)
   cmp("판정", result, reported["판정"])
   log("")
 
@@ -94,6 +97,18 @@ function main() {
   cmp("웹_장비_추세판정_일치율",
     compared.length ? { "분자": same, "분모": compared.length, "값": ratio(same, compared.length) } : "미실행",
     reported["참고"]?.["웹_장비_추세판정_일치율"])
+  const byType = {}
+  for (const r of rows.filter(r => r["정답"] === "이상")) {
+    const t = r["이상 유형"] || "(미기재)"
+    byType[t] ??= { "사례수": 0, "탐지수": 0 }
+    byType[t]["사례수"]++
+    if (r["판정"] === "이상") byType[t]["탐지수"]++
+  }
+  cmp("이상유형별_탐지", Object.fromEntries(Object.keys(byType).sort().map(k => [k, byType[k]])),
+    reported["참고"]?.["이상유형별_탐지"])
+  const count = { "이상": 0, "정상": 0, "실측": 0, "모사": 0 }
+  for (const r of rows) { count[r["정답"]]++; count[r["출처"]]++ }
+  cmp("시험데이터 사례수", count, reported["시험데이터"]?.["사례수"])
   log("")
 
   if (rowProblems.length) {

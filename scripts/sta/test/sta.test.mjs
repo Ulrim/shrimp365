@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url"
 import { toCsv, parseCsv } from "../lib/csv.mjs"
 import { summarize, verdict, ratio } from "../lib/metrics.mjs"
 import { parseTime, formatTime } from "../lib/cases.mjs"
-import { injectionOffset } from "../build-cases.mjs"
+import { injectionOffset } from "../lib/inject.mjs"
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const STA = path.resolve(HERE, "..")
@@ -185,4 +185,37 @@ test("③ 기준값이 없으면 보류(2), 사례·시험 대상이 바뀌면 �
   const moved = run("eval-anomaly.mjs", s.evalArgs)
   assert.equal(moved.status, 3)
   assert.match(moved.stdout, /시험 대상 파일이 고정한 해시와 다릅니다/)
+})
+
+test("재계산은 판정·참고값·사례수를 고친 것도 잡는다", (t) => {
+  const s = setup()
+  t.after(() => rmSync(s.dir, { recursive: true, force: true }))
+  assert.equal(run("eval-anomaly.mjs", s.evalArgs).status, 0)
+  const file = path.join(s.out, "03_최종결과.json")
+  const original = readFileSync(file, "utf8")
+  for (const edit of [
+    (j) => { j["판정"] = "보류(사례 수 부족)" },
+    (j) => { j["참고"]["이상유형별_탐지"]["급변"]["탐지수"] = 99 },
+    (j) => { j["시험데이터"]["사례수"]["이상"] = 999 },
+  ]) {
+    const j = JSON.parse(original); edit(j)
+    writeFileSync(file, JSON.stringify(j))
+    assert.equal(run("recompute.mjs", ["--out", s.out]).status, 1)
+  }
+  writeFileSync(file, original)
+  assert.equal(run("recompute.mjs", ["--out", s.out]).status, 0)
+})
+
+test("사례 생성: 잘못된 인자는 실패하고, 0(미측정)에는 주입하지 않는다", (t) => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "sta-test-"))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  assert.equal(run("build-cases.mjs", ["--bogus"]).status, 3)
+  const source = path.join(dir, "s.csv"), plan = path.join(dir, "p.json"), cases = path.join(dir, "cases")
+  writeFileSync(source, syntheticSource().replace(/T02:00:00\+09:00,,(\d+\.\d+),(\d+\.\d+),(\d+\.\d+)/, "T02:00:00+09:00,,$1,$2,0"))
+  writeFileSync(plan, JSON.stringify({ "사례": [{ ...base, "사례ID": "Z1", "출처": "모사", "정답": "이상",
+    "주입": [{ "항목": "DO", "종류": "계단", "시각": "2024-07-01T00:00", "크기": -0.5 }] }] }))
+  assert.equal(run("build-cases.mjs", ["--source", `시험용=${source}`, "--plan", plan, "--cases", cases]).status, 0)
+  const { rows } = parseCsv(readFileSync(path.join(cases, "series", "Z1.csv"), "utf8"))
+  assert.equal(rows[2]["DO(mg/L)"], "0")
+  assert.notEqual(rows[3]["DO(mg/L)"], "0")
 })

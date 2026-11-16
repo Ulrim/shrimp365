@@ -2,8 +2,13 @@
 //
 // **판정 로직은 여기에 없다.** lib/thresholds.ts 의 checkThresholds ·
 // detectTrendAnomalies 를 그대로 불러 돌려준 것을 받아 적을 뿐이다.
-// 입력 모양은 플랫폼 화면이 넘기는 것과 같다(lib/db.ts 의 toWaterQuality):
+// 입력 한 줄의 모양은 플랫폼의 측정 기록과 같다(lib/db.ts 의 toWaterQuality):
 //   { recorded_at, device_id, temperature, ph, ... } — 안 잰 항목은 0.
+//
+// ⚠ 사례의 측정 기록을 **그대로** 넘긴다. 플랫폼 수질 화면은 추세 판정에 원시 기록이
+// 아니라 wq_series 의 구간 평균(168시간 조회면 약 42분 칸)을 넘기므로, 그보다 촘촘한
+// 사례에서는 화면과 결과가 다를 수 있다. 시험 대상은 "판정 함수" 이고 화면 경로의
+// 묶음은 범위 밖이다 — 이 정의는 김정석 확인 사항이다(작업 보고 참고).
 
 import path from "node:path"
 import { pathToFileURL } from "node:url"
