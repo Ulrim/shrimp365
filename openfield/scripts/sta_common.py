@@ -126,9 +126,13 @@ def code_hashes() -> dict[str, str]:
 
 def _cpu_model() -> str:
     try:
-        for line in Path("/proc/cpuinfo").read_text(encoding="utf-8", errors="replace").splitlines():
-            if line.lower().startswith(("model name", "hardware", "model\t")):
-                return line.split(":", 1)[1].strip()
+        lines = Path("/proc/cpuinfo").read_text(encoding="utf-8", errors="replace").splitlines()
+        # x86 은 "model name", 라즈베리파이는 "Model"(보드 이름) — 숫자뿐인 "model : 173" 은 건너뛴다
+        for key in ("model name", "model", "hardware"):
+            for line in lines:
+                name, _, value = line.partition(":")
+                if name.strip().lower() == key and not value.strip().isdigit() and value.strip():
+                    return value.strip()
     except OSError:
         pass
     if platform.system() == "Windows":

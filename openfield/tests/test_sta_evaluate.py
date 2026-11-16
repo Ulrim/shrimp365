@@ -329,3 +329,38 @@ def test_per_run_timing_csv_recomputes_to_same_summary(bundle, result):
         writer.writeheader()
         writer.writerows(rows)
     assert sta_recompute.main(["--dir", str(out)]) == 1
+
+
+# --------------------------------------------------------------------------- 한 번에 실행
+
+def test_run_all_runs_every_step_and_writes_prerun_log(bundle):
+    run_all = _load("sta_run_all")
+    out = bundle["work"] / "run_all"
+    log = bundle["work"] / "사전실행로그.md"
+    code = run_all.main([
+        "--cache", str(bundle["cache"]), "--models", str(bundle["models"]), "--out", str(out),
+        "--hash-list", str(bundle["hash_list"]), "--prerun-log", str(log),
+        "--skip-benchmark",          # 합성 자료에는 판단시간 측정에 쓸 원시 관측 열이 없다
+    ])
+    assert code == 0
+    text = log.read_text(encoding="utf-8")
+    assert "전 단계 통과" in text and "시험셋.csv sha256" in text and "복합위험 3시간" in text
+    assert (out / "04_재계산_결과.txt").exists()
+    assert list(bundle["work"].glob("run_all_*.zip"))
+
+
+def test_run_all_stops_at_first_failure(bundle):
+    run_all = _load("sta_run_all")
+    log = bundle["work"] / "실패로그.md"
+    code = run_all.main([
+        "--cache", str(bundle["cache"]), "--models", str(bundle["work"] / "없는폴더"),
+        "--out", str(bundle["work"] / "run_fail"), "--hash-list", str(bundle["hash_list"]),
+        "--prerun-log", str(log), "--skip-benchmark",
+    ])
+    assert code == 1
+    assert "실패" in log.read_text(encoding="utf-8")
+    assert not (bundle["work"] / "run_fail" / "02_시점별_결과.csv").exists()
+
+
+def test_cpu_name_is_not_a_bare_number():
+    assert not str(sta_common.environment()["CPU"]).isdigit()
