@@ -1,7 +1,7 @@
 # STA 시험 준비 체크리스트 — 블루스타트업(새우 탐지 AI 모델)
 
 시험 2026-11-19(목) 10:30 원격 입회 · 작업 마감 11-18(수) 18:00 · 성적서 11-30(월)
-당일 명령은 [STA-시험당일-실행순서.md](STA-시험당일-실행순서.md) 에 있다. 이 문서는 **그 전에 끝내야 할 일**과 **보낼 글의 초안**이다.
+설치부터 결과 송부까지의 명령은 [STA-시험-절차서.md](STA-시험-절차서.md) 에 있다. 이 문서는 **그 전에 끝내야 할 일**과 **보낼 글의 초안**이다.
 
 ## 1. 지금 상태
 
@@ -9,8 +9,8 @@
 |---|---|
 | 데이터별 로그 출력(`eval_detect.py --log-dir`) | 끝 — 시험 46건 통과 |
 | 로그만으로 재계산(`recompute_detect.py`) | 끝 — 수조 사진 12장·합성 자료로 일치 확인 |
-| 제출 묶음 생성·당일 재실행(`run_test_eval.sh`) | 끝 — 리허설로 끝까지 실행 확인 |
-| 당일 실행순서 문서 | 끝 — 소요시간은 사전 측정 뒤 실측으로 바꿔 적기 |
+| 제출 묶음 생성·당일 재실행(`sta_run.py` — 윈도우·맥·리눅스 공통) | 끝 — 리허설로 끝까지 실행 확인 |
+| 절차서(설치 → 리허설 → 사전 측정 → 당일 → 송부) | 끝 — 소요시간은 사전 측정 뒤 실측으로 채우기 |
 | **test 445장 생성·사전 측정** | **남음** — 원본 데이터셋이 시험 PC에 있어야 한다 |
 | **mAP@0.5 ≥ 0.75 충족 여부** | **모름** — 445장으로 잰 적이 아직 없다(1차 측정은 valid 15장) |
 | 계수 오차율 판정 방식 | 결정 필요 — 지금 기본값은 「이미지별 오차율 평균 0.20 이하」 |
@@ -20,17 +20,17 @@
 
 ### ① 시험 PC에서 리허설 (원본 데이터셋 없이, 5분)
 
-```bash
-git fetch origin claude/new-session-v8racw && git checkout claude/new-session-v8racw
-cd vision
-python3 -m venv .venv && .venv/bin/pip install -e ".[edge]"
-./ai/trainer/run_test_eval.sh --rehearsal
+절차서 1·2단계. 꾸러미(`STA_블루스타트업_시험꾸러미.zip`)를 풀어 `프로그램/` 에서:
+
+```
+py -3 -m venv .venv                                          (맥·리눅스: python3 -m venv .venv)
+.venv\Scripts\python -m pip install -r requirements-sta.txt   (맥·리눅스: .venv/bin/python …)
+.venv\Scripts\python ai/trainer/sta_run.py rehearsal
 ```
 
 - 마지막에 「리허설이 끝까지 돌았습니다」가 나오면 이 PC에서 측정·재계산이 된다.
 - 저장소에 있는 수조 사진 12장을 쓴다. **여기서 나오는 수치(mAP 0.0008 등)는 성적이 아니다** — 공개 데이터셋으로
   학습한 모델을 현장 수조 사진에 돌린 값이다. 묶음 `sta_리허설/` 은 보내지 않는다.
-- `sha256sum` 이 없다는 오류가 나면 시험 PC가 macOS/Windows 기본 셸이다 → 실행순서 문서의 「시험 PC 조건」 참고.
 
 ### ② 원본 데이터셋 2종 내려받기
 
@@ -38,15 +38,15 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[edge]"
 
 | 받을 폴더 | 권장 위치 |
 |---|---|
-| `03. shrimp_cf/shrimp_cf.v1i.yolov8` | `~/sta_data/블루/shrimp_cf.v1i.yolov8` |
-| `04. Counting PL/Counting PL.v1i.yolov8` | `~/sta_data/블루/Counting PL.v1i.yolov8` |
+| `03. shrimp_cf/shrimp_cf.v1i.yolov8` | 꾸러미의 `원본데이터/shrimp_cf.v1i.yolov8` |
+| `04. Counting PL/Counting PL.v1i.yolov8` | 꾸러미의 `원본데이터/Counting PL.v1i.yolov8` |
 
 `yolov11`·`coco` 판이 아니라 **`yolov8` 판**이어야 한다.
 
 ### ③ 제출 묶음 만들기 + 사전 측정 (11-18 18:00 전)
 
-```bash
-./ai/trainer/run_test_eval.sh ~/sta_data/블루/shrimp_cf.v1i.yolov8 "$HOME/sta_data/블루/Counting PL.v1i.yolov8"
+```
+PY ai/trainer/sta_run.py prepare "../원본데이터/shrimp_cf.v1i.yolov8" "../원본데이터/Counting PL.v1i.yolov8"
 ```
 
 확인할 것
@@ -55,7 +55,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[edge]"
 - [ ] `sta_블루스타트업/03_최종결과.json` 의 `판정` — **기준에 못 미쳐도 임계값·설정을 바꾸지 않는다.** 그대로 알려 준다
 - [ ] `04_재계산_결과.txt` 마지막 줄 「결과: 모두 일치」
 - [ ] `00_시험대상_해시.txt` 에 `추적 파일 변경  없음`
-- [ ] 걸린 시간을 실행순서 문서의 「예상 소요시간」 표에 적는다
+- [ ] 걸린 시간을 절차서의 「소요시간」 표에 적는다
 - [ ] 증빙 `docs/result-03-bluestartup/evidence/08_탐지성능_test분할.json`·`…_이미지별.csv` 를 커밋한다(원본 이미지는 커밋하지 않는다)
 
 사전 측정 뒤에는 **시험이 끝날 때까지 `git pull`·코드 수정·묶음 폴더 손대기를 하지 않는다.**
@@ -70,7 +70,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[edge]"
 
 ### ⑥ 시험 당일
 
-[STA-시험당일-실행순서.md](STA-시험당일-실행순서.md) 대로. 한 줄로는 `./ai/trainer/run_test_eval.sh --rerun`.
+[STA-시험-절차서.md](STA-시험-절차서.md) 대로. 한 줄로는 `PY ai/trainer/sta_run.py rerun`.
 
 ## 3. 시험신청서 초안에서 고칠 문안
 
@@ -89,7 +89,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[edge]"
 | 시험환경 · OS/CPU/RAM/HDD | 【확인】 | `03_최종결과.json` 의 `실행_환경` 값 | 사전 측정 뒤에 채운다 |
 
 계수 오차율 기준(항목 2)을 「±20% 이내 비율」로도 판정하기로 하면, 시험기준·예상결과 문구와
-실행 인자(`EVAL_ARGS="--count-judge both --pass-count-within <비율>"`)를 함께 바꾼다.
+실행 인자(`sta_run.py … -- --count-judge both --pass-count-within <비율>`)를 함께 바꾼다.
 
 ## 4. 시험 당일 STA에 보낼 메일 초안
 
@@ -131,6 +131,6 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[edge]"
 
 - `ai/trainer/eval_detect.py` (수정)
 - `ai/trainer/recompute_detect.py` (새 파일)
-- `ai/trainer/run_test_eval.sh` (수정)
+- `ai/trainer/sta_run.py` (새 파일), `ai/trainer/run_test_eval.sh` (수정)
 - `tests/test_eval_detect.py` (수정)
-- `docs/STA-시험당일-실행순서.md`, `docs/STA-시험준비-체크리스트.md` (새 파일)
+- `docs/STA-시험-절차서.md`, `docs/STA-시험준비-체크리스트.md` (새 파일)

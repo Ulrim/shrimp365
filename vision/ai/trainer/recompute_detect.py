@@ -342,6 +342,11 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="로그만으로 탐지 성능을 다시 계산해 최종결과와 견준다")
     p.add_argument("--dir", required=True, help="eval_detect.py --log-dir 로 만든 폴더")
     p.add_argument("--out", default=None, help=f"비교 결과 저장 경로(기본: <dir>/{F_OUT})")
+    for stream in (sys.stdout, sys.stderr):          # 윈도우 콘솔(cp949)에서 죽지 않게
+        try:
+            stream.reconfigure(errors="replace")
+        except (AttributeError, ValueError):
+            pass
     args = p.parse_args(argv)
     log_dir = Path(args.dir)
     try:

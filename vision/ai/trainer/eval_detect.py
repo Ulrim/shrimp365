@@ -551,6 +551,7 @@ LOG_EXPLAIN = {
              "유효한 줄(값이 5개 이상인 줄)만 센 순서다 — 빈 줄은 건너뛴다."),
     "판정": "판정은 이 파일에 적힌 값(소수 넷째 자리로 반올림한 값)을 기준과 견준다.",
     "재계산": "python ai/trainer/recompute_detect.py --dir <이 폴더>",
+    "실행": "묶음 만들기·재실행은 python ai/trainer/sta_run.py (prepare | rerun | rehearsal)",
 }
 
 
@@ -588,6 +589,10 @@ def git_info() -> dict:
 
     head = run("rev-parse", "HEAD")
     if not head:
+        stamp = VISION / "GIT_COMMIT"            # 꾸러미(저장소 밖 복사본)에 적어 둔 값
+        if stamp.exists():
+            return {"커밋": stamp.read_text(encoding="utf-8").strip(),
+                    "비고": "git 저장소 밖 — 꾸러미의 GIT_COMMIT 파일에 적힌 값"}
         return {"커밋": None, "비고": "git 저장소가 아니거나 git 을 찾지 못했습니다"}
     dirty = run("status", "--porcelain", "--untracked-files=no", "--", str(VISION))
     return {"커밋": head, "추적파일_변경_있음": bool(dirty)}
@@ -813,7 +818,7 @@ def write_logs(log_dir: Path, out: dict, rows: list[PerImage], details: list[dic
         "",
         f"git 커밋       {git.get('커밋') or '확인 불가 — ' + git.get('비고', '')}",
         *([f"추적 파일 변경  {'있음 ⚠' if git['추적파일_변경_있음'] else '없음'}"]
-          if git.get("커밋") else []),
+          if "추적파일_변경_있음" in git else [f"               ({git['비고']})"]),
         "",
         "코드 sha256 (vision/ 기준)",
         *(f"  {digest}  {name}" for name, digest in codes.items()),
@@ -867,6 +872,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
+    for stream in (sys.stdout, sys.stderr):          # 윈도우 콘솔(cp949)에서 죽지 않게
+        try:
+            stream.reconfigure(errors="replace")
+        except (AttributeError, ValueError):
+            pass
     args = parse_args(argv)
     if args.count_judge in ("within", "both") and args.pass_count_within is None:
         sys.exit("--count-judge within/both 에는 --pass-count-within 기준값이 필요합니다.")
