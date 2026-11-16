@@ -26,3 +26,6 @@ venv/
 .env
 *.key
 credentials*.json
+
+# STA 제출 묶음(시험셋·결과 로그) — 저장소에 올리지 않는다
+/sta_*/

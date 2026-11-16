@@ -20,6 +20,18 @@
     python scripts/benchmark_inference.py \
         --cache artifacts/dataset.pkl --models artifacts/weather \
         --out artifacts/benchmark --export-onnx
+
+STA 시험용 — 회차별 기록::
+
+    python scripts/benchmark_inference.py \
+        --cache artifacts/dataset.pkl --models artifacts/weather \
+        --out sta_ai노지/06_판단시간 \
+        --per-run-csv sta_ai노지/06_판단시간_회차별.csv
+
+``--per-run-csv`` 를 주면 회차마다 단계별 소요시간(ms)을 한 줄씩 적고, 그 값으로
+계산한 요약(평균·중앙값·p95·최대)과 실행 환경을 옆의 ``.요약.json`` 에 남긴다.
+``scripts/sta_recompute.py`` 가 이 CSV 만으로 요약값을 다시 계산해 대조한다.
+측정 방법은 그대로다 — 기록만 더한다.
 """
 
 from __future__ import annotations
@@ -35,12 +47,15 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from ofdf.action.journal import Journal, RiskJudgement, record_from_decision  # noqa: E402
 from ofdf.action.recommend import SensorState, decide  # noqa: E402
 from ofdf.features.derived import add_derived  # noqa: E402
 from ofdf.features.weather import build_features  # noqa: E402
 from ofdf.labels.risk import compose_compound, compound_reasons  # noqa: E402
+
+import sta_common  # noqa: E402
 
 BASE_RISKS = ["heat_dry", "rain_wet", "disease", "frost"]
 
@@ -72,6 +87,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--window", type=int, default=48,
                    help="피처 계산에 쓰는 과거 시간(구간 통계 최대 24시간 + 여유)")
     p.add_argument("--export-onnx", action="store_true")
+    p.add_argument("--per-run-csv", default=None,
+                   help="회차별 단계 소요시간(ms)을 적을 CSV 경로. 요약은 옆의 .요약.json 에 남긴다")
+    p.add_argument("--log", default=None, help="콘솔 출력을 이 파일 끝에 덧붙인다(05_실행로그.txt)")
     return p.parse_args()
 
 
@@ -202,8 +220,64 @@ def summarise(timings: list[float], n_models: int = 0) -> dict:
     }
 
 
+#: 회차별 CSV 의 열 — (열 이름, 측정 단계)
+PER_RUN_COLUMNS = [
+    ("피처 생성(ms)", "피처 생성"), ("모델 추론(ms)", "모델 추론(LightGBM)"),
+    ("판단근거(ms)", "판단근거 추출"), ("조치 결정(ms)", "조치 결정"),
+    ("이력 기록(ms)", "이력 기록"), ("끝에서 끝까지(ms)", "끝에서 끝까지"),
+]
+
+
+def write_per_run(path: Path, per_run: dict[str, list[float]], environment: dict) -> dict:
+    """회차별 소요시간을 CSV 로, 그 값으로 계산한 요약을 ``.요약.json`` 으로 적는다.
+
+    요약은 **CSV 에 적은 ms 값 그대로** 계산한다 — 로그만으로 다시 계산했을 때
+    같은 값이 나와야 하기 때문이다(`scripts/sta_recompute.py`).
+    """
+    table = pd.DataFrame({column: np.asarray(per_run[stage]) * 1000.0
+                          for column, stage in PER_RUN_COLUMNS})
+    table.insert(0, "회차", np.arange(1, len(table) + 1))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    table.to_csv(path, index=False, encoding="utf-8-sig", lineterminator="\n")
+
+    # 디스크에 적힌 값을 다시 읽어 요약한다(적는 과정의 자릿수 차이를 없앤다)
+    written = pd.read_csv(path, encoding="utf-8-sig")
+    stages = {
+        column: {
+            "평균(ms)": float(written[column].mean()),
+            "중앙값(ms)": float(written[column].median()),
+            "p95(ms)": float(np.percentile(written[column], 95)),
+            "최대(ms)": float(written[column].max()),
+        }
+        for column, _ in PER_RUN_COLUMNS
+    }
+    mean_ms = stages["끝에서 끝까지(ms)"]["평균(ms)"]
+    summary = {
+        "시험 항목": "AI 판단 시간 — 판단 1회(입력 → 판단 → 조치 결정 → 기록)",
+        "반복 횟수": int(len(written)),
+        "기준": {"평균(초) 이내": TARGET_SECONDS, "대상 열": "끝에서 끝까지(ms)"},
+        "판정": "적합" if mean_ms <= TARGET_SECONDS * 1000.0 else "부적합",
+        "단계별": stages,
+        "회차별 CSV": {"파일": path.name, "sha256": sta_common.sha256_file(path)},
+        "실행 환경": environment,
+        "커밋": sta_common.git_state(),
+    }
+    path.with_suffix(".요약.json").write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    return summary
+
+
 def main() -> int:
     args = parse_args()
+    if args.log:
+        with sta_common.Tee(args.log, append=True):
+            print("\n$ python scripts/benchmark_inference.py " + " ".join(sys.argv[1:]))
+            return run(args)
+    return run(args)
+
+
+def run(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
     horizons = [int(h) for h in args.horizons.split(",")]
@@ -215,8 +289,11 @@ def main() -> int:
         print(f"[오류] {args.models} 에 모델이 없습니다")
         return 1
 
+    environment = sta_common.environment()
     print(f"[환경] {platform.machine()} / Python {platform.python_version()} / "
           f"모델 {len(models)}개")
+    print(f"[환경] {environment['OS']} / CPU {environment['CPU']} "
+          f"({environment['CPU 코어 수']}코어) / LightGBM {environment['LightGBM']}")
     print(f"[설정] 반복 {args.repeats}회, 과거 창 {args.window}시간")
 
     # 실제 운영과 같은 모양의 입력을 만든다 — 최근 window 시간의 관측
@@ -227,6 +304,7 @@ def main() -> int:
     raw_window.index = pd.to_datetime(meta["ts"].iloc[start - args.window : start + 1].to_numpy())
 
     results: dict[str, dict] = {}
+    per_run: dict[str, list[float]] = {}      # 단계별 회차 기록(초) — --per-run-csv 용
 
     # ---- 1. 피처 생성 ----
     timings = []
@@ -235,6 +313,7 @@ def main() -> int:
         build_features(raw_window)
         timings.append(time.perf_counter() - begin)
     results["피처 생성"] = summarise(timings)
+    per_run["피처 생성"] = timings
 
     # ---- 2. 모델 추론 (LightGBM 네이티브) ----
     sample_frame = features_all.iloc[[start]]
@@ -245,6 +324,7 @@ def main() -> int:
             booster.predict(sample_frame[booster.feature_name()])
         timings.append(time.perf_counter() - begin)
     results["모델 추론(LightGBM)"] = summarise(timings, len(models))
+    per_run["모델 추론(LightGBM)"] = timings
 
     # ---- 3. 판단근거 추출 (SHAP 기여도) ----
     booster = next(iter(models.values()))
@@ -254,6 +334,7 @@ def main() -> int:
         booster.predict(sample_frame[booster.feature_name()], pred_contrib=True)
         timings.append(time.perf_counter() - begin)
     results["판단근거 추출"] = summarise(timings, 1)
+    per_run["판단근거 추출"] = timings
 
     # ---- 4. 조치 결정 ----
     levels = {"rain_wet": 2, "disease": 1, "frost": 2, "heat_dry": 0}
@@ -266,6 +347,7 @@ def main() -> int:
                compound_reasons=reasons)
         timings.append(time.perf_counter() - begin)
     results["조치 결정"] = summarise(timings)
+    per_run["조치 결정"] = timings
 
     # ---- 5. 이력 기록 ----
     import datetime
@@ -282,6 +364,7 @@ def main() -> int:
         ))
         timings.append(time.perf_counter() - begin)
     results["이력 기록"] = summarise(timings)
+    per_run["이력 기록"] = timings
 
     # ---- 6. 끝에서 끝까지 ----
     timings = []
@@ -307,6 +390,7 @@ def main() -> int:
                    predicted.get("frost", 0)))
         timings.append(time.perf_counter() - begin)
     results["끝에서 끝까지"] = summarise(timings, len(models))
+    per_run["끝에서 끝까지"] = timings
 
     # ---- ONNX ----
     onnx_table = None
@@ -355,8 +439,17 @@ def main() -> int:
     (out_dir / "benchmark.json").write_text(
         json.dumps({
             "환경": {"machine": platform.machine(), "python": platform.python_version()},
+            "실행 환경": environment,
             "목표_초": TARGET_SECONDS, "결과": results,
         }, ensure_ascii=False, indent=2), encoding="utf-8")
+    if args.per_run_csv:
+        summary = write_per_run(Path(args.per_run_csv), per_run, environment)
+        stage = summary["단계별"]["끝에서 끝까지(ms)"]
+        print(f"\n[회차별 기록] {args.per_run_csv} — {summary['반복 횟수']}회")
+        print(f"  끝에서 끝까지: 평균 {stage['평균(ms)']:.3f}ms / 중앙값 {stage['중앙값(ms)']:.3f}ms / "
+              f"p95 {stage['p95(ms)']:.3f}ms / 최대 {stage['최대(ms)']:.3f}ms")
+        print(f"  기준 평균 {TARGET_SECONDS:.0f}초({TARGET_SECONDS * 1000:,.0f}ms) 이내 → {summary['판정']}")
+        print(f"  요약: {Path(args.per_run_csv).with_suffix('.요약.json')}")
     print(f"\n산출물: {out_dir}")
     return 0
 
