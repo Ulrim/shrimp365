@@ -424,3 +424,28 @@ def test_prepare_extracts_model_zip_by_file_name(bundle):
     assert prepare.main(["--cache", str(bundle["cache"]), "--models", str(target),
                          "--hash-list", str(bundle["hash_list"]), "--model-zip", str(archive)]) == 0
     assert len(list(target.iterdir())) == len(list(bundle["models"].iterdir()))
+
+
+# --------------------------------------------------------------------------- 개선안 비교 실험
+
+def test_hourly_recall_experiment_compares_variants_without_test_set(bundle, capsys):
+    experiment = _load("experiment_hourly_recall")
+    out = bundle["work"] / "experiment"
+    before = {p.name: sta_common.sha256_file(p) for p in bundle["models"].iterdir()}
+    with pytest.MonkeyPatch.context() as patch:
+        for key, value in (("num_leaves", 15), ("learning_rate", 0.2), ("min_data_in_leaf", 20),
+                           ("num_threads", 1), ("seed", 1)):
+            patch.setitem(weather_risk.DEFAULT_PARAMS, key, value)
+        patch.setattr(weather_risk, "tune_decision_weights", lambda proba, y, **_: [1.0, 1.0, 1.0])
+        code = experiment.main(["--cache", str(bundle["cache"]), "--year-round-cache", str(bundle["cache"]),
+                                "--out", str(out), "--horizons", "3"])
+    assert code == 0
+    table = pd.read_csv(out / "hourly_recall_experiment.csv", encoding="utf-8-sig")
+    # 강우·과습 2 학습안 × 2 경계 단위 + 복합위험 2 × 3 점수 × 2
+    assert len(table) == 4 + 12
+    assert (table["구분"] == "현재 방식").sum() == 2
+    assert set(table["경계 선택 단위"]) == {"case", "hour"} and set(table["학습 자료"]) == {"season", "+연중"}
+    assert table["시간 단위 재현율"].between(0, 1).all()
+    assert "시험 2,242시간은 쓰지 않는다" in capsys.readouterr().out
+    # 모델 묶음은 건드리지 않는다
+    assert before == {p.name: sta_common.sha256_file(p) for p in bundle["models"].iterdir()}
