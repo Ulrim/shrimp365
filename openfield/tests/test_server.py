@@ -234,7 +234,8 @@ def test_pin_guessing_is_locked_out(panel):
     assert panel.config.site_settings().field_rules.soil_upper_limit == 90.0
 
 
-@pytest.mark.parametrize("query", ["to=9999-12-31", "to=0001-01-05", "from=1999-01-01&to=1999-01-31"])
+@pytest.mark.parametrize("query", [
+    "to=9999-12-31", "to=0001-01-05", "from=1999-01-01&to=1999-01-31"])
 def test_far_dates_are_400_not_500(panel, query):
     assert get_json(panel.start() + "/api/cases?" + query)[0] == 400
     assert get_json(panel.start() + "/api/report?month=9999-12")[0] == 400
