@@ -195,9 +195,16 @@ def check_models(check: Checklist, model_dir: Path, hash_list: Path, archive: Pa
             print(f"  {archive.name} 에서 {extract_models(archive, model_dir, hash_list)}개 파일을 풀었다 → {model_dir}")
         else:
             check.miss(f"zip 없음 — {archive}", "고정 모델 묶음 zip 경로를 확인한다")
-    if not model_dir.is_dir() or not any(model_dir.iterdir()):
+    if not archive and model_dir.is_dir():
+        # 모델 폴더에 zip 을 그대로 넣어 둔 경우 — 풀어서 쓴다
+        wanted = set(sta_common.read_hash_list(hash_list))
+        if not any((model_dir / name).exists() for name in wanted):
+            for found in sorted(model_dir.glob("*.zip")):
+                print(f"  {found.name} 에서 {extract_models(found, model_dir, hash_list)}개 파일을 풀었다")
+                break
+    if not model_dir.is_dir() or not any(p.suffix in (".txt", ".json", ".csv") for p in model_dir.iterdir()):
         check.miss(f"모델 폴더가 비어 있음 — {model_dir}",
-                   "보관한 OFDF_시험대상_5ff054f.zip 을 찾아 --model-zip 으로 넘긴다. "
+                   "보관한 OFDF_시험대상_5ff054f.zip 을 모델 폴더에 넣는다(또는 --model-zip 으로 넘긴다). "
                    "찾지 못하면 다시 학습하지 말고 멈춘다(모델 파일이 달라진다)")
         return
     actual, problems = sta_common.verify_model_hashes(model_dir, hash_list)
@@ -233,7 +240,7 @@ def main(argv: list[str] | None = None) -> int:
             for i, line in enumerate(check.todo, 1):
                 print(f"  {i}. {line}")
             return 1
-        print("모두 준비됐습니다. 다음: 예행연습 (sta_2_rehearsal)")
+        print("모두 준비됐습니다. 다음: 예행연습")
         return 0
 
 

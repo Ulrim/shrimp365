@@ -4,7 +4,7 @@
 - 대상 : 노지 대파 재해위험 판단 AI 모델 (ofdf 0.1.0, 시험 대상 커밋 `5ff054f`)
 - 실행 위치 : 시험 PC의 `openfield/` 디렉터리
 - 화면 공유 상태에서 **아래 명령을 위에서부터 그대로** 친다. 전체 30분 이내.
-- 설치·자료 준비·예행연습·당일 실행을 단계별 실행 파일로 따라 하는 절차는 `docs/STA-시험-절차서.md` 에 있다. 이 문서는 명령을 하나씩 칠 때 쓴다.
+- 시험 꾸러미(`scripts/sta_make_kit.py` 로 만든다)의 실행 파일 `1_setup` ~ `4_test` 로 따라 하는 절차는 `docs/STA-시험-절차서.md`(꾸러미의 `읽어_주세요`)에 있다. 이 문서는 명령을 하나씩 칠 때 쓴다.
 
 > 명령은 bash 기준이다. Windows PowerShell 에서는 줄 끝의 `\` 를 `` ` `` 로 바꾸거나 한 줄로 이어 친다.
 > `python` 이 3.11 이상인지 먼저 확인한다(`python --version`).
@@ -23,7 +23,7 @@
 시험셋 sha256 을 `reports/시험의뢰/STA평가_사전실행로그.md` 에 적는다. 하나라도 실패하면 그 단계에서 멈춘다.
 
 ```bash
-python scripts/sta_run_all.py --mode rehearsal      # 또는 sta_2_rehearsal.bat / ./sta_2_rehearsal.sh
+python scripts/sta_run_all.py --mode rehearsal      # 꾸러미에서는 3_rehearsal
 ```
 
 신청서 문구 정정안과 STA 문의 초안, 당일 설명 요지는 `docs/STA-신청서-정정안.md` 에 있다.
