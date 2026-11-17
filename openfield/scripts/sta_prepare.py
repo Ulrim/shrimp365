@@ -205,14 +205,14 @@ def check_models(check: Checklist, model_dir: Path, hash_list: Path, archive: Pa
     if not model_dir.is_dir() or not any(p.suffix in (".txt", ".json", ".csv") for p in model_dir.iterdir()):
         check.miss(f"모델 폴더가 비어 있음 — {model_dir}",
                    "보관한 OFDF_시험대상_5ff054f.zip 을 모델 폴더에 넣는다(또는 --model-zip 으로 넘긴다). "
-                   "찾지 못하면 다시 학습하지 말고 멈춘다(모델 파일이 달라진다)")
+                   "끝내 찾지 못하면 sta_retrain.py(꾸러미의 9_train_model)로 다시 학습해 새로 고정한다")
         return
     actual, problems = sta_common.verify_model_hashes(model_dir, hash_list)
     if problems:
         for line in problems[:12]:
             print(f"           {line}")
         check.miss(f"모델 묶음이 해시 목록과 다름({len(problems)}건)",
-                   "보관한 고정 모델 묶음으로 바꾼다. 다시 학습한 모델은 쓸 수 없다")
+                   "보관한 고정 모델 묶음으로 바꾼다. 보관본이 없으면 sta_retrain.py 로 새로 고정한다")
     else:
         check.ok(f"모델·경계 파일 {len(actual)}개 모두 {hash_list.name} 과 일치")
 

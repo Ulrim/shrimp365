@@ -168,6 +168,16 @@ def _cpu_model() -> str:
     except OSError:
         pass
     if platform.system() == "Windows":
+        try:        # 제품 이름(예: AMD Ryzen 7 7800X3D) — PROCESSOR_IDENTIFIER 는 계열 번호뿐이다
+            import winreg
+
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                                r"HARDWARE\DESCRIPTION\System\CentralProcessor\0") as key:
+                name = str(winreg.QueryValueEx(key, "ProcessorNameString")[0]).strip()
+            if name:
+                return name
+        except (ImportError, OSError):
+            pass
         return os.environ.get("PROCESSOR_IDENTIFIER", "") or platform.processor()
     if platform.system() == "Darwin":
         try:
@@ -184,7 +194,24 @@ def _memory_gb() -> float | None:
     try:
         return round(os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / 2**30, 1)
     except (AttributeError, ValueError, OSError):
-        return None
+        pass
+    if platform.system() == "Windows":
+        try:
+            import ctypes
+
+            class MemoryStatus(ctypes.Structure):
+                _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong)] + [
+                    (name, ctypes.c_ulonglong) for name in (
+                        "ullTotalPhys", "ullAvailPhys", "ullTotalPageFile", "ullAvailPageFile",
+                        "ullTotalVirtual", "ullAvailVirtual", "ullAvailExtendedVirtual")]
+
+            status = MemoryStatus()
+            status.dwLength = ctypes.sizeof(MemoryStatus)
+            if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+                return round(status.ullTotalPhys / 2**30, 1)
+        except (AttributeError, OSError):
+            pass
+    return None
 
 
 def environment() -> dict:

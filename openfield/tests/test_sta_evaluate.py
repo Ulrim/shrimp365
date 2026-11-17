@@ -409,7 +409,7 @@ def test_prepare_reports_ready_and_missing_items(bundle, capsys):
                          "--hash-list", str(bundle["hash_list"]), "--aaos-dir", str(empty / "aaos"),
                          "--agera5", str(empty / "agera5.csv")])
     out = capsys.readouterr().out
-    assert code == 1 and "남은 일 4건" in out and "다시 학습하지 말고" in out
+    assert code == 1 and "남은 일 4건" in out and "sta_retrain.py" in out
 
 
 def test_prepare_extracts_model_zip_by_file_name(bundle):
@@ -449,3 +449,47 @@ def test_hourly_recall_experiment_compares_variants_without_test_set(bundle, cap
     assert "시험 2,242시간은 쓰지 않는다" in capsys.readouterr().out
     # 모델 묶음은 건드리지 않는다
     assert before == {p.name: sta_common.sha256_file(p) for p in bundle["models"].iterdir()}
+
+
+# --------------------------------------------------------------------------- 모델 묶음을 잃었을 때
+
+def test_retrain_fixes_a_new_bundle_that_the_evaluation_accepts(bundle, capsys):
+    retrain = _load("sta_retrain")
+    work = bundle["work"] / "retrain"
+    models, hash_list, reference = work / "weather", work / "모델해시.md", work / "성능평가서.md"
+
+    def run(*extra):
+        with pytest.MonkeyPatch.context() as patch:
+            for key, value in (("num_leaves", 15), ("learning_rate", 0.2), ("min_data_in_leaf", 20),
+                               ("num_threads", 1), ("seed", 1)):
+                patch.setitem(weather_risk.DEFAULT_PARAMS, key, value)
+            patch.setattr(weather_risk, "tune_decision_weights", lambda proba, y, **_: [1.0, 1.3, 0.9])
+            return retrain.main(["--cache", str(bundle["cache"]), "--year-round-cache", str(bundle["cache"]),
+                                 "--models", str(models), "--hash-list", str(hash_list),
+                                 "--reference", str(reference), *extra])
+
+    # 성능평가서 표를 합성 묶음의 값으로 만든다 — 연중 학습 보강이 없는 값이라 다르게 나온다
+    table = pd.read_csv(bundle["models"] / "performance.csv", encoding="utf-8-sig")
+    columns = ["위험유형", "시계(h)", "시험 표본", "위험 표본", "평가단위", "판정 조치단위F1", "이벤트 탐지율"]
+    def as_markdown(frame):
+        rows = ["| " + " | ".join(columns) + " |", "|" + "---|" * len(columns)]
+        rows += ["| " + " | ".join(str(v) for v in r) + " |" for r in frame[columns].itertuples(index=False)]
+        return "# 성능평가서\n\n## 2. 기상 기반 위험판단 성능\n\n" + "\n".join(rows) + "\n\n### 2.1\n"
+    work.mkdir()
+    reference.write_text(as_markdown(table), encoding="utf-8")
+
+    assert run() in (0, 3)                                   # 묶음은 고정된다
+    assert (models / "performance.csv").exists() and "```" in hash_list.read_text(encoding="utf-8")
+    assert list(work.glob("OFDF_시험대상_5ff054f_*.zip"))
+
+    # 새 묶음의 값으로 쓴 성능평가서와는 모든 값이 같다
+    reference.write_text(as_markdown(pd.read_csv(models / "performance.csv", encoding="utf-8-sig")),
+                         encoding="utf-8")
+    assert retrain.compare(models / "performance.csv", reference)[0] == []
+
+    # 고정한 묶음을 평가 스크립트가 받아들인다(해시 대조·performance.csv 대조 통과)
+    assert sta_evaluate.main(["--cache", str(bundle["cache"]), "--models", str(models),
+                              "--out", str(work / "out"), "--hash-list", str(hash_list)]) == 0
+    # 일치하는 묶음이 이미 있으면 다시 학습하지 않는다
+    capsys.readouterr()
+    assert run() == 2 and "이미 있습니다" in capsys.readouterr().out

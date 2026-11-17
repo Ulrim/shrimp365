@@ -8,6 +8,7 @@
 
     읽어_주세요.md            한 장짜리 안내 (docs/STA-시험-절차서.md)
     1_setup  2_check  3_rehearsal  4_test    실행 파일 (.bat / .sh)
+    9_train_model                            모델 묶음을 잃어버렸을 때만
     model/      고정 모델 묶음을 넣는 곳 (비어 있음)
     data/       dataset.pkl 또는 원천자료를 넣는 곳 (비어 있음)
     program/    평가·재계산·판단시간 측정 프로그램 (판단 코드 src/ofdf 포함)
@@ -31,12 +32,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 PROGRAM_SCRIPTS = [
-    "sta_common.py", "sta_evaluate.py", "sta_recompute.py", "sta_prepare.py", "sta_run_all.py",
+    "sta_common.py", "sta_evaluate.py", "sta_recompute.py", "sta_prepare.py", "sta_run_all.py", "sta_retrain.py",
     "benchmark_inference.py", "train_weather.py", "experiment_hourly_recall.py",
 ]
 PROGRAM_FILES = [
     "requirements.txt", "pyproject.toml", "tests/test_sta_evaluate.py",
     "reports/시험의뢰/모델해시.md", "reports/시험의뢰/판단코드해시_5ff054f.txt",
+    "reports/성능평가서.md",
 ]
 REFERENCE = [
     "docs/STA-시험당일-실행순서.md", "docs/STA-신청서-정정안.md",
@@ -59,6 +61,10 @@ STEPS = [
      ["sta_run_all.py", "--mode", "testday", *PATHS, "--out", "{kit}result{sep}testday",
       "--seal-file", "{kit}result{sep}sealed_testset.sha256",
       "--prerun-log", "{kit}result{sep}testday_log.md"]),
+    # 고정 모델 묶음을 끝내 찾지 못했을 때만 쓴다
+    ("9_train_model", "ONLY IF THE MODEL BUNDLE IS LOST: retrain and fix a new bundle",
+     ["sta_retrain.py", *PATHS, "--aaos-dir", "{kit}data{sep}aaos",
+      "--agera5", "{kit}data{sep}" + AGERA5]),
 ]
 
 
