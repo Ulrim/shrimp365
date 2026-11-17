@@ -5,7 +5,7 @@
 import { useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutGrid, Users, Droplets, Radar, UserCog, Stethoscope, type LucideIcon } from "lucide-react"
+import { LayoutGrid, Users, Droplets, Radar, UserCog, Stethoscope, DatabaseBackup, type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ADMIN_PAGES, adminPageOf, type AdminAccess, type AdminPageKey } from "@/lib/admin-access"
 
@@ -16,6 +16,7 @@ const META: Record<AdminPageKey, { label: string; icon: LucideIcon }> = {
   control:     { label: "관제센터",   icon: Radar },
   managers:    { label: "매니저 관리", icon: UserCog },
   diagnostics: { label: "시스템 진단", icon: Stethoscope },
+  backup:      { label: "전체 백업",   icon: DatabaseBackup },
 }
 
 /** 화면 제목(셸 머리) — 메뉴 라벨과 같다. */

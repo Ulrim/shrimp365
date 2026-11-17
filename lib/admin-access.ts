@@ -8,7 +8,7 @@ import { isMonitorAccount, isTestAccount } from "@/lib/mock-data"
 /** 총관리자 이메일 — 기존 시스템 모니터링 화면과 같은 기준. */
 const SUPER_ADMIN_EMAIL = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || "kjs100184@gmail.com").trim().toLowerCase()
 
-export type AdminPageKey = "overview" | "users" | "readings" | "control" | "managers" | "diagnostics"
+export type AdminPageKey = "overview" | "users" | "readings" | "control" | "managers" | "diagnostics" | "backup"
 
 export type AdminAccess = { console: boolean } & Record<AdminPageKey, boolean>
 
@@ -28,6 +28,7 @@ export function isSuperAdminEmail(email?: string | null): boolean {
  *  | 관제센터    |   ✅    |  ✅   |   ✅    |      ✗       |
  *  | 매니저 관리 |    ✗    |   ✗   |   ✅    |      ✗       |
  *  | 시스템 진단 |    ✗    |  ✅   |   ✅    |      ✗       |
+ *  | 전체 백업   |    ✗    |   ✗   |   ✅    |      ✗       |
  *
  *  모니터·테스트 계정 열은 **덧붙이는** 권한이다 — role 이 없어도 목데이터
  *  화면(개요·사용자·수질 기록)은 열어 준다. role 로 얻은 권한(관제센터·진단 등)은 빼지
@@ -35,7 +36,7 @@ export function isSuperAdminEmail(email?: string | null): boolean {
  *  (그 화면들의 데이터는 어차피 서버가 role·이메일로 다시 거른다.) */
 export function adminAccess(user: AccessUser): AdminAccess {
   if (!user) {
-    return { console: false, overview: false, users: false, readings: false, control: false, managers: false, diagnostics: false }
+    return { console: false, overview: false, users: false, readings: false, control: false, managers: false, diagnostics: false, backup: false }
   }
   const isSuper = isSuperAdminEmail(user.email)
   const isMock = isMonitorAccount(user.email) || isTestAccount(user.email)
@@ -49,15 +50,18 @@ export function adminAccess(user: AccessUser): AdminAccess {
   const control = isAdmin || isManager
   const managers = isSuper
   const diagnostics = isAdmin
+  // 전체 백업 — 회원 전체의 데이터를 통째로 내려받는 화면이라 총관리자만.
+  const backup = isSuper
 
   return {
-    console: overview || users || readings || control || managers || diagnostics,
+    console: overview || users || readings || control || managers || diagnostics || backup,
     overview,
     users,
     readings,
     control,
     managers,
     diagnostics,
+    backup,
   }
 }
 
@@ -69,6 +73,7 @@ export const ADMIN_PAGES: { key: AdminPageKey; href: string }[] = [
   { key: "control", href: "/admin/control" },
   { key: "managers", href: "/admin/managers" },
   { key: "diagnostics", href: "/admin/diagnostics" },
+  { key: "backup", href: "/admin/backup" },
 ]
 
 /** 주소 → 화면 키. 콘솔 화면이 아니면(없는 하위 주소 등) null.
