@@ -92,3 +92,22 @@ def test_rejected_actions_keep_their_reason(tmp_path):
     )
     assert record.rejected
     assert all(item["rejected_by"] for item in record.rejected)
+
+
+def test_recorded_at_leads_the_line_and_drives_ranges(tmp_path, record):
+    """판단 시각은 줄 맨 앞에 적히고, 기간 조회는 그것으로 거른다."""
+    late = record_from_decision(
+        datetime.datetime(2025, 11, 1, 23, 0), "A", "v1", {}, [],
+        decide({"frost": 2}, SensorState(hour=23)),
+        recorded_at=datetime.datetime(2025, 11, 2, 0, 4, 9))
+    line = late.to_json()
+    assert line.startswith('{"recorded_at": "2025-11-02T00:04:09"')
+    assert json.loads(line)["schema_version"] == "1.1"
+    assert "recorded_at" not in json.loads(record.to_json())          # 없으면 1.0 모양 그대로
+
+    journal = Journal(tmp_path / "journal.jsonl")
+    journal.append(record)                    # 판단 시각 없음 — 관측 시각 11-01 23:00
+    journal.append(late)                      # 관측 11-01 23:00, 판단 11-02 00:04
+    assert [r["timestamp"] for r in journal.read_range("2025-11-02")] == ["2025-11-01T23:00:00"]
+    assert len(journal.read_range("2025-11-01", "2025-11-02")) == 1
+    assert journal.monthly_report(2025, 11)["판단 건수"] == 2

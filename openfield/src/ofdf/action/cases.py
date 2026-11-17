@@ -18,6 +18,7 @@ from collections import Counter
 from collections.abc import Iterable, Iterator
 from typing import Any
 
+from ofdf.action.journal import record_time
 from ofdf.labels.risk import EVENT_GAP_HOURS, RISK_LABELS_KO
 
 LEVEL_NAMES = {0: "정상", 1: "주의", 2: "경계"}
@@ -58,7 +59,7 @@ def _ordered(records: Iterable[dict]) -> Iterable[dict]:
     정렬하면 라즈베리파이의 화면 서버(메모리 상한 256MB)가 죽는다.
     """
     if isinstance(records, (list, tuple)):
-        return sorted(records, key=lambda r: str(r.get("timestamp")))
+        return sorted(records, key=record_time)
     return records
 
 
@@ -76,7 +77,7 @@ class _CaseBuilder:
         self.done: list[dict] = []
 
     def add(self, record: dict) -> None:
-        moment = _parse(record.get("timestamp"))
+        moment = _parse(record_time(record))
         if moment is None:
             return
         for judgement in record.get("judgements", []):
@@ -178,12 +179,12 @@ def risk_cases(records: Iterable[dict], *, risk: str | None = None) -> list[dict
 
 
 #: 판단 기록이 이보다 오래 끊겼으면 제어기가 꺼져 있었던 것으로 본다(분).
-#:
-#: 이력의 시각은 판단 주기(5분)가 아니라 **관측 자료의 시간 칸**이다 — 한 시간
-#: 동안의 판단 열두 건이 같은 시각으로 적히고, 이어지는 두 줄의 차이는 0분
-#: 아니면 60분이다. 60분 이하로 잡으면 정각이 바뀔 때마다 '꺼졌다 켜졌다'로
-#: 읽혀 밤새 이어진 명령이 시간마다 한 번씩 세어진다.
-OUTAGE_MINUTES = 90
+#: 판단 주기가 5분이므로 여섯 번 연속 빠진 셈이다.
+OUTAGE_MINUTES = 30
+#: 판단 시각(recorded_at)이 없는 1.0 기록의 기준. 그 기록의 시각은 관측 자료의
+#: 시간 칸이라 이어지는 두 줄의 차이가 0분 아니면 60분이다. 30분으로 재면
+#: 정각마다 '꺼졌다 켜졌다'로 읽혀 밤새 이어진 명령이 시간마다 세어진다.
+OUTAGE_MINUTES_HOURLY = 90
 
 
 class _CommandCounter:
@@ -193,14 +194,17 @@ class _CommandCounter:
         self.counts: Counter = Counter()
         self._previous: set[str] = set()
         self._last: datetime.datetime | None = None
+        self._last_precise = False
 
     def add(self, record: dict) -> None:
-        moment = _parse(record.get("timestamp"))
+        moment = _parse(record_time(record))
+        precise = bool(record.get("recorded_at"))
         if moment is not None:
+            limit = OUTAGE_MINUTES if precise and self._last_precise else OUTAGE_MINUTES_HOURLY
             if (self._last is not None
-                    and moment - self._last > datetime.timedelta(minutes=OUTAGE_MINUTES)):
+                    and moment - self._last > datetime.timedelta(minutes=limit)):
                 self._previous = set()
-            self._last = moment
+            self._last, self._last_precise = moment, precise
         current = {
             _label(a) for a in record.get("executed", [])
             if a.get("device") not in NON_CONTROL_DEVICES
@@ -242,7 +246,7 @@ def monthly_summary(records: Iterable[dict], year: int, month: int) -> dict:
         total += 1
         builder.add(record)
         commands.add(record)
-        day = str(record.get("timestamp", ""))[:10]
+        day = record_time(record)[:10]
         entry = daily.setdefault(day, {"date": day, "records": 0, "levels": {}})
         entry["records"] += 1
         for judgement in record.get("judgements", []):
@@ -384,7 +388,10 @@ def judgements_csv_lines(records: Iterable[dict], label=str) -> Iterator[str]:
     위험이 없던 주기도 한 줄로 남긴다(위험유형 칸이 빈다). '그 시각에
     제어기가 돌고 있었고 정상이라고 판단했다'는 것도 자료이기 때문이다.
     """
-    header = (["시각", "지점", "모델 버전", "운전모드", "위험유형", "등급", "신뢰도",
+    # 판단 시각은 판단을 내린 때, 관측 시각은 판단에 쓴 자료의 시간 칸이다.
+    # 1.0 기록은 판단 시각이 없어 둘이 같다.
+    header = (["판단 시각", "관측 시각", "지점", "모델 버전", "운전모드", "위험유형", "등급",
+               "신뢰도",
                "예상시점", "판단근거 1", "판단근거 2", "판단근거 3"]
               + [name for _, name in INPUT_COLUMNS]
               + ["실행 조치", "거부 조치", "농가 응답"])
@@ -402,7 +409,7 @@ def judgements_csv_lines(records: Iterable[dict], label=str) -> Iterator[str]:
                        f"{'승인' if r.get('response') == 'approve' else '거부'}"
                        for r in record.get("user_responses", []))]
             )
-            head = [record.get("timestamp"), record.get("station"),
+            head = [record_time(record), record.get("timestamp"), record.get("station"),
                     record.get("model_version"), record.get("operating_mode")]
             judgements = record.get("judgements") or [None]
             for judgement in judgements:
@@ -425,7 +432,7 @@ def control_csv(records: Iterable[dict]) -> str:
 
 def control_csv_lines(records: Iterable[dict]) -> Iterator[str]:
     """제어 이력 — 조치 하나가 한 줄(화면 M3 과 같은 내용)."""
-    header = ["시각", "계층", "장치", "명령", "결과", "사유", "위험유형"]
+    header = ["판단 시각", "계층", "장치", "명령", "결과", "사유", "위험유형"]
 
     def rows():
         for record in _ordered(records):
@@ -442,7 +449,7 @@ def control_csv_lines(records: Iterable[dict]) -> Iterator[str]:
                     result, reason = "권고", action.get("reason", "")
                 kinds = " + ".join(RISK_LABELS_KO.get(k, k)
                                    for k in _kinds(action.get("risk_type")))
-                yield [record.get("timestamp"), f"L{action.get('layer', '')}",
+                yield [record_time(record), f"L{action.get('layer', '')}",
                        action.get("device"), action.get("command"), result, reason, kinds]
 
     return _csv_lines(header, rows())

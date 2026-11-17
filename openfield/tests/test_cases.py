@@ -17,7 +17,8 @@ INSTALLED = frozenset({"관수밸브", "야간피복"})
 
 
 def make(when: datetime.datetime, levels: dict[str, int], *, confidence=0.9,
-         responses: dict | None = None, **sensor) -> dict:
+         responses: dict | None = None, recorded_at: datetime.datetime | None = None,
+         **sensor) -> dict:
     decision = decide(levels, SensorState(hour=when.hour, **sensor),
                       confidence={r: confidence for r in levels}, installed_devices=INSTALLED)
     applied = apply_user_responses(decision, responses or {})
@@ -29,7 +30,7 @@ def make(when: datetime.datetime, levels: dict[str, int], *, confidence=0.9,
     ]
     record = record_from_decision(when, "실증포장", "ofdf-weather-0.1.0",
                                   {"t_air": 2.0, "canopy_temp": -0.4}, judgements, decision,
-                                  user_responses=applied)
+                                  user_responses=applied, recorded_at=recorded_at)
     return json.loads(record.to_json())
 
 
@@ -156,10 +157,14 @@ def test_cases_csv(month):
 def test_judgements_csv_keeps_normal_cycles(month):
     rows = parse(cases.judgements_csv(month, label=lambda name: f"[{name}]"))
     assert len(rows) == len(month) + 1                         # 위험이 하나씩이라 판단당 한 줄
-    normal = [r for r in rows[1:] if r[5] == "정상"]
-    assert len(normal) == 6 and normal[0][4] == ""
-    risky = next(r for r in rows[1:] if r[5] == "경계")
-    assert risky[8].startswith("[canopy_temp]=-0.80") and "기여 +1.50" in risky[8]
+    head = rows[0]
+    level, kind, first = head.index("등급"), head.index("위험유형"), head.index("판단근거 1")
+    normal = [r for r in rows[1:] if r[level] == "정상"]
+    assert len(normal) == 6 and normal[0][kind] == ""
+    risky = next(r for r in rows[1:] if r[level] == "경계")
+    assert risky[first].startswith("[canopy_temp]=-0.80") and "기여 +1.50" in risky[first]
+    # 1.0 기록(판단 시각 없음)은 판단 시각 칸에 관측 시각이 들어간다
+    assert risky[head.index("판단 시각")] == risky[head.index("관측 시각")]
     assert risky[rows[0].index("기온(℃)")] == "2.0"
 
 
@@ -245,3 +250,44 @@ def test_hourly_stamps_do_not_inflate_command_count():
     assert cases.new_commands(records)["야간피복 야간 피복 전개"] == 1
     case = cases.risk_cases(records)[0]
     assert case["records"] == 48 and case["durationMinutes"] == 180
+
+
+def live_night(day: int, hour: int, steps: int, levels, **kwargs) -> list[dict]:
+    """현장 제어기가 실제로 적는 모양 — 관측 시각은 시간 칸, 판단 시각은 5분마다."""
+    start = datetime.datetime(2026, 11, day, hour)
+    out = []
+    for i in range(steps):
+        decided = start + datetime.timedelta(minutes=5 * i, seconds=7)
+        out.append(make(decided.replace(minute=0, second=0), levels,
+                        recorded_at=decided, **kwargs))
+    return out
+
+
+def test_recorded_time_gives_minute_accurate_cases():
+    """판단 시각이 있으면 사례의 시작·끝·지속시간이 분 단위로 맞는다."""
+    records = live_night(3, 22, 7, {"frost": 2})                 # 22:00 ~ 22:30, 판단 7건
+    case = cases.risk_cases(records)[0]
+    assert case["start"] == "2026-11-03T22:00" and case["end"] == "2026-11-03T22:30"
+    assert case["durationMinutes"] == 30 and case["records"] == 7
+    # 관측 시각만 보면 일곱 건이 모두 22:00 이라 길이가 0 이었다
+    assert all(r["timestamp"] == "2026-11-03T22:00:00" for r in records)
+
+
+def test_recorded_time_detects_short_outage():
+    """판단 시각이 있으면 30분 넘는 끊김을 알아본다(관측 시각만 있을 때는 90분)."""
+    before = live_night(3, 22, 3, {"frost": 2})                  # 22:00 ~ 22:10
+    after = live_night(3, 23, 3, {"frost": 2})                   # 23:00 ~ 23:10 — 50분 끊김
+    assert cases.new_commands(before + after)["야간피복 야간 피복 전개"] == 2
+    continuous = live_night(3, 22, 24, {"frost": 2})             # 두 시간 내리
+    assert cases.new_commands(continuous)["야간피복 야간 피복 전개"] == 1
+
+
+def test_csv_shows_both_times():
+    records = live_night(3, 22, 2, {"frost": 2})
+    rows = parse(cases.judgements_csv(records))
+    head = rows[0]
+    assert rows[1][head.index("판단 시각")] == "2026-11-03T22:00:07"
+    assert rows[2][head.index("판단 시각")] == "2026-11-03T22:05:07"
+    assert rows[2][head.index("관측 시각")] == "2026-11-03T22:00:00"
+    control = parse(cases.control_csv(records))
+    assert control[0][0] == "판단 시각" and control[-1][0] == "2026-11-03T22:05:07"

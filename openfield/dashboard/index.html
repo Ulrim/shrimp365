@@ -1293,8 +1293,8 @@ function showTab(which) {
 for (const name of TABS) $("tabbtn-" + name).addEventListener("click", () => showTab(name));
 
 const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-/* 이력의 시각은 시간 단위로 적힌다. 한 시간 안에서 끝난 사례는 시작과 끝이 같다. */
-const duration = (minutes) => minutes < 5 ? "1시간 미만"
+/* 판단 하나(5분)로 끝난 사례는 시작과 끝이 같다. */
+const duration = (minutes) => minutes < 5 ? "5분 미만"
   : minutes < 60 ? `${minutes}분`
   : `${Math.floor(minutes / 60)}시간${minutes % 60 ? " " + (minutes % 60) + "분" : ""}`;
 

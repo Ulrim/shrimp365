@@ -30,7 +30,7 @@ import numpy as np
 import pandas as pd
 
 from ofdf import __version__
-from ofdf.action.journal import Journal, RiskJudgement, record_from_decision
+from ofdf.action.journal import Journal, RiskJudgement, record_from_decision, record_time
 from ofdf.action.recommend import (
     CONFIDENCE_THRESHOLD,
     DEFAULT_FIELD_RULES,
@@ -715,7 +715,7 @@ def screen_history(journal: Journal, count: int = HISTORY_RECORDS) -> list[dict]
         for action in record.get("recommended", []):
             key = (action.get("device"), action.get("command"))
             history.append({
-                "time": record.get("timestamp"), "layer": action.get("layer"),
+                "time": record_time(record), "layer": action.get("layer"),
                 "device": action.get("device"), "command": action.get("command"),
                 "reason": action.get("reason", ""), "riskType": action.get("risk_type", ""),
                 "executed": key not in blocked and not action.get("advisory"),
@@ -724,6 +724,11 @@ def screen_history(journal: Journal, count: int = HISTORY_RECORDS) -> list[dict]
                 "userResponse": action.get("user_response"),
             })
     return history
+
+
+def wall_clock() -> datetime.datetime:
+    """판단을 내린 벽시계 시각(초 단위). 시험이 갈아 끼울 수 있게 함수로 둔다."""
+    return datetime.datetime.now().replace(microsecond=0)
 
 
 def write_dashboard(path: Path, payload: dict) -> None:
@@ -844,7 +849,7 @@ def run_once(
         {k: float(observations.iloc[-1][k])
          for k in ("t_air", "rh", "canopy_temp", "soil_moisture", "soil_index")
          if k in observations.columns and pd.notna(observations.iloc[-1][k])},
-        judgements, decision, user_responses=applied,
+        judgements, decision, user_responses=applied, recorded_at=wall_clock(),
     ))
 
     active = [f"{RISK_LABELS_KO[r]} {LEVEL_NAMES[l]}" for r, l in levels.items() if l > 0]

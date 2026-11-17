@@ -115,7 +115,7 @@ def test_bad_queries_are_refused(panel, query):
 
 
 @pytest.mark.parametrize("kind,first", [
-    ("cases", "사례번호"), ("judgements", "시각"), ("control", "시각")])
+    ("cases", "사례번호"), ("judgements", "판단 시각"), ("control", "판단 시각")])
 def test_csv_export(panel, kind, first):
     status, body, headers = call(panel.start() + f"/api/export/{kind}.csv")
     assert status == 200 and headers["Content-Type"].startswith("text/csv")

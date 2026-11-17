@@ -20,7 +20,20 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = "1.0"
+#: 1.1 — ``recorded_at``(판단을 내린 벽시계 시각)을 더했다.
+SCHEMA_VERSION = "1.1"
+
+
+def record_time(record: dict) -> str:
+    """기록이 언제 일어났는가 — 판단을 내린 시각, 없으면 관측 시각.
+
+    ``timestamp`` 는 판단에 쓴 **관측 자료의 시각**이고 시간 단위다. 제어기는
+    5분마다 판단하지만 자료가 시간 칸으로 모이므로, 한 시간의 판단 열두 건이
+    같은 ``timestamp`` 를 가진다. 그래서 사례의 길이, 명령이 나간 시각, 제어
+    이력은 ``recorded_at``(판단을 내린 벽시계 시각, 스키마 1.1)으로 잰다.
+    1.0 기록에는 그것이 없으므로 관측 시각으로 물러선다.
+    """
+    return str(record.get("recorded_at") or record.get("timestamp") or "")
 
 
 @dataclass
@@ -55,10 +68,12 @@ class DecisionRecord:
     다시 설명할 수 있어야 한다.
     """
 
-    timestamp: str
+    timestamp: str                         # 판단에 쓴 관측 자료의 시각(시간 단위)
     station: str
     model_version: str
     schema_version: str = SCHEMA_VERSION
+    #: 판단을 내린 벽시계 시각(초 단위). 화면·리포트·내보내기는 이것으로 잰다.
+    recorded_at: str | None = None
 
     inputs: dict[str, float] = field(default_factory=dict)
     judgements: list[RiskJudgement] = field(default_factory=list)
@@ -77,7 +92,13 @@ class DecisionRecord:
     outcome: dict[str, Any] | None = None  # 실제 제어·환경 결과(사후 기록)
 
     def to_json(self) -> str:
-        return json.dumps(asdict(self), ensure_ascii=False)
+        data = asdict(self)
+        recorded = data.pop("recorded_at")
+        if recorded:
+            # 줄 맨 앞에 둔다 — Journal.iter_range 가 JSON 을 풀지 않고 이 글자만
+            # 보고 기간 밖의 줄을 건너뛴다.
+            data = {"recorded_at": recorded, **data}
+        return json.dumps(data, ensure_ascii=False)
 
 
 def record_from_decision(
@@ -90,6 +111,7 @@ def record_from_decision(
     *,
     vision: dict[str, Any] | None = None,
     user_responses: list[dict[str, Any]] | None = None,
+    recorded_at: datetime | None = None,
 ) -> DecisionRecord:
     """:class:`ofdf.action.recommend.Decision` 을 기록 형식으로 바꾼다.
 
@@ -137,6 +159,7 @@ def record_from_decision(
         vision=vision,
         user_approved=approved,
         user_responses=responses,
+        recorded_at=recorded_at.isoformat(timespec="seconds") if recorded_at else None,
     )
 
 
@@ -169,10 +192,13 @@ class Journal:
     def read_range(self, start: str | None = None, end: str | None = None) -> list[dict]:
         """``start <= 시각 < end`` 인 기록만 읽는다(ISO 8601 문자열, 한쪽 생략 가능).
 
+        시각은 :func:`record_time` 이다 — 판단을 내린 시각, 없으면 관측 시각.
+
         이력은 5분에 한 줄씩 쌓여 한 달이면 8천 줄을 넘는다. 화면이 한 달치를
         물을 때마다 일 년치를 전부 풀어 읽으면 라즈베리파이가 버겁다. 시각은
-        줄 맨 앞에 고정 길이로 적히므로(``{"timestamp": "2025-11-01T23:00:00"``),
-        기간 밖의 줄은 JSON 을 풀지 않고 글자 비교만으로 건너뛴다.
+        줄 맨 앞에 고정 길이로 적히므로(``{"recorded_at": "2025-11-01T23:05:12"``,
+        1.0 기록은 ``{"timestamp": ...``), 기간 밖의 줄은 JSON 을 풀지 않고 글자
+        비교만으로 건너뛴다.
         """
         return list(self.iter_range(start, end))
 
@@ -180,13 +206,16 @@ class Journal:
         """:meth:`read_range` 와 같되 한 건씩 낸다 — 긴 기간을 메모리에 쌓지 않는다."""
         if not self.path.exists():
             return
-        head = '{"timestamp": "'
+        heads = ('{"recorded_at": "', '{"timestamp": "')
         with self.path.open(encoding="utf-8", errors="replace") as handle:
             for line in handle:
                 line = line.strip()
                 if not line:
                     continue
-                if line.startswith(head):
+                # to_json 은 recorded_at 이 있으면 늘 맨 앞에 둔다. 그래서 줄의 첫
+                # 열쇠가 곧 record_time 이다(1.0 기록은 timestamp 가 맨 앞이다).
+                head = next((h for h in heads if line.startswith(h)), None)
+                if head:
                     stamp = line[len(head):len(head) + 19]
                     if (start and stamp < start[:19]) or (end and stamp >= end[:19]):
                         continue
@@ -196,7 +225,7 @@ class Journal:
                     continue
                 if not isinstance(record, dict):
                     continue
-                stamp = str(record.get("timestamp", ""))[:19]
+                stamp = record_time(record)[:19]
                 if (start and stamp < start[:19]) or (end and stamp >= end[:19]):
                     continue
                 yield record
@@ -227,7 +256,7 @@ class Journal:
         '유효 제어명령 60회 이상'은 사업계획서의 정량 성과목표다.
         """
         prefix = f"{year:04d}-{month:02d}"
-        records = [r for r in self.read() if r.get("timestamp", "").startswith(prefix)]
+        records = [r for r in self.read() if record_time(r).startswith(prefix)]
 
         risk_counts: dict[str, int] = {}
         for record in records:

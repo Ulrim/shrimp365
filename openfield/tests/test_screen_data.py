@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 
 import numpy as np
@@ -231,3 +232,18 @@ def test_broken_state_files_do_not_stop_the_cycle(edge, monkeypatch):
     monkeypatch.setattr(site, "active_responses",
                         lambda *a, **k: (_ for _ in ()).throw(PermissionError("state")))
     assert edge.run()["mode"] == "권고(농가 승인 필요)"
+
+
+def test_edge_records_decision_time(edge, monkeypatch):
+    """제어기는 판단마다 벽시계 시각을 적고, 제어 이력(M3)은 그 시각을 쓴다."""
+    force_frost(monkeypatch, 0.92)
+    clock = iter([datetime.datetime(2026, 11, 17, 22, 0, 3),
+                  datetime.datetime(2026, 11, 17, 22, 5, 2)])
+    monkeypatch.setattr(cli, "wall_clock", lambda: next(clock))
+    edge.run()
+    payload = edge.run()
+    records = edge.journal.read()
+    assert [r["recorded_at"] for r in records] == ["2026-11-17T22:00:03", "2026-11-17T22:05:02"]
+    assert records[0]["timestamp"] == records[1]["timestamp"]           # 관측 시각은 같은 칸
+    assert {h["time"] for h in payload["history"]} == {
+        "2026-11-17T22:00:03", "2026-11-17T22:05:02"}
