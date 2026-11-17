@@ -1,0 +1,22 @@
+verify-kpi                  OK
+verify-config               OK
+verify-ingestion            OK
+verify-pipeline             OK
+verify-alerts               OK
+verify-csv                  OK
+verify-baseline-readiness   OK
+verify-kpi-config-write     OK
+verify-contrast             OK
+verify-scope2-market        OK
+verify-report-template      OK
+verify-report-jobs          OK
+verify-experiments          OK
+── 전체 통과
+
+$ npx tsc --noEmit
+(오류 0)
+
+$ python3 raspberry-pi/verify.py
+모두 통과
+$ python3 raspberry-pi/verify-mrv.py
+모두 통과

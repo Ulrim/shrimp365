@@ -42,6 +42,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--season", default="9,10,11", help="대상 월. 'all' 이면 연중 전체"
     )
+    p.add_argument(
+        "--year-round-train", default="",
+        help="작기 밖(연중) 자료를 **학습에만** 더할 위험유형(쉼표 구분). "
+             "검증·시험·판정 경계 선택은 작기 자료만 쓴다",
+    )
+    p.add_argument("--year-round-cache", default=None, help="연중 데이터셋 캐시 pickle 경로")
     return p.parse_args()
 
 
@@ -58,6 +64,33 @@ def load_dataset(args: argparse.Namespace):
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_bytes(pickle.dumps(ds))
     return ds
+
+
+def load_off_season(args: argparse.Namespace, season: tuple[int, ...]):
+    """작기 밖 행(피처·라벨)을 읽는다 — 학습 보강용.
+
+    고온·건조처럼 작기 밖에 위험 사례가 훨씬 많은 유형은 같은 물리 현상의
+    표본을 더 보여 주면 등급 경계를 더 잘 배운다(시각 블록 교차검증에서
+    고온·건조 3등급 F1 이 1시간 0.859 → 0.890, 3시간 0.754 → 0.791).
+    작기 경계 3일(8월 29~31일, 12월 1~3일)은 뺀다 — 작기 시험 블록과 이어진
+    기상사례가 학습으로 새지 않게 하려는 것이다.
+    """
+    cache = Path(args.year_round_cache) if args.year_round_cache else None
+    if cache and cache.exists():
+        al = pickle.loads(cache.read_bytes())
+    else:
+        print("[데이터] 연중 자료 생성 중 ...")
+        al = build(args.aaos_dir, args.agera5, season_months=None)
+        if cache:
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_bytes(pickle.dumps(al))
+    ts = al.meta["ts"].reset_index(drop=True)
+    mon, day = ts.dt.month, ts.dt.day
+    lo, hi = min(season), max(season)
+    off = ~mon.isin(season)
+    edge = ((mon == lo - 1) & (day >= 29)) | ((mon == hi + 1) & (day <= 3))
+    keep = (off & ~edge).to_numpy()
+    return al.features.reset_index(drop=True)[keep], al.labels.reset_index(drop=True)[keep]
 
 
 def main() -> int:
@@ -90,6 +123,21 @@ def main() -> int:
     train_idx, valid_idx, test_idx = weather_risk.split_by_event(shared_groups, seed=args.seed)
     print(f"[분할] 학습 {len(train_idx):,} / 검증 {len(valid_idx):,} / 시험 {len(test_idx):,} "
           f"(기상사례 블록 {shared_groups.nunique():,}개 단위)")
+    # 판정 경계를 고를 표본 — 학습+검증 전체의 교차검증 예측. 시험셋은 쓰지 않는다.
+    dev_idx = np.sort(np.concatenate([train_idx, valid_idx]))
+    group_arr = shared_groups.to_numpy()
+    # 복합위험 점수용 구성 위험 확률 — 교차검증(oof)과 시험(test)
+    compound_parts: dict[int, dict[str, dict[str, np.ndarray]]] = {
+        h: {"oof": {}, "test": {}} for h in horizons
+    }
+
+    year_round = {r.strip() for r in args.year_round_train.split(",") if r.strip()}
+    off_X = off_labels = None
+    if year_round:
+        season = (9, 10, 11) if args.season == "all" else tuple(int(m) for m in args.season.split(","))
+        off_X, off_labels = load_off_season(args, season)
+        off_X = off_X[list(X.columns)]
+        print(f"[학습 보강] 작기 밖 {len(off_X):,} 시간을 학습에만 추가: {sorted(year_round)}")
 
     for risk in base_risks:
         events = ds.events[f"{risk}_event"].reset_index(drop=True)
@@ -111,9 +159,21 @@ def main() -> int:
             pred_logit = logistic.predict(X.iloc[test_idx])
 
             # 3) LightGBM — 변화추세·지속시간 포함 전체 피처
-            model = weather_risk.train_one(
-                X, y, train_idx, valid_idx, risk=risk, horizon=horizon
-            )
+            if risk in year_round:
+                # 학습 행에만 작기 밖 자료를 덧붙인다. 조기종료·판정 가중치는
+                # 작기 검증셋으로, 평가는 작기 시험셋으로 한다.
+                X_fit = pd.concat([X, off_X], ignore_index=True)
+                y_fit = np.concatenate([
+                    y, off_labels[key].fillna(0).astype(int).to_numpy()
+                ])
+                fit_idx = np.concatenate([train_idx, len(X) + np.arange(len(off_X))])
+                model = weather_risk.train_one(
+                    X_fit, y_fit, fit_idx, valid_idx, risk=risk, horizon=horizon
+                )
+            else:
+                model = weather_risk.train_one(
+                    X, y, train_idx, valid_idx, risk=risk, horizon=horizon
+                )
             pred_ai = model.predict(X.iloc[test_idx])
 
             y_test = y[test_idx]
@@ -129,25 +189,55 @@ def main() -> int:
             # 3등급 모델의 예측을 접는 것과 다르다 — 맞혀야 할 대상이 다르면
             # 학습도 그 대상으로 해야 한다.
             op_direct = None
+            level_ai = pred_ai
             if unit.startswith("2등급"):
                 binary_y = (y >= 1).astype(int)
-                direct = weather_risk.train_one(
-                    X, binary_y, train_idx, valid_idx,
-                    risk=risk, horizon=horizon, params={"num_class": 2},
+                # train_one 은 num_class 를 3 으로 고정한다. 라벨이 0/1 뿐이라
+                # 2번 등급 확률은 0 에 가깝고, 판정은 P(주의 이상)=p1+p2 로 한다.
+                # 전용학습 = 학습+검증 5겹 교차검증의 접힘 모델 앙상블.
+                # 경계를 교차검증 예측에서 고르므로, 판정도 그 접힘 모델들의
+                # 평균으로 한다(weather_risk.ensemble_risk_probability).
+                oof, members = weather_risk.oof_risk_proba(
+                    X, binary_y, dev_idx, group_arr,
+                    risk=risk, horizon=horizon, return_models=True,
                 )
-                op_direct = metrics.binary_score(
-                    binary_y[test_idx], direct.predict(X.iloc[test_idx])
+                # 놓침 방지율은 사업계획서 정의대로 사례 단위로 지킨다
+                threshold = weather_risk.tune_risk_threshold(
+                    oof[dev_idx], binary_y[dev_idx], events=events.iloc[dev_idx].to_numpy()
                 )
-                weather_risk.save(direct, out_dir / f"model_{key}_binary.txt")
+                print(f"    [경계] {tag} 전용학습 P(위험) >= {threshold:.2f} "
+                      f"(교차검증 {len(dev_idx):,}시간에서 선택)")
+                p_test = weather_risk.ensemble_risk_probability(members, X.iloc[test_idx])
+                pred_direct = (p_test >= threshold).astype(int)
+                if risk in ("rain_wet", "frost"):
+                    compound_parts[horizon]["oof"][risk] = oof
+                    compound_parts[horizon]["test"][risk] = p_test
+                op_direct = metrics.binary_score(binary_y[test_idx], pred_direct)
+                for stale in out_dir.glob(f"model_{key}_binary.txt"):
+                    stale.unlink()
+                weather_risk.save_ensemble(
+                    members, out_dir, f"model_{key}_binary", risk_threshold=threshold
+                )
+                # 현장 판정(cli.judge)과 같은 규칙 — 위험 여부는 전용학습,
+                # 주의·경계 구분은 3등급 모델. 복합위험 조합도 이 등급을 쓴다.
+                level_ai = weather_risk.combine_binary(pred_direct, pred_ai)
 
+            # 놓침방지·오경보·사전알림은 **현장이 실제로 내는 판정**(level_ai)으로
+            # 잰다. 전용학습이 있는 유형에서 3등급 모델 값을 쓰면 F1 과 재현율이
+            # 서로 다른 모델의 수치가 된다.
+            s_dep = metrics.score(y_test, level_ai)
             results["단순 기준값 규칙"][tag] = s_rule
             results["로지스틱 회귀(현재값)"][tag] = s_logit
-            results["LightGBM(AI)"][tag] = s_ai
+            results["LightGBM(AI)"][tag] = s_dep
 
-            gain = metrics.improvement(s_rule, s_ai)
-            detection = metrics.event_detection(y_test, pred_ai, events.iloc[test_idx])
+            gain = metrics.improvement(s_rule, s_dep)
+            detection = metrics.event_detection(y_test, level_ai, events.iloc[test_idx])
             lead = metrics.lead_time_minutes(
-                meta.iloc[test_idx]["ts"], y_test, pred_ai, events.iloc[test_idx]
+                meta.iloc[test_idx]["ts"], y_test, level_ai, events.iloc[test_idx]
+            )
+            pre = metrics.pre_onset_detection(
+                meta.iloc[test_idx]["ts"], meta.iloc[test_idx]["station"], level_ai,
+                events.iloc[test_idx], horizon,
             )
 
             rows.append(
@@ -158,32 +248,49 @@ def main() -> int:
                     "위험 표본": s_ai.n_risk,
                     "규칙 MacroF1": round(s_rule.macro_f1, 3),
                     "로지스틱 MacroF1": round(s_logit.macro_f1, 3),
-                    "AI MacroF1": round(s_ai.macro_f1, 3),
+                    "3등급 MacroF1": round(s_ai.macro_f1, 3),
+                    "AI MacroF1": round(s_dep.macro_f1, 3),
                     "평가단위": unit.split("(")[0],
                     "규칙 조치단위F1": round(op_rule.macro_f1, 3),
                     "AI 조치단위F1": round(op_ai.macro_f1, 3),
                     "전용학습 조치단위F1": round(op_direct.macro_f1, 3) if op_direct else None,
+                    # 목표 판정에 쓰는 값 — 현장 판정(level_ai)의 조치단위 F1
+                    "판정 조치단위F1": round((op_direct or op_ai).macro_f1, 3),
                     "조치단위 개선(%p)": round(
                         ((op_direct or op_ai).macro_f1 - op_rule.macro_f1) * 100, 1
                     ),
-                    "AI 놓침방지율": round(s_ai.risk_recall, 3),
+                    "AI 놓침방지율": round(s_dep.risk_recall, 3),
                     "규칙 놓침방지율": round(s_rule.risk_recall, 3),
-                    "AI 오경보율": round(s_ai.false_alarm_rate, 3),
+                    "AI 오경보율": round(s_dep.false_alarm_rate, 3),
                     "MacroF1 개선(%p)": round(gain["macro_f1_gain_pp"], 1),
                     "놓침방지 개선(%p)": round(gain["risk_recall_gain_pp"], 1),
                     "이벤트 탐지율": round(detection["detection_rate"], 3),
+                    "사례 수": detection["n_events"], "탐지 사례": detection["detected"],
+                    "규칙 이벤트 탐지율": round(metrics.event_detection(
+                        y_test, pred_rule, events.iloc[test_idx])["detection_rate"], 3),
+                    "시작 전 탐지율": round(pre["rate"], 3), "시작 전 평가 사례": pre["n_events"],
                     "사전알림(분)": round(lead["mean_minutes"], 0) if lead["n"] else None,
                 }
             )
 
-            component_preds[horizon][risk] = pred_ai
+            component_preds[horizon][risk] = level_ai
+            if risk == "disease":
+                # 복합위험 점수에 들어가는 병해 확률도 같은 이유로 접힘 앙상블을 쓴다.
+                d_oof, d_members = weather_risk.oof_risk_proba(
+                    X, y, dev_idx, group_arr, risk=risk, horizon=horizon, return_models=True,
+                )
+                compound_parts[horizon]["oof"][risk] = d_oof
+                compound_parts[horizon]["test"][risk] = weather_risk.ensemble_risk_probability(
+                    d_members, X.iloc[test_idx]
+                )
+                weather_risk.save_ensemble(d_members, out_dir, f"model_{key}_risk")
 
             weather_risk.save(model, out_dir / f"model_{key}.txt")
             explanations[key] = weather_risk.feature_importance(model).to_dict("records")
             direct_text = f" / 전용학습 {op_direct.macro_f1:.3f}" if op_direct else ""
             print(f"  [완료] {tag}: 3등급 F1 {s_ai.macro_f1:.3f} / "
                   f"조치단위 F1 {op_ai.macro_f1:.3f}{direct_text} "
-                  f"({unit.split('(')[0].strip()}) / 놓침방지 {s_ai.risk_recall:.3f}")
+                  f"({unit.split('(')[0].strip()}) / 놓침방지 {s_dep.risk_recall:.3f}")
 
     # ---- 복합위험: 구성 위험 예측 조합 ----
     for horizon in horizons:
@@ -194,7 +301,28 @@ def main() -> int:
         if (y_test >= 1).sum() == 0:
             continue
 
-        pred_ai = compose_compound(parts["rain_wet"], parts["disease"], parts["frost"])
+        probs = compound_parts[horizon]
+        scored = {"rain_wet", "disease", "frost"} <= probs["oof"].keys()
+        if scored:
+            y_all = ds.labels[f"compound_h{horizon}"].reset_index(drop=True).fillna(0).astype(int).to_numpy()
+            oof_score = weather_risk.compound_score(
+                probs["oof"]["rain_wet"], probs["oof"]["disease"], probs["oof"]["frost"]
+            )
+            c_events = ds.events["compound_event"].reset_index(drop=True)
+            threshold = weather_risk.tune_risk_threshold(
+                oof_score[dev_idx], (y_all[dev_idx] >= 1).astype(int),
+                events=c_events.iloc[dev_idx].to_numpy(),
+            )
+            weather_risk.save_compound_threshold(out_dir, horizon, threshold)
+            print(f"    [경계] 복합위험 {horizon}시간 점수 >= {threshold:.2f} (교차검증에서 선택)")
+            test_score = weather_risk.compound_score(
+                probs["test"]["rain_wet"], probs["test"]["disease"], probs["test"]["frost"]
+            )
+            pred_ai = weather_risk.compound_level(
+                test_score, threshold, parts["rain_wet"], parts["disease"], parts["frost"]
+            )
+        else:
+            pred_ai = compose_compound(parts["rain_wet"], parts["disease"], parts["frost"])
         pred_rule = states["compound"].iloc[test_idx].to_numpy()
 
         s_rule = metrics.score(y_test, pred_rule)
@@ -209,21 +337,32 @@ def main() -> int:
         gain = metrics.improvement(s_rule, s_ai)
         detection = metrics.event_detection(y_test, pred_ai, events.iloc[test_idx])
         lead = metrics.lead_time_minutes(meta.iloc[test_idx]["ts"], y_test, pred_ai, events.iloc[test_idx])
+        pre = metrics.pre_onset_detection(
+            meta.iloc[test_idx]["ts"], meta.iloc[test_idx]["station"], pred_ai,
+            events.iloc[test_idx], horizon,
+        )
         rows.append({
-            "위험유형": RISK_LABELS_KO["compound"] + "(조합)", "시계(h)": horizon,
+            "위험유형": RISK_LABELS_KO["compound"] + ("(점수)" if scored else "(조합)"),
+            "시계(h)": horizon,
             "시험 표본": s_ai.n_samples, "위험 표본": s_ai.n_risk,
             "규칙 MacroF1": round(s_rule.macro_f1, 3), "로지스틱 MacroF1": None,
+            "3등급 MacroF1": None,
             "AI MacroF1": round(s_ai.macro_f1, 3),
             "평가단위": unit.split("(")[0],
             "규칙 조치단위F1": round(op_rule.macro_f1, 3),
             "AI 조치단위F1": round(op_ai.macro_f1, 3),
             "전용학습 조치단위F1": None,
+            "판정 조치단위F1": round(op_ai.macro_f1, 3),
             "조치단위 개선(%p)": round((op_ai.macro_f1 - op_rule.macro_f1) * 100, 1),
             "AI 놓침방지율": round(s_ai.risk_recall, 3), "규칙 놓침방지율": round(s_rule.risk_recall, 3),
             "AI 오경보율": round(s_ai.false_alarm_rate, 3),
             "MacroF1 개선(%p)": round(gain["macro_f1_gain_pp"], 1),
             "놓침방지 개선(%p)": round(gain["risk_recall_gain_pp"], 1),
             "이벤트 탐지율": round(detection["detection_rate"], 3),
+            "사례 수": detection["n_events"], "탐지 사례": detection["detected"],
+            "규칙 이벤트 탐지율": round(metrics.event_detection(
+                y_test, pred_rule, events.iloc[test_idx])["detection_rate"], 3),
+            "시작 전 탐지율": round(pre["rate"], 3), "시작 전 평가 사례": pre["n_events"],
             "사전알림(분)": round(lead["mean_minutes"], 0) if lead["n"] else None,
         })
         print(f"  [완료] {tag}(조합): AI MacroF1 {s_ai.macro_f1:.3f} (규칙 {s_rule.macro_f1:.3f})")

@@ -1,0 +1,154 @@
+"""복합위험 점수 판정과 2등급 위험 경계 — 학습 평가와 현장 판정이 같은 규칙인지.
+
+성능평가서의 목표 판정은 전용학습 모델과 교차검증에서 고른 경계로 잰다.
+현장 장비(cli.judge)가 다른 규칙으로 돌면 시험에서 잰 성능이 현장 성능이
+아니게 된다. 이 시험은 그 둘이 어긋나지 않게 묶는다.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+
+from ofdf import cli
+from ofdf.models import weather_risk as wr
+
+
+def test_wilson_lower_is_below_point_estimate_and_tightens_with_n():
+    assert wr.wilson_lower(85, 100) < 0.85
+    assert wr.wilson_lower(850, 1000) > wr.wilson_lower(85, 100)
+    assert wr.wilson_lower(0, 0) == 0.0
+
+
+def test_tune_risk_threshold_keeps_recall_lower_bound():
+    rng = np.random.default_rng(0)
+    y = np.r_[np.ones(300, int), np.zeros(3000, int)]
+    score = np.r_[rng.uniform(0.3, 1.0, 300), rng.uniform(0.0, 0.7, 3000)]
+    t = wr.tune_risk_threshold(score, y)
+    pred = (score >= t).astype(int)
+    assert wr.wilson_lower(int(pred[y == 1].sum()), 300) >= wr.RISK_RECALL_FLOOR
+
+
+def test_compound_level_needs_score_and_escalates_on_component_warning():
+    score = np.array([0.1, 0.6, 0.6])
+    out = wr.compound_level(score, 0.5, [0, 1, 2], [0, 1, 1], [0, 0, 0])
+    assert out.tolist() == [0, 1, 2]
+
+
+class _Booster:
+    """cli.judge 가 쓰는 만큼만 흉내 낸 LightGBM 부스터."""
+
+    def __init__(self, proba):
+        self._p = np.asarray(proba, dtype=float)
+
+    def feature_name(self):
+        return ["x"]
+
+    def predict(self, row, pred_contrib=False):
+        if pred_contrib:
+            return np.zeros((1, 3 * 2))
+        return self._p.reshape(1, -1)
+
+
+def _models(threshold=None):
+    bucket = {
+        "heat_dry": (_Booster([0.9, 0.08, 0.02]), None),
+        "rain_wet": (_Booster([0.7, 0.2, 0.1]), None),          # 3등급만 보면 정상
+        "disease": (_Booster([0.2, 0.7, 0.1]), None),
+        "frost": (_Booster([0.95, 0.04, 0.01]), None),
+        # 접힘 앙상블 — 평균 P(위험) 0.6 / 0.1
+        f"rain_wet{cli.BINARY_SUFFIX}": (
+            [_Booster([0.5, 0.5, 0.0]), _Booster([0.3, 0.7, 0.0])], None, 0.5),
+        f"frost{cli.BINARY_SUFFIX}": ([_Booster([0.9, 0.1, 0.0])], None, 0.5),
+        f"disease{cli.RISKCV_SUFFIX}": [_Booster([0.2, 0.7, 0.1])],
+    }
+    if threshold is not None:
+        bucket[cli.COMPOUND_THRESHOLD_KEY] = threshold
+    return bucket
+
+
+def test_judge_uses_dedicated_binary_threshold_and_compound_score():
+    features = pd.DataFrame({"x": [1.0]})
+    levels, confidences, evidence = cli.judge(_models(threshold=0.3), features)
+    # 전용학습이 P(위험) 0.6 >= 0.5 → 3등급이 정상이어도 최소 주의
+    assert levels["rain_wet"] == 1
+    assert levels["frost"] == 0
+    # 복합 점수 0.6 x max(0.8, 0.1) = 0.48 >= 0.3 → 주의
+    assert levels["compound"] == 1
+    assert abs(evidence["compound"][0]["value"] - 0.48) < 1e-9
+    # 점수는 자동 실행 신뢰도에 섞이지 않는다
+    assert "compound" not in confidences
+
+
+def test_judge_without_compound_threshold_falls_back_to_level_rule():
+    features = pd.DataFrame({"x": [1.0]})
+    levels, _, _ = cli.judge(_models(threshold=None), features)
+    assert levels["compound"] == 1          # 과습 주의 + 병해 주의
+    levels_hi, _, _ = cli.judge(_models(threshold=0.9), features)
+    assert levels_hi["compound"] == 0       # 점수 0.48 < 0.9
+
+
+def test_judge_confidence_comes_from_the_model_that_decided():
+    features = pd.DataFrame({"x": [1.0]})
+    _, confidences, _ = cli.judge(_models(threshold=0.3), features)
+    # 강우·과습은 전용학습 P(위험) 0.6 으로 위험 판정 → 신뢰도 0.6 (3등급 p1 0.2 아님)
+    assert abs(confidences["rain_wet"] - 0.6) < 1e-9
+    # 저온·서리는 전용학습 P(위험) 0.1 로 정상 판정 → 신뢰도 0.9
+    assert abs(confidences["frost"] - 0.9) < 1e-9
+    # 전용학습이 없는 유형은 3등급 모델 확률 그대로
+    assert abs(confidences["disease"] - 0.7) < 1e-9
+
+
+def test_partial_deploy_without_binary_models_does_not_use_score_threshold():
+    features = pd.DataFrame({"x": [1.0]})
+    bucket = _models(threshold=0.9)
+    del bucket[f"frost{cli.BINARY_SUFFIX}"]
+    levels, _, _ = cli.judge(bucket, features)
+    # 경계 0.9 를 3등급 확률에 쓰지 않고 등급 조합으로 물러난다(과습 주의+병해 주의)
+    assert levels["compound"] == 1
+
+
+def test_shared_groups_put_all_stations_of_one_event_in_the_same_block():
+    """같은 시각의 기상사례는 지점이 달라도 한 블록 — 학습·시험에 쪼개지지 않는다."""
+    ts = pd.date_range("2024-10-01", periods=96, freq="h")
+    meta = pd.concat([pd.DataFrame({"station": s, "ts": ts}) for s in ("A", "B")], ignore_index=True)
+    rain = np.zeros(len(meta), dtype=int)
+    rain[40:44] = 1                      # A 지점만 40~43시에 위험
+    states = pd.DataFrame({"rain_wet": rain, "heat_dry": 0, "disease": 0, "frost": 0, "compound": 0})
+    g = wr.shared_group_keys(meta, states)
+    a, b = g[meta["station"] == "A"].to_numpy(), g[meta["station"] == "B"].to_numpy()
+    assert (a == b).all()                # 지점이 달라도 같은 시각은 같은 키
+    assert a[40] == a[28] == a[55]       # 앞뒤 12시간은 같은 블록
+    assert a[40] != a[27] and a[40] != a[56]
+    tr, va, te = wr.split_by_event(g, seed=0)
+    for t in np.unique(meta["ts"].to_numpy()):
+        rows = np.where(meta["ts"].to_numpy() == t)[0]
+        assert sum(np.isin(rows, part).all() for part in (tr, va, te)) == 1
+
+
+def test_threshold_with_events_counts_recall_per_event():
+    """사례 단위로 세면 사례당 한 번만 맞혀도 놓치지 않은 것 — 경계가 더 높게 잡힌다."""
+    rng = np.random.default_rng(1)
+    n_ev, per = 60, 10
+    y = np.r_[np.ones(n_ev * per, int), np.zeros(6000, int)]
+    ev = np.r_[np.repeat([f"e{i}" for i in range(n_ev)], per), np.full(6000, None, dtype=object)]
+    # 사례마다 한 시각만 점수가 높고 나머지는 낮다
+    s = rng.uniform(0.0, 0.3, len(y))
+    s[np.arange(n_ev) * per] = rng.uniform(0.8, 1.0, n_ev)
+    hourly = wr.tune_risk_threshold(s, y)
+    by_event = wr.tune_risk_threshold(s, y, events=ev)
+    assert by_event > hourly
+    hit = pd.Series((s >= by_event).astype(int)[: n_ev * per]).groupby(ev[: n_ev * per]).max()
+    assert wr.wilson_lower(int(hit.sum()), n_ev) >= wr.RISK_RECALL_FLOOR
+
+
+def test_pre_onset_detection_ignores_alerts_after_start():
+    from ofdf.evaluation import metrics
+    ts = pd.Series(pd.date_range("2024-10-01", periods=10, freq="h"))
+    st = pd.Series(["A"] * 10)
+    ev = pd.Series([None] * 5 + ["e1"] * 3 + [None] * 2, dtype=object)
+    late = np.array([0, 0, 0, 0, 0, 1, 1, 1, 0, 0])      # 시작한 뒤에만 경보
+    early = np.array([0, 0, 0, 1, 0, 0, 0, 0, 0, 0])     # 시작 2시간 전 경보
+    assert metrics.pre_onset_detection(ts, st, late, ev, 3)["rate"] == 0.0
+    assert metrics.pre_onset_detection(ts, st, early, ev, 3)["rate"] == 1.0
+    assert metrics.pre_onset_detection(ts, st, early, ev, 1)["rate"] == 0.0
