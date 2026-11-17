@@ -107,6 +107,8 @@ class PanelApi:
         #: 무거운 조회는 한 번에 하나만. 스레드마다 한 달치를 쥐면 금방 넘친다.
         self.heavy = threading.Lock()
         self._pin_lock = threading.Lock()
+        #: 설정은 읽고-고치고-쓴다. 두 화면이 동시에 저장하면 한쪽이 사라진다.
+        self._write_lock = threading.Lock()
         self._pin_failures = 0
         self._pin_locked_until = 0.0
 
@@ -282,15 +284,16 @@ class PanelApi:
         if not isinstance(payload, dict):
             raise ApiError(HTTPStatus.BAD_REQUEST, "설정값이 올바르지 않습니다")
         base = self.config.base_settings()
-        if payload.get("reset") is True:
-            site_mod.reset_overrides(state, base, source=source)
-            LOG.info("설정을 설정 파일 값으로 되돌렸다 (%s)", source)
-        else:
-            _, errors = site_mod.save_overrides(
-                state, base, payload.get("values"), source=source)
-            if errors:
-                raise ApiError(HTTPStatus.BAD_REQUEST, " · ".join(errors))
-            LOG.info("설정 변경 (%s): %s", source, sorted(payload.get("values") or {}))
+        with self._write_lock:
+            if payload.get("reset") is True:
+                site_mod.reset_overrides(state, base, source=source)
+                LOG.info("설정을 설정 파일 값으로 되돌렸다 (%s)", source)
+            else:
+                _, errors = site_mod.save_overrides(
+                    state, base, payload.get("values"), source=source)
+                if errors:
+                    raise ApiError(HTTPStatus.BAD_REQUEST, " · ".join(errors))
+                LOG.info("설정 변경 (%s): %s", source, sorted(payload.get("values") or {}))
         return self.settings()
 
     def respond(self, payload: dict) -> dict:
@@ -298,8 +301,9 @@ class PanelApi:
         if not isinstance(payload, dict):
             raise ApiError(HTTPStatus.BAD_REQUEST, "응답이 올바르지 않습니다")
         try:
-            site_mod.record_response(
-                state, str(payload.get("id") or ""), str(payload.get("response") or ""))
+            with self._write_lock:
+                site_mod.record_response(
+                    state, str(payload.get("id") or ""), str(payload.get("response") or ""))
         except ValueError as exc:
             raise ApiError(HTTPStatus.BAD_REQUEST, str(exc)) from None
         LOG.info("농가 응답: %s → %s", payload.get("id"), payload.get("response"))
@@ -310,6 +314,9 @@ class PanelHandler(SimpleHTTPRequestHandler):
     """화면 파일은 그대로 내보내고 ``/api/`` 만 따로 처리한다."""
 
     server_version = f"ofdf-panel/{__version__}"
+    #: 받다 만 채 멈춘 연결을 끊는 시간(초). 내보내기는 무거운 조회 잠금을 쥔 채
+    #: 줄을 보내므로, 멈춘 휴대폰 하나가 리포트·조회를 모두 막지 못하게 한다.
+    timeout = 30
     api: PanelApi                          # make_handler 가 채운다
 
     def log_message(self, fmt, *args):     # 표준 오류 대신 로거로

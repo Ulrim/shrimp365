@@ -104,7 +104,7 @@ def test_new_commands_forget_state_across_an_outage():
     """제어기가 꺼졌다 켜지면 같은 명령도 새로 내린 것이다."""
     continuous = night(3, 22, 12, {"frost": 2})
     assert cases.new_commands(continuous)["야간피복 야간 피복 전개"] == 1
-    resumed = continuous[:4] + continuous[11:]                 # 가운데 30분 넘게 기록 없음
+    resumed = continuous[:4] + night(4, 0, 4, {"frost": 2})        # 100분 동안 기록 없음
     assert cases.new_commands(resumed)["야간피복 야간 피복 전개"] == 2
 
 
@@ -231,3 +231,17 @@ def test_streamed_records_give_the_same_answers(month):
     assert cases.monthly_summary(iter(month), 2026, 11) == cases.monthly_summary(month, 2026, 11)
     assert "".join(cases.judgements_csv_lines(iter(month))) == cases.judgements_csv(month)
     assert "".join(cases.control_csv_lines(iter(month))) == cases.control_csv(month)
+
+
+def test_hourly_stamps_do_not_inflate_command_count():
+    """제어기는 판단 시각을 시간 칸으로 적는다 — 한 시간에 같은 시각이 열두 줄이다.
+
+    정각이 바뀔 때마다 새 명령으로 세면 하룻밤 서리가 열 번으로 불어난다.
+    """
+    records = []
+    for hour in range(20, 24):
+        for _ in range(12):
+            records.append(make(datetime.datetime(2026, 11, 3, hour), {"frost": 2}))
+    assert cases.new_commands(records)["야간피복 야간 피복 전개"] == 1
+    case = cases.risk_cases(records)[0]
+    assert case["records"] == 48 and case["durationMinutes"] == 180

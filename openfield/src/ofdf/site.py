@@ -359,7 +359,9 @@ def active_responses(
             continue
         if at.tzinfo is not None:
             at = at.astimezone().replace(tzinfo=None)
-        if datetime.timedelta(0) <= now - at <= limit or at > now:
+        # 시계가 조금 앞서 적힌 것(5분)까지는 받는다. 그보다 먼 미래 시각은 시계가
+        # 틀렸을 때 적힌 것이라 믿지 않는다 — 받으면 영영 만료되지 않는다.
+        if -datetime.timedelta(minutes=5) <= now - at <= limit:
             out[action_id] = {"response": item["response"], "at": item["at"]}
     return out
 

@@ -157,14 +157,16 @@ function renderNums(d) {
    누른 응답은 곧바로 기록되지만 실행은 다음 판단(최대 5분) 때다. 그 사이
    화면이 그대로면 또 누르게 되므로, 기록된 응답을 기억해 '승인함'으로 바꾼다. */
 let canRespond = false, answered = {};
+const attr = (v) => String(v).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+let frozen = false;        // 자료가 멈췄으면 승인을 받지 않는다
 function askButtons(a) {
-  if (!canRespond || !a.id) return "";
+  if (!canRespond || !a.id || frozen) return "";
   const said = a.userResponse || (answered[a.id] && answered[a.id].response);
   if (said) return `<span class="ask"><span class="done">${said === "approve" ? "승인함" : "거부함"}</span>
-    <button type="button" data-respond="clear" data-id="${a.id}">취소</button></span>`;
+    <button type="button" data-respond="clear" data-id="${attr(a.id)}">취소</button></span>`;
   if (!a.needsApproval) return "";
-  return `<span class="ask"><button type="button" class="ok" data-respond="approve" data-id="${a.id}">승인</button>
-    <button type="button" data-respond="reject" data-id="${a.id}">거부</button></span>`;
+  return `<span class="ask"><button type="button" class="ok" data-respond="approve" data-id="${attr(a.id)}">승인</button>
+    <button type="button" data-respond="reject" data-id="${attr(a.id)}">거부</button></span>`;
 }
 async function post(body) {
   const r = await fetch("/api/approvals", { method: "POST", cache: "no-store",
@@ -192,6 +194,7 @@ async function syncResponses() {
 
 function render(d) {
   data = d;
+  frozen = !(Date.now() - new Date(d.generated).getTime() <= STALE_MS);
   $("site").textContent = d.station || "";
   $("clock").textContent = hhmm(d.now);
   const mode = $("mode");

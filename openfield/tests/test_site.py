@@ -169,3 +169,12 @@ def test_corrupt_response_lines_are_skipped(tmp_path):
     with (tmp_path / site.APPROVALS_FILE).open("a", encoding="utf-8") as handle:
         handle.write('{"id": "frost|야간\n')
     assert site.active_responses(tmp_path, NOW)[action]["response"] == "approve"
+
+
+def test_far_future_response_is_not_trusted(tmp_path):
+    """시계가 틀렸을 때 적힌 먼 미래의 응답은 영영 만료되지 않으므로 받지 않는다."""
+    action = "야간피복|야간 피복 전개"
+    site.record_response(tmp_path, action, "approve", now=NOW + datetime.timedelta(days=30))
+    assert site.active_responses(tmp_path, NOW) == {}
+    site.record_response(tmp_path, action, "approve", now=NOW + datetime.timedelta(minutes=2))
+    assert action in site.active_responses(tmp_path, NOW)

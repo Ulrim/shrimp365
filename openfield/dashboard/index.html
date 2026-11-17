@@ -334,6 +334,11 @@ footer p { margin: 0 0 5px; }
 }
 .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
 .tabs .screen { margin-left: 6px; }
+@media (max-width: 480px) {
+  /* 화면 번호를 달면 '설정' 이 화면 밖으로 밀려 있는 줄도 모른다 */
+  .tabs button { flex: 1; padding: 0 6px; font-size: 13.5px; }
+  .tabs .screen { display: none; }
+}
 
 /* ── 단추 · 입력 ── 장갑 낀 손 기준 48px ── */
 .btn {
@@ -346,7 +351,7 @@ footer p { margin: 0 0 5px; }
 .btn.primary { background: var(--ink); color: var(--plane); border-color: var(--ink); }
 .btn.allow { background: var(--good-ink); border-color: var(--good-ink); color: #fff; }
 .btn.deny { color: var(--critical-ink); border-color: currentColor; }
-.btn.small { min-height: 36px; padding: 0 12px; font-size: 13px; }
+.btn.small { min-height: 44px; padding: 0 14px; font-size: 13px; }
 .btn[disabled] { opacity: .5; cursor: default; }
 :root[data-theme="dark"] .btn.allow { color: #0d0e0c; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.allow { color: #0d0e0c; } }
@@ -360,7 +365,8 @@ footer p { margin: 0 0 5px; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
 .note { font-size: 13px; color: var(--ink-3); line-height: 1.6; margin: 10px 0 0; }
 .msg { font-size: 14px; font-weight: 600; margin: 12px 0 0; min-height: 1.5em; }
-.msg.ok { color: var(--good-ink); } .msg.bad { color: var(--critical-ink); }
+/* '.ok' 는 농가 화면의 항목 카드가 쓰는 이름이다. 겹치면 문구가 상자로 그려진다. */
+.msg.done { color: var(--good-ink); } .msg.fail { color: var(--critical-ink); }
 .offline {
   margin-top: 20px; padding: 16px; border: 1px dashed var(--line); border-radius: var(--r);
   font-size: 14px; color: var(--ink-2); line-height: 1.6; background: var(--surface);
@@ -727,7 +733,8 @@ const esc = (v) => String(v ?? "").replace(/[&<>"']/g,
    필요하다'고 적는다. 단추를 내놓고 눌러도 아무 일이 없는 것보다 낫다. */
 let panel = null;                 // /api/status 응답. 없으면 null
 let pending = {};                 // 서버에 기록된, 지금 유효한 농가 응답
-let pendingKnown = false;         // 위 값을 서버에서 한 번이라도 읽었는가
+let pendingKnown = false;
+let screenStale = false;          // 화면 자료가 낡았는가(freshness 가 정한다)         // 위 값을 서버에서 한 번이라도 읽었는가
 async function api(path, body, headers) {
   const init = body === undefined ? { cache: "no-store" } : {
     method: "POST", cache: "no-store",
@@ -740,6 +747,8 @@ async function api(path, body, headers) {
   if (!r.ok || !data) throw new Error((data && data.error) || `요청 실패 (${r.status})`);
   return data;
 }
+/* 계기 숫자는 소수 한 자리까지. 420.04 W/m² 의 .04 는 읽을 값이 아니다. */
+const shown = (v) => typeof v === "number" && !Number.isInteger(v) ? v.toFixed(1) : v;
 const fmt = (iso, withDate) => {
   const d = new Date(iso);
   const hh = String(d.getHours()).padStart(2, "0");
@@ -780,7 +789,7 @@ function render(d) {
   $("gauges").innerHTML = d.environment.map((e) => `
     <div class="gauge">
       <dt>${e.name}</dt>
-      <dd>${e.value === null ? "—" : e.value}${e.unit ? `<span>${e.unit}</span>` : ""}</dd>
+      <dd>${e.value === null ? "—" : shown(e.value)}${e.unit ? `<span>${e.unit}</span>` : ""}</dd>
     </div>`).join("");
 
   // 판단근거
@@ -822,7 +831,7 @@ function render(d) {
     const state = h.rejectedBy ? ["no", "거부"] : h.advisory ? ["adv", "권고"] : ["run", "실행"];
     return `<tr>
       <td class="t">${fmt(h.time)}</td><td class="l">L${h.layer}</td>
-      <td>${h.device}</td><td>${h.command}</td>
+      <td>${esc(h.device)}</td><td>${esc(h.command)}</td>
       <td><span class="tag ${state[0]}">${state[1]}</span></td>
     </tr>`;
   }).join("") || `<tr><td colspan="5" style="color:var(--ink-3)">기록 없음</td></tr>`;
@@ -852,6 +861,12 @@ function approvalControls(a, compact) {
   const waiting = a.id && pending[a.id];
   const done = a.userResponse || (waiting && waiting.response);
   if (!a.needsApproval && !a.userResponse) return "";
+  if (screenStale) {
+    /* 화면이 멈췄으면 아래 조치는 지금 상태가 아니다. 사흘 전 권고에 승인을
+       눌러 두면 제어기가 살아났을 때 그 승인이 다른 상황에 붙는다. */
+    return a.needsApproval
+      ? `<span class="approve"><span class="state">화면이 멈춰 있어 승인을 받지 않습니다</span></span>` : "";
+  }
   if (panel && pendingKnown && a.userResponse && !waiting) {
     // 취소를 눌렀고 제어기가 아직 그것을 반영하지 못한 사이
     return `<span class="approve"><span class="state">취소함 · 다음 판단(최대 5분) 때 반영</span></span>`;
@@ -879,7 +894,7 @@ async function respond(id, response, button) {
   const show = (cls, text) => {
     // 농가 화면의 알림 칸은 다시 그릴 때마다 새로 생기므로 그때그때 찾는다
     for (const m of [$("approve-msg"), $("farm-approve-msg")])
-      if (m) { m.className = "msg " + cls; m.textContent = text; }
+      if (m) { m.className = "msg " + (cls === "ok" ? "done" : "fail"); m.textContent = text; }
   };
   button.disabled = true;
   try {
@@ -955,7 +970,7 @@ function renderFarm(d) {
   $("now-row").innerHTML = PLAIN_NOW.map(([k, name, unit]) => {
     const v = k.split("|").map(value).find((x) => x !== undefined && x !== null);
     if (v === undefined || v === null) return "";
-    return `<div class="now"><dt>${name}</dt><dd>${v}${unit ? `<span>${unit}</span>` : ""}</dd></div>`;
+    return `<div class="now"><dt>${name}</dt><dd>${shown(v)}${unit ? `<span>${unit}</span>` : ""}</dd></div>`;
   }).join("");
 
   $("ok-row").innerHTML = ranked.slice(1).map((c) => {
@@ -1231,7 +1246,10 @@ function freshness(data, error) {
   const age = data && data.generated
     ? Date.now() - new Date(data.generated).getTime() : Infinity;
 
-  if (!error && age <= STALE_MS) {
+  const was = screenStale;
+  screenStale = Boolean(error) || !(age <= STALE_MS);
+  if (was !== screenStale && data) render(data);      // 승인 단추를 켜고 끈다
+  if (!screenStale) {
     bar.removeAttribute("data-shown");
     return;
   }
@@ -1275,7 +1293,8 @@ function showTab(which) {
 for (const name of TABS) $("tabbtn-" + name).addEventListener("click", () => showTab(name));
 
 const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-const duration = (minutes) => minutes < 5 ? "5분 미만"
+/* 이력의 시각은 시간 단위로 적힌다. 한 시간 안에서 끝난 사례는 시작과 끝이 같다. */
+const duration = (minutes) => minutes < 5 ? "1시간 미만"
   : minutes < 60 ? `${minutes}분`
   : `${Math.floor(minutes / 60)}시간${minutes % 60 ? " " + (minutes % 60) + "분" : ""}`;
 
@@ -1351,7 +1370,7 @@ async function runQuery() {
     msg.textContent = `${result.from} ~ ${result.to} · 판단 ${result.records.toLocaleString()}건 · 위험 사례 ${result.cases.length}건`
       + (result.records ? "" : " — 이 기간에는 판단 기록이 없습니다");
   } catch (err) {
-    msg.className = "msg bad"; msg.textContent = `조회하지 못했습니다 — ${err.message}`;
+    msg.className = "msg fail"; msg.textContent = `조회하지 못했습니다 — ${err.message}`;
   }
 }
 $("query-form").addEventListener("submit", (ev) => { ev.preventDefault(); runQuery(); });
@@ -1382,7 +1401,7 @@ async function loadReport() {
     msg.textContent = r.records ? "" : "이 달에는 판단 기록이 없습니다.";
   } catch (err) {
     $("report-body").hidden = true;
-    msg.className = "msg bad"; msg.textContent = `리포트를 만들지 못했습니다 — ${err.message}`;
+    msg.className = "msg fail"; msg.textContent = `리포트를 만들지 못했습니다 — ${err.message}`;
   }
 }
 function renderReport(r) {
@@ -1480,7 +1499,7 @@ function renderSettings(cfg) {
 async function loadSettings() {
   if (settingsDirty) return;      // 고치던 값을 다시 읽어 덮어쓰지 않는다
   try { renderSettings(await api("/api/settings")); }
-  catch (err) { const m = $("settings-msg"); m.className = "msg bad"; m.textContent = `설정을 읽지 못했습니다 — ${err.message}`; }
+  catch (err) { const m = $("settings-msg"); m.className = "msg fail"; m.textContent = `설정을 읽지 못했습니다 — ${err.message}`; }
 }
 async function saveSettings(body) {
   const msg = $("settings-msg");
@@ -1488,11 +1507,11 @@ async function saveSettings(body) {
   try {
     const cfg = await api("/api/settings", body, pin ? { "X-OFDF-Pin": pin } : {});
     renderSettings(cfg);
-    msg.className = "msg ok";
+    msg.className = "msg done";
     msg.textContent = body.reset ? "설정 파일 값으로 되돌렸습니다. 다음 판단(최대 5분 뒤)부터 반영됩니다."
       : "저장했습니다. 다음 판단(최대 5분 뒤)부터 반영됩니다.";
   } catch (err) {
-    msg.className = "msg bad"; msg.textContent = `저장하지 못했습니다 — ${err.message}`;
+    msg.className = "msg fail"; msg.textContent = `저장하지 못했습니다 — ${err.message}`;
   }
 }
 $("settings-form").addEventListener("input", () => { settingsDirty = true; });
