@@ -43,7 +43,8 @@ ProtectHome=true
 PrivateTmp=true
 PrivateDevices=true
 RestrictAddressFamilies=AF_INET AF_INET6
-MemoryMax=128M
+# 리포트·내보내기는 기록을 한 줄씩 흘려 읽고 한 번에 하나만 돈다.
+MemoryMax=256M
 
 [Install]
 WantedBy=multi-user.target

@@ -15,7 +15,7 @@ import csv
 import datetime
 import io
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from ofdf.labels.risk import EVENT_GAP_HOURS, RISK_LABELS_KO
@@ -51,36 +51,50 @@ def _label(action: dict) -> str:
     return f"{action.get('device', '')} {action.get('command', '')}".strip()
 
 
-def risk_cases(records: Iterable[dict], *, risk: str | None = None) -> list[dict]:
-    """판단 기록을 위험 사례로 묶는다. 새 사례부터 돌려준다.
+def _ordered(records: Iterable[dict]) -> Iterable[dict]:
+    """목록이면 시각순으로 세우고, 그 밖의 것(파일에서 흘려 읽는 중)은 그대로 둔다.
 
-    같은 위험유형이 주의 이상으로 이어지는 동안은 한 사례다. 위험이 풀린 뒤
-    유형별 분리 기준(시간)보다 오래 지나야 다음 발생을 새 사례로 센다.
+    판단 이력은 적힌 순서가 곧 시각순이다. 한 해치를 통째로 메모리에 올려
+    정렬하면 라즈베리파이의 화면 서버(메모리 상한 256MB)가 죽는다.
     """
-    ordered = sorted(
-        (r for r in records if _parse(r.get("timestamp")) is not None),
-        key=lambda r: str(r.get("timestamp")),
-    )
-    open_cases: dict[str, dict] = {}
-    done: list[dict] = []
+    if isinstance(records, (list, tuple)):
+        return sorted(records, key=lambda r: str(r.get("timestamp")))
+    return records
 
-    for record in ordered:
-        moment = _parse(record["timestamp"])
+
+def _kinds(risk_type: Any) -> list[str]:
+    """조치를 부른 위험유형들. 같은 명령을 여러 위험이 부르면 ``a+b`` 로 합쳐져 있다."""
+    return [k for k in str(risk_type or "").split("+") if k]
+
+
+class _CaseBuilder:
+    """판단 기록을 하나씩 받아 위험 사례로 묶는다."""
+
+    def __init__(self, risk: str | None = None):
+        self.risk = risk
+        self.open: dict[str, dict] = {}
+        self.done: list[dict] = []
+
+    def add(self, record: dict) -> None:
+        moment = _parse(record.get("timestamp"))
+        if moment is None:
+            return
         for judgement in record.get("judgements", []):
             kind = judgement.get("risk_type")
             level = int(judgement.get("level", 0) or 0)
-            if level < 1 or not kind or (risk and kind != risk):
+            if level < 1 or not kind or (self.risk and kind != self.risk):
                 continue
 
             gap = datetime.timedelta(hours=EVENT_GAP_HOURS.get(kind, DEFAULT_GAP_HOURS))
-            case = open_cases.get(kind)
+            case = self.open.get(kind)
             if case is not None and moment - case["_end"] > gap:
-                done.append(case)
+                self.done.append(case)
                 case = None
             if case is None:
-                case = open_cases[kind] = {
+                case = self.open[kind] = {
                     "risk": kind, "_start": moment, "_end": moment, "_peak": 0,
-                    "_conf": [], "_executed": Counter(), "_advisory": Counter(),
+                    "_conf_sum": 0.0, "_conf_n": 0, "_conf_min": None,
+                    "_executed": Counter(), "_advisory": Counter(),
                     "_rejected": Counter(), "_responses": set(),
                     "records": 0, "expectedOnset": judgement.get("expected_onset"),
                     "evidence": [], "inputs": {},
@@ -90,18 +104,22 @@ def risk_cases(records: Iterable[dict], *, risk: str | None = None) -> list[dict
             case["records"] += 1
             confidence = judgement.get("confidence")
             if isinstance(confidence, (int, float)):
-                case["_conf"].append(float(confidence))
+                case["_conf_sum"] += float(confidence)
+                case["_conf_n"] += 1
+                if case["_conf_min"] is None or confidence < case["_conf_min"]:
+                    case["_conf_min"] = float(confidence)
             if level > case["_peak"]:
                 # 가장 위험했던 순간의 근거와 실측을 사례의 대표값으로 둔다
                 case["_peak"] = level
                 case["evidence"] = list(judgement.get("evidence") or [])[:3]
                 case["inputs"] = dict(record.get("inputs") or {})
 
-            # 조치는 그 위험유형이 부른 것만 사례에 붙인다
-            executed = {(_label(a)) for a in record.get("executed", [])
-                        if a.get("risk_type") == kind}
+            # 조치는 그 위험유형이 부른 것만 사례에 붙인다. 여러 위험이 함께
+            # 부른 조치(disease+compound)는 그 위험들 모두의 사례에 붙는다.
+            executed = {_label(a) for a in record.get("executed", [])
+                        if kind in _kinds(a.get("risk_type"))}
             for action in record.get("recommended", []):
-                if action.get("risk_type") != kind:
+                if kind not in _kinds(action.get("risk_type")):
                     continue
                 name = _label(action)
                 if name in executed:
@@ -109,48 +127,83 @@ def risk_cases(records: Iterable[dict], *, risk: str | None = None) -> list[dict
                 elif action.get("advisory"):
                     case["_advisory"][name] += 1
             for action in record.get("rejected", []):
-                if action.get("risk_type") == kind:
+                if kind in _kinds(action.get("risk_type")):
                     case["_rejected"][
                         f"{_label(action)} — {action.get('rejected_by', '')}"] += 1
             for response in record.get("user_responses", []):
-                if str(response.get("id", "")).startswith(kind + "|"):
+                if kind in _kinds(response.get("risk_type")):
                     case["_responses"].add(
                         (response.get("id"), response.get("response")))
 
-    done.extend(open_cases.values())
+    def finish(self) -> list[dict]:
+        out = []
+        for case in [*self.done, *self.open.values()]:
+            start, end, peak = case["_start"], case["_end"], case["_peak"]
+            responses = case["_responses"]
+            out.append({
+                "id": f"{case['risk']}-{start:%Y%m%d%H%M}",
+                "risk": case["risk"],
+                "riskName": RISK_LABELS_KO.get(case["risk"], case["risk"]),
+                "start": _iso(start), "end": _iso(end),
+                "durationMinutes": int((end - start).total_seconds() // 60),
+                "peakLevel": peak, "peakLevelName": LEVEL_NAMES.get(peak, str(peak)),
+                "records": case["records"],
+                "meanConfidence": round(case["_conf_sum"] / case["_conf_n"], 3)
+                                  if case["_conf_n"] else None,
+                "minConfidence": round(case["_conf_min"], 3)
+                                 if case["_conf_min"] is not None else None,
+                "expectedOnset": case["expectedOnset"],
+                "executed": sorted(case["_executed"]),
+                "advisory": sorted(case["_advisory"]),
+                "rejected": sorted(case["_rejected"]),
+                "approved": sum(1 for _, r in responses if r == "approve"),
+                "declined": sum(1 for _, r in responses if r == "reject"),
+                "evidence": case["evidence"], "inputs": case["inputs"],
+            })
+        out.sort(key=lambda c: c["start"], reverse=True)
+        return out
 
-    out = []
-    for case in done:
-        confidences = case.pop("_conf")
-        start, end = case.pop("_start"), case.pop("_end")
-        peak = case.pop("_peak")
-        responses = case.pop("_responses")
-        out.append({
-            "id": f"{case['risk']}-{start:%Y%m%d%H%M}",
-            "risk": case["risk"],
-            "riskName": RISK_LABELS_KO.get(case["risk"], case["risk"]),
-            "start": _iso(start), "end": _iso(end),
-            "durationMinutes": int((end - start).total_seconds() // 60),
-            "peakLevel": peak, "peakLevelName": LEVEL_NAMES.get(peak, str(peak)),
-            "records": case["records"],
-            "meanConfidence": round(sum(confidences) / len(confidences), 3)
-                              if confidences else None,
-            "minConfidence": round(min(confidences), 3) if confidences else None,
-            "expectedOnset": case["expectedOnset"],
-            "executed": sorted(case.pop("_executed")),
-            "advisory": sorted(case.pop("_advisory")),
-            "rejected": sorted(case.pop("_rejected")),
-            "approved": sum(1 for _, r in responses if r == "approve"),
-            "declined": sum(1 for _, r in responses if r == "reject"),
-            "evidence": case["evidence"], "inputs": case["inputs"],
-        })
-    out.sort(key=lambda c: c["start"], reverse=True)
-    return out
+
+def risk_cases(records: Iterable[dict], *, risk: str | None = None) -> list[dict]:
+    """판단 기록을 위험 사례로 묶는다. 새 사례부터 돌려준다.
+
+    같은 위험유형이 주의 이상으로 이어지는 동안은 한 사례다. 위험이 풀린 뒤
+    유형별 분리 기준(시간)보다 오래 지나야 다음 발생을 새 사례로 센다.
+    기록을 하나씩 흘려 읽으므로 ``records`` 는 파일에서 읽는 중인 것이어도 된다.
+    """
+    builder = _CaseBuilder(risk)
+    for record in _ordered(records):
+        builder.add(record)
+    return builder.finish()
 
 
 #: 판단 기록이 이보다 오래 끊겼으면 제어기가 꺼져 있었던 것으로 본다(분).
 #: 판단 주기가 5분이므로 여섯 번 연속 빠진 셈이다.
 OUTAGE_MINUTES = 30
+
+
+class _CommandCounter:
+    """새로 내린 장치 제어명령을 센다."""
+
+    def __init__(self):
+        self.counts: Counter = Counter()
+        self._previous: set[str] = set()
+        self._last: datetime.datetime | None = None
+
+    def add(self, record: dict) -> None:
+        moment = _parse(record.get("timestamp"))
+        if moment is not None:
+            if (self._last is not None
+                    and moment - self._last > datetime.timedelta(minutes=OUTAGE_MINUTES)):
+                self._previous = set()
+            self._last = moment
+        current = {
+            _label(a) for a in record.get("executed", [])
+            if a.get("device") not in NON_CONTROL_DEVICES
+        }
+        for name in current - self._previous:
+            self.counts[name] += 1
+        self._previous = current
 
 
 def new_commands(records: Iterable[dict]) -> Counter:
@@ -164,49 +217,27 @@ def new_commands(records: Iterable[dict]) -> Counter:
     켜진 것이므로 직전 상태를 잊는다. 그러지 않으면 일주일 전 마지막 줄의
     명령이 오늘의 같은 명령과 '이어진 것'으로 세어진다.
     """
-    counts: Counter = Counter()
-    previous: set[str] = set()
-    last: datetime.datetime | None = None
-    outage = datetime.timedelta(minutes=OUTAGE_MINUTES)
-    for record in sorted(records, key=lambda r: str(r.get("timestamp"))):
-        moment = _parse(record.get("timestamp"))
-        if moment is not None:
-            if last is not None and moment - last > outage:
-                previous = set()
-            last = moment
-        current = {
-            _label(a) for a in record.get("executed", [])
-            if a.get("device") not in NON_CONTROL_DEVICES
-        }
-        for name in current - previous:
-            counts[name] += 1
-        previous = current
-    return counts
+    counter = _CommandCounter()
+    for record in _ordered(records):
+        counter.add(record)
+    return counter.counts
 
 
-def monthly_summary(records: list[dict], year: int, month: int) -> dict:
+def monthly_summary(records: Iterable[dict], year: int, month: int) -> dict:
     """월간 리포트 화면(M7)이 쓰는 집계.
 
-    ``records`` 는 그 달의 판단 기록이다(:meth:`Journal.read_range`).
+    ``records`` 는 그 달의 판단 기록이다(:meth:`Journal.iter_range`). 한 번만
+    훑으며 센다 — 한 달치(8천 줄 넘음)를 목록으로 쥐고 있지 않는다.
     """
-    cases = risk_cases(records)
-    by_risk: dict[str, dict] = {}
-    for case in cases:
-        entry = by_risk.setdefault(case["risk"], {
-            "risk": case["risk"], "riskName": case["riskName"],
-            "cases": 0, "warningCases": 0, "minutes": 0,
-        })
-        entry["cases"] += 1
-        entry["warningCases"] += int(case["peakLevel"] >= 2)
-        entry["minutes"] += case["durationMinutes"]
-
+    builder, commands = _CaseBuilder(), _CommandCounter()
     daily: dict[str, dict] = {}
     rejected_reasons: Counter = Counter()
     responses: set[tuple] = set()
-    advisory_records = 0
-    executed_entries = 0
-    upper_rejected = 0
-    for record in records:
+    advisory_records = executed_entries = upper_rejected = total = 0
+    for record in _ordered(records):
+        total += 1
+        builder.add(record)
+        commands.add(record)
         day = str(record.get("timestamp", ""))[:10]
         entry = daily.setdefault(day, {"date": day, "records": 0, "levels": {}})
         entry["records"] += 1
@@ -226,9 +257,17 @@ def monthly_summary(records: list[dict], year: int, month: int) -> dict:
         for response in record.get("user_responses", []):
             responses.add((response.get("id"), response.get("response"), day))
 
-    commands = new_commands(records)
-    total = len(records)
-    command_total = sum(commands.values())
+    cases = builder.finish()
+    by_risk: dict[str, dict] = {}
+    for case in cases:
+        entry = by_risk.setdefault(case["risk"], {
+            "risk": case["risk"], "riskName": case["riskName"],
+            "cases": 0, "warningCases": 0, "minutes": 0,
+        })
+        entry["cases"] += 1
+        entry["warningCases"] += int(case["peakLevel"] >= 2)
+        entry["minutes"] += case["durationMinutes"]
+
     return {
         "month": f"{year:04d}-{month:02d}",
         "records": total,
@@ -237,10 +276,11 @@ def monthly_summary(records: list[dict], year: int, month: int) -> dict:
         "byRisk": sorted(by_risk.values(), key=lambda e: -e["cases"]),
         "cases": cases,
         # 새로 내린 장치 제어명령 — 연속 실행은 1회, 알림 제외
-        "controlCommands": command_total,
+        "controlCommands": sum(commands.counts.values()),
         "controlCommandTarget": CONTROL_COMMAND_TARGET,
         "commandsByDevice": [
-            {"command": name, "count": count} for name, count in commands.most_common()
+            {"command": name, "count": count}
+            for name, count in commands.counts.most_common()
         ],
         # Journal.monthly_report 와 같은 정의(주기마다 실행으로 적힌 줄 수)
         "executedEntries": executed_entries,
@@ -260,14 +300,25 @@ def monthly_summary(records: list[dict], year: int, month: int) -> dict:
 # CSV
 # --------------------------------------------------------------------------
 
-def _csv(header: list[str], rows: Iterable[list]) -> str:
-    """엑셀이 한글을 깨지 않고 열도록 BOM 을 붙인 CSV 문자열."""
+def _csv_lines(header: list[str], rows: Iterable[list]) -> Iterator[str]:
+    """CSV 를 한 줄씩 낸다. 첫 줄 앞에 엑셀이 한글을 읽도록 BOM 을 붙인다.
+
+    한 줄씩 내보내는 이유 — 일 년치 판단 원자료는 수십 MB 다. 통째로 한
+    문자열로 만들면 화면 서버가 메모리 상한을 넘는다.
+    """
     buffer = io.StringIO()
     writer = csv.writer(buffer, lineterminator="\r\n")
-    writer.writerow(header)
+
+    def line(row: list) -> str:
+        writer.writerow(row)
+        text = buffer.getvalue()
+        buffer.seek(0)
+        buffer.truncate()
+        return text
+
+    yield "\ufeff" + line(header)
     for row in rows:
-        writer.writerow(["" if v is None else _safe_cell(v) for v in row])
-    return "﻿" + buffer.getvalue()
+        yield line(["" if v is None else _safe_cell(v) for v in row])
 
 
 def _safe_cell(value: Any) -> Any:
@@ -296,11 +347,15 @@ def _evidence_text(evidence: list[dict], label) -> list[str]:
 
 
 def cases_csv(cases: list[dict]) -> str:
+    return "".join(cases_csv_lines(cases))
+
+
+def cases_csv_lines(cases: list[dict]) -> Iterator[str]:
     """위험 사례 목록."""
     header = ["사례번호", "위험유형", "시작", "종료", "지속(분)", "최고등급", "판단 건수",
               "평균 신뢰도", "최저 신뢰도", "첫 예상시점", "실행 조치", "권고 조치",
               "거부 조치", "농가 승인", "농가 거부"]
-    return _csv(header, (
+    return _csv_lines(header, (
         [c["id"], c["riskName"], c["start"], c["end"], c["durationMinutes"],
          c["peakLevelName"], c["records"], c["meanConfidence"], c["minConfidence"],
          c["expectedOnset"], " / ".join(c["executed"]), " / ".join(c["advisory"]),
@@ -315,7 +370,11 @@ INPUT_COLUMNS = [
 ]
 
 
-def judgements_csv(records: list[dict], label=str) -> str:
+def judgements_csv(records: Iterable[dict], label=str) -> str:
+    return "".join(judgements_csv_lines(records, label))
+
+
+def judgements_csv_lines(records: Iterable[dict], label=str) -> Iterator[str]:
     """판단 원자료 — 판단 한 건(위험유형 하나)이 한 줄.
 
     위험이 없던 주기도 한 줄로 남긴다(위험유형 칸이 빈다). '그 시각에
@@ -327,7 +386,7 @@ def judgements_csv(records: list[dict], label=str) -> str:
               + ["실행 조치", "거부 조치", "농가 응답"])
 
     def rows():
-        for record in sorted(records, key=lambda r: str(r.get("timestamp"))):
+        for record in _ordered(records):
             inputs = record.get("inputs") or {}
             tail = (
                 [inputs.get(key) for key, _ in INPUT_COLUMNS]
@@ -353,15 +412,19 @@ def judgements_csv(records: list[dict], label=str) -> str:
                     *_evidence_text(judgement.get("evidence"), label),
                 ] + tail
 
-    return _csv(header, rows())
+    return _csv_lines(header, rows())
 
 
-def control_csv(records: list[dict]) -> str:
+def control_csv(records: Iterable[dict]) -> str:
+    return "".join(control_csv_lines(records))
+
+
+def control_csv_lines(records: Iterable[dict]) -> Iterator[str]:
     """제어 이력 — 조치 하나가 한 줄(화면 M3 과 같은 내용)."""
     header = ["시각", "계층", "장치", "명령", "결과", "사유", "위험유형"]
 
     def rows():
-        for record in sorted(records, key=lambda r: str(r.get("timestamp"))):
+        for record in _ordered(records):
             executed = {_label(a) for a in record.get("executed", [])}
             blocked = {_label(a): a.get("rejected_by", "")
                        for a in record.get("rejected", [])}
@@ -373,9 +436,9 @@ def control_csv(records: list[dict]) -> str:
                     result, reason = "실행", action.get("reason", "")
                 else:
                     result, reason = "권고", action.get("reason", "")
-                kind = action.get("risk_type", "")
+                kinds = " + ".join(RISK_LABELS_KO.get(k, k)
+                                   for k in _kinds(action.get("risk_type")))
                 yield [record.get("timestamp"), f"L{action.get('layer', '')}",
-                       action.get("device"), action.get("command"), result, reason,
-                       RISK_LABELS_KO.get(kind, kind)]
+                       action.get("device"), action.get("command"), result, reason, kinds]
 
-    return _csv(header, rows())
+    return _csv_lines(header, rows())

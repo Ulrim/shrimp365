@@ -79,7 +79,7 @@ def test_case_filter_and_other_risks_actions_stay_out(month):
 
 
 def test_case_collects_advisory_rejected_and_user_responses():
-    cover = "frost|야간피복|야간 피복 전개"
+    cover = "야간피복|야간 피복 전개"
     records = night(3, 22, 3, {"frost": 2}, confidence=0.5)                       # 권고
     records += night(3, 23, 3, {"frost": 2}, confidence=0.5, responses={cover: "approve"})
     records += [make(datetime.datetime(2026, 11, 4, 0, 0), {"frost": 2}, gust_3s=12.0)]
@@ -128,7 +128,7 @@ def test_monthly_summary(month, tmp_path):
 
 
 def test_monthly_summary_separates_user_rejections():
-    cover = "frost|야간피복|야간 피복 전개"
+    cover = "야간피복|야간 피복 전개"
     records = night(3, 22, 4, {"frost": 2}, confidence=0.5, responses={cover: "reject"})
     summary = cases.monthly_summary(records, 2026, 11)
     assert summary["userDeclined"] == 1 and summary["userApproved"] == 0
@@ -164,7 +164,7 @@ def test_judgements_csv_keeps_normal_cycles(month):
 
 
 def test_control_csv_marks_results():
-    cover = "frost|야간피복|야간 피복 전개"
+    cover = "야간피복|야간 피복 전개"
     records = [make(datetime.datetime(2026, 11, 3, 22), {"frost": 2}, confidence=0.5,
                     responses={cover: "reject"})]
     rows = parse(cases.control_csv(records))
@@ -205,3 +205,29 @@ def test_journal_read_range_and_tail(tmp_path, month):
     last = journal.tail(5)
     assert len(last) == 5 and last[-1]["timestamp"] == "2026-11-21T00:00:00"
     assert len(journal.tail(3, max_bytes=4000)) == 3                       # 파일 끝만 읽어도 된다
+
+
+def test_actions_shared_by_two_risks_reach_both_cases():
+    """같은 명령을 병해와 강우가 함께 부르면 유형이 'a+b' 로 합쳐진다 — 두 사례 모두에 붙는다."""
+    when = datetime.datetime(2026, 11, 3, 13)
+    decision = decide({"disease": 1, "rain_wet": 1}, SensorState(hour=13),
+                      confidence={"disease": 0.5, "rain_wet": 0.5},
+                      installed_devices=frozenset({"살수"}))
+    shared = next(a for a in decision.actions if "+" in a.risk_type)
+    applied = apply_user_responses(decision, {shared.action_id: "approve"})
+    record = json.loads(record_from_decision(
+        when, "A", "v1", {},
+        [RiskJudgement(r, 3, 1, "주의", 0.5) for r in ("disease", "rain_wet")],
+        decision, user_responses=applied).to_json())
+    name = f"{shared.device} {shared.command}"
+    found = {c["risk"]: c for c in cases.risk_cases([record])}
+    for risk in shared.risk_type.split("+"):
+        assert name in found[risk]["executed"] and found[risk]["approved"] == 1
+
+
+def test_streamed_records_give_the_same_answers(month):
+    """파일에서 흘려 읽은 것(목록이 아닌 것)도 같은 결과를 낸다."""
+    assert cases.risk_cases(iter(month)) == cases.risk_cases(month)
+    assert cases.monthly_summary(iter(month), 2026, 11) == cases.monthly_summary(month, 2026, 11)
+    assert "".join(cases.judgements_csv_lines(iter(month))) == cases.judgements_csv(month)
+    assert "".join(cases.control_csv_lines(iter(month))) == cases.control_csv(month)

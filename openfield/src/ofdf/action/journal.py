@@ -174,11 +174,14 @@ class Journal:
         줄 맨 앞에 고정 길이로 적히므로(``{"timestamp": "2025-11-01T23:00:00"``),
         기간 밖의 줄은 JSON 을 풀지 않고 글자 비교만으로 건너뛴다.
         """
+        return list(self.iter_range(start, end))
+
+    def iter_range(self, start: str | None = None, end: str | None = None):
+        """:meth:`read_range` 와 같되 한 건씩 낸다 — 긴 기간을 메모리에 쌓지 않는다."""
         if not self.path.exists():
-            return []
+            return
         head = '{"timestamp": "'
-        records = []
-        with self.path.open(encoding="utf-8") as handle:
+        with self.path.open(encoding="utf-8", errors="replace") as handle:
             for line in handle:
                 line = line.strip()
                 if not line:
@@ -189,13 +192,14 @@ class Journal:
                         continue
                 try:
                     record = json.loads(line)
-                except json.JSONDecodeError:
+                except (json.JSONDecodeError, RecursionError):
+                    continue
+                if not isinstance(record, dict):
                     continue
                 stamp = str(record.get("timestamp", ""))[:19]
                 if (start and stamp < start[:19]) or (end and stamp >= end[:19]):
                     continue
-                records.append(record)
-        return records
+                yield record
 
     def tail(self, count: int = 50, max_bytes: int = 256 * 1024) -> list[dict]:
         """마지막 ``count`` 건. 파일 끝부분만 읽는다(매 주기 화면용)."""

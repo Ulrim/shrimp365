@@ -14,7 +14,7 @@ from ofdf import server, site
 from ofdf.cli import EdgeConfig
 from tests.test_cases import night
 
-COVER = "frost|야간피복|야간 피복 전개"
+COVER = "야간피복|야간 피복 전개"
 
 
 @pytest.fixture
@@ -172,7 +172,7 @@ def test_settings_read_and_save(panel):
     assert current["values"]["confidence_threshold"] == 0.70
     assert current["values"]["installed_devices"] == ["관수밸브"]
     assert current["thresholds"] == {"frost": {"caution_canopy": 2.0}}
-    assert current["bounds"]["wind_lock"]["max"] == 25.0 and current["overridden"] == []
+    assert current["bounds"]["wind_lock"]["max"] == 18.0 and current["overridden"] == []
 
     status, saved = get_json(base + "/api/settings", body={"values": {
         "confidence_threshold": 0.8, "installed_devices": ["관수밸브", "야간피복"]}})
@@ -185,7 +185,7 @@ def test_settings_read_and_save(panel):
     assert "전 구동부" in effective.installed_devices             # 안전 차단은 그대로
 
     status, error = get_json(base + "/api/settings", body={"values": {"wind_lock": 99}})
-    assert status == 400 and "8~25" in error["error"]
+    assert status == 400 and "8~18" in error["error"]
     assert panel.config.site_settings().field_rules.wind_lock == 14.0
 
     _, reset = get_json(base + "/api/settings", body={"reset": True})
@@ -211,3 +211,37 @@ def test_writes_fail_cleanly_without_state_dir(panel):
     status, result = get_json(base + "/api/approvals", body={"id": COVER, "response": "approve"})
     assert status == 503 and result["error"]
     assert get_json(base + "/api/status")[1]["writable"] is False
+
+
+def test_writes_from_a_foreign_host_name_are_refused(panel):
+    """바깥 도메인이 제어기 주소로 바뀌어 들어오는 수법(DNS 리바인딩)을 막는다."""
+    base = panel.start()
+    body = {"id": COVER, "response": "approve"}
+    assert call(base + "/api/approvals", body, {"Host": "evil.example"})[0] == 403
+    assert call(base + "/api/approvals", body, {"Origin": "http://evil.example"})[0] == 403
+    assert site.active_responses(panel.config.state_dir) == {}
+    assert call(base + "/api/approvals", body, {"Host": "ofdf.local:8080"})[0] == 200
+    assert call(base + "/api/approvals", body, {"Host": "192.168.0.20:8080"})[0] == 200
+
+
+def test_pin_guessing_is_locked_out(panel):
+    base = panel.start(pin="2468")
+    body = {"values": {"soil_upper_limit": 80}}
+    for _ in range(server.PIN_MAX_FAILURES):
+        assert call(base + "/api/settings", body, {"X-OFDF-Pin": "0000"})[0] == 403
+    # 잠긴 동안에는 맞는 번호도 받지 않는다
+    assert call(base + "/api/settings", body, {"X-OFDF-Pin": "2468"})[0] == 429
+    assert panel.config.site_settings().field_rules.soil_upper_limit == 90.0
+
+
+@pytest.mark.parametrize("query", ["to=9999-12-31", "to=0001-01-05", "from=1999-01-01&to=1999-01-31"])
+def test_far_dates_are_400_not_500(panel, query):
+    assert get_json(panel.start() + "/api/cases?" + query)[0] == 400
+    assert get_json(panel.start() + "/api/report?month=9999-12")[0] == 400
+
+
+def test_heavy_lock_is_released_after_export(panel):
+    base = panel.start()
+    for _ in range(3):
+        assert call(base + "/api/export/judgements.csv")[0] == 200
+    assert get_json(base + "/api/report")[0] == 200

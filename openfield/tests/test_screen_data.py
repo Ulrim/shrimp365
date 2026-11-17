@@ -13,7 +13,7 @@ from ofdf.action.journal import Journal
 from tests.test_cli import field_dir, models  # noqa: F401  (pytest fixture)
 
 #: 시험용 현장 자료는 낮 11시에서 끝난다. 낮에는 피복을 펴지 않고 준비만 한다.
-COVER = "frost|야간피복|일몰 후 피복 준비"
+COVER = "야간피복|일몰 후 피복 준비"
 
 
 def hourly_frame(columns: dict[str, list[float]]) -> pd.DataFrame:
@@ -212,3 +212,22 @@ def test_defaults_match_previous_behaviour():
 def test_serve_command_parses():
     args = cli.parse_args(["serve", "--port", "9090", "--bind", "127.0.0.1"])
     assert args.command == "serve" and args.port == 9090 and args.dashboard_dir is None
+
+
+def test_broken_state_files_do_not_stop_the_cycle(edge, monkeypatch):
+    """상태 파일이 어떻게 깨져 있어도 판단·기록·화면은 돈다."""
+    force_frost(monkeypatch, 0.55)
+    state = edge.config.state_dir
+    state.mkdir(parents=True)
+    (state / site.APPROVALS_FILE).write_bytes(b'{"id": "\xec\x95\xbc\xea')
+    (state / site.SETTINGS_FILE).write_bytes(b"\xff\xfe not json")
+    payload = edge.run()
+    assert payload["settings"]["confidence_threshold"] == 0.70
+    assert action(payload, COVER)["needsApproval"]
+
+    # 읽는 쪽이 예외를 던져도(권한 등) 설정 파일 값으로 판단한다
+    monkeypatch.setattr(site, "effective_settings",
+                        lambda *a, **k: (_ for _ in ()).throw(PermissionError("state")))
+    monkeypatch.setattr(site, "active_responses",
+                        lambda *a, **k: (_ for _ in ()).throw(PermissionError("state")))
+    assert edge.run()["mode"] == "권고(농가 승인 필요)"

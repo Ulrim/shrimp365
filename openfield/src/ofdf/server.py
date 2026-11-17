@@ -20,6 +20,13 @@
 * **포장 내부망 전용이다.** 공인 IP 로 포트를 열지 않는다.
 * 쓰기 요청은 화면이 보낸 것만 받는다(``X-OFDF-Panel`` 머리말 + JSON). 농가가
   다른 웹사이트를 보는 동안 그 사이트가 몰래 승인을 누르는 것을 막는다.
+  주소(Host)가 IP·localhost·``*.local`` 이 아닌 쓰기 요청도 받지 않는다 —
+  바깥 도메인이 이 제어기의 주소로 바뀌어 들어오는 수법(DNS 리바인딩)을 막는다.
+  다른 이름으로 들어와야 하면 ``OFDF_PANEL_HOSTS`` 에 쉼표로 적는다.
+* 관리 번호를 다섯 번 틀리면 1분 동안 잠근다. 네 자리 번호를 순서대로
+  넣어 보는 데 몇 초면 되기 때문이다.
+* 무거운 조회(리포트·내보내기)는 한 번에 하나만 돌고, 기록을 한 줄씩 흘려
+  읽는다. 일 년치를 통째로 올리면 메모리 상한에서 서비스가 죽는다.
 * 설정 변경은 환경변수 ``OFDF_PANEL_PIN`` 이 있으면 그 번호를 요구한다.
   승인·거부는 번호를 묻지 않는다 — 서리가 오는 밤에 장갑 낀 손으로 번호를
   치게 할 수는 없고, 제어함 앞에 선 사람은 어차피 수동 스위치를 쥐고 있다.
@@ -30,10 +37,13 @@ from __future__ import annotations
 
 import datetime
 import hmac
+import ipaddress
 import json
 import logging
 import os
 import re
+import threading
+import time
 from functools import partial
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -53,6 +63,12 @@ MAX_BODY_BYTES = 16 * 1024
 MAX_RANGE_DAYS = 400
 #: 화면이 쓰기 요청에 붙이는 머리말
 PANEL_HEADER = "X-OFDF-Panel"
+
+#: 관리 번호를 이만큼 틀리면 잠근다 / 잠그는 시간(초)
+PIN_MAX_FAILURES = 5
+PIN_LOCK_SECONDS = 60
+#: 조회할 수 있는 해의 범위. 날짜 계산이 넘치지 않게 한다.
+MIN_YEAR, MAX_YEAR = 2000, 2100
 
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _MONTH = re.compile(r"^(\d{4})-(\d{2})$")
@@ -83,10 +99,33 @@ def _readable(cases: list[dict]) -> list[dict]:
 class PanelApi:
     """화면이 부르는 기능. HTTP 와 떼어 두어 시험하기 쉽게 한다."""
 
-    def __init__(self, config, *, pin: str | None = None):
+    def __init__(self, config, *, pin: str | None = None, allowed_hosts=None):
         self.config = config
         self.pin = pin or None
         self.journal = Journal(config.journal_path)
+        self.allowed_hosts = frozenset(allowed_hosts or ())
+        #: 무거운 조회는 한 번에 하나만. 스레드마다 한 달치를 쥐면 금방 넘친다.
+        self.heavy = threading.Lock()
+        self._pin_lock = threading.Lock()
+        self._pin_failures = 0
+        self._pin_locked_until = 0.0
+
+    def host_allowed(self, host_header: str | None) -> bool:
+        """쓰기 요청의 주소(Host)가 이 제어기를 가리키는 것이 맞는가."""
+        host = (host_header or "").strip().lower()
+        if host.startswith("["):                       # [::1]:8080
+            name = host[1:host.find("]")] if "]" in host else host
+        else:
+            name = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+        if not name:
+            return False
+        if name == "localhost" or name.endswith(".local") or name in self.allowed_hosts:
+            return True
+        try:
+            ipaddress.ip_address(name)
+        except ValueError:
+            return False
+        return True
 
     # ---- 읽기 ----------------------------------------------------------
 
@@ -108,8 +147,11 @@ class PanelApi:
             end = datetime.date.fromisoformat(raw_to) if raw_to else today
             start = (datetime.date.fromisoformat(raw_from) if raw_from
                      else end - datetime.timedelta(days=29))
-        except ValueError:
+        except (ValueError, OverflowError):
             raise ApiError(HTTPStatus.BAD_REQUEST, "날짜는 2026-11-01 과 같이 적습니다") from None
+        if not (MIN_YEAR <= start.year <= MAX_YEAR and MIN_YEAR <= end.year <= MAX_YEAR):
+            raise ApiError(HTTPStatus.BAD_REQUEST,
+                           f"{MIN_YEAR}년부터 {MAX_YEAR}년 사이의 날짜만 조회할 수 있습니다")
         if (raw_from and not _DATE.match(raw_from)) or (raw_to and not _DATE.match(raw_to)):
             raise ApiError(HTTPStatus.BAD_REQUEST, "날짜는 2026-11-01 과 같이 적습니다")
         if start > end:
@@ -127,27 +169,41 @@ class PanelApi:
 
     def cases(self, query: dict) -> dict:
         start, end = self._range(query)
-        records = self.journal.read_range(start, end)
-        found = _readable(cases_mod.risk_cases(records, risk=self._risk(query)))
-        last_day = (datetime.date.fromisoformat(end) - datetime.timedelta(days=1)).isoformat()
-        return {"from": start, "to": last_day, "records": len(records), "cases": found}
+        risk = self._risk(query)
+        count = 0
 
-    def export(self, kind: str, query: dict) -> tuple[str, str]:
-        """CSV 본문과 파일 이름."""
-        start, end = self._range(query)
-        records = self.journal.read_range(start, end)
+        def counted():
+            nonlocal count
+            for record in self.journal.iter_range(start, end):
+                count += 1
+                yield record
+
+        with self.heavy:
+            found = _readable(cases_mod.risk_cases(counted(), risk=risk))
         last_day = (datetime.date.fromisoformat(end) - datetime.timedelta(days=1)).isoformat()
-        span = f"{start}_{last_day}"
-        if kind == "cases":
-            body = cases_mod.cases_csv(cases_mod.risk_cases(records, risk=self._risk(query)))
-        elif kind == "judgements":
-            from ofdf.upload import feature_label
-            body = cases_mod.judgements_csv(records, label=feature_label)
-        elif kind == "control":
-            body = cases_mod.control_csv(records)
-        else:
+        return {"from": start, "to": last_day, "records": count, "cases": found}
+
+    def export(self, kind: str, query: dict):
+        """CSV 줄을 하나씩 내는 것과 파일 이름. 본문을 통째로 만들지 않는다."""
+        start, end = self._range(query)
+        risk = self._risk(query)
+        if kind not in ("cases", "judgements", "control"):
             raise ApiError(HTTPStatus.NOT_FOUND, "없는 내보내기 종류입니다")
-        return body, f"ofdf_{kind}_{span}.csv"
+        last_day = (datetime.date.fromisoformat(end) - datetime.timedelta(days=1)).isoformat()
+
+        def lines():
+            with self.heavy:
+                records = self.journal.iter_range(start, end)
+                if kind == "cases":
+                    yield from cases_mod.cases_csv_lines(
+                        cases_mod.risk_cases(records, risk=risk))
+                elif kind == "judgements":
+                    from ofdf.upload import feature_label
+                    yield from cases_mod.judgements_csv_lines(records, label=feature_label)
+                else:
+                    yield from cases_mod.control_csv_lines(records)
+
+        return lines(), f"ofdf_{kind}_{start}_{last_day}.csv"
 
     def report(self, query: dict) -> dict:
         raw = (query.get("month") or [""])[0]
@@ -156,13 +212,16 @@ class PanelApi:
             if not match or not 1 <= int(match.group(2)) <= 12:
                 raise ApiError(HTTPStatus.BAD_REQUEST, "달은 2026-11 과 같이 적습니다")
             year, month = int(match.group(1)), int(match.group(2))
+            if not MIN_YEAR <= year <= MAX_YEAR:
+                raise ApiError(HTTPStatus.BAD_REQUEST, "달은 2026-11 과 같이 적습니다")
         else:
             today = datetime.date.today()
             year, month = today.year, today.month
         start = f"{year:04d}-{month:02d}-01"
         end = f"{year + (month == 12):04d}-{month % 12 + 1:02d}-01"
-        records = self.journal.read_range(start, end)
-        summary = cases_mod.monthly_summary(records, year, month)
+        with self.heavy:
+            summary = cases_mod.monthly_summary(
+                self.journal.iter_range(start, end), year, month)
         _readable(summary["cases"])
         summary["station"] = self.config.station
         summary["generated"] = datetime.datetime.now().isoformat(timespec="seconds")
@@ -202,8 +261,20 @@ class PanelApi:
     def _check_pin(self, supplied: str | None) -> None:
         if self.pin is None:
             return
-        if not supplied or not hmac.compare_digest(supplied.encode(), self.pin.encode()):
-            raise ApiError(HTTPStatus.FORBIDDEN, "관리 번호가 맞지 않습니다")
+        with self._pin_lock:
+            wait = self._pin_locked_until - time.monotonic()
+            if wait > 0:
+                raise ApiError(HTTPStatus.TOO_MANY_REQUESTS,
+                               f"관리 번호를 여러 번 틀렸습니다. {int(wait) + 1}초 뒤에 다시 해 주세요")
+            if supplied and hmac.compare_digest(supplied.encode(), self.pin.encode()):
+                self._pin_failures = 0
+                return
+            self._pin_failures += 1
+            if self._pin_failures >= PIN_MAX_FAILURES:
+                self._pin_failures = 0
+                self._pin_locked_until = time.monotonic() + PIN_LOCK_SECONDS
+                LOG.warning("관리 번호를 %d번 틀려 %d초 잠근다", PIN_MAX_FAILURES, PIN_LOCK_SECONDS)
+        raise ApiError(HTTPStatus.FORBIDDEN, "관리 번호가 맞지 않습니다")
 
     def save_settings(self, payload: dict, *, pin: str | None, source: str) -> dict:
         self._check_pin(pin)
@@ -288,9 +359,21 @@ class PanelHandler(SimpleHTTPRequestHandler):
                 self._json(self.api.approvals())
             elif url.path.startswith("/api/export/") and url.path.endswith(".csv"):
                 kind = url.path[len("/api/export/"):-len(".csv")]
-                body, name = self.api.export(kind, query)
-                self._send(HTTPStatus.OK, body.encode("utf-8"), "text/csv; charset=utf-8",
-                           {"Content-Disposition": f'attachment; filename="{name}"'})
+                lines, name = self.api.export(kind, query)
+                # 길이를 미리 알 수 없으므로 연결을 닫는 것으로 끝을 알린다
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "text/csv; charset=utf-8")
+                self.send_header("Content-Disposition", f'attachment; filename="{name}"')
+                self.send_header("Connection", "close")
+                self.end_headers()
+                self.close_connection = True
+                try:
+                    for line in lines:
+                        self.wfile.write(line.encode("utf-8"))
+                except (BrokenPipeError, ConnectionResetError):
+                    pass                        # 받다가 창을 닫았다
+                finally:
+                    lines.close()               # 무거운 조회 잠금을 반드시 푼다
             else:
                 raise ApiError(HTTPStatus.NOT_FOUND, "없는 주소입니다")
         except ApiError as error:
@@ -301,6 +384,11 @@ class PanelHandler(SimpleHTTPRequestHandler):
 
     def _read_json(self) -> dict:
         if self.headers.get(PANEL_HEADER) != "1":
+            raise ApiError(HTTPStatus.FORBIDDEN, "화면에서 보낸 요청이 아닙니다")
+        if not self.api.host_allowed(self.headers.get("Host")):
+            raise ApiError(HTTPStatus.FORBIDDEN, "이 주소로는 설정·승인을 받을 수 없습니다")
+        origin = self.headers.get("Origin")
+        if origin and urlparse(origin).netloc.lower() != (self.headers.get("Host") or "").lower():
             raise ApiError(HTTPStatus.FORBIDDEN, "화면에서 보낸 요청이 아닙니다")
         if "application/json" not in (self.headers.get("Content-Type") or ""):
             raise ApiError(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "JSON 으로 보내야 합니다")
@@ -335,9 +423,9 @@ class PanelHandler(SimpleHTTPRequestHandler):
 
 
 def make_server(config, directory: str | Path, *, host: str = "127.0.0.1", port: int = 0,
-                pin: str | None = None) -> ThreadingHTTPServer:
+                pin: str | None = None, allowed_hosts=None) -> ThreadingHTTPServer:
     """서버를 만든다(띄우지는 않는다). ``port=0`` 이면 빈 포트를 잡는다."""
-    api = PanelApi(config, pin=pin)
+    api = PanelApi(config, pin=pin, allowed_hosts=allowed_hosts)
     handler = type("BoundPanelHandler", (PanelHandler,), {"api": api})
     return ThreadingHTTPServer((host, port), partial(handler, directory=str(directory)))
 
@@ -349,7 +437,9 @@ def serve(config, directory: str | Path, *, host: str = "0.0.0.0", port: int = 8
         LOG.error("화면 폴더가 없다: %s", directory)
         return 1
     pin = (os.environ.get("OFDF_PANEL_PIN") or "").strip() or None
-    httpd = make_server(config, directory, host=host, port=port, pin=pin)
+    hosts = [h.strip().lower() for h in (os.environ.get("OFDF_PANEL_HOSTS") or "").split(",")
+             if h.strip()]
+    httpd = make_server(config, directory, host=host, port=port, pin=pin, allowed_hosts=hosts)
     LOG.info("현장 화면 http://%s:%d · 화면 %s · 이력 %s · 상태 %s · 설정 잠금 %s",
              host, httpd.server_address[1], directory, config.journal_path,
              config.state_dir, "켜짐" if pin else "꺼짐(OFDF_PANEL_PIN 없음)")

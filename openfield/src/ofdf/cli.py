@@ -781,7 +781,12 @@ def run_once(
     if observations is None or observations.empty:
         return False
     # 화면에서 바꾼 설정은 매 주기 다시 읽는다 — 재시작 없이 다음 판단부터 반영.
-    site = config.site_settings()
+    # 상태 파일이 어떻게 깨져 있어도 판단은 돈다. 못 읽으면 설정 파일 값으로 간다.
+    try:
+        site = config.site_settings()
+    except Exception:                                      # noqa: BLE001
+        LOG.exception("화면 설정을 읽지 못했다 — 설정 파일 값으로 판단한다")
+        site = config.base_settings()
 
     features = build_features(observations)
     now = pd.Timestamp(features.index[-1])
@@ -817,7 +822,11 @@ def run_once(
                       field_rules=site.field_rules)
     # 농가가 화면에서 누른 승인·거부(L3). 유효시간은 벽시계로 잰다 — 자료의
     # 마지막 시각(now)은 수집이 밀리면 과거에 머문다.
-    responses = site_mod.active_responses(config.state_dir)
+    try:
+        responses = site_mod.active_responses(config.state_dir)
+    except Exception:                                      # noqa: BLE001
+        LOG.exception("농가 응답을 읽지 못했다 — 응답 없이 판단한다")
+        responses = {}
     applied = apply_user_responses(
         decision, {key: item["response"] for key, item in responses.items()})
 

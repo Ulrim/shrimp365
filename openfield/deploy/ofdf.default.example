@@ -33,3 +33,7 @@ OFDF_DEVICE_KEY_FILE=/etc/ofdf/device.key
 # 농가 휴대폰 말고도 붙는 기기가 있는 포장이면 적어 둔다.
 # 승인·거부(M2)는 번호를 묻지 않는다.
 #OFDF_PANEL_PIN=
+#
+# 화면을 IP·localhost·*.local 이 아닌 이름으로 열어야 하면 그 이름을 쉼표로 적는다.
+# 여기에 없는 이름으로 온 승인·설정 요청은 받지 않는다(DNS 리바인딩 방지).
+#OFDF_PANEL_HOSTS=ofdf.farm.lan

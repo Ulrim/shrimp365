@@ -82,11 +82,30 @@ def test_save_nothing_when_any_value_is_bad(tmp_path):
 def test_wind_thresholds_must_stay_ordered(tmp_path):
     """전개 금지 < 즉시 회수 < 구동 잠금. 뒤집히면 회수보다 잠금이 먼저 걸린다."""
     base = site.SiteSettings()
-    saved, errors = site.save_overrides(tmp_path, base, {"wind_no_deploy": 10.0})
+    saved, errors = site.save_overrides(tmp_path, base, {"wind_no_deploy": 9.0})
     assert saved is None and "순서" in errors[0]
     saved, errors = site.save_overrides(
-        tmp_path, base, {"wind_no_deploy": 10.0, "wind_recover": 12.0, "wind_lock": 16.0})
-    assert not errors and saved.field_rules.wind_recover == 12.0
+        tmp_path, base, {"wind_no_deploy": 8.0, "wind_recover": 10.0, "wind_lock": 15.0})
+    assert not errors and saved.field_rules.wind_recover == 10.0
+
+
+def test_bounds_stop_short_of_switching_rules_off():
+    """상한은 '규칙이 꺼진 것과 같은 값'보다 안쪽이다."""
+    _, errors = site.validate({"soil_upper_limit": 100, "spray_stop_wind": 10,
+                               "wind_lock": 25, "confidence_threshold": 0.5})
+    assert len(errors) == 4
+
+
+def test_torn_state_files_never_raise(tmp_path):
+    """글자 중간에서 잘린 파일이 판단 주기를 멈추면 안 된다."""
+    (tmp_path / site.APPROVALS_FILE).write_bytes(
+        '{"id": "야간피복|야간 피복 전개", "response": "approve", "at": "2026-11-17T20:00:00"}\n'
+        .encode() + b'{"id": "\xec\x95\xbc\xea')
+    assert list(site.active_responses(tmp_path, NOW)) == ["야간피복|야간 피복 전개"]
+    (tmp_path / site.SETTINGS_FILE).write_bytes(b'{"values": {"wind_lock": 1' + b"0" * 400 + b"}}")
+    assert site.effective_settings(site.SiteSettings(), tmp_path) == site.SiteSettings()
+    (tmp_path / site.SETTINGS_FILE).write_bytes(b'{"values": {"x": "\xea')
+    assert site.effective_settings(site.SiteSettings(), tmp_path) == site.SiteSettings()
 
 
 def test_broken_settings_file_falls_back_to_base(tmp_path):
@@ -115,7 +134,7 @@ def test_settings_without_state_dir_are_file_values():
 
 
 def test_last_response_wins_and_clear_reopens(tmp_path):
-    action = "frost|야간피복|야간 피복 전개"
+    action = "야간피복|야간 피복 전개"
     site.record_response(tmp_path, action, "reject", now=NOW)
     active = site.record_response(tmp_path, action, "approve",
                                   now=NOW + datetime.timedelta(minutes=1))
@@ -126,7 +145,7 @@ def test_last_response_wins_and_clear_reopens(tmp_path):
 
 def test_response_expires(tmp_path):
     """어제의 승인이 오늘의 다른 기상사례에 붙으면 안 된다."""
-    action = "frost|야간피복|야간 피복 전개"
+    action = "야간피복|야간 피복 전개"
     site.record_response(tmp_path, action, "approve", now=NOW)
     inside = NOW + datetime.timedelta(hours=site.RESPONSE_TTL_HOURS - 1)
     outside = NOW + datetime.timedelta(hours=site.RESPONSE_TTL_HOURS + 1)
@@ -138,14 +157,14 @@ def test_bad_responses_are_refused(tmp_path):
     import pytest
 
     with pytest.raises(ValueError):
-        site.record_response(tmp_path, "frost|야간피복|야간 피복 전개", "maybe")
+        site.record_response(tmp_path, "야간피복|야간 피복 전개", "maybe")
     with pytest.raises(ValueError):
         site.record_response(tmp_path, "아무거나", "approve")
     assert not (tmp_path / site.APPROVALS_FILE).exists()
 
 
 def test_corrupt_response_lines_are_skipped(tmp_path):
-    action = "frost|야간피복|야간 피복 전개"
+    action = "야간피복|야간 피복 전개"
     site.record_response(tmp_path, action, "approve", now=NOW)
     with (tmp_path / site.APPROVALS_FILE).open("a", encoding="utf-8") as handle:
         handle.write('{"id": "frost|야간\n')

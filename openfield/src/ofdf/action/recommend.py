@@ -88,11 +88,15 @@ class Action:
     def action_id(self) -> str:
         """화면과 응답 기록이 조치를 가리키는 이름.
 
-        같은 위험·같은 장치·같은 명령이면 같은 조치다. 주기(5분)마다 조치
-        객체는 새로 만들어지므로, 농가가 누른 승인이 다음 주기에도 같은
-        조치에 붙으려면 내용으로 가리켜야 한다.
+        같은 장치·같은 명령이면 같은 조치다. 주기(5분)마다 조치 객체는 새로
+        만들어지므로, 농가가 누른 승인이 다음 주기에도 같은 조치에 붙으려면
+        내용으로 가리켜야 한다.
+
+        위험유형은 넣지 않는다. 같은 명령을 여러 위험이 함께 부르면 유형이
+        ``disease+compound`` 처럼 합쳐지는데, 유형을 이름에 넣으면 두 번째
+        위험이 나타나는 순간 이름이 바뀌어 앞서 누른 승인이 조용히 떨어진다.
         """
-        return f"{self.risk_type}|{self.device}|{self.command}"
+        return f"{self.device}|{self.command}"
 
     def describe(self) -> str:
         mark = "권고" if self.advisory else "실행"
@@ -522,9 +526,16 @@ def decide(
 
     # 농가가 승인하면 기계가 실행할 수 있는 권고에 표시를 붙인다. 이 시점에
     # 구동부가 달린 장치의 권고는 신뢰도가 낮아 내려간 것뿐이다.
+    #
+    # 안전정지(L0)나 강풍 구동 잠금(L1)이 걸려 있으면 승인을 받지 않는다.
+    # 충돌 규칙(BLOCKING_RULES)은 장치·명령 짝으로만 막아서, 과전류 정지 중의
+    # 피복 전개나 잠금 중의 관수는 '거부'로 잡히지 않는다. 그 상태에서 승인
+    # 단추를 내주면 농가의 손으로 잠긴 구동부를 움직이게 된다.
+    locked = safety_lock(resolved)
     for action in resolved:
         action.needs_approval = (
-            action.advisory and not action.rejected_by
+            not locked
+            and action.advisory and not action.rejected_by
             and action.layer == Layer.AI and action.device in installed
             and action.device not in ALWAYS_AVAILABLE
         )
@@ -540,6 +551,47 @@ def decide(
     return Decision(actions=resolved, alerts=alerts, mode=mode)
 
 
+def safety_lock(actions: list[Action]) -> str:
+    """안전정지(L0)나 구동 잠금(L1)이 걸려 있으면 그 사유, 아니면 빈 문자열."""
+    for action in actions:
+        if action.rejected_by:
+            continue
+        if action.layer == Layer.HARDWARE:
+            return f"L0 '{action.device} {action.command}' ({action.reason})"
+        if action.layer == Layer.FIELD_RULE and "구동 잠금" in action.command:
+            return f"L1 '{action.device} {action.command}' ({action.reason})"
+    return ""
+
+
+def _conflict(action: Action, others: list[Action]) -> str:
+    """지금 실행 중인 다른 조치의 금지 명령과 부딪히면 그 사유.
+
+    :func:`_is_blocked` 은 더 높은 계층만 본다. 승인으로 뒤늦게 실행에
+    들어오는 조치는 **같은 계층**의 금지와도 부딪힐 수 있다 — 강우·과습이
+    '관수 중단'을 실행 중인데 고온·건조의 '관수 준비·실행'을 승인하면 같은
+    밸브에 열라는 명령과 닫으라는 명령이 함께 나간다. 금지가 이긴다.
+    """
+    if action.device == "알림":
+        return ""
+    for other in others:
+        if other is action or other.rejected_by or other.advisory:
+            continue
+        for forbid, blocked_device, blocked_commands in BLOCKING_RULES:
+            if forbid not in other.command:
+                continue
+            if blocked_device != "*" and not (
+                _same_device(action.device, blocked_device)
+                and _same_device(other.device, blocked_device)
+            ):
+                continue
+            if blocked_device == "*" and not _same_device(action.device, other.device):
+                continue
+            if any(k in action.command for k in blocked_commands):
+                return (f"L{int(other.layer)} '{other.device} {other.command}' 우선 "
+                        f"({other.reason})")
+    return ""
+
+
 def apply_user_responses(decision: Decision, responses: dict[str, str]) -> list[dict]:
     """농가의 승인·거부(L3)를 판단 결과에 반영한다.
 
@@ -547,15 +599,28 @@ def apply_user_responses(decision: Decision, responses: dict[str, str]) -> list[
     승인 대기 중인 권고(``needs_approval``)에만 적용한다 — 상위 계층(L0·L1)이
     이미 막은 조치는 농가가 승인해도 풀리지 않는다. L3 는 가장 낮은 계층이다.
 
-    반영한 응답을 ``[{"id", "device", "command", "response"}]`` 로 돌려준다.
-    판단 이력에 '사용자 승인 여부'로 남기는 값이다.
+    안전정지·구동 잠금이 걸려 있으면 아무것도 반영하지 않는다. 승인한
+    조치가 지금 실행 중인 금지 명령과 부딪히면 실행하지 않고 그 사유로
+    거부한다.
+
+    반영한 응답을 ``[{"id", "device", "command", "risk_type", "response"}]`` 로
+    돌려준다. 판단 이력에 '사용자 승인 여부'로 남기는 값이다.
     """
     applied: list[dict] = []
+    if safety_lock(decision.actions):
+        for action in decision.actions:
+            action.needs_approval = False
+        return applied
     for action in decision.actions:
         if not action.needs_approval:
             continue
         response = responses.get(action.action_id)
         if response == "approve":
+            conflict = _conflict(action, decision.actions)
+            if conflict:
+                action.rejected_by = conflict
+                action.needs_approval = False
+                continue
             action.advisory = False
             action.reason = f"{action.reason} — {USER_APPROVE_NOTE}"
         elif response == "reject":
@@ -566,7 +631,8 @@ def apply_user_responses(decision: Decision, responses: dict[str, str]) -> list[
         action.user_response = response
         applied.append({
             "id": action.action_id, "device": action.device,
-            "command": action.command, "response": response,
+            "command": action.command, "risk_type": action.risk_type,
+            "response": response,
         })
 
     if applied and decision.mode.startswith("권고"):

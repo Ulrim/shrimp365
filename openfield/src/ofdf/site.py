@@ -58,14 +58,18 @@ SAFETY_DEVICES = frozenset({"전 구동부", "해당 구동부"})
 #: 범위를 두는 이유 — 강풍 잠금을 60m/s 로 올리거나 신뢰도 기준을 0 으로
 #: 내리면 안전규칙과 권고모드가 사실상 꺼진다. 화면에서 한 번 잘못 누른
 #: 값이 그런 결과를 내지 않도록, 서버가 범위 밖의 값을 받지 않는다.
+#:
+#: 상한은 '규칙이 꺼진 것과 같은 값'보다 안쪽에 둔다. 흙 수분 상한 100% 는
+#: 센서가 그 값을 내지 않으므로 관수 금지가 영영 걸리지 않는다. 사업계획서
+#: 초기 기준(7·9·14m/s, 4m/s, 90%, 0.70)에서 한두 단계까지만 느슨하게 한다.
 BOUNDS: dict[str, tuple[float, float, str, str]] = {
-    "confidence_threshold": (0.50, 0.95, "",
+    "confidence_threshold": (0.60, 0.95, "",
                              "판단 신뢰도가 이 값 미만이면 자동 실행하지 않고 농가 승인을 받는다"),
-    "wind_no_deploy": (3.0, 12.0, "m/s", "순간최대풍속이 이 값 이상이면 차광막·피복을 펴지 않는다"),
-    "wind_recover": (5.0, 15.0, "m/s", "이 값 이상이면 차광막·피복을 즉시 걷는다"),
-    "wind_lock": (8.0, 25.0, "m/s", "이 값 이상이면 구동부를 잠그고 경보를 낸다"),
-    "spray_stop_wind": (1.0, 10.0, "m/s", "살수 중 이 풍속을 넘으면 살수를 멈춘다"),
-    "soil_upper_limit": (50.0, 100.0, "%", "흙 수분이 이 값 이상이면 관수를 금지한다"),
+    "wind_no_deploy": (3.0, 9.0, "m/s", "순간최대풍속이 이 값 이상이면 차광막·피복을 펴지 않는다"),
+    "wind_recover": (5.0, 12.0, "m/s", "이 값 이상이면 차광막·피복을 즉시 걷는다"),
+    "wind_lock": (8.0, 18.0, "m/s", "이 값 이상이면 구동부를 잠그고 경보를 낸다"),
+    "spray_stop_wind": (1.0, 6.0, "m/s", "살수 중 이 풍속을 넘으면 살수를 멈춘다"),
+    "soil_upper_limit": (50.0, 95.0, "%", "흙 수분이 이 값 이상이면 관수를 금지한다"),
 }
 
 RULE_KEYS = tuple(f.name for f in fields(FieldRules))
@@ -95,7 +99,7 @@ def _number(value: Any) -> float | None:
         return None
     try:
         number = float(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):     # 1e400 같은 정수도 온다
         return None
     return number if number == number and abs(number) != float("inf") else None
 
@@ -209,8 +213,11 @@ def read_overrides(state_dir: str | Path | None) -> dict[str, Any]:
         return {}
     path = Path(state_dir) / SETTINGS_FILE
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        # 쓰다 끊겨 글자 중간에서 잘린 파일도 예외 없이 읽는다(errors="replace").
+        # 이 함수는 제어기의 판단 주기 안에서 불린다 — 여기서 예외가 나면
+        # 안전규칙까지 함께 멈춘다.
+        data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
+    except (OSError, ValueError, RecursionError):
         return {}
     values = data.get("values") if isinstance(data, dict) else None
     return values if isinstance(values, dict) else {}
@@ -301,14 +308,16 @@ def settings_log(state_dir: str | Path | None, limit: int = 10) -> list[dict]:
 
 def _read_jsonl(path: Path) -> list[dict]:
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        # 조치 이름은 한글이라, 쓰다 끊기면 글자 중간에서 잘릴 수 있다.
+        # 그 줄 하나 때문에 판단 주기가 멈추면 안 된다.
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
         return []
     out = []
     for line in lines:
         try:
             item = json.loads(line)
-        except ValueError:
+        except (ValueError, RecursionError):
             continue                      # 쓰다 끊긴 줄은 건너뛴다
         if isinstance(item, dict):
             out.append(item)
@@ -362,7 +371,7 @@ def record_response(
     """농가 응답을 적고, 지금 유효한 응답 전체를 돌려준다."""
     if response not in RESPONSES:
         raise ValueError(f"모르는 응답: {response}")
-    if not action_id or len(action_id) > 200 or action_id.count("|") != 2:
+    if not action_id or len(action_id) > 200 or action_id.count("|") != 1:
         raise ValueError("조치 이름이 올바르지 않습니다")
 
     now = now or datetime.datetime.now()

@@ -15,7 +15,7 @@ from ofdf.action.recommend import (
 )
 
 INSTALLED = frozenset({"관수밸브", "야간피복"})
-COVER = "frost|야간피복|야간 피복 전개"
+COVER = "야간피복|야간 피복 전개"
 
 
 def low_confidence_frost(**sensor):
@@ -55,8 +55,8 @@ def test_approval_executes_the_action():
     decision = low_confidence_frost()
     applied = apply_user_responses(decision, {COVER: "approve"})
     cover = by_id(decision)[COVER]
-    assert applied == [{"id": COVER, "device": "야간피복",
-                        "command": "야간 피복 전개", "response": "approve"}]
+    assert applied == [{"id": COVER, "device": "야간피복", "command": "야간 피복 전개",
+                        "risk_type": "frost", "response": "approve"}]
     assert cover in decision.executable() and "농가 승인" in cover.reason
     assert not cover.needs_approval and cover.user_response == "approve"
 
@@ -90,7 +90,7 @@ def test_user_cannot_override_upper_layer():
 
 def test_unrelated_or_unknown_responses_do_nothing():
     decision = low_confidence_frost()
-    assert apply_user_responses(decision, {"frost|없는장치|없는 명령": "approve",
+    assert apply_user_responses(decision, {"없는장치|없는 명령": "approve",
                                            COVER: "maybe"}) == []
     assert by_id(decision)[COVER].needs_approval
 
@@ -136,3 +136,43 @@ def test_confidence_threshold_setting_changes_mode():
     assert decide(*args, confidence={"frost": 0.75}).mode == "자동"
     assert decide(*args, confidence={"frost": 0.75},
                   confidence_threshold=0.8).mode == "권고(농가 승인 필요)"
+
+
+def test_no_approval_during_safety_stop():
+    """과전류 정지(L0) 중에는 승인 단추를 내지 않고, 승인이 와도 실행하지 않는다."""
+    decision = low_confidence_frost(overcurrent=True)
+    assert decision.mode == "안전정지"
+    assert not any(a.needs_approval for a in decision.actions)
+    assert apply_user_responses(decision, {COVER: "approve"}) == []
+    assert by_id(decision)[COVER] not in decision.executable()
+
+
+def test_no_approval_during_wind_lock():
+    """강풍 구동 잠금(L1) 중에는 잠금이 장치·명령 짝으로 막지 않는 조치도 승인받지 않는다."""
+    decision = decide({"heat_dry": 1}, SensorState(hour=13, gust_3s=20.0),
+                      confidence={"heat_dry": 0.5}, installed_devices=INSTALLED)
+    water = by_id(decision)["관수밸브|관수 준비·실행"]
+    assert not water.needs_approval
+    apply_user_responses(decision, {"관수밸브|관수 준비·실행": "approve"})
+    assert water not in decision.executable()
+
+
+def test_approval_cannot_fight_a_running_prohibition():
+    """강우·과습이 '관수 중단'을 실행 중이면 고온·건조의 '관수 실행'은 승인해도 나가지 않는다."""
+    decision = decide({"rain_wet": 1, "heat_dry": 1}, SensorState(hour=13),
+                      confidence={"rain_wet": 0.9, "heat_dry": 0.5}, installed_devices=INSTALLED)
+    apply_user_responses(decision, {"관수밸브|관수 준비·실행": "approve"})
+    running = {a.command for a in decision.executable() if a.device == "관수밸브"}
+    assert "관수 중단" in running and "관수 준비·실행" not in running
+    assert "관수 중단" in by_id(decision)["관수밸브|관수 준비·실행"].rejected_by
+
+
+def test_approval_survives_a_second_risk_joining():
+    """같은 명령을 두 번째 위험이 함께 부르기 시작해도 앞서 누른 승인이 붙어 있다."""
+    alone = decide({"disease": 1}, SensorState(hour=13), confidence={"disease": 0.5},
+                   installed_devices=frozenset({"살수"}))
+    joined = decide({"disease": 1, "rain_wet": 1}, SensorState(hour=13),
+                    confidence={"disease": 0.5, "rain_wet": 0.5},
+                    installed_devices=frozenset({"살수"}))
+    ask = [a for a in alone.actions if a.needs_approval]
+    assert ask and ask[0].action_id in {a.action_id for a in joined.actions if a.needs_approval}
