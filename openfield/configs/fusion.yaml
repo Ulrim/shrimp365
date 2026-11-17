@@ -6,6 +6,11 @@ fusion:
   # 최근 7일 유리환경 누적이 이 시간을 넘으면 감염압이 높다고 본다
   favourable_hours_7d_threshold: 48
 
+# control.confidence_threshold 와 control.field_rules 의 풍속 넷 · soil_upper_limit 는
+# 엣지 제어기가 읽는다(weather.yaml 과 같은 폴더에 있으면 자동, 아니면 --fusion-config).
+# 설정 화면(M6)에서 바꾼 값은 이 파일을 고치지 않고 state/settings.json 에 따로 적혀
+# 이 값 위에 덮인다. '설정 파일 값으로 되돌리기' 를 누르면 여기 값으로 돌아온다.
+# 범위 밖의 값(ofdf.site.BOUNDS)은 받지 않고 코드 기본값을 쓴다.
 control:
   # 판단 신뢰도가 이 값 미만이면 자동 실행하지 않고 농가 승인을 받는다
   confidence_threshold: 0.70
@@ -15,6 +20,7 @@ control:
     wind_recover: 9.0        # 즉시 완전 회수(5분 이내)
     wind_lock: 14.0          # 경보·구동 잠금, 현장 확인 후 수동 해제
     spray_stop_wind: 4.0     # 살수 중 이 풍속 초과 시 즉시 중지(비산 방지)
+    soil_upper_limit: 90.0   # %, 토양수분 농가 상한. 이상이면 관수 금지
     comms_timeout_minutes: 3 # 서버 응답 미수신 시 로컬 독립운전
 
   shading:                   # 차광은 대파 생육기준 내에서만 제한 운영

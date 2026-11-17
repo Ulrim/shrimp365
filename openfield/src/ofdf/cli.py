@@ -31,12 +31,20 @@ import pandas as pd
 
 from ofdf import __version__
 from ofdf.action.journal import Journal, RiskJudgement, record_from_decision
-from ofdf.action.recommend import SensorState, decide
+from ofdf.action.recommend import (
+    CONFIDENCE_THRESHOLD,
+    DEFAULT_FIELD_RULES,
+    FieldRules,
+    SensorState,
+    apply_user_responses,
+    decide,
+)
 from ofdf.data import field as field_data
 from ofdf.features.derived import add_derived
 from ofdf.features.weather import build_features
 from ofdf.models import weather_risk
 from ofdf.labels.risk import RISK_LABELS_KO, compose_compound, compound_reasons
+from ofdf import site as site_mod
 from ofdf import upload as upload_mod
 
 LOG = logging.getLogger("ofdf.edge")
@@ -76,7 +84,31 @@ DEFAULTS = {
     "devices_path": "configs/devices.yaml",
     "zone": "treatment",
     "station": "실증포장",
+    "state_dir": "state",
 }
+
+#: 적용·비교구간 비교 그래프(화면 M1)에 올리는 항목 (키, 이름, 단위, 소수점).
+#: 구간 안에서 직접 재는 값만 넣는다 — 일사·강우·풍속은 두 구간이 같은
+#: 마스트 값을 쓰므로 비교하면 언제나 같은 선 두 개가 나온다.
+COMPARE_FIELDS = (
+    ("canopy_temp", "초관부 온도", "℃", 1),
+    ("t_air", "기온", "℃", 1),
+    ("rh", "상대습도", "%", 0),
+    ("soil_moisture", "토양수분", "%", 1),
+    ("soil_temp", "지온", "℃", 1),
+    ("leaf_wetness", "엽면습윤", "", 2),
+)
+#: 화면 환경 칸의 단위. 전에는 변수 이름(t_air)을 그대로, 단위 없이 내보냈다.
+ENVIRONMENT_UNITS = {
+    "t_air": "℃", "canopy_temp": "℃", "rh": "%", "solar_w": "W/m²",
+    "rain": "mm", "soil_moisture": "%", "wind_speed": "m/s",
+}
+#: 비교 대상 구간. 적용구간이 판단 구간(config.zone)이 아니어도 비교는 이 둘이다.
+COMPARE_ZONES = (field_data.ZONE_TREATMENT, field_data.ZONE_CONTROL)
+#: 화면 그래프에 보내는 과거 시간
+SERIES_HOURS = 24
+#: 화면 제어 이력(M3)에 보내는 최근 판단 건수
+HISTORY_RECORDS = 36
 
 
 @dataclass
@@ -104,6 +136,32 @@ class EdgeConfig:
     kma_service_key: str | None = None
     #: Zigbee 장치 설치 정보. 화면의 '센서 상태' 칸이 쓴다.
     devices_path: Path | None = None
+    #: 화면 서버가 쓰는 상태 디렉터리 — 화면에서 바꾼 설정(M6)과 농가의
+    #: 승인·거부(M2). ``None`` 이면 읽지 않는다(설정 파일 값만 쓴다).
+    state_dir: Path | None = None
+    #: 권고모드 신뢰도 기준 (``configs/fusion.yaml`` control.confidence_threshold)
+    confidence_threshold: float = CONFIDENCE_THRESHOLD
+    #: 현장 즉응규칙(L1) 기준 (``configs/fusion.yaml`` control.field_rules)
+    field_rules: FieldRules = DEFAULT_FIELD_RULES
+    #: 설정 화면이 읽기 전용으로 보여 주는 위험 판정 기준값(weather.yaml thresholds)
+    thresholds: dict | None = None
+
+    def site_settings(self) -> "site_mod.SiteSettings":
+        """이번 주기에 쓸 현장 설정 — 설정 파일 + 화면에서 바꾼 값."""
+        base = site_mod.SiteSettings(
+            confidence_threshold=self.confidence_threshold,
+            field_rules=self.field_rules,
+            installed_devices=self.installed_devices,
+        )
+        return site_mod.effective_settings(base, self.state_dir)
+
+    def base_settings(self) -> "site_mod.SiteSettings":
+        """설정 파일만 본 값(화면에서 '기본값으로' 를 눌렀을 때 돌아갈 곳)."""
+        return site_mod.SiteSettings(
+            confidence_threshold=self.confidence_threshold,
+            field_rules=self.field_rules,
+            installed_devices=self.installed_devices,
+        )
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -114,7 +172,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     # 쥔다. argparse 에 기본값을 두면 '명시하지 않았다'와 '기본값을 적었다'가
     # 구별되지 않아 설정 YAML(data.field_dir 등)이 언제나 덮였다 — 설정 파일에
     # 수집 경로를 적어도 엣지는 data/field 만 읽었다.
-    for name, help_text in (("edge", "5분 주기로 상주 실행"), ("once", "한 번만 실행")):
+    for name, help_text in (
+        ("edge", "5분 주기로 상주 실행"), ("once", "한 번만 실행"),
+        ("serve", "현장 화면 서버 — 화면 + 승인·조회·설정·리포트"),
+    ):
         s = sub.add_parser(name, help=help_text)
         s.add_argument("--config", default=None, help="설정 YAML (없으면 아래 인자를 쓴다)")
         s.add_argument("--field", default=None,
@@ -136,7 +197,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         s.add_argument("--installed-devices", default=None,
                        help="구동부가 달린 장치를 쉼표로. 생략하면 설정파일, "
                             "그것도 없으면 전부 달린 것으로 본다")
+        s.add_argument("--state", default=None,
+                       help=f"화면 상태 디렉터리 — 설정 변경·농가 승인 "
+                            f"(기본 {DEFAULTS['state_dir']}, YAML edge.state_dir)")
+        s.add_argument("--fusion-config", default=None,
+                       help="조치 설정 YAML (기본: --config 와 같은 폴더의 fusion.yaml)")
         s.add_argument("--verbose", action="store_true")
+        if name == "serve":
+            s.add_argument("--port", type=int, default=8080)
+            # 0.0.0.0 으로 열어야 농가 휴대폰이 같은 공유기에서 들어온다.
+            # 포장 내부망 전용이다. 공인 IP 로 포트를 열지 않는다.
+            s.add_argument("--bind", default="0.0.0.0")
+            s.add_argument("--dashboard-dir", default=None,
+                           help="화면 파일 폴더 (기본: 화면 데이터 파일이 있는 폴더)")
 
     # 모델 없이도 돌아야 한다. 센서를 달고 처음 확인하는 명령이기 때문이다.
     chk = sub.add_parser("sensors", help="수집 범위 점검 — 어느 변수가 어느 경로로 들어오는지")
@@ -178,6 +251,21 @@ def load_config(args: argparse.Namespace) -> EdgeConfig:
     data = settings.get("data") or {}
     edge = settings.get("edge") or {}
 
+    # 조치 설정(fusion.yaml) — 신뢰도 기준과 현장 즉응규칙. 전에는 이 파일을
+    # 아무도 읽지 않아, 고쳐도 제어기는 코드에 박힌 0.70 과 7·9·14m/s 로 돌았다.
+    fusion: dict = {}
+    fusion_path = getattr(args, "fusion_config", None)
+    if fusion_path is None and args.config:
+        fusion_path = Path(args.config).with_name("fusion.yaml")
+    if fusion_path and Path(fusion_path).exists():
+        try:
+            import yaml
+            fusion = yaml.safe_load(Path(fusion_path).read_text(encoding="utf-8")) or {}
+        except ImportError:
+            LOG.warning("pyyaml 이 없어 조치 설정 파일을 건너뛴다")
+    base = site_mod.base_settings(None, fusion)
+    state = _pick(getattr(args, "state", None), edge.get("state_dir"), DEFAULTS["state_dir"])
+
     dashboard = _pick(args.dashboard, edge.get("dashboard_path"), DEFAULTS["dashboard_path"])
     devices = _pick(args.devices, edge.get("devices_path"), DEFAULTS["devices_path"])
     return EdgeConfig(
@@ -194,6 +282,10 @@ def load_config(args: argparse.Namespace) -> EdgeConfig:
             or edge.get("kma_service_key")
         ),
         devices_path=Path(devices) if devices else None,
+        state_dir=Path(state) if state else None,
+        confidence_threshold=base.confidence_threshold,
+        field_rules=base.field_rules,
+        thresholds=settings.get("thresholds"),
     )
 
 
@@ -357,12 +449,20 @@ def read_field_long(field_dir: Path) -> pd.DataFrame | None:
     return pd.concat(parts, ignore_index=True)
 
 
-def read_window(config: EdgeConfig) -> pd.DataFrame | None:
-    """현장 수집에서 최근 관측창을 만든다."""
+def read_hourly(config: EdgeConfig) -> pd.DataFrame | None:
+    """현장 수집을 시간 단위로 집계해 읽는다(전 구간)."""
     try:
-        hourly = field_data.load(config.field_dir, freq="h")
+        return field_data.load(config.field_dir, freq="h")
     except FileNotFoundError:
         LOG.error("수집 파일이 없다: %s", config.field_dir)
+        return None
+
+
+def read_window(config: EdgeConfig, hourly: pd.DataFrame | None = None) -> pd.DataFrame | None:
+    """현장 수집에서 최근 관측창을 만든다."""
+    if hourly is None:
+        hourly = read_hourly(config)
+    if hourly is None:
         return None
 
     zone = field_data.zone_frame(hourly, config.zone)
@@ -492,7 +592,10 @@ def judge(models: dict, features: pd.DataFrame) -> tuple[dict, dict, dict]:
     return levels, confidences, evidence
 
 
-def sensors_from(features: pd.DataFrame, now: pd.Timestamp) -> SensorState:
+def sensors_from(
+    features: pd.DataFrame, now: pd.Timestamp,
+    soil_upper_limit: float = DEFAULT_FIELD_RULES.soil_upper_limit,
+) -> SensorState:
     """현장 즉응규칙(L1)이 보는 실측값을 모은다."""
     last = features.iloc[-1]
 
@@ -515,11 +618,112 @@ def sensors_from(features: pd.DataFrame, now: pd.Timestamp) -> SensorState:
         gust_3s=None if gust is None or pd.isna(gust) else float(gust),
         gust_source=gust_source,
         rain_detected=value("rain") > 0 or value("rain_detect") > 0.5,
-        soil_above_limit=value("soil_moisture", -1) >= 0 and value("soil_moisture") >= 90,
+        soil_above_limit=value("soil_moisture", -1) >= 0 and value("soil_moisture") >= soil_upper_limit,
         hour=int(now.hour),
         shade_deployed_minutes=value("shade_deployed_minutes"),
         shade_open=value("shade_position") > 0.5,
     )
+
+
+def _round_list(values, digits: int) -> list:
+    return [None if pd.isna(v) else round(float(v), digits) for v in values]
+
+
+def screen_series(observations: pd.DataFrame, hours: int = SERIES_HOURS) -> dict:
+    """24시간 추이 그래프(화면 M1)용 — 판단 구간의 기온과 초관부 온도."""
+    recent = observations.tail(hours + 1)
+    out = {"time": [pd.Timestamp(t).isoformat() for t in recent.index]}
+    for key in ("t_air", "canopy_temp"):
+        out[key] = (_round_list(recent[key], 1) if key in recent.columns
+                    else [None] * len(recent))
+    return out
+
+
+def compare_series(hourly: pd.DataFrame | None, hours: int = SERIES_HOURS) -> dict | None:
+    """적용구간과 비교구간의 환경값을 나란히 놓는다(화면 M1 비교 그래프).
+
+    시제품을 단 적용구간과 달지 않은 일반 노지 비교구간이 얼마나 다른지가
+    실증의 결과다. 두 구간은 대칭 위치에 같은 센서를 달았으므로, 같은 시각의
+    같은 항목을 나란히 그리면 조치의 효과가 그대로 보인다.
+
+    **구간 안에서 직접 잰 값만 쓴다.** ``field.zone_frame`` 은 구간에 없는
+    항목을 마스트 값으로 채우는데, 그것을 비교하면 같은 값 두 줄이 겹쳐
+    '차이 없음'으로 읽힌다. 센서가 없으면 그 항목은 빼고, 비교구간 자료가
+    아예 없으면 ``None`` 을 돌려 화면이 그래프를 숨기게 한다.
+    """
+    if hourly is None or hourly.empty:
+        return None
+    recent = hourly.tail(hours + 1)
+    variables = []
+    for key, name, unit, digits in COMPARE_FIELDS:
+        columns = [f"{zone}.{key}" for zone in COMPARE_ZONES]
+        if any(c not in recent.columns or recent[c].notna().sum() == 0 for c in columns):
+            continue
+        treatment, control = (recent[c] for c in columns)
+        gap = (treatment - control).dropna()
+        variables.append({
+            "key": key, "name": name, "unit": unit,
+            "treatment": _round_list(treatment, digits),
+            "control": _round_list(control, digits),
+            # 적용구간 − 비교구간. 양수면 적용구간이 높다.
+            "meanDiff": round(float(gap.mean()), 2) if len(gap) else None,
+            "lastDiff": round(float(gap.iloc[-1]), 2) if len(gap) else None,
+        })
+    if not variables:
+        return None
+    return {
+        "time": [pd.Timestamp(t).isoformat() for t in recent.index],
+        "variables": variables,
+    }
+
+
+def screen_judgements(
+    by_horizon: dict, levels: dict, confidences: dict, evidence: dict, now: pd.Timestamp,
+) -> list[dict]:
+    """AI 판단 상세(화면 M2)용 — 주의 이상인 위험의 근거·신뢰도·예상시점.
+
+    위험이 높은 것부터 놓는다. 화면은 첫 번째 것을 크게 보여 준다.
+    """
+    out = []
+    for risk, level in sorted(levels.items(), key=lambda kv: -kv[1]):
+        if level <= 0:
+            continue
+        out.append({
+            "risk": risk, "name": RISK_LABELS_KO[risk],
+            "level": level, "levelName": LEVEL_NAMES[level],
+            "confidence": round(confidences.get(risk, 1.0), 3),
+            "modelVersion": f"ofdf-weather-{__version__}",
+            "expectedOnset": earliest_onset(by_horizon, risk, now),
+            "evidence": [
+                {"feature": e["feature"], "label": upload_mod.feature_label(e["feature"]),
+                 "value": None if pd.isna(e["value"]) else round(e["value"], 2),
+                 "contribution": round(e["contribution"], 3)}
+                # 복합위험의 근거는 변수 기여도가 아니라 점수와 경계다. 막대로
+                # 그리면 뜻이 달라지므로 화면의 기여도 목록에는 넣지 않는다.
+                for e in evidence.get(risk, []) if e["feature"] != "compound_score"
+            ],
+        })
+    return out
+
+
+def screen_history(journal: Journal, count: int = HISTORY_RECORDS) -> list[dict]:
+    """제어 이력(화면 M3)용 — 최근 판단들의 조치를 시간순으로 편다."""
+    history = []
+    for record in journal.tail(count):
+        blocked = {(a.get("device"), a.get("command")): a.get("rejected_by", "")
+                   for a in record.get("rejected", [])}
+        for action in record.get("recommended", []):
+            key = (action.get("device"), action.get("command"))
+            history.append({
+                "time": record.get("timestamp"), "layer": action.get("layer"),
+                "device": action.get("device"), "command": action.get("command"),
+                "reason": action.get("reason", ""), "riskType": action.get("risk_type", ""),
+                "executed": key not in blocked and not action.get("advisory"),
+                "rejectedBy": blocked.get(key, ""),
+                "advisory": bool(action.get("advisory")),
+                "userResponse": action.get("user_response"),
+            })
+    return history
 
 
 def write_dashboard(path: Path, payload: dict) -> None:
@@ -572,9 +776,12 @@ def run_once(
     ``uploader`` 가 있으면 끝에서 판단을 Farm365 서버로 올린다(``ofdf.upload``).
     없으면(환경변수 미설정) 원본과 똑같이 로컬 기록만 한다.
     """
-    observations = read_window(config)
+    hourly = read_hourly(config)
+    observations = read_window(config, hourly)
     if observations is None or observations.empty:
         return False
+    # 화면에서 바꾼 설정은 매 주기 다시 읽는다 — 재시작 없이 다음 판단부터 반영.
+    site = config.site_settings()
 
     features = build_features(observations)
     now = pd.Timestamp(features.index[-1])
@@ -603,9 +810,16 @@ def run_once(
             f"강우·과습과 병해 유리환경·저온·서리 위험이 함께 높아지는 중"
             f" (복합 점수 {evidence.get('compound', [{}])[0].get('value', 0):.2f})"
         ]
-    sensors = sensors_from(observations, now)
+    sensors = sensors_from(observations, now, site.field_rules.soil_upper_limit)
     decision = decide(levels, sensors, confidence=confidences, compound_reasons=reasons,
-                      installed_devices=config.installed_devices)
+                      confidence_threshold=site.confidence_threshold,
+                      installed_devices=site.installed_devices,
+                      field_rules=site.field_rules)
+    # 농가가 화면에서 누른 승인·거부(L3). 유효시간은 벽시계로 잰다 — 자료의
+    # 마지막 시각(now)은 수집이 밀리면 과거에 머문다.
+    responses = site_mod.active_responses(config.state_dir)
+    applied = apply_user_responses(
+        decision, {key: item["response"] for key, item in responses.items()})
 
     judgements = [
         RiskJudgement(
@@ -621,7 +835,7 @@ def run_once(
         {k: float(observations.iloc[-1][k])
          for k in ("t_air", "rh", "canopy_temp", "soil_moisture", "soil_index")
          if k in observations.columns and pd.notna(observations.iloc[-1][k])},
-        judgements, decision,
+        judgements, decision, user_responses=applied,
     ))
 
     active = [f"{RISK_LABELS_KO[r]} {LEVEL_NAMES[l]}" for r, l in levels.items() if l > 0]
@@ -649,7 +863,8 @@ def run_once(
             "uploadStatus": upload_status,
             "sensors": sensor_status(config),
             "environment": [
-                {"key": k, "name": k, "unit": "",
+                {"key": k, "name": upload_mod.feature_label(k),
+                 "unit": ENVIRONMENT_UNITS.get(k, ""),
                  "value": round(float(observations.iloc[-1][k]), 2)}
                 # soil_moisture 는 센서 실측, soil_index 는 물수지 대리지표다.
                 # 둘 다 보내고 화면이 실측을 먼저 쓴다 — 센서를 달아 놓고
@@ -671,14 +886,24 @@ def run_once(
                  }}
                 for r, l in levels.items()
             ],
-            "judgements": [], "actions": [
-                {"device": a.device, "command": a.command, "layer": int(a.layer),
+            "judgements": screen_judgements(by_horizon, levels, confidences, evidence, now),
+            "actions": [
+                {"id": a.action_id,
+                 "device": a.device, "command": a.command, "layer": int(a.layer),
                  "reason": a.reason, "riskType": a.risk_type,
                  "executed": not a.rejected_by and not a.advisory,
-                 "rejectedBy": a.rejected_by, "advisory": a.advisory}
+                 "rejectedBy": a.rejected_by, "advisory": a.advisory,
+                 # 농가가 승인하면 기계가 실행할 수 있는 권고에만 단추가 붙는다
+                 "needsApproval": a.needs_approval,
+                 "userResponse": a.user_response or None,
+                 "respondedAt": (responses.get(a.action_id) or {}).get("at")
+                                if a.user_response else None}
                 for a in decision.actions
             ],
-            "history": [], "series": {"time": [], "t_air": [], "canopy_temp": []},
+            "history": screen_history(journal),
+            "series": screen_series(observations),
+            "compare": compare_series(hourly),
+            "settings": site.values(),
         })
     return True
 
@@ -771,6 +996,14 @@ def main(argv: list[str] | None = None) -> int:
         return run_sensors(args)
 
     config = load_config(args)
+
+    if args.command == "serve":
+        # 화면 서버는 모델을 읽지 않는다. 판단이 죽어도 화면은 떠 있어야 한다.
+        from ofdf import server
+
+        directory = Path(args.dashboard_dir) if args.dashboard_dir else (
+            config.dashboard_path.parent if config.dashboard_path else Path("dashboard"))
+        return server.serve(config, directory, host=args.bind, port=args.port)
 
     models = load_models(config.model_dir)
 

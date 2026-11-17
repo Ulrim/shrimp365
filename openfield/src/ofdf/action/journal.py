@@ -69,6 +69,10 @@ class DecisionRecord:
     rejected: list[dict[str, Any]] = field(default_factory=list)
 
     user_approved: bool | None = None      # 권고모드일 때 농가 승인 여부
+    #: 농가가 화면에서 누른 응답 ``[{"id", "device", "command", "response"}]``.
+    #: 조치가 여럿이면 승인과 거부가 섞일 수 있어 ``user_approved`` 하나로는
+    #: 모자란다.
+    user_responses: list[dict[str, Any]] = field(default_factory=list)
     vision: dict[str, Any] | None = None   # 비전 진단 결과(있으면)
     outcome: dict[str, Any] | None = None  # 실제 제어·환경 결과(사후 기록)
 
@@ -85,11 +89,17 @@ def record_from_decision(
     decision,
     *,
     vision: dict[str, Any] | None = None,
+    user_responses: list[dict[str, Any]] | None = None,
 ) -> DecisionRecord:
-    """:class:`ofdf.action.recommend.Decision` 을 기록 형식으로 바꾼다."""
+    """:class:`ofdf.action.recommend.Decision` 을 기록 형식으로 바꾼다.
+
+    ``user_responses`` 는 :func:`ofdf.action.recommend.apply_user_responses` 가
+    돌려준 값이다. 하나라도 승인했으면 ``user_approved`` 는 참, 거부만
+    있으면 거짓, 응답이 없으면 ``None`` 으로 남는다.
+    """
 
     def describe(action) -> dict[str, Any]:
-        return {
+        out = {
             "device": action.device,
             "command": action.command,
             "layer": int(action.layer),
@@ -97,6 +107,14 @@ def record_from_decision(
             "risk_type": action.risk_type,
             "advisory": action.advisory,
         }
+        if getattr(action, "user_response", ""):
+            out["user_response"] = action.user_response
+        return out
+
+    responses = list(user_responses or [])
+    approved: bool | None = None
+    if responses:
+        approved = any(r.get("response") == "approve" for r in responses)
 
     recommended = [describe(a) for a in decision.actions]
     executed = [describe(a) for a in decision.executable()]
@@ -117,6 +135,8 @@ def record_from_decision(
         executed=executed,
         rejected=rejected,
         vision=vision,
+        user_approved=approved,
+        user_responses=responses,
     )
 
 
@@ -145,6 +165,56 @@ class Journal:
             except json.JSONDecodeError:
                 continue
         return records
+
+    def read_range(self, start: str | None = None, end: str | None = None) -> list[dict]:
+        """``start <= 시각 < end`` 인 기록만 읽는다(ISO 8601 문자열, 한쪽 생략 가능).
+
+        이력은 5분에 한 줄씩 쌓여 한 달이면 8천 줄을 넘는다. 화면이 한 달치를
+        물을 때마다 일 년치를 전부 풀어 읽으면 라즈베리파이가 버겁다. 시각은
+        줄 맨 앞에 고정 길이로 적히므로(``{"timestamp": "2025-11-01T23:00:00"``),
+        기간 밖의 줄은 JSON 을 풀지 않고 글자 비교만으로 건너뛴다.
+        """
+        if not self.path.exists():
+            return []
+        head = '{"timestamp": "'
+        records = []
+        with self.path.open(encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                if line.startswith(head):
+                    stamp = line[len(head):len(head) + 19]
+                    if (start and stamp < start[:19]) or (end and stamp >= end[:19]):
+                        continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                stamp = str(record.get("timestamp", ""))[:19]
+                if (start and stamp < start[:19]) or (end and stamp >= end[:19]):
+                    continue
+                records.append(record)
+        return records
+
+    def tail(self, count: int = 50, max_bytes: int = 256 * 1024) -> list[dict]:
+        """마지막 ``count`` 건. 파일 끝부분만 읽는다(매 주기 화면용)."""
+        if not self.path.exists():
+            return []
+        size = self.path.stat().st_size
+        with self.path.open("rb") as handle:
+            handle.seek(max(0, size - max_bytes))
+            chunk = handle.read().decode("utf-8", errors="ignore")
+        lines = chunk.splitlines()
+        if size > max_bytes:
+            lines = lines[1:]                 # 잘린 첫 줄은 버린다
+        records = []
+        for line in lines:
+            try:
+                records.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+        return records[-count:]
 
     def monthly_report(self, year: int, month: int) -> dict:
         """월간 리포트(화면 M7) 집계.

@@ -6,6 +6,16 @@
 # 엣지 서비스가 dashboard/data.json 을 원자적으로 갈아 끼우고, 화면은 그것을
 # 30초마다 다시 읽는다. 둘을 분리해 둔 이유는 판단이 멈춰도 화면은 살아서
 # '멈췄다'고 알려야 하기 때문이다. 한 프로세스였다면 같이 죽는다.
+#
+# 화면 서버(ofdf.server)는 화면 파일에 더해 다음을 한다.
+#   M2 승인·거부        state/approvals.jsonl 에 적는다 → 엣지가 다음 주기에 읽는다
+#   M5 조회·CSV 내보내기  logs/journal.jsonl 을 읽는다
+#   M6 설정 편집        state/settings.json 에 적는다 → 엣지가 다음 주기에 읽는다
+#   M7 월간 리포트      logs/journal.jsonl 을 읽는다
+# 엣지와는 파일로만 이야기한다. 모델은 읽지 않는다.
+#
+# 설정 편집에 관리 번호를 걸려면 /etc/default/ofdf 에 OFDF_PANEL_PIN 을 적는다.
+# 승인·거부는 번호를 묻지 않는다(deploy/ofdf.default.example 참조).
 
 [Unit]
 Description=노지 대파 재해위험 현장 화면
@@ -15,14 +25,18 @@ After=network.target
 Type=simple
 User=ofdf
 WorkingDirectory=/opt/ofdf
+EnvironmentFile=-/etc/default/ofdf
+Environment=PYTHONUNBUFFERED=1
 # 0.0.0.0 으로 열어야 농가 휴대폰이 같은 공유기에서 들어온다.
 # 포장 내부망 전용이다. 공인 IP 로 포트를 열지 않는다.
-ExecStart=/opt/ofdf/venv/bin/python -m http.server 8080 \
-          --bind 0.0.0.0 --directory /opt/ofdf/dashboard
+ExecStart=/opt/ofdf/venv/bin/python -m ofdf.cli serve --config configs/weather.yaml \
+          --bind 0.0.0.0 --port 8080
 Restart=always
 RestartSec=5
 
-# 정적 파일만 내보낸다. 쓰기 권한이 필요 없다.
+# 쓰는 곳은 state/ 하나뿐이다. 판단 이력과 화면 파일은 읽기만 한다.
+#   sudo install -d -o ofdf -g ofdf /opt/ofdf/state
+ReadWritePaths=/opt/ofdf/state
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true

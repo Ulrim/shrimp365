@@ -64,6 +64,9 @@
 }
 
 * { box-sizing: border-box; }
+/* display 를 준 요소(.farm 등)는 hidden 속성만으로 숨지 않는다. 농가 화면이
+   운영자 화면 위에 그대로 남아 있었다. */
+[hidden] { display: none !important; }
 body {
   margin: 0; background: var(--plane); color: var(--ink);
   font-family: var(--font-ui); font-size: 14px; line-height: 1.5;
@@ -321,6 +324,136 @@ footer p { margin: 0 0 5px; }
   background: var(--critical);
 }
 #stale .detail { font-weight: 400; color: var(--ink-2); font-size: 14px; }
+
+/* ── 운영자 화면 안의 갈래 — 관제 / 조회 / 리포트 / 설정 ── */
+.tabs { display: flex; gap: 4px; margin-top: 18px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tabs button {
+  appearance: none; border: 0; background: none; cursor: pointer; font: inherit;
+  font-size: 14px; font-weight: 600; color: var(--ink-3); white-space: nowrap;
+  padding: 0 16px; min-height: 48px; border-bottom: 3px solid transparent; margin-bottom: -1px;
+}
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+.tabs .screen { margin-left: 6px; }
+
+/* ── 단추 · 입력 ── 장갑 낀 손 기준 48px ── */
+.btn {
+  appearance: none; cursor: pointer; font: inherit; font-size: 14px; font-weight: 600;
+  min-height: 48px; padding: 0 18px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;
+}
+.btn:hover { border-color: var(--ink-3); }
+.btn.primary { background: var(--ink); color: var(--plane); border-color: var(--ink); }
+.btn.allow { background: var(--good-ink); border-color: var(--good-ink); color: #fff; }
+.btn.deny { color: var(--critical-ink); border-color: currentColor; }
+.btn.small { min-height: 36px; padding: 0 12px; font-size: 13px; }
+.btn[disabled] { opacity: .5; cursor: default; }
+:root[data-theme="dark"] .btn.allow { color: #0d0e0c; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.allow { color: #0d0e0c; } }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field > span { font-size: 12.5px; color: var(--ink-3); }
+.field input, .field select {
+  font: inherit; font-size: 15px; min-height: 48px; padding: 0 12px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); min-width: 0;
+}
+.field input[type="number"] { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.note { font-size: 13px; color: var(--ink-3); line-height: 1.6; margin: 10px 0 0; }
+.msg { font-size: 14px; font-weight: 600; margin: 12px 0 0; min-height: 1.5em; }
+.msg.ok { color: var(--good-ink); } .msg.bad { color: var(--critical-ink); }
+.offline {
+  margin-top: 20px; padding: 16px; border: 1px dashed var(--line); border-radius: var(--r);
+  font-size: 14px; color: var(--ink-2); line-height: 1.6; background: var(--surface);
+}
+
+/* ── 승인·거부 (M2) ── */
+.approve { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+.approve .state { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.todo li.declined .act-text { text-decoration: line-through; color: var(--ink-3); }
+.todo .approve .btn { flex: 1 1 130px; min-height: 56px; font-size: 16px; }
+.todo .approve .btn.small { flex: 0 0 auto; min-height: 44px; font-size: 14px; }
+.todo .ask {
+  display: inline-block; margin-left: 8px; vertical-align: 2px;
+  font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 99px;
+  color: var(--warning-ink); border: 1px solid currentColor;
+}
+
+/* ── 구간 비교 (M1) ── */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.chips button {
+  appearance: none; cursor: pointer; font: inherit; font-size: 13px; font-weight: 600;
+  min-height: 40px; padding: 0 14px; border-radius: 99px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+}
+.chips button[aria-pressed="true"] { background: var(--ink); color: var(--plane); border-color: var(--ink); }
+.diff { font-size: 13.5px; color: var(--ink-2); margin: 4px 0 10px; }
+.diff b { font-family: var(--font-num); color: var(--ink); font-weight: 600; }
+
+/* ── 통계 칸 (M7) ── */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--gap); }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; min-width: 0; }
+.tile .k { font-size: 12.5px; color: var(--ink-3); }
+.tile .v { font-family: var(--font-num); font-size: 26px; font-weight: 500; letter-spacing: -0.02em;
+           font-variant-numeric: tabular-nums; line-height: 1.25; }
+.tile .v small { font-size: 13px; color: var(--ink-3); font-weight: 400; margin-left: 3px; }
+.tile .s { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+.meter { height: 6px; border-radius: 3px; background: var(--surface-sunk); overflow: hidden; margin-top: 8px; }
+.meter i { display: block; height: 100%; background: var(--good); border-radius: 3px; }
+
+/* 날짜별 위험등급. 색만으로 알리지 않는다 — 칸 안에 '주'·'경' 글자를 적는다. */
+.cal { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; }
+.cal table { min-width: 720px; font-size: 11.5px; border-collapse: separate; border-spacing: 2px; }
+.cal th, .cal td { padding: 0; border: 0; text-align: center; background: none; position: static; }
+.cal th { font-family: var(--font-num); font-weight: 500; color: var(--ink-3); height: 20px; }
+.cal th.rk { text-align: left; font-family: var(--font-ui); font-size: 12.5px; color: var(--ink-2); padding-right: 10px; white-space: nowrap; }
+.cal td { width: 22px; height: 22px; border-radius: 3px; background: var(--surface-sunk); font-weight: 700; }
+.cal td.nodata { background: none; border: 1px dashed var(--line); }
+.cal td.lv1 { background: var(--warning); color: #3d2900; }
+.cal td.lv2 { background: var(--critical); color: #fff; }
+.keys { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; font-size: 12px; color: var(--ink-3); }
+.keys span { display: inline-flex; align-items: center; gap: 5px; }
+.keys i { width: 14px; height: 14px; border-radius: 3px; background: var(--surface-sunk); display: inline-block; }
+.keys i.lv1 { background: var(--warning); } .keys i.lv2 { background: var(--critical); }
+.keys i.nodata { background: none; border: 1px dashed var(--line); }
+
+/* ── 사례 표 (M5) ── */
+tr.case { cursor: pointer; }
+tr.case:hover td { background: var(--surface-sunk); }
+tr.detail td { white-space: normal; background: var(--surface-sunk); font-size: 12.5px; line-height: 1.7; }
+tr.detail dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; }
+tr.detail dt { color: var(--ink-3); } tr.detail dd { margin: 0; }
+td.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+/* ── 설정 (M6) ── */
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--gap); }
+.setting { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; }
+.setting label { font-size: 13.5px; font-weight: 600; display: block; margin-bottom: 6px; }
+.setting .row2 { display: flex; align-items: center; gap: 8px; }
+.setting input[type="number"] {
+  font-family: var(--font-num); font-size: 18px; width: 110px; min-height: 48px; padding: 0 10px;
+  border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+}
+.setting .unit { font-size: 13px; color: var(--ink-3); }
+.setting .help { font-size: 12.5px; color: var(--ink-3); margin: 6px 0 0; line-height: 1.5; }
+.setting .changed { font-size: 11.5px; font-weight: 700; color: var(--warning-ink); border: 1px solid currentColor; border-radius: 99px; padding: 1px 7px; margin-left: 6px; }
+.checks { display: flex; flex-wrap: wrap; gap: 8px; }
+.checks label {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 14px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 14px; cursor: pointer;
+}
+.checks input { width: 20px; height: 20px; }
+details.ro { margin-top: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 14px; }
+details.ro summary { cursor: pointer; font-size: 13.5px; font-weight: 600; padding: 6px 0; }
+details.ro table { min-width: 0; margin-top: 8px; }
+.loglist { list-style: none; margin: 8px 0 0; padding: 0; font-size: 12.5px; color: var(--ink-2); line-height: 1.8; }
+.loglist b { font-family: var(--font-num); font-weight: 500; color: var(--ink-3); margin-right: 8px; }
+
+@media print {
+  .bar, .tabs, #stale, footer, .noprint, #farm-view { display: none !important; }
+  #ops-view > div:not(#tab-report) { display: none !important; }
+  body { background: #fff; } .wrap { max-width: none; padding: 0; }
+  .cal, .scroll { overflow: visible; } section { break-inside: avoid; }
+}
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
@@ -361,6 +494,15 @@ footer p { margin: 0 0 5px; }
 
   <div id="ops-view" hidden>
 
+  <div class="tabs" role="tablist" aria-label="운영자 화면">
+    <button type="button" role="tab" id="tabbtn-live" aria-selected="true" aria-controls="tab-live">관제<span class="screen">M1–M3</span></button>
+    <button type="button" role="tab" id="tabbtn-query" aria-selected="false" aria-controls="tab-query">데이터 조회<span class="screen">M5</span></button>
+    <button type="button" role="tab" id="tabbtn-report" aria-selected="false" aria-controls="tab-report">월간 리포트<span class="screen">M7</span></button>
+    <button type="button" role="tab" id="tabbtn-settings" aria-selected="false" aria-controls="tab-settings">설정<span class="screen">M6</span></button>
+  </div>
+
+  <div id="tab-live" role="tabpanel" aria-labelledby="tabbtn-live">
+
   <section>
     <div class="head">
       <h2>위험 판단</h2><span class="screen">M1</span>
@@ -383,8 +525,9 @@ footer p { margin: 0 0 5px; }
       </div>
       <div class="panel">
         <h3>조치 <span class="screen">M2</span></h3>
-        <p class="sub">제어 계층 우선순위를 적용한 결과</p>
+        <p class="sub" id="actions-sub">제어 계층 우선순위를 적용한 결과</p>
         <ul class="acts" id="actions"></ul>
+        <p class="msg" id="approve-msg" role="status" aria-live="polite"></p>
       </div>
     </div>
   </section>
@@ -407,6 +550,25 @@ footer p { margin: 0 0 5px; }
     </div>
   </section>
 
+  <section id="compare-block" hidden>
+    <div class="head">
+      <h2>적용구간 · 비교구간</h2><span class="screen">M1</span>
+      <p>시제품을 단 구간과 달지 않은 일반 노지를 같은 시각에 나란히</p>
+    </div>
+    <div class="chart">
+      <div class="chips" id="compare-chips" role="group" aria-label="비교할 항목"></div>
+      <div class="legend">
+        <span><i style="background:var(--series-air)"></i>적용구간</span>
+        <span><i style="background:var(--series-canopy)"></i>비교구간</span>
+      </div>
+      <p class="diff" id="compare-diff"></p>
+      <div class="chart-wrap">
+        <svg id="compare-plot" viewBox="0 0 760 260" role="img" aria-label="적용구간과 비교구간 24시간 비교"></svg>
+        <div class="tip" id="compare-tip"></div>
+      </div>
+    </div>
+  </section>
+
   <section>
     <div class="head">
       <h2>제어 이력</h2><span class="screen">M3</span>
@@ -420,6 +582,133 @@ footer p { margin: 0 0 5px; }
     </div>
   </section>
 
+  </div><!-- /tab-live -->
+
+  <!-- ── M5 데이터 조회 ── -->
+  <div id="tab-query" role="tabpanel" aria-labelledby="tabbtn-query" hidden>
+    <section>
+      <div class="head">
+        <h2>위험 사례 조회</h2><span class="screen">M5</span>
+        <p>이어진 위험을 한 사례로 묶어 보여 준다 — 판단은 5분마다 한 줄이다</p>
+      </div>
+      <form class="toolbar" id="query-form">
+        <label class="field"><span>시작일</span><input type="date" id="q-from" required></label>
+        <label class="field"><span>종료일</span><input type="date" id="q-to" required></label>
+        <label class="field"><span>위험유형</span>
+          <select id="q-risk">
+            <option value="">전체</option>
+            <option value="frost">저온·서리</option><option value="heat_dry">고온·건조</option>
+            <option value="rain_wet">강우·과습</option><option value="disease">병해 유리환경</option>
+            <option value="compound">복합위험</option>
+          </select></label>
+        <button type="submit" class="btn primary">조회</button>
+        <span class="chips" style="margin:0" role="group" aria-label="빠른 기간">
+          <button type="button" data-days="7">최근 7일</button>
+          <button type="button" data-days="30">30일</button>
+          <button type="button" data-days="90">90일</button>
+        </span>
+      </form>
+      <p class="msg" id="query-msg" role="status" aria-live="polite"></p>
+      <div class="scroll" style="margin-top:6px">
+        <table>
+          <thead><tr><th>시작</th><th>위험</th><th>최고등급</th><th>지속</th><th>판단</th><th>평균 신뢰도</th><th>조치 (실행 · 권고 · 거부)</th></tr></thead>
+          <tbody id="cases"><tr><td colspan="7" style="color:var(--ink-3)">기간을 고르고 조회를 누르세요</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+    <section>
+      <div class="head"><h2>내보내기</h2><span class="screen">M5</span><p>위에서 고른 기간 · 엑셀에서 바로 열리는 CSV</p></div>
+      <div class="toolbar">
+        <a class="btn" id="csv-cases" download>위험 사례 CSV</a>
+        <a class="btn" id="csv-judgements" download>판단 원자료 CSV</a>
+        <a class="btn" id="csv-control" download>제어 이력 CSV</a>
+      </div>
+      <p class="note">위험 사례는 위 표와 같은 내용이고, 판단 원자료는 5분마다의 판단 한 건이 한 줄(정상 포함), 제어 이력은 조치 하나가 한 줄이다.</p>
+    </section>
+  </div>
+
+  <!-- ── M7 월간 리포트 ── -->
+  <div id="tab-report" role="tabpanel" aria-labelledby="tabbtn-report" hidden>
+    <section>
+      <div class="head">
+        <h2 id="report-title">월간 리포트</h2><span class="screen">M7</span>
+        <p id="report-sub"></p>
+      </div>
+      <div class="toolbar noprint">
+        <button type="button" class="btn" id="r-prev" aria-label="이전 달">◀ 이전 달</button>
+        <label class="field"><span>달</span><input type="month" id="r-month"></label>
+        <button type="button" class="btn" id="r-next" aria-label="다음 달">다음 달 ▶</button>
+        <button type="button" class="btn" id="r-print">인쇄 · PDF 저장</button>
+      </div>
+      <p class="msg" id="report-msg" role="status" aria-live="polite"></p>
+    </section>
+    <div id="report-body" hidden>
+      <section><div class="tiles" id="r-tiles"></div></section>
+      <section>
+        <div class="head"><h2>날짜별 위험등급</h2><p>그날 가장 높았던 등급</p></div>
+        <div class="cal"><table id="r-cal"></table>
+          <div class="keys"><span><i></i>정상</span><span><i class="lv1"></i>주 = 주의</span><span><i class="lv2"></i>경 = 경계</span><span><i class="nodata"></i>기록 없음</span></div>
+        </div>
+      </section>
+      <section>
+        <div class="split">
+          <div class="panel"><h3>위험유형별 사례</h3><p class="sub">이어진 위험을 한 사례로 센다</p>
+            <div class="scroll" style="border:0"><table style="min-width:0"><thead><tr><th>위험유형</th><th>사례</th><th>그중 경계</th><th>누적 시간</th></tr></thead><tbody id="r-risks"></tbody></table></div></div>
+          <div class="panel"><h3>장치 제어명령</h3><p class="sub">새로 내린 명령 — 밤새 이어진 실행은 1회, 알림 제외</p>
+            <div class="scroll" style="border:0"><table style="min-width:0"><thead><tr><th>명령</th><th>횟수</th></tr></thead><tbody id="r-commands"></tbody></table></div></div>
+        </div>
+      </section>
+      <section>
+        <div class="head"><h2>상위 계층이 막은 조치</h2><p>L0 하드웨어 안전 · L1 현장 즉응규칙이 거부한 사유</p></div>
+        <div class="scroll"><table><thead><tr><th>조치 — 사유</th><th>횟수</th></tr></thead><tbody id="r-rejected"></tbody></table></div>
+      </section>
+      <section>
+        <div class="head"><h2>이 달의 위험 사례</h2></div>
+        <div class="scroll"><table>
+          <thead><tr><th>시작</th><th>위험</th><th>최고등급</th><th>지속</th><th>판단</th><th>평균 신뢰도</th><th>조치 (실행 · 권고 · 거부)</th></tr></thead>
+          <tbody id="r-cases"></tbody></table></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ── M6 설정 ── -->
+  <div id="tab-settings" role="tabpanel" aria-labelledby="tabbtn-settings" hidden>
+    <section>
+      <div class="head">
+        <h2>설정</h2><span class="screen">M6</span>
+        <p>저장하면 다음 판단(최대 5분 뒤)부터 반영된다 · 제어기를 다시 켜지 않는다</p>
+      </div>
+      <form id="settings-form">
+        <div class="form-grid" id="s-fields"></div>
+        <div class="setting" style="margin-top:var(--gap)">
+          <label>설치 구동부</label>
+          <div class="checks" id="s-devices"></div>
+          <p class="help">달려 있지 않은 장치로 가는 조치는 '실행'이 아니라 '권고(농가가 직접)'로 내려간다. 달지 않은 장치를 켜 두면 실행된 것이 없는데 제어 이력에 실행으로 남는다. 차단기(전원 차단)는 설정 파일을 따르며 여기서 끄지 않는다.</p>
+        </div>
+        <div class="toolbar" style="margin-top:var(--gap)">
+          <label class="field" id="s-pin-wrap" hidden><span>관리 번호</span><input type="password" id="s-pin" inputmode="numeric" autocomplete="off"></label>
+          <button type="submit" class="btn primary">저장</button>
+          <button type="button" class="btn" id="s-reset">설정 파일 값으로 되돌리기</button>
+        </div>
+        <p class="msg" id="settings-msg" role="status" aria-live="polite"></p>
+      </form>
+      <details class="ro">
+        <summary>위험 판정 기준값 (읽기 전용)</summary>
+        <p class="note">모델을 학습할 때 정답을 만드는 기준이다. 여기서 바꿔도 이미 학습된 모델의 판단은 달라지지 않으므로 화면에서는 고치지 않는다. 바꾸려면 configs/weather.yaml 을 고치고 다시 학습한다.</p>
+        <div class="scroll" style="border:0"><table><thead><tr><th>위험</th><th>항목</th><th>값</th></tr></thead><tbody id="s-thresholds"></tbody></table></div>
+      </details>
+      <details class="ro" open>
+        <summary>최근 변경 기록</summary>
+        <ul class="loglist" id="s-log"></ul>
+      </details>
+    </section>
+  </div>
+
+  <div class="offline" id="offline-note" hidden>
+    이 기능은 제어기의 화면 서버(<code>ofdf serve</code>)에서 열었을 때만 쓸 수 있습니다.
+    지금은 화면 파일만 열려 있어 판단 이력과 설정을 읽지 못합니다.
+  </div>
+
   </div>
 
   <footer id="foot"></footer>
@@ -428,6 +717,29 @@ footer p { margin: 0 0 5px; }
 <script src="plain.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
+/* 이력의 사유 문구는 사람이 쓴 글이 섞일 수 있다. 화면에 넣기 전에 푼다. */
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g,
+  (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/* 화면 서버(ofdf serve)와 이야기한다.
+   화면 파일만 열려 있을 때(게시용 미리보기, 옛 http.server)는 /api 가 없다.
+   그때는 읽기 화면(M1·M3)만 그대로 돌고, 승인·조회·설정·리포트는 '서버가
+   필요하다'고 적는다. 단추를 내놓고 눌러도 아무 일이 없는 것보다 낫다. */
+let panel = null;                 // /api/status 응답. 없으면 null
+let pending = {};                 // 서버에 기록된, 지금 유효한 농가 응답
+let pendingKnown = false;         // 위 값을 서버에서 한 번이라도 읽었는가
+async function api(path, body, headers) {
+  const init = body === undefined ? { cache: "no-store" } : {
+    method: "POST", cache: "no-store",
+    headers: { "Content-Type": "application/json", "X-OFDF-Panel": "1", ...(headers || {}) },
+    body: JSON.stringify(body),
+  };
+  const r = await fetch(path, init);
+  let data = null;
+  try { data = await r.json(); } catch { /* JSON 이 아니면 아래에서 오류로 */ }
+  if (!r.ok || !data) throw new Error((data && data.error) || `요청 실패 (${r.status})`);
+  return data;
+}
 const fmt = (iso, withDate) => {
   const d = new Date(iso);
   const hh = String(d.getHours()).padStart(2, "0");
@@ -496,10 +808,14 @@ function render(d) {
     const state = a.rejectedBy ? ["no", "거부"] : a.advisory ? ["adv", "권고"] : ["run", "실행"];
     return `<li class="act">
       <span class="tag ${state[0]}">L${a.layer} ${state[1]}</span>
-      <span><span class="cmd">${a.device} · ${a.command}</span><br>
-      <span class="why">${a.rejectedBy || a.reason}</span></span>
+      <span><span class="cmd">${esc(a.device)} · ${esc(a.command)}</span><br>
+      <span class="why">${esc(a.rejectedBy || a.reason)}</span>
+      ${approvalControls(a, true)}</span>
     </li>`;
   }).join("") : `<li style="font-size:13px;color:var(--ink-3)">조치 없음</li>`;
+  $("actions-sub").textContent = d.actions.some((a) => a.needsApproval)
+    ? "신뢰도가 기준보다 낮아 자동 실행하지 않았다 — 승인하면 실행된다"
+    : "제어 계층 우선순위를 적용한 결과";
 
   // 제어 이력
   $("history").innerHTML = d.history.slice().reverse().slice(0, 14).map((h) => {
@@ -518,10 +834,76 @@ function render(d) {
   renderFarm(d);
   lastSeries = d.series;
   drawPlot(d.series);
+  renderCompare(d.compare);
 }
+
+/* ── 승인·거부 (M2) ──
+   신뢰도가 기준(0.70)보다 낮은 판단은 자동으로 실행하지 않고 농가에게 묻는다.
+   전에는 '승인이 필요하다'고 적기만 하고 누를 곳이 없었다.
+
+   제어기는 5분마다 판단한다. 누른 응답은 곧바로 기록되지만 실행은 다음
+   판단 때다. 그 사이에 화면이 아무 변화가 없으면 농가는 또 누른다. 그래서
+   기록된 응답을 화면이 기억해 두었다가 '다음 판단 때 실행된다'고 적는다. */
+/* 아직 농가의 답을 기다리는 조치인가 — 눌렀지만 제어기가 반영하기 전이면 아니다 */
+const awaiting = (a) => a.needsApproval && !(a.id && pending[a.id]);
+
+function approvalControls(a, compact) {
+  const size = compact ? " small" : "";
+  const waiting = a.id && pending[a.id];
+  const done = a.userResponse || (waiting && waiting.response);
+  if (!a.needsApproval && !a.userResponse) return "";
+  if (panel && pendingKnown && a.userResponse && !waiting) {
+    // 취소를 눌렀고 제어기가 아직 그것을 반영하지 못한 사이
+    return `<span class="approve"><span class="state">취소함 · 다음 판단(최대 5분) 때 반영</span></span>`;
+  }
+  if (!panel) {
+    return a.needsApproval
+      ? `<span class="approve"><span class="state">승인·거부는 제어함 화면에서 할 수 있습니다</span></span>` : "";
+  }
+  if (done) {
+    const text = done === "approve" ? "승인함" : "거부함";
+    const applied = a.userResponse
+      ? (done === "approve" ? "실행 중" : "실행하지 않음")
+      : "다음 판단(최대 5분) 때 반영";
+    const at = a.respondedAt || (waiting && waiting.at);
+    return `<span class="approve">
+      <span class="state">${text}${at ? " " + fmt(at) : ""} · ${applied}</span>
+      <button type="button" class="btn small" data-respond="clear" data-id="${esc(a.id)}">취소</button></span>`;
+  }
+  return `<span class="approve">
+    <button type="button" class="btn allow${size}" data-respond="approve" data-id="${esc(a.id)}">승인 — 실행</button>
+    <button type="button" class="btn deny${size}" data-respond="reject" data-id="${esc(a.id)}">거부</button></span>`;
+}
+
+async function respond(id, response, button) {
+  const show = (cls, text) => {
+    // 농가 화면의 알림 칸은 다시 그릴 때마다 새로 생기므로 그때그때 찾는다
+    for (const m of [$("approve-msg"), $("farm-approve-msg")])
+      if (m) { m.className = "msg " + cls; m.textContent = text; }
+  };
+  button.disabled = true;
+  try {
+    const result = await api("/api/approvals", { id, response });
+    pending = result.responses || {};
+    pendingKnown = true;
+    const text = response === "approve" ? "승인했습니다. 다음 판단(최대 5분) 때 실행됩니다."
+      : response === "reject" ? "거부했습니다. 실행하지 않습니다."
+      : "취소했습니다. 다시 승인을 기다립니다.";
+    if (lastGood) render(lastGood);
+    show("ok", text);
+  } catch (err) {
+    show("bad", `기록하지 못했습니다 — ${err.message}`);
+    button.disabled = false;
+  }
+}
+document.addEventListener("click", (ev) => {
+  const button = ev.target.closest("[data-respond]");
+  if (button) respond(button.dataset.id, button.dataset.respond, button);
+});
 
 function renderFarm(d) {
   let byHandShown = 0;      // 화면에 '직접'으로 표시된 줄 수
+  let askShown = 0;         // 승인을 기다리는 줄 수
   const levelOf = (c) => Math.max(...Object.values(c.horizons).map((h) => h.level));
   const ranked = d.cards.slice().sort((a, b) => levelOf(b) - levelOf(a));
   const top = ranked[0];
@@ -542,9 +924,11 @@ function renderFarm(d) {
       : "앞으로 3시간 안";
     /* 구동부가 없는 조치는 기계가 못 한다. 할 일은 그대로지만 손이
        바뀌므로, 농가가 '내가 나가서 해야 하는 것'을 한눈에 알아야 한다. */
-    const todo = d.actions.filter((a) => !a.rejectedBy).map((a) => {
+    /* 농가가 거부한 조치는 지우지 않는다. 줄을 그어 남겨 두어야 잘못 누른
+       거부를 되돌릴 수 있다. 상위 계층이 막은 조치는 전처럼 뺀다. */
+    const todo = d.actions.filter((a) => !a.rejectedBy || a.userResponse === "reject").map((a) => {
       const plain = plainAction(a);
-      return plain && { ...plain, byHand: /구동부 미설치/.test(a.reason || "") };
+      return plain && { ...plain, action: a, byHand: /구동부 미설치/.test(a.reason || "") };
     }).filter(Boolean);
     const seen = new Set();
     const unique = todo.filter((t) => !seen.has(t.what) && seen.add(t.what));
@@ -554,10 +938,14 @@ function renderFarm(d) {
       <div class="what">${(HEADLINE[top.risk] || ["", "위험이 예상됩니다", "위험합니다"])[level]}</div>
       <div class="why">${plainWhy(top.risk, d.environment, judgement)}</div>
       <ol class="todo">${unique.map((t, i) => `
-        <li><span class="no">${i + 1}</span>
+        <li class="${t.action.userResponse === "reject" ? "declined" : ""}"><span class="no">${i + 1}</span>
           <span><span class="act-text">${t.what}${
-            t.byHand ? '<em class="byhand">직접</em>' : ""}</span>
-          <span class="act-note">${t.why}</span></span></li>`).join("")}</ol>`;
+            t.byHand ? '<em class="byhand">직접</em>' : ""}${
+            awaiting(t.action) ? '<em class="ask">승인 필요</em>' : ""}</span>
+          <span class="act-note">${t.why}</span>
+          ${approvalControls(t.action, false)}</span></li>`).join("")}</ol>
+      <p class="msg" id="farm-approve-msg" role="status" aria-live="polite"></p>`;
+    askShown = unique.filter((t) => awaiting(t.action)).length;
   }
 
   const value = (k) => (d.environment.find((e) => e.key === k) || {}).value;
@@ -581,7 +969,12 @@ function renderFarm(d) {
   renderSensors(d.sensors || []);
 
   $("farm-note").textContent =
-    byHandShown
+    askShown
+      ? `'승인 필요' 표시된 ${askShown}가지는 판단이 확실하지 않아 기계가 기다리고 있습니다. `
+        + (panel ? "승인을 누르면 실행하고, 누르지 않으면 실행하지 않습니다."
+                 : "제어함 화면에서 승인해 주세요.")
+        + (byHandShown ? ` '직접' 표시된 ${byHandShown}가지는 나가셔서 해 주세요.` : "")
+    : byHandShown
       ? `'직접' 표시된 ${byHandShown}가지는 기계가 못 합니다. 나가셔서 해 주세요. `
         + "나머지는 자동으로 실행됩니다."
       : d.mode === "자동"
@@ -681,7 +1074,7 @@ function showView(which) {
     panel.hidden = !on;
   }
   try { localStorage.setItem("ofdf-view", which); } catch { /* 비공개 창 등 */ }
-  if (which === "ops" && lastSeries) drawPlot(lastSeries);
+  if (which === "ops" && lastSeries) { drawPlot(lastSeries); renderCompare(lastCompare); }
 }
 views.farm[0].addEventListener("click", () => showView("farm"));
 views.ops[0].addEventListener("click", () => showView("ops"));
@@ -690,19 +1083,26 @@ try {
   if (saved === "ops") showView("ops");
 } catch { /* 저장소를 못 쓰면 농가 화면으로 둔다 */ }
 
-function drawPlot(s) {
-  const svg = $("plot"), tip = $("tip");
+/* 선 그래프 하나를 그린다. 24시간 추이와 구간 비교가 함께 쓴다.
+   lines: [{ label, color, values, unit }], opts: { thresholds: [[값, 이름]], zero } */
+function drawLines(svg, tip, time, lines, opts = {}) {
   // 좁은 화면에서는 가로로 납작해져 눈금이 뭉개진다. 비율을 세로로 키운다.
   const narrow = svg.clientWidth > 0 && svg.clientWidth < 560;
   const W = narrow ? 440 : 760, H = narrow ? 330 : 260;
   const L = narrow ? 34 : 42, R = narrow ? 14 : 20, T = 14, B = narrow ? 34 : 30;
   const fs = narrow ? 13 : 11;
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  const n = s.time.length;
-  const air = s.t_air, canopy = s.canopy_temp;
+  const n = time.length;
 
-  const vals = [...air, ...canopy].filter((v) => v !== null);
-  let lo = Math.min(...vals, 0), hi = Math.max(...vals);
+  const vals = lines.flatMap((l) => l.values).filter((v) => v !== null && v !== undefined);
+  if (n < 2 || !vals.length) {
+    // 제어기를 막 켠 직후에는 그릴 만큼 자료가 없다. 빈 축을 그리면 '0'으로 읽힌다.
+    svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle" font-size="14"
+      fill="var(--ink-3)">아직 그릴 자료가 없습니다</text>`;
+    svg.onpointermove = svg.ontouchmove = svg.onpointerleave = null;
+    return;
+  }
+  let lo = Math.min(...vals, ...(opts.zero ? [0] : [])), hi = Math.max(...vals);
   const pad = (hi - lo) * 0.12 || 1;
   lo = Math.floor(lo - pad); hi = Math.ceil(hi + pad);
 
@@ -720,7 +1120,7 @@ function drawPlot(s) {
     <line x1="${L}" y1="${y(v).toFixed(1)}" x2="${W - R}" y2="${y(v).toFixed(1)}" stroke="var(--line-soft)" stroke-width="1"/>
     <text x="${L - 7}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end" font-size="${fs}" fill="var(--ink-3)" font-family="var(--font-num)">${v}</text>`).join("");
 
-  const thresholds = [[2, "주의 2℃"], [0, "경계 0℃"]]
+  const thresholds = (opts.thresholds || [])
     .filter(([v]) => v >= lo && v <= hi)
     .map(([v, label]) => `
       <line x1="${L}" y1="${y(v).toFixed(1)}" x2="${W - R}" y2="${y(v).toFixed(1)}"
@@ -729,7 +1129,7 @@ function drawPlot(s) {
 
   // 마지막 라벨은 축 끝에 붙으므로 끝맞춤해야 잘리지 않는다
   const every = narrow ? 6 : (n > 16 ? 4 : 2);
-  const xlab = s.time.map((t, i) => {
+  const xlab = time.map((t, i) => {
     const last = i === n - 1;
     if (!last && i % every !== 0) return "";
     if (!last && i > n - 1 - every / 2) return "";
@@ -737,20 +1137,18 @@ function drawPlot(s) {
       font-size="${fs}" fill="var(--ink-3)" font-family="var(--font-num)">${fmt(t)}</text>`;
   }).join("");
 
-  const last = (a) => { for (let i = a.length - 1; i >= 0; i--) if (a[i] !== null) return i; return -1; };
-  const ia = last(air), ic = last(canopy);
+  const lastIndex = (a) => { for (let i = a.length - 1; i >= 0; i--) if (a[i] !== null) return i; return -1; };
 
   svg.innerHTML = `
     ${grid}${thresholds}
     <line x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}" stroke="var(--line)" stroke-width="1"/>
     ${xlab}
-    <path d="${path(air)}" fill="none" stroke="var(--series-air)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-    <path d="${path(canopy)}" fill="none" stroke="var(--series-canopy)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-    ${ia >= 0 ? `<circle cx="${x(ia).toFixed(1)}" cy="${y(air[ia]).toFixed(1)}" r="4.5" fill="var(--series-air)" stroke="var(--surface)" stroke-width="2"/>` : ""}
-    ${ic >= 0 ? `<circle cx="${x(ic).toFixed(1)}" cy="${y(canopy[ic]).toFixed(1)}" r="4.5" fill="var(--series-canopy)" stroke="var(--surface)" stroke-width="2"/>` : ""}
-    <line id="cross" x1="0" y1="${T}" x2="0" y2="${H - B}" stroke="var(--ink-3)" stroke-width="1" opacity="0"/>`;
+    ${lines.map((l) => `<path d="${path(l.values)}" fill="none" stroke="${l.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`).join("")}
+    ${lines.map((l) => { const i = lastIndex(l.values); return i < 0 ? "" :
+      `<circle cx="${x(i).toFixed(1)}" cy="${y(l.values[i]).toFixed(1)}" r="4.5" fill="${l.color}" stroke="var(--surface)" stroke-width="2"/>`; }).join("")}
+    <line class="cross" x1="0" y1="${T}" x2="0" y2="${H - B}" stroke="var(--ink-3)" stroke-width="1" opacity="0"/>`;
 
-  const cross = svg.querySelector("#cross");
+  const cross = svg.querySelector(".cross");
   const move = (ev) => {
     const box = svg.getBoundingClientRect();
     const px = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - box.left) / box.width * W;
@@ -758,21 +1156,65 @@ function drawPlot(s) {
     i = Math.max(0, Math.min(n - 1, i));
     cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i)); cross.setAttribute("opacity", "0.5");
     tip.style.opacity = "1";
-    tip.innerHTML = `${fmt(s.time[i])} &nbsp; 기온 <b>${air[i] ?? "—"}</b>℃ &nbsp; 초관부 <b>${canopy[i] ?? "—"}</b>℃`;
+    tip.innerHTML = `${fmt(time[i])} ` + lines.map((l) =>
+      `&nbsp; ${l.label} <b>${l.values[i] ?? "—"}</b>${l.unit || ""}`).join("");
     const w = tip.offsetWidth;
     tip.style.left = Math.max(0, Math.min(box.width - w, x(i) / W * box.width - w / 2)) + "px";
     tip.style.top = "0px";
   };
-  svg.addEventListener("pointermove", move);
-  svg.addEventListener("touchmove", move, { passive: true });
-  svg.addEventListener("pointerleave", () => { cross.setAttribute("opacity", "0"); tip.style.opacity = "0"; });
+  /* 30초마다 다시 그리므로 addEventListener 로 달면 듣는 함수가 끝없이 쌓인다.
+     속성에 넣어 매번 갈아 끼운다. */
+  svg.onpointermove = move;
+  svg.ontouchmove = move;
+  svg.onpointerleave = () => { cross.setAttribute("opacity", "0"); tip.style.opacity = "0"; };
 }
+
+function drawPlot(s) {
+  drawLines($("plot"), $("tip"), s.time, [
+    { label: "기온", color: "var(--series-air)", values: s.t_air || [], unit: "℃" },
+    { label: "초관부", color: "var(--series-canopy)", values: s.canopy_temp || [], unit: "℃" },
+  ], { thresholds: [[2, "주의 2℃"], [0, "경계 0℃"]], zero: true });
+}
+
+/* ── 적용구간 · 비교구간 (M1) ──
+   시제품을 단 구간과 달지 않은 구간이 얼마나 다른지가 실증의 결과다.
+   구간 안에서 직접 잰 항목만 온다 — 일사·강우·풍속은 두 구간이 같은
+   마스트 값을 쓰므로 비교하면 같은 선 두 개가 겹친다. */
+let compareKey = null, lastCompare = null;
+function renderCompare(compare) {
+  lastCompare = compare || null;
+  const block = $("compare-block");
+  if (!compare || !compare.variables.length) { block.hidden = true; return; }
+  block.hidden = false;
+  if (!compare.variables.some((v) => v.key === compareKey)) compareKey = compare.variables[0].key;
+  $("compare-chips").innerHTML = compare.variables.map((v) =>
+    `<button type="button" data-compare="${esc(v.key)}" aria-pressed="${v.key === compareKey}">${esc(v.name)}</button>`).join("");
+  const v = compare.variables.find((x) => x.key === compareKey);
+  const signed = (n) => (n > 0 ? "+" : "") + n;
+  const side = (n) => n > 0 ? "높습니다" : n < 0 ? "낮습니다" : "같습니다";
+  $("compare-diff").innerHTML = v.lastDiff === null ? "" :
+    `지금 적용구간이 비교구간보다 <b>${Math.abs(v.lastDiff)}${esc(v.unit)}</b> ${side(v.lastDiff)}`
+    + ` · 24시간 평균 차이 <b>${signed(v.meanDiff)}${esc(v.unit)}</b>`;
+  drawLines($("compare-plot"), $("compare-tip"), compare.time, [
+    { label: "적용", color: "var(--series-air)", values: v.treatment, unit: v.unit },
+    { label: "비교", color: "var(--series-canopy)", values: v.control, unit: v.unit },
+  ], { thresholds: v.key === "canopy_temp" ? [[2, "주의 2℃"], [0, "경계 0℃"]] : [] });
+}
+$("compare-chips").addEventListener("click", (ev) => {
+  const button = ev.target.closest("[data-compare]");
+  if (!button) return;
+  compareKey = button.dataset.compare;
+  renderCompare(lastCompare);
+});
 
 // 화면 폭이 바뀌면 차트 비율을 다시 잡는다
 let redrawTimer, lastSeries;
 addEventListener("resize", () => {
   clearTimeout(redrawTimer);
-  redrawTimer = setTimeout(() => lastSeries && drawPlot(lastSeries), 180);
+  redrawTimer = setTimeout(() => {
+    if (lastSeries) drawPlot(lastSeries);
+    renderCompare(lastCompare);
+  }, 180);
 });
 
 /* 자동 갱신.
@@ -812,7 +1254,268 @@ function freshness(data, error) {
   bar.setAttribute("data-shown", "");
 }
 
+/* ── 운영자 화면 갈래 ── */
+const TABS = ["live", "query", "report", "settings"];
+const NEEDS_SERVER = new Set(["query", "report", "settings"]);
+let currentTab = "live";
+function showTab(which) {
+  currentTab = which;
+  for (const name of TABS) {
+    $("tabbtn-" + name).setAttribute("aria-selected", String(name === which));
+    $("tab-" + name).hidden = name !== which || (NEEDS_SERVER.has(name) && !panel);
+  }
+  $("offline-note").hidden = !(NEEDS_SERVER.has(which) && !panel);
+  try { localStorage.setItem("ofdf-tab", which); } catch { /* 비공개 창 등 */ }
+  if (!panel) return;
+  if (which === "live" && lastSeries) { drawPlot(lastSeries); renderCompare(lastCompare); }
+  if (which === "query" && !queryLoaded) runQuery();
+  if (which === "report" && !reportLoaded) loadReport();
+  if (which === "settings") loadSettings();
+}
+for (const name of TABS) $("tabbtn-" + name).addEventListener("click", () => showTab(name));
+
+const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const duration = (minutes) => minutes < 5 ? "5분 미만"
+  : minutes < 60 ? `${minutes}분`
+  : `${Math.floor(minutes / 60)}시간${minutes % 60 ? " " + (minutes % 60) + "분" : ""}`;
+
+/* 사례 한 줄 + 펼치면 나오는 상세. 조회(M5)와 리포트(M7)가 함께 쓴다. */
+function caseRows(cases, emptyText) {
+  if (!cases.length) return `<tr><td colspan="7" style="color:var(--ink-3)">${emptyText}</td></tr>`;
+  const list = (items) => items.length ? items.map(esc).join("<br>") : "없음";
+  return cases.map((c) => {
+    const ev = (c.evidence || []).filter((e) => e.feature !== "compound_score").map((e) =>
+      `${esc(e.label || e.feature)} ${typeof e.value === "number" ? e.value.toFixed(2) : "—"}`
+      + (typeof e.contribution === "number" ? ` (기여 ${e.contribution > 0 ? "+" : ""}${e.contribution.toFixed(2)})` : ""));
+    const inputs = Object.entries(c.inputs || {}).map(([k, v]) =>
+      `${esc(k)} ${typeof v === "number" ? v.toFixed(1) : esc(v)}`).join(" · ");
+    return `<tr class="case" tabindex="0" aria-expanded="false" data-case="${esc(c.id)}">
+        <td class="t">${fmt(c.start, true)}</td><td>${esc(c.riskName)}</td>
+        <td><span class="pill lv${c.peakLevel}">${esc(c.peakLevelName)}</span></td>
+        <td>${duration(c.durationMinutes)}</td><td class="num">${c.records}건</td>
+        <td class="num">${c.meanConfidence === null ? "—" : c.meanConfidence.toFixed(2)}</td>
+        <td class="num">${c.executed.length} · ${c.advisory.length} · ${c.rejected.length}</td></tr>
+      <tr class="detail" hidden><td colspan="7"><dl>
+        <dt>기간</dt><dd>${fmt(c.start, true)} ~ ${fmt(c.end, true)}${c.expectedOnset ? ` · 첫 예상시점 ${fmt(c.expectedOnset, true)}` : ""}</dd>
+        <dt>신뢰도</dt><dd>평균 ${c.meanConfidence === null ? "—" : c.meanConfidence.toFixed(2)} · 최저 ${c.minConfidence === null ? "—" : c.minConfidence.toFixed(2)}</dd>
+        <dt>가장 위험할 때 근거</dt><dd>${ev.length ? ev.join("<br>") : "기록 없음"}</dd>
+        <dt>그때 실측</dt><dd>${inputs || "기록 없음"}</dd>
+        <dt>실행한 조치</dt><dd>${list(c.executed)}</dd>
+        <dt>권고에 그친 조치</dt><dd>${list(c.advisory)}</dd>
+        <dt>막힌 조치</dt><dd>${list(c.rejected)}</dd>
+        <dt>농가 응답</dt><dd>승인 ${c.approved}건 · 거부 ${c.declined}건</dd>
+      </dl></td></tr>`;
+  }).join("");
+}
+function toggleCase(row) {
+  const detail = row.nextElementSibling;
+  detail.hidden = !detail.hidden;
+  row.setAttribute("aria-expanded", String(!detail.hidden));
+}
+document.addEventListener("click", (ev) => {
+  const row = ev.target.closest("tr.case");
+  if (row) toggleCase(row);
+});
+document.addEventListener("keydown", (ev) => {
+  if ((ev.key === "Enter" || ev.key === " ") && ev.target.matches && ev.target.matches("tr.case")) {
+    ev.preventDefault(); toggleCase(ev.target);
+  }
+});
+
+/* ── 데이터 조회 (M5) ── */
+let queryLoaded = false;
+function setRange(days) {
+  const to = new Date(), from = new Date();
+  from.setDate(to.getDate() - (days - 1));
+  $("q-from").value = isoDate(from); $("q-to").value = isoDate(to);
+}
+function exportLinks() {
+  const params = new URLSearchParams({ from: $("q-from").value, to: $("q-to").value });
+  const withRisk = new URLSearchParams(params);
+  if ($("q-risk").value) withRisk.set("risk", $("q-risk").value);
+  $("csv-cases").href = `/api/export/cases.csv?${withRisk}`;
+  $("csv-judgements").href = `/api/export/judgements.csv?${params}`;
+  $("csv-control").href = `/api/export/control.csv?${params}`;
+}
+async function runQuery() {
+  const msg = $("query-msg");
+  if (!$("q-from").value || !$("q-to").value) setRange(30);
+  exportLinks();
+  const params = new URLSearchParams({ from: $("q-from").value, to: $("q-to").value });
+  if ($("q-risk").value) params.set("risk", $("q-risk").value);
+  msg.className = "msg"; msg.textContent = "읽는 중…";
+  try {
+    const result = await api(`/api/cases?${params}`);
+    queryLoaded = true;
+    $("cases").innerHTML = caseRows(result.cases, "이 기간에 위험 사례가 없습니다");
+    msg.textContent = `${result.from} ~ ${result.to} · 판단 ${result.records.toLocaleString()}건 · 위험 사례 ${result.cases.length}건`
+      + (result.records ? "" : " — 이 기간에는 판단 기록이 없습니다");
+  } catch (err) {
+    msg.className = "msg bad"; msg.textContent = `조회하지 못했습니다 — ${err.message}`;
+  }
+}
+$("query-form").addEventListener("submit", (ev) => { ev.preventDefault(); runQuery(); });
+$("query-form").addEventListener("click", (ev) => {
+  const quick = ev.target.closest("[data-days]");
+  if (quick) { setRange(Number(quick.dataset.days)); runQuery(); }
+});
+for (const id of ["q-from", "q-to", "q-risk"]) $(id).addEventListener("change", exportLinks);
+
+/* ── 월간 리포트 (M7) ── */
+let reportLoaded = false;
+const RISK_ORDER = [["frost", "저온·서리"], ["heat_dry", "고온·건조"], ["rain_wet", "강우·과습"],
+                    ["disease", "병해 유리환경"], ["compound", "복합위험"]];
+function shiftMonth(delta) {
+  const [y, m] = $("r-month").value.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  $("r-month").value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  loadReport();
+}
+async function loadReport() {
+  const msg = $("report-msg");
+  if (!$("r-month").value) $("r-month").value = isoDate(new Date()).slice(0, 7);
+  msg.className = "msg"; msg.textContent = "읽는 중…";
+  try {
+    const r = await api(`/api/report?month=${encodeURIComponent($("r-month").value)}`);
+    reportLoaded = true;
+    renderReport(r);
+    msg.textContent = r.records ? "" : "이 달에는 판단 기록이 없습니다.";
+  } catch (err) {
+    $("report-body").hidden = true;
+    msg.className = "msg bad"; msg.textContent = `리포트를 만들지 못했습니다 — ${err.message}`;
+  }
+}
+function renderReport(r) {
+  const [year, month] = r.month.split("-").map(Number);
+  $("report-title").textContent = `${year}년 ${month}월 리포트`;
+  $("report-sub").textContent = `${r.station} · ${fmt(r.generated, true)} 산출`;
+  $("report-body").hidden = !r.records;
+  if (!r.records) return;
+
+  const warning = r.cases.filter((c) => c.peakLevel >= 2).length;
+  const share = Math.min(100, r.controlCommands / r.controlCommandTarget * 100);
+  const tile = (k, v, unit, sub, extra = "") =>
+    `<div class="tile"><div class="k">${k}</div><div class="v">${v}<small>${unit}</small></div><div class="s">${sub}</div>${extra}</div>`;
+  $("r-tiles").innerHTML = [
+    tile("판단", r.records.toLocaleString(), "건", `기록이 있는 날 ${r.daysWithData}일`),
+    tile("위험 사례", r.caseTotal, "건", `그중 경계 ${warning}건`),
+    tile("장치 제어명령", r.controlCommands, `/ ${r.controlCommandTarget}회`,
+      r.controlCommands >= r.controlCommandTarget ? "성과목표 달성" : `성과목표까지 ${r.controlCommandTarget - r.controlCommands}회`,
+      `<div class="meter" role="img" aria-label="성과목표 대비 ${share.toFixed(0)}%"><i style="width:${share.toFixed(1)}%"></i></div>`),
+    tile("상위 계층 거부", r.upperRejected.toLocaleString(), "건", "L0·L1 이 막은 조치(주기 단위)"),
+    tile("권고모드", (r.advisoryRatio * 100).toFixed(1), "%", "신뢰도가 기준보다 낮았던 판단"),
+    tile("농가 응답", r.userApproved + r.userDeclined, "건", `승인 ${r.userApproved} · 거부 ${r.userDeclined}`),
+  ].join("");
+
+  const days = new Date(year, month, 0).getDate();
+  const byDay = Object.fromEntries(r.daily.map((d) => [Number(d.date.slice(8, 10)), d]));
+  const head = `<tr><th class="rk"></th>${Array.from({ length: days }, (_, i) => `<th>${i + 1}</th>`).join("")}</tr>`;
+  $("r-cal").innerHTML = head + RISK_ORDER.map(([risk, name]) => `<tr><th class="rk">${name}</th>${
+    Array.from({ length: days }, (_, i) => {
+      const day = byDay[i + 1];
+      if (!day) return `<td class="nodata" title="${i + 1}일 기록 없음"></td>`;
+      const level = day.levels[risk] || 0;
+      return `<td class="lv${level}" title="${i + 1}일 ${name} ${LV[level]}">${level === 2 ? "경" : level === 1 ? "주" : ""}</td>`;
+    }).join("")}</tr>`).join("");
+
+  $("r-risks").innerHTML = r.byRisk.length ? r.byRisk.map((e) =>
+    `<tr><td>${esc(e.riskName)}</td><td class="num">${e.cases}건</td><td class="num">${e.warningCases}건</td><td class="num">${duration(e.minutes)}</td></tr>`).join("")
+    : `<tr><td colspan="4" style="color:var(--ink-3)">위험 사례 없음</td></tr>`;
+  $("r-commands").innerHTML = r.commandsByDevice.length ? r.commandsByDevice.map((e) =>
+    `<tr><td>${esc(e.command)}</td><td class="num">${e.count}회</td></tr>`).join("")
+    : `<tr><td colspan="2" style="color:var(--ink-3)">실행한 제어명령 없음</td></tr>`;
+  $("r-rejected").innerHTML = r.rejectedReasons.length ? r.rejectedReasons.map((e) =>
+    `<tr><td style="white-space:normal">${esc(e.reason)}</td><td class="num">${e.count}건</td></tr>`).join("")
+    : `<tr><td colspan="2" style="color:var(--ink-3)">막힌 조치 없음</td></tr>`;
+  $("r-cases").innerHTML = caseRows(r.cases, "이 달에 위험 사례가 없습니다");
+}
+$("r-month").addEventListener("change", loadReport);
+$("r-prev").addEventListener("click", () => shiftMonth(-1));
+$("r-next").addEventListener("click", () => shiftMonth(1));
+$("r-print").addEventListener("click", () => print());
+
+/* ── 설정 (M6) ──
+   제어기의 동작을 실제로 바꾸는 값만 고친다. 위험 판정 기준값은 모델을
+   학습할 때의 정답 기준이라 여기서 바꿔도 판단이 달라지지 않는다 — 바뀐
+   것처럼 보이는 숫자를 내놓지 않으려고 읽기 전용으로만 보여 준다. */
+const SETTING_NAMES = {
+  confidence_threshold: "권고모드 신뢰도 기준",
+  wind_no_deploy: "강풍 — 전개 금지", wind_recover: "강풍 — 즉시 회수",
+  wind_lock: "강풍 — 구동 잠금", spray_stop_wind: "살수 중지 풍속",
+  soil_upper_limit: "흙 수분 상한 (관수 금지)", installed_devices: "설치 구동부",
+};
+const THRESHOLD_NAMES = { heat_dry: "고온·건조", rain_wet: "강우·과습", disease: "병해 유리환경",
+                          frost: "저온·서리", soil: "토양수분 지수", wind: "강풍" };
+let settingsDirty = false;
+function renderSettings(cfg) {
+  settingsDirty = false;
+  const overridden = new Set(cfg.overridden);
+  $("s-fields").innerHTML = Object.entries(cfg.bounds).map(([key, b]) => `
+    <div class="setting">
+      <label for="s-${key}">${SETTING_NAMES[key] || key}${overridden.has(key) ? '<span class="changed">화면에서 바꿈</span>' : ""}</label>
+      <div class="row2">
+        <input type="number" id="s-${key}" data-setting="${key}" value="${cfg.values[key]}"
+               min="${b.min}" max="${b.max}" step="${key === "confidence_threshold" ? 0.01 : 0.5}" required>
+        <span class="unit">${esc(b.unit)} &nbsp;(${b.min}~${b.max})</span>
+      </div>
+      <p class="help">${esc(b.help)}. 설정 파일 값 ${cfg.defaults[key]}${esc(b.unit)}</p>
+    </div>`).join("");
+  $("s-devices").innerHTML = cfg.devices.map((d) =>
+    `<label><input type="checkbox" data-device="${esc(d)}"${cfg.values.installed_devices.includes(d) ? " checked" : ""}>${esc(d)}</label>`).join("");
+  $("s-pin-wrap").hidden = !cfg.pinRequired;
+
+  const rows = [];
+  for (const [group, items] of Object.entries(cfg.thresholds || {}))
+    for (const [key, value] of Object.entries(items || {}))
+      rows.push(`<tr><td>${esc(THRESHOLD_NAMES[group] || group)}</td><td class="t">${esc(key)}</td><td class="num">${esc(Array.isArray(value) ? value.join(" ~ ") : value)}</td></tr>`);
+  $("s-thresholds").innerHTML = rows.join("") || `<tr><td colspan="3" style="color:var(--ink-3)">설정 파일에 기준값이 없습니다</td></tr>`;
+
+  const show = (v) => Array.isArray(v) ? (v.join(", ") || "없음") : v;
+  $("s-log").innerHTML = cfg.log.length ? cfg.log.map((entry) =>
+    `<li><b>${fmt(entry.at, true)}</b>${entry.reset ? "설정 파일 값으로 되돌림 — " : ""}${
+      Object.entries(entry.changes).map(([k, c]) =>
+        `${SETTING_NAMES[k] || esc(k)} ${esc(show(c.from))} → ${esc(show(c.to))}`).join(" · ")}</li>`).join("")
+    : `<li>화면에서 바꾼 기록이 없습니다</li>`;
+}
+async function loadSettings() {
+  if (settingsDirty) return;      // 고치던 값을 다시 읽어 덮어쓰지 않는다
+  try { renderSettings(await api("/api/settings")); }
+  catch (err) { const m = $("settings-msg"); m.className = "msg bad"; m.textContent = `설정을 읽지 못했습니다 — ${err.message}`; }
+}
+async function saveSettings(body) {
+  const msg = $("settings-msg");
+  const pin = $("s-pin").value;
+  try {
+    const cfg = await api("/api/settings", body, pin ? { "X-OFDF-Pin": pin } : {});
+    renderSettings(cfg);
+    msg.className = "msg ok";
+    msg.textContent = body.reset ? "설정 파일 값으로 되돌렸습니다. 다음 판단(최대 5분 뒤)부터 반영됩니다."
+      : "저장했습니다. 다음 판단(최대 5분 뒤)부터 반영됩니다.";
+  } catch (err) {
+    msg.className = "msg bad"; msg.textContent = `저장하지 못했습니다 — ${err.message}`;
+  }
+}
+$("settings-form").addEventListener("input", () => { settingsDirty = true; });
+$("settings-form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const values = {};
+  for (const input of document.querySelectorAll("[data-setting]")) values[input.dataset.setting] = Number(input.value);
+  values.installed_devices = [...document.querySelectorAll("[data-device]")]
+    .filter((box) => box.checked).map((box) => box.dataset.device);
+  saveSettings({ values });
+});
+$("s-reset").addEventListener("click", () => {
+  if (confirm("화면에서 바꾼 값을 모두 지우고 설정 파일 값으로 되돌립니다.")) saveSettings({ reset: true });
+});
+
 function load() {
+  if (panel) {
+    // 다른 화면(휴대폰·터치패널)에서 누른 응답도 여기에 보여야 한다
+    api("/api/approvals").then((r) => {
+      pending = r.responses || {}; pendingKnown = true;
+      if (lastGood) render(lastGood);
+    }).catch(() => { /* 다음 차례에 다시 */ });
+  }
   return fetch("data.json", { cache: "no-store" })
     .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
     .then((d) => {
@@ -831,8 +1534,16 @@ function load() {
     });
 }
 
-load();
-setInterval(load, REFRESH_MS);
+/* 화면 서버가 있는지 먼저 묻고 시작한다. 없어도(파일만 열렸어도) 읽기
+   화면은 그대로 돈다. */
+api("/api/status").then((status) => { panel = status; }).catch(() => { panel = null; })
+  .finally(() => {
+    let saved = "live";
+    try { saved = localStorage.getItem("ofdf-tab") || "live"; } catch { /* 그대로 */ }
+    showTab(TABS.includes(saved) ? saved : "live");
+    load();
+    setInterval(load, REFRESH_MS);
+  });
 
 // 절전에서 깨어나거나 농가가 화면을 다시 켰을 때 즉시 맞춘다.
 addEventListener("visibilitychange", () => { if (!document.hidden) load(); });

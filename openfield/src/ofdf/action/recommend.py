@@ -32,6 +32,31 @@ SHADE_LATEST_HOUR = 16
 SHADE_MAX_MINUTES = 120
 
 
+@dataclass(frozen=True)
+class FieldRules:
+    """현장 즉응규칙(L1)의 기준값 — 설정 화면(M6)에서 바꾸는 값이다.
+
+    기본값은 사업계획서의 초기 기준이고 ``configs/fusion.yaml`` 의
+    ``control.field_rules`` 와 같다. 전에는 이 숫자들이 코드에만 박혀 있어
+    설정 파일을 고쳐도 제어기가 따라오지 않았다.
+    """
+
+    wind_no_deploy: float = 7.0     # m/s, 순간최대. 차광막·피복 전개 금지
+    wind_recover: float = 9.0       # 즉시 완전 회수
+    wind_lock: float = 14.0         # 경보·구동 잠금
+    spray_stop_wind: float = 4.0    # 살수 중 이 풍속 초과 시 즉시 중지
+    #: 토양수분 농가 상한(%). 이 값 이상이면 관수를 금지한다.
+    soil_upper_limit: float = 90.0
+
+
+DEFAULT_FIELD_RULES = FieldRules()
+
+#: 농가가 화면에서 거부한 조치에 남는 사유. 계층표의 L3(사용자 제어)다.
+USER_REJECT_NOTE = "농가 거부 (L3 사용자 제어)"
+#: 농가가 화면에서 승인한 조치의 사유 뒤에 붙는 말.
+USER_APPROVE_NOTE = "농가 승인"
+
+
 class Layer(IntEnum):
     """제어 계층. 숫자가 작을수록 우선한다."""
 
@@ -52,6 +77,22 @@ class Action:
     risk_type: str = ""
     advisory: bool = False      # True 면 농가 승인 후 실행(권고모드)
     rejected_by: str = ""       # 상위 계층에 막힌 경우 그 사유
+    #: 농가가 승인하면 기계가 실행할 수 있는 권고인가. 신뢰도가 낮아 권고로
+    #: 내려간 조치만 해당한다 — 구동부가 없어 권고가 된 조치는 승인해도
+    #: 움직일 기계가 없으므로 단추를 내지 않는다.
+    needs_approval: bool = False
+    #: 농가 응답("approve" / "reject"). 응답이 없으면 빈 문자열.
+    user_response: str = ""
+
+    @property
+    def action_id(self) -> str:
+        """화면과 응답 기록이 조치를 가리키는 이름.
+
+        같은 위험·같은 장치·같은 명령이면 같은 조치다. 주기(5분)마다 조치
+        객체는 새로 만들어지므로, 농가가 누른 승인이 다음 주기에도 같은
+        조치에 붙으려면 내용으로 가리켜야 한다.
+        """
+        return f"{self.risk_type}|{self.device}|{self.command}"
 
     def describe(self) -> str:
         mark = "권고" if self.advisory else "실행"
@@ -210,19 +251,22 @@ def hardware_actions(sensors: SensorState) -> list[Action]:
     return actions
 
 
-def field_rule_actions(sensors: SensorState) -> list[Action]:
+def field_rule_actions(
+    sensors: SensorState, rules: FieldRules | None = None
+) -> list[Action]:
     """L1 — AI가 멈춰도 작동하는 현장 즉응규칙."""
+    rules = rules or DEFAULT_FIELD_RULES
     actions = []
     gust = sensors.gust_3s
 
     if gust is not None:
-        if gust >= 14.0:
+        if gust >= rules.wind_lock:
             actions.append(Action("전 구동부", "경보·구동 잠금", Layer.FIELD_RULE,
                                   f"{sensors.gust_source}풍속 {gust:.1f}m/s — 현장 확인 후 수동 해제"))
-        if gust >= 9.0:
+        if gust >= rules.wind_recover:
             actions.append(Action("차광막·피복", "즉시 완전 회수(5분 이내)", Layer.FIELD_RULE,
                                   f"{sensors.gust_source}풍속 {gust:.1f}m/s"))
-        elif gust >= 7.0:
+        elif gust >= rules.wind_no_deploy:
             actions.append(Action("차광막·피복", "전개 금지", Layer.FIELD_RULE,
                                   f"{sensors.gust_source}풍속 {gust:.1f}m/s"))
 
@@ -236,9 +280,9 @@ def field_rule_actions(sensors: SensorState) -> list[Action]:
         actions.append(Action("관수밸브", "관수 금지", Layer.FIELD_RULE, "토양수분 농가 상한 초과"))
         actions.append(Action("알림", "배수 상태 확인", Layer.FIELD_RULE, "토양수분 상한 초과"))
 
-    if sensors.spraying and (sensors.gust_3s or 0) > 4.0:
+    if sensors.spraying and (sensors.gust_3s or 0) > rules.spray_stop_wind:
         actions.append(Action("살수", "살수 즉시 중지", Layer.FIELD_RULE,
-                              "풍속 4m/s 초과 — 도로·인근 주택 비산 방지"))
+                              f"풍속 {rules.spray_stop_wind:g}m/s 초과 — 도로·인근 주택 비산 방지"))
 
     if sensors.comms_down:
         actions.append(Action("제어기", "로컬 독립운전", Layer.FIELD_RULE,
@@ -396,6 +440,7 @@ def decide(
     compound_reasons: list[str] | None = None,
     confidence_threshold: float = CONFIDENCE_THRESHOLD,
     installed_devices: frozenset[str] | set[str] | None = None,
+    field_rules: FieldRules | None = None,
 ) -> Decision:
     """위험판단 결과와 현장 실측값으로 최종 조치를 정한다.
 
@@ -410,6 +455,7 @@ def decide(
         엔진의 기본은 '다 있다'이다. 현장 설정이 좁혀 넘기면, 여기 없는
         장치로 가는 조치는 실행이 아니라 **권고**로 내려간다. 거부가 아니다 —
         해야 할 일은 그대로이고 손이 바뀔 뿐이다.
+    field_rules : 현장 즉응규칙(L1) 기준값. 생략하면 사업계획서 초기 기준.
 
     Returns
     -------
@@ -426,7 +472,7 @@ def decide(
     }
 
     hardware = hardware_actions(sensors)
-    field_rules = field_rule_actions(sensors)
+    field_rule_list = field_rule_actions(sensors, field_rules)
 
     ai_actions: list[Action] = []
     alerts: list[str] = []
@@ -452,7 +498,7 @@ def decide(
 
     # 상위 계층부터 차례로 쌓으면서 충돌을 거른다
     resolved: list[Action] = list(hardware)
-    for action in _deduplicate(field_rules):
+    for action in _deduplicate(field_rule_list):
         action.rejected_by = _is_blocked(action, resolved)
         resolved.append(action)
     for action in _deduplicate(ai_actions):
@@ -474,6 +520,15 @@ def decide(
         if NO_ACTUATOR_NOTE not in action.reason:
             action.reason = f"{action.reason} ({NO_ACTUATOR_NOTE})"
 
+    # 농가가 승인하면 기계가 실행할 수 있는 권고에 표시를 붙인다. 이 시점에
+    # 구동부가 달린 장치의 권고는 신뢰도가 낮아 내려간 것뿐이다.
+    for action in resolved:
+        action.needs_approval = (
+            action.advisory and not action.rejected_by
+            and action.layer == Layer.AI and action.device in installed
+            and action.device not in ALWAYS_AVAILABLE
+        )
+
     mode = "권고(농가 승인 필요)" if low_confidence else "자동"
     if manual and not low_confidence:
         mode = "일부 수동(구동부 미설치)"
@@ -483,3 +538,38 @@ def decide(
         mode = "로컬 독립운전"
 
     return Decision(actions=resolved, alerts=alerts, mode=mode)
+
+
+def apply_user_responses(decision: Decision, responses: dict[str, str]) -> list[dict]:
+    """농가의 승인·거부(L3)를 판단 결과에 반영한다.
+
+    ``responses`` 는 ``{조치 이름(Action.action_id): "approve" | "reject"}`` 다.
+    승인 대기 중인 권고(``needs_approval``)에만 적용한다 — 상위 계층(L0·L1)이
+    이미 막은 조치는 농가가 승인해도 풀리지 않는다. L3 는 가장 낮은 계층이다.
+
+    반영한 응답을 ``[{"id", "device", "command", "response"}]`` 로 돌려준다.
+    판단 이력에 '사용자 승인 여부'로 남기는 값이다.
+    """
+    applied: list[dict] = []
+    for action in decision.actions:
+        if not action.needs_approval:
+            continue
+        response = responses.get(action.action_id)
+        if response == "approve":
+            action.advisory = False
+            action.reason = f"{action.reason} — {USER_APPROVE_NOTE}"
+        elif response == "reject":
+            action.rejected_by = USER_REJECT_NOTE
+        else:
+            continue
+        action.needs_approval = False
+        action.user_response = response
+        applied.append({
+            "id": action.action_id, "device": action.device,
+            "command": action.command, "response": response,
+        })
+
+    if applied and decision.mode.startswith("권고"):
+        waiting = any(a.needs_approval for a in decision.actions)
+        decision.mode = "권고(농가 승인 필요)" if waiting else "권고(농가 응답 반영)"
+    return applied

@@ -106,6 +106,7 @@ edge:
   # journal_path: logs/journal.jsonl
   # dashboard_path: dashboard/data.json
   # devices_path: configs/devices.yaml
+  # state_dir: state            # 화면에서 바꾼 설정·농가 승인이 적히는 곳 (ofdf serve 가 쓴다)
   # zone: treatment
   # period: 300
   # station: 실증포장

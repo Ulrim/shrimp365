@@ -26,3 +26,6 @@ venv/
 .env
 *.key
 credentials*.json
+
+# 화면 서버가 쓰는 상태 — 화면에서 바꾼 설정, 농가 승인·거부 (ofdf.site)
+/state/
