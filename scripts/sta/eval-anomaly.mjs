@@ -12,7 +12,7 @@
 //
 // 종료 코드: 0 적합 · 1 부적합 · 2 보류(기준값 미설정·사례 수 부족) · 3 실행 오류
 
-import { readFileSync, writeFileSync, mkdirSync, cpSync, rmSync, existsSync } from "node:fs"
+import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync, copyFileSync } from "node:fs"
 import { spawnSync } from "node:child_process"
 import os from "node:os"
 import path from "node:path"
@@ -41,6 +41,17 @@ function log(text = "") {
 function git(args) {
   const r = spawnSync("git", args, { cwd: ROOT, encoding: "utf8" })
   return r.status === 0 ? r.stdout.trim() : null
+}
+
+/** 폴더를 통째로 복사한다. fs.cpSync 는 윈도우에서 한글 경로를 만나면 오류 없이 프로세스가
+ *  죽는 Node 버전이 있어 쓰지 않는다. */
+function copyTree(from, to) {
+  mkdirSync(to, { recursive: true })
+  for (const entry of readdirSync(from, { withFileTypes: true })) {
+    const src = path.join(from, entry.name), dst = path.join(to, entry.name)
+    if (entry.isDirectory()) copyTree(src, dst)
+    else copyFileSync(src, dst)
+  }
 }
 
 /** 장비 판정(raspberry-pi/sta_eval.py → anomaly.detect)을 한 번에 돌린다. 못 돌리면 null. */
@@ -255,7 +266,7 @@ async function main() {
   mkdirSync(outDir, { recursive: true })
   const dataDir = path.join(outDir, "01_시험데이터")
   rmSync(dataDir, { recursive: true, force: true })
-  cpSync(casesDir, dataDir, { recursive: true })
+  copyTree(casesDir, dataDir)
 
   const hashText = [
     `시험 항목: ${config["시험항목"]}`,
