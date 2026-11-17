@@ -12,7 +12,7 @@
 //
 // 종료 코드: 0 적합 · 1 부적합 · 2 보류(기준값 미설정·사례 수 부족) · 3 실행 오류
 
-import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync, copyFileSync } from "node:fs"
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, copyFileSync, unlinkSync, rmdirSync, existsSync } from "node:fs"
 import { spawnSync } from "node:child_process"
 import os from "node:os"
 import path from "node:path"
@@ -41,6 +41,17 @@ function log(text = "") {
 function git(args) {
   const r = spawnSync("git", args, { cwd: ROOT, encoding: "utf8" })
   return r.status === 0 ? r.stdout.trim() : null
+}
+
+/** 폴더를 통째로 지운다. fs.rmSync(recursive) 도 같은 까닭으로 쓰지 않는다. */
+function removeTree(dir) {
+  if (!existsSync(dir)) return
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const target = path.join(dir, entry.name)
+    if (entry.isDirectory()) removeTree(target)
+    else unlinkSync(target)
+  }
+  rmdirSync(dir)
 }
 
 /** 폴더를 통째로 복사한다. fs.cpSync 는 윈도우에서 한글 경로를 만나면 오류 없이 프로세스가
@@ -91,7 +102,7 @@ async function main() {
   log(` STA 시험 — ${config["시험항목"]}`)
   log(` 시험 대상: ${config["시험대상_SW"]}`)
   log("══════════════════════════════════════════════════════════════")
-  log(`실행 시각: ${formatTime(started)}`)
+  log(`실행 시각: ${formatTime(started)} · 도구 판: 2026-11-17c · Node ${process.version} · ${process.platform}`)
   log("")
 
   // ── 1. 시험 대상 고정 ────────────────────────────────────────────────
@@ -263,10 +274,14 @@ async function main() {
   log("")
 
   // ── 결과 묶음 쓰기 ───────────────────────────────────────────────────
+  // 단계마다 한 줄씩 찍는다 — 중간에 멈추면 어디서 멈췄는지 화면에 남는다.
+  log("[결과 저장]")
   mkdirSync(outDir, { recursive: true })
+  log(`  결과 폴더 준비: ${outDir}`)
   const dataDir = path.join(outDir, "01_시험데이터")
-  rmSync(dataDir, { recursive: true, force: true })
+  removeTree(dataDir)
   copyTree(casesDir, dataDir)
+  log("  01_시험데이터 복사 완료")
 
   const hashText = [
     `시험 항목: ${config["시험항목"]}`,
@@ -289,6 +304,7 @@ async function main() {
   ].join("\n")
   writeFileSync(path.join(outDir, "00_시험대상_해시.txt"), hashText, "utf8")
   writeFileSync(path.join(outDir, "02_사례별_결과.csv"), toCsv(RESULT_HEADER, rows), "utf8")
+  log("  00_시험대상_해시.txt · 02_사례별_결과.csv 저장 완료")
 
   const summary = {
     "시험항목": config["시험항목"],
