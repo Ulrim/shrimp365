@@ -67,6 +67,10 @@ next-env.d.ts
 !/vision/data/tank/labeled/images/*.jpg
 /vision/data/tank/tiles/
 /vision/ai/trainer/runs/
+# 시험기관(STA) 제출 묶음과 다시 나눈 데이터셋 — 원본 이미지가 들어 있어 커밋하지 않는다
+# (용량·라이선스). 저장소에는 sha256 과 결과 증빙(docs/.../evidence)만 남긴다.
+/vision/sta_*/
+/vision/datasets/
 # ultralytics 가 실행 폴더에 내려받는 사전학습 가중치(yolov8n.pt 등)
 /vision/*.pt
 # .claude 내부는 무시하되, 공유 스킬·에이전트만 저장소에 포함

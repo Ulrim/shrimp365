@@ -282,3 +282,335 @@ def test_bound_sits_below_the_observed_rate():
 def test_bound_is_undefined_without_trials():
     assert exact_lower_bound(0, 0) is None
     assert exact_lower_bound(5, 3) is None
+
+
+# ── 시험기관 제출용 로그(--log-dir)와 로그만으로의 재계산 ─────────────────
+# 추론은 가짜 검출기로 바꾼다 — 여기서 보는 것은 "로그에 적힌 것만으로 같은
+# 최종값이 다시 나오는가"이지 모델이 아니다.
+import csv  # noqa: E402
+import json  # noqa: E402
+
+from ai.trainer import eval_detect, recompute_detect  # noqa: E402
+from ai.trainer.eval_detect import match_one_image_detail  # noqa: E402
+from app.services.detector import BBox, DetectionResult  # noqa: E402
+
+SIZE = 100          # 합성 이미지 한 변(px). 라벨은 0~1 정규화이므로 ×100 이 픽셀이다.
+
+
+def _old_match_one_image(pred_boxes, pred_scores, gt, thr):
+    """매칭을 확장하기 **전**의 구현을 그대로 옮겨 둔 것 — 판정이 안 바뀌었는지 견준다."""
+    order = np.argsort(-pred_scores)
+    tp = np.zeros(len(pred_boxes), dtype=np.float32)
+    if len(gt) == 0:
+        return tp
+    ious = iou_matrix(pred_boxes, gt)
+    used = np.zeros(len(gt), dtype=bool)
+    for i in order:
+        if ious.shape[1] == 0:
+            break
+        candidates = np.where(~used, ious[i], -1.0)
+        best = int(np.argmax(candidates))
+        if candidates[best] >= thr:
+            tp[i] = 1.0
+            used[best] = True
+    return tp
+
+
+def _synthetic_scene(rng, n_gt, n_extra):
+    """정답 n_gt 개와, 그 근처로 흔들린 예측 + 엉뚱한 예측 n_extra 개."""
+    gt = []
+    for _ in range(n_gt):
+        x, y = rng.uniform(0, 70, size=2)
+        w, h = rng.uniform(10, 25, size=2)
+        gt.append([x, y, x + w, y + h])
+    preds = []
+    for g in gt:
+        if rng.random() < 0.85:                      # 일부는 아예 놓친다
+            jitter = rng.normal(0, rng.choice([0.5, 2.0, 5.0]), size=4)
+            preds.append((*np.clip(np.asarray(g) + jitter, 0, SIZE),
+                          float(rng.uniform(0.05, 0.99))))
+    for _ in range(n_extra):
+        x, y = rng.uniform(0, 80, size=2)
+        preds.append((x, y, x + rng.uniform(5, 20), y + rng.uniform(5, 20),
+                      float(rng.uniform(0.002, 0.6))))
+    return gt, preds
+
+
+@pytest.fixture
+def synthetic_run(tmp_path, monkeypatch):
+    """합성 시험셋을 만들고 가짜 검출기를 끼운다. 반환: 실행 함수와 정답 자료."""
+    from PIL import Image
+
+    rng = np.random.default_rng(7)
+    images_dir, labels_dir = tmp_path / "test" / "images", tmp_path / "test" / "labels"
+    images_dir.mkdir(parents=True)
+    labels_dir.mkdir()
+    # 0: 평범 … 5: 정답 0마리 + 헛검출, 6: 정답도 예측도 없음, 7: 정답만 있고 예측 없음
+    plan = [(4, 3), (6, 5), (1, 0), (9, 8), (3, 2), (0, 4), (0, 0), (2, 0)]
+    scenes = {}
+    for index, (n_gt, n_extra) in enumerate(plan):
+        gt, preds = _synthetic_scene(rng, n_gt, n_extra)
+        if index == 7:
+            preds = []
+        if index == 1 and preds:                      # 다른 이미지와 신뢰도 동점을 만든다
+            preds[0] = (*preds[0][:4], 0.5)
+        if index == 3 and preds:
+            preds[0] = (*preds[0][:4], 0.5)
+        name = f"img_{index:02d}"
+        Image.new("RGB", (SIZE, SIZE), (index, 0, 0)).save(images_dir / f"{name}.png")
+        if n_gt:                                      # 정답 0마리는 라벨 파일 자체가 없다
+            (labels_dir / f"{name}.txt").write_text("".join(
+                f"0 {(x1 + x2) / 2 / SIZE} {(y1 + y2) / 2 / SIZE}"
+                f" {(x2 - x1) / SIZE} {(y2 - y1) / SIZE}\n" for x1, y1, x2, y2 in gt))
+        scenes[index] = (gt, preds)
+    weights = tmp_path / "model.onnx"
+    weights.write_bytes(b"not a real model")
+
+    class FakeDetector:
+        imgsz = 416
+
+        def __init__(self, **_kwargs):
+            pass
+
+        def detect(self, frame):
+            _gt, preds = scenes[frame.getpixel((0, 0))[0]]
+            boxes = [BBox(*p) for p in preds]
+            return DetectionResult(count=len(boxes), bboxes=boxes)
+
+    monkeypatch.setattr("app.services.detector_onnx.OnnxShrimpDetector", FakeDetector)
+    log_dir = tmp_path / "log"
+
+    def run(*extra):
+        return eval_detect.main([
+            "--weights", str(weights), "--images", str(images_dir),
+            "--labels", str(labels_dir), "--progress", "0",
+            "--log-dir", str(log_dir), *extra])
+
+    return run, log_dir, scenes, labels_dir
+
+
+def _read(path):
+    with path.open(newline="", encoding="utf-8-sig") as fh:
+        return list(csv.DictReader(fh))
+
+
+def test_matching_detail_keeps_the_old_tp_verdicts():
+    """매칭이 '무엇과 맞았는지'까지 돌려주게 됐어도 TP 판정은 한 글자도 안 바뀐다."""
+    rng = np.random.default_rng(3)
+    for _ in range(200):
+        gt, preds = _synthetic_scene(rng, int(rng.integers(0, 12)), int(rng.integers(0, 12)))
+        boxes = np.asarray([p[:4] for p in preds], dtype=np.float32).reshape(-1, 4)
+        scores = np.asarray([p[4] for p in preds], dtype=np.float32)
+        gt_arr = np.asarray(gt, dtype=np.float32).reshape(-1, 4)
+        for thr in (0.5, 0.75, 0.95):
+            old = _old_match_one_image(boxes, scores, gt_arr, thr)
+            tp, matched, ious = match_one_image_detail(boxes, scores, gt_arr, thr)
+            assert tp.tolist() == old.tolist()
+            assert match_one_image(boxes, scores, gt_arr, thr).tolist() == old.tolist()
+            hit = matched[matched >= 0]
+            assert len(set(hit.tolist())) == len(hit), "한 정답이 두 예측에 쓰였습니다"
+            assert ((matched >= 0) == (tp == 1)).all()
+            assert (ious[tp == 1] >= thr).all()
+
+
+def test_log_has_one_row_per_prediction_ground_truth_and_image(synthetic_run):
+    run, log_dir, scenes, _ = synthetic_run
+    assert run() == 0
+    n_pred = sum(len(p) for _, p in scenes.values())
+    n_gt = sum(len(g) for g, _ in scenes.values())
+    assert len(_read(log_dir / "02_예측별_결과.csv")) == n_pred
+    assert len(_read(log_dir / "02_정답별_결과.csv")) == n_gt
+    assert len(_read(log_dir / "02_이미지별_결과.csv")) == len(scenes)
+    for name in ("02_예측별_결과.csv", "02_정답별_결과.csv", "02_이미지별_결과.csv"):
+        assert (log_dir / name).read_bytes().startswith(b"\xef\xbb\xbf"), "BOM 이 없습니다"
+    final = json.loads((log_dir / "03_최종결과.json").read_text(encoding="utf-8"))
+    assert final["이미지_수"] == len(scenes) and final["정답_박스_수"] == n_gt
+    assert set(final["로그_sha256"]) == {"02_예측별_결과.csv", "02_정답별_결과.csv",
+                                         "02_이미지별_결과.csv"}
+    assert (log_dir / "00_시험대상_해시.txt").exists()
+    assert "전체순위" in (log_dir / "README_읽는법.txt").read_text(encoding="utf-8")
+    assert (log_dir / "01_시험데이터" / "통계.txt").exists()
+    sums = (log_dir / "01_시험데이터" / "sha256sums.txt").read_text().splitlines()
+    assert len(sums) == len(scenes) + sum(1 for g, _ in scenes.values() if g)
+    assert all(line.split("  ", 1)[1].startswith(("images/", "labels/")) for line in sums)
+
+
+def test_recompute_from_logs_equals_evaluate(synthetic_run):
+    """로그 두 개만 읽어 낸 값이 측정 프로그램의 최종값과 같다."""
+    run, log_dir, _, _ = synthetic_run
+    assert run("--bootstrap", "50") == 0
+    final = json.loads((log_dir / "03_최종결과.json").read_text(encoding="utf-8"))
+    got = recompute_detect.recompute(log_dir)
+    assert round(got["mAP@0.5"], 4) == final["mAP@0.5"]
+    assert round(got["mAP@0.5:0.95"], 4) == final["mAP@0.5:0.95"]
+    assert {k: round(v, 4) for k, v in got["IoU별_AP"].items()} == final["IoU별_AP"]
+    assert (got["TP"], got["FP"], got["FN"]) == (final["TP"], final["FP"], final["FN"])
+    for key in ("Precision", "Recall", "F1"):
+        assert round(got[key], 4) == final[key]
+    c = final["계수_오차율"]
+    assert round(got["평균_오차율"], 4) == c["평균_오차율"]
+    assert round(got["중앙값_오차율"], 4) == c["중앙값_오차율"]
+    assert round(got["최대_오차율"], 4) == c["최대_오차율"]
+    assert round(got["이내_비율"], 4) == c["±20%_이내_비율"]
+    assert 0 < final["mAP@0.5"] < 1, "합성 자료가 너무 쉽거나 어려워 검산이 헐겁습니다"
+    assert recompute_detect.main(["--dir", str(log_dir)]) == 0
+    assert "모두 일치" in (log_dir / "04_재계산_결과.txt").read_text(encoding="utf-8")
+
+
+def test_recompute_does_not_use_eval_detect():
+    """독립 검산이다 — 측정 프로그램의 함수를 불러 쓰면 같은 실수를 같이 한다."""
+    source = (eval_detect.HERE / "recompute_detect.py").read_text(encoding="utf-8")
+    assert "import eval_detect" not in source and "from eval_detect" not in source
+    assert "ai.trainer" not in source and "from app" not in source
+
+
+def test_image_without_ground_truth_in_logs(synthetic_run):
+    """정답 0마리 이미지: AP 는 빈칸, 오차율도 빈칸, 헛검출 수는 적는다."""
+    run, log_dir, scenes, _ = synthetic_run
+    assert run() == 0
+    rows = {r["이미지"]: r for r in _read(log_dir / "02_이미지별_결과.csv")}
+    ghost = rows["img_05.png"]
+    op = sum(1 for p in scenes[5][1] if np.float32(p[4]) >= np.float32(0.25))
+    assert ghost["AP@0.5(이미지 단독)"] == "" and ghost["계수오차율(비율)"] == ""
+    assert ghost["헛검출(정답 0마리 이미지)(개)"] == str(op)
+    assert rows["img_06.png"]["헛검출(정답 0마리 이미지)(개)"] == "0"
+    assert rows["img_00.png"]["헛검출(정답 0마리 이미지)(개)"] == ""
+    assert rows["img_00.png"]["AP@0.5(이미지 단독)"] != ""
+    assert rows["img_07.png"]["AP@0.5(이미지 단독)"] == "0.000000"   # 정답은 있는데 예측이 없다
+    final = json.loads((log_dir / "03_최종결과.json").read_text(encoding="utf-8"))
+    assert final["계수_오차율"]["배경이미지_수"] == 2
+    got = recompute_detect.recompute(log_dir)
+    assert got["배경이미지_수"] == 2 and got["이미지_수"] == len(scenes)
+    # 정답 0마리 이미지의 예측은 어느 IoU 기준에서도 TP 가 될 수 없다
+    for r in _read(log_dir / "02_예측별_결과.csv"):
+        if r["이미지"] == "img_05.png":
+            assert r["TP@0.50(0/1)"] == "0" and r["매칭정답번호@0.50"] == ""
+
+
+def test_ground_truth_log_points_at_the_detecting_prediction(synthetic_run):
+    """정답별 로그의 '탐지한_예측번호' 가 예측별 로그의 그 줄과 맞물린다."""
+    run, log_dir, _, _ = synthetic_run
+    assert run() == 0
+    preds = {(r["이미지"], r["예측번호"]): r for r in _read(log_dir / "02_예측별_결과.csv")}
+    hits = 0
+    for g in _read(log_dir / "02_정답별_결과.csv"):
+        if g["운영임계값에서_탐지(0/1)"] == "1":
+            p = preds[(g["이미지"], g["탐지한_예측번호"])]
+            assert p["운영임계값_이상(0/1)"] == "1"
+            assert p["매칭정답번호@0.50"] == g["정답번호"]
+            hits += 1
+        else:
+            assert g["탐지한_예측번호"] == ""
+    assert hits > 0
+
+
+def test_recompute_notices_a_tampered_log(synthetic_run):
+    """로그를 한 칸 고치면 재계산이 0이 아닌 코드로 끝난다."""
+    run, log_dir, _, _ = synthetic_run
+    assert run() == 0
+    path = log_dir / "02_예측별_결과.csv"
+    lines = path.read_bytes().split(b"\r\n")
+    cells = lines[1].split(b",")
+    cells[9] = b"0" if cells[9] == b"1" else b"1"     # 첫 예측의 TP@0.50 을 뒤집는다
+    lines[1] = b",".join(cells)
+    path.write_bytes(b"\r\n".join(lines))
+    assert recompute_detect.main(["--dir", str(log_dir)]) == 1
+    assert "불일치" in (log_dir / "04_재계산_결과.txt").read_text(encoding="utf-8")
+
+
+def test_changed_test_data_stops_the_run(synthetic_run):
+    """sha256 목록을 고정한 뒤 시험 데이터가 바뀌면 측정 결과를 쓰지 않고 멈춘다."""
+    run, _, _, labels_dir = synthetic_run
+    assert run() == 0
+    label = labels_dir / "img_00.txt"
+    label.write_text(label.read_text() + "0 0.5 0.5 0.1 0.1\n")
+    with pytest.raises(SystemExit) as stopped:
+        run()
+    assert "고정된 목록과 다릅니다" in str(stopped.value)
+
+
+def test_log_dir_refuses_tiled_inference(synthetic_run):
+    run, _, _, _ = synthetic_run
+    with pytest.raises(SystemExit):
+        run("--tile", "320")
+
+
+def test_pass_criteria_are_settings_not_constants(synthetic_run):
+    """판정 기준은 명령줄 설정값이다 — 코드에 굳혀 두지 않는다."""
+    run, log_dir, _, _ = synthetic_run
+    assert run("--pass-map50", "0.0", "--count-judge", "both",
+               "--pass-count-mean", "9", "--pass-count-within", "0.0") == 0
+    verdicts = json.loads((log_dir / "03_최종결과.json").read_text(encoding="utf-8"))["판정"]
+    assert [v["판정"] for v in verdicts] == ["적합", "적합", "적합"]
+    assert run("--pass-map50", "1.01", "--count-judge", "within",
+               "--pass-count-within", "1.01") == 0
+    verdicts = json.loads((log_dir / "03_최종결과.json").read_text(encoding="utf-8"))["판정"]
+    assert [v["판정"] for v in verdicts] == ["부적합", "부적합"]
+    with pytest.raises(SystemExit):
+        run("--count-judge", "within")                # 기준값 없이 판정하지 않는다
+
+
+def test_changed_test_data_stops_before_measuring(synthetic_run, capsys):
+    """바뀐 데이터로 잰 수치가 화면에 나오면 안 된다 — 재기 전에 멈춘다."""
+    run, log_dir, _, labels_dir = synthetic_run
+    assert run() == 0
+    before = (log_dir / "03_최종결과.json").read_bytes()
+    capsys.readouterr()
+    (labels_dir / "img_00.txt").write_text("0 0.5 0.5 0.1 0.1\n")
+    with pytest.raises(SystemExit):
+        run()
+    assert "mAP@0.5" not in capsys.readouterr().out
+    assert (log_dir / "03_최종결과.json").read_bytes() == before
+
+
+def test_recompute_agrees_when_there_is_nothing_to_find(tmp_path, monkeypatch):
+    """정답이 하나도 없으면 AP 는 양쪽 다 '정의되지 않음' — 그것도 일치다."""
+    from PIL import Image
+
+    images_dir = tmp_path / "test" / "images"
+    images_dir.mkdir(parents=True)
+    (tmp_path / "test" / "labels").mkdir()
+    for i in range(3):
+        Image.new("RGB", (SIZE, SIZE), (i, 0, 0)).save(images_dir / f"bg_{i}.png")
+    (tmp_path / "m.onnx").write_bytes(b"x")
+
+    class FakeDetector:
+        imgsz = 416
+
+        def __init__(self, **_kwargs):
+            pass
+
+        def detect(self, frame):
+            boxes = [BBox(1, 1, 20, 20, 0.6)] if frame.getpixel((0, 0))[0] == 1 else []
+            return DetectionResult(count=len(boxes), bboxes=boxes)
+
+    monkeypatch.setattr("app.services.detector_onnx.OnnxShrimpDetector", FakeDetector)
+    log_dir = tmp_path / "log"
+    with pytest.warns(RuntimeWarning):                 # 기존 동작: nan 들의 평균
+        assert eval_detect.main(["--weights", str(tmp_path / "m.onnx"), "--images",
+                                 str(images_dir), "--progress", "0",
+                                 "--log-dir", str(log_dir)]) == 0
+    assert recompute_detect.main(["--dir", str(log_dir)]) == 0
+
+
+def test_lower_bound_stays_below_the_rate_with_thousands_of_samples():
+    """정답이 수천 개여도 하한은 관측 비율보다 낮아야 한다.
+
+    예전 구현은 (1-p)^n 에서 출발해 곱해 나갔는데, n 이 수천이면 그 첫 항이 0 으로
+    꺼져 하한이 관측 비율과 똑같이 나왔다(3,403/3,699 → 0.9200). 445장 사전
+    측정에서 드러난 값이다.
+    """
+    rate = 3403 / 3699
+    bound = exact_lower_bound(3403, 3699)
+    assert bound < rate - 0.005
+    # 표본이 크면 정규근사(rate − 1.96·표준오차)와 가깝다
+    approx = rate - 1.96 * (rate * (1 - rate) / 3699) ** 0.5
+    assert bound == pytest.approx(approx, abs=0.002)
+    assert exact_lower_bound(900, 1000) < 0.9
+
+
+def test_lower_bound_small_sample_values_are_unchanged():
+    """고치기 전에도 맞던 작은 표본의 값은 그대로다."""
+    assert exact_lower_bound(90, 100) == pytest.approx(0.8237774022599773, abs=1e-9)
+    assert exact_lower_bound(16, 16) == pytest.approx(0.7940927857921772, abs=1e-12)
+    assert exact_lower_bound(1, 100) == pytest.approx(0.000253146, abs=1e-8)
