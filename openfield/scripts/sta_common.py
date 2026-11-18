@@ -236,6 +236,18 @@ def environment() -> dict:
     return env
 
 
+def load_booster(path: str | Path):
+    """LightGBM 모델 파일을 읽는다 — 파일을 파이썬이 열어 내용을 넘긴다.
+
+    ``lgb.Booster(model_file=...)`` 은 Windows 에서 경로에 한글이 있으면 파일을 열지 못한다
+    (LightGBM 이 경로를 시스템 코드페이지로 연다). 내용을 문자열로 넘기면 경로와 무관하고,
+    읽히는 모델은 같다.
+    """
+    import lightgbm as lgb
+
+    return lgb.Booster(model_str=Path(path).read_text(encoding="utf-8"))
+
+
 class Tee:
     """콘솔 출력을 파일에도 그대로 남긴다(`05_실행로그.txt`)."""
 

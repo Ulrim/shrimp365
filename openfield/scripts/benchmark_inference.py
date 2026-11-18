@@ -100,13 +100,13 @@ def load_models(model_dir: Path, horizons: list[int]) -> dict:
         for horizon in horizons:
             path = model_dir / f"model_{risk}_h{horizon}.txt"
             if path.exists():
-                models[(risk, horizon)] = lgb.Booster(model_file=str(path))
+                models[(risk, horizon)] = sta_common.load_booster(path)
             # 현장 판정(cli.judge)처럼 2등급 전용학습 모델도 함께 잰다
             # 접힘 앙상블(2등급 전용학습, 복합 점수용 병해)도 같은 수만큼 추론한다
             for stem in (f"model_{risk}_h{horizon}_binary", f"model_{risk}_h{horizon}_risk"):
                 for k, member in enumerate(sorted(model_dir.glob(f"{stem}_cv*.txt"))):
                     models[(f"{risk}_{stem.rsplit('_', 1)[1]}cv{k}_binary", horizon)] = (
-                        lgb.Booster(model_file=str(member))
+                        sta_common.load_booster(member)
                     )
     return models
 

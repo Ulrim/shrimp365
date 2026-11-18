@@ -131,7 +131,7 @@ def _load_member(path: Path, risk: str, horizon: int) -> weather_risk.TrainedRis
     """
     import lightgbm as lgb
 
-    booster = lgb.Booster(model_file=str(path))
+    booster = sta_common.load_booster(path)
     return weather_risk.TrainedRisk(
         risk=risk, horizon=horizon, booster=booster,
         columns=list(booster.feature_name()), best_iteration=0,

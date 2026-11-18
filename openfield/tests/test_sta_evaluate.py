@@ -493,3 +493,19 @@ def test_retrain_fixes_a_new_bundle_that_the_evaluation_accepts(bundle, capsys):
     # 일치하는 묶음이 이미 있으면 다시 학습하지 않는다
     capsys.readouterr()
     assert run() == 2 and "이미 있습니다" in capsys.readouterr().out
+
+
+def test_models_load_from_a_path_with_korean_and_spaces(bundle):
+    """한글·공백·쉼표가 든 폴더에 꾸러미를 둬도 모델을 읽는다(파일 내용으로 읽는다)."""
+    import lightgbm as lgb
+
+    moved = bundle["work"] / "261117_STA 시험 프로그램_AI 노지, 블루" / "model"
+    shutil.copytree(bundle["models"], moved)
+    path = moved / "model_frost_h1.txt"
+    ds = pickle.loads(bundle["cache"].read_bytes())
+    X = ds.features.reset_index(drop=True).iloc[:200]
+    by_text = sta_common.load_booster(path).predict(X)
+    by_file = lgb.Booster(model_file=str(bundle["models"] / "model_frost_h1.txt")).predict(X)
+    assert np.array_equal(by_text, by_file)
+    assert "model_file=" not in (SCRIPTS / "sta_evaluate.py").read_text(encoding="utf-8")
+    assert _evaluate(bundle, bundle["work"] / "한글 경로 결과", models=moved) == 0
