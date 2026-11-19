@@ -29,8 +29,9 @@ from xml.sax.saxutils import escape, quoteattr
 # ── 단위 ───────────────────────────────────────────────────────────────────
 MM = 7200 / 25.4                      # 1mm 가 몇 HWPUNIT 인가
 PAGE_W, PAGE_H = round(210 * MM), round(297 * MM)
-MARGIN = round(20 * MM)
-HEADER_FOOTER = round(10 * MM)
+MARGIN = round(30 * MM)                # 좌우
+MARGIN_TOP, MARGIN_BOTTOM = round(20 * MM), round(15 * MM)
+HEADER_FOOTER = round(15 * MM)
 TEXT_W = PAGE_W - MARGIN * 2
 
 # charPr id
@@ -141,7 +142,7 @@ class Builder:
             f'<hp:pagePr landscape="WIDELY" width="{PAGE_W}" height="{PAGE_H}"'
             ' gutterType="LEFT_ONLY">'
             f'<hp:margin header="{HEADER_FOOTER}" footer="{HEADER_FOOTER}" gutter="0"'
-            f' left="{MARGIN}" right="{MARGIN}" top="{MARGIN}" bottom="{MARGIN}"/>'
+            f' left="{MARGIN}" right="{MARGIN}" top="{MARGIN_TOP}" bottom="{MARGIN_BOTTOM}"/>'
             '</hp:pagePr>'
             '<hp:footNotePr><hp:autoNumFormat type="DIGIT" userChar="" prefixChar=""'
             ' suffixChar=")" supescript="0"/><hp:noteLine length="-1" type="SOLID"'
@@ -156,7 +157,7 @@ class Builder:
             ' newNum="1"/><hp:placement place="END_OF_DOCUMENT" beneathText="0"/>'
             '</hp:endNotePr>'
             + "".join(
-                f'<hp:pageBorderFill type="{t}" borderFillIDRef="2" textBorder="PAPER"'
+                f'<hp:pageBorderFill type="{t}" borderFillIDRef="1" textBorder="PAPER"'
                 ' headerInside="0" footerInside="0" fillArea="PAPER">'
                 '<hp:offset left="1417" right="1417" top="1417" bottom="1417"/>'
                 '</hp:pageBorderFill>' for t in ("BOTH", "EVEN", "ODD"))
@@ -240,7 +241,7 @@ class Builder:
                     if tx else f'<hp:run charPrIDRef="{cp}"/>' for cp, tx in runs)
                 tcs.append(
                     f'<hp:tc name="" header="{1 if is_head else 0}" hasMargin="1"'
-                    f' protect="0" editable="0" dirty="0" borderFillIDRef="{3 if is_head else 4}">'
+                    f' protect="0" editable="0" dirty="0" borderFillIDRef="{3 if is_head else 2}">'
                     f'<hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK"'
                     ' vertAlign="CENTER" linkListIDRef="0" linkListNextIDRef="0"'
                     ' textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0">'
@@ -258,7 +259,7 @@ class Builder:
             ' textWrap="TOP_AND_BOTTOM" textFlow="BOTH_SIDES" lock="0"'
             ' dropcapstyle="None" pageBreak="CELL" repeatHeader="1"'
             f' rowCnt="{len(rows)}" colCnt="{cols}" cellSpacing="0"'
-            ' borderFillIDRef="4" noAdjust="0">'
+            ' borderFillIDRef="2" noAdjust="0">'
             f'<hp:sz width="{TEXT_W}" widthRelTo="ABSOLUTE"'
             f' height="{row_h * len(rows)}" heightRelTo="ABSOLUTE" protect="0"/>'
             '<hp:pos treatAsChar="1" affectLSpacing="0" flowWithText="1" allowOverlap="0"'
@@ -305,7 +306,7 @@ def header_xml() -> str:
                ' other="0" symbol="0" user="0"/>')
         return (f'<hh:charPr id="{idx}" height="{height}" textColor="{color}"'
                 f' shadeColor="{shade}" useFontSpace="0" useKerning="0" symMark="NONE"'
-                ' borderFillIDRef="2">' + ref + ratio + spacing + rel + off
+                ' borderFillIDRef="1">' + ref + ratio + spacing + rel + off
                 + ("<hh:bold/>" if bold else "")
                 + ('<hh:strikeout type="SOLID" shape="SOLID" color="#000000"/>'
                    if strike else "")
@@ -329,7 +330,7 @@ def header_xml() -> str:
 
     def para_pr(idx: int, *, left: int = 0, indent: int = 0, before: int = 0,
                 after: int = 0, spacing: int = 160, align: str = "JUSTIFY",
-                keep: int = 0, border: int = 2, pad: tuple[int, int, int, int] = (0, 0, 0, 0),
+                keep: int = 0, border: int = 1, pad: tuple[int, int, int, int] = (0, 0, 0, 0),
                 connect: int = 0) -> str:
         return (f'<hh:paraPr id="{idx}" tabPrIDRef="0" condense="0"'
                 ' fontLineHeight="0" snapToGrid="1" suppressLineNumbers="0" checked="0">'
@@ -360,14 +361,14 @@ def header_xml() -> str:
         para_pr(P_BODY, after=500, spacing=155),
         para_pr(P_HEAD, before=1000, after=400, align="LEFT", keep=1),
         para_pr(P_LIST, left=1200, indent=-600, after=200, spacing=155),
-        para_pr(P_CODE, left=600, after=0, spacing=135, align="LEFT", border=7,
+        para_pr(P_CODE, left=600, after=0, spacing=135, align="LEFT", border=6,
                 pad=(400, 400, 150, 150), connect=1),
         para_pr(P_CELL, after=0, spacing=135, align="LEFT"),
-        para_pr(P_QUOTE, left=700, after=0, spacing=170, border=5,
+        para_pr(P_QUOTE, left=700, after=0, spacing=170, border=4,
                 pad=(600, 400, 250, 250), connect=1),
         para_pr(P_FIG, before=200, after=300, align="CENTER"),
         para_pr(P_H1, before=0, after=700, spacing=140, align="LEFT", keep=1),
-        para_pr(P_H2, before=1800, after=700, spacing=140, align="LEFT", keep=1, border=6,
+        para_pr(P_H2, before=1800, after=700, spacing=140, align="LEFT", keep=1, border=5,
                 pad=(0, 0, 0, 250)),
         para_pr(P_H3, before=1100, after=400, spacing=140, align="LEFT", keep=1),
         para_pr(P_CELL_HEAD, after=0, spacing=135, align="CENTER"),
@@ -402,14 +403,12 @@ def header_xml() -> str:
                 + body + "</hh:borderFill>")
 
     fills = "".join([
-        border_fill(0, line=False, fill=None),
-        border_fill(1, line=True, fill=None),
-        border_fill(2, line=False, fill=None),
-        border_fill(3, line=True, fill="#DCE6F2", color="#8C8C8C"),
-        border_fill(4, line=True, fill=None, color="#8C8C8C"),
-        border_fill(5, line=False, fill="#EEF3F9", sides={"left": ("0.7 mm", "#4472C4")}),
-        border_fill(6, line=False, fill=None, sides={"bottom": ("0.4 mm", "#1F3A5F")}),
-        border_fill(7, line=False, fill="#F2F2F2", sides={}),
+        border_fill(1, line=False, fill=None),                            # 테두리 없음(기본)
+        border_fill(2, line=True, fill=None, color="#8C8C8C"),            # 표 본문 칸
+        border_fill(3, line=True, fill="#DCE6F2", color="#8C8C8C"),       # 표 머리행
+        border_fill(4, line=False, fill="#EEF3F9", sides={"left": ("0.7 mm", "#4472C4")}),   # 인용
+        border_fill(5, line=False, fill=None, sides={"bottom": ("0.4 mm", "#1F3A5F")}),      # 장 제목
+        border_fill(6, line=False, fill="#F2F2F2", sides={}),             # 명령어 블록
     ])
 
     return (
@@ -421,7 +420,7 @@ def header_xml() -> str:
         '<hh:beginNum page="1" footnote="1" endnote="1" pic="1" tbl="1" equation="1"/>'
         '<hh:refList>'
         f'<hh:fontfaces itemCnt="{len(LANGS)}">' + "".join(faces) + "</hh:fontfaces>"
-        '<hh:borderFills itemCnt="8">' + fills + "</hh:borderFills>"
+        '<hh:borderFills itemCnt="6">' + fills + "</hh:borderFills>"
         '<hh:charProperties itemCnt="13">' + chars + "</hh:charProperties>"
         '<hh:tabProperties itemCnt="1"><hh:tabPr id="0" autoTabLeft="0" autoTabRight="0"/>'
         "</hh:tabProperties>"
