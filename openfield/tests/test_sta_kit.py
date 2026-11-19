@@ -25,7 +25,7 @@ def test_kit_has_simple_layout_and_ascii_launchers(tmp_path):
     assert sorted(p.name for p in out.iterdir() if p.is_dir()) == [
         "data", "model", "program", "reference", "result"]
     assert (out / "읽어_주세요.md").read_text(encoding="utf-8").startswith("# AI 노지 시험 꾸러미")
-    for step in ("1_setup", "2_check", "3_rehearsal", "4_test", "9_train_model"):
+    for step in ("1_setup", "2_check", "3_rehearsal", "4_test", "5_submission", "9_train_model"):
         bat = (out / f"{step}.bat").read_bytes()
         assert bat.isascii() and b"\r\n" in bat and b"\n" not in bat.replace(b"\r\n", b"")
         assert (out / f"{step}.sh").read_bytes().isascii()

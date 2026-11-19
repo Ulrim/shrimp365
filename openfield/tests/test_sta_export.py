@@ -59,3 +59,42 @@ def test_export_writes_each_split_with_the_same_split_as_training(tmp_path):
 
 def test_export_stops_without_cache(tmp_path):
     assert _load().main(["--cache", str(tmp_path / "없음.pkl"), "--out", str(tmp_path / "out")]) == 2
+
+
+def test_submission_makes_three_zips_with_sha256(tmp_path, monkeypatch):
+    import hashlib
+    import zipfile
+
+    sys.path.insert(0, str(ROOT / "scripts"))
+    spec = importlib.util.spec_from_file_location("sta_make_submission", ROOT / "scripts" / "sta_make_submission.py")
+    submission = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(submission)
+
+    cache = tmp_path / "dataset.pkl"
+    cache.write_bytes(pickle.dumps(_synthetic_dataset(days=60)))
+    models = tmp_path / "weather"
+    models.mkdir()
+    (models / "model_x_h1.txt").write_text("tree\n", encoding="utf-8")
+    (models / "performance.csv").write_text("a\n1\n", encoding="utf-8")
+    hash_list = tmp_path / "모델해시.md"
+    hash_list.write_text("```\n" + "\n".join(
+        f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}" for p in sorted(models.iterdir())) + "\n```\n",
+        encoding="utf-8")
+    monkeypatch.setattr(submission.sta_common, "DEFAULT_HASH_LIST", hash_list)
+
+    out = tmp_path / "제출"
+    args = ["--cache", str(cache), "--year-round-cache", str(cache), "--models", str(models), "--out", str(out)]
+    assert submission.main(args) == 0
+    names = sorted(p.name for p in out.iterdir())
+    assert names == ["nozi_model.zip", "nozi_test_data.zip", "nozi_train_data.zip", "해시값.txt"]
+    text = (out / "해시값.txt").read_text(encoding="utf-8")
+    for name in names[:3]:
+        assert hashlib.sha256((out / name).read_bytes()).hexdigest() in text
+    assert "학습데이터.csv" in zipfile.ZipFile(out / "nozi_train_data.zip").namelist()
+    assert "시험데이터.csv" in zipfile.ZipFile(out / "nozi_test_data.zip").namelist()
+    inside = zipfile.ZipFile(out / "nozi_model.zip").namelist()
+    assert "model/model_x_h1.txt" in inside and "program/src/ofdf/cli.py" in inside
+
+    # 모델이 해시 목록과 다르면 만들지 않는다
+    (models / "model_x_h1.txt").write_text("changed\n", encoding="utf-8")
+    assert submission.main([*args[:-1], str(tmp_path / "제출2")]) == 2

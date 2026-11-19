@@ -33,6 +33,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 PROGRAM_SCRIPTS = [
     "sta_common.py", "sta_evaluate.py", "sta_recompute.py", "sta_prepare.py", "sta_run_all.py", "sta_retrain.py",
+    "sta_export_data.py", "sta_make_submission.py",
     "benchmark_inference.py", "train_weather.py", "experiment_hourly_recall.py",
 ]
 PROGRAM_FILES = [
@@ -61,6 +62,8 @@ STEPS = [
      ["sta_run_all.py", "--mode", "testday", *PATHS, "--out", "{kit}result{sep}testday",
       "--seal-file", "{kit}result{sep}sealed_testset.sha256",
       "--prerun-log", "{kit}result{sep}testday_log.md"]),
+    ("5_submission", "after the test: zip model / training data / test data and write SHA-256",
+     ["sta_make_submission.py", *PATHS, "--out", "{kit}result{sep}submission"]),
     # 고정 모델 묶음을 끝내 찾지 못했을 때만 쓴다
     ("9_train_model", "ONLY IF THE MODEL BUNDLE IS LOST: retrain and fix a new bundle",
      ["sta_retrain.py", *PATHS, "--aaos-dir", "{kit}data{sep}aaos",
