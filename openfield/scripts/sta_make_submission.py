@@ -104,8 +104,10 @@ def main(argv: list[str] | None = None) -> int:
                    if p.is_file() and p.suffix in (".txt", ".json", ".csv")]
     model_files += [(p, "program/" + p.relative_to(ROOT).as_posix())
                     for p in sorted((ROOT / "src").rglob("*.py")) + sorted((ROOT / "scripts").glob("*.py"))]
-    model_files += [(p, "program/" + p.relative_to(ROOT).as_posix())
-                    for p in (hash_list, sta_common.CODE_HASH_LIST, ROOT / "requirements.txt") if p.exists()]
+    model_files += [(p, f"program/reports/시험의뢰/{p.name}")
+                    for p in (hash_list, sta_common.CODE_HASH_LIST) if p.exists()]
+    if (ROOT / "requirements.txt").exists():
+        model_files.append((ROOT / "requirements.txt", "program/requirements.txt"))
     model_files += [(p, p.name) for p in sorted(ROOT.parent.glob("*.bat")) + sorted(ROOT.parent.glob("*.sh"))
                     if p.name[:1].isdigit()]                      # 꾸러미의 실행 파일(1_setup ~ 4_test)
 
