@@ -1,0 +1,93 @@
+{
+  "slug": "openfield-ai-five-risks",
+  "locale": "ko",
+  "cards": [
+    {
+      "type": "cover",
+      "label": "노지 대파 AI",
+      "title": [
+        "다섯 가지",
+        "위험을 봅니다"
+      ],
+      "subtitle": "1시간·3시간 뒤를 미리 판단합니다"
+    },
+    {
+      "type": "point",
+      "index": "01",
+      "label": "고온·건조",
+      "value": "30 ℃",
+      "caption": "기온 30℃에 강한 햇볕이면 주의"
+    },
+    {
+      "type": "point",
+      "index": "02",
+      "label": "강우·과습",
+      "value": "20 mm",
+      "caption": "3시간 비 20mm에 과습이 2시간이면"
+    },
+    {
+      "type": "point",
+      "index": "03",
+      "label": "병해 환경",
+      "value": "6시간",
+      "caption": "잎 젖음 6시간·습도 90%부터"
+    },
+    {
+      "type": "point",
+      "index": "04",
+      "label": "저온·서리",
+      "value": "4 ℃",
+      "caption": "최저 4℃·약한 바람·맑은 밤"
+    },
+    {
+      "type": "point",
+      "index": "05",
+      "label": "복합위험",
+      "value": [
+        "비 온 뒤",
+        "춥고 습할 때"
+      ],
+      "caption": "위험이 겹치면 따로 알립니다",
+      "valueStyle": "text"
+    },
+    {
+      "type": "point",
+      "index": "06",
+      "label": "예측 시점",
+      "value": "3시간",
+      "caption": "1시간·3시간 뒤 등급을 냅니다"
+    },
+    {
+      "type": "outro",
+      "title": [
+        "위험마다",
+        "조치가 다릅니다"
+      ],
+      "rows": [
+        [
+          "고온·건조",
+          "관수·한정 차광"
+        ],
+        [
+          "강우·과습",
+          "관수 중단·배수"
+        ],
+        [
+          "병해 환경",
+          "예찰·살수 금지"
+        ],
+        [
+          "저온·서리",
+          "야간 피복·경보"
+        ],
+        [
+          "복합위험",
+          "동시 알림"
+        ]
+      ],
+      "ctaTitle": "노지 대파 AI, 나주에서 실증 중",
+      "ctaNote": "판단 근거와 조치를 함께 기록합니다",
+      "ctaUrl": "shrimp365.kr"
+    }
+  ]
+}
