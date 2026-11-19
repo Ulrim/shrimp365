@@ -1,0 +1,105 @@
+{
+  "slug": "openfield-ai-field-setup",
+  "locale": "ko",
+  "cards": [
+    {
+      "type": "cover",
+      "label": "노지 대파 AI 실증",
+      "title": [
+        "포장에서",
+        "이렇게 돕니다"
+      ],
+      "subtitle": "센서에서 조치까지 한 흐름"
+    },
+    {
+      "type": "point",
+      "index": "01",
+      "label": "재는 것",
+      "value": [
+        "기상·토양",
+        "잎 젖음"
+      ],
+      "caption": "기온·습도·비·바람·햇볕도 잽니다",
+      "valueStyle": "text"
+    },
+    {
+      "type": "point",
+      "index": "02",
+      "label": "판단 주기",
+      "value": "5분",
+      "caption": "5분마다 새로 판단합니다"
+    },
+    {
+      "type": "point",
+      "index": "03",
+      "label": "보는 범위",
+      "value": "48시간",
+      "caption": "지금 값이 아니라 흐름을 봅니다"
+    },
+    {
+      "type": "point",
+      "index": "04",
+      "label": "자동 실행",
+      "value": "0.70",
+      "caption": "신뢰도가 이보다 낮으면 권고만"
+    },
+    {
+      "type": "point",
+      "index": "05",
+      "label": "통신 두절",
+      "value": [
+        "끊겨도",
+        "현장에서 판단"
+      ],
+      "caption": "서버 없이 혼자 판단·기록합니다",
+      "valueStyle": "text"
+    },
+    {
+      "type": "point",
+      "index": "06",
+      "label": "기록",
+      "value": [
+        "근거와 조치를",
+        "함께 남깁니다"
+      ],
+      "caption": "왜 그렇게 했는지 나중에 봅니다",
+      "valueStyle": "text"
+    },
+    {
+      "type": "outro",
+      "title": [
+        "센서에서",
+        "조치까지"
+      ],
+      "rows": [
+        [
+          "판단 주기",
+          "5분"
+        ],
+        [
+          "관측 범위",
+          "최근 48시간"
+        ],
+        [
+          "예측 시점",
+          "1·3시간 뒤"
+        ],
+        [
+          "자동 실행",
+          "신뢰도 0.70 이상"
+        ],
+        [
+          "그 미만",
+          "농가 승인 후"
+        ],
+        [
+          "통신 두절",
+          "현장 독립 운전"
+        ]
+      ],
+      "ctaTitle": "전남 나주 포장에서 실증 중",
+      "ctaNote": "노지 대파 재해위험 판단·조치추천 AI",
+      "ctaUrl": "shrimp365.kr"
+    }
+  ]
+}

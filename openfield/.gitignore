@@ -26,3 +26,6 @@ venv/
 .env
 *.key
 credentials*.json
+
+# 시연 화면 자료 — 제어기에서 `ofdf demo` 가 그 제어기의 모델로 만든다
+/dashboard/demo.json
