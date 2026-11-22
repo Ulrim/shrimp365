@@ -24,6 +24,12 @@
 재는 구간에 넣지 않는 것: 프로그램 시작, 모델 파일 읽기, 데이터셋 읽기, 입력 창을
 자료에서 잘라내는 일, 결과 CSV 쓰기.
 
+`--workers N` 을 주면 시험 데이터를 번호 순서대로 돌아가며 N 개 작업에 나눠 동시에 잰다.
+작업마다 프로세스가 따로이고, 한 작업 안에서는 한 번에 하나씩 잰다. 결과 CSV 의 「작업」
+열이 그 줄을 잰 작업 번호다. 같은 작업의 줄끼리는 시각이 겹치지 않고, 다른 작업의 줄과는
+겹친다. CPU 를 나눠 쓰므로 1회 시간은 혼자 잴 때보다 길게 나올 수 있다. 작업 프로세스는
+`OMP_NUM_THREADS=1` 로 띄운다(작업끼리 스레드를 다투지 않게).
+
 시각은 시계 하나로 적는다. 프로그램을 시작할 때 벽시계 시각을 한 번 읽고, 그 뒤로는
 단조 시계(`time.perf_counter_ns`)의 경과를 더해 마이크로초 단위로 적는다. 그래서
 「종료시각 − 시작시각」, 「구간의 합」, 「전체(ms)」가 같은 값이다.
@@ -32,7 +38,7 @@
 
     07_판단시간_데이터별.csv        시험 데이터 한 건 × 1회가 한 줄(--repeats 200 이면 건마다 200줄)
     07_판단시간_데이터별.요약.json  건수·평균·중앙값·p95·최대·판정, 시험셋 sha256, 실행 환경
-    07_판단시간_이력.jsonl          ④에서 실제로 쓴 이력 기록
+    07_판단시간_이력.jsonl          ④에서 실제로 쓴 이력 기록(동시 작업이면 작업마다 _01, _02 …)
     07_실행로그.txt                 화면 출력
     07_재계산_결과.txt              (--recompute) CSV 만으로 다시 계산해 대조한 결과
 
@@ -71,7 +77,7 @@ TARGET_SECONDS = 30.0
 TS_FORMAT = "%Y-%m-%d %H:%M"
 STAGES = ["입력 변수 계산(ms)", "위험 판단(ms)", "조치 결정(ms)", "이력 기록(ms)"]
 TOTAL = "전체(ms)"
-COLUMNS = ["번호", "회차", "시각", "관측지점", "시작시각", "종료시각", *STAGES, TOTAL]
+COLUMNS = ["번호", "회차", "작업", "시각", "관측지점", "시작시각", "종료시각", *STAGES, TOTAL]
 CSV_NAME = "07_판단시간_데이터별.csv"
 
 
@@ -92,6 +98,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--hash-list", default=str(sta_common.DEFAULT_HASH_LIST))
     p.add_argument("--repeats", type=int, default=1,
                    help="시험 데이터 한 건을 몇 번씩 잴지. 200 이면 한 건마다 200줄(건수 × 200줄)이 나온다")
+    p.add_argument("--workers", type=int, default=1,
+                   help="동시에 재는 작업 수. 2 이상이면 시험 데이터를 번호 순서대로 돌아가며 나눠 "
+                        "작업마다 따로 프로세스를 띄운다(작업 안에서는 한 번에 하나씩 잰다)")
+    p.add_argument("--shard", default=None, help=argparse.SUPPRESS)      # 내부용: "k/n"
     p.add_argument("--limit", type=int, default=None, help="점검용 — 앞의 N건만 잰다(시험에는 쓰지 않는다)")
     p.add_argument("--log", default=None, help="콘솔 출력을 남길 파일. 기본: <out>/07_실행로그.txt")
     return p.parse_args(argv)
@@ -192,6 +202,51 @@ def check_testset(path: Path | None, keys: list[tuple[str, str]]) -> dict:
             "시험셋 파일": path.name, "시험셋 sha256": sta_common.sha256_file(path)}
 
 
+def run_workers(args: argparse.Namespace, out: Path, workers: int) -> int:
+    """작업마다 프로세스를 띄워 제 몫을 재게 하고, 끝나면 조각 파일을 번호·회차 순서로 합친다."""
+    import heapq
+    import os
+    import subprocess
+    import threading
+
+    env = dict(os.environ, OMP_NUM_THREADS="1", PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
+    procs = []
+    for k in range(1, workers + 1):
+        proc = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), *args.argv, "--shard", f"{k}/{workers}"],
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env,
+                                encoding="utf-8", errors="replace")
+        procs.append(proc)
+
+    def relay(k: int, proc) -> None:
+        for line in proc.stdout:
+            if line.startswith("  [작업") or "중단" in line or "Error" in line or "Traceback" in line:
+                print(line.rstrip("\n") if line.startswith("  [작업") else f"  [작업 {k}] {line.rstrip()}", flush=True)
+
+    threads = [threading.Thread(target=relay, args=(k, proc), daemon=True) for k, proc in enumerate(procs, start=1)]
+    for thread in threads:
+        thread.start()
+    codes = [proc.wait() for proc in procs]
+    for thread in threads:
+        thread.join()
+    if any(codes):
+        print(f"[중단] 작업 프로세스가 실패했습니다(종료 코드 {codes})")
+        return 2
+
+    parts = [out / f"07_part_{k:02d}.csv" for k in range(1, workers + 1)]
+    handles = [open(part, encoding="utf-8", newline="") for part in parts]
+    try:
+        with open(out / CSV_NAME, "w", encoding="utf-8-sig", newline="") as merged:
+            writer = csv.writer(merged, lineterminator="\n")
+            writer.writerow(COLUMNS)
+            writer.writerows(heapq.merge(*(csv.reader(h) for h in handles), key=lambda r: (int(r[0]), int(r[1]))))
+    finally:
+        for handle in handles:
+            handle.close()
+    for part in parts:
+        part.unlink()
+    return 0
+
+
 def run(args: argparse.Namespace) -> int:
     out, model_dir = Path(args.out), Path(args.models)
     out.mkdir(parents=True, exist_ok=True)
@@ -229,47 +284,71 @@ def run(args: argparse.Namespace) -> int:
         frame.index = pd.DatetimeIndex(ts.loc[index])
         by_station[str(station)] = frame.sort_index()
 
-    journal_path = out / "07_판단시간_이력.jsonl"
-    journal_path.unlink(missing_ok=True)
-    journal = Journal(journal_path)
-    targets = list(test_idx[: args.limit]) if args.limit else list(test_idx)
+    numbered = list(enumerate(test_idx[: args.limit] if args.limit else test_idx, start=1))
+    targets = [i for _, i in numbered]
     environment = sta_common.environment()
     clock = Clock()
+
+    def measure(items, csv_path: Path, journal_path: Path, worker: int, header: bool) -> None:
+        journal_path.unlink(missing_ok=True)
+        journal = Journal(journal_path)
+        begun, done, todo = clock.now_us(), 0, len(items) * args.repeats
+        with open(csv_path, "w", encoding="utf-8-sig" if header else "utf-8", newline="") as handle:
+            writer = csv.writer(handle, lineterminator="\n")
+            if header:
+                writer.writerow(COLUMNS)
+            for count, (number, i) in enumerate(items, start=1):
+                station, moment = str(meta["station"].iloc[i]), ts.iloc[i]
+                window = by_station[station].loc[moment - pd.Timedelta(hours=args.window): moment]
+                label = moment.strftime(TS_FORMAT)
+                for repeat in range(1, args.repeats + 1):
+                    t = judge_once(models, window, journal, station, clock)
+                    writer.writerow([number, repeat, worker, label, station, stamp(t[0]), stamp(t[4]),
+                                     *(f"{(t[k + 1] - t[k]) / 1000.0:.3f}" for k in range(4)),
+                                     f"{(t[4] - t[0]) / 1000.0:.3f}"])
+                    done += 1
+                if count % 500 == 0 or count == len(items):
+                    handle.flush()
+                    elapsed = (clock.now_us() - begun) / 1e6
+                    print(f"  [작업 {worker}] {count:,} / {len(items):,}건 ({done:,}줄) — 경과 {elapsed / 3600:.2f}시간, "
+                          f"남은 시간 약 {elapsed / done * (todo - done) / 3600:.2f}시간", flush=True)
+
+    if args.shard:                                   # 작업 프로세스 — 제 몫만 재고 끝낸다
+        k, n = (int(v) for v in args.shard.split("/"))
+        measure([item for item in numbered if (item[0] - 1) % n == k - 1],
+                out / f"07_part_{k:02d}.csv", out / f"07_판단시간_이력_{k:02d}.jsonl", k, header=False)
+        return 0
+
+    workers = max(1, min(args.workers, len(numbered)))
     started = clock.now_us()
-    print(f"[측정] {len(targets):,}건 × {args.repeats}회 = {len(targets) * args.repeats:,}줄, 과거 창 {args.window}시간 — 시작 {stamp(started)}", flush=True)
+    print(f"[측정] {len(targets):,}건 × {args.repeats}회 = {len(targets) * args.repeats:,}줄, 과거 창 {args.window}시간, "
+          f"동시 작업 {workers}개 — 시작 {stamp(started)}", flush=True)
+    if workers == 1:
+        measure(numbered, out / CSV_NAME, out / "07_판단시간_이력.jsonl", 1, header=True)
+    else:
+        code = run_workers(args, out, workers)
+        if code != 0:
+            return 2
+    finished = clock.now_us()
 
     from array import array
     measured = {name: array("d") for name in STAGES + [TOTAL]}
-    n_rows, total_rows = 0, len(targets) * args.repeats
-    with open(out / CSV_NAME, "w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.writer(handle, lineterminator="\n")
-        writer.writerow(COLUMNS)
-        for number, i in enumerate(targets, start=1):
-            station, moment = str(meta["station"].iloc[i]), ts.iloc[i]
-            window = by_station[station].loc[moment - pd.Timedelta(hours=args.window): moment]
-            label = moment.strftime(TS_FORMAT)
-            for repeat in range(1, args.repeats + 1):
-                t = judge_once(models, window, journal, station, clock)
-                parts = [f"{(t[k + 1] - t[k]) / 1000.0:.3f}" for k in range(4)]
-                total = f"{(t[4] - t[0]) / 1000.0:.3f}"
-                writer.writerow([number, repeat, label, station, stamp(t[0]), stamp(t[4]), *parts, total])
-                for name, value in zip(STAGES + [TOTAL], parts + [total]):
-                    measured[name].append(float(value))
-                n_rows += 1
-            if number % 500 == 0:
-                handle.flush()
-                elapsed = (clock.now_us() - started) / 1e6
-                left = elapsed / n_rows * (total_rows - n_rows)
-                print(f"  {number:,} / {len(targets):,}건 ({n_rows:,}줄) — 경과 {elapsed / 3600:.2f}시간, "
-                      f"남은 시간 약 {left / 3600:.2f}시간", flush=True)
-    finished = clock.now_us()
+    with open(out / CSV_NAME, encoding="utf-8-sig", newline="") as handle:
+        for row in csv.DictReader(handle):
+            for name in measured:
+                measured[name].append(float(row[name]))
+    n_rows = len(measured[TOTAL])
+    if n_rows != len(targets) * args.repeats:
+        print(f"[중단] 줄 수가 맞지 않습니다: {n_rows:,} / {len(targets) * args.repeats:,}")
+        return 2
 
     totals = measured[TOTAL]
     mean_ms = math.fsum(totals) / len(totals)
     verdict = "적합" if mean_ms <= TARGET_SECONDS * 1000.0 else "부적합"
     summary = {
         "측정 대상": "시험 데이터 전체(시각 × 지점 한 건이 판단 1회)",
-        "측정 건수": n_rows, "데이터 건수": len(targets), "데이터당 반복 횟수": args.repeats, **testset,
+        "측정 건수": n_rows, "데이터 건수": len(targets), "데이터당 반복 횟수": args.repeats,
+        "동시 작업 수": workers, **testset,
         "측정 시작": stamp(started), "측정 종료": stamp(finished),
         "측정 구간": "입력 변수 계산 → 위험 판단(모델 추론·복합위험·판단근거) → 조치 결정 → 이력 기록",
         "입력": f"그 지점의 직전 {args.window}시간과 그 시각의 관측",
@@ -289,7 +368,7 @@ def run(args: argparse.Namespace) -> int:
         print(f"  {name:<16} 평균 {summary['단계별'][name]['평균(ms)']:.3f}ms")
     print(f"기준 평균 {TARGET_SECONDS:.0f}초({TARGET_SECONDS * 1000:,.0f}ms) 이내 → {verdict}")
     print(f"산출물: {out / CSV_NAME}")
-    if args.recompute:
+    if args.recompute and not args.shard:
         import subprocess
         print("\n$ python scripts/sta_recompute.py --per-data-csv ...", flush=True)
         checked = subprocess.run([sys.executable, str(Path(__file__).with_name("sta_recompute.py")),
@@ -301,11 +380,14 @@ def run(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    args.argv = list(argv) if argv is not None else sys.argv[1:]
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(errors="replace")
     if args.eval_dir and not args.testset:
         args.testset = str(Path(args.eval_dir) / "01_시험데이터" / "시험셋.csv")
+    if args.shard:
+        return run(args)
     with sta_common.Tee(args.log or Path(args.out) / "07_실행로그.txt"):
         return run(args)
 

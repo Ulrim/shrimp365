@@ -71,6 +71,9 @@ STEPS = [
     ("7_timing_x200", "judgement time, every test row measured 200 times (takes about 3 days)",
      ["sta_time_testset.py", *PATHS, "--out", "{kit}result{sep}timing_x200",
       "--eval-dir", "{kit}result{sep}testday", "--repeats", "200", "--recompute"]),
+    ("8_timing_x200_parallel", "judgement time, every test row 200 times, 8 workers at once (about half a day)",
+     ["sta_time_testset.py", *PATHS, "--out", "{kit}result{sep}timing_x200_parallel",
+      "--eval-dir", "{kit}result{sep}testday", "--repeats", "200", "--workers", "8", "--recompute"]),
     # 고정 모델 묶음을 끝내 찾지 못했을 때만 쓴다
     ("9_train_model", "ONLY IF THE MODEL BUNDLE IS LOST: retrain and fix a new bundle",
      ["sta_retrain.py", *PATHS, "--aaos-dir", "{kit}data{sep}aaos",

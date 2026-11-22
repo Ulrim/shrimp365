@@ -368,6 +368,18 @@ def test_per_data_timing_covers_every_test_row_with_consistent_timestamps(bundle
     assert [(r["번호"], r["회차"]) for r in repeated[:4]] == [("1", "1"), ("1", "2"), ("2", "1"), ("2", "2")]
     assert json.loads((twice / timer.CSV_NAME).with_suffix(".요약.json").read_text(encoding="utf-8"))["데이터당 반복 횟수"] == 2
 
+    # 동시 작업 — 줄 수·순서는 같고, 작업 열로 누가 쟀는지 남는다
+    parallel = bundle["work"] / "timing_parallel"
+    assert timer.main(["--cache", str(bundle["cache"]), "--models", str(bundle["models"]), "--out", str(parallel),
+                       "--hash-list", str(bundle["hash_list"]), "--limit", "31", "--repeats", "3",
+                       "--workers", "3", "--recompute"]) == 0
+    merged = _rows(parallel / timer.CSV_NAME)
+    assert [(int(r["번호"]), int(r["회차"])) for r in merged] == [(n, k) for n in range(1, 32) for k in (1, 2, 3)]
+    assert all(int(r["작업"]) == (int(r["번호"]) - 1) % 3 + 1 for r in merged)
+    assert not list(parallel.glob("07_part_*.csv"))
+    assert sum(len(p.read_text(encoding="utf-8").splitlines()) for p in parallel.glob("07_판단시간_이력_*.jsonl")) == 93
+    assert "[일치]" in (parallel / "07_재계산_결과.txt").read_text(encoding="utf-8")
+
     rows[3]["전체(ms)"] = "0.001"
     with open(out / timer.CSV_NAME, "w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]), lineterminator="\n")
