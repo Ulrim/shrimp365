@@ -65,7 +65,10 @@ STAGE_COLUMNS = ["피처 생성(ms)", "모델 추론(ms)", "판단근거(ms)", "
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--dir", required=True, help="결과 묶음 디렉터리 (sta_evaluate.py 의 --out)")
+    p.add_argument("--dir", default=None, help="결과 묶음 디렉터리 (sta_evaluate.py 의 --out)")
+    p.add_argument("--per-data-csv", default=None,
+                   help="07_판단시간_데이터별.csv 만 검증한다(--dir 의 다른 파일은 읽지도 쓰지도 않는다). "
+                        "결과는 그 옆의 07_재계산_결과.txt")
     p.add_argument("--timing-csv", default=None,
                    help="판단시간 회차별 CSV. 기본: <dir>/06_판단시간_회차별.csv (있으면 함께 검증)")
     return p.parse_args(argv)
@@ -375,11 +378,75 @@ def recompute_timing(csv_path: Path, report: Report) -> None:
                f"{mine} ({'일치' if same else '불일치'})")
 
 
+def recompute_timing_per_data(csv_path: Path, report: Report) -> None:
+    """`07_판단시간_데이터별.csv` — 줄마다 종료−시작 = 구간의 합 = 전체(ms) 인지 보고 요약값을 다시 계산한다."""
+    stages = ["입력 변수 계산(ms)", "위험 판단(ms)", "조치 결정(ms)", "이력 기록(ms)"]
+    rows = read_csv(csv_path)
+    recorded = json.loads(csv_path.with_suffix(".요약.json").read_text(encoding="utf-8"))
+    report.say("")
+    report.say(f"판단시간(데이터별) — {csv_path.name} {len(rows):,}건")
+    report.check("판단시간(데이터별) 건수", len(rows), recorded["측정 건수"])
+    report.check("판단시간(데이터별) 번호", [int(r["번호"]) for r in rows], list(range(1, len(rows) + 1)))
+    stamp = "%Y-%m-%d %H:%M:%S.%f%z"
+    bad_span = bad_sum = 0
+    for r in rows:
+        span = datetime.datetime.strptime(r["종료시각"], stamp) - datetime.datetime.strptime(r["시작시각"], stamp)
+        total = float(r["전체(ms)"])
+        bad_span += abs(span / datetime.timedelta(milliseconds=1) - total) > 1e-6
+        bad_sum += abs(math.fsum(float(r[c]) for c in stages) - total) > 1e-6
+    report.check("종료시각 − 시작시각 ≠ 전체(ms) 인 줄 수", bad_span, 0)
+    report.check("구간의 합 ≠ 전체(ms) 인 줄 수", bad_sum, 0)
+    report.say(f"종료시각 − 시작시각 = 전체(ms): {len(rows) - bad_span:,} / {len(rows):,}줄")
+    report.say(f"구간 4개의 합 = 전체(ms)     : {len(rows) - bad_sum:,} / {len(rows):,}줄")
+    for column in stages + ["전체(ms)"]:
+        values = [float(r[column]) for r in rows]
+        mine = {"평균(ms)": math.fsum(values) / len(values), "중앙값(ms)": percentile(values, 50),
+                "p95(ms)": percentile(values, 95), "최대(ms)": max(values)}
+        for key, value in mine.items():
+            theirs = float(recorded["단계별"][column][key])
+            same = report.check(f"판단시간(데이터별) {column} {key}", value, theirs)
+            report.say(f"{column:<18}{key:<12}{value:>12.4f}{theirs:>14.4f}  {'일치' if same else '불일치'}")
+    mean_ms = math.fsum(float(r["전체(ms)"]) for r in rows) / len(rows)
+    target_ms = float(recorded["기준"]["평균(초) 이내"]) * 1000.0
+    mine = "적합" if mean_ms <= target_ms else "부적합"
+    same = report.check("판단시간(데이터별) 판정", mine, recorded["판정"])
+    report.say(f"판정: 전체 평균 {mean_ms:.4f}ms <= {target_ms:,.0f}ms → {mine} ({'일치' if same else '불일치'})")
+
+
+def main_per_data(path: Path) -> int:
+    report = Report()
+    report.say("AI 노지 — 판단시간(데이터별) 로그만으로 다시 계산한 결과와 요약 대조")
+    report.say(f"실행 시각: {datetime.datetime.now().astimezone():%Y-%m-%d %H:%M:%S %z}")
+    report.say(f"대상: {path}")
+    try:
+        recompute_timing_per_data(path, report)
+    except (OSError, KeyError, ValueError) as exc:
+        report.say(f"[오류] 로그를 읽지 못했습니다: {type(exc).__name__}: {exc}")
+        code = 2
+    else:
+        report.say("")
+        if report.mismatches:
+            report.say(f"[불일치] {report.checked}개 값 가운데 {len(report.mismatches)}개가 다릅니다")
+            for line in report.mismatches:
+                report.say(f"  {line}")
+        else:
+            report.say(f"[일치] {report.checked}개 값이 모두 같습니다")
+        code = 1 if report.mismatches else 0
+    report.say(f"종료 코드 {code}")
+    if path.parent.is_dir():
+        (path.parent / "07_재계산_결과.txt").write_text("\n".join(report.lines) + "\n", encoding="utf-8")
+    return code
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(errors="replace")
+    if args.per_data_csv:
+        return main_per_data(Path(args.per_data_csv))
+    if not args.dir:
+        raise SystemExit("--dir 또는 --per-data-csv 가 필요합니다")
     directory = Path(args.dir)
     report = Report()
     report.say("AI 노지 — 로그만으로 다시 계산한 결과와 최종결과 대조")

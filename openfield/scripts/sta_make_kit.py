@@ -8,6 +8,7 @@
 
     읽어_주세요.md            한 장짜리 안내 (docs/STA-시험-절차서.md)
     1_setup  2_check  3_rehearsal  4_test    실행 파일 (.bat / .sh)
+    6_timing                                 시험 데이터 건마다 판단시간(시작·종료 시각 기록)
     9_train_model                            모델 묶음을 잃어버렸을 때만
     model/      고정 모델 묶음을 넣는 곳 (비어 있음)
     data/       dataset.pkl 또는 원천자료를 넣는 곳 (비어 있음)
@@ -34,7 +35,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PROGRAM_SCRIPTS = [
     "sta_common.py", "sta_evaluate.py", "sta_recompute.py", "sta_prepare.py", "sta_run_all.py", "sta_retrain.py",
     "sta_export_data.py", "sta_make_submission.py",
-    "benchmark_inference.py", "train_weather.py", "experiment_hourly_recall.py",
+    "benchmark_inference.py", "sta_time_testset.py", "train_weather.py", "experiment_hourly_recall.py",
 ]
 PROGRAM_FILES = [
     "requirements.txt", "pyproject.toml", "tests/test_sta_evaluate.py",
@@ -64,6 +65,9 @@ STEPS = [
       "--prerun-log", "{kit}result{sep}testday_log.md"]),
     ("5_submission", "after the test: zip model / training data / test data and write SHA-256",
      ["sta_make_submission.py", *PATHS, "--out", "{kit}result{sep}submission"]),
+    ("6_timing", "judgement time for every test row, with start/end timestamps",
+     ["sta_time_testset.py", *PATHS, "--out", "{kit}result{sep}timing",
+      "--eval-dir", "{kit}result{sep}testday", "--recompute"]),
     # 고정 모델 묶음을 끝내 찾지 못했을 때만 쓴다
     ("9_train_model", "ONLY IF THE MODEL BUNDLE IS LOST: retrain and fix a new bundle",
      ["sta_retrain.py", *PATHS, "--aaos-dir", "{kit}data{sep}aaos",

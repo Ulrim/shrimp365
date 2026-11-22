@@ -331,6 +331,41 @@ def test_per_run_timing_csv_recomputes_to_same_summary(bundle, result):
     assert sta_recompute.main(["--dir", str(out)]) == 1
 
 
+def test_per_data_timing_covers_every_test_row_with_consistent_timestamps(bundle, result):
+    """시험 데이터 한 건마다 시작·종료 시각을 남기고, 종료−시작 = 구간의 합 = 전체(ms) 이다."""
+    timer = _load("sta_time_testset")
+    out = bundle["work"] / "timing_per_data"
+    source = result["out"] / "01_시험데이터" / "시험셋.csv"
+    before = sorted(p.name for p in result["out"].iterdir())
+    code = timer.main(["--cache", str(bundle["cache"]), "--models", str(bundle["models"]),
+                       "--out", str(out), "--hash-list", str(bundle["hash_list"]),
+                       "--eval-dir", str(result["out"]), "--recompute"])
+    assert code == 0
+    assert sorted(p.name for p in result["out"].iterdir()) == before      # 평가 결과 폴더는 그대로
+
+    rows = _rows(out / timer.CSV_NAME)
+    testset = _rows(source)
+    assert [(r["시각"], r["관측지점"]) for r in rows] == [(r["시각"], r["관측지점"]) for r in testset]
+    for row in rows[:50]:
+        total = float(row["전체(ms)"])
+        assert sum(float(row[c]) for c in timer.STAGES) == pytest.approx(total, abs=1e-6)
+        assert row["종료시각"] >= row["시작시각"] and total > 0
+    summary = json.loads((out / timer.CSV_NAME).with_suffix(".요약.json").read_text(encoding="utf-8"))
+    assert summary["측정 건수"] == len(testset)
+    assert summary["시험셋 sha256"] == sta_common.sha256_file(source)
+    assert "적합" in (out / "07_실행로그.txt").read_text(encoding="utf-8")
+    assert "[일치]" in (out / "07_재계산_결과.txt").read_text(encoding="utf-8")
+    assert len((out / "07_판단시간_이력.jsonl").read_text(encoding="utf-8").splitlines()) == len(rows)
+    assert sta_recompute.main(["--per-data-csv", str(out / timer.CSV_NAME)]) == 0
+
+    rows[3]["전체(ms)"] = "0.001"
+    with open(out / timer.CSV_NAME, "w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]), lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
+    assert sta_recompute.main(["--per-data-csv", str(out / timer.CSV_NAME)]) == 1
+
+
 # --------------------------------------------------------------------------- 한 번에 실행
 
 def test_run_all_runs_every_step_and_writes_prerun_log(bundle):
