@@ -381,32 +381,47 @@ def recompute_timing(csv_path: Path, report: Report) -> None:
 def recompute_timing_per_data(csv_path: Path, report: Report) -> None:
     """`07_판단시간_데이터별.csv` — 줄마다 종료−시작 = 구간의 합 = 전체(ms) 인지 보고 요약값을 다시 계산한다."""
     stages = ["입력 변수 계산(ms)", "위험 판단(ms)", "조치 결정(ms)", "이력 기록(ms)"]
-    rows = read_csv(csv_path)
     recorded = json.loads(csv_path.with_suffix(".요약.json").read_text(encoding="utf-8"))
-    report.say("")
-    report.say(f"판단시간(데이터별) — {csv_path.name} {len(rows):,}건")
-    report.check("판단시간(데이터별) 건수", len(rows), recorded["측정 건수"])
-    report.check("판단시간(데이터별) 번호", [int(r["번호"]) for r in rows], list(range(1, len(rows) + 1)))
+    repeats = int(recorded.get("데이터당 반복 횟수", 1))
     stamp = "%Y-%m-%d %H:%M:%S.%f%z"
-    bad_span = bad_sum = 0
-    for r in rows:
-        span = datetime.datetime.strptime(r["종료시각"], stamp) - datetime.datetime.strptime(r["시작시각"], stamp)
-        total = float(r["전체(ms)"])
-        bad_span += abs(span / datetime.timedelta(milliseconds=1) - total) > 1e-6
-        bad_sum += abs(math.fsum(float(r[c]) for c in stages) - total) > 1e-6
+    from array import array
+    values = {column: array("d") for column in stages + ["전체(ms)"]}
+    n = bad_span = bad_sum = bad_order = bad_overlap = 0
+    previous_end = None
+    with open(csv_path, encoding="utf-8-sig", newline="") as handle:      # 한 줄씩 읽는다(수백만 줄)
+        for r in csv.DictReader(handle):
+            begin = datetime.datetime.strptime(r["시작시각"], stamp)
+            end = datetime.datetime.strptime(r["종료시각"], stamp)
+            total = float(r["전체(ms)"])
+            bad_span += abs((end - begin) / datetime.timedelta(milliseconds=1) - total) > 1e-6
+            bad_sum += abs(math.fsum(float(r[c]) for c in stages) - total) > 1e-6
+            bad_order += (int(r["번호"]), int(r.get("회차", 1))) != (n // repeats + 1, n % repeats + 1)
+            bad_overlap += previous_end is not None and begin < previous_end
+            previous_end = end
+            for column in values:
+                values[column].append(float(r[column]))
+            n += 1
+    report.say("")
+    report.say(f"판단시간(데이터별) — {csv_path.name} {n:,}줄 (데이터 {n // repeats:,}건 × {repeats}회)")
+    report.check("판단시간(데이터별) 줄 수", n, recorded["측정 건수"])
+    report.check("판단시간(데이터별) 데이터 건수 × 반복 횟수", n, int(recorded.get("데이터 건수", n)) * repeats)
+    report.check("번호·회차 순서가 어긋난 줄 수", bad_order, 0)
     report.check("종료시각 − 시작시각 ≠ 전체(ms) 인 줄 수", bad_span, 0)
     report.check("구간의 합 ≠ 전체(ms) 인 줄 수", bad_sum, 0)
-    report.say(f"종료시각 − 시작시각 = 전체(ms): {len(rows) - bad_span:,} / {len(rows):,}줄")
-    report.say(f"구간 4개의 합 = 전체(ms)     : {len(rows) - bad_sum:,} / {len(rows):,}줄")
+    report.check("앞 줄 종료 전에 시작한 줄 수", bad_overlap, 0)
+    report.say(f"번호·회차 순서 맞음            : {n - bad_order:,} / {n:,}줄")
+    report.say(f"종료시각 − 시작시각 = 전체(ms): {n - bad_span:,} / {n:,}줄")
+    report.say(f"구간 4개의 합 = 전체(ms)     : {n - bad_sum:,} / {n:,}줄")
+    report.say(f"앞 줄과 시각이 겹치지 않음    : {n - bad_overlap:,} / {n:,}줄")
     for column in stages + ["전체(ms)"]:
-        values = [float(r[column]) for r in rows]
-        mine = {"평균(ms)": math.fsum(values) / len(values), "중앙값(ms)": percentile(values, 50),
-                "p95(ms)": percentile(values, 95), "최대(ms)": max(values)}
+        column_values = list(values[column])
+        mine = {"평균(ms)": math.fsum(column_values) / n, "중앙값(ms)": percentile(column_values, 50),
+                "p95(ms)": percentile(column_values, 95), "최대(ms)": max(column_values)}
         for key, value in mine.items():
             theirs = float(recorded["단계별"][column][key])
             same = report.check(f"판단시간(데이터별) {column} {key}", value, theirs)
             report.say(f"{column:<18}{key:<12}{value:>12.4f}{theirs:>14.4f}  {'일치' if same else '불일치'}")
-    mean_ms = math.fsum(float(r["전체(ms)"]) for r in rows) / len(rows)
+    mean_ms = math.fsum(values["전체(ms)"]) / n
     target_ms = float(recorded["기준"]["평균(초) 이내"]) * 1000.0
     mine = "적합" if mean_ms <= target_ms else "부적합"
     same = report.check("판단시간(데이터별) 판정", mine, recorded["판정"])

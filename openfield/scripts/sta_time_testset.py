@@ -30,7 +30,7 @@
 
 산출물(`--out` 아래 — 평가 결과 폴더와 따로 두어 시험 당일 파일을 건드리지 않는다)
 
-    07_판단시간_데이터별.csv        시험 데이터 한 건이 한 줄
+    07_판단시간_데이터별.csv        시험 데이터 한 건 × 1회가 한 줄(--repeats 200 이면 건마다 200줄)
     07_판단시간_데이터별.요약.json  건수·평균·중앙값·p95·최대·판정, 시험셋 sha256, 실행 환경
     07_판단시간_이력.jsonl          ④에서 실제로 쓴 이력 기록
     07_실행로그.txt                 화면 출력
@@ -71,7 +71,7 @@ TARGET_SECONDS = 30.0
 TS_FORMAT = "%Y-%m-%d %H:%M"
 STAGES = ["입력 변수 계산(ms)", "위험 판단(ms)", "조치 결정(ms)", "이력 기록(ms)"]
 TOTAL = "전체(ms)"
-COLUMNS = ["번호", "시각", "관측지점", "시작시각", "종료시각", *STAGES, TOTAL]
+COLUMNS = ["번호", "회차", "시각", "관측지점", "시작시각", "종료시각", *STAGES, TOTAL]
 CSV_NAME = "07_판단시간_데이터별.csv"
 
 
@@ -90,6 +90,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--window", type=int, default=cli.WINDOW_HOURS, help="입력으로 쓰는 과거 시간")
     p.add_argument("--hash-list", default=str(sta_common.DEFAULT_HASH_LIST))
+    p.add_argument("--repeats", type=int, default=1,
+                   help="시험 데이터 한 건을 몇 번씩 잴지. 200 이면 한 건마다 200줄(건수 × 200줄)이 나온다")
     p.add_argument("--limit", type=int, default=None, help="점검용 — 앞의 N건만 잰다(시험에는 쓰지 않는다)")
     p.add_argument("--log", default=None, help="콘솔 출력을 남길 파일. 기본: <out>/07_실행로그.txt")
     return p.parse_args(argv)
@@ -234,37 +236,46 @@ def run(args: argparse.Namespace) -> int:
     environment = sta_common.environment()
     clock = Clock()
     started = clock.now_us()
-    print(f"[측정] {len(targets):,}건, 과거 창 {args.window}시간 — 시작 {stamp(started)}", flush=True)
+    print(f"[측정] {len(targets):,}건 × {args.repeats}회 = {len(targets) * args.repeats:,}줄, 과거 창 {args.window}시간 — 시작 {stamp(started)}", flush=True)
 
-    rows = []
-    for number, i in enumerate(targets, start=1):
-        station, moment = str(meta["station"].iloc[i]), ts.iloc[i]
-        window = by_station[station].loc[moment - pd.Timedelta(hours=args.window): moment]
-        t = judge_once(models, window, journal, station, clock)
-        parts = [(t[k + 1] - t[k]) / 1000.0 for k in range(4)]
-        rows.append([number, moment.strftime(TS_FORMAT), station, stamp(t[0]), stamp(t[4]),
-                     *(f"{p:.3f}" for p in parts), f"{(t[4] - t[0]) / 1000.0:.3f}"])
-        if number % 2000 == 0:
-            print(f"  {number:,} / {len(targets):,}건", flush=True)
-    finished = clock.now_us()
-
+    from array import array
+    measured = {name: array("d") for name in STAGES + [TOTAL]}
+    n_rows, total_rows = 0, len(targets) * args.repeats
     with open(out / CSV_NAME, "w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.writer(handle, lineterminator="\n")
         writer.writerow(COLUMNS)
-        writer.writerows(rows)
+        for number, i in enumerate(targets, start=1):
+            station, moment = str(meta["station"].iloc[i]), ts.iloc[i]
+            window = by_station[station].loc[moment - pd.Timedelta(hours=args.window): moment]
+            label = moment.strftime(TS_FORMAT)
+            for repeat in range(1, args.repeats + 1):
+                t = judge_once(models, window, journal, station, clock)
+                parts = [f"{(t[k + 1] - t[k]) / 1000.0:.3f}" for k in range(4)]
+                total = f"{(t[4] - t[0]) / 1000.0:.3f}"
+                writer.writerow([number, repeat, label, station, stamp(t[0]), stamp(t[4]), *parts, total])
+                for name, value in zip(STAGES + [TOTAL], parts + [total]):
+                    measured[name].append(float(value))
+                n_rows += 1
+            if number % 500 == 0:
+                handle.flush()
+                elapsed = (clock.now_us() - started) / 1e6
+                left = elapsed / n_rows * (total_rows - n_rows)
+                print(f"  {number:,} / {len(targets):,}건 ({n_rows:,}줄) — 경과 {elapsed / 3600:.2f}시간, "
+                      f"남은 시간 약 {left / 3600:.2f}시간", flush=True)
+    finished = clock.now_us()
 
-    totals = [float(r[-1]) for r in rows]
+    totals = measured[TOTAL]
     mean_ms = math.fsum(totals) / len(totals)
     verdict = "적합" if mean_ms <= TARGET_SECONDS * 1000.0 else "부적합"
     summary = {
         "측정 대상": "시험 데이터 전체(시각 × 지점 한 건이 판단 1회)",
-        "측정 건수": len(rows), **testset,
+        "측정 건수": n_rows, "데이터 건수": len(targets), "데이터당 반복 횟수": args.repeats, **testset,
         "측정 시작": stamp(started), "측정 종료": stamp(finished),
         "측정 구간": "입력 변수 계산 → 위험 판단(모델 추론·복합위험·판단근거) → 조치 결정 → 이력 기록",
         "입력": f"그 지점의 직전 {args.window}시간과 그 시각의 관측",
         "모델 파일 수": n_files, "예측시계": sorted(models),
         "기준": {"평균(초) 이내": TARGET_SECONDS, "대상 열": TOTAL},
-        "단계별": {name: summarise([float(r[5 + k]) for r in rows]) for k, name in enumerate(STAGES + [TOTAL])},
+        "단계별": {name: summarise(list(measured[name])) for name in STAGES + [TOTAL]},
         "판정": verdict, "결과 파일 sha256": sta_common.sha256_file(out / CSV_NAME),
         "실행 환경": environment,
     }
@@ -273,7 +284,7 @@ def run(args: argparse.Namespace) -> int:
 
     stage = summary["단계별"][TOTAL]
     print(f"\n판단 1회 전체: 평균 {stage['평균(ms)']:.3f}ms / 중앙값 {stage['중앙값(ms)']:.3f}ms / "
-          f"p95 {stage['p95(ms)']:.3f}ms / 최대 {stage['최대(ms)']:.3f}ms ({len(rows):,}건)")
+          f"p95 {stage['p95(ms)']:.3f}ms / 최대 {stage['최대(ms)']:.3f}ms ({len(targets):,}건 × {args.repeats}회 = {n_rows:,}줄)")
     for name in STAGES:
         print(f"  {name:<16} 평균 {summary['단계별'][name]['평균(ms)']:.3f}ms")
     print(f"기준 평균 {TARGET_SECONDS:.0f}초({TARGET_SECONDS * 1000:,.0f}ms) 이내 → {verdict}")

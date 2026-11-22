@@ -358,6 +358,16 @@ def test_per_data_timing_covers_every_test_row_with_consistent_timestamps(bundle
     assert len((out / "07_판단시간_이력.jsonl").read_text(encoding="utf-8").splitlines()) == len(rows)
     assert sta_recompute.main(["--per-data-csv", str(out / timer.CSV_NAME)]) == 0
 
+    # 한 건을 여러 번 잰다 — 줄 수는 건수 × 반복 횟수
+    twice = bundle["work"] / "timing_x2"
+    assert timer.main(["--cache", str(bundle["cache"]), "--models", str(bundle["models"]), "--out", str(twice),
+                       "--hash-list", str(bundle["hash_list"]), "--limit", "30", "--repeats", "2",
+                       "--recompute"]) == 0
+    repeated = _rows(twice / timer.CSV_NAME)
+    assert len(repeated) == 60
+    assert [(r["번호"], r["회차"]) for r in repeated[:4]] == [("1", "1"), ("1", "2"), ("2", "1"), ("2", "2")]
+    assert json.loads((twice / timer.CSV_NAME).with_suffix(".요약.json").read_text(encoding="utf-8"))["데이터당 반복 횟수"] == 2
+
     rows[3]["전체(ms)"] = "0.001"
     with open(out / timer.CSV_NAME, "w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]), lineterminator="\n")
