@@ -55,7 +55,7 @@ export default async function OutputsPage({ searchParams }: { searchParams: Prom
     supabase
       .from("dw_daily_reports")
       .select(
-        "id, author_id, work_date, work_minutes, notes, support_request, next_day_plan, report_items(process_id, sort_order, content, result, quantity, unit, status)",
+        "id, author_id, work_date, work_minutes, notes, support_request, next_day_plan, report_items:dw_report_items(process_id, sort_order, content, result, quantity, unit, status)",
       )
       .eq("project_id", project.id)
       .eq("status", "approved")

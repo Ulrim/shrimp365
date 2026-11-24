@@ -72,7 +72,9 @@ export function WorkNav({
         <nav
           aria-label="현장관리 메뉴"
           ref={scrollerRef}
-          className="-mx-4 flex items-center gap-x-2 gap-y-1 overflow-x-auto border-b border-border px-4 py-1.5 max-lg:[scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0 max-lg:[&::-webkit-scrollbar]:hidden"
+          // relative: 건수 배지의 sr-only(position:absolute) 글자가 이 스크롤 줄을 기준으로 놓이게 한다.
+          // 없으면 화면 밖 탭의 배지가 스크롤 줄 바깥(문서)에 놓여 모바일에서 문서 전체가 가로로 넘친다.
+          className="relative -mx-4 flex items-center gap-x-2 gap-y-1 overflow-x-auto border-b border-border px-4 py-1.5 max-lg:[scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0 max-lg:[&::-webkit-scrollbar]:hidden"
         >
           {GROUPS.map((group) => {
             const list = items.filter((item) => item.group === group);

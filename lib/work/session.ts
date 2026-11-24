@@ -33,13 +33,21 @@ async function acceptInvites(supabase: Client): Promise<number> {
   return typeof data === "number" ? data : 0;
 }
 
+/**
+ * 조회마다 새 AbortSignal 을 붙인다. Next.js 는 한 번의 서버 렌더 안에서 주소·옵션이 같은 GET fetch 를
+ * 한 번만 실행하고 결과를 돌려쓴다(요청 메모이제이션). 그대로 두면 초대를 수락한 뒤의 재조회가
+ * 수락 전 응답(빈 결과)을 그대로 받아 방금 구성원이 된 사용자를 안내 화면으로 보낸다.
+ * signal 을 넘긴 fetch 는 메모이제이션 대상에서 빠진다.
+ */
+const fresh = () => new AbortController().signal;
+
 const loadProfile = async (supabase: Client, userId: string) =>
-  (await supabase.from("dw_profiles").select("*").eq("id", userId).maybeSingle<Profile>()).data;
+  (await supabase.from("dw_profiles").select("*").eq("id", userId).abortSignal(fresh()).maybeSingle<Profile>()).data;
 
 const loadProjects = (supabase: Client, userId: string) =>
   Promise.all([
-    supabase.from("dw_projects").select("*").order("name").returns<Project[]>(),
-    supabase.from("dw_project_members").select("project_id, user_id, role").eq("user_id", userId).returns<ProjectMember[]>(),
+    supabase.from("dw_projects").select("*").order("name").abortSignal(fresh()).returns<Project[]>(),
+    supabase.from("dw_project_members").select("project_id, user_id, role").eq("user_id", userId).abortSignal(fresh()).returns<ProjectMember[]>(),
   ]);
 
 /**

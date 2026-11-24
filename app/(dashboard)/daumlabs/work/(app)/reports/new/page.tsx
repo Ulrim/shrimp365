@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ReportForm } from "@/components/work/reports/report-form";
 import { PageHeader } from "@/components/work/ui/misc";
@@ -25,7 +26,16 @@ export default async function NewReportPage({ searchParams }: { searchParams: Pr
     .maybeSingle();
   if (existing) {
     const editable = existing.status === "draft" || existing.status === "revision_requested";
-    redirect(workHref(editable ? `/reports/${existing.id}/edit` : `/reports/${existing.id}`));
+    // Next.js 16.2 는 서버 액션이 revalidatePath 를 부르면 그 응답에 지금 보고 있는 화면도 다시 그려 싣는다.
+    // 이 화면에서 임시저장(또는 사진 첨부에 따른 자동 임시저장)을 하면 방금 생긴 작업일보 때문에 아래
+    // redirect 가 걸려, 쓰던 폼이 통째로 새로 마운트되고 진행 중이던 사진 등록이 끊긴다.
+    // 폼은 "주소는 바꾸지 않는다"(report-form.tsx persist)를 전제로 하므로, 서버 액션에 딸린 재렌더
+    // (요청에 next-action 헤더가 있다)에서는 수정 화면으로 보내지 않고 같은 폼을 그대로 둔다.
+    // 새로 고치거나 다시 들어오면 평소대로 수정 화면으로 이동한다.
+    const duringAction = (await headers()).has("next-action");
+    if (!(editable && duringAction)) {
+      redirect(workHref(editable ? `/reports/${existing.id}/edit` : `/reports/${existing.id}`));
+    }
   }
 
   return (
