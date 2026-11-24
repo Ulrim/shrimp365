@@ -68,7 +68,10 @@ export function Header() {
   // 그 밖은 기존 제목표에서 — /en/cardnews 에서도 제목이 나와야 한다.
   // 제목표에 없는 주소의 기본 제목은 모드별 제품 이름(Shrimp365 / Farm365).
   const path = stripLocalePrefix(pathname).path
-  const title = (isAgriPath(path) ? agriPageLabels[stripAgriPrefix(path)] : pageLabels[path]) || BRAND_NAME[modeOfPath(path)]
+  // 현장관리(/daumlabs/work/**)는 하위 화면이 많아 접두사로 찾는다 — 화면별 제목은 본문이 그린다.
+  const agriKey = stripAgriPrefix(path)
+  const agriTitle = agriKey === "/work" || agriKey.startsWith("/work/") ? agri.nav.work : agriPageLabels[agriKey]
+  const title = (isAgriPath(path) ? agriTitle : pageLabels[path]) || BRAND_NAME[modeOfPath(path)]
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [notiOpen, setNotiOpen] = useState(false)

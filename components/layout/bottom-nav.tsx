@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils"
 import {
   Home, LayoutDashboard, Droplets, ClipboardList,
   MoreHorizontal, Building2, FlaskConical, Package,
-  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight, BookOpen, BrainCircuit, MessageSquare, Layers, Video, HelpCircle, Beaker, Leaf, ExternalLink,
+  BarChart3, Settings, LogOut, ShieldCheck, ChevronRight, BookOpen, BrainCircuit, MessageSquare, Layers, Video, HelpCircle, Beaker, Leaf, ExternalLink, HardHat,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
@@ -93,6 +93,7 @@ export function BottomNav() {
     { href: "/daumlabs/water-quality", icon: Droplets,  label: agri.nav.nutrient },
     { href: "/daumlabs/journal",       icon: BookOpen,  label: agri.nav.journal },
     { href: "/daumlabs/farms",         icon: Building2, label: agri.nav.farms },
+    { href: "/daumlabs/work",          icon: HardHat,   label: agri.nav.work },
     ...SHARED_MORE,
   ]
 

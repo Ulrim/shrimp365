@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { ZodType } from "zod";
 import { addDays, today } from "@/lib/work/dates";
 import {
   eventSchema, firstIssue, processSchema, projectSchema, reportSchema, inviteSchema, taskSchema,
@@ -10,7 +11,7 @@ const report = (patch: Record<string, unknown> = {}) => ({
   items: [{ process_id: "", task_id: "", content: "작업", result: "", quantity: "", unit: "", status: "in_progress", task_progress: "", process_progress: "" }],
   ...patch,
 });
-const message = (schema: { safeParse: (v: unknown) => any }, value: unknown) => {
+const message = (schema: ZodType, value: unknown) => {
   const result = schema.safeParse(value);
   return result.success ? null : firstIssue(result.error);
 };
