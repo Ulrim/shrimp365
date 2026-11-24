@@ -29,7 +29,7 @@ export function ProjectManager({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
-          구성원은 상단에서 사업장을 선택한 뒤 <strong className="text-foreground">계정 관리</strong>에서 배정합니다.
+          구성원은 상단에서 사업장을 선택한 뒤 <strong className="text-foreground">계정 관리</strong>에서 초대·배정합니다.
         </p>
         <Button onClick={() => setEditing("new")}>
           <Plus /> 사업장 등록
