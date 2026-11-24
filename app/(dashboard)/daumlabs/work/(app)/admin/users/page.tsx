@@ -21,7 +21,8 @@ export default async function UsersPage() {
   const roleOf = new Map((members ?? []).map((m) => [m.user_id, m.role]));
 
   // 회장·대표이사는 전체 구성원, 현장관리자는 현재 사업장 구성원만 본다 (RLS 도 같은 범위로 제한한다)
-  let query = supabase.from("dw_profiles").select("*").order("full_name");
+  // 탈퇴해 익명화된 프로필(이메일 '')은 기록의 작성자 표시용으로만 남은 행이라 목록에서 뺀다.
+  let query = supabase.from("dw_profiles").select("*").neq("email", "").order("full_name");
   if (!isExecutive) query = query.in("id", [...roleOf.keys()]);
 
   // 대기 중 초대: 현재 사업장 것 + 회장·대표이사에게는 전사 역할 초대도 (RLS 도 같은 범위로 제한한다)

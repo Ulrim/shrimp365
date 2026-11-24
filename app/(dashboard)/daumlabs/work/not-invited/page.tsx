@@ -16,19 +16,39 @@ export default async function NotInvitedPage({ searchParams }: { searchParams: P
   if (!user) redirect("/login");
 
   const inactive = reason === "inactive";
+  // 프로필 조회 자체가 실패한 경우(현장관리 SQL 미적용 포함). 초대 여부와 무관하다.
+  const unavailable = reason === "unavailable";
+  // 카카오 등 이메일 없이 가입한 계정. 초대는 이메일로 걸리므로 받을 방법이 없다.
+  const noEmail = !user.email;
   const unverified = !user.email_confirmed_at;
 
   return (
     <div className="dw-root mx-auto mt-10 w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center">
       <h1 className="text-lg font-semibold text-foreground">
-        {inactive ? "현장관리 사용이 중지된 계정입니다" : "현장관리는 초대받은 계정만 사용할 수 있습니다"}
+        {unavailable
+          ? "현장관리를 지금 사용할 수 없습니다"
+          : inactive
+            ? "현장관리 사용이 중지된 계정입니다"
+            : "현장관리는 초대받은 계정만 사용할 수 있습니다"}
       </h1>
-      <p className="mt-3 text-sm text-muted-foreground">로그인 계정</p>
-      <p className="mt-1 break-all text-sm font-semibold text-foreground">{user.email ?? "-"}</p>
+      {!noEmail && (
+        <>
+          <p className="mt-3 text-sm text-muted-foreground">로그인 계정</p>
+          <p className="mt-1 break-all text-sm font-semibold text-foreground">{user.email}</p>
+        </>
+      )}
 
-      {inactive ? (
+      {unavailable ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          현장관리 기능이 아직 준비되지 않았거나 일시적인 오류입니다. 잠시 후 다시 시도해 주세요.
+        </p>
+      ) : inactive ? (
         <p className="mt-4 text-sm text-muted-foreground">
           관리자가 이 계정의 현장관리 사용을 중지했습니다. 다시 사용하려면 현장관리자 또는 경영진에게 문의해 주세요.
+        </p>
+      ) : noEmail ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          현장관리는 이메일로 초대합니다. 카카오 등 이메일이 없는 계정으로는 초대를 받을 수 없으니, 이메일 계정으로 가입해 주세요.
         </p>
       ) : (
         <p className="mt-4 text-sm text-muted-foreground">
@@ -36,7 +56,7 @@ export default async function NotInvitedPage({ searchParams }: { searchParams: P
         </p>
       )}
 
-      {!inactive && unverified && (
+      {!inactive && !unavailable && !noEmail && unverified && (
         <p className="mt-3 rounded-xl border border-border bg-muted px-3 py-2 text-sm text-foreground">
           이메일 인증이 끝나지 않았습니다. 가입 때 받은 인증 메일의 링크를 먼저 눌러 주세요. 인증된 이메일로 온 초대만 수락됩니다.
         </p>

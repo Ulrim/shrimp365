@@ -13,7 +13,10 @@ const DENIED = "이 작업을 수행할 권한이 없습니다.";
 const GLOBAL_ROLES = ["chairman", "ceo"] as const;
 const projectRoleSchema = z.enum(["site_manager", "site_worker", "partner"]);
 
-/** 초대 결과. added = 이미 구성원이라 바로 반영됨, invited = 대기 중 초대로 등록됨 */
+/**
+ * 초대 결과. added = 이미 구성원이라 바로 반영됨, invited = 대기 중 초대로 등록됨.
+ * 이미 그 사업장 소속인 계정은 DB 함수가 한국어 예외로 거절한다(역할을 덮어쓰지 않는다).
+ */
 export type InviteOutcome = "added" | "invited";
 
 /** 요청자가 관리자(회장·대표이사·현재 사업장의 현장관리자)인지 서버에서 다시 확인한다. */

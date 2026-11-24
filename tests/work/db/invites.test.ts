@@ -167,27 +167,34 @@ describe("초대와 수락", () => {
     ]);
     expect(rows).toEqual([{ role: "site_worker" }]);
     expect(await sql("select id from dw_invites where email = $1", [email])).toHaveLength(0);
-    // 이미 소속이면 역할을 갱신한다
-    expect(await invite(f.manager, f.projectA, email, "partner")).toBe("added");
+    // 이미 소속이면 역할을 덮어쓰지 않고 거절한다(회장·대표이사가 불러도 같다)
+    await expect(invite(f.manager, f.projectA, email, "partner")).rejects.toMatchObject({
+      message: "이미 이 사업장에 소속된 구성원입니다. 역할은 구성원 관리에서 변경해 주세요.",
+      code: "P0001",
+    });
+    await expect(invite(f.ceo, f.projectA, email, "site_manager")).rejects.toThrow(/이미 이 사업장에 소속된/);
     const [after] = await sql("select role from dw_project_members where project_id = $1 and user_id = $2", [
       f.projectA,
       f.managerB,
     ]);
-    expect(after.role).toBe("partner");
+    expect(after.role).toBe("site_worker");
     await sql("delete from dw_project_members where project_id = $1 and user_id = $2", [f.projectA, f.managerB]);
   });
 
   it("바로 추가할 때도 원본 소속 규칙을 지킨다", async () => {
     const emailOf = async (id: string) => (await sql("select email from auth.users where id = $1", [id]))[0].email;
-    // 현장관리자는 다른 현장관리자의 역할을 바꿀 수 없다
+    // 현장관리자는 초대로 다른 현장관리자의 역할을 바꿀 수 없다(이미 소속이라 거절된다)
     const second = await sql(
       "insert into dw_project_members (project_id, user_id, role) values ($1, $2, 'site_manager') returning user_id",
       [f.projectA, f.managerB],
     );
     expect(second).toHaveLength(1);
     await expect(invite(f.manager, f.projectA, await emailOf(f.managerB), "site_worker")).rejects.toThrow(
-      /회장·대표이사만/,
+      /이미 이 사업장에 소속된/,
     );
+    expect(
+      await sql("select role from dw_project_members where project_id = $1 and user_id = $2", [f.projectA, f.managerB]),
+    ).toEqual([{ role: "site_manager" }]);
     await sql("delete from dw_project_members where project_id = $1 and user_id = $2", [f.projectA, f.managerB]);
     // 비활성 계정과 회장·대표이사는 사업장에 추가하지 않는다
     await expect(invite(f.ceo, f.projectB, await emailOf(f.inactive), "site_worker")).rejects.toThrow(/사용이 중지된/);

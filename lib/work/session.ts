@@ -41,8 +41,19 @@ async function acceptInvites(supabase: Client): Promise<number> {
  */
 const fresh = () => new AbortController().signal;
 
-const loadProfile = async (supabase: Client, userId: string) =>
-  (await supabase.from("dw_profiles").select("*").eq("id", userId).abortSignal(fresh()).maybeSingle<Profile>()).data;
+/**
+ * 내 프로필. 행이 없으면 null 이고, 조회 자체가 실패하면(현장관리 SQL 미적용으로 테이블이 없는 경우 포함)
+ * "초대받지 않음"으로 오해하지 않도록 안내 화면에 사유를 붙여 보낸다.
+ */
+async function loadProfile(supabase: Client, userId: string): Promise<Profile | null> {
+  const { data, error } = await supabase
+    .from("dw_profiles").select("*").eq("id", userId).abortSignal(fresh()).maybeSingle<Profile>();
+  if (error) {
+    console.error("[현장관리 프로필 조회 오류]", error.code, error.message);
+    redirect(`${workHref("/not-invited")}?reason=unavailable`);
+  }
+  return data;
+}
 
 const loadProjects = (supabase: Client, userId: string) =>
   Promise.all([
@@ -55,7 +66,7 @@ const loadProjects = (supabase: Client, userId: string) =>
  * 여기서 구한 역할은 화면 구성용이며, 데이터 접근은 DB(RLS)가 다시 검증한다.
  *
  * 계정은 shrimp365 계정이고, 현장관리 구성원(dw_profiles)은 초대를 수락해야 생긴다.
- * 구성원이 아니거나 비활성이면 안내 화면으로 보낸다 — shrimp365 세션은 건드리지 않는다.
+ * 구성원이 아니거나 비활성이면, 또는 프로필 조회가 실패하면 안내 화면으로 보낸다 — shrimp365 세션은 건드리지 않는다.
  */
 export const getSession = cache(async (): Promise<SessionContext> => {
   const supabase = await createClient();

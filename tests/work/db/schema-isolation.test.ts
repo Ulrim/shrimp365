@@ -46,6 +46,25 @@ describe("스키마 오염 없음", () => {
     expect(triggers).toHaveLength(0);
   });
 
+  it("security definer 함수는 모두 search_path 를 public, pg_temp 로 고정한다", async () => {
+    const rows = await sql(
+      `select p.proname, p.proconfig
+       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.proname like 'dw\\_%' and p.prosecdef`,
+    );
+    expect(rows.length).toBeGreaterThan(20);
+    const loose = rows.filter((r) => !(r.proconfig ?? []).includes("search_path=public, pg_temp"));
+    expect(loose.map((r) => r.proname)).toEqual([]);
+  });
+
+  it("dw_profiles 는 auth.users 에 외래 키를 걸지 않는다(회원 탈퇴를 막지 않는다)", async () => {
+    const rows = await sql(
+      `select conname from pg_constraint
+       where contype = 'f' and confrelid = 'auth.users'::regclass and conrelid::regclass::text like 'dw\\_%'`,
+    );
+    expect(rows).toEqual([]);
+  });
+
   it("auth.users 에 트리거를 걸지 않는다", async () => {
     const triggers = await sql("select tgname from pg_trigger where tgrelid = 'auth.users'::regclass and not tgisinternal");
     expect(triggers).toHaveLength(0);
@@ -147,6 +166,7 @@ describe("dw_ 객체의 권한", () => {
        order by p.proname`,
     );
     expect(rows.map((r) => r.proname)).toEqual([
+      "dw_anonymize_member",
       "dw_audit_row",
       "dw_bootstrap_executive",
       "dw_build_consolidated_snapshot",
@@ -159,6 +179,7 @@ describe("dw_ 객체의 권한", () => {
       "dw_report_items_guard",
       "dw_report_photos_guard",
       "dw_set_updated_at",
+      "dw_snapshot_without_member",
       "dw_tasks_before_write",
       "dw_tasks_notify",
     ]);

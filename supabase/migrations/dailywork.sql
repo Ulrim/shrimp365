@@ -31,6 +31,13 @@
 --   7) `create extension pgcrypto` 를 뺐다. gen_random_uuid() 는 PostgreSQL 13 부터 내장이다.
 --   8) 알림(`dw_notifications.link`)의 경로는 원본 그대로 `/tasks`, `/reports/<id>` 로 저장한다.
 --      `/daumlabs/work` 접두사는 화면이 붙인다.
+--   9) `dw_profiles.id` 는 auth.users 의 uid 값을 그대로 쓰지만 외래 키는 걸지 않는다.
+--      원본처럼 `references auth.users on delete cascade` 를 두면, 작업일보·업무가 있는 구성원이
+--      shrimp365 회원 탈퇴를 할 때 `dw_daily_reports.author_id` 등의 `on delete restrict` 에 걸려
+--      탈퇴 자체가 실패한다. 탈퇴는 항상 성공해야 하고 현장 기록은 남아야 하므로 연결을 끊었다.
+--      탈퇴한 구성원의 개인정보는 `dw_anonymize_member(p_user)` 가 지운다(프로필 행은 익명으로 남는다).
+--      shrimp365 탈퇴 API(app/api/account/delete)가 계정 삭제 직전에 부른다.
+--  10) security definer 함수의 search_path 는 `public, pg_temp` 다(임시 스키마를 맨 뒤로 고정).
 --
 -- 실행: Supabase SQL Editor 에 이 파일 전체를 붙여 넣고 사람이 실행한다(postgres 권한 필요).
 -- 멱등: create … if not exists / create or replace / drop … if exists 후 create 로만 이루어져
@@ -48,10 +55,12 @@
 -- ===========================================================================
 
 -- ---------------------------------------------------------------------------
--- 사용자 프로필 (auth.users 와 1:1)
+-- 사용자 프로필. id 는 auth.users 의 uid 와 같은 값이지만 외래 키는 걸지 않는다(머리말 9).
+-- 계정이 삭제(회원 탈퇴)되어도 행은 남고, dw_anonymize_member 가 개인정보를 지운다.
+-- 익명화된 행의 표식: is_active = false 이고 email = ''.
 -- ---------------------------------------------------------------------------
 create table if not exists public.dw_profiles (
-  id uuid primary key references auth.users (id) on delete cascade,
+  id uuid primary key,
   email text not null,
   full_name text not null check (length(btrim(full_name)) > 0),
   phone text,
@@ -63,6 +72,8 @@ create table if not exists public.dw_profiles (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+-- 이전 판(auth.users 외래 키가 있던 판)을 이미 적용한 DB 에서도 외래 키를 걷어 낸다.
+alter table public.dw_profiles drop constraint if exists dw_profiles_id_fkey;
 
 -- ---------------------------------------------------------------------------
 -- 사업장(프로젝트)
@@ -386,7 +397,7 @@ end $$;
 -- 권한 판별 (RLS 정책에서 사용). 비활성 사용자는 모든 권한을 잃는다.
 -- ---------------------------------------------------------------------------
 create or replace function public.dw_is_executive() returns boolean
-language sql stable security definer set search_path = public
+language sql stable security definer set search_path = public, pg_temp
 as $$
   select exists (
     select 1 from dw_profiles
@@ -396,7 +407,7 @@ $$;
 
 -- 반환값: executive | site_manager | site_worker | partner | null(권한 없음)
 create or replace function public.dw_project_role(p_project uuid) returns text
-language sql stable security definer set search_path = public
+language sql stable security definer set search_path = public, pg_temp
 as $$
   select case
     when public.dw_is_executive() then 'executive'
@@ -410,22 +421,22 @@ as $$
 $$;
 
 create or replace function public.dw_is_project_member(p_project uuid) returns boolean
-language sql stable security definer set search_path = public
+language sql stable security definer set search_path = public, pg_temp
 as $$ select public.dw_project_role(p_project) is not null $$;
 
 create or replace function public.dw_is_project_manager(p_project uuid) returns boolean
-language sql stable security definer set search_path = public
+language sql stable security definer set search_path = public, pg_temp
 as $$ select coalesce(public.dw_project_role(p_project) in ('executive', 'site_manager'), false) $$;
 
 -- 협력업체를 제외한 내부 구성원
 create or replace function public.dw_is_internal_member(p_project uuid) returns boolean
-language sql stable security definer set search_path = public
+language sql stable security definer set search_path = public, pg_temp
 as $$
   select coalesce(public.dw_project_role(p_project) in ('executive', 'site_manager', 'site_worker'), false)
 $$;
 
 create or replace function public.dw_shares_project_with(p_user uuid) returns boolean
-language sql stable security definer set search_path = public
+language sql stable security definer set search_path = public, pg_temp
 as $$
   select exists (
     select 1
@@ -447,7 +458,7 @@ $$;
 -- 가려야 하기 때문이다. 직접 수정은 current_user 가 authenticated 이고, 초대 함수
 -- (dw_accept_invites 등, security definer) 안에서의 수정은 함수 소유자다. 사용자가 꾸며 낼 수 없는 값이다.
 create or replace function public.dw_profiles_guard() returns trigger
-language plpgsql set search_path = public
+language plpgsql set search_path = public, pg_temp
 as $$
 begin
   if auth.uid() is not null and current_user in ('authenticated', 'anon')
@@ -493,7 +504,7 @@ create trigger dw_report_items_updated_at before update on public.dw_report_item
 create or replace function public.dw_notify(
   p_user uuid, p_project uuid, p_type text, p_title text, p_body text, p_link text
 ) returns void
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, pg_temp
 as $$
 begin
   if p_user is null or p_user = auth.uid() then
@@ -507,7 +518,7 @@ end $$;
 create or replace function public.dw_notify_managers(
   p_project uuid, p_type text, p_title text, p_body text, p_link text
 ) returns void
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, pg_temp
 as $$
 declare
   v_user uuid;
@@ -532,7 +543,7 @@ end $$;
 -- 변경 이력
 -- ---------------------------------------------------------------------------
 create or replace function public.dw_audit_row() returns trigger
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, pg_temp
 as $$
 declare
   v_old jsonb := case when tg_op in ('UPDATE', 'DELETE') then to_jsonb(old) end;
@@ -641,7 +652,7 @@ create trigger dw_daily_reports_guard before insert or update on public.dw_daily
 
 -- 작업내역: project_id 를 작업일보에서 가져오고, 공정·업무가 같은 사업장인지 검증한다.
 create or replace function public.dw_report_items_guard() returns trigger
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, pg_temp
 as $$
 declare
   v_project uuid;
@@ -669,7 +680,7 @@ create trigger dw_report_items_guard before insert or update on public.dw_report
   for each row execute function public.dw_report_items_guard();
 
 create or replace function public.dw_report_photos_guard() returns trigger
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, pg_temp
 as $$
 declare
   v_project uuid;
@@ -699,7 +710,7 @@ create trigger dw_report_photos_guard before insert or update on public.dw_repor
 -- 업무 배정 트리거
 -- ---------------------------------------------------------------------------
 create or replace function public.dw_tasks_before_write() returns trigger
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, pg_temp
 as $$
 begin
   if not exists (
@@ -737,7 +748,7 @@ create trigger dw_tasks_before_write before insert or update on public.dw_tasks
   for each row execute function public.dw_tasks_before_write();
 
 create or replace function public.dw_tasks_notify() returns trigger
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, pg_temp
 as $$
 begin
   if tg_op = 'INSERT' or new.assignee_id <> old.assignee_id then
@@ -770,7 +781,7 @@ $$;
 
 -- 공정 실적률이 바뀌면 기록을 남긴다 (승인 반영 시에는 작업일을 기록일로 쓴다)
 create or replace function public.dw_processes_log_progress() returns trigger
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, pg_temp
 as $$
 declare
   v_date text := nullif(current_setting('app.progress_log_date', true), '');
@@ -845,7 +856,7 @@ from public.dw_processes p;
 -- ---------------------------------------------------------------------------
 create or replace function public.dw_build_consolidated_snapshot(p_project uuid, p_date date)
 returns jsonb
-language sql stable security definer set search_path = public
+language sql stable security definer set search_path = public, pg_temp
 as $$
   with approved as (
     select r.*, p.full_name, p.company, p.position,
@@ -940,7 +951,7 @@ $$;
 -- 확정되지 않은 통합 작업일보를 최신 승인 내용으로 다시 취합한다.
 create or replace function public.dw_refresh_consolidated_report(p_project uuid, p_date date)
 returns void
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, pg_temp
 as $$
 begin
   insert into dw_consolidated_reports (project_id, report_date, snapshot, generated_at)
@@ -954,7 +965,7 @@ end $$;
 create or replace function public.dw_save_consolidated_report(
   p_project uuid, p_date date, p_weather text, p_summary text, p_finalize boolean
 ) returns uuid
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, pg_temp
 as $$
 declare
   v_id uuid;
@@ -982,7 +993,7 @@ end $$;
 -- 작업일보 제출 / 검토 / 수정 요청
 -- ---------------------------------------------------------------------------
 create or replace function public.dw_submit_report(p_report uuid) returns void
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, pg_temp
 as $$
 declare
   r dw_daily_reports;
@@ -1022,7 +1033,7 @@ end $$;
 -- p_decision: 'approved' | 'revision_requested'
 create or replace function public.dw_review_report(p_report uuid, p_decision text, p_comment text default null)
 returns void
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, pg_temp
 as $$
 declare
   r dw_daily_reports;
@@ -1109,7 +1120,7 @@ end $$;
 
 -- 승인 완료된 작업일보의 수정 요청
 create or replace function public.dw_request_report_change(p_report uuid, p_reason text) returns uuid
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, pg_temp
 as $$
 declare
   r dw_daily_reports;
@@ -1147,7 +1158,7 @@ end $$;
 create or replace function public.dw_review_change_request(
   p_request uuid, p_approve boolean, p_comment text default null
 ) returns void
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, pg_temp
 as $$
 declare
   c dw_change_requests;
@@ -1198,7 +1209,7 @@ end $$;
 -- p_data: { work_date, start_time, end_time, break_minutes, notes, support_request, next_day_plan,
 --           items: [{ id?, process_id, task_id, content, result, quantity, unit, status, task_progress, process_progress }] }
 create or replace function public.dw_save_report(p_project uuid, p_report uuid, p_data jsonb) returns uuid
-language plpgsql set search_path = public
+language plpgsql set search_path = public, pg_temp
 as $$
 declare
   v_id uuid;
@@ -1275,7 +1286,7 @@ end $$;
 -- 담당자가 본인 업무의 진행상태를 갱신한다
 create or replace function public.dw_update_my_task(p_task uuid, p_status text, p_progress integer)
 returns void
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, pg_temp
 as $$
 declare
   t dw_tasks;
@@ -1294,7 +1305,7 @@ create or replace function public.dw_submission_status(p_project uuid, p_date da
 returns table (
   user_id uuid, full_name text, company text, role text, report_id uuid, status text
 )
-language plpgsql stable security definer set search_path = public
+language plpgsql stable security definer set search_path = public, pg_temp
 as $$
 begin
   if not public.dw_is_internal_member(p_project) then
@@ -1319,14 +1330,15 @@ end $$;
 
 -- 사업장 구성원 초대.
 -- 권한: 회장/대표이사, 또는 해당 사업장 현장관리자(현장관리자 지정은 회장/대표이사만).
--- 반환: 'added'   — 이미 현장관리 구성원인 계정이라 사업장에 바로 추가(이미 소속이면 역할 갱신)
+-- 반환: 'added'   — 이미 현장관리 구성원인 계정이라 사업장에 바로 추가.
+--                   이미 그 사업장 소속이면 역할을 바꾸지 않고 예외로 거절한다(역할 변경은 구성원 관리에서).
 --       'invited' — 초대 등록(같은 이메일·사업장 초대가 있으면 갱신). 본인이 로그인해 수락한다.
 create or replace function public.dw_invite_member(
   p_project uuid, p_email text, p_role text,
   p_full_name text default null, p_phone text default null,
   p_company text default null, p_position text default null
 ) returns text
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, pg_temp
 as $$
 declare
   v_email text := lower(btrim(coalesce(p_email, '')));
@@ -1364,13 +1376,13 @@ begin
     end if;
     select role into v_existing_role
     from dw_project_members where project_id = p_project and user_id = v_target.id;
-    -- 원본 project_members RLS 와 같은 제한: 현장관리자 행은 회장/대표이사만 바꾼다
-    if v_existing_role = 'site_manager' and not v_exec then
-      raise exception '현장관리자의 역할은 회장·대표이사만 변경할 수 있습니다.' using errcode = '42501';
+    -- 초대가 기존 소속의 역할을 조용히 덮어쓰지 않게 한다
+    if v_existing_role is not null then
+      raise exception '이미 이 사업장에 소속된 구성원입니다. 역할은 구성원 관리에서 변경해 주세요.'
+        using errcode = 'P0001';
     end if;
     insert into dw_project_members (project_id, user_id, role)
-    values (p_project, v_target.id, p_role)
-    on conflict (project_id, user_id) do update set role = excluded.role;
+    values (p_project, v_target.id, p_role);
     delete from dw_invites where lower(email) = v_email and project_id = p_project;
     return 'added';
   end if;
@@ -1401,7 +1413,7 @@ end $$;
 create or replace function public.dw_invite_executive(
   p_email text, p_global_role text, p_full_name text default null
 ) returns text
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, pg_temp
 as $$
 declare
   v_email text := lower(btrim(coalesce(p_email, '')));
@@ -1445,7 +1457,7 @@ end $$;
 -- 인증하지 않은 주소로 가입해 남의 초대를 가로채는 것을 막는다.
 -- 프로필이 이미 있는 사용자가 불러도 안전하다(추가 초대만 수락).
 create or replace function public.dw_accept_invites() returns integer
-language plpgsql security definer set search_path = public
+language plpgsql security definer set search_path = public, pg_temp
 as $$
 declare
   v_uid uuid := auth.uid();
@@ -1514,7 +1526,7 @@ end $$;
 create or replace function public.dw_bootstrap_executive(
   p_email text, p_global_role text, p_full_name text default null
 ) returns text
-language plpgsql set search_path = public
+language plpgsql set search_path = public, pg_temp
 as $$
 declare
   v_email text := lower(btrim(coalesce(p_email, '')));
@@ -1554,6 +1566,137 @@ begin
   return 'invited';
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- 회원 탈퇴 — 구성원 익명화 (이식본 신규)
+-- shrimp365 계정이 삭제되어도 현장 기록(작업일보·업무·검토·이력)은 남긴다. 대신 그 사람을
+-- 알아볼 수 있는 정보는 지운다. auth.users 에는 트리거를 걸지 않으므로(머리말 3) 서버가 부른다.
+-- ---------------------------------------------------------------------------
+
+-- 통합 작업일보 스냅샷(jsonb)에서 p_user 의 이름·소속을 p_label 로 바꾼다.
+-- reports[] 는 author_id 로 찾는다. by_process·issues·support_requests·next_day_plans 의 항목에는
+-- author_id 가 없어 스냅샷에 적힌 그 사람의 이름으로 찾는다 — 같은 날 같은 사업장에 이름이 같은
+-- 다른 작성자가 있으면 그 사람의 이 항목들도 함께 익명으로 바뀐다(개인정보를 남기는 쪽보다 낫다).
+create or replace function public.dw_snapshot_without_member(p_snapshot jsonb, p_user uuid, p_label text)
+returns jsonb
+language sql immutable
+as $$
+  with names as (
+    select distinct r ->> 'author_name' as name
+    from jsonb_array_elements(p_snapshot -> 'reports') r
+    where r ->> 'author_id' = p_user::text
+  )
+  select case
+    when not exists (select 1 from names) then p_snapshot
+    else p_snapshot
+      || jsonb_build_object(
+        'reports', (
+          select coalesce(jsonb_agg(
+            case when r ->> 'author_id' = p_user::text
+              then r || jsonb_build_object('author_name', p_label, 'company', null)
+              else r end
+            order by n), '[]'::jsonb)
+          from jsonb_array_elements(p_snapshot -> 'reports') with ordinality as t(r, n)
+        ),
+        'by_process', (
+          select coalesce(jsonb_agg(
+            g || jsonb_build_object('items', (
+              select coalesce(jsonb_agg(
+                case when i ->> 'author_name' in (select name from names)
+                  then i || jsonb_build_object('author_name', p_label)
+                  else i end
+                order by m), '[]'::jsonb)
+              from jsonb_array_elements(g -> 'items') with ordinality as x(i, m)
+            ))
+            order by n), '[]'::jsonb)
+          from jsonb_array_elements(p_snapshot -> 'by_process') with ordinality as t(g, n)
+        )
+      )
+      || (
+        select jsonb_object_agg(k, (
+          select coalesce(jsonb_agg(
+            case when i ->> 'author_name' in (select name from names)
+              then i || jsonb_build_object('author_name', p_label)
+              else i end
+            order by m), '[]'::jsonb)
+          from jsonb_array_elements(p_snapshot -> k) with ordinality as x(i, m)
+        ))
+        from unnest(array['issues', 'support_requests', 'next_day_plans']) k
+      )
+  end
+$$;
+
+-- 탈퇴하는(또는 이미 탈퇴한) 구성원의 개인정보를 지운다. 프로필 행이 없으면 false.
+-- 서버(service_role) 또는 SQL Editor(postgres) 전용 — authenticated/anon 에는 실행 권한을 주지 않고,
+-- 로그인 사용자의 요청이면 본문에서도 거절한다.
+-- auth.users 행이 아직 있어도, 이미 지워졌어도 된다. 여러 번 불러도 결과가 같다.
+--   · dw_profiles: 사용 중지, 이름 '탈퇴한 사용자', 이메일 ''(익명화 표식), 전화·소속·직책·전사 역할 null
+--   · 삭제: 사업장 소속, 그 이메일 앞으로 온 대기 중 초대, 그 사용자가 받은 알림
+--   · 이름이 복사되어 있는 곳도 고친다 — 관리자에게 간 제출/수정 요청 알림의 본문,
+--     통합 작업일보 스냅샷(확정본 포함)의 작성자 이름·소속
+--   · 변경 이력: 그 사용자의 계정(profiles) 이력에서 이름·이메일·전화·소속·직책 값을 뺀다.
+--     행 자체와 전사 역할·사용 중지 변경 기록은 남는다(권한 변경 추적용, 개인정보 아님).
+-- 남는 것: 작업일보·작업내역·사진·업무·검토 기록·수정 요청과 그 변경 이력. 작성자·담당자는 같은 id 를
+--          가리키므로 화면에는 '탈퇴한 사용자'로 보인다. 개인 일정(owner_id)도 그대로 남는다.
+create or replace function public.dw_anonymize_member(p_user uuid) returns boolean
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+declare
+  v_label constant text := '탈퇴한 사용자';
+  v_pii constant text[] := array['email', 'full_name', 'phone', 'company', 'position'];
+  v_profile dw_profiles;
+  v_emails text[];
+begin
+  if auth.uid() is not null then
+    raise exception '이 함수는 서버에서만 실행할 수 있습니다.' using errcode = '42501';
+  end if;
+  if p_user is null then
+    return false;
+  end if;
+  select * into v_profile from dw_profiles where id = p_user for update;
+  if v_profile.id is null then
+    return false;
+  end if;
+
+  -- 초대는 이메일로 걸려 있으므로 이메일을 지우기 전에 찾는다(프로필의 주소와 계정의 현재 주소 둘 다).
+  select array_agg(distinct s.e) into v_emails
+  from (
+    select lower(btrim(v_profile.email)) as e
+    union all
+    select lower(btrim(u.email)) from auth.users u where u.id = p_user
+  ) s
+  where s.e is not null and s.e <> '';
+  if v_emails is not null then
+    delete from dw_invites where lower(email) = any (v_emails);
+  end if;
+
+  delete from dw_project_members where user_id = p_user;
+  delete from dw_notifications where user_id = p_user;
+
+  -- 관리자에게 간 알림 본문은 '이름 · 작업일' 이다(dw_submit_report, dw_request_report_change)
+  update dw_notifications n
+    set body = v_label || ' · ' || to_char(r.work_date, 'YYYY-MM-DD')
+  from dw_daily_reports r
+  where r.author_id = p_user
+    and n.link = '/reports/' || r.id
+    and n.type in ('report_submitted', 'change_requested');
+
+  update dw_consolidated_reports c
+    set snapshot = public.dw_snapshot_without_member(c.snapshot, p_user, v_label)
+  where c.snapshot -> 'reports' @> jsonb_build_array(jsonb_build_object('author_id', p_user));
+
+  update dw_profiles
+    set is_active = false, full_name = v_label, email = '',
+        phone = null, company = null, position = null, global_role = null
+  where id = p_user;
+
+  -- 바로 위 수정이 남긴 이력 행(old_data 에 원래 값이 들어 있다)까지 포함해 개인정보 값을 뺀다
+  update dw_audit_logs
+    set old_data = old_data - v_pii, new_data = new_data - v_pii
+  where table_name = 'profiles' and record_id = p_user;
+
+  return true;
+end $$;
+
 -- 대상이 p_project 가 아닌 다른 사업장에서 현장관리자인지 답한다.
 -- (원본 화면의 canManage 가 service_role 로 하던 조회 — 현장관리자가 다른 사업장의
 --  현장관리자 계정을 건드리지 못하게 하는 확인이다.)
@@ -1561,7 +1704,7 @@ end $$;
 -- 현장관리자는 자기 사업장 구성원에 대해서만 물을 수 있다(그 밖의 계정은 예외).
 create or replace function public.dw_is_site_manager_elsewhere(p_user uuid, p_project uuid)
 returns boolean
-language plpgsql stable security definer set search_path = public
+language plpgsql stable security definer set search_path = public, pg_temp
 as $$
 begin
   if p_user is null or p_project is null or not public.dw_is_project_manager(p_project) then
@@ -1604,7 +1747,15 @@ alter table public.dw_invites enable row level security;
 -- profiles ------------------------------------------------------------------
 drop policy if exists dw_profiles_select on public.dw_profiles;
 create policy dw_profiles_select on public.dw_profiles for select to authenticated
-  using (id = auth.uid() or public.dw_is_executive() or public.dw_shares_project_with(id));
+  using (
+    id = auth.uid() or public.dw_is_executive() or public.dw_shares_project_with(id)
+    -- 익명화된(탈퇴한) 프로필은 소속이 지워져 위 조건으로는 보이지 않는다. 남은 작업일보·업무의
+    -- 작성자·담당자가 '탈퇴한 사용자'로 표시되도록 사업장 구성원에게 보여 준다(개인정보 없음).
+    or (
+      email = '' and not is_active
+      and exists (select 1 from public.dw_project_members pm where pm.user_id = auth.uid())
+    )
+  );
 drop policy if exists dw_profiles_update on public.dw_profiles;
 create policy dw_profiles_update on public.dw_profiles for update to authenticated
   using (id = auth.uid() or public.dw_is_executive())
@@ -1747,7 +1898,7 @@ create policy dw_daily_reports_delete on public.dw_daily_reports for delete to a
 
 -- 작성자가 수정 가능한 상태의 작업일보인지 확인
 create or replace function public.dw_can_edit_report(p_report uuid) returns boolean
-language sql stable security definer set search_path = public
+language sql stable security definer set search_path = public, pg_temp
 as $$
   select exists (
     select 1 from dw_daily_reports r
@@ -1962,7 +2113,7 @@ declare
     'dw_is_site_manager_elsewhere(uuid, uuid)'
   ];
   -- 트리거 함수(실행 권한은 트리거를 만들 때만 확인된다)와 내부 전용 함수.
-  -- dw_bootstrap_executive 는 SQL Editor(postgres)·service_role 전용이다.
+  -- dw_bootstrap_executive, dw_anonymize_member 는 SQL Editor(postgres)·service_role 전용이다.
   v_internal text[] := array[
     'dw_set_updated_at()',
     'dw_profiles_guard()',
@@ -1977,7 +2128,9 @@ declare
     'dw_notify_managers(uuid, text, text, text, text)',
     'dw_build_consolidated_snapshot(uuid, date)',
     'dw_refresh_consolidated_report(uuid, date)',
-    'dw_bootstrap_executive(text, text, text)'
+    'dw_bootstrap_executive(text, text, text)',
+    'dw_snapshot_without_member(jsonb, uuid, text)',
+    'dw_anonymize_member(uuid)'
   ];
 begin
   foreach f in array v_callable || v_internal loop

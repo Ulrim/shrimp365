@@ -223,7 +223,7 @@ function InviteDialog({
               result.data === "added"
                 ? isGlobal
                   ? `${email} 은(는) 이미 현장관리 구성원이어서 전사 역할을 바로 지정했습니다.`
-                  : `${email} 은(는) 이미 현장관리 구성원이어서 현재 사업장에 바로 추가했습니다. (이미 소속이었다면 역할이 변경되었습니다.)`
+                  : `${email} 은(는) 이미 현장관리 구성원이어서 현재 사업장에 바로 추가했습니다.`
                 : `${email} 을(를) 초대했습니다. 이 이메일로 Shrimp365 에 로그인하면 현장관리에 참여합니다.`,
             );
             router.refresh();
@@ -233,7 +233,7 @@ function InviteDialog({
         <Field label="이메일 (Shrimp365 계정)" htmlFor="new-email" required>
           <Input id="new-email" type="email" inputMode="email" autoComplete="off" value={form.email} onChange={set("email")} required />
         </Field>
-        <Field label="역할" htmlFor="new-role" required hint={hasProject ? "사업장 역할은 현재 선택된 사업장에 적용됩니다." : undefined}>
+        <Field label="역할" htmlFor="new-role" required hint={hasProject ? "사업장 역할은 현재 선택된 사업장에 적용됩니다. 이미 이 사업장 소속인 구성원의 역할은 목록에서 변경해 주세요." : undefined}>
           <Select id="new-role" value={form.role} onChange={set("role")}>
             {options.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
