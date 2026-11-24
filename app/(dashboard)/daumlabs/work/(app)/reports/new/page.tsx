@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ReportForm } from "@/components/work/reports/report-form";
 import { PageHeader } from "@/components/work/ui/misc";
+import { workHref } from "@/lib/work/constants";
 import { formatDate, isDateString, today } from "@/lib/work/dates";
 import { loadFormOptions } from "@/lib/work/reports";
 import { requireProject } from "@/lib/work/session";

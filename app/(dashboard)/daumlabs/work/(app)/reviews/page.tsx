@@ -5,7 +5,7 @@ import { DateNav } from "@/components/work/reviews/date-nav";
 import { Badge, StatusBadge } from "@/components/work/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/work/ui/card";
 import { EmptyState, PageHeader } from "@/components/work/ui/misc";
-import { REPORT_STATUS, ROLE_LABEL } from "@/lib/work/constants";
+import { REPORT_STATUS, ROLE_LABEL, workHref } from "@/lib/work/constants";
 import { addDays, formatDate, formatDateTime, formatMinutes, isDateString, today } from "@/lib/work/dates";
 import { requireManager } from "@/lib/work/session";
 import type { ChangeRequest, DailyReport, ProjectRole, ReportStatus } from "@/lib/work/types";
@@ -135,7 +135,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
         <Card>
           <CardHeader title="작업일보 제출 현황" description="현장관리자·현장팀 기준" />
           <CardBody className="space-y-4">
-            <DateNav basePath="/reviews" date={date} prev={addDays(date, -1)} next={addDays(date, 1)} label={formatDate(date)} max={now} />
+            <DateNav basePath={workHref("/reviews")} date={date} prev={addDays(date, -1)} next={addDays(date, 1)} label={formatDate(date)} max={now} />
             {statusRes.error ? (
               <p className="text-sm dw-fg-red">제출 현황을 불러오지 못했습니다.</p>
             ) : (

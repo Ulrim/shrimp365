@@ -2,7 +2,7 @@
 
 import { Camera, ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
-import { addPhoto, deletePhoto } from "@/app/(app)/reports/actions";
+import { addPhoto, deletePhoto } from "@/app/(dashboard)/daumlabs/work/(app)/reports/actions";
 import { Button } from "@/components/work/ui/button";
 import { FormError } from "@/components/work/ui/form";
 import { PHOTO_BUCKET } from "@/lib/work/constants";

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { PHOTO_BUCKET } from "@/lib/work/constants";
+import { PHOTO_BUCKET, workHref } from "@/lib/work/constants";
 import { toMessage } from "@/lib/work/errors";
 import { requireProject } from "@/lib/work/session";
 import type { ActionResult } from "@/lib/work/types";

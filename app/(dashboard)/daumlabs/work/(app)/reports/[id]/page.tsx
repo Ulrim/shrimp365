@@ -6,7 +6,7 @@ import { ReportActions } from "@/components/work/reports/report-actions";
 import { Badge, StatusBadge } from "@/components/work/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/work/ui/card";
 import { DefinitionList, formatPercent } from "@/components/work/ui/misc";
-import { ITEM_STATUS, REPORT_STATUS, REVIEW_ACTION_LABEL } from "@/lib/work/constants";
+import { ITEM_STATUS, REPORT_STATUS, REVIEW_ACTION_LABEL, workHref } from "@/lib/work/constants";
 import { formatDate, formatDateTime, formatMinutes, formatTime } from "@/lib/work/dates";
 import { signPhotos } from "@/lib/work/reports";
 import { requireProject } from "@/lib/work/session";

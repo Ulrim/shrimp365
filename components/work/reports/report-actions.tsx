@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   deleteReport, requestReportChange, reviewChangeRequest, reviewReport, submitReport,
-} from "@/app/(app)/reports/actions";
+} from "@/app/(dashboard)/daumlabs/work/(app)/reports/actions";
 import { Button } from "@/components/work/ui/button";
 import { Dialog, DialogContent } from "@/components/work/ui/dialog";
 import { Field, FormError, Textarea } from "@/components/work/ui/form";
+import { workHref } from "@/lib/work/constants";
 import type { ActionResult } from "@/lib/work/types";
 
 type Mode = "approve" | "revision" | "change" | "change-approve" | "change-reject" | null;

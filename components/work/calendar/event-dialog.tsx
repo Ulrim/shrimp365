@@ -3,7 +3,7 @@
 import { Pencil, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { deleteEvent, saveEvent } from "@/app/(app)/calendar/actions";
+import { deleteEvent, saveEvent } from "@/app/(dashboard)/daumlabs/work/(app)/calendar/actions";
 import { Button } from "@/components/work/ui/button";
 import { Dialog, DialogContent } from "@/components/work/ui/dialog";
 import { Field, FormError, Input, Select, Textarea } from "@/components/work/ui/form";

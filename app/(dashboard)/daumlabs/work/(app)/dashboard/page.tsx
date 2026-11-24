@@ -156,7 +156,7 @@ export default async function DashboardPage() {
                 <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
                   <div>
                     <p className="text-xs text-muted-foreground">실적</p>
-                    <p className="text-4xl font-bold tracking-tight text-brand-fg">{formatPercent(actual)}</p>
+                    <p className="font-mono text-4xl font-bold tracking-tight text-brand-fg">{formatPercent(actual)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">계획</p>

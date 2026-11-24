@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { saveConsolidated } from "@/app/(app)/consolidated/actions";
+import { saveConsolidated } from "@/app/(dashboard)/daumlabs/work/(app)/consolidated/actions";
 import { Button } from "@/components/work/ui/button";
 import { Field, FormError, FormNotice, Input, Textarea } from "@/components/work/ui/form";
 

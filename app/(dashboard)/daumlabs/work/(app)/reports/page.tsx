@@ -1,8 +1,7 @@
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { StatusBadge } from "@/components/work/ui/badge";
-import { Button } from "@/components/work/ui/button";
 import { Card } from "@/components/work/ui/card";
 import { EmptyState, PageHeader } from "@/components/work/ui/misc";
 import { REPORT_STATUS, workHref } from "@/lib/work/constants";
@@ -60,16 +59,7 @@ export default async function ReportsPage({
 
   return (
     <>
-      <PageHeader
-        title="작업일보"
-        action={
-          <Button asChild>
-            <Link href={workHref("/reports/new")}>
-              <Plus /> 오늘 작업일보
-            </Link>
-          </Button>
-        }
-      />
+      <PageHeader title="작업일보" />
 
       <div className="mb-3 space-y-2">
         {isInternal && (

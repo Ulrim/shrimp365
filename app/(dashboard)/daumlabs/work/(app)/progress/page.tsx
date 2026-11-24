@@ -6,6 +6,7 @@ import { PROCESS_STATE, processState } from "@/components/work/progress/status";
 import { StatusBadge } from "@/components/work/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/work/ui/card";
 import { EmptyState, formatPercent, PageHeader, ProgressBar } from "@/components/work/ui/misc";
+import { workHref } from "@/lib/work/constants";
 import { formatDate, formatShortDate, today as kstToday } from "@/lib/work/dates";
 import { requireInternal } from "@/lib/work/session";
 import type { ProcessStatus } from "@/lib/work/types";
@@ -70,7 +71,7 @@ export default async function ProgressPage() {
         {kpis.map((kpi) => (
           <Card key={kpi.label} className="p-4">
             <p className="text-xs font-medium text-muted-foreground">{kpi.label}</p>
-            <p data-testid={kpi.testId} className={cn("mt-1 text-2xl font-bold tracking-tight", kpi.alert ? "dw-fg-red" : "text-foreground")}>
+            <p data-testid={kpi.testId} className={cn("mt-1 font-mono text-2xl font-bold tracking-tight", kpi.alert ? "dw-fg-red" : "text-foreground")}>
               {kpi.value}
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">{kpi.sub}</p>
