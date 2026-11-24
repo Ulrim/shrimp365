@@ -27,7 +27,7 @@ export default async function WorkAppLayout({ children }: { children: React.Reac
   };
 
   return (
-    <div className="mx-auto w-full max-w-6xl print:max-w-none">
+    <div className="dw-root mx-auto w-full max-w-6xl pb-14 lg:pb-0 print:max-w-none print:pb-0">
       <WorkNav
         items={navFor(session.role)}
         counts={counts}

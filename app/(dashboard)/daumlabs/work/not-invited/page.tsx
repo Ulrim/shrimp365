@@ -19,7 +19,7 @@ export default async function NotInvitedPage({ searchParams }: { searchParams: P
   const unverified = !user.email_confirmed_at;
 
   return (
-    <div className="mx-auto mt-10 w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center">
+    <div className="dw-root mx-auto mt-10 w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center">
       <h1 className="text-lg font-semibold text-foreground">
         {inactive ? "현장관리 사용이 중지된 계정입니다" : "현장관리는 초대받은 계정만 사용할 수 있습니다"}
       </h1>
