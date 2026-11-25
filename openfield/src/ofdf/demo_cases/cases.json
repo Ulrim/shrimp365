@@ -1,0 +1,134 @@
+{
+  "note": "ofdf demo 가 다시 흘려 넣는 과거 실제 관측 사례. scripts/build_demo_cases.py 가 만든다. AI 가 발생 전에 알린 사례를 먼저 골랐으므로 성능의 근거로 쓰지 않는다 — 전체 성능은 reports/성능평가서.md 의 수치로 말한다.",
+  "built": "2026-11-16",
+  "split_seed": 42,
+  "cases": [
+    {
+      "id": "heat_dry",
+      "title": "고온·건조 — 관수 권고와 차광 한정 전개",
+      "risk": "heat_dry",
+      "kind": "과거 관측 재생",
+      "station": "나주시 산포면",
+      "source": "농업기상관측(AAOS) 나주시 산포면 실제 관측 · 모델 학습에 쓰지 않은 시험 구간",
+      "summary": "2023년 10월 19일 07시~19일 17시. 기온이 23.3℃까지 오르고 습도가 52%까지 내려간 낮.",
+      "steps": 11,
+      "onset": "2023-10-19T11:00:00",
+      "file": "heat_dry.csv",
+      "simulate": {}
+    },
+    {
+      "id": "rain_wet",
+      "title": "강우·과습 — 관수 중단과 배수 확인",
+      "risk": "rain_wet",
+      "kind": "과거 관측 재생",
+      "station": "나주시 문평면",
+      "source": "농업기상관측(AAOS) 나주시 문평면 실제 관측 · 모델 학습에 쓰지 않은 시험 구간",
+      "summary": "2023년 9월 14일 23시~15일 08시. 이 구간에 비가 69.5mm 내렸다(시간 최대 18.0mm).",
+      "steps": 10,
+      "onset": "2023-09-15T05:00:00",
+      "file": "rain_wet.csv",
+      "simulate": {}
+    },
+    {
+      "id": "disease",
+      "title": "병해 유리환경 — 예찰 알림과 살수 금지",
+      "risk": "disease",
+      "kind": "과거 관측 재생",
+      "station": "나주시 공산면",
+      "source": "농업기상관측(AAOS) 나주시 공산면 실제 관측 · 모델 학습에 쓰지 않은 시험 구간",
+      "summary": "2025년 9월 5일 20시~6일 05시. 습도가 100%까지 오르고 기온 23.7~26.7℃가 이어진 다습한 시간대.",
+      "steps": 10,
+      "onset": "2025-09-06T02:00:00",
+      "file": "disease.csv",
+      "simulate": {}
+    },
+    {
+      "id": "frost",
+      "title": "저온·서리 — 야간 사전경보",
+      "risk": "frost",
+      "kind": "과거 관측 재생",
+      "station": "나주시 봉황면",
+      "source": "농업기상관측(AAOS) 나주시 봉황면 실제 관측 · 모델 학습에 쓰지 않은 시험 구간",
+      "summary": "2024년 11월 23일 11시~23일 21시. 기온이 10.6℃에서 1.9℃까지 내려간 밤.",
+      "steps": 11,
+      "onset": "2024-11-23T19:00:00",
+      "file": "frost.csv",
+      "simulate": {}
+    },
+    {
+      "id": "compound",
+      "title": "복합위험 — 비 온 뒤 다습·저온이 겹칠 때",
+      "risk": "compound",
+      "kind": "과거 관측 재생",
+      "station": "나주시 공산면",
+      "source": "농업기상관측(AAOS) 나주시 공산면 실제 관측 · 모델 학습에 쓰지 않은 시험 구간",
+      "summary": "2024년 11월 22일 14시~22일 23시. 비 127.8mm, 습도 최고 95%, 기온 1.3~13.0℃가 겹친 구간.",
+      "steps": 10,
+      "onset": "2024-11-22T20:00:00",
+      "file": "compound.csv",
+      "simulate": {}
+    },
+    {
+      "id": "wind_safety",
+      "title": "강풍 안전보호 — 차광 중 돌풍과 구동부 과전류",
+      "risk": "heat_dry",
+      "kind": "과거 관측 재생 + 안전 입력모사",
+      "station": "나주시 산포면",
+      "source": "농업기상관측(AAOS) 나주시 산포면 실제 관측 · 모델 학습에 쓰지 않은 시험 구간 · 순간풍속과 과전류는 입력모사(관측 기록에 없음)",
+      "summary": "고온 경계로 차광막을 편 뒤 순간풍속이 6→7.5→9.5→14.5m/s 로 오르고, 마지막에 구동부 과전류가 걸린 상황. 고온 조치보다 안전 규칙이 먼저인지 본다.",
+      "steps": 11,
+      "onset": "2023-10-19T11:00:00",
+      "file": "heat_dry.csv",
+      "simulate": {
+        "4": {
+          "gust_3s": 6.0
+        },
+        "5": {
+          "gust_3s": 7.5
+        },
+        "6": {
+          "gust_3s": 9.5
+        },
+        "7": {
+          "gust_3s": 14.5,
+          "overcurrent": true
+        }
+      }
+    },
+    {
+      "id": "comms_outage",
+      "title": "통신 두절 — 서버 없이 서리 밤을 넘길 때",
+      "risk": "frost",
+      "kind": "과거 관측 재생 + 안전 입력모사",
+      "station": "나주시 봉황면",
+      "source": "농업기상관측(AAOS) 나주시 봉황면 실제 관측 · 모델 학습에 쓰지 않은 시험 구간 · 통신 두절은 입력모사",
+      "summary": "서리가 오는 밤 중간에 서버 통신이 끊겼다가 끝에 복구되는 상황. 끊긴 동안에도 현장에서 판단·조치가 이어지는지 본다.",
+      "steps": 11,
+      "onset": "2024-11-23T19:00:00",
+      "file": "frost.csv",
+      "simulate": {
+        "2": {
+          "comms_down": true
+        },
+        "3": {
+          "comms_down": true
+        },
+        "4": {
+          "comms_down": true
+        },
+        "5": {
+          "comms_down": true
+        },
+        "6": {
+          "comms_down": true
+        },
+        "7": {
+          "comms_down": true
+        },
+        "8": {
+          "comms_down": true
+        }
+      }
+    }
+  ]
+}

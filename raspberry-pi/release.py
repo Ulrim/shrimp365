@@ -63,7 +63,7 @@ KEY_PATH = HERE / "secrets" / "release-key.pem"
 # prune-releases.py 와 같은 자리다. 이름에 하이픈이 있어 import 될 수 없으므로
 # ⑧ 의 대조("수집기·자체점검이 import 하는 모듈")에도 걸리지 않는다.
 PAYLOAD = [
-    "shrimp365_sensor.py", "display.py", "webui.py", "webui_amp.py", "wifi.py",
+    "shrimp365_sensor.py", "display.py", "webui.py", "wifi.py",
     "buffer.py", "history.py", "updater.py",
     "limits.py", "anomaly.py", "advice.py", "field_env.py", "wireless.py", "power_control.py", "power_remote.py",
     # 운전 모드 판단. 빠지면 모드가 양식장으로 굳어 MRV 전력 입력에 닿을 길이 없다.

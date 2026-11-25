@@ -865,12 +865,12 @@ try {
      */
     const surfaces = [
       ["components/mrv/kpi-card.tsx", "KPI 카드(개요 · 기준선 두 화면이 함께 쓴다)"],
-      ["app/mrv/multisite/page.tsx", "사이트 벤치마크 표(지표 방향 보정 · 최고/최저 배지)"],
-      ["app/mrv/comparison/page.tsx", "전후 비교표(개선율까지 적는다)"],
+      ["app/mrv/(app)/multisite/page.tsx", "사이트 벤치마크 표(지표 방향 보정 · 최고/최저 배지)"],
+      ["app/mrv/(app)/comparison/page.tsx", "전후 비교표(개선율까지 적는다)"],
       ["lib/mrv/report-html.ts", "인쇄 리포트"],
-      ["app/mrv/mrv-reports/[reportId]/page.tsx", "리포트 화면"],
-      ["app/mrv/settings/page.tsx", "KPI 파라미터 표"],
-      ["app/mrv/alerts/page.tsx", "알림 센터"],
+      ["app/mrv/(app)/mrv-reports/[reportId]/page.tsx", "리포트 화면"],
+      ["app/mrv/(app)/settings/page.tsx", "KPI 파라미터 표"],
+      ["app/mrv/(app)/alerts/page.tsx", "알림 센터"],
     ]
     /*
      * ★ 파일 안에 "metric-provenance" 라는 글자가 있는지로 보면 안 된다. 실제로 그렇게
@@ -886,7 +886,7 @@ try {
     }
     // 인쇄과 화면이 **같은 배열**을 돌리는가. 한쪽만 자기 문장을 지으면 화면으로 본 사람과
     // 인쇄물로 본 사람이 다른 사실을 알게 된다.
-    for (const rel of ["lib/mrv/report-html.ts", "app/mrv/mrv-reports/[reportId]/page.tsx"]) {
+    for (const rel of ["lib/mrv/report-html.ts", "app/mrv/(app)/mrv-reports/[reportId]/page.tsx"]) {
       const src = readFileSync(join(ROOT, rel), "utf8")
       for (const name of [
         "REPORT_PROVISIONAL_METRIC_HEADING",
@@ -1392,11 +1392,11 @@ try {
      */
     const surfaces = [
       ["components/mrv/kpi-card.tsx", ["metricUnavailabilityReasons", "UNAVAILABILITY_REASON_KIND_PREFIX"]],
-      ["app/mrv/overview/page.tsx", ["unavailability"]],
-      ["app/mrv/baseline/page.tsx", ["UNAVAILABILITY_LOOKUP_LOCKED_BASELINE", "unavailability"]],
-      ["app/mrv/comparison/page.tsx", ["UNAVAILABILITY_REASON_KIND_PREFIX", "comparisonImprovementUnavailabilityText"]],
-      ["app/mrv/multisite/page.tsx", ["UNAVAILABILITY_REASON_KIND_PREFIX", "unavailability"]],
-      ["app/mrv/mrv-reports/[reportId]/page.tsx", ["reportUnavailabilityEntries", "REPORT_UNAVAILABILITY_HEADING", "UNAVAILABILITY_REASON_KIND_PREFIX"]],
+      ["app/mrv/(app)/overview/page.tsx", ["unavailability"]],
+      ["app/mrv/(app)/baseline/page.tsx", ["UNAVAILABILITY_LOOKUP_LOCKED_BASELINE", "unavailability"]],
+      ["app/mrv/(app)/comparison/page.tsx", ["UNAVAILABILITY_REASON_KIND_PREFIX", "comparisonImprovementUnavailabilityText"]],
+      ["app/mrv/(app)/multisite/page.tsx", ["UNAVAILABILITY_REASON_KIND_PREFIX", "unavailability"]],
+      ["app/mrv/(app)/mrv-reports/[reportId]/page.tsx", ["reportUnavailabilityEntries", "REPORT_UNAVAILABILITY_HEADING", "UNAVAILABILITY_REASON_KIND_PREFIX"]],
       ["lib/mrv/report-html.ts", ["reportUnavailabilityEntries", "REPORT_UNAVAILABILITY_HEADING", "UNAVAILABILITY_REASON_KIND_PREFIX"]],
       ["lib/mrv/kpi-service.ts", ["metricUnavailabilityReasons", "unavailabilityEvidence"]],
       ["app/api/mrv/sites/[siteId]/comparison/route.ts", ["buildKpiUnavailability"]],
@@ -1418,7 +1418,7 @@ try {
       return "lib/mrv/mrv-report-service.ts 가 After 근거를 boundary_json 에 얼려 담지 않는다"
     }
     // 인쇄와 화면이 같은 **항목 선택 함수**를 호출하는지(이름만이 아니라 호출인지).
-    for (const rel of ["lib/mrv/report-html.ts", "app/mrv/mrv-reports/[reportId]/page.tsx"]) {
+    for (const rel of ["lib/mrv/report-html.ts", "app/mrv/(app)/mrv-reports/[reportId]/page.tsx"]) {
       const src = readFileSync(join(ROOT, rel), "utf8")
       if (!/reportUnavailabilityEntries\s*\(\s*\{/.test(src)) {
         return `${rel} 가 reportUnavailabilityEntries 를 호출하지 않는다`
@@ -1576,7 +1576,7 @@ try {
      *   검사가 **통과했다.** 화면에 글자로 나가는 것은 속성이 아니라 자식이므로,
      *   앞에 `>` 가 오는 꼴(`>{CONST}`)만 렌더로 인정한다.
      */
-    const rel = "app/mrv/mrv-reports/[reportId]/page.tsx"
+    const rel = "app/mrv/(app)/mrv-reports/[reportId]/page.tsx"
     const src = readFileSync(join(ROOT, rel), "utf8")
     const rendersAsChild = (name) =>
       new RegExp(`>\\s*\\{${name}\\}`).test(src)
@@ -1608,9 +1608,9 @@ try {
      */
     const screens = [
       "components/mrv/kpi-card.tsx",
-      "app/mrv/comparison/page.tsx",
-      "app/mrv/multisite/page.tsx",
-      "app/mrv/mrv-reports/[reportId]/page.tsx",
+      "app/mrv/(app)/comparison/page.tsx",
+      "app/mrv/(app)/multisite/page.tsx",
+      "app/mrv/(app)/mrv-reports/[reportId]/page.tsx",
     ]
     for (const rel of screens) {
       const src = readFileSync(join(ROOT, rel), "utf8")
@@ -1783,7 +1783,7 @@ try {
      * 있는지가 아니라 **컴포넌트가 실제로 트리에 박히는지**와 **그 안이 공용 문장을
      * 자식으로 보간하는지**를 본다.
      */
-    const rel = "app/mrv/mrv-reports/[reportId]/page.tsx"
+    const rel = "app/mrv/(app)/mrv-reports/[reportId]/page.tsx"
     const src = readFileSync(join(ROOT, rel), "utf8")
     if (!/<ProductionBasisField\s/.test(src)) {
       return `${rel} 가 생산량 산정 근거 칸을 트리에 넣지 않는다`

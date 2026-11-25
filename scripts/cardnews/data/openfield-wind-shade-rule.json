@@ -1,0 +1,101 @@
+{
+  "slug": "openfield-wind-shade-rule",
+  "locale": "ko",
+  "cards": [
+    {
+      "type": "cover",
+      "label": "노지 차광막 안전",
+      "title": [
+        "바람 7·9·14",
+        "이 숫자입니다"
+      ],
+      "subtitle": "순간풍속에 따라 조치가 바뀝니다"
+    },
+    {
+      "type": "point",
+      "index": "01",
+      "label": "전개 금지",
+      "value": "7 m/s",
+      "caption": "이 바람부터 차광막을 펴지 않습니다"
+    },
+    {
+      "type": "point",
+      "index": "02",
+      "label": "즉시 회수",
+      "value": "9 m/s",
+      "caption": "5분 안에 완전히 걷습니다"
+    },
+    {
+      "type": "point",
+      "index": "03",
+      "label": "구동 잠금",
+      "value": "14 m/s",
+      "caption": "현장 확인 뒤 손으로 풉니다"
+    },
+    {
+      "type": "point",
+      "index": "04",
+      "label": "기준 풍속",
+      "value": [
+        "평균이 아니라",
+        "순간풍속"
+      ],
+      "caption": "3초 순간최대풍속으로 판단합니다",
+      "valueStyle": "text"
+    },
+    {
+      "type": "point",
+      "index": "05",
+      "label": "차광 시간",
+      "value": "10–16시",
+      "caption": "하루 최대 2시간만 폅니다"
+    },
+    {
+      "type": "point",
+      "index": "06",
+      "label": "우선순위",
+      "value": [
+        "안전이",
+        "AI보다 먼저"
+      ],
+      "caption": "AI가 차광을 원해도 바람이 이깁니다",
+      "valueStyle": "text"
+    },
+    {
+      "type": "outro",
+      "title": [
+        "차광막",
+        "안전 규칙"
+      ],
+      "rows": [
+        [
+          "전개 금지",
+          "7 m/s 이상"
+        ],
+        [
+          "즉시 회수",
+          "9 m/s 이상"
+        ],
+        [
+          "구동 잠금",
+          "14 m/s 이상"
+        ],
+        [
+          "차광 시간대",
+          "10–16시"
+        ],
+        [
+          "하루 한도",
+          "최대 2시간"
+        ],
+        [
+          "비가 오면",
+          "차광 회수"
+        ]
+      ],
+      "ctaTitle": "규칙은 통신이 끊겨도 동작합니다",
+      "ctaNote": "노지 대파 AI · 나주에서 실증 중",
+      "ctaUrl": "shrimp365.kr"
+    }
+  ]
+}

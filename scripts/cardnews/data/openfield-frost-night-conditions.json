@@ -1,0 +1,101 @@
+{
+  "slug": "openfield-frost-night-conditions",
+  "locale": "ko",
+  "cards": [
+    {
+      "type": "cover",
+      "label": "노지 대파 서리",
+      "title": [
+        "서리는 기온만",
+        "보면 늦습니다"
+      ],
+      "subtitle": "밤의 세 가지 조건을 함께 봅니다"
+    },
+    {
+      "type": "point",
+      "index": "01",
+      "label": "최저기온",
+      "value": "4 ℃",
+      "caption": "밤 최저 4℃ 이하가 첫 조건"
+    },
+    {
+      "type": "point",
+      "index": "02",
+      "label": "바람",
+      "value": "2 m/s",
+      "caption": "바람이 2m/s 이하로 잦아들 때"
+    },
+    {
+      "type": "point",
+      "index": "03",
+      "label": "하늘",
+      "value": [
+        "맑은 밤이",
+        "더 위험합니다"
+      ],
+      "caption": "구름이 절반 이하면 열이 빠집니다",
+      "valueStyle": "text"
+    },
+    {
+      "type": "point",
+      "index": "04",
+      "label": "잎 높이",
+      "value": "2 ℃",
+      "caption": "잎 높이 온도 2℃ 이하면 주의"
+    },
+    {
+      "type": "point",
+      "index": "05",
+      "label": "경계",
+      "value": "0 ℃",
+      "caption": "잎 높이 0℃가 1시간 이어지면"
+    },
+    {
+      "type": "point",
+      "index": "06",
+      "label": "이때 조치",
+      "value": [
+        "밤 관수를",
+        "멈춥니다"
+      ],
+      "caption": "야간 피복과 서리 경보를 냅니다",
+      "valueStyle": "text"
+    },
+    {
+      "type": "outro",
+      "title": [
+        "서리 판단",
+        "이 숫자입니다"
+      ],
+      "rows": [
+        [
+          "최저기온",
+          "4 ℃ 이하"
+        ],
+        [
+          "바람",
+          "2 m/s 이하"
+        ],
+        [
+          "하늘",
+          "구름 절반 이하"
+        ],
+        [
+          "잎 높이 주의",
+          "2 ℃ 이하"
+        ],
+        [
+          "잎 높이 경계",
+          "0 ℃ 1시간"
+        ],
+        [
+          "예측",
+          "3시간 뒤까지"
+        ]
+      ],
+      "ctaTitle": "해 지기 전에 밤을 판단합니다",
+      "ctaNote": "노지 대파 AI · 나주에서 실증 중",
+      "ctaUrl": "shrimp365.kr"
+    }
+  ]
+}

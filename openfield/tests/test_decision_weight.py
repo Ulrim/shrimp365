@@ -103,3 +103,16 @@ def test_corrupt_weight_file_does_not_crash_the_controller(tmp_path):
     path.write_text("dummy", encoding="utf-8")
     path.with_suffix(".weights.json").write_text("{깨진", encoding="utf-8")
     assert load_decision_weight(path) is None
+
+
+def test_combine_binary_follows_dedicated_model_for_risk_presence():
+    """위험 여부는 전용학습, 등급은 3등급 모델 — 현장과 평가가 같은 규칙."""
+    from ofdf.models.weather_risk import combine_binary
+
+    binary = np.array([0, 0, 1, 1, 1])
+    levels = np.array([0, 2, 0, 1, 2])
+    out = combine_binary(binary, levels)
+    # 전용학습이 정상이면 3등급이 경계라도 정상
+    assert out.tolist() == [0, 0, 1, 1, 2]
+    # '주의 이상' 여부는 전용학습 판정과 정확히 같다
+    assert ((out >= 1) == (binary >= 1)).all()

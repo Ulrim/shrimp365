@@ -65,12 +65,6 @@ except ImportError as _exc:  # pragma: no cover
 else:
     _WEBUI_IMPORT_ERROR = ""
 
-# 에이엠피(AMP) 전용판 화면 — [brand] edition = amp 일 때만 쓴다. 없으면 기본 화면 그대로.
-try:
-    import webui_amp
-except ImportError:  # pragma: no cover
-    webui_amp = None
-
 try:
     import wifi as wifi_mod
 except ImportError:  # pragma: no cover
@@ -123,7 +117,7 @@ try:
 except ImportError:  # pragma: no cover
     power_remote_mod = None
 
-VERSION = "1.11.1"
+VERSION = "1.10.1"
 
 #: 무선 센서 수집기가 쓰는 폴더(setup-wireless.sh). 서비스의 StateDirectory 아래라 읽고 쓸 수 있다.
 FIELD_DATA_DIR = "/var/lib/shrimp365/field/data"
@@ -135,10 +129,6 @@ ANALYSIS_INTERVAL_S = 300
 # 추세를 볼 구간. 날짜별 극값으로 보는 항목이 최소 3일을 요구해 나흘을 읽는다.
 ANALYSIS_WINDOW_H = 96
 log = logging.getLogger("shrimp365")
-
-# 문자 LCD 첫 줄·로그 첫 줄에 쓰는 이름. main() 이 [brand] edition 을 읽어 바꾼다
-# (기본 Shrimp365, edition = amp 면 webui_amp.PRODUCT_NAME).
-LCD_BRAND = "Shrimp365"
 
 
 # ── MODBUS-RTU ────────────────────────────────────────────────────────────────
@@ -2006,7 +1996,7 @@ def run_pairing(
         if status != 200 or "code" not in data:
             reason = data.get("error") or ("인터넷 연결을 확인하세요" if not status else f"서버 오류 {status}")
             log.error("코드를 받지 못했습니다: %s", reason)
-            _show(screen, [LCD_BRAND.center(columns), "NO NETWORK"[:columns]], rows)
+            _show(screen, ["Shrimp365".center(columns), "NO NETWORK"[:columns]], rows)
             if state is not None:
                 state.update(pair_error=reason, pair_code=None)
             # 화면에 사유를 띄우고 사용자가 다시 시도하게 한다.
@@ -2969,7 +2959,7 @@ def _render(screen, values: dict[str, float], columns: int, rows: int, status: s
     if display_mod is None:
         return
     try:
-        screen.show(display_mod.compose(values, columns, rows, page, status, brand=LCD_BRAND))
+        screen.show(display_mod.compose(values, columns, rows, page, status))
     except OSError as exc:
         log.warning("화면 출력 실패: %s", exc)
 
@@ -3000,16 +2990,6 @@ def main() -> int:
     )
 
     cfg = load_config(args.config)
-    # 에디션 — [brand] edition = shrimp365(기본) | amp. 화면·LCD·로그 첫 줄의 이름과
-    # 장비 화면(webui / webui_amp)만 바뀐다. 측정·전송·업데이트는 에디션을 모른다.
-    global LCD_BRAND
-    if webui_amp is not None:
-        brand = webui_amp.read_brand(cfg)
-    else:
-        brand = {"edition": "shrimp365", "name": "Shrimp365"}
-        if cfg.get("brand", "edition", fallback="", raw=True).strip().lower() == "amp":
-            log.error("[brand] edition = amp 이지만 webui_amp.py 가 없습니다 — 기본 화면으로 띄웁니다.")
-    LCD_BRAND = brand["name"]
     endpoint = cfg.get("server", "endpoint")
     device_key = cfg.get("server", "device_key")
     interval = cfg.getint("server", "interval_seconds", fallback=60)
@@ -3268,10 +3248,10 @@ def main() -> int:
         )
 
     serial_no = board_serial()
-    log.info("%s 센서 수집기 %s 시작 — 보드 %s, 센서 %s", LCD_BRAND, VERSION, serial_no, list(enabled))
+    log.info("Shrimp365 센서 수집기 %s 시작 — 보드 %s, 센서 %s", VERSION, serial_no, list(enabled))
 
     if screen is not None:
-        screen.show([LCD_BRAND.center(lcd_columns), "starting..."[:lcd_columns]])
+        screen.show(["Shrimp365".center(lcd_columns), "starting..."[:lcd_columns]])
 
     stop = False
 
@@ -3284,9 +3264,6 @@ def main() -> int:
     # 화면 언어(ko/en/vi/id). 화면에서 고르면 config 에도 남긴다.
     lang_holder = {"lang": cfg.get("webui", "language", fallback="ko")}
     # 운전 모드(mode_holder)는 위 설정 읽기에서 이미 정했다 — 화면에서 바꾸면 ui_set_mode 가 고친다.
-    # AMP판은 양식장 전용 — 모드 메뉴가 없으므로 설정 파일에 무엇이 있든 양식장 판정으로 돈다.
-    if brand["edition"] == "amp":
-        mode_holder["mode"] = "shrimp"
     # 환경·기상 센서(지그비 온습도·토양수분, 기상센서 WS90). 노지 수집기가 쌓는 CSV 를
     # 이어 읽어 화면에 띄우고, upload 가 켜져 있으면 수질 값과 같은 줄로 서버에 올린다.
     #
@@ -4291,12 +4268,7 @@ def main() -> int:
             return {"ok": True, "saved": saved, "mode": mode,
                     "ec_mode": ec_holder["mode"], "ec_unit": ec_holder["unit"]}
 
-        # 에디션에 따라 화면만 고른다. 두 serve 는 같은 시그니처·같은 엔드포인트다
-        # (webui_amp 는 webui.serve 에 페이지만 갈아 끼우고, 안 쓰는 콜백은 넘기지 않는다).
-        ui_mod, ui_extra = webui, {}
-        if brand["edition"] == "amp" and webui_amp is not None:
-            ui_mod, ui_extra = webui_amp, {"brand": brand}
-        ui_mod.serve(
+        webui.serve(
             state,
             cfg.getint("webui", "port", fallback=8080),
             on_pair_start=start_pairing,
@@ -4335,7 +4307,6 @@ def main() -> int:
             on_power_control=ui_power_control,
             get_wireless=ui_wireless,
             on_wireless=ui_wireless_action,
-            **ui_extra,
         )
         state.update(serial=serial_no, linked=bool(auth["key"]), status="센서 확인 중",
                      status_code="checking",

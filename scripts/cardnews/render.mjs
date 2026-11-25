@@ -47,7 +47,8 @@ async function findChromium() {
     .filter((e) => e.startsWith("chromium-"))
     .sort()
     .reverse()
-    .map((e) => path.join(base, e, "chrome-linux", "chrome"))
+    // 빌드에 따라 디렉터리 이름이 다르다(예전 chrome-linux, 요즘 chrome-linux64).
+    .flatMap((e) => ["chrome-linux64", "chrome-linux"].map((d) => path.join(base, e, d, "chrome")))
   return candidates.find((p) => existsSync(p))
 }
 

@@ -42,6 +42,12 @@ from ofdf import upload as upload_mod
 LOG = logging.getLogger("ofdf.edge")
 
 BASE_RISKS = ["heat_dry", "rain_wet", "disease", "frost"]
+#: 2등급 유형 전용학습 모델을 모델 묶음에 실을 때 쓰는 열쇠 꼬리
+BINARY_SUFFIX = "__binary"
+#: 복합위험 점수용 위험 확률 앙상블(3등급 유형)을 실을 때 쓰는 열쇠 꼬리
+RISKCV_SUFFIX = "__riskcv"
+#: 복합위험 점수 경계를 모델 묶음에 실을 때 쓰는 열쇠
+COMPOUND_THRESHOLD_KEY = "compound__threshold"
 LEVEL_NAMES = {0: "정상", 1: "주의", 2: "경계"}
 
 #: 추론 주기(초). 사업계획서의 'AI 선행판단 L2 5분 주기'.
@@ -131,6 +137,24 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                        help="구동부가 달린 장치를 쉼표로. 생략하면 설정파일, "
                             "그것도 없으면 전부 달린 것으로 본다")
         s.add_argument("--verbose", action="store_true")
+
+    # 시연 — 과거 실제 관측 사례를 다시 흘려 넣어 상황별 판단·조치를 보여 준다.
+    # 현장 기록(판단 이력·업로드·data.json)에는 아무것도 쓰지 않는다(ofdf.demo).
+    dm = sub.add_parser("demo", help="상황별 시연 — 특정 상황에서 무엇을 판단하고 어떤 조치를 내는지")
+    dm.add_argument("--list", action="store_true", help="시연 사례 목록만 보인다")
+    dm.add_argument("--case", default="all",
+                    help="보여 줄 사례 id (쉼표로 여럿, 기본 all). 목록은 --list")
+    dm.add_argument("--config", default=None, help="설정 YAML (모델 위치·설치 장치를 읽는다)")
+    dm.add_argument("--models", default=None,
+                    help=f"모델 디렉터리 (기본 {DEFAULTS['model_dir']}, YAML edge.model_dir)")
+    dm.add_argument("--installed-devices", default=None,
+                    help="구동부가 달린 장치를 쉼표로. 생략하면 설정파일, "
+                         "그것도 없으면 전부 달린 것으로 본다")
+    dm.add_argument("--export", default="dashboard/demo.json",
+                    help="시연 화면(dashboard/demo.html)이 읽을 파일. 빈 문자열이면 쓰지 않는다")
+    dm.add_argument("--pause", type=float, default=0.0,
+                    help="시점 사이에 쉬는 시간(초). 사람 앞에서 한 줄씩 보여 줄 때 쓴다")
+    dm.add_argument("--verbose", action="store_true")
 
     # 모델 없이도 돌아야 한다. 센서를 달고 처음 확인하는 명령이기 때문이다.
     chk = sub.add_parser("sensors", help="수집 범위 점검 — 어느 변수가 어느 경로로 들어오는지")
@@ -226,9 +250,30 @@ def load_models(model_dir: Path, horizons: tuple[int, ...] = HORIZONS) -> dict:
                     lgb.Booster(model_file=str(path)),
                     weather_risk.load_decision_weight(path),
                 )
+                # 2등급 유형의 전용학습 모델(교차검증 접힘 앙상블) — 있으면 위험
+                # 여부를 이것으로 판정한다(weather_risk.combine_binary). 성능평가서의
+                # 목표 판정이 이 앙상블로 잰 값이므로 현장도 같은 모델을 써야 한다.
+                stem = f"model_{risk}_h{horizon}_binary"
+                members = weather_risk.ensemble_paths(model_dir, stem)
+                if members:
+                    bucket[f"{risk}{BINARY_SUFFIX}"] = (
+                        [lgb.Booster(model_file=str(m)) for m in members],
+                        None,
+                        weather_risk.load_risk_threshold(model_dir / f"{stem}.txt"),
+                    )
+                # 복합위험 점수용 위험 확률 앙상블(병해)
+                members = weather_risk.ensemble_paths(model_dir, f"model_{risk}_h{horizon}_risk")
+                if members:
+                    bucket[f"{risk}{RISKCV_SUFFIX}"] = [
+                        lgb.Booster(model_file=str(m)) for m in members
+                    ]
             else:
                 LOG.warning("모델 없음: %s", path)
         if bucket:
+            # 복합위험 점수 경계 — 학습 때 교차검증에서 고른 값(train_weather)
+            threshold = weather_risk.load_compound_threshold(model_dir, horizon)
+            if threshold is not None:
+                bucket[COMPOUND_THRESHOLD_KEY] = threshold
             models[horizon] = bucket
     return models
 
@@ -373,21 +418,52 @@ def earliest_onset(
     return None
 
 
+def _mean_risk(boosters, row: pd.DataFrame) -> float:
+    """접힘 모델들의 P(주의 이상) 평균(weather_risk.ensemble_risk_probability 와 같은 값)."""
+    if not isinstance(boosters, (list, tuple)):
+        boosters = [boosters]
+    return float(np.mean([
+        weather_risk.risk_probability(b.predict(row.reindex(columns=b.feature_name())))[0]
+        for b in boosters
+    ]))
+
+
 def judge(models: dict, features: pd.DataFrame) -> tuple[dict, dict, dict]:
     """위험등급·신뢰도·판단근거를 낸다."""
     row = features.iloc[[-1]]
     levels, confidences, evidence = {}, {}, {}
+    risk_proba: dict[str, float] = {}
 
     for risk, entry in models.items():
+        if risk.endswith((BINARY_SUFFIX, RISKCV_SUFFIX)) or risk == COMPOUND_THRESHOLD_KEY:
+            continue
         model, weight = entry if isinstance(entry, tuple) else (entry, None)
         columns = model.feature_name()
         proba = model.predict(row.reindex(columns=columns))[0]
         level = int(weather_risk.decide_levels(proba.reshape(1, -1), weight)[0])
+        risk_proba[risk] = float(weather_risk.risk_probability(proba.reshape(1, -1))[0])
+        binary_entry = models.get(f"{risk}{BINARY_SUFFIX}")
+        if binary_entry is not None:
+            b_models, _, b_threshold = (tuple(binary_entry) + (None,))[:3]
+            p_risk = _mean_risk(b_models, row)
+            if b_threshold is None:
+                b_threshold = 0.5
+            level = int(weather_risk.combine_binary([int(p_risk >= b_threshold)], [level])[0])
+            risk_proba[risk] = p_risk
+        elif f"{risk}{RISKCV_SUFFIX}" in models:
+            risk_proba[risk] = _mean_risk(models[f"{risk}{RISKCV_SUFFIX}"], row)
         levels[risk] = level
         # 신뢰도는 가중치를 적용하지 않은 원래 확률로 적는다 — 농가와
         # 운영자가 보는 값은 모델이 그 등급을 얼마나 확신하는가이지,
         # 판정 규칙이 얼마나 보수적인가가 아니다.
-        confidences[risk] = float(proba[level])
+        if binary_entry is not None:
+            # 위험 여부를 정한 모델은 전용학습 모델이다. 신뢰도도 그 모델의
+            # 확률로 적어야 판정과 신뢰도가 같은 모델에서 나온다. 2등급 유형은
+            # 주의와 경계가 같은 조치이므로 '위험일 확률'이 곧 조치의 확신이다.
+            p_risk = risk_proba[risk]
+            confidences[risk] = p_risk if level > 0 else 1.0 - p_risk
+        else:
+            confidences[risk] = float(proba[level])
 
         if level > 0:
             contrib = model.predict(row.reindex(columns=columns), pred_contrib=True)[0]
@@ -403,9 +479,34 @@ def judge(models: dict, features: pd.DataFrame) -> tuple[dict, dict, dict]:
                 for i in order
             ]
 
-    levels["compound"] = int(compose_compound(
-        [levels.get("rain_wet", 0)], [levels.get("disease", 0)], [levels.get("frost", 0)]
-    )[0])
+    threshold = models.get(COMPOUND_THRESHOLD_KEY)
+    if threshold is not None and not (
+        all(f"{r}{BINARY_SUFFIX}" in models for r in ("rain_wet", "frost"))
+        and f"disease{RISKCV_SUFFIX}" in models
+    ):
+        # 경계는 전용학습 확률로 고른 값이다. 전용학습 모델이 빠진 부분 배포에서
+        # 3등급 확률과 비교하면 시험한 규칙이 아니므로 등급 조합으로 물러난다.
+        LOG.warning("복합위험 경계가 있으나 전용학습 모델이 없어 등급 조합으로 판정한다")
+        threshold = None
+    if threshold is not None and {"rain_wet", "disease", "frost"} <= risk_proba.keys():
+        # 학습 평가(train_weather)와 같은 규칙 — 구성 위험 확률로 점수를 내고
+        # 교차검증에서 고른 경계와 비교한다.
+        score = weather_risk.compound_score(
+            [risk_proba["rain_wet"]], [risk_proba["disease"]], [risk_proba["frost"]]
+        )
+        levels["compound"] = int(weather_risk.compound_level(
+            score, threshold,
+            [levels.get("rain_wet", 0)], [levels.get("disease", 0)], [levels.get("frost", 0)],
+        )[0])
+        # 점수는 신뢰도(자동 실행 0.70 기준)에 넣지 않는다 — 뜻이 다르다.
+        # 판단근거로만 남긴다.
+        evidence["compound"] = [
+            {"feature": "compound_score", "value": float(score[0]), "contribution": float(threshold)}
+        ]
+    else:
+        levels["compound"] = int(compose_compound(
+            [levels.get("rain_wet", 0)], [levels.get("disease", 0)], [levels.get("frost", 0)]
+        )[0])
     return levels, confidences, evidence
 
 
@@ -479,6 +580,43 @@ def upload_judgements(
         return f"업로드 오류 · {exc.__class__.__name__}"
 
 
+def assess(
+    models: dict, observations: pd.DataFrame, features: pd.DataFrame,
+    now: pd.Timestamp, installed_devices: frozenset[str] | None = None,
+    adjust_sensors=None,
+):
+    """관측창 하나를 판단하고 조치를 정한다.
+
+    돌려주는 값은 ``(시계별 판단, 대표 등급, 신뢰도, 판단근거, 조치결정)``.
+    상주 실행(:func:`run_once`)과 시연(:mod:`ofdf.demo`)이 **같은 함수**를 쓴다 —
+    시연이 따로 판단 로직을 가지면 보여주는 것과 실제 동작이 어긋난다.
+
+    ``adjust_sensors`` 는 시연 전용이다. 현장 즉응규칙(L0·L1)이 보는 실측값을
+    바꿔 넣어 강풍·통신두절 같은 상황을 모사한다. 상주 실행은 넘기지 않는다.
+    """
+    by_horizon = judge_all(models, features)
+    # 조치는 대표 시계(가장 먼 것)로 정한다. 더 멀리 보는 쪽이 선행시간을
+    # 확보하고, 짧은 시계는 예상시점을 좁히는 데 쓴다.
+    levels, confidences, evidence = by_horizon[max(by_horizon)]
+    reasons = compound_reasons(
+        levels.get("rain_wet", 0), levels.get("disease", 0), levels.get("frost", 0)
+    )
+    if levels.get("compound", 0) > 0 and not reasons:
+        # 점수 판정은 구성 위험이 각각 주의 경계를 넘기 전에도 복합을 부를 수
+        # 있다. 그때도 근거 없이 알리지 않도록 확률 조합을 근거로 적는다.
+        reasons = [
+            f"강우·과습과 병해 유리환경·저온·서리 위험이 함께 높아지는 중"
+            f" (복합 점수 {evidence.get('compound', [{}])[0].get('value', 0):.2f})"
+        ]
+    sensors = sensors_from(observations, now)
+    if adjust_sensors is not None:
+        sensors = adjust_sensors(sensors)
+    decision = decide(levels, sensors, confidence=confidences, compound_reasons=reasons,
+                      installed_devices=installed_devices)
+
+    return by_horizon, levels, confidences, evidence, decision
+
+
 def run_once(
     config: EdgeConfig, models: dict, journal: Journal,
     forecast_gate: "ForecastGateway | None" = None,
@@ -506,16 +644,9 @@ def run_once(
         if forecast_gate.last_error:
             LOG.warning("예보 실패: %s (%s)", forecast_gate.last_error, forecast_status)
 
-    by_horizon = judge_all(models, features)
-    # 조치는 대표 시계(가장 먼 것)로 정한다. 더 멀리 보는 쪽이 선행시간을
-    # 확보하고, 짧은 시계는 예상시점을 좁히는 데 쓴다.
-    levels, confidences, evidence = by_horizon[max(by_horizon)]
-    reasons = compound_reasons(
-        levels.get("rain_wet", 0), levels.get("disease", 0), levels.get("frost", 0)
+    by_horizon, levels, confidences, evidence, decision = assess(
+        models, observations, features, now, config.installed_devices,
     )
-    sensors = sensors_from(observations, now)
-    decision = decide(levels, sensors, confidence=confidences, compound_reasons=reasons,
-                      installed_devices=config.installed_devices)
 
     judgements = [
         RiskJudgement(
@@ -671,6 +802,56 @@ def run_sensors(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_demo(args: argparse.Namespace) -> int:
+    """상황별 시연을 돌린다. 현장 기록에는 아무것도 쓰지 않는다."""
+    from ofdf import demo
+
+    cases = demo.load_cases()
+    if args.list:
+        for case in cases:
+            print(f"{case.id:14s} {case.title}  [{case.kind}]")
+        return 0
+
+    if args.case != "all":
+        try:
+            cases = [demo.find_case(cases, name.strip())
+                     for name in args.case.split(",") if name.strip()]
+        except KeyError as exc:
+            LOG.error("%s", exc.args[0])
+            return 2
+
+    # 모델 위치와 설치 장치는 상주 실행과 같은 순서(명령행 → 설정 YAML → 기본값)로
+    # 정한다. 현장 설정을 그대로 물려야 '이 현장이면 이렇게 한다'가 된다.
+    for name in ("field", "journal", "dashboard", "zone", "period", "station", "devices"):
+        setattr(args, name, None)
+    config = load_config(args)
+    models = load_models(config.model_dir)
+    if not models:
+        LOG.error("모델이 하나도 없다: %s", config.model_dir)
+        return 1
+
+    payloads = []
+    for number, case in enumerate(cases, start=1):
+        steps = demo.replay(case, models, config.installed_devices)
+        text = demo.render_text(case, steps, number, len(cases))
+        if args.pause > 0:
+            # 시점(■) 단위로 끊어 찍는다
+            for block in text.split("\n\n"):
+                print(block + "\n", flush=True)
+                time.sleep(args.pause)
+        else:
+            print(text, flush=True)
+        payloads.append(demo.case_payload(case, steps))
+
+    print()
+    print("※ 위는 과거 실제 관측을 다시 흘려 넣은 시연이다. 현장 판단 이력·서버·현장 화면에는 "
+          "기록하지 않았고 장치도 움직이지 않았다.")
+    if args.export:
+        demo.write_export(Path(args.export), payloads, config.model_dir)
+        print(f"※ 시연 화면 자료: {args.export}  (dashboard/demo.html 에서 본다)")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     logging.basicConfig(
@@ -679,6 +860,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     if args.command == "sensors":
         return run_sensors(args)
+    if args.command == "demo":
+        return run_demo(args)
 
     config = load_config(args)
 
@@ -696,7 +879,10 @@ def main(argv: list[str] | None = None) -> int:
     # models 는 {시계: {위험유형: 모델}} 이라 len() 은 시계 수다. 모델 수를
     # 묻는 자리이므로 실제 개수를 센다.
     LOG.info("ofdf %s · 모델 %d개(시계 %s) · 구간 '%s' · 주기 %d초",
-             __version__, sum(len(b) for b in models.values()),
+             __version__, sum(
+                 sum(len(v[0]) if k.endswith(BINARY_SUFFIX) else len(v) if k.endswith(RISKCV_SUFFIX) else 1
+                     for k, v in b.items() if k != COMPOUND_THRESHOLD_KEY)
+                 for b in models.values()),
              "·".join(f"{h}h" for h in sorted(models)),
              config.zone, config.period)
 
