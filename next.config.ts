@@ -77,6 +77,10 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: "/control", destination: "/admin/control", permanent: true },
+      // 스마트팜 화면 주소를 /daumlabs → /farm365 로 바꿨다. 즐겨찾기·홈 화면 바로가기·
+      // 안내된 옛 주소가 깨지지 않게 영구(308) 이동한다.
+      { source: "/daumlabs", destination: "/farm365", permanent: true },
+      { source: "/daumlabs/:path*", destination: "/farm365/:path*", permanent: true },
     ]
   },
   async headers() {

@@ -1,13 +1,13 @@
 // 농업(수경재배) 화면 판정 — **URL이 화면을 결정한다**(설계서 3장).
 //
-//   /daumlabs/**  →  농업 화면
+//   /farm365/**  →  농업 화면
 //   그 밖의 대시보드 URL  →  기존 새우 양식 화면
 //
 // 컨텍스트도 프로바이더도 DB 조회도 없다. 순수 함수 + pathname 훅 하나뿐이라
 // 비동기가 없고, 따라서 첫 페인트가 항상 옳다.
 //
 // 3단계(새우 정리) 이후 공유 뷰가 없어져 `agriHref`·`useAgriRoute`·
-// `belongsToAgriScreen`·`AGRI_HIDDEN_NAV` 는 지웠다. 농업 뷰는 `/daumlabs/...`
+// `belongsToAgriScreen`·`AGRI_HIDDEN_NAV` 는 지웠다. 농업 뷰는 `/farm365/...`
 // 리터럴을 쓰고, 새우 뷰는 `farm_type !== "agriculture"` 필터를 각자 가진다.
 
 "use client"
@@ -16,10 +16,10 @@ import { useCallback } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 
-/** 농업 화면 URL 접두사. 법인명 다움랩스의 로마자 표기. */
-export const AGRI_PREFIX = "/daumlabs"
+/** 농업 화면 URL 접두사. 제품 이름 Farm365. (옛 주소 /daumlabs 는 next.config.ts 가 308 로 넘긴다.) */
+export const AGRI_PREFIX = "/farm365"
 
-/** `/daumlabs` 아래에 실제로 존재하는 경로(설계서 4-2).
+/** `/farm365` 아래에 실제로 존재하는 경로(설계서 4-2).
  *  여기 없는 주소엔 접두사를 붙이지 않는다 — 붙이면 404가 되기 때문이다. */
 export const AGRI_ROUTES = [
   "/home",
@@ -47,7 +47,7 @@ export function isAgriPath(pathname: string): boolean {
 }
 
 /** 접두사를 떼어 새우 쪽 기준 경로로 되돌린다(헤더 제목표 같은 경로 키 맵 조회용).
- *  `/daumlabs/water-quality` → `/water-quality`, `/daumlabs` → `/home`.
+ *  `/farm365/water-quality` → `/water-quality`, `/farm365` → `/home`.
  *  농업 경로가 아니면 그대로 돌려준다. */
 export function stripAgriPrefix(pathname: string): string {
   if (!isAgriPath(pathname)) return pathname
@@ -58,7 +58,7 @@ export function stripAgriPrefix(pathname: string): string {
 // ── 모드 두 축 — 계정 모드(ui_mode)와 화면 URL (설계서 mode-split.md 2장) ──────
 //
 //   profiles.ui_mode = 이 계정의 기본 모드 (전환 스위치가 저장, /home 착지 결정)
-//   URL(/daumlabs/**) = 지금 보고 있는 화면 (렌더링 판정은 계속 URL)
+//   URL(/farm365/**) = 지금 보고 있는 화면 (렌더링 판정은 계속 URL)
 
 export type UiMode = "shrimp" | "agriculture"
 
@@ -73,7 +73,7 @@ export function modeOfPath(pathname: string): UiMode {
 }
 
 /** 지금 화면의 상대 모드 주소.
- *  - `/dashboard` ↔ `/daumlabs/dashboard` — AGRI_ROUTES 에 있으면 1:1 로 맞물린다.
+ *  - `/dashboard` ↔ `/farm365/dashboard` — AGRI_ROUTES 에 있으면 1:1 로 맞물린다.
  *  - 상대편에 없는 화면(`/production`, `/vision` …)이면 그쪽 홈으로 간다.
  *  - 이미 같은 모드면 그대로 돌려준다(쿼리스트링은 떼지 않는다). */
 export function counterpartHref(pathname: string, to: UiMode): string {

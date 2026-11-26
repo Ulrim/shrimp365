@@ -28,7 +28,7 @@ export function Header() {
   const { t, locale } = useT()
   const agri = useAgriT()
 
-  // 농업 화면(/daumlabs/*)의 제목표 — 접두사를 뗀 경로 → 농업 사전(4개 언어).
+  // 농업 화면(/farm365/*)의 제목표 — 접두사를 뗀 경로 → 농업 사전(4개 언어).
   const agriPageLabels: Record<string, string> = {
     "/home":                    agri.nav.home,
     "/record":                  agri.nav.record,
@@ -64,11 +64,11 @@ export function Header() {
     locale === "vi" ? "vi-VN" :
     locale === "id" ? "id-ID" : "en-US"
 
-  // 언어 접두사를 뗀 뒤 찾는다. /daumlabs/* 는 접두사를 떼고 농업 제목표에서,
+  // 언어 접두사를 뗀 뒤 찾는다. /farm365/* 는 접두사를 떼고 농업 제목표에서,
   // 그 밖은 기존 제목표에서 — /en/cardnews 에서도 제목이 나와야 한다.
   // 제목표에 없는 주소의 기본 제목은 모드별 제품 이름(Shrimp365 / Farm365).
   const path = stripLocalePrefix(pathname).path
-  // 현장관리(/daumlabs/work/**)는 하위 화면이 많아 접두사로 찾는다 — 화면별 제목은 본문이 그린다.
+  // 현장관리(/farm365/work/**)는 하위 화면이 많아 접두사로 찾는다 — 화면별 제목은 본문이 그린다.
   const agriKey = stripAgriPrefix(path)
   const agriTitle = agriKey === "/work" || agriKey.startsWith("/work/") ? agri.nav.work : agriPageLabels[agriKey]
   const title = (isAgriPath(path) ? agriTitle : pageLabels[path]) || BRAND_NAME[modeOfPath(path)]

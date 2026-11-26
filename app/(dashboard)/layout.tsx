@@ -12,7 +12,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user, loading } = useAuth()
   const router = useRouter()
   // 농업 화면인지는 주소로 결정한다(설계서 3장). 네비게이션마다 다시 렌더되므로
-  // /home ↔ /daumlabs/home 전환에 즉시 반응하고, 비동기가 없어 깜빡임이 없다.
+  // /home ↔ /farm365/home 전환에 즉시 반응하고, 비동기가 없어 깜빡임이 없다.
   const pathname = usePathname()
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // print:overflow-visible 로 덮으면 lg:* 와 순서에 의존하게 되기 때문이다.
   //
   // data-mode 는 셸 강조색 토큰(--brand)을 고른다(설계서 mode-split.md 4장).
-  // 농업 화면(/daumlabs/**)이면 녹색, 아니면 기존 파랑 그대로다. 설정·알림·검색
+  // 농업 화면(/farm365/**)이면 녹색, 아니면 기존 파랑 그대로다. 설정·알림·검색
   // 패널은 이 div 아래에 렌더되므로 함께 물든다. 농업 뷰는 자기 사전(useAgriT)을
   // 읽으므로 사전 오버라이드 래퍼는 없다(설계서 7장).
   return (

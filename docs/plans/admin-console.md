@@ -61,7 +61,7 @@
 - 데스크톱(lg↑): 왼쪽 사이드바 w-56. 모바일: 상단바 + 가로 스크롤 탭(메뉴 항목 그대로).
 - 색: 새 색 금지. 농가 brand 토큰(파랑/녹색)을 쓰지 않고 **중립(slate·foreground)** + 활성 항목 `bg-foreground text-background`. 농가 화면과 한눈에 구별되게.
 - 머리: `ShieldCheck` + "Shrimp365" + 작은 "ADMIN". 우측에 이메일·역할 배지(총관리자/관리자/매니저).
-- "서비스로 돌아가기": `user.ui_mode === "agriculture"` 면 `/daumlabs/home`, 아니면 `/home`.
+- "서비스로 돌아가기": `user.ui_mode === "agriculture"` 면 `/farm365/home`, 아니면 `/home`.
 - 인증 가드: 지금 `(dashboard)/layout.tsx` 와 같은 방식(로딩 스피너 → 비로그인 `/login`). 권한 가드는 3장.
 - 인쇄: 지금처럼 크롬은 `print:hidden`.
 

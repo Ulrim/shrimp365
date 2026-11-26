@@ -70,15 +70,15 @@ export const PHOTO_BUCKET = "dw-report-photos";
 export const PROJECT_COOKIE = "dw_project";
 
 /** 현장관리 화면의 URL 접두사. 화면 안의 링크·redirect·revalidatePath 는 모두 이 아래다. */
-export const WORK_BASE = "/daumlabs/work";
+export const WORK_BASE = "/farm365/work";
 
 /**
  * revalidatePath(…, "layout") 전용 경로. 형식을 지정해 무효화할 때는 URL 이 아니라
  * 라우트 파일 구조(라우트 그룹 포함)를 넘겨야 한다.
  */
-export const WORK_LAYOUT_PATH = "/(dashboard)/daumlabs/work";
+export const WORK_LAYOUT_PATH = "/(dashboard)/farm365/work";
 
-/** 원본의 앱 내부 경로("/reports/new")를 현장관리 URL("/daumlabs/work/reports/new")로 바꾼다. */
+/** 원본의 앱 내부 경로("/reports/new")를 현장관리 URL("/farm365/work/reports/new")로 바꾼다. */
 export function workHref(path: string = ""): string {
   if (!path || path === "/") return WORK_BASE;
   if (path === WORK_BASE || path.startsWith(`${WORK_BASE}/`)) return path;

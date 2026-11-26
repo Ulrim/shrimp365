@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   deleteReport, requestReportChange, reviewChangeRequest, reviewReport, submitReport,
-} from "@/app/(dashboard)/daumlabs/work/(app)/reports/actions";
+} from "@/app/(dashboard)/farm365/work/(app)/reports/actions";
 import { Button } from "@/components/work/ui/button";
 import { Dialog, DialogContent } from "@/components/work/ui/dialog";
 import { Field, FormError, Textarea } from "@/components/work/ui/form";

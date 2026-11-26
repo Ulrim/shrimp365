@@ -2,7 +2,7 @@
 -- 농업(수경재배) 데모 데이터 시드
 --
 -- 무엇을 하는가
---   배포된 /daumlabs 농업 화면을 "데이터가 채워진 상태"로 보여 주기 위한
+--   배포된 /farm365 농업 화면을 "데이터가 채워진 상태"로 보여 주기 위한
 --   더미 데이터를 한 계정에 넣는다. 넣는 것은 다음 다섯 가지뿐이다.
 --
 --     · 농장 1개   farms                    (farm_type = 'agriculture')
@@ -339,7 +339,7 @@ BEGIN
 
   RAISE NOTICE '농업 데모 데이터 완료 — 계정 %, 농장 "%"(id %), 베드 2, 기기 2, 측정 %행, 알림 2건',
     v_email, v_farm_name, v_farm, v_rows;
-  RAISE NOTICE '확인: 로그인 후 /daumlabs 로 들어가면 됩니다.';
+  RAISE NOTICE '확인: 로그인 후 /farm365 로 들어가면 됩니다.';
 END
 $seed$;
 

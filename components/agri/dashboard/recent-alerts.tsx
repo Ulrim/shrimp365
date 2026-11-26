@@ -35,7 +35,7 @@ export function RecentAlerts({ alerts, onResolve, resolvingId, error }: RecentAl
             {dd.recentAlerts}
           </CardTitle>
           {alerts.length > MAX_ROWS && (
-            <Link href="/daumlabs/water-quality#alerts" className="text-xs text-brand-fg font-medium inline-flex items-center gap-1 min-h-[44px] hover:underline">
+            <Link href="/farm365/water-quality#alerts" className="text-xs text-brand-fg font-medium inline-flex items-center gap-1 min-h-[44px] hover:underline">
               {dd.viewAllAlerts} <ArrowRight className="w-3 h-3" aria-hidden="true" />
             </Link>
           )}

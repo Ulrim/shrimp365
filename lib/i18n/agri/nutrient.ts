@@ -1,4 +1,4 @@
-// 농업(스마트팜) 사전 — nutrient 섹션(양액 관리 `/daumlabs/water-quality`).
+// 농업(스마트팜) 사전 — nutrient 섹션(양액 관리 `/farm365/water-quality`).
 // 4개 언어를 한 파일에 둔다(설계서 mode-split.md 6장, 시안 mode-split-ui.md 6-4).
 //
 // 항목 이름·단위·상태 라벨은 common 섹션(`useAgriT().common`)에 있고 여기엔 없다.

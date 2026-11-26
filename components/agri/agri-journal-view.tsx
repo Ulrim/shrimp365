@@ -1,6 +1,6 @@
 "use client"
 
-// 영농 일지 목록 — `/daumlabs/journal` 전용 뷰(설계서 mode-split.md 5장, 시안 5-7).
+// 영농 일지 목록 — `/farm365/journal` 전용 뷰(설계서 mode-split.md 5장, 시안 5-7).
 //
 // 헤더 → 필터 줄(베드·기간·메모 검색) → 카드 목록(최신순 20건 + 더 보기) → 수정·삭제
 // 다이얼로그. 데이터는 lib/db.ts 함수만 쓰고, 뷰 안에서 `farm_type === "agriculture"`
@@ -162,7 +162,7 @@ export function AgriJournalView() {
             <Download className="w-4 h-4" aria-hidden="true" />{j.csv}
           </Button>
           <Button asChild size="sm" className="min-h-[44px] gap-2 bg-brand hover:bg-brand-hover text-white flex-1 sm:flex-none">
-            <Link href="/daumlabs/record/journal"><Plus className="w-4 h-4" aria-hidden="true" />{j.newEntry}</Link>
+            <Link href="/farm365/record/journal"><Plus className="w-4 h-4" aria-hidden="true" />{j.newEntry}</Link>
           </Button>
         </>
       }
@@ -192,7 +192,7 @@ export function AgriJournalView() {
       <div className="space-y-6 animate-fade-in">
         {header}
         <AgriEmptyState icon={Building2} title={d.common.noFarmsTitle} description={d.common.noFarmsMsg}
-          ctaLabel={d.common.registerFarm} ctaHref="/daumlabs/farms" />
+          ctaLabel={d.common.registerFarm} ctaHref="/farm365/farms" />
       </div>
     )
   }
@@ -200,7 +200,7 @@ export function AgriJournalView() {
     return (
       <div className="space-y-6 animate-fade-in">
         {header}
-        <AgriEmptyState icon={Sprout} title={j.noBedsTitle} description={j.noBedsMsg} ctaLabel={j.addBedCta} ctaHref="/daumlabs/farms" />
+        <AgriEmptyState icon={Sprout} title={j.noBedsTitle} description={j.noBedsMsg} ctaLabel={j.addBedCta} ctaHref="/farm365/farms" />
       </div>
     )
   }
@@ -252,7 +252,7 @@ export function AgriJournalView() {
         filtersActive ? (
           <AgriEmptyState icon={BookOpen} title={j.noMatch} ctaLabel={j.resetFilters} onCta={resetFilters} className="py-8" />
         ) : (
-          <AgriEmptyState icon={BookOpen} title={j.noEntries} description={j.noEntriesMsg} ctaLabel={j.newEntry} ctaHref="/daumlabs/record/journal" />
+          <AgriEmptyState icon={BookOpen} title={j.noEntries} description={j.noEntriesMsg} ctaLabel={j.newEntry} ctaHref="/farm365/record/journal" />
         )
       ) : (
         <>

@@ -7,7 +7,7 @@
 **개정 이력**
 
 - 2026-08-18 초판 — `farms.farm_type` 기반 전역 UI 모드 자동 판별.
-- 2026-08-18 **개정 1 (이 문서)** — 모드 판정 축을 `farm_type` → **URL(`/daumlabs`)** 로
+- 2026-08-18 **개정 1 (이 문서)** — 모드 판정 축을 `farm_type` → **URL(`/farm365`)** 로
   교체. 3장(모드 결정)·4장(라우트와 화면)·5장(진입 라우팅) 개정, 나머지 장(센서 6종,
   레시피 알림, 양액 카드, DB)은 유효하므로 유지.
 
@@ -31,7 +31,7 @@ NFT 다단 베드 수경재배 농가가 사용한다. 시스템 구성: 양액 
    - **양액 EC/pH 기준값(레시피) 대비 표시** — 기존 "양액 EC 관리(보충량 자동
      계산)"를 농업 모드의 핵심 기능으로 전면 배치
 4. **(개정 1에서 추가) 수경재배 화면은 별도 URL을 가진다** — 법인명 다움랩스의
-   표준 로마자 표기를 따라 **`/daumlabs`**. 계정 유형에 따라 화면이 몰래 바뀌는
+   표준 로마자 표기를 따라 **`/farm365`**. 계정 유형에 따라 화면이 몰래 바뀌는
    것이 아니라, **주소를 보면 어느 화면인지 알 수 있어야 한다.**
 
 ### 절대 원칙
@@ -86,7 +86,7 @@ NFT 다단 베드 수경재배 농가가 사용한다. 시스템 구성: 양액 
 ### 3-1. 결정
 
 ```
-/daumlabs/**  →  농업(수경재배) 화면
+/farm365/**  →  농업(수경재배) 화면
 그 밖의 대시보드 URL  →  기존 새우 양식 화면
 ```
 
@@ -94,7 +94,7 @@ NFT 다단 베드 수경재배 농가가 사용한다. 시스템 구성: 양액 
 
 ```ts
 // lib/agri-route.ts
-export const AGRI_PREFIX = "/daumlabs"
+export const AGRI_PREFIX = "/farm365"
 export function isAgriPath(pathname: string) {
   return pathname === AGRI_PREFIX || pathname.startsWith(AGRI_PREFIX + "/")
 }
@@ -122,8 +122,8 @@ URL 축으로 바꾸면 셋이 한 번에 사라진다.
 
 | 쓰임 | 위치 | 설명 |
 |---|---|---|
-| **로그인 후 착지 주소 결정** | `/home` 진입 시 1회 (5-2) | 전부 수경재배 농장이면 `/daumlabs/home`으로 넘긴다 |
-| **온보딩 유형 선택 → 완료 후 이동** | `app/onboarding/page.tsx` | 수경재배를 고르면 완료 후 `/daumlabs/home` |
+| **로그인 후 착지 주소 결정** | `/home` 진입 시 1회 (5-2) | 전부 수경재배 농장이면 `/farm365/home`으로 넘긴다 |
+| **온보딩 유형 선택 → 완료 후 이동** | `app/onboarding/page.tsx` | 수경재배를 고르면 완료 후 `/farm365/home` |
 | **폼 분기·데이터 의미** | `app/(dashboard)/farms/page.tsx` | 농장 유형 선택, 베드 레시피 입력 노출, 화면 전환 진입점(5-4) |
 
 즉 **farm_type = "이 농장이 무엇인가"(데이터), URL = "지금 무엇을 보고 있는가"(화면)**.
@@ -155,18 +155,18 @@ app/(dashboard)/
 ├── home/page.tsx          → /home              (새우, 무변)
 ├── dashboard/page.tsx     → /dashboard         (새우, 무변)
 │   …
-└── daumlabs/
-    ├── home/page.tsx                   → /daumlabs/home
-    ├── record/page.tsx                 → /daumlabs/record
-    ├── record/water-quality/page.tsx   → /daumlabs/record/water-quality
-    ├── record/journal/page.tsx         → /daumlabs/record/journal
-    ├── dashboard/page.tsx              → /daumlabs/dashboard
-    ├── water-quality/page.tsx          → /daumlabs/water-quality
-    ├── journal/page.tsx                → /daumlabs/journal
-    └── farms/page.tsx                  → /daumlabs/farms
+└── farm365/
+    ├── home/page.tsx                   → /farm365/home
+    ├── record/page.tsx                 → /farm365/record
+    ├── record/water-quality/page.tsx   → /farm365/record/water-quality
+    ├── record/journal/page.tsx         → /farm365/record/journal
+    ├── dashboard/page.tsx              → /farm365/dashboard
+    ├── water-quality/page.tsx          → /farm365/water-quality
+    ├── journal/page.tsx                → /farm365/journal
+    └── farms/page.tsx                  → /farm365/farms
 ```
 
-`(dashboard)`는 URL에 나타나지 않으므로 `/daumlabs/...`가 그대로 주소가 되고,
+`(dashboard)`는 URL에 나타나지 않으므로 `/farm365/...`가 그대로 주소가 되고,
 **인증 가드·셸·loading·error 를 새우 쪽과 100% 공유**한다. 별도 layout 파일을
 만들 필요가 없다.
 
@@ -174,7 +174,7 @@ app/(dashboard)/
 쓴다. 페이지 본문을 뷰 컴포넌트로 옮기고, 두 페이지 파일은 3줄 래퍼가 된다.
 
 ```tsx
-// app/(dashboard)/home/page.tsx  와  app/(dashboard)/daumlabs/home/page.tsx  둘 다
+// app/(dashboard)/home/page.tsx  와  app/(dashboard)/farm365/home/page.tsx  둘 다
 import { HomeView } from "@/components/home/home-view"
 export default function Page() { return <HomeView /> }
 ```
@@ -189,54 +189,54 @@ export default function Page() { return <HomeView /> }
 | 후보 | 기각 사유 |
 |---|---|
 | (b) route group + rewrite | `next.config` rewrite는 주소와 라우트가 어긋나 프리페치 단위·타입 헬퍼·404 제어가 흐려진다. 숨김 메뉴를 404로 만들려면 와일드카드가 아니라 경로를 하나씩 나열해야 해서 결국 (a)와 선언 개수가 같은데 이득이 없다. proxy 단 rewrite는 Next 16이 스스로 "최후 수단"이라고 못 박았다 |
-| (c) 동적 세그먼트 `daumlabs/[[...slug]]` | 8개 화면이 라우트 하나로 뭉쳐 존재하지 않는 경로의 404를 손으로 만들어야 하고, loading/error 경계와 프리페치 단위가 사라진다. 정적 라우트로 두면 typegen이 `PageProps<'/daumlabs/home'>`까지 만들어 준다 |
+| (c) 동적 세그먼트 `farm365/[[...slug]]` | 8개 화면이 라우트 하나로 뭉쳐 존재하지 않는 경로의 404를 손으로 만들어야 하고, loading/error 경계와 프리페치 단위가 사라진다. 정적 라우트로 두면 typegen이 `PageProps<'/farm365/home'>`까지 만들어 준다 |
 | 페이지 컴포넌트 복사 | 논외. 두 벌을 따로 고치는 순간 화면이 갈라진다 |
 
-### 4-2. `/daumlabs` 아래에 두는 페이지 — 8개, 그게 전부
+### 4-2. `/farm365` 아래에 두는 페이지 — 8개, 그게 전부
 
 농업 모드 메뉴(홈·측정 기록·영농 일지·모니터링·양액 관리·농장 기기 관리)에
-해당하는 것만 둔다. **숨김 메뉴는 파일 자체를 만들지 않으므로 `/daumlabs/production`
+해당하는 것만 둔다. **숨김 메뉴는 파일 자체를 만들지 않으므로 `/farm365/production`
 같은 주소는 그냥 404다** — "숨김"이 아니라 "없음"이 된다.
 
-| `/daumlabs` 경로 | 농업 메뉴 이름 | 공유 뷰 컴포넌트(신규 위치) | 원본 |
+| `/farm365` 경로 | 농업 메뉴 이름 | 공유 뷰 컴포넌트(신규 위치) | 원본 |
 |---|---|---|---|
-| `/daumlabs/home` | 홈 | `components/home/home-view.tsx` | `app/(dashboard)/home/page.tsx` (180행) |
-| `/daumlabs/record` | 기록하기 허브 | `components/record/record-hub-view.tsx` | `app/(dashboard)/record/page.tsx` (52행) |
-| `/daumlabs/record/water-quality` | 측정 기록 | `components/record/water-quality-record-view.tsx` | `app/(dashboard)/record/water-quality/page.tsx` (183행) |
-| `/daumlabs/record/journal` | 영농 일지 쓰기 | `components/record/journal-record-view.tsx` | `app/(dashboard)/record/journal/page.tsx` (188행) |
-| `/daumlabs/dashboard` | 모니터링 | `components/dashboard/dashboard-view.tsx` | `app/(dashboard)/dashboard/page.tsx` (441행) |
-| `/daumlabs/water-quality` | 양액 관리 | `components/water-quality/water-quality-view.tsx` | `app/(dashboard)/water-quality/page.tsx` (1403행) |
-| `/daumlabs/journal` | 영농 일지 | `components/journal/journal-view.tsx` | `app/(dashboard)/journal/page.tsx` (1423행) |
-| `/daumlabs/farms` | 농장·기기 관리 | `components/farms/farms-view.tsx` | `app/(dashboard)/farms/page.tsx` (1854행) |
+| `/farm365/home` | 홈 | `components/home/home-view.tsx` | `app/(dashboard)/home/page.tsx` (180행) |
+| `/farm365/record` | 기록하기 허브 | `components/record/record-hub-view.tsx` | `app/(dashboard)/record/page.tsx` (52행) |
+| `/farm365/record/water-quality` | 측정 기록 | `components/record/water-quality-record-view.tsx` | `app/(dashboard)/record/water-quality/page.tsx` (183행) |
+| `/farm365/record/journal` | 영농 일지 쓰기 | `components/record/journal-record-view.tsx` | `app/(dashboard)/record/journal/page.tsx` (188행) |
+| `/farm365/dashboard` | 모니터링 | `components/dashboard/dashboard-view.tsx` | `app/(dashboard)/dashboard/page.tsx` (441행) |
+| `/farm365/water-quality` | 양액 관리 | `components/water-quality/water-quality-view.tsx` | `app/(dashboard)/water-quality/page.tsx` (1403행) |
+| `/farm365/journal` | 영농 일지 | `components/journal/journal-view.tsx` | `app/(dashboard)/journal/page.tsx` (1423행) |
+| `/farm365/farms` | 농장·기기 관리 | `components/farms/farms-view.tsx` | `app/(dashboard)/farms/page.tsx` (1854행) |
 
-**세그먼트 이름은 새우 쪽과 1:1로 맞춘다**(`/water-quality`는 `/daumlabs/water-quality`).
-농업식 별칭(`/daumlabs/nutrient` 등)을 쓰지 않는 이유: 링크 접두사 규칙(4-4)이
+**세그먼트 이름은 새우 쪽과 1:1로 맞춘다**(`/water-quality`는 `/farm365/water-quality`).
+농업식 별칭(`/farm365/nutrient` 등)을 쓰지 않는 이유: 링크 접두사 규칙(4-4)이
 `prefix + path` 한 줄로 끝나고, 딥링크가 기계적으로 번역되며, 헤더 제목표
 같은 경로 키 맵을 그대로 재사용할 수 있다.
 
-**`/daumlabs` 아래에 두지 않는 것** (접두사 없이 공유):
+**`/farm365` 아래에 두지 않는 것** (접두사 없이 공유):
 
 - `/help`, `/onboarding`, `/board`, `/cardnews`, `/control`, `/admin` — 계정·전사
   공통 화면. 농업판이 따로 없다.
 - `/production`, `/inventory`, `/ai-advisor`, `/reports`, `/diagnosis` — 새우 전용.
-  농업 메뉴에 없고 `/daumlabs` 아래에도 없다.
+  농업 메뉴에 없고 `/farm365` 아래에도 없다.
 - 설정 패널·알림 패널·검색 패널 — 셸의 일부라 URL이 없다.
 
-주의: `/daumlabs/water-quality`에서 `/help`로 가면 주소에 접두사가 없어지므로
+주의: `/farm365/water-quality`에서 `/help`로 가면 주소에 접두사가 없어지므로
 농업 용어가 풀린다. **URL이 화면을 결정한다**는 규칙의 당연한 귀결이고, 그대로
-받아들인다. 농업판 도움말(`/daumlabs/help`)은 8장 로드맵으로 넘긴다.
+받아들인다. 농업판 도움말(`/farm365/help`)은 8장 로드맵으로 넘긴다.
 
 ### 4-3. 메뉴 (sidebar / bottom-nav) — 필터 + 접두사
 
 | 기존 메뉴 | 농업 모드 | 링크 |
 |---|---|---|
-| 홈 `/home` | 홈 | `/daumlabs/home` |
-| 수질 기록 `/record/water-quality` | 측정 기록 | `/daumlabs/record/water-quality` |
-| 일지 쓰기 `/record/journal` | 영농 일지 쓰기 | `/daumlabs/record/journal` |
-| 대시보드 `/dashboard` | 모니터링 | `/daumlabs/dashboard` (+ 양액 상태 카드 4-7) |
-| 수질 관리 `/water-quality` | 양액 관리 | `/daumlabs/water-quality` |
-| 일지 `/journal` | 영농 일지 | `/daumlabs/journal` |
-| 양식장 관리 `/farms` | 농장·기기 관리 | `/daumlabs/farms` |
+| 홈 `/home` | 홈 | `/farm365/home` |
+| 수질 기록 `/record/water-quality` | 측정 기록 | `/farm365/record/water-quality` |
+| 일지 쓰기 `/record/journal` | 영농 일지 쓰기 | `/farm365/record/journal` |
+| 대시보드 `/dashboard` | 모니터링 | `/farm365/dashboard` (+ 양액 상태 카드 4-7) |
+| 수질 관리 `/water-quality` | 양액 관리 | `/farm365/water-quality` |
+| 일지 `/journal` | 영농 일지 | `/farm365/journal` |
+| 양식장 관리 `/farms` | 농장·기기 관리 | `/farm365/farms` |
 | 생산 관리 `/production` | — | **메뉴에서 제거 + 라우트 없음(404)** |
 | 재고 관리 `/inventory` | — | 〃 (후속: "자재 관리"로 재도입 검토) |
 | AI 어드바이저 `/ai-advisor` | — | 〃 |
@@ -256,9 +256,9 @@ export default function Page() { return <HomeView /> }
 `lib/agri-route.ts` (신규, 순수 함수 + 훅 하나. 컨텍스트도 DB도 없음):
 
 ```ts
-export const AGRI_PREFIX = "/daumlabs"
+export const AGRI_PREFIX = "/farm365"
 
-/** /daumlabs 아래에 실제로 존재하는 경로. 여기 없는 주소엔 접두사를 붙이지 않는다. */
+/** /farm365 아래에 실제로 존재하는 경로. 여기 없는 주소엔 접두사를 붙이지 않는다. */
 export const AGRI_ROUTES = [
   "/home", "/record", "/record/water-quality", "/record/journal",
   "/dashboard", "/water-quality", "/journal", "/farms",
@@ -304,7 +304,7 @@ export function useAgriRoute(): { isAgri: boolean; href: (p: string) => string }
 - 이전: `FarmModeProvider`가 farm 목록을 읽어 `<AgriDictOverride enabled={isAgriMode}>`.
 - 이후: `app/(dashboard)/layout.tsx`에서 **`<AgriDictOverride enabled={isAgriPath(pathname)}>`**.
   레이아웃은 이미 클라이언트 컴포넌트라 `usePathname()`을 쓸 수 있고, 네비게이션마다
-  다시 렌더되므로 `/home ↔ /daumlabs/home` 전환에 즉시 반응한다.
+  다시 렌더되므로 `/home ↔ /farm365/home` 전환에 즉시 반응한다.
 - 사이드바·헤더·바텀네비가 이 프로바이더 **안쪽**에 있으므로 메뉴 라벨까지 함께
   치환된다(초판과 동일한 위치 관계).
 - **`AgriDictOverride`는 항상 `I18nContext.Provider`를 렌더하도록 고친다.** 지금은
@@ -316,7 +316,7 @@ export function useAgriRoute(): { isAgri: boolean; href: (p: string) => string }
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
   ```
 - 온보딩(`app/onboarding/page.tsx`)의 페이지 로컬 `mergeDict`는 그대로 둔다.
-  온보딩은 `/daumlabs` 밖이고, 유형을 고르는 순간부터 라벨이 바뀌어야 한다.
+  온보딩은 `/farm365` 밖이고, 유형을 고르는 순간부터 라벨이 바뀌어야 한다.
 - 영어·베트남어·인니어는 오버라이드 사전이 없어 기존 라벨 그대로(깨지지 않음).
 
 ### 4-6. 센서 6종과 지표 우선순위 (초판 유지)
@@ -369,7 +369,7 @@ pH 동일. 기존 alerts 중복 억제·자동 해제 흐름을 그대로 탄다
 ```diff
  const PROTECTED_PATHS = [
    "/home",
-+  "/daumlabs",
++  "/farm365",
    "/record",
    …
  ]
@@ -377,16 +377,16 @@ pH 동일. 기존 alerts 중복 억제·자동 해제 흐름을 그대로 탄다
 
 한 줄이면 된다. 충돌 점검(전부 확인함):
 
-- `MARKETING_LOCALE_PREFIXES`는 `["en","vi","id"]` — 첫 세그먼트가 `daumlabs`면
+- `MARKETING_LOCALE_PREFIXES`는 `["en","vi","id"]` — 첫 세그먼트가 `farm365`면
   걸리지 않는다.
 - `KOREAN_PUBLIC_PATHS`에 `"/"` 가 있지만 판정식이 `pathname === p ||
   pathname.startsWith(p + "/")` 라 `p === "/"` 일 때 `startsWith("//")` 는 거짓이다.
-  `/daumlabs/*`가 공개 경로로 새지 않는다.
+  `/farm365/*`가 공개 경로로 새지 않는다.
 - 비로그인 시 `/login` 리다이렉트, 로그인 상태의 인증 페이지 → `/home` 리다이렉트는
   그대로 둔다(`/home`이 스스로 교정한다, 5-2).
 - `matcher`는 이미 전 경로라 수정 불필요.
 
-**`app/robots.ts`의 `PRIVATE_PATHS`에 `"/daumlabs"` 를 추가한다** (9행). 로그인
+**`app/robots.ts`의 `PRIVATE_PATHS`에 `"/farm365"` 를 추가한다** (9행). 로그인
 뒤 화면이 색인 목록에 들어갈 이유가 없다.
 
 > **별건 관찰(이번 범위 밖):** Next 16에서 `middleware` 파일 규약은 **deprecated이며
@@ -413,7 +413,7 @@ farm_type을 미들웨어에서 알려면 요청마다 Supabase 조회가 붙는
 /home 진입
   └ getFarms()  (이미 부르고 있음)
       ├ farms.length === 0                       → /onboarding      (기존 동작)
-      ├ 모든 farm 이 agriculture 이고 지금 /home  → /daumlabs/home  (신규, replace)
+      ├ 모든 farm 이 agriculture 이고 지금 /home  → /farm365/home  (신규, replace)
       └ 그 밖                                     → 그대로 새우 홈  (기존 동작)
 ```
 
@@ -424,11 +424,11 @@ farm_type을 미들웨어에서 알려면 요청마다 Supabase 조회가 붙는
 
 - 데모·테스트 계정(`isTestAccount`)은 목데이터가 전부 새우라 판정 자체를 건너뛴다.
 - `getFarms()` 실패 시 새우 홈에 남는다(기본값은 언제나 새우 — 절대 원칙).
-- **역방향 자동 이동은 하지 않는다.** `/daumlabs/home`에 온 사용자를 `/home`으로
+- **역방향 자동 이동은 하지 않는다.** `/farm365/home`에 온 사용자를 `/home`으로
   되돌리지 않는다. 되돌리면 혼합 계정이 수경재배 화면에 아예 못 들어가고, 공유된
-  `/daumlabs/*` 링크가 전부 무력화된다.
+  `/farm365/*` 링크가 전부 무력화된다.
 - 온보딩(`app/onboarding/page.tsx`): 완료 처리 후
-  `router.replace(farmType === "agriculture" ? "/daumlabs/home" : "/home")`.
+  `router.replace(farmType === "agriculture" ? "/farm365/home" : "/home")`.
   기존 farm이 있을 때의 가드(79~80행)는 `/home`으로 두면 위 규칙이 알아서 교정한다.
 
 ### 5-3. 엉뚱한 URL로 왔을 때 — 막지 않는다
@@ -437,18 +437,18 @@ farm_type을 미들웨어에서 알려면 요청마다 Supabase 조회가 붙는
 
 | 상황 | 처리 | 이유 |
 |---|---|---|
-| 새우 농장만 있는 사용자가 `/daumlabs/home` | **그대로 보여준다.** 자기 데이터가 농업 라벨(베드·양액)로 보인다 | 남의 데이터가 새는 게 아니다. RLS는 그대로 동작하고 보이는 건 언제나 본인 농장이다. 서버 차단을 넣으면 farm 조회가 요청마다 붙는다(5-2와 같은 이유) |
+| 새우 농장만 있는 사용자가 `/farm365/home` | **그대로 보여준다.** 자기 데이터가 농업 라벨(베드·양액)로 보인다 | 남의 데이터가 새는 게 아니다. RLS는 그대로 동작하고 보이는 건 언제나 본인 농장이다. 서버 차단을 넣으면 farm 조회가 요청마다 붙는다(5-2와 같은 이유) |
 | 수경재배 사용자가 `/dashboard`(새우 주소) | **그대로 보여준다.** 새우 라벨로 보인다 | 위와 같음. 링크를 잘못 눌렀을 때 404보다 낫다 |
-| 누구든 `/daumlabs/production` 등 | **404** | 차단이 아니라 그 주소에 페이지를 만들지 않았기 때문(4-2) |
-| 비로그인 상태의 `/daumlabs/*` | `/login`으로 (미들웨어) | 5-1 |
+| 누구든 `/farm365/production` 등 | **404** | 차단이 아니라 그 주소에 페이지를 만들지 않았기 때문(4-2) |
+| 비로그인 상태의 `/farm365/*` | `/login`으로 (미들웨어) | 5-1 |
 
 ### 5-4. 화면 전환 진입점
 
 혼합 계정과 "잘못 들어온" 사용자를 위해 **눈에 보이는 출구**를 하나 둔다.
 
 - `/farms`(새우)의 농장 카드에서 `farm_type === "agriculture"` 인 농장에
-  **"수경재배 화면 열기 →"** (→ `/daumlabs/home`).
-- `/daumlabs/farms`의 농장 카드에서 `farm_type === "shrimp"` 인 농장에
+  **"수경재배 화면 열기 →"** (→ `/farm365/home`).
+- `/farm365/farms`의 농장 카드에서 `farm_type === "shrimp"` 인 농장에
   **"새우 양식 화면 열기 →"** (→ `/home`).
 - `/farms`는 이미 farm 목록과 `farm_type`을 들고 있으므로 **추가 조회 0회**다.
 - 문안·버튼 위치는 수아가 확정(기존 농장 카드 결 유지). 사이드바 하단 전역
@@ -525,9 +525,9 @@ NOTIFY pgrst, 'reload schema';
      (`components/farms/` 는 이미 있는 폴더 — 그 안에 둔다)
 3. 기존 8개 페이지 파일을 3줄 래퍼로 다시 만든다(`"use client"` 없이).
 
-**3단계 — `/daumlabs` 라우트 신규**
+**3단계 — `/farm365` 라우트 신규**
 
-4. `app/(dashboard)/daumlabs/` 아래 8개 페이지 래퍼 신규(4-1 트리 그대로).
+4. `app/(dashboard)/farm365/` 아래 8개 페이지 래퍼 신규(4-1 트리 그대로).
    같은 뷰 컴포넌트를 렌더한다. layout·loading·error 신규 생성 금지 —
    `(dashboard)` 것을 그대로 물려받는다.
 
@@ -549,16 +549,16 @@ NOTIFY pgrst, 'reload schema';
    `components/layout/header.tsx`는 제목 맵 조회 키를 `stripAgriPrefix(pathname)`로.
 9. `components/dashboard/dashboard-view.tsx` — 농업(`isAgri`)일 때
    재고 바로가기(213행)와 진단 카드(399행)를 렌더하지 않는다.
-   `/daumlabs` 아래에 그 페이지가 없으므로 죽은 링크가 된다.
+   `/farm365` 아래에 그 페이지가 없으므로 죽은 링크가 된다.
 
 **6단계 — 진입 라우팅**
 
 10. `components/home/home-view.tsx` — 5-2의 자동 교정 추가.
     이미 부르는 `getFarms()` 결과를 재사용하고 **추가 조회를 만들지 말 것.**
 11. `app/onboarding/page.tsx` — 완료 후 `farmType`에 따라 착지 주소 분기(5-2).
-12. `middleware.ts` — `PROTECTED_PATHS`에 `"/daumlabs"` 추가(5-1). **다른 줄은 손대지 말 것.**
+12. `middleware.ts` — `PROTECTED_PATHS`에 `"/farm365"` 추가(5-1). **다른 줄은 손대지 말 것.**
     파일명을 `proxy.ts`로 바꾸지 말 것(별건, 8장).
-13. `app/robots.ts` — `PRIVATE_PATHS`에 `"/daumlabs"` 추가.
+13. `app/robots.ts` — `PRIVATE_PATHS`에 `"/farm365"` 추가.
 
 **7단계 — 화면 전환 진입점**
 
@@ -576,7 +576,7 @@ NOTIFY pgrst, 'reload schema';
 ### 7-B. 수아 (`sua-designer`) — 개정 1에서 필요한 것만
 
 1. 5-4 화면 전환 버튼 문안·배치(농장 카드 결 유지, `ui-ux-pro-max` 스킬).
-2. `/daumlabs` 진입 시 사용자가 "다른 화면에 왔다"고 알아차릴 최소 신호가
+2. `/farm365` 진입 시 사용자가 "다른 화면에 왔다"고 알아차릴 최소 신호가
    필요한지 판단 — 사이드바 로고 부제(`t.nav.brandTagline`)의 농업판 문안이
    이미 그 역할을 하는지 확인하고, 부족하면 보완안 1개.
 3. 기존 시안(`docs/plans/agriculture-mode-ui.md`)에서 "전역 모드 자동 전환"을
@@ -593,18 +593,18 @@ NOTIFY pgrst, 'reload schema';
    확인(로직 diff가 있으면 반려).
 2. `/production`, `/inventory`, `/ai-advisor`, `/reports`, `/diagnosis`, `/help`,
    `/board`, `/cardnews`, `/control`, `/admin` 무변.
-3. `/daumlabs/*` 8개 경로가 뜨는지, `/daumlabs/production` 등이 404인지.
-4. `/daumlabs` 안에서 클릭한 모든 링크가 `/daumlabs` 안에 남는지(빠져나가면 라벨이
-   풀린다). 헤더 제목이 `/daumlabs/*`에서 비지 않는지.
-5. 전 농장 agriculture 계정: 로그인 → `/daumlabs/home` 착지. 혼합 계정: `/home` 착지
-   후 `/farms` 버튼으로 전환. 온보딩 수경재배 → `/daumlabs/home`.
-6. 비로그인 `/daumlabs/home` → `/login`.
+3. `/farm365/*` 8개 경로가 뜨는지, `/farm365/production` 등이 404인지.
+4. `/farm365` 안에서 클릭한 모든 링크가 `/farm365` 안에 남는지(빠져나가면 라벨이
+   풀린다). 헤더 제목이 `/farm365/*`에서 비지 않는지.
+5. 전 농장 agriculture 계정: 로그인 → `/farm365/home` 착지. 혼합 계정: `/home` 착지
+   후 `/farms` 버튼으로 전환. 온보딩 수경재배 → `/farm365/home`.
+6. 비로그인 `/farm365/home` → `/login`.
    **원복은 현재 범위 밖이다** — 미들웨어(154행)가 원래 주소를 `next` 파라미터로
    보존하지 않아 로그인 후 항상 `/home`으로 간다. 기존 모든 보호 경로가 똑같이
    동작하므로 회귀는 아니다. 농업 전용 계정은 `/home`의 자동 교정으로 결국
-   `/daumlabs/home`에 닿지만, **혼합 계정은 눌렀던 `/daumlabs/*` 딥링크를 잃는다**.
+   `/farm365/home`에 닿지만, **혼합 계정은 눌렀던 `/farm365/*` 딥링크를 잃는다**.
    새 주소를 문자·SNS로 공유할 계획이면 후속 과제(8장)로 처리한다.
-7. `/home ↔ /daumlabs/home` 왕복 시 사이드바 접힘 상태가 유지되는지(4-5의
+7. `/home ↔ /farm365/home` 왕복 시 사이드바 접힘 상태가 유지되는지(4-5의
    Provider 항상 렌더 수정이 제대로 됐는지).
 8. `lib/farm-mode-context.tsx` 잔여 import가 없는지(`rg farm-mode-context`).
 9. `npm run build` 타입 체크 통과, 라우트 목록에 8개 신규 경로가 정확히 나오는지.
@@ -614,8 +614,8 @@ NOTIFY pgrst, 'reload schema';
 
 사람 몫 안내 포함:
 - `agriculture_mode.sql` 실행(아직 안 했다면). 배포 순서 SQL → 웹 → 장비 펌웨어.
-- 농가에 안내할 주소가 `/daumlabs`로 바뀐다 — 기존에 공유한 링크가 있으면 갱신.
-  `/daumlabs` 한 마디만 쳐도 `app/(dashboard)/daumlabs/page.tsx`가 `/daumlabs/home`
+- 농가에 안내할 주소가 `/farm365`로 바뀐다 — 기존에 공유한 링크가 있으면 갱신.
+  `/farm365` 한 마디만 쳐도 `app/(dashboard)/farm365/page.tsx`가 `/farm365/home`
   으로 넘겨 준다.
 - 보충량 정확도는 현장 실측 교정에 달렸다.
 - 유량·차압 Modbus 레지스터 맵은 하드웨어 스펙 확정 후 장비 설정에 입력.
@@ -633,9 +633,9 @@ water-quality 농업 탭·목표선, 장비 payload `nut_*` — HEAD `f26452b`�
   `npx @next/codemod@canary middleware-to-proxy .`. 라우팅 변경과 섞지 않고
   별도 커밋으로. (5-1 주석)
 - **로그인 후 딥링크 복귀** — 미들웨어가 원래 주소를 `next` 파라미터로 보존하고
-  로그인 페이지가 그리로 되돌리기. 혼합 계정이 `/daumlabs/*` 링크를 받았을 때
+  로그인 페이지가 그리로 되돌리기. 혼합 계정이 `/farm365/*` 링크를 받았을 때
   필요하다(7-C 6). 보호 경로 전체에 걸리는 변경이라 별도 커밋으로.
-- 농업판 도움말 `/daumlabs/help`, 농업판 리포트 `/daumlabs/reports`(KPI 재설계)
+- 농업판 도움말 `/farm365/help`, 농업판 리포트 `/farm365/reports`(KPI 재설계)
 - 사이드바 상단 전역 화면 전환 스위치(farm 조회가 필요 — 5-4)
 - **KPI 자동산출·성능 검증 리포트** — EC 제어 정확도(목표 대비 체류율),
   가동률, 이탈 횟수·복귀 시간

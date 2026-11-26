@@ -127,7 +127,7 @@ export function BedCard({ tank, latest, selected, onSelect, sensorsOn = null }: 
           <span className="truncate">{footer.join(" · ")}</span>
         </p>
         <Link
-          href={`/daumlabs/water-quality?tank=${encodeURIComponent(tank.id)}`}
+          href={`/farm365/water-quality?tank=${encodeURIComponent(tank.id)}`}
           className="text-xs text-brand-fg font-medium min-h-[44px] inline-flex items-center gap-1 shrink-0 hover:underline"
         >
           {dd.bedDetail} <ArrowRight className="w-3 h-3" aria-hidden="true" />

@@ -2,7 +2,7 @@
 
 // 농업 화면 빈 상태 — 설계서 mode-split.md 5-1.
 //
-// 아이콘·제목·설명·CTA 한 벌. 농업 농장이 0개면 "농장 등록하기"(→ /daumlabs/farms),
+// 아이콘·제목·설명·CTA 한 벌. 농업 농장이 0개면 "농장 등록하기"(→ /farm365/farms),
 // 측정 데이터가 없으면 "측정값 입력" 같은 식으로 각 뷰가 문구와 링크를 넣는다.
 // CTA 는 링크(href)나 버튼(onClick) 둘 중 하나다.
 import type { ReactNode } from "react"

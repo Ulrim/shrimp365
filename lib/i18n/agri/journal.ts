@@ -1,7 +1,7 @@
-// 농업(스마트팜) 사전 — journal 섹션(영농 일지 목록 `/daumlabs/journal`).
+// 농업(스마트팜) 사전 — journal 섹션(영농 일지 목록 `/farm365/journal`).
 // 4개 언어를 한 파일에 둔다(설계서 mode-split.md 6장, 시안 mode-split-ui.md 6-5).
 //
-// 일지 쓰기 폼(`/daumlabs/record/journal`)의 문구는 record 섹션(2A)이다. 여기 있는
+// 일지 쓰기 폼(`/farm365/record/journal`)의 문구는 record 섹션(2A)이다. 여기 있는
 // 폼 라벨은 **수정 다이얼로그** 전용 — 목록 화면이 자기 사전만 읽게 하기 위해 둔다.
 // 저장·취소·삭제·"회/일" 같은 범용 문구는 `useT().t.common` 을 그대로 쓴다.
 import type { Locale } from "@/lib/i18n"

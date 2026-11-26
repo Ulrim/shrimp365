@@ -3,7 +3,7 @@
 import { CheckCheck, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { markAllNotificationsRead, markNotificationRead } from "@/app/(dashboard)/daumlabs/work/(app)/notifications/actions";
+import { markAllNotificationsRead, markNotificationRead } from "@/app/(dashboard)/farm365/work/(app)/notifications/actions";
 import { Button } from "@/components/work/ui/button";
 import { Card } from "@/components/work/ui/card";
 import { FormError } from "@/components/work/ui/form";

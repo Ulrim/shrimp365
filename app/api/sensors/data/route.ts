@@ -336,7 +336,7 @@ export async function POST(req: NextRequest) {
   // (컬럼 없음)에서도 기존 새우 장비 수신이 절대 멈추면 안 된다.
   //
   // 같은 조회에 농장 유형(farms.farm_type)을 조인해 판정 프로필도 함께 받는다.
-  // **서버에는 URL이 없다** — 화면의 /daumlabs 분기가 여기까지 오지 않으므로
+  // **서버에는 URL이 없다** — 화면의 /farm365 분기가 여기까지 오지 않으므로
   // 판정 축은 데이터, 즉 farms.farm_type 이다(설계서 3-5·7장 3번 축).
   // 조인이라 쿼리 수는 늘지 않는다. 실패하면 profile 은 "shrimp" 로 남는다.
   let recipe: TankRecipe | null = null

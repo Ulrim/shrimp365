@@ -3,7 +3,7 @@
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { createProject, deleteProject, updateProject } from "@/app/(dashboard)/daumlabs/work/(app)/admin/projects/actions";
+import { createProject, deleteProject, updateProject } from "@/app/(dashboard)/farm365/work/(app)/admin/projects/actions";
 import { Badge, StatusBadge } from "@/components/work/ui/badge";
 import { Button } from "@/components/work/ui/button";
 import { Card } from "@/components/work/ui/card";

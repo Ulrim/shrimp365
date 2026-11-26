@@ -1,6 +1,6 @@
 "use client"
 
-// 농장·기기 관리(농업 전용 화면, /daumlabs/farms) — 설계서 mode-split.md 5장, 수아 시안 5-8.
+// 농장·기기 관리(농업 전용 화면, /farm365/farms) — 설계서 mode-split.md 5장, 수아 시안 5-8.
 //
 // 농업 농장(`farm_type === "agriculture"`)만 다룬다. 새우 농장은 보이지 않고 교차 링크도
 // 없다(화면 전환은 헤더 스위치가 한다). 데이터는 lib/db 함수만 쓰고, 조각은
@@ -157,7 +157,7 @@ export function AgriFarmsView() {
               <FarmMap
                 farms={farms}
                 tanks={tanks}
-                farmsHref="/daumlabs/farms"
+                farmsHref="/farm365/farms"
                 labels={{
                   title: d.farms.mapTitle,
                   tankCountN: d.farms.mapBedCountN,

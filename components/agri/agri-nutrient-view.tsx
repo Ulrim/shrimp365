@@ -1,6 +1,6 @@
 "use client"
 
-// 양액 관리 — `/daumlabs/water-quality` 전용 뷰(설계서 mode-split.md 5장, 시안 5-6).
+// 양액 관리 — `/farm365/water-quality` 전용 뷰(설계서 mode-split.md 5장, 시안 5-6).
 //
 // 위에서 아래로: 헤더 → 선택 줄(베드·센서·기간·자동 갱신) → 상태 스트립 →
 // 최신값 카드 6개 → 추세 차트(탭 6개 = AGRI_PARAMS 순서) → 센서별 비교(센서 2대↑)
@@ -216,7 +216,7 @@ function NutrientInner() {
     setPickedTankId(id)
     setDeviceId(null)
     // 대시보드·알림의 딥링크가 그대로 살아 있게 쿼리를 따라 바꾼다.
-    router.replace(`/daumlabs/water-quality?tank=${id}`, { scroll: false })
+    router.replace(`/farm365/water-quality?tank=${id}`, { scroll: false })
   }
 
   // 측정·기기·알림 — 베드/기간이 바뀌면 키가 바뀌고, 키가 다르면 "로딩 중"이다.
@@ -402,7 +402,7 @@ function NutrientInner() {
       <div className="space-y-6 animate-fade-in">
         {header}
         <AgriEmptyState icon={Building2} title={d.common.noFarmsTitle} description={d.common.noFarmsMsg}
-          ctaLabel={d.common.registerFarm} ctaHref="/daumlabs/farms" />
+          ctaLabel={d.common.registerFarm} ctaHref="/farm365/farms" />
       </div>
     )
   }
@@ -411,7 +411,7 @@ function NutrientInner() {
       <div className="space-y-6 animate-fade-in">
         {header}
         <AgriEmptyState icon={Sprout} title={n.noBedsTitle} description={n.noBedsMsg}
-          ctaLabel={n.addBedCta} ctaHref="/daumlabs/farms" />
+          ctaLabel={n.addBedCta} ctaHref="/farm365/farms" />
       </div>
     )
   }
@@ -507,11 +507,11 @@ function NutrientInner() {
       ) : !latest ? (
         <AgriEmptyState icon={FlaskConical} title={n.noData} description={n.noDataHint} className="py-8">
           <div className="flex items-center gap-2 flex-wrap justify-center">
-            <Link href="/daumlabs/record/water-quality"
+            <Link href="/farm365/record/water-quality"
               className="inline-flex items-center justify-center min-h-[44px] px-5 rounded-xl bg-brand text-white text-sm font-medium hover:bg-brand-hover transition-colors">
               {n.logReading}
             </Link>
-            <Link href="/daumlabs/farms"
+            <Link href="/farm365/farms"
               className="inline-flex items-center justify-center min-h-[44px] px-5 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors">
               {n.connectDevice}
             </Link>
@@ -588,7 +588,7 @@ function NutrientInner() {
           {seriesLoading ? (
             <div className="h-full rounded-xl bg-muted animate-pulse" aria-hidden="true" />
           ) : !trendHasData ? (
-            <TrendEmpty param={trendParam} title={n.noChartData} ctaLabel={n.noChartDataCta} ctaHref="/daumlabs/record/water-quality" fill />
+            <TrendEmpty param={trendParam} title={n.noChartData} ctaLabel={n.noChartDataCta} ctaHref="/farm365/record/water-quality" fill />
           ) : (
             <div role="img" aria-label={fmt(n.trendChartAria, { label: d.common.param[trendParam.dictKey] })} className="h-full">
               <ParamTrendChart data={trendData} param={trendParam} label={d.common.param[trendParam.dictKey]}

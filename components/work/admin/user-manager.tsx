@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import {
   cancelInvite, inviteMember, setGlobalRole, setProjectRole, setUserActive, updateUser,
-} from "@/app/(dashboard)/daumlabs/work/(app)/admin/users/actions";
+} from "@/app/(dashboard)/farm365/work/(app)/admin/users/actions";
 import { Badge } from "@/components/work/ui/badge";
 import { Button } from "@/components/work/ui/button";
 import { Card, CardHeader } from "@/components/work/ui/card";

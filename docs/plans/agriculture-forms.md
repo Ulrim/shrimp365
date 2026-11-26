@@ -13,7 +13,7 @@
 > 수경재배, 농업에 맞춰서 수정·보완해주세요.
 
 초판·개정 1이 한 것은 **껍데기**였다 — 메뉴 숨김, 용어 치환(i18n 오버라이드),
-URL 분기(`/daumlabs`), EC 그래프 탭, 양액 카드. 화면의 **알맹이**는 손대지 않았다.
+URL 분기(`/farm365`), EC 그래프 탭, 양액 카드. 화면의 **알맹이**는 손대지 않았다.
 
 개정 2가 다루는 것: **입력 폼이 무엇을 받는가**, **모니터링이 무엇을 보여주는가**,
 **임계값이 무엇을 기준으로 판정하는가**.
@@ -29,7 +29,7 @@ mS/cm↔µS/cm 단위 원칙, 회귀 0)은 **그대로 따르고 확장만 한�
 
 ### 1-1. 측정 입력 폼 — `components/record/water-quality-record-view.tsx`
 
-**농업 화면(`/daumlabs/record/water-quality`)이 지금 받는 항목 전부** (26~38행 state,
+**농업 화면(`/farm365/record/water-quality`)이 지금 받는 항목 전부** (26~38행 state,
 96~127행 스텝 정의):
 
 | 순서 | 항목 | 단위 | 힌트 문구 | 행 |
@@ -176,7 +176,7 @@ mS/cm↔µS/cm 단위 원칙, 회귀 0)은 **그대로 따르고 확장만 한�
 
 - `components/sensors/device-current-values.tsx` 12~26행 — payload 라벨에
   EC·유량·차압이 이미 들어 있다. **손댈 필요 없음.**
-- `app/(dashboard)/daumlabs/` 8개 페이지 래퍼 존재 확인. 라우팅은 정상.
+- `app/(dashboard)/farm365/` 8개 페이지 래퍼 존재 확인. 라우팅은 정상.
 - `lib/agri-route.ts` 확인. `isAgri`/`href` 계약 그대로 쓴다.
 
 ---
@@ -663,7 +663,7 @@ export const AGRI_QUALITY_STANDARDS = {
   `WQ_BOUNDS` 기존 9항목, `FEED_TYPES`, `MICROBIAL_TYPES`.
 - `checkThresholds`의 **첫 번째 인자 시그니처 변경 금지** — 기본값 인자
   추가만 허용.
-- 페이지 컴포넌트 복사 금지. `/daumlabs` 라우트 구조 변경 금지.
+- 페이지 컴포넌트 복사 금지. `/farm365` 라우트 구조 변경 금지.
 - `lib/agri-route.ts` 계약 변경 금지.
 - 라우팅 관련 파일(`middleware.ts`, `app/robots.ts`, `next.config.ts`) 무변.
 
@@ -699,7 +699,7 @@ export const AGRI_QUALITY_STANDARDS = {
 
 - **원수 EC 수동 입력** — 보충량 계산 입력. 저장 칸 신설 필요.
 - **베드 단수·재배 면적** — 하드웨어 스펙(단수·단당 정식공 수) 확정 후.
-- **수확 실적** — `/daumlabs/production` 재설계와 함께. 연간 수확 9회 KPI의
+- **수확 실적** — `/farm365/production` 재설계와 함께. 연간 수확 9회 KPI의
   기반. 일지에 임시 칸을 뚫지 않는다(이중 관리 방지).
 - **유량 하한·차압 상한 알림** — 베드별 설정으로 확장(설계서 8장에 이미 있음).
   지금은 대시보드 표시만.
@@ -715,7 +715,7 @@ export const AGRI_QUALITY_STANDARDS = {
   일지 입력 폼 5개 화면에 넣었다. 아직 두 축을 섞어 보여 주는 곳이 셋 남았다:
   알림 패널(`components/layout/notifications-panel.tsx`)과 검색 패널
   (`search-panel.tsx`), 그리고 `/production`·`/inventory`·`/reports`
-  (`/daumlabs` 변형이 없는 새우 전용 화면이라 혼합 계정에서 베드가 목록에
+  (`/farm365` 변형이 없는 새우 전용 화면이라 혼합 계정에서 베드가 목록에
   섞인다). 읽기 전용이라 잘못 저장되는 행은 없지만, 혼합 계정이 늘면 먼저
   드러날 자리다. 알림 패널은 개정 3에서 착지점만 교정했다 — 다른 축 수조를
   가리키는 `?tank=` 는 그 수조가 사는 화면으로 넘긴다.

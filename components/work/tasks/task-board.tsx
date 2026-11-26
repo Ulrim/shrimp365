@@ -4,7 +4,7 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { deleteTask, saveTask, updateMyTask } from "@/app/(dashboard)/daumlabs/work/(app)/tasks/actions";
+import { deleteTask, saveTask, updateMyTask } from "@/app/(dashboard)/farm365/work/(app)/tasks/actions";
 import { Badge, StatusBadge } from "@/components/work/ui/badge";
 import { Button } from "@/components/work/ui/button";
 import { Card } from "@/components/work/ui/card";

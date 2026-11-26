@@ -51,7 +51,7 @@ export function HomeView() {
         // 로그인·소셜 콜백·북마크 등 모든 진입 경로가 결국 /home 을 거치므로 교정은
         // 여기 한 곳이면 된다. 판정은 profiles.ui_mode 하나다 — 전환 스위치가 저장한
         // 값이고, 온보딩에서 농업 유형을 고르면 함께 저장된다. 혼합 계정도 자기 뜻대로
-        // 정할 수 있다. 역방향(/daumlabs/home → /home) 자동 이동은 하지 않는다.
+        // 정할 수 있다. 역방향(/farm365/home → /home) 자동 이동은 하지 않는다.
         // 이 뷰는 새우 경로(/home)에서만 렌더되므로 URL 조건은 필요 없다.
         if (user.ui_mode === "agriculture") {
           router.replace(`${AGRI_PREFIX}/home`)

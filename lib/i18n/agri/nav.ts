@@ -5,23 +5,23 @@
 import type { Locale } from "@/lib/i18n"
 
 export interface AgriNavDict {
-  /** `/daumlabs/home` */
+  /** `/farm365/home` */
   home: string
-  /** `/daumlabs/record` — 기록 허브. 사이드바 "기록" 섹션 제목으로도 쓴다. */
+  /** `/farm365/record` — 기록 허브. 사이드바 "기록" 섹션 제목으로도 쓴다. */
   record: string
-  /** `/daumlabs/record/water-quality` — 측정 기록. */
+  /** `/farm365/record/water-quality` — 측정 기록. */
   recordMeasure: string
-  /** `/daumlabs/record/journal` — 영농 일지 쓰기. */
+  /** `/farm365/record/journal` — 영농 일지 쓰기. */
   recordJournal: string
-  /** `/daumlabs/dashboard` — 모니터링. */
+  /** `/farm365/dashboard` — 모니터링. */
   dashboard: string
-  /** `/daumlabs/water-quality` — 양액 관리. */
+  /** `/farm365/water-quality` — 양액 관리. */
   nutrient: string
-  /** `/daumlabs/journal` — 영농 일지 목록. */
+  /** `/farm365/journal` — 영농 일지 목록. */
   journal: string
-  /** `/daumlabs/farms` — 농장·기기 관리. */
+  /** `/farm365/farms` — 농장·기기 관리. */
   farms: string
-  /** `/daumlabs/work/**` — 현장관리(DailyWork 이식). 화면 본문은 한국어 전용이고 메뉴 라벨만 4개 언어다. */
+  /** `/farm365/work/**` — 현장관리(DailyWork 이식). 화면 본문은 한국어 전용이고 메뉴 라벨만 4개 언어다. */
   work: string
   /** 사이드바 섹션 제목 — 기록. */
   sectionRecord: string

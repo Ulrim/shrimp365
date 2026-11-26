@@ -1,6 +1,6 @@
 "use client"
 
-// 모니터링 `/daumlabs/dashboard` — 수아 시안 mode-split-ui.md 5-5.
+// 모니터링 `/farm365/dashboard` — 수아 시안 mode-split-ui.md 5-5.
 //
 // 헤더 → 알림 배너 → 통계 4칸 → 베드 현황(카드) → 양액 상태·차압 추세 → 센서별 현재값 →
 // 최근 알림. 데이터는 lib/db 함수만 쓰고, 뷰 안에서 `farm_type === "agriculture"` 로
@@ -198,13 +198,13 @@ export function AgriDashboardView() {
       actions={
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <Button asChild variant="outline" className="min-h-[44px] flex-1 sm:flex-none">
-            <Link href="/daumlabs/record/water-quality">
+            <Link href="/farm365/record/water-quality">
               <ClipboardList className="w-4 h-4" aria-hidden="true" />
               {dd.actionRecord}
             </Link>
           </Button>
           <Button asChild className="min-h-[44px] flex-1 sm:flex-none bg-brand text-white hover:bg-brand-hover">
-            <Link href="/daumlabs/water-quality">
+            <Link href="/farm365/water-quality">
               {dd.actionNutrient}
               <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </Link>
@@ -242,7 +242,7 @@ export function AgriDashboardView() {
     return (
       <div className="space-y-6 animate-fade-in">
         {header}
-        <AgriEmptyState icon={Building2} title={common.noFarmsTitle} description={common.noFarmsMsg} ctaLabel={common.registerFarm} ctaHref="/daumlabs/farms" />
+        <AgriEmptyState icon={Building2} title={common.noFarmsTitle} description={common.noFarmsMsg} ctaLabel={common.registerFarm} ctaHref="/farm365/farms" />
       </div>
     )
   }
@@ -251,7 +251,7 @@ export function AgriDashboardView() {
     return (
       <div className="space-y-6 animate-fade-in">
         {header}
-        <AgriEmptyState icon={Sprout} title={dd.noBedsTitle} description={dd.noBedsMsg} ctaLabel={dd.addBedCta} ctaHref="/daumlabs/farms" />
+        <AgriEmptyState icon={Sprout} title={dd.noBedsTitle} description={dd.noBedsMsg} ctaLabel={dd.addBedCta} ctaHref="/farm365/farms" />
       </div>
     )
   }
@@ -289,7 +289,7 @@ export function AgriDashboardView() {
             </p>
           </div>
           <Button asChild size="sm" variant="outline" className="border-red-500/40 text-red-700 dark:text-red-300 hover:bg-red-500/20 text-xs min-h-[44px] w-full sm:w-auto">
-            <Link href="/daumlabs/water-quality#alerts">{dd.viewAlerts}</Link>
+            <Link href="/farm365/water-quality#alerts">{dd.viewAlerts}</Link>
           </Button>
         </div>
       )}
@@ -318,7 +318,7 @@ export function AgriDashboardView() {
       <section aria-label={dd.bedsHeading} className="space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-foreground">{dd.bedsHeading}</h2>
-          <Link href="/daumlabs/farms" className="text-xs text-brand-fg font-medium inline-flex items-center gap-1 min-h-[44px] hover:underline">
+          <Link href="/farm365/farms" className="text-xs text-brand-fg font-medium inline-flex items-center gap-1 min-h-[44px] hover:underline">
             {dd.bedDetail} <ArrowRight className="w-3 h-3" aria-hidden="true" />
           </Link>
         </div>
@@ -370,7 +370,7 @@ export function AgriDashboardView() {
           title={common.noData}
           description={dd.noDataCompact}
           ctaLabel={dd.actionRecord}
-          ctaHref="/daumlabs/record/water-quality"
+          ctaHref="/farm365/record/water-quality"
           className="py-8"
         />
       )}

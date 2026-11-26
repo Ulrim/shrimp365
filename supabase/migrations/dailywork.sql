@@ -30,7 +30,7 @@
 --      조회하던 "대상이 다른 사업장의 현장관리자인가"를 권한 확인을 거친 함수로 옮겼다.
 --   7) `create extension pgcrypto` 를 뺐다. gen_random_uuid() 는 PostgreSQL 13 부터 내장이다.
 --   8) 알림(`dw_notifications.link`)의 경로는 원본 그대로 `/tasks`, `/reports/<id>` 로 저장한다.
---      `/daumlabs/work` 접두사는 화면이 붙인다.
+--      `/farm365/work` 접두사는 화면이 붙인다.
 --   9) `dw_profiles.id` 는 auth.users 의 uid 값을 그대로 쓰지만 외래 키는 걸지 않는다.
 --      원본처럼 `references auth.users on delete cascade` 를 두면, 작업일보·업무가 있는 구성원이
 --      shrimp365 회원 탈퇴를 할 때 `dw_daily_reports.author_id` 등의 `on delete restrict` 에 걸려
