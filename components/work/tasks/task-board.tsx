@@ -181,6 +181,11 @@ export function TaskBoard({
               <div className="grid grid-cols-2 gap-3">
                 <Field label="담당자" htmlFor="task-assignee" required>
                   <Select id="task-assignee" value={form.assignee_id} onChange={(e) => set({ assignee_id: e.target.value })}>
+                    {/* 사업장에서 빠졌거나 사용 중지된 기존 담당자도 보여 준다. 없으면 셀렉트가 첫 구성원을
+                        보여 주면서 값은 옛 담당자로 남아, 화면과 저장되는 값이 어긋난다. */}
+                    {editing !== "new" && !options.members.some((m) => m.id === form.assignee_id) && (
+                      <option value={editing.assignee_id}>{editing.assignee_name} (현재 구성원 아님)</option>
+                    )}
                     {options.members.map((m) => (
                       <option key={m.id} value={m.id}>{m.label}</option>
                     ))}

@@ -23,7 +23,7 @@ export default async function ReportsPage({
   const { supabase, project, userId, isInternal } = session;
   const params = await searchParams;
   const scope = params.scope === "all" && isInternal ? "all" : "mine";
-  const month = /^\d{4}-\d{2}$/.test(params.month ?? "") ? params.month! : today().slice(0, 7);
+  const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(params.month ?? "") ? params.month! : today().slice(0, 7);
   const status = (Object.keys(REPORT_STATUS) as ReportStatus[]).find((s) => s === params.status);
   const first = startOfMonth(`${month}-01`);
 

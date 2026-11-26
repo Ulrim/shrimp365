@@ -262,3 +262,47 @@ describe("회원 탈퇴와 현장 기록", () => {
     expect(visible).toHaveLength(0); // 작성중 일보는 작성자와 관리자만 본다
   });
 });
+
+describe("담당자가 빠진 업무", () => {
+  // 담당자 검증(dw_tasks_before_write)이 모든 UPDATE 에 걸리던 때에는, 담당자가 사업장에서
+  // 빠진 뒤 그 업무에 연결된 작업일보를 승인하면 dw_review_report 의 업무 갱신이 막혔다.
+  it("담당자가 사업장에서 제외돼도 연결된 작업일보를 승인할 수 있고, 다른 값은 수정된다", async () => {
+    const f = await createFixture();
+    const reportId = await createReport(f, f.worker, "2026-11-03", {
+      content: "터파기 작업",
+      process_id: f.processA1,
+      task_id: f.taskWorker,
+      task_progress: 40,
+      process_progress: 10,
+    });
+    await submit(f.worker, reportId);
+    await asUser(f.manager, (q) =>
+      q("delete from dw_project_members where project_id = $1 and user_id = $2", [f.projectA, f.worker]),
+    );
+
+    await review(f.manager, reportId, "approved");
+    const [task] = await sql("select progress, assignee_id from dw_tasks where id = $1", [f.taskWorker]);
+    expect(task.progress).toBe(40);
+    expect(task.assignee_id).toBe(f.worker);
+
+    await asUser(f.manager, (q) => q("update dw_tasks set title = '기초 터파기(수정)' where id = $1", [f.taskWorker]));
+    expect((await sql("select title from dw_tasks where id = $1", [f.taskWorker]))[0].title).toBe("기초 터파기(수정)");
+  });
+
+  it("구성원이 아닌 사람에게 새로 배정하거나 담당자를 바꾸는 것은 여전히 막힌다", async () => {
+    const f = await createFixture();
+    const outsider = await createAuthUser();
+    await expect(
+      asUser(f.manager, (q) => q("update dw_tasks set assignee_id = $2 where id = $1", [f.taskWorker, outsider])),
+    ).rejects.toThrow();
+    await expect(
+      asUser(f.manager, (q) =>
+        q("insert into dw_tasks (project_id, process_id, title, assignee_id) values ($1, $2, '무단 배정', $3)", [
+          f.projectA,
+          f.processA1,
+          outsider,
+        ]),
+      ),
+    ).rejects.toThrow();
+  });
+});

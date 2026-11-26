@@ -713,7 +713,9 @@ create or replace function public.dw_tasks_before_write() returns trigger
 language plpgsql security definer set search_path = public, pg_temp
 as $$
 begin
-  if not exists (
+  -- 담당자 검증은 배정할 때(등록·담당자 변경)만 한다. 담당자가 사업장에서 빠지거나 탈퇴한 뒤에도
+  -- 남은 업무의 다른 값 수정과 작업일보 승인(dw_review_report 의 업무 갱신)이 막히지 않아야 한다.
+  if (tg_op = 'INSERT' or new.assignee_id is distinct from old.assignee_id) and not exists (
     select 1 from dw_project_members where project_id = new.project_id and user_id = new.assignee_id
   ) and not exists (
     select 1 from dw_profiles where id = new.assignee_id and global_role is not null
