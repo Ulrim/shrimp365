@@ -282,3 +282,131 @@
     page-break-inside: avoid;
   }
 }
+
+/* ── 현장관리(DailyWork 이식, /daumlabs/work/**) ─────────────────────────────
+ *
+ * 규칙·대응표는 docs/plans/dailywork-merge-ui.md. 전부 `dw-` 접두사 아래에 있고
+ * (인쇄 클래스 3종 제외) 기존 화면의 결과 색은 바뀌지 않는다.
+ *
+ *   .dw-root   현장관리 화면의 최상위 래퍼((app)/layout.tsx, 다이얼로그 본문).
+ *   .dw-paper  인쇄 문서 본문. 다크 모드와 무관하게 흰 바탕·검은 글자.
+ *   .dw-tone-* / .dw-fg-* / .dw-line / .dw-ring   상태색(배지·안내·수치).
+ */
+
+/* 원본 body 의 `tnum` 과 탭 하이라이트 제거를 현장관리 구역으로만 옮긴다.
+ *
+ * 틴트(--brand-a*)를 여기서 다시 선언하는 이유: :root 에 선언된 `rgb(var(--brand-rgb) / α)`
+ * 는 :root 에서 계산이 끝난 값(파랑)으로 상속된다. data-mode="agriculture" 가 --brand-rgb 를
+ * 녹색으로 바꿔도 틴트는 따라오지 않는다. 이 요소에서 다시 선언하면 여기의 --brand-rgb(녹색)로
+ * 계산된다. */
+.dw-root {
+  font-variant-numeric: tabular-nums;
+  -webkit-tap-highlight-color: transparent;
+  --brand-a4:  rgb(var(--brand-rgb) / 0.04);
+  --brand-a5:  rgb(var(--brand-rgb) / 0.05);
+  --brand-a10: rgb(var(--brand-rgb) / 0.10);
+  --brand-a20: rgb(var(--brand-rgb) / 0.20);
+  --brand-a25: rgb(var(--brand-rgb) / 0.25);
+  --brand-a30: rgb(var(--brand-rgb) / 0.30);
+  --brand-a40: rgb(var(--brand-rgb) / 0.40);
+  --brand-a50: rgb(var(--brand-rgb) / 0.50);
+  --brand-fg-a80: rgb(var(--brand-fg-rgb) / 0.80);
+}
+/* 네이티브 select·date 입력의 펼침 목록이 다크에서 흰 바탕으로 뜨지 않게. */
+.dark .dw-root {
+  color-scheme: dark;
+}
+
+/* 인쇄 문서 본문 — 시맨틱 토큰을 라이트 값으로 되돌린다. 안쪽에서는 text-foreground·
+ * border-border·bg-muted 를 그대로 쓰면 되고, `dark:` 변형은 쓰지 않는다(끌 수 없다).
+ * --border 만 :root 보다 진하다(gray-300 상당) — 종이 위 표 괘선이 보여야 한다. */
+.dw-paper {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 40%;
+  --accent: 210 40% 96.1%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+  --border: 216 12.2% 83.9%;
+  --input: 216 12.2% 83.9%;
+  --brand-fg: #15803D;
+  --brand-fg-rgb: 21 128 61;
+  --brand-fg-a80: rgb(var(--brand-fg-rgb) / 0.80);
+  color-scheme: light;
+  background-color: #fff;
+  color: hsl(var(--foreground));
+}
+
+/* 상태색 — 한 클래스가 라이트·다크 값을 함께 가진다.
+ *   dw-tone-X  바탕 + 글자(배지·칩·안내 상자)     dw-fg-X  글자만(수치·경고 문구)
+ *   dw-line    같은 요소의 테두리를 그 색조로      dw-ring  안쪽 1px 링(배지)
+ * 레이어 밖에 둔다 — 버튼 변형의 text-foreground 같은 유틸리티보다 항상 이겨야
+ * `<Button variant="ghost" className="dw-fg-red">` 가 뜻대로 된다.
+ * 라이트 값은 원본(50 바탕 / 700~800 글자 / 200 선) 그대로다. */
+.dw-tone-gray,   .dw-fg-gray   { --dw-bg: #f3f4f6; --dw-fg: #374151; --dw-line: #e5e7eb; }
+.dw-tone-green,  .dw-fg-green  { --dw-bg: #ecfdf5; --dw-fg: #065f46; --dw-line: #a7f3d0; }
+.dw-tone-blue,   .dw-fg-blue   { --dw-bg: #f0f9ff; --dw-fg: #075985; --dw-line: #bae6fd; }
+.dw-tone-amber,  .dw-fg-amber  { --dw-bg: #fffbeb; --dw-fg: #92400e; --dw-line: #fde68a; }
+.dw-tone-red,    .dw-fg-red    { --dw-bg: #fef2f2; --dw-fg: #b91c1c; --dw-line: #fecaca; }
+.dw-tone-purple, .dw-fg-purple { --dw-bg: #f5f3ff; --dw-fg: #5b21b6; --dw-line: #ddd6fe; }
+
+/* 다크: 500 계열 15% 바탕 위에 300 글자(본문 대비 7:1 이상). 종이 안과 인쇄물에서는 적용하지 않는다. */
+@media screen {
+  .dark .dw-tone-gray:not(.dw-paper *),   .dark .dw-fg-gray:not(.dw-paper *)   { --dw-bg: rgb(148 163 184 / 0.16); --dw-fg: #cbd5e1; --dw-line: rgb(148 163 184 / 0.30); }
+  .dark .dw-tone-green:not(.dw-paper *),  .dark .dw-fg-green:not(.dw-paper *)  { --dw-bg: rgb(16 185 129 / 0.15);  --dw-fg: #6ee7b7; --dw-line: rgb(16 185 129 / 0.35); }
+  .dark .dw-tone-blue:not(.dw-paper *),   .dark .dw-fg-blue:not(.dw-paper *)   { --dw-bg: rgb(14 165 233 / 0.15);  --dw-fg: #7dd3fc; --dw-line: rgb(14 165 233 / 0.35); }
+  .dark .dw-tone-amber:not(.dw-paper *),  .dark .dw-fg-amber:not(.dw-paper *)  { --dw-bg: rgb(245 158 11 / 0.15);  --dw-fg: #fcd34d; --dw-line: rgb(245 158 11 / 0.35); }
+  .dark .dw-tone-red:not(.dw-paper *),    .dark .dw-fg-red:not(.dw-paper *)    { --dw-bg: rgb(239 68 68 / 0.15);   --dw-fg: #fca5a5; --dw-line: rgb(239 68 68 / 0.40); }
+  .dark .dw-tone-purple:not(.dw-paper *), .dark .dw-fg-purple:not(.dw-paper *) { --dw-bg: rgb(139 92 246 / 0.18);  --dw-fg: #c4b5fd; --dw-line: rgb(139 92 246 / 0.40); }
+}
+
+.dw-tone-gray, .dw-tone-green, .dw-tone-blue, .dw-tone-amber, .dw-tone-red, .dw-tone-purple {
+  background-color: var(--dw-bg);
+  color: var(--dw-fg);
+}
+.dw-fg-gray, .dw-fg-green, .dw-fg-blue, .dw-fg-amber, .dw-fg-red, .dw-fg-purple {
+  color: var(--dw-fg);
+}
+.dw-line {
+  border-color: var(--dw-line);
+}
+.dw-ring {
+  box-shadow: inset 0 0 0 1px var(--dw-line);
+}
+
+/* 원본 전역 `:focus-visible` 을 현장관리 구역으로만 옮긴다. 레이어 안에 두어
+ * 입력 컨트롤의 `focus:outline-none`(자체 링 사용)이 이긴다. */
+@layer components {
+  .dw-root :focus-visible {
+    outline: 2px solid var(--brand-fg);
+    outline-offset: 2px;
+  }
+}
+
+/* 원본 인쇄 클래스 3종. @page(A4·12mm)·main 여백·.fixed 숨김은 위의 인쇄 블록이 이미 한다. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-plain {
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+  .avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  /* 원본 body 의 인쇄 글자 크기(11px)와, 표 머리 바탕·배지 색 인쇄. */
+  .dw-paper {
+    font-size: 11px;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

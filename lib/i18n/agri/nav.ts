@@ -21,6 +21,8 @@ export interface AgriNavDict {
   journal: string
   /** `/daumlabs/farms` — 농장·기기 관리. */
   farms: string
+  /** `/daumlabs/work/**` — 현장관리(DailyWork 이식). 화면 본문은 한국어 전용이고 메뉴 라벨만 4개 언어다. */
+  work: string
   /** 사이드바 섹션 제목 — 기록. */
   sectionRecord: string
   /** 사이드바 섹션 제목 — 모니터링. */
@@ -43,6 +45,7 @@ export const agriNav: Record<Locale, AgriNavDict> = {
     nutrient: "양액 관리",
     journal: "영농 일지",
     farms: "농장·기기 관리",
+    work: "현장관리",
     sectionRecord: "기록",
     sectionMonitor: "모니터링",
     brandTagline: "SMART FARMING",
@@ -58,6 +61,7 @@ export const agriNav: Record<Locale, AgriNavDict> = {
     nutrient: "Nutrient solution",
     journal: "Farm journal",
     farms: "Farms & devices",
+    work: "Site Work",
     sectionRecord: "Record",
     sectionMonitor: "Monitor",
     brandTagline: "SMART FARMING",
@@ -73,6 +77,7 @@ export const agriNav: Record<Locale, AgriNavDict> = {
     nutrient: "Dung dịch dinh dưỡng",
     journal: "Nhật ký canh tác",
     farms: "Nông trại & thiết bị",
+    work: "Quản lý công trường",
     sectionRecord: "Ghi chép",
     sectionMonitor: "Giám sát",
     brandTagline: "SMART FARMING",
@@ -88,6 +93,7 @@ export const agriNav: Record<Locale, AgriNavDict> = {
     nutrient: "Larutan nutrisi",
     journal: "Jurnal tani",
     farms: "Kebun & perangkat",
+    work: "Manajemen lapangan",
     sectionRecord: "Pencatatan",
     sectionMonitor: "Pemantauan",
     brandTagline: "SMART FARMING",

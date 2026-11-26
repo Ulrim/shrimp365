@@ -12,7 +12,7 @@ import {
   Home, LayoutDashboard, Droplets, BookOpen, Building2,
   BrainCircuit, BarChart3, Settings, LogOut,
   ChevronLeft, ChevronRight, Leaf, FlaskConical, Package, ShieldCheck,
-  ClipboardList, HelpCircle, MessageSquare, Layers, Video, Beaker,
+  ClipboardList, HelpCircle, MessageSquare, Layers, Video, Beaker, HardHat,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { SettingsPanel } from "@/components/layout/settings-panel"
@@ -101,6 +101,7 @@ export function Sidebar() {
     { href: "/daumlabs/water-quality", icon: Droplets,        label: agri.nav.nutrient },
     { href: "/daumlabs/journal",       icon: BookOpen,        label: agri.nav.journal },
     { href: "/daumlabs/farms",         icon: Building2,       label: agri.nav.farms },
+    { href: "/daumlabs/work",          icon: HardHat,         label: agri.nav.work },
     ...SHARED_NAV,
   ]
 

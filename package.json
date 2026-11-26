@@ -22,7 +22,9 @@
     "mrv:verify-report-jobs": "node scripts/mrv/verify-report-jobs.mjs",
     "mrv:verify-experiments": "node scripts/mrv/verify-experiments.mjs",
     "mrv:verify": "npm run mrv:verify-kpi && npm run mrv:verify-config && npm run mrv:verify-ingestion && npm run mrv:verify-pipeline && npm run mrv:verify-alerts && npm run mrv:verify-csv && npm run mrv:verify-baseline && npm run mrv:verify-kpi-config-write && npm run mrv:verify-contrast && npm run mrv:verify-scope2-market && npm run mrv:verify-report-template && npm run mrv:verify-report-jobs && npm run mrv:verify-experiments && npm run mrv:verify-rls",
-    "cardnews": "node scripts/cardnews/render.mjs"
+    "cardnews": "node scripts/cardnews/render.mjs",
+    "work:test:unit": "vitest run --project unit",
+    "work:test:db": "vitest run --project db"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -62,6 +64,7 @@
     "react-dom": "19.2.4",
     "react-hook-form": "^7.75.0",
     "recharts": "^3.8.1",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^3.5.0",
     "three": "^0.185.1",
     "web-push": "^3.6.7",
@@ -70,15 +73,19 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/three": "^0.185.4",
     "docx": "^9.6.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "pg": "^8.23.1",
     "playwright-core": "^1.49.0",
     "pretendard": "^1.3.9",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.1"
   }
 }
