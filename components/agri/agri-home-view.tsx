@@ -1,10 +1,10 @@
 "use client"
 
-// 스마트팜 홈 `/daumlabs/home` — 수아 시안 mode-split-ui.md 5-1.
+// 스마트팜 홈 `/farm365/home` — 수아 시안 mode-split-ui.md 5-1.
 //
 // 인사 → 오늘 베드 현황(위험/주의/정상 + 미처리 알림 링크) → 기록하기·현황 보기 카드.
 // 데이터는 lib/db 함수만 쓰고, 뷰 안에서 `farm_type === "agriculture"` 로 거른다 —
-// 혼합 계정에서 다른 유형 농장의 위험을 세지 않게. 이 뷰는 /daumlabs/home 에서만 렌더되므로
+// 혼합 계정에서 다른 유형 농장의 위험을 세지 않게. 이 뷰는 /farm365/home 에서만 렌더되므로
 // ui_mode 교정 로직이 없다(그 일은 새우 홈이 한다). 전체 농장이 0개면 기존처럼 온보딩.
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
@@ -113,13 +113,13 @@ export function AgriHomeView() {
             title={common.noFarmsTitle}
             description={common.noFarmsMsg}
             ctaLabel={common.registerFarm}
-            ctaHref="/daumlabs/farms"
+            ctaHref="/farm365/farms"
           />
         ) : tanks.length === 0 ? (
           <div className="bg-card border border-border rounded-2xl p-6 text-center shadow-sm" role="status" aria-label={home.noBedsAria}>
             <p className="text-muted-foreground text-sm">{home.noBeds}</p>
             <Link
-              href="/daumlabs/farms"
+              href="/farm365/farms"
               className="inline-flex items-center justify-center min-h-[44px] mt-3 px-5 py-2 rounded-xl bg-brand text-white text-sm font-medium hover:bg-brand-hover transition-colors duration-200"
             >
               {common.registerFarm}
@@ -147,7 +147,7 @@ export function AgriHomeView() {
             </div>
             {alerts.length > 0 && (
               <Link
-                href="/daumlabs/dashboard"
+                href="/farm365/dashboard"
                 aria-label={home.unresolvedAlertsAria.replace("{{count}}", String(alerts.length))}
                 className="flex items-center gap-2 mt-3 pt-3 border-t border-border text-sm text-amber-600 dark:text-amber-400 hover:text-amber-700 min-h-[44px]"
               >
@@ -162,7 +162,7 @@ export function AgriHomeView() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Link
-            href="/daumlabs/record"
+            href="/farm365/record"
             aria-label={home.recordCardAria}
             className="group flex flex-col items-center justify-center gap-4 rounded-xl border border-border bg-card hover:border-brand hover:bg-brand-a4 transition-colors duration-200 py-8 sm:py-10 px-6 min-h-[44px] text-center"
           >
@@ -176,7 +176,7 @@ export function AgriHomeView() {
           </Link>
 
           <Link
-            href="/daumlabs/dashboard"
+            href="/farm365/dashboard"
             aria-label={home.monitorCardAria}
             className="group flex flex-col items-center justify-center gap-4 rounded-xl border border-border bg-card hover:border-amber-600 hover:bg-amber-600/[0.05] transition-colors duration-200 py-8 sm:py-10 px-6 min-h-[44px] text-center"
           >

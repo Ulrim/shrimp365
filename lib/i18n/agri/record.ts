@@ -1,7 +1,7 @@
 // 농업(스마트팜) 사전 — record 섹션. 4개 언어를 한 파일에 둔다(설계서 mode-split.md 6장).
 //
-// 기록 허브(`/daumlabs/record`) · 측정 입력 폼(`/daumlabs/record/water-quality`) ·
-// 영농 일지 폼(`/daumlabs/record/journal`) 문구. 저장·다음·이전·날짜 같은 위저드
+// 기록 허브(`/farm365/record`) · 측정 입력 폼(`/farm365/record/water-quality`) ·
+// 영농 일지 폼(`/farm365/record/journal`) 문구. 저장·다음·이전·날짜 같은 위저드
 // 공용 문구는 기존 `useT().t.wizard` 를 그대로 쓴다. 자리표시자는 `{{target}}` 등.
 //
 // 어휘: 측정 항목 이름·단위는 common.param / common.unit 에 있다(여기 중복 금지).

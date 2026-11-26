@@ -1,6 +1,6 @@
 // 농업(스마트팜) 사전 — farms 섹션. 4개 언어를 한 파일에 둔다(설계서 mode-split.md 6장).
 //
-// `/daumlabs/farms` 농장·베드·기기 관리 화면(components/agri/agri-farms-view.tsx 와
+// `/farm365/farms` 농장·베드·기기 관리 화면(components/agri/agri-farms-view.tsx 와
 // components/agri/farms/*)이 읽는다. 저장·취소·삭제·"n분 전" 같은 범용 문구는
 // 기존 `useT().t.common / t.time` 을 쓰고, 상태 라벨·항목 이름은 `common` 섹션을 쓴다.
 //

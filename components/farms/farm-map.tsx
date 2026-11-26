@@ -94,7 +94,7 @@ export function FarmMap({ farms, tanks, labels, farmsHref = "/farms" }: {
   tanks: Tank[]
   /** 문구 덮어쓰기(부분). 넘기지 않은 키는 기본값(새우 문구) 그대로. */
   labels?: Partial<FarmMapLabels>
-  /** "좌표 넣기" 링크 목적지. 기본 `/farms`(새우). 농업 화면은 `/daumlabs/farms`. */
+  /** "좌표 넣기" 링크 목적지. 기본 `/farms`(새우). 농업 화면은 `/farm365/farms`. */
   farmsHref?: string
 }) {
   const L: FarmMapLabels = { ...DEFAULT_LABELS, ...labels }

@@ -10,7 +10,7 @@ import { useT } from "@/lib/i18n-context"
 import { AGRI_PREFIX, AGRI_ROUTES, isAgriPath } from "@/lib/agri-route"
 import type { Farm, Tank, IconComponent } from "@/types"
 
-// 농업 화면(/daumlabs)에 없는 페이지 — 접두사를 붙일 수 없어 누르면 문맥 밖으로
+// 농업 화면(/farm365)에 없는 페이지 — 접두사를 붙일 수 없어 누르면 문맥 밖으로
 // 나가 버린다. sidebar·bottom-nav 와 같은 원칙(설계서 4-3).
 const AGRI_HIDDEN = new Set(["/diagnosis", "/ai-advisor", "/reports"])
 const AGRI_ROUTE_SET: ReadonlySet<string> = new Set(AGRI_ROUTES)

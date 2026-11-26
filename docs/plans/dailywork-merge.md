@@ -12,7 +12,7 @@
 원본은 "CULIVER 스마트팜 통합 현장관리 시스템"이다. 현장 작업자가 개인 계정으로 작업일보를 쓰고 제출하면
 관리자가 검토·승인하고, 업무 배정·캘린더·공정 간트·통합일보·보고서·알림·변경 이력·계정/사업장 관리를
 한 곳에서 본다. 독립 Next.js 앱(자체 로그인, 자체 Supabase 프로젝트)이던 것을 shrimp365 의 스마트팜
-화면(Farm365, `/daumlabs/**`) 안으로 들여왔다.
+화면(Farm365, `/farm365/**`) 안으로 들여왔다.
 
 이 문서는 확정된 결정과 구현 결과를 옮겨 적은 것이다. 여기 적힌 이름과 경로는 여러 파일이 서로 맞물리는
 지점이므로 담당자가 임의로 바꾸지 않는다.
@@ -40,12 +40,12 @@
 
 | 원본 | 이식본 |
 |---|---|
-| `src/app/(app)/<x>/**` | `app/(dashboard)/daumlabs/work/(app)/<x>/**` → URL `/daumlabs/work/<x>` |
-| `src/app/(app)/layout.tsx` | `app/(dashboard)/daumlabs/work/(app)/layout.tsx` |
-| `src/app/(app)/no-project` | `app/(dashboard)/daumlabs/work/(app)/no-project` |
-| `src/app/(app)/actions.ts` | `app/(dashboard)/daumlabs/work/(app)/actions.ts` (export 이름 유지) |
-| (신규) 초대 없음 안내 | `app/(dashboard)/daumlabs/work/not-invited/page.tsx` — **`(app)` 그룹 밖** |
-| (신규) 진입 | `app/(dashboard)/daumlabs/work/page.tsx` → `/daumlabs/work/dashboard` 로 redirect |
+| `src/app/(app)/<x>/**` | `app/(dashboard)/farm365/work/(app)/<x>/**` → URL `/farm365/work/<x>` |
+| `src/app/(app)/layout.tsx` | `app/(dashboard)/farm365/work/(app)/layout.tsx` |
+| `src/app/(app)/no-project` | `app/(dashboard)/farm365/work/(app)/no-project` |
+| `src/app/(app)/actions.ts` | `app/(dashboard)/farm365/work/(app)/actions.ts` (export 이름 유지) |
+| (신규) 초대 없음 안내 | `app/(dashboard)/farm365/work/not-invited/page.tsx` — **`(app)` 그룹 밖** |
+| (신규) 진입 | `app/(dashboard)/farm365/work/page.tsx` → `/farm365/work/dashboard` 로 redirect |
 | `src/lib/*` | `lib/work/*` (`lib/work/supabase/server.ts` 포함) |
 | `src/components/<x>/*` | `components/work/<x>/*` (`ui`, `layout` 포함) |
 | `tests/unit`, `tests/db` | `tests/work/unit`, `tests/work/db` |
@@ -53,7 +53,7 @@
 
 - `not-invited` 를 `(app)` 그룹 밖에 두는 이유: `(app)/layout.tsx` 가 세션을 확인하고 프로필이 없으면 `not-invited` 로 보낸다. 안내 화면이 같은 레이아웃을 타면 무한 redirect 가 된다.
 - import 별칭은 `@/lib/work/...`, `@/components/work/...` 다. shrimp365 의 `@/*` 는 `src/` 가 아니라 저장소 루트를 가리킨다.
-- 화면 안의 모든 링크·`redirect()`·`revalidatePath()` 에는 `/daumlabs/work` 접두사가 붙는다. 문자열을 흩뿌리지 않고 `lib/work/constants.ts` 의 `export const WORK_BASE = "/daumlabs/work"` 와 `export function workHref(path: string): string`(예: `workHref("/reports/new")`)을 쓴다.
+- 화면 안의 모든 링크·`redirect()`·`revalidatePath()` 에는 `/farm365/work` 접두사가 붙는다. 문자열을 흩뿌리지 않고 `lib/work/constants.ts` 의 `export const WORK_BASE = "/farm365/work"` 와 `export function workHref(path: string): string`(예: `workHref("/reports/new")`)을 쓴다.
 - `supabase/admin.ts` 는 만들지 않았다. service_role 이 꼭 필요한 곳은 기존 `@/lib/supabase-server` 의 `createAdminClient` 를 쓴다(5-5).
 
 ## 4. DB — 전부 `dw_` 접두사
@@ -177,7 +177,7 @@
 
 - 현장관리 화면은 shrimp365 `(dashboard)` 셸(사이드바·헤더·하단 내비, `data-mode="agriculture"`) **안에** 그린다. 원본의 Sidebar·Topbar·BottomNav 는 옮기지 않았다.
 - 대신 `(app)/layout.tsx` 가 본문 맨 위에 **현장관리 서브 내비**를 둔다: 사업장 선택 + 메뉴 탭 + 알림/검토 건수 배지.
-- "현장관리" 메뉴는 Farm365 사이드바와 하단 더보기에 **모든 사용자에게** 노출된다 → `/daumlabs/work`. 초대받지 않은 계정은 안내 화면을 본다. 의도된 현재 동작이고, 구성원에게만 노출할지는 후속 결정 사항이다(10장). 4개 언어 번역은 이 라벨 한 줄뿐이고, 화면 안 문구는 한국어 전용이다.
+- "현장관리" 메뉴는 Farm365 사이드바와 하단 더보기에 **모든 사용자에게** 노출된다 → `/farm365/work`. 초대받지 않은 계정은 안내 화면을 본다. 의도된 현재 동작이고, 구성원에게만 노출할지는 후속 결정 사항이다(10장). 4개 언어 번역은 이 라벨 한 줄뿐이고, 화면 안 문구는 한국어 전용이다.
 - 색·컴포넌트 규칙은 `docs/plans/dailywork-merge-ui.md` 를 따른다. 원본의 `brand-NNN`/`gray-NNN`/`bg-white` 하드코딩을 shrimp365 토큰으로 대응시키는 표가 그 문서에 있다. 이 문서에서 색을 따로 정하지 않는다.
 - 공통 UI 원시 컴포넌트는 `components/work/ui/{badge,button,card,dialog,form,misc}.tsx`. **원본과 같은 export 이름·props** 를 유지한다. 화면 코드 이식이 기계적이 되게 하기 위해서다.
 - 서브 내비 계약: `components/work/layout/work-nav.tsx` 가 아래를 내보낸다(클라이언트 컴포넌트).
@@ -192,7 +192,7 @@
   })
   ```
 
-  `NavItem` 은 `@/lib/work/nav` 의 타입이다(원본 `src/lib/nav.ts` 와 같은 모양, `href` 는 `/daumlabs/work/...` 전체 경로). 사업장 전환은 `(app)/actions.ts` 로 옮긴 서버 액션을 호출한다.
+  `NavItem` 은 `@/lib/work/nav` 의 타입이다(원본 `src/lib/nav.ts` 와 같은 모양, `href` 는 `/farm365/work/...` 전체 경로). 사업장 전환은 `(app)/actions.ts` 로 옮긴 서버 액션을 호출한다.
 - 인쇄(보고서·통합일보)용 클래스 `no-print`, `print-plain`, `avoid-break` 는 `app/globals.css` 끝의 "현장관리" 블록에 같은 이름으로 추가했다.
 
 ## 7. 원본과 달라진 점, 옮기지 않은 것
@@ -201,8 +201,8 @@
 
 | 항목 | 원본 | 이식본 |
 |---|---|---|
-| URL | `/<x>` | `/daumlabs/work/<x>` |
-| 소스 위치 | `src/app`, `src/lib`, `src/components` | `app/(dashboard)/daumlabs/work`, `lib/work`, `components/work` |
+| URL | `/<x>` | `/farm365/work/<x>` |
+| 소스 위치 | `src/app`, `src/lib`, `src/components` | `app/(dashboard)/farm365/work`, `lib/work`, `components/work` |
 | DB 객체 이름 | 접두사 없음 | 전부 `dw_`, 버킷은 `dw-report-photos` |
 | 마이그레이션 | 4개 파일, 전용 프로젝트 | `dailywork.sql` 한 파일, 멱등, shrimp365 운영 DB 에 공존 |
 | 권한 문장 | 스키마 전체 revoke/grant | `dw_` 객체별 revoke/grant |
@@ -245,7 +245,7 @@
 ### 사람이 할 일
 
 **에이전트는 SQL 을 실행하지 않았다.** 에이전트 세션에는 운영 Supabase 키가 없어 실행할 수 없고, 에이전트의 일은
-코드·SQL 파일 준비와 로컬 검증까지다. 아래 c·d 를 사람이 하기 전에는 `/daumlabs/work` 가 안내 화면
+코드·SQL 파일 준비와 로컬 검증까지다. 아래 c·d 를 사람이 하기 전에는 `/farm365/work` 가 안내 화면
 ("지금 사용할 수 없습니다")만 보여 준다. 순서대로 한다.
 
 a. Supabase 대시보드 Authentication 설정에서 **"Confirm email"** 과 **"Secure email change"** 가 켜져 있는지 확인한다. 꺼져 있으면 남의 이메일로 가입·변경해 초대를 가로챌 수 있다.
@@ -268,10 +268,10 @@ e. 서버 환경변수 `SUPABASE_SERVICE_ROLE_KEY` 가 있는지 확인한다(5-
 f. 실제 Supabase 에서 확인한다 — 로컬에서 확인하지 못한 것들이다.
    - 사진 업로드·서명 URL 표시·삭제(버킷 `dw-report-photos`)
    - 초대 → 가입 → 자동 수락
-   - 농장이 없는 계정이 `/daumlabs/work` 로 바로 들어왔을 때(셸이 `/onboarding` 으로 보낼 수 있다 — 미확인)
+   - 농장이 없는 계정이 `/farm365/work` 로 바로 들어왔을 때(셸이 `/onboarding` 으로 보낼 수 있다 — 미확인)
    - 인쇄(보고서·통합일보)
 
-그 뒤의 구성원 초대는 지정된 관리자가 `/daumlabs/work/admin/users` 화면에서 한다. 초대 메일은 나가지 않으므로 당사자에게 직접 알린다.
+그 뒤의 구성원 초대는 지정된 관리자가 `/farm365/work/admin/users` 화면에서 한다. 초대 메일은 나가지 않으므로 당사자에게 직접 알린다.
 
 ## 9. 검증
 

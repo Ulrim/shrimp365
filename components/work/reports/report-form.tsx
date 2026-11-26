@@ -3,7 +3,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { saveReport, type SaveReportInput } from "@/app/(dashboard)/daumlabs/work/(app)/reports/actions";
+import { saveReport, type SaveReportInput } from "@/app/(dashboard)/farm365/work/(app)/reports/actions";
 import { Button } from "@/components/work/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/work/ui/card";
 import { Field, FormError, FormNotice, Input, Select, Textarea } from "@/components/work/ui/form";

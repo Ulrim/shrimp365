@@ -1,6 +1,6 @@
 "use client"
 
-// 측정 기록 폼 `/daumlabs/record/water-quality` — 수아 시안 mode-split-ui.md 5-3.
+// 측정 기록 폼 `/farm365/record/water-quality` — 수아 시안 mode-split-ui.md 5-3.
 //
 // StepWizard(공용)를 그대로 쓰고 이 뷰는 **steps 배열과 저장 함수만** 가진다. 위저드 안
 // 문구·진행바 색은 props(labels·progressClass)로 농업 사전·brand 토큰을 넘긴다.
@@ -209,7 +209,7 @@ export function AgriMeasureRecordView() {
           title={r.noBedsTitle}
           description={r.noBedsMeasureMsg}
           ctaLabel={common.registerFarm}
-          ctaHref="/daumlabs/farms"
+          ctaHref="/farm365/farms"
           className="w-full max-w-md border-0 bg-transparent"
         />
       </div>
@@ -238,7 +238,7 @@ export function AgriMeasureRecordView() {
       {saved && (
         <div className="w-full max-w-md mx-auto px-4 pb-8 grid grid-cols-1 sm:grid-cols-2 gap-3" role="status">
           <Link
-            href={`/daumlabs/water-quality?tank=${encodeURIComponent(values.tank_id as string)}`}
+            href={`/farm365/water-quality?tank=${encodeURIComponent(values.tank_id as string)}`}
             className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-xl bg-brand text-white text-sm font-medium hover:bg-brand-hover transition-colors duration-200"
           >
             <TrendingUp className="w-4 h-4" aria-hidden="true" />

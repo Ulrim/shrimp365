@@ -2,7 +2,7 @@ import { workHref } from "./constants";
 import type { AppRole } from "./types";
 
 export interface NavItem {
-  /** `/daumlabs/work/...` 전체 경로 */
+  /** `/farm365/work/...` 전체 경로 */
   href: string;
   label: string;
   icon: "dashboard" | "report" | "review" | "task" | "calendar" | "progress" | "consolidated" | "output" | "bell" | "history" | "users" | "building" | "user";

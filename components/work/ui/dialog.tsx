@@ -14,7 +14,7 @@ export const DialogClose = DialogPrimitive.Close;
  *
  * Radix Portal 은 document.body 에 그려져 셸의 `data-mode="agriculture"` 와 현장관리 래퍼
  * `.dw-root` 바깥에 놓인다. 그대로 두면 창 안의 `brand` 가 새우 파랑이 되므로 본문에 둘을
- * 직접 붙인다(현장관리 화면은 언제나 /daumlabs 아래다).
+ * 직접 붙인다(현장관리 화면은 언제나 /farm365 아래다).
  */
 export function DialogContent({
   title,

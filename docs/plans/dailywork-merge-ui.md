@@ -206,7 +206,7 @@ shrimp365 셸: 하단 내비는 `lg` 미만에서 `fixed bottom-0 h-16 z-40`, �
 <WorkNav items={navFor(session.role)} counts={counts} projects={…} currentProjectId={session.project?.id ?? null} canWrite={!!session.role} />
 ```
 
-- `counts` 의 키는 `item.href` 와 같은 전체 경로(`/daumlabs/work/notifications`, `/daumlabs/work/reviews`).
+- `counts` 의 키는 `item.href` 와 같은 전체 경로(`/farm365/work/notifications`, `/farm365/work/reviews`).
 - 1행: 사업장(2곳 이상이면 셀렉트 → 서버 액션 `selectProject`), `lg` 이상에서 오른쪽 "일보 작성".
 - 2행: 그룹(업무 / 공정·보고 / 관리)을 세로선으로 가른 알약 탭. `lg` 미만은 가로 스크롤(활성 탭 자동 가운데 정렬), `lg` 이상은 줄바꿈. 활성 `bg-brand-a10 text-brand-fg`.
 - 인쇄에서 숨는다(`no-print print:hidden`).
@@ -214,6 +214,6 @@ shrimp365 셸: 하단 내비는 `lg` 미만에서 `fixed bottom-0 h-16 z-40`, �
 
 ## 11. 옮긴 뒤 스스로 확인
 
-- `gray-`, `brand-[0-9]`, `bg-white`, `dark:` 를 `app/(dashboard)/daumlabs/work`·`components/work` 에서 검색해 0건인지.
+- `gray-`, `brand-[0-9]`, `bg-white`, `dark:` 를 `app/(dashboard)/farm365/work`·`components/work` 에서 검색해 0건인지.
 - `md:static`, `md:hidden`·`hidden md:flex` 가 **셸 유무**를 가르는 용도로 남아 있지 않은지(8장).
 - `Doc` 밖에 인쇄돼야 할 내용이 없는지, `Doc` 안에 `no-print` 가 아닌 버튼·폼이 없는지.

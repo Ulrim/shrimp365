@@ -19,9 +19,9 @@ import { NavIcon } from "./nav-icon";
 import { ProjectSwitcher } from "./project-switcher";
 
 const GROUPS: readonly NavItem["group"][] = ["업무", "공정·보고", "관리"];
-const WRITE_HREF = "/daumlabs/work/reports/new";
+const WRITE_HREF = "/farm365/work/reports/new";
 /** 일보를 쓰고 있는 화면에서는 "일보 작성" 버튼을 숨긴다(원본 BottomNav 와 같은 조건). */
-const WRITING = /^\/daumlabs\/work\/reports\/(new|[^/]+\/edit)$/;
+const WRITING = /^\/farm365\/work\/reports\/(new|[^/]+\/edit)$/;
 
 export function WorkNav({
   items,

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { updateMyProfile } from "@/app/(dashboard)/daumlabs/work/(app)/admin/account/actions";
+import { updateMyProfile } from "@/app/(dashboard)/farm365/work/(app)/admin/account/actions";
 import { Button } from "@/components/work/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/work/ui/card";
 import { Field, FormError, FormNotice, Input } from "@/components/work/ui/form";

@@ -20,7 +20,7 @@ type Result = { device_name: string; tank_name: string; serial: string | null }
  * 승인 전까지 장비는 아무 데이터도 올릴 수 없다.
  *
  * 버튼은 셸 강조색 토큰(`bg-brand`)을 따른다 — 새우 화면에서는 #1E40AF, 농업
- * 화면(/daumlabs)에서는 녹색. 새우·농업 농장 화면이 함께 쓰는 조각이라서다.
+ * 화면(/farm365)에서는 녹색. 새우·농업 농장 화면이 함께 쓰는 조각이라서다.
  */
 export function PairDeviceDialog({ tank, onSuccess }: { tank: Tank; onSuccess: () => void }) {
   const { t } = useT()

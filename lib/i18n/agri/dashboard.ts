@@ -1,6 +1,6 @@
 // 농업(스마트팜) 사전 — dashboard 섹션. 4개 언어를 한 파일에 둔다(설계서 mode-split.md 6장).
 //
-// `/daumlabs/dashboard`(components/agri/agri-dashboard-view.tsx) 전용 문구. 상태 라벨·
+// `/farm365/dashboard`(components/agri/agri-dashboard-view.tsx) 전용 문구. 상태 라벨·
 // 항목 이름·단위·농장 0개 빈 상태는 common 섹션에 있다. 시간 표현("3분 전")은 기존
 // `useT().t.time` 을 쓴다. 자리표시자는 `{{count}}` `{{n}}` `{{name}}` `{{ago}}` `{{v}}`.
 import type { Locale } from "@/lib/i18n"

@@ -1,6 +1,6 @@
 // 농업(스마트팜) 사전 — home 섹션. 4개 언어를 한 파일에 둔다(설계서 mode-split.md 6장).
 //
-// `/daumlabs/home`(components/agri/agri-home-view.tsx) 전용 문구. 상태 라벨(정상·주의·
+// `/farm365/home`(components/agri/agri-home-view.tsx) 전용 문구. 상태 라벨(정상·주의·
 // 위험)과 농장 0개 빈 상태·다시 시도 같은 공통 문구는 common 섹션에 있다 — 여기 다시
 // 만들지 않는다. 자리표시자는 기존 관례 `{{name}}` `{{count}}`.
 import type { Locale } from "@/lib/i18n"

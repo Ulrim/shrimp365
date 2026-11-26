@@ -62,7 +62,7 @@ export function LoadProblemView({ problem, onRetry, retrying, body }: {
   const other = ADMIN_PAGES.find(p => access[p.key] && p.key !== current)?.href
   const escape = other
     ? { href: other, label: "볼 수 있는 화면으로" }
-    : { href: user?.ui_mode === "agriculture" ? "/daumlabs/home" : "/home", label: "서비스로 돌아가기" }
+    : { href: user?.ui_mode === "agriculture" ? "/farm365/home" : "/home", label: "서비스로 돌아가기" }
 
   return (
     <div className="flex flex-col items-center justify-center text-center gap-3 py-16 px-4 rounded-xl border border-border bg-card" role="alert">

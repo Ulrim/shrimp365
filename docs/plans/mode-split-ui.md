@@ -241,7 +241,7 @@
 
 ```tsx
 <AgriEmptyState icon={Sprout} title="…" description="…"
-  cta={{ label: d.common.registerFarmCta, href: "/daumlabs/farms" }}   // 또는 onClick
+  cta={{ label: d.common.registerFarmCta, href: "/farm365/farms" }}   // 또는 onClick
   tone?="default" | "error" />
 ```
 
@@ -316,11 +316,11 @@ export function agriParamLabel(d: AgriDict, key): string // d.common.param[dictK
 
 | 상황 | 표현 | CTA |
 |---|---|---|
-| 농업 농장 0개 | `AgriEmptyState icon=Building2` "등록된 농장이 없습니다" | `/daumlabs/farms` "농장 등록하기" (농장 페이지 자신은 `AddFarmDialog` 열기) |
-| 농장은 있고 베드 0개 | `AgriEmptyState icon=Sprout` "등록된 베드가 없습니다" | `/daumlabs/farms` "베드 추가하기" |
+| 농업 농장 0개 | `AgriEmptyState icon=Building2` "등록된 농장이 없습니다" | `/farm365/farms` "농장 등록하기" (농장 페이지 자신은 `AddFarmDialog` 열기) |
+| 농장은 있고 베드 0개 | `AgriEmptyState icon=Sprout` "등록된 베드가 없습니다" | `/farm365/farms` "베드 추가하기" |
 | 베드는 있고 데이터 0건 | 해당 구역 안에 `compact` 빈 상태 | 측정 기록 / 일지 쓰기 링크 |
 
-새우 농장만 있는 계정이 `/daumlabs/*` 를 직접 열면 **1행과 같은 빈 상태**다. "양식장 화면 열기" 같은 교차 링크는 넣지 않는다 — 그 일은 이제 헤더 스위치가 한다(설계서 2장).
+새우 농장만 있는 계정이 `/farm365/*` 를 직접 열면 **1행과 같은 빈 상태**다. "양식장 화면 열기" 같은 교차 링크는 넣지 않는다 — 그 일은 이제 헤더 스위치가 한다(설계서 2장).
 
 ### 4-4. 페이지 컨테이너
 
@@ -330,7 +330,7 @@ export function agriParamLabel(d: AgriDict, key): string // d.common.param[dictK
 
 ## 5. 화면 8종
 
-### 5-1. `/daumlabs/home` — `agri-home-view.tsx` (2A)
+### 5-1. `/farm365/home` — `agri-home-view.tsx` (2A)
 
 ```
                     안녕하세요, 농부님!                        h1 text-2xl sm:text-3xl font-bold text-center
@@ -343,7 +343,7 @@ export function agriParamLabel(d: AgriDict, key): string // d.common.param[dictK
 │  │  위험    │  │  주의    │  │  정상    │          │       text-[11px] text-muted-foreground
 │  └─────────┘  └─────────┘  └─────────┘          │
 │  ─────────────────────────────────────────────  │
-│  ⚠ 미처리 알림 3건 — 모니터링에서 확인             │       Link → /daumlabs/dashboard, text-amber-600
+│  ⚠ 미처리 알림 3건 — 모니터링에서 확인             │       Link → /farm365/dashboard, text-amber-600
 └─────────────────────────────────────────────────┘
 
 ┌───────────────────────┐  ┌───────────────────────┐    grid grid-cols-1 sm:grid-cols-2 gap-4
@@ -359,17 +359,17 @@ export function agriParamLabel(d: AgriDict, key): string // d.common.param[dictK
 - 루트: `flex flex-col items-center min-h-[60vh] py-8 px-4` > `w-full max-w-lg space-y-6`. 기존 홈과 같은 뼈대.
 - 위험 타일: `dangerCount > 0 ? "bg-red-500/10 border border-red-500/20 text-red-500" : "bg-muted/50 text-muted-foreground"`. 주의도 amber 로 같게. 정상은 항상 `text-emerald-600`.
 - 타일 아이콘: 위험 `AlertTriangle`, 주의 `Activity`, 정상 `CheckCircle2`(기존).
-- 큰 카드 2개: 왼쪽 hover `hover:border-brand hover:bg-brand/[0.04]`, 오른쪽 hover `hover:border-amber-600 hover:bg-amber-600/[0.05]`. 링크 `/daumlabs/record`, `/daumlabs/dashboard`.
-- **착지 규칙**: 이 뷰는 `/daumlabs/home`에서만 렌더되므로 `ui_mode` 교정 로직이 없다. 농업 농장이 0개면 → 4-3 1행 빈 상태(온보딩으로 보내지 않는다 — 혼합 계정은 농장이 있을 수 있다. 단, **전체 농장이 0개**면 기존처럼 `/onboarding`).
+- 큰 카드 2개: 왼쪽 hover `hover:border-brand hover:bg-brand/[0.04]`, 오른쪽 hover `hover:border-amber-600 hover:bg-amber-600/[0.05]`. 링크 `/farm365/record`, `/farm365/dashboard`.
+- **착지 규칙**: 이 뷰는 `/farm365/home`에서만 렌더되므로 `ui_mode` 교정 로직이 없다. 농업 농장이 0개면 → 4-3 1행 빈 상태(온보딩으로 보내지 않는다 — 혼합 계정은 농장이 있을 수 있다. 단, **전체 농장이 0개**면 기존처럼 `/onboarding`).
 - 데이터: `getFarms` → `getAllTanks` + `getAlerts(true)`, 필터 `farm_type === "agriculture"`. 1분 자동 갱신(`useAutoRefresh`).
 - 로딩: 4-1 스피너. 에러: 4-2.
-- 빈 상태: 베드 0 → 현황 카드 자리에 `bg-card rounded-2xl p-6 text-center` "등록된 베드가 없습니다." + 버튼 "농장 등록하기"(`/daumlabs/farms`). 큰 카드 2개는 그대로 보인다.
+- 빈 상태: 베드 0 → 현황 카드 자리에 `bg-card rounded-2xl p-6 text-center` "등록된 베드가 없습니다." + 버튼 "농장 등록하기"(`/farm365/farms`). 큰 카드 2개는 그대로 보인다.
 - 320px: 3칸 그리드 유지(숫자·한 단어라 안전), 큰 카드 1열 `py-8`.
 
-### 5-2. `/daumlabs/record` — `agri-record-hub-view.tsx` (2A)
+### 5-2. `/farm365/record` — `agri-record-hub-view.tsx` (2A)
 
 ```
- ←  무엇을 기록할까요?                                   ArrowLeft(→ /daumlabs/home) + h1 text-2xl font-bold
+ ←  무엇을 기록할까요?                                   ArrowLeft(→ /farm365/home) + h1 text-2xl font-bold
 
 ┌────────────────────────┐  ┌────────────────────────┐   grid grid-cols-1 sm:grid-cols-2 gap-4
 │         ┌────┐         │  │         ┌────┐         │
@@ -381,12 +381,12 @@ export function agriParamLabel(d: AgriDict, key): string // d.common.param[dictK
 ```
 
 - 왼쪽 카드: `border-2 border-brand/25 bg-brand/5 hover:bg-brand/10 hover:border-brand/50`, 제목 `text-brand`, 부제 `text-brand/80`. 오른쪽: 기존 emerald 결 그대로(`border-emerald-200 bg-emerald-50 …` — 라이트/다크 둘 다 기존 값 유지).
-- 아이콘: 측정 `ClipboardList`, 일지 `BookOpen`. 링크 `/daumlabs/record/water-quality`, `/daumlabs/record/journal`.
+- 아이콘: 측정 `ClipboardList`, 일지 `BookOpen`. 링크 `/farm365/record/water-quality`, `/farm365/record/journal`.
 - `aria-label={`${d.record.measureTitle} - ${d.record.measureSub}`}` 패턴 유지.
 - 데이터 로딩 없음 → 로딩·에러·빈 상태 없음.
 - 320px: 1열, 카드 `py-10`.
 
-### 5-3. `/daumlabs/record/water-quality` — `agri-measure-record-view.tsx` (2A)
+### 5-3. `/farm365/record/water-quality` — `agri-measure-record-view.tsx` (2A)
 
 `components/wizard/step-wizard.tsx` 를 그대로 쓴다(`StepWizard` props: title·steps·tanks·values·onChange·onComplete·saving·saved·error·notice). 농업 뷰는 **steps 배열과 저장 함수만** 가진다.
 
@@ -427,12 +427,12 @@ export function agriParamLabel(d: AgriDict, key): string // d.common.param[dictK
 | 새우 전용 6컬럼 | 항상 `0` | 폼에 필드 자체가 없다 |
 
 - 검증(제출 시, 값이 있을 때만): EC 0.1~10 mS/cm 밖 → `d.record.ecRangeError`; pH 0~14 밖 → `d.record.phRangeError`; 그 밖은 범위 검사 없음(기준이 없는 항목에 기준을 만들지 않는다). 에러는 StepWizard 의 `error` 슬롯.
-- 저장 성공: StepWizard `saved` 화면(기존). 그 아래 두 링크: "추세 보기"(`/daumlabs/water-quality?tank=<id>`), "한 건 더 기록".
+- 저장 성공: StepWizard `saved` 화면(기존). 그 아래 두 링크: "추세 보기"(`/farm365/water-quality?tank=<id>`), "한 건 더 기록".
 - 로딩: 스피너. 에러: `d.record.bedLoadFailed` + 다시 시도(4-2 축소형).
-- 빈 상태(베드 0): `AgriEmptyState icon=Building2 title=d.record.noBedsTitle description=d.record.noBedsMeasureMsg cta=농장 등록하기→/daumlabs/farms`.
+- 빈 상태(베드 0): `AgriEmptyState icon=Building2 title=d.record.noBedsTitle description=d.record.noBedsMeasureMsg cta=농장 등록하기→/farm365/farms`.
 - 320px: StepWizard 가 `max-w-md px-4` 단일 열이라 그대로.
 
-### 5-4. `/daumlabs/record/journal` — `agri-journal-record-view.tsx` (2A)
+### 5-4. `/farm365/record/journal` — `agri-journal-record-view.tsx` (2A)
 
 StepWizard 4스텝. 기존 농업 분기의 스텝 구성을 **그대로 승계**(이미 수아 시안 §3 로 검토된 구성):
 
@@ -448,7 +448,7 @@ StepWizard 4스텝. 기존 농업 분기의 스텝 구성을 **그대로 승계*
 - 폼 기본값 저장(`saveJournalDefaults(values, true)`)은 기존 유틸 재사용.
 - 빈 상태: `d.record.noBedsJournalMsg`. 나머지 로딩·에러·320px 는 5-3 과 동일.
 
-### 5-5. `/daumlabs/dashboard` — `agri-dashboard-view.tsx` (2A)
+### 5-5. `/farm365/dashboard` — `agri-dashboard-view.tsx` (2A)
 
 ```
 ▣ 모니터링                                          [측정값 입력] [양액 관리 →]     AgriPageHeader
@@ -463,9 +463,9 @@ StepWizard 4스텝. 기존 농업 분기의 스텝 구성을 **그대로 승계*
 │ 베드 8개  │ │정상6·주의1·위험1│ │ 오늘      │ │레시피 기준 이탈│   text-xs text-muted-foreground
 └─────────┘ └─────────┘ └─────────┘ └─────────┘    아이콘 w-5 h-5 text-brand / text-brand / text-amber-500 / text-brand
 
-베드 현황                                              모두 보기 →      text-sm font-semibold + Link(/daumlabs/farms)
+베드 현황                                              모두 보기 →      text-sm font-semibold + Link(/farm365/farms)
 ┌──────────────────────┐ ┌──────────────────────┐ ┌───────────────┐  grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3
-│ ● A동 1베드   [정상]   │ │ ● A동 2베드   [주의]   │ │ …              │  카드 = Link → /daumlabs/water-quality?tank=
+│ ● A동 1베드   [정상]   │ │ ● A동 2베드   [주의]   │ │ …              │  카드 = Link → /farm365/water-quality?tank=
 │ ⚗ EC 1.80 ±0.10 · pH 6.0 ±0.5                   │                │  text-xs text-muted-foreground tabular-nums
 │ ┌─────┐┌─────┐┌─────┐ │ │ ┌─────┐┌─────┐┌─────┐ │ │               │  grid grid-cols-3 gap-2
 │ │⚡ EC ││💧 pH ││🌡 온도│ │ │…                    │ │               │  타일: rounded-lg border p-2 ${status.bg}
@@ -487,7 +487,7 @@ StepWizard 4스텝. 기존 농업 분기의 스텝 구성을 **그대로 승계*
 └──────────────────────────────────────────────────────────────────────┘
 
 ┌─ 🔔 최근 알림 ────────────────────────────────────────────────────────┐
-│ ⚠ A동 2베드 — EC 2.05 mS/cm (목표 1.80 ±0.10)       10:42   [처리]    │  최대 5건, 이상 → "알림 전체 보기" (/daumlabs/water-quality#alerts)
+│ ⚠ A동 2베드 — EC 2.05 mS/cm (목표 1.80 ±0.10)       10:42   [처리]    │  최대 5건, 이상 → "알림 전체 보기" (/farm365/water-quality#alerts)
 │ …                                                                    │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -496,7 +496,7 @@ StepWizard 4스텝. 기존 농업 분기의 스텝 구성을 **그대로 승계*
 
 | 구역 | 컴포넌트 | 데이터 | 비고 |
 |---|---|---|---|
-| 헤더 | `AgriPageHeader icon=LayoutDashboard` | — | 액션: `Button variant=outline` "측정값 입력"(`/daumlabs/record/water-quality`), `Button bg-brand` "양액 관리" |
+| 헤더 | `AgriPageHeader icon=LayoutDashboard` | — | 액션: `Button variant=outline` "측정값 입력"(`/farm365/record/water-quality`), `Button bg-brand` "양액 관리" |
 | 알림 배너 | 기존 red 배너 마크업 | `alerts`(미처리·농업) | 베드 이름 최대 3개 + "+n" |
 | 통계 4칸 | 로컬 `StatCard` | farms·tanks·alerts | 4번째 = `alerts.filter(a => a.parameter === "EC").length` |
 | 베드 현황 | 로컬 `BedCard` + `BedStatusBadge fromTank` | `tanks` + `Promise.all(tanks.map(tk => getLatestWaterQuality(tk.id)))` | 베드가 **12개 초과**면 최신값 조회를 생략하고 타일 대신 레시피 요약·재배일수만(조회 폭주 방지). 타일 3개 = EC·pH·온도, 유량이 0 이면 카드 하단에 `text-red-600 text-[11px]` "유량 0 — 순환 펌프 확인" 한 줄 추가 |
@@ -505,14 +505,14 @@ StepWizard 4스텝. 기존 농업 분기의 스텝 구성을 **그대로 승계*
 | 센서별 현재값 | `DeviceCurrentValues devices` | 위와 같은 devices | 수정 없이 import. µS/cm 가 여기엔 뜬다(기기 raw) — 허용. 3단계에서 레이블 정리 여지 |
 | 최근 알림 | 로컬 목록 | `alerts` 5건 | 메시지는 `alertDisplayLabel(a.parameter, "agriculture")` + `a.message`. "처리" 버튼은 `resolveAlert` (db) — 기존 양액 관리 알림 목록과 같은 함수 |
 
-- 베드 카드의 두 역할을 분리한다: **카드 본체는 `button`**(누르면 선택 베드가 바뀌고 아래 양액 상태·차압·센서 구역이 그 베드로 갱신), **카드 우하단 작은 링크 "상세 →"**(`/daumlabs/water-quality?tank=<id>`, `text-xs text-brand-fg min-h-[44px] inline-flex items-center`). 카드 전체를 `Link` 로 만들면 선택을 표현할 길이 없다.
+- 베드 카드의 두 역할을 분리한다: **카드 본체는 `button`**(누르면 선택 베드가 바뀌고 아래 양액 상태·차압·센서 구역이 그 베드로 갱신), **카드 우하단 작은 링크 "상세 →"**(`/farm365/water-quality?tank=<id>`, `text-xs text-brand-fg min-h-[44px] inline-flex items-center`). 카드 전체를 `Link` 로 만들면 선택을 표현할 길이 없다.
 - 선택 베드 하이라이트 `ring-1 ring-brand/40 border-brand/40` + `aria-pressed`. 선택이 바뀐 것이 눈에 보이도록 양액 상태 구역 헤딩에 베드 이름을 박는다(`d.dashboard.nutrientHeading`).
 - 로딩: 스켈레톤(통계 4개 `h-24`, 베드 카드 3개 `h-44`, 아래 카드 `h-40`).
 - 에러: 4-2.
 - 빈 상태: 농장 0 → 헤더만 남기고 `AgriEmptyState`(4-3 1행). 베드 0 → 4-3 2행. 측정 0 → 베드 카드 타일이 전부 `—`/미측정(카드는 그린다), 양액 상태·차압 구역은 `compact` 빈 상태 "측정 데이터가 없습니다 — 측정값 입력".
 - 320px: 통계 2×2, 베드 카드 1열(타일 3칸은 `grid-cols-3` 유지 — 숫자 5자 이내), 양액 상태/차압 1열, 알림 행은 시간을 아래 줄로(`flex-wrap`).
 
-### 5-6. `/daumlabs/water-quality` — `agri-nutrient-view.tsx` + `components/agri/charts/*` (2B)
+### 5-6. `/farm365/water-quality` — `agri-nutrient-view.tsx` + `components/agri/charts/*` (2B)
 
 **페이지 제목은 "양액 관리"**(URL 은 유지). 구조는 위에서 아래로: 헤더 → 선택 줄 → 상태 스트립 → 최신값 카드 6개 → 추세 차트(탭) → 센서 비교(센서 2대↑) → 알림.
 
@@ -621,15 +621,15 @@ charts/
 
 - 로딩: 선택 줄은 바로, 아래 구역은 스켈레톤(스트립 `h-12`, 카드 6개 `h-32`, 차트 `h-[300px]`).
 - 에러: 4-2.
-- 농장 0 / 베드 0: 헤더 + `AgriEmptyState`(4-3). 데이터 0: 상태 스트립·카드 숨기고 카드 자리에 `compact` 빈 상태 "측정 데이터가 없습니다 — 측정값을 입력하거나 센서를 연결해 주세요" + CTA 2개(측정값 입력 / 기기 연결 → `/daumlabs/farms`).
+- 농장 0 / 베드 0: 헤더 + `AgriEmptyState`(4-3). 데이터 0: 상태 스트립·카드 숨기고 카드 자리에 `compact` 빈 상태 "측정 데이터가 없습니다 — 측정값을 입력하거나 센서를 연결해 주세요" + CTA 2개(측정값 입력 / 기기 연결 → `/farm365/farms`).
 
 **320px** — 선택 줄 3요소 세로 쌓기(`flex-col gap-2`), 상태 칩 `flex-wrap`, 카드 2열, 탭 2줄 wrap, 차트 높이 220. 전체화면 버튼은 320px 에서도 노출(태블릿 세로 전광판 용).
 
-### 5-7. `/daumlabs/journal` — `agri-journal-view.tsx` (2B)
+### 5-7. `/farm365/journal` — `agri-journal-view.tsx` (2B)
 
 ```
 📖 영농 일지                                         [CSV ↓] [+ 일지 쓰기]   AgriPageHeader icon=BookOpen
-  양액 교환·방제·설비 점검 등 일상 관리 기록                                     "일지 쓰기" → /daumlabs/record/journal
+  양액 교환·방제·설비 점검 등 일상 관리 기록                                     "일지 쓰기" → /farm365/record/journal
 
 [ 베드 전체 ▾ ]  [ 2026-10-01 ] ~ [ 2026-10-15 ]  🔍 [ 메모 검색          ]   필터 줄: flex flex-wrap gap-2
                                                                             Select / Input date ×2 / Input search (min-h-[44px])
@@ -652,10 +652,10 @@ charts/
 - 목록: 최신순, 20건 + "더 보기" 버튼(무한 스크롤 아님). 베드·기간·메모 검색은 클라이언트 필터.
 - CSV 열: 날짜, 베드, 양액 종류, 보충량 (L), 보충 횟수, 교환율 (%), 방제, 약제, 자재, 투입량 (kg), 순환 펌프, 필터·UV, 칠러, 생육 상태, 메모.
 - 로딩: 카드 스켈레톤 3개 `h-56`. 에러: 4-2.
-- 빈 상태: 농장/베드 0 → 4-3. 일지 0 → `AgriEmptyState icon=BookOpen title=d.journal.noEntries description=d.journal.noEntriesMsg cta="일지 쓰기"→/daumlabs/record/journal`. 필터 결과 0 → `compact` "조건에 맞는 일지가 없습니다" + "필터 초기화".
+- 빈 상태: 농장/베드 0 → 4-3. 일지 0 → `AgriEmptyState icon=BookOpen title=d.journal.noEntries description=d.journal.noEntriesMsg cta="일지 쓰기"→/farm365/record/journal`. 필터 결과 0 → `compact` "조건에 맞는 일지가 없습니다" + "필터 초기화".
 - 320px: 필터 4요소 세로, 타일 2×2, 헤더 액션 아래 줄 전폭.
 
-### 5-8. `/daumlabs/farms` — `agri-farms-view.tsx` + `components/agri/farms/*` (2C)
+### 5-8. `/farm365/farms` — `agri-farms-view.tsx` + `components/agri/farms/*` (2C)
 
 ```
 🏢 농장·기기 관리                                                   [+ 농장 추가]   AgriPageHeader icon=Building2
@@ -1105,7 +1105,7 @@ charts/
 3. `bg-brand-hover` 위 흰 글자는 3.3:1 — 버튼 라벨은 `text-sm font-medium` 이상이고 hover 는 일시 상태라 허용하되, **ModeSwitch 활성 칸에는 hover 색을 적용하지 않는다**(2-1). CTA 버튼 hover 는 그대로.
 4. 상태색은 `AGRI_STATUS_STYLES` 가 이미 `-600 dark:-400` 으로 다크를 따로 맞춰 두었다. 농업 뷰에서 상태 텍스트를 `text-emerald-600` 처럼 단일 톤으로 적지 말고 **반드시 스타일 객체를 쓴다**.
 5. 차트 선 색(`AGRI_PARAMS.color`)은 500 톤이라 다크 카드 위에서 전부 4:1 이상. 레시피 밴드 `#34d399` 8% 는 라이트/다크 모두 배경 침범 없음(기존 운영 확인).
-6. 태양 검수 절차: 다크 전환 → `/daumlabs/dashboard` 사이드바 활성 항목 글자를 DevTools 로 추출 → `#22C55E` 인지, 그리고 `/dashboard`(새우)에서는 `#1E40AF` 그대로인지 확인.
+6. 태양 검수 절차: 다크 전환 → `/farm365/dashboard` 사이드바 활성 항목 글자를 DevTools 로 추출 → `#22C55E` 인지, 그리고 `/dashboard`(새우)에서는 `#1E40AF` 그대로인지 확인.
 
 ---
 

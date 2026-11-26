@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { selectProject } from "@/app/(dashboard)/daumlabs/work/(app)/actions";
+import { selectProject } from "@/app/(dashboard)/farm365/work/(app)/actions";
 
 /** 사업장 선택. 2곳 이상이면 셀렉트, 1곳이면 이름만 보여 준다. */
 export function ProjectSwitcher({ projects, current }: { projects: { id: string; name: string }[]; current: string }) {

@@ -229,7 +229,7 @@ export function NotificationsPanel({ open, onClose, onCountChange, notifyPermiss
                 <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                   <button
                     // 갈 곳도 그 알림이 속한 축이다. 주소를 기준으로 삼으면
-                    // 농업 주소에서 새우 알림을 눌렀을 때 /daumlabs/water-quality
+                    // 농업 주소에서 새우 알림을 눌렀을 때 /farm365/water-quality
                     // 로 가고, 그 화면에는 그 수조가 없어 고를 수가 없다.
                     // 순수 새우 계정에서는 모든 알림이 shrimp 라 결과가 지금과
                     // 한 글자도 다르지 않다.

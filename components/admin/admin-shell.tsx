@@ -46,7 +46,7 @@ export function AdminShell({ access, children }: { access: AdminAccess; children
   const badge = user ? roleLabel(user) : null
   // 모니터·테스트(데모) 계정은 개요·사용자·수질 기록에 목데이터를 본다 — 실제 수치로 오해하지 않게 띠를 단다.
   const isDemo = isMonitorAccount(user?.email) || isTestAccount(user?.email)
-  const serviceHref = user?.ui_mode === "agriculture" ? "/daumlabs/home" : "/home"
+  const serviceHref = user?.ui_mode === "agriculture" ? "/farm365/home" : "/home"
 
   const handleLogout = async () => {
     // logout()이 홈("/")으로 하드 리다이렉트하므로 아래는 fallback(농가 셸과 같다).

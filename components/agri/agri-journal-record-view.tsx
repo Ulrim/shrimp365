@@ -1,6 +1,6 @@
 "use client"
 
-// 영농 일지 폼 `/daumlabs/record/journal` — 수아 시안 mode-split-ui.md 5-4.
+// 영농 일지 폼 `/farm365/record/journal` — 수아 시안 mode-split-ui.md 5-4.
 //
 // StepWizard(공용) 4스텝: 베드·날짜 → 양액 관리 → 재배 작업 → 설비 점검. 위저드 안
 // 문구·진행바 색은 props(labels·progressClass)로 농업 사전·brand 토큰을 넘긴다.
@@ -178,7 +178,7 @@ export function AgriJournalRecordView() {
           title={r.noBedsTitle}
           description={r.noBedsJournalMsg}
           ctaLabel={common.registerFarm}
-          ctaHref="/daumlabs/farms"
+          ctaHref="/farm365/farms"
           className="w-full max-w-md border-0 bg-transparent"
         />
       </div>
@@ -204,7 +204,7 @@ export function AgriJournalRecordView() {
       {saved && (
         <div className="w-full max-w-md mx-auto px-4 pb-8 grid grid-cols-1 sm:grid-cols-2 gap-3" role="status">
           <Link
-            href="/daumlabs/journal"
+            href="/farm365/journal"
             className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-xl bg-brand text-white text-sm font-medium hover:bg-brand-hover transition-colors duration-200"
           >
             <BookOpen className="w-4 h-4" aria-hidden="true" />
