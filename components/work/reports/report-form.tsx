@@ -92,7 +92,16 @@ export function ReportForm({
 
   const minutes = workMinutes(values.start_time, values.end_time, Number(values.break_minutes) || 0);
 
-  async function persist(submit: boolean): Promise<string | null> {
+  // 저장은 한 번에 하나씩 한다. 임시저장과 사진 첨부의 자동 임시저장이 겹치면 새 작업일보를
+  // 두 번 만들려다 "해당 날짜의 작업일보가 이미 있습니다"로 실패한다.
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  function persist(submit: boolean): Promise<string | null> {
+    const run = queue.current.then(() => persistNow(submit));
+    queue.current = run.catch(() => null);
+    return run;
+  }
+
+  async function persistNow(submit: boolean): Promise<string | null> {
     const current = latest.current;
     const filled = current.items.filter((i) => !isBlank(i));
     const input: SaveReportInput = {
@@ -109,6 +118,8 @@ export function ReportForm({
     const { id, itemIds } = result.data!;
     setError(null);
     setReportId(id);
+    // 다음 렌더 전에 이어지는 저장(대기열)도 같은 작업일보를 고치게 한다
+    latest.current = { ...latest.current, reportId: id };
     // 저장된 작업내역의 id 를 반영해 다음 저장 때 같은 행을 수정하게 한다
     setItems((list) => {
       let n = 0;

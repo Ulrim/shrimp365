@@ -68,8 +68,15 @@ export async function submitReport(reportId: string): Promise<ActionResult> {
 }
 
 export async function deleteReport(reportId: string): Promise<ActionResult> {
-  const { supabase } = await requireProject();
+  const { supabase, userId } = await requireProject();
   if (!uuidSchema.safeParse(reportId).success) return { ok: false, error: "잘못된 요청입니다." };
+  // 사진 파일은 행을 지우기 전에 지워야 한다(저장소 삭제 정책이 작업일보 행을 본다). 그래서 지울 수 있는
+  // 작업일보인지 먼저 확인한다 — 보완 요청 상태는 저장소 삭제는 허용되지만 행 삭제는 거절되어,
+  // 확인 없이 진행하면 사진 파일만 사라진다.
+  const { data: report } = await supabase.from("dw_daily_reports").select("author_id, status").eq("id", reportId).maybeSingle();
+  if (!report || report.author_id !== userId || report.status !== "draft") {
+    return { ok: false, error: "작성중인 본인 작업일보만 삭제할 수 있습니다." };
+  }
   const { data: photos } = await supabase.from("dw_report_photos").select("storage_path").eq("report_id", reportId);
   if (photos?.length) {
     await supabase.storage.from(PHOTO_BUCKET).remove(photos.map((p) => p.storage_path as string));
